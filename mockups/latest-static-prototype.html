@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evidence Trail — Red Thread · v2</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><circle cx='10' cy='10' r='8' fill='none' stroke='%231B1D22' stroke-width='1.6'/><path d='M3 12 C 7 8, 13 13, 17 8' fill='none' stroke='%23C0392B' stroke-width='1.8' stroke-linecap='round'/></svg>">
+<style>
+:root{
+  --paper:#F7F7F3;
+  --card:#FFFFFF;
+  --ink:#1B1D22;
+  --body:#33363D;
+  --muted:#6E7076;
+  --faint:#9C9EA3;
+  --line:#E5E4DC;
+  --line-soft:#EEEDE6;
+  --thread:#C0392B;
+  --thread-soft:#F6E4E1;
+  --thread-tint:#FBF4F2;
+  --ok:#2E7D57;
+  --serif:'Newsreader', Georgia, serif;
+  --sans:'IBM Plex Sans', -apple-system, sans-serif;
+  --mono:'IBM Plex Mono', ui-monospace, monospace;
+  --sh-sm:0 1px 2px rgba(27,29,34,.05);
+  --sh-md:0 1px 2px rgba(27,29,34,.04), 0 14px 34px -16px rgba(27,29,34,.16);
+  --r-sm:7px; --r-md:10px; --r-lg:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--thread);outline-offset:2px;border-radius:4px}
+mark{background:none;color:inherit;border-bottom:2px solid var(--thread);padding-bottom:1px;font-weight:500}
+.mono{font-family:var(--mono)}
+kbd{font-family:var(--mono);font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:2px 6px;background:var(--paper)}
+.screen{display:none;min-height:100vh}
+.screen.active{display:block}
+@media (prefers-reduced-motion: no-preference){
+  .screen.active{animation:fadeUp .28s ease both}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+}
+.switcher{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:100;display:flex;gap:2px;background:var(--ink);border-radius:999px;padding:5px;box-shadow:0 10px 32px rgba(27,29,34,.28)}
+.switcher button{color:#B9BAC0;font-size:12.5px;font-weight:500;padding:7px 15px;border-radius:999px;transition:color .15s}
+.switcher button:hover{color:#fff}
+.switcher button.on{background:#fff;color:var(--ink)}
+.switcher .k{display:inline-block;margin-right:7px;font-family:var(--mono);font-size:10.5px;color:var(--thread)}
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:13px 28px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.92);backdrop-filter:blur(8px)}
+.wordmark{display:flex;align-items:center;gap:9px;font-weight:600;letter-spacing:.14em;font-size:12.5px;flex:none}
+.wordmark svg{display:block}
+.tb-search{flex:1;max-width:720px;display:flex;align-items:center;gap:10px;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:13.5px;color:var(--ink);transition:border-color .15s, box-shadow .15s;cursor:text}
+.tb-search:hover{border-color:#D3D2CA;box-shadow:var(--sh-sm)}
+.tb-search .q{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-search .glass{color:var(--faint);flex:none}
+.tb-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.btn-quiet{font-size:12.5px;font-weight:500;color:var(--muted);padding:7px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--card);transition:all .15s}
+.btn-quiet:hover{color:var(--ink);border-color:#D0CFC7;box-shadow:var(--sh-sm)}
+.btn-ink{background:var(--ink);color:#fff;font-size:13.5px;font-weight:500;padding:9px 18px;border-radius:var(--r-sm);transition:background .15s}
+.btn-ink:hover{background:#32353D}
+.btn-thread{font-size:12.5px;font-weight:500;color:var(--thread);border:1px solid var(--thread-soft);border-radius:var(--r-sm);padding:6px 12px;background:var(--thread-tint);transition:all .15s}
+.btn-thread:hover{border-color:#E8C6C0}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--faint)}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#D8D7CF,#BFBEB6);border:1px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;color:#5A5C62}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
+.d-jira{background:#4C77B5}.d-conf{background:#4A9E9B}.d-sf{background:#5B8DD9}.d-sn{background:#7FA55C}.d-gh{background:#84878D}
+/* LANDING */
+.land-head{display:flex;align-items:center;justify-content:space-between;padding:22px 44px}
+.land-head nav{display:flex;gap:26px;font-size:13.5px;color:var(--muted)}
+.land-head nav a{color:inherit;text-decoration:none;transition:color .15s}
+.land-head nav a:hover{color:var(--ink)}
+.land-head .right{display:flex;align-items:center;gap:14px}
+.land-hero{max-width:880px;margin:0 auto;padding:96px 32px 30px;text-align:center}
+.land-hero .eyebrow{display:block;margin-bottom:22px;color:var(--thread)}
+.land-hero h1{font-family:var(--serif);font-weight:500;font-size:58px;line-height:1.1;letter-spacing:-.012em}
+.u-thread{position:relative;display:inline-block;font-style:italic}
+.u-thread svg{position:absolute;left:-2%;bottom:-5px;width:104%;height:12px;overflow:visible}
+.u-thread path{fill:none;stroke:var(--thread);stroke-width:2.4;stroke-linecap:round}
+@media (prefers-reduced-motion: no-preference){
+  .u-thread path{stroke-dasharray:230;stroke-dashoffset:230;animation:draw 1s ease forwards .35s}
+  @keyframes draw{to{stroke-dashoffset:0}}
+}
+.land-hero p.sub{margin-top:20px;font-size:17px;color:var(--muted)}
+.land-search{margin:46px auto 0;max-width:680px;display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 8px 8px 18px;box-shadow:var(--sh-md);transition:box-shadow .2s, border-color .2s;cursor:text}
+.land-search:hover{border-color:#D3D2CA;box-shadow:0 1px 2px rgba(27,29,34,.05), 0 18px 44px -16px rgba(27,29,34,.2)}
+.land-search .glass{color:var(--faint)}
+.land-search .ph{flex:1;text-align:left;font-size:15.5px;color:var(--muted)}
+.try{margin-top:36px;display:flex;flex-wrap:wrap;justify-content:center;gap:9px}
+.try .eyebrow{width:100%;margin-bottom:6px}
+.chip{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 15px;transition:all .15s}
+.chip .arr{font-family:var(--mono);font-size:11px;color:var(--faint);transition:color .15s, transform .15s}
+.chip:hover{color:var(--ink);border-color:#CFCEC6;box-shadow:var(--sh-sm)}
+.chip:hover .arr{color:var(--thread);transform:translateX(2px)}
+.stitch-divider{max-width:880px;margin:70px auto 0;padding:0 32px;display:flex;align-items:center;gap:16px}
+.stitch-divider .ln{flex:1;border-top:1.5px dashed #DCC7C3}
+.stitch-divider .needle{flex:none}
+.land-systems{max-width:940px;margin:30px auto 40px;padding:0 32px}
+.land-systems .eyebrow{display:block;text-align:center;margin-bottom:20px}
+.sys-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.sys{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:16px 12px;text-align:center;transition:all .15s}
+.sys:hover{box-shadow:var(--sh-sm);border-color:#D8D7CF}
+.sys .n{font-family:var(--mono);font-size:16px;font-weight:500}
+.sys .l{font-size:11.5px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:6px;justify-content:center}
+.land-foot{max-width:940px;margin:0 auto 130px;padding:0 32px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.04em}
+.land-foot b{color:var(--muted);font-weight:500}
+/* RESULTS */
+.filters{position:sticky;top:56px;z-index:40;display:flex;gap:8px;align-items:center;padding:11px 28px;border-bottom:1px solid var(--line);background:rgba(247,247,243,.94);backdrop-filter:blur(8px);font-size:12.5px;color:var(--muted)}
+.f-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:5px 11px;background:var(--card);transition:all .15s;cursor:pointer}
+.f-chip:hover{border-color:#D0CFC7}
+.f-chip b{color:var(--ink);font-weight:500}
+.f-chip .x{color:var(--faint);font-size:11px}
+.f-add{color:var(--thread);border:1px dashed #E0C4BF;border-radius:6px;padding:5px 11px;background:none}
+.f-count{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.res-grid{display:grid;grid-template-columns:minmax(0,1fr) 404px;gap:0;max-width:1400px;margin:0 auto;align-items:start}
+.res-list{padding:6px 10px 140px 22px}
+.res-head{display:flex;align-items:baseline;gap:12px;padding:16px 16px 10px}
+.res-head .n{font-size:13px;color:var(--muted)}
+.res-head .sort{margin-left:auto;font-size:12px;color:var(--muted)}
+.res-head .sort b{color:var(--ink);font-weight:500}
+.res{display:flex;gap:16px;padding:19px 18px 19px 14px;border-left:2px solid transparent;border-bottom:1px solid var(--line-soft);cursor:pointer;border-radius:0 var(--r-md) var(--r-md) 0;transition:background .15s}
+.res:hover{background:#FCFCFA}
+.res.sel{border-left-color:var(--thread);background:var(--card);box-shadow:var(--sh-sm)}
+.res .rk{flex:none;width:20px;font-family:var(--mono);font-size:11px;color:var(--faint);padding-top:3px}
+.res.sel .rk{color:var(--thread)}
+.res .body{flex:1;min-width:0}
+.res .src{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;color:var(--muted);text-transform:uppercase}
+.res .src .key{color:var(--ink)}
+.res h3{font-size:15.5px;font-weight:600;margin-top:5px;letter-spacing:-.005em}
+.res .snip{margin-top:5px;font-size:13.5px;color:var(--muted);line-height:1.55}
+.res .meta{margin-top:9px;display:flex;align-items:center;gap:12px;font-size:11.5px;color:var(--faint)}
+.res .tag{border:1px solid var(--line);border-radius:4px;padding:1px 7px;background:var(--paper)}
+.res .score{flex:none;width:60px;text-align:right}
+.res .score .v{font-family:var(--mono);font-size:14px;font-weight:500}
+.res .score .bar{margin-top:6px;height:3px;background:var(--line-soft);border-radius:2px;overflow:hidden}
+.res .score .bar i{display:block;height:100%;background:#B9BAB2;border-radius:2px}
+.res.sel .score .bar i{background:var(--thread)}
+.res-more{margin:18px 16px;text-align:center}
+.rail{position:sticky;top:104px;border-left:1px solid var(--line);background:var(--card);padding:22px 26px 30px;max-height:calc(100vh - 104px);overflow:auto}
+.rail .head{display:flex;align-items:center;gap:8px}
+.rail .head .open-src{margin-left:auto}
+.rail h2{font-family:var(--serif);font-weight:500;font-size:22px;line-height:1.28;margin-top:10px;letter-spacing:-.01em}
+.rail .tabs{display:flex;gap:2px;margin-top:16px;border-bottom:1px solid var(--line)}
+.rail .tabs button{font-size:12.5px;font-weight:500;color:var(--muted);padding:8px 12px;border-bottom:2px solid transparent;margin-bottom:-1px}
+.rail .tabs button.on{color:var(--ink);border-bottom-color:var(--thread)}
+.rail .tabs .n{font-family:var(--mono);font-size:10px;color:var(--faint);margin-left:4px}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:13px 20px;margin-top:18px;padding-bottom:16px;border-bottom:1px solid var(--line-soft)}
+.kv .k{font-size:10px;color:var(--faint);letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono)}
+.kv .v{font-size:13.5px;font-weight:500;margin-top:3px}
+.st{display:inline-flex;align-items:center;gap:6px}
+.st::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.rail h4{margin-top:22px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-family:var(--mono)}
+.why{margin-top:12px;display:flex;flex-direction:column;gap:9px}
+.why .w{display:flex;align-items:baseline;gap:10px;font-size:13px;color:var(--body)}
+.tick{flex:none;width:12px;height:2px;background:var(--thread);transform:translateY(-3px)}
+.why .val{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--muted);flex:none}
+.links{margin-top:10px;display:flex;flex-direction:column}
+.lnk{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line-soft);font-size:13px;cursor:pointer;transition:padding-left .15s}
+.lnk:hover{padding-left:6px}
+.lnk:hover .t{color:var(--thread)}
+.lnk:last-child{border-bottom:none}
+.lnk .stitch{flex:none;width:18px;height:10px}
+.lnk .stitch path{stroke:var(--thread);stroke-width:1.8;fill:none;stroke-linecap:round;stroke-dasharray:3 3}
+.lnk .t{font-weight:500;transition:color .15s}
+.lnk .s{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+.atts{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px}
+.att{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--paper)}
+.att i{width:6px;height:6px;background:var(--thread);border-radius:1px;flex:none;transform:rotate(45deg)}
+/* SOURCE TRAIL */
+.trail-head{display:flex;align-items:baseline;gap:18px;padding:32px 44px 4px;max-width:1400px;margin:0 auto}
+.trail-head h2{font-family:var(--serif);font-weight:500;font-size:30px;letter-spacing:-.01em}
+.trail-head .rng{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.trail-head .replay{margin-left:auto}
+.trail-note{padding:6px 44px 20px;max-width:1400px;margin:0 auto;font-size:13.5px;color:var(--muted)}
+.trail-note b{color:var(--thread);font-weight:500}
+.trail-wrap{position:relative;max-width:1400px;margin:0 auto;padding:6px 44px 40px}
+.trail{position:relative;display:grid;grid-template-columns:148px repeat(7,1fr);border:1px solid var(--line);background:var(--card);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh-sm)}
+.lane-h,.day-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.day-h{padding:12px 10px;border-bottom:1px solid var(--line);border-left:1px solid var(--line-soft);text-align:center;background:var(--paper)}
+.day-h.hot{color:var(--thread);background:var(--thread-tint)}
+.corner{border-bottom:1px solid var(--line);background:var(--paper)}
+.lane-h{display:flex;align-items:center;gap:8px;padding:0 14px;border-top:1px solid var(--line-soft);background:var(--paper)}
+.cell{border-top:1px solid var(--line-soft);border-left:1px solid var(--line-soft);min-height:88px;position:relative;padding:8px}
+.cell.hot{background:var(--thread-tint)}
+.evt{position:relative;z-index:2;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.35;box-shadow:var(--sh-sm);cursor:pointer;transition:all .15s}
+.evt:hover{border-color:#CBCAC2;box-shadow:var(--sh-md);transform:translateY(-1px)}
+.evt .id{font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.evt .id .tm{color:var(--faint)}
+.evt .tt{font-weight:600;margin-top:2px}
+.evt.hot{border-color:#E3B7B0}
+.evt.hot .id{color:var(--thread)}
+#threadSvg{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+#threadSvg path{fill:none;stroke:var(--thread);stroke-width:2;stroke-linecap:round}
+#threadSvg circle{fill:var(--card);stroke:var(--thread);stroke-width:2}
+#threadSvg path.animate{stroke-dasharray:var(--len);stroke-dashoffset:var(--len);animation:stitch 2.4s ease forwards .15s}
+@keyframes stitch{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion: reduce){#threadSvg path.animate{animation:none;stroke-dashoffset:0}}
+.trail-legend{max-width:1400px;margin:0 auto;padding:0 44px 140px;display:flex;gap:26px;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.trail-legend .li{display:flex;align-items:center;gap:9px}
+.trail-legend .node{width:9px;height:9px;border-radius:50%;background:var(--card);border:2px solid var(--thread)}
+.trail-legend .seg{width:26px;border-top:2px solid var(--thread)}
+.trail-legend .tint{width:12px;height:12px;background:var(--thread-tint);border:1px solid var(--thread-soft);border-radius:3px}
+/* AGENT */
+.agent-grid{display:grid;grid-template-columns:minmax(0,1fr) 364px;gap:46px;max-width:1240px;margin:0 auto;padding:38px 44px 26px;align-items:start}
+.memo .qrow{display:flex;align-items:center;gap:10px}
+.memo .q{font-size:12.5px;color:var(--muted);border:1px solid var(--line);background:var(--card);border-radius:999px;display:inline-flex;align-items:center;gap:8px;padding:7px 15px}
+.memo .q i{width:7px;height:7px;border-radius:50%;background:var(--thread);flex:none}
+.memo h2{font-family:var(--serif);font-weight:500;font-size:33px;line-height:1.2;margin-top:22px;letter-spacing:-.012em}
+.memo h2 em{font-style:italic}
+.memo .lede{margin-top:16px;font-size:16px;line-height:1.72;color:var(--body);max-width:640px}
+sup.c{font-family:var(--mono);font-size:10.5px;color:var(--thread);font-weight:500;cursor:pointer;padding:0 1px}
+sup.c:hover{text-decoration:underline}
+.memo h4{margin-top:32px;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-family:var(--mono)}
+.kp{margin-top:12px;display:flex;flex-direction:column;gap:10px;max-width:640px}
+.kp .w{display:flex;gap:12px;font-size:14.5px;line-height:1.55;color:var(--body)}
+.kp .tick{margin-top:9px;transform:none}
+.cust{margin-top:14px;width:100%;max-width:640px;border-collapse:collapse;font-size:13.5px}
+.cust th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:500;padding:8px 14px 8px 0;border-bottom:1px solid var(--line)}
+.cust td{padding:12px 14px 12px 0;border-bottom:1px solid var(--line-soft);vertical-align:top;color:var(--body)}
+.cust td:first-child{font-weight:600;color:var(--ink)}
+.cust .src{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.a-rail .box{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 20px;margin-bottom:16px;box-shadow:var(--sh-sm)}
+.a-rail .box h4{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-family:var(--mono)}
+.conf{display:flex;align-items:baseline;gap:10px;margin-top:10px}
+.conf .v{font-family:var(--serif);font-size:26px;font-weight:500}
+.conf .n{font-size:12.5px;color:var(--muted)}
+.conf-bar{margin-top:10px;height:4px;border-radius:2px;background:var(--line-soft);overflow:hidden}
+.conf-bar i{display:block;height:100%;width:86%;background:var(--ok)}
+.ev{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--line-soft);cursor:pointer;transition:all .15s}
+.ev:hover .t{color:var(--thread)}
+.ev:last-child{border-bottom:none;padding-bottom:0}
+.ev.lit{background:var(--thread-tint);margin:0 -20px;padding-left:18px;padding-right:20px;border-left:2px solid var(--thread)}
+.ev .num{font-family:var(--mono);font-size:11px;color:var(--thread);margin-top:2px;flex:none}
+.ev .t{font-size:13px;font-weight:500;line-height:1.4;transition:color .15s}
+.ev .m{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+.trace{display:flex;flex-direction:column;gap:0;margin-top:12px}
+.step{display:flex;gap:12px;position:relative;padding-bottom:14px}
+.step:last-child{padding-bottom:0}
+.step::before{content:"";position:absolute;left:9px;top:20px;bottom:0;border-left:1.5px dashed #E0C4BF}
+.step:last-child::before{display:none}
+.step .n{flex:none;width:19px;height:19px;border-radius:50%;background:var(--card);border:1.5px solid var(--thread);color:var(--thread);font-family:var(--mono);font-size:9.5px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.step .fn{font-family:var(--mono);font-size:11.5px;color:var(--ink);word-break:break-word}
+.step .out{font-size:11.5px;color:var(--faint);margin-top:2px}
+.diag{max-width:1240px;margin:0 auto;padding:0 44px 30px}
+.diag h4{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-family:var(--mono);margin-bottom:12px}
+.diag table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;font-family:var(--mono);font-size:12px;box-shadow:var(--sh-sm)}
+.diag th{font-weight:500;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:right;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--paper)}
+.diag th:first-child,.diag td:first-child{text-align:left}
+.diag td{padding:11px 16px;border-bottom:1px solid var(--line-soft);text-align:right;color:var(--body)}
+.diag tr:last-child td{border-bottom:none}
+.diag tr:hover td{background:#FDFDFB}
+.diag td.f{color:var(--thread);font-weight:500;white-space:nowrap}
+.diag .src-t{font-family:var(--sans);color:var(--faint);font-size:11.5px}
+.diag .fbar{display:inline-block;vertical-align:middle;width:44px;height:3px;background:var(--line-soft);border-radius:2px;margin-left:10px;overflow:hidden}
+.diag .fbar i{display:block;height:100%;background:var(--thread)}
+.diag-note{max-width:1240px;margin:0 auto;padding:0 44px 150px;font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.03em}
+.diag-note b{color:var(--muted);font-weight:500}
+/* ---------- COMMAND PALETTE (ink over paper) ---------- */
+.kov{position:fixed;inset:0;background:rgba(27,29,34,.38);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding-top:12vh;z-index:200}
+.kov.open{display:flex}
+@media (prefers-reduced-motion: no-preference){
+  .kov.open .kpal{animation:kpop .18s cubic-bezier(.2,.9,.3,1.2) both}
+  @keyframes kpop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+}
+.kpal{width:min(640px,92vw);background:#1B1D22;color:#E8E8E4;border-radius:14px;box-shadow:0 40px 90px -22px rgba(27,29,34,.65);overflow:hidden;border:1px solid #2E3138}
+.kin{display:flex;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid #2A2D33}
+.kin svg{flex:none;color:#7A7D84}
+.kin input{flex:1;background:none;border:none;outline:none;color:#F2F2EE;font:400 15px/1.4 var(--sans);caret-color:var(--thread)}
+.kin input::placeholder{color:#7A7D84}
+.kpal kbd{font-family:var(--mono);font-size:10px;color:#A9ACB2;border:1px solid #33363D;border-radius:4px;padding:2.5px 6px;background:#22242A}
+.kgh{font:500 10px/1 var(--mono);letter-spacing:.13em;text-transform:uppercase;color:#7A7D84;padding:11px 16px 5px}
+.kit{display:flex;align-items:center;gap:11px;padding:10px 12px;margin:0 6px;border-radius:9px;font-size:13px;cursor:pointer;color:#D8D8D3}
+.kit:hover{background:#24262C}
+.kit.sel{background:rgba(192,57,43,.16);box-shadow:inset 2px 0 0 var(--thread)}
+.kit .kk{font:500 10.5px/1 var(--mono);color:#8A8D93;width:116px;flex:none}
+.kit.sel .kk{color:#E77B6E}
+.kit .kt{flex:1;min-width:0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kit .km{font-size:11px;color:#7A7D84;flex:none}
+.kit .ks{font:500 11.5px/1 var(--mono);color:#9A9DA3;width:36px;text-align:right;flex:none}
+.kit.sel .ks{color:#E77B6E}
+.kact .ic{width:20px;height:20px;border-radius:6px;background:rgba(192,57,43,.18);color:#E77B6E;display:flex;align-items:center;justify-content:center;flex:none}
+.kact .kd{font-size:11px;color:#7A7D84;margin-top:1px}
+.kact .kb{margin-left:auto;display:flex;gap:4px}
+.kft{display:flex;align-items:center;gap:16px;padding:10px 16px;border-top:1px solid #2A2D33;background:#17181C;font-size:11px;color:#7A7D84;margin-top:6px}
+.kft .h{display:flex;align-items:center;gap:6px}
+.kft .r{margin-left:auto;font-family:var(--mono);font-size:10px}
+.kft .r b{color:#E77B6E;font-weight:500}
+@media (max-width:1024px){
+  .res-grid{grid-template-columns:1fr}
+  .rail{position:static;border-left:none;border-top:1px solid var(--line);max-height:none}
+  .agent-grid{grid-template-columns:1fr}
+  .land-hero h1{font-size:38px}
+  .sys-row{grid-template-columns:repeat(2,1fr)}
+  .trail{grid-template-columns:110px repeat(7,minmax(92px,1fr))}
+  .trail-wrap{overflow-x:auto}
+}
+</style>
+</head>
+<body>
+<!-- ============ 01 · LANDING ============ -->
+<section class="screen active" id="s-landing">
+  <div class="land-head">
+    <div class="wordmark">
+      <svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#1B1D22" stroke-width="1.6"/><path d="M3 12 C 7 8, 13 13, 17 8" fill="none" stroke="#C0392B" stroke-width="1.8" stroke-linecap="round"/></svg>
+      EVIDENCE TRAIL
+    </div>
+    <nav><a href="#">Search</a><a href="#">Timeline</a><a href="#">Sources</a><a href="#">Saved</a></nav>
+    <div class="right"><kbd>&#8984;K</kbd><div class="avatar">AM</div></div>
+  </div>
+
+  <div class="land-hero">
+    <span class="eyebrow">Operational evidence search</span>
+    <h1>Follow the <span class="u-thread">evidence<svg viewBox="0 0 200 12" preserveAspectRatio="none"><path d="M2 8 C 40 2, 85 12, 125 6 S 192 3, 198 7"/></svg></span><br>across conversations, tickets, docs, cases, and code.</h1>
+    <p class="sub">One search layer over the systems where work actually happens.</p>
+
+    <div class="land-search">
+      <svg class="glass" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11 L 14.5 14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="ph">Why is Project Orion delayed and what customer commitments are impacted?</span>
+      <button class="btn-ink">Search</button>
+    </div>
+
+    <div class="try">
+      <span class="eyebrow">Try asking</span>
+      <button class="chip">Show open P1 bugs blocking the May release<span class="arr">&rarr;</span></button>
+      <button class="chip">Find customer escalations related to Aurora failover<span class="arr">&rarr;</span></button>
+      <button class="chip">What changed in the last incident, and the follow-ups?<span class="arr">&rarr;</span></button>
+      <button class="chip">Summarize the root cause of high latency on May 2<span class="arr">&rarr;</span></button>
+    </div>
+  </div>
+
+  <div class="stitch-divider">
+    <span class="ln"></span>
+    <svg class="needle" width="26" height="14" viewBox="0 0 26 14"><path d="M1 9 C 7 3, 13 12, 19 6" fill="none" stroke="#C0392B" stroke-width="1.8" stroke-linecap="round"/><circle cx="22.5" cy="5" r="2.4" fill="none" stroke="#C0392B" stroke-width="1.6"/></svg>
+    <span class="ln"></span>
+  </div>
+
+  <div class="land-systems">
+    <span class="eyebrow">Connected systems</span>
+    <div class="sys-row">
+      <div class="sys"><div class="n">12,642</div><div class="l"><span class="dot d-jira"></span>Jira issues</div></div>
+      <div class="sys"><div class="n">8,314</div><div class="l"><span class="dot d-conf"></span>Confluence pages</div></div>
+      <div class="sys"><div class="n">6,271</div><div class="l"><span class="dot d-sf"></span>Salesforce records</div></div>
+      <div class="sys"><div class="n">2,142</div><div class="l"><span class="dot d-sn"></span>Slack threads</div></div>
+      <div class="sys"><div class="n">4,531</div><div class="l"><span class="dot d-gh"></span>GitHub PRs</div></div>
+    </div>
+  </div>
+  <div class="land-foot">Indexed in <b>Aurora PostgreSQL</b> &middot; hybrid retrieval: <b>FTS + pgvector + pg_trgm</b> &middot; last sync 4 min ago</div>
+</section>
+
+<!-- ============ 02 · RESULTS ============ -->
+<section class="screen" id="s-results">
+  <div class="topbar">
+    <div class="wordmark">
+      <svg width="18" height="18" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#1B1D22" stroke-width="1.6"/><path d="M3 12 C 7 8, 13 13, 17 8" fill="none" stroke="#C0392B" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </div>
+    <div class="tb-search">
+      <svg class="glass" width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11 L 14.5 14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="q">Why is Project Orion delayed and what customer commitments are impacted?</span>
+    </div>
+    <div class="tb-actions"><button class="btn-quiet">Save</button><button class="btn-quiet">Share</button><div class="avatar">AM</div></div>
+  </div>
+  <div class="filters">
+    <span class="f-chip">All systems</span>
+    <span class="f-chip">Last 90 days</span>
+    <span class="f-chip">Project: <b>Orion</b><span class="x">&#10005;</span></span>
+    <span class="f-chip">Status: <b>Open</b><span class="x">&#10005;</span></span>
+    <button class="f-add">+ Filter</button>
+    <span class="f-count">hybrid: fts + vector + trgm &rarr; rrf &rarr; rerank</span>
+  </div>
+
+  <div class="res-grid">
+    <div class="res-list">
+      <div class="res-head"><span class="n"><b style="color:var(--ink)">128 results</b> &middot; 46 ms</span><span class="sort">Sort: <b>Relevance</b> &#9662;</span></div>
+
+      <div class="res sel">
+        <span class="rk">01</span>
+        <div class="body">
+          <div class="src"><span class="dot d-jira"></span>Jira &middot; <span class="key">ORION-1473</span></div>
+          <h3>Read replica lag causing delayed cutover</h3>
+          <p class="snip">Elevated <mark>replica lag</mark> observed during peak load is delaying the Blue/Green deployment. <mark>Cutover</mark> cannot proceed until lag is consistently under 30 seconds.</p>
+          <div class="meta"><span class="tag">Bug</span><span class="tag">P1</span><span class="tag">replication</span><span>Updated 2 h ago</span></div>
+        </div>
+        <div class="score"><div class="v">0.92</div><div class="bar"><i style="width:92%"></i></div></div>
+      </div>
+      <div class="res">
+        <span class="rk">02</span>
+        <div class="body">
+          <div class="src"><span class="dot d-conf"></span>Confluence &middot; <span class="key">Page</span></div>
+          <h3>Orion Release Readiness &mdash; Architecture &amp; Risks</h3>
+          <p class="snip">Risk: database failover during <mark>cutover</mark> may exceed SLA. Mitigation owned by the platform team; review before the maintenance window.</p>
+          <div class="meta"><span class="tag">Project Orion</span><span class="tag">Architecture</span><span>Updated 4 h ago</span></div>
+        </div>
+        <div class="score"><div class="v">0.89</div><div class="bar"><i style="width:89%"></i></div></div>
+      </div>
+      <div class="res">
+        <span class="rk">03</span>
+        <div class="body">
+          <div class="src"><span class="dot d-sf"></span>Salesforce &middot; <span class="key">Case 00012345</span></div>
+          <h3>Customer escalation: reporting delays</h3>
+          <p class="snip">Acme Corp reports <mark>delayed</mark> reporting pipelines impacting monthly close. <mark>Commitment</mark>: resolution update by May 3.</p>
+          <div class="meta"><span class="tag">Acme Corp</span><span class="tag">Escalation</span><span>Updated 5 h ago</span></div>
+        </div>
+        <div class="score"><div class="v">0.86</div><div class="bar"><i style="width:86%"></i></div></div>
+      </div>
+      <div class="res">
+        <span class="rk">04</span>
+        <div class="body">
+          <div class="src"><span class="dot d-sn"></span>ServiceNow &middot; <span class="key">INC0012345</span></div>
+          <h3>High DB latency impacting multiple services</h3>
+          <p class="snip">Multiple alerts triggered on May 2 between 10:15 and 11:00. Downstream jobs queued; customer-facing reports <mark>delayed</mark>.</p>
+          <div class="meta"><span class="tag">Incident</span><span class="tag">P1</span><span>Updated 6 h ago</span></div>
+        </div>
+        <div class="score"><div class="v">0.82</div><div class="bar"><i style="width:82%"></i></div></div>
+      </div>
+      <div class="res">
+        <span class="rk">05</span>
+        <div class="body">
+          <div class="src"><span class="dot d-gh"></span>GitHub &middot; <span class="key">PR #1287</span></div>
+          <h3>Improve connection pool failover behavior</h3>
+          <p class="snip">Enhances pool rebalancing and reduces <mark>failover</mark> time under replica promotion. Linked to INC0012345 remediation.</p>
+          <div class="meta"><span class="tag">database</span><span class="tag">failover</span><span>Merged 1 d ago</span></div>
+        </div>
+        <div class="score"><div class="v">0.74</div><div class="bar"><i style="width:74%"></i></div></div>
+      </div>
+      <div class="res">
+        <span class="rk">06</span>
+        <div class="body">
+          <div class="src"><span class="dot d-conf"></span>Confluence &middot; <span class="key">Postmortem</span></div>
+          <h3>Post-incident review: May 2 &mdash; failover degradation</h3>
+          <p class="snip">Summary of impact, root cause, and action items. Includes commitments to affected customers and the next <mark>cutover</mark> window.</p>
+          <div class="meta"><span class="tag">Incident review</span><span>Updated 1 d ago</span></div>
+        </div>
+        <div class="score"><div class="v">0.71</div><div class="bar"><i style="width:71%"></i></div></div>
+      </div>
+      <div class="res-more"><button class="btn-quiet">Show more results</button></div>
+    </div>
+
+    <aside class="rail">
+      <div class="head">
+        <span class="dot d-jira"></span><span class="mono" style="font-size:11.5px;color:var(--muted)">JIRA &middot; ORION-1473</span>
+        <button class="btn-thread open-src">Open in Jira &nearr;</button>
+      </div>
+      <h2>Read replica lag causing delayed cutover</h2>
+      <div class="tabs">
+        <button class="on">Overview</button>
+        <button>Comments<span class="n">12</span></button>
+        <button>Linked<span class="n">8</span></button>
+        <button>History</button>
+      </div>
+      <div class="kv">
+        <div><div class="k">Status</div><div class="v st">In progress</div></div>
+        <div><div class="k">Priority</div><div class="v">P1</div></div>
+        <div><div class="k">Assignee</div><div class="v">Priya N.</div></div>
+        <div><div class="k">Updated</div><div class="v">2 hours ago</div></div>
+        <div style="grid-column:1/-1"><div class="k">Environment</div><div class="v mono" style="font-weight:400;font-size:12px">us-east-1 &middot; Aurora PostgreSQL 16.4</div></div>
+      </div>
+
+      <h4>Why this matched</h4>
+      <div class="why">
+        <div class="w"><span class="tick"></span>Semantic similarity to query<span class="val">0.93</span></div>
+        <div class="w"><span class="tick"></span>Exact: read replica &middot; delayed &middot; cutover<span class="val">ts_rank 0.42</span></div>
+        <div class="w"><span class="tick"></span>Metadata: Orion &middot; Open &middot; P1<span class="val">match</span></div>
+        <div class="w"><span class="tick"></span>Recency boost: 2 hours ago<span class="val">+0.08</span></div>
+      </div>
+
+      <h4>Linked evidence</h4>
+      <div class="links">
+        <div class="lnk"><svg class="stitch" viewBox="0 0 18 10"><path d="M1 7 C 6 2, 12 9, 17 4"/></svg><span class="t">INC0012345</span><span class="s">ServiceNow</span></div>
+        <div class="lnk"><svg class="stitch" viewBox="0 0 18 10"><path d="M1 7 C 6 2, 12 9, 17 4"/></svg><span class="t">Case 00012345</span><span class="s">Salesforce</span></div>
+        <div class="lnk"><svg class="stitch" viewBox="0 0 18 10"><path d="M1 7 C 6 2, 12 9, 17 4"/></svg><span class="t">Orion Release Readiness</span><span class="s">Confluence</span></div>
+        <div class="lnk"><svg class="stitch" viewBox="0 0 18 10"><path d="M1 7 C 6 2, 12 9, 17 4"/></svg><span class="t">PR #1287 &mdash; pool failover</span><span class="s">GitHub</span></div>
+      </div>
+
+      <h4>Attachments</h4>
+      <div class="atts">
+        <span class="att"><i></i>lag-metrics-may2.png</span>
+        <span class="att"><i></i>orion-cutover-plan.docx</span>
+        <span class="att"><i></i>replica-lag-analysis.sql</span>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ 03 · SOURCE TRAIL ============ -->
+<section class="screen" id="s-trail">
+  <div class="topbar">
+    <div class="wordmark">
+      <svg width="18" height="18" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#1B1D22" stroke-width="1.6"/><path d="M3 12 C 7 8, 13 13, 17 8" fill="none" stroke="#C0392B" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </div>
+    <div class="tb-search">
+      <svg class="glass" width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11 L 14.5 14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="q">Project Orion &mdash; cutover delay</span>
+    </div>
+    <div class="tb-actions"><button class="btn-quiet">Export</button><div class="avatar">AM</div></div>
+  </div>
+
+  <div class="trail-head">
+    <h2>Source trail</h2><span class="rng">PROJECT ORION &middot; APR 28 &ndash; MAY 4</span>
+    <button class="btn-thread replay" id="replayBtn">&#8635; Replay thread</button>
+  </div>
+  <p class="trail-note">The <b>thread</b> follows citation links between records in chronological order &mdash; the same links the agent walks when it assembles an answer.</p>
+
+  <div class="trail-wrap">
+    <div class="trail" id="trailGrid">
+      <div class="corner"></div>
+      <div class="day-h">Apr 28</div><div class="day-h">Apr 29</div><div class="day-h">Apr 30</div><div class="day-h">May 1</div><div class="day-h hot">May 2</div><div class="day-h">May 3</div><div class="day-h">May 4</div>
+
+      <div class="lane-h"><span class="dot d-jira"></span>Jira</div>
+      <div class="cell"><div class="evt" data-seq="1"><div class="id"><span>ORION-1450</span><span class="tm">09:40</span></div><div class="tt">Deployment prep</div></div></div>
+      <div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      <div class="cell hot"><div class="evt hot" data-seq="5"><div class="id"><span>ORION-1473</span><span class="tm">10:52</span></div><div class="tt">Replica lag issue</div></div></div>
+      <div class="cell"><div class="evt" data-seq="8"><div class="id"><span>ORION-1481</span><span class="tm">09:05</span></div><div class="tt">Cutover blocked</div></div></div>
+      <div class="cell"></div>
+
+      <div class="lane-h"><span class="dot d-conf"></span>Confluence</div>
+      <div class="cell"></div>
+      <div class="cell"><div class="evt" data-seq="2"><div class="id"><span>PAGE</span><span class="tm">14:10</span></div><div class="tt">Release readiness risks</div></div></div>
+      <div class="cell"></div><div class="cell"></div><div class="cell hot"></div>
+      <div class="cell"><div class="evt" data-seq="9"><div class="id"><span>POSTMORTEM</span><span class="tm">16:30</span></div><div class="tt">May 2 incident review</div></div></div>
+      <div class="cell"></div>
+
+      <div class="lane-h"><span class="dot d-sf"></span>Salesforce</div>
+      <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      <div class="cell hot"><div class="evt" data-seq="6"><div class="id"><span>CASE 00012345</span><span class="tm">11:44</span></div><div class="tt">Acme escalation</div></div></div>
+      <div class="cell"></div><div class="cell"></div>
+
+      <div class="lane-h"><span class="dot d-sn"></span>ServiceNow</div>
+      <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      <div class="cell hot"><div class="evt" data-seq="4"><div class="id"><span>INC0012345</span><span class="tm">10:15</span></div><div class="tt">High DB latency</div></div></div>
+      <div class="cell"></div><div class="cell"></div>
+
+      <div class="lane-h"><span class="dot d-gh"></span>GitHub</div>
+      <div class="cell"></div><div class="cell"></div>
+      <div class="cell"><div class="evt" data-seq="3"><div class="id"><span>PR #1281</span><span class="tm">15:20</span></div><div class="tt">Lag metrics script</div></div></div>
+      <div class="cell"></div><div class="cell hot"></div>
+      <div class="cell"><div class="evt" data-seq="7"><div class="id"><span>PR #1287</span><span class="tm">13:12</span></div><div class="tt">Pool failover fix</div></div></div>
+      <div class="cell"></div>
+
+      <svg id="threadSvg" aria-hidden="true"></svg>
+    </div>
+  </div>
+  <div class="trail-legend">
+    <span class="li"><span class="node"></span>record on the trail</span>
+    <span class="li"><span class="seg"></span>citation link (object_links)</span>
+    <span class="li"><span class="tint"></span>incident window &middot; May 2</span>
+  </div>
+</section>
+
+<!-- ============ 04 · AGENT ANSWER ============ -->
+<section class="screen" id="s-agent">
+  <div class="topbar">
+    <div class="wordmark">
+      <svg width="18" height="18" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#1B1D22" stroke-width="1.6"/><path d="M3 12 C 7 8, 13 13, 17 8" fill="none" stroke="#C0392B" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </div>
+    <div class="tb-search">
+      <svg class="glass" width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11 L 14.5 14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="q">Why is Project Orion delayed and what customer commitments are impacted?</span>
+    </div>
+    <div class="tb-actions"><button class="btn-quiet">Copy</button><button class="btn-quiet">Export brief</button><div class="avatar">AM</div></div>
+  </div>
+
+  <div class="agent-grid">
+    <div class="memo">
+      <div class="qrow"><span class="q"><i></i>Agent answer &middot; 18 sources &middot; 3 retrieval passes &middot; 2.4 s</span></div>
+      <h2>Orion is delayed by <em>read replica lag</em> at cutover &mdash; and two customer commitments are exposed.</h2>
+      <p class="lede">
+        Project Orion is delayed primarily due to read replica lag during the Blue/Green deployment cutover,<sup class="c" data-cite="1">[1]</sup> which prevented the cutover from completing inside the May 2 maintenance window. High database latency during the same period triggered a multi-service incident<sup class="c" data-cite="2">[2]</sup> and delayed customer-facing reporting for Acme Corp and Northwind Traders, both of which carry month-end commitments.<sup class="c" data-cite="3">[3]</sup> Engineering merged connection pool and failover improvements on May 3,<sup class="c" data-cite="4">[4]</sup> and the next cutover window is targeted for May 6 pending a lag soak test.<sup class="c" data-cite="5">[5]</sup>
+      </p>
+
+      <h4>Key points</h4>
+      <div class="kp">
+        <div class="w"><span class="tick"></span>Read replica lag spiked during peak load and blocked cutover to protect data consistency.<sup class="c" data-cite="1">[1]</sup></div>
+        <div class="w"><span class="tick"></span>High-latency incident INC0012345 impacted multiple downstream services on May 2.<sup class="c" data-cite="2">[2]</sup></div>
+        <div class="w"><span class="tick"></span>Acme Corp escalated reporting delays affecting monthly close.<sup class="c" data-cite="3">[3]</sup></div>
+        <div class="w"><span class="tick"></span>PR #1287 improves pool rebalancing and replica promotion time; merged May 3.<sup class="c" data-cite="4">[4]</sup></div>
+      </div>
+
+      <h4>Impacted customers</h4>
+      <table class="cust">
+        <tr><th>Account</th><th>Impact</th><th>Commitment</th><th>Evidence</th></tr>
+        <tr><td>Acme Corp</td><td>Reporting delays, month-end close risk</td><td>Update by May 3</td><td class="src">Case 00012345</td></tr>
+        <tr><td>Northwind Traders</td><td>Slow dashboards, timeout errors</td><td>SLA review May 5</td><td class="src">Case 00012346</td></tr>
+      </table>
+    </div>
+
+    <aside class="a-rail">
+      <div class="box">
+        <h4>Confidence</h4>
+        <div class="conf"><span class="v">High</span><span class="n">agreement across 18 sources</span></div>
+        <div class="conf-bar"><i></i></div>
+      </div>
+      <div class="box">
+        <h4>Supporting evidence</h4>
+        <div class="ev" data-ev="1"><span class="num">[1]</span><div><div class="t">ORION-1473 &mdash; Read replica lag causing delayed cutover</div><div class="m">Jira &middot; 2 h ago</div></div></div>
+        <div class="ev" data-ev="2"><span class="num">[2]</span><div><div class="t">INC0012345 &mdash; High DB latency impacting services</div><div class="m">ServiceNow &middot; 3 h ago</div></div></div>
+        <div class="ev" data-ev="3"><span class="num">[3]</span><div><div class="t">Case 00012345 &mdash; Acme Corp escalation</div><div class="m">Salesforce &middot; 5 h ago</div></div></div>
+        <div class="ev" data-ev="4"><span class="num">[4]</span><div><div class="t">PR #1287 &mdash; Improve connection pool failover</div><div class="m">GitHub &middot; 1 d ago</div></div></div>
+        <div class="ev" data-ev="5"><span class="num">[5]</span><div><div class="t">Post-incident review: May 2</div><div class="m">Confluence &middot; 1 d ago</div></div></div>
+      </div>
+      <div class="box">
+        <h4>How this answer was assembled</h4>
+        <div class="trace">
+          <div class="step"><span class="n">1</span><div><div class="fn">decompose_question()</div><div class="out">3 sub-questions: cause &middot; impact &middot; evidence</div></div></div>
+          <div class="step"><span class="n">2</span><div><div class="fn">search_evidence("replica lag cutover", project=orion)</div><div class="out">128 candidates &middot; hybrid + RRF</div></div></div>
+          <div class="step"><span class="n">3</span><div><div class="fn">traverse_links(ORION-1473, depth=1)</div><div class="out">8 linked records across 4 systems</div></div></div>
+          <div class="step"><span class="n">4</span><div><div class="fn">compare_sources(incident, escalation)</div><div class="out">timeline agreement &middot; no conflicts</div></div></div>
+          <div class="step"><span class="n">5</span><div><div class="fn">synthesize_with_citations()</div><div class="out">5 citations &middot; confidence: high</div></div></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="diag">
+    <h4>Retrieval diagnostics &mdash; ranking signals for top results</h4>
+    <table>
+      <tr><th>Result</th><th>Source</th><th>FTS</th><th>Vector</th><th>Meta</th><th>Recency</th><th>RRF</th><th>Rerank</th><th>Final</th></tr>
+      <tr><td>ORION-1473</td><td class="src-t">Jira</td><td>0.42</td><td>0.93</td><td>0.90</td><td>0.80</td><td>0.91</td><td>0.93</td><td class="f">0.92<span class="fbar"><i style="width:92%"></i></span></td></tr>
+      <tr><td>Release Readiness</td><td class="src-t">Confluence</td><td>0.31</td><td>0.90</td><td>0.85</td><td>0.60</td><td>0.87</td><td>0.91</td><td class="f">0.89<span class="fbar"><i style="width:89%"></i></span></td></tr>
+      <tr><td>Case 00012345</td><td class="src-t">Salesforce</td><td>0.28</td><td>0.86</td><td>0.95</td><td>0.70</td><td>0.85</td><td>0.89</td><td class="f">0.86<span class="fbar"><i style="width:86%"></i></span></td></tr>
+      <tr><td>INC0012345</td><td class="src-t">ServiceNow</td><td>0.36</td><td>0.84</td><td>0.90</td><td>0.70</td><td>0.82</td><td>0.85</td><td class="f">0.82<span class="fbar"><i style="width:82%"></i></span></td></tr>
+      <tr><td>PR #1287</td><td class="src-t">GitHub</td><td>0.25</td><td>0.78</td><td>0.80</td><td>0.50</td><td>0.75</td><td>0.76</td><td class="f">0.74<span class="fbar"><i style="width:74%"></i></span></td></tr>
+    </table>
+  </div>
+  <p class="diag-note">Every run is stored in <b>retrieval_runs</b> and <b>retrieval_candidates</b> &mdash; answers are reproducible, auditable, and evaluable in SQL.</p>
+</section>
+
+<!-- ⌘K command palette -->
+<div class="kov" id="kov" role="dialog" aria-label="Search evidence">
+  <div class="kpal">
+    <div class="kin">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <input id="kq" type="text" value="why is project orion delayed" placeholder="Search evidence across all systems" autocomplete="off" spellcheck="false">
+      <kbd>esc</kbd>
+    </div>
+
+    <div class="kgh">Best match</div>
+    <div class="kit sel" data-go="s-results"><span class="dot d-jira"></span><span class="kk">ORION-1473</span><span class="kt">Read replica lag causing delayed cutover</span><span class="km">2 h &middot; P1</span><span class="ks">0.92</span></div>
+
+    <div class="kgh">Evidence</div>
+    <div class="kit" data-go="s-results"><span class="dot d-conf"></span><span class="kk">PAGE</span><span class="kt">Orion Release Readiness &mdash; Architecture &amp; Risks</span><span class="km">4 h</span><span class="ks">0.89</span></div>
+    <div class="kit" data-go="s-results"><span class="dot d-sf"></span><span class="kk">CASE-00012345</span><span class="kt">Customer escalation: reporting delays (Acme Corp)</span><span class="km">5 h</span><span class="ks">0.86</span></div>
+    <div class="kit" data-go="s-results"><span class="dot d-sn"></span><span class="kk">INC0012345</span><span class="kt">High DB latency impacting multiple services</span><span class="km">6 h</span><span class="ks">0.82</span></div>
+    <div class="kit" data-go="s-results"><span class="dot d-gh"></span><span class="kk">PR #1287</span><span class="kt">Improve connection pool failover behavior</span><span class="km">1 d</span><span class="ks">0.74</span></div>
+
+    <div class="kgh">Actions</div>
+    <div class="kit kact" data-go="s-agent">
+      <span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 3l2 5.5H20l-4.6 3.4L17 18l-5-3.6L7 18l1.6-6.1L4 8.5h6z" fill="currentColor"/></svg></span>
+      <div style="min-width:0"><div>Ask the agent</div><div class="kd">Decompose, gather evidence across 5 systems, answer with citations</div></div>
+      <span class="kb"><kbd>&#8984;</kbd><kbd>&#9166;</kbd></span>
+    </div>
+    <div class="kit kact" data-go="s-trail">
+      <span class="ic"><svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M12 8v5l3 2M21 12a9 9 0 1 1-9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+      <div style="min-width:0"><div>Open source trail</div><div class="kd">Chronological citation links for Project Orion</div></div>
+      <span class="kb"><kbd>&#8984;</kbd><kbd>T</kbd></span>
+    </div>
+
+    <div class="kft">
+      <span class="h"><kbd>&uarr;</kbd><kbd>&darr;</kbd> navigate</span>
+      <span class="h"><kbd>&#9166;</kbd> open</span>
+      <span class="h"><kbd>&#8984;&#9166;</kbd> ask agent</span>
+      <span class="r">hybrid <b>fts+vec+trgm</b> &middot; 128 hits &middot; 46 ms</span>
+    </div>
+  </div>
+</div>
+
+<!-- prototype switcher -->
+<nav class="switcher" aria-label="Screens">
+  <button class="on" data-s="s-landing"><span class="k">1</span>Landing</button>
+  <button data-s="s-results"><span class="k">2</span>Results</button>
+  <button data-s="s-trail"><span class="k">3</span>Source trail</button>
+  <button data-s="s-agent"><span class="k">4</span>Agent answer</button>
+</nav>
+
+<script>
+const tabs=document.querySelectorAll('.switcher button');
+const screens=document.querySelectorAll('.screen');
+function goTo(id){
+  tabs.forEach(x=>x.classList.toggle('on',x.dataset.s===id));
+  screens.forEach(s=>s.classList.toggle('active',s.id===id));
+  window.scrollTo(0,0);
+  if(id==='s-trail')requestAnimationFrame(drawThread);
+}
+tabs.forEach(b=>b.addEventListener('click',()=>goTo(b.dataset.s)));
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  const map={'1':'s-landing','2':'s-results','3':'s-trail','4':'s-agent'};
+  if(map[e.key])goTo(map[e.key]);
+});
+
+function drawThread(){
+  const grid=document.getElementById('trailGrid');
+  const svg=document.getElementById('threadSvg');
+  const g=grid.getBoundingClientRect();
+  if(g.width===0)return;
+  svg.setAttribute('viewBox','0 0 '+g.width+' '+g.height);
+  const evts=[...grid.querySelectorAll('.evt')].sort((a,b)=>+a.dataset.seq-+b.dataset.seq);
+  const pts=evts.map(e=>{const r=e.getBoundingClientRect();return{x:r.left-g.left+r.width/2,y:r.top-g.top+r.height/2};});
+  let d='M '+pts[0].x+' '+pts[0].y;
+  for(let i=1;i<pts.length;i++){
+    const p=pts[i-1],q=pts[i],mx=(p.x+q.x)/2;
+    d+=' C '+mx+' '+p.y+', '+mx+' '+q.y+', '+q.x+' '+q.y;
+  }
+  svg.innerHTML='<path d="'+d+'" class="animate"/>'+pts.map(p=>'<circle cx="'+p.x+'" cy="'+p.y+'" r="3.5"/>').join('');
+  const path=svg.querySelector('path');
+  path.style.setProperty('--len',path.getTotalLength());
+}
+document.getElementById('replayBtn').addEventListener('click',drawThread);
+window.addEventListener('resize',()=>{if(document.getElementById('s-trail').classList.contains('active'))drawThread();});
+
+/* ---- command palette ---- */
+const kov=document.getElementById('kov'),kq=document.getElementById('kq');
+const kits=[...kov.querySelectorAll('.kit')];let ksel=0;
+function kPaint(){kits.forEach((el,i)=>el.classList.toggle('sel',i===ksel));}
+function kOpen(){kov.classList.add('open');ksel=0;kPaint();setTimeout(()=>{kq.focus();kq.select();},0);}
+function kClose(){kov.classList.remove('open');kq.blur();}
+document.querySelectorAll('.tb-search,.land-search').forEach(el=>{el.style.cursor='pointer';el.addEventListener('click',kOpen);});
+kov.addEventListener('click',e=>{if(e.target===kov)kClose();});
+kits.forEach((el,i)=>{el.addEventListener('mouseenter',()=>{ksel=i;kPaint();});el.addEventListener('click',()=>{goTo(el.dataset.go);kClose();});});
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();kov.classList.contains('open')?kClose():kOpen();return;}
+  if(!kov.classList.contains('open'))return;
+  if(e.key==='Escape'){kClose();}
+  else if(e.key==='ArrowDown'){e.preventDefault();ksel=(ksel+1)%kits.length;kPaint();}
+  else if(e.key==='ArrowUp'){e.preventDefault();ksel=(ksel-1+kits.length)%kits.length;kPaint();}
+  else if(e.key==='Enter'){e.preventDefault();goTo((e.metaKey||e.ctrlKey)?'s-agent':kits[ksel].dataset.go);kClose();}
+  e.stopPropagation();
+},true);
+
+document.querySelectorAll('sup.c').forEach(s=>{
+  const tgt=document.querySelector('.ev[data-ev="'+s.dataset.cite+'"]');
+  if(!tgt)return;
+  s.addEventListener('mouseenter',()=>tgt.classList.add('lit'));
+  s.addEventListener('mouseleave',()=>tgt.classList.remove('lit'));
+});
+</script>
+</body>
+</html>
