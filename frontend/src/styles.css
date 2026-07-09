@@ -532,14 +532,6 @@ kbd {
   to { stroke-dashoffset: -36; }
 }
 
-.edge-label {
-  fill: var(--muted);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .center-node {
   position: absolute;
   left: 50%;

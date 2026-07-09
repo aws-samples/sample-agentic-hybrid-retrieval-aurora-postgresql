@@ -849,11 +849,6 @@ function Landing({
               <path className="thread" d="M320 292 C 245 320, 180 355, 104 396" />
               <path className="thread" d="M320 292 C 395 262, 455 228, 532 186" />
               <path className="thread" d="M320 292 C 395 322, 460 352, 538 382" />
-              <text className="edge-label" x="286" y="160" textAnchor="end">gates</text>
-              <text className="edge-label" x="196" y="238" textAnchor="end">decided-in</text>
-              <text className="edge-label" x="188" y="366" textAnchor="end">blocked-by</text>
-              <text className="edge-label" x="448" y="228">impacts</text>
-              <text className="edge-label" x="452" y="352">fixed-by</text>
             </svg>
 
             <div className="center-node">
