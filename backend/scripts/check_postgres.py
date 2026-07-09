@@ -18,7 +18,7 @@ def version_tuple(value: str) -> tuple[int, ...]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate PostgreSQL server version.")
-    parser.add_argument("--min-version", default="18.4")
+    parser.add_argument("--min-version", default="18.3")
     args = parser.parse_args()
 
     with get_conn() as conn:

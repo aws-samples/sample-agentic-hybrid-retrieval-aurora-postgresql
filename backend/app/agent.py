@@ -8,12 +8,14 @@ from .search import run_hybrid_search
 def infer_sources(question: str) -> list[str]:
     q = question.lower()
     if "slack" in q or "decide" in q or "conversation" in q:
-        return ["slack", "jira", "confluence", "salesforce", "github"]
+        return ["slack", "jira", "confluence", "salesforce", "servicenow", "github"]
+    if "incident" in q or "servicenow" in q or "service now" in q:
+        return ["servicenow", "jira", "slack", "salesforce", "confluence", "github"]
     if "customer" in q or "commitment" in q or "salesforce" in q:
-        return ["salesforce", "jira", "confluence", "slack"]
+        return ["salesforce", "jira", "servicenow", "confluence", "slack"]
     if "pr" in q or "github" in q or "code" in q:
-        return ["github", "jira", "confluence", "slack"]
-    return ["slack", "jira", "confluence", "salesforce", "github"]
+        return ["github", "jira", "confluence", "slack", "servicenow"]
+    return ["slack", "jira", "confluence", "salesforce", "servicenow", "github"]
 
 
 def _index_citations(results: list[dict[str, Any]]) -> dict[str, int]:
@@ -39,6 +41,7 @@ def synthesize_answer(question: str, results: list[dict[str, Any]]) -> str:
     jira = _first_by_source(results, "jira")
     slack = _first_by_source(results, "slack")
     salesforce = _first_by_source(results, "salesforce")
+    servicenow = _first_by_source(results, "servicenow")
     confluence = _first_by_source(results, "confluence")
     github = _first_by_source(results, "github")
     lead = results[0]
@@ -61,6 +64,11 @@ def synthesize_answer(question: str, results: list[dict[str, Any]]) -> str:
         if salesforce
         else ""
     )
+    incident = (
+        f" ServiceNow links the same incident to the Jira blocker, Slack hold decision, and Acme escalation {_citation(servicenow, citation_index)}."
+        if servicenow
+        else ""
+    )
     readiness = (
         f" The readiness runbook makes clean soak results, the ORION blocker status, and customer communication release gates {_citation(confluence, citation_index)}."
         if confluence
@@ -71,7 +79,7 @@ def synthesize_answer(question: str, results: list[dict[str, Any]]) -> str:
         if github
         else ""
     )
-    return f"{cause}{decision}{commitment}{readiness}{remediation}"
+    return f"{cause}{decision}{commitment}{incident}{readiness}{remediation}"
 
 
 def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:

@@ -4,7 +4,7 @@ This repository is a security-reviewable starter implementation for a re:Invent 
 
 > **Build agentic hybrid retrieval with Amazon Aurora PostgreSQL**
 
-For local development and the first builder-session path, the retrieval engine is **localhost PostgreSQL 18.4 with pgvector 0.8.2 or later**. The schema and query patterns are designed to carry forward to Aurora PostgreSQL after the local lab is working.
+For local development and the first builder-session path, the retrieval engine is **PostgreSQL 18.3 or later with pgvector 0.8.1 or later**. The same schema can run on localhost PostgreSQL or on a net-new Aurora PostgreSQL 18.3 cluster provisioned by the CDK stack in this repo.
 
 The product is an operational evidence retrieval layer over fragmented work systems such as Slack-like conversations, Jira issues, Confluence pages, Salesforce cases, GitHub pull requests, runbooks, and incident notes.
 
@@ -12,9 +12,9 @@ The product is an operational evidence retrieval layer over fragmented work syst
 
 - Python 3.11 or later
 - Node.js 20.19 or later for the frontend and MCP server
-- Local PostgreSQL 18.4 with pgvector 0.8.2+, pg_trgm, btree_gin, pgcrypto, and pg_stat_statements
+- Local PostgreSQL 18.3 or later with pgvector 0.8.1+, pg_trgm, btree_gin, pgcrypto, and pg_stat_statements
 - Optional: Docker, if you prefer the Compose-based Postgres path
-- AWS credentials only for optional Bedrock embeddings, Bedrock Agent integration, or later Aurora deployment
+- AWS credentials for optional Bedrock embeddings, Bedrock Agent integration, or the Aurora deployment path
 
 ## What participants build
 
@@ -59,13 +59,15 @@ make install
 cp .env.example .env
 ```
 
+The sample is configured for `us-east-1` when AWS services are used. Keep `AWS_REGION=us-east-1` and `AWS_DEFAULT_REGION=us-east-1` in your shell for the Aurora and Bedrock paths.
+
 Install PostgreSQL and pgvector with Homebrew:
 
 ```bash
 brew install postgresql@18 pgvector
 ```
 
-The native bootstrap checks for PostgreSQL 18.4 or later and pgvector 0.8.2 or later. The local scripts prefer Homebrew's `postgresql@18` binaries at `/usr/local/opt/postgresql@18`.
+The native bootstrap checks for PostgreSQL 18.3 or later and pgvector 0.8.1 or later. The local scripts prefer Homebrew's `postgresql@18` binaries at `/usr/local/opt/postgresql@18`.
 
 Start local Postgres, create the database, create schema, load the sample source bundle, and embed chunks:
 
@@ -108,7 +110,60 @@ python backend/scripts/load_jsonl_to_postgres.py --input data/sample/source_obje
 make embed
 ```
 
-The Compose image builds PostgreSQL `18.4` with pgvector `v0.8.2`.
+The Compose image builds PostgreSQL `18.3` with pgvector `v0.8.2`.
+
+## Aurora PostgreSQL 18.3 Option
+
+The CDK stack provisions a net-new Aurora PostgreSQL 18.3 Serverless v2 cluster, the source landing buckets, a Secrets Manager database secret, and the placeholder Bedrock Agent action Lambda.
+
+Bootstrap the target account and region if needed:
+
+```bash
+cd infra/cdk
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+export AWS_REGION=us-east-1
+export AWS_DEFAULT_REGION=us-east-1
+npx aws-cdk@latest bootstrap
+```
+
+Deploy the stack. Pass your current client IP as a `/32` so the local API and schema loader can reach Aurora directly:
+
+```bash
+export CLIENT_CIDR="$(curl -s https://checkip.amazonaws.com)/32"
+export AWS_REGION=us-east-1
+export AWS_DEFAULT_REGION=us-east-1
+npx aws-cdk@latest deploy \
+  --parameters ClientAccessCidr="$CLIENT_CIDR" \
+  --parameters DatabaseName=retrieval
+```
+
+After deploy, use the `AuroraDatabaseUrlCommand` output from CloudFormation to create `DATABASE_URL`, then install the schema and verify PostgreSQL plus pgvector:
+
+```bash
+cd ../..
+eval "$(scripts/aurora_database_url.sh <secret-arn> <cluster-endpoint> retrieval)"
+make aurora-verify
+python backend/scripts/load_jsonl_to_postgres.py --input data/sample/source_objects.jsonl --truncate
+make embed
+```
+
+`make aurora-verify` creates or updates the required extensions and schema, then checks for PostgreSQL 18.3+ and pgvector 0.8.1+.
+
+## Optional Bedrock Model Defaults
+
+The local lab uses deterministic hash embeddings unless `EMBED_PROVIDER=bedrock` is set. When Bedrock is enabled, the repo expects these model IDs:
+
+```text
+BEDROCK_OPUS_MODEL=global.anthropic.claude-opus-4-8
+BEDROCK_SONNET_MODEL=global.anthropic.claude-sonnet-5
+BEDROCK_ROUTER_MODEL=global.anthropic.claude-sonnet-5
+BEDROCK_REPORTING_MODEL=global.anthropic.claude-sonnet-5
+BEDROCK_CHAT_MODEL=global.anthropic.claude-opus-4-8
+BEDROCK_EMBEDDING_MODEL=us.cohere.embed-v4:0
+BEDROCK_RERANK_MODEL=cohere.rerank-v3-5:0
+```
 
 ## Search
 

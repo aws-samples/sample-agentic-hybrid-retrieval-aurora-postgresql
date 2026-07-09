@@ -10,6 +10,7 @@ __pycache__/
 .ruff_cache/
 .build/
 .dev-logs/
+logs/
 .postgres-data/
 .postgres-data-*/
 .postgres.log
@@ -30,6 +31,7 @@ npm-debug.log*
 
 # AWS/CDK
 cdk.out/
+infra/cdk/cdk.context.json
 *.pem
 
 # OS/editor

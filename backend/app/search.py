@@ -12,7 +12,7 @@ from .models import SearchRequest
 
 def run_hybrid_search(req: SearchRequest) -> dict[str, Any]:
     settings = get_settings()
-    emb = to_pgvector(embed_text(req.query, provider=settings.embed_provider, dim=settings.embed_dim))
+    emb = to_pgvector(embed_text(req.query, provider=settings.embed_provider, dim=settings.embed_dim, input_type="search_query"))
     filters = req.model_dump(exclude={"query"})
     with get_dict_conn() as conn:
         with conn.cursor() as cur:

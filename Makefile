@@ -1,7 +1,7 @@
 DATABASE_URL ?= postgresql://localhost:55432/retrieval?sslmode=disable
 PGVECTOR_VERSION ?= v0.8.2
-PGVECTOR_MIN_VERSION ?= 0.8.2
-POSTGRES_MIN_VERSION ?= 18.4
+PGVECTOR_MIN_VERSION ?= 0.8.1
+POSTGRES_MIN_VERSION ?= 18.3
 PYTHON ?= .venv/bin/python
 UVICORN ?= .venv/bin/uvicorn
 SQL_FILES := sql/00_extensions.sql sql/01_schema.sql sql/02_indexes.sql sql/03_search_functions.sql sql/04_diagnostics.sql sql/05_evaluation.sql
@@ -11,7 +11,7 @@ export PGVECTOR_VERSION
 export PGVECTOR_MIN_VERSION
 export POSTGRES_MIN_VERSION
 
-.PHONY: install install-pgvector local-db-start local-db-stop local-db-bootstrap schema sample load embed api frontend smoke clean
+.PHONY: install install-pgvector local-db-start local-db-stop local-db-bootstrap schema aurora-verify sample load embed api frontend smoke clean
 
 install:
 	python -m venv .venv
@@ -34,6 +34,10 @@ schema:
 	$(PYTHON) backend/scripts/check_pgvector.py --available --min-version $(PGVECTOR_MIN_VERSION)
 	$(PYTHON) backend/scripts/run_sql.py --files $(SQL_FILES)
 	$(PYTHON) backend/scripts/check_pgvector.py --min-version $(PGVECTOR_MIN_VERSION)
+
+aurora-verify: schema
+	$(PYTHON) backend/scripts/check_postgres.py --min-version 18.3
+	$(PYTHON) backend/scripts/check_pgvector.py --min-version 0.8.1
 
 sample:
 	$(PYTHON) backend/scripts/generate_workshop_operational_data.py --objects 2000 --out data/generated --seed 42

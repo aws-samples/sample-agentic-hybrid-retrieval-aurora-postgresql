@@ -6,14 +6,14 @@ POSTGRES_HOME="${POSTGRES_HOME:-/usr/local/opt/postgresql@18}"
 if [[ -x "$POSTGRES_HOME/bin/postgres" ]]; then
   export PATH="$POSTGRES_HOME/bin:$PATH"
 fi
-PGDATA="${PGDATA:-$ROOT_DIR/.postgres-data-18.4}"
+PGDATA="${PGDATA:-$ROOT_DIR/.postgres-data-18}"
 PGPORT="${PGPORT:-55432}"
 PGDATABASE="${PGDATABASE:-retrieval}"
 PGLOG="${PGLOG:-$ROOT_DIR/.postgres.log}"
 DATABASE_URL="${DATABASE_URL:-postgresql://localhost:$PGPORT/$PGDATABASE?sslmode=disable}"
 PYTHON_BIN="${PYTHON:-$ROOT_DIR/.venv/bin/python}"
-POSTGRES_MIN_VERSION="${POSTGRES_MIN_VERSION:-18.4}"
-PGVECTOR_MIN_VERSION="${PGVECTOR_MIN_VERSION:-0.8.2}"
+POSTGRES_MIN_VERSION="${POSTGRES_MIN_VERSION:-18.3}"
+PGVECTOR_MIN_VERSION="${PGVECTOR_MIN_VERSION:-0.8.1}"
 SQL_FILES=(
   sql/00_extensions.sql
   sql/01_schema.sql
@@ -51,7 +51,7 @@ ensure_postgres_version() {
   actual="$(postgres --version | sed -E 's/.* ([0-9]+(\.[0-9]+)?).*/\1/')"
   if ! version_ge "$actual" "$POSTGRES_MIN_VERSION"; then
     echo "Local postgres binary is $actual; expected >= $POSTGRES_MIN_VERSION." >&2
-    echo "Install PostgreSQL 18.4 with Homebrew or use the Docker Compose path." >&2
+    echo "Install PostgreSQL 18.3 or later with Homebrew, or use the Docker Compose path." >&2
     exit 1
   fi
   required_major="${POSTGRES_MIN_VERSION%%.*}"

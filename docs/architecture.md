@@ -8,7 +8,7 @@ Slack-like threads / Jira / Confluence / Salesforce / GitHub / files
 Normalization + chunking + citation extraction
         │
         ▼
-Local PostgreSQL with pgvector
+PostgreSQL with pgvector
   - source_objects
   - object_chunks
   - object_links
@@ -28,4 +28,4 @@ Local PostgreSQL with pgvector
         └── React frontend
 ```
 
-The connector is not the retrieval engine. Connectors feed source objects into PostgreSQL; PostgreSQL performs retrieval, ranking, diagnostics, and evidence storage. The local lab uses localhost PostgreSQL first; the same schema and search functions are intended to move to Aurora PostgreSQL later.
+The connector is not the retrieval engine. Connectors feed source objects into PostgreSQL; PostgreSQL performs retrieval, ranking, diagnostics, and evidence storage. The lab can use localhost PostgreSQL or the CDK-provisioned Aurora PostgreSQL 18.3 cluster; both paths use the same schema and search functions.

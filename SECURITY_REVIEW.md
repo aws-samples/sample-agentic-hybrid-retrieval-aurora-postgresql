@@ -6,7 +6,7 @@ This repository is designed to be reviewed before creating or publishing an inte
 
 - No real Jira, Confluence, Slack, Salesforce, ServiceNow, GitHub, or customer data.
 - No committed secrets, tokens, OAuth client secrets, private keys, or AWS credentials.
-- No vendor logo image assets.
+- No vendored vendor logo image files. The React UI uses package-provided brand SVG components for source badges.
 - No analytics or telemetry.
 - No automatic outbound calls from the frontend.
 - No live connector runs unless a user explicitly invokes connector scripts and provides credentials through environment variables.
@@ -22,8 +22,13 @@ The repo uses `.env.example` only. Real deployments should store secrets in AWS 
 Recommended secret keys:
 
 - `DATABASE_URL`
-- `BEDROCK_MODEL_ID`
-- `BEDROCK_EMBED_MODEL_ID`
+- `BEDROCK_OPUS_MODEL`
+- `BEDROCK_SONNET_MODEL`
+- `BEDROCK_ROUTER_MODEL`
+- `BEDROCK_REPORTING_MODEL`
+- `BEDROCK_CHAT_MODEL`
+- `BEDROCK_EMBEDDING_MODEL`
+- `BEDROCK_RERANK_MODEL`
 - `GITHUB_TOKEN`
 - `SLACK_BOT_TOKEN`
 - `SALESFORCE_ACCESS_TOKEN`

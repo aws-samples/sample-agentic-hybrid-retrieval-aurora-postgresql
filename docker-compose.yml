@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: infra/local-postgres/Dockerfile
       args:
-        POSTGRES_IMAGE_VERSION: "18.4"
+        POSTGRES_IMAGE_VERSION: "18.3"
         POSTGRES_MAJOR: "18"
         PGVECTOR_VERSION: "v0.8.2"
     command:
@@ -18,7 +18,7 @@ services:
     ports:
       - "55432:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U retrieval -d retrieval"]
       interval: 5s

@@ -7,6 +7,8 @@ from typing import List
 
 import numpy as np
 
+DEFAULT_BEDROCK_EMBEDDING_MODEL = "us.cohere.embed-v4:0"
+
 SYNONYMS = {
     "delay": ["blocked", "slipped", "late", "lag", "deferred"],
     "customer": ["account", "client", "tenant"],
@@ -39,19 +41,59 @@ def hash_embedding(text: str, dim: int = 1024) -> List[float]:
         vec = vec / norm
     return [float(x) for x in vec]
 
-def bedrock_embedding(text: str, dim: int = 1024, model_id: str | None = None, region: str | None = None) -> List[float]:
+def _bedrock_embedding_model(model_id: str | None) -> str:
+    return (
+        model_id
+        or os.environ.get("BEDROCK_EMBEDDING_MODEL")
+        or os.environ.get("BEDROCK_EMBED_MODEL_ID")
+        or DEFAULT_BEDROCK_EMBEDDING_MODEL
+    )
+
+def _cohere_embed_body(text: str, dim: int, input_type: str) -> dict:
+    return {
+        "texts": [text],
+        "input_type": input_type,
+        "embedding_types": ["float"],
+        "output_dimension": dim,
+        "truncate": "END",
+    }
+
+def _titan_embed_body(text: str, dim: int) -> dict:
+    return {"inputText": text, "dimensions": dim, "normalize": True}
+
+def _embedding_from_payload(payload: dict) -> List[float]:
+    if isinstance(payload.get("embedding"), list):
+        return payload["embedding"]
+
+    embeddings = payload.get("embeddings")
+    if isinstance(embeddings, list) and embeddings and isinstance(embeddings[0], list):
+        return embeddings[0]
+    if isinstance(embeddings, dict):
+        floats = embeddings.get("float") or embeddings.get("floats")
+        if isinstance(floats, list) and floats and isinstance(floats[0], list):
+            return floats[0]
+
+    raise ValueError("Bedrock embedding response did not include a supported embedding field.")
+
+def bedrock_embedding(
+    text: str,
+    dim: int = 1024,
+    model_id: str | None = None,
+    region: str | None = None,
+    input_type: str = "search_document",
+) -> List[float]:
     import boto3
-    model_id = model_id or os.environ.get("BEDROCK_EMBED_MODEL_ID", "amazon.titan-embed-text-v2:0")
+    model_id = _bedrock_embedding_model(model_id)
     region = region or os.environ.get("AWS_REGION", "us-east-1")
     client = boto3.client("bedrock-runtime", region_name=region)
-    body = {"inputText": text, "dimensions": dim, "normalize": True}
+    body = _cohere_embed_body(text, dim, input_type) if "cohere.embed" in model_id else _titan_embed_body(text, dim)
     resp = client.invoke_model(modelId=model_id, body=json.dumps(body))
     payload = json.loads(resp["body"].read())
-    return payload["embedding"]
+    return _embedding_from_payload(payload)
 
-def embed_text(text: str, provider: str = "hash", dim: int = 1024) -> List[float]:
+def embed_text(text: str, provider: str = "hash", dim: int = 1024, input_type: str = "search_document") -> List[float]:
     if provider == "bedrock":
-        return bedrock_embedding(text, dim=dim)
+        return bedrock_embedding(text, dim=dim, input_type=input_type)
     return hash_embedding(text, dim=dim)
 
 def to_pgvector(values: List[float]) -> str:

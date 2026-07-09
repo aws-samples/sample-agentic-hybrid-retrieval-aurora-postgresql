@@ -18,7 +18,7 @@ def version_tuple(value: str) -> tuple[int, ...]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate pgvector availability and installed version.")
-    parser.add_argument("--min-version", default="0.8.2")
+    parser.add_argument("--min-version", default="0.8.1")
     parser.add_argument("--available", action="store_true", help="Check pg_available_extensions before CREATE EXTENSION runs")
     args = parser.parse_args()
 
