@@ -13,8 +13,8 @@ from app.db import get_conn
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True)
-    parser.add_argument("--source-name", default="synthetic-workshop-bundle")
-    parser.add_argument("--source-system", default="synthetic")
+    parser.add_argument("--source-name", default="workshop-source-bundle")
+    parser.add_argument("--source-system", default="source_bundle")
     parser.add_argument("--truncate", action="store_true")
     args = parser.parse_args()
 

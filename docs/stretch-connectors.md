@@ -2,11 +2,11 @@
 
 ## Core lab
 
-Use synthetic source objects, including Slack-like threads, Jira issues, Confluence docs, Salesforce cases, and GitHub PRs.
+Use the workshop source-object bundle, including Slack-like threads, Jira issues, Confluence docs, Salesforce cases, and GitHub PRs.
 
 ## Stretch 1: GitHub live ingestion
 
-Pull GitHub issues and pull requests, normalize them into source objects, load into Aurora, and embed chunks.
+Pull GitHub issues and pull requests, normalize them into source objects, load into PostgreSQL, and embed chunks.
 
 ## Stretch 2: Slack federated retrieval
 
@@ -18,4 +18,4 @@ Use AppFlow or Glue to export SaaS data to S3, normalize into source objects, an
 
 ## Stretch 4: MCP wrapper
 
-Wrap `/v1/search` and `/v1/agent/answer` as MCP tools. Aurora PostgreSQL remains the retrieval engine.
+Wrap `/v1/search` and `/v1/agent/answer` as MCP tools. PostgreSQL remains the retrieval engine for the local lab.

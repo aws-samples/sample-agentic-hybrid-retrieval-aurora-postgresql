@@ -61,6 +61,52 @@ def source_status(source_id: str):
                 raise HTTPException(404, "source not found")
             return row
 
+@app.get("/v1/objects/{object_id}")
+def source_object_detail(object_id: str):
+    with get_dict_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM ops.source_objects WHERE object_id = %s", (object_id,))
+            obj = cur.fetchone()
+            if not obj:
+                raise HTTPException(404, "source object not found")
+            cur.execute("""
+                SELECT chunk_id, chunk_index, section_title, chunk_text, chunk_summary, metadata
+                FROM ops.object_chunks
+                WHERE object_id = %s
+                ORDER BY chunk_index
+            """, (object_id,))
+            chunks = cur.fetchall()
+            cur.execute("""
+                SELECT citation_id, chunk_id, source_label, source_url, locator, quote_text, metadata
+                FROM ops.citations
+                WHERE object_id = %s
+                ORDER BY locator
+            """, (object_id,))
+            citations = cur.fetchall()
+            cur.execute("""
+                SELECT l.link_id, l.link_type, l.confidence, l.metadata,
+                       o.object_id, o.source_system, o.source_type, o.external_id, o.title, o.url
+                FROM ops.object_links l
+                JOIN ops.source_objects o ON o.object_id = l.to_object_id
+                WHERE l.from_object_id = %s
+                ORDER BY l.confidence DESC, o.updated_at DESC NULLS LAST
+            """, (object_id,))
+            links = cur.fetchall()
+            return {"object": obj, "chunks": chunks, "citations": citations, "links": links}
+
+@app.get("/v1/runs/{run_id}/candidates")
+def retrieval_run_candidates(run_id: str):
+    with get_dict_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT c.*, o.source_system, o.source_type, o.external_id, o.title, o.url
+                FROM ops.retrieval_candidates c
+                JOIN ops.source_objects o ON o.object_id = c.object_id
+                WHERE c.run_id = %s
+                ORDER BY c.final_score DESC NULLS LAST
+            """, (run_id,))
+            return {"run_id": run_id, "candidates": cur.fetchall()}
+
 @app.post("/v1/search")
 def search(req: SearchRequest):
     return run_hybrid_search(req)

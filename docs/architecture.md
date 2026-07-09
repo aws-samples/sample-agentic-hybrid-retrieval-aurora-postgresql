@@ -3,12 +3,12 @@
 ```text
 Slack-like threads / Jira / Confluence / Salesforce / GitHub / files
         │
-        │  Source Ingest API, connector, AppFlow export, or synthetic bundle
+        │  Source Ingest API, connector, AppFlow export, or workshop source bundle
         ▼
 Normalization + chunking + citation extraction
         │
         ▼
-Amazon Aurora PostgreSQL
+Local PostgreSQL with pgvector
   - source_objects
   - object_chunks
   - object_links
@@ -28,4 +28,4 @@ Amazon Aurora PostgreSQL
         └── React frontend
 ```
 
-The connector is not the retrieval engine. Connectors feed source objects into Aurora PostgreSQL; Aurora performs retrieval, ranking, diagnostics, and evidence storage.
+The connector is not the retrieval engine. Connectors feed source objects into PostgreSQL; PostgreSQL performs retrieval, ranking, diagnostics, and evidence storage. The local lab uses localhost PostgreSQL first; the same schema and search functions are intended to move to Aurora PostgreSQL later.

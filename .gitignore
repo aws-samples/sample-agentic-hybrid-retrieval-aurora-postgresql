@@ -8,6 +8,11 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.build/
+.dev-logs/
+.postgres-data/
+.postgres-data-*/
+.postgres.log
 
 # Node
 node_modules/

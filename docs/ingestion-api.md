@@ -1,6 +1,6 @@
 # Evidence Pipeline API
 
-The ingestion API turns source objects into Aurora PostgreSQL-ready hybrid search evidence.
+The ingestion API turns source objects into PostgreSQL-ready hybrid search evidence.
 
 ## Endpoints
 
@@ -18,7 +18,7 @@ POST /v1/agent/answer
 ```json
 {
   "source_name": "orion-demo-bundle",
-  "source_system": "synthetic",
+  "source_system": "source_bundle",
   "objects": [
     {
       "source_system": "jira",
@@ -29,7 +29,7 @@ POST /v1/agent/answer
       "status": "In Progress",
       "priority": "P1",
       "project_key": "ORION",
-      "component": "Aurora PostgreSQL",
+      "component": "PostgreSQL",
       "updated_at": "2026-05-02T14:52:00Z",
       "body": "Read replica lag observed during peak load is delaying cutover...",
       "metadata": {"labels": ["database", "replication"]},

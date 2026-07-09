@@ -25,7 +25,7 @@ class SourceObject(BaseModel):
 
 class IngestObjectsRequest(BaseModel):
     source_name: str = "api-ingest"
-    source_system: str = "synthetic"
+    source_system: str = "source_bundle"
     objects: List[SourceObject]
 
 class SearchRequest(BaseModel):
@@ -43,10 +43,14 @@ class SearchRequest(BaseModel):
 
 class AgentAnswerRequest(BaseModel):
     question: str
+    source_systems: Optional[List[str]] = None
+    project_key: Optional[str] = None
+    account_name: Optional[str] = None
+    component: Optional[str] = None
     limit: int = Field(8, ge=1, le=20)
 
 class SourceCreateRequest(BaseModel):
     source_system: str
     source_name: str
-    auth_mode: str = "synthetic"
+    auth_mode: str = "api"
     config: Dict[str, Any] = Field(default_factory=dict)

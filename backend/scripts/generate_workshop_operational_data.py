@@ -7,7 +7,7 @@ from pathlib import Path
 
 PROJECTS = ["ORION", "ATLAS", "MERIDIAN", "NOVA", "KEYSTONE"]
 ACCOUNTS = ["Acme Corp", "Northwind Traders", "Globex", "Initech", "Umbrella Financial", "Contoso Health"]
-COMPONENTS = ["Aurora PostgreSQL", "Search Service", "Connector Service", "Billing API", "Data Plane"]
+COMPONENTS = ["PostgreSQL", "Search Service", "Connector Service", "Billing API", "Data Plane"]
 TEAMS = ["Database Platform", "Search Platform", "Customer Engineering", "Release Engineering", "Support Ops"]
 
 SOURCE_TYPES = {
@@ -101,8 +101,8 @@ def main():
             "created_at": iso_date(180),
             "updated_at": iso_date(30),
             "source_authority": round(random.uniform(0.60, 0.98), 2),
-            "acl": {"visibility": "synthetic_workshop", "allowed_teams": random.sample(TEAMS, k=2)},
-            "metadata": {"synthetic": True, "labels": random.sample(["database", "latency", "failover", "release", "customer-impact", "migration", "runbook", "slack-decision"], 3)},
+            "acl": {"visibility": "workshop_lab", "allowed_teams": random.sample(TEAMS, k=2)},
+            "metadata": {"workshop_seed": True, "labels": random.sample(["database", "latency", "failover", "release", "customer-impact", "migration", "runbook", "slack-decision"], 3)},
             "body": body,
         })
 
@@ -111,7 +111,7 @@ def main():
         for row in rows:
             f.write(json.dumps(row) + "\n")
 
-    (out / "manifest.json").write_text(json.dumps({"objects": len(rows), "synthetic": True}, indent=2), encoding="utf-8")
+    (out / "manifest.json").write_text(json.dumps({"objects": len(rows), "workshop_seed": True}, indent=2), encoding="utf-8")
     print(f"Wrote {len(rows)} objects to {path}")
 
 if __name__ == "__main__":

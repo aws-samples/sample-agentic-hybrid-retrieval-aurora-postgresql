@@ -1,19 +1,20 @@
-# Sample Agentic Hybrid Retrieval with Amazon Aurora PostgreSQL
+# Agentic Hybrid Retrieval with PostgreSQL and pgvector
 
-This repository is a security-reviewable starter implementation for a re:Invent builders' session:
+This repository is a security-reviewable starter implementation for a re:Invent 2026 builders' session:
 
 > **Build agentic hybrid retrieval with Amazon Aurora PostgreSQL**
 
-The sample application builds an operational evidence retrieval layer over fragmented work systems such as Slack-like conversations, Jira issues, Confluence pages, Salesforce cases, GitHub pull requests, runbooks, and incident notes.
+For local development and the first builder-session path, the retrieval engine is **localhost PostgreSQL 18.4 with pgvector 0.8.2 or later**. The schema and query patterns are designed to carry forward to Aurora PostgreSQL after the local lab is working.
 
-The repo intentionally uses **synthetic data by default**. It contains optional connector scaffolds, but no real SaaS credentials, no vendor logo assets, no customer data, and no production secrets.
+The product is an operational evidence retrieval layer over fragmented work systems such as Slack-like conversations, Jira issues, Confluence pages, Salesforce cases, GitHub pull requests, runbooks, and incident notes.
 
 ## Prerequisites
 
 - Python 3.11 or later
-- Aurora PostgreSQL or PostgreSQL with the required extensions from [`sql/00_extensions.sql`](sql/00_extensions.sql)
-- Node.js 20.19 or later for the optional frontend and MCP server
-- AWS credentials only for optional Bedrock embeddings, Amazon Bedrock Agent integration, or CDK deployment
+- Node.js 20.19 or later for the frontend and MCP server
+- Local PostgreSQL 18.4 with pgvector 0.8.2+, pg_trgm, btree_gin, pgcrypto, and pg_stat_statements
+- Optional: Docker, if you prefer the Compose-based Postgres path
+- AWS credentials only for optional Bedrock embeddings, Bedrock Agent integration, or later Aurora deployment
 
 ## What participants build
 
@@ -24,7 +25,7 @@ Participants build a lightweight retrieval system that can answer questions like
 The system:
 
 1. Ingests operational source objects.
-2. Normalizes records into an Aurora PostgreSQL schema.
+2. Normalizes records into a PostgreSQL schema.
 3. Chunks long text.
 4. Generates embeddings.
 5. Stores source links and citations.
@@ -33,61 +34,49 @@ The system:
 8. Returns cited answers through agent-callable tools.
 9. Stores retrieval diagnostics for evaluation and explainability.
 
-## Repo layout
+## Repo Layout
 
 ```text
 .
 ├── backend/                    # FastAPI API, ingestion pipeline, search, agent tools
-├── frontend/                   # Vite + React UI scaffold
-├── sql/                        # Aurora PostgreSQL schema, indexes, functions, diagnostics
-├── data/                       # Small synthetic sample data
+├── frontend/                   # Vite + React UI
+├── sql/                        # PostgreSQL schema, indexes, functions, diagnostics
+├── data/                       # Workshop-safe source bundle
 ├── connectors/                 # Optional connector scaffolds and normalizers
 ├── bedrock-agent/              # Optional Amazon Bedrock Agent action group wrapper
 ├── mcp-server/                 # Optional MCP wrapper around the retrieval API
-├── infra/                      # CDK skeleton for AWS resources
-├── mockups/                    # Static HTML prototype based on the latest design
+├── infra/                      # CDK skeleton and local Postgres Dockerfile
+├── mockups/                    # Static design prototype reference
 └── docs/                       # Session plan, architecture, security notes, stretch labs
 ```
 
-## Quick Start: Local API + Aurora
+## Quick Start: Local Postgres + API + UI
 
 Set up Python dependencies:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r backend/requirements.txt
+make install
 cp .env.example .env
 ```
 
-Edit `.env` and set `DATABASE_URL` to your Aurora PostgreSQL connection string. Do not commit `.env`.
-
-Create schema and search functions:
+Install PostgreSQL and pgvector with Homebrew:
 
 ```bash
-python backend/scripts/run_sql.py --files \
-  sql/00_extensions.sql \
-  sql/01_schema.sql \
-  sql/02_indexes.sql \
-  sql/03_search_functions.sql \
-  sql/04_diagnostics.sql \
-  sql/05_evaluation.sql
+brew install postgresql@18 pgvector
 ```
 
-Generate a small synthetic corpus:
+The native bootstrap checks for PostgreSQL 18.4 or later and pgvector 0.8.2 or later. The local scripts prefer Homebrew's `postgresql@18` binaries at `/usr/local/opt/postgresql@18`.
+
+Start local Postgres, create the database, create schema, load the sample source bundle, and embed chunks:
 
 ```bash
-python backend/scripts/generate_synthetic_operational_data.py \
-  --objects 2000 \
-  --out data/generated \
-  --seed 42
+make local-db-bootstrap
 ```
 
-Ingest it through the API path:
+This uses:
 
-```bash
-python backend/scripts/load_jsonl_to_aurora.py --input data/generated/source_objects.jsonl --truncate
-python backend/scripts/embed_chunks.py --provider hash --batch-size 500
+```text
+DATABASE_URL=postgresql://localhost:55432/retrieval?sslmode=disable
 ```
 
 Run the API:
@@ -96,7 +85,32 @@ Run the API:
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
-Search:
+Run the frontend:
+
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
+
+The frontend calls the API directly. If the API or database is unavailable, it shows an explicit setup/search error; it does not substitute offline result data.
+
+## Docker Postgres Option
+
+If Docker is available:
+
+```bash
+docker compose up -d --build postgres
+export DATABASE_URL=postgresql://retrieval:retrieval@localhost:55432/retrieval?sslmode=disable
+make schema
+python backend/scripts/load_jsonl_to_postgres.py --input data/sample/source_objects.jsonl --truncate
+make embed
+```
+
+The Compose image builds PostgreSQL `18.4` with pgvector `v0.8.2`.
+
+## Search
 
 ```bash
 curl -X POST http://localhost:8000/v1/search \
@@ -109,7 +123,7 @@ curl -X POST http://localhost:8000/v1/search \
   }'
 ```
 
-Agent answer:
+## Agent Answer
 
 ```bash
 curl -X POST http://localhost:8000/v1/agent/answer \
@@ -120,38 +134,12 @@ curl -X POST http://localhost:8000/v1/agent/answer \
   }'
 ```
 
-## Frontend
-
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev
-```
-
-The frontend defaults to mock data if the API is unavailable.
-
-## Optional AWS CDK Skeleton
-
-The CDK app in [`infra/cdk`](infra/cdk) creates starter resources for the workshop sample, including S3 buckets, a Secrets Manager secret, and the optional Bedrock Agent action Lambda.
-
-```bash
-cd infra/cdk
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cdk synth
-cdk deploy --parameters RetrievalApiUrl=<retrieval-api-url>
-```
-
-The `RetrievalApiUrl` parameter is optional. Leave it blank until the retrieval API has been deployed.
-
 ## Repository Conventions
 
 - Keep local configuration in `.env`; only `.env.example` is committed.
 - Keep generated corpora under `data/generated/`; it is ignored by git.
 - Keep live connector exports under `data/live/`; it is ignored by git.
-- Keep workshop-safe synthetic seed data under `data/sample/`.
+- Keep workshop-safe seed data under `data/sample/`.
 - Use `SECURITY_REVIEW.md` for review notes that should remain visible to maintainers.
 
 ## Security Review Notes
@@ -160,7 +148,7 @@ See [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md). The package is intentionally rev
 
 - No committed credentials.
 - No real customer data.
-- Synthetic workshop data only.
+- Workshop source data only.
 - Optional connectors require explicit environment variables.
 - No vendor logo assets included.
 - No telemetry or analytics.

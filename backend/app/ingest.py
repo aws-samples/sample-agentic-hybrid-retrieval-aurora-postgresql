@@ -2,6 +2,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections import defaultdict
 from typing import Iterable, List, Tuple
 from uuid import UUID
 
@@ -62,7 +63,9 @@ def create_job(source_system: str, source_name: str, object_count: int) -> tuple
 def upsert_objects(source_id: str, job_id: str, objects: list[SourceObject]) -> dict:
     object_count = 0
     chunk_count = 0
+    link_count = 0
     citation_count = 0
+    indexed_objects = []
     with get_dict_conn() as conn:
         with conn.cursor() as cur:
             for obj in objects:
@@ -101,8 +104,18 @@ def upsert_objects(source_id: str, job_id: str, objects: list[SourceObject]) -> 
                     "body_hash": body_hash(obj.body),
                 })
                 object_id = cur.fetchone()["object_id"]
+                indexed_objects.append({
+                    "object_id": object_id,
+                    "source_system": obj.source_system,
+                    "project_key": obj.project_key,
+                    "component": obj.component,
+                    "account_name": obj.account_name,
+                    "priority": obj.priority,
+                })
                 object_count += 1
-                for idx, chunk in enumerate(chunk_text(obj.body), start=1):
+                chunks = chunk_text(obj.body)
+                cur.execute("DELETE FROM ops.citations WHERE object_id = %s", (object_id,))
+                for idx, chunk in enumerate(chunks, start=1):
                     cur.execute("""
                         INSERT INTO ops.object_chunks(object_id, chunk_index, section_title, chunk_text, chunk_summary, metadata)
                         VALUES (%s, %s, %s, %s, %s, %s::jsonb)
@@ -119,18 +132,53 @@ def upsert_objects(source_id: str, job_id: str, objects: list[SourceObject]) -> 
                         VALUES (%s, %s, %s, %s, %s, %s)
                     """, (chunk_id, object_id, f"{obj.source_system}:{obj.external_id}", obj.url, f"chunk {idx}", chunk[:500]))
                     citation_count += 1
+                cur.execute("DELETE FROM ops.object_chunks WHERE object_id = %s AND chunk_index > %s", (object_id, len(chunks)))
+
+            object_ids = [row["object_id"] for row in indexed_objects]
+            if object_ids:
+                cur.execute("DELETE FROM ops.object_links WHERE from_object_id = ANY(%s)", (object_ids,))
+            by_project: dict[str, list[dict]] = defaultdict(list)
+            for row in indexed_objects:
+                if row["project_key"]:
+                    by_project[row["project_key"]].append(row)
+            for group in by_project.values():
+                for src in group:
+                    candidates = [
+                        dst for dst in group
+                        if dst["object_id"] != src["object_id"] and dst["source_system"] != src["source_system"]
+                    ]
+                    candidates.sort(key=lambda dst: (
+                        dst["component"] != src["component"],
+                        dst["account_name"] != src["account_name"],
+                        dst["priority"] not in {"P0", "P1", "Sev1", "Sev2"},
+                    ))
+                    for dst in candidates[:3]:
+                        confidence = 0.92 if dst["component"] == src["component"] else 0.78
+                        cur.execute("""
+                            INSERT INTO ops.object_links(from_object_id, to_object_id, link_type, confidence, metadata)
+                            VALUES (%s, %s, 'same_project_evidence', %s, %s::jsonb)
+                            ON CONFLICT(from_object_id, to_object_id, link_type) DO UPDATE SET
+                              confidence = EXCLUDED.confidence,
+                              metadata = EXCLUDED.metadata
+                        """, (
+                            src["object_id"],
+                            dst["object_id"],
+                            confidence,
+                            json.dumps({"strategy": "same_project_cross_system", "project_key": src["project_key"]}),
+                        ))
+                        link_count += 1
             cur.execute("""
                 INSERT INTO ops.ingest_job_events(job_id, step_name, status, message, metadata)
-                VALUES (%s, 'upsert_aurora', 'complete', 'Objects, chunks, and citations upserted', %s::jsonb)
-            """, (job_id, json.dumps({"objects": object_count, "chunks": chunk_count, "citations": citation_count})))
+                VALUES (%s, 'upsert_postgres', 'complete', 'Objects, chunks, citations, and links upserted', %s::jsonb)
+            """, (job_id, json.dumps({"objects": object_count, "chunks": chunk_count, "citations": citation_count, "links": link_count})))
             cur.execute("""
                 UPDATE ops.ingest_jobs
-                SET status = 'ready', finished_at = now(), object_count = %s, chunk_count = %s, citation_count = %s
+                SET status = 'ready', finished_at = now(), object_count = %s, chunk_count = %s, citation_count = %s, link_count = %s
                 WHERE job_id = %s
-            """, (object_count, chunk_count, citation_count, job_id))
+            """, (object_count, chunk_count, citation_count, link_count, job_id))
             cur.execute("""
                 UPDATE ops.source_connectors
                 SET status = 'ready', last_sync_at = now()
                 WHERE source_id = %s
             """, (source_id,))
-    return {"job_id": job_id, "source_id": source_id, "objects_indexed": object_count, "chunks_created": chunk_count, "citations_created": citation_count, "ready_for_search": True}
+    return {"job_id": job_id, "source_id": source_id, "objects_indexed": object_count, "chunks_created": chunk_count, "links_created": link_count, "citations_created": citation_count, "ready_for_search": True}

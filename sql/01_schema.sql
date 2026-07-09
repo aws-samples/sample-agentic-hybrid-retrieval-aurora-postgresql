@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS ops.source_connectors (
   source_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   source_system text NOT NULL,
   source_name text NOT NULL,
-  auth_mode text NOT NULL DEFAULT 'synthetic',
+  auth_mode text NOT NULL DEFAULT 'api',
   status text NOT NULL DEFAULT 'configured',
   last_sync_at timestamptz,
   sync_cursor jsonb NOT NULL DEFAULT '{}'::jsonb,
