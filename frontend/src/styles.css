@@ -255,18 +255,30 @@ kbd {
 .navlinks {
   margin-left: auto;
   display: flex;
-  gap: 28px;
+  align-items: center;
+  gap: 10px;
 }
 
-.navlinks a {
+.navlinks a,
+.navlinks button {
+  border-radius: 999px;
   color: var(--ink-soft);
+  padding: 7px 11px;
   font-size: 13.5px;
   font-weight: 500;
   text-decoration: none;
 }
 
-.navlinks a:hover {
+.navlinks a:hover,
+.navlinks button:hover {
+  background: rgba(255, 255, 255, 0.58);
   color: var(--ink);
+}
+
+.navlinks button {
+  border: 1px solid rgba(193, 58, 38, 0.16);
+  background: rgba(255, 255, 255, 0.38);
+  color: var(--red-deep);
 }
 
 .shell {
@@ -287,6 +299,74 @@ kbd {
   box-shadow: var(--shadow-float);
   padding: 88px 84px 130px;
   overflow: visible;
+}
+
+.demo-strip {
+  max-width: 1180px;
+  margin: 86px auto 0;
+  display: grid;
+  grid-template-columns: minmax(230px, 0.74fr) minmax(0, 1.8fr);
+  align-items: center;
+  gap: 20px;
+  border: 1px solid rgba(33, 28, 22, 0.07);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: var(--shadow-card);
+  padding: 18px;
+}
+
+.demo-strip .mono-label {
+  display: block;
+  color: var(--red);
+}
+
+.demo-strip p {
+  margin: 7px 0 0;
+  max-width: 38ch;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.demo-links {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.demo-links button {
+  min-height: 72px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
+  color: var(--ink);
+  padding: 12px 13px;
+  text-align: left;
+}
+
+.demo-links button:hover {
+  border-color: rgba(193, 58, 38, 0.36);
+  background: #fffdfa;
+  box-shadow: var(--shadow-card);
+}
+
+.demo-links span {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.demo-links b {
+  display: block;
+  margin-top: 6px;
+  font-size: 14.5px;
+  font-weight: 600;
 }
 
 .hero::after {
@@ -2682,6 +2762,15 @@ blockquote span {
     padding-right: 0;
   }
 
+  .demo-strip {
+    grid-template-columns: 1fr;
+    margin-top: 72px;
+  }
+
+  .demo-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .sec-head {
     display: block;
   }
@@ -2767,6 +2856,14 @@ blockquote span {
   .chip {
     flex: 1 1 calc(50% - 10px);
     justify-content: center;
+  }
+
+  .demo-strip {
+    padding: 14px;
+  }
+
+  .demo-links {
+    grid-template-columns: 1fr;
   }
 
   .omnibox {

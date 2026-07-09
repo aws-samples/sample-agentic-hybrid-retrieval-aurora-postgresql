@@ -100,9 +100,10 @@ type ObjectDetail = {
 const API_URL = import.meta.env.VITE_RETRIEVAL_API_URL || 'http://127.0.0.1:8000';
 const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'Threadline';
 const queryDefault = 'Why did Orion slip?';
+const showcaseQuery = 'Why did Orion slip across Slack, Jira, Confluence, Salesforce, and GitHub?';
 const rotatingQueries = [
   queryDefault,
-  'Why did Orion slip across Slack, Jira, Confluence, Salesforce, and GitHub?',
+  showcaseQuery,
   'What changed before INC-0012345, which Jira blocker caused it, and which PR fixed it?',
   'Which Salesforce commitments are at risk, and what Slack and Jira evidence explains why?',
   'How do the readiness runbook, Slack decision, ORION-1473, and PR-1287 connect?'
@@ -139,6 +140,13 @@ const searchSuggestions = [
     query: 'Explain the Orion delay using the Slack decision, Jira blocker, Confluence gate, Salesforce case, ServiceNow incident, and GitHub PR.',
     sources: ['slack', 'jira', 'confluence', 'salesforce', 'servicenow', 'github']
   }
+];
+
+const workspaceNavItems: Array<{ page: Page; label: string; eyebrow: string; summary: string }> = [
+  { page: 'results', label: 'Evidence', eyebrow: '24 ranked results', summary: 'Hybrid-ranked sources and linked context' },
+  { page: 'agent', label: 'Answer', eyebrow: '6 cited sources', summary: 'Synthesized answer with inline citations' },
+  { page: 'trail', label: 'Trail', eyebrow: '8 linked objects', summary: 'Cross-system sequence and relationship path' },
+  { page: 'diagnostics', label: 'Diagnostics', eyebrow: '341 ms run', summary: 'Fusion, rerank, latency, and SQL trace' }
 ];
 
 const coreSources = [
@@ -728,13 +736,6 @@ function AppHeader({
   onSearch: () => void;
   onNavigate: (page: Page) => void;
 }) {
-  const navItems: Array<{ page: Page; label: string }> = [
-    { page: 'results', label: 'Evidence' },
-    { page: 'trail', label: 'Trails' },
-    { page: 'agent', label: 'Answers' },
-    { page: 'diagnostics', label: 'Diagnostics' }
-  ];
-
   return (
     <header className="appbar">
       <button className="wordmark-button" onClick={() => onNavigate('landing')} aria-label="Go to landing page">
@@ -757,7 +758,10 @@ function AppHeader({
         <kbd>⌘K</kbd>
       </form>
       <nav className="appnav" aria-label="Threadline workspace">
-        {navItems.map((item) => (
+        <button onClick={() => onNavigate('landing')} type="button">
+          Search
+        </button>
+        {workspaceNavItems.map((item) => (
           <button
             key={item.page}
             className={cx(page === item.page && 'on')}
@@ -777,11 +781,13 @@ function Landing({
   query,
   setQuery,
   onSearch,
+  onNavigate,
   error
 }: {
   query: string;
   setQuery: (value: string) => void;
   onSearch: (queryOverride?: string) => void;
+  onNavigate: (page: Page) => void;
   error?: string;
 }) {
   return (
@@ -792,9 +798,13 @@ function Landing({
         </button>
         <div className="navlinks">
           <a href="#overview">Overview</a>
+          {workspaceNavItems.map((item) => (
+            <button key={item.page} type="button" onClick={() => onNavigate(item.page)}>
+              {item.label}
+            </button>
+          ))}
           <a href="#how">How it works</a>
           <a href="#stack">Retrieval stack</a>
-          <a href="#systems">Integrations</a>
         </div>
       </nav>
 
@@ -870,6 +880,27 @@ function Landing({
 
           <div className="searchwrap">
             <SearchComposer query={query} setQuery={setQuery} onSearch={onSearch} autoType className="landing-composer" />
+          </div>
+        </section>
+
+        <section className="demo-strip" aria-label="Populated Orion run">
+          <div>
+            <span className="mono-label">Populated Orion run</span>
+            <p>Ranked evidence, cited answer, source trail, and diagnostics for the Orion run.</p>
+          </div>
+          <div className="demo-links">
+            {workspaceNavItems.map((item) => (
+              <button
+                key={item.page}
+                type="button"
+                title={item.summary}
+                aria-label={`${item.label}: ${item.summary}`}
+                onClick={() => onNavigate(item.page)}
+              >
+                <span>{item.eyebrow}</span>
+                <b>{item.label}</b>
+              </button>
+            ))}
           </div>
         </section>
 
@@ -990,7 +1021,6 @@ function ResultsPage({
   loading,
   setSelected,
   onSearch,
-  onAgent,
   onNavigate
 }: {
   page: Page;
@@ -1003,7 +1033,6 @@ function ResultsPage({
   loading: boolean;
   setSelected: (value: Result) => void;
   onSearch: () => void;
-  onAgent: () => void;
   onNavigate: (page: Page) => void;
 }) {
   const evidence = orderedEvidence(results);
@@ -1037,7 +1066,7 @@ function ResultsPage({
             <div className="count">
               <b>24 results</b> - fused from 148 candidates across 3 rankers - 341 ms - run <b>{runId?.slice(0, 10) || 'rr_7f3a9c'}</b>
             </div>
-            <button className="answer-ready" onClick={onAgent}>
+            <button className="answer-ready" onClick={() => onNavigate('agent')}>
               <span className="dot" />
               Agent answer ready
             </button>
@@ -1069,7 +1098,7 @@ function ResultsPage({
               <div className="meter"><i /></div>
               <div className="row"><span>COVERAGE</span><b>6 sources - 5 systems</b></div>
             </div>
-            <button className="rail-cta" onClick={onAgent}>Read the full answer</button>
+            <button className="rail-cta" onClick={() => onNavigate('agent')}>Read the full answer</button>
           </div>
 
           <div className="railcard">
@@ -1590,6 +1619,14 @@ function App() {
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
 
+  function navigate(pageTarget: Page) {
+    setLoading(false);
+    setError(undefined);
+    if (pageTarget !== 'landing' && (page === 'landing' || !query.trim())) setQuery(showcaseQuery);
+    if (pageTarget === 'detail' && !selected) setSelected(demoResults[0]);
+    setPage(pageTarget);
+  }
+
   useEffect(() => {
     if (page !== 'detail' || !selected?.object_id) return;
     let active = true;
@@ -1676,7 +1713,7 @@ function App() {
   }
 
   if (page === 'landing') {
-    return <Landing query={query} setQuery={setQuery} onSearch={runSearch} error={error} />;
+    return <Landing query={query} setQuery={setQuery} onSearch={runSearch} onNavigate={navigate} error={error} />;
   }
 
   if (page === 'detail') {
@@ -1690,13 +1727,13 @@ function App() {
         detailLoading={detailLoading}
         error={error}
         onSearch={runSearch}
-        onNavigate={setPage}
+        onNavigate={navigate}
       />
     );
   }
 
   if (page === 'trail') {
-    return <TrailPage page={page} query={query} setQuery={setQuery} results={results} error={error} onSearch={runSearch} onNavigate={setPage} />;
+    return <TrailPage page={page} query={query} setQuery={setQuery} results={results} error={error} onSearch={runSearch} onNavigate={navigate} />;
   }
 
   if (page === 'agent') {
@@ -1710,14 +1747,14 @@ function App() {
         loading={loading}
         onSearch={runSearch}
         onAgent={runAgent}
-        onNavigate={setPage}
+        onNavigate={navigate}
         results={results}
       />
     );
   }
 
   if (page === 'diagnostics') {
-    return <DiagnosticsPage page={page} query={query} setQuery={setQuery} onSearch={runSearch} onNavigate={setPage} />;
+    return <DiagnosticsPage page={page} query={query} setQuery={setQuery} onSearch={runSearch} onNavigate={navigate} />;
   }
 
   return (
@@ -1732,8 +1769,7 @@ function App() {
       loading={loading}
       setSelected={setSelected}
       onSearch={runSearch}
-      onAgent={runAgent}
-      onNavigate={setPage}
+      onNavigate={navigate}
     />
   );
 }
