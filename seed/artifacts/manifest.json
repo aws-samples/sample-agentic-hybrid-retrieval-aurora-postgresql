@@ -19,7 +19,7 @@
   ],
   "canonical_question": "Why did Orion slip?",
   "run_slug": "rr_7f3a9c",
-  "embedding_provider": "hash",
+  "embedding_provider": "bedrock",
   "embedding_model": "cohere.embed-v4",
   "embedding_dim": 1024,
   "index_spec": "HNSW m=16 ef=64",

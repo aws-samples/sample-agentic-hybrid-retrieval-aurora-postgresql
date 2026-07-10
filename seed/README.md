@@ -37,10 +37,20 @@ DATABASE_URL=postgresql://localhost:55432/retrieval?sslmode=disable \
   python seed/generate.py
 ```
 
-Embeddings are computed **offline** — no Bedrock calls during provisioning. The
-default `hash` provider is deterministic and workshop-safe; pass
-`--provider bedrock` to use Cohere `embed-v4` (1024-d) when credentials are
-present and you want production-fidelity vectors.
+Embeddings are computed **offline at build time** — no Bedrock calls during
+*provisioning* (the dump ships precomputed vectors). The committed
+`hybrid-retrieval-seed-v1.dump` carries **real Cohere `embed-v4` (1024-d)**
+vectors (`--provider bedrock`, the default when regenerating for the workshop).
+For a fully offline, $0 local rebuild, pass `--provider hash` — deterministic and
+credential-free, but see the runtime note below.
+
+> **Runtime provider must match the dump.** The stored chunk vectors and the
+> query vector must live in the *same* embedding space. If the loaded dump has
+> Cohere vectors, the backend must run with `EMBED_PROVIDER=bedrock` so live
+> `/v1/search` embeds queries with Cohere too; a `hash`-provider query against
+> Cohere documents returns meaningless neighbors. The canonical Orion demo answer
+> is unaffected either way — it is served from the stored `ops.agent_answers` row,
+> not recomputed at query time.
 
 ### Load / restore (workshop attendees, Workshop Studio bootstrap)
 
@@ -59,12 +69,18 @@ runs `ANALYZE`.
 
 ## Cost note
 
-Provisioning is **$0 in Bedrock spend** with the default `hash` embeddings — the
-dump ships precomputed 1024-d vectors, so restoring it makes no model calls. The
-`bedrock` provider is only exercised if a seed author explicitly regenerates with
-`--provider bedrock` (Cohere `embed-v4`, ~150 `search_document` embeddings). At
-query time the demo also makes no Bedrock calls unless the backend is configured
-with `EMBED_PROVIDER=bedrock`.
+Provisioning is **$0 in Bedrock spend** regardless of provider — the dump ships
+precomputed 1024-d vectors, so `pg_restore` makes no model calls. Embedding spend
+happens only **once, at build time**, when a seed author regenerates the dump:
+`--provider bedrock` makes ~150 `search_document` Cohere `embed-v4` calls (a few
+cents total); `--provider hash` makes none. Every workshop attendee then reuses
+that one prebuilt artifact — the embeddings are generated exactly once and
+restored verbatim thereafter.
+
+At query time the demo's canonical answer makes no Bedrock calls (it is served
+from `ops.agent_answers`). Ad-hoc `/v1/search` queries embed the query text with
+whatever `EMBED_PROVIDER` the backend is set to — set it to `bedrock` to match a
+Cohere dump (see the runtime note above).
 
 ## Divergences from the original five HTML mockups (flagged)
 
@@ -83,6 +99,8 @@ mockups* as follows:
   "All 148"). The candidate funnel is `150 → 6`.
 - **Embedding model:** the run metadata reads **`cohere.embed-v4 · 1024d`** (per
   the workshop's Bedrock model set), where an early mockup draft said
-  `titan-embed-v2`. The schema, indexes, and dump are all 1024-d.
+  `titan-embed-v2`. The schema, indexes, and dump are all 1024-d, and the shipped
+  dump carries **real Cohere `embed-v4` vectors** (not the offline `hash`
+  fallback).
 - **Session number:** any `DAT409`-style session references are placeholders and
   will change.

@@ -1,5 +1,15 @@
 # Agentic Hybrid Retrieval with PostgreSQL and pgvector
 
+[![License: MIT-0](https://img.shields.io/badge/License-MIT--0-yellow.svg)](LICENSE)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
+[![PostgreSQL 18.3+](https://img.shields.io/badge/PostgreSQL-18.3%2B-336791.svg?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![pgvector 0.8.1+](https://img.shields.io/badge/pgvector-0.8.1%2B-4B8BBE.svg)](https://github.com/pgvector/pgvector)
+[![Aurora PostgreSQL](https://img.shields.io/badge/Amazon%20Aurora-PostgreSQL-FF9900.svg?logo=amazonaws&logoColor=white)](https://aws.amazon.com/rds/aurora/)
+[![Amazon Bedrock](https://img.shields.io/badge/Amazon%20Bedrock-Cohere%20%26%20Claude-232F3E.svg?logo=amazonaws&logoColor=white)](https://aws.amazon.com/bedrock/)
+[![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg?logo=vite&logoColor=white)](https://vite.dev/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 This repository is a security-reviewable starter implementation for a re:Invent 2026 builders' session:
 
 > **Build agentic hybrid retrieval with Amazon Aurora PostgreSQL**
@@ -10,7 +20,7 @@ The product is an operational evidence retrieval layer over fragmented work syst
 
 ## Prerequisites
 
-- Python 3.11 or later
+- Python 3.13 or later
 - Node.js 20.19 or later for the frontend and MCP server
 - Local PostgreSQL 18.3 or later with pgvector 0.8.1+, pg_trgm, btree_gin, pgcrypto, and pg_stat_statements
 - Optional: Docker, if you prefer the Compose-based Postgres path
@@ -174,6 +184,12 @@ make seed-generate     # full rebuild, populates DB and writes the -Fc dump
 HNSW graph (`m=16, ef_construction=64, vector_cosine_ops`) plus the GIN full-text
 and `pg_trgm` fuzzy indexes. See [`seed/README.md`](seed/README.md) for the full
 workflow and the flagged divergences from the original design mockups.
+
+The shipped dump carries **real Cohere `embed-v4` (1024-d)** vectors, generated
+once at build time and reused by every restore. Because the stored vectors live in
+Cohere space, run the backend with `EMBED_PROVIDER=bedrock` so live `/v1/search`
+embeds queries with the same model. (The canonical Orion answer is served from a
+stored row, so it renders identically under either provider.)
 
 ## Optional Bedrock Model Defaults
 
