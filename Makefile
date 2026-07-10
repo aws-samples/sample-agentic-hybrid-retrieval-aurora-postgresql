@@ -11,7 +11,7 @@ export PGVECTOR_VERSION
 export PGVECTOR_MIN_VERSION
 export POSTGRES_MIN_VERSION
 
-.PHONY: install install-pgvector local-db-start local-db-stop local-db-bootstrap schema aurora-verify sample load embed api frontend smoke clean
+.PHONY: install install-pgvector local-db-start local-db-stop local-db-bootstrap schema aurora-verify sample load embed api frontend smoke clean seed-generate seed-jsonl seed-load
 
 install:
 	python -m venv .venv
@@ -56,6 +56,19 @@ frontend:
 
 smoke:
 	$(PYTHON) backend/scripts/smoke_test.py
+
+# --- Workshop seed (canonical Orion corpus) ---------------------------------
+# seed-jsonl:    write JSONL + manifest only (no DB needed) — quick sanity check
+# seed-generate: full rebuild — populate DB + write the -Fc dump (needs DATABASE_URL)
+# seed-load:     idempotent pg_restore of the dump + rebuild indexes (needs DATABASE_URL)
+seed-jsonl:
+	$(PYTHON) seed/generate.py --jsonl-only
+
+seed-generate:
+	$(PYTHON) seed/generate.py
+
+seed-load:
+	seed/load.sh
 
 clean:
 	rm -rf data/generated frontend/dist .pytest_cache

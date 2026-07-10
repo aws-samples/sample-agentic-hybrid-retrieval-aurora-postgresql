@@ -46,6 +46,7 @@ The system:
 ├── bedrock-agent/              # Optional Amazon Bedrock Agent action group wrapper
 ├── mcp-server/                 # Optional MCP wrapper around the retrieval API
 ├── infra/                      # CDK skeleton and local Postgres Dockerfile
+├── seed/                       # Canonical Orion corpus generator + pg_dump/restore
 ├── mockups/                    # Static design prototype reference
 └── docs/                       # Session plan, architecture, security notes, stretch labs
 ```
@@ -150,6 +151,29 @@ make embed
 ```
 
 `make aurora-verify` creates or updates the required extensions and schema, then checks for PostgreSQL 18.3+ and pgvector 0.8.1+.
+
+## Workshop Seed Data
+
+The demo answers one canonical question — **"Why did Orion slip?"** — and every
+number the UI shows (the cited answer, the six sources, the trail, the diagnostics
+funnel) is backed by real rows in the `ops` schema, not hardcoded in the frontend.
+The `seed/` directory regenerates that dataset and ships it as a `pg_dump -Fc`
+archive so a workshop bootstrap can restore it with **$0 in Bedrock spend**.
+
+```bash
+# Restore the prebuilt corpus into Aurora or local Postgres (idempotent):
+DATABASE_URL=postgresql://localhost:55432/retrieval?sslmode=disable \
+  make seed-load
+
+# Or regenerate from source (seed authors — writes JSONL + manifest + dump):
+make seed-jsonl        # JSONL + manifest only, no database needed
+make seed-generate     # full rebuild, populates DB and writes the -Fc dump
+```
+
+`load.sh` restores the dump, then **rebuilds indexes after the data load** — the
+HNSW graph (`m=16, ef_construction=64, vector_cosine_ops`) plus the GIN full-text
+and `pg_trgm` fuzzy indexes. See [`seed/README.md`](seed/README.md) for the full
+workflow and the flagged divergences from the original design mockups.
 
 ## Optional Bedrock Model Defaults
 

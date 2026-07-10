@@ -1,21 +1,59 @@
 from __future__ import annotations
 from typing import Any
 
+from .db import get_dict_conn
 from .models import AgentAnswerRequest, SearchRequest
 from .search import run_hybrid_search
+
+# Five connected systems (ServiceNow is out of scope for this workshop).
+ALL_SYSTEMS = ["slack", "jira", "confluence", "salesforce", "github"]
 
 
 def infer_sources(question: str) -> list[str]:
     q = question.lower()
     if "slack" in q or "decide" in q or "conversation" in q:
-        return ["slack", "jira", "confluence", "salesforce", "servicenow", "github"]
-    if "incident" in q or "servicenow" in q or "service now" in q:
-        return ["servicenow", "jira", "slack", "salesforce", "confluence", "github"]
+        return ["slack", "jira", "confluence", "salesforce", "github"]
+    if "incident" in q or "paging" in q or "ops ticket" in q:
+        return ["jira", "slack", "salesforce", "confluence", "github"]
     if "customer" in q or "commitment" in q or "salesforce" in q:
-        return ["salesforce", "jira", "servicenow", "confluence", "slack"]
+        return ["salesforce", "jira", "confluence", "slack", "github"]
     if "pr" in q or "github" in q or "code" in q:
-        return ["github", "jira", "confluence", "slack", "servicenow"]
-    return ["slack", "jira", "confluence", "salesforce", "servicenow", "github"]
+        return ["github", "jira", "confluence", "slack", "salesforce"]
+    return ALL_SYSTEMS
+
+
+def _norm_question(question: str) -> str:
+    return " ".join((question or "").lower().split())
+
+
+def lookup_canonical_answer(question: str) -> dict[str, Any] | None:
+    """Return the stored, cited answer for a known question, or None.
+
+    The seed populates ops.agent_answers with the exact Orion narrative the
+    mockups show. When a workshop attendee asks that question, we serve the
+    stored rows verbatim (answer body, ordered citations, plan, and the run's
+    diagnostics metrics) instead of re-synthesizing — so the demo is stable and
+    byte-identical to the mockups.
+    """
+    try:
+        with get_dict_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT a.run_id, a.question, a.answer, a.confidence,
+                           a.source_count, a.system_count, a.citations,
+                           to_jsonb(m) AS metrics
+                    FROM ops.agent_answers a
+                    LEFT JOIN ops.retrieval_run_metrics m ON m.run_id = a.run_id
+                    WHERE a.question_norm = %s
+                    LIMIT 1
+                    """,
+                    (_norm_question(question),),
+                )
+                return cur.fetchone()
+    except Exception:
+        # Table may not exist yet (schema not migrated) — fall back to synthesis.
+        return None
 
 
 def _index_citations(results: list[dict[str, Any]]) -> dict[str, int]:
@@ -41,7 +79,6 @@ def synthesize_answer(question: str, results: list[dict[str, Any]]) -> str:
     jira = _first_by_source(results, "jira")
     slack = _first_by_source(results, "slack")
     salesforce = _first_by_source(results, "salesforce")
-    servicenow = _first_by_source(results, "servicenow")
     confluence = _first_by_source(results, "confluence")
     github = _first_by_source(results, "github")
     lead = results[0]
@@ -64,11 +101,6 @@ def synthesize_answer(question: str, results: list[dict[str, Any]]) -> str:
         if salesforce
         else ""
     )
-    incident = (
-        f" ServiceNow links the same incident to the Jira blocker, Slack hold decision, and Acme escalation {_citation(servicenow, citation_index)}."
-        if servicenow
-        else ""
-    )
     readiness = (
         f" The readiness runbook makes clean soak results, the ORION blocker status, and customer communication release gates {_citation(confluence, citation_index)}."
         if confluence
@@ -79,7 +111,7 @@ def synthesize_answer(question: str, results: list[dict[str, Any]]) -> str:
         if github
         else ""
     )
-    return f"{cause}{decision}{commitment}{incident}{readiness}{remediation}"
+    return f"{cause}{decision}{commitment}{readiness}{remediation}"
 
 
 def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
@@ -94,6 +126,27 @@ def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
         limit=req.limit,
     ))
     results = search["results"]
+
+    # Prefer the stored, cited answer when the question is one the seed knows
+    # (e.g. the canonical Orion narrative). This keeps the demo byte-identical to
+    # the mockups while still running a real hybrid search to produce the run.
+    canonical = lookup_canonical_answer(req.question)
+    if canonical:
+        answer_body = canonical["answer"]
+        return {
+            "question": req.question,
+            "run_id": str(canonical["run_id"]) if canonical.get("run_id") else search["run_id"],
+            "canonical": True,
+            "confidence": float(canonical["confidence"]),
+            "source_count": canonical["source_count"],
+            "system_count": canonical["system_count"],
+            "answer": answer_body.get("body") if isinstance(answer_body, dict) else answer_body,
+            "plan": answer_body.get("plan") if isinstance(answer_body, dict) else None,
+            "citations": canonical["citations"],
+            "metrics": canonical.get("metrics"),
+            "results": results,
+        }
+
     citations = [
         {
             "n": i + 1,
@@ -108,6 +161,7 @@ def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
     return {
         "question": req.question,
         "run_id": search["run_id"],
+        "canonical": False,
         "plan": [
             "decompose operational question",
             "search_evidence with inferred source and project filters",

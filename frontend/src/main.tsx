@@ -6,7 +6,6 @@ import confluenceLogoUrl from './assets/confluence-2017.svg';
 import jiraLogoUrl from './assets/jira-streamline.svg';
 import salesforceLogoUrl from './assets/salesforce-logo.jpeg';
 import slackIconUrl from './assets/slack-icon-2019.svg';
-import serviceNowLogoUrl from './assets/servicenow-logo.png';
 import './styles.css';
 
 type Page = 'landing' | 'results' | 'detail' | 'trail' | 'agent' | 'diagnostics';
@@ -104,7 +103,7 @@ const showcaseQuery = 'Why did Orion slip across Slack, Jira, Confluence, Salesf
 const rotatingQueries = [
   queryDefault,
   showcaseQuery,
-  'What changed before INC-0012345, which Jira blocker caused it, and which PR fixed it?',
+  'What changed before ORION-1489 paged, which Jira blocker caused it, and which PR fixed it?',
   'Which Salesforce commitments are at risk, and what Slack and Jira evidence explains why?',
   'How do the readiness runbook, Slack decision, ORION-1473, and PR-1287 connect?'
 ];
@@ -117,8 +116,8 @@ const searchSuggestions = [
   },
   {
     label: 'Incident to fix',
-    query: 'What changed before INC-0012345, which Jira blocker caused it, and which PR fixed it?',
-    sources: ['servicenow', 'jira', 'github']
+    query: 'What changed before ORION-1489 paged, which Jira blocker caused it, and which PR fixed it?',
+    sources: ['jira', 'github']
   },
   {
     label: 'Customer impact',
@@ -137,8 +136,8 @@ const searchSuggestions = [
   },
   {
     label: 'Full audit trail',
-    query: 'Explain the Orion delay using the Slack decision, Jira blocker, Confluence gate, Salesforce case, ServiceNow incident, and GitHub PR.',
-    sources: ['slack', 'jira', 'confluence', 'salesforce', 'servicenow', 'github']
+    query: 'Explain the Orion delay using the Slack decision, Jira blocker, Confluence gate, Salesforce case, ORION-1489 paging ticket, and GitHub PR.',
+    sources: ['slack', 'jira', 'confluence', 'salesforce', 'github']
   }
 ];
 
@@ -150,15 +149,22 @@ const workspaceNavItems: Array<{ page: Page; label: string; eyebrow: string; sum
 ];
 
 const coreSources = [
-  { key: 'slack', label: 'Slack', count: 34 },
-  { key: 'jira', label: 'Jira', count: 41 },
-  { key: 'confluence', label: 'Confluence', count: 22 },
-  { key: 'salesforce', label: 'Salesforce', count: 18 },
-  { key: 'github', label: 'GitHub', count: 27 },
-  { key: 'servicenow', label: 'ServiceNow', count: 6 }
+  { key: 'slack', label: 'Slack', count: 30 },
+  { key: 'jira', label: 'Jira', count: 30 },
+  { key: 'confluence', label: 'Confluence', count: 30 },
+  { key: 'salesforce', label: 'Salesforce', count: 30 },
+  { key: 'github', label: 'GitHub', count: 30 }
 ];
 
-const evidenceOrder = ['slack', 'jira', 'salesforce', 'confluence', 'servicenow', 'github'];
+// Total corpus size and cited-object order are the single source of truth for
+// every count shown in the UI. 150 objects, symmetric 30 per system across the
+// five connected systems (Slack, Jira, Confluence, Salesforce, GitHub).
+const corpusTotal = coreSources.reduce((sum, source) => sum + source.count, 0);
+// Canonical cited order by external_id — two Jira citations (the blocker and
+// the full-text-surfaced ops ticket), so citations are keyed by external_id.
+const citedOrder = ['SLACK-000271', 'ORION-1473', 'CASE-0012345', 'PAGE-2112', 'ORION-1489', 'PR-1287'];
+
+const evidenceOrder = ['slack', 'jira', 'salesforce', 'confluence', 'github'];
 
 const landingSources = [
   { key: 'slack', label: 'Slack' },
@@ -199,7 +205,7 @@ const demoResults: Result[] = [
     source_system: 'jira',
     source_type: 'Issue',
     external_id: 'ORION-1473',
-    title: 'ORION-1473 - Cross-region replication lag exceeds 90s in events pipeline',
+    title: 'ORION-1473 — Cross-region replication lag exceeds 90s in events pipeline',
     snippet:
       'P1 blocker for ORION-1450 GA cutover. Consumers in eu-west-1 fall behind under peak write load; freshness SLO for the readiness gate is 15s. Root cause traced to single-stream WAL shipping; fix is regional partitioning.',
     status: 'Resolved Jul 3',
@@ -218,7 +224,7 @@ const demoResults: Result[] = [
     source_system: 'salesforce',
     source_type: 'Case',
     external_id: 'CASE-0012345',
-    title: 'CASE-0012345 - Acme Corp go-live commitment at risk',
+    title: 'CASE-0012345 — Acme Corp go-live commitment at risk',
     snippet:
       'Contractual go-live July 8 per MSA addendum. CSM note: informed champion of Orion slip; negotiating revised date of July 22 with success-plan credit. Renewal ARR $1.2M is flagged as commitment impact.',
     status: 'Mitigating',
@@ -236,9 +242,9 @@ const demoResults: Result[] = [
     source_system: 'confluence',
     source_type: 'Runbook',
     external_id: 'PAGE-2112',
-    title: 'Orion Release Readiness Runbook - gate criteria and sign-off',
+    title: 'Orion Release Readiness Runbook — gate criteria and sign-off',
     snippet:
-      'Gate 3 data freshness requires replication lag p99 <= 15s across regions for 72h. Jun 18 check: FAILED - lag p99 at 94s in eu-west-1. Per policy, GA date slips until gate passes.',
+      'Gate 3 data freshness requires replication lag p99 ≤ 15s across regions for 72h. Jun 18 check: FAILED — lag p99 at 94s in eu-west-1. Per policy, GA date slips until gate passes.',
     status: 'Published',
     priority: 'Policy',
     owner: 'Release Engineering',
@@ -250,21 +256,22 @@ const demoResults: Result[] = [
     rrf_score: 0.0295
   },
   {
-    source_system: 'servicenow',
-    source_type: 'Incident',
-    external_id: 'INC-0012345',
-    title: 'INC-0012345 - Replication lag alerts, events pipeline',
+    source_system: 'jira',
+    source_type: 'Ops ticket',
+    external_id: 'ORION-1489',
+    title: 'ORION-1489 — replication_lag_seconds > 60 paging in prod (eu-west-1)',
     snippet:
-      'Sev2 paging on replication_lag_seconds > 60 since Jun 20 02:10 UTC. Correlated with peak ingest from the Orion events pipeline. Linked problem record traced to ORION-1473 and resolved after PR #1287.',
+      'Ops ticket auto-filed by the alerting bot: replication_lag_seconds > 60 paging since Jun 20 02:10 UTC in eu-west-1. Full-text match on the exact metric name and region. Linked to ORION-1473 as the root cause; mitigated by consumer scale-out, resolved after PR #1287.',
     status: 'Resolved',
     priority: 'Sev2',
     owner: 'SRE on-call',
     account_name: 'Acme Corp',
     project_key: 'ORION',
+    component: 'Events pipeline',
     updated_at: '2026-06-20T02:10:00+00:00',
     final_score: 0.78,
-    text_rank: 0.62,
-    vector_score: 0.8,
+    text_rank: 0.94,
+    vector_score: 0.66,
     trigram_score: 0.64,
     rrf_score: 0.0271
   },
@@ -272,7 +279,7 @@ const demoResults: Result[] = [
     source_system: 'github',
     source_type: 'Pull request',
     external_id: 'PR-1287',
-    title: 'PR #1287 - events: partition WAL shipping by region',
+    title: 'PR #1287 — events: partition WAL shipping by region',
     snippet:
       'Merged Jul 2. Fixes ORION-1473. Splits the single WAL stream into per-region partitions with bounded consumer groups; soak test shows replication lag p99 8s, down from 94s.',
     status: 'Merged',
@@ -289,12 +296,12 @@ const demoResults: Result[] = [
 ];
 
 const resultSignals = [
-  ['FTS #2', 'VECTOR #1', 'TRGM -', 'RRF 0.0325', 'RERANK 0.93', 'references -> ORION-1473', 'impacts -> CASE-0012345'],
-  ['FTS #1', 'VECTOR #3', 'TRGM .71', 'RRF 0.0322', 'RERANK 0.89', 'blocks -> GA cutover', 'fixed-by -> PR #1287'],
-  ['FTS #6', 'VECTOR #2', 'TRGM -', 'RRF 0.0310', 'RERANK 0.87', 'impacted-by -> GA delay'],
-  ['FTS #3', 'VECTOR #7', 'TRGM -', 'RRF 0.0295', 'RERANK 0.82', 'gates -> GA cutover'],
-  ['FTS #9', 'VECTOR #5', 'TRGM .64', 'RRF 0.0271', 'RERANK 0.78', 'caused-by -> ORION-1473'],
-  ['FTS #11', 'VECTOR #6', 'TRGM -', 'RRF 0.0253', 'RERANK 0.74', 'fixes -> ORION-1473']
+  ['FTS #2', 'VECTOR #1', 'TRGM —', 'RRF 0.0325', 'RERANK 0.93', 'references → ORION-1473', 'impacts → CASE-0012345'],
+  ['FTS #1', 'VECTOR #3', 'TRGM .71', 'RRF 0.0322', 'RERANK 0.89', 'blocks → GA cutover', 'fixed-by → PR #1287'],
+  ['FTS #6', 'VECTOR #2', 'TRGM —', 'RRF 0.0310', 'RERANK 0.87', 'impacted-by → GA delay'],
+  ['FTS #3', 'VECTOR #7', 'TRGM —', 'RRF 0.0295', 'RERANK 0.82', 'gates → GA cutover'],
+  ['FTS #4', 'VECTOR #14', 'TRGM .64', 'RRF 0.0271', 'RERANK 0.78', 'caused-by → ORION-1473'],
+  ['FTS #11', 'VECTOR #6', 'TRGM —', 'RRF 0.0253', 'RERANK 0.74', 'fixes → ORION-1473']
 ];
 
 const sourceRoles: Record<string, { type: string; role: string }> = {
@@ -302,96 +309,217 @@ const sourceRoles: Record<string, { type: string; role: string }> = {
   jira: { type: 'Blocker', role: 'Jira issue' },
   salesforce: { type: 'Impact', role: 'Salesforce case' },
   confluence: { type: 'Policy', role: 'Confluence page' },
-  servicenow: { type: 'Incident', role: 'ServiceNow' },
   github: { type: 'Change', role: 'GitHub PR' }
 };
+
+// Per-citation strings, keyed by external_id (two Jira citations: the blocker
+// ORION-1473 and the full-text-surfaced ops ticket ORION-1489).
+const sourceCitations: Record<string, { meta: string; why: string }> = {
+  'SLACK-000271': {
+    meta: 'SLACK · #proj-orion · JUN 23 · rerank 0.93',
+    why: 'The decision itself — answers "what did the team decide."'
+  },
+  'ORION-1473': {
+    meta: 'JIRA · P1 · JUN 12 – JUL 3 · rerank 0.89',
+    why: 'Root cause and timeline; blocks the GA cutover story.'
+  },
+  'CASE-0012345': {
+    meta: 'SALESFORCE · TIER 1 · JUN 26 · rerank 0.87',
+    why: 'The impacted contractual commitment and its mitigation.'
+  },
+  'PAGE-2112': {
+    meta: 'CONFLUENCE · GATE 3 · JUN 18 · rerank 0.82',
+    why: 'The policy mechanism that forced the date slip.'
+  },
+  'ORION-1489': {
+    meta: 'JIRA · SEV2 · JUN 20 · rerank 0.78',
+    why: 'Production paging that corroborates the root cause — surfaced by full-text search.'
+  },
+  'PR-1287': {
+    meta: 'GITHUB · MERGED JUL 2 · rerank 0.74',
+    why: 'The fix that unblocked the gate re-run.'
+  }
+};
+
+// Canonical Orion answer, verbatim from the Answer mockup. This is the single
+// source of truth the UI streams; the seed generator emits the same strings
+// into ops.agent_answers so the API returns byte-identical content.
+const canonicalAnswer = {
+  lead: [
+    { text: "Orion's GA slipped two weeks — " },
+    { hl: 'July 1 to July 15' },
+    { text: ' — because a P1 replication-lag blocker failed the release-readiness gate. The team decided the slip in Slack on June 23, and one contractual customer commitment, Acme Corp, is being renegotiated.' }
+  ] as RichToken[],
+  why: [
+    { b: "Why it's delayed." },
+    { text: ' The events pipeline developed cross-region replication lag of up to 94 seconds against a 15-second freshness SLO, filed as P1 ' },
+    { b: 'ORION-1473' },
+    { text: ' on June 12 ' },
+    { cite: 2 },
+    { text: ". The Release Readiness Runbook's Gate 3 formally failed on June 18, and policy requires the GA date to slip until the gate passes " },
+    { cite: 4 },
+    { text: '. The same root cause set off Sev2 paging ticket ' },
+    { b: 'ORION-1489' },
+    { text: ' in production two days later ' },
+    { cite: 5 },
+    { text: '.' }
+  ] as RichToken[],
+  decided: [
+    { b: 'What the team decided.' },
+    { text: ' After the readiness review, engineering lead Priya Mehta recorded the decision in ' },
+    { b: '#proj-orion' },
+    { text: ' on June 23: GA moves from July 1 to July 15, partitioned WAL shipping is the hotfix path, and CS notifies Acme the same day ' },
+    { cite: 1 },
+    { text: '. The fix, ' },
+    { b: 'PR #1287' },
+    { text: ', merged July 2 and cut lag p99 from 94s to 8s ' },
+    { cite: 6 },
+    { text: '.' }
+  ] as RichToken[],
+  impacted: [
+    { b: 'Which commitments are impacted.' },
+    { text: " One contractual commitment is directly affected: Acme Corp's go-live, promised for July 8 under an MSA addendum " },
+    { cite: 3 },
+    { text: '. The CSM is renegotiating to July 22 with a success-plan credit; the $1.2M renewal is flagged but the exec sponsor is engaged.' }
+  ] as RichToken[],
+  quote: {
+    text: '"We\'re making the call: Orion GA moves from July 1 to July 15. ORION-1473 is the sole gating item — hotfix path is partitioned WAL shipping. CS to notify Acme before EOD."',
+    attr: 'Priya Mehta · #proj-orion · Jun 23, 2026 · 4:12 PM · cited as [1]'
+  }
+};
+
+// The agent's tool calls, in execution order. Streamed as the "how it was
+// built" deconstruction. Also the canonical content for ops.retrieval_runs.
+const canonicalPlan: Array<{ num: string; fn: string; args: string; desc: string; res: string }> = [
+  { num: '1', fn: 'search_evidence', args: '("orion delay root cause", systems: jira+slack+confluence, window: 60d)', desc: 'Question decomposed; lexical + semantic + fuzzy retrieval run in parallel inside Aurora.', res: '12 strong candidates · top: ORION-1473' },
+  { num: '2', fn: 'traverse_links', args: '(from: ORION-1473, edges: blocks · fixes · caused-by · gates)', desc: 'Followed stored object_links across systems to the gate check, the incident, and the fix.', res: '5 linked objects · 9 edges' },
+  { num: '3', fn: 'search_evidence', args: '("orion customer commitments go-live", systems: salesforce)', desc: 'Targeted pass for commitment language scoped to accounts referencing Orion.', res: '3 candidates · 1 contractual' },
+  { num: '4', fn: 'compare_sources', args: '(slack decision ↔ readiness runbook ↔ jira timeline)', desc: 'Checked the decision against gate policy and issue history for contradictions.', res: 'consistent · no conflicts found' },
+  { num: '5', fn: 'explain_result', args: '(top 6)', desc: 'Captured per-candidate ranking signals for the diagnostics view.', res: 'signals stored on retrieval_candidates' },
+  { num: '6', fn: 'synthesize_with_citations', args: '(6 sources, style: brief)', desc: 'Composed the answer; every claim bound to a citation row in Aurora.', res: '9 claims · 9 citations · confidence 0.92' }
+];
 
 const trailEvents = [
   {
     side: 'left',
-    date: 'JUN 12 - 09:41',
+    date: 'JUN 12 · 09:41',
     system: 'jira',
-    type: 'Blocker filed - Jira',
-    title: 'ORION-1473 - Cross-region replication lag exceeds 90s',
+    type: 'Blocker filed · Jira',
+    title: 'ORION-1473 — Cross-region replication lag exceeds 90s',
     body: 'P1 opened against the events pipeline. Consumers in eu-west-1 fall behind at peak write load; freshness SLO is 15s, observed 94s.',
-    edges: ['blocks -> ORION-1450 - GA cutover'],
+    edges: ['blocks → ORION-1450 · GA cutover'],
     hop: 'blocks'
   },
   {
     side: 'right',
-    date: 'JUN 18 - 14:00',
+    date: 'JUN 18 · 14:00',
     system: 'confluence',
-    type: 'Gate check - Confluence',
-    title: 'Release Readiness Runbook - Gate 3 FAILED',
-    body: 'Data-freshness gate requires lag p99 <= 15s for 72h. Check recorded FAILED; per policy the GA date slips until the gate passes.',
-    edges: ['gates -> GA cutover', 'references -> ORION-1473'],
+    type: 'Gate check · Confluence',
+    title: 'Release Readiness Runbook — Gate 3 FAILED',
+    body: 'Data-freshness gate requires lag p99 ≤ 15s for 72h. Check recorded FAILED; per policy the GA date slips until the gate passes.',
+    edges: ['gates → GA cutover', 'references → ORION-1473'],
     hop: 'caused-by'
   },
   {
     side: 'left',
-    date: 'JUN 20 - 02:10 UTC',
-    system: 'servicenow',
-    type: 'Incident opened - ServiceNow',
-    title: 'INC-0012345 - Replication lag alerts in prod',
-    body: "Sev2 paging on replication_lag_seconds > 60 in eu-west-1. Problem record links the alert storm to ORION-1473's root cause.",
-    edges: ['caused-by -> ORION-1473'],
+    date: 'JUN 20 · 02:10 UTC',
+    system: 'jira',
+    type: 'Ops ticket paged · Jira',
+    title: 'ORION-1489 — replication_lag_seconds > 60 paging in prod',
+    body: "Sev2 paging ticket auto-filed in eu-west-1 on the exact metric name — a clean full-text hit. Links the alert storm to ORION-1473's root cause.",
+    edges: ['caused-by → ORION-1473'],
     hop: 'decided-in'
   },
   {
     side: 'right',
-    date: 'JUN 23 - 16:12',
+    date: 'JUN 23 · 16:12',
     system: 'slack',
-    type: 'Decision - Slack #proj-orion',
-    title: 'Decision: Orion GA moves Jul 1 to Jul 15',
+    type: 'Decision · Slack #proj-orion',
+    title: '"Decision: Orion GA moves Jul 1 → Jul 15"',
     body: 'Priya Mehta calls it after readiness review: GA slips two weeks; hotfix path is partitioned WAL shipping; CS to notify Acme same day.',
-    edges: ['decided-in -> #proj-orion', 'impacts -> CASE-0012345'],
+    edges: ['decided-in → #proj-orion', 'impacts → CASE-0012345'],
     hop: 'impacts'
   },
   {
     side: 'left',
-    date: 'JUN 26 - 11:05',
+    date: 'JUN 26 · 11:05',
     system: 'salesforce',
-    type: 'Commitment at risk - Salesforce',
-    title: 'CASE-0012345 - Acme Corp go-live',
+    type: 'Commitment at risk · Salesforce',
+    title: 'CASE-0012345 — Acme Corp go-live',
     body: 'Contractual go-live was July 8. CSM negotiating revised date of July 22 with a success-plan credit; exec sponsor informed. $1.2M renewal ARR flagged.',
-    edges: ['impacted-by -> GA delay', 'references -> Slack decision'],
+    edges: ['impacted-by → GA delay', 'references → Slack decision'],
     hop: 'fixes'
   },
   {
     side: 'right',
-    date: 'JUL 2 - 19:47',
+    date: 'JUL 2 · 19:47',
     system: 'github',
-    type: 'Fix merged - GitHub',
-    title: 'PR #1287 - events: partition WAL shipping by region',
+    type: 'Fix merged · GitHub',
+    title: 'PR #1287 — events: partition WAL shipping by region',
     body: 'Soak test: replication lag p99 down to 8s from 94s. Rolled out behind events.partitioned_wal; two approvals, merged to release/2026.07.',
-    edges: ['fixes -> ORION-1473', 'resolves -> INC-0012345'],
+    edges: ['fixes → ORION-1473', 'resolves → ORION-1489'],
     hop: 'closes the loop'
   },
   {
     side: 'left',
-    date: 'JUL 3 - 10:20',
+    date: 'JUL 3 · 10:20',
     system: 'jira',
-    type: 'Blocker resolved - Jira',
-    title: 'ORION-1473 resolved - gate re-run PASSED',
+    type: 'Blocker resolved · Jira',
+    title: 'ORION-1473 resolved — gate re-run PASSED',
     body: 'Gate re-run passes with lag p99 at 8s. July 15 GA remains on track and customer notification is updated with the new target.',
-    edges: ['passes -> readiness gate', 'supports -> Jul 15 GA'],
+    edges: ['passes → readiness gate', 'supports → Jul 15 GA'],
     final: true
   }
 ];
 
-const diagnosticsRows = [
-  ['1', 'slack', 'Decision: GA moves Jul 1 to 15', '#2', '#1', '-', '.0325', '0.93', '[1]'],
-  ['2', 'jira', 'ORION-1473 replication lag', '#1', '#3', '.71', '.0322', '0.89', '[2]'],
-  ['3', 'salesforce', 'CASE-0012345 Acme go-live', '#6', '#2', '-', '.0310', '0.87', '[3]'],
-  ['4', 'confluence', 'Release Readiness Runbook', '#3', '#7', '-', '.0295', '0.82', '[4]'],
-  ['5', 'servicenow', 'INC-0012345 lag alerts', '#9', '#5', '.64', '.0271', '0.78', '[5]'],
-  ['6', 'github', 'PR #1287 partition WAL shipping', '#11', '#6', '-', '.0253', '0.74', '[6]'],
-  ['7', 'slack', 'Standup thread GA checklist', '#4', '#12', '-', '.0231', '0.58', 'unused'],
-  ['8', 'confluence', 'Postmortem May backpressure', '#14', '#9', '-', '.0212', '0.51', 'below cut']
+const diagnosticsRows: Array<[string, string, string, string, string, string, string, string, string]> = [
+  ['1', 'slack', 'Decision: GA moves Jul 1 → 15', '#2', '#1', '—', '.0325', '0.93', '✓ [1]'],
+  ['2', 'jira', 'ORION-1473 replication lag', '#1', '#3', '.71', '.0322', '0.89', '✓ [2]'],
+  ['3', 'salesforce', 'CASE-0012345 Acme go-live', '#6', '#2', '—', '.0310', '0.87', '✓ [3]'],
+  ['4', 'confluence', 'Release Readiness Runbook', '#3', '#7', '—', '.0295', '0.82', '✓ [4]'],
+  ['5', 'jira', 'ORION-1489 lag paging (FTS hit)', '#4', '#14', '.64', '.0271', '0.78', '✓ [5]'],
+  ['6', 'github', 'PR #1287 partition WAL shipping', '#11', '#6', '—', '.0253', '0.74', '✓ [6]'],
+  ['7', 'slack', 'Standup thread "GA checklist"', '#7', '#12', '—', '.0231', '0.58', 'above cut · unused'],
+  ['8', 'confluence', 'Postmortem: May backpressure', '#14', '#9', '—', '.0212', '0.51', 'below cut'],
+  ['9', 'jira', 'ORION-1502 dashboards polish', '#8', '#15', '.58', '.0198', '0.38', 'below cut'],
+  ['10', 'github', 'PR #1244 consumer scale-out (reverted)', '—', '#8', '.66', '.0186', '0.34', 'below cut']
 ];
+
+// Verbatim fusion query from the diagnostics mockup (developer-authored, no user input).
+// Rendered via dangerouslySetInnerHTML to preserve the .kw/.fn/.cm/.st syntax spans and
+// raw SQL operators (<=>, @@, %, ->) exactly as designed.
+const fusionQueryHtml = `<span class="kw">WITH</span> lexical <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> chunk_id, <span class="fn">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> <span class="fn">ts_rank_cd</span>(tsv, q) <span class="kw">DESC</span>) <span class="kw">AS</span> r
+  <span class="kw">FROM</span> object_chunks, <span class="fn">websearch_to_tsquery</span>(<span class="st">'orion delay decision commitments'</span>) q
+  <span class="kw">WHERE</span> tsv @@ q <span class="kw">AND</span> project = <span class="st">'orion'</span> <span class="kw">AND</span> created_at &gt; now() - <span class="kw">INTERVAL</span> <span class="st">'90 days'</span>
+  <span class="kw">LIMIT</span> 60
+), semantic <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> chunk_id, <span class="fn">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> embedding &lt;=&gt; <span class="st">:query_vec</span>) <span class="kw">AS</span> r
+  <span class="kw">FROM</span> object_chunks <span class="kw">WHERE</span> project = <span class="st">'orion'</span>          <span class="cm">-- HNSW index scan</span>
+  <span class="kw">ORDER BY</span> embedding &lt;=&gt; <span class="st">:query_vec</span> <span class="kw">LIMIT</span> 60
+), fuzzy <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> chunk_id, <span class="fn">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> <span class="fn">similarity</span>(title, <span class="st">'ORION-1473'</span>) <span class="kw">DESC</span>) <span class="kw">AS</span> r
+  <span class="kw">FROM</span> source_objects <span class="kw">WHERE</span> title % <span class="st">'ORION-1473'</span>       <span class="cm">-- pg_trgm entity match</span>
+  <span class="kw">LIMIT</span> 40
+)
+<span class="kw">SELECT</span> chunk_id, <span class="fn">SUM</span>(w / (60 + r)) <span class="kw">AS</span> rrf_score        <span class="cm">-- RRF · k = 60 · w = 1/1/0.5</span>
+<span class="kw">FROM</span> (
+  <span class="kw">SELECT</span> chunk_id, r, 1.0 <span class="kw">AS</span> w <span class="kw">FROM</span> lexical
+  <span class="kw">UNION ALL SELECT</span> chunk_id, r, 1.0 <span class="kw">FROM</span> semantic
+  <span class="kw">UNION ALL SELECT</span> chunk_id, r, 0.5 <span class="kw">FROM</span> fuzzy
+) fused
+<span class="kw">GROUP BY</span> chunk_id <span class="kw">ORDER BY</span> rrf_score <span class="kw">DESC</span> <span class="kw">LIMIT</span> 24;   <span class="cm">-- → cross-encoder rerank</span>`;
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
+}
+
+// Per-ranker cell styling in the diagnostics candidate table: em-dash = not ranked
+// by that mode (.na), top rank (#1) = emphasized (.rk), everything else plain.
+function rankCellClass(value: string) {
+  if (value === '—') return 'na';
+  if (value === '#1') return 'rk';
+  return '';
 }
 
 function normalizeResult(row: Result): Result {
@@ -427,8 +555,7 @@ function sourceLabel(system: string) {
     jira: 'Jira',
     confluence: 'Confluence',
     salesforce: 'Salesforce',
-    github: 'GitHub',
-    servicenow: 'ServiceNow'
+    github: 'GitHub'
   };
   return labels[system] || system;
 }
@@ -437,12 +564,10 @@ const brandLogoUrls: Record<string, string> = {
   slack: slackIconUrl,
   jira: jiraLogoUrl,
   confluence: confluenceLogoUrl,
-  salesforce: salesforceLogoUrl,
-  servicenow: serviceNowLogoUrl
+  salesforce: salesforceLogoUrl
 };
 
 function brandImageStyle(system: string, size: number): React.CSSProperties {
-  if (system === 'servicenow') return { width: Math.round(size * 2.9), height: Math.round(size * 0.66) };
   if (system === 'salesforce') return { width: Math.round(size * 1.8), height: Math.round(size * 1.05) };
   return { width: size, height: size };
 }
@@ -472,7 +597,7 @@ function formatDate(value?: string) {
 
 function resultRole(result: Result) {
   const role = sourceRoles[result.source_system] || { type: 'Evidence', role: result.source_type || 'Source object' };
-  return `${role.type} - ${role.role}`;
+  return `${role.type} · ${role.role}`;
 }
 
 function orderedEvidence(results: Result[]) {
@@ -813,18 +938,18 @@ function Landing({
           <div className="hero-copy">
             <div className="eyebrow mono-label">Connected evidence</div>
             <h1>
-              Find the{' '}
+              The{' '}
               <span className="why">
-                why
+                evidence
                 <svg viewBox="0 0 120 14" preserveAspectRatio="none" aria-hidden="true">
                   <path d="M3 10 C 30 3, 60 13, 117 6" />
                 </svg>
               </span>{' '}
-              behind the work.
+              behind every decision.
             </h1>
             <p className="sub">
-              Connect scattered tickets, docs, cases, incidents, and code to surface the full context and deliver answers
-              you can trust, with every source cited.
+              Connect scattered tickets, docs, cases, incidents, and code to surface the full context — and deliver answers{' '}
+              <em>you can trust, with every source cited</em>.
             </p>
             <div className="works" id="systems">
               <span className="mono-label">Works with your systems</span>
@@ -923,13 +1048,17 @@ function Landing({
           </div>
 
           <div className="stack" id="stack">
-            <span className="mono-label">The hybrid retrieval stack - one engine</span>
+            <span className="mono-label">The hybrid retrieval stack · one engine</span>
             <div className="formula">
               {['Full-text|ts_rank_cd', 'Semantic|pgvector', 'Fuzzy|pg_trgm', 'Fusion|RRF k=60', 'Rerank|Cohere rerank', 'Cited answer|citations'].map((item, index) => {
                 const [title, body] = item.split('|');
                 return (
                   <React.Fragment key={item}>
-                    {index > 0 && <span className="f-op">{index < 3 ? '+' : '->'}</span>}
+                    {index > 0 && (
+                      <span className={cx('f-op', index < 3 ? 'plus' : 'arrow')} aria-hidden="true">
+                        {index < 3 ? '+' : '→'}
+                      </span>
+                    )}
                     <div className={cx('f-chip', index >= 3 && index <= 4 && 'hot')}>
                       <b>{title}</b>
                       <span>{body}</span>
@@ -939,7 +1068,7 @@ function Landing({
               })}
             </div>
             <div className="foot">
-              Powered by <b>Amazon Aurora PostgreSQL</b> - retrieval runs, candidates, citations, and diagnostics stay queryable.
+              Powered by <b>Amazon Aurora PostgreSQL</b> — the retrieval system of record. Every run logged to <b>retrieval_runs</b>, every candidate explained.
             </div>
           </div>
         </section>
@@ -999,7 +1128,7 @@ function ResultCard({
       <div className="rwhy">
         <span className="lbl">Why this matched</span>
         {signalSet.map((sig) => (
-          <span key={sig} className={cx('sig', sig.includes('->') && 'link')}>{sig}</span>
+          <span key={sig} className={cx('sig', sig.includes('→') && 'link')}>{sig}</span>
         ))}
       </div>
     </article>
@@ -1041,7 +1170,7 @@ function ResultsPage({
     <section className="inner-screen">
       <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
       <div className="filters">
-        <button className="fchip on">All <span className="n">148</span></button>
+        <button className="fchip on">All <span className="n">{corpusTotal}</span></button>
         {coreSources.map((source) => (
           <button className="fchip" key={source.key}>
             <MiniBrand system={source.key} />
@@ -1050,7 +1179,7 @@ function ResultsPage({
         ))}
         <span className="fdiv" />
         <button className="fsel">Window <b>Last 90 days</b></button>
-        <button className="fsel">Rank by <b>Hybrid - RRF + rerank</b></button>
+        <button className="fsel">Rank by <b>Hybrid · RRF + rerank</b></button>
         <button className="fsel">Project <b>Orion</b></button>
       </div>
 
@@ -1059,11 +1188,11 @@ function ResultsPage({
           <ErrorBanner message={error} />
           <div className="results-head">
             <div className="count">
-              <b>24 results</b> - fused from 148 candidates across 3 rankers - 341 ms - run <b>{runId?.slice(0, 10) || 'rr_7f3a9c'}</b>
+              <b>24 results</b> · fused from {corpusTotal} candidates across 3 rankers · 341 ms · run <b>{runId?.slice(0, 10) || 'rr_7f3a9c'}</b>
             </div>
             <button className="answer-ready" onClick={() => onNavigate('agent')}>
               <span className="dot" />
-              Agent answer ready
+              Agent answer ready →
             </button>
           </div>
           {loading ? (
@@ -1084,14 +1213,14 @@ function ResultsPage({
 
         <aside className="rail">
           <div className="railcard">
-            <div className="mono-label with-dot"><span className="dot" />Agent answer - ready</div>
+            <div className="mono-label with-dot"><span className="dot" />Agent answer · ready</div>
             <p className="ans-preview">
-              Orion's GA slipped two weeks - July 1 to 15 - after replication lag <span className="cit">2</span> failed the readiness gate <span className="cit">4</span>; the team decided in #proj-orion <span className="cit">1</span> and Acme's go-live is being renegotiated <span className="cit">3</span>.
+              Orion's GA slipped two weeks — July 1 to 15 — after replication lag <span className="cit">2</span> failed the readiness gate <span className="cit">4</span>; the team decided in #proj-orion <span className="cit">1</span> and Acme's go-live is being renegotiated <span className="cit">3</span>.
             </p>
             <div className="conf">
               <div className="row"><span>CONFIDENCE</span><b>0.92</b></div>
               <div className="meter"><i /></div>
-              <div className="row"><span>COVERAGE</span><b>6 sources - 5 systems</b></div>
+              <div className="row"><span>COVERAGE</span><b>6 sources · 5 systems</b></div>
             </div>
             <button className="rail-cta" onClick={() => onNavigate('agent')}>Read the full answer</button>
           </div>
@@ -1099,22 +1228,22 @@ function ResultsPage({
           <div className="railcard">
             <div className="mono-label">Evidence graph</div>
             <MiniGraph />
-            <button className="rail-link" onClick={() => onNavigate('trail')}>View source trail</button>
+            <button className="rail-link" onClick={() => onNavigate('trail')}>View source trail →</button>
           </div>
 
           <div className="railcard">
             <div className="mono-label">This retrieval</div>
             {[
-              ['lexical - ts_rank_cd', '60 cand'],
-              ['semantic - pgvector', '60 cand'],
-              ['fuzzy - pg_trgm', '40 cand'],
-              ['fused - RRF k=60', '92 -> 24'],
-              ['reranked - cited', '6 cited'],
+              ['lexical · ts_rank_cd', '60 cand'],
+              ['semantic · pgvector', '60 cand'],
+              ['fuzzy · pg_trgm', '40 cand'],
+              ['fused · RRF k=60', '92 → 24'],
+              ['reranked · cited', '6 cited', true],
               ['latency', '341 ms']
-            ].map(([label, value]) => (
-              <div className="sumrow" key={label}><span>{label}</span><b>{value}</b></div>
+            ].map(([label, value, hot]) => (
+              <div className="sumrow" key={String(label)}><span>{label}</span><b className={hot ? 'hot' : undefined}>{value}</b></div>
             ))}
-            <button className="rail-link" onClick={() => onNavigate('diagnostics')}>Open diagnostics</button>
+            <button className="rail-link" onClick={() => onNavigate('diagnostics')}>Open diagnostics →</button>
           </div>
         </aside>
       </main>
@@ -1150,6 +1279,175 @@ function Citation({ n, onClick }: { n: number; onClick?: () => void }) {
   return <button className="cit" onClick={onClick}> {n} </button>;
 }
 
+// ---- Streaming primitives -------------------------------------------------
+
+// True when the OS asks for reduced motion; streaming then renders instantly.
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return reduced;
+}
+
+// Drives an ordered "stage" cursor: stage 0, 1, 2 ... each advancing after a
+// beat. Consumers reveal content once the cursor reaches their index. When
+// motion is reduced (or streaming disabled) every stage is revealed at once.
+function useStageSequence(count: number, opts: { enabled: boolean; beatMs?: number; startMs?: number }) {
+  const { enabled, beatMs = 620, startMs = 220 } = opts;
+  const [stage, setStage] = useState(enabled ? -1 : count);
+  useEffect(() => {
+    if (!enabled) {
+      setStage(count);
+      return;
+    }
+    setStage(-1);
+    const timers: number[] = [];
+    for (let i = 0; i < count; i += 1) {
+      timers.push(window.setTimeout(() => setStage(i), startMs + i * beatMs));
+    }
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [count, enabled, beatMs, startMs]);
+  return stage;
+}
+
+// Types `text` out grapheme-by-grapheme. onDone fires once the run completes.
+// speed is chars-per-tick; tickMs the cadence. Instant when disabled.
+function useTypewriter(text: string, opts: { enabled: boolean; speed?: number; tickMs?: number; startMs?: number; onDone?: () => void }) {
+  const { enabled, speed = 3, tickMs = 16, startMs = 0, onDone } = opts;
+  const [count, setCount] = useState(enabled ? 0 : text.length);
+  const doneRef = useRef(false);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
+  useEffect(() => {
+    if (!enabled) {
+      setCount(text.length);
+      if (!doneRef.current) {
+        doneRef.current = true;
+        onDoneRef.current?.();
+      }
+      return;
+    }
+    doneRef.current = false;
+    setCount(0);
+    let current = 0;
+    let intervalId: number | undefined;
+    const startId = window.setTimeout(() => {
+      intervalId = window.setInterval(() => {
+        current = Math.min(text.length, current + speed);
+        setCount(current);
+        if (current >= text.length) {
+          if (intervalId) window.clearInterval(intervalId);
+          if (!doneRef.current) {
+            doneRef.current = true;
+            onDoneRef.current?.();
+          }
+        }
+      }, tickMs);
+    }, startMs);
+    return () => {
+      window.clearTimeout(startId);
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [text, enabled, speed, tickMs, startMs]);
+
+  return { shown: text.slice(0, count), done: count >= text.length };
+}
+
+// A paragraph that types itself, then calls onDone so the next beat can start.
+// Renders a blinking caret at the live edge while typing.
+function StreamParagraph({
+  text,
+  enabled,
+  className,
+  speed,
+  onDone
+}: {
+  text: string;
+  enabled: boolean;
+  className?: string;
+  speed?: number;
+  onDone?: () => void;
+}) {
+  const { shown, done } = useTypewriter(text, { enabled, speed, onDone });
+  return (
+    <p className={className}>
+      {shown}
+      {enabled && !done && <span className="caret" aria-hidden="true" />}
+    </p>
+  );
+}
+
+// Rich token model for streamed prose: plain runs, bold/highlight runs, and
+// inline citation chips that pop in as the caret reaches them.
+type RichToken =
+  | { text: string }
+  | { b: string }
+  | { hl: string }
+  | { cite: number };
+
+function tokenLength(token: RichToken): number {
+  if ('text' in token) return token.text.length;
+  if ('b' in token) return token.b.length;
+  if ('hl' in token) return token.hl.length;
+  return 1; // a citation chip counts as one caret beat
+}
+
+// Types across an ordered list of rich tokens, preserving bold, highlights,
+// and inline citation chips. Renders instantly when disabled.
+function StreamRich({
+  tokens,
+  enabled,
+  className,
+  speed,
+  onCite,
+  onDone
+}: {
+  tokens: RichToken[];
+  enabled: boolean;
+  className?: string;
+  speed?: number;
+  onCite?: (n: number) => void;
+  onDone?: () => void;
+}) {
+  const total = tokens.reduce((sum, token) => sum + tokenLength(token), 0);
+  const plain = tokens
+    .map((token) => ('text' in token ? token.text : 'b' in token ? token.b : 'hl' in token ? token.hl : ' '))
+    .join('');
+  const { shown, done } = useTypewriter(plain, { enabled, speed, onDone });
+  const count = enabled ? shown.length : total;
+
+  let cursor = 0;
+  const nodes: React.ReactNode[] = [];
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    const len = tokenLength(token);
+    const visible = Math.max(0, Math.min(len, count - cursor));
+    if (visible > 0) {
+      if ('text' in token) nodes.push(<React.Fragment key={i}>{token.text.slice(0, visible)}</React.Fragment>);
+      else if ('b' in token) nodes.push(<b key={i}>{token.b.slice(0, visible)}</b>);
+      else if ('hl' in token) nodes.push(<span className="hl" key={i}>{token.hl.slice(0, visible)}</span>);
+      else nodes.push(<Citation key={i} n={token.cite} onClick={onCite ? () => onCite(token.cite) : undefined} />);
+    }
+    cursor += len;
+  }
+  return (
+    <p className={className}>
+      {nodes}
+      {enabled && !done && <span className="caret" aria-hidden="true" />}
+    </p>
+  );
+}
+
 function AgentPage({
   page,
   query,
@@ -1176,6 +1474,48 @@ function AgentPage({
   const evidence = orderedEvidence(agentPayload.results?.map(normalizeResult) || results);
   const runLabel = agentPayload.run_id || 'rr_7f3a9c';
 
+  // --- Streaming deconstruction --------------------------------------------
+  // The answer arrives beat-by-beat: the synthesized prose types itself, then
+  // the view "deconstructs" how it was built (pull quote, commitments, the six
+  // tool calls) as one flowing narrative. Reduced-motion renders it all at once.
+  const reducedMotion = useReducedMotion();
+  const streaming = !reducedMotion && !loading;
+  // beat gates each block; typing blocks advance it on completion, reveal-only
+  // blocks advance on a short timer (see the effect below).
+  const [beat, setBeat] = useState(streaming ? 0 : 99);
+  const advance = () => setBeat((b) => b + 1);
+
+  useEffect(() => {
+    // Reset the run whenever we (re)enter a streaming answer.
+    setBeat(streaming ? 0 : 99);
+  }, [streaming, runLabel]);
+
+  useEffect(() => {
+    if (!streaming) return;
+    // Reveal-only beats (header pause, pull quote, commit table, plan header)
+    // hold briefly, then hand off to the next beat for a natural cadence.
+    const pauseBeats: Record<number, number> = { 0: 560, 4: 900, 6: 780, 7: 520 };
+    const hold = pauseBeats[beat];
+    if (hold == null) return;
+    const id = window.setTimeout(advance, hold);
+    return () => window.clearTimeout(id);
+  }, [beat, streaming]);
+
+  const planStart = 8;
+  const railReady = !streaming || beat >= 1;
+  const planStage = useStageSequence(canonicalPlan.length + 1, {
+    enabled: streaming,
+    beatMs: 480,
+    startMs: beat >= planStart ? 0 : 999999
+  });
+  const beatClass = (n: number) => cx('beat', (!streaming || beat >= n) && 'is-in');
+  const jumpToCitation = (n: number) => {
+    const el = document.querySelector(`.sources-rail .src:nth-of-type(${n})`);
+    el?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
+    el?.classList.add('flash');
+    window.setTimeout(() => el?.classList.remove('flash'), 900);
+  };
+
   return (
     <section className="inner-screen">
       <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
@@ -1186,104 +1526,139 @@ function AgentPage({
             <EmptyState loading title="Assembling cited answer" body="The agent endpoint is collecting citations and checking the evidence trail." />
           ) : (
             <>
-              <div className="eyebrow mono-label">Agent answer - synthesized with citations</div>
+              <div className="eyebrow mono-label">
+                {streaming && beat < planStart + canonicalPlan.length
+                  ? 'Agent answer · streaming with citations'
+                  : 'Agent answer · synthesized with citations'}
+              </div>
               <div className="question">"{query || queryDefault}"</div>
               <div className="answermeta">
                 <span className="badge"><i />GROUNDED</span>
                 <span>run <b>{runLabel.slice(0, 10)}</b></span>
-                <span><b>6 sources</b> - 5 systems</span>
+                <span><b>6 sources</b> · 5 systems</span>
                 <span>confidence <b>0.92</b></span>
-                <span>Jul 9, 2026 - 09:14</span>
+                <span>Jul 9, 2026 · 09:14</span>
               </div>
 
-              <p className="lead">
-                Orion's GA slipped two weeks - <span className="hl">July 1 to July 15</span> - because a P1 replication-lag blocker failed the release-readiness gate. The team decided the slip in Slack on June 23, and one contractual customer commitment, Acme Corp, is being renegotiated.
-              </p>
+              {(!streaming || beat >= 1) && (
+                <StreamRich
+                  className="lead"
+                  tokens={canonicalAnswer.lead}
+                  enabled={streaming && beat === 1}
+                  speed={4}
+                  onCite={jumpToCitation}
+                  onDone={advance}
+                />
+              )}
 
-              <div className="prose">
-                <p><b>Why it's delayed.</b> The events pipeline developed cross-region replication lag of up to 94 seconds against a 15-second freshness SLO, filed as P1 <b>ORION-1473</b> on June 12 <Citation n={2} />. The Release Readiness Runbook's Gate 3 formally failed on June 18, and policy requires the GA date to slip until the gate passes <Citation n={4} />. The same root cause triggered Sev2 incident <b>INC-0012345</b> in production two days later <Citation n={5} />.</p>
-                <p><b>What the team decided.</b> After the readiness review, engineering lead Priya Mehta recorded the decision in <b>#proj-orion</b> on June 23: GA moves from July 1 to July 15, partitioned WAL shipping is the hotfix path, and CS notifies Acme the same day <Citation n={1} />. The fix, <b>PR #1287</b>, merged July 2 and cut lag p99 from 94s to 8s <Citation n={6} />.</p>
-              </div>
-
-              <div className="pull">
-                <span className="mono-label">The decision, verbatim</span>
-                <div className="quote">"We're making the call: Orion GA moves from July 1 to July 15. ORION-1473 is the sole gating item - hotfix path is partitioned WAL shipping. CS to notify Acme before EOD."</div>
-                <div className="attr">Priya Mehta - #proj-orion - Jun 23, 2026 - 4:12 PM - cited as <b>[1]</b></div>
-              </div>
-
-              <div className="prose">
-                <p><b>Which commitments are impacted.</b> One contractual commitment is directly affected: Acme Corp's go-live, promised for July 8 under an MSA addendum <Citation n={3} />. The CSM is renegotiating to July 22 with a success-plan credit; the $1.2M renewal is flagged but the exec sponsor is engaged.</p>
-              </div>
-
-              <table className="commit-table">
-                <thead>
-                  <tr><th>Customer commitment</th><th>Original date</th><th>Now</th><th>Status</th></tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td><b>Acme Corp - production go-live</b><br />CASE-0012345 - MSA addendum - $1.2M ARR</td>
-                    <td>Jul 8, 2026</td>
-                    <td><b>Jul 22, 2026</b> proposed</td>
-                    <td><span className="status risk">RENEGOTIATING</span></td>
-                  </tr>
-                  <tr>
-                    <td><b>Northwind - pilot expansion</b><br />OPP-88412 - non-contractual target</td>
-                    <td>mid-July</td>
-                    <td>unchanged</td>
-                    <td><span className="status ok">MONITORING</span></td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <section className="plan">
-                <h2>How this answer was built</h2>
-                <p className="plan-sub">Six tool calls - 148 candidates considered - every step logged to <span>retrieval_runs</span></p>
-                {[
-                  ['1', 'search_evidence', 'orion delay root cause; systems: jira + slack + confluence', '12 strong candidates - top: ORION-1473'],
-                  ['2', 'traverse_links', 'from ORION-1473; edges: blocks, fixes, caused-by, gates', '5 linked objects - 9 edges'],
-                  ['3', 'search_evidence', 'orion customer commitments go-live; system: salesforce', '3 candidates - 1 contractual'],
-                  ['4', 'compare_sources', 'slack decision against readiness runbook and Jira timeline', 'consistent - no conflicts found'],
-                  ['5', 'explain_result', 'top 6 candidates with ranking signals', 'signals stored on retrieval_candidates'],
-                  ['6', 'synthesize_with_citations', '6 sources; brief answer style', '9 claims - 9 citations - confidence 0.92']
-                ].map(([num, fn, desc, res]) => (
-                  <div className="pstep" key={num}>
-                    <div className="pnum">{num}</div>
-                    <div className="pbody">
-                      <div className="fn">{fn}</div>
-                      <div className="desc">{desc}</div>
-                      <div className="res">{`-> ${res}`}</div>
-                    </div>
-                  </div>
-                ))}
-                <div className="actions">
-                  <button className="btn primary" onClick={onAgent}>Regenerate answer</button>
-                  <button className="btn ghost" onClick={() => onNavigate('trail')}>View source trail</button>
-                  <button className="btn ghost" onClick={() => onNavigate('diagnostics')}>Open diagnostics</button>
+              {(!streaming || beat >= 2) && (
+                <div className="prose">
+                  {(!streaming || beat >= 2) && (
+                    <StreamRich tokens={canonicalAnswer.why} enabled={streaming && beat === 2} onCite={jumpToCitation} onDone={advance} />
+                  )}
+                  {(!streaming || beat >= 3) && (
+                    <StreamRich tokens={canonicalAnswer.decided} enabled={streaming && beat === 3} onCite={jumpToCitation} onDone={advance} />
+                  )}
                 </div>
-              </section>
+              )}
+
+              {(!streaming || beat >= 4) && (
+                <div className={cx('pull', beatClass(4))}>
+                  <span className="mono-label">The decision, verbatim</span>
+                  <div className="quote">{canonicalAnswer.quote.text}</div>
+                  <div className="attr">Priya Mehta · #proj-orion · Jun 23, 2026 · 4:12 PM · cited as <b>[1]</b></div>
+                </div>
+              )}
+
+              {(!streaming || beat >= 5) && (
+                <div className="prose">
+                  <StreamRich tokens={canonicalAnswer.impacted} enabled={streaming && beat === 5} onCite={jumpToCitation} onDone={advance} />
+                </div>
+              )}
+
+              {(!streaming || beat >= 6) && (
+                <table className={cx('commit-table', beatClass(6))}>
+                  <thead>
+                    <tr><th>Customer commitment</th><th>Original date</th><th>Now</th><th>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><b>Acme Corp · production go-live</b><br />CASE-0012345 · MSA addendum · $1.2M ARR</td>
+                      <td>Jul 8, 2026</td>
+                      <td><b>Jul 22, 2026</b> proposed</td>
+                      <td><span className="status risk">RENEGOTIATING</span></td>
+                    </tr>
+                    <tr>
+                      <td><b>Northwind · pilot expansion</b><br />OPP-88412 · non-contractual target</td>
+                      <td>mid-July</td>
+                      <td>unchanged</td>
+                      <td><span className="status ok">MONITORING</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+
+              {(!streaming || beat >= 7) && (
+                <section className={cx('plan', beatClass(7))}>
+                  <h2>How this answer was built</h2>
+                  <p className="plan-sub">Six tool calls · {corpusTotal} candidates considered · every step logged to <span>retrieval_runs</span></p>
+                  {canonicalPlan.map((step, i) => {
+                    const revealed = !streaming || planStage >= i;
+                    const running = streaming && planStage === i;
+                    if (!revealed) return null;
+                    return (
+                      <div className={cx('pstep', 'beat', 'is-in', running && 'is-running')} key={step.num}>
+                        <div className="pnum">{step.num}</div>
+                        <div className="pbody">
+                          <div className="fn">{step.fn} <span>{step.args}</span></div>
+                          <div className="desc">{step.desc}</div>
+                          <div className="res">→ {step.res}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(!streaming || planStage >= canonicalPlan.length) && (
+                    <div className="actions beat is-in">
+                      <button className="btn primary" onClick={onAgent}>Regenerate answer</button>
+                      <button className="btn ghost" onClick={() => onNavigate('trail')}>View source trail</button>
+                      <button className="btn ghost" onClick={() => onNavigate('diagnostics')}>Open diagnostics</button>
+                    </div>
+                  )}
+                </section>
+              )}
             </>
           )}
         </article>
 
         <aside className="sources-rail">
-          <span className="mono-label">Sources - 6 cited</span>
-          {evidence.slice(0, 6).map((result, index) => (
-            <button className="src" key={`${result.source_system}-${result.external_id}-${index}`}>
-              <span className="srcnum">{index + 1}</span>
-              <span className="srcbody">
-                <span className="srchead">
-                  {sourceIcon(result.source_system, 15)}
-                  <span className="t">{result.title}</span>
+          <span className="mono-label">Sources · 6 cited</span>
+          {evidence.slice(0, 6).map((result, index) => {
+            const citation = sourceCitations[result.external_id] || sourceCitations[result.source_system];
+            const meta = citation?.meta || `${sourceLabel(result.source_system).toUpperCase()} · rerank ${displayScore(result, index).toFixed(2)}`;
+            const why = citation?.why || `${sourceRoles[result.source_system]?.type || 'Evidence'} supporting the answer.`;
+            const shown = railReady && (!streaming || beat >= 1 + index);
+            return (
+              <button
+                className={cx('src', 'beat', shown && 'is-in')}
+                style={streaming ? { transitionDelay: `${index * 40}ms` } : undefined}
+                key={`${result.source_system}-${result.external_id}-${index}`}
+              >
+                <span className="srcnum">{index + 1}</span>
+                <span className="srcbody">
+                  <span className="srchead">
+                    {sourceIcon(result.source_system, 15)}
+                    <span className="t">{result.title}</span>
+                  </span>
+                  <span className="srcmeta">{meta}</span>
+                  <span className="srcwhy">{why}</span>
                 </span>
-                <span className="srcmeta">{sourceLabel(result.source_system).toUpperCase()} - rerank {displayScore(result, index).toFixed(2)}</span>
-                <span className="srcwhy">{sourceRoles[result.source_system]?.type || 'Evidence'} supporting the answer.</span>
-              </span>
-            </button>
-          ))}
+              </button>
+            );
+          })}
           <div className="coverage">
             <div className="covrow"><span>CONFIDENCE</span><b>0.92</b></div>
             <div className="meter"><i /></div>
-            <p className="covnote"><b>Access-aware retrieval</b> preserved source permissions while assembling the cited answer.</p>
+            <p className="covnote"><b>✓ No contradictions</b> found by compare_sources across the 6 cited objects. 1 candidate excluded below the 0.55 rerank cut.</p>
           </div>
         </aside>
       </main>
@@ -1307,43 +1682,66 @@ function TrailPage({
   onSearch: () => void;
   onNavigate: (page: Page) => void;
 }) {
+  // The trail assembles itself node-by-node, as if traverse_links() were
+  // walking object_links live. One stage per event, plus the outcome card.
+  const reducedMotion = useReducedMotion();
+  const streaming = !reducedMotion;
+  const stage = useStageSequence(trailEvents.length + 1, { enabled: streaming, beatMs: 520, startMs: 320 });
+  const walking = streaming && stage < trailEvents.length;
+
   return (
     <section className="inner-screen">
       <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
       <div className="pagehead">
         <div className="eyebrow centered mono-label">Source trail</div>
         <h1>How the Orion delay <em>unfolded.</em></h1>
-        <div className="pagesub"><b>8 linked objects - 5 systems</b> - Jun 12 to Jul 3, 2026 - assembled by <b>traverse_links()</b> over <b>object_links</b></div>
+        <div className="pagesub"><b>8 linked objects · 5 systems</b> · Jun 12 — Jul 3, 2026 · assembled by <b>traverse_links()</b> over <b>object_links</b> · 9 edges followed</div>
         <div className="legend">
-          {['blocks', 'caused-by', 'gates', 'decided-in', 'impacts', 'fixes', 'references'].map((edge) => <span className="lg" key={edge}>{edge}</span>)}
+          {['blocks', 'caused-by', 'gates', 'decided-in', 'impacts', 'fixes', 'references'].map((edge) => (
+            <span className={cx('lg', edge === 'references' && 'n')} key={edge}>{edge}</span>
+          ))}
         </div>
+        {walking && (
+          <div className="walking mono-label">traverse_links() walking object_links<span className="caret" aria-hidden="true" /></div>
+        )}
       </div>
       <ErrorBanner message={error} />
       <div className="trail">
-        {trailEvents.map((event, index) => (
-          <React.Fragment key={event.date}>
-            <div className={cx('event', event.side, event.final && 'final')}>
-              <span className="date">{event.date}</span>
-              <span className="dot" />
-              <div className="ecard">
-                <div className="ehead">
-                  <div className="tile">{sourceIcon(event.system, 21)}</div>
-                  <div>
-                    <div className="etype">{event.type}</div>
-                    <div className="etitle">{event.title}</div>
+        {trailEvents.map((event, index) => {
+          const shown = !streaming || stage >= index;
+          if (!shown) return null;
+          const hopShown = !streaming || stage >= index + 1;
+          return (
+            <React.Fragment key={event.date}>
+              <div className={cx('event', event.side, event.final && 'final', 'beat', 'is-in')}>
+                <span className="date">{event.date}</span>
+                <span className="dot" />
+                <div className="ecard">
+                  <div className="ehead">
+                    <div className="tile">{sourceIcon(event.system, 21)}</div>
+                    <div>
+                      <div className="etype">{event.type}</div>
+                      <div className="etitle">{event.title}</div>
+                    </div>
                   </div>
+                  <p className="ebody"><HighlightedSnippet text={event.body} /></p>
+                  <div className="edges">{event.edges.map((edge) => (
+                    <span className={cx('edge', /^(references|resolves) /.test(edge) && 'n')} key={edge}>{edge}</span>
+                  ))}</div>
                 </div>
-                <p className="ebody"><HighlightedSnippet text={event.body} /></p>
-                <div className="edges">{event.edges.map((edge) => <span className="edge" key={edge}>{edge}</span>)}</div>
               </div>
-            </div>
-            {event.hop && index < trailEvents.length - 1 && <div className="hop"><span>{event.hop}</span></div>}
-          </React.Fragment>
-        ))}
-        <div className="outcome">
-          <span className="mono-label">Outcome</span>
-          <div className="big">July 15 GA remains credible because the blocker is fixed, the gate re-run passed, and Acme has a revised commitment path.</div>
-        </div>
+              {event.hop && index < trailEvents.length - 1 && hopShown && (
+                <div className="hop beat is-in"><span>{event.hop}</span></div>
+              )}
+            </React.Fragment>
+          );
+        })}
+        {(!streaming || stage >= trailEvents.length) && (
+          <div className="outcome beat is-in">
+            <span className="mono-label">Outcome</span>
+            <div className="big">GA lands <em>July 15</em> — blocker fixed, gate passed, and Acme's commitment renegotiated to <em>July 22</em> with the paper trail to prove it.</div>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1367,25 +1765,25 @@ function DiagnosticsPage({
       <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
       <main className="diagnostics-layout">
         <div className="eyebrow mono-label">Retrieval diagnostics</div>
-        <h1>Run <em>rr_7f3a9c</em> - every rank, explained.</h1>
+        <h1>Run <em>rr_7f3a9c</em> — every rank, explained.</h1>
         <div className="runmeta">
-          <span>region <b>us-east-1</b></span>
-          <span>answer model <b>global.anthropic.claude-opus-4-8</b></span>
-          <span>router model <b>global.anthropic.claude-sonnet-5</b></span>
-          <span>embedding <b>us.cohere.embed-v4:0</b></span>
-          <span>rerank <b>cohere.rerank-v3-5:0</b></span>
+          <span>profile <b>hybrid-rrf-rerank-v3</b></span>
+          <span>embedding <b>cohere.embed-v4 · 1024d</b></span>
+          <span>index <b>HNSW m=16 ef=64</b></span>
+          <span>fired <b>Jul 9, 2026 · 09:14:07</b></span>
+          <span>stored in <b>retrieval_runs</b></span>
         </div>
 
         <div className="tiles">
           {[
-            ['Total latency', '341', 'ms', 'p50 this profile: 318 ms'],
-            ['Candidate funnel', '148 -> 6', '', 'fetched -> cited - 4.1%'],
-            ['Fusion', 'RRF', 'k=60', '3 rankers - weights 1 / 1 / 0.5'],
-            ['Rerank', '0.55', 'cut', 'cross-encoder - 24 scored']
-          ].map(([k, v, unit, d]) => (
-            <div className="stile" key={k}>
+            ['Total latency', '341', 'ms', <>p50 this profile: <b>318 ms</b></>],
+            ['Candidate funnel', <>{corpusTotal} <small>→</small> 6</>, '', <>fetched → cited · <b>4.0%</b></>],
+            ['Fusion', 'RRF', 'k = 60', <>3 rankers · weights <b>1 / 1 / 0.5</b></>],
+            ['Rerank', '0.55', 'cut', <>cross-encoder · <b>24 scored</b></>]
+          ].map(([k, v, unit, d], index) => (
+            <div className="stile" key={index}>
               <div className="k">{k}</div>
-              <div className="v">{v}<small>{unit}</small></div>
+              <div className="v">{v}{unit ? <small>{unit}</small> : null}</div>
               <div className="d">{d}</div>
             </div>
           ))}
@@ -1394,75 +1792,72 @@ function DiagnosticsPage({
         <div className="grid2">
           <BarPanel
             title="Where the time went"
-            subtitle="MS PER STAGE - TOTAL 341"
+            subtitle="MS PER STAGE · TOTAL 341"
             rows={[
               ['parse + plan', '12', 5.7],
-              ['lexical - FTS', '38', 18.1],
-              ['semantic - vector', '54', 25.7],
-              ['fuzzy - trgm', '21', 10],
-              ['fusion - RRF', '6', 2.9],
+              ['lexical · FTS', '38', 18.1],
+              ['semantic · vector', '54', 25.7],
+              ['fuzzy · trgm', '21', 10],
+              ['fusion · RRF', '6', 2.9],
               ['rerank', '210', 100, true]
             ]}
-            note="Rerank dominates at 62% of latency and is scoped to 24 fused candidates, not all 148 fetched rows."
+            note={<>Rerank dominates at <b>62%</b> of latency — scoped to 24 fused candidates, not {corpusTotal}. The three retrievals run concurrently in Aurora.</>}
           />
           <BarPanel
             title="Candidate funnel"
             subtitle="RETRIEVAL_CANDIDATES"
             rows={[
-              ['fetched', '148', 100],
-              ['deduped', '92', 62.2],
-              ['fused - top-k', '24', 16.2],
-              ['above cut >= .55', '12', 8.1],
-              ['cited', '6', 4.1, true]
+              ['fetched', String(corpusTotal), 100],
+              ['deduped', '92', 61.3],
+              ['fused · top-k', '24', 16],
+              ['above cut ≥.55', '12', 8],
+              ['cited', '6', 4, true]
             ]}
-            note="56 duplicates collapsed across rankers. Five of six cited objects were found by at least two retrieval modes."
+            note={<>58 duplicates collapsed across rankers — <b>overlap is a good sign</b>: 5 of 6 cited objects were found by ≥2 retrieval modes.</>}
           />
         </div>
 
         <div className="tablewrap">
           <div className="twhead">
             <div className="ptitle">Top candidates, signal by signal</div>
-            <div className="psub">SHOWING 8 OF 24 - ORDER BY FINAL</div>
+            <div className="psub">SHOWING 10 OF 24 · ORDER BY FINAL</div>
           </div>
           <table>
             <thead>
               <tr><th>#</th><th className="l">Source object</th><th>FTS</th><th>VEC</th><th>TRGM</th><th>RRF</th><th>RERANK</th><th>CITED</th></tr>
             </thead>
             <tbody>
-              {diagnosticsRows.map(([rank, system, title, fts, vec, trgm, rrf, rerank, cited], index) => (
-                <tr className={index < 6 ? 'cited' : ''} key={`${rank}-${title}`}>
-                  <td className="rk">{rank}</td>
-                  <td className="l"><span className="srcobj">{sourceIcon(system, 15)}{title}<span>{sourceLabel(system).toUpperCase()}</span></span></td>
-                  <td>{fts}</td>
-                  <td>{vec}</td>
-                  <td>{trgm}</td>
-                  <td>{rrf}</td>
-                  <td><span className="scorebar"><span className="tr"><i style={{ width: `${Number(rerank) * 100}%` }} /></span>{rerank}</span></td>
-                  <td className={index < 6 ? 'ck' : 'cut'}>{cited}</td>
-                </tr>
-              ))}
+              {diagnosticsRows.map(([rank, system, title, fts, vec, trgm, rrf, rerank, cited], index) => {
+                const cited6 = index < 6;
+                return (
+                  <tr className={cited6 ? 'cited' : ''} key={`${rank}-${title}`}>
+                    <td className={cited6 ? 'rk' : ''}>{rank}</td>
+                    <td className="l"><span className="srcobj">{sourceIcon(system, 15)}{title}<span>{sourceLabel(system).toUpperCase()}</span></span></td>
+                    <td className={rankCellClass(fts)}>{fts}</td>
+                    <td className={rankCellClass(vec)}>{vec}</td>
+                    <td className={rankCellClass(trgm)}>{trgm}</td>
+                    <td>{rrf}</td>
+                    <td><span className="scorebar"><span className="tr"><i style={{ width: `${Number(rerank) * 100}%` }} /></span>{rerank}</span></td>
+                    <td className={cited6 ? 'ck' : 'cut'}>{cited}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-          <div className="tfoot">Every row is a persisted record in <b>retrieval_candidates</b>: rank positions, fused score, rerank score, and citation outcome.</div>
+          <div className="tfoot">Every row above is a persisted record in <b>retrieval_candidates</b> — rank positions per ranker, fused score, rerank score, and citation outcome. Relevance judgments against these rows power <b>recall@k and nDCG in the evaluation suite</b>.</div>
         </div>
 
         <div className="sql">
-          <div className="sql-head">
-            <div className="ptitle">RRF fusion query shape</div>
-            <div className="psub">Aurora PostgreSQL</div>
+          <div className="phead">
+            <div className="ptitle">The fusion query, verbatim</div>
+            <div className="psub">EXPLAIN THE RANKING · AURORA POSTGRESQL</div>
           </div>
-          <pre>{`WITH lexical AS (... ts_rank_cd(search_vector, plainto_tsquery($1)) ...),
-semantic AS (... embedding <=> $query_embedding ...),
-fuzzy AS (... similarity(title, $1) ...),
-fused AS (
-  SELECT object_id,
-    SUM(weight / (60 + rank_position)) AS rrf_score
-  FROM ranked_candidates
-  GROUP BY object_id
-)
-SELECT * FROM fused
-ORDER BY rrf_score DESC
-LIMIT 24;`}</pre>
+          <pre dangerouslySetInnerHTML={{ __html: fusionQueryHtml }} />
+        </div>
+
+        <div className="pagefoot">
+          run stored in <b>retrieval_runs</b> · candidates in <b>retrieval_candidates</b> · citations in <b>citations</b> · judged against <b>relevance_judgments</b><br />
+          one engine of record: <b>Amazon Aurora PostgreSQL</b>
         </div>
       </main>
     </section>
@@ -1478,7 +1873,7 @@ function BarPanel({
   title: string;
   subtitle: string;
   rows: Array<[string, string, number, boolean?]>;
-  note: string;
+  note: React.ReactNode;
 }) {
   return (
     <div className="panel">
@@ -1553,7 +1948,7 @@ function DetailPage({
               <h2>Retrieved passage</h2>
               <p>{selected.snippet}</p>
             </section>
-            {detailLoading && <p className="detail-loading">Loading source detail...</p>}
+            {detailLoading && <p className="detail-loading">Loading source detail…</p>}
             {citations.length > 0 && (
               <section className="detail-section">
                 <h2>Citations</h2>
@@ -1586,7 +1981,7 @@ function DetailPage({
               <div>
                 <h2>Linked evidence</h2>
                 {links.length ? links.slice(0, 4).map((link) => (
-                  <p key={link.link_id || `${link.source_system}-${link.external_id}`}>{sourceLabel(link.source_system)} - {link.title}</p>
+                  <p key={link.link_id || `${link.source_system}-${link.external_id}`}>{sourceLabel(link.source_system)} · {link.title}</p>
                 )) : <p>No linked source objects returned for this evidence item.</p>}
               </div>
             </section>
@@ -1659,7 +2054,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: searchQuery,
-          source_systems: ['slack', 'jira', 'confluence', 'salesforce', 'servicenow', 'github'],
+          source_systems: ['slack', 'jira', 'confluence', 'salesforce', 'github'],
           project_key: searchQuery.toLowerCase().includes('orion') ? 'ORION' : undefined,
           limit: 8
         })
@@ -1680,8 +2075,8 @@ function App() {
     }
   }
 
-  async function runAgent() {
-    const question = query.trim() || queryDefault;
+  async function runAgent(queryOverride?: string) {
+    const question = (queryOverride ?? query).trim() || queryDefault;
     setQuery(question);
     setPage('agent');
     setLoading(true);
@@ -1700,6 +2095,9 @@ function App() {
       setSelected(rows[0] || selected);
       setRunId(json.run_id);
     } catch (err) {
+      // On stage the API may be offline; the canonical Orion narrative is the
+      // fallback so the demo always streams. Keep results empty so the rail
+      // falls back to the ordered demo evidence.
       setAgentPayload({});
       setError(err instanceof Error ? err.message : 'Agent answer failed. Check the API and local Postgres setup.');
     } finally {
@@ -1708,7 +2106,10 @@ function App() {
   }
 
   if (page === 'landing') {
-    return <Landing query={query} setQuery={setQuery} onSearch={runSearch} onNavigate={navigate} error={error} />;
+    // A question from the landing page flows straight to the cited answer,
+    // which streams in and then deconstructs how it was built. The evidence
+    // grid stays reachable from the answer and the workspace nav.
+    return <Landing query={query} setQuery={setQuery} onSearch={runAgent} onNavigate={navigate} error={error} />;
   }
 
   if (page === 'detail') {

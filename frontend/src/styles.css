@@ -10,10 +10,28 @@
   --red-deep: #9e2f1e;
   --red-wash: #fbede8;
   --green: #2e7d54;
+  --green-wash: #eaf3ec;
+  /* warm surfaces */
+  --paper-glow-a: #f7e2d6;
+  --paper-glow-b: #f5e9d8;
+  --card-tint: #fffdfa;
+  --card-tint-deep: #fbf4eb;
+  --field: #fcf8f2;
+  /* on-dark (ink) surfaces */
+  --on-ink: #f6efe6;
+  --on-ink-soft: #b7a99a;
+  --on-ink-mute: #c9beb0;
+  /* SQL / code syntax on ink */
+  --code-base: #ede4d7;
+  --code-kw: #e5735f;
+  --code-fn: #e8b04b;
+  --code-cm: #8b7e6e;
+  --code-st: #9cc49a;
   --shadow-card: 0 1px 2px rgba(33, 28, 22, 0.05), 0 14px 34px -22px rgba(33, 28, 22, 0.25);
   --shadow-float: 0 2px 6px rgba(33, 28, 22, 0.04), 0 40px 90px -50px rgba(33, 28, 22, 0.25);
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --serif: "Fraunces", Georgia, serif;
+  --display: "Playfair Display", "Fraunces", Georgia, serif;
   --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--ink);
   background: var(--paper);
@@ -85,10 +103,16 @@ kbd {
 
 .mono-label {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+}
+
+.eyebrow.mono-label,
+.eyebrow .mono-label {
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
 .wordmark-button {
@@ -145,22 +169,6 @@ kbd {
   object-fit: contain;
 }
 
-.brand-image-servicenow {
-  max-width: 58px;
-}
-
-.mini-brand.servicenow {
-  width: 42px;
-}
-
-.mini-brand.servicenow .brand-image-servicenow {
-  max-width: 42px;
-}
-
-.chip .mini-brand.servicenow {
-  margin-right: -2px;
-}
-
 .tile {
   width: 36px;
   height: 36px;
@@ -171,10 +179,6 @@ kbd {
   display: grid;
   place-items: center;
   overflow: hidden;
-}
-
-.tile .brand-image-servicenow {
-  max-width: 31px;
 }
 
 .tile .brand-image-salesforce {
@@ -414,13 +418,12 @@ kbd {
 
 .hero h1 {
   margin: 0 0 34px;
-  max-width: 9.5ch;
-  font-family: var(--serif);
+  max-width: 10ch;
+  font-family: var(--display);
   font-size: clamp(58px, 5.6vw, 94px);
-  font-variation-settings: "opsz" 144;
-  font-weight: 365;
-  letter-spacing: -0.015em;
-  line-height: 1.02;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.04;
 }
 
 .hero h1 .why {
@@ -428,7 +431,7 @@ kbd {
   display: inline-block;
   color: var(--red);
   font-style: italic;
-  font-weight: 430;
+  font-weight: 500;
   padding: 0 0.04em;
 }
 
@@ -463,6 +466,12 @@ kbd {
   color: var(--ink-soft);
   font-size: 17.5px;
   line-height: 1.65;
+}
+
+.sub em {
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 500;
 }
 
 .works .mono-label {
@@ -1024,15 +1033,28 @@ kbd {
 }
 
 .f-op {
-  flex: 0 0 18px;
-  color: #e5735f;
-  font-family: var(--mono);
-  font-size: 13px;
+  flex: 0 0 26px;
+  display: grid;
+  place-items: center;
+  color: var(--code-kw);
+  font-family: var(--sans);
+  font-size: 20px;
   font-style: normal;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1;
   text-align: center;
-  opacity: 0.82;
+}
+
+.f-op.plus {
+  font-size: 19px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.f-op.arrow {
+  font-size: 22px;
+  font-weight: 500;
+  opacity: 0.95;
 }
 
 .stack .foot {
@@ -1173,14 +1195,6 @@ kbd {
 .fchip .mini-brand {
   width: 16px;
   height: 16px;
-}
-
-.fchip .mini-brand.servicenow {
-  width: 42px;
-}
-
-.fchip .mini-brand.servicenow .brand-image-servicenow {
-  max-width: 42px;
 }
 
 .fchip .n {
@@ -1584,6 +1598,11 @@ mark {
   font-weight: 600;
 }
 
+.sumrow .hot {
+  color: var(--red);
+  font-weight: 600;
+}
+
 /* Answer */
 .answer-layout {
   max-width: 1220px;
@@ -1815,6 +1834,11 @@ mark {
   font-weight: 600;
 }
 
+.pbody .fn span {
+  color: var(--muted);
+  font-weight: 400;
+}
+
 .pbody .desc {
   margin-top: 3px;
   color: var(--ink-soft);
@@ -2018,6 +2042,13 @@ mark {
   text-transform: uppercase;
 }
 
+.lg.n,
+.edge.n {
+  border-color: var(--line);
+  background: var(--field);
+  color: var(--ink-soft);
+}
+
 .trail {
   position: relative;
   max-width: 1080px;
@@ -2182,6 +2213,11 @@ mark {
   font-size: 23px;
   font-weight: 400;
   line-height: 1.35;
+}
+
+.outcome .big em {
+  color: var(--code-kw);
+  font-style: italic;
 }
 
 /* Diagnostics */
@@ -2462,8 +2498,23 @@ tbody tr.cited {
   font-weight: 600;
 }
 
-.cut {
-  color: #c9beb0;
+.cut,
+tbody td.na {
+  color: var(--on-ink-mute);
+}
+
+.pagefoot {
+  color: var(--muted);
+  padding-top: 16px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 2;
+}
+
+.pagefoot b {
+  color: var(--ink-soft);
+  font-weight: 500;
 }
 
 .tfoot {
@@ -2480,27 +2531,54 @@ tbody tr.cited {
 }
 
 .sql {
+  margin-bottom: 18px;
   border-radius: 15px;
   background: var(--ink);
-  color: #ede4d7;
+  color: var(--code-base);
   padding: 24px 28px;
   overflow-x: auto;
 }
 
+.sql .phead,
+.sql .sql-head {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 16px;
+}
+
 .sql .ptitle {
-  color: #f6efe6;
+  color: var(--on-ink);
 }
 
 .sql .psub {
-  color: #b7a99a;
+  margin-left: auto;
+  color: var(--on-ink-soft);
 }
 
 .sql pre {
-  margin: 16px 0 0;
+  margin: 0;
   font-family: var(--mono);
   font-size: 11.5px;
   line-height: 1.75;
   white-space: pre;
+}
+
+.sql .kw {
+  color: var(--code-kw);
+  font-weight: 600;
+}
+
+.sql .fn {
+  color: var(--code-fn);
+}
+
+.sql .cm {
+  color: var(--code-cm);
+  font-style: italic;
+}
+
+.sql .st {
+  color: var(--code-st);
 }
 
 /* Detail */
@@ -2614,6 +2692,116 @@ blockquote span {
   text-decoration: none;
 }
 
+/* ---- Streaming / typewriter reveal ---------------------------------- */
+
+/* Blinking caret shown at the live edge of streaming text. */
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.02em;
+  margin-left: 1px;
+  vertical-align: -0.14em;
+  background: var(--red);
+  border-radius: 1px;
+  animation: caretBlink 1.05s steps(1) infinite;
+}
+
+.caret.block {
+  width: 9px;
+  height: 1.05em;
+  vertical-align: -0.16em;
+  opacity: 0.85;
+}
+
+@keyframes caretBlink {
+  50% { opacity: 0.2; }
+}
+
+/* A "beat" is one staged block in the deconstruction narrative. It waits
+   its turn, then rises into place. Driven by the .is-in class from JS so
+   reduced-motion and instant-render paths stay trivial. */
+.beat {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.62s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.62s cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.beat.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Source-rail cards cascade in one after another as the answer lands. */
+.src.beat {
+  transform: translateY(10px) scale(0.995);
+}
+
+.src.beat.is-in {
+  transform: none;
+}
+
+/* The plan steps type their function signature, then reveal the result. */
+.pstep .res.pending {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.pstep.is-running .pnum {
+  color: var(--paper);
+  background: var(--red);
+  border-color: var(--red);
+}
+
+/* Thin progress thread under the streaming answer eyebrow. */
+.streamline {
+  position: relative;
+  height: 2px;
+  margin: 2px 0 22px;
+  border-radius: 2px;
+  background: var(--line-soft);
+  overflow: hidden;
+}
+
+.streamline i {
+  position: absolute;
+  inset: 0 100% 0 0;
+  background: linear-gradient(90deg, var(--red), var(--red-deep));
+  transition: right 0.4s ease;
+}
+
+/* When a citation chip is clicked mid-answer, the matching rail card flashes. */
+.src.flash {
+  animation: srcFlash 0.9s ease;
+}
+
+@keyframes srcFlash {
+  0%, 100% { background: transparent; box-shadow: none; }
+  25% { background: var(--red-wash); box-shadow: inset 0 0 0 1px var(--red); }
+}
+
+.trail .event.beat {
+  transform: translateY(18px);
+}
+
+.hop.beat {
+  transform: translateY(6px);
+}
+
+/* Live indicator while the trail assembles itself. */
+.walking {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 14px;
+  color: var(--red-deep);
+}
+
+.walking .caret {
+  height: 0.95em;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -2625,6 +2813,15 @@ blockquote span {
 
   .hero h1 .why path {
     stroke-dashoffset: 0;
+  }
+
+  .beat {
+    opacity: 1;
+    transform: none;
+  }
+
+  .caret {
+    display: none;
   }
 }
 
