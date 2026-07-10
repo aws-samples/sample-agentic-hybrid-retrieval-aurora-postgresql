@@ -56,6 +56,9 @@ type AgentPayload = {
   run_id?: string;
   plan?: string[];
   answer?: string;
+  confidence?: number;
+  source_count?: number;
+  system_count?: number;
   citations?: Array<{
     n: number;
     source_system: string;
@@ -189,6 +192,27 @@ const heroSourceNodes = [
   { key: 'jira', className: 'n-jira', title: 'ORION-1473', meta: 'P1 blocker', role: 'Blocker', score: '0.89', delay: '1.4s' },
   { key: 'salesforce', className: 'n-sf', title: 'CASE-0012345', meta: 'Acme commitment', role: 'Impact', score: '0.87', delay: '.9s' },
   { key: 'github', className: 'n-gh', title: 'PR-1287', meta: 'Merged fix', role: 'Change', score: '0.74', delay: '1.8s' }
+];
+
+const evidenceGraphEdges = [
+  {
+    from: { system: 'slack', title: 'Slack decision', meta: 'SLACK-000271' },
+    relation: 'impacts',
+    to: { system: 'salesforce', title: 'Acme go-live', meta: 'CASE-0012345' },
+    why: 'Shows the customer commitment that moved to July 22.'
+  },
+  {
+    from: { system: 'jira', title: 'ORION-1473', meta: 'P1 blocker' },
+    relation: 'gated by',
+    to: { system: 'confluence', title: 'Gate 3 runbook', meta: 'PAGE-2112' },
+    why: 'Explains why GA could not ship on July 1.'
+  },
+  {
+    from: { system: 'github', title: 'PR #1287', meta: 'merged fix' },
+    relation: 'fixes',
+    to: { system: 'jira', title: 'ORION-1473', meta: 'resolved Jul 3' },
+    why: 'Closes the blocker and supports the July 15 target.'
+  }
 ];
 
 const demoResults: Result[] = [
@@ -1282,17 +1306,54 @@ function ResultsPage({
           </div>
 
           <div className="railcard">
-            <div className="mono-label">This retrieval</div>
-            {[
-              ['lexical · ts_rank_cd', '60 cand'],
-              ['semantic · pgvector', '60 cand'],
-              ['fuzzy · pg_trgm', '40 cand'],
-              ['fused · RRF k=60', '92 → 24'],
-              ['scored · cited', '6 cited', true],
-              ['latency', '341 ms']
-            ].map(([label, value, hot]) => (
-              <div className="sumrow" key={String(label)}><span>{label}</span><b className={hot ? 'hot' : undefined}>{value}</b></div>
-            ))}
+            <div className="mono-label">This retrieval run</div>
+            <div className="retrieval-run">
+              <div className="run-intent">
+                <span>Intent</span>
+                <b>Orion delay + customer risk</b>
+                <small>Project ORION · last 90 days · 5 systems</small>
+              </div>
+
+              <div className="run-funnel" aria-label="Candidate funnel">
+                {[
+                  ['Corpus', corpusTotal],
+                  ['Raw', 160],
+                  ['Deduped', 92],
+                  ['Returned', 24],
+                  ['Cited', 6]
+                ].map(([label, value], index) => (
+                  <React.Fragment key={String(label)}>
+                    {index > 0 && <span className="funnel-arrow">→</span>}
+                    <span className={cx('funnel-step', index === 4 && 'hot')}><b>{value}</b><small>{label}</small></span>
+                  </React.Fragment>
+                ))}
+              </div>
+
+              <div className="ranker-mix">
+                {[
+                  ['lexical', 'ts_rank_cd', 60, 38],
+                  ['semantic', 'pgvector', 60, 42],
+                  ['fuzzy', 'pg_trgm', 40, 12]
+                ].map(([name, method, count, width]) => (
+                  <div className="ranker-row" key={String(name)}>
+                    <span><b>{name}</b><small>{method}</small></span>
+                    <i><em style={{ width: `${width}%` }} /></i>
+                    <strong>{count}</strong>
+                  </div>
+                ))}
+              </div>
+
+              <div className="run-proof">
+                <span><b>RRF k=60</b> fused 92 candidates to the top 24.</span>
+                <span><b>SQL scoring</b> selected 6 cited objects above the 0.55 cut.</span>
+                <span><b>Persisted</b> in retrieval_runs, retrieval_candidates, and citations.</span>
+              </div>
+
+              <div className="run-latency">
+                <span>Latency</span>
+                <b>341 ms</b>
+              </div>
+            </div>
             <button className="rail-link" onClick={() => onNavigate('diagnostics')}>Open diagnostics →</button>
           </div>
         </aside>
@@ -1303,25 +1364,35 @@ function ResultsPage({
 
 function MiniGraph() {
   return (
-    <svg className="minigraph" width="250" height="150" viewBox="0 0 250 150" aria-hidden="true">
-      <line x1="125" y1="75" x2="52" y2="30" />
-      <line x1="125" y1="75" x2="40" y2="106" />
-      <line x1="125" y1="75" x2="198" y2="28" />
-      <line x1="125" y1="75" x2="210" y2="102" />
-      <line x1="125" y1="75" x2="125" y2="132" />
-      <circle className="c" cx="125" cy="75" r="7" />
-      <circle className="n" cx="52" cy="30" r="5.5" />
-      <circle className="n" cx="40" cy="106" r="5.5" />
-      <circle className="n" cx="198" cy="28" r="5.5" />
-      <circle className="n" cx="210" cy="102" r="5.5" />
-      <circle className="n" cx="125" cy="132" r="5.5" />
-      <text x="46" y="20">SLACK</text>
-      <text x="30" y="124">JIRA</text>
-      <text x="184" y="18">SNOW</text>
-      <text x="196" y="120">SFDC</text>
-      <text x="112" y="148">GITHUB</text>
-      <text x="136" y="70">ANSWER</text>
-    </svg>
+    <div className="evidence-graph" aria-label="Evidence relationship graph">
+      <div className="graph-summary">
+        <span><b>6</b> cited objects</span>
+        <span><b>5</b> systems</span>
+        <span><b>9</b> object_links</span>
+      </div>
+      <div className="graph-edge-list">
+        {evidenceGraphEdges.map((edge) => (
+          <div className="graph-edge" key={`${edge.from.meta}-${edge.relation}-${edge.to.meta}`}>
+            <div className="graph-node">
+              <span className="graph-icon">{sourceIcon(edge.from.system, 15)}</span>
+              <span className="graph-copy">
+                <b>{edge.from.title}</b>
+                <small>{sourceLabel(edge.from.system)} · {edge.from.meta}</small>
+              </span>
+            </div>
+            <div className="graph-relation"><span>{edge.relation}</span></div>
+            <div className="graph-node target">
+              <span className="graph-icon">{sourceIcon(edge.to.system, 15)}</span>
+              <span className="graph-copy">
+                <b>{edge.to.title}</b>
+                <small>{sourceLabel(edge.to.system)} · {edge.to.meta}</small>
+              </span>
+            </div>
+            <p>{edge.why}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -1574,6 +1645,11 @@ function AgentPage({
 }) {
   const evidence = orderedEvidence(agentPayload.results?.map(normalizeResult) || results);
   const runLabel = agentPayload.run_id || runId || 'rr_7f3a9c';
+  const confidenceValue = typeof agentPayload.confidence === 'number' ? agentPayload.confidence : 0.92;
+  const confidenceLabel = confidenceValue.toFixed(2);
+  const confidencePercent = Math.round(Math.max(0, Math.min(1, confidenceValue)) * 100);
+  const citedSourceCount = agentPayload.source_count || 6;
+  const citedSystemCount = agentPayload.system_count || 5;
 
   // --- Streaming deconstruction --------------------------------------------
   // The answer arrives beat-by-beat: the synthesized prose types itself, then
@@ -1646,8 +1722,7 @@ function AgentPage({
               <div className="answermeta">
                 <span className="badge"><i />GROUNDED</span>
                 <span title={runLabel}>run <b>{shortRunId(runLabel)}</b></span>
-                <span><b>6 sources</b> · 5 systems</span>
-                <span>confidence <b>0.92</b></span>
+                <span><b>{citedSourceCount} sources</b> · {citedSystemCount} systems</span>
                 <span>Jul 9, 2026 · 09:14</span>
               </div>
 
@@ -1741,6 +1816,22 @@ function AgentPage({
                   )}
                 </section>
               )}
+
+              {(!streaming || planStage >= canonicalPlan.length) && (
+                <section className="coverage answer-confidence beat is-in" aria-label="Confidence calculation">
+                  <div className="covrow"><span>Confidence</span><b>{confidenceLabel}</b></div>
+                  <div className="meter"><i style={{ width: `${confidencePercent}%` }} /></div>
+                  <p className="covnote">
+                    <b>How it was calculated:</b> the score combines final retrieval strength, citation coverage, cross-source agreement, and contradiction checks for the cited evidence set.
+                  </p>
+                  <div className="confidence-grid">
+                    <div><span>Rank strength</span><b>{citedSourceCount} cited objects above the score cut</b></div>
+                    <div><span>Coverage</span><b>9 answer claims bound to citations</b></div>
+                    <div><span>Agreement</span><b>{citedSystemCount} systems support the same timeline</b></div>
+                  </div>
+                  <p className="covnote"><b>✓ No contradictions</b> found by compare_sources across the {citedSourceCount} cited objects. 1 candidate excluded below the 0.55 score cut.</p>
+                </section>
+              )}
             </>
           )}
         </article>
@@ -1770,11 +1861,6 @@ function AgentPage({
               </button>
             );
           })}
-          <div className="coverage">
-            <div className="covrow"><span>CONFIDENCE</span><b>0.92</b></div>
-            <div className="meter"><i /></div>
-            <p className="covnote"><b>✓ No contradictions</b> found by compare_sources across the 6 cited objects. 1 candidate excluded below the 0.55 score cut.</p>
-          </div>
         </aside>
       </main>
     </section>
@@ -1854,7 +1940,7 @@ function TimelinePage({
         {(!streaming || stage >= trailEvents.length) && (
           <div className="outcome beat is-in">
             <span className="mono-label">Outcome</span>
-            <div className="big">GA lands <em>July 15</em> — blocker fixed, gate passed, and Acme's commitment renegotiated to <em>July 22</em> with the evidence path to prove it.</div>
+            <div className="big">GA lands <span className="date-accent">July 15</span> — blocker fixed, gate passed, and Acme's commitment renegotiated to <span className="date-accent">July 22</span> with the evidence path to prove it.</div>
           </div>
         )}
       </div>
@@ -1889,6 +1975,27 @@ function DiagnosticsPage({
           <span>stored in <b>retrieval_runs</b></span>
         </div>
 
+        <section className="diagnostics-audit" aria-label="Run audit summary">
+          <div className="audit-verdict">
+            <span className="tech-pill">Run complete</span>
+            <h2>Grounded answer path accepted.</h2>
+            <p>Hybrid retrieval produced six cited objects across five systems. The final answer passed source agreement checks, excluded weak candidates below the 0.55 cut, and persisted every candidate signal for inspection.</p>
+          </div>
+          <div className="audit-checks">
+            {[
+              ['6 / 6', 'cited objects above cut'],
+              ['5', 'systems represented'],
+              ['9', 'object_links traversed'],
+              ['0', 'contradictions found']
+            ].map(([value, label]) => (
+              <div className="audit-card" key={label}>
+                <b>{value}</b>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <div className="tiles">
           {[
             ['Total latency', '341', 'ms', <>p50 this profile: <b>318 ms</b></>],
@@ -1903,6 +2010,22 @@ function DiagnosticsPage({
             </div>
           ))}
         </div>
+
+        <section className="diag-flow" aria-label="Retrieval diagnostic flow">
+          {[
+            ['01', 'Plan', 'Normalize the Orion question, scope project filters, and set source-system hints.'],
+            ['02', 'Retrieve', 'Run full-text, pgvector, and pg_trgm retrieval concurrently inside Aurora.'],
+            ['03', 'Fuse', 'Collapse ranker overlap with RRF k=60 and keep the top 24 candidates.'],
+            ['04', 'Score', 'Apply SQL final scoring, source authority, recency, and the 0.55 cut.'],
+            ['05', 'Prove', 'Persist candidates, citations, and judgments for replay and evaluation.']
+          ].map(([num, title, body]) => (
+            <div className="diag-step" key={num}>
+              <span>{num}</span>
+              <b>{title}</b>
+              <p>{body}</p>
+            </div>
+          ))}
+        </section>
 
         <div className="grid2">
           <BarPanel
@@ -1936,6 +2059,11 @@ function DiagnosticsPage({
           <div className="twhead">
             <div className="ptitle">Top candidates, signal by signal</div>
             <div className="psub">SHOWING 10 OF 24 · ORDER BY FINAL</div>
+          </div>
+          <div className="candidate-legend">
+            <span><b>Cited rows</b> became answer citations</span>
+            <span><b>#1 / #2</b> are per-ranker positions</span>
+            <span><b>—</b> means that retriever did not rank the object</span>
           </div>
           <table>
             <thead>
