@@ -99,44 +99,49 @@ type ObjectDetail = {
 const API_URL = import.meta.env.VITE_RETRIEVAL_API_URL || 'http://127.0.0.1:8000';
 const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'Threadline';
 const queryDefault = 'Why did Orion slip?';
-const showcaseQuery = 'Why did Orion slip across Slack, Jira, Confluence, Salesforce, and GitHub?';
+const showcaseQuery = 'Why did Orion slip, and which customer commitments are at risk?';
 const rotatingQueries = [
   queryDefault,
   showcaseQuery,
-  'What changed before ORION-1489 paged, which Jira blocker caused it, and which PR fixed it?',
-  'Which Salesforce commitments are at risk, and what Slack and Jira evidence explains why?',
-  'How do the readiness runbook, Slack decision, ORION-1473, and PR-1287 connect?'
+  'Why did ORION-1489 page in prod, and what fixed it?',
+  'Which customer commitments are at risk from the Orion slip?',
+  'What blocked Orion’s release, and how did the fix ship?'
 ];
 
+// Users ask in natural language. The `sources` on each suggestion are what the
+// agent surfaces automatically — rendered as the little system icons — not
+// something the user types. "Incident to fix" deliberately names the ORION-1489
+// ticket: an exact ID is where lexical full-text search beats semantic vectors
+// (embeddings blur ORION-1489 vs ORION-1487), so it's the teaching moment for FTS.
 const searchSuggestions = [
   {
-    label: 'Cross-system cause',
-    query: 'Why did Orion slip across Slack, Jira, Confluence, Salesforce, and GitHub?',
+    label: 'Root cause',
+    query: 'Why did Orion slip?',
     sources: ['slack', 'jira', 'confluence', 'salesforce', 'github']
   },
   {
     label: 'Incident to fix',
-    query: 'What changed before ORION-1489 paged, which Jira blocker caused it, and which PR fixed it?',
+    query: 'Why did ORION-1489 page in prod, and what fixed it?',
     sources: ['jira', 'github']
   },
   {
     label: 'Customer impact',
-    query: 'Which Salesforce commitments are at risk, and what Slack and Jira evidence explains why?',
+    query: 'Which customer commitments are at risk from the Orion slip?',
     sources: ['salesforce', 'slack', 'jira']
   },
   {
     label: 'Decision trail',
-    query: 'How do the readiness runbook, Slack decision, ORION-1473, and PR-1287 connect?',
+    query: 'What was decided about Orion’s release date, and why?',
     sources: ['confluence', 'slack', 'jira', 'github']
   },
   {
     label: 'Evidence chain',
-    query: 'Show the evidence chain from the failed readiness gate to the customer commitment and merged GitHub fix.',
+    query: 'How does the failed readiness gate connect to the customer commitment and the fix?',
     sources: ['confluence', 'salesforce', 'github']
   },
   {
-    label: 'Full audit trail',
-    query: 'Explain the Orion delay using the Slack decision, Jira blocker, Confluence gate, Salesforce case, ORION-1489 paging ticket, and GitHub PR.',
+    label: 'Full picture',
+    query: 'Explain the Orion delay end to end — cause, impact, and resolution.',
     sources: ['slack', 'jira', 'confluence', 'salesforce', 'github']
   }
 ];
