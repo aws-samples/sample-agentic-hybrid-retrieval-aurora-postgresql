@@ -1,3 +1,6 @@
+# Load ignored local overrides, such as DATABASE_URL for a deployed Aurora cluster.
+-include .env
+
 DATABASE_URL ?= postgresql://localhost:55432/retrieval?sslmode=disable
 PGVECTOR_VERSION ?= v0.8.2
 PGVECTOR_MIN_VERSION ?= 0.8.1
@@ -11,7 +14,7 @@ export PGVECTOR_VERSION
 export PGVECTOR_MIN_VERSION
 export POSTGRES_MIN_VERSION
 
-.PHONY: install install-pgvector local-db-start local-db-stop local-db-bootstrap schema aurora-verify sample load embed api frontend smoke clean seed-generate seed-jsonl seed-load agentcore-provision
+.PHONY: install install-pgvector local-db-start local-db-stop local-db-bootstrap aurora-local-env schema aurora-verify sample load embed api frontend smoke clean seed-generate seed-jsonl seed-load agentcore-provision
 
 install:
 	python -m venv .venv
@@ -28,6 +31,9 @@ local-db-stop:
 
 local-db-bootstrap:
 	scripts/local_postgres.sh bootstrap
+
+aurora-local-env:
+	scripts/configure_local_aurora.sh
 
 schema:
 	$(PYTHON) backend/scripts/check_postgres.py --min-version $(POSTGRES_MIN_VERSION)

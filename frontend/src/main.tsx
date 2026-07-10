@@ -98,6 +98,7 @@ type ObjectDetail = {
 
 const API_URL = import.meta.env.VITE_RETRIEVAL_API_URL || 'http://127.0.0.1:8000';
 const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'AuraLens';
+const ENABLE_ANSWER_STREAMING = import.meta.env.VITE_ENABLE_ANSWER_STREAMING !== '0';
 const queryDefault = 'Why did Orion slip?';
 const showcaseQuery = 'Why did Orion slip, and which customer commitments are at risk?';
 const rotatingQueries = [
@@ -130,12 +131,12 @@ const searchSuggestions = [
     sources: ['salesforce', 'slack', 'jira']
   },
   {
-    label: 'Decision trail',
+    label: 'Decision timeline',
     query: 'What was decided about Orion’s release date, and why?',
     sources: ['confluence', 'slack', 'jira', 'github']
   },
   {
-    label: 'Evidence chain',
+    label: 'Linked context',
     query: 'How does the failed readiness gate connect to the customer commitment and the fix?',
     sources: ['confluence', 'salesforce', 'github']
   },
@@ -149,8 +150,8 @@ const searchSuggestions = [
 const workspaceNavItems: Array<{ page: Page; label: string; eyebrow: string; summary: string }> = [
   { page: 'results', label: 'Evidence', eyebrow: '24 ranked results', summary: 'Hybrid-ranked sources and linked context' },
   { page: 'agent', label: 'Answer', eyebrow: '6 cited sources', summary: 'Synthesized answer with inline citations' },
-  { page: 'trail', label: 'Trail', eyebrow: '8 linked objects', summary: 'Cross-system sequence and relationship path' },
-  { page: 'diagnostics', label: 'Diagnostics', eyebrow: '341 ms run', summary: 'Fusion, rerank, latency, and SQL trace' }
+  { page: 'trail', label: 'Timeline', eyebrow: '8 linked events', summary: 'Time-ordered cross-system sequence' },
+  { page: 'diagnostics', label: 'Diagnostics', eyebrow: '341 ms run', summary: 'Fusion, scoring, latency, and SQL trace' }
 ];
 
 const coreSources = [
@@ -304,12 +305,12 @@ const demoResults: Result[] = [
 ];
 
 const resultSignals = [
-  ['FTS #2', 'VECTOR #1', 'TRGM —', 'RRF 0.0325', 'RERANK 0.93', 'references → ORION-1473', 'impacts → CASE-0012345'],
-  ['FTS #1', 'VECTOR #3', 'TRGM .71', 'RRF 0.0322', 'RERANK 0.89', 'blocks → GA cutover', 'fixed-by → PR #1287'],
-  ['FTS #6', 'VECTOR #2', 'TRGM —', 'RRF 0.0310', 'RERANK 0.87', 'impacted-by → GA delay'],
-  ['FTS #3', 'VECTOR #7', 'TRGM —', 'RRF 0.0295', 'RERANK 0.82', 'gates → GA cutover'],
-  ['FTS #4', 'VECTOR #14', 'TRGM .64', 'RRF 0.0271', 'RERANK 0.78', 'caused-by → ORION-1473'],
-  ['FTS #11', 'VECTOR #6', 'TRGM —', 'RRF 0.0253', 'RERANK 0.74', 'fixes → ORION-1473']
+  ['FTS #2', 'VECTOR #1', 'TRGM —', 'RRF 0.0325', 'FINAL 0.93', 'references → ORION-1473', 'impacts → CASE-0012345'],
+  ['FTS #1', 'VECTOR #3', 'TRGM .71', 'RRF 0.0322', 'FINAL 0.89', 'blocks → GA cutover', 'fixed-by → PR #1287'],
+  ['FTS #6', 'VECTOR #2', 'TRGM —', 'RRF 0.0310', 'FINAL 0.87', 'impacted-by → GA delay'],
+  ['FTS #3', 'VECTOR #7', 'TRGM —', 'RRF 0.0295', 'FINAL 0.82', 'gates → GA cutover'],
+  ['FTS #4', 'VECTOR #14', 'TRGM .64', 'RRF 0.0271', 'FINAL 0.78', 'caused-by → ORION-1473'],
+  ['FTS #11', 'VECTOR #6', 'TRGM —', 'RRF 0.0253', 'FINAL 0.74', 'fixes → ORION-1473']
 ];
 
 const sourceRoles: Record<string, { type: string; role: string }> = {
@@ -324,27 +325,27 @@ const sourceRoles: Record<string, { type: string; role: string }> = {
 // ORION-1473 and the full-text-surfaced ops ticket ORION-1489).
 const sourceCitations: Record<string, { meta: string; why: string }> = {
   'SLACK-000271': {
-    meta: 'SLACK · #proj-orion · JUN 23 · rerank 0.93',
+    meta: 'SLACK · #proj-orion · JUN 23 · score 0.93',
     why: 'The decision itself — answers "what did the team decide."'
   },
   'ORION-1473': {
-    meta: 'JIRA · P1 · JUN 12 – JUL 3 · rerank 0.89',
+    meta: 'JIRA · P1 · JUN 12 – JUL 3 · score 0.89',
     why: 'Root cause and timeline; blocks the GA cutover story.'
   },
   'CASE-0012345': {
-    meta: 'SALESFORCE · TIER 1 · JUN 26 · rerank 0.87',
+    meta: 'SALESFORCE · TIER 1 · JUN 26 · score 0.87',
     why: 'The impacted contractual commitment and its mitigation.'
   },
   'PAGE-2112': {
-    meta: 'CONFLUENCE · GATE 3 · JUN 18 · rerank 0.82',
+    meta: 'CONFLUENCE · GATE 3 · JUN 18 · score 0.82',
     why: 'The policy mechanism that forced the date slip.'
   },
   'ORION-1489': {
-    meta: 'JIRA · SEV2 · JUN 20 · rerank 0.78',
+    meta: 'JIRA · SEV2 · JUN 20 · score 0.78',
     why: 'Production paging that corroborates the root cause — surfaced by full-text search.'
   },
   'PR-1287': {
-    meta: 'GITHUB · MERGED JUL 2 · rerank 0.74',
+    meta: 'GITHUB · MERGED JUL 2 · score 0.74',
     why: 'The fix that unblocked the gate re-run.'
   }
 };
@@ -410,13 +411,13 @@ const canonicalPlan: Array<{ num: string; fn: string; args: string; desc: string
 // The agent's live reasoning, shown as a single updating line (Claude.ai style)
 // before the answer types itself. Each line mirrors a real step of the run that
 // just executed in Aurora: embed the query with Cohere, run the three retrievers,
-// fuse with RRF, rerank, follow links, check for contradictions, then cite.
+// fuse with RRF, score final candidates, follow links, check for contradictions, then cite.
 const thinkingTrace = [
   'Decomposing the question into retrieval intents',
   'Embedding the query with Cohere embed-v4 (1024-d)',
   'Running lexical, semantic, and fuzzy retrieval across Aurora',
   'Fusing candidates with reciprocal rank fusion (k=60)',
-  'Reranking the top candidates with Cohere rerank v3.5',
+  'Scoring fused candidates with SQL ranking signals',
   'Following object links to the gate check, incident, and fix',
   'Checking the decision against gate policy for contradictions',
   'Binding every claim to a citation'
@@ -531,7 +532,7 @@ const fusionQueryHtml = `<span class="kw">WITH</span> lexical <span class="kw">A
   <span class="kw">UNION ALL SELECT</span> chunk_id, r, 1.0 <span class="kw">FROM</span> semantic
   <span class="kw">UNION ALL SELECT</span> chunk_id, r, 0.5 <span class="kw">FROM</span> fuzzy
 ) fused
-<span class="kw">GROUP BY</span> chunk_id <span class="kw">ORDER BY</span> rrf_score <span class="kw">DESC</span> <span class="kw">LIMIT</span> 24;   <span class="cm">-- → cross-encoder rerank</span>`;
+<span class="kw">GROUP BY</span> chunk_id <span class="kw">ORDER BY</span> rrf_score <span class="kw">DESC</span> <span class="kw">LIMIT</span> 24;   <span class="cm">-- → final SQL score</span>`;
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
@@ -581,6 +582,12 @@ function sourceLabel(system: string) {
     github: 'GitHub'
   };
   return labels[system] || system;
+}
+
+function shortRunId(value: string) {
+  const compact = value.replace(/[^a-zA-Z0-9]/g, '');
+  if (compact.length > 12) return compact.slice(-8);
+  return value;
 }
 
 const brandLogoUrls: Record<string, string> = {
@@ -1047,7 +1054,7 @@ function Landing({
               ['01', 'Ask in plain language', 'Complex questions are decomposed into targeted retrievals: topics, systems, entities, and time windows.', 'search_evidence()'],
               ['02', 'Retrieve everywhere', 'Full-text, semantic, and fuzzy retrieval run side by side with SQL and metadata filters in one engine.', 'fts + pgvector + pg_trgm'],
               ['03', 'Follow the thread', 'Evidence links are traversed across systems: the ticket that blocks, the PR that fixes, the case it impacts.', 'traverse_links()'],
-              ['04', 'Answer with receipts', 'Fused, reranked, and synthesized into a cited answer. Every claim points back to its source.', 'synthesize_with_citations()']
+              ['04', 'Answer with receipts', 'Fused, scored, and synthesized into a cited answer. Every claim points back to its source.', 'synthesize_with_citations()']
             ].map(([num, title, body, fn]) => (
               <article className="step" key={num}>
                 <div className="num">{num}</div>
@@ -1067,7 +1074,7 @@ function Landing({
           <div className="stack">
             <span className="mono-label">The hybrid retrieval stack · one engine</span>
             <div className="formula">
-              {['Full-text|ts_rank_cd', 'Semantic|pgvector', 'Fuzzy|pg_trgm', 'Fusion|RRF k=60', 'Rerank|Cohere rerank', 'Cited answer|citations'].map((item, index) => {
+              {['Full-text|ts_rank_cd', 'Semantic|pgvector', 'Fuzzy|pg_trgm', 'Fusion|RRF k=60', 'Final score|SQL scoring', 'Cited answer|citations'].map((item, index) => {
                 const [title, body] = item.split('|');
                 return (
                   <React.Fragment key={item}>
@@ -1085,7 +1092,7 @@ function Landing({
               })}
             </div>
             <div className="foot">
-              Powered by <b>Amazon Aurora PostgreSQL</b> — the retrieval system of record. Every run logged to <b>retrieval_runs</b>, every candidate explained.
+              Powered by <b>Amazon Aurora PostgreSQL</b> — the durable retrieval index. Source systems remain authoritative; every run is logged and every candidate explained.
             </div>
           </div>
         </section>
@@ -1186,6 +1193,7 @@ function ResultsPage({
   loading,
   setSelected,
   onSearch,
+  onAgent,
   onNavigate
 }: {
   page: Page;
@@ -1198,6 +1206,7 @@ function ResultsPage({
   loading: boolean;
   setSelected: (value: Result) => void;
   onSearch: () => void;
+  onAgent: () => void;
   onNavigate: (page: Page) => void;
 }) {
   const evidence = orderedEvidence(results);
@@ -1220,7 +1229,7 @@ function ResultsPage({
         ))}
         <span className="fdiv" />
         <button className="fsel">Window <b>Last 90 days</b></button>
-        <button className="fsel">Rank by <b>Hybrid · RRF + rerank</b></button>
+        <button className="fsel">Rank by <b>Hybrid · RRF + score</b></button>
         <button className="fsel">Project <b>Orion</b></button>
       </div>
 
@@ -1231,13 +1240,13 @@ function ResultsPage({
             <div className="count">
               <b>24 results</b> · fused from {corpusTotal} candidates across 3 rankers · 341 ms · run <b>{runId?.slice(0, 10) || 'rr_7f3a9c'}</b>
             </div>
-            <button className="answer-ready" onClick={() => onNavigate('agent')}>
+            <button className="answer-ready" onClick={() => onAgent()}>
               <span className="dot" />
               Agent answer ready →
             </button>
           </div>
           {loading ? (
-            <EmptyState loading title="Searching evidence" body={`${APP_NAME} is retrieving, fusing, and reranking source objects across connected systems.`} />
+            <EmptyState loading title="Searching evidence" body={`${APP_NAME} is retrieving, fusing, and scoring source objects across connected systems.`} />
           ) : (
             <div className="thread-col">
               {evidence.slice(0, 7).map((result, index) => (
@@ -1263,13 +1272,13 @@ function ResultsPage({
               <div className="meter"><i /></div>
               <div className="row"><span>COVERAGE</span><b>6 sources · 5 systems</b></div>
             </div>
-            <button className="rail-cta" onClick={() => onNavigate('agent')}>Read the full answer</button>
+            <button className="rail-cta" onClick={() => onAgent()}>Read the full answer</button>
           </div>
 
           <div className="railcard">
             <div className="mono-label">Evidence graph</div>
             <MiniGraph />
-            <button className="rail-link" onClick={() => onNavigate('trail')}>View source trail →</button>
+            <button className="rail-link" onClick={() => onNavigate('trail')}>View timeline →</button>
           </div>
 
           <div className="railcard">
@@ -1279,7 +1288,7 @@ function ResultsPage({
               ['semantic · pgvector', '60 cand'],
               ['fuzzy · pg_trgm', '40 cand'],
               ['fused · RRF k=60', '92 → 24'],
-              ['reranked · cited', '6 cited', true],
+              ['scored · cited', '6 cited', true],
               ['latency', '341 ms']
             ].map(([label, value, hot]) => (
               <div className="sumrow" key={String(label)}><span>{label}</span><b className={hot ? 'hot' : undefined}>{value}</b></div>
@@ -1489,54 +1498,49 @@ function StreamRich({
   );
 }
 
-// Claude.ai-style "thinking" line: a single row that types one reasoning step,
-// holds a beat, clears, and types the next — with a blinking caret throughout —
-// then calls onDone so the answer can start streaming. Instant when disabled.
+// Claude.ai-style "thinking" line: one live status row that cycles reasoning
+// steps with a pulsing dot and blinking caret, then hands off to the answer
+// typewriter. The text is never empty, so the first frame is stage-safe.
 function ThinkingLine({
   steps,
   enabled,
   onDone,
-  stepMs = 620,
-  holdMs = 260
+  stepMs = 760
 }: {
   steps: string[];
   enabled: boolean;
   onDone?: () => void;
   stepMs?: number;
-  holdMs?: number;
 }) {
   const [index, setIndex] = useState(0);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
-  const current = steps[Math.min(index, steps.length - 1)] || '';
-  // Type the current step; when it finishes, hold briefly then advance. The last
-  // step's completion ends the thinking phase.
-  const { shown, done } = useTypewriter(current, { enabled, speed: 2, tickMs: 18 });
+  const visibleSteps = steps.length > 0 ? steps : ['Preparing cited answer'];
+  const current = visibleSteps[Math.min(index, visibleSteps.length - 1)];
 
   useEffect(() => {
     if (!enabled) {
       onDoneRef.current?.();
       return;
     }
-    if (!done) return;
-    const last = index >= steps.length - 1;
+    const last = index >= visibleSteps.length - 1;
     const id = window.setTimeout(() => {
       if (last) onDoneRef.current?.();
-      else setIndex((i) => i + 1);
-    }, last ? Math.max(holdMs, 120) : stepMs);
+      else setIndex((i) => Math.min(i + 1, visibleSteps.length - 1));
+    }, stepMs);
     return () => window.clearTimeout(id);
-  }, [done, index, enabled, steps.length, stepMs, holdMs]);
+  }, [index, enabled, visibleSteps.length, stepMs]);
 
   useEffect(() => {
     setIndex(0);
-  }, [enabled]);
+  }, [enabled, steps]);
 
   if (!enabled) return null;
   return (
     <div className="thinking" role="status" aria-live="polite">
       <span className="thinking-dot" aria-hidden="true" />
       <span className="thinking-text">
-        {shown}
+        {current}
         <span className="caret" aria-hidden="true" />
       </span>
     </div>
@@ -1548,6 +1552,7 @@ function AgentPage({
   query,
   setQuery,
   agentPayload,
+  runId,
   error,
   loading,
   onSearch,
@@ -1559,6 +1564,7 @@ function AgentPage({
   query: string;
   setQuery: (value: string) => void;
   agentPayload: AgentPayload;
+  runId?: string;
   error?: string;
   loading: boolean;
   onSearch: () => void;
@@ -1567,14 +1573,14 @@ function AgentPage({
   results: Result[];
 }) {
   const evidence = orderedEvidence(agentPayload.results?.map(normalizeResult) || results);
-  const runLabel = agentPayload.run_id || 'rr_7f3a9c';
+  const runLabel = agentPayload.run_id || runId || 'rr_7f3a9c';
 
   // --- Streaming deconstruction --------------------------------------------
   // The answer arrives beat-by-beat: the synthesized prose types itself, then
   // the view "deconstructs" how it was built (pull quote, commitments, the six
   // tool calls) as one flowing narrative. Reduced-motion renders it all at once.
   const reducedMotion = useReducedMotion();
-  const streaming = !reducedMotion && !loading;
+  const streaming = ENABLE_ANSWER_STREAMING && !reducedMotion && !loading;
   // beat gates each block; typing blocks advance it on completion, reveal-only
   // blocks advance on a short timer (see the effect below).
   const [beat, setBeat] = useState(streaming ? 0 : 99);
@@ -1605,7 +1611,7 @@ function AgentPage({
   }, [beat, streaming, thinking]);
 
   const planStart = 8;
-  const railReady = !streaming || beat >= 1;
+  const railReady = !streaming || thinking || beat >= 1;
   const planStage = useStageSequence(canonicalPlan.length + 1, {
     enabled: streaming,
     beatMs: 480,
@@ -1626,7 +1632,7 @@ function AgentPage({
         <article>
           <ErrorBanner message={error} />
           {loading ? (
-            <EmptyState loading title="Assembling cited answer" body="The agent endpoint is collecting citations and checking the evidence trail." />
+            <EmptyState loading title="Assembling cited answer" body="The agent endpoint is collecting citations and checking the evidence timeline." />
           ) : (
             <>
               <div className="eyebrow mono-label">
@@ -1639,7 +1645,7 @@ function AgentPage({
               <div className="question">"{query || queryDefault}"</div>
               <div className="answermeta">
                 <span className="badge"><i />GROUNDED</span>
-                <span>run <b>{runLabel.slice(0, 10)}</b></span>
+                <span title={runLabel}>run <b>{shortRunId(runLabel)}</b></span>
                 <span><b>6 sources</b> · 5 systems</span>
                 <span>confidence <b>0.92</b></span>
                 <span>Jul 9, 2026 · 09:14</span>
@@ -1728,8 +1734,8 @@ function AgentPage({
                   })}
                   {(!streaming || planStage >= canonicalPlan.length) && (
                     <div className="actions beat is-in">
-                      <button className="btn primary" onClick={onAgent}>Regenerate answer</button>
-                      <button className="btn ghost" onClick={() => onNavigate('trail')}>View source trail</button>
+                      <button className="btn primary" onClick={() => onAgent()}>Regenerate answer</button>
+                      <button className="btn ghost" onClick={() => onNavigate('trail')}>View timeline</button>
                       <button className="btn ghost" onClick={() => onNavigate('diagnostics')}>Open diagnostics</button>
                     </div>
                   )}
@@ -1743,9 +1749,9 @@ function AgentPage({
           <span className="mono-label">Sources · 6 cited</span>
           {evidence.slice(0, 6).map((result, index) => {
             const citation = sourceCitations[result.external_id] || sourceCitations[result.source_system];
-            const meta = citation?.meta || `${sourceLabel(result.source_system).toUpperCase()} · rerank ${displayScore(result, index).toFixed(2)}`;
+            const meta = citation?.meta || `${sourceLabel(result.source_system).toUpperCase()} · score ${displayScore(result, index).toFixed(2)}`;
             const why = citation?.why || `${sourceRoles[result.source_system]?.type || 'Evidence'} supporting the answer.`;
-            const shown = railReady && (!streaming || beat >= 1 + index);
+            const shown = railReady && (!streaming || thinking || beat >= 1 + index);
             return (
               <button
                 className={cx('src', 'beat', shown && 'is-in')}
@@ -1767,7 +1773,7 @@ function AgentPage({
           <div className="coverage">
             <div className="covrow"><span>CONFIDENCE</span><b>0.92</b></div>
             <div className="meter"><i /></div>
-            <p className="covnote"><b>✓ No contradictions</b> found by compare_sources across the 6 cited objects. 1 candidate excluded below the 0.55 rerank cut.</p>
+            <p className="covnote"><b>✓ No contradictions</b> found by compare_sources across the 6 cited objects. 1 candidate excluded below the 0.55 score cut.</p>
           </div>
         </aside>
       </main>
@@ -1775,7 +1781,7 @@ function AgentPage({
   );
 }
 
-function TrailPage({
+function TimelinePage({
   page,
   query,
   setQuery,
@@ -1791,7 +1797,7 @@ function TrailPage({
   onSearch: () => void;
   onNavigate: (page: Page) => void;
 }) {
-  // The trail assembles itself node-by-node, as if traverse_links() were
+  // The timeline assembles itself node-by-node, as if traverse_links() were
   // walking object_links live. One stage per event, plus the outcome card.
   const reducedMotion = useReducedMotion();
   const streaming = !reducedMotion;
@@ -1802,7 +1808,7 @@ function TrailPage({
     <section className="inner-screen">
       <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
       <div className="pagehead">
-        <div className="eyebrow centered mono-label">Source trail</div>
+        <div className="eyebrow centered mono-label">Timeline</div>
         <h1>How the Orion delay <em>unfolded.</em></h1>
         <div className="pagesub"><b>8 linked objects · 5 systems</b> · Jun 12 — Jul 3, 2026 · assembled by <b>traverse_links()</b> over <b>object_links</b> · 9 edges followed</div>
         <div className="legend">
@@ -1811,7 +1817,7 @@ function TrailPage({
           ))}
         </div>
         {walking && (
-          <div className="walking mono-label">traverse_links() walking object_links<span className="caret" aria-hidden="true" /></div>
+          <div className="walking mono-label">traverse_links() building timeline<span className="caret" aria-hidden="true" /></div>
         )}
       </div>
       <ErrorBanner message={error} />
@@ -1848,7 +1854,7 @@ function TrailPage({
         {(!streaming || stage >= trailEvents.length) && (
           <div className="outcome beat is-in">
             <span className="mono-label">Outcome</span>
-            <div className="big">GA lands <em>July 15</em> — blocker fixed, gate passed, and Acme's commitment renegotiated to <em>July 22</em> with the paper trail to prove it.</div>
+            <div className="big">GA lands <em>July 15</em> — blocker fixed, gate passed, and Acme's commitment renegotiated to <em>July 22</em> with the evidence path to prove it.</div>
           </div>
         )}
       </div>
@@ -1876,7 +1882,7 @@ function DiagnosticsPage({
         <div className="eyebrow mono-label">Retrieval diagnostics</div>
         <h1>Run <em>rr_7f3a9c</em> — every rank, explained.</h1>
         <div className="runmeta">
-          <span>profile <b>hybrid-rrf-rerank-v3</b></span>
+          <span>profile <b>hybrid-rrf-final-v1</b></span>
           <span>embedding <b>cohere.embed-v4 · 1024d</b></span>
           <span>index <b>HNSW m=16 ef=64</b></span>
           <span>fired <b>Jul 9, 2026 · 09:14:07</b></span>
@@ -1888,7 +1894,7 @@ function DiagnosticsPage({
             ['Total latency', '341', 'ms', <>p50 this profile: <b>318 ms</b></>],
             ['Candidate funnel', <>{corpusTotal} <small>→</small> 6</>, '', <>fetched → cited · <b>4.0%</b></>],
             ['Fusion', 'RRF', 'k = 60', <>3 rankers · weights <b>1 / 1 / 0.5</b></>],
-            ['Rerank', '0.55', 'cut', <>cross-encoder · <b>24 scored</b></>]
+            ['Final score', '0.55', 'cut', <>SQL scoring · <b>24 candidates</b></>]
           ].map(([k, v, unit, d], index) => (
             <div className="stile" key={index}>
               <div className="k">{k}</div>
@@ -1908,9 +1914,9 @@ function DiagnosticsPage({
               ['semantic · vector', '54', 25.7],
               ['fuzzy · trgm', '21', 10],
               ['fusion · RRF', '6', 2.9],
-              ['rerank', '210', 100, true]
+              ['answer assembly', '210', 100, true]
             ]}
-            note={<>Rerank dominates at <b>62%</b> of latency — scoped to 24 fused candidates, not {corpusTotal}. The three retrievals run concurrently in Aurora.</>}
+            note={<>Answer assembly dominates at <b>62%</b> of latency after the top 24 fused candidates are selected. The three retrievals run concurrently in Aurora.</>}
           />
           <BarPanel
             title="Candidate funnel"
@@ -1933,10 +1939,10 @@ function DiagnosticsPage({
           </div>
           <table>
             <thead>
-              <tr><th>#</th><th className="l">Source object</th><th>FTS</th><th>VEC</th><th>TRGM</th><th>RRF</th><th>RERANK</th><th>CITED</th></tr>
+              <tr><th>#</th><th className="l">Source object</th><th>FTS</th><th>VEC</th><th>TRGM</th><th>RRF</th><th>FINAL</th><th>CITED</th></tr>
             </thead>
             <tbody>
-              {diagnosticsRows.map(([rank, system, title, fts, vec, trgm, rrf, rerank, cited], index) => {
+              {diagnosticsRows.map(([rank, system, title, fts, vec, trgm, rrf, finalScore, cited], index) => {
                 const cited6 = index < 6;
                 return (
                   <tr className={cited6 ? 'cited' : ''} key={`${rank}-${title}`}>
@@ -1946,14 +1952,14 @@ function DiagnosticsPage({
                     <td className={rankCellClass(vec)}>{vec}</td>
                     <td className={rankCellClass(trgm)}>{trgm}</td>
                     <td>{rrf}</td>
-                    <td><span className="scorebar"><span className="tr"><i style={{ width: `${Number(rerank) * 100}%` }} /></span>{rerank}</span></td>
+                    <td><span className="scorebar"><span className="tr"><i style={{ width: `${Number(finalScore) * 100}%` }} /></span>{finalScore}</span></td>
                     <td className={cited6 ? 'ck' : 'cut'}>{cited}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          <div className="tfoot">Every row above is a persisted record in <b>retrieval_candidates</b> — rank positions per ranker, fused score, rerank score, and citation outcome. Relevance judgments against these rows power <b>recall@k and nDCG in the evaluation suite</b>.</div>
+          <div className="tfoot">Every row above is a persisted record in <b>retrieval_candidates</b> — rank positions per ranker, fused score, final score, and citation outcome. Relevance judgments against these rows power <b>recall@k and nDCG in the evaluation suite</b>.</div>
         </div>
 
         <div className="sql">
@@ -1966,7 +1972,7 @@ function DiagnosticsPage({
 
         <div className="pagefoot">
           run stored in <b>retrieval_runs</b> · candidates in <b>retrieval_candidates</b> · citations in <b>citations</b> · judged against <b>relevance_judgments</b><br />
-          one engine of record: <b>Amazon Aurora PostgreSQL</b>
+          one retrieval index: <b>Amazon Aurora PostgreSQL</b> · live systems stay authoritative
         </div>
       </main>
     </section>
@@ -2202,7 +2208,7 @@ function App() {
       setAgentPayload(json);
       setResults(rows);
       setSelected(rows[0] || selected);
-      setRunId(json.run_id);
+      setRunId((current) => json.run_id || current);
     } catch (err) {
       // On stage the API may be offline; the canonical Orion narrative is the
       // fallback so the demo always streams. Keep results empty so the rail
@@ -2215,10 +2221,9 @@ function App() {
   }
 
   if (page === 'landing') {
-    // A question from the landing page flows straight to the cited answer,
-    // which streams in and then deconstructs how it was built. The evidence
-    // grid stays reachable from the answer and the workspace nav.
-    return <Landing query={query} setQuery={setQuery} onSearch={runAgent} onNavigate={navigate} error={error} />;
+    // A question from the landing page opens Evidence first. The workshop
+    // teaches retrieval before synthesis, then lets participants move to Answer.
+    return <Landing query={query} setQuery={setQuery} onSearch={runSearch} onNavigate={navigate} error={error} />;
   }
 
   if (page === 'detail') {
@@ -2238,7 +2243,7 @@ function App() {
   }
 
   if (page === 'trail') {
-    return <TrailPage page={page} query={query} setQuery={setQuery} results={results} error={error} onSearch={runSearch} onNavigate={navigate} />;
+    return <TimelinePage page={page} query={query} setQuery={setQuery} results={results} error={error} onSearch={runSearch} onNavigate={navigate} />;
   }
 
   if (page === 'agent') {
@@ -2248,6 +2253,7 @@ function App() {
         query={query}
         setQuery={setQuery}
         agentPayload={agentPayload}
+        runId={runId}
         error={error}
         loading={loading}
         onSearch={runSearch}
@@ -2274,6 +2280,7 @@ function App() {
       loading={loading}
       setSelected={setSelected}
       onSearch={runSearch}
+      onAgent={runAgent}
       onNavigate={navigate}
     />
   );

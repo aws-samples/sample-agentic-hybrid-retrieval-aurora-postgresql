@@ -2,6 +2,11 @@
 
 The ingestion API turns source objects into PostgreSQL-ready hybrid search evidence.
 
+It stores a retrieval projection, not a full copy of every source system.
+Source systems remain authoritative for workflow state, permissions, ownership,
+comments, and mutations. Aurora stores the fields needed for cross-source
+retrieval, citations, diagnostics, and evaluation.
+
 ## Endpoints
 
 ```text
@@ -48,3 +53,19 @@ POST /v1/agent/answer
 5. Generate embeddings.
 6. Index FTS, vectors, trigrams, metadata.
 7. Mark source ready for hybrid search.
+
+## Store versus call live
+
+Materialize into Aurora when the data is needed for low-latency cross-source
+search, ranking, filtering, citation joins, evaluation, or repeatable answer
+diagnostics. Typical fields are source IDs, URLs, titles, text excerpts, bodies,
+metadata, ACL markers, relationships, sync cursors, and provenance.
+
+Call the source system live through a connector or MCP tool when the workflow
+needs the latest mutable state, a write action, a permission check that cannot
+be represented in the indexed ACL metadata, or source-specific detail that is
+too large or volatile to index.
+
+The workshop seed bundle represents the output of this pipeline. A production
+deployment replaces that bundle with scheduled exports, webhooks, AppFlow/Glue
+jobs, custom connectors, or MCP-backed live tools depending on each source.

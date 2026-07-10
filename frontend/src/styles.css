@@ -897,10 +897,9 @@ kbd {
 }
 
 .sec-head {
-  display: flex;
-  align-items: baseline;
-  gap: 26px;
-  margin-bottom: 52px;
+  display: grid;
+  gap: 12px;
+  margin-bottom: 42px;
 }
 
 .sec-head .eyebrow {
@@ -1608,12 +1607,12 @@ mark {
 
 /* Answer */
 .answer-layout {
-  max-width: 1320px;
+  max-width: 1360px;
   margin: 0 auto;
   padding: 36px 40px 90px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
-  gap: 64px;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 58px;
   align-items: start;
 }
 
@@ -1953,18 +1952,19 @@ mark {
   width: 100%;
   display: flex;
   gap: 12px;
-  border: 1px solid rgba(33, 28, 22, 0.07);
-  border-radius: 13px;
+  border: 1px solid rgba(33, 28, 22, 0.08);
+  border-radius: 12px;
   background: var(--card);
   box-shadow: var(--shadow-card);
-  padding: 13px 15px;
+  padding: 14px 16px;
   margin-bottom: 10px;
   text-align: left;
 }
 
 .src:hover {
   border-color: rgba(193, 58, 38, 0.35);
-  transform: translateX(-3px);
+  box-shadow: 0 14px 34px rgba(33, 28, 22, 0.09);
+  transform: translateY(-1px);
 }
 
 .srcnum {
@@ -1985,28 +1985,38 @@ mark {
 .srcbody {
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 5px;
 }
 
 .srchead {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 7px;
   min-width: 0;
 }
 
+.srchead .brand-image,
+.srchead svg {
+  flex: none;
+  margin-top: 1px;
+}
+
 .srchead .t {
+  display: -webkit-box;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
   font-size: 12.5px;
   font-weight: 600;
+  line-height: 1.32;
 }
 
 .srcmeta {
   color: var(--muted);
   font-family: var(--mono);
   font-size: 9.5px;
+  overflow-wrap: anywhere;
 }
 
 .srcwhy {
@@ -2508,7 +2518,7 @@ tbody tr.cited {
   font-weight: 600;
 }
 
-.srcobj span {
+.srcobj > span:last-child {
   color: var(--muted);
   font-family: var(--mono);
   font-size: 9px;

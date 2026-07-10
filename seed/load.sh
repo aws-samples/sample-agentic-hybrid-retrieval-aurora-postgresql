@@ -24,6 +24,30 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARTIFACT="${1:-$ROOT_DIR/seed/artifacts/hybrid-retrieval-seed-v1.dump}"
 DATABASE_URL="${DATABASE_URL:?DATABASE_URL must be set (e.g. postgresql://localhost:55432/retrieval?sslmode=disable)}"
 
+mask_database_url() {
+  python3 - "$1" <<'PY'
+import sys
+from urllib.parse import urlsplit, urlunsplit
+
+value = sys.argv[1]
+parts = urlsplit(value)
+if not parts.netloc:
+    print(value)
+    raise SystemExit(0)
+
+host = parts.hostname or ""
+if ":" in host and not host.startswith("["):
+    host = f"[{host}]"
+netloc = host
+if parts.port:
+    netloc = f"{netloc}:{parts.port}"
+if parts.username or parts.password:
+    netloc = f"***:***@{netloc}"
+
+print(urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment)))
+PY
+}
+
 if ! command -v pg_restore >/dev/null 2>&1; then
   echo "pg_restore not found on PATH. Install the PostgreSQL client tools." >&2
   exit 1
@@ -34,7 +58,7 @@ if [[ ! -f "$ARTIFACT" ]]; then
   exit 1
 fi
 
-echo "[load] target: $DATABASE_URL"
+echo "[load] target: $(mask_database_url "$DATABASE_URL")"
 echo "[load] artifact: $ARTIFACT"
 
 # 1. Extensions + schema (idempotent). Extensions must exist before restore so
@@ -64,6 +88,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/02_indexes.sql"
 #     restored artifact in place, so the current lexical/RRF logic always wins.
 echo "[load] (re)applying search functions"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/03_search_functions.sql"
+
+# 3c. Normalize participant-visible seed labels when restoring an older copy of
+#     the committed dump. This is data-only and safe to re-run.
+echo "[load] applying seed compatibility corrections"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/07_seed_corrections.sql"
 
 # 4. Fresh planner stats.
 echo "[load] ANALYZE"

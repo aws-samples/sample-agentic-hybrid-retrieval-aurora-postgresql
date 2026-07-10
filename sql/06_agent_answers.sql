@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS ops.agent_answers (
   confidence numeric NOT NULL DEFAULT 0.0,
   source_count int NOT NULL DEFAULT 0,
   system_count int NOT NULL DEFAULT 0,
-  -- Ordered citations: [{n, source_system, external_id, title, url, rerank, meta, why}]
+  -- Ordered citations: [{n, source_system, external_id, title, url, score, meta, why}]
   citations jsonb NOT NULL DEFAULT '[]'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE(question_norm)

@@ -7,17 +7,15 @@ from .db import get_dict_conn
 from .ingest import create_job, upsert_objects
 from .models import AgentAnswerRequest, IngestObjectsRequest, SearchRequest, SourceCreateRequest
 from .search import run_hybrid_search
+from .config import get_settings
 
 app = FastAPI(title="Agentic Hybrid Retrieval API", version="0.1.0")
+settings = get_settings()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],
+    allow_origins=settings.cors_origins(),
+    allow_origin_regex=settings.cors_allow_origin_regex or None,
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],

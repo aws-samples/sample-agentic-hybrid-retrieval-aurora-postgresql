@@ -44,6 +44,31 @@ The system:
 8. Returns cited answers through agent-callable tools.
 9. Stores retrieval diagnostics for evaluation and explainability.
 
+## Pipeline Positioning
+
+This workshop does **not** recommend replacing Jira, Slack, Confluence,
+Salesforce, GitHub, or other source systems with Aurora PostgreSQL. Those systems
+remain authoritative for workflow, permissions, ownership, and mutation.
+
+The recommended pattern is a **materialized evidence index** in Aurora
+PostgreSQL:
+
+- Store the searchable projection: source IDs, URLs, titles, excerpts or bodies,
+  metadata, ACL markers, citations, relationships, embeddings, sync cursors, and
+  provenance.
+- Keep that projection fresh with connectors, webhooks, scheduled exports,
+  AppFlow/Glue jobs, or an ingestion API.
+- Use MCP tools and connectors for live lookups, actions, revalidation, and
+  source-specific operations.
+- Build the UI and agent search path over Aurora because hybrid retrieval,
+  filtering, citation joins, diagnostics, and evaluation need a durable,
+  queryable index.
+
+The lab uses a committed seed bundle to stand in for the enterprise data
+pipeline, so participants can focus on the retrieval schema and agent-facing
+search behavior. In production, the same schema receives data from the
+connectors or export jobs that fit each source system.
+
 ## Repo Layout
 
 ```text
@@ -54,7 +79,7 @@ The system:
 ├── data/                       # Workshop-safe source bundle
 ├── connectors/                 # Optional connector scaffolds and normalizers
 ├── bedrock-agent/              # Optional Amazon Bedrock Agent action group wrapper
-├── agentcore/                  # Optional AgentCore Gateway (Lambda MCP) + BYO Runtime
+├── agentcore/                  # Optional AgentCore Gateway (Lambda MCP target)
 ├── mcp-server/                 # Optional MCP wrapper around the retrieval API
 ├── infra/                      # CDK skeleton and local Postgres Dockerfile
 ├── seed/                       # Canonical Orion corpus generator + pg_dump/restore
@@ -127,7 +152,7 @@ baked in — there is no separate embedding step and no Bedrock call at load tim
 
 ## Aurora PostgreSQL 18.3 Option
 
-The CDK stack provisions a net-new Aurora PostgreSQL 18.3 Serverless v2 cluster, the source landing buckets, a Secrets Manager database secret, and the placeholder Bedrock Agent action Lambda.
+The CDK stack provisions a net-new Aurora PostgreSQL 18.3 Serverless v2 cluster, the source landing buckets, a Secrets Manager database secret, and the placeholder Bedrock Agent action Lambda. The optional AgentCore Gateway uses a separate Lambda and stack.
 
 Bootstrap the target account and region if needed:
 
@@ -163,11 +188,42 @@ make seed-load   # pg_restore the Cohere-embedded dump + rebuild HNSW/GIN/trgm i
 
 `make aurora-verify` creates or updates the required extensions and schema, then checks for PostgreSQL 18.3+ and pgvector 0.8.1+.
 
-## Optional AgentCore Gateway + Runtime
+### Local VSCode Against Workshop Aurora
+
+When the Workshop Studio bootstrap has already deployed `AgenticRetrievalCoreStack`,
+you can run the API and UI locally while pointing at the same Aurora cluster and
+Bedrock region the workshop provisions:
+
+```bash
+export AWS_REGION=us-east-1
+export AWS_DEFAULT_REGION=us-east-1
+make install
+make aurora-local-env
+make aurora-verify
+make seed-load
+make api
+```
+
+In a second VSCode terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+`make aurora-local-env` resolves the stack outputs, reads the database secret
+from Secrets Manager, writes ignored local `.env` files for the backend and
+frontend, and checks whether the Aurora endpoint is reachable from the local
+machine. The files are intentionally not committed. If the network check says
+Aurora is not reachable, run VSCode from an environment inside the VPC or add the
+current client CIDR to the Aurora security group through the workshop stack.
+
+## Optional AgentCore Gateway
 
 The default Aurora stack does not deploy AgentCore resources. To opt in, deploy
 the dedicated AgentCore Gateway stack, then run the Node-based AgentCore CLI
-provisioning flow:
+deployment flow:
 
 ```bash
 cd infra/cdk
@@ -182,10 +238,11 @@ The optional CDK stack owns the Gateway Lambda package, VPC attachment, Aurora
 security-group ingress, private endpoints for Secrets Manager and Bedrock Runtime,
 and IAM permissions for the Aurora secret and Bedrock embedding invocation.
 `make agentcore-provision` resolves the `AgentCoreGatewayLambdaArn` stack output
-and runs:
+and runs the pinned Node-based CLI:
 
 ```bash
-npx -y @aws/agentcore@0.18.0 provision --config agentcore.json
+npx -y @aws/agentcore@0.18.0 validate --directory agentcore
+npx -y @aws/agentcore@0.18.0 deploy --target default --yes
 ```
 
 See [`agentcore/README.md`](agentcore/README.md) for prerequisites and smoke
@@ -194,7 +251,7 @@ tests.
 ## Workshop Seed Data
 
 The demo answers one canonical question — **"Why did Orion slip?"** — and every
-number the UI shows (the cited answer, the six sources, the trail, the diagnostics
+number the UI shows (the cited answer, the six sources, the timeline, the diagnostics
 funnel) is backed by real rows in the `ops` schema, not hardcoded in the frontend.
 The `seed/` directory regenerates that dataset and ships it as a `pg_dump -Fc`
 archive so a workshop bootstrap can restore it with **$0 in Bedrock spend**.
@@ -235,7 +292,6 @@ BEDROCK_ROUTER_MODEL=global.anthropic.claude-sonnet-5
 BEDROCK_REPORTING_MODEL=global.anthropic.claude-sonnet-5
 BEDROCK_CHAT_MODEL=global.anthropic.claude-opus-4-8
 BEDROCK_EMBEDDING_MODEL=us.cohere.embed-v4:0
-BEDROCK_RERANK_MODEL=cohere.rerank-v3-5:0
 ```
 
 ## Search
@@ -279,7 +335,8 @@ See [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md). The package is intentionally rev
 - No real customer data.
 - Workshop source data only.
 - Optional connectors require explicit environment variables.
-- No vendor logo assets included.
+- Static connector logo assets are UI-only workshop visuals and contain no
+  credentials or remote dependencies.
 - No telemetry or analytics.
 - No remote font or image dependencies in the React app.
 

@@ -218,7 +218,7 @@ def _agent_answer(cur, run_id, ext_to_object_id) -> None:
             "external_id": c["external_id"],
             "title": c["title"],
             "url": f"https://example.internal/{c['source_system']}/{c['external_id']}",
-            "rerank": c["final_score"],
+            "score": c["final_score"],
             "meta": c["cite_meta"],
             "why": c["cite_why"],
         }

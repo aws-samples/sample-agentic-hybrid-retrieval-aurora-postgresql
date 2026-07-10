@@ -6,7 +6,7 @@ This repository is designed to be reviewed before creating or publishing an inte
 
 - No real Jira, Confluence, Slack, Salesforce, GitHub, or customer data.
 - No committed secrets, tokens, OAuth client secrets, private keys, or AWS credentials.
-- No vendored vendor logo image files. The React UI uses package-provided brand SVG components for source badges.
+- Checked-in connector logo files are static UI assets only; they do not contain credentials, tracking code, or remote dependencies.
 - No analytics or telemetry.
 - No automatic outbound calls from the frontend.
 - No live connector runs unless a user explicitly invokes connector scripts and provides credentials through environment variables.
@@ -28,7 +28,6 @@ Recommended secret keys:
 - `BEDROCK_REPORTING_MODEL`
 - `BEDROCK_CHAT_MODEL`
 - `BEDROCK_EMBEDDING_MODEL`
-- `BEDROCK_RERANK_MODEL`
 - `GITHUB_TOKEN`
 - `SLACK_BOT_TOKEN`
 - `SALESFORCE_ACCESS_TOKEN`
@@ -44,7 +43,7 @@ The canonical schema includes an `acl` JSONB column on `source_objects`. Product
 
 ## Network calls
 
-The default API only calls Aurora PostgreSQL. Optional Bedrock embeddings/reranking are disabled unless configured. Optional connector scripts perform network calls only when explicitly run.
+The default live search path calls PostgreSQL and, with `EMBED_PROVIDER=bedrock` (the default), Bedrock Runtime for Cohere query embeddings so query vectors match the shipped seed dump. Set `EMBED_PROVIDER=hash` for a local offline run, understanding that vector relevance will not match the Cohere-embedded dump unless the corpus is regenerated with the same provider. The live API does not call a reranking model. Optional connector scripts perform network calls only when explicitly run.
 
 ## Suggested review checklist
 

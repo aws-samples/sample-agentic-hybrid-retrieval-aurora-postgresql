@@ -57,7 +57,7 @@ CITED = [
         "vector_score": 0.98,
         "trigram_score": None,
         "rrf_score": 0.0325,
-        "cite_meta": "SLACK · #proj-orion · JUN 23 · rerank 0.93",
+        "cite_meta": "SLACK · #proj-orion · JUN 23 · score 0.93",
         "cite_why": 'The decision itself — answers "what did the team decide."',
     },
     {
@@ -87,7 +87,7 @@ CITED = [
         "vector_score": 0.88,
         "trigram_score": 0.71,
         "rrf_score": 0.0322,
-        "cite_meta": "JIRA · P1 · JUN 12 – JUL 3 · rerank 0.89",
+        "cite_meta": "JIRA · P1 · JUN 12 – JUL 3 · score 0.89",
         "cite_why": "Root cause and timeline; blocks the GA cutover story.",
     },
     {
@@ -117,7 +117,7 @@ CITED = [
         "vector_score": 0.94,
         "trigram_score": None,
         "rrf_score": 0.0310,
-        "cite_meta": "SALESFORCE · TIER 1 · JUN 26 · rerank 0.87",
+        "cite_meta": "SALESFORCE · TIER 1 · JUN 26 · score 0.87",
         "cite_why": "The impacted contractual commitment and its mitigation.",
     },
     {
@@ -147,7 +147,7 @@ CITED = [
         "vector_score": 0.72,
         "trigram_score": None,
         "rrf_score": 0.0295,
-        "cite_meta": "CONFLUENCE · GATE 3 · JUN 18 · rerank 0.82",
+        "cite_meta": "CONFLUENCE · GATE 3 · JUN 18 · score 0.82",
         "cite_why": "The policy mechanism that forced the date slip.",
     },
     {
@@ -178,7 +178,7 @@ CITED = [
         "vector_score": 0.66,
         "trigram_score": 0.64,
         "rrf_score": 0.0271,
-        "cite_meta": "JIRA · SEV2 · JUN 20 · rerank 0.78",
+        "cite_meta": "JIRA · SEV2 · JUN 20 · score 0.78",
         "cite_why": "Production paging that corroborates the root cause — surfaced by full-text search.",
     },
     {
@@ -208,7 +208,7 @@ CITED = [
         "vector_score": 0.76,
         "trigram_score": None,
         "rrf_score": 0.0253,
-        "cite_meta": "GITHUB · MERGED JUL 2 · rerank 0.74",
+        "cite_meta": "GITHUB · MERGED JUL 2 · score 0.74",
         "cite_why": "The fix that unblocked the gate re-run.",
     },
 ]
@@ -295,7 +295,7 @@ PLAN = [
 
 # --- diagnostics metrics (ops.retrieval_run_metrics) ---------------------------
 
-PROFILE = "hybrid-rrf-rerank-v3"
+PROFILE = "hybrid-rrf-final-v1"
 EMBEDDING_MODEL = "cohere.embed-v4"
 EMBEDDING_DIM = 1024
 INDEX_SPEC = "HNSW m=16 ef=64"
@@ -314,10 +314,10 @@ STAGE_TIMINGS = [
     {"stage": "semantic · vector", "ms": 54},
     {"stage": "fuzzy · trgm", "ms": 21},
     {"stage": "fusion · RRF", "ms": 6},
-    {"stage": "rerank", "ms": 210},
+    {"stage": "answer assembly", "ms": 210},
 ]
 
-# Ten diagnostics rows: [rank, system, label, fts_pos, vec_pos, trgm, rrf, rerank, cited]
+# Ten diagnostics rows: [rank, system, label, fts_pos, vec_pos, trgm, rrf, final_score, cited]
 # Rows 1–6 are the cited golden thread; 7–10 are near-miss / below-cut objects.
 DIAGNOSTICS_ROWS = [
     ["1", "slack", "Decision: GA moves Jul 1 → 15", "#2", "#1", "—", ".0325", "0.93", "✓ [1]"],

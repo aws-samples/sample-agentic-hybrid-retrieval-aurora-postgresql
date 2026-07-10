@@ -13,16 +13,14 @@ def _embedding_model() -> str:
         or "us.cohere.embed-v4:0"
     )
 
-def _rerank_model() -> str:
-    return (
-        os.environ.get("BEDROCK_RERANK_MODEL")
-        or os.environ.get("BEDROCK_RERANK_MODEL_ID")
-        or "cohere.rerank-v3-5:0"
-    )
-
 class Settings(BaseModel):
     database_url: str = os.environ.get("DATABASE_URL", "")
     aws_region: str = os.environ.get("AWS_REGION", "us-east-1")
+    cors_allow_origins: str = os.environ.get(
+        "CORS_ALLOW_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
+    )
+    cors_allow_origin_regex: str = os.environ.get("CORS_ALLOW_ORIGIN_REGEX", r"https?://(localhost|127\.0\.0\.1):[0-9]+")
     # Default to real Cohere embed-v4 so live query embeddings share the exact
     # vector space as the seeded corpus (the shipped dump is Cohere-embedded).
     # Set EMBED_PROVIDER=hash only for an offline, no-Bedrock corpus.
@@ -35,9 +33,10 @@ class Settings(BaseModel):
     bedrock_chat_model: str = os.environ.get("BEDROCK_CHAT_MODEL", "global.anthropic.claude-opus-4-8")
     bedrock_embedding_model: str = _embedding_model()
     bedrock_embed_model_id: str = _embedding_model()
-    bedrock_rerank_model: str = _rerank_model()
-    bedrock_rerank_model_id: str = _rerank_model()
     app_display_name: str = os.environ.get("APP_DISPLAY_NAME", "AuraLens")
+
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]
 
 @lru_cache
 def get_settings() -> Settings:
