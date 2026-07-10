@@ -4,7 +4,7 @@ This repository is designed to be reviewed before creating or publishing an inte
 
 ## Intentional exclusions
 
-- No real Jira, Confluence, Slack, Salesforce, ServiceNow, GitHub, or customer data.
+- No real Jira, Confluence, Slack, Salesforce, GitHub, or customer data.
 - No committed secrets, tokens, OAuth client secrets, private keys, or AWS credentials.
 - No vendored vendor logo image files. The React UI uses package-provided brand SVG components for source badges.
 - No analytics or telemetry.

@@ -59,6 +59,12 @@ pg_restore \
 echo "[load] (re)building HNSW + GIN + trigram indexes"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/02_indexes.sql"
 
+# 3b. Re-apply the search functions. They are baked into the dump, but re-running
+#     03 (pure CREATE OR REPLACE FUNCTION — no tables, no data) upgrades an older
+#     restored artifact in place, so the current lexical/RRF logic always wins.
+echo "[load] (re)applying search functions"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/03_search_functions.sql"
+
 # 4. Fresh planner stats.
 echo "[load] ANALYZE"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -c "ANALYZE ops.source_objects; ANALYZE ops.object_chunks; ANALYZE ops.object_links;"

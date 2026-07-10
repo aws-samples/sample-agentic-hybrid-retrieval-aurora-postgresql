@@ -97,7 +97,7 @@ type ObjectDetail = {
 };
 
 const API_URL = import.meta.env.VITE_RETRIEVAL_API_URL || 'http://127.0.0.1:8000';
-const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'Threadline';
+const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'AuraLens';
 const queryDefault = 'Why did Orion slip?';
 const showcaseQuery = 'Why did Orion slip, and which customer commitments are at risk?';
 const rotatingQueries = [
@@ -167,9 +167,12 @@ const coreSources = [
 const corpusTotal = coreSources.reduce((sum, source) => sum + source.count, 0);
 // Canonical cited order by external_id — two Jira citations (the blocker and
 // the full-text-surfaced ops ticket), so citations are keyed by external_id.
+// Canonical citation order, by external_id — the exact sequence the answer prose
+// cites as [1]..[6]. The evidence rail is ordered by THIS, not by source system:
+// two Jira objects are cited (the blocker ORION-1473 at [2] and the full-text-
+// surfaced ops ticket ORION-1489 at [5]), so grouping by system would collapse
+// them into one slot and misalign every citation marker after it.
 const citedOrder = ['SLACK-000271', 'ORION-1473', 'CASE-0012345', 'PAGE-2112', 'ORION-1489', 'PR-1287'];
-
-const evidenceOrder = ['slack', 'jira', 'salesforce', 'confluence', 'github'];
 
 const landingSources = [
   { key: 'slack', label: 'Slack' },
@@ -404,6 +407,21 @@ const canonicalPlan: Array<{ num: string; fn: string; args: string; desc: string
   { num: '6', fn: 'synthesize_with_citations', args: '(6 sources, style: brief)', desc: 'Composed the answer; every claim bound to a citation row in Aurora.', res: '9 claims · 9 citations · confidence 0.92' }
 ];
 
+// The agent's live reasoning, shown as a single updating line (Claude.ai style)
+// before the answer types itself. Each line mirrors a real step of the run that
+// just executed in Aurora: embed the query with Cohere, run the three retrievers,
+// fuse with RRF, rerank, follow links, check for contradictions, then cite.
+const thinkingTrace = [
+  'Decomposing the question into retrieval intents',
+  'Embedding the query with Cohere embed-v4 (1024-d)',
+  'Running lexical, semantic, and fuzzy retrieval across Aurora',
+  'Fusing candidates with reciprocal rank fusion (k=60)',
+  'Reranking the top candidates with Cohere rerank v3.5',
+  'Following object links to the gate check, incident, and fix',
+  'Checking the decision against gate policy for contradictions',
+  'Binding every claim to a citation'
+];
+
 const trailEvents = [
   {
     side: 'left',
@@ -606,12 +624,16 @@ function resultRole(result: Result) {
 }
 
 function orderedEvidence(results: Result[]) {
+  // Order the rail by the canonical citation sequence (by external_id), matching
+  // live API rows and falling back to the canonical row when a cited object
+  // doesn't surface in the live top-k (e.g. the Salesforce case). This keeps the
+  // inline [1]..[6] prose markers aligned with the rail cards.
   const normalized = results.map(normalizeResult);
   const seen = new Set<string>();
-  const ordered = evidenceOrder
-    .map((source) => normalized.find((result) => result.source_system === source) || demoResults.find((result) => result.source_system === source))
+  const ordered = citedOrder
+    .map((ext) => normalized.find((result) => result.external_id === ext) || demoResults.find((result) => result.external_id === ext))
     .filter(Boolean) as Result[];
-  const extras = normalized.filter((result) => !ordered.some((item) => item.source_system === result.source_system && item.external_id === result.external_id));
+  const extras = normalized.filter((result) => !citedOrder.includes(result.external_id));
   return [...ordered, ...extras].filter((result) => {
     const key = `${result.source_system}:${result.external_id}`;
     if (seen.has(key)) return false;
@@ -620,20 +642,10 @@ function orderedEvidence(results: Result[]) {
   });
 }
 
-function Logo({ compact = false }: { compact?: boolean }) {
+function Logo() {
   return (
-    <div className={cx('wordmark', compact && 'compact')}>
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="9.4" fill="none" stroke="currentColor" strokeWidth="1.7" />
-        <path
-          d="M4.2 13.4c2.6-3.8 5.4 1.6 8.2-1.6 1.9-2.2 4.4-2.4 7.4-.6"
-          fill="none"
-          stroke="var(--red)"
-          strokeWidth="1.7"
-          strokeLinecap="round"
-        />
-      </svg>
-      {!compact && <span>{APP_NAME}</span>}
+    <div className="wordmark">
+      <span>{APP_NAME}</span>
     </div>
   );
 }
@@ -887,7 +899,7 @@ function AppHeader({
         />
         <kbd>⌘K</kbd>
       </form>
-      <nav className="appnav" aria-label="Threadline workspace">
+      <nav className="appnav" aria-label={`${APP_NAME} workspace`}>
         <button onClick={() => onNavigate('landing')} type="button">
           Search
         </button>
@@ -905,6 +917,18 @@ function AppHeader({
       <div className="avatar">S</div>
     </header>
   );
+}
+
+function scrollToLandingSection(
+  event: React.MouseEvent<HTMLAnchorElement>,
+  sectionId: string,
+  block: ScrollLogicalPosition = 'start'
+) {
+  event.preventDefault();
+  const target = document.getElementById(sectionId);
+  if (!target) return;
+  target.scrollIntoView({ behavior: 'smooth', block, inline: 'nearest' });
+  window.history.replaceState(null, '', `#${sectionId}`);
 }
 
 function Landing({
@@ -927,14 +951,18 @@ function Landing({
           <Logo />
         </button>
         <div className="navlinks">
-          <a href="#overview">Overview</a>
-          {workspaceNavItems.map((item) => (
-            <button key={item.page} type="button" onClick={() => onNavigate(item.page)}>
-              {item.label}
-            </button>
-          ))}
-          <a href="#how">How it works</a>
-          <a href="#stack">Retrieval stack</a>
+          <a href="#overview" onClick={(event) => scrollToLandingSection(event, 'overview')}>
+            Overview
+          </a>
+          <a href="#how" onClick={(event) => scrollToLandingSection(event, 'how')}>
+            How it works
+          </a>
+          <a href="#stack" onClick={(event) => scrollToLandingSection(event, 'stack', 'center')}>
+            Retrieval stack
+          </a>
+          <a href="#demo-run" onClick={(event) => scrollToLandingSection(event, 'demo-run', 'center')}>
+            Demo run
+          </a>
         </div>
       </nav>
 
@@ -982,7 +1010,6 @@ function Landing({
             </svg>
 
             <div className="center-node">
-              <Logo compact />
               <div className="a-title">Answer</div>
               <div className="a-sub">Hybrid fusion</div>
               <div className="a-score">0.92</div>
@@ -1008,27 +1035,6 @@ function Landing({
           </div>
         </section>
 
-        <section className="demo-strip" aria-label="Populated Orion run">
-          <div>
-            <span className="mono-label">Populated Orion run</span>
-            <p>Ranked evidence, cited answer, source trail, and diagnostics for the Orion run.</p>
-          </div>
-          <div className="demo-links">
-            {workspaceNavItems.map((item) => (
-              <button
-                key={item.page}
-                type="button"
-                title={item.summary}
-                aria-label={`${item.label}: ${item.summary}`}
-                onClick={() => onNavigate(item.page)}
-              >
-                <span>{item.eyebrow}</span>
-                <b>{item.label}</b>
-              </button>
-            ))}
-          </div>
-        </section>
-
         <ErrorBanner message={error} />
 
         <section className="section" id="how">
@@ -1051,8 +1057,14 @@ function Landing({
               </article>
             ))}
           </div>
+        </section>
 
-          <div className="stack" id="stack">
+        <section className="section stack-section" id="stack">
+          <div className="sec-head">
+            <div className="eyebrow mono-label">Retrieval stack</div>
+            <h2 className="sec-title">One Aurora PostgreSQL engine.</h2>
+          </div>
+          <div className="stack">
             <span className="mono-label">The hybrid retrieval stack · one engine</span>
             <div className="formula">
               {['Full-text|ts_rank_cd', 'Semantic|pgvector', 'Fuzzy|pg_trgm', 'Fusion|RRF k=60', 'Rerank|Cohere rerank', 'Cited answer|citations'].map((item, index) => {
@@ -1074,6 +1086,30 @@ function Landing({
             </div>
             <div className="foot">
               Powered by <b>Amazon Aurora PostgreSQL</b> — the retrieval system of record. Every run logged to <b>retrieval_runs</b>, every candidate explained.
+            </div>
+          </div>
+        </section>
+
+        <section className="section demo-section" id="demo-run">
+          <div className="demo-strip" aria-label="Explore the populated Orion run">
+            <div>
+              <span className="mono-label">Explore demo run</span>
+              <p>Start with search, or jump into the pre-populated Orion answer path.</p>
+            </div>
+            <div className="demo-links">
+              {workspaceNavItems.map((item) => (
+                <button
+                  key={item.page}
+                  type="button"
+                  title={item.summary}
+                  aria-label={`${item.label}: ${item.summary}`}
+                  onClick={() => onNavigate(item.page)}
+                >
+                  <span>{item.eyebrow}</span>
+                  <b>{item.label}</b>
+                  <small>{item.summary}</small>
+                </button>
+              ))}
             </div>
           </div>
         </section>
@@ -1201,7 +1237,7 @@ function ResultsPage({
             </button>
           </div>
           {loading ? (
-            <EmptyState loading title="Searching evidence" body="Threadline is retrieving, fusing, and reranking source objects across connected systems." />
+            <EmptyState loading title="Searching evidence" body={`${APP_NAME} is retrieving, fusing, and reranking source objects across connected systems.`} />
           ) : (
             <div className="thread-col">
               {evidence.slice(0, 7).map((result, index) => (
@@ -1453,6 +1489,60 @@ function StreamRich({
   );
 }
 
+// Claude.ai-style "thinking" line: a single row that types one reasoning step,
+// holds a beat, clears, and types the next — with a blinking caret throughout —
+// then calls onDone so the answer can start streaming. Instant when disabled.
+function ThinkingLine({
+  steps,
+  enabled,
+  onDone,
+  stepMs = 620,
+  holdMs = 260
+}: {
+  steps: string[];
+  enabled: boolean;
+  onDone?: () => void;
+  stepMs?: number;
+  holdMs?: number;
+}) {
+  const [index, setIndex] = useState(0);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+  const current = steps[Math.min(index, steps.length - 1)] || '';
+  // Type the current step; when it finishes, hold briefly then advance. The last
+  // step's completion ends the thinking phase.
+  const { shown, done } = useTypewriter(current, { enabled, speed: 2, tickMs: 18 });
+
+  useEffect(() => {
+    if (!enabled) {
+      onDoneRef.current?.();
+      return;
+    }
+    if (!done) return;
+    const last = index >= steps.length - 1;
+    const id = window.setTimeout(() => {
+      if (last) onDoneRef.current?.();
+      else setIndex((i) => i + 1);
+    }, last ? Math.max(holdMs, 120) : stepMs);
+    return () => window.clearTimeout(id);
+  }, [done, index, enabled, steps.length, stepMs, holdMs]);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [enabled]);
+
+  if (!enabled) return null;
+  return (
+    <div className="thinking" role="status" aria-live="polite">
+      <span className="thinking-dot" aria-hidden="true" />
+      <span className="thinking-text">
+        {shown}
+        <span className="caret" aria-hidden="true" />
+      </span>
+    </div>
+  );
+}
+
 function AgentPage({
   page,
   query,
@@ -1489,22 +1579,30 @@ function AgentPage({
   // blocks advance on a short timer (see the effect below).
   const [beat, setBeat] = useState(streaming ? 0 : 99);
   const advance = () => setBeat((b) => b + 1);
+  // The thinking phase runs first: a single updating line cycles the agent's
+  // real reasoning steps, then hands off to the typewriter answer at beat 1.
+  const [thinking, setThinking] = useState(streaming);
+  const onThinkingDone = () => {
+    setThinking(false);
+    setBeat(1);
+  };
 
   useEffect(() => {
     // Reset the run whenever we (re)enter a streaming answer.
+    setThinking(streaming);
     setBeat(streaming ? 0 : 99);
   }, [streaming, runLabel]);
 
   useEffect(() => {
-    if (!streaming) return;
-    // Reveal-only beats (header pause, pull quote, commit table, plan header)
-    // hold briefly, then hand off to the next beat for a natural cadence.
-    const pauseBeats: Record<number, number> = { 0: 560, 4: 900, 6: 780, 7: 520 };
+    if (!streaming || thinking) return;
+    // Reveal-only beats (pull quote, commit table, plan header) hold briefly,
+    // then hand off to the next beat for a natural cadence.
+    const pauseBeats: Record<number, number> = { 4: 900, 6: 780, 7: 520 };
     const hold = pauseBeats[beat];
     if (hold == null) return;
     const id = window.setTimeout(advance, hold);
     return () => window.clearTimeout(id);
-  }, [beat, streaming]);
+  }, [beat, streaming, thinking]);
 
   const planStart = 8;
   const railReady = !streaming || beat >= 1;
@@ -1532,9 +1630,11 @@ function AgentPage({
           ) : (
             <>
               <div className="eyebrow mono-label">
-                {streaming && beat < planStart + canonicalPlan.length
-                  ? 'Agent answer · streaming with citations'
-                  : 'Agent answer · synthesized with citations'}
+                {streaming && thinking
+                  ? 'Agent answer · thinking'
+                  : streaming && beat < planStart + canonicalPlan.length
+                    ? 'Agent answer · streaming with citations'
+                    : 'Agent answer · synthesized with citations'}
               </div>
               <div className="question">"{query || queryDefault}"</div>
               <div className="answermeta">
@@ -1545,7 +1645,11 @@ function AgentPage({
                 <span>Jul 9, 2026 · 09:14</span>
               </div>
 
-              {(!streaming || beat >= 1) && (
+              {streaming && thinking && (
+                <ThinkingLine steps={thinkingTrace} enabled={streaming} onDone={onThinkingDone} />
+              )}
+
+              {(!streaming || (!thinking && beat >= 1)) && (
                 <StreamRich
                   className="lead"
                   tokens={canonicalAnswer.lead}

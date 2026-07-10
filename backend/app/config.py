@@ -23,7 +23,10 @@ def _rerank_model() -> str:
 class Settings(BaseModel):
     database_url: str = os.environ.get("DATABASE_URL", "")
     aws_region: str = os.environ.get("AWS_REGION", "us-east-1")
-    embed_provider: str = os.environ.get("EMBED_PROVIDER", "hash")
+    # Default to real Cohere embed-v4 so live query embeddings share the exact
+    # vector space as the seeded corpus (the shipped dump is Cohere-embedded).
+    # Set EMBED_PROVIDER=hash only for an offline, no-Bedrock corpus.
+    embed_provider: str = os.environ.get("EMBED_PROVIDER", "bedrock")
     embed_dim: int = int(os.environ.get("EMBED_DIM", "1024"))
     bedrock_opus_model: str = os.environ.get("BEDROCK_OPUS_MODEL", "global.anthropic.claude-opus-4-8")
     bedrock_sonnet_model: str = os.environ.get("BEDROCK_SONNET_MODEL", "global.anthropic.claude-sonnet-5")
@@ -34,7 +37,7 @@ class Settings(BaseModel):
     bedrock_embed_model_id: str = _embedding_model()
     bedrock_rerank_model: str = _rerank_model()
     bedrock_rerank_model_id: str = _rerank_model()
-    app_display_name: str = os.environ.get("APP_DISPLAY_NAME", "Threadline")
+    app_display_name: str = os.environ.get("APP_DISPLAY_NAME", "AuraLens")
 
 @lru_cache
 def get_settings() -> Settings:

@@ -5,5 +5,5 @@
 Security-review changes applied:
 
 - Removed remote Google Fonts references.
-- Replaced the unavailable/taken product name with a generic placeholder: **Evidence Trail**.
+- Uses the simple text-only product name: **AuraLens**.
 - No vendor logo image assets are included.

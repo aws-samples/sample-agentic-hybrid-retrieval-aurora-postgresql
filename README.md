@@ -117,11 +117,12 @@ If Docker is available:
 docker compose up -d --build postgres
 export DATABASE_URL=postgresql://retrieval:retrieval@localhost:55432/retrieval?sslmode=disable
 make schema
-python backend/scripts/load_jsonl_to_postgres.py --input data/sample/source_objects.jsonl --truncate
-make embed
+make seed-load   # pg_restore the Cohere-embedded dump + rebuild HNSW/GIN/trgm indexes
 ```
 
-The Compose image builds PostgreSQL `18.3` with pgvector `v0.8.2`.
+The Compose image builds PostgreSQL `18.3` with pgvector `v0.8.2`. `make seed-load`
+restores the canonical 150-object corpus with its **real Cohere `embed-v4` vectors**
+baked in — there is no separate embedding step and no Bedrock call at load time.
 
 ## Aurora PostgreSQL 18.3 Option
 
@@ -156,8 +157,7 @@ After deploy, use the `AuroraDatabaseUrlCommand` output from CloudFormation to c
 cd ../..
 eval "$(scripts/aurora_database_url.sh <secret-arn> <cluster-endpoint> retrieval)"
 make aurora-verify
-python backend/scripts/load_jsonl_to_postgres.py --input data/sample/source_objects.jsonl --truncate
-make embed
+make seed-load   # pg_restore the Cohere-embedded dump + rebuild HNSW/GIN/trgm indexes
 ```
 
 `make aurora-verify` creates or updates the required extensions and schema, then checks for PostgreSQL 18.3+ and pgvector 0.8.1+.
@@ -193,7 +193,11 @@ stored row, so it renders identically under either provider.)
 
 ## Optional Bedrock Model Defaults
 
-The local lab uses deterministic hash embeddings unless `EMBED_PROVIDER=bedrock` is set. When Bedrock is enabled, the repo expects these model IDs:
+The lab defaults to `EMBED_PROVIDER=bedrock` so live query embeddings share the
+Cohere `embed-v4` space the shipped dump was built in. Set `EMBED_PROVIDER=hash`
+for a fully offline run (deterministic embeddings, no Bedrock calls) — useful for
+CI or air-gapped setup, though live-query relevance will differ from the seeded
+vectors. When Bedrock is enabled, the repo expects these model IDs:
 
 ```text
 BEDROCK_OPUS_MODEL=global.anthropic.claude-opus-4-8
@@ -234,7 +238,8 @@ curl -X POST http://localhost:8000/v1/agent/answer \
 - Keep local configuration in `.env`; only `.env.example` is committed.
 - Keep generated corpora under `data/generated/`; it is ignored by git.
 - Keep live connector exports under `data/live/`; it is ignored by git.
-- Keep workshop-safe seed data under `data/sample/`.
+- The canonical workshop corpus lives in `seed/` (generator + committed dump);
+  restore it with `make seed-load`.
 - Use `SECURITY_REVIEW.md` for review notes that should remain visible to maintainers.
 
 ## Security Review Notes

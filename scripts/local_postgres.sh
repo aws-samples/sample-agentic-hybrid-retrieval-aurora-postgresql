@@ -107,9 +107,14 @@ run_schema() {
   "$PYTHON_BIN" backend/scripts/check_pgvector.py --min-version "$PGVECTOR_MIN_VERSION"
 }
 
-load_sample() {
-  "$PYTHON_BIN" backend/scripts/load_jsonl_to_postgres.py --input data/sample/source_objects.jsonl --source-name workshop-source-bundle --source-system source_bundle --truncate
-  "$PYTHON_BIN" backend/scripts/embed_chunks.py --provider hash --batch-size 500
+load_seed() {
+  # Restore the canonical workshop corpus from the prebuilt -Fc dump: 150 objects
+  # (30 each across Slack, Jira, Confluence, Salesforce, GitHub) with REAL Cohere
+  # embed-v4 (1024-d) vectors, the stored cited answer, links, and diagnostics
+  # rows baked in. No hash stub and no Bedrock calls at load time — every run
+  # reuses the same one-time embeddings. seed/load.sh reads DATABASE_URL (exported
+  # above) and rebuilds the HNSW/GIN/trigram indexes after restore.
+  seed/load.sh
 }
 
 case "${1:-help}" in
@@ -131,13 +136,16 @@ case "${1:-help}" in
     run_schema
     ;;
   load-sample)
-    load_sample
+    load_seed
+    ;;
+  load-seed)
+    load_seed
     ;;
   bootstrap)
     start_db
     create_database
     run_schema
-    load_sample
+    load_seed
     echo "Local Postgres is ready: $DATABASE_URL"
     ;;
   *)
@@ -150,8 +158,9 @@ Commands:
   stop          Stop local Postgres
   status        Show local Postgres status
   schema        Install extensions, schema, indexes, functions, diagnostics
-  load-sample   Load data/sample/source_objects.jsonl and embed chunks
-  bootstrap     Start, create schema, load sample data, embed chunks
+  load-seed     Restore the canonical Cohere-embedded seed dump (seed/load.sh)
+  load-sample   Alias for load-seed (kept for compatibility)
+  bootstrap     Start, create schema, restore the seed dump, rebuild indexes
 
 Environment:
   PGPORT=$PGPORT

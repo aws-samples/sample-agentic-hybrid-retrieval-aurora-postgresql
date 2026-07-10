@@ -10,12 +10,12 @@ ACCOUNTS = ["Acme Corp", "Northwind Traders", "Globex", "Initech", "Umbrella Fin
 COMPONENTS = ["PostgreSQL", "Search Service", "Connector Service", "Billing API", "Data Plane"]
 TEAMS = ["Database Platform", "Search Platform", "Customer Engineering", "Release Engineering", "Support Ops"]
 
+# Five connected systems (ServiceNow is out of scope for this workshop).
 SOURCE_TYPES = {
     "slack": ["channel_thread", "incident_thread", "release_thread"],
     "jira": ["issue", "bug", "epic", "task"],
     "confluence": ["page", "runbook", "postmortem", "design_doc"],
     "salesforce": ["case", "account_note", "customer_commitment"],
-    "servicenow": ["incident", "problem", "change_request"],
     "github": ["pull_request", "issue", "release_note"],
 }
 
@@ -57,7 +57,7 @@ def make_body(system: str, title: str, project: str, account: str, component: st
         f"Summary: {random.choice(THEMES)}. This record is associated with Project {project}, account {account}, and component {component}. "
         f"Operational notes mention release timing, customer impact, owner handoffs, Slack decisions, runbook validation, and remediation evidence. "
         f"The current discussion includes terms such as failover, latency, rollback, replica lag, deployment readiness, and customer commitment. "
-        f"Evidence should be compared across Slack threads, Jira blockers, Confluence pages, Salesforce cases, ServiceNow incidents, and GitHub pull requests."
+        f"Evidence should be compared across Slack threads, Jira blockers, Confluence pages, Salesforce cases, and GitHub pull requests."
     )
 
 
@@ -81,7 +81,7 @@ def main():
             project = "ORION"
         account = random.choice(ACCOUNTS)
         component = random.choice(COMPONENTS)
-        prefix = {"slack": "SLACK", "jira": project, "confluence": "PAGE", "salesforce": "CASE", "servicenow": "INC", "github": "PR"}[system]
+        prefix = {"slack": "SLACK", "jira": project, "confluence": "PAGE", "salesforce": "CASE", "github": "PR"}[system]
         external_id = f"{prefix}-{i:06d}"
         title = f"{external_id}: {random.choice(THEMES).title()}"
         body = make_body(system, title, project, account, component)

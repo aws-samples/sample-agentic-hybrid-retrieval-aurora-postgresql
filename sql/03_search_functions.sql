@@ -63,13 +63,24 @@ WITH base AS (
     AND (p_start_date IS NULL OR o.updated_at >= p_start_date)
     AND (p_end_date IS NULL OR o.updated_at <= p_end_date)
 ),
+q AS (
+  -- OR-combine the query terms for the lexical arm. websearch_to_tsquery
+  -- defaults to AND ('orion <-> -1489' & 'page' & 'prod' & 'fix'), which drops
+  -- any chunk missing even one term -> every row scores text_rank = 0, silently
+  -- disabling full-text search inside a natural-language question. Rewriting the
+  -- top-level '&' to '|' keeps the exact-ID phrase intact ('orion' <-> '-1489')
+  -- but lets partial matches rank by ts_rank_cd, so a strong lexical hit like the
+  -- Jira ID ORION-1489 surfaces first and RRF can fuse it with the vector arm.
+  SELECT replace(websearch_to_tsquery('english', p_query)::text, ' & ', ' | ')::tsquery AS tq
+),
 text_hits AS (
   SELECT b.chunk_id,
-         ts_rank_cd(c.tsv, websearch_to_tsquery('english', p_query))::numeric AS text_rank,
-         row_number() OVER (ORDER BY ts_rank_cd(c.tsv, websearch_to_tsquery('english', p_query)) DESC) AS text_pos
+         ts_rank_cd(c.tsv, q.tq)::numeric AS text_rank,
+         row_number() OVER (ORDER BY ts_rank_cd(c.tsv, q.tq) DESC) AS text_pos
   FROM base b
   JOIN ops.object_chunks c ON c.chunk_id = b.chunk_id
-  WHERE c.tsv @@ websearch_to_tsquery('english', p_query)
+  CROSS JOIN q
+  WHERE q.tq IS NOT NULL AND c.tsv @@ q.tq
   ORDER BY text_rank DESC
   LIMIT 300
 ),

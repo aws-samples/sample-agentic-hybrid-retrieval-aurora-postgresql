@@ -1,6 +1,6 @@
 """Canonical Orion narrative — the single source of truth for the seed.
 
-Every string here matches the five Threadline mockups (and the React UI in
+Every string here matches the five AuraLens mockups (and the React UI in
 frontend/src/main.tsx) byte-for-byte. The generator emits these into Aurora so
 the API returns the exact answer, the exact six citations, the exact trail, and
 the exact diagnostics numbers the demo shows.
