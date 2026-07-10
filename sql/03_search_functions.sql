@@ -6,6 +6,24 @@ AS $$
   SELECT CASE WHEN rank_position IS NULL THEN 0 ELSE 1.0 / (k + rank_position) END;
 $$;
 
+-- Single home for the OR-combine invariant used by every lexical arm.
+-- websearch_to_tsquery defaults to AND ('orion <-> -1489' & 'page' & 'prod' &
+-- 'fix'), which drops any chunk missing even one term -> every row scores
+-- text_rank = 0, silently disabling full-text search inside a natural-language
+-- question. Rewriting the top-level '&' to '|' keeps the exact-ID phrase intact
+-- ('orion' <-> '-1489') but lets partial matches rank by ts_rank_cd, so a strong
+-- lexical hit like the Jira ID ORION-1489 surfaces first. ops.hybrid_search AND
+-- ops.full_text_search (the Gateway MCP full_text_search tool) both call this, so
+-- the rewrite lives in exactly one place. Do not reintroduce AND-semantics here or
+-- the exact-ID teaching moment breaks in every lexical caller at once.
+CREATE OR REPLACE FUNCTION ops.to_or_tsquery(p_query text)
+RETURNS tsquery
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT replace(websearch_to_tsquery('english', p_query)::text, ' & ', ' | ')::tsquery;
+$$;
+
 CREATE OR REPLACE FUNCTION ops.hybrid_search(
   p_query text,
   p_query_embedding vector(1024),
@@ -64,14 +82,10 @@ WITH base AS (
     AND (p_end_date IS NULL OR o.updated_at <= p_end_date)
 ),
 q AS (
-  -- OR-combine the query terms for the lexical arm. websearch_to_tsquery
-  -- defaults to AND ('orion <-> -1489' & 'page' & 'prod' & 'fix'), which drops
-  -- any chunk missing even one term -> every row scores text_rank = 0, silently
-  -- disabling full-text search inside a natural-language question. Rewriting the
-  -- top-level '&' to '|' keeps the exact-ID phrase intact ('orion' <-> '-1489')
-  -- but lets partial matches rank by ts_rank_cd, so a strong lexical hit like the
-  -- Jira ID ORION-1489 surfaces first and RRF can fuse it with the vector arm.
-  SELECT replace(websearch_to_tsquery('english', p_query)::text, ' & ', ' | ')::tsquery AS tq
+  -- Lexical arm shares the OR-combine invariant via ops.to_or_tsquery so the
+  -- rewrite lives in exactly one place (see that function and the Gateway MCP
+  -- full_text_search tool, which call the same helper).
+  SELECT ops.to_or_tsquery(p_query) AS tq
 ),
 text_hits AS (
   SELECT b.chunk_id,
@@ -163,4 +177,170 @@ SELECT
 FROM fused f
 ORDER BY final_score DESC
 LIMIT p_limit;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Single-signal retrieval functions.
+--
+-- These back the four AgentCore Gateway MCP tools so an agent can reason about
+-- one retrieval signal at a time (full_text_search, vector_search, fuzzy_match)
+-- or ask for the fused ranking (ops.hybrid_search, above). They share the same
+-- filter set and a compact, consistent row shape. full_text_search calls
+-- ops.to_or_tsquery, so the OR-combine invariant holds here too.
+-- ---------------------------------------------------------------------------
+
+-- Lexical / full-text only. tsvector @@ tsquery ranked by ts_rank_cd.
+CREATE OR REPLACE FUNCTION ops.full_text_search(
+  p_query text,
+  p_source_systems text[] DEFAULT NULL,
+  p_source_types text[] DEFAULT NULL,
+  p_statuses text[] DEFAULT NULL,
+  p_priorities text[] DEFAULT NULL,
+  p_project_key text DEFAULT NULL,
+  p_account_name text DEFAULT NULL,
+  p_component text DEFAULT NULL,
+  p_start_date timestamptz DEFAULT NULL,
+  p_end_date timestamptz DEFAULT NULL,
+  p_limit int DEFAULT 20
+)
+RETURNS TABLE (
+  chunk_id uuid,
+  object_id uuid,
+  source_system text,
+  source_type text,
+  external_id text,
+  title text,
+  url text,
+  status text,
+  priority text,
+  updated_at timestamptz,
+  snippet text,
+  score numeric
+)
+LANGUAGE sql
+AS $$
+  WITH q AS (
+    SELECT ops.to_or_tsquery(p_query) AS tq
+  )
+  SELECT c.chunk_id, o.object_id, o.source_system, o.source_type, o.external_id, o.title,
+         o.url, o.status, o.priority, o.updated_at,
+         left(regexp_replace(c.chunk_text, '\s+', ' ', 'g'), 460) AS snippet,
+         ts_rank_cd(c.tsv, q.tq)::numeric AS score
+  FROM ops.object_chunks c
+  JOIN ops.source_objects o ON o.object_id = c.object_id
+  CROSS JOIN q
+  WHERE q.tq IS NOT NULL AND c.tsv @@ q.tq
+    AND (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
+    AND (p_source_types IS NULL OR o.source_type = ANY(p_source_types))
+    AND (p_statuses IS NULL OR o.status = ANY(p_statuses))
+    AND (p_priorities IS NULL OR o.priority = ANY(p_priorities))
+    AND (p_project_key IS NULL OR o.project_key = p_project_key)
+    AND (p_account_name IS NULL OR o.account_name = p_account_name)
+    AND (p_component IS NULL OR o.component = p_component)
+    AND (p_start_date IS NULL OR o.updated_at >= p_start_date)
+    AND (p_end_date IS NULL OR o.updated_at <= p_end_date)
+  ORDER BY score DESC
+  LIMIT p_limit;
+$$;
+
+-- Semantic / vector only. Cosine similarity against the HNSW-indexed embedding.
+CREATE OR REPLACE FUNCTION ops.vector_search(
+  p_query_embedding vector(1024),
+  p_source_systems text[] DEFAULT NULL,
+  p_source_types text[] DEFAULT NULL,
+  p_statuses text[] DEFAULT NULL,
+  p_priorities text[] DEFAULT NULL,
+  p_project_key text DEFAULT NULL,
+  p_account_name text DEFAULT NULL,
+  p_component text DEFAULT NULL,
+  p_start_date timestamptz DEFAULT NULL,
+  p_end_date timestamptz DEFAULT NULL,
+  p_limit int DEFAULT 20
+)
+RETURNS TABLE (
+  chunk_id uuid,
+  object_id uuid,
+  source_system text,
+  source_type text,
+  external_id text,
+  title text,
+  url text,
+  status text,
+  priority text,
+  updated_at timestamptz,
+  snippet text,
+  score numeric
+)
+LANGUAGE sql
+AS $$
+  SELECT c.chunk_id, o.object_id, o.source_system, o.source_type, o.external_id, o.title,
+         o.url, o.status, o.priority, o.updated_at,
+         left(regexp_replace(c.chunk_text, '\s+', ' ', 'g'), 460) AS snippet,
+         (1 - (c.embedding <=> p_query_embedding))::numeric AS score
+  FROM ops.object_chunks c
+  JOIN ops.source_objects o ON o.object_id = c.object_id
+  WHERE c.embedding IS NOT NULL AND p_query_embedding IS NOT NULL
+    AND (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
+    AND (p_source_types IS NULL OR o.source_type = ANY(p_source_types))
+    AND (p_statuses IS NULL OR o.status = ANY(p_statuses))
+    AND (p_priorities IS NULL OR o.priority = ANY(p_priorities))
+    AND (p_project_key IS NULL OR o.project_key = p_project_key)
+    AND (p_account_name IS NULL OR o.account_name = p_account_name)
+    AND (p_component IS NULL OR o.component = p_component)
+    AND (p_start_date IS NULL OR o.updated_at >= p_start_date)
+    AND (p_end_date IS NULL OR o.updated_at <= p_end_date)
+  ORDER BY c.embedding <=> p_query_embedding ASC
+  LIMIT p_limit;
+$$;
+
+-- Fuzzy / pg_trgm only. Trigram similarity over title + leading chunk text, so
+-- typos and near-miss identifiers (e.g. "OR10N-1489") still surface a hit.
+CREATE OR REPLACE FUNCTION ops.fuzzy_match(
+  p_query text,
+  p_threshold numeric DEFAULT 0.08,
+  p_source_systems text[] DEFAULT NULL,
+  p_source_types text[] DEFAULT NULL,
+  p_statuses text[] DEFAULT NULL,
+  p_priorities text[] DEFAULT NULL,
+  p_project_key text DEFAULT NULL,
+  p_account_name text DEFAULT NULL,
+  p_component text DEFAULT NULL,
+  p_start_date timestamptz DEFAULT NULL,
+  p_end_date timestamptz DEFAULT NULL,
+  p_limit int DEFAULT 20
+)
+RETURNS TABLE (
+  chunk_id uuid,
+  object_id uuid,
+  source_system text,
+  source_type text,
+  external_id text,
+  title text,
+  url text,
+  status text,
+  priority text,
+  updated_at timestamptz,
+  snippet text,
+  score numeric
+)
+LANGUAGE sql
+AS $$
+  SELECT c.chunk_id, o.object_id, o.source_system, o.source_type, o.external_id, o.title,
+         o.url, o.status, o.priority, o.updated_at,
+         left(regexp_replace(c.chunk_text, '\s+', ' ', 'g'), 460) AS snippet,
+         greatest(similarity(o.title, p_query), similarity(left(c.chunk_text, 500), p_query))::numeric AS score
+  FROM ops.object_chunks c
+  JOIN ops.source_objects o ON o.object_id = c.object_id
+  WHERE greatest(similarity(o.title, p_query), similarity(left(c.chunk_text, 500), p_query)) > p_threshold
+    AND (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
+    AND (p_source_types IS NULL OR o.source_type = ANY(p_source_types))
+    AND (p_statuses IS NULL OR o.status = ANY(p_statuses))
+    AND (p_priorities IS NULL OR o.priority = ANY(p_priorities))
+    AND (p_project_key IS NULL OR o.project_key = p_project_key)
+    AND (p_account_name IS NULL OR o.account_name = p_account_name)
+    AND (p_component IS NULL OR o.component = p_component)
+    AND (p_start_date IS NULL OR o.updated_at >= p_start_date)
+    AND (p_end_date IS NULL OR o.updated_at <= p_end_date)
+  ORDER BY score DESC
+  LIMIT p_limit;
 $$;

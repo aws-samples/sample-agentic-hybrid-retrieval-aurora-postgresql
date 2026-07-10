@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "name": "agentic-hybrid-retrieval",
+  "description": "AgentCore Gateway + Runtime for hybrid retrieval over Aurora PostgreSQL (Slack, Jira, Confluence, Salesforce, GitHub).",
+  "managedBy": "CDK",
+  "tags": {
+    "agentcore:created-by": "agentcore-cli",
+    "project": "sample-agentic-hybrid-retrieval-aurora-postgresql"
+  },
+  "runtimes": [
+    {
+      "name": "hybrid-retrieval-agent",
+      "description": "BYO runtime that answers operational questions with cited hybrid-retrieval evidence.",
+      "build": "CodeZip",
+      "entrypoint": "main.py",
+      "codeLocation": "runtime/",
+      "pythonVersion": "PYTHON_3_12",
+      "runtimeVersion": "PYTHON_3_12",
+      "networkMode": "PUBLIC",
+      "environment": {
+        "AWS_REGION": "us-east-1",
+        "EMBED_DIM": "1024",
+        "BEDROCK_EMBEDDING_MODEL": "us.cohere.embed-v4:0",
+        "BEDROCK_CHAT_MODEL": "global.anthropic.claude-opus-4-8"
+      }
+    }
+  ],
+  "agentCoreGateways": [
+    {
+      "name": "hybrid-retrieval-gateway",
+      "description": "Exposes full_text_search, vector_search, fuzzy_match, and hybrid_search over the ops schema as MCP tools.",
+      "authorizerType": "NONE",
+      "enableSemanticSearch": true,
+      "targets": [
+        {
+          "name": "retrieval",
+          "targetType": "lambdaFunctionArn",
+          "lambdaFunctionArn": {
+            "lambdaArn": "${GATEWAY_LAMBDA_ARN}",
+            "toolSchemaFile": "gateway/retrieval_tools.json"
+          }
+        }
+      ]
+    }
+  ],
+  "policyEngines": [],
+  "httpGateways": []
+}

@@ -54,6 +54,7 @@ The system:
 ├── data/                       # Workshop-safe source bundle
 ├── connectors/                 # Optional connector scaffolds and normalizers
 ├── bedrock-agent/              # Optional Amazon Bedrock Agent action group wrapper
+├── agentcore/                  # Optional AgentCore Gateway (Lambda MCP) + BYO Runtime
 ├── mcp-server/                 # Optional MCP wrapper around the retrieval API
 ├── infra/                      # CDK skeleton and local Postgres Dockerfile
 ├── seed/                       # Canonical Orion corpus generator + pg_dump/restore
@@ -161,6 +162,34 @@ make seed-load   # pg_restore the Cohere-embedded dump + rebuild HNSW/GIN/trgm i
 ```
 
 `make aurora-verify` creates or updates the required extensions and schema, then checks for PostgreSQL 18.3+ and pgvector 0.8.1+.
+
+## Optional AgentCore Gateway + Runtime
+
+The default Aurora stack does not deploy AgentCore resources. To opt in, deploy
+the dedicated AgentCore Gateway stack, then run the Node-based AgentCore CLI
+provisioning flow:
+
+```bash
+cd infra/cdk
+ENABLE_AGENTCORE_GATEWAY_STACK=1 \
+  npx aws-cdk@latest deploy AgenticRetrievalCoreStack AgenticRetrievalAgentCoreGatewayStack
+cd ../..
+
+make agentcore-provision
+```
+
+The optional CDK stack owns the Gateway Lambda package, VPC attachment, Aurora
+security-group ingress, private endpoints for Secrets Manager and Bedrock Runtime,
+and IAM permissions for the Aurora secret and Bedrock embedding invocation.
+`make agentcore-provision` resolves the `AgentCoreGatewayLambdaArn` stack output
+and runs:
+
+```bash
+npx -y @aws/agentcore@0.18.0 provision --config agentcore.json
+```
+
+See [`agentcore/README.md`](agentcore/README.md) for prerequisites and smoke
+tests.
 
 ## Workshop Seed Data
 

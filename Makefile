@@ -11,7 +11,7 @@ export PGVECTOR_VERSION
 export PGVECTOR_MIN_VERSION
 export POSTGRES_MIN_VERSION
 
-.PHONY: install install-pgvector local-db-start local-db-stop local-db-bootstrap schema aurora-verify sample load embed api frontend smoke clean seed-generate seed-jsonl seed-load
+.PHONY: install install-pgvector local-db-start local-db-stop local-db-bootstrap schema aurora-verify sample load embed api frontend smoke clean seed-generate seed-jsonl seed-load agentcore-provision
 
 install:
 	python -m venv .venv
@@ -70,5 +70,11 @@ seed-generate:
 seed-load:
 	seed/load.sh
 
+# --- Optional AgentCore Gateway + Runtime -----------------------------------
+# Wires the CDK-managed Gateway Lambda into AgentCore and provisions the Gateway
+# + BYO Runtime via the @aws/agentcore CLI. See agentcore/README.md.
+agentcore-provision:
+	agentcore/provision.sh
+
 clean:
-	rm -rf data/generated frontend/dist .pytest_cache
+	rm -rf data/generated frontend/dist .pytest_cache agentcore/.build

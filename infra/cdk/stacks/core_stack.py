@@ -42,6 +42,7 @@ class AgenticRetrievalCoreStack(Stack):
             default="",
             description="Optional base URL for the retrieval API used by the Bedrock Agent action Lambda.",
         )
+        self.database_name = database_name.value_as_string
 
         self.vpc = ec2.Vpc(
             self,
@@ -112,7 +113,7 @@ class AgenticRetrievalCoreStack(Stack):
                 "RETRIEVAL_API_URL": retrieval_api_url.value_as_string,
                 "AURORA_SECRET_ARN": self.db_secret.secret_arn,
                 "AURORA_CLUSTER_ENDPOINT": self.cluster.cluster_endpoint.hostname,
-                "AURORA_DATABASE_NAME": database_name.value_as_string,
+                "AURORA_DATABASE_NAME": self.database_name,
             },
         )
         self.db_secret.grant_read(self.action_lambda)
@@ -121,9 +122,9 @@ class AgenticRetrievalCoreStack(Stack):
         CfnOutput(self, "AuroraEndpoint", value=self.cluster.cluster_endpoint.socket_address)
         CfnOutput(self, "AuroraReaderEndpoint", value=self.cluster.cluster_read_endpoint.socket_address)
         CfnOutput(self, "AuroraSecretArn", value=self.db_secret.secret_arn)
-        CfnOutput(self, "AuroraDatabaseName", value=database_name.value_as_string)
+        CfnOutput(self, "AuroraDatabaseName", value=self.database_name)
         CfnOutput(
             self,
             "AuroraDatabaseUrlCommand",
-            value=f"scripts/aurora_database_url.sh {self.db_secret.secret_arn} {self.cluster.cluster_endpoint.hostname} {database_name.value_as_string}",
+            value=f"scripts/aurora_database_url.sh {self.db_secret.secret_arn} {self.cluster.cluster_endpoint.hostname} {self.database_name}",
         )
