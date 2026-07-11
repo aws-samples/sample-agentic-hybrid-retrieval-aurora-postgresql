@@ -120,30 +120,38 @@ def agent_answer(req: AgentAnswerRequest):
 
 @app.get("/v1/runs/{run_id}/metrics")
 def retrieval_run_metrics(run_id: str):
-    with get_dict_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM ops.retrieval_run_metrics WHERE run_id = %s", (run_id,))
-            metrics = cur.fetchone()
-            if not metrics:
-                raise HTTPException(404, "run metrics not found")
-            return metrics
+    try:
+        with get_dict_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM ops.retrieval_run_metrics WHERE run_id = %s", (run_id,))
+                metrics = cur.fetchone()
+    except Exception:
+        # Metrics table not provisioned yet (schema not migrated / dump not restored).
+        raise HTTPException(503, "run metrics unavailable — run `make schema` (applies sql/06_agent_answers.sql) or `make seed-load`")
+    if not metrics:
+        raise HTTPException(404, "run metrics not found")
+    return metrics
 
 @app.get("/v1/diagnostics/canonical")
 def canonical_diagnostics():
     """The canonical run's metrics + diagnostics rows for the demo Diagnostics view."""
-    with get_dict_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT m.*, a.question, a.confidence, a.source_count, a.system_count
-                FROM ops.retrieval_run_metrics m
-                JOIN ops.agent_answers a ON a.run_id = m.run_id
-                ORDER BY m.fired_at DESC
-                LIMIT 1
-            """)
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(404, "no canonical run recorded")
-            return row
+    try:
+        with get_dict_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT m.*, a.question, a.confidence, a.source_count, a.system_count
+                    FROM ops.retrieval_run_metrics m
+                    JOIN ops.agent_answers a ON a.run_id = m.run_id
+                    ORDER BY m.fired_at DESC
+                    LIMIT 1
+                """)
+                row = cur.fetchone()
+    except Exception:
+        # Canonical tables not provisioned yet (schema not migrated / dump not restored).
+        raise HTTPException(503, "canonical diagnostics unavailable — run `make schema` (applies sql/06_agent_answers.sql) or `make seed-load`")
+    if not row:
+        raise HTTPException(404, "no canonical run recorded")
+    return row
 
 @app.get("/v1/diagnostics/corpus")
 def corpus_diagnostics():

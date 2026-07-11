@@ -6,6 +6,7 @@
 [![pgvector 0.8.1+](https://img.shields.io/badge/pgvector-0.8.1%2B-4B8BBE.svg)](https://github.com/pgvector/pgvector)
 [![Aurora PostgreSQL](https://img.shields.io/badge/Amazon%20Aurora-PostgreSQL-FF9900.svg?logo=amazonaws&logoColor=white)](https://aws.amazon.com/rds/aurora/)
 [![Amazon Bedrock](https://img.shields.io/badge/Amazon%20Bedrock-Cohere%20%26%20Claude-232F3E.svg?logo=amazonaws&logoColor=white)](https://aws.amazon.com/bedrock/)
+[![Strands Agents](https://img.shields.io/badge/Strands-Agents-4B5563.svg)](https://strandsagents.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg?logo=vite&logoColor=white)](https://vite.dev/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -14,23 +15,27 @@ This repository is a security-reviewable starter implementation for a re:Invent 
 
 > **Build agentic hybrid retrieval with Amazon Aurora PostgreSQL**
 
-For local development and the first builder-session path, the retrieval engine is **PostgreSQL 18.3 or later with pgvector 0.8.1 or later**. The same schema can run on localhost PostgreSQL or on a net-new Aurora PostgreSQL 18.3 cluster provisioned by the CDK stack in this repo.
+For the builder-session path, the retrieval engine is **Amazon Aurora PostgreSQL 18.3 or later with pgvector 0.8.1 or later**. This repo contains the application, schema, seed data, and runtime helpers. AWS infrastructure is owned by the Workshop Studio repo and delivered as CloudFormation assets.
 
 The product is an operational evidence retrieval layer over fragmented work systems such as Slack-like conversations, Jira issues, Confluence pages, Salesforce cases, GitHub pull requests, runbooks, and incident notes.
+
+The agentic layer is framed around **Strands Agents**. Strands provides the lab harness and concrete `@tool` contract; Aurora PostgreSQL provides the durable evidence index; Amazon Bedrock provides embeddings and Claude model access where live model calls are enabled. The tool boundary is harness-agnostic: the same retrieval contract can be called from Strands, Claude Code, MCP clients, or another agent harness.
+
+The default model routing uses the best model for the job: Sonnet 5 for planning, tool routing, and Claude Code discovery; Opus 4.8 for answer synthesis when live composition is enabled.
 
 ## Prerequisites
 
 - Python 3.13 or later
 - Node.js 20.19 or later for the frontend and MCP server
-- Local PostgreSQL 18.3 or later with pgvector 0.8.1+, pg_trgm, btree_gin, pgcrypto, and pg_stat_statements
-- Optional: Docker, if you prefer the Compose-based Postgres path
-- AWS credentials for optional Bedrock embeddings, Bedrock Agent integration, or the Aurora deployment path
+- A Workshop Studio-provisioned Aurora PostgreSQL cluster in `us-east-1`
+- AWS credentials that can read the workshop stack outputs and Secrets Manager database secret
+- Bedrock model access for live query embeddings when `EMBED_PROVIDER=bedrock`
 
 ## What participants build
 
 Participants build a lightweight retrieval system that can answer questions like:
 
-> Why is Project Orion delayed, what did the team decide in Slack, and what customer commitments are impacted?
+> Why did Orion slip, and which customer commitments are at risk?
 
 The system:
 
@@ -41,7 +46,7 @@ The system:
 5. Stores source links and citations.
 6. Runs PostgreSQL full-text search, pgvector semantic similarity, SQL filters, metadata filters, time-window filters, and pg_trgm fuzzy matching.
 7. Combines retrieval sets with Reciprocal Rank Fusion.
-8. Returns cited answers through agent-callable tools.
+8. Returns cited answers through Strands-style agent-callable tools.
 9. Stores retrieval diagnostics for evaluation and explainability.
 
 ## Pipeline Positioning
@@ -78,133 +83,50 @@ connectors or export jobs that fit each source system.
 ├── sql/                        # PostgreSQL schema, indexes, functions, diagnostics
 ├── data/                       # Workshop-safe source bundle
 ├── connectors/                 # Optional connector scaffolds and normalizers
-├── bedrock-agent/              # Optional Amazon Bedrock Agent action group wrapper
-├── agentcore/                  # Optional AgentCore Gateway (Lambda MCP target)
+├── lambda_mcp/                 # Lambda MCP adapter for Strands tool packaging
 ├── mcp-server/                 # Optional MCP wrapper around the retrieval API
-├── infra/                      # CDK skeleton and local Postgres Dockerfile
 ├── seed/                       # Canonical Orion corpus generator + pg_dump/restore
 ├── mockups/                    # Static design prototype reference
 └── docs/                       # Session plan, architecture, security notes, stretch labs
 ```
 
-## Quick Start: Local Postgres + API + UI
+## Infrastructure Boundary
+
+This source repo does not provision AWS resources. The Workshop Studio repo owns:
+
+- `static/hybrid-retrieval-main.yml` as the root CloudFormation template
+- `assets/hybrid-retrieval-*.yml` as nested CloudFormation templates
+- the packaged source archive that Workshop Studio uploads to the assets S3 bucket
+- the Code Editor, Aurora PostgreSQL, VPC, IAM, and bootstrap workflow
+
+Keep application code, SQL, seed data, connector scaffolds, and local runtime helpers here. Put infrastructure templates and deployment packaging in the Workshop Studio repo.
+
+## Quick Start: Workshop Aurora + API + UI
 
 Set up Python dependencies:
 
 ```bash
 make install
 cp .env.example .env
+export AWS_REGION=us-east-1
+export AWS_DEFAULT_REGION=us-east-1
 ```
 
-The sample is configured for `us-east-1` when AWS services are used. Keep `AWS_REGION=us-east-1` and `AWS_DEFAULT_REGION=us-east-1` in your shell for the Aurora and Bedrock paths.
-
-Install PostgreSQL and pgvector with Homebrew:
+When Workshop Studio has deployed the lab, configure this checkout from the workshop stack outputs:
 
 ```bash
-brew install postgresql@18 pgvector
-```
-
-The native bootstrap checks for PostgreSQL 18.3 or later and pgvector 0.8.1 or later. The local scripts prefer Homebrew's `postgresql@18` binaries at `/usr/local/opt/postgresql@18`.
-
-Start local Postgres, create the database, create schema, load the sample source bundle, and embed chunks:
-
-```bash
-make local-db-bootstrap
-```
-
-This uses:
-
-```text
-DATABASE_URL=postgresql://localhost:55432/retrieval?sslmode=disable
+make aurora-local-env
+make aurora-verify
+make seed-load
 ```
 
 Run the API:
 
 ```bash
-uvicorn backend.app.main:app --reload --port 8000
-```
-
-Run the frontend:
-
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev
-```
-
-The frontend calls the API directly. If the API or database is unavailable, it shows an explicit setup/search error; it does not substitute offline result data.
-
-## Docker Postgres Option
-
-If Docker is available:
-
-```bash
-docker compose up -d --build postgres
-export DATABASE_URL=postgresql://retrieval:retrieval@localhost:55432/retrieval?sslmode=disable
-make schema
-make seed-load   # pg_restore the Cohere-embedded dump + rebuild HNSW/GIN/trgm indexes
-```
-
-The Compose image builds PostgreSQL `18.3` with pgvector `v0.8.2`. `make seed-load`
-restores the canonical 150-object corpus with its **real Cohere `embed-v4` vectors**
-baked in — there is no separate embedding step and no Bedrock call at load time.
-
-## Aurora PostgreSQL 18.3 Option
-
-The CDK stack provisions a net-new Aurora PostgreSQL 18.3 Serverless v2 cluster, the source landing buckets, a Secrets Manager database secret, and the placeholder Bedrock Agent action Lambda. The optional AgentCore Gateway uses a separate Lambda and stack.
-
-Bootstrap the target account and region if needed:
-
-```bash
-cd infra/cdk
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-export AWS_REGION=us-east-1
-export AWS_DEFAULT_REGION=us-east-1
-npx aws-cdk@latest bootstrap
-```
-
-Deploy the stack. Pass your current client IP as a `/32` so the local API and schema loader can reach Aurora directly:
-
-```bash
-export CLIENT_CIDR="$(curl -s https://checkip.amazonaws.com)/32"
-export AWS_REGION=us-east-1
-export AWS_DEFAULT_REGION=us-east-1
-npx aws-cdk@latest deploy \
-  --parameters ClientAccessCidr="$CLIENT_CIDR" \
-  --parameters DatabaseName=retrieval
-```
-
-After deploy, use the `AuroraDatabaseUrlCommand` output from CloudFormation to create `DATABASE_URL`, then install the schema and verify PostgreSQL plus pgvector:
-
-```bash
-cd ../..
-eval "$(scripts/aurora_database_url.sh <secret-arn> <cluster-endpoint> retrieval)"
-make aurora-verify
-make seed-load   # pg_restore the Cohere-embedded dump + rebuild HNSW/GIN/trgm indexes
-```
-
-`make aurora-verify` creates or updates the required extensions and schema, then checks for PostgreSQL 18.3+ and pgvector 0.8.1+.
-
-### Local VSCode Against Workshop Aurora
-
-When the Workshop Studio bootstrap has already deployed `AgenticRetrievalCoreStack`,
-you can run the API and UI locally while pointing at the same Aurora cluster and
-Bedrock region the workshop provisions:
-
-```bash
-export AWS_REGION=us-east-1
-export AWS_DEFAULT_REGION=us-east-1
-make install
-make aurora-local-env
-make aurora-verify
-make seed-load
 make api
 ```
 
-In a second VSCode terminal:
+Run the frontend in a second terminal:
 
 ```bash
 cd frontend
@@ -216,37 +138,8 @@ npm run dev
 from Secrets Manager, writes ignored local `.env` files for the backend and
 frontend, and checks whether the Aurora endpoint is reachable from the local
 machine. The files are intentionally not committed. If the network check says
-Aurora is not reachable, run VSCode from an environment inside the VPC or add the
-current client CIDR to the Aurora security group through the workshop stack.
-
-## Optional AgentCore Gateway
-
-The default Aurora stack does not deploy AgentCore resources. To opt in, deploy
-the dedicated AgentCore Gateway stack, then run the Node-based AgentCore CLI
-deployment flow:
-
-```bash
-cd infra/cdk
-ENABLE_AGENTCORE_GATEWAY_STACK=1 \
-  npx aws-cdk@latest deploy AgenticRetrievalCoreStack AgenticRetrievalAgentCoreGatewayStack
-cd ../..
-
-make agentcore-provision
-```
-
-The optional CDK stack owns the Gateway Lambda package, VPC attachment, Aurora
-security-group ingress, private endpoints for Secrets Manager and Bedrock Runtime,
-and IAM permissions for the Aurora secret and Bedrock embedding invocation.
-`make agentcore-provision` resolves the `AgentCoreGatewayLambdaArn` stack output
-and runs the pinned Node-based CLI:
-
-```bash
-npx -y @aws/agentcore@0.18.0 validate --directory agentcore
-npx -y @aws/agentcore@0.18.0 deploy --target default --yes
-```
-
-See [`agentcore/README.md`](agentcore/README.md) for prerequisites and smoke
-tests.
+Aurora is not reachable, run from Code Editor or another environment inside the
+workshop VPC.
 
 ## Workshop Seed Data
 
@@ -257,11 +150,10 @@ The `seed/` directory regenerates that dataset and ships it as a `pg_dump -Fc`
 archive so a workshop bootstrap can restore it with **$0 in Bedrock spend**.
 
 ```bash
-# Restore the prebuilt corpus into Aurora or local Postgres (idempotent):
-DATABASE_URL=postgresql://localhost:55432/retrieval?sslmode=disable \
-  make seed-load
+# Restore the prebuilt corpus into the configured Aurora database (idempotent):
+make seed-load
 
-# Or regenerate from source (seed authors — writes JSONL + manifest + dump):
+# Or regenerate from source (seed authors - writes JSONL + manifest + dump):
 make seed-jsonl        # JSONL + manifest only, no database needed
 make seed-generate     # full rebuild, populates DB and writes the -Fc dump
 ```
@@ -277,7 +169,7 @@ Cohere space, run the backend with `EMBED_PROVIDER=bedrock` so live `/v1/search`
 embeds queries with the same model. (The canonical Orion answer is served from a
 stored row, so it renders identically under either provider.)
 
-## Optional Bedrock Model Defaults
+## Bedrock Model Routing
 
 The lab defaults to `EMBED_PROVIDER=bedrock` so live query embeddings share the
 Cohere `embed-v4` space the shipped dump was built in. Set `EMBED_PROVIDER=hash`
@@ -294,13 +186,21 @@ BEDROCK_CHAT_MODEL=global.anthropic.claude-opus-4-8
 BEDROCK_EMBEDDING_MODEL=us.cohere.embed-v4:0
 ```
 
+`/v1/agent/answer` includes an `agent` metadata object so the app and lab can show the live routing:
+
+- `planning_and_tool_routing`: Sonnet 5
+- `answer_synthesis`: Opus 4.8
+- `claude_code_harness`: Sonnet 5
+
+The canonical workshop answer is replayed from Aurora for stable citations and diagnostics; live composition paths use the configured synthesis model.
+
 ## Search
 
 ```bash
 curl -X POST http://localhost:8000/v1/search \
   -H 'Content-Type: application/json' \
   -d '{
-    "query": "Why is Project Orion delayed and what customer commitments are impacted?",
+    "query": "Why did Orion slip, and which customer commitments are at risk?",
     "source_systems": ["slack", "jira", "confluence", "salesforce", "github"],
     "project_key": "ORION",
     "limit": 8
@@ -313,7 +213,7 @@ curl -X POST http://localhost:8000/v1/search \
 curl -X POST http://localhost:8000/v1/agent/answer \
   -H 'Content-Type: application/json' \
   -d '{
-    "question": "Why is Project Orion delayed, what did the team decide in Slack, and what customer commitments are impacted?",
+    "question": "Why did Orion slip, and which customer commitments are at risk?",
     "limit": 8
   }'
 ```

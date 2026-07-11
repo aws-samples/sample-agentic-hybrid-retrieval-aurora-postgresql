@@ -22,10 +22,19 @@ server.tool(
     query: z.string(),
     sourceSystems: z.array(z.string()).optional(),
     projectKey: z.string().optional(),
+    accountName: z.string().optional(),
+    component: z.string().optional(),
     limit: z.number().default(8)
   },
-  async ({ query, sourceSystems, projectKey, limit }) => {
-    const result = await post("/v1/search", { query, source_systems: sourceSystems, project_key: projectKey, limit });
+  async ({ query, sourceSystems, projectKey, accountName, component, limit }) => {
+    const result = await post("/v1/search", {
+      query,
+      source_systems: sourceSystems,
+      project_key: projectKey,
+      account_name: accountName,
+      component,
+      limit
+    });
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   }
 );
@@ -34,10 +43,21 @@ server.tool(
   "answer_question",
   {
     question: z.string(),
+    sourceSystems: z.array(z.string()).optional(),
+    projectKey: z.string().optional(),
+    accountName: z.string().optional(),
+    component: z.string().optional(),
     limit: z.number().default(8)
   },
-  async ({ question, limit }) => {
-    const result = await post("/v1/agent/answer", { question, limit });
+  async ({ question, sourceSystems, projectKey, accountName, component, limit }) => {
+    const result = await post("/v1/agent/answer", {
+      question,
+      source_systems: sourceSystems,
+      project_key: projectKey,
+      account_name: accountName,
+      component,
+      limit
+    });
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   }
 );

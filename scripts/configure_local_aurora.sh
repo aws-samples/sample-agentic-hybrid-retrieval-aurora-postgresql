@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STACK_NAME="${1:-${AURORA_STACK_NAME:-AgenticRetrievalCoreStack}}"
+STACK_NAME="${1:-${AURORA_STACK_NAME:-agentic-hybrid-retrieval}}"
 REGION="${2:-${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}}"
 API_URL="${VITE_RETRIEVAL_API_URL:-http://127.0.0.1:8000}"
 
@@ -17,21 +17,29 @@ stack_output() {
 }
 
 if ! command -v aws >/dev/null 2>&1; then
-  echo "aws CLI is required to resolve the Workshop CDK stack outputs." >&2
+  echo "aws CLI is required to resolve the Workshop Studio stack outputs." >&2
   exit 1
 fi
 
-SECRET_ARN="$(stack_output AuroraSecretArn)"
-ENDPOINT_VALUE="$(stack_output AuroraEndpoint)"
+SECRET_ARN="$(stack_output DatabaseSecretArn)"
+if [[ -z "$SECRET_ARN" || "$SECRET_ARN" == "None" ]]; then
+  SECRET_ARN="$(stack_output AuroraSecretArn)"
+fi
+
+ENDPOINT_VALUE="$(stack_output DatabaseEndpoint)"
+if [[ -z "$ENDPOINT_VALUE" || "$ENDPOINT_VALUE" == "None" ]]; then
+  ENDPOINT_VALUE="$(stack_output AuroraEndpoint)"
+fi
+
 DB_NAME="$(stack_output AuroraDatabaseName)"
 
 if [[ -z "$SECRET_ARN" || "$SECRET_ARN" == "None" || -z "$ENDPOINT_VALUE" || "$ENDPOINT_VALUE" == "None" ]]; then
-  echo "Could not resolve AuroraSecretArn and AuroraEndpoint from stack $STACK_NAME in $REGION." >&2
+  echo "Could not resolve DatabaseSecretArn/DatabaseEndpoint from Workshop Studio stack $STACK_NAME in $REGION." >&2
   exit 1
 fi
 
-DB_NAME="${DB_NAME:-retrieval}"
-DB_NAME="${DB_NAME/None/retrieval}"
+DB_NAME="${DB_NAME:-workshop_db}"
+DB_NAME="${DB_NAME/None/workshop_db}"
 HOST="${ENDPOINT_VALUE%:*}"
 
 export AWS_REGION="$REGION"
@@ -73,7 +81,7 @@ else
 fi
 
 cat <<EOF
-Configured local workshop runtime from $STACK_NAME in $REGION.
+Configured local workshop runtime from Workshop Studio stack $STACK_NAME in $REGION.
 Aurora endpoint: $HOST:5432
 Database: $DB_NAME
 Network check: $NETWORK_STATUS

@@ -6,9 +6,11 @@ import confluenceLogoUrl from './assets/confluence-2017.svg';
 import jiraLogoUrl from './assets/jira-streamline.svg';
 import salesforceLogoUrl from './assets/salesforce-logo.jpeg';
 import slackIconUrl from './assets/slack-icon-2019.svg';
+import strandsLogoUrl from './assets/strands-logo.png';
 import './styles.css';
 
 type Page = 'landing' | 'results' | 'detail' | 'trail' | 'agent' | 'diagnostics';
+type GuideStep = 'answer' | 'timeline' | 'diagnostics' | 'proof';
 
 type Signals = {
   full_text?: number;
@@ -51,9 +53,27 @@ type SearchResponse = {
   results: Result[];
 };
 
+type AgentMetadata = {
+  harness?: string;
+  tools?: string[];
+  model_provider?: string;
+  model_strategy?: string;
+  model_routing?: {
+    planning_and_tool_routing?: string;
+    answer_synthesis?: string;
+    claude_code_harness?: string;
+  };
+  routing_notes?: {
+    planning_and_tool_routing?: string;
+    answer_synthesis?: string;
+    claude_code_harness?: string;
+  };
+};
+
 type AgentPayload = {
   question?: string;
   run_id?: string;
+  agent?: AgentMetadata;
   plan?: string[];
   answer?: string;
   confidence?: number;
@@ -102,6 +122,26 @@ type ObjectDetail = {
 const API_URL = import.meta.env.VITE_RETRIEVAL_API_URL || 'http://127.0.0.1:8000';
 const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'AuraLens';
 const ENABLE_ANSWER_STREAMING = import.meta.env.VITE_ENABLE_ANSWER_STREAMING !== '0';
+const ENABLE_GUIDED_DISCOVERY = import.meta.env.VITE_ENABLE_GUIDED_DISCOVERY !== '0';
+const GUIDE_STORAGE_KEY = 'auralens-guided-discovery-v1';
+const guideSteps: GuideStep[] = ['answer', 'timeline', 'diagnostics', 'proof'];
+const STRANDS_URL = 'https://strandsagents.com/';
+const GITHUB_REPO_URL = 'https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql';
+const DEFAULT_AGENT_METADATA: AgentMetadata = {
+  harness: 'Strands Agents',
+  model_provider: 'Amazon Bedrock',
+  model_strategy: 'best_model_for_the_job',
+  model_routing: {
+    planning_and_tool_routing: 'global.anthropic.claude-sonnet-5',
+    answer_synthesis: 'global.anthropic.claude-opus-4-8',
+    claude_code_harness: 'global.anthropic.claude-sonnet-5'
+  },
+  routing_notes: {
+    planning_and_tool_routing: 'Sonnet 5 decomposes the question and routes tool calls.',
+    answer_synthesis: 'Opus 4.8 is the configured synthesis model when live composition is enabled.',
+    claude_code_harness: 'Sonnet 5 powers Claude Code discovery questions and optional exercises.'
+  }
+};
 const queryDefault = 'Why did Orion slip?';
 const showcaseQuery = 'Why did Orion slip, and which customer commitments are at risk?';
 const rotatingQueries = [
@@ -153,7 +193,7 @@ const searchSuggestions = [
 const workspaceNavItems: Array<{ page: Page; label: string; eyebrow: string; summary: string }> = [
   { page: 'results', label: 'Evidence', eyebrow: '24 ranked results', summary: 'Hybrid-ranked sources and linked context' },
   { page: 'agent', label: 'Answer', eyebrow: '6 cited sources', summary: 'Synthesized answer with inline citations' },
-  { page: 'trail', label: 'Timeline', eyebrow: '8 linked events', summary: 'Time-ordered cross-system sequence' },
+  { page: 'trail', label: 'Timeline', eyebrow: '7 linked events', summary: 'Time-ordered cross-system sequence' },
   { page: 'diagnostics', label: 'Diagnostics', eyebrow: '341 ms run', summary: 'Fusion, scoring, latency, and SQL trace' }
 ];
 
@@ -562,6 +602,17 @@ function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
 }
 
+function readGuideDismissals(): GuideStep[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(GUIDE_STORAGE_KEY) || '[]');
+    if (!Array.isArray(stored)) return [];
+    return stored.filter((step): step is GuideStep => guideSteps.includes(step));
+  } catch {
+    return [];
+  }
+}
+
 // Per-ranker cell styling in the diagnostics candidate table: em-dash = not ranked
 // by that mode (.na), top rank (#1) = emphasized (.rk), everything else plain.
 function rankCellClass(value: string) {
@@ -612,6 +663,14 @@ function shortRunId(value: string) {
   const compact = value.replace(/[^a-zA-Z0-9]/g, '');
   if (compact.length > 12) return compact.slice(-8);
   return value;
+}
+
+function friendlyModelName(modelId?: string) {
+  if (!modelId) return 'Model not configured';
+  if (modelId.includes('claude-opus-4-8')) return 'Claude Opus 4.8';
+  if (modelId.includes('claude-sonnet-5')) return 'Claude Sonnet 5';
+  if (modelId.includes('cohere.embed-v4')) return 'Cohere embed-v4';
+  return modelId.split('.').pop()?.replace(/-/g, ' ') || modelId;
 }
 
 const brandLogoUrls: Record<string, string> = {
@@ -691,6 +750,47 @@ function ErrorBanner({ message }: { message?: string }) {
     <div className="error-banner" role="alert">
       <ShieldCheck size={15} />
       <span>{message}</span>
+    </div>
+  );
+}
+
+function GuideCoachmark({
+  title,
+  body,
+  onDismiss,
+  onSkip
+}: {
+  title: string;
+  body: string;
+  onDismiss: () => void;
+  onSkip: () => void;
+}) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const timerId = window.setTimeout(() => {
+      const target = (cardRef.current?.closest('.guide-target') as HTMLElement | null) || cardRef.current;
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      const margin = 72;
+      if (rect.top < margin || rect.bottom > window.innerHeight - margin) {
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        target.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
+      }
+    }, 80);
+    return () => window.clearTimeout(timerId);
+  }, [title]);
+
+  return (
+    <div className="guide-card" role="region" aria-label="Guided discovery" ref={cardRef}>
+      <span className="guide-kicker">Guided discovery</span>
+      <b>{title}</b>
+      <p>{body}</p>
+      <div className="guide-actions">
+        <button type="button" onClick={onDismiss}>Got it</button>
+        <button type="button" onClick={onSkip}>Skip guide</button>
+      </div>
     </div>
   );
 }
@@ -995,6 +1095,14 @@ function Landing({
             Demo run
           </a>
         </div>
+        <div className="nav-actions" aria-label="External resources">
+          <a className="nav-strands-link" href={STRANDS_URL} target="_blank" rel="noreferrer" aria-label="Open Strands Agents">
+            <img src={strandsLogoUrl} alt="" />
+          </a>
+          <a className="nav-icon-link" href={GITHUB_REPO_URL} target="_blank" rel="noreferrer" aria-label="Open the AuraLens source repository">
+            <FaGithub size={19} />
+          </a>
+        </div>
       </nav>
 
       <main className="shell" id="overview">
@@ -1067,6 +1175,25 @@ function Landing({
         </section>
 
         <ErrorBanner message={error} />
+
+        <section className="section harness-section" aria-label="Agent harness portability">
+          <div className="harness-note">
+            <span className="mono-label">Agent harness portability</span>
+            <div>
+              <h2>Use the harness that fits your team.</h2>
+              <p>
+                AuraLens uses Strands Agents for the workshop because the `@tool` boundary is explicit. The retrieval contract is portable:
+                Aurora stores the evidence, FastAPI exposes the tools, and the same calls can be driven by Strands, Claude Code, MCP
+                clients, or your own orchestrator.
+              </p>
+            </div>
+            <div className="harness-points" aria-label="Portable tool contract">
+              <span>infer_sources</span>
+              <span>search_evidence</span>
+              <span>synthesize_cited_answer</span>
+            </div>
+          </div>
+        </section>
 
         <section className="section" id="how">
           <div className="sec-head">
@@ -1218,6 +1345,9 @@ function ResultsPage({
   setSelected,
   onSearch,
   onAgent,
+  guideStep,
+  onDismissGuide,
+  onSkipGuide,
   onNavigate
 }: {
   page: Page;
@@ -1231,9 +1361,13 @@ function ResultsPage({
   setSelected: (value: Result) => void;
   onSearch: () => void;
   onAgent: () => void;
+  guideStep?: GuideStep | null;
+  onDismissGuide: (step: GuideStep) => void;
+  onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
 }) {
   const evidence = orderedEvidence(results);
+  const showAnswerGuide = guideStep === 'answer';
 
   function openResult(result: Result) {
     setSelected(result);
@@ -1264,7 +1398,7 @@ function ResultsPage({
             <div className="count">
               <b>24 results</b> · fused from {corpusTotal} candidates across 3 rankers · 341 ms · run <b>{runId?.slice(0, 10) || 'rr_7f3a9c'}</b>
             </div>
-            <button className="answer-ready" onClick={() => onAgent()}>
+            <button className={cx('answer-ready', showAnswerGuide && 'guide-pulse')} onClick={() => onAgent()}>
               <span className="dot" />
               Agent answer ready →
             </button>
@@ -1286,7 +1420,15 @@ function ResultsPage({
         </section>
 
         <aside className="rail">
-          <div className="railcard">
+          <div className={cx('railcard', showAnswerGuide && 'guide-target guide-spotlight')}>
+            {showAnswerGuide && (
+              <GuideCoachmark
+                title="Open the cited answer"
+                body="The evidence list shows ranked sources. Next, open the answer to see how those sources become cited claims."
+                onDismiss={() => onDismissGuide('answer')}
+                onSkip={onSkipGuide}
+              />
+            )}
             <div className="mono-label with-dot"><span className="dot" />Agent answer · ready</div>
             <p className="ans-preview">
               Orion's GA slipped two weeks — July 1 to 15 — after replication lag <span className="cit">2</span> failed the readiness gate <span className="cit">4</span>; the team decided in #proj-orion <span className="cit">1</span> and Acme's go-live is being renegotiated <span className="cit">3</span>.
@@ -1317,9 +1459,9 @@ function ResultsPage({
               <div className="run-funnel" aria-label="Candidate funnel">
                 {[
                   ['Corpus', corpusTotal],
-                  ['Raw', 160],
                   ['Deduped', 92],
-                  ['Returned', 24],
+                  ['Fused', 24],
+                  ['Above cut', 12],
                   ['Cited', 6]
                 ].map(([label, value], index) => (
                   <React.Fragment key={String(label)}>
@@ -1368,7 +1510,7 @@ function MiniGraph() {
       <div className="graph-summary">
         <span><b>6</b> cited objects</span>
         <span><b>5</b> systems</span>
-        <span><b>9</b> object_links</span>
+        <span><b>9</b> links traversed</span>
       </div>
       <div className="graph-edge-list">
         {evidenceGraphEdges.map((edge) => (
@@ -1628,6 +1770,9 @@ function AgentPage({
   loading,
   onSearch,
   onAgent,
+  guideStep,
+  onDismissGuide,
+  onSkipGuide,
   onNavigate,
   results
 }: {
@@ -1640,6 +1785,9 @@ function AgentPage({
   loading: boolean;
   onSearch: () => void;
   onAgent: () => void;
+  guideStep?: GuideStep | null;
+  onDismissGuide: (step: GuideStep) => void;
+  onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
   results: Result[];
 }) {
@@ -1650,6 +1798,27 @@ function AgentPage({
   const confidencePercent = Math.round(Math.max(0, Math.min(1, confidenceValue)) * 100);
   const citedSourceCount = agentPayload.source_count || 6;
   const citedSystemCount = agentPayload.system_count || 5;
+  const showTimelineGuide = guideStep === 'timeline';
+  const agentMeta = { ...DEFAULT_AGENT_METADATA, ...(agentPayload.agent || {}) };
+  const modelRouting = { ...DEFAULT_AGENT_METADATA.model_routing, ...(agentMeta.model_routing || {}) };
+  const routingNotes = { ...DEFAULT_AGENT_METADATA.routing_notes, ...(agentMeta.routing_notes || {}) };
+  const routingRows = [
+    {
+      role: 'Planning + tools',
+      model: modelRouting.planning_and_tool_routing,
+      note: routingNotes.planning_and_tool_routing
+    },
+    {
+      role: 'Answer synthesis',
+      model: modelRouting.answer_synthesis,
+      note: routingNotes.answer_synthesis
+    },
+    {
+      role: 'Claude Code',
+      model: modelRouting.claude_code_harness,
+      note: routingNotes.claude_code_harness
+    }
+  ];
 
   // --- Streaming deconstruction --------------------------------------------
   // The answer arrives beat-by-beat: the synthesized prose types itself, then
@@ -1721,10 +1890,27 @@ function AgentPage({
               <div className="question">"{query || queryDefault}"</div>
               <div className="answermeta">
                 <span className="badge"><i />GROUNDED</span>
+                <span><b>{agentMeta.harness}</b> · {agentMeta.model_provider}</span>
                 <span title={runLabel}>run <b>{shortRunId(runLabel)}</b></span>
                 <span><b>{citedSourceCount} sources</b> · {citedSystemCount} systems</span>
                 <span>Jul 9, 2026 · 09:14</span>
               </div>
+
+              <section className="model-routing" aria-label="Agent model routing">
+                <div>
+                  <span className="mono-label">Best model for the job</span>
+                  <h2>{agentMeta.harness || 'Agent'} model routing</h2>
+                </div>
+                <div className="model-grid">
+                  {routingRows.map((row) => (
+                    <div className="model-cell" key={row.role}>
+                      <span>{row.role}</span>
+                      <b title={row.model}>{friendlyModelName(row.model)}</b>
+                      <small>{row.note}</small>
+                    </div>
+                  ))}
+                </div>
+              </section>
 
               {streaming && thinking && (
                 <ThinkingLine steps={thinkingTrace} enabled={streaming} onDone={onThinkingDone} />
@@ -1778,12 +1964,6 @@ function AgentPage({
                       <td><b>Jul 22, 2026</b> proposed</td>
                       <td><span className="status risk">RENEGOTIATING</span></td>
                     </tr>
-                    <tr>
-                      <td><b>Northwind · pilot expansion</b><br />OPP-88412 · non-contractual target</td>
-                      <td>mid-July</td>
-                      <td>unchanged</td>
-                      <td><span className="status ok">MONITORING</span></td>
-                    </tr>
                   </tbody>
                 </table>
               )}
@@ -1808,7 +1988,15 @@ function AgentPage({
                     );
                   })}
                   {(!streaming || planStage >= canonicalPlan.length) && (
-                    <div className="actions beat is-in">
+                    <div className={cx('actions', 'beat', 'is-in', showTimelineGuide && 'guide-target guide-spotlight')}>
+                      {showTimelineGuide && (
+                        <GuideCoachmark
+                          title="Follow the evidence path"
+                          body="The answer is cited. Now open Timeline to see the linked source objects in sequence."
+                          onDismiss={() => onDismissGuide('timeline')}
+                          onSkip={onSkipGuide}
+                        />
+                      )}
                       <button className="btn primary" onClick={() => onAgent()}>Regenerate answer</button>
                       <button className="btn ghost" onClick={() => onNavigate('trail')}>View timeline</button>
                       <button className="btn ghost" onClick={() => onNavigate('diagnostics')}>Open diagnostics</button>
@@ -1873,6 +2061,9 @@ function TimelinePage({
   setQuery,
   error,
   onSearch,
+  guideStep,
+  onDismissGuide,
+  onSkipGuide,
   onNavigate
 }: {
   page: Page;
@@ -1881,6 +2072,9 @@ function TimelinePage({
   results: Result[];
   error?: string;
   onSearch: () => void;
+  guideStep?: GuideStep | null;
+  onDismissGuide: (step: GuideStep) => void;
+  onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
 }) {
   // The timeline assembles itself node-by-node, as if traverse_links() were
@@ -1889,6 +2083,7 @@ function TimelinePage({
   const streaming = !reducedMotion;
   const stage = useStageSequence(trailEvents.length + 1, { enabled: streaming, beatMs: 520, startMs: 320 });
   const walking = streaming && stage < trailEvents.length;
+  const showDiagnosticsGuide = guideStep === 'diagnostics';
 
   return (
     <section className="inner-screen">
@@ -1896,7 +2091,7 @@ function TimelinePage({
       <div className="pagehead">
         <div className="eyebrow centered mono-label">Timeline</div>
         <h1>How the Orion delay <em>unfolded.</em></h1>
-        <div className="pagesub"><b>8 linked objects · 5 systems</b> · Jun 12 — Jul 3, 2026 · assembled by <b>traverse_links()</b> over <b>object_links</b> · 9 edges followed</div>
+        <div className="pagesub"><b>7 linked events · 5 systems</b> · Jun 12 — Jul 3, 2026 · assembled by <b>traverse_links()</b> over <b>object_links</b> · 9 edges followed</div>
         <div className="legend">
           {['blocks', 'caused-by', 'gates', 'decided-in', 'impacts', 'fixes', 'references'].map((edge) => (
             <span className={cx('lg', edge === 'references' && 'n')} key={edge}>{edge}</span>
@@ -1938,9 +2133,20 @@ function TimelinePage({
           );
         })}
         {(!streaming || stage >= trailEvents.length) && (
-          <div className="outcome beat is-in">
+          <div className={cx('outcome', 'beat', 'is-in', showDiagnosticsGuide && 'guide-target guide-spotlight')}>
+            {showDiagnosticsGuide && (
+              <GuideCoachmark
+                title="Inspect the run diagnostics"
+                body="Timeline shows the linked evidence path. Diagnostics shows the ranker signals, candidate rows, and SQL trace behind the same run."
+                onDismiss={() => onDismissGuide('diagnostics')}
+                onSkip={onSkipGuide}
+              />
+            )}
             <span className="mono-label">Outcome</span>
             <div className="big">GA lands <span className="date-accent">July 15</span> — blocker fixed, gate passed, and Acme's commitment renegotiated to <span className="date-accent">July 22</span> with the evidence path to prove it.</div>
+            <div className="outcome-actions">
+              <button className="btn primary" type="button" onClick={() => onNavigate('diagnostics')}>Open diagnostics</button>
+            </div>
           </div>
         )}
       </div>
@@ -1953,14 +2159,22 @@ function DiagnosticsPage({
   query,
   setQuery,
   onSearch,
+  guideStep,
+  onDismissGuide,
+  onSkipGuide,
   onNavigate
 }: {
   page: Page;
   query: string;
   setQuery: (value: string) => void;
   onSearch: () => void;
+  guideStep?: GuideStep | null;
+  onDismissGuide: (step: GuideStep) => void;
+  onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
 }) {
+  const showProofGuide = guideStep === 'proof';
+
   return (
     <section className="inner-screen">
       <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
@@ -2055,11 +2269,19 @@ function DiagnosticsPage({
           />
         </div>
 
-        <div className="tablewrap">
+        <div className={cx('tablewrap', showProofGuide && 'guide-target guide-spotlight')}>
           <div className="twhead">
             <div className="ptitle">Top candidates, signal by signal</div>
             <div className="psub">SHOWING 10 OF 24 · ORDER BY FINAL</div>
           </div>
+          {showProofGuide && (
+            <GuideCoachmark
+              title="Use this as the proof surface"
+              body="Each row is persisted in retrieval_candidates with ranker positions, final score, and citation outcome. This is the replayable audit trail."
+              onDismiss={() => onDismissGuide('proof')}
+              onSkip={onSkipGuide}
+            />
+          )}
           <div className="candidate-legend">
             <span><b>Cited rows</b> became answer citations</span>
             <span><b>#1 / #2</b> are per-ranker positions</span>
@@ -2251,14 +2473,72 @@ function App() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
+  const [dismissedGuideSteps, setDismissedGuideSteps] = useState<GuideStep[]>(readGuideDismissals);
+  const [activeGuideStep, setActiveGuideStep] = useState<GuideStep | null>(null);
+
+  const guideDismissed = (step: GuideStep) => dismissedGuideSteps.includes(step);
+
+  function activateGuide(step: GuideStep) {
+    if (!ENABLE_GUIDED_DISCOVERY || guideDismissed(step)) return;
+    setActiveGuideStep(step);
+  }
+
+  function dismissGuide(step: GuideStep) {
+    setDismissedGuideSteps((current) => current.includes(step) ? current : [...current, step]);
+    setActiveGuideStep((current) => current === step ? null : current);
+  }
+
+  function skipGuide() {
+    setDismissedGuideSteps(guideSteps);
+    setActiveGuideStep(null);
+  }
+
+  function resetGuideFromUrl() {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('guide') !== '1') return;
+    window.localStorage.removeItem(GUIDE_STORAGE_KEY);
+    setDismissedGuideSteps([]);
+    setActiveGuideStep(null);
+  }
 
   function navigate(pageTarget: Page) {
     setLoading(false);
     setError(undefined);
     if (pageTarget !== 'landing' && (page === 'landing' || !query.trim())) setQuery(showcaseQuery);
     if (pageTarget === 'detail' && !selected) setSelected(demoResults[0]);
+    if (pageTarget === 'results' && results.length > 0) activateGuide('answer');
+    if (pageTarget === 'agent') activateGuide('timeline');
+    if (pageTarget === 'trail') {
+      dismissGuide('timeline');
+      activateGuide('diagnostics');
+    }
+    if (pageTarget === 'diagnostics') {
+      dismissGuide('diagnostics');
+      activateGuide('proof');
+    }
     setPage(pageTarget);
   }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(GUIDE_STORAGE_KEY, JSON.stringify(dismissedGuideSteps));
+  }, [dismissedGuideSteps]);
+
+  useEffect(() => {
+    resetGuideFromUrl();
+  }, []);
+
+  useEffect(() => {
+    if (!activeGuideStep) return;
+    const allowed: Record<GuideStep, Page[]> = {
+      answer: ['results'],
+      timeline: ['agent'],
+      diagnostics: ['trail'],
+      proof: ['diagnostics']
+    };
+    if (!allowed[activeGuideStep].includes(page)) setActiveGuideStep(null);
+  }, [activeGuideStep, page]);
 
   useEffect(() => {
     if (page !== 'detail' || !selected?.object_id) return;
@@ -2308,6 +2588,7 @@ function App() {
       setRunId(json.run_id);
       setResults(rows);
       setSelected(rows[0] || null);
+      activateGuide('answer');
     } catch (err) {
       setRunId(undefined);
       setResults([]);
@@ -2319,6 +2600,7 @@ function App() {
   }
 
   async function runAgent(queryOverride?: string) {
+    dismissGuide('answer');
     const question = (queryOverride ?? query).trim() || queryDefault;
     setQuery(question);
     setPage('agent');
@@ -2345,6 +2627,7 @@ function App() {
       setError(err instanceof Error ? err.message : 'Agent answer failed. Check the API and local Postgres setup.');
     } finally {
       setLoading(false);
+      activateGuide('timeline');
     }
   }
 
@@ -2371,7 +2654,20 @@ function App() {
   }
 
   if (page === 'trail') {
-    return <TimelinePage page={page} query={query} setQuery={setQuery} results={results} error={error} onSearch={runSearch} onNavigate={navigate} />;
+    return (
+      <TimelinePage
+        page={page}
+        query={query}
+        setQuery={setQuery}
+        results={results}
+        error={error}
+        onSearch={runSearch}
+        guideStep={activeGuideStep}
+        onDismissGuide={dismissGuide}
+        onSkipGuide={skipGuide}
+        onNavigate={navigate}
+      />
+    );
   }
 
   if (page === 'agent') {
@@ -2386,6 +2682,9 @@ function App() {
         loading={loading}
         onSearch={runSearch}
         onAgent={runAgent}
+        guideStep={activeGuideStep}
+        onDismissGuide={dismissGuide}
+        onSkipGuide={skipGuide}
         onNavigate={navigate}
         results={results}
       />
@@ -2393,7 +2692,18 @@ function App() {
   }
 
   if (page === 'diagnostics') {
-    return <DiagnosticsPage page={page} query={query} setQuery={setQuery} onSearch={runSearch} onNavigate={navigate} />;
+    return (
+      <DiagnosticsPage
+        page={page}
+        query={query}
+        setQuery={setQuery}
+        onSearch={runSearch}
+        guideStep={activeGuideStep}
+        onDismissGuide={dismissGuide}
+        onSkipGuide={skipGuide}
+        onNavigate={navigate}
+      />
+    );
   }
 
   return (
@@ -2409,6 +2719,9 @@ function App() {
       setSelected={setSelected}
       onSearch={runSearch}
       onAgent={runAgent}
+      guideStep={activeGuideStep}
+      onDismissGuide={dismissGuide}
+      onSkipGuide={skipGuide}
       onNavigate={navigate}
     />
   );

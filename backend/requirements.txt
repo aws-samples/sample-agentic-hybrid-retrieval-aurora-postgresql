@@ -6,3 +6,4 @@ python-dotenv>=1.0.1
 pydantic>=2.7.0
 numpy>=1.26.0
 requests>=2.32.0
+strands-agents>=1.0.0

@@ -7,30 +7,18 @@ PGVECTOR_MIN_VERSION ?= 0.8.1
 POSTGRES_MIN_VERSION ?= 18.3
 PYTHON ?= .venv/bin/python
 UVICORN ?= .venv/bin/uvicorn
-SQL_FILES := sql/00_extensions.sql sql/01_schema.sql sql/02_indexes.sql sql/03_search_functions.sql sql/04_diagnostics.sql sql/05_evaluation.sql
+SQL_FILES := sql/00_extensions.sql sql/01_schema.sql sql/02_indexes.sql sql/03_search_functions.sql sql/04_diagnostics.sql sql/05_evaluation.sql sql/06_agent_answers.sql
 
 export DATABASE_URL
 export PGVECTOR_VERSION
 export PGVECTOR_MIN_VERSION
 export POSTGRES_MIN_VERSION
 
-.PHONY: install install-pgvector local-db-start local-db-stop local-db-bootstrap aurora-local-env schema aurora-verify sample load embed api frontend smoke clean seed-generate seed-jsonl seed-load agentcore-provision
+.PHONY: install aurora-local-env schema aurora-verify sample load embed api frontend smoke clean seed-generate seed-jsonl seed-load
 
 install:
 	python -m venv .venv
 	. .venv/bin/activate && pip install -r backend/requirements.txt
-
-install-pgvector:
-	scripts/install_pgvector.sh
-
-local-db-start:
-	scripts/local_postgres.sh start
-
-local-db-stop:
-	scripts/local_postgres.sh stop
-
-local-db-bootstrap:
-	scripts/local_postgres.sh bootstrap
 
 aurora-local-env:
 	scripts/configure_local_aurora.sh
@@ -76,11 +64,5 @@ seed-generate:
 seed-load:
 	seed/load.sh
 
-# --- Optional AgentCore Gateway + Runtime -----------------------------------
-# Wires the CDK-managed Gateway Lambda into AgentCore and provisions the Gateway
-# + BYO Runtime via the @aws/agentcore CLI. See agentcore/README.md.
-agentcore-provision:
-	agentcore/provision.sh
-
 clean:
-	rm -rf data/generated frontend/dist .pytest_cache agentcore/.build
+	rm -rf data/generated frontend/dist .pytest_cache

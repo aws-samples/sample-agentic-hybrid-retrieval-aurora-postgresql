@@ -50,16 +50,6 @@ ARTIFACT_NAME = "hybrid-retrieval-seed-v1.dump"
 JSONL_NAME = "source_objects.jsonl"
 MANIFEST_NAME = "manifest.json"
 
-SQL_FILES = [
-    "sql/00_extensions.sql",
-    "sql/01_schema.sql",
-    "sql/02_indexes.sql",
-    "sql/03_search_functions.sql",
-    "sql/04_diagnostics.sql",
-    "sql/05_evaluation.sql",
-    "sql/06_agent_answers.sql",
-]
-
 
 # ---------------------------------------------------------------------------
 # Assemble the 150-object corpus

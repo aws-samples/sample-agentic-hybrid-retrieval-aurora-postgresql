@@ -2,14 +2,43 @@ from __future__ import annotations
 from typing import Any
 
 from .db import get_dict_conn
+from .config import get_settings
 from .models import AgentAnswerRequest, SearchRequest
 from .search import run_hybrid_search
 
+try:
+    from strands import tool
+except Exception:  # pragma: no cover - local fallback until deps are installed
+    def tool(fn):
+        return fn
+
 # Five connected systems (ServiceNow is out of scope for this workshop).
 ALL_SYSTEMS = ["slack", "jira", "confluence", "salesforce", "github"]
+AGENT_HARNESS = "Strands Agents"
+AGENT_TOOLS = ["infer_sources", "search_evidence", "synthesize_cited_answer"]
 
 
-def infer_sources(question: str) -> list[str]:
+def agent_metadata() -> dict[str, Any]:
+    settings = get_settings()
+    return {
+        "harness": AGENT_HARNESS,
+        "tools": AGENT_TOOLS,
+        "model_provider": "Amazon Bedrock",
+        "model_strategy": "best_model_for_the_job",
+        "model_routing": {
+            "planning_and_tool_routing": settings.bedrock_sonnet_model,
+            "answer_synthesis": settings.bedrock_opus_model,
+            "claude_code_harness": settings.bedrock_sonnet_model,
+        },
+        "routing_notes": {
+            "planning_and_tool_routing": "Sonnet 5 for decomposition, source selection, and tool routing.",
+            "answer_synthesis": "Opus 4.8 for high-quality answer synthesis when live composition is enabled.",
+            "claude_code_harness": "Sonnet 5 for Claude Code discovery questions and optional exercises.",
+        },
+    }
+
+
+def _infer_sources(question: str) -> list[str]:
     q = question.lower()
     if "slack" in q or "decide" in q or "conversation" in q:
         return ["slack", "jira", "confluence", "salesforce", "github"]
@@ -20,6 +49,52 @@ def infer_sources(question: str) -> list[str]:
     if "pr" in q or "github" in q or "code" in q:
         return ["github", "jira", "confluence", "slack", "salesforce"]
     return ALL_SYSTEMS
+
+
+@tool
+def infer_sources(question: str) -> list[str]:
+    """Infer source-system priority for an operational question."""
+    return _infer_sources(question)
+
+
+def search_evidence_impl(
+    query: str,
+    source_systems: list[str] | None = None,
+    project_key: str | None = None,
+    account_name: str | None = None,
+    component: str | None = None,
+    limit: int = 8,
+) -> dict[str, Any]:
+    project = project_key if project_key is not None else ("ORION" if "orion" in query.lower() else None)
+    sources = source_systems or _infer_sources(query)
+    return run_hybrid_search(SearchRequest(
+        query=query,
+        source_systems=sources,
+        project_key=project,
+        account_name=account_name,
+        component=component,
+        limit=limit,
+    ))
+
+
+@tool
+def search_evidence(
+    query: str,
+    source_systems: list[str] | None = None,
+    project_key: str | None = None,
+    account_name: str | None = None,
+    component: str | None = None,
+    limit: int = 8,
+) -> dict[str, Any]:
+    """Run Aurora PostgreSQL hybrid search and return ranked evidence rows."""
+    return search_evidence_impl(
+        query=query,
+        source_systems=source_systems,
+        project_key=project_key,
+        account_name=account_name,
+        component=component,
+        limit=limit,
+    )
 
 
 def _norm_question(question: str) -> str:
@@ -114,17 +189,39 @@ def synthesize_answer(question: str, results: list[dict[str, Any]]) -> str:
     return f"{cause}{decision}{commitment}{readiness}{remediation}"
 
 
+def synthesize_cited_answer_impl(question: str, results: list[dict[str, Any]]) -> dict[str, Any]:
+    citations = [
+        {
+            "n": i + 1,
+            "source_system": r["source_system"],
+            "external_id": r["external_id"],
+            "title": r["title"],
+            "url": r["url"],
+        }
+        for i, r in enumerate(results[:8])
+    ]
+    return {
+        "answer": synthesize_answer(question, results),
+        "citations": citations,
+    }
+
+
+@tool
+def synthesize_cited_answer(question: str, results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Synthesize an extractive cited answer from ranked evidence rows."""
+    return synthesize_cited_answer_impl(question, results)
+
+
 def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
-    source_systems = req.source_systems or infer_sources(req.question)
-    project_key = req.project_key if req.project_key is not None else ("ORION" if "orion" in req.question.lower() else None)
-    search = run_hybrid_search(SearchRequest(
+    metadata = agent_metadata()
+    search = search_evidence_impl(
         query=req.question,
-        source_systems=source_systems,
-        project_key=project_key,
+        source_systems=req.source_systems,
+        project_key=req.project_key,
         account_name=req.account_name,
         component=req.component,
         limit=req.limit,
-    ))
+    )
     results = search["results"]
 
     # Prefer the stored, cited answer when the question is one the seed knows
@@ -135,6 +232,7 @@ def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
         answer_body = canonical["answer"]
         return {
             "question": req.question,
+            "agent": metadata,
             "run_id": str(canonical["run_id"]) if canonical.get("run_id") else search["run_id"],
             "canonical": True,
             "confidence": float(canonical["confidence"]),
@@ -160,6 +258,7 @@ def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
     answer = synthesize_answer(req.question, results)
     return {
         "question": req.question,
+        "agent": metadata,
         "run_id": search["run_id"],
         "canonical": False,
         "plan": [
