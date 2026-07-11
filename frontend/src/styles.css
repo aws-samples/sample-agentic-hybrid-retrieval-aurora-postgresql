@@ -1045,7 +1045,11 @@ kbd {
 }
 
 .harness-section {
-  padding-top: 40px;
+  padding-top: 96px;
+}
+
+#how {
+  padding-top: 72px;
 }
 
 .harness-note {
