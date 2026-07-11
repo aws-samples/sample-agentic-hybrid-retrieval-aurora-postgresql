@@ -15,6 +15,8 @@ type SourceFilter = 'all' | 'slack' | 'jira' | 'confluence' | 'salesforce' | 'gi
 type RankMode = 'hybrid' | 'semantic' | 'lexical' | 'recent';
 type TimeWindow = '90d' | '30d' | '7d' | 'all';
 type ProjectFilter = 'ORION' | 'all';
+type StatusFilter = 'all' | 'Decision' | 'Resolved Jul 3' | 'Mitigating' | 'Published' | 'Resolved' | 'Merged';
+type PriorityFilter = 'all' | 'P1' | 'Tier 1' | 'Policy' | 'Sev2' | 'Change';
 
 type Signals = {
   full_text?: number;
@@ -175,6 +177,31 @@ const projectFilterLabels: Record<ProjectFilter, string> = {
   ORION: 'Orion',
   all: 'All projects'
 };
+
+const statusFilterLabels: Record<StatusFilter, string> = {
+  all: 'All statuses',
+  Decision: 'Decision',
+  'Resolved Jul 3': 'Resolved Jul 3',
+  Mitigating: 'Mitigating',
+  Published: 'Published',
+  Resolved: 'Resolved',
+  Merged: 'Merged'
+};
+
+const priorityFilterLabels: Record<PriorityFilter, string> = {
+  all: 'All priorities',
+  P1: 'P1',
+  'Tier 1': 'Tier 1',
+  Policy: 'Policy',
+  Sev2: 'Sev2',
+  Change: 'Change'
+};
+
+const rankModeOptions: RankMode[] = ['hybrid', 'semantic', 'lexical', 'recent'];
+const timeWindowOptions: TimeWindow[] = ['90d', '30d', '7d', 'all'];
+const projectFilterOptions: ProjectFilter[] = ['ORION', 'all'];
+const statusFilterOptions: StatusFilter[] = ['all', 'Decision', 'Resolved Jul 3', 'Mitigating', 'Published', 'Resolved', 'Merged'];
+const priorityFilterOptions: PriorityFilter[] = ['all', 'P1', 'Tier 1', 'Policy', 'Sev2', 'Change'];
 
 // Users ask in natural language. The `sources` on each suggestion are what the
 // agent surfaces automatically — rendered as the little system icons — not
@@ -699,20 +726,6 @@ function sortByRankMode(rows: Result[], rankMode: RankMode) {
     if (rankMode === 'recent') return resultTimestamp(b) - resultTimestamp(a);
     return displayScore(b) - displayScore(a);
   });
-}
-
-function cycleRankMode(value: RankMode): RankMode {
-  const order: RankMode[] = ['hybrid', 'semantic', 'lexical', 'recent'];
-  return order[(order.indexOf(value) + 1) % order.length];
-}
-
-function cycleTimeWindow(value: TimeWindow): TimeWindow {
-  const order: TimeWindow[] = ['90d', '30d', '7d', 'all'];
-  return order[(order.indexOf(value) + 1) % order.length];
-}
-
-function cycleProjectFilter(value: ProjectFilter): ProjectFilter {
-  return value === 'ORION' ? 'all' : 'ORION';
 }
 
 function sourceLabel(system: string) {
@@ -1418,6 +1431,8 @@ function ResultsPage({
   rankMode,
   timeWindow,
   projectFilter,
+  statusFilter,
+  priorityFilter,
   setSelected,
   onSearch,
   onAgent,
@@ -1425,6 +1440,8 @@ function ResultsPage({
   onRankModeChange,
   onTimeWindowChange,
   onProjectFilterChange,
+  onStatusFilterChange,
+  onPriorityFilterChange,
   guideStep,
   onDismissGuide,
   onSkipGuide,
@@ -1442,6 +1459,8 @@ function ResultsPage({
   rankMode: RankMode;
   timeWindow: TimeWindow;
   projectFilter: ProjectFilter;
+  statusFilter: StatusFilter;
+  priorityFilter: PriorityFilter;
   setSelected: (value: Result) => void;
   onSearch: () => void;
   onAgent: () => void;
@@ -1449,6 +1468,8 @@ function ResultsPage({
   onRankModeChange: (value: RankMode) => void;
   onTimeWindowChange: (value: TimeWindow) => void;
   onProjectFilterChange: (value: ProjectFilter) => void;
+  onStatusFilterChange: (value: StatusFilter) => void;
+  onPriorityFilterChange: (value: PriorityFilter) => void;
   guideStep?: GuideStep | null;
   onDismissGuide: (step: GuideStep) => void;
   onSkipGuide: () => void;
@@ -1458,12 +1479,21 @@ function ResultsPage({
     orderedEvidence(results.length > 0 ? results : demoResults).filter((result) => {
       if (sourceFilter !== 'all' && result.source_system !== sourceFilter) return false;
       if (projectFilter !== 'all' && result.project_key !== projectFilter) return false;
+      if (statusFilter !== 'all' && result.status !== statusFilter) return false;
+      if (priorityFilter !== 'all' && result.priority !== priorityFilter) return false;
       return resultInWindow(result, timeWindow);
     }),
     rankMode
   );
   const showAnswerGuide = guideStep === 'answer';
   const resultCountLabel = `${evidence.length} result${evidence.length === 1 ? '' : 's'}`;
+  const scopeSummary = [
+    sourceFilter === 'all' ? '5 systems' : sourceLabel(sourceFilter),
+    timeWindowLabels[timeWindow],
+    projectFilterLabels[projectFilter],
+    statusFilterLabels[statusFilter],
+    priorityFilterLabels[priorityFilter]
+  ].filter((item) => !item.startsWith('All ')).join(' · ');
 
   function openResult(result: Result) {
     setSelected(result);
@@ -1490,9 +1520,46 @@ function ResultsPage({
           </button>
         ))}
         <span className="fdiv" />
-        <button type="button" className="fsel" onClick={() => onTimeWindowChange(cycleTimeWindow(timeWindow))}>Window <b>{timeWindowLabels[timeWindow]}</b></button>
-        <button type="button" className="fsel" onClick={() => onRankModeChange(cycleRankMode(rankMode))}>Rank by <b>{rankModeLabels[rankMode]}</b></button>
-        <button type="button" className="fsel" onClick={() => onProjectFilterChange(cycleProjectFilter(projectFilter))}>Project <b>{projectFilterLabels[projectFilter]}</b></button>
+        <label className="fselect">
+          <span>Window</span>
+          <select value={timeWindow} onChange={(event) => onTimeWindowChange(event.currentTarget.value as TimeWindow)}>
+            {timeWindowOptions.map((option) => (
+              <option key={option} value={option}>{timeWindowLabels[option]}</option>
+            ))}
+          </select>
+        </label>
+        <label className="fselect">
+          <span>Rank</span>
+          <select value={rankMode} onChange={(event) => onRankModeChange(event.currentTarget.value as RankMode)}>
+            {rankModeOptions.map((option) => (
+              <option key={option} value={option}>{rankModeLabels[option]}</option>
+            ))}
+          </select>
+        </label>
+        <label className="fselect">
+          <span>Project</span>
+          <select value={projectFilter} onChange={(event) => onProjectFilterChange(event.currentTarget.value as ProjectFilter)}>
+            {projectFilterOptions.map((option) => (
+              <option key={option} value={option}>{projectFilterLabels[option]}</option>
+            ))}
+          </select>
+        </label>
+        <label className="fselect">
+          <span>Status</span>
+          <select value={statusFilter} onChange={(event) => onStatusFilterChange(event.currentTarget.value as StatusFilter)}>
+            {statusFilterOptions.map((option) => (
+              <option key={option} value={option}>{statusFilterLabels[option]}</option>
+            ))}
+          </select>
+        </label>
+        <label className="fselect">
+          <span>Priority</span>
+          <select value={priorityFilter} onChange={(event) => onPriorityFilterChange(event.currentTarget.value as PriorityFilter)}>
+            {priorityFilterOptions.map((option) => (
+              <option key={option} value={option}>{priorityFilterLabels[option]}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <main className="results-layout">
@@ -1500,7 +1567,7 @@ function ResultsPage({
           <ErrorBanner message={error} />
           <div className="results-head">
             <div className="count">
-              <b>{resultCountLabel}</b> · {sourceFilter === 'all' ? '5 systems' : sourceLabel(sourceFilter)} · {timeWindowLabels[timeWindow]} · run <b>{runId?.slice(0, 10) || 'rr_7f3a9c'}</b>
+              <b>{resultCountLabel}</b> · {scopeSummary || 'All evidence'} · run <b>{runId?.slice(0, 10) || 'rr_7f3a9c'}</b>
             </div>
             <div className="score-explainer" title={FINAL_SCORE_HELP}>
               Final score = Aurora SQL composite, not Cohere.
@@ -1513,7 +1580,7 @@ function ResultsPage({
           {loading ? (
             <EmptyState loading title="Searching evidence" body={`${APP_NAME} is retrieving, fusing, and scoring source objects across connected systems.`} />
           ) : evidence.length === 0 ? (
-            <EmptyState title="No evidence matched" body="Adjust the source, project, or time-window filter and run the search again." />
+            <EmptyState title="No evidence matched" body="Adjust the source, window, project, status, or priority filter and run the search again." />
           ) : (
             <div className="thread-col">
               {evidence.map((result, index) => (
@@ -2588,6 +2655,8 @@ function App() {
   const [rankMode, setRankMode] = useState<RankMode>('hybrid');
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('90d');
   const [projectFilter, setProjectFilter] = useState<ProjectFilter>('ORION');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
 
   const guideDismissed = (step: GuideStep) => dismissedGuideSteps.includes(step);
 
@@ -2682,11 +2751,15 @@ function App() {
     sourceFilter: SourceFilter;
     timeWindow: TimeWindow;
     projectFilter: ProjectFilter;
+    statusFilter: StatusFilter;
+    priorityFilter: PriorityFilter;
   }> = {}) {
     const searchQuery = (queryOverride ?? query).trim() || queryDefault;
     const nextSourceFilter = overrides.sourceFilter ?? sourceFilter;
     const nextTimeWindow = overrides.timeWindow ?? timeWindow;
     const nextProjectFilter = overrides.projectFilter ?? projectFilter;
+    const nextStatusFilter = overrides.statusFilter ?? statusFilter;
+    const nextPriorityFilter = overrides.priorityFilter ?? priorityFilter;
     const sourceSystems = nextSourceFilter === 'all'
       ? ['slack', 'jira', 'confluence', 'salesforce', 'github']
       : [nextSourceFilter];
@@ -2696,6 +2769,8 @@ function App() {
     setSourceFilter(nextSourceFilter);
     setTimeWindow(nextTimeWindow);
     setProjectFilter(nextProjectFilter);
+    setStatusFilter(nextStatusFilter);
+    setPriorityFilter(nextPriorityFilter);
     setPage('results');
     setLoading(true);
     setError(undefined);
@@ -2707,6 +2782,8 @@ function App() {
           query: searchQuery,
           source_systems: sourceSystems,
           project_key: nextProjectFilter === 'ORION' ? 'ORION' : undefined,
+          statuses: nextStatusFilter === 'all' ? undefined : [nextStatusFilter],
+          priorities: nextPriorityFilter === 'all' ? undefined : [nextPriorityFilter],
           start_date: startDate,
           limit: nextSourceFilter === 'all' ? 24 : 30
         })
@@ -2738,6 +2815,14 @@ function App() {
 
   function applyProjectFilter(value: ProjectFilter) {
     void runSearch(undefined, { projectFilter: value });
+  }
+
+  function applyStatusFilter(value: StatusFilter) {
+    void runSearch(undefined, { statusFilter: value });
+  }
+
+  function applyPriorityFilter(value: PriorityFilter) {
+    void runSearch(undefined, { priorityFilter: value });
   }
 
   async function runAgent(queryOverride?: string) {
@@ -2861,6 +2946,8 @@ function App() {
       rankMode={rankMode}
       timeWindow={timeWindow}
       projectFilter={projectFilter}
+      statusFilter={statusFilter}
+      priorityFilter={priorityFilter}
       setSelected={setSelected}
       onSearch={runSearch}
       onAgent={runAgent}
@@ -2868,6 +2955,8 @@ function App() {
       onRankModeChange={setRankMode}
       onTimeWindowChange={applyTimeWindow}
       onProjectFilterChange={applyProjectFilter}
+      onStatusFilterChange={applyStatusFilter}
+      onPriorityFilterChange={applyPriorityFilter}
       guideStep={activeGuideStep}
       onDismissGuide={dismissGuide}
       onSkipGuide={skipGuide}
