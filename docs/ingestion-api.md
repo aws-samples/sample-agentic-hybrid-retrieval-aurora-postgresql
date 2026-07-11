@@ -61,6 +61,11 @@ search, ranking, filtering, citation joins, evaluation, or repeatable answer
 diagnostics. Typical fields are source IDs, URLs, titles, text excerpts, bodies,
 metadata, ACL markers, relationships, sync cursors, and provenance.
 
+The `final_score` returned from `/v1/search` is an Aurora SQL composite, not a
+raw embedding-model score. Cohere `embed-v4` supplies the query embedding for
+the semantic arm, while PostgreSQL combines semantic, full-text, fuzzy,
+metadata, recency, and RRF signals.
+
 Call the source system live through a connector or MCP tool when the workflow
 needs the latest mutable state, a write action, a permission check that cannot
 be represented in the indexed ACL metadata, or source-specific detail that is

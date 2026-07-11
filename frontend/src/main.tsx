@@ -11,6 +11,10 @@ import './styles.css';
 
 type Page = 'landing' | 'results' | 'detail' | 'trail' | 'agent' | 'diagnostics';
 type GuideStep = 'answer' | 'timeline' | 'diagnostics' | 'proof';
+type SourceFilter = 'all' | 'slack' | 'jira' | 'confluence' | 'salesforce' | 'github';
+type RankMode = 'hybrid' | 'semantic' | 'lexical' | 'recent';
+type TimeWindow = '90d' | '30d' | '7d' | 'all';
+type ProjectFilter = 'ORION' | 'all';
 
 type Signals = {
   full_text?: number;
@@ -127,6 +131,7 @@ const GUIDE_STORAGE_KEY = 'auralens-guided-discovery-v1';
 const guideSteps: GuideStep[] = ['answer', 'timeline', 'diagnostics', 'proof'];
 const STRANDS_URL = 'https://strandsagents.com/';
 const GITHUB_REPO_URL = 'https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql';
+const FINAL_SCORE_HELP = 'Composite final score from Aurora SQL: RRF + full-text + semantic vector + fuzzy + metadata + recency. It is not a raw Cohere similarity score.';
 const DEFAULT_AGENT_METADATA: AgentMetadata = {
   harness: 'Strands Agents',
   model_provider: 'Amazon Bedrock',
@@ -151,6 +156,25 @@ const rotatingQueries = [
   'Which customer commitments are at risk from the Orion slip?',
   'What blocked Orion’s release, and how did the fix ship?'
 ];
+
+const rankModeLabels: Record<RankMode, string> = {
+  hybrid: 'Hybrid · final SQL score',
+  semantic: 'Semantic · pgvector',
+  lexical: 'Lexical · full-text',
+  recent: 'Most recent'
+};
+
+const timeWindowLabels: Record<TimeWindow, string> = {
+  '90d': 'Last 90 days',
+  '30d': 'Last 30 days',
+  '7d': 'Last 7 days',
+  all: 'All time'
+};
+
+const projectFilterLabels: Record<ProjectFilter, string> = {
+  ORION: 'Orion',
+  all: 'All projects'
+};
 
 // Users ask in natural language. The `sources` on each suggestion are what the
 // agent surfaces automatically — rendered as the little system icons — not
@@ -389,27 +413,27 @@ const sourceRoles: Record<string, { type: string; role: string }> = {
 // ORION-1473 and the full-text-surfaced ops ticket ORION-1489).
 const sourceCitations: Record<string, { meta: string; why: string }> = {
   'SLACK-000271': {
-    meta: 'SLACK · #proj-orion · JUN 23 · score 0.93',
+    meta: 'SLACK · #proj-orion · JUN 23 · final 0.93',
     why: 'The decision itself — answers "what did the team decide."'
   },
   'ORION-1473': {
-    meta: 'JIRA · P1 · JUN 12 – JUL 3 · score 0.89',
+    meta: 'JIRA · P1 · JUN 12 – JUL 3 · final 0.89',
     why: 'Root cause and timeline; blocks the GA cutover story.'
   },
   'CASE-0012345': {
-    meta: 'SALESFORCE · TIER 1 · JUN 26 · score 0.87',
+    meta: 'SALESFORCE · TIER 1 · JUN 26 · final 0.87',
     why: 'The impacted contractual commitment and its mitigation.'
   },
   'PAGE-2112': {
-    meta: 'CONFLUENCE · GATE 3 · JUN 18 · score 0.82',
+    meta: 'CONFLUENCE · GATE 3 · JUN 18 · final 0.82',
     why: 'The policy mechanism that forced the date slip.'
   },
   'ORION-1489': {
-    meta: 'JIRA · SEV2 · JUN 20 · score 0.78',
+    meta: 'JIRA · SEV2 · JUN 20 · final 0.78',
     why: 'Production paging that corroborates the root cause — surfaced by full-text search.'
   },
   'PR-1287': {
-    meta: 'GITHUB · MERGED JUL 2 · score 0.74',
+    meta: 'GITHUB · MERGED JUL 2 · final 0.74',
     why: 'The fix that unblocked the gate re-run.'
   }
 };
@@ -646,6 +670,49 @@ function displayScore(result: Result, fallbackIndex = 0) {
   const value = score(result);
   if (value > 0 && value <= 1) return value;
   return demoResults[fallbackIndex]?.final_score || Math.min(0.99, Math.max(0.55, value / 2));
+}
+
+function resultTimestamp(result: Result) {
+  const value = result.updated_at ? Date.parse(result.updated_at) : 0;
+  return Number.isFinite(value) ? value : 0;
+}
+
+function resultInWindow(result: Result, window: TimeWindow) {
+  if (window === 'all') return true;
+  const timestamp = resultTimestamp(result);
+  if (!timestamp) return false;
+  const days = window === '7d' ? 7 : window === '30d' ? 30 : 90;
+  const reference = Date.parse('2026-07-11T12:00:00-04:00');
+  return timestamp >= reference - days * 24 * 60 * 60 * 1000;
+}
+
+function startDateForWindow(window: TimeWindow) {
+  if (window === 'all') return undefined;
+  const days = window === '7d' ? 7 : window === '30d' ? 30 : 90;
+  return new Date(Date.parse('2026-07-11T12:00:00-04:00') - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function sortByRankMode(rows: Result[], rankMode: RankMode) {
+  return [...rows].sort((a, b) => {
+    if (rankMode === 'semantic') return Number(b.vector_score || 0) - Number(a.vector_score || 0);
+    if (rankMode === 'lexical') return Number(b.text_rank || 0) - Number(a.text_rank || 0);
+    if (rankMode === 'recent') return resultTimestamp(b) - resultTimestamp(a);
+    return displayScore(b) - displayScore(a);
+  });
+}
+
+function cycleRankMode(value: RankMode): RankMode {
+  const order: RankMode[] = ['hybrid', 'semantic', 'lexical', 'recent'];
+  return order[(order.indexOf(value) + 1) % order.length];
+}
+
+function cycleTimeWindow(value: TimeWindow): TimeWindow {
+  const order: TimeWindow[] = ['90d', '30d', '7d', 'all'];
+  return order[(order.indexOf(value) + 1) % order.length];
+}
+
+function cycleProjectFilter(value: ProjectFilter): ProjectFilter {
+  return value === 'ORION' ? 'all' : 'ORION';
 }
 
 function sourceLabel(system: string) {
@@ -1307,6 +1374,7 @@ function ResultCard({
   onOpen: () => void;
 }) {
   const signalSet = resultSignals[index % resultSignals.length] || [];
+  const finalScore = displayScore(result, index).toFixed(2);
   return (
     <article className={cx('rcard', index > 5 && 'dim')}>
       <div className="rhead">
@@ -1315,7 +1383,11 @@ function ResultCard({
           <div className="rtype">{resultRole(result)}</div>
           <button className="rtitle" onClick={onOpen}>{result.title}</button>
         </div>
-        <div className="rscore">{displayScore(result, index).toFixed(2)}</div>
+        <div className="rscore" title={FINAL_SCORE_HELP} aria-label={`Final composite score ${finalScore}`}>
+          <span>Final score</span>
+          {' '}
+          <b>{finalScore}</b>
+        </div>
       </div>
       <p className="rsnippet"><HighlightedSnippet text={result.snippet || 'No snippet returned for this source.'} /></p>
       <div className="rmeta">
@@ -1342,9 +1414,17 @@ function ResultsPage({
   runId,
   error,
   loading,
+  sourceFilter,
+  rankMode,
+  timeWindow,
+  projectFilter,
   setSelected,
   onSearch,
   onAgent,
+  onSourceFilterChange,
+  onRankModeChange,
+  onTimeWindowChange,
+  onProjectFilterChange,
   guideStep,
   onDismissGuide,
   onSkipGuide,
@@ -1358,16 +1438,32 @@ function ResultsPage({
   runId?: string;
   error?: string;
   loading: boolean;
+  sourceFilter: SourceFilter;
+  rankMode: RankMode;
+  timeWindow: TimeWindow;
+  projectFilter: ProjectFilter;
   setSelected: (value: Result) => void;
   onSearch: () => void;
   onAgent: () => void;
+  onSourceFilterChange: (value: SourceFilter) => void;
+  onRankModeChange: (value: RankMode) => void;
+  onTimeWindowChange: (value: TimeWindow) => void;
+  onProjectFilterChange: (value: ProjectFilter) => void;
   guideStep?: GuideStep | null;
   onDismissGuide: (step: GuideStep) => void;
   onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
 }) {
-  const evidence = orderedEvidence(results);
+  const evidence = sortByRankMode(
+    orderedEvidence(results.length > 0 ? results : demoResults).filter((result) => {
+      if (sourceFilter !== 'all' && result.source_system !== sourceFilter) return false;
+      if (projectFilter !== 'all' && result.project_key !== projectFilter) return false;
+      return resultInWindow(result, timeWindow);
+    }),
+    rankMode
+  );
   const showAnswerGuide = guideStep === 'answer';
+  const resultCountLabel = `${evidence.length} result${evidence.length === 1 ? '' : 's'}`;
 
   function openResult(result: Result) {
     setSelected(result);
@@ -1378,17 +1474,25 @@ function ResultsPage({
     <section className="inner-screen">
       <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
       <div className="filters">
-        <button className="fchip on">All <span className="n">{corpusTotal}</span></button>
+        <button type="button" className={cx('fchip', sourceFilter === 'all' && 'on')} aria-pressed={sourceFilter === 'all'} onClick={() => onSourceFilterChange('all')}>
+          All <span className="n">{corpusTotal}</span>
+        </button>
         {coreSources.map((source) => (
-          <button className="fchip" key={source.key}>
+          <button
+            type="button"
+            className={cx('fchip', sourceFilter === source.key && 'on')}
+            aria-pressed={sourceFilter === source.key}
+            key={source.key}
+            onClick={() => onSourceFilterChange(source.key as SourceFilter)}
+          >
             <MiniBrand system={source.key} />
             {source.label} <span className="n">{source.count}</span>
           </button>
         ))}
         <span className="fdiv" />
-        <button className="fsel">Window <b>Last 90 days</b></button>
-        <button className="fsel">Rank by <b>Hybrid · RRF + score</b></button>
-        <button className="fsel">Project <b>Orion</b></button>
+        <button type="button" className="fsel" onClick={() => onTimeWindowChange(cycleTimeWindow(timeWindow))}>Window <b>{timeWindowLabels[timeWindow]}</b></button>
+        <button type="button" className="fsel" onClick={() => onRankModeChange(cycleRankMode(rankMode))}>Rank by <b>{rankModeLabels[rankMode]}</b></button>
+        <button type="button" className="fsel" onClick={() => onProjectFilterChange(cycleProjectFilter(projectFilter))}>Project <b>{projectFilterLabels[projectFilter]}</b></button>
       </div>
 
       <main className="results-layout">
@@ -1396,7 +1500,10 @@ function ResultsPage({
           <ErrorBanner message={error} />
           <div className="results-head">
             <div className="count">
-              <b>24 results</b> · fused from {corpusTotal} candidates across 3 rankers · 341 ms · run <b>{runId?.slice(0, 10) || 'rr_7f3a9c'}</b>
+              <b>{resultCountLabel}</b> · {sourceFilter === 'all' ? '5 systems' : sourceLabel(sourceFilter)} · {timeWindowLabels[timeWindow]} · run <b>{runId?.slice(0, 10) || 'rr_7f3a9c'}</b>
+            </div>
+            <div className="score-explainer" title={FINAL_SCORE_HELP}>
+              Final score = Aurora SQL composite, not Cohere.
             </div>
             <button className={cx('answer-ready', showAnswerGuide && 'guide-pulse')} onClick={() => onAgent()}>
               <span className="dot" />
@@ -1405,9 +1512,11 @@ function ResultsPage({
           </div>
           {loading ? (
             <EmptyState loading title="Searching evidence" body={`${APP_NAME} is retrieving, fusing, and scoring source objects across connected systems.`} />
+          ) : evidence.length === 0 ? (
+            <EmptyState title="No evidence matched" body="Adjust the source, project, or time-window filter and run the search again." />
           ) : (
             <div className="thread-col">
-              {evidence.slice(0, 7).map((result, index) => (
+              {evidence.map((result, index) => (
                 <ResultCard
                   key={`${result.source_system}-${result.external_id}-${index}`}
                   result={result}
@@ -1487,7 +1596,7 @@ function ResultsPage({
 
               <div className="run-proof">
                 <span><b>RRF k=60</b> fused 92 candidates to the top 24.</span>
-                <span><b>SQL scoring</b> selected 6 cited objects above the 0.55 cut.</span>
+                <span><b>Final SQL score</b> selected 6 cited objects above the 0.55 cut.</span>
                 <span><b>Persisted</b> in retrieval_runs, retrieval_candidates, and citations.</span>
               </div>
 
@@ -2028,7 +2137,7 @@ function AgentPage({
           <span className="mono-label">Sources · 6 cited</span>
           {evidence.slice(0, 6).map((result, index) => {
             const citation = sourceCitations[result.external_id] || sourceCitations[result.source_system];
-            const meta = citation?.meta || `${sourceLabel(result.source_system).toUpperCase()} · score ${displayScore(result, index).toFixed(2)}`;
+            const meta = citation?.meta || `${sourceLabel(result.source_system).toUpperCase()} · final ${displayScore(result, index).toFixed(2)}`;
             const why = citation?.why || `${sourceRoles[result.source_system]?.type || 'Evidence'} supporting the answer.`;
             const shown = railReady && (!streaming || thinking || beat >= 1 + index);
             return (
@@ -2407,7 +2516,7 @@ function DetailPage({
               <span>Updated {formatDate(selected.updated_at)}</span>
               {selected.owner && <span>{selected.owner}</span>}
               {selected.project_key && <span>Project {selected.project_key}</span>}
-              <span>score {displayScore(selected).toFixed(2)}</span>
+              <span title={FINAL_SCORE_HELP}>final score {displayScore(selected).toFixed(2)}</span>
             </div>
             <section className="detail-section">
               <h2>Retrieved passage</h2>
@@ -2475,6 +2584,10 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [dismissedGuideSteps, setDismissedGuideSteps] = useState<GuideStep[]>(readGuideDismissals);
   const [activeGuideStep, setActiveGuideStep] = useState<GuideStep | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
+  const [rankMode, setRankMode] = useState<RankMode>('hybrid');
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>('90d');
+  const [projectFilter, setProjectFilter] = useState<ProjectFilter>('ORION');
 
   const guideDismissed = (step: GuideStep) => dismissedGuideSteps.includes(step);
 
@@ -2565,9 +2678,24 @@ function App() {
     };
   }, [page, selected?.object_id]);
 
-  async function runSearch(queryOverride?: string) {
+  async function runSearch(queryOverride?: string, overrides: Partial<{
+    sourceFilter: SourceFilter;
+    timeWindow: TimeWindow;
+    projectFilter: ProjectFilter;
+  }> = {}) {
     const searchQuery = (queryOverride ?? query).trim() || queryDefault;
+    const nextSourceFilter = overrides.sourceFilter ?? sourceFilter;
+    const nextTimeWindow = overrides.timeWindow ?? timeWindow;
+    const nextProjectFilter = overrides.projectFilter ?? projectFilter;
+    const sourceSystems = nextSourceFilter === 'all'
+      ? ['slack', 'jira', 'confluence', 'salesforce', 'github']
+      : [nextSourceFilter];
+    const startDate = startDateForWindow(nextTimeWindow);
+
     setQuery(searchQuery);
+    setSourceFilter(nextSourceFilter);
+    setTimeWindow(nextTimeWindow);
+    setProjectFilter(nextProjectFilter);
     setPage('results');
     setLoading(true);
     setError(undefined);
@@ -2577,9 +2705,10 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: searchQuery,
-          source_systems: ['slack', 'jira', 'confluence', 'salesforce', 'github'],
-          project_key: searchQuery.toLowerCase().includes('orion') ? 'ORION' : undefined,
-          limit: 8
+          source_systems: sourceSystems,
+          project_key: nextProjectFilter === 'ORION' ? 'ORION' : undefined,
+          start_date: startDate,
+          limit: nextSourceFilter === 'all' ? 24 : 30
         })
       });
       if (!resp.ok) throw new Error(`Search failed with HTTP ${resp.status}`);
@@ -2597,6 +2726,18 @@ function App() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function applySourceFilter(value: SourceFilter) {
+    void runSearch(undefined, { sourceFilter: value });
+  }
+
+  function applyTimeWindow(value: TimeWindow) {
+    void runSearch(undefined, { timeWindow: value });
+  }
+
+  function applyProjectFilter(value: ProjectFilter) {
+    void runSearch(undefined, { projectFilter: value });
   }
 
   async function runAgent(queryOverride?: string) {
@@ -2716,9 +2857,17 @@ function App() {
       runId={runId}
       error={error}
       loading={loading}
+      sourceFilter={sourceFilter}
+      rankMode={rankMode}
+      timeWindow={timeWindow}
+      projectFilter={projectFilter}
       setSelected={setSelected}
       onSearch={runSearch}
       onAgent={runAgent}
+      onSourceFilterChange={applySourceFilter}
+      onRankModeChange={setRankMode}
+      onTimeWindowChange={applyTimeWindow}
+      onProjectFilterChange={applyProjectFilter}
       guideStep={activeGuideStep}
       onDismissGuide={dismissGuide}
       onSkipGuide={skipGuide}

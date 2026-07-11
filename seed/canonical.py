@@ -57,7 +57,7 @@ CITED = [
         "vector_score": 0.98,
         "trigram_score": None,
         "rrf_score": 0.0325,
-        "cite_meta": "SLACK · #proj-orion · JUN 23 · score 0.93",
+        "cite_meta": "SLACK · #proj-orion · JUN 23 · final 0.93",
         "cite_why": 'The decision itself — answers "what did the team decide."',
     },
     {
@@ -87,7 +87,7 @@ CITED = [
         "vector_score": 0.88,
         "trigram_score": 0.71,
         "rrf_score": 0.0322,
-        "cite_meta": "JIRA · P1 · JUN 12 – JUL 3 · score 0.89",
+        "cite_meta": "JIRA · P1 · JUN 12 – JUL 3 · final 0.89",
         "cite_why": "Root cause and timeline; blocks the GA cutover story.",
     },
     {
@@ -117,7 +117,7 @@ CITED = [
         "vector_score": 0.94,
         "trigram_score": None,
         "rrf_score": 0.0310,
-        "cite_meta": "SALESFORCE · TIER 1 · JUN 26 · score 0.87",
+        "cite_meta": "SALESFORCE · TIER 1 · JUN 26 · final 0.87",
         "cite_why": "The impacted contractual commitment and its mitigation.",
     },
     {
@@ -147,7 +147,7 @@ CITED = [
         "vector_score": 0.72,
         "trigram_score": None,
         "rrf_score": 0.0295,
-        "cite_meta": "CONFLUENCE · GATE 3 · JUN 18 · score 0.82",
+        "cite_meta": "CONFLUENCE · GATE 3 · JUN 18 · final 0.82",
         "cite_why": "The policy mechanism that forced the date slip.",
     },
     {
@@ -178,7 +178,7 @@ CITED = [
         "vector_score": 0.66,
         "trigram_score": 0.64,
         "rrf_score": 0.0271,
-        "cite_meta": "JIRA · SEV2 · JUN 20 · score 0.78",
+        "cite_meta": "JIRA · SEV2 · JUN 20 · final 0.78",
         "cite_why": "Production paging that corroborates the root cause — surfaced by full-text search.",
     },
     {
@@ -208,7 +208,7 @@ CITED = [
         "vector_score": 0.76,
         "trigram_score": None,
         "rrf_score": 0.0253,
-        "cite_meta": "GITHUB · MERGED JUL 2 · score 0.74",
+        "cite_meta": "GITHUB · MERGED JUL 2 · final 0.74",
         "cite_why": "The fix that unblocked the gate re-run.",
     },
 ]

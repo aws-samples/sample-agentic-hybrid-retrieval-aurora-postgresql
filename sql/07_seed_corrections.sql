@@ -19,6 +19,19 @@ SET citations = (
 )
 WHERE citations::text LIKE '%rerank%';
 
+UPDATE ops.agent_answers
+SET citations = (
+  SELECT jsonb_agg(
+    citation ||
+    jsonb_build_object(
+      'meta', replace(coalesce(citation->>'meta', ''), ' score ', ' final ')
+    )
+    ORDER BY coalesce((citation->>'n')::int, 0)
+  )
+  FROM jsonb_array_elements(citations) AS citation
+)
+WHERE citations::text LIKE '% score %';
+
 UPDATE ops.retrieval_run_metrics
 SET
   profile = replace(profile, 'hybrid-rrf-rerank-v3', 'hybrid-rrf-final-v1'),

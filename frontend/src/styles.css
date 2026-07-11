@@ -1400,8 +1400,8 @@ kbd {
   border-radius: 999px;
   background: var(--card);
   color: var(--ink-soft);
-  padding: 6px 13px;
-  font-size: 12.5px;
+  padding: 7px 14px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -1413,7 +1413,12 @@ kbd {
 .fchip .n {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 11.5px;
+}
+
+.fchip:hover,
+.fsel:hover {
+  color: var(--ink);
 }
 
 .fchip.on {
@@ -1435,8 +1440,8 @@ kbd {
 
 .fsel {
   color: var(--ink-soft);
-  padding: 6px 4px;
-  font-size: 12.5px;
+  padding: 7px 4px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -1456,16 +1461,18 @@ kbd {
 }
 
 .results-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, 0.72fr) max-content;
   align-items: center;
-  gap: 14px;
+  gap: 22px;
   padding: 2px 2px 18px;
 }
 
 .results-head .count {
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 
 .results-head .count b {
@@ -1473,18 +1480,27 @@ kbd {
   font-weight: 600;
 }
 
+.score-explainer {
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
 .answer-ready {
-  margin-left: auto;
+  margin-left: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   border: 1px solid rgba(193, 58, 38, 0.25);
   border-radius: 999px;
   background: var(--red-wash);
   color: var(--red-deep);
-  padding: 7px 15px;
-  font-size: 12.5px;
+  min-width: 184px;
+  padding: 8px 16px;
+  font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .dot {
@@ -1565,7 +1581,7 @@ kbd {
   padding: 0;
   color: var(--ink);
   text-align: left;
-  font-size: 15.5px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
@@ -1577,22 +1593,38 @@ kbd {
 .rscore {
   margin-left: auto;
   flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #fff;
   color: var(--ink-soft);
-  padding: 3px 10px;
+  padding: 5px 10px;
   font-family: var(--mono);
+  line-height: 1.1;
+}
+
+.rscore span {
+  color: var(--muted);
   font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.rscore b {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .rsnippet {
   max-width: 72ch;
   margin: 0 0 11px;
   color: var(--ink-soft);
-  font-size: 13.5px;
-  line-height: 1.62;
+  font-size: 15.25px;
+  line-height: 1.65;
 }
 
 mark {
@@ -1610,7 +1642,7 @@ mark {
   margin-bottom: 12px;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 11.75px;
 }
 
 .rwhy {
@@ -1626,7 +1658,7 @@ mark {
   margin-right: 4px;
   color: var(--muted);
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: 10.5px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -1638,7 +1670,7 @@ mark {
   color: var(--ink-soft);
   padding: 2.5px 8px;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .sig.link {

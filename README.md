@@ -169,6 +169,10 @@ Cohere space, run the backend with `EMBED_PROVIDER=bedrock` so live `/v1/search`
 embeds queries with the same model. (The canonical Orion answer is served from a
 stored row, so it renders identically under either provider.)
 
+The visible result-card score is not a raw Cohere similarity score. Cohere
+contributes the semantic vector signal; `ops.hybrid_search` combines vector,
+full-text, fuzzy, metadata, recency, and RRF signals into the final SQL score.
+
 ## Bedrock Model Routing
 
 The lab defaults to `EMBED_PROVIDER=bedrock` so live query embeddings share the
