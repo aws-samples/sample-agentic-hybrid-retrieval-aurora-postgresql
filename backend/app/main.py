@@ -2,9 +2,10 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from .agent import answer_question
+from .agent import answer_question, agent_metadata, _attach_object_ids, _derive_commitments
 from .db import get_dict_conn
 from .ingest import create_job, upsert_objects
+from .insights import fusion_sql, run_graph, run_timeline
 from .models import AgentAnswerRequest, IngestObjectsRequest, SearchRequest, SourceCreateRequest
 from .search import run_hybrid_search
 from .config import get_settings
@@ -110,6 +111,33 @@ def retrieval_run_candidates(run_id: str):
             """, (run_id,))
             return {"run_id": run_id, "candidates": cur.fetchall()}
 
+@app.get("/v1/runs/{run_id}/timeline")
+def retrieval_run_timeline(run_id: str):
+    """Time-ordered cross-system sequence of the run's cited objects + their links."""
+    try:
+        return run_timeline(run_id)
+    except Exception:
+        raise HTTPException(503, "timeline unavailable — run `make seed-load` to restore the seeded corpus")
+
+
+@app.get("/v1/runs/{run_id}/graph")
+def retrieval_run_graph(run_id: str):
+    """The object_links among the run's cited objects — the evidence graph."""
+    try:
+        return run_graph(run_id)
+    except Exception:
+        raise HTTPException(503, "graph unavailable — run `make seed-load` to restore the seeded corpus")
+
+
+@app.get("/v1/diagnostics/fusion-sql")
+def diagnostics_fusion_sql():
+    """The deployed ops.hybrid_search definition — the fusion query, verbatim."""
+    try:
+        return fusion_sql()
+    except Exception:
+        raise HTTPException(503, "fusion SQL unavailable — run `make schema` (applies sql/03_search_functions.sql)")
+
+
 @app.post("/v1/search")
 def search(req: SearchRequest):
     return run_hybrid_search(req)
@@ -134,12 +162,17 @@ def retrieval_run_metrics(run_id: str):
 
 @app.get("/v1/diagnostics/canonical")
 def canonical_diagnostics():
-    """The canonical run's metrics + diagnostics rows for the demo Diagnostics view."""
+    """The canonical run's metrics + diagnostics rows + cited sources.
+
+    Read-only: this creates no retrieval run, so the landing page can hydrate its
+    hero nodes and the Diagnostics view from live rows without side effects.
+    """
     try:
         with get_dict_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT m.*, a.question, a.confidence, a.source_count, a.system_count
+                    SELECT m.*, a.question, a.answer, a.confidence,
+                           a.source_count, a.system_count, a.citations
                     FROM ops.retrieval_run_metrics m
                     JOIN ops.agent_answers a ON a.run_id = m.run_id
                     ORDER BY m.fired_at DESC
@@ -151,6 +184,19 @@ def canonical_diagnostics():
         raise HTTPException(503, "canonical diagnostics unavailable — run `make schema` (applies sql/06_agent_answers.sql) or `make seed-load`")
     if not row:
         raise HTTPException(404, "no canonical run recorded")
+    citations = _attach_object_ids(row.get("citations"))
+    # Unpack the stored answer into the same {answer, plan} shape the agent
+    # endpoint returns, so the frontend has one renderer for both paths.
+    stored = row.pop("answer", None)
+    body = stored.get("body") if isinstance(stored, dict) else stored
+    plan = stored.get("plan") if isinstance(stored, dict) else None
+    row["citations"] = citations
+    row["answer"] = body
+    row["plan"] = plan
+    row["commitments"] = _derive_commitments(citations)
+    # Serve the agent/model metadata live so the frontend never hard-codes model
+    # IDs — the routed models come from settings, which differ per environment.
+    row["agent"] = agent_metadata()
     return row
 
 @app.get("/v1/diagnostics/corpus")

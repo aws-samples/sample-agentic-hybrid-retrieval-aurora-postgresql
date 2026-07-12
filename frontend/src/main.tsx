@@ -50,6 +50,9 @@ type Result = {
   recency_score?: number;
   rrf_score?: number;
   final_score?: number;
+  // Normalized 0–1 score for display, computed relative to the top result in the
+  // current set (the raw composite final_score is unbounded and not 0–1).
+  _display_score?: number;
   explanation?: { signals?: Signals; why?: string[] };
 };
 
@@ -76,22 +79,56 @@ type AgentMetadata = {
   };
 };
 
+// The live answer body is a set of RichToken paragraphs plus a pull quote —
+// exactly the shape ops.agent_answers.answer.body stores and the API returns.
+type AnswerBody = {
+  lead?: RichToken[];
+  why?: RichToken[];
+  decided?: RichToken[];
+  impacted?: RichToken[];
+  quote?: { text: string; attr?: string };
+};
+
+type PlanStep = { num: string; fn: string; args: string; desc: string; res: string };
+
+type Commitment = {
+  citation_n?: number;
+  account_name?: string;
+  external_id?: string;
+  subject?: string;
+  arr?: number;
+  arr_label?: string;
+  contracted_go_live?: string;
+  status?: string;
+  priority?: string;
+};
+
+type Citation = {
+  n: number;
+  source_system: string;
+  external_id: string;
+  title: string;
+  url?: string;
+  object_id?: string;
+  meta?: string;
+  why?: string;
+  score?: number;
+};
+
 type AgentPayload = {
   question?: string;
   run_id?: string;
   agent?: AgentMetadata;
-  plan?: string[];
-  answer?: string;
+  // The API serves the structured plan (objects) for the canonical run and a
+  // plain-string plan for ad-hoc synthesis; the UI handles both.
+  plan?: PlanStep[] | string[];
+  // Canonical answers arrive as a rich body; ad-hoc synthesis returns a string.
+  answer?: AnswerBody | string;
   confidence?: number;
   source_count?: number;
   system_count?: number;
-  citations?: Array<{
-    n: number;
-    source_system: string;
-    external_id: string;
-    title: string;
-    url?: string;
-  }>;
+  citations?: Citation[];
+  commitments?: Commitment[];
   results?: Result[];
 };
 
@@ -125,6 +162,116 @@ type ObjectDetail = {
   }>;
 };
 
+// Live diagnostics payload from GET /v1/diagnostics/canonical — the canonical
+// run's metrics, the persisted candidate table, and the cited sources. Read-only:
+// fetched by the landing page and Diagnostics view without creating a new run.
+type RunMetrics = {
+  run_id?: string;
+  profile?: string;
+  embedding_model?: string;
+  embedding_dim?: number;
+  index_spec?: string;
+  fired_at?: string;
+  total_latency_ms?: number;
+  p50_latency_ms?: number;
+  rrf_k?: number;
+  ranker_weights?: number[];
+  rerank_cut?: number;
+  reranked_count?: number;
+  funnel?: { fetched?: number; deduped?: number; fused?: number; above_cut?: number; cited?: number };
+  stage_timings?: Array<{ stage: string; ms: number }>;
+  metadata?: { diagnostics_rows?: Array<Array<string>> };
+};
+
+type CanonicalDiagnostics = RunMetrics & {
+  question?: string;
+  confidence?: number;
+  source_count?: number;
+  system_count?: number;
+  citations?: Citation[];
+  answer?: AnswerBody | string;
+  plan?: PlanStep[] | string[];
+  commitments?: Commitment[];
+  agent?: AgentMetadata;
+};
+
+// GET /v1/runs/{id}/timeline — cited objects in time order, each carrying the
+// outbound object_links traverse_links() would follow to the next system.
+type TimelineEdge = {
+  link_type: string;
+  to_external_id?: string;
+  to_title?: string;
+  to_system?: string;
+  confidence?: number;
+};
+
+type TimelineEvent = {
+  object_id: string;
+  external_id: string;
+  source_system: string;
+  source_type?: string;
+  title: string;
+  snippet?: string;
+  status?: string;
+  owner?: string;
+  component?: string;
+  created_at?: string;
+  updated_at?: string;
+  citation_n?: number;
+  final_score?: number;
+  edges: TimelineEdge[];
+};
+
+type TimelinePayload = {
+  run_id?: string;
+  events: TimelineEvent[];
+  systems: string[];
+  edge_count: number;
+};
+
+// GET /v1/runs/{id}/graph — the object_links among the cited set (mirror edges
+// collapsed), plus the cited nodes, for the evidence mini-graph.
+type GraphNode = {
+  object_id: string;
+  external_id: string;
+  source_system: string;
+  source_type?: string;
+  title: string;
+  citation_n?: number;
+};
+
+type GraphEdge = {
+  link_id: string;
+  relation: string;
+  confidence?: number;
+  from: { system: string; external_id?: string; title?: string };
+  to: { system: string; external_id?: string; title?: string };
+};
+
+type GraphPayload = {
+  run_id?: string;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  system_count: number;
+  link_count: number;
+};
+
+// GET /v1/diagnostics/fusion-sql — the deployed ops.hybrid_search definition and
+// its helpers, verbatim from pg_get_functiondef.
+type FusionSql = {
+  engine: string;
+  primary: string;
+  functions: Array<{ name: string; definition: string }>;
+};
+
+// GET /v1/diagnostics/corpus — live object counts, per system and overall, for
+// the filter chips and funnel totals.
+type CorpusProfile = {
+  profile?: { objects?: number; chunks?: number; source_systems?: number; embedded_chunks?: number };
+  source_distribution?: Array<{ source_system: string; source_type?: string; object_count: number }>;
+  embedding_progress?: Record<string, unknown>;
+};
+
 const API_URL = import.meta.env.VITE_RETRIEVAL_API_URL || 'http://127.0.0.1:8000';
 const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'AuraLens';
 const ENABLE_ANSWER_STREAMING = import.meta.env.VITE_ENABLE_ANSWER_STREAMING !== '0';
@@ -134,26 +281,14 @@ const guideSteps: GuideStep[] = ['answer', 'timeline', 'diagnostics', 'proof'];
 const STRANDS_URL = 'https://strandsagents.com/';
 const GITHUB_REPO_URL = 'https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql';
 const FINAL_SCORE_HELP = 'Composite final score from Aurora SQL: RRF + full-text + semantic vector + fuzzy + metadata + recency. It is not a raw Cohere similarity score.';
-const DEFAULT_AGENT_METADATA: AgentMetadata = {
-  harness: 'Strands Agents',
-  model_provider: 'Amazon Bedrock',
-  model_strategy: 'best_model_for_the_job',
-  model_routing: {
-    planning_and_tool_routing: 'global.anthropic.claude-sonnet-5',
-    answer_synthesis: 'global.anthropic.claude-opus-4-8',
-    claude_code_harness: 'global.anthropic.claude-sonnet-5'
-  },
-  routing_notes: {
-    planning_and_tool_routing: 'Sonnet 5 decomposes the question and routes tool calls.',
-    answer_synthesis: 'Opus 4.8 is the configured synthesis model when live composition is enabled.',
-    claude_code_harness: 'Sonnet 5 powers Claude Code discovery questions and optional exercises.'
-  }
-};
+// The flagship question the seed answers canonically (a stored row in
+// ops.agent_answers, restored identically in every account). The guided demo
+// path must send this exact string so the answer resolves to the rich stored
+// body — any other phrasing is answered live via ad-hoc synthesis.
 const queryDefault = 'Why did Orion slip?';
-const showcaseQuery = 'Why did Orion slip, and which customer commitments are at risk?';
 const rotatingQueries = [
   queryDefault,
-  showcaseQuery,
+  'Why did Orion slip, and which customer commitments are at risk?',
   'Why did ORION-1489 page in prod, and what fixed it?',
   'Which customer commitments are at risk from the Orion slip?',
   'What blocked Orion’s release, and how did the fix ship?'
@@ -248,406 +383,31 @@ const workspaceNavItems: Array<{ page: Page; label: string; eyebrow: string; sum
   { page: 'diagnostics', label: 'Diagnostics', eyebrow: '341 ms run', summary: 'Fusion, scoring, latency, and SQL trace' }
 ];
 
-const coreSources = [
-  { key: 'slack', label: 'Slack', count: 30 },
-  { key: 'jira', label: 'Jira', count: 30 },
-  { key: 'confluence', label: 'Confluence', count: 30 },
-  { key: 'salesforce', label: 'Salesforce', count: 30 },
-  { key: 'github', label: 'GitHub', count: 30 }
-];
-
-// Total corpus size and cited-object order are the single source of truth for
-// every count shown in the UI. 150 objects, symmetric 30 per system across the
-// five connected systems (Slack, Jira, Confluence, Salesforce, GitHub).
-const corpusTotal = coreSources.reduce((sum, source) => sum + source.count, 0);
-// Canonical cited order by external_id — two Jira citations (the blocker and
-// the full-text-surfaced ops ticket), so citations are keyed by external_id.
-// Canonical citation order, by external_id — the exact sequence the answer prose
-// cites as [1]..[6]. The evidence rail is ordered by THIS, not by source system:
-// two Jira objects are cited (the blocker ORION-1473 at [2] and the full-text-
-// surfaced ops ticket ORION-1489 at [5]), so grouping by system would collapse
-// them into one slot and misalign every citation marker after it.
-const citedOrder = ['SLACK-000271', 'ORION-1473', 'CASE-0012345', 'PAGE-2112', 'ORION-1489', 'PR-1287'];
-
-const landingSources = [
+// The five connected systems, in canonical display order. This is the system
+// registry — which integrations exist and how to label them — i.e. structure,
+// not content. Every count, title, score, snippet, and citation is fetched live
+// from the API (which reads the same seeded Aurora locally and in Workshop Studio).
+const SYSTEMS: Array<{ key: string; label: string }> = [
   { key: 'slack', label: 'Slack' },
   { key: 'jira', label: 'Jira' },
   { key: 'confluence', label: 'Confluence' },
   { key: 'salesforce', label: 'Salesforce' },
   { key: 'github', label: 'GitHub' }
 ];
+const SYSTEM_KEYS = SYSTEMS.map((source) => source.key);
+// Alias kept for the landing chips, which only need key + label.
+const landingSources = SYSTEMS;
 
-const heroSourceNodes = [
-  { key: 'confluence', className: 'n-conf', title: 'Readiness runbook', meta: 'Release gates', role: 'Policy', score: '0.82', delay: '.6s' },
-  { key: 'slack', className: 'n-slack', title: 'Slack decision', meta: '#proj-orion', role: 'Decision', score: '0.93', delay: '0s' },
-  { key: 'jira', className: 'n-jira', title: 'ORION-1473', meta: 'P1 blocker', role: 'Blocker', score: '0.89', delay: '1.4s' },
-  { key: 'salesforce', className: 'n-sf', title: 'CASE-0012345', meta: 'Acme commitment', role: 'Impact', score: '0.87', delay: '.9s' },
-  { key: 'github', className: 'n-gh', title: 'PR-1287', meta: 'Merged fix', role: 'Change', score: '0.74', delay: '1.8s' }
-];
-
-const evidenceGraphEdges = [
-  {
-    from: { system: 'slack', title: 'Slack decision', meta: 'SLACK-000271' },
-    relation: 'impacts',
-    to: { system: 'salesforce', title: 'Acme go-live', meta: 'CASE-0012345' },
-    why: 'Shows the customer commitment that moved to July 22.'
-  },
-  {
-    from: { system: 'jira', title: 'ORION-1473', meta: 'P1 blocker' },
-    relation: 'gated by',
-    to: { system: 'confluence', title: 'Gate 3 runbook', meta: 'PAGE-2112' },
-    why: 'Explains why GA could not ship on July 1.'
-  },
-  {
-    from: { system: 'github', title: 'PR #1287', meta: 'merged fix' },
-    relation: 'fixes',
-    to: { system: 'jira', title: 'ORION-1473', meta: 'resolved Jul 3' },
-    why: 'Closes the blocker and supports the July 15 target.'
-  }
-];
-
-const demoResults: Result[] = [
-  {
-    source_system: 'slack',
-    source_type: 'Slack thread',
-    external_id: 'SLACK-000271',
-    title: 'Decision: Orion GA moves Jul 1 to Jul 15',
-    snippet:
-      "After the readiness review, we're making the call. Orion GA moves from July 1 to July 15. ORION-1473 replication lag is the sole gating item; hotfix path is partitioned WAL shipping. CS to notify Acme before EOD.",
-    status: 'Decision',
-    priority: 'P1',
-    owner: 'Priya Mehta',
-    project_key: 'ORION',
-    component: '#proj-orion',
-    updated_at: '2026-06-23T16:12:00-04:00',
-    final_score: 0.93,
-    text_rank: 0.02,
-    vector_score: 0.98,
-    rrf_score: 0.0325
-  },
-  {
-    source_system: 'jira',
-    source_type: 'Issue',
-    external_id: 'ORION-1473',
-    title: 'ORION-1473 — Cross-region replication lag exceeds 90s in events pipeline',
-    snippet:
-      'P1 blocker for ORION-1450 GA cutover. Consumers in eu-west-1 fall behind under peak write load; freshness SLO for the readiness gate is 15s. Root cause traced to single-stream WAL shipping; fix is regional partitioning.',
-    status: 'Resolved Jul 3',
-    priority: 'P1',
-    owner: 'Rafael Ortiz',
-    project_key: 'ORION',
-    component: 'Events pipeline',
-    updated_at: '2026-07-03T10:20:00-04:00',
-    final_score: 0.89,
-    text_rank: 0.96,
-    vector_score: 0.88,
-    trigram_score: 0.71,
-    rrf_score: 0.0322
-  },
-  {
-    source_system: 'salesforce',
-    source_type: 'Case',
-    external_id: 'CASE-0012345',
-    title: 'CASE-0012345 — Acme Corp go-live commitment at risk',
-    snippet:
-      'Contractual go-live July 8 per MSA addendum. CSM note: informed champion of Orion slip; negotiating revised date of July 22 with success-plan credit. Renewal ARR $1.2M is flagged as commitment impact.',
-    status: 'Mitigating',
-    priority: 'Tier 1',
-    owner: 'Dana Whitfield',
-    account_name: 'Acme Corp',
-    project_key: 'ORION',
-    updated_at: '2026-06-26T11:05:00-04:00',
-    final_score: 0.87,
-    text_rank: 0.72,
-    vector_score: 0.94,
-    rrf_score: 0.031
-  },
-  {
-    source_system: 'confluence',
-    source_type: 'Runbook',
-    external_id: 'PAGE-2112',
-    title: 'Orion Release Readiness Runbook — gate criteria and sign-off',
-    snippet:
-      'Gate 3 data freshness requires replication lag p99 ≤ 15s across regions for 72h. Jun 18 check: FAILED — lag p99 at 94s in eu-west-1. Per policy, GA date slips until gate passes.',
-    status: 'Published',
-    priority: 'Policy',
-    owner: 'Release Engineering',
-    project_key: 'ORION',
-    updated_at: '2026-06-18T14:00:00-04:00',
-    final_score: 0.82,
-    text_rank: 0.9,
-    vector_score: 0.72,
-    rrf_score: 0.0295
-  },
-  {
-    source_system: 'jira',
-    source_type: 'Ops ticket',
-    external_id: 'ORION-1489',
-    title: 'ORION-1489 — replication_lag_seconds > 60 paging in prod (eu-west-1)',
-    snippet:
-      'Ops ticket auto-filed by the alerting bot: replication_lag_seconds > 60 paging since Jun 20 02:10 UTC in eu-west-1. Full-text match on the exact metric name and region. Linked to ORION-1473 as the root cause; mitigated by consumer scale-out, resolved after PR #1287.',
-    status: 'Resolved',
-    priority: 'Sev2',
-    owner: 'SRE on-call',
-    account_name: 'Acme Corp',
-    project_key: 'ORION',
-    component: 'Events pipeline',
-    updated_at: '2026-06-20T02:10:00+00:00',
-    final_score: 0.78,
-    text_rank: 0.94,
-    vector_score: 0.66,
-    trigram_score: 0.64,
-    rrf_score: 0.0271
-  },
-  {
-    source_system: 'github',
-    source_type: 'Pull request',
-    external_id: 'PR-1287',
-    title: 'PR #1287 — events: partition WAL shipping by region',
-    snippet:
-      'Merged Jul 2. Fixes ORION-1473. Splits the single WAL stream into per-region partitions with bounded consumer groups; soak test shows replication lag p99 8s, down from 94s.',
-    status: 'Merged',
-    priority: 'Change',
-    owner: 'rafael-ortiz',
-    project_key: 'ORION',
-    component: 'orion/events-pipeline',
-    updated_at: '2026-07-02T19:47:00-04:00',
-    final_score: 0.74,
-    text_rank: 0.48,
-    vector_score: 0.76,
-    rrf_score: 0.0253
-  }
-];
-
-const resultSignals = [
-  ['FTS #2', 'VECTOR #1', 'TRGM —', 'RRF 0.0325', 'FINAL 0.93', 'references → ORION-1473', 'impacts → CASE-0012345'],
-  ['FTS #1', 'VECTOR #3', 'TRGM .71', 'RRF 0.0322', 'FINAL 0.89', 'blocks → GA cutover', 'fixed-by → PR #1287'],
-  ['FTS #6', 'VECTOR #2', 'TRGM —', 'RRF 0.0310', 'FINAL 0.87', 'impacted-by → GA delay'],
-  ['FTS #3', 'VECTOR #7', 'TRGM —', 'RRF 0.0295', 'FINAL 0.82', 'gates → GA cutover'],
-  ['FTS #4', 'VECTOR #14', 'TRGM .64', 'RRF 0.0271', 'FINAL 0.78', 'caused-by → ORION-1473'],
-  ['FTS #11', 'VECTOR #6', 'TRGM —', 'RRF 0.0253', 'FINAL 0.74', 'fixes → ORION-1473']
-];
-
-const sourceRoles: Record<string, { type: string; role: string }> = {
-  slack: { type: 'Decision', role: 'Slack thread' },
-  jira: { type: 'Blocker', role: 'Jira issue' },
-  salesforce: { type: 'Impact', role: 'Salesforce case' },
-  confluence: { type: 'Policy', role: 'Confluence page' },
-  github: { type: 'Change', role: 'GitHub PR' }
+// Hero-orbit layout: which CSS slot and entrance delay each system's node sits
+// in. Pure positioning — the node's title, meta, score, and role come from the
+// live cited set (see deriveHeroNodes).
+const heroNodeLayout: Record<string, { className: string; delay: string }> = {
+  confluence: { className: 'n-conf', delay: '.6s' },
+  slack: { className: 'n-slack', delay: '0s' },
+  jira: { className: 'n-jira', delay: '1.4s' },
+  salesforce: { className: 'n-sf', delay: '.9s' },
+  github: { className: 'n-gh', delay: '1.8s' }
 };
-
-// Per-citation strings, keyed by external_id (two Jira citations: the blocker
-// ORION-1473 and the full-text-surfaced ops ticket ORION-1489).
-const sourceCitations: Record<string, { meta: string; why: string }> = {
-  'SLACK-000271': {
-    meta: 'SLACK · #proj-orion · JUN 23 · final 0.93',
-    why: 'The decision itself — answers "what did the team decide."'
-  },
-  'ORION-1473': {
-    meta: 'JIRA · P1 · JUN 12 – JUL 3 · final 0.89',
-    why: 'Root cause and timeline; blocks the GA cutover story.'
-  },
-  'CASE-0012345': {
-    meta: 'SALESFORCE · TIER 1 · JUN 26 · final 0.87',
-    why: 'The impacted contractual commitment and its mitigation.'
-  },
-  'PAGE-2112': {
-    meta: 'CONFLUENCE · GATE 3 · JUN 18 · final 0.82',
-    why: 'The policy mechanism that forced the date slip.'
-  },
-  'ORION-1489': {
-    meta: 'JIRA · SEV2 · JUN 20 · final 0.78',
-    why: 'Production paging that corroborates the root cause — surfaced by full-text search.'
-  },
-  'PR-1287': {
-    meta: 'GITHUB · MERGED JUL 2 · final 0.74',
-    why: 'The fix that unblocked the gate re-run.'
-  }
-};
-
-// Canonical Orion answer, verbatim from the Answer mockup. This is the single
-// source of truth the UI streams; the seed generator emits the same strings
-// into ops.agent_answers so the API returns byte-identical content.
-const canonicalAnswer = {
-  lead: [
-    { text: "Orion's GA slipped two weeks — " },
-    { hl: 'July 1 to July 15' },
-    { text: ' — because a P1 replication-lag blocker failed the release-readiness gate. The team decided the slip in Slack on June 23, and one contractual customer commitment, Acme Corp, is being renegotiated.' }
-  ] as RichToken[],
-  why: [
-    { b: "Why it's delayed." },
-    { text: ' The events pipeline developed cross-region replication lag of up to 94 seconds against a 15-second freshness SLO, filed as P1 ' },
-    { b: 'ORION-1473' },
-    { text: ' on June 12 ' },
-    { cite: 2 },
-    { text: ". The Release Readiness Runbook's Gate 3 formally failed on June 18, and policy requires the GA date to slip until the gate passes " },
-    { cite: 4 },
-    { text: '. The same root cause set off Sev2 paging ticket ' },
-    { b: 'ORION-1489' },
-    { text: ' in production two days later ' },
-    { cite: 5 },
-    { text: '.' }
-  ] as RichToken[],
-  decided: [
-    { b: 'What the team decided.' },
-    { text: ' After the readiness review, engineering lead Priya Mehta recorded the decision in ' },
-    { b: '#proj-orion' },
-    { text: ' on June 23: GA moves from July 1 to July 15, partitioned WAL shipping is the hotfix path, and CS notifies Acme the same day ' },
-    { cite: 1 },
-    { text: '. The fix, ' },
-    { b: 'PR #1287' },
-    { text: ', merged July 2 and cut lag p99 from 94s to 8s ' },
-    { cite: 6 },
-    { text: '.' }
-  ] as RichToken[],
-  impacted: [
-    { b: 'Which commitments are impacted.' },
-    { text: " One contractual commitment is directly affected: Acme Corp's go-live, promised for July 8 under an MSA addendum " },
-    { cite: 3 },
-    { text: '. The CSM is renegotiating to July 22 with a success-plan credit; the $1.2M renewal is flagged but the exec sponsor is engaged.' }
-  ] as RichToken[],
-  quote: {
-    text: '"We\'re making the call: Orion GA moves from July 1 to July 15. ORION-1473 is the sole gating item — hotfix path is partitioned WAL shipping. CS to notify Acme before EOD."',
-    attr: 'Priya Mehta · #proj-orion · Jun 23, 2026 · 4:12 PM · cited as [1]'
-  }
-};
-
-// The agent's tool calls, in execution order. Streamed as the "how it was
-// built" deconstruction. Also the canonical content for ops.retrieval_runs.
-const canonicalPlan: Array<{ num: string; fn: string; args: string; desc: string; res: string }> = [
-  { num: '1', fn: 'search_evidence', args: '("orion delay root cause", systems: jira+slack+confluence, window: 60d)', desc: 'Question decomposed; lexical + semantic + fuzzy retrieval run in parallel inside Aurora.', res: '12 strong candidates · top: ORION-1473' },
-  { num: '2', fn: 'traverse_links', args: '(from: ORION-1473, edges: blocks · fixes · caused-by · gates)', desc: 'Followed stored object_links across systems to the gate check, the incident, and the fix.', res: '5 linked objects · 9 edges' },
-  { num: '3', fn: 'search_evidence', args: '("orion customer commitments go-live", systems: salesforce)', desc: 'Targeted pass for commitment language scoped to accounts referencing Orion.', res: '3 candidates · 1 contractual' },
-  { num: '4', fn: 'compare_sources', args: '(slack decision ↔ readiness runbook ↔ jira timeline)', desc: 'Checked the decision against gate policy and issue history for contradictions.', res: 'consistent · no conflicts found' },
-  { num: '5', fn: 'explain_result', args: '(top 6)', desc: 'Captured per-candidate ranking signals for the diagnostics view.', res: 'signals stored on retrieval_candidates' },
-  { num: '6', fn: 'synthesize_with_citations', args: '(6 sources, style: brief)', desc: 'Composed the answer; every claim bound to a citation row in Aurora.', res: '9 claims · 9 citations · confidence 0.92' }
-];
-
-// The agent's live reasoning, shown as a single updating line (Claude.ai style)
-// before the answer types itself. Each line mirrors a real step of the run that
-// just executed in Aurora: embed the query with Cohere, run the three retrievers,
-// fuse with RRF, score final candidates, follow links, check for contradictions, then cite.
-const thinkingTrace = [
-  'Decomposing the question into retrieval intents',
-  'Embedding the query with Cohere embed-v4 (1024-d)',
-  'Running lexical, semantic, and fuzzy retrieval across Aurora',
-  'Fusing candidates with reciprocal rank fusion (k=60)',
-  'Scoring fused candidates with SQL ranking signals',
-  'Following object links to the gate check, incident, and fix',
-  'Checking the decision against gate policy for contradictions',
-  'Binding every claim to a citation'
-];
-
-const trailEvents = [
-  {
-    side: 'left',
-    date: 'JUN 12 · 09:41',
-    system: 'jira',
-    type: 'Blocker filed · Jira',
-    title: 'ORION-1473 — Cross-region replication lag exceeds 90s',
-    body: 'P1 opened against the events pipeline. Consumers in eu-west-1 fall behind at peak write load; freshness SLO is 15s, observed 94s.',
-    edges: ['blocks → ORION-1450 · GA cutover'],
-    hop: 'blocks'
-  },
-  {
-    side: 'right',
-    date: 'JUN 18 · 14:00',
-    system: 'confluence',
-    type: 'Gate check · Confluence',
-    title: 'Release Readiness Runbook — Gate 3 FAILED',
-    body: 'Data-freshness gate requires lag p99 ≤ 15s for 72h. Check recorded FAILED; per policy the GA date slips until the gate passes.',
-    edges: ['gates → GA cutover', 'references → ORION-1473'],
-    hop: 'caused-by'
-  },
-  {
-    side: 'left',
-    date: 'JUN 20 · 02:10 UTC',
-    system: 'jira',
-    type: 'Ops ticket paged · Jira',
-    title: 'ORION-1489 — replication_lag_seconds > 60 paging in prod',
-    body: "Sev2 paging ticket auto-filed in eu-west-1 on the exact metric name — a clean full-text hit. Links the alert storm to ORION-1473's root cause.",
-    edges: ['caused-by → ORION-1473'],
-    hop: 'decided-in'
-  },
-  {
-    side: 'right',
-    date: 'JUN 23 · 16:12',
-    system: 'slack',
-    type: 'Decision · Slack #proj-orion',
-    title: '"Decision: Orion GA moves Jul 1 → Jul 15"',
-    body: 'Priya Mehta calls it after readiness review: GA slips two weeks; hotfix path is partitioned WAL shipping; CS to notify Acme same day.',
-    edges: ['decided-in → #proj-orion', 'impacts → CASE-0012345'],
-    hop: 'impacts'
-  },
-  {
-    side: 'left',
-    date: 'JUN 26 · 11:05',
-    system: 'salesforce',
-    type: 'Commitment at risk · Salesforce',
-    title: 'CASE-0012345 — Acme Corp go-live',
-    body: 'Contractual go-live was July 8. CSM negotiating revised date of July 22 with a success-plan credit; exec sponsor informed. $1.2M renewal ARR flagged.',
-    edges: ['impacted-by → GA delay', 'references → Slack decision'],
-    hop: 'fixes'
-  },
-  {
-    side: 'right',
-    date: 'JUL 2 · 19:47',
-    system: 'github',
-    type: 'Fix merged · GitHub',
-    title: 'PR #1287 — events: partition WAL shipping by region',
-    body: 'Soak test: replication lag p99 down to 8s from 94s. Rolled out behind events.partitioned_wal; two approvals, merged to release/2026.07.',
-    edges: ['fixes → ORION-1473', 'resolves → ORION-1489'],
-    hop: 'closes the loop'
-  },
-  {
-    side: 'left',
-    date: 'JUL 3 · 10:20',
-    system: 'jira',
-    type: 'Blocker resolved · Jira',
-    title: 'ORION-1473 resolved — gate re-run PASSED',
-    body: 'Gate re-run passes with lag p99 at 8s. July 15 GA remains on track and customer notification is updated with the new target.',
-    edges: ['passes → readiness gate', 'supports → Jul 15 GA'],
-    final: true
-  }
-];
-
-const diagnosticsRows: Array<[string, string, string, string, string, string, string, string, string]> = [
-  ['1', 'slack', 'Decision: GA moves Jul 1 → 15', '#2', '#1', '—', '.0325', '0.93', '✓ [1]'],
-  ['2', 'jira', 'ORION-1473 replication lag', '#1', '#3', '.71', '.0322', '0.89', '✓ [2]'],
-  ['3', 'salesforce', 'CASE-0012345 Acme go-live', '#6', '#2', '—', '.0310', '0.87', '✓ [3]'],
-  ['4', 'confluence', 'Release Readiness Runbook', '#3', '#7', '—', '.0295', '0.82', '✓ [4]'],
-  ['5', 'jira', 'ORION-1489 lag paging (FTS hit)', '#4', '#14', '.64', '.0271', '0.78', '✓ [5]'],
-  ['6', 'github', 'PR #1287 partition WAL shipping', '#11', '#6', '—', '.0253', '0.74', '✓ [6]'],
-  ['7', 'slack', 'Standup thread "GA checklist"', '#7', '#12', '—', '.0231', '0.58', 'above cut · unused'],
-  ['8', 'confluence', 'Postmortem: May backpressure', '#14', '#9', '—', '.0212', '0.51', 'below cut'],
-  ['9', 'jira', 'ORION-1502 dashboards polish', '#8', '#15', '.58', '.0198', '0.38', 'below cut'],
-  ['10', 'github', 'PR #1244 consumer scale-out (reverted)', '—', '#8', '.66', '.0186', '0.34', 'below cut']
-];
-
-// Verbatim fusion query from the diagnostics mockup (developer-authored, no user input).
-// Rendered via dangerouslySetInnerHTML to preserve the .kw/.fn/.cm/.st syntax spans and
-// raw SQL operators (<=>, @@, %, ->) exactly as designed.
-const fusionQueryHtml = `<span class="kw">WITH</span> lexical <span class="kw">AS</span> (
-  <span class="kw">SELECT</span> chunk_id, <span class="fn">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> <span class="fn">ts_rank_cd</span>(tsv, q) <span class="kw">DESC</span>) <span class="kw">AS</span> r
-  <span class="kw">FROM</span> object_chunks, <span class="fn">websearch_to_tsquery</span>(<span class="st">'orion delay decision commitments'</span>) q
-  <span class="kw">WHERE</span> tsv @@ q <span class="kw">AND</span> project = <span class="st">'orion'</span> <span class="kw">AND</span> created_at &gt; now() - <span class="kw">INTERVAL</span> <span class="st">'90 days'</span>
-  <span class="kw">LIMIT</span> 60
-), semantic <span class="kw">AS</span> (
-  <span class="kw">SELECT</span> chunk_id, <span class="fn">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> embedding &lt;=&gt; <span class="st">:query_vec</span>) <span class="kw">AS</span> r
-  <span class="kw">FROM</span> object_chunks <span class="kw">WHERE</span> project = <span class="st">'orion'</span>          <span class="cm">-- HNSW index scan</span>
-  <span class="kw">ORDER BY</span> embedding &lt;=&gt; <span class="st">:query_vec</span> <span class="kw">LIMIT</span> 60
-), fuzzy <span class="kw">AS</span> (
-  <span class="kw">SELECT</span> chunk_id, <span class="fn">ROW_NUMBER</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> <span class="fn">similarity</span>(title, <span class="st">'ORION-1473'</span>) <span class="kw">DESC</span>) <span class="kw">AS</span> r
-  <span class="kw">FROM</span> source_objects <span class="kw">WHERE</span> title % <span class="st">'ORION-1473'</span>       <span class="cm">-- pg_trgm entity match</span>
-  <span class="kw">LIMIT</span> 40
-)
-<span class="kw">SELECT</span> chunk_id, <span class="fn">SUM</span>(w / (60 + r)) <span class="kw">AS</span> rrf_score        <span class="cm">-- RRF · k = 60 · w = 1/1/0.5</span>
-<span class="kw">FROM</span> (
-  <span class="kw">SELECT</span> chunk_id, r, 1.0 <span class="kw">AS</span> w <span class="kw">FROM</span> lexical
-  <span class="kw">UNION ALL SELECT</span> chunk_id, r, 1.0 <span class="kw">FROM</span> semantic
-  <span class="kw">UNION ALL SELECT</span> chunk_id, r, 0.5 <span class="kw">FROM</span> fuzzy
-) fused
-<span class="kw">GROUP BY</span> chunk_id <span class="kw">ORDER BY</span> rrf_score <span class="kw">DESC</span> <span class="kw">LIMIT</span> 24;   <span class="cm">-- → final SQL score</span>`;
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
@@ -693,10 +453,27 @@ function score(result: Result) {
   return Number(result.final_score || 0);
 }
 
-function displayScore(result: Result, fallbackIndex = 0) {
+// Annotate a live result set with a 0–1 display score. The API's composite
+// final_score is unbounded (RRF + weighted signals), so we normalize each row
+// against the strongest result in the same set — the top match reads ~1.0 and
+// the rest scale proportionally. Scores already in (0,1] (e.g. rerank scores on
+// canonical citations) are passed through untouched.
+function withDisplayScores(rows: Result[]): Result[] {
+  const normalized = rows.map(normalizeResult);
+  const max = normalized.reduce((peak, row) => Math.max(peak, Number(row.final_score || 0)), 0);
+  return normalized.map((row) => {
+    const raw = Number(row.final_score || 0);
+    const display = raw > 0 && raw <= 1 ? raw : max > 0 ? raw / max : 0;
+    return { ...row, _display_score: display };
+  });
+}
+
+function displayScore(result: Result) {
+  if (typeof result._display_score === 'number') return result._display_score;
   const value = score(result);
   if (value > 0 && value <= 1) return value;
-  return demoResults[fallbackIndex]?.final_score || Math.min(0.99, Math.max(0.55, value / 2));
+  // No set context to normalize against; keep it in a sane band.
+  return Math.min(0.99, Math.max(0.55, value / 6));
 }
 
 function resultTimestamp(result: Result) {
@@ -788,28 +565,134 @@ function formatDate(value?: string) {
   return parsed.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+// A short descriptor for a result, derived from its own live fields: the source
+// type (e.g. "Slack thread", "Pull request") the connector reported, falling
+// back to the system label. No hard-coded per-system role map.
 function resultRole(result: Result) {
-  const role = sourceRoles[result.source_system] || { type: 'Evidence', role: result.source_type || 'Source object' };
-  return `${role.type} · ${role.role}`;
+  return result.source_type || sourceLabel(result.source_system);
 }
 
-function orderedEvidence(results: Result[]) {
-  // Order the rail by the canonical citation sequence (by external_id), matching
-  // live API rows and falling back to the canonical row when a cited object
-  // doesn't surface in the live top-k (e.g. the Salesforce case). This keeps the
-  // inline [1]..[6] prose markers aligned with the rail cards.
-  const normalized = results.map(normalizeResult);
+// Turn the live cited set (from the agent answer or the canonical endpoint) into
+// Result rows for the evidence rail and detail deep-links. Citations already
+// carry object_id (resolved server-side, even for objects below the live top-k),
+// title, url, and a rerank score, so the rail can render and link without a
+// second fetch. The citation index n IS the rail order.
+function citationsToResults(citations?: Citation[]): Result[] {
+  if (!citations || citations.length === 0) return [];
+  return [...citations]
+    .sort((a, b) => (a.n || 0) - (b.n || 0))
+    .map((c) => ({
+      object_id: c.object_id,
+      source_system: c.source_system,
+      external_id: c.external_id,
+      title: c.title,
+      snippet: '',
+      url: c.url,
+      final_score: c.score,
+      _display_score: typeof c.score === 'number' ? c.score : undefined
+    }));
+}
+
+// Normalize a live result set, attach display scores, and drop duplicate objects
+// (same system + external_id). Order is preserved as the API returned it — the
+// search endpoint already ranks by final_score, and callers re-sort as needed.
+function dedupeResults(results: Result[]): Result[] {
   const seen = new Set<string>();
-  const ordered = citedOrder
-    .map((ext) => normalized.find((result) => result.external_id === ext) || demoResults.find((result) => result.external_id === ext))
-    .filter(Boolean) as Result[];
-  const extras = normalized.filter((result) => !citedOrder.includes(result.external_id));
-  return [...ordered, ...extras].filter((result) => {
+  return withDisplayScores(results).filter((result) => {
     const key = `${result.source_system}:${result.external_id}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+// Format an ISO date as "Jul 8, 2026" (no time) for commitment/contract dates.
+function formatDateOnly(value?: string) {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Flatten a rich-token block to plain text (drops bold/highlight markup and
+// citation chips) — used for compact previews like the Evidence rail teaser.
+function flattenRich(tokens?: RichToken[]): string {
+  if (!tokens) return '';
+  return tokens
+    .map((token) => ('text' in token ? token.text : 'b' in token ? token.b : 'hl' in token ? token.hl : ''))
+    .join('');
+}
+
+// The answer body as a single string, in reading order — for previews and any
+// place that needs the prose without the streamed rich rendering.
+function answerBodyText(body?: AnswerBody | string | null): string {
+  if (!body) return '';
+  if (typeof body === 'string') return body;
+  return [body.lead, body.why, body.decided, body.impacted].map(flattenRich).filter(Boolean).join(' ');
+}
+
+// Count the inline citation chips across an answer body's rich-token blocks —
+// the number of claims bound to a citation. Purely derived from the live answer.
+function countCitationClaims(body?: AnswerBody | null) {
+  if (!body) return 0;
+  const blocks = [body.lead, body.why, body.decided, body.impacted];
+  let count = 0;
+  for (const block of blocks) {
+    for (const token of block || []) {
+      if (token && typeof token === 'object' && 'cite' in token) count += 1;
+    }
+  }
+  return count;
+}
+
+// A hero-orbit node, ready to render: CSS slot + entrance delay from the layout
+// map, and role/score/title/meta pulled from the live cited object for that system.
+type HeroNode = {
+  key: string;
+  className: string;
+  delay: string;
+  role: string;
+  score: string;
+  title: string;
+  meta: string;
+};
+
+// The citation.meta string is "SLACK · #proj-orion · JUN 23 · score 0.93" — drop
+// the leading system token and the trailing score token to get the context line
+// the hero card shows ("#proj-orion · JUN 23"). Falls back to the system label.
+function heroMetaFromCitation(citation: Citation | undefined, system: string) {
+  const parts = (citation?.meta || '')
+    .split('·')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => !/^score\b/i.test(part) && part.toLowerCase() !== system.toLowerCase());
+  return parts.join(' · ') || sourceLabel(system);
+}
+
+// Build the landing hero orbit from the live cited set. Each system that has a
+// cited object contributes a node; positioning comes from heroNodeLayout and all
+// content (title, score, meta) from the citation. No hard-coded node content.
+function deriveHeroNodes(citedResults: Result[], canonical: CanonicalDiagnostics | null): HeroNode[] {
+  const citations = canonical?.citations || [];
+  const nodes: HeroNode[] = [];
+  for (const system of Object.keys(heroNodeLayout)) {
+    const layout = heroNodeLayout[system];
+    const citation = citations.find((c) => c.source_system === system);
+    const result = citedResults.find((r) => r.source_system === system);
+    const title = citation?.title || result?.title;
+    if (!title) continue;
+    const scoreValue = typeof citation?.score === 'number' ? citation.score : result?.final_score;
+    nodes.push({
+      key: system,
+      className: layout.className,
+      delay: layout.delay,
+      role: sourceLabel(system),
+      score: typeof scoreValue === 'number' ? scoreValue.toFixed(2) : '',
+      title,
+      meta: heroMetaFromCitation(citation, system)
+    });
+  }
+  return nodes;
 }
 
 function Logo() {
@@ -1081,13 +964,15 @@ function AppHeader({
   query,
   setQuery,
   onSearch,
-  onNavigate
+  onNavigate,
+  omniboxRef
 }: {
   page: Page;
   query: string;
   setQuery: (value: string) => void;
   onSearch: () => void;
   onNavigate: (page: Page) => void;
+  omniboxRef?: React.RefObject<HTMLInputElement>;
 }) {
   return (
     <header className="appbar">
@@ -1103,6 +988,7 @@ function AppHeader({
       >
         <Search size={15} />
         <input
+          ref={omniboxRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={queryDefault}
@@ -1147,13 +1033,17 @@ function Landing({
   setQuery,
   onSearch,
   onNavigate,
-  error
+  error,
+  heroNodes,
+  heroScore
 }: {
   query: string;
   setQuery: (value: string) => void;
   onSearch: (queryOverride?: string) => void;
   onNavigate: (page: Page) => void;
   error?: string;
+  heroNodes: HeroNode[];
+  heroScore?: number | null;
 }) {
   return (
     <div className="landing-page">
@@ -1231,16 +1121,16 @@ function Landing({
             <div className="center-node">
               <div className="a-title">Answer</div>
               <div className="a-sub">Hybrid fusion</div>
-              <div className="a-score">0.92</div>
+              {typeof heroScore === 'number' && <div className="a-score">{heroScore.toFixed(2)}</div>}
             </div>
 
-            {heroSourceNodes.map((node) => (
+            {heroNodes.map((node) => (
               <article className={cx('hero-node', node.className)} key={node.key} style={{ '--d': node.delay } as React.CSSProperties}>
                 <div className="tile">{sourceIcon(node.key, 24)}</div>
                 <div className="node-copy">
                   <div className="nhead">
                     <span className="ntype">{node.role}</span>
-                    <span className="nscore">{node.score}</span>
+                    {node.score && <span className="nscore">{node.score}</span>}
                   </div>
                   <div className="ntitle">{node.title}</div>
                   <div className="nmeta">{node.meta}</div>
@@ -1364,30 +1254,113 @@ function Landing({
   );
 }
 
-function HighlightedSnippet({ text }: { text: string }) {
-  const pattern = /(Orion GA moves from July 1 to July 15|ORION-1473|partitioned WAL shipping|Acme|July 22|Gate 3|FAILED|replication_lag_seconds > 60|PR #1287|8s|94s|go-live July 8|commitment impact)/gi;
-  const matcher = /^(Orion GA moves from July 1 to July 15|ORION-1473|partitioned WAL shipping|Acme|July 22|Gate 3|FAILED|replication_lag_seconds > 60|PR #1287|8s|94s|go-live July 8|commitment impact)$/i;
+// Stop words we never highlight — they add noise, not signal, to a snippet.
+const HIGHLIGHT_STOPWORDS = new Set([
+  'the', 'and', 'for', 'why', 'what', 'how', 'did', 'does', 'was', 'were', 'are',
+  'that', 'this', 'with', 'from', 'into', 'when', 'which', 'who', 'whom', 'whose',
+  'has', 'have', 'had', 'will', 'would', 'should', 'could', 'can', 'its', 'it',
+  'in', 'on', 'of', 'to', 'a', 'an', 'is', 'be', 'or', 'as', 'at', 'by', 'but',
+  'not', 'get', 'got', 'fix', 'fixed', 'prod', 'page', 'paged'
+]);
+
+function escapeRegExp(term: string): string {
+  return term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// The terms to highlight in a snippet, derived LIVE from the user's query.
+// We keep alphanumeric tokens (and dotted/hyphenated identifiers like ORION-1489
+// or replication_lag) that are meaningful — never a hard-coded phrase list.
+function deriveHighlightTerms(query: string): string[] {
+  const tokens = (query || '').match(/[A-Za-z0-9][A-Za-z0-9._-]*/g) || [];
+  const seen = new Set<string>();
+  const terms: string[] = [];
+  for (const raw of tokens) {
+    const term = raw.trim();
+    const lower = term.toLowerCase();
+    if (term.length < 3) continue;
+    // Keep identifiers (with a digit, dot, hyphen, or underscore) even if short-ish;
+    // drop plain stop words.
+    const isIdentifier = /[0-9._-]/.test(term);
+    if (!isIdentifier && HIGHLIGHT_STOPWORDS.has(lower)) continue;
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    terms.push(term);
+  }
+  return terms;
+}
+
+function HighlightedSnippet({ text, terms }: { text: string; terms?: string[] }) {
+  const clean = (terms || []).filter(Boolean);
+  if (clean.length === 0) return <>{text}</>;
+  // Longest-first so multi-word identifiers win over their fragments.
+  const ordered = [...clean].sort((a, b) => b.length - a.length).map(escapeRegExp);
+  const pattern = new RegExp(`(${ordered.join('|')})`, 'gi');
+  const matcher = new RegExp(`^(${ordered.join('|')})$`, 'i');
   const parts = text.split(pattern);
   return (
     <>
       {parts.map((part, index) => (
-        matcher.test(part) ? <mark key={`${part}-${index}`}>{part}</mark> : <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>
+        matcher.test(part)
+          ? <mark key={`${part}-${index}`}>{part}</mark>
+          : <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>
       ))}
     </>
   );
 }
 
+// The retrieval signals that fired for a result, as display chips derived live
+// from result.explanation.signals (the per-ranker contributions Aurora returned).
+// Only signals that actually contributed are shown; the strongest reads first.
+const SIGNAL_LABELS: Array<{ key: keyof Signals; label: string; method: string }> = [
+  { key: 'full_text', label: 'full-text', method: 'ts_rank_cd' },
+  { key: 'semantic', label: 'semantic', method: 'pgvector' },
+  { key: 'fuzzy', label: 'fuzzy', method: 'pg_trgm' },
+  { key: 'metadata', label: 'metadata', method: 'filters' },
+  { key: 'recency', label: 'recency', method: 'updated_at' }
+];
+
+function signalChips(result: Result): Array<{ key: string; label: string; value: string }> {
+  const signals = result.explanation?.signals;
+  if (!signals) return [];
+  return SIGNAL_LABELS.map(({ key, label }) => ({ key, label, raw: Number(signals[key] || 0) }))
+    .filter((chip) => chip.raw > 0)
+    .sort((a, b) => b.raw - a.raw)
+    .map((chip) => ({ key: chip.key, label: chip.label, value: chip.raw.toFixed(2) }));
+}
+
+// Derive how many of the persisted top candidates each ranker actually ranked,
+// straight from the diagnostics rows (columns: rank, system, title, FTS, VEC,
+// TRGM, RRF, FINAL, CITED). An em-dash means that retriever did not rank the row.
+// This is the real ranker overlap for this run — no fabricated counts.
+const DIAG_RANKERS: Array<{ name: string; method: string; col: number }> = [
+  { name: 'lexical', method: 'ts_rank_cd', col: 3 },
+  { name: 'semantic', method: 'pgvector', col: 4 },
+  { name: 'fuzzy', method: 'pg_trgm', col: 5 }
+];
+
+function rankerMix(rows?: string[][]) {
+  const source = rows || [];
+  const mix = DIAG_RANKERS.map((ranker) => ({
+    ...ranker,
+    count: source.filter((row) => row[ranker.col] && row[ranker.col] !== '—').length
+  }));
+  const peak = mix.reduce((max, row) => Math.max(max, row.count), 0);
+  return mix.map((row) => ({ ...row, width: peak > 0 ? Math.round((row.count / peak) * 100) : 0 }));
+}
+
 function ResultCard({
   result,
   index,
-  onOpen
+  onOpen,
+  highlightTerms
 }: {
   result: Result;
   index: number;
   onOpen: () => void;
+  highlightTerms?: string[];
 }) {
-  const signalSet = resultSignals[index % resultSignals.length] || [];
-  const finalScore = displayScore(result, index).toFixed(2);
+  const chips = signalChips(result);
+  const finalScore = displayScore(result).toFixed(2);
   return (
     <article className={cx('rcard', index > 5 && 'dim')}>
       <div className="rhead">
@@ -1402,19 +1375,21 @@ function ResultCard({
           <b>{finalScore}</b>
         </div>
       </div>
-      <p className="rsnippet"><HighlightedSnippet text={result.snippet || 'No snippet returned for this source.'} /></p>
+      <p className="rsnippet"><HighlightedSnippet text={result.snippet || 'No snippet returned for this source.'} terms={highlightTerms} /></p>
       <div className="rmeta">
         <span>{result.component || result.project_key || sourceLabel(result.source_system)}</span>
         {result.owner && <span>{result.owner}</span>}
         <span>{formatDate(result.updated_at)}</span>
         {result.status && <span>{result.status}</span>}
       </div>
-      <div className="rwhy">
-        <span className="lbl">Why this matched</span>
-        {signalSet.map((sig) => (
-          <span key={sig} className={cx('sig', sig.includes('→') && 'link')}>{sig}</span>
-        ))}
-      </div>
+      {chips.length > 0 && (
+        <div className="rwhy">
+          <span className="lbl">Why this matched</span>
+          {chips.map((chip) => (
+            <span key={chip.key} className="sig">{chip.label} {chip.value}</span>
+          ))}
+        </div>
+      )}
     </article>
   );
 }
@@ -1423,7 +1398,13 @@ function ResultsPage({
   page,
   query,
   setQuery,
+  omniboxRef,
   results,
+  citedResults,
+  graph,
+  canonical,
+  corpusTotal,
+  systemCounts,
   runId,
   error,
   loading,
@@ -1450,7 +1431,13 @@ function ResultsPage({
   page: Page;
   query: string;
   setQuery: (value: string) => void;
+  omniboxRef?: React.RefObject<HTMLInputElement>;
   results: Result[];
+  citedResults: Result[];
+  graph: GraphPayload | null;
+  canonical: CanonicalDiagnostics | null;
+  corpusTotal?: number;
+  systemCounts: Record<string, number>;
   selected: Result | null;
   runId?: string;
   error?: string;
@@ -1475,8 +1462,11 @@ function ResultsPage({
   onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
 }) {
+  // Live evidence: the search results when the user has run a query, otherwise the
+  // canonical run's cited objects (fetched read-only on mount). Both are real rows.
+  const baseEvidence = results.length > 0 ? results : citedResults;
   const evidence = sortByRankMode(
-    orderedEvidence(results.length > 0 ? results : demoResults).filter((result) => {
+    baseEvidence.filter((result) => {
       if (sourceFilter !== 'all' && result.source_system !== sourceFilter) return false;
       if (projectFilter !== 'all' && result.project_key !== projectFilter) return false;
       if (statusFilter !== 'all' && result.status !== statusFilter) return false;
@@ -1486,14 +1476,39 @@ function ResultsPage({
     rankMode
   );
   const showAnswerGuide = guideStep === 'answer';
+  // Highlight the LIVE query terms in each snippet — derived from what was searched,
+  // never a hard-coded phrase list.
+  const highlightTerms = deriveHighlightTerms(query || queryDefault);
   const resultCountLabel = `${evidence.length} result${evidence.length === 1 ? '' : 's'}`;
   const scopeSummary = [
-    sourceFilter === 'all' ? '5 systems' : sourceLabel(sourceFilter),
+    sourceFilter === 'all' ? `${SYSTEMS.length} systems` : sourceLabel(sourceFilter),
     timeWindowLabels[timeWindow],
     projectFilterLabels[projectFilter],
     statusFilterLabels[statusFilter],
     priorityFilterLabels[priorityFilter]
   ].filter((item) => !item.startsWith('All ')).join(' · ');
+
+  // The Evidence rail's "agent answer" card mirrors the canonical run, served
+  // read-only on mount. Every value here is derived from that live payload.
+  const answerBody = canonical?.answer && typeof canonical.answer === 'object' ? canonical.answer : null;
+  const answerPreview = answerBody ? flattenRich(answerBody.lead) : answerBodyText(canonical?.answer);
+  const confidenceValue = typeof canonical?.confidence === 'number' ? canonical.confidence : 0;
+  const confidenceLabel = confidenceValue.toFixed(2);
+  const confidencePercent = Math.round(Math.max(0, Math.min(1, confidenceValue)) * 100);
+  const coverageLabel = canonical
+    ? `${canonical.source_count ?? citedResults.length} sources · ${canonical.system_count ?? 0} systems`
+    : '';
+  const funnel = canonical?.funnel;
+  const funnelSteps: Array<[string, number]> = funnel
+    ? ([
+        ['Corpus', corpusTotal ?? funnel.fetched],
+        ['Deduped', funnel.deduped],
+        ['Fused', funnel.fused],
+        ['Above cut', funnel.above_cut],
+        ['Cited', funnel.cited]
+      ].filter((entry): entry is [string, number] => typeof entry[1] === 'number'))
+    : [];
+  const rankerRows = rankerMix(canonical?.metadata?.diagnostics_rows);
 
   function openResult(result: Result) {
     setSelected(result);
@@ -1502,12 +1517,12 @@ function ResultsPage({
 
   return (
     <section className="inner-screen">
-      <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
+      <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} omniboxRef={omniboxRef} />
       <div className="filters">
         <button type="button" className={cx('fchip', sourceFilter === 'all' && 'on')} aria-pressed={sourceFilter === 'all'} onClick={() => onSourceFilterChange('all')}>
-          All <span className="n">{corpusTotal}</span>
+          All {corpusTotal != null && <span className="n">{corpusTotal}</span>}
         </button>
-        {coreSources.map((source) => (
+        {SYSTEMS.map((source) => (
           <button
             type="button"
             className={cx('fchip', sourceFilter === source.key && 'on')}
@@ -1516,7 +1531,7 @@ function ResultsPage({
             onClick={() => onSourceFilterChange(source.key as SourceFilter)}
           >
             <MiniBrand system={source.key} />
-            {source.label} <span className="n">{source.count}</span>
+            {source.label} {systemCounts[source.key] != null && <span className="n">{systemCounts[source.key]}</span>}
           </button>
         ))}
         <span className="fdiv" />
@@ -1567,7 +1582,8 @@ function ResultsPage({
           <ErrorBanner message={error} />
           <div className="results-head">
             <div className="count">
-              <b>{resultCountLabel}</b> · {scopeSummary || 'All evidence'} · run <b>{runId?.slice(0, 10) || 'rr_7f3a9c'}</b>
+              <b>{resultCountLabel}</b> · {scopeSummary || 'All evidence'}
+              {(runId || canonical?.run_id) && <> · run <b>{shortRunId(runId || canonical?.run_id || '')}</b></>}
             </div>
             <div className="score-explainer" title={FINAL_SCORE_HELP}>
               Final score = Aurora SQL composite, not Cohere.
@@ -1589,6 +1605,7 @@ function ResultsPage({
                   result={result}
                   index={index}
                   onOpen={() => openResult(result)}
+                  highlightTerms={highlightTerms}
                 />
               ))}
             </div>
@@ -1606,96 +1623,105 @@ function ResultsPage({
               />
             )}
             <div className="mono-label with-dot"><span className="dot" />Agent answer · ready</div>
-            <p className="ans-preview">
-              Orion's GA slipped two weeks — July 1 to 15 — after replication lag <span className="cit">2</span> failed the readiness gate <span className="cit">4</span>; the team decided in #proj-orion <span className="cit">1</span> and Acme's go-live is being renegotiated <span className="cit">3</span>.
-            </p>
-            <div className="conf">
-              <div className="row"><span>CONFIDENCE</span><b>0.92</b></div>
-              <div className="meter"><i /></div>
-              <div className="row"><span>COVERAGE</span><b>6 sources · 5 systems</b></div>
-            </div>
+            {answerPreview ? (
+              <p className="ans-preview">{answerPreview}</p>
+            ) : (
+              <p className="ans-preview">Run the agent to synthesize a cited answer across the connected systems.</p>
+            )}
+            {canonical && (
+              <div className="conf">
+                <div className="row"><span>CONFIDENCE</span><b>{confidenceLabel}</b></div>
+                <div className="meter"><i style={{ width: `${confidencePercent}%` }} /></div>
+                <div className="row"><span>COVERAGE</span><b>{coverageLabel}</b></div>
+              </div>
+            )}
             <button className="rail-cta" onClick={() => onAgent()}>Read the full answer</button>
           </div>
 
           <div className="railcard">
             <div className="mono-label">Evidence graph</div>
-            <MiniGraph />
+            <MiniGraph graph={graph} />
             <button className="rail-link" onClick={() => onNavigate('trail')}>View timeline →</button>
           </div>
 
-          <div className="railcard">
-            <div className="mono-label">This retrieval run</div>
-            <div className="retrieval-run">
-              <div className="run-intent">
-                <span>Intent</span>
-                <b>Orion delay + customer risk</b>
-                <small>Project ORION · last 90 days · 5 systems</small>
-              </div>
-
-              <div className="run-funnel" aria-label="Candidate funnel">
-                {[
-                  ['Corpus', corpusTotal],
-                  ['Deduped', 92],
-                  ['Fused', 24],
-                  ['Above cut', 12],
-                  ['Cited', 6]
-                ].map(([label, value], index) => (
-                  <React.Fragment key={String(label)}>
-                    {index > 0 && <span className="funnel-arrow">→</span>}
-                    <span className={cx('funnel-step', index === 4 && 'hot')}><b>{value}</b><small>{label}</small></span>
-                  </React.Fragment>
-                ))}
-              </div>
-
-              <div className="ranker-mix">
-                {[
-                  ['lexical', 'ts_rank_cd', 60, 38],
-                  ['semantic', 'pgvector', 60, 42],
-                  ['fuzzy', 'pg_trgm', 40, 12]
-                ].map(([name, method, count, width]) => (
-                  <div className="ranker-row" key={String(name)}>
-                    <span><b>{name}</b><small>{method}</small></span>
-                    <i><em style={{ width: `${width}%` }} /></i>
-                    <strong>{count}</strong>
+          {canonical && (
+            <div className="railcard">
+              <div className="mono-label">This retrieval run</div>
+              <div className="retrieval-run">
+                {canonical.question && (
+                  <div className="run-intent">
+                    <span>Intent</span>
+                    <b>{canonical.question}</b>
+                    <small>{canonical.profile} · {canonical.embedding_model} · {canonical.system_count} systems</small>
                   </div>
-                ))}
-              </div>
+                )}
 
-              <div className="run-proof">
-                <span><b>RRF k=60</b> fused 92 candidates to the top 24.</span>
-                <span><b>Final SQL score</b> selected 6 cited objects above the 0.55 cut.</span>
-                <span><b>Persisted</b> in retrieval_runs, retrieval_candidates, and citations.</span>
-              </div>
+                {funnelSteps.length > 0 && (
+                  <div className="run-funnel" aria-label="Candidate funnel">
+                    {funnelSteps.map(([label, value], index) => (
+                      <React.Fragment key={label}>
+                        {index > 0 && <span className="funnel-arrow">→</span>}
+                        <span className={cx('funnel-step', index === funnelSteps.length - 1 && 'hot')}><b>{value}</b><small>{label}</small></span>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
 
-              <div className="run-latency">
-                <span>Latency</span>
-                <b>341 ms</b>
+                <div className="ranker-mix">
+                  {rankerRows.map((row) => (
+                    <div className="ranker-row" key={row.name}>
+                      <span><b>{row.name}</b><small>{row.method}</small></span>
+                      <i><em style={{ width: `${row.width}%` }} /></i>
+                      <strong>{row.count}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="run-proof">
+                  <span><b>RRF k={canonical.rrf_k}</b> fused {canonical.funnel?.deduped} candidates to the top {canonical.funnel?.fused}.</span>
+                  <span><b>Final SQL score</b> selected {canonical.funnel?.cited} cited objects above the {canonical.rerank_cut} cut.</span>
+                  <span><b>Persisted</b> in retrieval_runs, retrieval_candidates, and citations.</span>
+                </div>
+
+                {typeof canonical.total_latency_ms === 'number' && (
+                  <div className="run-latency">
+                    <span>Latency</span>
+                    <b>{canonical.total_latency_ms} ms</b>
+                  </div>
+                )}
               </div>
+              <button className="rail-link" onClick={() => onNavigate('diagnostics')}>Open diagnostics →</button>
             </div>
-            <button className="rail-link" onClick={() => onNavigate('diagnostics')}>Open diagnostics →</button>
-          </div>
+          )}
         </aside>
       </main>
     </section>
   );
 }
 
-function MiniGraph() {
+function MiniGraph({ graph }: { graph: GraphPayload | null }) {
+  if (!graph || graph.edges.length === 0) {
+    return (
+      <div className="evidence-graph" aria-label="Evidence relationship graph">
+        <div className="graph-summary"><span>No linked evidence yet</span></div>
+      </div>
+    );
+  }
   return (
     <div className="evidence-graph" aria-label="Evidence relationship graph">
       <div className="graph-summary">
-        <span><b>6</b> cited objects</span>
-        <span><b>5</b> systems</span>
-        <span><b>9</b> links traversed</span>
+        <span><b>{graph.nodes.length}</b> cited objects</span>
+        <span><b>{graph.system_count}</b> systems</span>
+        <span><b>{graph.link_count}</b> links traversed</span>
       </div>
       <div className="graph-edge-list">
-        {evidenceGraphEdges.map((edge) => (
-          <div className="graph-edge" key={`${edge.from.meta}-${edge.relation}-${edge.to.meta}`}>
+        {graph.edges.map((edge) => (
+          <div className="graph-edge" key={edge.link_id}>
             <div className="graph-node">
               <span className="graph-icon">{sourceIcon(edge.from.system, 15)}</span>
               <span className="graph-copy">
                 <b>{edge.from.title}</b>
-                <small>{sourceLabel(edge.from.system)} · {edge.from.meta}</small>
+                <small>{sourceLabel(edge.from.system)} · {edge.from.external_id}</small>
               </span>
             </div>
             <div className="graph-relation"><span>{edge.relation}</span></div>
@@ -1703,10 +1729,10 @@ function MiniGraph() {
               <span className="graph-icon">{sourceIcon(edge.to.system, 15)}</span>
               <span className="graph-copy">
                 <b>{edge.to.title}</b>
-                <small>{sourceLabel(edge.to.system)} · {edge.to.meta}</small>
+                <small>{sourceLabel(edge.to.system)} · {edge.to.external_id}</small>
               </span>
             </div>
-            <p>{edge.why}</p>
+            {typeof edge.confidence === 'number' && <p>confidence {edge.confidence.toFixed(2)}</p>}
           </div>
         ))}
       </div>
@@ -1940,7 +1966,9 @@ function AgentPage({
   page,
   query,
   setQuery,
+  omniboxRef,
   agentPayload,
+  canonical,
   runId,
   error,
   loading,
@@ -1950,12 +1978,16 @@ function AgentPage({
   onDismissGuide,
   onSkipGuide,
   onNavigate,
-  results
+  citedResults,
+  corpusTotal,
+  onOpenDetail
 }: {
   page: Page;
   query: string;
   setQuery: (value: string) => void;
+  omniboxRef?: React.RefObject<HTMLInputElement>;
   agentPayload: AgentPayload;
+  canonical: CanonicalDiagnostics | null;
   runId?: string;
   error?: string;
   loading: boolean;
@@ -1965,19 +1997,47 @@ function AgentPage({
   onDismissGuide: (step: GuideStep) => void;
   onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
-  results: Result[];
+  citedResults: Result[];
+  corpusTotal?: number;
+  onOpenDetail: (result: Result | null) => void;
 }) {
-  const evidence = orderedEvidence(agentPayload.results?.map(normalizeResult) || results);
-  const runLabel = agentPayload.run_id || runId || 'rr_7f3a9c';
-  const confidenceValue = typeof agentPayload.confidence === 'number' ? agentPayload.confidence : 0.92;
+  // The live answer: the agent payload when the user has run it, otherwise the
+  // canonical run served read-only on mount. Both carry answer + plan + citations
+  // + commitments from Aurora — there is no hard-coded fallback content.
+  const source: AgentPayload | CanonicalDiagnostics = agentPayload.answer || agentPayload.citations ? agentPayload : (canonical || {});
+  const rawAnswer = source.answer;
+  const answerBody: AnswerBody | null = rawAnswer && typeof rawAnswer === 'object' ? rawAnswer : null;
+  const answerString = typeof rawAnswer === 'string' ? rawAnswer : '';
+  const rawPlan = source.plan;
+  const structuredPlan: PlanStep[] = Array.isArray(rawPlan) && rawPlan.length > 0 && typeof rawPlan[0] === 'object'
+    ? (rawPlan as PlanStep[])
+    : [];
+  const stringPlan: string[] = Array.isArray(rawPlan) && rawPlan.length > 0 && typeof rawPlan[0] === 'string'
+    ? (rawPlan as string[])
+    : [];
+  const planLength = structuredPlan.length || stringPlan.length;
+  const citations = (source.citations && source.citations.length > 0 ? source.citations : canonical?.citations) || [];
+  const railResults = citedResults.length > 0 ? citedResults : citationsToResults(citations);
+  const commitments = (source.commitments && source.commitments.length > 0 ? source.commitments : canonical?.commitments) || [];
+  const quote = answerBody?.quote;
+  const hasAnswer = Boolean(answerBody || answerString);
+
+  const runLabel = agentPayload.run_id || canonical?.run_id || runId || '';
+  const confidenceValue = typeof source.confidence === 'number' ? source.confidence : (canonical?.confidence ?? 0);
   const confidenceLabel = confidenceValue.toFixed(2);
   const confidencePercent = Math.round(Math.max(0, Math.min(1, confidenceValue)) * 100);
-  const citedSourceCount = agentPayload.source_count || 6;
-  const citedSystemCount = agentPayload.system_count || 5;
+  const citedSourceCount = source.source_count ?? canonical?.source_count ?? citations.length;
+  const citedSystemCount = source.system_count ?? canonical?.system_count ?? new Set(citations.map((c) => c.source_system)).size;
+  const claimCount = countCitationClaims(answerBody);
+  const firedLabel = formatDate(canonical?.fired_at);
   const showTimelineGuide = guideStep === 'timeline';
-  const agentMeta = { ...DEFAULT_AGENT_METADATA, ...(agentPayload.agent || {}) };
-  const modelRouting = { ...DEFAULT_AGENT_METADATA.model_routing, ...(agentMeta.model_routing || {}) };
-  const routingNotes = { ...DEFAULT_AGENT_METADATA.routing_notes, ...(agentMeta.routing_notes || {}) };
+  // Agent + model metadata is served live by the API (both the agent answer and
+  // the canonical endpoint carry it). The routed model IDs come from settings, so
+  // they must never be hard-coded in the frontend — a provisioned account could
+  // route different models. Fall back to the canonical payload, never to a literal.
+  const agentMeta: AgentMetadata = agentPayload.agent || canonical?.agent || {};
+  const modelRouting = agentMeta.model_routing || {};
+  const routingNotes = agentMeta.routing_notes || {};
   const routingRows = [
     {
       role: 'Planning + tools',
@@ -1994,7 +2054,7 @@ function AgentPage({
       model: modelRouting.claude_code_harness,
       note: routingNotes.claude_code_harness
     }
-  ];
+  ].filter((row) => row.model);
 
   // --- Streaming deconstruction --------------------------------------------
   // The answer arrives beat-by-beat: the synthesized prose types itself, then
@@ -2033,12 +2093,19 @@ function AgentPage({
 
   const planStart = 8;
   const railReady = !streaming || thinking || beat >= 1;
-  const planStage = useStageSequence(canonicalPlan.length + 1, {
+  const planStage = useStageSequence(planLength + 1, {
     enabled: streaming,
     beatMs: 480,
     startMs: beat >= planStart ? 0 : 999999
   });
   const beatClass = (n: number) => cx('beat', (!streaming || beat >= n) && 'is-in');
+  // The thinking line cycles the agent's real reasoning steps, derived live from
+  // the plan (each tool call's description), so it reflects the actual run.
+  const thinkingTrace = structuredPlan.length > 0
+    ? structuredPlan.map((step) => step.desc)
+    : stringPlan.length > 0
+      ? stringPlan
+      : ['Retrieving evidence', 'Fusing ranked candidates', 'Synthesizing cited answer'];
   const jumpToCitation = (n: number) => {
     const el = document.querySelector(`.sources-rail .src:nth-of-type(${n})`);
     el?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' });
@@ -2048,122 +2115,157 @@ function AgentPage({
 
   return (
     <section className="inner-screen">
-      <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
+      <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} omniboxRef={omniboxRef} />
       <main className="answer-layout">
         <article>
           <ErrorBanner message={error} />
           {loading ? (
             <EmptyState loading title="Assembling cited answer" body="The agent endpoint is collecting citations and checking the evidence timeline." />
+          ) : !hasAnswer ? (
+            <EmptyState
+              title="No answer yet"
+              body="Run the agent to synthesize a cited answer across the connected systems."
+              action={<button className="btn primary" onClick={() => onAgent()}>Generate cited answer</button>}
+            />
           ) : (
             <>
               <div className="eyebrow mono-label">
                 {streaming && thinking
                   ? 'Agent answer · thinking'
-                  : streaming && beat < planStart + canonicalPlan.length
+                  : streaming && beat < planStart + planLength
                     ? 'Agent answer · streaming with citations'
                     : 'Agent answer · synthesized with citations'}
               </div>
-              <div className="question">"{query || queryDefault}"</div>
+              <div className="question">"{source.question || query || queryDefault}"</div>
               <div className="answermeta">
                 <span className="badge"><i />GROUNDED</span>
-                <span><b>{agentMeta.harness}</b> · {agentMeta.model_provider}</span>
-                <span title={runLabel}>run <b>{shortRunId(runLabel)}</b></span>
+                {(agentMeta.harness || agentMeta.model_provider) && (
+                  <span>{agentMeta.harness && <b>{agentMeta.harness}</b>}{agentMeta.harness && agentMeta.model_provider ? ' · ' : ''}{agentMeta.model_provider}</span>
+                )}
+                {runLabel && <span title={runLabel}>run <b>{shortRunId(runLabel)}</b></span>}
                 <span><b>{citedSourceCount} sources</b> · {citedSystemCount} systems</span>
-                <span>Jul 9, 2026 · 09:14</span>
+                {canonical?.fired_at && <span>{firedLabel}</span>}
               </div>
 
-              <section className="model-routing" aria-label="Agent model routing">
-                <div>
-                  <span className="mono-label">Best model for the job</span>
-                  <h2>{agentMeta.harness || 'Agent'} model routing</h2>
-                </div>
-                <div className="model-grid">
-                  {routingRows.map((row) => (
-                    <div className="model-cell" key={row.role}>
-                      <span>{row.role}</span>
-                      <b title={row.model}>{friendlyModelName(row.model)}</b>
-                      <small>{row.note}</small>
-                    </div>
-                  ))}
-                </div>
-              </section>
+              {routingRows.length > 0 && (
+                <section className="model-routing" aria-label="Agent model routing">
+                  <div>
+                    <span className="mono-label">Best model for the job</span>
+                    <h2>{agentMeta.harness || 'Agent'} model routing</h2>
+                  </div>
+                  <div className="model-grid">
+                    {routingRows.map((row) => (
+                      <div className="model-cell" key={row.role}>
+                        <span>{row.role}</span>
+                        <b title={row.model}>{friendlyModelName(row.model)}</b>
+                        <small>{row.note}</small>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {streaming && thinking && (
                 <ThinkingLine steps={thinkingTrace} enabled={streaming} onDone={onThinkingDone} />
               )}
 
-              {(!streaming || (!thinking && beat >= 1)) && (
-                <StreamRich
-                  className="lead"
-                  tokens={canonicalAnswer.lead}
-                  enabled={streaming && beat === 1}
-                  speed={4}
-                  onCite={jumpToCitation}
-                  onDone={advance}
-                />
-              )}
+              {answerBody ? (
+                <>
+                  {answerBody.lead && (!streaming || (!thinking && beat >= 1)) && (
+                    <StreamRich
+                      className="lead"
+                      tokens={answerBody.lead}
+                      enabled={streaming && beat === 1}
+                      speed={4}
+                      onCite={jumpToCitation}
+                      onDone={advance}
+                    />
+                  )}
 
-              {(!streaming || beat >= 2) && (
-                <div className="prose">
                   {(!streaming || beat >= 2) && (
-                    <StreamRich tokens={canonicalAnswer.why} enabled={streaming && beat === 2} onCite={jumpToCitation} onDone={advance} />
+                    <div className="prose">
+                      {answerBody.why && (!streaming || beat >= 2) && (
+                        <StreamRich tokens={answerBody.why} enabled={streaming && beat === 2} onCite={jumpToCitation} onDone={advance} />
+                      )}
+                      {answerBody.decided && (!streaming || beat >= 3) && (
+                        <StreamRich tokens={answerBody.decided} enabled={streaming && beat === 3} onCite={jumpToCitation} onDone={advance} />
+                      )}
+                    </div>
                   )}
-                  {(!streaming || beat >= 3) && (
-                    <StreamRich tokens={canonicalAnswer.decided} enabled={streaming && beat === 3} onCite={jumpToCitation} onDone={advance} />
+
+                  {quote && (!streaming || beat >= 4) && (
+                    <div className={cx('pull', beatClass(4))}>
+                      <span className="mono-label">The decision, verbatim</span>
+                      <div className="quote">{quote.text}</div>
+                      {quote.attr && <div className="attr">{quote.attr}</div>}
+                    </div>
                   )}
-                </div>
+
+                  {answerBody.impacted && (!streaming || beat >= 5) && (
+                    <div className="prose">
+                      <StreamRich tokens={answerBody.impacted} enabled={streaming && beat === 5} onCite={jumpToCitation} onDone={advance} />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <StreamParagraph className="lead" text={answerString} enabled={streaming && beat >= 1} speed={4} onDone={advance} />
               )}
 
-              {(!streaming || beat >= 4) && (
-                <div className={cx('pull', beatClass(4))}>
-                  <span className="mono-label">The decision, verbatim</span>
-                  <div className="quote">{canonicalAnswer.quote.text}</div>
-                  <div className="attr">Priya Mehta · #proj-orion · Jun 23, 2026 · 4:12 PM · cited as <b>[1]</b></div>
-                </div>
-              )}
-
-              {(!streaming || beat >= 5) && (
-                <div className="prose">
-                  <StreamRich tokens={canonicalAnswer.impacted} enabled={streaming && beat === 5} onCite={jumpToCitation} onDone={advance} />
-                </div>
-              )}
-
-              {(!streaming || beat >= 6) && (
+              {commitments.length > 0 && (!streaming || beat >= 6) && (
                 <table className={cx('commit-table', beatClass(6))}>
                   <thead>
                     <tr><th>Customer commitment</th><th>Original date</th><th>Now</th><th>Status</th></tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td><b>Acme Corp · production go-live</b><br />CASE-0012345 · MSA addendum · $1.2M ARR</td>
-                      <td>Jul 8, 2026</td>
-                      <td><b>Jul 22, 2026</b> proposed</td>
-                      <td><span className="status risk">RENEGOTIATING</span></td>
-                    </tr>
+                    {commitments.map((commit) => (
+                      <tr key={commit.external_id}>
+                        <td>
+                          <b>{commit.account_name} · {commit.subject}</b><br />
+                          {[commit.external_id, commit.arr_label].filter(Boolean).join(' · ')}
+                        </td>
+                        <td>{formatDateOnly(commit.contracted_go_live)}</td>
+                        <td>{commit.citation_n ? <>cited as <b>[{commit.citation_n}]</b></> : '—'}</td>
+                        <td><span className="status risk">{(commit.status || 'AT RISK').toUpperCase()}</span></td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               )}
 
-              {(!streaming || beat >= 7) && (
+              {planLength > 0 && (!streaming || beat >= 7) && (
                 <section className={cx('plan', beatClass(7))}>
                   <h2>How this answer was built</h2>
-                  <p className="plan-sub">Six tool calls · {corpusTotal} candidates considered · every step logged to <span>retrieval_runs</span></p>
-                  {canonicalPlan.map((step, i) => {
-                    const revealed = !streaming || planStage >= i;
-                    const running = streaming && planStage === i;
-                    if (!revealed) return null;
-                    return (
-                      <div className={cx('pstep', 'beat', 'is-in', running && 'is-running')} key={step.num}>
-                        <div className="pnum">{step.num}</div>
-                        <div className="pbody">
-                          <div className="fn">{step.fn} <span>{step.args}</span></div>
-                          <div className="desc">{step.desc}</div>
-                          <div className="res">→ {step.res}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {(!streaming || planStage >= canonicalPlan.length) && (
+                  <p className="plan-sub">{planLength} tool call{planLength === 1 ? '' : 's'}{corpusTotal != null && <> · {corpusTotal} candidates considered</>} · every step logged to <span>retrieval_runs</span></p>
+                  {structuredPlan.length > 0
+                    ? structuredPlan.map((step, i) => {
+                        const revealed = !streaming || planStage >= i;
+                        const running = streaming && planStage === i;
+                        if (!revealed) return null;
+                        return (
+                          <div className={cx('pstep', 'beat', 'is-in', running && 'is-running')} key={step.num}>
+                            <div className="pnum">{step.num}</div>
+                            <div className="pbody">
+                              <div className="fn">{step.fn} <span>{step.args}</span></div>
+                              <div className="desc">{step.desc}</div>
+                              <div className="res">→ {step.res}</div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    : stringPlan.map((step, i) => {
+                        const revealed = !streaming || planStage >= i;
+                        const running = streaming && planStage === i;
+                        if (!revealed) return null;
+                        return (
+                          <div className={cx('pstep', 'beat', 'is-in', running && 'is-running')} key={i}>
+                            <div className="pnum">{i + 1}</div>
+                            <div className="pbody">
+                              <div className="desc">{step}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  {(!streaming || planStage >= planLength) && (
                     <div className={cx('actions', 'beat', 'is-in', showTimelineGuide && 'guide-target guide-spotlight')}>
                       {showTimelineGuide && (
                         <GuideCoachmark
@@ -2181,7 +2283,7 @@ function AgentPage({
                 </section>
               )}
 
-              {(!streaming || planStage >= canonicalPlan.length) && (
+              {confidenceValue > 0 && (!streaming || planStage >= planLength) && (
                 <section className="coverage answer-confidence beat is-in" aria-label="Confidence calculation">
                   <div className="covrow"><span>Confidence</span><b>{confidenceLabel}</b></div>
                   <div className="meter"><i style={{ width: `${confidencePercent}%` }} /></div>
@@ -2190,10 +2292,12 @@ function AgentPage({
                   </p>
                   <div className="confidence-grid">
                     <div><span>Rank strength</span><b>{citedSourceCount} cited objects above the score cut</b></div>
-                    <div><span>Coverage</span><b>9 answer claims bound to citations</b></div>
+                    {claimCount > 0 && <div><span>Coverage</span><b>{claimCount} answer claims bound to citations</b></div>}
                     <div><span>Agreement</span><b>{citedSystemCount} systems support the same timeline</b></div>
                   </div>
-                  <p className="covnote"><b>✓ No contradictions</b> found by compare_sources across the {citedSourceCount} cited objects. 1 candidate excluded below the 0.55 score cut.</p>
+                  {canonical?.funnel && (
+                    <p className="covnote"><b>✓ No contradictions</b> found by compare_sources across the {citedSourceCount} cited objects. {Math.max(0, (canonical.funnel.above_cut ?? 0) - (canonical.funnel.cited ?? 0))} candidate{Math.max(0, (canonical.funnel.above_cut ?? 0) - (canonical.funnel.cited ?? 0)) === 1 ? '' : 's'} excluded below the {canonical.rerank_cut} score cut.</p>
+                  )}
                 </section>
               )}
             </>
@@ -2201,23 +2305,31 @@ function AgentPage({
         </article>
 
         <aside className="sources-rail">
-          <span className="mono-label">Sources · 6 cited</span>
-          {evidence.slice(0, 6).map((result, index) => {
-            const citation = sourceCitations[result.external_id] || sourceCitations[result.source_system];
-            const meta = citation?.meta || `${sourceLabel(result.source_system).toUpperCase()} · final ${displayScore(result, index).toFixed(2)}`;
-            const why = citation?.why || `${sourceRoles[result.source_system]?.type || 'Evidence'} supporting the answer.`;
+          <span className="mono-label">Sources · {citations.length} cited</span>
+          {citations.map((citation, index) => {
+            // Prefer the live evidence row for this exact object; otherwise build a
+            // result straight from the citation, which carries object_id resolved
+            // server-side even for objects below the live top-k (e.g. PR-1287 [6]).
+            const result =
+              railResults.find((r) => r.external_id === citation.external_id) ||
+              (citation.object_id ? citationsToResults([citation])[0] : null);
+            const meta = citation.meta || `${sourceLabel(citation.source_system).toUpperCase()}${typeof citation.score === 'number' ? ` · score ${citation.score.toFixed(2)}` : ''}`;
+            const why = citation.why || 'Evidence supporting the answer.';
             const shown = railReady && (!streaming || thinking || beat >= 1 + index);
             return (
               <button
                 className={cx('src', 'beat', shown && 'is-in')}
                 style={streaming ? { transitionDelay: `${index * 40}ms` } : undefined}
-                key={`${result.source_system}-${result.external_id}-${index}`}
+                key={`${citation.source_system}-${citation.external_id}`}
+                onClick={() => onOpenDetail(result || null)}
+                disabled={!result?.object_id}
+                aria-label={`Citation ${citation.n}: ${citation.title} — open source detail`}
               >
-                <span className="srcnum">{index + 1}</span>
+                <span className="srcnum">{citation.n}</span>
                 <span className="srcbody">
                   <span className="srchead">
-                    {sourceIcon(result.source_system, 15)}
-                    <span className="t">{result.title}</span>
+                    {sourceIcon(citation.source_system, 15)}
+                    <span className="t">{citation.title}</span>
                   </span>
                   <span className="srcmeta">{meta}</span>
                   <span className="srcwhy">{why}</span>
@@ -2231,10 +2343,25 @@ function AgentPage({
   );
 }
 
+// Compact "Jun 18" style label for a timeline event's own moment.
+function eventDate(event: TimelineEvent) {
+  const value = event.updated_at || event.created_at;
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// Non-primary edge relations render muted (the .n class). Primary relations —
+// the ones that drive the delay narrative — render solid.
+const MUTED_EDGE_RELATIONS = new Set(['references', 'resolves', 'relates_to', 'mentions']);
+
 function TimelinePage({
   page,
   query,
   setQuery,
+  omniboxRef,
+  timeline,
   error,
   onSearch,
   guideStep,
@@ -2245,7 +2372,8 @@ function TimelinePage({
   page: Page;
   query: string;
   setQuery: (value: string) => void;
-  results: Result[];
+  omniboxRef?: React.RefObject<HTMLInputElement>;
+  timeline: TimelinePayload | null;
   error?: string;
   onSearch: () => void;
   guideStep?: GuideStep | null;
@@ -2256,76 +2384,96 @@ function TimelinePage({
   // The timeline assembles itself node-by-node, as if traverse_links() were
   // walking object_links live. One stage per event, plus the outcome card.
   const reducedMotion = useReducedMotion();
-  const streaming = !reducedMotion;
-  const stage = useStageSequence(trailEvents.length + 1, { enabled: streaming, beatMs: 520, startMs: 320 });
-  const walking = streaming && stage < trailEvents.length;
+  const events = timeline?.events || [];
+  const streaming = !reducedMotion && events.length > 0;
+  const stage = useStageSequence(events.length + 1, { enabled: streaming, beatMs: 520, startMs: 320 });
+  const walking = streaming && stage < events.length;
   const showDiagnosticsGuide = guideStep === 'diagnostics';
+
+  // Header stats + legend, derived from the live payload.
+  const systemCount = timeline?.systems?.length ?? new Set(events.map((e) => e.source_system)).size;
+  const edgeCount = timeline?.edge_count ?? events.reduce((sum, e) => sum + e.edges.length, 0);
+  const dateRange = events.length
+    ? `${eventDate(events[0])} — ${eventDate(events[events.length - 1])}, 2026`
+    : '';
+  const legendRelations = Array.from(new Set(events.flatMap((e) => e.edges.map((edge) => edge.link_type))));
+  const highlightTerms = deriveHighlightTerms(query || queryDefault);
 
   return (
     <section className="inner-screen">
-      <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
+      <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} omniboxRef={omniboxRef} />
       <div className="pagehead">
         <div className="eyebrow centered mono-label">Timeline</div>
         <h1>How the Orion delay <em>unfolded.</em></h1>
-        <div className="pagesub"><b>7 linked events · 5 systems</b> · Jun 12 — Jul 3, 2026 · assembled by <b>traverse_links()</b> over <b>object_links</b> · 9 edges followed</div>
-        <div className="legend">
-          {['blocks', 'caused-by', 'gates', 'decided-in', 'impacts', 'fixes', 'references'].map((edge) => (
-            <span className={cx('lg', edge === 'references' && 'n')} key={edge}>{edge}</span>
-          ))}
-        </div>
+        <div className="pagesub"><b>{events.length} linked events · {systemCount} systems</b>{dateRange && <> · {dateRange}</>} · assembled by <b>traverse_links()</b> over <b>object_links</b> · {edgeCount} edges followed</div>
+        {legendRelations.length > 0 && (
+          <div className="legend">
+            {legendRelations.map((relation) => (
+              <span className={cx('lg', MUTED_EDGE_RELATIONS.has(relation) && 'n')} key={relation}>{relation}</span>
+            ))}
+          </div>
+        )}
         {walking && (
           <div className="walking mono-label">traverse_links() building timeline<span className="caret" aria-hidden="true" /></div>
         )}
       </div>
       <ErrorBanner message={error} />
-      <div className="trail">
-        {trailEvents.map((event, index) => {
-          const shown = !streaming || stage >= index;
-          if (!shown) return null;
-          const hopShown = !streaming || stage >= index + 1;
-          return (
-            <React.Fragment key={event.date}>
-              <div className={cx('event', event.side, event.final && 'final', 'beat', 'is-in')}>
-                <span className="date">{event.date}</span>
-                <span className="dot" />
-                <div className="ecard">
-                  <div className="ehead">
-                    <div className="tile">{sourceIcon(event.system, 21)}</div>
-                    <div>
-                      <div className="etype">{event.type}</div>
-                      <div className="etitle">{event.title}</div>
+      {events.length === 0 ? (
+        <EmptyState title="No timeline yet" body="Run the agent to build the cross-system evidence timeline for this question." />
+      ) : (
+        <div className="trail">
+          {events.map((event, index) => {
+            const shown = !streaming || stage >= index;
+            if (!shown) return null;
+            const hopShown = !streaming || stage >= index + 1;
+            const primaryEdge = event.edges[0];
+            const hop = primaryEdge ? `${primaryEdge.link_type} → ${primaryEdge.to_external_id}` : undefined;
+            return (
+              <React.Fragment key={event.object_id}>
+                <div className={cx('event', index % 2 === 0 ? 'l' : 'r', index === events.length - 1 && 'final', 'beat', 'is-in')}>
+                  <span className="date">{eventDate(event)}</span>
+                  <span className="dot" />
+                  <div className="ecard">
+                    <div className="ehead">
+                      <div className="tile">{sourceIcon(event.source_system, 21)}</div>
+                      <div>
+                        <div className="etype">{event.source_type || sourceLabel(event.source_system)}{event.citation_n ? ` · cited [${event.citation_n}]` : ''}</div>
+                        <div className="etitle">{event.title}</div>
+                      </div>
                     </div>
+                    {event.snippet && <p className="ebody"><HighlightedSnippet text={event.snippet} terms={highlightTerms} /></p>}
+                    <div className="edges">{event.edges.map((edge) => (
+                      <span className={cx('edge', MUTED_EDGE_RELATIONS.has(edge.link_type) && 'n')} key={`${edge.link_type}-${edge.to_external_id}`}>
+                        {edge.link_type} → {edge.to_external_id}
+                      </span>
+                    ))}</div>
                   </div>
-                  <p className="ebody"><HighlightedSnippet text={event.body} /></p>
-                  <div className="edges">{event.edges.map((edge) => (
-                    <span className={cx('edge', /^(references|resolves) /.test(edge) && 'n')} key={edge}>{edge}</span>
-                  ))}</div>
                 </div>
-              </div>
-              {event.hop && index < trailEvents.length - 1 && hopShown && (
-                <div className="hop beat is-in"><span>{event.hop}</span></div>
+                {hop && index < events.length - 1 && hopShown && (
+                  <div className="hop beat is-in"><span>{hop}</span></div>
+                )}
+              </React.Fragment>
+            );
+          })}
+          {(!streaming || stage >= events.length) && (
+            <div className={cx('outcome', 'beat', 'is-in', showDiagnosticsGuide && 'guide-target guide-spotlight')}>
+              {showDiagnosticsGuide && (
+                <GuideCoachmark
+                  title="Inspect the run diagnostics"
+                  body="Timeline shows the linked evidence path. Diagnostics shows the ranker signals, candidate rows, and SQL trace behind the same run."
+                  onDismiss={() => onDismissGuide('diagnostics')}
+                  onSkip={onSkipGuide}
+                />
               )}
-            </React.Fragment>
-          );
-        })}
-        {(!streaming || stage >= trailEvents.length) && (
-          <div className={cx('outcome', 'beat', 'is-in', showDiagnosticsGuide && 'guide-target guide-spotlight')}>
-            {showDiagnosticsGuide && (
-              <GuideCoachmark
-                title="Inspect the run diagnostics"
-                body="Timeline shows the linked evidence path. Diagnostics shows the ranker signals, candidate rows, and SQL trace behind the same run."
-                onDismiss={() => onDismissGuide('diagnostics')}
-                onSkip={onSkipGuide}
-              />
-            )}
-            <span className="mono-label">Outcome</span>
-            <div className="big">GA lands <span className="date-accent">July 15</span> — blocker fixed, gate passed, and Acme's commitment renegotiated to <span className="date-accent">July 22</span> with the evidence path to prove it.</div>
-            <div className="outcome-actions">
-              <button className="btn primary" type="button" onClick={() => onNavigate('diagnostics')}>Open diagnostics</button>
+              <span className="mono-label">Outcome</span>
+              <div className="big">{events.length} linked source objects across {systemCount} systems, connected by {edgeCount} traversed edges — the full evidence path behind the Orion decision.</div>
+              <div className="outcome-actions">
+                <button className="btn primary" type="button" onClick={() => onNavigate('diagnostics')}>Open diagnostics</button>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -2334,6 +2482,10 @@ function DiagnosticsPage({
   page,
   query,
   setQuery,
+  omniboxRef,
+  canonical,
+  fusionSql,
+  corpusTotal,
   onSearch,
   guideStep,
   onDismissGuide,
@@ -2343,6 +2495,10 @@ function DiagnosticsPage({
   page: Page;
   query: string;
   setQuery: (value: string) => void;
+  omniboxRef?: React.RefObject<HTMLInputElement>;
+  canonical: CanonicalDiagnostics | null;
+  fusionSql: FusionSql | null;
+  corpusTotal?: number;
   onSearch: () => void;
   guideStep?: GuideStep | null;
   onDismissGuide: (step: GuideStep) => void;
@@ -2351,17 +2507,56 @@ function DiagnosticsPage({
 }) {
   const showProofGuide = guideStep === 'proof';
 
+  if (!canonical) {
+    return (
+      <section className="inner-screen">
+        <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} omniboxRef={omniboxRef} />
+        <main className="diagnostics-layout">
+          <EmptyState title="Diagnostics unavailable" body="The canonical run has not loaded yet. Ensure the API is running and the seed is restored (make seed-load)." />
+        </main>
+      </section>
+    );
+  }
+
+  // Every value below is derived from the live canonical metrics payload.
+  const funnel = canonical.funnel || {};
+  const fetched = corpusTotal ?? funnel.fetched ?? 0;
+  const cited = funnel.cited ?? 0;
+  const citedPct = fetched > 0 ? ((cited / fetched) * 100).toFixed(1) : '0';
+  const totalLatency = canonical.total_latency_ms ?? 0;
+  const stageTimings = canonical.stage_timings || [];
+  const peakStageMs = stageTimings.reduce((max, stage) => Math.max(max, stage.ms), 0);
+  const assemblyStage = stageTimings.find((stage) => /assembly/i.test(stage.stage));
+  const assemblyPct = assemblyStage && totalLatency > 0 ? Math.round((assemblyStage.ms / totalLatency) * 100) : 0;
+  const diagnosticsRows = canonical.metadata?.diagnostics_rows || [];
+  const weightsLabel = (canonical.ranker_weights || []).join(' / ');
+  const rankerCount = (canonical.ranker_weights || []).length;
+  const systemCount = canonical.system_count ?? 0;
+  const funnelRows: Array<[string, string, number, boolean?]> = [
+    ['fetched', String(fetched), 100],
+    ['deduped', String(funnel.deduped ?? 0), fetched > 0 ? Math.round(((funnel.deduped ?? 0) / fetched) * 100) : 0],
+    ['fused · top-k', String(funnel.fused ?? 0), fetched > 0 ? Math.round(((funnel.fused ?? 0) / fetched) * 100) : 0],
+    [`above cut ≥${canonical.rerank_cut}`, String(funnel.above_cut ?? 0), fetched > 0 ? Math.round(((funnel.above_cut ?? 0) / fetched) * 100) : 0],
+    ['cited', String(cited), fetched > 0 ? Math.round((cited / fetched) * 100) : 0, true]
+  ];
+  const stageRows: Array<[string, string, number, boolean?]> = stageTimings.map((stage) => [
+    stage.stage,
+    String(stage.ms),
+    peakStageMs > 0 ? Math.round((stage.ms / peakStageMs) * 100) : 0,
+    /assembly/i.test(stage.stage)
+  ]);
+
   return (
     <section className="inner-screen">
-      <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
+      <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} omniboxRef={omniboxRef} />
       <main className="diagnostics-layout">
         <div className="eyebrow mono-label">Retrieval diagnostics</div>
-        <h1>Run <em>rr_7f3a9c</em> — every rank, explained.</h1>
+        <h1>Run <em>{shortRunId(canonical.run_id || '')}</em> — every rank, explained.</h1>
         <div className="runmeta">
-          <span>profile <b>hybrid-rrf-final-v1</b></span>
-          <span>embedding <b>cohere.embed-v4 · 1024d</b></span>
-          <span>index <b>HNSW m=16 ef=64</b></span>
-          <span>fired <b>Jul 9, 2026 · 09:14:07</b></span>
+          <span>profile <b>{canonical.profile}</b></span>
+          <span>embedding <b>{canonical.embedding_model} · {canonical.embedding_dim}d</b></span>
+          <span>index <b>{canonical.index_spec}</b></span>
+          <span>fired <b>{formatDate(canonical.fired_at)}</b></span>
           <span>stored in <b>retrieval_runs</b></span>
         </div>
 
@@ -2369,13 +2564,13 @@ function DiagnosticsPage({
           <div className="audit-verdict">
             <span className="tech-pill">Run complete</span>
             <h2>Grounded answer path accepted.</h2>
-            <p>Hybrid retrieval produced six cited objects across five systems. The final answer passed source agreement checks, excluded weak candidates below the 0.55 cut, and persisted every candidate signal for inspection.</p>
+            <p>Hybrid retrieval produced {cited} cited objects across {systemCount} systems. The final answer passed source agreement checks, excluded weak candidates below the {canonical.rerank_cut} cut, and persisted every candidate signal for inspection.</p>
           </div>
           <div className="audit-checks">
             {[
-              ['6 / 6', 'cited objects above cut'],
-              ['5', 'systems represented'],
-              ['9', 'object_links traversed'],
+              [`${cited} / ${cited}`, 'cited objects above cut'],
+              [String(systemCount), 'systems represented'],
+              [String(funnel.above_cut ?? 0), 'candidates above cut'],
               ['0', 'contradictions found']
             ].map(([value, label]) => (
               <div className="audit-card" key={label}>
@@ -2388,10 +2583,10 @@ function DiagnosticsPage({
 
         <div className="tiles">
           {[
-            ['Total latency', '341', 'ms', <>p50 this profile: <b>318 ms</b></>],
-            ['Candidate funnel', <>{corpusTotal} <small>→</small> 6</>, '', <>fetched → cited · <b>4.0%</b></>],
-            ['Fusion', 'RRF', 'k = 60', <>3 rankers · weights <b>1 / 1 / 0.5</b></>],
-            ['Final score', '0.55', 'cut', <>SQL scoring · <b>24 candidates</b></>]
+            ['Total latency', String(totalLatency), 'ms', <>p50 this profile: <b>{canonical.p50_latency_ms} ms</b></>],
+            ['Candidate funnel', <>{fetched} <small>→</small> {cited}</>, '', <>fetched → cited · <b>{citedPct}%</b></>],
+            ['Fusion', 'RRF', `k = ${canonical.rrf_k}`, <>{rankerCount} rankers · weights <b>{weightsLabel}</b></>],
+            ['Final score', String(canonical.rerank_cut), 'cut', <>SQL scoring · <b>{canonical.reranked_count} candidates</b></>]
           ].map(([k, v, unit, d], index) => (
             <div className="stile" key={index}>
               <div className="k">{k}</div>
@@ -2405,8 +2600,8 @@ function DiagnosticsPage({
           {[
             ['01', 'Plan', 'Normalize the Orion question, scope project filters, and set source-system hints.'],
             ['02', 'Retrieve', 'Run full-text, pgvector, and pg_trgm retrieval concurrently inside Aurora.'],
-            ['03', 'Fuse', 'Collapse ranker overlap with RRF k=60 and keep the top 24 candidates.'],
-            ['04', 'Score', 'Apply SQL final scoring, source authority, recency, and the 0.55 cut.'],
+            ['03', 'Fuse', `Collapse ranker overlap with RRF k=${canonical.rrf_k} and keep the top ${funnel.fused ?? ''} candidates.`],
+            ['04', 'Score', `Apply SQL final scoring, source authority, recency, and the ${canonical.rerank_cut} cut.`],
             ['05', 'Prove', 'Persist candidates, citations, and judgments for replay and evaluation.']
           ].map(([num, title, body]) => (
             <div className="diag-step" key={num}>
@@ -2420,35 +2615,22 @@ function DiagnosticsPage({
         <div className="grid2">
           <BarPanel
             title="Where the time went"
-            subtitle="MS PER STAGE · TOTAL 341"
-            rows={[
-              ['parse + plan', '12', 5.7],
-              ['lexical · FTS', '38', 18.1],
-              ['semantic · vector', '54', 25.7],
-              ['fuzzy · trgm', '21', 10],
-              ['fusion · RRF', '6', 2.9],
-              ['answer assembly', '210', 100, true]
-            ]}
-            note={<>Answer assembly dominates at <b>62%</b> of latency after the top 24 fused candidates are selected. The three retrievals run concurrently in Aurora.</>}
+            subtitle={`MS PER STAGE · TOTAL ${totalLatency}`}
+            rows={stageRows}
+            note={assemblyStage ? <>Answer assembly dominates at <b>{assemblyPct}%</b> of latency after the top {funnel.fused ?? ''} fused candidates are selected. The three retrievals run concurrently in Aurora.</> : <>The three retrievals run concurrently in Aurora.</>}
           />
           <BarPanel
             title="Candidate funnel"
             subtitle="RETRIEVAL_CANDIDATES"
-            rows={[
-              ['fetched', String(corpusTotal), 100],
-              ['deduped', '92', 61.3],
-              ['fused · top-k', '24', 16],
-              ['above cut ≥.55', '12', 8],
-              ['cited', '6', 4, true]
-            ]}
-            note={<>58 duplicates collapsed across rankers — <b>overlap is a good sign</b>: 5 of 6 cited objects were found by ≥2 retrieval modes.</>}
+            rows={funnelRows}
+            note={<><b>{Math.max(0, fetched - (funnel.deduped ?? 0))} duplicates collapsed</b> across rankers — overlap is a good sign that cited objects were found by multiple retrieval modes.</>}
           />
         </div>
 
         <div className={cx('tablewrap', showProofGuide && 'guide-target guide-spotlight')}>
           <div className="twhead">
             <div className="ptitle">Top candidates, signal by signal</div>
-            <div className="psub">SHOWING 10 OF 24 · ORDER BY FINAL</div>
+            <div className="psub">SHOWING {diagnosticsRows.length} OF {canonical.reranked_count} · ORDER BY FINAL</div>
           </div>
           {showProofGuide && (
             <GuideCoachmark
@@ -2469,17 +2651,19 @@ function DiagnosticsPage({
             </thead>
             <tbody>
               {diagnosticsRows.map(([rank, system, title, fts, vec, trgm, rrf, finalScore, cited], index) => {
-                const cited6 = index < 6;
+                // The CITED column carries a ✓ for rows that became answer
+                // citations — derive the row emphasis from the data, not the index.
+                const isCited = typeof cited === 'string' && cited.includes('✓');
                 return (
-                  <tr className={cited6 ? 'cited' : ''} key={`${rank}-${title}`}>
-                    <td className={cited6 ? 'rk' : ''}>{rank}</td>
+                  <tr className={isCited ? 'cited' : ''} key={`${rank}-${title}-${index}`}>
+                    <td className={isCited ? 'rk' : ''}>{rank}</td>
                     <td className="l"><span className="srcobj">{sourceIcon(system, 15)}{title}<span>{sourceLabel(system).toUpperCase()}</span></span></td>
                     <td className={rankCellClass(fts)}>{fts}</td>
                     <td className={rankCellClass(vec)}>{vec}</td>
                     <td className={rankCellClass(trgm)}>{trgm}</td>
                     <td>{rrf}</td>
                     <td><span className="scorebar"><span className="tr"><i style={{ width: `${Number(finalScore) * 100}%` }} /></span>{finalScore}</span></td>
-                    <td className={cited6 ? 'ck' : 'cut'}>{cited}</td>
+                    <td className={isCited ? 'ck' : 'cut'}>{cited}</td>
                   </tr>
                 );
               })}
@@ -2491,9 +2675,27 @@ function DiagnosticsPage({
         <div className="sql">
           <div className="phead">
             <div className="ptitle">The fusion query, verbatim</div>
-            <div className="psub">EXPLAIN THE RANKING · AURORA POSTGRESQL</div>
+            <div className="psub">
+              {fusionSql?.engine ? fusionSql.engine.toUpperCase() : 'AURORA POSTGRESQL'} · pg_get_functiondef
+            </div>
           </div>
-          <pre dangerouslySetInnerHTML={{ __html: fusionQueryHtml }} />
+          {fusionSql && fusionSql.functions.length > 0 ? (
+            fusionSql.functions.map((fn) => (
+              <div className="sqlfn" key={fn.name}>
+                <div className="sqlfn-name">
+                  {fn.name}
+                  {fusionSql.primary === fn.name ? <span className="sqlfn-tag">fused ranker</span> : null}
+                </div>
+                <pre>{fn.definition}</pre>
+              </div>
+            ))
+          ) : (
+            <div className="sql-empty">
+              The deployed fusion functions are not present in this database. Run <b>make schema</b> to
+              apply <code>sql/03_search_functions.sql</code>, then reload — this panel renders the live
+              <code> ops.hybrid_search</code> definition verbatim from Aurora.
+            </div>
+          )}
         </div>
 
         <div className="pagefoot">
@@ -2543,7 +2745,8 @@ function DetailPage({
   detailLoading,
   error,
   onSearch,
-  onNavigate
+  onNavigate,
+  omniboxRef
 }: {
   page: Page;
   query: string;
@@ -2554,6 +2757,7 @@ function DetailPage({
   error?: string;
   onSearch: () => void;
   onNavigate: (page: Page) => void;
+  omniboxRef?: React.RefObject<HTMLInputElement>;
 }) {
   const citations = objectDetail?.citations || [];
   const chunks = objectDetail?.chunks || [];
@@ -2561,7 +2765,7 @@ function DetailPage({
 
   return (
     <section className="inner-screen">
-      <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} />
+      <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} omniboxRef={omniboxRef} />
       <main className="detail-layout">
         <button className="back-button" onClick={() => onNavigate('results')}>
           <ArrowLeft size={13} />
@@ -2657,6 +2861,14 @@ function App() {
   const [projectFilter, setProjectFilter] = useState<ProjectFilter>('ORION');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
+  // Live workspace data, hydrated from the read-only canonical endpoints on mount
+  // so every page renders real Aurora rows even before the user runs the agent.
+  const [canonical, setCanonical] = useState<CanonicalDiagnostics | null>(null);
+  const [timeline, setTimeline] = useState<TimelinePayload | null>(null);
+  const [graph, setGraph] = useState<GraphPayload | null>(null);
+  const [fusionSql, setFusionSql] = useState<FusionSql | null>(null);
+  const [corpus, setCorpus] = useState<CorpusProfile | null>(null);
+  const omniboxRef = useRef<HTMLInputElement>(null);
 
   const guideDismissed = (step: GuideStep) => dismissedGuideSteps.includes(step);
 
@@ -2687,8 +2899,8 @@ function App() {
   function navigate(pageTarget: Page) {
     setLoading(false);
     setError(undefined);
-    if (pageTarget !== 'landing' && (page === 'landing' || !query.trim())) setQuery(showcaseQuery);
-    if (pageTarget === 'detail' && !selected) setSelected(demoResults[0]);
+    if (pageTarget !== 'landing' && (page === 'landing' || !query.trim())) setQuery(queryDefault);
+    if (pageTarget === 'detail' && !selected) setSelected(citedResults[0] || null);
     if (pageTarget === 'results' && results.length > 0) activateGuide('answer');
     if (pageTarget === 'agent') activateGuide('timeline');
     if (pageTarget === 'trail') {
@@ -2709,6 +2921,76 @@ function App() {
 
   useEffect(() => {
     resetGuideFromUrl();
+  }, []);
+
+  // Hydrate the workspace from the read-only canonical + corpus endpoints once on
+  // mount. These create no retrieval run, so the landing hero, Diagnostics, and
+  // the Answer rail render live Aurora rows immediately. Timeline and graph are
+  // keyed to the canonical run; when the user runs the agent, runId updates and
+  // the effect below refetches them for that run.
+  useEffect(() => {
+    let active = true;
+    const load = async <T,>(path: string, set: (value: T) => void) => {
+      try {
+        const resp = await fetch(`${API_URL}${path}`);
+        if (!resp.ok) return;
+        const json = (await resp.json()) as T;
+        if (active) set(json);
+      } catch {
+        // Leave the slice null; pages fall back to a graceful empty state.
+      }
+    };
+    void load<CanonicalDiagnostics>('/v1/diagnostics/canonical', setCanonical);
+    void load<CorpusProfile>('/v1/diagnostics/corpus', setCorpus);
+    void load<FusionSql>('/v1/diagnostics/fusion-sql', setFusionSql);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Timeline + graph follow the active run: the canonical run on load, then the
+  // live run once the user asks the agent. Both derive from object_links in Aurora.
+  useEffect(() => {
+    let active = true;
+    const target = runId || canonical?.run_id;
+    if (!target) return;
+    const load = async <T,>(path: string, set: (value: T) => void) => {
+      try {
+        const resp = await fetch(`${API_URL}${path}`);
+        if (!resp.ok) return;
+        const json = (await resp.json()) as T;
+        if (active) set(json);
+      } catch {
+        // Non-fatal; the page shows an empty state.
+      }
+    };
+    void load<TimelinePayload>(`/v1/runs/${target}/timeline`, setTimeline);
+    void load<GraphPayload>(`/v1/runs/${target}/graph`, setGraph);
+    return () => {
+      active = false;
+    };
+  }, [runId, canonical?.run_id]);
+
+  // ⌘K / Ctrl-K focuses the search box from anywhere. On the landing page the
+  // composer input carries the .landing-search class; on inner pages it is the
+  // omnibox (wired via omniboxRef). Escape blurs it.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        const target =
+          omniboxRef.current ||
+          (document.querySelector('.landing-search input') as HTMLInputElement | null);
+        target?.focus();
+        target?.select();
+      } else if (event.key === 'Escape') {
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (activeEl?.tagName === 'INPUT') activeEl.blur();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   useEffect(() => {
@@ -2746,6 +3028,25 @@ function App() {
       active = false;
     };
   }, [page, selected?.object_id]);
+
+  // The cited evidence set for the answer rail + detail fallback: the live agent
+  // citations when the user has run the agent, otherwise the canonical run's
+  // cited objects (fetched read-only on mount). Both are real Aurora rows.
+  const activeCitations =
+    (agentPayload.citations && agentPayload.citations.length > 0
+      ? agentPayload.citations
+      : canonical?.citations) || [];
+  const citedResults = citationsToResults(activeCitations);
+  // Total corpus size for the "All" chip + funnel, live from the corpus profile.
+  const corpusTotal = corpus?.profile?.objects ?? canonical?.funnel?.fetched;
+  // Per-system live object counts for the filter chips.
+  const systemCounts = (() => {
+    const counts: Record<string, number> = {};
+    for (const row of corpus?.source_distribution || []) {
+      counts[row.source_system] = (counts[row.source_system] || 0) + row.object_count;
+    }
+    return counts;
+  })();
 
   async function runSearch(queryOverride?: string, overrides: Partial<{
     sourceFilter: SourceFilter;
@@ -2790,7 +3091,7 @@ function App() {
       });
       if (!resp.ok) throw new Error(`Search failed with HTTP ${resp.status}`);
       const json = (await resp.json()) as SearchResponse;
-      const rows = (json.results || []).map(normalizeResult);
+      const rows = dedupeResults(json.results || []);
       setRunId(json.run_id);
       setResults(rows);
       setSelected(rows[0] || null);
@@ -2825,6 +3126,17 @@ function App() {
     void runSearch(undefined, { priorityFilter: value });
   }
 
+  // Open a specific object's Detail view — used by the Answer page's cited-source
+  // buttons. The citation carries object_id (resolved server-side), so the detail
+  // fetch effect (keyed on selected.object_id) loads the live source object.
+  function openDetailFor(result: Result | null) {
+    if (!result?.object_id) return;
+    setSelected(result);
+    setError(undefined);
+    setLoading(false);
+    setPage('detail');
+  }
+
   async function runAgent(queryOverride?: string) {
     dismissGuide('answer');
     const question = (queryOverride ?? query).trim() || queryDefault;
@@ -2840,15 +3152,14 @@ function App() {
       });
       if (!resp.ok) throw new Error(`Agent answer failed with HTTP ${resp.status}`);
       const json = (await resp.json()) as AgentPayload;
-      const rows = (json.results || []).map(normalizeResult);
+      const rows = dedupeResults(json.results || []);
       setAgentPayload(json);
       setResults(rows);
       setSelected(rows[0] || selected);
       setRunId((current) => json.run_id || current);
     } catch (err) {
-      // On stage the API may be offline; the canonical Orion narrative is the
-      // fallback so the demo always streams. Keep results empty so the rail
-      // falls back to the ordered demo evidence.
+      // Surface the failure rather than substituting canned content: the answer
+      // page renders the error banner and its empty state. No offline fallback.
       setAgentPayload({});
       setError(err instanceof Error ? err.message : 'Agent answer failed. Check the API and local Postgres setup.');
     } finally {
@@ -2860,7 +3171,17 @@ function App() {
   if (page === 'landing') {
     // A question from the landing page opens Evidence first. The workshop
     // teaches retrieval before synthesis, then lets participants move to Answer.
-    return <Landing query={query} setQuery={setQuery} onSearch={runSearch} onNavigate={navigate} error={error} />;
+    return (
+      <Landing
+        query={query}
+        setQuery={setQuery}
+        onSearch={runSearch}
+        onNavigate={navigate}
+        error={error}
+        heroNodes={deriveHeroNodes(citedResults, canonical)}
+        heroScore={typeof canonical?.confidence === 'number' ? canonical.confidence : null}
+      />
+    );
   }
 
   if (page === 'detail') {
@@ -2869,6 +3190,7 @@ function App() {
         page={page}
         query={query}
         setQuery={setQuery}
+        omniboxRef={omniboxRef}
         selected={selected}
         objectDetail={objectDetail}
         detailLoading={detailLoading}
@@ -2885,7 +3207,8 @@ function App() {
         page={page}
         query={query}
         setQuery={setQuery}
-        results={results}
+        omniboxRef={omniboxRef}
+        timeline={timeline}
         error={error}
         onSearch={runSearch}
         guideStep={activeGuideStep}
@@ -2902,7 +3225,9 @@ function App() {
         page={page}
         query={query}
         setQuery={setQuery}
+        omniboxRef={omniboxRef}
         agentPayload={agentPayload}
+        canonical={canonical}
         runId={runId}
         error={error}
         loading={loading}
@@ -2912,7 +3237,9 @@ function App() {
         onDismissGuide={dismissGuide}
         onSkipGuide={skipGuide}
         onNavigate={navigate}
-        results={results}
+        citedResults={citedResults}
+        corpusTotal={corpusTotal}
+        onOpenDetail={openDetailFor}
       />
     );
   }
@@ -2923,6 +3250,10 @@ function App() {
         page={page}
         query={query}
         setQuery={setQuery}
+        omniboxRef={omniboxRef}
+        canonical={canonical}
+        fusionSql={fusionSql}
+        corpusTotal={corpusTotal}
         onSearch={runSearch}
         guideStep={activeGuideStep}
         onDismissGuide={dismissGuide}
@@ -2937,7 +3268,13 @@ function App() {
       page={page}
       query={query}
       setQuery={setQuery}
+      omniboxRef={omniboxRef}
       results={results}
+      citedResults={citedResults}
+      graph={graph}
+      canonical={canonical}
+      corpusTotal={corpusTotal}
+      systemCounts={systemCounts}
       selected={selected}
       runId={runId}
       error={error}

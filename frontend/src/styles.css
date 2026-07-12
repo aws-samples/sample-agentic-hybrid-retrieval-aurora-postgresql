@@ -3485,6 +3485,49 @@ tbody td.na {
   color: var(--code-st);
 }
 
+/* Live fusion-SQL: one block per deployed function (pg_get_functiondef). */
+.sql .sqlfn + .sqlfn {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sql .sqlfn-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--on-ink);
+  margin-bottom: 10px;
+}
+
+.sql .sqlfn-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--on-ink);
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.sql .sql-empty {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--on-ink-soft);
+}
+
+.sql .sql-empty code {
+  color: var(--on-ink);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
 /* Detail */
 .detail-layout {
   max-width: 1080px;

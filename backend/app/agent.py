@@ -131,6 +131,91 @@ def lookup_canonical_answer(question: str) -> dict[str, Any] | None:
         return None
 
 
+def _attach_object_ids(citations: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Resolve each citation's object_id from source_objects so the UI can deep-link.
+
+    The stored citations key on (source_system, external_id); the live results only
+    cover the top-k, so a cited object below the cut (e.g. the GitHub PR) would have
+    no object_id if we joined against results alone. Resolve straight from the
+    canonical source_objects table instead.
+    """
+    if not citations:
+        return citations or []
+    pairs = [(c.get("source_system"), c.get("external_id")) for c in citations if c.get("external_id")]
+    if not pairs:
+        return citations
+    systems = [p[0] for p in pairs]
+    externals = [p[1] for p in pairs]
+    id_by_key: dict[str, str] = {}
+    try:
+        with get_dict_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT source_system, external_id, object_id
+                    FROM ops.source_objects
+                    WHERE source_system = ANY(%s) AND external_id = ANY(%s)
+                    """,
+                    (systems, externals),
+                )
+                for row in cur.fetchall():
+                    id_by_key[f"{row['source_system']}:{row['external_id']}"] = str(row["object_id"])
+    except Exception:
+        return citations
+    return [
+        {**c, "object_id": id_by_key.get(f"{c.get('source_system')}:{c.get('external_id')}")}
+        for c in citations
+    ]
+
+
+def _derive_commitments(citations: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """Structured impacted-commitment rows, derived live from cited object metadata.
+
+    The commit table on the Answer page shows real contractual facts (account, ARR,
+    contracted go-live date, current status). Those live in the Salesforce object's
+    metadata in Aurora — never hard-coded — so we read them from the cited objects
+    here. Narrative details (renegotiated date, credits) stay in the answer prose.
+    """
+    if not citations:
+        return []
+    object_ids = [c["object_id"] for c in citations if c.get("object_id") and c.get("source_system") == "salesforce"]
+    if not object_ids:
+        return []
+    rows: list[dict[str, Any]] = []
+    try:
+        with get_dict_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT object_id, external_id, account_name, status, priority, metadata
+                    FROM ops.source_objects
+                    WHERE object_id = ANY(%s::uuid[])
+                    """,
+                    (object_ids,),
+                )
+                fetched = cur.fetchall()
+    except Exception:
+        return []
+    n_by_object = {c["object_id"]: c.get("n") for c in citations if c.get("object_id")}
+    for row in fetched:
+        md = row.get("metadata") or {}
+        arr = md.get("ARR")
+        rows.append(
+            {
+                "citation_n": n_by_object.get(str(row["object_id"])),
+                "account_name": row.get("account_name"),
+                "external_id": row["external_id"],
+                "subject": md.get("Subject"),
+                "arr": arr,
+                "arr_label": f"${arr / 1_000_000:.1f}M ARR" if isinstance(arr, (int, float)) else None,
+                "contracted_go_live": md.get("ContractGoLive"),
+                "status": row.get("status"),
+                "priority": row.get("priority"),
+            }
+        )
+    return rows
+
+
 def _index_citations(results: list[dict[str, Any]]) -> dict[str, int]:
     return {f"{r['source_system']}:{r['external_id']}": i + 1 for i, r in enumerate(results[:8])}
 
@@ -230,6 +315,7 @@ def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
     canonical = lookup_canonical_answer(req.question)
     if canonical:
         answer_body = canonical["answer"]
+        citations = _attach_object_ids(canonical["citations"])
         return {
             "question": req.question,
             "agent": metadata,
@@ -240,21 +326,23 @@ def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
             "system_count": canonical["system_count"],
             "answer": answer_body.get("body") if isinstance(answer_body, dict) else answer_body,
             "plan": answer_body.get("plan") if isinstance(answer_body, dict) else None,
-            "citations": canonical["citations"],
+            "citations": citations,
+            "commitments": _derive_commitments(citations),
             "metrics": canonical.get("metrics"),
             "results": results,
         }
 
-    citations = [
+    citations = _attach_object_ids([
         {
             "n": i + 1,
             "source_system": r["source_system"],
             "external_id": r["external_id"],
             "title": r["title"],
             "url": r["url"],
+            "object_id": r.get("object_id"),
         }
         for i, r in enumerate(results[:8])
-    ]
+    ])
     answer = synthesize_answer(req.question, results)
     return {
         "question": req.question,
@@ -269,5 +357,6 @@ def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
         ],
         "answer": answer,
         "citations": citations,
+        "commitments": _derive_commitments(citations),
         "results": results,
     }
