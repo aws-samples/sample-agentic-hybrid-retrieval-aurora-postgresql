@@ -10,7 +10,7 @@ import strandsLogoUrl from './assets/strands-logo.png';
 import './styles.css';
 
 type Page = 'landing' | 'results' | 'detail' | 'trail' | 'agent' | 'diagnostics';
-type GuideStep = 'answer' | 'timeline' | 'diagnostics' | 'proof';
+type GuideStep = 'search' | 'evidence' | 'answer' | 'timeline' | 'diagnostics' | 'proof';
 type SourceFilter = 'all' | 'slack' | 'jira' | 'confluence' | 'salesforce' | 'github';
 type RankMode = 'hybrid' | 'semantic' | 'lexical' | 'recent';
 type TimeWindow = '90d' | '30d' | '7d' | 'all';
@@ -278,7 +278,7 @@ const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'AuraLens';
 const ENABLE_ANSWER_STREAMING = import.meta.env.VITE_ENABLE_ANSWER_STREAMING !== '0';
 const ENABLE_GUIDED_DISCOVERY = import.meta.env.VITE_ENABLE_GUIDED_DISCOVERY !== '0';
 const GUIDE_STORAGE_KEY = 'auralens-guided-discovery-v1';
-const guideSteps: GuideStep[] = ['answer', 'timeline', 'diagnostics', 'proof'];
+const guideSteps: GuideStep[] = ['search', 'evidence', 'answer', 'timeline', 'diagnostics', 'proof'];
 const STRANDS_URL = 'https://strandsagents.com/';
 const GITHUB_REPO_URL = 'https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql';
 const FINAL_SCORE_HELP = 'Unbounded composite score from Aurora SQL: RRF + full-text + semantic vector + fuzzy + metadata + recency. It is not a raw Cohere similarity score or a probability.';
@@ -719,12 +719,18 @@ function GuideCoachmark({
   title,
   body,
   onDismiss,
-  onSkip
+  onSkip,
+  focusSelector,
+  primaryLabel = 'OK',
+  secondaryLabel = 'Dismiss guide'
 }: {
   title: string;
   body: string;
   onDismiss: () => void;
   onSkip: () => void;
+  focusSelector?: string;
+  primaryLabel?: string;
+  secondaryLabel?: string;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -739,9 +745,13 @@ function GuideCoachmark({
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         target.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
       }
+      if (focusSelector) {
+        const focusTarget = target.querySelector<HTMLElement>(focusSelector);
+        window.setTimeout(() => focusTarget?.focus({ preventScroll: true }), 160);
+      }
     }, 80);
     return () => window.clearTimeout(timerId);
-  }, [title]);
+  }, [focusSelector, title]);
 
   return (
     <div className="guide-card" role="region" aria-label="Guided discovery" ref={cardRef}>
@@ -749,8 +759,8 @@ function GuideCoachmark({
       <b>{title}</b>
       <p>{body}</p>
       <div className="guide-actions">
-        <button type="button" onClick={onDismiss}>Got it</button>
-        <button type="button" onClick={onSkip}>Skip guide</button>
+        <button type="button" onClick={onDismiss}>{primaryLabel}</button>
+        <button type="button" onClick={onSkip}>{secondaryLabel}</button>
       </div>
     </div>
   );
@@ -1033,7 +1043,10 @@ function Landing({
   onNavigate,
   error,
   heroNodes,
-  heroScore
+  heroScore,
+  guideStep,
+  onDismissGuide,
+  onSkipGuide
 }: {
   query: string;
   setQuery: (value: string) => void;
@@ -1042,7 +1055,11 @@ function Landing({
   error?: string;
   heroNodes: HeroNode[];
   heroScore?: number | null;
+  guideStep?: GuideStep | null;
+  onDismissGuide: (step: GuideStep) => void;
+  onSkipGuide: () => void;
 }) {
+  const showSearchGuide = guideStep === 'search';
   return (
     <div className="landing-page">
       <nav className="topnav">
@@ -1137,7 +1154,16 @@ function Landing({
             ))}
           </div>
 
-          <div className="searchwrap">
+          <div className={cx('searchwrap', showSearchGuide && 'guide-target guide-spotlight')}>
+            {showSearchGuide && (
+              <GuideCoachmark
+                title="Start with search"
+                body="Use the suggested Orion question or type your own, then click Search to inspect the ranked evidence."
+                onDismiss={() => onDismissGuide('search')}
+                onSkip={onSkipGuide}
+                focusSelector="input"
+              />
+            )}
             <SearchComposer query={query} setQuery={setQuery} onSearch={onSearch} autoType className="landing-composer" />
           </div>
         </section>
@@ -1599,6 +1625,7 @@ function ResultsPage({
     rankMode
   );
   const showAnswerGuide = guideStep === 'answer';
+  const showEvidenceGuide = guideStep === 'evidence';
   // Highlight the LIVE query terms in each snippet — derived from what was searched,
   // never a hard-coded phrase list.
   const highlightTerms = deriveHighlightTerms(query || queryDefault);
@@ -1745,16 +1772,26 @@ function ResultsPage({
             <EmptyState title="No evidence matched" body="Adjust the source, window, project, status, or priority filter and run the search again." />
           ) : (
             <>
-              <div className="thread-col">
-                {visibleEvidence.map((result, index) => (
-                  <ResultCard
-                    key={`${result.source_system}-${result.external_id}-${pageStart + index}`}
-                    result={result}
-                    index={pageStart + index}
-                    onOpen={() => openResult(result)}
-                    highlightTerms={highlightTerms}
+              <div className={cx('evidence-focus', showEvidenceGuide && 'guide-target guide-spotlight')}>
+                {showEvidenceGuide && (
+                  <GuideCoachmark
+                    title="Inspect the evidence"
+                    body="Start with the ranked cards: source, snippet, score, and matched signals. Then open Agent Answer to see how these sources become cited claims."
+                    onDismiss={() => onDismissGuide('evidence')}
+                    onSkip={onSkipGuide}
                   />
-                ))}
+                )}
+                <div className="thread-col">
+                  {visibleEvidence.map((result, index) => (
+                    <ResultCard
+                      key={`${result.source_system}-${result.external_id}-${pageStart + index}`}
+                      result={result}
+                      index={pageStart + index}
+                      onOpen={() => openResult(result)}
+                      highlightTerms={highlightTerms}
+                    />
+                  ))}
+                </div>
               </div>
               {evidence.length > RESULTS_PAGE_SIZE && (
                 <nav className="results-pager" aria-label="Evidence pagination">
@@ -3045,6 +3082,9 @@ function App() {
   function dismissGuide(step: GuideStep) {
     setDismissedGuideSteps((current) => current.includes(step) ? current : [...current, step]);
     setActiveGuideStep((current) => current === step ? null : current);
+    if (step === 'evidence' && page === 'results') {
+      window.setTimeout(() => activateGuide('answer'), 140);
+    }
   }
 
   function skipGuide() {
@@ -3087,6 +3127,10 @@ function App() {
   useEffect(() => {
     resetGuideFromUrl();
   }, []);
+
+  useEffect(() => {
+    if (page === 'landing') activateGuide('search');
+  }, [page, dismissedGuideSteps]);
 
   // Hydrate the workspace from the read-only canonical + corpus endpoints once on
   // mount. These create no retrieval run, so the landing hero, Diagnostics, and
@@ -3150,17 +3194,24 @@ function App() {
         target?.focus();
         target?.select();
       } else if (event.key === 'Escape') {
+        if (activeGuideStep) {
+          event.preventDefault();
+          dismissGuide(activeGuideStep);
+          return;
+        }
         const activeEl = document.activeElement as HTMLElement | null;
         if (activeEl?.tagName === 'INPUT') activeEl.blur();
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [activeGuideStep]);
 
   useEffect(() => {
     if (!activeGuideStep) return;
     const allowed: Record<GuideStep, Page[]> = {
+      search: ['landing'],
+      evidence: ['results'],
       answer: ['results'],
       timeline: ['agent'],
       diagnostics: ['trail'],
@@ -3231,6 +3282,7 @@ function App() {
       : [nextSourceFilter];
     const startDate = startDateForWindow(nextTimeWindow);
 
+    if (activeGuideStep === 'search') dismissGuide('search');
     setQuery(searchQuery);
     setSourceFilter(nextSourceFilter);
     setTimeWindow(nextTimeWindow);
@@ -3264,7 +3316,11 @@ function App() {
       setRunId(json.run_id);
       setResults(rows);
       setSelected(rows[0] || null);
-      activateGuide('answer');
+      if (!guideDismissed('evidence')) {
+        activateGuide('evidence');
+      } else {
+        activateGuide('answer');
+      }
     } catch (err) {
       setRunId(undefined);
       setResults([]);
@@ -3337,10 +3393,17 @@ function App() {
     }
   }
 
+  const withGuideBackdrop = (content: React.ReactElement) => (
+    <>
+      {activeGuideStep && <div className="guide-backdrop" aria-hidden="true" />}
+      {content}
+    </>
+  );
+
   if (page === 'landing') {
     // A question from the landing page opens Evidence first. The workshop
     // teaches retrieval before synthesis, then lets participants move to Answer.
-    return (
+    return withGuideBackdrop(
       <Landing
         query={query}
         setQuery={setQuery}
@@ -3349,12 +3412,15 @@ function App() {
         error={error}
         heroNodes={deriveHeroNodes(citedResults, canonical)}
         heroScore={typeof canonical?.confidence === 'number' ? canonical.confidence : null}
+        guideStep={activeGuideStep}
+        onDismissGuide={dismissGuide}
+        onSkipGuide={skipGuide}
       />
     );
   }
 
   if (page === 'detail') {
-    return (
+    return withGuideBackdrop(
       <DetailPage
         page={page}
         query={query}
@@ -3371,7 +3437,7 @@ function App() {
   }
 
   if (page === 'trail') {
-    return (
+    return withGuideBackdrop(
       <TimelinePage
         page={page}
         query={query}
@@ -3389,7 +3455,7 @@ function App() {
   }
 
   if (page === 'agent') {
-    return (
+    return withGuideBackdrop(
       <AgentPage
         page={page}
         query={query}
@@ -3414,7 +3480,7 @@ function App() {
   }
 
   if (page === 'diagnostics') {
-    return (
+    return withGuideBackdrop(
       <DiagnosticsPage
         page={page}
         query={query}
@@ -3432,7 +3498,7 @@ function App() {
     );
   }
 
-  return (
+  return withGuideBackdrop(
     <ResultsPage
       page={page}
       query={query}

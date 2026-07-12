@@ -231,11 +231,49 @@ kbd {
 .guide-target {
   position: relative;
   isolation: isolate;
+  z-index: 45;
+  scroll-margin: 110px;
 }
 
 .guide-spotlight {
   border-color: rgba(193, 58, 38, 0.44);
   box-shadow: 0 0 0 3px rgba(193, 58, 38, 0.1), var(--shadow-card);
+  animation: guideSpotlight 2.2s ease-in-out infinite;
+}
+
+.guide-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  pointer-events: auto;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 250, 246, 0.11), rgba(255, 250, 246, 0) 30%),
+    rgba(33, 28, 22, 0.48);
+  backdrop-filter: blur(1.5px) saturate(0.82);
+  animation: guideBackdropIn 0.18s ease-out both;
+}
+
+@keyframes guideBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes guideSpotlight {
+  0%, 100% {
+    border-color: rgba(193, 58, 38, 0.34);
+    box-shadow:
+      0 0 0 3px rgba(193, 58, 38, 0.11),
+      0 20px 55px -32px rgba(33, 28, 22, 0.42),
+      var(--shadow-card);
+  }
+  48% {
+    border-color: rgba(193, 58, 38, 0.68);
+    box-shadow:
+      0 0 0 7px rgba(193, 58, 38, 0.18),
+      0 0 0 14px rgba(193, 58, 38, 0.08),
+      0 26px 70px -34px rgba(33, 28, 22, 0.58),
+      var(--shadow-card);
+  }
 }
 
 .guide-card {
@@ -247,6 +285,29 @@ kbd {
   box-shadow: 0 16px 34px -28px rgba(33, 28, 22, 0.4);
   padding: 14px;
   text-align: left;
+  animation: guideCardIn 0.22s ease-out both;
+}
+
+.searchwrap.guide-spotlight {
+  border: 1px solid rgba(193, 58, 38, 0.34);
+  border-radius: 22px;
+  background: rgba(255, 250, 246, 0.96);
+  padding: 14px;
+}
+
+.searchwrap .guide-card {
+  margin: 0 0 12px;
+}
+
+@keyframes guideCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .guide-kicker {
@@ -1592,6 +1653,18 @@ kbd {
 .thread-col {
   position: relative;
   padding-left: 26px;
+}
+
+.evidence-focus.guide-spotlight {
+  border: 1px solid rgba(193, 58, 38, 0.34);
+  border-radius: 20px;
+  background: rgba(255, 250, 246, 0.96);
+  padding: 16px 18px 2px;
+  margin: -8px -18px 16px;
+}
+
+.evidence-focus .guide-card {
+  margin-bottom: 16px;
 }
 
 .thread-col::before {
