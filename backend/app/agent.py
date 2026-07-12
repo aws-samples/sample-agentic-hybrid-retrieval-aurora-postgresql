@@ -227,51 +227,55 @@ def _citation(row: dict[str, Any] | None, index: dict[str, int]) -> str:
     return f"[{index[key]}]" if key in index else ""
 
 
-def _first_by_source(results: list[dict[str, Any]], source_system: str) -> dict[str, Any] | None:
-    return next((row for row in results if row["source_system"] == source_system), None)
+def _compact_text(value: Any, limit: int = 260) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
+def _source_name(row: dict[str, Any]) -> str:
+    system = str(row.get("source_system") or "source").replace("_", " ").title()
+    source_type = row.get("source_type")
+    if source_type:
+        return f"{system} {source_type}"
+    return system
+
+
+def _row_summary(row: dict[str, Any], citation_index: dict[str, int]) -> str:
+    citation = _citation(row, citation_index)
+    source = _source_name(row)
+    external_id = row.get("external_id") or "source object"
+    title = _compact_text(row.get("title"), 120)
+    snippet = _compact_text(row.get("snippet") or title)
+    meta_parts = [
+        row.get("status"),
+        row.get("priority"),
+        row.get("owner"),
+        row.get("account_name"),
+        row.get("component"),
+    ]
+    meta = " · ".join(str(part) for part in meta_parts if part)
+    prefix = f"{source} {external_id}"
+    if title:
+        prefix = f"{prefix} — {title}"
+    if meta:
+        prefix = f"{prefix} ({meta})"
+    return f"{prefix}: {snippet} {citation}".strip()
 
 
 def synthesize_answer(question: str, results: list[dict[str, Any]]) -> str:
     if not results:
-        return "No strong evidence was retrieved for this question. Broaden the filters or ingest more source objects before taking action."
+        return "No ranked evidence was retrieved for this question. Broaden the filters or ingest more source objects before taking action."
 
     citation_index = _index_citations(results)
-    jira = _first_by_source(results, "jira")
-    slack = _first_by_source(results, "slack")
-    salesforce = _first_by_source(results, "salesforce")
-    confluence = _first_by_source(results, "confluence")
-    github = _first_by_source(results, "github")
-    lead = results[0]
-
-    cause = (
-        f"Project Orion is delayed because {jira['external_id']} reports read replica lag above the release threshold, "
-        f"which blocks Blue/Green validation and production-readiness checks {_citation(jira, citation_index)}."
-        if jira
-        else f"The strongest retrieved evidence is {lead['external_id']}, which points to {lead['title']} {_citation(lead, citation_index)}."
-    )
-    decision = (
-        f" The Slack decision was to hold the cutover until soak results are clean, publish customer-facing status, "
-        f"and resume only after lag stays under threshold for the full soak period {_citation(slack, citation_index)}."
-        if slack
-        else ""
-    )
-    commitment = (
-        f" The impacted customer commitment is Acme Corp's monthly-close reporting path: Customer Engineering must provide a May 3 update "
-        f"and confirm whether the Orion cutover delay changes the go-live plan {_citation(salesforce, citation_index)}."
-        if salesforce
-        else ""
-    )
-    readiness = (
-        f" The readiness runbook makes clean soak results, the ORION blocker status, and customer communication release gates {_citation(confluence, citation_index)}."
-        if confluence
-        else ""
-    )
-    remediation = (
-        f" PR-1287 is merged, but the evidence still calls for another load/soak validation before reopening the cutover window {_citation(github, citation_index)}."
-        if github
-        else ""
-    )
-    return f"{cause}{decision}{commitment}{readiness}{remediation}"
+    cited_rows = results[: min(6, len(results))]
+    leading = _row_summary(cited_rows[0], citation_index)
+    supporting = [_row_summary(row, citation_index) for row in cited_rows[1:]]
+    answer = f"The highest-ranked evidence is {leading}."
+    if supporting:
+        answer += " Supporting evidence: " + " ".join(f"{item}." for item in supporting)
+    return answer
 
 
 def synthesize_cited_answer_impl(question: str, results: list[dict[str, Any]]) -> dict[str, Any]:
