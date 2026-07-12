@@ -101,6 +101,24 @@ def _norm_question(question: str) -> str:
     return " ".join((question or "").lower().split())
 
 
+def _canonical_lookup_norm(question: str) -> str:
+    norm = _norm_question(question)
+    if (
+        "orion" in norm
+        and (
+            "slip" in norm
+            or "delay" in norm
+            or "delayed" in norm
+            or "blocked" in norm
+            or "commitment" in norm
+            or "customer" in norm
+        )
+        and "page in prod" not in norm
+    ):
+        return _norm_question("Why did Orion slip?")
+    return norm
+
+
 def lookup_canonical_answer(question: str) -> dict[str, Any] | None:
     """Return the stored, cited answer for a known question, or None.
 
@@ -123,7 +141,7 @@ def lookup_canonical_answer(question: str) -> dict[str, Any] | None:
                     WHERE a.question_norm = %s
                     LIMIT 1
                     """,
-                    (_norm_question(question),),
+                    (_canonical_lookup_norm(question),),
                 )
                 return cur.fetchone()
     except Exception:

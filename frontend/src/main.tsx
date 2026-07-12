@@ -1125,8 +1125,8 @@ function Landing({
                     {node.score && <span className="nscore">{node.score}</span>}
                   </div>
                   <div className="ntitle">{node.title}</div>
-                  <div className="nmeta">{node.meta}</div>
                 </div>
+                <div className="nmeta">{node.meta}</div>
               </article>
             ))}
           </div>
@@ -1393,6 +1393,7 @@ function ResultsPage({
   omniboxRef,
   results,
   citedResults,
+  hasSearchRun,
   graph,
   canonical,
   corpusTotal,
@@ -1426,6 +1427,7 @@ function ResultsPage({
   omniboxRef?: React.RefObject<HTMLInputElement>;
   results: Result[];
   citedResults: Result[];
+  hasSearchRun: boolean;
   graph: GraphPayload | null;
   canonical: CanonicalDiagnostics | null;
   corpusTotal?: number;
@@ -1457,7 +1459,7 @@ function ResultsPage({
   const [evidencePage, setEvidencePage] = useState(0);
   // Live evidence: the search results when the user has run a query, otherwise the
   // canonical run's cited objects (fetched read-only on mount). Both are real rows.
-  const baseEvidence = results.length > 0 ? results : citedResults;
+  const baseEvidence = hasSearchRun || results.length > 0 ? results : citedResults;
   const evidence = sortByRankMode(
     baseEvidence.filter((result) => {
       if (sourceFilter !== 'all' && result.source_system !== sourceFilter) return false;
@@ -1510,6 +1512,7 @@ function ResultsPage({
       ].filter((entry): entry is [string, number] => typeof entry[1] === 'number'))
     : [];
   const rankerRows = rankerMix(canonical?.metadata?.diagnostics_rows);
+  const evidenceReady = !loading && evidence.length > 0;
 
   useEffect(() => {
     setEvidencePage(0);
@@ -1582,21 +1585,31 @@ function ResultsPage({
         </label>
       </div>
 
-      <main className="results-layout">
+      <main className={cx('results-layout', !evidenceReady && 'results-layout-pending')}>
         <section>
           <ErrorBanner message={error} />
-          <div className="results-head">
+          <div className={cx('results-head', !evidenceReady && 'pending')}>
             <div className="count">
-              <b>{resultCountLabel}</b>{pageSummary && <> · {pageSummary}</>} · {scopeSummary || 'All evidence'}
-              {(runId || canonical?.run_id) && <> · run <b>{shortRunId(runId || canonical?.run_id || '')}</b></>}
+              {loading ? (
+                <b>Searching evidence</b>
+              ) : (
+                <>
+                  <b>{resultCountLabel}</b>{pageSummary && <> · {pageSummary}</>} · {scopeSummary || 'All evidence'}
+                  {(runId || canonical?.run_id) && <> · run <b>{shortRunId(runId || canonical?.run_id || '')}</b></>}
+                </>
+              )}
             </div>
-            <div className="score-explainer" title={FINAL_SCORE_HELP}>
-              SQL score = unbounded Aurora composite, not Cohere.
-            </div>
-            <button className={cx('answer-ready', showAnswerGuide && 'guide-pulse')} onClick={() => onAgent()}>
-              <span className="dot" />
-              Agent answer ready →
-            </button>
+            {evidenceReady && (
+              <>
+                <div className="score-explainer" title={FINAL_SCORE_HELP}>
+                  SQL score = unbounded Aurora composite, not Cohere.
+                </div>
+                <button className={cx('answer-ready', showAnswerGuide && 'guide-pulse')} onClick={() => onAgent()}>
+                  <span className="dot" />
+                  Agent answer ready →
+                </button>
+              </>
+            )}
           </div>
           {loading ? (
             <EmptyState loading title="Searching evidence" body={`${APP_NAME} is retrieving, fusing, and scoring source objects across connected systems.`} />
@@ -1638,7 +1651,7 @@ function ResultsPage({
           )}
         </section>
 
-        <aside className="rail">
+        {evidenceReady && <aside className="rail">
           <div className={cx('railcard', showAnswerGuide && 'guide-target guide-spotlight')}>
             {showAnswerGuide && (
               <GuideCoachmark
@@ -1719,7 +1732,7 @@ function ResultsPage({
               <button className="rail-link" onClick={() => onNavigate('diagnostics')}>Open diagnostics →</button>
             </div>
           )}
-        </aside>
+        </aside>}
       </main>
     </section>
   );
@@ -1768,7 +1781,7 @@ function MiniGraph({ graph }: { graph: GraphPayload | null }) {
 }
 
 function Citation({ n, onClick }: { n: number; onClick?: () => void }) {
-  return <button className="cit" onClick={onClick}> {n} </button>;
+  return <button type="button" className="cit" onClick={onClick}>[{n}]</button>;
 }
 
 // ---- Streaming primitives -------------------------------------------------
@@ -2098,7 +2111,7 @@ function AgentPage({
   const [thinking, setThinking] = useState(streaming);
   const onThinkingDone = () => {
     setThinking(false);
-    setBeat(1);
+    window.setTimeout(() => setBeat(1), 180);
   };
 
   useEffect(() => {
@@ -2119,7 +2132,8 @@ function AgentPage({
   }, [beat, streaming, thinking]);
 
   const planStart = 8;
-  const railReady = !streaming || thinking || beat >= 1;
+  const answerContentReady = !loading && hasAnswer && (!streaming || (!thinking && beat >= 1));
+  const railReady = answerContentReady;
   const planStage = useStageSequence(planLength + 1, {
     enabled: streaming,
     beatMs: 480,
@@ -2235,13 +2249,13 @@ function AgentPage({
                   )}
                 </>
               ) : (
-                <StreamParagraph className="lead" text={answerString} enabled={streaming && beat >= 1} speed={4} onDone={advance} />
+                <StreamParagraph className="answer-string" text={answerString} enabled={streaming && beat >= 1} speed={4} onDone={advance} />
               )}
 
               {commitments.length > 0 && (!streaming || beat >= 6) && (
                 <table className={cx('commit-table', beatClass(6))}>
                   <thead>
-                    <tr><th>Customer commitment</th><th>Original date</th><th>Now</th><th>Status</th></tr>
+                    <tr><th>Customer commitment</th><th>Original date</th><th>Evidence</th><th>Status</th></tr>
                   </thead>
                   <tbody>
                     {commitments.map((commit) => (
@@ -2251,7 +2265,7 @@ function AgentPage({
                           {[commit.external_id, commit.arr_label].filter(Boolean).join(' · ')}
                         </td>
                         <td>{formatDateOnly(commit.contracted_go_live)}</td>
-                        <td>{commit.citation_n ? <>cited as <b>[{commit.citation_n}]</b></> : '—'}</td>
+                        <td>{commit.citation_n ? <>source <b>[{commit.citation_n}]</b></> : '—'}</td>
                         <td><span className="status risk">{(commit.status || 'AT RISK').toUpperCase()}</span></td>
                       </tr>
                     ))}
@@ -2331,7 +2345,7 @@ function AgentPage({
           )}
         </article>
 
-        <aside className="sources-rail">
+        <aside className={cx('sources-rail', !answerContentReady && 'sources-rail-hidden')} aria-hidden={!answerContentReady}>
           <span className="mono-label">Sources · {citations.length} cited</span>
           {citations.map((citation, index) => {
             // Prefer the live evidence row for this exact object; otherwise build a
@@ -2342,7 +2356,7 @@ function AgentPage({
               (citation.object_id ? citationsToResults([citation])[0] : null);
             const meta = citation.meta || `${sourceLabel(citation.source_system).toUpperCase()}${typeof citation.score === 'number' ? ` · score ${citation.score.toFixed(2)}` : ''}`;
             const why = citation.why || 'Evidence supporting the answer.';
-            const shown = railReady && (!streaming || thinking || beat >= 1 + index);
+            const shown = railReady;
             return (
               <button
                 className={cx('src', 'beat', shown && 'is-in')}
@@ -2873,6 +2887,7 @@ function App() {
   const [page, setPage] = useState<Page>('landing');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Result[]>([]);
+  const [hasSearchRun, setHasSearchRun] = useState(false);
   const [selected, setSelected] = useState<Result | null>(null);
   const [runId, setRunId] = useState<string>();
   const [agentPayload, setAgentPayload] = useState<AgentPayload>({});
@@ -3102,6 +3117,10 @@ function App() {
     setPage('results');
     setLoading(true);
     setError(undefined);
+    setHasSearchRun(true);
+    setRunId(undefined);
+    setResults([]);
+    setSelected(null);
     try {
       const resp = await fetch(`${API_URL}/v1/search`, {
         method: 'POST',
@@ -3298,6 +3317,7 @@ function App() {
       omniboxRef={omniboxRef}
       results={results}
       citedResults={citedResults}
+      hasSearchRun={hasSearchRun}
       graph={graph}
       canonical={canonical}
       corpusTotal={corpusTotal}
