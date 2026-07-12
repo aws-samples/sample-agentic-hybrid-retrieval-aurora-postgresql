@@ -70,12 +70,10 @@ type AgentMetadata = {
   model_routing?: {
     planning_and_tool_routing?: string;
     answer_synthesis?: string;
-    claude_code_harness?: string;
   };
   routing_notes?: {
     planning_and_tool_routing?: string;
     answer_synthesis?: string;
-    claude_code_harness?: string;
   };
 };
 
@@ -1281,6 +1279,111 @@ function deriveHighlightTerms(query: string): string[] {
   return terms;
 }
 
+const SQL_KEYWORDS = new Set([
+  'all', 'and', 'as', 'asc', 'begin', 'between', 'by', 'case', 'create', 'cross',
+  'declare', 'default', 'desc', 'distinct', 'else', 'end', 'except', 'exists',
+  'filter', 'from', 'function', 'group', 'having', 'if', 'immutable', 'in', 'inner',
+  'into', 'is', 'join', 'language', 'lateral', 'left', 'limit', 'not', 'null',
+  'offset', 'on', 'or', 'order', 'outer', 'over', 'partition', 'perform', 'replace',
+  'return', 'returns', 'right', 'select', 'stable', 'table', 'then', 'union', 'when',
+  'where', 'with', 'uuid', 'text', 'integer', 'numeric', 'boolean', 'jsonb', 'vector',
+  'timestamp', 'timestamptz'
+]);
+
+function isSqlIdentStart(char: string) {
+  return /[A-Za-z_]/.test(char);
+}
+
+function isSqlIdentPart(char: string) {
+  return /[A-Za-z0-9_$]/.test(char);
+}
+
+function highlightSql(sql: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  let i = 0;
+  let key = 0;
+  const push = (text: string, className?: string) => {
+    if (!text) return;
+    nodes.push(className ? <span className={className} key={key++}>{text}</span> : text);
+  };
+
+  while (i < sql.length) {
+    if (sql.startsWith('--', i)) {
+      const end = sql.indexOf('\n', i);
+      const next = end === -1 ? sql.length : end + 1;
+      push(sql.slice(i, next), 'cm');
+      i = next;
+      continue;
+    }
+
+    if (sql.startsWith('/*', i)) {
+      const end = sql.indexOf('*/', i + 2);
+      const next = end === -1 ? sql.length : end + 2;
+      push(sql.slice(i, next), 'cm');
+      i = next;
+      continue;
+    }
+
+    const quote = sql[i];
+    if (quote === '\'' || quote === '"') {
+      let next = i + 1;
+      while (next < sql.length) {
+        if (sql[next] === quote) {
+          if (quote === '\'' && sql[next + 1] === '\'') {
+            next += 2;
+            continue;
+          }
+          next += 1;
+          break;
+        }
+        next += 1;
+      }
+      push(sql.slice(i, next), 'st');
+      i = next;
+      continue;
+    }
+
+    if (sql[i] === '$') {
+      const match = sql.slice(i).match(/^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/);
+      if (match) {
+        push(match[0], 'st');
+        i += match[0].length;
+        continue;
+      }
+    }
+
+    if (isSqlIdentStart(sql[i])) {
+      let next = i + 1;
+      while (next < sql.length && isSqlIdentPart(sql[next])) next += 1;
+      const word = sql.slice(i, next);
+      const lower = word.toLowerCase();
+      let lookahead = next;
+      while (lookahead < sql.length && /\s/.test(sql[lookahead])) lookahead += 1;
+      const className = SQL_KEYWORDS.has(lower) ? 'kw' : sql[lookahead] === '(' ? 'fn' : undefined;
+      push(word, className);
+      i = next;
+      continue;
+    }
+
+    let next = i + 1;
+    while (
+      next < sql.length &&
+      !sql.startsWith('--', next) &&
+      !sql.startsWith('/*', next) &&
+      sql[next] !== '\'' &&
+      sql[next] !== '"' &&
+      sql[next] !== '$' &&
+      !isSqlIdentStart(sql[next])
+    ) {
+      next += 1;
+    }
+    push(sql.slice(i, next));
+    i = next;
+  }
+
+  return nodes;
+}
+
 function HighlightedSnippet({ text, terms }: { text: string; terms?: string[] }) {
   const clean = (terms || []).filter(Boolean);
   if (clean.length === 0) return <>{text}</>;
@@ -2088,11 +2191,6 @@ function AgentPage({
       role: 'Answer synthesis',
       model: modelRouting.answer_synthesis,
       note: routingNotes.answer_synthesis
-    },
-    {
-      role: 'Claude Code',
-      model: modelRouting.claude_code_harness,
-      note: routingNotes.claude_code_harness
     }
   ].filter((row) => row.model);
 
@@ -2471,7 +2569,7 @@ function TimelinePage({
             const hop = primaryEdge ? `${primaryEdge.link_type} → ${primaryEdge.to_external_id}` : undefined;
             return (
               <React.Fragment key={event.object_id}>
-                <div className={cx('event', index % 2 === 0 ? 'l' : 'r', index === events.length - 1 && 'final', 'beat', 'is-in')}>
+                <div className={cx('event', index % 2 === 0 ? 'left' : 'right', index === events.length - 1 && 'final', 'beat', 'is-in')}>
                   <span className="date">{eventDate(event)}</span>
                   <span className="dot" />
                   <div className="ecard">
@@ -2727,7 +2825,7 @@ function DiagnosticsPage({
                   {fn.name}
                   {fusionSql.primary === fn.name ? <span className="sqlfn-tag">fused ranker</span> : null}
                 </div>
-                <pre>{fn.definition}</pre>
+                <pre>{highlightSql(fn.definition)}</pre>
               </div>
             ))
           ) : (

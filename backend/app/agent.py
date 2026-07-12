@@ -28,12 +28,10 @@ def agent_metadata() -> dict[str, Any]:
         "model_routing": {
             "planning_and_tool_routing": settings.bedrock_sonnet_model,
             "answer_synthesis": settings.bedrock_opus_model,
-            "claude_code_harness": settings.bedrock_sonnet_model,
         },
         "routing_notes": {
             "planning_and_tool_routing": "Sonnet 5 for decomposition, source selection, and tool routing.",
             "answer_synthesis": "Opus 4.8 for high-quality answer synthesis when live composition is enabled.",
-            "claude_code_harness": "Sonnet 5 for Claude Code discovery questions and optional exercises.",
         },
     }
 

@@ -2268,10 +2268,11 @@ mark {
 
 .model-routing {
   display: grid;
-  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  grid-template-columns: 210px minmax(0, 1fr);
   gap: 18px;
   align-items: stretch;
-  max-width: 940px;
+  width: 100%;
+  max-width: 760px;
   margin: 0 0 28px;
   border: 1px solid rgba(33, 28, 22, 0.08);
   border-radius: 8px;
@@ -2296,7 +2297,7 @@ mark {
 
 .model-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -2645,22 +2646,30 @@ mark {
 
 .actions {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 40px;
 }
 
 .actions.guide-spotlight {
+  align-items: center;
   border-radius: 14px;
   padding: 14px;
 }
 
 .actions .guide-card {
-  flex: 1 1 100%;
-  max-width: 560px;
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: none;
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 132px;
   border-radius: 10px;
   padding: 11px 20px;
   font-size: 13px;
@@ -2970,12 +2979,14 @@ mark {
   padding: 17px 20px;
 }
 
-.event.left .ecard {
+.event.left .ecard,
+.event.l .ecard {
   grid-column: 1;
   justify-self: end;
 }
 
-.event.right .ecard {
+.event.right .ecard,
+.event.r .ecard {
   grid-column: 3;
   justify-self: start;
 }
@@ -4139,7 +4150,10 @@ blockquote span {
   }
 
   .model-routing {
+    display: grid;
     grid-template-columns: 1fr;
+    width: 100%;
+    max-width: 100%;
   }
 
   .model-grid {
@@ -4164,7 +4178,9 @@ blockquote span {
   }
 
   .event.left .ecard,
-  .event.right .ecard {
+  .event.right .ecard,
+  .event.l .ecard,
+  .event.r .ecard {
     grid-column: 2;
     justify-self: start;
     max-width: none;
