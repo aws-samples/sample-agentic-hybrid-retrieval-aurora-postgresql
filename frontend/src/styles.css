@@ -2237,6 +2237,7 @@ mark {
 }
 
 .answer-layout > article {
+  --answer-content-width: 760px;
   min-width: 0;
 }
 
@@ -2272,7 +2273,7 @@ mark {
   gap: 18px;
   align-items: stretch;
   width: 100%;
-  max-width: 760px;
+  max-width: var(--answer-content-width);
   margin: 0 0 28px;
   border: 1px solid rgba(33, 28, 22, 0.08);
   border-radius: 8px;
@@ -2354,12 +2355,17 @@ mark {
 }
 
 .lead {
+  width: 100%;
+  max-width: var(--answer-content-width);
   margin: 0 0 28px;
   font-family: var(--serif);
   font-size: clamp(21px, 2.2vw, 27px);
   font-weight: 420;
   letter-spacing: -0.008em;
   line-height: 1.42;
+  hyphens: auto;
+  text-align: justify;
+  text-wrap: pretty;
 }
 
 .lead .hl {
@@ -2367,7 +2373,8 @@ mark {
 }
 
 .answer-string {
-  max-width: 72ch;
+  width: 100%;
+  max-width: var(--answer-content-width);
   margin: 0 0 28px;
   color: var(--ink-soft);
   font-family: var(--sans);
@@ -2375,6 +2382,9 @@ mark {
   font-weight: 450;
   letter-spacing: 0;
   line-height: 1.75;
+  hyphens: auto;
+  text-align: justify;
+  text-wrap: pretty;
 }
 
 .answer-string b {
@@ -2406,11 +2416,15 @@ mark {
 }
 
 .prose p {
-  max-width: 68ch;
+  width: 100%;
+  max-width: var(--answer-content-width);
   margin: 0 0 20px;
   color: var(--ink-soft);
   font-size: 15.5px;
+  hyphens: auto;
   line-height: 1.75;
+  text-align: justify;
+  text-wrap: pretty;
 }
 
 .prose b {
@@ -2419,7 +2433,8 @@ mark {
 }
 
 .pull {
-  max-width: 62ch;
+  width: 100%;
+  max-width: 620px;
   margin: 30px 0;
   border-left: 2.5px solid var(--red);
   border-radius: 0 14px 14px 0;
@@ -2449,8 +2464,8 @@ mark {
 }
 
 .commit-table {
-  width: calc(100% - 48px);
-  max-width: 100%;
+  width: 100%;
+  max-width: var(--answer-content-width);
   margin: 8px 0 30px;
   border-collapse: collapse;
   table-layout: fixed;
@@ -2551,6 +2566,8 @@ mark {
 }
 
 .plan {
+  width: 100%;
+  max-width: var(--answer-content-width);
   margin-top: 44px;
 }
 
@@ -2649,6 +2666,8 @@ mark {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+  width: 100%;
+  max-width: var(--answer-content-width);
   margin-top: 40px;
 }
 
@@ -2810,6 +2829,8 @@ mark {
 }
 
 .answer-confidence {
+  width: 100%;
+  max-width: var(--answer-content-width);
   margin-top: 28px;
   padding: 20px 22px;
 }
@@ -3815,6 +3836,8 @@ blockquote span {
   display: flex;
   align-items: center;
   gap: 9px;
+  width: 100%;
+  max-width: var(--answer-content-width);
   margin: 6px 0 22px;
   min-height: 1.4em;
   color: var(--muted);
@@ -4032,6 +4055,10 @@ blockquote span {
   .trail {
     padding-left: 20px;
     padding-right: 20px;
+  }
+
+  .answer-layout > article {
+    --answer-content-width: 100%;
   }
 
   .navlinks {
