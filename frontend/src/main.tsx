@@ -280,7 +280,8 @@ const GUIDE_STORAGE_KEY = 'auralens-guided-discovery-v1';
 const guideSteps: GuideStep[] = ['answer', 'timeline', 'diagnostics', 'proof'];
 const STRANDS_URL = 'https://strandsagents.com/';
 const GITHUB_REPO_URL = 'https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql';
-const FINAL_SCORE_HELP = 'Composite final score from Aurora SQL: RRF + full-text + semantic vector + fuzzy + metadata + recency. It is not a raw Cohere similarity score.';
+const FINAL_SCORE_HELP = 'Unbounded composite score from Aurora SQL: RRF + full-text + semantic vector + fuzzy + metadata + recency. It is not a raw Cohere similarity score or a probability.';
+const RESULTS_PAGE_SIZE = 5;
 // The flagship question the seed answers canonically (a stored row in
 // ops.agent_answers, restored identically in every account). The guided demo
 // path must send this exact string so the answer resolves to the rich stored
@@ -295,7 +296,7 @@ const rotatingQueries = [
 ];
 
 const rankModeLabels: Record<RankMode, string> = {
-  hybrid: 'Hybrid · final SQL score',
+  hybrid: 'Hybrid · SQL score',
   semantic: 'Semantic · pgvector',
   lexical: 'Lexical · full-text',
   recent: 'Most recent'
@@ -371,7 +372,7 @@ const searchSuggestions = [
   },
   {
     label: 'Full picture',
-    query: 'Explain the Orion delay end to end — cause, impact, and resolution.',
+    query: 'Explain the Orion delay end to end – cause, impact, and resolution.',
     sources: ['slack', 'jira', 'confluence', 'salesforce', 'github']
   }
 ];
@@ -453,27 +454,14 @@ function score(result: Result) {
   return Number(result.final_score || 0);
 }
 
-// Annotate a live result set with a 0–1 display score. The API's composite
-// final_score is unbounded (RRF + weighted signals), so we normalize each row
-// against the strongest result in the same set — the top match reads ~1.0 and
-// the rest scale proportionally. Scores already in (0,1] (e.g. rerank scores on
-// canonical citations) are passed through untouched.
 function withDisplayScores(rows: Result[]): Result[] {
-  const normalized = rows.map(normalizeResult);
-  const max = normalized.reduce((peak, row) => Math.max(peak, Number(row.final_score || 0)), 0);
-  return normalized.map((row) => {
-    const raw = Number(row.final_score || 0);
-    const display = raw > 0 && raw <= 1 ? raw : max > 0 ? raw / max : 0;
-    return { ...row, _display_score: display };
-  });
+  return rows.map(normalizeResult);
 }
 
 function displayScore(result: Result) {
-  if (typeof result._display_score === 'number') return result._display_score;
   const value = score(result);
-  if (value > 0 && value <= 1) return value;
-  // No set context to normalize against; keep it in a sane band.
-  return Math.min(0.99, Math.max(0.55, value / 6));
+  if (Number.isFinite(value)) return value;
+  return Number(result._display_score || 0);
 }
 
 function resultTimestamp(result: Result) {
@@ -501,7 +489,7 @@ function sortByRankMode(rows: Result[], rankMode: RankMode) {
     if (rankMode === 'semantic') return Number(b.vector_score || 0) - Number(a.vector_score || 0);
     if (rankMode === 'lexical') return Number(b.text_rank || 0) - Number(a.text_rank || 0);
     if (rankMode === 'recent') return resultTimestamp(b) - resultTimestamp(a);
-    return displayScore(b) - displayScore(a);
+    return score(b) - score(a);
   });
 }
 
@@ -669,6 +657,10 @@ function heroMetaFromCitation(citation: Citation | undefined, system: string) {
   return parts.join(' · ') || sourceLabel(system);
 }
 
+function landingText(value?: string) {
+  return (value || '').replace(/—/g, '–');
+}
+
 // Build the landing hero orbit from the live cited set. Each system that has a
 // cited object contributes a node; positioning comes from heroNodeLayout and all
 // content (title, score, meta) from the citation. No hard-coded node content.
@@ -688,8 +680,8 @@ function deriveHeroNodes(citedResults: Result[], canonical: CanonicalDiagnostics
       delay: layout.delay,
       role: sourceLabel(system),
       score: typeof scoreValue === 'number' ? scoreValue.toFixed(2) : '',
-      title,
-      meta: heroMetaFromCitation(citation, system)
+      title: landingText(title),
+      meta: landingText(heroMetaFromCitation(citation, system))
     });
   }
   return nodes;
@@ -1090,7 +1082,7 @@ function Landing({
               behind every decision.
             </h1>
             <p className="sub">
-              Connect scattered tickets, docs, cases, incidents, and code to surface the full context — and deliver answers{' '}
+              Connect scattered tickets, docs, cases, incidents, and code to surface the full context – and deliver answers{' '}
               <em>you can trust, with every source cited</em>.
             </p>
             <div className="works" id="systems">
@@ -1195,7 +1187,7 @@ function Landing({
           <div className="stack">
             <span className="mono-label">The hybrid retrieval stack · one engine</span>
             <div className="formula">
-              {['Full-text|ts_rank_cd', 'Semantic|pgvector', 'Fuzzy|pg_trgm', 'Fusion|RRF k=60', 'Final score|SQL scoring', 'Cited answer|citations'].map((item, index) => {
+              {['Full-text|ts_rank_cd', 'Semantic|pgvector', 'Fuzzy|pg_trgm', 'Fusion|RRF k=60', 'SQL score|composite', 'Cited answer|citations'].map((item, index) => {
                 const [title, body] = item.split('|');
                 return (
                   <React.Fragment key={item}>
@@ -1213,7 +1205,7 @@ function Landing({
               })}
             </div>
             <div className="foot">
-              Powered by <b>Amazon Aurora PostgreSQL</b> — the durable retrieval index. Source systems remain authoritative; every run is logged and every candidate explained.
+              Powered by <b>Amazon Aurora PostgreSQL</b> – the durable retrieval index. Source systems remain authoritative; every run is logged and every candidate explained.
             </div>
           </div>
         </section>
@@ -1362,15 +1354,15 @@ function ResultCard({
   const chips = signalChips(result);
   const finalScore = displayScore(result).toFixed(2);
   return (
-    <article className={cx('rcard', index > 5 && 'dim')}>
+    <article className="rcard">
       <div className="rhead">
         <div className="tile">{sourceIcon(result.source_system, 22)}</div>
         <div>
           <div className="rtype">{resultRole(result)}</div>
           <button className="rtitle" onClick={onOpen}>{result.title}</button>
         </div>
-        <div className="rscore" title={FINAL_SCORE_HELP} aria-label={`Final composite score ${finalScore}`}>
-          <span>Final score</span>
+        <div className="rscore" title={FINAL_SCORE_HELP} aria-label={`Aurora SQL composite score ${finalScore}`}>
+          <span>SQL score</span>
           {' '}
           <b>{finalScore}</b>
         </div>
@@ -1462,6 +1454,7 @@ function ResultsPage({
   onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
 }) {
+  const [evidencePage, setEvidencePage] = useState(0);
   // Live evidence: the search results when the user has run a query, otherwise the
   // canonical run's cited objects (fetched read-only on mount). Both are real rows.
   const baseEvidence = results.length > 0 ? results : citedResults;
@@ -1480,6 +1473,14 @@ function ResultsPage({
   // never a hard-coded phrase list.
   const highlightTerms = deriveHighlightTerms(query || queryDefault);
   const resultCountLabel = `${evidence.length} result${evidence.length === 1 ? '' : 's'}`;
+  const totalEvidencePages = Math.max(1, Math.ceil(evidence.length / RESULTS_PAGE_SIZE));
+  const currentEvidencePage = Math.min(evidencePage, totalEvidencePages - 1);
+  const pageStart = currentEvidencePage * RESULTS_PAGE_SIZE;
+  const pageEnd = Math.min(pageStart + RESULTS_PAGE_SIZE, evidence.length);
+  const visibleEvidence = evidence.slice(pageStart, pageEnd);
+  const pageSummary = evidence.length > RESULTS_PAGE_SIZE
+    ? `showing ${pageStart + 1}-${pageEnd} of ${evidence.length}`
+    : null;
   const scopeSummary = [
     sourceFilter === 'all' ? `${SYSTEMS.length} systems` : sourceLabel(sourceFilter),
     timeWindowLabels[timeWindow],
@@ -1509,6 +1510,10 @@ function ResultsPage({
       ].filter((entry): entry is [string, number] => typeof entry[1] === 'number'))
     : [];
   const rankerRows = rankerMix(canonical?.metadata?.diagnostics_rows);
+
+  useEffect(() => {
+    setEvidencePage(0);
+  }, [query, sourceFilter, rankMode, timeWindow, projectFilter, statusFilter, priorityFilter, baseEvidence.length]);
 
   function openResult(result: Result) {
     setSelected(result);
@@ -1582,11 +1587,11 @@ function ResultsPage({
           <ErrorBanner message={error} />
           <div className="results-head">
             <div className="count">
-              <b>{resultCountLabel}</b> · {scopeSummary || 'All evidence'}
+              <b>{resultCountLabel}</b>{pageSummary && <> · {pageSummary}</>} · {scopeSummary || 'All evidence'}
               {(runId || canonical?.run_id) && <> · run <b>{shortRunId(runId || canonical?.run_id || '')}</b></>}
             </div>
             <div className="score-explainer" title={FINAL_SCORE_HELP}>
-              Final score = Aurora SQL composite, not Cohere.
+              SQL score = unbounded Aurora composite, not Cohere.
             </div>
             <button className={cx('answer-ready', showAnswerGuide && 'guide-pulse')} onClick={() => onAgent()}>
               <span className="dot" />
@@ -1598,17 +1603,38 @@ function ResultsPage({
           ) : evidence.length === 0 ? (
             <EmptyState title="No evidence matched" body="Adjust the source, window, project, status, or priority filter and run the search again." />
           ) : (
-            <div className="thread-col">
-              {evidence.map((result, index) => (
-                <ResultCard
-                  key={`${result.source_system}-${result.external_id}-${index}`}
-                  result={result}
-                  index={index}
-                  onOpen={() => openResult(result)}
-                  highlightTerms={highlightTerms}
-                />
-              ))}
-            </div>
+            <>
+              <div className="thread-col">
+                {visibleEvidence.map((result, index) => (
+                  <ResultCard
+                    key={`${result.source_system}-${result.external_id}-${pageStart + index}`}
+                    result={result}
+                    index={pageStart + index}
+                    onOpen={() => openResult(result)}
+                    highlightTerms={highlightTerms}
+                  />
+                ))}
+              </div>
+              {evidence.length > RESULTS_PAGE_SIZE && (
+                <nav className="results-pager" aria-label="Evidence pagination">
+                  <button
+                    type="button"
+                    onClick={() => setEvidencePage((value) => Math.max(0, value - 1))}
+                    disabled={currentEvidencePage === 0}
+                  >
+                    Previous
+                  </button>
+                  <span>Page <b>{currentEvidencePage + 1}</b> of <b>{totalEvidencePages}</b></span>
+                  <button
+                    type="button"
+                    onClick={() => setEvidencePage((value) => Math.min(totalEvidencePages - 1, value + 1))}
+                    disabled={currentEvidencePage >= totalEvidencePages - 1}
+                  >
+                    Next
+                  </button>
+                </nav>
+              )}
+            </>
           )}
         </section>
 
@@ -1679,7 +1705,7 @@ function ResultsPage({
 
                 <div className="run-proof">
                   <span><b>RRF k={canonical.rrf_k}</b> fused {canonical.funnel?.deduped} candidates to the top {canonical.funnel?.fused}.</span>
-                  <span><b>Final SQL score</b> selected {canonical.funnel?.cited} cited objects above the {canonical.rerank_cut} cut.</span>
+                  <span><b>SQL composite</b> selected {canonical.funnel?.cited} cited objects above the {canonical.rerank_cut} cut.</span>
                   <span><b>Persisted</b> in retrieval_runs, retrieval_candidates, and citations.</span>
                 </div>
 
@@ -1707,6 +1733,8 @@ function MiniGraph({ graph }: { graph: GraphPayload | null }) {
       </div>
     );
   }
+  const visibleEdges = graph.edges.slice(0, 5);
+  const hiddenEdgeCount = Math.max(0, graph.edges.length - visibleEdges.length);
   return (
     <div className="evidence-graph" aria-label="Evidence relationship graph">
       <div className="graph-summary">
@@ -1715,27 +1743,26 @@ function MiniGraph({ graph }: { graph: GraphPayload | null }) {
         <span><b>{graph.link_count}</b> links traversed</span>
       </div>
       <div className="graph-edge-list">
-        {graph.edges.map((edge) => (
+        {visibleEdges.map((edge) => (
           <div className="graph-edge" key={edge.link_id}>
-            <div className="graph-node">
+            <div className="graph-row">
               <span className="graph-icon">{sourceIcon(edge.from.system, 15)}</span>
               <span className="graph-copy">
-                <b>{edge.from.title}</b>
-                <small>{sourceLabel(edge.from.system)} · {edge.from.external_id}</small>
+                <b>{edge.from.external_id} → {edge.to.external_id}</b>
+                <small>{edge.from.title} · {edge.to.title}</small>
               </span>
+              {typeof edge.confidence === 'number' && <em>{edge.confidence.toFixed(2)}</em>}
             </div>
-            <div className="graph-relation"><span>{edge.relation}</span></div>
-            <div className="graph-node target">
-              <span className="graph-icon">{sourceIcon(edge.to.system, 15)}</span>
-              <span className="graph-copy">
-                <b>{edge.to.title}</b>
-                <small>{sourceLabel(edge.to.system)} · {edge.to.external_id}</small>
-              </span>
+            <div className="graph-relation">
+              <span>{edge.relation.replace(/_/g, ' ')}</span>
+              <small>{sourceLabel(edge.from.system)} to {sourceLabel(edge.to.system)}</small>
             </div>
-            {typeof edge.confidence === 'number' && <p>confidence {edge.confidence.toFixed(2)}</p>}
           </div>
         ))}
       </div>
+      {hiddenEdgeCount > 0 && (
+        <div className="graph-more">+{hiddenEdgeCount} more link{hiddenEdgeCount === 1 ? '' : 's'} in Timeline</div>
+      )}
     </div>
   );
 }
@@ -2586,7 +2613,7 @@ function DiagnosticsPage({
             ['Total latency', String(totalLatency), 'ms', <>p50 this profile: <b>{canonical.p50_latency_ms} ms</b></>],
             ['Candidate funnel', <>{fetched} <small>→</small> {cited}</>, '', <>fetched → cited · <b>{citedPct}%</b></>],
             ['Fusion', 'RRF', `k = ${canonical.rrf_k}`, <>{rankerCount} rankers · weights <b>{weightsLabel}</b></>],
-            ['Final score', String(canonical.rerank_cut), 'cut', <>SQL scoring · <b>{canonical.reranked_count} candidates</b></>]
+            ['SQL score', String(canonical.rerank_cut), 'cut', <>composite scoring · <b>{canonical.reranked_count} candidates</b></>]
           ].map(([k, v, unit, d], index) => (
             <div className="stile" key={index}>
               <div className="k">{k}</div>
@@ -2787,7 +2814,7 @@ function DetailPage({
               <span>Updated {formatDate(selected.updated_at)}</span>
               {selected.owner && <span>{selected.owner}</span>}
               {selected.project_key && <span>Project {selected.project_key}</span>}
-              <span title={FINAL_SCORE_HELP}>final score {displayScore(selected).toFixed(2)}</span>
+              <span title={FINAL_SCORE_HELP}>SQL score {displayScore(selected).toFixed(2)}</span>
             </div>
             <section className="detail-section">
               <h2>Retrieved passage</h2>
