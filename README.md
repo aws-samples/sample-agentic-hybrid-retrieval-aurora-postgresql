@@ -21,7 +21,7 @@ The product is an operational evidence retrieval layer over fragmented work syst
 
 The agentic layer is framed around **Strands Agents**. Strands provides the lab harness and concrete `@tool` contract; Aurora PostgreSQL provides the durable evidence index; Amazon Bedrock provides embeddings and Claude model access where live model calls are enabled. The tool boundary is harness-agnostic: the same retrieval contract can be called from Strands, Claude Code, MCP clients, or another agent harness.
 
-The default model routing uses the best model for the job: Sonnet 5 for planning, tool routing, and Claude Code discovery; Opus 4.8 for answer synthesis when live composition is enabled.
+The default model routing uses the best model for the job: Sonnet 5 for planning and tool routing; Opus 4.8 for answer synthesis when live composition is enabled. The optional Claude Code CLI harness also uses Sonnet 5 for participant discovery questions and code exercises.
 
 ## Prerequisites
 
@@ -134,6 +134,22 @@ npm install
 npm run dev
 ```
 
+Run the preflight doctor from the repo root:
+
+```bash
+make doctor
+
+# Optional strict mode for facilitator pre-room checks:
+DOCTOR_REQUIRE_SERVERS=1 make doctor
+```
+
+`make doctor` checks Aurora connectivity, PostgreSQL and pgvector versions,
+required extensions, seed dump SHA256, seed row counts, API health, frontend
+health, Bedrock model configuration, Cohere Embed, and Cohere Rerank v3.5 via
+Amazon Bedrock. API and frontend health are warnings by default so the command
+can run before the two dev servers are started; `DOCTOR_REQUIRE_SERVERS=1` makes
+them hard failures.
+
 `make aurora-local-env` resolves the stack outputs, reads the database secret
 from Secrets Manager, writes ignored local `.env` files for the backend and
 frontend, and checks whether the Aurora endpoint is reachable from the local
@@ -169,9 +185,10 @@ Cohere space, run the backend with `EMBED_PROVIDER=bedrock` so live `/v1/search`
 embeds queries with the same model. (The canonical Orion answer is served from a
 stored row, so it renders identically under either provider.)
 
-The visible result-card score is not a raw Cohere similarity score. Cohere
-contributes the semantic vector signal; `ops.hybrid_search` combines vector,
-full-text, fuzzy, metadata, recency, and RRF signals into the final SQL score.
+The visible result-card score separates the two stages. Cohere Rerank v3.5
+provides a 0-1 rerank score when live reranking is enabled; the SQL score remains
+Aurora's unbounded composite of vector, full-text, fuzzy, metadata, recency, and
+RRF signals.
 
 ## Bedrock Model Routing
 
@@ -188,13 +205,23 @@ BEDROCK_ROUTER_MODEL=global.anthropic.claude-sonnet-5
 BEDROCK_REPORTING_MODEL=global.anthropic.claude-sonnet-5
 BEDROCK_CHAT_MODEL=global.anthropic.claude-opus-4-8
 BEDROCK_EMBEDDING_MODEL=us.cohere.embed-v4:0
+CLAUDE_CODE_MODEL=global.anthropic.claude-sonnet-5
+COHERE_RERANK_MODEL=cohere.rerank-v3-5:0
 ```
 
 `/v1/agent/answer` includes an `agent` metadata object so the app and lab can show the live routing:
 
 - `planning_and_tool_routing`: Sonnet 5
 - `answer_synthesis`: Opus 4.8
-- `claude_code_harness`: Sonnet 5
+
+Cohere Rerank v3.5 runs after Aurora SQL fusion selects the candidate pool. AWS
+access is through the Bedrock Agent Runtime `rerank` API, but the reranking model
+is Cohere.
+
+Claude Code CLI is a separate optional participant harness. Workshop Studio can
+preload it with `CLAUDE_CODE_MODEL=global.anthropic.claude-sonnet-5` so attendees
+can ask discovery questions about the repo or get help during code exercises. It
+does not participate in the Strands agent answer path.
 
 The canonical workshop answer is replayed from Aurora for stable citations and diagnostics; live composition paths use the configured synthesis model.
 

@@ -23,5 +23,6 @@
   "embedding_model": "cohere.embed-v4",
   "embedding_dim": 1024,
   "index_spec": "HNSW m=16 ef=64",
-  "generated_stamp": "2026-07-09T00:00:00-04:00"
+  "generated_stamp": "2026-07-09T00:00:00-04:00",
+  "artifact_sha256": "1b27ddf5c890f3d9f28883d935ea14137af139d3140c4fdc312c63b55ce76dfb"
 }

@@ -107,7 +107,10 @@ def retrieval_run_candidates(run_id: str):
                 FROM ops.retrieval_candidates c
                 JOIN ops.source_objects o ON o.object_id = c.object_id
                 WHERE c.run_id = %s
-                ORDER BY c.final_score DESC NULLS LAST
+                ORDER BY
+                  CASE WHEN c.rerank_score IS NULL THEN 1 ELSE 0 END,
+                  c.rerank_score DESC NULLS LAST,
+                  c.final_score DESC NULLS LAST
             """, (run_id,))
             return {"run_id": run_id, "candidates": cur.fetchall()}
 

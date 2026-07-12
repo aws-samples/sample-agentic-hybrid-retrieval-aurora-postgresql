@@ -64,7 +64,7 @@ def _cited_objects(cur, run_id: str) -> list[dict[str, Any]]:
         SELECT o.object_id, o.source_system, o.source_type, o.external_id, o.title,
                o.url, o.status, o.priority, o.owner, o.owner_team, o.account_name,
                o.project_key, o.component, o.environment, o.created_at, o.updated_at,
-               c.final_score,
+               c.rerank_score, c.final_score,
                (c.explanation ->> 'citation_n')::int AS citation_n,
                c.explanation ->> 'cite_meta'         AS cite_meta,
                c.explanation ->> 'cite_why'          AS cite_why,
@@ -76,7 +76,10 @@ def _cited_objects(cur, run_id: str) -> list[dict[str, Any]]:
             WHERE object_id = o.object_id ORDER BY chunk_index LIMIT 1
         ) ch ON TRUE
         WHERE c.run_id = %s
-        ORDER BY c.final_score DESC NULLS LAST
+        ORDER BY
+          CASE WHEN c.rerank_score IS NULL THEN 1 ELSE 0 END,
+          c.rerank_score DESC NULLS LAST,
+          c.final_score DESC NULLS LAST
         """,
         (run_id,),
     )
@@ -163,6 +166,7 @@ def run_timeline(run_id: str | None) -> dict[str, Any]:
                 "created_at": obj["created_at"].isoformat() if obj.get("created_at") else None,
                 "updated_at": obj["updated_at"].isoformat() if obj.get("updated_at") else None,
                 "citation_n": obj["citation_n"],
+                "rerank_score": float(obj["rerank_score"]) if obj["rerank_score"] is not None else None,
                 "final_score": float(obj["final_score"]) if obj["final_score"] is not None else None,
                 "edges": edges,
             }

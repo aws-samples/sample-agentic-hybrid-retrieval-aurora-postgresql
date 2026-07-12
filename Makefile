@@ -14,7 +14,7 @@ export PGVECTOR_VERSION
 export PGVECTOR_MIN_VERSION
 export POSTGRES_MIN_VERSION
 
-.PHONY: install aurora-local-env schema aurora-verify sample load embed api frontend smoke clean seed-generate seed-jsonl seed-load
+.PHONY: install aurora-local-env schema aurora-verify doctor sample load embed api frontend smoke clean seed-generate seed-jsonl seed-load
 
 install:
 	python -m venv .venv
@@ -32,6 +32,9 @@ schema:
 aurora-verify: schema
 	$(PYTHON) backend/scripts/check_postgres.py --min-version 18.3
 	$(PYTHON) backend/scripts/check_pgvector.py --min-version 0.8.1
+
+doctor:
+	$(PYTHON) backend/scripts/doctor.py
 
 sample:
 	$(PYTHON) backend/scripts/generate_workshop_operational_data.py --objects 2000 --out data/generated --seed 42

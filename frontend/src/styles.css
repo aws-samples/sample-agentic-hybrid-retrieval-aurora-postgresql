@@ -1666,6 +1666,8 @@ kbd {
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #fff;
@@ -1687,6 +1689,17 @@ kbd {
   color: var(--ink);
   font-size: 13px;
   font-weight: 650;
+}
+
+.rscore small {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.rscore.reranked {
+  border-color: rgba(193, 58, 38, 0.22);
+  background: #fff8f2;
 }
 
 .rsnippet {

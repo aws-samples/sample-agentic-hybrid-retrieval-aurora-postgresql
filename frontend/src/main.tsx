@@ -25,6 +25,7 @@ type Signals = {
   metadata?: number;
   recency?: number;
   rrf?: number;
+  rerank?: number;
 };
 
 type Result = {
@@ -49,6 +50,7 @@ type Result = {
   metadata_score?: number;
   recency_score?: number;
   rrf_score?: number;
+  rerank_score?: number;
   final_score?: number;
   // Normalized 0–1 score for display, computed relative to the top result in the
   // current set (the raw composite final_score is unbounded and not 0–1).
@@ -59,6 +61,7 @@ type Result = {
 type SearchResponse = {
   run_id: string;
   query: string;
+  retrieval_mode?: string;
   results: Result[];
 };
 
@@ -294,7 +297,7 @@ const rotatingQueries = [
 ];
 
 const rankModeLabels: Record<RankMode, string> = {
-  hybrid: 'Hybrid · SQL score',
+  hybrid: 'Hybrid + Cohere',
   semantic: 'Semantic · pgvector',
   lexical: 'Lexical · full-text',
   recent: 'Most recent'
@@ -444,12 +447,17 @@ function normalizeResult(row: Result): Result {
     trigram_score: row.trigram_score === undefined ? undefined : Number(row.trigram_score),
     metadata_score: row.metadata_score === undefined ? undefined : Number(row.metadata_score),
     recency_score: row.recency_score === undefined ? undefined : Number(row.recency_score),
-    rrf_score: row.rrf_score === undefined ? undefined : Number(row.rrf_score)
+    rrf_score: row.rrf_score === undefined ? undefined : Number(row.rrf_score),
+    rerank_score: row.rerank_score === undefined ? undefined : Number(row.rerank_score)
   };
 }
 
 function score(result: Result) {
   return Number(result.final_score || 0);
+}
+
+function rankScore(result: Result) {
+  return typeof result.rerank_score === 'number' ? result.rerank_score : score(result);
 }
 
 function withDisplayScores(rows: Result[]): Result[] {
@@ -487,7 +495,7 @@ function sortByRankMode(rows: Result[], rankMode: RankMode) {
     if (rankMode === 'semantic') return Number(b.vector_score || 0) - Number(a.vector_score || 0);
     if (rankMode === 'lexical') return Number(b.text_rank || 0) - Number(a.text_rank || 0);
     if (rankMode === 'recent') return resultTimestamp(b) - resultTimestamp(a);
-    return score(b) - score(a);
+    return rankScore(b) - rankScore(a);
   });
 }
 
@@ -1407,6 +1415,7 @@ function HighlightedSnippet({ text, terms }: { text: string; terms?: string[] })
 // from result.explanation.signals (the per-ranker contributions Aurora returned).
 // Only signals that actually contributed are shown; the strongest reads first.
 const SIGNAL_LABELS: Array<{ key: keyof Signals; label: string; method: string }> = [
+  { key: 'rerank', label: 'Cohere rerank', method: 'Cohere Rerank v3.5' },
   { key: 'full_text', label: 'full-text', method: 'ts_rank_cd' },
   { key: 'semantic', label: 'semantic', method: 'pgvector' },
   { key: 'fuzzy', label: 'fuzzy', method: 'pg_trgm' },
@@ -1456,6 +1465,10 @@ function ResultCard({
 }) {
   const chips = signalChips(result);
   const finalScore = displayScore(result).toFixed(2);
+  const rerankScore = typeof result.rerank_score === 'number'
+    ? result.rerank_score
+    : result.explanation?.signals?.rerank;
+  const hasRerankScore = typeof rerankScore === 'number' && Number.isFinite(rerankScore);
   return (
     <article className="rcard">
       <div className="rhead">
@@ -1464,11 +1477,23 @@ function ResultCard({
           <div className="rtype">{resultRole(result)}</div>
           <button className="rtitle" onClick={onOpen}>{result.title}</button>
         </div>
-        <div className="rscore" title={FINAL_SCORE_HELP} aria-label={`Aurora SQL composite score ${finalScore}`}>
-          <span>SQL score</span>
-          {' '}
-          <b>{finalScore}</b>
-        </div>
+        {hasRerankScore ? (
+          <div
+            className="rscore reranked"
+            title={`Cohere Rerank v3.5 relevance score via Amazon Bedrock. ${FINAL_SCORE_HELP}`}
+            aria-label={`Cohere Rerank score ${rerankScore.toFixed(2)}; Aurora SQL composite score ${finalScore}`}
+          >
+            <span>Cohere rerank</span>
+            <b>{rerankScore.toFixed(2)}</b>
+            <small title={FINAL_SCORE_HELP}>SQL {finalScore}</small>
+          </div>
+        ) : (
+          <div className="rscore" title={FINAL_SCORE_HELP} aria-label={`Aurora SQL composite score ${finalScore}`}>
+            <span>SQL score</span>
+            {' '}
+            <b>{finalScore}</b>
+          </div>
+        )}
       </div>
       <p className="rsnippet"><HighlightedSnippet text={result.snippet || 'No snippet returned for this source.'} terms={highlightTerms} /></p>
       <div className="rmeta">
@@ -1705,7 +1730,7 @@ function ResultsPage({
             {evidenceReady && (
               <>
                 <div className="score-explainer" title={FINAL_SCORE_HELP}>
-                  SQL score = unbounded Aurora composite, not Cohere.
+                  Default order uses Cohere Rerank when present; SQL score remains the Aurora composite.
                 </div>
                 <button className={cx('answer-ready', showAnswerGuide && 'guide-pulse')} onClick={() => onAgent()}>
                   <span className="dot" />

@@ -61,6 +61,10 @@ BEDROCK_ROUTER_MODEL=global.anthropic.claude-sonnet-5
 BEDROCK_REPORTING_MODEL=global.anthropic.claude-sonnet-5
 BEDROCK_CHAT_MODEL=global.anthropic.claude-opus-4-8
 BEDROCK_EMBEDDING_MODEL=us.cohere.embed-v4:0
+CLAUDE_CODE_MODEL=global.anthropic.claude-sonnet-5
+COHERE_RERANK_ENABLED=1
+COHERE_RERANK_MODEL=cohere.rerank-v3-5:0
+COHERE_RERANK_MAX_DOCUMENTS=30
 EOF
 
 mkdir -p "$ROOT_DIR/frontend"

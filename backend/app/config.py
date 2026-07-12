@@ -4,13 +4,40 @@ from functools import lru_cache
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# Workshop Studio and `make aurora-local-env` write the intended local runtime
+# into .env. Let that file win over stale shell exports such as AWS_REGION from a
+# previous account or region.
+load_dotenv(override=True)
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() not in {"0", "false", "no", "off", ""}
+
+def _env_int(name: str, default: int, minimum: int | None = None) -> int:
+    value = os.environ.get(name)
+    if value is None or value.strip() == "":
+        parsed = default
+    else:
+        parsed = int(value)
+    if minimum is not None:
+        return max(minimum, parsed)
+    return parsed
 
 def _embedding_model() -> str:
     return (
         os.environ.get("BEDROCK_EMBEDDING_MODEL")
         or os.environ.get("BEDROCK_EMBED_MODEL_ID")
         or "us.cohere.embed-v4:0"
+    )
+
+def _cohere_rerank_model() -> str:
+    return (
+        os.environ.get("COHERE_RERANK_MODEL")
+        or os.environ.get("BEDROCK_COHERE_RERANK_MODEL")
+        or os.environ.get("BEDROCK_RERANK_MODEL")
+        or "cohere.rerank-v3-5:0"
     )
 
 class Settings(BaseModel):
@@ -33,6 +60,17 @@ class Settings(BaseModel):
     bedrock_chat_model: str = os.environ.get("BEDROCK_CHAT_MODEL", "global.anthropic.claude-opus-4-8")
     bedrock_embedding_model: str = _embedding_model()
     bedrock_embed_model_id: str = _embedding_model()
+    claude_code_model: str = os.environ.get("CLAUDE_CODE_MODEL", "global.anthropic.claude-sonnet-5")
+    # Cohere Rerank is exposed through the Bedrock Agent Runtime rerank API.
+    # Keep the participant-facing model explicit: this is Cohere Rerank v3.5,
+    # not a generic Bedrock ranking score.
+    cohere_rerank_enabled: bool = _env_bool("COHERE_RERANK_ENABLED", _env_bool("RERANK_ENABLED", True))
+    cohere_rerank_model: str = _cohere_rerank_model()
+    cohere_rerank_max_documents: int = _env_int(
+        "COHERE_RERANK_MAX_DOCUMENTS",
+        _env_int("RERANK_MAX_DOCUMENTS", 30, minimum=1),
+        minimum=1,
+    )
     app_display_name: str = os.environ.get("APP_DISPLAY_NAME", "AuraLens")
 
     def cors_origins(self) -> list[str]:

@@ -23,6 +23,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -104,7 +105,15 @@ def write_jsonl(objs: list[dict]) -> Path:
     return path
 
 
-def write_manifest(objs: list[dict], provider: str) -> Path:
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_manifest(objs: list[dict], provider: str, artifact_sha256: str | None = None) -> Path:
     by_system: dict[str, int] = {}
     for o in objs:
         by_system[o["source_system"]] = by_system.get(o["source_system"], 0) + 1
@@ -122,6 +131,8 @@ def write_manifest(objs: list[dict], provider: str) -> Path:
         "index_spec": C.INDEX_SPEC,
         "generated_stamp": C.SEED_STAMP,
     }
+    if artifact_sha256:
+        manifest["artifact_sha256"] = artifact_sha256
     path = ARTIFACTS / MANIFEST_NAME
     path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     return path
@@ -141,7 +152,9 @@ def main() -> int:
         counts[o["source_system"]] = counts.get(o["source_system"], 0) + 1
 
     jsonl = write_jsonl(objs)
-    manifest = write_manifest(objs, args.provider)
+    artifact_path = Path(args.artifact)
+    artifact_sha256 = sha256_file(artifact_path) if artifact_path.exists() else None
+    manifest = write_manifest(objs, args.provider, artifact_sha256=artifact_sha256)
     print(f"[seed] wrote {len(objs)} objects → {jsonl}")
     print(f"[seed] per-system: {counts}")
     print(f"[seed] manifest → {manifest}")
@@ -174,8 +187,10 @@ def main() -> int:
          "--schema=ops", "--file", args.artifact, args.database_url],
         check=True,
     )
-    size = Path(args.artifact).stat().st_size
+    size = artifact_path.stat().st_size
+    manifest = write_manifest(objs, args.provider, artifact_sha256=sha256_file(artifact_path))
     print(f"[seed] artifact written: {args.artifact} ({size} bytes)")
+    print(f"[seed] manifest updated with artifact SHA256 → {manifest}")
     return 0
 
 
