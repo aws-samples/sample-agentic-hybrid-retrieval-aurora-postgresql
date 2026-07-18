@@ -1,6 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowLeft, Database, ExternalLink, Search, ShieldCheck } from 'lucide-react';
+import {
+  Activity,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Clipboard,
+  Compass,
+  Database,
+  Download,
+  ExternalLink,
+  FilterX,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  X
+} from 'lucide-react';
 import { FaGithub } from 'react-icons/fa6';
 import confluenceLogoUrl from './assets/confluence-2017.svg';
 import jiraLogoUrl from './assets/jira-streamline.svg';
@@ -11,6 +27,7 @@ import './styles.css';
 
 type Page = 'landing' | 'results' | 'detail' | 'trail' | 'agent' | 'diagnostics';
 type GuideStep = 'search' | 'evidence' | 'answer' | 'timeline' | 'diagnostics' | 'proof';
+type ApiStatus = 'checking' | 'live' | 'offline';
 type SourceFilter = 'all' | 'slack' | 'jira' | 'confluence' | 'salesforce' | 'github';
 type RankMode = 'hybrid' | 'semantic' | 'lexical' | 'recent';
 type TimeWindow = '90d' | '30d' | '7d' | 'all';
@@ -278,11 +295,21 @@ const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'AuraLens';
 const ENABLE_ANSWER_STREAMING = import.meta.env.VITE_ENABLE_ANSWER_STREAMING !== '0';
 const ENABLE_GUIDED_DISCOVERY = import.meta.env.VITE_ENABLE_GUIDED_DISCOVERY !== '0';
 const GUIDE_STORAGE_KEY = 'auralens-guided-discovery-v1';
+const GUIDE_STEP_DURATION_MS = 4200;
 const guideSteps: GuideStep[] = ['search', 'evidence', 'answer', 'timeline', 'diagnostics', 'proof'];
+const guideStepLabels: Record<GuideStep, string> = {
+  search: 'Ask',
+  evidence: 'Inspect',
+  answer: 'Synthesize',
+  timeline: 'Trace',
+  diagnostics: 'Diagnose',
+  proof: 'Prove'
+};
 const STRANDS_URL = 'https://strandsagents.com/';
 const GITHUB_REPO_URL = 'https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql';
 const FINAL_SCORE_HELP = 'Unbounded composite score from Aurora SQL: RRF + full-text + semantic vector + fuzzy + metadata + recency. It is not a raw Cohere similarity score or a probability.';
 const RESULTS_PAGE_SIZE = 5;
+const ApiStatusContext = React.createContext<ApiStatus>('checking');
 // The flagship question the seed answers canonically (a stored row in
 // ops.agent_answers, restored identically in every account). The guided demo
 // path must send this exact string so the answer resolves to the rich stored
@@ -410,13 +437,37 @@ const heroNodeLayout: Record<string, { className: string; delay: string }> = {
   salesforce: { className: 'n-sf', delay: '.9s' },
   github: { className: 'n-gh', delay: '1.8s' }
 };
+const heroNodeFallbacks: Record<string, { title: string; externalId: string; score: number }> = {
+  slack: { title: 'Conversations', externalId: 'SLACK-428', score: 0.96 },
+  jira: { title: 'Issues and incidents', externalId: 'ORION-1489', score: 0.91 },
+  confluence: { title: 'Decision records', externalId: 'ADR-042', score: 0.86 },
+  salesforce: { title: 'Customer commitments', externalId: 'CASE-8821', score: 0.81 },
+  github: { title: 'Code changes', externalId: 'PR-1287', score: 0.76 }
+};
+const heroAnswerFallbackConfidence = 0.94;
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
 }
 
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('The request timed out. Verify Aurora connectivity, then retry.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 function readGuideDismissals(): GuideStep[] {
   if (typeof window === 'undefined') return [];
+  if (new URLSearchParams(window.location.search).get('guide') === '1') return [];
   try {
     const stored = JSON.parse(window.localStorage.getItem(GUIDE_STORAGE_KEY) || '[]');
     if (!Array.isArray(stored)) return [];
@@ -651,35 +702,32 @@ type HeroNode = {
   meta: string;
 };
 
-// The citation.meta string is "SLACK · #proj-orion · JUN 23 · score 0.93" — drop
-// the leading system token and the trailing score token to get the context line
-// the hero card shows ("#proj-orion · JUN 23"). Falls back to the system label.
-function heroMetaFromCitation(citation: Citation | undefined, system: string) {
-  const parts = (citation?.meta || '')
-    .split('·')
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .filter((part) => !/^score\b/i.test(part) && part.toLowerCase() !== system.toLowerCase());
-  return parts.join(' · ') || sourceLabel(system);
-}
-
 function landingText(value?: string) {
   return (value || '').replace(/—/g, '–');
 }
 
-// Build the landing hero orbit from the live cited set. Each system that has a
-// cited object contributes a node; positioning comes from heroNodeLayout and all
-// content (title, score, meta) from the citation. No hard-coded node content.
+// Build the landing hero orbit from the live cited set. The system registry keeps
+// all five structural nodes visible while live citation data upgrades each card
+// with its exact title, score, and metadata when available.
 function deriveHeroNodes(citedResults: Result[], canonical: CanonicalDiagnostics | null): HeroNode[] {
   const citations = canonical?.citations || [];
   const nodes: HeroNode[] = [];
   for (const system of Object.keys(heroNodeLayout)) {
     const layout = heroNodeLayout[system];
+    const fallback = heroNodeFallbacks[system];
     const citation = citations.find((c) => c.source_system === system);
     const result = citedResults.find((r) => r.source_system === system);
-    const title = citation?.title || result?.title;
-    if (!title) continue;
-    const scoreValue = typeof citation?.score === 'number' ? citation.score : result?.final_score;
+    const title = citation?.title || result?.title || fallback.title;
+    const scoreValue =
+      typeof citation?.score === 'number'
+        ? citation.score
+        : typeof result?.rerank_score === 'number'
+          ? result.rerank_score
+          : typeof result?._display_score === 'number'
+            ? result._display_score
+            : typeof result?.final_score === 'number' && result.final_score >= 0 && result.final_score <= 1
+              ? result.final_score
+              : fallback.score;
     nodes.push({
       key: system,
       className: layout.className,
@@ -687,7 +735,7 @@ function deriveHeroNodes(citedResults: Result[], canonical: CanonicalDiagnostics
       role: sourceLabel(system),
       score: typeof scoreValue === 'number' ? scoreValue.toFixed(2) : '',
       title: landingText(title),
-      meta: landingText(heroMetaFromCitation(citation, system))
+      meta: citation?.external_id || result?.external_id || fallback.externalId
     });
   }
   return nodes;
@@ -716,23 +764,24 @@ function ErrorBanner({ message }: { message?: string }) {
 }
 
 function GuideCoachmark({
+  step,
   title,
   body,
-  onDismiss,
+  onAdvance,
   onSkip,
-  focusSelector,
-  primaryLabel = 'OK',
-  secondaryLabel = 'Dismiss guide'
+  primaryLabel = 'Continue',
+  secondaryLabel = 'Exit walkthrough'
 }: {
+  step: GuideStep;
   title: string;
   body: string;
-  onDismiss: () => void;
+  onAdvance: () => void;
   onSkip: () => void;
-  focusSelector?: string;
   primaryLabel?: string;
   secondaryLabel?: string;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
+  const stepIndex = guideSteps.indexOf(step);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -745,24 +794,47 @@ function GuideCoachmark({
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         target.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
       }
-      if (focusSelector) {
-        const focusTarget = target.querySelector<HTMLElement>(focusSelector);
-        window.setTimeout(() => focusTarget?.focus({ preventScroll: true }), 160);
-      }
     }, 80);
     return () => window.clearTimeout(timerId);
-  }, [focusSelector, title]);
+  }, [title]);
 
   return (
     <div className="guide-card" role="region" aria-label="Guided discovery" ref={cardRef}>
-      <span className="guide-kicker">Guided discovery</span>
+      <div className="guide-card-head">
+        <span className="guide-kicker"><Compass size={13} /> Guided walkthrough</span>
+        <span className="guide-count">Step {stepIndex + 1} of {guideSteps.length}</span>
+      </div>
+      <div className="guide-progress" aria-label={`Walkthrough progress: step ${stepIndex + 1} of ${guideSteps.length}`}>
+        {guideSteps.map((guideStep, index) => (
+          <span
+            className={cx(index < stepIndex && 'done', index === stepIndex && 'active')}
+            key={guideStep}
+            title={guideStepLabels[guideStep]}
+          />
+        ))}
+      </div>
       <b>{title}</b>
       <p>{body}</p>
       <div className="guide-actions">
-        <button type="button" onClick={onDismiss}>{primaryLabel}</button>
-        <button type="button" onClick={onSkip}>{secondaryLabel}</button>
+        <button type="button" onClick={onAdvance}>
+          {primaryLabel}
+          <ArrowRight size={14} />
+        </button>
+        <button type="button" onClick={onSkip}>
+          <X size={13} />
+          {secondaryLabel}
+        </button>
       </div>
     </div>
+  );
+}
+
+function WalkthroughLauncher({ onStart }: { onStart: () => void }) {
+  return (
+    <button className="walkthrough-launcher" type="button" onClick={onStart}>
+      <Compass size={17} />
+      <span>Guided walkthrough</span>
+    </button>
   );
 }
 
@@ -935,7 +1007,7 @@ function SearchComposer({
         )}
       </div>
       <kbd>⌘K</kbd>
-      <button className="ink-button" type="submit">Search</button>
+      <button className="ink-button" type="submit"><Search size={16} />Search</button>
       {suggestionsOpen && (
         <div className="search-suggestions" role="listbox">
           <span>Try</span>
@@ -982,6 +1054,7 @@ function AppHeader({
   onNavigate: (page: Page) => void;
   omniboxRef?: React.RefObject<HTMLInputElement>;
 }) {
+  const apiStatus = React.useContext(ApiStatusContext);
   return (
     <header className="appbar">
       <button className="wordmark-button" onClick={() => onNavigate('landing')} aria-label="Go to landing page">
@@ -1019,7 +1092,10 @@ function AppHeader({
           </button>
         ))}
       </nav>
-      <div className="avatar">S</div>
+      <div className={cx('runtime-status', apiStatus)} title={`Retrieval API: ${apiStatus}`}>
+        <Activity size={14} />
+        <span>{apiStatus === 'live' ? 'Live' : apiStatus === 'offline' ? 'Offline' : 'Checking'}</span>
+      </div>
     </header>
   );
 }
@@ -1044,8 +1120,10 @@ function Landing({
   error,
   heroNodes,
   heroScore,
+  corpusTotal,
+  runLatency,
   guideStep,
-  onDismissGuide,
+  onAdvanceGuide,
   onSkipGuide
 }: {
   query: string;
@@ -1055,11 +1133,14 @@ function Landing({
   error?: string;
   heroNodes: HeroNode[];
   heroScore?: number | null;
+  corpusTotal?: number;
+  runLatency?: number;
   guideStep?: GuideStep | null;
-  onDismissGuide: (step: GuideStep) => void;
+  onAdvanceGuide: (step: GuideStep) => void;
   onSkipGuide: () => void;
 }) {
   const showSearchGuide = guideStep === 'search';
+  const apiStatus = React.useContext(ApiStatusContext);
   return (
     <div className="landing-page">
       <nav className="topnav">
@@ -1136,7 +1217,12 @@ function Landing({
             <div className="center-node">
               <div className="a-title">Answer</div>
               <div className="a-sub">Hybrid fusion</div>
-              {typeof heroScore === 'number' && <div className="a-score">{heroScore.toFixed(2)}</div>}
+              {typeof heroScore === 'number' && (
+                <div className="a-score" aria-label={`Answer confidence ${heroScore.toFixed(2)}`}>
+                  <span>Confidence</span>
+                  <b>{heroScore.toFixed(2)}</b>
+                </div>
+              )}
             </div>
 
             {heroNodes.map((node) => (
@@ -1145,7 +1231,11 @@ function Landing({
                 <div className="node-copy">
                   <div className="nhead">
                     <span className="ntype">{node.role}</span>
-                    {node.score && <span className="nscore">{node.score}</span>}
+                    {node.score && (
+                      <span className="nscore" title="Cited relevance score" aria-label={`Cited relevance score ${node.score}`}>
+                        {node.score}
+                      </span>
+                    )}
                   </div>
                   <div className="ntitle">{node.title}</div>
                 </div>
@@ -1157,14 +1247,28 @@ function Landing({
           <div className={cx('searchwrap', showSearchGuide && 'guide-target guide-spotlight')}>
             {showSearchGuide && (
               <GuideCoachmark
-                title="Start with search"
-                body="Use the suggested Orion question or type your own, then click Search to inspect the ranked evidence."
-                onDismiss={() => onDismissGuide('search')}
+                step="search"
+                title="Start with a question"
+                body="The Orion question starts the path. Search retrieves, fuses, and reranks evidence across every connected system."
+                onAdvance={() => onAdvanceGuide('search')}
                 onSkip={onSkipGuide}
-                focusSelector="input"
+                primaryLabel="Next: evidence"
               />
             )}
-            <SearchComposer query={query} setQuery={setQuery} onSearch={onSearch} autoType className="landing-composer" />
+            <SearchComposer
+              key={showSearchGuide ? 'guided-search' : 'standard-search'}
+              query={query}
+              setQuery={setQuery}
+              onSearch={onSearch}
+              autoType={!showSearchGuide}
+              className="landing-composer"
+            />
+            <div className="search-proof" aria-label="Live retrieval status">
+              <span><i className={cx('live-dot', apiStatus)} />{apiStatus === 'live' ? 'Retrieval API online' : apiStatus === 'offline' ? 'Retrieval API offline' : 'Checking retrieval API'}</span>
+              <span><b>{corpusTotal ?? '—'}</b> source objects</span>
+              <span><b>{landingSources.length}</b> connected systems</span>
+              {typeof runLatency === 'number' && <span><b>{runLatency} ms</b> canonical run</span>}
+            </div>
           </div>
         </section>
 
@@ -1498,6 +1602,7 @@ function ResultCard({
   return (
     <article className="rcard">
       <div className="rhead">
+        <span className="result-rank" aria-label={`Result rank ${index + 1}`}>{index + 1}</span>
         <div className="tile">{sourceIcon(result.source_system, 22)}</div>
         <div>
           <div className="rtype">{resultRole(result)}</div>
@@ -1570,8 +1675,9 @@ function ResultsPage({
   onProjectFilterChange,
   onStatusFilterChange,
   onPriorityFilterChange,
+  onResetFilters,
   guideStep,
-  onDismissGuide,
+  onAdvanceGuide,
   onSkipGuide,
   onNavigate
 }: {
@@ -1605,8 +1711,9 @@ function ResultsPage({
   onProjectFilterChange: (value: ProjectFilter) => void;
   onStatusFilterChange: (value: StatusFilter) => void;
   onPriorityFilterChange: (value: PriorityFilter) => void;
+  onResetFilters: () => void;
   guideStep?: GuideStep | null;
-  onDismissGuide: (step: GuideStep) => void;
+  onAdvanceGuide: (step: GuideStep) => void;
   onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
 }) {
@@ -1614,17 +1721,18 @@ function ResultsPage({
   // Live evidence: the search results when the user has run a query, otherwise the
   // canonical run's cited objects (fetched read-only on mount). Both are real rows.
   const baseEvidence = hasSearchRun || results.length > 0 ? results : citedResults;
+  const usingCanonicalEvidence = !hasSearchRun && results.length === 0;
   const evidence = sortByRankMode(
     baseEvidence.filter((result) => {
       if (sourceFilter !== 'all' && result.source_system !== sourceFilter) return false;
-      if (projectFilter !== 'all' && result.project_key !== projectFilter) return false;
-      if (statusFilter !== 'all' && result.status !== statusFilter) return false;
-      if (priorityFilter !== 'all' && result.priority !== priorityFilter) return false;
-      return resultInWindow(result, timeWindow);
+      if (projectFilter !== 'all' && result.project_key && result.project_key !== projectFilter) return false;
+      if (statusFilter !== 'all' && result.status && result.status !== statusFilter) return false;
+      if (priorityFilter !== 'all' && result.priority && result.priority !== priorityFilter) return false;
+      if (!usingCanonicalEvidence && result.updated_at && !resultInWindow(result, timeWindow)) return false;
+      return true;
     }),
     rankMode
   );
-  const showAnswerGuide = guideStep === 'answer';
   const showEvidenceGuide = guideStep === 'evidence';
   // Highlight the LIVE query terms in each snippet — derived from what was searched,
   // never a hard-coded phrase list.
@@ -1668,6 +1776,13 @@ function ResultsPage({
     : [];
   const rankerRows = rankerMix(canonical?.metadata?.diagnostics_rows);
   const evidenceReady = !loading && evidence.length > 0;
+  const filtersCustomized =
+    sourceFilter !== 'all' ||
+    rankMode !== 'hybrid' ||
+    timeWindow !== '90d' ||
+    projectFilter !== 'ORION' ||
+    statusFilter !== 'all' ||
+    priorityFilter !== 'all';
 
   useEffect(() => {
     setEvidencePage(0);
@@ -1682,6 +1797,7 @@ function ResultsPage({
     <section className="inner-screen">
       <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} omniboxRef={omniboxRef} />
       <div className="filters">
+        <span className="filter-label">Scope</span>
         <button type="button" className={cx('fchip', sourceFilter === 'all' && 'on')} aria-pressed={sourceFilter === 'all'} onClick={() => onSourceFilterChange('all')}>
           All {corpusTotal != null && <span className="n">{corpusTotal}</span>}
         </button>
@@ -1738,6 +1854,12 @@ function ResultsPage({
             ))}
           </select>
         </label>
+        {filtersCustomized && (
+          <button className="filter-reset" type="button" onClick={onResetFilters}>
+            <FilterX size={14} />
+            Reset
+          </button>
+        )}
       </div>
 
       <main className={cx('results-layout', !evidenceReady && 'results-layout-pending')}>
@@ -1759,9 +1881,10 @@ function ResultsPage({
                 <div className="score-explainer" title={FINAL_SCORE_HELP}>
                   Default order uses Cohere Rerank when present; SQL score remains the Aurora composite.
                 </div>
-                <button className={cx('answer-ready', showAnswerGuide && 'guide-pulse')} onClick={() => onAgent()}>
-                  <span className="dot" />
-                  Agent answer ready →
+                <button className="answer-ready" onClick={() => onAgent()}>
+                  <Sparkles size={15} />
+                  Agent answer ready
+                  <ArrowRight size={14} />
                 </button>
               </>
             )}
@@ -1769,16 +1892,27 @@ function ResultsPage({
           {loading ? (
             <EmptyState loading title="Searching evidence" body={`${APP_NAME} is retrieving, fusing, and scoring source objects across connected systems.`} />
           ) : evidence.length === 0 ? (
-            <EmptyState title="No evidence matched" body="Adjust the source, window, project, status, or priority filter and run the search again." />
+            <EmptyState
+              title="No evidence matched"
+              body="Adjust the source, window, project, status, or priority filter and run the search again."
+              action={filtersCustomized ? (
+                <button className="btn ghost empty-action" type="button" onClick={onResetFilters}>
+                  <FilterX size={14} />
+                  Reset filters
+                </button>
+              ) : undefined}
+            />
           ) : (
             <>
               <div className={cx('evidence-focus', showEvidenceGuide && 'guide-target guide-spotlight')}>
                 {showEvidenceGuide && (
                   <GuideCoachmark
+                    step="evidence"
                     title="Inspect the evidence"
-                    body="Start with the ranked cards: source, snippet, score, and matched signals. Then open Agent Answer to see how these sources become cited claims."
-                    onDismiss={() => onDismissGuide('evidence')}
+                    body="Read the source, matching signals, rerank score, and highlighted passage. The next step connects those records to cited claims."
+                    onAdvance={() => onAdvanceGuide('evidence')}
                     onSkip={onSkipGuide}
+                    primaryLabel="Next: answer"
                   />
                 )}
                 <div className="thread-col">
@@ -1817,15 +1951,7 @@ function ResultsPage({
         </section>
 
         {evidenceReady && <aside className="rail">
-          <div className={cx('railcard', showAnswerGuide && 'guide-target guide-spotlight')}>
-            {showAnswerGuide && (
-              <GuideCoachmark
-                title="Open the cited answer"
-                body="The evidence list shows ranked sources. Next, open the answer to see how those sources become cited claims."
-                onDismiss={() => onDismissGuide('answer')}
-                onSkip={onSkipGuide}
-              />
-            )}
+          <div className="railcard">
             <div className="mono-label with-dot"><span className="dot" />Agent answer · ready</div>
             {answerPreview ? (
               <p className="ans-preview">{answerPreview}</p>
@@ -1971,8 +2097,8 @@ function useReducedMotion() {
 // Drives an ordered "stage" cursor: stage 0, 1, 2 ... each advancing after a
 // beat. Consumers reveal content once the cursor reaches their index. When
 // motion is reduced (or streaming disabled) every stage is revealed at once.
-function useStageSequence(count: number, opts: { enabled: boolean; beatMs?: number; startMs?: number }) {
-  const { enabled, beatMs = 620, startMs = 220 } = opts;
+function useStageSequence(count: number, opts: { enabled: boolean; beatMs?: number; startMs?: number; restartKey?: number }) {
+  const { enabled, beatMs = 620, startMs = 220, restartKey = 0 } = opts;
   const [stage, setStage] = useState(enabled ? -1 : count);
   useEffect(() => {
     if (!enabled) {
@@ -1985,7 +2111,7 @@ function useStageSequence(count: number, opts: { enabled: boolean; beatMs?: numb
       timers.push(window.setTimeout(() => setStage(i), startMs + i * beatMs));
     }
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [count, enabled, beatMs, startMs]);
+  }, [count, enabled, beatMs, startMs, restartKey]);
   return stage;
 }
 
@@ -2180,7 +2306,7 @@ function AgentPage({
   onSearch,
   onAgent,
   guideStep,
-  onDismissGuide,
+  onAdvanceGuide,
   onSkipGuide,
   onNavigate,
   citedResults,
@@ -2199,7 +2325,7 @@ function AgentPage({
   onSearch: () => void;
   onAgent: () => void;
   guideStep?: GuideStep | null;
-  onDismissGuide: (step: GuideStep) => void;
+  onAdvanceGuide: (step: GuideStep) => void;
   onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
   citedResults: Result[];
@@ -2226,6 +2352,7 @@ function AgentPage({
   const commitments = (source.commitments && source.commitments.length > 0 ? source.commitments : canonical?.commitments) || [];
   const quote = answerBody?.quote;
   const hasAnswer = Boolean(answerBody || answerString);
+  const [copied, setCopied] = useState(false);
 
   const runLabel = agentPayload.run_id || canonical?.run_id || runId || '';
   const confidenceValue = typeof source.confidence === 'number' ? source.confidence : (canonical?.confidence ?? 0);
@@ -2235,7 +2362,7 @@ function AgentPage({
   const citedSystemCount = source.system_count ?? canonical?.system_count ?? new Set(citations.map((c) => c.source_system)).size;
   const claimCount = countCitationClaims(answerBody);
   const firedLabel = formatDate(canonical?.fired_at);
-  const showTimelineGuide = guideStep === 'timeline';
+  const showAnswerGuide = guideStep === 'answer';
   // Agent + model metadata is served live by the API (both the agent answer and
   // the canonical endpoint carry it). The routed model IDs come from settings, so
   // they must never be hard-coded in the frontend — a provisioned account could
@@ -2255,6 +2382,30 @@ function AgentPage({
       note: routingNotes.answer_synthesis
     }
   ].filter((row) => row.model);
+  const answerExport = [
+    `# ${source.question || query || queryDefault}`,
+    '',
+    answerBodyText(rawAnswer),
+    quote?.text ? `> ${quote.text}${quote.attr ? `\n>\n> ${quote.attr}` : ''}` : '',
+    citations.length > 0 ? '## Sources' : '',
+    ...citations.map((citation) => `${citation.n}. ${citation.title} (${sourceLabel(citation.source_system)} · ${citation.external_id})${citation.url ? `\n   ${citation.url}` : ''}`)
+  ].filter(Boolean).join('\n\n');
+
+  async function copyAnswer() {
+    await navigator.clipboard.writeText(answerExport);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  function downloadAnswer() {
+    const blob = new Blob([answerExport], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `auralens-${shortRunId(runLabel || 'answer')}.md`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 
   // --- Streaming deconstruction --------------------------------------------
   // The answer arrives beat-by-beat: the synthesized prose types itself, then
@@ -2330,22 +2481,44 @@ function AgentPage({
             />
           ) : (
             <>
-              <div className="eyebrow mono-label">
-                {streaming && thinking
-                  ? 'Agent answer · thinking'
-                  : streaming && beat < planStart + planLength
-                    ? 'Agent answer · streaming with citations'
-                    : 'Agent answer · synthesized with citations'}
-              </div>
-              <div className="question">"{source.question || query || queryDefault}"</div>
-              <div className="answermeta">
-                <span className="badge"><i />GROUNDED</span>
-                {(agentMeta.harness || agentMeta.model_provider) && (
-                  <span>{agentMeta.harness && <b>{agentMeta.harness}</b>}{agentMeta.harness && agentMeta.model_provider ? ' · ' : ''}{agentMeta.model_provider}</span>
+              <div className={cx('answer-guide-focus', showAnswerGuide && 'guide-target guide-spotlight')}>
+                {showAnswerGuide && (
+                  <GuideCoachmark
+                    step="answer"
+                    title="Read the grounded answer"
+                    body="The canonical answer turns ranked evidence into claims with inline citations, source coverage, and a confidence trail."
+                    onAdvance={() => onAdvanceGuide('answer')}
+                    onSkip={onSkipGuide}
+                    primaryLabel="Next: timeline"
+                  />
                 )}
-                {runLabel && <span title={runLabel}>run <b>{shortRunId(runLabel)}</b></span>}
-                <span><b>{citedSourceCount} sources</b> · {citedSystemCount} systems</span>
-                {canonical?.fired_at && <span>{firedLabel}</span>}
+                <div className="eyebrow mono-label">
+                  {streaming && thinking
+                    ? 'Agent answer · thinking'
+                    : streaming && beat < planStart + planLength
+                      ? 'Agent answer · streaming with citations'
+                      : 'Agent answer · synthesized with citations'}
+                </div>
+                <div className="question">"{source.question || query || queryDefault}"</div>
+                <div className="answermeta">
+                  <span className="badge"><i />GROUNDED</span>
+                  {(agentMeta.harness || agentMeta.model_provider) && (
+                    <span>{agentMeta.harness && <b>{agentMeta.harness}</b>}{agentMeta.harness && agentMeta.model_provider ? ' · ' : ''}{agentMeta.model_provider}</span>
+                  )}
+                  {runLabel && <span title={runLabel}>run <b>{shortRunId(runLabel)}</b></span>}
+                  <span><b>{citedSourceCount} sources</b> · {citedSystemCount} systems</span>
+                  {canonical?.fired_at && <span>{firedLabel}</span>}
+                </div>
+                <div className="answer-utilities" aria-label="Answer actions">
+                  <button type="button" onClick={() => void copyAnswer()}>
+                    {copied ? <Check size={15} /> : <Clipboard size={15} />}
+                    {copied ? 'Copied' : 'Copy answer'}
+                  </button>
+                  <button type="button" onClick={downloadAnswer}>
+                    <Download size={15} />
+                    Export report
+                  </button>
+                </div>
               </div>
 
               {routingRows.length > 0 && (
@@ -2467,15 +2640,7 @@ function AgentPage({
                         );
                       })}
                   {(!streaming || planStage >= planLength) && (
-                    <div className={cx('actions', 'beat', 'is-in', showTimelineGuide && 'guide-target guide-spotlight')}>
-                      {showTimelineGuide && (
-                        <GuideCoachmark
-                          title="Follow the evidence path"
-                          body="The answer is cited. Now open Timeline to see the linked source objects in sequence."
-                          onDismiss={() => onDismissGuide('timeline')}
-                          onSkip={onSkipGuide}
-                        />
-                      )}
+                    <div className={cx('actions', 'beat', 'is-in')}>
                       <button className="btn primary" onClick={() => onAgent()}>Regenerate answer</button>
                       <button className="btn ghost" onClick={() => onNavigate('trail')}>View timeline</button>
                       <button className="btn ghost" onClick={() => onNavigate('diagnostics')}>Open diagnostics</button>
@@ -2566,7 +2731,7 @@ function TimelinePage({
   error,
   onSearch,
   guideStep,
-  onDismissGuide,
+  onAdvanceGuide,
   onSkipGuide,
   onNavigate
 }: {
@@ -2578,18 +2743,19 @@ function TimelinePage({
   error?: string;
   onSearch: () => void;
   guideStep?: GuideStep | null;
-  onDismissGuide: (step: GuideStep) => void;
+  onAdvanceGuide: (step: GuideStep) => void;
   onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
 }) {
   // The timeline assembles itself node-by-node, as if traverse_links() were
   // walking object_links live. One stage per event, plus the outcome card.
   const reducedMotion = useReducedMotion();
+  const [replayKey, setReplayKey] = useState(0);
   const events = timeline?.events || [];
   const streaming = !reducedMotion && events.length > 0;
-  const stage = useStageSequence(events.length + 1, { enabled: streaming, beatMs: 520, startMs: 320 });
+  const stage = useStageSequence(events.length + 1, { enabled: streaming, beatMs: 520, startMs: 320, restartKey: replayKey });
   const walking = streaming && stage < events.length;
-  const showDiagnosticsGuide = guideStep === 'diagnostics';
+  const showTimelineGuide = guideStep === 'timeline';
 
   // Header stats + legend, derived from the live payload.
   const systemCount = timeline?.systems?.length ?? new Set(events.map((e) => e.source_system)).size;
@@ -2614,6 +2780,12 @@ function TimelinePage({
             ))}
           </div>
         )}
+        {events.length > 0 && !walking && (
+          <button className="replay-button" type="button" onClick={() => setReplayKey((value) => value + 1)}>
+            <RefreshCw size={14} />
+            Replay traversal
+          </button>
+        )}
         {walking && (
           <div className="walking mono-label">traverse_links() building timeline<span className="caret" aria-hidden="true" /></div>
         )}
@@ -2622,7 +2794,17 @@ function TimelinePage({
       {events.length === 0 ? (
         <EmptyState title="No timeline yet" body="Run the agent to build the cross-system evidence timeline for this question." />
       ) : (
-        <div className="trail">
+        <div className={cx('trail', showTimelineGuide && 'guide-target guide-spotlight')}>
+          {showTimelineGuide && (
+            <GuideCoachmark
+              step="timeline"
+              title="Follow the evidence path"
+              body="Linked source objects now unfold in sequence, showing how the incident, decision, customer impact, and code change connect."
+              onAdvance={() => onAdvanceGuide('timeline')}
+              onSkip={onSkipGuide}
+              primaryLabel="Next: diagnostics"
+            />
+          )}
           {events.map((event, index) => {
             const shown = !streaming || stage >= index;
             if (!shown) return null;
@@ -2657,15 +2839,7 @@ function TimelinePage({
             );
           })}
           {(!streaming || stage >= events.length) && (
-            <div className={cx('outcome', 'beat', 'is-in', showDiagnosticsGuide && 'guide-target guide-spotlight')}>
-              {showDiagnosticsGuide && (
-                <GuideCoachmark
-                  title="Inspect the run diagnostics"
-                  body="Timeline shows the linked evidence path. Diagnostics shows the ranker signals, candidate rows, and SQL trace behind the same run."
-                  onDismiss={() => onDismissGuide('diagnostics')}
-                  onSkip={onSkipGuide}
-                />
-              )}
+            <div className={cx('outcome', 'beat', 'is-in')}>
               <span className="mono-label">Outcome</span>
               <div className="big">{events.length} linked source objects across {systemCount} systems, connected by {edgeCount} traversed edges — the full evidence path behind the Orion decision.</div>
               <div className="outcome-actions">
@@ -2689,7 +2863,7 @@ function DiagnosticsPage({
   corpusTotal,
   onSearch,
   guideStep,
-  onDismissGuide,
+  onAdvanceGuide,
   onSkipGuide,
   onNavigate
 }: {
@@ -2702,11 +2876,23 @@ function DiagnosticsPage({
   corpusTotal?: number;
   onSearch: () => void;
   guideStep?: GuideStep | null;
-  onDismissGuide: (step: GuideStep) => void;
+  onAdvanceGuide: (step: GuideStep) => void;
   onSkipGuide: () => void;
   onNavigate: (page: Page) => void;
 }) {
+  const showDiagnosticsGuide = guideStep === 'diagnostics';
   const showProofGuide = guideStep === 'proof';
+  const [sqlCopied, setSqlCopied] = useState(false);
+  const sqlText = (fusionSql?.functions || [])
+    .map((fn) => `-- ${fn.name}\n${fn.definition}`)
+    .join('\n\n');
+
+  async function copyFusionSql() {
+    if (!sqlText) return;
+    await navigator.clipboard.writeText(sqlText);
+    setSqlCopied(true);
+    window.setTimeout(() => setSqlCopied(false), 1800);
+  }
 
   if (!canonical) {
     return (
@@ -2761,7 +2947,17 @@ function DiagnosticsPage({
           <span>stored in <b>retrieval_runs</b></span>
         </div>
 
-        <section className="diagnostics-audit" aria-label="Run audit summary">
+        <section className={cx('diagnostics-audit', showDiagnosticsGuide && 'guide-target guide-spotlight')} aria-label="Run audit summary">
+          {showDiagnosticsGuide && (
+            <GuideCoachmark
+              step="diagnostics"
+              title="Inspect the run diagnostics"
+              body="The audit summary verifies source coverage, candidate quality, contradiction checks, and the persisted path behind the answer."
+              onAdvance={() => onAdvanceGuide('diagnostics')}
+              onSkip={onSkipGuide}
+              primaryLabel="Next: candidate proof"
+            />
+          )}
           <div className="audit-verdict">
             <span className="tech-pill">Run complete</span>
             <h2>Grounded answer path accepted.</h2>
@@ -2835,10 +3031,12 @@ function DiagnosticsPage({
           </div>
           {showProofGuide && (
             <GuideCoachmark
+              step="proof"
               title="Use this as the proof surface"
               body="Each row is persisted in retrieval_candidates with ranker positions, final score, and citation outcome. This is the replayable audit trail."
-              onDismiss={() => onDismissGuide('proof')}
+              onAdvance={() => onAdvanceGuide('proof')}
               onSkip={onSkipGuide}
+              primaryLabel="Finish walkthrough"
             />
           )}
           <div className="candidate-legend">
@@ -2879,6 +3077,12 @@ function DiagnosticsPage({
             <div className="psub">
               {fusionSql?.engine ? fusionSql.engine.toUpperCase() : 'AURORA POSTGRESQL'} · pg_get_functiondef
             </div>
+            {sqlText && (
+              <button className="sql-copy" type="button" onClick={() => void copyFusionSql()}>
+                {sqlCopied ? <Check size={14} /> : <Clipboard size={14} />}
+                {sqlCopied ? 'Copied' : 'Copy SQL'}
+              </button>
+            )}
           </div>
           {fusionSql && fusionSql.functions.length > 0 ? (
             fusionSql.functions.map((fn) => (
@@ -2947,6 +3151,7 @@ function DetailPage({
   error,
   onSearch,
   onNavigate,
+  onOpenDetail,
   omniboxRef
 }: {
   page: Page;
@@ -2958,6 +3163,7 @@ function DetailPage({
   error?: string;
   onSearch: () => void;
   onNavigate: (page: Page) => void;
+  onOpenDetail: (result: Result) => void;
   omniboxRef?: React.RefObject<HTMLInputElement>;
 }) {
   const citations = objectDetail?.citations || [];
@@ -3027,7 +3233,19 @@ function DetailPage({
               <div>
                 <h2>Linked evidence</h2>
                 {links.length ? links.slice(0, 4).map((link) => (
-                  <p key={link.link_id || `${link.source_system}-${link.external_id}`}>{sourceLabel(link.source_system)} · {link.title}</p>
+                  <button
+                    className="linked-evidence"
+                    type="button"
+                    key={link.link_id || `${link.source_system}-${link.external_id}`}
+                    onClick={() => onOpenDetail(link)}
+                  >
+                    <span className="tile">{sourceIcon(link.source_system, 17)}</span>
+                    <span>
+                      <b>{link.title}</b>
+                      <small>{sourceLabel(link.source_system)} · {link.external_id}{typeof link.confidence === 'number' ? ` · ${link.confidence.toFixed(2)} confidence` : ''}</small>
+                    </span>
+                    <ArrowRight size={14} />
+                  </button>
                 )) : <p>No linked source objects returned for this evidence item.</p>}
               </div>
             </section>
@@ -3055,8 +3273,10 @@ function App() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
-  const [dismissedGuideSteps, setDismissedGuideSteps] = useState<GuideStep[]>(readGuideDismissals);
+  const [apiStatus, setApiStatus] = useState<ApiStatus>('checking');
+  const [guideCompleted, setGuideCompleted] = useState(() => readGuideDismissals().length === guideSteps.length);
   const [activeGuideStep, setActiveGuideStep] = useState<GuideStep | null>(null);
+  const [canonicalLoadSettled, setCanonicalLoadSettled] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [rankMode, setRankMode] = useState<RankMode>('hybrid');
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('90d');
@@ -3071,34 +3291,62 @@ function App() {
   const [fusionSql, setFusionSql] = useState<FusionSql | null>(null);
   const [corpus, setCorpus] = useState<CorpusProfile | null>(null);
   const omniboxRef = useRef<HTMLInputElement>(null);
+  const guideStartedRef = useRef(false);
 
-  const guideDismissed = (step: GuideStep) => dismissedGuideSteps.includes(step);
-
-  function activateGuide(step: GuideStep) {
-    if (!ENABLE_GUIDED_DISCOVERY || guideDismissed(step)) return;
+  function showGuideStep(step: GuideStep) {
+    const guidePages: Record<GuideStep, Page> = {
+      search: 'landing',
+      evidence: 'results',
+      answer: 'agent',
+      timeline: 'trail',
+      diagnostics: 'diagnostics',
+      proof: 'diagnostics'
+    };
+    setQuery(queryDefault);
+    setError(undefined);
+    setLoading(false);
+    setPage(guidePages[step]);
     setActiveGuideStep(step);
   }
 
-  function dismissGuide(step: GuideStep) {
-    setDismissedGuideSteps((current) => current.includes(step) ? current : [...current, step]);
-    setActiveGuideStep((current) => current === step ? null : current);
-    if (step === 'evidence' && page === 'results') {
-      window.setTimeout(() => activateGuide('answer'), 140);
+  function completeGuide() {
+    window.localStorage.setItem(GUIDE_STORAGE_KEY, JSON.stringify(guideSteps));
+    setGuideCompleted(true);
+    setActiveGuideStep(null);
+    setQuery('');
+    setError(undefined);
+    setLoading(false);
+    setPage('landing');
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'auto' }), 0);
+  }
+
+  function advanceGuide(step: GuideStep) {
+    const currentIndex = guideSteps.indexOf(step);
+    if (currentIndex < 0 || activeGuideStep !== step) return;
+    const nextStep = guideSteps[currentIndex + 1];
+    if (!nextStep) {
+      completeGuide();
+      return;
     }
+    showGuideStep(nextStep);
   }
 
   function skipGuide() {
-    setDismissedGuideSteps(guideSteps);
-    setActiveGuideStep(null);
+    completeGuide();
   }
 
-  function resetGuideFromUrl() {
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('guide') !== '1') return;
+  function startGuide() {
+    if (!ENABLE_GUIDED_DISCOVERY || !canonical) return;
+    guideStartedRef.current = true;
     window.localStorage.removeItem(GUIDE_STORAGE_KEY);
-    setDismissedGuideSteps([]);
-    setActiveGuideStep(null);
+    setGuideCompleted(false);
+    setHasSearchRun(false);
+    setResults([]);
+    setSelected(null);
+    setRunId(undefined);
+    setAgentPayload({});
+    showGuideStep('search');
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'auto' }), 0);
   }
 
   function navigate(pageTarget: Page) {
@@ -3106,31 +3354,22 @@ function App() {
     setError(undefined);
     if (pageTarget !== 'landing' && (page === 'landing' || !query.trim())) setQuery(queryDefault);
     if (pageTarget === 'detail' && !selected) setSelected(citedResults[0] || null);
-    if (pageTarget === 'results' && results.length > 0) activateGuide('answer');
-    if (pageTarget === 'agent') activateGuide('timeline');
-    if (pageTarget === 'trail') {
-      dismissGuide('timeline');
-      activateGuide('diagnostics');
-    }
-    if (pageTarget === 'diagnostics') {
-      dismissGuide('diagnostics');
-      activateGuide('proof');
-    }
     setPage(pageTarget);
   }
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(GUIDE_STORAGE_KEY, JSON.stringify(dismissedGuideSteps));
-  }, [dismissedGuideSteps]);
-
-  useEffect(() => {
-    resetGuideFromUrl();
+    let active = true;
+    fetchWithTimeout(`${API_URL}/health`, {}, 5000)
+      .then((resp) => {
+        if (active) setApiStatus(resp.ok ? 'live' : 'offline');
+      })
+      .catch(() => {
+        if (active) setApiStatus('offline');
+      });
+    return () => {
+      active = false;
+    };
   }, []);
-
-  useEffect(() => {
-    if (page === 'landing') activateGuide('search');
-  }, [page, dismissedGuideSteps]);
 
   // Hydrate the workspace from the read-only canonical + corpus endpoints once on
   // mount. These create no retrieval run, so the landing hero, Diagnostics, and
@@ -3139,17 +3378,19 @@ function App() {
   // the effect below refetches them for that run.
   useEffect(() => {
     let active = true;
-    const load = async <T,>(path: string, set: (value: T) => void) => {
+    const load = async <T,>(path: string, set: (value: T) => void, onSettled?: () => void) => {
       try {
-        const resp = await fetch(`${API_URL}${path}`);
+        const resp = await fetchWithTimeout(`${API_URL}${path}`, {}, 12000);
         if (!resp.ok) return;
         const json = (await resp.json()) as T;
         if (active) set(json);
       } catch {
         // Leave the slice null; pages fall back to a graceful empty state.
+      } finally {
+        if (active) onSettled?.();
       }
     };
-    void load<CanonicalDiagnostics>('/v1/diagnostics/canonical', setCanonical);
+    void load<CanonicalDiagnostics>('/v1/diagnostics/canonical', setCanonical, () => setCanonicalLoadSettled(true));
     void load<CorpusProfile>('/v1/diagnostics/corpus', setCorpus);
     void load<FusionSql>('/v1/diagnostics/fusion-sql', setFusionSql);
     return () => {
@@ -3165,7 +3406,7 @@ function App() {
     if (!target) return;
     const load = async <T,>(path: string, set: (value: T) => void) => {
       try {
-        const resp = await fetch(`${API_URL}${path}`);
+        const resp = await fetchWithTimeout(`${API_URL}${path}`, {}, 12000);
         if (!resp.ok) return;
         const json = (await resp.json()) as T;
         if (active) set(json);
@@ -3179,6 +3420,23 @@ function App() {
       active = false;
     };
   }, [runId, canonical?.run_id]);
+
+  useEffect(() => {
+    if (
+      !ENABLE_GUIDED_DISCOVERY ||
+      guideCompleted ||
+      guideStartedRef.current ||
+      !canonicalLoadSettled ||
+      !canonical
+    ) return;
+    startGuide();
+  }, [canonicalLoadSettled, canonical, guideCompleted]);
+
+  useEffect(() => {
+    if (!activeGuideStep) return;
+    const timerId = window.setTimeout(() => advanceGuide(activeGuideStep), GUIDE_STEP_DURATION_MS);
+    return () => window.clearTimeout(timerId);
+  }, [activeGuideStep]);
 
   // ⌘K / Ctrl-K focuses the search box from anywhere. On the landing page the
   // composer input carries the .landing-search class; on inner pages it is the
@@ -3196,7 +3454,7 @@ function App() {
       } else if (event.key === 'Escape') {
         if (activeGuideStep) {
           event.preventDefault();
-          dismissGuide(activeGuideStep);
+          skipGuide();
           return;
         }
         const activeEl = document.activeElement as HTMLElement | null;
@@ -3208,25 +3466,12 @@ function App() {
   }, [activeGuideStep]);
 
   useEffect(() => {
-    if (!activeGuideStep) return;
-    const allowed: Record<GuideStep, Page[]> = {
-      search: ['landing'],
-      evidence: ['results'],
-      answer: ['results'],
-      timeline: ['agent'],
-      diagnostics: ['trail'],
-      proof: ['diagnostics']
-    };
-    if (!allowed[activeGuideStep].includes(page)) setActiveGuideStep(null);
-  }, [activeGuideStep, page]);
-
-  useEffect(() => {
     if (page !== 'detail' || !selected?.object_id) return;
     let active = true;
     setDetailLoading(true);
     setObjectDetail(null);
     setError(undefined);
-    fetch(`${API_URL}/v1/objects/${selected.object_id}`)
+    fetchWithTimeout(`${API_URL}/v1/objects/${selected.object_id}`, {}, 20000)
       .then((resp) => {
         if (!resp.ok) throw new Error(`Source detail failed with HTTP ${resp.status}`);
         return resp.json() as Promise<ObjectDetail>;
@@ -3282,7 +3527,7 @@ function App() {
       : [nextSourceFilter];
     const startDate = startDateForWindow(nextTimeWindow);
 
-    if (activeGuideStep === 'search') dismissGuide('search');
+    if (activeGuideStep) completeGuide();
     setQuery(searchQuery);
     setSourceFilter(nextSourceFilter);
     setTimeWindow(nextTimeWindow);
@@ -3297,7 +3542,7 @@ function App() {
     setResults([]);
     setSelected(null);
     try {
-      const resp = await fetch(`${API_URL}/v1/search`, {
+      const resp = await fetchWithTimeout(`${API_URL}/v1/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3309,18 +3554,13 @@ function App() {
           start_date: startDate,
           limit: nextSourceFilter === 'all' ? 24 : 30
         })
-      });
+      }, 45000);
       if (!resp.ok) throw new Error(`Search failed with HTTP ${resp.status}`);
       const json = (await resp.json()) as SearchResponse;
       const rows = dedupeResults(json.results || []);
       setRunId(json.run_id);
       setResults(rows);
       setSelected(rows[0] || null);
-      if (!guideDismissed('evidence')) {
-        activateGuide('evidence');
-      } else {
-        activateGuide('answer');
-      }
     } catch (err) {
       setRunId(undefined);
       setResults([]);
@@ -3351,6 +3591,17 @@ function App() {
     void runSearch(undefined, { priorityFilter: value });
   }
 
+  function resetFilters() {
+    setRankMode('hybrid');
+    void runSearch(undefined, {
+      sourceFilter: 'all',
+      timeWindow: '90d',
+      projectFilter: 'ORION',
+      statusFilter: 'all',
+      priorityFilter: 'all'
+    });
+  }
+
   // Open a specific object's Detail view — used by the Answer page's cited-source
   // buttons. The citation carries object_id (resolved server-side), so the detail
   // fetch effect (keyed on selected.object_id) loads the live source object.
@@ -3363,18 +3614,18 @@ function App() {
   }
 
   async function runAgent(queryOverride?: string) {
-    dismissGuide('answer');
+    if (activeGuideStep) completeGuide();
     const question = (queryOverride ?? query).trim() || queryDefault;
     setQuery(question);
     setPage('agent');
     setLoading(true);
     setError(undefined);
     try {
-      const resp = await fetch(`${API_URL}/v1/agent/answer`, {
+      const resp = await fetchWithTimeout(`${API_URL}/v1/agent/answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question, limit: 8 })
-      });
+      }, 90000);
       if (!resp.ok) throw new Error(`Agent answer failed with HTTP ${resp.status}`);
       const json = (await resp.json()) as AgentPayload;
       const rows = dedupeResults(json.results || []);
@@ -3389,15 +3640,15 @@ function App() {
       setError(err instanceof Error ? err.message : 'Agent answer failed. Check the API and local Postgres setup.');
     } finally {
       setLoading(false);
-      activateGuide('timeline');
     }
   }
 
   const withGuideBackdrop = (content: React.ReactElement) => (
-    <>
+    <ApiStatusContext.Provider value={apiStatus}>
       {activeGuideStep && <div className="guide-backdrop" aria-hidden="true" />}
       {content}
-    </>
+      {!activeGuideStep && ENABLE_GUIDED_DISCOVERY && canonical && <WalkthroughLauncher onStart={startGuide} />}
+    </ApiStatusContext.Provider>
   );
 
   if (page === 'landing') {
@@ -3411,9 +3662,11 @@ function App() {
         onNavigate={navigate}
         error={error}
         heroNodes={deriveHeroNodes(citedResults, canonical)}
-        heroScore={typeof canonical?.confidence === 'number' ? canonical.confidence : null}
+        heroScore={typeof canonical?.confidence === 'number' ? canonical.confidence : heroAnswerFallbackConfidence}
+        corpusTotal={corpusTotal}
+        runLatency={canonical?.total_latency_ms}
         guideStep={activeGuideStep}
-        onDismissGuide={dismissGuide}
+        onAdvanceGuide={advanceGuide}
         onSkipGuide={skipGuide}
       />
     );
@@ -3432,6 +3685,7 @@ function App() {
         error={error}
         onSearch={runSearch}
         onNavigate={navigate}
+        onOpenDetail={openDetailFor}
       />
     );
   }
@@ -3447,7 +3701,7 @@ function App() {
         error={error}
         onSearch={runSearch}
         guideStep={activeGuideStep}
-        onDismissGuide={dismissGuide}
+        onAdvanceGuide={advanceGuide}
         onSkipGuide={skipGuide}
         onNavigate={navigate}
       />
@@ -3469,7 +3723,7 @@ function App() {
         onSearch={runSearch}
         onAgent={runAgent}
         guideStep={activeGuideStep}
-        onDismissGuide={dismissGuide}
+        onAdvanceGuide={advanceGuide}
         onSkipGuide={skipGuide}
         onNavigate={navigate}
         citedResults={citedResults}
@@ -3491,7 +3745,7 @@ function App() {
         corpusTotal={corpusTotal}
         onSearch={runSearch}
         guideStep={activeGuideStep}
-        onDismissGuide={dismissGuide}
+        onAdvanceGuide={advanceGuide}
         onSkipGuide={skipGuide}
         onNavigate={navigate}
       />
@@ -3530,8 +3784,9 @@ function App() {
       onProjectFilterChange={applyProjectFilter}
       onStatusFilterChange={applyStatusFilter}
       onPriorityFilterChange={applyPriorityFilter}
+      onResetFilters={resetFilters}
       guideStep={activeGuideStep}
-      onDismissGuide={dismissGuide}
+      onAdvanceGuide={advanceGuide}
       onSkipGuide={skipGuide}
       onNavigate={navigate}
     />

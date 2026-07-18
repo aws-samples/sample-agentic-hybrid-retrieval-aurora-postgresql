@@ -42,6 +42,7 @@ def _cohere_rerank_model() -> str:
 
 class Settings(BaseModel):
     database_url: str = os.environ.get("DATABASE_URL", "")
+    database_connect_timeout_seconds: int = _env_int("DATABASE_CONNECT_TIMEOUT_SECONDS", 10, minimum=1)
     aws_region: str = os.environ.get("AWS_REGION", "us-east-1")
     cors_allow_origins: str = os.environ.get(
         "CORS_ALLOW_ORIGINS",
