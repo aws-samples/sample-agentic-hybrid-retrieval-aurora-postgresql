@@ -1,28 +1,56 @@
-# Agentic Hybrid Retrieval with PostgreSQL and pgvector
+<h1 align="center">Verity</h1>
 
-[![License: MIT-0](https://img.shields.io/badge/License-MIT--0-yellow.svg)](LICENSE)
-[![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![PostgreSQL 18.3+](https://img.shields.io/badge/PostgreSQL-18.3%2B-336791.svg?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![pgvector 0.8.1+](https://img.shields.io/badge/pgvector-0.8.1%2B-4B8BBE.svg)](https://github.com/pgvector/pgvector)
-[![Aurora PostgreSQL](https://img.shields.io/badge/Amazon%20Aurora-PostgreSQL-FF9900.svg?logo=amazonaws&logoColor=white)](https://aws.amazon.com/rds/aurora/)
-[![Amazon Bedrock](https://img.shields.io/badge/Amazon%20Bedrock-Cohere%20%26%20Claude-232F3E.svg?logo=amazonaws&logoColor=white)](https://aws.amazon.com/bedrock/)
-[![AgentCore Gateway](https://img.shields.io/badge/AgentCore-Gateway-8B5CF6.svg?logo=amazonaws&logoColor=white)](https://aws.amazon.com/bedrock/agentcore/)
-[![Strands Agents](https://img.shields.io/badge/Strands-Agents-4B5563.svg)](https://strandsagents.com/)
-[![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg?logo=vite&logoColor=white)](https://vite.dev/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+<p align="center">
+  <strong>Agentic hybrid retrieval with Amazon Aurora PostgreSQL</strong><br />
+  Turn fragmented operational records into ranked evidence, cited answers, and durable proof.
+</p>
 
-This repository is a security-reviewable starter implementation for a re:Invent 2026 builders' session:
+<p align="center">
+  <a href="LICENSE"><img alt="MIT-0 license" src="https://img.shields.io/badge/License-MIT--0-2f6f5e?style=flat-square" /></a>
+  <a href="https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql?branch=main&style=flat-square&color=2f6f5e" /></a>
+  <a href="https://www.python.org/downloads/"><img alt="Python 3.13 or later" src="https://img.shields.io/badge/Python-3.13%2B-3776AB?style=flat-square&logo=python&logoColor=white" /></a>
+  <a href="https://nodejs.org/"><img alt="Node.js 20.19 or later" src="https://img.shields.io/badge/Node.js-20.19%2B-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white" /></a>
+  <a href="https://www.postgresql.org/"><img alt="PostgreSQL 18.3 or later" src="https://img.shields.io/badge/PostgreSQL-18.3%2B-4169E1?style=flat-square&logo=postgresql&logoColor=white" /></a>
+  <a href="https://github.com/pgvector/pgvector"><img alt="pgvector 0.8.1 or later" src="https://img.shields.io/badge/pgvector-0.8.1%2B-5B5B5B?style=flat-square" /></a>
+</p>
 
-> **Build agentic hybrid retrieval with Amazon Aurora PostgreSQL**
+<p align="center">
+  <a href="https://aws.amazon.com/rds/aurora/"><img alt="Amazon Aurora PostgreSQL" src="https://img.shields.io/badge/Amazon_Aurora-PostgreSQL-FF9900?style=flat-square" /></a>
+  <a href="https://aws.amazon.com/bedrock/"><img alt="Amazon Bedrock" src="https://img.shields.io/badge/Amazon_Bedrock-Cohere_%2B_Claude-232F3E?style=flat-square" /></a>
+  <a href="https://aws.amazon.com/bedrock/agentcore/"><img alt="Amazon Bedrock AgentCore Gateway" src="https://img.shields.io/badge/AgentCore-Gateway-7B42BC?style=flat-square" /></a>
+  <a href="https://strandsagents.com/"><img alt="Strands Agents" src="https://img.shields.io/badge/Strands-Agents-111827?style=flat-square" /></a>
+  <a href="https://react.dev/"><img alt="React 18" src="https://img.shields.io/badge/React-18-149ECA?style=flat-square&logo=react&logoColor=white" /></a>
+  <a href="https://vite.dev/"><img alt="Vite 8" src="https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white" /></a>
+</p>
 
-For the builder-session path, the retrieval engine is **Amazon Aurora PostgreSQL 18.3 or later with pgvector 0.8.1 or later**. This repo contains the application, schema, seed data, and runtime helpers. AWS infrastructure is owned by the Workshop Studio repo and delivered as CloudFormation assets.
+---
 
-The product is an operational evidence retrieval layer over fragmented work systems such as Slack-like conversations, Jira issues, Confluence pages, Salesforce cases, GitHub pull requests, runbooks, and incident notes.
+Verity is a security-reviewable reference implementation for the re:Invent 2026
+builder session **Build agentic hybrid retrieval with Amazon Aurora PostgreSQL**.
+It materializes evidence from operational systems into Aurora PostgreSQL, combines
+lexical, semantic, fuzzy, metadata, and recency signals, reranks the fused result,
+and returns a cited answer with a persisted retrieval receipt.
 
-The agentic layer is framed around **Strands Agents**. Strands provides the lab harness and concrete `@tool` contract; Aurora PostgreSQL provides the durable evidence index; Amazon Bedrock provides embeddings and Claude model access where live model calls are enabled. The tool boundary is harness-agnostic: the same retrieval contract can be called from Strands, Claude Code, MCP clients, or another agent harness.
+> [!NOTE]
+> **Level 400 builder session · 60 minutes.** The React application is an inspection
+> surface. The durable deliverable is the HTTP and MCP contract that participants
+> can extend from Strands, Claude Code, LangGraph, or their own agent harness.
 
-The default model routing uses the best model for the job: Sonnet 5 for planning and tool routing; Opus 4.8 for answer synthesis when live composition is enabled. The optional Claude Code CLI harness also uses Sonnet 5 for participant discovery questions and code exercises.
+<p align="center">
+  <img src="docs/images/verity-overview.png" alt="Verity landing page showing the Orion evidence constellation, source scores, and search surface" width="100%" />
+</p>
+<p align="center"><sub>One question, five connected systems, and a fully cited answer path.</sub></p>
+
+## At a glance
+
+| Layer | Implementation |
+|---|---|
+| Evidence index | Amazon Aurora PostgreSQL 18.3+, pgvector 0.8.1+, `tsvector`, `pg_trgm` |
+| Retrieval | Full-text + semantic + fuzzy + metadata + recency, fused with weighted RRF |
+| Ranking | Aurora SQL composite score, then Cohere Rerank v3.5 through Amazon Bedrock |
+| Agent path | Strands tools with Sonnet 5 routing and Opus 4.8 synthesis |
+| Portable boundary | FastAPI operations and `AWS_IAM`-authorized AgentCore Gateway MCP tools |
+| Proof | Persisted runs, candidates, scores, citations, latency, query plans, and evaluation metrics |
 
 ## Prerequisites
 
@@ -32,7 +60,7 @@ The default model routing uses the best model for the job: Sonnet 5 for planning
 - AWS credentials that can read the workshop stack outputs and Secrets Manager database secret
 - Bedrock model access for live query embeddings when `EMBED_PROVIDER=bedrock`
 
-## What participants build
+## What you build
 
 Participants build a lightweight retrieval system that can answer questions like:
 
@@ -51,6 +79,35 @@ The system:
 9. Stores retrieval diagnostics for evaluation and explainability.
 10. Publishes the stable search and answer operations through an `AWS_IAM`-authorized AgentCore Gateway.
 
+## Architecture
+
+```mermaid
+flowchart LR
+    S["Systems of record<br/>Slack · Jira · Confluence · Salesforce · GitHub"]
+    I["Aurora evidence index<br/>objects · chunks · links · ACLs · vectors"]
+    R["Hybrid retrieval<br/>FTS + pgvector + pg_trgm + SQL signals"]
+    F["Weighted RRF<br/>Aurora SQL score"]
+    C["Cohere Rerank<br/>relevance order"]
+    A["Strands answer path<br/>grounded synthesis + citations"]
+    P["Persisted proof<br/>runs · candidates · metrics"]
+    B["Portable agent boundary<br/>HTTP + AgentCore Gateway MCP"]
+
+    S --> I --> R --> F --> C --> A
+    R --> P
+    A --> P
+    B --> R
+    A --> B
+```
+
+Source systems remain authoritative. Aurora stores the searchable projection and
+the proof required to reproduce an answer; it does not replace the systems where
+teams collaborate, approve, or mutate operational records.
+
+<p align="center">
+  <img src="docs/images/verity-agentic-architecture.png" alt="Verity landing page architecture showing ask, retrieve, follow, and answer stages" width="100%" />
+</p>
+<p align="center"><sub>The live inspection surface makes every retrieval and synthesis stage explicit.</sub></p>
+
 ## Portable contract
 
 Verity is an inspection surface over the buildable boundary, not a required
@@ -67,7 +124,7 @@ Use the HTTP operations directly from your own orchestrator, or consume the MCP
 catalog from Strands, Claude Code, LangGraph, or another MCP-aware harness. Keep
 the returned `run_id` with your trace so the answer remains auditable.
 
-## Pipeline Positioning
+## Production data pattern
 
 This workshop does **not** recommend replacing Jira, Slack, Confluence,
 Salesforce, GitHub, or other source systems with Aurora PostgreSQL. Those systems
@@ -92,7 +149,7 @@ pipeline, so participants can focus on the retrieval schema and agent-facing
 search behavior. In production, the same schema receives data from the
 connectors or export jobs that fit each source system.
 
-## Repo Layout
+## Repository layout
 
 ```text
 .
@@ -109,7 +166,7 @@ connectors or export jobs that fit each source system.
 └── docs/                       # Session plan, architecture, security notes, stretch labs
 ```
 
-## Infrastructure Boundary
+## Infrastructure boundary
 
 This source repo does not provision AWS resources. The Workshop Studio repo owns:
 
@@ -121,7 +178,7 @@ This source repo does not provision AWS resources. The Workshop Studio repo owns
 
 Keep application code, SQL, seed data, connector scaffolds, and local runtime helpers here. Put infrastructure templates and deployment packaging in the Workshop Studio repo.
 
-## Quick Start: Workshop Aurora + API + UI
+## Quick start
 
 Set up Python dependencies:
 
@@ -177,7 +234,7 @@ machine. The files are intentionally not committed. If the network check says
 Aurora is not reachable, run from Code Editor or another environment inside the
 workshop VPC.
 
-## Workshop Seed Data
+## Workshop seed
 
 The demo answers one canonical question — **"Why did Orion slip?"** — and every
 number the UI shows (the cited answer, the six sources, the timeline, the diagnostics
@@ -210,7 +267,7 @@ provides a 0-1 rerank score when live reranking is enabled; the SQL score remain
 Aurora's unbounded composite of vector, full-text, fuzzy, metadata, recency, and
 RRF signals.
 
-## Bedrock Model Routing
+## Model routing
 
 The lab defaults to `EMBED_PROVIDER=bedrock` so live query embeddings share the
 Cohere `embed-v4` space the shipped dump was built in. Set `EMBED_PROVIDER=hash`
@@ -258,7 +315,7 @@ curl -X POST http://localhost:8000/v1/search \
   }'
 ```
 
-## Agent Answer
+## Agent answer
 
 ```bash
 curl -X POST http://localhost:8000/v1/agent/answer \
@@ -269,7 +326,7 @@ curl -X POST http://localhost:8000/v1/agent/answer \
   }'
 ```
 
-## Repository Conventions
+## Repository conventions
 
 - Keep local configuration in `.env`; only `.env.example` is committed.
 - Keep generated corpora under `data/generated/`; it is ignored by git.
@@ -278,7 +335,7 @@ curl -X POST http://localhost:8000/v1/agent/answer \
   restore it with `make seed-load`.
 - Use `SECURITY_REVIEW.md` for review notes that should remain visible to maintainers.
 
-## Security Review Notes
+## Security
 
 See [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md). The package is intentionally review-friendly:
 
@@ -295,4 +352,12 @@ For security issue notifications, see [`CONTRIBUTING.md`](CONTRIBUTING.md#securi
 
 ## License
 
-This library is licensed under the MIT-0 License. See the [`LICENSE`](LICENSE) file.
+This project is licensed under the MIT-0 License. See [`LICENSE`](LICENSE) for
+the authoritative copyright and license terms.
+
+---
+
+<p align="center">
+  <strong>Designed and authored by Shayon Sanyal</strong><br />
+  <sub>Workshop concept and experience © 2026 Shayon Sanyal · Published as an AWS Sample under the MIT-0 License</sub>
+</p>
