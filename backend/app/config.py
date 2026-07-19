@@ -43,6 +43,15 @@ def _cohere_rerank_model() -> str:
 class Settings(BaseModel):
     database_url: str = os.environ.get("DATABASE_URL", "")
     database_connect_timeout_seconds: int = _env_int("DATABASE_CONNECT_TIMEOUT_SECONDS", 10, minimum=1)
+    # A workshop room drives many concurrent requests through one API process; a
+    # bounded connection pool keeps Aurora from being hit with a fresh connect per
+    # request while capping the total sessions the process can open.
+    db_pool_min_size: int = _env_int("DB_POOL_MIN_SIZE", 1, minimum=0)
+    db_pool_max_size: int = _env_int("DB_POOL_MAX_SIZE", 10, minimum=1)
+    db_pool_max_idle_seconds: int = _env_int("DB_POOL_MAX_IDLE_SECONDS", 300, minimum=1)
+    # Bedrock throttles hard when a full room calls it at once; adaptive retries add
+    # client-side rate limiting on top of the bounded attempt count.
+    bedrock_max_attempts: int = _env_int("BEDROCK_MAX_ATTEMPTS", 5, minimum=1)
     aws_region: str = os.environ.get("AWS_REGION", "us-east-1")
     cors_allow_origins: str = os.environ.get(
         "CORS_ALLOW_ORIGINS",
@@ -72,7 +81,7 @@ class Settings(BaseModel):
         _env_int("RERANK_MAX_DOCUMENTS", 30, minimum=1),
         minimum=1,
     )
-    app_display_name: str = os.environ.get("APP_DISPLAY_NAME", "AuraLens")
+    app_display_name: str = os.environ.get("APP_DISPLAY_NAME", "Verity")
 
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]

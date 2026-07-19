@@ -1,9 +1,39 @@
+-- Drop prior signatures first. Each search function has gained parameters over time
+-- (the four RRF-tuning params, then a trailing p_principal jsonb for ACL enforcement),
+-- and adding a parameter creates a NEW overload rather than replacing in place, so we
+-- drop every prior signature explicitly. These IF EXISTS drops keep re-applying this
+-- file idempotent on a database that already has an earlier definition.
+DROP FUNCTION IF EXISTS ops.hybrid_search(text, vector, text[], text[], text[], text[], text, text, text, timestamptz, timestamptz, int);
+DROP FUNCTION IF EXISTS ops.hybrid_search(text, vector, text[], text[], text[], text[], text, text, text, timestamptz, timestamptz, int, int, numeric, numeric, numeric);
+DROP FUNCTION IF EXISTS ops.full_text_search(text, text[], text[], text[], text[], text, text, text, timestamptz, timestamptz, int);
+DROP FUNCTION IF EXISTS ops.vector_search(vector, text[], text[], text[], text[], text, text, text, timestamptz, timestamptz, int);
+DROP FUNCTION IF EXISTS ops.fuzzy_match(text, numeric, text[], text[], text[], text[], text, text, text, timestamptz, timestamptz, int);
+
 CREATE OR REPLACE FUNCTION ops.rrf(rank_position int, k int DEFAULT 60)
 RETURNS numeric
 LANGUAGE sql
 IMMUTABLE
 AS $$
   SELECT CASE WHEN rank_position IS NULL THEN 0 ELSE 1.0 / (k + rank_position) END;
+$$;
+
+-- ACL predicate, in one place so every retrieval arm enforces it identically.
+-- Returns TRUE when a principal may see an object with the given acl.
+--   * p_principal IS NULL  -> unauthenticated/default context: no ACL filtering, so
+--     existing callers and the canonical demo are unchanged (every object visible).
+--   * otherwise the object is visible when its visibility label is in the principal's
+--     clearances array: p_principal->'clearances' @> to_jsonb(visibility). Objects
+--     with no explicit acl visibility default to 'workshop_lab' (the corpus baseline),
+--     which every workshop principal carries, so only objects explicitly marked with a
+--     restricted label are hidden from a principal lacking that clearance.
+CREATE OR REPLACE FUNCTION ops.acl_visible(p_acl jsonb, p_principal jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT p_principal IS NULL
+      OR coalesce(p_principal -> 'clearances', '[]'::jsonb)
+           @> to_jsonb(coalesce(p_acl ->> 'visibility', 'workshop_lab'));
 $$;
 
 -- Single home for the OR-combine invariant used by every lexical arm.
@@ -36,7 +66,12 @@ CREATE OR REPLACE FUNCTION ops.hybrid_search(
   p_component text DEFAULT NULL,
   p_start_date timestamptz DEFAULT NULL,
   p_end_date timestamptz DEFAULT NULL,
-  p_limit int DEFAULT 20
+  p_limit int DEFAULT 20,
+  p_rrf_k int DEFAULT 60,
+  p_w_text numeric DEFAULT 1.0,
+  p_w_vector numeric DEFAULT 1.0,
+  p_w_trgm numeric DEFAULT 0.5,
+  p_principal jsonb DEFAULT NULL
 )
 RETURNS TABLE (
   chunk_id uuid,
@@ -80,6 +115,10 @@ WITH base AS (
     AND (p_component IS NULL OR o.component = p_component)
     AND (p_start_date IS NULL OR o.updated_at >= p_start_date)
     AND (p_end_date IS NULL OR o.updated_at <= p_end_date)
+    -- Row-level ACL. Applied once in base so every retrieval arm (text/vector/trgm)
+    -- inherits it; a restricted object never enters the fused ranking for a principal
+    -- lacking its clearance. p_principal IS NULL keeps the canonical demo unfiltered.
+    AND ops.acl_visible(o.acl, p_principal)
 ),
 q AS (
   -- Lexical arm shares the OR-combine invariant via ops.to_or_tsquery so the
@@ -88,13 +127,23 @@ q AS (
   SELECT ops.to_or_tsquery(p_query) AS tq
 ),
 text_hits AS (
+  -- Lexical arm matches EITHER the chunk body vector (object_chunks.tsv) OR the
+  -- object-level vector (source_objects.search_tsv, which carries external_id + title
+  -- at weight A). The rank sums both so an exact-ID hit (matched via search_tsv) ranks
+  -- strongly even when the ID never appears in the chunk body — the case a chunk-only
+  -- lexical arm silently missed. coalesce keeps a body-only or title-only match valid.
   SELECT b.chunk_id,
-         ts_rank_cd(c.tsv, q.tq)::numeric AS text_rank,
-         row_number() OVER (ORDER BY ts_rank_cd(c.tsv, q.tq) DESC) AS text_pos
+         (coalesce(ts_rank_cd(c.tsv, q.tq), 0)
+          + coalesce(ts_rank_cd(o.search_tsv, q.tq), 0))::numeric AS text_rank,
+         row_number() OVER (
+           ORDER BY (coalesce(ts_rank_cd(c.tsv, q.tq), 0)
+                     + coalesce(ts_rank_cd(o.search_tsv, q.tq), 0)) DESC
+         ) AS text_pos
   FROM base b
   JOIN ops.object_chunks c ON c.chunk_id = b.chunk_id
+  JOIN ops.source_objects o ON o.object_id = b.object_id
   CROSS JOIN q
-  WHERE q.tq IS NOT NULL AND c.tsv @@ q.tq
+  WHERE q.tq IS NOT NULL AND (c.tsv @@ q.tq OR o.search_tsv @@ q.tq)
   ORDER BY text_rank DESC
   LIMIT 300
 ),
@@ -134,10 +183,16 @@ fused AS (
       WHEN b.updated_at > now() - interval '30 days' THEN 0.06
       ELSE 0.02
     END::numeric AS recency_score,
+    -- Weighted Reciprocal Rank Fusion. Each retrieval arm contributes ONLY through
+    -- its rank position (ops.rrf), scaled by its ranker weight. This is the single
+    -- fused relevance signal: the raw ts_rank_cd / cosine / trigram scores are kept
+    -- for display and explanation but never re-added to final_score, so a signal is
+    -- counted once (by rank), not twice (by rank and by raw score on incommensurate
+    -- scales). p_w_text / p_w_vector / p_w_trgm are the live ranker weights.
     (
-      ops.rrf(th.text_pos::int) +
-      ops.rrf(vh.vector_pos::int) +
-      ops.rrf(tg.trgm_pos::int)
+      p_w_text   * ops.rrf(th.text_pos::int, p_rrf_k) +
+      p_w_vector * ops.rrf(vh.vector_pos::int, p_rrf_k) +
+      p_w_trgm   * ops.rrf(tg.trgm_pos::int, p_rrf_k)
     )::numeric AS rrf_score
   FROM base b
   LEFT JOIN text_hits th ON th.chunk_id = b.chunk_id
@@ -152,11 +207,12 @@ SELECT
   coalesce(f.text_rank,0), coalesce(f.vector_score,0), coalesce(f.trigram_score,0), f.metadata_score,
   f.recency_score,
   f.rrf_score,
+  -- final_score = weighted RRF (primary, rank-based) lifted onto the same numeric
+  -- scale as the metadata/recency boosts (RRF maxes near 1/(k+1) per arm, so *35
+  -- makes the fused rank signal ~O(1) and the boosts act as tie-breakers, not
+  -- dominators). No raw retrieval score is added here — see the rrf_score comment.
   (
     coalesce(f.rrf_score,0) * 35 +
-    coalesce(f.text_rank,0) * 1.5 +
-    coalesce(f.vector_score,0) * 0.8 +
-    coalesce(f.trigram_score,0) * 0.4 +
     coalesce(f.metadata_score,0) +
     coalesce(f.recency_score,0)
   )::numeric AS final_score,
@@ -169,8 +225,12 @@ SELECT
       'recency', f.recency_score,
       'rrf', f.rrf_score
     ),
+    'weights', jsonb_build_object(
+      'text', p_w_text, 'vector', p_w_vector, 'trgm', p_w_trgm, 'rrf_k', p_rrf_k
+    ),
     'why', ARRAY[
       'Matched through hybrid retrieval across full-text, semantic, fuzzy, and metadata signals',
+      'Ranked by weighted Reciprocal Rank Fusion (k=' || p_rrf_k || ') with metadata and recency boosts',
       'Filtered by requested source systems, status, project, account, component, or time window when provided'
     ]
   ) AS explanation
@@ -201,7 +261,8 @@ CREATE OR REPLACE FUNCTION ops.full_text_search(
   p_component text DEFAULT NULL,
   p_start_date timestamptz DEFAULT NULL,
   p_end_date timestamptz DEFAULT NULL,
-  p_limit int DEFAULT 20
+  p_limit int DEFAULT 20,
+  p_principal jsonb DEFAULT NULL
 )
 RETURNS TABLE (
   chunk_id uuid,
@@ -213,6 +274,10 @@ RETURNS TABLE (
   url text,
   status text,
   priority text,
+  owner text,
+  account_name text,
+  project_key text,
+  component text,
   updated_at timestamptz,
   snippet text,
   score numeric
@@ -222,14 +287,19 @@ AS $$
   WITH q AS (
     SELECT ops.to_or_tsquery(p_query) AS tq
   )
+  -- Matches the chunk body vector OR the object-level search_tsv (external_id + title
+  -- at weight A), ranked by the sum — same exact-ID fix as ops.hybrid_search's lexical
+  -- arm, so this single-signal tool and the fused ranker agree on lexical matches.
   SELECT c.chunk_id, o.object_id, o.source_system, o.source_type, o.external_id, o.title,
-         o.url, o.status, o.priority, o.updated_at,
+         o.url, o.status, o.priority, o.owner, o.account_name, o.project_key, o.component,
+         o.updated_at,
          left(regexp_replace(c.chunk_text, '\s+', ' ', 'g'), 460) AS snippet,
-         ts_rank_cd(c.tsv, q.tq)::numeric AS score
+         (coalesce(ts_rank_cd(c.tsv, q.tq), 0)
+          + coalesce(ts_rank_cd(o.search_tsv, q.tq), 0))::numeric AS score
   FROM ops.object_chunks c
   JOIN ops.source_objects o ON o.object_id = c.object_id
   CROSS JOIN q
-  WHERE q.tq IS NOT NULL AND c.tsv @@ q.tq
+  WHERE q.tq IS NOT NULL AND (c.tsv @@ q.tq OR o.search_tsv @@ q.tq)
     AND (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
     AND (p_source_types IS NULL OR o.source_type = ANY(p_source_types))
     AND (p_statuses IS NULL OR o.status = ANY(p_statuses))
@@ -239,6 +309,7 @@ AS $$
     AND (p_component IS NULL OR o.component = p_component)
     AND (p_start_date IS NULL OR o.updated_at >= p_start_date)
     AND (p_end_date IS NULL OR o.updated_at <= p_end_date)
+    AND ops.acl_visible(o.acl, p_principal)
   ORDER BY score DESC
   LIMIT p_limit;
 $$;
@@ -255,7 +326,8 @@ CREATE OR REPLACE FUNCTION ops.vector_search(
   p_component text DEFAULT NULL,
   p_start_date timestamptz DEFAULT NULL,
   p_end_date timestamptz DEFAULT NULL,
-  p_limit int DEFAULT 20
+  p_limit int DEFAULT 20,
+  p_principal jsonb DEFAULT NULL
 )
 RETURNS TABLE (
   chunk_id uuid,
@@ -267,6 +339,10 @@ RETURNS TABLE (
   url text,
   status text,
   priority text,
+  owner text,
+  account_name text,
+  project_key text,
+  component text,
   updated_at timestamptz,
   snippet text,
   score numeric
@@ -274,7 +350,8 @@ RETURNS TABLE (
 LANGUAGE sql
 AS $$
   SELECT c.chunk_id, o.object_id, o.source_system, o.source_type, o.external_id, o.title,
-         o.url, o.status, o.priority, o.updated_at,
+         o.url, o.status, o.priority, o.owner, o.account_name, o.project_key, o.component,
+         o.updated_at,
          left(regexp_replace(c.chunk_text, '\s+', ' ', 'g'), 460) AS snippet,
          (1 - (c.embedding <=> p_query_embedding))::numeric AS score
   FROM ops.object_chunks c
@@ -289,6 +366,7 @@ AS $$
     AND (p_component IS NULL OR o.component = p_component)
     AND (p_start_date IS NULL OR o.updated_at >= p_start_date)
     AND (p_end_date IS NULL OR o.updated_at <= p_end_date)
+    AND ops.acl_visible(o.acl, p_principal)
   ORDER BY c.embedding <=> p_query_embedding ASC
   LIMIT p_limit;
 $$;
@@ -307,7 +385,8 @@ CREATE OR REPLACE FUNCTION ops.fuzzy_match(
   p_component text DEFAULT NULL,
   p_start_date timestamptz DEFAULT NULL,
   p_end_date timestamptz DEFAULT NULL,
-  p_limit int DEFAULT 20
+  p_limit int DEFAULT 20,
+  p_principal jsonb DEFAULT NULL
 )
 RETURNS TABLE (
   chunk_id uuid,
@@ -319,6 +398,10 @@ RETURNS TABLE (
   url text,
   status text,
   priority text,
+  owner text,
+  account_name text,
+  project_key text,
+  component text,
   updated_at timestamptz,
   snippet text,
   score numeric
@@ -326,7 +409,8 @@ RETURNS TABLE (
 LANGUAGE sql
 AS $$
   SELECT c.chunk_id, o.object_id, o.source_system, o.source_type, o.external_id, o.title,
-         o.url, o.status, o.priority, o.updated_at,
+         o.url, o.status, o.priority, o.owner, o.account_name, o.project_key, o.component,
+         o.updated_at,
          left(regexp_replace(c.chunk_text, '\s+', ' ', 'g'), 460) AS snippet,
          greatest(similarity(o.title, p_query), similarity(left(c.chunk_text, 500), p_query))::numeric AS score
   FROM ops.object_chunks c
@@ -341,6 +425,7 @@ AS $$
     AND (p_component IS NULL OR o.component = p_component)
     AND (p_start_date IS NULL OR o.updated_at >= p_start_date)
     AND (p_end_date IS NULL OR o.updated_at <= p_end_date)
+    AND ops.acl_visible(o.acl, p_principal)
   ORDER BY score DESC
   LIMIT p_limit;
 $$;

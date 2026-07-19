@@ -7,5 +7,5 @@ The prototype preserves older static-copy labels, including ServiceNow reference
 Security-review changes applied:
 
 - Removed remote Google Fonts references.
-- Uses the simple text-only product name: **AuraLens**.
+- Uses the simple text-only product name: **Verity**.
 - Connector logo assets are local static files only.

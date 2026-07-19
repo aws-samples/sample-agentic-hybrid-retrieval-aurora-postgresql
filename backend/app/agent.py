@@ -1,10 +1,16 @@
 from __future__ import annotations
-from typing import Any
+import asyncio
+import logging
+import queue
+import threading
+from typing import Any, Iterator
 
 from .db import get_dict_conn
 from .config import get_settings
 from .models import AgentAnswerRequest, SearchRequest
 from .search import run_hybrid_search
+
+logger = logging.getLogger(__name__)
 
 try:
     from strands import tool
@@ -15,7 +21,12 @@ except Exception:  # pragma: no cover - local fallback until deps are installed
 # Five connected systems (ServiceNow is out of scope for this workshop).
 ALL_SYSTEMS = ["slack", "jira", "confluence", "salesforce", "github"]
 AGENT_HARNESS = "Strands Agents"
-AGENT_TOOLS = ["infer_sources", "search_evidence", "synthesize_cited_answer"]
+AGENT_TOOLS = [
+    "infer_sources",
+    "search_evidence",
+    "follow_evidence_links",
+    "synthesize_cited_answer",
+]
 
 
 def agent_metadata() -> dict[str, Any]:
@@ -37,6 +48,11 @@ def agent_metadata() -> dict[str, Any]:
 
 
 def _infer_sources(question: str) -> list[str]:
+    # Lightweight keyword heuristic, not a model call: it only REORDERS the five
+    # systems by likely relevance and never drops one, so the priority hint can
+    # never cause a system to be missed — the hybrid ranker still sees every
+    # source. Deliberately simple so the workshop's retrieval quality is
+    # attributable to Aurora ranking, not to a clever pre-filter here.
     q = question.lower()
     if "slack" in q or "decide" in q or "conversation" in q:
         return ["slack", "jira", "confluence", "salesforce", "github"]
@@ -95,6 +111,25 @@ def search_evidence(
     )
 
 
+def follow_evidence_links_impl(seed_external_ids: list[str], max_depth: int = 3) -> dict[str, Any]:
+    from .insights import follow_links
+
+    return follow_links(seed_external_ids, max_depth=max_depth)
+
+
+@tool
+def follow_evidence_links(seed_external_ids: list[str], max_depth: int = 3) -> dict[str, Any]:
+    """Walk object_links from retrieved objects to linked evidence across systems.
+
+    Given the external IDs of objects hybrid search already found (e.g. ["ORION-1473"]),
+    walk the ops.object_links graph outward up to max_depth hops and return every
+    reachable object with the relation path taken. Use this to pull in evidence a
+    single search misses — the PR that fixes a ticket, the customer case it impacts,
+    the runbook that gates it — so the answer follows the full cross-system chain.
+    """
+    return follow_evidence_links_impl(seed_external_ids, max_depth=max_depth)
+
+
 def _norm_question(question: str) -> str:
     return " ".join((question or "").lower().split())
 
@@ -147,7 +182,7 @@ def lookup_canonical_answer(question: str) -> dict[str, Any] | None:
         return None
 
 
-def _attach_object_ids(citations: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def attach_object_ids(citations: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     """Resolve each citation's object_id from source_objects so the UI can deep-link.
 
     The stored citations key on (source_system, external_id); the live results only
@@ -184,7 +219,7 @@ def _attach_object_ids(citations: list[dict[str, Any]] | None) -> list[dict[str,
     ]
 
 
-def _derive_commitments(citations: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def derive_commitments(citations: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     """Structured impacted-commitment rows, derived live from cited object metadata.
 
     The commit table on the Answer page shows real contractual facts (account, ARR,
@@ -317,42 +352,75 @@ def synthesize_cited_answer(question: str, results: list[dict[str, Any]]) -> dic
     return synthesize_cited_answer_impl(question, results)
 
 
-def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
-    metadata = agent_metadata()
-    search = search_evidence_impl(
-        query=req.question,
-        source_systems=req.source_systems,
-        project_key=req.project_key,
-        account_name=req.account_name,
-        component=req.component,
-        limit=req.limit,
-    )
-    results = search["results"]
+def _canonical_response(req: AgentAnswerRequest, canonical: dict[str, Any]) -> dict[str, Any]:
+    """Assemble the verbatim canonical answer from the stored ops.agent_answers row.
 
-    # Prefer the stored, cited answer when the question is one the seed knows
-    # (e.g. the canonical Orion narrative). This keeps the demo byte-identical to
-    # the mockups while still running a real hybrid search to produce the run.
-    canonical = lookup_canonical_answer(req.question)
-    if canonical:
-        answer_body = canonical["answer"]
-        citations = _attach_object_ids(canonical["citations"])
-        return {
-            "question": req.question,
-            "agent": metadata,
-            "run_id": str(canonical["run_id"]) if canonical.get("run_id") else search["run_id"],
-            "canonical": True,
-            "confidence": float(canonical["confidence"]),
-            "source_count": canonical["source_count"],
-            "system_count": canonical["system_count"],
-            "answer": answer_body.get("body") if isinstance(answer_body, dict) else answer_body,
-            "plan": answer_body.get("plan") if isinstance(answer_body, dict) else None,
-            "citations": citations,
-            "commitments": _derive_commitments(citations),
-            "metrics": canonical.get("metrics"),
-            "results": results,
-        }
+    Serves the stored run's persisted candidates as `results` so the demo needs no
+    live search or text-model call — it is byte-identical to the mockups and does
+    not depend on Bedrock being reachable.
+    """
+    answer_body = canonical["answer"]
+    citations = attach_object_ids(canonical["citations"])
+    run_id = str(canonical["run_id"]) if canonical.get("run_id") else None
+    return {
+        "question": req.question,
+        "agent": agent_metadata(),
+        "run_id": run_id,
+        "canonical": True,
+        "confidence": float(canonical["confidence"]),
+        "source_count": canonical["source_count"],
+        "system_count": canonical["system_count"],
+        "answer": answer_body.get("body") if isinstance(answer_body, dict) else answer_body,
+        "plan": answer_body.get("plan") if isinstance(answer_body, dict) else None,
+        "citations": citations,
+        "commitments": derive_commitments(citations),
+        "metrics": canonical.get("metrics"),
+        "results": persisted_run_results(run_id) if run_id else [],
+    }
 
-    citations = _attach_object_ids([
+
+def persisted_run_results(run_id: str) -> list[dict[str, Any]]:
+    """Persisted candidate rows, including their real source passage."""
+    try:
+        with get_dict_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT c.chunk_id, c.object_id, o.source_system, o.source_type,
+                           o.external_id, o.title, o.url, o.status, o.priority, o.owner,
+                           o.account_name, o.project_key, o.component, o.updated_at,
+                           c.text_rank, c.vector_score, c.trigram_score, c.metadata_score,
+                           c.recency_score, c.rrf_score, c.rerank_score, c.final_score,
+                           c.explanation,
+                           left(regexp_replace(ch.chunk_text, '\\s+', ' ', 'g'), 480) AS snippet
+                    FROM ops.retrieval_candidates c
+                    JOIN ops.source_objects o ON o.object_id = c.object_id
+                    LEFT JOIN ops.object_chunks ch ON ch.chunk_id = c.chunk_id
+                    WHERE c.run_id = %s
+                    ORDER BY
+                      CASE WHEN c.rerank_score IS NULL THEN 1 ELSE 0 END,
+                      c.rerank_score DESC NULLS LAST,
+                      c.final_score DESC NULLS LAST
+                    """,
+                    (run_id,),
+                )
+                return cur.fetchall()
+    except Exception:
+        return []
+
+
+_LIVE_PLAN = [
+    "decompose operational question",
+    "search_evidence with inferred source and project filters",
+    "collect ranked evidence and persisted diagnostics",
+    "synthesize cited answer with Strands agent over Amazon Bedrock",
+]
+_FALLBACK_PLAN_STEP = "synthesize extractive cited answer from retrieved rows (fallback)"
+
+
+def _live_citations(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The top-k evidence rows as ordered, object-id-resolved citation records."""
+    return attach_object_ids([
         {
             "n": i + 1,
             "source_system": r["source_system"],
@@ -363,20 +431,284 @@ def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
         }
         for i, r in enumerate(results[:8])
     ])
-    answer = synthesize_answer(req.question, results)
+
+
+def _live_answer(req: AgentAnswerRequest, search: dict[str, Any]) -> dict[str, Any]:
+    """Non-canonical answer: real Strands+Bedrock synthesis with template fallback."""
+    results = search["results"]
+    citations = _live_citations(results)
+    plan = list(_LIVE_PLAN)
+    synthesis_meta: dict[str, Any] = {"mode": "live"}
+    try:
+        from .synthesis import synthesize_live
+
+        live = synthesize_live(req.question, results)
+        answer = live["answer"]
+        synthesis_meta.update({"usage": live.get("usage"), "model": live.get("model")})
+    except Exception as exc:
+        logger.warning("Live synthesis unavailable; using extractive fallback: %s", exc)
+        answer = synthesize_answer(req.question, results)
+        synthesis_meta = {"mode": "extractive-fallback", "error": str(exc)}
+        plan[-1] = _FALLBACK_PLAN_STEP
     return {
         "question": req.question,
-        "agent": metadata,
+        "agent": agent_metadata(),
         "run_id": search["run_id"],
         "canonical": False,
-        "plan": [
-            "decompose operational question",
-            "search_evidence with inferred source and project filters",
-            "collect ranked evidence and persisted diagnostics",
-            "synthesize extractive cited answer from retrieved rows",
-        ],
+        "plan": plan,
         "answer": answer,
+        "synthesis": synthesis_meta,
         "citations": citations,
-        "commitments": _derive_commitments(citations),
+        "commitments": derive_commitments(citations),
         "results": results,
     }
+
+
+def _flatten_rich(tokens: Any) -> str:
+    """Flatten one rich-token block to plain text — mirrors frontend flattenRich.
+
+    A block is a list of tokens shaped {text}/{b}/{hl}/{cite}. Citation chips carry
+    no prose, so they contribute nothing; bold/highlight markers contribute their
+    literal text. Kept in lock-step with frontend/src/main.tsx:flattenRich so the
+    streamed preview matches what the UI renders.
+    """
+    if not isinstance(tokens, list):
+        return ""
+    out: list[str] = []
+    for token in tokens:
+        if not isinstance(token, dict):
+            continue
+        if "text" in token:
+            out.append(str(token["text"]))
+        elif "b" in token:
+            out.append(str(token["b"]))
+        elif "hl" in token:
+            out.append(str(token["hl"]))
+    return "".join(out)
+
+
+def _answer_body_text(body: Any) -> str:
+    """The answer body as one plain-text string in reading order.
+
+    Mirrors frontend/src/main.tsx:answerBodyText: a plain string passes through;
+    a structured AnswerBody joins its lead/why/decided/impacted blocks with a
+    space. Used to drive the token stream for the canonical (rich-block) answer.
+    """
+    if not body:
+        return ""
+    if isinstance(body, str):
+        return body
+    if isinstance(body, dict):
+        blocks = [_flatten_rich(body.get(key)) for key in ("lead", "why", "decided", "impacted")]
+        return " ".join(block for block in blocks if block)
+    return str(body)
+
+
+def _chunk_text(text: str, size: int = 24) -> Iterator[str]:
+    """Split text into fixed-size slices so concatenating the tokens is byte-exact.
+
+    Chunking by character count (not by word) keeps the reassembled preview
+    identical to the flattened source, which matters for the canonical answer that
+    must stay byte-for-byte the same as the mockups.
+    """
+    for i in range(0, len(text), size):
+        yield text[i : i + size]
+
+
+def _iter_live_tokens(question: str, results: list[dict[str, Any]]) -> Iterator[dict[str, Any]]:
+    """Drive synthesis.stream_live (async) from sync code, yielding each event.
+
+    The SSE route is a sync FastAPI endpoint with no running event loop. We consume
+    the async generator inside ONE continuous `run_until_complete` on a dedicated
+    thread and hand each event across a queue, rather than pumping `__anext__` a
+    step at a time. Stepping the loop per item would attach and detach Strands'
+    OpenTelemetry span context in different loop contexts, raising "token created
+    in a different Context" on every token; a single continuous run keeps the span
+    context balanced while still streaming token-by-token through the queue.
+    """
+    from .synthesis import stream_live
+
+    events: queue.Queue = queue.Queue()
+    sentinel = object()
+
+    def _pump() -> None:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def _consume() -> None:
+            async for event in stream_live(question, results):
+                events.put(("event", event))
+
+        try:
+            loop.run_until_complete(_consume())
+        except Exception as exc:  # forwarded to the consumer thread
+            events.put(("error", exc))
+        finally:
+            loop.close()
+            events.put(("end", sentinel))
+
+    thread = threading.Thread(target=_pump, name="verity-synthesis", daemon=True)
+    thread.start()
+    try:
+        while True:
+            kind, payload = events.get()
+            if kind == "event":
+                yield payload
+            elif kind == "error":
+                raise payload
+            else:  # end
+                break
+    finally:
+        thread.join()
+
+
+def _stream_canonical(
+    req: AgentAnswerRequest, canonical: dict[str, Any]
+) -> Iterator[dict[str, Any]]:
+    """Stream the stored canonical answer: no Bedrock call, byte-identical output.
+
+    The stored answer body is a structured rich-block object, not a flat string.
+    We stream its flattened plain text as `token` events for the typewriter reveal,
+    but emit the structured body verbatim in the `done` event so the UI renders the
+    same rich, cited answer the non-streaming endpoint returns.
+    """
+    payload = _canonical_response(req, canonical)
+    body = payload.get("answer")
+    yield {
+        "type": "meta",
+        "data": {
+            "question": req.question,
+            "run_id": payload.get("run_id"),
+            "canonical": True,
+            "agent": payload.get("agent"),
+            "plan": payload.get("plan"),
+            "citations": payload.get("citations"),
+            "commitments": payload.get("commitments"),
+            "confidence": payload.get("confidence"),
+            "source_count": payload.get("source_count"),
+            "system_count": payload.get("system_count"),
+        },
+    }
+    for chunk in _chunk_text(_answer_body_text(body)):
+        yield {"type": "token", "data": {"text": chunk}}
+    yield {
+        "type": "done",
+        "data": {
+            "answer": body,
+            "canonical": True,
+            "synthesis": {"mode": "canonical"},
+            "results": payload.get("results"),
+        },
+    }
+
+
+def _stream_live(req: AgentAnswerRequest, search: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    """Stream a live Strands+Bedrock synthesis, falling back to the extractive template."""
+    results = search["results"]
+    citations = _live_citations(results)
+    commitments = derive_commitments(citations)
+    plan = list(_LIVE_PLAN)
+    yield {
+        "type": "meta",
+        "data": {
+            "question": req.question,
+            "run_id": search["run_id"],
+            "canonical": False,
+            "agent": agent_metadata(),
+            "plan": plan,
+            "citations": citations,
+            "commitments": commitments,
+        },
+    }
+    parts: list[str] = []
+    usage = model = stop_reason = None
+    streamed = False
+    try:
+        for event in _iter_live_tokens(req.question, results):
+            if event.get("type") == "token":
+                text = event.get("text") or ""
+                if text:
+                    parts.append(text)
+                    streamed = True
+                    yield {"type": "token", "data": {"text": text}}
+            elif event.get("type") == "usage":
+                usage = event.get("usage")
+                model = event.get("model")
+                stop_reason = event.get("stop_reason")
+        answer = "".join(parts).strip()
+        if not answer:
+            raise ValueError("empty synthesis from model")
+        synthesis_meta: dict[str, Any] = {
+            "mode": "live",
+            "usage": usage,
+            "model": model,
+            "stop_reason": stop_reason,
+        }
+    except Exception as exc:
+        logger.warning("Live streaming synthesis unavailable; using extractive fallback: %s", exc)
+        answer = synthesize_answer(req.question, results)
+        synthesis_meta = {"mode": "extractive-fallback", "error": str(exc)}
+        plan[-1] = _FALLBACK_PLAN_STEP
+        if not streamed:
+            for chunk in _chunk_text(answer):
+                yield {"type": "token", "data": {"text": chunk}}
+    yield {
+        "type": "done",
+        "data": {
+            "answer": answer,
+            "canonical": False,
+            "plan": plan,
+            "synthesis": synthesis_meta,
+            "citations": citations,
+            "commitments": commitments,
+            "results": results,
+        },
+    }
+
+
+def stream_answer(req: AgentAnswerRequest) -> Iterator[dict[str, Any]]:
+    """Stream an agent answer as {'type', 'data'} events, canonical-first.
+
+    Yields a `meta` event, then `token` events carrying incremental text, then a
+    terminal `done` event with the full answer, citations, commitments, and token
+    usage. The canonical Orion question streams its stored answer with no Bedrock
+    call; any other question runs a live hybrid search and streams a real
+    Strands+Bedrock synthesis, falling back to the extractive template on failure.
+    """
+    canonical = lookup_canonical_answer(req.question)
+    if canonical:
+        yield from _stream_canonical(req, canonical)
+        return
+    search = search_evidence_impl(
+        query=req.question,
+        source_systems=req.source_systems,
+        project_key=req.project_key,
+        account_name=req.account_name,
+        component=req.component,
+        limit=req.limit,
+    )
+    yield from _stream_live(req, search)
+
+
+def answer_question(req: AgentAnswerRequest) -> dict[str, Any]:
+    """Answer an operational question, canonical-first.
+
+    Checks ops.agent_answers BEFORE embedding or searching: the flagship Orion
+    question is served verbatim without spending a Bedrock embedding call or a
+    text-model call. Any other question runs a real hybrid search and then a live
+    Strands+Bedrock synthesis (falling back to an extractive template if Bedrock
+    is unreachable).
+    """
+    canonical = lookup_canonical_answer(req.question)
+    if canonical:
+        return _canonical_response(req, canonical)
+
+    search = search_evidence_impl(
+        query=req.question,
+        source_systems=req.source_systems,
+        project_key=req.project_key,
+        account_name=req.account_name,
+        component=req.component,
+        limit=req.limit,
+    )
+    return _live_answer(req, search)

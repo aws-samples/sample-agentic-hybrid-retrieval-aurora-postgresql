@@ -77,6 +77,13 @@ pg_restore \
   --exit-on-error \
   "$ARTIFACT"
 
+# 2b. Reconcile the object-level lexical vector BEFORE rebuilding indexes/functions.
+#     The committed dump carries the OLD title-only column (title_tsv); sql/02 and
+#     sql/03 below reference the NEW search_tsv column, so this must swap the schema
+#     first or those steps fail on a missing column. Idempotent on a fresh schema.
+echo "[load] reconciling object-level search_tsv column"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/12_search_tsv.sql"
+
 # 3. Rebuild indexes AFTER the load. The dump is taken with the indexes in
 #    place, but we (re)assert them here so a JSONL-only or partial load also
 #    ends up correctly indexed. All guarded by IF NOT EXISTS.
@@ -93,6 +100,35 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/03_search_functions
 #     the committed dump. This is data-only and safe to re-run.
 echo "[load] applying seed compatibility corrections"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/07_seed_corrections.sql"
+
+# 3d. Add the pgvector 0.8 capability functions + halfvec/binary indexes. Pure
+#     CREATE INDEX IF NOT EXISTS / CREATE OR REPLACE FUNCTION over the restored
+#     embeddings, so it is additive and safe to re-run on any restored artifact.
+echo "[load] (re)applying pgvector 0.8 functions + halfvec/binary indexes"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/08_pgvector_08.sql"
+
+# 3e. Retrieval-quality metric functions (recall@k / MRR / nDCG) + comparison view.
+#     Pure CREATE OR REPLACE FUNCTION / VIEW, additive and safe to re-run.
+echo "[load] (re)applying evaluation metric functions"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/09_evaluation_metrics.sql"
+
+# 3f. Query-plan + index/statistics surfaces (ops.query_plan, v_index_usage,
+#     v_slow_queries). Pure CREATE OR REPLACE FUNCTION / VIEW, additive and safe.
+echo "[load] (re)applying query-plan + statistics surfaces"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/10_query_plan.sql"
+
+# 3g. Recursive object_links traversal (ops.traverse_links) — the cross-system
+#     evidence walk that backs the graph/timeline and the agent's follow_evidence_links
+#     tool. Pure CREATE OR REPLACE FUNCTION, additive and safe to re-run.
+echo "[load] (re)applying recursive link traversal"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/11_traverse_links.sql"
+
+# 3h. ACL demonstration seed — mark one non-canonical object (CASE-20919) as
+#     restricted so row-level ACL enforcement (ops.acl_visible) is observable.
+#     Data-only UPDATE, idempotent, and outside the canonical link component so the
+#     "Why did Orion slip?" answer is unaffected.
+echo "[load] applying ACL demonstration seed"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/13_acl_seed.sql"
 
 # 4. Fresh planner stats.
 echo "[load] ANALYZE"

@@ -59,7 +59,14 @@ CREATE TABLE IF NOT EXISTS ops.source_objects (
   acl jsonb NOT NULL DEFAULT '{}'::jsonb,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   body_hash text,
-  title_tsv tsvector GENERATED ALWAYS AS (
+  -- Object-level lexical vector. external_id AND title both ride at weight A so an
+  -- exact-ID query (e.g. "ORION-1489") and a title-word query both rank as strong
+  -- lexical matches — the chunk tsv (object_chunks.tsv) alone never indexes the
+  -- external_id, so without this an exact-ID lexical lookup only worked by luck when
+  -- the ID happened to appear in a chunk body. Keep this expression IN SYNC with the
+  -- restore-path reconciliation in sql/12_search_tsv.sql.
+  search_tsv tsvector GENERATED ALWAYS AS (
+    setweight(to_tsvector('english', coalesce(external_id,'')), 'A') ||
     setweight(to_tsvector('english', coalesce(title,'')), 'A')
   ) STORED,
   UNIQUE(source_system, external_id)

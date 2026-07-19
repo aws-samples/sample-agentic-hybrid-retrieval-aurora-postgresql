@@ -9,7 +9,7 @@ CREATE INDEX IF NOT EXISTS idx_objects_account ON ops.source_objects(account_nam
 CREATE INDEX IF NOT EXISTS idx_objects_updated_at ON ops.source_objects(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_objects_metadata_gin ON ops.source_objects USING GIN(metadata);
 CREATE INDEX IF NOT EXISTS idx_objects_acl_gin ON ops.source_objects USING GIN(acl);
-CREATE INDEX IF NOT EXISTS idx_objects_title_tsv ON ops.source_objects USING GIN(title_tsv);
+CREATE INDEX IF NOT EXISTS idx_objects_search_tsv ON ops.source_objects USING GIN(search_tsv);
 CREATE INDEX IF NOT EXISTS idx_objects_title_trgm ON ops.source_objects USING GIN(title gin_trgm_ops);
 
 CREATE INDEX IF NOT EXISTS idx_chunks_object ON ops.object_chunks(object_id);

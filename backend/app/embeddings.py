@@ -82,10 +82,11 @@ def bedrock_embedding(
     region: str | None = None,
     input_type: str = "search_document",
 ) -> List[float]:
-    import boto3
+    from .bedrock import get_bedrock_client
+
     model_id = _bedrock_embedding_model(model_id)
     region = region or os.environ.get("AWS_REGION", "us-east-1")
-    client = boto3.client("bedrock-runtime", region_name=region)
+    client = get_bedrock_client("bedrock-runtime", region=region)
     body = _cohere_embed_body(text, dim, input_type) if "cohere.embed" in model_id else _titan_embed_body(text, dim)
     resp = client.invoke_model(modelId=model_id, body=json.dumps(body))
     payload = json.loads(resp["body"].read())

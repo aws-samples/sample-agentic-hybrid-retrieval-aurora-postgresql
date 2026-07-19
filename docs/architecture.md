@@ -60,12 +60,22 @@ The local tool contract is:
 
 - `infer_sources`
 - `search_evidence`
+- `follow_evidence_links`
 - `synthesize_cited_answer`
 
-Those functions are Strands `@tool`s in the FastAPI app. The optional deployment
-path wraps the same implementations in `lambda_mcp/handler.py` so Workshop
-Studio can package them as Lambda MCP tools and front them with AgentCore
-Gateway.
+Those functions are Strands `@tool`s in the FastAPI app.
+`lambda_mcp/handler.py` remains a directly deployable adapter over the same
+implementations. For the one-hour managed proof, Workshop Studio provisions an
+`AWS_IAM`-authorized AgentCore Gateway and a stateless Lambda target over two
+stable FastAPI operations:
+
+- `POST /v1/search` as the `search_evidence` MCP tool
+- `POST /v1/agent/answer` as the `answer_with_citations` MCP tool
+
+The Gateway target does not own ranking or synthesis. It translates MCP
+`tools/call` into the private API, which keeps Aurora retrieval, Cohere rerank,
+run persistence, and cited-answer behavior in one implementation. The
+SigV4 client in `scripts/invoke_agentcore_gateway.py` proves that managed path.
 
 The lab uses the Workshop Studio-provisioned Aurora PostgreSQL 18.3 cluster. The
 committed seed bundle stands in for the enterprise ingestion pipeline during the
@@ -82,5 +92,5 @@ Studio repo:
 
 Add or change infrastructure in the Workshop Studio repo so the participant
 environment stays reproducible from one source of truth. Keep this repo focused
-on the Strands-oriented app, retrieval API, SQL, seed data, Lambda MCP adapter
-source, and optional MCP wrapper.
+on the Strands-oriented app, portable retrieval API, SQL, seed data, Gateway
+client, Lambda MCP adapter source, and optional MCP wrapper.

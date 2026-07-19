@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity,
@@ -25,7 +25,7 @@ import slackIconUrl from './assets/slack-icon-2019.svg';
 import strandsLogoUrl from './assets/strands-logo.png';
 import './styles.css';
 
-type Page = 'landing' | 'results' | 'detail' | 'trail' | 'agent' | 'diagnostics';
+type Page = 'landing' | 'results' | 'detail' | 'trail' | 'agent' | 'diagnostics' | 'compare';
 type GuideStep = 'search' | 'evidence' | 'answer' | 'timeline' | 'diagnostics' | 'proof';
 type ApiStatus = 'checking' | 'live' | 'offline';
 type SourceFilter = 'all' | 'slack' | 'jira' | 'confluence' | 'salesforce' | 'github';
@@ -34,6 +34,32 @@ type TimeWindow = '90d' | '30d' | '7d' | 'all';
 type ProjectFilter = 'ORION' | 'all';
 type StatusFilter = 'all' | 'Decision' | 'Resolved Jul 3' | 'Mitigating' | 'Published' | 'Resolved' | 'Merged';
 type PriorityFilter = 'all' | 'P1' | 'Tier 1' | 'Policy' | 'Sev2' | 'Change';
+
+// The four retrieval arms the Compare view races side by side: the fused ranker
+// and each single signal. These are the backend `mode` values, sent verbatim.
+type CompareMode = 'hybrid' | 'semantic' | 'lexical' | 'fuzzy';
+
+// The live fusion knobs the tradeoff clinic exposes. rrf_k and the three signal
+// weights only shape the hybrid arm; ef_search and rerank apply per the backend's
+// per-mode rules. These map 1:1 onto SearchRequest fields.
+type FusionKnobs = {
+  rrf_k: number;
+  w_text: number;
+  w_vector: number;
+  w_trgm: number;
+  ef_search: number;
+  rerank: boolean;
+};
+
+type CompareColumn = {
+  mode: CompareMode;
+  run_id?: string;
+  results: Result[];
+  total_latency_ms?: number;
+  retrieval_mode?: string;
+  error?: string;
+  loading: boolean;
+};
 
 type Signals = {
   full_text?: number;
@@ -207,6 +233,7 @@ type CanonicalDiagnostics = RunMetrics & {
   source_count?: number;
   system_count?: number;
   citations?: Citation[];
+  results?: Result[];
   answer?: AnswerBody | string;
   plan?: PlanStep[] | string[];
   commitments?: Commitment[];
@@ -282,6 +309,48 @@ type FusionSql = {
   functions: Array<{ name: string; definition: string }>;
 };
 
+// POST /v1/diagnostics/plan — EXPLAIN (ANALYZE, BUFFERS) of each retrieval arm's
+// real query body, so the workshop sees which index the planner used or rejected.
+type PlanScan = { node_type: string; relation: string | null; index: string | null };
+type ArmPlan = {
+  arm: string;
+  statement: string;
+  summary: {
+    scans: PlanScan[];
+    actual_total_time_ms: number | null;
+    actual_rows: number | null;
+    shared_hit_blocks: number | null;
+    shared_read_blocks: number | null;
+  };
+  plan: unknown;
+};
+type QueryPlan = { arm: string; query: string; explain: string; note: string; arms: ArmPlan[] };
+
+// GET /v1/diagnostics/index-usage — live scan counts + sizes per ops index.
+type IndexUsage = {
+  indexes: Array<{
+    table_name: string;
+    index_name: string;
+    method: string;
+    scans: number;
+    index_size: string;
+    index_bytes: number;
+  }>;
+};
+
+// GET /v1/diagnostics/slow-queries — retrieval hot path ranked by mean exec time.
+type SlowQueries = {
+  statements: Array<{
+    queryid: number;
+    query: string;
+    calls: number;
+    mean_exec_ms: number;
+    total_exec_ms: number;
+    rows: number;
+    cache_hit_pct: number | null;
+  }>;
+};
+
 // GET /v1/diagnostics/corpus — live object counts, per system and overall, for
 // the filter chips and funnel totals.
 type CorpusProfile = {
@@ -291,10 +360,10 @@ type CorpusProfile = {
 };
 
 const API_URL = import.meta.env.VITE_RETRIEVAL_API_URL || 'http://127.0.0.1:8000';
-const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'AuraLens';
+const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'Verity';
 const ENABLE_ANSWER_STREAMING = import.meta.env.VITE_ENABLE_ANSWER_STREAMING !== '0';
 const ENABLE_GUIDED_DISCOVERY = import.meta.env.VITE_ENABLE_GUIDED_DISCOVERY !== '0';
-const GUIDE_STORAGE_KEY = 'auralens-guided-discovery-v1';
+const GUIDE_STORAGE_KEY = 'verity-guided-discovery-v1';
 const GUIDE_STEP_DURATION_MS = 4200;
 const guideSteps: GuideStep[] = ['search', 'evidence', 'answer', 'timeline', 'diagnostics', 'proof'];
 const guideStepLabels: Record<GuideStep, string> = {
@@ -310,6 +379,24 @@ const GITHUB_REPO_URL = 'https://github.com/aws-samples/sample-agentic-hybrid-re
 const FINAL_SCORE_HELP = 'Unbounded composite score from Aurora SQL: RRF + full-text + semantic vector + fuzzy + metadata + recency. It is not a raw Cohere similarity score or a probability.';
 const RESULTS_PAGE_SIZE = 5;
 const ApiStatusContext = React.createContext<ApiStatus>('checking');
+
+// Presenter controls. The URL carries ?page= and ?run= so a beat can be deep-linked
+// (or restored on refresh) from the podium, and `[` / `]` step through the workshop
+// in presentation order. 'detail' is a click-through drill-down, not a linear beat,
+// so it is a valid deep-link target but is skipped by the bracket keys.
+const ALL_PAGES: Page[] = ['landing', 'results', 'detail', 'trail', 'agent', 'diagnostics', 'compare'];
+const BEAT_PAGES: Page[] = ['landing', 'results', 'agent', 'compare', 'trail', 'diagnostics'];
+
+function readInitialPage(): Page {
+  if (typeof window === 'undefined') return 'landing';
+  const value = new URLSearchParams(window.location.search).get('page');
+  return value && (ALL_PAGES as string[]).includes(value) ? (value as Page) : 'landing';
+}
+
+function readInitialRun(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  return new URLSearchParams(window.location.search).get('run') || undefined;
+}
 // The flagship question the seed answers canonically (a stored row in
 // ops.agent_answers, restored identically in every account). The guided demo
 // path must send this exact string so the answer resolves to the rich stored
@@ -328,6 +415,31 @@ const rankModeLabels: Record<RankMode, string> = {
   semantic: 'Semantic · pgvector',
   lexical: 'Lexical · full-text',
   recent: 'Most recent'
+};
+
+// The retrieval arms raced in the Compare view, in display order. `signal` names
+// the score column that arm ranks by (so a column shows the number it actually
+// sorts on); `blurb` is the one-line teaching point for its header.
+const compareModes: Array<{
+  mode: CompareMode;
+  label: string;
+  method: string;
+  signal: keyof Signals;
+  blurb: string;
+}> = [
+  { mode: 'hybrid', label: 'Hybrid', method: 'weighted RRF + Cohere rerank', signal: 'rerank', blurb: 'Fuses all signals, then reranks. The robust default.' },
+  { mode: 'lexical', label: 'Lexical', method: 'tsvector @@ tsquery', signal: 'full_text', blurb: 'Exact terms and identifiers. Wins on ORION-1489.' },
+  { mode: 'semantic', label: 'Semantic', method: 'pgvector cosine (HNSW)', signal: 'semantic', blurb: 'Meaning over wording. Wins on paraphrase.' },
+  { mode: 'fuzzy', label: 'Fuzzy', method: 'pg_trgm similarity', signal: 'fuzzy', blurb: 'Typo-tolerant trigrams. Recall-limited.' }
+];
+
+const defaultFusionKnobs: FusionKnobs = {
+  rrf_k: 60,
+  w_text: 1.0,
+  w_vector: 1.0,
+  w_trgm: 0.5,
+  ef_search: 100,
+  rerank: true
 };
 
 const timeWindowLabels: Record<TimeWindow, string> = {
@@ -405,12 +517,48 @@ const searchSuggestions = [
   }
 ];
 
-const workspaceNavItems: Array<{ page: Page; label: string; eyebrow: string; summary: string }> = [
-  { page: 'results', label: 'Evidence', eyebrow: '24 ranked results', summary: 'Hybrid-ranked sources and linked context' },
-  { page: 'agent', label: 'Answer', eyebrow: '6 cited sources', summary: 'Synthesized answer with inline citations' },
-  { page: 'trail', label: 'Timeline', eyebrow: '7 linked events', summary: 'Time-ordered cross-system sequence' },
-  { page: 'diagnostics', label: 'Diagnostics', eyebrow: '341 ms run', summary: 'Fusion, scoring, latency, and SQL trace' }
+// Structural: which pages the workspace nav and demo strip link to, plus a fixed
+// label and summary for each. The eyebrow COUNT is content, so it is derived live
+// from the canonical run and its timeline at render time (see deriveNavEyebrow),
+// never hard-coded — the number differs per corpus and per environment.
+const workspaceNavItems: Array<{ page: Page; label: string; summary: string }> = [
+  { page: 'results', label: 'Evidence', summary: 'Hybrid-ranked sources and linked context' },
+  { page: 'agent', label: 'Answer', summary: 'Synthesized answer with inline citations' },
+  { page: 'compare', label: 'Compare', summary: 'Race hybrid vs each single signal on one query' },
+  { page: 'trail', label: 'Timeline', summary: 'Time-ordered cross-system sequence' },
+  { page: 'diagnostics', label: 'Diagnostics', summary: 'Fusion, scoring, latency, and SQL trace' }
 ];
+
+// Live eyebrow count for a demo-strip beat, pulled from the canonical run and its
+// timeline. Returns undefined until the backing data hydrates, so the card shows a
+// label-only teaser rather than a stale number. 'compare' counts the ranker arms,
+// which is a structural constant (the four retrieval modes), identical everywhere.
+function deriveNavEyebrow(
+  page: Page,
+  canonical: CanonicalDiagnostics | null,
+  timeline: TimelinePayload | null
+): string | undefined {
+  if (page === 'results') {
+    const ranked = canonical?.funnel?.fused ?? canonical?.funnel?.cited;
+    return typeof ranked === 'number' ? `${ranked} ranked results` : undefined;
+  }
+  if (page === 'agent') {
+    const cited = canonical?.source_count;
+    return typeof cited === 'number' ? `${cited} cited source${cited === 1 ? '' : 's'}` : undefined;
+  }
+  if (page === 'compare') {
+    return `${compareModes.length} rankers`;
+  }
+  if (page === 'trail') {
+    const events = timeline?.events?.length;
+    return typeof events === 'number' && events > 0 ? `${events} linked events` : undefined;
+  }
+  if (page === 'diagnostics') {
+    const ms = canonical?.total_latency_ms;
+    return typeof ms === 'number' ? `${ms} ms run` : undefined;
+  }
+  return undefined;
+}
 
 // The five connected systems, in canonical display order. This is the system
 // registry — which integrations exist and how to label them — i.e. structure,
@@ -437,15 +585,6 @@ const heroNodeLayout: Record<string, { className: string; delay: string }> = {
   salesforce: { className: 'n-sf', delay: '.9s' },
   github: { className: 'n-gh', delay: '1.8s' }
 };
-const heroNodeFallbacks: Record<string, { title: string; externalId: string; score: number }> = {
-  slack: { title: 'Conversations', externalId: 'SLACK-428', score: 0.96 },
-  jira: { title: 'Issues and incidents', externalId: 'ORION-1489', score: 0.91 },
-  confluence: { title: 'Decision records', externalId: 'ADR-042', score: 0.86 },
-  salesforce: { title: 'Customer commitments', externalId: 'CASE-8821', score: 0.81 },
-  github: { title: 'Code changes', externalId: 'PR-1287', score: 0.76 }
-};
-const heroAnswerFallbackConfidence = 0.94;
-
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
 }
@@ -453,15 +592,28 @@ function cx(...parts: Array<string | false | null | undefined>) {
 async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 20000) {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  // Honor a caller-supplied signal (used to cancel a superseded search) alongside
+  // the timeout: either aborting the request aborts our internal controller.
+  const external = init.signal;
+  const onExternalAbort = () => controller.abort();
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener('abort', onExternalAbort);
+  }
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
+      // A caller cancelled this request on purpose (newer search in flight) —
+      // re-throw the raw AbortError so the caller can ignore it silently, rather
+      // than surfacing the misleading timeout message.
+      if (external?.aborted) throw error;
       throw new Error('The request timed out. Verify Aurora connectivity, then retry.');
     }
     throw error;
   } finally {
     window.clearTimeout(timeoutId);
+    if (external) external.removeEventListener('abort', onExternalAbort);
   }
 }
 
@@ -485,6 +637,12 @@ function rankCellClass(value: string) {
   return '';
 }
 
+function optionalNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === '') return undefined;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : undefined;
+}
+
 function normalizeResult(row: Result): Result {
   return {
     ...row,
@@ -492,14 +650,14 @@ function normalizeResult(row: Result): Result {
     external_id: row.external_id || row.object_id || row.chunk_id || 'unknown',
     title: row.title || 'Untitled source object',
     snippet: row.snippet || '',
-    final_score: row.final_score === undefined ? undefined : Number(row.final_score),
-    text_rank: row.text_rank === undefined ? undefined : Number(row.text_rank),
-    vector_score: row.vector_score === undefined ? undefined : Number(row.vector_score),
-    trigram_score: row.trigram_score === undefined ? undefined : Number(row.trigram_score),
-    metadata_score: row.metadata_score === undefined ? undefined : Number(row.metadata_score),
-    recency_score: row.recency_score === undefined ? undefined : Number(row.recency_score),
-    rrf_score: row.rrf_score === undefined ? undefined : Number(row.rrf_score),
-    rerank_score: row.rerank_score === undefined ? undefined : Number(row.rerank_score)
+    final_score: optionalNumber(row.final_score),
+    text_rank: optionalNumber(row.text_rank),
+    vector_score: optionalNumber(row.vector_score),
+    trigram_score: optionalNumber(row.trigram_score),
+    metadata_score: optionalNumber(row.metadata_score),
+    recency_score: optionalNumber(row.recency_score),
+    rrf_score: optionalNumber(row.rrf_score),
+    rerank_score: optionalNumber(row.rerank_score)
   };
 }
 
@@ -519,6 +677,15 @@ function displayScore(result: Result) {
   const value = score(result);
   if (Number.isFinite(value)) return value;
   return Number(result._display_score || 0);
+}
+
+// Clamp a 0–1 score to a 0–100 bar width. Non-numeric or out-of-range values
+// (the composite final_score is unbounded) collapse to 0 instead of overflowing
+// the track or emitting NaN%, so a bad row never blows out the projected layout.
+function barPercent(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+  return Math.min(numeric, 1) * 100;
 }
 
 function resultTimestamp(result: Result) {
@@ -707,17 +874,17 @@ function landingText(value?: string) {
 }
 
 // Build the landing hero orbit from the live cited set. The system registry keeps
-// all five structural nodes visible while live citation data upgrades each card
-// with its exact title, score, and metadata when available.
+// all five structural nodes visible (label + orbit slot are structure); title,
+// score, and external id come from the live cited object for that system, and stay
+// blank until the API hydrates — no fabricated titles, ids, or scores.
 function deriveHeroNodes(citedResults: Result[], canonical: CanonicalDiagnostics | null): HeroNode[] {
   const citations = canonical?.citations || [];
   const nodes: HeroNode[] = [];
   for (const system of Object.keys(heroNodeLayout)) {
     const layout = heroNodeLayout[system];
-    const fallback = heroNodeFallbacks[system];
     const citation = citations.find((c) => c.source_system === system);
     const result = citedResults.find((r) => r.source_system === system);
-    const title = citation?.title || result?.title || fallback.title;
+    const title = citation?.title || result?.title || '';
     const scoreValue =
       typeof citation?.score === 'number'
         ? citation.score
@@ -727,7 +894,7 @@ function deriveHeroNodes(citedResults: Result[], canonical: CanonicalDiagnostics
             ? result._display_score
             : typeof result?.final_score === 'number' && result.final_score >= 0 && result.final_score <= 1
               ? result.final_score
-              : fallback.score;
+              : null;
     nodes.push({
       key: system,
       className: layout.className,
@@ -735,7 +902,7 @@ function deriveHeroNodes(citedResults: Result[], canonical: CanonicalDiagnostics
       role: sourceLabel(system),
       score: typeof scoreValue === 'number' ? scoreValue.toFixed(2) : '',
       title: landingText(title),
-      meta: citation?.external_id || result?.external_id || fallback.externalId
+      meta: citation?.external_id || result?.external_id || ''
     });
   }
   return nodes;
@@ -1102,13 +1269,22 @@ function AppHeader({
 
 function scrollToLandingSection(
   event: React.MouseEvent<HTMLAnchorElement>,
-  sectionId: string,
-  block: ScrollLogicalPosition = 'start'
+  sectionId: string
 ) {
   event.preventDefault();
-  const target = document.getElementById(sectionId);
-  if (!target) return;
-  target.scrollIntoView({ behavior: 'smooth', block, inline: 'nearest' });
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+  const target =
+    section.querySelector<HTMLElement>('[data-landing-scroll-target]') ||
+    section;
+  const nav = document.querySelector<HTMLElement>('.landing-page > .topnav');
+  const navHeight = nav?.getBoundingClientRect().height || 0;
+  const top = window.scrollY + target.getBoundingClientRect().top - navHeight - 16;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  window.scrollTo({
+    top: Math.max(0, top),
+    behavior: reduceMotion ? 'auto' : 'smooth'
+  });
   window.history.replaceState(null, '', `#${sectionId}`);
 }
 
@@ -1122,6 +1298,8 @@ function Landing({
   heroScore,
   corpusTotal,
   runLatency,
+  canonical,
+  timeline,
   guideStep,
   onAdvanceGuide,
   onSkipGuide
@@ -1135,6 +1313,8 @@ function Landing({
   heroScore?: number | null;
   corpusTotal?: number;
   runLatency?: number;
+  canonical: CanonicalDiagnostics | null;
+  timeline: TimelinePayload | null;
   guideStep?: GuideStep | null;
   onAdvanceGuide: (step: GuideStep) => void;
   onSkipGuide: () => void;
@@ -1148,24 +1328,24 @@ function Landing({
           <Logo />
         </button>
         <div className="navlinks">
-          <a href="#overview" onClick={(event) => scrollToLandingSection(event, 'overview')}>
-            Overview
-          </a>
           <a href="#how" onClick={(event) => scrollToLandingSection(event, 'how')}>
-            How it works
+            Architecture
           </a>
-          <a href="#stack" onClick={(event) => scrollToLandingSection(event, 'stack', 'center')}>
-            Retrieval stack
+          <a href="#stack" onClick={(event) => scrollToLandingSection(event, 'stack')}>
+            Retrieval pipeline
           </a>
-          <a href="#demo-run" onClick={(event) => scrollToLandingSection(event, 'demo-run', 'center')}>
-            Demo run
+          <a href="#contract" onClick={(event) => scrollToLandingSection(event, 'contract')}>
+            Build with the API
+          </a>
+          <a href="#demo-run" onClick={(event) => scrollToLandingSection(event, 'demo-run')}>
+            Explore the run
           </a>
         </div>
         <div className="nav-actions" aria-label="External resources">
           <a className="nav-strands-link" href={STRANDS_URL} target="_blank" rel="noreferrer" aria-label="Open Strands Agents">
             <img src={strandsLogoUrl} alt="" />
           </a>
-          <a className="nav-icon-link" href={GITHUB_REPO_URL} target="_blank" rel="noreferrer" aria-label="Open the AuraLens source repository">
+          <a className="nav-icon-link" href={GITHUB_REPO_URL} target="_blank" rel="noreferrer" aria-label="Open the Verity source repository">
             <FaGithub size={19} />
           </a>
         </div>
@@ -1237,9 +1417,9 @@ function Landing({
                       </span>
                     )}
                   </div>
-                  <div className="ntitle">{node.title}</div>
+                  {node.title && <div className="ntitle">{node.title}</div>}
                 </div>
-                <div className="nmeta">{node.meta}</div>
+                {node.meta && <div className="nmeta">{node.meta}</div>}
               </article>
             ))}
           </div>
@@ -1274,29 +1454,29 @@ function Landing({
 
         <ErrorBanner message={error} />
 
-        <section className="section harness-section" aria-label="Agent harness portability">
-          <div className="harness-note">
-            <span className="mono-label">Agent harness portability</span>
+        <section className="section harness-section" id="contract" aria-label="Portable API and tool contract">
+          <div className="harness-note" data-landing-scroll-target>
+            <span className="mono-label">Portable API and tool contract</span>
             <div>
-              <h2>Use the harness that fits your team.</h2>
+              <h2>The UI inspects it. Your agents build on it.</h2>
               <p>
-                AuraLens uses Strands Agents for the workshop because the `@tool` boundary is explicit. The retrieval contract is portable:
-                Aurora stores the evidence, FastAPI exposes the tools, and the same calls can be driven by Strands, Claude Code, MCP
-                clients, or your own orchestrator.
+                Verity is one inspection surface over an Aurora-backed API. Keep the retrieval, scores, citations, and run receipts;
+                drive the same contract through AgentCore Gateway, Strands, Claude Code, LangGraph, an MCP client, or your own orchestrator.
               </p>
             </div>
             <div className="harness-points" aria-label="Portable tool contract">
-              <span>infer_sources</span>
-              <span>search_evidence</span>
-              <span>synthesize_cited_answer</span>
+              <span>POST /v1/search</span>
+              <span>POST /v1/agent/answer</span>
+              <span>MCP search_evidence</span>
+              <span>MCP answer_with_citations</span>
             </div>
           </div>
         </section>
 
         <section className="section" id="how">
-          <div className="sec-head">
-            <div className="eyebrow mono-label">How it works</div>
-            <h2 className="sec-title">Ask once. Search everywhere.</h2>
+          <div className="sec-head" data-landing-scroll-target>
+            <div className="eyebrow mono-label">Agentic architecture</div>
+            <h2 className="sec-title">From question to cited answer.</h2>
           </div>
           <div className="steps">
             {[
@@ -1316,23 +1496,31 @@ function Landing({
         </section>
 
         <section className="section stack-section" id="stack">
-          <div className="sec-head">
-            <div className="eyebrow mono-label">Retrieval stack</div>
-            <h2 className="sec-title">One Aurora PostgreSQL engine.</h2>
+          <div className="sec-head" data-landing-scroll-target>
+            <div className="eyebrow mono-label">Retrieval pipeline</div>
+            <h2 className="sec-title">Five signals. One evidence index.</h2>
           </div>
           <div className="stack">
-            <span className="mono-label">The hybrid retrieval stack · one engine</span>
+            <span className="mono-label">The hybrid retrieval path · inspect every stage</span>
             <div className="formula">
-              {['Full-text|ts_rank_cd', 'Semantic|pgvector', 'Fuzzy|pg_trgm', 'Fusion|RRF k=60', 'SQL score|composite', 'Cited answer|citations'].map((item, index) => {
+              {[
+                'Full-text|ts_rank_cd',
+                'Semantic|pgvector',
+                'Fuzzy|pg_trgm',
+                'Metadata + recency|SQL signals',
+                'Aurora fusion|RRF + SQL score',
+                'Cohere rerank|relevance order',
+                'Cited answer|persisted proof'
+              ].map((item, index) => {
                 const [title, body] = item.split('|');
                 return (
                   <React.Fragment key={item}>
                     {index > 0 && (
-                      <span className={cx('f-op', index < 3 ? 'plus' : 'arrow')} aria-hidden="true">
-                        {index < 3 ? '+' : '→'}
+                      <span className={cx('f-op', index < 4 ? 'plus' : 'arrow')} aria-hidden="true">
+                        {index < 4 ? '+' : '→'}
                       </span>
                     )}
-                    <div className={cx('f-chip', index >= 3 && index <= 4 && 'hot')}>
+                    <div className={cx('f-chip', index >= 4 && index <= 5 && 'hot')}>
                       <b>{title}</b>
                       <span>{body}</span>
                     </div>
@@ -1347,36 +1535,38 @@ function Landing({
         </section>
 
         <section className="section demo-section" id="demo-run">
-          <div className="demo-strip" aria-label="Explore the populated Orion run">
+          <div className="demo-strip" data-landing-scroll-target aria-label="Explore the populated Orion run">
             <div>
               <span className="mono-label">Explore demo run</span>
               <p>Start with search, or jump into the pre-populated Orion answer path.</p>
             </div>
             <div className="demo-links">
-              {workspaceNavItems.map((item) => (
-                <button
-                  key={item.page}
-                  type="button"
-                  title={item.summary}
-                  aria-label={`${item.label}: ${item.summary}`}
-                  onClick={() => onNavigate(item.page)}
-                >
-                  <span>{item.eyebrow}</span>
-                  <b>{item.label}</b>
-                  <small>{item.summary}</small>
-                </button>
-              ))}
+              {workspaceNavItems.map((item) => {
+                const eyebrow = deriveNavEyebrow(item.page, canonical, timeline);
+                return (
+                  <button
+                    key={item.page}
+                    type="button"
+                    title={item.summary}
+                    aria-label={`${item.label}: ${item.summary}`}
+                    onClick={() => onNavigate(item.page)}
+                  >
+                    {eyebrow && <span>{eyebrow}</span>}
+                    <b>{item.label}</b>
+                    <small>{item.summary}</small>
+                  </button>
+                );
+              })}
             </div>
           </div>
+          <footer className="footer">
+            <div>
+              <span className="mono-label">The evidence path · inspect every claim</span>
+              <div className="tag">Every answer shows its work.</div>
+            </div>
+            <div className="fine">© 2026 Agentic Hybrid Retrieval</div>
+          </footer>
         </section>
-
-        <footer className="footer">
-          <div>
-            <Logo />
-            <div className="tag">Every answer shows its work.</div>
-          </div>
-          <div className="fine">© 2026 Agentic Hybrid Retrieval</div>
-        </footer>
       </main>
     </div>
   );
@@ -1554,8 +1744,14 @@ const SIGNAL_LABELS: Array<{ key: keyof Signals; label: string; method: string }
 ];
 
 function signalChips(result: Result): Array<{ key: string; label: string; value: string }> {
-  const signals = result.explanation?.signals;
-  if (!signals) return [];
+  const signals = result.explanation?.signals || {
+    rerank: result.rerank_score,
+    full_text: result.text_rank,
+    semantic: result.vector_score,
+    fuzzy: result.trigram_score,
+    metadata: result.metadata_score,
+    recency: result.recency_score
+  };
   return SIGNAL_LABELS.map(({ key, label }) => ({ key, label, raw: Number(signals[key] || 0) }))
     .filter((chip) => chip.raw > 0)
     .sort((a, b) => b.raw - a.raw)
@@ -1720,7 +1916,12 @@ function ResultsPage({
   const [evidencePage, setEvidencePage] = useState(0);
   // Live evidence: the search results when the user has run a query, otherwise the
   // canonical run's cited objects (fetched read-only on mount). Both are real rows.
-  const baseEvidence = hasSearchRun || results.length > 0 ? results : citedResults;
+  const canonicalEvidence = dedupeResults(canonical?.results || []);
+  const baseEvidence = hasSearchRun || results.length > 0
+    ? results
+    : canonicalEvidence.length > 0
+      ? canonicalEvidence
+      : citedResults;
   const usingCanonicalEvidence = !hasSearchRun && results.length === 0;
   const evidence = sortByRankMode(
     baseEvidence.filter((result) => {
@@ -1909,7 +2110,7 @@ function ResultsPage({
                   <GuideCoachmark
                     step="evidence"
                     title="Inspect the evidence"
-                    body="Read the source, matching signals, rerank score, and highlighted passage. The next step connects those records to cited claims."
+                    body="Read the source, matching signals, persisted score, and highlighted passage. The next step connects those records to cited claims."
                     onAdvance={() => onAdvanceGuide('evidence')}
                     onSkip={onSkipGuide}
                     primaryLabel="Next: answer"
@@ -2159,30 +2360,6 @@ function useTypewriter(text: string, opts: { enabled: boolean; speed?: number; t
   return { shown: text.slice(0, count), done: count >= text.length };
 }
 
-// A paragraph that types itself, then calls onDone so the next beat can start.
-// Renders a blinking caret at the live edge while typing.
-function StreamParagraph({
-  text,
-  enabled,
-  className,
-  speed,
-  onDone
-}: {
-  text: string;
-  enabled: boolean;
-  className?: string;
-  speed?: number;
-  onDone?: () => void;
-}) {
-  const { shown, done } = useTypewriter(text, { enabled, speed, onDone });
-  return (
-    <p className={className}>
-      {shown}
-      {enabled && !done && <span className="caret" aria-hidden="true" />}
-    </p>
-  );
-}
-
 // Rich token model for streamed prose: plain runs, bold/highlight runs, and
 // inline citation chips that pop in as the caret reaches them.
 type RichToken =
@@ -2190,6 +2367,104 @@ type RichToken =
   | { b: string }
   | { hl: string }
   | { cite: number };
+
+type LiveAnswerSection = {
+  label: string;
+  tokens: RichToken[];
+};
+
+function splitLiveAnswerSentences(value: string): string[] {
+  const paragraphs = value
+    .replace(/\r\n?/g, '\n')
+    .split(/\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+  const sentences: string[] = [];
+
+  for (const paragraph of paragraphs) {
+    let start = 0;
+    for (let i = 0; i < paragraph.length; i += 1) {
+      if (!'.!?'.includes(paragraph[i])) continue;
+      let next = i + 1;
+      while (next < paragraph.length && `"'`.includes(paragraph[next])) next += 1;
+      if (next < paragraph.length && !/\s/.test(paragraph[next])) continue;
+      while (next < paragraph.length && /\s/.test(paragraph[next])) next += 1;
+      if (next < paragraph.length && !/[A-Z0-9`*]/.test(paragraph[next])) continue;
+      const sentence = paragraph.slice(start, i + 1).trim();
+      if (sentence) sentences.push(sentence);
+      start = next;
+      i = next - 1;
+    }
+    const remainder = paragraph.slice(start).trim();
+    if (remainder) sentences.push(remainder);
+  }
+
+  return sentences;
+}
+
+function classifyLiveAnswerSentence(sentence: string, index: number, previous?: string): string {
+  const value = sentence.toLowerCase();
+  if (
+    index === 0 &&
+    /\b(paged|page in prod|alert(?:ed)?|incident|outage|failed|failure)\b/.test(value)
+  ) {
+    return 'What happened';
+  }
+  if (/\b(root cause|caused by|due to|traced to|linked to|bottleneck)\b/.test(value)) {
+    return 'Root cause';
+  }
+  if (/\b(initial|temporary|mitigat(?:e|ed|ion)|workaround|revert(?:ed)?)\b/.test(value)) {
+    return 'Initial mitigation';
+  }
+  if (/\b(durable fix|permanent(?:ly)?|fixed|resolved|resolution|landed)\b/.test(value)) {
+    return 'Durable fix';
+  }
+  if (/\b(customer impact|impacted|affected|degraded)\b/.test(value)) {
+    return 'Impact';
+  }
+  return previous || 'Answer';
+}
+
+function tokenizeLiveAnswer(value: string, validCitations: Set<number>): RichToken[] {
+  const tokens: RichToken[] = [];
+  const inline = /(`([^`\n]+)`|\*\*([^*\n]+)\*\*|\[(\d+)\])/g;
+  let cursor = 0;
+
+  for (const match of value.matchAll(inline)) {
+    const index = match.index ?? 0;
+    if (index > cursor) tokens.push({ text: value.slice(cursor, index) });
+    if (match[2]) {
+      tokens.push({ hl: match[2] });
+    } else if (match[3]) {
+      tokens.push({ b: match[3] });
+    } else {
+      const citation = Number(match[4]);
+      if (validCitations.has(citation)) tokens.push({ cite: citation });
+      else tokens.push({ text: match[0] });
+    }
+    cursor = index + match[0].length;
+  }
+  if (cursor < value.length) tokens.push({ text: value.slice(cursor) });
+  return tokens;
+}
+
+function parseLiveAnswer(value: string, citations: Citation[]): LiveAnswerSection[] {
+  const validCitations = new Set(citations.map((citation) => citation.n));
+  const grouped: Array<{ label: string; sentences: string[] }> = [];
+
+  for (const [index, sentence] of splitLiveAnswerSentences(value).entries()) {
+    const previous = grouped[grouped.length - 1]?.label;
+    const label = classifyLiveAnswerSentence(sentence, index, previous);
+    const current = grouped[grouped.length - 1];
+    if (current?.label === label) current.sentences.push(sentence);
+    else grouped.push({ label, sentences: [sentence] });
+  }
+
+  return grouped.map((section) => ({
+    label: section.label,
+    tokens: tokenizeLiveAnswer(section.sentences.join(' '), validCitations)
+  }));
+}
 
 function tokenLength(token: RichToken): number {
   if ('text' in token) return token.text.length;
@@ -2241,6 +2516,51 @@ function StreamRich({
       {nodes}
       {enabled && !done && <span className="caret" aria-hidden="true" />}
     </p>
+  );
+}
+
+function StreamLiveAnswer({
+  sections,
+  enabled,
+  onCite,
+  onDone
+}: {
+  sections: LiveAnswerSection[];
+  enabled: boolean;
+  onCite: (n: number) => void;
+  onDone?: () => void;
+}) {
+  const [active, setActive] = useState(enabled ? 0 : sections.length);
+
+  useEffect(() => {
+    setActive(enabled ? 0 : sections.length);
+  }, [enabled, sections]);
+
+  return (
+    <div className="live-answer">
+      {sections.map((section, index) => {
+        if (enabled && index > active) return null;
+        const isActive = enabled && index === active;
+        return (
+          <section className="live-answer-section" key={`${section.label}-${index}`}>
+            <div className="live-answer-label">{section.label}</div>
+            <StreamRich
+              className="live-answer-copy"
+              tokens={section.tokens}
+              enabled={isActive}
+              speed={4}
+              onCite={onCite}
+              onDone={isActive
+                ? () => {
+                    if (index < sections.length - 1) setActive(index + 1);
+                    else onDone?.();
+                  }
+                : undefined}
+            />
+          </section>
+        );
+      })}
+    </div>
   );
 }
 
@@ -2348,6 +2668,10 @@ function AgentPage({
     : [];
   const planLength = structuredPlan.length || stringPlan.length;
   const citations = (source.citations && source.citations.length > 0 ? source.citations : canonical?.citations) || [];
+  const liveAnswerSections = useMemo(
+    () => parseLiveAnswer(answerString, citations),
+    [answerString, citations]
+  );
   const railResults = citedResults.length > 0 ? citedResults : citationsToResults(citations);
   const commitments = (source.commitments && source.commitments.length > 0 ? source.commitments : canonical?.commitments) || [];
   const quote = answerBody?.quote;
@@ -2360,7 +2684,12 @@ function AgentPage({
   const confidencePercent = Math.round(Math.max(0, Math.min(1, confidenceValue)) * 100);
   const citedSourceCount = source.source_count ?? canonical?.source_count ?? citations.length;
   const citedSystemCount = source.system_count ?? canonical?.system_count ?? new Set(citations.map((c) => c.source_system)).size;
-  const claimCount = countCitationClaims(answerBody);
+  const claimCount = answerBody
+    ? countCitationClaims(answerBody)
+    : liveAnswerSections.reduce(
+        (count, section) => count + section.tokens.filter((token) => 'cite' in token).length,
+        0
+      );
   const firedLabel = formatDate(canonical?.fired_at);
   const showAnswerGuide = guideStep === 'answer';
   // Agent + model metadata is served live by the API (both the agent answer and
@@ -2402,7 +2731,7 @@ function AgentPage({
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `auralens-${shortRunId(runLabel || 'answer')}.md`;
+    anchor.download = `verity-${shortRunId(runLabel || 'answer')}.md`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -2582,7 +2911,15 @@ function AgentPage({
                   )}
                 </>
               ) : (
-                <StreamParagraph className="answer-string" text={answerString} enabled={streaming && beat >= 1} speed={4} onDone={advance} />
+                (!streaming || (!thinking && beat >= 1)) && (
+                  <StreamLiveAnswer
+                    key={answerString}
+                    sections={liveAnswerSections}
+                    enabled={streaming && beat === 1}
+                    onCite={jumpToCitation}
+                    onDone={() => setBeat(7)}
+                  />
+                )
               )}
 
               {commitments.length > 0 && (!streaming || beat >= 6) && (
@@ -2710,17 +3047,243 @@ function AgentPage({
 }
 
 // Compact "Jun 18" style label for a timeline event's own moment.
+// The moment an event sits at on the timeline: its updated_at, else created_at.
+function eventMoment(event: TimelineEvent): string | undefined {
+  return event.updated_at || event.created_at || undefined;
+}
+
 function eventDate(event: TimelineEvent) {
-  const value = event.updated_at || event.created_at;
+  const value = eventMoment(event);
   if (!value) return '';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+function eventClock(event: TimelineEvent): string {
+  const value = eventMoment(event);
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+// The calendar-day key an event falls on, for date-column bucketing. Uses the
+// local date parts so two events on the same day share a column.
+function eventDayKey(event: TimelineEvent): string {
+  const value = eventMoment(event);
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return `${parsed.getFullYear()}-${parsed.getMonth()}-${parsed.getDate()}`;
+}
+
+// A placed timeline event: its 1-based grid row (system lane) and column (date
+// bucket), plus the citation-order sequence used to thread the cells together.
+type PlacedEvent = {
+  event: TimelineEvent;
+  seq: number;
+  row: number;
+  col: number;
+};
+
+type TimelineGrid = {
+  systems: string[];
+  columns: Array<{ key: string; label: string }>;
+  placed: PlacedEvent[];
+  hotDayKey: string | null;
+};
+
+// Lay events out on the system (row) × date (column) grid. Rows follow the
+// canonical SYSTEM_KEYS order restricted to systems that actually have events;
+// columns are the distinct event days in chronological order. The "hot" column
+// is the busiest day (most events) — the incident window highlight. Sequence
+// numbers follow the payload's own chronological order so the thread stitches
+// cells in the order traverse_links walked them. All axes are live-derived.
+function buildTimelineGrid(events: TimelineEvent[]): TimelineGrid {
+  if (events.length === 0) {
+    return { systems: [], columns: [], placed: [], hotDayKey: null };
+  }
+  const systems = SYSTEM_KEYS.filter((key) => events.some((e) => e.source_system === key));
+  const dayOrder: string[] = [];
+  const dayLabels: Record<string, string> = {};
+  const dayCounts: Record<string, number> = {};
+  for (const event of events) {
+    const key = eventDayKey(event);
+    if (!key) continue;
+    if (!(key in dayLabels)) {
+      dayLabels[key] = eventDate(event);
+      dayOrder.push(key);
+    }
+    dayCounts[key] = (dayCounts[key] || 0) + 1;
+  }
+  const columns = dayOrder.map((key) => ({ key, label: dayLabels[key] }));
+  const colIndex: Record<string, number> = {};
+  columns.forEach((column, index) => {
+    colIndex[column.key] = index;
+  });
+  // The "hot" day is the incident window: the single busiest day. Only highlight
+  // one when a day genuinely stands out — more than one event AND a strict lead
+  // over every other day. When every day carries the same count (as the canonical
+  // run does — one event per day), there is no busiest day, so highlight nothing
+  // rather than arbitrarily tinting the first column.
+  const maxCount = dayOrder.reduce((max, key) => Math.max(max, dayCounts[key]), 0);
+  const leaders = dayOrder.filter((key) => dayCounts[key] === maxCount);
+  const hotDayKey = maxCount > 1 && leaders.length === 1 ? leaders[0] : null;
+  const placed = events
+    .map((event, index) => {
+      const rowIndex = systems.indexOf(event.source_system);
+      const columnIndex = colIndex[eventDayKey(event)];
+      if (rowIndex < 0 || columnIndex === undefined) return null;
+      return {
+        event,
+        seq: index + 1,
+        row: rowIndex + 2,
+        col: columnIndex + 2
+      } satisfies PlacedEvent;
+    })
+    .filter((value): value is PlacedEvent => value !== null);
+  return { systems, columns, placed, hotDayKey };
+}
+
 // Non-primary edge relations render muted (the .n class). Primary relations —
 // the ones that drive the delay narrative — render solid.
 const MUTED_EDGE_RELATIONS = new Set(['references', 'resolves', 'relates_to', 'mentions']);
+
+type TimelineView = 'grid' | 'trail';
+
+// The evidence trail as a system (row) × date (column) matrix — the mockup's
+// layout. Each cited object sits in its system's lane under its event day, and an
+// SVG thread stitches the cells in citation-walk order (the same links
+// traverse_links follows). Every lane, column, and cell is derived from the live
+// timeline payload; nothing here is hard-coded.
+function TimelineGridView({
+  events,
+  streaming,
+  stage,
+  onOpenEvent
+}: {
+  events: TimelineEvent[];
+  streaming: boolean;
+  stage: number;
+  onOpenEvent: (event: TimelineEvent) => void;
+}) {
+  const grid = useMemo(() => buildTimelineGrid(events), [events]);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [thread, setThread] = useState<{ d: string; nodes: Array<{ x: number; y: number }>; len: number } | null>(null);
+
+  // After layout, measure the placed cells and stitch a path through them in
+  // sequence order. Re-measured on resize and whenever the placement changes.
+  // The polyline length feeds the CSS stitch animation (dashoffset draw).
+  useLayoutEffect(() => {
+    const container = gridRef.current;
+    if (!container || grid.placed.length === 0) {
+      setThread(null);
+      return;
+    }
+    const measure = () => {
+      const box = container.getBoundingClientRect();
+      const ordered = [...grid.placed].sort((a, b) => a.seq - b.seq);
+      const nodes: Array<{ x: number; y: number }> = [];
+      for (const item of ordered) {
+        const cell = container.querySelector<HTMLElement>(`[data-seq="${item.seq}"]`);
+        if (!cell) continue;
+        const rect = cell.getBoundingClientRect();
+        nodes.push({ x: rect.left - box.left + rect.width / 2, y: rect.top - box.top + rect.height / 2 });
+      }
+      if (nodes.length < 2) {
+        setThread(nodes.length === 1 ? { d: '', nodes, len: 0 } : null);
+        return;
+      }
+      const d = nodes.map((node, index) => `${index === 0 ? 'M' : 'L'} ${node.x.toFixed(1)} ${node.y.toFixed(1)}`).join(' ');
+      let len = 0;
+      for (let index = 1; index < nodes.length; index += 1) {
+        len += Math.hypot(nodes[index].x - nodes[index - 1].x, nodes[index].y - nodes[index - 1].y);
+      }
+      setThread({ d, nodes, len });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [grid]);
+
+  const revealedThrough = streaming ? stage : grid.placed.length;
+  const hasCited = grid.placed.some((item) => typeof item.event.citation_n === 'number');
+
+  return (
+    <>
+      <div className="tgrid-wrap">
+      <div
+        className="tgrid"
+        ref={gridRef}
+        style={{ gridTemplateColumns: `148px repeat(${grid.columns.length}, minmax(96px, 1fr))` }}
+      >
+        <div className="tgrid-corner" />
+        {grid.columns.map((column) => (
+          <div className={cx('tgrid-day', column.key === grid.hotDayKey && 'hot')} key={column.key}>
+            {column.label}
+          </div>
+        ))}
+        {grid.systems.map((system, rowIndex) => (
+          <React.Fragment key={system}>
+            <div className="tgrid-lane" style={{ gridRow: rowIndex + 2 }}>
+              {sourceIcon(system, 17)}
+              {sourceLabel(system)}
+            </div>
+            {grid.columns.map((column) => (
+              <div
+                className={cx('tgrid-cell', column.key === grid.hotDayKey && 'hot')}
+                key={`${system}-${column.key}`}
+                style={{ gridRow: rowIndex + 2, gridColumn: grid.columns.indexOf(column) + 2 }}
+              />
+            ))}
+          </React.Fragment>
+        ))}
+        {grid.placed.map((item) => {
+          const revealed = !streaming || item.seq <= revealedThrough + 1;
+          const isCited = typeof item.event.citation_n === 'number';
+          return (
+            <button
+              type="button"
+              className={cx('tgrid-evt', isCited && 'cited', !revealed && 'pending')}
+              key={item.event.object_id}
+              data-seq={item.seq}
+              style={{ gridRow: item.row, gridColumn: item.col }}
+              onClick={() => onOpenEvent(item.event)}
+              title={item.event.title}
+            >
+              <span className="tgrid-evt-id">
+                <span>{item.event.external_id}</span>
+                <span className="tm">{eventClock(item.event)}</span>
+              </span>
+              <span className="tgrid-evt-tt">{item.event.title}</span>
+              {isCited && <span className="tgrid-evt-cite">[{item.event.citation_n}]</span>}
+            </button>
+          );
+        })}
+        <svg className="tgrid-thread" aria-hidden="true">
+          {thread?.d && (
+            <path
+              className={cx(streaming && 'animate')}
+              d={thread.d}
+              style={{ '--len': thread.len } as React.CSSProperties}
+            />
+          )}
+          {thread?.nodes.map((node, index) => (
+            <circle cx={node.x} cy={node.y} r={4} key={index} />
+          ))}
+        </svg>
+      </div>
+      </div>
+      <div className="tgrid-legend">
+        {hasCited && <span className="li"><span className="node" />cited source object</span>}
+        {grid.placed.length > 1 && <span className="li"><span className="seg" />citation-walk thread (object_links)</span>}
+        {grid.hotDayKey && <span className="li"><span className="tint" />busiest day</span>}
+      </div>
+    </>
+  );
+}
 
 function TimelinePage({
   page,
@@ -2730,6 +3293,7 @@ function TimelinePage({
   timeline,
   error,
   onSearch,
+  onOpenDetail,
   guideStep,
   onAdvanceGuide,
   onSkipGuide,
@@ -2742,6 +3306,7 @@ function TimelinePage({
   timeline: TimelinePayload | null;
   error?: string;
   onSearch: () => void;
+  onOpenDetail: (result: Result) => void;
   guideStep?: GuideStep | null;
   onAdvanceGuide: (step: GuideStep) => void;
   onSkipGuide: () => void;
@@ -2751,6 +3316,9 @@ function TimelinePage({
   // walking object_links live. One stage per event, plus the outcome card.
   const reducedMotion = useReducedMotion();
   const [replayKey, setReplayKey] = useState(0);
+  // Grid = the system × date matrix (mockup layout, default); trail = the
+  // vertical thread that unspools one hop at a time.
+  const [view, setView] = useState<TimelineView>('grid');
   const events = timeline?.events || [];
   const streaming = !reducedMotion && events.length > 0;
   const stage = useStageSequence(events.length + 1, { enabled: streaming, beatMs: 520, startMs: 320, restartKey: replayKey });
@@ -2766,6 +3334,20 @@ function TimelinePage({
   const legendRelations = Array.from(new Set(events.flatMap((e) => e.edges.map((edge) => edge.link_type))));
   const highlightTerms = deriveHighlightTerms(query || queryDefault);
 
+  // Open a timeline event's source object in Detail. The event carries object_id
+  // (resolved server-side), so a minimal Result is enough for the detail fetch.
+  const openEvent = (event: TimelineEvent) => {
+    if (!event.object_id) return;
+    onOpenDetail({
+      object_id: event.object_id,
+      source_system: event.source_system,
+      external_id: event.external_id,
+      title: event.title,
+      snippet: event.snippet || '',
+      final_score: event.final_score
+    });
+  };
+
   return (
     <section className="inner-screen">
       <AppHeader page={page} query={query || queryDefault} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} omniboxRef={omniboxRef} />
@@ -2780,19 +3362,57 @@ function TimelinePage({
             ))}
           </div>
         )}
-        {events.length > 0 && !walking && (
-          <button className="replay-button" type="button" onClick={() => setReplayKey((value) => value + 1)}>
-            <RefreshCw size={14} />
-            Replay traversal
-          </button>
+        {events.length > 0 && (
+          <div className="timeline-controls">
+            <div className="timeline-viewtoggle" role="group" aria-label="Timeline layout">
+              <button type="button" className={cx(view === 'grid' && 'on')} onClick={() => setView('grid')} aria-pressed={view === 'grid'}>
+                Grid
+              </button>
+              <button type="button" className={cx(view === 'trail' && 'on')} onClick={() => setView('trail')} aria-pressed={view === 'trail'}>
+                Trail
+              </button>
+            </div>
+            {view === 'trail' && !walking && (
+              <button className="replay-button" type="button" onClick={() => setReplayKey((value) => value + 1)}>
+                <RefreshCw size={14} />
+                Replay traversal
+              </button>
+            )}
+          </div>
         )}
-        {walking && (
+        {walking && view === 'trail' && (
           <div className="walking mono-label">traverse_links() building timeline<span className="caret" aria-hidden="true" /></div>
         )}
       </div>
       <ErrorBanner message={error} />
       {events.length === 0 ? (
         <EmptyState title="No timeline yet" body="Run the agent to build the cross-system evidence timeline for this question." />
+      ) : view === 'grid' ? (
+        <div className={cx('trail-grid-section', showTimelineGuide && 'guide-target guide-spotlight')}>
+          {showTimelineGuide && (
+            <GuideCoachmark
+              step="timeline"
+              title="Follow the evidence path"
+              body="Each cited source sits in its system's lane under the day it happened; the thread stitches them in the order traverse_links walked the object_links."
+              onAdvance={() => onAdvanceGuide('timeline')}
+              onSkip={onSkipGuide}
+              primaryLabel="Next: diagnostics"
+            />
+          )}
+          <TimelineGridView
+            events={events}
+            streaming={streaming}
+            stage={stage}
+            onOpenEvent={openEvent}
+          />
+          <div className={cx('outcome', 'beat', 'is-in')}>
+            <span className="mono-label">Outcome</span>
+            <div className="big">{events.length} linked source objects across {systemCount} systems, connected by {edgeCount} traversed edges — the full evidence path behind the Orion decision.</div>
+            <div className="outcome-actions">
+              <button className="btn primary" type="button" onClick={() => onNavigate('diagnostics')}>Open diagnostics</button>
+            </div>
+          </div>
+        </div>
       ) : (
         <div className={cx('trail', showTimelineGuide && 'guide-target guide-spotlight')}>
           {showTimelineGuide && (
@@ -2860,6 +3480,9 @@ function DiagnosticsPage({
   omniboxRef,
   canonical,
   fusionSql,
+  queryPlan,
+  indexUsage,
+  slowQueries,
   corpusTotal,
   onSearch,
   guideStep,
@@ -2873,6 +3496,9 @@ function DiagnosticsPage({
   omniboxRef?: React.RefObject<HTMLInputElement>;
   canonical: CanonicalDiagnostics | null;
   fusionSql: FusionSql | null;
+  queryPlan: QueryPlan | null;
+  indexUsage: IndexUsage | null;
+  slowQueries: SlowQueries | null;
   corpusTotal?: number;
   onSearch: () => void;
   guideStep?: GuideStep | null;
@@ -3061,7 +3687,7 @@ function DiagnosticsPage({
                     <td className={rankCellClass(vec)}>{vec}</td>
                     <td className={rankCellClass(trgm)}>{trgm}</td>
                     <td>{rrf}</td>
-                    <td><span className="scorebar"><span className="tr"><i style={{ width: `${Number(finalScore) * 100}%` }} /></span>{finalScore}</span></td>
+                    <td><span className="scorebar"><span className="tr"><i style={{ width: `${barPercent(finalScore)}%` }} /></span>{finalScore}</span></td>
                     <td className={isCited ? 'ck' : 'cut'}>{cited}</td>
                   </tr>
                 );
@@ -3103,12 +3729,129 @@ function DiagnosticsPage({
           )}
         </div>
 
+        <PlanPanel queryPlan={queryPlan} indexUsage={indexUsage} slowQueries={slowQueries} />
+
         <div className="pagefoot">
           run stored in <b>retrieval_runs</b> · candidates in <b>retrieval_candidates</b> · citations in <b>citations</b> · judged against <b>relevance_judgments</b><br />
           one retrieval index: <b>Amazon Aurora PostgreSQL</b> · live systems stay authoritative
         </div>
       </main>
     </section>
+  );
+}
+
+function PlanPanel({
+  queryPlan,
+  indexUsage,
+  slowQueries
+}: {
+  queryPlan: QueryPlan | null;
+  indexUsage: IndexUsage | null;
+  slowQueries: SlowQueries | null;
+}) {
+  // Nothing to show until at least one of the three surfaces has loaded. All three
+  // come from sql/10 (ops.query_plan, v_index_usage, v_slow_queries).
+  if (!queryPlan && !indexUsage && !slowQueries) return null;
+
+  const armLabels: Record<string, string> = { lexical: 'Lexical · GIN(tsv)', semantic: 'Semantic · HNSW', fuzzy: 'Fuzzy · GIN(trgm)' };
+  const scanClass = (nodeType: string) =>
+    /Index/.test(nodeType) ? 'scan-index' : 'scan-seq';
+
+  return (
+    <div className="plan-surface" aria-label="Query plan and index statistics">
+      <div className="phead">
+        <div className="ptitle">Under the planner — EXPLAIN ANALYZE, live</div>
+        <div className="psub">{queryPlan?.explain || 'EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)'}</div>
+      </div>
+
+      {queryPlan && queryPlan.arms.length > 0 && (
+        <>
+          <div className="plan-grid">
+            {queryPlan.arms.map((arm) => (
+              <div className="plan-arm" key={arm.arm}>
+                <div className="plan-arm-head">
+                  <b>{armLabels[arm.arm] || arm.arm}</b>
+                  <span className="mono">
+                    {arm.summary.actual_total_time_ms != null ? `${arm.summary.actual_total_time_ms} ms` : '—'}
+                    {arm.summary.actual_rows != null ? ` · ${arm.summary.actual_rows} rows` : ''}
+                  </span>
+                </div>
+                <div className="plan-scans">
+                  {arm.summary.scans.map((scan, i) => (
+                    <div className={cx('plan-scan', scanClass(scan.node_type))} key={i}>
+                      <span className="scan-node">{scan.node_type}</span>
+                      <span className="scan-rel">
+                        {scan.relation}
+                        {scan.index ? <em> using {scan.index}</em> : null}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="plan-buffers mono">
+                  buffers hit {arm.summary.shared_hit_blocks ?? 0}
+                  {arm.summary.shared_read_blocks ? ` · read ${arm.summary.shared_read_blocks}` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+          {queryPlan.note && <div className="bnote plan-note">{queryPlan.note}</div>}
+        </>
+      )}
+
+      <div className="grid2 plan-stats">
+        {indexUsage && indexUsage.indexes.length > 0 && (
+          <div className="panel">
+            <div className="phead">
+              <div className="ptitle">Index usage</div>
+              <div className="psub">PG_STAT_USER_INDEXES · ops</div>
+            </div>
+            <table className="plan-table">
+              <thead>
+                <tr><th className="l">Index</th><th>Method</th><th>Scans</th><th>Size</th></tr>
+              </thead>
+              <tbody>
+                {indexUsage.indexes
+                  .filter((row) => row.method === 'gin' || row.method === 'hnsw')
+                  .map((row) => (
+                    <tr key={row.index_name}>
+                      <td className="l mono">{row.index_name}</td>
+                      <td><span className={cx('idx-method', `idx-${row.method}`)}>{row.method.toUpperCase()}</span></td>
+                      <td>{row.scans}</td>
+                      <td className="mono">{row.index_size}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            <div className="bnote">GIN and HNSW indexes with <b>scans = 0</b> are honest: at this corpus size the planner picks a Seq Scan until the table is large enough for the index to win. The indexes exist and take over at scale.</div>
+          </div>
+        )}
+
+        {slowQueries && slowQueries.statements.length > 0 && (
+          <div className="panel">
+            <div className="phead">
+              <div className="ptitle">Retrieval hot path</div>
+              <div className="psub">PG_STAT_STATEMENTS · by mean exec</div>
+            </div>
+            <table className="plan-table">
+              <thead>
+                <tr><th className="l">Statement</th><th>Calls</th><th>Mean ms</th><th>Cache</th></tr>
+              </thead>
+              <tbody>
+                {slowQueries.statements.slice(0, 8).map((row) => (
+                  <tr key={row.queryid}>
+                    <td className="l mono plan-stmt">{row.query}</td>
+                    <td>{row.calls}</td>
+                    <td>{row.mean_exec_ms}</td>
+                    <td className="mono">{row.cache_hit_pct != null ? `${row.cache_hit_pct}%` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="bnote">Mean execution time and buffer cache-hit ratio per statement, straight from <b>pg_stat_statements</b> — the real cost of every retrieval query the app runs.</div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -3261,13 +4004,363 @@ function DetailPage({
   );
 }
 
+// One arm's request body. rrf_k + weights only bind the hybrid ranker (the SQL
+// function ignores them for single-signal arms), but sending them uniformly keeps
+// the call site simple and the backend already routes by `mode`.
+function compareSearchBody(mode: CompareMode, query: string, knobs: FusionKnobs, projectKey: ProjectFilter) {
+  return {
+    query,
+    mode,
+    source_systems: SYSTEM_KEYS,
+    project_key: projectKey === 'ORION' ? 'ORION' : undefined,
+    limit: 8,
+    rrf_k: knobs.rrf_k,
+    w_text: knobs.w_text,
+    w_vector: knobs.w_vector,
+    w_trgm: knobs.w_trgm,
+    ef_search: knobs.ef_search,
+    // Only the hybrid arm reranks; single-signal arms stay pure so the teaching
+    // point (semantic-only misses the exact ORION-1489 hit) isn't masked.
+    rerank: mode === 'hybrid' ? knobs.rerank : false
+  };
+}
+
+// The union of every object any arm surfaced, with its 1-based rank per mode
+// (null = that arm didn't return it). This is the citation-coverage diff: it makes
+// the ORION-1489 row that lexical finds and semantic misses visible at a glance.
+type CoverageRow = {
+  external_id: string;
+  source_system: string;
+  title: string;
+  object_id?: string;
+  ranks: Record<CompareMode, number | null>;
+  breadth: number;
+};
+
+function buildCoverage(columns: CompareColumn[]): CoverageRow[] {
+  const byId = new Map<string, CoverageRow>();
+  for (const column of columns) {
+    column.results.forEach((result, index) => {
+      const key = result.external_id;
+      if (!key) return;
+      let row = byId.get(key);
+      if (!row) {
+        row = {
+          external_id: key,
+          source_system: result.source_system,
+          title: result.title,
+          object_id: result.object_id,
+          ranks: { hybrid: null, semantic: null, lexical: null, fuzzy: null },
+          breadth: 0
+        };
+        byId.set(key, row);
+      }
+      if (row.ranks[column.mode] == null) row.ranks[column.mode] = index + 1;
+      if (!row.object_id && result.object_id) row.object_id = result.object_id;
+    });
+  }
+  const rows = Array.from(byId.values());
+  for (const row of rows) {
+    row.breadth = compareModes.reduce((count, { mode }) => count + (row.ranks[mode] != null ? 1 : 0), 0);
+  }
+  // Sort by how uniquely revealing a row is: fewest arms first (the split hits),
+  // then best hybrid rank. A row every arm agrees on is boring; one only lexical
+  // found is the whole point of the comparison.
+  return rows.sort((a, b) => {
+    if (a.breadth !== b.breadth) return a.breadth - b.breadth;
+    const ah = a.ranks.hybrid ?? 99;
+    const bh = b.ranks.hybrid ?? 99;
+    return ah - bh;
+  });
+}
+
+function compareSignalValue(result: Result, signal: keyof Signals): number | undefined {
+  if (signal === 'rerank') {
+    const value = typeof result.rerank_score === 'number' ? result.rerank_score : result.explanation?.signals?.rerank;
+    return typeof value === 'number' ? value : displayScore(result);
+  }
+  const value = result.explanation?.signals?.[signal];
+  return typeof value === 'number' ? value : undefined;
+}
+
+function KnobPanel({
+  knobs,
+  onChange,
+  onRun,
+  onReset,
+  loading,
+  customized
+}: {
+  knobs: FusionKnobs;
+  onChange: (next: FusionKnobs) => void;
+  onRun: () => void;
+  onReset: () => void;
+  loading: boolean;
+  customized: boolean;
+}) {
+  const sliders: Array<{ key: keyof FusionKnobs; label: string; min: number; max: number; step: number; hint: string }> = [
+    { key: 'rrf_k', label: 'RRF k', min: 1, max: 120, step: 1, hint: 'Rank-fusion constant. Higher flattens the contribution of top ranks.' },
+    { key: 'w_text', label: 'Weight · lexical', min: 0, max: 4, step: 0.1, hint: 'Multiplier on the full-text arm inside the fused score.' },
+    { key: 'w_vector', label: 'Weight · semantic', min: 0, max: 4, step: 0.1, hint: 'Multiplier on the pgvector arm inside the fused score.' },
+    { key: 'w_trgm', label: 'Weight · fuzzy', min: 0, max: 4, step: 0.1, hint: 'Multiplier on the pg_trgm arm inside the fused score.' },
+    { key: 'ef_search', label: 'HNSW ef_search', min: 10, max: 400, step: 10, hint: 'pgvector search breadth. Higher recall, higher latency.' }
+  ];
+  return (
+    <div className="knob-panel">
+      <div className="knob-head">
+        <span className="mono-label">Fusion knobs</span>
+        <small>Applied to the hybrid arm; ef_search binds every vector arm.</small>
+      </div>
+      <div className="knob-grid">
+        {sliders.map((slider) => (
+          <label className="knob" key={slider.key}>
+            <span className="knob-lbl" title={slider.hint}>{slider.label}<b>{knobs[slider.key]}</b></span>
+            <input
+              type="range"
+              min={slider.min}
+              max={slider.max}
+              step={slider.step}
+              value={knobs[slider.key] as number}
+              onChange={(event) => onChange({ ...knobs, [slider.key]: Number(event.currentTarget.value) })}
+            />
+          </label>
+        ))}
+        <label className="knob knob-toggle" title="Run Cohere Rerank v3.5 on the hybrid arm after SQL fusion.">
+          <input
+            type="checkbox"
+            checked={knobs.rerank}
+            onChange={(event) => onChange({ ...knobs, rerank: event.currentTarget.checked })}
+          />
+          <span>Cohere rerank (hybrid)</span>
+        </label>
+      </div>
+      <div className="knob-actions">
+        <button className="btn primary" type="button" onClick={onRun} disabled={loading}>
+          {loading ? 'Racing rankers…' : 'Run comparison'}
+        </button>
+        {customized && (
+          <button className="btn ghost" type="button" onClick={onReset} disabled={loading}>
+            <FilterX size={14} />
+            Reset knobs
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CompareColumnCard({
+  column,
+  coverage,
+  onOpenDetail
+}: {
+  column: CompareColumn;
+  coverage: CoverageRow[];
+  onOpenDetail: (result: Result) => void;
+}) {
+  const meta = compareModes.find((entry) => entry.mode === column.mode)!;
+  // An object is "unique" to this arm when no other arm surfaced it — the split
+  // this whole view exists to expose.
+  const uniqueIds = new Set(
+    coverage.filter((row) => row.breadth === 1 && row.ranks[column.mode] != null).map((row) => row.external_id)
+  );
+  return (
+    <div className="cmp-col">
+      <div className="cmp-col-head">
+        <b>{meta.label}</b>
+        <span className="cmp-method">{meta.method}</span>
+        <small>{meta.blurb}</small>
+        <div className="cmp-col-stat">
+          {column.loading ? 'Running…' : `${column.results.length} results`}
+          {typeof column.total_latency_ms === 'number' && !column.loading && <> · {column.total_latency_ms} ms</>}
+        </div>
+      </div>
+      {column.error ? (
+        <div className="cmp-col-error">{column.error}</div>
+      ) : column.loading ? (
+        <div className="cmp-col-empty">Retrieving…</div>
+      ) : column.results.length === 0 ? (
+        <div className="cmp-col-empty">No results for this arm.</div>
+      ) : (
+        <ol className="cmp-list">
+          {column.results.slice(0, 8).map((result, index) => {
+            const signal = compareSignalValue(result, meta.signal);
+            const unique = uniqueIds.has(result.external_id);
+            return (
+              <li key={`${result.external_id}-${index}`} className={cx('cmp-item', unique && 'unique')}>
+                <span className="cmp-rank">{index + 1}</span>
+                <span className="cmp-tile">{sourceIcon(result.source_system, 15)}</span>
+                <button className="cmp-title" onClick={() => onOpenDetail(result)} title={result.title}>
+                  <b>{result.external_id}</b>
+                  <small>{result.title}</small>
+                </button>
+                <span className="cmp-score" title={`${meta.signal} score`}>
+                  {typeof signal === 'number' ? signal.toFixed(2) : '—'}
+                </span>
+                {unique && <span className="cmp-badge" title="Only this arm surfaced this object">only here</span>}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function ComparePage({
+  page,
+  query,
+  setQuery,
+  omniboxRef,
+  columns,
+  knobs,
+  loading,
+  hasRun,
+  projectFilter,
+  error,
+  onSearch,
+  onKnobsChange,
+  onRunCompare,
+  onResetKnobs,
+  onNavigate,
+  onOpenDetail
+}: {
+  page: Page;
+  query: string;
+  setQuery: (value: string) => void;
+  omniboxRef?: React.RefObject<HTMLInputElement>;
+  columns: CompareColumn[];
+  knobs: FusionKnobs;
+  loading: boolean;
+  hasRun: boolean;
+  projectFilter: ProjectFilter;
+  error?: string;
+  onSearch: () => void;
+  onKnobsChange: (next: FusionKnobs) => void;
+  onRunCompare: (queryOverride?: string) => void;
+  onResetKnobs: () => void;
+  onNavigate: (page: Page) => void;
+  onOpenDetail: (result: Result) => void;
+}) {
+  const coverage = useMemo(() => buildCoverage(columns), [columns]);
+  const splitRows = coverage.filter((row) => row.breadth > 0 && row.breadth < compareModes.length);
+  const knobsCustomized =
+    knobs.rrf_k !== defaultFusionKnobs.rrf_k ||
+    knobs.w_text !== defaultFusionKnobs.w_text ||
+    knobs.w_vector !== defaultFusionKnobs.w_vector ||
+    knobs.w_trgm !== defaultFusionKnobs.w_trgm ||
+    knobs.ef_search !== defaultFusionKnobs.ef_search ||
+    knobs.rerank !== defaultFusionKnobs.rerank;
+  const activeQuery = query || queryDefault;
+
+  return (
+    <section className="inner-screen">
+      <AppHeader page={page} query={activeQuery} setQuery={setQuery} onSearch={onSearch} onNavigate={onNavigate} omniboxRef={omniboxRef} />
+      <main className="compare-layout">
+        <header className="compare-head">
+          <div>
+            <span className="mono-label">Tradeoff clinic</span>
+            <h1>One query, four rankers</h1>
+            <p>
+              The same question runs through the fused hybrid ranker and each single signal against the same Aurora corpus.
+              Watch which arm surfaces which evidence — and which objects only one arm ever finds.
+            </p>
+          </div>
+          <form
+            className="compare-run"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onRunCompare();
+            }}
+          >
+            <input
+              value={activeQuery}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={queryDefault}
+              aria-label="Comparison query"
+            />
+            <button className="btn primary" type="submit" disabled={loading}>
+              {loading ? 'Racing…' : 'Compare'}
+            </button>
+          </form>
+        </header>
+
+        <KnobPanel
+          knobs={knobs}
+          onChange={onKnobsChange}
+          onRun={() => onRunCompare()}
+          onReset={onResetKnobs}
+          loading={loading}
+          customized={knobsCustomized}
+        />
+
+        <ErrorBanner message={error} />
+
+        {!hasRun && !loading ? (
+          <EmptyState
+            title="Run the comparison"
+            body="Adjust the fusion knobs, then race hybrid against semantic, lexical, and fuzzy retrieval on the current query."
+          />
+        ) : (
+          <>
+            {splitRows.length > 0 && (
+              <div className="cmp-diff">
+                <div className="cmp-diff-head">
+                  <span className="mono-label">Citation coverage diff</span>
+                  <small>{splitRows.length} object{splitRows.length === 1 ? '' : 's'} the arms disagree on — sorted by how few arms found each</small>
+                </div>
+                <div className="cmp-diff-grid">
+                  <div className="cmp-diff-row cmp-diff-labels">
+                    <span>Object</span>
+                    {compareModes.map((entry) => (
+                      <span key={entry.mode} className="cmp-diff-mode">{entry.label}</span>
+                    ))}
+                  </div>
+                  {splitRows.slice(0, 8).map((row) => (
+                    <div className="cmp-diff-row" key={row.external_id}>
+                      <button className="cmp-diff-obj" onClick={() => onOpenDetail({ ...row, snippet: '' } as Result)} title={row.title}>
+                        <span className="cmp-tile">{sourceIcon(row.source_system, 15)}</span>
+                        <b>{row.external_id}</b>
+                        <small>{row.title}</small>
+                      </button>
+                      {compareModes.map((entry) => {
+                        const rank = row.ranks[entry.mode];
+                        return (
+                          <span key={entry.mode} className={cx('cmp-diff-cell', rank == null ? 'miss' : rank <= 3 && 'top')}>
+                            {rank == null ? '—' : `#${rank}`}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="cmp-cols">
+              {columns.map((column) => (
+                <CompareColumnCard
+                  key={column.mode}
+                  column={column}
+                  coverage={coverage}
+                  onOpenDetail={onOpenDetail}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </main>
+    </section>
+  );
+}
+
 function App() {
-  const [page, setPage] = useState<Page>('landing');
+  const [page, setPage] = useState<Page>(readInitialPage);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Result[]>([]);
   const [hasSearchRun, setHasSearchRun] = useState(false);
   const [selected, setSelected] = useState<Result | null>(null);
-  const [runId, setRunId] = useState<string>();
+  const [runId, setRunId] = useState<string | undefined>(readInitialRun);
   const [agentPayload, setAgentPayload] = useState<AgentPayload>({});
   const [objectDetail, setObjectDetail] = useState<ObjectDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -3283,6 +4376,15 @@ function App() {
   const [projectFilter, setProjectFilter] = useState<ProjectFilter>('ORION');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
+  // Compare view: the four ranker columns, the live fusion knobs, and whether a
+  // comparison has been run yet. Each column holds its own run_id + results so the
+  // citation-coverage diff can render the split across arms.
+  const [compareColumns, setCompareColumns] = useState<CompareColumn[]>(
+    compareModes.map(({ mode }) => ({ mode, results: [], loading: false }))
+  );
+  const [compareKnobs, setCompareKnobs] = useState<FusionKnobs>(defaultFusionKnobs);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareHasRun, setCompareHasRun] = useState(false);
   // Live workspace data, hydrated from the read-only canonical endpoints on mount
   // so every page renders real Aurora rows even before the user runs the agent.
   const [canonical, setCanonical] = useState<CanonicalDiagnostics | null>(null);
@@ -3290,8 +4392,18 @@ function App() {
   const [graph, setGraph] = useState<GraphPayload | null>(null);
   const [fusionSql, setFusionSql] = useState<FusionSql | null>(null);
   const [corpus, setCorpus] = useState<CorpusProfile | null>(null);
+  const [queryPlan, setQueryPlan] = useState<QueryPlan | null>(null);
+  const [indexUsage, setIndexUsage] = useState<IndexUsage | null>(null);
+  const [slowQueries, setSlowQueries] = useState<SlowQueries | null>(null);
   const omniboxRef = useRef<HTMLInputElement>(null);
+  // The in-flight search request. A new search aborts the previous one so a slow
+  // stale response can never overwrite the results of a faster newer query.
+  const searchAbortRef = useRef<AbortController | null>(null);
   const guideStartedRef = useRef(false);
+  // Once the presenter advances a guide step by keypress, they own the pacing:
+  // the auto-advance timer stops for the rest of the walkthrough so it never
+  // races ahead of a live explanation.
+  const presenterDrivenRef = useRef(false);
 
   function showGuideStep(step: GuideStep) {
     const guidePages: Record<GuideStep, Page> = {
@@ -3338,6 +4450,7 @@ function App() {
   function startGuide() {
     if (!ENABLE_GUIDED_DISCOVERY || !canonical) return;
     guideStartedRef.current = true;
+    presenterDrivenRef.current = false;
     window.localStorage.removeItem(GUIDE_STORAGE_KEY);
     setGuideCompleted(false);
     setHasSearchRun(false);
@@ -3356,6 +4469,10 @@ function App() {
     if (pageTarget === 'detail' && !selected) setSelected(citedResults[0] || null);
     setPage(pageTarget);
   }
+
+  useEffect(() => {
+    document.title = `${APP_NAME} — Agentic Hybrid Retrieval`;
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -3390,9 +4507,26 @@ function App() {
         if (active) onSettled?.();
       }
     };
+    const loadPost = async <T,>(path: string, body: unknown, set: (value: T) => void) => {
+      try {
+        const resp = await fetchWithTimeout(
+          `${API_URL}${path}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+          15000
+        );
+        if (!resp.ok) return;
+        const json = (await resp.json()) as T;
+        if (active) set(json);
+      } catch {
+        // Leave the slice null; the plan panel falls back to a graceful empty state.
+      }
+    };
     void load<CanonicalDiagnostics>('/v1/diagnostics/canonical', setCanonical, () => setCanonicalLoadSettled(true));
     void load<CorpusProfile>('/v1/diagnostics/corpus', setCorpus);
     void load<FusionSql>('/v1/diagnostics/fusion-sql', setFusionSql);
+    void load<IndexUsage>('/v1/diagnostics/index-usage', setIndexUsage);
+    void load<SlowQueries>('/v1/diagnostics/slow-queries', setSlowQueries);
+    void loadPost<QueryPlan>('/v1/diagnostics/plan', { query: queryDefault, arm: 'hybrid', limit: 10 }, setQueryPlan);
     return () => {
       active = false;
     };
@@ -3427,20 +4561,58 @@ function App() {
       guideCompleted ||
       guideStartedRef.current ||
       !canonicalLoadSettled ||
-      !canonical
+      !canonical ||
+      // A deep-linked page (?page=) or run (?run=) means the presenter jumped to a
+      // specific beat; don't yank them back to the auto-guide from the landing step.
+      readInitialPage() !== 'landing' ||
+      readInitialRun()
     ) return;
     startGuide();
   }, [canonicalLoadSettled, canonical, guideCompleted]);
 
+  // Mirror the active page + run into the URL query string so a beat is
+  // deep-linkable and survives a refresh. replaceState (not pushState) keeps the
+  // browser Back button from walking every intra-app navigation.
   useEffect(() => {
-    if (!activeGuideStep) return;
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (page === 'landing') params.delete('page');
+    else params.set('page', page);
+    if (runId) params.set('run', runId);
+    else params.delete('run');
+    const qs = params.toString();
+    const next = `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`;
+    window.history.replaceState(null, '', next);
+  }, [page, runId]);
+
+  useEffect(() => {
+    if (!activeGuideStep || presenterDrivenRef.current) return;
     const timerId = window.setTimeout(() => advanceGuide(activeGuideStep), GUIDE_STEP_DURATION_MS);
     return () => window.clearTimeout(timerId);
   }, [activeGuideStep]);
 
+  // Step to an adjacent workshop beat (presentation order in BEAT_PAGES). When a
+  // guide step is showing, the walkthrough owns the sequence, so beat keys advance
+  // the guide instead of paging past its coachmarks. 'detail' is a drill-down, not
+  // a beat, so from there `[`/`]` resume from its nearest beat neighbour (results).
+  function stepBeat(delta: 1 | -1) {
+    if (activeGuideStep) {
+      // The presenter is now pacing the walkthrough by hand — stop the auto timer.
+      presenterDrivenRef.current = true;
+      if (delta > 0) advanceGuide(activeGuideStep);
+      else skipGuide();
+      return;
+    }
+    const current = BEAT_PAGES.indexOf(page);
+    const from = current >= 0 ? current : BEAT_PAGES.indexOf('results');
+    const next = Math.min(BEAT_PAGES.length - 1, Math.max(0, from + delta));
+    navigate(BEAT_PAGES[next]);
+  }
+
   // ⌘K / Ctrl-K focuses the search box from anywhere. On the landing page the
   // composer input carries the .landing-search class; on inner pages it is the
-  // omnibox (wired via omniboxRef). Escape blurs it.
+  // omnibox (wired via omniboxRef). Escape blurs it. `[` / `]` are presenter beat
+  // keys — previous / next workshop step — ignored while typing in a field.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     function onKeyDown(event: KeyboardEvent) {
@@ -3459,11 +4631,17 @@ function App() {
         }
         const activeEl = document.activeElement as HTMLElement | null;
         if (activeEl?.tagName === 'INPUT') activeEl.blur();
+      } else if (event.key === ']' || event.key === '[') {
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
+        event.preventDefault();
+        stepBeat(event.key === ']' ? 1 : -1);
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeGuideStep]);
+  }, [activeGuideStep, page, query, selected]);
 
   useEffect(() => {
     if (page !== 'detail' || !selected?.object_id) return;
@@ -3528,6 +4706,10 @@ function App() {
     const startDate = startDateForWindow(nextTimeWindow);
 
     if (activeGuideStep) completeGuide();
+    // Cancel any search still in flight so its response can't land after this one.
+    searchAbortRef.current?.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
     setQuery(searchQuery);
     setSourceFilter(nextSourceFilter);
     setTimeWindow(nextTimeWindow);
@@ -3545,6 +4727,7 @@ function App() {
       const resp = await fetchWithTimeout(`${API_URL}/v1/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           query: searchQuery,
           source_systems: sourceSystems,
@@ -3562,12 +4745,17 @@ function App() {
       setResults(rows);
       setSelected(rows[0] || null);
     } catch (err) {
+      // A superseded search was aborted on purpose — leave the newer search's
+      // state (loading flag included) untouched and swallow the cancellation.
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       setRunId(undefined);
       setResults([]);
       setSelected(null);
       setError(err instanceof Error ? err.message : 'Search failed. Check the API and local Postgres setup.');
     } finally {
-      setLoading(false);
+      // Only the newest search clears the loading flag; a cancelled older one
+      // must not, or it would hide the spinner the newer search just raised.
+      if (searchAbortRef.current === controller) setLoading(false);
     }
   }
 
@@ -3643,6 +4831,56 @@ function App() {
     }
   }
 
+  // Race the current query through all four rankers with the live fusion knobs.
+  // Each arm fires its own /v1/search and lands in its own column, so a partial
+  // failure degrades one column rather than the whole view. Every column is a real
+  // persisted run — the citation-coverage diff is computed from live results only.
+  async function runCompare(queryOverride?: string) {
+    if (activeGuideStep) completeGuide();
+    const question = (queryOverride ?? query).trim() || queryDefault;
+    setQuery(question);
+    setPage('compare');
+    setCompareLoading(true);
+    setCompareHasRun(true);
+    setError(undefined);
+    setCompareColumns(compareModes.map(({ mode }) => ({ mode, results: [], loading: true })));
+
+    const settled = await Promise.all(
+      compareModes.map(async ({ mode }): Promise<CompareColumn> => {
+        try {
+          const resp = await fetchWithTimeout(`${API_URL}/v1/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(compareSearchBody(mode, question, compareKnobs, projectFilter))
+          }, 45000);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const json = (await resp.json()) as SearchResponse & { total_latency_ms?: number };
+          return {
+            mode,
+            run_id: json.run_id,
+            results: dedupeResults(json.results || []),
+            total_latency_ms: json.total_latency_ms,
+            retrieval_mode: json.retrieval_mode,
+            loading: false
+          };
+        } catch (err) {
+          return {
+            mode,
+            results: [],
+            loading: false,
+            error: err instanceof Error ? `Retrieval failed (${err.message})` : 'Retrieval failed'
+          };
+        }
+      })
+    );
+    setCompareColumns(settled);
+    setCompareLoading(false);
+  }
+
+  function resetCompareKnobs() {
+    setCompareKnobs(defaultFusionKnobs);
+  }
+
   const withGuideBackdrop = (content: React.ReactElement) => (
     <ApiStatusContext.Provider value={apiStatus}>
       {activeGuideStep && <div className="guide-backdrop" aria-hidden="true" />}
@@ -3662,9 +4900,11 @@ function App() {
         onNavigate={navigate}
         error={error}
         heroNodes={deriveHeroNodes(citedResults, canonical)}
-        heroScore={typeof canonical?.confidence === 'number' ? canonical.confidence : heroAnswerFallbackConfidence}
+        heroScore={typeof canonical?.confidence === 'number' ? canonical.confidence : null}
         corpusTotal={corpusTotal}
         runLatency={canonical?.total_latency_ms}
+        canonical={canonical}
+        timeline={timeline}
         guideStep={activeGuideStep}
         onAdvanceGuide={advanceGuide}
         onSkipGuide={skipGuide}
@@ -3700,6 +4940,7 @@ function App() {
         timeline={timeline}
         error={error}
         onSearch={runSearch}
+        onOpenDetail={openDetailFor}
         guideStep={activeGuideStep}
         onAdvanceGuide={advanceGuide}
         onSkipGuide={skipGuide}
@@ -3733,6 +4974,29 @@ function App() {
     );
   }
 
+  if (page === 'compare') {
+    return withGuideBackdrop(
+      <ComparePage
+        page={page}
+        query={query}
+        setQuery={setQuery}
+        omniboxRef={omniboxRef}
+        columns={compareColumns}
+        knobs={compareKnobs}
+        loading={compareLoading}
+        hasRun={compareHasRun}
+        projectFilter={projectFilter}
+        error={error}
+        onSearch={runSearch}
+        onKnobsChange={setCompareKnobs}
+        onRunCompare={runCompare}
+        onResetKnobs={resetCompareKnobs}
+        onNavigate={navigate}
+        onOpenDetail={openDetailFor}
+      />
+    );
+  }
+
   if (page === 'diagnostics') {
     return withGuideBackdrop(
       <DiagnosticsPage
@@ -3742,6 +5006,9 @@ function App() {
         omniboxRef={omniboxRef}
         canonical={canonical}
         fusionSql={fusionSql}
+        queryPlan={queryPlan}
+        indexUsage={indexUsage}
+        slowQueries={slowQueries}
         corpusTotal={corpusTotal}
         onSearch={runSearch}
         guideStep={activeGuideStep}

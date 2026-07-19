@@ -3,7 +3,7 @@
 This directory generates a **byte-identical** dataset for the hybrid-retrieval
 demo and restores it into Aurora (or local Postgres). The demo answers one
 canonical question — **"Why did Orion slip?"** — and every number the five
-AuraLens views show (the answer, the six citations, the trail, the diagnostics
+Verity views show (the answer, the six citations, the trail, the diagnostics
 funnel) is backed by real rows in the `ops` schema, not hardcoded in the UI.
 
 ## What gets built

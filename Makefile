@@ -7,7 +7,7 @@ PGVECTOR_MIN_VERSION ?= 0.8.1
 POSTGRES_MIN_VERSION ?= 18.3
 PYTHON ?= .venv/bin/python
 UVICORN ?= .venv/bin/uvicorn
-SQL_FILES := sql/00_extensions.sql sql/01_schema.sql sql/02_indexes.sql sql/03_search_functions.sql sql/04_diagnostics.sql sql/05_evaluation.sql sql/06_agent_answers.sql
+SQL_FILES := sql/00_extensions.sql sql/01_schema.sql sql/12_search_tsv.sql sql/02_indexes.sql sql/03_search_functions.sql sql/04_diagnostics.sql sql/05_evaluation.sql sql/06_agent_answers.sql sql/08_pgvector_08.sql sql/09_evaluation_metrics.sql sql/10_query_plan.sql sql/11_traverse_links.sql sql/13_acl_seed.sql
 
 export DATABASE_URL
 export PGVECTOR_VERSION

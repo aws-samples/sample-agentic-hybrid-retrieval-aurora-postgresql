@@ -39,11 +39,11 @@ The core lab uses synthetic Slack-like threads. Live Slack integration is treate
 
 ## Permissions and ACLs
 
-The canonical schema includes an `acl` JSONB column on `source_objects`. Production systems should filter results by user/team/source-system permissions before ranking or synthesis.
+The canonical schema includes an `acl` JSONB column on `source_objects`, and all four search functions enforce it: each accepts a `p_principal` JSONB argument and filters rows through `ops.acl_visible(acl, principal)` inside the base scan, so a restricted object never reaches ranking or synthesis for a principal lacking its clearance. The default workshop context passes `p_principal => NULL`, which short-circuits to no ACL filtering so the demo audience sees every object; a real deployment supplies the caller's clearances (e.g. `{"clearances": [...]}`).
 
 ## Network calls
 
-The default live search path calls PostgreSQL and, with `EMBED_PROVIDER=bedrock` (the default), Bedrock Runtime for Cohere query embeddings so query vectors match the shipped seed dump. Set `EMBED_PROVIDER=hash` for a local offline run, understanding that vector relevance will not match the Cohere-embedded dump unless the corpus is regenerated with the same provider. The live API does not call a reranking model. Optional connector scripts perform network calls only when explicitly run.
+The default live search path calls PostgreSQL and, with `EMBED_PROVIDER=bedrock` (the default), Bedrock Runtime (`bedrock:InvokeModel`) for Cohere query embeddings so query vectors match the shipped seed dump. Set `EMBED_PROVIDER=hash` for a local offline run, understanding that vector relevance will not match the Cohere-embedded dump unless the corpus is regenerated with the same provider. With `COHERE_RERANK_ENABLED` on (the default), the hybrid path also calls Cohere Rerank v3.5 through the Bedrock Agent Runtime rerank API (`bedrock:Rerank`); set `COHERE_RERANK_ENABLED=0` to disable it. The canonical Orion answer is served verbatim from `ops.agent_answers` and never invokes a text-generation model; questions outside the seed synthesize a cited answer with a Strands agent over Bedrock (`bedrock:InvokeModelWithResponseStream`). Optional connector scripts perform network calls only when explicitly run.
 
 ## Suggested review checklist
 

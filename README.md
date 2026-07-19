@@ -6,6 +6,7 @@
 [![pgvector 0.8.1+](https://img.shields.io/badge/pgvector-0.8.1%2B-4B8BBE.svg)](https://github.com/pgvector/pgvector)
 [![Aurora PostgreSQL](https://img.shields.io/badge/Amazon%20Aurora-PostgreSQL-FF9900.svg?logo=amazonaws&logoColor=white)](https://aws.amazon.com/rds/aurora/)
 [![Amazon Bedrock](https://img.shields.io/badge/Amazon%20Bedrock-Cohere%20%26%20Claude-232F3E.svg?logo=amazonaws&logoColor=white)](https://aws.amazon.com/bedrock/)
+[![AgentCore Gateway](https://img.shields.io/badge/AgentCore-Gateway-8B5CF6.svg?logo=amazonaws&logoColor=white)](https://aws.amazon.com/bedrock/agentcore/)
 [![Strands Agents](https://img.shields.io/badge/Strands-Agents-4B5563.svg)](https://strandsagents.com/)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react&logoColor=black)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg?logo=vite&logoColor=white)](https://vite.dev/)
@@ -48,6 +49,23 @@ The system:
 7. Combines retrieval sets with Reciprocal Rank Fusion.
 8. Returns cited answers through Strands-style agent-callable tools.
 9. Stores retrieval diagnostics for evaluation and explainability.
+10. Publishes the stable search and answer operations through an `AWS_IAM`-authorized AgentCore Gateway.
+
+## Portable contract
+
+Verity is an inspection surface over the buildable boundary, not a required
+frontend for downstream adopters:
+
+- `POST /v1/search` returns a persisted `run_id`, retrieval mode, ranked evidence,
+  and per-signal scores.
+- `POST /v1/agent/answer` returns the cited answer, confidence, source coverage,
+  and supporting run.
+- Workshop Studio publishes those operations as `search_evidence` and
+  `answer_with_citations` MCP tools through AgentCore Gateway.
+
+Use the HTTP operations directly from your own orchestrator, or consume the MCP
+catalog from Strands, Claude Code, LangGraph, or another MCP-aware harness. Keep
+the returned `run_id` with your trace so the answer remains auditable.
 
 ## Pipeline Positioning
 
@@ -87,6 +105,7 @@ connectors or export jobs that fit each source system.
 ├── mcp-server/                 # Optional MCP wrapper around the retrieval API
 ├── seed/                       # Canonical Orion corpus generator + pg_dump/restore
 ├── mockups/                    # Static design prototype reference
+├── scripts/                    # Setup helpers and SigV4 AgentCore Gateway client
 └── docs/                       # Session plan, architecture, security notes, stretch labs
 ```
 
@@ -97,7 +116,8 @@ This source repo does not provision AWS resources. The Workshop Studio repo owns
 - `static/hybrid-retrieval-main.yml` as the root CloudFormation template
 - `assets/hybrid-retrieval-*.yml` as nested CloudFormation templates
 - the packaged source archive that Workshop Studio uploads to the assets S3 bucket
-- the Code Editor, Aurora PostgreSQL, VPC, IAM, and bootstrap workflow
+- the Code Editor, Aurora PostgreSQL, VPC, IAM, AgentCore Gateway, Lambda target,
+  and bootstrap workflow
 
 Keep application code, SQL, seed data, connector scaffolds, and local runtime helpers here. Put infrastructure templates and deployment packaging in the Workshop Studio repo.
 

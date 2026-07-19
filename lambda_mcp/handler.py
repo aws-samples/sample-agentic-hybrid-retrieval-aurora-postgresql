@@ -10,6 +10,7 @@ from typing import Any
 
 from backend.app.agent import (
     _infer_sources,
+    follow_evidence_links_impl,
     search_evidence_impl,
     synthesize_cited_answer_impl,
 )
@@ -54,9 +55,17 @@ def _synthesize(args: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _follow_evidence_links(args: dict[str, Any]) -> dict[str, Any]:
+    return follow_evidence_links_impl(
+        seed_external_ids=args.get("seed_external_ids") or [],
+        max_depth=int(args.get("max_depth") or 3),
+    )
+
+
 TOOLS = {
     "infer_sources": lambda args: _infer_sources(args.get("question", "")),
     "search_evidence": _search_evidence,
+    "follow_evidence_links": _follow_evidence_links,
     "synthesize_cited_answer": _synthesize,
 }
 

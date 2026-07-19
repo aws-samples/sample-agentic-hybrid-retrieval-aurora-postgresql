@@ -16,7 +16,7 @@ class CohereRerankService:
     """
 
     def __init__(self, region: str | None = None, model_id: str | None = None):
-        import boto3
+        from .bedrock import get_bedrock_client
 
         settings = get_settings()
         self.region = region or settings.aws_region
@@ -26,7 +26,7 @@ class CohereRerankService:
             if self.model_id.startswith("arn:")
             else f"arn:aws:bedrock:{self.region}::foundation-model/{self.model_id}"
         )
-        self.client = boto3.client("bedrock-agent-runtime", region_name=self.region)
+        self.client = get_bedrock_client("bedrock-agent-runtime", region=self.region)
 
     def rerank(
         self,

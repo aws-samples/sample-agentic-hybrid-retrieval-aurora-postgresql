@@ -13,6 +13,7 @@ __pycache__/
 logs/
 .postgres-data/
 .postgres-data-*/
+.local/
 .postgres.log
 .pg-seed-test/
 .pg-api-test/
