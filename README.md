@@ -81,23 +81,10 @@ The system:
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    S["Systems of record<br/>Slack · Jira · Confluence · Salesforce · GitHub"]
-    I["Aurora evidence index<br/>objects · chunks · links · ACLs · vectors"]
-    R["Hybrid retrieval<br/>FTS + pgvector + pg_trgm + SQL signals"]
-    F["Weighted RRF<br/>Aurora SQL score"]
-    C["Cohere Rerank<br/>relevance order"]
-    A["Strands answer path<br/>grounded synthesis + citations"]
-    P["Persisted proof<br/>runs · candidates · metrics"]
-    B["Portable agent boundary<br/>HTTP + AgentCore Gateway MCP"]
-
-    S --> I --> R --> F --> C --> A
-    R --> P
-    A --> P
-    B --> R
-    A --> B
-```
+<p align="center">
+  <img src="docs/images/verity-request-flow.svg" alt="Operational evidence flows from Slack, Jira, Confluence, Salesforce, and GitHub into Aurora PostgreSQL hybrid retrieval, ranking, AgentCore tools, a cited answer, and persisted proof" width="100%" />
+</p>
+<p align="center"><sub>One question follows an inspectable path from authoritative systems to persisted proof.</sub></p>
 
 Source systems remain authoritative. Aurora stores the searchable projection and
 the proof required to reproduce an answer; it does not replace the systems where
