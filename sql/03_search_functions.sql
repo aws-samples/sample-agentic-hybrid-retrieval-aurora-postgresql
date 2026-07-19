@@ -42,10 +42,10 @@ $$;
 -- text_rank = 0, silently disabling full-text search inside a natural-language
 -- question. Rewriting the top-level '&' to '|' keeps the exact-ID phrase intact
 -- ('orion' <-> '-1489') but lets partial matches rank by ts_rank_cd, so a strong
--- lexical hit like the Jira ID ORION-1489 surfaces first. ops.hybrid_search AND
--- ops.full_text_search (the Gateway MCP full_text_search tool) both call this, so
--- the rewrite lives in exactly one place. Do not reintroduce AND-semantics here or
--- the exact-ID teaching moment breaks in every lexical caller at once.
+-- lexical hit like the Jira ID ORION-1489 surfaces first. ops.hybrid_search and
+-- ops.full_text_search both call this, so the rewrite lives in exactly one place.
+-- Do not reintroduce AND-semantics here or the exact-ID teaching moment breaks in
+-- every lexical caller at once.
 CREATE OR REPLACE FUNCTION ops.to_or_tsquery(p_query text)
 RETURNS tsquery
 LANGUAGE sql
@@ -122,8 +122,7 @@ WITH base AS (
 ),
 q AS (
   -- Lexical arm shares the OR-combine invariant via ops.to_or_tsquery so the
-  -- rewrite lives in exactly one place (see that function and the Gateway MCP
-  -- full_text_search tool, which call the same helper).
+  -- rewrite lives in exactly one place for both hybrid and lexical-only API modes.
   SELECT ops.to_or_tsquery(p_query) AS tq
 ),
 text_hits AS (
@@ -242,11 +241,11 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Single-signal retrieval functions.
 --
--- These back the four AgentCore Gateway MCP tools so an agent can reason about
--- one retrieval signal at a time (full_text_search, vector_search, fuzzy_match)
--- or ask for the fused ranking (ops.hybrid_search, above). They share the same
--- filter set and a compact, consistent row shape. full_text_search calls
--- ops.to_or_tsquery, so the OR-combine invariant holds here too.
+-- These back the API's lexical, semantic, and fuzzy retrieval modes. The
+-- agent-facing search_evidence capability selects those modes without exposing
+-- these SQL functions as separate tools. They share the same filter set and a
+-- compact, consistent row shape. full_text_search calls ops.to_or_tsquery, so the
+-- OR-combine invariant holds here too.
 -- ---------------------------------------------------------------------------
 
 -- Lexical / full-text only. tsvector @@ tsquery ranked by ts_rank_cd.
