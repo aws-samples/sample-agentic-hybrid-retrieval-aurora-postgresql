@@ -594,11 +594,11 @@ sup.c:hover{text-decoration:underline}
       <div class="box">
         <h4>How this answer was assembled</h4>
         <div class="trace">
-          <div class="step"><span class="n">1</span><div><div class="fn">decompose_question()</div><div class="out">3 sub-questions: cause &middot; impact &middot; evidence</div></div></div>
+          <div class="step"><span class="n">1</span><div><div class="fn">infer_sources()</div><div class="out">5 systems prioritized without dropping evidence</div></div></div>
           <div class="step"><span class="n">2</span><div><div class="fn">search_evidence("replica lag cutover", project=orion)</div><div class="out">128 candidates &middot; hybrid + RRF</div></div></div>
-          <div class="step"><span class="n">3</span><div><div class="fn">traverse_links(ORION-1473, depth=1)</div><div class="out">8 linked records across 4 systems</div></div></div>
-          <div class="step"><span class="n">4</span><div><div class="fn">compare_sources(incident, escalation)</div><div class="out">timeline agreement &middot; no conflicts</div></div></div>
-          <div class="step"><span class="n">5</span><div><div class="fn">synthesize_with_citations()</div><div class="out">5 citations &middot; confidence: high</div></div></div>
+          <div class="step"><span class="n">3</span><div><div class="fn">follow_evidence_links(["ORION-1473"], max_depth=1)</div><div class="out">8 linked records across 4 systems</div></div></div>
+          <div class="step"><span class="n">4</span><div><div class="fn">search_evidence("customer commitments", source=salesforce)</div><div class="out">3 candidates &middot; 1 contractual commitment</div></div></div>
+          <div class="step"><span class="n">5</span><div><div class="fn">synthesize_cited_answer()</div><div class="out">5 citations &middot; confidence: high</div></div></div>
         </div>
       </div>
     </aside>

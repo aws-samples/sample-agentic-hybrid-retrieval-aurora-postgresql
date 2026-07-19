@@ -285,12 +285,12 @@ ANSWER_SYSTEM_COUNT = 5
 # --- the plan (six tool calls; ops.retrieval_run_metrics.metadata) -------------
 
 PLAN = [
-    {"num": "1", "fn": "search_evidence", "args": "(\"orion delay root cause\", systems: jira+slack+confluence, window: 60d)", "desc": "Question decomposed; lexical + semantic + fuzzy retrieval run in parallel inside Aurora.", "res": "12 strong candidates · top: ORION-1473"},
-    {"num": "2", "fn": "traverse_links", "args": "(from: ORION-1473, edges: blocks · fixes · caused-by · gates)", "desc": "Followed stored object_links across systems to the gate check, the incident, and the fix.", "res": "5 linked objects · 9 edges"},
-    {"num": "3", "fn": "search_evidence", "args": "(\"orion customer commitments go-live\", systems: salesforce)", "desc": "Targeted pass for commitment language scoped to accounts referencing Orion.", "res": "3 candidates · 1 contractual"},
-    {"num": "4", "fn": "compare_sources", "args": "(slack decision ↔ readiness runbook ↔ jira timeline)", "desc": "Checked the decision against gate policy and issue history for contradictions.", "res": "consistent · no conflicts found"},
-    {"num": "5", "fn": "explain_result", "args": "(top 6)", "desc": "Captured per-candidate ranking signals for the diagnostics view.", "res": "signals stored on retrieval_candidates"},
-    {"num": "6", "fn": "synthesize_with_citations", "args": "(6 sources, style: brief)", "desc": "Composed the answer; every claim bound to a citation row in Aurora.", "res": "9 claims · 9 citations · confidence 0.92"},
+    {"num": "1", "fn": "infer_sources", "args": "(\"Why did Orion slip?\")", "desc": "Prioritized likely source systems without dropping any of the five connected evidence domains.", "res": "5 systems · Jira and Slack first"},
+    {"num": "2", "fn": "search_evidence", "args": "(\"orion delay root cause\", systems: jira+slack+confluence, window: 60d)", "desc": "Lexical, semantic, and fuzzy retrieval ran in parallel inside Aurora.", "res": "12 strong candidates · top: ORION-1473"},
+    {"num": "3", "fn": "follow_evidence_links", "args": "([\"ORION-1473\"], max_depth: 3)", "desc": "Followed stored object_links across systems to the gate check, the incident, and the fix.", "res": "5 linked objects · 9 edges"},
+    {"num": "4", "fn": "search_evidence", "args": "(\"orion customer commitments go-live\", systems: salesforce)", "desc": "Ran a targeted pass for commitment language scoped to accounts referencing Orion.", "res": "3 candidates · 1 contractual"},
+    {"num": "5", "fn": "follow_evidence_links", "args": "([\"CASE-0012345\"], max_depth: 2)", "desc": "Connected the customer commitment to the release decision and blocking issue.", "res": "3 linked objects · 2 systems"},
+    {"num": "6", "fn": "synthesize_cited_answer", "args": "(6 sources, style: brief)", "desc": "Composed the answer; every claim bound to a citation row in Aurora.", "res": "9 claims · 9 citations · confidence 0.92"},
 ]
 
 # --- diagnostics metrics (ops.retrieval_run_metrics) ---------------------------

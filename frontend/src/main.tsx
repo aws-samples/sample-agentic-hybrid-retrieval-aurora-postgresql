@@ -1480,10 +1480,10 @@ function Landing({
           </div>
           <div className="steps">
             {[
-              ['01', 'Ask in plain language', 'Complex questions are decomposed into targeted retrievals: topics, systems, entities, and time windows.', 'search_evidence()'],
-              ['02', 'Retrieve everywhere', 'Full-text, semantic, and fuzzy retrieval run side by side with SQL and metadata filters in one engine.', 'fts + pgvector + pg_trgm'],
-              ['03', 'Follow the thread', 'Evidence links are traversed across systems: the ticket that blocks, the PR that fixes, the case it impacts.', 'traverse_links()'],
-              ['04', 'Answer with receipts', 'Fused, scored, and synthesized into a cited answer. Every claim points back to its source.', 'synthesize_with_citations()']
+              ['01', 'Ask in plain language', 'The agent prioritizes likely systems while preserving all five sources as the searchable evidence scope.', 'infer_sources()'],
+              ['02', 'Retrieve everywhere', 'Full-text, semantic, and fuzzy retrieval run side by side with SQL and metadata filters in one engine.', 'search_evidence()'],
+              ['03', 'Follow the thread', 'Evidence links are traversed across systems: the ticket that blocks, the PR that fixes, the case it impacts.', 'follow_evidence_links()'],
+              ['04', 'Answer with receipts', 'Fused, scored, and synthesized into a cited answer. Every claim points back to its source.', 'synthesize_cited_answer()']
             ].map(([num, title, body, fn]) => (
               <article className="step" key={num}>
                 <div className="num">{num}</div>
@@ -2999,7 +2999,7 @@ function AgentPage({
                     <div><span>Agreement</span><b>{citedSystemCount} systems support the same timeline</b></div>
                   </div>
                   {canonical?.funnel && (
-                    <p className="covnote"><b>✓ No contradictions</b> found by compare_sources across the {citedSourceCount} cited objects. {Math.max(0, (canonical.funnel.above_cut ?? 0) - (canonical.funnel.cited ?? 0))} candidate{Math.max(0, (canonical.funnel.above_cut ?? 0) - (canonical.funnel.cited ?? 0)) === 1 ? '' : 's'} excluded below the {canonical.rerank_cut} score cut.</p>
+                    <p className="covnote"><b>✓ No contradictions</b> found across the {citedSourceCount} cited objects. {Math.max(0, (canonical.funnel.above_cut ?? 0) - (canonical.funnel.cited ?? 0))} candidate{Math.max(0, (canonical.funnel.above_cut ?? 0) - (canonical.funnel.cited ?? 0)) === 1 ? '' : 's'} excluded below the {canonical.rerank_cut} score cut.</p>
                   )}
                 </section>
               )}
