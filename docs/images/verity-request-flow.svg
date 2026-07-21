@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1188" height="520" viewBox="0 0 1188 520" role="img" aria-labelledby="title desc">
   <title id="title">Verity request and evidence flow</title>
-  <desc id="desc">Operational records from Slack, Jira, Confluence, Salesforce, and GitHub are materialized in Aurora PostgreSQL, retrieved by five signals, fused, reranked, exposed through the search_evidence and answer_with_citations AgentCore tools, synthesized by Strands, and persisted in four named Aurora tables as auditable evidence.</desc>
+  <desc id="desc">Operational records from Slack, Jira, Confluence, Salesforce, and GitHub are materialized in Aurora PostgreSQL, retrieved by five signals, fused, reranked, exposed through the search_evidence and answer_with_citations AgentCore tools, optionally synthesized by Strands for live questions, and persisted in four named Aurora tables as auditable evidence.</desc>
   <defs>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
       <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#17201f" flood-opacity="0.08"/>
@@ -115,7 +115,7 @@
     <rect x="901" y="102" width="247" height="7" rx="3.5" fill="#d34b35"/>
     <text x="925" y="138" fill="#d34b35" font-family="IBM Plex Mono, monospace" font-size="10.5" font-weight="700">PORTABLE AGENT BOUNDARY</text>
     <text x="925" y="169" fill="#17201f" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700">Cited answer</text>
-    <text x="925" y="195" fill="#4e5c59" font-family="Inter, Arial, sans-serif" font-size="12.5">Strands plans and synthesizes.</text>
+    <text x="925" y="195" fill="#4e5c59" font-family="Inter, Arial, sans-serif" font-size="12.5">Agent tools expose the contract.</text>
     <text x="925" y="213" fill="#4e5c59" font-family="Inter, Arial, sans-serif" font-size="12.5">Verity inspects the receipt.</text>
     <circle cx="968" cy="267" r="34" fill="#fff0eb" stroke="#e4b8ae"/>
     <text x="968" y="262" fill="#d34b35" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700" text-anchor="middle">0.92</text>

@@ -48,7 +48,7 @@ and returns a cited answer with a persisted retrieval receipt.
 | Evidence index | Amazon Aurora PostgreSQL 18.3+, pgvector 0.8.1+, `tsvector`, `pg_trgm` |
 | Retrieval | Full-text + semantic + fuzzy + metadata + recency, fused with weighted RRF |
 | Ranking | Aurora SQL composite score, then Cohere Rerank v3.5 through Amazon Bedrock |
-| Agent path | Strands tools with Sonnet 5 routing and Opus 4.8 synthesis |
+| Agent path | Strands tool contract, deterministic source inference, and Opus 4.8 live synthesis |
 | Portable boundary | FastAPI operations and `AWS_IAM`-authorized AgentCore Gateway MCP tools |
 | Proof | Persisted runs, candidates, scores, citations, latency, query plans, and evaluation metrics |
 
@@ -354,10 +354,15 @@ CLAUDE_CODE_MODEL=global.anthropic.claude-sonnet-5
 COHERE_RERANK_MODEL=cohere.rerank-v3-5:0
 ```
 
-`/v1/agent/answer` includes an `agent` metadata object so the app and lab can show the live routing:
+`/v1/agent/answer` includes an `agent` metadata object so the app and lab can show the configured model roles:
 
-- `planning_and_tool_routing`: Sonnet 5
-- `answer_synthesis`: Opus 4.8
+- `planning_and_tool_routing`: Sonnet 5 for extended orchestration and Claude Code
+- `answer_synthesis`: Opus 4.8 for live non-canonical composition
+
+The required canonical Orion answer invokes neither model: it replays the stored
+plan, answer, citations, and diagnostics from Aurora. For a new question, the API
+uses deterministic source inference and Aurora retrieval before a Strands agent
+invokes Opus for synthesis.
 
 Cohere Rerank v3.5 runs after Aurora SQL fusion selects the candidate pool. AWS
 access is through the Bedrock Agent Runtime `rerank` API, but the reranking model

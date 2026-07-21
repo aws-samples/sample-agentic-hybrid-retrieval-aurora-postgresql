@@ -162,6 +162,7 @@ type Citation = {
 type AgentPayload = {
   question?: string;
   run_id?: string;
+  canonical?: boolean;
   agent?: AgentMetadata;
   // The API serves the structured plan (objects) for the canonical run and a
   // plain-string plan for ad-hoc synthesis; the UI handles both.
@@ -228,6 +229,7 @@ type RunMetrics = {
 };
 
 type CanonicalDiagnostics = RunMetrics & {
+  canonical?: boolean;
   question?: string;
   confidence?: number;
   source_count?: number;
@@ -2673,6 +2675,7 @@ function AgentPage({
   // canonical run served read-only on mount. Both carry answer + plan + citations
   // + commitments from Aurora — there is no hard-coded fallback content.
   const source: AgentPayload | CanonicalDiagnostics = agentPayload.answer || agentPayload.citations ? agentPayload : (canonical || {});
+  const isCanonicalReplay = source === canonical || source.canonical === true;
   const rawAnswer = source.answer;
   const answerBody: AnswerBody | null = rawAnswer && typeof rawAnswer === 'object' ? rawAnswer : null;
   const answerString = typeof rawAnswer === 'string' ? rawAnswer : '';
@@ -2718,12 +2721,12 @@ function AgentPage({
   const routingNotes = agentMeta.routing_notes || {};
   const routingRows = [
     {
-      role: 'Planning + tools',
+      role: 'Configured planning',
       model: modelRouting.planning_and_tool_routing,
       note: routingNotes.planning_and_tool_routing
     },
     {
-      role: 'Answer synthesis',
+      role: 'Live synthesis',
       model: modelRouting.answer_synthesis,
       note: routingNotes.answer_synthesis
     }
@@ -2758,7 +2761,7 @@ function AgentPage({
   // the view "deconstructs" how it was built (pull quote, commitments, the six
   // tool calls) as one flowing narrative. Reduced-motion renders it all at once.
   const reducedMotion = useReducedMotion();
-  const streaming = ENABLE_ANSWER_STREAMING && !reducedMotion && !loading;
+  const streaming = ENABLE_ANSWER_STREAMING && !reducedMotion && !loading && !isCanonicalReplay;
   // beat gates each block; typing blocks advance it on completion, reveal-only
   // blocks advance on a short timer (see the effect below).
   const [beat, setBeat] = useState(streaming ? 0 : 99);
@@ -2797,8 +2800,8 @@ function AgentPage({
     startMs: beat >= planStart ? 0 : 999999
   });
   const beatClass = (n: number) => cx('beat', (!streaming || beat >= n) && 'is-in');
-  // The thinking line cycles the agent's real reasoning steps, derived live from
-  // the plan (each tool call's description), so it reflects the actual run.
+  // The thinking line follows the plan supplied by the API. For the canonical
+  // answer this is stored proof; live answers supply the active execution plan.
   const thinkingTrace = structuredPlan.length > 0
     ? structuredPlan.map((step) => step.desc)
     : stringPlan.length > 0
@@ -2843,7 +2846,9 @@ function AgentPage({
                     ? 'Agent answer · thinking'
                     : streaming && beat < planStart + planLength
                       ? 'Agent answer · streaming with citations'
-                      : 'Agent answer · synthesized with citations'}
+                      : isCanonicalReplay
+                        ? 'Agent answer · replayed with citations'
+                        : 'Agent answer · synthesized with citations'}
                 </div>
                 <div className="question">"{source.question || query || queryDefault}"</div>
                 <div className="answermeta">
@@ -2868,10 +2873,10 @@ function AgentPage({
               </div>
 
               {routingRows.length > 0 && (
-                <section className="model-routing" aria-label="Agent model routing">
+                <section className="model-routing" aria-label="Configured agent model roles">
                   <div>
-                    <span className="mono-label">Best model for the job</span>
-                    <h2>{agentMeta.harness || 'Agent'} model routing</h2>
+                    <span className="mono-label">Configured model roles</span>
+                    <h2>{agentMeta.harness || 'Agent'} execution boundary</h2>
                   </div>
                   <div className="model-grid">
                     {routingRows.map((row) => (

@@ -69,11 +69,15 @@ harness-agnostic: Strands, Claude Code, MCP clients, or another orchestrator can
 call the same retrieval boundary. Amazon Bedrock remains the model provider for
 embeddings and Claude access; it is not the agent framework.
 
-Model routing follows a best-model-for-the-job pattern:
+Configured model roles follow a best-model-for-the-job pattern:
 
-- Sonnet 5 for planning, source selection, and tool routing.
-- Opus 4.8 for answer synthesis when live composition is enabled.
+- Sonnet 5 for extended orchestration and Claude Code.
+- Opus 4.8 for live non-canonical answer synthesis.
 - Sonnet 5 for Claude Code discovery questions and optional exercises.
+
+The required canonical replay invokes neither model. New questions use
+deterministic source inference and Aurora retrieval before Strands invokes Opus
+for synthesis.
 
 The local tool contract is:
 

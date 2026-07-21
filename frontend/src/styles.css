@@ -1235,7 +1235,7 @@ kbd {
 
 .harness-note p code {
   font-family: var(--mono);
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--tech);
   background: var(--tech-bg);
   border: 1px solid var(--tech-border);

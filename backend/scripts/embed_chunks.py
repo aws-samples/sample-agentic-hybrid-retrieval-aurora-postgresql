@@ -6,7 +6,7 @@ import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from app.config import get_settings
-from app.db import get_dict_conn
+from app.db import close_pool, get_dict_conn
 from app.embeddings import embed_texts, to_pgvector
 
 
@@ -130,4 +130,7 @@ def main():
     print(f"Done: embedded {total} chunks")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        close_pool()

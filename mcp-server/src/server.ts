@@ -40,7 +40,7 @@ server.tool(
 );
 
 server.tool(
-  "answer_question",
+  "answer_with_citations",
   {
     question: z.string(),
     sourceSystems: z.array(z.string()).optional(),

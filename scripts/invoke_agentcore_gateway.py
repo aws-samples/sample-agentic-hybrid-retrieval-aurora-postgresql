@@ -121,13 +121,13 @@ def main() -> int:
 
     listed = _mcp_request(url, region, "tools/list")
     tools = (listed.get("result") or {}).get("tools") or []
-    tool_name = _tool_name(tools, "search_evidence")
-    called = _mcp_request(
+    search_tool_name = _tool_name(tools, "search_evidence")
+    search_called = _mcp_request(
         url,
         region,
         "tools/call",
         {
-            "name": tool_name,
+            "name": search_tool_name,
             "arguments": {
                 "query": args.query,
                 "project_key": args.project_key,
@@ -135,8 +135,8 @@ def main() -> int:
             },
         },
     )
-    receipt = _text_result(called)
-    results = receipt.get("results") or []
+    search_receipt = _text_result(search_called)
+    results = search_receipt.get("results") or []
     if not results:
         raise RuntimeError("The managed retrieval returned no evidence rows.")
     top = results[0]
@@ -145,13 +145,43 @@ def main() -> int:
             f"Expected ORION-1489 first, found {top.get('external_id') or 'unknown'}."
         )
 
-    print("MANAGED RETRIEVAL RECEIPT")
+    answer_tool_name = _tool_name(tools, "answer_with_citations")
+    answer_called = _mcp_request(
+        url,
+        region,
+        "tools/call",
+        {
+            "name": answer_tool_name,
+            "arguments": {
+                "question": "Why did Orion slip?",
+                "limit": 8,
+            },
+        },
+    )
+    answer_receipt = _text_result(answer_called)
+    citations = answer_receipt.get("citations") or []
+    if not citations:
+        raise RuntimeError("The managed cited answer returned no citations.")
+    if args.assert_orion:
+        expected = {
+            "canonical": True,
+            "source_count": 6,
+            "system_count": 5,
+            "confidence": 0.92,
+        }
+        observed = {key: answer_receipt.get(key) for key in expected}
+        if observed != expected:
+            raise RuntimeError(
+                f"Expected canonical Orion receipt {expected}, found {observed}."
+            )
+
+    print("MANAGED SEARCH RECEIPT")
     print(f"Gateway: {os.environ.get('AGENTCORE_GATEWAY_ID', 'managed')}")
     print("Authorization: AWS_IAM (SigV4)")
     print(f"Principal: {identity.get('Arn', 'unknown')}")
-    print(f"Tool: {tool_name}")
-    print(f"Run: {receipt.get('run_id')}")
-    print(f"Mode: {receipt.get('retrieval_mode')}")
+    print(f"Tool: {search_tool_name}")
+    print(f"Run: {search_receipt.get('run_id')}")
+    print(f"Mode: {search_receipt.get('retrieval_mode')}")
     print(
         "Top:",
         top.get("source_system"),
@@ -159,6 +189,18 @@ def main() -> int:
         f"rerank={float(top.get('rerank_score') or 0):.3f}",
         f"sql={float(top.get('final_score') or 0):.3f}",
     )
+    print()
+    print("MANAGED CITED-ANSWER RECEIPT")
+    print(f"Tool: {answer_tool_name}")
+    print(f"Run: {answer_receipt.get('run_id')}")
+    print(f"Canonical: {answer_receipt.get('canonical')}")
+    print(
+        "Evidence:",
+        f"citations={answer_receipt.get('source_count')}",
+        f"systems={answer_receipt.get('system_count')}",
+        f"confidence={float(answer_receipt.get('confidence') or 0):.2f}",
+    )
+    print(f"Plan steps: {len(answer_receipt.get('plan') or [])}")
     return 0
 
 

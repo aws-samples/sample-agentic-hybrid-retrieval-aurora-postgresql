@@ -7,7 +7,7 @@ import sys
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from app.ingest import create_job, upsert_objects
 from app.models import SourceObject
-from app.db import get_conn
+from app.db import close_pool, get_conn
 
 
 def main():
@@ -71,4 +71,7 @@ def main():
     print(json.dumps(result, indent=2, default=str))
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        close_pool()
