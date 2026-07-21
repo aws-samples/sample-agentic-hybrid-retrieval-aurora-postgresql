@@ -42,3 +42,19 @@ failure mode first, then fix it and watch the canonical query improve.
 - AppFlow-to-S3 ingestion.
 - Production ingestion topology: batch export, webhook, CDC, or live MCP lookup.
 - VS Code extension concept.
+
+## Take-home architecture validation
+
+Compare the lab with [DDX for PostgreSQL](https://pg.ddx.io/), an independent
+read-only intelligence service that makes evidence from public PostgreSQL
+community sources searchable and exposes cited results through REST and MCP.
+DDX materializes the domain index; other agents can federate to its published
+contract; mutable upstream facts still require live revalidation. The
+implementation is not part of the workshop. Use it to help participants
+classify their own systems across those three paths and publish one stable
+retrieval contract over the result.
+
+For the developer persona, point to `AGENTS.md`, `CLAUDE.md`, and
+`.claude/skills/extend-hybrid-retrieval/SKILL.md`. They package the repository
+map, agent entry point, and reusable hybrid-retrieval workflow without adding
+another required exercise.

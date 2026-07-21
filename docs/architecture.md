@@ -50,6 +50,19 @@ Connectors and MCP tools have different jobs:
 - The UI inspects the same retrieval API and persisted evidence contract that
   any agent harness can consume.
 
+Use three explicit evidence paths rather than forcing every source through the
+same integration:
+
+| Path | Architecture decision |
+|---|---|
+| **Materialize** | Project approved evidence into Aurora when it must participate in low-latency cross-source ranking, joins, citations, evaluation, and replayable retrieval. |
+| **Federate** | Call an existing search, API, or MCP service when it already owns a capable index or its content should remain outside the Aurora projection. |
+| **Revalidate live** | Read authoritative state immediately before using a volatile fact, enforcing current permissions, or performing a mutation. |
+
+One agent answer can combine all three paths. Persist enough provenance to
+distinguish the indexed source revision, the external response, and the live
+source state from the retrieval `run_id` that selected them.
+
 The agentic layer is organized around **Strands Agents** for the lab because the
 local `@tool` contract is explicit and inspectable. The architecture itself is
 harness-agnostic: Strands, Claude Code, MCP clients, or another orchestrator can

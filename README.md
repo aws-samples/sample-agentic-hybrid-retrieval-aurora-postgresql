@@ -170,6 +170,50 @@ sync. Bulk initial loads build indexes afterward, as `seed/load.sh` demonstrates
 See [`docs/connector-lifecycle.md`](docs/connector-lifecycle.md) for the
 production lifecycle and scaling boundary.
 
+## Take-home: choose the evidence boundary
+
+A production answer can use all three patterns at once:
+
+| Pattern | Use it when | Keep as proof |
+|---|---|---|
+| **Materialize in Aurora** | Approved evidence must be ranked, joined, cited, evaluated, and replayed with predictable latency. | Source revision, content hash, indexed fields, retrieval `run_id`, candidates, and scores. |
+| **Federate** | A source already exposes an appropriate search, API, or MCP contract, or its content should not be persisted locally. | External query, source references, response revision or timestamp, and the result used by the agent. |
+| **Revalidate live** | A fact is volatile, permission-sensitive, or will drive a write or other action. | The source lookup or action receipt and the authoritative state observed at decision time. |
+
+[DDX for PostgreSQL](https://pg.ddx.io/) is an independent real-world
+validation of this architecture. DDX materializes evidence from public
+PostgreSQL mailing lists, repositories, documentation, wiki pages, Commitfest
+activity, and buildfarm results into a cited, read-only intelligence index.
+Another agent can federate to that index through its web, REST, or MCP
+interfaces instead of copying the archive again. Mutable state and actions still
+belong to the underlying authoritative systems and should be revalidated there.
+
+DDX is not a workshop dependency or an Aurora reference implementation. Its
+value here is the transferable pattern: a team can make evidence from its own
+domain comparable, preserve links to the underlying sources, and publish a
+stable retrieval contract for humans and agents.
+
+As a take-home design exercise, choose three systems in your own environment,
+classify each interaction as materialize, federate, or revalidate live, and
+define the provenance receipt each path must return. Then publish the resulting
+search and cited-answer boundary through HTTP, MCP, or both.
+
+### Developer handoff
+
+The repository packages its developer contract at three levels:
+
+- [`AGENTS.md`](AGENTS.md) gives any coding agent the repository map,
+  ownership boundaries, and invariants.
+- [`CLAUDE.md`](CLAUDE.md) is the concise Claude Code entry point and points to
+  the shared contract rather than duplicating it.
+- [`.claude/skills/extend-hybrid-retrieval/SKILL.md`](.claude/skills/extend-hybrid-retrieval/SKILL.md)
+  provides the task workflow for adding sources, changing retrieval, diagnosing
+  ranking, and validating citations and receipts.
+
+These files do not change the runtime. They make the engineering decisions
+portable so a developer can ask an agent to extend the system without creating
+a second ranking path or weakening provenance.
+
 ## Repository layout
 
 ```text
@@ -178,6 +222,9 @@ production lifecycle and scaling boundary.
 ├── frontend/                   # Vite + React UI
 ├── sql/                        # PostgreSQL schema, indexes, functions, diagnostics
 ├── data/                       # Workshop-safe source bundle
+├── AGENTS.md                   # Cross-agent repository map and invariants
+├── CLAUDE.md                   # Claude Code entry point
+├── .claude/skills/             # Task-specific developer workflows
 ├── connectors/                 # Optional connector scaffolds and normalizers
 ├── lambda_mcp/                 # Lambda MCP adapter for Strands tool packaging
 ├── mcp-server/                 # Optional MCP wrapper around the retrieval API
