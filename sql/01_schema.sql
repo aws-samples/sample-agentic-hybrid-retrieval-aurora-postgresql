@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS ops.source_objects (
   acl jsonb NOT NULL DEFAULT '{}'::jsonb,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   body_hash text,
+  is_active boolean NOT NULL DEFAULT true,
+  source_deleted_at timestamptz,
   -- Object-level lexical vector. external_id AND title both ride at weight A so an
   -- exact-ID query (e.g. "ORION-1489") and a title-word query both rank as strong
   -- lexical matches — the chunk tsv (object_chunks.tsv) alone never indexes the
@@ -71,6 +73,14 @@ CREATE TABLE IF NOT EXISTS ops.source_objects (
   ) STORED,
   UNIQUE(source_system, external_id)
 );
+
+-- Existing databases can predate connector synchronization columns even though
+-- CREATE TABLE IF NOT EXISTS above succeeds. Keep direct schema application
+-- additive; seed/load.sh also applies sql/14_connector_sync.sql after restore.
+ALTER TABLE ops.source_objects
+  ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+ALTER TABLE ops.source_objects
+  ADD COLUMN IF NOT EXISTS source_deleted_at timestamptz;
 
 CREATE TABLE IF NOT EXISTS ops.object_chunks (
   chunk_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

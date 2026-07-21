@@ -28,21 +28,27 @@ Aurora PostgreSQL retrieval index
         └── React frontend
 ```
 
-The source systems remain authoritative. Aurora stores the searchable evidence
-projection needed for retrieval: normalized source objects, chunks, metadata,
-ACL markers, citations, relationships, embeddings, diagnostics, and evaluation
-rows. It is not a wholesale replacement for Jira, Slack, Confluence, Salesforce,
-GitHub, or other systems of record.
+Systems of record optimize the workflows they own. Aurora supplies the
+cross-system evidence layer that no individual source owns. It stores a
+rebuildable projection of normalized objects, chunks, metadata, ACL markers,
+citations, relationships, embeddings, diagnostics, and evaluation rows so
+tickets, conversations, documents, customer commitments, and code can be ranked
+on one scale and joined into cited answers.
+
+The source systems remain authoritative for permissions, workflow, ownership,
+and mutation. Aurora is not a wholesale replacement for Jira, Slack,
+Confluence, Salesforce, GitHub, or another system of record.
 
 Connectors and MCP tools have different jobs:
 
 - Connectors, exports, webhooks, and scheduled jobs keep the Aurora evidence
-  index fresh.
-- MCP tools can expose the retrieval API to agents and can also perform live
-  source-system lookups or actions when the answer needs current state or a
-  mutation.
-- The UI reads from the retrieval API because cross-source ranking, citation
-  joins, diagnostics, and evaluation require a persisted index.
+  index fresh and rebuildable from authoritative sources.
+- The retrieval API discovers, ranks, joins, cites, and evaluates evidence in
+  Aurora, then persists the run and candidate-level proof.
+- MCP tools and connectors perform live source-system lookups, revalidation, or
+  actions when the workflow needs current state or a mutation.
+- The UI inspects the same retrieval API and persisted evidence contract that
+  any agent harness can consume.
 
 The agentic layer is organized around **Strands Agents** for the lab because the
 local `@tool` contract is explicit and inspectable. The architecture itself is

@@ -66,7 +66,8 @@ AS $$
          (1 - (c.embedding <=> p_query_embedding))::numeric AS score
   FROM ops.object_chunks c
   JOIN ops.source_objects o ON o.object_id = c.object_id
-  WHERE c.embedding IS NOT NULL AND p_query_embedding IS NOT NULL
+  WHERE o.is_active
+    AND c.embedding IS NOT NULL AND p_query_embedding IS NOT NULL
     AND (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
     AND (p_project_key IS NULL OR o.project_key = p_project_key)
     AND (p_account_name IS NULL OR o.account_name = p_account_name)
@@ -100,7 +101,8 @@ AS $$
          (1 - (c.embedding::halfvec(1024) <=> p_query_embedding::halfvec(1024)))::numeric AS score
   FROM ops.object_chunks c
   JOIN ops.source_objects o ON o.object_id = c.object_id
-  WHERE c.embedding IS NOT NULL AND p_query_embedding IS NOT NULL
+  WHERE o.is_active
+    AND c.embedding IS NOT NULL AND p_query_embedding IS NOT NULL
     AND (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
     AND (p_project_key IS NULL OR o.project_key = p_project_key)
   ORDER BY c.embedding::halfvec(1024) <=> p_query_embedding::halfvec(1024) ASC
@@ -137,7 +139,8 @@ AS $$
            (binary_quantize(c.embedding)::bit(1024) <~> binary_quantize(p_query_embedding)::bit(1024))::numeric AS hamming_distance
     FROM ops.object_chunks c
     JOIN ops.source_objects o ON o.object_id = c.object_id
-    WHERE c.embedding IS NOT NULL AND p_query_embedding IS NOT NULL
+    WHERE o.is_active
+      AND c.embedding IS NOT NULL AND p_query_embedding IS NOT NULL
       AND (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
       AND (p_project_key IS NULL OR o.project_key = p_project_key)
     ORDER BY binary_quantize(c.embedding)::bit(1024) <~> binary_quantize(p_query_embedding)::bit(1024) ASC

@@ -59,6 +59,7 @@ AS $$
            NULL::uuid              AS parent_object_id
     FROM ops.source_objects o
     WHERE o.object_id = ANY(p_seed_ids)
+      AND o.is_active
       AND (p_allowed_ids IS NULL OR o.object_id = ANY(p_allowed_ids))
 
     UNION ALL
@@ -81,6 +82,7 @@ AS $$
     JOIN ops.object_links l ON l.from_object_id = w.object_id
     JOIN ops.source_objects to_ ON to_.object_id = l.to_object_id
     WHERE w.depth < p_max_depth
+      AND to_.is_active
       AND NOT to_.external_id = ANY(w.path)
       AND (p_allowed_ids IS NULL OR to_.object_id = ANY(p_allowed_ids))
   )

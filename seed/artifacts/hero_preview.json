@@ -1,0 +1,43 @@
+{
+  "preview": true,
+  "question": "Why did Orion slip?",
+  "confidence": 0.92,
+  "total_objects": 150,
+  "citations": [
+    {
+      "source_system": "slack",
+      "source_type": "Slack thread",
+      "external_id": "SLACK-000271",
+      "title": "Decision: Orion GA moves Jul 1 to Jul 15",
+      "score": 0.93
+    },
+    {
+      "source_system": "jira",
+      "source_type": "Issue",
+      "external_id": "ORION-1473",
+      "title": "ORION-1473 - Cross-region replication lag exceeds 90s in events pipeline",
+      "score": 0.89
+    },
+    {
+      "source_system": "salesforce",
+      "source_type": "Case",
+      "external_id": "CASE-0012345",
+      "title": "CASE-0012345 - Acme Corp go-live commitment at risk",
+      "score": 0.87
+    },
+    {
+      "source_system": "confluence",
+      "source_type": "Runbook",
+      "external_id": "PAGE-2112",
+      "title": "Orion Release Readiness Runbook - gate criteria and sign-off",
+      "score": 0.82
+    },
+    {
+      "source_system": "github",
+      "source_type": "Pull request",
+      "external_id": "PR-1287",
+      "title": "PR #1287 - events: partition WAL shipping by region",
+      "score": 0.74
+    }
+  ]
+}

@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,6 +33,11 @@ from .search import run_hybrid_search
 from .config import get_settings
 
 logger = logging.getLogger(__name__)
+HERO_PREVIEW_PATH = Path(__file__).resolve().parents[2] / "seed" / "artifacts" / "hero_preview.json"
+SEARCH_UNAVAILABLE = (
+    "search unavailable — run `make doctor` to verify Aurora schema, "
+    "connectivity, embeddings, and reranking"
+)
 
 
 @asynccontextmanager
@@ -69,6 +75,21 @@ app.add_middleware(
 def health():
     return {"ok": True}
 
+
+@app.get("/v1/diagnostics/hero-preview")
+def hero_preview():
+    """Seed-backed landing preview for an API whose evidence index is not ready.
+
+    This endpoint never claims to be live diagnostics. The frontend labels it as
+    a preview and still requires /v1/diagnostics/canonical before enabling the
+    guided proof flow.
+    """
+    try:
+        return json.loads(HERO_PREVIEW_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        raise HTTPException(503, "seed-backed hero preview unavailable")
+
+
 @app.post("/v1/sources")
 def create_source(req: SourceCreateRequest):
     with get_dict_conn() as conn:
@@ -83,8 +104,20 @@ def create_source(req: SourceCreateRequest):
 
 @app.post("/v1/ingest/objects")
 def ingest_objects(req: IngestObjectsRequest):
-    source_id, job_id = create_job(req.source_system, req.source_name, len(req.objects))
-    return upsert_objects(source_id, job_id, req.objects)
+    source_id, job_id = create_job(
+        req.source_system,
+        req.source_name,
+        len(req.objects),
+        sync_mode=req.sync_mode,
+        sync_cursor=req.sync_cursor,
+    )
+    return upsert_objects(
+        source_id,
+        job_id,
+        req.objects,
+        sync_mode=req.sync_mode,
+        sync_cursor=req.sync_cursor,
+    )
 
 @app.get("/v1/jobs/{job_id}")
 def get_job(job_id: str):
@@ -228,25 +261,35 @@ def diagnostics_slow_queries():
 @app.post("/v1/search")
 def search(req: SearchRequest):
     """Retrieval over Aurora. `mode` selects the fused ranker or one signal arm."""
-    return run_hybrid_search(req)
+    return _search_or_503(req)
 
 
 @app.post("/v1/search/vector")
 def search_vector(req: SearchRequest):
     """Semantic-only: pgvector cosine over the HNSW index (ops.vector_search)."""
-    return run_hybrid_search(req.model_copy(update={"mode": "semantic"}))
+    return _search_or_503(req.model_copy(update={"mode": "semantic"}))
 
 
 @app.post("/v1/search/fts")
 def search_fts(req: SearchRequest):
     """Lexical-only: tsvector @@ tsquery ranked by ts_rank_cd (ops.full_text_search)."""
-    return run_hybrid_search(req.model_copy(update={"mode": "lexical"}))
+    return _search_or_503(req.model_copy(update={"mode": "lexical"}))
 
 
 @app.post("/v1/search/fuzzy")
 def search_fuzzy(req: SearchRequest):
     """Fuzzy-only: pg_trgm similarity over title + leading text (ops.fuzzy_match)."""
-    return run_hybrid_search(req.model_copy(update={"mode": "fuzzy"}))
+    return _search_or_503(req.model_copy(update={"mode": "fuzzy"}))
+
+
+def _search_or_503(req: SearchRequest):
+    try:
+        return run_hybrid_search(req)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Search request unavailable: %s", exc)
+        raise HTTPException(503, SEARCH_UNAVAILABLE)
 
 @app.post("/v1/agent/answer")
 def agent_answer(req: AgentAnswerRequest):
@@ -346,21 +389,28 @@ def canonical_diagnostics():
 
 @app.get("/v1/diagnostics/corpus")
 def corpus_diagnostics():
-    with get_dict_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM ops.v_corpus_profile")
-            profile = cur.fetchone()
-            cur.execute("SELECT * FROM ops.v_source_distribution")
-            distribution = cur.fetchall()
-            cur.execute("SELECT * FROM ops.v_embedding_progress")
-            embeddings = cur.fetchone()
-            index_sizes = _vector_index_sizes(cur)
-            return {
-                "profile": profile,
-                "source_distribution": distribution,
-                "embedding_progress": embeddings,
-                "vector_index_sizes": index_sizes,
-            }
+    try:
+        with get_dict_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM ops.v_corpus_profile")
+                profile = cur.fetchone()
+                cur.execute("SELECT * FROM ops.v_source_distribution")
+                distribution = cur.fetchall()
+                cur.execute("SELECT * FROM ops.v_embedding_progress")
+                embeddings = cur.fetchone()
+                index_sizes = _vector_index_sizes(cur)
+                return {
+                    "profile": profile,
+                    "source_distribution": distribution,
+                    "embedding_progress": embeddings,
+                    "vector_index_sizes": index_sizes,
+                }
+    except Exception as exc:
+        logger.warning("Corpus diagnostics unavailable: %s", exc)
+        raise HTTPException(
+            503,
+            "corpus diagnostics unavailable — run `make schema` or `make seed-load`",
+        )
 
 
 def _vector_index_sizes(cur):

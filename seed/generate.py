@@ -50,6 +50,7 @@ from app.ingest import body_hash, chunk_text  # noqa: E402
 ARTIFACT_NAME = "hybrid-retrieval-seed-v1.dump"
 JSONL_NAME = "source_objects.jsonl"
 MANIFEST_NAME = "manifest.json"
+HERO_PREVIEW_NAME = "hero_preview.json"
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +139,39 @@ def write_manifest(objs: list[dict], provider: str, artifact_sha256: str | None 
     return path
 
 
+def write_hero_preview() -> Path:
+    """Write the landing-only preview from the canonical seed source.
+
+    Keep one cited object per source system so the structural five-node hero can
+    render while Aurora is unavailable. This is deliberately separate from the
+    live canonical diagnostics payload and cannot start the guided walkthrough.
+    """
+    citations = []
+    seen_systems: set[str] = set()
+    for citation in C.CITED:
+        system = citation["source_system"]
+        if system in seen_systems:
+            continue
+        seen_systems.add(system)
+        citations.append({
+            "source_system": system,
+            "source_type": citation["source_type"],
+            "external_id": citation["external_id"],
+            "title": citation["title"],
+            "score": citation["final_score"],
+        })
+    preview = {
+        "preview": True,
+        "question": C.CANONICAL_QUESTION,
+        "confidence": C.ANSWER_CONFIDENCE,
+        "total_objects": C.CORPUS_TOTAL,
+        "citations": citations,
+    }
+    path = ARTIFACTS / HERO_PREVIEW_NAME
+    path.write_text(json.dumps(preview, indent=2, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--jsonl-only", action="store_true", help="write JSONL + manifest only; skip DB + dump")
@@ -155,9 +189,11 @@ def main() -> int:
     artifact_path = Path(args.artifact)
     artifact_sha256 = sha256_file(artifact_path) if artifact_path.exists() else None
     manifest = write_manifest(objs, args.provider, artifact_sha256=artifact_sha256)
+    hero_preview = write_hero_preview()
     print(f"[seed] wrote {len(objs)} objects → {jsonl}")
     print(f"[seed] per-system: {counts}")
     print(f"[seed] manifest → {manifest}")
+    print(f"[seed] hero preview → {hero_preview}")
 
     assert len(objs) == C.CORPUS_TOTAL, f"expected {C.CORPUS_TOTAL}, got {len(objs)}"
     for system, n in counts.items():

@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 RetrievalMode = Literal["hybrid", "semantic", "lexical", "fuzzy"]
+SyncMode = Literal["upsert", "full"]
 
 class SourceObject(BaseModel):
     source_system: str
@@ -28,6 +29,8 @@ class SourceObject(BaseModel):
 class IngestObjectsRequest(BaseModel):
     source_name: str = "api-ingest"
     source_system: str = "source_bundle"
+    sync_mode: SyncMode = "upsert"
+    sync_cursor: Dict[str, Any] = Field(default_factory=dict)
     objects: List[SourceObject]
 
 class SearchRequest(BaseModel):

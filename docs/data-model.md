@@ -14,3 +14,7 @@ Important tables:
 - `ops.retrieval_candidates`: ranking diagnostics per candidate.
 - `ops.evaluation_queries`: benchmark questions.
 - `ops.relevance_judgments`: evaluation labels.
+
+Connector-managed source objects use `is_active` and `source_deleted_at` for
+snapshot reconciliation. Missing source records are tombstoned instead of
+hard-deleted so historical retrieval foreign keys remain intact.

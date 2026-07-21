@@ -148,7 +148,7 @@ def _normalize_single_signal(rows: list[dict[str, Any]], mode: str) -> list[dict
     return normalized
 
 
-def _run_single_signal(cur, req: SearchRequest, emb: str, limit: int) -> list[dict[str, Any]]:
+def _run_single_signal(cur, req: SearchRequest, emb: str | None, limit: int) -> list[dict[str, Any]]:
     """Execute one ops.* single-signal function for the requested mode."""
     common = {
         "source_systems": req.source_systems,
@@ -177,6 +177,8 @@ def _run_single_signal(cur, req: SearchRequest, emb: str, limit: int) -> list[di
         p_principal => %(principal)s::jsonb
     """
     if req.mode == "semantic":
+        if emb is None:
+            raise ValueError("semantic retrieval requires a query embedding")
         cur.execute(
             f"SELECT * FROM ops.vector_search(p_query_embedding => %(embedding)s::vector, {filter_sql})",
             {**common, "embedding": emb},
@@ -250,11 +252,13 @@ def run_hybrid_search(req: SearchRequest) -> dict[str, Any]:
     settings = get_settings()
     timings: list[dict[str, Any]] = []
 
-    embed_start = perf_counter()
-    emb = to_pgvector(
-        embed_text(req.query, provider=settings.embed_provider, dim=settings.embed_dim, input_type="search_query")
-    )
-    timings.append({"stage": "embed query", "ms": _elapsed_ms(embed_start)})
+    emb: str | None = None
+    if req.mode in {"hybrid", "semantic"}:
+        embed_start = perf_counter()
+        emb = to_pgvector(
+            embed_text(req.query, provider=settings.embed_provider, dim=settings.embed_dim, input_type="search_query")
+        )
+        timings.append({"stage": "embed query", "ms": _elapsed_ms(embed_start)})
 
     rerank_on = _rerank_enabled(req)
     filters = req.model_dump(exclude={"query"})
@@ -275,6 +279,8 @@ def run_hybrid_search(req: SearchRequest) -> dict[str, Any]:
                     rows = _run_single_signal(cur, req, emb, candidate_limit)
                     search_label = f"{req.mode} retrieval"
                 else:
+                    if emb is None:
+                        raise ValueError("hybrid retrieval requires a query embedding")
                     rows = _run_hybrid(cur, req, emb, candidate_limit)
                     search_label = "hybrid fusion · SQL"
     timings.append({"stage": search_label, "ms": _elapsed_ms(search_start)})
@@ -386,7 +392,7 @@ def _persist_run(
     req: SearchRequest,
     rows: list[dict[str, Any]],
     *,
-    emb: str,
+    emb: str | None,
     filters: dict[str, Any],
     retrieval_mode: str,
     rerank_applied: bool,

@@ -84,6 +84,12 @@ pg_restore \
 echo "[load] reconciling object-level search_tsv column"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/12_search_tsv.sql"
 
+# 2c. Add connector synchronization columns that are newer than the committed
+#     dump. Full-sync connectors use these to tombstone missing source records
+#     without deleting historical retrieval-candidate foreign keys.
+echo "[load] reconciling connector synchronization columns"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/14_connector_sync.sql"
+
 # 3. Rebuild indexes AFTER the load. The dump is taken with the indexes in
 #    place, but we (re)assert them here so a JSONL-only or partial load also
 #    ends up correctly indexed. All guarded by IF NOT EXISTS.
@@ -95,6 +101,11 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/02_indexes.sql"
 #     restored artifact in place, so the current lexical/RRF logic always wins.
 echo "[load] (re)applying search functions"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/03_search_functions.sql"
+
+# 3b2. Re-apply corpus diagnostics so active/tombstoned connector rows are
+#      reported correctly when restoring an older dump.
+echo "[load] (re)applying corpus diagnostics"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$ROOT_DIR/sql/04_diagnostics.sql"
 
 # 3c. Normalize participant-visible seed labels when restoring an older copy of
 #     the committed dump. This is data-only and safe to re-run.

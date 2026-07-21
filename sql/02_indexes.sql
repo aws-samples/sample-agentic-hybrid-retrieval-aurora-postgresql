@@ -7,6 +7,7 @@ CREATE INDEX IF NOT EXISTS idx_objects_status_priority ON ops.source_objects(sta
 CREATE INDEX IF NOT EXISTS idx_objects_project_component ON ops.source_objects(project_key, component);
 CREATE INDEX IF NOT EXISTS idx_objects_account ON ops.source_objects(account_name);
 CREATE INDEX IF NOT EXISTS idx_objects_updated_at ON ops.source_objects(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_objects_active_source ON ops.source_objects(source_id, external_id) WHERE is_active;
 CREATE INDEX IF NOT EXISTS idx_objects_metadata_gin ON ops.source_objects USING GIN(metadata);
 CREATE INDEX IF NOT EXISTS idx_objects_acl_gin ON ops.source_objects USING GIN(acl);
 CREATE INDEX IF NOT EXISTS idx_objects_search_tsv ON ops.source_objects USING GIN(search_tsv);

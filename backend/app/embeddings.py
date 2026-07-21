@@ -49,9 +49,9 @@ def _bedrock_embedding_model(model_id: str | None) -> str:
         or DEFAULT_BEDROCK_EMBEDDING_MODEL
     )
 
-def _cohere_embed_body(text: str, dim: int, input_type: str) -> dict:
+def _cohere_embed_body(texts: str | List[str], dim: int, input_type: str) -> dict:
     return {
-        "texts": [text],
+        "texts": [texts] if isinstance(texts, str) else texts,
         "input_type": input_type,
         "embedding_types": ["float"],
         "output_dimension": dim,
@@ -61,19 +61,53 @@ def _cohere_embed_body(text: str, dim: int, input_type: str) -> dict:
 def _titan_embed_body(text: str, dim: int) -> dict:
     return {"inputText": text, "dimensions": dim, "normalize": True}
 
-def _embedding_from_payload(payload: dict) -> List[float]:
+def _embeddings_from_payload(payload: dict) -> List[List[float]]:
     if isinstance(payload.get("embedding"), list):
-        return payload["embedding"]
+        return [payload["embedding"]]
 
     embeddings = payload.get("embeddings")
     if isinstance(embeddings, list) and embeddings and isinstance(embeddings[0], list):
-        return embeddings[0]
+        return embeddings
     if isinstance(embeddings, dict):
         floats = embeddings.get("float") or embeddings.get("floats")
         if isinstance(floats, list) and floats and isinstance(floats[0], list):
-            return floats[0]
+            return floats
 
     raise ValueError("Bedrock embedding response did not include a supported embedding field.")
+
+
+def _embedding_from_payload(payload: dict) -> List[float]:
+    return _embeddings_from_payload(payload)[0]
+
+
+def bedrock_embeddings(
+    texts: List[str],
+    dim: int = 1024,
+    model_id: str | None = None,
+    region: str | None = None,
+    input_type: str = "search_document",
+) -> List[List[float]]:
+    if not texts:
+        return []
+    from .bedrock import get_bedrock_client
+
+    model_id = _bedrock_embedding_model(model_id)
+    region = region or os.environ.get("AWS_REGION", "us-east-1")
+    if "cohere.embed" not in model_id:
+        return [
+            bedrock_embedding(text, dim=dim, model_id=model_id, region=region, input_type=input_type)
+            for text in texts
+        ]
+    client = get_bedrock_client("bedrock-runtime", region=region)
+    resp = client.invoke_model(
+        modelId=model_id,
+        body=json.dumps(_cohere_embed_body(texts, dim, input_type)),
+    )
+    vectors = _embeddings_from_payload(json.loads(resp["body"].read()))
+    if len(vectors) != len(texts):
+        raise ValueError(f"Bedrock returned {len(vectors)} embeddings for {len(texts)} texts.")
+    return vectors
+
 
 def bedrock_embedding(
     text: str,
@@ -87,7 +121,7 @@ def bedrock_embedding(
     model_id = _bedrock_embedding_model(model_id)
     region = region or os.environ.get("AWS_REGION", "us-east-1")
     client = get_bedrock_client("bedrock-runtime", region=region)
-    body = _cohere_embed_body(text, dim, input_type) if "cohere.embed" in model_id else _titan_embed_body(text, dim)
+    body = _cohere_embed_body([text], dim, input_type) if "cohere.embed" in model_id else _titan_embed_body(text, dim)
     resp = client.invoke_model(modelId=model_id, body=json.dumps(body))
     payload = json.loads(resp["body"].read())
     return _embedding_from_payload(payload)
@@ -96,6 +130,18 @@ def embed_text(text: str, provider: str = "hash", dim: int = 1024, input_type: s
     if provider == "bedrock":
         return bedrock_embedding(text, dim=dim, input_type=input_type)
     return hash_embedding(text, dim=dim)
+
+
+def embed_texts(
+    texts: List[str],
+    provider: str = "hash",
+    dim: int = 1024,
+    input_type: str = "search_document",
+) -> List[List[float]]:
+    if provider == "bedrock":
+        return bedrock_embeddings(texts, dim=dim, input_type=input_type)
+    return [hash_embedding(text, dim=dim) for text in texts]
+
 
 def to_pgvector(values: List[float]) -> str:
     return "[" + ",".join(f"{v:.7f}" for v in values) + "]"

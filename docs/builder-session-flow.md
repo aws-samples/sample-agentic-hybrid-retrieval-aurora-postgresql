@@ -11,7 +11,7 @@ loop against one canonical query.
 2. Killer query: “Why did Orion slip, and which customer commitments are at risk?”
 3. Show UI: landing, results, timeline, agent answer, diagnostics.
 4. Show the failure first: run vector-only and watch `ORION-1489` (the exact metric-name paging ticket) get missed — motivate hybrid before building it.
-5. Clarify the data-pipeline decision: source systems stay authoritative; Aurora stores the materialized evidence index for search, citations, diagnostics, and evaluation.
+5. Establish the evidence boundary: systems of record keep the work; Aurora makes approved evidence comparable for cross-system ranking, joins, citations, evaluation, and reproducible retrieval.
 6. Explain Aurora PostgreSQL 18.3 as the lab retrieval index, provisioned by Workshop Studio and seeded before the hands-on path.
 7. Frame hybrid retrieval as a set of tradeoffs, not a feature list: SQL filters, FTS (and its AND-semantics trap), pgvector + HNSW recall/latency, pg_trgm, RRF weighting, final scoring, citations.
 8. Explain Strands Agent tools and where MCP/connectors fit for live lookups or actions.
@@ -35,7 +35,9 @@ failure mode first, then fix it and watch the canonical query improve.
 
 ## Stretch options
 
-- Live GitHub connector.
+- Live GitHub projection: ingest selected issues or PRs, update one source item,
+  and rerun ingestion to prove that Aurora rebuilds while GitHub remains
+  authoritative.
 - Slack federated search.
 - AppFlow-to-S3 ingestion.
 - Production ingestion topology: batch export, webhook, CDC, or live MCP lookup.

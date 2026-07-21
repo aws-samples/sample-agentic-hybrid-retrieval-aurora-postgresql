@@ -86,9 +86,13 @@ The system:
 </p>
 <p align="center"><sub>One question follows an inspectable path from authoritative systems to persisted proof.</sub></p>
 
-Source systems remain authoritative. Aurora stores the searchable projection and
-the proof required to reproduce an answer; it does not replace the systems where
-teams collaborate, approve, or mutate operational records.
+Systems of record optimize the workflows they own. Aurora supplies the
+cross-system evidence layer that no individual source owns: a rebuildable
+projection that makes tickets, conversations, documents, customer commitments,
+and code comparable on one relevance scale. It joins related evidence, cites
+what an agent used, and preserves the retrieval receipt needed to reproduce an
+answer. Teams still collaborate, approve, and mutate records in the source
+systems.
 
 <p align="center">
   <img src="docs/images/verity-agentic-architecture.png" alt="Verity landing page architecture showing ask, retrieve, follow, and answer stages" width="100%" />
@@ -113,28 +117,58 @@ the returned `run_id` with your trace so the answer remains auditable.
 
 ## Production data pattern
 
-This workshop does **not** recommend replacing Jira, Slack, Confluence,
-Salesforce, GitHub, or other source systems with Aurora PostgreSQL. Those systems
-remain authoritative for workflow, permissions, ownership, and mutation.
+**Your systems keep the work. Aurora makes the evidence comparable.**
 
-The recommended pattern is a **materialized evidence index** in Aurora
-PostgreSQL:
+Jira, Slack, Confluence, Salesforce, GitHub, and other source systems remain
+authoritative for workflow, permissions, ownership, and mutation. The
+recommended pattern is a **materialized evidence index** in Aurora PostgreSQL,
+not a second system of record:
 
-- Store the searchable projection: source IDs, URLs, titles, excerpts or bodies,
-  metadata, ACL markers, citations, relationships, embeddings, sync cursors, and
-  provenance.
+- Materialize only the approved searchable projection: source IDs, URLs, titles,
+  excerpts or bodies, metadata, ACL markers, citations, relationships,
+  embeddings, sync cursors, and provenance.
 - Keep that projection fresh with connectors, webhooks, scheduled exports,
-  AppFlow/Glue jobs, or an ingestion API.
-- Use MCP tools and connectors for live lookups, actions, revalidation, and
-  source-specific operations.
-- Build the UI and agent search path over Aurora because hybrid retrieval,
-  filtering, citation joins, diagnostics, and evaluation need a durable,
-  queryable index.
+  AppFlow/Glue jobs, or an ingestion API. Treat it as rebuildable from its
+  authoritative sources.
+- Discover, rank, join, cite, and evaluate evidence in Aurora. Persist the
+  `run_id`, candidates, and scores so the exact retrieval path remains
+  explainable and reproducible.
+- Revalidate mutable facts and perform writes in the source system through live
+  connectors or MCP tools.
 
 The lab uses a committed seed bundle to stand in for the enterprise data
 pipeline, so participants can focus on the retrieval schema and agent-facing
 search behavior. In production, the same schema receives data from the
 connectors or export jobs that fit each source system.
+
+### Live repository projection
+
+The optional connector proof projects ten selected Markdown, Python, and SQL
+files from this repository through the same ingestion contract:
+
+```bash
+# Private-repository workshop path: read the packaged checkout.
+make github-export
+
+# Full-sync, tombstone missing files, and embed this connector's changed chunks.
+make github-sync
+
+# Public or token-authorized path: read an immutable GitHub commit through the API.
+GITHUB_TRANSPORT=github GITHUB_REF=main make github-sync
+```
+
+The cursor records the transport, Git revision, snapshot hash, object count, and
+any dirty working-tree paths. Clean Git or GitHub API objects carry an immutable
+blob URL. A local uncommitted edit is explicitly marked `working_tree` and is
+never represented as immutable GitHub content. Re-running the sync skips
+unchanged files; editing `docs/live-index-lab.md` produces one changed object
+and only this connector's changed chunks are re-embedded.
+
+PostgreSQL maintains generated full-text, GIN, trigram, and HNSW indexes during
+ordinary connector writes. The connector does not rebuild indexes after every
+sync. Bulk initial loads build indexes afterward, as `seed/load.sh` demonstrates.
+See [`docs/connector-lifecycle.md`](docs/connector-lifecycle.md) for the
+production lifecycle and scaling boundary.
 
 ## Repository layout
 

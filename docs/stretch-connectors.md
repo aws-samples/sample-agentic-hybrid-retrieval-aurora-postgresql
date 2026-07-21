@@ -6,7 +6,13 @@ Use the workshop source-object bundle, including Slack-like threads, Jira issues
 
 ## Stretch 1: GitHub live ingestion
 
-Pull GitHub issues and pull requests, normalize them into source objects, load into PostgreSQL, and embed chunks.
+Run `make github-sync` against the packaged checkout while the repository is
+private. Switch to
+`GITHUB_TRANSPORT=github GITHUB_REF=main make github-sync` when the public or
+token-authorized repository is available. Both paths preserve transport,
+revision, blob, and content provenance, reconcile updates/deletions, and
+batch-embed only this connector's changed chunks. Then optionally pull GitHub
+issues and pull requests through the API connector.
 
 ## Stretch 2: Slack federated retrieval
 

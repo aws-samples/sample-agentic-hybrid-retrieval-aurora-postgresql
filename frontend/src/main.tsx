@@ -240,6 +240,14 @@ type CanonicalDiagnostics = RunMetrics & {
   agent?: AgentMetadata;
 };
 
+type HeroPreview = {
+  preview: true;
+  question: string;
+  confidence: number;
+  total_objects: number;
+  citations: Citation[];
+};
+
 // GET /v1/runs/{id}/timeline — cited objects in time order, each carrying the
 // outbound object_links traverse_links() would follow to the next system.
 type TimelineEdge = {
@@ -877,8 +885,12 @@ function landingText(value?: string) {
 // all five structural nodes visible (label + orbit slot are structure); title,
 // score, and external id come from the live cited object for that system, and stay
 // blank until the API hydrates — no fabricated titles, ids, or scores.
-function deriveHeroNodes(citedResults: Result[], canonical: CanonicalDiagnostics | null): HeroNode[] {
-  const citations = canonical?.citations || [];
+function deriveHeroNodes(
+  citedResults: Result[],
+  canonical: CanonicalDiagnostics | null,
+  heroPreview: HeroPreview | null
+): HeroNode[] {
+  const citations = canonical?.citations || heroPreview?.citations || [];
   const nodes: HeroNode[] = [];
   for (const system of Object.keys(heroNodeLayout)) {
     const layout = heroNodeLayout[system];
@@ -1298,6 +1310,7 @@ function Landing({
   heroScore,
   corpusTotal,
   runLatency,
+  previewActive,
   canonical,
   timeline,
   guideStep,
@@ -1313,6 +1326,7 @@ function Landing({
   heroScore?: number | null;
   corpusTotal?: number;
   runLatency?: number;
+  previewActive: boolean;
   canonical: CanonicalDiagnostics | null;
   timeline: TimelinePayload | null;
   guideStep?: GuideStep | null;
@@ -1408,17 +1422,15 @@ function Landing({
             {heroNodes.map((node) => (
               <article className={cx('hero-node', node.className)} key={node.key} style={{ '--d': node.delay } as React.CSSProperties}>
                 <div className="tile">{sourceIcon(node.key, 24)}</div>
-                <div className="node-copy">
-                  <div className="nhead">
-                    <span className="ntype">{node.role}</span>
-                    {node.score && (
-                      <span className="nscore" title="Cited relevance score" aria-label={`Cited relevance score ${node.score}`}>
-                        {node.score}
-                      </span>
-                    )}
-                  </div>
-                  {node.title && <div className="ntitle">{node.title}</div>}
+                <div className="nhead">
+                  <span className="ntype">{node.role}</span>
+                  {node.score && (
+                    <span className="nscore" title="Cited relevance score" aria-label={`Cited relevance score ${node.score}`}>
+                      {node.score}
+                    </span>
+                  )}
                 </div>
+                {node.title && <div className="ntitle">{node.title}</div>}
                 {node.meta && <div className="nmeta">{node.meta}</div>}
               </article>
             ))}
@@ -1447,6 +1459,7 @@ function Landing({
               <span><i className={cx('live-dot', apiStatus)} />{apiStatus === 'live' ? 'Retrieval API online' : apiStatus === 'offline' ? 'Retrieval API offline' : 'Checking retrieval API'}</span>
               <span><b>{corpusTotal ?? '—'}</b> source objects</span>
               <span><b>{landingSources.length}</b> connected systems</span>
+              {previewActive && <span className="preview-proof"><b>Seed preview</b> · live index unavailable</span>}
               {typeof runLatency === 'number' && <span><b>{runLatency} ms</b> canonical run</span>}
             </div>
           </div>
@@ -1459,9 +1472,13 @@ function Landing({
             <span className="mono-label">Portable API and tool contract</span>
             <div>
               <h2>The UI inspects it. Your agents build on it.</h2>
+              <p className="harness-lede">
+                Your systems keep the work. Aurora makes the evidence comparable. It is a rebuildable index, not a second Jira or
+                Salesforce: rank cross-system evidence on one scale, cite what the agent used, and preserve the run that produced the answer.
+              </p>
               <p>
-                Verity is one inspection surface over an Aurora-backed API. Keep the retrieval, scores, citations, and run receipts;
-                drive the same contract through AgentCore Gateway, Strands, Claude Code, LangGraph, an MCP client, or your own orchestrator.
+                Verity is one inspection surface over that portable API. Discover and rank in Aurora; revalidate mutable facts and act in
+                the source. Drive the same contract through AgentCore Gateway, Strands, Claude Code, LangGraph, an MCP client, or your own orchestrator.
               </p>
             </div>
             <div className="harness-points" aria-label="Portable tool contract">
@@ -1529,7 +1546,7 @@ function Landing({
               })}
             </div>
             <div className="foot">
-              Powered by <b>Amazon Aurora PostgreSQL</b> – the durable retrieval index. Source systems remain authoritative; every run is logged and every candidate explained.
+              Powered by <b>Amazon Aurora PostgreSQL</b> – the durable evidence index. Source systems remain authoritative; every retrieval run is logged and every candidate explained.
             </div>
           </div>
         </section>
@@ -4388,6 +4405,7 @@ function App() {
   // Live workspace data, hydrated from the read-only canonical endpoints on mount
   // so every page renders real Aurora rows even before the user runs the agent.
   const [canonical, setCanonical] = useState<CanonicalDiagnostics | null>(null);
+  const [heroPreview, setHeroPreview] = useState<HeroPreview | null>(null);
   const [timeline, setTimeline] = useState<TimelinePayload | null>(null);
   const [graph, setGraph] = useState<GraphPayload | null>(null);
   const [fusionSql, setFusionSql] = useState<FusionSql | null>(null);
@@ -4522,6 +4540,7 @@ function App() {
       }
     };
     void load<CanonicalDiagnostics>('/v1/diagnostics/canonical', setCanonical, () => setCanonicalLoadSettled(true));
+    void load<HeroPreview>('/v1/diagnostics/hero-preview', setHeroPreview);
     void load<CorpusProfile>('/v1/diagnostics/corpus', setCorpus);
     void load<FusionSql>('/v1/diagnostics/fusion-sql', setFusionSql);
     void load<IndexUsage>('/v1/diagnostics/index-usage', setIndexUsage);
@@ -4677,7 +4696,7 @@ function App() {
       : canonical?.citations) || [];
   const citedResults = citationsToResults(activeCitations);
   // Total corpus size for the "All" chip + funnel, live from the corpus profile.
-  const corpusTotal = corpus?.profile?.objects ?? canonical?.funnel?.fetched;
+  const corpusTotal = corpus?.profile?.objects ?? canonical?.funnel?.fetched ?? heroPreview?.total_objects;
   // Per-system live object counts for the filter chips.
   const systemCounts = (() => {
     const counts: Record<string, number> = {};
@@ -4899,10 +4918,11 @@ function App() {
         onSearch={runSearch}
         onNavigate={navigate}
         error={error}
-        heroNodes={deriveHeroNodes(citedResults, canonical)}
-        heroScore={typeof canonical?.confidence === 'number' ? canonical.confidence : null}
+        heroNodes={deriveHeroNodes(citedResults, canonical, heroPreview)}
+        heroScore={canonical?.confidence ?? heroPreview?.confidence ?? null}
         corpusTotal={corpusTotal}
         runLatency={canonical?.total_latency_ms}
+        previewActive={!canonical && Boolean(heroPreview)}
         canonical={canonical}
         timeline={timeline}
         guideStep={activeGuideStep}

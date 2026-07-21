@@ -106,7 +106,8 @@ WITH base AS (
          o.updated_at, c.chunk_text, o.source_authority
   FROM ops.object_chunks c
   JOIN ops.source_objects o ON o.object_id = c.object_id
-  WHERE (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
+  WHERE o.is_active
+    AND (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
     AND (p_source_types IS NULL OR o.source_type = ANY(p_source_types))
     AND (p_statuses IS NULL OR o.status = ANY(p_statuses))
     AND (p_priorities IS NULL OR o.priority = ANY(p_priorities))
@@ -142,7 +143,8 @@ text_hits AS (
   JOIN ops.object_chunks c ON c.chunk_id = b.chunk_id
   JOIN ops.source_objects o ON o.object_id = b.object_id
   CROSS JOIN q
-  WHERE q.tq IS NOT NULL AND (c.tsv @@ q.tq OR o.search_tsv @@ q.tq)
+  WHERE o.is_active
+    AND q.tq IS NOT NULL AND (c.tsv @@ q.tq OR o.search_tsv @@ q.tq)
   ORDER BY text_rank DESC
   LIMIT 300
 ),
@@ -298,7 +300,8 @@ AS $$
   FROM ops.object_chunks c
   JOIN ops.source_objects o ON o.object_id = c.object_id
   CROSS JOIN q
-  WHERE q.tq IS NOT NULL AND (c.tsv @@ q.tq OR o.search_tsv @@ q.tq)
+  WHERE o.is_active
+    AND q.tq IS NOT NULL AND (c.tsv @@ q.tq OR o.search_tsv @@ q.tq)
     AND (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
     AND (p_source_types IS NULL OR o.source_type = ANY(p_source_types))
     AND (p_statuses IS NULL OR o.status = ANY(p_statuses))
@@ -355,7 +358,8 @@ AS $$
          (1 - (c.embedding <=> p_query_embedding))::numeric AS score
   FROM ops.object_chunks c
   JOIN ops.source_objects o ON o.object_id = c.object_id
-  WHERE c.embedding IS NOT NULL AND p_query_embedding IS NOT NULL
+  WHERE o.is_active
+    AND c.embedding IS NOT NULL AND p_query_embedding IS NOT NULL
     AND (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
     AND (p_source_types IS NULL OR o.source_type = ANY(p_source_types))
     AND (p_statuses IS NULL OR o.status = ANY(p_statuses))
@@ -414,7 +418,8 @@ AS $$
          greatest(similarity(o.title, p_query), similarity(left(c.chunk_text, 500), p_query))::numeric AS score
   FROM ops.object_chunks c
   JOIN ops.source_objects o ON o.object_id = c.object_id
-  WHERE greatest(similarity(o.title, p_query), similarity(left(c.chunk_text, 500), p_query)) > p_threshold
+  WHERE o.is_active
+    AND greatest(similarity(o.title, p_query), similarity(left(c.chunk_text, 500), p_query)) > p_threshold
     AND (p_source_systems IS NULL OR o.source_system = ANY(p_source_systems))
     AND (p_source_types IS NULL OR o.source_type = ANY(p_source_types))
     AND (p_statuses IS NULL OR o.status = ANY(p_statuses))
