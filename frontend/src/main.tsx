@@ -2967,8 +2967,14 @@ function AgentPage({
 
               {planLength > 0 && (!streaming || beat >= 7) && (
                 <section className={cx('plan', beatClass(7))}>
-                  <h2>How this answer was built</h2>
-                  <p className="plan-sub">{planLength} tool call{planLength === 1 ? '' : 's'}{corpusTotal != null && <> · {corpusTotal} candidates considered</>} · every step logged to <span>retrieval_runs</span></p>
+                  <h2>{isCanonicalReplay ? 'Stored answer plan' : 'How this answer was built'}</h2>
+                  <p className="plan-sub">
+                    {planLength} {isCanonicalReplay ? 'recorded step' : 'tool call'}{planLength === 1 ? '' : 's'}
+                    {corpusTotal != null && <> · {corpusTotal} candidates considered</>}
+                    {isCanonicalReplay
+                      ? <> · replayed from <span>agent_answers</span></>
+                      : <> · every step logged to <span>retrieval_runs</span></>}
+                  </p>
                   {structuredPlan.length > 0
                     ? structuredPlan.map((step, i) => {
                         const revealed = !streaming || planStage >= i;
