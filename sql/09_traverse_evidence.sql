@@ -1,0 +1,79 @@
+CREATE OR REPLACE FUNCTION retrieval.traverse_evidence(
+  p_seed_evidence_ids uuid[],
+  p_max_depth integer DEFAULT 3
+)
+RETURNS TABLE (
+  evidence_id uuid,
+  evidence_kind text,
+  external_key text,
+  title text,
+  depth integer,
+  path uuid[],
+  via_edge_key text,
+  via_relation text,
+  via_origin text,
+  via_confidence numeric
+)
+LANGUAGE sql
+STABLE
+AS $$
+WITH RECURSIVE walk AS (
+  SELECT
+    seed.evidence_id,
+    0 AS depth,
+    ARRAY[seed.evidence_id]::uuid[] AS path,
+    NULL::text AS via_edge_key,
+    NULL::text AS via_relation,
+    NULL::text AS via_origin,
+    NULL::numeric AS via_confidence
+  FROM unnest(p_seed_evidence_ids) AS seed(evidence_id)
+
+  UNION ALL
+
+  SELECT
+    CASE
+      WHEN edge.from_evidence_id = walk.evidence_id THEN edge.to_evidence_id
+      ELSE edge.from_evidence_id
+    END AS evidence_id,
+    walk.depth + 1,
+    walk.path || CASE
+      WHEN edge.from_evidence_id = walk.evidence_id THEN edge.to_evidence_id
+      ELSE edge.from_evidence_id
+    END,
+    edge.edge_key,
+    edge.relation,
+    edge.origin,
+    edge.confidence
+  FROM walk
+  JOIN retrieval.evidence_edges edge
+    ON edge.from_evidence_id = walk.evidence_id
+    OR edge.to_evidence_id = walk.evidence_id
+  WHERE walk.depth < greatest(0, least(p_max_depth, 8))
+    AND NOT (
+      CASE
+        WHEN edge.from_evidence_id = walk.evidence_id THEN edge.to_evidence_id
+        ELSE edge.from_evidence_id
+      END = ANY(walk.path)
+    )
+),
+best_path AS (
+  SELECT DISTINCT ON (walk.evidence_id)
+    walk.*
+  FROM walk
+  ORDER BY walk.evidence_id, walk.depth, walk.via_confidence DESC NULLS LAST
+)
+SELECT
+  item.evidence_id,
+  item.evidence_kind,
+  item.external_key,
+  item.title,
+  best_path.depth,
+  best_path.path,
+  best_path.via_edge_key,
+  best_path.via_relation,
+  best_path.via_origin,
+  best_path.via_confidence
+FROM best_path
+JOIN casework.evidence_items item ON item.evidence_id = best_path.evidence_id
+ORDER BY best_path.depth, item.evidence_kind, item.external_key
+$$;
