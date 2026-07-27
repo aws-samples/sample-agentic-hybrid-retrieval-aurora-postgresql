@@ -1,55 +1,159 @@
-# Security review notes
+# Security Review Notes
 
-This repository is designed to be reviewed before creating or publishing an internal GitHub repository.
+## Data Classification
 
-## Intentional exclusions
+All committed and generated casework is synthetic workshop data. Incident IDs,
+change IDs, customer names, SQL statements, lock snapshots, source URIs, and
+support commitments are controlled fixtures.
 
-- No real Jira, Confluence, Slack, Salesforce, GitHub, or customer data.
-- No committed secrets, tokens, OAuth client secrets, private keys, or AWS credentials.
-- Checked-in connector logo files are static UI assets only; they do not contain credentials, tracking code, or remote dependencies.
-- No analytics or telemetry.
-- No automatic outbound calls from the frontend.
-- No live connector runs unless a user explicitly invokes connector scripts and provides credentials through environment variables.
+Do not describe the corpus as:
 
-## Data classification
+- an actual Aurora service incident;
+- a real AWS Support case;
+- customer telemetry;
+- production guidance for a specific customer environment.
 
-Default generated data is synthetic and should be treated as workshop/demo data. Generated records include fictional projects, customers, source IDs, comments, and incidents.
+The PostgreSQL lock behavior and SQL syntax are real; the surrounding records
+are not.
 
-## Credential handling
+## Intentional Exclusions
 
-The repo uses `.env.example` only. Real deployments should store secrets in AWS Secrets Manager or Parameter Store.
+- No customer or employee data
+- No committed credentials, database passwords, tokens, or private keys
+- No analytics, tracking, or remote frontend assets
+- No automatic source-system actions
+- No generic live connector in the one-hour core
+- No claim that local PostgreSQL validation is Aurora validation
 
-Recommended secret keys:
+Generated dumps, embedding caches, logs, local databases, `.env`,
+`frontend/.env`, and `.claude/settings.local.json` must remain uncommitted unless
+a release artifact is intentionally reviewed and approved.
+
+## Credentials
+
+Workshop Studio should provide short-lived role credentials and store the
+database secret in AWS Secrets Manager. `make aurora-local-env` writes ignored
+local environment files with restrictive permissions.
+
+Relevant configuration:
 
 - `DATABASE_URL`
-- `BEDROCK_OPUS_MODEL`
-- `BEDROCK_SONNET_MODEL`
-- `BEDROCK_ROUTER_MODEL`
-- `BEDROCK_REPORTING_MODEL`
-- `BEDROCK_CHAT_MODEL`
+- `AWS_REGION` and `AWS_DEFAULT_REGION`
 - `BEDROCK_EMBEDDING_MODEL`
-- `GITHUB_TOKEN`
-- `SLACK_BOT_TOKEN`
-- `SALESFORCE_ACCESS_TOKEN`
-- `ATLASSIAN_API_TOKEN`
+- `BEDROCK_SYNTHESIS_MODEL`
+- `COHERE_RERANK_MODEL`
+- `AGENTCORE_GATEWAY_URL`
 
-## Slack-specific guidance
+Model identifiers are configuration, not secrets. Database passwords and AWS
+credentials are secrets.
 
-The core lab uses synthetic Slack-like threads. Live Slack integration is treated as a stretch exercise and should prefer federated/ephemeral retrieval rather than long-term indexing of live message bodies unless explicitly approved by the organization.
+## Database Authorization
 
-## Permissions and ACLs
+The workshop application role requires only the schemas and operations used by
+the lab. A production deployment should separate:
 
-The canonical schema includes an `acl` JSONB column on `source_objects`, and all four search functions enforce it: each accepts a `p_principal` JSONB argument and filters rows through `ops.acl_visible(acl, principal)` inside the base scan, so a restricted object never reaches ranking or synthesis for a principal lacking its clearance. The default workshop context passes `p_principal => NULL`, which short-circuits to no ACL filtering so the demo audience sees every object; a real deployment supplies the caller's clearances (e.g. `{"clearances": [...]}`).
+- authoritative casework writers;
+- search index workers;
+- read-only retrieval/API roles;
+- schema migration ownership.
 
-## Network calls
+Do not grant the API role unrestricted writes to authoritative operational
+tables. The local workshop uses one administrative role for setup convenience;
+that is not the production privilege model.
 
-The default live search path calls PostgreSQL and, with `EMBED_PROVIDER=bedrock` (the default), Bedrock Runtime (`bedrock:InvokeModel`) for Cohere query embeddings so query vectors match the shipped seed dump. Set `EMBED_PROVIDER=hash` for a local offline run, understanding that vector relevance will not match the Cohere-embedded dump unless the corpus is regenerated with the same provider. With `COHERE_RERANK_ENABLED` on (the default), the hybrid path also calls Cohere Rerank v3.5 through the Bedrock Agent Runtime rerank API (`bedrock:Rerank`); set `COHERE_RERANK_ENABLED=0` to disable it. The canonical Orion answer is served verbatim from `ops.agent_answers` and never invokes a text-generation model; questions outside the seed synthesize a cited answer with a Strands agent over Bedrock (`bedrock:InvokeModelWithResponseStream`). Optional connector scripts perform network calls only when explicitly run.
+All application SQL values are parameterized. Dynamic retrieval mode selection
+is constrained by Pydantic literals and maps to fixed SQL statements.
 
-## Suggested review checklist
+## Evidence ACLs
 
-- Confirm `.env` is not committed.
-- Confirm no real data is present under `data/`.
-- Confirm connector scripts require explicit environment variables.
-- Confirm frontend does not load external scripts or fonts.
-- Confirm backend CORS configuration is scoped before production deployment.
-- Confirm IAM roles for deployment are least-privilege.
+Each evidence item and indexed document has ACL JSONB. Every retrieval arm
+calls `retrieval.acl_visible` before ranking, and recursive traversal checks the
+seed and each neighbor.
+
+The default workshop principal is:
+
+```json
+{"scopes":["workshop"],"principals":[]}
+```
+
+`CASE-7421` is restricted to `support-lead`. Tests and smoke validation prove
+that it does not enter default retrieval or traversal.
+
+This is a teaching policy, not a complete enterprise authorization system. A
+production application must authenticate the caller, map current source
+permissions, prevent caller-supplied principal escalation, and revalidate live
+when indexed ACL metadata may be stale.
+
+## Citation Integrity
+
+Citations are created only from retrieved document and chunk versions. The
+database stores:
+
+- source URI and revision;
+- evidence, document, and chunk IDs;
+- quoted text;
+- cited claim.
+
+`proof.validate_answer_citations` verifies revision and quote integrity against
+the exact persisted chunk. The synthesis prompt cannot create a valid citation
+to an unknown row. The API fails rather than inventing evidence when the
+database or model is unavailable.
+
+Citation integrity does not replace source review or establish that a source
+claim is correct.
+
+## Model Calls
+
+With the workshop defaults:
+
+- query text is sent to Cohere Embed 4 through Bedrock Runtime;
+- the fused candidate text is sent to Cohere Rerank v3.5 through Bedrock Agent
+  Runtime;
+- up to eight numbered evidence excerpts are sent to Claude Sonnet through
+  Bedrock Runtime Converse with Global CRIS.
+
+The synthesis request sets an explicit maximum output token count. Bedrock
+clients use bounded adaptive retries.
+
+Review Bedrock data handling, cross-Region routing, IAM resources, model
+lifecycle, and CloudTrail requirements before deployment. Global CRIS can route
+outside the source Region across commercial Regions; use a geographic profile
+instead when residency requirements demand it.
+
+The validated synthesis path is Converse plus Global CRIS. The application does
+not claim Mantle and CRIS simultaneously.
+
+## Network Surface
+
+The React frontend calls only the configured FastAPI origin. FastAPI allows
+configured local development origins and an explicit regex; production
+deployment must replace those defaults with the deployed origin.
+
+The local API has no end-user authentication and must not be exposed publicly.
+The managed workshop tool boundary uses `AWS_IAM` authorization at AgentCore
+Gateway. Gateway authorization does not replace database row authorization.
+
+## Operational Safety
+
+- Corpus load resets workshop tables. Run it only against the intended
+  disposable workshop database.
+- Release-scale `--embed-missing` makes billable model calls and is never
+  enabled implicitly.
+- HNSW and GIN index operations can consume CPU, memory, storage, and lock time;
+  prebuild them before participants arrive.
+- Do not run destructive reset scripts or bulk generation against a production
+  database.
+- Keep `pg_stat_statements` text and logs free of secrets and unnecessary
+  customer content.
+
+## Review Checklist
+
+- [ ] `git status --ignored` shows no committed local secrets or logs.
+- [ ] Corpus and restore artifacts contain only synthetic records.
+- [ ] Source archive SHA and Git revision match Workshop Studio.
+- [ ] Database roles follow the intended workshop or production privilege model.
+- [ ] ACL-denial tests pass before fusion and traversal.
+- [ ] Citation validation passes for the live answer.
+- [ ] CORS and API exposure match the deployment.
+- [ ] Bedrock model IDs, lifecycle, CRIS routing, IAM, and quotas are current.
+- [ ] The final smoke test ran against the target Aurora PostgreSQL environment.

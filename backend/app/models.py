@@ -1,97 +1,116 @@
 from __future__ import annotations
-from typing import Any, Dict, List, Literal, Optional
+
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
+
 RetrievalMode = Literal["hybrid", "semantic", "lexical", "fuzzy"]
-SyncMode = Literal["upsert", "full"]
+EvidenceKind = Literal[
+    "incident",
+    "change",
+    "support_case",
+    "runbook",
+    "lock_evidence",
+    "commitment",
+    "postmortem",
+]
+IterativeScanMode = Literal["off", "strict_order", "relaxed_order"]
 
-class SourceObject(BaseModel):
-    source_system: str
-    source_type: str
-    external_id: str
-    title: str
-    url: Optional[str] = None
-    status: Optional[str] = None
-    priority: Optional[str] = None
-    owner: Optional[str] = None
-    owner_team: Optional[str] = None
-    account_name: Optional[str] = None
-    project_key: Optional[str] = None
-    component: Optional[str] = None
-    environment: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    source_authority: float = 0.70
-    acl: Dict[str, Any] = Field(default_factory=dict)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    body: str
 
-class IngestObjectsRequest(BaseModel):
-    source_name: str = "api-ingest"
-    source_system: str = "source_bundle"
-    sync_mode: SyncMode = "upsert"
-    sync_cursor: Dict[str, Any] = Field(default_factory=dict)
-    objects: List[SourceObject]
+def workshop_principal() -> dict[str, Any]:
+    return {"scopes": ["workshop"], "principals": []}
+
 
 class SearchRequest(BaseModel):
-    query: str
-    source_systems: Optional[List[str]] = None
-    source_types: Optional[List[str]] = None
-    statuses: Optional[List[str]] = None
-    priorities: Optional[List[str]] = None
-    project_key: Optional[str] = None
-    account_name: Optional[str] = None
-    component: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    limit: int = Field(10, ge=1, le=50)
-    # Retrieval-mode + fusion knobs — the live tradeoff clinic. `hybrid` runs the
-    # fused ranker; the single-signal modes route to ops.{vector,full_text,fuzzy}
-    # so a builder can watch one arm at a time (e.g. semantic-only drops the exact
-    # ORION-1489 Jira hit the lexical arm surfaces).
+    query: str = Field(min_length=1, max_length=2000)
+    kinds: list[EvidenceKind] | None = None
+    cluster_id: str | None = None
+    incident_id: str | None = None
+    account_name: str | None = None
+    severities: list[str] | None = None
+    environment: str | None = None
+    service_name: str | None = None
+    engine_version: str | None = None
+    aws_region: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    limit: int = Field(8, ge=1, le=50)
     mode: RetrievalMode = "hybrid"
+    candidate_pool: int = Field(24, ge=8, le=2000)
     rrf_k: int = Field(60, ge=1, le=1000)
-    w_text: float = Field(1.0, ge=0.0, le=10.0)
+    w_text: float = Field(2.0, ge=0.0, le=10.0)
     w_vector: float = Field(1.0, ge=0.0, le=10.0)
-    w_trgm: float = Field(0.5, ge=0.0, le=10.0)
-    ef_search: Optional[int] = Field(None, ge=1, le=1000)
-    rerank: Optional[bool] = None
-    fuzzy_threshold: float = Field(0.08, ge=0.0, le=1.0)
-    # Row-level ACL context. When null, retrieval is unfiltered (the default
-    # workshop audience). When set, only objects whose acl visibility is listed in
-    # `clearances` are retrievable — e.g. {"clearances": ["workshop_lab", "restricted"]}
-    # can see the restricted CASE-20919, while {"clearances": ["workshop_lab"]} cannot.
-    # Threaded verbatim into ops.hybrid_search / vector_search / full_text_search /
-    # fuzzy_match as p_principal and persisted to ops.retrieval_runs.principal.
-    principal: Optional[Dict[str, Any]] = None
+    w_trgm: float = Field(1.0, ge=0.0, le=10.0)
+    fuzzy_threshold: float = Field(0.3, ge=0.1, le=1.0)
+    ef_search: int = Field(40, ge=1, le=1000)
+    iterative_scan: IterativeScanMode = "strict_order"
+    rerank: bool | None = None
+    principal: dict[str, Any] = Field(default_factory=workshop_principal)
+
 
 class AgentAnswerRequest(BaseModel):
-    question: str
-    source_systems: Optional[List[str]] = None
-    project_key: Optional[str] = None
-    account_name: Optional[str] = None
-    component: Optional[str] = None
+    question: str = Field(min_length=1, max_length=4000)
+    kinds: list[EvidenceKind] | None = None
+    cluster_id: str | None = None
+    incident_id: str | None = None
+    account_name: str | None = None
+    severities: list[str] | None = None
+    environment: str | None = None
+    service_name: str | None = None
+    engine_version: str | None = None
+    aws_region: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
     limit: int = Field(8, ge=1, le=20)
+    candidate_pool: int = Field(24, ge=8, le=2000)
+    rrf_k: int = Field(60, ge=1, le=1000)
+    w_text: float = Field(2.0, ge=0.0, le=10.0)
+    w_vector: float = Field(1.0, ge=0.0, le=10.0)
+    w_trgm: float = Field(1.0, ge=0.0, le=10.0)
+    fuzzy_threshold: float = Field(0.3, ge=0.1, le=1.0)
+    ef_search: int = Field(40, ge=1, le=1000)
+    iterative_scan: IterativeScanMode = "strict_order"
+    rerank: bool = False
+    max_tool_calls: int = Field(12, ge=1, le=50)
+    max_escalations: int = Field(2, ge=0, le=10)
+    principal: dict[str, Any] = Field(default_factory=workshop_principal)
 
-class SourceCreateRequest(BaseModel):
-    source_system: str
-    source_name: str
-    auth_mode: str = "api"
-    config: Dict[str, Any] = Field(default_factory=dict)
+
+class DecomposeRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+
+
+class TraverseRequest(BaseModel):
+    seed_external_keys: list[str] = Field(min_length=1, max_length=20)
+    max_depth: int = Field(2, ge=0, le=8)
+    principal: dict[str, Any] = Field(default_factory=workshop_principal)
+
+
+class CompareRequest(BaseModel):
+    external_keys: list[str] = Field(min_length=1, max_length=20)
+    principal: dict[str, Any] = Field(default_factory=workshop_principal)
+
+
+class SynthesisRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+    run_ids: list[str] = Field(min_length=1, max_length=20)
+    limit: int = Field(8, ge=1, le=8)
+
+
+class ExplainRankingRequest(BaseModel):
+    run_id: str = Field(min_length=36, max_length=36)
+
 
 class EvaluationRequest(BaseModel):
-    # Which retrieval modes to score against the judged queries. Defaults to all
-    # four so the leaderboard shows the per-query tradeoff (lexical wins on exact
-    # IDs, semantic on paraphrase, hybrid is the robust default that never collapses).
-    modes: Optional[List[RetrievalMode]] = None
+    modes: list[RetrievalMode] | None = None
     limit: int = Field(10, ge=1, le=50)
 
+
 class QueryPlanRequest(BaseModel):
-    # EXPLAIN one retrieval arm's real query body so a builder can see which index
-    # the planner chooses (or rejects at small corpus size). 'hybrid' returns the
-    # plan of all three arms, since the fused ranker runs each of them.
-    query: str
-    arm: Literal["hybrid", "semantic", "lexical", "fuzzy"] = "hybrid"
+    query: str = Field(min_length=1, max_length=2000)
+    arm: Literal["semantic", "lexical", "fuzzy"] = "semantic"
     limit: int = Field(10, ge=1, le=50)
-    source_systems: Optional[List[str]] = None
-    project_key: Optional[str] = None
+    cluster_id: str | None = None
+    kinds: list[EvidenceKind] | None = None
+    principal: dict[str, Any] = Field(default_factory=workshop_principal)

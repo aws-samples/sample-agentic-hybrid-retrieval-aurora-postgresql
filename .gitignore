@@ -29,6 +29,15 @@ npm-debug.log*
 # Data outputs
 /data/generated/
 /data/live/
+
+# Runtime readiness report (bootstrap S8/S9): carries a live smoke run_id, never source
+/READINESS.md
+
+# Embedding cache: regenerable Bedrock artifact, exceeds GitHub's 100MB limit
+/seed/artifacts/*.jsonl
+
+# Design packaging archives: build artifacts, not source
+/design/*.zip
 *.parquet
 *.sqlite
 *.db

@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from app.db import get_conn
+from app.db import close_pool, get_conn
 
 
 def version_tuple(value: str) -> tuple[int, ...]:
@@ -35,4 +35,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    finally:
+        close_pool()

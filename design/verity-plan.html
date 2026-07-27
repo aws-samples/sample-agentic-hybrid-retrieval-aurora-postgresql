@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verity — Query-Plan X-Ray</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FAF4EC; --ink:#211C16; --ink-soft:#584F45; --muted:#94897C;
+  --hair:#E9DFD2; --red:#C13A26; --red-deep:#9E2F1E; --wash:#FBEDE8;
+  --green:#2E7D54; --blush:#F7E2D6; --card-bd:rgba(33,28,22,.07);
+  --clay:#DE9C7C;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:hidden}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:var(--paper) radial-gradient(1100px 700px at 94% -10%, var(--blush) 0%, rgba(247,226,214,0) 62%) no-repeat;
+  color:var(--ink);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.wrap{max-width:1280px;margin:0 auto;padding:0 26px}
+a{color:inherit;text-decoration:none}
+.chrome{display:flex;align-items:center;gap:20px;padding:16px 0;border-bottom:1px solid var(--hair);flex-wrap:wrap}
+.wordmark{display:flex;align-items:center;gap:9px;font:600 12.5px "IBM Plex Mono";letter-spacing:.24em}
+.omnibox{flex:1;min-width:220px;max-width:520px;display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--card-bd);border-radius:10px;padding:8px 12px;font-family:"IBM Plex Mono";font-size:12px;color:var(--ink-soft);box-shadow:0 1px 2px rgba(33,28,22,.04)}
+.omnibox .q{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.omnibox kbd{margin-left:auto;font:11px "IBM Plex Mono";color:var(--muted);border:1px solid var(--hair);border-radius:6px;padding:0 6px;background:var(--paper)}
+.topnav{display:flex;gap:18px;font-size:13px;color:var(--ink-soft)}
+.topnav a{position:relative;padding:4px 0}
+.topnav a.on{color:var(--ink);font-weight:600}
+.topnav a.on::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:2px;background:var(--red)}
+.who{display:flex;align-items:center;gap:10px;margin-left:auto}
+.avatar{width:29px;height:29px;border-radius:50%;background:var(--ink);color:var(--paper);display:grid;place-items:center;font:600 12px Inter}
+.klabel{font:600 10px "IBM Plex Mono";letter-spacing:.16em;text-transform:uppercase;color:var(--red)}
+.pill{display:inline-block;font:500 10.5px "IBM Plex Mono";border:1px solid var(--hair);border-radius:999px;padding:1px 8px;background:#fff;color:var(--ink-soft);white-space:nowrap}
+.card{background:#fff;border:1px solid var(--card-bd);border-radius:16px;box-shadow:0 1px 2px rgba(33,28,22,.04),0 10px 30px rgba(33,28,22,.06)}
+.hero{padding:30px 0 18px}
+.hero h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:33px;letter-spacing:-.01em;margin:8px 0 6px}
+.hero h1 em{font-style:italic;font-weight:500;color:var(--red-deep)}
+.hero .deck{color:var(--ink-soft);max-width:680px}
+
+/* stage strip */
+.strip{padding:14px 16px;margin-top:14px}
+.striphead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.bar{display:flex;height:34px;border-radius:10px;overflow:hidden;border:1px solid var(--card-bd)}
+.segbar{display:flex;align-items:center;padding:0 10px;font:600 10.5px "IBM Plex Mono";white-space:nowrap;overflow:hidden}
+#seg-a{background:var(--red);color:#fff}
+#seg-b{background:var(--clay);color:var(--ink)}
+#seg-c{background:var(--ink);color:var(--paper)}
+
+/* flow */
+.hscroll{overflow-x:auto;padding-bottom:8px}
+.flowwrap{display:flex;align-items:stretch;gap:0;min-width:1150px;margin-top:16px}
+.zone{position:relative;border:1.5px dashed rgba(193,58,38,.38);border-radius:18px;padding:30px 14px 14px;background:rgba(255,255,255,.4)}
+.zone-label{position:absolute;top:-8px;left:18px;background:var(--paper);padding:0 8px;font:600 10px "IBM Plex Mono";letter-spacing:.16em;color:var(--red)}
+.zone.aurora{flex:1}
+.zone.bedrock{width:262px;flex:none}
+.azgrid{display:flex;gap:0;align-items:stretch;height:100%}
+.qcard,.fusecard{width:196px;flex:none;border:1px solid var(--card-bd);border-radius:12px;background:#fff;padding:11px 12px;align-self:center}
+.fusecard{width:212px}
+.armstack{display:flex;flex-direction:column;gap:10px;flex:1;justify-content:center}
+.armcard{border:1px solid var(--card-bd);border-radius:12px;background:#fff;padding:10px 12px}
+.armhead{display:flex;align-items:center;gap:8px}
+.armhead .pill{margin-left:auto}
+.aclpill{display:inline-flex;align-items:center;gap:5px;font:500 9.5px "IBM Plex Mono";color:var(--red-deep);background:var(--wash);border:1px solid rgba(193,58,38,.25);border-radius:6px;padding:1px 7px;margin:6px 0 3px}
+.noderow{display:flex;gap:7px;align-items:baseline;font:400 10.5px "IBM Plex Mono";color:var(--ink-soft);padding:2.5px 0;line-height:1.5}
+.noderow::before{content:"▸";color:var(--red);font-size:9px}
+.noderow b{color:var(--ink);font-weight:600}
+.mrow{font:400 10.5px "IBM Plex Mono";color:var(--ink-soft);padding:2.5px 0;line-height:1.5}
+.mrow b{color:var(--ink)}
+.conn{display:flex;align-items:center;justify-content:center;width:30px;flex:none}
+.conn2{display:flex;flex-direction:column;align-items:center;justify-content:center;width:52px;flex:none;gap:4px}
+.connlbl{font:500 9px "IBM Plex Mono";color:var(--muted);letter-spacing:.06em;white-space:nowrap}
+.zfoot{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.bzstack{display:flex;flex-direction:column;gap:12px;justify-content:center;height:100%}
+.bcard{border:1px solid var(--card-bd);border-radius:12px;background:#fff;padding:11px 12px}
+
+/* lower */
+.lower{display:grid;grid-template-columns:1.28fr .92fr;gap:16px;margin-top:16px;align-items:start}
+.sqlcard{background:var(--ink);border-radius:16px;padding:15px 18px 13px;box-shadow:0 1px 2px rgba(33,28,22,.08),0 12px 34px rgba(33,28,22,.16)}
+.sqlcard .klabel{color:#F2B8A9}
+.sqlcard .seg{display:inline-flex;border:1px solid rgba(250,244,236,.28);border-radius:9px;overflow:hidden;margin-left:auto}
+.sqlcard .seg button{border:0;background:transparent;cursor:pointer;font:500 10px "IBM Plex Mono";color:#C9BCA9;padding:4px 9px}
+.sqlcard .seg button.on{background:#FAF4EC;color:#211C16}
+.sqlwrap{overflow-x:auto;margin-top:8px}
+.sqlcard pre{font:400 10.6px "IBM Plex Mono";line-height:1.58;color:#EFE7DC;white-space:pre;min-width:540px}
+.sqlcard .k{color:#F2B8A9}.sqlcard .fn{color:#A9D3B9}.sqlcard .cm{color:#9A8E80}.sqlcard .pm{color:#E8C9A8}
+.sqlfoot{margin-top:10px;font:400 9.5px "IBM Plex Mono";color:#9A8E80}
+.efpanel{padding:15px 16px}
+.efpanel input[type=range]{width:100%;accent-color:var(--red);margin:10px 0 8px}
+.efreads{display:flex;gap:8px;flex-wrap:wrap}
+.efcap{margin-top:9px;font:400 10px "IBM Plex Mono";color:var(--muted);line-height:1.5}
+.curve{width:100%;height:auto;margin-top:8px}
+
+/* aurora strip */
+.austrip{margin-top:16px}
+.augrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:10px}
+.aucard{border:1px solid var(--card-bd);border-radius:12px;background:#fff;padding:11px 12px;box-shadow:0 1px 2px rgba(33,28,22,.04)}
+.aucard .t{font:600 9.5px "IBM Plex Mono";letter-spacing:.13em;color:var(--red);margin-bottom:4px}
+.aucard .d{font-size:11.5px;color:var(--ink-soft);line-height:1.5}
+
+footer{margin-top:34px;border-top:1px solid var(--hair);padding:20px 0 44px;display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between;color:var(--muted);font:400 11px "IBM Plex Mono"}
+@media (max-width:900px){.lower{grid-template-columns:1fr}.augrid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:780px){.hero h1{font-size:26px}.omnibox{order:9;max-width:none;flex-basis:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="chrome">
+    <a class="wordmark" href="verity-ask.html">
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="6.6" stroke="#C13A26" stroke-width="1.5"/><path d="M1.5 11.5 C5.5 7.5, 11 10.5, 15.5 4.5" stroke="#C13A26" stroke-width="1.5" stroke-dasharray="3.5 3"/></svg>
+      VERITY
+    </a>
+    <div class="omnibox mono"><span style="color:var(--red)">›</span><span class="q">Why did CHG-1842 block checkout writes during INC-2047…</span><kbd>⌘K</kbd></div>
+    <nav class="topnav">
+      <a href="verity-ask.html">Ask</a>
+      <a href="verity-lab.html">Lab</a>
+      <a href="verity-fusion.html">Fusion</a>
+      <a class="on" href="verity-plan.html">Plan</a>
+      <a href="verity-eval.html">Eval</a>
+      <a href="verity-graph.html">Graph</a>
+      <a href="verity-scale.html">Scale</a>
+    </nav>
+    <div class="who"><span class="pill">principal: workshop</span><div class="avatar">S</div></div>
+  </header>
+
+  <section class="hero">
+    <div class="klabel">DAT410 · Concept 02 — Query-Plan X-Ray</div>
+    <h1>Where the <em>milliseconds</em> go.</h1>
+    <p class="deck">One SQL statement, four index families, ACL inside every arm — then the model stages Aurora hands off to. Run rr_9b41d7 over the 15,000-document release corpus.</p>
+  </section>
+
+  <div class="card strip">
+    <div class="striphead">
+      <span class="klabel">End-to-end budget — run rr_9b41d7</span>
+      <span class="pill">end-to-end <b id="total-ms">1,322</b> ms</span>
+      <span class="pill">skip-rerank path: SQL only</span>
+      <span class="pill" style="margin-left:auto;color:var(--muted)">widths ∝ √ms</span>
+    </div>
+    <div class="bar">
+      <div class="segbar" id="seg-a">SQL <span id="stage-sql">&nbsp;7.9</span>&nbsp;ms</div>
+      <div class="segbar" id="seg-b">rerank 74 ms</div>
+      <div class="segbar" id="seg-c">synthesis 1,240 ms</div>
+    </div>
+  </div>
+
+  <div class="hscroll">
+    <div class="flowwrap">
+      <div class="zone aurora">
+        <span class="zone-label">AMAZON AURORA POSTGRESQL — SINGLE STATEMENT</span>
+        <div class="azgrid">
+
+          <div class="qcard">
+            <div class="klabel">Query &amp; filters</div>
+            <div class="mrow" style="margin-top:6px"><b>q</b> “why did CHG-1842 block checkout writes…”</div>
+            <div class="mrow"><b>principal</b> workshop</div>
+            <div class="mrow"><b>cluster</b> checkout-prod-cluster-01</div>
+            <div class="mrow"><b>window</b> 2026-05-13 → 05-16</div>
+            <div class="mrow"><b>pool</b> 24 per arm</div>
+          </div>
+
+          <div class="conn"><svg width="26" height="14"><line x1="0" y1="7" x2="18" y2="7" stroke="#C13A26" stroke-width="1.5" stroke-dasharray="4 4"/><polygon points="18,3 26,7 18,11" fill="#C13A26"/></svg></div>
+
+          <div class="armstack">
+            <div class="armcard">
+              <div class="armhead"><span class="klabel">Exact + full-text</span><span class="pill">2.3 ms</span></div>
+              <div class="aclpill">filters + acl_visible(principal) — pre-fusion</div>
+              <div class="noderow"><span><b>Index Scan</b> · idx_evidence_external_key (B-tree) — 0.05 ms · keys {CHG-1842, INC-2047} · hit 6</span></div>
+              <div class="noderow"><span><b>Bitmap Index Scan</b> · idx_documents_tsv (GIN · key/title) — 0.62 ms · rows 9 · hit 31</span></div>
+              <div class="noderow"><span><b>Bitmap Heap Scan</b> · idx_chunks_tsv (GIN · body) — 1.38 ms · rows 38 · hit 112</span></div>
+              <div class="noderow"><span>ts_rank_cd on heap tuples (<b>diagnostic only</b>) — 0.24 ms</span></div>
+            </div>
+
+            <div class="armcard">
+              <div class="armhead"><span class="klabel">Semantic</span><span class="pill"><span id="hnsw-ms2">3.8</span> ms</span></div>
+              <div class="aclpill">filters + acl_visible(principal) — pre-fusion</div>
+              <div class="noderow"><span><b>HNSW Index Scan</b> · idx_chunks_embedding (vector_cosine_ops) — <b id="hnsw-ms">3.8</b> ms · <span id="hnsw-probe">40</span> probed → <span id="hnsw-kept">24</span> kept · hit 187</span></div>
+              <div class="noderow"><span><svg width="13" height="12" style="vertical-align:-2px"><path d="M11 2 A4.6 4.6 0 1 0 11 9" stroke="#C13A26" fill="none" stroke-width="1.4"/><polygon points="8.6,8.4 12.6,9 10.2,11.8" fill="#C13A26"/></svg> <b>iterative_scan = relaxed_order</b> — post-filter shortfall resumes the scan · ×1 this run</span></div>
+              <div class="noderow"><span>m 16 · ef_construction 64 · ef_search <b id="hnsw-ef">40</b> (transaction-local via configure_ann_runtime)</span></div>
+            </div>
+
+            <div class="armcard">
+              <div class="armhead"><span class="klabel">Fuzzy</span><span class="pill">1.1 ms</span></div>
+              <div class="aclpill">filters + acl_visible(principal) — pre-fusion</div>
+              <div class="noderow"><span><b>Bitmap Index Scan</b> · idx_evidence_key_trgm (GIN gin_trgm_ops) — 1.06 ms · rows 6 · hit 22</span></div>
+              <div class="noderow"><span>similarity ≥ 0.30 · identifiers &amp; titles — <b>no body scan</b></span></div>
+            </div>
+          </div>
+
+          <div class="conn"><svg width="26" height="14"><line x1="0" y1="7" x2="18" y2="7" stroke="#C13A26" stroke-width="1.5" stroke-dasharray="4 4"/><polygon points="18,3 26,7 18,11" fill="#C13A26"/></svg></div>
+
+          <div class="fusecard">
+            <div class="klabel">Fuse &amp; dedupe — 0.7 ms</div>
+            <div class="noderow" style="margin-top:6px"><span><b>weighted RRF</b> · 2:1:1 · k=60 — 0.5 ms</span></div>
+            <div class="noderow"><span><b>DISTINCT ON</b> (evidence_id) · one strongest passage — 0.2 ms</span></div>
+            <div class="noderow"><span>24 candidates → <b>proof.retrieval_candidates</b> — persisted before synthesis</span></div>
+          </div>
+
+        </div>
+        <div class="zfoot">
+          <span class="pill">single statement · <b id="sql-ms">7.9</b> ms</span>
+          <span class="pill">shared hit 362 · read 0</span>
+          <span class="pill">reader endpoint · replica</span>
+        </div>
+      </div>
+
+      <div class="conn2">
+        <svg width="40" height="14"><line x1="0" y1="7" x2="32" y2="7" stroke="#C13A26" stroke-width="1.5" stroke-dasharray="4 4"/><polygon points="32,3 40,7 32,11" fill="#C13A26"/></svg>
+        <span class="connlbl">top-24 + receipts</span>
+      </div>
+
+      <div class="zone bedrock">
+        <span class="zone-label">AMAZON BEDROCK</span>
+        <div class="bzstack">
+          <div class="bcard">
+            <div class="armhead"><span class="klabel">Rerank</span><span class="pill">74 ms</span></div>
+            <div class="noderow" style="margin-top:5px"><span>cohere.rerank-v3-5:0 · agent-runtime Rerank</span></div>
+            <div class="noderow"><span>24 in → reordered · <b>Aurora scores preserved</b> in receipt</span></div>
+          </div>
+          <div class="bcard">
+            <div class="armhead"><span class="klabel">Synthesis</span><span class="pill">1,240 ms</span></div>
+            <div class="noderow" style="margin-top:5px"><span>claude-sonnet-5 · Converse (Global CRIS)</span></div>
+            <div class="noderow"><span>≤ 8 evidence blocks · <b>5 citations validated</b></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lower">
+    <div class="sqlcard">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="klabel" id="sql-title">Canonical fusion SQL</span>
+        <div class="seg" id="seg-sql"><button class="on" data-v="sql">SQL</button><button data-v="ex">EXPLAIN · vec arm</button></div>
+      </div>
+      <div class="sqlwrap"><pre id="sql"></pre></div>
+      <div class="sqlfoot">canonical shape — executable form ships via GET /v1/diagnostics/fusion-sql · per-arm plans via POST /v1/diagnostics/plan</div>
+    </div>
+
+    <div>
+      <div class="card efpanel">
+        <div class="striphead" style="margin-bottom:2px"><span class="klabel">ef_search — recall vs latency</span></div>
+        <input type="range" id="ef" min="10" max="200" step="2" value="40">
+        <div class="efreads">
+          <span class="pill">ef_search <b id="ef-val">40</b></span>
+          <span class="pill">HNSW <b id="ef-ms">3.8</b> ms</span>
+          <span class="pill">est. recall@24 <b id="recall-val">94.8%</b></span>
+          <span class="pill">SQL total <b id="ef-sql">7.9</b> ms</span>
+        </div>
+        <svg class="curve" viewBox="0 0 280 122" xmlns="http://www.w3.org/2000/svg">
+          <line x1="30" y1="12" x2="30" y2="104" stroke="#E9DFD2" stroke-width="1"/>
+          <line x1="30" y1="104" x2="270" y2="104" stroke="#E9DFD2" stroke-width="1"/>
+          <text x="4" y="16" font-family="IBM Plex Mono" font-size="8.5" fill="#94897C">1.00</text>
+          <text x="8" y="106" font-family="IBM Plex Mono" font-size="8.5" fill="#94897C">.45</text>
+          <text x="27" y="116" font-family="IBM Plex Mono" font-size="8.5" fill="#94897C">10</text>
+          <text x="61" y="116" font-family="IBM Plex Mono" font-size="8.5" fill="#94897C">40</text>
+          <text x="138" y="116" font-family="IBM Plex Mono" font-size="8.5" fill="#94897C">100</text>
+          <text x="258" y="116" font-family="IBM Plex Mono" font-size="8.5" fill="#94897C">200</text>
+          <path id="curvepath" fill="none" stroke="#C13A26" stroke-width="1.6"/>
+          <circle id="dot" r="4" fill="#FAF4EC" stroke="#C13A26" stroke-width="1.8"/>
+        </svg>
+        <div class="efcap">illustrative shape — replace with release-gate #6 measurements (filtered-HNSW timing at release scale, target Aurora engine).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="austrip">
+    <span class="klabel">Where Aurora shows up</span>
+    <div class="augrid">
+      <div class="aucard"><div class="t">READER ENDPOINT</div><div class="d">Retrieval SELECTs fan out to replicas — storage-level replication keeps lag in the tens of milliseconds.</div></div>
+      <div class="aucard"><div class="t">WRITER ENDPOINT</div><div class="d">Casework transactions and the search index queue only. The retrieval path never writes.</div></div>
+      <div class="aucard"><div class="t">OPTIMIZED READS</div><div class="d">NVMe tiered cache carries HNSW once the index outgrows the buffer pool.</div></div>
+      <div class="aucard"><div class="t">SURVIVABLE CACHE</div><div class="d">Warm pages across failover — no cold HNSW after a promote.</div></div>
+      <div class="aucard"><div class="t">PROXY · SERVERLESS v2</div><div class="d">Agent tool fan-out pooled through RDS Proxy; ACUs track room-scale bursts.</div></div>
+    </div>
+  </div>
+
+  <footer>
+    <span>VERITY · DAT410 concept set · synthetic corpus (workshop:// URIs)</span>
+    <span>numbers illustrative pending Aurora release-gate measurement · scores are diagnostics, not probabilities</span>
+  </footer>
+</div>
+
+<script>
+/* ---- SQL panel with a tiny highlighter ---- */
+const SQL = `WITH p AS (
+  SELECT websearch_to_tsquery('english', :q) AS tsq,
+         :qvec::vector(1024)                 AS qv
+),
+lex AS (   -- GIN tsvector · key/title + body streams
+  SELECT c.evidence_id, c.chunk_id,
+         row_number() OVER (ORDER BY ts_rank_cd(c.tsv, p.tsq) DESC) AS r
+  FROM retrieval.chunks c, p
+  WHERE c.is_current AND c.tsv @@ p.tsq
+    AND retrieval.acl_visible(c.acl, :principal)   -- inside the arm
+    AND c.cluster_id = :cluster
+    AND c.source_ts BETWEEN :t0 AND :t1
+  LIMIT :pool
+),
+vec AS (   -- HNSW · iterative_scan = relaxed_order
+  SELECT c.evidence_id, c.chunk_id,
+         row_number() OVER (ORDER BY c.embedding <=> p.qv) AS r
+  FROM retrieval.chunks c, p
+  WHERE c.is_current
+    AND retrieval.acl_visible(c.acl, :principal)
+    AND c.cluster_id = :cluster
+  ORDER BY c.embedding <=> p.qv
+  LIMIT :pool
+),
+fuz AS (   -- pg_trgm · identifiers & titles only
+  SELECT d.evidence_id, NULL::bigint AS chunk_id,
+         row_number() OVER (ORDER BY similarity(d.key_norm, :qn) DESC) AS r
+  FROM retrieval.documents d
+  WHERE d.key_norm % :qn
+    AND retrieval.acl_visible(d.acl, :principal)
+  LIMIT :pool
+)
+SELECT DISTINCT ON (evidence_id)              -- one strongest passage
+       evidence_id,
+       COALESCE(lex.chunk_id, vec.chunk_id) AS chunk_id,
+       COALESCE(2.0/(60+lex.r), 0)            -- absent arm => zero
+     + COALESCE(1.0/(60+vec.r), 0)
+     + COALESCE(1.0/(60+fuz.r), 0)           AS rrf
+FROM lex
+FULL JOIN vec USING (evidence_id)
+FULL JOIN fuz USING (evidence_id)
+ORDER BY evidence_id, rrf DESC
+LIMIT 24;`;
+
+function hi(src){
+  const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const FN = /\b(websearch_to_tsquery|ts_rank_cd|row_number|similarity|COALESCE)\b/g;
+  const KW = /\b(WITH|AS|SELECT|FROM|WHERE|AND|ORDER BY|LIMIT|OVER|ON|USING|FULL JOIN|BETWEEN|DISTINCT ON|NULL|DESC)\b/g;
+  return src.split("\n").map(line=>{
+    let code = line, cm = "";
+    const i = line.indexOf("--");
+    if(i >= 0){ code = line.slice(0,i); cm = `<span class="cm">${esc(line.slice(i))}</span>`; }
+    let h = esc(code)
+      .replace(/(:[a-z0-9_]+)/g, '<span class="pm">$1</span>')
+      .replace(FN, '<span class="fn">$1</span>')
+      .replace(KW, '<span class="k">$1</span>');
+    return h + cm;
+  }).join("\n");
+}
+function EX(){
+  const ef = +document.getElementById("ef").value;
+  const ms = (0.9 + ef*0.0725);
+  return `Limit  (actual time=0.34..${ms.toFixed(2)} rows=24 loops=1)
+  ->  Index Scan using idx_chunks_embedding on retrieval.chunks c
+        (actual time=0.32..${(ms-0.05).toFixed(2)} rows=24 loops=1)
+        Order By: (c.embedding <=> $1)
+        Filter: (c.is_current
+                 AND (c.cluster_id = 'checkout-prod-cluster-01'::text)
+                 AND retrieval.acl_visible(c.acl, 'workshop'::text))
+        Rows Removed by Filter: 17
+        Buffers: shared hit=187
+Planning Time: 0.412 ms
+Execution Time: ${(ms+0.06).toFixed(3)} ms
+
+-- GUCs (transaction-local via retrieval.configure_ann_runtime):
+--   hnsw.ef_search = ${ef}
+--   hnsw.iterative_scan = relaxed_order
+-- captured on PostgreSQL 18.4 · re-capture on target Aurora (gate #1)`;
+}
+let sqlMode = "sql";
+function renderSql(){
+  document.getElementById("sql").innerHTML = hi(sqlMode==="sql" ? SQL : EX());
+  document.getElementById("sql-title").textContent =
+    sqlMode==="sql" ? "Canonical fusion SQL" : "EXPLAIN (ANALYZE, BUFFERS) — vector arm";
+}
+document.getElementById("seg-sql").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+  document.getElementById("seg-sql").querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); sqlMode = b.dataset.v; renderSql();
+}));
+renderSql();
+
+/* ---- ef_search knob ---- */
+const hnswMs = ef => 0.9 + ef*0.0725;
+const recall = ef => 1 - 0.9*Math.exp(-ef/14);
+const X = ef => 30 + (ef-10)/190*240;
+const Y = r  => 104 - (r-0.45)/0.55*92;
+
+let d = "";
+for(let ef=10; ef<=200; ef+=5) d += (ef===10?"M":"L") + X(ef).toFixed(1) + " " + Y(recall(ef)).toFixed(1) + " ";
+document.getElementById("curvepath").setAttribute("d", d.trim());
+
+const fmtMs = x => x.toFixed(1);
+function upd(ef){
+  const ms = hnswMs(ef), sql = 2.3 + 1.1 + ms + 0.7, total = sql + 74 + 1240;
+  const r = recall(ef);
+  for(const [id,v] of [["hnsw-ms",fmtMs(ms)],["hnsw-ms2",fmtMs(ms)],["ef-ms",fmtMs(ms)],
+      ["hnsw-ef",ef],["ef-val",ef],["hnsw-probe",ef],["hnsw-kept",Math.min(24,ef)],
+      ["sql-ms",fmtMs(sql)],["ef-sql",fmtMs(sql)],["stage-sql","\u00A0"+fmtMs(sql)],
+      ["recall-val",(r*100).toFixed(1)+"%"],
+      ["total-ms",Math.round(total).toLocaleString("en-US")]])
+    document.getElementById(id).textContent = v;
+  const wa = Math.sqrt(sql), wb = Math.sqrt(74), wc = Math.sqrt(1240), s = wa+wb+wc;
+  document.getElementById("seg-a").style.width = (wa/s*100)+"%";
+  document.getElementById("seg-b").style.width = (wb/s*100)+"%";
+  document.getElementById("seg-c").style.width = (wc/s*100)+"%";
+  const dot = document.getElementById("dot");
+  dot.setAttribute("cx", X(ef)); dot.setAttribute("cy", Y(r));
+  if(sqlMode==="ex") renderSql();
+}
+document.getElementById("ef").addEventListener("input", e => upd(+e.target.value));
+upd(40);
+</script>
+</body>
+</html>

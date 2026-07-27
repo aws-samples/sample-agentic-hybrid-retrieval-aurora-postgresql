@@ -30,7 +30,12 @@ LEFT JOIN proof.answer_citations citation ON citation.run_id = answer.run_id
 LEFT JOIN casework.evidence_items item ON item.evidence_id = citation.evidence_id
 GROUP BY answer.run_id;
 
-CREATE OR REPLACE VIEW proof.v_candidate_receipts AS
+-- Dropped rather than replaced: CREATE OR REPLACE VIEW can only append columns
+-- to the end of the select list, and this view keeps positions next to their
+-- scores. Nothing else in the schema depends on it.
+DROP VIEW IF EXISTS proof.v_candidate_receipts;
+
+CREATE VIEW proof.v_candidate_receipts AS
 SELECT
   candidate.run_id,
   candidate.result_rank,
@@ -44,6 +49,8 @@ SELECT
   candidate.text_position,
   candidate.vector_position,
   candidate.trigram_position,
+  candidate.exact_identifier_position,
+  candidate.match_tier,
   candidate.rrf_score,
   candidate.rerank_score,
   candidate.final_score,
@@ -83,4 +90,65 @@ JOIN retrieval.chunks chunk
   ON chunk.chunk_version_id = citation.chunk_version_id
 WHERE citation.run_id = p_run_id
 ORDER BY citation.citation_number
+$$;
+
+CREATE OR REPLACE FUNCTION proof.evaluate_subquestion_coverage(
+  p_run_id uuid,
+  p_required_kinds text[],
+  p_top_n integer DEFAULT 8
+)
+RETURNS TABLE (
+  covered boolean,
+  missing_kinds text[],
+  covering_evidence_ids jsonb,
+  considered integer
+)
+LANGUAGE sql
+STABLE
+AS $$
+WITH required AS (
+  SELECT DISTINCT required_kind
+  FROM unnest(p_required_kinds) AS required_kind
+),
+top_candidates AS MATERIALIZED (
+  SELECT
+    item.evidence_kind,
+    item.external_key,
+    candidate.result_rank
+  FROM proof.retrieval_candidates candidate
+  JOIN casework.evidence_items item
+    ON item.evidence_id = candidate.evidence_id
+  WHERE candidate.run_id = p_run_id
+  ORDER BY candidate.result_rank
+  LIMIT greatest(p_top_n, 1)
+),
+covering AS (
+  SELECT DISTINCT ON (candidate.evidence_kind)
+    candidate.evidence_kind,
+    candidate.external_key
+  FROM top_candidates candidate
+  JOIN required
+    ON required.required_kind = candidate.evidence_kind
+  ORDER BY candidate.evidence_kind, candidate.result_rank
+),
+missing AS (
+  SELECT required.required_kind
+  FROM required
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM covering
+    WHERE covering.evidence_kind = required.required_kind
+  )
+)
+SELECT
+  NOT EXISTS (SELECT 1 FROM missing),
+  ARRAY(SELECT required_kind FROM missing ORDER BY required_kind),
+  coalesce(
+    (
+      SELECT jsonb_object_agg(evidence_kind, external_key)
+      FROM covering
+    ),
+    '{}'::jsonb
+  ),
+  (SELECT count(*)::integer FROM top_candidates)
 $$;

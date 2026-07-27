@@ -94,7 +94,8 @@ def _text_result(response: dict[str, Any]) -> dict[str, Any]:
             if isinstance(parsed, dict):
                 if parsed.get("error"):
                     raise RuntimeError(str(parsed["error"]))
-                return parsed
+                wrapped = parsed.get("result")
+                return wrapped if isinstance(wrapped, dict) else parsed
     raise RuntimeError("Gateway response did not contain an MCP text result.")
 
 
@@ -104,14 +105,14 @@ def main() -> int:
     )
     parser.add_argument(
         "--query",
-        default="Why did ORION-1489 page in prod, and what fixed it?",
+        default="Why did CHG-1842 block writes on checkout-prod-cluster-01?",
     )
-    parser.add_argument("--project-key", default="ORION")
-    parser.add_argument("--limit", type=int, default=3)
+    parser.add_argument("--cluster-id", default="checkout-prod-cluster-01")
+    parser.add_argument("--limit", type=int, default=5)
     parser.add_argument(
-        "--assert-orion",
+        "--assert-incident",
         action="store_true",
-        help="Fail unless ORION-1489 is the first ranked object.",
+        help="Fail unless CHG-1842 is the first ranked evidence item.",
     )
     args = parser.parse_args()
 
@@ -130,7 +131,7 @@ def main() -> int:
             "name": search_tool_name,
             "arguments": {
                 "query": args.query,
-                "project_key": args.project_key,
+                "cluster_id": args.cluster_id,
                 "limit": args.limit,
             },
         },
@@ -140,9 +141,9 @@ def main() -> int:
     if not results:
         raise RuntimeError("The managed retrieval returned no evidence rows.")
     top = results[0]
-    if args.assert_orion and top.get("external_id") != "ORION-1489":
+    if args.assert_incident and top.get("external_key") != "CHG-1842":
         raise RuntimeError(
-            f"Expected ORION-1489 first, found {top.get('external_id') or 'unknown'}."
+            f"Expected CHG-1842 first, found {top.get('external_key') or 'unknown'}."
         )
 
     answer_tool_name = _tool_name(tools, "answer_with_citations")
@@ -153,7 +154,10 @@ def main() -> int:
         {
             "name": answer_tool_name,
             "arguments": {
-                "question": "Why did Orion slip?",
+                "question": (
+                    "Why did CHG-1842 block checkout writes during INC-2047, "
+                    "which visible customer was affected, and what was the safe fix?"
+                ),
                 "limit": 8,
             },
         },
@@ -162,18 +166,13 @@ def main() -> int:
     citations = answer_receipt.get("citations") or []
     if not citations:
         raise RuntimeError("The managed cited answer returned no citations.")
-    if args.assert_orion:
-        expected = {
-            "canonical": True,
-            "source_count": 6,
-            "system_count": 5,
-            "confidence": 0.92,
-        }
-        observed = {key: answer_receipt.get(key) for key in expected}
-        if observed != expected:
+    if args.assert_incident:
+        if answer_receipt.get("run_id") is None:
             raise RuntimeError(
-                f"Expected canonical Orion receipt {expected}, found {observed}."
+                "The managed cited answer did not return a retrieval run ID."
             )
+        if any(not citation.get("source_revision") for citation in citations):
+            raise RuntimeError("At least one managed citation lacks a source revision.")
 
     print("MANAGED SEARCH RECEIPT")
     print(f"Gateway: {os.environ.get('AGENTCORE_GATEWAY_ID', 'managed')}")
@@ -185,7 +184,7 @@ def main() -> int:
     print(
         "Top:",
         top.get("source_system"),
-        top.get("external_id"),
+        top.get("external_key"),
         f"rerank={float(top.get('rerank_score') or 0):.3f}",
         f"sql={float(top.get('final_score') or 0):.3f}",
     )
@@ -193,14 +192,13 @@ def main() -> int:
     print("MANAGED CITED-ANSWER RECEIPT")
     print(f"Tool: {answer_tool_name}")
     print(f"Run: {answer_receipt.get('run_id')}")
-    print(f"Canonical: {answer_receipt.get('canonical')}")
     print(
         "Evidence:",
-        f"citations={answer_receipt.get('source_count')}",
-        f"systems={answer_receipt.get('system_count')}",
-        f"confidence={float(answer_receipt.get('confidence') or 0):.2f}",
+        f"citations={len(citations)}",
+        f"synthesis={((answer_receipt.get('synthesis') or {}).get('mode'))}",
     )
-    print(f"Plan steps: {len(answer_receipt.get('plan') or [])}")
+    plan = answer_receipt.get("plan") or {}
+    print(f"Plan steps: {len(plan.get('steps') or [])}")
     return 0
 
 

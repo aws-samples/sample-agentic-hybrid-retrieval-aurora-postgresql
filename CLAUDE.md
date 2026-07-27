@@ -2,7 +2,7 @@
 
 Read `AGENTS.md` before changing this repository.
 
-For source connectors, retrieval SQL, ranking, citations, diagnostics, or
+For search index, retrieval SQL, ranking, citations, diagnostics, traversal, or
 evaluation, use the project skill at
 `.claude/skills/extend-hybrid-retrieval/SKILL.md`.
 

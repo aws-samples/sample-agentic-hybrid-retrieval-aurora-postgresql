@@ -1,0 +1,134 @@
+{
+  "contract_version": "1.0.0",
+  "run_id": "RUN-7004",
+  "preset": "customer-impact",
+  "query": "Which customer was affected by INC-2000?",
+  "principal": {
+    "scopes": [
+      "workshop"
+    ],
+    "principals": []
+  },
+  "filters": {
+    "cluster_id": "checkout-prod-01"
+  },
+  "controls": {
+    "mode": "hybrid",
+    "candidate_pool": 24,
+    "rrf_k": 60,
+    "text_weight": 2.0,
+    "vector_weight": 1.0,
+    "fuzzy_weight": 1.0,
+    "fuzzy_threshold": 0.3,
+    "ef_search": 40,
+    "iterative_scan": "strict_order",
+    "rerank": false
+  },
+  "candidate_count": 4,
+  "candidates": [
+    {
+      "evidence_id": "CASE-4000",
+      "external_key": "CASE-4000",
+      "kind": "case",
+      "title": "Acme Retail checkout failures",
+      "source_uri": "workshop://case/CASE-4000",
+      "source_revision": "rev-0001",
+      "text_position": 2,
+      "vector_position": 1,
+      "fuzzy_position": null,
+      "text_score": 0.3902,
+      "vector_distance": 0.183,
+      "fuzzy_score": null,
+      "rrf_score": 0.04865151,
+      "rerank_score": 0.96,
+      "fused_rank": 1,
+      "final_rank": 1
+    },
+    {
+      "evidence_id": "INC-2000",
+      "external_key": "INC-2000",
+      "kind": "incident",
+      "title": "Checkout writes blocked while reads continued",
+      "source_uri": "workshop://incident/INC-2000",
+      "source_revision": "rev-0001",
+      "text_position": 1,
+      "vector_position": 4,
+      "fuzzy_position": null,
+      "text_score": 0.4468,
+      "vector_distance": 0.294,
+      "fuzzy_score": null,
+      "rrf_score": 0.04841189,
+      "rerank_score": 0.68,
+      "fused_rank": 2,
+      "final_rank": 2
+    },
+    {
+      "evidence_id": "CASE-4002",
+      "external_key": "CASE-4002",
+      "kind": "case",
+      "title": "Zenith Corp impact inquiry",
+      "source_uri": "workshop://case/CASE-4002",
+      "source_revision": "rev-0001",
+      "text_position": 3,
+      "vector_position": 2,
+      "fuzzy_position": null,
+      "text_score": 0.2871,
+      "vector_distance": 0.229,
+      "fuzzy_score": null,
+      "rrf_score": 0.04787506,
+      "rerank_score": 0.72,
+      "fused_rank": 3,
+      "final_rank": 3
+    },
+    {
+      "evidence_id": "COMMIT-6000",
+      "external_key": "COMMIT-6000",
+      "kind": "commitment",
+      "title": "RCA and safe-fix plan for Acme Retail",
+      "source_uri": "workshop://commitment/COMMIT-6000",
+      "source_revision": "rev-0001",
+      "text_position": null,
+      "vector_position": 3,
+      "fuzzy_position": null,
+      "text_score": null,
+      "vector_distance": 0.276,
+      "fuzzy_score": null,
+      "rrf_score": 0.01587302,
+      "rerank_score": 0.55,
+      "fused_rank": 4,
+      "final_rank": 4
+    }
+  ],
+  "rrf_terms": {
+    "CASE-4000": {
+      "text": 0.03225806,
+      "vector": 0.01639344,
+      "fuzzy": 0.0
+    },
+    "INC-2000": {
+      "text": 0.03278689,
+      "vector": 0.015625,
+      "fuzzy": 0.0
+    },
+    "CASE-4002": {
+      "text": 0.03174603,
+      "vector": 0.01612903,
+      "fuzzy": 0.0
+    },
+    "COMMIT-6000": {
+      "text": 0.0,
+      "vector": 0.01587302,
+      "fuzzy": 0.0
+    }
+  },
+  "stage_timings_illustrative": {
+    "exact_fts_ms": 2.3,
+    "vector_ms": 3.8,
+    "fuzzy_ms": 1.1,
+    "fuse_ms": 0.7,
+    "traverse_ms": 9.4,
+    "compare_ms": 6.1,
+    "rerank_ms": 74.0,
+    "synthesis_ms": 1240.0
+  }
+}

@@ -1,67 +1,84 @@
 from __future__ import annotations
+
+from contextlib import asynccontextmanager
 import json
 import logging
-from contextlib import asynccontextmanager
-from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from .agent import (
     answer_question,
-    agent_metadata,
-    attach_object_ids,
-    derive_commitments,
-    lookup_canonical_answer,
-    persisted_run_results,
+    compare_sources_impl,
+    decompose_question_impl,
+    explain_ranking_impl,
+    follow_evidence_links_impl,
+    get_agent_coverage_impl,
+    get_agent_run_impl,
     stream_answer,
+    synthesize_cited_answer_from_runs_impl,
+)
+from .agent_tools import tool_specifications
+from .config import get_settings
+from .contracts import (
+    InvocationContext,
+    invoke_contract,
+    new_request_id,
+    record_transport_invocation,
 )
 from .db import close_pool, get_dict_conn, open_pool
 from .evaluation import run_evaluation
-from .ingest import create_job, upsert_objects
-from .insights import fusion_sql, index_usage, query_plan, run_graph, run_timeline, slow_queries
+from .insights import (
+    fusion_sql,
+    index_usage,
+    latest_cited_run,
+    search_index_diagnostics,
+    search_index_health,
+    query_plan,
+    run_graph,
+    run_timeline,
+    slow_queries,
+)
 from .models import (
     AgentAnswerRequest,
+    CompareRequest,
+    DecomposeRequest,
     EvaluationRequest,
-    IngestObjectsRequest,
+    ExplainRankingRequest,
     QueryPlanRequest,
     SearchRequest,
-    SourceCreateRequest,
+    SynthesisRequest,
+    TraverseRequest,
 )
 from .search import run_hybrid_search
-from .config import get_settings
+from .strands_agent import (
+    answer_question_with_strands,
+    stream_answer_with_strands,
+    strands_agent_metadata,
+)
 
 logger = logging.getLogger(__name__)
-HERO_PREVIEW_PATH = Path(__file__).resolve().parents[2] / "seed" / "artifacts" / "hero_preview.json"
-SEARCH_UNAVAILABLE = (
-    "search unavailable — run `make doctor` to verify Aurora schema, "
-    "connectivity, embeddings, and reranking"
-)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Open the Postgres connection pool on startup, drain it on shutdown.
-
-    Opening the pool eagerly surfaces a bad DATABASE_URL at boot instead of on the
-    first request. A pool failure is logged rather than fatal so the health check
-    and the schema-not-provisioned 503s still respond; the per-request 503 handlers
-    already cover a database that never comes up.
-    """
     try:
         open_pool()
-    except Exception as exc:  # pragma: no cover - startup diagnostics only
-        logger.warning("Postgres pool did not open at startup: %s", exc)
+    except Exception as error:
+        logger.warning("PostgreSQL pool did not open at startup: %s", error)
     try:
         yield
     finally:
         close_pool()
 
 
-app = FastAPI(title="Agentic Hybrid Retrieval API", version="0.1.0", lifespan=lifespan)
 settings = get_settings()
-
+app = FastAPI(
+    title="Verity incident evidence API",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins(),
@@ -71,356 +88,436 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+def _unavailable(area: str, error: Exception) -> HTTPException:
+    logger.warning("%s unavailable: %s", area, error)
+    return HTTPException(
+        503,
+        f"{area} unavailable; run `make doctor` and verify the search index",
+    )
+
+
+def _invocation_context(request: Request) -> InvocationContext:
+    transport = request.headers.get("x-verity-transport", "http")
+    return InvocationContext(
+        transport=transport,
+        request_id=request.headers.get("x-request-id") or new_request_id(),
+        transport_trace_id=(
+            request.headers.get("x-verity-transport-trace-id")
+            or request.headers.get("x-amzn-trace-id")
+        ),
+    )
+
+
 @app.get("/health")
 def health():
-    return {"ok": True}
+    return {"ok": True, "service": "verity-incident-evidence"}
 
 
-@app.get("/v1/diagnostics/hero-preview")
-def hero_preview():
-    """Seed-backed landing preview for an API whose evidence index is not ready.
-
-    This endpoint never claims to be live diagnostics. The frontend labels it as
-    a preview and still requires /v1/diagnostics/canonical before enabling the
-    guided proof flow.
-    """
+@app.get("/ready")
+def ready():
     try:
-        return json.loads(HERO_PREVIEW_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        raise HTTPException(503, "seed-backed hero preview unavailable")
-
-
-@app.post("/v1/sources")
-def create_source(req: SourceCreateRequest):
-    with get_dict_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO ops.source_connectors(source_system, source_name, auth_mode, config)
-                VALUES (%s, %s, %s, %s::jsonb)
-                ON CONFLICT(source_system, source_name) DO UPDATE SET auth_mode = EXCLUDED.auth_mode, config = EXCLUDED.config
-                RETURNING source_id, source_system, source_name, auth_mode, status;
-            """, (req.source_system, req.source_name, req.auth_mode, req.config.model_dump_json() if hasattr(req.config, 'model_dump_json') else __import__('json').dumps(req.config)))
-            return cur.fetchone()
-
-@app.post("/v1/ingest/objects")
-def ingest_objects(req: IngestObjectsRequest):
-    source_id, job_id = create_job(
-        req.source_system,
-        req.source_name,
-        len(req.objects),
-        sync_mode=req.sync_mode,
-        sync_cursor=req.sync_cursor,
-    )
-    return upsert_objects(
-        source_id,
-        job_id,
-        req.objects,
-        sync_mode=req.sync_mode,
-        sync_cursor=req.sync_cursor,
-    )
-
-@app.get("/v1/jobs/{job_id}")
-def get_job(job_id: str):
-    with get_dict_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM ops.ingest_jobs WHERE job_id = %s", (job_id,))
-            job = cur.fetchone()
-            if not job:
-                raise HTTPException(404, "job not found")
-            cur.execute("SELECT step_name, status, message, metadata, created_at FROM ops.ingest_job_events WHERE job_id = %s ORDER BY created_at", (job_id,))
-            events = cur.fetchall()
-            return {"job": job, "events": events}
-
-@app.get("/v1/sources/{source_id}/status")
-def source_status(source_id: str):
-    with get_dict_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM ops.source_connectors WHERE source_id = %s", (source_id,))
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(404, "source not found")
-            return row
-
-@app.get("/v1/objects/{object_id}")
-def source_object_detail(object_id: str):
-    with get_dict_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM ops.source_objects WHERE object_id = %s", (object_id,))
-            obj = cur.fetchone()
-            if not obj:
-                raise HTTPException(404, "source object not found")
-            cur.execute("""
-                SELECT chunk_id, chunk_index, section_title, chunk_text, chunk_summary, metadata
-                FROM ops.object_chunks
-                WHERE object_id = %s
-                ORDER BY chunk_index
-            """, (object_id,))
-            chunks = cur.fetchall()
-            cur.execute("""
-                SELECT citation_id, chunk_id, source_label, source_url, locator, quote_text, metadata
-                FROM ops.citations
-                WHERE object_id = %s
-                ORDER BY locator
-            """, (object_id,))
-            citations = cur.fetchall()
-            cur.execute("""
-                SELECT l.link_id, l.link_type, l.confidence, l.metadata,
-                       o.object_id, o.source_system, o.source_type, o.external_id, o.title, o.url
-                FROM ops.object_links l
-                JOIN ops.source_objects o ON o.object_id = l.to_object_id
-                WHERE l.from_object_id = %s
-                ORDER BY l.confidence DESC, o.updated_at DESC NULLS LAST
-            """, (object_id,))
-            links = cur.fetchall()
-            return {"object": obj, "chunks": chunks, "citations": citations, "links": links}
-
-@app.get("/v1/runs/{run_id}/candidates")
-def retrieval_run_candidates(run_id: str):
-    with get_dict_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT c.*, o.source_system, o.source_type, o.external_id, o.title, o.url
-                FROM ops.retrieval_candidates c
-                JOIN ops.source_objects o ON o.object_id = c.object_id
-                WHERE c.run_id = %s
-                ORDER BY
-                  CASE WHEN c.rerank_score IS NULL THEN 1 ELSE 0 END,
-                  c.rerank_score DESC NULLS LAST,
-                  c.final_score DESC NULLS LAST
-            """, (run_id,))
-            return {"run_id": run_id, "candidates": cur.fetchall()}
-
-@app.get("/v1/runs/{run_id}/timeline")
-def retrieval_run_timeline(run_id: str):
-    """Time-ordered cross-system sequence of the run's cited objects + their links."""
-    try:
-        return run_timeline(run_id)
-    except Exception:
-        raise HTTPException(503, "timeline unavailable — run `make seed-load` to restore the seeded corpus")
-
-
-@app.get("/v1/runs/{run_id}/graph")
-def retrieval_run_graph(run_id: str):
-    """The object_links among the run's cited objects — the evidence graph."""
-    try:
-        return run_graph(run_id)
-    except Exception:
-        raise HTTPException(503, "graph unavailable — run `make seed-load` to restore the seeded corpus")
-
-
-@app.get("/v1/diagnostics/fusion-sql")
-def diagnostics_fusion_sql():
-    """The deployed ops.hybrid_search definition — the fusion query, verbatim."""
-    try:
-        return fusion_sql()
-    except Exception:
-        raise HTTPException(503, "fusion SQL unavailable — run `make schema` (applies sql/03_search_functions.sql)")
-
-
-@app.post("/v1/diagnostics/plan")
-def diagnostics_plan(req: QueryPlanRequest):
-    """EXPLAIN (ANALYZE, BUFFERS) the retrieval arm(s) for a query on live Aurora.
-
-    Plans the real arm query bodies (not the SQL function wrappers, which EXPLAIN to
-    an opaque Function Scan), so a builder sees the actual GIN / HNSW / Seq Scan the
-    planner chooses. 'hybrid' returns the plan of all three arms.
-    """
-    try:
-        return query_plan(
-            arm=req.arm,
-            query=req.query,
-            limit=req.limit,
-            source_systems=req.source_systems,
-            project_key=req.project_key,
-        )
-    except Exception:
-        raise HTTPException(503, "query plan unavailable — run `make schema` (applies sql/10_query_plan.sql)")
-
-
-@app.get("/v1/diagnostics/index-usage")
-def diagnostics_index_usage():
-    """Live index scan counts + sizes for the ops schema (GIN / HNSW / btree)."""
-    try:
-        return index_usage()
-    except Exception:
-        raise HTTPException(503, "index usage unavailable — run `make schema` (applies sql/10_query_plan.sql)")
-
-
-@app.get("/v1/diagnostics/slow-queries")
-def diagnostics_slow_queries():
-    """Retrieval queries ranked by mean execution time, from pg_stat_statements."""
-    try:
-        return slow_queries()
-    except Exception:
-        raise HTTPException(
-            503,
-            "slow-query stats unavailable — ensure pg_stat_statements is preloaded and run `make schema`",
-        )
+        return search_index_health()
+    except Exception as error:
+        raise _unavailable("search index", error)
 
 
 @app.post("/v1/search")
-def search(req: SearchRequest):
-    """Retrieval over Aurora. `mode` selects the fused ranker or one signal arm."""
-    return _search_or_503(req)
+def search(request: SearchRequest, http_request: Request):
+    try:
+        return invoke_contract(
+            _invocation_context(http_request),
+            "search_evidence",
+            request.model_dump(mode="json"),
+            lambda: run_hybrid_search(request),
+        )
+    except Exception as error:
+        raise _unavailable("search", error)
 
 
 @app.post("/v1/search/vector")
-def search_vector(req: SearchRequest):
-    """Semantic-only: pgvector cosine over the HNSW index (ops.vector_search)."""
-    return _search_or_503(req.model_copy(update={"mode": "semantic"}))
+def search_vector(request: SearchRequest, http_request: Request):
+    return search(
+        request.model_copy(update={"mode": "semantic"}),
+        http_request,
+    )
 
 
 @app.post("/v1/search/fts")
-def search_fts(req: SearchRequest):
-    """Lexical-only: tsvector @@ tsquery ranked by ts_rank_cd (ops.full_text_search)."""
-    return _search_or_503(req.model_copy(update={"mode": "lexical"}))
+def search_fts(request: SearchRequest, http_request: Request):
+    return search(
+        request.model_copy(update={"mode": "lexical"}),
+        http_request,
+    )
 
 
 @app.post("/v1/search/fuzzy")
-def search_fuzzy(req: SearchRequest):
-    """Fuzzy-only: pg_trgm similarity over title + leading text (ops.fuzzy_match)."""
-    return _search_or_503(req.model_copy(update={"mode": "fuzzy"}))
+def search_fuzzy(request: SearchRequest, http_request: Request):
+    return search(
+        request.model_copy(update={"mode": "fuzzy"}),
+        http_request,
+    )
 
-
-def _search_or_503(req: SearchRequest):
-    try:
-        return run_hybrid_search(req)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.warning("Search request unavailable: %s", exc)
-        raise HTTPException(503, SEARCH_UNAVAILABLE)
 
 @app.post("/v1/agent/answer")
-def agent_answer(req: AgentAnswerRequest):
-    return answer_question(req)
+def agent_answer(request: AgentAnswerRequest, http_request: Request):
+    try:
+        return invoke_contract(
+            _invocation_context(http_request),
+            "answer_with_citations",
+            request.model_dump(mode="json"),
+            lambda: answer_question(request),
+        )
+    except Exception as error:
+        raise _unavailable("cited answer", error)
 
 
-@app.post("/v1/agent/answer/stream")
-def agent_answer_stream(req: AgentAnswerRequest):
-    """Server-Sent Events stream of the agent answer.
+@app.post("/v1/agent/strands/answer")
+def strands_answer(request: AgentAnswerRequest, http_request: Request):
+    """Answer by letting the model choose and sequence the tools itself."""
+    try:
+        return invoke_contract(
+            _invocation_context(http_request),
+            "strands_agent_answer",
+            request.model_dump(mode="json"),
+            lambda: answer_question_with_strands(request),
+        )
+    except Exception as error:
+        raise _unavailable("strands agent answer", error)
 
-    Emits a `meta` event (run_id, citations, canonical flag), then `token` events
-    as the Strands agent streams synthesis over Bedrock, then a terminal `done`
-    event carrying token usage. Canonical questions stream their stored answer.
-    """
 
-    def event_stream():
-        for event in stream_answer(req):
-            yield f"event: {event['type']}\ndata: {json.dumps(event['data'], default=str)}\n\n"
+@app.post("/v1/agent/strands/answer/stream")
+async def strands_answer_stream(request: AgentAnswerRequest, http_request: Request):
+    """Stream each tool the model selects, then the cited answer, as they happen."""
+    context = _invocation_context(http_request)
+    payload_in = request.model_dump(mode="json")
+
+    async def events():
+        final: dict | None = None
+        async for event in stream_answer_with_strands(request):
+            if event["type"] in {"done", "error"}:
+                final = event
+            payload = json.dumps(event, default=str)
+            yield f"event: {event['type']}\ndata: {payload}\n\n"
+        # The receipt is written after the stream drains, so a streamed run is
+        # auditable on the same terms as a buffered one.
+        try:
+            record_transport_invocation(
+                context,
+                "strands_agent_answer",
+                payload_in,
+                response_payload=final,
+                status="succeeded" if final and final["type"] == "done" else "failed",
+                error=(final or {}).get("error"),
+            )
+        except Exception as error:
+            logger.warning("Could not persist streamed agent receipt: %s", error)
 
     return StreamingResponse(
-        event_stream(),
+        events(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
-@app.get("/v1/runs/{run_id}/metrics")
-def retrieval_run_metrics(run_id: str):
-    try:
-        with get_dict_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT * FROM ops.retrieval_run_metrics WHERE run_id = %s", (run_id,))
-                metrics = cur.fetchone()
-    except Exception:
-        # Metrics table not provisioned yet (schema not migrated / dump not restored).
-        raise HTTPException(503, "run metrics unavailable — run `make schema` (applies sql/06_agent_answers.sql) or `make seed-load`")
-    if not metrics:
-        raise HTTPException(404, "run metrics not found")
-    return metrics
 
-@app.post("/v1/evaluation")
-def evaluation(req: EvaluationRequest):
-    """Score each retrieval mode against the judged queries.
+@app.get("/v1/agent/strands/tools")
+def strands_tools():
+    """Return the tool schemas the model sees, read from the decorators."""
+    return {
+        "agent": strands_agent_metadata(),
+        "tools": tool_specifications(),
+    }
 
-    Fires one live retrieval run per mode against every ops.evaluation_queries row,
-    then returns recall@k / precision@10 / MRR / nDCG@10 per run plus a leaderboard
-    of the mean nDCG@10 / recall@10 / MRR per mode. Lets a builder read the retrieval
-    tradeoff off real numbers instead of taking the hybrid-wins claim on faith.
-    """
+
+@app.post("/v1/tools/decompose")
+def tool_decompose(request: DecomposeRequest, http_request: Request):
     try:
-        return run_evaluation(modes=req.modes, limit=req.limit)
-    except Exception:
-        raise HTTPException(
-            503,
-            "evaluation unavailable — run `make schema` (applies sql/09_evaluation_metrics.sql) or `make seed-load`",
+        return invoke_contract(
+            _invocation_context(http_request),
+            "decompose_question",
+            request.model_dump(mode="json"),
+            lambda: decompose_question_impl(request.question),
         )
+    except Exception as error:
+        raise _unavailable("question decomposition", error)
 
 
-@app.get("/v1/diagnostics/canonical")
-def canonical_diagnostics():
-    """The canonical run's metrics + diagnostics rows + cited sources.
-
-    Read-only: this creates no retrieval run, so the landing page can hydrate its
-    hero nodes and the Diagnostics view from live rows without side effects.
-    """
+@app.post("/v1/tools/traverse")
+def tool_traverse(request: TraverseRequest, http_request: Request):
     try:
-        with get_dict_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT m.*, a.question, a.answer, a.confidence,
-                           a.source_count, a.system_count, a.citations
-                    FROM ops.retrieval_run_metrics m
-                    JOIN ops.agent_answers a ON a.run_id = m.run_id
-                    ORDER BY m.fired_at DESC
-                    LIMIT 1
-                """)
-                row = cur.fetchone()
-    except Exception:
-        # Canonical tables not provisioned yet (schema not migrated / dump not restored).
-        raise HTTPException(503, "canonical diagnostics unavailable — run `make schema` (applies sql/06_agent_answers.sql) or `make seed-load`")
-    if not row:
-        raise HTTPException(404, "no canonical run recorded")
-    citations = attach_object_ids(row.get("citations"))
-    # Unpack the stored answer into the same {answer, plan} shape the agent
-    # endpoint returns, so the frontend has one renderer for both paths.
-    stored = row.pop("answer", None)
-    body = stored.get("body") if isinstance(stored, dict) else stored
-    plan = stored.get("plan") if isinstance(stored, dict) else None
-    row["citations"] = citations
-    row["answer"] = body
-    row["plan"] = plan
-    row["commitments"] = derive_commitments(citations)
-    row["results"] = persisted_run_results(str(row["run_id"]))
-    # Serve the agent/model metadata live so the frontend never hard-codes model
-    # IDs — the routed models come from settings, which differ per environment.
-    row["agent"] = agent_metadata()
-    return row
+        return invoke_contract(
+            _invocation_context(http_request),
+            "follow_evidence_links",
+            request.model_dump(mode="json"),
+            lambda: follow_evidence_links_impl(
+                request.seed_external_keys,
+                principal=request.principal,
+                max_depth=request.max_depth,
+            ),
+        )
+    except Exception as error:
+        raise _unavailable("evidence traversal", error)
+
+
+@app.post("/v1/tools/compare")
+def tool_compare(request: CompareRequest, http_request: Request):
+    try:
+        return invoke_contract(
+            _invocation_context(http_request),
+            "compare_sources",
+            request.model_dump(mode="json"),
+            lambda: compare_sources_impl(
+                request.external_keys,
+                principal=request.principal,
+            ),
+        )
+    except Exception as error:
+        raise _unavailable("source comparison", error)
+
+
+@app.post("/v1/tools/explain-ranking")
+def tool_explain_ranking(
+    request: ExplainRankingRequest,
+    http_request: Request,
+):
+    try:
+        return invoke_contract(
+            _invocation_context(http_request),
+            "explain_ranking",
+            request.model_dump(mode="json"),
+            lambda: explain_ranking_impl(request.run_id),
+        )
+    except ValueError as error:
+        raise HTTPException(404, str(error))
+    except Exception as error:
+        raise _unavailable("ranking explanation", error)
+
+
+@app.post("/v1/tools/synthesize")
+def tool_synthesize(request: SynthesisRequest, http_request: Request):
+    try:
+        return invoke_contract(
+            _invocation_context(http_request),
+            "synthesize_cited_answer",
+            request.model_dump(mode="json"),
+            lambda: synthesize_cited_answer_from_runs_impl(
+                request.question,
+                request.run_ids,
+                limit=request.limit,
+            ),
+        )
+    except ValueError as error:
+        raise HTTPException(404, str(error))
+    except Exception as error:
+        raise _unavailable("cited synthesis", error)
+
+
+@app.post("/v1/agent/answer/stream")
+def agent_answer_stream(request: AgentAnswerRequest, http_request: Request):
+    response = invoke_contract(
+        _invocation_context(http_request),
+        "answer_with_citations",
+        request.model_dump(mode="json"),
+        lambda: answer_question(request),
+    )
+
+    def events():
+        meta = {
+            key: response[key]
+            for key in (
+                "question",
+                "agent_run_id",
+                "run_id",
+                "agent",
+                "plan",
+                "citations",
+            )
+            if key in response
+        }
+        yield f"event: meta\ndata: {json.dumps(meta, default=str)}\n\n"
+        answer = response["answer"]
+        for offset in range(0, len(answer), 32):
+            data = {"text": answer[offset : offset + 32]}
+            yield f"event: token\ndata: {json.dumps(data)}\n\n"
+        yield f"event: done\ndata: {json.dumps(response, default=str)}\n\n"
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/v1/agent-runs/{agent_run_id}")
+def agent_run(agent_run_id: str):
+    try:
+        return get_agent_run_impl(agent_run_id)
+    except ValueError as error:
+        raise HTTPException(404, str(error))
+    except Exception as error:
+        raise _unavailable("agent run", error)
+
+
+@app.get("/v1/agent-runs/{agent_run_id}/coverage")
+def agent_coverage(agent_run_id: str):
+    try:
+        return get_agent_coverage_impl(agent_run_id)
+    except ValueError as error:
+        raise HTTPException(404, str(error))
+    except Exception as error:
+        raise _unavailable("agent coverage", error)
+
+
+@app.get("/v1/evidence/{evidence_id}")
+def evidence_detail(evidence_id: str):
+    try:
+        with get_dict_conn() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT source.*, document.*
+                    FROM casework.v_evidence_documents source
+                    LEFT JOIN retrieval.documents document
+                      ON document.evidence_id = source.evidence_id
+                     AND document.is_current
+                    WHERE source.evidence_id = %s
+                    """,
+                    (evidence_id,),
+                )
+                evidence = cursor.fetchone()
+                if not evidence:
+                    raise HTTPException(404, "evidence not found")
+                cursor.execute(
+                    """
+                    SELECT
+                      chunk_version_id,
+                      chunk_ordinal,
+                      section_title,
+                      chunk_text,
+                      chunk_hash,
+                      embedding_model,
+                      embedding_state
+                    FROM retrieval.chunks
+                    WHERE document_version_id = %s
+                    ORDER BY chunk_ordinal
+                    """,
+                    (evidence["document_version_id"],),
+                )
+                chunks = cursor.fetchall()
+                cursor.execute(
+                    """
+                    SELECT *
+                    FROM retrieval.evidence_edges
+                    WHERE from_evidence_id = %s OR to_evidence_id = %s
+                    ORDER BY origin, relation, edge_key
+                    """,
+                    (evidence_id, evidence_id),
+                )
+                edges = cursor.fetchall()
+        return {"evidence": evidence, "chunks": chunks, "edges": edges}
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise _unavailable("evidence detail", error)
+
+
+@app.get("/v1/runs/latest")
+def latest_run():
+    try:
+        run = latest_cited_run()
+        if not run:
+            raise HTTPException(404, "no completed cited run found")
+        return run
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise _unavailable("latest cited run", error)
+
+
+@app.get("/v1/runs/{run_id}")
+def run_receipt(run_id: str):
+    try:
+        return explain_ranking_impl(run_id)
+    except ValueError as error:
+        raise HTTPException(404, str(error))
+    except Exception as error:
+        raise _unavailable("run receipt", error)
+
+
+@app.get("/v1/runs/{run_id}/candidates")
+def run_candidates(run_id: str):
+    receipt = run_receipt(run_id)
+    return {
+        "run_id": run_id,
+        "candidates": receipt["candidates"],
+        "_verify_sql": receipt["_verify_sql"]["candidates"],
+    }
+
+
+@app.get("/v1/runs/{run_id}/timeline")
+def timeline(run_id: str):
+    try:
+        return run_timeline(run_id)
+    except Exception as error:
+        raise _unavailable("run timeline", error)
+
+
+@app.get("/v1/runs/{run_id}/graph")
+def graph(run_id: str):
+    try:
+        return run_graph(run_id)
+    except Exception as error:
+        raise _unavailable("run graph", error)
+
+
+@app.get("/v1/diagnostics/search-index")
+def diagnostics_search_index():
+    try:
+        return search_index_diagnostics()
+    except Exception as error:
+        raise _unavailable("search index diagnostics", error)
+
 
 @app.get("/v1/diagnostics/corpus")
-def corpus_diagnostics():
+def diagnostics_corpus():
+    return diagnostics_search_index()
+
+
+@app.get("/v1/diagnostics/fusion-sql")
+def diagnostics_fusion_sql():
     try:
-        with get_dict_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT * FROM ops.v_corpus_profile")
-                profile = cur.fetchone()
-                cur.execute("SELECT * FROM ops.v_source_distribution")
-                distribution = cur.fetchall()
-                cur.execute("SELECT * FROM ops.v_embedding_progress")
-                embeddings = cur.fetchone()
-                index_sizes = _vector_index_sizes(cur)
-                return {
-                    "profile": profile,
-                    "source_distribution": distribution,
-                    "embedding_progress": embeddings,
-                    "vector_index_sizes": index_sizes,
-                }
-    except Exception as exc:
-        logger.warning("Corpus diagnostics unavailable: %s", exc)
-        raise HTTPException(
-            503,
-            "corpus diagnostics unavailable — run `make schema` or `make seed-load`",
-        )
+        return fusion_sql()
+    except Exception as error:
+        raise _unavailable("fusion SQL", error)
 
 
-def _vector_index_sizes(cur):
-    """The measured on-disk size of each vector index (float32 / halfvec / binary).
-
-    Returns [] when the pgvector-0.8 view is absent (sql/08 not applied yet) so an
-    older schema still serves the corpus diagnostics rather than erroring.
-    """
+@app.post("/v1/diagnostics/plan")
+def diagnostics_plan(request: QueryPlanRequest):
     try:
-        cur.execute("SELECT * FROM ops.v_index_sizes")
-        return cur.fetchall()
-    except Exception:
-        return []
+        return query_plan(request)
+    except Exception as error:
+        raise _unavailable("query plan", error)
+
+
+@app.get("/v1/diagnostics/index-usage")
+def diagnostics_indexes():
+    try:
+        return index_usage()
+    except Exception as error:
+        raise _unavailable("index diagnostics", error)
+
+
+@app.get("/v1/diagnostics/slow-queries")
+def diagnostics_slow_queries():
+    try:
+        return slow_queries()
+    except Exception as error:
+        raise _unavailable("pg_stat_statements diagnostics", error)
+
+
+@app.post("/v1/evaluation")
+def evaluation(request: EvaluationRequest):
+    try:
+        return run_evaluation(request.modes, request.limit)
+    except Exception as error:
+        raise _unavailable("retrieval evaluation", error)

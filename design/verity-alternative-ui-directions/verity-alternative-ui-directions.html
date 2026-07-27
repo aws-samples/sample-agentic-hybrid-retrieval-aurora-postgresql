@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Verity — Alternative UI Directions</title>
+<style>
+:root{
+  --paper:#f7f2ea;
+  --paper2:#fffaf3;
+  --card:#fffdfa;
+  --ink:#1f1b17;
+  --soft:#5f564d;
+  --muted:#94887b;
+  --line:#e8ded1;
+  --line2:#f0e8dd;
+  --red:#c33a27;
+  --red2:#9f2c1d;
+  --wash:#f9e9e4;
+  --green:#2f7b54;
+  --amber:#9f6b1d;
+  --blue:#416da8;
+  --shadow:0 1px 2px rgba(31,27,23,.04),0 18px 45px rgba(31,27,23,.08);
+  --sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --serif:Georgia,"Times New Roman",serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans)}
+body{min-height:100vh;background:radial-gradient(850px 520px at 92% -12%,#f5d8cb 0%,rgba(245,216,203,0) 62%),var(--paper)}
+button,input{font:inherit}
+button{cursor:pointer}
+.chrome{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:18px;padding:15px 24px;
+  background:rgba(247,242,234,.88);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)
+}
+.brand{display:flex;align-items:center;gap:10px;font:800 12px var(--mono);letter-spacing:.2em}
+.mark{width:20px;height:20px;border:1.5px solid var(--red);border-radius:50%;position:relative}
+.mark:after{content:"";position:absolute;left:2px;right:2px;top:10px;height:4px;border-top:2px solid var(--red);border-radius:50%;transform:rotate(-8deg)}
+.tabs{display:flex;gap:4px;background:#fff;border:1px solid var(--line);padding:4px;border-radius:999px}
+.tabs button{border:0;background:transparent;padding:8px 13px;border-radius:999px;color:var(--soft);font-size:12px;font-weight:700}
+.tabs button.on{background:var(--ink);color:#fff}
+.note{margin-left:auto;font:11px var(--mono);color:var(--muted)}
+.screen{display:none;padding:28px}
+.screen.on{display:block}
+.wrap{max-width:1480px;margin:0 auto}
+.eyebrow{font:800 10px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--red)}
+.h1{font:600 38px/1.05 var(--serif);letter-spacing:-.025em;margin:6px 0}
+.h1 em{color:var(--red2);font-weight:500}
+.deck{color:var(--soft);line-height:1.65;max-width:800px}
+.card{background:var(--card);border:1px solid rgba(31,27,23,.075);border-radius:20px;box-shadow:var(--shadow)}
+.pad{padding:20px}
+.pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;padding:5px 9px;background:#fff;font:700 10.5px var(--mono);color:var(--soft)}
+.pill.red{background:var(--wash);border-color:rgba(195,58,39,.25);color:var(--red2)}
+.pill.green{background:#edf7f0;border-color:rgba(47,123,84,.2);color:var(--green)}
+.search{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:13px;padding:10px 12px}
+.search input{flex:1;border:0;outline:0;background:transparent;font:13px var(--mono);color:var(--ink)}
+.btn{border:0;border-radius:10px;padding:10px 13px;background:var(--ink);color:#fff;font-weight:800;font-size:12px}
+.btn.red{background:var(--red)}
+.small{font-size:12px;color:var(--muted)}
+.mono{font-family:var(--mono)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.row{display:grid;grid-template-columns:90px 1fr auto;gap:12px;align-items:center;padding:11px 0;border-top:1px dashed var(--line)}
+.row:first-child{border-top:0}
+.row .id{font:800 11px var(--mono)}
+.row .title{font-weight:800;font-size:13px}
+.row .desc{font-size:12px;color:var(--muted)}
+.score{font:800 11px var(--mono);color:var(--red2)}
+.bar{height:7px;background:var(--line2);border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--red);border-radius:999px}
+table{width:100%;border-collapse:collapse;min-width:860px}
+th{font:800 10px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);text-align:left;padding:9px;border-bottom:1px solid var(--line);background:var(--paper2)}
+td{padding:10px;border-bottom:1px solid var(--line2);font-size:12px;color:var(--soft)}
+td strong{color:var(--ink)}
+.tableWrap{overflow:auto}
+
+/* A — Casefile */
+.casefile{display:grid;grid-template-columns:minmax(0,1.2fr) 380px;gap:22px;align-items:start}
+.memo{padding:38px}
+.memo h2{font:500 42px/1.12 var(--serif);letter-spacing:-.03em;margin:14px 0 18px}
+.memo p{font:17px/1.8 var(--serif);color:#403a34}
+.memo sup{font:800 10px var(--mono);color:var(--red)}
+.fact{display:flex;gap:12px;padding:13px 0;border-top:1px solid var(--line)}
+.fact:before{content:"";width:18px;height:2px;background:var(--red);margin-top:11px;flex:none}
+.evidenceRail{display:grid;gap:15px}
+.evidenceRail .card{padding:18px}
+.evidenceItem{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:11px 0;border-top:1px solid var(--line2)}
+.evidenceItem:first-child{border-top:0}
+.evidenceItem .n{font:800 11px var(--mono);color:var(--red)}
+.receipt{background:var(--ink)!important;color:#f9efe6}
+.receipt .eyebrow{color:#f0ab9f}
+.receipt code{font:12px/1.65 var(--mono);white-space:pre-wrap}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
+.metric{padding:14px;background:#fff;border:1px solid var(--line);border-radius:13px}
+.metric b{display:block;font:800 22px var(--mono)}
+.metric span{font:10px var(--mono);text-transform:uppercase;color:var(--muted);letter-spacing:.08em}
+
+/* B — Evidence canvas */
+.canvasLayout{display:grid;grid-template-columns:300px minmax(0,1fr) 340px;gap:16px}
+.panel{padding:18px}
+.controls label{display:block;font:800 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px}
+.controls select,.controls input[type=range]{width:100%}
+.graph{height:680px;position:relative;background:
+  radial-gradient(circle at 50% 50%,rgba(195,58,39,.08),transparent 25%),
+  linear-gradient(#fff,#fff);
+  border-radius:20px;overflow:hidden;border:1px solid rgba(31,27,23,.07);box-shadow:var(--shadow)
+}
+.gsvg{position:absolute;inset:0;width:100%;height:100%}
+.gsvg path{fill:none;stroke:rgba(195,58,39,.42);stroke-width:2;stroke-dasharray:7 8}
+.gnode{position:absolute;background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 12px;box-shadow:0 10px 24px rgba(31,27,23,.08);min-width:150px}
+.gnode b{display:block;font:800 11px var(--mono)}
+.gnode small{color:var(--muted);font-size:11px}
+.gnode.center{border-color:var(--red);box-shadow:0 0 0 10px rgba(195,58,39,.06),var(--shadow)}
+.x1{left:6%;top:14%}.x2{right:8%;top:12%}.x3{left:10%;bottom:18%}.x4{right:7%;bottom:19%}.x5{left:42%;top:43%}.x6{left:40%;bottom:3%}
+.inspector h3{margin:0 0 10px}
+.signal{display:grid;grid-template-columns:115px 1fr 44px;gap:9px;align-items:center;margin:12px 0}
+.signal label{font:700 10px var(--mono);color:var(--soft)}
+.links{display:grid;gap:8px;margin-top:12px}
+.link{padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:12px}
+
+/* C — Query microscope */
+.micro{display:grid;grid-template-columns:320px minmax(0,1fr) 360px;gap:16px}
+.queryPanel{padding:18px}
+.queryPanel textarea{width:100%;height:130px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;font:12px/1.5 var(--mono);resize:none}
+.switch{display:flex;gap:5px;flex-wrap:wrap;margin-top:12px}
+.switch button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 9px;font:700 10px var(--mono);color:var(--soft)}
+.switch button.on{background:var(--ink);color:#fff}
+.resultStack{padding:18px}
+.resultCard{display:grid;grid-template-columns:35px 1fr 56px;gap:11px;padding:14px 0;border-top:1px solid var(--line2)}
+.resultCard:first-child{border-top:0}
+.badge{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--wash);color:var(--red);font:800 11px var(--mono)}
+.explain{padding:18px}
+.explain pre{background:var(--ink);color:#f6ede5;border-radius:13px;padding:13px;font:11px/1.6 var(--mono);overflow:auto}
+.explain .callout{padding:12px;background:var(--wash);border:1px solid rgba(195,58,39,.22);border-radius:12px;margin-top:12px;font-size:12px;color:#4f413b}
+
+/* D — Replay theater */
+.replay{display:grid;grid-template-rows:auto auto 1fr;gap:16px}
+.stageStrip{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.stageCard{padding:13px;border:1px solid var(--line);background:#fff;border-radius:12px}
+.stageCard b{display:block;font:800 11px var(--mono);margin-bottom:5px}
+.stageCard span{font-size:11px;color:var(--muted)}
+.timeline{position:relative;padding:20px 22px 28px}
+.timeline:before{content:"";position:absolute;left:44px;top:32px;bottom:34px;border-left:2px dashed rgba(195,58,39,.32)}
+.trow{display:grid;grid-template-columns:44px 120px 1fr auto;gap:12px;align-items:start;padding:12px 0}
+.trow .dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--red);background:#fff;margin:4px 0 0 17px;z-index:1}
+.trow .time{font:800 10px var(--mono);color:var(--muted)}
+.trow .event{font-weight:800;font-size:13px}
+.trow .sub{font-size:12px;color:var(--muted)}
+.trow .status{font:800 10px var(--mono);color:var(--green)}
+.runMeta{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.runMeta .metric{background:#fff}
+
+/* E — Benchmark matrix */
+.benchTop{display:grid;grid-template-columns:1fr 360px;gap:16px}
+.modeCards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.modeCard{padding:14px;background:#fff;border:1px solid var(--line);border-radius:14px}
+.modeCard b{display:block;font:800 12px var(--mono)}
+.modeCard strong{display:block;font:800 26px var(--mono);margin:8px 0 2px}
+.modeCard span{font-size:11px;color:var(--muted)}
+.winner{border-color:var(--red);box-shadow:0 0 0 2px rgba(195,58,39,.08)}
+.heat td{font-family:var(--mono)}
+.good{background:#edf7f0;color:var(--green)}
+.mid{background:#fff6e9;color:var(--amber)}
+.bad{background:#fbeae6;color:var(--red2)}
+@media(max-width:1100px){
+  .casefile,.canvasLayout,.micro,.benchTop{grid-template-columns:1fr}
+  .graph{height:520px}
+  .modeCards{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<header class="chrome">
+  <div class="brand"><span class="mark"></span>VERITY</div>
+  <div class="tabs">
+    <button class="on" data-id="a">Casefile</button>
+    <button data-id="b">Evidence canvas</button>
+    <button data-id="c">Query microscope</button>
+    <button data-id="d">Replay theater</button>
+    <button data-id="e">Benchmark matrix</button>
+  </div>
+  <div class="note">Alternative UI directions · CHG-1842 / INC-2047</div>
+</header>
+
+<section class="screen on" id="a">
+  <div class="wrap">
+    <div class="eyebrow">Direction A · Casefile</div>
+    <h1 class="h1">A proof-first <em>incident brief.</em></h1>
+    <p class="deck">Best when you want the cited operational answer to be the hero, while keeping the retrieval receipt immediately adjacent.</p>
+    <div class="casefile" style="margin-top:18px">
+      <main class="card memo">
+        <div class="eyebrow">Answer · 5 citations validated</div>
+        <h2>Ordinary CREATE INDEX blocked checkout writes; Acme Retail was affected; rebuild concurrently outside a transaction.</h2>
+        <p>CHG-1842 ran an ordinary CREATE INDEX on the production writer<sup>[2]</sup>, taking a SHARE lock that let reads continue while writes queued on Lock:relation<sup>[1][3]</sup>. Acme Retail was the visible affected customer<sup>[4]</sup>. The safe fix is to cancel the build and rerun it with CREATE INDEX CONCURRENTLY outside a transaction<sup>[5]</sup>.</p>
+        <div class="fact">Cause: ordinary index build on the writer.</div>
+        <div class="fact">Impact: write traffic queued; reads remained available.</div>
+        <div class="fact">Customer: CASE-7419, Acme Retail.</div>
+        <div class="fact">Safe fix: concurrent build, progress monitoring, invalid-index cleanup.</div>
+        <div class="metrics"><div class="metric"><b>0.91</b><span>nDCG@10</span></div><div class="metric"><b>100%</b><span>Citation coverage</span></div><div class="metric"><b>1.32s</b><span>End-to-end</span></div></div>
+      </main>
+      <aside class="evidenceRail">
+        <div class="card">
+          <div class="eyebrow">Evidence receipt</div>
+          <div class="evidenceItem"><span class="n">[1]</span><div><b>INC-2047</b><div class="small">Impact, read/write split, resolution</div></div></div>
+          <div class="evidenceItem"><span class="n">[2]</span><div><b>CHG-1842</b><div class="small">Confirmed change cause</div></div></div>
+          <div class="evidenceItem"><span class="n">[3]</span><div><b>LOCK-2047-001</b><div class="small">Blocking PID proof</div></div></div>
+          <div class="evidenceItem"><span class="n">[4]</span><div><b>CASE-7419</b><div class="small">Visible customer impact</div></div></div>
+          <div class="evidenceItem"><span class="n">[5]</span><div><b>RB-017</b><div class="small">Concurrent index guidance</div></div></div>
+        </div>
+        <div class="card receipt">
+          <div class="eyebrow">Replay receipt</div>
+          <code>run_id: rr_9b41d7
+principal: workshop
+pool: 24
+rrf: text 2 / vector 1 / fuzzy 1
+k: 60
+rerank: applied
+citations: valid
+projection_drift: 0</code>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="b">
+  <div class="wrap">
+    <div class="eyebrow">Direction B · Evidence canvas</div>
+    <h1 class="h1">A graph-first <em>investigation surface.</em></h1>
+    <p class="deck">Best for live demos of evidence traversal, ACL-safe relationships, and source comparison.</p>
+    <div class="canvasLayout" style="margin-top:18px">
+      <aside class="card panel controls">
+        <div class="eyebrow">Scenario</div>
+        <div class="search" style="margin-top:10px"><input value="Why did CHG-1842 block writes?"><button class="btn red">Run</button></div>
+        <label>Principal</label><select><option>workshop</option><option>support-lead</option></select>
+        <label>Traversal depth</label><input type="range" min="0" max="3" value="2">
+        <label>Evidence kinds</label>
+        <div class="links"><div class="link">Incident</div><div class="link">Change</div><div class="link">Lock evidence</div><div class="link">Support case</div><div class="link">Runbook</div></div>
+        <label>Edge origin</label><div class="links"><div class="link">Canonical FK</div><div class="link">Governed inferred</div></div>
+      </aside>
+      <div class="graph">
+        <svg class="gsvg" viewBox="0 0 900 680"><path d="M180 140 C290 210 360 270 450 340"/><path d="M720 130 C620 215 540 270 450 340"/><path d="M170 540 C270 470 360 405 450 340"/><path d="M728 520 C620 470 540 390 450 340"/><path d="M450 610 C450 520 450 430 450 340"/></svg>
+        <div class="gnode x1"><b>INC-2047</b><small>incident · impact</small></div>
+        <div class="gnode x2"><b>LOCK-2047-001</b><small>blocking backend</small></div>
+        <div class="gnode x3"><b>CASE-7419</b><small>Acme Retail affected</small></div>
+        <div class="gnode x4"><b>RB-017</b><small>safe remediation</small></div>
+        <div class="gnode x5 center"><b>CHG-1842</b><small>confirmed cause</small></div>
+        <div class="gnode x6"><b>CHG-1838</b><small>ruled out</small></div>
+      </div>
+      <aside class="card panel inspector">
+        <div class="eyebrow">Selected evidence</div>
+        <h3>CHG-1842</h3>
+        <p class="small">Ordinary CREATE INDEX on orders(customer_id), executed against checkout-prod-cluster-01.</p>
+        <div class="signal"><label>Text rank</label><div class="bar"><i style="width:92%"></i></div><span class="score">#1</span></div>
+        <div class="signal"><label>Vector rank</label><div class="bar"><i style="width:66%"></i></div><span class="score">#4</span></div>
+        <div class="signal"><label>Fuzzy rank</label><div class="bar"><i style="width:95%"></i></div><span class="score">#1</span></div>
+        <div class="signal"><label>RRF</label><div class="bar"><i style="width:90%"></i></div><span class="score">0.0491</span></div>
+        <div class="links">
+          <div class="link">change_confirmed → INC-2047</div>
+          <div class="link">evidence_supports → LOCK-2047-001</div>
+          <div class="link">safe_fix → RB-017</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="c">
+  <div class="wrap">
+    <div class="eyebrow">Direction C · Query microscope</div>
+    <h1 class="h1">A split-screen <em>retrieval instrument.</em></h1>
+    <p class="deck">Best for hands-on labs: controls on the left, ranked candidates in the middle, explanation and SQL on the right.</p>
+    <div class="micro" style="margin-top:18px">
+      <aside class="card queryPanel">
+        <div class="eyebrow">Query</div>
+        <textarea>Why did CHG-1842 block checkout writes during INC-2047, which visible customer was affected, and what was the safe fix?</textarea>
+        <div class="switch"><button class="on">Hybrid</button><button>Lexical</button><button>Semantic</button><button>Fuzzy</button></div>
+        <div class="small" style="margin-top:14px">Principal</div><div class="pill">workshop</div>
+        <div class="small" style="margin-top:14px">Weights</div>
+        <div class="links"><div class="link">Text 2.0</div><div class="link">Vector 1.0</div><div class="link">Fuzzy 1.0</div><div class="link">k = 60</div></div>
+        <button class="btn red" style="margin-top:16px;width:100%">Run hybrid retrieval</button>
+      </aside>
+      <main class="card resultStack">
+        <div class="eyebrow">Candidate pool · persisted</div>
+        <div class="resultCard"><div class="badge">1</div><div><b>CHG-1842</b><div class="small">Ordinary CREATE INDEX on writer</div><div class="pill">confirmed cause</div></div><span class="score">0.0491</span></div>
+        <div class="resultCard"><div class="badge">2</div><div><b>INC-2047</b><div class="small">Checkout write outage</div><div class="pill">impact</div></div><span class="score">0.0483</span></div>
+        <div class="resultCard"><div class="badge">3</div><div><b>LOCK-2047-001</b><div class="small">Blocking PID snapshot</div><div class="pill">lock proof</div></div><span class="score">0.0478</span></div>
+        <div class="resultCard"><div class="badge">4</div><div><b>CASE-7419</b><div class="small">Acme Retail affected</div><div class="pill">visible customer</div></div><span class="score">0.0452</span></div>
+        <div class="resultCard"><div class="badge">5</div><div><b>RB-017</b><div class="small">Concurrent index build guidance</div><div class="pill">safe fix</div></div><span class="score">0.0439</span></div>
+      </main>
+      <aside class="card explain">
+        <div class="eyebrow">Why rank 1?</div>
+        <div class="signal"><label>Exact / FTS</label><div class="bar"><i style="width:95%"></i></div><span class="score">#1</span></div>
+        <div class="signal"><label>Semantic</label><div class="bar"><i style="width:64%"></i></div><span class="score">#4</span></div>
+        <div class="signal"><label>Fuzzy</label><div class="bar"><i style="width:95%"></i></div><span class="score">#1</span></div>
+        <div class="signal"><label>RRF</label><div class="bar"><i style="width:90%"></i></div><span class="score">0.0491</span></div>
+        <pre>RRF =
+2/(60+1)
++ 1/(60+4)
++ 1/(60+1)
+
+= 0.0491</pre>
+        <div class="callout">ACL and cluster filters ran inside every retrieval arm before fusion. CASE-7421 never entered the candidate pool.</div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="screen" id="d">
+  <div class="wrap replay">
+    <div>
+      <div class="eyebrow">Direction D · Replay theater</div>
+      <h1 class="h1">A chronological <em>run replay.</em></h1>
+      <p class="deck">Best for the closing demo: show exactly what happened, in order, from query through citation validation.</p>
+    </div>
+    <div class="stageStrip">
+      <div class="stageCard"><b>1 · Decompose</b><span>12 ms</span></div>
+      <div class="stageCard"><b>2 · Search</b><span>86 ms</span></div>
+      <div class="stageCard"><b>3 · Traverse</b><span>9 ms</span></div>
+      <div class="stageCard"><b>4 · Compare</b><span>6 ms</span></div>
+      <div class="stageCard"><b>5 · Explain</b><span>3 ms</span></div>
+      <div class="stageCard"><b>6 · Synthesize</b><span>1,240 ms</span></div>
+    </div>
+    <div class="card timeline">
+      <div class="trow"><span class="dot"></span><span class="time">00:00.000</span><div><div class="event">Question accepted</div><div class="sub">Principal workshop; cluster checkout-prod-cluster-01.</div></div><span class="status">OK</span></div>
+      <div class="trow"><span class="dot"></span><span class="time">00:00.012</span><div><div class="event">Deterministic plan created</div><div class="sub">Extracted CHG-1842 and INC-2047; five evidence kinds; time window applied.</div></div><span class="status">12 ms</span></div>
+      <div class="trow"><span class="dot"></span><span class="time">00:00.098</span><div><div class="event">24 candidates persisted</div><div class="sub">Exact/FTS + HNSW + trigram fused with weighted RRF.</div></div><span class="status">86 ms</span></div>
+      <div class="trow"><span class="dot"></span><span class="time">00:00.107</span><div><div class="event">Relationship graph traversed</div><div class="sub">9 edges; ACL checked at every hop.</div></div><span class="status">9 ms</span></div>
+      <div class="trow"><span class="dot"></span><span class="time">00:00.116</span><div><div class="event">Source comparison complete</div><div class="sub">CHG-1842 confirmed; CHG-1838 ruled out; CASE-7419 affected.</div></div><span class="status">9 ms</span></div>
+      <div class="trow"><span class="dot"></span><span class="time">00:01.356</span><div><div class="event">Cited answer validated</div><div class="sub">Five quotes resolve to exact document and chunk versions.</div></div><span class="status">VALID</span></div>
+    </div>
+    <div class="runMeta"><div class="metric"><b>rr_9b41d7</b><span>Run ID</span></div><div class="metric"><b>24</b><span>Candidates</span></div><div class="metric"><b>5</b><span>Citations</span></div><div class="metric"><b>0</b><span>Drift</span></div><div class="metric"><b>1.356s</b><span>Total</span></div></div>
+  </div>
+</section>
+
+<section class="screen" id="e">
+  <div class="wrap">
+    <div class="eyebrow">Direction E · Benchmark matrix</div>
+    <h1 class="h1">A retrieval <em>quality studio.</em></h1>
+    <p class="deck">Best for proving the thesis quantitatively: hybrid wins because each arm covers a different failure mode.</p>
+    <div class="benchTop" style="margin-top:18px">
+      <div class="modeCards">
+        <div class="modeCard"><b>Lexical</b><strong>0.76</strong><span>nDCG@10</span></div>
+        <div class="modeCard"><b>Semantic</b><strong>0.68</strong><span>nDCG@10</span></div>
+        <div class="modeCard"><b>Fuzzy</b><strong>0.41</strong><span>nDCG@10</span></div>
+        <div class="modeCard"><b>Hybrid</b><strong>0.87</strong><span>nDCG@10</span></div>
+        <div class="modeCard winner"><b>Hybrid + rerank</b><strong>0.91</strong><span>nDCG@10</span></div>
+      </div>
+      <div class="card pad">
+        <div class="eyebrow">Finding</div>
+        <p style="font:18px/1.6 var(--serif);margin:10px 0 0">Hybrid wins because exact IDs, symptom paraphrases, typos, and relationship questions fail in different ways.</p>
+      </div>
+    </div>
+    <div class="card pad" style="margin-top:16px">
+      <div class="eyebrow">Query-by-mode matrix</div>
+      <div class="tableWrap" style="margin-top:10px">
+        <table class="heat">
+          <tr><th>Query</th><th>Lexical</th><th>Semantic</th><th>Fuzzy</th><th>Hybrid</th><th>Hybrid + rerank</th><th>Primary lesson</th></tr>
+          <tr><td><strong>exact-change</strong></td><td class="good">0.98</td><td class="mid">0.58</td><td class="good">0.91</td><td class="good">0.99</td><td class="good">0.99</td><td>Exact ID belongs to lexical/fuzzy</td></tr>
+          <tr><td><strong>fuzzy-change-id</strong></td><td class="bad">0.10</td><td class="bad">0.18</td><td class="good">0.94</td><td class="good">0.95</td><td class="good">0.96</td><td>Trigram recovers CGH-1842</td></tr>
+          <tr><td><strong>semantic-symptom</strong></td><td class="mid">0.62</td><td class="good">0.89</td><td class="bad">0.05</td><td class="good">0.94</td><td class="good">0.96</td><td>Vectors bridge vocabulary mismatch</td></tr>
+          <tr><td><strong>customer-impact</strong></td><td class="mid">0.71</td><td class="mid">0.69</td><td class="bad">0.12</td><td class="good">0.90</td><td class="good">0.93</td><td>Retrieval + canonical edges</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+const buttons=[...document.querySelectorAll('.tabs button')];
+const screens=[...document.querySelectorAll('.screen')];
+function show(id){
+  buttons.forEach(b=>b.classList.toggle('on',b.dataset.id===id));
+  screens.forEach(s=>s.classList.toggle('on',s.id===id));
+  window.scrollTo(0,0);
+}
+buttons.forEach(b=>b.addEventListener('click',()=>show(b.dataset.id)));
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')return;
+  const m={'1':'a','2':'b','3':'c','4':'d','5':'e'};if(m[e.key])show(m[e.key]);
+});
+</script>
+</body>
+</html>

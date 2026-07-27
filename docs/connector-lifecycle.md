@@ -1,66 +1,106 @@
-# Connector lifecycle
+# search index Lifecycle
 
-Systems of record keep the work. A connector maintains an approved, rebuildable
-evidence projection in Aurora.
+This document separates the lifecycle implemented by the workshop from the
+connector responsibilities a production system would add.
 
-## Synchronization contract
+## Workshop Lifecycle
 
-Every connector maps source records into `SourceObject` and identifies itself
-with a stable `source_system` plus `source_name`.
+The deterministic corpus loader writes normalized `casework.*` rows, queues
+every source revision, and invokes one bulk search index build. The builder scans
+`casework.v_evidence_documents`, skips deterministic versions already ready,
+and completes matching outbox rows.
 
-| Mode | Use | Behavior |
+```text
+casework write
+    |
+    v
+outbox pending
+    |
+    v
+search index build running
+    |
+    +--> unchanged version -> skip -> outbox complete
+    |
+    +--> changed version -> chunks/embeddings -> promote -> outbox complete
+    |
+    +--> error -> build failed; readiness/drift checks fail
+```
+
+The current bulk command does not pretend to be a distributed connector
+scheduler. `claimed` exists in the outbox state model for a production worker,
+but the workshop builder does not need competing-consumer coordination.
+
+## Update
+
+An update must:
+
+1. modify the authoritative typed row and `evidence_items.source_revision`;
+2. call `casework.queue_evidence(evidence_id)` in the same transaction;
+3. render the source row deterministically;
+4. reuse embeddings for unchanged model-and-content hashes;
+5. create and promote a new document version only when the search index changes.
+
+The prior version is superseded, not deleted.
+
+## Deletion
+
+Set `is_deleted`, set `deleted_at`, advance the source revision, and queue the
+evidence item. The renderer excludes deleted rows; rebuild supersedes their
+current document. New search and traversal cannot see the item, while historical
+proof remains valid.
+
+## Readiness
+
+A corpus is ready only when:
+
+- each live source row has one current ready document;
+- current search document hashes and source revisions match;
+- no current document belongs to a deleted source;
+- every current chunk has a ready embedding in the expected model space;
+- the search index has zero drift issues.
+
+API `/ready` and `make doctor` call the database assertion rather than trusting
+a process-local flag.
+
+## Index Maintenance
+
+Ordinary inserts and updates maintain B-tree, GIN, trigram, and HNSW indexes.
+Do not run `REINDEX` after each source update.
+
+- For a large initial load, load data, create or validate indexes, and run
+  `ANALYZE`.
+- To change HNSW build parameters, build and validate a replacement index under
+  an operationally reviewed rollout.
+- Use concurrent index operations only after checking their PostgreSQL and
+  Aurora version constraints, transaction restrictions, disk requirements, and
+  failure behavior.
+- Treat corruption recovery and exceptional bloat as database operations, not
+  connector request work.
+
+## Production Connector Responsibilities
+
+A real source adapter must additionally own:
+
+- source authentication and least-privilege authorization;
+- a connector-scoped cursor or high-water mark;
+- idempotent retries and dead-letter handling;
+- bounded source reads, database writes, and embedding batches;
+- periodic full reconciliation;
+- transport receipts and source API rate limits;
+- live authorization revalidation where indexed ACLs are insufficient.
+
+Those responsibilities are deliberately outside the 60-minute workshop core.
+The extension point is the typed `casework` transaction plus outbox event, not a
+generic untyped source-object table.
+
+## Failure Handling
+
+| Failure | Current behavior | Recovery |
 |---|---|---|
-| `upsert` | webhook or incremental poll | inserts new objects and updates records present in the request |
-| `full` | initial load or periodic reconciliation | performs the upserts, then tombstones active records missing from the snapshot |
+| Missing embedding cache entry | Build fails before search index writes | Generate the missing vector explicitly or restore the release cache |
+| Model or network failure during generation | Build receipt is `failed` | Retry only after checking model access and cache state |
+| Per-document database error | Current transaction rolls back; build is marked failed | Correct the row/schema issue and rerun idempotently |
+| Process stops after partial progress | Promoted versions remain valid; remaining drift is visible | Rerun the search index builder and readiness assertion |
+| Source deletion | Old version is superseded | Preserve history; do not hard-delete referenced evidence |
 
-The connector cursor is stored in `ops.source_connectors.sync_cursor`. A cursor
-can be a Git revision, API continuation token, high-water timestamp, export
-manifest, or compound value appropriate to the source.
-
-## Change handling
-
-The ingestion path:
-
-1. Upserts normalized object metadata and source provenance.
-2. Compares the body hash and skips chunk work for unchanged content.
-3. Rechunks changed content and sets only changed chunk embeddings to `NULL`.
-4. Recreates citations for changed chunks.
-5. Tombstones missing objects during a full synchronization.
-6. Batches embeddings for the remaining `NULL` chunks.
-
-The source remains `indexing` while embeddings are pending and becomes `ready`
-only after its active chunks are embedded. Lexical retrieval can be ready before
-semantic retrieval; the ingestion response reports both states separately.
-
-Tombstoned rows remain available to historical foreign keys but are excluded
-from new retrieval and corpus diagnostics.
-
-## Index maintenance
-
-Normal `INSERT` and `UPDATE` operations maintain the generated `tsvector`, GIN,
-trigram, and HNSW indexes automatically. Do not run `REINDEX` after every
-connector sync.
-
-- **Incremental sync:** commit bounded batches and let PostgreSQL maintain the
-  indexes.
-- **Large initial load:** bulk load records and embeddings, build expensive
-  indexes after the load, then run `ANALYZE`. `seed/load.sh` demonstrates this.
-- **Changed HNSW build parameters:** build a replacement index and cut over after
-  validation.
-- **Corruption or exceptional bloat:** use operationally controlled concurrent
-  reindexing, not the connector request path.
-
-## Scaling the pattern
-
-- Partition connector work by source and cursor; never use one global cursor.
-- Make external IDs stable and repository-qualified so retries are idempotent.
-- Batch source reads, database writes, and embedding requests independently.
-- Apply backpressure and retry only transient source or model failures.
-- Run periodic full reconciliation even when webhooks provide the low-latency
-  delta path.
-- Persist source revision, content hash, connector run, and retrieval `run_id` so
-  freshness and answer provenance can be audited separately.
-- Keep source transport explicit. A local working-tree snapshot, an immutable
-  GitHub commit, a webhook delta, and an API export are different receipts even
-  when they normalize into the same objects.
-- Revalidate mutable state and perform writes in the source system.
+No failure path fabricates embeddings, source revisions, or citations.

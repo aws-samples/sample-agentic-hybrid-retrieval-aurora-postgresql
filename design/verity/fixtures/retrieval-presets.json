@@ -1,0 +1,242 @@
+{
+  "semantic-symptom": {
+    "run_id": "RUN-7001",
+    "label": "semantic symptom, no identifier in the query",
+    "query": "Why were checkout writes hanging while reads still worked?",
+    "request": {
+      "query": "Why were checkout writes hanging while reads still worked?",
+      "principal": {
+        "scopes": [
+          "workshop"
+        ],
+        "principals": []
+      },
+      "filters": {
+        "cluster_id": "checkout-prod-01"
+      },
+      "controls": {
+        "mode": "hybrid",
+        "candidate_pool": 24,
+        "rrf_k": 60,
+        "text_weight": 2.0,
+        "vector_weight": 1.0,
+        "fuzzy_weight": 1.0,
+        "fuzzy_threshold": 0.3,
+        "ef_search": 40,
+        "iterative_scan": "strict_order",
+        "rerank": false
+      }
+    },
+    "expected_fused_order": [
+      "INC-2000",
+      "LOCK-3000",
+      "CASE-4000",
+      "INC-2001",
+      "LOCK-3001",
+      "CHG-1000"
+    ],
+    "expected_arm_positions": {
+      "INC-2000": {
+        "text": 1,
+        "vector": 1,
+        "fuzzy": null
+      },
+      "LOCK-3000": {
+        "text": 3,
+        "vector": 2,
+        "fuzzy": null
+      },
+      "CASE-4000": {
+        "text": 2,
+        "vector": 6,
+        "fuzzy": null
+      },
+      "INC-2001": {
+        "text": 4,
+        "vector": 5,
+        "fuzzy": null
+      },
+      "LOCK-3001": {
+        "text": null,
+        "vector": 3,
+        "fuzzy": null
+      },
+      "CHG-1000": {
+        "text": null,
+        "vector": 4,
+        "fuzzy": null
+      }
+    }
+  },
+  "exact-change": {
+    "run_id": "RUN-7002",
+    "label": "exact identifier lookup",
+    "query": "What did CHG-1000 change?",
+    "request": {
+      "query": "What did CHG-1000 change?",
+      "principal": {
+        "scopes": [
+          "workshop"
+        ],
+        "principals": []
+      },
+      "filters": {
+        "cluster_id": "checkout-prod-01"
+      },
+      "controls": {
+        "mode": "hybrid",
+        "candidate_pool": 24,
+        "rrf_k": 60,
+        "text_weight": 2.0,
+        "vector_weight": 1.0,
+        "fuzzy_weight": 1.0,
+        "fuzzy_threshold": 0.3,
+        "ef_search": 40,
+        "iterative_scan": "strict_order",
+        "rerank": false
+      }
+    },
+    "expected_fused_order": [
+      "CHG-1000",
+      "INC-2000",
+      "CHG-1002",
+      "LOCK-3000"
+    ],
+    "expected_arm_positions": {
+      "CHG-1000": {
+        "text": 1,
+        "vector": 1,
+        "fuzzy": null
+      },
+      "INC-2000": {
+        "text": 2,
+        "vector": 3,
+        "fuzzy": null
+      },
+      "CHG-1002": {
+        "text": 4,
+        "vector": 2,
+        "fuzzy": null
+      },
+      "LOCK-3000": {
+        "text": 3,
+        "vector": 4,
+        "fuzzy": null
+      }
+    }
+  },
+  "fuzzy-change-id": {
+    "run_id": "RUN-7003",
+    "label": "typo recovery: CGH-1000 does not resolve exactly",
+    "query": "Did CGH-1000 cause INC-2000?",
+    "request": {
+      "query": "Did CGH-1000 cause INC-2000?",
+      "principal": {
+        "scopes": [
+          "workshop"
+        ],
+        "principals": []
+      },
+      "filters": {
+        "cluster_id": "checkout-prod-01"
+      },
+      "controls": {
+        "mode": "hybrid",
+        "candidate_pool": 24,
+        "rrf_k": 60,
+        "text_weight": 2.0,
+        "vector_weight": 1.0,
+        "fuzzy_weight": 1.0,
+        "fuzzy_threshold": 0.3,
+        "ef_search": 40,
+        "iterative_scan": "strict_order",
+        "rerank": false
+      }
+    },
+    "expected_fused_order": [
+      "CHG-1000",
+      "INC-2000",
+      "LOCK-3000",
+      "LOCK-3001"
+    ],
+    "expected_arm_positions": {
+      "CHG-1000": {
+        "text": 3,
+        "vector": 3,
+        "fuzzy": 1
+      },
+      "INC-2000": {
+        "text": 1,
+        "vector": 1,
+        "fuzzy": null
+      },
+      "LOCK-3000": {
+        "text": 2,
+        "vector": 2,
+        "fuzzy": null
+      },
+      "LOCK-3001": {
+        "text": null,
+        "vector": 4,
+        "fuzzy": null
+      }
+    }
+  },
+  "customer-impact": {
+    "run_id": "RUN-7004",
+    "label": "customer impact under ACL",
+    "query": "Which customer was affected by INC-2000?",
+    "request": {
+      "query": "Which customer was affected by INC-2000?",
+      "principal": {
+        "scopes": [
+          "workshop"
+        ],
+        "principals": []
+      },
+      "filters": {
+        "cluster_id": "checkout-prod-01"
+      },
+      "controls": {
+        "mode": "hybrid",
+        "candidate_pool": 24,
+        "rrf_k": 60,
+        "text_weight": 2.0,
+        "vector_weight": 1.0,
+        "fuzzy_weight": 1.0,
+        "fuzzy_threshold": 0.3,
+        "ef_search": 40,
+        "iterative_scan": "strict_order",
+        "rerank": false
+      }
+    },
+    "expected_fused_order": [
+      "CASE-4000",
+      "INC-2000",
+      "CASE-4002",
+      "COMMIT-6000"
+    ],
+    "expected_arm_positions": {
+      "CASE-4000": {
+        "text": 2,
+        "vector": 1,
+        "fuzzy": null
+      },
+      "INC-2000": {
+        "text": 1,
+        "vector": 4,
+        "fuzzy": null
+      },
+      "CASE-4002": {
+        "text": 3,
+        "vector": 2,
+        "fuzzy": null
+      },
+      "COMMIT-6000": {
+        "text": null,
+        "vector": 3,
+        "fuzzy": null
+      }
+    }
+  }
+}

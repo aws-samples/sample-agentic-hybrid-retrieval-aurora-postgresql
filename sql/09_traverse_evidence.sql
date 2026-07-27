@@ -1,6 +1,9 @@
+DROP FUNCTION IF EXISTS retrieval.traverse_evidence(uuid[], integer);
+
 CREATE OR REPLACE FUNCTION retrieval.traverse_evidence(
   p_seed_evidence_ids uuid[],
-  p_max_depth integer DEFAULT 3
+  p_max_depth integer DEFAULT 3,
+  p_principal jsonb DEFAULT NULL
 )
 RETURNS TABLE (
   evidence_id uuid,
@@ -27,19 +30,17 @@ WITH RECURSIVE walk AS (
     NULL::text AS via_origin,
     NULL::numeric AS via_confidence
   FROM unnest(p_seed_evidence_ids) AS seed(evidence_id)
+  JOIN casework.evidence_items seed_item
+    ON seed_item.evidence_id = seed.evidence_id
+   AND NOT seed_item.is_deleted
+   AND retrieval.acl_visible(seed_item.acl, p_principal)
 
   UNION ALL
 
   SELECT
-    CASE
-      WHEN edge.from_evidence_id = walk.evidence_id THEN edge.to_evidence_id
-      ELSE edge.from_evidence_id
-    END AS evidence_id,
+    neighbor.evidence_id,
     walk.depth + 1,
-    walk.path || CASE
-      WHEN edge.from_evidence_id = walk.evidence_id THEN edge.to_evidence_id
-      ELSE edge.from_evidence_id
-    END,
+    walk.path || neighbor.evidence_id,
     edge.edge_key,
     edge.relation,
     edge.origin,
@@ -48,13 +49,18 @@ WITH RECURSIVE walk AS (
   JOIN retrieval.evidence_edges edge
     ON edge.from_evidence_id = walk.evidence_id
     OR edge.to_evidence_id = walk.evidence_id
+  CROSS JOIN LATERAL (
+    SELECT CASE
+      WHEN edge.from_evidence_id = walk.evidence_id THEN edge.to_evidence_id
+      ELSE edge.from_evidence_id
+    END AS evidence_id
+  ) neighbor
+  JOIN casework.evidence_items neighbor_item
+    ON neighbor_item.evidence_id = neighbor.evidence_id
+   AND NOT neighbor_item.is_deleted
+   AND retrieval.acl_visible(neighbor_item.acl, p_principal)
   WHERE walk.depth < greatest(0, least(p_max_depth, 8))
-    AND NOT (
-      CASE
-        WHEN edge.from_evidence_id = walk.evidence_id THEN edge.to_evidence_id
-        ELSE edge.from_evidence_id
-      END = ANY(walk.path)
-    )
+    AND NOT neighbor.evidence_id = ANY(walk.path)
 ),
 best_path AS (
   SELECT DISTINCT ON (walk.evidence_id)

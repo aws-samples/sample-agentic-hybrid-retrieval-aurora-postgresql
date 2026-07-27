@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verity — Scale &amp; Capacity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FAF4EC; --ink:#211C16; --ink-soft:#584F45; --muted:#94897C;
+  --hair:#E9DFD2; --red:#C13A26; --red-deep:#9E2F1E; --wash:#FBEDE8;
+  --green:#2E7D54; --blush:#F7E2D6; --card-bd:rgba(33,28,22,.07); --clay:#DE9C7C;
+  --amber:#8A5A2B;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:hidden}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:var(--paper) radial-gradient(1100px 700px at 94% -10%, var(--blush) 0%, rgba(247,226,214,0) 62%) no-repeat;
+  color:var(--ink);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.wrap{max-width:1280px;margin:0 auto;padding:0 26px}
+a{color:inherit;text-decoration:none}
+.chrome{display:flex;align-items:center;gap:20px;padding:16px 0;border-bottom:1px solid var(--hair);flex-wrap:wrap}
+.wordmark{display:flex;align-items:center;gap:9px;font:600 12.5px "IBM Plex Mono";letter-spacing:.24em}
+.omnibox{flex:1;min-width:220px;max-width:520px;display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--card-bd);border-radius:10px;padding:8px 12px;font-family:"IBM Plex Mono";font-size:12px;color:var(--ink-soft);box-shadow:0 1px 2px rgba(33,28,22,.04)}
+.omnibox kbd{margin-left:auto;font:11px "IBM Plex Mono";color:var(--muted);border:1px solid var(--hair);border-radius:6px;padding:0 6px;background:var(--paper)}
+.topnav{display:flex;gap:18px;font-size:13px;color:var(--ink-soft)}
+.topnav a{position:relative;padding:4px 0}
+.topnav a.on{color:var(--ink);font-weight:600}
+.topnav a.on::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:2px;background:var(--red)}
+.who{display:flex;align-items:center;gap:10px;margin-left:auto}
+.avatar{width:29px;height:29px;border-radius:50%;background:var(--ink);color:var(--paper);display:grid;place-items:center;font:600 12px Inter}
+.klabel{font:600 10px "IBM Plex Mono";letter-spacing:.16em;text-transform:uppercase;color:var(--red)}
+.pill{display:inline-block;font:500 10.5px "IBM Plex Mono";border:1px solid var(--hair);border-radius:999px;padding:1px 8px;background:#fff;color:var(--ink-soft);white-space:nowrap}
+.card{background:#fff;border:1px solid var(--card-bd);border-radius:16px;box-shadow:0 1px 2px rgba(33,28,22,.04),0 10px 30px rgba(33,28,22,.06)}
+.seg{display:inline-flex;border:1px solid var(--hair);border-radius:10px;background:#fff;overflow:hidden}
+.seg button{border:0;background:transparent;cursor:pointer;font:500 11.5px "IBM Plex Mono";color:var(--ink-soft);padding:6px 11px}
+.seg button.on{background:var(--ink);color:var(--paper)}
+.hero{padding:30px 0 16px}
+.hero h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:33px;letter-spacing:-.01em;margin:8px 0 6px}
+.hero h1 em{font-style:italic;font-weight:500;color:var(--red-deep)}
+.hero .deck{color:var(--ink-soft);max-width:700px}
+
+.ctl{padding:15px 16px;margin-top:12px}
+.ctlgrid{display:grid;grid-template-columns:1.3fr 1.3fr 1fr;gap:18px;align-items:end}
+.sl label{display:block;font:600 9.5px "IBM Plex Mono";letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.sl input[type=range]{width:100%;accent-color:var(--red)}
+.sl .rd{font:600 11.5px "IBM Plex Mono";color:var(--ink);margin-top:3px}
+.sl .rd span{color:var(--muted);font-weight:400}
+.ctl2{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:13px;padding-top:12px;border-top:1px dashed var(--hair)}
+
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:14px}
+.st{border:1px solid var(--card-bd);border-radius:12px;background:#fff;padding:12px 13px;box-shadow:0 1px 2px rgba(33,28,22,.04)}
+.st .t{font:600 9px "IBM Plex Mono";letter-spacing:.13em;color:var(--red)}
+.st b{display:block;font:600 20px "IBM Plex Mono";color:var(--ink);margin:3px 0 1px}
+.st span{font:400 10px "IBM Plex Mono";color:var(--muted);line-height:1.4;display:block}
+.st.warn{border-color:rgba(193,58,38,.3);background:var(--wash)}
+.st.warn b{color:var(--red-deep)}
+.st.ok .t{color:var(--green)}
+
+.duo{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:16px;align-items:start}
+.pad{padding:15px 16px}
+.memwrap{margin-top:10px}
+.membar{height:26px;border:1px solid var(--hair);border-radius:8px;background:var(--paper);overflow:hidden;display:flex}
+.membar i{display:block;height:100%}
+.membar .idx{background:var(--red)}
+.membar .idxo{background:var(--clay)}
+.memlbl{display:flex;justify-content:space-between;font:400 10px "IBM Plex Mono";color:var(--muted);margin-top:5px}
+.adv{margin-top:12px;display:grid;gap:8px}
+.ad{display:flex;gap:9px;font-size:12.5px;line-height:1.55;padding:9px 11px;border-radius:10px;border:1px solid var(--hair);background:var(--paper);color:var(--ink-soft)}
+.ad b{color:var(--ink)}
+.ad.hot{border-color:rgba(193,58,38,.3);background:var(--wash);color:var(--red-deep)}
+.ad.hot b{color:var(--red-deep)}
+.ad.good{border-color:rgba(46,125,84,.28);background:#EEF6F1;color:var(--green)}
+.ad.good b{color:var(--green)}
+.ad .m{font:600 10px "IBM Plex Mono";flex:none;padding-top:1px}
+
+.ovf{margin-top:10px}
+.ovf svg{width:100%;height:auto}
+.ovfcap{margin-top:8px;font:400 10.5px "IBM Plex Mono";color:var(--muted);line-height:1.55}
+
+.bld{margin-top:16px;padding:15px 16px}
+.bldgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:9px}
+.bc{border:1px solid var(--card-bd);border-radius:12px;padding:12px 13px;background:#fff}
+.bc .t{font:600 9.5px "IBM Plex Mono";letter-spacing:.12em;color:var(--red);margin-bottom:4px}
+.bc .d{font-size:11.5px;color:var(--ink-soft);line-height:1.55}
+.bc .d b{color:var(--ink)}
+.bldnote{margin-top:11px;font-size:12.5px;color:var(--ink-soft);line-height:1.6}
+.bldnote b{color:var(--ink)}
+.modelnote{margin-top:14px;padding:11px 14px;border:1px dashed rgba(193,58,38,.4);border-radius:12px;background:#fff;font:400 11px "IBM Plex Mono";color:var(--ink-soft);line-height:1.6}
+.modelnote b{color:var(--red-deep)}
+footer{margin-top:34px;border-top:1px solid var(--hair);padding:20px 0 44px;display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between;color:var(--muted);font:400 11px "IBM Plex Mono"}
+@media (max-width:980px){.stats{grid-template-columns:repeat(2,1fr)}.duo{grid-template-columns:1fr}.ctlgrid{grid-template-columns:1fr}.bldgrid{grid-template-columns:1fr}}
+@media (max-width:780px){.hero h1{font-size:26px}.omnibox{order:9;max-width:none;flex-basis:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="chrome">
+    <a class="wordmark" href="verity-ask.html">
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="6.6" stroke="#C13A26" stroke-width="1.5"/><path d="M1.5 11.5 C5.5 7.5, 11 10.5, 15.5 4.5" stroke="#C13A26" stroke-width="1.5" stroke-dasharray="3.5 3"/></svg>
+      VERITY
+    </a>
+    <div class="omnibox mono"><span style="color:var(--red)">›</span><span>capacity model — HNSW · filters · Aurora</span><kbd>⌘K</kbd></div>
+    <nav class="topnav">
+      <a href="verity-ask.html">Ask</a><a href="verity-lab.html">Lab</a>
+      <a href="verity-fusion.html">Fusion</a><a href="verity-plan.html">Plan</a>
+      <a href="verity-eval.html">Eval</a><a href="verity-graph.html">Graph</a>
+      <a class="on" href="verity-scale.html">Scale</a>
+    </nav>
+    <div class="who"><span class="pill">principal: workshop</span><div class="avatar">S</div></div>
+  </header>
+
+  <section class="hero">
+    <div class="klabel">DAT410 · Concept 07 — Scale &amp; Capacity</div>
+    <h1>The lab fits in memory. <em>Production won't.</em></h1>
+    <p class="deck">Twelve thousand documents is the right size for a predictable 60 minutes — and exactly why the room will ask what happens at a thousand times that. Here is the answer, as a model you can argue with.</p>
+  </section>
+
+  <div class="card ctl">
+    <div class="ctlgrid">
+      <div class="sl">
+        <label>corpus — chunks</label>
+        <input type="range" id="s-n" min="0" max="100" value="0">
+        <div class="rd" id="rd-n">48,226 <span>· 12,011 docs · workshop lab</span></div>
+      </div>
+      <div class="sl">
+        <label>filter selectivity — rows passing ACL + cluster + window</label>
+        <input type="range" id="s-sel" min="2" max="100" value="40">
+        <div class="rd" id="rd-sel">40% <span>· moderate</span></div>
+      </div>
+      <div class="sl">
+        <label>ef_search</label>
+        <input type="range" id="s-ef" min="10" max="200" step="5" value="40">
+        <div class="rd" id="rd-ef">40 <span>· recall@24 ≈ 94.8%</span></div>
+      </div>
+    </div>
+    <div class="ctl2">
+      <span class="klabel" style="color:var(--muted)">instance</span>
+      <div class="seg" id="seg-i">
+        <button data-v="4" class="on">r7g.xlarge · 32 GiB</button>
+        <button data-v="16">r7g.4xlarge · 128 GiB</button>
+        <button data-v="64">r7g.16xlarge · 512 GiB</button>
+      </div>
+      <span class="klabel" style="color:var(--muted)">optimized reads</span>
+      <div class="seg" id="seg-o"><button class="on" data-v="off">off</button><button data-v="on">on</button></div>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="duo">
+    <div class="card pad">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="klabel">Working set vs buffer pool</span><span class="pill" id="pool-pill">—</span></div>
+      <div class="memwrap">
+        <div class="membar"><i class="idx" id="bar-idx" style="width:10%"></i><i class="idxo" id="bar-ovf" style="width:0%"></i></div>
+        <div class="memlbl"><span id="lbl-l">HNSW index</span><span id="lbl-r">buffer pool ≈ 0 GiB (75% of RAM)</span></div>
+      </div>
+      <div class="adv" id="adv"></div>
+    </div>
+
+    <div class="card pad">
+      <span class="klabel">Filtered search — overfetch under iterative scan</span>
+      <div class="ovf">
+        <svg viewBox="0 0 320 132" xmlns="http://www.w3.org/2000/svg">
+          <line x1="34" y1="10" x2="34" y2="108" stroke="#E9DFD2"/>
+          <line x1="34" y1="108" x2="310" y2="108" stroke="#E9DFD2"/>
+          <text x="4" y="14" font-family="IBM Plex Mono" font-size="8.5" fill="#94897C">×20</text>
+          <text x="8" y="110" font-family="IBM Plex Mono" font-size="8.5" fill="#94897C">×1</text>
+          <text x="30" y="122" font-family="IBM Plex Mono" font-size="8.5" fill="#94897C">2%</text>
+          <text x="160" y="122" font-family="IBM Plex Mono" font-size="8.5" fill="#94897C">50%</text>
+          <text x="288" y="122" font-family="IBM Plex Mono" font-size="8.5" fill="#94897C">100%</text>
+          <path id="ovfpath" fill="none" stroke="#C13A26" stroke-width="1.6"/>
+          <circle id="ovfdot" r="4" fill="#FAF4EC" stroke="#C13A26" stroke-width="1.8"/>
+        </svg>
+      </div>
+      <div class="ovfcap" id="ovfcap"></div>
+    </div>
+  </div>
+
+  <div class="card bld">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="klabel">Getting the index built — without becoming INC-2047</span>
+      <span class="pill" id="bld-pill">—</span>
+    </div>
+    <div class="bldgrid">
+      <div class="bc"><div class="t">ORDINARY CREATE INDEX</div><div class="d">Takes <b>SHARE</b> on the table: reads proceed, writes queue on <b>Lock:relation</b>. This is the incident the corpus documents — and the reason the runbook exists.</div></div>
+      <div class="bc"><div class="t">CONCURRENTLY (RB-017)</div><div class="d">Two table passes, ~<b id="cic-t">2×</b> the build time, no write blocking. Cannot run inside a transaction block; a failed build leaves an <b>INVALID</b> index that must be dropped.</div></div>
+      <div class="bc"><div class="t">BLUE/GREEN</div><div class="d">Build on the green cluster, verify recall against the eval set, then switch. The right answer once the build outgrows any acceptable window.</div></div>
+    </div>
+    <p class="bldnote" id="bldnote"></p>
+  </div>
+
+  <div class="modelnote">
+    <b>This is a model, not a measurement.</b> Sizing assumes 1,024-d float32 (4 KiB/vector) plus HNSW graph links at m=16; build throughput, cache-miss penalties, and the overfetch curve are parameterized estimates. Latency here covers the vector arm only — the lexical and trigram arms scale on their own GIN curves. Replace every number on this screen with release-gate #6 output from the target Aurora engine before it goes near a slide.
+  </div>
+
+  <footer>
+    <span>VERITY · DAT410 concept set · synthetic corpus (workshop:// URIs)</span>
+    <span>modeled projections · scores are diagnostics, not probabilities</span>
+  </footer>
+</div>
+
+<script>
+const el = id => document.getElementById(id);
+const LAB_CHUNKS = 48226, CHUNKS_PER_DOC = 4.015;
+const BYTES_PER_CHUNK = 4096 + 288;           // 1024-d float32 + m=16 graph links
+const st = {n:LAB_CHUNKS, sel:0.40, ef:40, ramGiB:32, or:false};
+
+const fmtInt = n => Math.round(n).toLocaleString("en-US");
+const fmtGiB = g => g < 1 ? (g*1024).toFixed(0)+" MiB" : g.toFixed(g<10?2:1)+" GiB";
+const fmtDur = s => s < 90 ? s.toFixed(0)+" s" : s < 5400 ? (s/60).toFixed(s<600?1:0)+" min" : (s/3600).toFixed(1)+" h";
+// slider 0..100 -> 48,226 .. 50,000,000 chunks (log)
+const sliderToN = v => Math.round(LAB_CHUNKS * Math.pow(50e6/LAB_CHUNKS, v/100));
+
+function model(){
+  const {n, sel, ef, ramGiB, or} = st;
+  const idxGiB   = n * BYTES_PER_CHUNK / 1073741824;
+  const poolGiB  = ramGiB * 0.75;
+  const fits     = idxGiB <= poolGiB;
+  const missPen  = fits ? 1 : (or ? 3.2 : 9.0);
+  const buildS   = n / 2800;                                   // parallel maintenance workers
+  const scaleF   = Math.log2(n) / Math.log2(LAB_CHUNKS);       // HNSW ~ log(n)
+  const baseMs   = (0.9 + ef*0.0725) * scaleF;
+  const ovf      = 1 + (1/sel - 1) * 0.40;                     // iterative-scan resume cost
+  const vecMs    = baseMs * missPen * ovf;
+  const recall   = 1 - 0.9*Math.exp(-ef/14);
+  const docs     = n / CHUNKS_PER_DOC;
+  return {n, idxGiB, poolGiB, fits, missPen, buildS, baseMs, ovf, vecMs, recall, docs, or};
+}
+
+function advisories(m){
+  const a = [];
+  const spillN = m.poolGiB * 1073741824 / BYTES_PER_CHUNK;
+  if(!m.fits && !m.or) a.push(["hot","CACHE","<b>HNSW exceeds the buffer pool.</b> Pages fall to storage on every probe — modeled at ~9× in-memory. Enable Optimized Reads for an NVMe tier, or size the instance up."]);
+  else if(!m.fits && m.or) a.push(["","CACHE","<b>Served from the Optimized Reads NVMe tier</b> — modeled at ~3× in-memory, not the ~9× storage penalty. Survivable cache keeps it warm across a failover, so no cold HNSW after a promote."]);
+  else a.push(["good","CACHE",`<b>Index fits the buffer pool</b> with ${fmtGiB(m.poolGiB-m.idxGiB)} of headroom — this instance spills at roughly <b>${fmtInt(spillN)}</b> chunks (~${fmtInt(spillN/CHUNKS_PER_DOC)} documents). Optimized Reads changes nothing until then.`]);
+
+  if(st.sel < 0.10) a.push(["hot","FILTER","<b>Highly selective filter.</b> Post-filter shortfall makes iterative scan resume repeatedly (×"+m.ovf.toFixed(1)+" modeled). Consider partial HNSW indexes per cluster, or pre-filtering to a materialized subset."]);
+  else if(st.sel < 0.35) a.push(["","FILTER","Moderate selectivity — <b>relaxed_order</b> absorbs the shortfall in roughly one resume. Watch the ordering caveat: relaxed order trades exact distance ordering for recall."]);
+  else a.push(["good","FILTER","Broad filter — most probed neighbors survive, so overfetch is near ×1."]);
+
+  if(m.buildS > 1800) a.push(["hot","BUILD","<b>Build exceeds any sane maintenance window.</b> Blue/green is the answer; CONCURRENTLY alone won't save you at "+fmtDur(m.buildS*2)+"."]);
+  else if(m.buildS > 300) a.push(["","BUILD","Build is long enough to matter — use <b>CONCURRENTLY</b> (RB-017) and expect roughly "+fmtDur(m.buildS*2)+"."]);
+
+  if(m.n > 2e6) a.push(["","AURORA","At this scale, route retrieval to <b>reader endpoints</b> and keep the writer for casework and the projection outbox. Add readers for concurrency, not for index size."]);
+  return a;
+}
+
+function render(){
+  const m = model();
+  el("rd-n").innerHTML = fmtInt(m.n) + ` <span>· ${fmtInt(m.docs)} docs${m.n<=LAB_CHUNKS*1.02?" · workshop lab":""}</span>`;
+  el("rd-sel").innerHTML = Math.round(st.sel*100) + `% <span>· ${st.sel<0.10?"highly selective":st.sel<0.35?"moderate":"broad"}</span>`;
+  el("rd-ef").innerHTML = st.ef + ` <span>· recall@24 ≈ ${(m.recall*100).toFixed(1)}%</span>`;
+
+  el("stats").innerHTML = [
+    ["","HNSW INDEX", fmtGiB(m.idxGiB), "1,024-d float32 + m=16 links"],
+    ["","BUILD TIME", fmtDur(m.buildS), "ordinary · CONCURRENTLY ≈ " + fmtDur(m.buildS*2)],
+    [m.fits?"ok":"warn", m.fits?"FITS CACHE":"EXCEEDS POOL", m.fits?"in memory":"×"+m.missPen.toFixed(1),
+      m.fits?"index ≤ 75% of RAM":(m.or?"NVMe tiered cache":"storage reads")],
+    [st.sel<0.10?"warn":"", "OVERFETCH", "×"+m.ovf.toFixed(1), "iterative_scan = relaxed_order"],
+    [m.vecMs>50?"warn":"", "VECTOR ARM p50", m.vecMs.toFixed(1)+" ms", "modeled · lexical + trigram not included"]
+  ].map(([cls,t,b,s])=>`<div class="st ${cls}"><div class="t">${t}</div><b>${b}</b><span>${s}</span></div>`).join("");
+
+  const shown = Math.min(m.idxGiB, m.poolGiB), over = Math.max(0, m.idxGiB - m.poolGiB);
+  const denom = Math.max(m.idxGiB, m.poolGiB);
+  el("bar-idx").style.width = (shown/denom*100) + "%";
+  el("bar-ovf").style.width = (over/denom*100) + "%";
+  el("lbl-l").textContent = "HNSW " + fmtGiB(m.idxGiB) + (over>0 ? " · " + fmtGiB(over) + " beyond pool" : "");
+  el("lbl-r").textContent = "buffer pool ≈ " + fmtGiB(m.poolGiB) + " (75% of RAM)";
+  el("pool-pill").textContent = m.fits ? "resident" : (m.or ? "tiered · NVMe" : "spilling to storage");
+
+  el("adv").innerHTML = advisories(m).map(([cls,mk,txt])=>
+    `<div class="ad ${cls}"><span class="m">${mk}</span><span>${txt}</span></div>`).join("");
+
+  // overfetch curve
+  const OX = s => 34 + (s-0.02)/0.98*276, OY = f => 108 - (f-1)/19*98;
+  let d = "";
+  for(let s=0.02; s<=1.0001; s+=0.02){ const f = 1 + (1/s - 1)*0.40; d += (d?"L":"M") + OX(s).toFixed(1) + " " + Math.max(OY(f),8).toFixed(1) + " "; }
+  el("ovfpath").setAttribute("d", d.trim());
+  el("ovfdot").setAttribute("cx", OX(st.sel));
+  el("ovfdot").setAttribute("cy", Math.max(OY(m.ovf), 8));
+  el("ovfcap").innerHTML = `At ${Math.round(st.sel*100)}% selectivity the scan must reach roughly <b>${Math.round(24/st.sel)}</b> neighbors to return 24 that survive the filter — modeled at ×${m.ovf.toFixed(1)} on the vector arm, since a resume costs less than a fresh scan. This is the curve that decides whether per-tenant partial indexes are worth it.`;
+
+  el("cic-t").textContent = "2× (" + fmtDur(m.buildS*2) + ")";
+  el("bld-pill").textContent = "at " + fmtInt(m.n) + " chunks";
+  el("bldnote").innerHTML = m.buildS > 1800
+    ? `<b>At this scale, index maintenance is the operational risk</b> — not query latency. A ${fmtDur(m.buildS*2)} concurrent build spans peak traffic, so build green and switch.`
+    : m.buildS > 300
+      ? `A ${fmtDur(m.buildS*2)} concurrent build is survivable off-peak — but note the build itself is the failure mode the corpus is about. Monitor <b>pg_stat_progress_create_index</b> and have the INVALID-index cleanup ready.`
+      : `At lab scale the whole index rebuilds in ${fmtDur(m.buildS)} — which is exactly why participants can drop and rebuild it during the session without fear.`;
+}
+
+el("s-n").addEventListener("input", e=>{ st.n = sliderToN(+e.target.value); render(); });
+el("s-sel").addEventListener("input", e=>{ st.sel = +e.target.value/100; render(); });
+el("s-ef").addEventListener("input", e=>{ st.ef = +e.target.value; render(); });
+function seg(id, fn){ const b=el(id);
+  b.querySelectorAll("button").forEach(x=>x.addEventListener("click",()=>{
+    b.querySelectorAll("button").forEach(y=>y.classList.remove("on"));
+    x.classList.add("on"); fn(x.dataset.v); render();
+  }));
+}
+seg("seg-i", v=>st.ramGiB = +v*8);
+seg("seg-o", v=>st.or = v==="on");
+render();
+</script>
+</body>
+</html>

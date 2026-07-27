@@ -1,99 +1,94 @@
 ---
 name: extend-hybrid-retrieval
-description: Extend and diagnose Verity's Aurora PostgreSQL hybrid retrieval system. Use for source connectors, SourceObject ingestion, full-text or pgvector retrieval, pg_trgm fuzzy matching, RRF and SQL scoring, filters and ACLs, Cohere reranking, citations, retrieval receipts, evaluation, or failures where exact identifiers and semantic evidence rank incorrectly.
+description: Extend and diagnose Verity's Aurora PostgreSQL incident-evidence retrieval. Use for search index builds, full-text or pgvector retrieval, pg_trgm fuzzy matching, filters and ACLs, weighted RRF, Cohere reranking, citations, receipts, traversal, or evaluation.
 ---
 
 # Extend Hybrid Retrieval
 
-Preserve one canonical retrieval implementation and its evidence receipts while
-changing sources, signals, weights, or agent-facing contracts.
+Preserve one canonical retrieval implementation, one derived search index, and
+replayable proof while changing evidence, signals, weights, or agent contracts.
 
 ## 1. Classify the Evidence Path
 
-Before editing code, classify each requested interaction:
-
 | Path | Choose it when |
 |---|---|
-| **Materialize** | Approved evidence must participate in low-latency cross-source ranking, joins, citations, evaluation, or replay. |
-| **Federate** | A source already exposes a suitable search, API, or MCP service, or its content should remain outside Aurora. |
-| **Revalidate live** | State is volatile, permission-sensitive, or will drive a mutation or other action. |
+| **Materialize** | Approved evidence must participate in low-latency ranking, joins, citations, evaluation, or replay. |
+| **Federate** | A source already exposes suitable search or its content should remain outside Aurora. |
+| **Revalidate live** | State is volatile, permission-sensitive, or will drive an action. |
 
-One answer may combine all three. State the choice and its required receipt
-before implementing.
+The workshop implements the materialized path. Do not simulate an unimplemented
+connector or mutation.
 
 ## 2. Read the Owning Contract
 
-Read only the references needed for the task:
-
-- Source or synchronization change: `docs/ingestion-api.md`,
-  `docs/connector-lifecycle.md`, `backend/app/models.py`,
-  `backend/app/ingest.py`, and the relevant file in `connectors/`.
+- Source or search index change: `docs/ingestion-api.md`,
+  `docs/connector-lifecycle.md`, `casework.v_evidence_documents` in
+  `sql/01_schema.sql`, `backend/app/search_index.py`, and `seed/corpus.py`.
 - Retrieval or scoring change: `sql/03_search_functions.sql`,
   `backend/app/search.py`, and `backend/app/models.py`.
 - Citation or answer change: `backend/app/agent.py`,
-  `backend/app/synthesis.py`, and `sql/04_diagnostics.sql`.
+  `backend/app/synthesis.py`, `sql/04_diagnostics.sql`, and
+  `sql/06_receipts.sql`.
 - Evaluation change: `backend/app/evaluation.py`, `sql/05_evaluation.sql`, and
-  `sql/09_evaluation_metrics.sql`.
-- Managed tool change: `backend/app/main.py`, `lambda_mcp/`, and
+  `sql/09_traverse_evidence.sql`.
+- Managed tool change: `backend/app/main.py`, `lambda_mcp/`, `mcp-server/`, and
   `scripts/invoke_agentcore_gateway.py`.
 - Inspection UI change: the API response owner first, then `frontend/src/`.
 
-Run `make doctor` before relying on Aurora, Bedrock, the seed, or the live API.
+Run `make doctor` before relying on Aurora, Bedrock, the search index, or the live
+API.
 
-## 3. Preserve the Retrieval Invariants
+## 3. Preserve the Invariants
 
-- Normalize materialized records into `SourceObject`; retain source system,
-  external ID, URL, revision or cursor, content hash, ACL, metadata, and source
-  authority.
-- Use connector-scoped cursors. Apply `upsert` to deltas and `full` to snapshots.
-  Tombstone missing records during full reconciliation.
-- Skip unchanged bodies, rechunk changed bodies, and embed only chunks whose
-  embedding is null. Keep stored and query embeddings in the same model space.
-- Keep full-text, vector, and trigram retrieval in the canonical SQL functions.
-  Apply filters and `ops.acl_visible` before candidates enter any arm.
-- Fuse rank positions once through weighted RRF. Keep raw arm scores for
-  diagnostics; do not add them again to `final_score`.
+- `casework.*` is authoritative. `retrieval.*` is derived and never hand-edited.
+- Stable evidence IDs, source URIs, revisions, ACLs, and typed foreign keys
+  survive every indexed version.
+- Reuse a chunk embedding only when model ID and chunk hash match.
+- Keep stored document and live query vectors in one model space.
+- Apply filters and `retrieval.acl_visible` inside every retrieval arm before
+  fusion.
+- Fuse rank positions once through weighted RRF. Raw arm scores remain
+  diagnostics and are not added again to `final_score`.
 - Treat Cohere Rerank as a post-fusion ordering stage. Preserve both
-  `rerank_score` and Aurora's `final_score`; neither is a probability.
-- Persist `ops.retrieval_runs` and `ops.retrieval_candidates` before synthesis.
-  Return the same `run_id` through HTTP, Strands tools, Gateway MCP, and UI.
-- Build citations from retrieved source rows. Never invent evidence when the
-  database or source is unavailable.
-- Revalidate mutable facts and perform writes through the authoritative source.
-- Use only PostgreSQL extensions supported by the target Aurora engine.
+  `rerank_score` and Aurora's RRF score.
+- Persist `proof.retrieval_runs`, candidates, and stages before synthesis.
+- Build citations only from retrieved document and chunk versions and validate
+  URI, revision, and quote.
+- Render canonical edges from foreign keys; store inferred edges separately
+  with method, confidence, and source revision.
+- Revalidate mutable facts and perform writes through their authoritative
+  systems.
 
-## 4. Validate the Failure and the Fix
+## 4. Validate the Failure and Fix
 
-Start with a failing query or receipt, then test the smallest relevant matrix:
-
-| Concern | Proof |
+| Concern | Required proof |
 |---|---|
-| Exact identifier | A lexical query finds an ID or symbol that semantic-only retrieval misses. |
-| Semantic recall | A paraphrase finds relevant evidence without exact token overlap. |
-| Fuzzy matching | A controlled typo produces the intended candidate without dominating fusion. |
-| Filters and ACLs | Restricted or out-of-scope objects never enter any retrieval arm. |
-| Fusion | Per-arm ranks, RRF contribution, SQL score, and optional rerank score remain inspectable. |
-| Citation | Every cited claim resolves to a real source object, URL, and supporting chunk. |
-| Update | One source change invalidates and re-embeds only affected chunks. |
-| Reconciliation | A missing object is tombstoned and excluded from new retrieval while history remains valid. |
-| Replay | The returned `run_id` resolves to persisted candidates and diagnostics. |
+| Exact identifier | `CHG-1842` is lexical rank 1 under its cluster filter. |
+| Semantic recall | A paraphrase retrieves the relevant incident evidence in the configured model space. |
+| Fuzzy matching | `CGH-1842` resolves to `CHG-1842` without becoming an unbounded body scan. |
+| Filters and ACLs | Out-of-scope and restricted evidence never enters an arm or traversal hop. |
+| Fusion | Arm positions, weights, RRF, and optional rerank remain inspectable and separate. |
+| Search index | Unchanged rows skip work; changed rows version; tombstones supersede; drift is zero. |
+| Citation | Every citation resolves to a source URI, revision, exact chunk, and supporting quote. |
+| Replay | The returned `run_id` resolves to persisted candidates, stages, answer, and diagnostics. |
+| Evaluation | Retrieval and traversal metrics are reported separately. |
 
 Use repository commands where applicable:
 
 ```bash
 make doctor
 make schema
+make seed-local
 make smoke
-make github-export
-make github-sync
+make test
 git diff --check
 ```
 
-Do not run `make schema`, `make smoke`, or `make github-sync` without a configured
-database. `github-sync` can also invoke the configured embedding provider.
+Do not run schema, seed, smoke, or resettable integration tests without an
+explicit disposable database.
 
 ## 5. Report the Receipt
 
 Summarize the evidence-path choice, owning files changed, behavior before and
-after, validation run, resulting `run_id` or connector receipt when available,
-and any check that could not run.
+after, validation performed, resulting `run_id` or search index build ID, and any
+check that could not run.

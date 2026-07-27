@@ -1,13 +1,19 @@
 from __future__ import annotations
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from functools import lru_cache
 import os
 from dotenv import load_dotenv
 
-# Workshop Studio and `make aurora-local-env` write the intended local runtime
-# into .env. Let that file win over stale shell exports such as AWS_REGION from a
-# previous account or region.
-load_dotenv(override=True)
+# Process configuration wins. Workshop Studio writes .env for interactive shells,
+# while tests and one-off validation commands can override individual values.
+load_dotenv(override=False)
+
+# Every field below reads the environment through a default_factory, so the value
+# is resolved when Settings() is constructed rather than when this module is
+# imported. A bare `field: str = os.environ.get(...)` default is evaluated at
+# class-definition time: any process that exports DATABASE_URL after the first
+# import of this module would silently keep the old target. That defect pointed
+# the destructive test suite at the live Aurora database.
 
 def _env_bool(name: str, default: bool) -> bool:
     value = os.environ.get(name)
@@ -41,47 +47,98 @@ def _cohere_rerank_model() -> str:
     )
 
 class Settings(BaseModel):
-    database_url: str = os.environ.get("DATABASE_URL", "")
-    database_connect_timeout_seconds: int = _env_int("DATABASE_CONNECT_TIMEOUT_SECONDS", 10, minimum=1)
+    database_url: str = Field(
+        default_factory=lambda: os.environ.get("DATABASE_URL", "")
+    )
+    database_connect_timeout_seconds: int = Field(
+        default_factory=lambda: _env_int(
+            "DATABASE_CONNECT_TIMEOUT_SECONDS", 10, minimum=1
+        )
+    )
     # A workshop room drives many concurrent requests through one API process; a
     # bounded connection pool keeps Aurora from being hit with a fresh connect per
     # request while capping the total sessions the process can open.
-    db_pool_min_size: int = _env_int("DB_POOL_MIN_SIZE", 1, minimum=0)
-    db_pool_max_size: int = _env_int("DB_POOL_MAX_SIZE", 10, minimum=1)
-    db_pool_max_idle_seconds: int = _env_int("DB_POOL_MAX_IDLE_SECONDS", 300, minimum=1)
+    db_pool_min_size: int = Field(
+        default_factory=lambda: _env_int("DB_POOL_MIN_SIZE", 1, minimum=0)
+    )
+    db_pool_max_size: int = Field(
+        default_factory=lambda: _env_int("DB_POOL_MAX_SIZE", 10, minimum=1)
+    )
+    db_pool_max_idle_seconds: int = Field(
+        default_factory=lambda: _env_int("DB_POOL_MAX_IDLE_SECONDS", 300, minimum=1)
+    )
     # Bedrock throttles hard when a full room calls it at once; adaptive retries add
     # client-side rate limiting on top of the bounded attempt count.
-    bedrock_max_attempts: int = _env_int("BEDROCK_MAX_ATTEMPTS", 5, minimum=1)
-    aws_region: str = os.environ.get("AWS_REGION", "us-east-1")
-    cors_allow_origins: str = os.environ.get(
-        "CORS_ALLOW_ORIGINS",
-        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
+    bedrock_max_attempts: int = Field(
+        default_factory=lambda: _env_int("BEDROCK_MAX_ATTEMPTS", 5, minimum=1)
     )
-    cors_allow_origin_regex: str = os.environ.get("CORS_ALLOW_ORIGIN_REGEX", r"https?://(localhost|127\.0\.0\.1):[0-9]+")
+    aws_region: str = Field(
+        default_factory=lambda: os.environ.get("AWS_REGION", "us-east-1")
+    )
+    cors_allow_origins: str = Field(
+        default_factory=lambda: os.environ.get(
+            "CORS_ALLOW_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173,"
+            "http://localhost:5174,http://127.0.0.1:5174",
+        )
+    )
+    cors_allow_origin_regex: str = Field(
+        default_factory=lambda: os.environ.get(
+            "CORS_ALLOW_ORIGIN_REGEX", r"https?://(localhost|127\.0\.0\.1):[0-9]+"
+        )
+    )
     # Default to real Cohere embed-v4 so live query embeddings share the exact
     # vector space as the seeded corpus (the shipped dump is Cohere-embedded).
     # Set EMBED_PROVIDER=hash only for an offline, no-Bedrock corpus.
-    embed_provider: str = os.environ.get("EMBED_PROVIDER", "bedrock")
-    embed_dim: int = int(os.environ.get("EMBED_DIM", "1024"))
-    bedrock_opus_model: str = os.environ.get("BEDROCK_OPUS_MODEL", "global.anthropic.claude-opus-4-8")
-    bedrock_sonnet_model: str = os.environ.get("BEDROCK_SONNET_MODEL", "global.anthropic.claude-sonnet-5")
-    bedrock_router_model: str = os.environ.get("BEDROCK_ROUTER_MODEL", "global.anthropic.claude-sonnet-5")
-    bedrock_reporting_model: str = os.environ.get("BEDROCK_REPORTING_MODEL", "global.anthropic.claude-sonnet-5")
-    bedrock_chat_model: str = os.environ.get("BEDROCK_CHAT_MODEL", "global.anthropic.claude-opus-4-8")
-    bedrock_embedding_model: str = _embedding_model()
-    bedrock_embed_model_id: str = _embedding_model()
-    claude_code_model: str = os.environ.get("CLAUDE_CODE_MODEL", "global.anthropic.claude-sonnet-5")
+    embed_provider: str = Field(
+        default_factory=lambda: os.environ.get("EMBED_PROVIDER", "bedrock")
+    )
+    embed_dim: int = Field(
+        default_factory=lambda: int(os.environ.get("EMBED_DIM", "1024"))
+    )
+    bedrock_synthesis_model: str = Field(
+        default_factory=lambda: os.environ.get(
+            "BEDROCK_SYNTHESIS_MODEL",
+            "global.anthropic.claude-sonnet-5",
+        )
+    )
+    bedrock_model_transport: str = Field(
+        default_factory=lambda: os.environ.get(
+            "BEDROCK_MODEL_TRANSPORT",
+            "converse_global_cris",
+        )
+    )
+    # The canonical workshop answer measures 591 output tokens, and synthesis
+    # treats a max_tokens stop as a failure and falls back to extractive text. A
+    # 700-token cap therefore degrades the headline demo on normal variance.
+    bedrock_synthesis_max_tokens: int = Field(
+        default_factory=lambda: _env_int(
+            "BEDROCK_SYNTHESIS_MAX_TOKENS",
+            1200,
+            minimum=1,
+        )
+    )
+    bedrock_embedding_model: str = Field(default_factory=_embedding_model)
+    bedrock_embed_model_id: str = Field(default_factory=_embedding_model)
     # Cohere Rerank is exposed through the Bedrock Agent Runtime rerank API.
     # Keep the participant-facing model explicit: this is Cohere Rerank v3.5,
     # not a generic Bedrock ranking score.
-    cohere_rerank_enabled: bool = _env_bool("COHERE_RERANK_ENABLED", _env_bool("RERANK_ENABLED", True))
-    cohere_rerank_model: str = _cohere_rerank_model()
-    cohere_rerank_max_documents: int = _env_int(
-        "COHERE_RERANK_MAX_DOCUMENTS",
-        _env_int("RERANK_MAX_DOCUMENTS", 30, minimum=1),
-        minimum=1,
+    cohere_rerank_enabled: bool = Field(
+        default_factory=lambda: _env_bool(
+            "COHERE_RERANK_ENABLED", _env_bool("RERANK_ENABLED", True)
+        )
     )
-    app_display_name: str = os.environ.get("APP_DISPLAY_NAME", "Verity")
+    cohere_rerank_model: str = Field(default_factory=_cohere_rerank_model)
+    cohere_rerank_max_documents: int = Field(
+        default_factory=lambda: _env_int(
+            "COHERE_RERANK_MAX_DOCUMENTS",
+            _env_int("RERANK_MAX_DOCUMENTS", 30, minimum=1),
+            minimum=1,
+        )
+    )
+    app_display_name: str = Field(
+        default_factory=lambda: os.environ.get("APP_DISPLAY_NAME", "Verity")
+    )
 
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]

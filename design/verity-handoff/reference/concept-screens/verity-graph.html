@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verity — Evidence Graph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FAF4EC; --ink:#211C16; --ink-soft:#584F45; --muted:#94897C;
+  --hair:#E9DFD2; --red:#C13A26; --red-deep:#9E2F1E; --wash:#FBEDE8;
+  --green:#2E7D54; --blush:#F7E2D6; --card-bd:rgba(33,28,22,.07); --clay:#DE9C7C;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:hidden}
+body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:var(--paper) radial-gradient(1100px 700px at 94% -10%, var(--blush) 0%, rgba(247,226,214,0) 62%) no-repeat;
+  color:var(--ink);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.wrap{max-width:1280px;margin:0 auto;padding:0 26px}
+a{color:inherit;text-decoration:none}
+.chrome{display:flex;align-items:center;gap:20px;padding:16px 0;border-bottom:1px solid var(--hair);flex-wrap:wrap}
+.wordmark{display:flex;align-items:center;gap:9px;font:600 12.5px "IBM Plex Mono";letter-spacing:.24em}
+.omnibox{flex:1;min-width:220px;max-width:520px;display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--card-bd);border-radius:10px;padding:8px 12px;font-family:"IBM Plex Mono";font-size:12px;color:var(--ink-soft);box-shadow:0 1px 2px rgba(33,28,22,.04)}
+.omnibox .q{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.omnibox kbd{margin-left:auto;font:11px "IBM Plex Mono";color:var(--muted);border:1px solid var(--hair);border-radius:6px;padding:0 6px;background:var(--paper)}
+.topnav{display:flex;gap:18px;font-size:13px;color:var(--ink-soft)}
+.topnav a{position:relative;padding:4px 0}
+.topnav a.on{color:var(--ink);font-weight:600}
+.topnav a.on::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:2px;background:var(--red)}
+.who{display:flex;align-items:center;gap:10px;margin-left:auto}
+.avatar{width:29px;height:29px;border-radius:50%;background:var(--ink);color:var(--paper);display:grid;place-items:center;font:600 12px Inter}
+.klabel{font:600 10px "IBM Plex Mono";letter-spacing:.16em;text-transform:uppercase;color:var(--red)}
+.pill{display:inline-block;font:500 10.5px "IBM Plex Mono";border:1px solid var(--hair);border-radius:999px;padding:1px 8px;background:#fff;color:var(--ink-soft);white-space:nowrap}
+.card{background:#fff;border:1px solid var(--card-bd);border-radius:16px;box-shadow:0 1px 2px rgba(33,28,22,.04),0 10px 30px rgba(33,28,22,.06)}
+.seg{display:inline-flex;border:1px solid var(--hair);border-radius:10px;background:#fff;overflow:hidden}
+.seg button{border:0;background:transparent;cursor:pointer;font:500 11.5px "IBM Plex Mono";color:var(--ink-soft);padding:6px 12px}
+.seg button.on{background:var(--ink);color:var(--paper)}
+.hero{padding:30px 0 16px}
+.hero h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:33px;letter-spacing:-.01em;margin:8px 0 6px}
+.hero h1 em{font-style:italic;font-weight:500;color:var(--red-deep)}
+.hero .deck{color:var(--ink-soft);max-width:690px}
+
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:13px 16px;margin-top:12px}
+.toolbar .right{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap}
+.gwrap{margin-top:14px;padding:12px 14px}
+.hscroll{overflow-x:auto}
+.gsvg{min-width:1030px;width:100%;height:auto}
+.note{margin-top:11px;font-size:12.5px;color:var(--ink-soft);line-height:1.6;max-width:960px}
+.note b{color:var(--ink)}
+
+.duo{display:grid;grid-template-columns:1.25fr .75fr;gap:16px;margin-top:16px;align-items:start}
+.pad{padding:14px 16px}
+table{border-collapse:collapse;width:100%;min-width:520px}
+th{font:600 9.5px "IBM Plex Mono";letter-spacing:.11em;text-transform:uppercase;color:var(--muted);text-align:left;padding:7px 9px;border-bottom:1px solid var(--hair);white-space:nowrap}
+td{padding:8px 9px;border-bottom:1px dashed var(--hair);font:500 11.5px "IBM Plex Mono";color:var(--ink-soft)}
+tr:last-child td{border-bottom:0}
+td.id{font-weight:600;color:var(--ink)}
+.vd{font:600 9.5px "IBM Plex Mono";letter-spacing:.09em;padding:1px 7px;border-radius:6px;white-space:nowrap}
+.vd.conf{background:var(--wash);color:var(--red-deep);border:1px solid rgba(193,58,38,.28)}
+.vd.ruled{background:var(--paper);color:var(--muted);border:1px solid var(--hair)}
+.vd.aff{background:var(--wash);color:var(--red-deep);border:1px solid rgba(193,58,38,.28)}
+.vd.naff{background:#EEF6F1;color:var(--green);border:1px solid rgba(46,125,84,.3)}
+.vd.sup{background:#FDF1E9;color:#8A5A2B;border:1px solid rgba(222,156,124,.5)}
+.vd.rem{background:#EEF6F1;color:var(--green);border:1px solid rgba(46,125,84,.3)}
+.src{font:500 9.5px "IBM Plex Mono";padding:1px 6px;border-radius:5px;border:1px solid var(--hair);background:var(--paper);color:var(--ink-soft)}
+.src.inf{border-style:dashed}
+.legend{display:grid;gap:8px;margin-top:8px}
+.lgi{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--ink-soft);line-height:1.5}
+.lgi svg{flex:none;margin-top:5px}
+.lgi b{color:var(--ink);font:600 11px "IBM Plex Mono"}
+.hint{margin-top:11px;padding-top:10px;border-top:1px dashed var(--hair);font-size:12.5px;color:var(--ink-soft);line-height:1.6}
+.hint b{color:var(--ink)}
+footer{margin-top:34px;border-top:1px solid var(--hair);padding:20px 0 44px;display:flex;gap:14px;flex-wrap:wrap;justify-content:space-between;color:var(--muted);font:400 11px "IBM Plex Mono"}
+@media (max-width:900px){.duo{grid-template-columns:1fr}}
+@media (max-width:780px){.hero h1{font-size:26px}.omnibox{order:9;max-width:none;flex-basis:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="chrome">
+    <a class="wordmark" href="verity-ask.html">
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="6.6" stroke="#C13A26" stroke-width="1.5"/><path d="M1.5 11.5 C5.5 7.5, 11 10.5, 15.5 4.5" stroke="#C13A26" stroke-width="1.5" stroke-dasharray="3.5 3"/></svg>
+      VERITY
+    </a>
+    <div class="omnibox mono"><span style="color:var(--red)">›</span><span class="q">follow_evidence_links · seeds INC-2047, CHG-1842</span><kbd>⌘K</kbd></div>
+    <nav class="topnav">
+      <a href="verity-ask.html">Ask</a><a href="verity-lab.html">Lab</a>
+      <a href="verity-fusion.html">Fusion</a><a href="verity-plan.html">Plan</a>
+      <a href="verity-eval.html">Eval</a><a class="on" href="verity-graph.html">Graph</a>
+      <a href="verity-scale.html">Scale</a>
+    </nav>
+    <div class="who"><span class="pill" id="who-pr">principal: workshop</span><div class="avatar">S</div></div>
+  </header>
+
+  <section class="hero">
+    <div class="klabel">DAT410 · Concept 06 — Evidence Graph &amp; Verdicts</div>
+    <h1>Retrieval finds it. <em>Edges decide it.</em></h1>
+    <p class="deck">Ranking cannot answer “which customer was affected.” Traversal can — and every hop re-checks the principal, so restricted evidence never appears, and its absence is never announced.</p>
+  </section>
+
+  <div class="card toolbar">
+    <span class="klabel" style="color:var(--muted)">depth</span>
+    <div class="seg" id="seg-d"><button data-v="1">1</button><button class="on" data-v="2">≤ 2</button></div>
+    <span class="klabel" style="color:var(--muted)">edges</span>
+    <div class="seg" id="seg-e"><button data-v="canon">canonical only</button><button class="on" data-v="all">+ inferred</button></div>
+    <span class="klabel" style="color:var(--muted)">principal</span>
+    <div class="seg" id="seg-p"><button class="on" data-v="workshop">workshop</button><button data-v="lead">support-lead</button></div>
+    <div class="right">
+      <span class="pill" id="c-nodes">—</span><span class="pill" id="c-edges">—</span><span class="pill">9 ms</span>
+    </div>
+  </div>
+
+  <div class="card gwrap">
+    <div class="hscroll">
+      <svg class="gsvg" id="g" viewBox="0 0 1030 500" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill="#C13A26"/>
+          </marker>
+          <marker id="ai" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill="#DE9C7C"/>
+          </marker>
+        </defs>
+        <g id="g-edges"></g><g id="g-nodes"></g>
+      </svg>
+    </div>
+    <p class="note" id="note"></p>
+  </div>
+
+  <div class="duo">
+    <div class="card pad">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+        <span class="klabel">compare_sources — verdicts</span>
+        <span class="pill">edge_type · provenance · confidence</span>
+      </div>
+      <div class="hscroll"><table><thead>
+        <tr><th>evidence</th><th>verdict</th><th>from</th><th>provenance</th><th>conf</th></tr>
+      </thead><tbody id="vtb"></tbody></table></div>
+      <div class="hint" id="vhint"></div>
+    </div>
+
+    <div class="card pad">
+      <span class="klabel">Reading the graph</span>
+      <div class="legend">
+        <div class="lgi"><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="#C13A26" stroke-width="1.6"/></svg>
+          <span><b>canonical</b> — FK-derived in the source system. Confidence 1.00, no inference.</span></div>
+        <div class="lgi"><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="#DE9C7C" stroke-width="1.6" stroke-dasharray="4 3"/></svg>
+          <span><b>inferred</b> — derived by a named method, carrying its own confidence. Never presented as fact.</span></div>
+        <div class="lgi"><svg width="26" height="14"><rect x="0" y="1" width="24" height="12" rx="3" fill="#fff" stroke="#C13A26" stroke-width="2"/></svg>
+          <span><b>seed</b> — the two keys the deterministic plan extracted from the question.</span></div>
+        <div class="lgi"><svg width="26" height="14"><rect x="0" y="1" width="24" height="12" rx="3" fill="#FBEDE8" stroke="#C13A26" stroke-width="1" stroke-dasharray="3 2"/></svg>
+          <span><b>restricted</b> — visible only to an entitled principal. Under <span class="mono">workshop</span> it is not dimmed; it is <b>absent</b>.</span></div>
+      </div>
+      <div class="hint">Traversal results are judged as <b>relationship sets</b> — recall and precision against canonical edges — never scored like a ranked list. See <a href="verity-eval.html" style="border-bottom:1px solid var(--red)">Eval</a>.</div>
+    </div>
+  </div>
+
+  <footer>
+    <span>VERITY · DAT410 concept set · synthetic corpus (workshop:// URIs)</span>
+    <span>numbers illustrative pending Aurora release-gate measurement · scores are diagnostics, not probabilities</span>
+  </footer>
+</div>
+
+<script>
+const NODES = {
+  "INC-2047":     {x:70,  y:212, kind:"INCIDENT", sub:"Sev-2 · checkout writes", seed:true},
+  "CASE-7424":    {x:70,  y:392, kind:"CASE",     sub:"Zenith Corp"},
+  "CHG-1842":     {x:330, y:74,  kind:"CHANGE",   sub:"ordinary CREATE INDEX", seed:true},
+  "CASE-7419":    {x:330, y:322, kind:"CASE",     sub:"Acme Retail"},
+  "CASE-7421":    {x:330, y:412, kind:"CASE",     sub:"regulated account", acl:true},
+  "CHG-1838":     {x:610, y:34,  kind:"CHANGE",   sub:"worker pool resize", dim:true},
+  "LOCK-2047-001":{x:610, y:124, kind:"LOCK",     sub:"writer 4182 ← 3944"},
+  "LOCK-2047-002":{x:610, y:196, kind:"LOCK",     sub:"writer 4210 ← 3944"},
+  "RB-017":       {x:610, y:282, kind:"RUNBOOK",  sub:"concurrent index builds"},
+  "COMMIT-4471":  {x:610, y:392, kind:"COMMITMENT",sub:"RCA by May 21"},
+  "CHG-1907":     {x:860, y:282, kind:"CHANGE",   sub:"rebuild CONCURRENTLY"}
+};
+const EDGES = [
+  {s:"INC-2047", t:"CHG-1842",      ty:"change_confirmed",    canon:true,  c:1.00},
+  {s:"INC-2047", t:"CHG-1838",      ty:"change_ruled_out",    canon:true,  c:1.00},
+  {s:"INC-2047", t:"CASE-7419",     ty:"affected",            canon:true,  c:1.00},
+  {s:"INC-2047", t:"CASE-7421",     ty:"affected",            canon:true,  c:1.00},
+  {s:"INC-2047", t:"CASE-7424",     ty:"not_affected",        canon:true,  c:1.00},
+  {s:"CHG-1842", t:"LOCK-2047-001", ty:"evidence_supports",   canon:false, c:0.86, m:"lock_window_overlap"},
+  {s:"CHG-1842", t:"LOCK-2047-002", ty:"evidence_supports",   canon:false, c:0.79, m:"lock_window_overlap"},
+  {s:"CHG-1842", t:"RB-017",        ty:"remediation_guidance",canon:false, c:0.72, m:"runbook_topic_match"},
+  {s:"CASE-7419",t:"COMMIT-4471",   ty:"commitment",          canon:true,  c:1.00},
+  {s:"RB-017",   t:"CHG-1907",      ty:"follow_up_change",    canon:true,  c:1.00}
+];
+const SEEDS = ["INC-2047","CHG-1842"];
+const VCLS = {change_confirmed:"conf", change_ruled_out:"ruled", affected:"aff", not_affected:"naff",
+  evidence_supports:"sup", remediation_guidance:"rem", commitment:"conf", follow_up_change:"conf"};
+const W=178, H=42;
+const st = {depth:2, edges:"all", principal:"workshop"};
+const el = id => document.getElementById(id);
+
+function traverse(){
+  const lead = st.principal==="lead";
+  const okNode = n => lead || !NODES[n].acl;
+  const okEdge = e => (st.edges==="all" || e.canon) && okNode(e.s) && okNode(e.t);
+  const live = EDGES.filter(okEdge);
+  const dist = {}; SEEDS.filter(okNode).forEach(s=>dist[s]=0);
+  let frontier = Object.keys(dist);
+  for(let d=1; d<=st.depth; d++){
+    const nxt = [];
+    for(const e of live){
+      for(const [a,b] of [[e.s,e.t],[e.t,e.s]]){
+        if(frontier.includes(a) && dist[b]===undefined){ dist[b]=d; nxt.push(b); }
+      }
+    }
+    frontier = nxt;
+    if(!nxt.length) break;
+  }
+  const vis = new Set(Object.keys(dist));
+  return {dist, vis, edges: live.filter(e=>vis.has(e.s) && vis.has(e.t))};
+}
+
+function anchors(a,b){
+  const A=NODES[a], B=NODES[b];
+  if(Math.abs(A.x-B.x) < 40){
+    return A.y < B.y ? [A.x+W/2, A.y+H, B.x+W/2, B.y] : [A.x+W/2, A.y, B.x+W/2, B.y+H];
+  }
+  return A.x < B.x ? [A.x+W, A.y+H/2, B.x, B.y+H/2] : [A.x, A.y+H/2, B.x+W, B.y+H/2];
+}
+
+function render(){
+  const {dist, vis, edges} = traverse();
+  el("who-pr").textContent = "principal: " + (st.principal==="lead" ? "support-lead" : "workshop");
+  el("c-nodes").textContent = vis.size + " nodes";
+  const nc = edges.filter(e=>e.canon).length;
+  el("c-edges").textContent = `${edges.length} edges · ${nc} canonical · ${edges.length-nc} inferred`;
+
+  el("g-edges").innerHTML = edges.map(e=>{
+    const [x1,y1,x2,y2] = anchors(e.s,e.t);
+    const mx=(x1+x2)/2, my=(y1+y2)/2;
+    const col = e.canon ? "#C13A26" : "#DE9C7C";
+    const lbl = e.ty + (e.canon ? "" : " " + e.c.toFixed(2));
+    const bw = lbl.length*5.5 + 12;
+    return `<g>
+      <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="1.6"
+            ${e.canon?"":'stroke-dasharray="5 4"'} marker-end="url(#${e.canon?"ar":"ai"})"/>
+      <rect x="${mx-bw/2}" y="${my-8}" width="${bw}" height="15" rx="4" fill="#FAF4EC" stroke="${col}" stroke-opacity=".28"/>
+      <text x="${mx}" y="${my+2.5}" text-anchor="middle" font-family="IBM Plex Mono" font-size="9.5"
+            font-weight="500" fill="${e.canon?"#9E2F1E":"#8A5A2B"}">${lbl}</text></g>`;
+  }).join("");
+
+  el("g-nodes").innerHTML = [...vis].map(id=>{
+    const n = NODES[id], d = dist[id];
+    const stroke = n.seed ? "#C13A26" : n.acl ? "#C13A26" : "rgba(33,28,22,.16)";
+    const sw = n.seed ? 2.2 : 1;
+    const fill = n.acl ? "#FBEDE8" : "#fff";
+    const dash = n.acl ? ' stroke-dasharray="4 3"' : "";
+    const op = n.dim ? .62 : 1;
+    return `<g opacity="${op}">
+      <rect x="${n.x}" y="${n.y}" width="${W}" height="${H}" rx="9" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"${dash}/>
+      <text x="${n.x+11}" y="${n.y+16}" font-family="IBM Plex Mono" font-size="8.5" font-weight="600"
+            letter-spacing="1.1" fill="#C13A26">${n.kind}</text>
+      <text x="${n.x+W-11}" y="${n.y+16}" text-anchor="end" font-family="IBM Plex Mono" font-size="8.5"
+            fill="#94897C">${d===0?"seed":"hop "+d}</text>
+      <text x="${n.x+11}" y="${n.y+31}" font-family="IBM Plex Mono" font-size="11.5" font-weight="600" fill="#211C16">${id}</text>
+      <text x="${n.x+W-11}" y="${n.y+31}" text-anchor="end" font-family="Inter" font-size="9.5" fill="#94897C">${n.sub}</text>
+    </g>`;
+  }).join("");
+
+  el("vtb").innerHTML = edges.map(e=>{
+    const cls = VCLS[e.ty] || "conf";
+    return `<tr><td class="id">${e.t}</td>
+      <td><span class="vd ${cls}">${e.ty}</span></td>
+      <td>${e.s}</td>
+      <td><span class="src ${e.canon?"":"inf"}">${e.canon ? "FK-derived" : e.m}</span></td>
+      <td>${e.c.toFixed(2)}</td></tr>`;
+  }).join("");
+
+  const lead = st.principal==="lead";
+  const canonOnly = st.edges==="canon";
+  el("note").innerHTML = canonOnly
+    ? `<b>Canonical only.</b> The lock snapshots and RB-017 drop out — and CHG-1907 with them, since the only path to it runs through an inferred edge. This is the honest floor: what the source systems assert, with nothing derived.`
+    : `<b>Canonical + inferred.</b> Two lock snapshots attach to CHG-1842 by window overlap (0.86 / 0.79) and RB-017 by topic match (0.72). Each carries its method and confidence into the receipt — the answer can cite them, but never as canonical fact.`;
+  el("vhint").innerHTML = lead
+    ? `Under <b>support-lead</b>, CASE-7421 joins the set and the impact answer changes: <b>two</b> affected customers, not one. Same query, same run shape — a different entitlement.`
+    : `Under <b>workshop</b>, CASE-7421 is filtered at the hop, so the impact verdict reads one affected customer. Nothing in the response hints that a restricted record exists — <b>absence is silent</b>.`;
+}
+
+function seg(id, key, cast){
+  const box = el(id);
+  box.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+    box.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); st[key] = cast ? cast(b.dataset.v) : b.dataset.v; render();
+  }));
+}
+seg("seg-d","depth",Number); seg("seg-e","edges"); seg("seg-p","principal");
+render();
+</script>
+</body>
+</html>

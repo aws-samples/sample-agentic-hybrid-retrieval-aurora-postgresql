@@ -9,9 +9,14 @@ STABLE
 AS $$
 WITH relevant AS (
   SELECT count(*)::numeric AS total
-  FROM proof.relevance_judgments
-  WHERE query_id = p_query_id
-    AND relevance > 0
+  FROM proof.relevance_judgments judgment
+  JOIN casework.evidence_items item
+    ON item.evidence_id = judgment.evidence_id
+  JOIN proof.retrieval_runs run
+    ON run.run_id = p_run_id
+  WHERE judgment.query_id = p_query_id
+    AND judgment.relevance > 0
+    AND retrieval.acl_visible(item.acl, run.principal)
 ),
 retrieved AS (
   SELECT count(*)::numeric AS hits
@@ -96,11 +101,18 @@ WITH actual AS (
 ),
 ideal_ranks AS (
   SELECT
-    relevance,
-    row_number() OVER (ORDER BY relevance DESC, evidence_id)::integer AS ideal_rank
-  FROM proof.relevance_judgments
-  WHERE query_id = p_query_id
-    AND relevance > 0
+    judgment.relevance,
+    row_number() OVER (
+      ORDER BY judgment.relevance DESC, judgment.evidence_id
+    )::integer AS ideal_rank
+  FROM proof.relevance_judgments judgment
+  JOIN casework.evidence_items item
+    ON item.evidence_id = judgment.evidence_id
+  JOIN proof.retrieval_runs run
+    ON run.run_id = p_run_id
+  WHERE judgment.query_id = p_query_id
+    AND judgment.relevance > 0
+    AND retrieval.acl_visible(item.acl, run.principal)
 ),
 ideal AS (
   SELECT coalesce(
@@ -134,4 +146,71 @@ SELECT
   run.completed_at
 FROM proof.retrieval_runs run
 WHERE run.status = 'complete'
-  AND run.filters ? 'evaluation_query_id';
+  AND run.filters ->> 'evaluation_type' = 'retrieval';
+
+CREATE OR REPLACE FUNCTION proof.traversal_recall(
+  p_query_id text,
+  p_run_id uuid
+)
+RETURNS numeric
+LANGUAGE sql
+STABLE
+AS $$
+WITH relevant AS (
+  SELECT count(*)::numeric AS total
+  FROM proof.relevance_judgments judgment
+  JOIN casework.evidence_items item
+    ON item.evidence_id = judgment.evidence_id
+  JOIN proof.retrieval_runs run
+    ON run.run_id = p_run_id
+  WHERE judgment.query_id = p_query_id
+    AND judgment.relevance > 0
+    AND retrieval.acl_visible(item.acl, run.principal)
+),
+reached AS (
+  SELECT count(*)::numeric AS hits
+  FROM proof.traversal_results result
+  JOIN proof.relevance_judgments judgment
+    ON judgment.query_id = result.query_id
+   AND judgment.evidence_id = result.evidence_id
+  WHERE result.query_id = p_query_id
+    AND result.run_id = p_run_id
+    AND judgment.relevance > 0
+)
+SELECT
+  CASE
+    WHEN relevant.total = 0 THEN 0
+    ELSE reached.hits / relevant.total
+  END
+FROM relevant, reached
+$$;
+
+CREATE OR REPLACE FUNCTION proof.traversal_precision(
+  p_query_id text,
+  p_run_id uuid
+)
+RETURNS numeric
+LANGUAGE sql
+STABLE
+AS $$
+SELECT
+  count(*) FILTER (WHERE coalesce(judgment.relevance, 0) > 0)::numeric
+  / greatest(1, count(*))
+FROM proof.traversal_results result
+LEFT JOIN proof.relevance_judgments judgment
+  ON judgment.query_id = result.query_id
+ AND judgment.evidence_id = result.evidence_id
+WHERE result.query_id = p_query_id
+  AND result.run_id = p_run_id
+$$;
+
+CREATE OR REPLACE VIEW proof.v_traversal_evaluation_results AS
+SELECT
+  result.query_id,
+  result.run_id,
+  proof.traversal_recall(result.query_id, result.run_id) AS recall,
+  proof.traversal_precision(result.query_id, result.run_id) AS precision,
+  count(*) AS reached_count,
+  max(result.depth) AS max_depth
+FROM proof.traversal_results result
+GROUP BY result.query_id, result.run_id;

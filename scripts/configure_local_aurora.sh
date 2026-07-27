@@ -55,13 +55,11 @@ APP_DISPLAY_NAME=Verity
 CORS_ALLOW_ORIGIN_REGEX=https?://(localhost|127\\.0\\.0\\.1):[0-9]+
 EMBED_PROVIDER=bedrock
 EMBED_DIM=1024
-BEDROCK_OPUS_MODEL=global.anthropic.claude-opus-4-8
-BEDROCK_SONNET_MODEL=global.anthropic.claude-sonnet-5
-BEDROCK_ROUTER_MODEL=global.anthropic.claude-sonnet-5
-BEDROCK_REPORTING_MODEL=global.anthropic.claude-sonnet-5
-BEDROCK_CHAT_MODEL=global.anthropic.claude-opus-4-8
 BEDROCK_EMBEDDING_MODEL=us.cohere.embed-v4:0
-CLAUDE_CODE_MODEL=global.anthropic.claude-sonnet-5
+BEDROCK_SYNTHESIS_MODEL=global.anthropic.claude-sonnet-5
+BEDROCK_MODEL_TRANSPORT=converse_global_cris
+BEDROCK_SYNTHESIS_MAX_TOKENS=1200
+BEDROCK_MAX_ATTEMPTS=5
 COHERE_RERANK_ENABLED=1
 COHERE_RERANK_MODEL=cohere.rerank-v3-5:0
 COHERE_RERANK_MAX_DOCUMENTS=30
@@ -96,7 +94,7 @@ Wrote ignored local files:
 
 Next:
   make aurora-verify
-  make seed-load
+  make doctor
   make api
   cd frontend && npm install && npm run dev
 EOF

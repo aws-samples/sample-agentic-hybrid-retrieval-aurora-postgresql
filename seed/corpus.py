@@ -5,794 +5,1151 @@ import json
 from typing import Any
 import uuid
 
+from .capture import validate_capture_bundle
+
+
 CORPUS_NAMESPACE = uuid.UUID("d94fc53f-ed5d-4c30-8764-f43bc0bbdd62")
 WORKSHOP_ACL = {"visibility": "workshop", "principals": []}
-RESTRICTED_ACL = {"visibility": "restricted", "principals": ["support-lead"]}
+RESTRICTED_ACL = {
+    "visibility": "workshop",
+    "principals": ["support-lead"],
+}
 
 
 def evidence_id(kind: str, external_key: str) -> uuid.UUID:
     return uuid.uuid5(CORPUS_NAMESPACE, f"{kind}:{external_key}")
 
 
-def _iso_revision(prefix: str, ordinal: int = 1) -> str:
-    return f"{prefix.lower()}-revision-{ordinal}"
+def _stable_id(kind: str, external_key: str) -> uuid.UUID:
+    return uuid.uuid5(CORPUS_NAMESPACE, f"{kind}:{external_key}")
 
 
-def _json(value: dict[str, Any]) -> str:
-    return json.dumps(value, separators=(",", ":"), sort_keys=True)
+def _json(value: Any) -> str:
+    return json.dumps(value, default=str, separators=(",", ":"), sort_keys=True)
 
 
-def _canonical_rows() -> dict[str, list[tuple]]:
-    clusters = [
-        (
-            "orders-prod-1",
-            "aurora-postgresql",
-            "17.5",
-            "us-east-1",
-            "production",
-            "checkout-writer",
-            "orders-prod-1.cluster.local",
-            _json({"workload": "transactional", "tier": "critical"}),
-        ),
-        (
-            "identity-prod-1",
-            "aurora-postgresql",
-            "17.5",
-            "us-east-1",
-            "production",
-            "identity-api",
-            "identity-prod-1.cluster.local",
-            _json({"workload": "transactional", "tier": "critical"}),
-        ),
-        (
-            "billing-prod-2",
-            "aurora-postgresql",
-            "16.8",
-            "us-west-2",
-            "production",
-            "billing-ledger",
-            "billing-prod-2.cluster.local",
-            _json({"workload": "transactional", "tier": "critical"}),
-        ),
-        (
-            "catalog-prod-1",
-            "aurora-postgresql",
-            "16.8",
-            "eu-west-1",
-            "production",
-            "catalog-api",
-            "catalog-prod-1.cluster.local",
-            _json({"workload": "mixed", "tier": "standard"}),
-        ),
-        (
-            "orders-staging-1",
-            "aurora-postgresql",
-            "17.5",
-            "us-east-1",
-            "staging",
-            "checkout-writer",
-            "orders-staging-1.cluster.local",
-            _json({"workload": "test", "tier": "nonproduction"}),
-        ),
-    ]
+def _as_datetime(value: str | datetime) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
-    evidence: list[tuple] = []
-    incidents: list[tuple] = []
-    changes: list[tuple] = []
-    cases: list[tuple] = []
-    runbooks: list[tuple] = []
-    lock_evidence: list[tuple] = []
-    incident_changes: list[tuple] = []
-    incident_cases: list[tuple] = []
-    incident_runbooks: list[tuple] = []
 
-    def add_evidence(
-        kind: str,
-        key: str,
-        title: str,
-        source_system: str,
-        source_uri: str,
-        updated_at: datetime,
-        *,
-        revision: str | None = None,
-        acl: dict[str, Any] | None = None,
-    ) -> uuid.UUID:
-        item_id = evidence_id(kind, key)
-        evidence.append(
-            (
-                item_id,
-                kind,
-                key,
-                title,
-                source_system,
-                source_uri,
-                revision or _iso_revision(key),
-                updated_at,
-                _json(acl or WORKSHOP_ACL),
-            )
-        )
-        return item_id
-
-    incident_started = datetime(2026, 7, 18, 14, 4, tzinfo=timezone.utc)
-    incident = add_evidence(
-        "incident",
-        "INC-2047",
-        "Checkout writes stalled during customer index deployment",
-        "incident_management",
-        "workshop://incidents/INC-2047",
-        incident_started + timedelta(hours=4),
-        revision="inc-2047-final",
-    )
-    incidents.append(
-        (
-            incident,
-            "INC-2047",
-            "orders-prod-1",
-            "SEV-1",
-            "resolved",
-            incident_started,
-            incident_started + timedelta(minutes=18),
-            incident_started + timedelta(hours=4),
-            (
-                "Checkout INSERT and UPDATE statements accumulated relation-lock waits "
-                "immediately after an online schema change began."
-            ),
-            (
-                "EU checkout writes timed out for 14 minutes. Read-only order history "
-                "remained available because the index build did not conflict with ordinary SELECT."
-            ),
-            (
-                "The team cancelled the blocking index build, drained queued writers, "
-                "and later created the index concurrently under a controlled change."
-            ),
-        )
-    )
-
-    change = add_evidence(
-        "change",
-        "CHG-1842",
-        "Add customer-created-at index to orders",
-        "change_control",
-        "workshop://changes/CHG-1842",
-        incident_started + timedelta(minutes=20),
-        revision="chg-1842-closed",
-    )
-    changes.append(
-        (
-            change,
-            "CHG-1842",
-            "orders-prod-1",
-            "ddl",
-            "cancelled",
-            incident_started,
-            incident_started + timedelta(minutes=16),
-            "checkout-database",
-            (
-                "CREATE INDEX idx_orders_customer_created "
-                "ON orders (customer_id, created_at DESC);"
-            ),
-            (
-                "The migration used ordinary CREATE INDEX on the production writer. "
-                "PostgreSQL permits reads during this operation but blocks writes to the table."
-            ),
-            (
-                "Cancel the index build, confirm queued writers recover, remove an invalid "
-                "index if present, and reschedule with CREATE INDEX CONCURRENTLY outside "
-                "a transaction block."
-            ),
-        )
-    )
-    incident_changes.append(
-        (
-            incident,
-            change,
-            "confirmed",
-            (
-                "The change start timestamp matches the first Lock:relation wait, and "
-                "pg_blocking_pids identified the CREATE INDEX backend as the blocker."
-            ),
-            "database-on-call",
-        )
-    )
-
-    ruled_out_change = add_evidence(
-        "change",
-        "CHG-1838",
-        "Raise checkout API worker count",
-        "change_control",
-        "workshop://changes/CHG-1838",
-        incident_started - timedelta(hours=2),
-        revision="chg-1838-complete",
-    )
-    changes.append(
-        (
-            ruled_out_change,
-            "CHG-1838",
-            "orders-prod-1",
-            "configuration",
-            "completed",
-            incident_started - timedelta(hours=3),
-            incident_started - timedelta(hours=2, minutes=55),
-            "checkout-platform",
-            None,
-            "Raised application worker count from 48 to 56 after a planned load test.",
-            "Restore the worker count to 48 and recycle the application deployment.",
-        )
-    )
-    incident_changes.append(
-        (
-            incident,
-            ruled_out_change,
-            "ruled_out",
-            (
-                "Connection count and CPU remained inside the pre-change envelope; "
-                "the blocked sessions were waiting on a relation lock."
-            ),
-            "incident-commander",
-        )
-    )
-
-    case_acme = add_evidence(
-        "support_case",
-        "CASE-7419",
-        "Acme Retail checkout writes timing out",
-        "customer_support",
-        "workshop://support-cases/CASE-7419",
-        incident_started + timedelta(minutes=8),
-        revision="case-7419-update-3",
-    )
-    cases.append(
-        (
-            case_acme,
-            "CASE-7419",
-            "Acme Retail",
-            "Enterprise",
-            "urgent",
-            "resolved",
-            incident_started + timedelta(minutes=3),
-            incident_started + timedelta(minutes=33),
-            "Checkout writes time out while order history remains readable",
-            (
-                "The customer reported failed order submissions in eu-west storefronts. "
-                "Application traces showed database statements waiting until statement_timeout."
-            ),
-            "Provide a root-cause update within 30 minutes and confirm the recovery window.",
-        )
-    )
-    incident_cases.append(
-        (
-            incident,
-            case_acme,
-            "affected",
-            "The case timestamps and checkout writer cluster match the incident window.",
-        )
-    )
-
-    case_restricted = add_evidence(
-        "support_case",
-        "CASE-7421",
-        "Northstar Foods premium checkout escalation",
-        "customer_support",
-        "workshop://support-cases/CASE-7421",
-        incident_started + timedelta(minutes=12),
-        revision="case-7421-update-2",
-        acl=RESTRICTED_ACL,
-    )
-    cases.append(
-        (
-            case_restricted,
-            "CASE-7421",
-            "Northstar Foods",
-            "Enterprise",
-            "urgent",
-            "resolved",
-            incident_started + timedelta(minutes=6),
-            incident_started + timedelta(minutes=36),
-            "Premium checkout escalation during write stall",
-            (
-                "A restricted support escalation recorded failed order submissions during "
-                "the same production relation-lock window."
-            ),
-            "Support leadership must approve the customer-facing incident narrative.",
-        )
-    )
-    incident_cases.append(
-        (
-            incident,
-            case_restricted,
-            "affected",
-            "The restricted case names the same cluster, service, and incident interval.",
-        )
-    )
-
-    case_unaffected = add_evidence(
-        "support_case",
-        "CASE-7424",
-        "Catalog search latency in eu-west-1",
-        "customer_support",
-        "workshop://support-cases/CASE-7424",
-        incident_started + timedelta(minutes=40),
-        revision="case-7424-update-1",
-    )
-    cases.append(
-        (
-            case_unaffected,
-            "CASE-7424",
-            "Contoso Home",
-            "Business",
-            "high",
-            "open",
-            incident_started + timedelta(minutes=22),
-            incident_started + timedelta(hours=4),
-            "Catalog search latency increased",
-            (
-                "The customer reported slow read-only catalog queries on catalog-prod-1. "
-                "No checkout writes or orders tables were involved."
-            ),
-            "Provide query-plan findings by the next business day.",
-        )
-    )
-    incident_cases.append(
-        (
-            incident,
-            case_unaffected,
-            "not_affected",
-            "The case is on a different cluster and read-only service.",
-        )
-    )
-
-    runbook = add_evidence(
-        "runbook",
-        "RB-017",
-        "Build PostgreSQL indexes without blocking application writes",
-        "engineering_knowledge",
-        "https://www.postgresql.org/docs/current/sql-createindex.html",
-        incident_started - timedelta(days=35),
-        revision="rb-017-v4",
-    )
-    runbooks.append(
-        (
-            runbook,
-            "RB-017",
-            4,
-            "current",
-            "database-reliability",
-            "aurora-postgresql",
-            "[14,19)",
-            (
-                "Before creating an index on a write-active production table, inspect long-running "
-                "transactions and estimate build duration. Use CREATE INDEX CONCURRENTLY when writes "
-                "must continue. Run it outside a transaction block. Monitor pg_stat_progress_create_index, "
-                "pg_stat_activity, pg_locks, and application latency. If cancelled or failed, inspect for "
-                "an invalid index before retrying."
-            ),
-            (
-                "Concurrent builds perform additional work, take longer, and can leave an INVALID index "
-                "after failure. They are not a substitute for change control or capacity validation."
-            ),
-        )
-    )
-    incident_runbooks.append(
-        (
-            incident,
-            runbook,
-            "used",
-            "The response followed the blocker-identification and concurrent rebuild procedure.",
-        )
-    )
-
-    lock_1 = add_evidence(
-        "lock_evidence",
-        "LOCK-2047-001",
-        "Relation-lock snapshot for blocked checkout writer",
-        "database_snapshot",
-        "workshop://database-insights/INC-2047/2026-07-18T14:09:00Z",
-        incident_started + timedelta(minutes=5),
-        revision="lock-2047-capture-1",
-    )
-    lock_evidence.append(
-        (
-            lock_1,
-            "LOCK-2047-001",
-            incident,
-            incident_started + timedelta(minutes=5),
-            "public.orders",
-            48122,
-            47901,
-            "Lock",
-            "relation",
-            (
-                "UPDATE orders SET payment_state = $1, updated_at = now() "
-                "WHERE order_id = $2"
-            ),
-            (
-                "CREATE INDEX idx_orders_customer_created "
-                "ON orders (customer_id, created_at DESC)"
-            ),
-            _json(
-                {
-                    "db_load_by_wait": {"Lock:relation": 38.4, "CPU": 2.1},
-                    "sample_window_seconds": 60,
-                    "source": "controlled Aurora PostgreSQL fixture",
-                }
-            ),
-        )
-    )
-
-    lock_2 = add_evidence(
-        "lock_evidence",
-        "LOCK-2047-002",
-        "Blocking PID confirmation from pg_blocking_pids",
-        "database_snapshot",
-        "workshop://pg-stat-activity/INC-2047/2026-07-18T14:10:00Z",
-        incident_started + timedelta(minutes=6),
-        revision="lock-2047-capture-2",
-    )
-    lock_evidence.append(
-        (
-            lock_2,
-            "LOCK-2047-002",
-            incident,
-            incident_started + timedelta(minutes=6),
-            "public.orders",
-            48135,
-            47901,
-            "Lock",
-            "relation",
-            "INSERT INTO orders(order_id, customer_id, created_at) VALUES ($1, $2, now())",
-            (
-                "CREATE INDEX idx_orders_customer_created "
-                "ON orders (customer_id, created_at DESC)"
-            ),
-            _json(
-                {
-                    "pg_blocking_pids": [47901],
-                    "blocked_sessions": 47,
-                    "source": "controlled Aurora PostgreSQL fixture",
-                }
-            ),
-        )
-    )
-
-    second_incident_started = datetime(2026, 6, 9, 9, 20, tzinfo=timezone.utc)
-    second_incident = add_evidence(
-        "incident",
-        "INC-2031",
-        "Identity API connection pool saturated",
-        "incident_management",
-        "workshop://incidents/INC-2031",
-        second_incident_started + timedelta(hours=2),
-        revision="inc-2031-final",
-    )
-    incidents.append(
-        (
-            second_incident,
-            "INC-2031",
-            "identity-prod-1",
-            "SEV-2",
-            "resolved",
-            second_incident_started,
-            second_incident_started + timedelta(minutes=24),
-            second_incident_started + timedelta(hours=2),
-            "Identity requests queued after an application release opened more database sessions.",
-            "Authentication latency increased; no relation-lock waits were observed.",
-            "The team restored the previous pool limit and rolled out bounded connection acquisition.",
-        )
-    )
-
-    second_runbook = add_evidence(
-        "runbook",
-        "RB-009",
-        "Diagnose application connection saturation",
-        "engineering_knowledge",
-        "workshop://runbooks/RB-009",
-        second_incident_started - timedelta(days=20),
-        revision="rb-009-v2",
-    )
-    runbooks.append(
-        (
-            second_runbook,
-            "RB-009",
-            2,
-            "current",
-            "database-reliability",
-            "aurora-postgresql",
-            "[14,19)",
-            (
-                "Compare application pool limits with DatabaseConnections, active sessions, "
-                "transaction duration, and rejected connection errors. Reduce pool fan-out before "
-                "raising database limits, and consider RDS Proxy where connection churn is the problem."
-            ),
-            "Connection count alone does not identify lock contention or CPU saturation.",
-        )
-    )
-    incident_runbooks.append(
-        (
-            second_incident,
-            second_runbook,
-            "used",
-            "The runbook matched a connection-saturation incident without relation-lock evidence.",
-        )
-    )
-
+def _empty_rows() -> dict[str, list[dict[str, Any]]]:
     return {
-        "clusters": clusters,
-        "evidence": evidence,
-        "incidents": incidents,
-        "changes": changes,
-        "cases": cases,
-        "runbooks": runbooks,
-        "lock_evidence": lock_evidence,
-        "incident_changes": incident_changes,
-        "incident_cases": incident_cases,
-        "incident_runbooks": incident_runbooks,
-    }
-
-
-def _background_rows(document_target: int) -> dict[str, list[tuple]]:
-    rows = {
         "clusters": [],
         "evidence": [],
         "incidents": [],
         "changes": [],
         "cases": [],
         "runbooks": [],
+        "captures": [],
         "lock_evidence": [],
+        "activity_samples": [],
+        "lock_samples": [],
+        "blocking_samples": [],
+        "statement_samples": [],
+        "cloudwatch_samples": [],
+        "database_insights_samples": [],
+        "commitments": [],
+        "postmortems": [],
         "incident_changes": [],
         "incident_cases": [],
         "incident_runbooks": [],
+        "change_runbooks": [],
+        "case_commitments": [],
+        "inferred_edges": [],
     }
+
+
+def _canonical_rows(capture_bundle: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    validate_capture_bundle(capture_bundle)
+    rows = _empty_rows()
+    capture = capture_bundle["capture"]
+    captured_started = _as_datetime(capture["capture_started_at"])
+    captured_ended = _as_datetime(capture["capture_ended_at"])
+    incident_started = captured_started
+    incident_declared = incident_started + timedelta(minutes=7)
+    incident_resolved = max(
+        captured_ended,
+        incident_started + timedelta(minutes=18),
+    )
+
+    rows["clusters"].extend(
+        [
+            {
+                "cluster_id": "checkout-prod-cluster-01",
+                "engine": "aurora-postgresql",
+                "engine_version": "18.3",
+                "aws_region": "us-east-1",
+                "environment": "production",
+                "service_name": "checkout",
+                "writer_endpoint_alias": "checkout-prod-cluster-01.cluster.local",
+                "instance_class": "db.r8g.xlarge",
+                "database_insights_mode": "advanced",
+                "metadata": {
+                    "synthetic": True,
+                    "workload": "transactional",
+                    "fixture_profile": "DAT410-core",
+                },
+            },
+            {
+                "cluster_id": "checkout-staging-01",
+                "engine": "aurora-postgresql",
+                "engine_version": "18.3",
+                "aws_region": "us-east-1",
+                "environment": "staging",
+                "service_name": "checkout",
+                "writer_endpoint_alias": "checkout-staging-01.cluster.local",
+                "instance_class": "db.r8g.large",
+                "database_insights_mode": "advanced",
+                "metadata": {
+                    "synthetic": True,
+                    "workload": "preproduction",
+                    "distractor": "wrong-environment",
+                },
+            },
+            {
+                "cluster_id": "catalog-prod-01",
+                "engine": "aurora-postgresql",
+                "engine_version": "17.5",
+                "aws_region": "us-east-1",
+                "environment": "production",
+                "service_name": "catalog",
+                "writer_endpoint_alias": "catalog-prod-01.cluster.local",
+                "instance_class": "db.r8g.large",
+                "database_insights_mode": "advanced",
+                "metadata": {
+                    "synthetic": True,
+                    "workload": "read-heavy",
+                },
+            },
+        ]
+    )
+
+    def add_evidence(
+        kind: str,
+        key: str,
+        title: str,
+        source_system: str,
+        updated_at: datetime,
+        *,
+        revision: str,
+        acl: dict[str, Any] | None = None,
+        source_uri: str | None = None,
+    ) -> uuid.UUID:
+        item_id = evidence_id(kind, key)
+        rows["evidence"].append(
+            {
+                "evidence_id": item_id,
+                "evidence_kind": kind,
+                "external_key": key,
+                "title": title,
+                "source_system": source_system,
+                "source_uri": source_uri
+                or f"workshop://synthetic/{kind}/{key}",
+                "source_revision": revision,
+                "source_updated_at": updated_at,
+                "acl": acl or WORKSHOP_ACL,
+            }
+        )
+        return item_id
+
+    incident = add_evidence(
+        "incident",
+        "INC-2047",
+        "Checkout writes queued while reads continued",
+        "synthetic_incident_management",
+        incident_resolved,
+        revision="inc-2000-final-1",
+    )
+    rows["incidents"].append(
+        {
+            "evidence_id": incident,
+            "incident_id": "INC-2047",
+            "cluster_id": "checkout-prod-cluster-01",
+            "severity": "SEV-2",
+            "status": "resolved",
+            "started_at": incident_started,
+            "mitigated_at": captured_ended,
+            "resolved_at": incident_resolved,
+            "summary": (
+                "Checkout INSERT and UPDATE statements queued on relation locks "
+                "after a production index migration began. SELECT traffic continued."
+            ),
+            "customer_impact": (
+                "Fictional Acme Retail could read order history but could not submit "
+                "new orders during the controlled incident window."
+            ),
+            "resolution": (
+                "The ordinary index build was cancelled, queued DML recovered, and "
+                "the replacement was scheduled with CREATE INDEX CONCURRENTLY."
+            ),
+        }
+    )
+
+    confirmed_change = add_evidence(
+        "change",
+        "CHG-1842",
+        "Create customer and timestamp index on orders",
+        "synthetic_change_management",
+        captured_ended,
+        revision="chg-1000-closed-1",
+    )
+    rows["changes"].append(
+        {
+            "evidence_id": confirmed_change,
+            "change_id": "CHG-1842",
+            "cluster_id": "checkout-prod-cluster-01",
+            "change_type": "ddl",
+            "status": "cancelled",
+            "started_at": captured_started,
+            "completed_at": captured_ended,
+            "owner_team": "checkout-database",
+            "execution_sql": (
+                "CREATE INDEX idx_orders_customer_created "
+                "ON orders (customer_id, created_at DESC);"
+            ),
+            "description": (
+                "CHG-1842 caused checkout writes to block on checkout-prod-cluster-01 while "
+                "reads continued. The migration used plain CREATE INDEX on a "
+                "write-active production table. PostgreSQL acquired ShareLock, which "
+                "permits AccessShareLock readers but conflicts with writers requesting "
+                "RowExclusiveLock."
+            ),
+            "rollback_plan": (
+                "Cancel the build, verify queued writers drain, then inspect and remove "
+                "any unusable index artifact before a controlled retry."
+            ),
+        }
+    )
+    rows["incident_changes"].append(
+        {
+            "incident_evidence_id": incident,
+            "change_evidence_id": confirmed_change,
+            "relationship": "confirmed",
+            "rationale": (
+                "The captured CREATE INDEX backend held granted ShareLock while both "
+                "writers waited for RowExclusiveLock on the same relation OID."
+            ),
+            "confirmed_by": "captured PostgreSQL lock catalogs",
+        }
+    )
+
+    ruled_out_change = add_evidence(
+        "change",
+        "CHG-1838",
+        "Resize checkout worker pool",
+        "synthetic_change_management",
+        incident_started - timedelta(minutes=5),
+        revision="chg-1001-complete-1",
+    )
+    rows["changes"].append(
+        {
+            "evidence_id": ruled_out_change,
+            "change_id": "CHG-1838",
+            "cluster_id": "checkout-prod-cluster-01",
+            "change_type": "configuration",
+            "status": "completed",
+            "started_at": incident_started - timedelta(minutes=12),
+            "completed_at": incident_started - timedelta(minutes=5),
+            "owner_team": "checkout-platform",
+            "execution_sql": None,
+            "description": (
+                "The application worker pool increased from 24 to 32. This change "
+                "does not acquire a PostgreSQL relation lock."
+            ),
+            "rollback_plan": "Restore the worker count to 24 and recycle the deployment.",
+        }
+    )
+    rows["incident_changes"].append(
+        {
+            "incident_evidence_id": incident,
+            "change_evidence_id": ruled_out_change,
+            "relationship": "ruled_out",
+            "rationale": (
+                "The blocking PID belongs to CHG-1842, and both waiting sessions name "
+                "that backend through pg_blocking_pids()."
+            ),
+            "confirmed_by": "incident commander",
+        }
+    )
+
+    safe_change = add_evidence(
+        "change",
+        "CHG-1907",
+        "Rebuild orders index concurrently",
+        "synthetic_change_management",
+        incident_resolved + timedelta(hours=2),
+        revision="chg-1002-approved-1",
+    )
+    rows["changes"].append(
+        {
+            "evidence_id": safe_change,
+            "change_id": "CHG-1907",
+            "cluster_id": "checkout-prod-cluster-01",
+            "change_type": "ddl",
+            "status": "scheduled",
+            "started_at": incident_resolved + timedelta(hours=2),
+            "completed_at": None,
+            "owner_team": "checkout-database",
+            "execution_sql": (
+                "CREATE INDEX CONCURRENTLY idx_orders_customer_created "
+                "ON orders (customer_id, created_at DESC);"
+            ),
+            "description": (
+                "Preventive follow-up uses ShareUpdateExclusiveLock so ordinary DML "
+                "can continue. The build is run outside a transaction block."
+            ),
+            "rollback_plan": (
+                "Monitor pg_stat_progress_create_index. If the build fails, inspect "
+                "pg_index.indisvalid and drop the INVALID index before retrying."
+            ),
+        }
+    )
+
+    current_runbook = add_evidence(
+        "runbook",
+        "RB-017",
+        "Online index builds on production writers",
+        "synthetic_runbook_store",
+        incident_started - timedelta(days=30),
+        revision="rb-5000-v4",
+        source_uri="https://www.postgresql.org/docs/current/sql-createindex.html",
+    )
+    rows["runbooks"].append(
+        {
+            "evidence_id": current_runbook,
+            "runbook_id": "RB-017",
+            "version": 4,
+            "status": "current",
+            "owner_team": "database-reliability",
+            "applies_to_engine": "aurora-postgresql",
+            "applies_to_major_versions": "[14,19)",
+            "procedure_text": (
+                "For a write-active relation, use CREATE INDEX CONCURRENTLY outside "
+                "a transaction block. Monitor pg_stat_progress_create_index and "
+                "pg_stat_activity. The concurrent form takes ShareUpdateExclusiveLock, "
+                "which does not conflict with RowExclusiveLock."
+            ),
+            "caveats": (
+                "The concurrent form performs two table scans, usually takes longer, "
+                "cannot run inside a transaction block, and can leave an INVALID index "
+                "if it fails partway."
+            ),
+        }
+    )
+    rows["incident_runbooks"].append(
+        {
+            "incident_evidence_id": incident,
+            "runbook_evidence_id": current_runbook,
+            "applicability": "used",
+            "rationale": "This is the approved recovery and preventive procedure.",
+        }
+    )
+
+    superseded_runbook = add_evidence(
+        "runbook",
+        "RB-092",
+        "Legacy production index deployment checklist",
+        "synthetic_runbook_store",
+        incident_started - timedelta(days=400),
+        revision="rb-5001-v1-superseded",
+    )
+    rows["runbooks"].append(
+        {
+            "evidence_id": superseded_runbook,
+            "runbook_id": "RB-092",
+            "version": 1,
+            "status": "superseded",
+            "owner_team": "database-reliability",
+            "applies_to_engine": "aurora-postgresql",
+            "applies_to_major_versions": "[14,17)",
+            "procedure_text": (
+                "Legacy guidance allowed ordinary index creation during expected "
+                "low-traffic periods after a simple connection-count check."
+            ),
+            "caveats": (
+                "Superseded because connection count does not prove lock compatibility "
+                "and the procedure did not protect write-active relations."
+            ),
+        }
+    )
+    rows["incident_runbooks"].append(
+        {
+            "incident_evidence_id": incident,
+            "runbook_evidence_id": superseded_runbook,
+            "applicability": "rejected",
+            "rationale": "The legacy version omitted the required concurrent-build guardrail.",
+        }
+    )
+    rows["change_runbooks"].extend(
+        [
+            {
+                "change_evidence_id": confirmed_change,
+                "runbook_evidence_id": current_runbook,
+                "relationship": "remediated_by",
+                "rationale": "RB-017 supplies the safe replacement for CHG-1842.",
+            },
+            {
+                "change_evidence_id": safe_change,
+                "runbook_evidence_id": current_runbook,
+                "relationship": "implements",
+                "rationale": "CHG-1907 implements the current concurrent-build procedure.",
+            },
+            {
+                "change_evidence_id": confirmed_change,
+                "runbook_evidence_id": superseded_runbook,
+                "relationship": "superseded_guidance",
+                "rationale": "RB-092 describes the obsolete procedure that allowed the risk.",
+            },
+        ]
+    )
+
+    case_visible = add_evidence(
+        "support_case",
+        "CASE-7419",
+        "Acme Retail checkout submissions timed out",
+        "synthetic_support_system",
+        incident_declared + timedelta(minutes=14),
+        revision="case-4000-update-3",
+    )
+    rows["cases"].append(
+        {
+            "evidence_id": case_visible,
+            "case_id": "CASE-7419",
+            "account_name": "Acme Retail (fictional)",
+            "support_tier": "Enterprise",
+            "severity": "urgent",
+            "status": "resolved",
+            "opened_at": incident_declared + timedelta(minutes=4),
+            "sla_due_at": incident_declared + timedelta(minutes=34),
+            "subject": "Checkout writes timed out while order history remained readable",
+            "description": (
+                "This fictional case reports failed order submissions against "
+                "checkout-prod-cluster-01 during INC-2047."
+            ),
+            "customer_commitment": (
+                "Provide a root-cause statement and safe-fix plan under the P1 response."
+            ),
+        }
+    )
+    rows["incident_cases"].append(
+        {
+            "incident_evidence_id": incident,
+            "case_evidence_id": case_visible,
+            "impact": "affected",
+            "rationale": "Cluster, service, and case interval match INC-2047.",
+        }
+    )
+
+    case_restricted = add_evidence(
+        "support_case",
+        "CASE-7421",
+        "Restricted regulated-account checkout escalation",
+        "synthetic_support_system",
+        incident_declared + timedelta(minutes=17),
+        revision="case-4001-update-2",
+        acl=RESTRICTED_ACL,
+    )
+    rows["cases"].append(
+        {
+            "evidence_id": case_restricted,
+            "case_id": "CASE-7421",
+            "account_name": "Northstar Foods (fictional)",
+            "support_tier": "Enterprise",
+            "severity": "urgent",
+            "status": "resolved",
+            "opened_at": incident_declared + timedelta(minutes=6),
+            "sla_due_at": incident_declared + timedelta(minutes=36),
+            "subject": "Restricted checkout write failures",
+            "description": (
+                "This fictional restricted case shares the incident interval and is "
+                "visible only when the principal contains support-lead."
+            ),
+            "customer_commitment": "Support leadership approval required before disclosure.",
+        }
+    )
+    rows["incident_cases"].append(
+        {
+            "incident_evidence_id": incident,
+            "case_evidence_id": case_restricted,
+            "impact": "affected",
+            "rationale": "The restricted case references the same cluster and interval.",
+        }
+    )
+
+    case_unaffected = add_evidence(
+        "support_case",
+        "CASE-7424",
+        "Zenith Corp catalog latency inquiry",
+        "synthetic_support_system",
+        incident_resolved + timedelta(minutes=30),
+        revision="case-4002-update-1",
+    )
+    rows["cases"].append(
+        {
+            "evidence_id": case_unaffected,
+            "case_id": "CASE-7424",
+            "account_name": "Zenith Corp (fictional)",
+            "support_tier": "Business",
+            "severity": "high",
+            "status": "resolved",
+            "opened_at": incident_declared + timedelta(minutes=12),
+            "sla_due_at": incident_declared + timedelta(hours=4),
+            "subject": "Catalog query latency",
+            "description": (
+                "This fictional inquiry concerns read-only traffic on catalog-prod-01, "
+                "not checkout-prod-cluster-01."
+            ),
+            "customer_commitment": "Provide catalog query findings by the next business day.",
+        }
+    )
+    rows["incident_cases"].append(
+        {
+            "incident_evidence_id": incident,
+            "case_evidence_id": case_unaffected,
+            "impact": "not_affected",
+            "rationale": "The case targets a different service and cluster.",
+        }
+    )
+
+    commitment = add_evidence(
+        "commitment",
+        "COMMIT-4471",
+        "P1 root-cause and safe-fix response for Acme Retail",
+        "synthetic_support_system",
+        incident_resolved + timedelta(hours=1),
+        revision="commit-6000-revision-1",
+    )
+    rows["commitments"].append(
+        {
+            "evidence_id": commitment,
+            "commitment_id": "COMMIT-4471",
+            "account_name": "Acme Retail (fictional)",
+            "priority": "P1",
+            "commitment_text": (
+                "Deliver a written root cause, recovery window, and preventive "
+                "concurrent-index plan."
+            ),
+            "due_at": incident_resolved + timedelta(days=2),
+            "status": "open",
+            "revalidate_live": True,
+        }
+    )
+    rows["case_commitments"].append(
+        {
+            "case_evidence_id": case_visible,
+            "commitment_evidence_id": commitment,
+        }
+    )
+
+    postmortem = add_evidence(
+        "postmortem",
+        "PM-2047",
+        "INC-2047 index-build write stall postmortem",
+        "synthetic_incident_management",
+        incident_resolved + timedelta(days=3),
+        revision="pm-9000-final-1",
+    )
+    rows["postmortems"].append(
+        {
+            "evidence_id": postmortem,
+            "postmortem_id": "PM-2047",
+            "incident_evidence_id": incident,
+            "published_at": incident_resolved + timedelta(days=3),
+            "root_cause": (
+                "CHG-1842 used plain CREATE INDEX. Its granted ShareLock conflicted "
+                "with RowExclusiveLock requested by INSERT and UPDATE sessions."
+            ),
+            "contributing_factors": (
+                "Migration review checked estimated duration but did not evaluate the "
+                "table-level lock compatibility matrix."
+            ),
+            "remediation": (
+                "The build was cancelled and queued writers recovered. CHG-1907 "
+                "schedules CREATE INDEX CONCURRENTLY outside a transaction block."
+            ),
+            "prevention": (
+                "Production index changes now require RB-017, lock_timeout, progress "
+                "monitoring, and INVALID-index cleanup instructions."
+            ),
+        }
+    )
+
+    older_started = incident_started - timedelta(days=200)
+    older_incident = add_evidence(
+        "incident",
+        "INC-1980",
+        "Older checkout write stall during VACUUM FULL",
+        "synthetic_incident_management",
+        older_started + timedelta(hours=2),
+        revision="inc-2001-final-1",
+    )
+    rows["incidents"].append(
+        {
+            "evidence_id": older_incident,
+            "incident_id": "INC-1980",
+            "cluster_id": "checkout-prod-cluster-01",
+            "severity": "SEV-2",
+            "status": "resolved",
+            "started_at": older_started,
+            "mitigated_at": older_started + timedelta(minutes=22),
+            "resolved_at": older_started + timedelta(hours=2),
+            "summary": (
+                "An older relation-lock incident also queued checkout writes, but an "
+                "offline VACUUM FULL held AccessExclusiveLock."
+            ),
+            "customer_impact": "Fictional background cases observed both reads and writes pause.",
+            "resolution": "VACUUM FULL was cancelled and moved to a maintenance window.",
+        }
+    )
+    older_change = add_evidence(
+        "change",
+        "CHG-1731",
+        "Compact historical orders with VACUUM FULL",
+        "synthetic_change_management",
+        older_started + timedelta(minutes=22),
+        revision="chg-1010-closed-1",
+    )
+    rows["changes"].append(
+        {
+            "evidence_id": older_change,
+            "change_id": "CHG-1731",
+            "cluster_id": "checkout-prod-cluster-01",
+            "change_type": "ddl",
+            "status": "cancelled",
+            "started_at": older_started,
+            "completed_at": older_started + timedelta(minutes=22),
+            "owner_team": "checkout-database",
+            "execution_sql": "VACUUM FULL orders_history;",
+            "description": (
+                "Older look-alike incident with a different root cause and stronger "
+                "AccessExclusiveLock semantics."
+            ),
+            "rollback_plan": "Cancel VACUUM FULL and use routine VACUUM.",
+        }
+    )
+    rows["incident_changes"].append(
+        {
+            "incident_evidence_id": older_incident,
+            "change_evidence_id": older_change,
+            "relationship": "confirmed",
+            "rationale": "The historical incident was caused by VACUUM FULL, not index creation.",
+            "confirmed_by": "historical post-incident review",
+        }
+    )
+    rows["inferred_edges"].append(
+        {
+            "edge_id": _stable_id("edge", "INC-2047-resembles-INC-1980"),
+            "from_evidence_id": incident,
+            "to_evidence_id": older_incident,
+            "relation": "resembles",
+            "confidence": 0.62,
+            "method": "embedding_knn",
+            "source_revision": "fixture-inference-1",
+            "metadata": {
+                "rationale": "Similar write-stall language, different root cause.",
+            },
+        }
+    )
+
+    staging_started = incident_started - timedelta(days=20)
+    staging_incident = add_evidence(
+        "incident",
+        "INC-2044",
+        "Staging writers queued during an index rehearsal",
+        "synthetic_incident_management",
+        staging_started + timedelta(hours=1),
+        revision="inc-2010-final-1",
+    )
+    rows["incidents"].append(
+        {
+            "evidence_id": staging_incident,
+            "incident_id": "INC-2044",
+            "cluster_id": "checkout-staging-01",
+            "severity": "SEV-3",
+            "status": "resolved",
+            "started_at": staging_started,
+            "mitigated_at": staging_started + timedelta(minutes=8),
+            "resolved_at": staging_started + timedelta(hours=1),
+            "summary": (
+                "The same relation-lock signature appeared during a staging rehearsal. "
+                "Environment filtering must exclude it from the production investigation."
+            ),
+            "customer_impact": "No customer impact; the cluster is staging.",
+            "resolution": "The rehearsal was cancelled and the migration plan changed.",
+        }
+    )
+    staging_change = add_evidence(
+        "change",
+        "CHG-1840",
+        "Staging index rehearsal",
+        "synthetic_change_management",
+        staging_started + timedelta(minutes=8),
+        revision="chg-1011-closed-1",
+    )
+    rows["changes"].append(
+        {
+            "evidence_id": staging_change,
+            "change_id": "CHG-1840",
+            "cluster_id": "checkout-staging-01",
+            "change_type": "ddl",
+            "status": "cancelled",
+            "started_at": staging_started,
+            "completed_at": staging_started + timedelta(minutes=8),
+            "owner_team": "checkout-database",
+            "execution_sql": (
+                "CREATE INDEX idx_orders_customer_created "
+                "ON orders (customer_id, created_at DESC);"
+            ),
+            "description": "Same SQL signature as CHG-1842, but on staging.",
+            "rollback_plan": "Cancel and update the production migration plan.",
+        }
+    )
+    rows["incident_changes"].append(
+        {
+            "incident_evidence_id": staging_incident,
+            "change_evidence_id": staging_change,
+            "relationship": "confirmed",
+            "rationale": "Staging-only rehearsal caused the staging event.",
+            "confirmed_by": "staging operator",
+        }
+    )
+
+    capture_id = _stable_id("capture", capture["capture_key"])
+    rows["captures"].append(
+        {
+            "capture_id": capture_id,
+            "capture_key": capture["capture_key"],
+            "incident_evidence_id": incident,
+            "cluster_id": "checkout-prod-cluster-01",
+            "capture_mode": capture["capture_mode"],
+            "engine_version": str(capture["engine_version"]),
+            "instance_class": capture["instance_class"],
+            "database_name": capture["database_name"],
+            "table_schema": capture["table_schema"],
+            "table_name": capture["table_name"],
+            "relation_oid": capture["relation_oid"],
+            "configured_row_count": capture["configured_row_count"],
+            "observed_row_count": capture["observed_row_count"],
+            "table_size_bytes": capture["table_size_bytes"],
+            "steady_state_connections": capture["steady_state_connections"],
+            "capture_started_at": captured_started,
+            "capture_ended_at": captured_ended,
+            "capture_tool_version": capture["capture_tool_version"],
+            "source_bundle_sha256": capture["source_bundle_sha256"],
+            "source_bundle_uri": capture.get("source_bundle_uri")
+            or f"workshop://capture-bundles/{capture['capture_key']}",
+            "release_verified_at": (
+                _as_datetime(capture["release_verified_at"])
+                if capture.get("release_verified_at")
+                else None
+            ),
+            "manifest": capture["manifest"],
+        }
+    )
+
+    observation_ids: dict[str, uuid.UUID] = {}
+    for observation in capture_bundle["observations"]:
+        key = observation["external_key"]
+        lock_id = add_evidence(
+            "lock_evidence",
+            key,
+            f"Captured relation-lock evidence for writer {observation['blocked_pid']}",
+            "postgresql_fixture_capture",
+            _as_datetime(observation["captured_at"]),
+            revision=f"{capture['source_bundle_sha256']}:{key}",
+            source_uri=(
+                f"workshop://{capture['capture_mode']}/"
+                f"{capture['capture_key']}/{key}"
+            ),
+        )
+        observation_ids[key] = lock_id
+        rows["lock_evidence"].append(
+            {
+                "evidence_id": lock_id,
+                "observation_id": key,
+                "incident_evidence_id": incident,
+                "change_evidence_id": confirmed_change,
+                "capture_id": capture_id,
+                "captured_at": _as_datetime(observation["captured_at"]),
+                "relation_name": observation["relation_name"],
+                "relation_oid": observation["relation_oid"],
+                "blocked_pid": observation["blocked_pid"],
+                "blocking_pid": observation["blocking_pid"],
+                "blocked_state": observation["blocked_state"],
+                "blocked_query_start": _as_datetime(
+                    observation["blocked_query_start"]
+                ),
+                "wait_event_type": observation["wait_event_type"],
+                "wait_event": observation["wait_event"],
+                "blocked_lock_mode": observation["blocked_lock_mode"],
+                "blocked_lock_granted": observation["blocked_lock_granted"],
+                "blocking_lock_mode": observation["blocking_lock_mode"],
+                "blocking_lock_granted": observation["blocking_lock_granted"],
+                "blocking_pids": observation["blocking_pids"],
+                "blocking_pids_sql": observation["blocking_pids_sql"],
+                "blocking_pids_output": observation["blocking_pids_output"],
+                "blocked_statement": observation["blocked_statement"],
+                "blocking_statement": observation["blocking_statement"],
+                "database_insights_slice": None,
+                "raw_capture": observation["raw_capture"],
+            }
+        )
+
+    first_observation = next(iter(observation_ids.values()))
+    for sample in capture_bundle.get("pg_stat_activity", []):
+        rows["activity_samples"].append(
+            {
+                "capture_id": capture_id,
+                "observation_evidence_id": first_observation,
+                "captured_at": _as_datetime(sample["captured_at"]),
+                "pid": sample["pid"],
+                "backend_type": sample.get("backend_type"),
+                "application_name": sample.get("application_name"),
+                "state": sample["state"],
+                "wait_event_type": sample.get("wait_event_type"),
+                "wait_event": sample.get("wait_event"),
+                "query_start": (
+                    _as_datetime(sample["query_start"])
+                    if sample.get("query_start")
+                    else None
+                ),
+                "xact_start": (
+                    _as_datetime(sample["xact_start"])
+                    if sample.get("xact_start")
+                    else None
+                ),
+                "query": sample["query"],
+                "raw_row": sample["raw_row"],
+            }
+        )
+    for sample in capture_bundle.get("pg_locks", []):
+        rows["lock_samples"].append(
+            {
+                "capture_id": capture_id,
+                "observation_evidence_id": first_observation,
+                "captured_at": _as_datetime(sample["captured_at"]),
+                "pid": sample["pid"],
+                "locktype": sample["locktype"],
+                "database_oid": sample.get("database_oid"),
+                "relation_oid": sample["relation_oid"],
+                "relation_name": sample["relation_name"],
+                "mode": sample["mode"],
+                "granted": sample["granted"],
+                "fastpath": sample.get("fastpath"),
+                "waitstart": (
+                    _as_datetime(sample["waitstart"])
+                    if sample.get("waitstart")
+                    else None
+                ),
+                "raw_row": sample["raw_row"],
+            }
+        )
+    for sample in capture_bundle.get("pg_blocking_pids", []):
+        rows["blocking_samples"].append(
+            {
+                "capture_id": capture_id,
+                "observation_evidence_id": observation_ids[
+                    next(
+                        observation["external_key"]
+                        for observation in capture_bundle["observations"]
+                        if observation["blocked_pid"] == sample["blocked_pid"]
+                    )
+                ],
+                "captured_at": _as_datetime(sample["captured_at"]),
+                "blocked_pid": sample["blocked_pid"],
+                "blocking_pids": sample["blocking_pids"],
+                "literal_sql": sample["literal_sql"],
+                "literal_output": sample["literal_output"],
+                "raw_row": sample["raw_row"],
+            }
+        )
+    for sample in capture_bundle.get("pg_stat_statements", []):
+        rows["statement_samples"].append(
+            {
+                "capture_id": capture_id,
+                "phase": sample["phase"],
+                "captured_at": _as_datetime(sample["captured_at"]),
+                "queryid": sample.get("queryid"),
+                "query": sample["query"],
+                "calls": sample["calls"],
+                "total_exec_time": sample["total_exec_time"],
+                "mean_exec_time": sample["mean_exec_time"],
+                "rows": sample.get("rows", 0),
+                "raw_row": sample["raw_row"],
+            }
+        )
+    for sample in capture_bundle.get("cloudwatch_metrics", []):
+        rows["cloudwatch_samples"].append(
+            {
+                "capture_id": capture_id,
+                **sample,
+            }
+        )
+    for sample in capture_bundle.get("database_insights", []):
+        rows["database_insights_samples"].append(
+            {
+                "capture_id": capture_id,
+                **sample,
+            }
+        )
+    return rows
+
+
+def _background_rows(document_target: int) -> dict[str, list[dict[str, Any]]]:
+    rows = _empty_rows()
     if document_target <= 0:
         return rows
 
-    clusters = [
-        "orders-prod-1",
-        "identity-prod-1",
-        "billing-prod-2",
-        "catalog-prod-1",
-        "orders-staging-1",
+    services = [
+        "billing",
+        "catalog",
+        "fulfillment",
+        "identity",
+        "inventory",
+        "pricing",
+        "shipping",
+        "subscriptions",
     ]
     causes = [
         (
-            "index build",
-            "ordinary CREATE INDEX blocked table writes",
-            "CREATE INDEX idx_event_lookup ON event_log (tenant_id, created_at)",
-            "Use CREATE INDEX CONCURRENTLY outside a transaction block when writes must continue.",
+            "AccessExclusiveLock during a column rewrite",
+            "ALTER TABLE event_log ALTER COLUMN payload TYPE jsonb USING payload::jsonb",
+            "Use expand-contract migration for a write-active relation.",
         ),
         (
-            "schema lock",
-            "ALTER TABLE waited for and then held an ACCESS EXCLUSIVE lock",
-            "ALTER TABLE event_log ADD COLUMN trace_token text",
-            "Inspect blockers and schedule ACCESS EXCLUSIVE operations in a controlled window.",
+            "connection-pool saturation",
+            None,
+            "Reduce client fan-out before raising database limits.",
         ),
         (
-            "transaction blocker",
-            "an open transaction held a conflicting relation lock",
+            "long transaction retained old row versions",
             "UPDATE event_log SET state = 'processing' WHERE event_id = $1",
-            "Find the blocker with pg_blocking_pids and end the transaction through change control.",
+            "Bound transaction duration and investigate the owning application.",
         ),
         (
-            "migration queue",
-            "a waiting DDL request caused later write requests to queue",
-            "ALTER TABLE event_log ALTER COLUMN state SET NOT NULL",
-            "Cancel unsafe DDL, drain the queue, and validate the migration against production-like load.",
+            "VACUUM FULL blocked concurrent access",
+            "VACUUM FULL event_log",
+            "Use routine VACUUM and schedule rewrites explicitly.",
         ),
     ]
-    services = ["checkout", "identity", "billing", "catalog", "fulfillment"]
-    accounts = [f"Tenant-{index:03d}" for index in range(1, 101)]
-    base_time = datetime(2025, 1, 1, 8, 0, tzinfo=timezone.utc)
-    group_count = (document_target + 4) // 5
+    cluster_count = max(8, min(40, (document_target + 79) // 80))
+    for ordinal in range(1, cluster_count + 1):
+        service = services[(ordinal - 1) % len(services)]
+        cluster_id = f"{service}-prod-{ordinal:02d}"
+        rows["clusters"].append(
+            {
+                "cluster_id": cluster_id,
+                "engine": "aurora-postgresql",
+                "engine_version": "18.3" if ordinal % 2 else "17.5",
+                "aws_region": (
+                    "us-east-1" if ordinal % 3 else "us-west-2"
+                ),
+                "environment": "production",
+                "service_name": service,
+                "writer_endpoint_alias": f"{cluster_id}.cluster.local",
+                "instance_class": "db.r8g.large",
+                "database_insights_mode": "advanced",
+                "metadata": {
+                    "synthetic": True,
+                    "tier": "background",
+                },
+            }
+        )
 
-    for index in range(1, group_count + 1):
-        cluster_id = clusters[index % len(clusters)]
-        cause_name, cause_summary, statement, recommendation = causes[index % len(causes)]
-        service = services[index % len(services)]
-        account = accounts[index % len(accounts)]
-        relation_name = f"archive_{index % 50:02d}.event_log"
-        started = base_time + timedelta(hours=index * 3)
-
-        incident_key = f"INC-BG-{index:05d}"
-        change_key = f"CHG-BG-{index:05d}"
-        case_key = f"CASE-BG-{index:05d}"
-        runbook_key = f"RB-BG-{index:05d}"
-        lock_key = f"LOCK-BG-{index:05d}"
-
-        incident = evidence_id("incident", incident_key)
-        change = evidence_id("change", change_key)
-        case = evidence_id("support_case", case_key)
-        runbook = evidence_id("runbook", runbook_key)
-        lock = evidence_id("lock_evidence", lock_key)
-
-        common_evidence = [
-            (
-                incident,
-                "incident",
-                incident_key,
-                f"{service.title()} write delay associated with {cause_name}",
-                "incident_management",
-                f"workshop://background/incidents/{incident_key}",
-                _iso_revision(incident_key),
-                started + timedelta(hours=1),
-                _json(WORKSHOP_ACL),
-            ),
-            (
-                change,
-                "change",
-                change_key,
-                f"{service.title()} database maintenance",
-                "change_control",
-                f"workshop://background/changes/{change_key}",
-                _iso_revision(change_key),
-                started + timedelta(minutes=30),
-                _json(WORKSHOP_ACL),
-            ),
-            (
-                case,
-                "support_case",
-                case_key,
-                f"{account} reported {service} write latency",
-                "customer_support",
-                f"workshop://background/cases/{case_key}",
-                _iso_revision(case_key),
-                started + timedelta(minutes=20),
-                _json(WORKSHOP_ACL),
-            ),
-            (
-                runbook,
-                "runbook",
-                runbook_key,
-                f"Response procedure for {cause_name}",
-                "engineering_knowledge",
-                f"workshop://background/runbooks/{runbook_key}",
-                _iso_revision(runbook_key),
-                started - timedelta(days=30),
-                _json(WORKSHOP_ACL),
-            ),
-            (
-                lock,
-                "lock_evidence",
-                lock_key,
-                f"Lock snapshot for {relation_name}",
-                "database_snapshot",
-                f"workshop://background/telemetry/{lock_key}",
-                _iso_revision(lock_key),
-                started + timedelta(minutes=5),
-                _json(WORKSHOP_ACL),
-            ),
+    base_time = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    group_count = (document_target + 3) // 4
+    for ordinal in range(1, group_count + 1):
+        service = services[(ordinal - 1) % len(services)]
+        cluster = rows["clusters"][(ordinal - 1) % len(rows["clusters"])]
+        cause, statement, prevention = causes[(ordinal - 1) % len(causes)]
+        started = base_time + timedelta(hours=ordinal * 5)
+        incident_key = f"INC-BG-{ordinal:05d}"
+        change_key = f"MNT-BG-{ordinal:05d}"
+        case_key = f"CASE-BG-{ordinal:05d}"
+        runbook_key = f"RB-BG-{ordinal:05d}"
+        identifiers = [
+            ("incident", incident_key),
+            ("change", change_key),
+            ("support_case", case_key),
+            ("runbook", runbook_key),
         ]
-        remaining = max(0, document_target - len(rows["evidence"]))
-        rows["evidence"].extend(common_evidence[:remaining])
+        evidence_rows: list[dict[str, Any]] = []
+        for kind, key in identifiers:
+            evidence_rows.append(
+                {
+                    "evidence_id": evidence_id(kind, key),
+                    "evidence_kind": kind,
+                    "external_key": key,
+                    "title": (
+                        f"{service.title()} {cause} "
+                        f"({key})"
+                    ),
+                    "source_system": f"synthetic_{kind}_system",
+                    "source_uri": f"workshop://synthetic/background/{kind}/{key}",
+                    "source_revision": f"{key.lower()}-revision-1",
+                    "source_updated_at": started + timedelta(hours=1),
+                    "acl": WORKSHOP_ACL,
+                }
+            )
+        remaining = document_target - len(rows["evidence"])
+        rows["evidence"].extend(evidence_rows[:remaining])
         if remaining <= 0:
             break
 
+        incident_id = evidence_id("incident", incident_key)
+        change_id = evidence_id("change", change_key)
+        case_id = evidence_id("support_case", case_key)
+        runbook_id = evidence_id("runbook", runbook_key)
         rows["incidents"].append(
-            (
-                incident,
-                incident_key,
-                cluster_id,
-                "SEV-2",
-                "resolved",
-                started,
-                started + timedelta(minutes=20),
-                started + timedelta(hours=1),
-                f"{service.title()} writes slowed while {cause_summary}.",
-                f"A bounded set of {service} requests exceeded their latency target.",
-                "The unsafe operation was stopped and queued writes recovered.",
-            )
+            {
+                "evidence_id": incident_id,
+                "incident_id": incident_key,
+                "cluster_id": cluster["cluster_id"],
+                "severity": "SEV-3",
+                "status": "resolved",
+                "started_at": started,
+                "mitigated_at": started + timedelta(minutes=20),
+                "resolved_at": started + timedelta(hours=1),
+                "summary": (
+                    f"{incident_key} affected {service} writes on "
+                    f"{cluster['cluster_id']}; investigation found {cause}."
+                ),
+                "customer_impact": (
+                    f"Fictional Tenant-{ordinal:04d} observed elevated {service} latency."
+                ),
+                "resolution": f"The team stopped {change_key}. {prevention}",
+            }
         )
         rows["changes"].append(
-            (
-                change,
-                change_key,
-                cluster_id,
-                "ddl",
-                "cancelled",
-                started,
-                started + timedelta(minutes=18),
-                f"{service}-database",
-                statement,
-                f"Maintenance on {relation_name}; review found that {cause_summary}.",
-                recommendation,
-            )
+            {
+                "evidence_id": change_id,
+                "change_id": change_key,
+                "cluster_id": cluster["cluster_id"],
+                "change_type": "ddl" if statement else "configuration",
+                "status": "cancelled",
+                "started_at": started,
+                "completed_at": started + timedelta(minutes=20),
+                "owner_team": f"{service}-database",
+                "execution_sql": statement,
+                "description": f"{change_key} was associated with {cause}.",
+                "rollback_plan": prevention,
+            }
         )
         rows["cases"].append(
-            (
-                case,
-                case_key,
-                account,
-                "Business",
-                "high",
-                "resolved",
-                started + timedelta(minutes=3),
-                started + timedelta(hours=4),
-                f"{service.title()} writes exceeded latency target",
-                f"{account} reported a bounded write delay on the {service} service.",
-                "Provide a technical summary after incident resolution.",
-            )
+            {
+                "evidence_id": case_id,
+                "case_id": case_key,
+                "account_name": f"Tenant-{ordinal:04d} (fictional)",
+                "support_tier": "Business",
+                "severity": "normal",
+                "status": "resolved",
+                "opened_at": started + timedelta(minutes=5),
+                "sla_due_at": started + timedelta(hours=8),
+                "subject": f"{service.title()} latency",
+                "description": (
+                    f"This fictional case corresponds to {incident_key} on "
+                    f"{cluster['cluster_id']}."
+                ),
+                "customer_commitment": "Provide an incident summary after resolution.",
+            }
         )
         rows["runbooks"].append(
-            (
-                runbook,
-                runbook_key,
-                1,
-                "current",
-                "database-reliability",
-                "aurora-postgresql",
-                "[14,19)",
-                recommendation,
-                "Validate lock compatibility, transaction boundaries, and rollback before execution.",
-            )
-        )
-        rows["lock_evidence"].append(
-            (
-                lock,
-                lock_key,
-                incident,
-                started + timedelta(minutes=5),
-                relation_name,
-                50000 + (index % 1000),
-                40000 + (index % 1000),
-                "Lock",
-                "relation",
-                f"UPDATE {relation_name} SET state = $1 WHERE event_id = $2",
-                statement,
-                _json(
-                    {
-                        "db_load_by_wait": {"Lock:relation": 4 + (index % 20)},
-                        "sample_window_seconds": 60,
-                        "source": "generated workshop distractor",
-                    }
+            {
+                "evidence_id": runbook_id,
+                "runbook_id": runbook_key,
+                "version": 1,
+                "status": "current",
+                "owner_team": "database-reliability",
+                "applies_to_engine": "aurora-postgresql",
+                "applies_to_major_versions": "[14,19)",
+                "procedure_text": (
+                    f"{runbook_key} procedure for {cause}: {prevention}"
                 ),
-            )
+                "caveats": f"Validate against {cluster['cluster_id']} before execution.",
+            }
         )
         rows["incident_changes"].append(
-            (
-                incident,
-                change,
-                "confirmed",
-                "The operation and first relation-lock wait share the same timestamp.",
-                "background-generator",
-            )
+            {
+                "incident_evidence_id": incident_id,
+                "change_evidence_id": change_id,
+                "relationship": "confirmed",
+                "rationale": f"{change_key} matches the {incident_key} interval.",
+                "confirmed_by": "background fixture generator",
+            }
         )
         rows["incident_cases"].append(
-            (
-                incident,
-                case,
-                "affected",
-                "The case references the same service and incident interval.",
-            )
+            {
+                "incident_evidence_id": incident_id,
+                "case_evidence_id": case_id,
+                "impact": "affected",
+                "rationale": f"{case_key} references {incident_key}.",
+            }
         )
         rows["incident_runbooks"].append(
-            (
-                incident,
-                runbook,
-                "recommended",
-                "The procedure covers the observed lock pattern.",
-            )
+            {
+                "incident_evidence_id": incident_id,
+                "runbook_evidence_id": runbook_id,
+                "applicability": "recommended",
+                "rationale": f"{runbook_key} covers the observed background pattern.",
+            }
         )
 
-    valid_ids = {row[0] for row in rows["evidence"]}
-    for name in ("incidents", "changes", "cases", "runbooks", "lock_evidence"):
-        rows[name] = [row for row in rows[name] if row[0] in valid_ids]
+    valid_ids = {row["evidence_id"] for row in rows["evidence"]}
+    table_id_columns = {
+        "incidents": "evidence_id",
+        "changes": "evidence_id",
+        "cases": "evidence_id",
+        "runbooks": "evidence_id",
+    }
+    for table, column in table_id_columns.items():
+        rows[table] = [
+            row for row in rows[table] if row[column] in valid_ids
+        ]
     rows["incident_changes"] = [
-        row for row in rows["incident_changes"] if row[0] in valid_ids and row[1] in valid_ids
+        row
+        for row in rows["incident_changes"]
+        if row["incident_evidence_id"] in valid_ids
+        and row["change_evidence_id"] in valid_ids
     ]
     rows["incident_cases"] = [
-        row for row in rows["incident_cases"] if row[0] in valid_ids and row[1] in valid_ids
+        row
+        for row in rows["incident_cases"]
+        if row["incident_evidence_id"] in valid_ids
+        and row["case_evidence_id"] in valid_ids
     ]
     rows["incident_runbooks"] = [
-        row for row in rows["incident_runbooks"] if row[0] in valid_ids and row[1] in valid_ids
+        row
+        for row in rows["incident_runbooks"]
+        if row["incident_evidence_id"] in valid_ids
+        and row["runbook_evidence_id"] in valid_ids
     ]
     return rows
 
 
-def _merge_rows(target: dict[str, list[tuple]], addition: dict[str, list[tuple]]) -> None:
+def _merge_rows(
+    target: dict[str, list[dict[str, Any]]],
+    addition: dict[str, list[dict[str, Any]]],
+) -> None:
     for key, values in addition.items():
         target[key].extend(values)
 
 
-def load_casework(conn, *, background_documents: int = 12000) -> dict[str, int]:
-    rows = _canonical_rows()
+def _insert_many(cursor, statement: str, records: list[dict[str, Any]]) -> None:
+    if records:
+        cursor.executemany(statement, records)
+
+
+def load_casework(
+    conn,
+    *,
+    capture_bundle: dict[str, Any],
+    background_documents: int = 15_000,
+) -> dict[str, int]:
+    if background_documents < 0:
+        raise ValueError("background_documents must be non-negative")
+    rows = _canonical_rows(capture_bundle)
     _merge_rows(rows, _background_rows(background_documents))
 
     with conn.transaction():
@@ -802,7 +1159,13 @@ def load_casework(conn, *, background_documents: int = 12000) -> dict[str, int]:
                 TRUNCATE TABLE
                   proof.answer_citations,
                   proof.agent_answers,
+                  proof.agent_escalations,
+                  proof.agent_retrievals,
+                  proof.agent_subquestions,
+                  proof.agent_runs,
                   proof.run_stages,
+                  proof.traversal_results,
+                  proof.transport_invocations,
                   proof.retrieval_candidates,
                   proof.retrieval_runs,
                   proof.relevance_judgments,
@@ -810,12 +1173,23 @@ def load_casework(conn, *, background_documents: int = 12000) -> dict[str, int]:
                   retrieval.inferred_edges,
                   retrieval.chunks,
                   retrieval.documents,
-                  retrieval.projection_builds,
-                  retrieval.projection_outbox,
+                  retrieval.search_index_builds,
+                  retrieval.search_index_queue,
+                  casework.pg_stat_activity_samples,
+                  casework.pg_lock_samples,
+                  casework.pg_blocking_pids_samples,
+                  casework.pg_stat_statements_samples,
+                  casework.cloudwatch_metric_samples,
+                  casework.database_insights_samples,
+                  casework.lock_evidence,
+                  casework.fixture_captures,
+                  casework.support_case_commitments,
+                  casework.change_runbooks,
                   casework.incident_runbooks,
                   casework.incident_support_cases,
                   casework.incident_changes,
-                  casework.lock_evidence,
+                  casework.postmortems,
+                  casework.customer_commitments,
                   casework.runbooks,
                   casework.support_cases,
                   casework.changes,
@@ -825,108 +1199,400 @@ def load_casework(conn, *, background_documents: int = 12000) -> dict[str, int]:
                 RESTART IDENTITY
                 """
             )
-            cursor.executemany(
+            _insert_many(
+                cursor,
                 """
                 INSERT INTO casework.database_clusters(
                   cluster_id, engine, engine_version, aws_region, environment,
-                  service_name, writer_endpoint_alias, metadata
+                  service_name, writer_endpoint_alias, instance_class,
+                  database_insights_mode, metadata
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                VALUES (
+                  %(cluster_id)s, %(engine)s, %(engine_version)s, %(aws_region)s,
+                  %(environment)s, %(service_name)s, %(writer_endpoint_alias)s,
+                  %(instance_class)s, %(database_insights_mode)s, %(metadata)s::jsonb
+                )
                 """,
-                rows["clusters"],
+                [
+                    {**record, "metadata": _json(record["metadata"])}
+                    for record in rows["clusters"]
+                ],
             )
-            cursor.executemany(
+            _insert_many(
+                cursor,
                 """
                 INSERT INTO casework.evidence_items(
                   evidence_id, evidence_kind, external_key, title, source_system,
                   source_uri, source_revision, source_updated_at, acl
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                VALUES (
+                  %(evidence_id)s, %(evidence_kind)s, %(external_key)s, %(title)s,
+                  %(source_system)s, %(source_uri)s, %(source_revision)s,
+                  %(source_updated_at)s, %(acl)s::jsonb
+                )
                 """,
-                rows["evidence"],
+                [
+                    {**record, "acl": _json(record["acl"])}
+                    for record in rows["evidence"]
+                ],
             )
-            cursor.executemany(
+            _insert_many(
+                cursor,
                 """
                 INSERT INTO casework.incidents(
                   evidence_id, incident_id, cluster_id, severity, status, started_at,
                   mitigated_at, resolved_at, summary, customer_impact, resolution
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (
+                  %(evidence_id)s, %(incident_id)s, %(cluster_id)s, %(severity)s,
+                  %(status)s, %(started_at)s, %(mitigated_at)s, %(resolved_at)s,
+                  %(summary)s, %(customer_impact)s, %(resolution)s
+                )
                 """,
                 rows["incidents"],
             )
-            cursor.executemany(
+            _insert_many(
+                cursor,
                 """
                 INSERT INTO casework.changes(
                   evidence_id, change_id, cluster_id, change_type, status, started_at,
                   completed_at, owner_team, execution_sql, description, rollback_plan
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (
+                  %(evidence_id)s, %(change_id)s, %(cluster_id)s, %(change_type)s,
+                  %(status)s, %(started_at)s, %(completed_at)s, %(owner_team)s,
+                  %(execution_sql)s, %(description)s, %(rollback_plan)s
+                )
                 """,
                 rows["changes"],
             )
-            cursor.executemany(
+            _insert_many(
+                cursor,
                 """
                 INSERT INTO casework.support_cases(
                   evidence_id, case_id, account_name, support_tier, severity, status,
                   opened_at, sla_due_at, subject, description, customer_commitment
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (
+                  %(evidence_id)s, %(case_id)s, %(account_name)s, %(support_tier)s,
+                  %(severity)s, %(status)s, %(opened_at)s, %(sla_due_at)s,
+                  %(subject)s, %(description)s, %(customer_commitment)s
+                )
                 """,
                 rows["cases"],
             )
-            cursor.executemany(
+            _insert_many(
+                cursor,
                 """
                 INSERT INTO casework.runbooks(
                   evidence_id, runbook_id, version, status, owner_team,
                   applies_to_engine, applies_to_major_versions, procedure_text, caveats
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s::int4range, %s, %s)
+                VALUES (
+                  %(evidence_id)s, %(runbook_id)s, %(version)s, %(status)s,
+                  %(owner_team)s, %(applies_to_engine)s,
+                  %(applies_to_major_versions)s::int4range,
+                  %(procedure_text)s, %(caveats)s
+                )
                 """,
                 rows["runbooks"],
             )
-            cursor.executemany(
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO casework.customer_commitments(
+                  evidence_id, commitment_id, account_name, priority, commitment_text,
+                  due_at, status, revalidate_live
+                )
+                VALUES (
+                  %(evidence_id)s, %(commitment_id)s, %(account_name)s, %(priority)s,
+                  %(commitment_text)s, %(due_at)s, %(status)s, %(revalidate_live)s
+                )
+                """,
+                rows["commitments"],
+            )
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO casework.postmortems(
+                  evidence_id, postmortem_id, incident_evidence_id, published_at,
+                  root_cause, contributing_factors, remediation, prevention
+                )
+                VALUES (
+                  %(evidence_id)s, %(postmortem_id)s, %(incident_evidence_id)s,
+                  %(published_at)s, %(root_cause)s, %(contributing_factors)s,
+                  %(remediation)s, %(prevention)s
+                )
+                """,
+                rows["postmortems"],
+            )
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO casework.fixture_captures(
+                  capture_id, capture_key, incident_evidence_id, cluster_id,
+                  capture_mode, engine_version, instance_class, database_name,
+                  table_schema, table_name, relation_oid, configured_row_count,
+                  observed_row_count, table_size_bytes, steady_state_connections,
+                  capture_started_at, capture_ended_at, capture_tool_version,
+                  source_bundle_sha256, source_bundle_uri, release_verified_at, manifest
+                )
+                VALUES (
+                  %(capture_id)s, %(capture_key)s, %(incident_evidence_id)s,
+                  %(cluster_id)s, %(capture_mode)s, %(engine_version)s,
+                  %(instance_class)s, %(database_name)s, %(table_schema)s,
+                  %(table_name)s, %(relation_oid)s, %(configured_row_count)s,
+                  %(observed_row_count)s, %(table_size_bytes)s,
+                  %(steady_state_connections)s, %(capture_started_at)s,
+                  %(capture_ended_at)s, %(capture_tool_version)s,
+                  %(source_bundle_sha256)s, %(source_bundle_uri)s,
+                  %(release_verified_at)s, %(manifest)s::jsonb
+                )
+                """,
+                [
+                    {**record, "manifest": _json(record["manifest"])}
+                    for record in rows["captures"]
+                ],
+            )
+            _insert_many(
+                cursor,
                 """
                 INSERT INTO casework.lock_evidence(
-                  evidence_id, observation_id, incident_evidence_id, captured_at,
-                  relation_name, blocked_pid, blocking_pid, wait_event_type, wait_event,
-                  blocked_statement, blocking_statement, database_insights_slice
+                  evidence_id, observation_id, incident_evidence_id,
+                  change_evidence_id, capture_id, captured_at, relation_name,
+                  relation_oid, blocked_pid, blocking_pid, blocked_state,
+                  blocked_query_start, wait_event_type, wait_event,
+                  blocked_lock_mode, blocked_lock_granted, blocking_lock_mode,
+                  blocking_lock_granted, blocking_pids, blocking_pids_sql,
+                  blocking_pids_output, blocked_statement, blocking_statement,
+                  database_insights_slice, raw_capture
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                VALUES (
+                  %(evidence_id)s, %(observation_id)s, %(incident_evidence_id)s,
+                  %(change_evidence_id)s, %(capture_id)s, %(captured_at)s,
+                  %(relation_name)s, %(relation_oid)s, %(blocked_pid)s,
+                  %(blocking_pid)s, %(blocked_state)s, %(blocked_query_start)s,
+                  %(wait_event_type)s, %(wait_event)s, %(blocked_lock_mode)s,
+                  %(blocked_lock_granted)s, %(blocking_lock_mode)s,
+                  %(blocking_lock_granted)s, %(blocking_pids)s,
+                  %(blocking_pids_sql)s, %(blocking_pids_output)s,
+                  %(blocked_statement)s, %(blocking_statement)s,
+                  %(database_insights_slice)s::jsonb, %(raw_capture)s::jsonb
+                )
                 """,
-                rows["lock_evidence"],
+                [
+                    {
+                        **record,
+                        "database_insights_slice": (
+                            _json(record["database_insights_slice"])
+                            if record["database_insights_slice"] is not None
+                            else None
+                        ),
+                        "raw_capture": _json(record["raw_capture"]),
+                    }
+                    for record in rows["lock_evidence"]
+                ],
             )
-            cursor.executemany(
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO casework.pg_stat_activity_samples(
+                  capture_id, observation_evidence_id, captured_at, pid,
+                  backend_type, application_name, state, wait_event_type,
+                  wait_event, query_start, xact_start, query, raw_row
+                )
+                VALUES (
+                  %(capture_id)s, %(observation_evidence_id)s, %(captured_at)s,
+                  %(pid)s, %(backend_type)s, %(application_name)s, %(state)s,
+                  %(wait_event_type)s, %(wait_event)s, %(query_start)s,
+                  %(xact_start)s, %(query)s, %(raw_row)s::jsonb
+                )
+                """,
+                [
+                    {**record, "raw_row": _json(record["raw_row"])}
+                    for record in rows["activity_samples"]
+                ],
+            )
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO casework.pg_lock_samples(
+                  capture_id, observation_evidence_id, captured_at, pid, locktype,
+                  database_oid, relation_oid, relation_name, mode, granted,
+                  fastpath, waitstart, raw_row
+                )
+                VALUES (
+                  %(capture_id)s, %(observation_evidence_id)s, %(captured_at)s,
+                  %(pid)s, %(locktype)s, %(database_oid)s, %(relation_oid)s,
+                  %(relation_name)s, %(mode)s, %(granted)s, %(fastpath)s,
+                  %(waitstart)s, %(raw_row)s::jsonb
+                )
+                """,
+                [
+                    {**record, "raw_row": _json(record["raw_row"])}
+                    for record in rows["lock_samples"]
+                ],
+            )
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO casework.pg_blocking_pids_samples(
+                  capture_id, observation_evidence_id, captured_at, blocked_pid,
+                  blocking_pids, literal_sql, literal_output, raw_row
+                )
+                VALUES (
+                  %(capture_id)s, %(observation_evidence_id)s, %(captured_at)s,
+                  %(blocked_pid)s, %(blocking_pids)s, %(literal_sql)s,
+                  %(literal_output)s, %(raw_row)s::jsonb
+                )
+                """,
+                [
+                    {**record, "raw_row": _json(record["raw_row"])}
+                    for record in rows["blocking_samples"]
+                ],
+            )
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO casework.pg_stat_statements_samples(
+                  capture_id, phase, captured_at, queryid, query, calls,
+                  total_exec_time, mean_exec_time, rows, raw_row
+                )
+                VALUES (
+                  %(capture_id)s, %(phase)s, %(captured_at)s, %(queryid)s,
+                  %(query)s, %(calls)s, %(total_exec_time)s, %(mean_exec_time)s,
+                  %(rows)s, %(raw_row)s::jsonb
+                )
+                """,
+                [
+                    {**record, "raw_row": _json(record["raw_row"])}
+                    for record in rows["statement_samples"]
+                ],
+            )
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO casework.cloudwatch_metric_samples(
+                  capture_id, metric_name, namespace, dimension_name,
+                  dimension_value, statistic, period_seconds, observed_at,
+                  value, unit, raw_datapoint
+                )
+                VALUES (
+                  %(capture_id)s, %(metric_name)s, %(namespace)s,
+                  %(dimension_name)s, %(dimension_value)s, %(statistic)s,
+                  %(period_seconds)s, %(observed_at)s, %(value)s, %(unit)s,
+                  %(raw_datapoint)s::jsonb
+                )
+                """,
+                [
+                    {**record, "raw_datapoint": _json(record["raw_datapoint"])}
+                    for record in rows["cloudwatch_samples"]
+                ],
+            )
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO casework.database_insights_samples(
+                  capture_id, evidence_type, captured_at, dimension,
+                  dimension_value, db_load, statement, query_id, source_api,
+                  raw_payload
+                )
+                VALUES (
+                  %(capture_id)s, %(evidence_type)s, %(captured_at)s,
+                  %(dimension)s, %(dimension_value)s, %(db_load)s,
+                  %(statement)s, %(query_id)s, %(source_api)s,
+                  %(raw_payload)s::jsonb
+                )
+                """,
+                [
+                    {**record, "raw_payload": _json(record["raw_payload"])}
+                    for record in rows["database_insights_samples"]
+                ],
+            )
+            _insert_many(
+                cursor,
                 """
                 INSERT INTO casework.incident_changes(
                   incident_evidence_id, change_evidence_id, relationship,
                   rationale, confirmed_by
                 )
-                VALUES (%s, %s, %s, %s, %s)
+                VALUES (
+                  %(incident_evidence_id)s, %(change_evidence_id)s,
+                  %(relationship)s, %(rationale)s, %(confirmed_by)s
+                )
                 """,
                 rows["incident_changes"],
             )
-            cursor.executemany(
+            _insert_many(
+                cursor,
                 """
                 INSERT INTO casework.incident_support_cases(
                   incident_evidence_id, case_evidence_id, impact, rationale
                 )
-                VALUES (%s, %s, %s, %s)
+                VALUES (
+                  %(incident_evidence_id)s, %(case_evidence_id)s,
+                  %(impact)s, %(rationale)s
+                )
                 """,
                 rows["incident_cases"],
             )
-            cursor.executemany(
+            _insert_many(
+                cursor,
                 """
                 INSERT INTO casework.incident_runbooks(
                   incident_evidence_id, runbook_evidence_id, applicability, rationale
                 )
-                VALUES (%s, %s, %s, %s)
+                VALUES (
+                  %(incident_evidence_id)s, %(runbook_evidence_id)s,
+                  %(applicability)s, %(rationale)s
+                )
                 """,
                 rows["incident_runbooks"],
             )
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO casework.change_runbooks(
+                  change_evidence_id, runbook_evidence_id, relationship, rationale
+                )
+                VALUES (
+                  %(change_evidence_id)s, %(runbook_evidence_id)s,
+                  %(relationship)s, %(rationale)s
+                )
+                """,
+                rows["change_runbooks"],
+            )
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO casework.support_case_commitments(
+                  case_evidence_id, commitment_evidence_id
+                )
+                VALUES (%(case_evidence_id)s, %(commitment_evidence_id)s)
+                """,
+                rows["case_commitments"],
+            )
+            _insert_many(
+                cursor,
+                """
+                INSERT INTO retrieval.inferred_edges(
+                  edge_id, from_evidence_id, to_evidence_id, relation,
+                  confidence, method, source_revision, metadata
+                )
+                VALUES (
+                  %(edge_id)s, %(from_evidence_id)s, %(to_evidence_id)s,
+                  %(relation)s, %(confidence)s, %(method)s,
+                  %(source_revision)s, %(metadata)s::jsonb
+                )
+                """,
+                [
+                    {**record, "metadata": _json(record["metadata"])}
+                    for record in rows["inferred_edges"]
+                ],
+            )
             cursor.execute(
                 """
-                INSERT INTO retrieval.projection_outbox(evidence_id, source_revision)
+                INSERT INTO retrieval.search_index_queue(evidence_id, source_revision)
                 SELECT evidence_id, source_revision
                 FROM casework.evidence_items
                 WHERE NOT is_deleted
@@ -934,79 +1600,119 @@ def load_casework(conn, *, background_documents: int = 12000) -> dict[str, int]:
             )
 
             evaluation_queries = [
-                (
-                    "exact-change",
-                    "Why did CHG-1842 block writes on orders-prod-1?",
-                    _json({"cluster_id": "orders-prod-1"}),
-                    "Exact change and cluster identifiers require lexical recall.",
-                ),
-                (
-                    "semantic-symptom",
-                    "Customers could read order history but new checkouts timed out after maintenance",
-                    _json({"environment": "production"}),
-                    "A paraphrase should find the incident, telemetry, and runbook.",
-                ),
-                (
-                    "fuzzy-cluster",
-                    "ordres-prod-1 indx bild blocked checkout",
-                    _json({"environment": "production"}),
-                    "Controlled misspellings exercise pg_trgm without making it the primary ranker.",
-                ),
-                (
-                    "customer-impact",
-                    "Which customer commitments were affected by INC-2047?",
-                    _json({"incident_id": "INC-2047"}),
-                    "Retrieval plus relational traversal should surface visible support cases.",
-                ),
+                {
+                    "query_id": "exact-change",
+                    "query_text": "What did CHG-1842 change on checkout-prod-cluster-01?",
+                    "evaluation_type": "retrieval",
+                    "filters": {"cluster_id": "checkout-prod-cluster-01"},
+                    "notes": "Exact identifier and production scope require lexical recall.",
+                },
+                {
+                    "query_id": "semantic-symptom",
+                    "query_text": "checkout writes froze",
+                    "evaluation_type": "retrieval",
+                    "filters": {"environment": "production"},
+                    "notes": (
+                        "The current runbook must be recovered semantically even though "
+                        "that phrase does not occur in its text."
+                    ),
+                },
+                {
+                    "query_id": "fuzzy-change-id",
+                    "query_text": "CGH-1842",
+                    "evaluation_type": "retrieval",
+                    "filters": {
+                        "kinds": ["change"],
+                        "environment": "production",
+                    },
+                    "notes": "The letter transposition must resolve to one change.",
+                },
+                {
+                    "query_id": "customer-impact",
+                    "query_text": "Which P1 customer commitment is affected?",
+                    "evaluation_type": "traversal",
+                    "filters": {
+                        "seed_external_keys": ["INC-2047"],
+                        "max_depth": 3,
+                    },
+                    "notes": "Traversal must reach visible case and commitment under ACL.",
+                },
             ]
-            cursor.executemany(
+            _insert_many(
+                cursor,
                 """
-                INSERT INTO proof.evaluation_queries(query_id, query_text, filters, notes)
-                VALUES (%s, %s, %s::jsonb, %s)
+                INSERT INTO proof.evaluation_queries(
+                  query_id, query_text, evaluation_type, filters, notes
+                )
+                VALUES (
+                  %(query_id)s, %(query_text)s, %(evaluation_type)s,
+                  %(filters)s::jsonb, %(notes)s
+                )
                 """,
-                evaluation_queries,
+                [
+                    {**record, "filters": _json(record["filters"])}
+                    for record in evaluation_queries
+                ],
             )
 
-            canonical_ids = {
+            canonical = {
                 key: evidence_id(kind, key)
                 for kind, key in (
                     ("incident", "INC-2047"),
+                    ("incident", "INC-1980"),
+                    ("incident", "INC-2044"),
                     ("change", "CHG-1842"),
                     ("change", "CHG-1838"),
+                    ("change", "CHG-1907"),
                     ("support_case", "CASE-7419"),
                     ("support_case", "CASE-7421"),
                     ("support_case", "CASE-7424"),
                     ("runbook", "RB-017"),
+                    ("runbook", "RB-092"),
                     ("lock_evidence", "LOCK-2047-001"),
                     ("lock_evidence", "LOCK-2047-002"),
+                    ("commitment", "COMMIT-4471"),
+                    ("postmortem", "PM-2047"),
                 )
             }
             judgments = [
-                ("exact-change", canonical_ids["CHG-1842"], 3, "The named change is the confirmed cause."),
-                ("exact-change", canonical_ids["INC-2047"], 3, "The incident records the impact and resolution."),
-                ("exact-change", canonical_ids["LOCK-2047-001"], 3, "The lock snapshot proves the blocker."),
-                ("exact-change", canonical_ids["RB-017"], 2, "The runbook explains the safe alternative."),
-                ("exact-change", canonical_ids["CHG-1838"], 0, "This nearby change was explicitly ruled out."),
-                ("semantic-symptom", canonical_ids["INC-2047"], 3, "The incident matches the read/write symptom split."),
-                ("semantic-symptom", canonical_ids["LOCK-2047-002"], 3, "The observation captures queued writes."),
-                ("semantic-symptom", canonical_ids["CHG-1842"], 3, "The maintenance statement is the confirmed cause."),
-                ("semantic-symptom", canonical_ids["RB-017"], 2, "The runbook supplies the remediation."),
-                ("fuzzy-cluster", canonical_ids["INC-2047"], 3, "The incident title and cluster tolerate the typo."),
-                ("fuzzy-cluster", canonical_ids["CHG-1842"], 3, "The index-build change matches the misspelled query."),
-                ("fuzzy-cluster", canonical_ids["LOCK-2047-001"], 2, "The lock snapshot confirms blocked checkout writes."),
-                ("customer-impact", canonical_ids["INC-2047"], 3, "The incident anchors the relationship traversal."),
-                ("customer-impact", canonical_ids["CASE-7419"], 3, "This visible case contains the customer commitment."),
-                ("customer-impact", canonical_ids["CASE-7421"], 3, "Relevant but restricted; ACL tests must hide it by default."),
-                ("customer-impact", canonical_ids["CASE-7424"], 0, "Explicitly unrelated to the incident."),
+                ("exact-change", "CHG-1842", 3, "Named confirmed change."),
+                ("exact-change", "INC-2047", 2, "Direct incident context."),
+                ("exact-change", "LOCK-2047-001", 2, "Direct causal lock evidence."),
+                ("exact-change", "CHG-1838", 0, "Explicitly ruled out."),
+                ("semantic-symptom", "INC-2047", 3, "Matches symptom split."),
+                ("semantic-symptom", "LOCK-2047-001", 3, "Captures queued writer."),
+                ("semantic-symptom", "RB-017", 3, "Current recovery guidance."),
+                ("semantic-symptom", "INC-1980", 1, "Look-alike, different cause."),
+                ("semantic-symptom", "RB-092", 0, "Superseded guidance."),
+                ("semantic-symptom", "INC-2044", 0, "Wrong environment."),
+                ("fuzzy-change-id", "CHG-1842", 3, "Only valid trigram target."),
+                ("fuzzy-change-id", "CHG-1838", 0, "Wrong nearby change."),
+                ("customer-impact", "INC-2047", 3, "Traversal seed."),
+                ("customer-impact", "CASE-7419", 3, "Visible affected case."),
+                ("customer-impact", "COMMIT-4471", 3, "Visible P1 commitment."),
+                ("customer-impact", "CASE-7421", 3, "Relevant but ACL-restricted."),
+                ("customer-impact", "CASE-7424", 0, "Explicitly unaffected."),
             ]
-            cursor.executemany(
+            _insert_many(
+                cursor,
                 """
                 INSERT INTO proof.relevance_judgments(
                   query_id, evidence_id, relevance, rationale
                 )
-                VALUES (%s, %s, %s, %s)
+                VALUES (
+                  %(query_id)s, %(evidence_id)s, %(relevance)s, %(rationale)s
+                )
                 """,
-                judgments,
+                [
+                    {
+                        "query_id": query_id,
+                        "evidence_id": canonical[key],
+                        "relevance": relevance,
+                        "rationale": rationale,
+                    }
+                    for query_id, key, relevance, rationale in judgments
+                ],
             )
 
     return {
@@ -1016,10 +1722,15 @@ def load_casework(conn, *, background_documents: int = 12000) -> dict[str, int]:
         "changes": len(rows["changes"]),
         "support_cases": len(rows["cases"]),
         "runbooks": len(rows["runbooks"]),
+        "commitments": len(rows["commitments"]),
+        "postmortems": len(rows["postmortems"]),
         "lock_evidence": len(rows["lock_evidence"]),
+        "capture_mode": capture_bundle["capture"]["capture_mode"],
         "relationships": (
             len(rows["incident_changes"])
             + len(rows["incident_cases"])
             + len(rows["incident_runbooks"])
+            + len(rows["change_runbooks"])
+            + len(rows["case_commitments"])
         ),
     }

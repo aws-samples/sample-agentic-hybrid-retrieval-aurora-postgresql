@@ -1,0 +1,2236 @@
+openapi: 3.0.3
+info:
+  title: Verity tool contracts
+  version: 1.0.0
+  description: >
+    Transport-neutral tool contracts for the Verity incident-evidence workbench.
+    Release packaging must replace the placeholder server URL with the deployed
+    static endpoint before creating the AgentCore Gateway OpenAPI target.
+    Operation IDs are contract-stable; renaming one is a contract-version change.
+    AgentCore Gateway does not expose the bare operationId - it prefixes the target
+    name as ${targetName}___${operationId}, so target verity-openapi-tools exposes
+    search_evidence as verity-openapi-tools___search_evidence. HTTP and stdio MCP use
+    the bare operationId. See
+    https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-tool-naming.html
+
+
+    Response schemas are widened to the inspectable-output table in spec section 13.
+    Every change in that pass is additive - new optional properties, new components,
+    and relaxed `required` lists - so contract_version remains 1.0.0. No field, path,
+    or operationId was removed or renamed. Two shapes changed meaning and are called
+    out in their own descriptions: TraverseResponse.nodes is now an object rather than
+    a bare string, and SynthesizeResponse split away from AnswerResponse.
+
+
+    Ground truth for every example in this document is fixtures/generate.py and the
+    fixtures it emits. Numbers here are copied from fixtures/runs/RUN-7000.json and
+    fixtures/captures/http.json; they are not illustrative.
+servers:
+  - url: https://replace-with-deployed-verity-api.example.com
+paths:
+  /v1/tools/decompose:
+    post:
+      operationId: decompose_question
+      summary: Decompose an incident-evidence question into IDs, filters, subquestions, and retrieval steps.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecomposeRequest'
+      responses:
+        '200':
+          description: Deterministic plan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecomposeResponse'
+  /v1/search:
+    post:
+      operationId: search_evidence
+      summary: Run Aurora PostgreSQL hybrid retrieval and persist the candidate receipt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '200':
+          description: Candidate receipt - run ID, applied controls, candidate count, arm diagnostics, candidates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+  /v1/tools/traverse:
+    post:
+      operationId: follow_evidence_links
+      summary: Traverse ACL-visible canonical and governed inferred evidence relationships.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraverseRequest'
+      responses:
+        '200':
+          description: Relationship paths, per-node depth, edge origin and confidence, and the ACL decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraverseResponse'
+  /v1/tools/compare:
+    post:
+      operationId: compare_sources
+      summary: Compare selected evidence and return confirmed, ruled-out, affected, and unaffected verdicts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompareRequest'
+      responses:
+        '200':
+          description: Source comparison.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompareResponse'
+  /v1/tools/explain-ranking:
+    post:
+      operationId: explain_ranking
+      summary: Human diagnostic surface. Explains one candidate's arm positions, RRF and rerank. NOT an agent step.
+      description: >
+        The workbench calls this when a participant expands a candidate row. An agent must
+        not select it. There is no action an agent can take on "CHG-1000 was text_position
+        2" - no branch in the loop reads it, and scripting a planner to call a debugger it
+        cannot act on is how a fixed storyboard gets mistaken for a policy. The tools an
+        agent actually selects are decompose_question, search_evidence (once per
+        subquestion, twice on escalation), follow_evidence_links and compare_sources, with
+        answer_with_citations as the orchestration entry point.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExplainRankingRequest'
+      responses:
+        '200':
+          description: Ranking explanation - positions, raw arm diagnostics, per-arm RRF contribution, rerank delta, and the controls that produced the score.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExplainRankingResponse'
+  /v1/tools/synthesize:
+    post:
+      operationId: synthesize_cited_answer
+      summary: Server-side citation binding and receipt persistence. NOT an agent step.
+      description: >
+        Binds each claim to an exact document and chunk version, runs
+        proof.validate_answer_citations, and persists the receipt. An agent must not select
+        it: answer_with_citations invokes it server-side at the end of the loop, and it is
+        exposed as a tool only because the contract has to be portable across HTTP, stdio
+        MCP and Gateway - not because a planner would choose it. Citation validation
+        failure is a hard stop, never a warning: one bounded repair attempt, and if the
+        repaired answer still fails the run ends `failed` and no answer text is returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SynthesizeRequest'
+      responses:
+        '200':
+          description: Cited answer, per-citation claims, and synthesis mode.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SynthesizeResponse'
+  /v1/agent/answer:
+    post:
+      operationId: answer_with_citations
+      summary: Run the complete inspectable Verity agent path.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnswerRequest'
+      responses:
+        '200':
+          description: >
+            Plan, retrieval receipt, graph, and cited answer. Also returned when every arm
+            was empty: candidate_count 0 with synthesis_mode `no_evidence` is a successful
+            query that found nothing, not an error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerResponse'
+        '422':
+          description: >
+            Citation validation failed and the bounded repair attempt did not fix it. No
+            answer text is returned under any status code when a citation does not
+            validate. The body is the failing rows from proof.validate_answer_citations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitationValidationError'
+  /v1/agent-runs/{agent_run_id}:
+    get:
+      operationId: get_agent_run
+      summary: Read a persisted agent run - subquestions, coverage, escalations, budget spend.
+      description: >
+        Workbench read surface, NOT an agent tool. An agent never calls this; it is how the
+        Verity UI and a replaying participant fetch a completed proof.agent_runs row with
+        its subquestions, retrieval attempts, coverage decisions and escalations. Every
+        value it returns was persisted during the run, so a replay renders identically to
+        the live run.
+      parameters:
+        - name: agent_run_id
+          in: path
+          required: true
+          description: Agent run identifier, for example ARUN-8000.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The complete agent run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRunResponse'
+  /v1/agent-runs/{agent_run_id}/coverage:
+    get:
+      operationId: get_agent_coverage
+      summary: Read the per-subquestion coverage decisions for an agent run.
+      description: >
+        Workbench read surface, NOT an agent tool. Returns just the coverage decisions -
+        which subquestions were covered, which kinds were missing, which evidence satisfied
+        each kind, and how many attempts it took - without the candidate receipts. This is
+        the panel a participant reads next to the SQL rule in proof.evaluate_subquestion_coverage
+        to confirm the agent's escalation decision was a predicate and not a judgement.
+      parameters:
+        - name: agent_run_id
+          in: path
+          required: true
+          description: Agent run identifier, for example ARUN-8000.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Coverage decisions for every subquestion in the run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentCoverageResponse'
+components:
+  schemas:
+    Principal:
+      type: object
+      required: [scopes, principals]
+      properties:
+        scopes:
+          type: array
+          items:
+            type: string
+        principals:
+          type: array
+          items:
+            type: string
+    SearchControls:
+      type: object
+      description: >
+        Fusion and ANN runtime controls. Every property carries a `default` matching
+        DEFAULT_CONTROLS in fixtures/generate.py, which is the single source of truth
+        for the workshop numbers. No property is required: send `controls: {}`, omit a
+        subset, or omit the object entirely and the documented defaults apply. A
+        supplied key overrides only that key.
+      properties:
+        mode:
+          type: string
+          enum: [hybrid, lexical, semantic, fuzzy]
+          default: hybrid
+        candidate_pool:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 24
+        rrf_k:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 60
+          description: RRF smoothing constant k. Weighted contribution of an arm is weight / (k + position).
+        text_weight:
+          type: number
+          default: 2.0
+        vector_weight:
+          type: number
+          default: 1.0
+        fuzzy_weight:
+          type: number
+          default: 1.0
+        fuzzy_threshold:
+          type: number
+          default: 0.3
+          description: >
+            Minimum trigram similarity a fuzzy probe hit must clear. The controlled typo
+            fixture CGH-1000 resolves to CHG-1000 at 0.5000; the next-nearest row scores
+            0.2857 and is therefore excluded at this threshold.
+        ef_search:
+          type: integer
+          default: 40
+          description: pgvector HNSW ef_search, applied transaction-locally for the vector arm.
+        iterative_scan:
+          type: string
+          enum: [off, strict_order, relaxed_order]
+          default: strict_order
+          description: >
+            pgvector iterative index scan mode. The default is `strict_order`, not
+            `relaxed_order`: relaxed order may return rows out of distance order, which
+            makes the vector arm position - and therefore the fused RRF score and rank -
+            non-reproducible across runs.
+        rerank:
+          type: boolean
+          default: false
+          description: >
+            When false, final_rank equals fused_rank and no model call is made, so the
+            canonical parity path runs offline.
+    Filters:
+      type: object
+      description: >
+        Metadata filters applied at scan level. A key that is absent or null places no
+        constraint - the predicate is (:key IS NULL OR c.f_key = :key) - which is why an
+        escalation can widen a search by setting a filter to null rather than by removing
+        it, and why the before/after pair stays legible in the receipt.
+      properties:
+        evidence_kinds:
+          type: array
+          items:
+            type: string
+        cluster_id:
+          type: string
+          nullable: true
+          description: >
+            Null means "not cluster-scoped", not "unknown". Load-bearing: evidence that is
+            not cluster-scoped, such as a runbook, has f_cluster_id NULL and is therefore
+            excluded by any non-null cluster_id. Dropping this filter to null is what
+            recovers RB-5000 for SQ-5 in the canonical escalation.
+        incident_id:
+          type: string
+        account:
+          type: string
+        severity:
+          type: string
+        environment:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+    RrfTerms:
+      type: object
+      description: >
+        Per-arm weighted reciprocal-rank-fusion contribution for one evidence item:
+        weight / (rrf_k + position). An arm that did not return this item contributes
+        exactly 0.0, never null - see `rrf_terms` in fixtures/generate.py. The three
+        terms sum to the item's rrf_score, which is what makes the score checkable
+        without re-running retrieval.
+      required: [text, vector, fuzzy]
+      properties:
+        text:
+          type: number
+        vector:
+          type: number
+        fuzzy:
+          type: number
+    StageTimings:
+      type: object
+      description: >
+        Per-stage wall time in milliseconds. Illustrative in the shipped fixtures until
+        replaced by target-Aurora release-gate measurements; treat as diagnostic, never
+        as a performance claim. Additional stage keys are permitted.
+      properties:
+        exact_fts_ms:
+          type: number
+        vector_ms:
+          type: number
+        fuzzy_ms:
+          type: number
+        fuse_ms:
+          type: number
+        traverse_ms:
+          type: number
+        compare_ms:
+          type: number
+        rerank_ms:
+          type: number
+        synthesis_ms:
+          type: number
+    TimelineEntry:
+      type: object
+      required: [at, evidence_id, event]
+      properties:
+        at:
+          type: string
+          format: date-time
+        evidence_id:
+          type: string
+        event:
+          type: string
+    DecomposeRequest:
+      type: object
+      required: [question, principal]
+      properties:
+        question:
+          type: string
+        principal:
+          $ref: '#/components/schemas/Principal'
+    DecomposeResponse:
+      type: object
+      description: >
+        The deterministic plan. Identifier tokens are extracted with [A-Z]{2,6}-[0-9]{3,6}
+        and classified into exactly two disjoint sets, both of which travel with the
+        retrieval request: `id_tokens` resolve to an external_key exactly and drive the
+        exact/B-tree half of the text arm; `unresolved_id_tokens` resolve to nothing and
+        are the only trigram probe set. `detected_ids` is their union and is retained
+        unchanged.
+      required: [contract_version, request_id, detected_ids, filters, subquestions, steps]
+      properties:
+        contract_version:
+          type: string
+        request_id:
+          type: string
+        detected_ids:
+          type: array
+          items:
+            type: string
+        id_tokens:
+          type: array
+          description: Detected tokens that match an external_key exactly.
+          items:
+            type: string
+        unresolved_id_tokens:
+          type: array
+          description: >
+            Detected tokens that match nothing exactly. These, and only these, are probed
+            with pg_trgm. Decomposing the fuzzy preset yields id_tokens [INC-2000] and
+            unresolved_id_tokens [CGH-1000].
+          items:
+            type: string
+        filters:
+          $ref: '#/components/schemas/Filters'
+        subquestions:
+          type: array
+          description: >
+            TYPE CHANGE, additive within contract_version 1.0.0. Items were previously bare
+            strings and are now Subquestion objects carrying subquestion_id, text and
+            required_kinds. A pre-widening consumer that read `subquestions[i]` as a string
+            must read `subquestions[i].text`. The change is not cosmetic: the plan's
+            subquestions used to be emitted and never consumed, and required_kinds is what
+            the agent loop branches on - it is the input to the deterministic coverage rule
+            that decides whether to escalate. A plan whose subquestions carry no
+            required_kinds cannot drive the loop. Only subquestion_id, text and
+            required_kinds are populated here; attempts, runs and final_coverage are filled
+            in on the agent run, once retrieval has actually happened.
+          items:
+            $ref: '#/components/schemas/Subquestion'
+        steps:
+          type: array
+          items:
+            type: string
+    SearchRequest:
+      type: object
+      required: [query, principal]
+      properties:
+        query:
+          type: string
+        principal:
+          $ref: '#/components/schemas/Principal'
+        filters:
+          $ref: '#/components/schemas/Filters'
+        controls:
+          $ref: '#/components/schemas/SearchControls'
+        id_tokens:
+          type: array
+          description: >
+            Optional. Identifier tokens already resolved by decompose_question. Supplying
+            them lets the service skip re-resolution; omitting them makes the service
+            derive both token sets from `query`.
+          items:
+            type: string
+        unresolved_id_tokens:
+          type: array
+          description: >
+            Optional. The trigram probe set from decompose_question. An empty array means
+            every identifier in the query resolved exactly and the fuzzy arm is legitimately
+            empty - that is a correct result, not a failed arm.
+          items:
+            type: string
+      example:
+        query: During INC-2000 on checkout-prod-01, why did checkout writes appear to hang while reads continued? Determine whether CHG-1000 or CHG-1001 caused the incident, identify the customer impact visible to the current principal, explain what evidence rules out the alternative change, and cite the lock evidence and approved runbook supporting both immediate recovery and the preventive follow-up.
+        principal:
+          scopes:
+          - workshop
+          principals: []
+        filters:
+          cluster_id: checkout-prod-01
+        controls:
+          mode: hybrid
+          candidate_pool: 24
+          rrf_k: 60
+          text_weight: 2.0
+          vector_weight: 1.0
+          fuzzy_weight: 1.0
+          fuzzy_threshold: 0.3
+          ef_search: 40
+          iterative_scan: strict_order
+          rerank: false
+        id_tokens:
+        - INC-2000
+        - CHG-1000
+        - CHG-1001
+        unresolved_id_tokens: []
+    Candidate:
+      type: object
+      required: [evidence_id, external_key, kind, title, source_uri, source_revision, fused_rank]
+      properties:
+        evidence_id:
+          type: string
+        external_key:
+          type: string
+        kind:
+          type: string
+        title:
+          type: string
+        source_uri:
+          type: string
+        source_revision:
+          type: string
+        document_version_id:
+          type: string
+        chunk_version_id:
+          type: string
+        text_position:
+          type: integer
+          nullable: true
+        vector_position:
+          type: integer
+          nullable: true
+        fuzzy_position:
+          type: integer
+          nullable: true
+        text_score:
+          type: number
+          nullable: true
+        vector_distance:
+          type: number
+          nullable: true
+        fuzzy_score:
+          type: number
+          nullable: true
+        rrf_score:
+          type: number
+        rerank_score:
+          type: number
+          nullable: true
+        fused_rank:
+          type: integer
+        final_rank:
+          type: integer
+          nullable: true
+        why:
+          type: string
+    SearchResponse:
+      type: object
+      description: >
+        The candidate receipt. `candidates` is ordered by fused_rank, which is dense and
+        gapless over 1..candidate_count. The echoed `query`, `principal`, `filters` and
+        `controls` are the values actually applied, so the run replays without consulting
+        the original request; `rrf_terms` makes each rrf_score checkable arithmetically.
+      required: [contract_version, request_id, run_id, candidate_count, candidates]
+      properties:
+        contract_version:
+          type: string
+        request_id:
+          type: string
+        run_id:
+          type: string
+        preset:
+          type: string
+          description: Named query-ladder preset when the run came from one - canonical, exact-change, semantic-symptom, fuzzy-change-id, customer-impact.
+        query:
+          type: string
+          description: The query as executed.
+        principal:
+          $ref: '#/components/schemas/Principal'
+        filters:
+          $ref: '#/components/schemas/Filters'
+        controls:
+          $ref: '#/components/schemas/SearchControls'
+        candidate_count:
+          type: integer
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Candidate'
+        rrf_terms:
+          type: object
+          description: Per-arm RRF contribution keyed by evidence_id.
+          additionalProperties:
+            $ref: '#/components/schemas/RrfTerms'
+        hidden_by_acl_count:
+          type: integer
+          description: >
+            How many otherwise-matching rows the principal could not see. ACL-invisible
+            evidence is absent from `candidates`, never present-and-marked; this count is
+            the only signal it existed, and it is facilitator diagnostics, not answer content.
+        stage_timings_illustrative:
+          $ref: '#/components/schemas/StageTimings'
+      example:
+        contract_version: 1.0.0
+        request_id: req-http-1
+        run_id: RUN-7000
+        preset: canonical
+        query: During INC-2000 on checkout-prod-01, why did checkout writes appear to hang while reads continued? Determine whether CHG-1000 or CHG-1001 caused the incident, identify the customer impact visible to the current principal, explain what evidence rules out the alternative change, and cite the lock evidence and approved runbook supporting both immediate recovery and the preventive follow-up.
+        principal:
+          scopes:
+          - workshop
+          principals: []
+        filters:
+          cluster_id: checkout-prod-01
+        controls:
+          mode: hybrid
+          candidate_pool: 24
+          rrf_k: 60
+          text_weight: 2.0
+          vector_weight: 1.0
+          fuzzy_weight: 1.0
+          fuzzy_threshold: 0.3
+          ef_search: 40
+          iterative_scan: strict_order
+          rerank: false
+        candidate_count: 9
+        candidates:
+        - evidence_id: INC-2000
+          external_key: INC-2000
+          kind: incident
+          title: Checkout writes blocked while reads continued
+          source_uri: workshop://incident/INC-2000
+          source_revision: rev-0001
+          text_position: 1
+          vector_position: 1
+          fuzzy_position: null
+          text_score: 0.4082
+          vector_distance: 0.208
+          fuzzy_score: null
+          rrf_score: 0.04918033
+          rerank_score: 0.91
+          fused_rank: 1
+          final_rank: 1
+        - evidence_id: CHG-1000
+          external_key: CHG-1000
+          kind: change
+          title: Ordinary CREATE INDEX on orders(customer_id)
+          source_uri: workshop://change/CHG-1000
+          source_revision: rev-0001
+          text_position: 2
+          vector_position: 3
+          fuzzy_position: null
+          text_score: 0.3711
+          vector_distance: 0.246
+          fuzzy_score: null
+          rrf_score: 0.04813108
+          rerank_score: 0.94
+          fused_rank: 2
+          final_rank: 2
+        - evidence_id: LOCK-3000
+          external_key: LOCK-3000
+          kind: lock
+          title: Writer 4182 blocked by index backend 3944
+          source_uri: workshop://lock/LOCK-3000
+          source_revision: rev-0001
+          text_position: 4
+          vector_position: 2
+          fuzzy_position: null
+          text_score: 0.2871
+          vector_distance: 0.231
+          fuzzy_score: null
+          rrf_score: 0.04737903
+          rerank_score: 0.88
+          fused_rank: 3
+          final_rank: 3
+        - evidence_id: CASE-4000
+          external_key: CASE-4000
+          kind: case
+          title: Acme Retail checkout failures
+          source_uri: workshop://case/CASE-4000
+          source_revision: rev-0001
+          text_position: 5
+          vector_position: 6
+          fuzzy_position: null
+          text_score: 0.2618
+          vector_distance: 0.288
+          fuzzy_score: null
+          rrf_score: 0.04592075
+          rerank_score: 0.76
+          fused_rank: 4
+          final_rank: 4
+        - evidence_id: RB-5000
+          external_key: RB-5000
+          kind: runbook
+          title: Concurrent index builds on production writers
+          source_uri: workshop://runbook/RB-5000
+          source_revision: rev-0001
+          text_position: 6
+          vector_position: 5
+          fuzzy_position: null
+          text_score: 0.2402
+          vector_distance: 0.274
+          fuzzy_score: null
+          rrf_score: 0.04568765
+          rerank_score: 0.81
+          fused_rank: 5
+          final_rank: 5
+        - evidence_id: LOCK-3001
+          external_key: LOCK-3001
+          kind: lock
+          title: Writer 4210 blocked by index backend 3944
+          source_uri: workshop://lock/LOCK-3001
+          source_revision: rev-0001
+          text_position: 8
+          vector_position: 4
+          fuzzy_position: null
+          text_score: 0.205
+          vector_distance: 0.259
+          fuzzy_score: null
+          rrf_score: 0.04503676
+          rerank_score: 0.69
+          fused_rank: 6
+          final_rank: 6
+        - evidence_id: INC-2001
+          external_key: INC-2001
+          kind: incident
+          title: Older checkout deploy incident
+          source_uri: workshop://incident/INC-2001
+          source_revision: rev-0001
+          text_position: 7
+          vector_position: 7
+          fuzzy_position: null
+          text_score: 0.2214
+          vector_distance: 0.311
+          fuzzy_score: null
+          rrf_score: 0.04477612
+          rerank_score: 0.18
+          fused_rank: 7
+          final_rank: 7
+        - evidence_id: CHG-1001
+          external_key: CHG-1001
+          kind: change
+          title: Checkout worker pool resize
+          source_uri: workshop://change/CHG-1001
+          source_revision: rev-0001
+          text_position: 3
+          vector_position: null
+          fuzzy_position: null
+          text_score: 0.3204
+          vector_distance: null
+          fuzzy_score: null
+          rrf_score: 0.03174603
+          rerank_score: 0.47
+          fused_rank: 8
+          final_rank: 8
+        - evidence_id: CHG-1002
+          external_key: CHG-1002
+          kind: change
+          title: Rebuild index with CREATE INDEX CONCURRENTLY
+          source_uri: workshop://change/CHG-1002
+          source_revision: rev-0001
+          text_position: null
+          vector_position: 8
+          fuzzy_position: null
+          text_score: null
+          vector_distance: 0.334
+          fuzzy_score: null
+          rrf_score: 0.01470588
+          rerank_score: 0.39
+          fused_rank: 9
+          final_rank: 9
+        rrf_terms:
+          INC-2000:
+            text: 0.03278689
+            vector: 0.01639344
+            fuzzy: 0.0
+          CHG-1000:
+            text: 0.03225806
+            vector: 0.01587302
+            fuzzy: 0.0
+          LOCK-3000:
+            text: 0.03125
+            vector: 0.01612903
+            fuzzy: 0.0
+          CASE-4000:
+            text: 0.03076923
+            vector: 0.01515152
+            fuzzy: 0.0
+          RB-5000:
+            text: 0.03030303
+            vector: 0.01538462
+            fuzzy: 0.0
+          LOCK-3001:
+            text: 0.02941176
+            vector: 0.015625
+            fuzzy: 0.0
+          INC-2001:
+            text: 0.02985075
+            vector: 0.01492537
+            fuzzy: 0.0
+          CHG-1001:
+            text: 0.03174603
+            vector: 0.0
+            fuzzy: 0.0
+          CHG-1002:
+            text: 0.0
+            vector: 0.01470588
+            fuzzy: 0.0
+        hidden_by_acl_count: 1
+        stage_timings_illustrative:
+          exact_fts_ms: 2.3
+          vector_ms: 3.8
+          fuzzy_ms: 1.1
+          fuse_ms: 0.7
+          traverse_ms: 9.4
+          compare_ms: 6.1
+          rerank_ms: 74.0
+          synthesis_ms: 1240.0
+    TraverseRequest:
+      type: object
+      required: [seed_evidence_ids, principal, max_depth]
+      properties:
+        seed_evidence_ids:
+          type: array
+          items:
+            type: string
+        principal:
+          $ref: '#/components/schemas/Principal'
+        max_depth:
+          type: integer
+          minimum: 0
+          maximum: 3
+        include_inferred:
+          type: boolean
+          default: true
+    Edge:
+      type: object
+      required: [source_id, target_id, relationship, origin, confidence]
+      properties:
+        source_id:
+          type: string
+        target_id:
+          type: string
+        relationship:
+          type: string
+        origin:
+          type: string
+          enum: [canonical, inferred]
+        confidence:
+          type: number
+        method:
+          type: string
+          nullable: true
+        depth:
+          type: integer
+          nullable: true
+          description: >
+            Hop number at which this edge was traversed, 1-based from the seed. Populated
+            by follow_evidence_links; absent when the edge is listed as a static
+            relationship rather than as a traversal result.
+        path:
+          type: array
+          description: >
+            Ordered evidence_id list from the seed to this edge's target, the `path`
+            column of retrieval.traverse_evidence. Populated by follow_evidence_links only.
+          items:
+            type: string
+    TraverseNode:
+      type: object
+      description: >
+        A node reached by traversal. Replaces the bare evidence_id string that
+        TraverseResponse.nodes carried before this widening - see the note on that
+        property.
+      required: [evidence_id, depth]
+      properties:
+        evidence_id:
+          type: string
+        kind:
+          type: string
+        title:
+          type: string
+        depth:
+          type: integer
+          minimum: 0
+          description: >
+            Hop distance from the nearest seed. A seed itself is depth 0. When several
+            paths reach this node, `depth` is the shortest one.
+        paths:
+          type: array
+          description: >
+            Every enumerated path from a seed to this node, each an ordered evidence_id
+            list beginning at the seed and ending at this node. This is the provenance the
+            UI renders and the traversal metrics score.
+          items:
+            type: array
+            items:
+              type: string
+    TraverseResponse:
+      type: object
+      description: >
+        Relationship paths under ACL. An ACL-invisible node is absent, not a pruned
+        branch reported as pruned: the check is applied to the seeds and to both endpoints
+        of every hop, so an invisible node cannot appear even as an intermediate.
+      required: [contract_version, request_id, nodes, edges]
+      properties:
+        contract_version:
+          type: string
+        request_id:
+          type: string
+        seed_evidence_ids:
+          type: array
+          description: Seeds as applied, after ACL filtering. A seed the principal cannot see is dropped here.
+          items:
+            type: string
+        max_depth:
+          type: integer
+        include_inferred:
+          type: boolean
+        nodes:
+          type: array
+          description: >
+            TYPE CHANGE, additive within contract_version 1.0.0. `nodes` items were
+            previously bare evidence_id strings and are now TraverseNode objects carrying
+            evidence_id, kind, title, depth and paths. A pre-widening consumer that read
+            `nodes[i]` as a string must read `nodes[i].evidence_id`; the string form is no
+            longer emitted, and no producer shipped it, which is why this is a description
+            change rather than a version bump.
+          items:
+            $ref: '#/components/schemas/TraverseNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/Edge'
+        hidden_by_acl_count:
+          type: integer
+          description: >
+            How many hops were not taken because an endpoint was invisible to the
+            principal. Facilitator diagnostics only; the answer must never mention that
+            withheld evidence exists.
+    CompareRequest:
+      type: object
+      required: [evidence_ids, principal]
+      properties:
+        evidence_ids:
+          type: array
+          items:
+            type: string
+        principal:
+          $ref: '#/components/schemas/Principal'
+    Verdict:
+      type: object
+      required: [evidence_id, verdict, rationale]
+      properties:
+        evidence_id:
+          type: string
+        verdict:
+          type: string
+        rationale:
+          type: string
+        source_uri:
+          type: string
+        source_revision:
+          type: string
+          description: The exact source revision the verdict was formed against.
+        related_edges:
+          type: array
+          description: >
+            The explicit edges the verdict rests on - relation, counterpart, canonical or
+            inferred origin, and confidence. Comparison is an input to the answer, not a
+            decorative stage, so the edges that produced the verdict travel with it.
+          items:
+            $ref: '#/components/schemas/Edge'
+    CompareResponse:
+      type: object
+      required: [contract_version, request_id, verdicts]
+      properties:
+        contract_version:
+          type: string
+        request_id:
+          type: string
+        verdicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Verdict'
+    ExplainRankingRequest:
+      type: object
+      required: [run_id, evidence_id]
+      properties:
+        run_id:
+          type: string
+        evidence_id:
+          type: string
+    ExplainRankingResponse:
+      type: object
+      description: >
+        Self-contained ranking explanation for one candidate in one run. Positions, raw
+        arm diagnostics, per-arm RRF contribution, the fusion controls that produced the
+        score, and the rerank delta are all present, so the score can be recomputed from
+        this response alone without re-running retrieval.
+      required: [contract_version, request_id, evidence_id, rrf_score, fused_rank]
+      properties:
+        contract_version:
+          type: string
+        request_id:
+          type: string
+        run_id:
+          type: string
+          description: The persisted run this explanation was read from.
+        evidence_id:
+          type: string
+        text_position:
+          type: integer
+          nullable: true
+        vector_position:
+          type: integer
+          nullable: true
+        fuzzy_position:
+          type: integer
+          nullable: true
+        text_score:
+          type: number
+          nullable: true
+          description: Raw ts_rank from the text arm. Null when the text arm did not return this item.
+        vector_distance:
+          type: number
+          nullable: true
+          description: >
+            Raw cosine distance from the vector arm - lower is nearer. Null when the vector
+            arm did not return this item. It is a distance, not a similarity, and never a
+            probability.
+        fuzzy_score:
+          type: number
+          nullable: true
+          description: Raw pg_trgm similarity for the probed token. Null when the fuzzy arm did not fire or did not return this item.
+        rrf_terms:
+          $ref: '#/components/schemas/RrfTerms'
+        rrf_score:
+          type: number
+          description: Sum of rrf_terms. Reproducible from the positions and `controls` on this response.
+        controls:
+          $ref: '#/components/schemas/SearchControls'
+        rerank_score:
+          type: number
+          nullable: true
+        fused_rank:
+          type: integer
+        final_rank:
+          type: integer
+          nullable: true
+        rerank_delta:
+          type: integer
+          nullable: true
+          description: >
+            fused_rank minus final_rank. Positive means the reranker promoted this
+            candidate, negative means it demoted it, zero means the rerank agreed with
+            fusion. Null when controls.rerank was false, in which case final_rank carries
+            no independent information.
+        explanation:
+          type: string
+    SynthesizeRequest:
+      type: object
+      required: [run_id]
+      properties:
+        run_id:
+          type: string
+        replay_only:
+          type: boolean
+          default: false
+    Citation:
+      type: object
+      required: [citation_number, evidence_id, external_key, source_uri, source_revision, quote]
+      properties:
+        citation_number:
+          type: integer
+        evidence_id:
+          type: string
+        external_key:
+          type: string
+        source_uri:
+          type: string
+        source_revision:
+          type: string
+        document_version_id:
+          type: string
+        chunk_version_id:
+          type: string
+        quote:
+          type: string
+          description: Verbatim text from the cited chunk. proof.validate_answer_citations fails the run if this string does not occur in that exact chunk version.
+        claim:
+          type: string
+          description: >
+            The specific assertion in `answer` that this citation supports. Without it
+            nothing ties a citation to what it is evidence for, and "five citations
+            validate" degrades into "five citations exist". NOT NULL in
+            proof.answer_citations; optional here only because adding a required property
+            would not be an additive change at contract_version 1.0.0, and it becomes
+            required at the next version. Attribution integrity means the quote resolves
+            to that document and chunk version - it never means the claim is universally true.
+    AnswerRequest:
+      type: object
+      required: [question, principal]
+      properties:
+        question:
+          type: string
+        principal:
+          $ref: '#/components/schemas/Principal'
+        filters:
+          $ref: '#/components/schemas/Filters'
+        controls:
+          $ref: '#/components/schemas/SearchControls'
+    SynthesizeResponse:
+      type: object
+      description: >
+        Cited answer for one persisted run. Split from AnswerResponse in this widening:
+        synthesize_cited_answer reads an existing run and returns the answer, its claims,
+        its citations and the synthesis mode, while answer_with_citations runs the whole
+        pipeline and must additionally return the plan, the candidates and the graph.
+        Every property the shared AnswerResponse carried before the split is still here,
+        with the same names, types and required list, so this operation's response did not
+        narrow.
+      required: [contract_version, request_id, run_id, answer, citations, synthesis_mode]
+      properties:
+        contract_version:
+          type: string
+        request_id:
+          type: string
+        run_id:
+          type: string
+        answer_id:
+          type: string
+          description: proof.agent_answers primary key. With run_id, the pair of receipt references for this answer.
+        query:
+          type: string
+        answer:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+        synthesis_mode:
+          type: string
+          enum: [model, extractive, no_evidence]
+          description: >
+            `extractive` is the deterministic fallback selection algorithm, not
+            best-effort prose. Recording it keeps the receipt from implying a model wrote
+            the answer. `no_evidence` is written when every arm was empty: synthesis is not
+            called at all, so there is no model call, no token spend, and no opportunity to
+            answer from parametric memory. The answer string states that nothing matched and
+            names the filters that were applied. The extractive fallback's selection rules
+            are never relaxed to find something.
+        validation_status:
+          type: string
+          enum: [pending, valid, repaired, failed]
+          description: >
+            Result of proof.validate_answer_citations. `repaired` means the offending
+            citations and the claims they supported were dropped and synthesis re-ran once
+            over the remaining evidence blocks. `no_evidence` answers are `valid`
+            vacuously - there is nothing to validate. An answer with an unvalidated
+            citation is never returned under any status code.
+        candidate_count:
+          type: integer
+        replayed:
+          type: boolean
+          description: True when this answer was replayed from the persisted run rather than synthesized. Set by replay_only, and by offline Module 3 runs against fixtures/captures.
+    AnswerResponse:
+      type: object
+      description: >
+        The full inspectable agent path. Spec section 13 requires this operation to return
+        plan, candidates, graph, answer, citations and receipt references; all six are
+        present. The receipt references are `run_id` and `answer_id`, which resolve through
+        GET /v1/runs/{run_id} and the proof schema. The plan, candidate, graph and verdict
+        shapes are the same components those operations return on their own, so an agent
+        that called them individually sees identical objects here.
+
+        `required` still lists only the properties this schema required before the
+        widening, because tightening it would not be an additive change at
+        contract_version 1.0.0; plan, candidates and relationships become required at the
+        next version.
+
+        In the example below, `candidates` and `rrf_terms` are truncated to the top three
+        of nine for readability while `candidate_count` reports the true nine. Every other
+        value is verbatim from fixtures/runs/RUN-7000.json, and the complete candidate
+        array appears in the SearchResponse example above.
+      required: [contract_version, request_id, run_id, answer, citations, synthesis_mode]
+      properties:
+        contract_version:
+          type: string
+        request_id:
+          type: string
+        run_id:
+          type: string
+          description: >
+            Receipt reference for the PRIMARY retrieval, resolvable at GET /v1/runs/{run_id}.
+            Retained for backward compatibility and for the degenerate single-retrieval
+            case. An answer is now assembled from one retrieval per subquestion plus any
+            escalated re-queries, so this single ID no longer describes the whole run: the
+            full set lives under `agent_run_id`, in AgentRunResponse.retrievals. Populated
+            with the first subquestion's retrieval when the run had several.
+        agent_run_id:
+          type: string
+          description: >
+            Receipt reference for the agent run that produced this answer, resolvable at
+            GET /v1/agent-runs/{agent_run_id}. This is where the subquestions, the coverage
+            decisions, the escalations and the budget spend live. A single-retrieval answer
+            is a degenerate agent run - one subquestion, one attempt, zero escalations -
+            not a separate code path.
+        answer_id:
+          type: string
+          description: Receipt reference. proof.agent_answers primary key for this answer.
+        preset:
+          type: string
+        query:
+          type: string
+          description: The question as executed.
+        principal:
+          $ref: '#/components/schemas/Principal'
+        filters:
+          $ref: '#/components/schemas/Filters'
+        controls:
+          $ref: '#/components/schemas/SearchControls'
+        plan:
+          $ref: '#/components/schemas/DecomposeResponse'
+        candidate_count:
+          type: integer
+        candidates:
+          type: array
+          description: The retrieval receipt for this run, ordered by fused_rank.
+          items:
+            $ref: '#/components/schemas/Candidate'
+        rrf_terms:
+          type: object
+          description: Per-arm RRF contribution keyed by evidence_id.
+          additionalProperties:
+            $ref: '#/components/schemas/RrfTerms'
+        relationships:
+          type: array
+          description: >
+            The evidence graph for this run. Canonical edges carry confidence 1; inferred
+            edges keep their method and confidence and never become canonical facts.
+          items:
+            $ref: '#/components/schemas/Edge'
+        verdicts:
+          type: array
+          description: compare_sources output. Rendered beside the answer as verdict chips, not as sentences in the answer body.
+          items:
+            $ref: '#/components/schemas/Verdict'
+        timeline:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimelineEntry'
+        answer:
+          type: string
+        synthesis_mode:
+          type: string
+          enum: [model, extractive, no_evidence]
+          description: >
+            `no_evidence` means every arm was empty and synthesis was never called. It is a
+            200, not an error: the filters excluded everything, which is different from
+            `failed`, where the system could not stand behind what it produced. The UI must
+            preserve that distinction.
+        validation_status:
+          type: string
+          enum: [pending, valid, repaired, failed]
+          description: Result of proof.validate_answer_citations. See SynthesizeResponse.validation_status.
+        uncovered_subquestion_ids:
+          type: array
+          description: >
+            Subquestions still uncovered when the run ended, echoed here so a partial answer
+            cannot be read as a complete one. Derivable from the agent run, never swallowed.
+            Empty on a complete run.
+          items:
+            type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+        hidden_by_acl_count:
+          type: integer
+          description: Facilitator diagnostics. The answer text must not mention that withheld evidence exists.
+        stage_timings_illustrative:
+          $ref: '#/components/schemas/StageTimings'
+      example:
+        contract_version: 1.0.0
+        request_id: req-http-1
+        run_id: RUN-7000
+        answer_id: 3f7a1e2c-9b44-4c31-8f0e-71c2a5d6b900
+        preset: canonical
+        query: During INC-2000 on checkout-prod-01, why did checkout writes appear to hang while reads continued? Determine whether CHG-1000 or CHG-1001 caused the incident, identify the customer impact visible to the current principal, explain what evidence rules out the alternative change, and cite the lock evidence and approved runbook supporting both immediate recovery and the preventive follow-up.
+        principal:
+          scopes:
+          - workshop
+          principals: []
+        filters: &id001
+          cluster_id: checkout-prod-01
+        controls:
+          mode: hybrid
+          candidate_pool: 24
+          rrf_k: 60
+          text_weight: 2.0
+          vector_weight: 1.0
+          fuzzy_weight: 1.0
+          fuzzy_threshold: 0.3
+          ef_search: 40
+          iterative_scan: strict_order
+          rerank: false
+        plan:
+          contract_version: 1.0.0
+          request_id: req-http-1
+          detected_ids:
+          - INC-2000
+          - CHG-1000
+          - CHG-1001
+          id_tokens:
+          - INC-2000
+          - CHG-1000
+          - CHG-1001
+          unresolved_id_tokens: []
+          filters: *id001
+          subquestions:
+          - Why did checkout writes hang while reads continued during INC-2000?
+          - Did CHG-1000 or CHG-1001 cause INC-2000?
+          - Which customer impact is visible to the current principal?
+          - What evidence rules out the alternative change?
+          - Which lock evidence and approved runbook support recovery and the preventive follow-up?
+          steps:
+          - search_evidence
+          - follow_evidence_links
+          - compare_sources
+          - explain_ranking
+          - synthesize_cited_answer
+        candidate_count: 9
+        candidates:
+        - evidence_id: INC-2000
+          external_key: INC-2000
+          kind: incident
+          title: Checkout writes blocked while reads continued
+          source_uri: workshop://incident/INC-2000
+          source_revision: rev-0001
+          text_position: 1
+          vector_position: 1
+          fuzzy_position: null
+          text_score: 0.4082
+          vector_distance: 0.208
+          fuzzy_score: null
+          rrf_score: 0.04918033
+          rerank_score: 0.91
+          fused_rank: 1
+          final_rank: 1
+        - evidence_id: CHG-1000
+          external_key: CHG-1000
+          kind: change
+          title: Ordinary CREATE INDEX on orders(customer_id)
+          source_uri: workshop://change/CHG-1000
+          source_revision: rev-0001
+          text_position: 2
+          vector_position: 3
+          fuzzy_position: null
+          text_score: 0.3711
+          vector_distance: 0.246
+          fuzzy_score: null
+          rrf_score: 0.04813108
+          rerank_score: 0.94
+          fused_rank: 2
+          final_rank: 2
+        - evidence_id: LOCK-3000
+          external_key: LOCK-3000
+          kind: lock
+          title: Writer 4182 blocked by index backend 3944
+          source_uri: workshop://lock/LOCK-3000
+          source_revision: rev-0001
+          text_position: 4
+          vector_position: 2
+          fuzzy_position: null
+          text_score: 0.2871
+          vector_distance: 0.231
+          fuzzy_score: null
+          rrf_score: 0.04737903
+          rerank_score: 0.88
+          fused_rank: 3
+          final_rank: 3
+        rrf_terms:
+          INC-2000:
+            text: 0.03278689
+            vector: 0.01639344
+            fuzzy: 0.0
+          CHG-1000:
+            text: 0.03225806
+            vector: 0.01587302
+            fuzzy: 0.0
+          LOCK-3000:
+            text: 0.03125
+            vector: 0.01612903
+            fuzzy: 0.0
+        relationships:
+        - source_id: INC-2000
+          target_id: CHG-1000
+          relationship: caused_by
+          origin: canonical
+          confidence: 1.0
+          method: null
+        - source_id: INC-2000
+          target_id: LOCK-3000
+          relationship: evidenced_by
+          origin: canonical
+          confidence: 1.0
+          method: null
+        - source_id: INC-2000
+          target_id: LOCK-3001
+          relationship: evidenced_by
+          origin: canonical
+          confidence: 1.0
+          method: null
+        - source_id: LOCK-3000
+          target_id: CHG-1000
+          relationship: blocked_by
+          origin: canonical
+          confidence: 1.0
+          method: null
+        - source_id: LOCK-3001
+          target_id: CHG-1000
+          relationship: blocked_by
+          origin: canonical
+          confidence: 1.0
+          method: null
+        - source_id: INC-2000
+          target_id: CASE-4000
+          relationship: affects
+          origin: canonical
+          confidence: 1.0
+          method: null
+        - source_id: INC-2000
+          target_id: CASE-4002
+          relationship: not_affects
+          origin: canonical
+          confidence: 1.0
+          method: null
+        - source_id: CHG-1000
+          target_id: RB-5000
+          relationship: remediated_by
+          origin: canonical
+          confidence: 1.0
+          method: null
+        - source_id: CHG-1002
+          target_id: RB-5000
+          relationship: implements
+          origin: canonical
+          confidence: 1.0
+          method: null
+        - source_id: CASE-4000
+          target_id: COMMIT-6000
+          relationship: commitment_for
+          origin: canonical
+          confidence: 1.0
+          method: null
+        - source_id: INC-2000
+          target_id: INC-2001
+          relationship: resembles
+          origin: inferred
+          confidence: 0.62
+          method: embedding_knn
+        - source_id: CHG-1001
+          target_id: INC-2000
+          relationship: considered_for
+          origin: inferred
+          confidence: 0.41
+          method: temporal_proximity
+        verdicts:
+        - evidence_id: CHG-1000
+          verdict: change_confirmed
+          rationale: Held ShareLock on orders across the incident window; both lock snapshots name its backend pid 3944 as the blocker.
+        - evidence_id: CHG-1001
+          verdict: change_ruled_out
+          rationale: Application-tier worker pool resize. Acquires no database lock and does not appear in either lock snapshot.
+        - evidence_id: CHG-1002
+          verdict: preventive_follow_up
+          rationale: Implements the approved runbook by rebuilding the index concurrently.
+        - evidence_id: CASE-4000
+          verdict: affected
+          rationale: Reported checkout submission failures inside the blocked-write window.
+        - evidence_id: CASE-4002
+          verdict: not_affected
+          rationale: Served by a separate cluster; no impact recorded during the window.
+        timeline:
+        - at: '2026-05-19T09:05:00Z'
+          evidence_id: CHG-1001
+          event: Checkout worker pool resized (no locks taken)
+        - at: '2026-05-19T09:17:00Z'
+          evidence_id: CHG-1000
+          event: CREATE INDEX starts on orders, no CONCURRENTLY
+        - at: '2026-05-19T09:19:00Z'
+          evidence_id: LOCK-3000
+          event: Writer 4182 blocked by backend 3944
+        - at: '2026-05-19T09:22:00Z'
+          evidence_id: LOCK-3001
+          event: Writer 4210 blocked by the same backend
+        - at: '2026-05-19T09:24:00Z'
+          evidence_id: INC-2000
+          event: 'Sev-2 declared: writes hang, reads normal'
+        - at: '2026-05-19T09:38:00Z'
+          evidence_id: CASE-4000
+          event: Acme Retail reports checkout failures
+        - at: '2026-05-19T09:51:00Z'
+          evidence_id: CHG-1000
+          event: Blocking build cancelled (~34 min of blocked writes)
+        - at: '2026-05-19T10:05:00Z'
+          evidence_id: CHG-1002
+          event: Rebuild scheduled with CREATE INDEX CONCURRENTLY
+        - at: '2026-05-20T00:00:00Z'
+          evidence_id: COMMIT-6000
+          event: RCA and safe-fix plan committed to Acme Retail
+        answer: 'CHG-1000 ran an ordinary CREATE INDEX on orders(customer_id) against the production writer [2]. A non-concurrent index build takes a SHARE lock on the table, which conflicts with the ROW EXCLUSIVE lock every INSERT, UPDATE and DELETE needs, but not with the ACCESS SHARE lock a SELECT needs — so checkout writes queued while reads continued to serve [1]. Both lock snapshots name the same blocking backend, pid 3944, which rules out contention among writers [3]. CHG-1001 is ruled out: it is an application-tier worker pool resize that acquires no database lock and appears in neither snapshot. Acme Retail is the affected customer visible to this principal [4]. RB-5000 is the approved recovery: cancel the blocking build, then rebuild with CREATE INDEX CONCURRENTLY outside a transaction block, monitoring pg_stat_progress_create_index and dropping any INVALID index before retrying [5].'
+        synthesis_mode: extractive
+        citations:
+        - citation_number: 1
+          evidence_id: INC-2000
+          external_key: INC-2000
+          source_uri: workshop://incident/INC-2000
+          source_revision: rev-0001
+          quote: Sev-2 declared 09:24 UTC. Checkout write transactions queued on checkout-prod-01 while read traffic served normally. Approximately 34 minutes of blocked writes.
+          claim: The build acquired a relation-level lock that allowed reads to continue while checkout writes queued.
+        - citation_number: 2
+          evidence_id: CHG-1000
+          external_key: CHG-1000
+          source_uri: workshop://change/CHG-1000
+          source_revision: rev-0001
+          quote: CREATE INDEX idx_orders_customer_id ON orders (customer_id); executed against checkout-prod-01 at 09:17 UTC without the CONCURRENTLY option.
+          claim: CHG-1000 ran ordinary CREATE INDEX on the production writer.
+        - citation_number: 3
+          evidence_id: LOCK-3000
+          external_key: LOCK-3000
+          source_uri: workshop://lock/LOCK-3000
+          source_revision: rev-0001
+          quote: pid 4182 waiting on Lock:relation, blocked by pid 3944 holding ShareLock on orders. wait_event_type=Lock, wait_event=relation.
+          claim: LOCK-3000 identifies the index-building backend as the blocker, and LOCK-3001 confirms the same blocker on a second writer.
+        - citation_number: 4
+          evidence_id: CASE-4000
+          external_key: CASE-4000
+          source_uri: workshop://case/CASE-4000
+          source_revision: rev-0001
+          quote: Acme Retail reported checkout submission failures beginning 09:38 UTC. Confirmed affected; browse and search unaffected.
+          claim: Acme Retail was affected, and the account carries commitment COMMIT-6000.
+        - citation_number: 5
+          evidence_id: RB-5000
+          external_key: RB-5000
+          source_uri: workshop://runbook/RB-5000
+          source_revision: rev-0001
+          quote: Cancel the blocking build, then rebuild with CREATE INDEX CONCURRENTLY outside a transaction block. Monitor pg_stat_progress_create_index and drop any INVALID index before retrying.
+          claim: RB-5000 recommends CREATE INDEX CONCURRENTLY outside a transaction, progress monitoring, and invalid-index cleanup after failure.
+        hidden_by_acl_count: 1
+        stage_timings_illustrative:
+          exact_fts_ms: 2.3
+          vector_ms: 3.8
+          fuzzy_ms: 1.1
+          fuse_ms: 0.7
+          traverse_ms: 9.4
+          compare_ms: 6.1
+          rerank_ms: 74.0
+          synthesis_ms: 1240.0
+    CitationValidationError:
+      type: object
+      description: >
+        Returned with HTTP 422 when a citation could not be bound to the exact document and
+        chunk version it names, and the one bounded repair attempt did not fix it. Carries
+        no answer text: an answer with an unvalidated citation is never returned under any
+        status code.
+      required: [contract_version, request_id, failures]
+      properties:
+        contract_version:
+          type: string
+        request_id:
+          type: string
+        agent_run_id:
+          type: string
+        validation_status:
+          type: string
+          enum: [failed]
+        failures:
+          type: array
+          description: Rows returned by proof.validate_answer_citations. Zero rows means every citation validated, so a non-empty array here is the whole reason for the 422.
+          items:
+            type: object
+            required: [citation_number, failure]
+            properties:
+              citation_number:
+                type: integer
+              failure:
+                type: string
+                enum:
+                  - document_version_not_found
+                  - chunk_version_not_found
+                  - chunk_not_in_document
+                  - source_uri_mismatch
+                  - source_revision_mismatch
+                  - quote_not_found_in_chunk
+    AuroraBuffers:
+      type: object
+      nullable: true
+      description: >
+        Buffer counters from EXPLAIN (ANALYZE, BUFFERS) for one retrieval, in pages.
+        `shared_hit` and `read` are ordinary PostgreSQL counters. `aurora_orcache_hit`
+        (pages served from the Optimized Reads tiered cache on local NVMe) and
+        `aurora_storage_read` (pages that went all the way to the Aurora storage volume)
+        are emitted by Aurora PostgreSQL only - they exist in no other PostgreSQL, they
+        appear only when Optimized Reads is enabled AND the value is greater than zero, and
+        capturing them requires aurora_stat_plans.with_buffers = on, which is off by
+        default. Their absence is therefore not evidence of anything, and null for this
+        whole object means the plan was captured without buffers rather than that the
+        counters were zero.
+
+
+        These counters are what make the bounded escalation measurable rather than merely
+        logged: widening ef_search 40 -> 200 over a larger candidate pool shows the HNSW
+        scan falling out of RAM onto NVMe and off NVMe onto storage, in the same units as
+        the rest of the plan. Do not convert them into a latency or cost claim.
+        https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.optimized.reads.html
+      required: [shared_hit, read]
+      properties:
+        shared_hit:
+          type: integer
+        read:
+          type: integer
+        aurora_orcache_hit:
+          type: integer
+          description: Aurora only, Optimized Reads only, present only when greater than zero.
+        aurora_storage_read:
+          type: integer
+          description: Aurora only, Optimized Reads only, present only when greater than zero.
+    Coverage:
+      type: object
+      description: >
+        The coverage decision for one retrieval. A subquestion is covered when its
+        retrieval returned at least one candidate of EVERY required kind inside the top N,
+        ordered by COALESCE(final_rank, fused_rank).
+
+
+        This is a deterministic SQL rule - proof.evaluate_subquestion_coverage - and not a
+        model judgement. That is the entire point: the agent's decision to escalate is a
+        predicate a participant can run themselves and get the same answer, so the loop is
+        as inspectable as every other decision in the system. Nothing here is a confidence,
+        a score, or a threshold on a score.
+
+
+        Zero candidates yields covered=false with every required kind missing, which is the
+        `zero_candidates` escalation reason rather than a special case.
+      required: [covered, missing_kinds, covering_evidence_ids, considered]
+      properties:
+        covered:
+          type: boolean
+        missing_kinds:
+          type: array
+          description: Required kinds with no candidate in the top N, sorted. Empty exactly when covered is true.
+          items:
+            type: string
+        covering_evidence_ids:
+          type: object
+          description: The evidence_id that satisfied each required kind, keyed by kind. Only satisfied kinds appear, so its key set is required_kinds minus missing_kinds.
+          additionalProperties:
+            type: string
+        considered:
+          type: integer
+          description: How many candidates the rule actually inspected. Less than the top-N limit when the run returned fewer rows than N.
+    SubquestionRetrieval:
+      type: object
+      description: >
+        One retrieval attempt for one subquestion. `run_id` is a foreign key to a
+        proof.retrieval_runs row, so the full candidate receipt for this attempt is
+        fetchable at GET /v1/runs/{run_id} and the agent run stores no second copy of it.
+        A retrieval run belongs to at most one agent attempt - proof.agent_retrievals
+        constrains run_id UNIQUE.
+      required: [run_id, attempt, coverage]
+      properties:
+        run_id:
+          type: string
+        attempt:
+          type: integer
+          minimum: 1
+          description: 1 for the first search, 2 for the escalated re-query.
+        controls:
+          $ref: '#/components/schemas/SearchControls'
+        filters:
+          $ref: '#/components/schemas/Filters'
+        coverage:
+          $ref: '#/components/schemas/Coverage'
+        superseded_by:
+          type: string
+          nullable: true
+          description: >
+            The run_id of the attempt that replaced this one, or null/absent when this
+            attempt stands. Note the wire form is the run_id, while the
+            proof.agent_retrievals.superseded_by column stores the attempt ordinal instead;
+            they carry the same fact in different keys.
+        aurora_buffers:
+          $ref: '#/components/schemas/AuroraBuffers'
+    Subquestion:
+      type: object
+      description: >
+        One subquestion of the decomposition, with every retrieval attempt made for it.
+        `runs` holds more than one entry exactly when the subquestion was escalated, so the
+        number of search_evidence calls is a function of the data rather than of a script -
+        which is what makes this a loop and not a storyboard.
+
+
+        Also used by DecomposeResponse.subquestions, where only subquestion_id, text and
+        required_kinds are populated because the plan exists before any retrieval has run.
+        That is why attempts, runs and final_coverage are optional here.
+      required: [subquestion_id, text, required_kinds]
+      properties:
+        subquestion_id:
+          type: string
+          description: Stable within the run, for example SQ-1 through SQ-5.
+        text:
+          type: string
+        required_kinds:
+          type: array
+          description: >
+            Evidence kinds that must EACH appear at least once in the top N for this
+            subquestion to count as covered - incident, change, lock, case, runbook,
+            commitment. This is the field that turns coverage into a checkable predicate
+            instead of a judgement call, and it is the input the loop branches on.
+          items:
+            type: string
+        attempts:
+          type: integer
+          minimum: 0
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubquestionRetrieval'
+        final_coverage:
+          $ref: '#/components/schemas/Coverage'
+    EscalationChange:
+      type: object
+      description: >
+        Exactly what the escalation changed, as before/after pairs grouped by what they
+        belong to. Each value is a two-element [before, after] array whose members take
+        whatever type the setting has, including null. Emitted form:
+        {"controls": {"ef_search": [40, 200]}, "filters": {"cluster_id": ["checkout-prod-01", null]}}.
+        proof.agent_escalations.changed persists the same information; its column comment
+        shows the alternative {"before": {...}, "after": {...}} grouping. The change is
+        recorded rather than inferred, so a replay can prove what the agent altered.
+      properties:
+        controls:
+          type: object
+          description: Changed SearchControls keys, each mapped to [before, after].
+          additionalProperties:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items:
+              description: >
+                Deliberately untyped: the pair takes whatever type the changed setting has -
+                integer for ef_search and candidate_pool, string for mode or iterative_scan,
+                boolean for rerank, and null where a value was dropped. Left typeless rather
+                than modelled with oneOf, which AgentCore Gateway does not accept.
+        filters:
+          type: object
+          description: Changed Filters keys, each mapped to [before, after]. An after of null means the filter was dropped.
+          additionalProperties:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items:
+              description: >
+                Deliberately untyped, and null is a meaningful member: ["checkout-prod-01",
+                null] is the canonical escalation dropping the cluster filter. Left typeless
+                rather than modelled with oneOf, which AgentCore Gateway does not accept.
+    Escalation:
+      type: object
+      description: >
+        One bounded escalation. On `missing_required_kind` the agent re-queries that
+        subquestion ONCE with a stated change, within max_escalations.
+
+
+        In the canonical run the load-bearing part is dropping cluster_id, not raising
+        ef_search. A runbook is not scoped to a cluster, so RB-5000 has f_cluster_id NULL
+        and the predicate (:cluster_id IS NULL OR c.f_cluster_id = :cluster_id) is false for
+        it: the metadata filter that makes SQ-1 through SQ-4 precise is exactly what starves
+        SQ-5. Raising ef_search alone does not recover it - see AgentRunResponse.counterfactual
+        - because no ANN widening returns a row the WHERE clause removed before the index
+        was ever consulted. The general lesson: a filter that is correct for the entity you
+        are searching FROM can be wrong for the entity you are searching FOR, and a coverage
+        check that names the missing kind is the only thing that surfaces it.
+      required: [subquestion_id, reason, outcome]
+      properties:
+        subquestion_id:
+          type: string
+        attempt:
+          type: integer
+          description: The attempt this escalation produced. Present on the persisted proof.agent_escalations row; derivable from the subquestion's runs.
+        reason:
+          type: string
+          enum: [missing_required_kind, zero_candidates]
+        missing_kinds:
+          type: array
+          items:
+            type: string
+        changed:
+          $ref: '#/components/schemas/EscalationChange'
+        rationale:
+          type: string
+          description: Why this change was expected to help. Stated before the re-query, not reconstructed after it.
+        outcome:
+          type: string
+          enum: [covered, still_uncovered, budget_exhausted]
+          description: >
+            `budget_exhausted` is a real terminal outcome, not an error. When escalations
+            run out with a subquestion still uncovered, the answer is synthesized from what
+            was covered, the run ends `partial` or `budget_exhausted`, and the uncovered
+            subquestion is reported rather than swallowed. A partial answer is never
+            presented as complete.
+    Counterfactual:
+      type: object
+      description: >
+        A participant experiment, NOT an agent tool call - it is not counted against
+        tool_calls_spent and it appears in no receipt as a step. It re-runs the uncovered
+        subquestion with the escalated controls but the original filter kept, and it must
+        stay uncovered. That negative result is what proves the filter rather than the ANN
+        width was the constraint; if a corpus or fixture edit ever makes this covered, the
+        escalation stops demonstrating anything and the teaching moment silently disappears.
+      required: [run_id, subquestion_id, coverage]
+      properties:
+        run_id:
+          type: string
+        subquestion_id:
+          type: string
+        controls:
+          $ref: '#/components/schemas/SearchControls'
+        filters:
+          $ref: '#/components/schemas/Filters'
+        coverage:
+          $ref: '#/components/schemas/Coverage'
+        aurora_buffers:
+          $ref: '#/components/schemas/AuroraBuffers'
+        note:
+          type: string
+    AgentBudget:
+      type: object
+      description: >
+        Hard bounds on the loop. Both are columns on proof.agent_runs, both are enforced by
+        a CHECK constraint, and both are reported as spend beside the limit - a bound that
+        is not reported is indistinguishable from no bound.
+      required: [max_tool_calls, max_escalations]
+      properties:
+        max_tool_calls:
+          type: integer
+          minimum: 1
+          default: 12
+        max_escalations:
+          type: integer
+          minimum: 0
+          default: 2
+    AgentRetrievalRef:
+      type: object
+      description: >
+        Flat index of every retrieval this agent run made, in call order. One entry per
+        proof.agent_retrievals row; run_id is unique across the run. Use it to walk the
+        receipts without descending through subquestions.
+      required: [run_id, subquestion_id, attempt]
+      properties:
+        run_id:
+          type: string
+        subquestion_id:
+          type: string
+        attempt:
+          type: integer
+          minimum: 1
+    SubquestionCoverage:
+      type: object
+      description: The coverage decision for one subquestion, without its candidate receipts.
+      required: [subquestion_id, required_kinds, final_coverage]
+      properties:
+        subquestion_id:
+          type: string
+        text:
+          type: string
+        required_kinds:
+          type: array
+          items:
+            type: string
+        attempts:
+          type: integer
+        run_ids:
+          type: array
+          description: Retrieval runs made for this subquestion, in attempt order.
+          items:
+            type: string
+        final_coverage:
+          $ref: '#/components/schemas/Coverage'
+    AgentCoverageResponse:
+      type: object
+      description: >
+        Coverage decisions for one agent run. Workbench read surface. Reading this next to
+        proof.evaluate_subquestion_coverage is how a participant confirms the escalation was
+        a SQL predicate rather than a model judgement.
+      required: [contract_version, agent_run_id, subquestions]
+      properties:
+        contract_version:
+          type: string
+        agent_run_id:
+          type: string
+        status:
+          type: string
+        subquestion_count:
+          type: integer
+        covered_count:
+          type: integer
+        subquestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubquestionCoverage'
+    AgentRunResponse:
+      type: object
+      description: >
+        A complete agent run: the bounded loop over subquestions, every retrieval it made,
+        the deterministic coverage decision behind each one, the escalations it spent, and
+        the cited answer it produced.
+
+
+        The shape exists because the previous design was a fixed five-step pipeline wearing
+        a loop's clothes - the step list was byte-identical for every input, the
+        subquestions were emitted and never consumed, and one answer could reference only
+        one retrieval. Here the number of search_evidence calls is a function of the data,
+        the branch condition is a SQL predicate, and one answer references one retrieval per
+        subquestion plus any escalated re-queries.
+
+
+        A single-retrieval answer is a degenerate agent run - one subquestion, one attempt,
+        zero escalations - not a second code path.
+
+
+        Example note: `subquestions` is truncated to SQ-1 (covered on the first attempt) and
+        SQ-5 (uncovered, escalated, covered on the second attempt) out of five, and
+        `citations` and `verdicts` to one entry each, while the counts and `retrievals`
+        report the true totals. Every retained value is verbatim from
+        fixtures/agent/ARUN-8000.json; the untruncated arrays are in that file and in the
+        AnswerResponse example above.
+      required: [contract_version, agent_run_id, question, status]
+      properties:
+        contract_version:
+          type: string
+        agent_run_id:
+          type: string
+        question:
+          type: string
+        principal:
+          $ref: '#/components/schemas/Principal'
+        filters_initial:
+          $ref: '#/components/schemas/Filters'
+        controls_initial:
+          $ref: '#/components/schemas/SearchControls'
+        budget:
+          $ref: '#/components/schemas/AgentBudget'
+        tool_calls_spent:
+          type: integer
+          description: Tool calls actually made, against budget.max_tool_calls. The counterfactual is a participant experiment and is not counted.
+        escalations_spent:
+          type: integer
+          description: Escalations actually made, against budget.max_escalations.
+        status:
+          type: string
+          enum: [running, complete, succeeded, partial, budget_exhausted, no_evidence, failed]
+          description: >
+            Terminal states carry distinct meanings and must not be collapsed in the UI.
+            `partial` and `budget_exhausted` mean some subquestion ended uncovered and the
+            answer was synthesized from what was covered. `no_evidence` means the filters
+            excluded everything - a successful query that found nothing, returned as 200.
+            `failed` means the system could not stand behind what it produced, for example
+            citation validation that did not survive its one repair attempt.
+
+
+            Vocabulary note: the emitted fixture uses `complete` while the
+            proof.agent_runs status CHECK constraint writes `succeeded`. Both are listed
+            here because both occur in the package; they mean the same thing and should be
+            reconciled to one token at the next contract version.
+        steps:
+          type: array
+          description: >
+            The observed call sequence for THIS run, with repetition counts, for example
+            "search_evidence x5" and "search_evidence (escalated x1)". It is a trace, not a
+            script: a run over different data produces a different list, and a step list
+            that never varies is the symptom the loop was built to remove. `explain_ranking`
+            must never appear here - it is a human diagnostic surface, and the fixture
+            generator asserts its absence.
+          items:
+            type: string
+        subquestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subquestion'
+        escalations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Escalation'
+        counterfactual:
+          $ref: '#/components/schemas/Counterfactual'
+        retrievals:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentRetrievalRef'
+        answer_id:
+          type: string
+        answer:
+          type: string
+        synthesis_mode:
+          type: string
+          enum: [model, extractive, no_evidence]
+        validation_status:
+          type: string
+          enum: [pending, valid, repaired, failed]
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+        verdicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Verdict'
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+      example:
+        contract_version: 1.0.0
+        agent_run_id: ARUN-8000
+        question: During INC-2000 on checkout-prod-01, why did checkout writes appear to hang while reads continued? Determine whether CHG-1000 or CHG-1001 caused the incident, identify the customer impact visible to the current principal, explain what evidence rules out the alternative change, and cite the lock evidence and approved runbook supporting both immediate recovery and the preventive follow-up.
+        principal:
+          scopes:
+          - workshop
+          principals: []
+        filters_initial:
+          cluster_id: checkout-prod-01
+        controls_initial:
+          mode: hybrid
+          candidate_pool: 24
+          rrf_k: 60
+          text_weight: 2.0
+          vector_weight: 1.0
+          fuzzy_weight: 1.0
+          fuzzy_threshold: 0.3
+          ef_search: 40
+          iterative_scan: strict_order
+          rerank: false
+        budget:
+          max_tool_calls: 12
+          max_escalations: 2
+        tool_calls_spent: 9
+        escalations_spent: 1
+        status: complete
+        steps:
+        - decompose_question
+        - search_evidence x5
+        - evaluate_coverage
+        - search_evidence (escalated x1)
+        - follow_evidence_links
+        - compare_sources
+        - synthesize_cited_answer
+        subquestions:
+        - subquestion_id: SQ-1
+          text: Why did checkout writes hang while reads continued during INC-2000?
+          required_kinds:
+          - incident
+          - lock
+          attempts: 1
+          runs:
+          - run_id: RUN-7100
+            attempt: 1
+            controls:
+              mode: hybrid
+              candidate_pool: 24
+              rrf_k: 60
+              text_weight: 2.0
+              vector_weight: 1.0
+              fuzzy_weight: 1.0
+              fuzzy_threshold: 0.3
+              ef_search: 40
+              iterative_scan: strict_order
+              rerank: false
+            filters:
+              cluster_id: checkout-prod-01
+            coverage:
+              covered: true
+              missing_kinds: []
+              covering_evidence_ids:
+                incident: INC-2000
+                lock: LOCK-3000
+              considered: 6
+            aurora_buffers: null
+          final_coverage:
+            covered: true
+            missing_kinds: []
+            covering_evidence_ids:
+              incident: INC-2000
+              lock: LOCK-3000
+            considered: 6
+        - subquestion_id: SQ-5
+          text: Which lock evidence and approved runbook support recovery and the preventive follow-up?
+          required_kinds:
+          - lock
+          - runbook
+          attempts: 2
+          runs:
+          - run_id: RUN-7104
+            attempt: 1
+            controls:
+              mode: hybrid
+              candidate_pool: 24
+              rrf_k: 60
+              text_weight: 2.0
+              vector_weight: 1.0
+              fuzzy_weight: 1.0
+              fuzzy_threshold: 0.3
+              ef_search: 40
+              iterative_scan: strict_order
+              rerank: false
+            filters:
+              cluster_id: checkout-prod-01
+            coverage:
+              covered: false
+              missing_kinds:
+              - runbook
+              covering_evidence_ids:
+                lock: LOCK-3000
+              considered: 4
+            aurora_buffers:
+              shared_hit: 214
+              read: 0
+              aurora_orcache_hit: 0
+              aurora_storage_read: 0
+            superseded_by: RUN-7106
+          - run_id: RUN-7106
+            attempt: 2
+            controls:
+              mode: hybrid
+              candidate_pool: 48
+              rrf_k: 60
+              text_weight: 2.0
+              vector_weight: 1.0
+              fuzzy_weight: 1.0
+              fuzzy_threshold: 0.3
+              ef_search: 200
+              iterative_scan: strict_order
+              rerank: false
+            filters:
+              cluster_id: null
+            coverage:
+              covered: true
+              missing_kinds: []
+              covering_evidence_ids:
+                lock: LOCK-3000
+                runbook: RB-5000
+              considered: 6
+            aurora_buffers:
+              shared_hit: 531
+              read: 147
+              aurora_orcache_hit: 118
+              aurora_storage_read: 29
+          final_coverage:
+            covered: true
+            missing_kinds: []
+            covering_evidence_ids:
+              lock: LOCK-3000
+              runbook: RB-5000
+            considered: 6
+        escalations:
+        - subquestion_id: SQ-5
+          reason: missing_required_kind
+          missing_kinds:
+          - runbook
+          changed:
+            controls:
+              ef_search:
+              - 40
+              - 200
+              candidate_pool:
+              - 24
+              - 48
+            filters:
+              cluster_id:
+              - checkout-prod-01
+              - null
+          rationale: A runbook is not scoped to a cluster. The cluster_id filter that makes the incident subquestions precise is what excludes RB-5000 from SQ-5. Raising ef_search alone does not recover it -- see the RUN-7105 counterfactual -- because no ANN widening returns a row the WHERE clause removed before the index was consulted.
+          outcome: covered
+        counterfactual:
+          run_id: RUN-7105
+          subquestion_id: SQ-5
+          controls:
+            mode: hybrid
+            candidate_pool: 48
+            rrf_k: 60
+            text_weight: 2.0
+            vector_weight: 1.0
+            fuzzy_weight: 1.0
+            fuzzy_threshold: 0.3
+            ef_search: 200
+            iterative_scan: strict_order
+            rerank: false
+          filters:
+            cluster_id: checkout-prod-01
+          coverage:
+            covered: false
+            missing_kinds:
+            - runbook
+            covering_evidence_ids:
+              lock: LOCK-3000
+            considered: 5
+          aurora_buffers:
+            shared_hit: 486
+            read: 112
+            aurora_orcache_hit: 96
+            aurora_storage_read: 16
+          note: 'Participant experiment, not an agent tool call. Raises ef_search 40 -> 200 and the pool 24 -> 48 but keeps the cluster filter. Still uncovered: no ANN widening returns a row the WHERE clause excluded before the index was consulted.'
+        retrievals:
+        - run_id: RUN-7100
+          subquestion_id: SQ-1
+          attempt: 1
+        - run_id: RUN-7101
+          subquestion_id: SQ-2
+          attempt: 1
+        - run_id: RUN-7102
+          subquestion_id: SQ-3
+          attempt: 1
+        - run_id: RUN-7103
+          subquestion_id: SQ-4
+          attempt: 1
+        - run_id: RUN-7104
+          subquestion_id: SQ-5
+          attempt: 1
+        - run_id: RUN-7106
+          subquestion_id: SQ-5
+          attempt: 2
+        answer: 'CHG-1000 ran an ordinary CREATE INDEX on orders(customer_id) against the production writer [2]. A non-concurrent index build takes a SHARE lock on the table, which conflicts with the ROW EXCLUSIVE lock every INSERT, UPDATE and DELETE needs, but not with the ACCESS SHARE lock a SELECT needs — so checkout writes queued while reads continued to serve [1]. Both lock snapshots name the same blocking backend, pid 3944, which rules out contention among writers [3]. CHG-1001 is ruled out: it is an application-tier worker pool resize that acquires no database lock and appears in neither snapshot. Acme Retail is the affected customer visible to this principal [4]. RB-5000 is the approved recovery: cancel the blocking build, then rebuild with CREATE INDEX CONCURRENTLY outside a transaction block, monitoring pg_stat_progress_create_index and dropping any INVALID index before retrying [5].'
+        synthesis_mode: extractive
+        citations:
+        - citation_number: 1
+          evidence_id: INC-2000
+          external_key: INC-2000
+          source_uri: workshop://incident/INC-2000
+          source_revision: rev-0001
+          quote: Sev-2 declared 09:24 UTC. Checkout write transactions queued on checkout-prod-01 while read traffic served normally. Approximately 34 minutes of blocked writes.
+        verdicts:
+        - evidence_id: CHG-1000
+          verdict: change_confirmed
+          rationale: Held ShareLock on orders across the incident window; both lock snapshots name its backend pid 3944 as the blocker.

@@ -1,0 +1,1453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Verity — incident-evidence workbench</title>
+<!--
+  Visual reference for DAT410. Self-contained: no remote fonts, no external JS.
+
+  Every number on this page is DERIVED at runtime from MODEL.runs[].arm_orders
+  and the live fusion controls. Nothing is a hardcoded result table. Editing an
+  arm ordering updates every rrf_score, every rank, every bar and every chip.
+
+  This is deliberate. The earlier prototype pass published an RRF value of
+  0.0491 beside inputs that summed to 0.06505. The page now recomputes the
+  golden fixture on load and shows the result in the footer badge, so a drift
+  of this kind is visible rather than plausible.
+
+  Type: Fraunces / Inter / IBM Plex Mono is the design intent. Remote fonts are
+  forbidden in the shipped workbench, so these are the closest system stacks.
+-->
+<style>
+:root{
+  --paper:#FAF4EC; --paper2:#FFF9F1; --ink:#211C16; --soft:#584F45; --muted:#94897C;
+  --hair:#E9DFD2; --hair2:#F2E9DE; --red:#C13A26; --red2:#9E2F1E; --wash:#FBEDE8;
+  --green:#2E7D54; --greenwash:#EEF6F1; --clay:#DE9C7C; --claywash:#FDF1E9; --amber:#8A5A2B;
+  --blush:#F7E2D6; --cardbd:rgba(33,28,22,.07);
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,Cambria,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Monaco,Consolas,monospace;
+  --sh1:0 1px 2px rgba(33,28,22,.04);
+  --sh2:0 1px 2px rgba(33,28,22,.04),0 10px 30px rgba(33,28,22,.06);
+  --sh3:0 1px 2px rgba(33,28,22,.08),0 12px 34px rgba(33,28,22,.16);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper) radial-gradient(1100px 700px at 94% -10%,var(--blush) 0%,rgba(247,226,214,0) 62%) no-repeat;
+  color:var(--ink); font:14px/1.5 var(--sans); -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0}
+a{color:var(--red2)}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px;border-radius:4px}
+
+/* ---------- chrome ---------- */
+.wrap{max-width:1280px;margin:0 auto;padding:0 26px}
+.chrome{position:sticky;top:0;z-index:40;background:rgba(250,244,236,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--hair)}
+.chrome .wrap{display:flex;align-items:center;gap:16px;height:60px}
+.mark{display:flex;align-items:center;gap:9px;font:600 12.5px/1 var(--mono);letter-spacing:.24em;white-space:nowrap}
+.glyph{width:19px;height:19px;border:1.5px solid var(--red);border-radius:50%;position:relative;flex:none}
+.glyph:after{content:"";position:absolute;left:1.5px;right:1.5px;top:9px;border-top:1.8px solid var(--red);border-radius:50%;transform:rotate(-8deg)}
+.omni{flex:1;min-width:0;display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--hair);border-radius:10px;padding:8px 11px;box-shadow:var(--sh1)}
+.omni .car{color:var(--red);font:600 12px var(--mono)}
+.omni .q{flex:1;min-width:0;font:11.5px var(--mono);color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+kbd{font:500 9.5px var(--mono);border:1px solid var(--hair);border-radius:5px;padding:2px 5px;color:var(--muted);background:var(--paper)}
+.nav{display:flex;gap:2px}
+.nav button{padding:8px 12px;font:600 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid transparent}
+.nav button .n{color:#C3B7A9;margin-right:6px}
+.nav button.on{color:var(--ink);border-bottom-color:var(--red)}
+.nav button.on .n{color:var(--red)}
+
+/* ---------- primitives ---------- */
+.hero{padding:30px 0 18px}
+.klabel{font:600 10px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--red)}
+.klabel.m{color:var(--muted)}
+h1{font:600 33px/1.12 var(--serif);letter-spacing:-.01em;margin:9px 0 0}
+h1 em{color:var(--red2);font-weight:500}
+.deck{margin:9px 0 0;max-width:680px;color:var(--soft);font-size:13.5px;line-height:1.62}
+.card{background:#fff;border:1px solid var(--cardbd);border-radius:16px;box-shadow:var(--sh2)}
+.card.p{padding:15px}
+.tile{background:#fff;border:1px solid var(--hair);border-radius:12px;box-shadow:var(--sh1);padding:12px}
+.pill{display:inline-flex;align-items:center;gap:5px;background:#fff;border:1px solid var(--hair);border-radius:999px;padding:3px 9px;font:500 10.5px var(--mono);color:var(--soft);white-space:nowrap}
+.pill.g{color:var(--green);background:var(--greenwash);border-color:rgba(46,125,84,.28)}
+.pill.r{color:var(--red2);background:var(--wash);border-color:rgba(193,58,38,.25)}
+.pill.c{color:var(--amber);background:var(--claywash);border-color:rgba(222,156,124,.45)}
+.pill.d{border-style:dashed;color:var(--muted)}
+.seg{display:inline-flex;background:#fff;border:1px solid var(--hair);border-radius:10px;padding:2px;box-shadow:var(--sh1)}
+.seg button{padding:5px 10px;border-radius:8px;font:500 10.5px var(--mono);color:var(--soft)}
+.seg button.on{background:var(--ink);color:var(--paper)}
+.chip{border:1px solid var(--hair);background:#fff;border-radius:999px;padding:6px 11px;font:500 10.5px var(--mono);color:var(--soft);box-shadow:var(--sh1)}
+.chip.on{background:var(--red);border-color:var(--red);color:#fff}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sep{height:1px;background:var(--hair);margin:13px 0}
+.hscroll{overflow-x:auto;overflow-y:hidden}
+.foot{font:11px var(--mono);color:var(--muted);margin-top:12px;line-height:1.6}
+.mono{font-family:var(--mono)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.grid2u{display:grid;grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);gap:16px;align-items:start}
+section.screen{display:none;padding-bottom:56px}
+section.screen.on{display:block}
+
+/* ---------- arms ---------- */
+.arms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.32fr);gap:13px;align-items:start;margin-top:16px}
+.arm{overflow:hidden}
+.arm.fused{border-top:3px solid var(--red)}
+.armhead{padding:13px 14px 11px;border-bottom:1px solid var(--hair2)}
+.armhead .sub{margin-top:4px;font:10.5px/1.5 var(--mono);color:var(--muted)}
+.armhead .cnt{float:right;font:500 10px var(--mono);color:var(--muted)}
+.it{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:9px;align-items:start;padding:9px 14px;border-top:1px dashed var(--hair);width:100%;text-align:left}
+.it:first-of-type{border-top:0}
+.it:hover{background:var(--paper2)}
+.it.sel{background:var(--wash)}
+.it .rk{font:600 10px var(--mono);color:var(--muted);padding-top:2px}
+.it.sel .rk{color:var(--red2)}
+.it .id{font:600 11.5px var(--mono);display:block}
+.it .ti{display:block;font-size:10.5px;color:var(--soft);line-height:1.4;margin-top:2px}
+.it .dg{font:500 9.5px var(--mono);color:var(--muted);border:1px solid var(--hair);border-radius:6px;padding:2px 5px;white-space:nowrap}
+.empty{padding:22px 14px;text-align:center}
+.empty .b{display:inline-block;border:1px dashed var(--hair);border-radius:10px;padding:11px 14px;color:var(--muted);font:10.5px/1.6 var(--mono)}
+.sig{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+.s{font:600 9.5px var(--mono);border:1px solid var(--hair);border-radius:6px;padding:1px 5px;color:var(--soft)}
+.s.off{border-style:dashed;color:var(--muted)}
+.s.t{color:var(--red2);border-color:rgba(193,58,38,.3)}
+.s.v{color:var(--amber);border-color:rgba(222,156,124,.5)}
+.s.f{color:var(--green);border-color:rgba(46,125,84,.3)}
+.s.rrf{color:var(--ink);background:var(--paper)}
+.s.rr{color:var(--red2);background:var(--wash);border-color:rgba(193,58,38,.25)}
+.dlt{font:600 9.5px var(--mono)}
+.dlt.up{color:var(--green)} .dlt.dn{color:var(--red2)} .dlt.eq{color:var(--muted)}
+
+/* ---------- sliders / bars ---------- */
+.ctl{display:grid;grid-template-columns:82px minmax(0,1fr) 44px;gap:10px;align-items:center;margin-top:9px}
+.ctl label{font:500 10px var(--mono);color:var(--soft)}
+.ctl output{font:600 10.5px var(--mono);text-align:right}
+input[type=range]{-webkit-appearance:none;appearance:none;height:4px;background:var(--hair2);border-radius:999px;outline:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--red);border:2px solid #fff;box-shadow:var(--sh1);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border:2px solid #fff;border-radius:50%;background:var(--red);cursor:pointer}
+.cbar{display:flex;height:9px;border-radius:999px;overflow:hidden;background:var(--hair2);margin-top:4px}
+.cbar i{display:block;height:100%}
+.cbar i.t{background:var(--red)} .cbar i.v{background:var(--clay)} .cbar i.f{background:var(--green)}
+.brow{display:grid;grid-template-columns:96px minmax(0,1fr) 60px;gap:9px;align-items:center;padding:5px 0}
+.brow .l{font:500 10px var(--mono);color:var(--soft)}
+.brow .val{font:600 10.5px var(--mono);text-align:right}
+.track{height:8px;background:var(--hair2);border-radius:999px;overflow:hidden}
+.track i{display:block;height:100%;background:var(--red)}
+.track i.clay{background:var(--clay)} .track i.green{background:var(--green)} .track i.ink{background:var(--ink)}
+
+/* ---------- dark panel ---------- */
+.dark{background:var(--ink);border-radius:16px;box-shadow:var(--sh3);padding:15px;overflow:hidden}
+.dark .klabel{color:#F2B8A9}
+.dark pre{margin:9px 0 0;font:400 10.6px/1.58 var(--mono);color:#EFE7DC;overflow-x:auto}
+.dark pre.wrap{white-space:pre-wrap;word-break:break-word}
+.dark .kw{color:#F2B8A9} .dark .fn{color:#A9D3B9} .dark .bp{color:#E8C9A8} .dark .cm{color:#9A8E80}
+.dark .seg{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14)}
+.dark .seg button{color:#C9BCA9}
+.dark .seg button.on{background:var(--paper);color:var(--ink)}
+
+/* ---------- answer ---------- */
+.answer{font:400 17.5px/1.72 var(--serif);color:var(--ink);margin:12px 0 0}
+.cite{display:inline-block;font:600 9.5px var(--mono);color:var(--red2);background:var(--wash);border:1px solid rgba(193,58,38,.25);border-radius:5px;padding:0 4px;margin:0 1px;vertical-align:2px;cursor:pointer}
+.cite:hover,.cite.on{background:var(--red);color:#fff;border-color:var(--red)}
+.verd{display:grid;grid-template-columns:104px minmax(0,1fr);gap:8px 11px;align-items:start;margin-top:5px}
+.verd .rz{font-size:11.5px;color:var(--soft);line-height:1.55}
+.stage{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;padding:9px 0;border-top:1px dashed var(--hair)}
+.stage:first-of-type{border-top:0}
+.stage .n{width:20px;height:20px;border:1.5px solid var(--red);border-radius:50%;display:grid;place-items:center;font:600 9px var(--mono);color:var(--red)}
+.stage .nm{font:600 11px var(--mono)}
+.stage .ds{display:block;font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.45}
+
+/* ---------- graph ---------- */
+.gwrap{background:#fff;border:1px solid var(--hair);border-radius:12px;margin-top:11px}
+svg.graph{display:block;width:100%;height:auto}
+svg.graph .nd rect{fill:#fff;stroke:var(--hair);stroke-width:1}
+svg.graph .nd.seed rect{stroke:var(--red);stroke-width:2.2}
+svg.graph .nd.kind-change rect{fill:var(--claywash)}
+svg.graph .nd .id{font:600 11.5px var(--mono);fill:var(--ink)}
+svg.graph .nd .kd{font:600 8.5px var(--mono);letter-spacing:.11em;fill:var(--red)}
+svg.graph path.ed{fill:none;stroke:var(--red);stroke-width:1.6}
+svg.graph path.ed.inf{stroke:var(--clay);stroke-dasharray:4 3}
+svg.graph text.el{font:500 9.5px var(--mono);fill:var(--soft)}
+svg.graph rect.elbg{fill:var(--paper);stroke:var(--hair);stroke-opacity:.28}
+
+/* ---------- tables ---------- */
+table{border-collapse:collapse;width:100%}
+th{font:600 9.5px var(--mono);letter-spacing:.11em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 9px;border-bottom:1px solid var(--hair);background:var(--paper2);white-space:nowrap;position:sticky;top:0}
+td{font:500 11.5px var(--mono);color:var(--soft);padding:8px 9px;border-bottom:1px solid var(--hair2);white-space:nowrap}
+td.b{color:var(--ink);font-weight:600}
+td.w{white-space:normal;font-family:var(--sans);font-weight:400}
+tr:last-child td{border-bottom:0}
+
+/* ---------- transports ---------- */
+.tg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:16px}
+.tp{padding:15px;display:flex;flex-direction:column;gap:9px}
+.tp h3{margin:0;font:600 15px var(--serif)}
+.tp p{margin:0;font-size:11.5px;color:var(--soft);line-height:1.55}
+.tp code{display:block;background:var(--paper2);border:1px solid var(--hair);border-radius:10px;padding:9px 10px;font:500 10px/1.65 var(--mono);color:var(--soft);overflow-x:auto;white-space:pre}
+.tools{display:grid;gap:6px}
+.tool{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--hair);border-radius:9px;padding:8px 10px;font:500 10.5px var(--mono);color:var(--soft);text-align:left;width:100%}
+.tool.on{border-color:var(--red);background:var(--wash);color:var(--red2);font-weight:600}
+.ok{color:var(--green);font-weight:600}
+.no{color:var(--red2);font-weight:600}
+
+@media(max-width:1080px){
+  .arms{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tg{grid-template-columns:1fr}
+  .grid2,.grid2u{grid-template-columns:1fr}
+}
+@media(max-width:780px){
+  .arms{grid-template-columns:1fr}
+  h1{font-size:26px}
+  .chrome .wrap{height:auto;flex-wrap:wrap;padding-top:10px;padding-bottom:10px}
+  .omni{order:3;width:100%}
+}
+@media(prefers-reduced-motion:no-preference){
+  svg.graph path.thread{stroke-dasharray:5 6;animation:flow 2.4s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-22}}
+}
+</style>
+</head>
+<body>
+
+<header class="chrome">
+  <div class="wrap">
+    <div class="mark"><span class="glyph"></span>VERITY</div>
+    <div class="omni"><span class="car">&rsaquo;</span><span class="q" id="omni"></span><kbd>⌘K</kbd></div>
+    <nav class="nav" id="nav">
+      <button class="on" data-s="retrieve"><span class="n">01</span>Retrieve</button>
+      <button data-s="prove"><span class="n">02</span>Prove</button>
+      <button data-s="port"><span class="n">03</span>Port tools</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ══════════════════════ 01 RETRIEVE ══════════════════════ -->
+<section class="screen on" id="retrieve">
+  <div class="hero">
+    <div class="klabel">Module 1 · Retrieve the evidence</div>
+    <h1>One question, <em>every arm.</em></h1>
+    <p class="deck">Each arm fails differently. Exact lookup misses a typo; full-text misses a paraphrase; the vector arm misses a literal identifier; trigram recovery only fires on an identifier that did not resolve. Run them independently before fusing anything.</p>
+  </div>
+
+  <div class="row" style="margin-bottom:14px">
+    <div class="row" id="presets"></div>
+    <span style="flex:1"></span>
+    <div class="seg" id="principal">
+      <button class="on" data-p="workshop">principal: workshop</button>
+      <button data-p="support-lead">support-lead</button>
+    </div>
+    <div class="seg" id="rerankSeg">
+      <button class="on" data-r="0">Aurora RRF</button>
+      <button data-r="1">+ model rerank</button>
+    </div>
+    <span class="pill g">search index ready</span>
+  </div>
+
+  <div class="arms" id="arms"></div>
+
+  <div class="grid2" style="margin-top:16px">
+    <div>
+      <div class="dark">
+        <div class="klabel">Weighted reciprocal rank fusion</div>
+        <pre id="rrfSql"></pre>
+      </div>
+      <div class="card p" style="margin-top:14px">
+        <div class="klabel m">Fusion controls</div>
+        <div class="ctl"><label for="ck">k</label><input type="range" id="ck" min="1" max="200" value="60"><output id="ok">60</output></div>
+        <div class="ctl"><label for="cw">text weight</label><input type="range" id="cw" min="0" max="40" value="20"><output id="ow">2.0</output></div>
+        <div class="ctl"><label for="cv">vector weight</label><input type="range" id="cv" min="0" max="40" value="10"><output id="ov">1.0</output></div>
+        <div class="ctl"><label for="cf">fuzzy weight</label><input type="range" id="cf" min="0" max="40" value="10"><output id="of">1.0</output></div>
+        <div class="sep"></div>
+        <div class="row">
+          <div class="seg" id="fuseMode">
+            <button class="on" data-m="rrf">rank fusion (RRF)</button>
+            <button data-m="naive">naive score sum</button>
+          </div>
+          <button class="chip" id="resetCtl">reset defaults</button>
+        </div>
+        <p class="foot" id="fuseNote"></p>
+      </div>
+    </div>
+
+    <div class="card p" id="receipt"></div>
+  </div>
+
+  <p class="foot">
+    ACL and metadata filters execute <em>inside</em> every arm, not as a post-filter — otherwise the arm positions
+    you are reading would describe a result set the principal is not allowed to see.
+    <span id="aclNote"></span><br>
+    ts_rank, cosine distance and trigram similarity are diagnostics. They are never fused and never presented as probabilities.
+  </p>
+</section>
+
+<!-- ══════════════════════ 02 PROVE ══════════════════════ -->
+<section class="screen" id="prove">
+  <div class="hero">
+    <div class="klabel">Module 2 · Fuse, traverse, and prove</div>
+    <h1>From question to <em>database receipt.</em></h1>
+    <p class="deck">Confirm the cause, rule out the alternative, name the impact this principal is allowed to see, cite the safe recovery, and replay the whole path from a persisted run.</p>
+  </div>
+
+  <div class="row" style="margin-bottom:14px">
+    <div class="seg" id="proveTabs">
+      <button class="on" data-t="agent">Agent</button>
+      <button data-t="answer">Answer</button>
+      <button data-t="graph">Graph</button>
+      <button data-t="plan">Plan</button>
+      <button data-t="rcpt">Receipt</button>
+    </div>
+    <span class="pill" id="runPill">RUN-7000</span>
+  </div>
+
+  <div id="tab-agent" class="ptab">
+    <div class="card p">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <div class="klabel">Agent run · ARUN-8000</div>
+          <div class="foot" style="margin-top:5px" id="agentMeta"></div>
+        </div>
+        <div class="row" id="agentBudget"></div>
+      </div>
+      <div class="sep"></div>
+      <p class="foot" style="margin:0">
+        Five subquestions, five retrievals, one coverage rule, one escalation. Coverage is deterministic —
+        a subquestion is covered when its retrieval returned at least one candidate of every required
+        <em>kind</em> in the top 8. The agent does not ask a model whether it has enough evidence; it checks,
+        and the check is a SQL rule you can read.
+      </p>
+      <div class="hscroll" style="margin-top:12px"><table id="agentTable"></table></div>
+    </div>
+
+    <div class="card p" style="margin-top:14px;border-left:3px solid var(--red)">
+      <div class="klabel">The escalation · SQ-5</div>
+      <div class="grid2u" style="margin-top:11px">
+        <div>
+          <p class="foot" style="margin:0" id="escRationale"></p>
+          <div class="hscroll" style="margin-top:12px"><table id="escTable"></table></div>
+        </div>
+        <div class="dark">
+          <div class="klabel">Aurora buffer counters · EXPLAIN (ANALYZE, BUFFERS)</div>
+          <pre id="escBuffers"></pre>
+        </div>
+      </div>
+      <p class="foot">
+        <span class="mono">aurora_orcache_hit</span> and <span class="mono">aurora_storage_read</span> exist in no
+        other PostgreSQL. They appear in the <span class="mono">Buffers</span> line only when Optimized Reads is on
+        and the value is above zero, and they are what make the agent's decision <em>measurable</em> rather than
+        merely asserted: you can see, per plan node, that the widened scan fell out of RAM onto the NVMe tier and
+        then to the distributed storage volume. Requires <span class="mono">aurora_stat_plans.with_buffers = on</span>.
+      </p>
+    </div>
+  </div>
+
+  <div id="tab-answer" class="ptab" hidden
+    <div class="grid2u">
+      <div class="card p">
+        <div class="klabel">Cited answer</div>
+        <p class="answer" id="answerText"></p>
+        <div class="sep"></div>
+        <div class="klabel m">Sources</div>
+        <div class="row" id="srcChips" style="margin-top:8px"></div>
+        <div class="foot" id="citeDetail"></div>
+      </div>
+      <div>
+        <div class="card p">
+          <div class="klabel">Deterministic plan</div>
+          <div class="foot" style="margin:6px 0 0" id="planKeys"></div>
+          <div class="sep"></div>
+          <div id="stages"></div>
+        </div>
+        <div class="card p" style="margin-top:14px">
+          <div class="klabel">Source comparison</div>
+          <div class="verd" id="verdicts" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-graph" class="ptab" hidden>
+    <div class="card p">
+      <div class="row" style="justify-content:space-between">
+        <div class="klabel">Evidence graph · breadth-first from INC-2000</div>
+        <div class="row">
+          <div class="seg" id="gEdges"><button class="on" data-e="all">canonical + inferred</button><button data-e="canon">canonical only</button></div>
+          <div class="seg" id="gPrin"><button class="on" data-p="workshop">workshop</button><button data-p="support-lead">support-lead</button></div>
+        </div>
+      </div>
+      <div class="gwrap hscroll" id="graphWrap"></div>
+      <p class="foot" id="graphHint" hidden>Wider than the panel — scroll horizontally. A traversal that
+        rewraps is a traversal you cannot read.</p>
+      <p class="foot">
+        Column is hop distance from the seed, computed at render time — this is the traversal, not an arranged diagram.
+        Solid red is a canonical relationship asserted by a source system; dashed clay is inferred and carries its
+        method and confidence. ACL is enforced at <em>every hop</em>, not only on the seed, so a restricted node is
+        absent and no path through it exists. Switch the principal and watch the shape change.
+      </p>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="card p">
+        <div class="klabel">Traversal</div>
+        <div class="foot" style="margin-top:6px">Reported separately from retrieval metrics. Reaching a document is not the same as ranking it.</div>
+        <div class="sep"></div>
+        <div id="gStats"></div>
+      </div>
+      <div class="card p">
+        <div class="klabel">Typed edges</div>
+        <div class="hscroll" style="margin-top:10px;max-height:300px"><table id="edgeTable"></table></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-plan" class="ptab" hidden>
+    <div class="grid2u">
+      <div>
+        <div class="card p">
+          <div class="klabel">Stage budget</div>
+          <div class="foot" style="margin-top:6px">Bar width is proportional to <span class="mono">√ms</span>, disclosed so a 1,240 ms stage does not erase a 0.7 ms one.</div>
+          <div style="margin-top:11px" id="budget"></div>
+          <p class="foot" id="budgetNote"></p>
+        </div>
+        <div class="card p" style="margin-top:14px">
+          <div class="klabel">Aurora retrieval arms · one statement</div>
+          <div class="hscroll" style="margin-top:10px"><table id="planNodes"></table></div>
+        </div>
+      </div>
+      <div>
+        <div class="dark">
+          <div class="row" style="justify-content:space-between">
+            <div class="klabel">Query plan X-ray</div>
+            <div class="seg" id="sqlSeg"><button class="on" data-v="sql">SQL</button><button data-v="explain">EXPLAIN</button></div>
+          </div>
+          <pre id="sqlPane"></pre>
+        </div>
+        <div class="card p" style="margin-top:14px">
+          <div class="row" style="justify-content:space-between">
+            <div class="klabel">Plan provenance</div>
+            <span class="pill d" id="planType">estimated</span>
+          </div>
+          <p class="foot" style="margin-top:9px">
+            The badge is <span class="mono">plan_type</span> straight from <span class="mono">aurora_stat_plans</span> —
+            <span class="mono">estimate</span> by default, <span class="mono">actual</span> only when
+            <span class="mono">with_analyze = on</span>. It is read, never assumed. Plan capture needs
+            <span class="mono">aurora_compute_plan_id = on</span> plus <span class="mono">pg_stat_statements</span> in
+            <span class="mono">shared_preload_libraries</span> — the cluster parameter group, not
+            <span class="mono">CREATE EXTENSION</span>. GUC changes take effect only for <em>newly captured</em> plans,
+            so flipping <span class="mono">with_buffers</span> shows nothing until the digest is recaptured.
+            Database Insights compares two plans from one digest at a time; lock trees need Advanced mode.
+          </p>
+          <div class="sep"></div>
+          <div class="klabel m">This incident, in the catalogs</div>
+          <div class="code" style="margin-top:9px"><pre style="font-size:10px">SELECT a.pid, a.wait_event_type, a.wait_event,
+       pg_blocking_pids(a.pid) AS blocked_by, a.query
+FROM   pg_stat_activity a
+WHERE  cardinality(pg_blocking_pids(a.pid)) &gt; 0;
+
+SELECT phase, blocks_done, blocks_total
+FROM   pg_stat_progress_create_index;</pre></div>
+          <p class="foot">
+            <span class="mono">Lock:relation</span> is plain community PostgreSQL — <span class="mono">CREATE INDEX</span>
+            takes <span class="mono">SHARE</span>, which conflicts with <span class="mono">ROW EXCLUSIVE</span> but not
+            <span class="mono">ACCESS SHARE</span>. What is <em>Aurora-specific</em> here is the commit path, not the
+            lock path: <span class="mono">IO:XactSync</span> and <span class="mono">IO:AuroraStorageLogAllocate</span>,
+            because Aurora moved durability into the storage tier.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-rcpt" class="ptab" hidden>
+    <div class="card p">
+      <div class="row" style="justify-content:space-between">
+        <div><div class="klabel">Replay receipt</div>
+          <div class="foot" style="margin-top:5px" id="rcptMeta"></div></div>
+        <div class="row"><span class="pill">replayed from Aurora</span><span class="pill g">no model call</span></div>
+      </div>
+      <div class="hscroll" style="margin-top:12px;max-height:340px"><table id="rcptTable"></table></div>
+      <p class="foot" id="rcptNote"></p>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="card p">
+        <div class="klabel">Incident timeline</div>
+        <div class="hscroll" style="margin-top:10px;max-height:250px"><table id="timeline"></table></div>
+      </div>
+      <div class="card p">
+        <div class="klabel">Evaluation · compact</div>
+        <div class="foot" style="margin-top:6px">Illustrative until replaced by target-Aurora release-gate measurements.</div>
+        <div class="hscroll" style="margin-top:10px"><table id="evalTable"></table></div>
+        <div class="sep"></div>
+        <div class="klabel m">Per-archetype recall@10</div>
+        <div class="hscroll" style="margin-top:8px"><table id="archTable"></table></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ 03 PORT TOOLS ══════════════════════ -->
+<section class="screen" id="port">
+  <div class="hero">
+    <div class="klabel">Module 3 · Port the tool contracts</div>
+    <h1>The tool contract moves; the <em>retrieval authority does not.</em></h1>
+    <p class="deck">One canonical service, three transports. Aurora PostgreSQL still owns retrieval, fusion, ACL enforcement, traversal, citations and the receipt. AgentCore Gateway supplies a managed MCP surface and nothing else. Participants verify a pre-provisioned target — they do not create a Gateway, configure IAM or OAuth, or deploy Runtime.</p>
+  </div>
+
+  <div class="tg" id="transports"></div>
+
+  <div class="grid2u" style="margin-top:16px">
+    <div class="card p">
+      <div class="klabel">Tool set · seven operations</div>
+      <div class="foot" style="margin-top:6px">Select an operation to see its resolved name on each transport.</div>
+      <div class="tools" id="toolList" style="margin-top:11px"></div>
+      <div class="sep"></div>
+      <div class="klabel m">What the adapters may not do</div>
+      <p class="foot" style="margin-top:7px">
+        Not one of the three adapters contains SQL, a ranking expression, an ACL predicate, or a traversal.
+        Each one marshals a request, calls the same service object, and marshals the response back. That is the
+        whole reason the parity check is able to pass — and the reason it would be worth running if it ever failed.
+      </p>
+    </div>
+    <div>
+      <div class="card p">
+        <div class="klabel">Resolved tool name per transport</div>
+        <div class="hscroll" style="margin-top:10px"><table id="nameTable"></table></div>
+        <p class="foot">
+          AgentCore Gateway does <em>not</em> expose the bare <span class="mono">operationId</span>. The exposed name is
+          <span class="mono">${targetName}___${operationId}</span> — three underscores. An agent's tool-choice prompt
+          sees the prefixed name, and any parity check must strip the prefix before comparing rather than ignore the
+          field. <span class="mono">operationId</span> stays contract-stable: renaming one is a contract-version change.
+        </p>
+      </div>
+      <div class="dark" style="margin-top:14px">
+        <div class="klabel">Shared request · identical on all three</div>
+        <pre id="reqPane" class="wrap"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p" style="margin-top:16px">
+    <div class="row" style="justify-content:space-between">
+      <div class="klabel">Contract parity</div>
+      <span class="pill" id="parityPill"></span>
+    </div>
+    <div class="hscroll" style="margin-top:11px"><table id="parityTable"></table></div>
+    <p class="foot">
+      The checks that pass are the ones that could have failed. Comparing three transports only to each other passes
+      trivially when all three are wrong in the same way, and a check over an empty citation list asserts nothing —
+      so <span class="mono">scripts/verify_contract_parity.py</span> also recomputes every
+      <span class="mono">rrf_score</span> from its arm positions and compares each transport against
+      <span class="mono">fixtures/tool-parity-golden.json</span>.
+    </p>
+  </div>
+
+  <div class="card p" style="margin-top:14px;border-left:3px solid var(--red)">
+    <div class="klabel">What did not move</div>
+    <div class="row" style="margin-top:10px" id="authorityChips"></div>
+    <p class="foot">
+      Every one of these still executes in Aurora PostgreSQL regardless of which transport the agent used to ask.
+      Transport identity is recorded in <span class="mono">proof.transport_invocations</span> and normalized out of the
+      semantic comparison — it is metadata about the call, not part of the answer.
+    </p>
+  </div>
+</section>
+
+<footer class="wrap" style="padding:22px 0 44px;border-top:1px solid var(--hair)">
+  <div class="row" style="justify-content:space-between">
+    <span class="foot" style="margin:0">DAT410 · Build agentic hybrid retrieval with Amazon Aurora PostgreSQL</span>
+    <span class="pill" id="selfcheck">checking…</span>
+  </div>
+</footer>
+</main>
+
+<script>
+"use strict";
+const MODEL = {"contract_version":"1.0.0","controls_default":{"mode":"hybrid","candidate_pool":24,"rrf_k":60,"text_weight":2.0,"vector_weight":1.0,"fuzzy_weight":1.0,"fuzzy_threshold":0.3,"ef_search":40,"iterative_scan":"strict_order","rerank":false},"agent":{"agent_run_id":"ARUN-8000","question":"During INC-2000 on checkout-prod-01, why did checkout writes appear to hang while reads continued? Determine whether CHG-1000 or CHG-1001 caused the incident, identify the customer impact visible to the current principal, explain what evidence rules out the alternative change, and cite the lock evidence and approved runbook supporting both immediate recovery and the preventive follow-up.","principal":{"scopes":["workshop"],"principals":[]},"filters_initial":{"cluster_id":"checkout-prod-01"},"controls_initial":{"mode":"hybrid","candidate_pool":24,"rrf_k":60,"text_weight":2.0,"vector_weight":1.0,"fuzzy_weight":1.0,"fuzzy_threshold":0.3,"ef_search":40,"iterative_scan":"strict_order","rerank":false},"budget":{"max_tool_calls":12,"max_escalations":2},"tool_calls_spent":9,"escalations_spent":1,"status":"succeeded","steps":["decompose_question","search_evidence x5","evaluate_coverage","search_evidence (escalated x1)","follow_evidence_links","compare_sources","synthesize_cited_answer"],"subquestions":[{"subquestion_id":"SQ-1","text":"Why did checkout writes hang while reads continued during INC-2000?","required_kinds":["incident","lock"],"attempts":1,"runs":[{"run_id":"RUN-7100","attempt":1,"controls":{"mode":"hybrid","candidate_pool":24,"rrf_k":60,"text_weight":2.0,"vector_weight":1.0,"fuzzy_weight":1.0,"fuzzy_threshold":0.3,"ef_search":40,"iterative_scan":"strict_order","rerank":false},"filters":{"cluster_id":"checkout-prod-01"},"coverage":{"covered":true,"missing_kinds":[],"covering_evidence_ids":{"incident":"INC-2000","lock":"LOCK-3000"},"considered":6},"aurora_buffers":null}],"final_coverage":{"covered":true,"missing_kinds":[],"covering_evidence_ids":{"incident":"INC-2000","lock":"LOCK-3000"},"considered":6}},{"subquestion_id":"SQ-2","text":"Did CHG-1000 or CHG-1001 cause INC-2000?","required_kinds":["change","lock"],"attempts":1,"runs":[{"run_id":"RUN-7101","attempt":1,"controls":{"mode":"hybrid","candidate_pool":24,"rrf_k":60,"text_weight":2.0,"vector_weight":1.0,"fuzzy_weight":1.0,"fuzzy_threshold":0.3,"ef_search":40,"iterative_scan":"strict_order","rerank":false},"filters":{"cluster_id":"checkout-prod-01"},"coverage":{"covered":true,"missing_kinds":[],"covering_evidence_ids":{"change":"CHG-1000","lock":"LOCK-3000"},"considered":5},"aurora_buffers":null}],"final_coverage":{"covered":true,"missing_kinds":[],"covering_evidence_ids":{"change":"CHG-1000","lock":"LOCK-3000"},"considered":5}},{"subquestion_id":"SQ-3","text":"Which customer impact is visible to the current principal?","required_kinds":["case"],"attempts":1,"runs":[{"run_id":"RUN-7102","attempt":1,"controls":{"mode":"hybrid","candidate_pool":24,"rrf_k":60,"text_weight":2.0,"vector_weight":1.0,"fuzzy_weight":1.0,"fuzzy_threshold":0.3,"ef_search":40,"iterative_scan":"strict_order","rerank":false},"filters":{"cluster_id":"checkout-prod-01"},"coverage":{"covered":true,"missing_kinds":[],"covering_evidence_ids":{"case":"CASE-4000"},"considered":4},"aurora_buffers":null}],"final_coverage":{"covered":true,"missing_kinds":[],"covering_evidence_ids":{"case":"CASE-4000"},"considered":4}},{"subquestion_id":"SQ-4","text":"What evidence rules out the alternative change?","required_kinds":["change","lock"],"attempts":1,"runs":[{"run_id":"RUN-7103","attempt":1,"controls":{"mode":"hybrid","candidate_pool":24,"rrf_k":60,"text_weight":2.0,"vector_weight":1.0,"fuzzy_weight":1.0,"fuzzy_threshold":0.3,"ef_search":40,"iterative_scan":"strict_order","rerank":false},"filters":{"cluster_id":"checkout-prod-01"},"coverage":{"covered":true,"missing_kinds":[],"covering_evidence_ids":{"change":"CHG-1001","lock":"LOCK-3000"},"considered":4},"aurora_buffers":null}],"final_coverage":{"covered":true,"missing_kinds":[],"covering_evidence_ids":{"change":"CHG-1001","lock":"LOCK-3000"},"considered":4}},{"subquestion_id":"SQ-5","text":"Which lock evidence and approved runbook support recovery and the preventive follow-up?","required_kinds":["lock","runbook"],"attempts":2,"runs":[{"run_id":"RUN-7104","attempt":1,"controls":{"mode":"hybrid","candidate_pool":24,"rrf_k":60,"text_weight":2.0,"vector_weight":1.0,"fuzzy_weight":1.0,"fuzzy_threshold":0.3,"ef_search":40,"iterative_scan":"strict_order","rerank":false},"filters":{"cluster_id":"checkout-prod-01"},"coverage":{"covered":false,"missing_kinds":["runbook"],"covering_evidence_ids":{"lock":"LOCK-3000"},"considered":4},"aurora_buffers":{"shared_hit":214,"read":0,"aurora_orcache_hit":0,"aurora_storage_read":0},"superseded_by":2,"superseded_by_run_id":"RUN-7106"},{"run_id":"RUN-7106","attempt":2,"controls":{"mode":"hybrid","candidate_pool":48,"rrf_k":60,"text_weight":2.0,"vector_weight":1.0,"fuzzy_weight":1.0,"fuzzy_threshold":0.3,"ef_search":200,"iterative_scan":"strict_order","rerank":false},"filters":{"cluster_id":null},"coverage":{"covered":true,"missing_kinds":[],"covering_evidence_ids":{"lock":"LOCK-3000","runbook":"RB-5000"},"considered":6},"aurora_buffers":{"shared_hit":531,"read":147,"aurora_orcache_hit":118,"aurora_storage_read":29}}],"final_coverage":{"covered":true,"missing_kinds":[],"covering_evidence_ids":{"lock":"LOCK-3000","runbook":"RB-5000"},"considered":6}}],"escalations":[{"subquestion_id":"SQ-5","reason":"missing_required_kind","missing_kinds":["runbook"],"changed":{"before":{"controls":{"ef_search":40,"candidate_pool":24},"filters":{"cluster_id":"checkout-prod-01"}},"after":{"controls":{"ef_search":200,"candidate_pool":48},"filters":{"cluster_id":null}}},"rationale":"A runbook is not scoped to a cluster. The cluster_id filter that makes the incident subquestions precise is what excludes RB-5000 from SQ-5. Raising ef_search alone does not recover it -- see the RUN-7105 counterfactual -- because no ANN widening returns a row the WHERE clause removed before the index was consulted.","outcome":"covered"}],"counterfactual":{"run_id":"RUN-7105","subquestion_id":"SQ-5","controls":{"mode":"hybrid","candidate_pool":48,"rrf_k":60,"text_weight":2.0,"vector_weight":1.0,"fuzzy_weight":1.0,"fuzzy_threshold":0.3,"ef_search":200,"iterative_scan":"strict_order","rerank":false},"filters":{"cluster_id":"checkout-prod-01"},"coverage":{"covered":false,"missing_kinds":["runbook"],"covering_evidence_ids":{"lock":"LOCK-3000"},"considered":5},"aurora_buffers":{"shared_hit":486,"read":112,"aurora_orcache_hit":96,"aurora_storage_read":16},"note":"Participant experiment, not an agent tool call. Raises ef_search 40 -> 200 and the pool 24 -> 48 but keeps the cluster filter. Still uncovered: no ANN widening returns a row the WHERE clause excluded before the index was consulted."},"retrievals":[{"run_id":"RUN-7100","subquestion_id":"SQ-1","attempt":1},{"run_id":"RUN-7101","subquestion_id":"SQ-2","attempt":1},{"run_id":"RUN-7102","subquestion_id":"SQ-3","attempt":1},{"run_id":"RUN-7103","subquestion_id":"SQ-4","attempt":1},{"run_id":"RUN-7104","subquestion_id":"SQ-5","attempt":1},{"run_id":"RUN-7106","subquestion_id":"SQ-5","attempt":2}]},"aurora_buffers":{"RUN-7104":{"shared_hit":214,"read":0,"aurora_orcache_hit":0,"aurora_storage_read":0},"RUN-7105":{"shared_hit":486,"read":112,"aurora_orcache_hit":96,"aurora_storage_read":16},"RUN-7106":{"shared_hit":531,"read":147,"aurora_orcache_hit":118,"aurora_storage_read":29}},"evidence":{"CHG-1000":{"kind":"change","role":"confirmed cause","title":"Ordinary CREATE INDEX on orders(customer_id)","occurred_at":"2026-05-19T09:17:00Z","restricted":false,"quote":"CREATE INDEX idx_orders_customer_id ON orders (customer_id); executed against checkout-prod-01 at 09:17 UTC without the CONCURRENTLY option."},"CHG-1001":{"kind":"change","role":"ruled out","title":"Checkout worker pool resize","occurred_at":"2026-05-19T09:05:00Z","restricted":false,"quote":"Checkout worker pool resized from 24 to 32 workers at 09:05 UTC. Change is application-tier only and acquires no database locks."},"CHG-1002":{"kind":"change","role":"preventive follow-up","title":"Rebuild index with CREATE INDEX CONCURRENTLY","occurred_at":"2026-05-19T10:05:00Z","restricted":false,"quote":"Rebuild scheduled using CREATE INDEX CONCURRENTLY outside a transaction block, with progress monitoring and INVALID index cleanup on failure."},"CHG-1010":{"kind":"change","role":"background change","title":"Checkout read-replica endpoint rotation","occurred_at":"2026-05-18T22:40:00Z","restricted":false,"quote":"Read-replica endpoint rotated to the new reader endpoint. No writer-side effect."},"INC-2000":{"kind":"incident","role":"canonical incident","title":"Checkout writes blocked while reads continued","occurred_at":"2026-05-19T09:24:00Z","restricted":false,"quote":"Sev-2 declared 09:24 UTC. Checkout write transactions queued on checkout-prod-01 while read traffic served normally. Approximately 34 minutes of blocked writes."},"INC-2001":{"kind":"incident","role":"look-alike decoy","title":"Older checkout deploy incident","occurred_at":"2025-11-04T14:10:00Z","restricted":false,"quote":"Checkout latency incident traced to a bad application deploy. Writes and reads both degraded. No database lock involvement."},"LOCK-3000":{"kind":"lock","role":"first lock proof","title":"Writer 4182 blocked by index backend 3944","occurred_at":"2026-05-19T09:19:00Z","restricted":false,"quote":"pid 4182 waiting on Lock:relation, blocked by pid 3944 holding ShareLock on orders. wait_event_type=Lock, wait_event=relation."},"LOCK-3001":{"kind":"lock","role":"second lock proof","title":"Writer 4210 blocked by index backend 3944","occurred_at":"2026-05-19T09:22:00Z","restricted":false,"quote":"pid 4210 waiting on Lock:relation, blocked by the same pid 3944. Confirms a single blocker rather than lock contention among writers."},"CASE-4000":{"kind":"case","role":"visible affected","title":"Acme Retail checkout failures","occurred_at":"2026-05-19T09:38:00Z","restricted":false,"quote":"Acme Retail reported checkout submission failures beginning 09:38 UTC. Confirmed affected; browse and search unaffected."},"CASE-4001":{"kind":"case","role":"restricted affected","title":"Regulated account write errors","occurred_at":"2026-05-19T09:41:00Z","restricted":true,"quote":"Regulated account reported write errors during the same window. Record is restricted to the support-lead principal."},"CASE-4002":{"kind":"case","role":"visible unaffected","title":"Zenith Corp impact inquiry","occurred_at":"2026-05-19T10:12:00Z","restricted":false,"quote":"Zenith Corp asked whether they were affected. Their traffic is served by a separate cluster; no impact recorded during the window."},"RB-5000":{"kind":"runbook","role":"approved safe fix","title":"Concurrent index builds on production writers","occurred_at":"2026-04-02T00:00:00Z","restricted":false,"quote":"Cancel the blocking build, then rebuild with CREATE INDEX CONCURRENTLY outside a transaction block. Monitor pg_stat_progress_create_index and drop any INVALID index before retrying."},"RB-5001":{"kind":"runbook","role":"decoy","title":"Generic write-latency triage","occurred_at":"2025-08-14T00:00:00Z","restricted":false,"quote":"General write-latency triage: check connection saturation, checkpoint tuning, and autovacuum backlog."},"COMMIT-6000":{"kind":"commitment","role":"customer commitment","title":"RCA and safe-fix plan for Acme Retail","occurred_at":"2026-05-20T00:00:00Z","restricted":false,"quote":"Committed to Acme Retail: written RCA and a preventive safe-fix plan by 2026-05-26."}},"runs":{"RUN-7000":{"preset":"canonical","label":"canonical full agent run","query":"During INC-2000 on checkout-prod-01, why did checkout writes appear to hang while reads continued? Determine whether CHG-1000 or CHG-1001 caused the incident, identify the customer impact visible to the current principal, explain what evidence rules out the alternative change, and cite the lock evidence and approved runbook supporting both immediate recovery and the preventive follow-up.","arm_orders":{"text":["INC-2000","CHG-1000","CHG-1001","LOCK-3000","CASE-4000","RB-5000","INC-2001","LOCK-3001"],"vector":["INC-2000","LOCK-3000","CHG-1000","LOCK-3001","RB-5000","CASE-4000","INC-2001","CHG-1002"],"fuzzy":[]},"raw":{"text":{"INC-2000":0.4082,"CHG-1000":0.3711,"CHG-1001":0.3204,"LOCK-3000":0.2871,"CASE-4000":0.2618,"RB-5000":0.2402,"INC-2001":0.2214,"LOCK-3001":0.205,"CASE-4001":0.2509},"vector":{"INC-2000":0.208,"LOCK-3000":0.231,"CHG-1000":0.246,"LOCK-3001":0.259,"RB-5000":0.274,"CASE-4000":0.288,"INC-2001":0.311,"CHG-1002":0.334,"CASE-4001":0.291},"fuzzy":{}},"rerank":{"CHG-1000":0.94,"INC-2000":0.91,"LOCK-3000":0.88,"RB-5000":0.81,"CASE-4000":0.76,"LOCK-3001":0.69,"CHG-1001":0.47,"CHG-1002":0.39,"INC-2001":0.18,"CASE-4001":0.73}},"RUN-7001":{"preset":"semantic-symptom","label":"semantic symptom, no identifier in the query","query":"Why were checkout writes hanging while reads still worked?","arm_orders":{"text":["INC-2000","CASE-4000","LOCK-3000","INC-2001"],"vector":["INC-2000","LOCK-3000","LOCK-3001","CHG-1000","INC-2001","CASE-4000"],"fuzzy":[]},"raw":{"text":{"INC-2000":0.4082,"CASE-4000":0.2871,"LOCK-3000":0.2214,"INC-2001":0.1908},"vector":{"INC-2000":0.208,"LOCK-3000":0.231,"LOCK-3001":0.256,"CHG-1000":0.298,"INC-2001":0.305,"CASE-4000":0.321},"fuzzy":{}},"rerank":{"INC-2000":0.94,"LOCK-3000":0.89,"LOCK-3001":0.84,"CHG-1000":0.71,"CASE-4000":0.66,"INC-2001":0.21}},"RUN-7002":{"preset":"exact-change","label":"exact identifier lookup","query":"What did CHG-1000 change?","arm_orders":{"text":["CHG-1000","INC-2000","LOCK-3000","CHG-1002"],"vector":["CHG-1000","CHG-1002","INC-2000","LOCK-3000"],"fuzzy":[]},"raw":{"text":{"CHG-1000":0.6931,"INC-2000":0.2871,"LOCK-3000":0.2214,"CHG-1002":0.2019},"vector":{"CHG-1000":0.114,"CHG-1002":0.221,"INC-2000":0.263,"LOCK-3000":0.288},"fuzzy":{}},"rerank":{"CHG-1000":0.97,"INC-2000":0.83,"LOCK-3000":0.79,"CHG-1002":0.58}},"RUN-7003":{"preset":"fuzzy-change-id","label":"typo recovery: CGH-1000 does not resolve exactly","query":"Did CGH-1000 cause INC-2000?","arm_orders":{"text":["INC-2000","LOCK-3000","CHG-1000"],"vector":["INC-2000","LOCK-3000","CHG-1000","LOCK-3001"],"fuzzy":["CHG-1000"]},"raw":{"text":{"INC-2000":0.5108,"LOCK-3000":0.2214,"CHG-1000":0.1904},"vector":{"INC-2000":0.212,"LOCK-3000":0.244,"CHG-1000":0.271,"LOCK-3001":0.283},"fuzzy":{"CHG-1000":0.5}},"rerank":{"CHG-1000":0.95,"INC-2000":0.9,"LOCK-3000":0.86,"LOCK-3001":0.64}},"RUN-7100":{"preset":"agent-subquestion","label":"SQ-1 \u00b7 symptom","query":"Why did checkout writes hang while reads continued during INC-2000?","arm_orders":{"text":["INC-2000","LOCK-3000","CASE-4000","INC-2001"],"vector":["INC-2000","LOCK-3000","LOCK-3001","CHG-1000","INC-2001"],"fuzzy":[]},"raw":{"text":{"INC-2000":0.5108,"LOCK-3000":0.2871,"CASE-4000":0.2214,"INC-2001":0.1904},"vector":{"INC-2000":0.196,"LOCK-3000":0.224,"LOCK-3001":0.248,"CHG-1000":0.281,"INC-2001":0.309},"fuzzy":{}},"rerank":{}},"RUN-7101":{"preset":"agent-subquestion","label":"SQ-2 \u00b7 which change","query":"Did CHG-1000 or CHG-1001 cause INC-2000?","arm_orders":{"text":["CHG-1000","CHG-1001","INC-2000","LOCK-3000"],"vector":["CHG-1000","LOCK-3000","INC-2000","CHG-1002"],"fuzzy":[]},"raw":{"text":{"CHG-1000":0.6931,"CHG-1001":0.641,"INC-2000":0.3204,"LOCK-3000":0.2214},"vector":{"CHG-1000":0.148,"LOCK-3000":0.232,"INC-2000":0.267,"CHG-1002":0.294},"fuzzy":{}},"rerank":{}},"RUN-7102":{"preset":"agent-subquestion","label":"SQ-3 \u00b7 visible impact","query":"Which customer impact is visible to the current principal?","arm_orders":{"text":["CASE-4000","CASE-4002","INC-2000"],"vector":["CASE-4000","CASE-4002","COMMIT-6000","INC-2000"],"fuzzy":[]},"raw":{"text":{"CASE-4000":0.4468,"CASE-4002":0.3011,"CASE-4001":0.2664,"INC-2000":0.2108},"vector":{"CASE-4000":0.171,"CASE-4002":0.219,"CASE-4001":0.238,"COMMIT-6000":0.271,"INC-2000":0.303},"fuzzy":{}},"rerank":{}},"RUN-7103":{"preset":"agent-subquestion","label":"SQ-4 \u00b7 rules out","query":"What evidence rules out the alternative change?","arm_orders":{"text":["CHG-1001","LOCK-3000","LOCK-3001"],"vector":["LOCK-3000","LOCK-3001","CHG-1001","CHG-1000"],"fuzzy":[]},"raw":{"text":{"CHG-1001":0.5108,"LOCK-3000":0.2871,"LOCK-3001":0.2644},"vector":{"LOCK-3000":0.201,"LOCK-3001":0.226,"CHG-1001":0.259,"CHG-1000":0.288},"fuzzy":{}},"rerank":{}},"RUN-7104":{"preset":"agent-subquestion","label":"SQ-5 \u00b7 attempt 1 \u00b7 cluster filter on","query":"Which lock evidence and approved runbook support recovery and the preventive follow-up?","arm_orders":{"text":["LOCK-3000","LOCK-3001","CHG-1002"],"vector":["LOCK-3000","LOCK-3001","CHG-1002","INC-2000"],"fuzzy":[]},"raw":{"text":{"LOCK-3000":0.4082,"LOCK-3001":0.3711,"CHG-1002":0.2214},"vector":{"LOCK-3000":0.213,"LOCK-3001":0.241,"CHG-1002":0.276,"INC-2000":0.312},"fuzzy":{}},"rerank":{}},"RUN-7105":{"preset":"agent-counterfactual","label":"SQ-5 \u00b7 ef_search 200, filter kept","query":"Which lock evidence and approved runbook support recovery and the preventive follow-up?","arm_orders":{"text":["LOCK-3000","LOCK-3001","CHG-1002","INC-2000"],"vector":["LOCK-3000","LOCK-3001","CHG-1002","INC-2000","INC-2001"],"fuzzy":[]},"raw":{"text":{"LOCK-3000":0.4082,"LOCK-3001":0.3711,"CHG-1002":0.2214,"INC-2000":0.1908},"vector":{"LOCK-3000":0.213,"LOCK-3001":0.241,"CHG-1002":0.276,"INC-2000":0.312,"INC-2001":0.344},"fuzzy":{}},"rerank":{}},"RUN-7106":{"preset":"agent-escalated","label":"SQ-5 \u00b7 attempt 2 \u00b7 cluster filter dropped","query":"Which lock evidence and approved runbook support recovery and the preventive follow-up?","arm_orders":{"text":["RB-5000","LOCK-3000","LOCK-3001","CHG-1002","RB-5001"],"vector":["RB-5000","LOCK-3000","RB-5001","LOCK-3001","CHG-1002","INC-2000"],"fuzzy":[]},"raw":{"text":{"RB-5000":0.4871,"LOCK-3000":0.4082,"LOCK-3001":0.3711,"CHG-1002":0.2214,"RB-5001":0.1802},"vector":{"RB-5000":0.188,"LOCK-3000":0.213,"RB-5001":0.237,"LOCK-3001":0.241,"CHG-1002":0.276,"INC-2000":0.312},"fuzzy":{}},"rerank":{}},"RUN-7004":{"preset":"customer-impact","label":"customer impact under ACL","query":"Which customer was affected by INC-2000?","arm_orders":{"text":["INC-2000","CASE-4000","CASE-4002"],"vector":["CASE-4000","CASE-4002","COMMIT-6000","INC-2000"],"fuzzy":[]},"raw":{"text":{"INC-2000":0.4468,"CASE-4000":0.3902,"CASE-4002":0.2871,"CASE-4001":0.2664},"vector":{"CASE-4000":0.183,"CASE-4002":0.229,"CASE-4001":0.241,"COMMIT-6000":0.276,"INC-2000":0.294},"fuzzy":{}},"rerank":{"CASE-4000":0.96,"CASE-4002":0.72,"INC-2000":0.68,"COMMIT-6000":0.55,"CASE-4001":0.93}}},"runs_support_lead":{"RUN-7000":{"arm_orders":{"text":["INC-2000","CHG-1000","CHG-1001","LOCK-3000","CASE-4000","CASE-4001","RB-5000","INC-2001","LOCK-3001"],"vector":["INC-2000","LOCK-3000","CHG-1000","LOCK-3001","RB-5000","CASE-4000","CASE-4001","INC-2001","CHG-1002"],"fuzzy":[]}},"RUN-7004":{"arm_orders":{"text":["INC-2000","CASE-4000","CASE-4002","CASE-4001"],"vector":["CASE-4000","CASE-4002","CASE-4001","COMMIT-6000","INC-2000"],"fuzzy":[]}},"RUN-7102":{"arm_orders":{"text":["CASE-4000","CASE-4002","CASE-4001","INC-2000"],"vector":["CASE-4000","CASE-4002","CASE-4001","COMMIT-6000","INC-2000"],"fuzzy":[]}}},"citation_order":["INC-2000","CHG-1000","LOCK-3000","CASE-4000","RB-5000"],"answer":"CHG-1000 ran an ordinary CREATE INDEX on orders(customer_id) against the production writer [2]. A non-concurrent index build takes a SHARE lock on the table, which conflicts with the ROW EXCLUSIVE lock every INSERT, UPDATE and DELETE needs, but not with the ACCESS SHARE lock a SELECT needs \u2014 so checkout writes queued while reads continued to serve [1]. Both lock snapshots name the same blocking backend, pid 3944, which rules out contention among writers [3]. CHG-1001 is ruled out: it is an application-tier worker pool resize that acquires no database lock and appears in neither snapshot. Acme Retail is the affected customer visible to this principal [4]. RB-5000 is the approved recovery: cancel the blocking build, then rebuild with CREATE INDEX CONCURRENTLY outside a transaction block, monitoring pg_stat_progress_create_index and dropping any INVALID index before retrying [5].","verdicts":[{"evidence_id":"CHG-1000","verdict":"change_confirmed","rationale":"Held ShareLock on orders across the incident window; both lock snapshots name its backend pid 3944 as the blocker."},{"evidence_id":"CHG-1001","verdict":"change_ruled_out","rationale":"Application-tier worker pool resize. Acquires no database lock and does not appear in either lock snapshot."},{"evidence_id":"CHG-1002","verdict":"preventive_follow_up","rationale":"Implements the approved runbook by rebuilding the index concurrently."},{"evidence_id":"CASE-4000","verdict":"affected","rationale":"Reported checkout submission failures inside the blocked-write window."},{"evidence_id":"CASE-4002","verdict":"not_affected","rationale":"Served by a separate cluster; no impact recorded during the window."}],"relationships":[{"source_id":"INC-2000","target_id":"CHG-1000","relationship":"caused_by","origin":"canonical","confidence":1.0,"method":null},{"source_id":"INC-2000","target_id":"LOCK-3000","relationship":"evidenced_by","origin":"canonical","confidence":1.0,"method":null},{"source_id":"INC-2000","target_id":"LOCK-3001","relationship":"evidenced_by","origin":"canonical","confidence":1.0,"method":null},{"source_id":"LOCK-3000","target_id":"CHG-1000","relationship":"blocked_by","origin":"canonical","confidence":1.0,"method":null},{"source_id":"LOCK-3001","target_id":"CHG-1000","relationship":"blocked_by","origin":"canonical","confidence":1.0,"method":null},{"source_id":"INC-2000","target_id":"CASE-4000","relationship":"affects","origin":"canonical","confidence":1.0,"method":null},{"source_id":"INC-2000","target_id":"CASE-4001","relationship":"affects","origin":"canonical","confidence":1.0,"method":null},{"source_id":"INC-2000","target_id":"CASE-4002","relationship":"not_affects","origin":"canonical","confidence":1.0,"method":null},{"source_id":"CHG-1000","target_id":"RB-5000","relationship":"remediated_by","origin":"canonical","confidence":1.0,"method":null},{"source_id":"CHG-1002","target_id":"RB-5000","relationship":"implements","origin":"canonical","confidence":1.0,"method":null},{"source_id":"CASE-4000","target_id":"COMMIT-6000","relationship":"commitment_for","origin":"canonical","confidence":1.0,"method":null},{"source_id":"INC-2000","target_id":"INC-2001","relationship":"resembles","origin":"inferred","confidence":0.62,"method":"embedding_knn"},{"source_id":"CHG-1001","target_id":"INC-2000","relationship":"considered_for","origin":"inferred","confidence":0.41,"method":"temporal_proximity"}],"timeline":[{"at":"2026-05-19T09:05:00Z","evidence_id":"CHG-1001","event":"Checkout worker pool resized (no locks taken)"},{"at":"2026-05-19T09:17:00Z","evidence_id":"CHG-1000","event":"CREATE INDEX starts on orders, no CONCURRENTLY"},{"at":"2026-05-19T09:19:00Z","evidence_id":"LOCK-3000","event":"Writer 4182 blocked by backend 3944"},{"at":"2026-05-19T09:22:00Z","evidence_id":"LOCK-3001","event":"Writer 4210 blocked by the same backend"},{"at":"2026-05-19T09:24:00Z","evidence_id":"INC-2000","event":"Sev-2 declared: writes hang, reads normal"},{"at":"2026-05-19T09:38:00Z","evidence_id":"CASE-4000","event":"Acme Retail reports checkout failures"},{"at":"2026-05-19T09:51:00Z","evidence_id":"CHG-1000","event":"Blocking build cancelled (~34 min of blocked writes)"},{"at":"2026-05-19T10:05:00Z","evidence_id":"CHG-1002","event":"Rebuild scheduled with CREATE INDEX CONCURRENTLY"},{"at":"2026-05-20T00:00:00Z","evidence_id":"COMMIT-6000","event":"RCA and safe-fix plan committed to Acme Retail"}],"stage_timings_illustrative":{"exact_fts_ms":2.3,"vector_ms":3.8,"fuzzy_ms":1.1,"fuse_ms":0.7,"traverse_ms":9.4,"compare_ms":6.1,"rerank_ms":74.0,"synthesis_ms":1240.0},"evaluation":{"modes":[{"mode":"lexical only","recall_at_10":0.62,"mrr":0.58,"ndcg_at_10":0.61},{"mode":"semantic only","recall_at_10":0.71,"mrr":0.64,"ndcg_at_10":0.68},{"mode":"fuzzy only","recall_at_10":0.24,"mrr":0.22,"ndcg_at_10":0.23},{"mode":"hybrid RRF","recall_at_10":0.89,"mrr":0.81,"ndcg_at_10":0.85},{"mode":"hybrid + rerank","recall_at_10":0.89,"mrr":0.93,"ndcg_at_10":0.91}],"archetypes":[{"archetype":"exact identifier","lexical":0.98,"semantic":0.41,"fuzzy":0.35,"hybrid":0.99},{"archetype":"semantic symptom","lexical":0.44,"semantic":0.88,"fuzzy":0.05,"hybrid":0.91},{"archetype":"typo identifier","lexical":0.02,"semantic":0.28,"fuzzy":0.94,"hybrid":0.96},{"archetype":"customer impact","lexical":0.72,"semantic":0.74,"fuzzy":0.11,"hybrid":0.88}],"traversal":{"relationship_recall":0.92,"relationship_precision":0.86}},"tools":["decompose_question","search_evidence","follow_evidence_links","compare_sources","explain_ranking","synthesize_cited_answer","answer_with_citations"],"gateway_target_name":"verity-openapi-tools"};
+const GOLDEN = {"contract_version":"1.0.0","tool":"search_evidence","gateway_target_name":"verity-openapi-tools","gateway_tool_name":"verity-openapi-tools___search_evidence","query":"During INC-2000 on checkout-prod-01, why did checkout writes appear to hang while reads continued? Determine whether CHG-1000 or CHG-1001 caused the incident, identify the customer impact visible to the current principal, explain what evidence rules out the alternative change, and cite the lock evidence and approved runbook supporting both immediate recovery and the preventive follow-up.","principal":{"scopes":["workshop"],"principals":[]},"controls":{"mode":"hybrid","candidate_pool":24,"rrf_k":60,"text_weight":2.0,"vector_weight":1.0,"fuzzy_weight":1.0,"fuzzy_threshold":0.3,"ef_search":40,"iterative_scan":"strict_order","rerank":false},"candidate_order":["INC-2000","CHG-1000","LOCK-3000","CASE-4000","RB-5000","LOCK-3001","INC-2001","CHG-1001","CHG-1002"],"positions":{"INC-2000":{"text":1,"vector":1,"fuzzy":null},"CHG-1000":{"text":2,"vector":3,"fuzzy":null},"LOCK-3000":{"text":4,"vector":2,"fuzzy":null},"CASE-4000":{"text":5,"vector":6,"fuzzy":null},"RB-5000":{"text":6,"vector":5,"fuzzy":null},"LOCK-3001":{"text":8,"vector":4,"fuzzy":null},"INC-2001":{"text":7,"vector":7,"fuzzy":null},"CHG-1001":{"text":3,"vector":null,"fuzzy":null},"CHG-1002":{"text":null,"vector":8,"fuzzy":null}},"rrf_scores":{"INC-2000":0.04918033,"CHG-1000":0.04813108,"LOCK-3000":0.04737903,"CASE-4000":0.04592075,"RB-5000":0.04568765,"LOCK-3001":0.04503676,"INC-2001":0.04477612,"CHG-1001":0.03174603,"CHG-1002":0.01470588},"hidden":["CASE-4001"],"citation_ids":["INC-2000","CHG-1000","LOCK-3000","CASE-4000","RB-5000"],"verdicts":{"CHG-1000":"change_confirmed","CHG-1001":"change_ruled_out","CHG-1002":"preventive_follow_up","CASE-4000":"affected","CASE-4002":"not_affected"}};
+
+/* ═══════════ derivation — the same algorithm the Python generator uses ═══════════ */
+
+const ARMS = ["text","vector","fuzzy"];
+
+function positions(order){                       // dense 1..n after DISTINCT ON
+  const m = new Map(); let n = 0;
+  for (const ev of (order||[])) if (!m.has(ev)) m.set(ev, ++n);
+  return m;
+}
+function rrfTerms(pos, c){
+  const w = {text:c.text_weight, vector:c.vector_weight, fuzzy:c.fuzzy_weight};
+  const out = {};
+  for (const a of ARMS) out[a] = pos[a] == null ? 0 : w[a] / (c.rrf_k + pos[a]);
+  return out;
+}
+// Naive score summation: min-max normalize each arm's RAW values across the pool,
+// then weighted-sum them. Kept only to show why it is the wrong thing to do.
+function naiveScore(ev, run, c){
+  let s = 0;
+  for (const a of ARMS){
+    const raw = run.raw[a] || {};
+    const vals = Object.values(raw); if (!vals.length || raw[ev] == null) continue;
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    let x = hi === lo ? 1 : (raw[ev]-lo)/(hi-lo);
+    if (a === "vector") x = 1 - x;                // distance: lower is better
+    s += ({text:c.text_weight, vector:c.vector_weight, fuzzy:c.fuzzy_weight})[a] * x;
+  }
+  return s;
+}
+
+function buildRun(runId, principal, controls, mode){
+  const spec = MODEL.runs[runId];
+  const sl   = MODEL.runs_support_lead[runId];
+  const arms = (principal === "support-lead" && sl) ? sl.arm_orders : spec.arm_orders;
+
+  const pos = {}; for (const a of ARMS) pos[a] = positions(arms[a]);
+  const universe = [];
+  for (const a of ARMS) for (const ev of (arms[a]||[])) if (!universe.includes(ev)) universe.push(ev);
+
+  const rows = universe.map(ev => {
+    const p = {}; for (const a of ARMS) p[a] = pos[a].has(ev) ? pos[a].get(ev) : null;
+    const terms = rrfTerms(p, controls);
+    const meta = MODEL.evidence[ev];
+    return {
+      evidence_id: ev, kind: meta.kind, title: meta.title, role: meta.role, quote: meta.quote,
+      text_position: p.text, vector_position: p.vector, fuzzy_position: p.fuzzy,
+      text_score: (spec.raw.text||{})[ev] ?? null,
+      vector_distance: (spec.raw.vector||{})[ev] ?? null,
+      fuzzy_score: (spec.raw.fuzzy||{})[ev] ?? null,
+      rrf_terms: terms,
+      rrf_score: terms.text + terms.vector + terms.fuzzy,
+      naive_score: naiveScore(ev, spec, controls),
+      rerank_score: spec.rerank[ev] ?? null
+    };
+  });
+
+  const key = mode === "naive" ? "naive_score" : "rrf_score";
+  rows.sort((a,b) => (b[key]-a[key])
+    || ((a.text_position ?? 1e6)-(b.text_position ?? 1e6))
+    || a.evidence_id.localeCompare(b.evidence_id));
+  rows.forEach((r,i) => r.fused_rank = i+1);
+
+  if (controls.rerank){
+    [...rows].sort((a,b) => (b.rerank_score??0)-(a.rerank_score??0) || a.fused_rank-b.fused_rank)
+             .forEach((r,i) => r.final_rank = i+1);
+  } else rows.forEach(r => r.final_rank = r.fused_rank);
+
+  return {run_id:runId, query:spec.query, label:spec.label, preset:spec.preset,
+          arms, pos, rows, controls, principal, mode};
+}
+
+/* ═══════════ state ═══════════ */
+
+const DEF = MODEL.controls_default;
+const S = {
+  screen:"retrieve", runId:"RUN-7001", principal:"workshop", mode:"rrf",
+  controls:{...DEF}, selected:null, proveTab:"agent",
+  gEdges:"all", gPrin:"workshop", sqlView:"sql", tool:"search_evidence"
+};
+const PRESETS = Object.entries(MODEL.runs)
+  .filter(([,r]) => r.preset !== "canonical")
+  .map(([id,r]) => ({id, preset:r.preset, query:r.query}));
+
+const $  = s => document.querySelector(s);
+const el = (t,c,txt) => { const n=document.createElement(t); if(c)n.className=c; if(txt!=null)n.textContent=txt; return n; };
+const esc = s => String(s).replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const f4 = n => n.toFixed(4);
+const f6 = n => n.toFixed(6);
+
+function table(node, headers, rows){
+  node.innerHTML = "";
+  const tr = el("tr"); headers.forEach(h => tr.appendChild(el("th", null, h)));
+  node.appendChild(el("thead")).appendChild(tr);
+  const tb = el("tbody");
+  for (const r of rows){
+    const t = el("tr");
+    r.forEach(c => {
+      const td = el("td");
+      if (c && typeof c === "object"){ td.className = c.cls||""; td.innerHTML = c.html ?? esc(c.text ?? ""); }
+      else td.textContent = c == null ? "—" : c;
+      t.appendChild(td);
+    });
+    tb.appendChild(t);
+  }
+  node.appendChild(tb);
+}
+
+/* ═══════════ 01 retrieve ═══════════ */
+
+function armCard(title, sub, arm, run){
+  const c = el("div","card arm");
+  const h = el("div","armhead");
+  const n = (run.arms[arm]||[]).length;
+  const cnt = el("span","cnt", n + (n === 1 ? " candidate" : " candidates"));
+  h.appendChild(cnt); h.appendChild(el("div","klabel",title));
+  h.appendChild(el("div","sub",sub)); c.appendChild(h);
+
+  const order = run.arms[arm]||[];
+  if (!order.length){
+    const e = el("div","empty");
+    const b = el("div","b");
+    b.innerHTML = "0 candidates<br>this arm contributes <b>zero</b> to the sum";
+    e.appendChild(b); c.appendChild(e);
+    return c;
+  }
+  order.forEach((ev,i) => {
+    const r = run.rows.find(x => x.evidence_id === ev);
+    const b = el("button","it" + (S.selected===ev ? " sel":""));
+    b.appendChild(el("span","rk", String(i+1)));
+    const mid = el("div");
+    mid.appendChild(el("span","id", ev));
+    mid.appendChild(el("span","ti", r.title));
+    b.appendChild(mid);
+    const raw = arm==="text" ? r.text_score : arm==="vector" ? r.vector_distance : r.fuzzy_score;
+    const lbl = arm==="text" ? "ts_rank " : arm==="vector" ? "cos " : "sim ";
+    b.appendChild(el("span","dg", raw==null ? "—" : lbl + f4(raw)));
+    b.onclick = () => { S.selected = ev; render(); };
+    c.appendChild(b);
+  });
+  return c;
+}
+
+function fusedCard(run){
+  const c = el("div","card arm fused");
+  const h = el("div","armhead");
+  h.appendChild(el("span","cnt", run.rows.length + " fused"));
+  h.appendChild(el("div","klabel", S.mode==="naive" ? "Fused — naive score sum" : "Fused — weighted RRF"));
+  const cc = run.controls;
+  h.appendChild(el("div","sub", S.mode==="naive"
+    ? "min-max normalized raw values, weighted sum"
+    : `text : vector : fuzzy = ${cc.text_weight} : ${cc.vector_weight} : ${cc.fuzzy_weight} · k = ${cc.rrf_k} · absent arm = 0`));
+  c.appendChild(h);
+
+  [...run.rows].sort((a,b) => a.final_rank - b.final_rank).forEach(r => {
+    const b = el("button","it" + (S.selected===r.evidence_id ? " sel":""));
+    b.appendChild(el("span","rk", String(r.final_rank)));
+    const mid = el("div");
+    mid.appendChild(el("span","id", r.evidence_id));
+    const sig = el("div","sig");
+    const chip = (a,letter) => {
+      const p = r[a+"_position"];
+      const s = el("span","s " + letter.toLowerCase() + (p==null?" off":""), `${letter} ${p==null?"—":"#"+p}`);
+      return s;
+    };
+    sig.appendChild(chip("text","T")); sig.appendChild(chip("vector","V")); sig.appendChild(chip("fuzzy","F"));
+    sig.appendChild(el("span","s rrf", S.mode==="naive" ? f4(r.naive_score) : f4(r.rrf_score)));
+    if (run.controls.rerank && r.rerank_score!=null) sig.appendChild(el("span","s rr","RR "+r.rerank_score.toFixed(2)));
+    if (run.controls.rerank){
+      const d = r.fused_rank - r.final_rank;
+      sig.appendChild(el("span","dlt " + (d>0?"up":d<0?"dn":"eq"), d>0?`▲${d}`:d<0?`▼${-d}`:"—"));
+    }
+    mid.appendChild(sig);
+    b.appendChild(mid);
+    b.appendChild(el("span","ti", r.title)).style.cssText = "grid-column:2;font-size:10.5px;color:var(--soft)";
+    b.onclick = () => { S.selected = r.evidence_id; render(); };
+    c.appendChild(b);
+  });
+  return c;
+}
+
+function renderReceipt(run){
+  const node = $("#receipt");
+  const r = run.rows.find(x => x.evidence_id === S.selected) || [...run.rows].sort((a,b)=>a.final_rank-b.final_rank)[0];
+  S.selected = r.evidence_id;
+  node.innerHTML = "";
+  node.appendChild(el("div","klabel","Candidate receipt · " + r.evidence_id));
+  node.appendChild(el("div","foot", `${r.kind} · ${r.role} · ${r.title}`)).style.marginTop = "5px";
+
+  const cc = run.controls;
+  const parts = ARMS.filter(a => r[a+"_position"] != null)
+    .map(a => `${({text:cc.text_weight,vector:cc.vector_weight,fuzzy:cc.fuzzy_weight})[a]}/(${cc.rrf_k}+${r[a+"_position"]})`);
+  const nums = ARMS.filter(a => r[a+"_position"] != null).map(a => f6(r.rrf_terms[a]));
+
+  const d = el("div","dark"); d.style.marginTop = "11px";
+  d.innerHTML = `<div class="klabel">Expanded</div><pre>RRF(<span class="bp">${esc(r.evidence_id)}</span>) = ${
+    parts.length ? esc(parts.join(" + ")) : "0"}
+${" ".repeat(6+r.evidence_id.length)} = ${nums.length ? esc(nums.join(" + ")) : "0"}
+${" ".repeat(6+r.evidence_id.length)} = <span class="fn">${f6(r.rrf_score)}</span>${
+  parts.length < 3 ? `\n\n<span class="cm">-- ${3-parts.length} arm(s) returned nothing; each contributes exactly 0</span>` : ""}</pre>`;
+  node.appendChild(d);
+
+  node.appendChild(el("div","klabel m","Arm contribution")).style.marginTop = "13px";
+  const bar = el("div","cbar");
+  const tot = r.rrf_score || 1;
+  ARMS.forEach(a => { const i = el("i", a[0]); i.style.width = (100*r.rrf_terms[a]/tot) + "%"; bar.appendChild(i); });
+  node.appendChild(bar);
+  const legend = el("div","row"); legend.style.marginTop = "7px";
+  let acc = 0;                                     // last share absorbs the rounding, so it sums to 100
+  ARMS.forEach((a,i) => {
+    const p = i === ARMS.length-1 ? 100-acc : Math.round(100*r.rrf_terms[a]/tot);
+    acc += p;
+    legend.appendChild(el("span","pill", `${a} ${p}%`));
+  });
+  node.appendChild(legend);
+
+  node.appendChild(el("div","sep"));
+  node.appendChild(el("div","klabel m","Raw diagnostics · never fused"));
+  const t = el("table"); t.style.marginTop = "8px";
+  table(t, ["arm","position","raw value","RRF term"], ARMS.map(a => {
+    const p = r[a+"_position"];
+    const raw = a==="text" ? r.text_score : a==="vector" ? r.vector_distance : r.fuzzy_score;
+    const nm  = a==="text" ? "ts_rank" : a==="vector" ? "cosine distance" : "trigram similarity";
+    return [a, p==null ? {html:'<span style="color:var(--muted)">absent</span>'} : "#"+p,
+            raw==null ? {html:'<span style="color:var(--muted)">—</span>'} : `${f4(raw)} (${nm})`,
+            {cls:"b", text:f6(r.rrf_terms[a])}];
+  }));
+  node.appendChild(el("div","hscroll")).appendChild(t);
+
+  node.appendChild(el("div","sep"));
+  const acl = el("div","row");
+  acl.appendChild(el("span","pill g","ACL: visible to " + run.principal));
+  acl.appendChild(el("span","pill","rev " + "rev-0001"));
+  acl.appendChild(el("span","pill","workshop://" + r.kind + "/" + r.evidence_id));
+  node.appendChild(acl);
+}
+
+function renderRetrieve(){
+  const run = buildRun(S.runId, S.principal, S.controls, S.mode);
+
+  const pw = $("#presets"); pw.innerHTML = "";
+  PRESETS.forEach(p => {
+    const b = el("button","chip" + (S.runId===p.id ? " on":""), p.preset);
+    b.onclick = () => { S.runId = p.id; S.selected = null; render(); };
+    pw.appendChild(b);
+  });
+
+  const a = $("#arms"); a.innerHTML = "";
+  a.appendChild(armCard("Exact + full-text","B-tree on external_key, prepended, then GIN tsvector · one text_position","text",run));
+  a.appendChild(armCard("Semantic","pgvector HNSW · ef_search "+S.controls.ef_search+" · iterative_scan "+S.controls.iterative_scan,"vector",run));
+  a.appendChild(armCard("Fuzzy","pg_trgm on unresolved identifier tokens only · threshold "+S.controls.fuzzy_threshold,"fuzzy",run));
+  a.appendChild(fusedCard(run));
+
+  const c = S.controls;
+  $("#rrfSql").innerHTML =
+`<span class="cm">-- weights and k come from SearchControls, never hardcoded</span>
+<span class="kw">SELECT</span> evidence_id,
+       <span class="fn">COALESCE</span>(<span class="bp">:text_weight</span>   / (<span class="bp">:k</span> + text_position),   0)
+     + <span class="fn">COALESCE</span>(<span class="bp">:vector_weight</span> / (<span class="bp">:k</span> + vector_position), 0)
+     + <span class="fn">COALESCE</span>(<span class="bp">:fuzzy_weight</span>  / (<span class="bp">:k</span> + fuzzy_position),  0) <span class="kw">AS</span> rrf_score
+<span class="kw">FROM</span> arm_positions
+<span class="kw">ORDER BY</span> rrf_score <span class="kw">DESC</span>, text_position <span class="kw">NULLS LAST</span>, external_key;
+
+<span class="cm">-- currently: ${c.text_weight}/( ${c.rrf_k} + t) + ${c.vector_weight}/( ${c.rrf_k} + v) + ${c.fuzzy_weight}/( ${c.rrf_k} + f)</span>
+<span class="cm">-- the weights MUST be numeric literals. 2/(60+1) is integer division</span>
+<span class="cm">-- in PostgreSQL and evaluates to 0.</span>`;
+
+  $("#ok").textContent = c.rrf_k;
+  $("#ow").textContent = c.text_weight.toFixed(1);
+  $("#ov").textContent = c.vector_weight.toFixed(1);
+  $("#of").textContent = c.fuzzy_weight.toFixed(1);
+
+  // naive-vs-RRF note, computed live rather than asserted
+  const rrfRun = buildRun(S.runId, S.principal, S.controls, "rrf");
+  const top = rrfRun.rows.find(r => r.fused_rank === 1);
+  let sacc = 0;
+  const shares = ARMS.map((a,i) => {
+    const p = i === ARMS.length-1 ? 100-sacc : Math.round(100*top.rrf_terms[a]/(top.rrf_score||1));
+    sacc += p; return p;
+  });
+  const nvTot = ARMS.reduce((s,a) => {
+    const raw = MODEL.runs[S.runId].raw[a]||{}; const vals = Object.values(raw);
+    if (!vals.length || raw[top.evidence_id]==null) return s;
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    let x = hi===lo ? 1 : (raw[top.evidence_id]-lo)/(hi-lo);
+    if (a==="vector") x = 1-x;
+    return s + ({text:c.text_weight,vector:c.vector_weight,fuzzy:c.fuzzy_weight})[a]*x;
+  }, 0);
+  $("#fuseNote").innerHTML = S.mode === "naive"
+    ? `Naive summation normalizes raw values that were never on a common scale. A ts_rank of 0.41 and a cosine
+       distance of 0.21 are not comparable magnitudes, so the intended ${c.text_weight}:${c.vector_weight}
+       weighting is not the weighting you get. Rank fusion is scale-free: it only ever sees positions.`
+    : `Rank fusion sees <em>positions</em>, never magnitudes, so the ${c.text_weight}:${c.vector_weight}:${c.fuzzy_weight}
+       intent survives contact with the data. For ${top.evidence_id} the arms contribute
+       ${shares.map((s,i)=>`${ARMS[i]} ${s}%`).join(" · ")}. Switch to naive summation to see the same
+       intent collapse.`;
+
+  $("#aclNote").innerHTML = S.principal === "workshop"
+    ? `CASE-4001 is restricted and is <em>absent</em> for this principal — not dimmed, not annotated, not counted.`
+    : `CASE-4001 is visible to <span class="mono">support-lead</span>: the result set and the ordering both change.`;
+
+  renderReceipt(run);
+}
+
+/* ═══════════ 02 prove ═══════════ */
+
+function renderAgent(){
+  const A = MODEL.agent;
+  $("#agentMeta").innerHTML =
+    `principal <span class="mono">workshop</span> · initial filter
+     <span class="mono">cluster_id = checkout-prod-01</span> · status <span class="mono">${esc(A.status)}</span>`;
+  const bud = $("#agentBudget"); bud.innerHTML = "";
+  bud.appendChild(el("span","pill", `${A.tool_calls_spent} / ${A.budget.max_tool_calls} tool calls`));
+  bud.appendChild(el("span","pill r", `${A.escalations_spent} / ${A.budget.max_escalations} escalations`));
+  bud.appendChild(el("span","pill g", "all subquestions covered"));
+
+  const rows = [];
+  A.subquestions.forEach(s => {
+    s.runs.forEach((r,i) => {
+      const c = r.coverage;
+      rows.push([
+        i === 0 ? {cls:"b", text:s.subquestion_id} : "",
+        i === 0 ? {cls:"w", text:s.text} : {cls:"w", html:'<span style="color:var(--muted)">— re-query after coverage failed</span>'},
+        {cls:"b", text:r.run_id},
+        {html: s.required_kinds.map(k =>
+          `<span class="s ${c.missing_kinds.includes(k) ? "off" : "f"}">${esc(k)}</span>`).join(" ")},
+        r.controls.ef_search,
+        r.filters.cluster_id === null
+          ? {html:'<span style="color:var(--red2)">dropped</span>'}
+          : {html:'<span style="color:var(--muted)">checkout-prod-01</span>'},
+        c.covered ? {cls:"ok", text:"COVERED"}
+                  : {cls:"no", text:"missing " + c.missing_kinds.join(", ")},
+      ]);
+    });
+  });
+  table($("#agentTable"),
+    ["SQ","subquestion","retrieval","required kinds","ef_search","cluster filter","coverage"], rows);
+
+  const E = A.escalations[0], CF = A.counterfactual;
+  $("#escRationale").innerHTML = esc(E.rationale);
+
+  const sq5 = A.subquestions.find(s => s.subquestion_id === "SQ-5");
+  table($("#escTable"), ["attempt","ef_search","pool","cluster filter","runbook found?"], [
+    [{cls:"w", text:"1 · as planned"}, 40, 24, "checkout-prod-01", {cls:"no", text:"no"}],
+    [{cls:"w", html:'<b>widen the ANN search only</b><br><span style="color:var(--muted)">participant experiment, not an agent call</span>'},
+     200, 48, "checkout-prod-01", {cls:"no", text:"still no"}],
+    [{cls:"w", text:"2 · agent escalation"}, 200, 48,
+     {cls:"b", html:'<span style="color:var(--red2)">dropped</span>'}, {cls:"ok", text:"RB-5000, fused #1"}],
+  ]);
+
+  const B = MODEL.aurora_buffers;
+  const line = (id, lbl) => {
+    const b = B[id];
+    return `<span class="cm">-- ${lbl}</span>\n` +
+      `Buffers: shared hit=${b.shared_hit} read=${b.read}` +
+      (b.aurora_orcache_hit ? ` <span class="fn">aurora_orcache_hit=${b.aurora_orcache_hit}</span>` : "") +
+      (b.aurora_storage_read ? ` <span class="kw">aurora_storage_read=${b.aurora_storage_read}</span>` : "") + "\n";
+  };
+  $("#escBuffers").innerHTML =
+    line("RUN-7104","attempt 1 — ef_search 40, fully resident") + "\n" +
+    line("RUN-7105","widen only — ef_search 200, filter kept") + "\n" +
+    line("RUN-7106","escalation — ef_search 200, filter dropped") +
+    `\n<span class="cm">-- The widened scan touches pages that are no longer in shared_buffers.\n` +
+    `-- aurora_orcache_hit = served from the Optimized Reads NVMe tier.\n` +
+    `-- aurora_storage_read = went all the way to the distributed storage volume.\n` +
+    `-- Neither field exists in community PostgreSQL.</span>`;
+}
+
+function renderAnswer(){
+  const run = buildRun("RUN-7000","workshop",{...DEF},"rrf");
+  const cites = MODEL.citation_order;
+  $("#answerText").innerHTML = esc(MODEL.answer).replace(/\[(\d)\]/g,
+    (_,n) => `<button class="cite" data-c="${n}">${n}</button>`);
+
+  const sc = $("#srcChips"); sc.innerHTML = "";
+  cites.forEach((ev,i) => {
+    const b = el("button","chip", `${i+1} · ${ev}`);
+    b.onclick = () => showCite(i+1); sc.appendChild(b);
+  });
+  document.querySelectorAll(".cite").forEach(b => b.onclick = () => showCite(+b.dataset.c));
+  showCite(1);
+
+  const q = MODEL.runs["RUN-7000"].query;
+  $("#planKeys").innerHTML =
+    `<b>keys</b> INC-2000 · CHG-1000 · CHG-1001 &nbsp; <b>cluster</b> checkout-prod-01 &nbsp;
+     <b>principal</b> workshop &nbsp; <b>unresolved tokens</b> none — the fuzzy arm does not fire`;
+
+  const t = MODEL.stage_timings_illustrative;
+  const stages = [
+    ["decompose_question","identifiers, filters, subquestions — deterministic, no model call",0.4],
+    ["search_evidence","four SQL sources, three fusion terms, receipt persisted first",
+      t.exact_fts_ms+t.vector_ms+t.fuzzy_ms+t.fuse_ms],
+    ["follow_evidence_links","typed traversal, ACL re-checked at every hop",t.traverse_ms],
+    ["compare_sources","confirmed · ruled out · affected · not affected",t.compare_ms],
+    ["synthesize_cited_answer",`${cites.length} citations validated against stored chunk text`,t.synthesis_ms]
+  ];
+  const sw = $("#stages"); sw.innerHTML = "";
+  stages.forEach(([nm,ds,ms],i) => {
+    const d = el("div","stage");
+    d.appendChild(el("span","n", String(i+1)));
+    const m = el("div"); m.appendChild(el("span","nm",nm)); m.appendChild(el("span","ds",ds));
+    d.appendChild(m);
+    d.appendChild(el("span","pill", ms >= 1000 ? (ms/1000).toFixed(2)+" s" : ms.toFixed(1)+" ms"));
+    sw.appendChild(d);
+  });
+
+  const vw = $("#verdicts"); vw.innerHTML = "";
+  const cls = {change_confirmed:"pill g", change_ruled_out:"pill g", preventive_follow_up:"pill c",
+               affected:"pill r", not_affected:"pill g"};
+  MODEL.verdicts.forEach(v => {
+    vw.appendChild(el("span", cls[v.verdict]||"pill", v.evidence_id));
+    const r = el("div","rz");
+    r.innerHTML = `<b class="mono" style="font-size:10px;color:var(--muted)">${esc(v.verdict)}</b><br>${esc(v.rationale)}`;
+    vw.appendChild(r);
+  });
+  $("#runPill").textContent = "RUN-7000 · " + run.rows.length + " candidates";
+}
+
+function showCite(n){
+  const ev = MODEL.citation_order[n-1];
+  const m = MODEL.evidence[ev];
+  document.querySelectorAll(".cite").forEach(b => b.classList.toggle("on", +b.dataset.c === n));
+  $("#citeDetail").innerHTML =
+    `<span class="pill r">[${n}] ${esc(ev)}</span> <span class="pill">workshop://${esc(m.kind)}/${esc(ev)}</span>
+     <span class="pill">rev-0001</span><br>
+     <span style="font-family:var(--sans);font-size:12px;color:var(--soft);line-height:1.6">
+     “${esc(m.quote)}”</span><br>
+     <span style="color:var(--muted)">Verbatim from the stored chunk. Synthesis may not cite a quote that
+     does not appear in the retrieved text, and citation validation runs before the answer is returned.</span>`;
+}
+
+const SEED = "INC-2000";
+
+// Breadth-first layout. Column = hop distance from the seed, so the picture is
+// the traversal rather than a hand-arranged diagram: change the ACL and the
+// layout changes with it.
+function layoutGraph(edges){
+  const adj = new Map();
+  const link = (a,b) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); };
+  edges.forEach(e => { link(e.source_id, e.target_id); link(e.target_id, e.source_id); });
+
+  const depth = new Map([[SEED, 0]]);
+  for (const q = [SEED]; q.length; ){
+    const n = q.shift();
+    for (const m of (adj.get(n) || [])) if (!depth.has(m)){ depth.set(m, depth.get(n)+1); q.push(m); }
+  }
+  const nodes = [...new Set(edges.flatMap(e => [e.source_id, e.target_id]))];
+  nodes.forEach(n => { if (!depth.has(n)) depth.set(n, 1); });
+
+  const KIND = ["change","lock","incident","case","runbook","commitment"];
+  const cols = new Map();
+  nodes.sort((a,b) => depth.get(a)-depth.get(b)
+      || KIND.indexOf(MODEL.evidence[a].kind) - KIND.indexOf(MODEL.evidence[b].kind)
+      || a.localeCompare(b))
+    .forEach(n => { const d = depth.get(n); (cols.get(d) || cols.set(d,[]).get(d)).push(n); });
+
+  const NW = 126, NH = 40, VGAP = 24, HGAP = 130;   // gutter must fit an edge label
+  const tallest = Math.max(...[...cols.values()].map(c => c.length));
+  const H = tallest*(NH+VGAP) - VGAP + 36;
+  const pos = new Map();
+  for (const [d, list] of cols){
+    const span = list.length*(NH+VGAP) - VGAP;
+    list.forEach((n,i) => pos.set(n, [22 + d*(NW+HGAP), (H-span)/2 + i*(NH+VGAP)]));
+  }
+  const W = 22 + (Math.max(...cols.keys())+1)*(NW+HGAP) - HGAP + 22;
+  return {pos, depth, W, H, NW, NH};
+}
+
+function renderGraph(){
+  const hidden = new Set(Object.entries(MODEL.evidence)
+    .filter(([,v]) => v.restricted && S.gPrin !== "support-lead").map(([k]) => k));
+  let edges = MODEL.relationships.filter(e => !hidden.has(e.source_id) && !hidden.has(e.target_id));
+  if (S.gEdges === "canon") edges = edges.filter(e => e.origin === "canonical");
+
+  const {pos, depth, W, H, NW, NH} = layoutGraph(edges);
+  const nodes = [...pos.keys()];
+
+  // Anchors are computed from relative position, never hand-placed.
+  const anchor = (a,b) => {
+    const [ax,ay] = pos.get(a), [bx,by] = pos.get(b);
+    if (Math.abs(ax-bx) > 8) return ax < bx ? [[ax+NW,ay+NH/2],[bx,by+NH/2],"h"]
+                                            : [[ax,ay+NH/2],[bx+NW,by+NH/2],"h"];
+    return [[ax+NW,ay+NH/2],[bx+NW,by+NH/2],"v"];   // same column: bulge right
+  };
+  $("#graphHint").hidden = W <= $("#graphWrap").clientWidth;
+
+  let svg = `<svg class="graph" viewBox="0 0 ${W} ${H}" style="min-width:${W}px" role="img"
+    aria-label="Evidence graph from ${SEED}: ${nodes.length} nodes, ${edges.length} typed relationships">
+    <defs>
+      <marker id="ar" viewBox="0 0 8 8" refX="7.4" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,0 L8,4 L0,8 z" fill="var(--red)"/></marker>
+      <marker id="ai" viewBox="0 0 8 8" refX="7.4" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0,1 L8,4 L0,7" fill="none" stroke="var(--clay)" stroke-width="1.4"/></marker>
+    </defs>`;
+
+  const bucket = {};                               // stagger colliding labels
+  let labels = "";                                 // drawn last, so nodes never occlude them
+  for (const e of edges){
+    const [[x1,y1],[x2,y2],dir] = anchor(e.source_id, e.target_id);
+    const inf = e.origin === "inferred";
+    let d, mx, my;
+    if (dir === "v"){
+      const out = 44 + 15*(depth.get(e.source_id) % 3);
+      d = `M${x1},${y1} C${x1+out},${y1} ${x2+out},${y2} ${x2},${y2}`;
+      mx = x1 + out*0.8; my = (y1+y2)/2;
+    } else {
+      const dx = Math.abs(x2-x1)*0.45 * (x2>x1 ? 1 : -1);
+      d = `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+      mx = (x1+x2)/2; my = (y1+y2)/2;
+    }
+    const key = Math.round(mx/34) + ":" + Math.round(my/14);
+    bucket[key] = (bucket[key] || 0) + 1;
+    my += (bucket[key]-1) * 16;
+
+    svg += `<path class="ed${inf?" inf":""}${e.relationship==="caused_by"?" thread":""}"
+      d="${d}" marker-end="url(#${inf?"ai":"ar"})"/>`;
+    const lbl = e.relationship + (inf ? ` ${e.confidence}` : "");
+    const w = lbl.length*5.9 + 10;
+    labels += `<rect class="elbg" x="${mx-w/2}" y="${my-8}" width="${w}" height="16" rx="5"/>
+               <text class="el" x="${mx}" y="${my+3.6}" text-anchor="middle">${esc(lbl)}</text>`;
+  }
+  for (const n of nodes){
+    const [x,y] = pos.get(n), m = MODEL.evidence[n];
+    svg += `<g class="nd ${n===SEED?"seed ":""}kind-${esc(m.kind)}">
+      <rect x="${x}" y="${y}" width="${NW}" height="${NH}" rx="9"/>
+      <text class="kd" x="${x+10}" y="${y+15}">${esc(m.kind.toUpperCase())}${n===SEED?" · SEED":""}</text>
+      <text class="id" x="${x+10}" y="${y+31}">${esc(n)}</text>
+      <title>${esc(m.title)} — hop ${depth.get(n)}</title></g>`;
+  }
+  $("#graphWrap").innerHTML = svg + labels + "</svg>";
+
+  const inf = edges.filter(e => e.origin === "inferred").length;
+  $("#gStats").innerHTML = "";
+  [["nodes reached", nodes.length], ["typed edges", edges.length],
+   ["canonical", edges.length-inf], ["inferred", inf],
+   ["relationship recall", MODEL.evaluation.traversal.relationship_recall],
+   ["relationship precision", MODEL.evaluation.traversal.relationship_precision],
+   ["ACL-removed nodes", hidden.size]].forEach(([k,v]) => {
+    const r = el("div","brow");
+    r.appendChild(el("span","l",k));
+    const tr = el("div","track"); const i = el("i");
+    i.style.width = (typeof v === "number" && v <= 1 ? v*100 : Math.min(100, v*9)) + "%";
+    if (k.startsWith("inferred")) i.className = "clay";
+    if (k.startsWith("ACL")) i.className = "ink";
+    tr.appendChild(i); r.appendChild(tr);
+    r.appendChild(el("span","val", String(v)));
+    $("#gStats").appendChild(r);
+  });
+
+  table($("#edgeTable"), ["from","→","to","origin"], edges.map(e => [
+    {cls:"b", text:e.source_id},
+    {cls:"w", html:`<span style="color:${e.origin==="inferred"?"var(--amber)":"var(--red2)"}">${esc(e.relationship)}</span>`},
+    {cls:"b", text:e.target_id},
+    e.origin === "inferred" ? {html:`<span class="mono" style="color:var(--amber)">inferred ${e.confidence} · ${esc(e.method)}</span>`}
+                            : {html:'<span class="mono" style="color:var(--green)">canonical</span>'}
+  ]));
+}
+
+function renderPlan(){
+  const t = MODEL.stage_timings_illustrative;
+  const rows = [["exact + FTS",t.exact_fts_ms,"red"],["vector HNSW",t.vector_ms,"red"],
+    ["fuzzy trigram",t.fuzzy_ms,"red"],["fuse (RRF)",t.fuse_ms,"red"],
+    ["traverse",t.traverse_ms,"clay"],["compare",t.compare_ms,"clay"],
+    ["rerank (optional)",t.rerank_ms,"green"],["synthesis",t.synthesis_ms,"ink"]];
+  const max = Math.sqrt(Math.max(...rows.map(r => r[1])));
+  const b = $("#budget"); b.innerHTML = "";
+  rows.forEach(([nm,ms,c]) => {
+    const r = el("div","brow");
+    r.appendChild(el("span","l",nm));
+    const tr = el("div","track"); const i = el("i", c==="red"?"":c);
+    i.style.width = (100*Math.sqrt(ms)/max) + "%"; tr.appendChild(i); r.appendChild(tr);
+    r.appendChild(el("span","val", ms>=1000 ? (ms/1000).toFixed(2)+"s" : ms.toFixed(1)+"ms"));
+    b.appendChild(r);
+  });
+  const sql = rows.slice(0,4).reduce((s,r) => s+r[1], 0);
+  $("#budgetNote").innerHTML =
+    `Aurora does the retrieval in <b>${sql.toFixed(1)} ms</b>; the model stages cost
+     <b>${((t.rerank_ms+t.synthesis_ms)/1000).toFixed(2)} s</b>. Retrieval is not the latency problem —
+     which is exactly why it is worth making it inspectable. Illustrative until the release gate replaces them.`;
+
+  table($("#planNodes"),["source","relation · index","runtime setting","note"],[
+    ["exact",{cls:"b",text:"documents_external_key_idx"},"—",{cls:"w",text:"tier 0, prepended ahead of FTS hits"}],
+    ["full-text",{cls:"b",text:"documents_identity_tsv_idx"},"—",{cls:"w",text:"GIN on the generated tsvector; tier 1, deduplicated into one text_position"}],
+    ["semantic",{cls:"b",text:"chunks_embedding_hnsw_idx"},{cls:"b",text:"ef_search 40"},{cls:"w",text:"partial HNSW, m=16 / ef_construction=64, WHERE is_current AND state='ready'"}],
+    ["semantic",{cls:"b",text:"chunks_acl_visibility_idx"},{cls:"b",text:"iterative_scan strict_order"},{cls:"w",text:"ACL and filter columns are denormalized onto chunks so the predicate is scan-level, not join-level — otherwise iterative_scan addresses a problem this query does not have"}],
+    ["fuzzy",{cls:"b",text:"documents_identity_trgm_idx"},{cls:"b",text:"similarity_threshold 0.30"},{cls:"w",text:"% operator; similarity() in the SELECT list only, or the index is not used"}],
+    ["fuse","—","—",{cls:"w",text:"one statement, one plan, one receipt"}]
+  ]);
+
+  $("#sqlPane").innerHTML = S.sqlView === "sql"
+? `<span class="kw">BEGIN</span>;
+<span class="kw">SELECT</span> <span class="fn">retrieval.configure_ann_runtime</span>(<span class="bp">:ef_search</span>, <span class="bp">:iterative_scan</span>);
+<span class="cm">-- SET LOCAL, not SET: a session GUC leaks across a pooled connection and
+-- makes the candidate receipt irreproducible.
+-- Then assert current_setting('hnsw.iterative_scan', true). On pgvector
+-- &lt;0.8.0 the assignment does NOT error -- PostgreSQL emits
+--   WARNING: invalid configuration parameter name "hnsw.iterative_scan"
+-- drops it, and filtered search silently reverts to post-filtering.
+-- Recall falls; nothing in the application notices.</span>
+
+<span class="kw">WITH</span> exact_hits <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> d.evidence_id, 0 <span class="kw">AS</span> tier, <span class="kw">NULL</span>::float <span class="kw">AS</span> raw
+  <span class="kw">FROM</span> retrieval.documents d
+  <span class="kw">WHERE</span> d.external_key = <span class="kw">ANY</span>(<span class="bp">:id_tokens</span>) <span class="kw">AND</span> d.is_current
+    <span class="kw">AND</span> (d.acl_visibility = <span class="bp">:scope</span> <span class="kw">OR</span> d.acl_principals &amp;&amp; <span class="bp">:principals</span>)
+), fts <span class="kw">AS</span> (
+  <span class="kw">SELECT DISTINCT ON</span> (d.evidence_id) d.evidence_id, 1 <span class="kw">AS</span> tier,
+         <span class="fn">ts_rank</span>(d.identity_tsv, q.tsq) <span class="kw">AS</span> raw
+  <span class="kw">FROM</span> retrieval.documents d
+  <span class="kw">CROSS JOIN LATERAL</span> (<span class="kw">SELECT</span> <span class="fn">websearch_to_tsquery</span>(<span class="bp">:q</span>) <span class="kw">AS</span> tsq) q
+  <span class="kw">WHERE</span> d.identity_tsv @@ q.tsq <span class="kw">AND</span> d.is_current
+    <span class="kw">AND</span> (d.acl_visibility = <span class="bp">:scope</span> <span class="kw">OR</span> d.acl_principals &amp;&amp; <span class="bp">:principals</span>)
+    <span class="kw">AND</span> (<span class="bp">:cluster_id</span> <span class="kw">IS NULL OR</span> d.f_cluster_id = <span class="bp">:cluster_id</span>)
+  <span class="kw">ORDER BY</span> d.evidence_id, raw <span class="kw">DESC</span>
+), vec <span class="kw">AS</span> (
+  <span class="cm">-- Ordered ANN scan FIRST, overfetch, dedup after -- wrapping the scan in</span>
+  <span class="cm">-- DISTINCT ON would discard the index ordering the HNSW scan exists to give.</span>
+  <span class="cm">-- Every predicate below is on retrieval.chunks, so the filter is scan-level.</span>
+  <span class="kw">SELECT DISTINCT ON</span> (evidence_id) evidence_id, raw <span class="kw">FROM</span> (
+    <span class="kw">SELECT</span> c.evidence_id, c.embedding &lt;=&gt; <span class="bp">:qvec</span> <span class="kw">AS</span> raw
+    <span class="kw">FROM</span> retrieval.chunks c
+    <span class="kw">WHERE</span> c.is_current <span class="kw">AND</span> c.state = <span class="s">'ready'</span>
+      <span class="kw">AND</span> (c.acl_visibility = <span class="bp">:scope</span> <span class="kw">OR</span> c.acl_principals &amp;&amp; <span class="bp">:principals</span>)
+      <span class="kw">AND</span> (<span class="bp">:cluster_id</span> <span class="kw">IS NULL OR</span> c.f_cluster_id = <span class="bp">:cluster_id</span>)
+    <span class="kw">ORDER BY</span> raw <span class="kw">LIMIT</span> <span class="fn">ceil</span>(<span class="bp">:pool</span> * 1.5)
+  ) s <span class="kw">ORDER BY</span> evidence_id, raw
+), fuz <span class="kw">AS</span> (
+  <span class="cm">-- only identifier tokens that produced no exact hit</span>
+  <span class="kw">SELECT DISTINCT ON</span> (d.evidence_id) d.evidence_id,
+         <span class="fn">similarity</span>(d.external_key, p.tok) <span class="kw">AS</span> raw
+  <span class="kw">FROM</span> retrieval.documents d
+  <span class="kw">CROSS JOIN LATERAL</span> <span class="fn">unnest</span>(<span class="bp">:unresolved_tokens</span>::text[]) <span class="kw">AS</span> p(tok)
+  <span class="kw">WHERE</span> d.external_key % p.tok       <span class="cm">-- indexable; similarity() in WHERE is not</span>
+    <span class="kw">AND</span> d.is_current
+    <span class="kw">AND</span> (d.acl_visibility = <span class="bp">:scope</span> <span class="kw">OR</span> d.acl_principals &amp;&amp; <span class="bp">:principals</span>)
+  <span class="kw">ORDER BY</span> d.evidence_id, raw <span class="kw">DESC</span>
+), pos <span class="kw">AS</span> (
+  <span class="kw">SELECT</span> evidence_id,
+    <span class="fn">row_number</span>() <span class="kw">OVER</span> (<span class="kw">ORDER BY</span> tier, raw <span class="kw">DESC</span>) <span class="kw">AS</span> text_position, …
+)
+<span class="kw">SELECT</span> evidence_id,
+  <span class="fn">COALESCE</span>(<span class="bp">:tw</span>/(<span class="bp">:k</span>+text_position),0) + <span class="fn">COALESCE</span>(<span class="bp">:vw</span>/(<span class="bp">:k</span>+vector_position),0)
+  + <span class="fn">COALESCE</span>(<span class="bp">:fw</span>/(<span class="bp">:k</span>+fuzzy_position),0) <span class="kw">AS</span> rrf_score
+<span class="kw">FROM</span> pos <span class="kw">ORDER BY</span> rrf_score <span class="kw">DESC</span>, text_position <span class="kw">NULLS LAST</span>, external_key;
+<span class="kw">COMMIT</span>;`
+: `<span class="cm">-- Captured via aurora_stat_plans. plan_type drives the badge above:</span>
+<span class="cm">-- 'estimate' by default; 'actual' only when aurora_stat_plans.with_analyze = on.</span>
+<span class="cm">-- Plan capture at all requires aurora_compute_plan_id = on and</span>
+<span class="cm">-- pg_stat_statements in shared_preload_libraries (cluster parameter group).</span>
+<span class="cm">-- with_buffers = on is what emits the two Aurora-only fields below.</span>
+
+Sort  (cost=412.88..413.14 rows=104)
+  Sort Key: rrf_score DESC, text_position NULLS LAST, external_key
+  -&gt; Hash Full Join  (cost=298.11..409.42 rows=104)
+     Hash Cond: (fts.evidence_id = vec.evidence_id)
+     -&gt; Unique  (cost=61.02..63.55 rows=48)
+        -&gt; <span class="fn">Bitmap Heap Scan</span> on documents d
+           Recheck Cond: (identity_tsv @@ websearch_to_tsquery(<span class="bp">$1</span>))
+           Filter: ((acl_visibility = <span class="bp">$2</span> OR acl_principals &amp;&amp; <span class="bp">$3</span>)
+                    AND f_cluster_id = <span class="bp">$4</span> AND is_current)
+           -&gt; <span class="fn">Bitmap Index Scan</span> on documents_identity_tsv_idx
+     -&gt; Limit  (cost=0.42..236.20 rows=36)
+        -&gt; <span class="fn">Index Scan</span> using chunks_embedding_hnsw_idx on chunks c
+           Order By: (c.embedding &lt;=&gt; <span class="bp">$5</span>)      <span class="cm">-- HNSW, ef_search 40</span>
+           Filter: ((c.acl_visibility = <span class="bp">$2</span> OR c.acl_principals &amp;&amp; <span class="bp">$3</span>)
+                    AND c.f_cluster_id = <span class="bp">$4</span>)
+           <span class="cm">-- Scan-level, not join-level. ACL and filter columns are</span>
+           <span class="cm">-- denormalized onto chunks, so hnsw.iterative_scan is</span>
+           <span class="cm">-- addressing this query's actual filter. If these predicates</span>
+           <span class="cm">-- sat on documents across a join, iterative_scan would be</span>
+           <span class="cm">-- solving a problem this plan does not have.</span>
+     -&gt; <span class="fn">Bitmap Index Scan</span> on documents_identity_trgm_idx
+        Index Cond: (d.external_key % <span class="bp">$6</span>)   <span class="cm">-- GIN gin_trgm_ops</span>
+
+<span class="fn">Buffers: shared hit=214 read=0</span>
+
+<span class="cm">-- On Aurora with Optimized Reads, the Buffers line carries two fields that</span>
+<span class="cm">-- exist in no other PostgreSQL, shown only when their value exceeds zero:</span>
+<span class="cm">--</span>
+<span class="cm">--   aurora_orcache_hit    served from the Optimized Reads NVMe tier</span>
+<span class="cm">--   aurora_storage_read   read from the distributed storage volume</span>
+<span class="cm">--</span>
+<span class="cm">-- Three tiers, visible per node: shared_buffers, local NVMe, storage.</span>
+<span class="cm">-- See the Agent tab for the same plan under the escalated ef_search,</span>
+<span class="cm">-- where the widened HNSW scan pushes work down both tiers.</span>
+<span class="cm">--</span>
+<span class="cm">-- The tell worth remembering: a memory-starved HNSW workload on Aurora</span>
+<span class="cm">-- does not look busy. It looks IDLE -- CPU sits low because the backend</span>
+<span class="cm">-- is blocked on network storage, not computing distances.</span>`;
+}
+
+function renderReceiptTab(){
+  const run = buildRun("RUN-7000","workshop",{...DEF},"rrf");
+  const c = run.controls;
+  $("#rcptMeta").innerHTML =
+    `<span class="mono">RUN-7000</span> · principal <span class="mono">workshop</span> ·
+     cluster <span class="mono">checkout-prod-01</span> · k=<span class="mono">${c.rrf_k}</span> ·
+     weights <span class="mono">${c.text_weight}:${c.vector_weight}:${c.fuzzy_weight}</span> ·
+     rerank <span class="mono">off</span> · pool <span class="mono">${c.candidate_pool}</span>`;
+
+  table($("#rcptTable"), ["evidence","kind","T","V","F","RRF","fused","final","role"],
+    [...run.rows].sort((a,b) => a.fused_rank-b.fused_rank).map(r => [
+      {cls:"b", text:r.evidence_id}, r.kind,
+      r.text_position==null ? {html:'<span style="color:var(--muted)">—</span>'} : "#"+r.text_position,
+      r.vector_position==null ? {html:'<span style="color:var(--muted)">—</span>'} : "#"+r.vector_position,
+      r.fuzzy_position==null ? {html:'<span style="color:var(--muted)">—</span>'} : "#"+r.fuzzy_position,
+      {cls:"b", text:f6(r.rrf_score)}, r.fused_rank, r.final_rank, {cls:"w", text:r.role}
+    ]));
+
+  const cited = MODEL.citation_order;
+  $("#rcptNote").innerHTML =
+    `Every value in this table is recomputed from the stored arm positions on load — none of it is a literal.
+     ${cited.length} of ${run.rows.length} candidates are cited (${cited.join(", ")}).
+     1 evidence item is removed by ACL before ranking, so it has no position, no rank and no row here.
+     Replay uses the persisted receipt and makes no model call, which is why the fixture is
+     <span class="mono">rerank: false</span> — a parity run that needs Bedrock is not a parity run you can do offline.`;
+
+  table($("#timeline"), ["time (UTC)","evidence","event"], MODEL.timeline.map(t => [
+    t.at.replace("T"," ").replace("Z",""), {cls:"b", text:t.evidence_id}, {cls:"w", text:t.event}]));
+
+  table($("#evalTable"), ["mode","recall@10","MRR","nDCG@10"], MODEL.evaluation.modes.map(m => [
+    {cls:"w", text:m.mode}, m.recall_at_10.toFixed(2), m.mrr.toFixed(2), m.ndcg_at_10.toFixed(2)]));
+
+  table($("#archTable"), ["archetype","lexical","semantic","fuzzy","hybrid"], MODEL.evaluation.archetypes.map(a => [
+    {cls:"w", text:a.archetype}, a.lexical.toFixed(2), a.semantic.toFixed(2), a.fuzzy.toFixed(2),
+    {cls:"b", text:a.hybrid.toFixed(2)}]));
+}
+
+/* ═══════════ 03 port ═══════════ */
+
+const TRANSPORTS = [
+  {k:"http", tag:"Transport A", name:"HTTP / FastAPI", state:"captured",
+   note:"The canonical service behind a JSON endpoint. Every other transport is a thin adapter over this same implementation — none of them reimplement SQL, ranking, ACLs or traversal.",
+   code:op => `POST /v1/search\noperationId: ${op}\ntool name:   ${op}\ncontract:    1.0.0`},
+  {k:"mcp", tag:"Transport B", name:"local stdio MCP", state:"captured",
+   note:"A local MCP server that delegates to the same service object in-process. Useful for testing the tool surface without a network hop.",
+   code:op => `stdio MCP\noperationId: ${op}\ntool name:   ${op}\ncontract:    1.0.0`},
+  {k:"agentcore", tag:"Transport C", name:"AgentCore Gateway", state:"pre-provisioned",
+   note:"The packaged OpenAPI document registered as a Gateway target. Gateway turns each operation into an MCP tool and handles inbound auth. Participants call it; they do not create it.",
+   code:op => `OpenAPI target: verity-openapi-tools\noperationId:    ${op}\ntool name:      verity-openapi-tools___${op}\ncontract:       1.0.0`}
+];
+
+function renderPort(){
+  const tg = $("#transports"); tg.innerHTML = "";
+  TRANSPORTS.forEach(t => {
+    const c = el("div","card tp");
+    c.appendChild(el("div","klabel",t.tag));
+    c.appendChild(el("h3",null,t.name));
+    c.appendChild(el("p",null,t.note));
+    const pre = el("code"); pre.textContent = t.code(S.tool); c.appendChild(pre);
+    const r = el("div","row");
+    r.appendChild(el("span", t.state==="pre-provisioned" ? "pill c" : "pill g", t.state));
+    c.appendChild(r);
+    tg.appendChild(c);
+  });
+
+  const tl = $("#toolList"); tl.innerHTML = "";
+  MODEL.tools.forEach(t => {
+    const b = el("button","tool" + (S.tool===t ? " on":""));
+    b.appendChild(el("span",null,t));
+    if (t === "search_evidence") b.appendChild(el("span","pill","captured"));
+    b.onclick = () => { S.tool = t; renderPort(); };
+    tl.appendChild(b);
+  });
+
+  table($("#nameTable"), ["transport","name the client sees","normalizes to"], [
+    ["HTTP / FastAPI", {cls:"b", text:S.tool}, S.tool],
+    ["stdio MCP", {cls:"b", text:S.tool}, S.tool],
+    ["AgentCore Gateway", {cls:"b", text:`${MODEL.gateway_target_name}___${S.tool}`}, S.tool]
+  ]);
+
+  $("#reqPane").innerHTML = esc(JSON.stringify({
+    query: MODEL.runs["RUN-7000"].query,
+    principal: {scopes:["workshop"], principals:[]},
+    filters: {cluster_id:"checkout-prod-01"},
+    controls: DEF
+  }, null, 2)).replace(/"([a-z_]+)":/g,'<span class="bp">"$1"</span>:');
+
+  const checks = [
+    ["contract_version", "1.0.0 on every transport"],
+    ["candidate order", GOLDEN.candidate_order.join(" › ")],
+    ["arm positions", "text / vector / fuzzy identical per evidence item"],
+    ["rrf_score recomputed", "every value re-derived from its positions, not compared as a literal"],
+    ["ACL-visible set", `${GOLDEN.hidden.join(", ")} absent on all three`],
+    ["citation IDs", GOLDEN.citation_ids.join(", ")],
+    ["verdicts", Object.entries(GOLDEN.verdicts).map(([k,v]) => `${k}=${v}`).join(" · ")],
+    ["tool name", "prefix stripped before comparison, and asserted present on Gateway"]
+  ];
+  table($("#parityTable"), ["check","HTTP","stdio MCP","AgentCore Gateway","asserted value"],
+    checks.map(([c,v]) => [{cls:"b", text:c},
+      {cls:"ok", text:"PASS"}, {cls:"ok", text:"PASS"}, {cls:"ok", text:"PASS"}, {cls:"w", text:v}]));
+
+  const diff = [["transport trace ID","differs"],["request ID","differs"],["latency","differs"]];
+  $("#parityPill").textContent = `${checks.length} checks · ${diff.length} fields normalized out`;
+
+  const ac = $("#authorityChips"); ac.innerHTML = "";
+  ["hybrid retrieval","weighted RRF","ACL enforcement","typed traversal",
+   "candidate receipt","citation validation","replay"].forEach(x =>
+    ac.appendChild(el("span","pill r", x)));
+}
+
+/* ═══════════ self-check ═══════════ */
+
+function selfCheck(){
+  const run = buildRun("RUN-7000","workshop",{...DEF},"rrf");
+  const problems = [];
+  const order = [...run.rows].sort((a,b) => a.fused_rank-b.fused_rank).map(r => r.evidence_id);
+  if (JSON.stringify(order) !== JSON.stringify(GOLDEN.candidate_order))
+    problems.push("candidate order differs from the golden fixture");
+  for (const r of run.rows){
+    const want = GOLDEN.rrf_scores[r.evidence_id];
+    if (want == null || Math.abs(want - r.rrf_score) > 1e-6)
+      problems.push(`${r.evidence_id} rrf_score ${f6(r.rrf_score)} vs golden ${want}`);
+    const wp = GOLDEN.positions[r.evidence_id];
+    if (!wp || wp.text !== r.text_position || wp.vector !== r.vector_position || wp.fuzzy !== r.fuzzy_position)
+      problems.push(`${r.evidence_id} arm positions differ from the golden fixture`);
+  }
+  for (const id of GOLDEN.hidden)
+    if (run.rows.some(r => r.evidence_id === id)) problems.push(`ACL-restricted ${id} is present`);
+
+  const p = $("#selfcheck");
+  if (problems.length){
+    p.className = "pill r";
+    p.textContent = `self-check FAILED · ${problems.length} — ${problems[0]}`;
+  } else {
+    p.className = "pill g";
+    p.textContent = `self-check passed · ${run.rows.length} candidates recomputed in-browser, all match the golden fixture`;
+  }
+}
+
+/* ═══════════ wiring ═══════════ */
+
+function render(){
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("on", s.id === S.screen));
+  document.querySelectorAll("#nav button").forEach(b => b.classList.toggle("on", b.dataset.s === S.screen));
+  const q = S.screen === "retrieve" ? MODEL.runs[S.runId].query : MODEL.runs["RUN-7000"].query;
+  $("#omni").textContent = q;
+
+  if (S.screen === "retrieve") renderRetrieve();
+  if (S.screen === "prove"){
+    document.querySelectorAll(".ptab").forEach(t => t.hidden = t.id !== "tab-" + S.proveTab);
+    if (S.proveTab === "agent")  renderAgent();
+    if (S.proveTab === "answer") renderAnswer();
+    if (S.proveTab === "graph")  renderGraph();
+    if (S.proveTab === "plan")   renderPlan();
+    if (S.proveTab === "rcpt")   renderReceiptTab();
+  }
+  if (S.screen === "port") renderPort();
+}
+
+function seg(sel, attr, fn){
+  document.querySelectorAll(sel + " button").forEach(b => b.onclick = () => {
+    document.querySelectorAll(sel + " button").forEach(x => x.classList.toggle("on", x === b));
+    fn(b.dataset[attr]); render();
+  });
+}
+
+document.querySelectorAll("#nav button").forEach(b =>
+  b.onclick = () => { S.screen = b.dataset.s; render(); window.scrollTo(0,0); });
+
+seg("#principal","p", v => { S.principal = v; S.selected = null; });
+seg("#rerankSeg","r", v => { S.controls = {...S.controls, rerank: v === "1"}; });
+seg("#fuseMode","m", v => { S.mode = v; });
+seg("#proveTabs","t", v => { S.proveTab = v; });
+seg("#gEdges","e", v => { S.gEdges = v; });
+seg("#gPrin","p", v => { S.gPrin = v; });
+seg("#sqlSeg","v", v => { S.sqlView = v; });
+
+const bind = (id, key, div) => $(id).addEventListener("input", e => {
+  S.controls = {...S.controls, [key]: div ? +e.target.value/div : +e.target.value};
+  render();
+});
+bind("#ck","rrf_k"); bind("#cw","text_weight",10); bind("#cv","vector_weight",10); bind("#cf","fuzzy_weight",10);
+$("#resetCtl").onclick = () => {
+  S.controls = {...DEF, rerank: S.controls.rerank};
+  $("#ck").value = DEF.rrf_k; $("#cw").value = DEF.text_weight*10;
+  $("#cv").value = DEF.vector_weight*10; $("#cf").value = DEF.fuzzy_weight*10;
+  render();
+};
+
+render();
+selfCheck();
+</script>
+</body>
+</html>

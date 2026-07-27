@@ -1,106 +1,73 @@
-# Workshop seed — the canonical Orion corpus
+# Controlled database-incident corpus
 
-This directory generates a **byte-identical** dataset for the hybrid-retrieval
-demo and restores it into Aurora (or local Postgres). The demo answers one
-canonical question — **"Why did Orion slip?"** — and every number the five
-Verity views show (the answer, the six citations, the trail, the diagnostics
-funnel) is backed by real rows in the `ops` schema, not hardcoded in the UI.
+`seed/corpus.py` creates a deterministic, synthetic operational corpus for the
+DAT410 builders' session. It is realistic enough to exercise PostgreSQL
+retrieval and relationship traversal, but it is not customer data and must not
+be presented as an actual AWS Support case.
 
-## What gets built
+The canonical evidence thread is:
 
-| Artifact | What it is |
-| --- | --- |
-| `artifacts/source_objects.jsonl` | All **150** source objects (deterministic; 30 per system). |
-| `artifacts/manifest.json` | Corpus summary — counts, cited order, embedding model/dim, run slug. |
-| `artifacts/hybrid-retrieval-seed-v1.dump` | `pg_dump -Fc` archive of the fully populated `ops` schema. |
+- `INC-2047`: checkout writes stalled on `checkout-prod-cluster-01`.
+- `CHG-1842`: ordinary `CREATE INDEX` blocked writes.
+- `LOCK-2047-001` and `LOCK-2047-002`: controlled lock snapshots.
+- `CASE-7419`: visible customer impact and response commitment.
+- `CASE-7421`: relevant evidence restricted to `support-lead`.
+- `RB-017`: the `CREATE INDEX CONCURRENTLY` recovery guidance and caveats.
 
-The dump carries: `source_objects` (150) · `object_chunks` with **1024-d
-embeddings** · `citations` · `object_links` (the golden-thread edges) ·
-`retrieval_runs` + `retrieval_candidates` (the canonical run `rr_7f3a9c`) ·
-`agent_answers` (the exact Orion answer + plan) · `retrieval_run_metrics` (the
-diagnostics funnel + stage timings) · `evaluation_queries` +
-`relevance_judgments`.
+`casework.*` is the normalized source-of-record fixture. The search-index builder
+renders versioned `retrieval.documents` and `retrieval.chunks`, reuses cached
+embeddings by content hash, and records each build. `proof.*` stores retrieval,
+ranking, answer, citation, and evaluation receipts.
 
-## The two workflows
-
-### Regenerate (seed authors only)
-
-Rebuilds the dataset and the dump from source. Needs a reachable Postgres 18 +
-pgvector ≥ 0.8.1 via `DATABASE_URL`.
+For an offline local corpus:
 
 ```bash
-# JSONL + manifest only — no database needed, fast sanity check:
-python seed/generate.py --jsonl-only
-
-# Full rebuild — populate the DB and write the -Fc dump:
-DATABASE_URL=postgresql://localhost:55432/retrieval?sslmode=disable \
-  python seed/generate.py
+make schema
+make seed-local
 ```
 
-Embeddings are computed **offline at build time** — no Bedrock calls during
-*provisioning* (the dump ships precomputed vectors). The committed
-`hybrid-retrieval-seed-v1.dump` carries **real Cohere `embed-v4` (1024-d)**
-vectors (`--provider bedrock`, the default when regenerating for the workshop).
-For a fully offline, $0 local rebuild, pass `--provider hash` — deterministic and
-credential-free, but see the runtime note below.
+The workshop path uses a precomputed Cohere Embed 4 cache and a packaged
+PostgreSQL restore artifact. Regenerate those release artifacts only after the
+corpus and target Aurora PostgreSQL engine version are frozen.
 
-> **Runtime provider must match the dump.** The stored chunk vectors and the
-> query vector must live in the *same* embedding space. If the loaded dump has
-> Cohere vectors, the backend must run with `EMBED_PROVIDER=bedrock` so live
-> `/v1/search` embeds queries with Cohere too; a `hash`-provider query against
-> Cohere documents returns meaningless neighbors. The canonical Orion demo answer
-> is unaffected either way — it is served from the stored `ops.agent_answers` row,
-> not recomputed at query time.
+## Embedding cache
 
-### Load / restore (workshop attendees, Workshop Studio bootstrap)
+`seed/artifacts/casework-embeddings.jsonl` holds one vector per unique chunk,
+keyed by `sha256(model_id \0 chunk_text_hash)`. The builder never embeds
+implicitly: a cache miss raises unless `--embed-missing` is passed. Every
+workshop account therefore loads the same vectors instead of paying for its own
+Bedrock embedding pass, and identical vectors are what make ranking identical
+across accounts.
 
-Restores the prebuilt dump — idempotent, safe to re-run.
+`casework-embeddings.jsonl.manifest.json` records the entry count, dimensions,
+and a content digest taken over every key and vector in sorted key order. The
+digest ignores JSON formatting and line order, so it only changes when a vector
+changes. `make seed-casework` passes `--verify-cache`, which fails the build if
+the cache and manifest disagree — a truncated download would otherwise degrade
+ranking for one account with no visible error.
+
+The cache holds exactly the vectors the release corpus needs, one per unique
+chunk. `make seed-local` uses `--provider hash`, whose vectors are not real
+embeddings, so it defaults to a separate scratch cache under `data/generated/`.
+Test seeding must never write to the release artifact: passing `--embed-missing`
+at the release path without `--write-cache-manifest` is refused, because it
+would leave the shipped manifest stale.
+
+Regenerate after the corpus changes:
 
 ```bash
-DATABASE_URL=postgresql://<aurora-endpoint>/retrieval \
-  seed/load.sh
+# 1. Embed the new chunks. Billable, and only new content hashes are sent.
+backend/scripts/build_search_index.py --load-casework \
+  --capture-bundle <bundle> --require-release-capture \
+  --embed-missing --write-cache-manifest
+
+# 2. Confirm the manifest matches on a clean load.
+backend/scripts/build_search_index.py --load-casework \
+  --capture-bundle <bundle> --require-release-capture --verify-cache
 ```
 
-`load.sh` (1) ensures extensions + schema, (2) `pg_restore`s the `-Fc` artifact
-with `--clean --if-exists`, (3) **rebuilds indexes after the data load** — the
-HNSW graph (`m=16, ef_construction=64, vector_cosine_ops`) is built once over the
-full vector set, plus the GIN full-text and `pg_trgm` fuzzy indexes — and (4)
-runs `ANALYZE`.
+The two steps cannot be collapsed: verification runs before indexing, so a run
+that also embeds would only verify the file it was about to change.
 
-## Cost note
-
-Provisioning is **$0 in Bedrock spend** regardless of provider — the dump ships
-precomputed 1024-d vectors, so `pg_restore` makes no model calls. Embedding spend
-happens only **once, at build time**, when a seed author regenerates the dump:
-`--provider bedrock` makes ~150 `search_document` Cohere `embed-v4` calls (a few
-cents total); `--provider hash` makes none. Every workshop attendee then reuses
-that one prebuilt artifact — the embeddings are generated exactly once and
-restored verbatim thereafter.
-
-At query time the demo's canonical answer makes no Bedrock calls (it is served
-from `ops.agent_answers`). Ad-hoc `/v1/search` queries embed the query text with
-whatever `EMBED_PROVIDER` the backend is set to — set it to `bedrock` to match a
-Cohere dump (see the runtime note above).
-
-## Divergences from the original five HTML mockups (flagged)
-
-These are intentional and were directed during the build. The seed and UI are
-internally consistent with each other; they differ from the *original static
-mockups* as follows:
-
-- **Systems:** ServiceNow is dropped. The five connected systems are **Slack,
-  Jira, Confluence, Salesforce, GitHub**.
-- **Citation [5]:** the former ServiceNow `INC-0012345` is now a **Jira ops
-  ticket `ORION-1489`** ("replication_lag_seconds > 60 paging in prod"), surfaced
-  primarily by **full-text search** — a teaching example of the lexical ranker.
-  Two of the six citations are now Jira (the blocker `ORION-1473` + this ops
-  ticket). The answer meta stays **6 sources · 5 systems**.
-- **Corpus size:** **150 objects, symmetric 30 per system** (the mockups implied
-  "All 148"). The candidate funnel is `150 → 6`.
-- **Embedding model:** the run metadata reads **`cohere.embed-v4 · 1024d`** (per
-  the workshop's Bedrock model set), where an early mockup draft said
-  `titan-embed-v2`. The schema, indexes, and dump are all 1024-d, and the shipped
-  dump carries **real Cohere `embed-v4` vectors** (not the offline `hash`
-  fallback).
-- **Session number:** any `DAT409`-style session references are placeholders and
-  will change.
+Commit the cache and its manifest together. A manifest that does not match its
+cache fails every account's load, which is the intended outcome.

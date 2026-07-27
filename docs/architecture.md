@@ -1,119 +1,177 @@
 # Architecture
 
+## System Boundary
+
+Verity is an evidence system, not a general chatbot and not a replacement for
+an incident-management, change-management, support, or observability system.
+
 ```text
-Slack-like threads / Jira / Confluence / Salesforce / GitHub / files
-        │
-        │  Connector, webhook, export job, AppFlow/Glue, or workshop source bundle
-        ▼
-Normalization + chunking + citation extraction
-        │
-        ▼
-Aurora PostgreSQL retrieval index
-  - source_objects
-  - object_chunks
-  - object_links
-  - citations
-  - metadata JSONB
-  - ACL JSONB
-  - tsvector full-text columns
-  - pgvector embeddings
-  - pg_trgm fuzzy indexes
-  - retrieval_runs
-  - retrieval_candidates
-        │
-        ├── Search API
-        ├── Strands Agent tools
-        ├── Lambda MCP adapter (deployment asset)
-        ├── Optional MCP wrapper
-        └── React frontend
+Operational systems or normalized domain tables
+                  |
+                  | stable ID, source URI, revision, ACL
+                  v
+       casework.* authoritative records
+                  |
+                  | deterministic render + content hash
+                  v
+       retrieval.* physical search index
+ documents -> chunks -> FTS / HNSW / trigram indexes
+                  |
+                  | filtered candidates and rank positions
+                  v
+       retrieval.* canonical SQL ranking
+                  |
+          +-------+-------+
+          |               |
+          v               v
+ proof.* receipts     inspectable agent tools
+          |               |
+          +-------+-------+
+                  v
+      cited answer through HTTP or MCP
 ```
 
-Systems of record optimize the workflows they own. Aurora supplies the
-cross-system evidence layer that no individual source owns. It stores a
-rebuildable projection of normalized objects, chunks, metadata, ACL markers,
-citations, relationships, embeddings, diagnostics, and evaluation rows so
-tickets, conversations, documents, customer commitments, and code can be ranked
-on one scale and joined into cited answers.
+Inside the workshop, `casework.*` is a controlled synthetic source-of-record
+fixture. In production, the equivalent input can be approved domain tables,
+views, exports, events, or connector output. The original systems still own
+workflow, current permissions, mutable state, and actions.
 
-The source systems remain authoritative for permissions, workflow, ownership,
-and mutation. Aurora is not a wholesale replacement for Jira, Slack,
-Confluence, Salesforce, GitHub, or another system of record.
+## Three Ownership Layers
 
-Connectors and MCP tools have different jobs:
+### 1. `casework`: relational truth
 
-- Connectors, exports, webhooks, and scheduled jobs keep the Aurora evidence
-  index fresh and rebuildable from authoritative sources.
-- The retrieval API discovers, ranks, joins, cites, and evaluates evidence in
-  Aurora, then persists the run and candidate-level proof.
-- MCP tools and connectors perform live source-system lookups, revalidation, or
-  actions when the workflow needs current state or a mutation.
-- The UI inspects the same retrieval API and persisted evidence contract that
-  any agent harness can consume.
+`casework.evidence_items` supplies stable evidence identity, source provenance,
+ACL metadata, and tombstone state. Typed tables hold the domain facts:
 
-Use three explicit evidence paths rather than forcing every source through the
-same integration:
+- incidents and Aurora PostgreSQL clusters
+- changes and executed SQL
+- support cases and customer commitments
+- runbooks and version applicability
+- controlled lock evidence
 
-| Path | Architecture decision |
-|---|---|
-| **Materialize** | Project approved evidence into Aurora when it must participate in low-latency cross-source ranking, joins, citations, evaluation, and replayable retrieval. |
-| **Federate** | Call an existing search, API, or MCP service when it already owns a capable index or its content should remain outside the Aurora projection. |
-| **Revalidate live** | Read authoritative state immediately before using a volatile fact, enforcing current permissions, or performing a mutation. |
+Join tables express incident-to-change, incident-to-case, and
+incident-to-runbook relationships with foreign keys. Lock evidence references
+its incident directly. These relations are authoritative in the workshop
+model.
 
-One agent answer can combine all three paths. Persist enough provenance to
-distinguish the indexed source revision, the external response, and the live
-source state from the retrieval `run_id` that selected them.
+### 2. `retrieval`: derived search state
 
-The agentic layer is organized around **Strands Agents** for the lab because the
-local `@tool` contract is explicit and inspectable. The architecture itself is
-harness-agnostic: Strands, Claude Code, MCP clients, or another orchestrator can
-call the same retrieval boundary. Amazon Bedrock remains the model provider for
-embeddings and Claude access; it is not the agent framework.
+`casework.v_evidence_documents` deterministically renders relational rows into
+searchable documents. `backend/app/search_index.py` versions those documents,
+chunks them, resolves embeddings by model and content hash, and promotes only
+ready versions to the current search surface.
 
-Configured model roles follow a best-model-for-the-job pattern:
+This layer uses physical base tables instead of a materialized view because:
 
-- Sonnet 5 for extended orchestration and Claude Code.
-- Opus 4.8 for live non-canonical answer synthesis.
-- Sonnet 5 for Claude Code discovery questions and optional exercises.
+- embeddings are computed outside PostgreSQL and cached by content hash;
+- document and chunk versions must remain addressable by historical proof;
+- individual changes need idempotent replacement and tombstone handling;
+- HNSW, GIN, and B-tree indexes operate over a stable physical search surface.
 
-The required canonical replay invokes neither model. New questions use
-deterministic source inference and Aurora retrieval before Strands invokes Opus
-for synthesis.
+A regular materialized-view refresh would also introduce a blocking refresh
+operation. A concurrent refresh changes that locking tradeoff but does not
+solve external embedding generation, revision history, or freshness control.
 
-The local tool contract is:
+The search index is not a second source of truth. It is one-way derived,
+rebuildable, and checked through `retrieval.v_search_index_drift` and
+`retrieval.assert_search_index_ready()`.
 
-- `infer_sources`
-- `search_evidence`
-- `follow_evidence_links`
-- `synthesize_cited_answer`
+### 3. `proof`: answer evidence
 
-Those functions are Strands `@tool`s in the FastAPI app.
-`lambda_mcp/handler.py` remains a directly deployable adapter over the same
-implementations. For the one-hour managed proof, Workshop Studio provisions an
-`AWS_IAM`-authorized AgentCore Gateway and a stateless Lambda target over two
-stable FastAPI operations:
+Each request creates `proof.retrieval_runs` before retrieval. Candidate-level
+positions and scores are stored in `proof.retrieval_candidates`; stage timings
+are stored separately. Synthesis persists the answer and exact citations.
 
-- `POST /v1/search` as the `search_evidence` MCP tool
-- `POST /v1/agent/answer` as the `answer_with_citations` MCP tool
+The proof layer answers:
 
-The Gateway target does not own ranking or synthesis. It translates MCP
-`tools/call` into the private API, which keeps Aurora retrieval, Cohere rerank,
-run persistence, and cited-answer behavior in one implementation. The
-SigV4 client in `scripts/invoke_agentcore_gateway.py` proves that managed path.
+- Which query, filters, principal, model space, and ANN controls were used?
+- Which candidates entered the final result and from which retrieval arms?
+- What were the lexical, vector, fuzzy, RRF, and optional rerank signals?
+- Which source revision and chunk supports each cited claim?
+- Can the citation quote still be validated against that exact chunk version?
 
-The lab uses the Workshop Studio-provisioned Aurora PostgreSQL 18.3 cluster. The
-committed seed bundle stands in for the enterprise ingestion pipeline during the
-time-boxed builder session.
+## Retrieval Path
+
+All retrieval arms apply metadata filters and
+`retrieval.acl_visible(document.acl, principal)` before candidates enter
+fusion.
+
+1. **Exact and full text:** boundary-aware identifier matching plus separate
+   document and chunk `tsvector` streams.
+2. **Semantic:** cosine distance over 1,024-dimensional Cohere embeddings with
+   HNSW runtime controls.
+3. **Fuzzy:** `pg_trgm` similarity over external identifiers and titles.
+4. **Fusion:** weighted RRF over independent arm positions. A boundary-matched
+   exact identifier receives a separate lexical vote using the text weight. Raw
+   arm scores are retained for diagnostics and are not added to the fused score.
+5. **Rerank:** Cohere Rerank v3.5 can reorder the fused candidate pool. The
+   Aurora RRF score and model rerank score remain separate.
+
+The default RRF weights are lexical `2`, semantic `1`, fuzzy `1`, with
+`k=60`. These are workshop defaults and evaluation inputs, not universal
+constants.
+
+## Relationship Path
+
+`retrieval.evidence_edges` renders canonical foreign-key relationships as a
+uniform read surface and unions separately governed inferred edges. Canonical
+edges have confidence `1` and retain their relational rationale. Inferred edges
+retain method, confidence, and source revision.
+
+Recursive traversal enforces ACLs at the seed and at every hop. It never turns
+an inferred relation into a foreign-key fact.
+
+## Agent Boundary
+
+The agent path is an explicit sequence over the retrieval contract:
+
+1. `decompose_question`
+2. `search_evidence`
+3. `follow_evidence_links`
+4. `compare_sources`
+5. `explain_ranking`
+6. `synthesize_cited_answer`
+
+The implementation uses Strands `@tool` functions, but the boundary is
+harness-neutral. FastAPI, the Lambda adapter, and the stdio MCP server call the
+same Python implementations. None reimplements ranking.
+
+The managed AgentCore Gateway is a stateless transport boundary owned by the
+Workshop Studio environment. It does not own retrieval, model orchestration, or
+proof persistence.
+
+## Model Boundary
+
+- Cohere Embed 4 creates document and query vectors in one 1,024-dimensional
+  space.
+- Cohere Rerank v3.5 is an optional post-fusion ordering stage.
+- Claude Sonnet synthesizes only from numbered evidence and must cite each
+  factual sentence.
+
+The validated synthesis path uses Bedrock Converse with a Global CRIS profile.
+Mantle is not claimed on that path. Every model ID is configurable, and preflight
+must be rerun before the event because model lifecycle and regional support can
+change.
+
+## Evidence Placement
+
+One answer can use three paths:
+
+| Path | Use it when | Required proof |
+|---|---|---|
+| Materialize | Approved evidence must be ranked, joined, cited, evaluated, and replayed at low latency. | Stable source ID, URI, revision, content hash, ACL, and retrieval receipt |
+| Federate | A capable external index already exists or content should not be copied. | External query, result references, response revision or timestamp |
+| Revalidate live | State is volatile, authorization is current-user-specific, or an action will follow. | Authoritative lookup or action receipt |
+
+The workshop core implements the materialized path. Federation and mutation are
+production boundaries, not simulated workshop features.
 
 ## Infrastructure Boundary
 
-This repo is application source only. AWS infrastructure lives in the Workshop
-Studio repo:
+This repository contains application source only. The sibling Workshop Studio
+repository owns CloudFormation, Aurora PostgreSQL, VPC networking, IAM, Code
+Editor, AgentCore Gateway, Lambda deployment, and the packaged source archive.
 
-- `static/hybrid-retrieval-main.yml` is the root CloudFormation template.
-- `assets/hybrid-retrieval-*.yml` are nested CloudFormation templates.
-- packaged source archives are uploaded through Workshop Studio assets.
-
-Add or change infrastructure in the Workshop Studio repo so the participant
-environment stays reproducible from one source of truth. Keep this repo focused
-on the Strands-oriented app, portable retrieval API, SQL, seed data, Gateway
-client, Lambda MCP adapter source, and optional MCP wrapper.
+Local PostgreSQL validation proves PostgreSQL semantics. Final release
+validation must also run against the target Aurora PostgreSQL engine and
+Workshop Studio network path.

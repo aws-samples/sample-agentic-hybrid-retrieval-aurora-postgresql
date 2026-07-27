@@ -1,0 +1,498 @@
+{
+  "contract_version": "1.0.0",
+  "agent_run_id": "ARUN-8000",
+  "question": "During INC-2000 on checkout-prod-01, why did checkout writes appear to hang while reads continued? Determine whether CHG-1000 or CHG-1001 caused the incident, identify the customer impact visible to the current principal, explain what evidence rules out the alternative change, and cite the lock evidence and approved runbook supporting both immediate recovery and the preventive follow-up.",
+  "principal": {
+    "scopes": [
+      "workshop"
+    ],
+    "principals": []
+  },
+  "filters_initial": {
+    "cluster_id": "checkout-prod-01"
+  },
+  "controls_initial": {
+    "mode": "hybrid",
+    "candidate_pool": 24,
+    "rrf_k": 60,
+    "text_weight": 2.0,
+    "vector_weight": 1.0,
+    "fuzzy_weight": 1.0,
+    "fuzzy_threshold": 0.3,
+    "ef_search": 40,
+    "iterative_scan": "strict_order",
+    "rerank": false
+  },
+  "budget": {
+    "max_tool_calls": 12,
+    "max_escalations": 2
+  },
+  "tool_calls_spent": 9,
+  "escalations_spent": 1,
+  "status": "succeeded",
+  "steps": [
+    "decompose_question",
+    "search_evidence x5",
+    "evaluate_coverage",
+    "search_evidence (escalated x1)",
+    "follow_evidence_links",
+    "compare_sources",
+    "synthesize_cited_answer"
+  ],
+  "subquestions": [
+    {
+      "subquestion_id": "SQ-1",
+      "text": "Why did checkout writes hang while reads continued during INC-2000?",
+      "required_kinds": [
+        "incident",
+        "lock"
+      ],
+      "attempts": 1,
+      "runs": [
+        {
+          "run_id": "RUN-7100",
+          "attempt": 1,
+          "controls": {
+            "mode": "hybrid",
+            "candidate_pool": 24,
+            "rrf_k": 60,
+            "text_weight": 2.0,
+            "vector_weight": 1.0,
+            "fuzzy_weight": 1.0,
+            "fuzzy_threshold": 0.3,
+            "ef_search": 40,
+            "iterative_scan": "strict_order",
+            "rerank": false
+          },
+          "filters": {
+            "cluster_id": "checkout-prod-01"
+          },
+          "coverage": {
+            "covered": true,
+            "missing_kinds": [],
+            "covering_evidence_ids": {
+              "incident": "INC-2000",
+              "lock": "LOCK-3000"
+            },
+            "considered": 6
+          },
+          "aurora_buffers": null
+        }
+      ],
+      "final_coverage": {
+        "covered": true,
+        "missing_kinds": [],
+        "covering_evidence_ids": {
+          "incident": "INC-2000",
+          "lock": "LOCK-3000"
+        },
+        "considered": 6
+      }
+    },
+    {
+      "subquestion_id": "SQ-2",
+      "text": "Did CHG-1000 or CHG-1001 cause INC-2000?",
+      "required_kinds": [
+        "change",
+        "lock"
+      ],
+      "attempts": 1,
+      "runs": [
+        {
+          "run_id": "RUN-7101",
+          "attempt": 1,
+          "controls": {
+            "mode": "hybrid",
+            "candidate_pool": 24,
+            "rrf_k": 60,
+            "text_weight": 2.0,
+            "vector_weight": 1.0,
+            "fuzzy_weight": 1.0,
+            "fuzzy_threshold": 0.3,
+            "ef_search": 40,
+            "iterative_scan": "strict_order",
+            "rerank": false
+          },
+          "filters": {
+            "cluster_id": "checkout-prod-01"
+          },
+          "coverage": {
+            "covered": true,
+            "missing_kinds": [],
+            "covering_evidence_ids": {
+              "change": "CHG-1000",
+              "lock": "LOCK-3000"
+            },
+            "considered": 5
+          },
+          "aurora_buffers": null
+        }
+      ],
+      "final_coverage": {
+        "covered": true,
+        "missing_kinds": [],
+        "covering_evidence_ids": {
+          "change": "CHG-1000",
+          "lock": "LOCK-3000"
+        },
+        "considered": 5
+      }
+    },
+    {
+      "subquestion_id": "SQ-3",
+      "text": "Which customer impact is visible to the current principal?",
+      "required_kinds": [
+        "case"
+      ],
+      "attempts": 1,
+      "runs": [
+        {
+          "run_id": "RUN-7102",
+          "attempt": 1,
+          "controls": {
+            "mode": "hybrid",
+            "candidate_pool": 24,
+            "rrf_k": 60,
+            "text_weight": 2.0,
+            "vector_weight": 1.0,
+            "fuzzy_weight": 1.0,
+            "fuzzy_threshold": 0.3,
+            "ef_search": 40,
+            "iterative_scan": "strict_order",
+            "rerank": false
+          },
+          "filters": {
+            "cluster_id": "checkout-prod-01"
+          },
+          "coverage": {
+            "covered": true,
+            "missing_kinds": [],
+            "covering_evidence_ids": {
+              "case": "CASE-4000"
+            },
+            "considered": 4
+          },
+          "aurora_buffers": null
+        }
+      ],
+      "final_coverage": {
+        "covered": true,
+        "missing_kinds": [],
+        "covering_evidence_ids": {
+          "case": "CASE-4000"
+        },
+        "considered": 4
+      }
+    },
+    {
+      "subquestion_id": "SQ-4",
+      "text": "What evidence rules out the alternative change?",
+      "required_kinds": [
+        "change",
+        "lock"
+      ],
+      "attempts": 1,
+      "runs": [
+        {
+          "run_id": "RUN-7103",
+          "attempt": 1,
+          "controls": {
+            "mode": "hybrid",
+            "candidate_pool": 24,
+            "rrf_k": 60,
+            "text_weight": 2.0,
+            "vector_weight": 1.0,
+            "fuzzy_weight": 1.0,
+            "fuzzy_threshold": 0.3,
+            "ef_search": 40,
+            "iterative_scan": "strict_order",
+            "rerank": false
+          },
+          "filters": {
+            "cluster_id": "checkout-prod-01"
+          },
+          "coverage": {
+            "covered": true,
+            "missing_kinds": [],
+            "covering_evidence_ids": {
+              "change": "CHG-1001",
+              "lock": "LOCK-3000"
+            },
+            "considered": 4
+          },
+          "aurora_buffers": null
+        }
+      ],
+      "final_coverage": {
+        "covered": true,
+        "missing_kinds": [],
+        "covering_evidence_ids": {
+          "change": "CHG-1001",
+          "lock": "LOCK-3000"
+        },
+        "considered": 4
+      }
+    },
+    {
+      "subquestion_id": "SQ-5",
+      "text": "Which lock evidence and approved runbook support recovery and the preventive follow-up?",
+      "required_kinds": [
+        "lock",
+        "runbook"
+      ],
+      "attempts": 2,
+      "runs": [
+        {
+          "run_id": "RUN-7104",
+          "attempt": 1,
+          "controls": {
+            "mode": "hybrid",
+            "candidate_pool": 24,
+            "rrf_k": 60,
+            "text_weight": 2.0,
+            "vector_weight": 1.0,
+            "fuzzy_weight": 1.0,
+            "fuzzy_threshold": 0.3,
+            "ef_search": 40,
+            "iterative_scan": "strict_order",
+            "rerank": false
+          },
+          "filters": {
+            "cluster_id": "checkout-prod-01"
+          },
+          "coverage": {
+            "covered": false,
+            "missing_kinds": [
+              "runbook"
+            ],
+            "covering_evidence_ids": {
+              "lock": "LOCK-3000"
+            },
+            "considered": 4
+          },
+          "aurora_buffers": {
+            "shared_hit": 214,
+            "read": 0,
+            "aurora_orcache_hit": 0,
+            "aurora_storage_read": 0
+          },
+          "superseded_by": 2,
+          "superseded_by_run_id": "RUN-7106"
+        },
+        {
+          "run_id": "RUN-7106",
+          "attempt": 2,
+          "controls": {
+            "mode": "hybrid",
+            "candidate_pool": 48,
+            "rrf_k": 60,
+            "text_weight": 2.0,
+            "vector_weight": 1.0,
+            "fuzzy_weight": 1.0,
+            "fuzzy_threshold": 0.3,
+            "ef_search": 200,
+            "iterative_scan": "strict_order",
+            "rerank": false
+          },
+          "filters": {
+            "cluster_id": null
+          },
+          "coverage": {
+            "covered": true,
+            "missing_kinds": [],
+            "covering_evidence_ids": {
+              "lock": "LOCK-3000",
+              "runbook": "RB-5000"
+            },
+            "considered": 6
+          },
+          "aurora_buffers": {
+            "shared_hit": 531,
+            "read": 147,
+            "aurora_orcache_hit": 118,
+            "aurora_storage_read": 29
+          }
+        }
+      ],
+      "final_coverage": {
+        "covered": true,
+        "missing_kinds": [],
+        "covering_evidence_ids": {
+          "lock": "LOCK-3000",
+          "runbook": "RB-5000"
+        },
+        "considered": 6
+      }
+    }
+  ],
+  "escalations": [
+    {
+      "subquestion_id": "SQ-5",
+      "reason": "missing_required_kind",
+      "missing_kinds": [
+        "runbook"
+      ],
+      "changed": {
+        "before": {
+          "controls": {
+            "ef_search": 40,
+            "candidate_pool": 24
+          },
+          "filters": {
+            "cluster_id": "checkout-prod-01"
+          }
+        },
+        "after": {
+          "controls": {
+            "ef_search": 200,
+            "candidate_pool": 48
+          },
+          "filters": {
+            "cluster_id": null
+          }
+        }
+      },
+      "rationale": "A runbook is not scoped to a cluster. The cluster_id filter that makes the incident subquestions precise is what excludes RB-5000 from SQ-5. Raising ef_search alone does not recover it -- see the RUN-7105 counterfactual -- because no ANN widening returns a row the WHERE clause removed before the index was consulted.",
+      "outcome": "covered"
+    }
+  ],
+  "counterfactual": {
+    "run_id": "RUN-7105",
+    "subquestion_id": "SQ-5",
+    "controls": {
+      "mode": "hybrid",
+      "candidate_pool": 48,
+      "rrf_k": 60,
+      "text_weight": 2.0,
+      "vector_weight": 1.0,
+      "fuzzy_weight": 1.0,
+      "fuzzy_threshold": 0.3,
+      "ef_search": 200,
+      "iterative_scan": "strict_order",
+      "rerank": false
+    },
+    "filters": {
+      "cluster_id": "checkout-prod-01"
+    },
+    "coverage": {
+      "covered": false,
+      "missing_kinds": [
+        "runbook"
+      ],
+      "covering_evidence_ids": {
+        "lock": "LOCK-3000"
+      },
+      "considered": 5
+    },
+    "aurora_buffers": {
+      "shared_hit": 486,
+      "read": 112,
+      "aurora_orcache_hit": 96,
+      "aurora_storage_read": 16
+    },
+    "note": "Participant experiment, not an agent tool call. Raises ef_search 40 -> 200 and the pool 24 -> 48 but keeps the cluster filter. Still uncovered: no ANN widening returns a row the WHERE clause excluded before the index was consulted."
+  },
+  "retrievals": [
+    {
+      "run_id": "RUN-7100",
+      "subquestion_id": "SQ-1",
+      "attempt": 1
+    },
+    {
+      "run_id": "RUN-7101",
+      "subquestion_id": "SQ-2",
+      "attempt": 1
+    },
+    {
+      "run_id": "RUN-7102",
+      "subquestion_id": "SQ-3",
+      "attempt": 1
+    },
+    {
+      "run_id": "RUN-7103",
+      "subquestion_id": "SQ-4",
+      "attempt": 1
+    },
+    {
+      "run_id": "RUN-7104",
+      "subquestion_id": "SQ-5",
+      "attempt": 1
+    },
+    {
+      "run_id": "RUN-7106",
+      "subquestion_id": "SQ-5",
+      "attempt": 2
+    }
+  ],
+  "answer": "CHG-1000 ran an ordinary CREATE INDEX on orders(customer_id) against the production writer [2]. A non-concurrent index build takes a SHARE lock on the table, which conflicts with the ROW EXCLUSIVE lock every INSERT, UPDATE and DELETE needs, but not with the ACCESS SHARE lock a SELECT needs \u2014 so checkout writes queued while reads continued to serve [1]. Both lock snapshots name the same blocking backend, pid 3944, which rules out contention among writers [3]. CHG-1001 is ruled out: it is an application-tier worker pool resize that acquires no database lock and appears in neither snapshot. Acme Retail is the affected customer visible to this principal [4]. RB-5000 is the approved recovery: cancel the blocking build, then rebuild with CREATE INDEX CONCURRENTLY outside a transaction block, monitoring pg_stat_progress_create_index and dropping any INVALID index before retrying [5].",
+  "synthesis_mode": "extractive",
+  "citations": [
+    {
+      "citation_number": 1,
+      "evidence_id": "INC-2000",
+      "external_key": "INC-2000",
+      "source_uri": "workshop://incident/INC-2000",
+      "source_revision": "rev-0001",
+      "quote": "Sev-2 declared 09:24 UTC. Checkout write transactions queued on checkout-prod-01 while read traffic served normally. Approximately 34 minutes of blocked writes."
+    },
+    {
+      "citation_number": 2,
+      "evidence_id": "CHG-1000",
+      "external_key": "CHG-1000",
+      "source_uri": "workshop://change/CHG-1000",
+      "source_revision": "rev-0001",
+      "quote": "CREATE INDEX idx_orders_customer_id ON orders (customer_id); executed against checkout-prod-01 at 09:17 UTC without the CONCURRENTLY option."
+    },
+    {
+      "citation_number": 3,
+      "evidence_id": "LOCK-3000",
+      "external_key": "LOCK-3000",
+      "source_uri": "workshop://lock/LOCK-3000",
+      "source_revision": "rev-0001",
+      "quote": "pid 4182 waiting on Lock:relation, blocked by pid 3944 holding ShareLock on orders. wait_event_type=Lock, wait_event=relation."
+    },
+    {
+      "citation_number": 4,
+      "evidence_id": "CASE-4000",
+      "external_key": "CASE-4000",
+      "source_uri": "workshop://case/CASE-4000",
+      "source_revision": "rev-0001",
+      "quote": "Acme Retail reported checkout submission failures beginning 09:38 UTC. Confirmed affected; browse and search unaffected."
+    },
+    {
+      "citation_number": 5,
+      "evidence_id": "RB-5000",
+      "external_key": "RB-5000",
+      "source_uri": "workshop://runbook/RB-5000",
+      "source_revision": "rev-0001",
+      "quote": "Cancel the blocking build, then rebuild with CREATE INDEX CONCURRENTLY outside a transaction block. Monitor pg_stat_progress_create_index and drop any INVALID index before retrying."
+    }
+  ],
+  "verdicts": [
+    {
+      "evidence_id": "CHG-1000",
+      "verdict": "change_confirmed",
+      "rationale": "Held ShareLock on orders across the incident window; both lock snapshots name its backend pid 3944 as the blocker."
+    },
+    {
+      "evidence_id": "CHG-1001",
+      "verdict": "change_ruled_out",
+      "rationale": "Application-tier worker pool resize. Acquires no database lock and does not appear in either lock snapshot."
+    },
+    {
+      "evidence_id": "CHG-1002",
+      "verdict": "preventive_follow_up",
+      "rationale": "Implements the approved runbook by rebuilding the index concurrently."
+    },
+    {
+      "evidence_id": "CASE-4000",
+      "verdict": "affected",
+      "rationale": "Reported checkout submission failures inside the blocked-write window."
+    },
+    {
+      "evidence_id": "CASE-4002",
+      "verdict": "not_affected",
+      "rationale": "Served by a separate cluster; no impact recorded during the window."
+    }
+  ]
+}

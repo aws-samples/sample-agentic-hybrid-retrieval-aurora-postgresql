@@ -1,0 +1,408 @@
+{
+  "contract_version": "1.0.0",
+  "question_full": "During INC-2000 on checkout-prod-01, why did checkout writes appear to hang while reads continued? Determine whether CHG-1000 or CHG-1001 caused the incident, identify the customer impact visible to the current principal, explain what evidence rules out the alternative change, and cite the lock evidence and approved runbook supporting both immediate recovery and the preventive follow-up.",
+  "question_compact": "Why did writes hang during INC-2000, which change caused it, who was affected, and what was the safe recovery?",
+  "typo_probe": {
+    "token": "CGH-1000",
+    "resolves_to": "CHG-1000",
+    "similarity": 0.5,
+    "next_nearest": 0.2857,
+    "threshold": 0.3,
+    "note": "Letter transposition. Chosen because it clears the threshold against exactly one row. The former CHG-0100 tied at 0.5000 with CHG-1100."
+  },
+  "principal_default": {
+    "scopes": [
+      "workshop"
+    ],
+    "principals": []
+  },
+  "principal_support_lead": {
+    "scopes": [
+      "workshop"
+    ],
+    "principals": [
+      "support-lead"
+    ]
+  },
+  "cluster": "checkout-prod-01",
+  "controls_default": {
+    "mode": "hybrid",
+    "candidate_pool": 24,
+    "rrf_k": 60,
+    "text_weight": 2.0,
+    "vector_weight": 1.0,
+    "fuzzy_weight": 1.0,
+    "fuzzy_threshold": 0.3,
+    "ef_search": 40,
+    "iterative_scan": "strict_order",
+    "rerank": false
+  },
+  "evidence": [
+    {
+      "id": "CHG-1000",
+      "kind": "change",
+      "role": "confirmed cause",
+      "title": "Ordinary CREATE INDEX on orders(customer_id)",
+      "occurred_at": "2026-05-19T09:17:00Z",
+      "restricted": false,
+      "cluster_id": "checkout-prod-01",
+      "quote": "CREATE INDEX idx_orders_customer_id ON orders (customer_id); executed against checkout-prod-01 at 09:17 UTC without the CONCURRENTLY option."
+    },
+    {
+      "id": "CHG-1001",
+      "kind": "change",
+      "role": "ruled out",
+      "title": "Checkout worker pool resize",
+      "occurred_at": "2026-05-19T09:05:00Z",
+      "restricted": false,
+      "cluster_id": "checkout-prod-01",
+      "quote": "Checkout worker pool resized from 24 to 32 workers at 09:05 UTC. Change is application-tier only and acquires no database locks."
+    },
+    {
+      "id": "CHG-1002",
+      "kind": "change",
+      "role": "preventive follow-up",
+      "title": "Rebuild index with CREATE INDEX CONCURRENTLY",
+      "occurred_at": "2026-05-19T10:05:00Z",
+      "restricted": false,
+      "cluster_id": "checkout-prod-01",
+      "quote": "Rebuild scheduled using CREATE INDEX CONCURRENTLY outside a transaction block, with progress monitoring and INVALID index cleanup on failure."
+    },
+    {
+      "id": "CHG-1010",
+      "kind": "change",
+      "role": "background change",
+      "title": "Checkout read-replica endpoint rotation",
+      "occurred_at": "2026-05-18T22:40:00Z",
+      "restricted": false,
+      "cluster_id": "checkout-prod-01",
+      "quote": "Read-replica endpoint rotated to the new reader endpoint. No writer-side effect."
+    },
+    {
+      "id": "INC-2000",
+      "kind": "incident",
+      "role": "canonical incident",
+      "title": "Checkout writes blocked while reads continued",
+      "occurred_at": "2026-05-19T09:24:00Z",
+      "restricted": false,
+      "cluster_id": "checkout-prod-01",
+      "quote": "Sev-2 declared 09:24 UTC. Checkout write transactions queued on checkout-prod-01 while read traffic served normally. Approximately 34 minutes of blocked writes."
+    },
+    {
+      "id": "INC-2001",
+      "kind": "incident",
+      "role": "look-alike decoy",
+      "title": "Older checkout deploy incident",
+      "occurred_at": "2025-11-04T14:10:00Z",
+      "restricted": false,
+      "cluster_id": "checkout-prod-01",
+      "quote": "Checkout latency incident traced to a bad application deploy. Writes and reads both degraded. No database lock involvement."
+    },
+    {
+      "id": "LOCK-3000",
+      "kind": "lock",
+      "role": "first lock proof",
+      "title": "Writer 4182 blocked by index backend 3944",
+      "occurred_at": "2026-05-19T09:19:00Z",
+      "restricted": false,
+      "cluster_id": "checkout-prod-01",
+      "quote": "pid 4182 waiting on Lock:relation, blocked by pid 3944 holding ShareLock on orders. wait_event_type=Lock, wait_event=relation."
+    },
+    {
+      "id": "LOCK-3001",
+      "kind": "lock",
+      "role": "second lock proof",
+      "title": "Writer 4210 blocked by index backend 3944",
+      "occurred_at": "2026-05-19T09:22:00Z",
+      "restricted": false,
+      "cluster_id": "checkout-prod-01",
+      "quote": "pid 4210 waiting on Lock:relation, blocked by the same pid 3944. Confirms a single blocker rather than lock contention among writers."
+    },
+    {
+      "id": "CASE-4000",
+      "kind": "case",
+      "role": "visible affected",
+      "title": "Acme Retail checkout failures",
+      "occurred_at": "2026-05-19T09:38:00Z",
+      "restricted": false,
+      "cluster_id": "checkout-prod-01",
+      "quote": "Acme Retail reported checkout submission failures beginning 09:38 UTC. Confirmed affected; browse and search unaffected."
+    },
+    {
+      "id": "CASE-4001",
+      "kind": "case",
+      "role": "restricted affected",
+      "title": "Regulated account write errors",
+      "occurred_at": "2026-05-19T09:41:00Z",
+      "restricted": true,
+      "cluster_id": "checkout-prod-01",
+      "quote": "Regulated account reported write errors during the same window. Record is restricted to the support-lead principal."
+    },
+    {
+      "id": "CASE-4002",
+      "kind": "case",
+      "role": "visible unaffected",
+      "title": "Zenith Corp impact inquiry",
+      "occurred_at": "2026-05-19T10:12:00Z",
+      "restricted": false,
+      "cluster_id": "checkout-prod-01",
+      "quote": "Zenith Corp asked whether they were affected. Their traffic is served by a separate cluster; no impact recorded during the window."
+    },
+    {
+      "id": "RB-5000",
+      "kind": "runbook",
+      "role": "approved safe fix",
+      "title": "Concurrent index builds on production writers",
+      "occurred_at": "2026-04-02T00:00:00Z",
+      "restricted": false,
+      "cluster_id": null,
+      "quote": "Cancel the blocking build, then rebuild with CREATE INDEX CONCURRENTLY outside a transaction block. Monitor pg_stat_progress_create_index and drop any INVALID index before retrying."
+    },
+    {
+      "id": "RB-5001",
+      "kind": "runbook",
+      "role": "decoy",
+      "title": "Generic write-latency triage",
+      "occurred_at": "2025-08-14T00:00:00Z",
+      "restricted": false,
+      "cluster_id": null,
+      "quote": "General write-latency triage: check connection saturation, checkpoint tuning, and autovacuum backlog."
+    },
+    {
+      "id": "COMMIT-6000",
+      "kind": "commitment",
+      "role": "customer commitment",
+      "title": "RCA and safe-fix plan for Acme Retail",
+      "occurred_at": "2026-05-20T00:00:00Z",
+      "restricted": false,
+      "cluster_id": null,
+      "quote": "Committed to Acme Retail: written RCA and a preventive safe-fix plan by 2026-05-26."
+    }
+  ],
+  "subquestions": [
+    {
+      "subquestion_id": "SQ-1",
+      "text": "Why did checkout writes hang while reads continued during INC-2000?",
+      "required_kinds": [
+        "incident",
+        "lock"
+      ]
+    },
+    {
+      "subquestion_id": "SQ-2",
+      "text": "Did CHG-1000 or CHG-1001 cause INC-2000?",
+      "required_kinds": [
+        "change",
+        "lock"
+      ]
+    },
+    {
+      "subquestion_id": "SQ-3",
+      "text": "Which customer impact is visible to the current principal?",
+      "required_kinds": [
+        "case"
+      ]
+    },
+    {
+      "subquestion_id": "SQ-4",
+      "text": "What evidence rules out the alternative change?",
+      "required_kinds": [
+        "change",
+        "lock"
+      ]
+    },
+    {
+      "subquestion_id": "SQ-5",
+      "text": "Which lock evidence and approved runbook support recovery and the preventive follow-up?",
+      "required_kinds": [
+        "lock",
+        "runbook"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "source_id": "INC-2000",
+      "target_id": "CHG-1000",
+      "relationship": "caused_by",
+      "origin": "canonical",
+      "confidence": 1.0,
+      "method": null
+    },
+    {
+      "source_id": "INC-2000",
+      "target_id": "LOCK-3000",
+      "relationship": "evidenced_by",
+      "origin": "canonical",
+      "confidence": 1.0,
+      "method": null
+    },
+    {
+      "source_id": "INC-2000",
+      "target_id": "LOCK-3001",
+      "relationship": "evidenced_by",
+      "origin": "canonical",
+      "confidence": 1.0,
+      "method": null
+    },
+    {
+      "source_id": "LOCK-3000",
+      "target_id": "CHG-1000",
+      "relationship": "blocked_by",
+      "origin": "canonical",
+      "confidence": 1.0,
+      "method": null
+    },
+    {
+      "source_id": "LOCK-3001",
+      "target_id": "CHG-1000",
+      "relationship": "blocked_by",
+      "origin": "canonical",
+      "confidence": 1.0,
+      "method": null
+    },
+    {
+      "source_id": "INC-2000",
+      "target_id": "CASE-4000",
+      "relationship": "affects",
+      "origin": "canonical",
+      "confidence": 1.0,
+      "method": null
+    },
+    {
+      "source_id": "INC-2000",
+      "target_id": "CASE-4001",
+      "relationship": "affects",
+      "origin": "canonical",
+      "confidence": 1.0,
+      "method": null
+    },
+    {
+      "source_id": "INC-2000",
+      "target_id": "CASE-4002",
+      "relationship": "not_affects",
+      "origin": "canonical",
+      "confidence": 1.0,
+      "method": null
+    },
+    {
+      "source_id": "CHG-1000",
+      "target_id": "RB-5000",
+      "relationship": "remediated_by",
+      "origin": "canonical",
+      "confidence": 1.0,
+      "method": null
+    },
+    {
+      "source_id": "CHG-1002",
+      "target_id": "RB-5000",
+      "relationship": "implements",
+      "origin": "canonical",
+      "confidence": 1.0,
+      "method": null
+    },
+    {
+      "source_id": "CASE-4000",
+      "target_id": "COMMIT-6000",
+      "relationship": "commitment_for",
+      "origin": "canonical",
+      "confidence": 1.0,
+      "method": null
+    },
+    {
+      "source_id": "INC-2000",
+      "target_id": "INC-2001",
+      "relationship": "resembles",
+      "origin": "inferred",
+      "confidence": 0.62,
+      "method": "embedding_knn"
+    },
+    {
+      "source_id": "CHG-1001",
+      "target_id": "INC-2000",
+      "relationship": "considered_for",
+      "origin": "inferred",
+      "confidence": 0.41,
+      "method": "temporal_proximity"
+    }
+  ],
+  "timeline": [
+    {
+      "at": "2026-05-19T09:05:00Z",
+      "evidence_id": "CHG-1001",
+      "event": "Checkout worker pool resized (no locks taken)"
+    },
+    {
+      "at": "2026-05-19T09:17:00Z",
+      "evidence_id": "CHG-1000",
+      "event": "CREATE INDEX starts on orders, no CONCURRENTLY"
+    },
+    {
+      "at": "2026-05-19T09:19:00Z",
+      "evidence_id": "LOCK-3000",
+      "event": "Writer 4182 blocked by backend 3944"
+    },
+    {
+      "at": "2026-05-19T09:22:00Z",
+      "evidence_id": "LOCK-3001",
+      "event": "Writer 4210 blocked by the same backend"
+    },
+    {
+      "at": "2026-05-19T09:24:00Z",
+      "evidence_id": "INC-2000",
+      "event": "Sev-2 declared: writes hang, reads normal"
+    },
+    {
+      "at": "2026-05-19T09:38:00Z",
+      "evidence_id": "CASE-4000",
+      "event": "Acme Retail reports checkout failures"
+    },
+    {
+      "at": "2026-05-19T09:51:00Z",
+      "evidence_id": "CHG-1000",
+      "event": "Blocking build cancelled (~34 min of blocked writes)"
+    },
+    {
+      "at": "2026-05-19T10:05:00Z",
+      "evidence_id": "CHG-1002",
+      "event": "Rebuild scheduled with CREATE INDEX CONCURRENTLY"
+    },
+    {
+      "at": "2026-05-20T00:00:00Z",
+      "evidence_id": "COMMIT-6000",
+      "event": "RCA and safe-fix plan committed to Acme Retail"
+    }
+  ],
+  "expected_visible_default": [
+    "CASE-4000",
+    "CASE-4002",
+    "CHG-1000",
+    "CHG-1001",
+    "CHG-1002",
+    "CHG-1010",
+    "COMMIT-6000",
+    "INC-2000",
+    "INC-2001",
+    "LOCK-3000",
+    "LOCK-3001",
+    "RB-5000",
+    "RB-5001"
+  ],
+  "expected_hidden_default": [
+    "CASE-4001"
+  ],
+  "expected_citations": [
+    "INC-2000",
+    "CHG-1000",
+    "LOCK-3000",
+    "CASE-4000",
+    "RB-5000"
+  ],
+  "expected_verdicts": {
+    "CHG-1000": "change_confirmed",
+    "CHG-1001": "change_ruled_out",
+    "CHG-1002": "preventive_follow_up",
+    "CASE-4000": "affected",
+    "CASE-4002": "not_affected"
+  }
+}

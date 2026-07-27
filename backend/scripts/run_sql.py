@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from app.db import get_conn
+from app.db import close_pool, get_conn
 
 
 def main():
@@ -19,4 +19,7 @@ def main():
     print("Done")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        close_pool()
