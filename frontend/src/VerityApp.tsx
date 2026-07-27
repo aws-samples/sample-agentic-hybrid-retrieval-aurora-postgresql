@@ -18,6 +18,8 @@ import {
   LoaderCircle,
   LockKeyhole,
   Network,
+  PanelLeftClose,
+  PanelLeftOpen,
   Play,
   RefreshCw,
   Search,
@@ -33,6 +35,7 @@ import {
   FormEvent,
   ReactNode,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -45,10 +48,17 @@ import {
   type Route,
   type RouteSurface,
 } from './route';
+import { buildTimelineGrid, type TimelineEventInput } from './timeline';
 
 type ModuleName = 'home' | 'results' | 'retrieve' | 'prove' | 'tools';
 type DiagnoseTab = 'retrieval' | 'fusion' | 'plan' | 'scale';
-type ProveTab = 'answer' | 'graph' | 'receipt' | 'replay' | 'evaluation';
+type ProveTab =
+  | 'answer'
+  | 'graph'
+  | 'receipt'
+  | 'replay'
+  | 'timeline'
+  | 'evaluation';
 
 // Overview-first IA (D16 / SPEC 6.0). Primary nav mirrors the lab ladder;
 // each surface is a lens over the same run. The legacy module/proveTab/
@@ -96,6 +106,7 @@ const PRIMARY_NAV: NavSurface[] = [
     lenses: [
       { key: 'receipt', label: 'Receipt', Icon: Clipboard },
       { key: 'replay', label: 'Replay', Icon: Play },
+      { key: 'timeline', label: 'Timeline', Icon: GitMerge },
     ],
   },
 ];
@@ -1652,6 +1663,9 @@ export default function VerityApp() {
   const [homeQueryText, setHomeQueryText] = useState('');
   const [homeTyping, setHomeTyping] = useState(true);
   const [homeReceiptLoading, setHomeReceiptLoading] = useState(true);
+  const [navCollapsed, setNavCollapsed] = useState(
+    () => window.localStorage.getItem('verity-nav-collapsed') === 'true',
+  );
   const homeTypingInterrupted = useRef(false);
   const homeQueryInput = useRef<HTMLInputElement>(null);
 
@@ -1700,6 +1714,10 @@ export default function VerityApp() {
         ),
     [candidates],
   );
+
+  useEffect(() => {
+    window.localStorage.setItem('verity-nav-collapsed', String(navCollapsed));
+  }, [navCollapsed]);
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -1855,7 +1873,13 @@ export default function VerityApp() {
         break;
       case 'proof':
         setModule('prove');
-        setProveTab(lens === 'replay' ? 'replay' : 'receipt');
+        setProveTab(
+          lens === 'replay'
+            ? 'replay'
+            : lens === 'timeline'
+              ? 'timeline'
+              : 'receipt',
+        );
         break;
       case 'evaluation':
         setModule('prove');
@@ -1875,7 +1899,9 @@ export default function VerityApp() {
           ? 'agent'
           : proveTab === 'evaluation'
             ? 'evaluation'
-            : proveTab === 'receipt' || proveTab === 'replay'
+            : proveTab === 'receipt' ||
+                proveTab === 'replay' ||
+                proveTab === 'timeline'
               ? 'proof'
               : 'agent';
   const activeLens: string =
@@ -2452,20 +2478,36 @@ export default function VerityApp() {
   const scaleBuildSeconds = scaleChunks / 2800;
 
   return (
-    <div className="verity-shell">
+    <div className={`verity-shell ${navCollapsed ? 'nav-collapsed' : ''}`}>
       <aside className="side-rail">
-        <button
-          className="brand"
-          type="button"
-          onClick={() => setModule('home')}
-          aria-label="Open Verity overview"
-        >
-          <VerityMark />
-          <span className="brand-copy">
-            <strong>{APP_NAME}</strong>
-            <small>incident-evidence workbench</small>
-          </span>
-        </button>
+        <div className="side-rail-head">
+          <button
+            className="brand"
+            type="button"
+            onClick={() => setModule('home')}
+            aria-label="Open Verity overview"
+            title={navCollapsed ? 'Open Verity overview' : undefined}
+          >
+            <VerityMark />
+            <span className="brand-copy">
+              <strong>{APP_NAME}</strong>
+              <small>incident-evidence workbench</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="side-rail-toggle"
+            onClick={() => setNavCollapsed((current) => !current)}
+            aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+            title={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
+          >
+            {navCollapsed ? (
+              <PanelLeftOpen size={17} />
+            ) : (
+              <PanelLeftClose size={17} />
+            )}
+          </button>
+        </div>
 
         <nav className="side-nav journey-side-nav" aria-label="Workbench surfaces">
           {PRIMARY_NAV.map(({ surface, label, Icon, lenses }) => {
@@ -2477,6 +2519,7 @@ export default function VerityApp() {
                   className={surfaceActive ? 'active' : ''}
                   onClick={() => goTo(surface, lenses[0]?.key)}
                   aria-current={surfaceActive ? 'page' : undefined}
+                  title={navCollapsed ? label : undefined}
                 >
                   <Icon size={15} />
                   {label}
@@ -2506,6 +2549,7 @@ export default function VerityApp() {
               key={surface}
               className={activeSurface === surface ? 'active' : ''}
               onClick={() => goTo(surface)}
+              title={navCollapsed ? label : undefined}
             >
               <Icon size={15} />
               {label}
@@ -3983,7 +4027,9 @@ FROM retrieval.${planArm}_search(
                         ? 'Run receipt'
                         : proveTab === 'replay'
                           ? 'Replay proof'
-                          : 'Evaluation lab'}
+                          : proveTab === 'timeline'
+                            ? 'Evidence timeline'
+                            : 'Evaluation lab'}
                 </span>
                 <h1>
                   {proveTab === 'answer' ? (
@@ -3994,6 +4040,8 @@ FROM retrieval.${planArm}_search(
                     <>Every candidate and citation, <em>persisted.</em></>
                   ) : proveTab === 'replay' ? (
                     <>Replay the answer from its <em>database receipt.</em></>
+                  ) : proveTab === 'timeline' ? (
+                    <>Same evidence, <em>ordered by when it happened.</em></>
                   ) : (
                     <>Evidence, <em>not anecdotes.</em></>
                   )}
@@ -4007,7 +4055,9 @@ FROM retrieval.${planArm}_search(
                         ? 'Resolve the controls, candidate signals, answer, citations, and search-index state without another model call.'
                         : proveTab === 'replay'
                           ? 'Walk the persisted retrieval stages in chronological order, reconstructed with no further model call.'
-                          : 'Measure retrieval modes and graph traversal with different metrics.'}
+                          : proveTab === 'timeline'
+                            ? 'Plot the cited evidence by source system and calendar day. Retrieval ranks it; the incident happened in order.'
+                            : 'Measure retrieval modes and graph traversal with different metrics.'}
                 </p>
               </div>
               <div className="run-loader">

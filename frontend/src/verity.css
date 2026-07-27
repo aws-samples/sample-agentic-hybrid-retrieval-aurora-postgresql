@@ -315,6 +315,83 @@ button:disabled {
   overflow: visible;
 }
 
+.side-rail-head {
+  min-height: 36px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.side-rail-head .brand {
+  min-width: 0;
+  flex: 1;
+}
+
+.side-rail-toggle {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  transition:
+    color 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.side-rail-toggle:hover {
+  color: var(--ink);
+  background: #fff;
+  border-color: var(--hair);
+}
+
+@media (min-width: 901px) {
+  .verity-shell.nav-collapsed {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+  .verity-shell {
+    transition: grid-template-columns 180ms ease;
+  }
+  .nav-collapsed .side-rail { padding-inline: 12px; }
+  .nav-collapsed .side-rail-head {
+    align-items: center;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .nav-collapsed .side-rail-head .brand {
+    width: 34px;
+    flex: none;
+    padding: 0 3px;
+  }
+  .nav-collapsed .brand-copy,
+  .nav-collapsed .side-subnav,
+  .nav-collapsed .side-nav-divider,
+  .nav-collapsed .side-rail-details { display: none; }
+  .nav-collapsed .side-nav { margin-top: 24px; }
+  .nav-collapsed .side-nav > button,
+  .nav-collapsed .side-nav-group > button {
+    width: 44px;
+    min-height: 44px;
+    grid-template-columns: 1fr;
+    place-items: center;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 0;
+  }
+  .nav-collapsed .side-nav-group {
+    align-items: center;
+  }
+}
+
+@media (max-width: 900px) {
+  .side-rail-toggle { display: none; }
+}
+
 .verity-mark-frame {
   fill: #3b2b22;
   stroke: #211c16;
@@ -7777,5 +7854,36 @@ td span {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (min-width: 901px) {
+  .home-hero {
+    min-height: calc(100vh - 38px);
+    min-height: calc(100svh - 38px);
+  }
+
+  .verity-shell.nav-collapsed .side-nav > button,
+  .verity-shell.nav-collapsed .side-nav-group > button {
+    inline-size: 44px;
+    min-inline-size: 44px;
+    max-inline-size: 44px;
+    block-size: 44px;
+    min-block-size: 44px;
+    max-block-size: 44px;
+    display: grid;
+    grid-template-columns: 44px;
+    place-items: center;
+    gap: 0;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 0;
+    line-height: 0;
+  }
+
+  .verity-shell.nav-collapsed .side-nav > button svg,
+  .verity-shell.nav-collapsed .side-nav-group > button svg {
+    width: 17px;
+    height: 17px;
   }
 }
