@@ -159,6 +159,137 @@ button:disabled {
   padding: 11px 24px;
 }
 
+.live-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 7px 24px;
+  color: var(--ink-soft);
+  background: var(--green-wash);
+  border-bottom: 1px solid var(--hair);
+  font: 600 13px/1.4 var(--mono);
+  white-space: nowrap;
+}
+
+.live-banner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--green);
+}
+
+.live-banner-cluster {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.live-banner-sep {
+  color: var(--muted);
+}
+
+/* "Verify in psql" affordance (SPEC 6.2) — inline disclosure, never a modal. */
+.verify-affordance {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.verify-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  color: var(--ink-soft);
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  font: 600 13px/1.4 var(--mono);
+  cursor: pointer;
+}
+
+.verify-trigger:hover,
+.verify-trigger.open {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+
+.verify-caret {
+  transition: transform 0.12s ease;
+}
+
+.verify-caret.open {
+  transform: rotate(90deg);
+}
+
+.verify-disclosure {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.verify-disclosure-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.verify-disclosure-title {
+  color: var(--muted);
+  font: 600 13px/1.4 var(--mono);
+}
+
+.verify-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  font: 600 13px/1.4 var(--mono);
+  cursor: pointer;
+}
+
+.verify-copy:hover {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+
+.verify-sql {
+  margin: 0;
+  padding: 11px;
+  overflow: auto;
+  color: var(--ink);
+  font: 500 13px/1.6 var(--mono);
+  white-space: pre-wrap;
+}
+
+.verify-unavailable {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font: 600 13px/1.4 var(--mono);
+}
+
+.replay-theater-head-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
 .brand {
   display: inline-flex;
   align-items: center;

@@ -74,6 +74,9 @@ interface Health {
   source_documents: number;
   current_documents: number;
   last_indexed_at: string | null;
+  cluster_id: string;
+  engine_version: string;
+  pgvector_version: string | null;
   embedding_spaces: Array<{
     embedding_model: string;
     dimensions: number;
@@ -805,6 +808,110 @@ function VerityMark({ className = '' }: { className?: string }) {
       <circle className="verity-mark-answer" cx="16" cy="23" r="5" />
       <path className="verity-mark-check" d="m13.7 22.9 1.65 1.65 3.1-3.45" />
     </svg>
+  );
+}
+
+function engineRelease(version: string | undefined): string {
+  if (!version) return 'checking';
+  const match = version.match(/PostgreSQL\s+([\d.]+)/i);
+  return match ? `PostgreSQL ${match[1]}` : version;
+}
+
+function LiveBanner({ health }: { health: Health | null }) {
+  const projection = health?.status === 'ready' ? 'READY' : health?.status || 'checking';
+  return (
+    <div className="live-banner" role="status" aria-label="Live cluster status">
+      <span className="live-banner-dot" aria-hidden="true" />
+      <span className="live-banner-cluster">{health?.cluster_id || '—'}</span>
+      <span className="live-banner-sep">·</span>
+      <span>projection {projection}</span>
+      <span className="live-banner-sep">·</span>
+      <span>{health?.current_documents?.toLocaleString() || '—'} docs</span>
+      <span className="live-banner-sep">·</span>
+      <span>engine {engineRelease(health?.engine_version)}</span>
+      <span className="live-banner-sep">·</span>
+      <span>pgvector {health?.pgvector_version || '—'}</span>
+    </div>
+  );
+}
+
+// Inline the named binds as SQL literals so the statement is copy-paste runnable
+// in psql. The registry binds only text/uuid keys (run_id, edge_key, evidence_id),
+// so a quote-escaped string literal is the correct and complete rendering.
+function toPsql(descriptor: VerifySql): string {
+  return Object.entries(descriptor.binds).reduce((statement, [name, value]) => {
+    const literal =
+      value === null || value === undefined
+        ? 'NULL'
+        : `'${String(value).replace(/'/g, "''")}'`;
+    const token = `%(${name})s`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return statement.replace(new RegExp(token, 'g'), literal);
+  }, descriptor.statement);
+}
+
+// The "verify in psql" affordance (SPEC 6.2). An inline disclosure — never a
+// modal — that reveals the exact statement the endpoint ran, bound to the
+// visible run, with a copy button. Panels that cannot be reproduced from a
+// run_id render their honest {reproducible:false, reason} label instead.
+function VerifyAffordance({
+  descriptor,
+  label = 'verify in psql',
+}: {
+  descriptor?: VerifySql | VerifySqlUnavailable;
+  label?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  if (!descriptor) return null;
+
+  if ('reproducible' in descriptor) {
+    return (
+      <span className="verify-affordance verify-unavailable" role="note">
+        <AlertTriangle size={12} aria-hidden="true" />
+        not run-reproducible · {descriptor.reason}
+      </span>
+    );
+  }
+
+  const sql = toPsql(descriptor);
+  return (
+    <span className="verify-affordance">
+      <button
+        type="button"
+        className={`verify-trigger ${open ? 'open' : ''}`}
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Code2 size={12} aria-hidden="true" />
+        {label}
+        <ChevronRight
+          size={12}
+          className={`verify-caret ${open ? 'open' : ''}`}
+          aria-hidden="true"
+        />
+      </button>
+      {open ? (
+        <span className="verify-disclosure">
+          <span className="verify-disclosure-head">
+            <span className="verify-disclosure-title">exact statement · run-bound</span>
+            <button
+              type="button"
+              className="verify-copy"
+              onClick={async () => {
+                await navigator.clipboard.writeText(sql);
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1200);
+              }}
+            >
+              {copied ? <Check size={12} /> : <Clipboard size={12} />}
+              {copied ? 'copied' : 'copy'}
+            </button>
+          </span>
+          <pre className="verify-sql">{sql}</pre>
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -2188,7 +2295,7 @@ export default function VerityApp() {
           <section className="side-rail-card">
             <span className="section-label">Incident scope</span>
             <strong>INC-2047 · CHG-1842</strong>
-            <code>checkout-prod-cluster-01</code>
+            <code>{health?.cluster_id || '—'}</code>
           </section>
           <section className="side-rail-card">
             <span className="section-label">Active receipt</span>
@@ -2202,6 +2309,7 @@ export default function VerityApp() {
       </aside>
 
       <div className="app-column">
+        <LiveBanner health={health} />
         {module !== 'home' ? (
         <header className="chrome">
           <div className="chrome-inner">
@@ -3342,6 +3450,9 @@ LIMIT ${controls.limit};`}</code>
                 <aside className="microscope-inspector">
                   <span className="section-label">Why this plan?</span>
                   <p>{queryPlan?.note || 'Run EXPLAIN to inspect this arm.'}</p>
+                  {queryPlan?._verify_sql ? (
+                    <VerifyAffordance descriptor={queryPlan._verify_sql} />
+                  ) : null}
                   <div className="microscope-facts">
                     <div>
                       <span>Arm</span>
@@ -3859,6 +3970,12 @@ FROM retrieval.${planArm}_search(
                             RB-017 cited
                           </span>
                         </div>
+                        {receipt?._verify_sql?.answer ? (
+                          <VerifyAffordance
+                            descriptor={receipt._verify_sql.answer}
+                            label="verify answer in psql"
+                          />
+                        ) : null}
                       </div>
                     ) : null}
 
@@ -4336,6 +4453,10 @@ FROM retrieval.${planArm}_search(
                               <small>
                                 {edge.origin} · {score(edge.confidence, 2)}
                               </small>
+                              <VerifyAffordance
+                                descriptor={edge._verify_sql}
+                                label="verify edge in psql"
+                              />
                             </div>
                           ))}
                           {!selectedGraphEdges.length ? (
@@ -4410,7 +4531,12 @@ FROM retrieval.${planArm}_search(
                       icon={<GitMerge size={18} />}
                       title="No persisted stages"
                     />
-                  ) : null}
+                  ) : (
+                    <VerifyAffordance
+                      descriptor={receipt?._verify_sql?.stages}
+                      label="verify stages in psql"
+                    />
+                  )}
                 </section>
 
                 <section className="replay-theater">
@@ -4421,13 +4547,21 @@ FROM retrieval.${planArm}_search(
                       </span>
                       <h2>{receipt?.run.query_text || controls.query}</h2>
                     </div>
-                    <span
-                      className={`status-pill ${
-                        receipt?.run.status === 'complete' ? 'ready' : ''
-                      }`}
-                    >
-                      {receipt?.run.status || 'not loaded'}
-                    </span>
+                    <div className="replay-theater-head-meta">
+                      <span
+                        className={`status-pill ${
+                          receipt?.run.status === 'complete' ? 'ready' : ''
+                        }`}
+                      >
+                        {receipt?.run.status || 'not loaded'}
+                      </span>
+                      {receipt ? (
+                        <VerifyAffordance
+                          descriptor={receipt._verify_sql?.run}
+                          label="verify run in psql"
+                        />
+                      ) : null}
+                    </div>
                   </header>
                   {receipt ? (
                     <div className="replay-timeline">
@@ -4570,6 +4704,10 @@ FROM retrieval.${planArm}_search(
                           <code>/timeline</code>
                           <code>/graph</code>
                         </div>
+                        <VerifyAffordance
+                          descriptor={receipt._verify_sql?.candidates}
+                          label="verify candidates in psql"
+                        />
                       </>
                     ) : null}
                   </section>
@@ -4793,6 +4931,7 @@ FROM retrieval.${planArm}_search(
                         </table>
                       </div>
                       <p>{evaluation.metric_note}</p>
+                      <VerifyAffordance descriptor={evaluation._verify_sql} />
                     </section>
 
                     <section className="benchmark-traversal">

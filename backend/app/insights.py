@@ -54,6 +54,26 @@ def _readiness_payload(
     }
 
 
+def _cluster_identity(cursor: Any) -> dict[str, Any]:
+    """Fetch live engine identity for the SPEC 6.1 banner.
+
+    The engine version and pgvector version are read from Aurora on every call
+    (Law 2: fetched, never hardcoded). The cluster id is a deployment display
+    identity sourced from configuration, not a value SQL can report.
+    """
+    cursor.execute("SELECT version() AS engine_version")
+    engine_version = cursor.fetchone()["engine_version"]
+    cursor.execute(
+        "SELECT extversion FROM pg_extension WHERE extname = 'vector'"
+    )
+    vector_row = cursor.fetchone()
+    return {
+        "cluster_id": get_settings().verity_cluster_id,
+        "engine_version": engine_version,
+        "pgvector_version": vector_row["extversion"] if vector_row else None,
+    }
+
+
 def search_index_health() -> dict[str, Any]:
     with get_dict_conn() as connection:
         with connection.cursor() as cursor:
@@ -61,7 +81,8 @@ def search_index_health() -> dict[str, Any]:
             health = cursor.fetchone()
             cursor.execute("SELECT * FROM retrieval.v_embedding_spaces")
             embedding_spaces = cursor.fetchall()
-    return _readiness_payload(health, embedding_spaces)
+            identity = _cluster_identity(cursor)
+    return {**_readiness_payload(health, embedding_spaces), **identity}
 
 
 def fusion_sql() -> dict[str, Any]:

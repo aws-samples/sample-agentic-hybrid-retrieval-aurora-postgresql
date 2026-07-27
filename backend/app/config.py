@@ -139,6 +139,15 @@ class Settings(BaseModel):
     app_display_name: str = Field(
         default_factory=lambda: os.environ.get("APP_DISPLAY_NAME", "Verity")
     )
+    # Display identity for the live banner (SPEC 6.1, Law 1). The workshop conceit
+    # is that the retrieval engine runs on the same Aurora cluster the incident is
+    # about, so this doubles as the incident's cluster label. Env-sourced, never a
+    # value the frontend hardcodes.
+    verity_cluster_id: str = Field(
+        default_factory=lambda: os.environ.get(
+            "VERITY_CLUSTER_ID", "checkout-prod-cluster-01"
+        )
+    )
 
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]

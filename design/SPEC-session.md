@@ -467,9 +467,12 @@ Rules:
 
 ### 6.1 Live banner
 
-Header strip on every page, from `GET /v1/health`:
+Header strip on every page, from `GET /ready` (the readiness probe already queries
+Aurora for the projection status and document counts the banner shows; `/health` stays
+a dependency-free liveness probe):
 `cluster {VERITY_CLUSTER_ID} · projection READY · 12,011 docs · engine {version()} ·
-pgvector {extversion}` — all fetched, none hardcoded (Law 2).
+pgvector {extversion}` — `version()` and `extversion` are read from Aurora per call and
+`cluster_id` is env-sourced display identity; none hardcoded in the frontend (Law 2).
 
 ### 6.2 "Verify in psql" (the authentication moment)
 
