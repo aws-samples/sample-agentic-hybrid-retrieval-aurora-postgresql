@@ -4841,13 +4841,10 @@ FROM retrieval.${planArm}_search(
                   <div>
                     <span className="section-label">Evaluation readiness</span>
                     <strong>
-                      {health?.current_documents.toLocaleString() || '—'}{' '}
-                      current documents
-                    </strong>
-                    <span>
                       {health?.ready_embeddings.toLocaleString() || '—'} ready
-                      embeddings · {health?.drift_issues ?? '—'} drift
-                    </span>
+                      embeddings
+                    </strong>
+                    <span>{health?.drift_issues ?? '—'} search-index drift</span>
                   </div>
                   <div>
                     <span className="section-label">Judged set</span>
