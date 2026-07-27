@@ -2635,12 +2635,13 @@ export default function VerityApp() {
                 </span>
                 <h1>
                   <span>{APP_NAME}</span>
-                  {' '}follows the <em className="home-why">why.</em>
+                  {' '}traces retrieval
+                  <em className="home-proof">to cited proof.</em>
                 </h1>
                 <p>
-                  Trace an application incident on Aurora PostgreSQL across
-                  lock evidence, change history, customer impact, and approved
-                  remediation. Every conclusion resolves to replayable proof.
+                  Inspect exact and full-text, semantic, and fuzzy candidates;
+                  weighted RRF; authoritative relationship traversal; and the
+                  persisted receipt behind every citation.
                 </p>
                 <div className="home-live-stats" aria-label="Live system status">
                   <div>

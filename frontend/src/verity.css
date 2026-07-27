@@ -5804,31 +5804,10 @@ td span {
 }
 
 .home-copy h1 em {
-  position: relative;
-  display: inline-block;
+  display: block;
   color: var(--red);
+  font-style: normal;
   font-weight: 500;
-}
-
-.home-why::after {
-  position: absolute;
-  right: -0.03em;
-  bottom: -0.08em;
-  left: -0.03em;
-  height: 4px;
-  content: "";
-  background: var(--red);
-  border-radius: 50%;
-  transform: scaleX(0) rotate(-2deg);
-  transform-origin: left center;
-  animation: home-underline-draw 1.15s 0.72s cubic-bezier(0.2, 0.75, 0.25, 1)
-    forwards;
-}
-
-@keyframes home-underline-draw {
-  to {
-    transform: scaleX(1) rotate(-2deg);
-  }
 }
 
 .home-copy > p {
