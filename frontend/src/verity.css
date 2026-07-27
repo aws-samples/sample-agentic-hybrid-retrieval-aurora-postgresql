@@ -6489,56 +6489,56 @@ td span {
 }
 
 @media (min-width: 901px) {
-  .home-shell {
+  .verity-shell {
     grid-template-columns: 284px minmax(0, 1fr);
   }
 
-  .home-shell .side-rail {
+  .side-rail {
     padding: 26px 22px;
   }
 
-  .home-shell .verity-mark {
+  .verity-mark {
     width: 31px;
     height: 31px;
   }
 
-  .home-shell .brand-copy strong {
+  .brand-copy strong {
     font-size: 14px;
   }
 
-  .home-shell .brand-copy small {
+  .brand-copy small {
     font-size: 14px;
   }
 
-  .home-shell .side-nav > button,
-  .home-shell .side-nav-group > button {
+  .side-nav > button,
+  .side-nav-group > button {
     min-height: 46px;
     font-size: 15px;
   }
 
-  .home-shell .side-nav > button svg,
-  .home-shell .side-nav-group > button svg {
+  .side-nav > button svg,
+  .side-nav-group > button svg {
     width: 17px;
     height: 17px;
   }
 
-  .home-shell .side-nav-divider {
+  .side-nav-divider {
     font-size: 10px;
   }
 
-  .home-shell .side-rail-card {
+  .side-rail-card {
     padding: 16px;
   }
 
-  .home-shell .side-rail-card strong {
+  .side-rail-card strong {
     font-size: 14px;
   }
 
-  .home-shell .side-rail-card code {
+  .side-rail-card code {
     font-size: 12px;
   }
 
-  .home-shell .live-banner {
+  .live-banner {
     min-height: 38px;
     padding-block: 8px;
     font-size: 14px;

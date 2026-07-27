@@ -2320,7 +2320,7 @@ export default function VerityApp() {
   const scaleBuildSeconds = scaleChunks / 2800;
 
   return (
-    <div className={`verity-shell ${module === 'home' ? 'home-shell' : ''}`}>
+    <div className="verity-shell">
       <aside className="side-rail">
         <button
           className="brand"
