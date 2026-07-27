@@ -6716,6 +6716,59 @@ td span {
   }
 }
 
+@media (min-width: 1600px) {
+  .brand-copy strong,
+  .brand-copy small {
+    font-size: 15px;
+  }
+
+  .side-nav > button,
+  .side-nav-group > button {
+    font-size: 16px;
+  }
+
+  .live-banner {
+    font-size: 15px;
+  }
+
+  .home-eyebrow {
+    font-size: 14px;
+  }
+
+  .home-copy > p {
+    font-size: 20px;
+    line-height: 1.62;
+  }
+
+  .home-live-stats span,
+  .home-evidence-state {
+    font-size: 12px;
+  }
+
+  .home-live-stats strong,
+  .home-query button {
+    font-size: 15px;
+  }
+
+  .home-answer-title {
+    font-size: 20px;
+  }
+
+  .home-answer-model,
+  .home-answer-metrics b {
+    font-size: 11px;
+  }
+
+  .home-answer-metrics small,
+  .home-answer-node > i {
+    font-size: 8px;
+  }
+
+  .home-query input {
+    font-size: 18.5px;
+  }
+}
+
 @media (max-width: 1180px) {
   .home-hero {
     grid-template-columns: minmax(290px, 0.82fr) minmax(420px, 1.18fr);
