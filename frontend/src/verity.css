@@ -369,7 +369,14 @@ button:disabled {
   margin-top: 30px;
 }
 
-.side-nav > button {
+.side-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.side-nav > button,
+.side-nav-group > button {
   min-height: 43px;
   display: grid;
   grid-template-columns: 26px minmax(0, 1fr);
@@ -384,22 +391,26 @@ button:disabled {
   text-align: left;
 }
 
-.side-nav > button span {
+.side-nav > button span,
+.side-nav-group > button span {
   color: var(--muted);
   font: 700 13px/1 var(--mono);
 }
 
-.side-nav > button:hover {
+.side-nav > button:hover,
+.side-nav-group > button:hover {
   color: var(--ink);
   background: rgba(255, 255, 255, 0.7);
 }
 
-.side-nav > button.active {
+.side-nav > button.active,
+.side-nav-group > button.active {
   color: #fff;
   background: var(--ink);
 }
 
-.side-nav > button.active span {
+.side-nav > button.active span,
+.side-nav-group > button.active span {
   color: #f2b8a9;
 }
 
@@ -6681,13 +6692,28 @@ td span {
     margin-top: 0;
   }
 
-  .side-nav > button {
+  .side-nav-group {
+    min-width: 0;
+    flex: 1 1 calc(25% - 5px);
+  }
+
+  .side-nav > button,
+  .side-nav-group > button {
     min-width: 0;
     flex: 1 1 calc(25% - 5px);
     grid-template-columns: auto minmax(0, 1fr);
     justify-content: center;
     padding-inline: 9px;
     text-align: center;
+  }
+
+  .side-nav-group > button {
+    width: 100%;
+  }
+
+  .side-nav-group .side-subnav {
+    flex-basis: 100%;
+    margin-left: 0;
   }
 
   .side-nav-divider {
@@ -6958,7 +6984,12 @@ td span {
     display: none;
   }
 
-  .side-nav > button {
+  .side-nav-group {
+    flex: 1 1 calc(50% - 5px);
+  }
+
+  .side-nav > button,
+  .side-nav-group > button {
     min-height: 46px;
     flex: 1 1 calc(50% - 5px);
     grid-template-columns: 1fr;
@@ -6966,6 +6997,10 @@ td span {
     padding: 6px 4px;
     font-size: 13px;
     overflow-wrap: anywhere;
+  }
+
+  .side-nav-group > button {
+    width: 100%;
   }
 
   .chrome-inner {

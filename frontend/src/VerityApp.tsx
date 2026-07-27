@@ -40,7 +40,61 @@ import {
 
 type ModuleName = 'home' | 'results' | 'retrieve' | 'prove' | 'tools';
 type DiagnoseTab = 'retrieval' | 'fusion' | 'plan' | 'scale';
-type ProveTab = 'answer' | 'graph' | 'receipt' | 'evaluation';
+type ProveTab = 'answer' | 'graph' | 'receipt' | 'replay' | 'evaluation';
+
+// Overview-first IA (D16 / SPEC 6.0). Primary nav mirrors the lab ladder;
+// each surface is a lens over the same run. The legacy module/proveTab/
+// diagnoseTab state is derived from a (surface, subtab) selection so the
+// existing panel render tree stays unchanged.
+type Surface = 'overview' | 'retrieval' | 'agent' | 'proof' | 'evaluation';
+
+type NavLens = { key: string; label: string; Icon: typeof House };
+type NavSurface = {
+  surface: Surface;
+  label: string;
+  Icon: typeof House;
+  lenses: NavLens[];
+};
+
+// Nav labels are Law-1 nouns (SPEC 6.0). Lens keys map to legacy state in
+// goTo(); order is the lab ladder. Corpus/Health utility surfaces land in a
+// later pass; Evaluation is the one utility surface wired today.
+const PRIMARY_NAV: NavSurface[] = [
+  { surface: 'overview', label: 'Overview', Icon: House, lenses: [] },
+  {
+    surface: 'retrieval',
+    label: 'Retrieval',
+    Icon: FileSearch,
+    lenses: [
+      { key: 'results', label: 'Results', Icon: CircleDot },
+      { key: 'fusion', label: 'Fusion', Icon: SlidersHorizontal },
+      { key: 'plan', label: 'Plan', Icon: Code2 },
+    ],
+  },
+  {
+    surface: 'agent',
+    label: 'Agent',
+    Icon: Sparkles,
+    lenses: [
+      { key: 'answer', label: 'Answer', Icon: FileCheck2 },
+      { key: 'graph', label: 'Graph', Icon: Network },
+      { key: 'tools', label: 'Tools', Icon: Wrench },
+    ],
+  },
+  {
+    surface: 'proof',
+    label: 'Proof',
+    Icon: ShieldCheck,
+    lenses: [
+      { key: 'receipt', label: 'Receipt', Icon: Clipboard },
+      { key: 'replay', label: 'Replay', Icon: Play },
+    ],
+  },
+];
+
+const UTILITY_NAV: NavSurface[] = [
+  { surface: 'evaluation', label: 'Evaluation', Icon: Gauge, lenses: [] },
+];
 type RetrievalMode = 'hybrid' | 'semantic' | 'lexical' | 'fuzzy';
 type EvidenceKind =
   | 'incident'
@@ -1521,7 +1575,7 @@ function EvidenceGraph({
 export default function VerityApp() {
   const [module, setModule] = useState<ModuleName>('home');
   const [diagnoseTab, setDiagnoseTab] =
-    useState<DiagnoseTab>('retrieval');
+    useState<DiagnoseTab>('fusion');
   const [proveTab, setProveTab] = useState<ProveTab>('answer');
   const [controls, setControls] = useState<Controls>(DEFAULT_CONTROLS);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -1713,6 +1767,69 @@ export default function VerityApp() {
   function setControl<K extends keyof Controls>(key: K, value: Controls[K]) {
     setControls((current) => ({ ...current, [key]: value }));
   }
+
+  // Single navigation writer (SPEC 6.0). Every nav item, entry card, and
+  // inline hand-off routes through here so the (surface, lens) selection stays
+  // the source of truth; PR-5's URL router will drive the same helper.
+  function goTo(surface: Surface, lens?: string) {
+    switch (surface) {
+      case 'overview':
+        setModule('home');
+        break;
+      case 'retrieval':
+        if (lens === 'fusion' || lens === 'plan') {
+          setModule('retrieve');
+          setDiagnoseTab(lens);
+          if (lens === 'plan' && !queryPlan) void loadQueryPlan();
+        } else {
+          setModule('results');
+        }
+        break;
+      case 'agent':
+        if (lens === 'tools') {
+          setModule('tools');
+        } else {
+          setModule('prove');
+          setProveTab(lens === 'graph' ? 'graph' : 'answer');
+        }
+        break;
+      case 'proof':
+        setModule('prove');
+        setProveTab(lens === 'replay' ? 'replay' : 'receipt');
+        break;
+      case 'evaluation':
+        setModule('prove');
+        setProveTab('evaluation');
+        break;
+    }
+  }
+
+  // Which primary surface + lens is live, derived from legacy state so the nav
+  // highlight and the render tree never disagree.
+  const activeSurface: Surface =
+    module === 'home'
+      ? 'overview'
+      : module === 'results' || module === 'retrieve'
+        ? 'retrieval'
+        : module === 'tools'
+          ? 'agent'
+          : proveTab === 'evaluation'
+            ? 'evaluation'
+            : proveTab === 'receipt' || proveTab === 'replay'
+              ? 'proof'
+              : 'agent';
+  const activeLens: string =
+    activeSurface === 'retrieval'
+      ? module === 'results'
+        ? 'results'
+        : diagnoseTab
+      : activeSurface === 'agent'
+        ? module === 'tools'
+          ? 'tools'
+          : proveTab
+        : activeSurface === 'proof'
+          ? proveTab
+          : '';
 
   function interruptHomeTypewriter() {
     if (!homeTyping) return;
@@ -2208,87 +2325,50 @@ export default function VerityApp() {
           </span>
         </button>
 
-        <nav className="side-nav journey-side-nav" aria-label="Investigation journey">
-          <button
-            type="button"
-            className={module === 'home' ? 'active' : ''}
-            onClick={() => setModule('home')}
-          >
-            <House size={15} />
-            Overview
-          </button>
-          <button
-            type="button"
-            className={module === 'results' ? 'active' : ''}
-            onClick={() => setModule('results')}
-          >
-            <span>01</span>
-            Gather evidence
-          </button>
-          <button
-            type="button"
-            className={module === 'prove' && proveTab === 'answer' ? 'active' : ''}
-            onClick={() => {
-              setModule('prove');
-              setProveTab('answer');
-            }}
-          >
-            <span>02</span>
-            Build cited answer
-          </button>
-          <button
-            type="button"
-            className={module === 'prove' && proveTab === 'graph' ? 'active' : ''}
-            onClick={() => {
-              setModule('prove');
-              setProveTab('graph');
-            }}
-          >
-            <span>03</span>
-            Follow relationships
-          </button>
-          <button
-            type="button"
-            className={module === 'retrieve' ? 'active' : ''}
-            onClick={() => {
-              setModule('retrieve');
-              setDiagnoseTab('fusion');
-            }}
-          >
-            <span>04</span>
-            Explain ranking
-          </button>
-          <button
-            type="button"
-            className={module === 'prove' && proveTab === 'receipt' ? 'active' : ''}
-            onClick={() => {
-              setModule('prove');
-              setProveTab('receipt');
-            }}
-          >
-            <span>05</span>
-            Replay proof
-          </button>
-          <div className="side-nav-divider">Workshop labs</div>
-          <button
-            type="button"
-            className={module === 'prove' && proveTab === 'evaluation' ? 'active' : ''}
-            onClick={() => {
-              setModule('prove');
-              setProveTab('evaluation');
-            }}
-          >
-            <span>06</span>
-            Evaluate retrieval
-          </button>
-          <button
-            type="button"
-            className={module === 'tools' ? 'active' : ''}
-            onClick={() => setModule('tools')}
-          >
-            <span>07</span>
-            Invoke tool contract
-          </button>
+        <nav className="side-nav journey-side-nav" aria-label="Workbench surfaces">
+          {PRIMARY_NAV.map(({ surface, label, Icon, lenses }) => {
+            const surfaceActive = activeSurface === surface;
+            return (
+              <div className="side-nav-group" key={surface}>
+                <button
+                  type="button"
+                  className={surfaceActive ? 'active' : ''}
+                  onClick={() => goTo(surface, lenses[0]?.key)}
+                  aria-current={surfaceActive ? 'page' : undefined}
+                >
+                  <Icon size={15} />
+                  {label}
+                </button>
+                {surfaceActive && lenses.length ? (
+                  <div className="side-subnav" aria-label={`${label} views`}>
+                    {lenses.map((lens) => (
+                      <button
+                        type="button"
+                        key={lens.key}
+                        className={activeLens === lens.key ? 'active' : ''}
+                        onClick={() => goTo(surface, lens.key)}
+                      >
+                        <lens.Icon size={13} />
+                        {lens.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+          <div className="side-nav-divider">Utility</div>
+          {UTILITY_NAV.map(({ surface, label, Icon }) => (
+            <button
+              type="button"
+              key={surface}
+              className={activeSurface === surface ? 'active' : ''}
+              onClick={() => goTo(surface)}
+            >
+              <Icon size={15} />
+              {label}
+            </button>
+          ))}
         </nav>
 
         <div className="side-rail-details">
@@ -2493,8 +2573,7 @@ export default function VerityApp() {
                           if (citation.evidence_id) {
                             setSelectedEvidenceId(citation.evidence_id);
                           }
-                          setModule('prove');
-                          setProveTab('answer');
+                          goTo('agent', 'answer');
                         }}
                       >
                         <span className="home-node-header">
@@ -2604,10 +2683,7 @@ export default function VerityApp() {
               <div className="home-workspace-grid">
                 <button
                   type="button"
-                  onClick={() => {
-                    setModule('prove');
-                    setProveTab('answer');
-                  }}
+                  onClick={() => goTo('agent', 'answer')}
                 >
                   <FileCheck2 size={20} />
                   <span>
@@ -2618,10 +2694,7 @@ export default function VerityApp() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setModule('prove');
-                    setProveTab('graph');
-                  }}
+                  onClick={() => goTo('agent', 'graph')}
                 >
                   <Network size={20} />
                   <span>
@@ -2632,11 +2705,7 @@ export default function VerityApp() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setModule('retrieve');
-                    setDiagnoseTab('plan');
-                    if (!queryPlan) void loadQueryPlan();
-                  }}
+                  onClick={() => goTo('retrieval', 'plan')}
                 >
                   <Code2 size={20} />
                   <span>
@@ -2647,10 +2716,7 @@ export default function VerityApp() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setModule('prove');
-                    setProveTab('receipt');
-                  }}
+                  onClick={() => goTo('proof', 'replay')}
                 >
                   <Play size={20} />
                   <span>
@@ -2661,10 +2727,7 @@ export default function VerityApp() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setModule('prove');
-                    setProveTab('evaluation');
-                  }}
+                  onClick={() => goTo('evaluation')}
                 >
                   <Gauge size={20} />
                   <span>
@@ -3756,8 +3819,10 @@ FROM retrieval.${planArm}_search(
                     : proveTab === 'graph'
                       ? 'Evidence graph & verdicts'
                       : proveTab === 'receipt'
-                        ? 'Replay proof'
-                        : 'Evaluation lab'}
+                        ? 'Run receipt'
+                        : proveTab === 'replay'
+                          ? 'Replay proof'
+                          : 'Evaluation lab'}
                 </span>
                 <h1>
                   {proveTab === 'answer' ? (
@@ -3765,6 +3830,8 @@ FROM retrieval.${planArm}_search(
                   ) : proveTab === 'graph' ? (
                     <>Retrieval finds it. <em>Edges decide it.</em></>
                   ) : proveTab === 'receipt' ? (
+                    <>Every candidate and citation, <em>persisted.</em></>
+                  ) : proveTab === 'replay' ? (
                     <>Replay the answer from its <em>database receipt.</em></>
                   ) : (
                     <>Evidence, <em>not anecdotes.</em></>
@@ -3777,7 +3844,9 @@ FROM retrieval.${planArm}_search(
                       ? 'Inspect canonical and inferred relationships under bounded traversal depth.'
                       : proveTab === 'receipt'
                         ? 'Resolve the controls, candidate signals, answer, citations, and search-index state without another model call.'
-                        : 'Measure retrieval modes and graph traversal with different metrics.'}
+                        : proveTab === 'replay'
+                          ? 'Walk the persisted retrieval stages in chronological order, reconstructed with no further model call.'
+                          : 'Measure retrieval modes and graph traversal with different metrics.'}
                 </p>
               </div>
               <div className="run-loader">
@@ -4243,7 +4312,7 @@ FROM retrieval.${planArm}_search(
                     <button
                       type="button"
                       className="run-button"
-                      onClick={() => setProveTab('graph')}
+                      onClick={() => goTo('agent', 'graph')}
                     >
                       <Network size={15} />
                       Follow source relationships
@@ -4251,7 +4320,7 @@ FROM retrieval.${planArm}_search(
                     <button
                       type="button"
                       className="text-command"
-                      onClick={() => setProveTab('receipt')}
+                      onClick={() => goTo('proof', 'replay')}
                     >
                       <Play size={15} />
                       Replay persisted proof
@@ -4515,7 +4584,7 @@ FROM retrieval.${planArm}_search(
               </>
             ) : null}
 
-            {proveTab === 'receipt' ? (
+            {proveTab === 'replay' ? (
               <>
                 <section className="replay-stage-strip">
                   {(receipt?.stages || []).map((stage) => (
@@ -4614,7 +4683,11 @@ FROM retrieval.${planArm}_search(
                     />
                   )}
                 </section>
+              </>
+            ) : null}
 
+            {proveTab === 'receipt' ? (
+              <>
                 <section className="replay-summary">
                   <div>
                     <strong>{compactId(receipt?.run.run_id)}</strong>
