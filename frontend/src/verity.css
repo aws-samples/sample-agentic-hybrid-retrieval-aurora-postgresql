@@ -6769,6 +6769,60 @@ td span {
   }
 }
 
+.home-thread-scene.loading .home-threads circle:first-child,
+.home-thread-scene.empty .home-threads circle:first-child,
+.home-thread-scene.loading .home-answer-node::before,
+.home-thread-scene.loading .home-answer-node::after,
+.home-thread-scene.empty .home-answer-node::before,
+.home-thread-scene.empty .home-answer-node::after,
+.home-thread-scene.loading .home-answer-metrics,
+.home-thread-scene.empty .home-answer-metrics,
+.home-thread-scene.empty .home-answer-node > i,
+.home-thread-scene.empty .home-evidence-state {
+  display: none;
+}
+
+.home-thread-scene.loading .home-threads circle,
+.home-thread-scene.empty .home-threads circle {
+  display: none;
+}
+
+.home-thread-scene.loading .home-threads circle:last-of-type,
+.home-thread-scene.empty .home-threads circle:last-of-type {
+  display: block;
+}
+
+.home-thread-scene.loading::before,
+.home-thread-scene.empty::before {
+  border-color: transparent;
+}
+
+.home-thread-scene.loading .home-threads circle:last-child,
+.home-thread-scene.empty .home-threads circle:last-child {
+  stroke: rgba(33, 28, 22, 0.12);
+}
+
+@media (min-width: 901px) {
+  .home-thread-scene.loading,
+  .home-thread-scene.empty {
+    width: min(100%, 420px);
+  }
+
+  .home-thread-scene.loading .home-answer-node,
+  .home-thread-scene.empty .home-answer-node {
+    width: 150px;
+    height: 150px;
+    box-shadow: var(--shadow);
+  }
+}
+
+@media (max-width: 900px) {
+  .home-thread-scene.loading,
+  .home-thread-scene.empty {
+    width: min(100%, 290px);
+  }
+}
+
 @media (max-width: 1180px) {
   .home-hero {
     grid-template-columns: minmax(290px, 0.82fr) minmax(420px, 1.18fr);
