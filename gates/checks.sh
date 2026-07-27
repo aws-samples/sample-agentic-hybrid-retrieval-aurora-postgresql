@@ -36,6 +36,7 @@ GATES=(
   "G-14|empty_db_ui_test.py|Empty-database UI test"
   "G-17|registry_drift.py|Registry drift"
   "G-21|fixture_arithmetic.py|Fixture arithmetic (D14) on the engine"
+  "G-23|route_contract.py|Route contract (D16)"
 )
 
 WANT=("$@")

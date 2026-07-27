@@ -37,6 +37,14 @@ import {
   useRef,
   useState,
 } from 'react';
+import {
+  formatRoute,
+  parseRoute,
+  type PresetKey,
+  type PrincipalKey,
+  type Route,
+  type RouteSurface,
+} from './route';
 
 type ModuleName = 'home' | 'results' | 'retrieve' | 'prove' | 'tools';
 type DiagnoseTab = 'retrieval' | 'fusion' | 'plan' | 'scale';
@@ -506,7 +514,20 @@ const DEFAULT_CONTROLS: Controls = {
   supportLead: false,
 };
 
-const PRESETS = [
+// presetKey ties a preset to the SPEC 6.0 route vocabulary
+// (?preset={exact|fuzzy|semantic}). The three tagged entries are the workshop's
+// query-shape triad — exact identifier, paraphrase (semantic recall), and typo
+// (fuzzy match) — all mode:'hybrid' because the teaching point is one fusion
+// handling every query shape. "Incident cause" stays UI-reachable but is not
+// URL-addressable: the contract names only the three shapes.
+const PRESETS: {
+  label: string;
+  query: string;
+  mode: RetrievalMode;
+  kind: EvidenceKind | 'all';
+  clusterId: string;
+  presetKey?: PresetKey;
+}[] = [
   {
     label: 'Incident cause',
     query: DEFAULT_QUERY,
@@ -520,6 +541,7 @@ const PRESETS = [
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
     clusterId: 'checkout-prod-cluster-01',
+    presetKey: 'exact',
   },
   {
     label: 'Read/write split',
@@ -528,6 +550,7 @@ const PRESETS = [
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
     clusterId: '',
+    presetKey: 'semantic',
   },
   {
     label: 'Typo CGH-1842',
@@ -535,6 +558,7 @@ const PRESETS = [
     mode: 'hybrid' as RetrievalMode,
     kind: 'change' as const,
     clusterId: '',
+    presetKey: 'fuzzy',
   },
 ];
 
@@ -1605,6 +1629,9 @@ export default function VerityApp() {
   const [scaleRamGiB, setScaleRamGiB] = useState(32);
   const [optimizedReads, setOptimizedReads] = useState(false);
   const [runId, setRunId] = useState('');
+  // Gate the URL-sync effect until the initial hash has been applied, so the
+  // first render cannot overwrite a /proof/{run_id} deep link before it loads.
+  const [routerHydrated, setRouterHydrated] = useState(false);
   const [selectedTool, setSelectedTool] =
     useState<(typeof TOOL_NAMES)[number]>('search_evidence');
   const [busy, setBusy] = useState<
@@ -1736,14 +1763,42 @@ export default function VerityApp() {
       .catch((reason: Error) => {
         if (!cancelled) setError(reason.message);
       });
+    // Apply the initial deep link (SPEC 6.0). Navigation is synchronous; the run
+    // to load is chosen below so a /proof/{run_id} link wins over latest-run.
+    const initialRoute = parseRoute(window.location.hash);
+    if (initialRoute.surface === 'retrieval' && initialRoute.preset) {
+      const preset = PRESETS.find(
+        (entry) => entry.presetKey === initialRoute.preset,
+      );
+      if (preset) {
+        setControls((current) => ({
+          ...current,
+          query: preset.query,
+          mode: preset.mode,
+          kind: preset.kind,
+          clusterId: preset.clusterId,
+        }));
+      }
+    }
+    if (initialRoute.surface === 'agent' && initialRoute.principal) {
+      setControl('supportLead', initialRoute.principal === 'support-lead');
+    }
+    goTo(initialRoute.surface as Surface, initialRoute.lens);
+    const deepLinkedRun =
+      initialRoute.surface === 'proof' ? initialRoute.runId : undefined;
     void (async () => {
       try {
-        const latest = await api<{ run_id: string }>('/v1/runs/latest');
-        if (!cancelled) await loadRun(latest.run_id);
+        const targetRun =
+          deepLinkedRun ??
+          (await api<{ run_id: string }>('/v1/runs/latest')).run_id;
+        if (!cancelled) await loadRun(targetRun);
       } catch {
         // A new environment can be ready before it has a cited receipt.
       } finally {
-        if (!cancelled) setHomeReceiptLoading(false);
+        if (!cancelled) {
+          setHomeReceiptLoading(false);
+          setRouterHydrated(true);
+        }
       }
     })();
     return () => {
@@ -1835,6 +1890,83 @@ export default function VerityApp() {
         : activeSurface === 'proof'
           ? proveTab
           : '';
+
+  // Route params derived from live state so the URL reflects them (SPEC 6.0).
+  // preset is inferred by exact query match — lossy the instant a user edits the
+  // query, which is correct: an edited query is no longer a named preset.
+  const activePreset: PresetKey | undefined =
+    activeSurface === 'retrieval'
+      ? PRESETS.find(
+          (preset) =>
+            preset.presetKey !== undefined && preset.query === controls.query,
+        )?.presetKey
+      : undefined;
+  const activePrincipal: PrincipalKey =
+    controls.supportLead ? 'support-lead' : 'workshop';
+
+  // Apply a parsed route to live state. surface/lens go through goTo (the single
+  // navigation writer); preset/principal set controls; a /proof/{run_id} loads
+  // that run. Called on mount, on back/forward, and never during state->URL sync.
+  function applyRoute(route: Route) {
+    if (route.surface === 'retrieval' && route.preset) {
+      const preset = PRESETS.find((entry) => entry.presetKey === route.preset);
+      if (preset) {
+        setControls((current) => ({
+          ...current,
+          query: preset.query,
+          mode: preset.mode,
+          kind: preset.kind,
+          clusterId: preset.clusterId,
+        }));
+      }
+    }
+    if (route.surface === 'agent' && route.principal) {
+      setControl('supportLead', route.principal === 'support-lead');
+    }
+    if (route.surface === 'proof' && route.runId && route.runId !== runId) {
+      void loadRun(route.runId);
+    }
+    goTo(route.surface as Surface, route.lens);
+  }
+
+  // State -> URL sync (SPEC 6.0). Once hydrated, mirror the live surface, lens,
+  // and route params into the hash via replaceState (which does not fire
+  // hashchange, so this cannot feedback-loop with the hashchange listener).
+  useEffect(() => {
+    if (!routerHydrated) return;
+    const route: Route = { surface: activeSurface as RouteSurface };
+    if (activeLens) route.lens = activeLens;
+    if (activeSurface === 'retrieval' && activePreset) {
+      route.preset = activePreset;
+    }
+    if (activeSurface === 'agent') route.principal = activePrincipal;
+    if (activeSurface === 'proof' && runId) route.runId = runId;
+    const nextHash = formatRoute(route);
+    if (window.location.hash !== nextHash) {
+      window.history.replaceState(null, '', nextHash);
+    }
+  }, [
+    routerHydrated,
+    activeSurface,
+    activeLens,
+    activePreset,
+    activePrincipal,
+    runId,
+  ]);
+
+  // URL -> state on back/forward. hashchange fires only on user navigation and
+  // manual edits, never on our own replaceState, so applying the parsed route
+  // here is safe. The listener reads applyRoute through a ref so it always sees
+  // current state (runId, queryPlan) instead of a stale mount-time closure.
+  const applyRouteRef = useRef(applyRoute);
+  applyRouteRef.current = applyRoute;
+  useEffect(() => {
+    function onHashChange() {
+      applyRouteRef.current(parseRoute(window.location.hash));
+    }
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   function interruptHomeTypewriter() {
     if (!homeTyping) return;
@@ -2389,7 +2521,18 @@ export default function VerityApp() {
           </section>
           <section className="side-rail-card">
             <span className="section-label">Active receipt</span>
-            <strong>{runId ? compactId(runId) : 'Not started'}</strong>
+            {runId ? (
+              <button
+                type="button"
+                className="run-breadcrumb"
+                onClick={() => goTo('proof', 'receipt')}
+                title="Open this run's proof receipt"
+              >
+                {compactId(runId)}
+              </button>
+            ) : (
+              <strong>Not started</strong>
+            )}
             <code>
               {health?.current_documents?.toLocaleString() || '—'} documents ·{' '}
               {health?.drift_issues ?? '—'} drift

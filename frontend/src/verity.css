@@ -496,6 +496,21 @@ button:disabled {
   font: 650 13px/1.45 var(--mono);
 }
 
+.run-breadcrumb {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  background: var(--wash);
+  color: var(--ink);
+  font: 650 13px/1.45 var(--mono);
+  cursor: pointer;
+}
+
+.run-breadcrumb:hover {
+  border-color: var(--ink);
+}
+
 .side-rail-card code {
   color: var(--muted);
   font: 500 13px/1.5 var(--mono);
