@@ -74,15 +74,15 @@ speaker notes.
 | **D6** | No RDS Proxy, Lambda, or Gateway in the participant path. Workbench backend connects with a native driver directly to the cluster (needs `SET LOCAL` ANN controls + `EXPLAIN`). Proxy/Gateway remain talk content. | Fewer live failure modes; the transaction-local ANN story requires a plain session anyway. |
 | **D7** | Live-incident capture into Verity is a **feature-flagged stretch** (`VERITY_LIVE_CAPTURE=1`, default off in the room until rehearsed green). See Section 4.6. | Best 90 seconds of the session if it works; cannot hurt if it doesn't. |
 | **D8** | Ordinary-build cancel leaves **no** INVALID index (that is a failed-CIC artifact). The INVALID demo is an optional exploration in the guide appendix, not the core path. | Technical accuracy; RB-017's cleanup clause stays truthful. |
-| **D9** | Lab 1 ≤ 19 min of the 45-min lab; Labs 2–4 get ≥ 24 min. Cut-ladder: Lab 4 merges into Lab 3 if late; within Lab 1, DBI check 3 compresses first; **Lab 2 is never cut**. Overrun theory (locks, CIC) moves into Grant's talk segment, not lab time. | The incident is the on-ramp; the engine is the session. |
-| **D10** | Presenter mapping: Shayon owns Labs 2–3 and the trigger; **Grant owns the DBI segment of Lab 1** plus the lock/CIC theory beat, and plays **auditor** in the Lab 2 and Lab 4 parity beats ("pick any number on any screen"). **Crew of five**: two voices on stage per lab — never three — and three on the floor with named jobs: **F1** resets (`reset.sh` authority, wedged participants), **F2** DBI/IAM triage + deep-link fallback, **F3** flags + the demo-of-last-resort cluster. Roles are assigned by name in the rehearsal timing sheet. | Voice change signals surface change; the audit role converts the skeptic. At room scale the floor is where sessions are saved — an unowned failure is a failure that eats stage time. |
+| **D9** | Lab 1 ≤ 19 min of the 45-min lab; Labs 2–4 get ≥ 24 min. Cut-ladder: Lab 4 merges into Lab 3 if late; within Lab 1, DBI check 3 compresses first; **Lab 2 is never cut**. Overrun theory (locks, CIC) moves into the DBI lead's talk segment, not lab time. | The incident is the on-ramp; the engine is the session. |
+| **D10** | Presenter mapping: Shayon owns Labs 2–3 and the trigger; **the DBI lead owns the DBI segment of Lab 1** plus the lock/CIC theory beat, and plays **auditor** in the Lab 2 and Lab 4 parity beats ("pick any number on any screen"). **Crew of five**: two voices on stage per lab — never three — and three on the floor with named jobs: **F1** resets (`reset.sh` authority, wedged participants), **F2** DBI/IAM triage + deep-link fallback, **F3** flags + the demo-of-last-resort cluster. Roles are assigned by name in the rehearsal timing sheet. | Voice change signals surface change; the audit role converts the skeptic. At room scale the floor is where sessions are saved — an unowned failure is a failure that eats stage time. |
 | **D11** | **Engine-first ordering**: Lab 2 (arms + fusion) precedes Lab 3 (agent). | The agent's trace is only legible after the arms are understood; agent-first re-treads what managed agentic retrieval now does in one API call; the session's claim — Aurora as retrieval engine of record — is engine-shaped. |
 | **D12** | Lab names are canonical and Law 1 applies to them: **Incident & observability / Hybrid retrieval / Agentic retrieval / Proof & replay** — verbatim in guide pages, slides, script banners, and speaker notes. | Labs 2–3 decompose the session title ("agentic hybrid retrieval") into its two halves in teaching order; Labs 1 and 4 name the on-ramp and the differentiator. |
 | **D13** | **Single-LLM policy**: one generation model for both synthesis and free mode — `claude-sonnet-5` (Converse, Global CRIS). No Opus-class model; no second LLM as throttle fallback (the extractive fallback + replay are the degradation path). Per answer: **one LLM, three model invocations** (embed · rerank · synthesize). | The engine does the reasoning-shaped work; the model writes it down — "Sonnet is enough" *is* the thesis. One model string = one quota request, one lifecycle check, easier room-scale throughput. Opus would stretch the dominant latency stage for no measurable gain in a ≤8-evidence-block synthesis. |
 | **D14** | **Identifier arithmetic**: ticket numbers stay irregular (no CHG-1000-style rounds); the typo fixture is a **letter transposition, `CGH-1842`** — corrupt the letters, keep the digit block intact. Normalization for the trigram arm is lowercase with **separators preserved**. Digit transposition (`CHG-1482`) is banned. | Measured on a live engine: `chg-1482` is a six-way tie at 0.3846 across every `chg-1*` record (digit transposition destroys all interior digit trigrams); `cgh-1842` is unique at 0.5000 with runner-up 0.2000. Round numbers put the nearest distractor at 0.2857 — one background ID from the 0.30 threshold (the documented CHG-0100 ≡ 0.5000 bug class). Stripping the hyphen drops the letter-transposition margin to 0.3333. Only one ID is ever hand-typed in the session (the typo itself); memorability lives in the incident, not the digits. **Upstream: the base Verity spec's `fuzzy-change-id` acceptance line needs the same correction.** |
-| **D15** | **AgentCore posture — compose vs replace.** Exactly one component enters the participant path: **Gateway**, as optional module **M5** (post-Lab-4 / fast finishers / take-home), pre-provisioned by bootstrap behind `VERITY_GATEWAY=1` (default 0), never built live (the M5 forwarder Lambda sits outside the timed lab path, so D6 stands). M5 terminates in a **receipt diff**: the canonical question over Gateway MCP vs stdio → identical candidates and citations, diffed in psql. Runtime, Identity, Policy, Memory, and Evaluations stay slides; the Policy slide carries one line — *"Policy decides which tools may be called; Aurora decides which rows exist."* | Gateway *composes* with the engine thesis (a managed tool plane over your engine); managed retrieval *replaces* it — compose gets a module, replace gets a positioning slide. A second live enforcement plane would blur the ACL moment (CASE-7421 is denied by the database, at every arm and hop). Grant-safe because M5's claim is database-verifiable: zero differing rows — and it carries two engine beats: `SET LOCAL` ANN GUCs surviving any transport, and Gateway→Lambda fan-out as where the RDS Proxy discussion attaches. |
+| **D15** | **AgentCore posture — compose vs replace.** Exactly one component enters the participant path: **Gateway**, as optional module **M5** (post-Lab-4 / fast finishers / take-home), pre-provisioned by bootstrap behind `VERITY_GATEWAY=1` (default 0), never built live (the M5 forwarder Lambda sits outside the timed lab path, so D6 stands). M5 terminates in a **receipt diff**: the canonical question over Gateway MCP vs stdio → identical candidates and citations, diffed in psql. Runtime, Identity, Policy, Memory, and Evaluations stay slides; the Policy slide carries one line — *"Policy decides which tools may be called; Aurora decides which rows exist."* | Gateway *composes* with the engine thesis (a managed tool plane over your engine); managed retrieval *replaces* it — compose gets a module, replace gets a positioning slide. A second live enforcement plane would blur the ACL moment (CASE-7421 is denied by the database, at every arm and hop). Audit-safe because M5's claim is database-verifiable: zero differing rows — and it carries two engine beats: `SET LOCAL` ANN GUCs surviving any transport, and Gateway→Lambda fan-out as where the RDS Proxy discussion attaches. |
 | **D16** | **Overview-first IA — nav mirrors the labs.** The workbench opens on an **Overview** anchored on the canonical question and the current run; primary nav is the lab ladder — **Overview / Retrieval / Agent / Proof** — with Corpus, Evaluation, and Health demoted to utility nav. One lab = one primary surface; every guide checkpoint state is **URL-addressable** (Section 6.0); the run_id chip is the persistent breadcrumb; drill depth ≤ 2 (surface → inline drawer). Supersedes the base spec's Investigate / Run proof / Corpus / Evaluation shell — shell only; panel contracts unchanged. | Tension with the labs is translation cost: if the guide says "Hybrid retrieval" and the nav says "Investigate," every participant pays it at every transition. Nav labels that repeat the lab nouns (Law 1 extended to navigation) make the workbench the labs' surface rather than a fifth thing to learn — and addressable routes let the guide land people on a checkpoint instead of narrating clicks. |
-| **D17** | **Takeaway packaging.** Participants leave with two artifacts: the repo (baseline) and an **Agent Skill** — `skills/aurora-hybrid-retrieval/` — packaging the method for reuse on the customer's own schema: canonical fusion SQL templates (numeric-cast and COALESCE correctness baked in, `%`-operator trigram, ACL-inside-every-arm), the gotcha registry (E1, E2, E6, E7; D14 normalization; 1024-d pinning), the receipts DDL, the eval-harness scripts, and a gates checklist the skill **instructs the consuming agent to run**. Authored last, distilled from the final guide and gates. The MCP server and workbench remain demo artifacts, not the takeaway. | A tool executes against fixed assumptions; a skill transfers judgment and adapts to their tables. Skills are an open, portable format, so the takeaway works in Claude Code on Bedrock — the room's own environment. It passes the Grant test because it is guidance that verifies itself: the skill's first instruction is to run the shipped assertions, not to trust the prose. |
+| **D17** | **Takeaway packaging.** Participants leave with two artifacts: the repo (baseline) and an **Agent Skill** — `skills/aurora-hybrid-retrieval/` — packaging the method for reuse on the customer's own schema: canonical fusion SQL templates (numeric-cast and COALESCE correctness baked in, `%`-operator trigram, ACL-inside-every-arm), the gotcha registry (E1, E2, E6, E7; D14 normalization; 1024-d pinning), the receipts DDL, the eval-harness scripts, and a gates checklist the skill **instructs the consuming agent to run**. Authored last, distilled from the final guide and gates. The MCP server and workbench remain demo artifacts, not the takeaway. | A tool executes against fixed assumptions; a skill transfers judgment and adapts to their tables. Skills are an open, portable format, so the takeaway works in Claude Code on Bedrock — the room's own environment. It passes the auditor test because it is guidance that verifies itself: the skill's first instruction is to run the shipped assertions, not to trust the prose. |
 | **D18** | **Takeaway ladder + protected moments.** Each lab closes with one canonical takeaway sentence the participant just proved (experience → principle → artifact); the skill's four section headers are those sentences **verbatim** (Law 1): Lab 1 — *"Observability shows the incident while it happens; evidence answers for it later"* → "Why receipts". Lab 2 — *"Fuse ranks, never raw scores — and verify the arithmetic on a live engine"* → "The canonical fusion SQL". Lab 3 — *"The agent consumes the engine; entitlements live in the database, at every arm and hop"* → "ACL & traversal patterns". Lab 4 — *"A claim you can't replay is a vibe — every number gets a run_id"* → "Gates: run the shipped assertions". The guide renders a skill-assembly strip (one section unlocked per lab); the **final checkpoint** of Lab 4 is installing the skill in Claude Code on the participant host and running its first assertion to a green check. **Protected moments, exempt from the D9 cut-ladder**: M1 first blocked writer in their terminal · M2 room-as-auditor (the audience picks any number on any screen; it is reproduced in psql live) · M3 the ACL flip · M4 replay with zero model calls. | The skill stops being a download and becomes the receipt of their own session; the last action in the room is the first action at work. M2 is the peak: fully de-risked by Law 2 + G-13, it converts the room from spectators into co-auditors. |
 
 ---
@@ -350,7 +350,7 @@ rollback, D8), points to `fix.sh`.
 1. Prints the RB-017 excerpt (CONCURRENTLY, no transaction block, INVALID-on-failure cleanup).
 2. Runs `CREATE INDEX CONCURRENTLY idx_orders_customer ON shop.orders (customer_id);`
    in the background; foreground polls `pg_stat_progress_create_index` every 5 s
-   (phase, blocks done/total) — this is a Grant beat.
+   (phase, blocks done/total) — this is a DBI-lead beat.
 3. On completion: assert `indisvalid`; re-run the reads.sql query with
    `EXPLAIN (ANALYZE, BUFFERS)` and print the before/after: Seq Scan → Index Scan, ms drop.
 4. On failure/interrupt: detect INVALID index, print the RB-017 cleanup
@@ -407,7 +407,7 @@ Nothing to build here; everything to **pre-enable, pre-verify, and pre-link**.
    whether stragglers need the prime-run spike or a re-trigger.]`
 3. **Top SQL → the reads.sql digest → Plans tab** — the seq-scan plan captured under load
    (thanks to D4 there is history), and after `fix.sh`, the new index-scan plan appears →
-   **plan comparison** on one digest. This is the DBI money shot and Grant's segment.
+   **plan comparison** on one digest. This is the DBI money shot and the DBI lead's segment.
 
 ### 5.3 Participant IAM (bootstrap-verified, gate G-10)
 
@@ -498,7 +498,7 @@ pgvector {extversion}` — `version()` and `extversion` are read from Aurora per
     eval affordance may show the harness command (`make evaluate`) instead of a query.
 - Scripted beat (Lab 2 opening): open the smoke run's receipt → copy the
   candidates verify-SQL → run it in tab 2 → same arm positions, same RRF, same rerank
-  scores. Grant's audit invitation: *"pick any number on any screen."*
+  scores. The auditor's invitation: *"pick any number on any screen."*
 - `[VERIFY]` backlog — the query embedding is persisted (`proof.retrieval_runs.query_embedding`),
   and replay guarantees zero model calls, so the semantic-arm EXPLAIN could become run-bound:
   a plan-drawer variant that runs `EXPLAIN` with the *stored* embedding (not a freshly computed
@@ -594,17 +594,17 @@ source; gate G-12). Checkpoints are copy-pastable one-liners that print `OK` or 
  0:00  setup — tabs, readiness check                          (Shayon)
  3:00  LAB 1  INCIDENT & OBSERVABILITY
               trigger + monitor + watch.sql                   (Shayon)
- 9:00         DBI: waits → lock tree → plans                  (Grant)
-15:00         resolve + CIC + before/after                    (Grant → Shayon)
+ 9:00         DBI: waits → lock tree → plans                  (DBI lead)
+15:00         resolve + CIC + before/after                    (DBI lead → Shayon)
 19:00  LAB 2  HYBRID RETRIEVAL
               Law-4 line; verify-in-psql beat;
-              exact / fuzzy / semantic; fusion                (Shayon + Grant audit)
+              exact / fuzzy / semantic; fusion                (Shayon + audit)
 28:00  LAB 3  AGENTIC RETRIEVAL
               one question, six tools, citations;
               ACL flip; evidence graph                        (Shayon)
 36:00  LAB 4  PROOF & REPLAY
               run proof; replay; DBI hand-off;
-              live-capture stretch (flag)                     (Shayon + Grant audit)
+              live-capture stretch (flag)                     (Shayon + audit)
 43:00  close — takeaway: repo + the aurora-hybrid-retrieval skill (D17);
        cut-ladder content dropped silently if late (D9)
 ```
@@ -613,12 +613,12 @@ source; gate G-12). Checkpoints are copy-pastable one-liners that print `OK` or 
 
 ```
  0:00  thesis — Aurora as the retrieval engine of record (concept screens)   (Shayon)
- 3:00  the incident pattern + lock theory teaser                             (Grant)
+ 3:00  the incident pattern + lock theory teaser                             (DBI lead)
  6:00  hybrid arms + weighted RRF; the ablation slide (Eval screen)          (Shayon)
  9:00  positioning — compose vs replace: AgenticRetrieveStream
        replaces the engine (slide); AgentCore Gateway composes
        with it (module M5) · Policy-vs-acl_visible one-liner                 (Shayon)
-11:00  E4 — ReplicaLag is page-cache lag (new public material)               (Grant)
+11:00  E4 — ReplicaLag is page-cache lag (new public material)               (DBI lead)
 13:00  what the lab will do; four tabs; Optimized Reads appendix pointer
 ```
 
@@ -720,7 +720,7 @@ without a slot is cut, not "mentioned if there's time."
 |---|---|---|---|---|
 | **E1** | **The naive-RRF zero**: `2/(60+r)` is integer division — the weighted term silently evaluates to 0 for every candidate | Lab 2 verify beat | Guide snippet: naive formula → all 0.00000 → cast one operand → real scores. Line: "this failure exists only because we fuse in-database — and so does the receipt that catches it." | verified on live engine |
 | **E2** | **ef_search cannot beat a WHERE clause**: no ANN widening returns a row the filter excluded before the index was consulted (RB-017 has no cluster_id) | Lab 2→3 hinge | Workbench: runbook query under cluster filter; ef 40→200 → still 0; drop filter → rank 1. Counterfactual run persisted (RUN-7105 pattern). | design verified pass-2; demo via fixture |
-| **E3** | **The engine seam of their own incident**: `Lock:relation` is community PostgreSQL; the commit path (`IO:XactSync`, `IO:AuroraStorageLogAllocate`) is Aurora | Lab 1, Grant beat | wait_event capture during the incident → two-column readout "the Postgres half / the Aurora half" | events doc-verified; live capture = G-20 |
+| **E3** | **The engine seam of their own incident**: `Lock:relation` is community PostgreSQL; the commit path (`IO:XactSync`, `IO:AuroraStorageLogAllocate`) is Aurora | Lab 1, DBI-lead beat | wait_event capture during the incident → two-column readout "the Postgres half / the Aurora half" | events doc-verified; live capture = G-20 |
 | **E4** | **ReplicaLag is page-cache lag**: the coldest reader reports the best lag while serving the worst HNSW latency — anti-signal for vector read scaling | Talk slide; optional reader demo | Slide from doc mechanics; measured demo only if a reader joins the environment `[VERIFY measured]` | doc-derived; no public write-up exists |
 | **E5** | **Three memory tiers per plan node**: `aurora_orcache_hit` / `aurora_storage_read` in EXPLAIN — no other PostgreSQL has them; absence ≠ evidence (`with_buffers` off by default) | Lab 2 diagnostics drawer (Section 6.5) | Live EXPLAIN on NVMe class | doc-verified; rides open item 5 |
 | **E6** | **The trigram index trap**: `WHERE similarity(k,q) > 0.30` cannot use the GIN index; `%` + `pg_trgm.similarity_threshold` can | Lab 2 fuzzy archetype | Two EXPLAINs: Seq Scan vs Bitmap Index Scan | verified (repair pass) |
@@ -742,8 +742,24 @@ NVMe-class instances (r6gd/r8gd/r6id; tiered cache = I/O-Optimized clusters only
 2. Section 5.2 lock-analysis history-vs-current behavior → straggler strategy.
 3. Section 5.4 / Section 6.3 console URL formats + time-window params.
 4. Section 5.3 minimal IAM action set.
-5. Instance class final pick → recalibrate G-6; if an NVMe class is chosen, decide whether
-   Section 6.5's `aurora_orcache_hit` beat enters the core path or stays appendix.
+5. **Instance class — RESOLVED by the Workshop Studio template: `db.r8g.xlarge`**
+   (Graviton4, 4 vCPU / 32 GiB; allowed range `r8g.large`→`r8g.4xlarge`), storage
+   `aurora-iopt1` (I/O-Optimized). This is a non-NVMe class, so Section 6.5's
+   `aurora_orcache_hit` beat **stays appendix** — the hardware to demonstrate it is
+   not provisioned (Optimized Reads needs an r*gd/r*id NVMe class; I/O-Optimized
+   storage is a separate, orthogonal mode and does not surface `orcache_hit`).
+   **G-6 calibration directive (S6, on the pinned class):** seed `shop.orders` at
+   `ORDER_ROWS=25_000_000` as the starting point, keep the pinned build settings
+   (`maintenance_work_mem=64MB`, `max_parallel_maintenance_workers=0` — never widen
+   these to hit the window; `ORDER_ROWS` is the only knob), time the throwaway
+   ordinary `CREATE INDEX`, and adjust `ORDER_ROWS` until `build_seconds` lands in
+   240–420 s. On 4 vCPU + 64 MB sort memory the single-column bigint build may come
+   in under 240 s at 25 M; expect to bump toward **40–50 M**. Record the final
+   `ORDER_ROWS`, measured `build_seconds`, and `pg_table_size` in READINESS.md.
+   These numbers are provisional until a dry run in a Workshop Studio account
+   confirms them; the window is the acceptance criterion, not the row count. Expect
+   an auditor to challenge the build time on stage, so the measured value must be
+   reproducible from READINESS.md, not asserted.
 6. Pin `strands-agents` and MCP SDK versions; re-verify tool-decorator and MCP client APIs
    at freeze (T1, T5).
 7. Confirm current AgentCore Gateway tool-naming behavior (T6) before the appendix ships.
@@ -751,10 +767,15 @@ NVMe-class instances (r6gd/r8gd/r6id; tiered cache = I/O-Optimized clusters only
    rerank-3-5, claude-sonnet-5 — and re-check the Sonnet lifecycle/ID at freeze.
 9. Tab-4 exposure mechanism (Section 2.1): confirm the authenticated route to port 8000 in the
    Workshop Studio template.
-10. Reader instance: add one (E4 graduates to a measured demo; CCM/survivable-cache beats
-    become available) or decline (E4 stays a slide). Decide with the instance-class pick.
+10. Reader instance: the template provisions a single writer (no reader), so **E4
+    stays a slide** unless a reader is added to the Workshop Studio template. Decide
+    at freeze; graduating E4 to a measured demo requires the template change, not
+    just a runtime flag.
 11. Companion-asset fix: `verity-scale.html` instance options → NVMe classes
-    (r6gd/r8gd/r6id) with the I/O-Optimized tiered-cache note, for E5/Section 6.5 consistency.
+    (r6gd/r8gd/r6id) with the I/O-Optimized tiered-cache note, for E5/Section 6.5
+    consistency. Note the distinction the asset must make clear: the deployed class
+    (`r8g.xlarge`) is I/O-Optimized *storage* but not an Optimized *Reads* (NVMe)
+    class — the scale story is the contrast, not the running cluster.
 12. Takeaway skill (D17): author `skills/aurora-hybrid-retrieval/` at content freeze from
     the final guide + gates; confirm repo license/naming via the AWS sample-code process;
     verify the skill loads and triggers correctly in Claude Code on Bedrock.
