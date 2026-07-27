@@ -2389,7 +2389,7 @@ export default function VerityApp() {
       </aside>
 
       <div className="app-column">
-        <LiveBanner health={health} />
+        {module === 'home' ? <LiveBanner health={health} /> : null}
         {module !== 'home' ? (
         <header className="chrome">
           <div className="chrome-inner">
@@ -2426,20 +2426,9 @@ export default function VerityApp() {
             </form>
 
             <div className="chrome-actions">
-              <span className="status-pill">
-                {controls.supportLead ? 'support-lead' : 'principal: workshop'}
-              </span>
-              <span
-                className={`status-pill ${
-                  health?.status === 'ready' ? 'ready' : 'pending'
-                }`}
-              >
-                <ShieldCheck size={13} />
-                search index {health?.status || 'checking'}
-              </span>
               <button
                 type="button"
-                className="top-command dark"
+                className="top-command"
                 onClick={() => runSearch()}
                 disabled={busy !== null || !controls.query.trim()}
               >
