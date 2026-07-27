@@ -33,7 +33,7 @@ export interface Route {
 export const SURFACE_LENSES: Record<RouteSurface, readonly string[]> = {
   overview: [],
   retrieval: ['results', 'fusion'],
-  agent: ['answer', 'graph', 'tools'],
+  agent: ['answer', 'graph'],
   proof: ['receipt', 'replay', 'timeline'],
   corpus: [],
   evaluation: [],

@@ -23,7 +23,6 @@ import {
   Play,
   RefreshCw,
   Search,
-  Server,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
@@ -59,7 +58,6 @@ type ModuleName =
   | 'home'
   | 'retrieve'
   | 'prove'
-  | 'tools'
   | 'corpus'
   | 'health';
 type DiagnoseTab = 'results' | 'fusion';
@@ -112,8 +110,7 @@ const PRIMARY_NAV: NavSurface[] = [
     Icon: Sparkles,
     lenses: [
       { key: 'answer', label: 'Answer', Icon: FileCheck2 },
-      { key: 'graph', label: 'Graph', Icon: Network },
-      { key: 'tools', label: 'Tools', Icon: Wrench },
+      { key: 'graph', label: 'Relationships', Icon: Network },
     ],
   },
   {
@@ -663,6 +660,42 @@ const TOOL_NAMES = [
   'synthesize_cited_answer',
 ] as const;
 
+const TOOL_CONTRACTS: Record<
+  (typeof TOOL_NAMES)[number],
+  { purpose: string; result: string; proof: string }
+> = {
+  decompose_question: {
+    purpose: 'Extract identifiers, filters, and evidence requirements.',
+    result: 'Ordered subquestions and inferred scope.',
+    proof: 'The plan is inspectable before retrieval begins.',
+  },
+  search_evidence: {
+    purpose: 'Run canonical hybrid retrieval with ACL and metadata filters.',
+    result: 'Ranked evidence plus a persisted run ID.',
+    proof: 'Candidate positions and scores are stored before synthesis.',
+  },
+  follow_evidence_links: {
+    purpose: 'Traverse declared evidence relationships from retrieved seeds.',
+    result: 'Reached records, relation labels, depth, and origin.',
+    proof: 'Authorization is checked again at every hop.',
+  },
+  compare_sources: {
+    purpose: 'Compare scope, revision, timing, and explicit relationships.',
+    result: 'Evidence that rules records in or out.',
+    proof: 'Comparison context becomes synthesis input.',
+  },
+  explain_ranking: {
+    purpose: 'Read the persisted candidate order and arm diagnostics.',
+    result: 'Match tier, arm positions, RRF, rerank, and stage timing.',
+    proof: 'No score is recomputed and no model is called.',
+  },
+  synthesize_cited_answer: {
+    purpose: 'Write only from evidence persisted by the supporting runs.',
+    result: 'A cited answer or a deterministic recovery instruction.',
+    proof: 'Every citation is validated against its exact stored chunk.',
+  },
+};
+
 const HOME_THREAD_PATHS = [
   'M310 260 C310 190 310 108 310 38',
   'M310 260 C376 216 448 166 528 138',
@@ -979,6 +1012,41 @@ function VerityMark({ className = '' }: { className?: string }) {
       <circle className="verity-mark-answer" cx="16" cy="23" r="5" />
       <path className="verity-mark-check" d="m13.7 22.9 1.65 1.65 3.1-3.45" />
     </svg>
+  );
+}
+
+function InvestigationQueryField({
+  value,
+  onChange,
+  ariaLabel,
+  inputRef,
+  readOnly = false,
+  title,
+  onFocus,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  inputRef?: RefObject<HTMLInputElement>;
+  readOnly?: boolean;
+  title?: string;
+  onFocus?: () => void;
+}) {
+  return (
+    <>
+      <Search size={20} aria-hidden="true" />
+      <span className="investigation-query-field">
+        <input
+          ref={inputRef}
+          value={value}
+          readOnly={readOnly}
+          title={title}
+          onFocus={onFocus}
+          onChange={(event) => onChange(event.target.value)}
+          aria-label={ariaLabel}
+        />
+      </span>
+    </>
   );
 }
 
@@ -2381,6 +2449,7 @@ export default function VerityApp() {
   const [routerHydrated, setRouterHydrated] = useState(false);
   const [selectedTool, setSelectedTool] =
     useState<(typeof TOOL_NAMES)[number]>('search_evidence');
+  const [agentContractOpen, setAgentContractOpen] = useState(false);
   const [busy, setBusy] = useState<
     'search' | 'answer' | 'run' | 'evaluation' | 'plan' | null
   >(null);
@@ -2391,6 +2460,7 @@ export default function VerityApp() {
   const [streamingAnswer, setStreamingAnswer] = useState('');
   const [agentTrace, setAgentTrace] = useState<AgentTraceEvent[]>([]);
   const [streamCitations, setStreamCitations] = useState<Citation[]>([]);
+  const [visibleCitationCount, setVisibleCitationCount] = useState(0);
   const [agentMetadata, setAgentMetadata] = useState<AgentMetadata | null>(null);
   const [agentCommentary, setAgentCommentary] = useState('');
   const [agentUsage, setAgentUsage] = useState<AgentUsage | null>(null);
@@ -2592,12 +2662,8 @@ export default function VerityApp() {
         break;
       }
       case 'agent':
-        if (lens === 'tools') {
-          setModule('tools');
-        } else {
-          setModule('prove');
-          setProveTab(lens === 'graph' ? 'graph' : 'answer');
-        }
+        setModule('prove');
+        setProveTab(lens === 'graph' ? 'graph' : 'answer');
         break;
       case 'proof':
         setModule('prove');
@@ -2629,9 +2695,7 @@ export default function VerityApp() {
       ? 'overview'
       : module === 'retrieve'
         ? 'retrieval'
-        : module === 'tools'
-          ? 'agent'
-          : module === 'corpus'
+        : module === 'corpus'
             ? 'corpus'
             : module === 'health'
               ? 'health'
@@ -2646,9 +2710,7 @@ export default function VerityApp() {
     activeSurface === 'retrieval'
       ? diagnoseTab
       : activeSurface === 'agent'
-        ? module === 'tools'
-          ? 'tools'
-          : proveTab
+        ? proveTab
         : activeSurface === 'proof'
           ? proveTab
           : '';
@@ -2884,6 +2946,7 @@ export default function VerityApp() {
     setStreamingAnswer('');
     setAgentTrace([]);
     setStreamCitations([]);
+    setVisibleCitationCount(0);
     setAgentMetadata(null);
     setAgentCommentary('');
     setAgentUsage(null);
@@ -2904,6 +2967,7 @@ export default function VerityApp() {
     setStreamingAnswer('');
     setAgentTrace([]);
     setStreamCitations([]);
+    setVisibleCitationCount(0);
     setAgentMetadata(null);
     setAgentCommentary('');
     setAgentUsage(null);
@@ -2974,11 +3038,17 @@ export default function VerityApp() {
           return;
         }
         if (event.type === 'answer_token') {
-          setStreamingAnswer((current) => current + (event.text || ''));
-          if (!reducedMotion) {
-            await new Promise<void>((resolve) =>
-              window.setTimeout(resolve, 18),
-            );
+          const text = event.text || '';
+          if (reducedMotion) {
+            setStreamingAnswer((current) => current + text);
+          } else {
+            for (let offset = 0; offset < text.length; offset += 3) {
+              const fragment = text.slice(offset, offset + 3);
+              setStreamingAnswer((current) => current + fragment);
+              await new Promise<void>((resolve) =>
+                window.setTimeout(resolve, 14),
+              );
+            }
           }
           return;
         }
@@ -3230,11 +3300,60 @@ export default function VerityApp() {
   const homeTopRrf = homeRrfScores.length
     ? Math.max(...homeRrfScores)
     : null;
+  const persistedAnswerLoaded = Boolean(
+    agentStreamState === 'blocked' &&
+      answer?.answer_text &&
+      answer.citations.length,
+  );
+  const agentDisplayState: AgentStreamState = persistedAnswerLoaded
+    ? 'complete'
+    : agentStreamState;
   const answerCitations =
-    answer?.citations.length ? answer.citations : streamCitations;
+    agentDisplayState === 'complete'
+      ? streamCitations.length
+        ? streamCitations
+        : answer?.citations || []
+      : agentStreamState === 'streaming'
+        ? streamCitations
+        : [];
+  const visibleAnswerCitations = persistedAnswerLoaded
+    ? answerCitations
+    : answerCitations.slice(0, visibleCitationCount);
+  useEffect(() => {
+    if (persistedAnswerLoaded) {
+      setVisibleCitationCount(answerCitations.length);
+      return;
+    }
+    if (!streamCitations.length) {
+      setVisibleCitationCount(0);
+      return;
+    }
+    if (visibleCitationCount >= streamCitations.length) return;
+    const delay = window.setTimeout(
+      () =>
+        setVisibleCitationCount((current) =>
+          Math.min(current + 1, streamCitations.length),
+        ),
+      visibleCitationCount === 0 ? 120 : 260,
+    );
+    return () => window.clearTimeout(delay);
+  }, [
+    answerCitations.length,
+    persistedAnswerLoaded,
+    streamCitations.length,
+    visibleCitationCount,
+  ]);
   const runbookRecovered = answerCitations.some(
     (citation) => citation.external_key === 'RB-017',
   );
+  const citedEvidenceKeys = new Set(
+    answerCitations.map((citation) => citation.external_key),
+  );
+  const answerCoverageComplete =
+    [...citedEvidenceKeys].some((key) => key.startsWith('CHG-')) &&
+    [...citedEvidenceKeys].some((key) => key.startsWith('LOCK-')) &&
+    [...citedEvidenceKeys].some((key) => key.startsWith('CASE-')) &&
+    citedEvidenceKeys.has('RB-017');
   const currentAgentEvent = agentTrace[agentTrace.length - 1] || null;
   const boundedRecoveryObserved = agentTrace.some((event) => {
     const kinds = event.arguments?.kinds;
@@ -3356,7 +3475,9 @@ export default function VerityApp() {
 
       <div className="app-column">
         {module === 'home' ? <LiveBanner health={health} /> : null}
-        {module !== 'home' && module !== 'retrieve' ? (
+        {module !== 'home' &&
+        module !== 'retrieve' &&
+        activeSurface !== 'agent' ? (
         <header className="chrome">
           <div className="chrome-inner">
           <button
@@ -3604,27 +3725,24 @@ export default function VerityApp() {
               </div>
 
               <form
-                className="home-query"
+                className="investigation-query home-query"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void beginInvestigation();
                 }}
               >
-                <Search size={20} aria-hidden="true" />
-                <span className="home-query-field">
-                  <input
-                    ref={homeQueryInput}
-                    value={homeQueryText}
-                    readOnly={homeTyping}
-                    title={homeQueryText}
-                    onFocus={interruptHomeTypewriter}
-                    onChange={(event) => {
-                      setHomeQueryText(event.target.value);
-                      setControl('query', event.target.value);
-                    }}
-                    aria-label="Incident question"
-                  />
-                </span>
+                <InvestigationQueryField
+                  inputRef={homeQueryInput}
+                  value={homeQueryText}
+                  readOnly={homeTyping}
+                  title={homeQueryText}
+                  onFocus={interruptHomeTypewriter}
+                  onChange={(query) => {
+                    setHomeQueryText(query);
+                    setControl('query', query);
+                  }}
+                  ariaLabel="Incident question"
+                />
                 <button
                   type="submit"
                   className="agent-command"
@@ -3782,18 +3900,25 @@ export default function VerityApp() {
 
             {diagnoseTab === 'results' ? (
               <>
-                <form className="retrieval-query-panel" onSubmit={runSearch}>
-                  <label className="retrieval-query-field">
-                    <Search size={20} aria-hidden="true" />
-                    <span className="sr-only">Evidence query</span>
-                    <input
-                      value={controls.query}
-                      onChange={(event) =>
-                        setControl('query', event.target.value)
+                <form
+                  className="investigation-query retrieval-query-panel"
+                  onSubmit={runSearch}
+                >
+                  <InvestigationQueryField
+                    value={controls.query}
+                    onChange={(query) => {
+                      setControl('query', query);
+                      if (query !== answer?.question) {
+                        setAnswer(null);
+                        setAgentStreamState('blocked');
+                        setStreamingAnswer('');
+                        setAgentTrace([]);
+                        setStreamCitations([]);
+                        setVisibleCitationCount(0);
                       }
-                      aria-label="Evidence query"
-                    />
-                  </label>
+                    }}
+                    ariaLabel="Evidence query"
+                  />
                   <button
                     type="submit"
                     className="run-button retrieval-run-button"
@@ -4378,24 +4503,23 @@ LIMIT ${appliedControls.limit};`}</code>
             <header className="module-heading prove-heading">
               <div>
                 <span className="module-kicker">
-                  {proveTab === 'answer' ? 'Step 2' : 'Deep dive'} ·{' '}
                   {proveTab === 'answer'
-                    ? 'Build cited answer'
+                    ? 'Agent · Answer'
                     : proveTab === 'graph'
-                      ? 'Evidence graph & verdicts'
-                      : proveTab === 'receipt'
-                        ? 'Run record'
+                      ? 'Agent · Relationships'
+                    : proveTab === 'receipt'
+                      ? 'Proof · Run record'
                         : proveTab === 'replay'
-                          ? 'Replay proof'
+                          ? 'Proof · Replay'
                           : proveTab === 'timeline'
-                            ? 'Evidence timeline'
-                            : 'Evaluation lab'}
+                            ? 'Proof · Timeline'
+                            : 'Evaluation'}
                 </span>
                 <h1>
                   {proveTab === 'answer' ? (
-                    <>One missing source means one <em>withheld claim.</em></>
+                    <>Build the answer from <em>persisted evidence.</em></>
                   ) : proveTab === 'graph' ? (
-                    <>Retrieval finds it. <em>Edges decide it.</em></>
+                    <>Inspect declared <em>evidence relationships.</em></>
                   ) : proveTab === 'receipt' ? (
                     <>Every candidate and citation, <em>persisted.</em></>
                   ) : proveTab === 'replay' ? (
@@ -4408,9 +4532,9 @@ LIMIT ${appliedControls.limit};`}</code>
                 </h1>
                 <p className="module-deck">
                   {proveTab === 'answer'
-                    ? 'Watch a real Strands agent recover the missing runbook, make bounded evidence decisions, and stream only citation-validated prose.'
+                    ? 'Observe the model-selected tool sequence, bounded recovery, and citation gate behind the incident answer.'
                     : proveTab === 'graph'
-                      ? 'Inspect canonical and inferred relationships under bounded traversal depth.'
+                      ? 'Traverse foreign-key-derived facts and separately labeled inference without relaxing evidence authorization.'
                       : proveTab === 'receipt'
                         ? 'Resolve the controls, candidate signals, answer, citations, and search-index state without another model call.'
                         : proveTab === 'replay'
@@ -4420,7 +4544,8 @@ LIMIT ${appliedControls.limit};`}</code>
                             : 'Measure retrieval modes and graph traversal with different metrics.'}
                 </p>
               </div>
-              <div className="run-loader">
+              {proveTab !== 'answer' ? (
+                <div className="run-loader">
                 <input
                   value={runId}
                   onChange={(event) => setRunId(event.target.value)}
@@ -4454,32 +4579,55 @@ LIMIT ${appliedControls.limit};`}</code>
                   )}
                   Load
                 </button>
-              </div>
+                </div>
+              ) : null}
             </header>
 
             {proveTab === 'answer' ? (
               <section className="threadline-answer-page">
-                <header className="answer-story-head">
-                  <div className="answer-story-eyebrow">
-                    <span />
-                    Strands agent · Aurora evidence · cited answer
-                  </div>
-                  <blockquote>“{controls.query}”</blockquote>
-                  <div className="answer-story-meta">
+                <form
+                  className="investigation-query agent-query-panel"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void askAgent();
+                  }}
+                >
+                  <InvestigationQueryField
+                    value={controls.query}
+                    onChange={(query) => setControl('query', query)}
+                    ariaLabel="Incident question"
+                  />
+                  <button
+                    type="submit"
+                    className="agent-query-run agent-command"
+                    disabled={busy !== null || !controls.query.trim()}
+                  >
+                    {busy === 'answer' ? (
+                      <LoaderCircle className="spin" size={17} />
+                    ) : (
+                      <Sparkles size={17} />
+                    )}
+                    {agentDisplayState === 'complete'
+                      ? 'Investigate again'
+                      : 'Investigate with agent'}
+                  </button>
+                  <div className="agent-query-meta">
                     <span
-                      className={`answer-grounding-state ${agentStreamState}`}
+                      className={`answer-grounding-state ${agentDisplayState}`}
                     >
-                      {agentStreamState === 'complete' ? (
+                      {agentDisplayState === 'complete' ? (
                         <ShieldCheck size={13} />
-                      ) : agentStreamState === 'streaming' ? (
+                      ) : agentDisplayState === 'streaming' ? (
                         <LoaderCircle className="spin" size={13} />
                       ) : (
                         <AlertTriangle size={13} />
                       )}
-                      {agentStreamState === 'complete'
-                        ? 'grounded'
-                        : agentStreamState === 'streaming'
-                          ? 'agent working'
+                      {agentDisplayState === 'complete'
+                        ? persistedAnswerLoaded
+                          ? 'persisted answer loaded'
+                          : 'citation gate passed'
+                        : agentDisplayState === 'streaming'
+                          ? 'agent running'
                           : 'answer withheld'}
                     </span>
                     <span>
@@ -4490,12 +4638,15 @@ LIMIT ${appliedControls.limit};`}</code>
                         <b>{(agentLatencyMs / 1000).toFixed(1)} s</b> agent run
                       </span>
                     ) : null}
+                    <span className="agent-query-boundary">
+                      ACL checked on retrieval and every relationship hop
+                    </span>
                   </div>
-                </header>
+                </form>
 
                 <div className="answer-story-layout">
                   <article className="answer-story-document">
-                    {agentStreamState === 'blocked' ? (
+                    {agentDisplayState === 'blocked' ? (
                       <div className="answer-gate">
                         <span className="answer-gate-count">2 / 3 claims grounded</span>
                         <h2>Synthesis is deliberately withheld.</h2>
@@ -4552,6 +4703,59 @@ LIMIT ${appliedControls.limit};`}</code>
                       </div>
                     ) : null}
 
+                    {agentDisplayState === 'streaming' ? (
+                      <section className="agent-working-panel" aria-live="polite">
+                        <header>
+                          <span className="agent-live-indicator">
+                            <i />
+                            Investigating evidence
+                          </span>
+                          <b>
+                            {agentTrace.length
+                              ? `${agentTrace.length} decisions observed`
+                              : 'starting Strands loop'}
+                          </b>
+                        </header>
+                        <div>
+                          {agentTrace.length ? (
+                            agentTrace.slice(-5).map((event, index) => (
+                              <article
+                                key={`${event.sequence || index}-${event.tool}`}
+                                className={
+                                  event === currentAgentEvent ? 'current' : ''
+                                }
+                              >
+                                <span>
+                                  <Check size={13} />
+                                </span>
+                                <div>
+                                  <strong>
+                                    {readableToolName(event.tool)}
+                                  </strong>
+                                  <p>{toolDecision(event)}</p>
+                                </div>
+                                <small>{toolResult(event)}</small>
+                              </article>
+                            ))
+                          ) : (
+                            <article className="current">
+                              <span>
+                                <LoaderCircle className="spin" size={13} />
+                              </span>
+                              <div>
+                                <strong>Preparing evidence plan</strong>
+                                <p>
+                                  Reading the question and selecting the first
+                                  bounded tool call.
+                                </p>
+                              </div>
+                              <small>live</small>
+                            </article>
+                          )}
+                        </div>
+                      </section>
+                    ) : null}
+
                     {agentStreamState === 'streaming' ? (
                       <div className="answer-streaming-prose" aria-live="polite">
                         <span className="section-label">
@@ -4574,23 +4778,29 @@ LIMIT ${appliedControls.limit};`}</code>
                       </div>
                     ) : null}
 
-                    {agentStreamState === 'complete' && answer ? (
+                    {agentDisplayState === 'complete' && answer ? (
                       <div className="answer-complete-prose">
                         <p className="answer-lead">
-                          The safe-fix claim is now supported by the approved
-                          runbook, so Verity can release the complete answer.
+                          Cause, visible impact, and safe remediation all have
+                          citation-validated evidence.
                         </p>
                         <div className="answer-prose">
                           <FormattedAnswer text={streamingAnswer || answer.answer_text} />
                         </div>
                         <div className="answer-proof-strip">
                           <span>
-                            <b>{agentTrace.length}</b>
-                            observable tool calls
+                            <b>{answerCitations.length}</b>
+                            validated citations
                           </span>
                           <span>
                             <b>{runbookRecovered ? 'yes' : 'no'}</b>
                             RB-017 cited
+                          </span>
+                          <span>
+                            <b>{agentTrace.length || 'persisted'}</b>
+                            {agentTrace.length
+                              ? 'observed tool calls'
+                              : 'answer record loaded'}
                           </span>
                         </div>
                         {receipt?._verify_sql?.answer ? (
@@ -4602,7 +4812,7 @@ LIMIT ${appliedControls.limit};`}</code>
                       </div>
                     ) : null}
 
-                    {agentStreamState === 'error' ? (
+                    {agentDisplayState === 'error' ? (
                       <div className="answer-gate error">
                         <span className="answer-gate-count">Answer withheld</span>
                         <h2>The evidence gate did not pass.</h2>
@@ -4627,12 +4837,17 @@ LIMIT ${appliedControls.limit};`}</code>
                   <aside className="answer-sources-rail">
                     <header>
                       <span className="section-label">
-                        Sources · {answerCitations.length} cited
+                        {answerCitations.length
+                          ? visibleAnswerCitations.length ===
+                            answerCitations.length
+                            ? `Sources · ${answerCitations.length} cited`
+                            : `Sources · ${visibleAnswerCitations.length} of ${answerCitations.length}`
+                          : 'Required evidence'}
                       </span>
                     </header>
                     {answerCitations.length ? (
                       <div className="answer-source-list">
-                        {answerCitations
+                        {visibleAnswerCitations
                           .slice()
                           .sort(
                             (left, right) =>
@@ -4664,34 +4879,57 @@ LIMIT ${appliedControls.limit};`}</code>
                       </div>
                     ) : (
                       <div className="answer-source-expected">
-                        {['Cause', 'Visible impact', 'Safe remediation'].map(
-                          (label) => (
-                            <div className="pending" key={label}>
-                              <LoaderCircle className="spin" size={14} />
+                        {[
+                          ['Cause', true],
+                          ['Visible impact', true],
+                          ['Safe remediation', false],
+                        ].map(([label, covered]) => (
+                            <div
+                              className={
+                                agentDisplayState === 'streaming'
+                                  ? 'pending'
+                                  : covered
+                                    ? 'covered'
+                                    : 'missing'
+                              }
+                              key={String(label)}
+                            >
+                              {agentDisplayState === 'streaming' ? (
+                                <LoaderCircle className="spin" size={14} />
+                              ) : covered ? (
+                                <Check size={14} />
+                              ) : (
+                                <AlertTriangle size={14} />
+                              )}
                               <span>
-                                <strong>Awaiting evidence</strong>
+                                <strong>
+                                  {agentDisplayState === 'streaming'
+                                    ? 'Checking evidence'
+                                    : covered
+                                      ? 'Covered by baseline'
+                                      : 'Recovery required'}
+                                </strong>
                                 <small>{label}</small>
                               </span>
                             </div>
-                          ),
-                        )}
+                          ))}
                       </div>
                     )}
                     <section className="answer-coverage-card">
                       <div>
                         <span>Claim coverage</span>
-                        <b>{agentStreamState === 'complete' ? '3/3' : '2/3'}</b>
+                        <b>{answerCoverageComplete ? '3/3' : '2/3'}</b>
                       </div>
                       <div className="answer-coverage-meter">
                         <i
                           style={{
                             width:
-                              agentStreamState === 'complete' ? '100%' : '66.67%',
+                              answerCoverageComplete ? '100%' : '66.67%',
                           }}
                         />
                       </div>
                       <p>
-                        {agentStreamState === 'complete'
+                        {answerCoverageComplete
                           ? 'Every citation resolves to a source URI, revision, exact chunk, and supporting quote.'
                           : 'RB-017 must be present and cited before the answer can pass.'}
                       </p>
@@ -4699,52 +4937,22 @@ LIMIT ${appliedControls.limit};`}</code>
                   </aside>
                 </div>
 
-                {agentStreamState !== 'complete' ? (
-                  <section className="agent-live-decision" aria-live="polite">
-                    <div>
-                      <span className="agent-live-indicator">
-                        {agentStreamState === 'streaming' ? (
-                          <i />
-                        ) : (
-                          <CircleDot size={12} />
-                        )}
-                        Observable agent activity
-                      </span>
-                      <strong>
-                        {currentAgentEvent
-                          ? readableToolName(currentAgentEvent.tool)
-                          : agentStreamState === 'blocked'
-                            ? 'waiting for participant authorization'
-                            : 'no tool call recorded'}
-                      </strong>
-                      <p>
-                        {currentAgentEvent
-                          ? toolDecision(currentAgentEvent)
-                          : 'Only tool calls, filter choices, result counts, and validated outcomes appear here. Hidden chain-of-thought is never exposed.'}
-                      </p>
-                    </div>
-                    <span>
-                      {currentAgentEvent
-                        ? `${toolResult(currentAgentEvent)} · ${(currentAgentEvent.latency_ms || 0).toLocaleString()} ms`
-                        : 'Strands event stream'}
-                    </span>
-                  </section>
-                ) : null}
-
                 <section className="answer-build-story">
                   <header>
                     <div>
                       <span className="section-label">
-                        How this answer was built
+                        Observable execution
                       </span>
                       <h2>
-                        Decisions first. Prose only after the evidence gate.
+                        Tool decisions first; prose after the evidence gate.
                       </h2>
                     </div>
                     <span className="status-pill">
                       {agentTrace.length
                         ? `${agentTrace.length} observed calls`
-                        : 'exercise not started'}
+                        : agentDisplayState === 'complete'
+                          ? 'persisted answer'
+                          : 'recovery not started'}
                     </span>
                   </header>
                   <div className="answer-build-timeline">
@@ -4767,6 +4975,45 @@ LIMIT ${appliedControls.limit};`}</code>
                           </time>
                         </div>
                       ))
+                    ) : agentDisplayState === 'complete' ? (
+                      <>
+                        <div className="complete">
+                          <span>1</span>
+                          <div>
+                            <strong>Supporting runs persisted</strong>
+                            <p>
+                              Ranked evidence and candidate diagnostics were
+                              stored before synthesis.
+                            </p>
+                            <small>{compactId(answer?.run_id || runId)}</small>
+                          </div>
+                          <time>complete</time>
+                        </div>
+                        <div className="complete">
+                          <span>2</span>
+                          <div>
+                            <strong>Required evidence covered</strong>
+                            <p>
+                              Cause, visible customer impact, and approved
+                              remediation were present in the visible set.
+                            </p>
+                            <small>{answerCitations.length} cited sources</small>
+                          </div>
+                          <time>complete</time>
+                        </div>
+                        <div className="complete">
+                          <span>3</span>
+                          <div>
+                            <strong>Citations validated</strong>
+                            <p>
+                              Source URI, revision, chunk, and quote resolved
+                              against the persisted evidence versions.
+                            </p>
+                            <small>answer released</small>
+                          </div>
+                          <time>passed</time>
+                        </div>
+                      </>
                     ) : (
                       <>
                         <div className="complete">
@@ -4812,13 +5059,13 @@ LIMIT ${appliedControls.limit};`}</code>
 
                 <section className="answer-decisions">
                   <header>
-                    <span className="section-label">Evidence-boundary decisions</span>
-                    <h2>What changed, and what did not.</h2>
+                    <span className="section-label">Why this stays bounded</span>
+                    <h2>Recovery changes scope, not authority.</h2>
                   </header>
                   <div>
                     <article>
                       <span>01</span>
-                      <strong>Incident scope stays narrow</strong>
+                      <strong>Incident evidence stays filtered</strong>
                       <p>
                         Cause, lock, and customer evidence remain filtered to{' '}
                         <code>{controls.clusterId}</code>.
@@ -4832,26 +5079,102 @@ LIMIT ${appliedControls.limit};`}</code>
                         other retrievals do not.
                       </p>
                     </article>
-                    <article>
+                    <article
+                      className={
+                        agentDisplayState === 'complete' ? 'observed' : ''
+                      }
+                    >
                       <span>03</span>
-                      <strong>Authorization is unchanged</strong>
+                      <strong>Authorization and validation stay fixed</strong>
                       <p>
-                        The principal remains{' '}
-                        <code>
-                          {controls.supportLead ? 'support-lead' : 'workshop'}
-                        </code>{' '}
-                        for every retrieval and relationship hop.
-                      </p>
-                    </article>
-                    <article className={runbookRecovered ? 'observed' : ''}>
-                      <span>04</span>
-                      <strong>The answer gate is deterministic</strong>
-                      <p>
-                        Missing evidence returns a recovery instruction; only a
-                        validated answer of record reaches the prose.
+                        ACL checks apply to every retrieval and hop; missing or
+                        invalid citations keep the answer withheld.
                       </p>
                     </article>
                   </div>
+                </section>
+
+                <section
+                  className={`agent-contract-drawer ${
+                    agentContractOpen ? 'open' : ''
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className="agent-contract-summary"
+                    onClick={() =>
+                      setAgentContractOpen((current) => !current)
+                    }
+                    aria-expanded={agentContractOpen}
+                  >
+                    <span className="agent-contract-icon">
+                      <Code2 size={18} />
+                    </span>
+                    <span>
+                      <b>Agent contract</b>
+                      <small>
+                        Six model-selectable tools share one Aurora-owned
+                        retrieval and proof path.
+                      </small>
+                    </span>
+                    <span className="agent-contract-summary-meta">
+                      Strands · {TOOL_NAMES.length} tools
+                      <ChevronRight size={17} />
+                    </span>
+                  </button>
+                  {agentContractOpen ? (
+                    <div className="agent-contract-body">
+                      <nav aria-label="Agent tools">
+                        {TOOL_NAMES.map((tool, index) => (
+                          <button
+                            key={tool}
+                            type="button"
+                            className={selectedTool === tool ? 'active' : ''}
+                            onClick={() => setSelectedTool(tool)}
+                          >
+                            <span>{String(index + 1).padStart(2, '0')}</span>
+                            {readableToolName(tool)}
+                          </button>
+                        ))}
+                      </nav>
+                      <article>
+                        <span className="section-label">Selected tool</span>
+                        <h3>{readableToolName(selectedTool)}</h3>
+                        <p>{TOOL_CONTRACTS[selectedTool].purpose}</p>
+                        <dl>
+                          <div>
+                            <dt>Returns</dt>
+                            <dd>{TOOL_CONTRACTS[selectedTool].result}</dd>
+                          </div>
+                          <div>
+                            <dt>Proof boundary</dt>
+                            <dd>{TOOL_CONTRACTS[selectedTool].proof}</dd>
+                          </div>
+                        </dl>
+                      </article>
+                      <aside>
+                        <span className="section-label">Current context</span>
+                        <dl>
+                          <div>
+                            <dt>Run</dt>
+                            <dd>{compactId(answer?.run_id || runId)}</dd>
+                          </div>
+                          <div>
+                            <dt>Visible candidates</dt>
+                            <dd>{candidates.length || '—'}</dd>
+                          </div>
+                          <div>
+                            <dt>Answer citations</dt>
+                            <dd>{answerCitations.length || '—'}</dd>
+                          </div>
+                          <div>
+                            <dt>Ranking owner</dt>
+                            <dd>Aurora SQL</dd>
+                          </div>
+                        </dl>
+                      </aside>
+                    </div>
+                  ) : null}
                 </section>
 
                 {agentCommentary ? (
@@ -4863,7 +5186,7 @@ LIMIT ${appliedControls.limit};`}</code>
                   </p>
                 ) : null}
 
-                {agentStreamState === 'complete' ? (
+                {agentDisplayState === 'complete' ? (
                   <div className="answer-next-actions">
                     <button
                       type="button"
@@ -5641,173 +5964,6 @@ LIMIT ${appliedControls.limit};`}</code>
                 )}
               </>
             ) : null}
-          </section>
-        ) : null}
-
-        {module === 'tools' ? (
-          <section className="module-screen">
-            <header className="module-heading">
-              <div>
-                <span className="module-kicker">Module 3</span>
-                <h1>
-                  Invoke the managed <em>tool contract.</em>
-                </h1>
-              </div>
-              <span
-                className={`status-pill ${receipt ? 'ready' : 'pending'}`}
-              >
-                {receipt ? <Check size={13} /> : <LoaderCircle size={13} />}
-                {receipt ? 'HTTP run record loaded' : 'awaiting run'}
-              </span>
-            </header>
-
-            <div className="transport-grid">
-              <section className="transport-card">
-                <span className="transport-number">01</span>
-                <Database size={20} />
-                <h2>HTTP / FastAPI</h2>
-                <code>POST /v1/search</code>
-                <span className="status-pill ready">local API</span>
-              </section>
-              <section className="transport-card">
-                <span className="transport-number">02</span>
-                <Code2 size={20} />
-                <h2>stdio MCP</h2>
-                <code>verity.search_evidence</code>
-                <span className="status-pill">local adapter</span>
-              </section>
-              <section className="transport-card">
-                <span className="transport-number">03</span>
-                <Server size={20} />
-                <h2>AgentCore Gateway</h2>
-                <code>search_evidence</code>
-                <span className="status-pill">pre-provisioned</span>
-              </section>
-            </div>
-
-            <div className="tool-contract-layout">
-              <section className="tool-selector">
-                <header>
-                  <span className="section-label">Canonical tools</span>
-                  <span>v1</span>
-                </header>
-                <div>
-                  {TOOL_NAMES.map((tool) => (
-                    <button
-                      key={tool}
-                      type="button"
-                      className={selectedTool === tool ? 'active' : ''}
-                      onClick={() => setSelectedTool(tool)}
-                    >
-                      <span>{tool}</span>
-                      <ChevronRight size={14} />
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section className="sql-panel contract-panel">
-                <header>
-                  <span>{selectedTool}</span>
-                  <span>normalized request</span>
-                </header>
-                <pre>
-                  <code>{JSON.stringify(
-                    selectedTool === 'search_evidence'
-                      ? {
-                          query: controls.query,
-                          cluster_id: controls.clusterId || null,
-                          principal: controls.supportLead
-                            ? 'support-lead'
-                            : 'workshop',
-                          limit: controls.limit,
-                        }
-                      : {
-                          run_id: runId || '<run_id>',
-                          principal: controls.supportLead
-                            ? 'support-lead'
-                            : 'workshop',
-                        },
-                    null,
-                    2,
-                  )}</code>
-                </pre>
-              </section>
-
-              <section className="normalized-result">
-                <header>
-                  <span className="section-label">Normalized result</span>
-                </header>
-                <dl>
-                  <div>
-                    <dt>run_id</dt>
-                    <dd>{compactId(runId)}</dd>
-                  </div>
-                  <div>
-                    <dt>evidence order</dt>
-                    <dd>
-                      {candidates
-                        .slice(0, 3)
-                        .map((candidate) => candidate.external_key)
-                        .filter(Boolean)
-                        .join(' → ') || '—'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>visible set</dt>
-                    <dd>{candidates.length} candidates</dd>
-                  </div>
-                  <div>
-                    <dt>proof reference</dt>
-                    <dd>{receipt ? 'persisted' : '—'}</dd>
-                  </div>
-                </dl>
-              </section>
-            </div>
-
-            <section className="parity-panel">
-              <header>
-                <div>
-                  <span className="section-label">Transport parity</span>
-                  <h2>Runtime observation matrix</h2>
-                </div>
-                <span className="status-pill ready">
-                  <ShieldCheck size={13} />
-                  Aurora remains authoritative
-                </span>
-              </header>
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Assertion</th>
-                      <th>HTTP</th>
-                      <th>stdio MCP</th>
-                      <th>AgentCore</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      'Contract version',
-                      'Evidence order',
-                      'Arm positions',
-                      'ACL-visible set',
-                      'Citations',
-                      'Proof reference',
-                    ].map((assertion) => (
-                      <tr key={assertion}>
-                        <td>{assertion}</td>
-                        <td className={receipt ? 'parity-ok' : 'parity-pending'}>
-                          {receipt ? 'observed' : 'pending'}
-                        </td>
-                        <td className="parity-pending">not invoked</td>
-                        <td className="parity-pending">not invoked</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
           </section>
         ) : null}
 

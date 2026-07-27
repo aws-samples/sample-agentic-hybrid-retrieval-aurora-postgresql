@@ -295,12 +295,15 @@ async def stream_answer_with_strands(
                 record = run["answer_of_record"]
                 if record and not answer_streamed:
                     answer_streamed = True
+                    # Citations are already validated when the answer of record
+                    # is created. Publish them first so clients can reveal the
+                    # source rail while the answer text streams.
+                    yield {"type": "citations", "citations": record["citations"]}
                     for offset in range(0, len(record["answer"]), 48):
                         yield {
                             "type": "answer_token",
                             "text": record["answer"][offset : offset + 48],
                         }
-                    yield {"type": "citations", "citations": record["citations"]}
             if "result" in event:
                 result = event["result"]
     except Exception as error:
@@ -321,9 +324,9 @@ async def stream_answer_with_strands(
         return
     if failure and not answer_streamed:
         record = run["answer_of_record"]
+        yield {"type": "citations", "citations": record["citations"]}
         for offset in range(0, len(record["answer"]), 48):
             yield {"type": "answer_token", "text": record["answer"][offset : offset + 48]}
-        yield {"type": "citations", "citations": record["citations"]}
     done: dict[str, Any] = {
         "type": "done",
         "question": request.question,

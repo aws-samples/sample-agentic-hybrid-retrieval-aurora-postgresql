@@ -9,6 +9,7 @@ never synthesizes says so instead of passing narration off as an answer.
 
 from __future__ import annotations
 
+import asyncio
 import unittest
 from typing import Any
 from unittest.mock import patch
@@ -16,7 +17,10 @@ from unittest.mock import patch
 from strands.models import Model
 
 from backend.app.models import AgentAnswerRequest
-from backend.app.strands_agent import answer_question_with_strands
+from backend.app.strands_agent import (
+    answer_question_with_strands,
+    stream_answer_with_strands,
+)
 
 RUN_ID = "1e5a4f2c-0000-4000-8000-00000000000f"
 VALIDATED_ANSWER = "CHG-1842 took a ShareLock that blocked writers [1]."
@@ -115,6 +119,43 @@ def _agent_with(script: list[Any]):
 
 
 class StrandsAgentTests(unittest.TestCase):
+    def test_stream_publishes_validated_citations_before_answer_tokens(self) -> None:
+        script = [
+            ("search_evidence", '{"query": "CHG-1842"}'),
+            (
+                "synthesize_cited_answer",
+                '{"question": "Why did writes block?", "run_ids": ["%s"]}' % RUN_ID,
+            ),
+            "The cited answer is ready.",
+        ]
+
+        async def collect_events() -> list[dict[str, Any]]:
+            return [
+                event
+                async for event in stream_answer_with_strands(
+                    AgentAnswerRequest(question="Why did writes block?")
+                )
+            ]
+
+        with (
+            patch(
+                "backend.app.agent_tools.search_evidence_impl",
+                return_value=SEARCH_RESULT,
+            ),
+            patch(
+                "backend.app.agent_tools.synthesize_cited_answer_from_runs_impl",
+                return_value=SYNTHESIS_RESULT,
+            ),
+            patch("backend.app.strands_agent.build_agent", _agent_with(script)),
+        ):
+            events = asyncio.run(collect_events())
+
+        event_types = [event["type"] for event in events]
+        self.assertLess(
+            event_types.index("citations"),
+            event_types.index("answer_token"),
+        )
+
     def test_caller_receives_the_validated_answer_not_the_models_prose(self) -> None:
         script = [
             ("search_evidence", '{"query": "CHG-1842"}'),
