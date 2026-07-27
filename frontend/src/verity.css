@@ -5318,7 +5318,7 @@ td span {
 
 .replay-summary {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
   margin-top: 12px;
   overflow: hidden;
@@ -6883,7 +6883,7 @@ td span {
   }
 
   .replay-summary {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .advanced-fields {

@@ -4687,10 +4687,6 @@ FROM retrieval.${planArm}_search(
                     <span>citations</span>
                   </div>
                   <div>
-                    <strong>{health?.drift_issues ?? '—'}</strong>
-                    <span>index drift</span>
-                  </div>
-                  <div>
                     <strong>
                       {receipt?.run.latency_ms === null ||
                       receipt?.run.latency_ms === undefined
