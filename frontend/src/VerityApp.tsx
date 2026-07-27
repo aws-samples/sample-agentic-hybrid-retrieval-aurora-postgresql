@@ -3909,19 +3909,10 @@ FROM retrieval.${planArm}_search(
                         ? 'grounded'
                         : agentStreamState === 'streaming'
                           ? 'agent working'
-                          : '2/3 grounded'}
+                          : 'answer withheld'}
                     </span>
                     <span>
                       run <b>{compactId(answer?.run_id || runId)}</b>
-                    </span>
-                    <span>
-                      <b>{answerCitations.length}</b> validated sources
-                    </span>
-                    <span>
-                      principal{' '}
-                      <b>
-                        {controls.supportLead ? 'support-lead' : 'workshop'}
-                      </b>
                     </span>
                     {agentLatencyMs !== null ? (
                       <span>
@@ -4022,14 +4013,6 @@ FROM retrieval.${planArm}_search(
                           <FormattedAnswer text={streamingAnswer || answer.answer_text} />
                         </div>
                         <div className="answer-proof-strip">
-                          <span>
-                            <b>3 / 3</b>
-                            claims grounded
-                          </span>
-                          <span>
-                            <b>{answerCitations.length}</b>
-                            validated citations
-                          </span>
                           <span>
                             <b>{agentTrace.length}</b>
                             observable tool calls
@@ -4145,35 +4128,37 @@ FROM retrieval.${planArm}_search(
                   </aside>
                 </div>
 
-                <section className="agent-live-decision" aria-live="polite">
-                  <div>
-                    <span className="agent-live-indicator">
-                      {agentStreamState === 'streaming' ? (
-                        <i />
-                      ) : (
-                        <CircleDot size={12} />
-                      )}
-                      Observable agent activity
+                {agentStreamState !== 'complete' ? (
+                  <section className="agent-live-decision" aria-live="polite">
+                    <div>
+                      <span className="agent-live-indicator">
+                        {agentStreamState === 'streaming' ? (
+                          <i />
+                        ) : (
+                          <CircleDot size={12} />
+                        )}
+                        Observable agent activity
+                      </span>
+                      <strong>
+                        {currentAgentEvent
+                          ? readableToolName(currentAgentEvent.tool)
+                          : agentStreamState === 'blocked'
+                            ? 'waiting for participant authorization'
+                            : 'no tool call recorded'}
+                      </strong>
+                      <p>
+                        {currentAgentEvent
+                          ? toolDecision(currentAgentEvent)
+                          : 'Only tool calls, filter choices, result counts, and validated outcomes appear here. Hidden chain-of-thought is never exposed.'}
+                      </p>
+                    </div>
+                    <span>
+                      {currentAgentEvent
+                        ? `${toolResult(currentAgentEvent)} · ${(currentAgentEvent.latency_ms || 0).toLocaleString()} ms`
+                        : 'Strands event stream'}
                     </span>
-                    <strong>
-                      {currentAgentEvent
-                        ? readableToolName(currentAgentEvent.tool)
-                        : agentStreamState === 'blocked'
-                          ? 'waiting for participant authorization'
-                          : 'no tool call recorded'}
-                    </strong>
-                    <p>
-                      {currentAgentEvent
-                        ? toolDecision(currentAgentEvent)
-                        : 'Only tool calls, filter choices, result counts, and validated outcomes appear here. Hidden chain-of-thought is never exposed.'}
-                    </p>
-                  </div>
-                  <span>
-                    {currentAgentEvent
-                      ? `${toolResult(currentAgentEvent)} · ${(currentAgentEvent.latency_ms || 0).toLocaleString()} ms`
-                      : 'Strands event stream'}
-                  </span>
-                </section>
+                  </section>
+                ) : null}
 
                 <section className="answer-build-story">
                   <header>
