@@ -62,7 +62,7 @@ type ModuleName =
   | 'tools'
   | 'corpus'
   | 'health';
-type DiagnoseTab = 'results' | 'fusion' | 'plan';
+type DiagnoseTab = 'results' | 'fusion';
 type ProveTab =
   | 'answer'
   | 'graph'
@@ -104,7 +104,6 @@ const PRIMARY_NAV: NavSurface[] = [
     lenses: [
       { key: 'results', label: 'Results', Icon: CircleDot },
       { key: 'fusion', label: 'Fusion', Icon: SlidersHorizontal },
-      { key: 'plan', label: 'Plan', Icon: Code2 },
     ],
   },
   {
@@ -122,7 +121,7 @@ const PRIMARY_NAV: NavSurface[] = [
     label: 'Proof',
     Icon: ShieldCheck,
     lenses: [
-      { key: 'receipt', label: 'Receipt', Icon: Clipboard },
+      { key: 'receipt', label: 'Run record', Icon: Clipboard },
       { key: 'replay', label: 'Replay', Icon: Play },
       { key: 'timeline', label: 'Timeline', Icon: GitMerge },
     ],
@@ -486,6 +485,8 @@ interface RunTimeline {
 
 interface QueryPlanResponse {
   arm: 'semantic' | 'lexical' | 'fuzzy';
+  query: string;
+  cluster_id: string | null;
   plan: {
     Plan?: JsonRecord;
     'Planning Time'?: number;
@@ -497,8 +498,22 @@ interface QueryPlanResponse {
     index: string | null;
     actual_rows: number;
     loops: number;
+    actual_startup_time_ms: number | null;
+    actual_total_time_ms: number | null;
+    shared_hit_blocks: number;
+    shared_read_blocks: number;
+    rows_removed_by_filter: number;
+    filter: string | null;
+    index_cond: string | null;
+    recheck_cond: string | null;
   }>;
+  runtime_sql: string;
+  planner_summary: string;
+  uses_hnsw: boolean | null;
   note: string;
+  fuzzy_probe_tokens?: string[];
+  abstained?: boolean;
+  abstain_reason?: string;
   _verify_sql?: VerifySqlUnavailable;
 }
 
@@ -545,12 +560,32 @@ const DEFAULT_CONTROLS: Controls = {
   supportLead: false,
 };
 
+function retrievalRequestKey(controls: Controls): string {
+  return JSON.stringify({
+    query: controls.query,
+    mode: controls.mode,
+    kind: controls.kind,
+    clusterId: controls.clusterId,
+    environment: controls.environment,
+    limit: controls.limit,
+    candidatePool: controls.candidatePool,
+    rrfK: controls.rrfK,
+    textWeight: controls.textWeight,
+    vectorWeight: controls.vectorWeight,
+    fuzzyWeight: controls.fuzzyWeight,
+    fuzzyThreshold: controls.fuzzyThreshold,
+    efSearch: controls.efSearch,
+    rerank: controls.rerank,
+    supportLead: controls.supportLead,
+  });
+}
+
 // presetKey ties a preset to the SPEC 6.0 route vocabulary
 // (?preset={exact|fuzzy|semantic}). The three tagged entries are the workshop's
 // query-shape triad — exact identifier, paraphrase (semantic recall), and typo
 // (fuzzy match) — all mode:'hybrid' because the teaching point is one fusion
-// handling every query shape. "Incident cause" stays UI-reachable but is not
-// URL-addressable: the contract names only the three shapes.
+// handling every query shape. The remaining examples stay UI-reachable but are
+// not URL-addressable: the route contract names only the three shapes.
 const PRESETS: {
   label: string;
   query: string;
@@ -590,6 +625,21 @@ const PRESETS: {
     kind: 'change' as const,
     clusterId: '',
     presetKey: 'fuzzy',
+  },
+  {
+    label: 'Customer impact',
+    query: 'Which visible customer reported checkout timeouts during INC-2047?',
+    mode: 'hybrid' as RetrievalMode,
+    kind: 'support_case' as const,
+    clusterId: 'checkout-prod-cluster-01',
+  },
+  {
+    label: 'Safe index build',
+    query:
+      'What index build method lets checkout writes continue during production maintenance?',
+    mode: 'hybrid' as RetrievalMode,
+    kind: 'runbook' as const,
+    clusterId: '',
   },
 ];
 
@@ -730,7 +780,7 @@ function toolDecision(event: AgentTraceEvent): string {
     } on scope, revision, and relationship.`;
   }
   if (event.tool === 'explain_ranking') {
-    return 'Read the persisted rank receipt without recomputing scores.';
+    return 'Read the persisted retrieval run without recomputing scores.';
   }
   if (event.tool === 'synthesize_cited_answer') {
     return event.status === 'incomplete'
@@ -1287,6 +1337,7 @@ function CandidateRow({
   return (
     <button
       className={`arm-item ${selected ? 'selected' : ''}`}
+      data-kind={item.evidence_kind || 'unknown'}
       onClick={onSelect}
       type="button"
     >
@@ -1308,6 +1359,137 @@ function CandidateRow({
   );
 }
 
+function FinalRankedEvidence({
+  candidates,
+  selectedEvidenceId,
+  reranked,
+  runId,
+  onSelect,
+}: {
+  candidates: Candidate[];
+  selectedEvidenceId: string | null;
+  reranked: boolean;
+  runId: string;
+  onSelect: (candidate: Candidate) => void;
+}) {
+  const topCandidate = candidates[0];
+  const topEvidence = topCandidate ? snapshot(topCandidate) : null;
+
+  return (
+    <section className="final-ranked-evidence">
+      <header>
+        <div>
+          <span className="section-label">Final ranked evidence</span>
+          <h2>What this retrieval returned first</h2>
+          <p>
+            The persisted final order is the retrieval outcome. The Agent uses
+            this evidence to produce a separate cited answer.
+          </p>
+        </div>
+        <span className={`status-pill ${runId ? 'ready' : 'pending'}`}>
+          {runId ? `run ${compactId(runId)}` : 'awaiting retrieval'}
+        </span>
+      </header>
+
+      {topCandidate && topEvidence ? (
+        <>
+          <button
+            type="button"
+            className={`final-ranked-primary ${
+              topCandidate.evidence_id === selectedEvidenceId ? 'selected' : ''
+            }`}
+            data-kind={topEvidence.evidence_kind || 'unknown'}
+            onClick={() => onSelect(topCandidate)}
+          >
+            <span className="final-rank-marker">
+              <small>Rank</small>
+              <strong>1</strong>
+            </span>
+            <span
+              className={`kind-glyph kind-${
+                topEvidence.evidence_kind || 'unknown'
+              }`}
+            >
+              <KindIcon kind={topEvidence.evidence_kind} size={19} />
+            </span>
+            <span className="final-ranked-copy">
+              <span className="final-ranked-identity">
+                <strong>{topEvidence.external_key || 'Unknown evidence'}</strong>
+                <span className={`tier-chip tier-${matchTier(topCandidate)}`}>
+                  {tierLabel(matchTier(topCandidate))}
+                </span>
+              </span>
+              <b>{topEvidence.title || 'Untitled evidence'}</b>
+              <span>
+                {topEvidence.snippet || 'No visible evidence excerpt.'}
+              </span>
+            </span>
+            <span className="final-ranked-scores">
+              <span>
+                {reranked ? 'Model rerank' : 'Aurora RRF'}
+                <b>
+                  {reranked
+                    ? score(topCandidate.rerank_score, 3)
+                    : score(
+                        topCandidate.rrf_score ?? topCandidate.final_score,
+                        5,
+                      )}
+                </b>
+              </span>
+              {reranked ? (
+                <span>
+                  Aurora RRF
+                  <b>
+                    {score(
+                      topCandidate.rrf_score ?? topCandidate.final_score,
+                      5,
+                    )}
+                  </b>
+                </span>
+              ) : null}
+              <ChevronRight size={17} aria-hidden="true" />
+            </span>
+          </button>
+
+          {candidates.length > 1 ? (
+            <div className="final-ranked-rest">
+              <div className="final-ranked-rest-head">
+                <span>Next in final order</span>
+                <small>{candidates.length - 1} additional candidates</small>
+              </div>
+              <div className="final-ranked-rest-list">
+                {candidates.slice(1).map((candidate, index) => (
+                  <CandidateRow
+                    key={`${candidate.evidence_id}-${index}`}
+                    candidate={candidate}
+                    rank={candidate.result_rank || index + 2}
+                    selected={candidate.evidence_id === selectedEvidenceId}
+                    diagnostic={
+                      reranked
+                        ? score(candidate.rerank_score, 3)
+                        : score(
+                            candidate.rrf_score ?? candidate.final_score,
+                            5,
+                          )
+                    }
+                    onSelect={() => onSelect(candidate)}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <Empty
+          icon={<FileSearch size={20} />}
+          title="Run retrieval to rank evidence"
+          detail="The final persisted order will appear here before the arm diagnostics."
+        />
+      )}
+    </section>
+  );
+}
+
 function RetrievalArm({
   title,
   subtitle,
@@ -1315,6 +1497,11 @@ function RetrievalArm({
   selectedEvidenceId,
   diagnostic,
   onSelect,
+  planArm,
+  onInspectPlan,
+  planBusy = false,
+  emptyTitle = 'No candidates',
+  emptyDetail = 'The arm returned an empty set.',
   fused = false,
 }: {
   title: string;
@@ -1323,6 +1510,11 @@ function RetrievalArm({
   selectedEvidenceId: string | null;
   diagnostic: (candidate: Candidate) => ReactNode;
   onSelect: (candidate: Candidate) => void;
+  planArm?: QueryPlanResponse['arm'];
+  onInspectPlan?: (arm: QueryPlanResponse['arm']) => void;
+  planBusy?: boolean;
+  emptyTitle?: string;
+  emptyDetail?: string;
   fused?: boolean;
 }) {
   return (
@@ -1332,14 +1524,32 @@ function RetrievalArm({
           <span className="section-label">{title}</span>
           <p>{subtitle}</p>
         </div>
-        <span className="count-badge">{candidates.length}</span>
+        <div className="arm-header-actions">
+          {planArm && onInspectPlan ? (
+            <button
+              type="button"
+              className="arm-plan-button"
+              onClick={() => onInspectPlan(planArm)}
+              disabled={planBusy}
+              title={`Inspect the ${title.toLowerCase()} query plan`}
+            >
+              {planBusy ? (
+                <LoaderCircle className="spin" size={12} />
+              ) : (
+                <Code2 size={12} />
+              )}
+              Plan
+            </button>
+          ) : null}
+          <span className="count-badge">{candidates.length}</span>
+        </div>
       </header>
       <div className="arm-list">
         {!candidates.length ? (
           <Empty
             icon={<FileSearch size={18} />}
-            title="No candidates"
-            detail="The arm returned an empty set."
+            title={emptyTitle}
+            detail={emptyDetail}
           />
         ) : fused ? (
           groupByTier(candidates, 6).map((group) => (
@@ -1374,6 +1584,221 @@ function RetrievalArm({
           ))
         )}
       </div>
+    </section>
+  );
+}
+
+const PLAN_ARM_LABELS: Record<QueryPlanResponse['arm'], string> = {
+  lexical: 'Text',
+  semantic: 'Semantic',
+  fuzzy: 'Fuzzy',
+};
+
+function QueryPlanDrawer({
+  plan,
+  arm,
+  busy,
+  engineVersion,
+  onSelectArm,
+  onRefresh,
+  onClose,
+}: {
+  plan: QueryPlanResponse | null;
+  arm: QueryPlanResponse['arm'];
+  busy: boolean;
+  engineVersion?: string;
+  onSelectArm: (arm: QueryPlanResponse['arm']) => void;
+  onRefresh: () => void;
+  onClose: () => void;
+}) {
+  const current = plan?.arm === arm ? plan : null;
+  const hnswState =
+    current?.uses_hnsw === true
+      ? 'HNSW selected'
+      : current?.uses_hnsw === false
+        ? 'HNSW bypassed'
+        : 'Not applicable';
+
+  return (
+    <section
+      className="query-plan-drawer"
+      aria-label={`${PLAN_ARM_LABELS[arm]} query plan`}
+    >
+      <header className="query-plan-head">
+        <div>
+          <span className="section-label">Live query plan</span>
+          <h2>{PLAN_ARM_LABELS[arm]} arm execution</h2>
+          <p>
+            EXPLAIN (ANALYZE, BUFFERS) over the canonical arm SQL under the
+            active query and filters.
+          </p>
+        </div>
+        <div className="query-plan-head-actions">
+          <span className="status-pill ready">
+            {engineRelease(engineVersion) || 'live database'}
+          </span>
+          <button
+            type="button"
+            className="icon-close"
+            onClick={onClose}
+            title="Close query plan"
+            aria-label="Close query plan"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      </header>
+
+      <div className="query-plan-toolbar">
+        <div className="segmented" aria-label="Retrieval arm plan">
+          {(['lexical', 'semantic', 'fuzzy'] as const).map((candidateArm) => (
+            <button
+              key={candidateArm}
+              type="button"
+              className={arm === candidateArm ? 'active' : ''}
+              onClick={() => onSelectArm(candidateArm)}
+              disabled={busy}
+            >
+              {PLAN_ARM_LABELS[candidateArm]}
+            </button>
+          ))}
+        </div>
+        <span className="query-plan-context">
+          <b>Scope</b>
+          {current?.cluster_id || 'all clusters'}
+        </span>
+        <button
+          type="button"
+          className="text-command"
+          onClick={onRefresh}
+          disabled={busy}
+        >
+          {busy ? (
+            <LoaderCircle className="spin" size={14} />
+          ) : (
+            <RefreshCw size={14} />
+          )}
+          Refresh plan
+        </button>
+      </div>
+
+      {busy || !current ? (
+        <Empty
+          icon={<LoaderCircle className={busy ? 'spin' : ''} size={20} />}
+          title={busy ? 'Explaining the live arm' : 'Plan unavailable'}
+          detail="The drawer will render only observed database output."
+        />
+      ) : (
+        <>
+          <div className="query-plan-runtime">
+            <span>
+              Planning
+              <strong>{score(current.plan['Planning Time'], 3)} ms</strong>
+            </span>
+            <span>
+              Execution
+              <strong>{score(current.plan['Execution Time'], 3)} ms</strong>
+            </span>
+            <span>
+              Scan nodes
+              <strong>{current.scans.length}</strong>
+            </span>
+            <span>
+              Semantic path
+              <strong>{hnswState}</strong>
+            </span>
+          </div>
+
+          {current.abstained ? (
+            <div className="plan-abstention" role="note">
+              <CircleDot size={16} />
+              <span>
+                <strong>Arm abstained</strong>
+                {current.abstain_reason}
+              </span>
+            </div>
+          ) : null}
+
+          <div className="query-plan-body">
+            <section className="query-plan-scans">
+              <header>
+                <span className="section-label">Observed scan path</span>
+                <small>actual values per loop</small>
+              </header>
+              <div className="plan-scan-head" aria-hidden="true">
+                <span>Node / relation</span>
+                <span>Index</span>
+                <span>Rows · loops</span>
+                <span>Time</span>
+                <span>Buffers</span>
+              </div>
+              {current.scans.length ? (
+                current.scans.map((scan, index) => {
+                  const conditions = [
+                    scan.index_cond ? `Index: ${scan.index_cond}` : '',
+                    scan.recheck_cond ? `Recheck: ${scan.recheck_cond}` : '',
+                    scan.filter ? `Filter: ${scan.filter}` : '',
+                  ].filter(Boolean);
+                  return (
+                    <div
+                      className="plan-scan-row"
+                      key={`${scan.node_type}-${scan.index}-${index}`}
+                    >
+                      <span className="plan-node-index">{index + 1}</span>
+                      <span className="plan-node-name">
+                        <strong>{scan.node_type}</strong>
+                        <small>{scan.relation || 'working set'}</small>
+                      </span>
+                      <code>{scan.index || '—'}</code>
+                      <span>
+                        {scan.actual_rows} · {scan.loops}
+                      </span>
+                      <span>{score(scan.actual_total_time_ms, 3)} ms</span>
+                      <span>
+                        {scan.shared_hit_blocks} hit · {scan.shared_read_blocks}{' '}
+                        read
+                      </span>
+                      {conditions.length ? (
+                        <small className="plan-node-conditions">
+                          {conditions.join(' · ')}
+                          {scan.rows_removed_by_filter
+                            ? ` · ${scan.rows_removed_by_filter} rows removed`
+                            : ''}
+                        </small>
+                      ) : null}
+                    </div>
+                  );
+                })
+              ) : (
+                <Empty
+                  icon={<Activity size={18} />}
+                  title="No scan nodes executed"
+                  detail={
+                    current.abstained
+                      ? 'The arm exited before an indexed probe was required.'
+                      : 'The live plan returned no scan nodes.'
+                  }
+                />
+              )}
+            </section>
+
+            <aside className="query-plan-inspector">
+              <section>
+                <span className="section-label">Planner observation</span>
+                <p>{current.planner_summary}</p>
+                <VerifyAffordance descriptor={current._verify_sql} />
+              </section>
+              <section className="plan-runtime-sql">
+                <header>
+                  <span>Executed SQL shape</span>
+                  <small>backend generated</small>
+                </header>
+                <pre>{current.runtime_sql}</pre>
+              </section>
+            </aside>
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -1434,6 +1859,9 @@ function FusionAnatomyTable({
       ),
       0.00001,
     ) || 1;
+  const rerankVisible = candidates.some(
+    (candidate) => candidate.rerank_score != null,
+  );
 
   return (
     <div className="table-scroll fusion-table">
@@ -1463,7 +1891,12 @@ function FusionAnatomyTable({
               <small>shared rank scale</small>
             </th>
             <th>Aurora RRF</th>
-            <th>Rerank</th>
+            {rerankVisible ? (
+              <th>
+                Cohere rerank
+                <small>post-fusion diagnostic</small>
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -1539,9 +1972,11 @@ function FusionAnatomyTable({
                 <td className="score-value">
                   {score(candidate.rrf_score ?? total, 5)}
                 </td>
-                <td className="score-value">
-                  {score(candidate.rerank_score, 3)}
-                </td>
+                {rerankVisible ? (
+                  <td className="score-value">
+                    {score(candidate.rerank_score, 3)}
+                  </td>
+                ) : null}
               </tr>
             );
           })}
@@ -1553,6 +1988,7 @@ function FusionAnatomyTable({
 
 function FusionControlPanel({
   controls,
+  dirty,
   advancedOpen,
   onToggleAdvanced,
   onChange,
@@ -1560,6 +1996,7 @@ function FusionControlPanel({
   busy,
 }: {
   controls: Controls;
+  dirty: boolean;
   advancedOpen: boolean;
   onToggleAdvanced: () => void;
   onChange: <K extends keyof Controls>(key: K, value: Controls[K]) => void;
@@ -1569,7 +2006,12 @@ function FusionControlPanel({
   return (
     <section className="fusion-controls">
       <header>
-        <span className="section-label">Fusion controls</span>
+        <div className="fusion-control-title">
+          <span className="section-label">Fusion controls</span>
+          <small className={`control-state ${dirty ? 'pending' : ''}`}>
+            {dirty ? 'Draft differs from run' : 'Matches current run'}
+          </small>
+        </div>
         <div className="control-actions">
           <button
             type="button"
@@ -1621,6 +2063,24 @@ function FusionControlPanel({
           </output>
         </label>
       ))}
+      <label className="fusion-rerank-control">
+        <span className="rerank-control-copy">
+          <strong>Cohere rerank</strong>
+          <small>
+            Optional post-fusion ordering; Aurora RRF remains persisted
+          </small>
+        </span>
+        <span className="toggle-control">
+          <span>{controls.rerank ? 'On' : 'Off'}</span>
+          <input
+            type="checkbox"
+            checked={controls.rerank}
+            disabled={busy}
+            onChange={(event) => onChange('rerank', event.target.checked)}
+          />
+          <i aria-hidden="true" />
+        </span>
+      </label>
       {advancedOpen ? (
         <div className="advanced-fields">
           <label>
@@ -1863,6 +2323,9 @@ export default function VerityApp() {
   const [planArm, setPlanArm] =
     useState<QueryPlanResponse['arm']>('semantic');
   const [queryPlan, setQueryPlan] = useState<QueryPlanResponse | null>(null);
+  const [planOpen, setPlanOpen] = useState(false);
+  const [armsOpen, setArmsOpen] = useState(false);
+  const [candidateReceiptOpen, setCandidateReceiptOpen] = useState(false);
   const [graphDepth, setGraphDepth] = useState(2);
   const [graphEdgeMode, setGraphEdgeMode] =
     useState<'canonical' | 'all'>('all');
@@ -1889,11 +2352,14 @@ export default function VerityApp() {
   const [homeQueryText, setHomeQueryText] = useState('');
   const [homeTyping, setHomeTyping] = useState(true);
   const [homeReceiptLoading, setHomeReceiptLoading] = useState(true);
+  const [fusionRunRequest, setFusionRunRequest] = useState(0);
   const [navCollapsed, setNavCollapsed] = useState(
     () => window.localStorage.getItem('verity-nav-collapsed') === 'true',
   );
   const homeTypingInterrupted = useRef(false);
   const homeQueryInput = useRef<HTMLInputElement>(null);
+  const lastCompletedSearchKey = useRef<string | null>(null);
+  const processedFusionRunRequest = useRef(0);
 
   const selectedCandidate = useMemo(
     () =>
@@ -2069,11 +2535,14 @@ export default function VerityApp() {
         setModule('home');
         break;
       case 'retrieval': {
-        const tab: DiagnoseTab =
-          lens === 'fusion' || lens === 'plan' ? lens : 'results';
+        const tab: DiagnoseTab = lens === 'fusion' ? 'fusion' : 'results';
         setModule('retrieve');
         setDiagnoseTab(tab);
-        if (tab === 'plan' && !queryPlan) void loadQueryPlan();
+        setControl('supportLead', false);
+        if (tab === 'fusion') {
+          setPlanOpen(false);
+          setFusionRunRequest((current) => current + 1);
+        }
         break;
       }
       case 'agent':
@@ -2222,34 +2691,36 @@ export default function VerityApp() {
     setControl('query', homeQueryText);
   }
 
-  function searchPayload() {
+  function searchPayload(sourceControls: Controls = controls) {
     return {
-      query: controls.query,
-      mode: controls.mode,
-      kinds: controls.kind === 'all' ? null : [controls.kind],
-      cluster_id: controls.clusterId || null,
+      query: sourceControls.query,
+      mode: sourceControls.mode,
+      kinds:
+        sourceControls.kind === 'all' ? null : [sourceControls.kind],
+      cluster_id: sourceControls.clusterId || null,
       incident_id: null,
-      environment: controls.environment || null,
-      limit: controls.limit,
-      candidate_pool: controls.candidatePool,
-      rrf_k: controls.rrfK,
-      w_text: controls.textWeight,
-      w_vector: controls.vectorWeight,
-      w_trgm: controls.fuzzyWeight,
-      fuzzy_threshold: controls.fuzzyThreshold,
-      ef_search: controls.efSearch,
+      environment: sourceControls.environment || null,
+      limit: sourceControls.limit,
+      candidate_pool: sourceControls.candidatePool,
+      rrf_k: sourceControls.rrfK,
+      w_text: sourceControls.textWeight,
+      w_vector: sourceControls.vectorWeight,
+      w_trgm: sourceControls.fuzzyWeight,
+      fuzzy_threshold: sourceControls.fuzzyThreshold,
+      ef_search: sourceControls.efSearch,
       iterative_scan: 'relaxed_order',
-      rerank: controls.rerank,
+      rerank: sourceControls.rerank,
       principal: {
         scopes: ['workshop'],
-        principals: controls.supportLead ? ['support-lead'] : [],
+        principals: sourceControls.supportLead ? ['support-lead'] : [],
       },
     };
   }
 
-  async function loadRun(id: string | undefined) {
+  async function loadRun(id: string | undefined, requestKey?: string) {
     const runKey = encodeURIComponent((id || '').trim());
     if (!runKey) return;
+    if (!requestKey) lastCompletedSearchKey.current = null;
     setBusy('run');
     setError(null);
     try {
@@ -2268,6 +2739,7 @@ export default function VerityApp() {
       setCandidates(ranked);
       setAnswer(runReceipt.answer);
       setRunId(runReceipt.run.run_id);
+      if (requestKey) lastCompletedSearchKey.current = requestKey;
       setSelectedEvidenceId((current) =>
         ranked.some((candidate) => candidate.evidence_id === current)
           ? current
@@ -2282,6 +2754,7 @@ export default function VerityApp() {
 
   async function loadQueryPlan(arm = planArm) {
     if (!controls.query.trim()) return;
+    setPlanOpen(true);
     setBusy('plan');
     setError(null);
     try {
@@ -2310,16 +2783,32 @@ export default function VerityApp() {
     }
   }
 
-  async function runSearch(event?: FormEvent) {
+  function openQueryPlan(arm: QueryPlanResponse['arm']) {
+    setModule('retrieve');
+    setDiagnoseTab('results');
+    setControl('supportLead', false);
+    setArmsOpen(true);
+    setPlanOpen(true);
+    void loadQueryPlan(arm);
+  }
+
+  async function runSearch(
+    event?: FormEvent,
+    requestedControls: Controls = controls,
+  ) {
     event?.preventDefault();
-    if (!controls.query.trim()) return;
+    if (!requestedControls.query.trim()) return;
+    const requestKey = retrievalRequestKey(requestedControls);
     setBusy('search');
     setError(null);
     setAnswer(null);
+    setPlanOpen(false);
+    setArmsOpen(false);
+    setCandidateReceiptOpen(false);
     try {
       const response = await api<SearchResponse>('/v1/search', {
         method: 'POST',
-        body: JSON.stringify(searchPayload()),
+        body: JSON.stringify(searchPayload(requestedControls)),
       });
       const ranked = response.results.map((candidate, index) => ({
         ...candidate,
@@ -2328,7 +2817,7 @@ export default function VerityApp() {
       setCandidates(ranked);
       setRunId(response.run_id);
       setSelectedEvidenceId(ranked[0]?.evidence_id || null);
-      await loadRun(response.run_id);
+      await loadRun(response.run_id, requestKey);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Search unavailable');
     } finally {
@@ -2337,7 +2826,14 @@ export default function VerityApp() {
   }
 
   async function beginInvestigation() {
-    if (!controls.query.trim()) return;
+    const baselineQuery = homeQueryText.trim();
+    if (!baselineQuery) return;
+    const baselineControls = {
+      ...controls,
+      query: baselineQuery,
+      supportLead: false,
+    };
+    setControls(baselineControls);
     setAgentStreamState('blocked');
     setStreamingAnswer('');
     setAgentTrace([]);
@@ -2348,7 +2844,7 @@ export default function VerityApp() {
     setAgentLatencyMs(null);
     setModule('retrieve');
     setDiagnoseTab('results');
-    await runSearch();
+    await runSearch(undefined, baselineControls);
   }
 
   async function askAgent() {
@@ -2516,7 +3012,7 @@ export default function VerityApp() {
         if (event) await consumeEvent(event);
       }
       if (!streamCompleted) {
-        throw new Error('The Strands event stream ended before a final receipt.');
+        throw new Error('The Strands event stream ended before a final run record.');
       }
       if (completedRunId) {
         await loadRun(completedRunId);
@@ -2553,6 +3049,7 @@ export default function VerityApp() {
 
   function selectCandidate(candidate: Candidate) {
     setSelectedEvidenceId(candidate.evidence_id || null);
+    setCandidateReceiptOpen(true);
   }
 
   const activeEvidence = selectedCandidate
@@ -2561,12 +3058,68 @@ export default function VerityApp() {
   const latestBuild = diagnostics?.recent_builds[0];
   const embeddingModel =
     health?.embedding_spaces[0]?.embedding_model || 'checking';
-  // The Final arm describes the run that produced the displayed candidates, so
-  // its label reads from the persisted receipt, not the pending toggle. Rerank
-  // is a post-fusion ordering stage: with it off, final order == fused order.
+  // The final outcome describes the run that produced the displayed candidates,
+  // so its state reads from the persisted receipt, not the pending toggle.
+  // Rerank is a post-fusion ordering stage: with it off, final order == fused.
   const finalReranked = Boolean(receipt?.run.rerank_applied);
-  const finalRerankModel = receipt?.run.rerank_model || 'rerank model';
+  const receiptRerankRequested = Boolean(receipt?.run.rerank_model);
   const finalOrderIsFused = candidates.length ? isFusedOrder(candidates) : true;
+  const appliedControls: Controls = {
+    ...controls,
+    query: receipt?.run.query_text || controls.query,
+    candidatePool: receipt?.run.candidate_pool || controls.candidatePool,
+    rrfK: receipt?.run.rrf_k ?? controls.rrfK,
+    textWeight: receipt?.run.text_weight ?? controls.textWeight,
+    vectorWeight: receipt?.run.vector_weight ?? controls.vectorWeight,
+    fuzzyWeight: receipt?.run.fuzzy_weight ?? controls.fuzzyWeight,
+    fuzzyThreshold:
+      receipt?.run.fuzzy_threshold ?? controls.fuzzyThreshold,
+    efSearch: receipt?.run.hnsw_ef_search ?? controls.efSearch,
+    rerank: receipt ? receiptRerankRequested : controls.rerank,
+  };
+  const finalResultCandidates = candidates.slice(0, appliedControls.limit);
+  const queryDraftDirty = Boolean(
+    receipt && controls.query !== receipt.run.query_text,
+  );
+  const fusionDraftDirty = Boolean(
+    receipt &&
+      (controls.rrfK !== receipt.run.rrf_k ||
+        controls.textWeight !== receipt.run.text_weight ||
+        controls.vectorWeight !== receipt.run.vector_weight ||
+        controls.fuzzyWeight !== receipt.run.fuzzy_weight ||
+        controls.fuzzyThreshold !== receipt.run.fuzzy_threshold ||
+        controls.candidatePool !== receipt.run.candidate_pool ||
+        controls.efSearch !==
+          (receipt.run.hnsw_ef_search ?? controls.efSearch) ||
+        controls.rerank !== receiptRerankRequested),
+  );
+  const retrievalDraftDirty = queryDraftDirty || fusionDraftDirty;
+
+  useEffect(() => {
+    if (
+      !routerHydrated ||
+      module !== 'retrieve' ||
+      diagnoseTab !== 'fusion' ||
+      !controls.query.trim() ||
+      busy !== null ||
+      processedFusionRunRequest.current >= fusionRunRequest
+    ) {
+      return;
+    }
+
+    processedFusionRunRequest.current = fusionRunRequest;
+    const requestKey = retrievalRequestKey(controls);
+    if (lastCompletedSearchKey.current === requestKey) return;
+    void runSearch(undefined, controls);
+  }, [
+    routerHydrated,
+    module,
+    diagnoseTab,
+    controls,
+    busy,
+    fusionRunRequest,
+  ]);
+
   const visibleGraph = useMemo<RunGraph | null>(() => {
     if (!graph) return null;
     const nodes = graph.nodes.filter((node) => node.depth <= graphDepth);
@@ -2734,13 +3287,13 @@ export default function VerityApp() {
             <code>{health?.cluster_id || '—'}</code>
           </section>
           <section className="side-rail-card">
-            <span className="section-label">Active receipt</span>
+            <span className="section-label">Active retrieval run</span>
             {runId ? (
               <button
                 type="button"
                 className="run-breadcrumb"
                 onClick={() => goTo('proof', 'receipt')}
-                title="Open this run's proof receipt"
+                title="Open this run record"
               >
                 {compactId(runId)}
               </button>
@@ -2757,7 +3310,7 @@ export default function VerityApp() {
 
       <div className="app-column">
         {module === 'home' ? <LiveBanner health={health} /> : null}
-        {module !== 'home' ? (
+        {module !== 'home' && module !== 'retrieve' ? (
         <header className="chrome">
           <div className="chrome-inner">
           <button
@@ -2855,7 +3408,7 @@ export default function VerityApp() {
                 <p>
                   Inspect exact and full-text, semantic, and fuzzy candidates;
                   weighted RRF; authoritative relationship traversal; and the
-                  persisted receipt behind every citation.
+                  persisted run record behind every citation.
                 </p>
                 <div className="home-live-stats" aria-label="Live system status">
                   <div>
@@ -2884,7 +3437,7 @@ export default function VerityApp() {
                     ? 'Latest cited evidence'
                     : homeEvidenceState === 'loading'
                       ? 'Loading the latest cited evidence'
-                      : 'No cited receipt is available'
+                      : 'No cited run record is available'
                 }
               >
                 <svg
@@ -2894,7 +3447,7 @@ export default function VerityApp() {
                   aria-label={
                     homeEvidenceState === 'ready'
                       ? `${homeCitations.length} citations connected to the latest answer`
-                      : 'Evidence-thread frame awaiting a cited receipt'
+                      : 'Evidence-thread frame awaiting a cited run'
                   }
                 >
                   <circle cx="310" cy="260" r="168" />
@@ -2918,7 +3471,7 @@ export default function VerityApp() {
                   <small className="home-answer-model">
                     {answer?.synthesis_mode ||
                       (homeEvidenceState === 'loading'
-                        ? 'loading receipt'
+                        ? 'loading run'
                         : 'awaiting run')}
                   </small>
                   <div className="home-answer-metrics">
@@ -2934,7 +3487,7 @@ export default function VerityApp() {
                   <i>
                     {homeEvidenceState === 'ready'
                       ? 'rank signal · not confidence'
-                      : 'no active receipt'}
+                      : 'no active run'}
                   </i>
                 </div>
 
@@ -2965,7 +3518,7 @@ export default function VerityApp() {
                             }`}
                             title={
                               candidateRrf === null
-                                ? 'Cited evidence without a score in the active receipt'
+                                ? 'Cited evidence without a score in the active run'
                                 : 'Reciprocal rank fusion score'
                             }
                             aria-label={
@@ -2997,8 +3550,8 @@ export default function VerityApp() {
                         <FileSearch size={17} />
                       )}
                       {homeEvidenceState === 'loading'
-                        ? 'Loading latest cited receipt'
-                        : 'No cited receipt yet'}
+                        ? 'Loading latest cited run'
+                        : 'No cited run yet'}
                     </div>
                   ) : null}
                 </div>
@@ -3080,7 +3633,7 @@ export default function VerityApp() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => goTo('retrieval', 'plan')}
+                  onClick={() => openQueryPlan('semantic')}
                 >
                   <Code2 size={20} />
                   <span>
@@ -3148,7 +3701,7 @@ export default function VerityApp() {
                 </span>
                 <ArrowRight size={18} />
                 <span>
-                  <strong>Cited receipt</strong>
+                  <strong>Cited run record</strong>
                   <small>{runId ? compactId(runId) : 'awaiting run'}</small>
                 </span>
               </div>
@@ -3156,363 +3709,434 @@ export default function VerityApp() {
           </section>
         ) : null}
         {module === 'retrieve' ? (
-          <section className="module-screen">
+          <section className="module-screen retrieval-screen">
             <header className="module-heading">
               <div>
                 <span className="module-kicker">
-                  Retrieval ·{' '}
-                  {diagnoseTab === 'results'
-                    ? 'Signal arms'
-                    : diagnoseTab === 'fusion'
-                      ? 'RRF anatomy'
-                      : 'Query-plan X-Ray'}
+                  Retrieval · {diagnoseTab === 'results' ? 'Results' : 'Fusion'}
                 </span>
                 <h1>
                   {diagnoseTab === 'results' ? (
                     <>
-                      One query, <em>every arm.</em>
-                    </>
-                  ) : diagnoseTab === 'fusion' ? (
-                    <>
-                      Rank arithmetic, <em>not score soup.</em>
+                      Inspect the final rank, <em>then each signal.</em>
                     </>
                   ) : (
                     <>
-                      Where the <em>milliseconds</em> go.
+                      Weighted reciprocal <em>rank fusion.</em>
                     </>
                   )}
                 </h1>
                 <p className="module-deck">
                   {diagnoseTab === 'results'
-                    ? 'Exact, lexical, semantic, and fuzzy candidates over the same live Aurora corpus.'
-                    : diagnoseTab === 'fusion'
-                      ? 'Only integer positions enter weighted RRF; raw arm values remain diagnostics.'
-                      : 'Inspect the planner choice for each arm under the active filters and principal.'}
+                    ? 'Start with the persisted retrieval outcome. Open the ranking diagnostics only when you need to trace how each arm contributed.'
+                    : 'Only integer positions enter weighted RRF. Raw arm values stay diagnostic, and optional Cohere reranking is a separate downstream stage.'}
                 </p>
-              </div>
-              <div className="heading-status">
-                <span
-                  className={`status-pill ${
-                    health?.status === 'ready' ? 'ready' : 'pending'
-                  }`}
-                >
-                  <ShieldCheck size={13} />
-                  search index {health?.status || 'checking'}
-                </span>
-                <span className="status-pill">
-                  {health?.current_documents?.toLocaleString() || '—'} docs
-                </span>
-                <span className="status-pill">
-                  {health?.drift_issues ?? '—'} drift
-                </span>
               </div>
             </header>
 
             {diagnoseTab === 'results' ? (
               <>
-                <div className="retrieval-toolbar">
-                  <div className="preset-list" aria-label="Query presets">
-                    {PRESETS.map((preset) => (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        className={
-                          controls.query === preset.query ? 'active' : ''
-                        }
-                        onClick={() =>
-                          setControls((current) => ({
-                            ...current,
-                            query: preset.query,
-                            mode: preset.mode,
-                            kind: preset.kind,
-                            clusterId: preset.clusterId,
-                          }))
-                        }
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="segmented">
-                    <button
-                      type="button"
-                      className={!controls.supportLead ? 'active' : ''}
-                      onClick={() => setControl('supportLead', false)}
-                    >
-                      workshop
-                    </button>
-                    <button
-                      type="button"
-                      className={controls.supportLead ? 'active' : ''}
-                      onClick={() => setControl('supportLead', true)}
-                    >
-                      support-lead
-                    </button>
-                  </div>
-                  <div className="segmented">
-                    <button
-                      type="button"
-                      className={!controls.rerank ? 'active' : ''}
-                      onClick={() => setControl('rerank', false)}
-                    >
-                      Aurora RRF
-                    </button>
-                    <button
-                      type="button"
-                      className={controls.rerank ? 'active' : ''}
-                      onClick={() => setControl('rerank', true)}
-                    >
-                      + rerank
-                    </button>
-                  </div>
+                <form className="retrieval-query-panel" onSubmit={runSearch}>
+                  <label className="retrieval-query-field">
+                    <Search size={20} aria-hidden="true" />
+                    <span className="sr-only">Evidence query</span>
+                    <input
+                      value={controls.query}
+                      onChange={(event) =>
+                        setControl('query', event.target.value)
+                      }
+                      aria-label="Evidence query"
+                    />
+                  </label>
                   <button
-                    type="button"
-                    className="run-button"
-                    onClick={() => runSearch()}
+                    type="submit"
+                    className="run-button retrieval-run-button"
                     disabled={busy !== null || !controls.query.trim()}
                   >
                     {busy === 'search' || busy === 'run' ? (
-                      <LoaderCircle className="spin" size={15} />
+                      <LoaderCircle className="spin" size={17} />
                     ) : (
-                      <Play size={14} />
+                      <Play size={16} />
                     )}
-                    Run
+                    Run retrieval
                   </button>
-                </div>
-
-                <div className="lab-note">
-                  <strong>Read the columns independently.</strong>
-                  <span>
-                    ACL and filters execute inside every arm before fusion.
-                    One strongest passage survives per evidence item; an absent
-                    arm contributes zero.
-                  </span>
-                </div>
-
-                <div className="retrieval-arms">
-                  <RetrievalArm
-                    title="Exact + full-text"
-                    subtitle="B-tree key · GIN tsvector · raw ts_rank"
-                    candidates={textCandidates}
-                    selectedEvidenceId={selectedEvidenceId}
-                    diagnostic={(candidate) =>
-                      candidate.explanation?.exact_identifier
-                        ? 'exact'
-                        : `#${position(candidate, 'text')}`
-                    }
-                    onSelect={selectCandidate}
-                  />
-                  <RetrievalArm
-                    title="Semantic"
-                    subtitle={`pgvector HNSW · ${embeddingModel} · ef ${controls.efSearch}`}
-                    candidates={vectorCandidates}
-                    selectedEvidenceId={selectedEvidenceId}
-                    diagnostic={(candidate) =>
-                      `#${position(candidate, 'vector')}`
-                    }
-                    onSelect={selectCandidate}
-                  />
-                  <RetrievalArm
-                    title="Fuzzy"
-                    subtitle={`pg_trgm keys/titles · threshold ${controls.fuzzyThreshold}`}
-                    candidates={fuzzyCandidates}
-                    selectedEvidenceId={selectedEvidenceId}
-                    diagnostic={(candidate) =>
-                      `#${position(candidate, 'fuzzy')}`
-                    }
-                    onSelect={selectCandidate}
-                  />
-                  <RetrievalArm
-                    title={finalReranked ? 'Final · reranked' : 'Final · fused'}
-                    subtitle={
-                      finalReranked
-                        ? `${finalRerankModel} reorders the fused pool · RRF preserved in the receipt`
-                        : `fused · RRF k=${controls.rrfK} · weights ${controls.textWeight}:${controls.vectorWeight}:${controls.fuzzyWeight}`
-                    }
-                    candidates={candidates}
-                    selectedEvidenceId={selectedEvidenceId}
-                    diagnostic={(candidate) =>
-                      finalReranked
-                        ? score(candidate.rerank_score, 3)
-                        : score(candidate.rrf_score ?? candidate.final_score, 5)
-                    }
-                    onSelect={selectCandidate}
-                    fused
-                  />
-                </div>
-
-                <div className="retrieval-footnotes">
-                  <span>filters + ACL before fusion</span>
-                  <span>raw values are diagnostics</span>
-                  <span>rank positions enter RRF</span>
-                  <span>exact identifiers rank above every fused row</span>
-                  {candidates.length ? (
-                    <span className={finalOrderIsFused ? '' : 'footnote-alert'}>
-                      {finalReranked
-                        ? 'reranked order · RRF + rerank persisted separately'
-                        : finalOrderIsFused
-                          ? 'final order = fused order ✓'
-                          : 'final order diverges from fused ordering'}
-                    </span>
-                  ) : null}
-                  <span>{runId ? `run ${compactId(runId)}` : 'run not started'}</span>
-                </div>
-
-                <div className="retrieve-lower retrieval-detail-grid">
-                  <aside className="candidate-receipt">
-                    <header>
-                      <div>
-                        <span className="section-label">
-                          Candidate provenance
-                        </span>
-                        <strong>
-                          {activeEvidence?.external_key || 'No selection'}
-                        </strong>
-                      </div>
-                      {activeEvidence?.evidence_kind ? (
-                        <span
-                          className={`kind-glyph kind-${activeEvidence.evidence_kind}`}
+                  <div className="retrieval-query-footer">
+                    <div className="retrieval-query-options">
+                      <span>Query examples</span>
+                      {PRESETS.map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          className={
+                            controls.query === preset.query ? 'active' : ''
+                          }
+                          onClick={() =>
+                            setControls((current) => ({
+                              ...current,
+                              query: preset.query,
+                              mode: preset.mode,
+                              kind: preset.kind,
+                              clusterId: preset.clusterId,
+                            }))
+                          }
                         >
-                          <KindIcon kind={activeEvidence.evidence_kind} />
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="retrieval-query-status">
+                      <label className="results-rerank-control">
+                        <strong>Cohere rerank</strong>
+                        <span className="toggle-control">
+                          <span>{controls.rerank ? 'On' : 'Off'}</span>
+                          <input
+                            type="checkbox"
+                            checked={controls.rerank}
+                            disabled={busy !== null}
+                            onChange={(event) =>
+                              setControl('rerank', event.target.checked)
+                            }
+                          />
+                          <i aria-hidden="true" />
                         </span>
-                      ) : null}
-                    </header>
-                    {activeEvidence ? (
-                      <>
-                        <h2>{activeEvidence.title}</h2>
-                        <p className="receipt-snippet">
-                          {activeEvidence.snippet ||
-                            evidenceDetail?.chunks[0]?.chunk_text ||
-                            evidenceDetail?.evidence.body ||
-                            'No visible chunk text.'}
-                        </p>
-                        <div className="signal-row">
-                          <span>
-                            FTS
-                            <b>
-                              {selectedCandidate
-                                ? position(selectedCandidate, 'text') || '—'
-                                : '—'}
-                            </b>
-                          </span>
-                          <span>
-                            VEC
-                            <b>
-                              {selectedCandidate
-                                ? position(selectedCandidate, 'vector') || '—'
-                                : '—'}
-                            </b>
-                          </span>
-                          <span>
-                            TRGM
-                            <b>
-                              {selectedCandidate
-                                ? position(selectedCandidate, 'fuzzy') || '—'
-                                : '—'}
-                            </b>
-                          </span>
-                          <span>
-                            RRF
-                            <b>
-                              {score(
-                                selectedCandidate?.rrf_score ??
-                                  selectedCandidate?.final_score,
-                                5,
-                              )}
-                            </b>
-                          </span>
-                          <span>
-                            RERANK
-                            <b>
-                              {selectedCandidate?.rerank_score != null
-                                ? score(selectedCandidate.rerank_score, 3)
-                                : 'off'}
-                            </b>
-                          </span>
-                        </div>
-                        <dl className="receipt-metadata">
-                          <div>
-                            <dt>Source URI</dt>
-                            <dd>{activeEvidence.source_uri || '—'}</dd>
-                          </div>
-                          <div>
-                            <dt>Revision</dt>
-                            <dd>{activeEvidence.source_revision || '—'}</dd>
-                          </div>
-                          <div>
-                            <dt>Document</dt>
-                            <dd>
-                              {selectedCandidate?.document_version_id || '—'}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt>Chunk</dt>
-                            <dd>
-                              {selectedCandidate?.chunk_version_id ||
-                                evidenceDetail?.chunks[0]?.chunk_version_id ||
-                                '—'}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt>Embedding</dt>
-                            <dd>{embeddingModel} · 1,024 dimensions</dd>
-                          </div>
-                          <div>
-                            <dt>ACL</dt>
-                            <dd>
-                              {controls.supportLead
-                                ? 'workshop + support-lead'
-                                : 'workshop'}
-                            </dd>
-                          </div>
-                        </dl>
-                      </>
-                    ) : (
-                      <Empty
-                        icon={<Gauge size={18} />}
-                        title="Run a retrieval"
-                      />
-                    )}
-                  </aside>
-
-                  <section className="provenance-note">
-                    <span className="section-label">Why this is inspectable</span>
-                    <h2>Signals remain separate through the receipt.</h2>
-                    <p>
-                      `proof.retrieval_candidates` stores arm positions, raw
-                      diagnostics, Aurora RRF, and the optional model rerank
-                      score independently. No score is presented as a
-                      probability.
-                    </p>
-                    <div className="provenance-facts">
-                      <span>
-                        <b>{controls.candidatePool}</b> candidates per arm
-                      </span>
-                      <span>
-                        <b>{controls.limit}</b> final results
-                      </span>
-                      <span>
-                        <b>{controls.efSearch}</b> HNSW ef_search
-                      </span>
-                      <span>
-                        <b>{controls.fuzzyThreshold}</b> trigram threshold
+                      </label>
+                      <span
+                        className={`query-receipt-state ${
+                          retrievalDraftDirty ? 'pending' : ''
+                        }`}
+                      >
+                        {retrievalDraftDirty
+                          ? 'Draft controls · run to refresh'
+                          : runId
+                            ? `Run ${compactId(runId)}`
+                            : 'No retrieval run'}
                       </span>
                     </div>
-                    <VerifyAffordance
-                      descriptor={receipt?._verify_sql?.candidates}
-                      label="verify candidates in psql"
-                    />
-                  </section>
-                </div>
+                  </div>
+                </form>
+
+                <FinalRankedEvidence
+                  candidates={finalResultCandidates}
+                  selectedEvidenceId={selectedEvidenceId}
+                  reranked={finalReranked}
+                  runId={runId}
+                  onSelect={selectCandidate}
+                />
+
+                <section
+                  className={`ranking-breakdown ${armsOpen ? 'open' : ''}`}
+                >
+                  <button
+                    type="button"
+                    className="ranking-breakdown-toggle"
+                    aria-expanded={armsOpen}
+                    onClick={() => {
+                      const nextOpen = !armsOpen;
+                      setArmsOpen(nextOpen);
+                      if (!nextOpen) setPlanOpen(false);
+                    }}
+                  >
+                    <span className="ranking-breakdown-icon">
+                      <SlidersHorizontal size={18} />
+                    </span>
+                    <span>
+                      <small>Ranking diagnostics</small>
+                      <strong>How this ranking was built</strong>
+                      <b>
+                        Inspect text, semantic, and fuzzy positions before
+                        weighted RRF and optional rerank.
+                      </b>
+                    </span>
+                    <span className="ranking-breakdown-summary">
+                      <b>
+                        {textCandidates.length} text · {vectorCandidates.length}{' '}
+                        semantic · {fuzzyCandidates.length} fuzzy
+                      </b>
+                      <ChevronRight size={18} aria-hidden="true" />
+                    </span>
+                  </button>
+
+                  {armsOpen ? (
+                    <div className="ranking-breakdown-body">
+                      <div className="lab-note">
+                        <strong>Read each arm independently.</strong>
+                        <span>
+                          Filters and ACLs execute before ranking. Only positions
+                          enter fusion; raw values remain diagnostics.
+                        </span>
+                      </div>
+
+                      <div className="retrieval-arms">
+                        <RetrievalArm
+                          title="Exact + full-text"
+                          subtitle="B-tree key · GIN tsvector · raw ts_rank"
+                          candidates={textCandidates}
+                          selectedEvidenceId={selectedEvidenceId}
+                          diagnostic={(candidate) =>
+                            candidate.explanation?.exact_identifier
+                              ? 'exact'
+                              : `#${position(candidate, 'text')}`
+                          }
+                          onSelect={selectCandidate}
+                          planArm="lexical"
+                          onInspectPlan={openQueryPlan}
+                          planBusy={busy === 'plan' && planArm === 'lexical'}
+                        />
+                        <RetrievalArm
+                          title="Semantic"
+                          subtitle={`pgvector HNSW · ${embeddingModel} · ef ${controls.efSearch}`}
+                          candidates={vectorCandidates}
+                          selectedEvidenceId={selectedEvidenceId}
+                          diagnostic={(candidate) =>
+                            `#${position(candidate, 'vector')}`
+                          }
+                          onSelect={selectCandidate}
+                          planArm="semantic"
+                          onInspectPlan={openQueryPlan}
+                          planBusy={busy === 'plan' && planArm === 'semantic'}
+                        />
+                        <RetrievalArm
+                          title="Fuzzy"
+                          subtitle={`pg_trgm keys/titles · threshold ${controls.fuzzyThreshold}`}
+                          candidates={fuzzyCandidates}
+                          selectedEvidenceId={selectedEvidenceId}
+                          diagnostic={(candidate) =>
+                            `#${position(candidate, 'fuzzy')}`
+                          }
+                          onSelect={selectCandidate}
+                          planArm="fuzzy"
+                          onInspectPlan={openQueryPlan}
+                          planBusy={busy === 'plan' && planArm === 'fuzzy'}
+                          emptyTitle={
+                            receipt?.run.fuzzy_probe_tokens?.length
+                              ? 'No trigram match passed'
+                              : 'No unresolved identifier'
+                          }
+                          emptyDetail={
+                            receipt?.run.fuzzy_probe_tokens?.length
+                              ? 'The fuzzy probe returned no candidate above the active threshold.'
+                              : 'This query needs no typo recovery, so the arm correctly contributes zero.'
+                          }
+                        />
+                      </div>
+
+                      <div className="retrieval-reading-line">
+                        <span>
+                          <ShieldCheck size={14} />
+                          filters + ACL before ranking
+                        </span>
+                        <span>
+                          <SlidersHorizontal size={14} />
+                          positions enter RRF
+                        </span>
+                        <span
+                          className={
+                            candidates.length && !finalOrderIsFused
+                              ? 'footnote-alert'
+                              : ''
+                          }
+                        >
+                          <FileCheck2 size={14} />
+                          {finalReranked
+                            ? 'rerank and RRF persisted separately'
+                            : finalOrderIsFused
+                              ? 'final order matches fused order'
+                              : 'final order diverges from fused order'}
+                        </span>
+                      </div>
+
+                      {planOpen ? (
+                        <QueryPlanDrawer
+                          plan={queryPlan}
+                          arm={planArm}
+                          busy={busy === 'plan'}
+                          engineVersion={health?.engine_version}
+                          onSelectArm={(arm) => void loadQueryPlan(arm)}
+                          onRefresh={() => void loadQueryPlan(planArm)}
+                          onClose={() => setPlanOpen(false)}
+                        />
+                      ) : null}
+                    </div>
+                  ) : null}
+                </section>
               </>
             ) : null}
 
             {diagnoseTab === 'fusion' ? (
-              <>
+              <div className="fusion-page">
+                <section className="fusion-query-context">
+                  <div>
+                    <span className="section-label">Selected retrieval query</span>
+                    <p>{controls.query}</p>
+                  </div>
+                  <div>
+                    <span
+                      className={`status-pill ${
+                        busy === 'search' || busy === 'run'
+                          ? 'pending'
+                          : retrievalDraftDirty
+                            ? 'pending'
+                            : 'ready'
+                      }`}
+                    >
+                      {busy === 'search' || busy === 'run' ? (
+                        <>
+                          <LoaderCircle className="spin" size={12} />
+                          running selected query
+                        </>
+                      ) : retrievalDraftDirty ? (
+                        'selected query awaiting run'
+                      ) : runId ? (
+                        `run ${compactId(runId)}`
+                      ) : (
+                        'no retrieval run'
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-command"
+                      onClick={() => goTo('retrieval', 'results')}
+                    >
+                      <Search size={14} />
+                      Edit query
+                    </button>
+                  </div>
+                </section>
+
+                <section className="fusion-overview">
+                  <header>
+                    <div>
+                      <span className="section-label">Applied retrieval run</span>
+                      <h2>Three rankings become one final order</h2>
+                      <p>
+                        Each arm contributes a position, not its raw score.
+                        Weighted RRF converts those positions onto one comparable
+                        scale.
+                      </p>
+                    </div>
+                    <span className="status-pill ready">
+                      {candidates.length} persisted candidates
+                    </span>
+                  </header>
+                  <div className="fusion-flow">
+                    <div className="fusion-flow-arms">
+                      <span>
+                        <b>Text</b>
+                        <strong>{textCandidates.length}</strong>
+                        <small>weight {appliedControls.textWeight}</small>
+                      </span>
+                      <span>
+                        <b>Semantic</b>
+                        <strong>{vectorCandidates.length}</strong>
+                        <small>weight {appliedControls.vectorWeight}</small>
+                      </span>
+                      <span>
+                        <b>Fuzzy</b>
+                        <strong>{fuzzyCandidates.length}</strong>
+                        <small>
+                          {fuzzyCandidates.length
+                            ? `weight ${appliedControls.fuzzyWeight}`
+                            : 'abstained'}
+                        </small>
+                      </span>
+                    </div>
+                    <ArrowRight size={19} aria-hidden="true" />
+                    <span className="fusion-flow-rrf">
+                      <GitMerge size={18} />
+                      <small>Weighted RRF</small>
+                      <strong>k={appliedControls.rrfK}</strong>
+                    </span>
+                    <ArrowRight size={19} aria-hidden="true" />
+                    <span className="fusion-flow-final">
+                      <FileCheck2 size={18} />
+                      <small>
+                        {finalReranked ? 'Model-reranked final' : 'Aurora final'}
+                      </small>
+                      <strong>
+                        {candidates[0]
+                          ? snapshot(candidates[0]).external_key
+                          : 'awaiting run'}
+                      </strong>
+                    </span>
+                  </div>
+                  <div className="rrf-formula-panel">
+                    <div className="rrf-formula-intro">
+                      <span className="section-label">Weighted RRF formula</span>
+                      <small>For each evidence item d</small>
+                    </div>
+                    <div
+                      className="rrf-formula-expression"
+                      aria-label={`RRF of d equals ${appliedControls.textWeight} over ${appliedControls.rrfK} plus text rank, plus ${appliedControls.vectorWeight} over ${appliedControls.rrfK} plus semantic rank, plus ${appliedControls.fuzzyWeight} over ${appliedControls.rrfK} plus fuzzy rank`}
+                    >
+                      <strong>RRF(d)</strong>
+                      <b>=</b>
+                      <span className="rrf-fraction">
+                        <i>{appliedControls.textWeight}</i>
+                        <small>
+                          {appliedControls.rrfK} + r<sub>text</sub>(d)
+                        </small>
+                      </span>
+                      <b>+</b>
+                      <span className="rrf-fraction">
+                        <i>{appliedControls.vectorWeight}</i>
+                        <small>
+                          {appliedControls.rrfK} + r<sub>semantic</sub>(d)
+                        </small>
+                      </span>
+                      <b>+</b>
+                      <span className="rrf-fraction">
+                        <i>{appliedControls.fuzzyWeight}</i>
+                        <small>
+                          {appliedControls.rrfK} + r<sub>fuzzy</sub>(d)
+                        </small>
+                      </span>
+                    </div>
+                    <div className="rrf-formula-notes">
+                      <span>
+                        <b>k={appliedControls.rrfK}</b> dampens rank outliers
+                      </span>
+                      <span>missing arm = 0</span>
+                      <span>Cohere is not part of this formula</span>
+                    </div>
+                  </div>
+                  <div className="applied-fusion-strip">
+                    <span>
+                      Applied weights
+                      <b>
+                        {appliedControls.textWeight}:
+                        {appliedControls.vectorWeight}:
+                        {appliedControls.fuzzyWeight}
+                      </b>
+                    </span>
+                    <span>
+                      RRF constant
+                      <b>k={appliedControls.rrfK}</b>
+                    </span>
+                    <span>
+                      Post-fusion rerank
+                      <b>{finalReranked ? 'Cohere on' : 'off · RRF only'}</b>
+                    </span>
+                    <span>
+                      Candidate pool
+                      <b>{appliedControls.candidatePool}</b>
+                    </span>
+                  </div>
+                </section>
+
                 <div className="fusion-workspace">
+                  <header className="fusion-tuning-head">
+                    <div>
+                      <span className="section-label">Tuning and implementation</span>
+                      <h2>Change the policy, then create a new retrieval run</h2>
+                    </div>
+                    <small>
+                      Draft controls never rewrite the displayed run.
+                    </small>
+                  </header>
                   <div className="fusion-workspace-controls">
                     <FusionControlPanel
                       controls={controls}
+                      dirty={fusionDraftDirty}
                       advancedOpen={advancedOpen}
                       onToggleAdvanced={() =>
                         setAdvancedOpen((open) => !open)
@@ -3521,52 +4145,25 @@ export default function VerityApp() {
                       onRun={() => runSearch()}
                       busy={busy !== null}
                     />
-                    <div className="fusion-stat-row">
-                      <span>
-                        intended weight
-                        <b>
-                          text {controls.textWeight} · vector{' '}
-                          {controls.vectorWeight} · fuzzy{' '}
-                          {controls.fuzzyWeight}
-                        </b>
-                      </span>
-                      <span>
-                        active arms
-                        <b>
-                          {textCandidates.length ? 'text' : ''}
-                          {vectorCandidates.length ? ' · vector' : ''}
-                          {fuzzyCandidates.length ? ' · fuzzy' : ''}
-                        </b>
-                      </span>
-                      <span>
-                        current ordering
-                        <b>{controls.rerank ? 'model rerank' : 'Aurora RRF'}</b>
-                      </span>
-                      <span>
-                        receipt
-                        <b>{runId ? compactId(runId) : 'not started'}</b>
-                      </span>
-                    </div>
                   </div>
                   <section className="sql-panel">
                     <header>
-                      <span>Exact tier, then weighted reciprocal rank fusion</span>
-                      <span>raw values excluded</span>
+                      <span>Applied ranking rule</span>
+                      <span>run {compactId(runId)}</span>
                     </header>
                     <pre>
                       <code>{`rrf_score =
-  ${controls.textWeight} / (${controls.rrfK} + text_position)
-+ ${controls.vectorWeight} / (${controls.rrfK} + vector_position)
-+ ${controls.fuzzyWeight} / (${controls.rrfK} + trigram_position)
+  ${appliedControls.textWeight} / (${appliedControls.rrfK} + text_position)
++ ${appliedControls.vectorWeight} / (${appliedControls.rrfK} + vector_position)
++ ${appliedControls.fuzzyWeight} / (${appliedControls.rrfK} + trigram_position)
 
 -- a missing arm contributes zero
--- match_tier 1 is exact identifier resolution: a B-tree probe,
--- not a score, so no weight above can demote it
+-- exact identifiers form a deterministic tier above fused rows
 ORDER BY
   match_tier,
   exact_identifier_position,
   rrf_score DESC
-LIMIT ${controls.limit};`}</code>
+LIMIT ${appliedControls.limit};`}</code>
                     </pre>
                   </section>
                 </div>
@@ -3579,231 +4176,153 @@ LIMIT ${controls.limit};`}</code>
                         <h2>Every contribution on one shared rank scale</h2>
                       </div>
                       <div className="contribution-legend">
-                        <span><i className="legend-text" /> full-text</span>
-                        <span><i className="legend-vector" /> semantic</span>
-                        <span><i className="legend-fuzzy" /> fuzzy</span>
+                        <span>
+                          <i className="legend-text" /> full-text
+                        </span>
+                        <span>
+                          <i className="legend-vector" /> semantic
+                        </span>
+                        <span>
+                          <i className="legend-fuzzy" /> fuzzy
+                        </span>
                       </div>
                     </header>
                     <FusionAnatomyTable
                       candidates={candidates}
-                      controls={controls}
+                      controls={appliedControls}
                       onSelect={selectCandidate}
                     />
                   </section>
                 ) : (
-                  <Empty
-                    icon={<GitMerge size={20} />}
-                    title="Run retrieval to inspect fusion"
-                  />
+                  <div className="fusion-empty">
+                    <Empty
+                      icon={<GitMerge size={20} />}
+                      title="Run retrieval to inspect fusion"
+                    />
+                  </div>
                 )}
 
-                <div className="fusion-explain-grid">
-                  <section>
-                    <span className="section-label">Why score sums drift</span>
-                    <p>
-                      `ts_rank`, vector similarity, and trigram similarity have
-                      unrelated ranges and distributions. A numeric weight
-                      cannot make those raw scales comparable. RRF uses only
-                      each arm&apos;s integer order.
-                    </p>
-                  </section>
-                  <section>
-                    <span className="section-label">
-                      Why rank 1 can hold a lower RRF
-                    </span>
-                    <p>
-                      A query that names an identifier resolves it
-                      deterministically, and those rows rank above the fused
-                      tier regardless of score. RRF then orders within each
-                      tier, so an exact hit can sit above a fused row that
-                      scored higher.
-                    </p>
-                  </section>
-                  <section>
-                    <span className="section-label">
-                      What the receipt preserves
-                    </span>
-                    <p>
-                      Rank, raw diagnostic, weighted contribution, fused score,
-                      and rerank score remain distinct. Rerank may reorder a
-                      pool, but never overwrites the Aurora ordering.
-                    </p>
-                  </section>
-                </div>
-              </>
-            ) : null}
-
-            {diagnoseTab === 'plan' ? (
-              <div className="query-microscope">
-                <aside className="microscope-controls">
-                  <header>
-                    <span className="section-label">Query & controls</span>
-                    <span className="status-pill">
-                      {controls.supportLead ? 'support-lead' : 'workshop'}
-                    </span>
-                  </header>
-                  <p>{controls.query}</p>
-                  <div className="segmented">
-                    {(['semantic', 'lexical', 'fuzzy'] as const).map((arm) => (
-                      <button
-                        key={arm}
-                        type="button"
-                        className={planArm === arm ? 'active' : ''}
-                        onClick={() => void loadQueryPlan(arm)}
-                      >
-                        {arm}
-                      </button>
-                    ))}
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>cluster</dt>
-                      <dd>{controls.clusterId || 'all'}</dd>
-                    </div>
-                    <div>
-                      <dt>evidence kind</dt>
-                      <dd>
-                        {controls.kind === 'all'
-                          ? 'all'
-                          : KIND_LABELS[controls.kind]}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>candidate pool</dt>
-                      <dd>{controls.candidatePool}</dd>
-                    </div>
-                    <div>
-                      <dt>hnsw.ef_search</dt>
-                      <dd>{controls.efSearch}</dd>
-                    </div>
-                  </dl>
-                  <button
-                    type="button"
-                    className="run-button"
-                    onClick={() => void loadQueryPlan(planArm)}
-                    disabled={busy !== null}
-                  >
-                    {busy === 'plan' ? (
-                      <LoaderCircle className="spin" size={14} />
-                    ) : (
-                      <RefreshCw size={14} />
-                    )}
-                    Explain live
-                  </button>
-                </aside>
-
-                <section className="microscope-trace">
-                  <header>
-                    <div>
-                      <span className="section-label">
-                        Planner trace · {planArm}
-                      </span>
-                      <h2>Observed scan path</h2>
-                    </div>
-                    <span className="status-pill ready">live Aurora</span>
-                  </header>
-                  <div className="microscope-runtime">
-                    <span>
-                      Planning
-                      <strong>
-                        {score(queryPlan?.plan['Planning Time'], 3)} ms
-                      </strong>
-                    </span>
-                    <span>
-                      Execution
-                      <strong>
-                        {score(queryPlan?.plan['Execution Time'], 3)} ms
-                      </strong>
-                    </span>
-                    <span>
-                      Scan nodes
-                      <strong>{queryPlan?.scans.length || 0}</strong>
-                    </span>
-                  </div>
-                  <div className="microscope-nodes">
-                    {(queryPlan?.scans || []).map((scan, index) => (
-                      <div key={`${scan.node_type}-${scan.index}-${index}`}>
-                        <span>{index + 1}</span>
-                        <div>
-                          <strong>{scan.node_type}</strong>
-                          <code>
-                            {scan.index || scan.relation || 'working set'}
-                          </code>
-                        </div>
-                        <small>
-                          {scan.actual_rows} rows · {scan.loops} loop
-                          {scan.loops === 1 ? '' : 's'}
-                        </small>
-                      </div>
-                    ))}
-                    {!queryPlan?.scans.length ? (
-                      <Empty
-                        icon={<Activity size={18} />}
-                        title={
-                          busy === 'plan' ? 'Explaining' : 'No plan loaded'
-                        }
-                      />
-                    ) : null}
-                  </div>
-                  <footer>
-                    <span>Filtered arm</span>
-                    <ArrowRight size={16} />
-                    <span>candidate pool</span>
-                    <ArrowRight size={16} />
-                    <span>
-                      weighted RRF {controls.textWeight}:
-                      {controls.vectorWeight}:{controls.fuzzyWeight} · k=
-                      {controls.rrfK}
-                    </span>
-                    <ArrowRight size={16} />
-                    <span>persist receipt</span>
-                  </footer>
+                <section className="fusion-reading-note">
+                  <span className="section-label">How to read this table</span>
+                  <p>
+                    `ts_rank`, vector similarity, and trigram similarity use
+                    unrelated scales, so RRF combines only integer positions.
+                    Exact identifiers remain in a deterministic tier above fused
+                    rows. Optional Cohere reranking may reorder the final pool
+                    afterward, but it never overwrites Aurora&apos;s persisted
+                    RRF score.
+                  </p>
                 </section>
-
-                <aside className="microscope-inspector">
-                  <span className="section-label">Why this plan?</span>
-                  <p>{queryPlan?.note || 'Run EXPLAIN to inspect this arm.'}</p>
-                  {queryPlan?._verify_sql ? (
-                    <VerifyAffordance descriptor={queryPlan._verify_sql} />
-                  ) : null}
-                  <div className="microscope-facts">
-                    <div>
-                      <span>Arm</span>
-                      <strong>{planArm}</strong>
-                    </div>
-                    <div>
-                      <span>Filter boundary</span>
-                      <strong>before ranking</strong>
-                    </div>
-                    <div>
-                      <span>Iterative scan</span>
-                      <strong>relaxed_order</strong>
-                    </div>
-                  </div>
-                  <section className="microscope-sql">
-                    <header>
-                      <span>Runtime SQL</span>
-                      <small>transaction local</small>
-                    </header>
-                    <pre>
-                      <code>{`SET LOCAL hnsw.ef_search = ${controls.efSearch};
-SET LOCAL hnsw.iterative_scan = relaxed_order;
-
-SELECT *
-FROM retrieval.${planArm}_search(
-  query_text => $1,
-  candidate_limit => ${controls.candidatePool},
-  cluster_id => ${controls.clusterId ? `'${controls.clusterId}'` : 'NULL'}
-);
-
--- Planner choices vary with corpus,
--- selectivity, statistics, and cache state.`}</code>
-                    </pre>
-                  </section>
-                </aside>
               </div>
             ) : null}
 
+            {candidateReceiptOpen && activeEvidence ? (
+              <section className="candidate-drawer">
+                <header>
+                  <div>
+                    <span className="section-label">Candidate details</span>
+                    <h2>
+                      {activeEvidence.external_key} · {activeEvidence.title}
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    className="icon-close"
+                    onClick={() => setCandidateReceiptOpen(false)}
+                    title="Close candidate details"
+                    aria-label="Close candidate details"
+                  >
+                    <X size={16} />
+                  </button>
+                </header>
+                <div className="candidate-drawer-grid">
+                  <div>
+                    <p className="receipt-snippet">
+                      {activeEvidence.snippet ||
+                        evidenceDetail?.chunks[0]?.chunk_text ||
+                        evidenceDetail?.evidence.body ||
+                        'No visible chunk text.'}
+                    </p>
+                    <div className="signal-row">
+                      <span>
+                        TEXT
+                        <b>
+                          {selectedCandidate
+                            ? position(selectedCandidate, 'text') || '—'
+                            : '—'}
+                        </b>
+                      </span>
+                      <span>
+                        VECTOR
+                        <b>
+                          {selectedCandidate
+                            ? position(selectedCandidate, 'vector') || '—'
+                            : '—'}
+                        </b>
+                      </span>
+                      <span>
+                        FUZZY
+                        <b>
+                          {selectedCandidate
+                            ? position(selectedCandidate, 'fuzzy') || '—'
+                            : '—'}
+                        </b>
+                      </span>
+                      <span>
+                        AURORA RRF
+                        <b>
+                          {score(
+                            selectedCandidate?.rrf_score ??
+                              selectedCandidate?.final_score,
+                            5,
+                          )}
+                        </b>
+                      </span>
+                      <span>
+                        RERANK
+                        <b>
+                          {selectedCandidate?.rerank_score != null
+                            ? score(selectedCandidate.rerank_score, 3)
+                            : 'off'}
+                        </b>
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <dl className="receipt-metadata">
+                      <div>
+                        <dt>Source URI</dt>
+                        <dd>{activeEvidence.source_uri || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>Revision</dt>
+                        <dd>{activeEvidence.source_revision || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>Document</dt>
+                        <dd>{selectedCandidate?.document_version_id || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>Chunk</dt>
+                        <dd>
+                          {selectedCandidate?.chunk_version_id ||
+                            evidenceDetail?.chunks[0]?.chunk_version_id ||
+                            '—'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Embedding</dt>
+                        <dd>{embeddingModel} · 1,024 dimensions</dd>
+                      </div>
+                    </dl>
+                    <VerifyAffordance
+                      descriptor={receipt?._verify_sql?.candidates}
+                      label="verify candidate in psql"
+                    />
+                  </div>
+                </div>
+              </section>
+            ) : null}
           </section>
         ) : null}
 
@@ -3818,7 +4337,7 @@ FROM retrieval.${planArm}_search(
                     : proveTab === 'graph'
                       ? 'Evidence graph & verdicts'
                       : proveTab === 'receipt'
-                        ? 'Run receipt'
+                        ? 'Run record'
                         : proveTab === 'replay'
                           ? 'Replay proof'
                           : proveTab === 'timeline'
@@ -3833,7 +4352,7 @@ FROM retrieval.${planArm}_search(
                   ) : proveTab === 'receipt' ? (
                     <>Every candidate and citation, <em>persisted.</em></>
                   ) : proveTab === 'replay' ? (
-                    <>Replay the answer from its <em>database receipt.</em></>
+                    <>Replay the answer from its <em>database run record.</em></>
                   ) : proveTab === 'timeline' ? (
                     <>Same evidence, <em>ordered by when it happened.</em></>
                   ) : (
@@ -4707,7 +5226,7 @@ FROM retrieval.${planArm}_search(
                     <header>
                       <div>
                         <span className="section-label">
-                          Candidate-level receipt
+                          Candidate-level run record
                         </span>
                         <h2>Signals remain separate and replayable</h2>
                       </div>
@@ -5091,7 +5610,7 @@ FROM retrieval.${planArm}_search(
                 className={`status-pill ${receipt ? 'ready' : 'pending'}`}
               >
                 {receipt ? <Check size={13} /> : <LoaderCircle size={13} />}
-                {receipt ? 'HTTP receipt loaded' : 'awaiting run'}
+                {receipt ? 'HTTP run record loaded' : 'awaiting run'}
               </span>
             </header>
 
@@ -5332,7 +5851,7 @@ FROM retrieval.${planArm}_search(
                 </h1>
                 <p className="module-deck">
                   Search-index readiness, embedding coverage, and the build
-                  receipts that prove the index was rebuilt without blocking
+                  records that prove the index was rebuilt without blocking
                   casework, all read live from Aurora.
                 </p>
               </div>
@@ -5396,7 +5915,7 @@ FROM retrieval.${planArm}_search(
               <header>
                 <div>
                   <span className="section-label">
-                    Search-index build receipts
+                    Search-index build history
                   </span>
                   <h2>Build without blocking casework</h2>
                 </div>

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from textwrap import dedent
 from typing import Any
 
 from .config import get_settings
@@ -230,10 +232,98 @@ def _collect_scans(node: dict[str, Any], scans: list[dict[str, Any]]) -> None:
                 "index": node.get("Index Name"),
                 "actual_rows": node.get("Actual Rows"),
                 "loops": node.get("Actual Loops"),
+                "actual_startup_time_ms": node.get("Actual Startup Time"),
+                "actual_total_time_ms": node.get("Actual Total Time"),
+                "shared_hit_blocks": node.get("Shared Hit Blocks", 0),
+                "shared_read_blocks": node.get("Shared Read Blocks", 0),
+                "rows_removed_by_filter": node.get("Rows Removed by Filter", 0),
+                "filter": node.get("Filter"),
+                "index_cond": node.get("Index Cond"),
+                "recheck_cond": node.get("Recheck Cond"),
             }
         )
     for child in node.get("Plans", []):
         _collect_scans(child, scans)
+
+
+def _runtime_sql(arm: str, statement: str) -> str:
+    parameterized = re.sub(
+        r"%\(([^)]+)\)s",
+        r":\1",
+        dedent(statement).strip(),
+    )
+    setup: list[str] = []
+    if arm == "semantic":
+        setup.append(
+            """SELECT retrieval.configure_ann_runtime(
+  :ef_search::integer,
+  :iterative_scan::text,
+  :fuzzy_threshold::real
+);"""
+        )
+    elif arm == "fuzzy":
+        setup.append(
+            """SELECT set_config(
+  'pg_trgm.similarity_threshold',
+  :fuzzy_threshold::text,
+  true
+);"""
+        )
+
+    explain = (
+        "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)\n"
+        f"{parameterized};"
+    )
+    return "\n\n".join([*setup, explain])
+
+
+def _planner_summary(
+    arm: str,
+    scans: list[dict[str, Any]],
+    fuzzy_probe_tokens: list[str],
+) -> tuple[str, bool | None]:
+    indexes = [scan["index"] for scan in scans if scan.get("index")]
+    index_list = ", ".join(dict.fromkeys(indexes)) or "no named index"
+
+    if arm == "semantic":
+        hnsw_indexes = [name for name in indexes if "hnsw" in name.lower()]
+        if hnsw_indexes:
+            return (
+                "The planner selected the HNSW path "
+                f"({', '.join(hnsw_indexes)}). Filters and ACL checks remain "
+                "inside the semantic arm before its positions enter fusion.",
+                True,
+            )
+        return (
+            "No HNSW index was selected for this capture. Under the current "
+            f"filters and corpus statistics, PostgreSQL used {index_list} and "
+            "sorted the bounded candidate set by vector distance. That is an "
+            "observed planner choice, not a guarantee for another corpus or "
+            "selectivity.",
+            False,
+        )
+
+    if arm == "fuzzy" and not fuzzy_probe_tokens:
+        return (
+            "The fuzzy arm abstained before index traversal because the query "
+            "contains no unresolved identifier-shaped token. It contributes "
+            "zero to fusion by design.",
+            None,
+        )
+
+    if arm == "fuzzy":
+        return (
+            f"The trigram arm probed {', '.join(fuzzy_probe_tokens)} through "
+            f"{index_list}. The threshold and scope filters were applied before "
+            "the arm assigned positions.",
+            None,
+        )
+
+    return (
+        f"The lexical arm used {index_list}. Exact identifier and full-text "
+        "matches are deduplicated into one text position before fusion.",
+        None,
+    )
 
 
 def query_plan(request: QueryPlanRequest) -> dict[str, Any]:
@@ -289,10 +379,23 @@ def query_plan(request: QueryPlanRequest) -> dict[str, Any]:
     plan = payload[0] if isinstance(payload, list) else payload
     scans: list[dict[str, Any]] = []
     _collect_scans(plan["Plan"], scans)
+    fuzzy_probe_tokens = (
+        params["fuzzy_probe_tokens"] if request.arm == "fuzzy" else []
+    )
+    planner_summary, uses_hnsw = _planner_summary(
+        request.arm,
+        scans,
+        fuzzy_probe_tokens,
+    )
     result = {
         "arm": request.arm,
+        "query": request.query,
+        "cluster_id": request.cluster_id,
         "plan": plan,
         "scans": scans,
+        "runtime_sql": _runtime_sql(request.arm, statement),
+        "planner_summary": planner_summary,
+        "uses_hnsw": uses_hnsw,
         "note": (
             "This explains the canonical retrieval SQL function. Planner choices depend on corpus "
             "size, selectivity, statistics, runtime settings, and cache state."
@@ -307,9 +410,8 @@ def query_plan(request: QueryPlanRequest) -> dict[str, Any]:
         },
     }
     if request.arm == "fuzzy":
-        probe_tokens = params["fuzzy_probe_tokens"]
-        result["fuzzy_probe_tokens"] = probe_tokens
-        if not probe_tokens:
+        result["fuzzy_probe_tokens"] = fuzzy_probe_tokens
+        if not fuzzy_probe_tokens:
             result["abstained"] = True
             result["abstain_reason"] = (
                 "The trigram arm probes identifier tokens that no indexed document "

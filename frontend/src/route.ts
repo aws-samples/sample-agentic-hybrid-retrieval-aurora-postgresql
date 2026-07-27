@@ -32,7 +32,7 @@ export interface Route {
 // (emitted with no ?lens= param) so the canonical contract routes stay bare.
 export const SURFACE_LENSES: Record<RouteSurface, readonly string[]> = {
   overview: [],
-  retrieval: ['results', 'fusion', 'plan'],
+  retrieval: ['results', 'fusion'],
   agent: ['answer', 'graph', 'tools'],
   proof: ['receipt', 'replay', 'timeline'],
   corpus: [],
