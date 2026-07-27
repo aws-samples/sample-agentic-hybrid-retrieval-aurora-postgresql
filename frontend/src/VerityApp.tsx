@@ -4326,16 +4326,16 @@ FROM retrieval.${planArm}_search(
               <>
                 <div className="graph-studio">
                   <aside className="graph-controls-panel">
-                    <div>
+                    <div className="graph-scope">
                       <span className="section-label">Investigation</span>
                       <p>{controls.query}</p>
+                      <span className="graph-scope-principal">
+                        principal{' '}
+                        <strong>
+                          {controls.supportLead ? 'support-lead' : 'workshop'}
+                        </strong>
+                      </span>
                     </div>
-                    <label>
-                      <span>Principal</span>
-                      <strong>
-                        {controls.supportLead ? 'support-lead' : 'workshop'}
-                      </strong>
-                    </label>
                     <label>
                       <span>Traversal depth</span>
                       <div className="segmented">

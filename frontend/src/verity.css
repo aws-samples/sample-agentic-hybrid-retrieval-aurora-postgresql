@@ -4706,6 +4706,18 @@ td span {
   font: 500 13px/1.55 var(--sans);
 }
 
+.graph-scope-principal {
+  display: inline-flex;
+  gap: 5px;
+  margin-top: 8px;
+  color: var(--muted);
+  font: 600 13px/1.3 var(--mono);
+}
+
+.graph-scope-principal strong {
+  color: var(--ink);
+}
+
 .graph-controls-panel > label {
   display: grid;
   gap: 7px;
