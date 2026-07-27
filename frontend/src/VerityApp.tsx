@@ -34,6 +34,7 @@ import {
 import {
   FormEvent,
   ReactNode,
+  type RefObject,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -48,7 +49,11 @@ import {
   type Route,
   type RouteSurface,
 } from './route';
-import { buildTimelineGrid, type TimelineEventInput } from './timeline';
+import {
+  buildTimelineGrid,
+  systemLabel,
+  type TimelineGrid,
+} from './timeline';
 
 type ModuleName = 'home' | 'results' | 'retrieve' | 'prove' | 'tools';
 type DiagnoseTab = 'retrieval' | 'fusion' | 'plan' | 'scale';
@@ -449,19 +454,19 @@ interface EvaluationResult {
   _verify_sql?: VerifySqlUnavailable;
 }
 
+interface TimelineEvent extends EvidenceSnapshot {
+  evidence_id: string;
+  external_key: string;
+  evidence_kind: EvidenceKind;
+  title: string;
+  occurred_at: string | null;
+  _verify_sql?: VerifySql;
+}
+
 interface RunTimeline {
   run_id: string;
   edge_count: number;
-  events: Array<
-    EvidenceSnapshot & {
-      evidence_id: string;
-      external_key: string;
-      evidence_kind: EvidenceKind;
-      title: string;
-      occurred_at: string | null;
-      _verify_sql?: VerifySql;
-    }
-  >;
+  events: TimelineEvent[];
 }
 
 interface QueryPlanResponse {
@@ -1020,6 +1025,206 @@ function Empty({
       <strong>{title}</strong>
       {detail ? <span>{detail}</span> : null}
     </div>
+  );
+}
+
+// Measure the plotted event cells and connect their centers, in chronological
+// (seq) order, into an SVG polyline anchored to the grid element. Coordinates
+// are in the grid's own pixel space so the returned path maps 1:1 onto an
+// overlay sized to the grid; the draw-in animation is pure CSS and collapses to
+// instant under the global prefers-reduced-motion rule. Re-measures on grid
+// resize (ResizeObserver) and whenever the placement signature changes, so
+// loading a different run with the same event count but a different lane/day
+// layout still re-stitches to the new cell positions.
+function useStitchThread(
+  gridRef: RefObject<HTMLDivElement | null>,
+  signature: string,
+  seqCount: number,
+): { path: string; width: number; height: number } {
+  const [thread, setThread] = useState({ path: '', width: 0, height: 0 });
+
+  useLayoutEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    const measure = () => {
+      const frame = grid.getBoundingClientRect();
+      const points: string[] = [];
+      for (let seq = 1; seq <= seqCount; seq += 1) {
+        const cell = grid.querySelector(`[data-seq="${seq}"]`);
+        if (!cell) continue;
+        const rect = (cell as HTMLElement).getBoundingClientRect();
+        const x = rect.left - frame.left + rect.width / 2;
+        const y = rect.top - frame.top + rect.height / 2;
+        points.push(`${points.length ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`);
+      }
+      setThread({
+        path: points.length > 1 ? points.join(' ') : '',
+        width: frame.width,
+        height: frame.height,
+      });
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, [gridRef, signature, seqCount]);
+
+  return thread;
+}
+
+// Proof > Timeline lens (SPEC 6.0). Plots the run's cited evidence on a
+// source-system x calendar-day grid and stitches it in chronological order, so
+// the same set the retrieval arms ranked reads as the incident's actual
+// sequence. Every value is derived from the live /timeline payload; nothing is
+// hardcoded and no cited event is dropped.
+function TimelineGridView({ grid }: { grid: TimelineGrid<TimelineEvent> }) {
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  const cells = new Map<string, typeof grid.placed>();
+  for (const placed of grid.placed) {
+    const key = `${placed.row}:${placed.col}`;
+    const group = cells.get(key);
+    if (group) group.push(placed);
+    else cells.set(key, [placed]);
+  }
+
+  // Re-stitch whenever any event's cell position changes, even if the event
+  // count is unchanged (a different run with the same number of citations).
+  const placement = grid.placed
+    .map((placed) => `${placed.seq}@${placed.row}:${placed.col}`)
+    .join('|');
+  const { path, width, height } = useStitchThread(
+    gridRef,
+    placement,
+    grid.placed.length,
+  );
+
+  const hotColumn = grid.days.findIndex((day) => day.hot);
+  const listOrder = [
+    ...grid.placed.slice().sort((left, right) => left.seq - right.seq),
+    ...grid.undated.map((event) => ({ event, seq: null as number | null })),
+  ];
+
+  return (
+    <section className="tgrid-panel">
+      {grid.placed.length ? (
+        <div
+          ref={gridRef}
+          className="tgrid"
+          style={{
+            gridTemplateColumns: `minmax(118px, auto) repeat(${grid.days.length}, minmax(66px, 1fr))`,
+            gridTemplateRows: `auto repeat(${grid.lanes.length}, minmax(58px, auto))`,
+          }}
+        >
+          {hotColumn >= 0 ? (
+            <div
+              className="tgrid-hot-column"
+              style={{
+                gridColumn: hotColumn + 2,
+                gridRow: `2 / ${grid.lanes.length + 2}`,
+              }}
+              aria-hidden="true"
+            />
+          ) : null}
+
+          <div className="tgrid-corner" aria-hidden="true" />
+          {grid.days.map((day, index) => (
+            <div
+              key={day.key}
+              className={`tgrid-day-head ${day.hot ? 'hot' : ''}`}
+              style={{ gridColumn: index + 2, gridRow: 1 }}
+            >
+              <span className="tgrid-day-label">{day.label}</span>
+              <span className="tgrid-day-count">
+                {day.count} {day.count === 1 ? 'event' : 'events'}
+                {day.hot ? ' · busiest' : ''}
+              </span>
+            </div>
+          ))}
+
+          {grid.lanes.map((lane, index) => (
+            <div
+              key={lane.system}
+              className="tgrid-lane-label"
+              style={{ gridColumn: 1, gridRow: index + 2 }}
+            >
+              {lane.label}
+            </div>
+          ))}
+
+          {path ? (
+            <svg
+              className="tgrid-thread"
+              width={width}
+              height={height}
+              viewBox={`0 0 ${width} ${height}`}
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <path key={path} d={path} pathLength={1} />
+            </svg>
+          ) : null}
+
+          {[...cells.entries()].map(([key, group]) => {
+            const [{ row, col }] = group;
+            return (
+              <div
+                key={key}
+                className="tgrid-cell"
+                style={{ gridColumn: col, gridRow: row }}
+              >
+                {group.map(({ event, seq }) => (
+                  <div
+                    key={event.evidence_id}
+                    className="tgrid-node"
+                    data-seq={seq}
+                  >
+                    <span className="tgrid-node-seq">{seq}</span>
+                    <KindIcon kind={event.evidence_kind} size={13} />
+                    <span className="tgrid-node-key">{event.external_key}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <Empty
+          icon={<GitMerge size={20} />}
+          title="No dated evidence to plot"
+          detail="Every cited item in this run is missing a timestamp; see the list below."
+        />
+      )}
+
+      <ol className="tgrid-legend">
+        {listOrder.map(({ event, seq }) => (
+          <li key={event.evidence_id}>
+            <span className={`tgrid-legend-seq ${seq === null ? 'undated' : ''}`}>
+              {seq === null ? '—' : seq}
+            </span>
+            <span className="tgrid-legend-kind">
+              <KindIcon kind={event.evidence_kind} size={14} />
+              {KIND_LABELS[event.evidence_kind]}
+            </span>
+            <span className="tgrid-legend-body">
+              <strong>
+                {event.external_key} · {event.title}
+              </strong>
+              <span>
+                {systemLabel(event.source_system)} ·{' '}
+                {event.occurred_at ? dateTime(event.occurred_at) : 'no timestamp — not plotted'}
+              </span>
+            </span>
+            <VerifyAffordance
+              descriptor={event._verify_sql}
+              label="verify event"
+            />
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -2393,22 +2598,15 @@ export default function VerityApp() {
       row.ndcg_at_10 > leader.ndcg_at_10 ? row : leader,
     evaluation.leaderboard[0],
   );
-  const targetIncident =
-    receipt?.run.identifier_tokens?.find((token) => token.startsWith('INC-')) ||
-    'INC-2047';
-  const timelineEvents = useMemo(() => {
-    const events = timeline?.events || [];
-    const candidateKeys = new Set(
-      candidates.map((candidate) => candidate.external_key).filter(Boolean),
-    );
-    const scoped = events.filter(
-      (event) =>
-        event.incident_id === targetIncident ||
-        event.external_key === targetIncident ||
-        candidateKeys.has(event.external_key),
-    );
-    return (scoped.length ? scoped : events).slice(0, 10);
-  }, [timeline, candidates, targetIncident]);
+  // The /timeline payload is already scoped to this run's graph nodes (the
+  // traverse_links closed component of the cited set) and ordered by
+  // (occurred_at, external_key), so the array index is the true chronological
+  // sequence. Build the lane x day grid straight from it — no client-side
+  // re-filter or cap that would silently drop cited evidence.
+  const timelineGrid = useMemo(
+    () => buildTimelineGrid(timeline?.events || []),
+    [timeline],
+  );
   const homeCitations = (answer?.citations || []).slice(0, 6);
   const homeEvidenceState = homeCitations.length
     ? 'ready'
@@ -5040,6 +5238,39 @@ FROM retrieval.${planArm}_search(
                   </aside>
                 </div>
               </>
+            ) : null}
+
+            {proveTab === 'timeline' ? (
+              <section className="tgrid-theater">
+                <header>
+                  <div>
+                    <span className="section-label">
+                      Cited evidence, in order
+                    </span>
+                    <h2>{receipt?.run.query_text || controls.query}</h2>
+                  </div>
+                  <div className="tgrid-theater-meta">
+                    <span className="status-pill">
+                      {timeline?.events.length || 0} events
+                    </span>
+                    <span className="status-pill">
+                      {timelineGrid.lanes.length} systems
+                    </span>
+                    <span className="status-pill">
+                      {timelineGrid.days.length} days
+                    </span>
+                  </div>
+                </header>
+                {timeline?.events.length ? (
+                  <TimelineGridView grid={timelineGrid} />
+                ) : (
+                  <Empty
+                    icon={<GitMerge size={20} />}
+                    title="No timeline loaded"
+                    detail="Load a run to plot its cited evidence by system and day."
+                  />
+                )}
+              </section>
             ) : null}
 
             {proveTab === 'evaluation' ? (

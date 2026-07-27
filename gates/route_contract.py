@@ -80,6 +80,10 @@ CONTRACT_ROUTES: list[tuple[str, dict]] = [
         {"surface": "agent", "principal": "support-lead"},
     ),
     ("#/proof/rr_9b41d7", {"surface": "proof", "runId": "rr_9b41d7"}),
+    (
+        "#/proof/rr_9b41d7?lens=timeline",
+        {"surface": "proof", "runId": "rr_9b41d7", "lens": "timeline"},
+    ),
 ]
 
 # Enum literals the router resolves; the built bundle must still contain them.

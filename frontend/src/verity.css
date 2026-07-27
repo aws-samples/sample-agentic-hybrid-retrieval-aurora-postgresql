@@ -7953,6 +7953,235 @@ td span {
   }
 }
 
+/* Proof > Timeline lens (SPEC 6.0). Source-system lanes x calendar-day columns
+   with an SVG stitch thread connecting the cited evidence in chronological
+   order. Fonts hold the 13px projector floor. */
+.tgrid-theater {
+  min-width: 0;
+  margin-top: 12px;
+  padding: 22px 24px;
+  background: #fff;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.tgrid-theater > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tgrid-theater h2 {
+  max-width: 900px;
+  margin: 7px 0 0;
+  font: 600 17px/1.4 var(--serif);
+}
+
+.tgrid-theater-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tgrid-panel {
+  margin-top: 20px;
+}
+
+.tgrid {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.tgrid-corner {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.tgrid-hot-column {
+  align-self: stretch;
+  margin: -3px;
+  background: var(--wash);
+  border-radius: 10px;
+}
+
+.tgrid-day-head {
+  align-self: end;
+  min-width: 0;
+  padding: 0 6px 6px;
+  border-bottom: 2px solid var(--hair);
+}
+
+.tgrid-day-head.hot {
+  border-bottom-color: var(--red);
+}
+
+.tgrid-day-label {
+  display: block;
+  color: var(--ink);
+  font: 700 13px/1.3 var(--mono);
+}
+
+.tgrid-day-count {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font: 500 13px/1.3 var(--sans);
+}
+
+.tgrid-day-head.hot .tgrid-day-count {
+  color: var(--red-deep);
+}
+
+.tgrid-lane-label {
+  display: flex;
+  align-items: center;
+  padding-right: 12px;
+  color: var(--ink-soft);
+  font: 600 13px/1.35 var(--sans);
+}
+
+.tgrid-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.tgrid-node {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--paper-raised);
+  border: 1px solid var(--hair-strong);
+  border-radius: 8px;
+}
+
+.tgrid-node svg {
+  color: var(--red);
+}
+
+.tgrid-node-seq {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  background: var(--red);
+  color: #fff;
+  border-radius: 50%;
+  font: 700 13px/1 var(--mono);
+}
+
+.tgrid-node-key {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font: 700 13px/1.3 var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tgrid-thread {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.tgrid-thread path {
+  fill: none;
+  stroke: var(--red);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.55;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: tgrid-draw 900ms ease-out forwards;
+}
+
+@keyframes tgrid-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.tgrid-legend {
+  display: grid;
+  gap: 4px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tgrid-legend li {
+  display: grid;
+  grid-template-columns: 26px minmax(120px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 4px;
+  border-top: 1px solid var(--hair);
+}
+
+.tgrid-legend li:first-child {
+  border-top: 0;
+}
+
+.tgrid-legend-seq {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  background: var(--red);
+  color: #fff;
+  border-radius: 50%;
+  font: 700 13px/1 var(--mono);
+}
+
+.tgrid-legend-seq.undated {
+  background: var(--muted);
+}
+
+.tgrid-legend-kind {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-soft);
+  font: 600 13px/1.3 var(--sans);
+}
+
+.tgrid-legend-kind svg {
+  color: var(--red);
+}
+
+.tgrid-legend-body {
+  min-width: 0;
+}
+
+.tgrid-legend-body strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  font: 600 13px/1.4 var(--sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tgrid-legend-body span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font: 500 13px/1.35 var(--mono);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
