@@ -7832,11 +7832,11 @@ td span {
 
 .retrieval-query-footer {
   min-width: 0;
-  display: flex;
+  display: grid;
   grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
+  gap: 9px;
 }
 
 .retrieval-query-status {
@@ -7844,6 +7844,7 @@ td span {
   display: flex;
   align-items: center;
   gap: 14px;
+  justify-self: end;
 }
 
 .results-rerank-control {
@@ -8059,6 +8060,56 @@ td span {
   color: var(--evidence-accent);
   background: #fff;
   border-color: var(--evidence-accent);
+}
+
+.final-ranked-why {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 155px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 7px 16px;
+  margin-top: 8px;
+  padding: 11px 14px;
+  background: #f4faf6;
+  border-left: 3px solid var(--green);
+}
+
+.final-ranked-why > .section-label {
+  color: var(--green);
+}
+
+.final-ranked-why p {
+  min-width: 0;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.final-ranked-why-signals {
+  min-width: 0;
+  display: flex;
+  grid-column: 2;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.final-ranked-why-signals span {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  color: var(--ink-soft);
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  font: 700 11px/1.2 var(--mono);
+}
+
+.final-ranked-why-signals svg {
+  color: var(--green);
 }
 
 .final-ranked-copy,
@@ -9180,13 +9231,8 @@ td span {
   }
 
   .retrieval-query-options {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .retrieval-query-options::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    overflow: visible;
   }
 
   .retrieval-query-options button {
@@ -9295,6 +9341,7 @@ td span {
   }
 
   .retrieval-query-footer {
+    display: flex;
     align-items: flex-start;
     flex-direction: column;
     gap: 8px;
@@ -9335,6 +9382,14 @@ td span {
   .final-ranked-primary > .kind-glyph {
     width: 32px;
     height: 32px;
+  }
+
+  .final-ranked-why {
+    grid-template-columns: 1fr;
+  }
+
+  .final-ranked-why-signals {
+    grid-column: 1;
   }
 
   .final-ranked-copy > b {

@@ -595,46 +595,47 @@ const PRESETS: {
   presetKey?: PresetKey;
 }[] = [
   {
-    label: 'Incident cause',
+    label: 'Production write block',
     query: DEFAULT_QUERY,
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
     clusterId: 'checkout-prod-cluster-01',
   },
   {
-    label: 'Exact CHG-1842',
-    query: 'Why did CHG-1842 block writes on checkout-prod-cluster-01?',
+    label: 'Exact ID: CHG-1842',
+    query: 'CHG-1842',
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
-    clusterId: 'checkout-prod-cluster-01',
+    clusterId: '',
     presetKey: 'exact',
   },
   {
-    label: 'Read/write split',
+    label: 'Semantic question',
     query:
-      'Customers could read order history but new checkouts timed out after maintenance',
+      'Why could customers still read order history while new checkout writes timed out after maintenance?',
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
     clusterId: '',
     presetKey: 'semantic',
   },
   {
-    label: 'Typo CGH-1842',
+    label: 'Typo: CGH-1842',
     query: 'CGH-1842',
     mode: 'hybrid' as RetrievalMode,
-    kind: 'change' as const,
+    kind: 'all' as const,
     clusterId: '',
     presetKey: 'fuzzy',
   },
   {
-    label: 'Customer impact',
-    query: 'Which visible customer reported checkout timeouts during INC-2047?',
+    label: 'Support filter',
+    query:
+      'Which visible customer reported checkout timeouts during the production write block?',
     mode: 'hybrid' as RetrievalMode,
     kind: 'support_case' as const,
     clusterId: 'checkout-prod-cluster-01',
   },
   {
-    label: 'Safe index build',
+    label: 'Runbook filter',
     query:
       'What index build method lets checkout writes continue during production maintenance?',
     mode: 'hybrid' as RetrievalMode,
@@ -1374,6 +1375,18 @@ function FinalRankedEvidence({
 }) {
   const topCandidate = candidates[0];
   const topEvidence = topCandidate ? snapshot(topCandidate) : null;
+  const topTextPosition = topCandidate
+    ? position(topCandidate, 'text')
+    : null;
+  const topVectorPosition = topCandidate
+    ? position(topCandidate, 'vector')
+    : null;
+  const topFuzzyPosition = topCandidate
+    ? position(topCandidate, 'fuzzy')
+    : null;
+  const topRrf = topCandidate
+    ? topCandidate.rrf_score ?? topCandidate.final_score
+    : null;
 
   return (
     <section className="final-ranked-evidence">
@@ -1450,6 +1463,39 @@ function FinalRankedEvidence({
               <ChevronRight size={17} aria-hidden="true" />
             </span>
           </button>
+
+          <div className="final-ranked-why">
+            <span className="section-label">Why this ranked first</span>
+            <p>
+              {topCandidate.explanation?.exact_identifier
+                ? `${topEvidence.external_key} entered the exact-identifier tier before fused candidates.`
+                : 'This evidence entered the fused candidate set from the active retrieval arms.'}{' '}
+              {reranked && topCandidate.rerank_score != null
+                ? `Cohere kept it at final rank 1; Aurora RRF ${score(topRrf, 5)} remains persisted separately.`
+                : `Weighted RRF combined its arm positions into ${score(topRrf, 5)}.`}
+            </p>
+            <div className="final-ranked-why-signals">
+              {topCandidate.explanation?.exact_identifier ? (
+                <span>
+                  <CircleDot size={11} />
+                  exact tier
+                </span>
+              ) : null}
+              {topTextPosition !== null ? (
+                <span>text #{topTextPosition}</span>
+              ) : null}
+              {topVectorPosition !== null ? (
+                <span>semantic #{topVectorPosition}</span>
+              ) : null}
+              {topFuzzyPosition !== null ? (
+                <span>fuzzy #{topFuzzyPosition}</span>
+              ) : null}
+              <span>RRF {score(topRrf, 5)}</span>
+              {reranked && topCandidate.rerank_score != null ? (
+                <span>Cohere {score(topCandidate.rerank_score, 3)}</span>
+              ) : null}
+            </div>
+          </div>
 
           {candidates.length > 1 ? (
             <div className="final-ranked-rest">
@@ -3806,7 +3852,7 @@ export default function VerityApp() {
                         }`}
                       >
                         {retrievalDraftDirty
-                          ? 'Draft controls · run to refresh'
+                          ? 'Changes not run'
                           : runId
                             ? `Run ${compactId(runId)}`
                             : 'No retrieval run'}
