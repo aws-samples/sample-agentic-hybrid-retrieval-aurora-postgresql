@@ -595,14 +595,14 @@ const PRESETS: {
   presetKey?: PresetKey;
 }[] = [
   {
-    label: 'Production write block',
+    label: 'Production block',
     query: DEFAULT_QUERY,
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
     clusterId: 'checkout-prod-cluster-01',
   },
   {
-    label: 'Exact ID: CHG-1842',
+    label: 'Exact ID',
     query: 'CHG-1842',
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
@@ -619,7 +619,7 @@ const PRESETS: {
     presetKey: 'semantic',
   },
   {
-    label: 'Typo: CGH-1842',
+    label: 'Typo recovery',
     query: 'CGH-1842',
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
@@ -3808,7 +3808,7 @@ export default function VerityApp() {
                   </button>
                   <div className="retrieval-query-footer">
                     <div className="retrieval-query-options">
-                      <span>Query examples</span>
+                      <span>Examples</span>
                       {PRESETS.map((preset) => (
                         <button
                           key={preset.label}
@@ -3839,6 +3839,7 @@ export default function VerityApp() {
                             type="checkbox"
                             checked={controls.rerank}
                             disabled={busy !== null}
+                            aria-label="Use Cohere rerank for the next retrieval run"
                             onChange={(event) =>
                               setControl('rerank', event.target.checked)
                             }
@@ -3852,10 +3853,10 @@ export default function VerityApp() {
                         }`}
                       >
                         {retrievalDraftDirty
-                          ? 'Changes not run'
+                          ? 'Not run'
                           : runId
-                            ? `Run ${compactId(runId)}`
-                            : 'No retrieval run'}
+                            ? 'Current'
+                            : 'No run'}
                       </span>
                     </div>
                   </div>

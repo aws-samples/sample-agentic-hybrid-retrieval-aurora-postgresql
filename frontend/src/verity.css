@@ -7832,11 +7832,12 @@ td span {
 
 .retrieval-query-footer {
   min-width: 0;
-  display: grid;
+  display: flex;
   grid-column: 1 / -1;
-  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 9px;
+  justify-content: space-between;
+  gap: 9px 18px;
+  flex-wrap: wrap;
 }
 
 .retrieval-query-status {
@@ -7844,7 +7845,7 @@ td span {
   display: flex;
   align-items: center;
   gap: 14px;
-  justify-self: end;
+  margin-left: auto;
 }
 
 .results-rerank-control {
@@ -7858,7 +7859,7 @@ td span {
 
 .results-rerank-control > strong {
   color: var(--ink-soft);
-  font: 700 13px/1.2 var(--workbench-ui);
+  font: 700 14px/1.2 var(--workbench-ui);
   white-space: nowrap;
 }
 
@@ -7872,7 +7873,7 @@ td span {
 .retrieval-query-options {
   min-width: 0;
   display: flex;
-  flex: 1;
+  flex: 1 1 730px;
   align-items: center;
   flex-wrap: wrap;
   gap: 7px;
@@ -9255,6 +9256,10 @@ td span {
 
   .retrieval-query-options button,
   .retrieval-run-button {
+    font-size: 15px;
+  }
+
+  .results-rerank-control > strong {
     font-size: 15px;
   }
 
