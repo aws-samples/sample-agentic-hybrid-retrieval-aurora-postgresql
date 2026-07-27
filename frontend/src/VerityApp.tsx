@@ -5140,11 +5140,6 @@ FROM retrieval.${planArm}_search(
               <section className="normalized-result">
                 <header>
                   <span className="section-label">Normalized result</span>
-                  <span
-                    className={`status-pill ${receipt ? 'ready' : 'pending'}`}
-                  >
-                    {receipt ? 'stable' : 'pending'}
-                  </span>
                 </header>
                 <dl>
                   <div>
