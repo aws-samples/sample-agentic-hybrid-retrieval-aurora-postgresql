@@ -55,8 +55,14 @@ import {
   type TimelineGrid,
 } from './timeline';
 
-type ModuleName = 'home' | 'results' | 'retrieve' | 'prove' | 'tools';
-type DiagnoseTab = 'retrieval' | 'fusion' | 'plan' | 'scale';
+type ModuleName =
+  | 'home'
+  | 'retrieve'
+  | 'prove'
+  | 'tools'
+  | 'corpus'
+  | 'health';
+type DiagnoseTab = 'results' | 'fusion' | 'plan';
 type ProveTab =
   | 'answer'
   | 'graph'
@@ -69,7 +75,14 @@ type ProveTab =
 // each surface is a lens over the same run. The legacy module/proveTab/
 // diagnoseTab state is derived from a (surface, subtab) selection so the
 // existing panel render tree stays unchanged.
-type Surface = 'overview' | 'retrieval' | 'agent' | 'proof' | 'evaluation';
+type Surface =
+  | 'overview'
+  | 'retrieval'
+  | 'agent'
+  | 'proof'
+  | 'corpus'
+  | 'evaluation'
+  | 'health';
 
 type NavLens = { key: string; label: string; Icon: typeof House };
 type NavSurface = {
@@ -80,8 +93,8 @@ type NavSurface = {
 };
 
 // Nav labels are Law-1 nouns (SPEC 6.0). Lens keys map to legacy state in
-// goTo(); order is the lab ladder. Corpus/Health utility surfaces land in a
-// later pass; Evaluation is the one utility surface wired today.
+// goTo(); order is the lab ladder. Utility surfaces (Corpus / Evaluation /
+// Health) never appear in the primary ladder.
 const PRIMARY_NAV: NavSurface[] = [
   { surface: 'overview', label: 'Overview', Icon: House, lenses: [] },
   {
@@ -117,7 +130,9 @@ const PRIMARY_NAV: NavSurface[] = [
 ];
 
 const UTILITY_NAV: NavSurface[] = [
+  { surface: 'corpus', label: 'Corpus', Icon: Database, lenses: [] },
   { surface: 'evaluation', label: 'Evaluation', Icon: Gauge, lenses: [] },
+  { surface: 'health', label: 'Health', Icon: Activity, lenses: [] },
 ];
 type RetrievalMode = 'hybrid' | 'semantic' | 'lexical' | 'fuzzy';
 type EvidenceKind =
@@ -791,18 +806,6 @@ function metricBand(value: unknown): 'high' | 'medium' | 'low' | 'empty' {
   return 'low';
 }
 
-function formatDuration(seconds: number): string {
-  if (seconds < 90) return `${seconds.toFixed(0)} s`;
-  if (seconds < 5400) return `${(seconds / 60).toFixed(seconds < 600 ? 1 : 0)} min`;
-  return `${(seconds / 3600).toFixed(1)} h`;
-}
-
-function formatGiB(value: number): string {
-  return value < 1
-    ? `${Math.round(value * 1024).toLocaleString()} MiB`
-    : `${value.toFixed(value < 10 ? 2 : 1)} GiB`;
-}
-
 function snapshot(candidate: Candidate): EvidenceSnapshot {
   return {
     ...candidate,
@@ -864,6 +867,29 @@ function groupByTier(candidates: Candidate[], visible: number): TierGroup[] {
     if (index < visible) group.rows.push(candidate);
   });
   return groups.filter((group) => group.rows.length);
+}
+
+// Read-only verification, never a client-side re-rank. Ranking lives in Aurora
+// (canonical SQL); this recomputes the fused order from the backend-persisted
+// match_tier / exact_identifier_position / rrf_score and checks the delivered
+// candidate order already reproduces it. With rerank off, final order must equal
+// fused order (the identity the rerank:false parity captures rely on); a
+// mismatch is a defect and is surfaced, not hidden.
+function isFusedOrder(candidates: Candidate[]): boolean {
+  const expected = [...candidates].sort((a, b) => {
+    const tierGap = matchTier(a) - matchTier(b);
+    if (tierGap !== 0) return tierGap;
+    const exactGap =
+      (a.exact_identifier_position ?? Number.POSITIVE_INFINITY) -
+      (b.exact_identifier_position ?? Number.POSITIVE_INFINITY);
+    if (exactGap !== 0) return exactGap;
+    return (
+      (b.rrf_score ?? b.final_score ?? 0) - (a.rrf_score ?? a.final_score ?? 0)
+    );
+  });
+  return candidates.every(
+    (candidate, index) => candidate.evidence_id === expected[index].evidence_id,
+  );
 }
 
 function KindIcon({
@@ -1816,7 +1842,7 @@ function EvidenceGraph({
 export default function VerityApp() {
   const [module, setModule] = useState<ModuleName>('home');
   const [diagnoseTab, setDiagnoseTab] =
-    useState<DiagnoseTab>('fusion');
+    useState<DiagnoseTab>('results');
   const [proveTab, setProveTab] = useState<ProveTab>('answer');
   const [controls, setControls] = useState<Controls>(DEFAULT_CONTROLS);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -1840,10 +1866,6 @@ export default function VerityApp() {
   const [graphDepth, setGraphDepth] = useState(2);
   const [graphEdgeMode, setGraphEdgeMode] =
     useState<'canonical' | 'all'>('all');
-  const [scalePosition, setScalePosition] = useState(0);
-  const [scaleSelectivity, setScaleSelectivity] = useState(40);
-  const [scaleRamGiB, setScaleRamGiB] = useState(32);
-  const [optimizedReads, setOptimizedReads] = useState(false);
   const [runId, setRunId] = useState('');
   // Gate the URL-sync effect until the initial hash has been applied, so the
   // first render cannot overwrite a /proof/{run_id} deep link before it loads.
@@ -1855,7 +1877,6 @@ export default function VerityApp() {
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [resultRevealCount, setResultRevealCount] = useState(0);
   const [agentStreamState, setAgentStreamState] =
     useState<AgentStreamState>('blocked');
   const [streamingAnswer, setStreamingAnswer] = useState('');
@@ -1959,18 +1980,6 @@ export default function VerityApp() {
   }, [homeQueryText, homeTyping]);
 
   useEffect(() => {
-    if (module !== 'results' || busy || !candidates.length) return;
-    setResultRevealCount(0);
-    let count = 0;
-    const timer = window.setInterval(() => {
-      count += 1;
-      setResultRevealCount(count);
-      if (count >= candidates.length) window.clearInterval(timer);
-    }, 170);
-    return () => window.clearInterval(timer);
-  }, [module, busy, candidates]);
-
-  useEffect(() => {
     let cancelled = false;
     api<Health>('/ready')
       .then((ready) => {
@@ -2059,15 +2068,14 @@ export default function VerityApp() {
       case 'overview':
         setModule('home');
         break;
-      case 'retrieval':
-        if (lens === 'fusion' || lens === 'plan') {
-          setModule('retrieve');
-          setDiagnoseTab(lens);
-          if (lens === 'plan' && !queryPlan) void loadQueryPlan();
-        } else {
-          setModule('results');
-        }
+      case 'retrieval': {
+        const tab: DiagnoseTab =
+          lens === 'fusion' || lens === 'plan' ? lens : 'results';
+        setModule('retrieve');
+        setDiagnoseTab(tab);
+        if (tab === 'plan' && !queryPlan) void loadQueryPlan();
         break;
+      }
       case 'agent':
         if (lens === 'tools') {
           setModule('tools');
@@ -2086,9 +2094,15 @@ export default function VerityApp() {
               : 'receipt',
         );
         break;
+      case 'corpus':
+        setModule('corpus');
+        break;
       case 'evaluation':
         setModule('prove');
         setProveTab('evaluation');
+        break;
+      case 'health':
+        setModule('health');
         break;
     }
   }
@@ -2098,22 +2112,24 @@ export default function VerityApp() {
   const activeSurface: Surface =
     module === 'home'
       ? 'overview'
-      : module === 'results' || module === 'retrieve'
+      : module === 'retrieve'
         ? 'retrieval'
         : module === 'tools'
           ? 'agent'
-          : proveTab === 'evaluation'
-            ? 'evaluation'
-            : proveTab === 'receipt' ||
-                proveTab === 'replay' ||
-                proveTab === 'timeline'
-              ? 'proof'
-              : 'agent';
+          : module === 'corpus'
+            ? 'corpus'
+            : module === 'health'
+              ? 'health'
+              : proveTab === 'evaluation'
+                ? 'evaluation'
+                : proveTab === 'receipt' ||
+                    proveTab === 'replay' ||
+                    proveTab === 'timeline'
+                  ? 'proof'
+                  : 'agent';
   const activeLens: string =
     activeSurface === 'retrieval'
-      ? module === 'results'
-        ? 'results'
-        : diagnoseTab
+      ? diagnoseTab
       : activeSurface === 'agent'
         ? module === 'tools'
           ? 'tools'
@@ -2330,24 +2346,9 @@ export default function VerityApp() {
     setAgentCommentary('');
     setAgentUsage(null);
     setAgentLatencyMs(null);
-    setModule('results');
-    setResultRevealCount(0);
+    setModule('retrieve');
+    setDiagnoseTab('results');
     await runSearch();
-  }
-
-  function openAnswerExercise() {
-    setAgentStreamState('blocked');
-    setStreamingAnswer('');
-    setAgentTrace([]);
-    setStreamCitations([]);
-    setAgentMetadata(null);
-    setAgentCommentary('');
-    setAgentUsage(null);
-    setAgentLatencyMs(null);
-    setAnswer(null);
-    setModule('prove');
-    setProveTab('answer');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function askAgent() {
@@ -2560,6 +2561,12 @@ export default function VerityApp() {
   const latestBuild = diagnostics?.recent_builds[0];
   const embeddingModel =
     health?.embedding_spaces[0]?.embedding_model || 'checking';
+  // The Final arm describes the run that produced the displayed candidates, so
+  // its label reads from the persisted receipt, not the pending toggle. Rerank
+  // is a post-fusion ordering stage: with it off, final order == fused order.
+  const finalReranked = Boolean(receipt?.run.rerank_applied);
+  const finalRerankModel = receipt?.run.rerank_model || 'rerank model';
+  const finalOrderIsFused = candidates.length ? isFusedOrder(candidates) : true;
   const visibleGraph = useMemo<RunGraph | null>(() => {
     if (!graph) return null;
     const nodes = graph.nodes.filter((node) => node.depth <= graphDepth);
@@ -2624,24 +2631,6 @@ export default function VerityApp() {
   const homeTopRrf = homeRrfScores.length
     ? Math.max(...homeRrfScores)
     : null;
-  const resultKinds = new Set(
-    candidates.map((candidate) => snapshot(candidate).evidence_kind),
-  );
-  const coverage = {
-    cause:
-      resultKinds.has('change') && resultKinds.has('lock_evidence')
-        ? 'covered'
-        : resultKinds.has('incident') || resultKinds.has('lock_evidence')
-          ? 'partial'
-          : 'missing',
-    customer: resultKinds.has('support_case') ? 'covered' : 'missing',
-    fix: resultKinds.has('runbook') ? 'covered' : 'missing',
-  } as const;
-  const missingEvidenceKinds = [
-    coverage.cause !== 'covered' ? 'change + lock evidence' : null,
-    coverage.customer !== 'covered' ? 'support case' : null,
-    coverage.fix !== 'covered' ? 'approved runbook' : null,
-  ].filter((value): value is string => Boolean(value));
   const answerCitations =
     answer?.citations.length ? answer.citations : streamCitations;
   const runbookRecovered = answerCitations.some(
@@ -2658,23 +2647,6 @@ export default function VerityApp() {
       !event.arguments?.incident_id
     );
   });
-  const baselineChunks = health?.current_chunks || 15017;
-  const scaleChunks = Math.round(
-    baselineChunks * Math.pow(50_000_000 / baselineChunks, scalePosition / 100),
-  );
-  const scaleIndexGiB = (scaleChunks * (4096 + 288)) / 1073741824;
-  const scalePoolGiB = scaleRamGiB * 0.75;
-  const scaleFits = scaleIndexGiB <= scalePoolGiB;
-  const scaleMissPenalty = scaleFits ? 1 : optimizedReads ? 3.2 : 9;
-  const scaleOverfetch =
-    1 + (1 / (scaleSelectivity / 100) - 1) * 0.4;
-  const scaleVectorMs =
-    (0.9 + controls.efSearch * 0.0725) *
-    (Math.log2(scaleChunks) / Math.log2(baselineChunks)) *
-    scaleMissPenalty *
-    scaleOverfetch;
-  const scaleBuildSeconds = scaleChunks / 2800;
-
   return (
     <div className={`verity-shell ${navCollapsed ? 'nav-collapsed' : ''}`}>
       <aside className="side-rail">
@@ -3183,166 +3155,20 @@ export default function VerityApp() {
             </section>
           </section>
         ) : null}
-        {module === 'results' ? (
-          <section className="results-journey">
-            <header className="results-journey-head">
-              <div>
-                <span className="module-kicker">Step 1 · Gather evidence</span>
-                <h1>What did one retrieval pass <em>actually find?</em></h1>
-                <p>{controls.query}</p>
-              </div>
-              <span className={`status-pill ${busy ? 'pending' : 'ready'}`}>
-                {busy ? <LoaderCircle className="spin" size={13} /> : <Check size={13} />}
-                {busy
-                  ? 'retrieving from Aurora'
-                  : `${resultRevealCount}/${candidates.length} results streamed`}
-              </span>
-            </header>
-
-            <div className="results-journey-layout">
-              <div className="thread-results">
-                <div className="results-runline">
-                  <strong>{candidates.length} persisted candidates</strong>
-                  <span>
-                    {receipt?.run.retrieval_mode || controls.mode} ·{' '}
-                    {receipt?.run.latency_ms?.toLocaleString() || '—'} ms ·{' '}
-                    {compactId(runId)}
-                  </span>
-                </div>
-                {candidates.slice(0, resultRevealCount).map((candidate, index) => {
-                  const item = snapshot(candidate);
-                  return (
-                    <button
-                      className="thread-result-card"
-                      type="button"
-                      key={candidate.evidence_id}
-                      onClick={() => setSelectedEvidenceId(candidate.evidence_id || null)}
-                    >
-                      <span className="thread-result-node" />
-                      <span className={`kind-glyph kind-${item.evidence_kind || 'unknown'}`}>
-                        <KindIcon kind={item.evidence_kind} />
-                      </span>
-                      <span className="thread-result-copy">
-                        <small>
-                          {item.evidence_kind
-                            ? KIND_LABELS[item.evidence_kind]
-                            : 'Evidence'}{' '}
-                          · rank {index + 1}
-                        </small>
-                        <strong>{item.external_key} · {item.title}</strong>
-                        <p>{item.snippet}</p>
-                        <span className="thread-result-signals">
-                          <b>FTS {position(candidate, 'text') ? `#${position(candidate, 'text')}` : '—'}</b>
-                          <b>VECTOR {position(candidate, 'vector') ? `#${position(candidate, 'vector')}` : '—'}</b>
-                          <b>FUZZY {position(candidate, 'fuzzy') ? `#${position(candidate, 'fuzzy')}` : '—'}</b>
-                          <b>RRF {score(candidate.rrf_score, 4)}</b>
-                        </span>
-                      </span>
-                      <span className="thread-result-score">
-                        {score(candidate.rrf_score, 4)}
-                      </span>
-                    </button>
-                  );
-                })}
-                {busy || resultRevealCount < candidates.length ? (
-                  <div className="thread-result-loading">
-                    <LoaderCircle className="spin" size={15} />
-                    streaming persisted candidates
-                  </div>
-                ) : null}
-              </div>
-
-              <aside className="results-coverage-rail">
-                <section>
-                  <span className="section-label">Question coverage</span>
-                  {(
-                    [
-                      ['cause', 'Why writes blocked', coverage.cause],
-                      ['customer', 'Visible customer impact', coverage.customer],
-                      ['fix', 'Safe remediation', coverage.fix],
-                    ] as const
-                  ).map(([key, label, state]) => (
-                    <div className={`coverage-row ${state}`} key={key}>
-                      <span>{state === 'covered' ? <Check size={13} /> : <CircleDot size={13} />}</span>
-                      <strong>{label}</strong>
-                      <small>{state}</small>
-                    </div>
-                  ))}
-                </section>
-                <section className="participant-checkpoint">
-                  <span className="section-label">Participant exercise 1</span>
-                  <h2>
-                    {coverage.fix === 'missing'
-                      ? 'The safe fix is still unsupported.'
-                      : 'Every part of the question has evidence.'}
-                  </h2>
-                  <div className="checkpoint-explanation">
-                    <strong>What is missing</strong>
-                    <p>
-                      {missingEvidenceKinds.length
-                        ? `${missingEvidenceKinds.join(', ')}. Until it is recovered, Verity must withhold that part of the answer.`
-                        : 'No required evidence kind is missing from the current result set.'}
-                    </p>
-                    <strong>Why it is missing</strong>
-                    <p>
-                      The first pass is scoped to <code>{controls.clusterId}</code>.
-                      {' '}<code>RB-017</code> is reusable guidance and has no{' '}
-                      <code>cluster_id</code>, so the filter correctly excludes it
-                      before any retrieval arm enters fusion.
-                    </p>
-                    <strong>Your step</strong>
-                    <p>
-                      Decompose the question. Keep the production-cluster filter
-                      for incident evidence, then relax only the runbook subquery
-                      to <code>cluster_id = NULL</code>. Keep the workshop
-                      principal and ACL checks unchanged.
-                    </p>
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>Current scope</dt>
-                      <dd>{controls.clusterId}</dd>
-                    </div>
-                    <div>
-                      <dt>Missing evidence</dt>
-                      <dd>{missingEvidenceKinds.join(' · ') || 'none'}</dd>
-                    </div>
-                    <div>
-                      <dt>Success</dt>
-                      <dd>RB-017 · 3/3 covered · citations valid</dd>
-                    </div>
-                  </dl>
-                  <button
-                    type="button"
-                    className="agent-command"
-                    onClick={openAnswerExercise}
-                    disabled={busy !== null}
-                  >
-                    <Sparkles size={15} />
-                    Open the bounded-recovery exercise
-                    <ArrowRight size={15} />
-                  </button>
-                </section>
-              </aside>
-            </div>
-          </section>
-        ) : null}
         {module === 'retrieve' ? (
           <section className="module-screen">
             <header className="module-heading">
               <div>
                 <span className="module-kicker">
-                  Module 1 ·{' '}
-                  {diagnoseTab === 'retrieval'
-                    ? 'Retrieval lab'
+                  Retrieval ·{' '}
+                  {diagnoseTab === 'results'
+                    ? 'Signal arms'
                     : diagnoseTab === 'fusion'
                       ? 'RRF anatomy'
-                      : diagnoseTab === 'plan'
-                        ? 'Query-plan X-Ray'
-                        : 'Scale & capacity'}
+                      : 'Query-plan X-Ray'}
                 </span>
                 <h1>
-                  {diagnoseTab === 'retrieval' ? (
+                  {diagnoseTab === 'results' ? (
                     <>
                       One query, <em>every arm.</em>
                     </>
@@ -3350,24 +3176,18 @@ export default function VerityApp() {
                     <>
                       Rank arithmetic, <em>not score soup.</em>
                     </>
-                  ) : diagnoseTab === 'plan' ? (
-                    <>
-                      Where the <em>milliseconds</em> go.
-                    </>
                   ) : (
                     <>
-                      The lab fits in memory. <em>Production might not.</em>
+                      Where the <em>milliseconds</em> go.
                     </>
                   )}
                 </h1>
                 <p className="module-deck">
-                  {diagnoseTab === 'retrieval'
+                  {diagnoseTab === 'results'
                     ? 'Exact, lexical, semantic, and fuzzy candidates over the same live Aurora corpus.'
                     : diagnoseTab === 'fusion'
                       ? 'Only integer positions enter weighted RRF; raw arm values remain diagnostics.'
-                      : diagnoseTab === 'plan'
-                        ? 'Inspect the planner choice for each arm under the active filters and principal.'
-                        : 'Explore a labeled capacity model, then inspect the real search-index build history.'}
+                      : 'Inspect the planner choice for each arm under the active filters and principal.'}
                 </p>
               </div>
               <div className="heading-status">
@@ -3388,7 +3208,7 @@ export default function VerityApp() {
               </div>
             </header>
 
-            {diagnoseTab === 'retrieval' ? (
+            {diagnoseTab === 'results' ? (
               <>
                 <div className="retrieval-toolbar">
                   <div className="preset-list" aria-label="Query presets">
@@ -3503,12 +3323,18 @@ export default function VerityApp() {
                     onSelect={selectCandidate}
                   />
                   <RetrievalArm
-                    title="Final ranking"
-                    subtitle={`exact tier above RRF · weights ${controls.textWeight}:${controls.vectorWeight}:${controls.fuzzyWeight} · k=${controls.rrfK}`}
+                    title={finalReranked ? 'Final · reranked' : 'Final · fused'}
+                    subtitle={
+                      finalReranked
+                        ? `${finalRerankModel} reorders the fused pool · RRF preserved in the receipt`
+                        : `fused · RRF k=${controls.rrfK} · weights ${controls.textWeight}:${controls.vectorWeight}:${controls.fuzzyWeight}`
+                    }
                     candidates={candidates}
                     selectedEvidenceId={selectedEvidenceId}
                     diagnostic={(candidate) =>
-                      score(candidate.rrf_score ?? candidate.final_score, 5)
+                      finalReranked
+                        ? score(candidate.rerank_score, 3)
+                        : score(candidate.rrf_score ?? candidate.final_score, 5)
                     }
                     onSelect={selectCandidate}
                     fused
@@ -3520,6 +3346,15 @@ export default function VerityApp() {
                   <span>raw values are diagnostics</span>
                   <span>rank positions enter RRF</span>
                   <span>exact identifiers rank above every fused row</span>
+                  {candidates.length ? (
+                    <span className={finalOrderIsFused ? '' : 'footnote-alert'}>
+                      {finalReranked
+                        ? 'reranked order · RRF + rerank persisted separately'
+                        : finalOrderIsFused
+                          ? 'final order = fused order ✓'
+                          : 'final order diverges from fused ordering'}
+                    </span>
+                  ) : null}
                   <span>{runId ? `run ${compactId(runId)}` : 'run not started'}</span>
                 </div>
 
@@ -3584,6 +3419,14 @@ export default function VerityApp() {
                                   selectedCandidate?.final_score,
                                 5,
                               )}
+                            </b>
+                          </span>
+                          <span>
+                            RERANK
+                            <b>
+                              {selectedCandidate?.rerank_score != null
+                                ? score(selectedCandidate.rerank_score, 3)
+                                : 'off'}
                             </b>
                           </span>
                         </div>
@@ -3655,6 +3498,10 @@ export default function VerityApp() {
                         <b>{controls.fuzzyThreshold}</b> trigram threshold
                       </span>
                     </div>
+                    <VerifyAffordance
+                      descriptor={receipt?._verify_sql?.candidates}
+                      label="verify candidates in psql"
+                    />
                   </section>
                 </div>
               </>
@@ -3957,257 +3804,6 @@ FROM retrieval.${planArm}_search(
               </div>
             ) : null}
 
-            {diagnoseTab === 'scale' ? (
-              <>
-                <section className="scale-controls">
-                  <label>
-                    <span>Corpus · chunks</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={scalePosition}
-                      onChange={(event) =>
-                        setScalePosition(Number(event.target.value))
-                      }
-                    />
-                    <output>
-                      {scaleChunks.toLocaleString()}
-                      <small>
-                        {scalePosition === 0 ? ' · live lab baseline' : ' · modeled'}
-                      </small>
-                    </output>
-                  </label>
-                  <label>
-                    <span>Rows passing ACL + filters</span>
-                    <input
-                      type="range"
-                      min={2}
-                      max={100}
-                      value={scaleSelectivity}
-                      onChange={(event) =>
-                        setScaleSelectivity(Number(event.target.value))
-                      }
-                    />
-                    <output>{scaleSelectivity}%</output>
-                  </label>
-                  <label>
-                    <span>ef_search</span>
-                    <input
-                      type="range"
-                      min={10}
-                      max={200}
-                      step={5}
-                      value={controls.efSearch}
-                      onChange={(event) =>
-                        setControl('efSearch', Number(event.target.value))
-                      }
-                    />
-                    <output>{controls.efSearch}</output>
-                  </label>
-                  <div className="scale-switches">
-                    <span>Instance memory</span>
-                    <div className="segmented">
-                      {[32, 128, 512].map((ram) => (
-                        <button
-                          key={ram}
-                          type="button"
-                          className={scaleRamGiB === ram ? 'active' : ''}
-                          onClick={() => setScaleRamGiB(ram)}
-                        >
-                          {ram} GiB
-                        </button>
-                      ))}
-                    </div>
-                    <span>Optimized Reads</span>
-                    <div className="segmented">
-                      <button
-                        type="button"
-                        className={!optimizedReads ? 'active' : ''}
-                        onClick={() => setOptimizedReads(false)}
-                      >
-                        off
-                      </button>
-                      <button
-                        type="button"
-                        className={optimizedReads ? 'active' : ''}
-                        onClick={() => setOptimizedReads(true)}
-                      >
-                        on
-                      </button>
-                    </div>
-                  </div>
-                </section>
-
-                <div className="scale-stats">
-                  <div>
-                    <span>Modeled HNSW</span>
-                    <strong>{formatGiB(scaleIndexGiB)}</strong>
-                    <small>1,024-d float32 + m=16 links</small>
-                  </div>
-                  <div>
-                    <span>Build time</span>
-                    <strong>{formatDuration(scaleBuildSeconds)}</strong>
-                    <small>CONCURRENTLY ≈ {formatDuration(scaleBuildSeconds * 2)}</small>
-                  </div>
-                  <div className={scaleFits ? 'ok' : 'warn'}>
-                    <span>{scaleFits ? 'Fits buffer pool' : 'Exceeds pool'}</span>
-                    <strong>{scaleFits ? 'resident' : `×${scaleMissPenalty.toFixed(1)}`}</strong>
-                    <small>{optimizedReads && !scaleFits ? 'NVMe tier model' : 'storage penalty model'}</small>
-                  </div>
-                  <div className={scaleSelectivity < 10 ? 'warn' : ''}>
-                    <span>Overfetch</span>
-                    <strong>×{scaleOverfetch.toFixed(1)}</strong>
-                    <small>iterative_scan = relaxed_order</small>
-                  </div>
-                  <div className={scaleVectorMs > 50 ? 'warn' : ''}>
-                    <span>Vector arm p50</span>
-                    <strong>{scaleVectorMs.toFixed(1)} ms</strong>
-                    <small>modeled · excludes lexical + fuzzy</small>
-                  </div>
-                </div>
-
-                <div className="scale-detail-grid">
-                  <section className="capacity-panel">
-                    <header>
-                      <span className="section-label">
-                        Working set vs buffer pool
-                      </span>
-                      <span className={`status-pill ${scaleFits ? 'ready' : ''}`}>
-                        {scaleFits
-                          ? 'resident'
-                          : optimizedReads
-                            ? 'NVMe tier'
-                            : 'storage reads'}
-                      </span>
-                    </header>
-                    <div className="capacity-bar">
-                      <i
-                        style={{
-                          width: `${Math.min(
-                            (scaleIndexGiB / Math.max(scalePoolGiB, scaleIndexGiB)) *
-                              100,
-                            100,
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                    <div className="capacity-labels">
-                      <span>HNSW {formatGiB(scaleIndexGiB)}</span>
-                      <span>pool ≈ {formatGiB(scalePoolGiB)}</span>
-                    </div>
-                    <div className="capacity-advice">
-                      <strong>
-                        {scaleFits
-                          ? 'The modeled index remains memory-resident.'
-                          : optimizedReads
-                            ? 'The modeled overflow lands on the NVMe tier.'
-                            : 'The modeled index spills beyond the buffer pool.'}
-                      </strong>
-                      <span>
-                        {scaleSelectivity < 10
-                          ? 'Highly selective filters require repeated HNSW resumes; consider workload-specific partial indexes.'
-                          : 'Current selectivity keeps iterative-scan overfetch bounded.'}
-                      </span>
-                    </div>
-                  </section>
-
-                  <section className="distribution-panel">
-                    <header>
-                      <span className="section-label">
-                        Live corpus distribution
-                      </span>
-                      <span className="status-pill">
-                        {baselineChunks.toLocaleString()} chunks
-                      </span>
-                    </header>
-                    <div>
-                      {(diagnostics?.distribution || []).map((row) => (
-                        <div key={row.evidence_kind}>
-                          <span>{KIND_LABELS[row.evidence_kind]}</span>
-                          <strong>{row.documents.toLocaleString()}</strong>
-                          <i
-                            style={{
-                              width: `${Math.max(
-                                (row.documents /
-                                  Math.max(
-                                    ...(diagnostics?.distribution || []).map(
-                                      (item) => item.documents,
-                                    ),
-                                    1,
-                                  )) *
-                                  100,
-                                1,
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                </div>
-
-                <section className="build-history-panel">
-                  <header>
-                    <div>
-                      <span className="section-label">
-                        Search-index build receipts
-                      </span>
-                      <h2>Build without blocking casework</h2>
-                    </div>
-                    <span className="status-pill ready">
-                      {latestBuild?.status || 'checking'}
-                    </span>
-                  </header>
-                  <div className="build-methods">
-                    <div>
-                      <strong>Ordinary CREATE INDEX</strong>
-                      <span>SHARE lock permits reads while writes queue.</span>
-                    </div>
-                    <div>
-                      <strong>CREATE INDEX CONCURRENTLY</strong>
-                      <span>Two passes, no write blocking, INVALID cleanup on failure.</span>
-                    </div>
-                    <div>
-                      <strong>Blue/green</strong>
-                      <span>Build, evaluate, then switch once the window is too large.</span>
-                    </div>
-                  </div>
-                  <div className="build-receipts">
-                    {(diagnostics?.recent_builds || []).map((build) => (
-                      <div key={build.build_id}>
-                        <span
-                          className={`status-pill ${
-                            build.status === 'complete' ? 'ready' : ''
-                          }`}
-                        >
-                          {build.status}
-                        </span>
-                        <code>{compactId(build.build_id)}</code>
-                        <strong>
-                          {build.document_count.toLocaleString()} docs ·{' '}
-                          {build.cache_hit_count.toLocaleString()} cache hits
-                        </strong>
-                        <small>
-                          {build.completed_at
-                            ? dateTime(build.completed_at)
-                            : 'incomplete'}
-                          {build.error ? ` · ${build.error}` : ''}
-                        </small>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                <p className="model-disclaimer">
-                  <strong>Capacity values are a model, not a benchmark.</strong>
-                  {' '}
-                  The corpus count and build receipts are live; memory, build
-                  throughput, overfetch, and latency estimates must be replaced
-                  by release-gate measurements on the target Aurora engine.
-                </p>
-              </>
-            ) : null}
           </section>
         ) : null}
 
@@ -5644,6 +5240,211 @@ FROM retrieval.${planArm}_search(
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </section>
+          </section>
+        ) : null}
+
+        {module === 'corpus' ? (
+          <section className="module-screen">
+            <header className="module-heading">
+              <div>
+                <span className="module-kicker">Utility · Corpus</span>
+                <h1>
+                  What the index <em>actually holds.</em>
+                </h1>
+                <p className="module-deck">
+                  Evidence documents and chunks materialized into the search
+                  index on this cluster, grouped by kind, read live from Aurora.
+                </p>
+              </div>
+              <div className="heading-status">
+                <span className="status-pill">
+                  {health?.current_documents?.toLocaleString() || '—'} docs
+                </span>
+                <span className="status-pill">
+                  {health?.current_chunks?.toLocaleString() || '—'} chunks
+                </span>
+              </div>
+            </header>
+
+            <div className="scale-detail-grid">
+              <section className="distribution-panel">
+                <header>
+                  <span className="section-label">Live corpus distribution</span>
+                  <span className="status-pill">
+                    {health?.current_chunks?.toLocaleString() || '—'} chunks
+                  </span>
+                </header>
+                <div>
+                  {(diagnostics?.distribution || []).map((row) => (
+                    <div key={row.evidence_kind}>
+                      <span>{KIND_LABELS[row.evidence_kind]}</span>
+                      <strong>{row.documents.toLocaleString()}</strong>
+                      <i
+                        style={{
+                          width: `${Math.max(
+                            (row.documents /
+                              Math.max(
+                                ...(diagnostics?.distribution || []).map(
+                                  (item) => item.documents,
+                                ),
+                                1,
+                              )) *
+                              100,
+                            1,
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="capacity-panel">
+                <header>
+                  <span className="section-label">Embedding spaces</span>
+                  <span className="status-pill">{embeddingModel}</span>
+                </header>
+                <dl>
+                  {(health?.embedding_spaces || []).map((space) => (
+                    <div key={space.embedding_model}>
+                      <dt>{space.embedding_model}</dt>
+                      <dd>
+                        {space.chunks.toLocaleString()} chunks ·{' '}
+                        {space.dimensions.toLocaleString()} dimensions
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            </div>
+          </section>
+        ) : null}
+
+        {module === 'health' ? (
+          <section className="module-screen">
+            <header className="module-heading">
+              <div>
+                <span className="module-kicker">Utility · Health</span>
+                <h1>
+                  Is the index <em>current and drift-free?</em>
+                </h1>
+                <p className="module-deck">
+                  Search-index readiness, embedding coverage, and the build
+                  receipts that prove the index was rebuilt without blocking
+                  casework, all read live from Aurora.
+                </p>
+              </div>
+              <div className="heading-status">
+                <span
+                  className={`status-pill ${
+                    health?.drift_issues === 0 ? 'ready' : ''
+                  }`}
+                >
+                  {health?.drift_issues ?? '—'} drift
+                </span>
+                <span className="status-pill">
+                  {engineRelease(health?.engine_version)}
+                </span>
+                <span className="status-pill">
+                  pgvector {health?.pgvector_version || '—'}
+                </span>
+              </div>
+            </header>
+
+            <aside className="health-panel">
+              <header>
+                <span className="section-label">Search index health</span>
+                <span
+                  className={`status-pill ${
+                    health?.drift_issues === 0 ? 'ready' : ''
+                  }`}
+                >
+                  {health?.drift_issues ?? '—'} drift
+                </span>
+              </header>
+              <dl>
+                <div>
+                  <dt>Source documents</dt>
+                  <dd>{health?.source_documents.toLocaleString() || '—'}</dd>
+                </div>
+                <div>
+                  <dt>Ready documents</dt>
+                  <dd>{health?.current_documents.toLocaleString() || '—'}</dd>
+                </div>
+                <div>
+                  <dt>Ready embeddings</dt>
+                  <dd>{health?.ready_embeddings.toLocaleString() || '—'}</dd>
+                </div>
+                <div>
+                  <dt>Embedding model</dt>
+                  <dd>{embeddingModel}</dd>
+                </div>
+                <div>
+                  <dt>Latest build</dt>
+                  <dd>{compactId(latestBuild?.build_id)}</dd>
+                </div>
+                <div>
+                  <dt>Indexed</dt>
+                  <dd>{dateTime(health?.last_indexed_at)}</dd>
+                </div>
+              </dl>
+            </aside>
+
+            <section className="build-history-panel">
+              <header>
+                <div>
+                  <span className="section-label">
+                    Search-index build receipts
+                  </span>
+                  <h2>Build without blocking casework</h2>
+                </div>
+                <span className="status-pill ready">
+                  {latestBuild?.status || 'checking'}
+                </span>
+              </header>
+              <div className="build-methods">
+                <div>
+                  <strong>Ordinary CREATE INDEX</strong>
+                  <span>SHARE lock permits reads while writes queue.</span>
+                </div>
+                <div>
+                  <strong>CREATE INDEX CONCURRENTLY</strong>
+                  <span>
+                    Two passes, no write blocking, INVALID cleanup on failure.
+                  </span>
+                </div>
+                <div>
+                  <strong>Blue/green</strong>
+                  <span>
+                    Build, evaluate, then switch once the window is too large.
+                  </span>
+                </div>
+              </div>
+              <div className="build-receipts">
+                {(diagnostics?.recent_builds || []).map((build) => (
+                  <div key={build.build_id}>
+                    <span
+                      className={`status-pill ${
+                        build.status === 'complete' ? 'ready' : ''
+                      }`}
+                    >
+                      {build.status}
+                    </span>
+                    <code>{compactId(build.build_id)}</code>
+                    <strong>
+                      {build.document_count.toLocaleString()} docs ·{' '}
+                      {build.cache_hit_count.toLocaleString()} cache hits
+                    </strong>
+                    <small>
+                      {build.completed_at
+                        ? dateTime(build.completed_at)
+                        : 'incomplete'}
+                      {build.error ? ` · ${build.error}` : ''}
+                    </small>
+                  </div>
+                ))}
               </div>
             </section>
           </section>

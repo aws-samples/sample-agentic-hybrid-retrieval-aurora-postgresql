@@ -13,7 +13,9 @@ export type RouteSurface =
   | 'retrieval'
   | 'agent'
   | 'proof'
-  | 'evaluation';
+  | 'corpus'
+  | 'evaluation'
+  | 'health';
 
 export type PresetKey = 'exact' | 'fuzzy' | 'semantic';
 export type PrincipalKey = 'workshop' | 'support-lead';
@@ -33,7 +35,9 @@ export const SURFACE_LENSES: Record<RouteSurface, readonly string[]> = {
   retrieval: ['results', 'fusion', 'plan'],
   agent: ['answer', 'graph', 'tools'],
   proof: ['receipt', 'replay', 'timeline'],
+  corpus: [],
   evaluation: [],
+  health: [],
 };
 
 export const SURFACES = Object.keys(SURFACE_LENSES) as RouteSurface[];
