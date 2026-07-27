@@ -872,13 +872,14 @@ function engineRelease(version: string | undefined): string {
 }
 
 function LiveBanner({ health }: { health: Health | null }) {
-  const projection = health?.status === 'ready' ? 'READY' : health?.status || 'checking';
+  const indexState =
+    health?.status === 'ready' ? 'READY' : health?.status || 'checking';
   return (
     <div className="live-banner" role="status" aria-label="Live cluster status">
       <span className="live-banner-dot" aria-hidden="true" />
       <span className="live-banner-cluster">{health?.cluster_id || '—'}</span>
       <span className="live-banner-sep">·</span>
-      <span>projection {projection}</span>
+      <span>search index {indexState}</span>
       <span className="live-banner-sep">·</span>
       <span>{health?.current_documents?.toLocaleString() || '—'} docs</span>
       <span className="live-banner-sep">·</span>
@@ -1623,6 +1624,7 @@ export default function VerityApp() {
   const [agentLatencyMs, setAgentLatencyMs] = useState<number | null>(null);
   const [homeQueryText, setHomeQueryText] = useState('');
   const [homeTyping, setHomeTyping] = useState(true);
+  const [homeReceiptLoading, setHomeReceiptLoading] = useState(true);
   const homeTypingInterrupted = useRef(false);
   const homeQueryInput = useRef<HTMLInputElement>(null);
 
@@ -1696,7 +1698,7 @@ export default function VerityApp() {
       );
     };
 
-    timer = window.setTimeout(typeNext, 520);
+    timer = window.setTimeout(typeNext, 180);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -1734,13 +1736,16 @@ export default function VerityApp() {
       .catch((reason: Error) => {
         if (!cancelled) setError(reason.message);
       });
-    api<{ run_id: string }>('/v1/runs/latest')
-      .then((latest) => {
-        if (!cancelled) void loadRun(latest.run_id);
-      })
-      .catch(() => {
+    void (async () => {
+      try {
+        const latest = await api<{ run_id: string }>('/v1/runs/latest');
+        if (!cancelled) await loadRun(latest.run_id);
+      } catch {
         // A new environment can be ready before it has a cited receipt.
-      });
+      } finally {
+        if (!cancelled) setHomeReceiptLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -2247,6 +2252,11 @@ export default function VerityApp() {
     return (scoped.length ? scoped : events).slice(0, 10);
   }, [timeline, candidates, targetIncident]);
   const homeCitations = (answer?.citations || []).slice(0, 6);
+  const homeEvidenceState = homeCitations.length
+    ? 'ready'
+    : homeReceiptLoading
+      ? 'loading'
+      : 'empty';
   const homeCandidateById = new Map(
     candidates.map((candidate) => [candidate.evidence_id, candidate]),
   );
@@ -2310,7 +2320,7 @@ export default function VerityApp() {
   const scaleBuildSeconds = scaleChunks / 2800;
 
   return (
-    <div className="verity-shell">
+    <div className={`verity-shell ${module === 'home' ? 'home-shell' : ''}`}>
       <aside className="side-rail">
         <button
           className="brand"
@@ -2485,9 +2495,9 @@ export default function VerityApp() {
                   {' '}follows the <em className="home-why">why.</em>
                 </h1>
                 <p>
-                  Investigate an application incident on Aurora PostgreSQL
-                  across exact identifiers, semantic meaning, fuzzy matches,
-                  authoritative relationships, and replayable proof.
+                  Trace an application incident on Aurora PostgreSQL across
+                  lock evidence, change history, customer impact, and approved
+                  remediation. Every conclusion resolves to replayable proof.
                 </p>
                 <div className="home-live-stats" aria-label="Live system status">
                   <div>
@@ -2509,12 +2519,25 @@ export default function VerityApp() {
                 </div>
               </div>
 
-              <div className="home-thread-scene" aria-label="Latest cited evidence">
+              <div
+                className={`home-thread-scene ${homeEvidenceState}`}
+                aria-label={
+                  homeEvidenceState === 'ready'
+                    ? 'Latest cited evidence'
+                    : homeEvidenceState === 'loading'
+                      ? 'Loading the latest cited evidence'
+                      : 'No cited receipt is available'
+                }
+              >
                 <svg
                   className="home-threads"
                   viewBox="0 0 620 520"
                   role="img"
-                  aria-label={`${homeCitations.length} citations connected to the latest answer`}
+                  aria-label={
+                    homeEvidenceState === 'ready'
+                      ? `${homeCitations.length} citations connected to the latest answer`
+                      : 'Evidence-thread frame awaiting a cited receipt'
+                  }
                 >
                   <circle cx="310" cy="260" r="168" />
                   <circle cx="310" cy="260" r="220" />
@@ -2529,9 +2552,16 @@ export default function VerityApp() {
 
                 <div className="home-answer-node">
                   <VerityMark className="home-answer-mark" />
-                  <strong className="home-answer-title">Cited answer</strong>
+                  <strong className="home-answer-title">
+                    {homeEvidenceState === 'ready'
+                      ? 'Cited answer'
+                      : 'Evidence thread'}
+                  </strong>
                   <small className="home-answer-model">
-                    {answer?.synthesis_mode || 'loading proof'}
+                    {answer?.synthesis_mode ||
+                      (homeEvidenceState === 'loading'
+                        ? 'loading receipt'
+                        : 'awaiting run')}
                   </small>
                   <div className="home-answer-metrics">
                     <span>
@@ -2543,7 +2573,11 @@ export default function VerityApp() {
                       <small>top RRF</small>
                     </span>
                   </div>
-                  <i>rank signal · not confidence</i>
+                  <i>
+                    {homeEvidenceState === 'ready'
+                      ? 'rank signal · not confidence'
+                      : 'no active receipt'}
+                  </i>
                 </div>
 
                 <div className="home-evidence-nodes">
@@ -2597,10 +2631,16 @@ export default function VerityApp() {
                       </button>
                     );
                   })}
-                  {!homeCitations.length ? (
-                    <div className="home-evidence-loading">
-                      <LoaderCircle className="spin" size={18} />
-                      Loading latest cited receipt
+                  {homeEvidenceState !== 'ready' ? (
+                    <div className={`home-evidence-state ${homeEvidenceState}`}>
+                      {homeEvidenceState === 'loading' ? (
+                        <LoaderCircle className="spin" size={18} />
+                      ) : (
+                        <FileSearch size={17} />
+                      )}
+                      {homeEvidenceState === 'loading'
+                        ? 'Loading latest cited receipt'
+                        : 'No cited receipt yet'}
                     </div>
                   ) : null}
                 </div>
@@ -2614,15 +2654,12 @@ export default function VerityApp() {
                 }}
               >
                 <Search size={20} aria-hidden="true" />
-                <span
-                  className={`home-query-field ${
-                    homeTyping ? 'typing' : ''
-                  }`}
-                >
+                <span className="home-query-field">
                   <input
                     ref={homeQueryInput}
                     value={homeQueryText}
                     readOnly={homeTyping}
+                    title={homeQueryText}
                     onFocus={interruptHomeTypewriter}
                     onChange={(event) => {
                       setHomeQueryText(event.target.value);
@@ -2630,15 +2667,6 @@ export default function VerityApp() {
                     }}
                     aria-label="Incident question"
                   />
-                  {homeTyping ? (
-                    <span
-                      className="home-type-caret"
-                      style={{
-                        left: `min(${Math.max(homeQueryText.length, 1)}ch, calc(100% - 2px))`,
-                      }}
-                      aria-hidden="true"
-                    />
-                  ) : null}
                 </span>
                 <button
                   type="submit"
