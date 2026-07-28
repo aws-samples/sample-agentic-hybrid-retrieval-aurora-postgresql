@@ -14,6 +14,8 @@ SELECT
       jsonb_build_object(
         'citation_number', citation.citation_number,
         'evidence_id', citation.evidence_id,
+        'document_version_id', citation.document_version_id,
+        'chunk_version_id', citation.chunk_version_id,
         'external_key', item.external_key,
         'title', item.title,
         'source_uri', citation.source_uri,
@@ -24,7 +26,8 @@ SELECT
       ORDER BY citation.citation_number
     ) FILTER (WHERE citation.citation_number IS NOT NULL),
     '[]'::jsonb
-  ) AS citations
+  ) AS citations,
+  answer.validation_status
 FROM proof.agent_answers answer
 LEFT JOIN proof.answer_citations citation ON citation.run_id = answer.run_id
 LEFT JOIN casework.evidence_items item ON item.evidence_id = citation.evidence_id

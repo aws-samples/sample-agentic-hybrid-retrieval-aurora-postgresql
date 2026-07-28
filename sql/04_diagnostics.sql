@@ -378,7 +378,8 @@ SELECT
   run.fuzzy_threshold,
   run.identifier_tokens,
   run.fuzzy_probe_tokens,
-  run.candidate_pool
+  run.candidate_pool,
+  run.principal
 FROM proof.retrieval_runs run
 LEFT JOIN proof.retrieval_candidates candidate ON candidate.run_id = run.run_id
 GROUP BY run.run_id;

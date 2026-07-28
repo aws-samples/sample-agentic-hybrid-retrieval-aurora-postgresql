@@ -84,6 +84,9 @@ type Surface =
   | 'evaluation'
   | 'health';
 
+type JourneySurface = 'overview' | 'retrieval' | 'agent' | 'proof';
+type JourneyState = 'available' | 'active' | 'waiting' | 'blocked';
+
 type NavLens = { key: string; label: string; Icon: typeof House };
 type NavSurface = {
   surface: Surface;
@@ -132,6 +135,21 @@ const UTILITY_NAV: NavSurface[] = [
   { surface: 'evaluation', label: 'Evaluation', Icon: Gauge, lenses: [] },
   { surface: 'health', label: 'Health', Icon: Activity, lenses: [] },
 ];
+
+interface JourneyStep {
+  surface: JourneySurface;
+  label: string;
+  caption: string;
+  state: JourneyState;
+}
+
+const JOURNEY_SURFACES: JourneySurface[] = [
+  'overview',
+  'retrieval',
+  'agent',
+  'proof',
+];
+
 type RetrievalMode = 'hybrid' | 'semantic' | 'lexical' | 'fuzzy';
 type EvidenceKind =
   | 'incident'
@@ -224,11 +242,14 @@ interface Citation {
   n?: number;
   citation_number?: number;
   evidence_id?: string;
+  document_version_id?: string;
+  chunk_version_id?: string;
   external_key: string;
   title: string;
   source_uri: string;
   source_revision: string;
   quote_text?: string;
+  claim?: string | null;
 }
 
 type AgentStreamState =
@@ -290,6 +311,13 @@ interface AnswerReceipt {
   model_id: string | null;
   model_transport: string | null;
   citations: Citation[];
+  validation_status?: string;
+  created_at?: string;
+}
+
+interface PrincipalReceipt {
+  scopes?: string[];
+  principals?: string[];
 }
 
 interface RunSummary {
@@ -315,6 +343,7 @@ interface RunSummary {
   identifier_tokens?: string[];
   fuzzy_probe_tokens?: string[];
   candidate_pool?: number;
+  principal?: PrincipalReceipt;
 }
 
 interface Stage {
@@ -965,6 +994,75 @@ function isFusedOrder(candidates: Candidate[]): boolean {
   );
 }
 
+function principalLabel(principal?: PrincipalReceipt): string {
+  const named = principal?.principals?.filter(Boolean) || [];
+  if (named.length) return named.join(', ');
+  const scopes = principal?.scopes?.filter(Boolean) || [];
+  return scopes.length ? scopes.join(', ') : 'workshop';
+}
+
+function buildJourneySteps({
+  activeSurface,
+  activeLens,
+  retrievalAvailable,
+  agentAvailable,
+  proofAvailable,
+  agentWithheld,
+  proofWithheld,
+}: {
+  activeSurface: Surface;
+  activeLens: string;
+  retrievalAvailable: boolean;
+  agentAvailable: boolean;
+  proofAvailable: boolean;
+  agentWithheld: boolean;
+  proofWithheld: boolean;
+}): JourneyStep[] {
+  const availability: Record<JourneySurface, boolean> = {
+    overview: true,
+    retrieval: retrievalAvailable,
+    agent: agentAvailable,
+    proof: proofAvailable,
+  };
+  const blocked: Record<JourneySurface, boolean> = {
+    overview: false,
+    retrieval: false,
+    agent: agentWithheld,
+    proof: proofWithheld,
+  };
+
+  return JOURNEY_SURFACES.map((surface) => {
+    const nav = PRIMARY_NAV.find((item) => item.surface === surface);
+    const current = activeSurface === surface;
+    const lensLabel = nav?.lenses.find((lens) => lens.key === activeLens)?.label;
+    const defaultLensLabel = nav?.lenses[0]?.label || nav?.label || surface;
+    const state: JourneyState = current
+      ? blocked[surface]
+        ? 'blocked'
+        : 'active'
+      : availability[surface]
+        ? 'available'
+        : blocked[surface]
+          ? 'blocked'
+          : 'waiting';
+    const caption =
+      current
+        ? lensLabel || nav?.label || 'Active'
+        : state === 'available'
+          ? `${defaultLensLabel} available`
+          : state === 'blocked'
+            ? `${defaultLensLabel} withheld`
+            : `${defaultLensLabel} unavailable`;
+
+    return {
+      surface,
+      label: nav?.label || surface,
+      caption,
+      state,
+    };
+  });
+}
+
 function KindIcon({
   kind,
   size = 15,
@@ -1451,18 +1549,22 @@ function CandidateRow({
   rank,
   selected,
   diagnostic,
+  fingerprint = false,
   onSelect,
 }: {
   candidate: Candidate;
   rank: number;
   selected: boolean;
   diagnostic: ReactNode;
+  fingerprint?: boolean;
   onSelect: () => void;
 }) {
   const item = snapshot(candidate);
   return (
     <button
-      className={`arm-item ${selected ? 'selected' : ''}`}
+      className={`arm-item ${fingerprint ? 'with-fingerprint' : ''} ${
+        selected ? 'selected' : ''
+      }`}
       data-kind={item.evidence_kind || 'unknown'}
       onClick={onSelect}
       type="button"
@@ -1480,8 +1582,59 @@ function CandidateRow({
         </span>
         <span className="arm-title">{item.title || 'Untitled evidence'}</span>
       </span>
+      {fingerprint ? <SignalFingerprint candidate={candidate} compact /> : null}
       <span className="arm-diagnostic">{diagnostic}</span>
     </button>
+  );
+}
+
+function SignalFingerprint({
+  candidate,
+  compact = false,
+}: {
+  candidate: Candidate;
+  compact?: boolean;
+}) {
+  const signals = [
+    { key: 'text', label: 'Full-text', position: position(candidate, 'text') },
+    {
+      key: 'vector',
+      label: 'Semantic',
+      position: position(candidate, 'vector'),
+    },
+    { key: 'fuzzy', label: 'Fuzzy', position: position(candidate, 'fuzzy') },
+  ] as const;
+  const summary = signals
+    .map((signal) =>
+      signal.position === null
+        ? `${signal.label} absent`
+        : `${signal.label} rank ${signal.position}`,
+    )
+    .join(', ');
+
+  return (
+    <span
+      className={`signal-fingerprint ${compact ? 'compact' : ''}`}
+      aria-label={`Signal rank fingerprint: ${summary}`}
+      title={summary}
+    >
+      {signals.map((signal) => {
+        const fill =
+          signal.position === null
+            ? 0
+            : Math.max(16, Math.round(100 / Math.sqrt(signal.position)));
+        return (
+          <i
+            key={signal.key}
+            className={`fingerprint-${signal.key} ${
+              signal.position === null ? 'absent' : ''
+            }`}
+          >
+            <b style={{ width: `${fill}%` }} />
+          </i>
+        );
+      })}
+    </span>
   );
 }
 
@@ -1562,6 +1715,7 @@ function FinalRankedEvidence({
                 {topEvidence.snippet || 'No visible evidence excerpt.'}
               </span>
             </span>
+            <SignalFingerprint candidate={topCandidate} />
             <span className="final-ranked-scores">
               <span>
                 {reranked ? 'Model rerank' : 'Aurora RRF'}
@@ -1635,6 +1789,7 @@ function FinalRankedEvidence({
                     candidate={candidate}
                     rank={candidate.result_rank || index + 2}
                     selected={candidate.evidence_id === selectedEvidenceId}
+                    fingerprint
                     diagnostic={
                       reranked
                         ? score(candidate.rerank_score, 3)
@@ -2141,6 +2296,136 @@ function FusionAnatomyTable({
   );
 }
 
+function FusionBacktrace({
+  candidates,
+  selectedEvidenceId,
+  controls,
+  reranked,
+  onSelect,
+}: {
+  candidates: Candidate[];
+  selectedEvidenceId: string | null;
+  controls: Controls;
+  reranked: boolean;
+  onSelect: (candidate: Candidate) => void;
+}) {
+  const selected =
+    candidates.find(
+      (candidate) => candidate.evidence_id === selectedEvidenceId,
+    ) || candidates[0];
+  if (!selected) return null;
+  const item = snapshot(selected);
+  const signals = [
+    {
+      key: 'text',
+      label: 'Full-text',
+      position: position(selected, 'text'),
+      raw: selected.text_rank,
+      contribution: armContribution(selected, 'text', controls),
+    },
+    {
+      key: 'vector',
+      label: 'Semantic',
+      position: position(selected, 'vector'),
+      raw: selected.vector_score,
+      contribution: armContribution(selected, 'vector', controls),
+    },
+    {
+      key: 'fuzzy',
+      label: 'Fuzzy',
+      position: position(selected, 'fuzzy'),
+      raw: selected.trigram_score,
+      contribution: armContribution(selected, 'fuzzy', controls),
+    },
+  ] as const;
+
+  return (
+    <section className="fusion-backtrace">
+      <header>
+        <div>
+          <span className="section-label">Read-only backward trace</span>
+          <h3>Trace one final result back to its ranked arms</h3>
+        </div>
+        <span className="status-pill">persisted signals</span>
+      </header>
+      <div className="fusion-trace-picker" aria-label="Final ranked candidates">
+        {candidates.slice(0, 6).map((candidate, index) => {
+          const candidateItem = snapshot(candidate);
+          const active = candidate.evidence_id === selected.evidence_id;
+          return (
+            <button
+              type="button"
+              key={candidate.evidence_id || index}
+              className={active ? 'active' : ''}
+              aria-pressed={active}
+              onClick={() => onSelect(candidate)}
+            >
+              <span>#{candidate.result_rank || index + 1}</span>
+              <strong>{candidateItem.external_key}</strong>
+            </button>
+          );
+        })}
+      </div>
+      <div className="fusion-trace-path">
+        <div className="fusion-trace-signals">
+          {signals.map((signal) => (
+            <article
+              key={signal.key}
+              className={`trace-signal trace-${signal.key} ${
+                signal.position === null ? 'absent' : ''
+              }`}
+            >
+              <span>{signal.label}</span>
+              <strong>
+                {signal.position === null ? 'Absent' : `#${signal.position}`}
+              </strong>
+              <small>
+                {signal.position === null
+                  ? '+0 to RRF'
+                  : `raw ${score(signal.raw, 3)} · +${signal.contribution.toFixed(
+                      5,
+                    )}`}
+              </small>
+            </article>
+          ))}
+        </div>
+        <ArrowRight size={18} aria-hidden="true" />
+        <article className="fusion-trace-rrf">
+          <GitMerge size={17} />
+          <span>Weighted RRF</span>
+          <strong>{score(selected.rrf_score ?? selected.final_score, 5)}</strong>
+          <small>
+            {controls.textWeight}:{controls.vectorWeight}:{controls.fuzzyWeight}{' '}
+            · k={controls.rrfK}
+          </small>
+        </article>
+        <ArrowRight size={18} aria-hidden="true" />
+        <article className="fusion-trace-final">
+          <FileCheck2 size={17} />
+          <span>Final rank {selected.result_rank || 1}</span>
+          <strong>{item.external_key}</strong>
+          <small>
+            {reranked && selected.rerank_score != null
+              ? `Cohere ${score(selected.rerank_score, 3)}`
+              : 'Aurora order retained'}
+          </small>
+        </article>
+      </div>
+      <footer>
+        {selected.explanation?.exact_identifier ? (
+          <span>
+            <CircleDot size={12} />
+            Exact-identifier tier precedes fused candidates
+          </span>
+        ) : (
+          <span>Only persisted integer positions feed this trace.</span>
+        )}
+        <code>{compactId(selected.evidence_id)}</code>
+      </footer>
+    </section>
+  );
+}
+
 function FusionControlPanel({
   controls,
   dirty,
@@ -2454,6 +2739,236 @@ function EvidenceGraph({
   );
 }
 
+function JourneyStrip({
+  steps,
+  onNavigate,
+}: {
+  steps: JourneyStep[];
+  onNavigate: (surface: JourneySurface) => void;
+}) {
+  return (
+    <nav className="journey-strip" aria-label="Investigation progress">
+      <span className="journey-strip-title">
+        <GitMerge size={14} />
+        Evidence journey
+      </span>
+      <ol>
+        {steps.map((step, index) => (
+          <li
+            key={step.surface}
+            className={`journey-state-${step.state}`}
+            data-next-state={steps[index + 1]?.state}
+          >
+            <button
+              type="button"
+              onClick={() => onNavigate(step.surface)}
+              aria-current={step.state === 'active' ? 'step' : undefined}
+              aria-label={`${step.label}: ${step.caption}; ${step.state}`}
+            >
+              <i aria-hidden="true">
+                {step.state === 'blocked' ? (
+                  <X size={9} />
+                ) : null}
+              </i>
+              <span>
+                <strong>{step.label}</strong>
+                <small>{step.caption}</small>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+function ProofChainOfCustody({
+  receipt,
+  selectedCitationNumber,
+  onSelectCitation,
+}: {
+  receipt: RunReceipt | null;
+  selectedCitationNumber: number;
+  onSelectCitation: (citationNumber: number) => void;
+}) {
+  const citations = receipt?.answer?.citations || [];
+  if (!receipt || !citations.length) {
+    return (
+      <section className="custody-section empty">
+        <Empty
+          icon={<ShieldCheck size={20} />}
+          title="No cited proof is loaded"
+          detail="Load a completed answer run to trace a claim through its persisted citation."
+        />
+      </section>
+    );
+  }
+  const citation =
+    citations.find(
+      (item) =>
+        (item.citation_number || item.n || 1) === selectedCitationNumber,
+    ) || citations[0];
+  const citationNumber = citation.citation_number || citation.n || 1;
+  const candidate = receipt.candidates.find(
+    (item) => item.evidence_id === citation.evidence_id,
+  );
+  const item = candidate ? snapshot(candidate) : null;
+  const validationStatus = receipt.answer?.validation_status || 'persisted';
+  const principal = principalLabel(receipt.run.principal);
+  const claim = citation.claim || sourceRole(citation);
+
+  const steps: Array<{
+    label: string;
+    value: string;
+    meta: string;
+    Icon: typeof FileCheck2;
+  }> = [
+    {
+      label: 'Claim',
+      value: claim,
+      meta: `Claim ${citationNumber} of ${citations.length}`,
+      Icon: FileCheck2,
+    },
+    {
+      label: 'Evidence',
+      value: citation.external_key,
+      meta: `${citation.title} · revision ${citation.source_revision}`,
+      Icon: FileSearch,
+    },
+    {
+      label: 'Retrieved by',
+      value: receipt.run.retrieval_mode,
+      meta: candidate
+        ? `Final rank ${candidate.result_rank || '—'} · ${
+            receipt.run.retrieval_mode === 'hybrid'
+              ? `RRF ${score(candidate.rrf_score, 5)}`
+              : `raw ${score(candidate.final_score, 3)}`
+          }`
+        : 'Cited from a supporting retrieval run',
+      Icon: SlidersHorizontal,
+    },
+    {
+      label: 'Verified by',
+      value: 'Citation + ACL',
+      meta: `${validationStatus} · principal ${principal}`,
+      Icon: ShieldCheck,
+    },
+    {
+      label: 'Persisted in',
+      value: compactId(receipt.run.run_id),
+      meta: `${dateTime(receipt.run.completed_at)} · proof schema`,
+      Icon: Database,
+    },
+    {
+      label: 'Used in answer',
+      value: `Citation ${citationNumber}`,
+      meta: `${citations.length} citation${citations.length === 1 ? '' : 's'} in answer record`,
+      Icon: Check,
+    },
+  ];
+
+  return (
+    <section className="custody-section">
+      <header>
+        <div>
+          <span className="section-label">Persisted chain of custody</span>
+          <h2>Follow a claim to its exact source span</h2>
+        </div>
+        <span
+          className={`status-pill ${
+            validationStatus === 'valid' ? 'ready' : ''
+          }`}
+        >
+          {validationStatus}
+        </span>
+      </header>
+      <div className="custody-claims" aria-label="Cited claims">
+        {citations.map((itemCitation, index) => {
+          const number = itemCitation.citation_number || itemCitation.n || index + 1;
+          return (
+            <button
+              type="button"
+              key={`${itemCitation.evidence_id}-${number}`}
+              className={number === citationNumber ? 'active' : ''}
+              aria-pressed={number === citationNumber}
+              onClick={() => onSelectCitation(number)}
+            >
+              <span>{number}</span>
+              <strong>{itemCitation.external_key}</strong>
+              <small>{itemCitation.claim || sourceRole(itemCitation)}</small>
+            </button>
+          );
+        })}
+      </div>
+      <div className="custody-chain">
+        {steps.map(({ label, value, meta, Icon }, index) => (
+          <article key={label}>
+            <span className="custody-step-label">
+              <Icon size={12} />
+              {label}
+            </span>
+            <strong>{value}</strong>
+            <small>{meta}</small>
+            <i aria-hidden="true">
+              <Check size={10} />
+            </i>
+            {index < steps.length - 1 ? (
+              <ArrowRight
+                className="custody-arrow"
+                size={15}
+                aria-hidden="true"
+              />
+            ) : null}
+          </article>
+        ))}
+      </div>
+      <div className="custody-source">
+        <div>
+          <span className="section-label">Evidence identity</span>
+          <dl>
+            <div>
+              <dt>Evidence</dt>
+              <dd>{citation.external_key}</dd>
+            </div>
+            <div>
+              <dt>Kind</dt>
+              <dd>{item?.evidence_kind || 'cited evidence'}</dd>
+            </div>
+            <div>
+              <dt>Revision</dt>
+              <dd>{citation.source_revision}</dd>
+            </div>
+            <div>
+              <dt>Principal</dt>
+              <dd>{principal}</dd>
+            </div>
+            <div>
+              <dt>Document version</dt>
+              <dd title={citation.document_version_id}>
+                {compactId(citation.document_version_id)}
+              </dd>
+            </div>
+            <div>
+              <dt>Chunk version</dt>
+              <dd title={citation.chunk_version_id}>
+                {compactId(citation.chunk_version_id)}
+              </dd>
+            </div>
+          </dl>
+          <code>{citation.source_uri}</code>
+        </div>
+        <blockquote>
+          <span className="section-label">Exact cited quote</span>
+          <p>{citation.quote_text || 'No quote text was returned.'}</p>
+          <footer>
+            citation {citationNumber} · {compactId(citation.chunk_version_id)}
+          </footer>
+        </blockquote>
+      </div>
+    </section>
+  );
+}
+
 export default function VerityApp() {
   const [module, setModule] = useState<ModuleName>('home');
   const [diagnoseTab, setDiagnoseTab] =
@@ -2487,6 +3002,8 @@ export default function VerityApp() {
   const [graphEdgeMode, setGraphEdgeMode] =
     useState<'canonical' | 'all'>('all');
   const [runId, setRunId] = useState('');
+  const [selectedProofCitation, setSelectedProofCitation] = useState(1);
+  const [replayKey, setReplayKey] = useState(0);
   // Gate the URL-sync effect until the initial hash has been applied, so the
   // first render cannot overwrite a /proof/{run_id} deep link before it loads.
   const [routerHydrated, setRouterHydrated] = useState(false);
@@ -3422,6 +3939,53 @@ export default function VerityApp() {
       !event.arguments?.incident_id
     );
   });
+  const retrievalAvailable = Boolean(
+    receipt?.run.status === 'complete' &&
+      receipt.candidates.length,
+  );
+  const agentAvailable = Boolean(receipt?.answer?.answer_text);
+  const proofAvailable = Boolean(
+    receipt?.answer?.citations.length &&
+      receipt.answer.validation_status === 'valid',
+  );
+  const agentWithheld =
+    !agentAvailable &&
+    (agentDisplayState === 'error' ||
+      (activeSurface === 'agent' && agentDisplayState === 'blocked'));
+  const proofWithheld =
+    !proofAvailable &&
+    (agentDisplayState === 'error' || activeSurface === 'proof');
+  const journeySteps = buildJourneySteps({
+    activeSurface,
+    activeLens,
+    retrievalAvailable,
+    agentAvailable,
+    proofAvailable,
+    agentWithheld,
+    proofWithheld,
+  });
+  const persistedPrincipal = receipt?.run.principal || {
+    scopes: ['workshop'],
+    principals: controls.supportLead ? ['support-lead'] : [],
+  };
+  const persistedPrincipalLabel = principalLabel(persistedPrincipal);
+
+  useEffect(() => {
+    const citations = receipt?.answer?.citations || [];
+    if (!citations.length) {
+      setSelectedProofCitation(1);
+      return;
+    }
+    setSelectedProofCitation((current) =>
+      citations.some(
+        (citation, index) =>
+          (citation.citation_number || citation.n || index + 1) === current,
+      )
+        ? current
+        : citations[0].citation_number || citations[0].n || 1,
+    );
+  }, [receipt?.run.run_id]);
+
   return (
     <div
       className={`verity-shell ${navCollapsed ? 'nav-collapsed' : ''} ${
@@ -3479,6 +4043,9 @@ export default function VerityApp() {
         >
           {PRIMARY_NAV.map(({ surface, label, Icon, lenses }) => {
             const surfaceActive = activeSurface === surface;
+            const journeyStep = journeySteps.find(
+              (step) => step.surface === surface,
+            );
             return (
               <div className="side-nav-group" key={surface}>
                 <button
@@ -3489,7 +4056,22 @@ export default function VerityApp() {
                   title={navCollapsed ? label : undefined}
                 >
                   <Icon size={15} />
-                  {label}
+                  <span className="side-nav-label">{label}</span>
+                  <i
+                    className={`nav-journey-dot journey-state-${
+                      journeyStep?.state || 'waiting'
+                    }`}
+                    title={`${journeyStep?.caption || label} · ${
+                      journeyStep?.state || 'waiting'
+                    }`}
+                    aria-label={`${label}: ${
+                      journeyStep?.caption || label
+                    }; ${journeyStep?.state || 'waiting'}`}
+                  >
+                    {journeyStep?.state === 'blocked' ? (
+                      <X size={7} />
+                    ) : null}
+                  </i>
                 </button>
                 {surfaceActive && lenses.length ? (
                   <div className="side-subnav" aria-label={`${label} views`}>
@@ -3556,6 +4138,16 @@ export default function VerityApp() {
         {module === 'home' ? (
           <LiveBanner health={health} connectionState={connectionState} />
         ) : null}
+        <JourneyStrip
+          steps={journeySteps}
+          onNavigate={(surface) =>
+            goTo(
+              surface,
+              PRIMARY_NAV.find((item) => item.surface === surface)?.lenses[0]
+                ?.key,
+            )
+          }
+        />
         {module !== 'home' &&
         module !== 'retrieve' &&
         activeSurface !== 'agent' &&
@@ -4025,40 +4617,32 @@ export default function VerityApp() {
                     Run retrieval
                   </button>
                   <div className="retrieval-query-footer">
-                    <details className="query-options-disclosure">
-                      <summary>
-                        <BookOpen size={14} />
-                        <span>Examples</span>
-                        <b>
-                          {PRESETS.find(
-                            (preset) => controls.query === preset.query,
-                          )?.label || 'Custom query'}
-                        </b>
-                        <ChevronRight size={14} aria-hidden="true" />
-                      </summary>
-                      <div className="retrieval-query-options">
-                        {PRESETS.map((preset) => (
-                          <button
-                            key={preset.label}
-                            type="button"
-                            className={
-                              controls.query === preset.query ? 'active' : ''
-                            }
-                            onClick={() =>
-                              setControls((current) => ({
-                                ...current,
-                                query: preset.query,
-                                mode: preset.mode,
-                                kind: preset.kind,
-                                clusterId: preset.clusterId,
-                              }))
-                            }
-                          >
-                            {preset.label}
-                          </button>
-                        ))}
-                      </div>
-                    </details>
+                    <div
+                      className="retrieval-query-options"
+                      aria-label="Example queries"
+                    >
+                      <span>Examples</span>
+                      {PRESETS.map((preset) => (
+                        <button
+                          key={preset.label}
+                          type="button"
+                          className={
+                            controls.query === preset.query ? 'active' : ''
+                          }
+                          onClick={() =>
+                            setControls((current) => ({
+                              ...current,
+                              query: preset.query,
+                              mode: preset.mode,
+                              kind: preset.kind,
+                              clusterId: preset.clusterId,
+                            }))
+                          }
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
                     <div className="retrieval-query-status">
                       <label className="results-rerank-control">
                         <strong>Cohere rerank</strong>
@@ -4335,6 +4919,15 @@ export default function VerityApp() {
                       </strong>
                     </span>
                   </div>
+                  <FusionBacktrace
+                    candidates={candidates}
+                    selectedEvidenceId={selectedEvidenceId}
+                    controls={appliedControls}
+                    reranked={finalReranked}
+                    onSelect={(candidate) =>
+                      setSelectedEvidenceId(candidate.evidence_id || null)
+                    }
+                  />
                   <div className="rrf-formula-panel">
                     <div className="rrf-formula-intro">
                       <span className="section-label">Weighted RRF formula</span>
@@ -5316,16 +5909,25 @@ LIMIT ${appliedControls.limit};`}</code>
 
             {proveTab === 'graph' ? (
               <>
+                <section className="graph-principal-boundary">
+                  <ShieldCheck size={18} />
+                  <div>
+                    <span className="section-label">Principal scope boundary</span>
+                    <strong>{persistedPrincipalLabel}</strong>
+                  </div>
+                  <span>applied before every retrieval arm</span>
+                  <ArrowRight size={15} aria-hidden="true" />
+                  <span>rechecked at every relationship hop</span>
+                  <code>run {compactId(receipt?.run.run_id)}</code>
+                </section>
                 <div className="graph-studio">
                   <aside className="graph-controls-panel">
                     <div className="graph-scope">
                       <span className="section-label">Investigation</span>
                       <p>{controls.query}</p>
                       <span className="graph-scope-principal">
-                        principal{' '}
-                        <strong>
-                          {controls.supportLead ? 'support-lead' : 'workshop'}
-                        </strong>
+                        persisted principal{' '}
+                        <strong>{persistedPrincipalLabel}</strong>
                       </span>
                     </div>
                     <label>
@@ -5594,6 +6196,15 @@ LIMIT ${appliedControls.limit};`}</code>
                       <h2>{receipt?.run.query_text || controls.query}</h2>
                     </div>
                     <div className="replay-theater-head-meta">
+                      <button
+                        type="button"
+                        className="text-command replay-transition-trigger"
+                        onClick={() => setReplayKey((current) => current + 1)}
+                        disabled={!receipt?.stages.length}
+                      >
+                        <Play size={13} />
+                        Replay stages
+                      </button>
                       <span
                         className={`status-pill ${
                           receipt?.run.status === 'complete' ? 'ready' : ''
@@ -5613,8 +6224,12 @@ LIMIT ${appliedControls.limit};`}</code>
                     </div>
                   </header>
                   {receipt ? (
-                    <div className="replay-timeline">
-                      <div>
+                    <div
+                      className="replay-timeline replay-transition"
+                      key={replayKey}
+                      aria-live="polite"
+                    >
+                      <div style={{ animationDelay: '0ms' }}>
                         <time>00:00.000</time>
                         <i />
                         <div>
@@ -5630,7 +6245,10 @@ LIMIT ${appliedControls.limit};`}</code>
                         <b>OK</b>
                       </div>
                       {receipt.stages.map((stage, index) => (
-                        <div key={stage.stage_ordinal}>
+                        <div
+                          key={stage.stage_ordinal}
+                          style={{ animationDelay: `${(index + 1) * 70}ms` }}
+                        >
                           <time>
                             T+
                             {elapsedMilliseconds(
@@ -5668,6 +6286,11 @@ LIMIT ${appliedControls.limit};`}</code>
 
             {proveTab === 'receipt' ? (
               <>
+                <ProofChainOfCustody
+                  receipt={receipt}
+                  selectedCitationNumber={selectedProofCitation}
+                  onSelectCitation={setSelectedProofCitation}
+                />
                 <section className="replay-summary">
                   <div>
                     <strong>{compactId(receipt?.run.run_id)}</strong>

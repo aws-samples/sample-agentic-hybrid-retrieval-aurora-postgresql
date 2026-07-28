@@ -184,6 +184,10 @@ class RetrievalContractTests(unittest.TestCase):
 
         self.assertEqual(receipt["status"], "complete")
         self.assertEqual(receipt["candidate_count"], len(candidates))
+        self.assertEqual(
+            receipt["principal"],
+            {"scopes": ["workshop"], "principals": []},
+        )
         self.assertGreaterEqual(receipt["candidate_count"], 1)
         self.assertLessEqual(receipt["candidate_count"], 5)
         self.assertEqual(candidates[0]["external_key"], "CHG-1842")
@@ -241,6 +245,15 @@ class RetrievalContractTests(unittest.TestCase):
             replay["answer"]["citations"][0]["external_key"],
             "CHG-1842",
         )
+        self.assertEqual(
+            replay["answer"]["citations"][0]["document_version_id"],
+            result["citations"][0]["document_version_id"],
+        )
+        self.assertEqual(
+            replay["answer"]["citations"][0]["chunk_version_id"],
+            result["citations"][0]["chunk_version_id"],
+        )
+        self.assertEqual(replay["answer"]["validation_status"], "valid")
         self.assertEqual(str(latest_cited_run()["run_id"]), search["run_id"])
 
     def test_evaluation_separates_retrieval_from_traversal(self) -> None:
