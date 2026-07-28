@@ -99,12 +99,12 @@ def _unavailable(area: str, error: Exception) -> HTTPException:
 
 
 def _invocation_context(request: Request) -> InvocationContext:
-    transport = request.headers.get("x-verity-transport", "http")
+    transport = request.headers.get("x-workbench-transport", "http")
     return InvocationContext(
         transport=transport,
         request_id=request.headers.get("x-request-id") or new_request_id(),
         transport_trace_id=(
-            request.headers.get("x-verity-transport-trace-id")
+            request.headers.get("x-workbench-transport-trace-id")
             or request.headers.get("x-amzn-trace-id")
         ),
     )

@@ -7,7 +7,7 @@ const API_URL = (process.env.RETRIEVAL_API_URL || "http://localhost:8000").repla
 
 async function request(path: string, init?: RequestInit): Promise<unknown> {
   const headers = new Headers(init?.headers);
-  headers.set("X-Verity-Transport", "stdio_mcp");
+  headers.set("X-Workbench-Transport", "stdio_mcp");
   headers.set("X-Request-ID", `req-mcp-${crypto.randomUUID()}`);
   const response = await fetch(`${API_URL}${path}`, { ...init, headers });
   if (!response.ok) {
