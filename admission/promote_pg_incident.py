@@ -47,7 +47,7 @@ def _payload_from_capture(raw: dict) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Emit an admission payload v1 on stdout.")
-    ap.add_argument("--capture-dir", type=Path, default=Path("/run/verity"))
+    ap.add_argument("--capture-dir", type=Path, default=Path("/run/workbench"))
     ap.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE)
     args = ap.parse_args()
     payload = build_payload(args.capture_dir, args.fixture)

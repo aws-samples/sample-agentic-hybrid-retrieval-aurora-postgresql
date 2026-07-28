@@ -254,7 +254,7 @@ def run() -> int:
             GATE_ID,
             BLOCKED,
             f"workbench API not reachable at {api_base} ({error.reason}); "
-            "start it (systemctl restart verity-workbench) and retry",
+            "start it (systemctl restart workbench) and retry",
         )
 
     for line in ok_lines:

@@ -112,7 +112,7 @@ def _invocation_context(request: Request) -> InvocationContext:
 
 @app.get("/health")
 def health():
-    return {"ok": True, "service": "verity-incident-evidence"}
+    return {"ok": True, "service": "workbench-incident-evidence"}
 
 
 @app.get("/ready")

@@ -55,7 +55,7 @@ def _mcp_request(
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "jsonrpc": "2.0",
-        "id": f"verity-{method.replace('/', '-')}",
+        "id": f"workbench-{method.replace('/', '-')}",
         "method": method,
     }
     if params is not None:

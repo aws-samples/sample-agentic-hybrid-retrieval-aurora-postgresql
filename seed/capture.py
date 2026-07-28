@@ -12,8 +12,8 @@ from psycopg.rows import dict_row
 
 
 CAPTURE_FORMAT_VERSION = "1.0"
-CAPTURE_TOOL_VERSION = "verity-lock-capture-v1"
-FIXTURE_SCHEMA = "verity_capture"
+CAPTURE_TOOL_VERSION = "workbench-lock-capture-v1"
+FIXTURE_SCHEMA = "workbench_capture"
 FIXTURE_TABLE = "orders"
 FIXTURE_RELATION = f"{FIXTURE_SCHEMA}.{FIXTURE_TABLE}"
 INDEX_NAME = "idx_orders_customer_created"
@@ -70,7 +70,7 @@ def _statement_sample(cursor, phase: str) -> dict[str, Any]:
           FROM pg_database
           WHERE datname = current_database()
         )
-          AND query ILIKE 'UPDATE verity_capture.orders SET status%%'
+          AND query ILIKE 'UPDATE workbench_capture.orders SET status%%'
         ORDER BY calls DESC, queryid
         LIMIT 1
         """
@@ -227,7 +227,7 @@ def capture_offline_lock_fixture(
         raise ValueError("row_count must be at least 1000")
 
     capture_started = _utc_now()
-    writer_names = ["verity-offline-writer-1", "verity-offline-writer-2"]
+    writer_names = ["workbench-offline-writer-1", "workbench-offline-writer-2"]
     blocker = None
     pool = ThreadPoolExecutor(max_workers=len(writer_names))
     futures = []
@@ -237,7 +237,7 @@ def capture_offline_lock_fixture(
             database_url,
             autocommit=True,
             row_factory=dict_row,
-            application_name="verity-offline-capture",
+            application_name="workbench-offline-capture",
         ) as control:
             with control.cursor() as cursor:
                 cursor.execute(
@@ -294,7 +294,7 @@ def capture_offline_lock_fixture(
                       %s::regclass::oid AS relation_oid,
                       count(*) AS observed_row_count,
                       pg_total_relation_size(%s::regclass) AS table_size_bytes
-                    FROM verity_capture.orders
+                    FROM workbench_capture.orders
                     """,
                     (FIXTURE_RELATION, FIXTURE_RELATION),
                 )
@@ -304,7 +304,7 @@ def capture_offline_lock_fixture(
             blocker = psycopg.connect(
                 database_url,
                 row_factory=dict_row,
-                application_name="verity-offline-index-build",
+                application_name="workbench-offline-index-build",
             )
             with blocker.cursor() as blocker_cursor:
                 blocker_cursor.execute(INDEX_SQL)

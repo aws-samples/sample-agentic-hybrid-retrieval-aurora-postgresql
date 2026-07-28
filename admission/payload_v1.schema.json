@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://verity.workshop/admission/payload_v1.schema.json",
+  "$id": "https://workbench.workshop/admission/payload_v1.schema.json",
   "title": "admission payload v1",
   "type": "object",
   "required": ["schema", "source", "kind", "external_key", "title", "occurred_at", "body", "structured"],

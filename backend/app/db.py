@@ -41,7 +41,7 @@ def _build_pool() -> ConnectionPool:
         kwargs={"connect_timeout": settings.database_connect_timeout_seconds},
         configure=_configure_connection,
         open=False,
-        name="verity-pg",
+        name="workbench-pg",
     )
     return pool
 

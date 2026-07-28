@@ -56,7 +56,7 @@ MODEL_TOOLS = [spec.name for spec in tools_for("strands")]
 # through asyncio.to_thread, which runs them in a *copy* of this context, so a
 # ContextVar the tool re-assigns is invisible to the caller. Mutating the object
 # the variable already points at is what crosses that boundary.
-_RUN: ContextVar[dict[str, Any] | None] = ContextVar("verity_tool_run", default=None)
+_RUN: ContextVar[dict[str, Any] | None] = ContextVar("workbench_tool_run", default=None)
 
 _EVIDENCE_KINDS = sorted(EvidenceKind.__args__)
 

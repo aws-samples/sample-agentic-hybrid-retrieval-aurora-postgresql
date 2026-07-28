@@ -90,7 +90,7 @@ is not live until the next search-index build runs.
 
 - `promote_pg_incident.py` — the reference `promote_*` adapter. Stdlib only,
   no database connection. It reads a live capture directory (default
-  `/run/verity/lock_capture.json`) if one exists; otherwise it falls back to
+  `/run/workbench/lock_capture.json`) if one exists; otherwise it falls back to
   `fixture_payload.json` and says so on stderr. It never fabricates a
   capture — the fallback path is truthful about which one it took.
 - `admit.sh` — the Lab 1 finale script. Requires `DATABASE_URL` in the

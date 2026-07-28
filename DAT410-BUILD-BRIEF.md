@@ -107,7 +107,7 @@ telemetry.
 | Concept | Value |
 |---|---|
 | Production cluster | `checkout-prod-cluster-01` |
-| Table under migration | `verity_capture.orders` |
+| Table under migration | `workbench_capture.orders` |
 | Primary incident | `INC-2047` |
 | Causal change | `CHG-1842` |
 | Safe follow-up change | `CHG-1907` |
@@ -186,7 +186,7 @@ behavior observable; it is not customer data.
 ### Separate lock fixture
 
 The current lock fixture contains 100,000 rows in
-`verity_capture.orders`. This is separate from the 15,017-document search
+`workbench_capture.orders`. This is separate from the 15,017-document search
 corpus. The row count exists to make the PostgreSQL lock exercise concrete, not
 to define retrieval scale.
 

@@ -30,7 +30,7 @@ function wrap(result: unknown) {
 }
 
 const server = new McpServer({
-  name: "verity-incident-evidence",
+  name: "workbench-incident-evidence",
   version: "1.0.0"
 });
 
