@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verity.workshop/admission/payload_v1.schema.json",
+  "title": "admission payload v1",
+  "type": "object",
+  "required": ["schema", "source", "kind", "external_key", "title", "occurred_at", "body", "structured"],
+  "properties": {
+    "schema": {"const": "admission payload v1"},
+    "source": {
+      "type": "object",
+      "required": ["system", "uri"],
+      "properties": {
+        "system": {"type": "string"},
+        "uri": {"type": "string"},
+        "observation_window": {
+          "type": "object",
+          "properties": {"start": {"type": "string"}, "end": {"type": ["string", "null"]}}
+        }
+      }
+    },
+    "kind": {"const": "lock_evidence"},
+    "external_key": {"type": "string"},
+    "title": {"type": "string"},
+    "occurred_at": {"type": "string"},
+    "available_at": {"type": ["string", "null"]},
+    "acl": {"type": "object"},
+    "body": {"type": "string"},
+    "structured": {
+      "type": "object",
+      "required": ["incident_external_key", "captured_at", "relation_name",
+                   "blocked_pid", "blocking_pid", "wait_event_type", "wait_event",
+                   "blocked_statement", "blocking_statement"],
+      "properties": {
+        "incident_external_key": {"type": "string"},
+        "wait_event_type": {"const": "Lock"},
+        "wait_event": {"const": "relation"},
+        "blocked_pid": {"type": "integer"},
+        "blocking_pid": {"type": "integer"}
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["to_external_key", "to_kind", "relation"],
+        "properties": {
+          "to_external_key": {"type": "string"}, "to_kind": {"type": "string"},
+          "relation": {"type": "string"}, "confidence": {"type": "number"}
+        }
+      }
+    }
+  }
+}

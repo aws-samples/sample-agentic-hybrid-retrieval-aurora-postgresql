@@ -66,6 +66,16 @@ class AdmissionSchemaTest(unittest.TestCase):
 FIXTURE = REPO_ROOT / "admission" / "fixture_payload.json"
 
 
+class FixtureContractTest(unittest.TestCase):
+    def test_fixture_has_required_top_level_fields(self) -> None:
+        p = json.loads((REPO_ROOT / "admission" / "fixture_payload.json").read_text())
+        for field in ["schema", "source", "kind", "external_key", "title", "occurred_at", "body", "structured"]:
+            self.assertIn(field, p)
+        self.assertEqual(p["schema"], "admission payload v1")
+        self.assertEqual(p["kind"], "lock_evidence")
+        self.assertEqual(p["structured"]["incident_external_key"], "INC-2047")
+
+
 def _seed_incident(conn) -> None:
     """Minimal INC-2047 + CHG-1842 rows so the lock FK and link resolve.
 
