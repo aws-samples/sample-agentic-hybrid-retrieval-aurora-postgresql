@@ -4313,15 +4313,14 @@ export default function VerityApp() {
                 <div className="home-answer-node">
                   <VerityMark className="home-answer-mark" />
                   <strong className="home-answer-title">
-                    {homeEvidenceState === 'ready'
-                      ? 'Cited answer'
-                      : 'Evidence thread'}
+                    Evidence thread
                   </strong>
                   <small className="home-answer-model">
-                    {answer?.synthesis_mode ||
-                      (homeEvidenceState === 'loading'
+                    {homeEvidenceState === 'ready'
+                      ? 'persisted run'
+                      : homeEvidenceState === 'loading'
                         ? 'connecting'
-                        : 'no run yet')}
+                        : 'awaiting run'}
                   </small>
                   <div className="home-answer-metrics">
                     <span>
@@ -4335,8 +4334,8 @@ export default function VerityApp() {
                   </div>
                   <i>
                     {homeEvidenceState === 'ready'
-                      ? 'rank signal · not confidence'
-                      : 'run an investigation to inspect proof'}
+                      ? 'weighted reciprocal rank'
+                      : 'run an investigation to assemble evidence'}
                   </i>
                 </div>
 
