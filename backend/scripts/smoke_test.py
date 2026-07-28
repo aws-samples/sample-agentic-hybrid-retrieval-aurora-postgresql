@@ -23,7 +23,7 @@ def _require(condition: bool, message: str) -> None:
 
 
 def _readiness_path() -> Path:
-    configured = os.environ.get("VERITY_READINESS_FILE")
+    configured = os.environ.get("WORKBENCH_READINESS_FILE")
     if configured:
         return Path(configured)
     return Path(__file__).resolve().parents[2] / "READINESS.md"

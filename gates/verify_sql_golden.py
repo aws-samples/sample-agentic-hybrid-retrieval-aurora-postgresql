@@ -25,8 +25,8 @@ Grain of reproducibility (Section 6.2):
 
 How the smoke run_id is obtained (never by discovery):
 
-* ``VERITY_SMOKE_RUN_ID`` if set, else the ``smoke run_id`` line in the readiness
-  report (``VERITY_READINESS_FILE`` or ``READINESS.md`` at the repo root), which
+* ``WORKBENCH_SMOKE_RUN_ID`` if set, else the ``smoke run_id`` line in the readiness
+  report (``WORKBENCH_READINESS_FILE`` or ``READINESS.md`` at the repo root), which
   bootstrap stage S8 writes from its live ``POST /v1/agent/answer``. If neither is
   present the gate is BLOCKED with the remedy - it never falls back to "most recent
   run", which is nondeterministic and could select a participant's in-flight run.
@@ -81,11 +81,11 @@ def _smoke_run_id() -> tuple[str | None, str]:
         ``(run_id, source)`` where ``run_id`` is None when neither source exists.
         ``source`` names where it came from (or where the gate looked).
     """
-    from_env = read_env_value("VERITY_SMOKE_RUN_ID")
+    from_env = read_env_value("WORKBENCH_SMOKE_RUN_ID")
     if from_env:
-        return from_env.strip(), "VERITY_SMOKE_RUN_ID"
+        return from_env.strip(), "WORKBENCH_SMOKE_RUN_ID"
 
-    configured = read_env_value("VERITY_READINESS_FILE")
+    configured = read_env_value("WORKBENCH_READINESS_FILE")
     readiness = Path(configured) if configured else repo_root() / "READINESS.md"
     if not readiness.exists():
         return None, f"no readiness report at {readiness}"
@@ -190,7 +190,7 @@ def run() -> int:
         print(f"  {source}")
         print("  remedy: run `make smoke` (bootstrap stage S8 / backend/scripts/")
         print("  smoke_test.py), which answers the canonical question and records the")
-        print("  smoke run_id in READINESS.md, or set VERITY_SMOKE_RUN_ID directly.")
+        print("  smoke run_id in READINESS.md, or set WORKBENCH_SMOKE_RUN_ID directly.")
         return finish(GATE_ID, BLOCKED, "no smoke run_id (readiness report / env)")
     print(f"  smoke run_id: {run_id} (from {source})")
 

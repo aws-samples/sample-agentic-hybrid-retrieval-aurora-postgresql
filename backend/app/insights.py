@@ -72,7 +72,7 @@ def _cluster_identity(cursor: Any) -> dict[str, Any]:
     )
     vector_row = cursor.fetchone()
     return {
-        "cluster_id": get_settings().verity_cluster_id,
+        "cluster_id": get_settings().workbench_cluster_id,
         "engine_version": engine_version,
         "pgvector_version": vector_row["extversion"] if vector_row else None,
     }
@@ -520,7 +520,7 @@ def observability_ref(run_id: str) -> dict[str, Any]:
 
     settings = get_settings()
     values = {
-        "region": settings.verity_region,
+        "region": settings.workbench_region,
         "db_resource_id": ref.get("db_resource_id") or "",
         "window_start": ref["window_start"].isoformat()
         if ref.get("window_start")
@@ -539,12 +539,12 @@ def observability_ref(run_id: str) -> dict[str, Any]:
             (
                 "database_insights",
                 "Open in Database Insights",
-                settings.verity_dbi_url_template,
+                settings.workbench_dbi_url_template,
             ),
             (
                 "lock_analysis",
                 "Open lock analysis",
-                settings.verity_lock_url_template,
+                settings.workbench_lock_url_template,
             ),
         )
         if (url := _render_deep_link(template, values))

@@ -779,7 +779,7 @@ def _persist_success(
                         captured_at = now()
                     """,
                     {
-                        "db_resource_id": get_settings().verity_db_resource_id
+                        "db_resource_id": get_settings().workbench_db_resource_id
                         or None,
                         "run_id": run_id,
                     },
