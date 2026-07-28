@@ -1665,16 +1665,22 @@ function FinalRankedEvidence({
   const topRrf = topCandidate
     ? topCandidate.rrf_score ?? topCandidate.final_score
     : null;
+  const inspectedCandidate =
+    candidates.find((candidate) => candidate.evidence_id === selectedEvidenceId) ||
+    topCandidate;
+  const inspectedEvidence = inspectedCandidate
+    ? snapshot(inspectedCandidate)
+    : null;
 
   return (
     <section className="final-ranked-evidence">
       <header>
         <div>
           <span className="section-label">Final ranked evidence</span>
-          <h2>What this retrieval returned first</h2>
+          <h2 className="final-ranked-results-title">Search results</h2>
           <p>
-            The persisted final order is the retrieval outcome. The Agent uses
-            this evidence to produce a separate cited answer.
+            Read the persisted final order first. Then inspect what ranked
+            first, why it won, and how the ranking was built.
           </p>
         </div>
         <span className={`status-pill ${runId ? 'ready' : 'pending'}`}>
@@ -1684,67 +1690,127 @@ function FinalRankedEvidence({
 
       {topCandidate && topEvidence ? (
         <>
-          <button
-            type="button"
-            className={`final-ranked-primary ${
-              topCandidate.evidence_id === selectedEvidenceId ? 'selected' : ''
-            }`}
-            data-kind={topEvidence.evidence_kind || 'unknown'}
-            onClick={() => onSelect(topCandidate)}
-          >
-            <span className="final-rank-marker">
-              <small>Rank</small>
-              <strong>1</strong>
-            </span>
-            <span
-              className={`kind-glyph kind-${
-                topEvidence.evidence_kind || 'unknown'
-              }`}
-            >
-              <KindIcon kind={topEvidence.evidence_kind} size={19} />
-            </span>
-            <span className="final-ranked-copy">
-              <span className="final-ranked-identity">
-                <strong>{topEvidence.external_key || 'Unknown evidence'}</strong>
-                <span className={`tier-chip tier-${matchTier(topCandidate)}`}>
-                  {tierLabel(matchTier(topCandidate))}
-                </span>
-              </span>
-              <b>{topEvidence.title || 'Untitled evidence'}</b>
-              <span>
-                {topEvidence.snippet || 'No visible evidence excerpt.'}
-              </span>
-            </span>
-            <SignalFingerprint candidate={topCandidate} />
-            <span className="final-ranked-scores">
-              <span>
-                {reranked ? 'Model rerank' : 'Aurora RRF'}
-                <b>
-                  {reranked
-                    ? score(topCandidate.rerank_score, 3)
-                    : score(
-                        topCandidate.rrf_score ?? topCandidate.final_score,
+          <div className="ranked-results-workspace">
+            <div className="ranked-results-table-wrap">
+              <table className="ranked-results-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Evidence</th>
+                    <th>Type</th>
+                    <th>Signal fingerprint</th>
+                    <th>{reranked ? 'Rerank' : 'Aurora RRF'}</th>
+                    <th aria-label="Open evidence" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {candidates.map((candidate, index) => {
+                    const item = snapshot(candidate);
+                    const selected =
+                      candidate.evidence_id === inspectedCandidate?.evidence_id;
+                    return (
+                      <tr
+                        key={`${candidate.evidence_id}-${index}`}
+                        className={selected ? 'selected' : ''}
+                        tabIndex={0}
+                        aria-selected={selected}
+                        onClick={() => onSelect(candidate)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            onSelect(candidate);
+                          }
+                        }}
+                      >
+                        <td>{candidate.result_rank || index + 1}</td>
+                        <td>
+                          <strong>{item.external_key || 'Unknown evidence'}</strong>
+                          <span>{item.title || 'Untitled evidence'}</span>
+                        </td>
+                        <td>{KIND_LABELS[item.evidence_kind || 'incident']}</td>
+                        <td>
+                          <SignalFingerprint candidate={candidate} compact />
+                        </td>
+                        <td>
+                          <code>
+                            {reranked
+                              ? score(candidate.rerank_score, 3)
+                              : score(
+                                  candidate.rrf_score ?? candidate.final_score,
+                                  5,
+                                )}
+                          </code>
+                        </td>
+                        <td>
+                          <ChevronRight size={15} aria-hidden="true" />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {inspectedCandidate && inspectedEvidence ? (
+              <aside className="ranked-result-inspector">
+                <span className="section-label">Selected evidence</span>
+                <h3>{inspectedEvidence.external_key}</h3>
+                <strong>{inspectedEvidence.title}</strong>
+                <p>
+                  {inspectedEvidence.snippet || 'No visible evidence excerpt.'}
+                </p>
+                <dl>
+                  <div>
+                    <dt>Text</dt>
+                    <dd>{position(inspectedCandidate, 'text') || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Semantic</dt>
+                    <dd>{position(inspectedCandidate, 'vector') || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Fuzzy</dt>
+                    <dd>{position(inspectedCandidate, 'fuzzy') || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Aurora RRF</dt>
+                    <dd>
+                      {score(
+                        inspectedCandidate.rrf_score ??
+                          inspectedCandidate.final_score,
                         5,
                       )}
-                </b>
-              </span>
-              {reranked ? (
-                <span>
-                  Aurora RRF
-                  <b>
-                    {score(
-                      topCandidate.rrf_score ?? topCandidate.final_score,
-                      5,
-                    )}
-                  </b>
-                </span>
-              ) : null}
-              <ChevronRight size={17} aria-hidden="true" />
-            </span>
-          </button>
+                    </dd>
+                  </div>
+                </dl>
+                <footer>
+                  <span>{tierLabel(matchTier(inspectedCandidate))}</span>
+                  <code>{compactId(inspectedCandidate.evidence_id || '')}</code>
+                </footer>
+              </aside>
+            ) : null}
+          </div>
 
-          <div className="final-ranked-why">
-            <span className="section-label">Why this ranked first</span>
+          <div className="final-ranked-story final-ranked-what">
+            <div className="final-ranked-story-heading">
+              <span className="section-label">Retrieval outcome</span>
+              <h3 className="retrieval-story-title">
+                <em>What</em> this retrieval returned first
+              </h3>
+            </div>
+            <p>
+              The persisted rank-one result is{' '}
+              <strong>{topEvidence.external_key}</strong>: {topEvidence.title}.
+              This is the retrieval outcome passed to the Agent.
+            </p>
+          </div>
+
+          <div className="final-ranked-story final-ranked-why">
+            <div className="final-ranked-story-heading">
+              <span className="section-label">Rank explanation</span>
+              <h3 className="retrieval-story-title">
+                <em>Why</em> this evidence ranked first
+              </h3>
+            </div>
             <p>
               {topCandidate.explanation?.exact_identifier
                 ? `${topEvidence.external_key} entered the exact-identifier tier before fused candidates.`
@@ -1775,35 +1841,6 @@ function FinalRankedEvidence({
               ) : null}
             </div>
           </div>
-
-          {candidates.length > 1 ? (
-            <div className="final-ranked-rest">
-              <div className="final-ranked-rest-head">
-                <span>Next in final order</span>
-                <small>{candidates.length - 1} additional candidates</small>
-              </div>
-              <div className="final-ranked-rest-list">
-                {candidates.slice(1).map((candidate, index) => (
-                  <CandidateRow
-                    key={`${candidate.evidence_id}-${index}`}
-                    candidate={candidate}
-                    rank={candidate.result_rank || index + 2}
-                    selected={candidate.evidence_id === selectedEvidenceId}
-                    fingerprint
-                    diagnostic={
-                      reranked
-                        ? score(candidate.rerank_score, 3)
-                        : score(
-                            candidate.rrf_score ?? candidate.final_score,
-                            5,
-                          )
-                    }
-                    onSelect={() => onSelect(candidate)}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : null}
         </>
       ) : (
         <Empty
@@ -4704,7 +4741,9 @@ export default function VerityApp() {
                     </span>
                     <span>
                       <small>Ranking diagnostics</small>
-                      <strong>How this ranking was built</strong>
+                      <strong className="retrieval-story-title">
+                        <em>How</em> this ranking was built
+                      </strong>
                       <b>
                         Inspect text, semantic, and fuzzy positions before
                         weighted RRF and optional rerank.
@@ -5088,7 +5127,9 @@ LIMIT ${appliedControls.limit};`}</code>
               </div>
             ) : null}
 
-            {candidateReceiptOpen && activeEvidence ? (
+            {diagnoseTab === 'fusion' &&
+            candidateReceiptOpen &&
+            activeEvidence ? (
               <section className="candidate-drawer">
                 <header>
                   <div>
