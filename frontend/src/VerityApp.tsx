@@ -736,12 +736,11 @@ const TOOL_CONTRACTS: Record<
 };
 
 const HOME_THREAD_PATHS = [
-  'M310 260 C310 190 310 108 310 38',
-  'M310 260 C376 216 448 166 528 138',
-  'M310 260 C376 304 448 354 528 382',
-  'M310 260 C310 330 310 412 310 482',
-  'M310 260 C244 304 172 354 92 382',
-  'M310 260 C244 216 172 166 92 138',
+  'M310 163 C310 137 310 105 310 76',
+  'M402 230 C416 226 429 221 443 216',
+  'M368 338 C395 374 420 410 446 444',
+  'M252 338 C225 374 200 410 174 444',
+  'M218 230 C204 226 191 221 177 216',
 ];
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -1708,12 +1707,24 @@ function FinalRankedEvidence({
 
       {topCandidate && topEvidence ? (
         <>
-          <p className="rank-order-note">
-            <strong>Final order:</strong>{' '}
-            {reranked
-              ? 'exact-identifier tier first, then Cohere order within each tier. Aurora RRF and Cohere scores are diagnostic, not global sort keys.'
-              : 'exact-identifier tier first, then Aurora RRF within the fused tier. Arm scores and RRF are diagnostic, not probabilities.'}
-          </p>
+          <aside className="rank-order-note" aria-label="Final ranking rule">
+            <span className="rank-order-icon" aria-hidden="true">
+              <GitMerge size={19} />
+            </span>
+            <span className="rank-order-copy">
+              <span className="rank-order-label">Final-order rule</span>
+              <strong>
+                {reranked
+                  ? 'Exact identifier matches first; Cohere orders candidates within each tier.'
+                  : 'Exact identifier matches first; Aurora weighted RRF orders every other candidate.'}
+              </strong>
+              <small>
+                {reranked
+                  ? 'Aurora RRF remains the pre-rerank order. RRF and Cohere scores explain relative rank; neither is a confidence probability.'
+                  : 'Arm scores and RRF explain relative rank. They are ranking signals, not confidence probabilities.'}
+              </small>
+            </span>
+          </aside>
           <div className="ranked-results-workspace">
             <div className="ranked-results-table-wrap">
               <table
@@ -3176,7 +3187,6 @@ export default function VerityApp() {
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const homeTypingInterrupted = useRef(false);
-  const homeQueryInput = useRef<HTMLInputElement>(null);
   const lastCompletedSearchKey = useRef<string | null>(null);
   const processedFusionRunRequest = useRef(0);
 
@@ -3250,19 +3260,13 @@ export default function VerityApp() {
       const typed = DEFAULT_QUERY[character - 1];
       timer = window.setTimeout(
         typeNext,
-        typed === ',' || typed === '?' ? 90 : typed === ' ' ? 28 : 18,
+        typed === ',' || typed === '?' ? 80 : typed === ' ' ? 24 : 14,
       );
     };
 
-    timer = window.setTimeout(typeNext, 180);
+    timer = window.setTimeout(typeNext, 220);
     return () => window.clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    const input = homeQueryInput.current;
-    if (!input) return;
-    input.scrollLeft = homeTyping ? input.scrollWidth : 0;
-  }, [homeQueryText, homeTyping]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3509,13 +3513,6 @@ export default function VerityApp() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  function interruptHomeTypewriter() {
-    if (!homeTyping) return;
-    homeTypingInterrupted.current = true;
-    setHomeTyping(false);
-    setControl('query', homeQueryText);
-  }
-
   function searchPayload(sourceControls: Controls = controls) {
     return {
       query: sourceControls.query,
@@ -3540,6 +3537,13 @@ export default function VerityApp() {
         principals: sourceControls.supportLead ? ['support-lead'] : [],
       },
     };
+  }
+
+  function finishHomeTyping() {
+    if (!homeTyping) return;
+    homeTypingInterrupted.current = true;
+    setHomeQueryText(DEFAULT_QUERY);
+    setHomeTyping(false);
   }
 
   async function loadRun(id: string | undefined, requestKey?: string) {
@@ -4001,7 +4005,7 @@ export default function VerityApp() {
     () => buildTimelineGrid(timeline?.events || []),
     [timeline],
   );
-  const homeCitations = (answer?.citations || []).slice(0, 6);
+  const homeCitations = (answer?.citations || []).slice(0, 5);
   const homeEvidenceState = homeCitations.length
     ? 'ready'
     : homeReceiptLoading
@@ -4388,40 +4392,61 @@ export default function VerityApp() {
                   Connected incident evidence
                 </span>
                 <h1>
-                  <span>{APP_NAME}</span>
-                  {' '}traces retrieval
-                  <em className="home-proof">to cited proof.</em>
+                  Trace retrieval <em className="home-proof">to cited proof.</em>
                 </h1>
                 <p>
-                  Inspect exact and full-text, semantic, and fuzzy candidates;
-                  weighted RRF; authoritative relationship traversal; and the
-                  persisted run record behind every citation.
+                  Ask the incident question, then inspect the retrieval signals,
+                  authoritative relationships, and persisted citations behind
+                  the answer.
                 </p>
-                <div className="home-live-stats" aria-label="Live system status">
-                  <div>
-                    <span>search index</span>
-                    <strong className={health?.status === 'ready' ? 'ready' : ''}>
-                      {connectionState === 'checking'
-                        ? 'connecting'
-                        : connectionState === 'unavailable'
-                          ? 'not connected'
-                          : health?.status || 'available'}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>corpus</span>
-                    <strong>
-                      {health
-                        ? `${health.current_documents.toLocaleString()} docs`
-                        : 'live data pending'}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>latest proof</span>
-                    <strong>{runId ? compactId(runId) : 'none yet'}</strong>
-                  </div>
-                </div>
               </div>
+
+              <form
+                className={`investigation-query home-query ${
+                  homeTyping ? 'typing' : ''
+                }`}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void beginInvestigation();
+                }}
+              >
+                <span className="home-query-icon" aria-hidden="true">
+                  <Search size={20} />
+                </span>
+                <span className="investigation-query-field">
+                  <label htmlFor="home-investigation-question">
+                    Investigation question
+                  </label>
+                  <textarea
+                    id="home-investigation-question"
+                    rows={2}
+                    value={homeQueryText}
+                    readOnly={homeTyping}
+                    title={homeQueryText}
+                    onFocus={finishHomeTyping}
+                    onChange={(event) => {
+                      const query = event.target.value;
+                      setHomeQueryText(query);
+                      setControl('query', query);
+                    }}
+                    aria-label="Incident question"
+                  />
+                </span>
+                <button
+                  type="submit"
+                  className="agent-command"
+                  disabled={
+                    busy !== null || homeTyping || !homeQueryText.trim()
+                  }
+                >
+                  {busy === 'search' || busy === 'run' ? (
+                    <LoaderCircle className="spin" size={17} />
+                  ) : (
+                    <Sparkles size={17} />
+                  )}
+                  Investigate
+                </button>
+              </form>
 
               <div
                 className={`home-thread-scene ${homeEvidenceState}`}
@@ -4549,41 +4574,30 @@ export default function VerityApp() {
                 </div>
               </div>
 
-              <form
-                className="investigation-query home-query"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void beginInvestigation();
-                }}
-              >
-                <InvestigationQueryField
-                  inputRef={homeQueryInput}
-                  value={homeQueryText}
-                  readOnly={homeTyping}
-                  title={homeQueryText}
-                  onFocus={interruptHomeTypewriter}
-                  onChange={(query) => {
-                    setHomeQueryText(query);
-                    setControl('query', query);
-                  }}
-                  ariaLabel="Incident question"
-                />
-                <button
-                  type="submit"
-                  className="agent-command"
-                  disabled={
-                    busy !== null || homeTyping || !homeQueryText.trim()
-                  }
-                >
-                  {busy === 'search' || busy === 'run' ? (
-                    <LoaderCircle className="spin" size={17} />
-                  ) : (
-                    <Sparkles size={17} />
-                  )}
-                  Investigate
-                  <ArrowRight size={16} />
-                </button>
-              </form>
+              <div className="home-live-stats" aria-label="Live system status">
+                <div>
+                  <span>search index</span>
+                  <strong className={health?.status === 'ready' ? 'ready' : ''}>
+                    {connectionState === 'checking'
+                      ? 'connecting'
+                      : connectionState === 'unavailable'
+                        ? 'not connected'
+                        : health?.status || 'available'}
+                  </strong>
+                </div>
+                <div>
+                  <span>corpus</span>
+                  <strong>
+                    {health
+                      ? `${health.current_documents.toLocaleString()} docs`
+                      : 'live data pending'}
+                  </strong>
+                </div>
+                <div>
+                  <span>latest proof</span>
+                  <strong>{runId ? compactId(runId) : 'none yet'}</strong>
+                </div>
+              </div>
               </div>
             </header>
 
