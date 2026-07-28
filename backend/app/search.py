@@ -758,6 +758,32 @@ def _persist_success(
                         "run_id": run_id,
                     },
                 )
+                # Database Insights hand-off (SPEC 6.3). The window is the run's
+                # own persisted execution window, read back after the UPDATE set
+                # completed_at, so the deep link lands on exactly the interval
+                # this run occupied. No wait_event/sql_digest here: those belong
+                # to the incident-capture path (6.4). db_resource_id is stored as
+                # NULL when the deployment has not configured one.
+                cursor.execute(
+                    """
+                    INSERT INTO proof.observability_refs(
+                      run_id, db_resource_id, window_start, window_end
+                    )
+                    SELECT run_id, %(db_resource_id)s, started_at, completed_at
+                    FROM proof.retrieval_runs
+                    WHERE run_id = %(run_id)s
+                    ON CONFLICT (run_id) DO UPDATE
+                    SET db_resource_id = EXCLUDED.db_resource_id,
+                        window_start = EXCLUDED.window_start,
+                        window_end = EXCLUDED.window_end,
+                        captured_at = now()
+                    """,
+                    {
+                        "db_resource_id": get_settings().verity_db_resource_id
+                        or None,
+                        "run_id": run_id,
+                    },
+                )
 
 
 def run_hybrid_search(request: SearchRequest) -> dict[str, Any]:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from string import Formatter
 from textwrap import dedent
 from typing import Any
 
@@ -12,6 +13,7 @@ from .models import QueryPlanRequest, SearchRequest
 from .search import single_arm_sql
 from .verify_sql import (
     EVIDENCE_EDGE_BATCH_SQL,
+    OBSERVABILITY_REF_SQL,
     TIMELINE_EVENT_BATCH_SQL,
     edge_verify_sql,
     event_verify_sql,
@@ -470,6 +472,88 @@ def run_graph(run_id: str) -> dict[str, Any]:
         "edges": edges,
         "node_count": len(reached),
         "edge_count": len(edges),
+    }
+
+
+def _render_deep_link(template: str, values: dict[str, str]) -> str | None:
+    """Render a console URL template, or return None if it cannot be completed.
+
+    A link is only offered when the operator configured a template and every
+    placeholder the template names resolves to a non-empty value. A template that
+    references ``{window_start}`` when the run has no window, or ``{db_resource_id}``
+    when the deployment set none, yields None rather than a broken URL. This is
+    what keeps the button honest: no template, or an unresolved placeholder, means
+    no button (SPEC 6.3 / 5.4).
+    """
+    if not template:
+        return None
+    fields = {
+        name for _, name, _, _ in Formatter().parse(template) if name
+    }
+    if any(not values.get(name) for name in fields):
+        return None
+    return template.format(**values)
+
+
+def observability_ref(run_id: str) -> dict[str, Any]:
+    """Return the Database Insights hand-off for a run (SPEC 6.3).
+
+    The observability window is read from ``proof.observability_refs``; the deep
+    links are composed from it plus deployment config and appear only when a URL
+    template is configured and fully resolvable. When no row exists (a run that
+    predates this table, or a failed run) the whole ref is None.
+
+    Args:
+        run_id: The run whose observability window is being surfaced.
+
+    Returns:
+        A payload with the stored window, any composed deep links, and a
+        ``_verify_sql`` descriptor for the window row; or ``{"run_id", "ref": None}``
+        when the run has no observability row.
+    """
+    with get_dict_conn() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(OBSERVABILITY_REF_SQL, {"run_id": run_id})
+            ref = cursor.fetchone()
+    if not ref:
+        return {"run_id": run_id, "ref": None, "links": []}
+
+    settings = get_settings()
+    values = {
+        "region": settings.verity_region,
+        "db_resource_id": ref.get("db_resource_id") or "",
+        "window_start": ref["window_start"].isoformat()
+        if ref.get("window_start")
+        else "",
+        "window_end": ref["window_end"].isoformat()
+        if ref.get("window_end")
+        else "",
+    }
+    links = [
+        {
+            "kind": kind,
+            "label": label,
+            "url": url,
+        }
+        for kind, label, template in (
+            (
+                "database_insights",
+                "Open in Database Insights",
+                settings.verity_dbi_url_template,
+            ),
+            (
+                "lock_analysis",
+                "Open lock analysis",
+                settings.verity_lock_url_template,
+            ),
+        )
+        if (url := _render_deep_link(template, values))
+    ]
+    return {
+        "run_id": run_id,
+        "ref": ref,
+        "links": links,
+        "_verify_sql": {"statement": OBSERVABILITY_REF_SQL, "binds": {"run_id": run_id}},
     }
 
 

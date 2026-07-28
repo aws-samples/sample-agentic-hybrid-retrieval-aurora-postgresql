@@ -9,6 +9,7 @@ import {
   Clipboard,
   Code2,
   Database,
+  ExternalLink,
   FileCheck2,
   FileSearch,
   Gauge,
@@ -17,6 +18,7 @@ import {
   House,
   LoaderCircle,
   LockKeyhole,
+  Menu,
   Network,
   PanelLeftClose,
   PanelLeftOpen,
@@ -234,6 +236,7 @@ type AgentStreamState =
   | 'streaming'
   | 'complete'
   | 'error';
+type ConnectionState = 'checking' | 'ready' | 'unavailable';
 
 interface AgentMetadata {
   orchestration?: string;
@@ -321,12 +324,27 @@ interface Stage {
   details: JsonRecord;
 }
 
+interface ObservabilityRef {
+  run_id: string;
+  ref: {
+    db_resource_id: string | null;
+    window_start: string;
+    window_end: string | null;
+    wait_event: string | null;
+    sql_digest: string | null;
+    captured_at: string;
+  } | null;
+  links: { kind: string; label: string; url: string }[];
+  _verify_sql?: VerifySql;
+}
+
 interface RunReceipt {
   run: RunSummary;
   candidates: Candidate[];
   stages: Stage[];
   answer: AnswerReceipt | null;
   score_note: string;
+  observability_ref?: ObservabilityRef;
   _verify_sql?: {
     run: VerifySql;
     candidates: VerifySql;
@@ -1027,21 +1045,53 @@ function engineRelease(version: string | undefined): string {
   return match ? `PostgreSQL ${match[1]}` : version;
 }
 
-function LiveBanner({ health }: { health: Health | null }) {
+function LiveBanner({
+  health,
+  connectionState,
+}: {
+  health: Health | null;
+  connectionState: ConnectionState;
+}) {
   const indexState =
-    health?.status === 'ready' ? 'READY' : health?.status || 'checking';
+    connectionState === 'checking'
+      ? 'connecting'
+      : connectionState === 'unavailable'
+        ? 'not connected'
+        : health?.status === 'ready'
+          ? 'ready'
+          : health?.status || 'available';
   return (
-    <div className="live-banner" role="status" aria-label="Live cluster status">
+    <div
+      className={`live-banner ${connectionState}`}
+      role="status"
+      aria-label="Live cluster status"
+    >
       <span className="live-banner-dot" aria-hidden="true" />
-      <span className="live-banner-cluster">{health?.cluster_id || '—'}</span>
+      <span className="live-banner-cluster">
+        {health?.cluster_id ||
+          (connectionState === 'checking' ? 'Connecting' : 'Local API')}
+      </span>
       <span className="live-banner-sep">·</span>
       <span>search index {indexState}</span>
-      <span className="live-banner-sep">·</span>
-      <span>{health?.current_documents?.toLocaleString() || '—'} docs</span>
-      <span className="live-banner-sep">·</span>
-      <span>engine {engineRelease(health?.engine_version)}</span>
-      <span className="live-banner-sep">·</span>
-      <span>pgvector {health?.pgvector_version || '—'}</span>
+      {health ? (
+        <>
+          <span className="live-banner-sep">·</span>
+          <span>{health.current_documents.toLocaleString()} docs</span>
+          <span className="live-banner-sep">·</span>
+          <span>engine {engineRelease(health.engine_version)}</span>
+          <span className="live-banner-sep">·</span>
+          <span>pgvector {health.pgvector_version || 'unreported'}</span>
+        </>
+      ) : (
+        <>
+          <span className="live-banner-sep">·</span>
+          <span>
+            {connectionState === 'checking'
+              ? 'loading live corpus details'
+              : 'start the API to inspect live data'}
+          </span>
+        </>
+      )}
     </div>
   );
 }
@@ -1122,6 +1172,42 @@ function VerifyAffordance({
           <pre className="verify-sql">{sql}</pre>
         </span>
       ) : null}
+    </span>
+  );
+}
+
+// Database Insights hand-off (SPEC 6.3). When a run has an observability window
+// the reproducible window is always shown with its verify affordance (Law 2).
+// The deep-link buttons render on top only when the deployment configured a
+// resolvable console URL template, so no button ever points at an unverified URL
+// (with no template the server returns no links). Jumping to the console is
+// following a citation (Law 4).
+function ObservabilityHandoff({ handoff }: { handoff?: ObservabilityRef }) {
+  if (!handoff?.ref) return null;
+  const { ref, links } = handoff;
+  return (
+    <span className="observability-handoff">
+      <span className="observability-window">
+        <Database size={12} aria-hidden="true" />
+        observed window · {dateTime(ref.window_start)}
+        {ref.window_end ? ` → ${dateTime(ref.window_end)}` : ' → open'}
+      </span>
+      {links.map((link) => (
+        <a
+          key={link.kind}
+          className="observability-link"
+          href={link.url}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <ExternalLink size={12} aria-hidden="true" />
+          {link.label}
+        </a>
+      ))}
+      <VerifyAffordance
+        descriptor={handoff._verify_sql}
+        label="verify window in psql"
+      />
     </span>
   );
 }
@@ -2376,6 +2462,8 @@ export default function VerityApp() {
   const [controls, setControls] = useState<Controls>(DEFAULT_CONTROLS);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [health, setHealth] = useState<Health | null>(null);
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>('checking');
   const [diagnostics, setDiagnostics] =
     useState<SearchIndexDiagnostics | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -2427,6 +2515,7 @@ export default function VerityApp() {
   const [navCollapsed, setNavCollapsed] = useState(
     () => window.localStorage.getItem('verity-nav-collapsed') === 'true',
   );
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const homeTypingInterrupted = useRef(false);
   const homeQueryInput = useRef<HTMLInputElement>(null);
   const lastCompletedSearchKey = useRef<string | null>(null);
@@ -2520,18 +2609,19 @@ export default function VerityApp() {
     let cancelled = false;
     api<Health>('/ready')
       .then((ready) => {
-        if (!cancelled) setHealth(ready);
+        if (!cancelled) {
+          setHealth(ready);
+          setConnectionState('ready');
+        }
       })
-      .catch((reason: Error) => {
-        if (!cancelled) setError(reason.message);
+      .catch(() => {
+        if (!cancelled) setConnectionState('unavailable');
       });
     api<SearchIndexDiagnostics>('/v1/diagnostics/search-index')
       .then((searchIndex) => {
         if (!cancelled) setDiagnostics(searchIndex);
       })
-      .catch((reason: Error) => {
-        if (!cancelled) setError(reason.message);
-      });
+      .catch(() => undefined);
     // Apply the initial deep link (SPEC 6.0). Navigation is synchronous; the run
     // to load is chosen below so a /proof/{run_id} link wins over latest-run.
     const initialRoute = parseRoute(window.location.hash);
@@ -2601,6 +2691,7 @@ export default function VerityApp() {
   // inline hand-off routes through here so the (surface, lens) selection stays
   // the source of truth; PR-5's URL router will drive the same helper.
   function goTo(surface: Surface, lens?: string) {
+    setMobileNavOpen(false);
     switch (surface) {
       case 'overview':
         setModule('home');
@@ -2682,6 +2773,18 @@ export default function VerityApp() {
       : undefined;
   const activePrincipal: PrincipalKey =
     controls.supportLead ? 'support-lead' : 'workshop';
+  const activeSurfaceNav = [...PRIMARY_NAV, ...UTILITY_NAV].find(
+    (item) => item.surface === activeSurface,
+  );
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setMobileNavOpen(false);
+    }
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [mobileNavOpen]);
 
   // Apply a parsed route to live state. surface/lens go through goTo (the single
   // navigation writer); preset/principal set controls; a /proof/{run_id} loads
@@ -3320,13 +3423,17 @@ export default function VerityApp() {
     );
   });
   return (
-    <div className={`verity-shell ${navCollapsed ? 'nav-collapsed' : ''}`}>
+    <div
+      className={`verity-shell ${navCollapsed ? 'nav-collapsed' : ''} ${
+        mobileNavOpen ? 'mobile-nav-open' : ''
+      }`}
+    >
       <aside className="side-rail">
         <div className="side-rail-head">
           <button
             className="brand"
             type="button"
-            onClick={() => setModule('home')}
+            onClick={() => goTo('overview')}
             aria-label="Open Verity overview"
             title={navCollapsed ? 'Open Verity overview' : undefined}
           >
@@ -3351,7 +3458,25 @@ export default function VerityApp() {
           </button>
         </div>
 
-        <nav className="side-nav journey-side-nav" aria-label="Workbench surfaces">
+        <button
+          type="button"
+          className="mobile-nav-trigger"
+          aria-expanded={mobileNavOpen}
+          aria-controls="workbench-navigation"
+          onClick={() => setMobileNavOpen((current) => !current)}
+        >
+          {mobileNavOpen ? <X size={17} /> : <Menu size={17} />}
+          <span>{activeSurfaceNav?.label || 'Overview'}</span>
+          <ChevronRight size={15} aria-hidden="true" />
+        </button>
+
+        <nav
+          id="workbench-navigation"
+          className={`side-nav journey-side-nav ${
+            mobileNavOpen ? 'mobile-open' : ''
+          }`}
+          aria-label="Workbench surfaces"
+        >
           {PRIMARY_NAV.map(({ surface, label, Icon, lenses }) => {
             const surfaceActive = activeSurface === surface;
             return (
@@ -3428,7 +3553,9 @@ export default function VerityApp() {
       </aside>
 
       <div className="app-column">
-        {module === 'home' ? <LiveBanner health={health} /> : null}
+        {module === 'home' ? (
+          <LiveBanner health={health} connectionState={connectionState} />
+        ) : null}
         {module !== 'home' &&
         module !== 'retrieve' &&
         activeSurface !== 'agent' &&
@@ -3499,7 +3626,8 @@ export default function VerityApp() {
         </header>
         ) : null}
 
-        {error ? (
+        {error &&
+        !(activeSurface === 'agent' && agentDisplayState === 'error') ? (
           <div className="error-banner" role="alert">
             <AlertTriangle size={16} />
             <span>{error}</span>
@@ -3518,6 +3646,7 @@ export default function VerityApp() {
         {module === 'home' ? (
           <section className="verity-home">
             <header className="home-hero">
+              <div className="home-hero-inner">
               <div className="home-copy">
                 <span className="home-eyebrow">
                   Connected incident evidence
@@ -3536,18 +3665,24 @@ export default function VerityApp() {
                   <div>
                     <span>search index</span>
                     <strong className={health?.status === 'ready' ? 'ready' : ''}>
-                      {health?.status || 'checking'}
+                      {connectionState === 'checking'
+                        ? 'connecting'
+                        : connectionState === 'unavailable'
+                          ? 'not connected'
+                          : health?.status || 'available'}
                     </strong>
                   </div>
                   <div>
                     <span>corpus</span>
                     <strong>
-                      {health?.current_documents?.toLocaleString() || '—'} docs
+                      {health
+                        ? `${health.current_documents.toLocaleString()} docs`
+                        : 'live data pending'}
                     </strong>
                   </div>
                   <div>
                     <span>latest proof</span>
-                    <strong>{compactId(runId)}</strong>
+                    <strong>{runId ? compactId(runId) : 'none yet'}</strong>
                   </div>
                 </div>
               </div>
@@ -3593,8 +3728,8 @@ export default function VerityApp() {
                   <small className="home-answer-model">
                     {answer?.synthesis_mode ||
                       (homeEvidenceState === 'loading'
-                        ? 'loading run'
-                        : 'awaiting run')}
+                        ? 'connecting'
+                        : 'no run yet')}
                   </small>
                   <div className="home-answer-metrics">
                     <span>
@@ -3609,7 +3744,7 @@ export default function VerityApp() {
                   <i>
                     {homeEvidenceState === 'ready'
                       ? 'rank signal · not confidence'
-                      : 'no active run'}
+                      : 'run an investigation to inspect proof'}
                   </i>
                 </div>
 
@@ -3672,8 +3807,8 @@ export default function VerityApp() {
                         <FileSearch size={17} />
                       )}
                       {homeEvidenceState === 'loading'
-                        ? 'Loading latest cited run'
-                        : 'No cited run yet'}
+                        ? 'Connecting to latest proof'
+                        : 'No proof run yet'}
                     </div>
                   ) : null}
                 </div>
@@ -3714,6 +3849,7 @@ export default function VerityApp() {
                   <ArrowRight size={16} />
                 </button>
               </form>
+              </div>
             </header>
 
             <section className="home-workspaces">
@@ -3724,7 +3860,9 @@ export default function VerityApp() {
                 </div>
                 <span className="home-workspace-status">
                   <ShieldCheck size={14} />
-                  {health?.drift_issues ?? '—'} search-index drift
+                  {health
+                    ? `${health.drift_issues} search-index drift`
+                    : 'Live status pending'}
                 </span>
               </header>
               <div className="home-workspace-grid">
@@ -3821,7 +3959,7 @@ export default function VerityApp() {
                 <ArrowRight size={18} />
                 <span>
                   <strong>Cited run record</strong>
-                  <small>{runId ? compactId(runId) : 'awaiting run'}</small>
+                  <small>{runId ? compactId(runId) : 'No run yet'}</small>
                 </span>
               </div>
             </section>
@@ -3887,29 +4025,40 @@ export default function VerityApp() {
                     Run retrieval
                   </button>
                   <div className="retrieval-query-footer">
-                    <div className="retrieval-query-options">
-                      <span>Examples</span>
-                      {PRESETS.map((preset) => (
-                        <button
-                          key={preset.label}
-                          type="button"
-                          className={
-                            controls.query === preset.query ? 'active' : ''
-                          }
-                          onClick={() =>
-                            setControls((current) => ({
-                              ...current,
-                              query: preset.query,
-                              mode: preset.mode,
-                              kind: preset.kind,
-                              clusterId: preset.clusterId,
-                            }))
-                          }
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                    </div>
+                    <details className="query-options-disclosure">
+                      <summary>
+                        <BookOpen size={14} />
+                        <span>Examples</span>
+                        <b>
+                          {PRESETS.find(
+                            (preset) => controls.query === preset.query,
+                          )?.label || 'Custom query'}
+                        </b>
+                        <ChevronRight size={14} aria-hidden="true" />
+                      </summary>
+                      <div className="retrieval-query-options">
+                        {PRESETS.map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            className={
+                              controls.query === preset.query ? 'active' : ''
+                            }
+                            onClick={() =>
+                              setControls((current) => ({
+                                ...current,
+                                query: preset.query,
+                                mode: preset.mode,
+                                kind: preset.kind,
+                                clusterId: preset.clusterId,
+                              }))
+                            }
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </details>
                     <div className="retrieval-query-status">
                       <label className="results-rerank-control">
                         <strong>Cohere rerank</strong>
@@ -3933,10 +4082,10 @@ export default function VerityApp() {
                         }`}
                       >
                         {retrievalDraftDirty
-                          ? 'Not run'
+                          ? 'Changes ready'
                           : runId
-                            ? 'Current'
-                            : 'No run'}
+                            ? 'Run current'
+                            : 'Ready to run'}
                       </span>
                     </div>
                   </div>
@@ -4575,7 +4724,7 @@ LIMIT ${appliedControls.limit};`}</code>
                       ) : agentDisplayState === 'streaming' ? (
                         <LoaderCircle className="spin" size={13} />
                       ) : (
-                        <AlertTriangle size={13} />
+                        <CircleDot size={13} />
                       )}
                       {agentDisplayState === 'complete'
                         ? persistedAnswerLoaded
@@ -4583,67 +4732,55 @@ LIMIT ${appliedControls.limit};`}</code>
                           : 'citation gate passed'
                         : agentDisplayState === 'streaming'
                           ? 'agent running'
-                          : 'answer withheld'}
+                          : 'ready to investigate'}
                     </span>
-                    <span>
-                      run <b>{compactId(answer?.run_id || runId)}</b>
-                    </span>
+                    {answer?.run_id || runId ? (
+                      <span>
+                        run <b>{compactId(answer?.run_id || runId)}</b>
+                      </span>
+                    ) : null}
                     {agentLatencyMs !== null ? (
                       <span>
                         <b>{(agentLatencyMs / 1000).toFixed(1)} s</b> agent run
                       </span>
                     ) : null}
                     <span className="agent-query-boundary">
-                      ACL checked on retrieval and every relationship hop
+                      <ShieldCheck size={12} />
+                      ACL enforced
                     </span>
                   </div>
                 </form>
 
-                <div className="answer-story-layout">
+                <div
+                  className={`answer-story-layout ${
+                    agentDisplayState === 'blocked' ||
+                    agentDisplayState === 'error'
+                      ? 'single-column'
+                      : ''
+                  }`}
+                >
                   <article className="answer-story-document">
                     {agentDisplayState === 'blocked' ? (
                       <div className="answer-gate">
-                        <span className="answer-gate-count">2 / 3 claims grounded</span>
-                        <h2>Synthesis is deliberately withheld.</h2>
+                        <span className="answer-gate-count">
+                          Evidence gate · 2 of 3 grounded
+                        </span>
+                        <h2>One claim still needs evidence.</h2>
                         <p className="answer-gate-lead">
-                          Cause and visible customer impact have evidence. The
-                          safe-fix claim does not, because <code>RB-017</code>{' '}
-                          never entered the cluster-scoped result set.
+                          Verity has evidence for cause and visible customer
+                          impact. It will not release the safe-fix claim until{' '}
+                          <code>RB-017</code> enters the cited set.
                         </p>
-                        <div className="answer-claim-checklist">
-                          <div className="covered">
-                            <Check size={16} />
-                            <span>
-                              <strong>Why writes blocked</strong>
-                              CHG-1842 + captured lock evidence
-                            </span>
+                        <section className="answer-recovery">
+                          <div>
+                            <span className="section-label">Bounded recovery</span>
+                            <strong>Retrieve the approved runbook only.</strong>
+                            <p>
+                              Incident evidence stays scoped to{' '}
+                              <code>{controls.clusterId}</code>; only reusable
+                              guidance widens. The caller principal is unchanged.
+                            </p>
                           </div>
-                          <div className="covered">
-                            <Check size={16} />
-                            <span>
-                              <strong>Visible customer impact</strong>
-                              CASE-7419 under the workshop principal
-                            </span>
-                          </div>
-                          <div className="missing">
-                            <AlertTriangle size={16} />
-                            <span>
-                              <strong>Safe remediation</strong>
-                              Approved runbook absent; claim withheld
-                            </span>
-                          </div>
-                        </div>
-                        <section className="answer-participant-task">
-                          <span className="section-label">
-                            Participant exercise 2
-                          </span>
-                          <h3>Authorize one bounded recovery.</h3>
-                          <p>
-                            Let the Strands agent keep incident evidence scoped
-                            to <code>{controls.clusterId}</code>, remove only the
-                            cluster and incident filters from the reusable
-                            runbook search, and preserve the caller principal.
-                          </p>
                           <button
                             type="button"
                             className="agent-command"
@@ -4651,10 +4788,39 @@ LIMIT ${appliedControls.limit};`}</code>
                             disabled={busy !== null}
                           >
                             <Sparkles size={16} />
-                            Recover RB-017 and stream the answer
-                            <ArrowRight size={15} />
+                            Retrieve RB-017
                           </button>
                         </section>
+                        <details className="answer-supporting-proof">
+                          <summary>
+                            <FileCheck2 size={15} />
+                            <span>Review claim coverage</span>
+                            <ChevronRight size={14} aria-hidden="true" />
+                          </summary>
+                          <div className="answer-claim-checklist">
+                            <div className="covered">
+                              <Check size={15} />
+                              <span>
+                                <strong>Why writes blocked</strong>
+                                CHG-1842 + captured lock evidence
+                              </span>
+                            </div>
+                            <div className="covered">
+                              <Check size={15} />
+                              <span>
+                                <strong>Visible customer impact</strong>
+                                CASE-7419 under the workshop principal
+                              </span>
+                            </div>
+                            <div className="missing">
+                              <CircleDot size={15} />
+                              <span>
+                                <strong>Safe remediation</strong>
+                                Approved runbook not yet cited
+                              </span>
+                            </div>
+                          </div>
+                        </details>
                       </div>
                     ) : null}
 
@@ -4789,7 +4955,9 @@ LIMIT ${appliedControls.limit};`}</code>
                     ) : null}
                   </article>
 
-                  <aside className="answer-sources-rail">
+                  {agentDisplayState === 'streaming' ||
+                  answerCitations.length ? (
+                    <aside className="answer-sources-rail">
                     <header>
                       <span className="section-label">
                         {answerCitations.length
@@ -4833,63 +5001,38 @@ LIMIT ${appliedControls.limit};`}</code>
                           ))}
                       </div>
                     ) : (
-                      <div className="answer-source-expected">
-                        {[
-                          ['Cause', true],
-                          ['Visible impact', true],
-                          ['Safe remediation', false],
-                        ].map(([label, covered]) => (
-                            <div
-                              className={
-                                agentDisplayState === 'streaming'
-                                  ? 'pending'
-                                  : covered
-                                    ? 'covered'
-                                    : 'missing'
-                              }
-                              key={String(label)}
-                            >
-                              {agentDisplayState === 'streaming' ? (
-                                <LoaderCircle className="spin" size={14} />
-                              ) : covered ? (
-                                <Check size={14} />
-                              ) : (
-                                <AlertTriangle size={14} />
-                              )}
-                              <span>
-                                <strong>
-                                  {agentDisplayState === 'streaming'
-                                    ? 'Checking evidence'
-                                    : covered
-                                      ? 'Covered by baseline'
-                                      : 'Recovery required'}
-                                </strong>
-                                <small>{label}</small>
-                              </span>
-                            </div>
-                          ))}
+                      <div className="answer-source-pending">
+                        <LoaderCircle className="spin" size={15} />
+                        <span>
+                          <strong>Validating citations</strong>
+                          Sources appear here as their exact chunks pass the
+                          evidence gate.
+                        </span>
                       </div>
                     )}
-                    <section className="answer-coverage-card">
-                      <div>
-                        <span>Claim coverage</span>
-                        <b>{answerCoverageComplete ? '3/3' : '2/3'}</b>
-                      </div>
-                      <div className="answer-coverage-meter">
-                        <i
-                          style={{
-                            width:
-                              answerCoverageComplete ? '100%' : '66.67%',
-                          }}
-                        />
-                      </div>
-                      <p>
-                        {answerCoverageComplete
-                          ? 'Every citation resolves to a source URI, revision, exact chunk, and supporting quote.'
-                          : 'RB-017 must be present and cited before the answer can pass.'}
-                      </p>
-                    </section>
-                  </aside>
+                    {answerCitations.length ? (
+                      <section className="answer-coverage-card">
+                        <div>
+                          <span>Claim coverage</span>
+                          <b>{answerCoverageComplete ? '3/3' : '2/3'}</b>
+                        </div>
+                        <div className="answer-coverage-meter">
+                          <i
+                            style={{
+                              width:
+                                answerCoverageComplete ? '100%' : '66.67%',
+                            }}
+                          />
+                        </div>
+                        <p>
+                          {answerCoverageComplete
+                            ? 'Every citation resolves to a source URI, revision, exact chunk, and supporting quote.'
+                            : 'The answer remains withheld until every required claim is cited.'}
+                        </p>
+                      </section>
+                    ) : null}
+                    </aside>
+                  ) : null}
                 </div>
 
                 <section className="answer-build-story">
@@ -5464,6 +5607,9 @@ LIMIT ${appliedControls.limit};`}</code>
                           label="verify run in psql"
                         />
                       ) : null}
+                      <ObservabilityHandoff
+                        handoff={receipt?.observability_ref}
+                      />
                     </div>
                   </header>
                   {receipt ? (

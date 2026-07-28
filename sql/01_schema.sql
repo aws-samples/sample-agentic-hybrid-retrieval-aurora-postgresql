@@ -1300,6 +1300,25 @@ ALTER TABLE proof.retrieval_runs
   ADD COLUMN IF NOT EXISTS candidate_pool integer NOT NULL DEFAULT 24
   CHECK (candidate_pool > 0);
 
+-- Database Insights hand-off (SPEC-session 6.3). Each row records the Aurora
+-- resource and the execution window a run occupied, so the Proof surface can
+-- deep-link into the same window in CloudWatch Database Insights (Law 4: jumping
+-- surfaces is following a citation). The retrieval path writes one row per run
+-- from the run's own started_at/completed_at window; wait_event and sql_digest
+-- stay NULL there and are reserved for the incident-capture path (6.4), which
+-- populates them with a currently blocking session's wait and statement digest.
+-- db_resource_id is the Aurora DbiResourceId, sourced from deployment config
+-- (env), and is NULL when the deployment has not set VERITY_DB_RESOURCE_ID.
+CREATE TABLE IF NOT EXISTS proof.observability_refs (
+  run_id uuid PRIMARY KEY REFERENCES proof.retrieval_runs(run_id) ON DELETE CASCADE,
+  db_resource_id text,
+  window_start timestamptz NOT NULL,
+  window_end timestamptz,
+  wait_event text,
+  sql_digest text,
+  captured_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS proof.retrieval_candidates (
   run_id uuid NOT NULL REFERENCES proof.retrieval_runs(run_id) ON DELETE RESTRICT,
   evidence_id uuid NOT NULL REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,

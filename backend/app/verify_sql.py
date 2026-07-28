@@ -51,6 +51,16 @@ ANSWER_RECEIPT_SQL = (
     "SELECT * FROM proof.v_answer_receipts WHERE run_id = %(run_id)s"
 )
 
+# Database Insights hand-off (SPEC 6.3). The observability window is a single
+# run_id-bound row; the deep-link buttons are composed from it plus deployment
+# config, so the reproducible number on screen is the window itself.
+OBSERVABILITY_REF_SQL = (
+    "SELECT run_id, db_resource_id, window_start, window_end, wait_event,\n"
+    "       sql_digest, captured_at\n"
+    "FROM proof.observability_refs\n"
+    "WHERE run_id = %(run_id)s"
+)
+
 # --- Element grain: graph edges ----------------------------------------------
 # One SELECT/FROM/JOIN block shared by the batch query (run_graph) and the
 # per-edge verify statement, so their columns are identical by construction.

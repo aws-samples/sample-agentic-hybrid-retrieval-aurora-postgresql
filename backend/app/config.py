@@ -148,6 +148,29 @@ class Settings(BaseModel):
             "VERITY_CLUSTER_ID", "checkout-prod-cluster-01"
         )
     )
+    # Database Insights hand-off (SPEC 6.3 / 5.4). The Aurora DbiResourceId and
+    # the console deep-link templates are deployment identity captured during the
+    # dry run, never guessed. They are empty by default: with no template, the
+    # Proof surface renders the observability window but no deep-link button, so
+    # nothing points at a URL that was not verified against the target console.
+    verity_db_resource_id: str = Field(
+        default_factory=lambda: os.environ.get("VERITY_DB_RESOURCE_ID", "")
+    )
+    verity_region: str = Field(
+        default_factory=lambda: os.environ.get("VERITY_REGION")
+        or os.environ.get("AWS_REGION", "us-east-1")
+    )
+    # Templates use {region}, {db_resource_id}, and optionally {window_start} /
+    # {window_end} placeholders (SPEC 5.4). The operator captures the real console
+    # URL during the dry run and templates it; the API substitutes only the
+    # placeholders the operator put in, so the console's exact time-window param
+    # format is never invented here.
+    verity_dbi_url_template: str = Field(
+        default_factory=lambda: os.environ.get("VERITY_DBI_URL_TEMPLATE", "")
+    )
+    verity_lock_url_template: str = Field(
+        default_factory=lambda: os.environ.get("VERITY_LOCK_URL_TEMPLATE", "")
+    )
 
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_allow_origins.split(",") if origin.strip()]

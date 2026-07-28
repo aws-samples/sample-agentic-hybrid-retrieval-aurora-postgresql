@@ -42,6 +42,7 @@ REQUIRED_TABLES = (
     "retrieval.documents",
     "retrieval.chunks",
     "proof.retrieval_runs",
+    "proof.observability_refs",
     "proof.retrieval_candidates",
     "proof.run_stages",
     "proof.agent_runs",

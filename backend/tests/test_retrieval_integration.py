@@ -172,12 +172,24 @@ class RetrievalContractTests(unittest.TestCase):
                 (result["run_id"],),
             )
             candidates = cursor.fetchall()
+            cursor.execute(
+                """
+                SELECT window_start, window_end
+                FROM proof.observability_refs
+                WHERE run_id = %s
+                """,
+                (result["run_id"],),
+            )
+            observability_ref = cursor.fetchone()
 
         self.assertEqual(receipt["status"], "complete")
         self.assertEqual(receipt["candidate_count"], len(candidates))
         self.assertGreaterEqual(receipt["candidate_count"], 1)
         self.assertLessEqual(receipt["candidate_count"], 5)
         self.assertEqual(candidates[0]["external_key"], "CHG-1842")
+        self.assertIsNotNone(observability_ref)
+        self.assertIsNotNone(observability_ref["window_start"])
+        self.assertIsNotNone(observability_ref["window_end"])
 
     def test_synthesis_tool_reloads_evidence_from_run(self) -> None:
         from backend.app.agent import (
@@ -229,7 +241,7 @@ class RetrievalContractTests(unittest.TestCase):
             replay["answer"]["citations"][0]["external_key"],
             "CHG-1842",
         )
-        self.assertEqual(latest_cited_run()["run_id"], search["run_id"])
+        self.assertEqual(str(latest_cited_run()["run_id"]), search["run_id"])
 
     def test_evaluation_separates_retrieval_from_traversal(self) -> None:
         from backend.app.evaluation import run_evaluation

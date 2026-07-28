@@ -33,6 +33,7 @@ from .insights import (
     fusion_sql,
     index_usage,
     latest_cited_run,
+    observability_ref,
     search_index_diagnostics,
     search_index_health,
     query_plan,
@@ -437,7 +438,12 @@ def latest_run():
 @app.get("/v1/runs/{run_id}")
 def run_receipt(run_id: str):
     try:
-        return explain_ranking_impl(run_id)
+        receipt = explain_ranking_impl(run_id)
+        # Database Insights hand-off (SPEC 6.3) belongs to the Proof HTTP surface,
+        # not the agent's explain_ranking tool, so it is attached here rather than
+        # inside explain_ranking_impl.
+        receipt["observability_ref"] = observability_ref(run_id)
+        return receipt
     except ValueError as error:
         raise HTTPException(404, str(error))
     except Exception as error:

@@ -508,17 +508,40 @@ pgvector {extversion}` — `version()` and `extversion` are read from Aurora per
 ### 6.3 Database Insights hand-off (adopted from the architecture review)
 
 - New table `proof.observability_refs (run_id, db_resource_id, window_start, window_end,
-  wait_event, sql_digest nullable)` — written by `search_evidence` with the query's
+  wait_event, sql_digest nullable)` — written by the retrieval path with the query's
   execution window; by `capture_incident.sh` with the incident window when flagged.
 - Run-proof page renders two buttons when a ref exists: **Open in Database Insights** and
   **Open lock analysis** (deep-link templates from Section 5.4, time-window query params if the
   console supports them `[VERIFY]`). Jumping surfaces = following a citation (Law 4).
+
+**Shipped (application source).** The table exists (`sql/01_schema.sql`, FK to
+`proof.retrieval_runs`, `ON DELETE CASCADE`). The retrieval success path writes one row per
+run from the run's own persisted `started_at`/`completed_at` window (`backend/app/search.py`),
+so `window_start`/`window_end` are the honest execution window — no separate capture logic.
+`db_resource_id` is `VERITY_DB_RESOURCE_ID` from config (NULL when unset). `wait_event` and
+`sql_digest` stay NULL on this path; they are the incident-capture path's fields (6.4).
+`GET /v1/runs/{run_id}` attaches `observability_ref` with the stored window, a `_verify_sql`
+descriptor for the window row (Law 2), and any composed deep links. The Proof replay lens
+always shows the observed window; the two buttons appear **only** when a console URL template
+(`VERITY_DBI_URL_TEMPLATE` / `VERITY_LOCK_URL_TEMPLATE`, Section 5.4) is configured and every
+placeholder it names resolves — with no template, no button points at an unverified URL.
+Templates and `VERITY_DB_RESOURCE_ID` are empty by default and are captured on the target
+account during the dry run.
+
+**Deferred (infra-coupled).** The `capture_incident.sh` incident-window write (with
+`wait_event`/`sql_digest` from a currently blocking session) lands with that script in the
+Workshop Studio repo (Section 4.6, D7). The exact console time-window query-param format stays
+`[VERIFY]` until captured against the target console, so no time-window params are invented in
+the templates here.
 
 ### 6.4 Live-capture surfacing (D7)
 
 When `VERITY_LIVE_CAPTURE=1` and projection is ready, Investigate shows `LOCK-LIVE-*`
 results with a `LIVE` badge (styling: existing badge component, green); the citation list in
 Run proof renders the `workshop://live/...` URI. No new pages.
+
+**Deferred.** This surfacing lands with `capture_incident.sh` (Section 4.6) in the Workshop
+Studio repo. Not built in the application source; no phantom `LIVE` path exists here.
 
 ### 6.5 EXPLAIN affordance
 

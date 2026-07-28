@@ -1167,6 +1167,7 @@ def load_casework(
                   proof.traversal_results,
                   proof.transport_invocations,
                   proof.retrieval_candidates,
+                  proof.observability_refs,
                   proof.retrieval_runs,
                   proof.relevance_judgments,
                   proof.evaluation_queries,
