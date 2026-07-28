@@ -213,18 +213,9 @@ interface Candidate extends EvidenceSnapshot {
   evidence_snapshot?: EvidenceSnapshot;
 }
 
-interface MatchTier {
-  tier: number;
-  label: string;
-  count: number;
-  first_rank: number;
-  last_rank: number;
-}
-
 interface SearchResponse {
   run_id: string;
   results: Candidate[];
-  match_tiers?: MatchTier[];
 }
 
 interface Citation {
@@ -484,6 +475,7 @@ interface QueryPlanResponse {
   arm: 'semantic' | 'lexical' | 'fuzzy';
   query: string;
   cluster_id: string | null;
+  captured_at: string;
   plan: {
     Plan?: JsonRecord;
     'Planning Time'?: number;
@@ -930,27 +922,6 @@ const TIER_LABELS: Record<number, string> = {
 
 function tierLabel(tier: number): string {
   return TIER_LABELS[tier] || `Tier ${tier}`;
-}
-
-interface TierGroup {
-  tier: number;
-  count: number;
-  rows: Candidate[];
-}
-
-// `count` stays the tier's full size while `rows` is truncated, so a heading
-// never claims the tier holds only what the column had room to show.
-function groupByTier(candidates: Candidate[], visible: number): TierGroup[] {
-  const groups: TierGroup[] = [];
-  candidates.forEach((candidate, index) => {
-    const tier = matchTier(candidate);
-    const last = groups[groups.length - 1];
-    const group = last?.tier === tier ? last : { tier, count: 0, rows: [] };
-    if (group !== last) groups.push(group);
-    group.count += 1;
-    if (index < visible) group.rows.push(candidate);
-  });
-  return groups.filter((group) => group.rows.length);
 }
 
 // Read-only verification, never a client-side re-rank. Ranking lives in Aurora
@@ -1616,7 +1587,6 @@ function RetrievalArm({
   planBusy = false,
   emptyTitle = 'No candidates',
   emptyDetail = 'The arm returned an empty set.',
-  fused = false,
 }: {
   title: string;
   subtitle: string;
@@ -1629,10 +1599,9 @@ function RetrievalArm({
   planBusy?: boolean;
   emptyTitle?: string;
   emptyDetail?: string;
-  fused?: boolean;
 }) {
   return (
-    <section className={`retrieval-arm ${fused ? 'fused' : ''}`}>
+    <section className="retrieval-arm">
       <header>
         <div>
           <span className="section-label">{title}</span>
@@ -1665,26 +1634,6 @@ function RetrievalArm({
             title={emptyTitle}
             detail={emptyDetail}
           />
-        ) : fused ? (
-          groupByTier(candidates, 6).map((group) => (
-            <div className="tier-group" key={group.tier}>
-              <span className={`tier-heading tier-${group.tier}`}>
-                {group.tier === 1 ? <CircleDot size={11} /> : null}
-                {tierLabel(group.tier)}
-                <small>{group.count}</small>
-              </span>
-              {group.rows.map((candidate, index) => (
-                <CandidateRow
-                  key={`${candidate.evidence_id}-${index}`}
-                  candidate={candidate}
-                  rank={candidate.result_rank || index + 1}
-                  selected={candidate.evidence_id === selectedEvidenceId}
-                  diagnostic={diagnostic(candidate)}
-                  onSelect={() => onSelect(candidate)}
-                />
-              ))}
-            </div>
-          ))
         ) : (
           candidates.slice(0, 6).map((candidate, index) => (
             <CandidateRow
@@ -1781,6 +1730,12 @@ function QueryPlanDrawer({
           <b>Scope</b>
           {current?.cluster_id || 'all clusters'}
         </span>
+        {current?.captured_at ? (
+          <span className="query-plan-context">
+            <b>Captured on this cluster</b>
+            {dateTime(current.captured_at)}
+          </span>
+        ) : null}
         <button
           type="button"
           className="text-command"
@@ -2894,7 +2849,6 @@ export default function VerityApp() {
   function openQueryPlan(arm: QueryPlanResponse['arm']) {
     setModule('retrieve');
     setDiagnoseTab('results');
-    setControl('supportLead', false);
     setArmsOpen(true);
     setPlanOpen(true);
     void loadQueryPlan(arm);
@@ -3477,7 +3431,8 @@ export default function VerityApp() {
         {module === 'home' ? <LiveBanner health={health} /> : null}
         {module !== 'home' &&
         module !== 'retrieve' &&
-        activeSurface !== 'agent' ? (
+        activeSurface !== 'agent' &&
+        activeSurface !== 'proof' ? (
         <header className="chrome">
           <div className="chrome-inner">
           <button

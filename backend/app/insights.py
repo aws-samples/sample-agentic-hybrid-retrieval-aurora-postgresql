@@ -376,6 +376,8 @@ def query_plan(request: QueryPlanRequest) -> dict[str, Any]:
                     params,
                 )
                 payload = _plan_value(cursor.fetchone())
+                cursor.execute("SELECT clock_timestamp() AS captured_at")
+                captured_at = cursor.fetchone()["captured_at"]
     plan = payload[0] if isinstance(payload, list) else payload
     scans: list[dict[str, Any]] = []
     _collect_scans(plan["Plan"], scans)
@@ -391,6 +393,7 @@ def query_plan(request: QueryPlanRequest) -> dict[str, Any]:
         "arm": request.arm,
         "query": request.query,
         "cluster_id": request.cluster_id,
+        "captured_at": captured_at,
         "plan": plan,
         "scans": scans,
         "runtime_sql": _runtime_sql(request.arm, statement),
