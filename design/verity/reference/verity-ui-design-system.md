@@ -1,6 +1,6 @@
-# Verity UI — design system & screen set (v1, Jul 24 2026)
+# Hybrid Retrieval Workbench UI — design system & screen set (v1, Jul 24 2026)
 
-Concept-screen design language for **DAT410**, the 2026 RIV session on hybrid retrieval with Aurora PostgreSQL. Inherits the Traceline v2 palette and motifs (paper/ink/red-thread, Fraunces/Inter/Plex Mono) and re-points them at the Verity narrative (INC-2047 / CHG-1842 incident forensics).
+Concept-screen design language for **DAT410**, the 2026 RIV session on hybrid retrieval with Aurora PostgreSQL. Inherits the Traceline v2 palette and motifs (paper/ink/red-thread, Fraunces/Inter/Plex Mono) and re-points them at the Hybrid Retrieval Workbench narrative (INC-2047 / CHG-1842 incident forensics).
 
 Seven self-contained HTML mockups, cross-linked through a shared nav. Every file is standalone — no build step, no shared stylesheet, no external JS.
 

@@ -1,4 +1,4 @@
-# Verity — final Codex implementation package
+# Hybrid Retrieval Workbench — final Codex implementation package
 
 This package is the implementation source of truth for the DAT410 builders' session:
 

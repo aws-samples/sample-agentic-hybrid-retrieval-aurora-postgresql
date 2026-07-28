@@ -5,7 +5,7 @@ SPEC-session Section 10, G-13: for the smoke ``run_id``, execute every
 ``_verify_sql`` the API publishes and diff the replayed rows against the API JSON
 - zero mismatches.
 
-Law 2 (psql parity): nothing renders in the Verity workbench that cannot be
+Law 2 (psql parity): nothing renders in the Hybrid Retrieval Workbench that cannot be
 reproduced from psql with a ``run_id``. Every data panel returns a ``_verify_sql``
 descriptor - the exact statement the endpoint executed, from the one canonical
 registry (``backend/app/verify_sql.py``), not a hand-maintained twin. This gate is

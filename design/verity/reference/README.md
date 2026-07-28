@@ -11,7 +11,7 @@ Known issues in reference inputs:
 - seven-screen information architecture;
 - illustrative timings;
 - the Scale screen is deprecated from core;
-- old Threadline preview is not the Verity product UI;
+- old Threadline preview is not the Hybrid Retrieval Workbench product UI;
 - some files use mock data inline.
 
 The production contract is in `docs/VERITY-COMPLETE-CODEX-SPEC.md`.

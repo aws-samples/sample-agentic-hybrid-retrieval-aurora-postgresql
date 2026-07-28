@@ -76,7 +76,7 @@ async def lifespan(_: FastAPI):
 
 settings = get_settings()
 app = FastAPI(
-    title="Verity incident evidence API",
+    title="Hybrid Retrieval Workbench API",
     version="1.0.0",
     lifespan=lifespan,
 )

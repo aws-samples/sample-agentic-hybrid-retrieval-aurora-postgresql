@@ -1,4 +1,4 @@
-# Final Verity UI design
+# Final Hybrid Retrieval Workbench UI design
 
 ## Final information architecture
 

@@ -137,7 +137,9 @@ class Settings(BaseModel):
         )
     )
     app_display_name: str = Field(
-        default_factory=lambda: os.environ.get("APP_DISPLAY_NAME", "Verity")
+        default_factory=lambda: os.environ.get(
+            "APP_DISPLAY_NAME", "Hybrid Retrieval Workbench"
+        )
     )
     # Display identity for the live banner (SPEC 6.1, Law 1). The workshop conceit
     # is that the retrieval engine runs on the same Aurora cluster the incident is

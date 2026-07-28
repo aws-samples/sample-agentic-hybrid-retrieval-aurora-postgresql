@@ -1,8 +1,9 @@
-# Verity
+# Hybrid Retrieval Workbench
 
 **Agentic hybrid retrieval with Amazon Aurora PostgreSQL**
 
-Verity is the runnable reference application for DAT410 at AWS re:Invent 2026.
+Hybrid Retrieval Workbench is the runnable reference application for DAT410 at
+AWS re:Invent 2026.
 It investigates one controlled database incident by retrieving normalized
 incident, change, lock, support-case, and runbook evidence through Aurora
 PostgreSQL. Every ranked candidate, agent stage, answer, and citation is

@@ -1,4 +1,4 @@
-# Verity alternative UI directions
+# Hybrid Retrieval Workbench alternative UI directions
 
 Five additional product directions:
 

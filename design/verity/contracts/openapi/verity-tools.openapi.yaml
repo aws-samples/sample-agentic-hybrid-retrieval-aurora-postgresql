@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: Verity tool contracts
+  title: Hybrid Retrieval Workbench tool contracts
   version: 1.0.0
   description: >
-    Transport-neutral tool contracts for the Verity incident-evidence workbench.
+    Transport-neutral tool contracts for Hybrid Retrieval Workbench.
     Release packaging must replace the placeholder server URL with the deployed
     static endpoint before creating the AgentCore Gateway OpenAPI target.
     Operation IDs are contract-stable; renaming one is a contract-version change.
@@ -149,7 +149,7 @@ paths:
   /v1/agent/answer:
     post:
       operationId: answer_with_citations
-      summary: Run the complete inspectable Verity agent path.
+      summary: Run the complete inspectable Hybrid Retrieval Workbench agent path.
       requestBody:
         required: true
         content:
@@ -181,7 +181,7 @@ paths:
       summary: Read a persisted agent run - subquestions, coverage, escalations, budget spend.
       description: >
         Workbench read surface, NOT an agent tool. An agent never calls this; it is how the
-        Verity UI and a replaying participant fetch a completed proof.agent_runs row with
+        Hybrid Retrieval Workbench UI and a replaying participant fetch a completed proof.agent_runs row with
         its subquestions, retrieval attempts, coverage decisions and escalations. Every
         value it returns was persisted during the run, so a replay renders identically to
         the live run.

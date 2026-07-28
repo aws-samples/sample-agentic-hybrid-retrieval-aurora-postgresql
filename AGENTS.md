@@ -2,7 +2,8 @@
 
 ## Mission
 
-Extend Verity as an incident-evidence system, not as a generic chatbot.
+Extend Hybrid Retrieval Workbench as an incident-evidence system, not as a
+generic chatbot.
 Aurora PostgreSQL owns retrieval, ranking, relationship reads, citations,
 evaluation, and replayable proof. Operational systems remain authoritative for
 workflow, current permissions, mutable state, and actions.

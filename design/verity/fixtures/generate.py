@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Canonical numeric model for the Verity workshop fixtures.
+Canonical numeric model for the Hybrid Retrieval Workbench workshop fixtures.
 
 This file is the single source of truth for every number the workshop displays.
 Nothing downstream hardcodes an RRF value, a fused rank, or a final rank: they

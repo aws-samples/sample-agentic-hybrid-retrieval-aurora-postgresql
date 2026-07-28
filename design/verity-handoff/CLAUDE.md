@@ -1,7 +1,7 @@
-# CLAUDE.md — Verity / DAT410 session build
+# CLAUDE.md — Hybrid Retrieval Workbench / DAT410 session build
 
 You are building the assets for a re:Invent builders session: a live PostgreSQL locking
-incident (Lab 1), inspected in Database Insights, then investigated through Verity —
+incident (Lab 1), inspected in Database Insights, then investigated through Hybrid Retrieval Workbench —
 an agentic hybrid-retrieval system where Aurora PostgreSQL is the retrieval engine of
 record (Labs 2–4). Four browser tabs, four labs, engine-first.
 
@@ -11,7 +11,7 @@ record (Labs 2–4). Four browser tabs, four labs, engine-first.
    bootstrap stages S1–S9, shop schema, incident/loadgen scripts, Database Insights
    enablement, workbench deltas, agent & tooling stack (Section 7, T1–T12), guide,
    run-of-show, gates G-1..G-22, decisions D1–D15.
-2. **`docs/verity-implementation-spec.md`** — authoritative for Verity core: the
+2. **`docs/verity-implementation-spec.md`** — authoritative for Hybrid Retrieval Workbench core: the
    casework/retrieval/proof schemas, the six tool contracts, the /v1 API, the base
    workbench (its Section 13), models, fixtures, evaluation.
    **KNOWN DEFECT — do not implement as written:** its `fuzzy-change-id` acceptance
@@ -25,7 +25,7 @@ record (Labs 2–4). Four browser tabs, four labs, engine-first.
    workbench) and illustrative numbers (forbidden everywhere in the lab surface).
 
 Conflict rule: the session spec governs session assets; the implementation spec governs
-Verity core; explicit D-series decisions (D13, D14, D15) override both.
+Hybrid Retrieval Workbench core; explicit D-series decisions (D13, D14, D15) override both.
 
 ## Definition of done
 

@@ -42,7 +42,7 @@ def _write_readiness(receipts: dict[str, object]) -> Path | None:
     path = _readiness_path()
     body = "\n".join(
         [
-            "# Verity readiness report",
+            "# Hybrid Retrieval Workbench readiness report",
             "",
             f"smoke run_id: {run_id}",
             f"citation count: {receipts.get('citation_count')}",

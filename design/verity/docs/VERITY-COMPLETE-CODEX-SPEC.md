@@ -1,8 +1,8 @@
-# Verity complete implementation specification
+# Hybrid Retrieval Workbench complete implementation specification
 
 ## 0. Document status
 
-This document is the consolidated implementation contract for Verity, the incident-evidence workbench used in DAT410 at AWS re:Invent 2026.
+This document is the consolidated implementation contract for Hybrid Retrieval Workbench, the incident-evidence workbench used in DAT410 at AWS re:Invent 2026.
 
 - **Session:** Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
 - **Format:** Builders' session
@@ -10,7 +10,7 @@ This document is the consolidated implementation contract for Verity, the incide
 - **Presentation:** 10 minutes
 - **Hands-on:** 40 minutes across three modules
 - **Arrival, environment check, wrap, and reserve:** 10 minutes
-- **Product:** Verity — incident-evidence workbench
+- **Product:** Hybrid Retrieval Workbench — Aurora PostgreSQL incident evidence
 - **Corpus:** controlled synthetic operational evidence
 - **Primary database:** Amazon Aurora PostgreSQL
 - **Core managed extension:** Amazon Bedrock AgentCore Gateway, used only for tool-contract portability in Module 3
@@ -22,7 +22,7 @@ Source code, SQL, tests, API responses, and measured release receipts are author
 
 ## 1. Final product thesis
 
-Verity is not a generic chatbot and not broad enterprise search.
+Hybrid Retrieval Workbench is not a generic chatbot and not broad enterprise search.
 
 It is an incident-evidence workbench that demonstrates how Aurora PostgreSQL can provide:
 
@@ -59,9 +59,9 @@ It must not become another architecture branch or provisioning exercise.
 
 - pre-provisioned AgentCore Gateway;
 - one OpenAPI 3.x definition with stable `operationId` values;
-- a managed MCP endpoint exposing the same Verity tool contracts;
+- a managed MCP endpoint exposing the same Hybrid Retrieval Workbench tool contracts;
 - a parity exercise comparing HTTP, local stdio MCP, and Gateway results;
-- Gateway transport/trace metadata recorded separately from Verity proof data.
+- Gateway transport/trace metadata recorded separately from Hybrid Retrieval Workbench proof data.
 
 ### Excluded from the participant path
 
@@ -262,7 +262,7 @@ Bedrock never becomes a retrieval authority and never overwrites Aurora diagnost
 
 ### AgentCore Gateway owns
 
-- managed MCP exposure of existing Verity tools;
+- managed MCP exposure of existing Hybrid Retrieval Workbench tools;
 - transport authentication and Gateway observability in Workshop Studio.
 
 Gateway does not own the tool implementation, retrieval logic, proof receipt, ranking, or evidence.
@@ -1289,7 +1289,7 @@ Two consequences worth stating plainly:
   whether the index is RAM-resident, which §18.3 shows is worth 4–9× throughput. Vector
   type selection is a memory-residency decision disguised as a precision decision.
 
-Verity uses `vector(1024)`, which is comfortably inside the cap. The table is here so
+Hybrid Retrieval Workbench uses `vector(1024)`, which is comfortably inside the cap. The table is here so
 that a participant scaling this design to a wider embedding knows where the wall is.
 
 ### 11.1 Three fusion arms, four UI columns
@@ -1374,7 +1374,7 @@ SELECT current_setting('hnsw.iterative_scan', true) IS NOT DISTINCT FROM 'strict
 ### 11.4 Why `strict_order`, not `relaxed_order`
 
 `relaxed_order` is faster but pgvector documents that it may return results **slightly
-out of distance order**. Verity persists `vector_position` into the candidate receipt,
+out of distance order**. Hybrid Retrieval Workbench persists `vector_position` into the candidate receipt,
 replays runs from it, and compares it byte-for-byte across three transports. An
 ordering that is allowed to vary cannot support any of that.
 
@@ -2217,7 +2217,7 @@ Completion proof:
   them as `${targetName}___${operationId}` and the normalizer stripping that prefix;
 - all transports call the same canonical service;
 - semantic result parity passes;
-- transport trace IDs differ, Verity proof semantics do not;
+- transport trace IDs differ, Hybrid Retrieval Workbench proof semantics do not;
 - Gateway adds a managed MCP surface without moving retrieval out of Aurora.
 
 First cut if behind: Module 3.

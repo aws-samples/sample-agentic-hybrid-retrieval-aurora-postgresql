@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Verify that the Verity tool contract produces the same semantic result over
+Verify that the Hybrid Retrieval Workbench tool contract produces the same semantic result over
 HTTP/FastAPI, local stdio MCP, and an Amazon Bedrock AgentCore Gateway target.
 
 This script exists to make one claim credible:
@@ -246,7 +246,7 @@ def load(path: str | Path) -> dict:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Compare Verity tool outputs across transports.")
+    p = argparse.ArgumentParser(description="Compare Hybrid Retrieval Workbench tool outputs across transports.")
     p.add_argument("--http", default=ROOT / "fixtures/captures/http.json")
     p.add_argument("--mcp", default=ROOT / "fixtures/captures/mcp.json")
     p.add_argument("--agentcore", default=ROOT / "fixtures/captures/agentcore.json")

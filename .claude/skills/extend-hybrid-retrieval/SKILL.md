@@ -1,6 +1,6 @@
 ---
 name: extend-hybrid-retrieval
-description: Extend and diagnose Verity's Aurora PostgreSQL incident-evidence retrieval. Use for search index builds, full-text or pgvector retrieval, pg_trgm fuzzy matching, filters and ACLs, weighted RRF, Cohere reranking, citations, receipts, traversal, or evaluation.
+description: Extend and diagnose Hybrid Retrieval Workbench's Aurora PostgreSQL incident-evidence retrieval. Use for search index builds, full-text or pgvector retrieval, pg_trgm fuzzy matching, filters and ACLs, weighted RRF, Cohere reranking, citations, receipts, traversal, or evaluation.
 ---
 
 # Extend Hybrid Retrieval

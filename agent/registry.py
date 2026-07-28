@@ -1,4 +1,4 @@
-"""The one place Verity's agent tools are defined (T4).
+"""The one place Hybrid Retrieval Workbench's agent tools are defined (T4).
 
 Seven tools live here: the six the model can reason about plus
 ``answer_with_citations``, the whole-loop tool the managed transports expose. A

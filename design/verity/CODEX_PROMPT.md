@@ -1,6 +1,6 @@
 # Codex implementation prompt
 
-You are working in the Verity repository for DAT410, an AWS re:Invent builders' session titled **Build agentic hybrid retrieval with Amazon Aurora PostgreSQL**.
+You are working in the Hybrid Retrieval Workbench repository for DAT410, an AWS re:Invent builders' session titled **Build agentic hybrid retrieval with Amazon Aurora PostgreSQL**.
 
 Implement the repository according to `docs/VERITY-COMPLETE-CODEX-SPEC.md`.
 

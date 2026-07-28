@@ -2,8 +2,8 @@
 
 ## Document Status
 
-This document specifies the Verity application currently implemented in this
-repository for DAT410 at AWS re:Invent 2026.
+This document specifies Hybrid Retrieval Workbench as currently implemented in
+this repository for DAT410 at AWS re:Invent 2026.
 
 - **Session:** DAT410, Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
 - **Level:** 400
@@ -20,7 +20,8 @@ or customer record.
 
 ## 1. Product Contract
 
-Verity is an incident-evidence system, not a generic chatbot.
+Hybrid Retrieval Workbench is an incident-evidence system, not a generic
+chatbot.
 
 Amazon Aurora PostgreSQL owns:
 

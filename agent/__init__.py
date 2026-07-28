@@ -1,4 +1,4 @@
-"""Single source of truth for Verity's agent tool contract (T4).
+"""Single source of truth for Hybrid Retrieval Workbench's agent tool contract (T4).
 
 The six model-facing tools plus the full-loop ``answer_with_citations`` are
 defined once in :mod:`agent.registry`. The Strands tool specs, the stdio MCP

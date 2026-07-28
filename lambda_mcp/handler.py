@@ -1,4 +1,4 @@
-"""Lambda adapter for Verity's AgentCore Gateway MCP tools.
+"""Lambda adapter for Hybrid Retrieval Workbench's AgentCore Gateway MCP tools.
 
 Workshop Studio owns the Lambda function, IAM permissions, Gateway, and target.
 This module keeps the managed boundary on the same application functions and

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Invoke Verity's managed AgentCore Gateway with the current AWS identity."""
+"""Invoke Hybrid Retrieval Workbench's managed AgentCore Gateway with the current AWS identity."""
 
 from __future__ import annotations
 
@@ -101,7 +101,7 @@ def _text_result(response: dict[str, Any]) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Prove Verity's Aurora retrieval contract through AgentCore Gateway."
+        description="Prove Hybrid Retrieval Workbench's Aurora retrieval contract through AgentCore Gateway."
     )
     parser.add_argument(
         "--query",

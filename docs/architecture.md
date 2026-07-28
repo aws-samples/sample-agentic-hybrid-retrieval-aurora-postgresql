@@ -2,8 +2,9 @@
 
 ## System Boundary
 
-Verity is an evidence system, not a general chatbot and not a replacement for
-an incident-management, change-management, support, or observability system.
+Hybrid Retrieval Workbench is an evidence system, not a general chatbot and not
+a replacement for an incident-management, change-management, support, or
+observability system.
 
 ```text
 Operational systems or normalized domain tables

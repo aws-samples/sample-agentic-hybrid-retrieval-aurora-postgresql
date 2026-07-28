@@ -26,7 +26,7 @@ opens:
 - Code Editor and the immutable workshop source;
 - 15,017 indexed evidence documents and 15,017 Cohere embeddings;
 - B-tree, GIN full-text, GIN trigram, and HNSW indexes;
-- FastAPI and the Verity React application;
+- FastAPI and the Hybrid Retrieval Workbench frontend;
 - configured Bedrock embedding, reranking, and synthesis models; and
 - AgentCore Gateway with a stateless Lambda MCP target when the managed
   exercise passes its release gate.
@@ -289,7 +289,8 @@ environment, but the workshop is not publication-ready until:
 2. the packaged source archive is rebuilt from an immutable tested revision;
 3. every participant step passes in a fresh Workshop Studio account;
 4. model access and quotas pass under the participant role;
-5. the managed Gateway exercise returns current Verity evidence;
+5. the managed Gateway exercise returns current Hybrid Retrieval Workbench
+   evidence;
 6. the filtered-ANN exercise has literal prepared plans;
 7. a genuine `release_aurora` lock capture and observability evidence is
    produced, or those claims are removed; and

@@ -8,7 +8,7 @@ Participants do not create or configure Gateway resources.
 
 ## Release-author flow
 
-1. Deploy the Verity HTTP API at a static HTTPS endpoint.
+1. Deploy the Hybrid Retrieval Workbench HTTP API at a static HTTPS endpoint.
 2. Copy `contracts/openapi/verity-tools.openapi.yaml`.
 3. Replace the placeholder `servers[0].url`.
 4. Validate the OpenAPI document.

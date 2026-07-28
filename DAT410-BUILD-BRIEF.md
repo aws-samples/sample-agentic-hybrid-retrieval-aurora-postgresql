@@ -4,7 +4,7 @@
 **Title:** Build agentic hybrid retrieval with Amazon Aurora PostgreSQL  
 **Format:** Builders' session, strict 60 minutes  
 **Level:** 400  
-**Application:** Verity  
+**Application:** Hybrid Retrieval Workbench<br>
 **Scenario:** Synthetic application incident running on Aurora PostgreSQL  
 **Last evidence audit:** July 25, 2026
 
@@ -31,7 +31,7 @@ inspectable retrieval path that:
    duplicating ranking logic.
 
 The workshop is not a generic chatbot lab. The durable product is the search
-and proof contract. Verity is its inspection UI.
+and proof contract. Hybrid Retrieval Workbench is its inspection UI.
 
 ## 2. Evidence Labels
 
@@ -369,7 +369,7 @@ The public read and proof surface includes:
 
 There is no generic source-object write API.
 
-### Verity UI
+### Hybrid Retrieval Workbench UI
 
 The UI uses a persistent incident-oriented navigation:
 
@@ -391,8 +391,9 @@ candidate scores, relationships, or citations.
 ### Managed tool contract
 
 Workshop Studio provisions an `AWS_IAM`-authorized Amazon Bedrock AgentCore
-Gateway and a stateless Lambda MCP target. The target calls Verity's private API
-and records transport metadata. Aurora still owns retrieval and proof.
+Gateway and a stateless Lambda MCP target. The target calls Hybrid Retrieval
+Workbench's private API and records transport metadata. Aurora still owns
+retrieval and proof.
 
 The Gateway is not a second search implementation and Gateway authorization
 does not replace row-level evidence authorization.
@@ -407,7 +408,7 @@ Every required exercise ends with a receipt that participants can inspect.
 
 Participants:
 
-1. open Code Editor and Verity;
+1. open Code Editor and Hybrid Retrieval Workbench;
 2. run `make doctor`;
 3. confirm Aurora PostgreSQL, extensions, model space, search index count, and
    zero drift; and
@@ -776,7 +777,7 @@ it.
 - a fresh participant completes the core in 60 minutes;
 - no participant provisions Aurora or generates 15,000 embeddings;
 - every command uses current `casework`, `retrieval`, and `proof` contracts;
-- screenshots match the current Verity UI;
+- screenshots match the current Hybrid Retrieval Workbench UI;
 - no required step depends on a facilitator's private environment; and
 - cut lines preserve the cited-answer and replay outcome.
 
@@ -835,7 +836,7 @@ The workshop does not claim:
 | `backend/app/` | Search index, embeddings, retrieval, rerank, tools, synthesis, and proof APIs |
 | `sql/` | Schema, indexes, search, diagnostics, receipts, traversal, and evaluation |
 | `seed/` | Deterministic incident corpus and capture tooling |
-| `frontend/` | Verity incident-evidence workbench |
+| `frontend/` | Hybrid Retrieval Workbench UI |
 | `lambda_mcp/` | Stateless AgentCore Gateway target |
 | `mcp-server/` | Optional stdio MCP adapter |
 | Sibling Workshop Studio repository | CloudFormation, IAM, Code Editor, participant guides, screenshots, Gateway deployment, and packaged source archive |

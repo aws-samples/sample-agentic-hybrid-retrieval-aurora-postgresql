@@ -492,9 +492,14 @@ button:disabled {
 
 .brand-copy strong,
 .mobile-brand {
-  font: 700 13px/1 var(--mono);
-  letter-spacing: 0.2em;
+  font: 700 13px/1.2 var(--mono);
+  letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.brand-copy strong {
+  max-width: 18ch;
+  overflow-wrap: normal;
 }
 
 .brand-copy small {
@@ -545,13 +550,13 @@ button:disabled {
 
 .side-nav > button.active,
 .side-nav-group > button.active {
-  color: #fff;
+  color: var(--clay);
   background: var(--ink);
 }
 
 .side-nav > button.active span,
 .side-nav-group > button.active span {
-  color: #f2b8a9;
+  color: var(--clay);
 }
 
 .side-nav-divider {
@@ -3861,7 +3866,9 @@ td span {
 
 .home-copy h1 span {
   display: block;
-  font-size: 88px;
+  max-width: 12ch;
+  font-size: 68px;
+  line-height: 1;
   font-weight: 600;
 }
 
@@ -4848,7 +4855,7 @@ td span {
   }
 
   .home-copy h1 span {
-    font-size: 72px;
+    font-size: 58px;
   }
 
   .home-thread-scene {
@@ -5084,7 +5091,7 @@ td span {
   }
 
   .home-copy h1 span {
-    font-size: 64px;
+    font-size: 52px;
   }
 
   .home-copy > p {
@@ -5202,7 +5209,7 @@ td span {
   }
 
   .home-copy h1 span {
-    font-size: 68px;
+    font-size: 56px;
   }
 
   .home-thread-scene {
@@ -5402,7 +5409,7 @@ td span {
   }
 
   .home-copy h1 span {
-    font-size: 54px;
+    font-size: 44px;
   }
 
   .home-copy > p {
@@ -9079,7 +9086,7 @@ td span {
   }
 
   .journey-strip small {
-    font-size: 10px;
+    display: none;
   }
 
   .final-ranked-primary {

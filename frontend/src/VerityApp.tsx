@@ -574,7 +574,7 @@ interface Controls {
 const API_BASE = (
   import.meta.env.VITE_RETRIEVAL_API_URL || 'http://127.0.0.1:8000'
 ).replace(/\/$/, '');
-const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'Verity';
+const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'Hybrid Retrieval Workbench';
 const DEFAULT_QUERY =
   'Why did CHG-1842 block checkout writes during INC-2047, which visible customer was affected, and what was the safe fix?';
 
@@ -4142,13 +4142,13 @@ export default function VerityApp() {
             className="brand"
             type="button"
             onClick={() => goTo('overview')}
-            aria-label="Open Verity overview"
-            title={navCollapsed ? 'Open Verity overview' : undefined}
+            aria-label="Open Hybrid Retrieval Workbench overview"
+            title={navCollapsed ? 'Open Hybrid Retrieval Workbench overview' : undefined}
           >
             <VerityMark />
             <span className="brand-copy">
               <strong>{APP_NAME}</strong>
-              <small>incident-evidence workbench</small>
+              <small>Aurora PostgreSQL</small>
             </span>
           </button>
           <button
@@ -4302,7 +4302,7 @@ export default function VerityApp() {
               className="mobile-brand"
               type="button"
               onClick={() => setModule('home')}
-              aria-label="Open Verity overview"
+              aria-label="Open Hybrid Retrieval Workbench overview"
             >
               <VerityMark />
               <span>{APP_NAME}</span>
@@ -5518,9 +5518,9 @@ LIMIT ${appliedControls.limit};`}</code>
                         </span>
                         <h2>One claim still needs evidence.</h2>
                         <p className="answer-gate-lead">
-                          Verity has evidence for cause and visible customer
-                          impact. It will not release the safe-fix claim until{' '}
-                          <code>RB-017</code> enters the cited set.
+                          Hybrid Retrieval Workbench has evidence for cause and
+                          visible customer impact. It will not release the safe-fix
+                          claim until <code>RB-017</code> enters the cited set.
                         </p>
                         <section className="answer-recovery">
                           <div>
@@ -5689,9 +5689,9 @@ LIMIT ${appliedControls.limit};`}</code>
                         <span className="answer-gate-count">Answer withheld</span>
                         <h2>The evidence gate did not pass.</h2>
                         <p className="answer-gate-lead">
-                          Verity will not present agent commentary as an answer
-                          of record. Review the observable calls below, then retry
-                          the bounded recovery.
+                          Hybrid Retrieval Workbench will not present agent
+                          commentary as an answer of record. Review the observable
+                          calls below, then retry the bounded recovery.
                         </p>
                         <button
                           type="button"

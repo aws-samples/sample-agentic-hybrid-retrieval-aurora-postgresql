@@ -1,9 +1,9 @@
 # SPEC — DAT410 three-surface builders session
-## "Terminal → Database Insights → Verity" · live incident + evidence lab
+## "Terminal → Database Insights → Hybrid Retrieval Workbench" · live incident + evidence lab
 
 Version: draft-13 · Jul 26 2026 — crew-of-five floor model (D10), review brief added to bundle
 Audience of this document: a coding agent (Claude Code / Codex) building the session assets, plus facilitators.
-Companion documents: the Verity implementation spec (authoritative for schemas, tools, API, workbench base), `verity-ui-design-system.md` (visual language), the seven concept screens (talk assets only — see D9).
+Companion documents: the Hybrid Retrieval Workbench implementation spec (authoritative for schemas, tools, API, workbench base), `verity-ui-design-system.md` (visual language), the seven concept screens (talk assets only — see D9).
 
 ---
 
@@ -15,7 +15,7 @@ One browser, four tabs, four labs, one direction:
 TAB 1  Guide             (Workshop Studio)      — the script of the session
 TAB 2  Editor/terminal   (code-server)          — Lab 1 home; parity flips in Labs 2–4
 TAB 3  Database Insights (CloudWatch console)   — Lab 1 only
-TAB 4  Verity workbench  (live, cluster-backed) — Labs 2–4 home
+TAB 4  Hybrid Retrieval Workbench  (live, cluster-backed) — Labs 2–4 home
 
 LAB 1  INCIDENT & OBSERVABILITY   trigger CHG-1842, watch it live in DBI, fix with CIC
 LAB 2  HYBRID RETRIEVAL           the engine — exact / fuzzy / semantic archetypes,
@@ -35,7 +35,7 @@ retrieval is the engine, not the loop.
 The participant **is** the engineer who runs CHG-1842. They trigger the incident on their own
 cluster (same table, same column, same statement as the corpus fixture), watch it in Database
 Insights while it is still blocking, fix it with `CREATE INDEX CONCURRENTLY`, and then
-investigate the *synthetic, three-weeks-later* version of the same incident through Verity's
+investigate the *synthetic, three-weeks-later* version of the same incident through Hybrid Retrieval Workbench's
 agentic retrieval — receipts, ACL, graph, replay.
 
 **The canonical question** (verbatim everywhere, Law 1): *"Why did CHG-1842 block checkout
@@ -45,7 +45,7 @@ writes during INC-2047, which visible customer was affected, and what was the sa
 use identical identifiers: `shop.orders`, `customer_id`, `idx_orders_customer`,
 `Lock:relation`, `CHG-1842`, `INC-2047`. Any new name is a defect.
 
-**Law 2 — psql parity.** Nothing renders in the Verity workbench that cannot be reproduced
+**Law 2 — psql parity.** Nothing renders in the Hybrid Retrieval Workbench that cannot be reproduced
 from psql with a `run_id`. Every panel carries a "Verify in psql" affordance (Section 6.2). The
 empty-database test (Section 10 G-14) enforces that no number is hardcoded.
 
@@ -56,7 +56,7 @@ during the verify beats of Labs 2 and 4 — brief, guide-scripted, and the point
 Every transition is a deep link in the guide, never free navigation.
 
 **Law 4 — Observability vs evidence, said out loud.** The Lab 1 → Lab 2 transition line:
-*"Database Insights showed you the incident while it was happening. Verity is what remains
+*"Database Insights showed you the incident while it was happening. Hybrid Retrieval Workbench is what remains
 when it's over — durable, queryable, citable."* This sentence is in the guide and the
 speaker notes.
 
@@ -70,16 +70,16 @@ speaker notes.
 | **D2** | **Bootstrap runs everything else**: infra, params, corpus, embeddings, shop seed, baseline load generator, calibration, one **prime run** of the incident (flag `PRIME_INCIDENT=1`, default on), workbench build + smoke, readiness report. | Prime run gives DBI historical Top-SQL/plan/wait data as facilitator fallback, and proves the incident path works in this account before doors open. Everything slow, flaky, or credentialed is pre-baked; the participant path contains zero provisioning. |
 | **D3** | **The incident script has a deadman**: auto-cancel of the blocking build at `INCIDENT_TTL` (default 480 s). Participants are *expected* to cancel it themselves first. | Nobody wedges a cluster and raises a hand mid-session. |
 | **D4** | **Baseline load generator starts at bootstrap and runs continuously** (systemd). | DBI needs minutes-to-hours of aggregation for a credible "before" picture, including the slow seq-scan query that *motivates* CHG-1842. |
-| **D5** | The in-room UI is the **live workbench** (Verity spec Section 13 + deltas in Section 6). The seven synthetic concept screens appear only in the 15-minute talk and the deck. | A single hardcoded number in the lab discounts the whole surface (Law 2). |
+| **D5** | The in-room UI is the **live workbench** (Hybrid Retrieval Workbench spec Section 13 + deltas in Section 6). The seven synthetic concept screens appear only in the 15-minute talk and the deck. | A single hardcoded number in the lab discounts the whole surface (Law 2). |
 | **D6** | No RDS Proxy, Lambda, or Gateway in the participant path. Workbench backend connects with a native driver directly to the cluster (needs `SET LOCAL` ANN controls + `EXPLAIN`). Proxy/Gateway remain talk content. | Fewer live failure modes; the transaction-local ANN story requires a plain session anyway. |
-| **D7** | Live-incident capture into Verity is a **feature-flagged stretch** (`VERITY_LIVE_CAPTURE=1`, default off in the room until rehearsed green). See Section 4.6. | Best 90 seconds of the session if it works; cannot hurt if it doesn't. |
+| **D7** | Live-incident capture into Hybrid Retrieval Workbench is a **feature-flagged stretch** (`VERITY_LIVE_CAPTURE=1`, default off in the room until rehearsed green). See Section 4.6. | Best 90 seconds of the session if it works; cannot hurt if it doesn't. |
 | **D8** | Ordinary-build cancel leaves **no** INVALID index (that is a failed-CIC artifact). The INVALID demo is an optional exploration in the guide appendix, not the core path. | Technical accuracy; RB-017's cleanup clause stays truthful. |
 | **D9** | Lab 1 ≤ 19 min of the 45-min lab; Labs 2–4 get ≥ 24 min. Cut-ladder: Lab 4 merges into Lab 3 if late; within Lab 1, DBI check 3 compresses first; **Lab 2 is never cut**. Overrun theory (locks, CIC) moves into the DBI lead's talk segment, not lab time. | The incident is the on-ramp; the engine is the session. |
 | **D10** | Presenter mapping: Shayon owns Labs 2–3 and the trigger; **the DBI lead owns the DBI segment of Lab 1** plus the lock/CIC theory beat, and plays **auditor** in the Lab 2 and Lab 4 parity beats ("pick any number on any screen"). **Crew of five**: two voices on stage per lab — never three — and three on the floor with named jobs: **F1** resets (`reset.sh` authority, wedged participants), **F2** DBI/IAM triage + deep-link fallback, **F3** flags + the demo-of-last-resort cluster. Roles are assigned by name in the rehearsal timing sheet. | Voice change signals surface change; the audit role converts the skeptic. At room scale the floor is where sessions are saved — an unowned failure is a failure that eats stage time. |
 | **D11** | **Engine-first ordering**: Lab 2 (arms + fusion) precedes Lab 3 (agent). | The agent's trace is only legible after the arms are understood; agent-first re-treads what managed agentic retrieval now does in one API call; the session's claim — Aurora as retrieval engine of record — is engine-shaped. |
 | **D12** | Lab names are canonical and Law 1 applies to them: **Incident & observability / Hybrid retrieval / Agentic retrieval / Proof & replay** — verbatim in guide pages, slides, script banners, and speaker notes. | Labs 2–3 decompose the session title ("agentic hybrid retrieval") into its two halves in teaching order; Labs 1 and 4 name the on-ramp and the differentiator. |
 | **D13** | **Single-LLM policy**: one generation model for both synthesis and free mode — `claude-sonnet-5` (Converse, Global CRIS). No Opus-class model; no second LLM as throttle fallback (the extractive fallback + replay are the degradation path). Per answer: **one LLM, three model invocations** (embed · rerank · synthesize). | The engine does the reasoning-shaped work; the model writes it down — "Sonnet is enough" *is* the thesis. One model string = one quota request, one lifecycle check, easier room-scale throughput. Opus would stretch the dominant latency stage for no measurable gain in a ≤8-evidence-block synthesis. |
-| **D14** | **Identifier arithmetic**: ticket numbers stay irregular (no CHG-1000-style rounds); the typo fixture is a **letter transposition, `CGH-1842`** — corrupt the letters, keep the digit block intact. Normalization for the trigram arm is lowercase with **separators preserved**. Digit transposition (`CHG-1482`) is banned. | Measured on a live engine: `chg-1482` is a six-way tie at 0.3846 across every `chg-1*` record (digit transposition destroys all interior digit trigrams); `cgh-1842` is unique at 0.5000 with runner-up 0.2000. Round numbers put the nearest distractor at 0.2857 — one background ID from the 0.30 threshold (the documented CHG-0100 ≡ 0.5000 bug class). Stripping the hyphen drops the letter-transposition margin to 0.3333. Only one ID is ever hand-typed in the session (the typo itself); memorability lives in the incident, not the digits. **Upstream: the base Verity spec's `fuzzy-change-id` acceptance line needs the same correction.** |
+| **D14** | **Identifier arithmetic**: ticket numbers stay irregular (no CHG-1000-style rounds); the typo fixture is a **letter transposition, `CGH-1842`** — corrupt the letters, keep the digit block intact. Normalization for the trigram arm is lowercase with **separators preserved**. Digit transposition (`CHG-1482`) is banned. | Measured on a live engine: `chg-1482` is a six-way tie at 0.3846 across every `chg-1*` record (digit transposition destroys all interior digit trigrams); `cgh-1842` is unique at 0.5000 with runner-up 0.2000. Round numbers put the nearest distractor at 0.2857 — one background ID from the 0.30 threshold (the documented CHG-0100 ≡ 0.5000 bug class). Stripping the hyphen drops the letter-transposition margin to 0.3333. Only one ID is ever hand-typed in the session (the typo itself); memorability lives in the incident, not the digits. **Upstream: the base Hybrid Retrieval Workbench spec's `fuzzy-change-id` acceptance line needs the same correction.** |
 | **D15** | **AgentCore posture — compose vs replace.** Exactly one component enters the participant path: **Gateway**, as optional module **M5** (post-Lab-4 / fast finishers / take-home), pre-provisioned by bootstrap behind `VERITY_GATEWAY=1` (default 0), never built live (the M5 forwarder Lambda sits outside the timed lab path, so D6 stands). M5 terminates in a **receipt diff**: the canonical question over Gateway MCP vs stdio → identical candidates and citations, diffed in psql. Runtime, Identity, Policy, Memory, and Evaluations stay slides; the Policy slide carries one line — *"Policy decides which tools may be called; Aurora decides which rows exist."* | Gateway *composes* with the engine thesis (a managed tool plane over your engine); managed retrieval *replaces* it — compose gets a module, replace gets a positioning slide. A second live enforcement plane would blur the ACL moment (CASE-7421 is denied by the database, at every arm and hop). Audit-safe because M5's claim is database-verifiable: zero differing rows — and it carries two engine beats: `SET LOCAL` ANN GUCs surviving any transport, and Gateway→Lambda fan-out as where the RDS Proxy discussion attaches. |
 | **D16** | **Overview-first IA — nav mirrors the labs.** The workbench opens on an **Overview** anchored on the canonical question and the current run; primary nav is the lab ladder — **Overview / Retrieval / Agent / Proof** — with Corpus, Evaluation, and Health demoted to utility nav. One lab = one primary surface; every guide checkpoint state is **URL-addressable** (Section 6.0); the run_id chip is the persistent breadcrumb; drill depth ≤ 2 (surface → inline drawer). Supersedes the base spec's Investigate / Run proof / Corpus / Evaluation shell — shell only; panel contracts unchanged. | Tension with the labs is translation cost: if the guide says "Hybrid retrieval" and the nav says "Investigate," every participant pays it at every transition. Nav labels that repeat the lab nouns (Law 1 extended to navigation) make the workbench the labs' surface rather than a fifth thing to learn — and addressable routes let the guide land people on a checkpoint instead of narrating clicks. |
 | **D17** | **Takeaway packaging.** Participants leave with two artifacts: the repo (baseline) and an **Agent Skill** — `skills/aurora-hybrid-retrieval/` — packaging the method for reuse on the customer's own schema: canonical fusion SQL templates (numeric-cast and COALESCE correctness baked in, `%`-operator trigram, ACL-inside-every-arm), the gotcha registry (E1, E2, E6, E7; D14 normalization; 1024-d pinning), the receipts DDL, the eval-harness scripts, and a gates checklist the skill **instructs the consuming agent to run**. Authored last, distilled from the final guide and gates. The MCP server and workbench remain demo artifacts, not the takeaway. | A tool executes against fixed assumptions; a skill transfers judgment and adapts to their tables. Skills are an open, portable format, so the takeaway works in Claude Code on Bedrock — the room's own environment. It passes the auditor test because it is guidance that verifies itself: the skill's first instruction is to run the shipped assertions, not to trust the prose. |
@@ -93,12 +93,12 @@ speaker notes.
 
 - 1 × Aurora PostgreSQL cluster (target engine per release gate #1; pgvector ≥ 0.8 with
   `iterative_scan` — hard requirement), 1 writer instance. Readers optional; not in lab path.
-- 1 × EC2 instance running code-server (browser VS Code + terminal), the Verity backend
+- 1 × EC2 instance running code-server (browser VS Code + terminal), the Hybrid Retrieval Workbench backend
   (FastAPI, port 8000) and frontend (static build served by the backend), bootstrap artifacts.
 - **Tab-4 exposure**: the workbench is reached through the same authenticated front door as
   code-server (its `/proxy/8000/` path or the event ALB/CloudFront route) — never a raw
   public port. `[VERIFY mechanism in the Workshop Studio template]` (open item 9).
-- Bedrock model access: Cohere Embed 4, Rerank 3.5, Claude (per Verity spec Section 3), pre-enabled
+- Bedrock model access: Cohere Embed 4, Rerank 3.5, Claude (per Hybrid Retrieval Workbench spec Section 3), pre-enabled
   by Workshop Studio account config.
 - CloudWatch **Database Insights Advanced** enabled on the cluster (Section 5.1).
 - Participant IAM role: DBI/CloudWatch read (Section 5.3), no RDS mutate beyond connect.
@@ -122,7 +122,7 @@ S1  infra-verify     CFN outputs present; psql connects; extensions vector/pg_tr
 S2  params           Apply + verify DBI-related parameters (Section 5.2). Reboot if any is static.
                      Assert with SHOW after apply. THIS RUNS BEFORE ANY DATA so a reboot is free.
 S3  verity-schemas   casework/retrieval/proof DDL + synthetic corpus + embeddings + projection
-                     (existing Verity bootstrap, unchanged). Ends with assert_projection_ready().
+                     (existing Hybrid Retrieval Workbench bootstrap, unchanged). Ends with assert_projection_ready().
 S4  shop-seed        Section 3.1 DDL + server-side seed (generate_series). Target: orders=ORDER_ROWS.
                      Records actual row count + table size in the readiness report.
 S5  loadgen          Install + start systemd units verity-loadgen-reads / -writes (Section 3.3).
@@ -426,9 +426,9 @@ Free navigation is never required (Law 3).
 
 ---
 
-## 6. Surface D — Verity workbench deltas (Labs 2–4)
+## 6. Surface D — Hybrid Retrieval Workbench deltas (Labs 2–4)
 
-Base = Verity spec Section 13 (Investigate / Run proof / Corpus / Evaluation; no remote fonts;
+Base = Hybrid Retrieval Workbench spec Section 13 (Investigate / Run proof / Corpus / Evaluation; no remote fonts;
 dense, operational). This section specifies only the deltas.
 
 ### 6.0 Information architecture — overview-first (D16)
@@ -676,7 +676,7 @@ demo-of-last-resort.
 
 ---
 
-## 10. Gates (numbered, testable; extend the Verity release-gate list)
+## 10. Gates (numbered, testable; extend the Hybrid Retrieval Workbench release-gate list)
 
 - **G-1** Target Aurora engine + pgvector version pinned; `iterative_scan` accepted and
   effective (not the <0.8 silent-WARNING trap) — asserted in S1.

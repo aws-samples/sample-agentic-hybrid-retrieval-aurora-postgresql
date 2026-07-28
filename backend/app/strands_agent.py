@@ -1,6 +1,6 @@
 """A Strands agent that chooses and sequences the Aurora evidence tools.
 
-Verity exposes two answer paths over the same tools and the same Aurora SQL:
+Hybrid Retrieval Workbench exposes two answer paths over the same tools and the same Aurora SQL:
 
 - the deterministic pipeline in :func:`backend.app.agent.answer_question`, which
   calls the tools in a fixed order. Evaluation and replay use it, because a

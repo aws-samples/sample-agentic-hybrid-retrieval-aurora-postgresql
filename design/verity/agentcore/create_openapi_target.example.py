@@ -32,7 +32,7 @@ client = boto3.client("bedrock-agentcore-control", region_name=REGION)
 response = client.create_gateway_target(
     gatewayIdentifier=GATEWAY_ID,
     name="verity-openapi-tools",
-    description="Verity tool contracts exposed through a managed MCP endpoint",
+    description="Hybrid Retrieval Workbench tool contracts exposed through a managed MCP endpoint",
     targetConfiguration={
         "mcp": {
             "openApiSchema": {
@@ -52,7 +52,7 @@ response = client.create_gateway_target(
     },
     credentialProviderConfigurations=[
         {
-            # Outbound auth: how Gateway calls the Verity HTTP API.
+            # Outbound auth: how Gateway calls the Hybrid Retrieval Workbench HTTP API.
             # credentialProviderType also accepts GATEWAY_IAM_ROLE, OAUTH,
             # CALLER_IAM_CREDENTIALS, JWT_PASSTHROUGH.
             "credentialProviderType": "API_KEY",

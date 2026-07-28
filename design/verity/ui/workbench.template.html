@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Verity — incident-evidence workbench</title>
+<title>Hybrid Retrieval Workbench — Aurora PostgreSQL incident evidence</title>
 <!--
   Visual reference for DAT410. Self-contained: no remote fonts, no external JS.
 
@@ -48,7 +48,7 @@ a{color:var(--red2)}
 .wrap{max-width:1280px;margin:0 auto;padding:0 26px}
 .chrome{position:sticky;top:0;z-index:40;background:rgba(250,244,236,.86);backdrop-filter:blur(14px);border-bottom:1px solid var(--hair)}
 .chrome .wrap{display:flex;align-items:center;gap:16px;height:60px}
-.mark{display:flex;align-items:center;gap:9px;font:600 12.5px/1 var(--mono);letter-spacing:.24em;white-space:nowrap}
+.mark{display:flex;align-items:center;gap:9px;font:600 12.5px/1.2 var(--mono);letter-spacing:0;white-space:nowrap}
 .glyph{width:19px;height:19px;border:1.5px solid var(--red);border-radius:50%;position:relative;flex:none}
 .glyph:after{content:"";position:absolute;left:1.5px;right:1.5px;top:9px;border-top:1.8px solid var(--red);border-radius:50%;transform:rotate(-8deg)}
 .omni{flex:1;min-width:0;display:flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--hair);border-radius:10px;padding:8px 11px;box-shadow:var(--sh1)}
@@ -213,7 +213,7 @@ tr:last-child td{border-bottom:0}
 
 <header class="chrome">
   <div class="wrap">
-    <div class="mark"><span class="glyph"></span>VERITY</div>
+    <div class="mark"><span class="glyph"></span>HYBRID RETRIEVAL WORKBENCH</div>
     <div class="omni"><span class="car">&rsaquo;</span><span class="q" id="omni"></span><kbd>⌘K</kbd></div>
     <nav class="nav" id="nav">
       <button class="on" data-s="retrieve"><span class="n">01</span>Retrieve</button>
