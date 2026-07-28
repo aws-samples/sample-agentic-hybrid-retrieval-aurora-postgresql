@@ -102,6 +102,8 @@ BEGIN
     SET title = EXCLUDED.title, source_uri = EXCLUDED.source_uri,
         content_hash = EXCLUDED.content_hash, available_at = EXCLUDED.available_at
   RETURNING evidence_id INTO v_evidence_id;
+  -- rows_written counts upsert statements executed, not net-new rows
+  -- (an idempotent replay re-runs both upserts and still reports 2).
   v_rows := v_rows + 1;
 
   -- 5. Upsert the lock_evidence detail row.
@@ -130,7 +132,7 @@ BEGIN
     SELECT evidence_id INTO v_link_target FROM casework.evidence_items
      WHERE evidence_kind = (v_link ->> 'to_kind')
        AND external_key = (v_link ->> 'to_external_key');
-    IF v_link_target IS NOT NULL THEN
+    IF v_link_target IS NOT NULL AND v_link_target <> v_evidence_id THEN
       INSERT INTO retrieval.inferred_edges
         (from_evidence_id, to_evidence_id, relation, confidence, method, source_revision, metadata)
       VALUES

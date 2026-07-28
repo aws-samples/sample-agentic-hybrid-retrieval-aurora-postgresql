@@ -182,8 +182,9 @@ class AdmitEvidenceTest(unittest.TestCase):
 
     def test_invalid_schema_string_rejected_and_writes_nothing(self) -> None:
         bad = dict(self.payload, schema="wrong")
-        with self.assertRaises(psycopg.errors.Error):
+        with self.assertRaises(psycopg.errors.Error) as ctx:
             self._admit(bad)
+        self.assertEqual(ctx.exception.sqlstate, "22023")
         n = self.conn.execute(
             "SELECT count(*) FROM casework.evidence_items WHERE external_key='LOCK-LIVE-001'"
         ).fetchone()[0]
@@ -192,8 +193,9 @@ class AdmitEvidenceTest(unittest.TestCase):
     def test_missing_incident_rejected(self) -> None:
         self.conn.execute("DELETE FROM casework.incidents")
         self.conn.execute("DELETE FROM casework.evidence_items WHERE external_key='INC-2047'")
-        with self.assertRaises(psycopg.errors.Error):
+        with self.assertRaises(psycopg.errors.Error) as ctx:
             self._admit(self.payload)
+        self.assertEqual(ctx.exception.sqlstate, "23503")
 
     def test_temporal_gate(self) -> None:
         receipt = self._admit(self.payload)
