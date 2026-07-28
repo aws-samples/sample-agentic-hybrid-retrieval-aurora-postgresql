@@ -1756,14 +1756,12 @@ function FinalRankedEvidence({
                       <span>Fuzzy</span>
                       <small>rank</small>
                     </th>
-                    <th className="result-score-column group-start">
-                      <span>Aurora RRF</span>
-                      <small>score</small>
+                    <th className="result-score-column aurora-score-column group-start">
+                      Aurora RRF score
                     </th>
                     {reranked ? (
-                      <th className="result-score-column">
-                        <span>Cohere</span>
-                        <small>score</small>
+                      <th className="result-score-column cohere-score-column">
+                        Cohere score
                       </th>
                     ) : null}
                     <th
@@ -1821,7 +1819,7 @@ function FinalRankedEvidence({
                         <td className="arm-rank-column">
                           {rankLabel(position(candidate, 'fuzzy'))}
                         </td>
-                        <td className="result-score-column group-start">
+                        <td className="result-score-column aurora-score-column group-start">
                           <code>
                             {score(
                               candidate.rrf_score ?? candidate.final_score,
@@ -1830,7 +1828,7 @@ function FinalRankedEvidence({
                           </code>
                         </td>
                         {reranked ? (
-                          <td className="result-score-column">
+                          <td className="result-score-column cohere-score-column">
                             <code>{score(candidate.rerank_score, 3)}</code>
                           </td>
                         ) : null}
