@@ -37,6 +37,7 @@ GATES=(
   "G-17|registry_drift.py|Registry drift"
   "G-21|fixture_arithmetic.py|Fixture arithmetic (D14) on the engine"
   "G-23|route_contract.py|Route contract (D16)"
+  "G-25|admission_determinism.py|Admission determinism (D21)"
 )
 
 WANT=("$@")
