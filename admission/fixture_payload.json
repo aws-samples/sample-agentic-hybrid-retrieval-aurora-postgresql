@@ -1,0 +1,30 @@
+{
+  "schema": "admission payload v1",
+  "source": {
+    "system": "pg_incident_capture",
+    "uri": "workshop://live/fixture-session/lock/1",
+    "observation_window": {"start": "2026-07-28T14:00:00+00:00", "end": "2026-07-28T14:03:00+00:00"}
+  },
+  "kind": "lock_evidence",
+  "external_key": "LOCK-LIVE-001",
+  "title": "Blocked writer on shop.orders during index build",
+  "occurred_at": "2026-07-28T14:01:30+00:00",
+  "available_at": "2026-07-28T14:03:00+00:00",
+  "acl": {"visibility": "workshop"},
+  "body": "AccessExclusiveLock on shop.orders held by CREATE INDEX; writer pid 20919 blocked waiting on relation lock.",
+  "structured": {
+    "incident_external_key": "INC-2047",
+    "captured_at": "2026-07-28T14:01:30+00:00",
+    "relation_name": "shop.orders",
+    "blocked_pid": 20919,
+    "blocking_pid": 20044,
+    "wait_event_type": "Lock",
+    "wait_event": "relation",
+    "blocked_statement": "INSERT INTO shop.orders (customer_id, total) VALUES ($1, $2)",
+    "blocking_statement": "CREATE INDEX idx_orders_customer ON shop.orders (customer_id)",
+    "raw_capture": {"blocking_pids": [20044]}
+  },
+  "links": [
+    {"to_external_key": "CHG-1842", "to_kind": "change", "relation": "evidence_supports", "confidence": 0.5}
+  ]
+}
