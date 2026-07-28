@@ -230,7 +230,7 @@ Database integration tests require a disposable database and an explicit reset
 guard:
 
 ```bash
-TEST_DATABASE_URL='postgresql://localhost:55432/verity_test?sslmode=disable' \
+TEST_DATABASE_URL='postgresql://localhost:55432/workbench_test?sslmode=disable' \
 ALLOW_TEST_DATABASE_RESET=1 \
 make test
 ```
@@ -246,9 +246,9 @@ the real cluster, create a second database beside the workshop one and apply the
 schema to it:
 
 ```bash
-psql "$DATABASE_URL" -c 'CREATE DATABASE verity_test'
-DATABASE_URL="${DATABASE_URL%/*}/verity_test" make schema
-TEST_DATABASE_URL="${DATABASE_URL%/*}/verity_test" \
+psql "$DATABASE_URL" -c 'CREATE DATABASE workbench_test'
+DATABASE_URL="${DATABASE_URL%/*}/workbench_test" make schema
+TEST_DATABASE_URL="${DATABASE_URL%/*}/workbench_test" \
 ALLOW_TEST_DATABASE_RESET=1 \
 make test
 ```
