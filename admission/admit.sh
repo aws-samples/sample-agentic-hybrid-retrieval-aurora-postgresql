@@ -11,7 +11,7 @@ payload="$(.venv/bin/python admission/promote_pg_incident.py "$@")"
 # Admit inside a single statement; the function is itself one transaction.
 # Piped via stdin (not -c): psql only substitutes :'var' inside SQL read from
 # a script/stdin, not inside a -c command string.
-receipt="$(psql "$DATABASE_URL" -X -q -t -A -v payload="$payload" <<'SQL'
+receipt="$(psql "$DATABASE_URL" -X -q -t -A -v ON_ERROR_STOP=1 -v payload="$payload" <<'SQL'
 SELECT jsonb_pretty(casework.admit_evidence(:'payload'::jsonb));
 SQL
 )"
@@ -22,8 +22,11 @@ echo "$receipt"
 key="$(printf '%s' "$payload" | .venv/bin/python -c 'import json,sys; print(json.load(sys.stdin)["external_key"])')"
 
 echo "── exact-arm checkpoint ───────────────────────"
-hit="$(psql "$DATABASE_URL" -X -q -t -A \
-  -c "SELECT external_key FROM casework.evidence_items WHERE external_key = '${key}' AND available_at <= now();")"
+hit="$(psql "$DATABASE_URL" -X -q -t -A -v ON_ERROR_STOP=1 -v key="$key" <<'SQL'
+SELECT external_key FROM casework.evidence_items
+ WHERE external_key = :'key' AND available_at <= now();
+SQL
+)"
 if [ "$hit" = "$key" ]; then
   echo "OK: ${key} is retrievable by the exact arm immediately"
 else
