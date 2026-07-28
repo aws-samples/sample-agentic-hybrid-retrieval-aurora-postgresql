@@ -785,6 +785,8 @@ def _persist_answer(
                         {
                             "n": citation_number,
                             "evidence_id": str(source["evidence_id"]),
+                            "document_version_id": str(source["document_version_id"]),
+                            "chunk_version_id": str(source["chunk_version_id"]),
                             "external_key": row["external_key"],
                             "title": row["title"],
                             "source_uri": source["source_uri"],
