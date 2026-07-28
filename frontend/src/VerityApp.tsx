@@ -957,6 +957,10 @@ function position(
   return numberValue(candidate.explanation?.positions?.[key]);
 }
 
+function rankLabel(value: number | null): string {
+  return value === null ? '—' : `#${value}`;
+}
+
 function matchTier(candidate: Candidate): number {
   if (typeof candidate.match_tier === 'number') return candidate.match_tier;
   return candidate.explanation?.exact_identifier ? 1 : 2;
@@ -1549,22 +1553,18 @@ function CandidateRow({
   rank,
   selected,
   diagnostic,
-  fingerprint = false,
   onSelect,
 }: {
   candidate: Candidate;
   rank: number;
   selected: boolean;
   diagnostic: ReactNode;
-  fingerprint?: boolean;
   onSelect: () => void;
 }) {
   const item = snapshot(candidate);
   return (
     <button
-      className={`arm-item ${fingerprint ? 'with-fingerprint' : ''} ${
-        selected ? 'selected' : ''
-      }`}
+      className={`arm-item ${selected ? 'selected' : ''}`}
       data-kind={item.evidence_kind || 'unknown'}
       onClick={onSelect}
       type="button"
@@ -1582,59 +1582,8 @@ function CandidateRow({
         </span>
         <span className="arm-title">{item.title || 'Untitled evidence'}</span>
       </span>
-      {fingerprint ? <SignalFingerprint candidate={candidate} compact /> : null}
       <span className="arm-diagnostic">{diagnostic}</span>
     </button>
-  );
-}
-
-function SignalFingerprint({
-  candidate,
-  compact = false,
-}: {
-  candidate: Candidate;
-  compact?: boolean;
-}) {
-  const signals = [
-    { key: 'text', label: 'Full-text', position: position(candidate, 'text') },
-    {
-      key: 'vector',
-      label: 'Semantic',
-      position: position(candidate, 'vector'),
-    },
-    { key: 'fuzzy', label: 'Fuzzy', position: position(candidate, 'fuzzy') },
-  ] as const;
-  const summary = signals
-    .map((signal) =>
-      signal.position === null
-        ? `${signal.label} absent`
-        : `${signal.label} rank ${signal.position}`,
-    )
-    .join(', ');
-
-  return (
-    <span
-      className={`signal-fingerprint ${compact ? 'compact' : ''}`}
-      aria-label={`Signal rank fingerprint: ${summary}`}
-      title={summary}
-    >
-      {signals.map((signal) => {
-        const fill =
-          signal.position === null
-            ? 0
-            : Math.max(16, Math.round(100 / Math.sqrt(signal.position)));
-        return (
-          <i
-            key={signal.key}
-            className={`fingerprint-${signal.key} ${
-              signal.position === null ? 'absent' : ''
-            }`}
-          >
-            <b style={{ width: `${fill}%` }} />
-          </i>
-        );
-      })}
-    </span>
   );
 }
 
@@ -1695,12 +1644,19 @@ function FinalRankedEvidence({
               <table className="ranked-results-table">
                 <thead>
                   <tr>
-                    <th>Rank</th>
+                    <th className="result-rank-column">Rank</th>
                     <th>Evidence</th>
-                    <th>Type</th>
-                    <th>Signal fingerprint</th>
-                    <th>{reranked ? 'Rerank' : 'Aurora RRF'}</th>
-                    <th aria-label="Open evidence" />
+                    <th className="result-type-column">Type</th>
+                    <th className="arm-rank-column">Full-text</th>
+                    <th className="arm-rank-column">Semantic</th>
+                    <th className="arm-rank-column">Fuzzy</th>
+                    <th className="result-score-column">
+                      {reranked ? 'Rerank' : 'Aurora RRF'}
+                    </th>
+                    <th
+                      className="result-open-column"
+                      aria-label="Open evidence"
+                    />
                   </tr>
                 </thead>
                 <tbody>
@@ -1722,16 +1678,26 @@ function FinalRankedEvidence({
                           }
                         }}
                       >
-                        <td>{candidate.result_rank || index + 1}</td>
+                        <td className="result-rank-column">
+                          {candidate.result_rank || index + 1}
+                        </td>
                         <td>
                           <strong>{item.external_key || 'Unknown evidence'}</strong>
                           <span>{item.title || 'Untitled evidence'}</span>
                         </td>
-                        <td>{KIND_LABELS[item.evidence_kind || 'incident']}</td>
-                        <td>
-                          <SignalFingerprint candidate={candidate} compact />
+                        <td className="result-type-column">
+                          {KIND_LABELS[item.evidence_kind || 'incident']}
                         </td>
-                        <td>
+                        <td className="arm-rank-column">
+                          {rankLabel(position(candidate, 'text'))}
+                        </td>
+                        <td className="arm-rank-column">
+                          {rankLabel(position(candidate, 'vector'))}
+                        </td>
+                        <td className="arm-rank-column">
+                          {rankLabel(position(candidate, 'fuzzy'))}
+                        </td>
+                        <td className="result-score-column">
                           <code>
                             {reranked
                               ? score(candidate.rerank_score, 3)
@@ -1741,7 +1707,7 @@ function FinalRankedEvidence({
                                 )}
                           </code>
                         </td>
-                        <td>
+                        <td className="result-open-column">
                           <ChevronRight size={15} aria-hidden="true" />
                         </td>
                       </tr>
@@ -1760,16 +1726,16 @@ function FinalRankedEvidence({
                 </p>
                 <dl>
                   <div>
-                    <dt>Text</dt>
-                    <dd>{position(inspectedCandidate, 'text') || '—'}</dd>
+                    <dt>Full-text</dt>
+                    <dd>{rankLabel(position(inspectedCandidate, 'text'))}</dd>
                   </div>
                   <div>
                     <dt>Semantic</dt>
-                    <dd>{position(inspectedCandidate, 'vector') || '—'}</dd>
+                    <dd>{rankLabel(position(inspectedCandidate, 'vector'))}</dd>
                   </div>
                   <div>
                     <dt>Fuzzy</dt>
-                    <dd>{position(inspectedCandidate, 'fuzzy') || '—'}</dd>
+                    <dd>{rankLabel(position(inspectedCandidate, 'fuzzy'))}</dd>
                   </div>
                   <div>
                     <dt>Aurora RRF</dt>
