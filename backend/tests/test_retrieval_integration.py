@@ -72,9 +72,13 @@ def _apply_schema(connection: psycopg.Connection) -> None:
     Args:
         connection: An open connection to the disposable test database.
     """
-    # 0x only. sql/99_reset.sql drops all three schemas, and the Makefile's schema
-    # target applies exactly this range.
-    files = sorted((REPOSITORY_ROOT / "sql").glob("0[0-9]_*.sql"))
+    # Apply every versioned migration NN_*.sql except 99_reset.sql, which drops
+    # all three schemas. This matches what `make schema` applies.
+    files = sorted(
+        path
+        for path in (REPOSITORY_ROOT / "sql").glob("[0-9][0-9]_*.sql")
+        if not path.name.startswith("99")
+    )
     if not files:
         raise RuntimeError(f"no versioned SQL files found in {REPOSITORY_ROOT / 'sql'}")
     with connection.cursor() as cursor:

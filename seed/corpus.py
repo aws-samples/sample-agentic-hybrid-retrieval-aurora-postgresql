@@ -1195,6 +1195,7 @@ def load_casework(
                   casework.support_cases,
                   casework.changes,
                   casework.incidents,
+                  casework.ingest_receipts,
                   casework.evidence_items,
                   casework.database_clusters
                 RESTART IDENTITY
