@@ -1308,7 +1308,7 @@ ALTER TABLE proof.retrieval_runs
 -- stay NULL there and are reserved for the incident-capture path (6.4), which
 -- populates them with a currently blocking session's wait and statement digest.
 -- db_resource_id is the Aurora DbiResourceId, sourced from deployment config
--- (env), and is NULL when the deployment has not set VERITY_DB_RESOURCE_ID.
+-- (env), and is NULL when the deployment has not set WORKBENCH_DB_RESOURCE_ID.
 CREATE TABLE IF NOT EXISTS proof.observability_refs (
   run_id uuid PRIMARY KEY REFERENCES proof.retrieval_runs(run_id) ON DELETE CASCADE,
   db_resource_id text,

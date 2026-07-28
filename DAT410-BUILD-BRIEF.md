@@ -587,7 +587,7 @@ The sibling Workshop Studio repository is intended to provision:
 - preloaded schema, casework, embeddings, and indexes;
 - FastAPI and Vite;
 - AgentCore Gateway with one Lambda MCP target; and
-- participant-visible `WorkshopURL`, `VerityURL`, and Gateway outputs.
+- participant-visible `WorkshopURL`, `WorkbenchURL`, and Gateway outputs.
 
 The current template is a workshop profile, not a production reference. It
 uses one writer, one-day backup retention, deletion protection off, and
