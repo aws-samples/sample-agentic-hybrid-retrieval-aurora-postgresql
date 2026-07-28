@@ -4574,7 +4574,11 @@ export default function VerityApp() {
                     </>
                   )}
                 </h1>
-                <p className="module-deck">
+                <p
+                  className={`module-deck ${
+                    diagnoseTab === 'results' ? 'retrieval-results-deck' : ''
+                  }`}
+                >
                   {diagnoseTab === 'results'
                     ? 'Start with the persisted retrieval outcome. Open the ranking diagnostics only when you need to trace how each arm contributed.'
                     : 'Only integer positions enter weighted RRF. Raw arm values stay diagnostic, and optional Cohere reranking is a separate downstream stage.'}

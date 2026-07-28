@@ -4775,6 +4775,13 @@ td span {
   }
 }
 
+@media (min-width: 1200px) {
+  .retrieval-screen .module-deck.retrieval-results-deck {
+    max-width: none;
+    white-space: nowrap;
+  }
+}
+
 .home-thread-scene.loading .home-threads circle:first-child,
 .home-thread-scene.empty .home-threads circle:first-child,
 .home-thread-scene.loading .home-answer-node::before,
