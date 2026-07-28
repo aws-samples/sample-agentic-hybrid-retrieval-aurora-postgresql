@@ -975,24 +975,45 @@ function tierLabel(tier: number): string {
   return TIER_LABELS[tier] || `Tier ${tier}`;
 }
 
-// Read-only verification, never a client-side re-rank. Ranking lives in Aurora
-// (canonical SQL); this recomputes the fused order from the backend-persisted
-// match_tier / exact_identifier_position / rrf_score and checks the delivered
-// candidate order already reproduces it. With rerank off, final order must equal
-// fused order (the identity the rerank:false parity captures rely on); a
-// mismatch is a defect and is surfaced, not hidden.
-function isFusedOrder(candidates: Candidate[]): boolean {
-  const expected = [...candidates].sort((a, b) => {
+// Read-only reconstruction of the canonical Aurora order from persisted fields.
+// The comparator mirrors retrieval.hybrid_search's total ORDER BY.
+function fusedOrder(candidates: Candidate[]): Candidate[] {
+  return [...candidates].sort((a, b) => {
     const tierGap = matchTier(a) - matchTier(b);
     if (tierGap !== 0) return tierGap;
-    const exactGap =
-      (a.exact_identifier_position ?? Number.POSITIVE_INFINITY) -
-      (b.exact_identifier_position ?? Number.POSITIVE_INFINITY);
-    if (exactGap !== 0) return exactGap;
-    return (
-      (b.rrf_score ?? b.final_score ?? 0) - (a.rrf_score ?? a.final_score ?? 0)
+
+    const aExact =
+      a.exact_identifier_position ?? Number.POSITIVE_INFINITY;
+    const bExact =
+      b.exact_identifier_position ?? Number.POSITIVE_INFINITY;
+    if (aExact !== bExact) return aExact - bExact;
+
+    const scoreGap =
+      (b.rrf_score ?? b.final_score ?? 0) -
+      (a.rrf_score ?? a.final_score ?? 0);
+    if (scoreGap !== 0) return scoreGap;
+
+    const aEvidence = snapshot(a);
+    const bEvidence = snapshot(b);
+    if (aEvidence.occurred_at !== bEvidence.occurred_at) {
+      if (!aEvidence.occurred_at) return -1;
+      if (!bEvidence.occurred_at) return 1;
+      const occurredGap = bEvidence.occurred_at.localeCompare(
+        aEvidence.occurred_at,
+      );
+      if (occurredGap !== 0) return occurredGap;
+    }
+
+    return (aEvidence.external_key || '').localeCompare(
+      bEvidence.external_key || '',
     );
   });
+}
+
+// With rerank off, final order must equal fused order. A mismatch is a defect
+// and is surfaced rather than hidden.
+function isFusedOrder(candidates: Candidate[]): boolean {
+  const expected = fusedOrder(candidates);
   return candidates.every(
     (candidate, index) => candidate.evidence_id === expected[index].evidence_id,
   );
@@ -1587,19 +1608,64 @@ function CandidateRow({
   );
 }
 
+function RerankImpact({
+  auroraRank,
+  finalRank,
+}: {
+  auroraRank: number;
+  finalRank: number;
+}) {
+  const delta = auroraRank - finalRank;
+  const direction = delta > 0 ? 'up' : delta < 0 ? 'down' : 'unchanged';
+  const count = Math.abs(delta);
+  const movement =
+    direction === 'up'
+      ? `Moved up ${count} ${count === 1 ? 'rank' : 'ranks'}`
+      : direction === 'down'
+        ? `Moved down ${count} ${count === 1 ? 'rank' : 'ranks'}`
+        : 'Rank unchanged';
+  const label = `${movement}: Aurora rank ${auroraRank}, final rank ${finalRank}`;
+
+  return (
+    <span
+      className={`rerank-impact impact-${direction}`}
+      aria-label={label}
+      title={label}
+    >
+      <strong aria-hidden="true">
+        {direction === 'up' ? '▲' : direction === 'down' ? '▼' : '—'}
+        {count || ''}
+      </strong>
+      <small>
+        {direction === 'unchanged'
+          ? `#${finalRank} unchanged`
+          : `#${auroraRank} → #${finalRank}`}
+      </small>
+    </span>
+  );
+}
+
 function FinalRankedEvidence({
   candidates,
+  rankingCandidates,
   selectedEvidenceId,
   reranked,
   runId,
   onSelect,
 }: {
   candidates: Candidate[];
+  rankingCandidates: Candidate[];
   selectedEvidenceId: string | null;
   reranked: boolean;
   runId: string;
   onSelect: (candidate: Candidate) => void;
 }) {
+  const auroraRanks = new Map(
+    fusedOrder(rankingCandidates).map((candidate, index) => [
+      candidate,
+      index + 1,
+    ]),
+  );
   const topCandidate = candidates[0];
   const topEvidence = topCandidate ? snapshot(topCandidate) : null;
   const topTextPosition = topCandidate
@@ -1614,6 +1680,9 @@ function FinalRankedEvidence({
   const topRrf = topCandidate
     ? topCandidate.rrf_score ?? topCandidate.final_score
     : null;
+  const topAuroraRank = topCandidate
+    ? auroraRanks.get(topCandidate) || 1
+    : 1;
   const inspectedCandidate =
     candidates.find((candidate) => candidate.evidence_id === selectedEvidenceId) ||
     topCandidate;
@@ -1639,20 +1708,53 @@ function FinalRankedEvidence({
 
       {topCandidate && topEvidence ? (
         <>
+          <p className="rank-order-note">
+            <strong>Final order:</strong>{' '}
+            {reranked
+              ? 'exact-identifier tier first, then Cohere order within each tier. Aurora RRF and Cohere scores are diagnostic, not global sort keys.'
+              : 'exact-identifier tier first, then Aurora RRF within the fused tier. Arm scores and RRF are diagnostic, not probabilities.'}
+          </p>
           <div className="ranked-results-workspace">
             <div className="ranked-results-table-wrap">
-              <table className="ranked-results-table">
+              <table
+                className={`ranked-results-table ${reranked ? 'reranked' : ''}`}
+              >
                 <thead>
                   <tr>
-                    <th className="result-rank-column">Rank</th>
-                    <th>Evidence</th>
-                    <th className="result-type-column">Type</th>
-                    <th className="arm-rank-column">Full-text</th>
-                    <th className="arm-rank-column">Semantic</th>
-                    <th className="arm-rank-column">Fuzzy</th>
-                    <th className="result-score-column">
-                      {reranked ? 'Rerank' : 'Aurora RRF'}
+                    <th className="result-rank-column">
+                      <span>Final</span>
+                      <small>rank</small>
                     </th>
+                    {reranked ? (
+                      <th className="result-impact-column">
+                        <span>Rank</span>
+                        <small>impact</small>
+                      </th>
+                    ) : null}
+                    <th className="result-evidence-column">Evidence</th>
+                    <th className="result-type-column">Type</th>
+                    <th className="arm-rank-column group-start">
+                      <span>Full-text</span>
+                      <small>rank</small>
+                    </th>
+                    <th className="arm-rank-column">
+                      <span>Semantic</span>
+                      <small>rank</small>
+                    </th>
+                    <th className="arm-rank-column">
+                      <span>Fuzzy</span>
+                      <small>rank</small>
+                    </th>
+                    <th className="result-score-column group-start">
+                      <span>Aurora RRF</span>
+                      <small>score</small>
+                    </th>
+                    {reranked ? (
+                      <th className="result-score-column">
+                        <span>Cohere</span>
+                        <small>score</small>
+                      </th>
+                    ) : null}
                     <th
                       className="result-open-column"
                       aria-label="Open evidence"
@@ -1662,6 +1764,9 @@ function FinalRankedEvidence({
                 <tbody>
                   {candidates.map((candidate, index) => {
                     const item = snapshot(candidate);
+                    const finalRank = candidate.result_rank || index + 1;
+                    const auroraRank =
+                      auroraRanks.get(candidate) || finalRank;
                     const selected =
                       candidate.evidence_id === inspectedCandidate?.evidence_id;
                     return (
@@ -1679,16 +1784,24 @@ function FinalRankedEvidence({
                         }}
                       >
                         <td className="result-rank-column">
-                          {candidate.result_rank || index + 1}
+                          {finalRank}
                         </td>
-                        <td>
+                        {reranked ? (
+                          <td className="result-impact-column">
+                            <RerankImpact
+                              auroraRank={auroraRank}
+                              finalRank={finalRank}
+                            />
+                          </td>
+                        ) : null}
+                        <td className="result-evidence-column">
                           <strong>{item.external_key || 'Unknown evidence'}</strong>
                           <span>{item.title || 'Untitled evidence'}</span>
                         </td>
                         <td className="result-type-column">
                           {KIND_LABELS[item.evidence_kind || 'incident']}
                         </td>
-                        <td className="arm-rank-column">
+                        <td className="arm-rank-column group-start">
                           {rankLabel(position(candidate, 'text'))}
                         </td>
                         <td className="arm-rank-column">
@@ -1697,16 +1810,19 @@ function FinalRankedEvidence({
                         <td className="arm-rank-column">
                           {rankLabel(position(candidate, 'fuzzy'))}
                         </td>
-                        <td className="result-score-column">
+                        <td className="result-score-column group-start">
                           <code>
-                            {reranked
-                              ? score(candidate.rerank_score, 3)
-                              : score(
-                                  candidate.rrf_score ?? candidate.final_score,
-                                  5,
-                                )}
+                            {score(
+                              candidate.rrf_score ?? candidate.final_score,
+                              5,
+                            )}
                           </code>
                         </td>
+                        {reranked ? (
+                          <td className="result-score-column">
+                            <code>{score(candidate.rerank_score, 3)}</code>
+                          </td>
+                        ) : null}
                         <td className="result-open-column">
                           <ChevronRight size={15} aria-hidden="true" />
                         </td>
@@ -1747,6 +1863,27 @@ function FinalRankedEvidence({
                       )}
                     </dd>
                   </div>
+                  {reranked ? (
+                    <>
+                      <div>
+                        <dt>Cohere</dt>
+                        <dd>{score(inspectedCandidate.rerank_score, 3)}</dd>
+                      </div>
+                      <div>
+                        <dt>Rank impact</dt>
+                        <dd>
+                          <RerankImpact
+                            auroraRank={
+                              auroraRanks.get(inspectedCandidate) ||
+                              inspectedCandidate.result_rank ||
+                              1
+                            }
+                            finalRank={inspectedCandidate.result_rank || 1}
+                          />
+                        </dd>
+                      </div>
+                    </>
+                  ) : null}
                 </dl>
                 <footer>
                   <span>{tierLabel(matchTier(inspectedCandidate))}</span>
@@ -1782,7 +1919,9 @@ function FinalRankedEvidence({
                 ? `${topEvidence.external_key} entered the exact-identifier tier before fused candidates.`
                 : 'This evidence entered the fused candidate set from the active retrieval arms.'}{' '}
               {reranked && topCandidate.rerank_score != null
-                ? `Cohere kept it at final rank 1; Aurora RRF ${score(topRrf, 5)} remains persisted separately.`
+                ? topAuroraRank === 1
+                  ? `Cohere kept it at rank 1; Aurora RRF ${score(topRrf, 5)} remains persisted separately.`
+                  : `Cohere moved it from Aurora rank ${topAuroraRank} to final rank 1; Aurora RRF ${score(topRrf, 5)} remains persisted separately.`
                 : `Weighted RRF combined its arm positions into ${score(topRrf, 5)}.`}
             </p>
             <div className="final-ranked-why-signals">
@@ -3756,6 +3895,8 @@ export default function VerityApp() {
   // Rerank is a post-fusion ordering stage: with it off, final order == fused.
   const finalReranked = Boolean(receipt?.run.rerank_applied);
   const receiptRerankRequested = Boolean(receipt?.run.rerank_model);
+  const rerankUnavailable =
+    Boolean(receipt) && receiptRerankRequested && !finalReranked;
   const finalOrderIsFused = candidates.length ? isFusedOrder(candidates) : true;
   const appliedControls: Controls = {
     ...controls,
@@ -4668,11 +4809,17 @@ export default function VerityApp() {
                       </label>
                       <span
                         className={`query-receipt-state ${
-                          retrievalDraftDirty ? 'pending' : ''
+                          retrievalDraftDirty
+                            ? 'pending'
+                            : rerankUnavailable
+                              ? 'warning'
+                              : ''
                         }`}
                       >
                         {retrievalDraftDirty
-                          ? 'Changes ready'
+                          ? 'Run retrieval to apply'
+                          : rerankUnavailable
+                            ? 'Rerank unavailable · RRF shown'
                           : runId
                             ? 'Run current'
                             : 'Ready to run'}
@@ -4683,6 +4830,7 @@ export default function VerityApp() {
 
                 <FinalRankedEvidence
                   candidates={finalResultCandidates}
+                  rankingCandidates={candidates}
                   selectedEvidenceId={selectedEvidenceId}
                   reranked={finalReranked}
                   runId={runId}

@@ -6087,6 +6087,10 @@ td span {
   color: var(--amber);
 }
 
+.query-receipt-state.warning {
+  color: var(--red);
+}
+
 .final-ranked-evidence,
 .ranking-breakdown {
   width: 100%;
@@ -6100,6 +6104,21 @@ td span {
   border: 0;
   border-radius: 0;
   box-shadow: none;
+}
+
+.rank-order-note {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  color: var(--ink-soft);
+  border-left: 3px solid var(--red);
+  font: 600 13px/1.45 var(--workbench-ui);
+}
+
+.rank-order-note strong {
+  flex: none;
+  color: var(--ink);
 }
 
 .ranked-results-workspace {
@@ -6125,6 +6144,10 @@ td span {
   table-layout: fixed;
 }
 
+.ranked-results-table.reranked {
+  min-width: 1000px;
+}
+
 .ranked-results-table th {
   padding: 11px 12px;
   color: var(--muted);
@@ -6135,26 +6158,47 @@ td span {
   text-transform: uppercase;
 }
 
+.ranked-results-table th > span,
+.ranked-results-table th > small {
+  display: block;
+  white-space: nowrap;
+}
+
+.ranked-results-table th > small {
+  margin-top: 2px;
+  color: var(--muted);
+  font: inherit;
+}
+
+.ranked-results-table .group-start {
+  border-left: 1px solid var(--hair);
+}
+
 .ranked-results-table .result-rank-column {
-  width: 52px;
+  width: 72px;
 }
 
 .ranked-results-table .result-type-column {
-  width: 118px;
+  width: 108px;
 }
 
 .ranked-results-table .arm-rank-column {
-  width: 94px;
+  width: 88px;
   text-align: center;
 }
 
 .ranked-results-table .result-score-column {
-  width: 112px;
+  width: 104px;
   text-align: right;
 }
 
+.ranked-results-table .result-impact-column {
+  width: 124px;
+  text-align: center;
+}
+
 .ranked-results-table .result-open-column {
-  width: 34px;
+  width: 28px;
 }
 
 .ranked-results-table tbody tr {
@@ -6200,25 +6244,61 @@ td span {
   text-align: right;
 }
 
+.ranked-results-table td.result-impact-column {
+  text-align: center;
+}
+
 .ranked-results-table td.result-open-column {
   color: var(--red);
   text-align: right;
 }
 
-.ranked-results-table td:nth-child(2) strong,
-.ranked-results-table td:nth-child(2) span {
+.rerank-impact {
+  display: inline-grid;
+  justify-items: center;
+  gap: 3px;
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+
+.rerank-impact strong {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.rerank-impact small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.rerank-impact.impact-up strong {
+  color: var(--green);
+}
+
+.rerank-impact.impact-down strong {
+  color: var(--red);
+}
+
+.rerank-impact.impact-unchanged strong {
+  color: var(--muted);
+}
+
+.ranked-results-table td.result-evidence-column strong,
+.ranked-results-table td.result-evidence-column span {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ranked-results-table td:nth-child(2) strong {
+.ranked-results-table td.result-evidence-column strong {
   color: var(--ink);
   font: 700 15px/1.25 var(--mono);
 }
 
-.ranked-results-table td:nth-child(2) span {
+.ranked-results-table td.result-evidence-column span {
   margin-top: 3px;
   color: var(--muted);
 }
@@ -6292,6 +6372,10 @@ td span {
   margin-top: 4px;
   color: var(--ink);
   font-size: 14px;
+}
+
+.ranked-result-inspector .rerank-impact {
+  justify-items: start;
 }
 
 .ranked-result-inspector footer {
@@ -6476,13 +6560,13 @@ td span {
   min-width: 0;
   margin: 0;
   color: var(--ink-soft);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 18px;
+  line-height: 1.55;
 }
 
 .final-ranked-what strong {
   color: var(--red-deep);
-  font: 700 0.94em/1.4 var(--mono);
+  font: 700 1em/1.4 var(--mono);
 }
 
 .final-ranked-why-signals {
@@ -6495,19 +6579,21 @@ td span {
 }
 
 .final-ranked-why-signals span {
-  min-height: 24px;
+  min-height: 30px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 7px;
+  gap: 6px;
+  padding: 5px 9px;
   color: var(--ink-soft);
   background: #fff;
   border: 1px solid var(--hair);
   border-radius: 4px;
-  font: 700 11px/1.2 var(--mono);
+  font: 700 14px/1.25 var(--mono);
 }
 
 .final-ranked-why-signals svg {
+  width: 13px;
+  height: 13px;
   color: var(--green);
 }
 
@@ -7715,15 +7801,17 @@ td span {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1500px) {
   .ranked-results-workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .ranked-result-inspector {
     position: static;
   }
+}
 
+@media (max-width: 900px) {
   .ranking-breakdown-body .retrieval-arms {
     grid-template-columns: 1fr;
   }
