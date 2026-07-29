@@ -201,10 +201,18 @@ class AdmitEvidenceTest(unittest.TestCase):
         self.assertEqual(n, 0, "rejected payload must write nothing")
 
     def test_missing_incident_rejected(self) -> None:
-        self.conn.execute("DELETE FROM casework.incidents")
-        self.conn.execute("DELETE FROM casework.evidence_items WHERE external_key='INC-2047'")
+        # A payload naming an incident absent from the corpus is rejected with
+        # 23503. Craft the missing reference rather than deleting the seeded
+        # incident: deletion fought the fixture_captures -> incidents RESTRICT
+        # FK whenever the corpus was already loaded in the same physical
+        # database, making the outcome depend on test order.
+        orphan = dict(self.payload)
+        orphan["source"] = dict(self.payload["source"], uri="capture://missing-incident")
+        orphan["structured"] = dict(
+            self.payload["structured"], incident_external_key="INC-DOES-NOT-EXIST"
+        )
         with self.assertRaises(psycopg.errors.Error) as ctx:
-            self._admit(self.payload)
+            self._admit(orphan)
         self.assertEqual(ctx.exception.sqlstate, "23503")
 
     def test_temporal_gate(self) -> None:
