@@ -51,6 +51,7 @@ from .models import (
     SearchRequest,
     SynthesisRequest,
     TraverseRequest,
+    workshop_principal,
 )
 from .search import run_hybrid_search
 from .strands_agent import (
@@ -371,6 +372,10 @@ def agent_coverage(agent_run_id: str):
 
 @app.get("/v1/evidence/{evidence_id}")
 def evidence_detail(evidence_id: str):
+    # Enforce the same ACL every retrieval arm and traversal hop applies, so a
+    # direct by-ID read cannot bypass visibility. Evidence outside the caller's
+    # scope is reported as not found rather than acknowledged as restricted.
+    principal = json.dumps(workshop_principal())
     try:
         with get_dict_conn() as connection:
             with connection.cursor() as cursor:
@@ -382,8 +387,9 @@ def evidence_detail(evidence_id: str):
                       ON document.evidence_id = source.evidence_id
                      AND document.is_current
                     WHERE source.evidence_id = %s
+                      AND retrieval.acl_visible(source.acl, %s::jsonb)
                     """,
-                    (evidence_id,),
+                    (evidence_id, principal),
                 )
                 evidence = cursor.fetchone()
                 if not evidence:

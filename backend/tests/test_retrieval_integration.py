@@ -314,6 +314,19 @@ class RetrievalContractTests(unittest.TestCase):
         self.assertNotIn("CASE-7421", workshop_keys)
         self.assertIn("CASE-7421", support_lead_keys)
 
+    def test_evidence_detail_endpoint_enforces_acl(self) -> None:
+        from fastapi import HTTPException
+
+        from backend.app.main import evidence_detail
+
+        restricted = str(evidence_id("support_case", "CASE-7421"))
+        with self.assertRaises(HTTPException) as ctx:
+            evidence_detail(restricted)
+        self.assertEqual(ctx.exception.status_code, 404)
+
+        visible = evidence_detail(str(evidence_id("incident", "INC-2047")))
+        self.assertEqual(visible["evidence"]["external_key"], "INC-2047")
+
     def test_exact_identifier_leads_lexical_arm(self) -> None:
         with self.conn.cursor() as cursor:
             cursor.execute(
