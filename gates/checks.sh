@@ -39,6 +39,7 @@ GATES=(
   "G-23|route_contract.py|Route contract (D16)"
   "G-25|admission_determinism.py|Admission determinism (D21)"
   "G-27|rls_enforcement.py|RLS enforcement (D24)"
+  "G-29|masking_determinism.py|Column masking + Law-2 determinism"
 )
 
 WANT=("$@")
