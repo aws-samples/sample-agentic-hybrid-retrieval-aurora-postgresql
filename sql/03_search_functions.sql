@@ -58,23 +58,6 @@ AS $$
     )
 $$;
 
-CREATE OR REPLACE FUNCTION retrieval.identifier_tokens(p_query text)
-RETURNS text[]
-LANGUAGE sql
-IMMUTABLE
-PARALLEL SAFE
-AS $$
-  SELECT coalesce(
-    array_agg(DISTINCT match[1] ORDER BY match[1]),
-    '{}'::text[]
-  )
-  FROM regexp_matches(
-    upper(coalesce(p_query, '')),
-    '([A-Z]{2,6}-[0-9]{3,6})',
-    'g'
-  ) AS match
-$$;
-
 -- Natural-language questions name more terms than any one document contains, so
 -- websearch_to_tsquery's AND semantics return nothing for "why did checkout
 -- writes block". The lexical arm therefore ORs the terms and lets rank decide,
