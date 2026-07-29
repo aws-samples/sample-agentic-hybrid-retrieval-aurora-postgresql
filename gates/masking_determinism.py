@@ -185,10 +185,20 @@ def run() -> int:  # noqa: C901 - four assertion groups, read top to bottom
     require(literals, "restricted cases carry no maskable sensitive values")
 
     with psycopg.connect(app_dsn, connect_timeout=15, autocommit=True) as app:
-        admin_cases = _as_persona(app, ADMIN, CASE_VIEW_SQL, [keys])
-        auditor_cases = _as_persona(app, AUDITOR, CASE_VIEW_SQL, [keys])
-        admin_chunks = _as_persona(app, ADMIN, CHUNK_VIEW_SQL, [keys])
-        auditor_chunks = _as_persona(app, AUDITOR, CHUNK_VIEW_SQL, [keys])
+        # A missing SELECT grant is an unbuilt dependency, not a masking failure.
+        # main_guard only translates AssertionError, so an escaping
+        # InsufficientPrivilege would be a traceback where the contract demands an
+        # honest BLOCKED. sql/11 grants SELECT ON ALL TABLES IN SCHEMA casework to
+        # each persona; this catch names the table when that has not run yet.
+        try:
+            admin_cases = _as_persona(app, ADMIN, CASE_VIEW_SQL, [keys])
+            auditor_cases = _as_persona(app, AUDITOR, CASE_VIEW_SQL, [keys])
+            admin_chunks = _as_persona(app, ADMIN, CHUNK_VIEW_SQL, [keys])
+            auditor_chunks = _as_persona(app, AUDITOR, CHUNK_VIEW_SQL, [keys])
+        except psycopg.errors.InsufficientPrivilege as exc:
+            return finish(
+                GATE_ID, BLOCKED, f"a persona lacks SELECT on the read path: {exc}"
+            )
 
         print("\n  (1) masking is real - admin raw vs auditor masked:")
         require(
