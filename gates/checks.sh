@@ -40,6 +40,7 @@ GATES=(
   "G-25|admission_determinism.py|Admission determinism (D21)"
   "G-27|rls_enforcement.py|RLS enforcement (D24)"
   "G-29|masking_determinism.py|Column masking + Law-2 determinism"
+  "G-30|participant_ceremony.py|Participant zero-ceremony identity (A1)"
 )
 
 WANT=("$@")
