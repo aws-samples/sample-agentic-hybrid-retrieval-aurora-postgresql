@@ -49,6 +49,7 @@ TITLE = "Column masking + Law-2 determinism"
 
 AUDITOR = "persona_auditor"
 ADMIN = "persona_admin"
+COLUMNS = ("account_name", "customer_commitment", "description")
 
 # The typed sensitive columns, read from the engine to build the pattern set (A5).
 SENSITIVE_SQL = """
@@ -68,14 +69,16 @@ SELECT e.external_key, c.account_name, c.customer_commitment, c.description
  ORDER BY e.external_key
 """
 
+# retrieval.chunks has NO external_key (see Codebase traps). Reach the label
+# through the document_version_id foreign key -- documents' primary key, so the
+# join cannot fan out -- and filter on the chunk's own is_current flag.
 CHUNK_VIEW_SQL = """
-SELECT external_key, chunk_ordinal, chunk_text
-  FROM retrieval.chunks
- WHERE external_key = ANY(
-         SELECT external_key FROM retrieval.documents WHERE external_key = ANY(%s)
-       )
-   AND is_current
- ORDER BY external_key, chunk_ordinal
+SELECT d.external_key, c.chunk_ordinal, c.chunk_text
+  FROM retrieval.chunks c
+  JOIN retrieval.documents d ON d.document_version_id = c.document_version_id
+ WHERE d.external_key = ANY(%s)
+   AND c.is_current
+ ORDER BY d.external_key, c.chunk_ordinal
 """
 
 LEAK_SCAN_SQL = """
@@ -96,6 +99,18 @@ def _as_persona(conn, persona: str, sql: str, params: list) -> list[tuple]:
             return cur.fetchall()
         finally:
             cur.execute("ROLLBACK")
+
+
+def _owner_chunks(owner_dsn: str, psycopg, keys: list[str]) -> list[tuple]:
+    """Return the stored chunk blobs for ``keys``, read as the bootstrap owner.
+
+    The owner is an ``rds_superuser`` member, so this is the ground truth the
+    persona views are judged against. Read-only.
+    """
+    with psycopg.connect(owner_dsn, connect_timeout=15, autocommit=True) as conn:
+        with conn.cursor() as cur:
+            cur.execute(CHUNK_VIEW_SQL, [keys])
+            return cur.fetchall()
 
 
 def _literals(rows: list[tuple]) -> list[str]:
@@ -162,7 +177,7 @@ def run() -> int:  # noqa: C901 - four assertion groups, read top to bottom
 
     keys = [row[0] for row in sensitive]
     literals = _literals(sensitive)
-    print(f"\n  (3) A5 pattern provenance - read from the engine, not hand-written:")
+    print("\n  (3) A5 pattern provenance - read from the engine, not hand-written:")
     print(f"    restricted cases: {', '.join(keys)}")
     print(f"    sensitive literals: {len(literals)}")
     for value in literals:
@@ -181,23 +196,46 @@ def run() -> int:  # noqa: C901 - four assertion groups, read top to bottom
             f"auditor row count {len(auditor_cases)} != admin {len(admin_cases)}; "
             f"masking needs the row PRESENT, not filtered",
         )
+        # Ground truth read as the bootstrap owner, keyed by external_key. "Masked
+        # for the auditor" is only meaningful against the real stored value: two
+        # differently-masked views also differ from each other, so comparing the
+        # admin view to the auditor view alone cannot tell "admin is raw" from
+        # "admin is masked differently". Anchor on truth, not on the other view.
+        truth = {row[0]: row[1:] for row in sensitive}
         for admin_row, auditor_row in zip(admin_cases, auditor_cases):
             key = admin_row[0]
-            for column, raw, masked in zip(
-                ("account_name", "customer_commitment", "description"),
-                admin_row[1:],
-                auditor_row[1:],
+            for column, raw, masked, stored in zip(
+                COLUMNS, admin_row[1:], auditor_row[1:], truth[key]
             ):
-                if raw is None:
+                if stored is None:
                     continue
                 print(f"    {key}.{column}: admin={raw!r} auditor={masked!r}")
                 require(
-                    masked != raw,
-                    f"{key}.{column} is NOT masked for the auditor (identical to admin)",
+                    raw == stored,
+                    f"{key}.{column} is masked for persona_admin too "
+                    f"(admin={raw!r} != stored {stored!r}); the mask is not "
+                    f"auditor-scoped and 'admin raw vs auditor masked' proves nothing",
+                )
+                require(
+                    masked != stored,
+                    f"{key}.{column} is NOT masked for the auditor "
+                    f"(identical to the stored value)",
                 )
         require(
             admin_chunks and len(auditor_chunks) == len(admin_chunks),
             "chunk_text row counts differ between admin and auditor",
+        )
+        # Same anchor for the blob: the admin view must equal what is stored.
+        owner_blobs = _owner_chunks(owner_dsn, psycopg, keys)
+        require(
+            owner_blobs and len(admin_chunks) == len(owner_blobs),
+            f"admin sees {len(admin_chunks)} restricted chunks, the owner sees "
+            f"{len(owner_blobs)}; compare like with like before judging the mask",
+        )
+        require(
+            [row[2] for row in admin_chunks] == [row[2] for row in owner_blobs],
+            "chunk_text is masked for persona_admin too; a blob that differs "
+            "between admin and auditor then proves nothing about the auditor",
         )
         blob_masked = sum(
             1 for a, b in zip(admin_chunks, auditor_chunks) if a[2] != b[2]
