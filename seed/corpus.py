@@ -9,11 +9,18 @@ from .capture import validate_capture_bundle
 
 
 CORPUS_NAMESPACE = uuid.UUID("d94fc53f-ed5d-4c30-8764-f43bc0bbdd62")
+# The only classification axis (A7). acl_visibility carries it; the predicate in
+# sql/03_search_functions.sql and the RLS policies in sql/11_roles_rls.sql both
+# read 'workshop' vs anything-else, and the fail-closed schema default is
+# 'restricted' (sql/01_schema.sql:926,942,948,1010).
+#
+# 'principals' stays as an empty list rather than being deleted: the
+# retrieval.documents.acl_principals column and its GIN indexes
+# (sql/02_indexes.sql:67-68,119-120) are still populated by the projection at
+# backend/app/search_index.py:525, and dropping them is schema churn outside this
+# plan. Nothing reads them after Task 9.
 WORKSHOP_ACL = {"visibility": "workshop", "principals": []}
-RESTRICTED_ACL = {
-    "visibility": "workshop",
-    "principals": ["support-lead"],
-}
+RESTRICTED_ACL = {"visibility": "restricted", "principals": []}
 
 
 def evidence_id(kind: str, external_key: str) -> uuid.UUID:
@@ -464,7 +471,7 @@ def _canonical_rows(capture_bundle: dict[str, Any]) -> dict[str, list[dict[str, 
             "subject": "Restricted checkout write failures",
             "description": (
                 "This fictional restricted case shares the incident interval and is "
-                "visible only when the principal contains support-lead."
+                "visible only to a role holding the can_see_restricted clearance."
             ),
             "customer_commitment": "Support leadership approval required before disclosure.",
         }
@@ -540,6 +547,231 @@ def _canonical_rows(capture_bundle: dict[str, Any]) -> dict[str, list[dict[str, 
         {
             "case_evidence_id": case_visible,
             "commitment_evidence_id": commitment,
+        }
+    )
+
+    # ------------------------------------------------------------------
+    # Restricted cohort (design section "Restricted-evidence seed").
+    #
+    # CASE-7421 above remains THE canonical M3 flip noun; these are supporting
+    # cast and are never named in a guide checkpoint, a slide, or the canonical
+    # question. They exist so row filtering and masking are visibly non-trivial:
+    # analyst sees none of the seven, admin sees all seven unmasked, auditor sees
+    # all seven with customer identity redacted.
+    #
+    # Every key here was measured against the CGH-1842 trigram probe before being
+    # chosen (max similarity 0.0588, no % match), so D14/G-21 are unaffected.
+    # ------------------------------------------------------------------
+    restricted_case_regulated = add_evidence(
+        "support_case",
+        "CASE-8102",
+        "Restricted payment-processor escalation",
+        "synthetic_support_system",
+        incident_declared + timedelta(minutes=21),
+        revision="case-8102-update-1",
+        acl=RESTRICTED_ACL,
+    )
+    rows["cases"].append(
+        {
+            "evidence_id": restricted_case_regulated,
+            "case_id": "CASE-8102",
+            "account_name": "Cascade Financial (fictional)",
+            "support_tier": "Enterprise",
+            "severity": "urgent",
+            "status": "resolved",
+            "opened_at": incident_declared + timedelta(minutes=9),
+            "sla_due_at": incident_declared + timedelta(minutes=39),
+            "subject": "Restricted settlement write failures",
+            "description": (
+                "This fictional restricted case reports settlement writes queued "
+                "on checkout-prod-cluster-01 during the incident window."
+            ),
+            "customer_commitment": (
+                "Regulator notification is required before any external disclosure."
+            ),
+        }
+    )
+    rows["incident_cases"].append(
+        {
+            "incident_evidence_id": incident,
+            "case_evidence_id": restricted_case_regulated,
+            "impact": "affected",
+            "rationale": "Settlement writes share the cluster and the incident interval.",
+        }
+    )
+
+    restricted_case_health = add_evidence(
+        "support_case",
+        "CASE-8137",
+        "Restricted clinical-tenant checkout escalation",
+        "synthetic_support_system",
+        incident_declared + timedelta(minutes=24),
+        revision="case-8137-update-1",
+        acl=RESTRICTED_ACL,
+    )
+    rows["cases"].append(
+        {
+            "evidence_id": restricted_case_health,
+            "case_id": "CASE-8137",
+            "account_name": "Meridian Health Group (fictional)",
+            "support_tier": "Enterprise",
+            "severity": "high",
+            "status": "pending_customer",
+            "opened_at": incident_declared + timedelta(minutes=11),
+            "sla_due_at": incident_declared + timedelta(hours=2),
+            "subject": "Restricted appointment-booking write failures",
+            "description": (
+                "This fictional restricted case reports booking writes queued on "
+                "checkout-prod-cluster-01 while reads continued."
+            ),
+            "customer_commitment": (
+                "Patient-data handling review must complete before disclosure."
+            ),
+        }
+    )
+    rows["incident_cases"].append(
+        {
+            "incident_evidence_id": incident,
+            "case_evidence_id": restricted_case_health,
+            "impact": "potentially_affected",
+            "rationale": "Booking writes target the same cluster in the same window.",
+        }
+    )
+
+    restricted_incident_identity = add_evidence(
+        "incident",
+        "INC-3162",
+        "Restricted identity-service credential rotation incident",
+        "synthetic_incident_management",
+        incident_resolved + timedelta(hours=2),
+        revision="inc-3162-final-1",
+        acl=RESTRICTED_ACL,
+    )
+    rows["incidents"].append(
+        {
+            "evidence_id": restricted_incident_identity,
+            "incident_id": "INC-3162",
+            "cluster_id": "checkout-prod-cluster-01",
+            "severity": "SEV-2",
+            "status": "resolved",
+            "started_at": incident_started - timedelta(hours=6),
+            "mitigated_at": incident_started - timedelta(hours=5),
+            "resolved_at": incident_started - timedelta(hours=4),
+            "summary": (
+                "A restricted credential rotation was executed by on-call operator "
+                "Priya Raghavan (fictional) ahead of the checkout incident window."
+            ),
+            "customer_impact": (
+                "No fictional customer-visible impact; the record is restricted "
+                "because it names the operator and the rotation procedure."
+            ),
+            "resolution": (
+                "The rotation completed and the superseded credential was revoked."
+            ),
+        }
+    )
+
+    restricted_incident_fraud = add_evidence(
+        "incident",
+        "INC-4117",
+        "Restricted fraud-review queue backlog",
+        "synthetic_incident_management",
+        incident_resolved + timedelta(hours=3),
+        revision="inc-4117-final-1",
+        acl=RESTRICTED_ACL,
+    )
+    rows["incidents"].append(
+        {
+            "evidence_id": restricted_incident_fraud,
+            "incident_id": "INC-4117",
+            "cluster_id": "checkout-prod-cluster-01",
+            "severity": "SEV-3",
+            "status": "resolved",
+            "started_at": incident_started - timedelta(hours=3),
+            "mitigated_at": incident_started - timedelta(hours=2),
+            "resolved_at": incident_started - timedelta(hours=1),
+            "summary": (
+                "A restricted fraud-review queue backed up while operator "
+                "Daniel Okafor (fictional) held the review console open."
+            ),
+            "customer_impact": (
+                "No fictional customer-visible impact; the record is restricted "
+                "because it names the reviewer and the detection thresholds."
+            ),
+            "resolution": "The queue drained after the console session was closed.",
+        }
+    )
+
+    restricted_change_keys = add_evidence(
+        "change",
+        "CHG-6213",
+        "Restricted key-management configuration change",
+        "synthetic_change_management",
+        incident_started - timedelta(hours=5),
+        revision="chg-6213-closed-1",
+        acl=RESTRICTED_ACL,
+    )
+    rows["changes"].append(
+        {
+            "evidence_id": restricted_change_keys,
+            "change_id": "CHG-6213",
+            "cluster_id": "checkout-prod-cluster-01",
+            "change_type": "configuration",
+            "status": "completed",
+            "started_at": incident_started - timedelta(hours=6),
+            "completed_at": incident_started - timedelta(hours=5),
+            "owner_team": "platform-security",
+            "execution_sql": None,
+            "description": (
+                "Restricted key-management parameter change approved by operator "
+                "Priya Raghavan (fictional); the record is restricted because it "
+                "names the approver and the parameter."
+            ),
+            "rollback_plan": "Restore the previous parameter group and restart.",
+        }
+    )
+    rows["incident_changes"].append(
+        {
+            "incident_evidence_id": restricted_incident_identity,
+            "change_evidence_id": restricted_change_keys,
+            "relationship": "confirmed",
+            "rationale": "The rotation incident was opened for this change.",
+        }
+    )
+
+    restricted_change_audit = add_evidence(
+        "change",
+        "CHG-3309",
+        "Restricted audit-logging retention change",
+        "synthetic_change_management",
+        incident_started - timedelta(hours=2),
+        revision="chg-3309-closed-1",
+        acl=RESTRICTED_ACL,
+    )
+    rows["changes"].append(
+        {
+            "evidence_id": restricted_change_audit,
+            "change_id": "CHG-3309",
+            "cluster_id": "checkout-prod-cluster-01",
+            "change_type": "configuration",
+            "status": "completed",
+            "started_at": incident_started - timedelta(hours=3),
+            "completed_at": incident_started - timedelta(hours=2),
+            "owner_team": "platform-security",
+            "execution_sql": None,
+            "description": (
+                "Restricted audit-log retention change executed by operator "
+                "Daniel Okafor (fictional) before the checkout incident window."
+            ),
+            "rollback_plan": "Restore the previous retention window.",
+        }
+    )
+    rows["incident_changes"].append(
+        {
+            "incident_evidence_id": restricted_incident_fraud,
+            "change_evidence_id": restricted_change_audit,
+            "relationship": "suspected",
+            "rationale": "The retention change preceded the review-queue backlog.",
         }
     )
 

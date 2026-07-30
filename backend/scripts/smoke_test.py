@@ -111,9 +111,10 @@ def main() -> int:
             SearchRequest(
                 query="Northstar premium checkout escalation",
                 mode="lexical",
+                # Interim shape: Task 9/10 replace this principal with role=.
                 principal={
-                    "scopes": ["workshop"],
-                    "principals": ["support-lead"],
+                    "scopes": ["workshop", "restricted"],
+                    "principals": [],
                 },
                 rerank=False,
                 limit=20,

@@ -205,20 +205,31 @@ def _check_casework(doctor: Doctor, cursor) -> None:
 
     cursor.execute(
         """
-        SELECT acl
+        SELECT external_key, coalesce(acl ->> 'visibility', 'restricted') AS visibility
         FROM casework.evidence_items
-        WHERE external_key = 'CASE-7421'
+        WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
+          AND NOT is_deleted
+        ORDER BY external_key
         """
     )
-    restricted = cursor.fetchone()
-    if (
-        not restricted
-        or restricted["acl"].get("visibility") != "workshop"
-        or "support-lead" not in restricted["acl"].get("principals", [])
-    ):
-        doctor.fail("ACL fixture", "CASE-7421 is not restricted to support-lead")
+    restricted = cursor.fetchall()
+    restricted_keys = [row["external_key"] for row in restricted]
+    if "CASE-7421" not in restricted_keys:
+        doctor.fail(
+            "ACL fixture",
+            "CASE-7421 is not marked restricted; the M3 role flip has nothing to show",
+        )
+    elif len(restricted_keys) < 2:
+        doctor.fail(
+            "ACL fixture",
+            "only CASE-7421 is restricted; reseed to load the restricted cohort",
+        )
     else:
-        doctor.ok("ACL fixture", "CASE-7421 is restricted before retrieval and traversal")
+        doctor.ok(
+            "ACL fixture",
+            f"{len(restricted_keys)} restricted evidence items "
+            f"({', '.join(restricted_keys)}) before retrieval and traversal",
+        )
 
     cursor.execute(
         """

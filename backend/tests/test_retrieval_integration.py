@@ -298,11 +298,12 @@ class RetrievalContractTests(unittest.TestCase):
             principal={"scopes": ["workshop"]},
             max_depth=2,
         )
+        # Interim shape: Task 9/10 replace this principal with role=.
         support_lead = follow_evidence_links_impl(
             ["INC-2047"],
             principal={
-                "scopes": ["workshop"],
-                "principals": ["support-lead"],
+                "scopes": ["workshop", "restricted"],
+                "principals": [],
             },
             max_depth=2,
         )
@@ -538,10 +539,11 @@ class RetrievalContractTests(unittest.TestCase):
                 """,
                 (
                     query,
+                    # Interim shape: Task 9/10 replace this principal with role=.
                     json.dumps(
                         {
-                            "scopes": ["workshop"],
-                            "principals": ["support-lead"],
+                            "scopes": ["workshop", "restricted"],
+                            "principals": [],
                         }
                     ),
                 ),
