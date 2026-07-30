@@ -108,6 +108,24 @@ tables leaks restricted body text through vector/fuzzy while headers stay
 filtered — this is the single most important correctness requirement in this
 design.
 
+**And to the evidence detail tables.** The three read-path tables above are the
+*header* and the *derived index*. The sensitive text — `account_name`,
+`description`, `customer_commitment` — lives in the per-kind detail tables keyed
+1:1 on `casework.evidence_items.evidence_id`
+(`casework.incidents`, `.changes`, `.support_cases`, `.runbooks`,
+`.lock_evidence`, `.customer_commitments`, `.postmortems`). Personas hold
+`SELECT ON ALL TABLES IN SCHEMA casework` because RLS narrows reach rather than
+granting it, so without policies there an analyst is denied at
+`casework.evidence_items` and then reads CASE-7421's customer commitment out of
+`casework.support_cases` one query later. Each detail table gets `ENABLE` and
+`FORCE` plus a policy whose predicate is a bare `EXISTS` back to the parent —
+not a second copy of the clearance expression, which the detail tables have no
+`acl` column to evaluate anyway. The parent is already RLS-filtered, so the
+child inherits the parent's visibility; this dependency is load-bearing and
+verified by negative control (with the parent's RLS disabled, the analyst sees
+every child row again). The junction tables are excluded: they carry no evidence
+body and are read only through `casework.v_evidence_documents`.
+
 The one remaining un-predicated read — the standalone `retrieval.chunks` fetch
 in `evidence_detail`'s second query (`backend/app/main.py:397-412`, no ACL
 predicate, safe today only because its `document_version_id` came from the

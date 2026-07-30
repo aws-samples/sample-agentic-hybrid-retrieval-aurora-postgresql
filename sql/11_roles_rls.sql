@@ -341,7 +341,7 @@ GRANT EXECUTE ON FUNCTION casework.admit_evidence(jsonb) TO workshop_app;
 -- holds hashes, counts and IDs, never evidence body text.
 
 -- ---------------------------------------------------------------------------
--- 4. RLS on all three read-path tables.
+-- 4. RLS on the three read-path tables, plus the evidence detail tables.
 --
 -- All three, not just casework: retrieval.vector_search reads retrieval.chunks
 -- standalone (sql/03_search_functions.sql:488-514) and retrieval.fuzzy_search reads
@@ -454,3 +454,86 @@ CREATE POLICY rls_chunks_visibility ON retrieval.chunks
     acl_visibility = 'workshop'
     OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')
   );
+
+-- ---------------------------------------------------------------------------
+-- 5. RLS on the evidence detail tables.
+--
+-- The three policies above are necessary and NOT sufficient. The sensitive text
+-- is not in casework.evidence_items -- that table holds the header (external_key,
+-- title, acl). The body lives in per-kind detail tables keyed 1:1 on evidence_id,
+-- and section 2 grants every persona SELECT ON ALL TABLES IN SCHEMA casework
+-- because RLS narrows reach, it does not grant it. Without the policies below, a
+-- participant does this and the whole teaching claim collapses:
+--
+--   BEGIN; SET LOCAL ROLE persona_analyst;
+--   SELECT count(*) FROM casework.evidence_items;   -- restricted rows hidden, correct
+--   SELECT account_name, description, customer_commitment
+--     FROM casework.support_cases;                   -- CASE-7421 in full. Measured.
+--   ROLLBACK;
+--
+-- psql is the workshop's primary surface, not a back door: Lab 1's first lesson is
+-- that a bare SELECT is denied. A participant who is denied at evidence_items and
+-- then reads Northstar Foods' customer commitment one query later has been taught
+-- the opposite of the intended lesson.
+--
+-- The predicate is a bare EXISTS back to the parent, NOT a copy of the clearance
+-- expression. Three reasons: the detail tables have no acl column to read; one
+-- definition of clearance beats seven; and the parent is already RLS-filtered, so
+-- the child inherits the parent's visibility for free. Measured on PG17 with the
+-- parent policy active: analyst saw 1 of 2 parent rows and 1 of 2 child rows with
+-- the restricted account_name denied, while admin saw 2 and 2 unmasked. Graded,
+-- not deny-all.
+--
+-- The dependency on the parent's RLS is load-bearing and was verified by negative
+-- control: with ALTER TABLE casework.evidence_items DISABLE ROW LEVEL SECURITY,
+-- the analyst saw every child row again. The EXISTS is not self-sufficient -- it
+-- is filtered by the parent's policy. If a future change disables RLS on
+-- casework.evidence_items, every table below silently opens. G-27 asserts
+-- enabled+forced on the parent, which is what keeps that from happening quietly.
+--
+-- FOR ALL with USING only, matching the policies above. WITH CHECK defaults to
+-- USING when omitted, and the foreign key guarantees the parent row exists, so
+-- seed INSERTs still pass -- measured: the owner inserted a new restricted parent
+-- and child under FORCE, and INSERT INTO projection SELECT copied 3 of 3 rows with
+-- no silent truncation. FOR SELECT would be wrong: FORCE subjects the owner to
+-- INSERT policies too, and with no INSERT-applicable policy every seed write is
+-- denied.
+--
+-- CURRENT_USER in each TO list for the same reason as the policies above, which is
+-- not optional on any cluster: it is stored as an OID in pg_policy.polroles at
+-- CREATE POLICY time, and without it the owner reads zero rows and every derived
+-- projection truncates while reporting success.
+--
+-- All seven evidence-keyed detail tables, not only the three the current
+-- restricted cohort touches. The bypass class is "the grant is schema-wide, so any
+-- evidence_id-keyed table is a door" -- an allowlist tracking today's cohort
+-- re-opens the hole the moment a later cohort adds a kind. The junction tables
+-- (incident_changes, incident_support_cases, incident_runbooks, change_runbooks,
+-- support_case_commitments) are deliberately excluded: they carry no evidence body,
+-- only a rationale, and they are read solely through
+-- casework.v_evidence_documents, which Task 10 makes security_invoker so the
+-- caller's policies apply.
+-- ---------------------------------------------------------------------------
+
+DO $$
+DECLARE
+  v_table text;
+BEGIN
+  FOREACH v_table IN ARRAY ARRAY['incidents', 'changes', 'support_cases', 'runbooks',
+                                 'lock_evidence', 'customer_commitments', 'postmortems']
+  LOOP
+    EXECUTE format('ALTER TABLE casework.%I ENABLE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('ALTER TABLE casework.%I FORCE  ROW LEVEL SECURITY', v_table);
+    EXECUTE format('DROP POLICY IF EXISTS rls_%s_visibility ON casework.%I',
+                   v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY rls_%s_visibility ON casework.%I
+        FOR ALL
+        TO persona_analyst, persona_admin, persona_auditor, CURRENT_USER
+        USING (EXISTS (SELECT 1
+                         FROM casework.evidence_items parent
+                        WHERE parent.evidence_id = casework.%I.evidence_id))
+    $fmt$, v_table, v_table, v_table);
+  END LOOP;
+END
+$$;

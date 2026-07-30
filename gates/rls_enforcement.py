@@ -63,6 +63,24 @@ READ_PATH_TABLES = (
     "retrieval.chunks",
 )
 
+# The evidence detail tables: keyed 1:1 on casework.evidence_items.evidence_id and
+# reachable through section 2's schema-wide GRANT SELECT. RLS on the three
+# read-path tables above does not cover them, and the sensitive text lives HERE,
+# not in the header table -- an analyst denied at casework.evidence_items could
+# read CASE-7421's account_name and customer_commitment straight out of
+# casework.support_cases. Enumerated from sql/01_schema.sql (:65, :81, :96, :111,
+# :163, :340, :352), not from the current restricted cohort: the bypass is the
+# schema-wide grant, so any evidence_id-keyed table is a door.
+DETAIL_TABLES = (
+    "casework.incidents",
+    "casework.changes",
+    "casework.support_cases",
+    "casework.runbooks",
+    "casework.lock_evidence",
+    "casework.customer_commitments",
+    "casework.postmortems",
+)
+
 PERSONA_ROLES = ("persona_analyst", "persona_admin", "persona_auditor")
 CLEARANCE_GROUP = "can_see_restricted"
 
@@ -162,7 +180,7 @@ def _rls_state(cur) -> dict[str, tuple[bool, bool]]:
           JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname || '.' || c.relname = ANY(%s)
         """,
-        [list(READ_PATH_TABLES)],
+        [list(READ_PATH_TABLES + DETAIL_TABLES)],
     )
     return {row[0]: (row[1], row[2]) for row in cur.fetchall()}
 
@@ -316,8 +334,13 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
     for table in READ_PATH_TABLES:
         enabled, forced = state.get(table, (None, None))
         print(f"    {table}: enabled={enabled} forced={forced}")
+    # Both tuples: a detail table without ENABLE+FORCE is the bypass this gate's
+    # (b') group exists to catch, and reporting it as BLOCKED here names the
+    # missing DDL instead of failing later with a confusing row count.
     unprotected = [
-        table for table in READ_PATH_TABLES if state.get(table) != (True, True)
+        table
+        for table in READ_PATH_TABLES + DETAIL_TABLES
+        if state.get(table) != (True, True)
     ]
     if unprotected:
         return finish(
@@ -447,6 +470,51 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
                 auditor,
                 f"persona_auditor saw no restricted rows at {table}; masking needs "
                 f"the row present",
+            )
+
+        # --- (b') row filtering at the evidence detail tables. ---
+        # The policies here clear through the parent, so this group measures a
+        # DIFFERENT mechanism than (b): (b) proves the parent's predicate works,
+        # this proves the children inherit it. A table with zero restricted rows
+        # is reported and skipped rather than asserted on -- runbooks,
+        # lock_evidence, customer_commitments and postmortems hold no restricted
+        # evidence in the current cohort, and asserting "admin sees restricted
+        # rows" there would fail for a reason that has nothing to do with RLS.
+        # The analyst assertion still runs on every table, because "the analyst
+        # sees nothing" is true whether or not the table has restricted rows.
+        print("\n  (b') row filtering at the evidence detail tables:")
+        for table in DETAIL_TABLES:
+            analyst = _ids_under_persona(
+                app_conn, "persona_analyst", table, restricted_ids
+            )
+            admin = _ids_under_persona(
+                app_conn, "persona_admin", table, restricted_ids
+            )
+            auditor = _ids_under_persona(
+                app_conn, "persona_auditor", table, restricted_ids
+            )
+            print(
+                f"    {table}: analyst={len(analyst)} admin={len(admin)} "
+                f"auditor={len(auditor)}"
+            )
+            require(
+                analyst == set(),
+                f"persona_analyst read restricted rows out of {table}: "
+                f"{sorted(str(i) for i in analyst)}. RLS on the three read-path "
+                f"tables does not cover the detail tables, and section 2 of "
+                f"sql/11_roles_rls.sql grants every persona SELECT ON ALL TABLES "
+                f"IN SCHEMA casework -- so the analyst is denied at "
+                f"casework.evidence_items and then reads the same evidence body "
+                f"here. Add the EXISTS-on-parent policy for this table "
+                f"(sql/11_roles_rls.sql section 5)",
+            )
+            if not admin:
+                print(f"      (no restricted rows of this kind; analyst-only check)")
+                continue
+            require(
+                auditor,
+                f"persona_auditor saw no restricted rows at {table} while "
+                f"persona_admin saw {len(admin)}; masking needs the row present",
             )
 
         # --- (c) replay determinism + transaction scope. ---
