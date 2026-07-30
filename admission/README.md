@@ -97,7 +97,9 @@ is not live until the next search-index build runs.
   environment, runs the promoter, pipes the resulting payload into
   `casework.admit_evidence` via `psql`, prints the ingest receipt, and then
   runs the exact-arm checkpoint (confirms the admitted `external_key` is
-  immediately selectable from `casework.evidence_items` as of `now()`).
+  immediately selectable from `casework.evidence_items` as of `now()`, read as
+  `persona_analyst` inside a rolled-back transaction so the check passes through
+  live RLS rather than around it).
 - `fixture_payload.json` — the deterministic `LOCK-LIVE-001` payload used
   when no live capture is present.
 - `payload_v1.schema.json` — the JSON Schema for `admission payload v1`.
@@ -127,4 +129,8 @@ to `promote_pg_incident.py` following the same shape:
    jsonb.
 
 Payloads default `acl` to `{"visibility": "workshop"}`, matching the
-corpus-wide default role scope documented in `docs/data-model.md`.
+corpus-wide default scope documented in `docs/data-model.md`. That default is
+what makes `persona_analyst` the right identity for the exact-arm checkpoint: a
+payload admitted with `{"visibility": "restricted"}` is invisible to the analyst
+by RLS, and the checkpoint reporting it as not-visible is correct behavior, not a
+failed admission.

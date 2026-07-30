@@ -25,7 +25,8 @@ SQL_FILES := \
 	sql/07_search_index_verification.sql \
 	sql/08_query_runtime.sql \
 	sql/09_traverse_evidence.sql \
-	sql/10_admission.sql
+	sql/10_admission.sql \
+	sql/11_roles_rls.sql
 
 export DATABASE_URL
 export PGVECTOR_VERSION

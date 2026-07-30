@@ -1,7 +1,10 @@
+-- STABLE, not IMMUTABLE: identity-dependent predicates (pg_has_role) are STABLE,
+-- and an IMMUTABLE label would license the planner to constant-fold a result that
+-- is only valid for the role that was current when it was folded.
 CREATE OR REPLACE FUNCTION retrieval.acl_visible(p_acl jsonb, p_principal jsonb)
 RETURNS boolean
 LANGUAGE sql
-IMMUTABLE
+STABLE
 PARALLEL SAFE
 AS $$
   SELECT coalesce(p_acl ->> 'visibility', 'restricted') = 'public'
@@ -35,7 +38,7 @@ CREATE OR REPLACE FUNCTION retrieval.acl_scalars_visible(
 )
 RETURNS boolean
 LANGUAGE sql
-IMMUTABLE
+STABLE
 PARALLEL SAFE
 AS $$
   SELECT coalesce(p_visibility, 'restricted') = 'public'
