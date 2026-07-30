@@ -56,7 +56,8 @@ about under 15k rows of the constant 1, ties the committed baseline to a seeding
 knob, and inflates the file to ~900 kB. ``*-BG-*`` is the documented filler marker
 (gates/noun_lint.py:19,122).
 
-Read-only. Baseline absent, or the persona not created yet -> BLOCKED.
+Read-only. Baseline absent, persona not created yet, or engine unreachable ->
+BLOCKED.
 
 Usage:
     gates/persona_equivalence.py             # compare live analyst vs baseline
@@ -177,7 +178,7 @@ def _diff_summary(label: str, expected: list[list], actual: list[list]) -> list[
     return lines
 
 
-def _capture(owner_dsn: str, path: Path) -> int:
+def _capture(owner_dsn: str, path: Path) -> tuple[int, str]:
     """Write the pre-collapse baseline. Refuses to overwrite an existing one.
 
     Overwriting is the one irreversible thing this gate could do. Once the
@@ -185,14 +186,33 @@ def _capture(owner_dsn: str, path: Path) -> int:
     pre-collapse label, and the gate would compare the new world against itself
     and PASS - destroying the only witness A7 has. Delete the file deliberately
     if you really mean to re-baseline.
+
+    Returns ``(code, summary)`` rather than a bare code because this function has
+    three distinct refusal paths - the file already exists, the pre-collapse rule
+    is gone, the engine is unreachable - and the caller cannot tell them apart
+    from an exit code. A caller that guesses gets it wrong: an earlier draft
+    reported "already exists; delete it to re-baseline" for every non-PASS,
+    including the Task-9 refusal, which sends the reader to delete the one
+    artifact the refusal exists to protect.
     """
     import psycopg
 
     if path.exists():
         print(f"  refusing to overwrite the existing baseline at {path}")
-        return FAIL
+        return FAIL, f"{BASELINE_PATH} already exists; delete it to re-baseline"
 
-    with psycopg.connect(owner_dsn, connect_timeout=15, autocommit=True) as conn:
+    # Unreachable engine -> BLOCKED, not a traceback. main_guard translates only
+    # AssertionError, so an unguarded connect() reports this gate as a raw
+    # OperationalError stack with a bare exit 1 that the wrapper then prints as a
+    # FAIL. Measured: pointing --capture at a dead port produced exactly that.
+    # The comparison path below already guards its own connect; this one is the
+    # same hazard on the other side of the branch.
+    try:
+        conn_ctx = psycopg.connect(owner_dsn, connect_timeout=15, autocommit=True)
+    except psycopg.OperationalError as exc:
+        return BLOCKED, f"cannot reach the engine: {exc}"
+
+    with conn_ctx as conn:
         # The two-jsonb acl_visible must still exist, or this capture is recording
         # the wrong world. After Task 9 it is DROPped in favour of (jsonb, name),
         # and the call below would raise UndefinedFunction 42883 at plan time --
@@ -219,7 +239,10 @@ def _capture(owner_dsn: str, path: Path) -> int:
                     "rule can no longer be replayed, so this baseline would be a "
                     "forgery. Capture must happen before Task 9."
                 )
-                return FAIL
+                return FAIL, (
+                    "retrieval.acl_visible(jsonb, jsonb) is gone; the pre-collapse "
+                    "rule cannot be replayed, so no honest baseline is possible"
+                )
         payload = {
             "captured_under": (
                 "pre-A7 role=workshop semantics, replayed via "
@@ -238,10 +261,10 @@ def _capture(owner_dsn: str, path: Path) -> int:
         f"  captured baseline: {len(payload['eval_goldens'])} goldens, "
         f"{len(payload['claim_coverage'])} covered documents -> {path}"
     )
-    return PASS
+    return PASS, f"baseline written to {BASELINE_PATH}"
 
 
-def run() -> int:
+def run() -> int:  # noqa: C901 - two modes plus their guards, read top to bottom
     print_header(GATE_ID, TITLE)
     root = repo_root()
     baseline_path = root / BASELINE_PATH
@@ -257,12 +280,7 @@ def run() -> int:
 
     if "--capture" in sys.argv:
         print(f"  engine: {redact_dsn(owner_dsn)}")
-        code = _capture(owner_dsn, baseline_path)
-        summary = (
-            f"baseline written to {BASELINE_PATH}"
-            if code == PASS
-            else f"{BASELINE_PATH} already exists; delete it to re-baseline"
-        )
+        code, summary = _capture(owner_dsn, baseline_path)
         return finish(GATE_ID, code, summary)
 
     if not baseline_path.exists():
