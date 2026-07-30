@@ -736,6 +736,7 @@ def _canonical_rows(capture_bundle: dict[str, Any]) -> dict[str, list[dict[str, 
             "change_evidence_id": restricted_change_keys,
             "relationship": "confirmed",
             "rationale": "The rotation incident was opened for this change.",
+            "confirmed_by": "incident commander",
         }
     )
 
@@ -772,6 +773,7 @@ def _canonical_rows(capture_bundle: dict[str, Any]) -> dict[str, list[dict[str, 
             "change_evidence_id": restricted_change_audit,
             "relationship": "suspected",
             "rationale": "The retention change preceded the review-queue backlog.",
+            "confirmed_by": "platform-security on-call",
         }
     )
 
