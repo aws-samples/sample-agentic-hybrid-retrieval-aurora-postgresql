@@ -61,6 +61,24 @@ def _assert_disposable_test_database() -> None:
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
+# The one Aurora-only file this suite cannot apply locally: sql/12_masking.sql's
+# first statement is `CREATE EXTENSION IF NOT EXISTS pg_columnmask`, and that
+# extension is not installed on a local PostgreSQL build (verified: zero rows in
+# pg_available_extensions). Named explicitly rather than caught by a broad
+# try/except around the apply loop, so a genuine SQL defect in any OTHER file
+# still fails the suite instead of being silently swallowed alongside it.
+_AURORA_ONLY_SQL_FILE = "12_masking.sql"
+
+
+def _pg_columnmask_available(connection: psycopg.Connection) -> bool:
+    """Return whether pg_columnmask can be installed on this server."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT 1 FROM pg_available_extensions WHERE name = 'pg_columnmask'"
+        )
+        return cursor.fetchone() is not None
+
+
 def _apply_schema(connection: psycopg.Connection) -> None:
     """Apply every versioned SQL file before seeding.
 
@@ -69,8 +87,17 @@ def _apply_schema(connection: psycopg.Connection) -> None:
     files are idempotent (CREATE OR REPLACE, IF NOT EXISTS), and applying them
     here means editing SQL is enough to make the suite exercise the change.
 
+    sql/12_masking.sql requires pg_columnmask, which Aurora PostgreSQL ships but a
+    local build does not. That one file is skipped -- loudly, by name, printed to
+    stdout -- when the extension is unavailable; every other file still runs with
+    no exception handling around it, so a real SQL error in any of them still
+    fails this call instead of being mistaken for the known, named gap.
+
     Args:
         connection: An open connection to the disposable test database.
+
+    Raises:
+        RuntimeError: No versioned SQL files were found under ``sql/``.
     """
     # Apply every versioned migration NN_*.sql except 99_reset.sql, which drops
     # all three schemas. This matches what `make schema` applies.
@@ -81,8 +108,17 @@ def _apply_schema(connection: psycopg.Connection) -> None:
     )
     if not files:
         raise RuntimeError(f"no versioned SQL files found in {REPOSITORY_ROOT / 'sql'}")
+    skip_masking = not _pg_columnmask_available(connection)
+    if skip_masking:
+        print(
+            f"_apply_schema: SKIPPING sql/{_AURORA_ONLY_SQL_FILE} -- pg_columnmask "
+            "is not installed on this server (Aurora-only extension). Column "
+            "masking (auditor persona) is not exercised by this run."
+        )
     with connection.cursor() as cursor:
         for path in files:
+            if skip_masking and path.name == _AURORA_ONLY_SQL_FILE:
+                continue
             cursor.execute(path.read_text(encoding="utf-8"))
     connection.commit()
 
@@ -406,6 +442,70 @@ class RetrievalContractTests(unittest.TestCase):
             ["CGH-1842"],
         )
 
+    def test_the_fuzzy_probe_answers_the_same_for_every_persona(self) -> None:
+        """The probe must be ACL-blind, which means role-invariant.
+
+        The test above runs as the default role only, and that is how this leak
+        shipped: RLS on retrieval.documents hid the restricted row from
+        persona_analyst, NOT EXISTS turned true, and the analyst -- alone among
+        the three -- had CASE-7421 fuzzed, serving it the visible near
+        neighbours of an identifier it may not read. Measured, before the fix:
+        analyst ['CASE-7421'], admin [], auditor []. Any divergence here means
+        the predicate is being evaluated under the caller's RLS again.
+        """
+        from backend.app.models import SearchRequest
+        from backend.app.search import _resolve_fuzzy_probe_tokens
+
+        for token, expected in (("CASE-7421", []), ("CGH-1842", ["CGH-1842"])):
+            answers = {
+                persona: _resolve_fuzzy_probe_tokens(
+                    SearchRequest(query=token, mode="hybrid", role=persona),
+                    [token],
+                )
+                for persona in ("analyst", "admin", "auditor")
+            }
+            with self.subTest(token=token):
+                self.assertEqual(
+                    answers,
+                    {persona: expected for persona in answers},
+                    f"the existence probe for {token} varied by persona: "
+                    f"{answers}. It is deliberately ACL-blind (it runs through "
+                    f"retrieval.identifier_is_indexed, SECURITY DEFINER), so a "
+                    f"per-persona answer means it is reading "
+                    f"retrieval.documents under the caller's RLS again",
+                )
+
+    def test_the_existence_probe_cannot_be_read_under_the_callers_rls(self) -> None:
+        """Pin the shape that makes the probe ACL-blind, not just its answers."""
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT procedure.prosecdef, procedure.proconfig
+                FROM pg_proc procedure
+                JOIN pg_namespace namespace
+                  ON namespace.oid = procedure.pronamespace
+                WHERE namespace.nspname = 'retrieval'
+                  AND procedure.proname = 'identifier_is_indexed'
+                """
+            )
+            rows = cursor.fetchall()
+
+        self.assertEqual(len(rows), 1, "expected exactly one overload")
+        self.assertTrue(
+            rows[0]["prosecdef"],
+            "retrieval.identifier_is_indexed is not SECURITY DEFINER; it would "
+            "run under the caller's RLS and report a restricted identifier as "
+            "unindexed, which sends it to the trigram arm",
+        )
+        self.assertTrue(
+            any(
+                entry.startswith("search_path=")
+                for entry in (rows[0]["proconfig"] or [])
+            ),
+            "SECURITY DEFINER with no pinned search_path is a privilege-"
+            "escalation vector",
+        )
+
     def test_restricted_identifier_yields_no_visible_evidence(self) -> None:
         from backend.app.models import SearchRequest
         from backend.app.search import run_hybrid_search
@@ -497,42 +597,46 @@ class RetrievalContractTests(unittest.TestCase):
         self.assertEqual(chunks["embeddings"], expected)
 
     def test_acl_is_applied_before_retrieval(self) -> None:
-        query = "Northstar premium checkout escalation"
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT external_key
-                FROM retrieval.full_text_search(
-                  %s,
-                  p_role => 'persona_analyst',
-                  p_limit => 50
-                )
-                """,
-                (query,),
-            )
-            analyst = {row["external_key"] for row in cursor.fetchall()}
-            cursor.execute(
-                """
-                SELECT external_key
-                FROM retrieval.full_text_search(
-                  %s,
-                  p_role => 'persona_admin',
-                  p_limit => 50
-                )
-                """,
-                (query,),
-            )
-            admin = {row["external_key"] for row in cursor.fetchall()}
+        """The lexical arm's row set follows the connection's role.
 
-        self.assertNotIn("CASE-7421", analyst)
-        self.assertIn("CASE-7421", admin)
+        The arms take no role argument on purpose (A7: one identity axis). The
+        predicate reads ``current_user``, so the only way to change the answer is
+        to change who is asking -- which is what ``get_dict_conn(persona)`` does
+        with ``SET LOCAL ROLE``. Running the identical statement on two persona
+        checkouts is therefore the honest test of this mechanism; passing a role
+        as an argument would test a parameter the shipped functions do not have.
+        """
+        from backend.app import db
+
+        query = "Northstar premium checkout escalation"
+        sql = """
+            SELECT external_key
+            FROM retrieval.full_text_search(%s, p_limit => 50)
+        """
+        keys = {}
+        for persona in ("analyst", "admin"):
+            with db.get_dict_conn(persona) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(sql, (query,))
+                    keys[persona] = {
+                        row["external_key"] for row in cursor.fetchall()
+                    }
+
+        self.assertNotIn("CASE-7421", keys["analyst"])
+        self.assertIn("CASE-7421", keys["admin"])
 
     def test_canonical_search_functions_have_one_signature_each(self) -> None:
+        # One overload each is the real assertion: removing p_principal with
+        # CREATE OR REPLACE would have ADDED a second overload carrying the old
+        # fail-open jsonb predicate, and a caller still passing p_principal would
+        # have silently kept it. The arity is one lower than before A7 for exactly
+        # that reason -- p_principal is gone and nothing replaced it, because the
+        # role is read from current_user rather than passed in.
         expected = {
-            "full_text_search": (14, 13),
-            "vector_search": (15, 14),
-            "fuzzy_search": (15, 14),
-            "hybrid_search": (22, 20),
+            "full_text_search": (13, 12),
+            "vector_search": (14, 13),
+            "fuzzy_search": (14, 13),
+            "hybrid_search": (21, 19),
         }
         with self.conn.cursor() as cursor:
             cursor.execute(

@@ -57,7 +57,7 @@ def _first_match(pattern: str, question: str) -> str | None:
 def _anchor_keys(
     incident_id: str,
     kinds: tuple[str, ...],
-    role: str = "analyst",
+    role: str,
 ) -> dict[str, str]:
     """Name the evidence an incident declares a relationship to, per kind.
 
@@ -71,9 +71,10 @@ def _anchor_keys(
     Args:
         incident_id: The incident the question named.
         kinds: Evidence kinds to resolve an anchor for.
-        role: The persona to check out under. decompose_question_impl has no
-            request model to thread a caller role from, so this defaults to the
-            least-privileged persona.
+        role: The caller's persona, threaded from decompose_question_impl. Required
+            rather than defaulted: an anchor the caller cannot see must not be
+            written into their plan, and a default here silently capped every
+            caller at analyst visibility no matter who asked.
 
     Returns:
         One external key per kind that has a reachable relationship, keyed by
@@ -112,6 +113,7 @@ def _planned_subquestions(
     question: str,
     keys: list[str],
     incident_id: str | None,
+    role: str,
 ) -> list[dict[str, Any]]:
     change_keys = [key for key in keys if key.startswith("CHG-")]
     broad_question = bool(
@@ -133,7 +135,7 @@ def _planned_subquestions(
         anchors = (
             {}
             if lock_keys and runbook_keys
-            else _anchor_keys(incident, ("lock_evidence", "runbook"))
+            else _anchor_keys(incident, ("lock_evidence", "runbook"), role)
         )
         lock_reference = (
             lock_keys[0]
@@ -215,7 +217,23 @@ def _planned_subquestions(
     ]
 
 
-def decompose_question_impl(question: str) -> dict[str, Any]:
+def decompose_question_impl(
+    question: str,
+    *,
+    role: str = "analyst",
+) -> dict[str, Any]:
+    """Break an incident question into the evidence steps Aurora can answer.
+
+    Args:
+        question: The user's incident question, verbatim.
+        role: The caller's persona; bound server-side, never set by the model. It
+            reaches the database because the planner resolves anchor identifiers
+            from the declared edges, and an anchor the caller cannot retrieve
+            would name evidence their own searches then fail to return.
+
+    Returns:
+        Detected identifiers, inferred filters, and the ordered subquestions.
+    """
     incident_id = _first_match(r"\bINC-[A-Z0-9-]+\b", question)
     cluster_id = _first_match(
         r"\b[a-z][a-z0-9-]*-(?:prod|staging|development)(?:-[a-z0-9]+)*-[0-9]+\b",
@@ -231,6 +249,7 @@ def decompose_question_impl(question: str) -> dict[str, Any]:
         question,
         normalized_keys,
         incident_id.upper() if incident_id else None,
+        role,
     )
     return {
         "question": question,
@@ -505,12 +524,19 @@ def explain_ranking_impl(run_id: str) -> dict[str, Any]:
         descriptors.
 
     Raises:
-        ValueError: No such run.
+        ValueError: No such run. Raised by _run_role before the second checkout
+            opens, so proof.v_run_receipts is never queried for a run_id that
+            does not exist: proof.retrieval_runs carries no RLS, and
+            v_run_receipts LEFT JOINs candidates and GROUPs BY run_id, so every
+            row in retrieval_runs yields exactly one receipt row. There is no
+            second not-found case to guard.
     """
     verify = receipt_verify_sql(run_id)
     role = _run_role(run_id)
     with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
+            cursor.execute(verify["run"]["statement"], verify["run"]["binds"])
+            run = cursor.fetchone()
             cursor.execute(
                 verify["candidates"]["statement"],
                 verify["candidates"]["binds"],

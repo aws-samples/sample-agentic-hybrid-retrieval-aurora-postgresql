@@ -286,6 +286,7 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         params=(
             ToolParam("question", "string", required=True, min_length=1, max_length=4000, description="The user's incident question, verbatim."),
+            _ROLE_PARAM,
         ),
         returns_description="Detected identifiers, inferred filters, and ordered subquestions.",
         impl=decompose_question_impl,

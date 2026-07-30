@@ -78,6 +78,7 @@ class AgentAnswerRequest(BaseModel):
 
 class DecomposeRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
+    role: Persona = DEFAULT_ROLE
 
 
 class TraverseRequest(BaseModel):

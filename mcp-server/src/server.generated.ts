@@ -27,10 +27,12 @@ Returns:
     Detected identifiers, inferred filters, and ordered subquestions.`,
     {
       question: z.string().min(1).max(4000),
+      role: z.enum(["analyst", "admin", "auditor"]).default("analyst"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({
         question: args.question,
+        role: args.role,
       });
       return wrap(await post("/v1/tools/decompose", payload));
     }

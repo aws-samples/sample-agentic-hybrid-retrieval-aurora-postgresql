@@ -1,99 +1,183 @@
+-- retrieval.v_search_index_drift is a COUNT_ONLY view (backend/tests/test_db_persona.py's
+-- COUNT_ONLY_VIEWS): its own reloptions are owner-rights (no security_invoker) so
+-- assert_search_index_ready() reports one persona-invariant count, matching
+-- v_search_index_health's independent drift computation below. Three of its five
+-- arms used to select FROM casework.v_evidence_documents, and that view is one of
+-- the six CONTENT_VIEWS Task 10 made `security_invoker = true` so a reader of
+-- evidence TEXT gets the caller's RLS. An owner-rights outer view nesting a
+-- security_invoker inner view does NOT recover owner rights over the inner one --
+-- measured on PG17: the inner view still applies the invoker's policies, so this
+-- view's row count silently varied by persona (2 rows as owner, 1 as
+-- persona_analyst, identical database state) while its own reloptions looked
+-- correct. assert_search_index_ready() (sql/07_search_index_verification.sql)
+-- counts this view and would raise a persona-dependent WRONG count.
+--
+-- Fixed with a SECURITY DEFINER function rather than duplicating
+-- v_evidence_documents' rendering/hash logic (option (a) in the brief) or
+-- restating the policy predicate against the detail tables directly (also (a) --
+-- those tables are RLS-forced too, so it would not have fixed anything). The
+-- function's body is a verbatim copy of the five arms below computed as the
+-- OWNER regardless of caller, with search_path pinned so it cannot be tricked into
+-- resolving an unqualified name through a caller-controlled schema, EXECUTE
+-- revoked from PUBLIC and granted only to the three personas, and its projection
+-- held to exactly evidence_id/external_key/issue/expected/actual -- identity plus
+-- hashes and revisions, never the evidence body. It cannot be used to read
+-- anything beyond that projection: it takes no arguments, so there is no
+-- parameter to widen the query with, and it is LANGUAGE sql (no dynamic SQL, no
+-- EXECUTE of caller-influenced text).
+--
+-- JUDGMENT CALL: this makes a restricted row's external_key (and its hash /
+-- revision) visible in the drift report to persona_analyst, which cannot read the
+-- row's content. Before this fix persona_analyst already saw a (wrong, partial)
+-- drift count with SOME external_keys in it -- the leak direction is not new, the
+-- set analyst sees now grows to match owner/admin/auditor exactly. The
+-- alternative -- keeping the view analyst-scoped -- is the C2 defect itself: a
+-- persona-dependent count feeding an exception message and a health check that
+-- both claim to be one global operational fact. An operational-health surface
+-- (row exists / hash matches / embedding ready) naming a restricted item's key
+-- alongside a hash is judged an acceptable disclosure for the same reason the
+-- other three COUNT_ONLY_VIEWS already are: they are diagnostics about the index,
+-- not evidence content, and the six CONTENT_VIEWS remain the only surface where
+-- restricted evidence TEXT is gated by persona.
+CREATE OR REPLACE FUNCTION retrieval.search_index_drift()
+RETURNS TABLE (
+  evidence_id uuid,
+  external_key text,
+  issue text,
+  expected text,
+  actual text
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, casework, retrieval
+AS $$
+  SELECT
+    source.evidence_id,
+    source.external_key,
+    'missing_current_document'::text AS issue,
+    source.search_document_hash AS expected,
+    NULL::text AS actual
+  FROM casework.v_evidence_documents source
+  LEFT JOIN retrieval.documents document
+    ON document.evidence_id = source.evidence_id
+   AND document.is_current
+  WHERE document.document_version_id IS NULL
+
+  UNION ALL
+
+  SELECT
+    source.evidence_id,
+    source.external_key,
+    'search_document_hash_mismatch',
+    source.search_document_hash,
+    document.search_document_hash
+  FROM casework.v_evidence_documents source
+  JOIN retrieval.documents document
+    ON document.evidence_id = source.evidence_id
+   AND document.is_current
+  WHERE document.search_document_hash <> source.search_document_hash
+
+  UNION ALL
+
+  SELECT
+    source.evidence_id,
+    source.external_key,
+    'source_revision_mismatch',
+    source.source_revision,
+    document.source_revision
+  FROM casework.v_evidence_documents source
+  JOIN retrieval.documents document
+    ON document.evidence_id = source.evidence_id
+   AND document.is_current
+  WHERE document.source_revision <> source.source_revision
+
+  UNION ALL
+
+  SELECT
+    document.evidence_id,
+    document.external_key,
+    'current_document_not_ready',
+    'ready',
+    document.index_state
+  FROM retrieval.documents document
+  WHERE document.is_current
+    AND document.index_state <> 'ready'
+
+  UNION ALL
+
+  SELECT
+    document.evidence_id,
+    document.external_key,
+    'current_document_for_deleted_source',
+    'not current',
+    'current'
+  FROM retrieval.documents document
+  JOIN casework.evidence_items source ON source.evidence_id = document.evidence_id
+  WHERE document.is_current
+    AND source.is_deleted
+
+  UNION ALL
+
+  SELECT
+    document.evidence_id,
+    document.external_key,
+    'missing_ready_embedding',
+    document.search_document_hash,
+    chunk.chunk_hash
+  FROM retrieval.documents document
+  JOIN retrieval.chunks chunk ON chunk.document_version_id = document.document_version_id
+  WHERE document.is_current
+    AND document.index_state = 'ready'
+    AND (
+      chunk.embedding_state <> 'ready'
+      OR chunk.embedding IS NULL
+      OR chunk.embedding_model IS NULL
+    )
+
+  UNION ALL
+
+  SELECT
+    document.evidence_id,
+    document.external_key,
+    'chunk_currency_mismatch',
+    document.is_current::text,
+    chunk.is_current::text
+  FROM retrieval.documents document
+  JOIN retrieval.chunks chunk
+    ON chunk.document_version_id = document.document_version_id
+  WHERE document.is_current IS DISTINCT FROM chunk.is_current;
+$$;
+
+COMMENT ON FUNCTION retrieval.search_index_drift() IS
+  'Owner-rights drift computation for retrieval.v_search_index_drift (C2 fix). '
+  'SECURITY DEFINER with a pinned search_path so every persona measures the same '
+  'operational-drift row set that assert_search_index_ready() compares against '
+  'v_search_index_health. Projection stays identity + hashes + revisions, never '
+  'evidence body text.';
+
+-- PUBLIC gets EXECUTE on every new function by default (same trap sql/11 documents
+-- for casework.admit_evidence); revoke it and grant only the read personas. Guarded
+-- because sql/04 runs BEFORE sql/11 creates the personas on a fresh database --
+-- the same guard shape sql/03_search_functions.sql uses for its own re-grant.
+REVOKE ALL ON FUNCTION retrieval.search_index_drift() FROM PUBLIC;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_analyst') THEN
+    GRANT EXECUTE ON FUNCTION retrieval.search_index_drift()
+      TO persona_analyst, persona_admin, persona_auditor;
+  END IF;
+END
+$$;
+
+-- The view stays the stable name every caller (backend/app/insights.py,
+-- assert_search_index_ready(), backend/tests/test_db_persona.py's
+-- COUNT_ONLY_VIEWS) already queries by. Its own reloptions are still owner-rights
+-- (no security_invoker), which is correct and is what the fix restores: the
+-- defect was the NESTED view leaking the invoker's RLS through, not this view's
+-- own setting.
 CREATE OR REPLACE VIEW retrieval.v_search_index_drift AS
-SELECT
-  source.evidence_id,
-  source.external_key,
-  'missing_current_document'::text AS issue,
-  source.search_document_hash AS expected,
-  NULL::text AS actual
-FROM casework.v_evidence_documents source
-LEFT JOIN retrieval.documents document
-  ON document.evidence_id = source.evidence_id
- AND document.is_current
-WHERE document.document_version_id IS NULL
-
-UNION ALL
-
-SELECT
-  source.evidence_id,
-  source.external_key,
-  'search_document_hash_mismatch',
-  source.search_document_hash,
-  document.search_document_hash
-FROM casework.v_evidence_documents source
-JOIN retrieval.documents document
-  ON document.evidence_id = source.evidence_id
- AND document.is_current
-WHERE document.search_document_hash <> source.search_document_hash
-
-UNION ALL
-
-SELECT
-  source.evidence_id,
-  source.external_key,
-  'source_revision_mismatch',
-  source.source_revision,
-  document.source_revision
-FROM casework.v_evidence_documents source
-JOIN retrieval.documents document
-  ON document.evidence_id = source.evidence_id
- AND document.is_current
-WHERE document.source_revision <> source.source_revision
-
-UNION ALL
-
-SELECT
-  document.evidence_id,
-  document.external_key,
-  'current_document_not_ready',
-  'ready',
-  document.index_state
-FROM retrieval.documents document
-WHERE document.is_current
-  AND document.index_state <> 'ready'
-
-UNION ALL
-
-SELECT
-  document.evidence_id,
-  document.external_key,
-  'current_document_for_deleted_source',
-  'not current',
-  'current'
-FROM retrieval.documents document
-JOIN casework.evidence_items source ON source.evidence_id = document.evidence_id
-WHERE document.is_current
-  AND source.is_deleted
-
-UNION ALL
-
-SELECT
-  document.evidence_id,
-  document.external_key,
-  'missing_ready_embedding',
-  document.search_document_hash,
-  chunk.chunk_hash
-FROM retrieval.documents document
-JOIN retrieval.chunks chunk ON chunk.document_version_id = document.document_version_id
-WHERE document.is_current
-  AND document.index_state = 'ready'
-  AND (
-    chunk.embedding_state <> 'ready'
-    OR chunk.embedding IS NULL
-    OR chunk.embedding_model IS NULL
-  )
-
-UNION ALL
-
-SELECT
-  document.evidence_id,
-  document.external_key,
-  'chunk_currency_mismatch',
-  document.is_current::text,
-  chunk.is_current::text
-FROM retrieval.documents document
-JOIN retrieval.chunks chunk
-  ON chunk.document_version_id = document.document_version_id
-WHERE document.is_current IS DISTINCT FROM chunk.is_current;
+SELECT * FROM retrieval.search_index_drift();
 
 CREATE OR REPLACE VIEW casework.v_release_capture_validation AS
 WITH captures AS (

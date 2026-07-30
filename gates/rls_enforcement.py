@@ -81,6 +81,39 @@ DETAIL_TABLES = (
     "casework.postmortems",
 )
 
+# The five relation junction tables, with the endpoint column pair each one keys
+# on. They carry no evidence body -- only a free-text rationale, which is the
+# problem: "The restricted case references the same cluster and interval." names
+# the relationship the ACL exists to withhold. They also back
+# retrieval.evidence_edges, where security_invoker = true is a NO-OP unless RLS is
+# enabled on these base tables, so an unprotected junction leaks through
+# /v1/evidence/{id} as well as through a bare psql SELECT.
+#
+# Listed as (table, near_column, far_column) because these tables have NO
+# evidence_id column -- DETAIL_TABLES' probes would raise UndefinedColumn here.
+# Both endpoints are checked: the measured leak was an edge whose NEAR side was
+# visible to the analyst and whose far side was restricted.
+JUNCTION_TABLES = (
+    ("casework.incident_changes", "incident_evidence_id", "change_evidence_id"),
+    ("casework.incident_support_cases", "incident_evidence_id", "case_evidence_id"),
+    ("casework.incident_runbooks", "incident_evidence_id", "runbook_evidence_id"),
+    ("casework.change_runbooks", "change_evidence_id", "runbook_evidence_id"),
+    (
+        "casework.support_case_commitments",
+        "case_evidence_id",
+        "commitment_evidence_id",
+    ),
+)
+
+# A junction row is "restricted" when EITHER endpoint is. Counted as the owner for
+# the same reason DETAIL_RESTRICTED_COUNT_SQL is: a persona's own empty view cannot
+# distinguish "this table relates no restricted evidence" from "this persona's
+# visibility is broken", and those need opposite verdicts.
+JUNCTION_RESTRICTED_SQL = """
+SELECT count(*) FROM {table}
+ WHERE {near} = ANY(%s) OR {far} = ANY(%s)
+"""
+
 PERSONA_ROLES = ("persona_analyst", "persona_admin", "persona_auditor")
 CLEARANCE_GROUP = "can_see_restricted"
 
@@ -203,9 +236,31 @@ def _rls_state(cur) -> dict[str, tuple[bool, bool]]:
           JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname || '.' || c.relname = ANY(%s)
         """,
-        [list(READ_PATH_TABLES + DETAIL_TABLES)],
+        [list(READ_PATH_TABLES + DETAIL_TABLES + _junction_names())],
     )
     return {row[0]: (row[1], row[2]) for row in cur.fetchall()}
+
+
+def _junction_names() -> tuple[str, ...]:
+    """Return just the table names from JUNCTION_TABLES."""
+    return tuple(table for table, _near, _far in JUNCTION_TABLES)
+
+
+def _junction_rows_under_persona(
+    conn, persona: str, table: str, near: str, far: str, ids: list
+) -> int:
+    """Count junction rows touching ``ids`` that ``persona`` can read. Read-only."""
+    with conn.cursor() as cur:
+        cur.execute("BEGIN")
+        try:
+            cur.execute(f"SET LOCAL ROLE {persona}")
+            cur.execute(
+                JUNCTION_RESTRICTED_SQL.format(table=table, near=near, far=far),
+                [ids, ids],
+            )
+            return cur.fetchone()[0]
+        finally:
+            cur.execute("ROLLBACK")
 
 
 def _member_of(cur, role: str) -> bool:
@@ -360,6 +415,15 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
                         [restricted_ids],
                     )
                     detail_restricted[table] = cur.fetchone()[0]
+                junction_restricted = {}
+                for table, near, far in JUNCTION_TABLES:
+                    cur.execute(
+                        JUNCTION_RESTRICTED_SQL.format(
+                            table=table, near=near, far=far
+                        ),
+                        [restricted_ids, restricted_ids],
+                    )
+                    junction_restricted[table] = cur.fetchone()[0]
     except psycopg.OperationalError as exc:
         return finish(GATE_ID, BLOCKED, f"cannot reach the engine: {exc}")
 
@@ -372,7 +436,7 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
     # missing DDL instead of failing later with a confusing row count.
     unprotected = [
         table
-        for table in READ_PATH_TABLES + DETAIL_TABLES
+        for table in READ_PATH_TABLES + DETAIL_TABLES + _junction_names()
         if state.get(table) != (True, True)
     ]
     if unprotected:
@@ -595,6 +659,69 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
                 f"persona_admin saw {len(admin)}; masking needs the row present",
             )
 
+        # --- (b'') row filtering at the relation junction tables. ---
+        # A third mechanism, not a repeat of (b'). The detail policies clear through
+        # ONE parent; these clear through BOTH endpoints, because a junction row is
+        # only visible if the caller can see both things it relates. Checking the
+        # near side alone reproduces the measured leak: INC-2047 is workshop, so an
+        # analyst who could see the near endpoint read
+        # "The restricted case references the same cluster and interval." out of the
+        # edge to a restricted case.
+        #
+        # Counted, not probed by id: these tables have no evidence_id column, and
+        # the interesting row is the PAIR. The analyst assertion is exact equality
+        # to 0 rather than a subset check, since every row counted here touches
+        # restricted evidence on at least one side by construction.
+        print("\n  owner reach into the junction tables (oracle sanity):")
+        for table, _near, _far in JUNCTION_TABLES:
+            print(f"    {table}: {junction_restricted[table]} touching restricted")
+        print("\n  (b'') row filtering at the relation junction tables:")
+        for table, near, far in JUNCTION_TABLES:
+            analyst = _junction_rows_under_persona(
+                app_conn, "persona_analyst", table, near, far, restricted_ids
+            )
+            admin = _junction_rows_under_persona(
+                app_conn, "persona_admin", table, near, far, restricted_ids
+            )
+            auditor = _junction_rows_under_persona(
+                app_conn, "persona_auditor", table, near, far, restricted_ids
+            )
+            print(
+                f"    {table}: analyst={analyst} admin={admin} auditor={auditor} "
+                f"(owner={junction_restricted[table]})"
+            )
+            require(
+                analyst == 0,
+                f"persona_analyst read {analyst} junction rows touching restricted "
+                f"evidence out of {table}. The rationale on those rows names the "
+                f"relationship the ACL withholds, and retrieval.evidence_edges "
+                f"reads this table, so /v1/evidence/{{id}} leaks it too. RLS is "
+                f"enabled+forced here (asserted above), so the policy exists but "
+                f"its predicate is too weak: check that it requires BOTH endpoint "
+                f"columns ({near} AND {far}) to resolve in casework.evidence_items "
+                f"-- a near-side-only EXISTS passes every row whose visible "
+                f"endpoint the analyst can already see "
+                f"(sql/11_roles_rls.sql section 6)",
+            )
+            if junction_restricted[table] == 0:
+                print("      (relates no restricted evidence; analyst-only check)")
+                continue
+            require(
+                admin == junction_restricted[table],
+                f"persona_admin read {admin} of the {junction_restricted[table]} "
+                f"junction rows the owner measured at {table}. Either persona_admin "
+                f"is missing from that table's policy TO list or an endpoint column "
+                f"in the both-endpoints predicate is wrong "
+                f"(sql/11_roles_rls.sql section 6)",
+            )
+            require(
+                auditor == junction_restricted[table],
+                f"persona_auditor read {auditor} of the "
+                f"{junction_restricted[table]} junction rows at {table} while "
+                f"persona_admin read {admin}; the two personas hold the same "
+                f"clearance and differ only in masking, which does not apply here",
+            )
+
         # --- (c) replay determinism + transaction scope. ---
         print("\n  (c) replay determinism and transaction scope:")
         first = _ids_under_persona(
@@ -621,7 +748,9 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         GATE_ID,
         PASS,
         f"fail-closed on {len(READ_PATH_TABLES)} tables; {len(restricted)} restricted "
-        f"rows hidden from analyst, visible to admin+auditor; replay deterministic",
+        f"rows hidden from analyst across {len(DETAIL_TABLES)} detail and "
+        f"{len(JUNCTION_TABLES)} junction tables, visible to admin+auditor; "
+        f"replay deterministic",
     )
 
 

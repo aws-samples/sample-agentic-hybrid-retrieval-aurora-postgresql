@@ -507,12 +507,7 @@ CREATE POLICY rls_chunks_visibility ON retrieval.chunks
 -- All seven evidence-keyed detail tables, not only the three the current
 -- restricted cohort touches. The bypass class is "the grant is schema-wide, so any
 -- evidence_id-keyed table is a door" -- an allowlist tracking today's cohort
--- re-opens the hole the moment a later cohort adds a kind. The junction tables
--- (incident_changes, incident_support_cases, incident_runbooks, change_runbooks,
--- support_case_commitments) are deliberately excluded: they carry no evidence body,
--- only a rationale, and they are read solely through
--- casework.v_evidence_documents, which Task 10 makes security_invoker so the
--- caller's policies apply.
+-- re-opens the hole the moment a later cohort adds a kind.
 -- ---------------------------------------------------------------------------
 
 DO $$
@@ -534,6 +529,74 @@ BEGIN
                          FROM casework.evidence_items parent
                         WHERE parent.evidence_id = casework.%I.evidence_id))
     $fmt$, v_table, v_table, v_table);
+  END LOOP;
+END
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 6. RLS on the relation junction tables.
+--
+-- The five junction tables carry no evidence body, only a free-text rationale --
+-- which is exactly the problem. Measured before this section existed: an analyst
+-- ran a bare SELECT on casework.incident_support_cases and read "The restricted
+-- case references the same cluster and interval." one query after being denied
+-- every row of that case's content. The rationale names the relationship the ACL
+-- exists to withhold.
+--
+-- retrieval.evidence_edges is security_invoker = true, but security_invoker is a
+-- no-op against a table whose RLS is disabled -- it makes the caller's policies
+-- apply, and with no policy to apply the row is returned. So the view carried the
+-- same rationale through to /v1/evidence/{id}, whose edge query is
+-- "from_evidence_id = %s OR to_evidence_id = %s": the caller supplies one visible
+-- endpoint and the OR returns edges whose other endpoint is restricted. Measured:
+-- INC-2047 (workshop) yielded a support_case_affected edge to a restricted case.
+--
+-- Each policy checks BOTH endpoints, because a junction row is only visible if the
+-- caller can see both things it relates. One endpoint is not enough: the leak was
+-- an edge whose near side was visible. The endpoint column names differ per table
+-- (incident_evidence_id/case_evidence_id, change_evidence_id/runbook_evidence_id,
+-- ...), so the loop carries the pair rather than assuming an evidence_id column --
+-- these tables have none, which is why the section-5 predicate cannot be reused.
+--
+-- retrieval.traverse_evidence already gated correctly (owner 17 hops, analyst 14)
+-- because it joins casework.evidence_items on both endpoints itself. This section
+-- moves that guarantee from one careful call site into the table, where the raw
+-- view read and the direct psql SELECT inherit it too.
+-- ---------------------------------------------------------------------------
+
+DO $$
+DECLARE
+  v_junction text[];
+  v_table text;
+  v_left text;
+  v_right text;
+BEGIN
+  FOREACH v_junction SLICE 1 IN ARRAY ARRAY[
+    ['incident_changes',        'incident_evidence_id', 'change_evidence_id'],
+    ['incident_support_cases',  'incident_evidence_id', 'case_evidence_id'],
+    ['incident_runbooks',       'incident_evidence_id', 'runbook_evidence_id'],
+    ['change_runbooks',         'change_evidence_id',   'runbook_evidence_id'],
+    ['support_case_commitments','case_evidence_id',     'commitment_evidence_id']
+  ]
+  LOOP
+    v_table := v_junction[1];
+    v_left  := v_junction[2];
+    v_right := v_junction[3];
+    EXECUTE format('ALTER TABLE casework.%I ENABLE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('ALTER TABLE casework.%I FORCE  ROW LEVEL SECURITY', v_table);
+    EXECUTE format('DROP POLICY IF EXISTS rls_%s_visibility ON casework.%I',
+                   v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY rls_%s_visibility ON casework.%I
+        FOR ALL
+        TO persona_analyst, persona_admin, persona_auditor, CURRENT_USER
+        USING (EXISTS (SELECT 1
+                         FROM casework.evidence_items near
+                        WHERE near.evidence_id = casework.%I.%I)
+               AND EXISTS (SELECT 1
+                             FROM casework.evidence_items far
+                            WHERE far.evidence_id = casework.%I.%I))
+    $fmt$, v_table, v_table, v_table, v_left, v_table, v_right);
   END LOOP;
 END
 $$;

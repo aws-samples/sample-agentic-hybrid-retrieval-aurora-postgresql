@@ -239,7 +239,7 @@ def tool_decompose(request: DecomposeRequest, http_request: Request):
             _invocation_context(http_request),
             "decompose_question",
             request.model_dump(mode="json"),
-            lambda: decompose_question_impl(request.question),
+            lambda: decompose_question_impl(request.question, role=request.role),
         )
     except Exception as error:
         raise _unavailable("question decomposition", error)

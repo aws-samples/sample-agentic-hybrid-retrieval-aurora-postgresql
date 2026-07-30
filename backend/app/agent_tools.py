@@ -173,7 +173,7 @@ def decompose_question(question: str) -> dict[str, Any]:
         Detected identifiers, inferred filters, and ordered subquestions.
     """
     started = perf_counter()
-    plan = decompose_question_impl(question)
+    plan = decompose_question_impl(question, role=_role())
     result = {
         "identified_keys": plan["identified_keys"],
         "inferred_filters": plan["inferred_filters"],

@@ -410,6 +410,38 @@ def _mark_build_failed(conn, build_id: uuid.UUID, error: str) -> None:
         )
 
 
+def _refresh_mask_blob(cursor) -> bool:
+    """Regenerate retrieval.mask_blob from the freshly indexed corpus.
+
+    The mask patterns are baked into retrieval.mask_blob's body, so a newly
+    admitted restricted literal is invisible to it until the body is
+    regenerated. Called inside the build transaction: a failed refresh rolls the
+    build back rather than publishing an index whose blob mask is behind the
+    corpus. Runs as the index-build owner, which is exempt from masking
+    (measured), so it reads real values.
+
+    Skipped when the function is absent, which happens on any server without
+    pg_columnmask -- sql/12_masking.sql is Aurora-only and the local schema
+    build skips it. Skipping is safe in exactly one direction: the shipped
+    mask_blob body redacts the whole value, so a database that never refreshes
+    over-masks (sql/12_masking.sql:148-155). Probed with to_regprocedure rather
+    than by catching UndefinedFunction, because that error would abort the
+    surrounding build transaction.
+
+    Returns:
+        Whether the refresh ran.
+    """
+    cursor.execute(
+        "SELECT to_regprocedure('retrieval.refresh_mask_blob()') IS NOT NULL AS present"
+    )
+    row = cursor.fetchone()
+    present = row["present"] if isinstance(row, dict) else row[0]
+    if not present:
+        return False
+    cursor.execute("SELECT retrieval.refresh_mask_blob()")
+    return True
+
+
 def _complete_document_versions(conn) -> set[uuid.UUID]:
     with conn.cursor(row_factory=tuple_row) as cursor:
         cursor.execute(
@@ -807,13 +839,7 @@ def _persist_search_index_bulk(
                     cursor.execute("ANALYZE retrieval.documents")
                     cursor.execute("ANALYZE retrieval.chunks")
 
-                # The mask patterns are baked into retrieval.mask_blob's body, so a
-                # newly admitted restricted literal is invisible to it until the
-                # body is regenerated. Inside the build transaction: a failed
-                # refresh rolls the build back rather than publishing an index whose
-                # blob mask is behind the corpus. Runs as the index-build owner,
-                # which is exempt from masking (measured), so this reads real values.
-                cursor.execute("SELECT retrieval.refresh_mask_blob()")
+                _refresh_mask_blob(cursor)
     except BaseException as exc:
         conn.rollback()
         _mark_build_failed(conn, build_id, str(exc) or type(exc).__name__)
@@ -1224,13 +1250,7 @@ def rebuild_search_index(
                     cursor.execute("ANALYZE retrieval.documents")
                     cursor.execute("ANALYZE retrieval.chunks")
 
-                # The mask patterns are baked into retrieval.mask_blob's body, so a
-                # newly admitted restricted literal is invisible to it until the
-                # body is regenerated. Inside the build transaction: a failed
-                # refresh rolls the build back rather than publishing an index whose
-                # blob mask is behind the corpus. Runs as the index-build owner,
-                # which is exempt from masking (measured), so this reads real values.
-                cursor.execute("SELECT retrieval.refresh_mask_blob()")
+                _refresh_mask_blob(cursor)
     except Exception as exc:
         conn.rollback()
         _mark_build_failed(conn, build_id, str(exc))

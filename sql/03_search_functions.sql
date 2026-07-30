@@ -642,6 +642,108 @@ ORDER BY ranked.raw_score DESC, ranked.occurred_at DESC, ranked.external_key
 LIMIT greatest(1, p_limit)
 $$;
 
+-- The gate on the arm above: which identifier tokens does NO indexed document
+-- answer exactly? Only those get fuzzed. Fuzzing a token that IS indexed but is
+-- unreadable to the caller would let the trigram arm return the token's visible
+-- near neighbours, and a caller who asks for CASE-7421 and receives CASE-7419
+-- has learned that CASE-7421 exists and is restricted. The exact row is already
+-- withheld by the arm's own ACL predicate and by RLS; this function exists to
+-- stop the NEAR MISS from being served in its place.
+--
+-- SECURITY DEFINER because the question is deliberately ACL-blind and cannot be
+-- answered by a persona: retrieval.documents is RLS-forced (sql/11 section 4), so
+-- under persona_analyst the restricted row vanishes, NOT EXISTS turns true, and
+-- the caller is told "not indexed" about a row that is indexed -- inverting the
+-- guarantee. Measured before this function existed: persona_analyst probing
+-- CASE-7421 got it back as a fuzz candidate; admin and auditor did not.
+--
+-- Safe to run as the owner because of what it returns, not because of who calls
+-- it. The projection is one boolean per input token. No column of any evidence
+-- row crosses the boundary -- not the key, not the title, not the body -- so the
+-- only fact obtainable is the one the caller must be told to avoid the larger
+-- disclosure. It is LANGUAGE sql (no dynamic SQL) and search_path is pinned, so
+-- an unqualified name cannot be resolved through a caller-controlled schema.
+--
+-- The filter arguments are not decoration: an identifier outside the caller's
+-- filters is legitimately unanswered by THIS search and must still be fuzzed, so
+-- the predicate has to match the arm's filters exactly or the two disagree.
+CREATE OR REPLACE FUNCTION retrieval.identifier_is_indexed(
+  p_tokens text[],
+  p_kinds text[] DEFAULT NULL,
+  p_cluster_id text DEFAULT NULL,
+  p_incident_id text DEFAULT NULL,
+  p_account_name text DEFAULT NULL,
+  p_severities text[] DEFAULT NULL,
+  p_environment text DEFAULT NULL,
+  p_service_name text DEFAULT NULL,
+  p_engine_version text DEFAULT NULL,
+  p_aws_region text DEFAULT NULL,
+  p_start_date timestamptz DEFAULT NULL,
+  p_end_date timestamptz DEFAULT NULL
+)
+RETURNS TABLE (
+  token text,
+  indexed boolean
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, retrieval
+AS $$
+  SELECT
+    probe.token,
+    EXISTS (
+      SELECT 1
+      FROM retrieval.documents d
+      WHERE d.is_current
+        AND d.index_state = 'ready'
+        AND upper(d.external_key) = probe.token
+        AND (p_kinds IS NULL OR d.evidence_kind = ANY(p_kinds))
+        AND (p_cluster_id IS NULL OR d.cluster_id = p_cluster_id)
+        AND (p_incident_id IS NULL OR d.incident_id = p_incident_id)
+        AND (p_account_name IS NULL OR d.account_name = p_account_name)
+        AND (p_severities IS NULL OR d.severity = ANY(p_severities))
+        AND (p_environment IS NULL OR d.environment = p_environment)
+        AND (p_service_name IS NULL OR d.service_name = p_service_name)
+        AND (p_engine_version IS NULL OR d.engine_version = p_engine_version)
+        AND (p_aws_region IS NULL OR d.aws_region = p_aws_region)
+        AND (p_start_date IS NULL OR d.occurred_at >= p_start_date)
+        AND (p_end_date IS NULL OR d.occurred_at <= p_end_date)
+    ) AS indexed
+  FROM unnest(coalesce(p_tokens, '{}'::text[])) AS probe(token)
+  ORDER BY probe.token
+$$;
+
+COMMENT ON FUNCTION retrieval.identifier_is_indexed(
+  text[], text[], text, text, text, text[], text, text, text, text,
+  timestamptz, timestamptz
+) IS
+  'Which identifier tokens an indexed document answers exactly, evaluated WITHOUT '
+  'the caller''s RLS. SECURITY DEFINER on purpose: a persona cannot see a '
+  'restricted row, would conclude the identifier is unindexed, and would fuzz it '
+  '-- serving the visible near neighbours of a restricted identifier. Returns one '
+  'boolean per token and no evidence column, so the owner-rights read discloses '
+  'strictly less than the fuzzing it prevents.';
+
+-- PUBLIC holds EXECUTE on every new function by default; revoke it and grant only
+-- the read personas. Guarded because this file runs before sql/11 creates them on
+-- a fresh database, matching the re-grant block at the end of this file.
+REVOKE ALL ON FUNCTION retrieval.identifier_is_indexed(
+  text[], text[], text, text, text, text[], text, text, text, text,
+  timestamptz, timestamptz
+) FROM PUBLIC;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_analyst') THEN
+    GRANT EXECUTE ON FUNCTION retrieval.identifier_is_indexed(
+      text[], text[], text, text, text, text[], text, text, text, text,
+      timestamptz, timestamptz
+    ) TO persona_analyst, persona_admin, persona_auditor;
+  END IF;
+END
+$$;
+
 CREATE OR REPLACE FUNCTION retrieval.hybrid_search(
   p_query text,
   p_query_embedding vector(1024),

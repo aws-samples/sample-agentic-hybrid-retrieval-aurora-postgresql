@@ -40,7 +40,10 @@ def _run_ids(args: dict[str, Any]) -> list[str]:
 
 
 def _tool_decompose_question(args: dict[str, Any]) -> dict[str, Any]:
-    return decompose_question_impl(question=str(args.get("question") or ""))
+    return decompose_question_impl(
+        question=str(args.get("question") or ""),
+        role=str(args.get("role")) if args.get("role") is not None else "analyst",
+    )
 
 
 def _tool_search_evidence(args: dict[str, Any]) -> dict[str, Any]:

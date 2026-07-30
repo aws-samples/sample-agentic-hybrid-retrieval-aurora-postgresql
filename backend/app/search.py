@@ -167,11 +167,15 @@ def _resolve_fuzzy_probe_tokens(
 ) -> list[str]:
     """Return the identifier tokens that no indexed document answers exactly.
 
-    Existence is deliberately evaluated without the caller's ACL. Fuzzing a
-    token the caller may not read would let the trigram arm return its visible
-    near neighbours, which tells the caller that a restricted identifier is
-    indexed. The arms still apply the ACL to everything they return, so an
-    unreadable exact match yields no rows rather than a near-miss substitute.
+    Existence is deliberately evaluated without the caller's ACL, which is why
+    the predicate lives in retrieval.identifier_is_indexed (SECURITY DEFINER)
+    rather than here. Fuzzing a token the caller may not read would let the
+    trigram arm return its visible near neighbours, which tells the caller that a
+    restricted identifier is indexed. Asking the question under the caller's own
+    role inverts that: retrieval.documents is RLS-forced, so the restricted row
+    is invisible, the token reads as unindexed, and it gets fuzzed -- measured.
+    The arms still apply the ACL to everything they return, so an unreadable
+    exact match yields no rows rather than a near-miss substitute.
     """
     if not identifier_tokens:
         return []
@@ -181,58 +185,21 @@ def _resolve_fuzzy_probe_tokens(
             cursor.execute(
                 """
                 SELECT probe.token
-                FROM unnest(%(tokens)s::text[]) AS probe(token)
-                WHERE NOT EXISTS (
-                  SELECT 1
-                  FROM retrieval.documents document
-                  WHERE document.is_current
-                    AND document.index_state = 'ready'
-                    AND upper(document.external_key) = probe.token
-                    AND (
-                      %(kinds)s::text[] IS NULL
-                      OR document.evidence_kind = ANY(%(kinds)s::text[])
-                    )
-                    AND (
-                      %(cluster_id)s::text IS NULL
-                      OR document.cluster_id = %(cluster_id)s::text
-                    )
-                    AND (
-                      %(incident_id)s::text IS NULL
-                      OR document.incident_id = %(incident_id)s::text
-                    )
-                    AND (
-                      %(account_name)s::text IS NULL
-                      OR document.account_name = %(account_name)s::text
-                    )
-                    AND (
-                      %(severities)s::text[] IS NULL
-                      OR document.severity = ANY(%(severities)s::text[])
-                    )
-                    AND (
-                      %(environment)s::text IS NULL
-                      OR document.environment = %(environment)s::text
-                    )
-                    AND (
-                      %(service_name)s::text IS NULL
-                      OR document.service_name = %(service_name)s::text
-                    )
-                    AND (
-                      %(engine_version)s::text IS NULL
-                      OR document.engine_version = %(engine_version)s::text
-                    )
-                    AND (
-                      %(aws_region)s::text IS NULL
-                      OR document.aws_region = %(aws_region)s::text
-                    )
-                    AND (
-                      %(start_date)s::timestamptz IS NULL
-                      OR document.occurred_at >= %(start_date)s::timestamptz
-                    )
-                    AND (
-                      %(end_date)s::timestamptz IS NULL
-                      OR document.occurred_at <= %(end_date)s::timestamptz
-                    )
-                )
+                FROM retrieval.identifier_is_indexed(
+                  %(tokens)s::text[],
+                  %(kinds)s::text[],
+                  %(cluster_id)s::text,
+                  %(incident_id)s::text,
+                  %(account_name)s::text,
+                  %(severities)s::text[],
+                  %(environment)s::text,
+                  %(service_name)s::text,
+                  %(engine_version)s::text,
+                  %(aws_region)s::text,
+                  %(start_date)s::timestamptz,
+                  %(end_date)s::timestamptz
+                ) AS probe
+                WHERE NOT probe.indexed
                 ORDER BY probe.token
                 """,
                 {**_filters(request), "tokens": identifier_tokens},
