@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from app.db import close_pool, get_conn
+from app.db import close_pool, get_owner_conn
 
 
 def version_tuple(value: str) -> tuple[int, ...]:
@@ -21,7 +21,7 @@ def main() -> int:
     parser.add_argument("--min-version", default="18.3")
     args = parser.parse_args()
 
-    with get_conn() as conn:
+    with get_owner_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SHOW server_version")
             actual = cur.fetchone()[0]

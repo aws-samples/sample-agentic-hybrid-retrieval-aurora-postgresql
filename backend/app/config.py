@@ -50,6 +50,9 @@ class Settings(BaseModel):
     database_url: str = Field(
         default_factory=lambda: os.environ.get("DATABASE_URL", "")
     )
+    workshop_app_database_url: str = Field(
+        default_factory=lambda: os.environ.get("WORKSHOP_APP_DATABASE_URL", "")
+    )
     database_connect_timeout_seconds: int = Field(
         default_factory=lambda: _env_int(
             "DATABASE_CONNECT_TIMEOUT_SECONDS", 10, minimum=1

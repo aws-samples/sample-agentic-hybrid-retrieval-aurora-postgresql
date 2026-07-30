@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from app.db import close_pool, get_conn
+from app.db import close_pool, get_owner_conn
 
 
 def version_tuple(value: str) -> tuple[int, ...]:
@@ -22,7 +22,7 @@ def main() -> int:
     parser.add_argument("--available", action="store_true", help="Check pg_available_extensions before CREATE EXTENSION runs")
     args = parser.parse_args()
 
-    with get_conn() as conn:
+    with get_owner_conn() as conn:
         with conn.cursor() as cur:
             if args.available:
                 cur.execute("SELECT default_version FROM pg_available_extensions WHERE name = 'vector'")

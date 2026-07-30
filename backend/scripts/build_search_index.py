@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from app.config import get_settings
-from app.db import close_pool, get_conn
+from app.db import close_pool, get_owner_conn
 from app.embeddings import hash_embedding
 from app.search_index import EmbeddingCache, rebuild_search_index
 from seed.capture import capture_offline_lock_fixture, validate_capture_bundle
@@ -137,7 +137,7 @@ def main() -> int:
                 row_count=args.offline_capture_rows,
             )
 
-        with get_conn() as conn:
+        with get_owner_conn() as conn:
             casework = None
             if args.load_casework:
                 casework = load_casework(
