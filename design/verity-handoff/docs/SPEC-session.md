@@ -1,7 +1,7 @@
 # SPEC — DAT410 builders session
 ## "Terminal → Hybrid Retrieval Workbench" · live incident + evidence lab
 
-Version: draft-20 · Jul 28 2026 — exercise design approved and bound: holes H1–H3, RLS backstop (D24, G-27), hole-integrity + golden checkpoints (G-28)
+Version: draft-21 · Jul 30 2026 — instance class resolved (`db.r8g.2xlarge` I/O-Optimized, no reader, no NVMe: open items 5 and 10 CLOSED, E5/E4 demoted to talk); BM25/`pg_textsearch` answered as anticipated question 7 and scoped out. Carries draft-20: holes H1–H3, RLS backstop (D24, G-27), hole-integrity + golden checkpoints (G-28)
 Audience of this document: a coding agent (Claude Code / Codex) building the session assets, plus facilitators.
 Companion documents: the Hybrid Retrieval Workbench implementation spec (authoritative for schemas, tools, API, workbench base), `verity-ui-design-system.md` (visual language), the seven concept screens (talk assets only — see D9).
 
@@ -104,7 +104,71 @@ speaker notes; beat 2 is protected moment M5.
 ### 2.1 Account shape (per participant, Workshop Studio)
 
 - 1 × Aurora PostgreSQL cluster (target engine per release gate #1; pgvector ≥ 0.8 with
-  `iterative_scan` — hard requirement), 1 writer instance. Readers optional; not in lab path.
+  `iterative_scan` — hard requirement), **Aurora I/O-Optimized** storage configuration,
+  **1 × `db.r8g.2xlarge` writer, no reader** (open items 5 and 10, both closed below).
+
+**Why this class — the three properties the lab actually depends on** (open item 5):
+
+- **Fixed, not Serverless.** Aurora Serverless v2 is rejected on a gate, not a preference:
+  G-6 pins a single-worker index build to a 240–420 s window, and every receipt records the
+  class it ran on (Law 1). An autoscaling ACU range makes `build_seconds` unrepeatable
+  between two participants in the same room, and unrepeatable between the room and the
+  rehearsal. Serverless also excludes Optimized Reads outright, so it forecloses the
+  Section 6.5 question rather than answering it.
+- **64 GiB, so the corpus is resident by arithmetic, not by hope.** Aurora defaults
+  `shared_buffers` to 50–75% of instance memory (`{DBInstanceClassMemory/10922}`) — not
+  RDS's 25% — because Aurora does not double-buffer through the filesystem cache. On 64 GiB
+  that is 32–48 GiB against a total working set of ~3 GB (`shop.orders` ~2.2 GB heap +
+  ~0.7 GB PK per Section 3.0, `retrieval.chunks` ~15 K × `vector(1024)` ≈ 59 MB raw plus its
+  HNSW index, casework negligible) — roughly an order of magnitude of headroom.
+  Section 3.0's "deliberately buffer-pool-resident" claim is therefore a measured
+  consequence of this pick, and the vector arm's latency is predictable in the room.
+- **Graviton4, 8 vCPU.** The build is deliberately single-worker (Section 4.2), so vCPU
+  count does not set `build_seconds`; the 8 vCPUs exist for the *rest* of the incident —
+  two loadgen units, ≥ 5 blocked writers, the reads digest still flowing, and the backend
+  on the same round trip. `db.r8g.4xlarge` buys 8 more vCPUs and 64 more GiB that nothing
+  in the lab path consumes; it is a valid substitution if a room needs headroom, but it is
+  not the default.
+
+**Optimized Reads (`db.r8gd`) is declined for the lab path — on mechanics, not cost.** Both
+halves of the feature were evaluated against this specific corpus:
+
+- *Tiered caching* (I/O-Optimized only) caches pages **evicted** from the buffer cache. This
+  corpus never evicts: ~3 GB of working set under 32–48 GiB of `shared_buffers`. The tier
+  would stay empty, `aurora_orcache_hit` would read 0 on every plan node in every lab, and a
+  permanently-zero field teaches the opposite of the intended lesson. Optimized Reads earns
+  its 8x when the dataset exceeds instance memory — which is the one thing this lab
+  deliberately arranges not to be true.
+- *Temporary objects* (both storage configurations) places temp files on local NVMe and
+  explicitly improves sorts and **index rebuilds**. That is precisely the hazard: with
+  `maintenance_work_mem = '64MB'` against 25 M rows, the build's dominant cost *is* the
+  external sort spill. Moving that spill to NVMe shortens `build_seconds` and pushes it
+  toward or under G-6's 240 s floor, degrading the one timing Lab 1's whole incident window
+  (`INCIDENT_TTL=480`) is built on. It would demand a fresh `ORDER_ROWS` calibration to buy
+  a beat the lab does not need.
+
+  So the NVMe classes stay where the evidence already is: E9's quoted BIGANN figures and the
+  Section 12 appendix, labeled as quoted rather than reproduced. `db.r8g.2xlarge` → `db.r8gd.2xlarge`
+  remains a one-line instance-class modification for anyone extending the lab past this session
+  `[VERIFY r8gd availability on the target engine major at freeze — AWS documents it for
+  17.4+/16.3+/15.7+/14.12+]`.
+
+**No reader** (open item 10, closed: declined). E4 (ReplicaLag is page-cache lag) stays a
+talk slide. Graduating it to a measured demo needs a reader that is *deliberately* cold
+while serving HNSW queries — a second calibration to build and keep true, in a run-of-show
+(Section 10) with no unallocated minutes, at double the per-participant instance cost across
+every account in the room. The slide argues the mechanism adequately; a half-cold reader
+would argue it worse.
+
+**Three instance-class strings exist in this project and must never be reconciled into one.**
+(1) This section's real provisioned class, `db.r8g.2xlarge`, which the sibling Workshop Studio
+CloudFormation template must match — it currently defaults to `db.r8g.xlarge` and needs
+raising. (2) The synthetic scenario's narrative class inside the corpus
+(`seed/corpus.py`, `checkout-prod-cluster-01` → `db.r8g.xlarge`), which is *content* — the
+fictional production cluster the casework describes, and editing it to match the real class
+would corrupt fixture-derived test expectations for no gain. (3) `instance_class =
+"unverified"` in a lock capture that no signed `release_aurora` capture has yet populated.
+An agent that "helpfully" syncs these breaks either the CFN contract or the corpus.
 - 1 × EC2 instance running code-server (browser VS Code + terminal), the Hybrid Retrieval Workbench backend
   (FastAPI, port 8000) and frontend (static build served by the backend), bootstrap artifacts.
 - **Tab-4 exposure**: the workbench is reached through the same authenticated front door as
@@ -131,36 +195,40 @@ export PRIME_INCIDENT=1          WORKBENCH_LIVE_CAPTURE=0
 ### 2.2 Bootstrap stages (single `bootstrap.sh`, idempotent, resumable, logged to `/var/log/workbench-bootstrap.log`, stage markers in `/var/lib/workbench/stage`)
 
 ```
-S1  infra-verify     CFN outputs present; psql connects; extensions vector/pg_trgm present;
-                     SELECT version(), extversion — abort with named error if wrong.
-S2  params           Participant clusters: assert defaults only. DBI parameters apply to
-                     the facilitator cameo cluster alone (Section 5, D20).
-S3  workbench-schemas   casework/retrieval/proof DDL + synthetic corpus + embeddings + projection
-                     (existing Hybrid Retrieval Workbench bootstrap, unchanged). Ends with assert_projection_ready().
-S4  shop-seed        Section 3.1 DDL + server-side seed (generate_series). Target: orders=ORDER_ROWS.
-                     Records actual row count + table size in the readiness report.
-S5  loadgen          Install + start systemd units workbench-loadgen-reads / -writes (Section 3.3).
-S6  calibrate        Run a THROWAWAY ordinary CREATE INDEX on shop.orders under the incident
-                     session settings (Section 4.2), time it, DROP INDEX, write build_seconds to
-                     readiness report. If build_seconds < 240 → WARN and print the ORDER_ROWS
-                     bump suggestion (gate G-6). If > 420 → suggest reduction.
-S7  prime-run        If PRIME_INCIDENT=1: execute incident.sh --unattended --ttl 180, then
-                     resolve — proves the incident path end-to-end in this account
-                     (and seeds Lock:relation history on the cameo cluster).
-S8  workbench        Build frontend, start backend service, smoke: POST /v1/agent/answer with
-                     the canonical question as role=workshop; assert 5 citations
-                     validate; record smoke run_id in the readiness report.
-                     Install Claude Code (Bedrock mode) on the host; verify
-                     `claude --version` + one Bedrock invocation under the participant
-                     role (feeds the D18 final checkpoint; open item 13).
-                     If WORKBENCH_GATEWAY=1 (D15): deploy the M5 forwarder Lambda (in-VPC,
-                     security-group access to the backend :8000, timeout 30 s), create the
-                     Gateway with a **Lambda target** whose tool schemas are generated from
-                     agent/registry.py (T4), assert every exposed tool name matches the
-                     `targetName___toolName` prefix shape, smoke one tool call, record the
-                     gateway run_id. On any failure: log, force the flag to 0, continue.
-S9  readiness        Write /home/participant/READINESS.md: stage results, build_seconds,
-                     corpus counts, smoke run_id, cameo-cluster links (D20, appendix), param values.
+S1  infra-verify       CFN outputs present; psql connects; extensions vector/pg_trgm present;
+                       SELECT version(), extversion — abort with named error if wrong.
+                       Assert the instance class is db.r8g.2xlarge and the cluster is
+                       I/O-Optimized (Section 2.1); a mismatch invalidates G-6 — WARN, name
+                       the observed class, and record it in the readiness report.
+S2  params             Participant clusters: assert defaults only. DBI parameters apply to
+                       the facilitator cameo cluster alone (Section 5, D20).
+S3  workbench-schemas  casework/retrieval/proof DDL + synthetic corpus + embeddings + projection
+                       (existing Hybrid Retrieval Workbench bootstrap, unchanged). Ends with assert_projection_ready().
+S4  shop-seed          Section 3.1 DDL + server-side seed (generate_series). Target: orders=ORDER_ROWS.
+                       Records actual row count + table size in the readiness report.
+S5  loadgen            Install + start systemd units workbench-loadgen-reads / -writes (Section 3.3).
+S6  calibrate          Run a THROWAWAY ordinary CREATE INDEX on shop.orders under the incident
+                       session settings (Section 4.2), time it, DROP INDEX, write build_seconds to
+                       readiness report. If build_seconds < 240 → WARN and print the ORDER_ROWS
+                       bump suggestion (gate G-6). If > 420 → suggest reduction.
+S7  prime-run          If PRIME_INCIDENT=1: execute incident.sh --unattended --ttl 180, then
+                       resolve — proves the incident path end-to-end in this account
+                       (and seeds Lock:relation history on the cameo cluster).
+S8  workbench          Build frontend, start backend service, smoke: POST /v1/agent/answer with
+                       the canonical question as role=workshop; assert 5 citations
+                       validate; record smoke run_id in the readiness report.
+                       Install Claude Code (Bedrock mode) on the host; verify
+                       `claude --version` + one Bedrock invocation under the participant
+                       role (feeds the D18 final checkpoint; open item 13).
+                       If WORKBENCH_GATEWAY=1 (D15): deploy the M5 forwarder Lambda (in-VPC,
+                       security-group access to the backend :8000, timeout 30 s), create the
+                       Gateway with a **Lambda target** whose tool schemas are generated from
+                       agent/registry.py (T4), assert every exposed tool name matches the
+                       `targetName___toolName` prefix shape, smoke one tool call, record the
+                       gateway run_id. On any failure: log, force the flag to 0, continue.
+S9  readiness          Write /home/participant/READINESS.md: stage results, build_seconds,
+                       instance class + storage configuration, corpus counts, smoke run_id,
+                       cameo-cluster links (D20, appendix), param values.
 ```
 
 **What bootstrap must never do:** run the participant-facing incident outside the prime run;
@@ -532,6 +600,21 @@ cluster" label with timestamp, and — if Optimized Reads is active on the insta
 surfaces `aurora_orcache_hit` from the BUFFERS output verbatim. Never rendered on
 non-NVMe instance classes (the field won't exist; hiding it is the honest state).
 
+**On the session's own class this field is never rendered**, because Section 2.1 resolved
+the lab to `db.r8g.2xlarge` — no local NVMe, so no `aurora_orcache_hit` in EXPLAIN. AWS
+documents both Optimized Reads fields as appearing "only when Optimized Reads is turned on
+and their values are greater than zero", which means their absence is doubly ambiguous: it
+reads the same on a non-NVMe class and on an NVMe class whose cache simply took no hits.
+Two consequences:
+
+- The conditional stays in the code exactly as written. It is what keeps the drawer honest on
+  a cluster it was not calibrated for, and it is the reason the panel shows a field's
+  *absence* rather than a zero. Never add a placeholder, a dash, or a `0` for a missing
+  field — the drawer renders what the engine returned (Law 2), and a rendered `0` would
+  assert a measurement that was never taken.
+- The drawer must not label the absence as "Optimized Reads off". It cannot distinguish that
+  from "on, zero hits". If the field is absent, say nothing about Optimized Reads at all.
+
 ---
 
 ## 7. Agent & tooling — technical choices
@@ -670,7 +753,36 @@ next to your customers to answer for it — with receipts."
 (2) why not OpenSearch (D19, workload shape); (3) why exact folds into the lexical arm
 rather than a fourth RRF arm; (4) the rerank-worth-it ablation; (5) Embed v4's 1536-d
 default → 1024 pinning; (6) the Aurora pgvector version posture (0.8.1 vs the 0.8.3
-vacuum fix — tracked risk, not a stage claim).
+vacuum fix — tracked risk, not a stage claim); (7) **"where's BM25?"** — answer below.
+
+**(7) BM25 / `pg_textsearch`, the honest answer.** The lexical arm ships on `ts_rank_cd`
+(`sql/03_search_functions.sql`), which scores cover density — term frequency, proximity, and
+weight class — and has **no IDF**: in a multi-term query, a corpus-common term counts the same
+as a rare one. BM25 is the standard fix, and `pg_textsearch` is expected in community
+PostgreSQL 18.6 (November 2026), reaching Aurora afterward under the published "Aurora
+PostgreSQL minor versions within 3 months of community release" policy — i.e. after this
+session. It is therefore out of scope (Section 12), and the answer names three things rather
+than deflecting:
+
+- **What the deficiency does and does not cost here.** Exact-identifier retrieval is already
+  handled without IDF, by weight-A `external_id` in the object `search_tsv`, so BM25 would not
+  move the session's exact-match beat. It would matter for the semantic-symptom archetype's
+  multi-term phrasing.
+- **Why the pipeline survives the upgrade — the actual lesson.** Fusion consumes **rank
+  positions**, not arm scores (`retrieval.hybrid_search`, weighted RRF). Swapping `ts_rank_cd`
+  for BM25 changes one arm's ordering function and nothing downstream: not RRF, not rerank,
+  not citations, not `proof.retrieval_runs`. That replaceability is a stronger architectural
+  point than the extension itself, and it is visible in the SQL participants already read.
+- **Where it goes instead of the lab path.** The takeaway skill (D17, open item 12) carries
+  the one-function upgrade note, so it pays off exactly when the extension is real on Aurora.
+  Any comparative figure must be labeled with the engine it was measured on and must not
+  imply Aurora availability at session time (Law 2).
+
+Rejected: an RDS-PostgreSQL side instance for the lexical arm. RRF fuses three arms inside one
+SQL statement, so relocating one arm to another database does not degrade the demo — it
+dissolves Law 1, and adds a second provisioning path to the bootstrap. `pg_tle` cannot carry
+it either: TLE supports JavaScript, Perl, Tcl, PL/pgSQL, and SQL, not the C an index access
+method requires.
 
 ---
 
@@ -710,7 +822,10 @@ demo-of-last-resort.
   load history; reads digest present in Top SQL.
 - **G-5** incident.sh full cycle unattended: trigger → ≥ 5 blocked writers → deadman cancel →
   writers recover → exit 0 → no index left.
-- **G-6** Calibration: 240 s ≤ build_seconds ≤ 420 s on the target instance class.
+- **G-6** Calibration: 240 s ≤ build_seconds ≤ 420 s on `db.r8g.2xlarge` I/O-Optimized
+  (Section 2.1). The class is part of the gate: re-measure `ORDER_ROWS` before changing it,
+  and never calibrate on an NVMe (`r8gd`) class — its temp-object placement shortens the
+  build and would silently move the window.
 - **G-7** After S6/S7/reset.sh: `idx_orders_customer` does not exist; no INVALID indexes.
 - **G-8** resolve.sh + fix.sh cycle: CIC completes, `indisvalid`, before/after plans show
   Seq Scan → Index Scan on the reads digest.
@@ -789,8 +904,8 @@ without a slot is cut, not "mentioned if there's time."
 | **E1** | **The naive-RRF zero**: `2/(60+r)` is integer division — the weighted term silently evaluates to 0 for every candidate | Lab 2 verify beat | Guide snippet: naive formula → all 0.00000 → cast one operand → real scores. Line: "this failure exists only because we fuse in-database — and so does the receipt that catches it." | verified on live engine |
 | **E2** | **ef_search cannot beat a WHERE clause**: no ANN widening returns a row the filter excluded before the index was consulted (RB-017 has no cluster_id) | Lab 2→3 hinge | Workbench: runbook query under cluster filter; ef 40→200 → still 0; drop filter → rank 1. Counterfactual run persisted (RUN-7105 pattern). | design verified pass-2; demo via fixture |
 | **E3** | **The engine seam of their own incident**: `Lock:relation` is community PostgreSQL; the commit path (`IO:XactSync`, `IO:AuroraStorageLogAllocate`) is Aurora | Lab 1, theory beat (V2) | wait_event capture during the incident → two-column readout "the Postgres half / the Aurora half" | events doc-verified; live capture = G-20 |
-| **E4** | **ReplicaLag is page-cache lag**: the coldest reader reports the best lag while serving the worst HNSW latency — anti-signal for vector read scaling | Talk slide; optional reader demo | Slide from doc mechanics; measured demo only if a reader joins the environment `[VERIFY measured]` | doc-derived; no public write-up exists |
-| **E5** | **Three memory tiers per plan node**: `aurora_orcache_hit` / `aurora_storage_read` in EXPLAIN — no other PostgreSQL has them; absence ≠ evidence (`with_buffers` off by default) | Lab 2 diagnostics drawer (Section 6.5) | Live EXPLAIN on NVMe class | doc-verified; rides open item 5 |
+| **E4** | **ReplicaLag is page-cache lag**: the coldest reader reports the best lag while serving the worst HNSW latency — anti-signal for vector read scaling | **Talk slide only** | Slide from doc mechanics. **Open item 10 CLOSED: no reader is provisioned** (Section 2.1), so the optional measured demo is withdrawn rather than left dangling. | doc-derived; no public write-up exists; not reproduced in the room |
+| **E5** | **Three memory tiers per plan node**: `aurora_orcache_hit` / `aurora_storage_read` in EXPLAIN — no other PostgreSQL has them; absence ≠ evidence (`with_buffers` off by default) | **Talk/appendix only** — *not* a lab-path exclusive | Slide + Section 6.5 mechanics, from documented output. **Demoted from Lab 2 by the Section 2.1 class pick**: AWS documents *both* fields as shown "only when Optimized Reads is turned on and their values are greater than zero", so on `db.r8g.2xlarge` the room's EXPLAIN carries neither — just `shared hit=… read=…`. There is no surviving live half. The demotion is itself the exclusive's own moral (absence ≠ evidence) landing on the session's own cluster. | doc-verified; **quoted, not reproduced** (E9 treatment); open item 5 CLOSED — no longer rides it |
 | **E6** | **The trigram index trap**: `WHERE similarity(k,q) > 0.30` cannot use the GIN index; `%` + `pg_trgm.similarity_threshold` can | Lab 2 fuzzy archetype | Two EXPLAINs: Seq Scan vs Bitmap Index Scan | verified (repair pass) |
 | **E7** | **The silent ANN downgrade**: pgvector <0.8 accepts `hnsw.iterative_scan` as a WARNING, drops it, reverts to post-filtering; recall falls, nothing errors | Talk + G-1 shown firing | Demonstrate the bootstrap assertion as the moral: "the only defense is asserting the version" | verified pass-2 inventory |
 | **E8** | **halfvec is mandatory, not an optimization**: 3072-d embeddings cannot be HNSW-indexed as `vector` (≤2000) | Talk/appendix | Dim-cap table + 4d+8 / 2d+8 storage math | doc-verified |
@@ -802,7 +917,14 @@ without a slot is cut, not "mentioned if there's time."
 Managed Knowledge Base federation; AgentCore Identity/Policy/Evaluations; AppFlow/Step
 Functions live ingestion (frame-only slide); Automated Reasoning; Bedrock Data Automation;
 RDS Proxy in the lab path (D6); Optimized Reads *claims* without gate-#6 measurements on
-NVMe-class instances (r6gd/r8gd/r6id; tiered cache = I/O-Optimized clusters only).
+NVMe-class instances (r6gd/r8gd/r6id; tiered cache = I/O-Optimized clusters only) — and per
+Section 2.1 no NVMe class is provisioned, so E5 is quoted rather than reproduced and
+`aurora_orcache_hit` never appears in the room; reader-instance behavior of any kind (E4 stays
+a slide, CCM and survivable-cache beats are out); BM25 / `pg_textsearch` (community 18.6,
+November 2026, with Aurora following per the published "within 3 months of community release"
+minor-version policy — after this session's content freeze; the lexical arm ships on
+`ts_rank_cd` and the takeaway skill records the upgrade path, see Section 8 anticipated
+question 7).
 
 ## 13. Open items (resolve before content freeze)
 
@@ -813,8 +935,14 @@ NVMe-class instances (r6gd/r8gd/r6id; tiered cache = I/O-Optimized clusters only
 3. ~~Console URL formats~~ — CLOSED by D20 (no participant deep links; appendix links
    are unverified-nice-to-have).
 4. Section 5.3 minimal IAM action set.
-5. Instance class final pick → recalibrate G-6; if an NVMe class is chosen, decide whether
-   Section 6.5's `aurora_orcache_hit` beat enters the core path or stays appendix.
+5. ~~Instance class final pick → recalibrate G-6; NVMe decision for Section 6.5~~ — **CLOSED**:
+   `db.r8g.2xlarge`, Aurora I/O-Optimized, one writer, no NVMe (Section 2.1 carries the
+   reasoning). Consequences already applied: G-6 names the class, E5 demoted to
+   talk/appendix, Section 6.5's field documented as never-rendered in the room, Section 12
+   updated. **Remaining mechanical work, not a decision:** re-measure `build_seconds` on
+   `db.r8g.2xlarge` and confirm the 240–420 s window at the current `ORDER_ROWS=25000000`
+   `[VERIFY measured]`; raise the sibling CloudFormation default from `db.r8g.xlarge` to
+   `db.r8g.2xlarge`.
 6. Pin `strands-agents` and MCP SDK versions; re-verify tool-decorator and MCP client APIs
    at freeze (T1, T5).
 7. Confirm current AgentCore Gateway tool-naming behavior (T6) before the appendix ships.
@@ -822,10 +950,13 @@ NVMe-class instances (r6gd/r8gd/r6id; tiered cache = I/O-Optimized clusters only
    rerank-3-5, claude-sonnet-5 — and re-check the Sonnet lifecycle/ID at freeze.
 9. Tab-4 exposure mechanism (Section 2.1): confirm the authenticated route to port 8000 in the
    Workshop Studio template.
-10. Reader instance: add one (E4 graduates to a measured demo; CCM/survivable-cache beats
-    become available) or decline (E4 stays a slide). Decide with the instance-class pick.
-11. Companion-asset fix: `verity-scale.html` instance options → NVMe classes
-    (r6gd/r8gd/r6id) with the I/O-Optimized tiered-cache note, for E5/Section 6.5 consistency.
+10. ~~Reader instance: add one or decline~~ — **CLOSED: declined** (Section 2.1). E4 stays a
+    talk slide; CCM and survivable-cache beats stay out of scope (Section 12).
+11. Companion-asset fix: `verity-scale.html` instance options → **`db.r8g.2xlarge`
+    I/O-Optimized as the session's class**, with the NVMe classes (r6gd/r8gd/r6id) shown as
+    the labeled *extension* path and the tiered-cache/I/O-Optimized note attached. The asset
+    currently implies an NVMe pick; open item 5 went the other way, so the asset now
+    contradicts Section 2.1 and E5.
 12. Takeaway skill (D17): author `skills/aurora-hybrid-retrieval/` at content freeze from
     the final guide + gates; confirm repo license/naming via the AWS sample-code process;
     verify the skill loads and triggers correctly in Claude Code on Bedrock.
