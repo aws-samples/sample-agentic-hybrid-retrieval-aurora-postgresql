@@ -26,13 +26,35 @@ Two comparisons:
 A mismatch is a FAIL, not a warning: A7 says "any diff means the collapse altered
 semantics: STOP and report."
 
-Both sides apply the SAME visibility rule, and the rule lives in the query rather
-than in the reader. The baseline is captured as the bootstrap owner, an
-``rds_superuser`` member that RLS does not apply to; the live side runs under a
-persona that RLS filters. Comparing an unfiltered baseline against an
-RLS-filtered persona would FAIL by construction the moment Task 13 reclassifies a
-row - reporting "the collapse altered semantics" for the row filter that is the
-whole point of the exercise.
+**The two sides are asymmetric on purpose, and that asymmetry is the assertion.**
+The baseline side replays the OLD rule explicitly, because the old rule is what is
+being deleted: ``retrieval.acl_visible(acl, '{"scopes":["workshop"],"principals":[]}')``
+(sql/03_search_functions.sql:1-29) resolved to *visibility is in my scopes AND the
+row names no principal I lack*. The live side applies NO visibility predicate at
+all - it issues a bare SELECT under the persona and lets RLS do the filtering.
+
+That is the only shape in which this gate asserts anything. An earlier draft
+filtered BOTH sides on ``acl_visibility = 'workshop'``; that version is vacuous -
+drop every RLS policy and it still PASSes, because the explicit WHERE performs the
+filtering the policies were supposed to prove. The live side must be a bare SELECT
+so that a missing, mis-scoped, or non-FORCEd policy shows up as a row-count diff.
+
+The corollary is that the pre-collapse rule must be replayed EXACTLY, including the
+principals leg. ``CASE-7421`` today carries ``{"visibility": "workshop",
+"principals": ["support-lead"]}`` (seed/corpus.py:13-16), so the pre-collapse
+identity - empty ``principals`` - could NOT read it. Capturing on visibility alone
+would record it as visible, and after Task 13 reclassifies it to
+``visibility='restricted'`` the analyst correctly cannot see it, so the gate would
+FAIL and report "the collapse altered semantics" for a row whose semantics the
+collapse faithfully PRESERVED (denied before, denied after).
+
+Background filler is excluded from claim coverage. ``_background_rows`` generates
+``background_documents`` synthetic rows (default 15,000 - seed/corpus.py:1148,
+200 under the local Makefile target), every one of them ``WORKSHOP_ACL`` and
+one-chunk, so including them buries the ~17 canonical rows this assertion cares
+about under 15k rows of the constant 1, ties the committed baseline to a seeding
+knob, and inflates the file to ~900 kB. ``*-BG-*`` is the documented filler marker
+(gates/noun_lint.py:19,122).
 
 Read-only. Baseline absent, or the persona not created yet -> BLOCKED.
 
@@ -66,8 +88,8 @@ TITLE = "Persona equivalence after the A7 collapse"
 BASELINE_PATH = Path("gates/baselines/analyst_equivalence.json")
 ANALYST = "persona_analyst"
 
-# The judged relevance set: (query_id, external_key, relevance) triples the Lab-2
-# checkpoints score against. The grade column is named `relevance`
+# The judged relevance set: (query_id, evidence_kind, external_key, relevance)
+# tuples the Lab-2 checkpoints score against. The grade column is named `relevance`
 # (sql/01_schema.sql:1512) -- there is no `grade` column, and naming one would
 # raise UndefinedColumn 42703 at PLAN time, which main_guard turns into a
 # traceback rather than a verdict.
@@ -77,38 +99,52 @@ ANALYST = "persona_analyst"
 # external_key alone would silently collapse two graded rows that share a key
 # across kinds, and _diff_summary's dict build would keep only the last one.
 #
-# The visibility rule is applied HERE, in the query, so the owner-captured
-# baseline and the RLS-filtered persona are compared over the same population.
-# `acl ->> 'visibility'` with the fail-closed 'restricted' default is byte-equal
-# to the RLS policy's first disjunct on this table (Task 5 policy
-# rls_evidence_visibility), and evidence_items has no acl_visibility column --
-# only the jsonb (:29). Task 13 flips the constant this reads.
+# {vis} is substituted with a per-side visibility predicate: the OLD rule for the
+# baseline, TRUE for the live side (RLS filters it). Never with anything derived
+# from input -- these are two module constants, not a query builder.
 EVAL_GOLDENS_SQL = """
 SELECT j.query_id, e.evidence_kind, e.external_key, j.relevance
   FROM proof.relevance_judgments j
   JOIN casework.evidence_items e USING (evidence_id)
  WHERE NOT e.is_deleted
-   AND coalesce(e.acl ->> 'visibility', 'restricted') = 'workshop'
+   AND {vis}
  ORDER BY j.query_id, e.evidence_kind, e.external_key
 """
 
-# Claim coverage: current reachable chunks per current document. Both sides filter
-# on acl_visibility, the denormalized scalar the RLS policies on documents and
-# chunks read (sql/01_schema.sql:901,968; policies rls_documents_visibility and
-# rls_chunks_visibility). Filtering both tables mirrors the two policies: a
-# document and its chunks carry the same scalar (:1047), so this cannot drop a
-# chunk whose document survives.
+# Claim coverage: current reachable chunks per current non-filler document.
+# retrieval.chunks has no external_key (it is on documents), and
+# documents.document_version_id is that table's PRIMARY KEY which chunks carries as
+# a NOT NULL FK, so this join is many-to-one and cannot fan the count out.
 CLAIM_COVERAGE_SQL = """
 SELECT d.evidence_kind, d.external_key, count(*) AS reachable_chunks
   FROM retrieval.documents d
   JOIN retrieval.chunks c ON c.document_version_id = d.document_version_id
  WHERE d.is_current
    AND c.is_current
-   AND d.acl_visibility = 'workshop'
-   AND c.acl_visibility = 'workshop'
+   AND d.external_key NOT LIKE '%-BG-%'
+   AND {vis}
  GROUP BY d.evidence_kind, d.external_key
  ORDER BY d.evidence_kind, d.external_key
 """
+
+# The pre-collapse rule, replayed verbatim so the baseline records what the OLD
+# identity could actually read. retrieval.acl_visible(acl, principal) is still the
+# two-jsonb signature at capture time (sql/03_search_functions.sql:1; Task 9 is what
+# drops it for the (jsonb, name) form), and the workshop principal is the literal
+# the API sent (backend/app/models.py:22). Calling the live function rather than
+# restating its logic means the baseline cannot drift from the rule it claims to
+# record. Both `acl` columns are jsonb, on evidence_items (:29) and documents (:900).
+OLD_RULE_EVIDENCE = (
+    """retrieval.acl_visible(e.acl, '{"scopes":["workshop"],"principals":[]}'::jsonb)"""
+)
+OLD_RULE_DOCUMENT = (
+    """retrieval.acl_visible(d.acl, '{"scopes":["workshop"],"principals":[]}'::jsonb)"""
+)
+
+# The live side asserts nothing itself -- RLS is the subject under test. A
+# visibility predicate here would make this gate vacuous: it would PASS with every
+# policy dropped.
+RLS_FILTERS = "true"
 
 
 def _fetch(conn, sql: str, persona: str | None) -> list[list]:
@@ -157,10 +193,44 @@ def _capture(owner_dsn: str, path: Path) -> int:
         return FAIL
 
     with psycopg.connect(owner_dsn, connect_timeout=15, autocommit=True) as conn:
+        # The two-jsonb acl_visible must still exist, or this capture is recording
+        # the wrong world. After Task 9 it is DROPped in favour of (jsonb, name),
+        # and the call below would raise UndefinedFunction 42883 at plan time --
+        # main_guard translates only AssertionError, so that is a traceback rather
+        # than a verdict. Refuse instead: a baseline captured post-Task-9 is
+        # worthless, because the rule it claims to witness is already gone.
+        #
+        # to_regprocedure, NOT pg_get_function_identity_arguments. Measured on
+        # PG17: identity_arguments returns 'p_acl jsonb, p_principal jsonb' --
+        # it includes PARAMETER NAMES, so comparing it to 'jsonb, jsonb' can never
+        # match and this guard would refuse every capture on a healthy cluster.
+        # (That is exactly why G-30's probe compares against 'payload jsonb' and
+        # not 'jsonb'.) to_regprocedure resolves by type signature, ignores
+        # parameter names, discriminates (jsonb,jsonb) from Task 9's (jsonb,name),
+        # and returns NULL instead of raising when the function or schema is
+        # absent -- so it cannot become the 42883 traceback it exists to prevent.
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT to_regprocedure('retrieval.acl_visible(jsonb, jsonb)')"
+            )
+            if cur.fetchone()[0] is None:
+                print(
+                    "  retrieval.acl_visible(jsonb, jsonb) is gone; the pre-collapse "
+                    "rule can no longer be replayed, so this baseline would be a "
+                    "forgery. Capture must happen before Task 9."
+                )
+                return FAIL
         payload = {
-            "captured_under": "pre-A7 owner identity (role=workshop semantics)",
-            "eval_goldens": _fetch(conn, EVAL_GOLDENS_SQL, None),
-            "claim_coverage": _fetch(conn, CLAIM_COVERAGE_SQL, None),
+            "captured_under": (
+                "pre-A7 role=workshop semantics, replayed via "
+                "retrieval.acl_visible(acl, {\"scopes\":[\"workshop\"],\"principals\":[]})"
+            ),
+            "eval_goldens": _fetch(
+                conn, EVAL_GOLDENS_SQL.format(vis=OLD_RULE_EVIDENCE), None
+            ),
+            "claim_coverage": _fetch(
+                conn, CLAIM_COVERAGE_SQL.format(vis=OLD_RULE_DOCUMENT), None
+            ),
         }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -231,8 +301,12 @@ def run() -> int:
             # here would claim the A7 collapse changed semantics when the truth
             # is that nothing is wired up yet.
             try:
-                live_goldens = _fetch(conn, EVAL_GOLDENS_SQL, ANALYST)
-                live_coverage = _fetch(conn, CLAIM_COVERAGE_SQL, ANALYST)
+                live_goldens = _fetch(
+                    conn, EVAL_GOLDENS_SQL.format(vis=RLS_FILTERS), ANALYST
+                )
+                live_coverage = _fetch(
+                    conn, CLAIM_COVERAGE_SQL.format(vis=RLS_FILTERS), ANALYST
+                )
             except psycopg.errors.InsufficientPrivilege as exc:
                 return finish(
                     GATE_ID,
