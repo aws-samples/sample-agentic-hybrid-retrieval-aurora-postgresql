@@ -26,7 +26,8 @@ SQL_FILES := \
 	sql/08_query_runtime.sql \
 	sql/09_traverse_evidence.sql \
 	sql/10_admission.sql \
-	sql/11_roles_rls.sql
+	sql/11_roles_rls.sql \
+	sql/12_masking.sql
 
 export DATABASE_URL
 export PGVECTOR_VERSION

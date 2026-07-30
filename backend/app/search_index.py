@@ -806,6 +806,14 @@ def _persist_search_index_bulk(
                 if document_count >= ANALYZE_AFTER_INDEXED_DOCUMENTS:
                     cursor.execute("ANALYZE retrieval.documents")
                     cursor.execute("ANALYZE retrieval.chunks")
+
+                # The mask patterns are baked into retrieval.mask_blob's body, so a
+                # newly admitted restricted literal is invisible to it until the
+                # body is regenerated. Inside the build transaction: a failed
+                # refresh rolls the build back rather than publishing an index whose
+                # blob mask is behind the corpus. Runs as the index-build owner,
+                # which is exempt from masking (measured), so this reads real values.
+                cursor.execute("SELECT retrieval.refresh_mask_blob()")
     except BaseException as exc:
         conn.rollback()
         _mark_build_failed(conn, build_id, str(exc) or type(exc).__name__)
@@ -1215,6 +1223,14 @@ def rebuild_search_index(
                 if document_count >= ANALYZE_AFTER_INDEXED_DOCUMENTS:
                     cursor.execute("ANALYZE retrieval.documents")
                     cursor.execute("ANALYZE retrieval.chunks")
+
+                # The mask patterns are baked into retrieval.mask_blob's body, so a
+                # newly admitted restricted literal is invisible to it until the
+                # body is regenerated. Inside the build transaction: a failed
+                # refresh rolls the build back rather than publishing an index whose
+                # blob mask is behind the corpus. Runs as the index-build owner,
+                # which is exempt from masking (measured), so this reads real values.
+                cursor.execute("SELECT retrieval.refresh_mask_blob()")
     except Exception as exc:
         conn.rollback()
         _mark_build_failed(conn, build_id, str(exc))
