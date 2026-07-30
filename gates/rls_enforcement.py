@@ -398,7 +398,8 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         print(f"    connected as: {login} (rds_superuser member: {is_master})")
         require(
             not is_master,
-            f"{login} is an rds_superuser member and would bypass RLS entirely",
+            f"{login} is an rds_superuser member; a cluster-master identity can "
+            f"grant itself the clearance key at will, so the pool must not be one",
         )
         with app_conn.cursor() as cur:
             cur.execute("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")
