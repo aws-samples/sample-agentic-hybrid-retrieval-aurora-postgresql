@@ -109,7 +109,7 @@ button:disabled {
   background: #f2c9ba;
 }
 
-.verity-shell {
+.workbench-shell {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 268px minmax(0, 1fr);
@@ -361,7 +361,7 @@ button:disabled {
   text-align: left;
 }
 
-.verity-mark {
+.workbench-mark {
   width: 28px;
   height: 28px;
   flex: none;
@@ -408,10 +408,10 @@ button:disabled {
 }
 
 @media (min-width: 901px) {
-  .verity-shell.nav-collapsed {
+  .workbench-shell.nav-collapsed {
     grid-template-columns: 76px minmax(0, 1fr);
   }
-  .verity-shell {
+  .workbench-shell {
     transition: grid-template-columns 180ms ease;
   }
   .nav-collapsed .side-rail { padding-inline: 12px; }
@@ -449,13 +449,13 @@ button:disabled {
   .side-rail-toggle { display: none; }
 }
 
-.verity-mark-frame {
+.workbench-mark-frame {
   fill: #3b2b22;
   stroke: #211c16;
   stroke-width: 1.5;
 }
 
-.verity-mark-thread {
+.workbench-mark-thread {
   fill: none;
   stroke: #df735d;
   stroke-width: 1.65;
@@ -463,19 +463,19 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-.verity-mark-source {
+.workbench-mark-source {
   fill: #fff8f2;
   stroke: #df735d;
   stroke-width: 1.35;
 }
 
-.verity-mark-answer {
+.workbench-mark-answer {
   fill: var(--red);
   stroke: #fff8f2;
   stroke-width: 1.2;
 }
 
-.verity-mark-check {
+.workbench-mark-check {
   fill: none;
   stroke: #f0c76b;
   stroke-width: 1.55;
@@ -3806,7 +3806,7 @@ td span {
   max-width: none;
 }
 
-.verity-home {
+.workbench-home {
   min-width: 0;
   overflow: hidden;
 }
@@ -4589,7 +4589,7 @@ td span {
   color: #e89784;
 }
 
-.verity-footer {
+.workbench-footer {
   width: calc(100% - 48px);
   max-width: 1480px;
   display: flex;
@@ -4602,7 +4602,7 @@ td span {
   font: 600 13px var(--mono);
 }
 
-.verity-footer span {
+.workbench-footer span {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -4619,7 +4619,7 @@ td span {
 }
 
 @media (min-width: 901px) {
-  .verity-shell {
+  .workbench-shell {
     grid-template-columns: 284px minmax(0, 1fr);
   }
 
@@ -4629,7 +4629,7 @@ td span {
     padding: 26px 22px;
   }
 
-  .verity-mark {
+  .workbench-mark {
     width: 31px;
     height: 31px;
   }
@@ -4772,7 +4772,7 @@ td span {
     font-size: 10px;
   }
 
-  .verity-footer {
+  .workbench-footer {
     font-size: 14px;
   }
 }
@@ -5042,7 +5042,7 @@ td span {
 }
 
 @media (max-width: 900px) {
-  .verity-shell {
+  .workbench-shell {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -5299,7 +5299,7 @@ td span {
 
 @media (max-width: 660px) {
   .workbench,
-  .verity-footer,
+  .workbench-footer,
   .error-banner {
     width: min(100% - 24px, 1480px);
   }
@@ -5334,7 +5334,7 @@ td span {
     display: none;
   }
 
-  .side-rail .verity-mark {
+  .side-rail .workbench-mark {
     width: 30px;
     height: 30px;
   }
@@ -5725,7 +5725,7 @@ td span {
     flex-wrap: wrap;
   }
 
-  .verity-footer {
+  .workbench-footer {
     gap: 10px;
   }
 
@@ -6045,8 +6045,8 @@ td span {
     min-height: calc(100svh - 38px);
   }
 
-  .verity-shell.nav-collapsed .side-nav > button,
-  .verity-shell.nav-collapsed .side-nav-group > button {
+  .workbench-shell.nav-collapsed .side-nav > button,
+  .workbench-shell.nav-collapsed .side-nav-group > button {
     inline-size: 44px;
     min-inline-size: 44px;
     max-inline-size: 44px;
@@ -6063,8 +6063,8 @@ td span {
     line-height: 0;
   }
 
-  .verity-shell.nav-collapsed .side-nav > button svg,
-  .verity-shell.nav-collapsed .side-nav-group > button svg {
+  .workbench-shell.nav-collapsed .side-nav > button svg,
+  .workbench-shell.nav-collapsed .side-nav-group > button svg {
     width: 17px;
     height: 17px;
   }

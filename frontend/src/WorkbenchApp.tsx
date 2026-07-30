@@ -1104,24 +1104,24 @@ function KindIcon({
   return <FileSearch size={size} />;
 }
 
-function VerityMark({ className = '' }: { className?: string }) {
+function WorkbenchMark({ className = '' }: { className?: string }) {
   return (
     <svg
-      className={`verity-mark ${className}`.trim()}
+      className={`workbench-mark ${className}`.trim()}
       viewBox="0 0 32 32"
       aria-hidden="true"
       focusable="false"
     >
-      <rect className="verity-mark-frame" x="0.75" y="0.75" width="30.5" height="30.5" rx="8" />
+      <rect className="workbench-mark-frame" x="0.75" y="0.75" width="30.5" height="30.5" rx="8" />
       <path
-        className="verity-mark-thread"
+        className="workbench-mark-thread"
         d="M7.5 8.5 16 20.5 24.5 8.5M16 6.25v14.25"
       />
-      <circle className="verity-mark-source" cx="7.5" cy="8.5" r="2.25" />
-      <circle className="verity-mark-source" cx="16" cy="6.25" r="2.25" />
-      <circle className="verity-mark-source" cx="24.5" cy="8.5" r="2.25" />
-      <circle className="verity-mark-answer" cx="16" cy="23" r="5" />
-      <path className="verity-mark-check" d="m13.7 22.9 1.65 1.65 3.1-3.45" />
+      <circle className="workbench-mark-source" cx="7.5" cy="8.5" r="2.25" />
+      <circle className="workbench-mark-source" cx="16" cy="6.25" r="2.25" />
+      <circle className="workbench-mark-source" cx="24.5" cy="8.5" r="2.25" />
+      <circle className="workbench-mark-answer" cx="16" cy="23" r="5" />
+      <path className="workbench-mark-check" d="m13.7 22.9 1.65 1.65 3.1-3.45" />
     </svg>
   );
 }
@@ -3120,7 +3120,7 @@ function ProofChainOfCustody({
   );
 }
 
-export default function VerityApp() {
+export default function WorkbenchApp() {
   const [module, setModule] = useState<ModuleName>('home');
   const [diagnoseTab, setDiagnoseTab] =
     useState<DiagnoseTab>('results');
@@ -3181,7 +3181,7 @@ export default function VerityApp() {
   const [homeReceiptLoading, setHomeReceiptLoading] = useState(true);
   const [fusionRunRequest, setFusionRunRequest] = useState(0);
   const [navCollapsed, setNavCollapsed] = useState(
-    () => window.localStorage.getItem('verity-nav-collapsed') === 'true',
+    () => window.localStorage.getItem('workbench-nav-collapsed') === 'true',
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const homeTypingInterrupted = useRef(false);
@@ -3235,7 +3235,7 @@ export default function VerityApp() {
   );
 
   useEffect(() => {
-    window.localStorage.setItem('verity-nav-collapsed', String(navCollapsed));
+    window.localStorage.setItem('workbench-nav-collapsed', String(navCollapsed));
   }, [navCollapsed]);
 
   useEffect(() => {
@@ -4134,7 +4134,7 @@ export default function VerityApp() {
 
   return (
     <div
-      className={`verity-shell ${navCollapsed ? 'nav-collapsed' : ''} ${
+      className={`workbench-shell ${navCollapsed ? 'nav-collapsed' : ''} ${
         mobileNavOpen ? 'mobile-nav-open' : ''
       }`}
     >
@@ -4147,7 +4147,7 @@ export default function VerityApp() {
             aria-label="Open Hybrid Retrieval Workbench overview"
             title={navCollapsed ? 'Open Hybrid Retrieval Workbench overview' : undefined}
           >
-            <VerityMark />
+            <WorkbenchMark />
             <span className="brand-copy">
               <strong>{APP_NAME}</strong>
               <small>Aurora PostgreSQL</small>
@@ -4306,7 +4306,7 @@ export default function VerityApp() {
               onClick={() => setModule('home')}
               aria-label="Open Hybrid Retrieval Workbench overview"
             >
-              <VerityMark />
+              <WorkbenchMark />
               <span>{APP_NAME}</span>
             </button>
 
@@ -4382,7 +4382,7 @@ export default function VerityApp() {
 
         <main className={`workbench ${module === 'home' ? 'home-workbench' : ''}`}>
         {module === 'home' ? (
-          <section className="verity-home">
+          <section className="workbench-home">
             <header className="home-hero">
               <div className="home-hero-inner">
               <div className="home-copy">
@@ -4478,7 +4478,7 @@ export default function VerityApp() {
                 </svg>
 
                 <div className="home-answer-node">
-                  <VerityMark className="home-answer-mark" />
+                  <WorkbenchMark className="home-answer-mark" />
                   <strong className="home-answer-title">
                     Evidence thread
                   </strong>
@@ -7067,7 +7067,7 @@ LIMIT ${appliedControls.limit};`}</code>
         ) : null}
         </main>
 
-        <footer className="verity-footer">
+        <footer className="workbench-footer">
           <span>
             <Database size={13} />
             Aurora PostgreSQL

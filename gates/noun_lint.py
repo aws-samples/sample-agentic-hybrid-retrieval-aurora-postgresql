@@ -125,6 +125,22 @@ ROUND_NUMBER_RE = re.compile(
     r"\b(?:CHG|INC|CASE|RB|COMMIT|PM|LOCK)-(?!BG-)\d*0{3}\b"
 )
 
+# A7 vocabulary collapse: one identity axis, the persona. These tokens named the
+# retired second axis. Anchored so acl_principals / p_principal / pg_has_role and
+# the RLS predicate's own text are not hits: only the bare participant-facing
+# nouns are banned.
+BANNED_IDENTITY_RE = re.compile(
+    r"(?<![\w.\-])(?:support-lead|support_lead)(?![\w\-])"
+    r"|(?<![\w.\-_])principal(?![\w\-_])"
+)
+
+# Lines that legitimately carry a banned token: the RLS/ACL predicate path keeps
+# acl_principals and the p_principal parameter until the wire rename lands, and
+# this gate's own source names the tokens it bans.
+BANNED_IDENTITY_ALLOW = re.compile(
+    r"acl_principals|p_principal|BANNED_IDENTITY|required_principals"
+)
+
 
 def _iter_files(root: Path):
     if root.is_file():
@@ -152,6 +168,9 @@ def _scan_line(line: str) -> list[tuple[str, str]]:
         token = match.group(0)
         if token not in SYNONYM_TO_CANONICAL:
             hits.append((token, "irregular canonical ID (D14: no round numbers)"))
+    if BANNED_IDENTITY_RE.search(line) and not BANNED_IDENTITY_ALLOW.search(line):
+        token = BANNED_IDENTITY_RE.search(line).group(0)
+        hits.append((token, "the persona (analyst/admin/auditor); A7 retired this"))
     return hits
 
 

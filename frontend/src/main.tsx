@@ -1,10 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import VerityApp from './VerityApp';
-import './verity.css';
+import WorkbenchApp from './WorkbenchApp';
+import './workbench.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <VerityApp />
+    <WorkbenchApp />
   </React.StrictMode>,
 );

@@ -117,10 +117,10 @@ speaker notes; beat 2 is protected moment M5.
 - Participant IAM: **zero AWS-console access required** — DB credentials + the
   authenticated workbench route only.
 
-Connection contract: `/etc/verity/env` written by bootstrap, sourced by every script:
+Connection contract: `/etc/workbench/env` written by bootstrap, sourced by every script:
 
 ```bash
-export PGHOST=<writer endpoint>  PGPORT=5432  PGDATABASE=verity
+export PGHOST=<writer endpoint>  PGPORT=5432  PGDATABASE=workbench
 export PGUSER=workshop           PGPASSWORD=<from Secrets Manager at boot>
 export WORKBENCH_REGION=<region>    WORKBENCH_DB_RESOURCE_ID=<DbiResourceId>
 export WORKBENCH_CLUSTER_ID=checkout-prod-cluster-01     # display identity, Law 1
@@ -128,18 +128,18 @@ export INCIDENT_TTL=480          ORDER_ROWS=25000000
 export PRIME_INCIDENT=1          WORKBENCH_LIVE_CAPTURE=0
 ```
 
-### 2.2 Bootstrap stages (single `bootstrap.sh`, idempotent, resumable, logged to `/var/log/verity-bootstrap.log`, stage markers in `/var/lib/verity/stage`)
+### 2.2 Bootstrap stages (single `bootstrap.sh`, idempotent, resumable, logged to `/var/log/workbench-bootstrap.log`, stage markers in `/var/lib/workbench/stage`)
 
 ```
 S1  infra-verify     CFN outputs present; psql connects; extensions vector/pg_trgm present;
                      SELECT version(), extversion — abort with named error if wrong.
 S2  params           Participant clusters: assert defaults only. DBI parameters apply to
                      the facilitator cameo cluster alone (Section 5, D20).
-S3  verity-schemas   casework/retrieval/proof DDL + synthetic corpus + embeddings + projection
+S3  workbench-schemas   casework/retrieval/proof DDL + synthetic corpus + embeddings + projection
                      (existing Hybrid Retrieval Workbench bootstrap, unchanged). Ends with assert_projection_ready().
 S4  shop-seed        Section 3.1 DDL + server-side seed (generate_series). Target: orders=ORDER_ROWS.
                      Records actual row count + table size in the readiness report.
-S5  loadgen          Install + start systemd units verity-loadgen-reads / -writes (Section 3.3).
+S5  loadgen          Install + start systemd units workbench-loadgen-reads / -writes (Section 3.3).
 S6  calibrate        Run a THROWAWAY ordinary CREATE INDEX on shop.orders under the incident
                      session settings (Section 4.2), time it, DROP INDEX, write build_seconds to
                      readiness report. If build_seconds < 240 → WARN and print the ORDER_ROWS
@@ -174,11 +174,11 @@ gate G-7).
 Repo layout for this spec's assets:
 
 ```
-verity-session/
+workbench-session/
   bootstrap/bootstrap.sh, stages/*.sh
   shop/ddl.sql, seed.sql
   incident/incident.sh, resolve.sh, fix.sh, admit.sh, reset.sh, watch.sql
-  incident/loadgen/{reads.sql, writes.sql, loadgen.sh, verity-loadgen-*.service}
+  incident/loadgen/{reads.sql, writes.sql, loadgen.sh, workbench-loadgen-*.service}
   admission/{contract.sql, payload_v1.schema.json,
              promote_pg_incident.sh, fixture_payload.json}   # D21 · G-25
   capture/capture_incident.sh                # D7 — thin wrapper over promote_pg_incident
@@ -592,7 +592,7 @@ Workshop Studio contentspec; pages map 1:1 to acts.
                      [checkpoint: replayed run_id resolves identical candidates]
                      → FINAL CHECKPOINT (D18): install skills/aurora-hybrid-retrieval in
                      Claude Code on this host; run its first assertion → green
-50-stretch           agent free mode (Section 7 T12) · attach an MCP client to verity-mcp (Section 7 T5) ·
+50-stretch           agent free mode (Section 7 T12) · attach an MCP client to workbench-mcp (Section 7 T5) ·
                      M5: flip to AgentCore Gateway and diff the receipts (D15, flag) ·
                      CIC INVALID demo (fix.sh --demo-invalid) · eval harness
 90-appendix          full watch.sql, reset.sh, DBI-outage fallback path, cut-ladder
