@@ -80,7 +80,7 @@ def _probe_select(conn, statement: str) -> str | None:
             cur.execute("ROLLBACK")
 
 
-def run() -> int:
+def run() -> int:  # noqa: C901 - four assertion groups, read top to bottom
     print_header(GATE_ID, TITLE)
 
     dsn = read_env_value("WORKSHOP_PARTICIPANT_DATABASE_URL")
