@@ -1265,7 +1265,8 @@ CREATE TABLE IF NOT EXISTS proof.retrieval_runs (
   embedding_model text,
   retrieval_mode text NOT NULL CHECK (retrieval_mode IN ('hybrid', 'lexical', 'semantic', 'fuzzy')),
   filters jsonb NOT NULL DEFAULT '{}'::jsonb,
-  principal jsonb NOT NULL DEFAULT '{}'::jsonb,
+  role text NOT NULL DEFAULT 'analyst'
+    CHECK (role IN ('analyst', 'admin', 'auditor')),
   rrf_k integer NOT NULL CHECK (rrf_k > 0),
   text_weight numeric NOT NULL CHECK (text_weight >= 0),
   vector_weight numeric NOT NULL CHECK (vector_weight >= 0),
@@ -1364,7 +1365,8 @@ CREATE TABLE IF NOT EXISTS proof.run_stages (
 CREATE TABLE IF NOT EXISTS proof.agent_runs (
   agent_run_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   question text NOT NULL,
-  principal jsonb NOT NULL,
+  role text NOT NULL DEFAULT 'analyst'
+    CHECK (role IN ('analyst', 'admin', 'auditor')),
   filters_initial jsonb NOT NULL DEFAULT '{}'::jsonb,
   controls_initial jsonb NOT NULL,
   max_tool_calls integer NOT NULL DEFAULT 12 CHECK (max_tool_calls > 0),
@@ -1391,6 +1393,60 @@ CREATE TABLE IF NOT EXISTS proof.agent_runs (
     AND escalations_spent <= max_escalations
   )
 );
+
+ALTER TABLE proof.retrieval_runs
+  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'analyst';
+
+ALTER TABLE proof.agent_runs
+  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'analyst';
+
+-- Pre-collapse receipts carried a jsonb identity bag. The only two values ever
+-- written were the workshop default and the support-lead pair, which map onto the
+-- analyst and admin personas respectively (admin, not auditor: the old
+-- support-lead saw the restricted row UNMASKED).
+DO $$
+BEGIN
+  DROP VIEW IF EXISTS proof.v_run_receipts;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'proof' AND table_name = 'retrieval_runs'
+       AND column_name = 'principal'
+  ) THEN
+    UPDATE proof.retrieval_runs
+    SET role = CASE
+      WHEN principal -> 'principals' ? 'support-lead' THEN 'admin'
+      ELSE 'analyst'
+    END;
+    ALTER TABLE proof.retrieval_runs DROP COLUMN principal;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'proof' AND table_name = 'agent_runs'
+       AND column_name = 'principal'
+  ) THEN
+    UPDATE proof.agent_runs
+    SET role = CASE
+      WHEN principal -> 'principals' ? 'support-lead' THEN 'admin'
+      ELSE 'analyst'
+    END;
+    ALTER TABLE proof.agent_runs DROP COLUMN principal;
+  END IF;
+END
+$$;
+
+ALTER TABLE proof.retrieval_runs
+  DROP CONSTRAINT IF EXISTS retrieval_runs_role_check;
+ALTER TABLE proof.retrieval_runs
+  ADD CONSTRAINT retrieval_runs_role_check
+  CHECK (role IN ('analyst', 'admin', 'auditor'));
+
+ALTER TABLE proof.agent_runs
+  DROP CONSTRAINT IF EXISTS agent_runs_role_check;
+ALTER TABLE proof.agent_runs
+  ADD CONSTRAINT agent_runs_role_check
+  CHECK (role IN ('analyst', 'admin', 'auditor'));
 
 CREATE TABLE IF NOT EXISTS proof.agent_subquestions (
   agent_run_id uuid NOT NULL

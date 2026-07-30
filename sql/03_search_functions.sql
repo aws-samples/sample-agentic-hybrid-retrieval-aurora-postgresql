@@ -1,64 +1,53 @@
--- STABLE, not IMMUTABLE: identity-dependent predicates (pg_has_role) are STABLE,
--- and an IMMUTABLE label would license the planner to constant-fold a result that
--- is only valid for the role that was current when it was folded.
-CREATE OR REPLACE FUNCTION retrieval.acl_visible(p_acl jsonb, p_principal jsonb)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-PARALLEL SAFE
-AS $$
-  SELECT coalesce(p_acl ->> 'visibility', 'restricted') = 'public'
-    OR (
-      coalesce(p_acl ->> 'visibility', 'restricted') = ANY (
-        ARRAY(
-          SELECT jsonb_array_elements_text(
-            coalesce(p_principal -> 'scopes', '[]'::jsonb)
-          )
-        )
-      )
-      AND (
-        jsonb_array_length(coalesce(p_acl -> 'principals', '[]'::jsonb)) = 0
-        OR ARRAY(
-          SELECT jsonb_array_elements_text(
-            coalesce(p_acl -> 'principals', '[]'::jsonb)
-          )
-        ) && ARRAY(
-          SELECT jsonb_array_elements_text(
-            coalesce(p_principal -> 'principals', '[]'::jsonb)
-          )
-        )
-      )
-    )
-$$;
+-- One identity axis: the database role (A7). The predicate reads the role rather
+-- than a caller-supplied identity bag, so the app cannot assert an identity it
+-- does not hold — the strongest form of "the engine is the enforcement point."
+--
+-- This expression is byte-identical to the USING clause of the three RLS policies
+-- in sql/11_roles_rls.sql and to the predicate participants write by hand in Lab 3.
+-- Three copies of one expression is deliberate: the arms keep an explicit,
+-- readable filter (so the ACL is visible in the SQL a participant reads), RLS
+-- enforces it even when a query forgets, and the hand-written version is the
+-- exercise. If you change one, change all three.
+--
+-- STABLE, not IMMUTABLE: pg_has_role is STABLE, and an IMMUTABLE label would let
+-- the planner fold a result that is only valid for one role.
+DROP FUNCTION IF EXISTS retrieval.acl_visible(jsonb, jsonb);
 
-CREATE OR REPLACE FUNCTION retrieval.acl_scalars_visible(
-  p_visibility text,
-  p_required_principals text[],
-  p_principal jsonb
+CREATE OR REPLACE FUNCTION retrieval.acl_visible(
+  p_acl jsonb,
+  p_role name DEFAULT current_user
 )
 RETURNS boolean
 LANGUAGE sql
 STABLE
 PARALLEL SAFE
 AS $$
-  SELECT coalesce(p_visibility, 'restricted') = 'public'
-    OR (
-      coalesce(p_visibility, 'restricted') = ANY (
-        ARRAY(
-          SELECT jsonb_array_elements_text(
-            coalesce(p_principal -> 'scopes', '[]'::jsonb)
-          )
-        )
-      )
-      AND (
-        cardinality(coalesce(p_required_principals, '{}'::text[])) = 0
-        OR coalesce(p_required_principals, '{}'::text[]) && ARRAY(
-          SELECT jsonb_array_elements_text(
-            coalesce(p_principal -> 'principals', '[]'::jsonb)
-          )
-        )
-      )
-    )
+  SELECT coalesce(p_acl ->> 'visibility', 'restricted') = 'workshop'
+    OR pg_has_role(p_role, 'can_see_restricted', 'USAGE')
+$$;
+
+COMMENT ON FUNCTION retrieval.acl_visible(jsonb, name) IS
+  'Visibility of one evidence ACL to one role. p_role defaults to current_user; '
+  'replay passes the run''s stored role explicitly. USAGE not MEMBER: MEMBER '
+  'ignores INHERIT and would report a clearance the effective role does not have.';
+
+-- The scalar twin, for the projected retrieval.* tables that carry acl_visibility
+-- as a column instead of the jsonb. p_required_principals is gone: after the
+-- Blocker-1 resolution acl.principals is always empty and visibility is the only
+-- classification axis.
+DROP FUNCTION IF EXISTS retrieval.acl_scalars_visible(text, text[], jsonb);
+
+CREATE OR REPLACE FUNCTION retrieval.acl_scalars_visible(
+  p_visibility text,
+  p_role name DEFAULT current_user
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+PARALLEL SAFE
+AS $$
+  SELECT coalesce(p_visibility, 'restricted') = 'workshop'
+    OR pg_has_role(p_role, 'can_see_restricted', 'USAGE')
 $$;
 
 -- Natural-language questions name more terms than any one document contains, so
@@ -233,7 +222,6 @@ CREATE OR REPLACE FUNCTION retrieval.full_text_search(
   p_aws_region text DEFAULT NULL,
   p_start_date timestamptz DEFAULT NULL,
   p_end_date timestamptz DEFAULT NULL,
-  p_principal jsonb DEFAULT NULL,
   p_limit integer DEFAULT 10
 )
 RETURNS TABLE (
@@ -300,7 +288,7 @@ exact_raw AS (
   ) c ON true
   WHERE d.is_current
     AND d.index_state = 'ready'
-    AND retrieval.acl_visible(d.acl, p_principal)
+    AND retrieval.acl_visible(d.acl)
     AND (p_kinds IS NULL OR d.evidence_kind = ANY(p_kinds))
     AND (p_cluster_id IS NULL OR d.cluster_id = p_cluster_id)
     AND (p_incident_id IS NULL OR d.incident_id = p_incident_id)
@@ -339,7 +327,7 @@ document_raw AS (
     AND d.is_current
     AND d.index_state = 'ready'
     AND d.search_tsv @@ query.value
-    AND retrieval.acl_visible(d.acl, p_principal)
+    AND retrieval.acl_visible(d.acl)
     AND (p_kinds IS NULL OR d.evidence_kind = ANY(p_kinds))
     AND (p_cluster_id IS NULL OR d.cluster_id = p_cluster_id)
     AND (p_incident_id IS NULL OR d.incident_id = p_incident_id)
@@ -372,7 +360,7 @@ chunk_raw AS (
     AND c.search_tsv @@ query.value
     AND d.is_current
     AND d.index_state = 'ready'
-    AND retrieval.acl_visible(d.acl, p_principal)
+    AND retrieval.acl_visible(d.acl)
     AND (p_kinds IS NULL OR d.evidence_kind = ANY(p_kinds))
     AND (p_cluster_id IS NULL OR d.cluster_id = p_cluster_id)
     AND (p_incident_id IS NULL OR d.incident_id = p_incident_id)
@@ -458,7 +446,6 @@ CREATE OR REPLACE FUNCTION retrieval.vector_search(
   p_aws_region text DEFAULT NULL,
   p_start_date timestamptz DEFAULT NULL,
   p_end_date timestamptz DEFAULT NULL,
-  p_principal jsonb DEFAULT NULL,
   p_limit integer DEFAULT 10,
   p_candidate_pool integer DEFAULT 24
 )
@@ -497,11 +484,7 @@ WITH candidates AS MATERIALIZED (
     AND c.is_current
     AND c.embedding_state = 'ready'
     AND c.embedding IS NOT NULL
-    AND retrieval.acl_scalars_visible(
-      c.acl_visibility,
-      c.acl_principals,
-      p_principal
-    )
+    AND retrieval.acl_scalars_visible(c.acl_visibility)
     AND (p_kinds IS NULL OR c.evidence_kind = ANY(p_kinds))
     AND (p_cluster_id IS NULL OR c.cluster_id = p_cluster_id)
     AND (p_incident_id IS NULL OR c.incident_id = p_incident_id)
@@ -570,7 +553,6 @@ CREATE OR REPLACE FUNCTION retrieval.fuzzy_search(
   p_aws_region text DEFAULT NULL,
   p_start_date timestamptz DEFAULT NULL,
   p_end_date timestamptz DEFAULT NULL,
-  p_principal jsonb DEFAULT NULL,
   p_limit integer DEFAULT 10
 )
 RETURNS TABLE (
@@ -618,11 +600,7 @@ matches AS MATERIALIZED (
   CROSS JOIN probes
   WHERE d.is_current
     AND d.index_state = 'ready'
-    AND retrieval.acl_scalars_visible(
-      d.acl_visibility,
-      d.acl_principals,
-      p_principal
-    )
+    AND retrieval.acl_scalars_visible(d.acl_visibility)
     AND (p_kinds IS NULL OR d.evidence_kind = ANY(p_kinds))
     AND (p_cluster_id IS NULL OR d.cluster_id = p_cluster_id)
     AND (p_incident_id IS NULL OR d.incident_id = p_incident_id)
@@ -715,7 +693,6 @@ CREATE OR REPLACE FUNCTION retrieval.hybrid_search(
   p_aws_region text DEFAULT NULL,
   p_start_date timestamptz DEFAULT NULL,
   p_end_date timestamptz DEFAULT NULL,
-  p_principal jsonb DEFAULT NULL,
   p_limit integer DEFAULT 10,
   p_candidate_pool integer DEFAULT 24,
   p_rrf_k integer DEFAULT 60,
@@ -774,7 +751,6 @@ WITH text_candidates AS MATERIALIZED (
     p_aws_region,
     p_start_date,
     p_end_date,
-    p_principal,
     greatest(p_limit, p_candidate_pool)
   )
 ),
@@ -826,7 +802,6 @@ vector_candidates AS MATERIALIZED (
     p_aws_region,
     p_start_date,
     p_end_date,
-    p_principal,
     greatest(p_limit, p_candidate_pool),
     greatest(p_limit, p_candidate_pool)
   )
@@ -858,7 +833,6 @@ trgm_candidates AS MATERIALIZED (
     p_aws_region,
     p_start_date,
     p_end_date,
-    p_principal,
     greatest(p_limit, p_candidate_pool)
   )
 ),
@@ -987,4 +961,16 @@ ORDER BY
   d.occurred_at DESC,
   d.external_key
 LIMIT greatest(1, p_limit)
+$$;
+
+-- Re-grant after a signature change: DROP FUNCTION discards the old grants, and
+-- sql/11_roles_rls.sql may already have run. Guarded so a fresh database (where
+-- the personas do not exist yet) still applies this file.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_analyst') THEN
+    GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA retrieval
+      TO persona_analyst, persona_admin, persona_auditor;
+  END IF;
+END
 $$;

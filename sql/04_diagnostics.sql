@@ -354,6 +354,11 @@ FROM pg_stat_user_indexes
 WHERE schemaname = 'retrieval'
 ORDER BY indexrelname;
 
+-- The receipt view's last column changed from principal jsonb to role text
+-- (A7). CREATE OR REPLACE VIEW cannot rename or retype a column, so the view
+-- is dropped first. It carries no grants of its own (sql/11 grants by schema).
+DROP VIEW IF EXISTS proof.v_run_receipts;
+
 CREATE OR REPLACE VIEW proof.v_run_receipts AS
 SELECT
   run.run_id,
@@ -379,7 +384,7 @@ SELECT
   run.identifier_tokens,
   run.fuzzy_probe_tokens,
   run.candidate_pool,
-  run.principal
+  run.role
 FROM proof.retrieval_runs run
 LEFT JOIN proof.retrieval_candidates candidate ON candidate.run_id = run.run_id
 GROUP BY run.run_id;

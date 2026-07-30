@@ -16,7 +16,7 @@ WITH relevant AS (
     ON run.run_id = p_run_id
   WHERE judgment.query_id = p_query_id
     AND judgment.relevance > 0
-    AND retrieval.acl_visible(item.acl, run.principal)
+    AND retrieval.acl_visible(item.acl, ('persona_' || run.role)::name)
 ),
 retrieved AS (
   SELECT count(*)::numeric AS hits
@@ -112,7 +112,7 @@ ideal_ranks AS (
     ON run.run_id = p_run_id
   WHERE judgment.query_id = p_query_id
     AND judgment.relevance > 0
-    AND retrieval.acl_visible(item.acl, run.principal)
+    AND retrieval.acl_visible(item.acl, ('persona_' || run.role)::name)
 ),
 ideal AS (
   SELECT coalesce(
@@ -165,7 +165,7 @@ WITH relevant AS (
     ON run.run_id = p_run_id
   WHERE judgment.query_id = p_query_id
     AND judgment.relevance > 0
-    AND retrieval.acl_visible(item.acl, run.principal)
+    AND retrieval.acl_visible(item.acl, ('persona_' || run.role)::name)
 ),
 reached AS (
   SELECT count(*)::numeric AS hits

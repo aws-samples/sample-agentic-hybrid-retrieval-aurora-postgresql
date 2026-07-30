@@ -1,9 +1,13 @@
+-- The stale two-arg DROP predates p_principal (A6) and has been a no-op since
+-- p_principal was added: p_principal was never dropped, only shadowed by a new
+-- overload. Extending rather than replacing so both dead overloads are gone.
 DROP FUNCTION IF EXISTS retrieval.traverse_evidence(uuid[], integer);
+DROP FUNCTION IF EXISTS retrieval.traverse_evidence(uuid[], integer, jsonb);
 
 CREATE OR REPLACE FUNCTION retrieval.traverse_evidence(
   p_seed_evidence_ids uuid[],
   p_max_depth integer DEFAULT 3,
-  p_principal jsonb DEFAULT NULL
+  p_role name DEFAULT current_user
 )
 RETURNS TABLE (
   evidence_id uuid,
@@ -33,7 +37,7 @@ WITH RECURSIVE walk AS (
   JOIN casework.evidence_items seed_item
     ON seed_item.evidence_id = seed.evidence_id
    AND NOT seed_item.is_deleted
-   AND retrieval.acl_visible(seed_item.acl, p_principal)
+   AND retrieval.acl_visible(seed_item.acl, p_role)
 
   UNION ALL
 
@@ -58,7 +62,7 @@ WITH RECURSIVE walk AS (
   JOIN casework.evidence_items neighbor_item
     ON neighbor_item.evidence_id = neighbor.evidence_id
    AND NOT neighbor_item.is_deleted
-   AND retrieval.acl_visible(neighbor_item.acl, p_principal)
+   AND retrieval.acl_visible(neighbor_item.acl, p_role)
   WHERE walk.depth < greatest(0, least(p_max_depth, 8))
     AND NOT neighbor.evidence_id = ANY(walk.path)
 ),
