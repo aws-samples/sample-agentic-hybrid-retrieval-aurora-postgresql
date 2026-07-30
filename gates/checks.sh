@@ -41,6 +41,7 @@ GATES=(
   "G-27|rls_enforcement.py|RLS enforcement (D24)"
   "G-29|masking_determinism.py|Column masking + Law-2 determinism"
   "G-30|participant_ceremony.py|Participant zero-ceremony identity (A1)"
+  "G-31|persona_equivalence.py|Persona equivalence after the A7 collapse"
 )
 
 WANT=("$@")
