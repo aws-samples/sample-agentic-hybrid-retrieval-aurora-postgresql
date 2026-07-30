@@ -430,6 +430,11 @@ CLEARANCE_GROUP = "can_see_restricted"
 # every restricted row, but this one must always be among them.
 CANONICAL_RESTRICTED_KEY = "CASE-7421"
 
+# The detail table CANONICAL_RESTRICTED_KEY lands in (seed/corpus.py:445-471), so
+# the owner measuring zero restricted rows there is impossible unless the owner
+# itself is being filtered. Used as the positive control for the (b') oracle.
+CONTROL_DETAIL_TABLE = "casework.support_cases"
+
 # Restricted rows are measured, never hand-typed: the gate asks the engine which
 # rows are restricted, as the owner, then asserts the persona views against that
 # measured set.
@@ -854,6 +859,36 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         # restricted rows" apart from "admin's visibility is broken", and those two
         # need opposite verdicts. The analyst assertion runs on every table
         # regardless, because "the analyst sees nothing" holds either way.
+        # The oracle above is only as good as the owner's own reach into these
+        # tables, and _owner_exposure measures listed_on over READ_PATH_TABLES
+        # only -- it says nothing about the seven detail tables. If section 5's
+        # generated TO lists lost CURRENT_USER, or make schema ran as a different
+        # identity than this gate's owner DSN, the owner is subject to FORCE and
+        # reads ZERO rows here: all seven counts come back 0, all seven tables
+        # take the skip branch, and the group reports clean over policies that
+        # deny every persona. Measured on PG17 -- the same configuration that
+        # silently truncated a derived projection to 1 of 2 rows at exit 0.
+        #
+        # casework.support_cases is the positive control the cohort guarantees:
+        # seed/corpus.py:445-471 pins CANONICAL_RESTRICTED_KEY into it with
+        # RESTRICTED_ACL, run() has already asserted that key is restricted, and
+        # G-29's masking gate reads that exact row. A zero count there is never a
+        # cohort property.
+        print("\n  owner reach into the detail tables (oracle sanity):")
+        for table in DETAIL_TABLES:
+            print(f"    {table}: {detail_restricted[table]} restricted")
+        require(
+            detail_restricted[CONTROL_DETAIL_TABLE] > 0,
+            f"the owner measured 0 restricted rows at {CONTROL_DETAIL_TABLE} while "
+            f"casework.evidence_items holds {len(restricted)} including "
+            f"{CANONICAL_RESTRICTED_KEY}, which seed/corpus.py pins into that table. "
+            f"The owner is being filtered by the section 5 policies it created, so "
+            f"every count below is 0 and every table would skip with a false "
+            f"'no restricted evidence of this kind'. Check that section 5's "
+            f"generated TO lists still include CURRENT_USER and that make schema "
+            f"ran as the same identity this gate connects as "
+            f"(sql/11_roles_rls.sql section 5)",
+        )
         print("\n  (b') row filtering at the evidence detail tables:")
         for table in DETAIL_TABLES:
             analyst = _ids_under_persona(
