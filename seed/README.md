@@ -11,7 +11,11 @@ The canonical evidence thread is:
 - `CHG-1842`: ordinary `CREATE INDEX` blocked writes.
 - `LOCK-2047-001` and `LOCK-2047-002`: controlled lock snapshots.
 - `CASE-7419`: visible customer impact and response commitment.
-- `CASE-7421`: relevant evidence restricted to `support-lead`.
+- `CASE-7421`: relevant evidence classified `restricted`, plus a six-object
+  restricted cohort (`CASE-8102`, `CASE-8137`, `INC-3162`, `INC-4117`,
+  `CHG-6213`, `CHG-3309`) spanning three evidence kinds. Visibility is decided by
+  `acl.visibility` and the `can_see_restricted` clearance, never by a
+  caller-supplied identity.
 - `RB-017`: the `CREATE INDEX CONCURRENTLY` recovery guidance and caveats.
 
 `casework.*` is the normalized source-of-record fixture. The search-index builder
