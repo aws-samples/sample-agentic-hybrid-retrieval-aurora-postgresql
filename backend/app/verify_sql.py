@@ -23,11 +23,20 @@ Grain of reproducibility (SPEC-session Section 6.2):
 
 Named binds (``%(name)s``) keep each descriptor self-describing and let the gate
 replay it with a plain dict.
+
+Every descriptor carries an identity envelope (A3): ``set_role`` is the single
+``SET LOCAL ROLE`` the app issued for this panel, and ``rendered`` is the
+``BEGIN; SET LOCAL ROLE …; SELECT …; ROLLBACK;`` text a participant pastes. Under
+row-level security a SELECT without the role is a different query, so a paste that
+omitted it would return different rows than the panel — the pasted proof has to
+carry the identity, not just the query.
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+from psycopg import sql
 
 # --- Panel grain: the receipt family (explain_ranking_impl) ------------------
 
@@ -126,16 +135,90 @@ TIMELINE_EVENT_VERIFY_SQL = (
 )
 
 
-def _descriptor(statement: str, binds: dict[str, Any]) -> dict[str, Any]:
-    """Return one ``_verify_sql`` descriptor: the statement and its binds."""
-    return {"statement": statement, "binds": binds}
+PERSONAS: tuple[str, ...] = ("analyst", "admin", "auditor")
 
 
-def receipt_verify_sql(run_id: str) -> dict[str, dict[str, Any]]:
+def persona_role(persona: str) -> str:
+    """Map a persona to its database role.
+
+    Duplicated from backend.app.db by design: this module is pure string
+    construction and is imported by the MCP-facing tool layer, so it must not
+    pull in the connection pool. test_verify_sql.py asserts the two agree.
+
+    Args:
+        persona: One of PERSONAS.
+
+    Returns:
+        The role name the envelope will SET LOCAL ROLE to.
+
+    Raises:
+        ValueError: The persona is not one of the three bound values.
+    """
+    if persona not in PERSONAS:
+        raise ValueError(
+            f"unknown persona {persona!r}; expected one of {', '.join(PERSONAS)}"
+        )
+    return f"persona_{persona}"
+
+
+def _render(statement: str, binds: dict[str, Any], set_role: str) -> str:
+    """Render the copy-pasteable envelope for a human (A3).
+
+    The statement is parameterized for psycopg; a paste has no bind mechanism, so
+    the values are inlined here — quoted with psycopg's own literal quoting, not
+    string formatting, because a bind value can contain a quote.
+
+    ROLLBACK, always: the paste is read-only and idempotent, so a participant can
+    run it in the middle of anything without consequence.
+    """
+    inlined = statement
+    for name, value in binds.items():
+        inlined = inlined.replace(f"%({name})s", sql.Literal(value).as_string(None))
+    body = inlined.strip().rstrip(";")
+    return f"BEGIN;\n{set_role};\n{body};\nROLLBACK;"
+
+
+def _descriptor(
+    statement: str,
+    binds: dict[str, Any],
+    persona: str,
+) -> dict[str, Any]:
+    """Return one ``_verify_sql`` descriptor.
+
+    Four fields, two audiences. ``statement`` + ``binds`` are what a machine
+    executes (G-13 replays them and diffs against the API JSON). ``set_role`` is
+    the one identity statement the app issued, which the replayer must issue too.
+    ``rendered`` is the pasteable envelope a participant takes to psql.
+
+    Keeping ``statement`` single and parameterized is deliberate: a multi-statement
+    string cannot be client-side bound and yields only its first result set, so a
+    replayer would silently verify nothing.
+
+    Args:
+        statement: One parameterized SELECT.
+        binds: Its named parameters.
+        persona: The persona whose rows this panel showed.
+
+    Returns:
+        The descriptor dict serialized into the API payload as ``_verify_sql``.
+    """
+    set_role = f"SET LOCAL ROLE {persona_role(persona)}"
+    return {
+        "statement": statement,
+        "binds": binds,
+        "set_role": set_role,
+        "rendered": _render(statement, binds, set_role),
+    }
+
+
+def receipt_verify_sql(run_id: str, persona: str) -> dict[str, dict[str, Any]]:
     """Return the four panel-grain descriptors for a run receipt.
 
     Args:
         run_id: The run whose receipt is being rendered.
+        persona: The persona whose rows this receipt showed. Required, never
+            defaulted: a defaulted persona would let a panel emit an ``analyst``
+            envelope for rows an ``admin`` fetched.
 
     Returns:
         A ``panel -> descriptor`` map for the run, candidates, stages, and answer
@@ -143,18 +226,32 @@ def receipt_verify_sql(run_id: str) -> dict[str, dict[str, Any]]:
     """
     binds = {"run_id": run_id}
     return {
-        "run": _descriptor(RUN_RECEIPT_SQL, binds),
-        "candidates": _descriptor(CANDIDATE_RECEIPT_SQL, binds),
-        "stages": _descriptor(STAGE_RECEIPT_SQL, binds),
-        "answer": _descriptor(ANSWER_RECEIPT_SQL, binds),
+        "run": _descriptor(RUN_RECEIPT_SQL, binds, persona),
+        "candidates": _descriptor(CANDIDATE_RECEIPT_SQL, binds, persona),
+        "stages": _descriptor(STAGE_RECEIPT_SQL, binds, persona),
+        "answer": _descriptor(ANSWER_RECEIPT_SQL, binds, persona),
     }
 
 
-def edge_verify_sql(edge_key: str) -> dict[str, Any]:
-    """Return the element-grain descriptor reproducing one graph edge."""
-    return _descriptor(EVIDENCE_EDGE_VERIFY_SQL, {"edge_key": edge_key})
+def edge_verify_sql(edge_key: str, persona: str) -> dict[str, Any]:
+    """Return the element-grain descriptor reproducing one graph edge.
+
+    Args:
+        edge_key: The edge's natural key.
+        persona: The persona whose rows this panel showed. Required, never
+            defaulted.
+    """
+    return _descriptor(EVIDENCE_EDGE_VERIFY_SQL, {"edge_key": edge_key}, persona)
 
 
-def event_verify_sql(evidence_id: str) -> dict[str, Any]:
-    """Return the element-grain descriptor reproducing one timeline event."""
-    return _descriptor(TIMELINE_EVENT_VERIFY_SQL, {"evidence_id": str(evidence_id)})
+def event_verify_sql(evidence_id: str, persona: str) -> dict[str, Any]:
+    """Return the element-grain descriptor reproducing one timeline event.
+
+    Args:
+        evidence_id: The event's evidence id.
+        persona: The persona whose rows this panel showed. Required, never
+            defaulted.
+    """
+    return _descriptor(
+        TIMELINE_EVENT_VERIFY_SQL, {"evidence_id": str(evidence_id)}, persona
+    )

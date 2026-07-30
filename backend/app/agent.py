@@ -531,8 +531,8 @@ def explain_ranking_impl(run_id: str) -> dict[str, Any]:
             row in retrieval_runs yields exactly one receipt row. There is no
             second not-found case to guard.
     """
-    verify = receipt_verify_sql(run_id)
     role = _run_role(run_id)
+    verify = receipt_verify_sql(run_id, role)
     with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(verify["run"]["statement"], verify["run"]["binds"])

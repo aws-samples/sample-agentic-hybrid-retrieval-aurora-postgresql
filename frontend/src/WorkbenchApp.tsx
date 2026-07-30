@@ -46,10 +46,17 @@ import {
   formatRoute,
   parseRoute,
   type PresetKey,
-  type PrincipalKey,
+  type PersonaKey,
   type Route,
   type RouteSurface,
 } from './route';
+import {
+  DEFAULT_PERSONA,
+  PERSONA_KEYS,
+  PERSONA_LABELS,
+  personaLabel,
+  personaSetRoleSql,
+} from './persona';
 import {
   buildTimelineGrid,
   systemLabel,
@@ -315,11 +322,6 @@ interface AnswerReceipt {
   created_at?: string;
 }
 
-interface PrincipalReceipt {
-  scopes?: string[];
-  principals?: string[];
-}
-
 interface RunSummary {
   run_id: string;
   query_text: string;
@@ -343,7 +345,7 @@ interface RunSummary {
   identifier_tokens?: string[];
   fuzzy_probe_tokens?: string[];
   candidate_pool?: number;
-  principal?: PrincipalReceipt;
+  role?: string;
 }
 
 interface Stage {
@@ -568,7 +570,7 @@ interface Controls {
   fuzzyThreshold: number;
   efSearch: number;
   rerank: boolean;
-  supportLead: boolean;
+  role: PersonaKey;
 }
 
 const API_BASE = (
@@ -593,7 +595,7 @@ const DEFAULT_CONTROLS: Controls = {
   fuzzyThreshold: 0.3,
   efSearch: 40,
   rerank: false,
-  supportLead: false,
+  role: DEFAULT_PERSONA,
 };
 
 function retrievalRequestKey(controls: Controls): string {
@@ -612,7 +614,7 @@ function retrievalRequestKey(controls: Controls): string {
     fuzzyThreshold: controls.fuzzyThreshold,
     efSearch: controls.efSearch,
     rerank: controls.rerank,
-    supportLead: controls.supportLead,
+    role: controls.role,
   });
 }
 
@@ -834,7 +836,7 @@ function toolDecision(event: AgentTraceEvent): string {
       !args.cluster_id &&
       !args.incident_id;
     return boundedRecovery
-      ? `Relaxed incident scope only for reusable ${kinds}; the caller principal stayed fixed.`
+      ? `Relaxed incident scope only for reusable ${kinds}; the persona stayed fixed.`
       : `Searched ${kinds} with ${args.cluster_id || args.incident_id || 'no scope filter'}.`;
   }
   if (event.tool === 'follow_evidence_links') {
@@ -894,7 +896,7 @@ function sourceRole(citation: Citation): string {
     return 'Observed lock state connecting the blocker to queued writers.';
   }
   if (citation.external_key === 'CASE-7419') {
-    return 'Visible customer impact under the workshop principal.';
+    return 'Visible customer impact under the analyst persona.';
   }
   if (citation.external_key.startsWith('CASE-')) {
     return 'Comparison case used to rule out unrelated customer impact.';
@@ -1016,13 +1018,6 @@ function isFusedOrder(candidates: Candidate[]): boolean {
   return candidates.every(
     (candidate, index) => candidate.evidence_id === expected[index].evidence_id,
   );
-}
-
-function principalLabel(principal?: PrincipalReceipt): string {
-  const named = principal?.principals?.filter(Boolean) || [];
-  if (named.length) return named.join(', ');
-  const scopes = principal?.scopes?.filter(Boolean) || [];
-  return scopes.length ? scopes.join(', ') : 'workshop';
 }
 
 function buildJourneySteps({
@@ -2893,9 +2888,13 @@ function EvidenceGraph({
 function JourneyStrip({
   steps,
   onNavigate,
+  persona,
+  onPersona,
 }: {
   steps: JourneyStep[];
   onNavigate: (surface: JourneySurface) => void;
+  persona: PersonaKey;
+  onPersona: (next: PersonaKey) => void;
 }) {
   return (
     <nav className="journey-strip" aria-label="Investigation progress">
@@ -2929,6 +2928,22 @@ function JourneyStrip({
           </li>
         ))}
       </ol>
+      <div className="persona-chip">
+        <span className="section-label">Viewing as</span>
+        <div className="segmented" role="group" aria-label="Viewing as">
+          {PERSONA_KEYS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              className={key === persona ? 'active' : ''}
+              aria-pressed={key === persona}
+              onClick={() => onPersona(key)}
+            >
+              {PERSONA_LABELS[key]}
+            </button>
+          ))}
+        </div>
+      </div>
     </nav>
   );
 }
@@ -2965,7 +2980,7 @@ function ProofChainOfCustody({
   );
   const item = candidate ? snapshot(candidate) : null;
   const validationStatus = receipt.answer?.validation_status || 'persisted';
-  const principal = principalLabel(receipt.run.principal);
+  const persona = personaLabel(receipt.run.role);
   const claim = citation.claim || sourceRole(citation);
 
   const steps: Array<{
@@ -3001,7 +3016,7 @@ function ProofChainOfCustody({
     {
       label: 'Verified by',
       value: 'Citation + ACL',
-      meta: `${validationStatus} · principal ${principal}`,
+      meta: `${validationStatus} · viewing as ${persona}`,
       Icon: ShieldCheck,
     },
     {
@@ -3090,8 +3105,8 @@ function ProofChainOfCustody({
               <dd>{citation.source_revision}</dd>
             </div>
             <div>
-              <dt>Principal</dt>
-              <dd>{principal}</dd>
+              <dt>Viewing as</dt>
+              <dd>{persona}</dd>
             </div>
             <div>
               <dt>Document version</dt>
@@ -3300,8 +3315,8 @@ export default function WorkbenchApp() {
         }));
       }
     }
-    if (initialRoute.surface === 'agent' && initialRoute.principal) {
-      setControl('supportLead', initialRoute.principal === 'support-lead');
+    if (initialRoute.surface === 'agent' && initialRoute.role) {
+      setControl('role', initialRoute.role);
     }
     goTo(initialRoute.surface as Surface, initialRoute.lens);
     const deepLinkedRun =
@@ -3361,7 +3376,7 @@ export default function WorkbenchApp() {
         const tab: DiagnoseTab = lens === 'fusion' ? 'fusion' : 'results';
         setModule('retrieve');
         setDiagnoseTab(tab);
-        setControl('supportLead', false);
+        setControl('role', DEFAULT_PERSONA);
         if (tab === 'fusion') {
           setPlanOpen(false);
           setFusionRunRequest((current) => current + 1);
@@ -3432,8 +3447,7 @@ export default function WorkbenchApp() {
             preset.presetKey !== undefined && preset.query === controls.query,
         )?.presetKey
       : undefined;
-  const activePrincipal: PrincipalKey =
-    controls.supportLead ? 'support-lead' : 'workshop';
+  const activePersona: PersonaKey = controls.role;
   const activeSurfaceNav = [...PRIMARY_NAV, ...UTILITY_NAV].find(
     (item) => item.surface === activeSurface,
   );
@@ -3448,7 +3462,7 @@ export default function WorkbenchApp() {
   }, [mobileNavOpen]);
 
   // Apply a parsed route to live state. surface/lens go through goTo (the single
-  // navigation writer); preset/principal set controls; a /proof/{run_id} loads
+  // navigation writer); preset/role set controls; a /proof/{run_id} loads
   // that run. Called on mount, on back/forward, and never during state->URL sync.
   function applyRoute(route: Route) {
     if (route.surface === 'retrieval' && route.preset) {
@@ -3463,8 +3477,8 @@ export default function WorkbenchApp() {
         }));
       }
     }
-    if (route.surface === 'agent' && route.principal) {
-      setControl('supportLead', route.principal === 'support-lead');
+    if (route.surface === 'agent' && route.role) {
+      setControl('role', route.role);
     }
     if (route.surface === 'proof' && route.runId && route.runId !== runId) {
       void loadRun(route.runId);
@@ -3482,7 +3496,7 @@ export default function WorkbenchApp() {
     if (activeSurface === 'retrieval' && activePreset) {
       route.preset = activePreset;
     }
-    if (activeSurface === 'agent') route.principal = activePrincipal;
+    if (activeSurface === 'agent') route.role = activePersona;
     if (activeSurface === 'proof' && runId) route.runId = runId;
     const nextHash = formatRoute(route);
     if (window.location.hash !== nextHash) {
@@ -3493,7 +3507,7 @@ export default function WorkbenchApp() {
     activeSurface,
     activeLens,
     activePreset,
-    activePrincipal,
+    activePersona,
     runId,
   ]);
 
@@ -3530,10 +3544,7 @@ export default function WorkbenchApp() {
       ef_search: sourceControls.efSearch,
       iterative_scan: 'relaxed_order',
       rerank: sourceControls.rerank,
-      principal: {
-        scopes: ['workshop'],
-        principals: sourceControls.supportLead ? ['support-lead'] : [],
-      },
+      role: sourceControls.role,
     };
   }
 
@@ -3593,10 +3604,7 @@ export default function WorkbenchApp() {
           limit: controls.limit,
           cluster_id: controls.clusterId || null,
           kinds: controls.kind === 'all' ? null : [controls.kind],
-          principal: {
-            scopes: ['workshop'],
-            principals: controls.supportLead ? ['support-lead'] : [],
-          },
+          role: controls.role,
         }),
       });
       setPlanArm(arm);
@@ -3657,7 +3665,7 @@ export default function WorkbenchApp() {
     const baselineControls = {
       ...controls,
       query: baselineQuery,
-      supportLead: false,
+      role: DEFAULT_PERSONA,
     };
     setControls(baselineControls);
     setAgentStreamState('blocked');
@@ -3703,10 +3711,7 @@ export default function WorkbenchApp() {
         body: JSON.stringify({
           question: controls.query,
             max_tool_calls: 12,
-          principal: {
-            scopes: ['workshop'],
-            principals: controls.supportLead ? ['support-lead'] : [],
-          },
+          role: controls.role,
         }),
         },
       );
@@ -4110,11 +4115,8 @@ export default function WorkbenchApp() {
     agentWithheld,
     proofWithheld,
   });
-  const persistedPrincipal = receipt?.run.principal || {
-    scopes: ['workshop'],
-    principals: controls.supportLead ? ['support-lead'] : [],
-  };
-  const persistedPrincipalLabel = principalLabel(persistedPrincipal);
+  const persistedPersona = receipt?.run.role || controls.role;
+  const persistedPersonaLabel = personaLabel(persistedPersona);
 
   useEffect(() => {
     const citations = receipt?.answer?.citations || [];
@@ -4293,6 +4295,8 @@ export default function WorkbenchApp() {
                 ?.key,
             )
           }
+          persona={controls.role}
+          onPersona={(next) => setControl('role', next)}
         />
         {module !== 'home' &&
         module !== 'retrieve' &&
@@ -5541,7 +5545,7 @@ LIMIT ${appliedControls.limit};`}</code>
                             <p>
                               Incident evidence stays scoped to{' '}
                               <code>{controls.clusterId}</code>; only reusable
-                              guidance widens. The caller principal is unchanged.
+                              guidance widens. The persona is unchanged.
                             </p>
                           </div>
                           <button
@@ -5572,7 +5576,7 @@ LIMIT ${appliedControls.limit};`}</code>
                               <Check size={15} />
                               <span>
                                 <strong>Visible customer impact</strong>
-                                CASE-7419 under the workshop principal
+                                CASE-7419 under the analyst persona
                               </span>
                             </div>
                             <div className="missing">
@@ -5897,7 +5901,7 @@ LIMIT ${appliedControls.limit};`}</code>
                               Waiting to relax only the scope that reusable
                               guidance does not carry.
                             </p>
-                            <small>principal unchanged</small>
+                            <small>persona unchanged</small>
                           </div>
                           <time>waiting</time>
                         </div>
@@ -6079,11 +6083,11 @@ LIMIT ${appliedControls.limit};`}</code>
 
             {proveTab === 'graph' ? (
               <>
-                <section className="graph-principal-boundary">
+                <section className="graph-persona-boundary">
                   <ShieldCheck size={18} />
                   <div>
-                    <span className="section-label">Principal scope boundary</span>
-                    <strong>{persistedPrincipalLabel}</strong>
+                    <span className="section-label">Entitlement boundary</span>
+                    <strong>{persistedPersonaLabel}</strong>
                   </div>
                   <span>applied before every retrieval arm</span>
                   <ArrowRight size={15} aria-hidden="true" />
@@ -6095,9 +6099,9 @@ LIMIT ${appliedControls.limit};`}</code>
                     <div className="graph-scope">
                       <span className="section-label">Investigation</span>
                       <p>{controls.query}</p>
-                      <span className="graph-scope-principal">
-                        persisted principal{' '}
-                        <strong>{persistedPrincipalLabel}</strong>
+                      <span className="graph-scope-persona">
+                        persisted persona{' '}
+                        <strong>{persistedPersonaLabel}</strong>
                       </span>
                     </div>
                     <label>
@@ -6405,11 +6409,11 @@ LIMIT ${appliedControls.limit};`}</code>
                         <div>
                           <strong>Question accepted</strong>
                           <span>
-                            Principal{' '}
-                            {controls.supportLead
-                              ? 'support-lead'
-                              : 'workshop'}
-                            ; cluster {controls.clusterId || 'all'}.
+                            {personaSetRoleSql(
+                              (receipt?.run.role as PersonaKey) ??
+                                controls.role,
+                            )}{' '}
+                            cluster {controls.clusterId || 'all'}.
                           </span>
                         </div>
                         <b>OK</b>

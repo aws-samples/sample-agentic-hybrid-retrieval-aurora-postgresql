@@ -481,7 +481,7 @@ def run_graph(run_id: str) -> dict[str, Any]:
             cursor.execute(EVIDENCE_EDGE_BATCH_SQL, {"ids": reached_ids})
             edges = cursor.fetchall()
     for edge in edges:
-        edge["_verify_sql"] = edge_verify_sql(edge["edge_key"])
+        edge["_verify_sql"] = edge_verify_sql(edge["edge_key"], role)
     return {
         "run_id": run_id,
         "nodes": reached,
@@ -578,12 +578,13 @@ def run_timeline(run_id: str) -> dict[str, Any]:
     ids = [row["evidence_id"] for row in graph["nodes"]]
     if not ids:
         return {"run_id": run_id, "events": [], "edge_count": 0}
-    with get_dict_conn(_run_role(run_id)) as connection:
+    role = _run_role(run_id)
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(TIMELINE_EVENT_BATCH_SQL, {"ids": ids})
             events = cursor.fetchall()
     for event in events:
-        event["_verify_sql"] = event_verify_sql(event["evidence_id"])
+        event["_verify_sql"] = event_verify_sql(event["evidence_id"], role)
     return {
         "run_id": run_id,
         "events": events,

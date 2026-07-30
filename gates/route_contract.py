@@ -2,7 +2,7 @@
 """G-23 - Route contract (D16, SPEC-session Section 6.0 / Section 10).
 
 Every deep link in the guide must resolve to its intended surface with state
-prefilled (preset, principal, run_id). SPEC-session:701 scopes G-23 as "verified
+prefilled (preset, role, run_id). SPEC-session:701 scopes G-23 as "verified
 headlessly in CI and again on the dry-run laptop": CI proves the route contract
 mechanically; the dry-run laptop is where a human confirms the rendered surface.
 This gate is the CI half. It proves three things, headlessly and offline, and is
@@ -20,13 +20,13 @@ Three checks:
 
 2. Contract-literal membership. Every deep-link literal the guide sends
    participants to - /overview, /retrieval?preset={exact|fuzzy|semantic},
-   /agent?principal={workshop|support-lead}, /proof/{run_id} (SPEC-session:457) -
+   /agent?role={analyst|admin|auditor}, /proof/{run_id} (SPEC-session:457) -
    must parse to the intended surface with the intended param set, not silently
    degrade to overview. Catches a mistyped or dropped enum value before a human
    clicks it.
 
 3. Built-bundle presence. The built frontend bundle (frontend/dist) must contain
-   the preset and principal enum literals the router depends on, to catch a build
+   the preset and persona enum literals the router depends on, to catch a build
    that tree-shook or renamed a route the source defines (the G-14 bundle-scan
    pattern).
 
@@ -72,12 +72,16 @@ CONTRACT_ROUTES: list[tuple[str, dict]] = [
         {"surface": "retrieval", "preset": "semantic"},
     ),
     (
-        "#/agent?principal=workshop",
-        {"surface": "agent", "principal": "workshop"},
+        "#/agent?role=analyst",
+        {"surface": "agent", "role": "analyst"},
     ),
     (
-        "#/agent?principal=support-lead",
-        {"surface": "agent", "principal": "support-lead"},
+        "#/agent?role=admin",
+        {"surface": "agent", "role": "admin"},
+    ),
+    (
+        "#/agent?role=auditor",
+        {"surface": "agent", "role": "auditor"},
     ),
     ("#/proof/rr_9b41d7", {"surface": "proof", "runId": "rr_9b41d7"}),
     (
@@ -87,7 +91,7 @@ CONTRACT_ROUTES: list[tuple[str, dict]] = [
 ]
 
 # Enum literals the router resolves; the built bundle must still contain them.
-BUNDLE_LITERALS = ["exact", "fuzzy", "semantic", "support-lead", "workshop"]
+BUNDLE_LITERALS = ["exact", "fuzzy", "semantic", "analyst", "admin", "auditor"]
 
 # Node harness: import the real router, run parse+format for each contract route,
 # and emit one JSON line per route so the Python side can diff against the

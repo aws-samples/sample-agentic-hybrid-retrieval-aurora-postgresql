@@ -8,6 +8,12 @@
 // router would 404 on refresh or a pasted deep link; a fragment never reaches
 // any server, so #/retrieval?preset=exact survives refresh under every topology.
 
+// The .ts extension here is required, not stylistic: gate G-23 executes this
+// module directly under `node --experimental-strip-types`, and Node's ESM
+// resolver (unlike Vite's bundler resolution) does not infer extensions on
+// relative specifiers.
+import { type PersonaKey, isPersonaKey } from './persona.ts';
+
 export type RouteSurface =
   | 'overview'
   | 'retrieval'
@@ -18,13 +24,13 @@ export type RouteSurface =
   | 'health';
 
 export type PresetKey = 'exact' | 'fuzzy' | 'semantic';
-export type PrincipalKey = 'workshop' | 'support-lead';
+export type { PersonaKey };
 
 export interface Route {
   surface: RouteSurface;
   lens?: string;
   preset?: PresetKey;
-  principal?: PrincipalKey;
+  role?: PersonaKey;
   runId?: string;
 }
 
@@ -42,10 +48,6 @@ export const SURFACE_LENSES: Record<RouteSurface, readonly string[]> = {
 
 export const SURFACES = Object.keys(SURFACE_LENSES) as RouteSurface[];
 export const PRESET_KEYS: readonly PresetKey[] = ['exact', 'fuzzy', 'semantic'];
-export const PRINCIPAL_KEYS: readonly PrincipalKey[] = [
-  'workshop',
-  'support-lead',
-];
 
 function isSurface(value: string): value is RouteSurface {
   return (SURFACES as string[]).includes(value);
@@ -64,16 +66,14 @@ function readPreset(params: URLSearchParams): PresetKey | undefined {
     : undefined;
 }
 
-function readPrincipal(params: URLSearchParams): PrincipalKey | undefined {
-  const principal = params.get('principal');
-  return principal && (PRINCIPAL_KEYS as string[]).includes(principal)
-    ? (principal as PrincipalKey)
-    : undefined;
+function readRole(params: URLSearchParams): PersonaKey | undefined {
+  const role = params.get('role');
+  return role && isPersonaKey(role) ? role : undefined;
 }
 
 /**
  * Parse a location hash into a Route. Tolerant by contract: an unknown surface,
- * lens, preset, or principal is dropped rather than throwing, so a stale or
+ * lens, preset, or role is dropped rather than throwing, so a stale or
  * hand-mangled deep link degrades to the nearest valid surface instead of a
  * blank screen.
  */
@@ -96,8 +96,8 @@ export function parseRoute(hash: string): Route {
     const preset = readPreset(params);
     if (preset) route.preset = preset;
   } else if (surface === 'agent') {
-    const principal = readPrincipal(params);
-    if (principal) route.principal = principal;
+    const role = readRole(params);
+    if (role) route.role = role;
   } else if (surface === 'proof') {
     const runId = segments[1] ? decodeURIComponent(segments[1]) : undefined;
     if (runId) route.runId = runId;
@@ -109,7 +109,7 @@ export function parseRoute(hash: string): Route {
 /**
  * Format a Route back into a location hash. The inverse of parseRoute for every
  * canonical contract route: formatRoute(parseRoute(url)) === url. Query params
- * are emitted in a fixed order (preset, principal, lens) so the encoding is
+ * are emitted in a fixed order (preset, role, lens) so the encoding is
  * deterministic and round-trip stable.
  */
 export function formatRoute(route: Route): string {
@@ -122,8 +122,8 @@ export function formatRoute(route: Route): string {
   if (route.surface === 'retrieval' && route.preset) {
     params.set('preset', route.preset);
   }
-  if (route.surface === 'agent' && route.principal) {
-    params.set('principal', route.principal);
+  if (route.surface === 'agent' && route.role) {
+    params.set('role', route.role);
   }
   const lenses = SURFACE_LENSES[route.surface];
   if (route.lens && lenses.includes(route.lens) && lenses[0] !== route.lens) {
