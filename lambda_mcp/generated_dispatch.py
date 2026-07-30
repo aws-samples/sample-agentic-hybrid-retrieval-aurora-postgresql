@@ -67,7 +67,7 @@ def _tool_search_evidence(args: dict[str, Any]) -> dict[str, Any]:
         ef_search=_opt_int(args.get("ef_search"), 40),
         iterative_scan=str(args.get("iterative_scan")) if args.get("iterative_scan") is not None else "strict_order",
         rerank=_opt_bool(args.get("rerank")),
-        principal=args.get("principal"),
+        role=str(args.get("role")) if args.get("role") is not None else "analyst",
     )
 
 
@@ -75,14 +75,14 @@ def _tool_follow_evidence_links(args: dict[str, Any]) -> dict[str, Any]:
     return follow_evidence_links_impl(
         seed_external_keys=args.get("seed_external_keys") or [],
         max_depth=_opt_int(args.get("max_depth"), 2),
-        principal=args.get("principal"),
+        role=str(args.get("role")) if args.get("role") is not None else "analyst",
     )
 
 
 def _tool_compare_sources(args: dict[str, Any]) -> dict[str, Any]:
     return compare_sources_impl(
         external_keys=args.get("external_keys") or [],
-        principal=args.get("principal"),
+        role=str(args.get("role")) if args.get("role") is not None else "analyst",
     )
 
 
@@ -124,7 +124,7 @@ def _tool_answer_with_citations(args: dict[str, Any]) -> dict[str, Any]:
         rerank=bool(args.get("rerank")) if args.get("rerank") is not None else False,
         max_tool_calls=_opt_int(args.get("max_tool_calls"), 12),
         max_escalations=_opt_int(args.get("max_escalations"), 2),
-        principal=args.get("principal"),
+        role=str(args.get("role")) if args.get("role") is not None else "analyst",
     )
 
 

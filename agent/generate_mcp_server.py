@@ -4,7 +4,7 @@ Emits ``mcp-server/src/server.generated.ts``: one Zod input shape and one
 ``server.tool(...)`` registration per tool exposed via ``mcp``, each POSTing to the
 tool's canonical ``/v1`` path. The hand-written ``mcp-server/src/server.ts`` imports
 :func:`registerTools` from this file and owns only the transport wiring (fetch
-helper, principal-free HTTP call, stdio connect).
+helper, identity-free HTTP call, stdio connect).
 
 The generated schema uses the registry's snake_case parameter names verbatim, so
 one name identifies a parameter across the Strands, MCP, and Gateway transports.
@@ -123,8 +123,8 @@ def _ts_literal(value: object) -> str:
 
 def _tool_block(spec: ToolSpec) -> str:
     """Render one ``server.tool(...)`` registration for a tool."""
-    params = tuple(p for p in spec.params if not p.principal_bound) + tuple(
-        p for p in spec.params if p.principal_bound
+    params = tuple(p for p in spec.params if not p.identity_bound) + tuple(
+        p for p in spec.params if p.identity_bound
     )
     shape_lines = [f"      {p.name}: {_zod_expr(p)}," for p in params]
     shape = "\n".join(shape_lines)

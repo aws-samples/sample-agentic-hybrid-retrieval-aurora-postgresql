@@ -5,7 +5,7 @@ import logging
 from typing import Any
 
 from .db import get_dict_conn
-from .models import RetrievalMode, SearchRequest, workshop_principal
+from .models import RetrievalMode, SearchRequest
 from .search import run_hybrid_search
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ DEFAULT_MODES: list[RetrievalMode] = [
 
 
 def _queries(evaluation_type: str) -> list[dict[str, Any]]:
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -52,11 +52,11 @@ def _retrieval_run(
             environment=filters.get("environment"),
             start_date=filters.get("start_date"),
             end_date=filters.get("end_date"),
-            principal=filters.get("principal") or workshop_principal(),
+            role="analyst",
             rerank=False,
         )
     )
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -73,7 +73,7 @@ def _retrieval_run(
 
 
 def _retrieval_metrics(query_id: str, run_id: str) -> dict[str, float]:
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -94,13 +94,12 @@ def _traversal_run(query: dict[str, Any], limit: int) -> tuple[str, int]:
     from .agent import follow_evidence_links_impl
 
     filters = query["filters"] or {}
-    principal = filters.get("principal") or workshop_principal()
     anchor = run_hybrid_search(
         SearchRequest(
             query=query["query_text"],
             mode="lexical",
             limit=min(limit, 10),
-            principal=principal,
+            role="analyst",
             rerank=False,
         )
     )
@@ -110,11 +109,11 @@ def _traversal_run(query: dict[str, Any], limit: int) -> tuple[str, int]:
     ]
     traversal = follow_evidence_links_impl(
         seed_keys,
-        principal=principal,
+        role="analyst",
         max_depth=int(filters.get("max_depth") or 2),
     )
 
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.transaction():
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -196,7 +195,7 @@ def _traversal_run(query: dict[str, Any], limit: int) -> tuple[str, int]:
 
 
 def _traversal_metrics(query_id: str, run_id: str) -> dict[str, float]:
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """

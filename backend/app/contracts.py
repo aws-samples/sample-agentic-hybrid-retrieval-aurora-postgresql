@@ -109,7 +109,7 @@ def record_transport_invocation(
     metadata = {"request_id": context.request_id}
     if error:
         metadata["error"] = error[:2000]
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """

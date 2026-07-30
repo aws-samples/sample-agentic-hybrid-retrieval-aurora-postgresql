@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from string import Formatter
 from textwrap import dedent
@@ -79,7 +78,7 @@ def _cluster_identity(cursor: Any) -> dict[str, Any]:
 
 
 def search_index_health() -> dict[str, Any]:
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM retrieval.v_search_index_health")
             health = cursor.fetchone()
@@ -91,7 +90,7 @@ def search_index_health() -> dict[str, Any]:
 
 def fusion_sql() -> dict[str, Any]:
     definitions: list[dict[str, str]] = []
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             for schema, name in FUSION_FUNCTIONS:
                 cursor.execute(
@@ -122,7 +121,7 @@ def fusion_sql() -> dict[str, Any]:
 
 
 def search_index_diagnostics() -> dict[str, Any]:
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM retrieval.v_search_index_health")
             health = cursor.fetchone()
@@ -160,7 +159,7 @@ def search_index_diagnostics() -> dict[str, Any]:
 
 
 def latest_cited_run() -> dict[str, Any] | None:
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -184,7 +183,7 @@ def latest_cited_run() -> dict[str, Any] | None:
 
 
 def index_usage() -> dict[str, Any]:
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM retrieval.v_index_usage")
             usage = cursor.fetchall()
@@ -194,7 +193,7 @@ def index_usage() -> dict[str, Any]:
 
 
 def slow_queries() -> dict[str, Any]:
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -346,11 +345,11 @@ def query_plan(request: QueryPlanRequest) -> dict[str, Any]:
         kinds=request.kinds,
         cluster_id=request.cluster_id,
         limit=request.limit,
-        principal=request.principal,
+        role=request.role,
     )
     statement, params = single_arm_sql(search_request, embedding=embedding)
 
-    with get_dict_conn() as connection:
+    with get_dict_conn(request.role) as connection:
         with connection.transaction():
             with connection.cursor() as cursor:
                 if request.arm == "semantic":
@@ -426,21 +425,38 @@ def query_plan(request: QueryPlanRequest) -> dict[str, Any]:
     return result
 
 
-def _run_principal(cursor, run_id: str) -> dict[str, Any]:
-    cursor.execute(
-        "SELECT principal FROM proof.retrieval_runs WHERE run_id = %s",
-        (run_id,),
-    )
-    row = cursor.fetchone()
+def _run_role(run_id: str) -> str:
+    """Read the persona a retrieval run executed under.
+
+    Replay renders under the run's own identity, not the viewer's, so a receipt
+    shows what the run actually saw. proof.retrieval_runs carries no RLS policy,
+    so the least-privileged persona can always read this column.
+
+    Args:
+        run_id: The run whose stored identity is needed.
+
+    Returns:
+        One of db.PERSONAS.
+
+    Raises:
+        ValueError: No such run.
+    """
+    with get_dict_conn("analyst") as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT role FROM proof.retrieval_runs WHERE run_id = %s",
+                (run_id,),
+            )
+            row = cursor.fetchone()
     if not row:
         raise ValueError(f"retrieval run {run_id} was not found")
-    return row["principal"]
+    return row["role"]
 
 
 def run_graph(run_id: str) -> dict[str, Any]:
-    with get_dict_conn() as connection:
+    role = _run_role(run_id)
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
-            principal = _run_principal(cursor, run_id)
             cursor.execute(
                 """
                 SELECT DISTINCT evidence_id
@@ -456,9 +472,9 @@ def run_graph(run_id: str) -> dict[str, Any]:
             cursor.execute(
                 """
                 SELECT *
-                FROM retrieval.traverse_evidence(%s::uuid[], 2, %s::jsonb)
+                FROM retrieval.traverse_evidence(%s::uuid[], 2)
                 """,
-                (seeds, json.dumps(principal)),
+                (seeds,),
             )
             reached = cursor.fetchall()
             reached_ids = [row["evidence_id"] for row in reached]
@@ -511,7 +527,7 @@ def observability_ref(run_id: str) -> dict[str, Any]:
         ``_verify_sql`` descriptor for the window row; or ``{"run_id", "ref": None}``
         when the run has no observability row.
     """
-    with get_dict_conn() as connection:
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
             cursor.execute(OBSERVABILITY_REF_SQL, {"run_id": run_id})
             ref = cursor.fetchone()
@@ -562,7 +578,7 @@ def run_timeline(run_id: str) -> dict[str, Any]:
     ids = [row["evidence_id"] for row in graph["nodes"]]
     if not ids:
         return {"run_id": run_id, "events": [], "edge_count": 0}
-    with get_dict_conn() as connection:
+    with get_dict_conn(_run_role(run_id)) as connection:
         with connection.cursor() as cursor:
             cursor.execute(TIMELINE_EVENT_BATCH_SQL, {"ids": ids})
             events = cursor.fetchall()

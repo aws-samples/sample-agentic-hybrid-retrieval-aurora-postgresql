@@ -1,4 +1,5 @@
-CREATE OR REPLACE VIEW proof.v_answer_receipts AS
+CREATE OR REPLACE VIEW proof.v_answer_receipts
+WITH (security_invoker = true) AS
 SELECT
   answer.run_id,
   answer.question,
@@ -38,7 +39,8 @@ GROUP BY answer.run_id;
 -- scores. Nothing else in the schema depends on it.
 DROP VIEW IF EXISTS proof.v_candidate_receipts;
 
-CREATE VIEW proof.v_candidate_receipts AS
+CREATE VIEW proof.v_candidate_receipts
+WITH (security_invoker = true) AS
 SELECT
   candidate.run_id,
   candidate.result_rank,

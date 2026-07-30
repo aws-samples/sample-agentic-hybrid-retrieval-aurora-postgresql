@@ -79,7 +79,7 @@ class ToolParam:
         maximum: Inclusive upper bound for numeric types, or None.
         model_visible: When false, the parameter is hidden from the Strands schema
             (kept out of the model's context) but still exposed to MCP and Gateway.
-        principal_bound: When true, the parameter is the caller identity. It is
+        identity_bound: When true, the parameter is the caller persona. It is
             never model_visible and is bound server-side by the Strands wrapper; a
             model that could set it would escalate past every ACL check.
         min_length: Minimum length. On a string it bounds characters; on an array
@@ -99,7 +99,7 @@ class ToolParam:
     minimum: float | None = None
     maximum: float | None = None
     model_visible: bool = True
-    principal_bound: bool = False
+    identity_bound: bool = False
     min_length: int | None = None
     max_length: int | None = None
     str_format: str | None = None
@@ -165,8 +165,8 @@ class ToolSpec:
         return f"{self.description}\n\nReturns:\n    {self.returns_description}"
 
     def model_params(self) -> tuple[ToolParam, ...]:
-        """Parameters the model may set (model_visible, never principal-bound)."""
-        return tuple(p for p in self.params if p.model_visible and not p.principal_bound)
+        """Parameters the model may set (model_visible, never identity-bound)."""
+        return tuple(p for p in self.params if p.model_visible and not p.identity_bound)
 
     def strands_input_schema(self) -> dict[str, Any]:
         """Render the Strands ``inputSchema`` (model-visible parameters only).
@@ -268,9 +268,10 @@ def _search_knob_params() -> tuple[ToolParam, ...]:
     )
 
 
-_PRINCIPAL_PARAM = ToolParam(
-    "principal", "object", model_visible=False, principal_bound=True,
-    description="Caller identity; bound server-side, never set by the model.",
+_ROLE_PARAM = ToolParam(
+    "role", "string", model_visible=False, identity_bound=True,
+    enum=("analyst", "admin", "auditor"), default="analyst",
+    description="Caller persona; bound server-side, never set by the model.",
 )
 
 
@@ -309,7 +310,7 @@ TOOLS: dict[str, ToolSpec] = {
             ToolParam("limit", "integer", default=8, minimum=1, maximum=50, description="Rows to return, 1 to 50."),
             *(_param_hidden(p) for p in _search_filter_params()),
             *(_param_hidden(p) for p in _search_knob_params()),
-            _PRINCIPAL_PARAM,
+            _ROLE_PARAM,
         ),
         returns_description="run_id, the ranked rows with their match tier, and the ranking groups.",
         impl=search_evidence_impl,
@@ -327,7 +328,7 @@ TOOLS: dict[str, ToolSpec] = {
         params=(
             ToolParam("seed_external_keys", "array", required=True, item_type="string", min_length=1, max_length=20, description='Keys to start from, such as ["INC-2047"].'),
             ToolParam("max_depth", "integer", default=2, minimum=0, maximum=8, description="Relationship hops to follow, 0 to 8."),
-            _PRINCIPAL_PARAM,
+            _ROLE_PARAM,
         ),
         returns_description="Each reached record with the relation and depth that reached it.",
         impl=follow_evidence_links_impl,
@@ -343,7 +344,7 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         params=(
             ToolParam("external_keys", "array", required=True, item_type="string", min_length=1, max_length=20, description='The records to compare, such as ["CHG-1842", "CHG-1838"].'),
-            _PRINCIPAL_PARAM,
+            _ROLE_PARAM,
         ),
         returns_description="Each record's scope and revision, plus the relationships between them.",
         impl=compare_sources_impl,
@@ -407,7 +408,7 @@ TOOLS: dict[str, ToolSpec] = {
             ToolParam("rerank", "boolean", default=False, model_visible=False, description="Force Cohere rerank on or off; defaults off for the whole-loop answer."),
             ToolParam("max_tool_calls", "integer", default=12, minimum=1, maximum=50, model_visible=False, description="Tool calls before the loop concludes."),
             ToolParam("max_escalations", "integer", default=2, minimum=0, maximum=10, model_visible=False, description="Uncovered-subquestion re-queries allowed."),
-            _PRINCIPAL_PARAM,
+            _ROLE_PARAM,
         ),
         returns_description="The cited answer, its citations, and the agent run receipt.",
         impl=answer_with_citations_impl,

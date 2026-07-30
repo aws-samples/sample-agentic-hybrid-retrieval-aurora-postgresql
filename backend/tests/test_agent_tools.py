@@ -1,7 +1,7 @@
 """Contract tests for the model-facing tool surface.
 
 These assert the properties that distinguish agent_tools from a direct wrapper:
-the model cannot supply a principal, a bad argument returns a readable failure
+the model cannot supply a persona, a bad argument returns a readable failure
 instead of ending the loop, returns stay small enough to fit a context window,
 and the tool schemas actually describe their parameters. Nothing here calls
 Aurora or Bedrock.
@@ -14,15 +14,15 @@ import unittest
 from unittest.mock import patch
 
 from backend.app import agent_tools
-from backend.app.models import workshop_principal
+from backend.app.models import DEFAULT_ROLE
 
 
 class ToolSchemaTests(unittest.TestCase):
-    def test_no_tool_lets_the_model_choose_a_principal(self) -> None:
+    def test_no_tool_lets_the_model_choose_a_role(self) -> None:
         for spec in agent_tools.tool_specifications():
             with self.subTest(tool=spec["name"]):
                 properties = spec["inputSchema"]["json"]["properties"]
-                self.assertNotIn("principal", properties)
+                self.assertNotIn("role", properties)
 
     def test_every_parameter_has_a_real_description(self) -> None:
         for spec in agent_tools.tool_specifications():
@@ -88,27 +88,24 @@ class ToolFailureTests(unittest.TestCase):
         self.assertFalse(agent_tools.follow_evidence_links(["  "])["ok"])
 
 
-class PrincipalBindingTests(unittest.TestCase):
-    def test_the_bound_principal_reaches_the_implementation(self) -> None:
-        agent_tools.start_run({"scopes": ["restricted"], "principals": ["support-lead"]})
+class RoleBindingTests(unittest.TestCase):
+    def test_the_bound_role_reaches_the_implementation(self) -> None:
+        agent_tools.start_run("admin")
         with patch(
             "backend.app.agent_tools.compare_sources_impl",
             return_value={"evidence": [], "relationships": [], "observations": []},
         ) as impl:
             agent_tools.compare_sources(["CHG-1842", "CHG-1838"])
-        self.assertEqual(
-            impl.call_args.kwargs["principal"],
-            {"scopes": ["restricted"], "principals": ["support-lead"]},
-        )
+        self.assertEqual(impl.call_args.kwargs["role"], "admin")
 
-    def test_an_unbound_run_falls_back_to_the_workshop_principal(self) -> None:
+    def test_an_unbound_run_falls_back_to_the_default_role(self) -> None:
         agent_tools.start_run(None)
         with patch(
             "backend.app.agent_tools.compare_sources_impl",
             return_value={"evidence": [], "relationships": [], "observations": []},
         ) as impl:
             agent_tools.compare_sources(["CHG-1842", "CHG-1838"])
-        self.assertEqual(impl.call_args.kwargs["principal"], workshop_principal())
+        self.assertEqual(impl.call_args.kwargs["role"], DEFAULT_ROLE)
 
 
 class ContextCostTests(unittest.TestCase):

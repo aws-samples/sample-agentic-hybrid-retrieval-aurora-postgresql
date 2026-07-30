@@ -71,7 +71,7 @@ Returns:
       ef_search: z.number().int().min(1).max(1000).default(40),
       iterative_scan: z.enum(["off", "strict_order", "relaxed_order"]).default("strict_order"),
       rerank: z.boolean().optional(),
-      principal: z.record(z.unknown()).optional(),
+      role: z.enum(["analyst", "admin", "auditor"]).default("analyst"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({
@@ -97,7 +97,7 @@ Returns:
         ef_search: args.ef_search,
         iterative_scan: args.iterative_scan,
         rerank: args.rerank,
-        principal: args.principal,
+        role: args.role,
       });
       return wrap(await post("/v1/search", payload));
     }
@@ -116,13 +116,13 @@ Returns:
     {
       seed_external_keys: z.array(z.string()).min(1).max(20),
       max_depth: z.number().int().min(0).max(8).default(2),
-      principal: z.record(z.unknown()).optional(),
+      role: z.enum(["analyst", "admin", "auditor"]).default("analyst"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({
         seed_external_keys: args.seed_external_keys,
         max_depth: args.max_depth,
-        principal: args.principal,
+        role: args.role,
       });
       return wrap(await post("/v1/tools/traverse", payload));
     }
@@ -139,12 +139,12 @@ Returns:
     Each record's scope and revision, plus the relationships between them.`,
     {
       external_keys: z.array(z.string()).min(1).max(20),
-      principal: z.record(z.unknown()).optional(),
+      role: z.enum(["analyst", "admin", "auditor"]).default("analyst"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({
         external_keys: args.external_keys,
-        principal: args.principal,
+        role: args.role,
       });
       return wrap(await post("/v1/tools/compare", payload));
     }
@@ -235,7 +235,7 @@ Returns:
       rerank: z.boolean().default(false),
       max_tool_calls: z.number().int().min(1).max(50).default(12),
       max_escalations: z.number().int().min(0).max(10).default(2),
-      principal: z.record(z.unknown()).optional(),
+      role: z.enum(["analyst", "admin", "auditor"]).default("analyst"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({
@@ -263,7 +263,7 @@ Returns:
         rerank: args.rerank,
         max_tool_calls: args.max_tool_calls,
         max_escalations: args.max_escalations,
-        principal: args.principal,
+        role: args.role,
       });
       return wrap(await post("/v1/agent/answer", payload));
     }

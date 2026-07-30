@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -17,9 +17,8 @@ EvidenceKind = Literal[
 ]
 IterativeScanMode = Literal["off", "strict_order", "relaxed_order"]
 
-
-def workshop_principal() -> dict[str, Any]:
-    return {"scopes": ["workshop"], "principals": []}
+Persona = Literal["analyst", "admin", "auditor"]
+DEFAULT_ROLE: Persona = "analyst"
 
 
 class SearchRequest(BaseModel):
@@ -46,7 +45,7 @@ class SearchRequest(BaseModel):
     ef_search: int = Field(40, ge=1, le=1000)
     iterative_scan: IterativeScanMode = "strict_order"
     rerank: bool | None = None
-    principal: dict[str, Any] = Field(default_factory=workshop_principal)
+    role: Persona = DEFAULT_ROLE
 
 
 class AgentAnswerRequest(BaseModel):
@@ -74,7 +73,7 @@ class AgentAnswerRequest(BaseModel):
     rerank: bool = False
     max_tool_calls: int = Field(12, ge=1, le=50)
     max_escalations: int = Field(2, ge=0, le=10)
-    principal: dict[str, Any] = Field(default_factory=workshop_principal)
+    role: Persona = DEFAULT_ROLE
 
 
 class DecomposeRequest(BaseModel):
@@ -84,12 +83,12 @@ class DecomposeRequest(BaseModel):
 class TraverseRequest(BaseModel):
     seed_external_keys: list[str] = Field(min_length=1, max_length=20)
     max_depth: int = Field(2, ge=0, le=8)
-    principal: dict[str, Any] = Field(default_factory=workshop_principal)
+    role: Persona = DEFAULT_ROLE
 
 
 class CompareRequest(BaseModel):
     external_keys: list[str] = Field(min_length=1, max_length=20)
-    principal: dict[str, Any] = Field(default_factory=workshop_principal)
+    role: Persona = DEFAULT_ROLE
 
 
 class SynthesisRequest(BaseModel):
@@ -113,4 +112,4 @@ class QueryPlanRequest(BaseModel):
     limit: int = Field(10, ge=1, le=50)
     cluster_id: str | None = None
     kinds: list[EvidenceKind] | None = None
-    principal: dict[str, Any] = Field(default_factory=workshop_principal)
+    role: Persona = DEFAULT_ROLE

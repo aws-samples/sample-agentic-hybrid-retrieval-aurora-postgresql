@@ -9,7 +9,7 @@ from typing import Any, Iterator
 from .config import get_settings
 from .contracts import CONTRACT_VERSION
 from .db import get_dict_conn
-from .models import AgentAnswerRequest, SearchRequest, workshop_principal
+from .models import AgentAnswerRequest, SearchRequest
 from .search import run_hybrid_search
 from .verify_sql import receipt_verify_sql
 
@@ -54,7 +54,11 @@ def _first_match(pattern: str, question: str) -> str | None:
     return match.group(0) if match else None
 
 
-def _anchor_keys(incident_id: str, kinds: tuple[str, ...]) -> dict[str, str]:
+def _anchor_keys(
+    incident_id: str,
+    kinds: tuple[str, ...],
+    role: str = "analyst",
+) -> dict[str, str]:
     """Name the evidence an incident declares a relationship to, per kind.
 
     The planner writes identifiers into its subquestion text because a generic
@@ -67,12 +71,15 @@ def _anchor_keys(incident_id: str, kinds: tuple[str, ...]) -> dict[str, str]:
     Args:
         incident_id: The incident the question named.
         kinds: Evidence kinds to resolve an anchor for.
+        role: The persona to check out under. decompose_question_impl has no
+            request model to thread a caller role from, so this defaults to the
+            least-privileged persona.
 
     Returns:
         One external key per kind that has a reachable relationship, keyed by
         kind. Kinds with no reachable evidence are absent.
     """
-    with get_dict_conn() as connection:
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -85,15 +92,13 @@ def _anchor_keys(incident_id: str, kinds: tuple[str, ...]) -> dict[str, str]:
                          FROM retrieval.documents
                          WHERE is_current AND incident_id = %(incident_id)s
                        )::uuid[],
-                       2,
-                       %(principal)s::jsonb
+                       2
                      ) walk
                 WHERE walk.evidence_kind = ANY(%(kinds)s::text[])
                 ORDER BY walk.evidence_kind, walk.depth, walk.external_key
                 """,
                 {
                     "incident_id": incident_id,
-                    "principal": _json(workshop_principal()),
                     "kinds": list(kinds),
                 },
             )
@@ -158,7 +163,7 @@ def _planned_subquestions(
                 "subquestion_id": "SQ-3",
                 "text": (
                     f"Which customer impact during {incident} is visible to "
-                    "the current principal?"
+                    "the current role?"
                 ),
                 "required_kinds": ["support_case"],
             },
@@ -259,7 +264,7 @@ def search_evidence_impl(
     aws_region: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
-    principal: dict[str, Any] | None = None,
+    role: str = "analyst",
     limit: int = 8,
     candidate_pool: int = 24,
     rrf_k: int = 60,
@@ -285,7 +290,7 @@ def search_evidence_impl(
             aws_region=aws_region,
             start_date=start_date,
             end_date=end_date,
-            principal=principal or workshop_principal(),
+            role=role,
             limit=limit,
             mode="hybrid",
             candidate_pool=candidate_pool,
@@ -304,15 +309,14 @@ def search_evidence_impl(
 def follow_evidence_links_impl(
     seed_external_keys: list[str],
     *,
-    principal: dict[str, Any] | None = None,
+    role: str = "analyst",
     max_depth: int = 2,
 ) -> dict[str, Any]:
     keys = list(dict.fromkeys(key for key in seed_external_keys if key))
     if not keys:
         return {"seeds": [], "reached": [], "relationship_count": 0}
     depth = max(0, min(int(max_depth), 8))
-    resolved_principal = principal or workshop_principal()
-    with get_dict_conn() as connection:
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -320,10 +324,10 @@ def follow_evidence_links_impl(
                 FROM casework.evidence_items
                 WHERE external_key = ANY(%s)
                   AND NOT is_deleted
-                  AND retrieval.acl_visible(acl, %s::jsonb)
+                  AND retrieval.acl_visible(acl)
                 ORDER BY external_key
                 """,
-                (keys, _json(resolved_principal)),
+                (keys,),
             )
             seed_ids = [row["evidence_id"] for row in cursor.fetchall()]
             if not seed_ids:
@@ -357,7 +361,7 @@ def follow_evidence_links_impl(
                   document.environment,
                   document.occurred_at,
                   left(regexp_replace(chunk.chunk_text, '\\s+', ' ', 'g'), 700) AS snippet
-                FROM retrieval.traverse_evidence(%s::uuid[], %s, %s::jsonb) walk
+                FROM retrieval.traverse_evidence(%s::uuid[], %s) walk
                 JOIN retrieval.documents document
                   ON document.evidence_id = walk.evidence_id
                  AND document.is_current
@@ -371,7 +375,7 @@ def follow_evidence_links_impl(
                 ) chunk ON true
                 ORDER BY walk.depth, walk.evidence_kind, walk.external_key
                 """,
-                (seed_ids, depth, _json(resolved_principal)),
+                (seed_ids, depth),
             )
             reached = cursor.fetchall()
     return {
@@ -385,13 +389,12 @@ def follow_evidence_links_impl(
 def compare_sources_impl(
     external_keys: list[str],
     *,
-    principal: dict[str, Any] | None = None,
+    role: str = "analyst",
 ) -> dict[str, Any]:
     keys = list(dict.fromkeys(key for key in external_keys if key))
     if not keys:
         return {"evidence": [], "relationships": [], "observations": []}
-    resolved_principal = principal or workshop_principal()
-    with get_dict_conn() as connection:
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -414,10 +417,10 @@ def compare_sources_impl(
                  AND document.index_state = 'ready'
                 WHERE item.external_key = ANY(%s)
                   AND NOT item.is_deleted
-                  AND retrieval.acl_visible(item.acl, %s::jsonb)
+                  AND retrieval.acl_visible(item.acl)
                 ORDER BY document.occurred_at, item.external_key
                 """,
-                (keys, _json(resolved_principal)),
+                (keys,),
             )
             evidence = cursor.fetchall()
             evidence_ids = [row["evidence_id"] for row in evidence]
@@ -456,14 +459,58 @@ def compare_sources_impl(
     }
 
 
-def explain_ranking_impl(run_id: str) -> dict[str, Any]:
-    verify = receipt_verify_sql(run_id)
-    with get_dict_conn() as connection:
+def _run_role(run_id: str) -> str:
+    """Read the persona a retrieval run executed under.
+
+    Replay renders under the run's own identity, not the viewer's, so a receipt
+    shows what the run actually saw. proof.retrieval_runs carries no RLS policy,
+    so the least-privileged persona can always read this column.
+
+    Args:
+        run_id: The run whose stored identity is needed.
+
+    Returns:
+        One of db.PERSONAS.
+
+    Raises:
+        ValueError: No such run.
+    """
+    with get_dict_conn("analyst") as connection:
         with connection.cursor() as cursor:
-            cursor.execute(verify["run"]["statement"], verify["run"]["binds"])
-            run = cursor.fetchone()
-            if not run:
-                raise ValueError(f"retrieval run {run_id} was not found")
+            cursor.execute(
+                "SELECT role FROM proof.retrieval_runs WHERE run_id = %s",
+                (run_id,),
+            )
+            row = cursor.fetchone()
+    if not row:
+        raise ValueError(f"retrieval run {run_id} was not found")
+    return row["role"]
+
+
+def explain_ranking_impl(run_id: str) -> dict[str, Any]:
+    """Render a run's receipt under the role that run actually executed under.
+
+    A receipt must show what the run saw, not what the caller can see, so this
+    is a replay: the first checkout reads only proof.retrieval_runs (no RLS
+    policy, safe under the least-privileged persona) to learn the stored role,
+    and the second checkout re-reads the full receipt under that role, because
+    v_candidate_receipts and v_answer_receipts are security_invoker joins
+    against casework.evidence_items.
+
+    Args:
+        run_id: The retrieval run to explain.
+
+    Returns:
+        The run, candidates, stages, and answer panels, plus their verify-SQL
+        descriptors.
+
+    Raises:
+        ValueError: No such run.
+    """
+    verify = receipt_verify_sql(run_id)
+    role = _run_role(run_id)
+    with get_dict_conn(role) as connection:
+        with connection.cursor() as cursor:
             cursor.execute(
                 verify["candidates"]["statement"],
                 verify["candidates"]["binds"],
@@ -641,9 +688,11 @@ def _persist_answer(
     citation_numbers: list[int],
     synthesis: dict[str, Any],
     agent_run_id: str | None = None,
+    *,
+    role: str = "analyst",
 ) -> list[dict[str, Any]]:
     citations: list[dict[str, Any]] = []
-    with get_dict_conn() as connection:
+    with get_dict_conn(role) as connection:
         with connection.transaction():
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -828,6 +877,7 @@ def synthesize_cited_answer_impl(
     run_id: str | None = None,
     agent_run_id: str | None = None,
     required_kinds: list[str] | None = None,
+    role: str = "analyst",
 ) -> dict[str, Any]:
     try:
         from .synthesis import synthesize_live
@@ -884,6 +934,7 @@ def synthesize_cited_answer_impl(
             numbers,
             synthesis,
             agent_run_id=agent_run_id,
+            role=role,
         )
         if run_id
         else [
@@ -906,8 +957,27 @@ def synthesize_cited_answer_impl(
 
 
 def _evidence_for_run(run_id: str, limit: int = 8) -> list[dict[str, Any]]:
+    """Reload a run's persisted candidates under the role that run executed under.
+
+    RLS is FORCE-enabled on retrieval.documents and retrieval.chunks, so a
+    connection checked out under the wrong role would lose restricted rows to
+    the policy even if this query's own predicate said they were visible. This
+    is why the role has to be read first, in its own least-privileged checkout,
+    then used to open the checkout that actually reads the documents and chunks.
+
+    Args:
+        run_id: The persisted retrieval run to reload.
+        limit: Rows to return, bounded to the receipt's own 8-row cap.
+
+    Returns:
+        The run's candidate rows, still filtered by the run's own role.
+
+    Raises:
+        ValueError: The run does not exist, or that role sees none of its rows.
+    """
     bounded_limit = max(1, min(int(limit), 8))
-    with get_dict_conn() as connection:
+    role = _run_role(run_id)
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -932,7 +1002,6 @@ def _evidence_for_run(run_id: str, limit: int = 8) -> list[dict[str, Any]]:
                     700
                   ) AS snippet
                 FROM proof.retrieval_candidates candidate
-                JOIN proof.retrieval_runs run ON run.run_id = candidate.run_id
                 JOIN retrieval.documents document
                   ON document.document_version_id = candidate.document_version_id
                  AND document.evidence_id = candidate.evidence_id
@@ -940,7 +1009,7 @@ def _evidence_for_run(run_id: str, limit: int = 8) -> list[dict[str, Any]]:
                   ON chunk.chunk_version_id = candidate.chunk_version_id
                  AND chunk.document_version_id = document.document_version_id
                 WHERE candidate.run_id = %s
-                  AND retrieval.acl_visible(document.acl, run.principal)
+                  AND retrieval.acl_visible(document.acl)
                 ORDER BY candidate.result_rank
                 LIMIT %s
                 """,
@@ -963,6 +1032,7 @@ def synthesize_cited_answer_from_run_impl(
         question,
         evidence,
         run_id=run_id,
+        role=_run_role(run_id),
     )
     return {"run_id": run_id, **result}
 
@@ -977,7 +1047,7 @@ def synthesize_cited_answer_from_runs_impl(
 
     Compound incident questions often need a scoped incident retrieval plus an
     unscoped retrieval for reusable guidance. Each run has already applied the
-    caller's principal before persisting candidates. This function interleaves
+    caller's role before persisting candidates. This function interleaves
     those visible candidates, guarantees one row for every required evidence
     kind, and persists the answer against the first run as its receipt anchor.
     """
@@ -1046,6 +1116,7 @@ def synthesize_cited_answer_from_runs_impl(
         selected,
         run_id=ordered_run_ids[0],
         required_kinds=required_kinds,
+        role=_run_role(ordered_run_ids[0]),
     )
     return {
         "run_id": ordered_run_ids[0],
@@ -1139,8 +1210,10 @@ def _append_agent_stage(
     name: str,
     duration_ms: int,
     details: dict[str, Any],
+    *,
+    role: str = "analyst",
 ) -> None:
-    with get_dict_conn() as connection:
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -1199,14 +1272,14 @@ def _start_agent_run(
     filters: dict[str, Any],
     controls: dict[str, Any],
 ) -> str:
-    with get_dict_conn() as connection:
+    with get_dict_conn(request.role) as connection:
         with connection.transaction():
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
                     INSERT INTO proof.agent_runs(
                       question,
-                      principal,
+                      role,
                       filters_initial,
                       controls_initial,
                       max_tool_calls,
@@ -1216,14 +1289,14 @@ def _start_agent_run(
                       contract_version
                     )
                     VALUES (
-                      %s, %s::jsonb, %s::jsonb, %s::jsonb,
+                      %s, %s, %s::jsonb, %s::jsonb,
                       %s, %s, 1, 'running', %s
                     )
                     RETURNING agent_run_id
                     """,
                     (
                         request.question,
-                        _json(request.principal),
+                        request.role,
                         _json(filters),
                         _json(controls),
                         request.max_tool_calls,
@@ -1269,8 +1342,9 @@ def _spend_agent_budget(
     *,
     tool_calls: int = 0,
     escalations: int = 0,
+    role: str = "analyst",
 ) -> bool:
-    with get_dict_conn() as connection:
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -1298,8 +1372,9 @@ def _evaluate_coverage(
     required_kinds: list[str],
     *,
     top_n: int,
+    role: str = "analyst",
 ) -> dict[str, Any]:
-    with get_dict_conn() as connection:
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -1320,8 +1395,9 @@ def _persist_agent_retrieval(
     run_id: str,
     attempt: int,
     coverage: dict[str, Any],
+    role: str = "analyst",
 ) -> None:
-    with get_dict_conn() as connection:
+    with get_dict_conn(role) as connection:
         with connection.transaction():
             with connection.cursor() as cursor:
                 if attempt > 1:
@@ -1387,13 +1463,14 @@ def _persist_escalation(
     changed: dict[str, Any],
     rationale: str,
     outcome: str,
+    role: str = "analyst",
 ) -> None:
     reason = (
         "zero_candidates"
         if initial_coverage["considered"] == 0
         else "missing_required_kind"
     )
-    with get_dict_conn() as connection:
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -1427,8 +1504,9 @@ def _finish_agent_run(
     status: str,
     *,
     error: str | None = None,
+    role: str = "analyst",
 ) -> None:
-    with get_dict_conn() as connection:
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -1458,7 +1536,34 @@ def _retrieval_controls(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_agent_run_impl(agent_run_id: str) -> dict[str, Any]:
-    with get_dict_conn() as connection:
+    """Render an agent run's receipt under the role that run executed under.
+
+    Same replay shape as explain_ranking_impl: proof.agent_runs has no RLS
+    policy, so the first checkout under the least-privileged persona is safe,
+    but the second checkout has to run as the run's own role because it joins
+    casework.evidence_items (via proof.evaluate_subquestion_coverage and the
+    now-security_invoker proof.v_answer_receipts).
+
+    Args:
+        agent_run_id: The agent run to render.
+
+    Returns:
+        The agent run's subquestions, retrievals, escalations, and any
+        finished cited answer.
+
+    Raises:
+        ValueError: No such agent run.
+    """
+    with get_dict_conn("analyst") as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT role FROM proof.agent_runs WHERE agent_run_id = %s",
+                (agent_run_id,),
+            )
+            role_row = cursor.fetchone()
+    if not role_row:
+        raise ValueError(f"agent run {agent_run_id} was not found")
+    with get_dict_conn(role_row["role"]) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT * FROM proof.agent_runs WHERE agent_run_id = %s",
@@ -1599,7 +1704,7 @@ def get_agent_run_impl(agent_run_id: str) -> dict[str, Any]:
     response = {
         "agent_run_id": str(agent_run["agent_run_id"]),
         "question": agent_run["question"],
-        "principal": agent_run["principal"],
+        "role": agent_run["role"],
         "filters_initial": agent_run["filters_initial"],
         "controls_initial": agent_run["controls_initial"],
         "budget": {
@@ -1672,6 +1777,7 @@ _SCOPE_FILTERS = ("cluster_id", "incident_id", "service_name", "account_name")
 def _unscoped_filters(
     missing_kinds: list[str],
     filters: dict[str, Any],
+    role: str = "analyst",
 ) -> list[str]:
     """Name the active scope filters that no document of a missing kind carries.
 
@@ -1684,6 +1790,8 @@ def _unscoped_filters(
     Args:
         missing_kinds: Evidence kinds the first retrieval did not cover.
         filters: The filters that retrieval ran with.
+        role: The persona to check out under; the request's role in the agent
+            loop.
 
     Returns:
         Filter names to drop on the bounded retry, in ``_SCOPE_FILTERS`` order.
@@ -1692,7 +1800,7 @@ def _unscoped_filters(
     if not active or not missing_kinds:
         return []
     columns = ", ".join(f"count({name}) AS {name}" for name in active)
-    with get_dict_conn() as connection:
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 f"""
@@ -1719,7 +1827,7 @@ def _agent_search(
     return search_evidence_impl(
         subquestion["text"],
         kinds=request.kinds or subquestion["required_kinds"],
-        principal=request.principal,
+        role=request.role,
         limit=request.limit,
         **filters,
         **search_controls,
@@ -1738,7 +1846,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
     try:
         budget_exhausted = False
         for subquestion in plan["subquestions"]:
-            if not _spend_agent_budget(agent_run_id, tool_calls=1):
+            if not _spend_agent_budget(agent_run_id, tool_calls=1, role=request.role):
                 budget_exhausted = True
                 break
             search = _agent_search(
@@ -1752,6 +1860,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                 search["run_id"],
                 subquestion["required_kinds"],
                 top_n=request.limit,
+                role=request.role,
             )
             _persist_agent_retrieval(
                 agent_run_id,
@@ -1759,6 +1868,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                 run_id=search["run_id"],
                 attempt=1,
                 coverage=coverage,
+                role=request.role,
             )
             final_search = search
 
@@ -1767,6 +1877,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                     agent_run_id,
                     tool_calls=1,
                     escalations=1,
+                    role=request.role,
                 ):
                     budget_exhausted = True
                     break
@@ -1788,6 +1899,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                 unscoped = _unscoped_filters(
                     coverage["missing_kinds"],
                     filters,
+                    request.role,
                 )
                 escalated_filters = {**filters, **dict.fromkeys(unscoped)}
                 changed = {
@@ -1831,6 +1943,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                     escalated["run_id"],
                     subquestion["required_kinds"],
                     top_n=request.limit,
+                    role=request.role,
                 )
                 _persist_agent_retrieval(
                     agent_run_id,
@@ -1838,6 +1951,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                     run_id=escalated["run_id"],
                     attempt=2,
                     coverage=escalated_coverage,
+                    role=request.role,
                 )
                 _persist_escalation(
                     agent_run_id,
@@ -1851,13 +1965,14 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                         if escalated_coverage["covered"]
                         else "still_uncovered"
                     ),
+                    role=request.role,
                 )
                 final_search = escalated
             final_searches.append(final_search)
 
         if not final_searches or primary_run_id is None:
             status = "budget_exhausted" if budget_exhausted else "no_evidence"
-            _finish_agent_run(agent_run_id, status)
+            _finish_agent_run(agent_run_id, status, role=request.role)
             response = get_agent_run_impl(agent_run_id)
             response["agent"] = agent_metadata()
             response["plan"] = plan
@@ -1905,11 +2020,11 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
             )
         )
         traversal = {"seeds": [], "reached": [], "relationship_count": 0}
-        if _spend_agent_budget(agent_run_id, tool_calls=1):
+        if _spend_agent_budget(agent_run_id, tool_calls=1, role=request.role):
             traversal_started = perf_counter()
             traversal = follow_evidence_links_impl(
                 seed_keys,
-                principal=request.principal,
+                role=request.role,
                 max_depth=2,
             )
             _append_agent_stage(
@@ -1920,6 +2035,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                     "seed_keys": seed_keys,
                     "reached": len(traversal["reached"]),
                 },
+                role=request.role,
             )
 
         evidence = _merge_evidence(
@@ -1933,11 +2049,11 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
             "relationships": [],
             "observations": [],
         }
-        if evidence and _spend_agent_budget(agent_run_id, tool_calls=1):
+        if evidence and _spend_agent_budget(agent_run_id, tool_calls=1, role=request.role):
             comparison_started = perf_counter()
             comparison = compare_sources_impl(
                 [row["external_key"] for row in evidence],
-                principal=request.principal,
+                role=request.role,
             )
             evidence = _attach_relationships(
                 evidence,
@@ -1951,6 +2067,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                     "evidence_count": len(comparison["evidence"]),
                     "relationship_count": len(comparison["relationships"]),
                 },
+                role=request.role,
             )
 
         synthesis_started = perf_counter()
@@ -1959,6 +2076,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
             evidence,
             run_id=primary_run_id,
             agent_run_id=agent_run_id,
+            role=request.role,
         )
         _append_agent_stage(
             primary_run_id,
@@ -1968,6 +2086,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                 "mode": synthesis["synthesis"]["mode"],
                 "citation_count": len(synthesis["citations"]),
             },
+            role=request.role,
         )
         coverage = get_agent_coverage_impl(agent_run_id)
         uncovered = coverage["covered_count"] < coverage["subquestion_count"]
@@ -1980,7 +2099,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
             if uncovered
             else "complete"
         )
-        _finish_agent_run(agent_run_id, status)
+        _finish_agent_run(agent_run_id, status, role=request.role)
         response = get_agent_run_impl(agent_run_id)
         response.update(
             {
@@ -1995,7 +2114,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
         )
         return response
     except Exception as error:
-        _finish_agent_run(agent_run_id, "failed", error=str(error))
+        _finish_agent_run(agent_run_id, "failed", error=str(error), role=request.role)
         raise
 
 
@@ -2013,7 +2132,7 @@ def answer_with_citations_impl(
     aws_region: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
-    principal: dict[str, Any] | None = None,
+    role: str = "analyst",
     limit: int = 8,
     candidate_pool: int = 24,
     rrf_k: int = 60,
@@ -2036,7 +2155,7 @@ def answer_with_citations_impl(
 
     Args:
         question: The incident question, verbatim.
-        principal: Resolved caller identity, or None for the workshop default.
+        role: The caller's persona; bound server-side, never set by the model.
 
     Returns:
         The agent run receipt: cited answer, citations, plan, and results.
@@ -2055,7 +2174,7 @@ def answer_with_citations_impl(
             aws_region=aws_region,
             start_date=start_date,
             end_date=end_date,
-            principal=principal or workshop_principal(),
+            role=role,
             limit=limit,
             candidate_pool=candidate_pool,
             rrf_k=rrf_k,

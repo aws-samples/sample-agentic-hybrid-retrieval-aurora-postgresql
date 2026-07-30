@@ -63,7 +63,7 @@ def _write_readiness(receipts: dict[str, object]) -> Path | None:
 def main() -> int:
     receipts: dict[str, object] = {}
     try:
-        with get_dict_conn() as connection:
+        with get_dict_conn("analyst") as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT retrieval.assert_search_index_ready() AS health")
                 receipts["search_index"] = cursor.fetchone()["health"]
@@ -103,6 +103,7 @@ def main() -> int:
             SearchRequest(
                 query="Northstar premium checkout escalation",
                 mode="lexical",
+                role="analyst",
                 rerank=False,
                 limit=20,
             )
@@ -111,11 +112,7 @@ def main() -> int:
             SearchRequest(
                 query="Northstar premium checkout escalation",
                 mode="lexical",
-                # Interim shape: Task 9/10 replace this principal with role=.
-                principal={
-                    "scopes": ["workshop", "restricted"],
-                    "principals": [],
-                },
+                role="admin",
                 rerank=False,
                 limit=20,
             )
@@ -124,9 +121,45 @@ def main() -> int:
         _require("CASE-7421" in _keys(visible), "authorized case was not retrievable")
         receipts["acl_run_ids"] = [hidden["run_id"], visible["run_id"]]
 
+        # The ACL is enforced by the engine, so prove it by disagreement: the same
+        # query under two personas must return different row counts.
+        with get_dict_conn("analyst") as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT count(*) AS visible
+                    FROM casework.evidence_items
+                    WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
+                    """
+                )
+                analyst_visible = cursor.fetchone()["visible"]
+        with get_dict_conn("admin") as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT count(*) AS visible
+                    FROM casework.evidence_items
+                    WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
+                    """
+                )
+                admin_visible = cursor.fetchone()["visible"]
+        _require(
+            analyst_visible == 0,
+            f"analyst saw {analyst_visible} restricted evidence rows; RLS is not enforced",
+        )
+        _require(
+            admin_visible > 0,
+            "admin saw no restricted evidence rows; either the seed has none or "
+            "can_see_restricted is not granted",
+        )
+        receipts["acl_row_counts"] = {
+            "analyst": analyst_visible,
+            "admin": admin_visible,
+        }
+
         traversal = follow_evidence_links_impl(
             ["INC-2047"],
-            principal={"scopes": ["workshop"], "principals": []},
+            role="analyst",
             max_depth=2,
         )
         traversal_keys = {row["external_key"] for row in traversal["reached"]}

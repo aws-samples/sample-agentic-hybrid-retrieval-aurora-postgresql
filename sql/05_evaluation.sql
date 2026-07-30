@@ -133,7 +133,8 @@ SELECT
 FROM actual, ideal
 $$;
 
-CREATE OR REPLACE VIEW proof.v_evaluation_results AS
+CREATE OR REPLACE VIEW proof.v_evaluation_results
+WITH (security_invoker = true) AS
 SELECT
   run.filters ->> 'evaluation_query_id' AS query_id,
   run.run_id,
@@ -204,7 +205,8 @@ WHERE result.query_id = p_query_id
   AND result.run_id = p_run_id
 $$;
 
-CREATE OR REPLACE VIEW proof.v_traversal_evaluation_results AS
+CREATE OR REPLACE VIEW proof.v_traversal_evaluation_results
+WITH (security_invoker = true) AS
 SELECT
   result.query_id,
   result.run_id,

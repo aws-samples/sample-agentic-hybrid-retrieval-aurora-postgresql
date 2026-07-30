@@ -415,7 +415,8 @@ AS $$
   SELECT encode(sha256(convert_to(coalesce(value, ''), 'UTF8')), 'hex')
 $$;
 
-CREATE OR REPLACE VIEW casework.v_evidence_documents AS
+CREATE OR REPLACE VIEW casework.v_evidence_documents
+WITH (security_invoker = true) AS
 WITH rendered AS (
   SELECT
     e.evidence_id,
@@ -1118,7 +1119,8 @@ CREATE TABLE IF NOT EXISTS retrieval.inferred_edges (
   UNIQUE (from_evidence_id, to_evidence_id, relation, source_revision)
 );
 
-CREATE OR REPLACE VIEW retrieval.evidence_edges AS
+CREATE OR REPLACE VIEW retrieval.evidence_edges
+WITH (security_invoker = true) AS
 SELECT
   'incident-change:' || ic.incident_evidence_id || ':' || ic.change_evidence_id AS edge_key,
   ic.incident_evidence_id AS from_evidence_id,

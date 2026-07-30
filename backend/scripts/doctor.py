@@ -314,7 +314,7 @@ def check_database(doctor: Doctor) -> None:
     min_postgres = os.environ.get("POSTGRES_MIN_VERSION", "18.3")
     min_pgvector = os.environ.get("PGVECTOR_MIN_VERSION", "0.8.1")
     try:
-        with get_dict_conn() as connection:
+        with get_dict_conn("analyst") as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """

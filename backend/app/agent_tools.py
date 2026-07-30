@@ -8,9 +8,9 @@ window.
 
 Three rules distinguish it from a direct wrapper:
 
-1. The caller's principal is bound server-side by :func:`start_run` and is not a
-   tool parameter. A model that could pass its own principal could escalate past
-   every ACL check the retrieval SQL performs.
+1. The caller's persona is bound server-side by :func:`start_run` and
+   is not a tool parameter. A model that could pass its own persona could escalate
+   past the ACL, so it is bound from the request, never from the model.
 2. Returns are projected down to the fields a model can act on. The raw
    retrieval row carries 38 keys including UUIDs and legacy aliases; sending
    that for eight rows costs about 4,900 tokens per call and crowds out the
@@ -39,7 +39,7 @@ from backend.app.agent import (
     search_evidence_impl,
     synthesize_cited_answer_from_runs_impl,
 )
-from backend.app.models import EvidenceKind, workshop_principal
+from backend.app.models import DEFAULT_ROLE, EvidenceKind
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 # to the Strands event loop; answer_with_citations is managed-transport-only.
 MODEL_TOOLS = [spec.name for spec in tools_for("strands")]
 
-# Per-run state: the caller's principal, the tool-call trace, and the last
+# Per-run state: the caller's persona, the tool-call trace, and the last
 # validated synthesis. A ContextVar rather than a module global so concurrent API
 # requests in one worker cannot read each other's identity.
 #
@@ -76,18 +76,18 @@ _MODEL_ROW_FIELDS = (
 )
 
 
-def start_run(principal: dict[str, Any] | None) -> dict[str, Any]:
-    """Begin an agent run: bind its principal and start recording tool calls.
+def start_run(role: str | None) -> dict[str, Any]:
+    """Begin an agent run: bind its persona and start recording tool calls.
 
     Args:
-        principal: Resolved caller identity, or None for the workshop default.
+        role: The resolved caller persona, or None for the workshop default.
 
     Returns:
         The live run state. ``trace`` grows and ``answer_of_record`` is filled as
         tools execute, so a caller can read progress while the loop is running.
     """
     run: dict[str, Any] = {
-        "principal": principal or workshop_principal(),
+        "role": role or DEFAULT_ROLE,
         "trace": [],
         "answer_of_record": None,
     }
@@ -99,9 +99,9 @@ def _run() -> dict[str, Any] | None:
     return _RUN.get()
 
 
-def _principal() -> dict[str, Any]:
+def _role() -> str:
     run = _run()
-    return (run and run["principal"]) or workshop_principal()
+    return (run and run["role"]) or DEFAULT_ROLE
 
 
 def _record(name: str, arguments: dict[str, Any], started: float, **extra: Any) -> None:
@@ -249,7 +249,7 @@ def search_evidence(
             kinds=kinds,
             cluster_id=cluster_id,
             incident_id=incident_id,
-            principal=_principal(),
+            role=_role(),
             limit=max(1, min(int(limit), 50)),
         )
     except Exception as error:
@@ -271,7 +271,8 @@ def search_evidence(
     if not rows:
         result["note"] = (
             "No visible evidence matched. Either the filters exclude it or the "
-            "principal cannot see it. Retry without filters before concluding."
+            f"{_role()} persona cannot see it. Retry without filters before "
+            "concluding."
         )
     _record(
         "search_evidence",
@@ -311,7 +312,7 @@ def follow_evidence_links(
     try:
         response = follow_evidence_links_impl(
             keys,
-            principal=_principal(),
+            role=_role(),
             max_depth=max_depth,
         )
     except Exception as error:
@@ -343,7 +344,7 @@ def follow_evidence_links(
     if not reached:
         result["note"] = (
             "No relationships were visible from these seeds. The keys may not "
-            "exist, or the principal cannot see them."
+            f"exist, or the {_role()} persona cannot see them."
         )
     _record(
         "follow_evidence_links",
@@ -375,7 +376,7 @@ def compare_sources(external_keys: list[str]) -> dict[str, Any]:
             "pass two or more external keys, such as CHG-1842 and CHG-1838.",
         )
     try:
-        response = compare_sources_impl(keys, principal=_principal())
+        response = compare_sources_impl(keys, role=_role())
     except Exception as error:
         logger.warning("compare_sources failed: %s", error)
         _record("compare_sources", arguments, started, status="failed")
@@ -574,7 +575,7 @@ def synthesize_cited_answer(question: str, run_ids: list[str]) -> dict[str, Any]
     return result
 
 
-# The functions above hold the model-facing marshalling (principal binding, row
+# The functions above hold the model-facing marshalling (persona binding, row
 # projection, failure shaping). Their name, description, and input schema come from
 # the single registry (T4), not from their docstrings: the @tool decorator's
 # explicit overrides win, so a description the model reads lives in exactly one

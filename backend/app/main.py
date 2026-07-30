@@ -45,13 +45,14 @@ from .models import (
     AgentAnswerRequest,
     CompareRequest,
     DecomposeRequest,
+    DEFAULT_ROLE,
     EvaluationRequest,
     ExplainRankingRequest,
+    Persona,
     QueryPlanRequest,
     SearchRequest,
     SynthesisRequest,
     TraverseRequest,
-    workshop_principal,
 )
 from .search import run_hybrid_search
 from .strands_agent import (
@@ -253,7 +254,7 @@ def tool_traverse(request: TraverseRequest, http_request: Request):
             request.model_dump(mode="json"),
             lambda: follow_evidence_links_impl(
                 request.seed_external_keys,
-                principal=request.principal,
+                role=request.role,
                 max_depth=request.max_depth,
             ),
         )
@@ -270,7 +271,7 @@ def tool_compare(request: CompareRequest, http_request: Request):
             request.model_dump(mode="json"),
             lambda: compare_sources_impl(
                 request.external_keys,
-                principal=request.principal,
+                role=request.role,
             ),
         )
     except Exception as error:
@@ -371,13 +372,13 @@ def agent_coverage(agent_run_id: str):
 
 
 @app.get("/v1/evidence/{evidence_id}")
-def evidence_detail(evidence_id: str):
+def evidence_detail(evidence_id: str, role: Persona = DEFAULT_ROLE):
     # Enforce the same ACL every retrieval arm and traversal hop applies, so a
     # direct by-ID read cannot bypass visibility. Evidence outside the caller's
-    # scope is reported as not found rather than acknowledged as restricted.
-    principal = json.dumps(workshop_principal())
+    # scope is reported as not found rather than acknowledged as restricted —
+    # and now RLS enforces that even if this predicate were removed.
     try:
-        with get_dict_conn() as connection:
+        with get_dict_conn(role) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -387,9 +388,9 @@ def evidence_detail(evidence_id: str):
                       ON document.evidence_id = source.evidence_id
                      AND document.is_current
                     WHERE source.evidence_id = %s
-                      AND retrieval.acl_visible(source.acl, %s::jsonb)
+                      AND retrieval.acl_visible(source.acl)
                     """,
-                    (evidence_id, principal),
+                    (evidence_id,),
                 )
                 evidence = cursor.fetchone()
                 if not evidence:

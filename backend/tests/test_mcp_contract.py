@@ -59,7 +59,7 @@ class LambdaMcpContractTests(unittest.TestCase):
             aws_region=None,
             start_date=None,
             end_date=None,
-            principal=None,
+            role="analyst",
             limit=5,
             candidate_pool=24,
             rrf_k=60,

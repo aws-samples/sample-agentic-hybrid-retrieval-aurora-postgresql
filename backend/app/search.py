@@ -87,7 +87,7 @@ def _create_run(
     fuzzy_probe_tokens: list[str],
 ) -> str:
     settings = get_settings()
-    with get_dict_conn() as connection:
+    with get_dict_conn(request.role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -96,7 +96,7 @@ def _create_run(
                   embedding_model,
                   retrieval_mode,
                   filters,
-                  principal,
+                  role,
                   rrf_k,
                   text_weight,
                   vector_weight,
@@ -115,7 +115,7 @@ def _create_run(
                   %(embedding_model)s,
                   %(mode)s,
                   %(filters)s::jsonb,
-                  %(principal)s::jsonb,
+                  %(role)s,
                   %(rrf_k)s,
                   %(w_text)s,
                   %(w_vector)s,
@@ -136,7 +136,7 @@ def _create_run(
                     "embedding_model": embedding_model,
                     "mode": request.mode,
                     "filters": _json(_filters(request)),
-                    "principal": _json(request.principal),
+                    "role": request.role,
                     "rrf_k": request.rrf_k,
                     "w_text": request.w_text,
                     "w_vector": request.w_vector,
@@ -176,7 +176,7 @@ def _resolve_fuzzy_probe_tokens(
     if not identifier_tokens:
         return []
 
-    with get_dict_conn() as connection:
+    with get_dict_conn(request.role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -240,9 +240,9 @@ def _resolve_fuzzy_probe_tokens(
             return [row["token"] for row in cursor.fetchall()]
 
 
-def _mark_run_failed(run_id: str, error: Exception, latency_ms: int) -> None:
+def _mark_run_failed(run_id: str, error: Exception, latency_ms: int, role: str) -> None:
     try:
-        with get_dict_conn() as connection:
+        with get_dict_conn(role) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -305,7 +305,6 @@ def _common_params(
         "aws_region": request.aws_region,
         "start_date": request.start_date,
         "end_date": request.end_date,
-        "principal": _json(request.principal),
         "limit": result_limit,
         "candidate_pool": request.candidate_pool,
         "rrf_k": request.rrf_k,
@@ -329,7 +328,6 @@ _FILTER_ARGUMENTS = """
   p_aws_region => %(aws_region)s::text,
   p_start_date => %(start_date)s::timestamptz,
   p_end_date => %(end_date)s::timestamptz,
-  p_principal => %(principal)s::jsonb,
   p_limit => %(limit)s::integer
 """
 
@@ -453,7 +451,7 @@ def _run_sql_search(
         fuzzy_probe_tokens=fuzzy_probe_tokens,
     )
     params["embedding"] = embedding
-    with get_dict_conn() as connection:
+    with get_dict_conn(request.role) as connection:
         with connection.transaction():
             with connection.cursor() as cursor:
                 if _uses_vectors(request.mode):
@@ -643,7 +641,7 @@ def _persist_success(
     total_start: float,
 ) -> None:
     persist_start = perf_counter()
-    with get_dict_conn() as connection:
+    with get_dict_conn(request.role) as connection:
         with connection.transaction():
             with connection.cursor() as cursor:
                 cursor.executemany(
@@ -882,7 +880,7 @@ def run_hybrid_search(request: SearchRequest) -> dict[str, Any]:
             total_start=total_start,
         )
     except Exception as error:
-        _mark_run_failed(run_id, error, _elapsed_ms(total_start))
+        _mark_run_failed(run_id, error, _elapsed_ms(total_start), request.role)
         raise
 
     public_rows = ordered_rows[: request.limit]

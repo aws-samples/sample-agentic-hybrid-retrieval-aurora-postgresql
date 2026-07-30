@@ -250,9 +250,8 @@ class StrandsAgentTests(unittest.TestCase):
         self.assertEqual(result["answer"], VALIDATED_ANSWER)
         self.assertIn("budget of 2", result["error"])
 
-    def test_the_request_principal_reaches_the_tools(self) -> None:
+    def test_the_request_role_reaches_the_tools(self) -> None:
         script = [("search_evidence", '{"query": "CHG-1842"}'), "Done."]
-        principal = {"scopes": ["workshop"], "principals": ["support-lead"]}
         with (
             patch(
                 "backend.app.agent_tools.search_evidence_impl",
@@ -261,10 +260,10 @@ class StrandsAgentTests(unittest.TestCase):
             patch("backend.app.strands_agent.build_agent", _agent_with(script)),
         ):
             answer_question_with_strands(
-                AgentAnswerRequest(question="Why?", principal=principal)
+                AgentAnswerRequest(question="Why?", role="admin")
             )
 
-        self.assertEqual(impl.call_args.kwargs["principal"], principal)
+        self.assertEqual(impl.call_args.kwargs["role"], "admin")
 
 
 if __name__ == "__main__":

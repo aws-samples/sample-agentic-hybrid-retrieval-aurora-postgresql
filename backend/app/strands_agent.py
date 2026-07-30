@@ -223,7 +223,7 @@ def answer_question_with_strands(request: AgentAnswerRequest) -> dict[str, Any]:
     """Answer a question by letting the model drive the Aurora evidence tools.
 
     Args:
-        request: The question, the caller's principal, and the tool-call budget.
+        request: The question, the caller's persona, and the tool-call budget.
             Retrieval knobs on the request are not forwarded: the model chooses
             its own tool arguments, and silently overriding them would make the
             reported trace a lie.
@@ -233,7 +233,7 @@ def answer_question_with_strands(request: AgentAnswerRequest) -> dict[str, Any]:
         run_ids and latencies, and the run_id of the answer of record.
     """
     started = perf_counter()
-    run = agent_tools.start_run(request.principal)
+    run = agent_tools.start_run(request.role)
     agent = build_agent(max_tool_calls=request.max_tool_calls)
 
     response: dict[str, Any] = {
@@ -266,7 +266,7 @@ async def stream_answer_with_strands(
     them, so the UI shows the sequence the model actually chose.
 
     Args:
-        request: The question, the caller's principal, and the tool-call budget.
+        request: The question, the caller's persona, and the tool-call budget.
 
     Yields:
         Envelopes with a ``type`` of meta, tool_call, answer_token, commentary,
@@ -274,7 +274,7 @@ async def stream_answer_with_strands(
         model's closing message.
     """
     started = perf_counter()
-    run = agent_tools.start_run(request.principal)
+    run = agent_tools.start_run(request.role)
     trace = run["trace"]
     agent = build_agent(max_tool_calls=request.max_tool_calls)
 

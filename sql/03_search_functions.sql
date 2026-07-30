@@ -145,47 +145,11 @@ SELECT
 FROM located
 $$;
 
-CREATE OR REPLACE VIEW retrieval.v_current_chunks AS
-SELECT
-  d.document_version_id,
-  d.evidence_id,
-  d.evidence_kind,
-  d.external_key,
-  d.title,
-  d.source_system,
-  d.source_uri,
-  d.source_revision,
-  d.source_updated_at,
-  d.acl,
-  d.cluster_id,
-  d.incident_id,
-  d.account_name,
-  d.severity,
-  d.environment,
-  d.occurred_at,
-  d.metadata,
-  d.search_tsv AS document_tsv,
-  c.chunk_version_id,
-  c.chunk_ordinal,
-  c.section_title,
-  c.chunk_text,
-  c.chunk_hash,
-  c.embedding,
-  c.embedding_model,
-  c.embedding_state,
-  c.search_tsv AS chunk_tsv,
-  d.service_name,
-  d.engine_version,
-  d.aws_region,
-  c.embedding_input_type,
-  c.acl_visibility,
-  c.acl_principals
-FROM retrieval.documents d
-JOIN retrieval.chunks c ON c.document_version_id = d.document_version_id
-WHERE d.is_current
-  AND d.index_state = 'ready'
-  AND c.is_current
-  AND c.embedding_state = 'ready';
+-- retrieval.v_current_chunks was removed with the RLS work: it exposed chunk_text
+-- and acl for every current chunk, had zero consumers, and as a non-security_invoker
+-- view it read those tables as the owner, which holds the clearance key and so
+-- satisfies every policy's second disjunct on every row.
+DROP VIEW IF EXISTS retrieval.v_current_chunks;
 
 -- Every canonical arm is dropped before it is recreated. CREATE OR REPLACE
 -- cannot change a function's RETURNS TABLE shape, and these signatures are

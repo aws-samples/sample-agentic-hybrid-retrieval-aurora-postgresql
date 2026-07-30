@@ -188,10 +188,7 @@ class RetrievalContractTests(unittest.TestCase):
 
         self.assertEqual(receipt["status"], "complete")
         self.assertEqual(receipt["candidate_count"], len(candidates))
-        self.assertEqual(
-            receipt["principal"],
-            {"scopes": ["workshop"], "principals": []},
-        )
+        self.assertEqual(receipt["role"], "analyst")
         self.assertGreaterEqual(receipt["candidate_count"], 1)
         self.assertLessEqual(receipt["candidate_count"], 5)
         self.assertEqual(candidates[0]["external_key"], "CHG-1842")
@@ -293,27 +290,21 @@ class RetrievalContractTests(unittest.TestCase):
     def test_relationship_traversal_enforces_acl(self) -> None:
         from backend.app.agent import follow_evidence_links_impl
 
-        workshop = follow_evidence_links_impl(
+        analyst = follow_evidence_links_impl(
             ["INC-2047"],
-            principal={"scopes": ["workshop"]},
+            role="analyst",
             max_depth=2,
         )
-        # Interim shape: Task 9/10 replace this principal with role=.
-        support_lead = follow_evidence_links_impl(
+        admin = follow_evidence_links_impl(
             ["INC-2047"],
-            principal={
-                "scopes": ["workshop", "restricted"],
-                "principals": [],
-            },
+            role="admin",
             max_depth=2,
         )
 
-        workshop_keys = {row["external_key"] for row in workshop["reached"]}
-        support_lead_keys = {
-            row["external_key"] for row in support_lead["reached"]
-        }
-        self.assertNotIn("CASE-7421", workshop_keys)
-        self.assertIn("CASE-7421", support_lead_keys)
+        analyst_keys = {row["external_key"] for row in analyst["reached"]}
+        admin_keys = {row["external_key"] for row in admin["reached"]}
+        self.assertNotIn("CASE-7421", analyst_keys)
+        self.assertIn("CASE-7421", admin_keys)
 
     def test_evidence_detail_endpoint_enforces_acl(self) -> None:
         from fastapi import HTTPException
@@ -335,14 +326,10 @@ class RetrievalContractTests(unittest.TestCase):
                 SELECT external_key, explanation
                 FROM retrieval.full_text_search(
                   %s,
-                  p_principal => %s::jsonb,
                   p_limit => 5
                 )
                 """,
-                (
-                    "Why did CHG-1842 block writes on checkout-prod-cluster-01?",
-                    json.dumps({"scopes": ["workshop"]}),
-                ),
+                ("Why did CHG-1842 block writes on checkout-prod-cluster-01?",),
             )
             rows = cursor.fetchall()
 
@@ -396,14 +383,10 @@ class RetrievalContractTests(unittest.TestCase):
                 SELECT external_key
                 FROM retrieval.fuzzy_search(
                   %s,
-                  p_principal => %s::jsonb,
                   p_limit => 5
                 )
                 """,
-                (
-                    ["CGH-1842"],
-                    json.dumps({"scopes": ["workshop"]}),
-                ),
+                (["CGH-1842"],),
             )
             rows = cursor.fetchall()
 
@@ -521,37 +504,28 @@ class RetrievalContractTests(unittest.TestCase):
                 SELECT external_key
                 FROM retrieval.full_text_search(
                   %s,
-                  p_principal => %s::jsonb,
+                  p_role => 'persona_analyst',
                   p_limit => 50
                 )
                 """,
-                (query, json.dumps({"scopes": ["workshop"]})),
+                (query,),
             )
-            workshop = {row["external_key"] for row in cursor.fetchall()}
+            analyst = {row["external_key"] for row in cursor.fetchall()}
             cursor.execute(
                 """
                 SELECT external_key
                 FROM retrieval.full_text_search(
                   %s,
-                  p_principal => %s::jsonb,
+                  p_role => 'persona_admin',
                   p_limit => 50
                 )
                 """,
-                (
-                    query,
-                    # Interim shape: Task 9/10 replace this principal with role=.
-                    json.dumps(
-                        {
-                            "scopes": ["workshop", "restricted"],
-                            "principals": [],
-                        }
-                    ),
-                ),
+                (query,),
             )
-            support_lead = {row["external_key"] for row in cursor.fetchall()}
+            admin = {row["external_key"] for row in cursor.fetchall()}
 
-        self.assertNotIn("CASE-7421", workshop)
-        self.assertIn("CASE-7421", support_lead)
+        self.assertNotIn("CASE-7421", analyst)
+        self.assertIn("CASE-7421", admin)
 
     def test_canonical_search_functions_have_one_signature_each(self) -> None:
         expected = {
@@ -606,15 +580,10 @@ class RetrievalContractTests(unittest.TestCase):
                   %s,
                   %s::vector,
                   p_cluster_id => 'checkout-prod-cluster-01',
-                  p_principal => %s::jsonb,
                   p_limit => 8
                 )
                 """,
-                (
-                    query,
-                    vector,
-                    json.dumps({"scopes": ["workshop"]}),
-                ),
+                (query, vector),
             )
             rows = cursor.fetchall()
 
@@ -652,11 +621,10 @@ class RetrievalContractTests(unittest.TestCase):
                   %s,
                   %s::vector,
                   p_cluster_id => 'checkout-prod-cluster-01',
-                  p_principal => %s::jsonb,
                   p_limit => 8
                 )
                 """,
-                (query, vector, json.dumps({"scopes": ["workshop"]})),
+                (query, vector),
             )
             rows = cursor.fetchall()
 
@@ -707,17 +675,12 @@ class RetrievalContractTests(unittest.TestCase):
                   %s,
                   %s::vector,
                   p_cluster_id => 'checkout-prod-cluster-01',
-                  p_principal => %s::jsonb,
                   p_limit => 6,
                   p_w_text => 0.0,
                   p_w_vector => 10.0
                 )
                 """,
-                (
-                    query,
-                    distractor_embedding,
-                    json.dumps({"scopes": ["workshop"]}),
-                ),
+                (query, distractor_embedding),
             )
             rows = cursor.fetchall()
 
@@ -744,14 +707,12 @@ class RetrievalContractTests(unittest.TestCase):
                   %s,
                   %s::vector,
                   p_cluster_id => 'checkout-prod-cluster-01',
-                  p_principal => %s::jsonb,
                   p_limit => 8
                 )
                 """,
                 (
                     "Why did CHG-1842 block writes on checkout-prod-cluster-01?",
                     vector,
-                    json.dumps({"scopes": ["workshop"]}),
                 ),
             )
             rows = cursor.fetchall()
@@ -862,7 +823,7 @@ class RetrievalContractTests(unittest.TestCase):
             "During INC-2047 on checkout-prod-cluster-01, why did checkout writes "
             "appear to hang while reads continued? Determine whether CHG-1842 "
             "or CHG-1838 caused the incident, identify the customer impact "
-            "visible to the current principal, explain what evidence rules out "
+            "visible to the current role, explain what evidence rules out "
             "the alternative change, and cite the lock evidence and approved "
             "runbook supporting recovery and prevention."
         )
