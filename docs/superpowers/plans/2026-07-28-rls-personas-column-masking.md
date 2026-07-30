@@ -6617,6 +6617,7 @@ the design names.
             "change_evidence_id": restricted_change_keys,
             "relationship": "confirmed",
             "rationale": "The rotation incident was opened for this change.",
+            "confirmed_by": "incident commander",
         }
     )
 
@@ -6653,6 +6654,7 @@ the design names.
             "change_evidence_id": restricted_change_audit,
             "relationship": "suspected",
             "rationale": "The retention change preceded the review-queue backlog.",
+            "confirmed_by": "platform-security on-call",
         }
     )
 ```
