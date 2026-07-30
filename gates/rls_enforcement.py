@@ -125,6 +125,24 @@ PROJECTED_RESTRICTED_SQL = """
 SELECT count(*) FROM {table} WHERE is_current AND acl_visibility = 'restricted'
 """
 
+# Per-table restricted-row counts, measured AS THE OWNER. This is the independent
+# oracle group (b') needs: persona_admin's own view cannot be used to decide
+# whether a table "has no restricted rows of this kind", because that view is the
+# fact under test. An empty admin result means either the kind genuinely has none
+# or admin's visibility is broken, and those need opposite verdicts.
+#
+# Safe to run as the owner for the reason _diagnose_empty_restricted() documents:
+# run() has already proven the owner is either a bypassing role or named by every
+# policy AND holding the clearance group, so this count is unfiltered. If that were
+# not true the gate would have failed before reaching group (b').
+#
+# Joined against the measured restricted evidence_ids rather than re-deriving
+# "restricted" from the acl, so this count and group (b')'s probes are measuring
+# the same row set by construction.
+DETAIL_RESTRICTED_COUNT_SQL = """
+SELECT count(*) FROM {table} WHERE evidence_id = ANY(%s)
+"""
+
 # The owner's own exposure to the policies it created. ``listed_on`` is the set of
 # read-path tables whose policy names this role (directly or through PUBLIC);
 # ``has_clearance`` is the second half. Neither is cosmetic: see
@@ -327,6 +345,16 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
                 for table in DERIVED_TABLES:
                     cur.execute(PROJECTED_RESTRICTED_SQL.format(table=table))
                     projected[table] = cur.fetchone()[0]
+                # Measured here, in the owner connection, for the same reason
+                # `projected` is: group (b') runs on the app connection under
+                # SET LOCAL ROLE, where every count is by definition filtered.
+                detail_restricted = {}
+                for table in DETAIL_TABLES:
+                    cur.execute(
+                        DETAIL_RESTRICTED_COUNT_SQL.format(table=table),
+                        [restricted_ids],
+                    )
+                    detail_restricted[table] = cur.fetchone()[0]
     except psycopg.OperationalError as exc:
         return finish(GATE_ID, BLOCKED, f"cannot reach the engine: {exc}")
 
@@ -475,13 +503,15 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         # --- (b') row filtering at the evidence detail tables. ---
         # The policies here clear through the parent, so this group measures a
         # DIFFERENT mechanism than (b): (b) proves the parent's predicate works,
-        # this proves the children inherit it. A table with zero restricted rows
-        # is reported and skipped rather than asserted on -- runbooks,
-        # lock_evidence, customer_commitments and postmortems hold no restricted
-        # evidence in the current cohort, and asserting "admin sees restricted
-        # rows" there would fail for a reason that has nothing to do with RLS.
-        # The analyst assertion still runs on every table, because "the analyst
-        # sees nothing" is true whether or not the table has restricted rows.
+        # this proves the children inherit it. A table holding no restricted
+        # evidence is skipped rather than asserted on -- runbooks, lock_evidence,
+        # customer_commitments and postmortems hold none in the current cohort, and
+        # asserting "admin sees restricted rows" there would fail for a reason that
+        # has nothing to do with RLS. The skip is driven by the OWNER's count, never
+        # by persona_admin's: admin's own empty view cannot tell "this kind has no
+        # restricted rows" apart from "admin's visibility is broken", and those two
+        # need opposite verdicts. The analyst assertion runs on every table
+        # regardless, because "the analyst sees nothing" holds either way.
         print("\n  (b') row filtering at the evidence detail tables:")
         for table in DETAIL_TABLES:
             analyst = _ids_under_persona(
@@ -508,9 +538,22 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
                 f"here. Add the EXISTS-on-parent policy for this table "
                 f"(sql/11_roles_rls.sql section 5)",
             )
-            if not admin:
-                print(f"      (no restricted rows of this kind; analyst-only check)")
+            # The OWNER's count decides whether to skip, not persona_admin's. An
+            # empty admin view is the failure this group exists to catch when the
+            # rows are actually there, and a legitimate skip when they are not --
+            # persona_admin cannot distinguish those two states about itself.
+            if detail_restricted[table] == 0:
+                print("      (no restricted evidence of this kind; analyst-only check)")
                 continue
+            require(
+                admin,
+                f"persona_admin saw none of the {detail_restricted[table]} restricted "
+                f"rows the owner measured at {table}. Either persona_admin is missing "
+                f"from that table's policy TO list or the EXISTS predicate is wrong "
+                f"(sql/11_roles_rls.sql section 5). Without this assertion the gate "
+                f"would have skipped the auditor check and reported PASS over a "
+                f"policy that denies every persona",
+            )
             require(
                 auditor,
                 f"persona_auditor saw no restricted rows at {table} while "
