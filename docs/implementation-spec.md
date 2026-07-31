@@ -156,12 +156,13 @@ The default evidence ACL is:
 `retrieval.documents.acl_principals` and its GIN indexes are still projected; no
 code reads it. `visibility` is the classification.
 
-Seven objects are `{"visibility":"restricted"}`: `CASE-7421` (the canonical ACL
+Seven objects carry `"visibility":"restricted"`: `CASE-7421` (the canonical ACL
 proof), `CASE-8102`, `CASE-8137`, `INC-3162`, `INC-4117`, `CHG-6213`, and
 `CHG-3309`. They are visible only to a persona holding `can_see_restricted`
-(`admin`, `auditor`), never to `analyst`. RLS enforces this at the three read
-tables; `retrieval.acl_visible` applies the same expression inside every arm and
-at every traversal hop.
+(`admin`, `auditor`), never to `analyst`. RLS enforces this at
+`casework.evidence_items`, `retrieval.documents`, and `retrieval.chunks`;
+`retrieval.acl_visible` (JSONB) and `retrieval.acl_scalars_visible` (the projected
+column) apply the same expression inside every arm and at every traversal hop.
 
 ## 5. Authoritative Data Model
 
@@ -278,10 +279,11 @@ All arms support:
 - account;
 - severity;
 - environment;
-- start and end timestamps;
-- caller persona.
+- start and end timestamps.
 
-Filters and `retrieval.acl_visible` execute inside each arm before fusion.
+Identity is not among them. No arm takes an identity parameter; each reads the
+caller's effective database role. Filters and the ACL predicate execute inside
+each arm before fusion.
 
 ### Exact and full-text retrieval
 
@@ -706,8 +708,9 @@ production identity, and load/failover testing.
 
 - `CASE-7421` and the six supporting restricted objects never enter analyst
   retrieval or traversal, and return zero rows at the raw table.
-- The `admin` persona retrieves the restricted fixtures; the `auditor` persona
-  retrieves them with customer and operator identity masked.
+- The `admin` persona retrieves the restricted fixtures unmasked; the `auditor`
+  persona retrieves them with the account name, case description, customer
+  commitment, and rendered chunk text redacted.
 - FK-derived edges remain distinguishable from inferred edges.
 - `CHG-1842` is `change_confirmed`.
 - `CHG-1838` is `change_ruled_out`.

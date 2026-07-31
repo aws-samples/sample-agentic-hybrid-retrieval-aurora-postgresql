@@ -236,9 +236,13 @@ documents.
 Supported filters include evidence kind, cluster, incident, account, severity,
 environment, service, engine version, Region, and time range.
 
-`retrieval.acl_visible` runs inside every retrieval arm before fusion and at the
-seed and every hop of relationship traversal. `CASE-7421` must be absent for
-the analyst persona, not merely hidden in the UI.
+An ACL predicate runs inside every retrieval arm before fusion and at the seed and
+every hop of relationship traversal: `retrieval.acl_visible(acl)` over the JSONB,
+`retrieval.acl_scalars_visible(acl_visibility)` over the projected column. Neither
+takes an identity argument; both read the caller's effective database role.
+Row-level security enforces the same rule at `casework.evidence_items`,
+`retrieval.documents`, and `retrieval.chunks`, so `CASE-7421` is absent for the
+analyst persona at the table, not merely hidden in the UI.
 
 Which persona a request assumes is a teaching fixture asserted by the
 application, because this workshop ships no authentication. RLS enforces what a

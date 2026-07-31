@@ -93,10 +93,12 @@ The proof layer answers:
 
 ## Retrieval Path
 
-All retrieval arms apply metadata filters and
-`retrieval.acl_visible(document.acl)` before candidates enter fusion. The
-predicate reads the caller's effective database role, so nothing in the
-request body can widen it.
+All retrieval arms apply metadata filters and an ACL predicate before candidates
+enter fusion: `retrieval.acl_visible(document.acl)` where the arm reads the JSONB,
+`retrieval.acl_scalars_visible(acl_visibility)` where it reads the projected
+column. Both read the caller's effective database role, so nothing in the request
+body can widen visibility, and row-level security enforces the same rule at the
+table if an arm ever omits the predicate.
 
 1. **Exact and full text:** boundary-aware identifier matching plus separate
    document and chunk `tsvector` streams.

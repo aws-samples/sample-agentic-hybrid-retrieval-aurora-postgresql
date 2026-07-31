@@ -108,20 +108,27 @@ Every evidence item carries:
 
 ```json
 {
-  "visibility": "workshop"
+  "visibility": "workshop",
+  "principals": []
 }
 ```
 
-`visibility` is the only classification axis. It is projected to the sargable
-column `retrieval.documents.acl_visibility` (and `retrieval.chunks`), which both
-the RLS policy and `retrieval.acl_visible` read. Anything other than `'workshop'`
-is restricted, and the schema default is `'restricted'` so an unclassified row
-fails closed.
+`visibility` is the only classification axis. `principals` survives as an always
+empty list because `retrieval.documents.acl_principals` and its GIN indexes are
+still projected; no code reads it.
 
-Identity is the caller's persona — `analyst`, `admin`, or `auditor` — carried as a
-database role, never as a value in the request body. `CASE-7421` and the six
-restricted objects seeded alongside it are visible only to a persona holding the
-`can_see_restricted` clearance, and they must not enter any retrieval arm,
+`casework.evidence_items` keeps the JSONB and its RLS policy reads
+`coalesce(acl ->> 'visibility', 'restricted')`. The search index projects the same
+value into the sargable column `retrieval.documents.acl_visibility` (and
+`retrieval.chunks.acl_visibility`), which both the RLS policy and
+`retrieval.acl_scalars_visible` read. Anything other than `workshop` is
+restricted, and the projected column defaults to `restricted`, so an unclassified
+row fails closed.
+
+Identity is the caller's persona, one of `analyst`, `admin`, or `auditor`, carried
+as a database role and never as a value in the request body. `CASE-7421` and the
+six restricted objects seeded alongside it are visible only to a persona holding
+the `can_see_restricted` clearance, and they must not enter any retrieval arm,
 traversal hop, comparison, or answer for the analyst.
 
 The JSONB policy is intentionally small for teaching. A production design should

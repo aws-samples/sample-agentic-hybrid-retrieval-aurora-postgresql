@@ -70,25 +70,43 @@ Each evidence item and indexed document carries an `acl` JSONB whose
 `visibility` is either `workshop` or `restricted`. Enforcement is layered:
 
 - **Row-level security** (`sql/11_roles_rls.sql`) is enabled and **forced** on
-  `casework.evidence_items`, `retrieval.documents`, and `retrieval.chunks`. One
-  policy expression governs all three:
-  `acl_visibility = 'workshop' OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')`.
-- **The explicit predicate** `retrieval.acl_visible(acl)` runs inside every
-  retrieval arm and at every traversal hop, so the planner filters early and a
-  pasted verify-SQL statement returns the same rows without a hidden session
-  prerequisite.
-- **Column masking** (`sql/12_masking.sql`) redacts customer and operator
-  identity for `persona_auditor` only.
+  `casework.evidence_items`, `retrieval.documents`, and `retrieval.chunks`. All
+  three gate on visibility plus the `can_see_restricted` clearance;
+  `retrieval.documents` and `retrieval.chunks` read the projected column, and
+  `casework.evidence_items` reads the JSONB it is projected from:
+
+```sql
+-- retrieval.documents, retrieval.chunks
+acl_visibility = 'workshop'
+  OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')
+
+-- casework.evidence_items
+coalesce(acl ->> 'visibility', 'restricted') = 'workshop'
+  OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')
+```
+
+  Every detail and junction table beneath `casework.evidence_items` carries no
+  visibility clause of its own. Each inherits visibility by reachability, through
+  a policy that tests `EXISTS` against its parent evidence row.
+- **The explicit predicate** runs inside every retrieval arm and at every
+  traversal hop, so the planner filters early and a pasted verify-SQL statement
+  returns the same rows without a hidden session prerequisite. Arms reading the
+  JSONB call `retrieval.acl_visible(acl)`; arms reading the projected column call
+  `retrieval.acl_scalars_visible(acl_visibility)`. Both evaluate the same
+  expression as the policy.
+- **Column masking** (`sql/12_masking.sql`) redacts the account name, case
+  description, customer commitment, and the rendered `chunk_text` blob for
+  `persona_auditor` only.
 
 Identity is a **persona**, one of `analyst`, `admin`, or `auditor`. Personas are
 `NOLOGIN` database roles; the app pool connects as `workshop_app`, which holds no
 table grants, and issues one `SET LOCAL ROLE persona_<persona>` per request
-transaction. With no role set, a `SELECT` raises `permission denied` — the pool
+transaction. With no role set, a `SELECT` raises `permission denied`: the pool
 identity has no standing privilege path.
 
 Clearance is additive: the `can_see_restricted` role is GRANTed to
 `persona_admin` and `persona_auditor`, never to `persona_analyst`. Restricted
-evidence — `CASE-7421` and six supporting objects — is invisible to the analyst
+evidence, `CASE-7421` and six supporting objects, is invisible to the analyst
 at the table, not merely absent from a result set.
 
 This is a teaching policy, not a complete enterprise authorization system. RLS
