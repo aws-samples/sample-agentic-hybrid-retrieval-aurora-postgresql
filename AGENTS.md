@@ -12,6 +12,8 @@ workflow, current permissions, mutable state, and actions.
 
 Read only the material relevant to the task:
 
+- `HANDOFF.md`: current state, deferred work, and the hazards that have already
+  caused damage. Read it before running anything that writes.
 - `README.md`: product boundary, local runbook, and repository layout.
 - `docs/architecture.md`: service and ownership boundaries.
 - `docs/data-model.md`: `casework`, `retrieval`, and `proof` contracts.

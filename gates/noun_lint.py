@@ -55,6 +55,7 @@ SCAN_ROOTS = [
     ".claude/skills",
     "guide",
     "AGENTS.md",
+    "HANDOFF.md",
     "README.md",
     "CLAUDE.md",
     "SECURITY_REVIEW.md",
