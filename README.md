@@ -240,6 +240,13 @@ suite refuses to start unless the database name ends in `_test` and the
 application resolves the same URL the tests were handed. Never point
 `TEST_DATABASE_URL` at the workshop corpus.
 
+Two things a local run does not prove. `pg_columnmask` is Aurora-managed, so
+`sql/12_masking.sql` is skipped locally and `ColumnMaskingTests` reports as
+skipped, the run prints both. And `FORCE ROW LEVEL SECURITY` does not subject a
+superuser, so a local cluster whose owner is a superuser exercises the policies
+only through the persona roles, never through the owner. Run the same suite against
+a disposable database on the Aurora cluster to cover both.
+
 Local PostgreSQL proves PostgreSQL behavior; it does not prove Aurora network,
 parameter-group, extension, or engine-version behavior. To run the same suite on
 the real cluster, create a second database beside the workshop one and apply the
