@@ -1,7 +1,7 @@
 # SPEC — DAT410 builders session
 ## "Terminal → Hybrid Retrieval Workbench" · live incident + evidence lab
 
-Version: draft-21 · Jul 30 2026 — instance class resolved (`db.r8g.2xlarge` I/O-Optimized, no reader, no NVMe: open items 5 and 10 CLOSED, E5/E4 demoted to talk); BM25/`pg_textsearch` answered as anticipated question 7 and scoped out. Carries draft-20: holes H1–H3, RLS backstop (D24, G-27), hole-integrity + golden checkpoints (G-28)
+Version: draft-22 · Jul 30 2026 — RLS built as the enforcement layer (D24 rewritten; three persona roles + clearance + two logins + column masking; G-27 rewritten, G-29/G-30/G-31 added); identity vocabulary collapsed to one persona axis (D22; `support-lead` and the `workbench.role` GUC retired). Carries draft-21: instance class resolved (`db.r8g.2xlarge` I/O-Optimized, no reader, no NVMe: open items 5 and 10 CLOSED, E5/E4 demoted to talk), BM25/`pg_textsearch` scoped out as anticipated question 7; and draft-20: holes H1–H3, hole-integrity + golden checkpoints (G-28)
 Audience of this document: a coding agent (Claude Code / Codex) building the session assets, plus facilitators.
 Companion documents: the Hybrid Retrieval Workbench implementation spec (authoritative for schemas, tools, API, workbench base), `verity-ui-design-system.md` (visual language), the seven concept screens (talk assets only — see D9).
 
@@ -93,9 +93,9 @@ speaker notes; beat 2 is protected moment M5.
 | **D19** | **Log posture — the promotion model.** Logs live in the log store (CloudWatch Logs / OpenSearch); Aurora is never pitched as a log store. The corpus materializes **promoted log excerpts** as first-class evidence — kind `log_excerpt`, each with `source_uri` into the log store and an observation window: LOG-2047-001 (checkout error burst: pool exhaustion, statement-timeout cancellations), LOG-2047-002 (Postgres log: lock waits + cancel, pids matching Lab 1), LOG-1907-001 (CIC deploy log). Lab 2's semantic-symptom archetype targets LOG-2047-001 ("checkout writes hanging" → `canceling statement due to lock timeout`). The live-capture stretch (D7) is reframed as the promotion model performed live. The OpenSearch boundary is a talk slide argued **by workload shape, never by dunking** (OpenSearch does hybrid BM25+kNN; the differences are joins, typed edges, row-ACL inside every arm, and receipts in the same transaction). Canonical sentence: *"Search your haystack where it lives; answer for the incident where your customers live."* | Realism: real postmortems promote the forty log lines that mattered; a corpus with no logs reads as dodging the obvious evidence source, and "why not OpenSearch" then arrives as an attack instead of a slide. The question decides the engine: "which visible customer" is a join under ACL; "what was the safe fix" is a versioned citation — log search finds pids, it cannot name the customer or prove the citation. |
 | **D20** | **Database Insights demoted: facilitator cameo + appendix, out of the participant path.** Participant observability is terminal-native (`watch.sql`: waits, `pg_blocking_pids` lock tree, `pg_locks`, EXPLAIN before/after via `fix.sh`), which already covered every DBI check. One facilitator-owned cluster keeps Advanced mode for a single 60-second screen-share glance during the build wait; an appendix page maps each terminal query to its DBI view for later. Consequences: participants need **zero AWS-console access or console IAM**; per-participant Advanced enablement, `aurora_compute_plan_id` / `aurora_stat_plans.with_analyze`, prime-run seeding, and deep links leave the participant path (cameo cluster only); **open items 1, 2, 3 close** (scoped to one facilitator cluster, no approvals or URL contracts needed); gates G-2/G-3/G-4 rescope to the cameo cluster; the DBI-outage failure row is obsolete (terminal *is* the primary); Section 5 and the DBI clauses of D10/Law 3 are superseded accordingly. The Law-4 hinge is replaced by the **evaporation moment** (see Law 4). `proof.observability_refs` (Section 6.3) survives as pure provenance — window + wait_event + digest — with console deep-links moved to the appendix. | The primary teaching surface is retrieval, fusion, indexes, agentic, proof; a builders session spends its minutes where participants build. DBI cost four open items, the only console dependency, and ~6 minutes for a surface participants only watched — while its fallback was documented as complete. The evaporation moment is a stronger hinge than a console chart: it lands on a result set the participant produced. All Aurora depth survives: E3 is wait events at the terminal, the plan money-shot is `fix.sh`'s EXPLAIN, E5 lives in EXPLAIN BUFFERS. |
 | **D21** | **The admission contract is a first-class takeaway artifact.** A versioned `admission payload v1` (jsonb: source {system, uri, observation_window} · kind · external_key · occurred_at · body · structured jsonb · links · acl) and one entry point — `casework.admit_evidence(payload jsonb)` — that in a **single transaction** validates, upserts typed rows, writes edges, queues projection, and writes an **ingest receipt** (ingest_id, payload hash, counts, `available_at`). Idempotent by `(source_uri, content_hash)`; invalid payloads rejected loudly with the named violation. **Promoters are thin adapters** that only produce payloads: the repo ships `promote_pg_incident` (the D7 capture script, now the reference D19 promoter) plus the synthetic fixture feeder; customers add `promote_jira`-style adapters against the same contract. **JSONB boundary rule**: jsonb is the doorway, not the house — anything an arm filters on or a join touches is a real column (the measured pass-2 lesson: `jsonb_path_ops` GIN could not serve `acl_visible()`; denormalized columns won). The skill documents the contract under the Lab-1 section header; the promoter is Law 4 made executable. Room sentence: *"Retrieval has run_ids. Admission has ingest receipts. Receipts at both doors."* | This converts the session's weakest concession — "ingestion is the hard part" — into its most reusable deliverable: the transactional correctness, idempotency, receipts, and temporal gate are written once behind the contract, so a customer's first real incident can be admitted on day one with a thin adapter. Determinism is a gate (G-25), not a hope. |
-| **D22** | **The word "principal" is banned from every participant-facing surface** (UI, guide, slides, script output — enforced by G-11). The concept is **role**, values `workshop` and `support-lead`, rendered as a "Viewing as" chip; routes use `?role=`, tool arguments and env use `role`, renamed end-to-end so no dual vocabulary survives. The mechanism is unchanged: switching role changes which rows the database lets **every retrieval arm and traversal hop** see — CASE-7421 exists only for `support-lead`. This is protected moment M3. | "Principal" is IAM jargon that made the session's best moment harder to read. "Viewing as: Support lead → a case appears" needs no glossary — and the lesson underneath ("entitlements live in the database") is Lab 3's takeaway sentence, so the label must never be the obstacle. |
+| **D22** | **The word "principal" is banned from every participant-facing surface** (UI, guide, slides, script output — enforced by G-11). The concept is **persona**, values `analyst`, `admin`, and `auditor`, rendered as a "Viewing as" chip; routes use `?role=`, tool arguments and env use `role`, renamed end-to-end so no dual vocabulary survives. `support-lead` is retired and joins `principal` on the G-11 denylist. The mechanism is strengthened: the persona is a real PostgreSQL role, and switching it changes which rows the database lets **every retrieval arm, traversal hop, and raw table read** see — CASE-7421 and six supporting restricted objects are visible only to a persona holding the `can_see_restricted` clearance. This is protected moment M3. | "Principal" is IAM jargon that made the session's best moment harder to read. "Viewing as: Admin → a case appears" needs no glossary — and the lesson underneath ("entitlements live in the database") is Lab 3's takeaway sentence, so the label must never be the obstacle. Three personas rather than two give masking a home: the auditor is cleared to see the row and not its customer. |
 | **D23** | **The bridge is the spine — live admission is a core Lab 1 beat, reliability-shaped.** Every participant closes Lab 1 with `./admit.sh`: `promote_pg_incident` → `casework.admit_evidence` (D21) → ingest receipt printed → `LOCK-LIVE-001` proven retrievable **via the exact arm immediately** (identifier match needs no embeddings — the checkpoint makes zero model calls). Semantic projection runs async, best-effort. **Room-scale law: the canonical question's claim coverage is identical whether or not admission ran** — the documented incident's fixtures (incl. its lock snapshots) remain preloaded, so their admitted rows *join* the record beside the historical ones, never gate it. `proof.observability_refs` receives the incident window from this beat for everyone (unflagged). Answer-citation of `LOCK-LIVE-*` stays behind `WORKBENCH_LIVE_CAPTURE` (D7, narrowed). E10 upgrades: core half in Lab 1, flagged half in Lab 4. Positioning sentence adopted from the independent vet, adapted for D20: *"Observability detects. Hybrid Retrieval Workbench contextualizes. Aurora correlates and proves."* | An independent review (Codex) converged on the same seam the session designer had already attacked — the live event and the evidence corpus read as disconnected — which is how you know it's the real weakness. The fix is Codex's spine with our reliability posture: the two-beat Law 4 makes every participant *perform* observability-becomes-evidence, while the never-answer-critical rule keeps a write path out of the room's failure budget. What Codex proposed as new (point-in-time visibility, admission receipts) already exists as G-25 and D21 — evidence the repo docs lag this spec and must be synced before review. |
-| **D24** | **RLS default-deny backstop (belt and suspenders).** The explicit `acl_visible(role)` predicate remains the arm/hop mechanism and the Lab 3 participant hole (self-contained verify-SQL, planner-controllable, index-sargable per the D21 column rule). RLS is added **once in the schema** as default-deny and **demonstrated, never built**: a ~45-second coda after the M3 role flip — raw SQL at the table, `SET LOCAL workbench.role` = `workshop` → CASE-7421 returns 0 rows; `support-lead` → 1 row; no arm, no app, the database itself refuses. Requirements: `FORCE ROW LEVEL SECURITY` (owners bypass by default) or a non-owner app role without `BYPASSRLS`; the role GUC is **`SET LOCAL`, transaction-scoped** (the T8 pattern) — a session-level SET under connection pooling leaks roles across requests; replay sets it from the receipt's recorded role (D22), keeping M4 deterministic. Recorded fallback: if rehearsal shows the FORCE-RLS assertion or role-GUC replay adds room-scale fragility, drop to predicate-only and answer "why not RLS?" in the talk. Teaching line: *"The predicate is how the arm filters. RLS is why you can't leak even when you forget. Real systems want both."* | Converts the room's most predictable attack question into a scripted strength, at the cost of one schema statement and one gate. The hole stays the explicit predicate because it is the thing a participant can reason about, verify in one pasted SELECT, and see in a plan — RLS enforces, the predicate teaches. |
+| **D24** | **RLS as the enforcement layer (belt and suspenders, upgraded 2026-07-28).** The explicit `acl_visible()` predicate remains the arm/hop mechanism and the Lab 3 participant hole (self-contained verify-SQL, planner-controllable, index-sargable per the D21 column rule). RLS is **built**, not merely demonstrated: `sql/11_roles_rls.sql` creates three NOLOGIN persona roles (`persona_analyst`, `persona_admin`, `persona_auditor`), one clearance role (`can_see_restricted`, GRANTed to admin and auditor and never to analyst), and two LOGIN roles (`workshop_app` for the pool, `workshop_participant` for terminals) — six roles total. RLS is enabled **and forced** on `casework.evidence_items`, `retrieval.documents`, and `retrieval.chunks`, each under the same rule in one of two forms: the two `retrieval.*` tables carry a denormalized `acl_visibility` column and test `acl_visibility = 'workshop' OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')`; `casework.evidence_items` has no such column and instead reads its `acl jsonb`, testing `coalesce(acl ->> 'visibility', 'restricted') = 'workshop' OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')`. Two forms of one rule — both byte-identical to the corresponding `retrieval.acl_visible` / `retrieval.acl_scalars_visible` bodies, which is the pedagogical point. Three visibility policies are not sufficient on their own: a generated reachability policy on every evidence detail table and every relation junction table beneath `casework.evidence_items` closes the schema-wide-grant bypass, for 15 policies total. `sql/12_masking.sql` adds `pg_columnmask` policies so the auditor reads the restricted row with its sensitive columns masked. Identity is carried by `SET LOCAL ROLE`, transaction-scoped (the T8 pattern) — a session-level `SET` under connection pooling leaks roles across requests; `workshop_app` holds no table grants, so a forgotten `SET LOCAL ROLE` raises `permission denied` rather than returning rows. The M3 coda is raw SQL at the table under two personas: analyst → 0 rows, admin → 1 row; no arm, no app, the database itself refuses. Teaching lines: *"The predicate is how the arm filters. RLS is why you can't leak even when you forget. Real systems want both."* and *"You never grant a limitation — you withhold a key."* | Converts the room's most predictable attack question into a scripted strength. Building RLS rather than demonstrating it costs one SQL file and two gates, and buys three things a session GUC could not: a `permission denied` failure mode instead of a silent zero-row one, a masking layer that needs a third persona to be legible, and a coda whose predicate the participant already hand-wrote. `USAGE` not `MEMBER` in `pg_has_role`: `MEMBER` is transitive and ignores `INHERIT`, so it reports true for any transitively-granted role. |
 
 ---
 
@@ -215,7 +215,7 @@ S7  prime-run          If PRIME_INCIDENT=1: execute incident.sh --unattended --t
                        resolve — proves the incident path end-to-end in this account
                        (and seeds Lock:relation history on the cameo cluster).
 S8  workbench          Build frontend, start backend service, smoke: POST /v1/agent/answer with
-                       the canonical question as role=workshop; assert 5 citations
+                       the canonical question as role=analyst; assert 5 citations
                        validate; record smoke run_id in the readiness report.
                        Install Claude Code (Bedrock mode) on the host; verify
                        `claude --version` + one Bedrock invocation under the participant
@@ -547,7 +547,7 @@ UTILITY NAV (right / overflow — never primary)
 Rules:
 - **One lab = one primary surface.** Guide deep links land with state prefilled — routes
   are contract: `/overview` · `/retrieval?preset={exact|fuzzy|semantic}` ·
-  `/agent?role={workshop|support-lead}` · `/proof/{run_id}`.
+  `/agent?role={analyst|admin|auditor}` · `/proof/{run_id}`.
 - **run_id is the breadcrumb.** Every surface renders the same run chip; switching
   surfaces never loses the run.
 - **Drill depth ≤ 2**: surface → inline drawer/expansion (candidate receipt, tool
@@ -669,7 +669,8 @@ Workshop Studio contentspec; pages map 1:1 to acts.
 30-lab3-agentic      one question → six tools in order (planned mode, Section 7 T2) →
                      cited answer → customer-impact + role flip (ACL) →
                      evidence graph
-                     [checkpoint: support-lead adds CASE-7421; workshop shows nothing]
+                     [checkpoint: admin adds CASE-7421; analyst shows nothing;
+                     auditor shows it with sensitive columns masked]
 40-lab4-proof        run proof → replay by run_id (zero model calls) →
                      DBI hand-off links (Section 6.3) → live-capture stretch (flag, Section 4.6)
                      [checkpoint: replayed run_id resolves identical candidates]
@@ -689,8 +690,10 @@ source; gate G-12). Checkpoints are copy-pastable one-liners that print `OK` or 
 Participants build the agent's **decisions**, all SQL; machinery ships prebuilt (T2/T4 —
 hand-writing the registry violates G-17). **H1** (Lab 2): the weighted-RRF fusion sum —
 the E1 integer-division failure is real in the starting state by design. **H2** (Lab 3):
-`acl_visible(role)` applied *at the traversal hop*, checkpointed by the M3 role flip, with
-the D24 RLS coda after. **H3** (Lab 3): the coverage rule (`covered = ≥1 candidate of
+`acl_visible()` applied *at the traversal hop*, checkpointed by the M3 persona flip,
+with the D24 RLS coda after — and the predicate the participant writes is the same
+expression the RLS policy enforces, so the hole and the backstop are literally one
+line of SQL. **H3** (Lab 3): the coverage rule (`covered = ≥1 candidate of
 every required kind in top N`) — the E2 hinge asserts against *their* SQL from both
 directions (counterfactual stays uncovered; escalation covers). Never holes: rerank (the
 Lab 2 observe-and-judge beat — *"The engine's score you can recompute. The model's score
@@ -878,16 +881,37 @@ demo-of-last-resort.
   after commit; `observability_refs` carries the incident window; and canonical-question
   claim coverage is **byte-identical** with and without the beat having run (the
   never-answer-critical law).
-- **G-27** FORCE-RLS assertion (D24): connected as the app role (which must lack
-  `BYPASSRLS`), with `SET LOCAL workbench.role = 'workshop'`, CASE-7421 returns **zero rows
-  at the raw table** — proving RLS is not silently bypassed by ownership; and a replayed
-  run under the receipt's recorded role reproduces identical candidates (role GUC is
+- **G-27** FORCE-RLS assertion (D24), three parts: (a) **fail-closed** — connected as
+  `workshop_app` with **no role set**, a `SELECT` on `casework.evidence_items`,
+  `retrieval.documents`, and `retrieval.chunks` raises `permission denied`; an error is
+  a stronger proof than zero rows, because it shows the pool identity has no standing
+  privilege path. (b) **row filtering** — under `SET LOCAL ROLE persona_analyst`,
+  CASE-7421 and every restricted object return **zero rows at each of the three raw
+  tables**, and at every detail and junction table beneath them, so reachability is
+  enforced and not merely documented. (c) **replay determinism** — a run replayed under
+  the receipt's recorded persona reproduces identical candidates (`SET LOCAL ROLE`,
   transaction-scoped, never session-scoped).
 - **G-28** Hole integrity (exercise design 2026-07-28): the frozen reference
   implementation **passes** every generator-derived golden checkpoint, and the participant
   starting state **fails** them — the holes are provably open in every build. The Lab 2
   checkpoint asserts against the golden, never against panel self-consistency (a wrong
   fusion matches its own panel).
+- **G-29** Masking + Law-2 determinism (RLS design 2026-07-28): under `persona_auditor`,
+  the restricted account name, case description, customer commitment, and the rendered
+  `chunk_text` blob come back **masked**, and the value rendered in the app panel is
+  **byte-identical** to the value the pasted verify-SQL returns in psql; `persona_admin`
+  sees the same columns unmasked. The mask pattern set is **generated** from the seed's
+  own restricted literals (`retrieval.sensitive_literals()`), never hand-written, and a
+  corpus-wide scan as the auditor asserts zero occurrences of any restricted literal.
+- **G-30** Participant ceremony (A1): the `workshop_participant` identity runs every
+  Lab-1 snippet the guide publishes with no `SET ROLE` and no grant step, and a bare
+  `SELECT` on `casework.evidence_items`, `retrieval.documents`, or `retrieval.chunks`
+  from that same identity raises `permission denied` — the fail-closed first lesson is
+  real, not narrated.
+- **G-31** Persona golden equivalence (A7): `persona_analyst`'s eval goldens and citable
+  claim coverage are byte-identical to a committed pre-collapse capture of the old
+  `role=workshop` identity, so collapsing two identity axes into one changed no
+  participant-visible number.
 
 ---
 

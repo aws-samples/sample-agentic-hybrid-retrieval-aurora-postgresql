@@ -20,7 +20,7 @@ Three checks:
 
 2. Contract-literal membership. Every deep-link literal the guide sends
    participants to - /overview, /retrieval?preset={exact|fuzzy|semantic},
-   /agent?role={analyst|admin|auditor}, /proof/{run_id} (SPEC-session:457) -
+   /agent?role={analyst|admin|auditor}, /proof/{run_id} (SPEC-session:550) -
    must parse to the intended surface with the intended param set, not silently
    degrade to overview. Catches a mistyped or dropped enum value before a human
    clicks it.
@@ -60,7 +60,7 @@ ROUTE_MODULE = Path("frontend/src/route.ts")
 BUNDLE_DIR = Path("frontend/dist")
 SCAN_SUFFIXES = {".js"}
 
-# The canonical deep links the guide sends participants to (SPEC-session:457-458).
+# The canonical deep links the guide sends participants to (SPEC-session:547-550).
 # Each entry is (hash, expected parsed Route). The router must round-trip every
 # hash exactly and parse it to the expected surface with state prefilled.
 CONTRACT_ROUTES: list[tuple[str, dict]] = [

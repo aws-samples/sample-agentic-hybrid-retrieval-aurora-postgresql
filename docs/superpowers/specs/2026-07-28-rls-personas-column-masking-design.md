@@ -20,6 +20,22 @@ strictly stronger than the committed design: the database refuses restricted
 rows even when a caller connects directly as a persona role and skips the app
 and the predicate entirely.
 
+## Superseded by binding amendments (2026-07-28)
+
+This design was approved with amendments A1-A8, which supersede the sections named
+below. The original text is retained because the reasoning still explains *why*;
+the amendments are what was built.
+
+| Superseded | Section | Bound outcome |
+|---|---|---|
+| Two identity axes (persona role + `workbench.role` GUC) | "Two identity axes and how they reconcile (M3 preserved)" (`:176`) | **A7:** one axis, the persona. The `workbench.role` GUC is deleted — it had zero code consumers and existed only in the two SPEC copies and this doc. |
+| `workshop_restricted_reader` | "Persona model" (`:151`), "Bootstrap / idempotency" (`:366`) | **A8:** renamed `can_see_restricted`. "Restricted reader" misparses as "a reader who is restricted"; the role is a clearance. |
+| Personas as connectable roles (`\c`-as-persona demo) | "App runtime plumbing" (`:255`) | **A2/A3:** personas are NOLOGIN. The demo is a transaction envelope — `BEGIN; SET LOCAL ROLE …; <SELECT>; ROLLBACK;` — which is also the shape every role-sensitive `_verify_sql` now emits. |
+| "the restricted row's data is unchanged" | "Persona model" (`:153-155`) | **Corrected:** it had to change. Both `WORKSHOP_ACL` and `RESTRICTED_ACL` carried `visibility: "workshop"`; restrictedness lived only in `principals: ["support-lead"]`, so a `visibility`-based predicate would have failed **open** on every restricted row. Resolved by flipping `RESTRICTED_ACL` to `{"visibility": "restricted", "principals": []}` (Task 13, `seed/corpus.py:23`). |
+| "~6 restricted objects" (count and keys open, item 6 below) | "Restricted-evidence seed" (`:325`) | **Locked:** six new keys — `CASE-8102`, `CASE-8137`, `INC-3162`, `INC-4117`, `CHG-6213`, `CHG-3309` — plus the original `CASE-7421`, seven total (`seed/corpus.py`: 7 occurrences of `acl=RESTRICTED_ACL`). |
+| Mask scope reading `support_cases` only | "Column masking (auditor)" (`:212`) | **Not extended. Shipped as designed and now a known limitation:** `retrieval.sensitive_literals()` (`sql/12_masking.sql:69-84`) derives the pattern set from `casework.support_cases` only, and `gates/masking_determinism.py` re-derives its needles from the same table. The restricted cohort also seeds `casework.incidents` and `casework.changes`, whose sensitive prose is therefore outside both the mask and the gate's leak scan. Carried as an open item rather than silently claimed. |
+| SPEC hash `d0601f06…` | "Spec + gate impact" (`:394`) | Re-baselined; see the implementation plan's Task 15 report for the current hash. |
+
 ## Why this is an upgrade, not a reversal
 
 The committed participant-exercises design bound **D24 direction C**: keep the
@@ -433,6 +449,15 @@ are visibly non-trivial. Binding constraints:
 5. Two-artifact packaging (frozen reference vs participant start) already
    flagged by the participant-exercises design; the H2 hole is unchanged by this
    design, so no new packaging burden beyond what that doc carries.
-6. Exact restricted-row count and their `external_key`s / systems (target ~6
-   across 2–3 systems) — chosen at plan time under the G-21 re-measurement
-   constraint, then locked in the seed.
+6. ~~Exact restricted-row count and their `external_key`s / systems~~ —
+   **resolved:** seven restricted objects total (`CASE-7421` plus the six
+   above), spanning three evidence kinds (`support_case`, `incident`,
+   `change`) and three source systems (`synthetic_support_system`,
+   `synthetic_incident_management`, `synthetic_change_management`), measured
+   against the `CGH-1842` trigram probe before selection (`seed/corpus.py`).
+7. **Mask + leak-scan source is `casework.support_cases` only.** The restricted
+   cohort spans `casework.incidents` (`INC-3162`, `INC-4117`) and
+   `casework.changes` (`CHG-6213`, `CHG-3309`), whose sensitive prose feeds
+   `chunk_text` but contributes no literal to `retrieval.sensitive_literals()`
+   and no needle to G-29's corpus-wide scan. Widening both is a follow-on
+   change, not a documentation fix.
