@@ -238,11 +238,13 @@ environment, service, engine version, Region, and time range.
 
 `retrieval.acl_visible` runs inside every retrieval arm before fusion and at the
 seed and every hop of relationship traversal. `CASE-7421` must be absent for
-the default principal, not merely hidden in the UI.
+the analyst persona, not merely hidden in the UI.
 
-The workshop principal is a teaching fixture. In production, the API must
-derive authorization from verified caller identity. A caller must never be able
-to elevate access by supplying a different `principal` JSON body.
+Which persona a request assumes is a teaching fixture asserted by the
+application, because this workshop ships no authentication. RLS enforces what a
+persona may see at the table regardless of what the request asserts. In
+production, the API must derive the persona from verified caller identity, not
+from a value the request supplies.
 
 ### Ranking: a deterministic tier above weighted RRF
 
@@ -505,7 +507,7 @@ Participants:
 1. save the returned `run_id`;
 2. load the candidate receipt, graph, and timeline;
 3. validate citation URI, revision, chunk, quote, and claim;
-4. verify `CASE-7421` is absent for the workshop principal; and
+4. verify `CASE-7421` is absent for the analyst persona; and
 5. replay the run without another model call.
 
 **Checkpoint:** `GET /v1/runs/{run_id}` resolves the persisted candidates,
@@ -608,7 +610,7 @@ where they belong.
 ### Identity and authorization
 
 - authenticate every API caller;
-- derive the evidence principal from trusted identity, not request JSON;
+- derive the evidence persona from trusted identity, not request JSON;
 - map source-system permissions through a reviewed policy;
 - apply authorization before retrieval, at every graph hop, and before
   returning citations;
@@ -746,8 +748,8 @@ it.
 
 ### Authorization and relationships
 
-- `CASE-7421` cannot enter default retrieval, traversal, comparison, or answer;
-- `support-lead` can retrieve the restricted fixture;
+- `CASE-7421` cannot enter analyst retrieval, traversal, comparison, or answer;
+- the `admin` and `auditor` personas can retrieve the restricted fixture;
 - canonical and inferred edges remain distinguishable;
 - `CHG-1842` is confirmed and `CHG-1838` is ruled out;
 - `CASE-7419` is affected and `CASE-7424` is unaffected; and

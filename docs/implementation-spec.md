@@ -66,14 +66,14 @@ The evidence-backed result is:
   `Lock:relation` waits.
 - `LOCK-2047-001` and `LOCK-2047-002` identify the blocking index backend.
 - visible support case `CASE-7419` identifies Acme Retail as affected;
-  restricted `CASE-7421` remains hidden from the default principal;
+  restricted `CASE-7421` remains hidden from the analyst persona;
   `CASE-7424` is explicitly unrelated.
 - the response cancelled the blocking build and recovered queued writers.
 - `RB-017` recommends `CREATE INDEX CONCURRENTLY` outside a transaction,
   with progress monitoring and invalid-index cleanup after failure.
 
 The participant leaves with a persisted `run_id` that replays the query,
-filters, principal, retrieval controls, candidates, stages, answer, citations,
+filters, persona, retrieval controls, candidates, stages, answer, citations,
 relationship graph, and evidence timeline.
 
 ## 3. System Architecture
@@ -152,15 +152,16 @@ The default evidence ACL is:
 {"visibility":"workshop","principals":[]}
 ```
 
-The default principal is:
+`principals` is retained as an empty list only because
+`retrieval.documents.acl_principals` and its GIN indexes are still projected; no
+code reads it. `visibility` is the classification.
 
-```json
-{"scopes":["workshop"],"principals":[]}
-```
-
-`CASE-7421` uses restricted visibility and requires the `support-lead`
-principal. ACL checks run before candidates enter every retrieval arm and at
-every relationship traversal hop.
+Seven objects are `{"visibility":"restricted"}`: `CASE-7421` (the canonical ACL
+proof), `CASE-8102`, `CASE-8137`, `INC-3162`, `INC-4117`, `CHG-6213`, and
+`CHG-3309`. They are visible only to a persona holding `can_see_restricted`
+(`admin`, `auditor`), never to `analyst`. RLS enforces this at the three read
+tables; `retrieval.acl_visible` applies the same expression inside every arm and
+at every traversal hop.
 
 ## 5. Authoritative Data Model
 
@@ -278,7 +279,7 @@ All arms support:
 - severity;
 - environment;
 - start and end timestamps;
-- caller principal.
+- caller persona.
 
 Filters and `retrieval.acl_visible` execute inside each arm before fusion.
 
@@ -416,7 +417,7 @@ model-quality validation.
 
 | Table | Persisted contract |
 |---|---|
-| `retrieval_runs` | Query, mode, filters, principal, models, controls, status, latency |
+| `retrieval_runs` | Query, mode, filters, persona, models, controls, status, latency |
 | `retrieval_candidates` | Final rank, arm values/positions, RRF, rerank, evidence snapshot |
 | `run_stages` | Ordered stage name, duration, and details |
 | `agent_answers` | Question, answer, synthesis mode, model transport, token usage |
@@ -558,7 +559,7 @@ The React application is an inspection workbench, not a landing page.
 - evidence kind, cluster, incident, environment, and result filters;
 - candidate pool, RRF `k`, arm weights, fuzzy threshold, HNSW
   `ef_search`, and iterative scan controls;
-- model-rerank and support-lead toggles;
+- model-rerank control and the Viewing-as persona selector;
 - direct search and complete agent actions;
 - cited answer and horizontally scrollable citation chips;
 - fixed-column candidate receipt with FTS, vector, fuzzy, RRF, and rerank;
@@ -703,8 +704,10 @@ production identity, and load/failover testing.
 
 ### Authorization and relationships
 
-- `CASE-7421` never enters default retrieval or traversal.
-- `support-lead` can retrieve the restricted fixture.
+- `CASE-7421` and the six supporting restricted objects never enter analyst
+  retrieval or traversal, and return zero rows at the raw table.
+- The `admin` persona retrieves the restricted fixtures; the `auditor` persona
+  retrieves them with customer and operator identity masked.
 - FK-derived edges remain distinguishable from inferred edges.
 - `CHG-1842` is `change_confirmed`.
 - `CHG-1838` is `change_ruled_out`.

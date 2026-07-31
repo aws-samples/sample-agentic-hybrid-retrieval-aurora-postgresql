@@ -135,14 +135,29 @@ BANNED_IDENTITY_RE = re.compile(
 )
 
 # Lines that legitimately carry a banned token: the RLS/ACL predicate path keeps
-# acl_principals and the p_principal parameter until the wire rename lands, and
-# this gate's own source names the tokens it bans.
+# acl_principals and the p_principal parameter until the wire rename lands, this
+# gate's own source names the tokens it bans, sql/01_schema.sql's pre-collapse
+# migration reads and drops the old `principal` column and its `support-lead`
+# value by name (the tokens *are* the pre-collapse column and value -- renaming
+# them breaks the migration), sql/04_diagnostics.sql:441 explains why the view
+# is dropped before replace in terms of the old column, and two negative tests
+# (test_db_persona.py, test_verify_sql.py) pass "support-lead" as rejected input
+# to prove the collapse is enforced. Each pattern below is anchored to one exact
+# idiom, not a blanket exemption for "principal" or "support-lead".
 BANNED_IDENTITY_ALLOW = re.compile(
     r"acl_principals|p_principal|BANNED_IDENTITY|required_principals"
+    r"|column_name = 'principal'"
+    r"|DROP COLUMN principal"
+    r"|'principals' \? 'support-lead'"
+    r"|support-lead pair, which map onto"
+    r"|support-lead saw the restricted row"
+    r"|changed from principal jsonb to role text"
+    r'|persona_role\("support-lead"\)'
+    r'|receipt_verify_sql\([^)]*"support-lead"\)'
 )
 
 
-def _iter_files(root: Path):
+def _iter_files(root: Path, repo_root_path: Path):
     if root.is_file():
         yield root
         return
@@ -154,6 +169,13 @@ def _iter_files(root: Path):
         if any(part in SKIP_DIR_NAMES for part in path.parts):
             continue
         if path.suffix.lower() not in SCAN_SUFFIXES:
+            continue
+        # docs/superpowers/ holds design specs and implementation plans --
+        # engineering history that must be free to name retired vocabulary in
+        # order to explain why it was retired. Participant-facing docs (e.g.
+        # docs/architecture.md) are one level up and stay scanned.
+        rel_parts = path.relative_to(repo_root_path).parts
+        if rel_parts[:2] == ("docs", "superpowers"):
             continue
         yield path
 
@@ -180,7 +202,7 @@ def run() -> int:
     violations: list[tuple[str, int, str, str]] = []
     files_scanned = 0
     for entry in SCAN_ROOTS:
-        for path in _iter_files(root / entry):
+        for path in _iter_files(root / entry, root):
             files_scanned += 1
             try:
                 text = path.read_text(encoding="utf-8")

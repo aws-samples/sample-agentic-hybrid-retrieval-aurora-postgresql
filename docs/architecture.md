@@ -85,7 +85,7 @@ are stored separately. Synthesis persists the answer and exact citations.
 
 The proof layer answers:
 
-- Which query, filters, principal, model space, and ANN controls were used?
+- Which query, filters, persona, model space, and ANN controls were used?
 - Which candidates entered the final result and from which retrieval arms?
 - What were the lexical, vector, fuzzy, RRF, and optional rerank signals?
 - Which source revision and chunk supports each cited claim?
@@ -94,8 +94,9 @@ The proof layer answers:
 ## Retrieval Path
 
 All retrieval arms apply metadata filters and
-`retrieval.acl_visible(document.acl, principal)` before candidates enter
-fusion.
+`retrieval.acl_visible(document.acl)` before candidates enter fusion. The
+predicate reads the caller's effective database role, so nothing in the
+request body can widen it.
 
 1. **Exact and full text:** boundary-aware identifier matching plus separate
    document and chunk `tsvector` streams.

@@ -66,23 +66,37 @@ is constrained by Pydantic literals and maps to fixed SQL statements.
 
 ## Evidence ACLs
 
-Each evidence item and indexed document has ACL JSONB. Every retrieval arm
-calls `retrieval.acl_visible` before ranking, and recursive traversal checks the
-seed and each neighbor.
+Each evidence item and indexed document carries an `acl` JSONB whose
+`visibility` is either `workshop` or `restricted`. Enforcement is layered:
 
-The default workshop principal is:
+- **Row-level security** (`sql/11_roles_rls.sql`) is enabled and **forced** on
+  `casework.evidence_items`, `retrieval.documents`, and `retrieval.chunks`. One
+  policy expression governs all three:
+  `acl_visibility = 'workshop' OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')`.
+- **The explicit predicate** `retrieval.acl_visible(acl)` runs inside every
+  retrieval arm and at every traversal hop, so the planner filters early and a
+  pasted verify-SQL statement returns the same rows without a hidden session
+  prerequisite.
+- **Column masking** (`sql/12_masking.sql`) redacts customer and operator
+  identity for `persona_auditor` only.
 
-```json
-{"scopes":["workshop"],"principals":[]}
-```
+Identity is a **persona**, one of `analyst`, `admin`, or `auditor`. Personas are
+`NOLOGIN` database roles; the app pool connects as `workshop_app`, which holds no
+table grants, and issues one `SET LOCAL ROLE persona_<persona>` per request
+transaction. With no role set, a `SELECT` raises `permission denied` — the pool
+identity has no standing privilege path.
 
-`CASE-7421` is restricted to `support-lead`. Tests and smoke validation prove
-that it does not enter default retrieval or traversal.
+Clearance is additive: the `can_see_restricted` role is GRANTed to
+`persona_admin` and `persona_auditor`, never to `persona_analyst`. Restricted
+evidence — `CASE-7421` and six supporting objects — is invisible to the analyst
+at the table, not merely absent from a result set.
 
-This is a teaching policy, not a complete enterprise authorization system. A
-production application must authenticate the caller, map current source
-permissions, prevent caller-supplied principal escalation, and revalidate live
-when indexed ACL metadata may be stale.
+This is a teaching policy, not a complete enterprise authorization system. RLS
+moves *enforcement* into the database; **which persona a request assumes is still
+asserted by the application**, because this workshop ships no authentication. A
+production system must authenticate the caller, map current source-system
+authorization into the persona decision, and revalidate live when indexed ACL
+metadata may be stale.
 
 ## Citation Integrity
 

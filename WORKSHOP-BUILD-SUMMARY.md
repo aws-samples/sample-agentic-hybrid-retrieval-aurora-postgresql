@@ -154,7 +154,7 @@ numbered evidence.
 
 `proof.*` persists:
 
-- the query, filters, principal, model space, and retrieval controls;
+- the query, filters, persona, model space, and retrieval controls;
 - candidate arm positions and raw diagnostics;
 - RRF and optional rerank scores;
 - ordered stage timing;
@@ -201,7 +201,7 @@ retrieval receipt.
 | Rerank | Compare Aurora and Cohere orders | Both scores remain present and separate |
 | Agent answer | Ask the canonical question | Lock cause, visible customer, safe fix, numbered citations |
 | Evidence graph | Follow incident relationships | Confirmed, ruled-out, affected, unaffected, current, and superseded facts |
-| ACL boundary | Compare workshop and `support-lead` principals | `CASE-7421` absent from default retrieval and traversal |
+| ACL boundary | Compare `analyst` and `admin` personas | `CASE-7421` absent from analyst retrieval and traversal |
 | Citation audit | Validate URI, revision, chunk, quote, and claim | Database citation validation passes |
 | Replay | Reload the answer by `run_id` | Candidates, stages, answer, and citations return without a model call |
 | Evaluation | Run the controlled set | Retrieval and traversal metrics reported separately |
@@ -264,7 +264,7 @@ cited answer and replay receipt remain mandatory.
 
 A real deployment must additionally provide:
 
-- authenticated caller identity and trusted principal mapping;
+- authenticated caller identity and trusted persona mapping;
 - least-privilege database roles;
 - TLS, private networking, restricted CORS, and API abuse controls;
 - source cursors, retries, reconciliation, and dead-letter handling;

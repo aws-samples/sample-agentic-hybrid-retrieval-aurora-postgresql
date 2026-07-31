@@ -88,7 +88,7 @@ settings are inspectable tuning inputs, not guarantees of recall or latency.
 
 | Relation | Purpose |
 |---|---|
-| `retrieval_runs` | Query, filters, principal, model space, RRF weights, fuzzy threshold, ANN controls, rerank state, status, and latency |
+| `retrieval_runs` | Query, filters, persona, model space, RRF weights, fuzzy threshold, ANN controls, rerank state, status, and latency |
 | `retrieval_candidates` | Final rank plus raw arm scores, arm positions, RRF, rerank score, and evidence snapshot |
 | `run_stages` | Ordered retrieval and agent stage timings |
 | `agent_answers` | Question, answer text, synthesis mode, model transport, and token usage |
@@ -104,23 +104,29 @@ model-generated sentence is universally true.
 
 ## ACL Model
 
-The workshop ACL shape is:
+Every evidence item carries:
 
 ```json
 {
-  "visibility": "workshop",
-  "principals": []
+  "visibility": "workshop"
 }
 ```
 
-The default principal has the `workshop` scope. `CASE-7421` is restricted to
-the `support-lead` principal and must not enter any retrieval arm, traversal
-hop, comparison, or answer under the default principal.
+`visibility` is the only classification axis. It is projected to the sargable
+column `retrieval.documents.acl_visibility` (and `retrieval.chunks`), which both
+the RLS policy and `retrieval.acl_visible` read. Anything other than `'workshop'`
+is restricted, and the schema default is `'restricted'` so an unclassified row
+fails closed.
 
-The JSONB policy is intentionally small for teaching. A production design
-should map authenticated identity and source-system authorization into a
-reviewed policy, and revalidate permissions live when indexed ACL metadata is
-not sufficient.
+Identity is the caller's persona — `analyst`, `admin`, or `auditor` — carried as a
+database role, never as a value in the request body. `CASE-7421` and the six
+restricted objects seeded alongside it are visible only to a persona holding the
+`can_see_restricted` clearance, and they must not enter any retrieval arm,
+traversal hop, comparison, or answer for the analyst.
+
+The JSONB policy is intentionally small for teaching. A production design should
+map authenticated identity and source-system authorization into a reviewed policy,
+and revalidate permissions live when indexed ACL metadata is not sufficient.
 
 ## Deletion and History
 

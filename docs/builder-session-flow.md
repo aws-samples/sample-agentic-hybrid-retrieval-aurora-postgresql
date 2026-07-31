@@ -118,7 +118,8 @@ Before opening the room:
 - Fuzzy rank 1 for `CHG-1842` from `CGH-1842`.
 - Default hybrid rank 1 for `CHG-1842` under the inferred
   `checkout-prod-cluster-01` filter.
-- Default workshop principal cannot retrieve or traverse `CASE-7421`.
+- The `analyst` persona cannot retrieve or traverse `CASE-7421`, and the row is
+  invisible to it at `casework.evidence_items` itself.
 - Cited answer includes real source revisions and passes
   `proof.validate_answer_citations`.
 - Evaluation reports retrieval metrics separately from traversal metrics.
