@@ -36,6 +36,11 @@ npm-debug.log*
 # Embedding cache: regenerable Bedrock artifact, exceeds GitHub's 100MB limit
 /seed/artifacts/*.jsonl
 
+# Packaged restore artifact: produced by seed/dump.sh, shipped through the
+# Workshop Studio source archive rather than git.
+/seed/artifacts/*.dump
+/seed/artifacts/*.dump.revision
+
 # Design packaging archives: build artifacts, not source
 /design/*.zip
 *.parquet

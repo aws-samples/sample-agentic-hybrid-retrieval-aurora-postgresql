@@ -184,6 +184,7 @@ interface VerifySqlUnavailable {
 
 interface Health {
   status: string;
+  security_mode: 'core' | 'persona';
   drift_issues: number;
   current_chunks: number;
   ready_embeddings: number;
@@ -234,6 +235,7 @@ interface Candidate extends EvidenceSnapshot {
   final_score?: number | null;
   explanation?: {
     exact_identifier?: boolean;
+    embedding_model?: string;
     note?: string;
     positions?: Record<string, number | null>;
   };
@@ -260,7 +262,7 @@ interface Citation {
 }
 
 type AgentStreamState =
-  | 'blocked'
+  | 'idle'
   | 'streaming'
   | 'complete'
   | 'error';
@@ -335,7 +337,7 @@ interface RunSummary {
   fuzzy_weight: number;
   fuzzy_threshold: number;
   hnsw_ef_search: number | null;
-  hnsw_iterative_scan: string | null;
+  hnsw_iterative_scan: IterativeScanMode | null;
   status: string;
   latency_ms: number | null;
   candidate_count: number;
@@ -569,9 +571,18 @@ interface Controls {
   fuzzyWeight: number;
   fuzzyThreshold: number;
   efSearch: number;
+  iterativeScan: IterativeScanMode;
   rerank: boolean;
   role: PersonaKey;
 }
+
+type IterativeScanMode = 'off' | 'strict_order' | 'relaxed_order';
+
+const ITERATIVE_SCAN_LABELS: Record<IterativeScanMode, string> = {
+  off: 'Off',
+  strict_order: 'Strict order',
+  relaxed_order: 'Relaxed order',
+};
 
 const API_BASE = (
   import.meta.env.VITE_RETRIEVAL_API_URL || 'http://127.0.0.1:8000'
@@ -594,6 +605,7 @@ const DEFAULT_CONTROLS: Controls = {
   fuzzyWeight: 1,
   fuzzyThreshold: 0.3,
   efSearch: 40,
+  iterativeScan: 'strict_order',
   rerank: false,
   role: DEFAULT_PERSONA,
 };
@@ -613,6 +625,7 @@ function retrievalRequestKey(controls: Controls): string {
     fuzzyWeight: controls.fuzzyWeight,
     fuzzyThreshold: controls.fuzzyThreshold,
     efSearch: controls.efSearch,
+    iterativeScan: controls.iterativeScan,
     rerank: controls.rerank,
     role: controls.role,
   });
@@ -821,7 +834,10 @@ function readableToolName(tool?: string): string {
   return (tool || 'agent event').replace(/_/g, ' ');
 }
 
-function toolDecision(event: AgentTraceEvent): string {
+function toolDecision(
+  event: AgentTraceEvent,
+  personaMode = true,
+): string {
   const args = event.arguments || {};
   if (event.tool === 'decompose_question') {
     return `Split the compound question into ${event.subquestion_count || 'its'} evidence requirements.`;
@@ -836,7 +852,9 @@ function toolDecision(event: AgentTraceEvent): string {
       !args.cluster_id &&
       !args.incident_id;
     return boundedRecovery
-      ? `Relaxed incident scope only for reusable ${kinds}; the persona stayed fixed.`
+      ? personaMode
+        ? `Relaxed incident scope only for reusable ${kinds}; the persona stayed fixed.`
+        : `Relaxed incident scope only for reusable ${kinds}; the investigation scope stayed fixed.`
       : `Searched ${kinds} with ${args.cluster_id || args.incident_id || 'no scope filter'}.`;
   }
   if (event.tool === 'follow_evidence_links') {
@@ -885,7 +903,7 @@ function toolResult(event: AgentTraceEvent): string {
   return event.status || 'complete';
 }
 
-function sourceRole(citation: Citation): string {
+function sourceRole(citation: Citation, personaMode = true): string {
   if (citation.external_key === 'RB-017') {
     return 'Approved guidance for recovery and prevention.';
   }
@@ -896,7 +914,9 @@ function sourceRole(citation: Citation): string {
     return 'Observed lock state connecting the blocker to queued writers.';
   }
   if (citation.external_key === 'CASE-7419') {
-    return 'Visible customer impact under the analyst persona.';
+    return personaMode
+      ? 'Visible customer impact under the App Engineer persona.'
+      : 'Visible customer impact associated with the incident.';
   }
   if (citation.external_key.startsWith('CASE-')) {
     return 'Comparison case used to rule out unrelated customer impact.';
@@ -914,6 +934,27 @@ function sourceRole(citation: Citation): string {
     return 'Look-alike incident retained for scope comparison.';
   }
   return 'Supporting evidence cited by the validated answer.';
+}
+
+function toolContract(
+  tool: (typeof TOOL_NAMES)[number],
+  personaMode: boolean,
+) {
+  const contract = TOOL_CONTRACTS[tool];
+  if (personaMode) return contract;
+  if (tool === 'search_evidence') {
+    return {
+      ...contract,
+      purpose: 'Run canonical hybrid retrieval with metadata filters.',
+    };
+  }
+  if (tool === 'follow_evidence_links') {
+    return {
+      ...contract,
+      proof: 'Every relationship hop retains its evidence provenance.',
+    };
+  }
+  return contract;
 }
 
 function elapsedMilliseconds(stages: Stage[], throughIndex: number): number {
@@ -974,6 +1015,116 @@ const TIER_LABELS: Record<number, string> = {
 
 function tierLabel(tier: number): string {
   return TIER_LABELS[tier] || `Tier ${tier}`;
+}
+
+const RETRIEVAL_MODE_LABELS: Record<RetrievalMode, string> = {
+  hybrid: 'Hybrid',
+  semantic: 'Semantic',
+  lexical: 'Full-text',
+  fuzzy: 'Fuzzy',
+};
+
+function rankingScore(candidate: Candidate, mode: RetrievalMode): number | null {
+  if (mode === 'hybrid') {
+    return numberValue(candidate.rrf_score ?? candidate.final_score);
+  }
+  if (mode === 'semantic') return numberValue(candidate.vector_score);
+  if (mode === 'lexical') return numberValue(candidate.text_rank);
+  return numberValue(candidate.trigram_score);
+}
+
+function rankingScoreLabel(mode: RetrievalMode): string {
+  if (mode === 'hybrid') return 'Aurora RRF';
+  if (mode === 'semantic') return 'Vector similarity';
+  if (mode === 'lexical') return 'Full-text score';
+  return 'Trigram similarity';
+}
+
+function rankingScorePrecision(mode: RetrievalMode): number {
+  return mode === 'fuzzy' ? 3 : mode === 'hybrid' ? 5 : 4;
+}
+
+function finalOrderRule(mode: RetrievalMode, reranked: boolean): {
+  rule: string;
+  note: string;
+} {
+  if (mode === 'hybrid') {
+    return reranked
+      ? {
+          rule:
+            'Exact identifier matches first; Cohere orders candidates within each tier.',
+          note:
+            'Aurora RRF remains the pre-rerank order. RRF and Cohere scores explain relative rank; neither is a confidence probability.',
+        }
+      : {
+          rule:
+            'Exact identifier matches first; Aurora weighted RRF orders every other candidate.',
+          note:
+            'Arm positions, not raw arm scores, enter RRF. The resulting score explains relative rank, not confidence.',
+        };
+  }
+
+  const signalRule: Record<Exclude<RetrievalMode, 'hybrid'>, string> = {
+    semantic:
+      'Vector similarity orders evidence by distance in the configured embedding space.',
+    lexical:
+      'PostgreSQL full-text relevance orders the evidence returned by the lexical arm.',
+    fuzzy:
+      'pg_trgm similarity orders identifier and title matches above the active threshold.',
+  };
+  return {
+    rule: reranked
+      ? `Cohere reranks the ${RETRIEVAL_MODE_LABELS[mode].toLowerCase()} candidate set.`
+      : signalRule[mode],
+    note: reranked
+      ? `The original ${RETRIEVAL_MODE_LABELS[mode].toLowerCase()} score remains persisted separately from the Cohere score.`
+      : 'The displayed score is a relative ranking signal, not a confidence probability.',
+  };
+}
+
+function topRankExplanation(
+  candidate: Candidate,
+  evidence: EvidenceSnapshot,
+  mode: RetrievalMode,
+  reranked: boolean,
+  baseRank: number,
+): string {
+  const key = evidence.external_key || 'This evidence';
+  const textPosition = position(candidate, 'text');
+  const vectorPosition = position(candidate, 'vector');
+  const fuzzyPosition = position(candidate, 'fuzzy');
+  const primaryScore = rankingScore(candidate, mode);
+
+  let base: string;
+  if (mode === 'hybrid') {
+    if (candidate.explanation?.exact_identifier) {
+      base = `${key} matched an identifier in the query and entered the exact-identifier tier before fused candidates.`;
+    } else {
+      const positions = [
+        textPosition === null ? null : `full-text #${textPosition}`,
+        vectorPosition === null ? null : `semantic #${vectorPosition}`,
+        fuzzyPosition === null ? null : `fuzzy #${fuzzyPosition}`,
+      ].filter((value): value is string => Boolean(value));
+      base = positions.length
+        ? `${key} entered through ${positions.join(', ')}; weighted RRF combined those positions into ${score(primaryScore, 5)}.`
+        : `${key} entered the fused candidate set; weighted RRF placed it first with ${score(primaryScore, 5)}.`;
+    }
+  } else if (mode === 'semantic') {
+    base = `The semantic arm placed ${key} at ${rankLabel(vectorPosition)} by vector similarity in the configured embedding space.`;
+  } else if (mode === 'lexical') {
+    base = candidate.explanation?.exact_identifier
+      ? `${key} matched an identifier in the query and ranked first in PostgreSQL full-text retrieval.`
+      : `PostgreSQL full-text retrieval placed ${key} at ${rankLabel(textPosition)} from lexical relevance.`;
+  } else {
+    base = `pg_trgm placed ${key} at ${rankLabel(fuzzyPosition)} as the closest identifier or title match above the active threshold.`;
+  }
+
+  if (!reranked || candidate.rerank_score == null) return base;
+  const baseLabel =
+    mode === 'hybrid' ? 'Aurora rank' : `${RETRIEVAL_MODE_LABELS[mode]} rank`;
+  return baseRank === 1
+    ? `${base} Cohere kept it at final rank 1; the ${baseLabel.toLowerCase()} remains persisted separately.`
+    : `${base} Cohere moved it from ${baseLabel.toLowerCase()} ${baseRank} to final rank 1.`;
 }
 
 // Read-only reconstruction of the canonical Aurora order from persisted fields.
@@ -1603,13 +1754,15 @@ function CandidateRow({
 }
 
 function RerankImpact({
-  auroraRank,
+  baseRank,
   finalRank,
+  baseLabel,
 }: {
-  auroraRank: number;
+  baseRank: number;
   finalRank: number;
+  baseLabel: string;
 }) {
-  const delta = auroraRank - finalRank;
+  const delta = baseRank - finalRank;
   const direction = delta > 0 ? 'up' : delta < 0 ? 'down' : 'unchanged';
   const count = Math.abs(delta);
   const movement =
@@ -1618,7 +1771,7 @@ function RerankImpact({
       : direction === 'down'
         ? `Moved down ${count} ${count === 1 ? 'rank' : 'ranks'}`
         : 'Rank unchanged';
-  const label = `${movement}: Aurora rank ${auroraRank}, final rank ${finalRank}`;
+  const label = `${movement}: ${baseLabel} rank ${baseRank}, final rank ${finalRank}`;
 
   return (
     <span
@@ -1633,7 +1786,7 @@ function RerankImpact({
       <small>
         {direction === 'unchanged'
           ? `#${finalRank} unchanged`
-          : `#${auroraRank} → #${finalRank}`}
+          : `#${baseRank} → #${finalRank}`}
       </small>
     </span>
   );
@@ -1644,6 +1797,7 @@ function FinalRankedEvidence({
   rankingCandidates,
   selectedEvidenceId,
   reranked,
+  retrievalMode,
   runId,
   onSelect,
 }: {
@@ -1651,15 +1805,28 @@ function FinalRankedEvidence({
   rankingCandidates: Candidate[];
   selectedEvidenceId: string | null;
   reranked: boolean;
+  retrievalMode: RetrievalMode;
   runId: string;
   onSelect: (candidate: Candidate) => void;
 }) {
-  const auroraRanks = new Map(
-    fusedOrder(rankingCandidates).map((candidate, index) => [
+  const isHybrid = retrievalMode === 'hybrid';
+  const showText = isHybrid || retrievalMode === 'lexical';
+  const showVector = isHybrid || retrievalMode === 'semantic';
+  const showFuzzy = isHybrid || retrievalMode === 'fuzzy';
+  const baseOrder = isHybrid
+    ? fusedOrder(rankingCandidates)
+    : rankingCandidates;
+  const baseRanks = new Map(
+    baseOrder.map((candidate, index) => [
       candidate,
       index + 1,
     ]),
   );
+  const baseRankLabel =
+    retrievalMode === 'hybrid'
+      ? 'Aurora'
+      : RETRIEVAL_MODE_LABELS[retrievalMode];
+  const orderRule = finalOrderRule(retrievalMode, reranked);
   const topCandidate = candidates[0];
   const topEvidence = topCandidate ? snapshot(topCandidate) : null;
   const topTextPosition = topCandidate
@@ -1671,11 +1838,11 @@ function FinalRankedEvidence({
   const topFuzzyPosition = topCandidate
     ? position(topCandidate, 'fuzzy')
     : null;
-  const topRrf = topCandidate
-    ? topCandidate.rrf_score ?? topCandidate.final_score
+  const topPrimaryScore = topCandidate
+    ? rankingScore(topCandidate, retrievalMode)
     : null;
-  const topAuroraRank = topCandidate
-    ? auroraRanks.get(topCandidate) || 1
+  const topBaseRank = topCandidate
+    ? baseRanks.get(topCandidate) || 1
     : 1;
   const inspectedCandidate =
     candidates.find((candidate) => candidate.evidence_id === selectedEvidenceId) ||
@@ -1691,8 +1858,8 @@ function FinalRankedEvidence({
           <span className="section-label">Final ranked evidence</span>
           <h2 className="final-ranked-results-title">Search results</h2>
           <p>
-            Read the persisted final order first. Then inspect what ranked
-            first, why it won, and how the ranking was built.
+            Start with the best matching evidence and why it ranked first.
+            The persisted order and arm diagnostics remain available below.
           </p>
         </div>
         <span className={`status-pill ${runId ? 'ready' : 'pending'}`}>
@@ -1702,28 +1869,87 @@ function FinalRankedEvidence({
 
       {topCandidate && topEvidence ? (
         <>
+          <div className="final-ranked-story final-ranked-what">
+            <div className="final-ranked-story-heading">
+              <span className="section-label">Top evidence excerpt</span>
+              <h3 className="retrieval-story-title">
+                Best <em>matching evidence</em>
+              </h3>
+            </div>
+            <div className="final-ranked-outcome">
+              <h4>{topEvidence.title || 'Untitled evidence'}</h4>
+              <p>{topEvidence.snippet || 'No visible evidence excerpt.'}</p>
+              <div className="final-ranked-outcome-meta">
+                <code>{topEvidence.external_key || 'Unknown evidence'}</code>
+                <span>
+                  {KIND_LABELS[topEvidence.evidence_kind || 'incident']}
+                </span>
+                <span>{systemLabel(topEvidence.source_system)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="final-ranked-story final-ranked-why">
+            <div className="final-ranked-story-heading">
+              <span className="section-label">Rank explanation</span>
+              <h3 className="retrieval-story-title">
+                <em>Why</em> this evidence ranked first
+              </h3>
+            </div>
+            <p>
+              {topRankExplanation(
+                topCandidate,
+                topEvidence,
+                retrievalMode,
+                reranked,
+                topBaseRank,
+              )}
+            </p>
+            <div className="final-ranked-why-signals">
+              {topCandidate.explanation?.exact_identifier ? (
+                <span>
+                  <CircleDot size={11} />
+                  exact match
+                </span>
+              ) : null}
+              {topTextPosition !== null ? (
+                <span>text #{topTextPosition}</span>
+              ) : null}
+              {topVectorPosition !== null ? (
+                <span>semantic #{topVectorPosition}</span>
+              ) : null}
+              {topFuzzyPosition !== null ? (
+                <span>fuzzy #{topFuzzyPosition}</span>
+              ) : null}
+              <span>
+                {rankingScoreLabel(retrievalMode)}{' '}
+                {score(
+                  topPrimaryScore,
+                  rankingScorePrecision(retrievalMode),
+                )}
+              </span>
+              {reranked && topCandidate.rerank_score != null ? (
+                <span>Cohere {score(topCandidate.rerank_score, 3)}</span>
+              ) : null}
+            </div>
+          </div>
+
           <aside className="rank-order-note" aria-label="Final ranking rule">
             <span className="rank-order-icon" aria-hidden="true">
               <GitMerge size={19} />
             </span>
             <span className="rank-order-copy">
               <span className="rank-order-label">Final-order rule</span>
-              <strong>
-                {reranked
-                  ? 'Exact identifier matches first; Cohere orders candidates within each tier.'
-                  : 'Exact identifier matches first; Aurora weighted RRF orders every other candidate.'}
-              </strong>
-              <small>
-                {reranked
-                  ? 'Aurora RRF remains the pre-rerank order. RRF and Cohere scores explain relative rank; neither is a confidence probability.'
-                  : 'Arm scores and RRF explain relative rank. They are ranking signals, not confidence probabilities.'}
-              </small>
+              <strong>{orderRule.rule}</strong>
+              <small>{orderRule.note}</small>
             </span>
           </aside>
           <div className="ranked-results-workspace">
             <div className="ranked-results-table-wrap">
               <table
-                className={`ranked-results-table ${reranked ? 'reranked' : ''}`}
+                className={`ranked-results-table ${
+                  isHybrid ? 'hybrid' : 'single-signal'
+                } ${reranked ? 'reranked' : ''}`}
               >
                 <thead>
                   <tr>
@@ -1739,20 +1965,26 @@ function FinalRankedEvidence({
                     ) : null}
                     <th className="result-evidence-column">Evidence</th>
                     <th className="result-type-column">Type</th>
-                    <th className="arm-rank-column group-start">
-                      <span>Full-text</span>
-                      <small>rank</small>
-                    </th>
-                    <th className="arm-rank-column">
-                      <span>Semantic</span>
-                      <small>rank</small>
-                    </th>
-                    <th className="arm-rank-column">
-                      <span>Fuzzy</span>
-                      <small>rank</small>
-                    </th>
-                    <th className="result-score-column aurora-score-column group-start">
-                      Aurora RRF score
+                    {showText ? (
+                      <th className="arm-rank-column group-start">
+                        <span>Full-text</span>
+                        <small>rank</small>
+                      </th>
+                    ) : null}
+                    {showVector ? (
+                      <th className="arm-rank-column group-start">
+                        <span>Semantic</span>
+                        <small>rank</small>
+                      </th>
+                    ) : null}
+                    {showFuzzy ? (
+                      <th className="arm-rank-column group-start">
+                        <span>Fuzzy</span>
+                        <small>rank</small>
+                      </th>
+                    ) : null}
+                    <th className="result-score-column primary-score-column group-start">
+                      {rankingScoreLabel(retrievalMode)}
                     </th>
                     {reranked ? (
                       <th className="result-score-column cohere-score-column">
@@ -1769,8 +2001,8 @@ function FinalRankedEvidence({
                   {candidates.map((candidate, index) => {
                     const item = snapshot(candidate);
                     const finalRank = candidate.result_rank || index + 1;
-                    const auroraRank =
-                      auroraRanks.get(candidate) || finalRank;
+                    const baseRank =
+                      baseRanks.get(candidate) || finalRank;
                     const selected =
                       candidate.evidence_id === inspectedCandidate?.evidence_id;
                     return (
@@ -1793,8 +2025,9 @@ function FinalRankedEvidence({
                         {reranked ? (
                           <td className="result-impact-column">
                             <RerankImpact
-                              auroraRank={auroraRank}
+                              baseRank={baseRank}
                               finalRank={finalRank}
+                              baseLabel={baseRankLabel}
                             />
                           </td>
                         ) : null}
@@ -1805,20 +2038,26 @@ function FinalRankedEvidence({
                         <td className="result-type-column">
                           {KIND_LABELS[item.evidence_kind || 'incident']}
                         </td>
-                        <td className="arm-rank-column group-start">
-                          {rankLabel(position(candidate, 'text'))}
-                        </td>
-                        <td className="arm-rank-column">
-                          {rankLabel(position(candidate, 'vector'))}
-                        </td>
-                        <td className="arm-rank-column">
-                          {rankLabel(position(candidate, 'fuzzy'))}
-                        </td>
-                        <td className="result-score-column aurora-score-column group-start">
+                        {showText ? (
+                          <td className="arm-rank-column group-start">
+                            {rankLabel(position(candidate, 'text'))}
+                          </td>
+                        ) : null}
+                        {showVector ? (
+                          <td className="arm-rank-column group-start">
+                            {rankLabel(position(candidate, 'vector'))}
+                          </td>
+                        ) : null}
+                        {showFuzzy ? (
+                          <td className="arm-rank-column group-start">
+                            {rankLabel(position(candidate, 'fuzzy'))}
+                          </td>
+                        ) : null}
+                        <td className="result-score-column primary-score-column group-start">
                           <code>
                             {score(
-                              candidate.rrf_score ?? candidate.final_score,
-                              5,
+                              rankingScore(candidate, retrievalMode),
+                              rankingScorePrecision(retrievalMode),
                             )}
                           </code>
                         </td>
@@ -1845,25 +2084,30 @@ function FinalRankedEvidence({
                   {inspectedEvidence.snippet || 'No visible evidence excerpt.'}
                 </p>
                 <dl>
+                  {showText ? (
+                    <div>
+                      <dt>Full-text</dt>
+                      <dd>{rankLabel(position(inspectedCandidate, 'text'))}</dd>
+                    </div>
+                  ) : null}
+                  {showVector ? (
+                    <div>
+                      <dt>Semantic</dt>
+                      <dd>{rankLabel(position(inspectedCandidate, 'vector'))}</dd>
+                    </div>
+                  ) : null}
+                  {showFuzzy ? (
+                    <div>
+                      <dt>Fuzzy</dt>
+                      <dd>{rankLabel(position(inspectedCandidate, 'fuzzy'))}</dd>
+                    </div>
+                  ) : null}
                   <div>
-                    <dt>Full-text</dt>
-                    <dd>{rankLabel(position(inspectedCandidate, 'text'))}</dd>
-                  </div>
-                  <div>
-                    <dt>Semantic</dt>
-                    <dd>{rankLabel(position(inspectedCandidate, 'vector'))}</dd>
-                  </div>
-                  <div>
-                    <dt>Fuzzy</dt>
-                    <dd>{rankLabel(position(inspectedCandidate, 'fuzzy'))}</dd>
-                  </div>
-                  <div>
-                    <dt>Aurora RRF</dt>
+                    <dt>{rankingScoreLabel(retrievalMode)}</dt>
                     <dd>
                       {score(
-                        inspectedCandidate.rrf_score ??
-                          inspectedCandidate.final_score,
-                        5,
+                        rankingScore(inspectedCandidate, retrievalMode),
+                        rankingScorePrecision(retrievalMode),
                       )}
                     </dd>
                   </div>
@@ -1877,12 +2121,13 @@ function FinalRankedEvidence({
                         <dt>Rank impact</dt>
                         <dd>
                           <RerankImpact
-                            auroraRank={
-                              auroraRanks.get(inspectedCandidate) ||
+                            baseRank={
+                              baseRanks.get(inspectedCandidate) ||
                               inspectedCandidate.result_rank ||
                               1
                             }
                             finalRank={inspectedCandidate.result_rank || 1}
+                            baseLabel={baseRankLabel}
                           />
                         </dd>
                       </div>
@@ -1890,65 +2135,15 @@ function FinalRankedEvidence({
                   ) : null}
                 </dl>
                 <footer>
-                  <span>{tierLabel(matchTier(inspectedCandidate))}</span>
+                  <span>
+                    {isHybrid
+                      ? tierLabel(matchTier(inspectedCandidate))
+                      : `${RETRIEVAL_MODE_LABELS[retrievalMode]} retrieval`}
+                  </span>
                   <code>{compactId(inspectedCandidate.evidence_id || '')}</code>
                 </footer>
               </aside>
             ) : null}
-          </div>
-
-          <div className="final-ranked-story final-ranked-what">
-            <div className="final-ranked-story-heading">
-              <span className="section-label">Retrieval outcome</span>
-              <h3 className="retrieval-story-title">
-                <em>What</em> this retrieval returned first
-              </h3>
-            </div>
-            <p>
-              The persisted rank-one result is{' '}
-              <strong>{topEvidence.external_key}</strong>: {topEvidence.title}.
-              This is the retrieval outcome passed to the Agent.
-            </p>
-          </div>
-
-          <div className="final-ranked-story final-ranked-why">
-            <div className="final-ranked-story-heading">
-              <span className="section-label">Rank explanation</span>
-              <h3 className="retrieval-story-title">
-                <em>Why</em> this evidence ranked first
-              </h3>
-            </div>
-            <p>
-              {topCandidate.explanation?.exact_identifier
-                ? `${topEvidence.external_key} entered the exact-identifier tier before fused candidates.`
-                : 'This evidence entered the fused candidate set from the active retrieval arms.'}{' '}
-              {reranked && topCandidate.rerank_score != null
-                ? topAuroraRank === 1
-                  ? `Cohere kept it at rank 1; Aurora RRF ${score(topRrf, 5)} remains persisted separately.`
-                  : `Cohere moved it from Aurora rank ${topAuroraRank} to final rank 1; Aurora RRF ${score(topRrf, 5)} remains persisted separately.`
-                : `Weighted RRF combined its arm positions into ${score(topRrf, 5)}.`}
-            </p>
-            <div className="final-ranked-why-signals">
-              {topCandidate.explanation?.exact_identifier ? (
-                <span>
-                  <CircleDot size={11} />
-                  exact tier
-                </span>
-              ) : null}
-              {topTextPosition !== null ? (
-                <span>text #{topTextPosition}</span>
-              ) : null}
-              {topVectorPosition !== null ? (
-                <span>semantic #{topVectorPosition}</span>
-              ) : null}
-              {topFuzzyPosition !== null ? (
-                <span>fuzzy #{topFuzzyPosition}</span>
-              ) : null}
-              <span>RRF {score(topRrf, 5)}</span>
-              {reranked && topCandidate.rerank_score != null ? (
-                <span>Cohere {score(topCandidate.rerank_score, 3)}</span>
-              ) : null}
-            </div>
           </div>
         </>
       ) : (
@@ -2694,6 +2889,28 @@ function FusionControlPanel({
             />
           </label>
           <label>
+            <span>HNSW iterative scan</span>
+            <select
+              value={controls.iterativeScan}
+              onChange={(event) =>
+                onChange(
+                  'iterativeScan',
+                  event.target.value as IterativeScanMode,
+                )
+              }
+            >
+              {(
+                Object.entries(ITERATIVE_SCAN_LABELS) as Array<
+                  [IterativeScanMode, string]
+                >
+              ).map(([mode, label]) => (
+                <option key={mode} value={mode}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             <span>Fuzzy threshold</span>
             <input
               type="number"
@@ -2888,11 +3105,13 @@ function EvidenceGraph({
 function JourneyStrip({
   steps,
   onNavigate,
+  personaMode,
   persona,
   onPersona,
 }: {
   steps: JourneyStep[];
   onNavigate: (surface: JourneySurface) => void;
+  personaMode: boolean;
   persona: PersonaKey;
   onPersona: (next: PersonaKey) => void;
 }) {
@@ -2928,32 +3147,36 @@ function JourneyStrip({
           </li>
         ))}
       </ol>
-      <div className="persona-chip">
-        <span className="section-label">Viewing as</span>
-        <div className="segmented" role="group" aria-label="Viewing as">
-          {PERSONA_KEYS.map((key) => (
-            <button
-              key={key}
-              type="button"
-              className={key === persona ? 'active' : ''}
-              aria-pressed={key === persona}
-              onClick={() => onPersona(key)}
-            >
-              {PERSONA_LABELS[key]}
-            </button>
-          ))}
+      {personaMode ? (
+        <div className="persona-chip">
+          <span className="section-label">Viewing as</span>
+          <div className="segmented" role="group" aria-label="Viewing as">
+            {PERSONA_KEYS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={key === persona ? 'active' : ''}
+                aria-pressed={key === persona}
+                onClick={() => onPersona(key)}
+              >
+                {PERSONA_LABELS[key]}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
     </nav>
   );
 }
 
 function ProofChainOfCustody({
   receipt,
+  personaMode,
   selectedCitationNumber,
   onSelectCitation,
 }: {
   receipt: RunReceipt | null;
+  personaMode: boolean;
   selectedCitationNumber: number;
   onSelectCitation: (citationNumber: number) => void;
 }) {
@@ -2981,7 +3204,9 @@ function ProofChainOfCustody({
   const item = candidate ? snapshot(candidate) : null;
   const validationStatus = receipt.answer?.validation_status || 'persisted';
   const persona = personaLabel(receipt.run.role);
-  const claim = citation.claim || sourceRole(citation);
+  const persistedClaim = citation.claim?.trim();
+  const claim = persistedClaim || sourceRole(citation, personaMode);
+  const claimLabel = persistedClaim ? 'Claim' : 'Source context';
 
   const steps: Array<{
     label: string;
@@ -2990,9 +3215,9 @@ function ProofChainOfCustody({
     Icon: typeof FileCheck2;
   }> = [
     {
-      label: 'Claim',
+      label: claimLabel,
       value: claim,
-      meta: `Claim ${citationNumber} of ${citations.length}`,
+      meta: `${claimLabel} ${citationNumber} of ${citations.length}`,
       Icon: FileCheck2,
     },
     {
@@ -3015,8 +3240,10 @@ function ProofChainOfCustody({
     },
     {
       label: 'Verified by',
-      value: 'Citation + ACL',
-      meta: `${validationStatus} · viewing as ${persona}`,
+      value: personaMode ? 'Citation + ACL' : 'Citation validation',
+      meta: personaMode
+        ? `${validationStatus} · viewing as ${persona}`
+        : validationStatus,
       Icon: ShieldCheck,
     },
     {
@@ -3038,7 +3265,11 @@ function ProofChainOfCustody({
       <header>
         <div>
           <span className="section-label">Persisted chain of custody</span>
-          <h2>Follow a claim to its exact source span</h2>
+          <h2>
+            {persistedClaim
+              ? 'Follow a claim to its exact source span'
+              : 'Follow source context to its exact source span'}
+          </h2>
         </div>
         <span
           className={`status-pill ${
@@ -3048,7 +3279,7 @@ function ProofChainOfCustody({
           {validationStatus}
         </span>
       </header>
-      <div className="custody-claims" aria-label="Cited claims">
+      <div className="custody-claims" aria-label="Cited sources">
         {citations.map((itemCitation, index) => {
           const number = itemCitation.citation_number || itemCitation.n || index + 1;
           return (
@@ -3061,7 +3292,11 @@ function ProofChainOfCustody({
             >
               <span>{number}</span>
               <strong>{itemCitation.external_key}</strong>
-              <small>{itemCitation.claim || sourceRole(itemCitation)}</small>
+              <small>
+                {itemCitation.claim?.trim()
+                  ? itemCitation.claim
+                  : `Source context: ${sourceRole(itemCitation, personaMode)}`}
+              </small>
             </button>
           );
         })}
@@ -3104,10 +3339,12 @@ function ProofChainOfCustody({
               <dt>Revision</dt>
               <dd>{citation.source_revision}</dd>
             </div>
-            <div>
-              <dt>Viewing as</dt>
-              <dd>{persona}</dd>
-            </div>
+            {personaMode ? (
+              <div>
+                <dt>Viewing as</dt>
+                <dd>{persona}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>Document version</dt>
               <dd title={citation.document_version_id}>
@@ -3143,6 +3380,7 @@ export default function WorkbenchApp() {
   const [controls, setControls] = useState<Controls>(DEFAULT_CONTROLS);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [health, setHealth] = useState<Health | null>(null);
+  const personaMode = health?.security_mode === 'persona';
   const [connectionState, setConnectionState] =
     useState<ConnectionState>('checking');
   const [diagnostics, setDiagnostics] =
@@ -3168,6 +3406,7 @@ export default function WorkbenchApp() {
   const [graphEdgeMode, setGraphEdgeMode] =
     useState<'canonical' | 'all'>('all');
   const [runId, setRunId] = useState('');
+  const [proofRunDraft, setProofRunDraft] = useState('');
   const [selectedProofCitation, setSelectedProofCitation] = useState(1);
   const [replayKey, setReplayKey] = useState(0);
   // Gate the URL-sync effect until the initial hash has been applied, so the
@@ -3182,7 +3421,7 @@ export default function WorkbenchApp() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [agentStreamState, setAgentStreamState] =
-    useState<AgentStreamState>('blocked');
+    useState<AgentStreamState>('idle');
   const [streamingAnswer, setStreamingAnswer] = useState('');
   const [agentTrace, setAgentTrace] = useState<AgentTraceEvent[]>([]);
   const [streamCitations, setStreamCitations] = useState<Citation[]>([]);
@@ -3202,6 +3441,7 @@ export default function WorkbenchApp() {
   const homeTypingInterrupted = useRef(false);
   const lastCompletedSearchKey = useRef<string | null>(null);
   const processedFusionRunRequest = useRef(0);
+  const roleTransitionVersion = useRef(0);
 
   const selectedCandidate = useMemo(
     () =>
@@ -3316,17 +3556,31 @@ export default function WorkbenchApp() {
       }
     }
     if (initialRoute.surface === 'agent' && initialRoute.role) {
-      setControl('role', initialRoute.role);
+      setPersona(initialRoute.role);
     }
+    const initialRole =
+      initialRoute.surface === 'agent' && initialRoute.role
+        ? initialRoute.role
+        : controls.role;
     goTo(initialRoute.surface as Surface, initialRoute.lens);
     const deepLinkedRun =
       initialRoute.surface === 'proof' ? initialRoute.runId : undefined;
+    const initialLoadVersion = roleTransitionVersion.current;
     void (async () => {
       try {
         const targetRun =
           deepLinkedRun ??
-          (await api<{ run_id: string }>('/v1/runs/latest')).run_id;
-        if (!cancelled) await loadRun(targetRun);
+          (
+            await api<{ run_id: string }>(
+              `/v1/runs/latest?role=${encodeURIComponent(initialRole)}`,
+            )
+          ).run_id;
+        if (
+          !cancelled &&
+          initialLoadVersion === roleTransitionVersion.current
+        ) {
+          await loadRun(targetRun, undefined, false, initialRole);
+        }
       } catch {
         // A new environment can be ready before it has a cited receipt.
       } finally {
@@ -3342,25 +3596,93 @@ export default function WorkbenchApp() {
   }, []);
 
   useEffect(() => {
+    if (health?.security_mode !== 'core' || controls.role === DEFAULT_PERSONA) {
+      return;
+    }
+    setPersona(DEFAULT_PERSONA);
+  }, [health?.security_mode, controls.role]);
+
+  useEffect(() => {
     if (!selectedEvidenceId) {
       setEvidenceDetail(null);
       return;
     }
     let cancelled = false;
-    api<EvidenceDetail>(`/v1/evidence/${selectedEvidenceId}`)
+    const transitionVersion = roleTransitionVersion.current;
+    api<EvidenceDetail>(
+      `/v1/evidence/${selectedEvidenceId}?role=${encodeURIComponent(controls.role)}`,
+    )
       .then((detail) => {
-        if (!cancelled) setEvidenceDetail(detail);
+        if (
+          !cancelled &&
+          transitionVersion === roleTransitionVersion.current
+        ) {
+          setEvidenceDetail(detail);
+        }
       })
       .catch(() => {
-        if (!cancelled) setEvidenceDetail(null);
+        if (
+          !cancelled &&
+          transitionVersion === roleTransitionVersion.current
+        ) {
+          setEvidenceDetail(null);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [selectedEvidenceId]);
+  }, [selectedEvidenceId, controls.role]);
 
   function setControl<K extends keyof Controls>(key: K, value: Controls[K]) {
     setControls((current) => ({ ...current, [key]: value }));
+  }
+
+  function clearLoadedProofState() {
+    setCandidates([]);
+    setSelectedEvidenceId(null);
+    setEvidenceDetail(null);
+    setReceipt(null);
+    setGraph(null);
+    setTimeline(null);
+    setAnswer(null);
+    setRunId('');
+    setSelectedProofCitation(1);
+  }
+
+  function clearAgentState() {
+    setAgentStreamState('idle');
+    setStreamingAnswer('');
+    setAgentTrace([]);
+    setStreamCitations([]);
+    setVisibleCitationCount(0);
+    setAgentMetadata(null);
+    setAgentCommentary('');
+    setAgentUsage(null);
+    setAgentLatencyMs(null);
+  }
+
+  function clearRoleBoundState() {
+    clearLoadedProofState();
+    clearAgentState();
+    setProofRunDraft('');
+    setEvaluation(null);
+    setQueryPlan(null);
+    setPlanOpen(false);
+    setCandidateReceiptOpen(false);
+    lastCompletedSearchKey.current = null;
+    setError(null);
+    setBusy(null);
+  }
+
+  function invalidateRoleBoundState() {
+    roleTransitionVersion.current += 1;
+    clearRoleBoundState();
+  }
+
+  function setPersona(next: PersonaKey) {
+    if (next === controls.role) return;
+    invalidateRoleBoundState();
+    setControls((current) => ({ ...current, role: next }));
   }
 
   // Single navigation writer (SPEC 6.0). Every nav item, entry card, and
@@ -3376,7 +3698,7 @@ export default function WorkbenchApp() {
         const tab: DiagnoseTab = lens === 'fusion' ? 'fusion' : 'results';
         setModule('retrieve');
         setDiagnoseTab(tab);
-        setControl('role', DEFAULT_PERSONA);
+        setPersona(DEFAULT_PERSONA);
         if (tab === 'fusion') {
           setPlanOpen(false);
           setFusionRunRequest((current) => current + 1);
@@ -3477,8 +3799,8 @@ export default function WorkbenchApp() {
         }));
       }
     }
-    if (route.surface === 'agent' && route.role) {
-      setControl('role', route.role);
+    if (personaMode && route.surface === 'agent' && route.role) {
+      setPersona(route.role);
     }
     if (route.surface === 'proof' && route.runId && route.runId !== runId) {
       void loadRun(route.runId);
@@ -3496,7 +3818,9 @@ export default function WorkbenchApp() {
     if (activeSurface === 'retrieval' && activePreset) {
       route.preset = activePreset;
     }
-    if (activeSurface === 'agent') route.role = activePersona;
+    if (personaMode && activeSurface === 'agent') {
+      route.role = activePersona;
+    }
     if (activeSurface === 'proof' && runId) route.runId = runId;
     const nextHash = formatRoute(route);
     if (window.location.hash !== nextHash) {
@@ -3508,6 +3832,7 @@ export default function WorkbenchApp() {
     activeLens,
     activePreset,
     activePersona,
+    personaMode,
     runId,
   ]);
 
@@ -3542,7 +3867,7 @@ export default function WorkbenchApp() {
       w_trgm: sourceControls.fuzzyWeight,
       fuzzy_threshold: sourceControls.fuzzyThreshold,
       ef_search: sourceControls.efSearch,
-      iterative_scan: 'relaxed_order',
+      iterative_scan: sourceControls.iterativeScan,
       rerank: sourceControls.rerank,
       role: sourceControls.role,
     };
@@ -3555,43 +3880,61 @@ export default function WorkbenchApp() {
     setHomeTyping(false);
   }
 
-  async function loadRun(id: string | undefined, requestKey?: string) {
-    const runKey = encodeURIComponent((id || '').trim());
-    if (!runKey) return;
+  async function loadRun(
+    id: string | undefined,
+    requestKey?: string,
+    preserveAgentState = false,
+    requestedRole: PersonaKey = controls.role,
+  ): Promise<boolean> {
+    const requestedRunId = (id || '').trim();
+    const runKey = encodeURIComponent(requestedRunId);
+    if (!runKey) return false;
+    const transitionVersion = roleTransitionVersion.current;
     if (!requestKey) lastCompletedSearchKey.current = null;
+    setProofRunDraft(requestedRunId);
+    clearLoadedProofState();
+    if (!preserveAgentState) clearAgentState();
     setBusy('run');
     setError(null);
     try {
+      const roleQuery = `role=${encodeURIComponent(requestedRole)}`;
       const [runReceipt, runGraph, runTimeline] = await Promise.all([
-        api<RunReceipt>(`/v1/runs/${runKey}`),
-        api<RunGraph>(`/v1/runs/${runKey}/graph`),
-        api<RunTimeline>(`/v1/runs/${runKey}/timeline`),
+        api<RunReceipt>(`/v1/runs/${runKey}?${roleQuery}`),
+        api<RunGraph>(`/v1/runs/${runKey}/graph?${roleQuery}`),
+        api<RunTimeline>(`/v1/runs/${runKey}/timeline?${roleQuery}`),
       ]);
       const ranked = runReceipt.candidates.map((candidate, index) => ({
         ...candidate,
         result_rank: candidate.result_rank || index + 1,
       }));
+      if (transitionVersion !== roleTransitionVersion.current) return false;
       setReceipt(runReceipt);
       setGraph(runGraph);
       setTimeline(runTimeline);
       setCandidates(ranked);
       setAnswer(runReceipt.answer);
       setRunId(runReceipt.run.run_id);
+      setProofRunDraft(runReceipt.run.run_id);
       if (requestKey) lastCompletedSearchKey.current = requestKey;
       setSelectedEvidenceId((current) =>
         ranked.some((candidate) => candidate.evidence_id === current)
           ? current
           : ranked[0]?.evidence_id || null,
       );
+      return true;
     } catch (reason) {
+      if (transitionVersion !== roleTransitionVersion.current) return false;
+      clearLoadedProofState();
       setError(reason instanceof Error ? reason.message : 'Run unavailable');
+      return false;
     } finally {
-      setBusy(null);
+      if (transitionVersion === roleTransitionVersion.current) setBusy(null);
     }
   }
 
   async function loadQueryPlan(arm = planArm) {
     if (!controls.query.trim()) return;
+    const transitionVersion = roleTransitionVersion.current;
     setPlanOpen(true);
     setBusy('plan');
     setError(null);
@@ -3607,14 +3950,16 @@ export default function WorkbenchApp() {
           role: controls.role,
         }),
       });
+      if (transitionVersion !== roleTransitionVersion.current) return;
       setPlanArm(arm);
       setQueryPlan(result);
     } catch (reason) {
+      if (transitionVersion !== roleTransitionVersion.current) return;
       setError(
         reason instanceof Error ? reason.message : 'Query plan unavailable',
       );
     } finally {
-      setBusy(null);
+      if (transitionVersion === roleTransitionVersion.current) setBusy(null);
     }
   }
 
@@ -3632,10 +3977,13 @@ export default function WorkbenchApp() {
   ) {
     event?.preventDefault();
     if (!requestedControls.query.trim()) return;
+    const transitionVersion = roleTransitionVersion.current;
     const requestKey = retrievalRequestKey(requestedControls);
+    clearLoadedProofState();
+    clearAgentState();
+    setProofRunDraft('');
     setBusy('search');
     setError(null);
-    setAnswer(null);
     setPlanOpen(false);
     setArmsOpen(false);
     setCandidateReceiptOpen(false);
@@ -3644,18 +3992,18 @@ export default function WorkbenchApp() {
         method: 'POST',
         body: JSON.stringify(searchPayload(requestedControls)),
       });
-      const ranked = response.results.map((candidate, index) => ({
-        ...candidate,
-        result_rank: index + 1,
-      }));
-      setCandidates(ranked);
-      setRunId(response.run_id);
-      setSelectedEvidenceId(ranked[0]?.evidence_id || null);
-      await loadRun(response.run_id, requestKey);
+      if (transitionVersion !== roleTransitionVersion.current) return;
+      await loadRun(
+        response.run_id,
+        requestKey,
+        false,
+        requestedControls.role,
+      );
     } catch (reason) {
+      if (transitionVersion !== roleTransitionVersion.current) return;
       setError(reason instanceof Error ? reason.message : 'Search unavailable');
     } finally {
-      setBusy(null);
+      if (transitionVersion === roleTransitionVersion.current) setBusy(null);
     }
   }
 
@@ -3667,16 +4015,12 @@ export default function WorkbenchApp() {
       query: baselineQuery,
       role: DEFAULT_PERSONA,
     };
+    if (controls.role === DEFAULT_PERSONA) {
+      invalidateRoleBoundState();
+    } else {
+      setPersona(DEFAULT_PERSONA);
+    }
     setControls(baselineControls);
-    setAgentStreamState('blocked');
-    setStreamingAnswer('');
-    setAgentTrace([]);
-    setStreamCitations([]);
-    setVisibleCitationCount(0);
-    setAgentMetadata(null);
-    setAgentCommentary('');
-    setAgentUsage(null);
-    setAgentLatencyMs(null);
     setModule('retrieve');
     setDiagnoseTab('results');
     await runSearch(undefined, baselineControls);
@@ -3684,6 +4028,8 @@ export default function WorkbenchApp() {
 
   async function askAgent() {
     if (!controls.query.trim()) return;
+    const transitionVersion = roleTransitionVersion.current;
+    const requestControls = controls;
     setModule('prove');
     setProveTab('answer');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -3706,15 +4052,17 @@ export default function WorkbenchApp() {
       const response = await fetch(
         `${API_BASE}/v1/agent/strands/answer/stream`,
         {
-        method: 'POST',
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: controls.query,
+          body: JSON.stringify({
+            question: requestControls.query,
             max_tool_calls: 12,
-          role: controls.role,
-        }),
+            iterative_scan: requestControls.iterativeScan,
+            role: requestControls.role,
+          }),
         },
       );
+      if (transitionVersion !== roleTransitionVersion.current) return;
       if (!response.ok) {
         let message = `${response.status} ${response.statusText}`;
         try {
@@ -3740,6 +4088,7 @@ export default function WorkbenchApp() {
       let buffer = '';
 
       const consumeEvent = async (event: AgentTraceEvent) => {
+        if (transitionVersion !== roleTransitionVersion.current) return;
         if (event.type === 'meta') {
           setAgentMetadata(event.agent || null);
           return;
@@ -3766,6 +4115,7 @@ export default function WorkbenchApp() {
             setStreamingAnswer((current) => current + text);
           } else {
             for (let offset = 0; offset < text.length; offset += 3) {
+              if (transitionVersion !== roleTransitionVersion.current) return;
               const fragment = text.slice(offset, offset + 3);
               setStreamingAnswer((current) => current + fragment);
               await new Promise<void>((resolve) =>
@@ -3817,21 +4167,14 @@ export default function WorkbenchApp() {
           return;
         }
 
-        setAnswer({
-          run_id: completedRunId,
-          question: event.question || controls.query,
-          answer_text: event.answer,
-          synthesis_mode: event.synthesis_mode || 'validated',
-          model_id: event.agent?.synthesis_model || null,
-          model_transport: event.agent?.model_transport || null,
-          citations: event.citations || [],
-        });
-        setRunId(completedRunId);
-        setAgentStreamState('complete');
       };
 
       while (true) {
         const { value, done } = await reader.read();
+        if (transitionVersion !== roleTransitionVersion.current) {
+          await reader.cancel();
+          return;
+        }
         buffer += decoder.decode(value, { stream: !done });
         let boundary = buffer.indexOf('\n\n');
         while (boundary >= 0) {
@@ -3854,13 +4197,22 @@ export default function WorkbenchApp() {
         throw new Error('The Strands event stream ended before a final run record.');
       }
       if (completedRunId) {
-        await loadRun(completedRunId);
+        const loaded = await loadRun(
+          completedRunId,
+          undefined,
+          true,
+          requestControls.role,
+        );
+        if (transitionVersion === roleTransitionVersion.current) {
+          setAgentStreamState(loaded ? 'complete' : 'error');
+        }
       }
     } catch (reason) {
+      if (transitionVersion !== roleTransitionVersion.current) return;
       setAgentStreamState('error');
       setError(reason instanceof Error ? reason.message : 'Answer unavailable');
     } finally {
-      setBusy(null);
+      if (transitionVersion === roleTransitionVersion.current) setBusy(null);
     }
   }
 
@@ -3908,6 +4260,7 @@ export default function WorkbenchApp() {
   const appliedControls: Controls = {
     ...controls,
     query: receipt?.run.query_text || controls.query,
+    mode: receipt?.run.retrieval_mode || controls.mode,
     candidatePool: receipt?.run.candidate_pool || controls.candidatePool,
     rrfK: receipt?.run.rrf_k ?? controls.rrfK,
     textWeight: receipt?.run.text_weight ?? controls.textWeight,
@@ -3916,6 +4269,8 @@ export default function WorkbenchApp() {
     fuzzyThreshold:
       receipt?.run.fuzzy_threshold ?? controls.fuzzyThreshold,
     efSearch: receipt?.run.hnsw_ef_search ?? controls.efSearch,
+    iterativeScan:
+      receipt?.run.hnsw_iterative_scan ?? controls.iterativeScan,
     rerank: receipt ? receiptRerankRequested : controls.rerank,
   };
   const finalResultCandidates = candidates.slice(0, appliedControls.limit);
@@ -3932,6 +4287,8 @@ export default function WorkbenchApp() {
         controls.candidatePool !== receipt.run.candidate_pool ||
         controls.efSearch !==
           (receipt.run.hnsw_ef_search ?? controls.efSearch) ||
+        controls.iterativeScan !==
+          (receipt.run.hnsw_iterative_scan ?? controls.iterativeScan) ||
         controls.rerank !== receiptRerankRequested),
   );
   const retrievalDraftDirty = queryDraftDirty || fusionDraftDirty;
@@ -4026,7 +4383,7 @@ export default function WorkbenchApp() {
     ? Math.max(...homeRrfScores)
     : null;
   const persistedAnswerLoaded = Boolean(
-    agentStreamState === 'blocked' &&
+    agentStreamState === 'idle' &&
       answer?.answer_text &&
       answer.citations.length,
   );
@@ -4101,8 +4458,7 @@ export default function WorkbenchApp() {
   );
   const agentWithheld =
     !agentAvailable &&
-    (agentDisplayState === 'error' ||
-      (activeSurface === 'agent' && agentDisplayState === 'blocked'));
+    agentDisplayState === 'error';
   const proofWithheld =
     !proofAvailable &&
     (agentDisplayState === 'error' || activeSurface === 'proof');
@@ -4117,6 +4473,7 @@ export default function WorkbenchApp() {
   });
   const persistedPersona = receipt?.run.role || controls.role;
   const persistedPersonaLabel = personaLabel(persistedPersona);
+  const selectedToolContract = toolContract(selectedTool, personaMode);
 
   useEffect(() => {
     const citations = receipt?.answer?.citations || [];
@@ -4295,8 +4652,9 @@ export default function WorkbenchApp() {
                 ?.key,
             )
           }
+          personaMode={personaMode}
           persona={controls.role}
-          onPersona={(next) => setControl('role', next)}
+          onPersona={setPersona}
         />
         {module !== 'home' &&
         module !== 'retrieve' &&
@@ -4758,7 +5116,7 @@ export default function WorkbenchApp() {
                       setControl('query', query);
                       if (query !== answer?.question) {
                         setAnswer(null);
-                        setAgentStreamState('blocked');
+                        setAgentStreamState('idle');
                         setStreamingAnswer('');
                         setAgentTrace([]);
                         setStreamCitations([]);
@@ -4849,6 +5207,7 @@ export default function WorkbenchApp() {
                   rankingCandidates={candidates}
                   selectedEvidenceId={selectedEvidenceId}
                   reranked={finalReranked}
+                  retrievalMode={appliedControls.mode}
                   runId={runId}
                   onSelect={selectCandidate}
                 />
@@ -4893,8 +5252,11 @@ export default function WorkbenchApp() {
                       <div className="lab-note">
                         <strong>Read each arm independently.</strong>
                         <span>
-                          Filters and ACLs execute before ranking. Only positions
-                          enter fusion; raw values remain diagnostics.
+                          {personaMode
+                            ? 'Filters and ACLs execute before ranking.'
+                            : 'Metadata filters execute before ranking.'}{' '}
+                          Only positions enter fusion; raw values remain
+                          diagnostics.
                         </span>
                       </div>
 
@@ -4916,7 +5278,7 @@ export default function WorkbenchApp() {
                         />
                         <RetrievalArm
                           title="Semantic"
-                          subtitle={`pgvector HNSW · ${embeddingModel} · ef ${controls.efSearch}`}
+                          subtitle={`pgvector HNSW · ${embeddingModel} · ef ${appliedControls.efSearch} · ${ITERATIVE_SCAN_LABELS[appliedControls.iterativeScan]}`}
                           candidates={vectorCandidates}
                           selectedEvidenceId={selectedEvidenceId}
                           diagnostic={(candidate) =>
@@ -4955,7 +5317,9 @@ export default function WorkbenchApp() {
                       <div className="retrieval-reading-line">
                         <span>
                           <ShieldCheck size={14} />
-                          filters + ACL before ranking
+                          {personaMode
+                            ? 'filters + ACL before ranking'
+                            : 'filters before ranking'}
                         </span>
                         <span>
                           <SlidersHorizontal size={14} />
@@ -5160,6 +5524,10 @@ export default function WorkbenchApp() {
                     <span>
                       Candidate pool
                       <b>{appliedControls.candidatePool}</b>
+                    </span>
+                    <span>
+                      Iterative scan
+                      <b>{ITERATIVE_SCAN_LABELS[appliedControls.iterativeScan]}</b>
                     </span>
                   </div>
                 </section>
@@ -5405,7 +5773,9 @@ LIMIT ${appliedControls.limit};`}</code>
                   {proveTab === 'answer'
                     ? 'Observe the model-selected tool sequence, bounded recovery, and citation gate behind the incident answer.'
                     : proveTab === 'graph'
-                      ? 'Traverse foreign-key-derived facts and separately labeled inference without relaxing evidence authorization.'
+                      ? personaMode
+                        ? 'Traverse foreign-key-derived facts and separately labeled inference without relaxing evidence authorization.'
+                        : 'Traverse foreign-key-derived facts and separately labeled inference while preserving evidence provenance.'
                       : proveTab === 'receipt'
                         ? 'Resolve the controls, candidate signals, answer, citations, and search-index state without another model call.'
                         : proveTab === 'replay'
@@ -5418,17 +5788,17 @@ LIMIT ${appliedControls.limit};`}</code>
               {proveTab !== 'answer' ? (
                 <div className="run-loader">
                 <input
-                  value={runId}
-                  onChange={(event) => setRunId(event.target.value)}
+                  value={proofRunDraft}
+                  onChange={(event) => setProofRunDraft(event.target.value)}
                   aria-label="Run ID"
                   placeholder="Run ID"
                 />
                 <button
                   type="button"
                   className="icon-command"
-                  disabled={!runId}
+                  disabled={!proofRunDraft}
                   onClick={async () => {
-                    await navigator.clipboard.writeText(runId);
+                    await navigator.clipboard.writeText(proofRunDraft);
                     setCopied(true);
                     window.setTimeout(() => setCopied(false), 1200);
                   }}
@@ -5440,8 +5810,8 @@ LIMIT ${appliedControls.limit};`}</code>
                 <button
                   type="button"
                   className="run-button"
-                  onClick={() => loadRun(runId)}
-                  disabled={!runId || busy !== null}
+                  onClick={() => loadRun(proofRunDraft)}
+                  disabled={!proofRunDraft || busy !== null}
                 >
                   {busy === 'run' ? (
                     <LoaderCircle className="spin" size={15} />
@@ -5511,83 +5881,34 @@ LIMIT ${appliedControls.limit};`}</code>
                         <b>{(agentLatencyMs / 1000).toFixed(1)} s</b> agent run
                       </span>
                     ) : null}
-                    <span className="agent-query-boundary">
-                      <ShieldCheck size={12} />
-                      ACL enforced
-                    </span>
+                    {personaMode ? (
+                      <span className="agent-query-boundary">
+                        <ShieldCheck size={12} />
+                        {agentDisplayState === 'complete'
+                          ? 'ACL enforced'
+                          : `${personaLabel(controls.role)} selected`}
+                      </span>
+                    ) : null}
                   </div>
                 </form>
 
                 <div
                   className={`answer-story-layout ${
-                    agentDisplayState === 'blocked' ||
+                    agentDisplayState === 'idle' ||
                     agentDisplayState === 'error'
                       ? 'single-column'
                       : ''
                   }`}
                 >
                   <article className="answer-story-document">
-                    {agentDisplayState === 'blocked' ? (
+                    {agentDisplayState === 'idle' ? (
                       <div className="answer-gate">
-                        <span className="answer-gate-count">
-                          Evidence gate · 2 of 3 grounded
-                        </span>
-                        <h2>One claim still needs evidence.</h2>
+                        <span className="answer-gate-count">Agent idle</span>
+                        <h2>No agent run is loaded.</h2>
                         <p className="answer-gate-lead">
-                          Hybrid Retrieval Workbench has evidence for cause and
-                          visible customer impact. It will not release the safe-fix
-                          claim until <code>RB-017</code> enters the cited set.
+                          No persisted or live agent evidence is available for this
+                          {personaMode ? ' persona.' : ' investigation.'}
                         </p>
-                        <section className="answer-recovery">
-                          <div>
-                            <span className="section-label">Bounded recovery</span>
-                            <strong>Retrieve the approved runbook only.</strong>
-                            <p>
-                              Incident evidence stays scoped to{' '}
-                              <code>{controls.clusterId}</code>; only reusable
-                              guidance widens. The persona is unchanged.
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            className="agent-command"
-                            onClick={askAgent}
-                            disabled={busy !== null}
-                          >
-                            <Sparkles size={16} />
-                            Retrieve RB-017
-                          </button>
-                        </section>
-                        <details className="answer-supporting-proof">
-                          <summary>
-                            <FileCheck2 size={15} />
-                            <span>Review claim coverage</span>
-                            <ChevronRight size={14} aria-hidden="true" />
-                          </summary>
-                          <div className="answer-claim-checklist">
-                            <div className="covered">
-                              <Check size={15} />
-                              <span>
-                                <strong>Why writes blocked</strong>
-                                CHG-1842 + captured lock evidence
-                              </span>
-                            </div>
-                            <div className="covered">
-                              <Check size={15} />
-                              <span>
-                                <strong>Visible customer impact</strong>
-                                CASE-7419 under the analyst persona
-                              </span>
-                            </div>
-                            <div className="missing">
-                              <CircleDot size={15} />
-                              <span>
-                                <strong>Safe remediation</strong>
-                                Approved runbook not yet cited
-                              </span>
-                            </div>
-                          </div>
-                        </details>
                       </div>
                     ) : null}
 
@@ -5620,7 +5941,7 @@ LIMIT ${appliedControls.limit};`}</code>
                                   <strong>
                                     {readableToolName(event.tool)}
                                   </strong>
-                                  <p>{toolDecision(event)}</p>
+                                  <p>{toolDecision(event, personaMode)}</p>
                                 </div>
                                 <small>{toolResult(event)}</small>
                               </article>
@@ -5762,7 +6083,14 @@ LIMIT ${appliedControls.limit};`}</code>
                                 <strong>{citation.external_key}</strong>
                                 <small>{citation.title}</small>
                                 <code>{citation.source_revision}</code>
-                                <em>{sourceRole(citation)}</em>
+                                <em>
+                                  {citation.claim?.trim()
+                                    ? citation.claim
+                                    : `Source context: ${sourceRole(
+                                        citation,
+                                        personaMode,
+                                      )}`}
+                                </em>
                               </span>
                             </button>
                           ))}
@@ -5827,7 +6155,7 @@ LIMIT ${appliedControls.limit};`}</code>
                           <span>{event.sequence || index + 1}</span>
                           <div>
                             <strong>{readableToolName(event.tool)}</strong>
-                            <p>{toolDecision(event)}</p>
+                            <p>{toolDecision(event, personaMode)}</p>
                             <small>
                               {toolResult(event)}
                               {event.run_id
@@ -5880,44 +6208,10 @@ LIMIT ${appliedControls.limit};`}</code>
                         </div>
                       </>
                     ) : (
-                      <>
-                        <div className="complete">
-                          <span>1</span>
-                          <div>
-                            <strong>Baseline retrieval</strong>
-                            <p>
-                              Production evidence is ranked and persisted; two
-                              claims are covered.
-                            </p>
-                            <small>{compactId(runId)}</small>
-                          </div>
-                          <time>complete</time>
-                        </div>
-                        <div className="waiting">
-                          <span>2</span>
-                          <div>
-                            <strong>Bounded runbook recovery</strong>
-                            <p>
-                              Waiting to relax only the scope that reusable
-                              guidance does not carry.
-                            </p>
-                            <small>persona unchanged</small>
-                          </div>
-                          <time>waiting</time>
-                        </div>
-                        <div className="blocked">
-                          <span>3</span>
-                          <div>
-                            <strong>Cited synthesis</strong>
-                            <p>
-                              Blocked until all required evidence kinds are
-                              present.
-                            </p>
-                            <small>safe-fix claim withheld</small>
-                          </div>
-                          <time>blocked</time>
-                        </div>
-                      </>
+                      <Empty
+                        icon={<Sparkles size={20} />}
+                        title="No agent execution recorded"
+                      />
                     )}
                   </div>
                 </section>
@@ -5950,10 +6244,16 @@ LIMIT ${appliedControls.limit};`}</code>
                       }
                     >
                       <span>03</span>
-                      <strong>Authorization and validation stay fixed</strong>
+                      <strong>
+                        {personaMode
+                          ? 'Authorization and validation stay fixed'
+                          : 'Retrieval scope and validation stay fixed'}
+                      </strong>
                       <p>
-                        ACL checks apply to every retrieval and hop; missing or
-                        invalid citations keep the answer withheld.
+                        {personaMode
+                          ? 'ACL checks apply to every retrieval and hop; '
+                          : 'Metadata filters apply to retrieval; '}
+                        missing or invalid citations keep the answer withheld.
                       </p>
                     </article>
                   </div>
@@ -6005,15 +6305,15 @@ LIMIT ${appliedControls.limit};`}</code>
                       <article>
                         <span className="section-label">Selected tool</span>
                         <h3>{readableToolName(selectedTool)}</h3>
-                        <p>{TOOL_CONTRACTS[selectedTool].purpose}</p>
+                        <p>{selectedToolContract.purpose}</p>
                         <dl>
                           <div>
                             <dt>Returns</dt>
-                            <dd>{TOOL_CONTRACTS[selectedTool].result}</dd>
+                            <dd>{selectedToolContract.result}</dd>
                           </div>
                           <div>
                             <dt>Proof boundary</dt>
-                            <dd>{TOOL_CONTRACTS[selectedTool].proof}</dd>
+                            <dd>{selectedToolContract.proof}</dd>
                           </div>
                         </dl>
                       </article>
@@ -6083,26 +6383,30 @@ LIMIT ${appliedControls.limit};`}</code>
 
             {proveTab === 'graph' ? (
               <>
-                <section className="graph-persona-boundary">
-                  <ShieldCheck size={18} />
-                  <div>
-                    <span className="section-label">Entitlement boundary</span>
-                    <strong>{persistedPersonaLabel}</strong>
-                  </div>
-                  <span>applied before every retrieval arm</span>
-                  <ArrowRight size={15} aria-hidden="true" />
-                  <span>rechecked at every relationship hop</span>
-                  <code>run {compactId(receipt?.run.run_id)}</code>
-                </section>
+                {personaMode ? (
+                  <section className="graph-persona-boundary">
+                    <ShieldCheck size={18} />
+                    <div>
+                      <span className="section-label">Entitlement boundary</span>
+                      <strong>{persistedPersonaLabel}</strong>
+                    </div>
+                    <span>applied before every retrieval arm</span>
+                    <ArrowRight size={15} aria-hidden="true" />
+                    <span>rechecked at every relationship hop</span>
+                    <code>run {compactId(receipt?.run.run_id)}</code>
+                  </section>
+                ) : null}
                 <div className="graph-studio">
                   <aside className="graph-controls-panel">
                     <div className="graph-scope">
                       <span className="section-label">Investigation</span>
                       <p>{controls.query}</p>
-                      <span className="graph-scope-persona">
-                        persisted persona{' '}
-                        <strong>{persistedPersonaLabel}</strong>
-                      </span>
+                      {personaMode ? (
+                        <span className="graph-scope-persona">
+                          persisted persona{' '}
+                          <strong>{persistedPersonaLabel}</strong>
+                        </span>
+                      ) : null}
                     </div>
                     <label>
                       <span>Traversal depth</span>
@@ -6158,13 +6462,15 @@ LIMIT ${appliedControls.limit};`}</code>
                         </div>
                       ))}
                     </div>
-                    <div className="graph-policy-note">
-                      <LockKeyhole size={16} />
-                      <span>
-                        Authorization is checked again at every relationship
-                        hop. Hidden evidence never enters this canvas.
-                      </span>
-                    </div>
+                    {personaMode ? (
+                      <div className="graph-policy-note">
+                        <LockKeyhole size={16} />
+                        <span>
+                          Authorization is checked again at every relationship
+                          hop. Hidden evidence never enters this canvas.
+                        </span>
+                      </div>
+                    ) : null}
                   </aside>
 
                   <section className="graph-canvas-panel">
@@ -6409,10 +6715,12 @@ LIMIT ${appliedControls.limit};`}</code>
                         <div>
                           <strong>Question accepted</strong>
                           <span>
-                            {personaSetRoleSql(
-                              (receipt?.run.role as PersonaKey) ??
-                                controls.role,
-                            )}{' '}
+                            {personaMode
+                              ? `${personaSetRoleSql(
+                                  (receipt?.run.role as PersonaKey) ??
+                                    controls.role,
+                                )} `
+                              : ''}
                             cluster {controls.clusterId || 'all'}.
                           </span>
                         </div>
@@ -6462,6 +6770,7 @@ LIMIT ${appliedControls.limit};`}</code>
               <>
                 <ProofChainOfCustody
                   receipt={receipt}
+                  personaMode={personaMode}
                   selectedCitationNumber={selectedProofCitation}
                   onSelectCitation={setSelectedProofCitation}
                 />

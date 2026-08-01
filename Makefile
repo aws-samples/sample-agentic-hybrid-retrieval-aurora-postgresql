@@ -14,7 +14,8 @@ UVICORN ?= .venv/bin/uvicorn
 BACKGROUND_DOCUMENTS ?= 15000
 LOCAL_BACKGROUND_DOCUMENTS ?= 200
 CAPTURE_BUNDLE ?=
-SQL_FILES := \
+SEED_ARTIFACT ?=
+CORE_SQL_FILES := \
 	sql/00_extensions.sql \
 	sql/01_schema.sql \
 	sql/02_indexes.sql \
@@ -25,7 +26,9 @@ SQL_FILES := \
 	sql/07_search_index_verification.sql \
 	sql/08_query_runtime.sql \
 	sql/09_traverse_evidence.sql \
-	sql/10_admission.sql \
+	sql/10_admission.sql
+
+SECURITY_SQL_FILES := \
 	sql/11_roles_rls.sql \
 	sql/12_masking.sql
 
@@ -34,7 +37,7 @@ export PGVECTOR_VERSION
 export PGVECTOR_MIN_VERSION
 export POSTGRES_MIN_VERSION
 
-.PHONY: install aurora-local-env schema aurora-verify doctor test api frontend smoke clean seed-casework seed-project seed-local
+.PHONY: install aurora-local-env schema security-schema security-checks aurora-verify doctor test api frontend smoke clean seed-casework seed-project seed-local seed-dump seed-restore
 
 install:
 	python -m venv .venv
@@ -46,8 +49,17 @@ aurora-local-env:
 schema:
 	$(PYTHON) backend/scripts/check_postgres.py --min-version $(POSTGRES_MIN_VERSION)
 	$(PYTHON) backend/scripts/check_pgvector.py --available --min-version $(PGVECTOR_MIN_VERSION)
-	$(PYTHON) backend/scripts/run_sql.py --files $(SQL_FILES)
+	$(PYTHON) backend/scripts/run_sql.py --files $(CORE_SQL_FILES)
 	$(PYTHON) backend/scripts/check_pgvector.py --min-version $(PGVECTOR_MIN_VERSION)
+
+security-schema:
+	$(PYTHON) backend/scripts/check_postgres.py --min-version $(POSTGRES_MIN_VERSION)
+	$(PYTHON) backend/scripts/check_pgvector.py --available --min-version $(PGVECTOR_MIN_VERSION)
+	$(PYTHON) backend/scripts/run_sql.py --files $(CORE_SQL_FILES) $(SECURITY_SQL_FILES)
+	$(PYTHON) backend/scripts/check_pgvector.py --min-version $(PGVECTOR_MIN_VERSION)
+
+security-checks:
+	WORKBENCH_SECURITY_ENABLED=1 FAIL_ON_BLOCKED=1 gates/checks.sh G-27 G-29 G-30 G-31
 
 aurora-verify: schema
 	$(PYTHON) backend/scripts/check_postgres.py --min-version 18.3
@@ -81,6 +93,16 @@ seed-local:
 		--offline-capture \
 		--provider hash \
 		--background-documents $(LOCAL_BACKGROUND_DOCUMENTS)
+
+# Produce the packaged restore artifact the Workshop Studio stack provisions
+# from. Run against a disposable database that has been through `make schema`
+# and `make seed-casework`, never the live workshop cluster.
+seed-dump:
+	seed/dump.sh $(SEED_ARTIFACT)
+
+# Restore that artifact. This is what the CFN SeedDatabase step runs.
+seed-restore:
+	seed/load.sh $(SEED_ARTIFACT)
 
 api:
 	$(UVICORN) backend.app.main:app --reload --port 8000

@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
-# admit.sh — Lab 1 finale: promote a captured incident into the record (D23).
-# Zero model calls. Prints the ingest receipt and the exact-arm checkpoint.
+# admit.sh - Lab 1 finale: promote a captured incident into the record (D23).
+# Zero model calls. Prints the ingest receipt and canonical-row checkpoint.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 : "${DATABASE_URL:?set DATABASE_URL or add it to .env}"
 
-payload="$(.venv/bin/python admission/promote_pg_incident.py "$@")"
+# A local checkout installs into .venv; the Workshop Studio Code Editor installs
+# with `pip install --user` and has no venv. Prefer the venv when it exists so a
+# developer machine keeps using its pinned interpreter.
+if [ -x .venv/bin/python ]; then
+  PYTHON=.venv/bin/python
+elif command -v python3 >/dev/null 2>&1; then
+  PYTHON=python3
+else
+  echo "ERROR: no interpreter found; expected .venv/bin/python or python3 on PATH" >&2
+  exit 1
+fi
+
+payload="$("$PYTHON" admission/promote_pg_incident.py "$@")"
 
 # Admit inside a single statement; the function is itself one transaction.
 # Piped via stdin (not -c): psql only substitutes :'var' inside SQL read from
@@ -16,42 +28,39 @@ SELECT jsonb_pretty(casework.admit_evidence(:'payload'::jsonb));
 SQL
 )"
 
-echo "── ingest receipt ─────────────────────────────"
+echo "ingest receipt"
 echo "$receipt"
 
-key="$(printf '%s' "$payload" | .venv/bin/python -c 'import json,sys; print(json.load(sys.stdin)["external_key"])')"
+key="$(printf '%s' "$payload" | "$PYTHON" -c 'import json,sys; print(json.load(sys.stdin)["external_key"])')"
 
-echo "── exact-arm checkpoint ───────────────────────"
-# Read as a persona, not as the connected login. Three reasons, in order of how
-# badly each bites if you skip it:
-#
-#  1. workshop_participant holds no SELECT on casework.evidence_items -- by design
-#     (A1: a bare SELECT raising permission denied is the first lesson). The
-#     admit_evidence call above works because that function is SECURITY DEFINER;
-#     this statement is outside it, so without SET LOCAL ROLE the Lab 1 finale
-#     prints the receipt and then dies on "permission denied for table
-#     evidence_items".
-#  2. RLS is enforced on this table. Reading as a persona means the checkpoint
-#     proves the admitted row is retrievable THROUGH the same enforcement path the
-#     workshop later takes apart, not merely that a row was written.
-#  3. persona_analyst specifically -- the least-privileged of the three. Payloads
-#     default to acl {"visibility": "workshop"} (promote_pg_incident.py:41), so the
-#     analyst can see them. If a future capture ships a restricted ACL, this
-#     checkpoint SHOULD report not-visible: that is the enforcement working.
-#
-# SET LOCAL + ROLLBACK, never a session-level SET: read-only and self-undoing, and
-# the same A3 envelope every _verify_sql in the app emits.
-hit="$(psql "$DATABASE_URL" -X -q -t -A -v ON_ERROR_STOP=1 -v key="$key" <<'SQL'
+echo "canonical evidence checkpoint"
+# This proves admission and ACL visibility at the authoritative row. Hybrid
+# retrieval begins only after the queued row is projected into retrieval.*
+# with a compatible embedding.
+security_enabled="${WORKBENCH_SECURITY_ENABLED:-0}"
+if [[ "$security_enabled" =~ ^(1|[Tt][Rr][Uu][Ee]|[Yy][Ee][Ss]|[Oo][Nn])$ ]]; then
+  hit="$(psql "$DATABASE_URL" -X -q -t -A -v ON_ERROR_STOP=1 -v key="$key" <<'SQL'
 BEGIN;
-SET LOCAL ROLE persona_analyst;
+SET LOCAL ROLE persona_app_engineer;
 SELECT external_key FROM casework.evidence_items
- WHERE external_key = :'key' AND available_at <= now();
+ WHERE external_key = :'key'
+   AND available_at <= now()
+   AND retrieval.acl_visible(acl);
 ROLLBACK;
 SQL
-)"
-if [ "$hit" = "$key" ]; then
-  echo "OK: ${key} is retrievable by the exact arm immediately"
+  )"
 else
-  echo "REMEDY: ${key} not visible as-of now(); check available_at, that admit succeeded, and that sql/11_roles_rls.sql has been applied (this read runs as persona_analyst)" >&2
+  hit="$(psql "$DATABASE_URL" -X -q -t -A -v ON_ERROR_STOP=1 -v key="$key" <<'SQL'
+SELECT external_key FROM casework.evidence_items
+ WHERE external_key = :'key'
+   AND available_at <= now()
+   AND retrieval.acl_visible(acl);
+SQL
+  )"
+fi
+if [ "$hit" = "$key" ]; then
+  echo "OK: ${key} is admitted and visible in canonical casework"
+else
+  echo "REMEDY: ${key} not visible in canonical casework; check available_at, admission, and ACL visibility" >&2
   exit 1
 fi

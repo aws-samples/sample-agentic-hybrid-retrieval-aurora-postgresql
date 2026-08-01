@@ -75,3 +75,38 @@ that also embeds would only verify the file it was about to change.
 
 Commit the cache and its manifest together. A manifest that does not match its
 cache fails every account's load, which is the intended outcome.
+
+## Packaged restore artifact
+
+The Workshop Studio stack does not run `make seed-casework`. It restores a
+`pg_dump` artifact so no participant account calls an embedding model at
+provision time and every account ranks identically.
+
+Produce the artifact from a disposable database, never the live cluster:
+
+```bash
+# 1. Seed a throwaway database from the frozen corpus and embedding cache.
+DATABASE_URL=postgresql://.../scratch_db make schema
+DATABASE_URL=postgresql://.../scratch_db make seed-casework CAPTURE_BUNDLE=<bundle>
+
+# 2. Dump it. Refuses if the index is not ready or sql/, seed/, or
+#    backend/app/ has uncommitted changes.
+DATABASE_URL=postgresql://.../scratch_db make seed-dump
+```
+
+`seed/dump.sh` writes `seed/artifacts/hybrid-retrieval-seed-v2.dump` plus a
+`.revision` sidecar naming the commit that produced it. Both are gitignored:
+they travel in the Workshop Studio source archive, not in git.
+
+`seed/load.sh` (`make seed-restore`) is the consumer, and it is what the CFN
+`SeedDatabase` step invokes. It restores tables and data from the dump, then
+re-applies `sql/02` through `sql/10` from the checkout, because the retrieval
+functions and views are the contract and the checkout owns them. It
+deliberately does not re-run `sql/01_schema.sql`: replaying table DDL over
+restored rows patches column drift silently instead of surfacing it. When the
+dump's revision does not match the checkout, it warns; when readiness fails
+after restore, it exits non-zero and stops provisioning.
+
+Rebuild the artifact whenever `sql/01_schema.sql`, the corpus, or the embedding
+cache changes. An artifact from an older schema generation restores tables the
+current functions do not match.
