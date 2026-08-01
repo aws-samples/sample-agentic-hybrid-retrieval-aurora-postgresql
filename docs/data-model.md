@@ -33,6 +33,9 @@ tables. It emits:
 - metadata JSONB;
 - a SHA-256 `search_document_hash`.
 
+Timestamp metadata is rendered in a fixed UTC form before hashing, so the
+document identity does not depend on the database session's `TimeZone`.
+
 The view is an input contract, not the indexed search surface.
 
 ## `retrieval`: Rebuildable search index

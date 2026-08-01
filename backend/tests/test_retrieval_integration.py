@@ -195,6 +195,33 @@ class RetrievalContractTests(unittest.TestCase):
             health["source_documents"],
         )
 
+    def test_search_document_hash_is_timezone_invariant(self) -> None:
+        hashes_by_timezone = {}
+        with psycopg.connect(TEST_DATABASE_URL, row_factory=dict_row) as connection:
+            with connection.cursor() as cursor:
+                for timezone in ("UTC", "America/New_York", "Asia/Kolkata"):
+                    cursor.execute(
+                        "SELECT set_config('TimeZone', %s, false)",
+                        (timezone,),
+                    )
+                    cursor.execute(
+                        """
+                        SELECT evidence_id, search_document_hash
+                        FROM casework.v_evidence_documents
+                        ORDER BY evidence_id
+                        """
+                    )
+                    hashes_by_timezone[timezone] = cursor.fetchall()
+
+        self.assertEqual(
+            hashes_by_timezone["UTC"],
+            hashes_by_timezone["America/New_York"],
+        )
+        self.assertEqual(
+            hashes_by_timezone["UTC"],
+            hashes_by_timezone["Asia/Kolkata"],
+        )
+
     def test_search_wrapper_persists_candidate_receipt(self) -> None:
         from backend.app.models import SearchRequest
         from backend.app.search import run_hybrid_search

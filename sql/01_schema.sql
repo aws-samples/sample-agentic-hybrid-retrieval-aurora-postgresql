@@ -449,6 +449,19 @@ AS $$
   SELECT encode(sha256(convert_to(coalesce(value, ''), 'UTF8')), 'hex')
 $$;
 
+CREATE OR REPLACE FUNCTION casework.canonical_timestamptz(value timestamptz)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+STRICT
+PARALLEL SAFE
+AS $$
+  SELECT to_char(
+    value AT TIME ZONE 'UTC',
+    'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
+  )
+$$;
+
 CREATE OR REPLACE VIEW casework.v_evidence_documents
 WITH (security_invoker = true) AS
 WITH rendered AS (
@@ -479,9 +492,9 @@ WITH rendered AS (
     ) AS body,
     jsonb_build_object(
       'status', i.status,
-      'started_at', i.started_at,
-      'mitigated_at', i.mitigated_at,
-      'resolved_at', i.resolved_at,
+      'started_at', casework.canonical_timestamptz(i.started_at),
+      'mitigated_at', casework.canonical_timestamptz(i.mitigated_at),
+      'resolved_at', casework.canonical_timestamptz(i.resolved_at),
       'service_name', c.service_name,
       'engine_version', c.engine_version
     ) AS metadata
@@ -521,7 +534,7 @@ WITH rendered AS (
       'status', ch.status,
       'change_type', ch.change_type,
       'owner_team', ch.owner_team,
-      'completed_at', ch.completed_at,
+      'completed_at', casework.canonical_timestamptz(ch.completed_at),
       'service_name', c.service_name,
       'engine_version', c.engine_version
     ) AS metadata
@@ -578,7 +591,7 @@ WITH rendered AS (
     jsonb_build_object(
       'status', sc.status,
       'support_tier', sc.support_tier,
-      'sla_due_at', sc.sla_due_at
+      'sla_due_at', casework.canonical_timestamptz(sc.sla_due_at)
     ) AS metadata
   FROM casework.evidence_items e
   JOIN casework.support_cases sc ON sc.evidence_id = e.evidence_id
@@ -711,13 +724,14 @@ WITH rendered AS (
     ) AS body,
     jsonb_build_object(
       'observation_id', le.observation_id,
-      'captured_at', le.captured_at,
+      'captured_at', casework.canonical_timestamptz(le.captured_at),
       'relation_name', le.relation_name,
       'relation_oid', le.relation_oid,
       'blocked_pid', le.blocked_pid,
       'blocking_pid', le.blocking_pid,
       'blocked_state', le.blocked_state,
-      'blocked_query_start', le.blocked_query_start,
+      'blocked_query_start',
+        casework.canonical_timestamptz(le.blocked_query_start),
       'wait_event_type', le.wait_event_type,
       'wait_event', le.wait_event,
       'blocked_lock_mode', le.blocked_lock_mode,
@@ -727,7 +741,8 @@ WITH rendered AS (
       'blocking_pids', le.blocking_pids,
       'capture_mode', capture.capture_mode,
       'capture_key', capture.capture_key,
-      'release_verified_at', capture.release_verified_at,
+      'release_verified_at',
+        casework.canonical_timestamptz(capture.release_verified_at),
       'service_name', c.service_name,
       'engine_version', c.engine_version
     ) AS metadata
@@ -764,7 +779,7 @@ WITH rendered AS (
       E'\n\n',
       commitment.commitment_text,
       'Priority: ' || commitment.priority,
-      'Due at: ' || commitment.due_at,
+      'Due at: ' || casework.canonical_timestamptz(commitment.due_at),
       'Search index status: ' || commitment.status,
       CASE
         WHEN commitment.revalidate_live
@@ -774,7 +789,7 @@ WITH rendered AS (
     jsonb_build_object(
       'commitment_id', commitment.commitment_id,
       'priority', commitment.priority,
-      'due_at', commitment.due_at,
+      'due_at', casework.canonical_timestamptz(commitment.due_at),
       'status', commitment.status,
       'revalidate_live', commitment.revalidate_live,
       'service_name', related.service_name,
@@ -834,7 +849,7 @@ WITH rendered AS (
     ) AS body,
     jsonb_build_object(
       'postmortem_id', postmortem.postmortem_id,
-      'published_at', postmortem.published_at,
+      'published_at', casework.canonical_timestamptz(postmortem.published_at),
       'service_name', cluster.service_name,
       'engine_version', cluster.engine_version
     ) AS metadata
