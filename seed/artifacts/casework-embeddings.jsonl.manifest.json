@@ -1,6 +1,6 @@
 {
   "cache": "casework-embeddings.jsonl",
-  "content_sha256": "dfc5fb2b7458f0233c2b3475b2b22707b42df04a798eab2752f59ca369455aeb",
+  "content_sha256": "8ce64434229c4edd53a3ac17c85e5df74cd3328b6cba26e58ed8dad9f8a5f7ff",
   "dimensions": 1024,
   "entry_count": 15023,
   "model_id": "us.cohere.embed-v4:0"
