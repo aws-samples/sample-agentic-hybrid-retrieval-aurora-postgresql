@@ -25,6 +25,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT="${1:-$ROOT_DIR/dist/hybrid-retrieval-source.zip}"
+if [[ "$OUTPUT" != /* ]]; then
+  OUTPUT="$ROOT_DIR/$OUTPUT"
+fi
 DEFAULT_ARTIFACT="$ROOT_DIR/seed/artifacts/hybrid-retrieval-seed-v2.dump"
 ARTIFACT="${SEED_ARTIFACT:-$DEFAULT_ARTIFACT}"
 CANONICAL_ARTIFACT_REL="seed/artifacts/hybrid-retrieval-seed-v2.dump"
