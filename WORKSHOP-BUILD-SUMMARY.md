@@ -143,19 +143,21 @@ failure and keeps SQL order.
 
 ### 7. Evidence-bound agent tools
 
-The agent contract exposes:
+The agent contract answers in this order:
 
 1. `decompose_question`
-2. `search_evidence`
+2. `search_evidence`, once per subquestion plus bounded retries
 3. `follow_evidence_links`
 4. `compare_sources`
-5. `explain_ranking`
-6. `synthesize_cited_answer`
-7. `answer_with_citations`
+5. `synthesize_cited_answer`
 
 The tools decompose the question, retrieve targeted evidence, traverse
-authoritative links, reject distractors, explain ranking, and synthesize from
-numbered evidence.
+authoritative links, reject distractors, and synthesize from numbered evidence.
+
+Two further tools are registered outside that sequence. `explain_ranking` reads
+a persisted receipt and calls no model, so it explains ranking after the fact
+rather than during answering. `answer_with_citations` runs the whole loop in one
+call for the managed transports.
 
 ### 8. Replayable proof
 

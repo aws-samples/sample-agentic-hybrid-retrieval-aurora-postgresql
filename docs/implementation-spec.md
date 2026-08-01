@@ -364,14 +364,32 @@ No score is presented as a probability.
 
 ## 8. Agent Pipeline
 
-The implemented tool sequence is:
+The implemented answer sequence is:
 
 1. `decompose_question`
-2. `search_evidence`
+2. `search_evidence`, once per subquestion plus bounded retries
 3. `follow_evidence_links`
 4. `compare_sources`
-5. `explain_ranking`
-6. `synthesize_cited_answer`
+5. `synthesize_cited_answer`
+
+`explain_ranking` is the sixth model-selectable tool and is not part of
+answering. It re-reads a persisted receipt and calls no model, so
+`answer_question` never calls
+it and the Strands system prompt does not sequence it. It is reachable as a tool
+on every transport, and the Proof surface reads the same receipt through
+`GET /v1/runs/{run_id}`.
+
+Two harnesses run the same tools over the same Aurora contract:
+
+- `backend/app/agent.py` (`POST /v1/agent/answer`) fixes the order above.
+  Evaluation and replay require it, because a graded metric and a byte-identical
+  receipt both need the same input to produce the same output.
+- `backend/app/strands_agent.py` (`POST /v1/agent/strands/answer`, and the
+  `/stream` variant the Workbench uses) advertises all six tools and lets the
+  model sequence them, so a reported trace records real decisions.
+
+Both persist the same `proof.*` receipts through the same owning
+implementations, so a run from either path replays identically.
 
 ### Decomposition
 
@@ -544,7 +562,8 @@ configuration, and the source package.
 
 ### Local stdio MCP server
 
-`mcp-server/src/server.ts` exposes seven tools over MCP:
+`mcp-server/src/server.ts` transports and `server.generated.ts` registers seven
+tools over MCP:
 
 - `decompose_question`
 - `search_evidence`

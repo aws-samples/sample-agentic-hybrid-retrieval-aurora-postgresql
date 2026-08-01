@@ -180,18 +180,28 @@ optional appendix, the same hop checks run under the assumed PostgreSQL persona.
 
 ## Agent Boundary
 
-The agent path is an explicit sequence over the retrieval contract:
+The agent path answers in this order:
 
 1. `decompose_question`
-2. `search_evidence`
+2. `search_evidence`, once per subquestion plus bounded retries
 3. `follow_evidence_links`
 4. `compare_sources`
-5. `explain_ranking`
-6. `synthesize_cited_answer`
+5. `synthesize_cited_answer`
 
-The implementation uses Strands `@tool` functions, but the boundary is
-harness-neutral. FastAPI, the Lambda adapter, and the stdio MCP server call the
-same Python implementations. None reimplements ranking.
+`explain_ranking` is the sixth model-selectable tool and is not part of
+answering. It
+re-reads a persisted receipt without calling a model, so the deterministic
+pipeline never calls it and the Strands system prompt does not sequence it; the
+Proof surface reads the same receipt through `GET /v1/runs/{run_id}`.
+
+Two harnesses run that contract. `backend/app/agent.py` fixes the order, because
+evaluation and replay both need the same input to produce the same output.
+`backend/app/strands_agent.py` gives the model all six tools and lets it choose,
+because "the agent decided to traverse relationships here" is only true if it
+did. Both write the same `proof.*` receipts.
+
+The boundary is harness-neutral. FastAPI, the Lambda adapter, and the stdio MCP
+server call the same Python implementations. None reimplements ranking.
 
 The managed AgentCore Gateway is a stateless transport boundary owned by the
 Workshop Studio environment. It does not own retrieval, model orchestration, or

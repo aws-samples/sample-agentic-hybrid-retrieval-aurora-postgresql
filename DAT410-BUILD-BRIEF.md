@@ -346,15 +346,19 @@ not a declared relationship.
 
 ### Agent tools
 
-The implemented tool sequence is:
+The implemented answer sequence is:
 
 1. `decompose_question`
-2. `search_evidence`
+2. `search_evidence`, once per subquestion plus bounded retries
 3. `follow_evidence_links`
 4. `compare_sources`
-5. `explain_ranking`
-6. `synthesize_cited_answer`
-7. `answer_with_citations`
+5. `synthesize_cited_answer`
+
+Two more tools are registered but sit outside that sequence. `explain_ranking`
+re-reads a persisted receipt without calling a model, so neither answer path
+sequences it; it backs the Proof surface and `GET /v1/runs/{run_id}`.
+`answer_with_citations` runs the whole loop in one call and is exposed only on
+the managed transports.
 
 Strands provides the Python tool surface. FastAPI, the Lambda adapter, and the
 stdio MCP server call the same owning implementations. No adapter contains
