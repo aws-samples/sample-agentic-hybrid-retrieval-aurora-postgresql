@@ -53,6 +53,9 @@ class Settings(BaseModel):
     workshop_app_database_url: str = Field(
         default_factory=lambda: os.environ.get("WORKSHOP_APP_DATABASE_URL", "")
     )
+    workbench_security_enabled: bool = Field(
+        default_factory=lambda: _env_bool("WORKBENCH_SECURITY_ENABLED", False)
+    )
     database_connect_timeout_seconds: int = Field(
         default_factory=lambda: _env_int(
             "DATABASE_CONNECT_TIMEOUT_SECONDS", 10, minimum=1

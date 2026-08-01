@@ -12,6 +12,11 @@ def _payload(response: dict) -> dict:
 
 
 class LambdaMcpContractTests(unittest.TestCase):
+    def setUp(self) -> None:
+        receipt_patch = patch("backend.app.contracts.record_transport_invocation")
+        self.record_transport_invocation = receipt_patch.start()
+        self.addCleanup(receipt_patch.stop)
+
     def test_direct_event_arguments_are_not_discarded(self) -> None:
         response = lambda_handler(
             {
@@ -59,7 +64,7 @@ class LambdaMcpContractTests(unittest.TestCase):
             aws_region=None,
             start_date=None,
             end_date=None,
-            role="analyst",
+            role="app_engineer",
             limit=5,
             candidate_pool=24,
             rrf_k=60,

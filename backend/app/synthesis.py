@@ -6,7 +6,7 @@ from .bedrock import get_bedrock_client
 from .config import get_settings
 
 
-SYSTEM_PROMPT = """You are an incident evidence analyst.
+SYSTEM_PROMPT = """You are an incident evidence specialist.
 
 Answer only from the numbered evidence supplied by the caller.
 - Cite every factual sentence with one or more bracketed evidence numbers.

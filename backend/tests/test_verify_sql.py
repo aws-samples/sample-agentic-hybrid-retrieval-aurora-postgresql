@@ -8,36 +8,61 @@ carry the same SELECT and the same identity.
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from backend.app import db, verify_sql
 
 
 class VerifySqlEnvelopeTests(unittest.TestCase):
-    def test_descriptor_carries_the_statement_binds_role_and_rendering(self) -> None:
-        descriptor = verify_sql.receipt_verify_sql("rr_9b41d7", "admin")["run"]
+    def setUp(self) -> None:
+        settings_patch = patch.object(verify_sql, "get_settings")
+        self.get_settings = settings_patch.start()
+        self.addCleanup(settings_patch.stop)
+        self.get_settings.return_value = SimpleNamespace(
+            workbench_security_enabled=False
+        )
+
+    def test_core_descriptor_carries_statement_binds_and_no_role(self) -> None:
+        descriptor = verify_sql.receipt_verify_sql("rr_9b41d7", "dba")["run"]
         self.assertEqual(descriptor["binds"], {"run_id": "rr_9b41d7"})
-        self.assertEqual(descriptor["set_role"], "SET LOCAL ROLE persona_admin")
+        self.assertIsNone(descriptor["set_role"])
         self.assertNotIn("SET LOCAL ROLE", descriptor["statement"])
         self.assertTrue(descriptor["statement"].lstrip().upper().startswith("SELECT"))
 
-    def test_rendered_text_is_the_pasteable_envelope(self) -> None:
+    def test_core_rendered_text_is_the_pasteable_envelope(self) -> None:
         rendered = verify_sql.receipt_verify_sql("rr_9b41d7", "auditor")["run"][
             "rendered"
         ]
         lines = [line for line in rendered.splitlines() if line.strip()]
         self.assertEqual(lines[0], "BEGIN;")
+        self.assertTrue(lines[1].startswith("SELECT"))
+        self.assertNotIn("SET LOCAL ROLE", rendered)
+        self.assertEqual(lines[-1], "ROLLBACK;")
+
+    def test_security_descriptor_includes_the_persona_role(self) -> None:
+        self.get_settings.return_value = SimpleNamespace(
+            workbench_security_enabled=True
+        )
+
+        descriptor = verify_sql.receipt_verify_sql("rr_9b41d7", "auditor")["run"]
+        lines = [line for line in descriptor["rendered"].splitlines() if line.strip()]
+
+        self.assertEqual(descriptor["set_role"], "SET LOCAL ROLE persona_auditor")
+        self.assertEqual(lines[0], "BEGIN;")
         self.assertEqual(lines[1], "SET LOCAL ROLE persona_auditor;")
+        self.assertTrue(lines[2].startswith("SELECT"))
         self.assertEqual(lines[-1], "ROLLBACK;")
 
     def test_rendered_text_inlines_the_binds_so_a_paste_runs_as_is(self) -> None:
-        rendered = verify_sql.receipt_verify_sql("rr_9b41d7", "analyst")["run"][
+        rendered = verify_sql.receipt_verify_sql("rr_9b41d7", "app_engineer")["run"][
             "rendered"
         ]
         self.assertIn("'rr_9b41d7'", rendered)
         self.assertNotIn("%(run_id)s", rendered)
 
     def test_every_persona_is_accepted_and_nothing_else_is(self) -> None:
-        for persona in ("analyst", "admin", "auditor"):
+        for persona in ("app_engineer", "dba", "auditor"):
             with self.subTest(persona=persona):
                 verify_sql.receipt_verify_sql("rr_1", persona)
         with self.assertRaisesRegex(ValueError, "unknown persona"):
@@ -54,13 +79,13 @@ class VerifySqlEnvelopeTests(unittest.TestCase):
 
     def _every_descriptor(self) -> list[tuple[str, dict[str, object]]]:
         """Return (label, descriptor) for every descriptor the registry publishes."""
-        named = list(verify_sql.receipt_verify_sql("rr_1", "analyst").items())
-        named.append(("graph.edge", verify_sql.edge_verify_sql("edge-1", "analyst")))
+        named = list(verify_sql.receipt_verify_sql("rr_1", "app_engineer").items())
+        named.append(("graph.edge", verify_sql.edge_verify_sql("edge-1", "app_engineer")))
         named.append(
             (
                 "timeline.event",
                 verify_sql.event_verify_sql(
-                    "11111111-1111-1111-1111-111111111111", "analyst"
+                    "11111111-1111-1111-1111-111111111111", "app_engineer"
                 ),
             )
         )
@@ -96,14 +121,13 @@ class VerifySqlEnvelopeTests(unittest.TestCase):
                 with self.assertRaises(TypeError):
                     factory(*args)  # type: ignore[call-arg]
 
-    def test_element_grain_descriptors_carry_the_envelope_too(self) -> None:
-        edge = verify_sql.edge_verify_sql("edge-1", "admin")
+    def test_element_grain_descriptors_use_the_core_envelope_too(self) -> None:
+        edge = verify_sql.edge_verify_sql("edge-1", "dba")
         event = verify_sql.event_verify_sql(
-            "11111111-1111-1111-1111-111111111111", "admin"
+            "11111111-1111-1111-1111-111111111111", "dba"
         )
         for descriptor in (edge, event):
             with self.subTest(descriptor=descriptor["statement"][:40]):
-                self.assertEqual(
-                    descriptor["set_role"], "SET LOCAL ROLE persona_admin"
-                )
+                self.assertIsNone(descriptor["set_role"])
                 self.assertEqual(descriptor["rendered"].splitlines()[0], "BEGIN;")
+                self.assertNotIn("SET LOCAL ROLE", descriptor["rendered"])

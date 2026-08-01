@@ -139,11 +139,22 @@ def _replay(cur, descriptor: dict[str, Any], label: str) -> Any:
         "parameterized SELECT; the multi-statement envelope belongs in "
         "'rendered', which humans paste and machines never execute",
     )
-    require(
-        descriptor.get("set_role", "").startswith("SET LOCAL ROLE persona_"),
-        f"{label} _verify_sql is missing its A3 identity envelope",
-    )
     set_role = descriptor.get("set_role")
+    security_enabled = (
+        (read_env_value("WORKBENCH_SECURITY_ENABLED") or "").strip().lower()
+        not in {"", "0", "false", "no", "off"}
+    )
+    if security_enabled:
+        require(
+            isinstance(set_role, str)
+            and set_role.startswith("SET LOCAL ROLE persona_"),
+            f"{label} _verify_sql is missing its optional security envelope",
+        )
+    else:
+        require(
+            not set_role,
+            f"{label} _verify_sql unexpectedly assumes a persona in core mode",
+        )
     if set_role:
         # A savepoint per descriptor: SET LOCAL ROLE persists to the end of the
         # transaction, and the next descriptor may need a different persona.

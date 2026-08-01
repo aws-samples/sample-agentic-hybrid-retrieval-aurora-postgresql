@@ -10,6 +10,13 @@ from __future__ import annotations
 import os
 import unittest
 
+TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+SECURITY_ENABLED = os.environ.get("WORKBENCH_SECURITY_ENABLED") == "1"
+SECURITY_DATABASE_TESTS = bool(TEST_DATABASE_URL and SECURITY_ENABLED)
+if SECURITY_DATABASE_TESTS:
+    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+    os.environ["WORKSHOP_APP_DATABASE_URL"] = TEST_DATABASE_URL
+
 from backend.app import db
 
 
@@ -17,11 +24,11 @@ class PersonaContractTests(unittest.TestCase):
     """Pure-Python persona contract checks; no database required."""
 
     def test_personas_are_the_three_bound_values(self) -> None:
-        self.assertEqual(db.PERSONAS, ("analyst", "admin", "auditor"))
+        self.assertEqual(db.PERSONAS, ("app_engineer", "auditor", "dba"))
 
     def test_persona_role_prefixes_the_database_role(self) -> None:
-        self.assertEqual(db.persona_role("analyst"), "persona_analyst")
-        self.assertEqual(db.persona_role("admin"), "persona_admin")
+        self.assertEqual(db.persona_role("app_engineer"), "persona_app_engineer")
+        self.assertEqual(db.persona_role("dba"), "persona_dba")
         self.assertEqual(db.persona_role("auditor"), "persona_auditor")
 
     def test_persona_role_rejects_an_unknown_persona(self) -> None:
@@ -35,21 +42,21 @@ class PersonaContractTests(unittest.TestCase):
 
 
 @unittest.skipUnless(
-    os.environ.get("TEST_DATABASE_URL"),
-    "set TEST_DATABASE_URL for the persona checkout contract",
+    SECURITY_DATABASE_TESTS,
+    "set TEST_DATABASE_URL and WORKBENCH_SECURITY_ENABLED=1 for persona checkout",
 )
 class PersonaCheckoutTests(unittest.TestCase):
     def test_checkout_runs_as_the_persona_not_the_login(self) -> None:
-        with db.get_dict_conn("analyst") as conn:
+        with db.get_dict_conn("app_engineer") as conn:
             with conn.cursor() as cursor:
                 cursor.execute("SELECT current_user AS role")
-                self.assertEqual(cursor.fetchone()["role"], "persona_analyst")
+                self.assertEqual(cursor.fetchone()["role"], "persona_app_engineer")
 
     def test_role_does_not_leak_to_the_next_checkout(self) -> None:
-        with db.get_dict_conn("admin") as conn:
+        with db.get_dict_conn("dba") as conn:
             with conn.cursor() as cursor:
                 cursor.execute("SELECT current_user AS role")
-                self.assertEqual(cursor.fetchone()["role"], "persona_admin")
+                self.assertEqual(cursor.fetchone()["role"], "persona_dba")
 
         with db.get_dict_conn("auditor") as conn:
             with conn.cursor() as cursor:
@@ -62,17 +69,23 @@ class PersonaCheckoutTests(unittest.TestCase):
                 cursor.execute("SELECT current_user AS role")
                 self.assertNotIn(
                     cursor.fetchone()[0],
-                    {"persona_analyst", "persona_admin", "persona_auditor"},
+                    {"persona_app_engineer", "persona_dba", "persona_auditor"},
                 )
 
 
 CONTENT_VIEWS = (
     "casework.v_evidence_documents",
     "retrieval.evidence_edges",
+    "proof.v_run_receipts",
     "proof.v_answer_receipts",
     "proof.v_candidate_receipts",
     "proof.v_evaluation_results",
     "proof.v_traversal_evaluation_results",
+)
+
+EVIDENCE_CONTENT_VIEWS = (
+    "casework.v_evidence_documents",
+    "retrieval.evidence_edges",
 )
 
 # Counted, never content: these read the read-path tables as the owner on purpose,
@@ -98,13 +111,13 @@ WHERE n.nspname = %s AND c.relname = %s
 
 
 @unittest.skipUnless(
-    os.environ.get("TEST_DATABASE_URL"),
-    "set TEST_DATABASE_URL for the view security_invoker contract",
+    SECURITY_DATABASE_TESTS,
+    "set TEST_DATABASE_URL and WORKBENCH_SECURITY_ENABLED=1 for view RLS checks",
 )
 class ContentViewRlsTests(unittest.TestCase):
     def test_content_views_are_security_invoker(self) -> None:
         """A view that returns evidence text must be subject to the caller's RLS."""
-        with db.get_dict_conn("analyst") as conn:
+        with db.get_dict_conn("app_engineer") as conn:
             with conn.cursor() as cursor:
                 for qualified in CONTENT_VIEWS:
                     with self.subTest(view=qualified):
@@ -120,7 +133,7 @@ class ContentViewRlsTests(unittest.TestCase):
 
     def test_count_only_views_are_deliberately_owner_rights(self) -> None:
         """The health surfaces count every row on purpose; assert that stays true."""
-        with db.get_dict_conn("analyst") as conn:
+        with db.get_dict_conn("app_engineer") as conn:
             with conn.cursor() as cursor:
                 for qualified in COUNT_ONLY_VIEWS:
                     with self.subTest(view=qualified):
@@ -135,7 +148,7 @@ class ContentViewRlsTests(unittest.TestCase):
                         )
 
     def test_the_dropped_chunk_view_is_gone(self) -> None:
-        with db.get_dict_conn("analyst") as conn:
+        with db.get_dict_conn("app_engineer") as conn:
             with conn.cursor() as cursor:
                 cursor.execute("SELECT to_regclass('retrieval.v_current_chunks') AS oid")
                 self.assertIsNone(cursor.fetchone()["oid"])
@@ -150,8 +163,8 @@ def _count_as(persona: str, qualified: str) -> int:
 
 
 @unittest.skipUnless(
-    os.environ.get("TEST_DATABASE_URL"),
-    "set TEST_DATABASE_URL for the row-filtering contract",
+    SECURITY_DATABASE_TESTS,
+    "set TEST_DATABASE_URL and WORKBENCH_SECURITY_ENABLED=1 for row filtering",
 )
 class ContentViewRowFilteringTests(unittest.TestCase):
     """Row counts, not reloptions.
@@ -163,77 +176,72 @@ class ContentViewRowFilteringTests(unittest.TestCase):
     RLS disabled -- where invoker rights are a no-op. Both passed the reloptions
     test and leaked rows. These tests read what a persona can actually count.
 
-    ``persona_admin`` is the high-water mark rather than the table owner: admin
+    ``persona_dba`` is the high-water mark rather than the table owner: dba
     holds can_see_restricted, so its count is the unfiltered one, and using it
     keeps these tests off get_owner_conn() -- which connects with DATABASE_URL and
     would reach the live cluster in a shell where only TEST_DATABASE_URL is set.
     """
 
-    def test_content_views_filter_rows_for_the_analyst(self) -> None:
-        """At least one content view must demonstrably hide rows from the analyst.
+    def test_content_views_filter_rows_for_the_app_engineer(self) -> None:
+        """At least one content view must demonstrably hide rows from the app_engineer.
 
-        Per-view equality is not asserted, because whether a given view holds
-        restricted rows is a property of the seeded cohort, not of RLS: the four
-        proof.* views are empty until an agent run is recorded, and asserting
-        "analyst sees fewer" there would fail for a reason unrelated to RLS. What
-        IS asserted on every view is the direction -- the analyst can never see
-        MORE than admin -- plus the fixture-level requirement that the cohort
-        proved the mechanism somewhere. Without that second assertion the whole
-        test passes vacuously on an empty database, which is worse than no test.
+        Proof views are deliberately excluded here: proof rows use exact-persona
+        isolation, so one persona can legitimately have more runs than another.
+        ProofAuthorizationTests exercises those views with named run IDs.
         """
         filtered = []
-        for qualified in CONTENT_VIEWS:
+        for qualified in EVIDENCE_CONTENT_VIEWS:
             with self.subTest(view=qualified):
-                analyst = _count_as("analyst", qualified)
-                admin = _count_as("admin", qualified)
+                app_engineer = _count_as("app_engineer", qualified)
+                dba = _count_as("dba", qualified)
                 self.assertLessEqual(
-                    analyst,
-                    admin,
-                    f"{qualified}: persona_analyst counted {analyst} rows and "
-                    f"persona_admin counted {admin}. The analyst holds no "
-                    f"clearance, so it can never out-read admin -- this view is "
+                    app_engineer,
+                    dba,
+                    f"{qualified}: persona_app_engineer counted {app_engineer} rows and "
+                    f"persona_dba counted {dba}. The app_engineer holds no "
+                    f"clearance, so it can never out-read dba -- this view is "
                     f"either running with owner rights or its policy grants the "
                     f"wrong direction",
                 )
-                if analyst < admin:
-                    filtered.append(f"{qualified} ({analyst} < {admin})")
+                if app_engineer < dba:
+                    filtered.append(f"{qualified} ({app_engineer} < {dba})")
         self.assertTrue(
             filtered,
-            "no content view hid a single row from persona_analyst, so this test "
+            "no content view hid a single row from persona_app_engineer, so this test "
             "proved nothing. Either RLS is not enforcing or the database holds no "
             "restricted evidence -- reseed with seed/corpus.py's RESTRICTED_ACL "
             "cohort and rebuild the search index",
         )
 
-    def test_the_canonical_restricted_row_is_invisible_to_the_analyst(self) -> None:
+    def test_the_canonical_restricted_row_is_invisible_to_the_app_engineer(self) -> None:
         """A named row, so the previous test cannot pass on an unrelated diff."""
         sql = (
             "SELECT count(*) AS n FROM casework.v_evidence_documents "
             "WHERE external_key = %s"
         )
         counts = {}
-        for persona in ("analyst", "admin", "auditor"):
+        for persona in ("app_engineer", "dba", "auditor"):
             with db.get_dict_conn(persona) as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(sql, (CANONICAL_RESTRICTED_KEY,))
                     counts[persona] = cursor.fetchone()["n"]
         self.assertGreater(
-            counts["admin"],
+            counts["dba"],
             0,
-            f"persona_admin cannot see {CANONICAL_RESTRICTED_KEY}, which "
-            f"seed/corpus.py pins into the restricted cohort. The analyst "
+            f"persona_dba cannot see {CANONICAL_RESTRICTED_KEY}, which "
+            f"seed/corpus.py pins into the restricted cohort. The app_engineer "
             f"assertion below would hold over a row that is simply absent",
         )
         self.assertEqual(
-            counts["analyst"],
+            counts["app_engineer"],
             0,
-            f"persona_analyst read {CANONICAL_RESTRICTED_KEY} out of "
+            f"persona_app_engineer read {CANONICAL_RESTRICTED_KEY} out of "
             f"casework.v_evidence_documents",
         )
         self.assertEqual(
             counts["auditor"],
-            counts["admin"],
-            "persona_auditor holds the same clearance as persona_admin and "
+            counts["dba"],
+            "persona_auditor holds the same clearance as persona_dba and "
             "differs only in column masking; the row must be present for the "
             "mask to apply to",
         )
@@ -244,7 +252,7 @@ class ContentViewRowFilteringTests(unittest.TestCase):
         These four are owner-rights on purpose so the health surfaces report the
         true corpus. The defect this catches: one of them selected from a nested
         security_invoker view, which re-applied the caller's RLS through the back
-        door -- an analyst saw a lower drift count than the owner and the panel
+        door -- an app_engineer saw a lower drift count than the owner and the panel
         silently under-reported. The reloptions test above cannot see that,
         because the outer view's own flag was correctly false.
         """
@@ -252,7 +260,7 @@ class ContentViewRowFilteringTests(unittest.TestCase):
             with self.subTest(view=qualified):
                 counts = {
                     persona: _count_as(persona, qualified)
-                    for persona in ("analyst", "admin", "auditor")
+                    for persona in ("app_engineer", "dba", "auditor")
                 }
                 self.assertEqual(
                     len(set(counts.values())),

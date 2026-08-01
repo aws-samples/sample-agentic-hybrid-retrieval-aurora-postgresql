@@ -260,10 +260,10 @@ class StrandsAgentTests(unittest.TestCase):
             patch("backend.app.strands_agent.build_agent", _agent_with(script)),
         ):
             answer_question_with_strands(
-                AgentAnswerRequest(question="Why?", role="admin")
+                AgentAnswerRequest(question="Why?", role="dba")
             )
 
-        self.assertEqual(impl.call_args.kwargs["role"], "admin")
+        self.assertEqual(impl.call_args.kwargs["role"], "dba")
 
 
 if __name__ == "__main__":

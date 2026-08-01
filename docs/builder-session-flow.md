@@ -13,14 +13,16 @@ fails, how PostgreSQL executes the signals, and how to prove what an agent used.
 
 Every participant must complete this path:
 
-1. Pass preflight against a preloaded Aurora PostgreSQL corpus.
-2. Recover `CHG-1842` through exact/full-text retrieval and a cluster filter.
-3. Recover mistyped `CGH-1842` through indexed trigram search.
-4. Compare filtered HNSW behavior with iterative scan off and relaxed.
-5. Run weighted RRF and inspect independent arm positions.
-6. Apply Cohere reranking without overwriting the Aurora score.
-7. Run the agent tool pipeline and receive a cited answer.
-8. validate citation rows and replay the retrieval receipt by `run_id`.
+1. Reproduce the incident with real PostgreSQL sessions: reads continue,
+   writes wait, and the ordinary index backend owns the blocking `ShareLock`.
+2. Apply `CREATE INDEX CONCURRENTLY` and prove a fresh write still completes.
+3. Pass preflight against the preloaded Aurora PostgreSQL evidence corpus.
+4. Recover `CHG-1842` through exact/full-text retrieval and a cluster filter.
+5. Recover mistyped `CGH-1842` through indexed trigram search.
+6. Inspect semantic retrieval and weighted RRF arm positions.
+7. Apply Cohere reranking without overwriting the Aurora score.
+8. Run the agent tool pipeline and receive a cited answer.
+9. Validate citation rows and replay the retrieval receipt by `run_id`.
 
 Participants do not provision Aurora, generate 15,000 embeddings, build a
 connector, or deploy AgentCore Gateway during the hour.
@@ -29,21 +31,21 @@ connector, or deploy AgentCore Gateway during the hour.
 
 | Minute | Activity | Participant proof | Time risk and cut line |
 |---:|---|---|---|
-| 0-3 | Hybrid-search primer, scenario, and boundary | Explain lexical and semantic retrieval, RRF, `casework` as truth, `retrieval` as derived search state, and `proof` as receipts | One formula and one abbreviated SQL shape; no product tour |
-| 3-7 | Readiness | `make doctor` shows search index ready, model space aligned, and zero drift | At minute 7, move anyone blocked to the prevalidated terminal |
-| 7-14 | Lexical retrieval and filters | Exact ID rank 1; inspect document/chunk GIN streams; apply `cluster_id` and ACL before ranking | Skip the second `EXPLAIN` if two minutes behind |
-| 14-19 | Fuzzy entity recovery | `CGH-1842` resolves to `CHG-1842`; inspect threshold and trigram index plan | Do not tune multiple thresholds live |
-| 19-27 | Semantic retrieval under filters | Run HNSW with `ef_search=40`; observe candidate loss with iterative scan off and recovery with relaxed scan | If model latency is high, reuse the preflight run's persisted query vector |
-| 27-35 | Weighted RRF | Run lexical, semantic, and fuzzy arms; inspect positions, `2:1:1` weights, `k=60`, and fused rank | Weight experiment is the first core cut |
-| 35-40 | Model rerank and diagnostics | Compare Aurora RRF order with Cohere order; keep both scores and stage timing | If rerank is unavailable, show the recorded failure and continue with SQL order |
-| 40-50 | Agent tools | Decompose, retrieve, traverse FK-derived edges, compare revisions, and explain ranking | Use the complete answer endpoint at minute 47 if individual tool calls run long |
-| 50-55 | Citations and evaluation | Validate source URI/revision/quote against the exact chunk; run the small retrieval/traversal evaluation | Evaluation detail is the second core cut |
-| 55-60 | Buffer and close | Save `run_id`; identify one production evidence boundary and one appendix exercise | Do not start a new demo after minute 57 |
+| 0-3 | Scenario and system boundary | Connect the production write-stall question to `casework`, `retrieval`, and `proof` | No product tour |
+| 3-11 | Reproduce and repair | Read succeeds; writer waits on `Lock:relation`; `ShareLock` and `RowExclusiveLock` are visible; concurrent retry permits fresh DML | Use the facilitator's pre-captured output if terminal orchestration exceeds eight minutes |
+| 11-15 | Readiness | `make doctor` shows search index ready, model space aligned, and zero drift | At minute 15, move anyone blocked to the prevalidated terminal |
+| 15-21 | Exact, full text, and typo recovery | `CHG-1842` is rank 1; `CGH-1842` resolves through indexed trigram retrieval | Skip the second `EXPLAIN` if behind |
+| 21-28 | Semantic retrieval and filters | Inspect semantic recall and one filtered HNSW comparison | Iterative-scan tuning is the first cut |
+| 28-35 | Weighted RRF and rerank | Inspect `2:1:1` arm positions, preserve Aurora RRF, and compare optional Cohere order | Weight experimentation is the second cut |
+| 35-48 | Agent tools | Decompose, retrieve, traverse FK-derived edges, compare revisions, and synthesize the cited answer | Use the complete answer endpoint at minute 45 if individual calls run long |
+| 48-56 | Citations and replay | Validate source URI/revision/quote; inspect graph and timeline; replay by `run_id` without a model call | Detailed evaluation moves to the appendix if behind |
+| 56-60 | Evaluation and close | Run the compact retrieval/traversal set and identify one production evidence boundary | Do not start a new demo after minute 57 |
 
 ## Core Versus Appendix
 
 ### Core
 
+- controlled PostgreSQL lock reproduction and concurrent-index repair;
 - exact identifier and PostgreSQL full-text retrieval;
 - pgvector cosine search and filtered HNSW iterative scan;
 - SQL and metadata filters;
@@ -63,6 +65,8 @@ connector, or deploy AgentCore Gateway during the hour.
 - additional corpora, chunkers, model spaces, and relevance judgments;
 - inferred-edge generation;
 - AgentCore Gateway deployment;
+- row-level security and `pg_columnmask` comparison by rerunning one query as
+  App Engineer, Auditor, and DBA;
 - production identity mapping and live authorization revalidation;
 - load, failover, and Aurora-specific operational testing.
 
@@ -91,6 +95,7 @@ The content that distinguishes this session is not the list of retrievers:
 | Failure | Continue with |
 |---|---|
 | Participant terminal or editor falls behind | Prevalidated complete checkout and the next numbered command |
+| Multi-session incident lab falls behind | Facilitator's measured capture and the safe-fix verification; preserve the retrieval path |
 | Bedrock embedding is slow | Precomputed document vectors and the packaged query-vector checkpoint |
 | Cohere rerank is unavailable | Show `rerank_applied=false` and retain Aurora RRF ordering |
 | Synthesis model is unavailable | Use the extractive fallback built from the same persisted evidence rows |
@@ -103,6 +108,8 @@ The content that distinguishes this session is not the list of retrievers:
 Before opening the room:
 
 - Workshop Studio stack is complete and Aurora is reachable from Code Editor.
+- The exact multi-session incident scripts pass on the target Aurora engine
+  using the participant database role.
 - Schema, controlled corpus, embeddings, and indexes are already restored.
 - `make doctor` passes all hard gates in `us-east-1`.
 - Semantic, lexical, fuzzy, hybrid, rerank, answer, citation, and evaluation
@@ -115,13 +122,31 @@ Before opening the room:
 ## Expected Outputs
 
 - Lexical rank 1 for `CHG-1842`.
+- Plain `CREATE INDEX` owns granted `ShareLock`; the writer waits for
+  `RowExclusiveLock`; reads continue.
+- Concurrent index build owns `ShareUpdateExclusiveLock`; fresh DML completes;
+  the resulting index is ready, valid, and live.
 - Fuzzy rank 1 for `CHG-1842` from `CGH-1842`.
 - Default hybrid rank 1 for `CHG-1842` under the inferred
   `checkout-prod-cluster-01` filter.
-- The `analyst` persona cannot retrieve or traverse `CASE-7421`, and the row is
-  invisible to it at `casework.evidence_items` itself.
+- Agent synthesis identifies the blocking change, visible affected customer,
+  and safe fix from numbered evidence.
 - Cited answer includes real source revisions and passes
   `proof.validate_answer_citations`.
+- The saved `run_id` replays candidates, stages, answer, citations, graph, and
+  timeline without another model call.
 - Evaluation reports retrieval metrics separately from traversal metrics.
 
-These outputs are release gates, not slide claims.
+These core outputs are release gates, not slide claims.
+
+## Optional Persona Appendix
+
+When the target Aurora environment includes `pg_columnmask`, rerun the same
+restricted-evidence query in this order:
+
+1. App Engineer cannot retrieve or traverse `CASE-7421`.
+2. Auditor can retrieve the row with customer-sensitive text masked.
+3. DBA can retrieve the row unmasked.
+
+This comparison validates the implemented RLS and masking boundary. It is not a
+participant completion requirement or a default release gate.

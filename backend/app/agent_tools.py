@@ -440,7 +440,7 @@ def explain_ranking(run_id: str) -> dict[str, Any]:
             "use the run_id returned by search_evidence, not an evidence key.",
         )
     try:
-        response = explain_ranking_impl(run_id)
+        response = explain_ranking_impl(run_id, role=_role())
     except ValueError as error:
         _record("explain_ranking", arguments, started, status="not_found")
         return _failure(
@@ -519,6 +519,7 @@ def synthesize_cited_answer(question: str, run_ids: list[str]) -> dict[str, Any]
         response = synthesize_cited_answer_from_runs_impl(
             question,
             ordered_run_ids,
+            role=_role(),
         )
     except ValueError as error:
         _record("synthesize_cited_answer", arguments, started, status="incomplete")

@@ -17,8 +17,8 @@ EvidenceKind = Literal[
 ]
 IterativeScanMode = Literal["off", "strict_order", "relaxed_order"]
 
-Persona = Literal["analyst", "admin", "auditor"]
-DEFAULT_ROLE: Persona = "analyst"
+Persona = Literal["app_engineer", "auditor", "dba"]
+DEFAULT_ROLE: Persona = "app_engineer"
 
 
 class SearchRequest(BaseModel):
@@ -96,10 +96,12 @@ class SynthesisRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     run_ids: list[str] = Field(min_length=1, max_length=20)
     limit: int = Field(8, ge=1, le=8)
+    role: Persona = DEFAULT_ROLE
 
 
 class ExplainRankingRequest(BaseModel):
     run_id: str = Field(min_length=36, max_length=36)
+    role: Persona = DEFAULT_ROLE
 
 
 class EvaluationRequest(BaseModel):

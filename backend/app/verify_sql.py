@@ -24,12 +24,9 @@ Grain of reproducibility (SPEC-session Section 6.2):
 Named binds (``%(name)s``) keep each descriptor self-describing and let the gate
 replay it with a plain dict.
 
-Every descriptor carries an identity envelope (A3): ``set_role`` is the single
-``SET LOCAL ROLE`` the app issued for this panel, and ``rendered`` is the
-``BEGIN; SET LOCAL ROLE …; SELECT …; ROLLBACK;`` text a participant pastes. Under
-row-level security a SELECT without the role is a different query, so a paste that
-omitted it would return different rows than the panel — the pasted proof has to
-carry the identity, not just the query.
+In core mode, ``rendered`` is a plain read-only transaction around the SELECT.
+When the optional security module is enabled, the descriptor also carries the
+``SET LOCAL ROLE`` issued by the app so the paste reproduces the same persona.
 """
 
 from __future__ import annotations
@@ -37,6 +34,8 @@ from __future__ import annotations
 from typing import Any
 
 from psycopg import sql
+
+from .config import get_settings
 
 # --- Panel grain: the receipt family (explain_ranking_impl) ------------------
 
@@ -135,7 +134,7 @@ TIMELINE_EVENT_VERIFY_SQL = (
 )
 
 
-PERSONAS: tuple[str, ...] = ("analyst", "admin", "auditor")
+PERSONAS: tuple[str, ...] = ("app_engineer", "dba", "auditor")
 
 
 def persona_role(persona: str) -> str:
@@ -161,7 +160,9 @@ def persona_role(persona: str) -> str:
     return f"persona_{persona}"
 
 
-def _render(statement: str, binds: dict[str, Any], set_role: str) -> str:
+def _render(
+    statement: str, binds: dict[str, Any], set_role: str | None
+) -> str:
     """Render the copy-pasteable envelope for a human (A3).
 
     The statement is parameterized for psycopg; a paste has no bind mechanism, so
@@ -175,7 +176,8 @@ def _render(statement: str, binds: dict[str, Any], set_role: str) -> str:
     for name, value in binds.items():
         inlined = inlined.replace(f"%({name})s", sql.Literal(value).as_string(None))
     body = inlined.strip().rstrip(";")
-    return f"BEGIN;\n{set_role};\n{body};\nROLLBACK;"
+    identity_line = f"{set_role};\n" if set_role else ""
+    return f"BEGIN;\n{identity_line}{body};\nROLLBACK;"
 
 
 def _descriptor(
@@ -202,7 +204,12 @@ def _descriptor(
     Returns:
         The descriptor dict serialized into the API payload as ``_verify_sql``.
     """
-    set_role = f"SET LOCAL ROLE {persona_role(persona)}"
+    role = persona_role(persona)
+    set_role = (
+        f"SET LOCAL ROLE {role}"
+        if get_settings().workbench_security_enabled
+        else None
+    )
     return {
         "statement": statement,
         "binds": binds,
@@ -217,8 +224,8 @@ def receipt_verify_sql(run_id: str, persona: str) -> dict[str, dict[str, Any]]:
     Args:
         run_id: The run whose receipt is being rendered.
         persona: The persona whose rows this receipt showed. Required, never
-            defaulted: a defaulted persona would let a panel emit an ``analyst``
-            envelope for rows an ``admin`` fetched.
+            defaulted: a defaulted persona would let a panel emit an
+            ``app_engineer`` envelope for rows a ``dba`` fetched.
 
     Returns:
         A ``panel -> descriptor`` map for the run, candidates, stages, and answer

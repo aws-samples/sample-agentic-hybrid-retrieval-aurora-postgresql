@@ -6,7 +6,7 @@ Four assertions:
 1. Masking is real. Under ``persona_auditor`` the sensitive columns on a
    restricted support case (``account_name``, ``customer_commitment``,
    ``description``) and the denormalized ``retrieval.chunks.chunk_text`` blob come
-   back masked; under ``persona_admin`` the same columns come back raw. Masking is
+   back masked; under ``persona_dba`` the same columns come back raw. Masking is
    detected by comparing the two views, not by reading a ``pg_columnmask`` catalog
    table - behaviour is what the workshop claims, so behaviour is what is asserted.
 
@@ -48,7 +48,7 @@ GATE_ID = "G-29"
 TITLE = "Column masking + Law-2 determinism"
 
 AUDITOR = "persona_auditor"
-ADMIN = "persona_admin"
+DBA = "persona_dba"
 COLUMNS = ("account_name", "customer_commitment", "description")
 
 # The typed sensitive columns, read from the engine to build the pattern set (A5).
@@ -156,14 +156,14 @@ def run() -> int:  # noqa: C901 - four assertion groups, read top to bottom
                 print(f"  pg_columnmask: {ext[0]}")
                 cur.execute(
                     "SELECT rolname FROM pg_roles WHERE rolname = ANY(%s)",
-                    [[AUDITOR, ADMIN]],
+                    [[AUDITOR, DBA]],
                 )
                 found = {row[0] for row in cur.fetchall()}
-                if {AUDITOR, ADMIN} - found:
+                if {AUDITOR, DBA} - found:
                     return finish(
                         GATE_ID,
                         BLOCKED,
-                        f"persona roles missing: {sorted({AUDITOR, ADMIN} - found)}",
+                        f"persona roles missing: {sorted({AUDITOR, DBA} - found)}",
                     )
                 cur.execute(SENSITIVE_SQL)
                 sensitive = cur.fetchall()
@@ -191,40 +191,40 @@ def run() -> int:  # noqa: C901 - four assertion groups, read top to bottom
         # honest BLOCKED. sql/11 grants SELECT ON ALL TABLES IN SCHEMA casework to
         # each persona; this catch names the table when that has not run yet.
         try:
-            admin_cases = _as_persona(app, ADMIN, CASE_VIEW_SQL, [keys])
+            dba_cases = _as_persona(app, DBA, CASE_VIEW_SQL, [keys])
             auditor_cases = _as_persona(app, AUDITOR, CASE_VIEW_SQL, [keys])
-            admin_chunks = _as_persona(app, ADMIN, CHUNK_VIEW_SQL, [keys])
+            dba_chunks = _as_persona(app, DBA, CHUNK_VIEW_SQL, [keys])
             auditor_chunks = _as_persona(app, AUDITOR, CHUNK_VIEW_SQL, [keys])
         except psycopg.errors.InsufficientPrivilege as exc:
             return finish(
                 GATE_ID, BLOCKED, f"a persona lacks SELECT on the read path: {exc}"
             )
 
-        print("\n  (1) masking is real - admin raw vs auditor masked:")
+        print("\n  (1) masking is real - dba raw vs auditor masked:")
         require(
-            len(auditor_cases) == len(admin_cases) and auditor_cases,
-            f"auditor row count {len(auditor_cases)} != admin {len(admin_cases)}; "
+            len(auditor_cases) == len(dba_cases) and auditor_cases,
+            f"auditor row count {len(auditor_cases)} != dba {len(dba_cases)}; "
             f"masking needs the row PRESENT, not filtered",
         )
         # Ground truth read as the bootstrap owner, keyed by external_key. "Masked
         # for the auditor" is only meaningful against the real stored value: two
         # differently-masked views also differ from each other, so comparing the
-        # admin view to the auditor view alone cannot tell "admin is raw" from
-        # "admin is masked differently". Anchor on truth, not on the other view.
+        # dba view to the auditor view alone cannot tell "dba is raw" from
+        # "dba is masked differently". Anchor on truth, not on the other view.
         truth = {row[0]: row[1:] for row in sensitive}
-        for admin_row, auditor_row in zip(admin_cases, auditor_cases):
-            key = admin_row[0]
+        for dba_row, auditor_row in zip(dba_cases, auditor_cases):
+            key = dba_row[0]
             for column, raw, masked, stored in zip(
-                COLUMNS, admin_row[1:], auditor_row[1:], truth[key]
+                COLUMNS, dba_row[1:], auditor_row[1:], truth[key]
             ):
                 if stored is None:
                     continue
-                print(f"    {key}.{column}: admin={raw!r} auditor={masked!r}")
+                print(f"    {key}.{column}: dba={raw!r} auditor={masked!r}")
                 require(
                     raw == stored,
-                    f"{key}.{column} is masked for persona_admin too "
-                    f"(admin={raw!r} != stored {stored!r}); the mask is not "
-                    f"auditor-scoped and 'admin raw vs auditor masked' proves nothing",
+                    f"{key}.{column} is masked for persona_dba too "
+                    f"(dba={raw!r} != stored {stored!r}); the mask is not "
+                    f"auditor-scoped and 'dba raw vs auditor masked' proves nothing",
                 )
                 require(
                     masked != stored,
@@ -232,26 +232,26 @@ def run() -> int:  # noqa: C901 - four assertion groups, read top to bottom
                     f"(identical to the stored value)",
                 )
         require(
-            admin_chunks and len(auditor_chunks) == len(admin_chunks),
-            "chunk_text row counts differ between admin and auditor",
+            dba_chunks and len(auditor_chunks) == len(dba_chunks),
+            "chunk_text row counts differ between dba and auditor",
         )
-        # Same anchor for the blob: the admin view must equal what is stored.
+        # Same anchor for the blob: the dba view must equal what is stored.
         owner_blobs = _owner_chunks(owner_dsn, psycopg, keys)
         require(
-            owner_blobs and len(admin_chunks) == len(owner_blobs),
-            f"admin sees {len(admin_chunks)} restricted chunks, the owner sees "
+            owner_blobs and len(dba_chunks) == len(owner_blobs),
+            f"dba sees {len(dba_chunks)} restricted chunks, the owner sees "
             f"{len(owner_blobs)}; compare like with like before judging the mask",
         )
         require(
-            [row[2] for row in admin_chunks] == [row[2] for row in owner_blobs],
-            "chunk_text is masked for persona_admin too; a blob that differs "
-            "between admin and auditor then proves nothing about the auditor",
+            [row[2] for row in dba_chunks] == [row[2] for row in owner_blobs],
+            "chunk_text is masked for persona_dba too; a blob that differs "
+            "between dba and auditor then proves nothing about the auditor",
         )
         blob_masked = sum(
-            1 for a, b in zip(admin_chunks, auditor_chunks) if a[2] != b[2]
+            1 for a, b in zip(dba_chunks, auditor_chunks) if a[2] != b[2]
         )
         print(
-            f"    chunk_text: {blob_masked} of {len(admin_chunks)} restricted chunks "
+            f"    chunk_text: {blob_masked} of {len(dba_chunks)} restricted chunks "
             f"differ under the auditor"
         )
         require(

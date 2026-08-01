@@ -10,10 +10,11 @@
 -- stamp on the row (acl_visibility in {'workshop','restricted'}), never an identity.
 --
 --   can_see_restricted     NOLOGIN clearance group. A key, not a limitation:
---                          granted to admin and auditor, never to analyst. Additive
---                          grants fail closed; a subtractive marker would fail open.
---   persona_analyst       NOLOGIN persona. Workshop rows only.
---   persona_admin         NOLOGIN persona. All rows, unmasked.
+--                          granted to DBA and Auditor, never to App Engineer.
+--                          Additive grants fail closed; a subtractive marker
+--                          would fail open.
+--   persona_app_engineer  NOLOGIN persona. Workshop rows only.
+--   persona_dba           NOLOGIN persona. All rows, unmasked.
 --   persona_auditor       NOLOGIN persona. All rows, sensitive columns masked
 --                          (sql/12_masking.sql).
 --   workshop_app           LOGIN. The API pool identity. Owns nothing, holds NO
@@ -33,16 +34,42 @@
 -- 1. Roles.
 -- ---------------------------------------------------------------------------
 
+-- Preserve grants, memberships, and policy OIDs when upgrading an existing
+-- deployment. ALTER ROLE ... RENAME changes the role name in place; creating a
+-- second role would leave the old one attached to policies and default grants.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_analyst') THEN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_app_engineer') THEN
+      RAISE EXCEPTION
+        'both persona_analyst and persona_app_engineer exist; cannot choose which '
+        'role owns the existing grants. Remove the unintended duplicate and re-run.';
+    END IF;
+    EXECUTE 'ALTER ROLE persona_analyst RENAME TO persona_app_engineer';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_admin') THEN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_dba') THEN
+      RAISE EXCEPTION
+        'both persona_admin and persona_dba exist; cannot choose which role owns '
+        'the existing grants. Remove the unintended duplicate and re-run.';
+    END IF;
+    EXECUTE 'ALTER ROLE persona_admin RENAME TO persona_dba';
+  END IF;
+END
+$$;
+
+-- ---------------------------------------------------------------------------
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'can_see_restricted') THEN
     CREATE ROLE can_see_restricted NOLOGIN;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_analyst') THEN
-    CREATE ROLE persona_analyst NOLOGIN;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_app_engineer') THEN
+    CREATE ROLE persona_app_engineer NOLOGIN;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_admin') THEN
-    CREATE ROLE persona_admin NOLOGIN;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_dba') THEN
+    CREATE ROLE persona_dba NOLOGIN;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_auditor') THEN
     CREATE ROLE persona_auditor NOLOGIN;
@@ -56,11 +83,11 @@ $$;
 -- ALTER ROLE requires CREATEROLE *plus* ADMIN OPTION on the target role, and PG16+
 -- auto-grants ADMIN OPTION only to the role that CREATED it. So on the exact case
 -- this block exists to defend -- the roles already exist, created by someone else --
--- `ALTER ROLE persona_analyst NOLOGIN` raises 42501 and aborts the file. Measured on
+-- `ALTER ROLE persona_app_engineer NOLOGIN` raises 42501 and aborts the file. Measured on
 -- PG17 with a non-superuser owner and pre-existing personas:
 --   ERROR: permission denied to alter role
 --   DETAIL: Only roles with the CREATEROLE attribute and the ADMIN option on role
---           "persona_analyst" may alter this role.
+--           "persona_app_engineer" may alter this role.
 -- The guarded CREATE above had correctly skipped them, so the "assert the invariant"
 -- statement was the only thing that failed, and it failed on a CORRECT cluster.
 -- The assertion needs no privilege, covers can_see_restricted the same way, and
@@ -72,7 +99,7 @@ BEGIN
   SELECT string_agg(rolname, ', ' ORDER BY rolname)
     INTO v_bad
     FROM pg_roles
-   WHERE rolname IN ('persona_analyst', 'persona_admin', 'persona_auditor',
+   WHERE rolname IN ('persona_app_engineer', 'persona_dba', 'persona_auditor',
                      'can_see_restricted')
      AND rolcanlogin;
 
@@ -113,7 +140,7 @@ DECLARE
 BEGIN
   SELECT string_agg(r, ', ' ORDER BY r)
     INTO v_bad
-    FROM unnest(ARRAY['can_see_restricted', 'persona_analyst', 'persona_admin',
+    FROM unnest(ARRAY['can_see_restricted', 'persona_app_engineer', 'persona_dba',
                       'persona_auditor', 'pg_monitor']) AS r
    WHERE NOT pg_has_role(current_user, r, 'MEMBER WITH ADMIN OPTION');
 
@@ -132,10 +159,43 @@ BEGIN
 END
 $$;
 
--- The clearance key. Direction is the whole point: withhold the key from the
--- analyst rather than marking the analyst as limited.
-GRANT can_see_restricted TO persona_admin;
+-- The clearance key. Direction is the whole point: withhold the key from App
+-- Engineer rather than marking that persona as limited.
+GRANT can_see_restricted TO persona_dba;
 GRANT can_see_restricted TO persona_auditor;
+
+-- Upgrade the core workshop-only predicates to persona-aware visibility. These
+-- signatures intentionally match sql/03 so applying `make security-schema`
+-- changes policy behavior without changing any retrieval function contract.
+CREATE OR REPLACE FUNCTION retrieval.acl_visible(
+  p_acl jsonb,
+  p_role name DEFAULT current_user
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+PARALLEL SAFE
+AS $$
+  SELECT coalesce(p_acl ->> 'visibility', 'restricted') = 'workshop'
+    OR pg_has_role(p_role, 'can_see_restricted', 'USAGE')
+$$;
+
+COMMENT ON FUNCTION retrieval.acl_visible(jsonb, name) IS
+  'Optional persona-aware evidence visibility. USAGE honors the effective '
+  'clearance role; MEMBER would ignore INHERIT.';
+
+CREATE OR REPLACE FUNCTION retrieval.acl_scalars_visible(
+  p_visibility text,
+  p_role name DEFAULT current_user
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+PARALLEL SAFE
+AS $$
+  SELECT coalesce(p_visibility, 'restricted') = 'workshop'
+    OR pg_has_role(p_role, 'can_see_restricted', 'USAGE')
+$$;
 
 DO $$
 BEGIN
@@ -145,10 +205,10 @@ BEGIN
       JOIN pg_roles grp ON grp.oid = m.roleid
       JOIN pg_roles mem ON mem.oid = m.member
      WHERE grp.rolname = 'can_see_restricted'
-       AND mem.rolname = 'persona_analyst'
+       AND mem.rolname = 'persona_app_engineer'
   ) THEN
     RAISE EXCEPTION
-      'persona_analyst holds can_see_restricted; the analyst persona would see '
+      'persona_app_engineer holds can_see_restricted; App Engineer would see '
       'restricted rows and the row-filtering demo is broken';
   END IF;
 END
@@ -167,17 +227,33 @@ DO $$
 DECLARE
   v_persona text;
 BEGIN
-  FOREACH v_persona IN ARRAY ARRAY['persona_analyst', 'persona_admin', 'persona_auditor']
+  FOREACH v_persona IN ARRAY ARRAY['persona_app_engineer', 'persona_dba', 'persona_auditor']
   LOOP
     EXECUTE format('GRANT USAGE ON SCHEMA casework, retrieval, proof TO %I', v_persona);
     EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA casework TO %I', v_persona);
     EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA retrieval TO %I', v_persona);
     EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA proof TO %I', v_persona);
-    -- The API persists its own receipts (proof.retrieval_runs, candidates, stages,
-    -- agent_* and observability_refs) inside the same persona transaction that ran
-    -- the search, so the persona needs write access to proof.* and nothing else.
+    -- Remove grants from earlier revisions before installing the minimum write
+    -- surface below. In particular, personas must not mutate evaluation fixtures,
+    -- views, or another future proof table merely because it lives in the schema.
     EXECUTE format(
-      'GRANT INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA proof TO %I', v_persona
+      'REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA proof FROM %I',
+      v_persona
+    );
+    EXECUTE format(
+      'GRANT INSERT, UPDATE ON proof.retrieval_runs, proof.observability_refs, '
+      'proof.agent_runs, proof.agent_subquestions, proof.agent_retrievals, '
+      'proof.agent_answers, proof.traversal_results TO %I',
+      v_persona
+    );
+    EXECUTE format(
+      'GRANT INSERT ON proof.retrieval_candidates, proof.run_stages, '
+      'proof.agent_escalations, proof.transport_invocations TO %I',
+      v_persona
+    );
+    EXECUTE format(
+      'GRANT INSERT, DELETE ON proof.answer_citations TO %I',
+      v_persona
     );
     EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA retrieval TO %I', v_persona);
     EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA proof TO %I', v_persona);
@@ -188,12 +264,15 @@ $$;
 -- Future tables created by the owner inherit the same grants, so a later schema
 -- addition cannot silently become unreadable to every persona.
 ALTER DEFAULT PRIVILEGES IN SCHEMA casework
-  GRANT SELECT ON TABLES TO persona_analyst, persona_admin, persona_auditor;
+  GRANT SELECT ON TABLES TO persona_app_engineer, persona_dba, persona_auditor;
 ALTER DEFAULT PRIVILEGES IN SCHEMA retrieval
-  GRANT SELECT ON TABLES TO persona_analyst, persona_admin, persona_auditor;
+  GRANT SELECT ON TABLES TO persona_app_engineer, persona_dba, persona_auditor;
 ALTER DEFAULT PRIVILEGES IN SCHEMA proof
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES
-  TO persona_analyst, persona_admin, persona_auditor;
+  REVOKE INSERT, UPDATE, DELETE ON TABLES
+  FROM persona_app_engineer, persona_dba, persona_auditor;
+ALTER DEFAULT PRIVILEGES IN SCHEMA proof
+  GRANT SELECT ON TABLES
+  TO persona_app_engineer, persona_dba, persona_auditor;
 
 -- ---------------------------------------------------------------------------
 -- 3. The two LOGIN roles.
@@ -249,17 +328,17 @@ $$;
 -- WITH INHERIT FALSE is load-bearing: the login may SET ROLE to a persona but
 -- gains no passive access from the grant. Without it, workshop_app would inherit
 -- the personas' SELECT and a forgotten SET ROLE would fail OPEN.
-GRANT persona_analyst TO workshop_app WITH INHERIT FALSE;
-GRANT persona_admin   TO workshop_app WITH INHERIT FALSE;
+GRANT persona_app_engineer TO workshop_app WITH INHERIT FALSE;
+GRANT persona_dba   TO workshop_app WITH INHERIT FALSE;
 GRANT persona_auditor TO workshop_app WITH INHERIT FALSE;
 
-GRANT persona_analyst TO workshop_participant WITH INHERIT FALSE;
-GRANT persona_admin   TO workshop_participant WITH INHERIT FALSE;
+GRANT persona_app_engineer TO workshop_participant WITH INHERIT FALSE;
+GRANT persona_dba   TO workshop_participant WITH INHERIT FALSE;
 GRANT persona_auditor TO workshop_participant WITH INHERIT FALSE;
 
 -- The bootstrap owner gets the same three grants, for one specific reason:
 -- admission/admit.sh's exact-arm checkpoint runs inside the A3 envelope
--- (BEGIN; SET LOCAL ROLE persona_analyst; SELECT; ROLLBACK), and that script is run
+-- (BEGIN; SET LOCAL ROLE persona_app_engineer; SELECT; ROLLBACK), and that script is run
 -- BOTH by a participant (as workshop_participant) and by a developer or the Step 5
 -- scratch verification (as the bootstrap owner). Without this, the developer path
 -- raises "permission denied to set role" while the participant path works -- a
@@ -281,8 +360,8 @@ GRANT persona_auditor TO workshop_participant WITH INHERIT FALSE;
 -- on both paths -- the owner's own clearance does not follow it into the persona.
 DO $$
 BEGIN
-  EXECUTE format('GRANT persona_analyst TO %I WITH INHERIT FALSE', current_user);
-  EXECUTE format('GRANT persona_admin   TO %I WITH INHERIT FALSE', current_user);
+  EXECUTE format('GRANT persona_app_engineer TO %I WITH INHERIT FALSE', current_user);
+  EXECUTE format('GRANT persona_dba   TO %I WITH INHERIT FALSE', current_user);
   EXECUTE format('GRANT persona_auditor TO %I WITH INHERIT FALSE', current_user);
 END
 $$;
@@ -311,10 +390,11 @@ GRANT pg_monitor TO workshop_participant;
 --   * Making the function SECURITY DEFINER keeps the participant's reach at exactly
 --     one function while giving the body the owner's privileges. Correct.
 --
--- SECURITY DEFINER is applied below rather than in sql/10_admission.sql because
--- sql/10 must stay runnable before roles exist; the ALTER is idempotent and this is
--- the file that owns the privilege model.
-GRANT USAGE ON SCHEMA casework TO workshop_participant;
+-- sql/10 defines the function with SECURITY DEFINER, a pinned search_path, and no
+-- PUBLIC EXECUTE so reapplying its owning migration cannot weaken this boundary.
+-- The ALTER statements below are idempotent defense in depth; this file owns the
+-- role-specific grants.
+GRANT USAGE ON SCHEMA casework TO workshop_app, workshop_participant;
 GRANT EXECUTE ON FUNCTION casework.admit_evidence(jsonb) TO workshop_participant;
 
 -- Definer rights + a pinned search_path. The pin is mandatory, not hygiene: a
@@ -396,7 +476,7 @@ ALTER TABLE retrieval.chunks        FORCE ROW LEVEL SECURITY;
 -- denies every row, and the clearance key cannot rescue a role no policy applies to.
 --
 -- The persona grants to the owner are WITH INHERIT FALSE, which is why the owner does
--- not reach the policies through them: measured, pg_has_role(owner, 'persona_analyst',
+-- not reach the policies through them: measured, pg_has_role(owner, 'persona_app_engineer',
 -- 'USAGE') is false, and the TO list is matched by that same USAGE semantics.
 --
 -- Not an Aurora no-op either. Role attributes are not inherited through membership;
@@ -424,13 +504,13 @@ DROP POLICY IF EXISTS rls_chunks_visibility         ON retrieval.chunks;
 -- CURRENT_USER in the TO list is the first half of the owner fix above, and it is
 -- safe: PostgreSQL resolves it to an OID at CREATE POLICY time and stores that OID in
 -- pg_policy.polroles -- it is NOT re-evaluated per query. Measured on PG17: the
--- stored roles read {persona_admin, persona_analyst, persona_auditor,
--- retrieval_admin}, and `SET LOCAL ROLE persona_analyst` still saw 1 of 3 rows. If it
+-- stored roles read {persona_dba, persona_app_engineer, persona_auditor,
+-- retrieval_admin}, and `SET LOCAL ROLE persona_app_engineer` still saw 1 of 3 rows. If it
 -- were dynamic it would match every persona and hand the analyst the clearance
 -- disjunct, which is exactly the failure G-27(b) exists to catch. It does not.
 CREATE POLICY rls_evidence_items_visibility ON casework.evidence_items
   FOR ALL
-  TO persona_analyst, persona_admin, persona_auditor, CURRENT_USER
+  TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
   USING (
     coalesce(acl ->> 'visibility', 'restricted') = 'workshop'
     OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')
@@ -441,7 +521,7 @@ CREATE POLICY rls_evidence_items_visibility ON casework.evidence_items
 -- two layers - if you change one, change all three.
 CREATE POLICY rls_documents_visibility ON retrieval.documents
   FOR ALL
-  TO persona_analyst, persona_admin, persona_auditor, CURRENT_USER
+  TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
   USING (
     acl_visibility = 'workshop'
     OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')
@@ -449,7 +529,7 @@ CREATE POLICY rls_documents_visibility ON retrieval.documents
 
 CREATE POLICY rls_chunks_visibility ON retrieval.chunks
   FOR ALL
-  TO persona_analyst, persona_admin, persona_auditor, CURRENT_USER
+  TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
   USING (
     acl_visibility = 'workshop'
     OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')
@@ -465,7 +545,7 @@ CREATE POLICY rls_chunks_visibility ON retrieval.chunks
 -- because RLS narrows reach, it does not grant it. Without the policies below, a
 -- participant does this and the whole teaching claim collapses:
 --
---   BEGIN; SET LOCAL ROLE persona_analyst;
+--   BEGIN; SET LOCAL ROLE persona_app_engineer;
 --   SELECT count(*) FROM casework.evidence_items;   -- restricted rows hidden, correct
 --   SELECT account_name, description, customer_commitment
 --     FROM casework.support_cases;                   -- CASE-7421 in full. Measured.
@@ -524,7 +604,7 @@ BEGIN
     EXECUTE format($fmt$
       CREATE POLICY rls_%s_visibility ON casework.%I
         FOR ALL
-        TO persona_analyst, persona_admin, persona_auditor, CURRENT_USER
+        TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
         USING (EXISTS (SELECT 1
                          FROM casework.evidence_items parent
                         WHERE parent.evidence_id = casework.%I.evidence_id))
@@ -589,7 +669,7 @@ BEGIN
     EXECUTE format($fmt$
       CREATE POLICY rls_%s_visibility ON casework.%I
         FOR ALL
-        TO persona_analyst, persona_admin, persona_auditor, CURRENT_USER
+        TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
         USING (EXISTS (SELECT 1
                          FROM casework.evidence_items near
                         WHERE near.evidence_id = casework.%I.%I)
@@ -600,3 +680,270 @@ BEGIN
   END LOOP;
 END
 $$;
+
+-- 7. RLS on inferred relationships.
+--
+-- Canonical relationship tables are protected above. Inferred edges need the
+-- same both-endpoints rule or retrieval.evidence_edges can reveal that a visible
+-- record is related to a restricted one. Personas only read this table; the
+-- admission function writes it as the schema owner.
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE retrieval.inferred_edges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE retrieval.inferred_edges FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS rls_inferred_edges_visibility ON retrieval.inferred_edges;
+DROP POLICY IF EXISTS rls_inferred_edges_owner ON retrieval.inferred_edges;
+
+CREATE POLICY rls_inferred_edges_visibility ON retrieval.inferred_edges
+  FOR SELECT
+  TO persona_app_engineer, persona_dba, persona_auditor
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM casework.evidence_items near
+      WHERE near.evidence_id = retrieval.inferred_edges.from_evidence_id
+    )
+    AND EXISTS (
+      SELECT 1
+      FROM casework.evidence_items far
+      WHERE far.evidence_id = retrieval.inferred_edges.to_evidence_id
+    )
+  );
+
+CREATE POLICY rls_inferred_edges_owner ON retrieval.inferred_edges
+  FOR ALL
+  TO CURRENT_USER
+  USING (true)
+  WITH CHECK (true);
+
+-- ---------------------------------------------------------------------------
+-- 8. RLS on replayable proof.
+--
+-- A run_id is a reference, not a bearer capability. Root rows carry the persona
+-- that created them; every child row inherits visibility through its root.
+-- Exact-persona isolation is intentional: replay reproduces the visibility and
+-- masking context of the original run, so a different persona starts a new run
+-- instead of reopening this one.
+-- ---------------------------------------------------------------------------
+
+DO $$
+DECLARE
+  v_table text;
+BEGIN
+  FOREACH v_table IN ARRAY ARRAY[
+    'retrieval_runs',
+    'agent_runs',
+    'transport_invocations'
+  ]
+  LOOP
+    EXECUTE format('ALTER TABLE proof.%I ENABLE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('ALTER TABLE proof.%I FORCE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('DROP POLICY IF EXISTS proof_%s_persona ON proof.%I',
+                   v_table, v_table);
+    EXECUTE format('DROP POLICY IF EXISTS proof_%s_owner ON proof.%I',
+                   v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY proof_%s_persona ON proof.%I
+        FOR ALL
+        TO persona_app_engineer, persona_dba, persona_auditor
+        USING (
+          role = CASE current_user::text
+            WHEN 'persona_app_engineer' THEN 'app_engineer'
+            WHEN 'persona_auditor' THEN 'auditor'
+            WHEN 'persona_dba' THEN 'dba'
+            ELSE NULL
+          END
+        )
+        WITH CHECK (
+          role = CASE current_user::text
+            WHEN 'persona_app_engineer' THEN 'app_engineer'
+            WHEN 'persona_auditor' THEN 'auditor'
+            WHEN 'persona_dba' THEN 'dba'
+            ELSE NULL
+          END
+        )
+    $fmt$, v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY proof_%s_owner ON proof.%I
+        FOR ALL TO CURRENT_USER
+        USING (true)
+        WITH CHECK (true)
+    $fmt$, v_table, v_table);
+  END LOOP;
+END
+$$;
+
+DO $$
+DECLARE
+  v_table text;
+BEGIN
+  FOREACH v_table IN ARRAY ARRAY[
+    'observability_refs',
+    'retrieval_candidates',
+    'run_stages',
+    'traversal_results',
+    'answer_citations'
+  ]
+  LOOP
+    EXECUTE format('ALTER TABLE proof.%I ENABLE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('ALTER TABLE proof.%I FORCE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('DROP POLICY IF EXISTS proof_%s_persona ON proof.%I',
+                   v_table, v_table);
+    EXECUTE format('DROP POLICY IF EXISTS proof_%s_owner ON proof.%I',
+                   v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY proof_%s_persona ON proof.%I
+        FOR ALL
+        TO persona_app_engineer, persona_dba, persona_auditor
+        USING (
+          EXISTS (
+            SELECT 1
+            FROM proof.retrieval_runs parent
+            WHERE parent.run_id = proof.%I.run_id
+          )
+        )
+        WITH CHECK (
+          EXISTS (
+            SELECT 1
+            FROM proof.retrieval_runs parent
+            WHERE parent.run_id = proof.%I.run_id
+          )
+        )
+    $fmt$, v_table, v_table, v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY proof_%s_owner ON proof.%I
+        FOR ALL TO CURRENT_USER
+        USING (true)
+        WITH CHECK (true)
+    $fmt$, v_table, v_table);
+  END LOOP;
+END
+$$;
+
+DO $$
+DECLARE
+  v_table text;
+BEGIN
+  FOREACH v_table IN ARRAY ARRAY[
+    'agent_subquestions',
+    'agent_escalations'
+  ]
+  LOOP
+    EXECUTE format('ALTER TABLE proof.%I ENABLE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('ALTER TABLE proof.%I FORCE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('DROP POLICY IF EXISTS proof_%s_persona ON proof.%I',
+                   v_table, v_table);
+    EXECUTE format('DROP POLICY IF EXISTS proof_%s_owner ON proof.%I',
+                   v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY proof_%s_persona ON proof.%I
+        FOR ALL
+        TO persona_app_engineer, persona_dba, persona_auditor
+        USING (
+          EXISTS (
+            SELECT 1
+            FROM proof.agent_runs parent
+            WHERE parent.agent_run_id = proof.%I.agent_run_id
+          )
+        )
+        WITH CHECK (
+          EXISTS (
+            SELECT 1
+            FROM proof.agent_runs parent
+            WHERE parent.agent_run_id = proof.%I.agent_run_id
+          )
+        )
+    $fmt$, v_table, v_table, v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY proof_%s_owner ON proof.%I
+        FOR ALL TO CURRENT_USER
+        USING (true)
+        WITH CHECK (true)
+    $fmt$, v_table, v_table);
+  END LOOP;
+END
+$$;
+
+ALTER TABLE proof.agent_retrievals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE proof.agent_retrievals FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS proof_agent_retrievals_persona ON proof.agent_retrievals;
+DROP POLICY IF EXISTS proof_agent_retrievals_owner ON proof.agent_retrievals;
+CREATE POLICY proof_agent_retrievals_persona ON proof.agent_retrievals
+  FOR ALL
+  TO persona_app_engineer, persona_dba, persona_auditor
+  USING (
+    EXISTS (
+      SELECT 1 FROM proof.agent_runs agent
+      WHERE agent.agent_run_id = proof.agent_retrievals.agent_run_id
+    )
+    AND EXISTS (
+      SELECT 1 FROM proof.retrieval_runs run
+      WHERE run.run_id = proof.agent_retrievals.run_id
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM proof.agent_runs agent
+      WHERE agent.agent_run_id = proof.agent_retrievals.agent_run_id
+    )
+    AND EXISTS (
+      SELECT 1 FROM proof.retrieval_runs run
+      WHERE run.run_id = proof.agent_retrievals.run_id
+    )
+  );
+CREATE POLICY proof_agent_retrievals_owner ON proof.agent_retrievals
+  FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
+
+ALTER TABLE proof.agent_answers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE proof.agent_answers FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS proof_agent_answers_persona ON proof.agent_answers;
+DROP POLICY IF EXISTS proof_agent_answers_owner ON proof.agent_answers;
+CREATE POLICY proof_agent_answers_persona ON proof.agent_answers
+  FOR ALL
+  TO persona_app_engineer, persona_dba, persona_auditor
+  USING (
+    EXISTS (
+      SELECT 1 FROM proof.retrieval_runs run
+      WHERE run.run_id = proof.agent_answers.run_id
+    )
+    AND (
+      agent_run_id IS NULL
+      OR EXISTS (
+        SELECT 1 FROM proof.agent_runs agent
+        WHERE agent.agent_run_id = proof.agent_answers.agent_run_id
+      )
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM proof.retrieval_runs run
+      WHERE run.run_id = proof.agent_answers.run_id
+    )
+    AND (
+      agent_run_id IS NULL
+      OR EXISTS (
+        SELECT 1 FROM proof.agent_runs agent
+        WHERE agent.agent_run_id = proof.agent_answers.agent_run_id
+      )
+    )
+  );
+CREATE POLICY proof_agent_answers_owner ON proof.agent_answers
+  FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);
+
+ALTER TABLE proof.relevance_judgments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE proof.relevance_judgments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS proof_relevance_judgments_persona ON proof.relevance_judgments;
+DROP POLICY IF EXISTS proof_relevance_judgments_owner ON proof.relevance_judgments;
+CREATE POLICY proof_relevance_judgments_persona ON proof.relevance_judgments
+  FOR SELECT
+  TO persona_app_engineer, persona_dba, persona_auditor
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM casework.evidence_items evidence
+      WHERE evidence.evidence_id = proof.relevance_judgments.evidence_id
+    )
+  );
+CREATE POLICY proof_relevance_judgments_owner ON proof.relevance_judgments
+  FOR ALL TO CURRENT_USER USING (true) WITH CHECK (true);

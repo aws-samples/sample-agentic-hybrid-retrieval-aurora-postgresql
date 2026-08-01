@@ -3,8 +3,8 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make PostgreSQL Row-Level Security the enforced, demonstrable entitlement
-mechanism for the DAT410 workshop — three real personas (`persona_analyst`,
-`persona_admin`, `persona_auditor`) whose row visibility and column masking are
+mechanism for the DAT410 workshop — three real personas (`persona_app_engineer`,
+`persona_dba`, `persona_auditor`) whose row visibility and column masking are
 enforced by Aurora at the table, not by application code.
 
 **Architecture:** A new idempotent `sql/11_roles_rls.sql` creates one clearance
@@ -29,7 +29,7 @@ Copy these verbatim into every subagent dispatch. Every task's requirements
 implicitly include this section.
 
 **Amendment vocabulary (A7 — supersedes the design doc's two-axis model):**
-- ONE identity axis: the **persona**. Values: `analyst`, `admin`, `auditor`.
+- ONE identity axis: the **persona**. Values: `app_engineer`, `dba`, `auditor`.
 - Data classification axis: `acl_visibility ∈ {'workshop', 'restricted'}`.
 - The `workbench.role` GUC is **DELETED**. It was never implemented in code; do
   not add it. Zero code consumers verified.
@@ -52,7 +52,7 @@ implicitly include this section.
   measured on PostgreSQL 17; see the divergence entry under Codebase traps. A
   `MEMBER` in the policy or a `USAGE` in the ceremony probe is a defect.
 - Grant direction is additive and deliberate: `can_see_restricted` is GRANTed to
-  `persona_admin` and `persona_auditor`, **never** to `persona_analyst`.
+  `persona_dba` and `persona_auditor`, **never** to `persona_app_engineer`.
   Additive grants fail closed; subtractive markers would fail open.
 
 **Copy rules:**
@@ -64,7 +64,7 @@ implicitly include this section.
   (the proof).
 
 **Identity / connection rules:**
-- **The persona roles are `persona_analyst`, `persona_admin`, `persona_auditor` —
+- **The persona roles are `persona_app_engineer`, `persona_dba`, `persona_auditor` —
   NOT `workshop_*`.** This is not cosmetic. The sibling Workshop Studio repo
   provisions Aurora with the **master username `workshop_admin`**
   (`assets/hybrid-retrieval-database.yml:157`,
@@ -73,10 +73,10 @@ implicitly include this section.
   A persona named `workshop_admin` would collide with the cluster master on every
   provisioned account, and `ALTER ROLE workshop_admin NOLOGIN` (Task 5) would
   **lock every participant out of their own database**. It would also make the
-  "admin persona" an `rds_superuser` member, so it would see restricted rows by
+  "dba persona" an `rds_superuser` member, so it would see restricted rows by
   *RLS bypass* rather than by clearance — silently falsifying G-27(b) and the
   entire teaching claim. Never name a role `workshop_admin`. The `persona_` prefix
-  also reads correctly in the psql coda: `SET LOCAL ROLE persona_admin`.
+  also reads correctly in the psql coda: `SET LOCAL ROLE persona_dba`.
 - Personas are **NOLOGIN** (A2). Nothing ever connects as a persona. The app
   reaches them via `SET ROLE` from `workshop_app`; participants via `SET ROLE`
   from `workshop_participant`. The two LOGIN roles keep the `workshop_` prefix:
@@ -162,14 +162,14 @@ aws-samples repo). Use `trash`, never `rm -rf`.
   `admit_evidence` call — outside the function, at the caller's privileges. It is
   the only participant-facing statement outside `sql/` that reads a read-path table
   (`grep -rln 'FROM casework\.\|FROM retrieval\.'` outside `sql/` returns that file
-  alone). Task 5 Step 2 wraps it in the A3 envelope under `persona_analyst`. Do not
+  alone). Task 5 Step 2 wraps it in the A3 envelope under `persona_app_engineer`. Do not
   "fix" this by granting the participant `SELECT`: that grant is exactly what the A1
   fail-closed lesson asserts is absent, and G-30's assertion group (2) would fail.
 - **`SET ROLE` needs the grant even for the owner.** The bootstrap owner
   (`retrieval_admin` locally, `workshop_admin` on a provisioned cluster) is an
-  `rds_superuser` member and can read everything, but `SET ROLE persona_analyst`
+  `rds_superuser` member and can read everything, but `SET ROLE persona_app_engineer`
   still raises `permission denied to set role` without membership. PostgreSQL 16+
-  auto-grants a `CREATEROLE` role admin membership on roles it creates, which masks
+  auto-grants a `CREATEROLE` role membership with ADMIN OPTION on roles it creates, which masks
   this on the first run and exposes it on an idempotent re-run by a different owner.
   `sql/11` therefore GRANTs the three personas to `current_user WITH INHERIT FALSE`
   explicitly — otherwise `admit.sh` works for participants and fails for developers.
@@ -194,9 +194,9 @@ aws-samples repo). Use `trash`, never `rm -rf`.
   honest PASS/FAIL/BLOCKED. It does not apply to the RLS policy expression itself —
   `can_see_restricted` is created by `sql/11` in the same file as the policy.
 - **`USAGE` and `MEMBER` genuinely diverge, and each layer needs the other one.**
-  Measured on PostgreSQL 17 under `GRANT persona_analyst TO login WITH INHERIT
-  FALSE`: `pg_has_role(login, 'persona_analyst', 'USAGE')` is **false**,
-  `'MEMBER'` is **true**, and `SET LOCAL ROLE persona_analyst` succeeds. So
+  Measured on PostgreSQL 17 under `GRANT persona_app_engineer TO login WITH INHERIT
+  FALSE`: `pg_has_role(login, 'persona_app_engineer', 'USAGE')` is **false**,
+  `'MEMBER'` is **true**, and `SET LOCAL ROLE persona_app_engineer` succeeds. So
   `MEMBER` is the correct mode for "can this login assume this persona?" (G-30's
   ceremony probe), and `USAGE` is the correct mode inside the policy, where the
   question is passive inheritance — exactly the key `can_see_restricted` withholds.
@@ -239,7 +239,7 @@ defect; there are none.
 | `gates/rls_enforcement.py` | Task 1 | G-27 a/b/c: fail-closed, row filtering, replay determinism. |
 | `gates/masking_determinism.py` | Task 2 | G-29: masking + Law-2 determinism + A5 generated pattern set + corpus-wide leak scan. |
 | `gates/participant_ceremony.py` | Task 3 | G-30: A1 zero-ceremony — participant identity runs every Lab-1 snippet, and bare SELECT on casework denies. |
-| `gates/persona_equivalence.py` | Task 4 | G-31: A7 golden equivalence — analyst results byte-identical to the pre-collapse `role=workshop` baseline. |
+| `gates/persona_equivalence.py` | Task 4 | G-31: A7 golden equivalence — app_engineer results byte-identical to the pre-collapse `role=workshop` baseline. |
 | `sql/11_roles_rls.sql` | Task 5 | Roles, grants, RLS enable+force, the three row policies. Idempotent. |
 | `sql/12_masking.sql` | Task 6 | `pg_columnmask` extension guard, masking functions, auditor masking policies. Idempotent. |
 | `backend/tests/test_db_persona.py` | Task 7 | Persona checkout contract; extended by Task 10 with the view-hole assertions. |
@@ -270,8 +270,8 @@ Python — nothing in Python needs to emit it.
 | `frontend/src/verity.css` → `frontend/src/workbench.css` | Task 8 rename; Task 11 content | 10 `verity-*` classes → `workbench-*`, then the chip's styles. |
 | `frontend/src/main.tsx:3-8` | Task 8 | Import renames (`WorkbenchApp`, `workbench.css`). |
 | `gates/noun_lint.py` | Task 8 | `support-lead` + `principal` banned-identity scan. |
-| `admission/admit.sh:24-35` | Task 5 | Exact-arm checkpoint reads inside the A3 envelope as `persona_analyst`; REMEDY line names the RLS cause. |
-| `admission/README.md:96-100,129-130` | Task 5 | The checkpoint's identity and why the `workshop` ACL default makes the analyst the right persona for it. |
+| `admission/admit.sh:24-35` | Task 5 | Exact-arm checkpoint reads inside the A3 envelope as `persona_app_engineer`; REMEDY line names the RLS cause. |
+| `admission/README.md:96-100,129-130` | Task 5 | The checkpoint's identity and why the `workshop` ACL default makes the app_engineer the right persona for it. |
 | `sql/03_search_functions.sql:1-5` | Task 9 | `acl_visible` volatility `IMMUTABLE` → `STABLE`; `p_principal` dropped. |
 | `sql/01_schema.sql`, `sql/04_diagnostics.sql`, `sql/05_evaluation.sql`, `sql/06_receipts.sql`, `sql/09_traverse_evidence.sql` | Tasks 9, 10 | `principal` → `role` column + `security_invoker` on the six content views. |
 | `backend/app/models.py:21,49,77,87,92,116` | Task 10 | `principal` → `role`; `workshop_principal()` → `Persona` + `DEFAULT_ROLE`. |
@@ -317,8 +317,8 @@ built before its subject, per SPEC-session Section 10.
   `print_header()`, `finish()`, `read_env_value()`, `redact_dsn()`, `require()`,
   `main_guard()`.
 - Produces: gate id `G-27`, script `gates/rls_enforcement.py`. Reads **two
-  independent DSNs** and the three persona role names `persona_analyst` /
-  `persona_admin` / `persona_auditor`.
+  independent DSNs** and the three persona role names `persona_app_engineer` /
+  `persona_dba` / `persona_auditor`.
   - `DATABASE_URL` — the bootstrap owner. Used only to *measure* (RLS state, the
     restricted cohort, the derived projection, the owner's own exposure).
   - `WORKSHOP_APP_DATABASE_URL` — the `workshop_app` pool login. Used for every
@@ -349,7 +349,7 @@ that has to come first:
 (0) the corpus can prove something. Restricted rows exist in
     ``casework.evidence_items`` AND survived into both derived tables, measured on
     the engine rather than hand-typed. This is not bookkeeping: (b) below asserts
-    that ``persona_analyst`` sees zero restricted rows, which is trivially true of
+    that ``persona_app_engineer`` sees zero restricted rows, which is trivially true of
     an empty set. The owner's own RLS exposure is measured alongside it, because
     the owner writes every derived projection and a filtered owner truncates them
     while reporting success. A gate that goes green over an empty enforcement claim
@@ -360,10 +360,10 @@ that has to come first:
     strictly stronger than "returns zero rows": it proves the pool identity has no
     standing privilege path at all, so a forgotten ``SET ROLE`` cannot leak.
 
-(b) row filtering. Under ``SET LOCAL ROLE persona_analyst`` every restricted row
+(b) row filtering. Under ``SET LOCAL ROLE persona_app_engineer`` every restricted row
     returns zero rows at each of ``casework.evidence_items``,
     ``retrieval.documents`` and ``retrieval.chunks`` - the raw tables, no arm, no
-    application predicate. Under ``persona_admin`` the same rows are present.
+    application predicate. Under ``persona_dba`` the same rows are present.
     Both retrieval tables matter: ``vector_search`` reads ``retrieval.chunks``
     standalone and ``fuzzy_search`` reads ``retrieval.documents`` standalone, so a
     policy on ``casework.evidence_items`` alone would leak restricted body text
@@ -408,7 +408,7 @@ READ_PATH_TABLES = (
 # The evidence detail tables: keyed 1:1 on casework.evidence_items.evidence_id and
 # reachable through section 2's schema-wide GRANT SELECT. RLS on the three
 # read-path tables above does not cover them, and the sensitive text lives HERE,
-# not in the header table -- an analyst denied at casework.evidence_items could
+# not in the header table -- an app_engineer denied at casework.evidence_items could
 # read CASE-7421's account_name and customer_commitment straight out of
 # casework.support_cases. Enumerated from sql/01_schema.sql (:65, :81, :96, :111,
 # :163, :340, :352), not from the current restricted cohort: the bypass is the
@@ -423,7 +423,7 @@ DETAIL_TABLES = (
     "casework.postmortems",
 )
 
-PERSONA_ROLES = ("persona_analyst", "persona_admin", "persona_auditor")
+PERSONA_ROLES = ("persona_app_engineer", "persona_dba", "persona_auditor")
 CLEARANCE_GROUP = "can_see_restricted"
 
 # The canonical restricted noun (D22 / M3). Row filtering is asserted against
@@ -473,10 +473,10 @@ SELECT count(*) FROM {table} WHERE is_current AND acl_visibility = 'restricted'
 """
 
 # Per-table restricted-row counts, measured AS THE OWNER. This is the independent
-# oracle group (b') needs: persona_admin's own view cannot be used to decide
+# oracle group (b') needs: persona_dba's own view cannot be used to decide
 # whether a table "has no restricted rows of this kind", because that view is the
-# fact under test. An empty admin result means either the kind genuinely has none
-# or admin's visibility is broken, and those need opposite verdicts.
+# fact under test. An empty dba result means either the kind genuinely has none
+# or dba's visibility is broken, and those need opposite verdicts.
 #
 # Safe to run as the owner for the reason _diagnose_empty_restricted() documents:
 # run() has already proven the owner is either a bypassing role or named by every
@@ -748,7 +748,7 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
     # The projection must carry the restricted rows too, and this is NOT redundant
     # with (b). A non-superuser owner that is subject to FORCE but holds no clearance
     # reads a silently truncated source: the search-index build then projects only
-    # workshop rows, and (b) below reports "analyst sees 0 restricted rows" -- a PASS
+    # workshop rows, and (b) below reports "app_engineer sees 0 restricted rows" -- a PASS
     # for the wrong reason, because there is nothing there to filter. Measured on
     # PG17: that configuration copied 1 of 2 rows and reported success. Assert the
     # restricted cohort SURVIVED into both derived tables before proving it is hidden.
@@ -818,27 +818,27 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         # Probed by evidence_id, the only identity column on all three tables.
         print("\n  (b) row filtering at the raw tables:")
         for table in READ_PATH_TABLES:
-            analyst = _ids_under_persona(
-                app_conn, "persona_analyst", table, restricted_ids
+            app_engineer = _ids_under_persona(
+                app_conn, "persona_app_engineer", table, restricted_ids
             )
-            admin = _ids_under_persona(
-                app_conn, "persona_admin", table, restricted_ids
+            dba = _ids_under_persona(
+                app_conn, "persona_dba", table, restricted_ids
             )
             auditor = _ids_under_persona(
                 app_conn, "persona_auditor", table, restricted_ids
             )
             print(
-                f"    {table}: analyst={len(analyst)} admin={len(admin)} "
+                f"    {table}: app_engineer={len(app_engineer)} dba={len(dba)} "
                 f"auditor={len(auditor)} (of {len(restricted_ids)} restricted)"
             )
             require(
-                analyst == set(),
-                f"persona_analyst saw restricted rows at {table}: "
-                f"{sorted(str(i) for i in analyst)}",
+                app_engineer == set(),
+                f"persona_app_engineer saw restricted rows at {table}: "
+                f"{sorted(str(i) for i in app_engineer)}",
             )
             require(
-                admin,
-                f"persona_admin saw no restricted rows at {table}; the clearance "
+                dba,
+                f"persona_dba saw no restricted rows at {table}; the clearance "
                 f"grant is missing",
             )
             require(
@@ -853,12 +853,12 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         # this proves the children inherit it. A table holding no restricted
         # evidence is skipped rather than asserted on -- runbooks, lock_evidence,
         # customer_commitments and postmortems hold none in the current cohort, and
-        # asserting "admin sees restricted rows" there would fail for a reason that
+        # asserting "dba sees restricted rows" there would fail for a reason that
         # has nothing to do with RLS. The skip is driven by the OWNER's count, never
-        # by persona_admin's: admin's own empty view cannot tell "this kind has no
-        # restricted rows" apart from "admin's visibility is broken", and those two
-        # need opposite verdicts. The analyst assertion runs on every table
-        # regardless, because "the analyst sees nothing" holds either way.
+        # by persona_dba's: dba's own empty view cannot tell "this kind has no
+        # restricted rows" apart from "dba's visibility is broken", and those two
+        # need opposite verdicts. The app_engineer assertion runs on every table
+        # regardless, because "the app_engineer sees nothing" holds either way.
         # The oracle above is only as good as the owner's own reach into these
         # tables, and _owner_exposure measures listed_on over READ_PATH_TABLES
         # only -- it says nothing about the seven detail tables. If section 5's
@@ -891,41 +891,41 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         )
         print("\n  (b') row filtering at the evidence detail tables:")
         for table in DETAIL_TABLES:
-            analyst = _ids_under_persona(
-                app_conn, "persona_analyst", table, restricted_ids
+            app_engineer = _ids_under_persona(
+                app_conn, "persona_app_engineer", table, restricted_ids
             )
-            admin = _ids_under_persona(
-                app_conn, "persona_admin", table, restricted_ids
+            dba = _ids_under_persona(
+                app_conn, "persona_dba", table, restricted_ids
             )
             auditor = _ids_under_persona(
                 app_conn, "persona_auditor", table, restricted_ids
             )
             print(
-                f"    {table}: analyst={len(analyst)} admin={len(admin)} "
+                f"    {table}: app_engineer={len(app_engineer)} dba={len(dba)} "
                 f"auditor={len(auditor)}"
             )
             require(
-                analyst == set(),
-                f"persona_analyst read restricted rows out of {table}: "
-                f"{sorted(str(i) for i in analyst)}. RLS on the three read-path "
+                app_engineer == set(),
+                f"persona_app_engineer read restricted rows out of {table}: "
+                f"{sorted(str(i) for i in app_engineer)}. RLS on the three read-path "
                 f"tables does not cover the detail tables, and section 2 of "
                 f"sql/11_roles_rls.sql grants every persona SELECT ON ALL TABLES "
-                f"IN SCHEMA casework -- so the analyst is denied at "
+                f"IN SCHEMA casework -- so the app_engineer is denied at "
                 f"casework.evidence_items and then reads the same evidence body "
                 f"here. Add the EXISTS-on-parent policy for this table "
                 f"(sql/11_roles_rls.sql section 5)",
             )
-            # The OWNER's count decides whether to skip, not persona_admin's. An
-            # empty admin view is the failure this group exists to catch when the
+            # The OWNER's count decides whether to skip, not persona_dba's. An
+            # empty dba view is the failure this group exists to catch when the
             # rows are actually there, and a legitimate skip when they are not --
-            # persona_admin cannot distinguish those two states about itself.
+            # persona_dba cannot distinguish those two states about itself.
             if detail_restricted[table] == 0:
-                print("      (no restricted evidence of this kind; analyst-only check)")
+                print("      (no restricted evidence of this kind; app_engineer-only check)")
                 continue
             require(
-                admin,
-                f"persona_admin saw none of the {detail_restricted[table]} restricted "
-                f"rows the owner measured at {table}. Either persona_admin is missing "
+                dba,
+                f"persona_dba saw none of the {detail_restricted[table]} restricted "
+                f"rows the owner measured at {table}. Either persona_dba is missing "
                 f"from that table's policy TO list or the EXISTS predicate is wrong "
                 f"(sql/11_roles_rls.sql section 5). Without this assertion the gate "
                 f"would have skipped the auditor check and reported PASS over a "
@@ -934,16 +934,16 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
             require(
                 auditor,
                 f"persona_auditor saw no restricted rows at {table} while "
-                f"persona_admin saw {len(admin)}; masking needs the row present",
+                f"persona_dba saw {len(dba)}; masking needs the row present",
             )
 
         # --- (c) replay determinism + transaction scope. ---
         print("\n  (c) replay determinism and transaction scope:")
         first = _ids_under_persona(
-            app_conn, "persona_admin", READ_PATH_TABLES[0], restricted_ids
+            app_conn, "persona_dba", READ_PATH_TABLES[0], restricted_ids
         )
         second = _ids_under_persona(
-            app_conn, "persona_admin", READ_PATH_TABLES[0], restricted_ids
+            app_conn, "persona_dba", READ_PATH_TABLES[0], restricted_ids
         )
         print(f"    replay 1: {len(first)} rows / replay 2: {len(second)} rows")
         require(
@@ -963,7 +963,7 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         GATE_ID,
         PASS,
         f"fail-closed on {len(READ_PATH_TABLES)} tables; {len(restricted)} restricted "
-        f"rows hidden from analyst, visible to admin+auditor; replay deterministic",
+        f"rows hidden from app_engineer, visible to dba+auditor; replay deterministic",
     )
 
 
@@ -991,8 +991,8 @@ GATES=(
 Run: `gates/checks.sh G-27`
 
 Expected: the gate prints its banner, the engine DSN redacted, then
-`[BLOCKED] G-27: roles not created yet: can_see_restricted, persona_admin,
-persona_analyst, persona_auditor` and the orchestrator summary reports
+`[BLOCKED] G-27: roles not created yet: can_see_restricted, persona_dba,
+persona_app_engineer, persona_auditor` and the orchestrator summary reports
 `BLOCKED(1): G-27` with `RESULT: no failures; 1 gate(s) blocked on unbuilt deps`
 and exit 0.
 
@@ -1007,7 +1007,7 @@ git commit -m "Add G-27 RLS enforcement gate (ships BLOCKED)"
 
 ## Task 2: G-29 masking + Law-2 determinism gate (with A5 leak scan)
 
-Ships **BLOCKED**. Detects masking **behaviourally** (admin raw vs auditor masked)
+Ships **BLOCKED**. Detects masking **behaviourally** (dba raw vs auditor masked)
 rather than by reading a `pg_columnmask` catalog table, so the gate does not depend
 on an internal catalog name and proves the thing that actually matters.
 
@@ -1043,7 +1043,7 @@ Four assertions:
 1. Masking is real. Under ``persona_auditor`` the sensitive columns on a
    restricted support case (``account_name``, ``customer_commitment``,
    ``description``) and the denormalized ``retrieval.chunks.chunk_text`` blob come
-   back masked; under ``persona_admin`` the same columns come back raw. Masking is
+   back masked; under ``persona_dba`` the same columns come back raw. Masking is
    detected by comparing the two views, not by reading a ``pg_columnmask`` catalog
    table - behaviour is what the workshop claims, so behaviour is what is asserted.
 
@@ -1085,7 +1085,7 @@ GATE_ID = "G-29"
 TITLE = "Column masking + Law-2 determinism"
 
 AUDITOR = "persona_auditor"
-ADMIN = "persona_admin"
+dba = "persona_dba"
 COLUMNS = ("account_name", "customer_commitment", "description")
 
 # The typed sensitive columns, read from the engine to build the pattern set (A5).
@@ -1193,14 +1193,14 @@ def run() -> int:  # noqa: C901 - four assertion groups, read top to bottom
                 print(f"  pg_columnmask: {ext[0]}")
                 cur.execute(
                     "SELECT rolname FROM pg_roles WHERE rolname = ANY(%s)",
-                    [[AUDITOR, ADMIN]],
+                    [[AUDITOR, dba]],
                 )
                 found = {row[0] for row in cur.fetchall()}
-                if {AUDITOR, ADMIN} - found:
+                if {AUDITOR, dba} - found:
                     return finish(
                         GATE_ID,
                         BLOCKED,
-                        f"persona roles missing: {sorted({AUDITOR, ADMIN} - found)}",
+                        f"persona roles missing: {sorted({AUDITOR, dba} - found)}",
                     )
                 cur.execute(SENSITIVE_SQL)
                 sensitive = cur.fetchall()
@@ -1228,40 +1228,40 @@ def run() -> int:  # noqa: C901 - four assertion groups, read top to bottom
         # honest BLOCKED. sql/11 grants SELECT ON ALL TABLES IN SCHEMA casework to
         # each persona; this catch names the table when that has not run yet.
         try:
-            admin_cases = _as_persona(app, ADMIN, CASE_VIEW_SQL, [keys])
+            dba_cases = _as_persona(app, dba, CASE_VIEW_SQL, [keys])
             auditor_cases = _as_persona(app, AUDITOR, CASE_VIEW_SQL, [keys])
-            admin_chunks = _as_persona(app, ADMIN, CHUNK_VIEW_SQL, [keys])
+            dba_chunks = _as_persona(app, dba, CHUNK_VIEW_SQL, [keys])
             auditor_chunks = _as_persona(app, AUDITOR, CHUNK_VIEW_SQL, [keys])
         except psycopg.errors.InsufficientPrivilege as exc:
             return finish(
                 GATE_ID, BLOCKED, f"a persona lacks SELECT on the read path: {exc}"
             )
 
-        print("\n  (1) masking is real - admin raw vs auditor masked:")
+        print("\n  (1) masking is real - dba raw vs auditor masked:")
         require(
-            len(auditor_cases) == len(admin_cases) and auditor_cases,
-            f"auditor row count {len(auditor_cases)} != admin {len(admin_cases)}; "
+            len(auditor_cases) == len(dba_cases) and auditor_cases,
+            f"auditor row count {len(auditor_cases)} != dba {len(dba_cases)}; "
             f"masking needs the row PRESENT, not filtered",
         )
         # Ground truth read as the bootstrap owner, keyed by external_key. "Masked
         # for the auditor" is only meaningful against the real stored value: two
         # differently-masked views also differ from each other, so comparing the
-        # admin view to the auditor view alone cannot tell "admin is raw" from
-        # "admin is masked differently". Anchor on truth, not on the other view.
+        # dba view to the auditor view alone cannot tell "dba is raw" from
+        # "dba is masked differently". Anchor on truth, not on the other view.
         truth = {row[0]: row[1:] for row in sensitive}
-        for admin_row, auditor_row in zip(admin_cases, auditor_cases):
-            key = admin_row[0]
+        for dba_row, auditor_row in zip(dba_cases, auditor_cases):
+            key = dba_row[0]
             for column, raw, masked, stored in zip(
-                COLUMNS, admin_row[1:], auditor_row[1:], truth[key]
+                COLUMNS, dba_row[1:], auditor_row[1:], truth[key]
             ):
                 if stored is None:
                     continue
-                print(f"    {key}.{column}: admin={raw!r} auditor={masked!r}")
+                print(f"    {key}.{column}: dba={raw!r} auditor={masked!r}")
                 require(
                     raw == stored,
-                    f"{key}.{column} is masked for persona_admin too "
-                    f"(admin={raw!r} != stored {stored!r}); the mask is not "
-                    f"auditor-scoped and 'admin raw vs auditor masked' proves nothing",
+                    f"{key}.{column} is masked for persona_dba too "
+                    f"(dba={raw!r} != stored {stored!r}); the mask is not "
+                    f"auditor-scoped and 'dba raw vs auditor masked' proves nothing",
                 )
                 require(
                     masked != stored,
@@ -1269,26 +1269,26 @@ def run() -> int:  # noqa: C901 - four assertion groups, read top to bottom
                     f"(identical to the stored value)",
                 )
         require(
-            admin_chunks and len(auditor_chunks) == len(admin_chunks),
-            "chunk_text row counts differ between admin and auditor",
+            dba_chunks and len(auditor_chunks) == len(dba_chunks),
+            "chunk_text row counts differ between dba and auditor",
         )
-        # Same anchor for the blob: the admin view must equal what is stored.
+        # Same anchor for the blob: the dba view must equal what is stored.
         owner_blobs = _owner_chunks(owner_dsn, psycopg, keys)
         require(
-            owner_blobs and len(admin_chunks) == len(owner_blobs),
-            f"admin sees {len(admin_chunks)} restricted chunks, the owner sees "
+            owner_blobs and len(dba_chunks) == len(owner_blobs),
+            f"dba sees {len(dba_chunks)} restricted chunks, the owner sees "
             f"{len(owner_blobs)}; compare like with like before judging the mask",
         )
         require(
-            [row[2] for row in admin_chunks] == [row[2] for row in owner_blobs],
-            "chunk_text is masked for persona_admin too; a blob that differs "
-            "between admin and auditor then proves nothing about the auditor",
+            [row[2] for row in dba_chunks] == [row[2] for row in owner_blobs],
+            "chunk_text is masked for persona_dba too; a blob that differs "
+            "between dba and auditor then proves nothing about the auditor",
         )
         blob_masked = sum(
-            1 for a, b in zip(admin_chunks, auditor_chunks) if a[2] != b[2]
+            1 for a, b in zip(dba_chunks, auditor_chunks) if a[2] != b[2]
         )
         print(
-            f"    chunk_text: {blob_masked} of {len(admin_chunks)} restricted chunks "
+            f"    chunk_text: {blob_masked} of {len(dba_chunks)} restricted chunks "
             f"differ under the auditor"
         )
         require(
@@ -1427,7 +1427,7 @@ GATE_ID = "G-30"
 TITLE = "Participant zero-ceremony identity (A1)"
 
 PARTICIPANT_ROLE = "workshop_participant"
-PERSONA_ROLES = ("persona_analyst", "persona_admin", "persona_auditor")
+PERSONA_ROLES = ("persona_app_engineer", "persona_dba", "persona_auditor")
 
 # Monitoring reads every Lab-1 watch.sql snippet performs.
 MONITORING_VIEWS = (
@@ -1662,19 +1662,19 @@ git commit -m "Add G-30 participant zero-ceremony gate (ships BLOCKED)"
 ## Task 4: G-31 persona equivalence gate (A7 safety assertion)
 
 A7's binding STOP condition: the vocabulary collapse must not alter semantics. The
-analyst persona must reproduce, byte-identically, what the pre-collapse
+app_engineer persona must reproduce, byte-identically, what the pre-collapse
 `role=workshop` identity produced. This gate compares against a **committed
 baseline file** captured before any semantic change lands, so it can still fail
 after the old code path is deleted.
 
 **Files:**
 - Create: `gates/persona_equivalence.py`
-- Create: `gates/baselines/analyst_equivalence.json` (captured in Step 2)
+- Create: `gates/baselines/app_engineer_equivalence.json` (captured in Step 2)
 - Modify: `gates/checks.sh` (registry array)
 
 **Interfaces:**
 - Consumes: `gates/_common.py` helpers; `DATABASE_URL` for the baseline capture;
-  `WORKSHOP_APP_DATABASE_URL` for the analyst comparison.
+  `WORKSHOP_APP_DATABASE_URL` for the app_engineer comparison.
 - Produces: gate id `G-31`; the baseline JSON contract
   `{"captured_under": str, "eval_goldens": [...], "claim_coverage": [...]}`.
 
@@ -1690,9 +1690,9 @@ A7 retired the two-axis identity model: ``support-lead`` is gone, the
 ``workbench.role`` GUC is deleted, and one persona now drives everything. That
 collapse is only safe if it changed **vocabulary**, not **semantics**. The
 observable contract is: whatever the old ``role=workshop`` identity could retrieve
-and cite, the new ``persona_analyst`` persona retrieves and cites - byte-identically.
+and cite, the new ``persona_app_engineer`` persona retrieves and cites - byte-identically.
 
-The gate compares live analyst results against ``gates/baselines/analyst_equivalence.json``,
+The gate compares live app_engineer results against ``gates/baselines/app_engineer_equivalence.json``,
 a baseline captured on the pre-collapse corpus and committed to the repo. A
 committed baseline (rather than a live A/B against the old code) is what lets this
 assertion survive the deletion of the old path: after ``support-lead`` no longer
@@ -1729,7 +1729,7 @@ principals leg. ``CASE-7421`` today carries ``{"visibility": "workshop",
 "principals": ["support-lead"]}`` (seed/corpus.py:13-16), so the pre-collapse
 identity - empty ``principals`` - could NOT read it. Capturing on visibility alone
 would record it as visible, and after Task 13 reclassifies it to
-``visibility='restricted'`` the analyst correctly cannot see it, so the gate would
+``visibility='restricted'`` the app_engineer correctly cannot see it, so the gate would
 FAIL and report "the collapse altered semantics" for a row whose semantics the
 collapse faithfully PRESERVED (denied before, denied after).
 
@@ -1745,7 +1745,7 @@ Read-only. Baseline absent, persona not created yet, or engine unreachable ->
 BLOCKED.
 
 Usage:
-    gates/persona_equivalence.py             # compare live analyst vs baseline
+    gates/persona_equivalence.py             # compare live app_engineer vs baseline
     gates/persona_equivalence.py --capture   # write the baseline (pre-collapse only)
 """
 
@@ -1771,8 +1771,8 @@ from _common import (  # noqa: E402
 GATE_ID = "G-31"
 TITLE = "Persona equivalence after the A7 collapse"
 
-BASELINE_PATH = Path("gates/baselines/analyst_equivalence.json")
-ANALYST = "persona_analyst"
+BASELINE_PATH = Path("gates/baselines/app_engineer_equivalence.json")
+APP_ENGINEER = "persona_app_engineer"
 
 # The judged relevance set: (query_id, evidence_kind, external_key, relevance)
 # tuples the Lab-2 checkpoints score against. The grade column is named `relevance`
@@ -1993,10 +1993,10 @@ def run() -> int:  # noqa: C901 - two modes plus their guards, read top to botto
             # SET ROLE reports this gate as a traceback instead of the honest
             # BLOCKED that an unbuilt dependency deserves.
             with conn.cursor() as cur:
-                cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", [ANALYST])
+                cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", [APP_ENGINEER])
                 if cur.fetchone() is None:
                     return finish(
-                        GATE_ID, BLOCKED, f"{ANALYST} does not exist yet"
+                        GATE_ID, BLOCKED, f"{APP_ENGINEER} does not exist yet"
                     )
             # A persona the app login is not granted raises InsufficientPrivilege
             # (42501) on SET ROLE, and a missing SELECT grant raises it on the
@@ -2005,16 +2005,16 @@ def run() -> int:  # noqa: C901 - two modes plus their guards, read top to botto
             # is that nothing is wired up yet.
             try:
                 live_goldens = _fetch(
-                    conn, EVAL_GOLDENS_SQL.format(vis=RLS_FILTERS), ANALYST
+                    conn, EVAL_GOLDENS_SQL.format(vis=RLS_FILTERS), APP_ENGINEER
                 )
                 live_coverage = _fetch(
-                    conn, CLAIM_COVERAGE_SQL.format(vis=RLS_FILTERS), ANALYST
+                    conn, CLAIM_COVERAGE_SQL.format(vis=RLS_FILTERS), APP_ENGINEER
                 )
             except psycopg.errors.InsufficientPrivilege as exc:
                 return finish(
                     GATE_ID,
                     BLOCKED,
-                    f"{ANALYST} cannot be assumed or cannot read the corpus: {exc}",
+                    f"{APP_ENGINEER} cannot be assumed or cannot read the corpus: {exc}",
                 )
     except psycopg.OperationalError as exc:
         return finish(GATE_ID, BLOCKED, f"cannot reach the engine: {exc}")
@@ -2038,14 +2038,14 @@ def run() -> int:  # noqa: C901 - two modes plus their guards, read top to botto
         return finish(
             GATE_ID,
             FAIL,
-            f"{len(diffs)} semantic difference(s) between the baseline and the analyst "
+            f"{len(diffs)} semantic difference(s) between the baseline and the app_engineer "
             f"persona; the A7 collapse altered semantics - STOP and report",
         )
 
     return finish(
         GATE_ID,
         PASS,
-        f"analyst persona reproduces the baseline byte-identically "
+        f"app_engineer persona reproduces the baseline byte-identically "
         f"({len(live_goldens)} goldens, {len(live_coverage)} covered documents)",
     )
 
@@ -2084,15 +2084,15 @@ gates/persona_equivalence.py --capture
 ```
 
 Expected: `captured baseline: <N> goldens, <M> covered documents ->
-/…/gates/baselines/analyst_equivalence.json` then
-`[PASS] G-31: baseline written to gates/baselines/analyst_equivalence.json`.
+/…/gates/baselines/app_engineer_equivalence.json` then
+`[PASS] G-31: baseline written to gates/baselines/app_engineer_equivalence.json`.
 
 Re-running `--capture` with the file already present is a **FAIL**, on purpose:
 overwriting the baseline destroys the only witness to pre-collapse semantics.
 
 Do **not** hand-type N or M anywhere. Read them out of the written file:
 ```bash
-python3 -c "import json;d=json.load(open('gates/baselines/analyst_equivalence.json'));print(len(d['eval_goldens']),len(d['claim_coverage']))"
+python3 -c "import json;d=json.load(open('gates/baselines/app_engineer_equivalence.json'));print(len(d['eval_goldens']),len(d['claim_coverage']))"
 ```
 
 - [ ] **Step 3: Register and run the comparison — expect BLOCKED**
@@ -2118,7 +2118,7 @@ blocked on unbuilt deps`, exit 0. Paste the summary block into the task report.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add gates/persona_equivalence.py gates/baselines/analyst_equivalence.json gates/checks.sh
+git add gates/persona_equivalence.py gates/baselines/app_engineer_equivalence.json gates/checks.sh
 git commit -m "Add G-31 persona equivalence gate + pre-collapse baseline"
 ```
 
@@ -2141,7 +2141,7 @@ a **disposable** database with prefixed roles before it ever runs against live.
 - Consumes: `casework.evidence_items` (`acl jsonb`, `sql/01_schema.sql:40`),
   `retrieval.documents.acl_visibility` (`:901`), `retrieval.chunks.acl_visibility`
   (`:968`), `casework.admit_evidence(jsonb)` (`sql/10_admission.sql:36`).
-- Produces: roles `can_see_restricted`, `persona_analyst`, `persona_admin`,
+- Produces: roles `can_see_restricted`, `persona_app_engineer`, `persona_dba`,
   `persona_auditor`, `workshop_app`, `workshop_participant`; policies
   `rls_evidence_items_visibility`, `rls_documents_visibility`,
   `rls_chunks_visibility`; `casework.admit_evidence(jsonb)` becomes
@@ -2160,11 +2160,11 @@ same `psql` process — outside the function, at the caller's privileges, on a t
 the ingest receipt and then die on `permission denied for table evidence_items`
 one line later. Granting the participant `SELECT` would destroy the A1 lesson that
 the whole identity model is built on, so Step 2 wraps the checkpoint in the A3
-envelope (`BEGIN; SET LOCAL ROLE persona_analyst; SELECT …; ROLLBACK;`) instead.
+envelope (`BEGIN; SET LOCAL ROLE persona_app_engineer; SELECT …; ROLLBACK;`) instead.
 That is strictly better than a grant: the participant's own admission comes back
 visible **through a persona under live RLS**, which is the same enforcement path
 Lab 3 later takes apart — and because `promote_pg_incident.py:41` defaults `acl` to
-`{"visibility": "workshop"}`, the analyst is the correct persona for it.
+`{"visibility": "workshop"}`, the app_engineer is the correct persona for it.
 
 **Predicate asymmetry (deliberate, not an oversight):** `casework.evidence_items`
 has no `acl_visibility` column — its classification lives in `acl->>'visibility'`
@@ -2194,10 +2194,10 @@ Create `sql/11_roles_rls.sql`:
 -- stamp on the row (acl_visibility in {'workshop','restricted'}), never an identity.
 --
 --   can_see_restricted     NOLOGIN clearance group. A key, not a limitation:
---                          granted to admin and auditor, never to analyst. Additive
+--                          granted to dba and auditor, never to app_engineer. Additive
 --                          grants fail closed; a subtractive marker would fail open.
---   persona_analyst       NOLOGIN persona. Workshop rows only.
---   persona_admin         NOLOGIN persona. All rows, unmasked.
+--   persona_app_engineer       NOLOGIN persona. Workshop rows only.
+--   persona_dba         NOLOGIN persona. All rows, unmasked.
 --   persona_auditor       NOLOGIN persona. All rows, sensitive columns masked
 --                          (sql/12_masking.sql).
 --   workshop_app           LOGIN. The API pool identity. Owns nothing, holds NO
@@ -2222,11 +2222,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'can_see_restricted') THEN
     CREATE ROLE can_see_restricted NOLOGIN;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_analyst') THEN
-    CREATE ROLE persona_analyst NOLOGIN;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_app_engineer') THEN
+    CREATE ROLE persona_app_engineer NOLOGIN;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_admin') THEN
-    CREATE ROLE persona_admin NOLOGIN;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_dba') THEN
+    CREATE ROLE persona_dba NOLOGIN;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_auditor') THEN
     CREATE ROLE persona_auditor NOLOGIN;
@@ -2240,11 +2240,11 @@ $$;
 -- ALTER ROLE requires CREATEROLE *plus* ADMIN OPTION on the target role, and PG16+
 -- auto-grants ADMIN OPTION only to the role that CREATED it. So on the exact case
 -- this block exists to defend -- the roles already exist, created by someone else --
--- `ALTER ROLE persona_analyst NOLOGIN` raises 42501 and aborts the file. Measured on
+-- `ALTER ROLE persona_app_engineer NOLOGIN` raises 42501 and aborts the file. Measured on
 -- PG17 with a non-superuser owner and pre-existing personas:
 --   ERROR: permission denied to alter role
 --   DETAIL: Only roles with the CREATEROLE attribute and the ADMIN option on role
---           "persona_analyst" may alter this role.
+--           "persona_app_engineer" may alter this role.
 -- The guarded CREATE above had correctly skipped them, so the "assert the invariant"
 -- statement was the only thing that failed, and it failed on a CORRECT cluster.
 -- The assertion needs no privilege, covers can_see_restricted the same way, and
@@ -2256,7 +2256,7 @@ BEGIN
   SELECT string_agg(rolname, ', ' ORDER BY rolname)
     INTO v_bad
     FROM pg_roles
-   WHERE rolname IN ('persona_analyst', 'persona_admin', 'persona_auditor',
+   WHERE rolname IN ('persona_app_engineer', 'persona_dba', 'persona_auditor',
                      'can_see_restricted')
      AND rolcanlogin;
 
@@ -2285,7 +2285,7 @@ $$;
 -- the "safe to re-run" property this file's header claims.
 --
 -- Not a concern on the deploy target, and this states why rather than assuming it:
--- retrieval_admin creates these roles itself on the first `make schema`, and ADMIN
+-- retrieval_admin creates these roles itself on the first `make schema`, and dba
 -- OPTION IS inherited through role membership (unlike the role ATTRIBUTES noted in
 -- section 3). Measured read-only on the live cluster: retrieval_admin holds
 -- ADMIN OPTION on pg_monitor and rds_superuser via its rds_superuser membership, so
@@ -2297,7 +2297,7 @@ DECLARE
 BEGIN
   SELECT string_agg(r, ', ' ORDER BY r)
     INTO v_bad
-    FROM unnest(ARRAY['can_see_restricted', 'persona_analyst', 'persona_admin',
+    FROM unnest(ARRAY['can_see_restricted', 'persona_app_engineer', 'persona_dba',
                       'persona_auditor', 'pg_monitor']) AS r
    WHERE NOT pg_has_role(current_user, r, 'MEMBER WITH ADMIN OPTION');
 
@@ -2317,8 +2317,8 @@ END
 $$;
 
 -- The clearance key. Direction is the whole point: withhold the key from the
--- analyst rather than marking the analyst as limited.
-GRANT can_see_restricted TO persona_admin;
+-- app_engineer rather than marking the app_engineer as limited.
+GRANT can_see_restricted TO persona_dba;
 GRANT can_see_restricted TO persona_auditor;
 
 DO $$
@@ -2329,10 +2329,10 @@ BEGIN
       JOIN pg_roles grp ON grp.oid = m.roleid
       JOIN pg_roles mem ON mem.oid = m.member
      WHERE grp.rolname = 'can_see_restricted'
-       AND mem.rolname = 'persona_analyst'
+       AND mem.rolname = 'persona_app_engineer'
   ) THEN
     RAISE EXCEPTION
-      'persona_analyst holds can_see_restricted; the analyst persona would see '
+      'persona_app_engineer holds can_see_restricted; the app_engineer persona would see '
       'restricted rows and the row-filtering demo is broken';
   END IF;
 END
@@ -2351,7 +2351,7 @@ DO $$
 DECLARE
   v_persona text;
 BEGIN
-  FOREACH v_persona IN ARRAY ARRAY['persona_analyst', 'persona_admin', 'persona_auditor']
+  FOREACH v_persona IN ARRAY ARRAY['persona_app_engineer', 'persona_dba', 'persona_auditor']
   LOOP
     EXECUTE format('GRANT USAGE ON SCHEMA casework, retrieval, proof TO %I', v_persona);
     EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA casework TO %I', v_persona);
@@ -2372,12 +2372,12 @@ $$;
 -- Future tables created by the owner inherit the same grants, so a later schema
 -- addition cannot silently become unreadable to every persona.
 ALTER DEFAULT PRIVILEGES IN SCHEMA casework
-  GRANT SELECT ON TABLES TO persona_analyst, persona_admin, persona_auditor;
+  GRANT SELECT ON TABLES TO persona_app_engineer, persona_dba, persona_auditor;
 ALTER DEFAULT PRIVILEGES IN SCHEMA retrieval
-  GRANT SELECT ON TABLES TO persona_analyst, persona_admin, persona_auditor;
+  GRANT SELECT ON TABLES TO persona_app_engineer, persona_dba, persona_auditor;
 ALTER DEFAULT PRIVILEGES IN SCHEMA proof
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES
-  TO persona_analyst, persona_admin, persona_auditor;
+  TO persona_app_engineer, persona_dba, persona_auditor;
 
 -- ---------------------------------------------------------------------------
 -- 3. The two LOGIN roles.
@@ -2433,17 +2433,17 @@ $$;
 -- WITH INHERIT FALSE is load-bearing: the login may SET ROLE to a persona but
 -- gains no passive access from the grant. Without it, workshop_app would inherit
 -- the personas' SELECT and a forgotten SET ROLE would fail OPEN.
-GRANT persona_analyst TO workshop_app WITH INHERIT FALSE;
-GRANT persona_admin   TO workshop_app WITH INHERIT FALSE;
+GRANT persona_app_engineer TO workshop_app WITH INHERIT FALSE;
+GRANT persona_dba   TO workshop_app WITH INHERIT FALSE;
 GRANT persona_auditor TO workshop_app WITH INHERIT FALSE;
 
-GRANT persona_analyst TO workshop_participant WITH INHERIT FALSE;
-GRANT persona_admin   TO workshop_participant WITH INHERIT FALSE;
+GRANT persona_app_engineer TO workshop_participant WITH INHERIT FALSE;
+GRANT persona_dba   TO workshop_participant WITH INHERIT FALSE;
 GRANT persona_auditor TO workshop_participant WITH INHERIT FALSE;
 
 -- The bootstrap owner gets the same three grants, for one specific reason:
 -- admission/admit.sh's exact-arm checkpoint runs inside the A3 envelope
--- (BEGIN; SET LOCAL ROLE persona_analyst; SELECT; ROLLBACK), and that script is run
+-- (BEGIN; SET LOCAL ROLE persona_app_engineer; SELECT; ROLLBACK), and that script is run
 -- BOTH by a participant (as workshop_participant) and by a developer or the Step 5
 -- scratch verification (as the bootstrap owner). Without this, the developer path
 -- raises "permission denied to set role" while the participant path works -- a
@@ -2453,7 +2453,7 @@ GRANT persona_auditor TO workshop_participant WITH INHERIT FALSE;
 -- workshop_admin on a provisioned Aurora cluster (the sibling repo's MasterUsername).
 -- Naming either one hardcodes the wrong cluster.
 --
--- Strictly, PostgreSQL 16+ auto-grants a CREATEROLE role membership WITH ADMIN
+-- Strictly, PostgreSQL 16+ auto-grants a CREATEROLE role membership WITH dba
 -- OPTION on roles it creates, so the owner that ran the CREATE ROLE block above can
 -- already SET ROLE to them. That implicit path is not good enough: on an idempotent
 -- re-run nothing is created, so a DIFFERENT owner applying this file inherits
@@ -2465,8 +2465,8 @@ GRANT persona_auditor TO workshop_participant WITH INHERIT FALSE;
 -- on both paths -- the owner's own clearance does not follow it into the persona.
 DO $$
 BEGIN
-  EXECUTE format('GRANT persona_analyst TO %I WITH INHERIT FALSE', current_user);
-  EXECUTE format('GRANT persona_admin   TO %I WITH INHERIT FALSE', current_user);
+  EXECUTE format('GRANT persona_app_engineer TO %I WITH INHERIT FALSE', current_user);
+  EXECUTE format('GRANT persona_dba   TO %I WITH INHERIT FALSE', current_user);
   EXECUTE format('GRANT persona_auditor TO %I WITH INHERIT FALSE', current_user);
 END
 $$;
@@ -2567,7 +2567,7 @@ ALTER TABLE retrieval.chunks        FORCE ROW LEVEL SECURITY;
 -- projection run as the owner, and a measured
 -- `INSERT INTO projection SELECT ... FROM source` under row three copied 1 of 2
 -- rows and reported success. Restricted evidence would simply never reach
--- retrieval.documents/chunks -- and then G-27(b) would "pass" (analyst sees 0
+-- retrieval.documents/chunks -- and then G-27(b) would "pass" (app_engineer sees 0
 -- restricted rows) for the wrong reason: there would be no restricted rows to see.
 -- Both halves are required. This grant is the second half; the FIRST half is naming
 -- CURRENT_USER in each policy's TO list below, and it is not optional on ANY cluster.
@@ -2580,7 +2580,7 @@ ALTER TABLE retrieval.chunks        FORCE ROW LEVEL SECURITY;
 -- denies every row, and the clearance key cannot rescue a role no policy applies to.
 --
 -- The persona grants to the owner are WITH INHERIT FALSE, which is why the owner does
--- not reach the policies through them: measured, pg_has_role(owner, 'persona_analyst',
+-- not reach the policies through them: measured, pg_has_role(owner, 'persona_app_engineer',
 -- 'USAGE') is false, and the TO list is matched by that same USAGE semantics.
 --
 -- Not an Aurora no-op either. Role attributes are not inherited through membership;
@@ -2608,13 +2608,13 @@ DROP POLICY IF EXISTS rls_chunks_visibility         ON retrieval.chunks;
 -- CURRENT_USER in the TO list is the first half of the owner fix above, and it is
 -- safe: PostgreSQL resolves it to an OID at CREATE POLICY time and stores that OID in
 -- pg_policy.polroles -- it is NOT re-evaluated per query. Measured on PG17: the
--- stored roles read {persona_admin, persona_analyst, persona_auditor,
--- retrieval_admin}, and `SET LOCAL ROLE persona_analyst` still saw 1 of 3 rows. If it
--- were dynamic it would match every persona and hand the analyst the clearance
+-- stored roles read {persona_dba, persona_app_engineer, persona_auditor,
+-- retrieval_admin}, and `SET LOCAL ROLE persona_app_engineer` still saw 1 of 3 rows. If it
+-- were dynamic it would match every persona and hand the app_engineer the clearance
 -- disjunct, which is exactly the failure G-27(b) exists to catch. It does not.
 CREATE POLICY rls_evidence_items_visibility ON casework.evidence_items
   FOR ALL
-  TO persona_analyst, persona_admin, persona_auditor, CURRENT_USER
+  TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
   USING (
     coalesce(acl ->> 'visibility', 'restricted') = 'workshop'
     OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')
@@ -2625,7 +2625,7 @@ CREATE POLICY rls_evidence_items_visibility ON casework.evidence_items
 -- two layers - if you change one, change all three.
 CREATE POLICY rls_documents_visibility ON retrieval.documents
   FOR ALL
-  TO persona_analyst, persona_admin, persona_auditor, CURRENT_USER
+  TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
   USING (
     acl_visibility = 'workshop'
     OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')
@@ -2633,7 +2633,7 @@ CREATE POLICY rls_documents_visibility ON retrieval.documents
 
 CREATE POLICY rls_chunks_visibility ON retrieval.chunks
   FOR ALL
-  TO persona_analyst, persona_admin, persona_auditor, CURRENT_USER
+  TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
   USING (
     acl_visibility = 'workshop'
     OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')
@@ -2649,7 +2649,7 @@ CREATE POLICY rls_chunks_visibility ON retrieval.chunks
 -- because RLS narrows reach, it does not grant it. Without the policies below, a
 -- participant does this and the whole teaching claim collapses:
 --
---   BEGIN; SET LOCAL ROLE persona_analyst;
+--   BEGIN; SET LOCAL ROLE persona_app_engineer;
 --   SELECT count(*) FROM casework.evidence_items;   -- restricted rows hidden, correct
 --   SELECT account_name, description, customer_commitment
 --     FROM casework.support_cases;                   -- CASE-7421 in full. Measured.
@@ -2664,13 +2664,13 @@ CREATE POLICY rls_chunks_visibility ON retrieval.chunks
 -- expression. Three reasons: the detail tables have no acl column to read; one
 -- definition of clearance beats seven; and the parent is already RLS-filtered, so
 -- the child inherits the parent's visibility for free. Measured on PG17 with the
--- parent policy active: analyst saw 1 of 2 parent rows and 1 of 2 child rows with
--- the restricted account_name denied, while admin saw 2 and 2 unmasked. Graded,
+-- parent policy active: app_engineer saw 1 of 2 parent rows and 1 of 2 child rows with
+-- the restricted account_name denied, while dba saw 2 and 2 unmasked. Graded,
 -- not deny-all.
 --
 -- The dependency on the parent's RLS is load-bearing and was verified by negative
 -- control: with ALTER TABLE casework.evidence_items DISABLE ROW LEVEL SECURITY,
--- the analyst saw every child row again. The EXISTS is not self-sufficient -- it
+-- the app_engineer saw every child row again. The EXISTS is not self-sufficient -- it
 -- is filtered by the parent's policy. If a future change disables RLS on
 -- casework.evidence_items, every table below silently opens. G-27 asserts
 -- enabled+forced on the parent, which is what keeps that from happening quietly.
@@ -2713,7 +2713,7 @@ BEGIN
     EXECUTE format($fmt$
       CREATE POLICY rls_%s_visibility ON casework.%I
         FOR ALL
-        TO persona_analyst, persona_admin, persona_auditor, CURRENT_USER
+        TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
         USING (EXISTS (SELECT 1
                          FROM casework.evidence_items parent
                         WHERE parent.evidence_id = casework.%I.evidence_id))
@@ -2757,16 +2757,16 @@ echo "── exact-arm checkpoint ───────────────�
 #  2. RLS is enforced on this table. Reading as a persona means the checkpoint
 #     proves the admitted row is retrievable THROUGH the same enforcement path the
 #     workshop later takes apart, not merely that a row was written.
-#  3. persona_analyst specifically -- the least-privileged of the three. Payloads
+#  3. persona_app_engineer specifically -- the least-privileged of the three. Payloads
 #     default to acl {"visibility": "workshop"} (promote_pg_incident.py:41), so the
-#     analyst can see them. If a future capture ships a restricted ACL, this
+#     app_engineer can see them. If a future capture ships a restricted ACL, this
 #     checkpoint SHOULD report not-visible: that is the enforcement working.
 #
 # SET LOCAL + ROLLBACK, never a session-level SET: read-only and self-undoing, and
 # the same A3 envelope every _verify_sql in the app emits.
 hit="$(psql "$DATABASE_URL" -X -q -t -A -v ON_ERROR_STOP=1 -v key="$key" <<'SQL'
 BEGIN;
-SET LOCAL ROLE persona_analyst;
+SET LOCAL ROLE persona_app_engineer;
 SELECT external_key FROM casework.evidence_items
  WHERE external_key = :'key' AND available_at <= now();
 ROLLBACK;
@@ -2779,7 +2779,7 @@ existing `[ "$hit" = "$key" ]` comparison at `:30` still holds. Then extend the
 REMEDY line at `:33` so a privilege failure is not misread as an admission failure:
 
 ```bash
-  echo "REMEDY: ${key} not visible as-of now(); check available_at, that admit succeeded, and that sql/11_roles_rls.sql has been applied (this read runs as persona_analyst)" >&2
+  echo "REMEDY: ${key} not visible as-of now(); check available_at, that admit succeeded, and that sql/11_roles_rls.sql has been applied (this read runs as persona_app_engineer)" >&2
 ```
 
 Also correct `admission/README.md`. Replace the `admit.sh` bullet at `:96-100`:
@@ -2790,7 +2790,7 @@ Also correct `admission/README.md`. Replace the `admit.sh` bullet at `:96-100`:
   `casework.admit_evidence` via `psql`, prints the ingest receipt, and then
   runs the exact-arm checkpoint (confirms the admitted `external_key` is
   immediately selectable from `casework.evidence_items` as of `now()`, read as
-  `persona_analyst` inside a rolled-back transaction so the check passes through
+  `persona_app_engineer` inside a rolled-back transaction so the check passes through
   live RLS rather than around it).
 ```
 
@@ -2799,8 +2799,8 @@ and the trailing ACL note at `:129-130`:
 ```markdown
 Payloads default `acl` to `{"visibility": "workshop"}`, matching the
 corpus-wide default scope documented in `docs/data-model.md`. That default is
-what makes `persona_analyst` the right identity for the exact-arm checkpoint: a
-payload admitted with `{"visibility": "restricted"}` is invisible to the analyst
+what makes `persona_app_engineer` the right identity for the exact-arm checkpoint: a
+payload admitted with `{"visibility": "restricted"}` is invisible to the app_engineer
 by RLS, and the checkpoint reporting it as not-visible is correct behavior, not a
 failed admission.
 ```
@@ -2892,11 +2892,11 @@ Roles are cluster-global, so this uses a prefixed throwaway set and drops them i
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-: "${ADMIN_DATABASE_URL:?set ADMIN_DATABASE_URL to a maintenance DSN (postgres db)}"
+: "${DBA_DATABASE_URL:?set DBA_DATABASE_URL to a maintenance DSN (postgres db)}"
 SCRATCH_DB="rls_verify_$$"
 
 # Guard: the maintenance connection must NOT be pointed at the live retrieval DB.
-current="$(psql "$ADMIN_DATABASE_URL" -X -q -t -A -c 'SELECT current_database()')"
+current="$(psql "$DBA_DATABASE_URL" -X -q -t -A -c 'SELECT current_database()')"
 if [ "$current" = "retrieval" ]; then
   echo "REFUSING: maintenance DSN resolves to the live 'retrieval' database" >&2
   exit 1
@@ -2904,15 +2904,15 @@ fi
 echo "maintenance database: $current (scratch: $SCRATCH_DB)"
 
 cleanup() {
-  psql "$ADMIN_DATABASE_URL" -X -q -v ON_ERROR_STOP=0 <<SQL || true
+  psql "$DBA_DATABASE_URL" -X -q -v ON_ERROR_STOP=0 <<SQL || true
 DROP DATABASE IF EXISTS ${SCRATCH_DB} WITH (FORCE);
 SQL
   echo "cleaned up $SCRATCH_DB"
 }
 trap cleanup EXIT
 
-psql "$ADMIN_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE ${SCRATCH_DB}"
-SCRATCH_URL="$(python3 - "$ADMIN_DATABASE_URL" "$SCRATCH_DB" <<'PY'
+psql "$DBA_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE ${SCRATCH_DB}"
+SCRATCH_URL="$(python3 - "$DBA_DATABASE_URL" "$SCRATCH_DB" <<'PY'
 import sys
 from urllib.parse import urlsplit, urlunsplit
 parts = urlsplit(sys.argv[1])
@@ -2933,11 +2933,11 @@ DATABASE_URL="$SCRATCH_URL" .venv/bin/python backend/scripts/run_sql.py \
 
 echo "--- assertions ---"
 psql "$SCRATCH_URL" -X -q -v ON_ERROR_STOP=1 <<'SQL'
-\echo 1. personas are NOLOGIN and analyst lacks the clearance key
+\echo 1. personas are NOLOGIN and app_engineer lacks the clearance key
 SELECT rolname, rolcanlogin, rolbypassrls,
        pg_has_role(rolname, 'can_see_restricted', 'USAGE') AS has_clearance
   FROM pg_roles
- WHERE rolname IN ('persona_analyst','persona_admin','persona_auditor',
+ WHERE rolname IN ('persona_app_engineer','persona_dba','persona_auditor',
                    'workshop_app','workshop_participant','can_see_restricted')
  ORDER BY rolname;
 
@@ -2998,7 +2998,7 @@ RESET ROLE;
 SQL
 
 echo "--- behavioural: admit.sh's checkpoint envelope works for BOTH identities ---"
-# Step 2 rewrote the exact-arm checkpoint to read as persona_analyst. Two ways that
+# Step 2 rewrote the exact-arm checkpoint to read as persona_app_engineer. Two ways that
 # can be wrong, and this probe catches both:
 #   * the participant path: without the persona, permission denied on evidence_items
 #   * the developer path:   without the current_user grant, "permission denied to
@@ -3007,7 +3007,7 @@ echo "--- behavioural: admit.sh's checkpoint envelope works for BOTH identities 
 # neither statement RAISES. Run as the owner first, then as the participant.
 psql "$SCRATCH_URL" -X -q -t -A -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
-SET LOCAL ROLE persona_analyst;
+SET LOCAL ROLE persona_app_engineer;
 SELECT count(*) AS owner_path_rows FROM casework.evidence_items
  WHERE external_key = 'LOCK-LIVE-001' AND available_at <= now();
 ROLLBACK;
@@ -3016,7 +3016,7 @@ SQL
 psql "$SCRATCH_URL" -X -q -t -A -v ON_ERROR_STOP=1 <<'SQL'
 SET ROLE workshop_participant;
 BEGIN;
-SET LOCAL ROLE persona_analyst;
+SET LOCAL ROLE persona_app_engineer;
 SELECT count(*) AS participant_path_rows FROM casework.evidence_items
  WHERE external_key = 'LOCK-LIVE-001' AND available_at <= now();
 ROLLBACK;
@@ -3037,19 +3037,19 @@ SQL
 Run:
 ```bash
 chmod +x /tmp/verify_rls_task5.sh
-ADMIN_DATABASE_URL="postgresql://localhost:55432/postgres?sslmode=disable" /tmp/verify_rls_task5.sh
+DBA_DATABASE_URL="postgresql://localhost:55432/postgres?sslmode=disable" /tmp/verify_rls_task5.sh
 ```
 
 Expected: both `run_sql.py` invocations print `Done` (proving idempotency); query 1
 shows `rolcanlogin=f` for the three personas and `can_see_restricted`, `t` for the
 two logins, `rolbypassrls=f` for every row, and `has_clearance=f` for
-`persona_analyst` with `t` for admin and auditor; query 2 shows
+`persona_app_engineer` with `t` for dba and auditor; query 2 shows
 `relrowsecurity=t, relforcerowsecurity=t` on all three tables; query 3 shows
 exactly three policies, each with **four** roles — the three personas plus the
 table owner, because `CURRENT_USER` in the `TO` list resolved to the owner's OID at
 `CREATE POLICY` time. `pg_policies.roles` sorts by name, so on the scratch database
 the owner sorts wherever its name falls; on the deploy target the array reads
-`{persona_admin,persona_analyst,persona_auditor,retrieval_admin}`. Three roles
+`{persona_dba,persona_app_engineer,persona_auditor,retrieval_admin}`. Three roles
 instead of four means the owner half of the fix is missing and `make seed` will copy
 zero rows while exiting 0. Query 4 shows
 `inherit_option=f` on all six persona grants; query 5 shows `prosecdef=t`,
@@ -3063,7 +3063,7 @@ fix `sql/11_roles_rls.sql` before continuing.
 
 The two checkpoint-envelope probes must both print `0` and exit 0
 (`ON_ERROR_STOP=1`, so any raise aborts the script). `permission denied to set role
-"persona_analyst"` on the first means the `current_user` grant block is missing;
+"persona_app_engineer"` on the first means the `current_user` grant block is missing;
 `permission denied for table evidence_items` on the second means `SET LOCAL ROLE`
 is not taking effect. The negative control must print
 `ERROR: permission denied for table evidence_items` — if it returns a count
@@ -3186,8 +3186,8 @@ measure; do not ship both.
 -- sql/12_masking.sql - column masking for the auditor persona (design "scope B").
 --
 -- RLS (sql/11_roles_rls.sql) decides which ROWS a persona sees. This file decides
--- which COLUMNS the auditor sees inside a row it is allowed to see. Analyst never
--- reaches a restricted row, admin is the unmasked baseline, auditor is the point.
+-- which COLUMNS the auditor sees inside a row it is allowed to see. app_engineer never
+-- reaches a restricted row, dba is the unmasked baseline, auditor is the point.
 --
 -- Requires the cluster parameter pgcolumnmask.policy_admin_rolname to name the role
 -- running this file. Without it create_masking_policy cannot be called, and this
@@ -3197,9 +3197,9 @@ CREATE EXTENSION IF NOT EXISTS pg_columnmask;
 
 DO $$
 DECLARE
-  v_admin text := current_setting('pgcolumnmask.policy_admin_rolname', true);
+  v_dba text := current_setting('pgcolumnmask.policy_admin_rolname', true);
 BEGIN
-  IF v_admin IS NULL OR v_admin = '' THEN
+  IF v_dba IS NULL OR v_dba = '' THEN
     RAISE EXCEPTION
       'pgcolumnmask.policy_admin_rolname is not set in the DB cluster parameter '
       'group; masking policies cannot be created. Set it to the schema owner and '
@@ -3425,7 +3425,7 @@ BEGIN
   IF v_existing > 0 THEN
     RAISE EXCEPTION
       'masking policies already exist (% found) and this extension build offers no '
-      'drop procedure. Remove them as the policy admin before re-running '
+      'drop procedure. Remove them as the policy dba before re-running '
       'sql/12_masking.sql; silently keeping a stale policy could leave a column '
       'unmasked.', v_existing;
   END IF;
@@ -3471,7 +3471,7 @@ scratch database (`make seed-local` against the scratch DSN) and run:
 
 ```sql
 BEGIN;
-SET LOCAL ROLE persona_admin;
+SET LOCAL ROLE persona_dba;
 SELECT case_id, account_name, left(customer_commitment, 24) AS commitment
   FROM casework.support_cases WHERE case_id = 'CASE-7421';
 ROLLBACK;
@@ -3483,7 +3483,7 @@ SELECT case_id, account_name, left(customer_commitment, 24) AS commitment
 ROLLBACK;
 ```
 
-Expected: the admin row shows `Northstar Foods (fictional)` and
+Expected: the dba row shows `Northstar Foods (fictional)` and
 `Support leadership approv`; the auditor row shows an `X`-run of the same length
 for `account_name` and `[REDACTED]` for the commitment, with `case_id` identical in
 both — the row is present, the identity is not.
@@ -3521,9 +3521,9 @@ not a silent full-privilege read.
 **Interfaces:**
 - Consumes: `sql/11_roles_rls.sql` roles; `WORKSHOP_APP_DATABASE_URL` from Task 5.
 - Produces:
-  - `PERSONAS: tuple[str, ...] = ("analyst", "admin", "auditor")`
-  - `Persona = Literal["analyst", "admin", "auditor"]`
-  - `persona_role(persona: str) -> str` → `"persona_analyst"` etc.
+  - `PERSONAS: tuple[str, ...] = ("app_engineer", "dba", "auditor")`
+  - `Persona = Literal["app_engineer", "dba", "auditor"]`
+  - `persona_role(persona: str) -> str` → `"persona_app_engineer"` etc.
   - `get_conn(persona: Persona, *, row_factory=None)` — context manager yielding a
     connection inside an open transaction with `SET LOCAL ROLE` already issued
   - `get_dict_conn(persona: Persona)` — same, `dict_row`
@@ -3578,11 +3578,11 @@ from backend.app import db
 )
 class PersonaCheckoutTests(unittest.TestCase):
     def test_personas_are_the_three_bound_values(self) -> None:
-        self.assertEqual(db.PERSONAS, ("analyst", "admin", "auditor"))
+        self.assertEqual(db.PERSONAS, ("app_engineer", "dba", "auditor"))
 
     def test_persona_role_prefixes_the_database_role(self) -> None:
-        self.assertEqual(db.persona_role("analyst"), "persona_analyst")
-        self.assertEqual(db.persona_role("admin"), "persona_admin")
+        self.assertEqual(db.persona_role("app_engineer"), "persona_app_engineer")
+        self.assertEqual(db.persona_role("dba"), "persona_dba")
         self.assertEqual(db.persona_role("auditor"), "persona_auditor")
 
     def test_persona_role_rejects_an_unknown_persona(self) -> None:
@@ -3595,16 +3595,16 @@ class PersonaCheckoutTests(unittest.TestCase):
                 pass
 
     def test_checkout_runs_as_the_persona_not_the_login(self) -> None:
-        with db.get_dict_conn("analyst") as conn:
+        with db.get_dict_conn("app_engineer") as conn:
             with conn.cursor() as cursor:
                 cursor.execute("SELECT current_user AS role")
-                self.assertEqual(cursor.fetchone()["role"], "persona_analyst")
+                self.assertEqual(cursor.fetchone()["role"], "persona_app_engineer")
 
     def test_role_does_not_leak_to_the_next_checkout(self) -> None:
-        with db.get_dict_conn("admin") as conn:
+        with db.get_dict_conn("dba") as conn:
             with conn.cursor() as cursor:
                 cursor.execute("SELECT current_user AS role")
-                self.assertEqual(cursor.fetchone()["role"], "persona_admin")
+                self.assertEqual(cursor.fetchone()["role"], "persona_dba")
 
         with db.get_dict_conn("auditor") as conn:
             with conn.cursor() as cursor:
@@ -3617,7 +3617,7 @@ class PersonaCheckoutTests(unittest.TestCase):
                 cursor.execute("SELECT current_user AS role")
                 self.assertNotIn(
                     cursor.fetchone()[0],
-                    {"persona_analyst", "persona_admin", "persona_auditor"},
+                    {"persona_app_engineer", "persona_dba", "persona_auditor"},
                 )
 ```
 
@@ -3654,10 +3654,10 @@ Match the surrounding fields' `default_factory` idiom exactly — read the exist
 Replace `backend/app/db.py:29-102` with:
 
 ```python
-PERSONAS: tuple[str, ...] = ("analyst", "admin", "auditor")
-Persona = Literal["analyst", "admin", "auditor"]
+PERSONAS: tuple[str, ...] = ("app_engineer", "dba", "auditor")
+Persona = Literal["app_engineer", "dba", "auditor"]
 
-_DEFAULT_PERSONA: Persona = "analyst"
+_DEFAULT_PERSONA: Persona = "app_engineer"
 
 
 def persona_role(persona: str) -> str:
@@ -3848,7 +3848,7 @@ TEST_DATABASE_URL="postgresql://localhost:55432/retrieval_test?sslmode=disable" 
   .venv/bin/python -m unittest backend.tests.test_db_persona -v
 ```
 Expected: `Ran 7 tests … OK`. If `test_checkout_runs_as_the_persona_not_the_login`
-fails with `permission denied to set role "persona_analyst"`, the test database has
+fails with `permission denied to set role "persona_app_engineer"`, the test database has
 not had `sql/11_roles_rls.sql` applied — apply it to the test database (not live)
 and re-run.
 
@@ -4057,7 +4057,7 @@ and in `_scan_line`, before `return hits`:
 ```python
     if BANNED_IDENTITY_RE.search(line) and not BANNED_IDENTITY_ALLOW.search(line):
         token = BANNED_IDENTITY_RE.search(line).group(0)
-        hits.append((token, "the persona (analyst/admin/auditor); A7 retired this"))
+        hits.append((token, "the persona (app_engineer/dba/auditor); A7 retired this"))
 ```
 
 Fix the stale docstring path at `gates/noun_lint.py:14` in the same edit:
@@ -4171,8 +4171,8 @@ retrieval.acl_visible(item.acl, run.role::name)    -- replay, under the stored r
   - `retrieval.acl_scalars_visible(p_visibility text, p_role name DEFAULT current_user) → boolean`, STABLE
   - all four arm functions with `p_principal jsonb` **removed**
   - `retrieval.traverse_evidence(uuid[], integer, p_role name DEFAULT current_user)`
-  - `proof.retrieval_runs.role text NOT NULL DEFAULT 'analyst'`,
-    `proof.agent_runs.role text NOT NULL DEFAULT 'analyst'`
+  - `proof.retrieval_runs.role text NOT NULL DEFAULT 'app_engineer'`,
+    `proof.agent_runs.role text NOT NULL DEFAULT 'app_engineer'`
 
 **Why `DROP FUNCTION` is mandatory, not optional:** `CREATE OR REPLACE FUNCTION`
 matches on the argument list. Removing `p_principal jsonb` creates a **second
@@ -4357,8 +4357,8 @@ In the `CREATE TABLE proof.retrieval_runs` body replace
 ```
 with
 ```sql
-  role text NOT NULL DEFAULT 'analyst'
-    CHECK (role IN ('analyst', 'admin', 'auditor')),
+  role text NOT NULL DEFAULT 'app_engineer'
+    CHECK (role IN ('app_engineer', 'dba', 'auditor')),
 ```
 and in `CREATE TABLE proof.agent_runs` replace
 ```sql
@@ -4366,8 +4366,8 @@ and in `CREATE TABLE proof.agent_runs` replace
 ```
 with
 ```sql
-  role text NOT NULL DEFAULT 'analyst'
-    CHECK (role IN ('analyst', 'admin', 'auditor')),
+  role text NOT NULL DEFAULT 'app_engineer'
+    CHECK (role IN ('app_engineer', 'dba', 'auditor')),
 ```
 
 The CHECK is the schema-level half of the vocabulary collapse: `support-lead`
@@ -4378,14 +4378,14 @@ additive-ALTER idiom (`sql/01_schema.sql:925-949`):
 
 ```sql
 ALTER TABLE proof.retrieval_runs
-  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'analyst';
+  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'app_engineer';
 
 ALTER TABLE proof.agent_runs
-  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'analyst';
+  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'app_engineer';
 
 -- Pre-collapse receipts carried a jsonb identity bag. The only two values ever
 -- written were the workshop default and the support-lead pair, which map onto the
--- analyst and admin personas respectively (admin, not auditor: the old
+-- app_engineer and dba personas respectively (dba, not auditor: the old
 -- support-lead saw the restricted row UNMASKED).
 DO $$
 BEGIN
@@ -4396,8 +4396,8 @@ BEGIN
   ) THEN
     UPDATE proof.retrieval_runs
     SET role = CASE
-      WHEN principal -> 'principals' ? 'support-lead' THEN 'admin'
-      ELSE 'analyst'
+      WHEN principal -> 'principals' ? 'support-lead' THEN 'dba'
+      ELSE 'app_engineer'
     END;
     ALTER TABLE proof.retrieval_runs DROP COLUMN principal;
   END IF;
@@ -4409,8 +4409,8 @@ BEGIN
   ) THEN
     UPDATE proof.agent_runs
     SET role = CASE
-      WHEN principal -> 'principals' ? 'support-lead' THEN 'admin'
-      ELSE 'analyst'
+      WHEN principal -> 'principals' ? 'support-lead' THEN 'dba'
+      ELSE 'app_engineer'
     END;
     ALTER TABLE proof.agent_runs DROP COLUMN principal;
   END IF;
@@ -4421,13 +4421,13 @@ ALTER TABLE proof.retrieval_runs
   DROP CONSTRAINT IF EXISTS retrieval_runs_role_check;
 ALTER TABLE proof.retrieval_runs
   ADD CONSTRAINT retrieval_runs_role_check
-  CHECK (role IN ('analyst', 'admin', 'auditor'));
+  CHECK (role IN ('app_engineer', 'dba', 'auditor'));
 
 ALTER TABLE proof.agent_runs
   DROP CONSTRAINT IF EXISTS agent_runs_role_check;
 ALTER TABLE proof.agent_runs
   ADD CONSTRAINT agent_runs_role_check
-  CHECK (role IN ('analyst', 'admin', 'auditor'));
+  CHECK (role IN ('app_engineer', 'dba', 'auditor'));
 ```
 
 The CHECK is added *after* the backfill so an existing row with an unmappable
@@ -4487,8 +4487,8 @@ Three sites read the run's identity back (`:19,115,168`). Replace each
 
 This is why `acl_visible` keeps a second parameter: evaluation scores a stored run
 under the identity that run used, which is not the identity the evaluator is
-connected as. Without it, an eval executed as admin would score an analyst's run
-against admin-visible ground truth and silently inflate recall.
+connected as. Without it, an eval executed as dba would score an app_engineer's run
+against dba-visible ground truth and silently inflate recall.
 
 - [ ] **Step 6: Grant EXECUTE on the new signatures**
 
@@ -4503,9 +4503,9 @@ new signatures ungranted. Add to the end of `sql/03_search_functions.sql`:
 -- the personas do not exist yet) still applies this file.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_analyst') THEN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_app_engineer') THEN
     GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA retrieval
-      TO persona_analyst, persona_admin, persona_auditor;
+      TO persona_app_engineer, persona_dba, persona_auditor;
   END IF;
 END
 $$;
@@ -4525,12 +4525,12 @@ SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS args
 
 \echo the predicate must disagree between two roles on the same row
 BEGIN;
-SET LOCAL ROLE persona_analyst;
-SELECT retrieval.acl_visible('{"visibility":"restricted"}'::jsonb) AS analyst_sees;
+SET LOCAL ROLE persona_app_engineer;
+SELECT retrieval.acl_visible('{"visibility":"restricted"}'::jsonb) AS app_engineer_sees;
 ROLLBACK;
 BEGIN;
-SET LOCAL ROLE persona_admin;
-SELECT retrieval.acl_visible('{"visibility":"restricted"}'::jsonb) AS admin_sees;
+SET LOCAL ROLE persona_dba;
+SELECT retrieval.acl_visible('{"visibility":"restricted"}'::jsonb) AS dba_sees;
 ROLLBACK;
 ```
 
@@ -4538,7 +4538,7 @@ Expected: the first query returns **zero rows** for the arm and predicate functi
 (a `jsonb` argument surviving on `acl_visible`, `acl_scalars_visible`, or any arm
 means a DROP list was wrong; `p_query_embedding vector` and the `metadata jsonb`
 columns are unrelated and will not appear here because this filters on the argument
-list). Second query: `analyst_sees = f`, `admin_sees = t`.
+list). Second query: `app_engineer_sees = f`, `dba_sees = t`.
 
 Then assert the receipt view carries the new column, because a stale view is the
 failure mode Step 4's DROP exists to prevent:
@@ -4610,9 +4610,9 @@ definitions and the script call sites. 37 is the request-path number.
 - Consumes: `db.get_dict_conn(persona)`, `db.Persona`, `db.PERSONAS`,
   `db.persona_role()` (Task 7); the argument-free SQL predicates (Task 9).
 - Produces:
-  - `models.DEFAULT_ROLE: Persona = "analyst"`
-  - `role: Persona = "analyst"` on the five request models (replacing `principal`)
-  - every `*_impl(..., role: str = "analyst")` — the registry's identity param
+  - `models.DEFAULT_ROLE: Persona = "app_engineer"`
+  - `role: Persona = "app_engineer"` on the five request models (replacing `principal`)
+  - every `*_impl(..., role: str = "app_engineer")` — the registry's identity param
   - `agent_tools.start_run(role: str | None)`, `agent_tools._role() -> str`
   - `registry._ROLE_PARAM` (replacing `_PRINCIPAL_PARAM`), `ToolParam.identity_bound`
     (replacing `principal_bound`)
@@ -4628,12 +4628,12 @@ the one that gets got wrong:
    that produced it or replay is a lie. `_run_principal()` becomes `_run_role()`
    and its result selects the checkout — which means the run row must be read
    before the persona is known, so these functions need **two** checkouts: an
-   `"analyst"` read of `proof.retrieval_runs.role` (proof tables carry no RLS
+   `"app_engineer"` read of `proof.retrieval_runs.role` (proof tables carry no RLS
    policy, so any persona can read them), then the content read under that role.
 3. **Cluster-metadata path** (`search_index_health`, `fusion_sql`,
    `search_index_diagnostics`, `index_usage`, `slow_queries`): reads
    `pg_stat_*`, `pg_proc`, `pg_indexes`, `retrieval.v_*` aggregate views. No
-   evidence rows. These take `"analyst"` — the least-privileged persona — because a
+   evidence rows. These take `"app_engineer"` — the least-privileged persona — because a
    diagnostic surface must never be the thing that shows a restricted row.
 
 ### [VERIFY] BLOCKING: owner-rights views defeat RLS
@@ -4768,7 +4768,7 @@ WHERE n.nspname = %s AND c.relname = %s
 class ContentViewRlsTests(unittest.TestCase):
     def test_content_views_are_security_invoker(self) -> None:
         """A view that returns evidence text must be subject to the caller's RLS."""
-        with db.get_dict_conn("analyst") as conn:
+        with db.get_dict_conn("app_engineer") as conn:
             with conn.cursor() as cursor:
                 for qualified in CONTENT_VIEWS:
                     with self.subTest(view=qualified):
@@ -4784,7 +4784,7 @@ class ContentViewRlsTests(unittest.TestCase):
 
     def test_count_only_views_are_deliberately_owner_rights(self) -> None:
         """The health surfaces count every row on purpose; assert that stays true."""
-        with db.get_dict_conn("analyst") as conn:
+        with db.get_dict_conn("app_engineer") as conn:
             with conn.cursor() as cursor:
                 for qualified in COUNT_ONLY_VIEWS:
                     with self.subTest(view=qualified):
@@ -4799,7 +4799,7 @@ class ContentViewRlsTests(unittest.TestCase):
                         )
 
     def test_the_dropped_chunk_view_is_gone(self) -> None:
-        with db.get_dict_conn("analyst") as conn:
+        with db.get_dict_conn("app_engineer") as conn:
             with conn.cursor() as cursor:
                 cursor.execute("SELECT to_regclass('retrieval.v_current_chunks') AS oid")
                 self.assertIsNone(cursor.fetchone()["oid"])
@@ -4824,8 +4824,8 @@ Step 1's SQL is applied to the scratch database; the drop test FAILS too.
 Replace `workshop_principal()` (`:21-22`) with:
 
 ```python
-Persona = Literal["analyst", "admin", "auditor"]
-DEFAULT_ROLE: Persona = "analyst"
+Persona = Literal["app_engineer", "dba", "auditor"]
+DEFAULT_ROLE: Persona = "app_engineer"
 ```
 
 Then on each of `SearchRequest` (`:49`), `AgentAnswerRequest` (`:77`),
@@ -4889,7 +4889,7 @@ identity still travels on the wire.
 
 - [ ] **Step 5: `backend/app/agent.py` — request path**
 
-Signature changes (`principal: dict[str, Any] | None = None` → `role: str = "analyst"`):
+Signature changes (`principal: dict[str, Any] | None = None` → `role: str = "app_engineer"`):
 - `search_evidence_impl` `:262`
 - `follow_evidence_links_impl` `:307`
 - `compare_sources_impl` `:388`
@@ -4897,7 +4897,7 @@ Signature changes (`principal: dict[str, Any] | None = None` → `role: str = "a
 
 At `:288` and `:2058`, `principal=principal or workshop_principal()` becomes
 `role=role`. The `or default` idiom disappears everywhere: the default now lives in
-one place (the `Literal` default on the model / the `= "analyst"` on the impl), not
+one place (the `Literal` default on the model / the `= "app_engineer"` on the impl), not
 at each call site. That collapse is the point of A7 — three defaulting sites were
 three chances to default differently.
 
@@ -4905,7 +4905,7 @@ Checkouts and their personas:
 
 | Line | Function | Persona |
 |---|---|---|
-| `:75` | `_reachable_by_kind` | `role` — add a `role: str = "analyst"` param; it is called from the plan path |
+| `:75` | `_reachable_by_kind` | `role` — add a `role: str = "app_engineer"` param; it is called from the plan path |
 | `:315` | `follow_evidence_links_impl` | `role` |
 | `:394` | `compare_sources_impl` | `role` |
 | `:461` | (read) | trace the enclosing function; if it takes a request, `request.role`, else add a `role` param |
@@ -4916,7 +4916,7 @@ Checkouts and their personas:
 
 Do not guess a persona for `:461` and `:646`. Read each enclosing function
 signature and follow the rule table at the top of this task: request path → the
-request's role; replay → the stored role; metadata → `"analyst"`.
+request's role; replay → the stored role; metadata → `"app_engineer"`.
 
 SQL edits in this file:
 - `:82-96` — `retrieval.traverse_evidence(ARRAY(...)::uuid[], 2, %(principal)s::jsonb)`
@@ -4943,22 +4943,22 @@ uses it: `grep -c "workshop_principal" backend/app/agent.py` must reach 0.
 - [ ] **Step 6: `backend/app/evaluation.py`**
 
 The A7 safety assertion depends on this file being exactly right, so it gets its own
-treatment. Five checkouts, all `"analyst"`:
+treatment. Five checkouts, all `"app_engineer"`:
 
 `:22` (`_queries`), `:59` and `:117` (metric writes), `:76`
 (`_retrieval_metrics`), `:199` (`_traversal_metrics`).
 
-**Why every eval checkout is `analyst` and not configurable:** Lab 2's goldens were
-computed against the workshop-visible corpus. Scoring under `admin` would let a
+**Why every eval checkout is `app_engineer` and not configurable:** Lab 2's goldens were
+computed against the workshop-visible corpus. Scoring under `dba` would let a
 restricted row enter a judged result set and silently change recall. The eval is a
 fixed, comparable measurement, so its identity is fixed too — the same reasoning
 that already forces `rerank=False` here.
 
 - `:55` — `principal=filters.get("principal") or workshop_principal(),` becomes
-  `role="analyst",`
+  `role="app_engineer",`
 - `:97` — `principal = filters.get("principal") or workshop_principal()` is deleted
-- `:103` — `principal=principal,` → `role="analyst",`
-- `:113` — `principal=principal,` → `role="analyst",`
+- `:103` — `principal=principal,` → `role="app_engineer",`
+- `:113` — `principal=principal,` → `role="app_engineer",`
 - delete `workshop_principal` from the `:8` import
 
 `filters.get("principal")` was a per-query identity override read from
@@ -4994,7 +4994,7 @@ def _run_role(run_id: str) -> str:
     Raises:
         ValueError: No such run.
     """
-    with get_dict_conn("analyst") as connection:
+    with get_dict_conn("app_engineer") as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT role FROM proof.retrieval_runs WHERE run_id = %s",
@@ -5042,8 +5042,8 @@ def run_timeline(run_id: str) -> dict[str, Any]:
     with get_dict_conn(_run_role(run_id)) as connection:
 ```
 
-`observability_ref` (`:514`) reads only `proof.observability_refs` → `"analyst"`.
-`latest_cited_run` (`:163`) reads only `proof.*` → `"analyst"`.
+`observability_ref` (`:514`) reads only `proof.observability_refs` → `"app_engineer"`.
+`latest_cited_run` (`:163`) reads only `proof.*` → `"app_engineer"`.
 
 `query_plan` (`:331,353`) is request path: `request.role`, and delete
 `principal=request.principal` from the `SearchRequest(...)` it builds at `:349`
@@ -5051,7 +5051,7 @@ def run_timeline(run_id: str) -> dict[str, Any]:
 `model_config` defaults, and a silently-ignored field if extras are permitted —
 either way it is wrong).
 
-Metadata path → `"analyst"`: `search_index_health` (`:82`), `fusion_sql` (`:94`),
+Metadata path → `"app_engineer"`: `search_index_health` (`:82`), `fusion_sql` (`:94`),
 `search_index_diagnostics` (`:125`), `index_usage` (`:187`), `slow_queries`
 (`:197`).
 
@@ -5061,7 +5061,7 @@ import. Check first — `grep -c "json\." backend/app/insights.py`.
 - [ ] **Step 8: `backend/app/contracts.py` and `backend/app/main.py`**
 
 `contracts.py:112` writes `proof.transport_invocations`, a receipt table with no
-RLS policy → `get_dict_conn("analyst")`.
+RLS policy → `get_dict_conn("app_engineer")`.
 
 `main.py`:
 - delete `workshop_principal` from the `:44-55` import block
@@ -5146,8 +5146,8 @@ scan (Task 8) will fail until this task lands:
   is not a tool parameter. A model that could pass its own persona could escalate
   past the ACL, so it is bound from the request, never from the model."
 - `:51` → "Per-run state: the caller's persona, the tool-call trace, and the last"
-- `:274` → "...or the analyst persona cannot see it. Retry without filters before
-  concluding." — do **not** hardcode "analyst" here; use `_role()` in the f-string
+- `:274` → "...or the app_engineer persona cannot see it. Retry without filters before
+  concluding." — do **not** hardcode "app_engineer" here; use `_role()` in the f-string
   so the message names the actual persona:
   `f"exist, or the {_role()} persona cannot see them."`
 - `:346` → same treatment
@@ -5172,7 +5172,7 @@ In `agent/registry.py`:
 ```python
 _ROLE_PARAM = ToolParam(
     "role", "string", model_visible=False, identity_bound=True,
-    enum=("analyst", "admin", "auditor"), default="analyst",
+    enum=("app_engineer", "dba", "auditor"), default="app_engineer",
     description="Caller persona; bound server-side, never set by the model.",
 )
 ```
@@ -5186,12 +5186,12 @@ The type change from `object` to `string` with an `enum` is deliberate and chang
 the generated code in a way you should verify rather than trust:
 
 - `mcp-server/src/server.generated.ts`: `principal: z.record(z.unknown()).optional(),`
-  becomes `role: z.enum(["analyst", "admin", "auditor"]).default("analyst"),`
+  becomes `role: z.enum(["app_engineer", "dba", "auditor"]).default("app_engineer"),`
   — `_zod_expr` renders `.default()` for a param with a non-None default, and
   `_zod_scalar` renders the enum branch. Both paths already exist; no generator
   change beyond the rename.
 - `lambda_mcp/generated_dispatch.py`: `principal=args.get("principal"),` becomes
-  `role=str(args.get("role")) if args.get("role") is not None else "analyst",`
+  `role=str(args.get("role")) if args.get("role") is not None else "app_engineer",`
   — `_read_expr`'s string-with-default branch.
 
 Regenerate and diff:
@@ -5217,7 +5217,7 @@ print('role is model-invisible in all', len(TOOLS), 'tools')
 
 - [ ] **Step 11: Scripts — `doctor.py`, `smoke_test.py`**
 
-`doctor.py:306` → `get_dict_conn("analyst")`. `smoke_test.py:66` → `get_dict_conn("analyst")`.
+`doctor.py:306` → `get_dict_conn("app_engineer")`. `smoke_test.py:66` → `get_dict_conn("app_engineer")`.
 
 `doctor.py:217` currently asserts restrictedness through the principals array:
 
@@ -5239,7 +5239,7 @@ behavioural form, which is what actually proves enforcement:
 ```python
     # The ACL is enforced by the engine, so prove it by disagreement: the same
     # query under two personas must return different row counts.
-    with get_dict_conn("analyst") as connection:
+    with get_dict_conn("app_engineer") as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -5248,8 +5248,8 @@ behavioural form, which is what actually proves enforcement:
                 WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
                 """
             )
-            analyst_visible = cursor.fetchone()["visible"]
-    with get_dict_conn("admin") as connection:
+            app_engineer_visible = cursor.fetchone()["visible"]
+    with get_dict_conn("dba") as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -5258,12 +5258,12 @@ behavioural form, which is what actually proves enforcement:
                 WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
                 """
             )
-            admin_visible = cursor.fetchone()["visible"]
-    assert analyst_visible == 0, (
-        f"analyst saw {analyst_visible} restricted evidence rows; RLS is not enforced"
+            dba_visible = cursor.fetchone()["visible"]
+    assert app_engineer_visible == 0, (
+        f"app_engineer saw {app_engineer_visible} restricted evidence rows; RLS is not enforced"
     )
-    assert admin_visible > 0, (
-        "admin saw no restricted evidence rows; either the seed has none or "
+    assert dba_visible > 0, (
+        "dba saw no restricted evidence rows; either the seed has none or "
         "can_see_restricted is not granted"
     )
 ```
@@ -5277,17 +5277,17 @@ smoke test is the fast local signal.
 `start_run` argument:
 
 ```python
-        agent_tools.start_run("admin")
+        agent_tools.start_run("dba")
 ```
 
 and whatever it asserted about the forwarded principal becomes an assertion that
-`role="admin"` reached the impl. The test's purpose (the model cannot override the
+`role="dba"` reached the impl. The test's purpose (the model cannot override the
 bound identity) is unchanged.
 
 `test_mcp_contract.py:62`, `test_strands_agent.py:253-267`,
 `test_retrieval_integration.py:192-193,298-305,544` — read each, then apply the
 mechanical mapping: `principal={"scopes": [...], "principals": [...]}` → `role="<persona>"`,
-`"support-lead"` → `"admin"`, `workshop_principal()` → `"analyst"`.
+`"support-lead"` → `"dba"`, `workshop_principal()` → `"app_engineer"`.
 
 Add the divergence guard the two `Literal` declarations need. It gets its **own**
 `unittest.TestCase` class in `backend/tests/test_db_persona.py` with **no**
@@ -5368,7 +5368,7 @@ Do the same for the canonical question's claim coverage:
 
 ```bash
 curl -s localhost:8000/v1/agent/answer -H 'content-type: application/json' \
-  -d '{"question":"<the canonical question, read from the guide>","role":"analyst"}' \
+  -d '{"question":"<the canonical question, read from the guide>","role":"app_engineer"}' \
   | jq -S '{answer, citations: [.citations[] | {external_key, claim, quote_text}]}' \
   > /tmp/canonical_after.json
 ```
@@ -5405,7 +5405,7 @@ identity the request carried, and every flip's receipt renders the **one**
 - Modify: `gates/route_contract.py:22-23,66-90`
 
 **Interfaces:**
-- Consumes: `models.Persona` values `analyst | admin | auditor` and the wire field
+- Consumes: `models.Persona` values `app_engineer | dba | auditor` and the wire field
   `role` (Task 10); `db.persona_role()`'s `persona_<persona>` naming (Task 7).
 - Produces:
   - `persona.ts`: `PersonaKey`, `PERSONA_KEYS`, `PERSONA_LABELS`,
@@ -5439,12 +5439,12 @@ Replace `CONTRACT_ROUTES`' two agent entries (`gates/route_contract.py:74-81`):
 
 ```python
     (
-        "#/agent?role=analyst",
-        {"surface": "agent", "role": "analyst"},
+        "#/agent?role=app_engineer",
+        {"surface": "agent", "role": "app_engineer"},
     ),
     (
-        "#/agent?role=admin",
-        {"surface": "agent", "role": "admin"},
+        "#/agent?role=dba",
+        {"surface": "agent", "role": "dba"},
     ),
     (
         "#/agent?role=auditor",
@@ -5455,14 +5455,14 @@ Replace `CONTRACT_ROUTES`' two agent entries (`gates/route_contract.py:74-81`):
 and `BUNDLE_LITERALS` (`:90`):
 
 ```python
-BUNDLE_LITERALS = ["exact", "fuzzy", "semantic", "analyst", "admin", "auditor"]
+BUNDLE_LITERALS = ["exact", "fuzzy", "semantic", "app_engineer", "dba", "auditor"]
 ```
 
 and the docstring at `:22-23`:
 
 ```python
    participants to - /overview, /retrieval?preset={exact|fuzzy|semantic},
-   /agent?role={analyst|admin|auditor}, /proof/{run_id} (SPEC-session:457) -
+   /agent?role={app_engineer|dba|auditor}, /proof/{run_id} (SPEC-session:457) -
 ```
 
 plus `:5` (`prefilled (preset, principal, run_id)` → `prefilled (preset, role,
@@ -5475,8 +5475,8 @@ G-11's banned-identity scan (Task 8) reads `gates/` — leaving them is a G-11 h
 Run: `gates/checks.sh G-23`
 
 Expected: FAIL on the first agent route —
-`#/agent?role=analyst parsed to {'surface': 'agent'}, expected {'surface':
-'agent', 'role': 'analyst'}`. The router still reads `?principal=`, so `?role=` is
+`#/agent?role=app_engineer parsed to {'surface': 'agent'}, expected {'surface':
+'agent', 'role': 'app_engineer'}`. The router still reads `?principal=`, so `?role=` is
 dropped and the parse degrades to a bare surface. That is exactly the tolerant
 behaviour `parseRoute`'s docstring promises, which is why the gate — not a
 `try/catch` — is what catches this.
@@ -5494,30 +5494,30 @@ behaviour `parseRoute`'s docstring promises, which is why the gate — not a
 // `permission denied to set role`, which is the correct failure: the database
 // is the authority on which identities exist.
 
-export type PersonaKey = 'analyst' | 'admin' | 'auditor';
+export type PersonaKey = 'app_engineer' | 'dba' | 'auditor';
 
 export const PERSONA_KEYS: readonly PersonaKey[] = [
-  'analyst',
-  'admin',
+  'app_engineer',
+  'dba',
   'auditor',
 ];
 
-export const DEFAULT_PERSONA: PersonaKey = 'analyst';
+export const DEFAULT_PERSONA: PersonaKey = 'app_engineer';
 
 // Chip copy (A4). "Viewing as" is the frame; these are the values inside it.
 // Never "Sign in as" — the chip mirrors the identity the request carried, it
 // does not grant one.
 export const PERSONA_LABELS: Record<PersonaKey, string> = {
-  analyst: 'Analyst',
-  admin: 'Admin',
+  app_engineer: 'app_engineer',
+  dba: 'DBA',
   auditor: 'Auditor',
 };
 
 // What the app asked Postgres to become. Rendered in the receipt so a
 // participant can paste the same statement into psql and see the same rows.
 export const PERSONA_DB_ROLES: Record<PersonaKey, string> = {
-  analyst: 'persona_analyst',
-  admin: 'persona_admin',
+  app_engineer: 'persona_app_engineer',
+  dba: 'persona_dba',
   auditor: 'persona_auditor',
 };
 
@@ -5616,7 +5616,7 @@ gates/checks.sh G-23
 ```
 
 Expected: `tsc` silent; G-23 reports round-trip on 9 contract routes. The bundle
-check will report BLOCKED or FAIL on the missing `analyst`/`admin`/`auditor`
+check will report BLOCKED or FAIL on the missing `app_engineer`/`dba`/`auditor`
 literals until Step 9 rebuilds — that is expected here and cleared in Step 9. Note
 which it was in the task report.
 
@@ -5646,7 +5646,7 @@ import {
 ```
 
 `retrievalRequestKey` is the cache key for a retrieval request. Changing a
-boolean to a three-value string there is what makes an analyst→admin flip a
+boolean to a three-value string there is what makes an app_engineer→dba flip a
 **new** request rather than a cache hit — verify by reading the function
 (`:614-632`) and confirming the key is used for memoization before moving on. If
 the persona were left out of the key, the flip would render the previous
@@ -5676,13 +5676,13 @@ baseline copy).
 
 `beginInvestigation` (`:3660`) resets the baseline: `supportLead: false,` →
 `role: DEFAULT_PERSONA,`. It resets to the *least-privileged* persona on purpose —
-an investigation that starts as admin would show the restricted row before the
+an investigation that starts as dba would show the restricted row before the
 participant learns why it is restricted, which spoils M3.
 
 `goTo`'s retrieval case (`:3364`) does the same reset: `setControl('supportLead',
 false)` → `setControl('role', DEFAULT_PERSONA)`. The retrieval surface has no
 persona chip in this plan (the flip is the Agent surface's moment, A4), so
-arriving there must not carry a stale admin identity into an unlabelled surface.
+arriving there must not carry a stale dba identity into an unlabelled surface.
 
 - [ ] **Step 8: Route ↔ state wiring**
 
@@ -5879,10 +5879,10 @@ Prose sites, five, all of which G-11's banned-identity scan (Task 8) currently
 fails on:
 - `:837` — `the caller principal stayed fixed.` → `the persona stayed fixed.`
 - `:897` — `Visible customer impact under the workshop principal.` → `Visible
-  customer impact under the analyst persona.`
+  customer impact under the app_engineer persona.`
 - `:5544` — `The caller principal is unchanged.` → `The persona is unchanged.`
 - `:5575` — `CASE-7419 under the workshop principal` → `CASE-7419 under the
-  analyst persona`
+  app_engineer persona`
 - `:5900` — `<small>principal unchanged</small>` → `<small>persona
   unchanged</small>`
 
@@ -5994,9 +5994,9 @@ from backend.app import db, verify_sql
 
 class VerifySqlEnvelopeTests(unittest.TestCase):
     def test_descriptor_carries_the_statement_binds_role_and_rendering(self) -> None:
-        descriptor = verify_sql.receipt_verify_sql("rr_9b41d7", "admin")["run"]
+        descriptor = verify_sql.receipt_verify_sql("rr_9b41d7", "dba")["run"]
         self.assertEqual(descriptor["binds"], {"run_id": "rr_9b41d7"})
-        self.assertEqual(descriptor["set_role"], "SET LOCAL ROLE persona_admin")
+        self.assertEqual(descriptor["set_role"], "SET LOCAL ROLE persona_dba")
         self.assertNotIn("SET LOCAL ROLE", descriptor["statement"])
         self.assertTrue(descriptor["statement"].lstrip().upper().startswith("SELECT"))
 
@@ -6010,14 +6010,14 @@ class VerifySqlEnvelopeTests(unittest.TestCase):
         self.assertEqual(lines[-1], "ROLLBACK;")
 
     def test_rendered_text_inlines_the_binds_so_a_paste_runs_as_is(self) -> None:
-        rendered = verify_sql.receipt_verify_sql("rr_9b41d7", "analyst")["run"][
+        rendered = verify_sql.receipt_verify_sql("rr_9b41d7", "app_engineer")["run"][
             "rendered"
         ]
         self.assertIn("'rr_9b41d7'", rendered)
         self.assertNotIn("%(run_id)s", rendered)
 
     def test_every_persona_is_accepted_and_nothing_else_is(self) -> None:
-        for persona in ("analyst", "admin", "auditor"):
+        for persona in ("app_engineer", "dba", "auditor"):
             with self.subTest(persona=persona):
                 verify_sql.receipt_verify_sql("rr_1", persona)
         with self.assertRaisesRegex(ValueError, "unknown persona"):
@@ -6033,14 +6033,14 @@ class VerifySqlEnvelopeTests(unittest.TestCase):
                 )
 
     def test_element_grain_descriptors_carry_the_envelope_too(self) -> None:
-        edge = verify_sql.edge_verify_sql("edge-1", "admin")
+        edge = verify_sql.edge_verify_sql("edge-1", "dba")
         event = verify_sql.event_verify_sql(
-            "11111111-1111-1111-1111-111111111111", "admin"
+            "11111111-1111-1111-1111-111111111111", "dba"
         )
         for descriptor in (edge, event):
             with self.subTest(descriptor=descriptor["statement"][:40]):
                 self.assertEqual(
-                    descriptor["set_role"], "SET LOCAL ROLE persona_admin"
+                    descriptor["set_role"], "SET LOCAL ROLE persona_dba"
                 )
                 self.assertEqual(descriptor["rendered"].splitlines()[0], "BEGIN;")
 ```
@@ -6061,7 +6061,7 @@ were given`.
 Replace `_descriptor` (`:129-131`) with:
 
 ```python
-PERSONAS: tuple[str, ...] = ("analyst", "admin", "auditor")
+PERSONAS: tuple[str, ...] = ("app_engineer", "dba", "auditor")
 
 
 def persona_role(persona: str) -> str:
@@ -6172,7 +6172,7 @@ def event_verify_sql(evidence_id: str, persona: str) -> dict[str, Any]:
 ```
 
 Required, not defaulted. A defaulted persona here would let a panel emit an
-`analyst` envelope for rows an `admin` fetched — the panel and the paste would
+`app_engineer` envelope for rows an `dba` fetched — the panel and the paste would
 disagree, which is precisely the Law-2 violation A3 closes.
 
 Update the module docstring (`:1-26`) to name the fourth field. Add after the
@@ -6241,8 +6241,8 @@ def _replay(cur, descriptor: dict[str, Any]) -> Any:
 
 `ROLLBACK TO SAVEPOINT` is what un-does a `SET LOCAL ROLE` mid-transaction —
 Postgres restores configuration parameters set inside an aborted subtransaction.
-Without it, the first `admin` descriptor would leave the role set for every
-descriptor after it, and an `analyst` panel would be verified as `admin`.
+Without it, the first `dba` descriptor would leave the role set for every
+descriptor after it, and an `app_engineer` panel would be verified as `dba`.
 
 Also add an assertion that the envelope is present and single-statement — the gate
 should catch a regression that puts a multi-statement string back in `statement`.
@@ -6272,7 +6272,7 @@ second fetch.
 Run: `gates/checks.sh G-13`
 
 Against a database without `sql/11_roles_rls.sql` applied this reports FAIL with
-`permission denied to set role "persona_analyst"` — which is honest, not a gate
+`permission denied to set role "persona_app_engineer"` — which is honest, not a gate
 bug: the gate is now asserting an identity the database does not have. Against the
 scratch database with Task 5 applied it must PASS. Record both outputs, and note in
 the report that G-13 has become dependent on the roles existing.
@@ -6293,7 +6293,7 @@ This is Blocker-1 option (a), the resolution the user chose. A7's predicate read
 `acl_visibility = 'workshop' OR pg_has_role(...)`. Today **both** seed constants
 carry `visibility: "workshop"` (`seed/corpus.py:12-16`) and restrictedness lives
 only in `principals: ["support-lead"]`, so A7's first disjunct would be true for
-every row and CASE-7421 would leak to the analyst. This task makes
+every row and CASE-7421 would leak to the app_engineer. This task makes
 `acl_visibility` the real classification axis, then grows the restricted cohort
 from one row to seven so row filtering and masking are visibly non-trivial.
 
@@ -6414,7 +6414,7 @@ grep -n "RESTRICTED_ACL\|WORKSHOP_ACL" seed/corpus.py
 
 Expected exactly four hits: the two definitions, `:152` (`acl or WORKSHOP_ACL`),
 `:452` (`acl=RESTRICTED_ACL`), and `:993`. If `RESTRICTED_ACL` appears inside
-`_background_rows`, stop — ~15k restricted rows would make the analyst persona see
+`_background_rows`, stop — ~15k restricted rows would make the app_engineer persona see
 nothing at all.
 
 - [ ] **Step 3: Add the restricted cohort**
@@ -6437,7 +6437,7 @@ the design names.
     # CASE-7421 above remains THE canonical M3 flip noun; these are supporting
     # cast and are never named in a guide checkpoint, a slide, or the canonical
     # question. They exist so row filtering and masking are visibly non-trivial:
-    # analyst sees none of the seven, admin sees all seven unmasked, auditor sees
+    # app_engineer sees none of the seven, dba sees all seven unmasked, auditor sees
     # all seven with customer identity redacted.
     #
     # Every key here was measured against the CGH-1842 trigram probe before being
@@ -6663,8 +6663,8 @@ the design names.
 `INC-2047`:** `casework.incident_changes` is a canonical edge and
 `retrieval.traverse_evidence` walks it. An edge from `INC-2047` to a restricted
 change would put a restricted node one hop from the canonical seed. The ACL is
-applied per hop, so it would not leak — but the **admin** traversal would then
-return a different graph shape than the analyst's for the canonical question, and
+applied per hop, so it would not leak — but the **DBA** traversal would then
+return a different graph shape than the app_engineer's for the canonical question, and
 the design's constraint 3 (canonical claim coverage stays byte-identical) is easier
 to hold and to verify when the restricted subgraph is a separate component. The
 restricted **cases** do attach to `INC-2047` through `incident_support_cases`,
@@ -6689,7 +6689,7 @@ That reasoning is right and the test at
 RLS.** After Task 5, `retrieval.documents` has `FORCE ROW LEVEL SECURITY` and this
 query runs under the request persona (Task 10 Step 4 converts `:179` to
 `get_dict_conn(request.role)`). RLS filters the `EXISTS` subquery, so for an
-analyst the restricted key stops existing, the token becomes a fuzz probe, and the
+app_engineer the restricted key stops existing, the token becomes a fuzz probe, and the
 arm returns its visible near neighbours — precisely the disclosure the docstring
 forbids.
 
@@ -6731,7 +6731,7 @@ Add the regression test to `backend/tests/test_retrieval_integration.py`, beside
 the existing probe test:
 
 ```python
-    def test_restricted_identifier_is_not_fuzzed_under_the_analyst_persona(self) -> None:
+    def test_restricted_identifier_is_not_fuzzed_under_the_app_engineer_persona(self) -> None:
         """A restricted key must not become a fuzz probe just because RLS hides it.
 
         If existence were evaluated under the caller's persona, RLS would report
@@ -6743,7 +6743,7 @@ the existing probe test:
         from backend.app.search import _resolve_fuzzy_probe_tokens
 
         for key in ("CASE-7421", "CASE-8102", "INC-3162", "CHG-6213"):
-            request = SearchRequest(query=f"What happened on {key}?", role="analyst")
+            request = SearchRequest(query=f"What happened on {key}?", role="app_engineer")
             self.assertEqual(
                 _resolve_fuzzy_probe_tokens(request, [key]),
                 [],
@@ -6794,11 +6794,11 @@ against whatever the account seeded, and `casework.admit_evidence` can legitimat
 add more.
 
 Note `doctor.py` reads casework as the owner today, and Task 10 Step 11 converts
-`:306` to `get_dict_conn("analyst")`. **Under the analyst persona this query
+`:306` to `get_dict_conn("app_engineer")`. **Under the app_engineer persona this query
 returns zero rows** — RLS is doing its job. Keep this check on the owner
 connection: `doctor` is a build-time readiness tool that must see the corpus as it
 was seeded. Verify which connection the check runs on before editing, and if it
-sits inside the analyst-persona block, move it into a `get_owner_conn()` block.
+sits inside the app_engineer-persona block, move it into a `get_owner_conn()` block.
 Record which you did.
 
 - [ ] **Step 6: Rewrite the `smoke_test.py` ACL assertion**
@@ -6814,7 +6814,7 @@ claim is about **retrieval**:
     # query under two personas must return different results. The count proves RLS
     # at the table; the search proves it survives the arms and fusion.
     restricted_keys_seen = {}
-    for persona in ("analyst", "admin"):
+    for persona in ("app_engineer", "dba"):
         result = run_hybrid_search(
             SearchRequest(
                 query="restricted regulated account checkout escalation",
@@ -6828,23 +6828,23 @@ claim is about **retrieval**:
         receipts.setdefault("acl_run_ids", []).append(result["run_id"])
 
     _require(
-        "CASE-7421" not in restricted_keys_seen["analyst"],
-        "restricted case leaked to the analyst persona",
+        "CASE-7421" not in restricted_keys_seen["app_engineer"],
+        "restricted case leaked to the app_engineer persona",
     )
     _require(
-        "CASE-7421" in restricted_keys_seen["admin"],
-        "the admin persona could not retrieve the restricted case",
+        "CASE-7421" in restricted_keys_seen["dba"],
+        "the dba persona could not retrieve the restricted case",
     )
     _require(
-        restricted_keys_seen["admin"] > restricted_keys_seen["analyst"],
-        "the admin result set does not strictly contain the analyst's; "
+        restricted_keys_seen["dba"] > restricted_keys_seen["app_engineer"],
+        "the dba result set does not strictly contain the app_engineer's; "
         "row filtering is not the only difference between the personas",
     )
 ```
 
 `>` on two sets is Python's proper-superset operator, which is the assertion that
-matters: admin sees strictly more, and everything the analyst sees is also visible
-to admin. A plain count comparison would pass even if the two personas saw
+matters: dba sees strictly more, and everything the app_engineer sees is also visible
+to dba. A plain count comparison would pass even if the two personas saw
 disjoint sets.
 
 Read the surrounding function before editing to confirm `_keys` returns a set and
@@ -6855,25 +6855,25 @@ that `receipts` is in scope (`sed -n '55,140p' backend/scripts/smoke_test.py`). 
 
 `test_retrieval_integration.py:301-315` (traversal) and `:544-552` (lexical arm)
 both build the retired identity bag. Task 10 Step 12 gives the mechanical mapping
-(`principal={...}` → `role="<persona>"`, `"support-lead"` → `"admin"`). Apply it,
+(`principal={...}` → `role="<persona>"`, `"support-lead"` → `"dba"`). Apply it,
 then extend each to the cohort so the tests fail if the seed silently regresses:
 
 ```python
     def test_relationship_traversal_enforces_acl(self) -> None:
         from backend.app.agent import follow_evidence_links_impl
 
-        analyst = follow_evidence_links_impl(["INC-2047"], role="analyst", max_depth=2)
-        admin = follow_evidence_links_impl(["INC-2047"], role="admin", max_depth=2)
+        app_engineer = follow_evidence_links_impl(["INC-2047"], role="app_engineer", max_depth=2)
+        dba = follow_evidence_links_impl(["INC-2047"], role="dba", max_depth=2)
 
-        analyst_keys = {row["external_key"] for row in analyst["reached"]}
-        admin_keys = {row["external_key"] for row in admin["reached"]}
+        app_engineer_keys = {row["external_key"] for row in app_engineer["reached"]}
+        dba_keys = {row["external_key"] for row in dba["reached"]}
 
         for key in ("CASE-7421", "CASE-8102", "CASE-8137"):
-            self.assertNotIn(key, analyst_keys)
-            self.assertIn(key, admin_keys)
+            self.assertNotIn(key, app_engineer_keys)
+            self.assertIn(key, dba_keys)
         self.assertTrue(
-            analyst_keys < admin_keys,
-            "the analyst's reachable set must be a strict subset of the admin's",
+            app_engineer_keys < dba_keys,
+            "the app_engineer's reachable set must be a strict subset of the dba's",
         )
 ```
 
@@ -6902,12 +6902,12 @@ holds. Replace the two-query block with:
                 return {row["external_key"] for row in cursor.fetchall()}
 
         with self.conn.transaction():
-            analyst = visible_keys("analyst")
+            app_engineer = visible_keys("app_engineer")
         with self.conn.transaction():
-            admin = visible_keys("admin")
+            dba = visible_keys("dba")
 
-        self.assertNotIn("CASE-7421", analyst)
-        self.assertIn("CASE-7421", admin)
+        self.assertNotIn("CASE-7421", app_engineer)
+        self.assertIn("CASE-7421", dba)
 ```
 
 `SET LOCAL ROLE` requires a transaction — outside one it silently behaves as a
@@ -7055,12 +7055,12 @@ comparison, measured on live before this task: one row, `CHG-1842 0.5000`.
 
 - [ ] **Step 10: Verify the canonical answer is byte-identical (design constraint 3)**
 
-Every new row is restricted, so nothing the analyst sees can change. Prove it
+Every new row is restricted, so nothing the app_engineer sees can change. Prove it
 rather than assert it. With the API running against the scratch database:
 
 ```bash
 curl -s localhost:8000/v1/agent/answer -H 'content-type: application/json' \
-  -d '{"question":"<the canonical question, read from the guide>","role":"analyst"}' \
+  -d '{"question":"<the canonical question, read from the guide>","role":"app_engineer"}' \
   | jq -S '{answer, citations: [.citations[] | {external_key, claim, quote_text}]}' \
   > /tmp/canonical_after_seed.json
 diff /tmp/canonical_after_collapse.json /tmp/canonical_after_seed.json
@@ -7068,7 +7068,7 @@ diff /tmp/canonical_after_collapse.json /tmp/canonical_after_seed.json
 
 `/tmp/canonical_after_collapse.json` is the artifact Task 10 Step 14 produced. An
 empty diff is the pass. **Any difference means a restricted row entered the
-analyst's answer: stop and report** — that is a genuine ACL failure, not a golden
+app_engineer's answer: stop and report** — that is a genuine ACL failure, not a golden
 that needs updating.
 
 - [ ] **Step 11: Update `seed/README.md`**
@@ -7185,15 +7185,15 @@ Each evidence item and indexed document carries an `acl` JSONB whose
 - **Column masking** (`sql/12_masking.sql`) redacts customer and operator
   identity for `persona_auditor` only.
 
-Identity is a **persona**, one of `analyst`, `admin`, or `auditor`. Personas are
+Identity is a **persona**, one of `app_engineer`, `dba`, or `auditor`. Personas are
 `NOLOGIN` database roles; the app pool connects as `workshop_app`, which holds no
 table grants, and issues one `SET LOCAL ROLE persona_<persona>` per request
 transaction. With no role set, a `SELECT` raises `permission denied` — the pool
 identity has no standing privilege path.
 
 Clearance is additive: the `can_see_restricted` role is GRANTed to
-`persona_admin` and `persona_auditor`, never to `persona_analyst`. Restricted
-evidence — `CASE-7421` and six supporting objects — is invisible to the analyst
+`persona_dba` and `persona_auditor`, never to `persona_app_engineer`. Restricted
+evidence — `CASE-7421` and six supporting objects — is invisible to the app_engineer
 at the table, not merely absent from a result set.
 
 This is a teaching policy, not a complete enterprise authorization system. RLS
@@ -7228,11 +7228,11 @@ the RLS policy and `retrieval.acl_visible` read. Anything other than `'workshop'
 is restricted, and the schema default is `'restricted'` so an unclassified row
 fails closed.
 
-Identity is the caller's persona — `analyst`, `admin`, or `auditor` — carried as a
+Identity is the caller's persona — `app_engineer`, `dba`, or `auditor` — carried as a
 database role, never as a value in the request body. `CASE-7421` and the six
 restricted objects seeded alongside it are visible only to a persona holding the
 `can_see_restricted` clearance, and they must not enter any retrieval arm,
-traversal hop, comparison, or answer for the analyst.
+traversal hop, comparison, or answer for the app_engineer.
 
 The JSONB policy is intentionally small for teaching. A production design should
 map authenticated identity and source-system authorization into a reviewed policy,
@@ -7246,7 +7246,7 @@ with one added sentence: *"The predicate reads the caller's effective database
 role, so nothing in the request body can widen it."*
 
 `docs/implementation-spec.md` — eight sites, each a token swap plus one block:
-- `:69` "hidden from the default principal" → "hidden from the analyst persona"
+- `:69` "hidden from the default principal" → "hidden from the app_engineer persona"
 - `:76` "filters, principal, retrieval controls" → "filters, persona, retrieval controls"
 - `:152-162` replace the whole "ACL fixture" subsection:
 
@@ -7266,7 +7266,7 @@ code reads it. `visibility` is the classification.
 Seven objects are `{"visibility":"restricted"}`: `CASE-7421` (the canonical ACL
 proof), `CASE-8102`, `CASE-8137`, `INC-3162`, `INC-4117`, `CHG-6213`, and
 `CHG-3309`. They are visible only to a persona holding `can_see_restricted`
-(`admin`, `auditor`), never to `analyst`. RLS enforces this at the three read
+(`dba`, `auditor`), never to `app_engineer`. RLS enforces this at the three read
 tables; `retrieval.acl_visible` applies the same expression inside every arm and
 at every traversal hop.
 ```
@@ -7278,9 +7278,9 @@ at every traversal hop.
 - `:706-707` replace both lines:
 
 ```markdown
-- `CASE-7421` and the six supporting restricted objects never enter analyst
+- `CASE-7421` and the six supporting restricted objects never enter app_engineer
   retrieval or traversal, and return zero rows at the raw table.
-- The `admin` persona retrieves the restricted fixtures; the `auditor` persona
+- The `dba` persona retrieves the restricted fixtures; the `auditor` persona
   retrieves them with customer and operator identity masked.
 ```
 
@@ -7288,7 +7288,7 @@ at every traversal hop.
 is already clean; `:121` becomes:
 
 ```markdown
-- The `analyst` persona cannot retrieve or traverse `CASE-7421`, and the row is
+- The `app_engineer` persona cannot retrieve or traverse `CASE-7421`, and the row is
   invisible to it at `casework.evidence_items` itself.
 ```
 
@@ -7352,9 +7352,9 @@ Northstar premium checkout escalation
 ```
 
 Note the evidence rail. Then use the **Viewing as** selector to switch from
-**Analyst** to **Admin** and run the same search again.
+**app_engineer** to **DBA** and run the same search again.
 
-A support case appears — `CASE-7421` — that the analyst could not see. Nothing
+A support case appears — `CASE-7421` — that the app_engineer could not see. Nothing
 about the query changed. The only difference is which database role the request
 assumed.
 
@@ -7378,14 +7378,14 @@ is read-only and rolls back.
 ```bash
 psql "$DATABASE_URL" <<'SQL'
 BEGIN;
-SET LOCAL ROLE persona_analyst;
+SET LOCAL ROLE persona_app_engineer;
 SELECT external_key, evidence_kind
   FROM casework.evidence_items
  WHERE external_key = 'CASE-7421';
 ROLLBACK;
 
 BEGIN;
-SET LOCAL ROLE persona_admin;
+SET LOCAL ROLE persona_dba;
 SELECT external_key, evidence_kind
   FROM casework.evidence_items
  WHERE external_key = 'CASE-7421';
@@ -7407,7 +7407,7 @@ Expected:
 ```
 
 No retrieval arm. No API. No agent. A bare `SELECT` on the authoritative table,
-and the database returns nothing to the analyst. That is
+and the database returns nothing to the app_engineer. That is
 `FORCE ROW LEVEL SECURITY` plus one policy:
 
 ```bash
@@ -7429,7 +7429,7 @@ acl_visibility = 'workshop'
 `SET LOCAL`, never a session `SET`: the role is scoped to the transaction and
 cannot leak to the next request that borrows the same pooled connection.
 
-Now look at how the analyst is denied:
+Now look at how the app_engineer is denied:
 
 ```bash
 psql "$DATABASE_URL" -c "
@@ -7441,8 +7441,8 @@ psql "$DATABASE_URL" -c "
 "
 ```
 
-`persona_analyst` is `false`. There is no rule anywhere that says "the analyst
-cannot see restricted evidence." There is only a key the analyst was never given.
+`persona_app_engineer` is `false`. There is no rule anywhere that says "the app_engineer
+cannot see restricted evidence." There is only a key the app_engineer was never given.
 
 :::alert{type="info" header="You never grant a limitation — you withhold a key"}
 A deny marker has to be remembered on every new table, every new query, every new
@@ -7459,14 +7459,14 @@ you forget one. Real systems want both.
 Two things to check while writing this, because both are dependencies on earlier
 tasks and both would produce a guide that lies:
 
-1. **The search query must actually surface `CASE-7421` for admin.** Task 13
+1. **The search query must actually surface `CASE-7421` for dba.** Task 13
    Step 6's smoke assertion uses "restricted regulated account checkout
    escalation". The query above ("Northstar premium checkout escalation") is the
    one `smoke_test.py:100-130` uses today, and it is a proven hit for CASE-7421.
    Run it under both personas before shipping the copy:
 
 ```bash
-for persona in analyst admin auditor; do
+for persona in app_engineer dba auditor; do
   echo "--- $persona ---"
   curl -s localhost:8000/v1/search -H 'content-type: application/json' \
     -d "{\"query\":\"Northstar premium checkout escalation\",\"role\":\"$persona\",\"limit\":10}" \
@@ -7474,8 +7474,8 @@ for persona in analyst admin auditor; do
 done
 ```
 
-   Expected: `CASE-7421` absent for analyst, present for admin and auditor. If it
-   is absent for admin too, the query is wrong for the enlarged corpus — find one
+   Expected: `CASE-7421` absent for app_engineer, present for dba and auditor. If it
+   is absent for dba too, the query is wrong for the enlarged corpus — find one
    that works and update the copy. Do not ship a checkpoint you did not run.
 
 2. **`$DATABASE_URL` in the participant's shell is `workshop_app`**, which is
@@ -7510,7 +7510,7 @@ they drift silently:
    header: "~10 min - cross a real AgentCore Gateway boundary, then prove
    entitlements live in the database".
 3. `content/90-appendix/02-facilitator-notes/index.en.md:19` Module 3 pacing row:
-   "Must land" gains "`CASE-7421` appears for admin and returns 0 rows for analyst
+   "Must land" gains "`CASE-7421` appears for dba and returns 0 rows for app_engineer
    at the raw table"; "Cut rule" becomes "run the managed client; skip the
    control-plane inspection and the `pg_policies` query — never cut the persona
    flip".
@@ -7533,11 +7533,11 @@ Module 3's `## Checkpoint` list gains three lines, and the closing success box
 gains one clause:
 
 ```markdown
-- switching **Viewing as** from Analyst to Admin makes `CASE-7421` appear, with
+- switching **Viewing as** from App Engineer to DBA makes `CASE-7421` appear, with
   no change to the query
 - the Auditor persona sees the case with customer identity `[REDACTED]`
 - a bare `SELECT` on `casework.evidence_items` returns 0 rows for
-  `persona_analyst` and 1 row for `persona_admin`
+  `persona_app_engineer` and 1 row for `persona_dba`
 ```
 
 ```markdown
@@ -7682,7 +7682,7 @@ The current text enumerates `workshop` and `support-lead` as the role values.
 Replace the whole D22 row with (one line, as the table requires):
 
 ```markdown
-| **D22** | **The word "principal" is banned from every participant-facing surface** (UI, guide, slides, script output — enforced by G-11). The concept is **persona**, values `analyst`, `admin`, and `auditor`, rendered as a "Viewing as" chip; routes use `?role=`, tool arguments and env use `role`, renamed end-to-end so no dual vocabulary survives. `support-lead` is retired and joins `principal` on the G-11 denylist. The mechanism is strengthened: the persona is a real PostgreSQL role, and switching it changes which rows the database lets **every retrieval arm, traversal hop, and raw table read** see — CASE-7421 and six supporting restricted objects are visible only to a persona holding the `can_see_restricted` clearance. This is protected moment M3. | "Principal" is IAM jargon that made the session's best moment harder to read. "Viewing as: Admin → a case appears" needs no glossary — and the lesson underneath ("entitlements live in the database") is Lab 3's takeaway sentence, so the label must never be the obstacle. Three personas rather than two give masking a home: the auditor is cleared to see the row and not its customer. |
+| **D22** | **The word "principal" is banned from every participant-facing surface** (UI, guide, slides, script output — enforced by G-11). The concept is **persona**, values `app_engineer`, `dba`, and `auditor`, rendered as a "Viewing as" chip; routes use `?role=`, tool arguments and env use `role`, renamed end-to-end so no dual vocabulary survives. `support-lead` is retired and joins `principal` on the G-11 denylist. The mechanism is strengthened: the persona is a real PostgreSQL role, and switching it changes which rows the database lets **every retrieval arm, traversal hop, and raw table read** see — CASE-7421 and six supporting restricted objects are visible only to a persona holding the `can_see_restricted` clearance. This is protected moment M3. | "Principal" is IAM jargon that made the session's best moment harder to read. "Viewing as: DBA → a case appears" needs no glossary — and the lesson underneath ("entitlements live in the database") is Lab 3's takeaway sentence, so the label must never be the obstacle. Three personas rather than two give masking a home: the auditor is cleared to see the row and not its customer. |
 ```
 
 Note what did **not** change: `?role=` stays the route param and `role` stays the
@@ -7698,7 +7698,7 @@ deleted, and RLS is fully built with three policies, five roles, and a masking
 layer. Replace the whole row:
 
 ```markdown
-| **D24** | **RLS as the enforcement layer (belt and suspenders, upgraded 2026-07-28).** The explicit `acl_visible()` predicate remains the arm/hop mechanism and the Lab 3 participant hole (self-contained verify-SQL, planner-controllable, index-sargable per the D21 column rule). RLS is **built**, not merely demonstrated: `sql/11_roles_rls.sql` creates three NOLOGIN persona roles (`persona_analyst`, `persona_admin`, `persona_auditor`), one clearance role (`can_see_restricted`, GRANTed to admin and auditor and never to analyst), two LOGIN roles (`workshop_app` for the pool, `workshop_participant` for terminals), and enables **and forces** RLS on `casework.evidence_items`, `retrieval.documents`, and `retrieval.chunks` under one policy expression: `acl_visibility = 'workshop' OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')` — byte-identical to the H2 participant hole. `sql/12_masking.sql` adds `pg_columnmask` policies so the auditor reads the restricted row with customer and operator identity redacted. Identity is carried by `SET LOCAL ROLE`, transaction-scoped (the T8 pattern) — a session-level `SET` under connection pooling leaks roles across requests; `workshop_app` holds no table grants, so a forgotten `SET LOCAL ROLE` raises `permission denied` rather than returning rows. The M3 coda is raw SQL at the table under two personas: analyst → 0 rows, admin → 1 row; no arm, no app, the database itself refuses. Teaching lines: *"The predicate is how the arm filters. RLS is why you can't leak even when you forget. Real systems want both."* and *"You never grant a limitation — you withhold a key."* | Converts the room's most predictable attack question into a scripted strength. Building RLS rather than demonstrating it costs one SQL file and two gates, and buys three things the GUC could not: a `permission denied` failure mode instead of a silent zero-row one, a masking layer that needs a third persona to be legible, and a coda whose predicate the participant already hand-wrote. `USAGE` not `MEMBER` in `pg_has_role`: `MEMBER` is transitive and ignores `INHERIT`, so it reports true for any transitively-granted role. |
+| **D24** | **RLS as the enforcement layer (belt and suspenders, upgraded 2026-07-28).** The explicit `acl_visible()` predicate remains the arm/hop mechanism and the Lab 3 participant hole (self-contained verify-SQL, planner-controllable, index-sargable per the D21 column rule). RLS is **built**, not merely demonstrated: `sql/11_roles_rls.sql` creates three NOLOGIN persona roles (`persona_app_engineer`, `persona_dba`, `persona_auditor`), one clearance role (`can_see_restricted`, GRANTed to dba and auditor and never to app_engineer), two LOGIN roles (`workshop_app` for the pool, `workshop_participant` for terminals), and enables **and forces** RLS on `casework.evidence_items`, `retrieval.documents`, and `retrieval.chunks` under one policy expression: `acl_visibility = 'workshop' OR pg_has_role(current_user, 'can_see_restricted', 'USAGE')` — byte-identical to the H2 participant hole. `sql/12_masking.sql` adds `pg_columnmask` policies so the auditor reads the restricted row with customer and operator identity redacted. Identity is carried by `SET LOCAL ROLE`, transaction-scoped (the T8 pattern) — a session-level `SET` under connection pooling leaks roles across requests; `workshop_app` holds no table grants, so a forgotten `SET LOCAL ROLE` raises `permission denied` rather than returning rows. The M3 coda is raw SQL at the table under two personas: app_engineer → 0 rows, dba → 1 row; no arm, no app, the database itself refuses. Teaching lines: *"The predicate is how the arm filters. RLS is why you can't leak even when you forget. Real systems want both."* and *"You never grant a limitation — you withhold a key."* | Converts the room's most predictable attack question into a scripted strength. Building RLS rather than demonstrating it costs one SQL file and two gates, and buys three things the GUC could not: a `permission denied` failure mode instead of a silent zero-row one, a masking layer that needs a third persona to be legible, and a coda whose predicate the participant already hand-wrote. `USAGE` not `MEMBER` in `pg_has_role`: `MEMBER` is transitive and ignores `INHERIT`, so it reports true for any transitively-granted role. |
 ```
 
 The recorded fallback ("drop to predicate-only if rehearsal shows fragility") is
@@ -7712,13 +7712,13 @@ not a retreat path.
 `:482`:
 
 ```markdown
-  `/agent?role={analyst|admin|auditor}` · `/proof/{run_id}`.
+  `/agent?role={app_engineer|dba|auditor}` · `/proof/{run_id}`.
 ```
 
 `:589`:
 
 ```markdown
-                     [checkpoint: admin adds CASE-7421; analyst shows nothing;
+                     [checkpoint: dba adds CASE-7421; app_engineer shows nothing;
                      auditor shows it with customer identity masked]
 ```
 
@@ -7738,7 +7738,7 @@ Replace the G-27 bullet and append three new ones, in the existing bullet style:
   `workshop_app` with **no role set**, a `SELECT` on `casework.evidence_items`,
   `retrieval.documents`, and `retrieval.chunks` raises `permission denied`; an error is
   a stronger proof than zero rows, because it shows the pool identity has no standing
-  privilege path. (b) **row filtering** — under `SET LOCAL ROLE persona_analyst`,
+  privilege path. (b) **row filtering** — under `SET LOCAL ROLE persona_app_engineer`,
   CASE-7421 and every restricted object return **zero rows at each of the three raw
   tables**, proving RLS is not silently bypassed by ownership. (c) **replay
   determinism** — a run replayed under the receipt's recorded persona reproduces
@@ -7747,14 +7747,14 @@ Replace the G-27 bullet and append three new ones, in the existing bullet style:
   `persona_auditor`, CASE-7421 is visible but `account_name`, `customer_commitment`,
   and the `chunk_text` blob return **masked**, and the value rendered in the app panel
   is **byte-identical** to the value the pasted verify-SQL returns in psql;
-  `persona_admin` sees all three unmasked. The mask pattern set is **generated** from
+  `persona_dba` sees all three unmasked. The mask pattern set is **generated** from
   the seed's own restricted literals (`retrieval.sensitive_literals()`), never
   hand-written, and a corpus-wide scan as the auditor asserts zero occurrences of any
   restricted literal.
 - **G-30** Participant ceremony (A1): the `workshop_participant` identity runs every
   Lab-1 snippet the guide publishes, and a bare `SELECT` on casework/retrieval raises
   `permission denied` — the fail-closed first lesson is real, not narrated.
-- **G-31** Persona golden equivalence (A7): analyst results are byte-identical to the
+- **G-31** Persona golden equivalence (A7): app_engineer results are byte-identical to the
   pre-collapse `role=workshop` baseline, so collapsing two identity axes into one
   changed no participant-visible number.
 ```
@@ -8060,7 +8060,7 @@ Both halves are required. Row three does not fail; it *lies*. A measured `INSERT
 source` under that configuration copied 1 of 2 rows and reported success — which is
 exactly the shape of the seed and the search-index build. Restricted evidence would
 never reach `retrieval.documents`/`chunks`, and G-27(b) would then report PASS for the
-wrong reason: the analyst sees zero restricted rows because there are none. A green
+wrong reason: the app_engineer sees zero restricted rows because there are none. A green
 gate over an empty enforcement claim is worse than a red one.
 
 Row two is the one the earlier conditional draft would have shipped. Measured with the
@@ -8069,7 +8069,7 @@ saw **0 of 2** rows, `INSERT` raised `new row violates row-level security policy
 table "documents"`, and `INSERT INTO projection SELECT` copied **0** rows and exited
 0. The clearance key cannot rescue a role no policy applies to. Note also that the
 owner's persona grants are `WITH INHERIT FALSE`, so they do not reach the `TO` list
-either: measured, `pg_has_role(owner, 'persona_analyst', 'USAGE')` is false.
+either: measured, `pg_has_role(owner, 'persona_app_engineer', 'USAGE')` is false.
 
 Confirm the owner reads the whole table (`sql/11` has already been applied by this
 point in the sequence):
@@ -8085,7 +8085,7 @@ land** — do not weaken FORCE and do not drop either half; re-check that all th
 
 `CURRENT_USER` is resolved at `CREATE POLICY` time to an OID and stored in
 `pg_policy.polroles`; it is not re-evaluated per query. Verify that, because a
-dynamic reading would match every persona and hand the analyst the clearance
+dynamic reading would match every persona and hand the app_engineer the clearance
 disjunct:
 
 ```bash
@@ -8098,17 +8098,17 @@ consequence to know: a *different* owner re-running `sql/11` rewrites the policy
 itself and the previous owner loses access.
 
 Then confirm the personas are still filtered under the widened policy — the measured
-result is analyst 1 of 2 with the owner at 2 of 2, so widening the `TO` list does
+result is app_engineer 1 of 2 with the owner at 2 of 2, so widening the `TO` list does
 not weaken the demo:
 
 ```bash
 psql 'postgresql://localhost:55432/workbench_test?sslmode=disable' -X -q -t -A <<'SQL'
-BEGIN; SET LOCAL ROLE persona_analyst;
+BEGIN; SET LOCAL ROLE persona_app_engineer;
 SELECT count(*) FROM retrieval.documents WHERE is_current AND acl_visibility='restricted';
 ROLLBACK;
 SQL
 ```
-Expected: `0`. If the owner-widening leaked restricted rows to the analyst, the
+Expected: `0`. If the owner-widening leaked restricted rows to the app_engineer, the
 policy was edited wrongly — the `TO` list gains a role, the `USING` expression does
 not change.
 
@@ -8165,7 +8165,7 @@ def _roles_exist() -> bool:
         with db.get_owner_conn() as conn, conn.cursor() as cursor:
             cursor.execute(
                 "SELECT count(*) FROM pg_roles WHERE rolname = ANY(%s)",
-                [["persona_analyst", "persona_admin", "persona_auditor",
+                [["persona_app_engineer", "persona_dba", "persona_auditor",
                   "can_see_restricted"]],
             )
             return cursor.fetchone()[0] == 4
@@ -8207,11 +8207,11 @@ class RowFilteringTests(unittest.TestCase):
             )
             return cursor.fetchone()["n"]
 
-    def test_analyst_sees_no_restricted_documents(self) -> None:
-        self.assertEqual(self._restricted_count("analyst"), 0)
+    def test_app_engineer_sees_no_restricted_documents(self) -> None:
+        self.assertEqual(self._restricted_count("app_engineer"), 0)
 
-    def test_admin_and_auditor_see_the_restricted_cohort(self) -> None:
-        for persona in ("admin", "auditor"):
+    def test_dba_and_auditor_see_the_restricted_cohort(self) -> None:
+        for persona in ("dba", "auditor"):
             with self.subTest(persona=persona):
                 self.assertEqual(self._restricted_count(persona), len(RESTRICTED_KEYS))
 
@@ -8227,13 +8227,13 @@ class RowFilteringTests(unittest.TestCase):
                     """
                 )
                 counts[persona] = cursor.fetchone()["n"]
-        self.assertGreater(counts["analyst"], 0, "no workshop rows: corpus not seeded")
+        self.assertGreater(counts["app_engineer"], 0, "no workshop rows: corpus not seeded")
         self.assertEqual(len(set(counts.values())), 1, counts)
 
     def test_chunks_are_filtered_too_not_just_documents(self) -> None:
         """The vector arm reads retrieval.chunks standalone; a documents-only
         policy would leak restricted body text through it."""
-        for persona, expect_zero in (("analyst", True), ("admin", False)):
+        for persona, expect_zero in (("app_engineer", True), ("dba", False)):
             with self.subTest(persona=persona):
                 with db.get_dict_conn(persona) as conn, conn.cursor() as cursor:
                     cursor.execute(
@@ -8249,7 +8249,7 @@ class RowFilteringTests(unittest.TestCase):
     def test_casework_evidence_is_filtered_by_the_jsonb_form(self) -> None:
         """casework carries visibility in acl->>'visibility', not a scalar column.
         Both predicate forms must agree or the two layers disagree on one row."""
-        with db.get_dict_conn("analyst") as conn, conn.cursor() as cursor:
+        with db.get_dict_conn("app_engineer") as conn, conn.cursor() as cursor:
             cursor.execute(
                 "SELECT count(*)::int AS n FROM casework.evidence_items "
                 "WHERE external_key = ANY(%s)",
@@ -8257,7 +8257,7 @@ class RowFilteringTests(unittest.TestCase):
             )
             self.assertEqual(cursor.fetchone()["n"], 0)
 
-    def test_restricted_keys_are_absent_from_every_analyst_arm(self) -> None:
+    def test_restricted_keys_are_absent_from_every_app_engineer_arm(self) -> None:
         """The enforcement claim is about retrieval, not just SELECT. Query each
         arm by the restricted identifier itself -- the strongest possible probe.
 
@@ -8273,7 +8273,7 @@ class RowFilteringTests(unittest.TestCase):
             ("fuzzy", "SELECT external_key FROM retrieval.fuzzy_search("
                       "%s::text[], p_limit => 25)", lambda key: ([key],)),
         )
-        with db.get_dict_conn("analyst") as conn:
+        with db.get_dict_conn("app_engineer") as conn:
             for name, statement, params in arms:
                 for key in RESTRICTED_KEYS:
                     with self.subTest(arm=name, key=key):
@@ -8310,18 +8310,18 @@ class FailClosedTests(unittest.TestCase):
     def test_role_is_scoped_to_the_transaction(self) -> None:
         """SET LOCAL, not SET: a session-scoped role would leak to the next
         borrower of this pooled connection."""
-        with db.get_dict_conn("admin") as conn, conn.cursor() as cursor:
+        with db.get_dict_conn("dba") as conn, conn.cursor() as cursor:
             cursor.execute("SELECT current_user AS role")
-            self.assertEqual(cursor.fetchone()["role"], "persona_admin")
-        with db.get_dict_conn("analyst") as conn, conn.cursor() as cursor:
+            self.assertEqual(cursor.fetchone()["role"], "persona_dba")
+        with db.get_dict_conn("app_engineer") as conn, conn.cursor() as cursor:
             cursor.execute("SELECT current_user AS role")
-            self.assertEqual(cursor.fetchone()["role"], "persona_analyst")
+            self.assertEqual(cursor.fetchone()["role"], "persona_app_engineer")
 
-    def test_clearance_is_withheld_from_the_analyst_not_marked_on_it(self) -> None:
+    def test_clearance_is_withheld_from_the_app_engineer_not_marked_on_it(self) -> None:
         with db.get_owner_conn() as conn, conn.cursor() as cursor:
             for persona, expected in (
-                ("persona_analyst", False),
-                ("persona_admin", True),
+                ("persona_app_engineer", False),
+                ("persona_dba", True),
                 ("persona_auditor", True),
             ):
                 with self.subTest(persona=persona):
@@ -8368,18 +8368,18 @@ class ColumnMaskingTests(unittest.TestCase):
             )
             return cursor.fetchone()
 
-    def test_admin_reads_the_restricted_case_unmasked(self) -> None:
-        row = self._case_row("admin")
+    def test_dba_reads_the_restricted_case_unmasked(self) -> None:
+        row = self._case_row("dba")
         self.assertIsNotNone(row, "CASE-7421 missing: corpus not seeded")
         self.assertNotIn("REDACTED", row["customer_commitment"])
 
     def test_auditor_reads_the_same_row_with_identity_redacted(self) -> None:
-        admin_row = self._case_row("admin")
+        dba_row = self._case_row("dba")
         auditor_row = self._case_row("auditor")
         self.assertIsNotNone(auditor_row, "auditor cannot see CASE-7421 at all")
-        self.assertEqual(auditor_row["case_id"], admin_row["case_id"])
+        self.assertEqual(auditor_row["case_id"], dba_row["case_id"])
         self.assertEqual(auditor_row["customer_commitment"], "[REDACTED]")
-        self.assertNotEqual(auditor_row["account_name"], admin_row["account_name"])
+        self.assertNotEqual(auditor_row["account_name"], dba_row["account_name"])
 
     def test_no_sensitive_literal_survives_anywhere_in_the_auditor_corpus(self) -> None:
         """The leak scan. Masking one column is easy; the claim is corpus-wide."""
@@ -8614,7 +8614,7 @@ Expected, and each expectation is a claim about live state:
 | G-27 | PASS if `WORKSHOP_APP_DATABASE_URL` is set and the login has a password; otherwise BLOCKED on the missing DSN | it needs to `SET ROLE` as `workshop_app` |
 | G-29 | PASS | `pg_columnmask` and the corpus are both present now |
 | G-30 | BLOCKED until the sibling repo provisions the participant password | honest: the identity exists, nothing can log in as it |
-| G-31 | PASS | analyst results byte-identical to the pre-collapse baseline |
+| G-31 | PASS | app_engineer results byte-identical to the pre-collapse baseline |
 | G-11, G-13, G-21, G-23, G-25 | PASS | unchanged by this task |
 
 A BLOCKED on G-27/G-30 for a missing password is the correct report, **not** a
@@ -8626,13 +8626,13 @@ The one assertion that would catch a restricted row reaching the room:
 
 ```bash
 curl -s localhost:8000/v1/agent/answer -H 'content-type: application/json' \
-  -d '{"question":"<the canonical question, read from the guide>","role":"analyst"}' \
+  -d '{"question":"<the canonical question, read from the guide>","role":"app_engineer"}' \
   | jq -S '{answer, citations: [.citations[] | {external_key, claim, quote_text}]}' \
   > /tmp/canonical_live_after.json
 diff /tmp/canonical_after_collapse.json /tmp/canonical_live_after.json
 ```
 
-Empty diff is the pass. A difference means a restricted row entered the analyst's
+Empty diff is the pass. A difference means a restricted row entered the app_engineer's
 answer on the live cluster: **stop, report, and do not present**. That is an ACL
 failure, not a golden to update.
 
@@ -8688,7 +8688,7 @@ commit 1b0c90e) and amendments A1-A8.
 | A5 mask patterns generated, corpus-wide leak scan | 2 (gate), 6, 13 Step 8 |
 | A6 both SPEC copies byte-identical | 15 |
 | A7 one persona axis, `workbench.role` GUC deleted, `support-lead` retired | 4 (gate), 9, 10, 11, 14, 15 |
-| A8 `can_see_restricted`, granted to admin+auditor only | 5 |
+| A8 `can_see_restricted`, granted to dba+auditor only | 5 |
 | Blocker 1 option (a): `RESTRICTED_ACL` visibility flips | 13 |
 | Blocker 3: no `Verity` identifiers anywhere | 8 |
 | D24 RLS built, FORCE on all three read-path tables | 5 |
@@ -8711,7 +8711,7 @@ Task 16 Step 3 (the local `rolsuper` fork, with both branches written out). No
 "TBD", no "add error handling", no "similar to Task N".
 
 **3. Type consistency.** Checked across task boundaries:
-`PERSONAS: tuple[str, ...]` and `Persona = Literal["analyst","admin","auditor"]`
+`PERSONAS: tuple[str, ...]` and `Persona = Literal["app_engineer","dba","auditor"]`
 live in `backend/app/db.py` (Task 7); `models.py` declares its own `Persona`
 Literal and Task 10 Step 12 adds `PersonaLiteralAgreementTests` to keep the two
 equal. `persona_role(persona) -> str` returns `persona_<name>`, and every SQL
@@ -8750,7 +8750,7 @@ and neither was reachable by review:**
    `casework.evidence_items` outside the function, so Lab 1 would print the ingest
    receipt and die one line later — the *same* defect as (2), one statement further
    on, and it survived the fix for (2). Task 5 Step 2 wraps the checkpoint in the A3
-   envelope under `persona_analyst`, which is better than the grant that would have
+   envelope under `persona_app_engineer`, which is better than the grant that would have
    silenced it: the participant's own admission now comes back through live RLS.
    A grant would have destroyed the A1 lesson G-30 asserts.
 4. **`SET ROLE` needed an explicit grant to the bootstrap owner.** With the
@@ -8765,7 +8765,7 @@ and neither was reachable by review:**
    literals" raise fires and fails the schema build. Now guarded: it skips with a
    `RAISE NOTICE` when the corpus has no literals, which is safe in exactly one
    direction because the shipped `mask_blob` body redacts the whole blob.
-6. **Task 16's analyst-arm probe called a function that does not exist.** A defect
+6. **Task 16's app_engineer-arm probe called a function that does not exist.** A defect
    in this plan's own test code rather than in the design: `retrieval.lexical_search(text[])`
    is not a thing. The lexical arm is `retrieval.full_text_search(p_query text, …)`
    (`sql/03_search_functions.sql:220-236`) and only the fuzzy arm takes `text[]`
@@ -8809,7 +8809,7 @@ code:
 | Cleared owner, but absent from the `documents` policy | FAIL on the projection check (`retrieval.documents: 0`) — the silent-truncation case |
 | Genuinely empty restricted cohort | FAIL, blames the seed |
 | Superuser owner + empty cohort | FAIL via the bypass branch, still blames the seed |
-| `can_see_restricted` granted to `persona_analyst` (fail-open leak) | FAIL at group (b), prints the leaked `evidence_id` |
+| `can_see_restricted` granted to `persona_app_engineer` (fail-open leak) | FAIL at group (b), prints the leaked `evidence_id` |
 | Pool login given a standing `SELECT` | FAIL, "the pool fails OPEN" |
 | RLS `FORCE` dropped / no app DSN | BLOCKED, exit 2, names the table or the missing DSN |
 

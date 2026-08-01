@@ -20,15 +20,16 @@ Participants investigate one controlled database incident and build an
 inspectable retrieval path that:
 
 1. combines exact, full-text, semantic, and fuzzy retrieval;
-2. applies metadata filters and authorization before fusion;
+2. applies metadata filters and the fixed workshop visibility predicate before
+   fusion;
 3. combines independent ranks with weighted Reciprocal Rank Fusion (RRF);
 4. optionally reranks the fused pool with Cohere Rerank;
 5. traverses authoritative PostgreSQL relationships;
 6. synthesizes an answer only from retrieved evidence;
 7. persists candidates, signals, stages, citations, and evaluation results in
    Aurora PostgreSQL; and
-8. invokes the same contract through HTTP and a managed MCP boundary without
-   duplicating ranking logic.
+8. can optionally invoke the same contract through a managed MCP boundary
+   without duplicating ranking logic.
 
 The workshop is not a generic chatbot lab. The durable product is the search
 and proof contract. Hybrid Retrieval Workbench is its inspection UI.
@@ -65,6 +66,19 @@ evidence that a release capture exists.
 - **Framing:** call this "an application incident running on Aurora
   PostgreSQL." Never call it an Aurora service incident.
 
+### Governing scope
+
+The required release path is incident hybrid retrieval through cited synthesis,
+diagnostics, and replay. It uses `make schema` (`sql/00` through `sql/10`) with
+`WORKBENCH_SECURITY_ENABLED=0`, and it must not require persona roles, RLS, or
+`pg_columnmask`.
+
+RLS and column masking are an implemented optional appendix. That path uses
+`make security-schema`, enables `WORKBENCH_SECURITY_ENABLED=1`, connects the API
+with `WORKSHOP_APP_DATABASE_URL`, and runs `make security-checks`. Its gates do
+not belong to the default release gate set. A `BLOCKED` appendix gate is not
+evidence of a pass.
+
 ## 4. Current Validated State
 
 This snapshot must be refreshed before the release artifact is frozen.
@@ -80,6 +94,7 @@ This snapshot must be refreshed before the release artifact is frozen.
 | Latest complete build | 15,017 documents, 15,017 chunks, 15,017 cache hits, 0 new embeddings | Live validated |
 | Synthesis | `global.anthropic.claude-sonnet-5` through Bedrock Converse and Global CRIS | Live validated in the current Isengard account |
 | Rerank | `cohere.rerank-v3-5:0` through Bedrock Agent Runtime | Live validated in the current Isengard account |
+| Optional security appendix | Persona RLS and Auditor masking exist in `sql/11-12`; `pg_columnmask` requires Aurora validation | Implemented; not a core release gate |
 | Lock fixture | 100,000 rows; two blocked writers; PostgreSQL catalog evidence | Live validated as `offline_test` only |
 | Release capture | No `release_aurora` capture is loaded | Open release gate |
 | CloudWatch samples | 0 rows | Open release gate |
@@ -236,19 +251,20 @@ documents.
 Supported filters include evidence kind, cluster, incident, account, severity,
 environment, service, engine version, Region, and time range.
 
-An ACL predicate runs inside every retrieval arm before fusion and at the seed and
-every hop of relationship traversal: `retrieval.acl_visible(acl)` over the JSONB,
-`retrieval.acl_scalars_visible(acl_visibility)` over the projected column. Neither
-takes an identity argument; both read the caller's effective database role.
-Row-level security enforces the same rule at `casework.evidence_items`,
-`retrieval.documents`, and `retrieval.chunks`, so `CASE-7421` is absent for the
-analyst persona at the table, not merely hidden in the UI.
+An ACL predicate runs inside every retrieval arm before fusion and at the seed
+and every hop of relationship traversal:
+`retrieval.acl_visible(acl)` over the JSONB and
+`retrieval.acl_scalars_visible(acl_visibility)` over the projected column. In
+core mode these predicates expose only `visibility = 'workshop'`; the role-shaped
+argument remains API compatibility metadata and does not require a database
+persona.
 
-Which persona a request assumes is a teaching fixture asserted by the
-application, because this workshop ships no authentication. RLS enforces what a
-persona may see at the table regardless of what the request asserts. In
-production, the API must derive the persona from verified caller identity, not
-from a value the request supplies.
+The optional security appendix replaces those predicates with persona-aware
+versions and adds forced RLS plus `pg_columnmask`. The application still accepts
+the persona from the request because the workshop ships no authentication.
+Therefore the appendix demonstrates database enforcement under an assumed
+persona, not production caller authorization. A production API must derive that
+persona from verified identity and revalidate mutable source permissions.
 
 ### Ranking: a deterministic tier above weighted RRF
 
@@ -401,20 +417,42 @@ Gateway and a stateless Lambda MCP target. The target calls Hybrid Retrieval
 Workbench's private API and records transport metadata. Aurora still owns
 retrieval and proof.
 
-The Gateway is not a second search implementation and Gateway authorization
-does not replace row-level evidence authorization.
+The Gateway is not a second search implementation. Gateway authorization does
+not replace the core evidence predicate or, when enabled, optional row-level
+security.
 
 ## 10. Participant Exercises
 
 Every required exercise ends with a receipt that participants can inspect.
 
-### Exercise 0: Prove readiness
+### Exercise 0: Reproduce and repair the lock incident
 
-**Time:** 0-6 minutes
+**Time:** 0-11 minutes
 
 Participants:
 
-1. open Code Editor and Hybrid Retrieval Workbench;
+1. run the three-terminal SQL workflow in `labs/incident/`;
+2. prove ordinary `CREATE INDEX` retains granted `ShareLock`;
+3. prove a read succeeds while a writer waits for `RowExclusiveLock`;
+4. roll back the ordinary build and let the writer drain;
+5. run `CREATE INDEX CONCURRENTLY` beside an open writer; and
+6. prove a fresh write succeeds before verifying the index is ready, valid,
+   and live.
+
+**Checkpoint:** PostgreSQL catalogs and `pg_blocking_pids()` reproduce the
+failure mechanism, and the concurrent retry leaves no relation waiters.
+
+If terminal orchestration exceeds eight minutes, use the facilitator's measured
+capture and continue at readiness. Never substitute a prewritten lock row while
+claiming it was observed live.
+
+### Exercise 1: Prove readiness
+
+**Time:** 11-15 minutes
+
+Participants:
+
+1. open Hybrid Retrieval Workbench;
 2. run `make doctor`;
 3. confirm Aurora PostgreSQL, extensions, model space, search index count, and
    zero drift; and
@@ -423,9 +461,9 @@ Participants:
 **Checkpoint:** readiness reports 15,017 documents, 15,017 chunks, one
 embedding space, and zero drift.
 
-### Exercise 1: Recover exact operational evidence
+### Exercise 2: Recover exact operational evidence
 
-**Time:** 6-13 minutes
+**Time:** 15-19 minutes
 
 Participants:
 
@@ -437,9 +475,9 @@ Participants:
 **Checkpoint:** `CHG-1842` ranks first and the receipt preserves raw text
 signals and positions.
 
-### Exercise 2: Recover a mistyped identifier
+### Exercise 3: Recover a mistyped identifier
 
-**Time:** 13-17 minutes
+**Time:** 19-22 minutes
 
 Participants:
 
@@ -452,9 +490,9 @@ Participants:
 **Checkpoint:** `CGH-1842` resolves to `CHG-1842`; `CHG-1838` does not pass by
 proximity alone.
 
-### Exercise 3: Inspect semantic retrieval under filters
+### Exercise 4: Inspect semantic retrieval under filters
 
-**Time:** 17-24 minutes
+**Time:** 22-28 minutes
 
 Participants:
 
@@ -468,9 +506,9 @@ Participants:
 **Checkpoint:** semantic retrieval finds relevant incident evidence without
 depending on exact wording, and participants can name the selected plan.
 
-### Exercise 4: Explain weighted fusion and reranking
+### Exercise 5: Explain weighted fusion and reranking
 
-**Time:** 24-33 minutes
+**Time:** 28-35 minutes
 
 Participants:
 
@@ -485,9 +523,9 @@ optional rerank values.
 **First cut when behind:** skip changing weights; retain the explanation and
 receipt inspection.
 
-### Exercise 5: Run the evidence-bound agent
+### Exercise 6: Run the evidence-bound agent
 
-**Time:** 33-43 minutes
+**Time:** 35-48 minutes
 
 Participants:
 
@@ -495,31 +533,31 @@ Participants:
 2. inspect deterministic identifiers and filters;
 3. follow the persisted agent stages;
 4. compare the confirmed change, ruled-out change, staging distractor,
-   superseded runbook, visible case, restricted case, and unaffected case; and
+   superseded runbook, visible case, and unaffected case; and
 5. read the cited answer.
 
 **Checkpoint:** the answer identifies the lock conflict, Acme Retail
 (fictional), and `CREATE INDEX CONCURRENTLY`, with every factual claim tied to
 numbered evidence.
 
-### Exercise 6: Audit and replay proof
+### Exercise 7: Audit and replay proof
 
-**Time:** 43-50 minutes
+**Time:** 48-56 minutes
 
 Participants:
 
 1. save the returned `run_id`;
 2. load the candidate receipt, graph, and timeline;
 3. validate citation URI, revision, chunk, quote, and claim;
-4. verify `CASE-7421` is absent for the analyst persona; and
+4. reproduce one displayed diagnostic with its verify-SQL; and
 5. replay the run without another model call.
 
 **Checkpoint:** `GET /v1/runs/{run_id}` resolves the persisted candidates,
 stages, answer, and citations.
 
-### Exercise 7: Measure retrieval and traversal separately
+### Exercise 8: Measure retrieval and traversal separately
 
-**Time:** 50-54 minutes
+**Time:** 56-58 minutes
 
 Participants run the controlled evaluation set:
 
@@ -537,9 +575,9 @@ retrieval metric.
 **Second cut when behind:** show the persisted evaluation receipt instead of
 running every mode live.
 
-### Exercise 8: Invoke the managed contract
+### Optional appendix: Invoke the managed contract
 
-**Time:** 54-58 minutes
+This exercise is outside the required 60-minute path.
 
 Participants:
 
@@ -552,6 +590,23 @@ Participants:
 **Checkpoint:** the managed call creates real Aurora proof through the same
 contract. If the managed resources are not release-validated, this exercise is
 replaced by local MCP parity and the managed path moves to the appendix.
+
+### Optional appendix: Enforce personas and masking
+
+This appendix is not timed and is not required for the default release:
+
+1. apply `make security-schema` on Aurora PostgreSQL;
+2. configure `WORKSHOP_APP_DATABASE_URL` and
+   `WORKBENCH_SECURITY_ENABLED=1`;
+3. compare the same restricted query as App Engineer, Auditor, and DBA;
+4. verify that App Engineer cannot see `CASE-7421`, Auditor sees it masked, and
+   DBA sees it unmasked; and
+5. require G-27, G-29, G-30, and G-31 to report `PASS`, not `BLOCKED`.
+
+Local PostgreSQL may skip `sql/12_masking.sql` when `pg_columnmask` is
+unavailable; that is useful for partial development but is not appendix release
+evidence. Do not run `make schema` alone after enabling the appendix because
+`sql/03` restores the core predicates; reapply the complete security schema.
 
 ### Close
 
@@ -571,6 +626,7 @@ Do not start a new demo after minute 57.
 | Failure | Continue with |
 |---|---|
 | One terminal cannot reach Aurora | Pair with a validated environment; do not switch the room to a different database |
+| Multi-session incident lab falls behind | Use the facilitator's measured capture and safe-fix verification; preserve the retrieval path |
 | Query embedding is slow | Reuse the persisted prepared query vector |
 | Cohere rerank fails | Show `rerank_applied=false` and retain Aurora order |
 | Synthesis fails | Use the extractive answer built from the same persisted evidence |
@@ -592,8 +648,9 @@ The sibling Workshop Studio repository is intended to provision:
 - Code Editor with the immutable workshop source archive;
 - preloaded schema, casework, embeddings, and indexes;
 - FastAPI and Vite;
-- AgentCore Gateway with one Lambda MCP target; and
-- participant-visible `WorkshopURL`, `WorkbenchURL`, and Gateway outputs.
+- optionally, AgentCore Gateway with one Lambda MCP target; and
+- participant-visible `WorkshopURL` and `WorkbenchURL`, plus Gateway outputs
+  only when that appendix is enabled.
 
 The current template is a workshop profile, not a production reference. It
 uses one writer, one-day backup retention, deletion protection off, and
@@ -750,14 +807,23 @@ it.
 - independent positions and raw diagnostics remain inspectable; and
 - the stored and query embedding spaces match exactly.
 
-### Authorization and relationships
+### Visibility and relationships
 
-- `CASE-7421` cannot enter analyst retrieval, traversal, comparison, or answer;
-- the `admin` and `auditor` personas can retrieve the restricted fixture;
+- core retrieval admits only workshop-visible evidence before fusion and at
+  every traversal hop;
+- `CASE-7421` does not enter the core answer;
 - canonical and inferred edges remain distinguishable;
 - `CHG-1842` is confirmed and `CHG-1838` is ruled out;
 - `CASE-7419` is affected and `CASE-7424` is unaffected; and
 - traversal depth and ACLs are enforced at every hop.
+
+### Optional security appendix
+
+- App Engineer cannot retrieve or traverse to `CASE-7421`;
+- Auditor retrieves the restricted fixture with sensitive values masked;
+- DBA retrieves the same fixture unmasked;
+- a missing `SET LOCAL ROLE` fails closed; and
+- replay preserves the recorded persona envelope.
 
 ### Proof
 
@@ -792,14 +858,13 @@ it.
 ### P0: must close before publication
 
 1. Replace all Orion and `ops.*` participant content, screenshots, expected
-   outputs, facilitator notes, and Gateway assertions in the sibling Workshop
-   Studio repository.
+   outputs, and facilitator notes in the sibling Workshop Studio repository.
 2. Build the source archive from an immutable tested application revision and
    record its SHA-256 hash.
 3. Run a fresh-account Workshop Studio deployment.
 4. Run every participant command against the packaged source.
-5. Prove exact, lexical, semantic, fuzzy, fusion, ACL, traversal, citation,
-   replay, evaluation, and managed-contract checkpoints.
+5. Prove exact, lexical, semantic, fuzzy, fusion, fixed visibility, traversal,
+   citation, diagnostics, replay, and evaluation checkpoints.
 6. Verify all configured Bedrock models and quotas with the participant role.
 7. Produce a `release_aurora` lock capture during an in-progress
    non-concurrent build, or remove release telemetry from the session.
@@ -807,6 +872,13 @@ it.
    the exact metric and wait names.
 9. Record the actual release instance class and fixture dimensions.
 10. Test the full 60-minute path with cut lines.
+
+G-27, G-29, G-30, and G-31 are optional-security appendix gates. They must pass
+before publishing that appendix, but they are not prerequisites for the core
+workshop release.
+
+Managed Gateway parity is likewise an appendix release condition, not a core
+publication prerequisite.
 
 ### P1: must close before calling the workshop production-informed
 
@@ -824,6 +896,7 @@ it.
 The workshop does not claim:
 
 - a real AWS or customer incident;
+- that the core release enables persona RLS or column masking;
 - a production-ready authorization system;
 - a production connector platform;
 - a release-grade Aurora telemetry capture in the current data;
@@ -840,7 +913,7 @@ The workshop does not claim:
 |---|---|
 | This repository | Application source, SQL, synthetic corpus, API, UI, adapters, tests, and implementation contracts |
 | `backend/app/` | Search index, embeddings, retrieval, rerank, tools, synthesis, and proof APIs |
-| `sql/` | Schema, indexes, search, diagnostics, receipts, traversal, and evaluation |
+| `sql/` | Core schema, indexes, search, diagnostics, receipts, traversal, and evaluation (`00-10`), plus optional RLS and masking (`11-12`) |
 | `seed/` | Deterministic incident corpus and capture tooling |
 | `frontend/` | Hybrid Retrieval Workbench UI |
 | `lambda_mcp/` | Stateless AgentCore Gateway target |

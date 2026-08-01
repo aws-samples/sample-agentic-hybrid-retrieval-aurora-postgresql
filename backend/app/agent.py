@@ -74,7 +74,7 @@ def _anchor_keys(
         role: The caller's persona, threaded from decompose_question_impl. Required
             rather than defaulted: an anchor the caller cannot see must not be
             written into their plan, and a default here silently capped every
-            caller at analyst visibility no matter who asked.
+            caller at App Engineer visibility no matter who asked.
 
     Returns:
         One external key per kind that has a reachable relationship, keyed by
@@ -220,7 +220,7 @@ def _planned_subquestions(
 def decompose_question_impl(
     question: str,
     *,
-    role: str = "analyst",
+    role: str = "app_engineer",
 ) -> dict[str, Any]:
     """Break an incident question into the evidence steps Aurora can answer.
 
@@ -283,7 +283,7 @@ def search_evidence_impl(
     aws_region: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
-    role: str = "analyst",
+    role: str = "app_engineer",
     limit: int = 8,
     candidate_pool: int = 24,
     rrf_k: int = 60,
@@ -328,7 +328,7 @@ def search_evidence_impl(
 def follow_evidence_links_impl(
     seed_external_keys: list[str],
     *,
-    role: str = "analyst",
+    role: str = "app_engineer",
     max_depth: int = 2,
 ) -> dict[str, Any]:
     keys = list(dict.fromkeys(key for key in seed_external_keys if key))
@@ -408,7 +408,7 @@ def follow_evidence_links_impl(
 def compare_sources_impl(
     external_keys: list[str],
     *,
-    role: str = "analyst",
+    role: str = "app_engineer",
 ) -> dict[str, Any]:
     keys = list(dict.fromkeys(key for key in external_keys if key))
     if not keys:
@@ -478,35 +478,42 @@ def compare_sources_impl(
     }
 
 
-def _run_role(run_id: str) -> str:
-    """Read the persona a retrieval run executed under.
+def _run_role(run_id: str, viewer_role: str) -> str:
+    """Require a retrieval run to belong to the viewer's bound persona.
 
-    Replay renders under the run's own identity, not the viewer's, so a receipt
-    shows what the run actually saw. proof.retrieval_runs carries no RLS policy,
-    so the least-privileged persona can always read this column.
+    Run IDs are references, not authorization tokens. The stored role still
+    drives replay so the receipt reproduces the original query, but a caller may
+    only reopen a run created under the same bound persona.
 
     Args:
         run_id: The run whose stored identity is needed.
+        viewer_role: The caller's server-bound persona.
 
     Returns:
         One of db.PERSONAS.
 
     Raises:
-        ValueError: No such run.
+        ValueError: No such run is visible to this persona.
     """
-    with get_dict_conn("analyst") as connection:
+    with get_dict_conn(viewer_role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT role FROM proof.retrieval_runs WHERE run_id = %s",
                 (run_id,),
             )
             row = cursor.fetchone()
-    if not row:
-        raise ValueError(f"retrieval run {run_id} was not found")
+    if not row or row["role"] != viewer_role:
+        raise ValueError(
+            f"retrieval run {run_id} was not found for persona {viewer_role}"
+        )
     return row["role"]
 
 
-def explain_ranking_impl(run_id: str) -> dict[str, Any]:
+def explain_ranking_impl(
+    run_id: str,
+    *,
+    role: str = "app_engineer",
+) -> dict[str, Any]:
     """Render a run's receipt under the role that run actually executed under.
 
     A receipt must show what the run saw, not what the caller can see, so this
@@ -531,9 +538,9 @@ def explain_ranking_impl(run_id: str) -> dict[str, Any]:
             row in retrieval_runs yields exactly one receipt row. There is no
             second not-found case to guard.
     """
-    role = _run_role(run_id)
-    verify = receipt_verify_sql(run_id, role)
-    with get_dict_conn(role) as connection:
+    stored_role = _run_role(run_id, role)
+    verify = receipt_verify_sql(run_id, stored_role)
+    with get_dict_conn(stored_role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(verify["run"]["statement"], verify["run"]["binds"])
             run = cursor.fetchone()
@@ -715,7 +722,7 @@ def _persist_answer(
     synthesis: dict[str, Any],
     agent_run_id: str | None = None,
     *,
-    role: str = "analyst",
+    role: str = "app_engineer",
 ) -> list[dict[str, Any]]:
     citations: list[dict[str, Any]] = []
     with get_dict_conn(role) as connection:
@@ -903,7 +910,7 @@ def synthesize_cited_answer_impl(
     run_id: str | None = None,
     agent_run_id: str | None = None,
     required_kinds: list[str] | None = None,
-    role: str = "analyst",
+    role: str = "app_engineer",
 ) -> dict[str, Any]:
     try:
         from .synthesis import synthesize_live
@@ -982,7 +989,12 @@ def synthesize_cited_answer_impl(
     }
 
 
-def _evidence_for_run(run_id: str, limit: int = 8) -> list[dict[str, Any]]:
+def _evidence_for_run(
+    run_id: str,
+    *,
+    role: str,
+    limit: int = 8,
+) -> list[dict[str, Any]]:
     """Reload a run's persisted candidates under the role that run executed under.
 
     RLS is FORCE-enabled on retrieval.documents and retrieval.chunks, so a
@@ -1002,8 +1014,8 @@ def _evidence_for_run(run_id: str, limit: int = 8) -> list[dict[str, Any]]:
         ValueError: The run does not exist, or that role sees none of its rows.
     """
     bounded_limit = max(1, min(int(limit), 8))
-    role = _run_role(run_id)
-    with get_dict_conn(role) as connection:
+    stored_role = _run_role(run_id, role)
+    with get_dict_conn(stored_role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -1052,13 +1064,14 @@ def synthesize_cited_answer_from_run_impl(
     run_id: str,
     *,
     limit: int = 8,
+    role: str = "app_engineer",
 ) -> dict[str, Any]:
-    evidence = _evidence_for_run(run_id, limit=limit)
+    evidence = _evidence_for_run(run_id, role=role, limit=limit)
     result = synthesize_cited_answer_impl(
         question,
         evidence,
         run_id=run_id,
-        role=_run_role(run_id),
+        role=_run_role(run_id, role),
     )
     return {"run_id": run_id, **result}
 
@@ -1068,6 +1081,7 @@ def synthesize_cited_answer_from_runs_impl(
     run_ids: list[str],
     *,
     limit: int = 8,
+    role: str = "app_engineer",
 ) -> dict[str, Any]:
     """Synthesize from multiple persisted retrievals without weakening their ACLs.
 
@@ -1083,7 +1097,7 @@ def synthesize_cited_answer_from_runs_impl(
 
     bounded_limit = max(1, min(int(limit), 8))
     evidence_by_run = [
-        _evidence_for_run(run_id, limit=bounded_limit)
+        _evidence_for_run(run_id, role=role, limit=bounded_limit)
         for run_id in ordered_run_ids
     ]
     interleaved: list[dict[str, Any]] = []
@@ -1092,7 +1106,7 @@ def synthesize_cited_answer_from_runs_impl(
             if rank < len(rows):
                 interleaved.append(rows[rank])
 
-    plan = decompose_question_impl(question)
+    plan = decompose_question_impl(question, role=role)
     required_kinds = list(
         dict.fromkeys(
             kind
@@ -1142,7 +1156,7 @@ def synthesize_cited_answer_from_runs_impl(
         selected,
         run_id=ordered_run_ids[0],
         required_kinds=required_kinds,
-        role=_run_role(ordered_run_ids[0]),
+        role=_run_role(ordered_run_ids[0], role),
     )
     return {
         "run_id": ordered_run_ids[0],
@@ -1237,7 +1251,7 @@ def _append_agent_stage(
     duration_ms: int,
     details: dict[str, Any],
     *,
-    role: str = "analyst",
+    role: str = "app_engineer",
 ) -> None:
     with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
@@ -1368,7 +1382,7 @@ def _spend_agent_budget(
     *,
     tool_calls: int = 0,
     escalations: int = 0,
-    role: str = "analyst",
+    role: str = "app_engineer",
 ) -> bool:
     with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
@@ -1398,7 +1412,7 @@ def _evaluate_coverage(
     required_kinds: list[str],
     *,
     top_n: int,
-    role: str = "analyst",
+    role: str = "app_engineer",
 ) -> dict[str, Any]:
     with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
@@ -1421,7 +1435,7 @@ def _persist_agent_retrieval(
     run_id: str,
     attempt: int,
     coverage: dict[str, Any],
-    role: str = "analyst",
+    role: str = "app_engineer",
 ) -> None:
     with get_dict_conn(role) as connection:
         with connection.transaction():
@@ -1489,7 +1503,7 @@ def _persist_escalation(
     changed: dict[str, Any],
     rationale: str,
     outcome: str,
-    role: str = "analyst",
+    role: str = "app_engineer",
 ) -> None:
     reason = (
         "zero_candidates"
@@ -1530,7 +1544,7 @@ def _finish_agent_run(
     status: str,
     *,
     error: str | None = None,
-    role: str = "analyst",
+    role: str = "app_engineer",
 ) -> None:
     with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
@@ -1561,7 +1575,11 @@ def _retrieval_controls(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def get_agent_run_impl(agent_run_id: str) -> dict[str, Any]:
+def get_agent_run_impl(
+    agent_run_id: str,
+    *,
+    role: str = "app_engineer",
+) -> dict[str, Any]:
     """Render an agent run's receipt under the role that run executed under.
 
     Same replay shape as explain_ranking_impl: proof.agent_runs has no RLS
@@ -1580,15 +1598,17 @@ def get_agent_run_impl(agent_run_id: str) -> dict[str, Any]:
     Raises:
         ValueError: No such agent run.
     """
-    with get_dict_conn("analyst") as connection:
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT role FROM proof.agent_runs WHERE agent_run_id = %s",
                 (agent_run_id,),
             )
             role_row = cursor.fetchone()
-    if not role_row:
-        raise ValueError(f"agent run {agent_run_id} was not found")
+    if not role_row or role_row["role"] != role:
+        raise ValueError(
+            f"agent run {agent_run_id} was not found for persona {role}"
+        )
     with get_dict_conn(role_row["role"]) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -1773,8 +1793,12 @@ def get_agent_run_impl(agent_run_id: str) -> dict[str, Any]:
     return response
 
 
-def get_agent_coverage_impl(agent_run_id: str) -> dict[str, Any]:
-    run = get_agent_run_impl(agent_run_id)
+def get_agent_coverage_impl(
+    agent_run_id: str,
+    *,
+    role: str = "app_engineer",
+) -> dict[str, Any]:
+    run = get_agent_run_impl(agent_run_id, role=role)
     subquestions = [
         {
             "subquestion_id": row["subquestion_id"],
@@ -1803,7 +1827,7 @@ _SCOPE_FILTERS = ("cluster_id", "incident_id", "service_name", "account_name")
 def _unscoped_filters(
     missing_kinds: list[str],
     filters: dict[str, Any],
-    role: str = "analyst",
+    role: str = "app_engineer",
 ) -> list[str]:
     """Name the active scope filters that no document of a missing kind carries.
 
@@ -1999,7 +2023,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
         if not final_searches or primary_run_id is None:
             status = "budget_exhausted" if budget_exhausted else "no_evidence"
             _finish_agent_run(agent_run_id, status, role=request.role)
-            response = get_agent_run_impl(agent_run_id)
+            response = get_agent_run_impl(agent_run_id, role=request.role)
             response["agent"] = agent_metadata()
             response["plan"] = plan
             response["results"] = []
@@ -2114,7 +2138,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
             },
             role=request.role,
         )
-        coverage = get_agent_coverage_impl(agent_run_id)
+        coverage = get_agent_coverage_impl(agent_run_id, role=request.role)
         uncovered = coverage["covered_count"] < coverage["subquestion_count"]
         status = (
             "no_evidence"
@@ -2126,7 +2150,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
             else "complete"
         )
         _finish_agent_run(agent_run_id, status, role=request.role)
-        response = get_agent_run_impl(agent_run_id)
+        response = get_agent_run_impl(agent_run_id, role=request.role)
         response.update(
             {
                 "agent": agent_metadata(),
@@ -2158,7 +2182,7 @@ def answer_with_citations_impl(
     aws_region: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
-    role: str = "analyst",
+    role: str = "app_engineer",
     limit: int = 8,
     candidate_pool: int = 24,
     rrf_k: int = 60,

@@ -8,7 +8,7 @@
 -- security_invoker inner view does NOT recover owner rights over the inner one --
 -- measured on PG17: the inner view still applies the invoker's policies, so this
 -- view's row count silently varied by persona (2 rows as owner, 1 as
--- persona_analyst, identical database state) while its own reloptions looked
+-- persona_app_engineer, identical database state) while its own reloptions looked
 -- correct. assert_search_index_ready() (sql/07_search_index_verification.sql)
 -- counts this view and would raise a persona-dependent WRONG count.
 --
@@ -27,11 +27,11 @@
 -- EXECUTE of caller-influenced text).
 --
 -- JUDGMENT CALL: this makes a restricted row's external_key (and its hash /
--- revision) visible in the drift report to persona_analyst, which cannot read the
--- row's content. Before this fix persona_analyst already saw a (wrong, partial)
+-- revision) visible in the drift report to persona_app_engineer, which cannot read the
+-- row's content. Before this fix persona_app_engineer already saw a (wrong, partial)
 -- drift count with SOME external_keys in it -- the leak direction is not new, the
--- set analyst sees now grows to match owner/admin/auditor exactly. The
--- alternative -- keeping the view analyst-scoped -- is the C2 defect itself: a
+-- set App Engineer sees now grows to match owner/DBA/Auditor exactly. The
+-- alternative -- keeping the view App-Engineer-scoped -- is the C2 defect itself: a
 -- persona-dependent count feeding an exception message and a health check that
 -- both claim to be one global operational fact. An operational-health surface
 -- (row exists / hash matches / embedding ready) naming a restricted item's key
@@ -120,6 +120,32 @@ AS $$
   UNION ALL
 
   SELECT
+    source.evidence_id,
+    source.external_key,
+    'document_acl_mismatch',
+    jsonb_build_object(
+      'acl', source.acl,
+      'visibility', coalesce(source.acl ->> 'visibility', 'restricted'),
+      'principals', coalesce(source.acl -> 'principals', '[]'::jsonb)
+    )::text,
+    jsonb_build_object(
+      'acl', document.acl,
+      'visibility', document.acl_visibility,
+      'principals', to_jsonb(document.acl_principals)
+    )::text
+  FROM casework.evidence_items source
+  JOIN retrieval.documents document
+    ON document.evidence_id = source.evidence_id
+   AND document.is_current
+  WHERE document.acl IS DISTINCT FROM source.acl
+     OR document.acl_visibility IS DISTINCT FROM
+       coalesce(source.acl ->> 'visibility', 'restricted')
+     OR to_jsonb(document.acl_principals) IS DISTINCT FROM
+       coalesce(source.acl -> 'principals', '[]'::jsonb)
+
+  UNION ALL
+
+  SELECT
     document.evidence_id,
     document.external_key,
     'missing_ready_embedding',
@@ -146,7 +172,30 @@ AS $$
   FROM retrieval.documents document
   JOIN retrieval.chunks chunk
     ON chunk.document_version_id = document.document_version_id
-  WHERE document.is_current IS DISTINCT FROM chunk.is_current;
+  WHERE document.is_current IS DISTINCT FROM chunk.is_current
+
+  UNION ALL
+
+  SELECT
+    document.evidence_id,
+    document.external_key,
+    'chunk_acl_mismatch',
+    jsonb_build_object(
+      'acl', document.acl,
+      'visibility', document.acl_visibility,
+      'principals', to_jsonb(document.acl_principals)
+    )::text,
+    jsonb_build_object(
+      'acl', chunk.acl,
+      'visibility', chunk.acl_visibility,
+      'principals', to_jsonb(chunk.acl_principals)
+    )::text
+  FROM retrieval.documents document
+  JOIN retrieval.chunks chunk
+    ON chunk.document_version_id = document.document_version_id
+  WHERE chunk.acl IS DISTINCT FROM document.acl
+     OR chunk.acl_visibility IS DISTINCT FROM document.acl_visibility
+     OR chunk.acl_principals IS DISTINCT FROM document.acl_principals;
 $$;
 
 COMMENT ON FUNCTION retrieval.search_index_drift() IS
@@ -163,9 +212,11 @@ COMMENT ON FUNCTION retrieval.search_index_drift() IS
 REVOKE ALL ON FUNCTION retrieval.search_index_drift() FROM PUBLIC;
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_analyst') THEN
+  IF to_regrole('persona_app_engineer') IS NOT NULL
+     AND to_regrole('persona_dba') IS NOT NULL
+     AND to_regrole('persona_auditor') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION retrieval.search_index_drift()
-      TO persona_analyst, persona_admin, persona_auditor;
+      TO persona_app_engineer, persona_dba, persona_auditor;
   END IF;
 END
 $$;
@@ -443,7 +494,8 @@ ORDER BY indexrelname;
 -- is dropped first. It carries no grants of its own (sql/11 grants by schema).
 DROP VIEW IF EXISTS proof.v_run_receipts;
 
-CREATE OR REPLACE VIEW proof.v_run_receipts AS
+CREATE OR REPLACE VIEW proof.v_run_receipts
+WITH (security_invoker = true) AS
 SELECT
   run.run_id,
   run.query_text,

@@ -15,12 +15,16 @@ from __future__ import annotations
 
 import os
 import unittest
+from uuid import uuid4
 
 import psycopg
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
-if TEST_DATABASE_URL:
+SECURITY_ENABLED = os.environ.get("WORKBENCH_SECURITY_ENABLED") == "1"
+SECURITY_DATABASE_TESTS = bool(TEST_DATABASE_URL and SECURITY_ENABLED)
+if SECURITY_DATABASE_TESTS:
     os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+    os.environ["WORKSHOP_APP_DATABASE_URL"] = TEST_DATABASE_URL
 
 from backend.app import db
 
@@ -37,13 +41,13 @@ RESTRICTED_KEYS = (
 
 def _roles_exist() -> bool:
     """True when the persona roles and the clearance role are on the cluster."""
-    if not TEST_DATABASE_URL:
+    if not SECURITY_DATABASE_TESTS:
         return False
     try:
         with db.get_owner_conn() as conn, conn.cursor() as cursor:
             cursor.execute(
                 "SELECT count(*) FROM pg_roles WHERE rolname = ANY(%s)",
-                [["persona_analyst", "persona_admin", "persona_auditor",
+                [["persona_app_engineer", "persona_dba", "persona_auditor",
                   "can_see_restricted"]],
             )
             return cursor.fetchone()[0] == 4
@@ -59,7 +63,7 @@ def _extension_available(name: str) -> bool:
     get_owner_conn() silently resolve DATABASE_URL from .env -- the live Aurora
     credential -- and open a connection to production at import time.
     """
-    if not TEST_DATABASE_URL:
+    if not SECURITY_DATABASE_TESTS:
         return False
     try:
         with db.get_owner_conn() as conn, conn.cursor() as cursor:
@@ -81,7 +85,7 @@ COLUMNMASK_PRESENT = ROLES_PRESENT and _extension_available("pg_columnmask")
 
 @unittest.skipUnless(
     ROLES_PRESENT,
-    "apply sql/11_roles_rls.sql to TEST_DATABASE_URL for persona enforcement tests",
+    "enable security mode and apply sql/11_roles_rls.sql to TEST_DATABASE_URL",
 )
 class RowFilteringTests(unittest.TestCase):
     """RLS decides which rows exist for a persona."""
@@ -97,11 +101,11 @@ class RowFilteringTests(unittest.TestCase):
             )
             return cursor.fetchone()["n"]
 
-    def test_analyst_sees_no_restricted_documents(self) -> None:
-        self.assertEqual(self._restricted_count("analyst"), 0)
+    def test_app_engineer_sees_no_restricted_documents(self) -> None:
+        self.assertEqual(self._restricted_count("app_engineer"), 0)
 
-    def test_admin_and_auditor_see_the_restricted_cohort(self) -> None:
-        for persona in ("admin", "auditor"):
+    def test_dba_and_auditor_see_the_restricted_cohort(self) -> None:
+        for persona in ("dba", "auditor"):
             with self.subTest(persona=persona):
                 self.assertEqual(self._restricted_count(persona), len(RESTRICTED_KEYS))
 
@@ -117,13 +121,13 @@ class RowFilteringTests(unittest.TestCase):
                     """
                 )
                 counts[persona] = cursor.fetchone()["n"]
-        self.assertGreater(counts["analyst"], 0, "no workshop rows: corpus not seeded")
+        self.assertGreater(counts["app_engineer"], 0, "no workshop rows: corpus not seeded")
         self.assertEqual(len(set(counts.values())), 1, counts)
 
     def test_chunks_are_filtered_too_not_just_documents(self) -> None:
         """The vector arm reads retrieval.chunks standalone; a documents-only
         policy would leak restricted body text through it."""
-        for persona, expect_zero in (("analyst", True), ("admin", False)):
+        for persona, expect_zero in (("app_engineer", True), ("dba", False)):
             with self.subTest(persona=persona):
                 with db.get_dict_conn(persona) as conn, conn.cursor() as cursor:
                     cursor.execute(
@@ -139,7 +143,7 @@ class RowFilteringTests(unittest.TestCase):
     def test_casework_evidence_is_filtered_by_the_jsonb_form(self) -> None:
         """casework carries visibility in acl->>'visibility', not a scalar column.
         Both predicate forms must agree or the two layers disagree on one row."""
-        with db.get_dict_conn("analyst") as conn, conn.cursor() as cursor:
+        with db.get_dict_conn("app_engineer") as conn, conn.cursor() as cursor:
             cursor.execute(
                 "SELECT count(*)::int AS n FROM casework.evidence_items "
                 "WHERE external_key = ANY(%s)",
@@ -147,7 +151,7 @@ class RowFilteringTests(unittest.TestCase):
             )
             self.assertEqual(cursor.fetchone()["n"], 0)
 
-    def test_restricted_keys_are_absent_from_every_analyst_arm(self) -> None:
+    def test_restricted_keys_are_absent_from_every_app_engineer_arm(self) -> None:
         """The enforcement claim is about retrieval, not just SELECT. Query each
         arm by the restricted identifier itself -- the strongest possible probe.
 
@@ -163,7 +167,7 @@ class RowFilteringTests(unittest.TestCase):
             ("fuzzy", "SELECT external_key FROM retrieval.fuzzy_search("
                       "%s::text[], p_limit => 25)", lambda key: ([key],)),
         )
-        with db.get_dict_conn("analyst") as conn:
+        with db.get_dict_conn("app_engineer") as conn:
             for name, statement, params in arms:
                 for key in RESTRICTED_KEYS:
                     with self.subTest(arm=name, key=key):
@@ -175,7 +179,7 @@ class RowFilteringTests(unittest.TestCase):
 
 @unittest.skipUnless(
     ROLES_PRESENT,
-    "apply sql/11_roles_rls.sql to TEST_DATABASE_URL for persona enforcement tests",
+    "enable security mode and apply sql/11_roles_rls.sql to TEST_DATABASE_URL",
 )
 class FailClosedTests(unittest.TestCase):
     """A forgotten SET LOCAL ROLE must deny, never return rows."""
@@ -200,18 +204,18 @@ class FailClosedTests(unittest.TestCase):
     def test_role_is_scoped_to_the_transaction(self) -> None:
         """SET LOCAL, not SET: a session-scoped role would leak to the next
         borrower of this pooled connection."""
-        with db.get_dict_conn("admin") as conn, conn.cursor() as cursor:
+        with db.get_dict_conn("dba") as conn, conn.cursor() as cursor:
             cursor.execute("SELECT current_user AS role")
-            self.assertEqual(cursor.fetchone()["role"], "persona_admin")
-        with db.get_dict_conn("analyst") as conn, conn.cursor() as cursor:
+            self.assertEqual(cursor.fetchone()["role"], "persona_dba")
+        with db.get_dict_conn("app_engineer") as conn, conn.cursor() as cursor:
             cursor.execute("SELECT current_user AS role")
-            self.assertEqual(cursor.fetchone()["role"], "persona_analyst")
+            self.assertEqual(cursor.fetchone()["role"], "persona_app_engineer")
 
-    def test_clearance_is_withheld_from_the_analyst_not_marked_on_it(self) -> None:
+    def test_clearance_is_withheld_from_the_app_engineer_not_marked_on_it(self) -> None:
         with db.get_owner_conn() as conn, conn.cursor() as cursor:
             for persona, expected in (
-                ("persona_analyst", False),
-                ("persona_admin", True),
+                ("persona_app_engineer", False),
+                ("persona_dba", True),
                 ("persona_auditor", True),
             ):
                 with self.subTest(persona=persona):
@@ -241,6 +245,260 @@ class FailClosedTests(unittest.TestCase):
 
 
 @unittest.skipUnless(
+    ROLES_PRESENT,
+    "enable security mode and apply sql/11_roles_rls.sql to TEST_DATABASE_URL",
+)
+class ProofAuthorizationTests(unittest.TestCase):
+    """Proof and inferred relationships stay bound to their creating persona."""
+
+    def _retrieval_run(self, persona: str) -> str:
+        with db.get_dict_conn(persona) as conn, conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO proof.retrieval_runs(
+                  query_text,
+                  retrieval_mode,
+                  role,
+                  rrf_k,
+                  text_weight,
+                  vector_weight,
+                  fuzzy_weight,
+                  status,
+                  completed_at
+                )
+                VALUES (%s, 'lexical', %s, 60, 2, 1, 1, 'complete', now())
+                RETURNING run_id
+                """,
+                (f"proof authorization {uuid4()}", persona),
+            )
+            return str(cursor.fetchone()["run_id"])
+
+    def _agent_run(self, persona: str) -> str:
+        with db.get_dict_conn(persona) as conn, conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO proof.agent_runs(
+                  question,
+                  role,
+                  controls_initial,
+                  contract_version,
+                  status,
+                  ended_at
+                )
+                VALUES (%s, %s, '{}'::jsonb, 'test', 'complete', now())
+                RETURNING agent_run_id
+                """,
+                (f"proof authorization {uuid4()}", persona),
+            )
+            return str(cursor.fetchone()["agent_run_id"])
+
+    def test_retrieval_run_and_children_are_exact_persona_only(self) -> None:
+        run_id = self._retrieval_run("dba")
+        try:
+            with db.get_dict_conn("dba") as conn, conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO proof.run_stages(
+                      run_id, stage_ordinal, stage_name, duration_ms
+                    )
+                    VALUES (%s, 1, 'authorization test', 0)
+                    """,
+                    (run_id,),
+                )
+
+            for persona, expected in (("app_engineer", 0), ("dba", 1)):
+                with self.subTest(persona=persona):
+                    with db.get_dict_conn(persona) as conn, conn.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT count(*) AS n FROM proof.retrieval_runs "
+                            "WHERE run_id = %s",
+                            (run_id,),
+                        )
+                        self.assertEqual(cursor.fetchone()["n"], expected)
+                        cursor.execute(
+                            "SELECT count(*) AS n FROM proof.run_stages "
+                            "WHERE run_id = %s",
+                            (run_id,),
+                        )
+                        self.assertEqual(cursor.fetchone()["n"], expected)
+                        cursor.execute(
+                            "SELECT count(*) AS n FROM proof.v_run_receipts "
+                            "WHERE run_id = %s",
+                            (run_id,),
+                        )
+                        self.assertEqual(cursor.fetchone()["n"], expected)
+
+            with db.get_dict_conn("app_engineer") as conn, conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE proof.retrieval_runs SET status = 'failed' "
+                    "WHERE run_id = %s",
+                    (run_id,),
+                )
+                self.assertEqual(cursor.rowcount, 0)
+
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                with db.get_dict_conn("app_engineer") as conn, conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO proof.retrieval_runs(
+                          query_text,
+                          retrieval_mode,
+                          role,
+                          rrf_k,
+                          text_weight,
+                          vector_weight,
+                          fuzzy_weight
+                        )
+                        VALUES ('forged DBA run', 'lexical', 'dba', 60, 2, 1, 1)
+                        """
+                    )
+        finally:
+            with db.get_owner_conn() as conn, conn.cursor() as cursor:
+                cursor.execute("DELETE FROM proof.run_stages WHERE run_id = %s", (run_id,))
+                cursor.execute(
+                    "DELETE FROM proof.retrieval_runs WHERE run_id = %s", (run_id,)
+                )
+
+    def test_agent_run_and_children_are_exact_persona_only(self) -> None:
+        agent_run_id = self._agent_run("auditor")
+        try:
+            with db.get_dict_conn("auditor") as conn, conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO proof.agent_subquestions(
+                      agent_run_id,
+                      subquestion_id,
+                      ordinal,
+                      subquestion_text,
+                      required_kinds
+                    )
+                    VALUES (%s, 'sq-test', 1, 'Authorization test', ARRAY['change'])
+                    """,
+                    (agent_run_id,),
+                )
+            with db.get_dict_conn("app_engineer") as conn, conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT count(*) AS n FROM proof.agent_runs "
+                    "WHERE agent_run_id = %s",
+                    (agent_run_id,),
+                )
+                self.assertEqual(cursor.fetchone()["n"], 0)
+                cursor.execute(
+                    "SELECT count(*) AS n FROM proof.agent_subquestions "
+                    "WHERE agent_run_id = %s",
+                    (agent_run_id,),
+                )
+                self.assertEqual(cursor.fetchone()["n"], 0)
+        finally:
+            with db.get_owner_conn() as conn, conn.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM proof.agent_subquestions WHERE agent_run_id = %s",
+                    (agent_run_id,),
+                )
+                cursor.execute(
+                    "DELETE FROM proof.agent_runs WHERE agent_run_id = %s",
+                    (agent_run_id,),
+                )
+
+    def test_transport_receipt_without_run_id_keeps_its_persona(self) -> None:
+        from backend.app.contracts import InvocationContext, record_transport_invocation
+
+        request_id = f"req-proof-{uuid4()}"
+        record_transport_invocation(
+            InvocationContext(transport="http", request_id=request_id),
+            "authorization_test",
+            {"role": "dba"},
+            response_payload=None,
+            status="failed",
+            error="expected test failure",
+        )
+        try:
+            for persona, expected in (("app_engineer", 0), ("dba", 1)):
+                with self.subTest(persona=persona):
+                    with db.get_dict_conn(persona) as conn, conn.cursor() as cursor:
+                        cursor.execute(
+                            """
+                            SELECT count(*) AS n
+                            FROM proof.transport_invocations
+                            WHERE metadata ->> 'request_id' = %s
+                            """,
+                            (request_id,),
+                        )
+                        self.assertEqual(cursor.fetchone()["n"], expected)
+        finally:
+            with db.get_owner_conn() as conn, conn.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM proof.transport_invocations "
+                    "WHERE metadata ->> 'request_id' = %s",
+                    (request_id,),
+                )
+
+    def test_relevance_judgments_follow_evidence_visibility(self) -> None:
+        statement = """
+            SELECT count(*) AS n
+            FROM proof.relevance_judgments judgment
+            JOIN casework.evidence_items evidence USING (evidence_id)
+            WHERE evidence.external_key = 'CASE-7421'
+        """
+        counts = {}
+        for persona in ("app_engineer", "dba", "auditor"):
+            with db.get_dict_conn(persona) as conn, conn.cursor() as cursor:
+                cursor.execute(statement)
+                counts[persona] = cursor.fetchone()["n"]
+        self.assertEqual(counts["app_engineer"], 0)
+        self.assertGreater(counts["dba"], 0)
+        self.assertEqual(counts["auditor"], counts["dba"])
+
+    def test_inferred_edges_require_both_visible_endpoints(self) -> None:
+        with db.get_owner_conn() as conn, conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO retrieval.inferred_edges(
+                  from_evidence_id,
+                  to_evidence_id,
+                  relation,
+                  confidence,
+                  method,
+                  source_revision
+                )
+                SELECT visible.evidence_id,
+                       restricted.evidence_id,
+                       %s,
+                       1,
+                       'authorization_test',
+                       %s
+                FROM casework.evidence_items visible
+                CROSS JOIN casework.evidence_items restricted
+                WHERE visible.external_key = 'INC-2047'
+                  AND restricted.external_key = 'CASE-7421'
+                RETURNING edge_id
+                """,
+                (f"authorization_test_{uuid4()}", str(uuid4())),
+            )
+            edge_id = str(cursor.fetchone()[0])
+        try:
+            for persona, expected in (
+                ("app_engineer", 0),
+                ("auditor", 1),
+                ("dba", 1),
+            ):
+                with self.subTest(persona=persona):
+                    with db.get_dict_conn(persona) as conn, conn.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT count(*) AS n FROM retrieval.inferred_edges "
+                            "WHERE edge_id = %s",
+                            (edge_id,),
+                        )
+                        self.assertEqual(cursor.fetchone()["n"], expected)
+        finally:
+            with db.get_owner_conn() as conn, conn.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM retrieval.inferred_edges WHERE edge_id = %s",
+                    (edge_id,),
+                )
+
+
+@unittest.skipUnless(
     COLUMNMASK_PRESENT,
     "pg_columnmask is Aurora-managed; run against Aurora to cover masking",
 )
@@ -264,8 +522,8 @@ class ColumnMaskingTests(unittest.TestCase):
             )
             return cursor.fetchone()
 
-    def test_admin_reads_the_restricted_case_unmasked(self) -> None:
-        row = self._case_row("admin")
+    def test_dba_reads_the_restricted_case_unmasked(self) -> None:
+        row = self._case_row("dba")
         self.assertIsNotNone(row, "CASE-7421 missing: corpus not seeded")
         self.assertNotIn("REDACTED", row["customer_commitment"])
 
@@ -274,12 +532,12 @@ class ColumnMaskingTests(unittest.TestCase):
         exact masked literal (width, character set) is a fact about the Aurora
         extension's implementation that this suite cannot measure locally. Assert
         only that none of the real value's characters survive, not a literal."""
-        admin_row = self._case_row("admin")
+        dba_row = self._case_row("dba")
         auditor_row = self._case_row("auditor")
         self.assertIsNotNone(auditor_row, "auditor cannot see CASE-7421 at all")
-        self.assertEqual(auditor_row["case_id"], admin_row["case_id"])
+        self.assertEqual(auditor_row["case_id"], dba_row["case_id"])
         self.assertEqual(auditor_row["customer_commitment"], "[REDACTED]")
-        real_account_name = admin_row["account_name"]
+        real_account_name = dba_row["account_name"]
         masked_account_name = auditor_row["account_name"]
         self.assertTrue(
             all(ch not in masked_account_name for ch in set(real_account_name)),

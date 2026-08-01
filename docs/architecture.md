@@ -37,6 +37,54 @@ fixture. In production, the equivalent input can be approved domain tables,
 views, exports, events, or connector output. The original systems still own
 workflow, current permissions, mutable state, and actions.
 
+## Controlled Incident Substrate
+
+`workbench_lab.*` is a disposable operational workload used only to reproduce
+the PostgreSQL locking mechanism before retrieval begins. It is deliberately
+outside all three application ownership schemas:
+
+```text
+Three participant psql sessions
+  ordinary CREATE INDEX | reader and writer | catalog observer
+                         |
+                         v
+        workbench_lab.orders + PostgreSQL lock catalogs
+                         |
+               measured JSON snapshot
+                         |
+                         v
+          optional casework.admit_evidence
+```
+
+The ordinary phase holds the real `CREATE INDEX` transaction open after the
+build so its granted `ShareLock` remains observable. The observer proves that
+`AccessShareLock` reads continue, a writer's `RowExclusiveLock` request waits,
+and `pg_blocking_pids()` names the index backend.
+
+The safe phase starts `CREATE INDEX CONCURRENTLY` behind an already-open writer.
+The build holds `ShareUpdateExclusiveLock` and may wait on the older virtual
+transaction, while another `UPDATE` completes. The final check requires the
+index to be ready, valid, and live.
+
+The measured snapshot can enter `casework` through the admission contract, but
+admission only queues retrieval projection. It does not synchronously generate
+an embedding or make the new row searchable. The preloaded `INC-2047` corpus
+remains the deterministic retrieval and evaluation fixture.
+
+## Core and Optional Security Modes
+
+The core workshop path is incident hybrid retrieval through cited synthesis,
+diagnostics, and replay. `make schema` applies `sql/00` through `sql/10`;
+`WORKBENCH_SECURITY_ENABLED` defaults off; and the API uses `DATABASE_URL`
+without assuming a PostgreSQL persona role. Core release validation therefore
+does not require RLS or `pg_columnmask`.
+
+The optional security appendix applies `sql/11_roles_rls.sql` and
+`sql/12_masking.sql`, enables `WORKBENCH_SECURITY_ENABLED=1`, and requires a
+non-owner `WORKSHOP_APP_DATABASE_URL`. It adds transaction-scoped persona roles,
+forced RLS, and Auditor masking without changing the owning retrieval or proof
+contracts. These controls are appendix validation, not default release gates.
+
 ## Three Ownership Layers
 
 ### 1. `casework`: relational truth
@@ -85,7 +133,8 @@ are stored separately. Synthesis persists the answer and exact citations.
 
 The proof layer answers:
 
-- Which query, filters, persona, model space, and ANN controls were used?
+- Which query, filters, workshop context, model space, and ANN controls were
+  used, including persona when the optional appendix is enabled?
 - Which candidates entered the final result and from which retrieval arms?
 - What were the lexical, vector, fuzzy, RRF, and optional rerank signals?
 - Which source revision and chunk supports each cited claim?
@@ -96,9 +145,10 @@ The proof layer answers:
 All retrieval arms apply metadata filters and an ACL predicate before candidates
 enter fusion: `retrieval.acl_visible(document.acl)` where the arm reads the JSONB,
 `retrieval.acl_scalars_visible(acl_visibility)` where it reads the projected
-column. Both read the caller's effective database role, so nothing in the request
-body can widen visibility, and row-level security enforces the same rule at the
-table if an arm ever omits the predicate.
+column. In core mode both expose the fixed workshop-visible scope and do not
+require database roles. The optional security appendix replaces the same
+function signatures with persona-aware predicates and adds RLS as a backstop if
+an arm omits the predicate.
 
 1. **Exact and full text:** boundary-aware identifier matching plus separate
    document and chunk `tsvector` streams.
@@ -124,6 +174,9 @@ retain method, confidence, and source revision.
 
 Recursive traversal enforces ACLs at the seed and at every hop. It never turns
 an inferred relation into a foreign-key fact.
+
+In core mode that means the fixed workshop-visible scope at every hop. In the
+optional appendix, the same hop checks run under the assumed PostgreSQL persona.
 
 ## Agent Boundary
 
@@ -179,3 +232,7 @@ Editor, AgentCore Gateway, Lambda deployment, and the packaged source archive.
 Local PostgreSQL validation proves PostgreSQL semantics. Final release
 validation must also run against the target Aurora PostgreSQL engine and
 Workshop Studio network path.
+
+The default release validates the core path. Publishing the optional security
+appendix additionally requires Aurora support for `pg_columnmask` and passing
+security gates; a skipped mask migration or a `BLOCKED` gate is not a pass.

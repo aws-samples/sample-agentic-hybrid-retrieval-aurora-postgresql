@@ -4,7 +4,10 @@ from __future__ import annotations
 import json
 import os
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
+from threading import Barrier
 
 import psycopg
 
@@ -62,6 +65,51 @@ class AdmissionSchemaTest(unittest.TestCase):
         ).fetchall()
         self.assertTrue(idx, "partial unique index on (source_uri, content_hash) missing")
 
+    def test_admission_function_keeps_its_definer_boundary_on_reapply(self) -> None:
+        row = self.conn.execute(
+            """
+            SELECT p.prosecdef,
+                   p.proconfig,
+                   NOT EXISTS (
+                     SELECT 1
+                       FROM aclexplode(
+                         coalesce(p.proacl, acldefault('f', p.proowner))
+                       ) acl
+                      WHERE acl.grantee = 0
+                        AND acl.privilege_type = 'EXECUTE'
+                   ) AS public_revoked
+              FROM pg_proc p
+             WHERE p.oid = 'casework.admit_evidence(jsonb)'::regprocedure
+            """
+        ).fetchone()
+
+        self.assertTrue(row[0])
+        self.assertIn(
+            "search_path=pg_catalog, casework, retrieval",
+            row[1] or [],
+        )
+        self.assertTrue(row[2])
+
+    def test_schema_reapply_preserves_the_receipt_view(self) -> None:
+        diagnostics_sql = (REPO_ROOT / "sql/04_diagnostics.sql").read_text(
+            encoding="utf-8"
+        )
+        schema_sql = (REPO_ROOT / "sql/01_schema.sql").read_text(encoding="utf-8")
+
+        self.conn.execute(diagnostics_sql)
+        self.assertIsNotNone(
+            self.conn.execute(
+                "SELECT to_regclass('proof.v_run_receipts')"
+            ).fetchone()[0]
+        )
+
+        self.conn.execute(schema_sql)
+        self.assertIsNotNone(
+            self.conn.execute(
+                "SELECT to_regclass('proof.v_run_receipts')"
+            ).fetchone()[0]
+        )
+
 
 FIXTURE = REPO_ROOT / "admission" / "fixture_payload.json"
 
@@ -74,6 +122,9 @@ class FixtureContractTest(unittest.TestCase):
         self.assertEqual(p["schema"], "admission payload v1")
         self.assertEqual(p["kind"], "lock_evidence")
         self.assertEqual(p["structured"]["incident_external_key"], "INC-2047")
+        self.assertNotIn("AccessExclusiveLock", p["body"])
+        self.assertEqual(p["structured"]["blocked_lock_mode"], "RowExclusiveLock")
+        self.assertEqual(p["structured"]["blocking_lock_mode"], "ShareLock")
 
 
 def _seed_incident(conn) -> None:
@@ -93,8 +144,11 @@ def _seed_incident(conn) -> None:
         ON CONFLICT (cluster_id) DO NOTHING
         """
     )
-    for kind, key, title in [("incident", "INC-2047", "checkout lock incident"),
-                             ("change", "CHG-1842", "index build change")]:
+    for kind, key, title in [
+        ("incident", "INC-2047", "checkout lock incident"),
+        ("incident", "INC-ADMISSION-ALT", "alternate admission incident"),
+        ("change", "CHG-1842", "index build change"),
+    ]:
         conn.execute(
             """
             INSERT INTO casework.evidence_items
@@ -104,14 +158,43 @@ def _seed_incident(conn) -> None:
             """,
             (kind, key, title, f"seed://{key}"),
         )
-    inc = conn.execute("SELECT evidence_id FROM casework.evidence_items WHERE external_key='INC-2047'").fetchone()[0]
+    for key in ("INC-2047", "INC-ADMISSION-ALT"):
+        incident_id = conn.execute(
+            """
+            SELECT evidence_id
+              FROM casework.evidence_items
+             WHERE evidence_kind = 'incident' AND external_key = %s
+            """,
+            (key,),
+        ).fetchone()[0]
+        conn.execute(
+            """
+            INSERT INTO casework.incidents
+              (evidence_id, incident_id, cluster_id, severity, status, started_at,
+               summary, customer_impact)
+            VALUES (%s, %s, 'orion-prod', 'SEV-2', 'resolved', now(), 's', 'i')
+            ON CONFLICT (evidence_id) DO NOTHING
+            """,
+            (incident_id, key),
+        )
+    change_evidence_id = conn.execute(
+        """
+        SELECT evidence_id
+          FROM casework.evidence_items
+         WHERE evidence_kind = 'change' AND external_key = 'CHG-1842'
+        """
+    ).fetchone()[0]
     conn.execute(
         """
-        INSERT INTO casework.incidents (evidence_id, incident_id, cluster_id, severity, status, started_at, summary, customer_impact)
-        VALUES (%s, 'INC-2047', 'orion-prod', 'SEV-2', 'resolved', now(), 's', 'i')
+        INSERT INTO casework.changes
+          (evidence_id, change_id, cluster_id, change_type, status, started_at,
+           owner_team, description, rollback_plan)
+        VALUES
+          (%s, 'CHG-1842', 'orion-prod', 'ddl', 'completed', now(),
+           'database-platform', 'admission test change', 'drop test index')
         ON CONFLICT (evidence_id) DO NOTHING
         """,
-        (inc,),
+        (change_evidence_id,),
     )
 
 
@@ -162,6 +245,9 @@ class AdmitEvidenceTest(unittest.TestCase):
             "SELECT casework.admit_evidence(%s::jsonb)", (json.dumps(payload),)
         ).fetchone()[0]
 
+    def _payload_copy(self) -> dict:
+        return json.loads(json.dumps(self.payload))
+
     def test_admits_lock_evidence_and_returns_receipt(self) -> None:
         receipt = self._admit(self.payload)
         self.assertEqual(receipt["external_key"], "LOCK-LIVE-001")
@@ -174,13 +260,38 @@ class AdmitEvidenceTest(unittest.TestCase):
         ).fetchone()
         self.assertEqual(row[0], "lock_evidence")
         self.assertIsNotNone(row[1])
+        lock_row = self.conn.execute(
+            """
+            SELECT relation_oid, blocked_state, blocked_lock_mode,
+                   blocked_lock_granted, blocking_lock_mode,
+                   blocking_lock_granted, blocking_pids,
+                   blocking_pids_sql, blocking_pids_output
+            FROM casework.lock_evidence
+            WHERE observation_id = 'LOCK-LIVE-001'
+            """
+        ).fetchone()
+        self.assertEqual(
+            lock_row,
+            (
+                4242,
+                "active",
+                "RowExclusiveLock",
+                False,
+                "ShareLock",
+                True,
+                [20044],
+                "SELECT pg_blocking_pids(20919);",
+                "{20044}",
+            ),
+        )
 
-    def test_second_admit_is_idempotent_one_receipt(self) -> None:
+    def test_identical_replay_returns_the_original_receipt(self) -> None:
         first = self._admit(self.payload)
         second = self._admit(self.payload)
         self.assertFalse(first["idempotent_replay"])
         self.assertTrue(second["idempotent_replay"])
         self.assertEqual(first["ingest_id"], second["ingest_id"])
+        self.assertEqual(first["content_hash"], second["content_hash"])
         n_receipts = self.conn.execute(
             "SELECT count(*) FROM casework.ingest_receipts WHERE external_key='LOCK-LIVE-001'"
         ).fetchone()[0]
@@ -189,6 +300,232 @@ class AdmitEvidenceTest(unittest.TestCase):
             "SELECT count(*) FROM casework.evidence_items WHERE external_key='LOCK-LIVE-001'"
         ).fetchone()[0]
         self.assertEqual(n_items, 1)
+
+    def test_acl_only_change_creates_a_new_revision_and_updates_the_header(self) -> None:
+        first = self._admit(self.payload)
+        revised = self._payload_copy()
+        revised["acl"] = {
+            "visibility": "restricted",
+            "reason": "operator identity",
+        }
+
+        second = self._admit(revised)
+
+        self.assertFalse(second["idempotent_replay"])
+        self.assertNotEqual(first["ingest_id"], second["ingest_id"])
+        self.assertNotEqual(first["content_hash"], second["content_hash"])
+        row = self.conn.execute(
+            """
+            SELECT evidence_id, acl, source_revision, content_hash
+              FROM casework.evidence_items
+             WHERE evidence_kind = 'lock_evidence'
+               AND external_key = 'LOCK-LIVE-001'
+            """
+        ).fetchone()
+        self.assertEqual(str(row[0]), first["evidence_id"])
+        self.assertEqual(row[1], revised["acl"])
+        self.assertEqual(row[2], second["payload_hash"])
+        self.assertEqual(row[3], second["content_hash"])
+        self.assertEqual(
+            self.conn.execute(
+                """
+                SELECT count(*)
+                  FROM casework.ingest_receipts
+                 WHERE external_key = 'LOCK-LIVE-001'
+                """
+            ).fetchone()[0],
+            2,
+        )
+
+    def test_structured_change_replaces_header_and_detail_fields(self) -> None:
+        first = self._admit(self.payload)
+        change_id = self.conn.execute(
+            """
+            SELECT evidence_id
+              FROM casework.evidence_items
+             WHERE evidence_kind = 'change' AND external_key = 'CHG-1842'
+            """
+        ).fetchone()[0]
+        self.conn.execute(
+            """
+            UPDATE casework.lock_evidence
+               SET change_evidence_id = %s,
+                   relation_oid = 4242,
+                   blocked_state = 'active',
+                   blocking_pids = ARRAY[20044],
+                   database_insights_slice = '{"stale":true}'::jsonb
+             WHERE observation_id = 'LOCK-LIVE-001'
+            """,
+            (change_id,),
+        )
+
+        revised = self._payload_copy()
+        revised["source"] = dict(
+            revised["source"],
+            observation_window={
+                "start": "2026-07-28T14:00:30+00:00",
+                "end": "2026-07-28T14:04:00+00:00",
+            },
+        )
+        revised["title"] = "Updated blocked writer observation"
+        revised["occurred_at"] = "2026-07-28T14:02:30+00:00"
+        revised["available_at"] = "2026-07-28T14:04:00+00:00"
+        revised["structured"] = {
+            "incident_external_key": "INC-ADMISSION-ALT",
+            "captured_at": "2026-07-28T14:02:30+00:00",
+            "relation_name": "shop.order_items",
+            "blocked_pid": 30919,
+            "blocking_pid": 30044,
+            "wait_event_type": "Lock",
+            "wait_event": "relation",
+            "blocked_statement": "UPDATE shop.order_items SET quantity = $1",
+            "blocking_statement": (
+                "CREATE INDEX idx_order_items_product ON shop.order_items (product_id)"
+            ),
+            "raw_capture": {"blocking_pids": [30044], "revision": 2},
+        }
+
+        second = self._admit(revised)
+
+        self.assertFalse(second["idempotent_replay"])
+        self.assertEqual(second["evidence_id"], first["evidence_id"])
+        self.assertNotEqual(second["content_hash"], first["content_hash"])
+        header = self.conn.execute(
+            """
+            SELECT title, source_system, source_uri, source_revision,
+                   source_updated_at, content_hash, available_at
+              FROM casework.evidence_items
+             WHERE evidence_kind = 'lock_evidence'
+               AND external_key = 'LOCK-LIVE-001'
+            """
+        ).fetchone()
+        self.assertEqual(header[0], revised["title"])
+        self.assertEqual(header[1], revised["source"]["system"])
+        self.assertEqual(header[2], revised["source"]["uri"])
+        self.assertEqual(header[3], second["payload_hash"])
+        self.assertEqual(header[4], datetime.fromisoformat(revised["occurred_at"]))
+        self.assertEqual(header[5], second["content_hash"])
+        self.assertEqual(header[6], datetime.fromisoformat(revised["available_at"]))
+
+        detail = self.conn.execute(
+            """
+            SELECT incident.external_key, lock.captured_at, lock.relation_name,
+                   lock.blocked_pid, lock.blocking_pid, lock.wait_event_type,
+                   lock.wait_event, lock.blocked_statement,
+                   lock.blocking_statement, lock.raw_capture,
+                   lock.change_evidence_id, lock.relation_oid,
+                   lock.blocked_state, lock.blocking_pids,
+                   lock.database_insights_slice
+              FROM casework.lock_evidence lock
+              JOIN casework.evidence_items incident
+                ON incident.evidence_id = lock.incident_evidence_id
+             WHERE lock.observation_id = 'LOCK-LIVE-001'
+            """
+        ).fetchone()
+        self.assertEqual(detail[0], "INC-ADMISSION-ALT")
+        self.assertEqual(
+            detail[1],
+            datetime.fromisoformat(revised["structured"]["captured_at"]),
+        )
+        self.assertEqual(detail[2:9], (
+            revised["structured"]["relation_name"],
+            revised["structured"]["blocked_pid"],
+            revised["structured"]["blocking_pid"],
+            revised["structured"]["wait_event_type"],
+            revised["structured"]["wait_event"],
+            revised["structured"]["blocked_statement"],
+            revised["structured"]["blocking_statement"],
+        ))
+        self.assertEqual(detail[9], revised["structured"]["raw_capture"])
+        self.assertEqual(detail[10:], (None, None, None, None, None))
+
+    def test_cross_kind_external_key_collision_is_rejected(self) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO casework.evidence_items
+              (evidence_kind, external_key, title, source_system, source_uri,
+               source_revision, source_updated_at)
+            VALUES
+              ('change', 'LOCK-LIVE-001', 'conflicting change', 'seed',
+               'seed://LOCK-LIVE-001', 'r1', now())
+            """
+        )
+
+        with self.assertRaises(psycopg.errors.UniqueViolation) as ctx:
+            self._admit(self.payload)
+
+        self.assertEqual(ctx.exception.sqlstate, "23505")
+        self.assertIn("already belongs to evidence kind change", str(ctx.exception))
+        self.assertEqual(
+            self.conn.execute(
+                """
+                SELECT count(*)
+                  FROM casework.ingest_receipts
+                 WHERE external_key = 'LOCK-LIVE-001'
+                """
+            ).fetchone()[0],
+            0,
+        )
+
+    def test_existing_external_key_cannot_be_claimed_by_another_source(self) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO casework.evidence_items
+              (evidence_kind, external_key, title, source_system, source_uri,
+               source_revision, source_updated_at)
+            VALUES
+              ('lock_evidence', 'LOCK-LIVE-001', 'foreign-source lock',
+               'other_capture', 'other://lock/1', 'r1', now())
+            """
+        )
+
+        with self.assertRaises(psycopg.errors.UniqueViolation) as ctx:
+            self._admit(self.payload)
+
+        self.assertEqual(ctx.exception.sqlstate, "23505")
+        self.assertIn("is owned by source other_capture", str(ctx.exception))
+        self.assertEqual(
+            self.conn.execute(
+                """
+                SELECT source_system, source_uri
+                  FROM casework.evidence_items
+                 WHERE evidence_kind = 'lock_evidence'
+                   AND external_key = 'LOCK-LIVE-001'
+                """
+            ).fetchone(),
+            ("other_capture", "other://lock/1"),
+        )
+
+    def test_concurrent_identical_admissions_collapse_to_one_receipt(self) -> None:
+        payload_json = json.dumps(self.payload)
+        barrier = Barrier(2)
+
+        def admit_from_new_connection() -> dict:
+            with psycopg.connect(TEST_DSN, autocommit=True) as connection:
+                barrier.wait(timeout=10)
+                return connection.execute(
+                    "SELECT casework.admit_evidence(%s::jsonb)",
+                    (payload_json,),
+                ).fetchone()[0]
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            receipts = list(executor.map(lambda _: admit_from_new_connection(), range(2)))
+
+        self.assertEqual(
+            sorted(receipt["idempotent_replay"] for receipt in receipts),
+            [False, True],
+        )
+        self.assertEqual(receipts[0]["ingest_id"], receipts[1]["ingest_id"])
+        self.assertEqual(
+            self.conn.execute(
+                """
+                SELECT count(*)
+                  FROM casework.ingest_receipts
+                 WHERE external_key = 'LOCK-LIVE-001'
+                """
+            ).fetchone()[0],
+            1,
+        )
 
     def test_invalid_schema_string_rejected_and_writes_nothing(self) -> None:
         bad = dict(self.payload, schema="wrong")

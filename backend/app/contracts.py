@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from typing import Any, Callable
 from uuid import UUID, uuid4
 
-from .db import get_dict_conn
+from .db import PERSONAS, get_dict_conn
+from .models import DEFAULT_ROLE
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,15 @@ def _run_id(payload: dict[str, Any] | None) -> str | None:
         return None
 
 
+def _request_role(request_payload: dict[str, Any]) -> str:
+    role = request_payload.get("role") or DEFAULT_ROLE
+    if role not in PERSONAS:
+        raise ValueError(
+            f"unknown persona {role!r}; expected one of {', '.join(PERSONAS)}"
+        )
+    return str(role)
+
+
 def record_transport_invocation(
     context: InvocationContext,
     tool_name: str,
@@ -109,12 +119,14 @@ def record_transport_invocation(
     metadata = {"request_id": context.request_id}
     if error:
         metadata["error"] = error[:2000]
-    with get_dict_conn("analyst") as connection:
+    role = _request_role(request_payload)
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
                 INSERT INTO proof.transport_invocations(
                   run_id,
+                  role,
                   transport,
                   tool_name,
                   contract_version,
@@ -125,11 +137,12 @@ def record_transport_invocation(
                   metadata
                 )
                 VALUES (
-                  %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb
+                  %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb
                 )
                 """,
                 (
                     _run_id(response_payload),
+                    role,
                     context.transport,
                     tool_name,
                     CONTRACT_VERSION,

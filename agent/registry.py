@@ -270,7 +270,7 @@ def _search_knob_params() -> tuple[ToolParam, ...]:
 
 _ROLE_PARAM = ToolParam(
     "role", "string", model_visible=False, identity_bound=True,
-    enum=("analyst", "admin", "auditor"), default="analyst",
+    enum=("app_engineer", "auditor", "dba"), default="app_engineer",
     description="Caller persona; bound server-side, never set by the model.",
 )
 
@@ -362,6 +362,7 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         params=(
             ToolParam("run_id", "string", required=True, str_format="uuid", description="A run_id from a previous search_evidence call."),
+            _ROLE_PARAM,
         ),
         returns_description="Per-candidate arm positions and scores, plus stage timings.",
         impl=explain_ranking_impl,
@@ -383,6 +384,7 @@ TOOLS: dict[str, ToolSpec] = {
             ToolParam("question", "string", required=True, min_length=1, max_length=4000, description="The user's original question, verbatim."),
             ToolParam("run_ids", "array", required=True, item_type="string", str_format="uuid", min_length=1, max_length=20, description="All supporting run_ids returned by search_evidence, in call order."),
             ToolParam("limit", "integer", default=8, minimum=1, maximum=8, model_visible=False, description="Evidence rows per run to reload."),
+            _ROLE_PARAM,
         ),
         returns_description="The validated answer, its numbered citations, and the synthesis mode.",
         impl=synthesize_cited_answer_from_runs_impl,

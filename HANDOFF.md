@@ -25,20 +25,22 @@ asking.
 
 ## Status
 
-The application is feature-complete for the session and reviewed. The most
-recent unit of work built row-level security as the real enforcement layer: 30
-commits, `1b0c90e..ca7df80`, all pushed. A whole-branch review returned ready to
-merge with no findings.
+The required application path is feature-complete for the session: diagnose the
+controlled incident through hybrid retrieval, fusion and reranking, agent
+tools, cited synthesis, and persisted diagnostics and replay. That path runs
+with the default App Engineer persona and does not depend on persona switching
+or `pg_columnmask`.
 
-What that means concretely: the workshop's central claim, that the database
-refuses rather than the application, is now true and tested rather than
-narrated. Three NOLOGIN persona roles (`persona_analyst`, `persona_admin`,
-`persona_auditor`), one clearance role (`can_see_restricted`) granted to admin
-and auditor and never to analyst, two LOGIN roles (`workshop_app` for the pool,
-`workshop_participant` for terminals), RLS enabled and forced on the three
-read-path tables, generated reachability policies on every detail and junction
-table beneath `casework.evidence_items`, and `pg_columnmask` masking for the
-auditor.
+The current worktree also contains the optional persona appendix implementation.
+It has three NOLOGIN persona roles (`persona_app_engineer`,
+`persona_auditor`, `persona_dba`), one clearance role
+(`can_see_restricted`) granted to Auditor and DBA and never to App Engineer, two
+LOGIN roles (`workshop_app` for the pool, `workshop_participant` for terminals),
+RLS enabled and forced on the three read-path tables, generated reachability
+policies on every detail and junction table beneath
+`casework.evidence_items`, and `pg_columnmask` masking for Auditor. This is a
+real implementation boundary, but its App Engineer, Auditor, DBA comparison is
+an optional appendix rather than the workshop's central claim.
 
 ## First hour
 
@@ -51,17 +53,21 @@ pg_isready -h localhost -p 5432          # see hazard 3 about the port
 createdb wb_onboard_test
 DATABASE_URL='postgresql://localhost:5432/wb_onboard_test?sslmode=disable' make schema
 DATABASE_URL='postgresql://localhost:5432/wb_onboard_test?sslmode=disable' make seed-local
+DATABASE_URL='postgresql://localhost:5432/wb_onboard_test?sslmode=disable' \
 TEST_DATABASE_URL='postgresql://localhost:5432/wb_onboard_test?sslmode=disable' \
   ALLOW_TEST_DATABASE_RESET=1 make test
 gates/checks.sh G-11 G-17 G-23           # the three that need no database
 dropdb wb_onboard_test
 ```
 
+`make schema` applies only the core SQL files, `sql/00_extensions.sql` through
+`sql/10_admission.sql`; it does not apply either optional security migration.
 `make seed-local` uses hash embeddings and an offline capture, so it needs no
-AWS credentials. `sql/11_roles_rls.sql` creates six cluster-global roles
+AWS credentials. If you separately run `make security-schema`,
+`sql/11_roles_rls.sql` creates six cluster-global roles
 (`can_see_restricted`, three `persona_*`, `workshop_app`,
-`workshop_participant`), which outlive the database. Drop them when you drop the
-database, or the next run inherits them.
+`workshop_participant`) that outlive the database. Only in that case, drop those
+roles when you drop the database or the next run inherits them.
 
 ## Hazards that have already caused damage
 
@@ -104,8 +110,9 @@ not be committed.
 
 ## Invariants that must not regress
 
-These are load-bearing. Violating any of them breaks the session's central
-claim, and several have been broken and repaired already.
+These are load-bearing implementation and security boundaries. Violating any of
+them makes the optional persona appendix dishonest, and several have been
+broken and repaired already.
 
 - **Fail-closed.** `workshop_app` holds no read grant on
   `casework.evidence_items`, `retrieval.documents`, or `retrieval.chunks`. A
@@ -142,26 +149,51 @@ claim, and several have been broken and repaired already.
 
 ## Gates
 
-Eleven gates, registered in `gates/checks.sh`. `gates/checks.sh` runs
-everything; `gates/checks.sh G-11 G-23` runs a subset. Exit codes are 0 PASS,
+Eleven gates are registered in `gates/checks.sh`. A no-argument
+`gates/checks.sh` runs the seven core retrieval gates. `make security-checks`,
+or explicit IDs, runs the four optional security gates. Exit codes are 0 PASS,
 1 FAIL, 2 BLOCKED, where BLOCKED means the subject under test does not exist yet
 and is reported honestly rather than as a pass. The orchestrator fails only on
 FAIL.
 
 **Never run `gates/checks.sh` with no arguments unless you intend to touch
-live.** `gates/_common.py:read_env_value()` falls back to `.env`.
+live.** The default core set includes database-backed gates, and
+`gates/_common.py:read_env_value()` falls back to `.env`.
 
-G-11, G-17, and G-23 are static and need no database. The four RLS gates
-(`rls_enforcement.py`, `masking_determinism.py`, `participant_ceremony.py`,
-`persona_equivalence.py`) will report BLOCKED against live until the deploy
-below runs.
+G-11, G-14, G-17, and G-23 are static and need no database. The optional
+security gates are G-27 (`rls_enforcement.py`), G-29
+(`masking_determinism.py`), G-30 (`participant_ceremony.py`), and G-31
+(`persona_equivalence.py`). They may report BLOCKED against live until the
+appendix DDL is deployed. That does not block the default incident-diagnosis
+release path.
+
+## Completed in the current worktree
+
+**Persona rename.** The approved July 31 vocabulary change is implemented:
+`analyst` became `app_engineer`, `admin` became `dba`, and `auditor` is
+unchanged. Labels and comparison order are App Engineer, Auditor, DBA. The
+rename covers wire values, database roles, proof receipts, API contracts,
+frontend routes, generated adapters, gates, tests, and upgrade DDL. The access
+model is unchanged: Auditor and DBA hold clearance, and masking applies only to
+Auditor.
+
+**Participant incident lab.** `labs/incident/` now contains the exact
+three-terminal SQL workflow for the session spine. It creates only
+`workbench_lab`, proves the ordinary `CREATE INDEX` `ShareLock` against a
+waiting writer `RowExclusiveLock`, writes a measured lock snapshot, rolls the
+ordinary build back, then proves fresh DML succeeds beside
+`CREATE INDEX CONCURRENTLY` and verifies the final index. The exact scripts pass
+through `backend/tests/test_incident_lab.py` on PostgreSQL 18.4. The measured
+capture can be promoted through `admission/admit.sh`; admission queues search
+projection and does not claim immediate hybrid retrieval.
 
 ## Deferred work, in the order it should be picked up
 
-**1. Apply the new DDL to live Aurora.** `sql/11_roles_rls.sql` and
-`sql/12_masking.sql` have never been applied to the live cluster, so `make
-schema` must be re-run there before this code ships. This was deliberately
-deferred, not forgotten.
+**1. Apply and validate the optional appendix DDL on live Aurora.**
+`sql/11_roles_rls.sql` and `sql/12_masking.sql` have not been applied to the
+live cluster. Run `make security-schema` there and the four optional security
+gates before publishing the App Engineer, Auditor, DBA comparison. This is not
+a prerequisite for the default core release.
 
 The sequence is written out step by step at
 `docs/superpowers/plans/2026-07-28-rls-personas-column-masking.md:8496-8663`
@@ -176,37 +208,7 @@ defects in that text must be corrected before executing it:
 - Step 14 diffs against `/tmp/canonical_after_collapse.json`, an artifact that
   never existed because the task that would have produced it was BLOCKED.
 
-**2. Rename the personas to database-oriented names.** Approved July 31, 2026.
-`analyst` becomes `app_engineer`, `admin` becomes `dba`, `auditor` is unchanged.
-Labels: App Engineer, Auditor, DBA. This is a full rename including wire values,
-not labels only, so that the word on screen matches the word in the pasteable
-proof.
-
-The access model does not change: clearance already goes to the two upper
-personas and masking already applies only to the auditor. This is vocabulary.
-
-Footprint is roughly 603 occurrences of `analyst` and 124 word-boundary `admin`
-across about 50 files, plus five parts that are not text substitution:
-
-- `admin` is a substring, not a word. `retrieval_admin` is the schema owner,
-  `workshop_admin` is the Aurora cluster master set by the sibling repo's
-  CloudFormation template, and `policy_admin_rolname` plus several
-  `admin_*` gate-local variables are unrelated. Use `\badmin\b` and check every
-  hit. `analyst` is safe: all occurrences are one sense, no plurals.
-- `sql/01_schema.sql:1445,1451` pin the old values in CHECK constraints on
-  `proof.retrieval_runs` and `proof.agent_runs`, with `DEFAULT 'analyst'`.
-  Existing receipt rows need a backfill, in the same idempotent style as the
-  `retrieval_runs.principal` to `role` collapse already in that file.
-- `agent/registry.py:272-273` holds the enum; regenerate both generated files
-  afterwards.
-- G-23 parses the `/agent?role={...}` literals and scans the built
-  `frontend/dist` bundle, so rebuild the frontend or the gate blocks.
-- The live `ALTER ROLE ... RENAME` belongs with the deploy above.
-
-This breaks `?role=analyst` deep links in the guide, so it ships together with
-the sibling-repo updates.
-
-**3. Rewrite the Workshop Studio guide.** This is the largest remaining piece
+**2. Rewrite the Workshop Studio guide.** This is the largest remaining piece
 and it belongs in the sibling repo, gated on freezing the application revision.
 `WORKSHOP_GUIDE_TODO.md` there tracks it. Two requirements are not obvious from
 that checklist:
@@ -218,13 +220,18 @@ that checklist:
   rename titles alone: the module bodies are still the retired Orion and `ops.*`
   workshop, so a rename without a body rewrite makes the mismatch worse.
 - Keep the incident as the spine for the full 60 minutes. RLS should be one
-  memorable three-way comparison on a single query, App Engineer then Auditor
+  optional three-way comparison on a single query, App Engineer then Auditor
   then DBA, not a third workshop. Gateway deployment, connectors, extensive
-  tuning, and production identity architecture belong in the appendix.
+  tuning, and production identity architecture also belong in the appendix.
+- Start the participant path with the exact `labs/incident/` three-terminal
+  workflow. Use its measured PostgreSQL output and realism boundary; do not
+  replace it with screenshots of prewritten lock rows or claim that the
+  transaction-hold technique measures production index-build duration.
 
 ## Things that look like bugs but are not
 
-- Gates reporting BLOCKED against live. Expected until the deploy runs.
+- Optional security gates reporting BLOCKED against live. Expected until the
+  appendix deploy runs.
 - `ColumnMaskingTests` skipping. Expected on any local cluster.
 - `retrieval.acl_principals` columns and their GIN index being populated but
   unread. Kept deliberately to avoid schema churn; documented in

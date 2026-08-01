@@ -6270,8 +6270,16 @@ td span {
   table-layout: fixed;
 }
 
-.ranked-results-table.reranked {
+.ranked-results-table.hybrid.reranked {
   min-width: 1000px;
+}
+
+.ranked-results-table.single-signal {
+  min-width: 640px;
+}
+
+.ranked-results-table.single-signal.reranked {
+  min-width: 800px;
 }
 
 .ranked-results-table th {
@@ -6323,7 +6331,7 @@ td span {
   white-space: nowrap;
 }
 
-.ranked-results-table .aurora-score-column {
+.ranked-results-table .primary-score-column {
   width: 148px;
   text-align: center;
 }
@@ -6384,7 +6392,7 @@ td span {
   text-align: right;
 }
 
-.ranked-results-table td.aurora-score-column {
+.ranked-results-table td.primary-score-column {
   text-align: center;
 }
 
@@ -6713,9 +6721,51 @@ td span {
   line-height: 1.55;
 }
 
-.final-ranked-what strong {
+.final-ranked-outcome {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.final-ranked-outcome h4 {
+  margin: 0;
+  color: var(--ink);
+  font: 600 22px/1.3 var(--serif);
+}
+
+.final-ranked-outcome > p {
+  color: var(--ink-soft);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.final-ranked-outcome-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.final-ranked-outcome-meta code,
+.final-ranked-outcome-meta span {
+  min-height: 27px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  color: var(--ink-soft);
+  background: #fff;
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  font: 700 12px/1.2 var(--mono);
+}
+
+.final-ranked-outcome-meta code {
   color: var(--red-deep);
-  font: 700 1em/1.4 var(--mono);
+}
+
+.final-ranked-why + .rank-order-note {
+  margin-top: 14px;
 }
 
 .final-ranked-why-signals {

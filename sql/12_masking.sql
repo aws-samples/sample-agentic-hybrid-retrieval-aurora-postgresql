@@ -1,8 +1,9 @@
 -- sql/12_masking.sql - column masking for the auditor persona (design "scope B").
 --
 -- RLS (sql/11_roles_rls.sql) decides which ROWS a persona sees. This file decides
--- which COLUMNS the auditor sees inside a row it is allowed to see. Analyst never
--- reaches a restricted row, admin is the unmasked baseline, auditor is the point.
+-- which COLUMNS the Auditor sees inside a row it is allowed to see. App Engineer
+-- never reaches a restricted row, DBA is the unmasked baseline, and Auditor is
+-- the point.
 --
 -- pgcolumnmask.policy_admin_rolname is NOT required. Measured on Aurora
 -- PostgreSQL 18.3 with pg_columnmask 1.1.0: with that parameter unset (''), the
@@ -261,13 +262,13 @@ CALL pgcolumnmask.create_masking_policy(
 -- PUBLIC is ever revoked, as sql/11:331 already does for admit_evidence.
 --
 -- Granted to all three personas, not just the auditor: the mask expression is
--- only ever invoked for a role the policy names, so a grant to analyst and admin
+-- only ever invoked for a role the policy names, so a grant to App Engineer and DBA
 -- costs nothing and stops a future policy widening from failing with 42501.
 -- ---------------------------------------------------------------------------
 
 GRANT EXECUTE ON FUNCTION casework.mask_redact(text)
-  TO persona_analyst, persona_admin, persona_auditor;
+  TO persona_app_engineer, persona_dba, persona_auditor;
 GRANT EXECUTE ON FUNCTION retrieval.mask_blob(text)
-  TO persona_analyst, persona_admin, persona_auditor;
+  TO persona_app_engineer, persona_dba, persona_auditor;
 GRANT EXECUTE ON FUNCTION retrieval.sensitive_literals()
-  TO persona_analyst, persona_admin, persona_auditor;
+  TO persona_app_engineer, persona_dba, persona_auditor;

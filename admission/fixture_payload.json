@@ -7,22 +7,36 @@
   },
   "kind": "lock_evidence",
   "external_key": "LOCK-LIVE-001",
-  "title": "Blocked writer on shop.orders during index build",
+  "title": "Blocked writer on workbench_lab.orders during index build",
   "occurred_at": "2026-07-28T14:01:30+00:00",
   "available_at": "2026-07-28T14:03:00+00:00",
   "acl": {"visibility": "workshop"},
-  "body": "AccessExclusiveLock on shop.orders held by CREATE INDEX; writer pid 20919 blocked waiting on relation lock.",
+  "body": "Plain CREATE INDEX held granted ShareLock on workbench_lab.orders; writer PID 20919 waited for RowExclusiveLock while reads continued.",
   "structured": {
     "incident_external_key": "INC-2047",
+    "change_external_key": "CHG-1842",
     "captured_at": "2026-07-28T14:01:30+00:00",
-    "relation_name": "shop.orders",
+    "relation_name": "workbench_lab.orders",
+    "relation_oid": 4242,
     "blocked_pid": 20919,
     "blocking_pid": 20044,
+    "blocked_state": "active",
+    "blocked_query_start": "2026-07-28T14:01:28+00:00",
     "wait_event_type": "Lock",
     "wait_event": "relation",
-    "blocked_statement": "INSERT INTO shop.orders (customer_id, total) VALUES ($1, $2)",
-    "blocking_statement": "CREATE INDEX idx_orders_customer ON shop.orders (customer_id)",
-    "raw_capture": {"blocking_pids": [20044]}
+    "blocked_lock_mode": "RowExclusiveLock",
+    "blocked_lock_granted": false,
+    "blocking_lock_mode": "ShareLock",
+    "blocking_lock_granted": true,
+    "blocking_pids": [20044],
+    "blocking_pids_sql": "SELECT pg_blocking_pids(20919);",
+    "blocking_pids_output": "{20044}",
+    "blocked_statement": "UPDATE workbench_lab.orders SET status = 'queued' WHERE order_id = 1",
+    "blocking_statement": "CREATE INDEX idx_orders_customer_created ON workbench_lab.orders (customer_id, created_at DESC)",
+    "raw_capture": {
+      "capture_mode": "deterministic_fixture",
+      "blocking_pids": [20044]
+    }
   },
   "links": [
     {"to_external_key": "CHG-1842", "to_kind": "change", "relation": "evidence_supports", "confidence": 0.5}

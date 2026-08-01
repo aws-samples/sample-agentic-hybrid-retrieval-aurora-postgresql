@@ -62,6 +62,19 @@ ALTER TABLE casework.evidence_items
     )
   );
 
+-- Older corpora encoded restrictedness as a named entry in acl.principals while
+-- leaving visibility='workshop'. The current contract has one classification
+-- axis, so normalize that retired stamp before any retrieval projection is read.
+UPDATE casework.evidence_items
+SET acl = jsonb_set(
+  jsonb_set(acl, '{visibility}', '"restricted"'::jsonb, true),
+  '{principals}',
+  '[]'::jsonb,
+  true
+)
+WHERE coalesce(acl ->> 'visibility', 'restricted') = 'workshop'
+  AND acl -> 'principals' ? 'support-lead';
+
 CREATE TABLE IF NOT EXISTS casework.incidents (
   evidence_id uuid PRIMARY KEY REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
   incident_id text NOT NULL UNIQUE,
@@ -938,16 +951,27 @@ ALTER TABLE retrieval.documents
 ALTER TABLE retrieval.documents
   ADD COLUMN IF NOT EXISTS aws_region text;
 
-UPDATE retrieval.documents
+UPDATE retrieval.documents AS document
 SET
-  acl_visibility = coalesce(acl ->> 'visibility', 'restricted'),
+  acl = source.acl,
+  acl_visibility = coalesce(source.acl ->> 'visibility', 'restricted'),
   acl_principals = ARRAY(
     SELECT jsonb_array_elements_text(
-      coalesce(documents.acl -> 'principals', '[]'::jsonb)
+      coalesce(source.acl -> 'principals', '[]'::jsonb)
     )
   )
-WHERE acl_visibility = 'restricted'
-  AND acl_principals = '{}';
+FROM casework.evidence_items AS source
+WHERE source.evidence_id = document.evidence_id
+  AND (
+    document.acl IS DISTINCT FROM source.acl
+    OR document.acl_visibility IS DISTINCT FROM
+      coalesce(source.acl ->> 'visibility', 'restricted')
+    OR document.acl_principals IS DISTINCT FROM ARRAY(
+      SELECT jsonb_array_elements_text(
+        coalesce(source.acl -> 'principals', '[]'::jsonb)
+      )
+    )
+  );
 
 CREATE TABLE IF NOT EXISTS retrieval.chunks (
   chunk_version_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1267,8 +1291,8 @@ CREATE TABLE IF NOT EXISTS proof.retrieval_runs (
   embedding_model text,
   retrieval_mode text NOT NULL CHECK (retrieval_mode IN ('hybrid', 'lexical', 'semantic', 'fuzzy')),
   filters jsonb NOT NULL DEFAULT '{}'::jsonb,
-  role text NOT NULL DEFAULT 'analyst'
-    CHECK (role IN ('analyst', 'admin', 'auditor')),
+  role text NOT NULL DEFAULT 'app_engineer'
+    CHECK (role IN ('app_engineer', 'dba', 'auditor')),
   rrf_k integer NOT NULL CHECK (rrf_k > 0),
   text_weight numeric NOT NULL CHECK (text_weight >= 0),
   vector_weight numeric NOT NULL CHECK (vector_weight >= 0),
@@ -1367,8 +1391,8 @@ CREATE TABLE IF NOT EXISTS proof.run_stages (
 CREATE TABLE IF NOT EXISTS proof.agent_runs (
   agent_run_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   question text NOT NULL,
-  role text NOT NULL DEFAULT 'analyst'
-    CHECK (role IN ('analyst', 'admin', 'auditor')),
+  role text NOT NULL DEFAULT 'app_engineer'
+    CHECK (role IN ('app_engineer', 'dba', 'auditor')),
   filters_initial jsonb NOT NULL DEFAULT '{}'::jsonb,
   controls_initial jsonb NOT NULL,
   max_tool_calls integer NOT NULL DEFAULT 12 CHECK (max_tool_calls > 0),
@@ -1397,58 +1421,95 @@ CREATE TABLE IF NOT EXISTS proof.agent_runs (
 );
 
 ALTER TABLE proof.retrieval_runs
-  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'analyst';
+  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'app_engineer';
 
 ALTER TABLE proof.agent_runs
-  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'analyst';
+  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'app_engineer';
+
+ALTER TABLE proof.retrieval_runs
+  ALTER COLUMN role SET DEFAULT 'app_engineer';
+ALTER TABLE proof.agent_runs
+  ALTER COLUMN role SET DEFAULT 'app_engineer';
+
+-- Drop the old enum constraints before rewriting existing receipt values. On an
+-- upgraded database they still accept only analyst/admin/auditor, so updating a
+-- row first would fail before the new constraints could be installed.
+ALTER TABLE proof.retrieval_runs
+  DROP CONSTRAINT IF EXISTS retrieval_runs_role_check;
+ALTER TABLE proof.agent_runs
+  DROP CONSTRAINT IF EXISTS agent_runs_role_check;
 
 -- Pre-collapse receipts carried a jsonb identity bag. The only two values ever
 -- written were the workshop default and the support-lead pair, which map onto the
--- analyst and admin personas respectively (admin, not auditor: the old
--- support-lead saw the restricted row UNMASKED).
+-- App Engineer and DBA personas respectively (DBA, not Auditor: the old
+-- support-lead saw the restricted row unmasked).
 DO $$
+DECLARE
+  v_retrieval_has_principal boolean;
+  v_agent_has_principal boolean;
 BEGIN
-  DROP VIEW IF EXISTS proof.v_run_receipts;
-
-  IF EXISTS (
+  SELECT EXISTS (
     SELECT 1 FROM information_schema.columns
      WHERE table_schema = 'proof' AND table_name = 'retrieval_runs'
        AND column_name = 'principal'
-  ) THEN
+  ) INTO v_retrieval_has_principal;
+
+  SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'proof' AND table_name = 'agent_runs'
+       AND column_name = 'principal'
+  ) INTO v_agent_has_principal;
+
+  -- Only the legacy principal-column migration needs to remove the dependent
+  -- view. An ordinary schema reapply must not delete a live API dependency when
+  -- the caller intentionally applies only the admission-owned SQL subset.
+  IF v_retrieval_has_principal OR v_agent_has_principal THEN
+    DROP VIEW IF EXISTS proof.v_run_receipts;
+  END IF;
+
+  IF v_retrieval_has_principal THEN
     UPDATE proof.retrieval_runs
     SET role = CASE
-      WHEN principal -> 'principals' ? 'support-lead' THEN 'admin'
-      ELSE 'analyst'
+      WHEN principal -> 'principals' ? 'support-lead' THEN 'dba'
+      ELSE 'app_engineer'
     END;
     ALTER TABLE proof.retrieval_runs DROP COLUMN principal;
   END IF;
 
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-     WHERE table_schema = 'proof' AND table_name = 'agent_runs'
-       AND column_name = 'principal'
-  ) THEN
+  IF v_agent_has_principal THEN
     UPDATE proof.agent_runs
     SET role = CASE
-      WHEN principal -> 'principals' ? 'support-lead' THEN 'admin'
-      ELSE 'analyst'
+      WHEN principal -> 'principals' ? 'support-lead' THEN 'dba'
+      ELSE 'app_engineer'
     END;
     ALTER TABLE proof.agent_runs DROP COLUMN principal;
   END IF;
+
+  UPDATE proof.retrieval_runs
+     SET role = CASE role
+       WHEN 'analyst' THEN 'app_engineer'
+       WHEN 'admin' THEN 'dba'
+       ELSE role
+     END
+   WHERE role IN ('analyst', 'admin');
+
+  UPDATE proof.agent_runs
+     SET role = CASE role
+       WHEN 'analyst' THEN 'app_engineer'
+       WHEN 'admin' THEN 'dba'
+       ELSE role
+     END
+   WHERE role IN ('analyst', 'admin');
 END
 $$;
 
 ALTER TABLE proof.retrieval_runs
-  DROP CONSTRAINT IF EXISTS retrieval_runs_role_check;
-ALTER TABLE proof.retrieval_runs
   ADD CONSTRAINT retrieval_runs_role_check
-  CHECK (role IN ('analyst', 'admin', 'auditor'));
+  CHECK (role IN ('app_engineer', 'dba', 'auditor'));
 
 ALTER TABLE proof.agent_runs
-  DROP CONSTRAINT IF EXISTS agent_runs_role_check;
-ALTER TABLE proof.agent_runs
   ADD CONSTRAINT agent_runs_role_check
-  CHECK (role IN ('analyst', 'admin', 'auditor'));
+  CHECK (role IN ('app_engineer', 'dba', 'auditor'));
 
 CREATE TABLE IF NOT EXISTS proof.agent_subquestions (
   agent_run_id uuid NOT NULL
@@ -1588,6 +1649,8 @@ CREATE TABLE IF NOT EXISTS proof.traversal_results (
 CREATE TABLE IF NOT EXISTS proof.transport_invocations (
   invocation_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id uuid REFERENCES proof.retrieval_runs(run_id) ON DELETE RESTRICT,
+  role text NOT NULL DEFAULT 'app_engineer'
+    CHECK (role IN ('app_engineer', 'auditor', 'dba')),
   transport text NOT NULL CHECK (transport IN ('http', 'stdio_mcp', 'agentcore_gateway')),
   tool_name text NOT NULL,
   contract_version text NOT NULL,
@@ -1598,3 +1661,31 @@ CREATE TABLE IF NOT EXISTS proof.transport_invocations (
   invoked_at timestamptz NOT NULL DEFAULT now(),
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb
 );
+
+ALTER TABLE proof.transport_invocations
+  ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'app_engineer';
+
+ALTER TABLE proof.transport_invocations
+  DROP CONSTRAINT IF EXISTS transport_invocations_role_check;
+
+UPDATE proof.transport_invocations invocation
+   SET role = run.role
+  FROM proof.retrieval_runs run
+ WHERE invocation.run_id = run.run_id
+   AND invocation.role IS DISTINCT FROM run.role;
+
+UPDATE proof.transport_invocations
+   SET role = CASE role
+     WHEN 'analyst' THEN 'app_engineer'
+     WHEN 'admin' THEN 'dba'
+     ELSE role
+   END
+ WHERE role IN ('analyst', 'admin');
+
+ALTER TABLE proof.transport_invocations
+  ALTER COLUMN role SET DEFAULT 'app_engineer',
+  ALTER COLUMN role SET NOT NULL;
+
+ALTER TABLE proof.transport_invocations
+  ADD CONSTRAINT transport_invocations_role_check
+  CHECK (role IN ('app_engineer', 'auditor', 'dba'));

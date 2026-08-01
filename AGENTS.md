@@ -37,6 +37,7 @@ For search index, retrieval, ranking, citation, or evaluation work, apply
 | `lambda_mcp/` | Stateless AgentCore Gateway adapter over the API |
 | `mcp-server/` | Optional MCP wrapper over the same API |
 | `seed/` | Deterministic synthetic database-incident corpus |
+| `labs/incident/` | Participant-run PostgreSQL lock reproduction, capture, repair, and cleanup |
 | `scripts/` | Environment and managed-boundary helpers |
 | `docs/` | Architecture, participant flow, security, and production guidance |
 

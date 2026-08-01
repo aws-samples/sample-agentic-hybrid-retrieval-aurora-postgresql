@@ -31,7 +31,7 @@ from backend.app.models import AgentAnswerRequest
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are an incident evidence analyst working over Amazon \
+SYSTEM_PROMPT = """You are an incident evidence specialist working over Amazon \
 Aurora PostgreSQL.
 
 Every claim you make must come from a tool result. You have no knowledge of this \

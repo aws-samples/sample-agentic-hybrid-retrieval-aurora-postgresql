@@ -27,7 +27,7 @@ Returns:
     Detected identifiers, inferred filters, and ordered subquestions.`,
     {
       question: z.string().min(1).max(4000),
-      role: z.enum(["analyst", "admin", "auditor"]).default("analyst"),
+      role: z.enum(["app_engineer", "auditor", "dba"]).default("app_engineer"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({
@@ -73,7 +73,7 @@ Returns:
       ef_search: z.number().int().min(1).max(1000).default(40),
       iterative_scan: z.enum(["off", "strict_order", "relaxed_order"]).default("strict_order"),
       rerank: z.boolean().optional(),
-      role: z.enum(["analyst", "admin", "auditor"]).default("analyst"),
+      role: z.enum(["app_engineer", "auditor", "dba"]).default("app_engineer"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({
@@ -118,7 +118,7 @@ Returns:
     {
       seed_external_keys: z.array(z.string()).min(1).max(20),
       max_depth: z.number().int().min(0).max(8).default(2),
-      role: z.enum(["analyst", "admin", "auditor"]).default("analyst"),
+      role: z.enum(["app_engineer", "auditor", "dba"]).default("app_engineer"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({
@@ -141,7 +141,7 @@ Returns:
     Each record's scope and revision, plus the relationships between them.`,
     {
       external_keys: z.array(z.string()).min(1).max(20),
-      role: z.enum(["analyst", "admin", "auditor"]).default("analyst"),
+      role: z.enum(["app_engineer", "auditor", "dba"]).default("app_engineer"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({
@@ -164,10 +164,12 @@ Returns:
     Per-candidate arm positions and scores, plus stage timings.`,
     {
       run_id: z.string().uuid(),
+      role: z.enum(["app_engineer", "auditor", "dba"]).default("app_engineer"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({
         run_id: args.run_id,
+        role: args.role,
       });
       return wrap(await post("/v1/tools/explain-ranking", payload));
     }
@@ -190,12 +192,14 @@ Returns:
       question: z.string().min(1).max(4000),
       run_ids: z.array(z.string().uuid()).min(1).max(20),
       limit: z.number().int().min(1).max(8).default(8),
+      role: z.enum(["app_engineer", "auditor", "dba"]).default("app_engineer"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({
         question: args.question,
         run_ids: args.run_ids,
         limit: args.limit,
+        role: args.role,
       });
       return wrap(await post("/v1/tools/synthesize", payload));
     }
@@ -237,7 +241,7 @@ Returns:
       rerank: z.boolean().default(false),
       max_tool_calls: z.number().int().min(1).max(50).default(12),
       max_escalations: z.number().int().min(0).max(10).default(2),
-      role: z.enum(["analyst", "admin", "auditor"]).default("analyst"),
+      role: z.enum(["app_engineer", "auditor", "dba"]).default("app_engineer"),
     },
     async (args: Record<string, unknown>) => {
       const payload = pruneUndefined({

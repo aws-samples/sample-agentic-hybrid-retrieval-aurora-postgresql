@@ -52,6 +52,9 @@ def _readiness_payload(
         )
     return {
         "status": "ready",
+        "security_mode": (
+            "persona" if get_settings().workbench_security_enabled else "core"
+        ),
         **health,
         "embedding_spaces": embedding_spaces,
     }
@@ -78,7 +81,7 @@ def _cluster_identity(cursor: Any) -> dict[str, Any]:
 
 
 def search_index_health() -> dict[str, Any]:
-    with get_dict_conn("analyst") as connection:
+    with get_dict_conn("app_engineer") as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM retrieval.v_search_index_health")
             health = cursor.fetchone()
@@ -90,7 +93,7 @@ def search_index_health() -> dict[str, Any]:
 
 def fusion_sql() -> dict[str, Any]:
     definitions: list[dict[str, str]] = []
-    with get_dict_conn("analyst") as connection:
+    with get_dict_conn("app_engineer") as connection:
         with connection.cursor() as cursor:
             for schema, name in FUSION_FUNCTIONS:
                 cursor.execute(
@@ -121,7 +124,7 @@ def fusion_sql() -> dict[str, Any]:
 
 
 def search_index_diagnostics() -> dict[str, Any]:
-    with get_dict_conn("analyst") as connection:
+    with get_dict_conn("app_engineer") as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM retrieval.v_search_index_health")
             health = cursor.fetchone()
@@ -158,8 +161,8 @@ def search_index_diagnostics() -> dict[str, Any]:
     }
 
 
-def latest_cited_run() -> dict[str, Any] | None:
-    with get_dict_conn("analyst") as connection:
+def latest_cited_run(role: str = "app_engineer") -> dict[str, Any] | None:
+    with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -170,6 +173,7 @@ def latest_cited_run() -> dict[str, Any] | None:
                 JOIN proof.retrieval_runs run USING (run_id)
                 WHERE answer.validation_status = 'valid'
                   AND run.status = 'complete'
+                  AND run.role = %s
                   AND EXISTS (
                     SELECT 1
                     FROM proof.answer_citations citation
@@ -177,13 +181,14 @@ def latest_cited_run() -> dict[str, Any] | None:
                   )
                 ORDER BY answer.created_at DESC, answer.run_id DESC
                 LIMIT 1
-                """
+                """,
+                (role,),
             )
             return cursor.fetchone()
 
 
 def index_usage() -> dict[str, Any]:
-    with get_dict_conn("analyst") as connection:
+    with get_dict_conn("app_engineer") as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM retrieval.v_index_usage")
             usage = cursor.fetchall()
@@ -193,7 +198,7 @@ def index_usage() -> dict[str, Any]:
 
 
 def slow_queries() -> dict[str, Any]:
-    with get_dict_conn("analyst") as connection:
+    with get_dict_conn("app_engineer") as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -425,8 +430,8 @@ def query_plan(request: QueryPlanRequest) -> dict[str, Any]:
     return result
 
 
-def _run_role(run_id: str) -> str:
-    """Read the persona a retrieval run executed under.
+def _run_role(run_id: str, viewer_role: str) -> str:
+    """Require a retrieval run to belong to the viewer's bound persona.
 
     Replay renders under the run's own identity, not the viewer's, so a receipt
     shows what the run actually saw. proof.retrieval_runs carries no RLS policy,
@@ -441,21 +446,23 @@ def _run_role(run_id: str) -> str:
     Raises:
         ValueError: No such run.
     """
-    with get_dict_conn("analyst") as connection:
+    with get_dict_conn(viewer_role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 "SELECT role FROM proof.retrieval_runs WHERE run_id = %s",
                 (run_id,),
             )
             row = cursor.fetchone()
-    if not row:
-        raise ValueError(f"retrieval run {run_id} was not found")
+    if not row or row["role"] != viewer_role:
+        raise ValueError(
+            f"retrieval run {run_id} was not found for persona {viewer_role}"
+        )
     return row["role"]
 
 
-def run_graph(run_id: str) -> dict[str, Any]:
-    role = _run_role(run_id)
-    with get_dict_conn(role) as connection:
+def run_graph(run_id: str, role: str = "app_engineer") -> dict[str, Any]:
+    stored_role = _run_role(run_id, role)
+    with get_dict_conn(stored_role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
@@ -481,7 +488,7 @@ def run_graph(run_id: str) -> dict[str, Any]:
             cursor.execute(EVIDENCE_EDGE_BATCH_SQL, {"ids": reached_ids})
             edges = cursor.fetchall()
     for edge in edges:
-        edge["_verify_sql"] = edge_verify_sql(edge["edge_key"], role)
+        edge["_verify_sql"] = edge_verify_sql(edge["edge_key"], stored_role)
     return {
         "run_id": run_id,
         "nodes": reached,
@@ -511,7 +518,10 @@ def _render_deep_link(template: str, values: dict[str, str]) -> str | None:
     return template.format(**values)
 
 
-def observability_ref(run_id: str) -> dict[str, Any]:
+def observability_ref(
+    run_id: str,
+    role: str = "app_engineer",
+) -> dict[str, Any]:
     """Return the Database Insights hand-off for a run (SPEC 6.3).
 
     The observability window is read from ``proof.observability_refs``; the deep
@@ -527,7 +537,8 @@ def observability_ref(run_id: str) -> dict[str, Any]:
         ``_verify_sql`` descriptor for the window row; or ``{"run_id", "ref": None}``
         when the run has no observability row.
     """
-    with get_dict_conn("analyst") as connection:
+    stored_role = _run_role(run_id, role)
+    with get_dict_conn(stored_role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(OBSERVABILITY_REF_SQL, {"run_id": run_id})
             ref = cursor.fetchone()
@@ -573,18 +584,18 @@ def observability_ref(run_id: str) -> dict[str, Any]:
     }
 
 
-def run_timeline(run_id: str) -> dict[str, Any]:
-    graph = run_graph(run_id)
+def run_timeline(run_id: str, role: str = "app_engineer") -> dict[str, Any]:
+    graph = run_graph(run_id, role=role)
     ids = [row["evidence_id"] for row in graph["nodes"]]
     if not ids:
         return {"run_id": run_id, "events": [], "edge_count": 0}
-    role = _run_role(run_id)
-    with get_dict_conn(role) as connection:
+    stored_role = _run_role(run_id, role)
+    with get_dict_conn(stored_role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(TIMELINE_EVENT_BATCH_SQL, {"ids": ids})
             events = cursor.fetchall()
     for event in events:
-        event["_verify_sql"] = event_verify_sql(event["evidence_id"], role)
+        event["_verify_sql"] = event_verify_sql(event["evidence_id"], stored_role)
     return {
         "run_id": run_id,
         "events": events,

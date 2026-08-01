@@ -90,13 +90,13 @@ class ToolFailureTests(unittest.TestCase):
 
 class RoleBindingTests(unittest.TestCase):
     def test_the_bound_role_reaches_the_implementation(self) -> None:
-        agent_tools.start_run("admin")
+        agent_tools.start_run("dba")
         with patch(
             "backend.app.agent_tools.compare_sources_impl",
             return_value={"evidence": [], "relationships": [], "observations": []},
         ) as impl:
             agent_tools.compare_sources(["CHG-1842", "CHG-1838"])
-        self.assertEqual(impl.call_args.kwargs["role"], "admin")
+        self.assertEqual(impl.call_args.kwargs["role"], "dba")
 
     def test_an_unbound_run_falls_back_to_the_default_role(self) -> None:
         agent_tools.start_run(None)
@@ -106,6 +106,30 @@ class RoleBindingTests(unittest.TestCase):
         ) as impl:
             agent_tools.compare_sources(["CHG-1842", "CHG-1838"])
         self.assertEqual(impl.call_args.kwargs["role"], DEFAULT_ROLE)
+
+    def test_explain_and_synthesis_use_the_bound_role(self) -> None:
+        run_id = "1e5a4f2c-0000-4000-8000-00000000000f"
+        agent_tools.start_run("auditor")
+        with patch(
+            "backend.app.agent_tools.explain_ranking_impl",
+            return_value={"candidates": [], "stages": [], "score_note": "test"},
+        ) as explain:
+            agent_tools.explain_ranking(run_id)
+        self.assertEqual(explain.call_args.kwargs["role"], "auditor")
+
+        with patch(
+            "backend.app.agent_tools.synthesize_cited_answer_from_runs_impl",
+            return_value={
+                "run_id": run_id,
+                "source_run_ids": [run_id],
+                "required_kinds": ["change"],
+                "answer": "Supported [1].",
+                "citations": [{"n": 1, "external_key": "CHG-1842"}],
+                "synthesis": {"mode": "test"},
+            },
+        ) as synthesize:
+            agent_tools.synthesize_cited_answer("What happened?", [run_id])
+        self.assertEqual(synthesize.call_args.kwargs["role"], "auditor")
 
 
 class ContextCostTests(unittest.TestCase):

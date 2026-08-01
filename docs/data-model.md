@@ -117,19 +117,27 @@ Every evidence item carries:
 empty list because `retrieval.documents.acl_principals` and its GIN indexes are
 still projected; no code reads it.
 
-`casework.evidence_items` keeps the JSONB and its RLS policy reads
-`coalesce(acl ->> 'visibility', 'restricted')`. The search index projects the same
-value into the sargable column `retrieval.documents.acl_visibility` (and
-`retrieval.chunks.acl_visibility`), which both the RLS policy and
-`retrieval.acl_scalars_visible` read. Anything other than `workshop` is
-restricted, and the projected column defaults to `restricted`, so an unclassified
-row fails closed.
+`casework.evidence_items` keeps the JSONB. The search index projects the same
+value into the sargable columns `retrieval.documents.acl_visibility` and
+`retrieval.chunks.acl_visibility`. Anything other than `workshop` is restricted,
+and the projected columns default to `restricted`, so an unclassified row fails
+closed.
 
-Identity is the caller's persona, one of `analyst`, `admin`, or `auditor`, carried
-as a database role and never as a value in the request body. `CASE-7421` and the
-six restricted objects seeded alongside it are visible only to a persona holding
-the `can_see_restricted` clearance, and they must not enter any retrieval arm,
-traversal hop, comparison, or answer for the analyst.
+In core mode, `retrieval.acl_visible` and
+`retrieval.acl_scalars_visible` expose only workshop-visible rows. This fixed
+scope is applied before every retrieval arm enters fusion and at every traversal
+hop; it requires no persona role or RLS installation.
+
+The optional security appendix replaces those helper bodies with persona-aware
+checks and adds forced RLS. Its personas are `app_engineer`, `auditor`, and
+`dba`: `can_see_restricted` is granted to Auditor and DBA, while App Engineer
+cannot see `CASE-7421` or its six restricted supporting objects.
+`sql/12_masking.sql` adds `pg_columnmask` policies so Auditor sees sensitive
+columns redacted and DBA sees them unmasked.
+
+The API request carries a persona as workshop context, but this repository does
+not authenticate that choice. The appendix demonstrates database behavior after
+assuming a persona; it is not a complete production authorization design.
 
 The JSONB policy is intentionally small for teaching. A production design should
 map authenticated identity and source-system authorization into a reviewed policy,

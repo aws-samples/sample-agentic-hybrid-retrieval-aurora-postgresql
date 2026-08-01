@@ -22,14 +22,38 @@ The answer path is real:
 
 1. Decompose identifiers and database filters.
 2. Run lexical, semantic, and fuzzy retrieval with ACL and metadata filters.
-3. Fuse independent rank positions with weighted reciprocal rank fusion (RRF).
+3. Keep exact identifiers in a deterministic tier, then fuse full-text,
+   semantic, and fuzzy rank positions with weighted reciprocal rank fusion
+   (RRF).
 4. Optionally rerank the fused candidate pool with Cohere Rerank v3.5.
 5. Traverse authoritative incident relationships and compare sources.
 6. Synthesize only from numbered evidence.
-7. Persist and validate the source URI, revision, chunk, quote, and claim for
-   each citation.
+7. Persist source URI, revision, chunk, quote, and source context for each
+   citation, then validate attribution against the exact stored chunk.
 
 No frontend result, score, citation, or answer is hardcoded.
+
+## Reproduce the Lock Mechanism
+
+Before searching the historical evidence, participants can reproduce the
+database behavior with real concurrent PostgreSQL sessions:
+
+1. run ordinary `CREATE INDEX` and retain its granted `ShareLock`;
+2. prove a read succeeds while an `UPDATE` waits for `RowExclusiveLock`;
+3. resolve the queue by rolling back the ordinary build;
+4. run `CREATE INDEX CONCURRENTLY` beside an open writer transaction; and
+5. prove a fresh write succeeds while `ShareUpdateExclusiveLock` and
+   `RowExclusiveLock` coexist.
+
+The scripts, three-terminal runbook, measured assertions, capture artifact, and
+cleanup are in [labs/incident](labs/incident/README.md). The exercise operates
+only on the disposable `workbench_lab` schema. It does not mutate the
+preloaded `casework`, `retrieval`, or `proof` data.
+
+The ordinary build is held by an open transaction after it completes so the
+lock remains observable on fast workshop hardware. This is a deterministic
+proof of lock compatibility and the wait chain, not a production-duration or
+throughput benchmark.
 
 ## Architecture
 
@@ -48,7 +72,7 @@ Versioned retrieval.documents + retrieval.chunks
                   |
                   v
 Canonical retrieval.* SQL functions
-  exact ID + full text + vector + fuzzy -> weighted RRF -> model rerank
+  exact ID tier + (full text + vector + fuzzy -> weighted RRF) -> model rerank
                   |
           +-------+--------+
           |                |
@@ -80,6 +104,14 @@ The [production workshop brief](DAT410-BUILD-BRIEF.md) governs release claims,
 and [What DAT410 Builds](WORKSHOP-BUILD-SUMMARY.md) summarizes the participant
 exercises and take-home artifacts.
 
+The required session path is incident diagnosis through hybrid retrieval,
+fusion and reranking, evidence-bound agent tools, cited synthesis, and
+diagnostics and replay. It runs with the default App Engineer persona and does
+not require persona switching. Row-level security and `pg_columnmask` are an
+optional appendix comparison: rerun one query as App Engineer, Auditor, and DBA
+to compare absent, masked, and unmasked restricted evidence. That appendix is
+not a participant prerequisite or a default release gate.
+
 ## Implemented Retrieval
 
 | Capability | Implementation |
@@ -90,7 +122,7 @@ exercises and take-home artifacts.
 | Fuzzy | `pg_trgm` over identifiers and titles; default threshold `0.3` |
 | Filters | Kind, cluster, incident, account, severity, environment, and time range |
 | Authorization | `retrieval.acl_visible` inside every retrieval arm and relationship hop |
-| Fusion | Weighted RRF with defaults text `2`, vector `1`, fuzzy `1`, `k=60`; exact IDs receive a separate lexical vote |
+| Fusion | Deterministic exact-ID tier above weighted RRF with defaults text `2`, vector `1`, fuzzy `1`, `k=60` |
 | Reranking | Cohere Rerank v3.5 after SQL fusion; its score is not a probability |
 | Attribution | Persisted source URI, revision, document version, chunk version, quote, and claim |
 | Diagnostics | Arm scores and positions, HNSW controls, plans, index usage, stages, and latency |
@@ -240,12 +272,14 @@ suite refuses to start unless the database name ends in `_test` and the
 application resolves the same URL the tests were handed. Never point
 `TEST_DATABASE_URL` at the workshop corpus.
 
-Two things a local run does not prove. `pg_columnmask` is Aurora-managed, so
-`sql/12_masking.sql` is skipped locally and `ColumnMaskingTests` reports as
-skipped, the run prints both. And `FORCE ROW LEVEL SECURITY` does not subject a
-superuser, so a local cluster whose owner is a superuser exercises the policies
-only through the persona roles, never through the owner. Run the same suite against
-a disposable database on the Aurora cluster to cover both.
+The optional persona appendix has two additional validation limits.
+`pg_columnmask` is Aurora-managed, so `sql/12_masking.sql` is skipped locally and
+`ColumnMaskingTests` reports as skipped; the run prints both. Also, `FORCE ROW
+LEVEL SECURITY` does not subject a superuser, so a local cluster whose owner is
+a superuser exercises the policies only through the persona roles, never
+through the owner. When publishing the appendix, run the same suite against a
+disposable database on the Aurora cluster to cover both. These checks are not
+prerequisites for the core retrieval path.
 
 Local PostgreSQL proves PostgreSQL behavior; it does not prove Aurora network,
 parameter-group, extension, or engine-version behavior. To run the same suite on
@@ -270,6 +304,7 @@ backend/app/     FastAPI, search index, retrieval, rerank, tools, and synthesis
 backend/tests/   Unit and disposable-database contract tests
 sql/             Schema, indexes, search, diagnostics, receipts, and evaluation
 seed/            Deterministic synthetic database-incident corpus
+labs/incident/   Participant-run lock incident, observation, fix, and cleanup
 frontend/        Incident-evidence inspection workbench
 lambda_mcp/      Stateless AgentCore Gateway Lambda adapter
 mcp-server/      Optional stdio MCP wrapper over the same HTTP API

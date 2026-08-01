@@ -18,12 +18,9 @@ Three checks:
    ``node --experimental-strip-types`` rather than a Python reimplementation, so
    there is no twin to drift (the G-17 "one source of truth" principle).
 
-2. Contract-literal membership. Every deep-link literal the guide sends
-   participants to - /overview, /retrieval?preset={exact|fuzzy|semantic},
-   /agent?role={analyst|admin|auditor}, /proof/{run_id} (SPEC-session:550) -
-   must parse to the intended surface with the intended param set, not silently
-   degrade to overview. Catches a mistyped or dropped enum value before a human
-   clicks it.
+2. Contract-literal membership. Core retrieval and proof links are always
+   required. Persona-prefilled agent links are required only when
+   ``WORKBENCH_SECURITY_ENABLED=1`` for the optional security appendix.
 
 3. Built-bundle presence. The built frontend bundle (frontend/dist) must contain
    the preset and persona enum literals the router depends on, to catch a build
@@ -37,6 +34,7 @@ not present, reported honestly (the _common.py PASS/FAIL/BLOCKED contract).
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -60,10 +58,10 @@ ROUTE_MODULE = Path("frontend/src/route.ts")
 BUNDLE_DIR = Path("frontend/dist")
 SCAN_SUFFIXES = {".js"}
 
-# The canonical deep links the guide sends participants to (SPEC-session:547-550).
+# The canonical core deep links the guide sends participants to.
 # Each entry is (hash, expected parsed Route). The router must round-trip every
 # hash exactly and parse it to the expected surface with state prefilled.
-CONTRACT_ROUTES: list[tuple[str, dict]] = [
+CORE_CONTRACT_ROUTES: list[tuple[str, dict]] = [
     ("#/overview", {"surface": "overview"}),
     ("#/retrieval?preset=exact", {"surface": "retrieval", "preset": "exact"}),
     ("#/retrieval?preset=fuzzy", {"surface": "retrieval", "preset": "fuzzy"}),
@@ -71,18 +69,7 @@ CONTRACT_ROUTES: list[tuple[str, dict]] = [
         "#/retrieval?preset=semantic",
         {"surface": "retrieval", "preset": "semantic"},
     ),
-    (
-        "#/agent?role=analyst",
-        {"surface": "agent", "role": "analyst"},
-    ),
-    (
-        "#/agent?role=admin",
-        {"surface": "agent", "role": "admin"},
-    ),
-    (
-        "#/agent?role=auditor",
-        {"surface": "agent", "role": "auditor"},
-    ),
+    ("#/agent", {"surface": "agent"}),
     ("#/proof/rr_9b41d7", {"surface": "proof", "runId": "rr_9b41d7"}),
     (
         "#/proof/rr_9b41d7?lens=timeline",
@@ -90,8 +77,42 @@ CONTRACT_ROUTES: list[tuple[str, dict]] = [
     ),
 ]
 
-# Enum literals the router resolves; the built bundle must still contain them.
-BUNDLE_LITERALS = ["exact", "fuzzy", "semantic", "analyst", "admin", "auditor"]
+SECURITY_CONTRACT_ROUTES: list[tuple[str, dict]] = [
+    (
+        "#/agent?role=app_engineer",
+        {"surface": "agent", "role": "app_engineer"},
+    ),
+    (
+        "#/agent?role=dba",
+        {"surface": "agent", "role": "dba"},
+    ),
+    (
+        "#/agent?role=auditor",
+        {"surface": "agent", "role": "auditor"},
+    ),
+]
+
+CORE_BUNDLE_LITERALS = ["exact", "fuzzy", "semantic"]
+SECURITY_BUNDLE_LITERALS = ["app_engineer", "dba", "auditor"]
+
+
+def _security_enabled() -> bool:
+    value = os.environ.get("WORKBENCH_SECURITY_ENABLED", "")
+    return value.strip().lower() not in {"", "0", "false", "no", "off"}
+
+
+def _contract_routes() -> list[tuple[str, dict]]:
+    routes = list(CORE_CONTRACT_ROUTES)
+    if _security_enabled():
+        routes.extend(SECURITY_CONTRACT_ROUTES)
+    return routes
+
+
+def _bundle_literals() -> list[str]:
+    literals = list(CORE_BUNDLE_LITERALS)
+    if _security_enabled():
+        literals.extend(SECURITY_BUNDLE_LITERALS)
+    return literals
 
 # Node harness: import the real router, run parse+format for each contract route,
 # and emit one JSON line per route so the Python side can diff against the
@@ -116,9 +137,10 @@ def _iter_bundle_js(bundle: Path):
 
 
 def _run_router_harness(node: str, module_path: Path) -> list[dict]:
+    routes = _contract_routes()
     harness = _HARNESS.format(
         module=str(module_path),
-        routes=json.dumps([[h, e] for h, e in CONTRACT_ROUTES]),
+        routes=json.dumps([[h, e] for h, e in routes]),
     )
     harness_path = module_path.parent / ".g23_route_harness.mjs"
     harness_path.write_text(harness, encoding="utf-8")
@@ -142,6 +164,7 @@ def _run_router_harness(node: str, module_path: Path) -> list[dict]:
 def run() -> int:
     print_header(GATE_ID, TITLE)
     root = repo_root()
+    bundle_literals = _bundle_literals()
 
     module_path = root / ROUTE_MODULE
     if not module_path.is_file():
@@ -196,13 +219,13 @@ def run() -> int:
     corpus = "\n".join(
         path.read_text(encoding="utf-8", errors="ignore") for path in js_files
     )
-    missing = [lit for lit in BUNDLE_LITERALS if lit not in corpus]
+    missing = [lit for lit in bundle_literals if lit not in corpus]
     require(
         not missing,
         f"built bundle missing route literal(s): {missing} - a build tree-shook "
         "or renamed a route the source defines",
     )
-    print(f"  bundle literals present: {', '.join(BUNDLE_LITERALS)}")
+    print(f"  bundle literals present: {', '.join(bundle_literals)}")
 
     return finish(
         GATE_ID,

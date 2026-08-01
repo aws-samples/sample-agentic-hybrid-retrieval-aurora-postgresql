@@ -5,9 +5,9 @@ A7 retired the two-axis identity model: ``support-lead`` is gone, the
 ``workbench.role`` GUC is deleted, and one persona now drives everything. That
 collapse is only safe if it changed **vocabulary**, not **semantics**. The
 observable contract is: whatever the old ``role=workshop`` identity could retrieve
-and cite, the new ``persona_analyst`` persona retrieves and cites - byte-identically.
+and cite, the new ``persona_app_engineer`` persona retrieves and cites - byte-identically.
 
-The gate compares live analyst results against ``gates/baselines/analyst_equivalence.json``,
+The gate compares live app_engineer results against ``gates/baselines/app_engineer_equivalence.json``,
 a baseline captured on the pre-collapse corpus and committed to the repo. A
 committed baseline (rather than a live A/B against the old code) is what lets this
 assertion survive the deletion of the old path: after ``support-lead`` no longer
@@ -44,7 +44,7 @@ principals leg. ``CASE-7421`` today carries ``{"visibility": "workshop",
 "principals": ["support-lead"]}`` (seed/corpus.py:13-16), so the pre-collapse
 identity - empty ``principals`` - could NOT read it. Capturing on visibility alone
 would record it as visible, and after Task 13 reclassifies it to
-``visibility='restricted'`` the analyst correctly cannot see it, so the gate would
+``visibility='restricted'`` the app_engineer correctly cannot see it, so the gate would
 FAIL and report "the collapse altered semantics" for a row whose semantics the
 collapse faithfully PRESERVED (denied before, denied after).
 
@@ -60,7 +60,7 @@ Read-only. Baseline absent, persona not created yet, or engine unreachable ->
 BLOCKED.
 
 Usage:
-    gates/persona_equivalence.py             # compare live analyst vs baseline
+    gates/persona_equivalence.py             # compare live app_engineer vs baseline
     gates/persona_equivalence.py --capture   # write the baseline (pre-collapse only)
 """
 
@@ -86,8 +86,8 @@ from _common import (  # noqa: E402
 GATE_ID = "G-31"
 TITLE = "Persona equivalence after the A7 collapse"
 
-BASELINE_PATH = Path("gates/baselines/analyst_equivalence.json")
-ANALYST = "persona_analyst"
+BASELINE_PATH = Path("gates/baselines/app_engineer_equivalence.json")
+APP_ENGINEER = "persona_app_engineer"
 
 # The judged relevance set: (query_id, evidence_kind, external_key, relevance)
 # tuples the Lab-2 checkpoints score against. The grade column is named `relevance`
@@ -308,10 +308,10 @@ def run() -> int:  # noqa: C901 - two modes plus their guards, read top to botto
             # SET ROLE reports this gate as a traceback instead of the honest
             # BLOCKED that an unbuilt dependency deserves.
             with conn.cursor() as cur:
-                cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", [ANALYST])
+                cur.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", [APP_ENGINEER])
                 if cur.fetchone() is None:
                     return finish(
-                        GATE_ID, BLOCKED, f"{ANALYST} does not exist yet"
+                        GATE_ID, BLOCKED, f"{APP_ENGINEER} does not exist yet"
                     )
             # A persona the app login is not granted raises InsufficientPrivilege
             # (42501) on SET ROLE, and a missing SELECT grant raises it on the
@@ -320,16 +320,16 @@ def run() -> int:  # noqa: C901 - two modes plus their guards, read top to botto
             # is that nothing is wired up yet.
             try:
                 live_goldens = _fetch(
-                    conn, EVAL_GOLDENS_SQL.format(vis=RLS_FILTERS), ANALYST
+                    conn, EVAL_GOLDENS_SQL.format(vis=RLS_FILTERS), APP_ENGINEER
                 )
                 live_coverage = _fetch(
-                    conn, CLAIM_COVERAGE_SQL.format(vis=RLS_FILTERS), ANALYST
+                    conn, CLAIM_COVERAGE_SQL.format(vis=RLS_FILTERS), APP_ENGINEER
                 )
             except psycopg.errors.InsufficientPrivilege as exc:
                 return finish(
                     GATE_ID,
                     BLOCKED,
-                    f"{ANALYST} cannot be assumed or cannot read the corpus: {exc}",
+                    f"{APP_ENGINEER} cannot be assumed or cannot read the corpus: {exc}",
                 )
     except psycopg.OperationalError as exc:
         return finish(GATE_ID, BLOCKED, f"cannot reach the engine: {exc}")
@@ -353,14 +353,14 @@ def run() -> int:  # noqa: C901 - two modes plus their guards, read top to botto
         return finish(
             GATE_ID,
             FAIL,
-            f"{len(diffs)} semantic difference(s) between the baseline and the analyst "
+            f"{len(diffs)} semantic difference(s) between the baseline and the app_engineer "
             f"persona; the A7 collapse altered semantics - STOP and report",
         )
 
     return finish(
         GATE_ID,
         PASS,
-        f"analyst persona reproduces the baseline byte-identically "
+        f"app_engineer persona reproduces the baseline byte-identically "
         f"({len(live_goldens)} goldens, {len(live_coverage)} covered documents)",
     )
 

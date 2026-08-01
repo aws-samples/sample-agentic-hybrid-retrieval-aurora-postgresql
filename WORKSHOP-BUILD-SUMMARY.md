@@ -16,6 +16,12 @@ The scenario is synthetic. PostgreSQL lock behavior and SQL syntax are real;
 incident IDs, customer names, support cases, and operational records are
 controlled fixtures.
 
+The required path first reproduces the lock mechanism with real PostgreSQL
+sessions, then diagnoses the historical incident through hybrid retrieval,
+fusion and reranking, agent tools, cited synthesis, and diagnostics and replay.
+Persona switching, RLS and masking comparison, and managed Gateway invocation
+are optional appendix exercises.
+
 ## What Is Prebuilt
 
 Workshop Studio prepares the expensive and slow dependencies before the room
@@ -27,12 +33,13 @@ opens:
 - 15,017 indexed evidence documents and 15,017 Cohere embeddings;
 - B-tree, GIN full-text, GIN trigram, and HNSW indexes;
 - FastAPI and the Hybrid Retrieval Workbench frontend;
-- configured Bedrock embedding, reranking, and synthesis models; and
-- AgentCore Gateway with a stateless Lambda MCP target when the managed
-  exercise passes its release gate.
+- configured Bedrock embedding, reranking, and synthesis models.
 
 Participants do not provision infrastructure, generate the full embedding
 cache, or build a connector during the hour.
+
+Workshop Studio may also prebuild AgentCore Gateway and its stateless Lambda MCP
+target for the optional managed-contract appendix.
 
 ## What Participants Build and Prove
 
@@ -47,7 +54,6 @@ Participants prove that:
 - `CHG-1842` is the confirmed causal change;
 - `CHG-1838` is ruled out;
 - `CASE-7419` is the visible affected case;
-- `CASE-7421` is relevant but restricted;
 - `CASE-7424` is explicitly unaffected;
 - `RB-017` is current and `RB-092` is superseded; and
 - declared relationships come from relational facts, not text
@@ -80,8 +86,9 @@ Participants run:
 - pgvector semantic retrieval for `checkout writes froze`; and
 - `pg_trgm` fuzzy retrieval for `CGH-1842`.
 
-Metadata filters and ACL checks execute inside every arm before candidates
-enter fusion.
+Metadata filters execute inside every arm before candidates enter fusion. The
+implemented ACL checks follow the same placement, and the optional persona
+appendix makes that boundary visible.
 
 Three of the four signals are ranked and weighted. The exact identifier lookup
 is a deterministic tier instead, for the reason given below.
@@ -161,7 +168,7 @@ numbered evidence.
 - agent subquestions and retrievals;
 - answer text and synthesis metadata;
 - exact source, document, and chunk versions; and
-- citation quote and claim.
+- citation quote and source context, with a claim only when one is persisted.
 
 The returned `run_id` replays the answer without another model call.
 
@@ -192,6 +199,7 @@ retrieval receipt.
 
 | Exercise | Participant action | Required proof |
 |---|---|---|
+| Incident reproduction | Run the ordinary and concurrent index phases in three terminals | Reads continue; ordinary index blocks a writer; concurrent index permits fresh DML |
 | Readiness | Run `make doctor` | Aurora, extensions, model space, 15,017 documents/chunks, zero drift |
 | Exact and full text | Search `CHG-1842` under `checkout-prod-cluster-01` | Exact and text positions; `CHG-1842` rank 1 |
 | Fuzzy ID | Search `CGH-1842` | `CHG-1842` recovered; `CHG-1838` rejected |
@@ -201,28 +209,37 @@ retrieval receipt.
 | Rerank | Compare Aurora and Cohere orders | Both scores remain present and separate |
 | Agent answer | Ask the canonical question | Lock cause, visible customer, safe fix, numbered citations |
 | Evidence graph | Follow incident relationships | Confirmed, ruled-out, affected, unaffected, current, and superseded facts |
-| ACL boundary | Compare `analyst` and `admin` personas | `CASE-7421` absent from analyst retrieval and traversal |
-| Citation audit | Validate URI, revision, chunk, quote, and claim | Database citation validation passes |
+| Citation audit | Validate URI, revision, chunk, quote, and source context | Database attribution validation passes |
 | Replay | Reload the answer by `run_id` | Candidates, stages, answer, and citations return without a model call |
 | Evaluation | Run the controlled set | Retrieval and traversal metrics reported separately |
+
+### Optional Appendix Exercises
+
+| Exercise | Participant action | Required proof |
+|---|---|---|
+| Persona boundary | Repeat one query as App Engineer, Auditor, and DBA | `CASE-7421` is absent, masked, then unmasked |
 | Managed contract | Invoke the Gateway tool | `AWS_IAM` call returns a real Aurora `run_id` |
+
+Neither appendix exercise is required for participant completion or the default
+release path.
 
 ## Sixty-Minute Path
 
 | Minute | Participant outcome |
 |---:|---|
-| 0-6 | Scenario, hybrid-search primer, and readiness |
-| 6-17 | Exact/full-text and fuzzy identifier retrieval |
-| 17-24 | Semantic retrieval, filters, and actual query plan |
-| 24-33 | Weighted RRF and optional rerank |
-| 33-43 | Agent decomposition, retrieval, traversal, and cited answer |
-| 43-50 | Citation audit and replay |
-| 50-54 | Compact retrieval and traversal evaluation |
-| 54-58 | Managed MCP contract |
-| 58-60 | Production boundary and close |
+| 0-3 | Scenario and system boundary |
+| 3-11 | Reproduce the lock wait and apply the concurrent-index repair |
+| 11-15 | Readiness against the preloaded evidence corpus |
+| 15-21 | Exact/full-text and fuzzy identifier retrieval |
+| 21-28 | Semantic retrieval, filters, and one HNSW comparison |
+| 28-35 | Weighted RRF and optional rerank |
+| 35-48 | Agent decomposition, retrieval, traversal, and cited synthesis |
+| 48-56 | Citation attribution, graph, timeline, and replay |
+| 56-60 | Compact evaluation, production boundary, and close |
 
-First cut: weight experimentation. Second cut: live evaluation detail. The
-cited answer and replay receipt remain mandatory.
+First cut: iterative-scan tuning. Second cut: weight experimentation. Detailed
+evaluation moves to the appendix next. The incident proof, cited answer, and
+replay receipt remain mandatory.
 
 ## What the UI Exposes
 
@@ -240,7 +257,7 @@ cited answer and replay receipt remain mandatory.
 - Replay receipt
 - Evaluation
 
-### Invoke managed contract
+### Optional managed contract
 
 - HTTP contract
 - MCP tool catalog
@@ -289,12 +306,10 @@ environment, but the workshop is not publication-ready until:
 2. the packaged source archive is rebuilt from an immutable tested revision;
 3. every participant step passes in a fresh Workshop Studio account;
 4. model access and quotas pass under the participant role;
-5. the managed Gateway exercise returns current Hybrid Retrieval Workbench
-   evidence;
-6. the filtered-ANN exercise has literal prepared plans;
-7. a genuine `release_aurora` lock capture and observability evidence is
+5. the filtered-ANN exercise has literal prepared plans;
+6. a genuine `release_aurora` lock capture and observability evidence is
    produced, or those claims are removed; and
-8. the complete required path fits inside 60 minutes.
+7. the complete required path fits inside 60 minutes.
 
 ## Non-Claims
 

@@ -556,7 +556,7 @@ def _canonical_rows(capture_bundle: dict[str, Any]) -> dict[str, list[dict[str, 
     # CASE-7421 above remains THE canonical M3 flip noun; these are supporting
     # cast and are never named in a guide checkpoint, a slide, or the canonical
     # question. They exist so row filtering and masking are visibly non-trivial:
-    # analyst sees none of the seven, admin sees all seven unmasked, auditor sees
+    # App Engineer sees none of the seven, DBA sees all seven unmasked, auditor sees
     # all seven with customer identity redacted.
     #
     # Every key here was measured against the CGH-1842 trigram probe before being

@@ -42,7 +42,7 @@ def _run_ids(args: dict[str, Any]) -> list[str]:
 def _tool_decompose_question(args: dict[str, Any]) -> dict[str, Any]:
     return decompose_question_impl(
         question=str(args.get("question") or ""),
-        role=str(args.get("role")) if args.get("role") is not None else "analyst",
+        role=str(args.get("role")) if args.get("role") is not None else "app_engineer",
     )
 
 
@@ -70,7 +70,7 @@ def _tool_search_evidence(args: dict[str, Any]) -> dict[str, Any]:
         ef_search=_opt_int(args.get("ef_search"), 40),
         iterative_scan=str(args.get("iterative_scan")) if args.get("iterative_scan") is not None else "strict_order",
         rerank=_opt_bool(args.get("rerank")),
-        role=str(args.get("role")) if args.get("role") is not None else "analyst",
+        role=str(args.get("role")) if args.get("role") is not None else "app_engineer",
     )
 
 
@@ -78,19 +78,22 @@ def _tool_follow_evidence_links(args: dict[str, Any]) -> dict[str, Any]:
     return follow_evidence_links_impl(
         seed_external_keys=args.get("seed_external_keys") or [],
         max_depth=_opt_int(args.get("max_depth"), 2),
-        role=str(args.get("role")) if args.get("role") is not None else "analyst",
+        role=str(args.get("role")) if args.get("role") is not None else "app_engineer",
     )
 
 
 def _tool_compare_sources(args: dict[str, Any]) -> dict[str, Any]:
     return compare_sources_impl(
         external_keys=args.get("external_keys") or [],
-        role=str(args.get("role")) if args.get("role") is not None else "analyst",
+        role=str(args.get("role")) if args.get("role") is not None else "app_engineer",
     )
 
 
 def _tool_explain_ranking(args: dict[str, Any]) -> dict[str, Any]:
-    return explain_ranking_impl(run_id=str(args.get("run_id") or ""))
+    return explain_ranking_impl(
+        run_id=str(args.get("run_id") or ""),
+        role=str(args.get("role")) if args.get("role") is not None else "app_engineer",
+    )
 
 
 def _tool_synthesize_cited_answer(args: dict[str, Any]) -> dict[str, Any]:
@@ -98,6 +101,7 @@ def _tool_synthesize_cited_answer(args: dict[str, Any]) -> dict[str, Any]:
         question=str(args.get("question") or ""),
         run_ids=_run_ids(args),
         limit=_opt_int(args.get("limit"), 8),
+        role=str(args.get("role")) if args.get("role") is not None else "app_engineer",
     )
 
 
@@ -127,7 +131,7 @@ def _tool_answer_with_citations(args: dict[str, Any]) -> dict[str, Any]:
         rerank=bool(args.get("rerank")) if args.get("rerank") is not None else False,
         max_tool_calls=_opt_int(args.get("max_tool_calls"), 12),
         max_escalations=_opt_int(args.get("max_escalations"), 2),
-        role=str(args.get("role")) if args.get("role") is not None else "analyst",
+        role=str(args.get("role")) if args.get("role") is not None else "app_engineer",
     )
 
 

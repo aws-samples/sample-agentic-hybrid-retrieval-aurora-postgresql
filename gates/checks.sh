@@ -15,8 +15,9 @@
 # Section 10: build the gate harness early).
 #
 # Usage:
-#   gates/checks.sh            # run every implemented gate
+#   gates/checks.sh            # run core retrieval gates
 #   gates/checks.sh G-11 G-21  # run a subset by gate id
+#   make security-checks       # run the optional RLS and masking gates
 #
 set -uo pipefail
 
@@ -29,8 +30,9 @@ else
   PYTHON="$(command -v python3 || command -v python)"
 fi
 
-# Gate registry: "G-ID|script|one-line title". Order is build-order, not id-order.
-GATES=(
+# Gate registry: "G-ID|script|one-line title". Security remains available by
+# explicit ID but is not part of the default builders-session release path.
+CORE_GATES=(
   "G-11|noun_lint.py|Law 1 noun lint"
   "G-13|verify_sql_golden.py|Verify-SQL golden test"
   "G-14|empty_db_ui_test.py|Empty-database UI test"
@@ -38,17 +40,29 @@ GATES=(
   "G-21|fixture_arithmetic.py|Fixture arithmetic (D14) on the engine"
   "G-23|route_contract.py|Route contract (D16)"
   "G-25|admission_determinism.py|Admission determinism (D21)"
+)
+
+SECURITY_GATES=(
   "G-27|rls_enforcement.py|RLS enforcement (D24)"
   "G-29|masking_determinism.py|Column masking + Law-2 determinism"
   "G-30|participant_ceremony.py|Participant zero-ceremony identity (A1)"
   "G-31|persona_equivalence.py|Persona equivalence after the A7 collapse"
 )
 
+GATES=("${CORE_GATES[@]}" "${SECURITY_GATES[@]}")
 WANT=("$@")
+if [[ ${#WANT[@]} -eq 0 ]]; then
+  # The default command is always the core contract, even if a developer's
+  # shell or .env last enabled the optional security appendix.
+  export WORKBENCH_SECURITY_ENABLED=0
+  for entry in "${CORE_GATES[@]}"; do
+    IFS='|' read -r id _rest <<<"$entry"
+    WANT+=("$id")
+  done
+fi
 
 want_gate() {
   local id="$1"
-  [[ ${#WANT[@]} -eq 0 ]] && return 0
   local w
   for w in "${WANT[@]}"; do
     [[ "$w" == "$id" ]] && return 0
@@ -90,6 +104,10 @@ if [[ ${#FAIL_IDS[@]} -gt 0 ]]; then
   exit 1
 fi
 if [[ ${#BLOCKED_IDS[@]} -gt 0 ]]; then
+  if [[ "${FAIL_ON_BLOCKED:-0}" == "1" ]]; then
+    echo "RESULT: RED - ${#BLOCKED_IDS[@]} gate(s) blocked: ${BLOCKED_IDS[*]}"
+    exit 1
+  fi
   echo "RESULT: no failures; ${#BLOCKED_IDS[@]} gate(s) blocked on unbuilt deps"
   exit 0
 fi

@@ -71,6 +71,46 @@ REQUIRED_FUNCTIONS = (
     ("proof", "evaluate_subquestion_coverage"),
     ("proof", "traversal_recall"),
 )
+REQUIRED_COLUMNS = (
+    ("casework", "lock_evidence", "relation_oid"),
+    ("casework", "lock_evidence", "blocked_lock_mode"),
+    ("casework", "lock_evidence", "blocking_lock_mode"),
+    ("proof", "retrieval_runs", "role"),
+    ("proof", "retrieval_candidates", "match_tier"),
+    ("proof", "retrieval_candidates", "exact_identifier_position"),
+    ("proof", "agent_runs", "role"),
+    ("proof", "agent_answers", "agent_run_id"),
+    ("proof", "agent_answers", "validation_status"),
+    ("proof", "transport_invocations", "role"),
+)
+RETIRED_COLUMNS = (
+    ("proof", "retrieval_runs", "principal"),
+    ("proof", "agent_runs", "principal"),
+)
+REQUIRED_FUNCTION_SIGNATURES = (
+    "retrieval.full_text_search("
+    "text,text[],text,text,text,text[],text,text,text,text,"
+    "timestamptz,timestamptz,integer"
+    ")",
+    "retrieval.vector_search("
+    "vector,text[],text,text,text,text[],text,text,text,text,"
+    "timestamptz,timestamptz,integer,integer"
+    ")",
+    "retrieval.fuzzy_search("
+    "text[],real,text[],text,text,text,text[],text,text,text,text,"
+    "timestamptz,timestamptz,integer"
+    ")",
+    "retrieval.identifier_is_indexed("
+    "text[],text[],text,text,text,text[],text,text,text,text,"
+    "timestamptz,timestamptz"
+    ")",
+    "retrieval.hybrid_search("
+    "text,vector,text[],text[],text,text,text,text[],text,text,text,text,"
+    "timestamptz,timestamptz,integer,integer,integer,"
+    "numeric,numeric,numeric,real"
+    ")",
+    "retrieval.traverse_evidence(uuid[],integer,name)",
+)
 REQUIRED_INDEXES = (
     "retrieval.idx_documents_search_tsv",
     "retrieval.idx_documents_external_key_exact",
@@ -136,6 +176,70 @@ def _check_catalog_objects(doctor: Doctor, cursor) -> bool:
         return False
     doctor.ok("schema tables", f"{len(REQUIRED_TABLES)} required tables exist")
 
+    cursor.execute(
+        """
+        SELECT table_schema, table_name, column_name
+        FROM information_schema.columns
+        WHERE (table_schema, table_name, column_name) IN (
+          SELECT required.schema_name, required.table_name, required.column_name
+          FROM unnest(%s::text[], %s::text[], %s::text[])
+            AS required(schema_name, table_name, column_name)
+        )
+        """,
+        (
+            [schema for schema, _, _ in REQUIRED_COLUMNS],
+            [table for _, table, _ in REQUIRED_COLUMNS],
+            [column for _, _, column in REQUIRED_COLUMNS],
+        ),
+    )
+    present_columns = {
+        (row["table_schema"], row["table_name"], row["column_name"])
+        for row in cursor.fetchall()
+    }
+    missing_columns = [
+        ".".join(required)
+        for required in REQUIRED_COLUMNS
+        if required not in present_columns
+    ]
+    if missing_columns:
+        doctor.fail(
+            "schema columns",
+            f"missing {', '.join(missing_columns)}; run the current core schema migration",
+        )
+        return False
+
+    cursor.execute(
+        """
+        SELECT table_schema, table_name, column_name
+        FROM information_schema.columns
+        WHERE (table_schema, table_name, column_name) IN (
+          SELECT retired.schema_name, retired.table_name, retired.column_name
+          FROM unnest(%s::text[], %s::text[], %s::text[])
+            AS retired(schema_name, table_name, column_name)
+        )
+        """,
+        (
+            [schema for schema, _, _ in RETIRED_COLUMNS],
+            [table for _, table, _ in RETIRED_COLUMNS],
+            [column for _, _, column in RETIRED_COLUMNS],
+        ),
+    )
+    retired_columns = [
+        ".".join((row["table_schema"], row["table_name"], row["column_name"]))
+        for row in cursor.fetchall()
+    ]
+    if retired_columns:
+        doctor.fail(
+            "schema columns",
+            f"retired {', '.join(retired_columns)} still exist; "
+            "run the current core schema migration",
+        )
+        return False
+    doctor.ok(
+        "schema columns",
+        f"{len(REQUIRED_COLUMNS)} runtime columns present; retired identity columns absent",
+    )
+
     missing_functions: list[str] = []
     for schema, function in REQUIRED_FUNCTIONS:
         cursor.execute(
@@ -157,6 +261,28 @@ def _check_catalog_objects(doctor: Doctor, cursor) -> bool:
         return False
     doctor.ok("schema functions", f"{len(REQUIRED_FUNCTIONS)} required functions exist")
 
+    cursor.execute(
+        """
+        SELECT signature
+        FROM unnest(%s::text[]) AS required(signature)
+        WHERE to_regprocedure(signature) IS NULL
+        ORDER BY signature
+        """,
+        (list(REQUIRED_FUNCTION_SIGNATURES),),
+    )
+    missing_signatures = [row["signature"] for row in cursor.fetchall()]
+    if missing_signatures:
+        doctor.fail(
+            "schema function signatures",
+            f"incompatible {', '.join(missing_signatures)}; "
+            "run the current core schema migration",
+        )
+        return False
+    doctor.ok(
+        "schema function signatures",
+        f"{len(REQUIRED_FUNCTION_SIGNATURES)} runtime signatures match",
+    )
+
     missing_indexes: list[str] = []
     for name in REQUIRED_INDEXES:
         cursor.execute("SELECT to_regclass(%s) AS object", (name,))
@@ -169,7 +295,8 @@ def _check_catalog_objects(doctor: Doctor, cursor) -> bool:
     return True
 
 
-def _check_casework(doctor: Doctor, cursor) -> None:
+def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
+    security_enabled = get_settings().workbench_security_enabled
     cursor.execute(
         """
         SELECT external_key
@@ -203,32 +330,79 @@ def _check_casework(doctor: Doctor, cursor) -> None:
             ", ".join(f"{name}={value}" for name, value in relations.items()),
         )
 
-    cursor.execute(
+    if security_enabled:
+        if cleared_cursor is None:
+            raise RuntimeError("security mode requires a cleared persona cursor")
+        cursor.execute(
+            """
+            SELECT count(*) AS visible
+            FROM casework.evidence_items
+            WHERE external_key = 'CASE-7421'
+              AND NOT is_deleted
+            """
+        )
+        app_engineer_visible = int(cursor.fetchone()["visible"])
+        if app_engineer_visible:
+            doctor.fail(
+                "ACL enforcement",
+                "App Engineer can read CASE-7421; restricted evidence is leaking",
+            )
+        else:
+            doctor.ok("ACL enforcement", "CASE-7421 hidden from App Engineer")
+    else:
+        cursor.execute(
+            """
+            SELECT count(*) AS visible
+            FROM retrieval.full_text_search('CASE-7421', p_limit => 50)
+            WHERE external_key = 'CASE-7421'
+            """
+        )
+        visible = int(cursor.fetchone()["visible"])
+        if visible:
+            doctor.fail(
+                "ACL enforcement",
+                "core retrieval returned CASE-7421 to App Engineer",
+            )
+        else:
+            doctor.ok(
+                "ACL enforcement",
+                "core retrieval predicate hides CASE-7421 from App Engineer",
+            )
+        doctor.ok(
+            "security mode",
+            "core retrieval; optional RLS and masking checks are not required",
+        )
+
+    fixture_cursor = cleared_cursor if security_enabled else cursor
+    fixture_cursor.execute(
         """
-        SELECT external_key, coalesce(acl ->> 'visibility', 'restricted') AS visibility
+        SELECT external_key,
+               coalesce(acl ->> 'visibility', 'restricted') AS visibility
         FROM casework.evidence_items
         WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
           AND NOT is_deleted
         ORDER BY external_key
         """
     )
-    restricted = cursor.fetchall()
+    restricted = fixture_cursor.fetchall()
     restricted_keys = [row["external_key"] for row in restricted]
     if "CASE-7421" not in restricted_keys:
         doctor.fail(
             "ACL fixture",
-            "CASE-7421 is not marked restricted; the M3 role flip has nothing to show",
+            "CASE-7421 is not marked restricted; run the current core schema "
+            "migration or reseed",
         )
-    elif len(restricted_keys) < 2:
+    elif security_enabled and len(restricted_keys) < 2:
         doctor.fail(
             "ACL fixture",
-            "only CASE-7421 is restricted; reseed to load the restricted cohort",
+            "only CASE-7421 is restricted; reseed to load the optional "
+            "security cohort",
         )
     else:
         doctor.ok(
             "ACL fixture",
-            f"{len(restricted_keys)} restricted evidence items "
-            f"({', '.join(restricted_keys)}) before retrieval and traversal",
+            f"{len(restricted_keys)} restricted evidence item(s) "
+            f"({', '.join(restricted_keys)})",
         )
 
     cursor.execute(
@@ -314,7 +488,7 @@ def check_database(doctor: Doctor) -> None:
     min_postgres = os.environ.get("POSTGRES_MIN_VERSION", "18.3")
     min_pgvector = os.environ.get("PGVECTOR_MIN_VERSION", "0.8.1")
     try:
-        with get_dict_conn("analyst") as connection:
+        with get_dict_conn("app_engineer") as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -379,7 +553,12 @@ def check_database(doctor: Doctor) -> None:
 
                 if not _check_catalog_objects(doctor, cursor):
                     return
-                _check_casework(doctor, cursor)
+                if settings.workbench_security_enabled:
+                    with get_dict_conn("dba") as cleared_connection:
+                        with cleared_connection.cursor() as cleared_cursor:
+                            _check_casework(doctor, cursor, cleared_cursor)
+                else:
+                    _check_casework(doctor, cursor)
                 _check_search_index(doctor, cursor)
     except Exception as error:
         doctor.fail("database connectivity", str(error))

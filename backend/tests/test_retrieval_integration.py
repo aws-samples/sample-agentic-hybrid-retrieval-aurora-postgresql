@@ -12,8 +12,11 @@ import psycopg
 from psycopg.rows import dict_row
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+SECURITY_ENABLED = os.environ.get("WORKBENCH_SECURITY_ENABLED") == "1"
 if TEST_DATABASE_URL:
     os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+    if SECURITY_ENABLED:
+        os.environ["WORKSHOP_APP_DATABASE_URL"] = TEST_DATABASE_URL
 
 from backend.app.config import get_settings
 from backend.app.embeddings import hash_embedding, to_pgvector
@@ -79,19 +82,27 @@ def _pg_columnmask_available(connection: psycopg.Connection) -> bool:
         return cursor.fetchone() is not None
 
 
+def _selected_schema_files() -> list[Path]:
+    """Return core migrations plus the optional security pair when enabled."""
+    max_version = 12 if SECURITY_ENABLED else 10
+    return sorted(
+        path
+        for path in (REPOSITORY_ROOT / "sql").glob("[0-9][0-9]_*.sql")
+        if int(path.name[:2]) <= max_version
+    )
+
+
 def _apply_schema(connection: psycopg.Connection) -> None:
-    """Apply every versioned SQL file before seeding.
+    """Apply the selected core and optional-security SQL before seeding.
 
     Retrieval, ranking, and ACL enforcement live in SQL, so a test that runs
     against whatever was last applied by hand is testing an unknown revision. The
     files are idempotent (CREATE OR REPLACE, IF NOT EXISTS), and applying them
     here means editing SQL is enough to make the suite exercise the change.
 
-    sql/12_masking.sql requires pg_columnmask, which Aurora PostgreSQL ships but a
-    local build does not. That one file is skipped -- loudly, by name, printed to
-    stdout -- when the extension is unavailable; every other file still runs with
-    no exception handling around it, so a real SQL error in any of them still
-    fails this call instead of being mistaken for the known, named gap.
+    Core mode applies sql/00 through sql/10. Security mode appends sql/11 and
+    sql/12. sql/12_masking.sql is skipped loudly on local PostgreSQL when the
+    Aurora-only pg_columnmask extension is unavailable.
 
     Args:
         connection: An open connection to the disposable test database.
@@ -99,16 +110,10 @@ def _apply_schema(connection: psycopg.Connection) -> None:
     Raises:
         RuntimeError: No versioned SQL files were found under ``sql/``.
     """
-    # Apply every versioned migration NN_*.sql except 99_reset.sql, which drops
-    # all three schemas. This matches what `make schema` applies.
-    files = sorted(
-        path
-        for path in (REPOSITORY_ROOT / "sql").glob("[0-9][0-9]_*.sql")
-        if not path.name.startswith("99")
-    )
+    files = _selected_schema_files()
     if not files:
         raise RuntimeError(f"no versioned SQL files found in {REPOSITORY_ROOT / 'sql'}")
-    skip_masking = not _pg_columnmask_available(connection)
+    skip_masking = SECURITY_ENABLED and not _pg_columnmask_available(connection)
     if skip_masking:
         print(
             f"_apply_schema: SKIPPING sql/{_AURORA_ONLY_SQL_FILE} -- pg_columnmask "
@@ -121,6 +126,13 @@ def _apply_schema(connection: psycopg.Connection) -> None:
                 continue
             cursor.execute(path.read_text(encoding="utf-8"))
     connection.commit()
+
+
+class SchemaSelectionTests(unittest.TestCase):
+    def test_schema_selection_matches_the_active_mode(self) -> None:
+        versions = [int(path.name[:2]) for path in _selected_schema_files()]
+        expected_max = 12 if SECURITY_ENABLED else 10
+        self.assertEqual(versions, list(range(expected_max + 1)))
 
 
 @unittest.skipUnless(
@@ -224,7 +236,7 @@ class RetrievalContractTests(unittest.TestCase):
 
         self.assertEqual(receipt["status"], "complete")
         self.assertEqual(receipt["candidate_count"], len(candidates))
-        self.assertEqual(receipt["role"], "analyst")
+        self.assertEqual(receipt["role"], "app_engineer")
         self.assertGreaterEqual(receipt["candidate_count"], 1)
         self.assertLessEqual(receipt["candidate_count"], 5)
         self.assertEqual(candidates[0]["external_key"], "CHG-1842")
@@ -293,6 +305,135 @@ class RetrievalContractTests(unittest.TestCase):
         self.assertEqual(replay["answer"]["validation_status"], "valid")
         self.assertEqual(str(latest_cited_run()["run_id"]), search["run_id"])
 
+    def test_run_replay_is_bound_to_the_callers_persona(self) -> None:
+        from fastapi import HTTPException
+
+        from backend.app.agent import (
+            explain_ranking_impl,
+            synthesize_cited_answer_from_run_impl,
+        )
+        from backend.app.insights import run_graph, run_timeline
+        from backend.app.main import graph, run_receipt, timeline
+        from backend.app.models import SearchRequest
+        from backend.app.search import run_hybrid_search
+
+        search = run_hybrid_search(
+            SearchRequest(
+                query="CASE-7421",
+                mode="lexical",
+                role="dba",
+                rerank=False,
+                limit=4,
+            )
+        )
+
+        self.assertEqual(
+            explain_ranking_impl(search["run_id"], role="dba")["run"]["role"],
+            "dba",
+        )
+        for replay in (
+            lambda: explain_ranking_impl(search["run_id"], role="app_engineer"),
+            lambda: run_graph(search["run_id"], role="app_engineer"),
+            lambda: run_timeline(search["run_id"], role="app_engineer"),
+            lambda: synthesize_cited_answer_from_run_impl(
+                "What happened in CASE-7421?",
+                search["run_id"],
+                role="app_engineer",
+            ),
+        ):
+            with self.subTest(replay=replay):
+                with self.assertRaises(ValueError):
+                    replay()
+
+        for route in (run_receipt, graph, timeline):
+            with self.subTest(route=route.__name__):
+                with self.assertRaises(HTTPException) as context:
+                    route(search["run_id"], role="app_engineer")
+                self.assertEqual(context.exception.status_code, 404)
+
+    def test_latest_cited_run_is_scoped_to_the_callers_persona(self) -> None:
+        from backend.app.agent import synthesize_cited_answer_from_run_impl
+        from backend.app.insights import latest_cited_run
+        from backend.app.models import SearchRequest
+        from backend.app.search import run_hybrid_search
+
+        run_ids: dict[str, str] = {}
+        for role, key in (
+            ("app_engineer", "CHG-1842"),
+            ("dba", "CHG-1838"),
+        ):
+            search = run_hybrid_search(
+                SearchRequest(
+                    query=key,
+                    mode="lexical",
+                    role=role,
+                    rerank=False,
+                    limit=4,
+                )
+            )
+            with patch(
+                "backend.app.synthesis.synthesize_live",
+                return_value={
+                    "answer": f"{key} is the persisted top result [1].",
+                    "model": "test-model",
+                    "transport": "test",
+                    "usage": {},
+                },
+            ):
+                synthesize_cited_answer_from_run_impl(
+                    f"What happened in {key}?",
+                    search["run_id"],
+                    role=role,
+                    limit=4,
+                )
+            run_ids[role] = search["run_id"]
+
+        self.assertEqual(
+            str(latest_cited_run("app_engineer")["run_id"]),
+            run_ids["app_engineer"],
+        )
+        self.assertEqual(
+            str(latest_cited_run("dba")["run_id"]),
+            run_ids["dba"],
+        )
+
+    def test_agent_run_replay_is_bound_to_the_callers_persona(self) -> None:
+        from backend.app.agent import get_agent_run_impl
+
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO proof.agent_runs(
+                  question,
+                  role,
+                  controls_initial,
+                  contract_version,
+                  status,
+                  ended_at
+                )
+                VALUES (%s, 'dba', '{}'::jsonb, 'test', 'complete', now())
+                RETURNING agent_run_id
+                """,
+                ("Who can reopen this run?",),
+            )
+            agent_run_id = str(cursor.fetchone()["agent_run_id"])
+        self.conn.commit()
+
+        try:
+            self.assertEqual(
+                get_agent_run_impl(agent_run_id, role="dba")["role"],
+                "dba",
+            )
+            with self.assertRaises(ValueError):
+                get_agent_run_impl(agent_run_id, role="app_engineer")
+        finally:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    "DELETE FROM proof.agent_runs WHERE agent_run_id = %s",
+                    (agent_run_id,),
+                )
+            self.conn.commit()
+
     def test_evaluation_separates_retrieval_from_traversal(self) -> None:
         from backend.app.evaluation import run_evaluation
 
@@ -326,21 +467,21 @@ class RetrievalContractTests(unittest.TestCase):
     def test_relationship_traversal_enforces_acl(self) -> None:
         from backend.app.agent import follow_evidence_links_impl
 
-        analyst = follow_evidence_links_impl(
+        app_engineer = follow_evidence_links_impl(
             ["INC-2047"],
-            role="analyst",
+            role="app_engineer",
             max_depth=2,
         )
-        admin = follow_evidence_links_impl(
-            ["INC-2047"],
-            role="admin",
-            max_depth=2,
-        )
-
-        analyst_keys = {row["external_key"] for row in analyst["reached"]}
-        admin_keys = {row["external_key"] for row in admin["reached"]}
-        self.assertNotIn("CASE-7421", analyst_keys)
-        self.assertIn("CASE-7421", admin_keys)
+        app_engineer_keys = {row["external_key"] for row in app_engineer["reached"]}
+        self.assertNotIn("CASE-7421", app_engineer_keys)
+        if SECURITY_ENABLED:
+            dba = follow_evidence_links_impl(
+                ["INC-2047"],
+                role="dba",
+                max_depth=2,
+            )
+            dba_keys = {row["external_key"] for row in dba["reached"]}
+            self.assertIn("CASE-7421", dba_keys)
 
     def test_evidence_detail_endpoint_enforces_acl(self) -> None:
         from fastapi import HTTPException
@@ -447,10 +588,10 @@ class RetrievalContractTests(unittest.TestCase):
 
         The test above runs as the default role only, and that is how this leak
         shipped: RLS on retrieval.documents hid the restricted row from
-        persona_analyst, NOT EXISTS turned true, and the analyst -- alone among
+        persona_app_engineer, NOT EXISTS turned true, and the app_engineer -- alone among
         the three -- had CASE-7421 fuzzed, serving it the visible near
         neighbours of an identifier it may not read. Measured, before the fix:
-        analyst ['CASE-7421'], admin [], auditor []. Any divergence here means
+        app_engineer ['CASE-7421'], dba [], auditor []. Any divergence here means
         the predicate is being evaluated under the caller's RLS again.
         """
         from backend.app.models import SearchRequest
@@ -462,7 +603,7 @@ class RetrievalContractTests(unittest.TestCase):
                     SearchRequest(query=token, mode="hybrid", role=persona),
                     [token],
                 )
-                for persona in ("analyst", "admin", "auditor")
+                for persona in ("app_engineer", "dba", "auditor")
             }
             with self.subTest(token=token):
                 self.assertEqual(
@@ -550,6 +691,130 @@ class RetrievalContractTests(unittest.TestCase):
             )
             self.assertEqual(cursor.fetchone()["mismatched"], 0)
 
+    def test_00_legacy_acl_stamp_upgrades_and_repairs_projection(self) -> None:
+        schema_sql = (REPOSITORY_ROOT / "sql/01_schema.sql").read_text(
+            encoding="utf-8"
+        )
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE casework.evidence_items
+                   SET acl = jsonb_build_object(
+                     'visibility', 'workshop',
+                     'principals', jsonb_build_array('support' || '-lead')
+                   )
+                 WHERE external_key = 'CASE-7421'
+                """
+            )
+            cursor.execute(
+                """
+                UPDATE retrieval.documents
+                   SET acl = jsonb_build_object(
+                         'visibility', 'workshop',
+                         'principals', jsonb_build_array('support' || '-lead')
+                       ),
+                       acl_visibility = 'workshop',
+                       acl_principals = ARRAY['support' || '-lead'],
+                       search_document_hash = (
+                         SELECT source.search_document_hash
+                         FROM casework.v_evidence_documents source
+                         WHERE source.evidence_id = documents.evidence_id
+                       )
+                 WHERE external_key = 'CASE-7421'
+                """
+            )
+            cursor.execute(
+                """
+                UPDATE retrieval.chunks
+                   SET acl = jsonb_build_object(
+                         'visibility', 'workshop',
+                         'principals', jsonb_build_array('support' || '-lead')
+                       ),
+                       acl_visibility = 'workshop',
+                       acl_principals = ARRAY['support' || '-lead']
+                 WHERE evidence_id = %s
+                """,
+                (evidence_id("support_case", "CASE-7421"),),
+            )
+            cursor.execute(schema_sql)
+            cursor.execute(
+                """
+                SELECT issue
+                FROM retrieval.search_index_drift()
+                WHERE external_key = 'CASE-7421'
+                ORDER BY issue
+                """
+            )
+            upgrade_drift = [row["issue"] for row in cursor.fetchall()]
+        self.conn.commit()
+
+        self.assertEqual(upgrade_drift, ["search_document_hash_mismatch"])
+        # This disposable fixture began with the post-upgrade deterministic
+        # document ID. The real legacy cluster has only the old-hash ID, so remove
+        # this synthetic projection before exercising creation of the new version.
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM retrieval.chunks
+                WHERE evidence_id = %s
+                """,
+                (evidence_id("support_case", "CASE-7421"),),
+            )
+            cursor.execute(
+                """
+                DELETE FROM retrieval.documents
+                WHERE evidence_id = %s
+                """,
+                (evidence_id("support_case", "CASE-7421"),),
+            )
+        self.conn.commit()
+
+        rebuilt = rebuild_search_index(
+            self.conn,
+            model_id="local-hash-embedding-v1",
+            cache_path=Path(self.cache_dir.name) / "embeddings.jsonl",
+            embed_missing=False,
+        )
+
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                  source.acl AS source_acl,
+                  document.acl AS document_acl,
+                  document.acl_visibility AS document_visibility,
+                  document.acl_principals AS document_principals,
+                  chunk.acl AS chunk_acl,
+                  chunk.acl_visibility AS chunk_visibility,
+                  chunk.acl_principals AS chunk_principals
+                FROM casework.evidence_items source
+                JOIN retrieval.documents document USING (evidence_id)
+                JOIN retrieval.chunks chunk USING (document_version_id)
+                WHERE source.external_key = 'CASE-7421'
+                  AND document.is_current
+                """
+            )
+            upgraded = cursor.fetchone()
+            cursor.execute(
+                """
+                SELECT count(*)::integer AS drift
+                FROM retrieval.search_index_drift()
+                WHERE external_key = 'CASE-7421'
+                """
+            )
+            drift = cursor.fetchone()["drift"]
+
+        expected_acl = {"visibility": "restricted", "principals": []}
+        self.assertEqual(rebuilt["documents_indexed"], 1)
+        self.assertEqual(upgraded["source_acl"], expected_acl)
+        self.assertEqual(upgraded["document_acl"], expected_acl)
+        self.assertEqual(upgraded["document_visibility"], "restricted")
+        self.assertEqual(upgraded["document_principals"], [])
+        self.assertEqual(upgraded["chunk_acl"], expected_acl)
+        self.assertEqual(upgraded["chunk_visibility"], "restricted")
+        self.assertEqual(upgraded["chunk_principals"], [])
+        self.assertEqual(drift, 0)
+
     def test_generated_corpus_has_unique_search_surfaces(self) -> None:
         with self.conn.cursor() as cursor:
             cursor.execute(
@@ -596,6 +861,10 @@ class RetrievalContractTests(unittest.TestCase):
         self.assertEqual(chunks["chunk_hashes"], expected)
         self.assertEqual(chunks["embeddings"], expected)
 
+    @unittest.skipUnless(
+        SECURITY_ENABLED,
+        "set WORKBENCH_SECURITY_ENABLED=1 for pre-retrieval RLS checks",
+    )
     def test_acl_is_applied_before_retrieval(self) -> None:
         """The lexical arm's row set follows the connection's role.
 
@@ -614,7 +883,7 @@ class RetrievalContractTests(unittest.TestCase):
             FROM retrieval.full_text_search(%s, p_limit => 50)
         """
         keys = {}
-        for persona in ("analyst", "admin"):
+        for persona in ("app_engineer", "dba"):
             with db.get_dict_conn(persona) as connection:
                 with connection.cursor() as cursor:
                     cursor.execute(sql, (query,))
@@ -622,8 +891,8 @@ class RetrievalContractTests(unittest.TestCase):
                         row["external_key"] for row in cursor.fetchall()
                     }
 
-        self.assertNotIn("CASE-7421", keys["analyst"])
-        self.assertIn("CASE-7421", keys["admin"])
+        self.assertNotIn("CASE-7421", keys["app_engineer"])
+        self.assertIn("CASE-7421", keys["dba"])
 
     def test_canonical_search_functions_have_one_signature_each(self) -> None:
         # One overload each is the real assertion: removing p_principal with
@@ -1060,6 +1329,7 @@ class RetrievalContractTests(unittest.TestCase):
             )
             receipt = cursor.fetchone()
         self.assertEqual(str(receipt["run_id"]), response["run_id"])
+        self.assertEqual(receipt["role"], "app_engineer")
         self.assertEqual(receipt["transport"], "http")
         self.assertEqual(receipt["status"], "succeeded")
         self.assertEqual(len(receipt["request_hash"]), 64)

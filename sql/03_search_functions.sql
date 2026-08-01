@@ -1,16 +1,6 @@
--- One identity axis: the database role (A7). The predicate reads the role rather
--- than a caller-supplied identity bag, so the app cannot assert an identity it
--- does not hold — the strongest form of "the engine is the enforcement point."
---
--- This expression is byte-identical to the USING clause of the three RLS policies
--- in sql/11_roles_rls.sql and to the predicate participants write by hand in Lab 3.
--- Three copies of one expression is deliberate: the arms keep an explicit,
--- readable filter (so the ACL is visible in the SQL a participant reads), RLS
--- enforces it even when a query forgets, and the hand-written version is the
--- exercise. If you change one, change all three.
---
--- STABLE, not IMMUTABLE: pg_has_role is STABLE, and an IMMUTABLE label would let
--- the planner fold a result that is only valid for one role.
+-- Core mode has one fixed evidence scope: workshop-visible rows. The optional
+-- security module (sql/11_roles_rls.sql) replaces these signatures with
+-- persona-aware predicates and adds RLS as a backstop.
 DROP FUNCTION IF EXISTS retrieval.acl_visible(jsonb, jsonb);
 
 CREATE OR REPLACE FUNCTION retrieval.acl_visible(
@@ -23,13 +13,11 @@ STABLE
 PARALLEL SAFE
 AS $$
   SELECT coalesce(p_acl ->> 'visibility', 'restricted') = 'workshop'
-    OR pg_has_role(p_role, 'can_see_restricted', 'USAGE')
 $$;
 
 COMMENT ON FUNCTION retrieval.acl_visible(jsonb, name) IS
-  'Visibility of one evidence ACL to one role. p_role defaults to current_user; '
-  'replay passes the run''s stored role explicitly. USAGE not MEMBER: MEMBER '
-  'ignores INHERIT and would report a clearance the effective role does not have.';
+  'Core workshop visibility predicate. p_role is retained for API compatibility '
+  'and is activated by the optional sql/11 security migration.';
 
 -- The scalar twin, for the projected retrieval.* tables that carry acl_visibility
 -- as a column instead of the jsonb. p_required_principals is gone: after the
@@ -47,7 +35,6 @@ STABLE
 PARALLEL SAFE
 AS $$
   SELECT coalesce(p_visibility, 'restricted') = 'workshop'
-    OR pg_has_role(p_role, 'can_see_restricted', 'USAGE')
 $$;
 
 -- Natural-language questions name more terms than any one document contains, so
@@ -652,10 +639,10 @@ $$;
 --
 -- SECURITY DEFINER because the question is deliberately ACL-blind and cannot be
 -- answered by a persona: retrieval.documents is RLS-forced (sql/11 section 4), so
--- under persona_analyst the restricted row vanishes, NOT EXISTS turns true, and
+-- under persona_app_engineer the restricted row vanishes, NOT EXISTS turns true, and
 -- the caller is told "not indexed" about a row that is indexed -- inverting the
--- guarantee. Measured before this function existed: persona_analyst probing
--- CASE-7421 got it back as a fuzz candidate; admin and auditor did not.
+-- guarantee. Measured before this function existed: persona_app_engineer probing
+-- CASE-7421 got it back as a fuzz candidate; DBA and Auditor did not.
 --
 -- Safe to run as the owner because of what it returns, not because of who calls
 -- it. The projection is one boolean per input token. No column of any evidence
@@ -735,11 +722,13 @@ REVOKE ALL ON FUNCTION retrieval.identifier_is_indexed(
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_analyst') THEN
+  IF to_regrole('persona_app_engineer') IS NOT NULL
+     AND to_regrole('persona_dba') IS NOT NULL
+     AND to_regrole('persona_auditor') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION retrieval.identifier_is_indexed(
       text[], text[], text, text, text, text[], text, text, text, text,
       timestamptz, timestamptz
-    ) TO persona_analyst, persona_admin, persona_auditor;
+    ) TO persona_app_engineer, persona_dba, persona_auditor;
   END IF;
 END
 $$;
@@ -1034,9 +1023,11 @@ $$;
 -- the personas do not exist yet) still applies this file.
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_analyst') THEN
+  IF to_regrole('persona_app_engineer') IS NOT NULL
+     AND to_regrole('persona_dba') IS NOT NULL
+     AND to_regrole('persona_auditor') IS NOT NULL THEN
     GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA retrieval
-      TO persona_analyst, persona_admin, persona_auditor;
+      TO persona_app_engineer, persona_dba, persona_auditor;
   END IF;
 END
 $$;

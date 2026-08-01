@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from backend.app.agent import (
     _attach_relationships,
@@ -25,11 +26,19 @@ class AgentContractTests(unittest.TestCase):
         )
 
     def test_canonical_decomposition_drives_coverage_loop(self) -> None:
-        plan = decompose_question_impl(
-            "During INC-2047 on checkout-prod-cluster-01, determine whether CHG-1842 "
-            "or CHG-1838 caused the incident, identify customer impact, and "
-            "cite the lock evidence and approved runbook for recovery."
-        )
+        with patch(
+            "backend.app.agent._anchor_keys",
+            return_value={
+                "lock_evidence": "LOCK-2047-001",
+                "runbook": "RB-017",
+            },
+        ):
+            plan = decompose_question_impl(
+                "During INC-2047 on checkout-prod-cluster-01, determine whether "
+                "CHG-1842 or CHG-1838 caused the incident, identify customer "
+                "impact, and cite the lock evidence and approved runbook for "
+                "recovery."
+            )
 
         self.assertEqual(
             [row["subquestion_id"] for row in plan["subquestions"]],

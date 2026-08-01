@@ -46,7 +46,7 @@ GATE_ID = "G-30"
 TITLE = "Participant zero-ceremony identity (A1)"
 
 PARTICIPANT_ROLE = "workshop_participant"
-PERSONA_ROLES = ("persona_analyst", "persona_admin", "persona_auditor")
+PERSONA_ROLES = ("persona_app_engineer", "persona_dba", "persona_auditor")
 
 # Monitoring reads every Lab-1 watch.sql snippet performs.
 MONITORING_VIEWS = (

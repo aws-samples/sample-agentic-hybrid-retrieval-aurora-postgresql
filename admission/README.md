@@ -55,14 +55,12 @@ retrieval SQL.
 
 ## Idempotency
 
-Admission is idempotent by `(source_uri, content_hash)`, where
-`content_hash` is derived from the payload's `source.uri` and `body`. Calling
-`admit_evidence` twice with the same payload does no second write: the
-function looks up the prior `ingest_receipts` row for that key and returns it
-verbatim with `idempotent_replay: true` and the same `ingest_id`. This is what
-lets `admit.sh` be re-run safely if a participant's terminal session drops
-mid-way — replay the same capture and get the same receipt back, not a
-duplicate row or an error.
+Admission is idempotent by `(source_uri, content_hash)`. The content hash is a
+fingerprint of the normalized complete payload, including structured facts,
+ACL, links, and availability. Calling `admit_evidence` twice with the same
+payload does no second write: the function returns the prior receipt with
+`idempotent_replay: true` and the same `ingest_id`. A changed measurement under
+the same source URI creates a new receipt and updates the stable evidence row.
 
 ## The `available_at` gate
 
@@ -71,20 +69,19 @@ is a real column on `casework.evidence_items`, and every retrieval arm that
 should honor "don't surface evidence before it was actually available" filters
 on `available_at <= now()`. Setting `available_at` in the future lets you
 admit evidence that only becomes retrievable later; leaving it unset (or in
-the past) makes it retrievable immediately, which is what the exact-arm
+the past) makes it visible in canonical casework immediately, which is what the
 checkpoint in `admit.sh` verifies.
 
-## Zero model calls; semantic projection is queued, not synchronous
+## Zero model calls; retrieval projection is queued, not synchronous
 
 Admission never calls Bedrock and never blocks on embedding generation.
 `admit_evidence` only inserts a row into `retrieval.search_index_queue`; a
 separate, later build pass (the same search-index builder the bulk loader
 uses — see `docs/ingestion-api.md`) is what turns a queued row into a
-`retrieval.documents`/`retrieval.chunks` projection with embeddings. The
-exact-key retrieval arm (which `admit.sh`'s checkpoint exercises) does not
-depend on that projection at all — it reads `casework.evidence_items`
-directly — but semantic and hybrid search over the newly admitted evidence
-is not live until the next search-index build runs.
+`retrieval.documents`/`retrieval.chunks` projection with embeddings.
+`admit.sh` checks the authoritative `casework.evidence_items` row and ACL
+predicate only. Exact, lexical, semantic, fuzzy, and hybrid retrieval over the
+newly admitted evidence are not live until the next search-index build runs.
 
 ## Files here
 
@@ -96,10 +93,10 @@ is not live until the next search-index build runs.
 - `admit.sh` — the Lab 1 finale script. Requires `DATABASE_URL` in the
   environment, runs the promoter, pipes the resulting payload into
   `casework.admit_evidence` via `psql`, prints the ingest receipt, and then
-  runs the exact-arm checkpoint (confirms the admitted `external_key` is
-  immediately selectable from `casework.evidence_items` as of `now()`, read as
-  `persona_analyst` inside a rolled-back transaction so the check passes through
-  live RLS rather than around it).
+  runs the canonical-row checkpoint (confirms the admitted `external_key` is
+  selectable from `casework.evidence_items` as of `now()` through the ACL
+  predicate). With `WORKBENCH_SECURITY_ENABLED=1`, the same checkpoint also
+  runs as `persona_app_engineer` through live RLS.
 - `fixture_payload.json` — the deterministic `LOCK-LIVE-001` payload used
   when no live capture is present.
 - `payload_v1.schema.json` — the JSON Schema for `admission payload v1`.
@@ -129,8 +126,8 @@ to `promote_pg_incident.py` following the same shape:
    jsonb.
 
 Payloads default `acl` to `{"visibility": "workshop"}`, matching the
-corpus-wide default scope documented in `docs/data-model.md`. That default is
-what makes `persona_analyst` the right identity for the exact-arm checkpoint: a
-payload admitted with `{"visibility": "restricted"}` is invisible to the analyst
-by RLS, and the checkpoint reporting it as not-visible is correct behavior, not a
+core scope documented in `docs/data-model.md`. A payload admitted with
+`{"visibility": "restricted"}` is excluded by the core ACL predicate. In the
+optional security module it is also invisible to the App Engineer through RLS,
+so the checkpoint reporting it as not visible is correct behavior rather than a
 failed admission.

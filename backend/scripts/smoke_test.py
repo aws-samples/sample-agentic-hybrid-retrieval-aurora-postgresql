@@ -8,6 +8,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.agent import answer_question, follow_evidence_links_impl  # noqa: E402
+from app.config import get_settings  # noqa: E402
 from app.db import close_pool, get_dict_conn  # noqa: E402
 from app.models import AgentAnswerRequest, SearchRequest  # noqa: E402
 from app.search import run_hybrid_search  # noqa: E402
@@ -62,8 +63,9 @@ def _write_readiness(receipts: dict[str, object]) -> Path | None:
 
 def main() -> int:
     receipts: dict[str, object] = {}
+    security_enabled = get_settings().workbench_security_enabled
     try:
-        with get_dict_conn("analyst") as connection:
+        with get_dict_conn("app_engineer") as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT retrieval.assert_search_index_ready() AS health")
                 receipts["search_index"] = cursor.fetchone()["health"]
@@ -103,68 +105,77 @@ def main() -> int:
             SearchRequest(
                 query="Northstar premium checkout escalation",
                 mode="lexical",
-                role="analyst",
-                rerank=False,
-                limit=20,
-            )
-        )
-        visible = run_hybrid_search(
-            SearchRequest(
-                query="Northstar premium checkout escalation",
-                mode="lexical",
-                role="admin",
+                role="app_engineer",
                 rerank=False,
                 limit=20,
             )
         )
         _require("CASE-7421" not in _keys(hidden), "restricted case leaked")
-        _require("CASE-7421" in _keys(visible), "authorized case was not retrievable")
-        receipts["acl_run_ids"] = [hidden["run_id"], visible["run_id"]]
+        receipts["acl_run_ids"] = [hidden["run_id"]]
 
-        # The ACL is enforced by the engine, so prove it by disagreement: the same
-        # query under two personas must return different row counts.
-        with get_dict_conn("analyst") as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT count(*) AS visible
-                    FROM casework.evidence_items
-                    WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
-                    """
+        if security_enabled:
+            visible = run_hybrid_search(
+                SearchRequest(
+                    query="Northstar premium checkout escalation",
+                    mode="lexical",
+                    role="dba",
+                    rerank=False,
+                    limit=20,
                 )
-                analyst_visible = cursor.fetchone()["visible"]
-        with get_dict_conn("admin") as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT count(*) AS visible
-                    FROM casework.evidence_items
-                    WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
-                    """
-                )
-                admin_visible = cursor.fetchone()["visible"]
-        _require(
-            analyst_visible == 0,
-            f"analyst saw {analyst_visible} restricted evidence rows; RLS is not enforced",
-        )
-        _require(
-            admin_visible > 0,
-            "admin saw no restricted evidence rows; either the seed has none or "
-            "can_see_restricted is not granted",
-        )
-        receipts["acl_row_counts"] = {
-            "analyst": analyst_visible,
-            "admin": admin_visible,
-        }
+            )
+            _require(
+                "CASE-7421" in _keys(visible),
+                "authorized case was not retrievable",
+            )
+            receipts["acl_run_ids"].append(visible["run_id"])
+
+            # Prove database enforcement by persona disagreement over the same rows.
+            with get_dict_conn("app_engineer") as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        SELECT count(*) AS visible
+                        FROM casework.evidence_items
+                        WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
+                        """
+                    )
+                    app_engineer_visible = cursor.fetchone()["visible"]
+            with get_dict_conn("dba") as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        SELECT count(*) AS visible
+                        FROM casework.evidence_items
+                        WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
+                        """
+                    )
+                    dba_visible = cursor.fetchone()["visible"]
+            _require(
+                app_engineer_visible == 0,
+                f"app_engineer saw {app_engineer_visible} restricted evidence rows; "
+                "RLS is not enforced",
+            )
+            _require(
+                dba_visible > 0,
+                "dba saw no restricted evidence rows; either the seed has none or "
+                "can_see_restricted is not granted",
+            )
+            receipts["acl_row_counts"] = {
+                "app_engineer": app_engineer_visible,
+                "dba": dba_visible,
+            }
 
         traversal = follow_evidence_links_impl(
             ["INC-2047"],
-            role="analyst",
+            role="app_engineer",
             max_depth=2,
         )
         traversal_keys = {row["external_key"] for row in traversal["reached"]}
         _require("CASE-7419" in traversal_keys, "visible support case was not traversed")
-        _require("CASE-7421" not in traversal_keys, "restricted case leaked in traversal")
+        _require(
+            "CASE-7421" not in traversal_keys,
+            "restricted case leaked in traversal",
+        )
         receipts["traversal_keys"] = sorted(traversal_keys)
 
         if os.environ.get("SMOKE_SKIP_ANSWER") == "1":

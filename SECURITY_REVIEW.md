@@ -43,6 +43,8 @@ Relevant configuration:
 - `BEDROCK_SYNTHESIS_MODEL`
 - `COHERE_RERANK_MODEL`
 - `AGENTCORE_GATEWAY_URL`
+- `WORKBENCH_SECURITY_ENABLED` (optional security appendix)
+- `WORKSHOP_APP_DATABASE_URL` (optional non-owner pool DSN)
 
 Model identifiers are configuration, not secrets. Database passwords and AWS
 credentials are secrets.
@@ -67,7 +69,25 @@ is constrained by Pydantic literals and maps to fixed SQL statements.
 ## Evidence ACLs
 
 Each evidence item and indexed document carries an `acl` JSONB whose
-`visibility` is either `workshop` or `restricted`. Enforcement is layered:
+`visibility` is either `workshop` or `restricted`.
+
+### Core release mode
+
+The required workshop and default release use the explicit predicate inside
+every retrieval arm and at every traversal hop. Arms reading the JSONB call
+`retrieval.acl_visible(acl)`; arms reading the projected column call
+`retrieval.acl_scalars_visible(acl_visibility)`. In core mode both helpers expose
+only `visibility = 'workshop'`. No persona role, RLS policy, or
+`pg_columnmask` extension is a core prerequisite.
+
+This fixed scope is defense in depth for the synthetic corpus, not a claim of
+end-user authorization. The API may still record a persona with a run, but core
+mode does not turn that value into database identity.
+
+### Optional security appendix
+
+The implemented appendix layers database enforcement onto the same retrieval
+contract:
 
 - **Row-level security** (`sql/11_roles_rls.sql`) is enabled and **forced** on
   `casework.evidence_items`, `retrieval.documents`, and `retrieval.chunks`. All
@@ -88,25 +108,22 @@ coalesce(acl ->> 'visibility', 'restricted') = 'workshop'
   Every detail and junction table beneath `casework.evidence_items` carries no
   visibility clause of its own. Each inherits visibility by reachability, through
   a policy that tests `EXISTS` against its parent evidence row.
-- **The explicit predicate** runs inside every retrieval arm and at every
-  traversal hop, so the planner filters early and a pasted verify-SQL statement
-  returns the same rows without a hidden session prerequisite. Arms reading the
-  JSONB call `retrieval.acl_visible(acl)`; arms reading the projected column call
-  `retrieval.acl_scalars_visible(acl_visibility)`. Both evaluate the same
-  expression as the policy.
+- **The explicit predicate** remains inside every retrieval arm and traversal
+  hop. `sql/11` replaces the core helper bodies with persona-aware versions that
+  evaluate the same expression as the RLS policy.
 - **Column masking** (`sql/12_masking.sql`) redacts the account name, case
   description, customer commitment, and the rendered `chunk_text` blob for
   `persona_auditor` only.
 
-Identity is a **persona**, one of `analyst`, `admin`, or `auditor`. Personas are
+Identity is a **persona**, one of `app_engineer`, `dba`, or `auditor`. Personas are
 `NOLOGIN` database roles; the app pool connects as `workshop_app`, which holds no
 table grants, and issues one `SET LOCAL ROLE persona_<persona>` per request
 transaction. With no role set, a `SELECT` raises `permission denied`: the pool
 identity has no standing privilege path.
 
 Clearance is additive: the `can_see_restricted` role is GRANTed to
-`persona_admin` and `persona_auditor`, never to `persona_analyst`. Restricted
-evidence, `CASE-7421` and six supporting objects, is invisible to the analyst
+`persona_dba` and `persona_auditor`, never to `persona_app_engineer`. Restricted
+evidence, `CASE-7421` and six supporting objects, is invisible to the app engineer
 at the table, not merely absent from a result set.
 
 This is a teaching policy, not a complete enterprise authorization system. RLS
@@ -115,6 +132,17 @@ asserted by the application**, because this workshop ships no authentication. A
 production system must authenticate the caller, map current source-system
 authorization into the persona decision, and revalidate live when indexed ACL
 metadata may be stale.
+
+Enable the appendix only after `make security-schema` succeeds on Aurora, set
+`WORKSHOP_APP_DATABASE_URL`, and set `WORKBENCH_SECURITY_ENABLED=1`. Local
+PostgreSQL may skip `sql/12_masking.sql` when `pg_columnmask` is unavailable; an
+unmasked local run is not appendix validation. Likewise, `make security-checks`
+can report `BLOCKED` dependencies without a nonzero exit, so release evidence
+must show G-27, G-29, G-30, and G-31 individually `PASS`.
+
+Do not run `make schema` alone on a security-enabled database:
+`sql/03_search_functions.sql` restores the core workshop-only helper bodies.
+Reapply the complete security schema before serving security-mode traffic.
 
 ## Citation Integrity
 
@@ -163,7 +191,8 @@ deployment must replace those defaults with the deployed origin.
 
 The local API has no end-user authentication and must not be exposed publicly.
 The managed workshop tool boundary uses `AWS_IAM` authorization at AgentCore
-Gateway. Gateway authorization does not replace database row authorization.
+Gateway. Gateway authorization does not replace the core evidence predicate or
+optional database row authorization.
 
 ## Operational Safety
 
@@ -185,6 +214,8 @@ Gateway. Gateway authorization does not replace database row authorization.
 - [ ] Source archive SHA and Git revision match Workshop Studio.
 - [ ] Database roles follow the intended workshop or production privilege model.
 - [ ] ACL-denial tests pass before fusion and traversal.
+- [ ] If the optional security appendix is published, G-27/G-29/G-30/G-31 each
+      report `PASS` on Aurora; none is `BLOCKED`.
 - [ ] Citation validation passes for the live answer.
 - [ ] CORS and API exposure match the deployment.
 - [ ] Bedrock model IDs, lifecycle, CRIS routing, IAM, and quotas are current.

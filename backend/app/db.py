@@ -27,8 +27,8 @@ def _configure_connection(conn: psycopg.Connection) -> None:
     conn.autocommit = True
 
 
-PERSONAS: tuple[str, ...] = ("analyst", "admin", "auditor")
-Persona = Literal["analyst", "admin", "auditor"]
+PERSONAS: tuple[str, ...] = ("app_engineer", "auditor", "dba")
+Persona = Literal["app_engineer", "auditor", "dba"]
 
 
 def persona_role(persona: str) -> str:
@@ -55,26 +55,24 @@ def persona_role(persona: str) -> str:
 def _pool_conninfo() -> str:
     """The DSN the request pool connects with.
 
-    Prefers WORKSHOP_APP_DATABASE_URL (workshop_app, which holds no clearance) and
-    falls back to DATABASE_URL so a local developer with one DSN still runs. The
-    fallback is logged at WARNING because under it row filtering does not hold: the
-    bootstrap identity is granted can_see_restricted by sql/11 so that the seed and
-    the index build can project the whole corpus, and the clearance disjunct in every
-    policy is therefore true for it on every row.
+    Core mode uses DATABASE_URL and does not assume a persona role. The optional
+    security module requires WORKSHOP_APP_DATABASE_URL so a missing SET LOCAL ROLE
+    fails closed instead of inheriting owner privileges.
     """
     settings = get_settings()
-    if settings.workshop_app_database_url:
-        return settings.workshop_app_database_url
+    if settings.workbench_security_enabled:
+        if settings.workshop_app_database_url:
+            return settings.workshop_app_database_url
+        raise RuntimeError(
+            "WORKBENCH_SECURITY_ENABLED=1 requires WORKSHOP_APP_DATABASE_URL. "
+            "Apply `make security-schema`, provision the workshop_app login, and "
+            "set its DSN before enabling persona enforcement."
+        )
     if not settings.database_url:
         raise RuntimeError(
-            "Neither WORKSHOP_APP_DATABASE_URL nor DATABASE_URL is set. For local "
+            "DATABASE_URL is not set. For local "
             "development use postgresql://localhost:55432/retrieval?sslmode=disable"
         )
-    logger.warning(
-        "WORKSHOP_APP_DATABASE_URL is not set; the request pool is falling back to "
-        "DATABASE_URL. That identity holds can_see_restricted, so every RLS policy's "
-        "clearance disjunct is true for it and persona row filtering is not enforced."
-    )
     return settings.database_url
 
 
@@ -128,11 +126,12 @@ def close_pool() -> None:
 
 @contextmanager
 def get_conn(persona: Persona, *, row_factory=None) -> Iterator[psycopg.Connection]:
-    """Check out a connection running as `persona` for the `with` block.
+    """Check out a request-path connection for the `with` block.
 
-    The persona is positional and required. A caller that forgets it raises
-    TypeError here rather than reaching the database as workshop_app, which holds
-    no read-path grants and would raise permission denied at the first SELECT.
+    The persona remains positional because receipts retain the optional security
+    context. In core mode it is validated but does not change database identity.
+    With WORKBENCH_SECURITY_ENABLED=1, the checkout assumes the matching NOLOGIN
+    role for the transaction.
 
     The checkout owns a transaction because SET LOCAL is transaction-scoped: the
     pool is autocommit, so outside an explicit transaction the role would apply to
@@ -148,19 +147,20 @@ def get_conn(persona: Persona, *, row_factory=None) -> Iterator[psycopg.Connecti
         A pooled connection inside an open transaction, running as the persona.
     """
     role = persona_role(persona)
+    security_enabled = get_settings().workbench_security_enabled
     pool = get_pool()
     with pool.connection() as conn:
         if row_factory is not None:
             conn.row_factory = row_factory
         try:
             with conn.transaction():
-                with conn.cursor() as cursor:
-                    # sql.Identifier, not an f-string: the role name is derived from
-                    # a validated persona, but SET ROLE takes no parameter markers
-                    # and this is the one place a literal would be interpolated.
-                    cursor.execute(
-                        pgsql.SQL("SET LOCAL ROLE {}").format(pgsql.Identifier(role))
-                    )
+                if security_enabled:
+                    with conn.cursor() as cursor:
+                        cursor.execute(
+                            pgsql.SQL("SET LOCAL ROLE {}").format(
+                                pgsql.Identifier(role)
+                            )
+                        )
                 yield conn
         finally:
             if row_factory is not None:

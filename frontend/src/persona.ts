@@ -8,30 +8,30 @@
 // `permission denied to set role`, which is the correct failure: the database
 // is the authority on which identities exist.
 
-export type PersonaKey = 'analyst' | 'admin' | 'auditor';
+export type PersonaKey = 'app_engineer' | 'auditor' | 'dba';
 
 export const PERSONA_KEYS: readonly PersonaKey[] = [
-  'analyst',
-  'admin',
+  'app_engineer',
   'auditor',
+  'dba',
 ];
 
-export const DEFAULT_PERSONA: PersonaKey = 'analyst';
+export const DEFAULT_PERSONA: PersonaKey = 'app_engineer';
 
 // Chip copy (A4). "Viewing as" is the frame; these are the values inside it.
 // Never "Sign in as" — the chip mirrors the identity the request carried, it
 // does not grant one.
 export const PERSONA_LABELS: Record<PersonaKey, string> = {
-  analyst: 'Analyst',
-  admin: 'Admin',
+  app_engineer: 'App Engineer',
+  dba: 'DBA',
   auditor: 'Auditor',
 };
 
 // What the app asked Postgres to become. Rendered in the receipt so a
 // participant can paste the same statement into psql and see the same rows.
 export const PERSONA_DB_ROLES: Record<PersonaKey, string> = {
-  analyst: 'persona_analyst',
-  admin: 'persona_admin',
+  app_engineer: 'persona_app_engineer',
+  dba: 'persona_dba',
   auditor: 'persona_auditor',
 };
 

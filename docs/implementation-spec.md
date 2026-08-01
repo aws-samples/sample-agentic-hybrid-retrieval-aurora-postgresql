@@ -52,6 +52,13 @@ The production decision for each evidence source must be explicit:
 The workshop implements the materialized path over a controlled synthetic
 fixture. It does not simulate an unimplemented connector or source mutation.
 
+The required participant contract is incident diagnosis through hybrid
+retrieval, fusion and reranking, agent tools, cited synthesis, and diagnostics
+and replay. It uses the default App Engineer persona. RLS and `pg_columnmask`
+remain implemented security capabilities, but their App Engineer, Auditor, and
+DBA query comparison is optional appendix work rather than a participant
+prerequisite or default release gate.
+
 ## 2. Participant Outcome
 
 The participant investigates one question:
@@ -65,12 +72,14 @@ The evidence-backed result is:
 - PostgreSQL allowed ordinary reads while writes accumulated
   `Lock:relation` waits.
 - `LOCK-2047-001` and `LOCK-2047-002` identify the blocking index backend.
-- visible support case `CASE-7419` identifies Acme Retail as affected;
-  restricted `CASE-7421` remains hidden from the analyst persona;
+- visible support case `CASE-7419` identifies Acme Retail as affected, while
   `CASE-7424` is explicitly unrelated.
 - the response cancelled the blocking build and recovered queued writers.
 - `RB-017` recommends `CREATE INDEX CONCURRENTLY` outside a transaction,
   with progress monitoring and invalid-index cleanup after failure.
+
+Restricted support case `CASE-7421` is the optional persona-comparison fixture;
+it is not required to complete the incident diagnosis.
 
 The participant leaves with a persisted `run_id` that replays the query,
 filters, persona, retrieval controls, candidates, stages, answer, citations,
@@ -93,7 +102,7 @@ Synthetic normalized operational records
                  | filters and ACLs before each retrieval arm
                  v
        canonical retrieval.* SQL functions
- exact + FTS + vector + trigram -> weighted RRF -> rerank
+ exact tier + (FTS + vector + trigram -> weighted RRF) -> rerank
                  |
           +------+------+
           |             |
@@ -131,7 +140,7 @@ availability tradeoff.
 | `LOCK-2047-001` | Lock evidence | Blocked writer and blocking index statement |
 | `LOCK-2047-002` | Lock evidence | Second blocked writer and `pg_blocking_pids` confirmation |
 | `CASE-7419` | Support case | Visible affected customer and commitment |
-| `CASE-7421` | Support case | Relevant restricted evidence for ACL proof |
+| `CASE-7421` | Support case | Relevant restricted evidence for the optional persona appendix |
 | `CASE-7424` | Support case | Explicit unaffected comparison case |
 | `RB-017` | Runbook | Concurrent index build guidance and caveats |
 
@@ -159,7 +168,7 @@ code reads it. `visibility` is the classification.
 Seven objects carry `"visibility":"restricted"`: `CASE-7421` (the canonical ACL
 proof), `CASE-8102`, `CASE-8137`, `INC-3162`, `INC-4117`, `CHG-6213`, and
 `CHG-3309`. They are visible only to a persona holding `can_see_restricted`
-(`admin`, `auditor`), never to `analyst`. RLS enforces this at
+(`dba`, `auditor`), never to `app_engineer`. RLS enforces this at
 `casework.evidence_items`, `retrieval.documents`, and `retrieval.chunks`;
 `retrieval.acl_visible` (JSONB) and `retrieval.acl_scalars_visible` (the projected
 column) apply the same expression inside every arm and at every traversal hop.
@@ -266,8 +275,9 @@ doctor, smoke, and tests use this database assertion.
 | GIN JSONB | ACL metadata support |
 | HNSW `vector_cosine_ops` | Approximate semantic candidates over ready chunk embeddings |
 
-HNSW build defaults are `m=16` and `ef_construction=64`. Runtime defaults are
-`ef_search=40` and `iterative_scan=relaxed_order`.
+HNSW build defaults are `m=16` and `ef_construction=64`. The API model defaults
+to `ef_search=40` and `iterative_scan=strict_order`; the frontend workshop
+preset defaults to `relaxed_order` and exposes all three scan modes.
 
 ### Common filters
 
@@ -313,7 +323,7 @@ embedding-space enforcement and search plumbing, not semantic quality.
 `pg_trgm` operates over normalized external identifiers and titles. It is not
 an unbounded body similarity scan. The default threshold is `0.3`.
 
-### Weighted reciprocal rank fusion
+### Exact identifier tier and weighted reciprocal rank fusion
 
 The default weights are:
 
@@ -326,16 +336,17 @@ For candidate `d`:
 
 ```text
 RRF(d) =
-  2 / (60 + exact_identifier_rank(d))
-  + 2 / (60 + text_rank(d))
+    2 / (60 + text_rank(d))
   + 1 / (60 + vector_rank(d))
   + 1 / (60 + fuzzy_rank(d))
 ```
 
-The exact-identifier term is present only for a boundary-matched identifier and
-shares the text weight. Any absent arm contributes zero. Raw FTS, cosine, and
-trigram values are not added to the fused score. `final_score` is weighted RRF
-before optional model reranking.
+Any absent arm contributes zero. Raw FTS, cosine, and trigram values are not
+added to the fused score. A boundary-matched exact identifier occupies
+`match_tier=1`; all fused candidates occupy `match_tier=2`. The exact tier sorts
+first and is not folded into RRF, so reweighting the fused arms cannot demote a
+named identifier. `final_score` is weighted RRF within the fused tier before
+optional model reranking.
 
 ### Model reranking
 
@@ -669,8 +680,10 @@ Workshop Studio must provision and package:
 - preloaded casework, vectors, and indexes;
 - IAM and Bedrock access;
 - Code Editor environment;
-- AgentCore Gateway and Lambda target;
 - immutable application source revision.
+
+AgentCore Gateway and its Lambda target are optional appendix infrastructure,
+not a core participant dependency.
 
 ## 16. Sixty-Minute Core
 
@@ -689,7 +702,9 @@ Workshop Studio must provision and package:
 First cut when behind: RRF weight experimentation. Second cut: detailed
 evaluation walkthrough. The cited-answer and replay path remain mandatory.
 
-Appendix work includes connector transports, release-scale generation,
+The core runs as the default App Engineer persona and does not require a persona
+change. Appendix work includes the RLS and `pg_columnmask` comparison in App
+Engineer, Auditor, DBA order, connector transports, release-scale generation,
 replacement-index operations, inferred-edge generation, Gateway deployment,
 production identity, and load/failover testing.
 
@@ -704,17 +719,22 @@ production identity, and load/failover testing.
 - Result sets contain at most one strongest passage per evidence item.
 - Query and stored embedding spaces must match exactly.
 
-### Authorization and relationships
+### Relationships
 
-- `CASE-7421` and the six supporting restricted objects never enter analyst
-  retrieval or traversal, and return zero rows at the raw table.
-- The `admin` persona retrieves the restricted fixtures unmasked; the `auditor`
-  persona retrieves them with the account name, case description, customer
-  commitment, and rendered chunk text redacted.
 - FK-derived edges remain distinguishable from inferred edges.
 - `CHG-1842` is `change_confirmed`.
 - `CHG-1838` is `change_ruled_out`.
 - `CASE-7419` is affected and `CASE-7424` is not affected.
+
+### Optional persona appendix
+
+- `CASE-7421` and the six supporting restricted objects never enter App
+  Engineer retrieval or traversal, and return zero rows at the raw table.
+- Auditor retrieves the restricted fixtures with the account name, case
+  description, customer commitment, and rendered chunk text redacted.
+- DBA retrieves the restricted fixtures unmasked.
+- The comparison is run in App Engineer, Auditor, DBA order against the same
+  query.
 
 ### Proof
 
@@ -774,7 +794,7 @@ does not substitute for target Aurora or live Bedrock release validation.
 
 ## 19. Remaining Release Gates
 
-The repository is not event-release-complete until all of these pass:
+The repository is not event-release-complete until all of these core gates pass:
 
 1. Run schema, doctor, smoke, query plans, and the complete answer on the target
    Aurora PostgreSQL engine inside the Workshop Studio VPC.
@@ -793,6 +813,10 @@ The repository is not event-release-complete until all of these pass:
 9. Verify fresh-account Workshop Studio provisioning and participant commands.
 10. Record the final source revision, archive hash, expected run IDs, and
     facilitator fallback checkpoints.
+
+The optional RLS and `pg_columnmask` appendix has separate Aurora deployment and
+security validation gates. Those gates must pass before publishing the appendix,
+but they are not prerequisites for the default incident-diagnosis release path.
 
 No local result should be described as Aurora validation, and no hash-vector
 result should be described as Cohere semantic-quality validation.

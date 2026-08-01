@@ -140,13 +140,15 @@ BANNED_IDENTITY_RE = re.compile(
 # gate's own source names the tokens it bans, sql/01_schema.sql's pre-collapse
 # migration reads and drops the old `principal` column and its `support-lead`
 # value by name (the tokens *are* the pre-collapse column and value -- renaming
-# them breaks the migration), sql/04_diagnostics.sql:441 explains why the view
-# is dropped before replace in terms of the old column, and two negative tests
-# (test_db_persona.py, test_verify_sql.py) pass "support-lead" as rejected input
-# to prove the collapse is enforced. Each pattern below is anchored to one exact
-# idiom, not a blanket exemption for "principal" or "support-lead".
+# them breaks the migration), doctor names those exact retired catalog columns
+# so it can reject an incomplete upgrade, sql/04_diagnostics.sql:441 explains why
+# the view is dropped before replace in terms of the old column, and two negative
+# tests (test_db_persona.py, test_verify_sql.py) pass "support-lead" as rejected
+# input to prove the collapse is enforced. Each pattern below is anchored to one
+# exact idiom, not a blanket exemption for "principal" or "support-lead".
 BANNED_IDENTITY_ALLOW = re.compile(
     r"acl_principals|p_principal|BANNED_IDENTITY|required_principals"
+    r'|\("proof", "(?:retrieval_runs|agent_runs)", "principal"\)'
     r"|column_name = 'principal'"
     r"|DROP COLUMN principal"
     r"|'principals' \? 'support-lead'"
@@ -193,7 +195,7 @@ def _scan_line(line: str) -> list[tuple[str, str]]:
             hits.append((token, "irregular canonical ID (D14: no round numbers)"))
     if BANNED_IDENTITY_RE.search(line) and not BANNED_IDENTITY_ALLOW.search(line):
         token = BANNED_IDENTITY_RE.search(line).group(0)
-        hits.append((token, "the persona (analyst/admin/auditor); A7 retired this"))
+        hits.append((token, "the persona (App Engineer/DBA/Auditor); A7 retired this"))
     return hits
 
 

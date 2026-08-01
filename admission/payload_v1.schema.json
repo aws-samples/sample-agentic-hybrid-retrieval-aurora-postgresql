@@ -32,10 +32,29 @@
                    "blocked_statement", "blocking_statement"],
       "properties": {
         "incident_external_key": {"type": "string"},
+        "change_external_key": {"type": "string"},
+        "captured_at": {"type": "string"},
+        "relation_name": {"type": "string"},
+        "relation_oid": {"type": "integer"},
         "wait_event_type": {"const": "Lock"},
         "wait_event": {"const": "relation"},
         "blocked_pid": {"type": "integer"},
-        "blocking_pid": {"type": "integer"}
+        "blocking_pid": {"type": "integer"},
+        "blocked_state": {"type": "string"},
+        "blocked_query_start": {"type": "string"},
+        "blocked_lock_mode": {"type": "string"},
+        "blocked_lock_granted": {"type": "boolean"},
+        "blocking_lock_mode": {"type": "string"},
+        "blocking_lock_granted": {"type": "boolean"},
+        "blocking_pids": {
+          "type": "array",
+          "items": {"type": "integer"}
+        },
+        "blocking_pids_sql": {"type": "string"},
+        "blocking_pids_output": {"type": "string"},
+        "blocked_statement": {"type": "string"},
+        "blocking_statement": {"type": "string"},
+        "raw_capture": {"type": "object"}
       }
     },
     "links": {

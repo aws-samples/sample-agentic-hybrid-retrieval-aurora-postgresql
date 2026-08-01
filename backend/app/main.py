@@ -288,7 +288,7 @@ def tool_explain_ranking(
             _invocation_context(http_request),
             "explain_ranking",
             request.model_dump(mode="json"),
-            lambda: explain_ranking_impl(request.run_id),
+            lambda: explain_ranking_impl(request.run_id, role=request.role),
         )
     except ValueError as error:
         raise HTTPException(404, str(error))
@@ -307,6 +307,7 @@ def tool_synthesize(request: SynthesisRequest, http_request: Request):
                 request.question,
                 request.run_ids,
                 limit=request.limit,
+                role=request.role,
             ),
         )
     except ValueError as error:
@@ -352,9 +353,9 @@ def agent_answer_stream(request: AgentAnswerRequest, http_request: Request):
 
 
 @app.get("/v1/agent-runs/{agent_run_id}")
-def agent_run(agent_run_id: str):
+def agent_run(agent_run_id: str, role: Persona = DEFAULT_ROLE):
     try:
-        return get_agent_run_impl(agent_run_id)
+        return get_agent_run_impl(agent_run_id, role=role)
     except ValueError as error:
         raise HTTPException(404, str(error))
     except Exception as error:
@@ -362,9 +363,9 @@ def agent_run(agent_run_id: str):
 
 
 @app.get("/v1/agent-runs/{agent_run_id}/coverage")
-def agent_coverage(agent_run_id: str):
+def agent_coverage(agent_run_id: str, role: Persona = DEFAULT_ROLE):
     try:
-        return get_agent_coverage_impl(agent_run_id)
+        return get_agent_coverage_impl(agent_run_id, role=role)
     except ValueError as error:
         raise HTTPException(404, str(error))
     except Exception as error:
@@ -430,9 +431,9 @@ def evidence_detail(evidence_id: str, role: Persona = DEFAULT_ROLE):
 
 
 @app.get("/v1/runs/latest")
-def latest_run():
+def latest_run(role: Persona = DEFAULT_ROLE):
     try:
-        run = latest_cited_run()
+        run = latest_cited_run(role)
         if not run:
             raise HTTPException(404, "no completed cited run found")
         return run
@@ -443,13 +444,13 @@ def latest_run():
 
 
 @app.get("/v1/runs/{run_id}")
-def run_receipt(run_id: str):
+def run_receipt(run_id: str, role: Persona = DEFAULT_ROLE):
     try:
-        receipt = explain_ranking_impl(run_id)
+        receipt = explain_ranking_impl(run_id, role=role)
         # Database Insights hand-off (SPEC 6.3) belongs to the Proof HTTP surface,
         # not the agent's explain_ranking tool, so it is attached here rather than
         # inside explain_ranking_impl.
-        receipt["observability_ref"] = observability_ref(run_id)
+        receipt["observability_ref"] = observability_ref(run_id, role=role)
         return receipt
     except ValueError as error:
         raise HTTPException(404, str(error))
@@ -458,8 +459,8 @@ def run_receipt(run_id: str):
 
 
 @app.get("/v1/runs/{run_id}/candidates")
-def run_candidates(run_id: str):
-    receipt = run_receipt(run_id)
+def run_candidates(run_id: str, role: Persona = DEFAULT_ROLE):
+    receipt = run_receipt(run_id, role=role)
     return {
         "run_id": run_id,
         "candidates": receipt["candidates"],
@@ -468,17 +469,21 @@ def run_candidates(run_id: str):
 
 
 @app.get("/v1/runs/{run_id}/timeline")
-def timeline(run_id: str):
+def timeline(run_id: str, role: Persona = DEFAULT_ROLE):
     try:
-        return run_timeline(run_id)
+        return run_timeline(run_id, role=role)
+    except ValueError as error:
+        raise HTTPException(404, str(error))
     except Exception as error:
         raise _unavailable("run timeline", error)
 
 
 @app.get("/v1/runs/{run_id}/graph")
-def graph(run_id: str):
+def graph(run_id: str, role: Persona = DEFAULT_ROLE):
     try:
-        return run_graph(run_id)
+        return run_graph(run_id, role=role)
+    except ValueError as error:
+        raise HTTPException(404, str(error))
     except Exception as error:
         raise _unavailable("run graph", error)
 

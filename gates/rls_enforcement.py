@@ -7,7 +7,7 @@ that has to come first:
 (0) the corpus can prove something. Restricted rows exist in
     ``casework.evidence_items`` AND survived into both derived tables, measured on
     the engine rather than hand-typed. This is not bookkeeping: (b) below asserts
-    that ``persona_analyst`` sees zero restricted rows, which is trivially true of
+    that ``persona_app_engineer`` sees zero restricted rows, which is trivially true of
     an empty set. The owner's own RLS exposure is measured alongside it, because
     the owner writes every derived projection and a filtered owner truncates them
     while reporting success. A gate that goes green over an empty enforcement claim
@@ -18,10 +18,10 @@ that has to come first:
     strictly stronger than "returns zero rows": it proves the pool identity has no
     standing privilege path at all, so a forgotten ``SET ROLE`` cannot leak.
 
-(b) row filtering. Under ``SET LOCAL ROLE persona_analyst`` every restricted row
+(b) row filtering. Under ``SET LOCAL ROLE persona_app_engineer`` every restricted row
     returns zero rows at each of ``casework.evidence_items``,
     ``retrieval.documents`` and ``retrieval.chunks`` - the raw tables, no arm, no
-    application predicate. Under ``persona_admin`` the same rows are present.
+    application predicate. Under ``persona_dba`` the same rows are present.
     Both retrieval tables matter: ``vector_search`` reads ``retrieval.chunks``
     standalone and ``fuzzy_search`` reads ``retrieval.documents`` standalone, so a
     policy on ``casework.evidence_items`` alone would leak restricted body text
@@ -66,7 +66,7 @@ READ_PATH_TABLES = (
 # The evidence detail tables: keyed 1:1 on casework.evidence_items.evidence_id and
 # reachable through section 2's schema-wide GRANT SELECT. RLS on the three
 # read-path tables above does not cover them, and the sensitive text lives HERE,
-# not in the header table -- an analyst denied at casework.evidence_items could
+# not in the header table -- an app_engineer denied at casework.evidence_items could
 # read CASE-7421's account_name and customer_commitment straight out of
 # casework.support_cases. Enumerated from sql/01_schema.sql (:65, :81, :96, :111,
 # :163, :340, :352), not from the current restricted cohort: the bypass is the
@@ -92,7 +92,7 @@ DETAIL_TABLES = (
 # Listed as (table, near_column, far_column) because these tables have NO
 # evidence_id column -- DETAIL_TABLES' probes would raise UndefinedColumn here.
 # Both endpoints are checked: the measured leak was an edge whose NEAR side was
-# visible to the analyst and whose far side was restricted.
+# visible to the app_engineer and whose far side was restricted.
 JUNCTION_TABLES = (
     ("casework.incident_changes", "incident_evidence_id", "change_evidence_id"),
     ("casework.incident_support_cases", "incident_evidence_id", "case_evidence_id"),
@@ -105,6 +105,24 @@ JUNCTION_TABLES = (
     ),
 )
 
+INFERRED_EDGE_TABLES = ("retrieval.inferred_edges",)
+
+PROOF_RLS_TABLES = (
+    "proof.retrieval_runs",
+    "proof.observability_refs",
+    "proof.retrieval_candidates",
+    "proof.run_stages",
+    "proof.agent_runs",
+    "proof.agent_subquestions",
+    "proof.agent_retrievals",
+    "proof.agent_escalations",
+    "proof.agent_answers",
+    "proof.answer_citations",
+    "proof.relevance_judgments",
+    "proof.traversal_results",
+    "proof.transport_invocations",
+)
+
 # A junction row is "restricted" when EITHER endpoint is. Counted as the owner for
 # the same reason DETAIL_RESTRICTED_COUNT_SQL is: a persona's own empty view cannot
 # distinguish "this table relates no restricted evidence" from "this persona's
@@ -114,7 +132,7 @@ SELECT count(*) FROM {table}
  WHERE {near} = ANY(%s) OR {far} = ANY(%s)
 """
 
-PERSONA_ROLES = ("persona_analyst", "persona_admin", "persona_auditor")
+PERSONA_ROLES = ("persona_app_engineer", "persona_dba", "persona_auditor")
 CLEARANCE_GROUP = "can_see_restricted"
 
 # The canonical restricted noun (D22 / M3). Row filtering is asserted against
@@ -164,10 +182,10 @@ SELECT count(*) FROM {table} WHERE is_current AND acl_visibility = 'restricted'
 """
 
 # Per-table restricted-row counts, measured AS THE OWNER. This is the independent
-# oracle group (b') needs: persona_admin's own view cannot be used to decide
+# oracle group (b') needs: persona_dba's own view cannot be used to decide
 # whether a table "has no restricted rows of this kind", because that view is the
-# fact under test. An empty admin result means either the kind genuinely has none
-# or admin's visibility is broken, and those need opposite verdicts.
+# fact under test. An empty dba result means either the kind genuinely has none
+# or dba's visibility is broken, and those need opposite verdicts.
 #
 # Safe to run as the owner for the reason _diagnose_empty_restricted() documents:
 # run() has already proven the owner is either a bypassing role or named by every
@@ -236,7 +254,15 @@ def _rls_state(cur) -> dict[str, tuple[bool, bool]]:
           JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname || '.' || c.relname = ANY(%s)
         """,
-        [list(READ_PATH_TABLES + DETAIL_TABLES + _junction_names())],
+        [
+            list(
+                READ_PATH_TABLES
+                + DETAIL_TABLES
+                + _junction_names()
+                + INFERRED_EDGE_TABLES
+                + PROOF_RLS_TABLES
+            )
+        ],
     )
     return {row[0]: (row[1], row[2]) for row in cur.fetchall()}
 
@@ -436,7 +462,13 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
     # missing DDL instead of failing later with a confusing row count.
     unprotected = [
         table
-        for table in READ_PATH_TABLES + DETAIL_TABLES + _junction_names()
+        for table in (
+            READ_PATH_TABLES
+            + DETAIL_TABLES
+            + _junction_names()
+            + INFERRED_EDGE_TABLES
+            + PROOF_RLS_TABLES
+        )
         if state.get(table) != (True, True)
     ]
     if unprotected:
@@ -470,7 +502,7 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
     # The projection must carry the restricted rows too, and this is NOT redundant
     # with (b). A non-superuser owner that is subject to FORCE but holds no clearance
     # reads a silently truncated source: the search-index build then projects only
-    # workshop rows, and (b) below reports "analyst sees 0 restricted rows" -- a PASS
+    # workshop rows, and (b) below reports "app_engineer sees 0 restricted rows" -- a PASS
     # for the wrong reason, because there is nothing there to filter. Measured on
     # PG17: that configuration copied 1 of 2 rows and reported success. Assert the
     # restricted cohort SURVIVED into both derived tables before proving it is hidden.
@@ -540,27 +572,27 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         # Probed by evidence_id, the only identity column on all three tables.
         print("\n  (b) row filtering at the raw tables:")
         for table in READ_PATH_TABLES:
-            analyst = _ids_under_persona(
-                app_conn, "persona_analyst", table, restricted_ids
+            app_engineer = _ids_under_persona(
+                app_conn, "persona_app_engineer", table, restricted_ids
             )
-            admin = _ids_under_persona(
-                app_conn, "persona_admin", table, restricted_ids
+            dba = _ids_under_persona(
+                app_conn, "persona_dba", table, restricted_ids
             )
             auditor = _ids_under_persona(
                 app_conn, "persona_auditor", table, restricted_ids
             )
             print(
-                f"    {table}: analyst={len(analyst)} admin={len(admin)} "
+                f"    {table}: app_engineer={len(app_engineer)} dba={len(dba)} "
                 f"auditor={len(auditor)} (of {len(restricted_ids)} restricted)"
             )
             require(
-                analyst == set(),
-                f"persona_analyst saw restricted rows at {table}: "
-                f"{sorted(str(i) for i in analyst)}",
+                app_engineer == set(),
+                f"persona_app_engineer saw restricted rows at {table}: "
+                f"{sorted(str(i) for i in app_engineer)}",
             )
             require(
-                admin,
-                f"persona_admin saw no restricted rows at {table}; the clearance "
+                dba,
+                f"persona_dba saw no restricted rows at {table}; the clearance "
                 f"grant is missing",
             )
             require(
@@ -575,12 +607,12 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         # this proves the children inherit it. A table holding no restricted
         # evidence is skipped rather than asserted on -- runbooks, lock_evidence,
         # customer_commitments and postmortems hold none in the current cohort, and
-        # asserting "admin sees restricted rows" there would fail for a reason that
+        # asserting "dba sees restricted rows" there would fail for a reason that
         # has nothing to do with RLS. The skip is driven by the OWNER's count, never
-        # by persona_admin's: admin's own empty view cannot tell "this kind has no
-        # restricted rows" apart from "admin's visibility is broken", and those two
-        # need opposite verdicts. The analyst assertion runs on every table
-        # regardless, because "the analyst sees nothing" holds either way.
+        # by persona_dba's: dba's own empty view cannot tell "this kind has no
+        # restricted rows" apart from "dba's visibility is broken", and those two
+        # need opposite verdicts. The app_engineer assertion runs on every table
+        # regardless, because "the app_engineer sees nothing" holds either way.
         # The oracle above is only as good as the owner's own reach into these
         # tables, and _owner_exposure measures listed_on over READ_PATH_TABLES
         # only -- it says nothing about the seven detail tables. If section 5's
@@ -613,41 +645,41 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         )
         print("\n  (b') row filtering at the evidence detail tables:")
         for table in DETAIL_TABLES:
-            analyst = _ids_under_persona(
-                app_conn, "persona_analyst", table, restricted_ids
+            app_engineer = _ids_under_persona(
+                app_conn, "persona_app_engineer", table, restricted_ids
             )
-            admin = _ids_under_persona(
-                app_conn, "persona_admin", table, restricted_ids
+            dba = _ids_under_persona(
+                app_conn, "persona_dba", table, restricted_ids
             )
             auditor = _ids_under_persona(
                 app_conn, "persona_auditor", table, restricted_ids
             )
             print(
-                f"    {table}: analyst={len(analyst)} admin={len(admin)} "
+                f"    {table}: app_engineer={len(app_engineer)} dba={len(dba)} "
                 f"auditor={len(auditor)}"
             )
             require(
-                analyst == set(),
-                f"persona_analyst read restricted rows out of {table}: "
-                f"{sorted(str(i) for i in analyst)}. RLS on the three read-path "
+                app_engineer == set(),
+                f"persona_app_engineer read restricted rows out of {table}: "
+                f"{sorted(str(i) for i in app_engineer)}. RLS on the three read-path "
                 f"tables does not cover the detail tables, and section 2 of "
                 f"sql/11_roles_rls.sql grants every persona SELECT ON ALL TABLES "
-                f"IN SCHEMA casework -- so the analyst is denied at "
+                f"IN SCHEMA casework -- so the app_engineer is denied at "
                 f"casework.evidence_items and then reads the same evidence body "
                 f"here. Add the EXISTS-on-parent policy for this table "
                 f"(sql/11_roles_rls.sql section 5)",
             )
-            # The OWNER's count decides whether to skip, not persona_admin's. An
-            # empty admin view is the failure this group exists to catch when the
+            # The OWNER's count decides whether to skip, not persona_dba's. An
+            # empty dba view is the failure this group exists to catch when the
             # rows are actually there, and a legitimate skip when they are not --
-            # persona_admin cannot distinguish those two states about itself.
+            # persona_dba cannot distinguish those two states about itself.
             if detail_restricted[table] == 0:
-                print("      (no restricted evidence of this kind; analyst-only check)")
+                print("      (no restricted evidence of this kind; app_engineer-only check)")
                 continue
             require(
-                admin,
-                f"persona_admin saw none of the {detail_restricted[table]} restricted "
-                f"rows the owner measured at {table}. Either persona_admin is missing "
+                dba,
+                f"persona_dba saw none of the {detail_restricted[table]} restricted "
+                f"rows the owner measured at {table}. Either persona_dba is missing "
                 f"from that table's policy TO list or the EXISTS predicate is wrong "
                 f"(sql/11_roles_rls.sql section 5). Without this assertion the gate "
                 f"would have skipped the auditor check and reported PASS over a "
@@ -656,7 +688,7 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
             require(
                 auditor,
                 f"persona_auditor saw no restricted rows at {table} while "
-                f"persona_admin saw {len(admin)}; masking needs the row present",
+                f"persona_dba saw {len(dba)}; masking needs the row present",
             )
 
         # --- (b'') row filtering at the relation junction tables. ---
@@ -664,12 +696,12 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         # ONE parent; these clear through BOTH endpoints, because a junction row is
         # only visible if the caller can see both things it relates. Checking the
         # near side alone reproduces the measured leak: INC-2047 is workshop, so an
-        # analyst who could see the near endpoint read
+        # app_engineer who could see the near endpoint read
         # "The restricted case references the same cluster and interval." out of the
         # edge to a restricted case.
         #
         # Counted, not probed by id: these tables have no evidence_id column, and
-        # the interesting row is the PAIR. The analyst assertion is exact equality
+        # the interesting row is the PAIR. The app_engineer assertion is exact equality
         # to 0 rather than a subset check, since every row counted here touches
         # restricted evidence on at least one side by construction.
         print("\n  owner reach into the junction tables (oracle sanity):")
@@ -677,22 +709,22 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
             print(f"    {table}: {junction_restricted[table]} touching restricted")
         print("\n  (b'') row filtering at the relation junction tables:")
         for table, near, far in JUNCTION_TABLES:
-            analyst = _junction_rows_under_persona(
-                app_conn, "persona_analyst", table, near, far, restricted_ids
+            app_engineer = _junction_rows_under_persona(
+                app_conn, "persona_app_engineer", table, near, far, restricted_ids
             )
-            admin = _junction_rows_under_persona(
-                app_conn, "persona_admin", table, near, far, restricted_ids
+            dba = _junction_rows_under_persona(
+                app_conn, "persona_dba", table, near, far, restricted_ids
             )
             auditor = _junction_rows_under_persona(
                 app_conn, "persona_auditor", table, near, far, restricted_ids
             )
             print(
-                f"    {table}: analyst={analyst} admin={admin} auditor={auditor} "
+                f"    {table}: app_engineer={app_engineer} dba={dba} auditor={auditor} "
                 f"(owner={junction_restricted[table]})"
             )
             require(
-                analyst == 0,
-                f"persona_analyst read {analyst} junction rows touching restricted "
+                app_engineer == 0,
+                f"persona_app_engineer read {app_engineer} junction rows touching restricted "
                 f"evidence out of {table}. The rationale on those rows names the "
                 f"relationship the ACL withholds, and retrieval.evidence_edges "
                 f"reads this table, so /v1/evidence/{{id}} leaks it too. RLS is "
@@ -700,16 +732,16 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
                 f"its predicate is too weak: check that it requires BOTH endpoint "
                 f"columns ({near} AND {far}) to resolve in casework.evidence_items "
                 f"-- a near-side-only EXISTS passes every row whose visible "
-                f"endpoint the analyst can already see "
+                f"endpoint the app_engineer can already see "
                 f"(sql/11_roles_rls.sql section 6)",
             )
             if junction_restricted[table] == 0:
-                print("      (relates no restricted evidence; analyst-only check)")
+                print("      (relates no restricted evidence; app_engineer-only check)")
                 continue
             require(
-                admin == junction_restricted[table],
-                f"persona_admin read {admin} of the {junction_restricted[table]} "
-                f"junction rows the owner measured at {table}. Either persona_admin "
+                dba == junction_restricted[table],
+                f"persona_dba read {dba} of the {junction_restricted[table]} "
+                f"junction rows the owner measured at {table}. Either persona_dba "
                 f"is missing from that table's policy TO list or an endpoint column "
                 f"in the both-endpoints predicate is wrong "
                 f"(sql/11_roles_rls.sql section 6)",
@@ -718,17 +750,17 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
                 auditor == junction_restricted[table],
                 f"persona_auditor read {auditor} of the "
                 f"{junction_restricted[table]} junction rows at {table} while "
-                f"persona_admin read {admin}; the two personas hold the same "
+                f"persona_dba read {dba}; the two personas hold the same "
                 f"clearance and differ only in masking, which does not apply here",
             )
 
         # --- (c) replay determinism + transaction scope. ---
         print("\n  (c) replay determinism and transaction scope:")
         first = _ids_under_persona(
-            app_conn, "persona_admin", READ_PATH_TABLES[0], restricted_ids
+            app_conn, "persona_dba", READ_PATH_TABLES[0], restricted_ids
         )
         second = _ids_under_persona(
-            app_conn, "persona_admin", READ_PATH_TABLES[0], restricted_ids
+            app_conn, "persona_dba", READ_PATH_TABLES[0], restricted_ids
         )
         print(f"    replay 1: {len(first)} rows / replay 2: {len(second)} rows")
         require(
@@ -748,8 +780,8 @@ def run() -> int:  # noqa: C901 - four independent assertion groups, read top to
         GATE_ID,
         PASS,
         f"fail-closed on {len(READ_PATH_TABLES)} tables; {len(restricted)} restricted "
-        f"rows hidden from analyst across {len(DETAIL_TABLES)} detail and "
-        f"{len(JUNCTION_TABLES)} junction tables, visible to admin+auditor; "
+        f"rows hidden from app_engineer across {len(DETAIL_TABLES)} detail and "
+        f"{len(JUNCTION_TABLES)} junction tables, visible to dba+auditor; "
         f"replay deterministic",
     )
 
