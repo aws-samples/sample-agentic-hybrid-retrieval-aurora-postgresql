@@ -110,3 +110,42 @@ after restore, it exits non-zero and stops provisioning.
 Rebuild the artifact whenever `sql/01_schema.sql`, the corpus, or the embedding
 cache changes. An artifact from an older schema generation restores tables the
 current functions do not match.
+
+## Workshop Studio source archive
+
+The dump does not travel alone. CFN `PrepareWorkshopSource` downloads a single
+zip from the assets bucket, unpacks it into the participant's home folder, and
+`SeedDatabase` then runs `seed/load.sh` out of that unpacked tree. The archive
+therefore carries both the application source and the dump.
+
+```bash
+# From the same revision that produced the dump.
+make source-archive                      # writes dist/hybrid-retrieval-source.zip
+make source-archive SOURCE_ARCHIVE=/path/to/out.zip
+```
+
+`scripts/build_source_archive.sh` is the only supported producer. Before this
+script existed the archive was assembled by hand, and the published one drifted
+five schema generations: its dump carried only the deleted `ops` schema, so the
+current `seed/load.sh` would have restored zero tables and `labs/incident/`,
+`admission/`, and `gates/` were absent entirely.
+
+The script closes that class of drift:
+
+- source comes from `git archive HEAD`, so the archive holds exactly one
+  committed revision and cannot absorb local edits. It refuses a dirty
+  worktree, and names untracked top-level paths it is leaving out;
+- the dump's `.revision` sidecar must equal `HEAD`. `seed/load.sh` only warns
+  on a mismatch, because a participant stack at provisioning time cannot
+  recover; the release path is where the mismatch is still cheap, so here it is
+  fatal;
+- `pg_restore -l` must show `TABLE DATA` for `casework`, `retrieval`, and
+  `proof` — the three schemas `seed/load.sh` passes to `pg_restore`. This is
+  the check that rejects the published archive's dump;
+- every path the guide tells participants to open or run must be present, so a
+  missing lab file fails the build instead of the workshop; and
+- the zip comment records the revision, which is how a published archive is
+  traced back to source.
+
+`design/` and `docs/superpowers/` are excluded: they are the spec workspace and
+authoring history, with no runtime reader.

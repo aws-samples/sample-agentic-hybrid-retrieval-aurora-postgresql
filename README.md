@@ -297,6 +297,28 @@ make test
 Run the final smoke test on the Workshop Studio-provisioned Aurora cluster
 before release.
 
+## Package the Workshop Studio Release
+
+Participant stacks do not clone this repository. CFN downloads one zip from the
+Workshop Studio assets bucket, unpacks it into the participant's home folder,
+and seeds Aurora from the dump inside it. Build that zip from a committed
+revision:
+
+```bash
+# 1. Seed a disposable database and dump it (see seed/README.md).
+DATABASE_URL=postgresql://.../scratch_db make seed-dump
+
+# 2. Package the committed tree plus that dump.
+make source-archive
+```
+
+`scripts/build_source_archive.sh` refuses a dirty worktree, requires the dump's
+`.revision` to match `HEAD`, verifies the dump actually carries `casework`,
+`retrieval`, and `proof`, and fails if any path the guide tells participants to
+run is missing. It stamps the revision into the zip comment. Upload the result
+as `hybrid-retrieval-source.zip` and record the revision in the sibling
+repository's `assets/README.md`.
+
 ## Repository Layout
 
 ```text
@@ -308,7 +330,7 @@ labs/incident/   Participant-run lock incident, observation, fix, and cleanup
 frontend/        Incident-evidence inspection workbench
 lambda_mcp/      Stateless AgentCore Gateway Lambda adapter
 mcp-server/      Optional stdio MCP wrapper over the same HTTP API
-scripts/         Workshop environment and managed-boundary helpers
+scripts/         Workshop environment, release packaging, and boundary helpers
 docs/            Architecture, data contract, security, and session flow
 ```
 

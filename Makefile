@@ -15,6 +15,7 @@ BACKGROUND_DOCUMENTS ?= 15000
 LOCAL_BACKGROUND_DOCUMENTS ?= 200
 CAPTURE_BUNDLE ?=
 SEED_ARTIFACT ?=
+SOURCE_ARCHIVE ?=
 CORE_SQL_FILES := \
 	sql/00_extensions.sql \
 	sql/01_schema.sql \
@@ -37,7 +38,7 @@ export PGVECTOR_VERSION
 export PGVECTOR_MIN_VERSION
 export POSTGRES_MIN_VERSION
 
-.PHONY: install aurora-local-env schema security-schema security-checks aurora-verify doctor test api frontend smoke clean seed-casework seed-project seed-local seed-dump seed-restore
+.PHONY: install aurora-local-env schema security-schema security-checks aurora-verify doctor test api frontend smoke clean seed-casework seed-project seed-local seed-dump seed-restore source-archive
 
 install:
 	python -m venv .venv
@@ -103,6 +104,13 @@ seed-dump:
 # Restore that artifact. This is what the CFN SeedDatabase step runs.
 seed-restore:
 	seed/load.sh $(SEED_ARTIFACT)
+
+# Package the committed tree plus the seed artifact into the Workshop Studio
+# source archive. Run `make seed-dump` from this revision first. This is the
+# only supported producer: the published archive drifted five schema
+# generations while it was assembled by hand.
+source-archive:
+	scripts/build_source_archive.sh $(SOURCE_ARCHIVE)
 
 api:
 	$(UVICORN) backend.app.main:app --reload --port 8000
