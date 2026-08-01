@@ -68,6 +68,13 @@ REQUIRED_IN_ARCHIVE=(
   labs/incident/60_observe_safe.sql
   labs/incident/70_verify.sql
   labs/incident/99_cleanup.sql
+  labs/exercises/checkpoint.py
+  labs/exercises/lab2-filter-request.json
+  labs/exercises/lab2-fusion-request.json
+  labs/exercises/lab2-rrf.sql
+  labs/exercises/lab3-plan-request.json
+  labs/exercises/lab3-traverse-request.json
+  labs/exercises/lab3-compare-request.json
   lambda_mcp/handler.py
   scripts/invoke_agentcore_gateway.py
   seed/artifacts/hybrid-retrieval-seed-v2.dump

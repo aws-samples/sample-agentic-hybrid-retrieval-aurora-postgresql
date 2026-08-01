@@ -465,49 +465,54 @@ as a live observation.
 
 **Time:** 20-40 minutes
 
-Run exact and full-text retrieval for `CHG-1842`, fuzzy retrieval for
-`CGH-1842`, semantic retrieval for the write-stall symptoms, metadata filters,
-weighted RRF, optional Cohere reranking, and one live arm plan. Keep exact,
+Run an exact-ID question and a dedicated identifier-free full-text query, fuzzy
+retrieval for `CGH-1842`, and semantic retrieval for the write-stall symptoms.
+Edit the cluster filter to remove the seeded staging distractor, change
+weighted-RRF controls, complete the RRF expression against a temporary receipt
+table, compare Cohere reranking, and inspect one live arm plan. Keep exact,
 text, vector, fuzzy, RRF, and rerank signals separate.
 
-**Checkpoint:** `CHG-1842` ranks first, the typo resolves correctly, semantic
-retrieval works without exact wording, filters execute before fusion, and the
-receipt explains why each result ranked where it did.
+**Checkpoint:** dedicated FTS ranks `CHG-1842` first without an identifier, the
+typo resolves correctly, semantic retrieval works without exact wording, the
+filter removes staging evidence before fusion, and every participant-edited
+RRF score recomputes from persisted arm positions.
 
-**First cut when behind:** remove the filtered-HNSW comparison, then live
-reranking. Preserve exact, fuzzy, semantic, fusion, and the plan inspection.
+**First cut when behind:** use a saved live-plan observation. If reranking is
+unavailable, keep the exercise and inspect `rerank_applied=false`. Preserve the
+FTS, filter, fusion, and rerank-boundary checkpoints.
 
 ### Lab 3: Build the incident agent
 
 **Time:** 40-50 minutes
 
-Ask the canonical question. Inspect decomposition, targeted retrieval,
-relationship traversal, distractor rejection, ranking explanation, and cited
-synthesis.
+Decompose the canonical question first. Fill the relationship traversal and
+comparison requests from the observed identifiers, prove the confirmed and
+ruled-out changes, then run the complete agent and inspect bounded recovery and
+cited synthesis.
 
-**Checkpoint:** the answer identifies the lock conflict, Acme Retail
-(fictional), and `CREATE INDEX CONCURRENTLY`, with factual claims tied to
-numbered evidence.
+**Checkpoint:** the participant tool plan covers cause, visible impact, and
+remediation; authoritative relationships confirm `CHG-1842` and rule out
+`CHG-1838`; the answer identifies Acme Retail (fictional) and
+`CREATE INDEX CONCURRENTLY` with numbered evidence.
 
 ### Lab 4: Prove and replay
 
 **Time:** 50-55 minutes
 
-Save the `run_id`; load the candidate receipt, graph, and timeline; validate
-citation URI, revision, chunk, and quote; reproduce one displayed diagnostic
-with verify-SQL; and replay without another model call.
+Save the `run_id`, validate citation URI, revision, chunk, and quote in SQL,
+then load the persisted receipt and replay it without another model call.
 
-**Checkpoint:** `/v1/runs/{run_id}`, `/graph`, and `/timeline` resolve
-persisted proof, and `proof.validate_answer_citations` validates every
-citation.
+**Checkpoint:** `/v1/runs/{run_id}` resolves persisted proof and
+`proof.validate_answer_citations` validates every citation. Graph and timeline
+remain after-core inspection views.
 
 ### Summary and production boundary
 
 **Time:** 55-60 minutes
 
-Run or inspect the compact retrieval and traversal evaluation, then identify
-which evidence a production system should materialize, federate, or revalidate
-live. Retrieval metrics and relationship-traversal metrics remain separate.
+Connect the completed participant exercises, then identify which evidence a
+production system should materialize, federate, or revalidate live. Run the
+compact retrieval and traversal evaluation after the required path.
 
 Do not start a new demo after minute 55.
 
@@ -555,7 +560,7 @@ evidence. Do not run `make schema` alone after enabling the appendix because
 | Synthesis fails | Use the extractive answer built from the same persisted evidence |
 | Frontend fails | Use HTTP endpoints and SQL proof views |
 | Gateway fails | Prove HTTP or stdio MCP parity and move the managed boundary to the appendix |
-| Room is behind | Cut weight experimentation, then detailed evaluation; preserve cited answer and replay |
+| Room is behind | Use the saved plan observation, keep the filter and fusion checkpoints, and preserve cited answer and replay |
 
 Fallbacks may reuse persisted proof. They may not substitute invented output.
 

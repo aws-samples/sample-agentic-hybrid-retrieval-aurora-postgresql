@@ -112,6 +112,12 @@ optional appendix comparison: rerun one query as App Engineer, Auditor, and DBA
 to compare absent, masked, and unmasked restricted evidence. That appendix is
 not a participant prerequisite or a default release gate.
 
+Labs 2 and 3 use the editable requests and deterministic checkpoints in
+[`labs/exercises`](labs/exercises/README.md). Participants scope a distractor,
+change fusion weights, implement the RRF expression against a temporary
+receipt table, build a relationship plan, and verify the resulting receipts
+without modifying the reference retrieval engine.
+
 ## Implemented Retrieval
 
 | Capability | Implementation |
@@ -329,6 +335,7 @@ backend/tests/   Unit and disposable-database contract tests
 sql/             Schema, indexes, search, diagnostics, receipts, and evaluation
 seed/            Deterministic synthetic database-incident corpus
 labs/incident/   Participant-run lock incident, observation, fix, and cleanup
+labs/exercises/  Editable retrieval and agent requests plus checkpoints
 frontend/        Incident-evidence inspection workbench
 lambda_mcp/      Stateless AgentCore Gateway Lambda adapter
 mcp-server/      Optional stdio MCP wrapper over the same HTTP API

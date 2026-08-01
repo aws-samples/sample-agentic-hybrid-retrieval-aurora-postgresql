@@ -1,0 +1,10 @@
+{
+  "query": "Why could customers still read order history while new checkout writes timed out after maintenance?",
+  "cluster_id": "checkout-prod-cluster-01",
+  "w_text": 2.0,
+  "w_vector": 1.0,
+  "w_trgm": 1.0,
+  "rrf_k": 60,
+  "rerank": false,
+  "limit": 8
+}

@@ -242,27 +242,31 @@ Lab 2 teaches one query shape per retrieval mechanism:
 
 | Query shape | Mechanism | Required checkpoint |
 |---|---|---|
-| named change or incident | boundary-aware exact identifier plus PostgreSQL full-text search | `CHG-1842` is rank 1 |
+| named change or incident | boundary-aware exact identifier | `CHG-1842` is rank 1 in tier 1 |
+| SQL and lock vocabulary without an ID | PostgreSQL full-text search | dedicated FTS ranks `CHG-1842` first |
 | semantic symptoms | pgvector cosine distance over the matching model space | the UI explains why the top evidence matches the question |
 | controlled typo | indexed `pg_trgm` `%` search | `CGH-1842` resolves uniquely to `CHG-1842` |
-| cluster, incident, kind, or time scope | typed SQL and metadata filters | filters apply before every arm enters fusion |
-| mixed query | weighted RRF over arm rank positions | text, vector, and fuzzy positions remain inspectable |
+| cluster, incident, kind, or time scope | typed SQL and metadata filters | the participant edit removes the staging distractor before fusion |
+| mixed query | weighted RRF over arm rank positions | the participant changes weights, completes the RRF SQL expression, and every score recomputes |
 | post-fusion ordering | Cohere Rerank v3.5 when available | rerank score is separate and `rerank_applied=false` preserves Aurora order on failure |
 
 The default RRF weights are text `2`, vector `1`, and fuzzy `1`, with `k=60`.
 An absent arm contributes zero. Exact boundary matches remain deterministic and
 cannot be demoted by changing fusion weights.
 
-One plan inspection demonstrates that trigram `%` can use the GIN index while a
-bare `similarity(...) > threshold` predicate cannot. One filtered-HNSW
-comparison may remain when its insufficient-result and iterative-scan recovery
-behavior is immediately visible; it is the first retrieval detail cut for time.
+One plan inspection reports the index PostgreSQL actually selected for the
+semantic arm. The fuzzy plan reports abstention when no unresolved identifier
+exists. Filtered-HNSW iterative-scan comparison and deeper trigram plan
+contrasts remain in the diagnostics appendix.
 
 ---
 
 ## 5. Lab 3 - Build the incident agent
 
-The agent receives the canonical question and must:
+The participant first decomposes the canonical question, fills the incident
+seed in a traversal request, discovers the competing change, and fills the
+three-source comparison request. The agent then receives the same question and
+must:
 
 1. decompose it into change cause, incident mechanism, visible customer impact,
    safe remediation, and citation requirements;
@@ -288,17 +292,17 @@ persisted evidence rows and say that the model step was not applied.
 
 ## 6. Lab 4 - Prove and replay
 
-Participants inspect:
+Required participant proof is:
 
-- candidate arm positions, raw scores, RRF, and rerank stages;
 - source URI, revision, chunk, and quote for each citation;
-- the relationship graph and incident timeline;
 - citation validation status and its attribution-only meaning; and
 - replay by `run_id` with zero model calls.
 
-Evaluation reports retrieval metrics separately from relationship-traversal
-metrics. A high retrieval score does not prove that the agent found the customer
-relationship, and citation validity does not prove a claim is semantically true.
+Candidate details, relationship graph, incident timeline, and compact evaluation
+remain available after the required path. Evaluation reports retrieval metrics
+separately from relationship-traversal metrics. A high retrieval score does not
+prove that the agent found the customer relationship, and citation validity does
+not prove a claim is semantically true.
 
 The application navigation mirrors the teaching path:
 
@@ -318,12 +322,13 @@ separate workshop narratives.
 | 00:00-00:05 | Observe the write stall | connect successful reads, waiting writes, blocker relationship, and schema ownership | no product tour |
 | 00:05-00:10 | Verify the environment | ready search index, matching model space, pending `0`, drift `0` | move blocked participants to a prevalidated terminal |
 | 00:10-00:20 | Lab 1 | real unsafe wait chain and safe concurrent retry | use facilitator capture if orchestration runs long |
-| 00:20-00:40 | Lab 2 | exact, typo, semantic, filters, RRF, one plan, optional rerank | cut filtered-HNSW comparison, then live rerank |
-| 00:40-00:50 | Lab 3 | evidence requirements, traversal, comparison, cited answer | use complete-answer endpoint if individual tool calls run long |
-| 00:50-00:55 | Lab 4 | citation attribution, graph, timeline, replay | cut visual timeline, preserve citation SQL and replay |
-| 00:55-01:00 | Evaluate and close | compact metrics and one production boundary | move detailed evaluation to appendix |
+| 00:20-00:40 | Lab 2 | exact and FTS shapes, semantic, typo, filter edit, fusion edit and SQL, rerank, one plan | use a saved plan observation; `rerank_applied=false` is valid |
+| 00:40-00:50 | Lab 3 | participant tool plan, traversal, comparison, bounded recovery, cited answer | use complete-answer endpoint if individual tool calls run long |
+| 00:50-00:55 | Lab 4 | citation attribution and model-free replay | skip visual Proof exploration, preserve citation SQL and receipt GET |
+| 00:55-01:00 | Close | completed exercise chain and one production boundary | run compact evaluation after the session |
 
-Never cut exact retrieval, the cited answer, or persisted replay.
+Never cut dedicated FTS, the filter and fusion checkpoints, the cited answer,
+or persisted replay.
 
 Workshop Studio top-level pages must remain:
 
@@ -335,8 +340,9 @@ Workshop Studio top-level pages must remain:
 6. Lab 4: Prove and replay.
 7. Summary.
 
-Optional RLS/masking, AgentCore Gateway, troubleshooting, index operations, and
-retrieval diagnostics follow the core path.
+Optional RLS/masking, AgentCore Gateway, troubleshooting, index operations,
+deeper HNSW work, compact evaluation, and additional retrieval diagnostics
+follow the core path.
 
 ---
 

@@ -198,12 +198,22 @@ The required pacing uses clean clock boundaries: 5 minutes context, 5
 readiness, 10 incident reproduction, 20 retrieval, 10 agent investigation, 5
 proof and replay, and 5 summary.
 
+**Participant decision exercises.** `labs/exercises/` now ships editable
+requests plus a standard-library checkpoint script. Lab 2 requires a cluster
+filter edit, a weighted-RRF edit, and a temporary-table RRF SQL expression;
+Lab 3 requires participants to fill relationship traversal and comparison
+requests from decomposition output.
+The sibling guide runs dedicated FTS, semantic, fuzzy, filter, fusion, rerank,
+agent-plan, citation, and replay checkpoints. Filtered-HNSW tuning, graph and
+timeline exploration, and compact evaluation remain after-core work.
+
 **Release artifact producer.** `seed/dump.sh` requires
 `ALLOW_SEED_DUMP=1` and a server-reported database name ending in `_test`.
 It writes `.revision` and `.sha256` sidecars. `seed/load.sh` refuses checksum
-drift. `scripts/build_source_archive.sh` requires all nine incident SQL files,
-verifies revision and checksum parity, verifies the three dump schemas, and
-packages a custom `SEED_ARTIFACT` under the canonical v2 name. The sibling
+drift. `scripts/build_source_archive.sh` requires all nine incident SQL files
+and every participant exercise asset, verifies revision and checksum parity,
+verifies the three dump schemas, and packages a custom `SEED_ARTIFACT` under
+the canonical v2 name. The sibling
 templates and facilitator checks now name `hybrid-retrieval-seed-v2.dump`.
 Workshop Studio keeps `SourceRevision=UNRELEASED` and bootstrap rejects both
 that sentinel and any zip-comment mismatch, so the retained v1 archive cannot
@@ -220,10 +230,11 @@ committed revision. Do not use the live Aurora database as the dump source.
 
 **2. Complete a fresh-account target rehearsal.** Provision the Workshop Studio
 stack in `us-east-1` on the representative `db.r8g.2xlarge`, run all nine
-incident scripts with the participant role, and validate exact, fuzzy,
-semantic, hybrid, rerank fallback, cited answer, graph, timeline, evaluation,
-and replay. Resolve the known live search-index drift before using that cluster
-as release evidence.
+incident scripts with the participant role, and validate exact, dedicated FTS,
+fuzzy, semantic, filter, fusion, rerank, agent-plan, cited-answer, citation, and
+replay checkpoints. Validate graph, timeline, HNSW, and evaluation as after-core
+surfaces. Resolve the known live search-index drift before using that cluster as
+release evidence.
 
 **3. Apply and validate the optional appendix DDL on live Aurora.**
 `sql/11_roles_rls.sql` and `sql/12_masking.sql` have not been applied to the

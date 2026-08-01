@@ -1,11 +1,14 @@
 # DAT410 participant exercises — design
 
 Date: 2026-07-28
-Status: approved and bound into `SPEC-session.md` draft-20 (holes H1–H3, D24,
-G-27, G-28). This doc is the long-form rationale; the SPEC is authoritative.
-Companion: `SPEC-session.md` draft-20 — all three copies (`~/Downloads`,
-`design/SPEC-session.md`, `design/verity-handoff/docs/SPEC-session.md`) synced
-byte-identical (sha256 `621ff17e…a7e749`).
+Status: superseded on 2026-08-01 by `SPEC-session.md` draft-24 and the shipped
+`labs/exercises/` contract. This file is retained as design history only.
+
+Do not implement its H2/H3 security holes or two-artifact packaging model.
+RLS and masking are now optional after-core work. The current core exercises
+use editable retrieval requests, a temporary-table weighted-RRF SQL hole,
+deterministic receipt checkpoints, and participant-filled relationship tool
+requests.
 
 ## Purpose
 

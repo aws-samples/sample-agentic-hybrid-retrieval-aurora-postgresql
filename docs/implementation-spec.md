@@ -708,18 +708,18 @@ not a core participant dependency.
 
 | Minute | Core proof |
 |---:|---|
-| 0-7 | Scenario, ownership boundary, and readiness |
-| 7-14 | Exact/full-text retrieval, filters, and ACL placement |
-| 14-19 | Indexed trigram typo recovery |
-| 19-27 | Filtered HNSW and iterative scan |
-| 27-35 | Weighted RRF and independent arm positions |
-| 35-40 | Model reranking without replacing Aurora scores |
-| 40-50 | Agent decomposition, retrieval, traversal, comparison, ranking explanation |
-| 50-55 | Citation validation and compact evaluation |
-| 55-60 | Buffer, replay receipt, and production boundary |
+| 0-5 | Incident symptoms, question, ownership boundary, and architecture |
+| 5-10 | Readiness against the preloaded corpus |
+| 10-20 | Reproduce the lock wait and prove the concurrent-index repair |
+| 20-40 | Exact, dedicated FTS, semantic, fuzzy, filter, fusion-edit, rerank, and one live plan |
+| 40-50 | Participant tool plan, traversal, comparison, bounded recovery, and cited synthesis |
+| 50-55 | Citation attribution and model-free replay |
+| 55-60 | Completed exercise chain and production boundary |
 
-First cut when behind: RRF weight experimentation. Second cut: detailed
-evaluation walkthrough. The cited-answer and replay path remain mandatory.
+When behind, use the facilitator capture for the three-terminal incident and a
+saved plan observation for the live drawer. Keep the filter and fusion
+checkpoints, cited answer, and replay mandatory. Compact evaluation and deeper
+HNSW comparison run after the core path.
 
 The core runs as the default App Engineer persona and does not require a persona
 change. Appendix work includes the RLS and `pg_columnmask` comparison in App
@@ -732,9 +732,13 @@ production identity, and load/failover testing.
 ### Retrieval
 
 - `CHG-1842` is lexical rank 1 under the cluster filter.
+- A dedicated FTS query without an identifier ranks `CHG-1842` first.
 - `CGH-1842` resolves to `CHG-1842` through indexed trigram retrieval.
+- The unfiltered distractor request returns staging evidence, while the
+  participant-edited cluster filter excludes it before fusion.
 - Hybrid persists independent text, vector, and fuzzy positions.
 - Default fusion controls persist as `2:1:1`, `k=60`, threshold `0.3`.
+- Default and semantic-only RRF scores recompute from persisted positions.
 - Result sets contain at most one strongest passage per evidence item.
 - Query and stored embedding spaces must match exactly.
 

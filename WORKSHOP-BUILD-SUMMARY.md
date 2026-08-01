@@ -111,35 +111,42 @@ rrf_score(d) =
 ```
 
 Participants prove why the tier exists. Exact identifier resolution is a B-tree
-equality probe, so it is a fact about the query rather than a score. Written as a
-fourth weighted term it becomes outrankable: set the text weight to `0` and the
-vector weight to `10` and a semantic false positive overtakes `CHG-1842`.
-Participants run exactly that experiment and watch the named identifier hold
-rank 1 while carrying a lower `rrf_score` than the row beneath it.
+equality probe, so it is a fact about the query rather than a score. They then
+use an identifier-free symptom query, change the fused weights from `2:1:1` to
+semantic-only `0:4:0`, and independently recompute the stored RRF score. The
+experiment changes fused ordering without weakening the exact-ID contract.
 
 An absent arm contributes zero. Weights are `numeric`, because integer
 `2 / (60 + 1)` truncates to `0`. Raw text scores, vector distance, trigram
 similarity, RRF, and Cohere rerank scores remain separate. None is a
 probability.
 
-### 5. Filtered semantic retrieval
+### 5. Filtering and semantic diagnostics
 
-Participants inspect:
+The corpus includes a staging rehearsal whose language is deliberately more
+similar to one query than the production incident. Participants first observe
+that distractor, then add `cluster_id=checkout-prod-cluster-01` and prove every
+returned row is in scope before fusion.
+
+Participants also inspect:
 
 - cosine distance;
 - the HNSW index;
 - `ef_search`;
-- `off`, `strict_order`, and `relaxed_order` iterative scans; and
 - the actual PostgreSQL query plan.
 
 The lesson is planner-aware: the UI reports the plan PostgreSQL selected. It
 does not claim HNSW when PostgreSQL chose a different path.
 
-### 6. Optional model reranking
+The deeper `off`, `strict_order`, and `relaxed_order` iterative-scan comparison
+is an appendix exercise.
+
+### 6. Post-fusion model reranking
 
 Cohere Rerank v3.5 can reorder the Aurora candidate pool after SQL fusion.
 Aurora's RRF score remains intact. If reranking fails, the run records the
-failure and keeps SQL order.
+failure and keeps SQL order. The participant still completes the checkpoint by
+observing `rerank_applied=false`.
 
 ### 7. Evidence-bound agent tools
 
@@ -174,7 +181,7 @@ call for the managed transports.
 
 The returned `run_id` replays the answer without another model call.
 
-### 9. Retrieval and traversal evaluation
+### 9. Retrieval and traversal evaluation after the core path
 
 The controlled set contains four questions and 17 graded judgments:
 
@@ -203,17 +210,17 @@ retrieval receipt.
 |---|---|---|
 | Incident reproduction | Run the ordinary and concurrent index phases in three terminals | Reads continue; ordinary index blocks a writer; concurrent index permits fresh DML |
 | Readiness | Run `make doctor` | Aurora, extensions, model space, 15,017 documents/chunks, zero drift |
-| Exact and full text | Search `CHG-1842` under `checkout-prod-cluster-01` | Exact and text positions; `CHG-1842` rank 1 |
+| Exact and full text | Run an exact-ID question, then a dedicated FTS query with SQL and lock vocabulary but no ID | Exact tier remains deterministic; FTS ranks `CHG-1842` first |
 | Fuzzy ID | Search `CGH-1842` | `CHG-1842` recovered; `CHG-1838` rejected |
-| Semantic retrieval | Search `checkout writes froze` | Relevant evidence without exact wording |
-| Query plan | Compare ANN controls and read `EXPLAIN` | Name the plan PostgreSQL actually selected |
-| Fusion | Inspect one candidate across all arms, then try to demote `CHG-1842` by reweighting | Recalculate its RRF contribution by hand; the exact tier holds rank 1 regardless |
-| Rerank | Compare Aurora and Cohere orders | Both scores remain present and separate |
-| Agent answer | Ask the canonical question | Lock cause, visible customer, safe fix, numbered citations |
-| Evidence graph | Follow incident relationships | Confirmed, ruled-out, affected, unaffected, current, and superseded facts |
+| Semantic retrieval | Search the reads-succeed/writes-time-out paraphrase | Relevant evidence without exact wording |
+| Filter | Edit the unscoped starter request to add `cluster_id` | Staging evidence appears before the edit and is absent afterward |
+| Fusion | Edit the starter from `2:1:1` to semantic-only `0:4:0`, then complete the weighted-RRF SQL expression | Every stored RRF score recomputes from arm positions |
+| Query plan | Read one live `EXPLAIN` observation | Name the index PostgreSQL selected or explain why the arm abstained |
+| Rerank | Set `rerank=true` and compare Aurora and Cohere orders | Both scores remain separate, or the explicit fallback remains inspectable |
+| Agent plan | Fill the traversal and comparison requests from decomposition output | Confirmed and ruled-out changes resolve through authoritative relationships |
+| Agent answer | Ask the canonical question after the plan passes | Lock cause, visible customer, safe fix, numbered citations |
 | Citation audit | Validate URI, revision, chunk, quote, and source context | Database attribution validation passes |
 | Replay | Reload the answer by `run_id` | Candidates, stages, answer, and citations return without a model call |
-| Evaluation | Run the controlled set | Retrieval and traversal metrics reported separately |
 
 ### Optional Appendix Exercises
 
@@ -232,14 +239,15 @@ release path.
 | 0-5 | Scenario and system boundary |
 | 5-10 | Readiness against the preloaded evidence corpus |
 | 10-20 | Reproduce the lock wait and apply the concurrent-index repair |
-| 20-40 | Exact, full-text, fuzzy, and semantic retrieval; filters; RRF; one plan; optional rerank |
-| 40-50 | Agent decomposition, retrieval, traversal, and cited synthesis |
-| 50-55 | Citation attribution, graph, timeline, and replay |
-| 55-60 | Compact evaluation, production boundary, and close |
+| 20-40 | Four query shapes; filter edit; fusion edit; rerank; one plan |
+| 40-50 | Participant tool plan, traversal, comparison, and cited synthesis |
+| 50-55 | Citation attribution and model-free replay |
+| 55-60 | Completed exercise chain, production boundary, and close |
 
-First cut: iterative-scan tuning. Second cut: weight experimentation. Detailed
-evaluation moves to the appendix next. The incident proof, cited answer, and
-replay receipt remain mandatory.
+First cut: use a saved plan observation. If reranking is unavailable, keep its
+explicit fallback. Deeper HNSW tuning and compact evaluation run after the
+core. The filter and fusion checkpoints, cited answer, and replay receipt remain
+mandatory.
 
 ## What the UI Exposes
 
@@ -306,8 +314,8 @@ still requires release evidence:
 3. provision a fresh Workshop Studio account on `db.r8g.2xlarge`;
 4. run all nine incident scripts and every participant step with the
    participant role;
-5. repair any search-index drift and prove exact, fuzzy, semantic, hybrid,
-   agent, citation, graph, timeline, evaluation, and replay contracts;
+5. repair any search-index drift and prove exact, FTS, fuzzy, semantic, filter,
+   fusion, rerank, agent-plan, citation, and replay contracts;
 6. verify model access and quotas under the participant role;
 7. recapture Run record, Replay, and mobile proof images from the frozen
    Cohere-backed target; and

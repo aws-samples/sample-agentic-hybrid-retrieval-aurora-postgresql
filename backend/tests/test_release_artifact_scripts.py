@@ -19,9 +19,24 @@ INCIDENT_FILES = {
     "70_verify.sql",
     "99_cleanup.sql",
 }
+EXERCISE_FILES = {
+    "checkpoint.py",
+    "lab2-filter-request.json",
+    "lab2-fusion-request.json",
+    "lab2-rrf.sql",
+    "lab3-plan-request.json",
+    "lab3-traverse-request.json",
+    "lab3-compare-request.json",
+}
 
 
 class ReleaseArtifactScriptTests(unittest.TestCase):
+    def test_participant_exercise_assets_exist(self) -> None:
+        exercise_dir = REPOSITORY_ROOT / "labs" / "exercises"
+        self.assertTrue(exercise_dir.is_dir())
+        for filename in EXERCISE_FILES:
+            self.assertTrue((exercise_dir / filename).is_file(), filename)
+
     def test_archive_requires_every_incident_script(self) -> None:
         source = (
             REPOSITORY_ROOT / "scripts" / "build_source_archive.sh"
@@ -29,6 +44,8 @@ class ReleaseArtifactScriptTests(unittest.TestCase):
 
         for filename in INCIDENT_FILES:
             self.assertIn(f"labs/incident/{filename}", source)
+        for filename in EXERCISE_FILES:
+            self.assertIn(f"labs/exercises/{filename}", source)
         self.assertIn(
             "seed/artifacts/hybrid-retrieval-seed-v2.dump.sha256",
             source,
