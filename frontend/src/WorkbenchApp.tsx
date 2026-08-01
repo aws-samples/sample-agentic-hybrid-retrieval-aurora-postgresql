@@ -5044,7 +5044,7 @@ export default function WorkbenchApp() {
               </div>
               <div className="home-path-flow">
                 <span>
-                  <strong>Exact + full text</strong>
+                  <strong>Full text</strong>
                   <small>tsvector · GIN</small>
                 </span>
                 <b>+</b>
@@ -5059,9 +5059,9 @@ export default function WorkbenchApp() {
                 </span>
                 <ArrowRight size={18} />
                 <span className="active">
-                  <strong>Weighted RRF</strong>
+                  <strong>Exact tier + RRF</strong>
                   <small>
-                    {controls.textWeight}:{controls.vectorWeight}:
+                    IDs first · {controls.textWeight}:{controls.vectorWeight}:
                     {controls.fuzzyWeight} · k={controls.rrfK}
                   </small>
                 </span>

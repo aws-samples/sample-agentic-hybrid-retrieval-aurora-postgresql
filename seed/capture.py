@@ -54,6 +54,10 @@ def _bundle_digest(bundle: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def capture_bundle_digest(bundle: dict[str, Any]) -> str:
+    return _bundle_digest(bundle)
+
+
 def _statement_sample(cursor, phase: str) -> dict[str, Any]:
     cursor.execute(
         """
@@ -88,14 +92,22 @@ def _statement_sample(cursor, phase: str) -> dict[str, Any]:
     }
 
 
-def _run_writer(database_url: str, application_name: str, order_id: int) -> None:
+def _run_writer(
+    database_url: str,
+    application_name: str,
+    order_id: int,
+    statement_timeout_seconds: float,
+) -> None:
     with psycopg.connect(
         database_url,
         autocommit=True,
         application_name=application_name,
     ) as connection:
         with connection.cursor() as cursor:
-            cursor.execute("SET statement_timeout = '30s'")
+            cursor.execute(
+                "SELECT set_config('statement_timeout', %s, false)",
+                (f"{statement_timeout_seconds}s",),
+            )
             cursor.execute(WRITER_SQL, ("queued", order_id))
 
 
@@ -203,8 +215,8 @@ def validate_capture_bundle(
         required_metrics = {
             "WriteLatency",
             "WriteIOPS",
-            "DMLThroughput",
-            "DDLThroughput",
+            "WriteThroughput",
+            "CommitThroughput",
             "DatabaseConnections",
         }
         if not required_metrics.issubset(metric_names):
@@ -222,9 +234,12 @@ def capture_offline_lock_fixture(
     *,
     row_count: int = 25_000,
     timeout_seconds: float = 10.0,
+    hold_seconds: float = 0.0,
 ) -> dict[str, Any]:
     if row_count < 1_000:
         raise ValueError("row_count must be at least 1000")
+    if hold_seconds < 0:
+        raise ValueError("hold_seconds must be non-negative")
 
     capture_started = _utc_now()
     writer_names = ["workbench-offline-writer-1", "workbench-offline-writer-2"]
@@ -317,6 +332,7 @@ def capture_offline_lock_fixture(
                         database_url,
                         writer_name,
                         offset,
+                        max(30.0, hold_seconds + timeout_seconds + 10.0),
                     )
                 )
 
@@ -393,6 +409,9 @@ def capture_offline_lock_fixture(
                     )
 
                 during_stats = _statement_sample(cursor, "during")
+
+            if hold_seconds:
+                time.sleep(hold_seconds)
 
             blocker.commit()
             blocker.close()

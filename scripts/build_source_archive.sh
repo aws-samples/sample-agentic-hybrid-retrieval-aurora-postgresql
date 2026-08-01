@@ -57,6 +57,7 @@ REQUIRED_IN_ARCHIVE=(
   admission/admit.sh
   agent/registry.py
   backend/requirements.txt
+  frontend/package.json
   frontend/package-lock.json
   gates/checks.sh
   labs/incident/00_setup.sql
@@ -76,6 +77,10 @@ REQUIRED_IN_ARCHIVE=(
   labs/exercises/lab3-traverse-request.json
   labs/exercises/lab3-compare-request.json
   lambda_mcp/handler.py
+  gates/rls_enforcement.py
+  gates/masking_determinism.py
+  gates/participant_ceremony.py
+  gates/persona_equivalence.py
   scripts/invoke_agentcore_gateway.py
   seed/artifacts/hybrid-retrieval-seed-v2.dump
   seed/artifacts/hybrid-retrieval-seed-v2.dump.revision
@@ -84,6 +89,7 @@ REQUIRED_IN_ARCHIVE=(
   sql/01_schema.sql
   sql/03_search_functions.sql
   sql/11_roles_rls.sql
+  sql/12_masking.sql
 )
 
 # Schemas seed/load.sh passes to pg_restore. A dump missing any of them

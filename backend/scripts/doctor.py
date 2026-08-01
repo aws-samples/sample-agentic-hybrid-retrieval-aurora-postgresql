@@ -133,7 +133,9 @@ DEFAULT_FRONTEND_URLS = (
 )
 
 
-def version_tuple(value: str) -> tuple[int, ...]:
+def version_tuple(value: str | bytes | None) -> tuple[int, ...]:
+    if isinstance(value, bytes):
+        value = value.decode("ascii")
     match = re.search(r"(\d+(?:\.\d+)*)", value or "")
     return tuple(int(part) for part in match.group(1).split(".")) if match else ()
 

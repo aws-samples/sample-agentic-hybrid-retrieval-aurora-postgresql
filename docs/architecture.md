@@ -198,7 +198,9 @@ Two harnesses run that contract. `backend/app/agent.py` fixes the order, because
 evaluation and replay both need the same input to produce the same output.
 `backend/app/strands_agent.py` gives the model all six tools and lets it choose,
 because "the agent decided to traverse relationships here" is only true if it
-did. Both write the same `proof.*` receipts.
+did. Its tool calls write the same retrieval and answer receipts, but the
+model-loop trace itself remains runtime state rather than a first-class
+replayable agent-run record.
 
 The boundary is harness-neutral. FastAPI, the Lambda adapter, and the stdio MCP
 server call the same Python implementations. None reimplements ranking.

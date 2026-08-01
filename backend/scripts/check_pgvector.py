@@ -9,7 +9,9 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from app.db import close_pool, get_owner_conn
 
 
-def version_tuple(value: str) -> tuple[int, ...]:
+def version_tuple(value: str | bytes | None) -> tuple[int, ...]:
+    if isinstance(value, bytes):
+        value = value.decode("ascii")
     match = re.search(r"(\d+(?:\.\d+)*)", value or "")
     if not match:
         return ()

@@ -76,6 +76,34 @@ that also embeds would only verify the file it was about to change.
 Commit the cache and its manifest together. A manifest that does not match its
 cache fails every account's load, which is the intended outcome.
 
+`--write-cache-manifest` also removes cache keys that are no longer referenced
+by the current corpus. A release refresh therefore replaces changed vectors
+without accumulating superseded entries.
+
+## Aurora release capture
+
+The release corpus requires a controlled capture from the target Aurora
+instance. The producer holds the genuine `ShareLock`/`RowExclusiveLock` wait
+long enough for Performance Insights to sample `Lock:relation`, then records
+five real `AWS/RDS` metrics. It never creates the 25-million-row substrate.
+
+```bash
+set -a
+source .env
+set +a
+
+ALLOW_RELEASE_CAPTURE=1 \
+AURORA_CLUSTER_IDENTIFIER=<cluster-id> \
+AURORA_INSTANCE_IDENTIFIER=<writer-instance-id> \
+  make capture-release
+```
+
+The output defaults to `data/generated/release-aurora-capture.json`. The script
+refuses a database host that does not match the requested cluster, requires
+Performance Insights, and labels the caller identity as metadata-only
+attestation. The content digest detects bundle changes; the attestation is not
+a cryptographic signature.
+
 ## Packaged restore artifact
 
 The Workshop Studio stack does not run `make seed-casework`. It restores a

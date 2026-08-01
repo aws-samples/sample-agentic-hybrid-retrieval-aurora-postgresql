@@ -318,8 +318,8 @@ CREATE TABLE IF NOT EXISTS casework.cloudwatch_metric_samples (
     metric_name IN (
       'WriteLatency',
       'WriteIOPS',
-      'DMLThroughput',
-      'DDLThroughput',
+      'WriteThroughput',
+      'CommitThroughput',
       'DatabaseConnections'
     )
   ),
@@ -333,6 +333,27 @@ CREATE TABLE IF NOT EXISTS casework.cloudwatch_metric_samples (
   unit text NOT NULL,
   raw_datapoint jsonb NOT NULL DEFAULT '{}'::jsonb
 );
+
+ALTER TABLE casework.cloudwatch_metric_samples
+  DROP CONSTRAINT IF EXISTS cloudwatch_metric_samples_metric_name_check;
+
+-- Earlier fixture generations used names that are not AWS/RDS metrics.
+-- They cannot be truthfully remapped, so remove them before tightening the
+-- release-evidence contract.
+DELETE FROM casework.cloudwatch_metric_samples
+WHERE metric_name IN ('DMLThroughput', 'DDLThroughput');
+
+ALTER TABLE casework.cloudwatch_metric_samples
+  ADD CONSTRAINT cloudwatch_metric_samples_metric_name_check
+  CHECK (
+    metric_name IN (
+      'WriteLatency',
+      'WriteIOPS',
+      'WriteThroughput',
+      'CommitThroughput',
+      'DatabaseConnections'
+    )
+  );
 
 CREATE TABLE IF NOT EXISTS casework.database_insights_samples (
   sample_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

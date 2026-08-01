@@ -12,6 +12,7 @@ from backend.app.search_index import (
     EmbeddingCacheIntegrityError,
     chunk_text,
 )
+from backend.scripts.build_search_index import _publish_cache, _stage_cache
 
 
 class ChunkTextTests(unittest.TestCase):
@@ -48,6 +49,50 @@ class EmbeddingCacheTests(unittest.TestCase):
             self.assertIsNone(loaded.get("model-b", "hash-a"))
             record = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
             self.assertEqual(record["dimensions"], 1024)
+
+    def test_retain_removes_superseded_and_other_model_entries(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "cache.jsonl"
+            cache = EmbeddingCache(path)
+            cache.put("model-a", "current", [0.0] * 1024)
+            cache.put("model-a", "superseded", [0.1] * 1024)
+            cache.put("model-b", "current", [0.2] * 1024)
+
+            removed = cache.retain("model-a", {"current"})
+
+            self.assertEqual(removed, 2)
+            self.assertEqual(cache.get("model-a", "current"), [0.0] * 1024)
+            self.assertIsNone(cache.get("model-a", "superseded"))
+            self.assertIsNone(cache.get("model-b", "current"))
+
+    def test_release_cache_is_staged_until_explicit_publication(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "cache.jsonl"
+            original = EmbeddingCache(path)
+            original.put("model-a", "old", [0.0] * 1024)
+            original.save()
+            original.write_manifest(model_id="model-a")
+
+            staged_path = _stage_cache(path)
+            staged = EmbeddingCache(staged_path)
+            staged.load()
+            staged.put("model-a", "new", [0.1] * 1024)
+            staged.save()
+
+            untouched = EmbeddingCache(path)
+            untouched.load()
+            self.assertIsNone(untouched.get("model-a", "new"))
+
+            manifest = _publish_cache(
+                staged_path,
+                path,
+                model_id="model-a",
+            )
+            published = EmbeddingCache(path)
+            published.load()
+            self.assertEqual(published.get("model-a", "new"), [0.1] * 1024)
+            self.assertEqual(manifest["cache"], "cache.jsonl")
+            self.assertEqual(published.verify()["cache"], "cache.jsonl")
 
 
 class EmbeddingCacheManifestTests(unittest.TestCase):

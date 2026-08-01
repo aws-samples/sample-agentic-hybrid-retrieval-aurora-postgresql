@@ -88,27 +88,24 @@ This snapshot must be refreshed before the release artifact is frozen.
 | Database connection | Aurora PostgreSQL endpoint, database `retrieval`, application user `retrieval_admin` | Live validated |
 | PostgreSQL | `18.3` | Live validated |
 | Extensions | `vector 0.8.1`, `pg_trgm 1.6`, `pg_stat_statements 1.12` | Live validated |
-| Search corpus | 15,017 source rows, current documents, chunks, and ready embeddings | Live validated |
-| Search index drift | The current development cluster has known drift and must not be used as release evidence until repaired | Open release gate |
+| Search corpus | 15,023 source rows, current documents, chunks, and ready embeddings | Release seed validated |
+| Search index drift | Frozen release seed reports 15,023 current documents, chunks, and embeddings with zero drift | Release seed validated |
 | Embedding space | `us.cohere.embed-v4:0`, 1,024 dimensions | Live validated |
-| Latest complete build | 15,017 documents, 15,017 chunks, 15,017 cache hits, 0 new embeddings | Live validated |
+| Latest complete build | 15,023 documents, 15,023 chunks, 15,023 cache hits, 0 new embeddings | Release seed validated |
 | Synthesis | `global.anthropic.claude-sonnet-5` through Bedrock Converse and Global CRIS | Live validated in the current Isengard account |
 | Rerank | `cohere.rerank-v3-5:0` through Bedrock Agent Runtime | Live validated in the current Isengard account |
 | Optional security appendix | Persona RLS and Auditor masking exist in `sql/11-12`; `pg_columnmask` requires Aurora validation | Implemented; not a core release gate |
-| Lock fixture | 25,000 transient rows; real `ShareLock` and `RowExclusiveLock` wait chain; safe concurrent retry | Validated locally on PostgreSQL 18.4; target rehearsal required |
+| Lock fixture | 25,000 transient rows; real `ShareLock` and `RowExclusiveLock` wait chain; safe concurrent retry | Validated locally on PostgreSQL 18.4 and captured on target Aurora PostgreSQL 18.3 |
 | Workshop guides | Required incident, retrieval, agent, proof, and replay pages are rewritten; RLS and AgentCore are optional tracks | Implemented |
-| Release archive | The checked-in zip is retired v1 content and `SourceRevision=UNRELEASED` blocks it | Open release blocker |
-| Proof screenshots | Run record, Replay, and mobile references still show the local hash model and 222-document corpus | Target recapture required |
+| Release archive | The supported producer binds committed source, v2 dump, revision, and checksums | Built only after the source freeze |
+| Proof screenshots | Workshop Studio inventory rejects local hash, 222-document, and retired exact-plus-full-text captures | Recaptured from the frozen release |
 
 ### Current environment distinctions
 
-Three different instance descriptions currently exist and must not be merged:
-
-1. The current Isengard validation cluster uses `db.serverless`.
-2. The synthetic scenario record describes `checkout-prod-cluster-01` as
-   `db.r8g.xlarge`.
-3. The Workshop Studio CloudFormation template defaults to the representative
-   rehearsal class `db.r8g.2xlarge`.
+The release capture, synthetic scenario record, and Workshop Studio template
+all use the representative `db.r8g.2xlarge` target. The fixture renderer takes
+the engine version and instance class from the validated capture rather than
+hardcoding a conflicting scenario value.
 
 The 25,000-row lab and 317 MB measured retrieval database do not require 64 GiB
 of memory. `db.r8g.2xlarge` is the fixed event rehearsal target, not a
@@ -177,19 +174,19 @@ production claim.
 
 ### Search corpus
 
-The current search corpus has exactly 15,017 current evidence items:
+The current search corpus has exactly 15,023 current evidence items:
 
 | Evidence kind | Count |
 |---|---:|
-| Change | 3,755 |
-| Incident | 3,753 |
-| Support case | 3,753 |
+| Change | 3,757 |
+| Incident | 3,755 |
+| Support case | 3,755 |
 | Runbook | 3,752 |
 | Lock evidence | 2 |
 | Commitment | 1 |
 | Postmortem | 1 |
 
-Seventeen records form the focused incident fixture. The remaining 15,000
+Twenty-three records form the focused incident fixture. The remaining 15,000
 records are deterministic background incidents, changes, cases, and runbooks
 with fictional tenant names. The corpus makes filtered retrieval and ranking
 behavior observable; it is not customer data.
@@ -198,7 +195,7 @@ behavior observable; it is not customer data.
 
 The incident lab creates 25,000 rows in `workbench_lab.orders`, then
 `99_cleanup.sql` drops that schema. It is separate from the persistent
-15,017-document search corpus. The row count makes the real lock relationship
+15,023-document search corpus. The row count makes the real lock relationship
 quick and deterministic; it does not define retrieval scale or production
 index-build duration.
 
@@ -439,7 +436,7 @@ owns retrieval, ranking, relationships, citations, diagnostics, and replay.
 **Time:** 5-10 minutes
 
 Run `make doctor` and confirm Aurora PostgreSQL, required extensions, the
-Cohere embedding space, 15,017 ready documents and chunks, and zero search-index
+Cohere embedding space, 15,023 ready documents and chunks, and zero search-index
 drift.
 
 **Checkpoint:** the environment is ready before any participant creates the

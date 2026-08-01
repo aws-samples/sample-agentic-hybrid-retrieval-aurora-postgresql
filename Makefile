@@ -16,6 +16,9 @@ LOCAL_BACKGROUND_DOCUMENTS ?= 200
 CAPTURE_BUNDLE ?=
 SEED_ARTIFACT ?=
 SOURCE_ARCHIVE ?=
+RELEASE_CAPTURE ?= data/generated/release-aurora-capture.json
+AURORA_CLUSTER_IDENTIFIER ?=
+AURORA_INSTANCE_IDENTIFIER ?=
 CORE_SQL_FILES := \
 	sql/00_extensions.sql \
 	sql/01_schema.sql \
@@ -38,7 +41,7 @@ export PGVECTOR_VERSION
 export PGVECTOR_MIN_VERSION
 export POSTGRES_MIN_VERSION
 
-.PHONY: install aurora-local-env schema security-schema security-checks aurora-verify doctor test api frontend smoke clean seed-casework seed-project seed-local seed-dump seed-restore source-archive
+.PHONY: install aurora-local-env schema security-schema security-checks aurora-verify doctor test api frontend smoke clean capture-release seed-casework seed-project seed-local seed-dump seed-restore source-archive
 
 install:
 	python -m venv .venv
@@ -94,6 +97,15 @@ seed-local:
 		--offline-capture \
 		--provider hash \
 		--background-documents $(LOCAL_BACKGROUND_DOCUMENTS)
+
+capture-release:
+	@test "$(ALLOW_RELEASE_CAPTURE)" = "1" || (echo "ALLOW_RELEASE_CAPTURE=1 is required" >&2; exit 2)
+	@test -n "$(AURORA_CLUSTER_IDENTIFIER)" || (echo "AURORA_CLUSTER_IDENTIFIER is required" >&2; exit 2)
+	@test -n "$(AURORA_INSTANCE_IDENTIFIER)" || (echo "AURORA_INSTANCE_IDENTIFIER is required" >&2; exit 2)
+	$(PYTHON) backend/scripts/capture_release_aurora.py \
+		--db-cluster-identifier "$(AURORA_CLUSTER_IDENTIFIER)" \
+		--db-instance-identifier "$(AURORA_INSTANCE_IDENTIFIER)" \
+		--output "$(RELEASE_CAPTURE)"
 
 # Produce the packaged restore artifact the Workshop Studio stack provisions
 # from. Run with ALLOW_SEED_DUMP=1 against a disposable database whose name

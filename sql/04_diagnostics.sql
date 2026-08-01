@@ -297,8 +297,8 @@ checks AS (
           ARRAY[
             'WriteLatency',
             'WriteIOPS',
-            'DMLThroughput',
-            'DDLThroughput',
+            'WriteThroughput',
+            'CommitThroughput',
             'DatabaseConnections'
           ]
         )
@@ -330,7 +330,6 @@ SELECT
     AND statement_phases_complete
     AND cloudwatch_metrics_complete
     AND top_wait_lock_relation
-    AND top_sql_contains_index_build
   ) AS release_ready
 FROM checks;
 

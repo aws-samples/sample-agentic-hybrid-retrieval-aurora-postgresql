@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
+import shutil
 import sys
+import tempfile
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 sys.path.append(str(Path(__file__).resolve().parents[2]))
@@ -16,6 +19,41 @@ from seed.capture import capture_offline_lock_fixture, validate_capture_bundle
 from seed.corpus import load_casework
 
 RELEASE_CACHE = Path("seed/artifacts/casework-embeddings.jsonl")
+
+
+def _stage_cache(cache_path: Path) -> Path:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=cache_path.parent,
+        prefix=f".{cache_path.name}.",
+        suffix=".building",
+    )
+    os.close(descriptor)
+    staged_path = Path(temporary_name)
+    if cache_path.exists():
+        shutil.copyfile(cache_path, staged_path)
+    return staged_path
+
+
+def _publish_cache(
+    staged_path: Path,
+    cache_path: Path,
+    *,
+    model_id: str,
+) -> dict[str, object]:
+    cache = EmbeddingCache(staged_path)
+    cache.load()
+    manifest = cache.write_manifest(model_id=model_id)
+    manifest["cache"] = cache_path.name
+    cache.manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    staged_path.replace(cache_path)
+    cache.manifest_path.replace(
+        cache_path.with_name(f"{cache_path.name}.manifest.json")
+    )
+    return manifest
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -121,6 +159,12 @@ def main() -> int:
             "manifest stale; pass --cache <scratch path> for test seeding"
         )
 
+    staged_cache_path: Path | None = None
+    working_cache_path = cache_path
+    if args.write_cache_manifest:
+        staged_cache_path = _stage_cache(cache_path)
+        working_cache_path = staged_cache_path
+
     try:
         capture_bundle = None
         if args.capture_bundle:
@@ -148,20 +192,24 @@ def main() -> int:
             search_index = rebuild_search_index(
                 conn,
                 model_id=model_id,
-                cache_path=cache_path,
+                cache_path=working_cache_path,
                 embed_missing=embed_missing,
                 batch_size=args.batch_size,
                 embedder=embedder,
                 verify_cache=args.verify_cache,
+                prune_unused_cache_entries=args.write_cache_manifest,
             )
             with conn.cursor() as cursor:
                 cursor.execute("SELECT retrieval.assert_search_index_ready()")
                 health = cursor.fetchone()[0]
         cache_manifest = None
         if args.write_cache_manifest:
-            cache = EmbeddingCache(cache_path)
-            cache.load()
-            cache_manifest = cache.write_manifest(model_id=model_id)
+            cache_manifest = _publish_cache(
+                working_cache_path,
+                cache_path,
+                model_id=model_id,
+            )
+            staged_cache_path = None
         print(
             json.dumps(
                 {
@@ -176,6 +224,9 @@ def main() -> int:
         )
         return 0
     finally:
+        if staged_cache_path is not None:
+            staged_cache_path.unlink(missing_ok=True)
+            EmbeddingCache(staged_cache_path).manifest_path.unlink(missing_ok=True)
         close_pool()
 
 

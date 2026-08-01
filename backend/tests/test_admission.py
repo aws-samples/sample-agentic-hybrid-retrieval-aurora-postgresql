@@ -27,10 +27,20 @@ def _apply_schema(conn) -> None:
         conn.execute((REPO_ROOT / rel).read_text(encoding="utf-8"))
 
 
+def _assert_disposable_database(conn) -> None:
+    database_name = conn.execute("SELECT current_database()").fetchone()[0]
+    if not database_name.endswith("_test"):
+        raise RuntimeError(
+            f"refusing admission tests against {database_name!r}; "
+            "the server-reported database name must end in '_test'"
+        )
+
+
 @unittest.skipUnless(TEST_DSN and RESET_OK, "needs TEST_DATABASE_URL + ALLOW_TEST_DATABASE_RESET=1")
 class AdmissionSchemaTest(unittest.TestCase):
     def setUp(self) -> None:
         self.conn = psycopg.connect(TEST_DSN, autocommit=True)
+        _assert_disposable_database(self.conn)
         _apply_schema(self.conn)
 
     def tearDown(self) -> None:
@@ -202,6 +212,7 @@ def _seed_incident(conn) -> None:
 class AdmitEvidenceTest(unittest.TestCase):
     def setUp(self) -> None:
         self.conn = psycopg.connect(TEST_DSN, autocommit=True)
+        _assert_disposable_database(self.conn)
         _apply_schema(self.conn)
         self._clean_admitted()  # isolation: methods share one physical DB
         _seed_incident(self.conn)

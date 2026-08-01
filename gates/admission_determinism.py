@@ -98,6 +98,16 @@ def run() -> int:
 
     try:
         with psycopg.connect(dsn, autocommit=True) as conn:
+            database_name = conn.execute(
+                "SELECT current_database()"
+            ).fetchone()[0]
+            if not database_name.endswith("_test"):
+                return finish(
+                    GATE_ID,
+                    FAIL,
+                    f"refusing writes to server-reported database {database_name!r}; "
+                    "the name must end in '_test'",
+                )
             for rel in SCHEMA_FILES:
                 conn.execute((REPO_ROOT / rel).read_text(encoding="utf-8"))
             _clean_lock_live(conn)

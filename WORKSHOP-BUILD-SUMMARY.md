@@ -30,7 +30,7 @@ opens:
 - Aurora PostgreSQL and supported extensions;
 - VPC, private database networking, IAM, KMS, and Secrets Manager;
 - Code Editor and the immutable workshop source;
-- 15,017 indexed evidence documents and 15,017 Cohere embeddings;
+- 15,023 indexed evidence documents and 15,023 Cohere embeddings;
 - B-tree, GIN full-text, GIN trigram, and HNSW indexes;
 - FastAPI and the Hybrid Retrieval Workbench frontend;
 - configured Bedrock embedding, reranking, and synthesis models.
@@ -73,7 +73,7 @@ Participants prove that:
 - tombstone and current-version state; and
 - search index build and drift receipts.
 
-The frozen release target must contain exactly 15,017 ready documents and
+The frozen release target must contain exactly 15,023 ready documents and
 chunks with zero drift. The search index is derived and rebuildable; it is not
 the source of truth.
 
@@ -209,7 +209,7 @@ retrieval receipt.
 | Exercise | Participant action | Required proof |
 |---|---|---|
 | Incident reproduction | Run the ordinary and concurrent index phases in three terminals | Reads continue; ordinary index blocks a writer; concurrent index permits fresh DML |
-| Readiness | Run `make doctor` | Aurora, extensions, model space, 15,017 documents/chunks, zero drift |
+| Readiness | Run `make doctor` | Aurora, extensions, model space, 15,023 documents/chunks, zero drift |
 | Exact and full text | Run an exact-ID question, then a dedicated FTS query with SQL and lock vocabulary but no ID | Exact tier remains deterministic; FTS ranks `CHG-1842` first |
 | Fuzzy ID | Search `CGH-1842` | `CHG-1842` recovered; `CHG-1838` rejected |
 | Semantic retrieval | Search the reads-succeed/writes-time-out paraphrase | Relevant evidence without exact wording |

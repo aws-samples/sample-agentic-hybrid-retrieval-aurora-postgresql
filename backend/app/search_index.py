@@ -236,6 +236,16 @@ class EmbeddingCache:
             )
         self._vectors[self.key(model_id, text_hash)] = [float(value) for value in vector]
 
+    def retain(self, model_id: str, text_hashes: Iterable[str]) -> int:
+        retained_keys = {self.key(model_id, text_hash) for text_hash in text_hashes}
+        removed = len(self._vectors) - len(self._vectors.keys() & retained_keys)
+        self._vectors = {
+            key: vector
+            for key, vector in self._vectors.items()
+            if key in retained_keys
+        }
+        return removed
+
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(self.path.suffix + ".tmp")
@@ -314,7 +324,8 @@ def _resolve_embeddings(
     embed_missing: bool,
     batch_size: int,
     embedder: Callable[[list[str]], list[list[float]]] | None,
-) -> tuple[dict[str, list[float]], int, int]:
+    prune_unused: bool,
+) -> tuple[dict[str, list[float]], int, int, int]:
     unique = _unique_chunks(documents)
     vectors: dict[str, list[float]] = {}
     missing: list[tuple[str, str]] = []
@@ -351,9 +362,12 @@ def _resolve_embeddings(
             for (text_hash, _), vector in zip(batch, embedded, strict=True):
                 cache.put(model_id, text_hash, vector)
                 vectors[text_hash] = [float(value) for value in vector]
+
+    pruned_count = cache.retain(model_id, unique) if prune_unused else 0
+    if missing or pruned_count:
         cache.save()
 
-    return vectors, cache_hits, len(missing)
+    return vectors, cache_hits, len(missing), pruned_count
 
 
 def _document_version_id(document: Document, version: str) -> uuid.UUID:
@@ -871,6 +885,7 @@ def rebuild_search_index(
     batch_size: int = 48,
     embedder: Callable[[list[str]], list[list[float]]] | None = None,
     verify_cache: bool = False,
+    prune_unused_cache_entries: bool = False,
 ) -> dict:
     version = search_index_version(model_id)
     documents = _load_documents(conn)
@@ -882,13 +897,14 @@ def rebuild_search_index(
     try:
         if verify_cache:
             cache.verify()
-        vectors, cache_hits, embedded_count = _resolve_embeddings(
+        vectors, cache_hits, embedded_count, pruned_count = _resolve_embeddings(
             documents,
             cache,
             model_id,
             embed_missing=embed_missing,
             batch_size=batch_size,
             embedder=embedder,
+            prune_unused=prune_unused_cache_entries,
         )
     except Exception as exc:
         _mark_build_failed(conn, build_id, str(exc))
@@ -896,7 +912,7 @@ def rebuild_search_index(
         raise
 
     if len(documents) >= INDEX_BULK_THRESHOLD:
-        return _persist_search_index_bulk(
+        result = _persist_search_index_bulk(
             conn,
             documents=documents,
             vectors=vectors,
@@ -906,6 +922,8 @@ def rebuild_search_index(
             cache_hits=cache_hits,
             embedded_count=embedded_count,
         )
+        result["embedding_cache_entries_pruned"] = pruned_count
+        return result
 
     document_count = 0
     chunk_count = 0
@@ -1267,6 +1285,7 @@ def rebuild_search_index(
         "chunks_indexed": chunk_count,
         "embedding_cache_hits": cache_hits,
         "embeddings_created": embedded_count,
+        "embedding_cache_entries_pruned": pruned_count,
         "statistics_refreshed": (
             document_count >= ANALYZE_AFTER_INDEXED_DOCUMENTS
         ),
