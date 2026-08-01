@@ -10,58 +10,26 @@
   <a href="LICENSE"><img alt="License: MIT-0" src="https://img.shields.io/badge/License-MIT--0-2EA44F?style=flat-square"></a>
 </p>
 
-Hybrid Retrieval Workbench is the runnable reference application for DAT410 at
-AWS re:Invent 2026.
-It investigates one controlled database incident by retrieving normalized
-incident, change, lock, support-case, and runbook evidence through Aurora
-PostgreSQL. Every ranked candidate, agent stage, answer, and citation is
-persisted for inspection.
-
-> This repository contains synthetic workshop data. `INC-2047`, `CHG-1842`,
-> the customer names, and the lock snapshots are controlled fixtures, not real
-> AWS incidents, Support cases, or customer records.
-
-## The Question
+Hybrid Retrieval Workbench is the runnable DAT410 reference application for
+AWS re:Invent 2026. It investigates one controlled database incident:
 
 > Why did CHG-1842 block checkout writes during INC-2047, which visible
 > customer was affected, and what was the safe fix?
 
-The answer path is real:
+Aurora PostgreSQL performs exact, full-text, semantic, and fuzzy retrieval,
+weighted RRF, relationship reads, citation validation, and replayable proof.
+Every candidate, agent stage, answer, and citation is persisted; no result or
+score is hardcoded in the frontend.
 
-1. Decompose identifiers and database filters.
-2. Run lexical, semantic, and fuzzy retrieval with ACL and metadata filters.
-3. Keep exact identifiers in a deterministic tier, then fuse full-text,
-   semantic, and fuzzy rank positions with weighted reciprocal rank fusion
-   (RRF).
-4. Optionally rerank the fused candidate pool with Cohere Rerank v3.5.
-5. Traverse authoritative incident relationships and compare sources.
-6. Synthesize only from numbered evidence.
-7. Persist source URI, revision, chunk, quote, and source context for each
-   citation, then validate attribution against the exact stored chunk.
+> All incidents, customer names, and lock snapshots are synthetic workshop
+> fixtures, not real AWS incidents, Support cases, or customer records.
 
-No frontend result, score, citation, or answer is hardcoded.
+## Incident Lab
 
-## Reproduce the Lock Mechanism
-
-Before searching the historical evidence, participants can reproduce the
-database behavior with real concurrent PostgreSQL sessions:
-
-1. run ordinary `CREATE INDEX` and retain its granted `ShareLock`;
-2. prove a read succeeds while an `UPDATE` waits for `RowExclusiveLock`;
-3. resolve the queue by rolling back the ordinary build;
-4. run `CREATE INDEX CONCURRENTLY` beside an open writer transaction; and
-5. prove a fresh write succeeds while `ShareUpdateExclusiveLock` and
-   `RowExclusiveLock` coexist.
-
-The scripts, three-terminal runbook, measured assertions, capture artifact, and
-cleanup are in [labs/incident](labs/incident/README.md). The exercise operates
-only on the disposable `workbench_lab` schema. It does not mutate the
-preloaded `casework`, `retrieval`, or `proof` data.
-
-The ordinary build is held by an open transaction after it completes so the
-lock remains observable on fast workshop hardware. This is a deterministic
-proof of lock compatibility and the wait chain, not a production-duration or
-throughput benchmark.
+[`labs/incident`](labs/incident/README.md) uses three real PostgreSQL sessions
+to show ordinary `CREATE INDEX` blocking writers while reads continue, then
+proves `CREATE INDEX CONCURRENTLY` permits fresh DML. It modifies only the
+disposable `workbench_lab` schema.
 
 ## Architecture
 
@@ -98,33 +66,15 @@ Canonical retrieval.* SQL functions
 | `retrieval` | Rebuildable document versions, chunks, embeddings, indexes, search functions, traversal, and search index health |
 | `proof` | Retrieval runs, candidate signals, stages, answers, citations, judgments, and evaluation metrics |
 
-The physical search index is intentional. Externally computed embeddings
-do not belong in a materialized-view definition, and a search index needs
-versioning, incremental replacement, tombstones, and historical references.
-`casework.*` remains authoritative; `retrieval.*` is one-way derived state and
-can be rebuilt and checked for drift.
+`casework.*` remains authoritative; the versioned `retrieval.*` index is
+one-way derived, rebuildable state. See [architecture.md](docs/architecture.md),
+[data-model.md](docs/data-model.md), and the
+[implementation specification](docs/implementation-spec.md) for the full
+contract.
 
-See [architecture.md](docs/architecture.md) and
-[data-model.md](docs/data-model.md) for the exact boundaries.
-The consolidated [implementation specification](docs/implementation-spec.md)
-records the complete application, workshop, validation, and release contract.
-The [production workshop brief](DAT410-BUILD-BRIEF.md) governs release claims,
-and [What DAT410 Builds](WORKSHOP-BUILD-SUMMARY.md) summarizes the participant
-exercises and take-home artifacts.
-
-The required session path is incident diagnosis through hybrid retrieval,
-fusion and reranking, evidence-bound agent tools, cited synthesis, and
-diagnostics and replay. It runs with the default App Engineer persona and does
-not require persona switching. Row-level security and `pg_columnmask` are an
-optional appendix comparison: rerun one query as App Engineer, Auditor, and DBA
-to compare absent, masked, and unmasked restricted evidence. That appendix is
-not a participant prerequisite or a default release gate.
-
-Labs 2 and 3 use the editable requests and deterministic checkpoints in
-[`labs/exercises`](labs/exercises/README.md). Participants scope a distractor,
-change fusion weights, implement the RRF expression against a temporary
-receipt table, build a relationship plan, and verify the resulting receipts
-without modifying the reference retrieval engine.
+The one-hour core path uses the App Engineer persona. RLS and `pg_columnmask`
+persona comparisons are optional. [`labs/exercises`](labs/exercises/README.md)
+contains the bounded filter, RRF, traversal, and comparison exercises.
 
 ## Implemented Retrieval
 
@@ -155,15 +105,10 @@ The current workshop configuration uses:
 | Reranking | `cohere.rerank-v3-5:0` | Bedrock Agent Runtime `rerank` |
 | Answer synthesis | `global.anthropic.claude-sonnet-5` | Bedrock Runtime `Converse`, Global CRIS |
 
-The synthesis path does not claim Mantle and CRIS simultaneously. The validated
-path uses Global CRIS through Converse; model IDs and transport are configuration,
-not application constants. Re-run `make doctor` and review model lifecycle and
-regional support before packaging the event environment.
-
-Stored documents use Cohere's `search_document` input type and live queries use
-`search_query`. Stored and query vectors must use the same model and dimensions.
-The deterministic hash provider is only an offline test substitute and is not a
-semantic-quality claim.
+The validated synthesis path uses Global CRIS through Converse. Stored documents
+use Cohere `search_document`, queries use `search_query`, and both must share one
+model space. The hash provider is an offline test substitute, not a
+semantic-quality claim. Re-run `make doctor` before packaging an event.
 
 ## Prerequisites
 
@@ -184,6 +129,7 @@ command resets workshop tables, so do not use a production database.
 
 ```bash
 make install
+(cd frontend && npm ci)
 cp .env.example .env
 
 # For an offline local corpus, set these in .env:
@@ -195,18 +141,11 @@ make seed-local
 DOCTOR_SKIP_BEDROCK=1 make doctor
 ```
 
-Start the API:
+Start the services in separate terminals:
 
 ```bash
 make api
-```
-
-Start the frontend in another terminal:
-
-```bash
-cd frontend
-npm ci
-npm run dev
+make frontend
 ```
 
 The default URLs are:
@@ -215,7 +154,7 @@ The default URLs are:
 - OpenAPI: `http://127.0.0.1:8000/docs`
 - Frontend: `http://127.0.0.1:5173`
 
-For the Workshop Studio environment:
+For Workshop Studio:
 
 ```bash
 make aurora-local-env
@@ -223,9 +162,8 @@ make aurora-verify
 make doctor
 ```
 
-`make aurora-local-env` writes ignored backend and frontend environment files
-from CloudFormation outputs and Secrets Manager. If its network check cannot
-reach the cluster, run the commands from Code Editor inside the workshop VPC.
+Run these from Code Editor when the cluster is reachable only inside the
+workshop VPC.
 
 ## Try the Evidence Path
 
@@ -281,46 +219,18 @@ ALLOW_TEST_DATABASE_RESET=1 \
 make test
 ```
 
-`setUpClass` TRUNCATEs every `casework`, `retrieval`, and `proof` table, so the
-suite refuses to start unless the database name ends in `_test` and the
-application resolves the same URL the tests were handed. Never point
-`TEST_DATABASE_URL` at the workshop corpus.
+The suite truncates `casework`, `retrieval`, and `proof`, so it requires both
+the `_test` suffix and reset guard. Never point it at the workshop corpus.
 
-The optional persona appendix has two additional validation limits.
-`pg_columnmask` is Aurora-managed, so `sql/12_masking.sql` is skipped locally and
-`ColumnMaskingTests` reports as skipped; the run prints both. Also, `FORCE ROW
-LEVEL SECURITY` does not subject a superuser, so a local cluster whose owner is
-a superuser exercises the policies only through the persona roles, never
-through the owner. When publishing the appendix, run the same suite against a
-disposable database on the Aurora cluster to cover both. These checks are not
-prerequisites for the core retrieval path.
-
-Apply the optional persona DDL only to an isolated workshop or test database
-with `make security-schema`, then run `make security-checks`. The migration
-creates cluster-global roles that outlive a dropped database.
-
-Local PostgreSQL proves PostgreSQL behavior; it does not prove Aurora network,
-parameter-group, extension, or engine-version behavior. To run the same suite on
-the real cluster, create a second database beside the workshop one and apply the
-schema to it:
-
-```bash
-psql "$DATABASE_URL" -c 'CREATE DATABASE workbench_test'
-DATABASE_URL="${DATABASE_URL%/*}/workbench_test" make schema
-TEST_DATABASE_URL="${DATABASE_URL%/*}/workbench_test" \
-ALLOW_TEST_DATABASE_RESET=1 \
-make test
-```
-
-Run the final smoke test on the Workshop Studio-provisioned Aurora cluster
-before release.
+Optional persona validation uses `make security-schema` and
+`make security-checks` on an isolated database. `pg_columnmask`, owner-side RLS,
+and final smoke validation must run on disposable target Aurora infrastructure;
+local PostgreSQL does not cover those boundaries.
 
 ## Package the Workshop Studio Release
 
-Participant stacks do not clone this repository. CFN downloads one zip from the
-Workshop Studio assets bucket, unpacks it into the participant's home folder,
-and seeds Aurora from the dump inside it. Build that zip from a committed
-revision:
+Participant stacks consume a frozen Workshop Studio zip rather than cloning the
+repository. Build it only from a committed revision:
 
 ```bash
 # 1. Seed a disposable database and dump it (see seed/README.md).
@@ -332,12 +242,9 @@ ALLOW_SEED_DUMP=1 \
 make source-archive
 ```
 
-`scripts/build_source_archive.sh` refuses a dirty worktree, requires the dump's
-`.revision` to match `HEAD`, verifies its `.sha256`, confirms the dump actually
-carries `casework`, `retrieval`, and `proof`, and fails if any path the guide
-tells participants to run is missing. It stamps the revision into the zip
-comment. Upload the result as `hybrid-retrieval-source.zip` and record the
-revision in the sibling repository's `assets/README.md`.
+The producer rejects dirty trees, revision/checksum drift, missing dump schemas,
+and missing participant paths. See [seed/README.md](seed/README.md), then record
+the zip revision in the sibling repository's `assets/README.md`.
 
 ## Repository Layout
 
