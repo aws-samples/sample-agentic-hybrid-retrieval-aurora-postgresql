@@ -1,41 +1,41 @@
-# DAT410 co-speaker review brief (draft-13)
+# DAT410 co-speaker review brief
 
-One page. Read `docs/SPEC-session.md` Section 0 (laws + labs), Section 1 (decisions
-D1–D18), and the run-of-show in Section 8 — about 15 minutes. Everything else is
-implementation detail the build will validate against gates G-1..G-24.
+Review `docs/SPEC-session.md`, then walk the current Workshop Studio guide from
+the incident overview through replay. The target is one L400, 60-minute build,
+not three adjacent workshops.
 
-## How to give feedback
-- Challenge by **decision number** ("D11 is wrong because…"), not by vibe — decisions
-  carry their rationale, so attack the rationale.
-- Propose changes as **gate changes** where possible ("G-6 window should be 180–300 s").
-- The 13 open items (Section 13) are already known: cluster-dependent, not oversights.
-- Silence on a decision = consent. This spec freezes after this review round.
+## Review questions
 
-## The five decisions most worth attacking
-- **D9** — incident gets ≤ 19 of 45 min. Too much on-ramp? Too little?
-- **D11** — engine-first: Hybrid retrieval (Lab 2) before Agentic (Lab 3). Anyone who'd
-  argue agent-first should argue it now.
-- **D13** — single LLM, Sonnet-class, no Opus, no fallback LLM. "Sonnet is enough" is a
-  stage claim; challenge it if you wouldn't say it aloud.
-- **D15** — AgentCore = Gateway-only optional module (M5); Policy/Identity/Runtime are
-  slides. If the track pushes back, this is the line we defend.
-- **D18** — final checkpoint: participants install the skill in Claude Code and run its
-  first assertion in the last 2 minutes. Feasible at room scale?
+1. Does the incident remain a short, recognizable on-ramp to the retrieval
+   problem?
+2. Does every abstract claim have a participant checkpoint?
+3. Can participants explain why exact, semantic, fuzzy, filters, RRF, and
+   reranking each exist?
+4. Does the agent answer require relationship traversal and cited evidence
+   rather than plausible prose?
+5. Can a saved `run_id` reproduce what the answer used without a model call?
+6. Are RLS/masking, AgentCore Gateway, admission, and operations clearly
+   optional?
+7. Does the full core path fit in 60 minutes with the documented cut ladder?
 
-## Per-reviewer asks
-- **Grant**: the Aurora claims — exclusives E3/E4/E5 (wait-event seam; ReplicaLag as
-  page-cache lag; orcache plan tiers), the G-6 build-calibration window (240–420 s,
-  single worker, 64 MB maintenance_work_mem on the target class), and the open item 10
-  call: add a reader (E4 becomes a measured demo — likely new public material) or not.
-  Also: audit the audit — is M2 ("room picks any number") airtight from your seat?
-- **Whoever runs ops/infra**: bootstrap S1–S9 realism, DBI Advanced enablement + pricing
-  (open item 1), participant IAM (item 4), tab-4 exposure (item 9).
-- **Everyone**: run the 45-min run-of-show against your own delivery pace; name what you'd
-  cut at 35 minutes (the cut-ladder must be decided before rehearsal, D9); sanity-check
-  the four takeaway sentences (D18) — they become the skill's section headers verbatim.
-- **Floor roles (D10)**: F1/F2/F3 need names. Volunteer or be assigned.
+## Technical boundary
 
-## What's already verified (don't re-litigate without new evidence)
-Fixture arithmetic on a live engine (D14: CGH-1842 unique at 0.500; CHG-1482 is a
-six-way tie — the base spec still needs its one-line fix), the integer-division RRF
-zero, the trigram index trap, sizing (Section 3.0), and the loadgen rates.
+Lab 1 uses the shipped 25,000-row `workbench_lab.orders` exercise. It measures
+real PostgreSQL locks, wait events, PIDs, relation OIDs, and catalog rows. The
+ordinary build's transaction is held open after the small index completes so
+the genuine `ShareLock` remains observable. Reviewers must not interpret that
+hold time as production index-build duration or throughput.
+
+The old 25-million-row `shop.orders`, pgbench load generators, and 240-420
+second timing gate are deferred design history. They are not missing release
+assets and should not be proposed as required fixes unless the session scope is
+deliberately expanded.
+
+## Release evidence
+
+- fresh Workshop Studio account on representative `db.r8g.2xlarge`;
+- all nine incident scripts pass under the participant role;
+- exact, fuzzy, semantic, hybrid, rerank fallback, cited answer, diagnostics,
+  evaluation, and replay pass;
+- source archive revision and v2 dump revision match; and
+- optional modules publish only when their own gates pass.

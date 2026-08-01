@@ -1,6 +1,6 @@
 # Handoff
 
-State of the two DAT410 repositories as of July 31, 2026, and what a new
+State of the two DAT410 repositories as of August 1, 2026, and what a new
 maintainer needs to know before changing either one.
 
 Read `AGENTS.md` first for the architecture and editing boundaries. This file
@@ -19,7 +19,8 @@ revision of the application. Freeze the application revision first, then update
 the guide to match. Doing it the other way produces a guide whose commands do
 not match the packaged source.
 
-The sibling repo has four local commits on `mainline` that have not been pushed.
+The sibling repo has five local commits on `mainline` that have not been pushed,
+plus the uncommitted release-label and archive-validation edits described below.
 **Workshop Studio pushes are user-managed.** Do not push that repo without
 asking.
 
@@ -187,9 +188,44 @@ through `backend/tests/test_incident_lab.py` on PostgreSQL 18.4. The measured
 capture can be promoted through `admission/admit.sh`; admission queues search
 projection and does not claim immediate hybrid retrieval.
 
+**Session and Workshop Studio narrative.** `design/SPEC-session.md` and its
+handoff copy now describe only the shipped 60-minute contract. The old
+25-million-row `shop.orders`, pgbench services, 3 GB working-set claim, and
+240-420 second timing gates are explicitly deferred. The sibling guide is
+rewritten around the same spine: observe, reproduce, retrieve, investigate,
+prove, and replay. RLS/masking and AgentCore remain optional top-level modules.
+The required pacing uses clean clock boundaries: 5 minutes context, 5
+readiness, 10 incident reproduction, 20 retrieval, 10 agent investigation, 5
+proof and replay, and 5 summary.
+
+**Release artifact producer.** `seed/dump.sh` requires
+`ALLOW_SEED_DUMP=1` and a server-reported database name ending in `_test`.
+It writes `.revision` and `.sha256` sidecars. `seed/load.sh` refuses checksum
+drift. `scripts/build_source_archive.sh` requires all nine incident SQL files,
+verifies revision and checksum parity, verifies the three dump schemas, and
+packages a custom `SEED_ARTIFACT` under the canonical v2 name. The sibling
+templates and facilitator checks now name `hybrid-retrieval-seed-v2.dump`.
+Workshop Studio keeps `SourceRevision=UNRELEASED` and bootstrap rejects both
+that sentinel and any zip-comment mismatch, so the retained v1 archive cannot
+silently provision. Checksum helpers prefer Linux `sha256sum` and fall back to
+macOS `shasum`, so the integrity check works in both release and participant
+environments.
+
 ## Deferred work, in the order it should be picked up
 
-**1. Apply and validate the optional appendix DDL on live Aurora.**
+**1. Freeze and package the application.** The real v2 dump does not exist yet.
+Create a seeded disposable database whose name ends in `_test`, run
+`ALLOW_SEED_DUMP=1 make seed-dump`, then build the source archive from the same
+committed revision. Do not use the live Aurora database as the dump source.
+
+**2. Complete a fresh-account target rehearsal.** Provision the Workshop Studio
+stack in `us-east-1` on the representative `db.r8g.2xlarge`, run all nine
+incident scripts with the participant role, and validate exact, fuzzy,
+semantic, hybrid, rerank fallback, cited answer, graph, timeline, evaluation,
+and replay. Resolve the known live search-index drift before using that cluster
+as release evidence.
+
+**3. Apply and validate the optional appendix DDL on live Aurora.**
 `sql/11_roles_rls.sql` and `sql/12_masking.sql` have not been applied to the
 live cluster. Run `make security-schema` there and the four optional security
 gates before publishing the App Engineer, Auditor, DBA comparison. This is not
@@ -207,26 +243,6 @@ defects in that text must be corrected before executing it:
   reads `casework.support_cases` only.
 - Step 14 diffs against `/tmp/canonical_after_collapse.json`, an artifact that
   never existed because the task that would have produced it was BLOCKED.
-
-**2. Rewrite the Workshop Studio guide.** This is the largest remaining piece
-and it belongs in the sibling repo, gated on freezing the application revision.
-`WORKSHOP_GUIDE_TODO.md` there tracks it. Two requirements are not obvious from
-that checklist:
-
-- Module names must align with the application's surfaces (Overview, Hybrid
-  Retrieval, Agentic Retrieval, Proof) rather than the retired Orion-era task
-  framing. A participant navigates by surface name, so a module called "Audit
-  cited answer provenance" gives them no way to know which tab to click. Do not
-  rename titles alone: the module bodies are still the retired Orion and `ops.*`
-  workshop, so a rename without a body rewrite makes the mismatch worse.
-- Keep the incident as the spine for the full 60 minutes. RLS should be one
-  optional three-way comparison on a single query, App Engineer then Auditor
-  then DBA, not a third workshop. Gateway deployment, connectors, extensive
-  tuning, and production identity architecture also belong in the appendix.
-- Start the participant path with the exact `labs/incident/` three-terminal
-  workflow. Use its measured PostgreSQL output and realism boundary; do not
-  replace it with screenshots of prewritten lock rows or claim that the
-  transaction-hold technique measures production index-build duration.
 
 ## Things that look like bugs but are not
 
@@ -250,7 +266,7 @@ every decision above:
   approved design, including its open items.
 - `docs/superpowers/plans/2026-07-28-rls-personas-column-masking.md`, the 16-task
   plan with the Global Constraints block that bound every task.
-- `design/SPEC-session.md` sections 6.x, the session contract.
+- `design/SPEC-session.md`, the current session and release contract.
 
 `.superpowers/sdd/` holds the execution ledger, per-task briefs, reports, and
 review packages. It is gitignored (`.superpowers/sdd/.gitignore` is `*`), so it

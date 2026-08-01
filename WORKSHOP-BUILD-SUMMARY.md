@@ -73,9 +73,9 @@ Participants prove that:
 - tombstone and current-version state; and
 - search index build and drift receipts.
 
-The current corpus contains exactly 15,017 documents and chunks with zero
-drift. The search index is derived and rebuildable; it is not the source of
-truth.
+The frozen release target must contain exactly 15,017 ready documents and
+chunks with zero drift. The search index is derived and rebuildable; it is not
+the source of truth.
 
 ### 3. Four retrieval signals
 
@@ -229,15 +229,13 @@ release path.
 
 | Minute | Participant outcome |
 |---:|---|
-| 0-3 | Scenario and system boundary |
-| 3-11 | Reproduce the lock wait and apply the concurrent-index repair |
-| 11-15 | Readiness against the preloaded evidence corpus |
-| 15-21 | Exact/full-text and fuzzy identifier retrieval |
-| 21-28 | Semantic retrieval, filters, and one HNSW comparison |
-| 28-35 | Weighted RRF and optional rerank |
-| 35-48 | Agent decomposition, retrieval, traversal, and cited synthesis |
-| 48-56 | Citation attribution, graph, timeline, and replay |
-| 56-60 | Compact evaluation, production boundary, and close |
+| 0-5 | Scenario and system boundary |
+| 5-10 | Readiness against the preloaded evidence corpus |
+| 10-20 | Reproduce the lock wait and apply the concurrent-index repair |
+| 20-40 | Exact, full-text, fuzzy, and semantic retrieval; filters; RRF; one plan; optional rerank |
+| 40-50 | Agent decomposition, retrieval, traversal, and cited synthesis |
+| 50-55 | Citation attribution, graph, timeline, and replay |
+| 55-60 | Compact evaluation, production boundary, and close |
 
 First cut: iterative-scan tuning. Second cut: weight experimentation. Detailed
 evaluation moves to the appendix next. The incident proof, cited answer, and
@@ -300,23 +298,25 @@ not production defaults.
 
 ## Current Release Gaps
 
-The application is implemented and live against the current Aurora and Bedrock
-environment, but the workshop is not publication-ready until:
+The application and Workshop Studio narrative are implemented, but publication
+still requires release evidence:
 
-1. Orion and `ops.*` content is removed from every Workshop Studio module,
-   screenshot, facilitator note, and expected output;
-2. the packaged source archive is rebuilt from an immutable tested revision;
-3. every participant step passes in a fresh Workshop Studio account;
-4. model access and quotas pass under the participant role;
-5. the filtered-ANN exercise has literal prepared plans;
-6. a genuine `release_aurora` lock capture and observability evidence is
-   produced, or those claims are removed; and
-7. the complete required path fits inside 60 minutes.
+1. build the real v2 dump and source archive from one immutable tested revision;
+2. replace `SourceRevision=UNRELEASED` with that 40-character revision;
+3. provision a fresh Workshop Studio account on `db.r8g.2xlarge`;
+4. run all nine incident scripts and every participant step with the
+   participant role;
+5. repair any search-index drift and prove exact, fuzzy, semantic, hybrid,
+   agent, citation, graph, timeline, evaluation, and replay contracts;
+6. verify model access and quotas under the participant role;
+7. recapture Run record, Replay, and mobile proof images from the frozen
+   Cohere-backed target; and
+8. complete the required path inside 60 minutes with the documented cut lines.
 
 ## Non-Claims
 
 This workshop does not present synthetic records as real AWS or customer data,
 does not treat Aurora as the operational system of record, does not claim that
 vector search is sufficient by itself, does not label scores as probabilities,
-and does not claim that the current offline lock capture is release-grade
-Aurora telemetry.
+and does not claim that the deterministic 25,000-row lock lab measures
+production index-build duration or throughput.

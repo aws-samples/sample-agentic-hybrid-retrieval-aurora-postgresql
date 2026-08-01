@@ -40,6 +40,7 @@ npm-debug.log*
 # Workshop Studio source archive rather than git.
 /seed/artifacts/*.dump
 /seed/artifacts/*.dump.revision
+/seed/artifacts/*.dump.sha256
 
 # Design packaging archives: build artifacts, not source
 /design/*.zip

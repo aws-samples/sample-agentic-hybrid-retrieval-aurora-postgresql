@@ -306,18 +306,20 @@ revision:
 
 ```bash
 # 1. Seed a disposable database and dump it (see seed/README.md).
-DATABASE_URL=postgresql://.../scratch_db make seed-dump
+DATABASE_URL=postgresql://.../workbench_seed_test \
+ALLOW_SEED_DUMP=1 \
+  make seed-dump
 
 # 2. Package the committed tree plus that dump.
 make source-archive
 ```
 
 `scripts/build_source_archive.sh` refuses a dirty worktree, requires the dump's
-`.revision` to match `HEAD`, verifies the dump actually carries `casework`,
-`retrieval`, and `proof`, and fails if any path the guide tells participants to
-run is missing. It stamps the revision into the zip comment. Upload the result
-as `hybrid-retrieval-source.zip` and record the revision in the sibling
-repository's `assets/README.md`.
+`.revision` to match `HEAD`, verifies its `.sha256`, confirms the dump actually
+carries `casework`, `retrieval`, and `proof`, and fails if any path the guide
+tells participants to run is missing. It stamps the revision into the zip
+comment. Upload the result as `hybrid-retrieval-source.zip` and record the
+revision in the sibling repository's `assets/README.md`.
 
 ## Repository Layout
 

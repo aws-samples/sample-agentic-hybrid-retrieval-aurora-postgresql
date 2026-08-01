@@ -31,15 +31,13 @@ connector, or deploy AgentCore Gateway during the hour.
 
 | Minute | Activity | Participant proof | Time risk and cut line |
 |---:|---|---|---|
-| 0-3 | Scenario and system boundary | Connect the production write-stall question to `casework`, `retrieval`, and `proof` | No product tour |
-| 3-11 | Reproduce and repair | Read succeeds; writer waits on `Lock:relation`; `ShareLock` and `RowExclusiveLock` are visible; concurrent retry permits fresh DML | Use the facilitator's pre-captured output if terminal orchestration exceeds eight minutes |
-| 11-15 | Readiness | `make doctor` shows search index ready, model space aligned, and zero drift | At minute 15, move anyone blocked to the prevalidated terminal |
-| 15-21 | Exact, full text, and typo recovery | `CHG-1842` is rank 1; `CGH-1842` resolves through indexed trigram retrieval | Skip the second `EXPLAIN` if behind |
-| 21-28 | Semantic retrieval and filters | Inspect semantic recall and one filtered HNSW comparison | Iterative-scan tuning is the first cut |
-| 28-35 | Weighted RRF and rerank | Inspect `2:1:1` arm positions, preserve Aurora RRF, and compare optional Cohere order | Weight experimentation is the second cut |
-| 35-48 | Agent tools | Decompose, retrieve, traverse FK-derived edges, compare revisions, and synthesize the cited answer | Use the complete answer endpoint at minute 45 if individual calls run long |
-| 48-56 | Citations and replay | Validate source URI/revision/quote; inspect graph and timeline; replay by `run_id` without a model call | Detailed evaluation moves to the appendix if behind |
-| 56-60 | Evaluation and close | Run the compact retrieval/traversal set and identify one production evidence boundary | Do not start a new demo after minute 57 |
+| 0-5 | Scenario and system boundary | Connect the production write-stall question to `casework`, `retrieval`, and `proof` | No product tour |
+| 5-10 | Readiness | `make doctor` shows search index ready, model space aligned, and zero drift | Move blocked participants to the prevalidated terminal |
+| 10-20 | Reproduce and repair | Read succeeds; writer waits on `Lock:relation`; `ShareLock` and `RowExclusiveLock` are visible; concurrent retry permits fresh DML | Use the facilitator's measured capture if terminal orchestration runs long |
+| 20-40 | Hybrid retrieval | `CHG-1842` ranks first; `CGH-1842` resolves; semantic symptoms retrieve relevant evidence; filters, RRF, rerank, and one live plan remain inspectable | Cut iterative-scan comparison, then live rerank |
+| 40-50 | Agent tools | Decompose, retrieve, traverse FK-derived edges, compare revisions, and synthesize the cited answer | Use the complete answer endpoint if individual calls run long |
+| 50-55 | Citations and replay | Validate source URI/revision/quote; inspect graph and timeline; replay by `run_id` without a model call | Cut visual timeline, preserve citation SQL and replay |
+| 55-60 | Evaluation and close | Run the compact retrieval/traversal set and identify one production evidence boundary | Do not start a new demo after minute 55 |
 
 ## Core Versus Appendix
 

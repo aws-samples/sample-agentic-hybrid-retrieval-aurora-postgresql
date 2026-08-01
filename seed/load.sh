@@ -25,6 +25,18 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARTIFACT="${1:-$ROOT_DIR/seed/artifacts/hybrid-retrieval-seed-v2.dump}"
 DATABASE_URL="${DATABASE_URL:?DATABASE_URL must be set (e.g. postgresql://localhost:55432/retrieval?sslmode=disable)}"
 
+sha256_file() {
+  local path="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$path" | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$path" | cut -d' ' -f1
+  else
+    echo "ERROR: sha256sum or shasum is required." >&2
+    return 1
+  fi
+}
+
 # Definitions re-applied over the restored data. This list intentionally omits
 # sql/01_schema.sql: the dump carries the tables, and re-running DDL over
 # restored rows is how column drift gets silently patched instead of caught.
@@ -44,11 +56,27 @@ if ! command -v pg_restore >/dev/null 2>&1; then
   echo "ERROR: pg_restore not found on PATH. Install the PostgreSQL client tools." >&2
   exit 1
 fi
+sha256_file /dev/null >/dev/null
 if [ ! -f "$ARTIFACT" ]; then
   echo "ERROR: seed artifact not found: $ARTIFACT" >&2
   echo "Produce it with 'DATABASE_URL=<disposable> seed/dump.sh' from a seeded database." >&2
   exit 1
 fi
+
+# Refuse bytes that do not match the producer's content sidecar. Zip integrity
+# protects transfer; this check protects release assembly and manual restores.
+if [ ! -f "$ARTIFACT.sha256" ]; then
+  echo "ERROR: $ARTIFACT.sha256 missing; cannot verify seed artifact bytes." >&2
+  exit 1
+fi
+expected_sha256="$(tr -d '[:space:]' < "$ARTIFACT.sha256")"
+actual_sha256="$(sha256_file "$ARTIFACT")"
+if [ "$actual_sha256" != "$expected_sha256" ]; then
+  echo "ERROR: seed artifact checksum mismatch." >&2
+  echo "Expected $expected_sha256 but read $actual_sha256." >&2
+  exit 1
+fi
+echo "[load] artifact sha256: $actual_sha256"
 
 # The artifact and this checkout must be the same schema generation. A dump from
 # an older generation restores tables the current functions do not match, and

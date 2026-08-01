@@ -6,7 +6,7 @@
 **Level:** 400  
 **Application:** Hybrid Retrieval Workbench<br>
 **Scenario:** Synthetic application incident running on Aurora PostgreSQL  
-**Last evidence audit:** July 25, 2026
+**Last evidence audit:** August 1, 2026
 
 This is the governing implementation and release brief for the current
 incident-evidence workshop. It replaces the earlier Orion and `ops.*` workshop
@@ -89,17 +89,16 @@ This snapshot must be refreshed before the release artifact is frozen.
 | PostgreSQL | `18.3` | Live validated |
 | Extensions | `vector 0.8.1`, `pg_trgm 1.6`, `pg_stat_statements 1.12` | Live validated |
 | Search corpus | 15,017 source rows, current documents, chunks, and ready embeddings | Live validated |
-| Search index drift | 0 issues | Live validated |
+| Search index drift | The current development cluster has known drift and must not be used as release evidence until repaired | Open release gate |
 | Embedding space | `us.cohere.embed-v4:0`, 1,024 dimensions | Live validated |
 | Latest complete build | 15,017 documents, 15,017 chunks, 15,017 cache hits, 0 new embeddings | Live validated |
 | Synthesis | `global.anthropic.claude-sonnet-5` through Bedrock Converse and Global CRIS | Live validated in the current Isengard account |
 | Rerank | `cohere.rerank-v3-5:0` through Bedrock Agent Runtime | Live validated in the current Isengard account |
 | Optional security appendix | Persona RLS and Auditor masking exist in `sql/11-12`; `pg_columnmask` requires Aurora validation | Implemented; not a core release gate |
-| Lock fixture | 100,000 rows; two blocked writers; PostgreSQL catalog evidence | Live validated as `offline_test` only |
-| Release capture | No `release_aurora` capture is loaded | Open release gate |
-| CloudWatch samples | 0 rows | Open release gate |
-| Database Insights samples | 0 rows | Open release gate |
-| Workshop guides | Hybrid-search introduction updated; required modules still contain Orion and `ops.*` material | Open release blocker |
+| Lock fixture | 25,000 transient rows; real `ShareLock` and `RowExclusiveLock` wait chain; safe concurrent retry | Validated locally on PostgreSQL 18.4; target rehearsal required |
+| Workshop guides | Required incident, retrieval, agent, proof, and replay pages are rewritten; RLS and AgentCore are optional tracks | Implemented |
+| Release archive | The checked-in zip is retired v1 content and `SourceRevision=UNRELEASED` blocks it | Open release blocker |
+| Proof screenshots | Run record, Replay, and mobile references still show the local hash model and 222-document corpus | Target recapture required |
 
 ### Current environment distinctions
 
@@ -108,12 +107,13 @@ Three different instance descriptions currently exist and must not be merged:
 1. The current Isengard validation cluster uses `db.serverless`.
 2. The synthetic scenario record describes `checkout-prod-cluster-01` as
    `db.r8g.xlarge`.
-3. The loaded lock capture records `instance_class = "unverified"`.
-4. The Workshop Studio CloudFormation template defaults to
-   `db.r8g.xlarge`.
+3. The Workshop Studio CloudFormation template defaults to the representative
+   rehearsal class `db.r8g.2xlarge`.
 
-Only a signed `release_aurora` capture can establish the class used for release
-telemetry.
+The 25,000-row lab and 317 MB measured retrieval database do not require 64 GiB
+of memory. `db.r8g.2xlarge` is the fixed event rehearsal target, not a
+dataset-size minimum. A fresh Workshop Studio deployment must establish the
+actual release class and behavior.
 
 ## 5. Incident Ground Truth
 
@@ -122,7 +122,7 @@ telemetry.
 | Concept | Value |
 |---|---|
 | Production cluster | `checkout-prod-cluster-01` |
-| Table under migration | `workbench_capture.orders` |
+| Table under migration | `workbench_lab.orders` |
 | Primary incident | `INC-2047` |
 | Causal change | `CHG-1842` |
 | Safe follow-up change | `CHG-1907` |
@@ -155,27 +155,23 @@ continue, but it performs two table scans, waits for relevant transactions,
 usually takes longer, cannot run inside a transaction block, and can leave an
 `INVALID` index after failure.
 
-### Capture limitation
+### Reproduction realism boundary
 
-The current capture is genuine PostgreSQL catalog evidence, but it uses
-`capture_method = "post_build_transaction_hold"`. The `CREATE INDEX` command
-completed and its transaction retained the lock before the writers were
-started. It proves lock compatibility and the shared relation OID. It does not
-prove:
+The ordinary index build is real, but 25,000 rows build too quickly for a
+reliable room-wide observation. `labs/incident/10_unsafe_index.sql` therefore
+keeps the explicit transaction open after `CREATE INDEX` completes. PostgreSQL
+retains the genuine `ShareLock`, and the participant's writer genuinely waits
+for `RowExclusiveLock` while reads continue.
 
-- Aurora index-build duration;
-- writer queue duration during an in-progress build;
-- production throughput impact;
-- actual instance class; or
-- CloudWatch or Database Insights behavior.
+The observer reads live `pg_stat_activity`, `pg_locks`, and
+`pg_blocking_pids()` rows and writes a measured JSON capture. The safe phase
+then observes `ShareUpdateExclusiveLock` and proves fresh DML succeeds beside
+`CREATE INDEX CONCURRENTLY`.
 
-The stored `pg_stat_statements` samples cover before, during, and after phases,
-but the before and during counters are identical and only the after phase adds
-two completed calls. They do not establish an execution-time spike while the
-writers were blocked.
-
-No duration or performance number from this capture may appear on a release
-slide.
+This technique proves lock compatibility and the wait chain. It does not prove
+Aurora index-build duration, production throughput impact, or instance-class
+performance. No duration or throughput number from the lab may appear as a
+production claim.
 
 ## 6. Corpus and Data Design
 
@@ -200,10 +196,11 @@ behavior observable; it is not customer data.
 
 ### Separate lock fixture
 
-The current lock fixture contains 100,000 rows in
-`workbench_capture.orders`. This is separate from the 15,017-document search
-corpus. The row count exists to make the PostgreSQL lock exercise concrete, not
-to define retrieval scale.
+The incident lab creates 25,000 rows in `workbench_lab.orders`, then
+`99_cleanup.sql` drops that schema. It is separate from the persistent
+15,017-document search corpus. The row count makes the real lock relationship
+quick and deterministic; it does not define retrieval scale or production
+index-build duration.
 
 ### Ownership
 
@@ -425,159 +422,94 @@ The Gateway is not a second search implementation. Gateway authorization does
 not replace the core evidence predicate or, when enabled, optional row-level
 security.
 
-## 10. Participant Exercises
+## 10. Participant Path
 
-Every required exercise ends with a receipt that participants can inspect.
+Every required block ends with inspectable PostgreSQL or persisted proof.
 
-### Exercise 0: Reproduce and repair the lock incident
+### Context and architecture
 
-**Time:** 0-11 minutes
+**Time:** 0-5 minutes
 
-Participants:
+Frame the production symptom, the real lock relationship, and the ownership
+boundary: operational systems remain authoritative, while Aurora PostgreSQL
+owns retrieval, ranking, relationships, citations, diagnostics, and replay.
 
-1. run the three-terminal SQL workflow in `labs/incident/`;
-2. prove ordinary `CREATE INDEX` retains granted `ShareLock`;
-3. prove a read succeeds while a writer waits for `RowExclusiveLock`;
-4. roll back the ordinary build and let the writer drain;
-5. run `CREATE INDEX CONCURRENTLY` beside an open writer; and
-6. prove a fresh write succeeds before verifying the index is ready, valid,
-   and live.
+### Prove readiness
+
+**Time:** 5-10 minutes
+
+Run `make doctor` and confirm Aurora PostgreSQL, required extensions, the
+Cohere embedding space, 15,017 ready documents and chunks, and zero search-index
+drift.
+
+**Checkpoint:** the environment is ready before any participant creates the
+controlled incident.
+
+### Lab 1: Reproduce and observe
+
+**Time:** 10-20 minutes
+
+Run all nine `labs/incident/*.sql` files across three terminals. Prove reads
+continue, ordinary `CREATE INDEX` blocks a writer, the blocking PID is
+measured, `CREATE INDEX CONCURRENTLY` permits fresh DML, and the final index is
+ready, valid, and live.
 
 **Checkpoint:** PostgreSQL catalogs and `pg_blocking_pids()` reproduce the
-failure mechanism, and the concurrent retry leaves no relation waiters.
+failure mechanism, and cleanup leaves no relation waiter.
 
-If terminal orchestration exceeds eight minutes, use the facilitator's measured
-capture and continue at readiness. Never substitute a prewritten lock row while
-claiming it was observed live.
+If terminal orchestration threatens the 10-minute block, use the facilitator's
+measured capture and safe-fix verification. Never present a prewritten lock row
+as a live observation.
 
-### Exercise 1: Prove readiness
+### Lab 2: Build hybrid retrieval
 
-**Time:** 11-15 minutes
+**Time:** 20-40 minutes
 
-Participants:
+Run exact and full-text retrieval for `CHG-1842`, fuzzy retrieval for
+`CGH-1842`, semantic retrieval for the write-stall symptoms, metadata filters,
+weighted RRF, optional Cohere reranking, and one live arm plan. Keep exact,
+text, vector, fuzzy, RRF, and rerank signals separate.
 
-1. open Hybrid Retrieval Workbench;
-2. run `make doctor`;
-3. confirm Aurora PostgreSQL, extensions, model space, search index count, and
-   zero drift; and
-4. record that the corpus and services were preloaded.
+**Checkpoint:** `CHG-1842` ranks first, the typo resolves correctly, semantic
+retrieval works without exact wording, filters execute before fusion, and the
+receipt explains why each result ranked where it did.
 
-**Checkpoint:** readiness reports 15,017 documents, 15,017 chunks, one
-embedding space, and zero drift.
+**First cut when behind:** remove the filtered-HNSW comparison, then live
+reranking. Preserve exact, fuzzy, semantic, fusion, and the plan inspection.
 
-### Exercise 2: Recover exact operational evidence
+### Lab 3: Build the incident agent
 
-**Time:** 15-19 minutes
+**Time:** 40-50 minutes
 
-Participants:
-
-1. search for `CHG-1842` under `checkout-prod-cluster-01`;
-2. compare exact-ID and full-text positions;
-3. inspect the GIN and B-tree plan selected by PostgreSQL; and
-4. verify filters and ACL checks occur before fusion.
-
-**Checkpoint:** `CHG-1842` ranks first and the receipt preserves raw text
-signals and positions.
-
-### Exercise 3: Recover a mistyped identifier
-
-**Time:** 19-22 minutes
-
-Participants:
-
-1. search for `CGH-1842` in fuzzy mode;
-2. inspect trigram similarity and the `0.3` threshold;
-3. confirm the trigram index plan; and
-4. compare the positive judgment for `CHG-1842` with the zero judgment for
-   `CHG-1838`.
-
-**Checkpoint:** `CGH-1842` resolves to `CHG-1842`; `CHG-1838` does not pass by
-proximity alone.
-
-### Exercise 4: Inspect semantic retrieval under filters
-
-**Time:** 22-28 minutes
-
-Participants:
-
-1. search for `checkout writes froze`;
-2. compare semantic results with lexical results;
-3. inspect `ef_search=40` and iterative-scan controls;
-4. compare `off`, `strict_order`, and `relaxed_order` only when the prepared
-   fixture produces an observable difference; and
-5. read the actual query plan.
-
-**Checkpoint:** semantic retrieval finds relevant incident evidence without
-depending on exact wording, and participants can name the selected plan.
-
-### Exercise 5: Explain weighted fusion and reranking
-
-**Time:** 28-35 minutes
-
-Participants:
-
-1. inspect exact, full-text, semantic, and fuzzy positions independently;
-2. calculate one document's RRF contribution;
-3. compare Aurora RRF order with optional Cohere rerank order; and
-4. confirm absent arms contribute zero and no score is labeled a probability.
-
-**Checkpoint:** the run receipt contains independent arm positions, RRF, and
-optional rerank values.
-
-**First cut when behind:** skip changing weights; retain the explanation and
-receipt inspection.
-
-### Exercise 6: Run the evidence-bound agent
-
-**Time:** 35-48 minutes
-
-Participants:
-
-1. submit the canonical incident question;
-2. inspect deterministic identifiers and filters;
-3. follow the persisted agent stages;
-4. compare the confirmed change, ruled-out change, staging distractor,
-   superseded runbook, visible case, and unaffected case; and
-5. read the cited answer.
+Ask the canonical question. Inspect decomposition, targeted retrieval,
+relationship traversal, distractor rejection, ranking explanation, and cited
+synthesis.
 
 **Checkpoint:** the answer identifies the lock conflict, Acme Retail
-(fictional), and `CREATE INDEX CONCURRENTLY`, with every factual claim tied to
+(fictional), and `CREATE INDEX CONCURRENTLY`, with factual claims tied to
 numbered evidence.
 
-### Exercise 7: Audit and replay proof
+### Lab 4: Prove and replay
 
-**Time:** 48-56 minutes
+**Time:** 50-55 minutes
 
-Participants:
+Save the `run_id`; load the candidate receipt, graph, and timeline; validate
+citation URI, revision, chunk, and quote; reproduce one displayed diagnostic
+with verify-SQL; and replay without another model call.
 
-1. save the returned `run_id`;
-2. load the candidate receipt, graph, and timeline;
-3. validate citation URI, revision, chunk, quote, and claim;
-4. reproduce one displayed diagnostic with its verify-SQL; and
-5. replay the run without another model call.
+**Checkpoint:** `/v1/runs/{run_id}`, `/graph`, and `/timeline` resolve
+persisted proof, and `proof.validate_answer_citations` validates every
+citation.
 
-**Checkpoint:** `GET /v1/runs/{run_id}` resolves the persisted candidates,
-stages, answer, and citations.
+### Summary and production boundary
 
-### Exercise 8: Measure retrieval and traversal separately
+**Time:** 55-60 minutes
 
-**Time:** 56-58 minutes
+Run or inspect the compact retrieval and traversal evaluation, then identify
+which evidence a production system should materialize, federate, or revalidate
+live. Retrieval metrics and relationship-traversal metrics remain separate.
 
-Participants run the controlled evaluation set:
-
-- `exact-change`;
-- `fuzzy-change-id`;
-- `semantic-symptom`; and
-- `customer-impact`.
-
-They compare recall, precision, MRR, and nDCG for retrieval and separate recall
-and precision for traversal.
-
-**Checkpoint:** participants can explain why a graph traversal is not a top-k
-retrieval metric.
-
-**Second cut when behind:** show the persisted evaluation receipt instead of
-running every mode live.
+Do not start a new demo after minute 55.
 
 ### Optional appendix: Invoke the managed contract
 
@@ -611,19 +543,6 @@ Local PostgreSQL may skip `sql/12_masking.sql` when `pg_columnmask` is
 unavailable; that is useful for partial development but is not appendix release
 evidence. Do not run `make schema` alone after enabling the appendix because
 `sql/03` restores the core predicates; reapply the complete security schema.
-
-### Close
-
-**Time:** 58-60 minutes
-
-Participants identify:
-
-- one source they would materialize;
-- one source they would federate;
-- one fact they would revalidate live; and
-- one release gate they would require before production.
-
-Do not start a new demo after minute 57.
 
 ## 11. Facilitator Fallbacks
 
@@ -861,20 +780,21 @@ it.
 
 ### P0: must close before publication
 
-1. Replace all Orion and `ops.*` participant content, screenshots, expected
-   outputs, and facilitator notes in the sibling Workshop Studio repository.
-2. Build the source archive from an immutable tested application revision and
-   record its SHA-256 hash.
-3. Run a fresh-account Workshop Studio deployment.
-4. Run every participant command against the packaged source.
-5. Prove exact, lexical, semantic, fuzzy, fusion, fixed visibility, traversal,
+1. Build the v2 seed dump and source archive from the same immutable tested
+   application revision, then replace `SourceRevision=UNRELEASED`.
+2. Verify the archive revision, SHA-256 sidecar, three dump schemas, and all
+   nine incident SQL files.
+3. Replace the stale Run record, Replay, and mobile proof images with captures
+   from the frozen Cohere-backed target.
+4. Run a fresh-account Workshop Studio deployment on `db.r8g.2xlarge`.
+5. Run every participant command and all nine incident scripts with the
+   participant role.
+6. Prove exact, lexical, semantic, fuzzy, fusion, fixed visibility, traversal,
    citation, diagnostics, replay, and evaluation checkpoints.
-6. Verify all configured Bedrock models and quotas with the participant role.
-7. Produce a `release_aurora` lock capture during an in-progress
-   non-concurrent build, or remove release telemetry from the session.
-8. Populate only genuine CloudWatch and Database Insights evidence and validate
-   the exact metric and wait names.
-9. Record the actual release instance class and fixture dimensions.
+7. Verify all configured Bedrock models and quotas with the participant role.
+8. Repair search-index drift before using the target as release evidence.
+9. Record the actual release instance class, corpus counts, index sizes, source
+   revision, and archive hash.
 10. Test the full 60-minute path with cut lines.
 
 G-27, G-29, G-30, and G-31 are optional-security appendix gates. They must pass

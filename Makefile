@@ -96,8 +96,9 @@ seed-local:
 		--background-documents $(LOCAL_BACKGROUND_DOCUMENTS)
 
 # Produce the packaged restore artifact the Workshop Studio stack provisions
-# from. Run against a disposable database that has been through `make schema`
-# and `make seed-casework`, never the live workshop cluster.
+# from. Run with ALLOW_SEED_DUMP=1 against a disposable database whose name
+# ends in `_test` and that has been through `make schema` and
+# `make seed-casework`, never the live workshop cluster.
 seed-dump:
 	seed/dump.sh $(SEED_ARTIFACT)
 
@@ -110,7 +111,7 @@ seed-restore:
 # only supported producer: the published archive drifted five schema
 # generations while it was assembled by hand.
 source-archive:
-	scripts/build_source_archive.sh $(SOURCE_ARCHIVE)
+	SEED_ARTIFACT="$(SEED_ARTIFACT)" scripts/build_source_archive.sh $(SOURCE_ARCHIVE)
 
 api:
 	$(UVICORN) backend.app.main:app --reload --port 8000

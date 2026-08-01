@@ -827,8 +827,9 @@ The repository is not event-release-complete until all of these core gates pass:
 6. Validate filtered-HNSW candidate behavior and timing at release scale.
 7. Run room-scale concurrency and throttling tests for API, Aurora, rerank, and
    synthesis.
-8. Update the sibling Workshop Studio content and immutable source archive only
-   after this application revision is frozen.
+8. Keep the sibling Workshop Studio content aligned now, but replace its
+   immutable source archive and `SourceRevision` only after this application
+   revision is frozen.
 9. Verify fresh-account Workshop Studio provisioning and participant commands.
 10. Record the final source revision, archive hash, expected run IDs, and
     facilitator fallback checkpoints.

@@ -86,17 +86,22 @@ Produce the artifact from a disposable database, never the live cluster:
 
 ```bash
 # 1. Seed a throwaway database from the frozen corpus and embedding cache.
-DATABASE_URL=postgresql://.../scratch_db make schema
-DATABASE_URL=postgresql://.../scratch_db make seed-casework CAPTURE_BUNDLE=<bundle>
+#    The `_test` suffix is the producer's disposable-database guard.
+DUMP_DATABASE_URL=postgresql://.../workbench_seed_test
+DATABASE_URL="$DUMP_DATABASE_URL" make schema
+DATABASE_URL="$DUMP_DATABASE_URL" \
+  make seed-casework CAPTURE_BUNDLE=<bundle>
 
-# 2. Dump it. Refuses if the index is not ready or sql/, seed/, or
-#    backend/app/ has uncommitted changes.
-DATABASE_URL=postgresql://.../scratch_db make seed-dump
+# 2. Dump it. Refuses unless ALLOW_SEED_DUMP=1, the server-reported database
+#    name ends in `_test`, the index is ready, and sql/, seed/, and
+#    backend/app/ have no uncommitted changes.
+DATABASE_URL="$DUMP_DATABASE_URL" ALLOW_SEED_DUMP=1 make seed-dump
 ```
 
-`seed/dump.sh` writes `seed/artifacts/hybrid-retrieval-seed-v2.dump` plus a
-`.revision` sidecar naming the commit that produced it. Both are gitignored:
-they travel in the Workshop Studio source archive, not in git.
+`seed/dump.sh` writes `seed/artifacts/hybrid-retrieval-seed-v2.dump`, a
+`.revision` sidecar naming the commit that produced it, and a `.sha256` sidecar
+binding the release to the dump bytes. All three are gitignored and travel in
+the Workshop Studio source archive, not in git.
 
 `seed/load.sh` (`make seed-restore`) is the consumer, and it is what the CFN
 `SeedDatabase` step invokes. It restores tables and data from the dump, then
@@ -135,15 +140,16 @@ The script closes that class of drift:
 - source comes from `git archive HEAD`, so the archive holds exactly one
   committed revision and cannot absorb local edits. It refuses a dirty
   worktree, and names untracked top-level paths it is leaving out;
-- the dump's `.revision` sidecar must equal `HEAD`. `seed/load.sh` only warns
-  on a mismatch, because a participant stack at provisioning time cannot
-  recover; the release path is where the mismatch is still cheap, so here it is
-  fatal;
+- the dump's `.revision` sidecar must equal `HEAD`, and its `.sha256` must match
+  the dump bytes. `seed/load.sh` only warns on a revision mismatch because a
+  participant stack at provisioning time cannot recover, but it refuses a
+  checksum mismatch; the release path treats both as fatal;
 - `pg_restore -l` must show `TABLE DATA` for `casework`, `retrieval`, and
   `proof` — the three schemas `seed/load.sh` passes to `pg_restore`. This is
   the check that rejects the published archive's dump;
 - every path the guide tells participants to open or run must be present, so a
-  missing lab file fails the build instead of the workshop; and
+  missing lab file fails the build instead of the workshop. This includes all
+  nine scripts under `labs/incident/`; and
 - the zip comment records the revision, which is how a published archive is
   traced back to source.
 
