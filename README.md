@@ -2,6 +2,14 @@
 
 **Agentic hybrid retrieval with Amazon Aurora PostgreSQL**
 
+<p align="center">
+  <a href="https://aws.amazon.com/rds/aurora/"><img alt="Amazon Aurora PostgreSQL 18.3+" src="https://img.shields.io/badge/Amazon_Aurora-PostgreSQL_18.3%2B-527FFF?style=flat-square"></a>
+  <a href="https://github.com/pgvector/pgvector"><img alt="pgvector 0.8.1+" src="https://img.shields.io/badge/pgvector-0.8.1%2B-336791?style=flat-square&logo=postgresql&logoColor=white"></a>
+  <a href="https://www.python.org/"><img alt="Python 3.13+" src="https://img.shields.io/badge/Python-3.13%2B-3776AB?style=flat-square&logo=python&logoColor=white"></a>
+  <a href="https://nodejs.org/"><img alt="Node.js 20.19+" src="https://img.shields.io/badge/Node.js-20.19%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white"></a>
+  <a href="LICENSE"><img alt="License: MIT-0" src="https://img.shields.io/badge/License-MIT--0-2EA44F?style=flat-square"></a>
+</p>
+
 Hybrid Retrieval Workbench is the runnable reference application for DAT410 at
 AWS re:Invent 2026.
 It investigates one controlled database incident by retrieving normalized
@@ -139,7 +147,7 @@ Lambda adapter, MCP server, and frontend consume that implementation.
 
 ## Model Configuration
 
-The July 2026 workshop configuration uses:
+The current workshop configuration uses:
 
 | Role | Configurable ID | Transport |
 |---|---|---|
@@ -197,7 +205,7 @@ Start the frontend in another terminal:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -259,7 +267,7 @@ curl -sS http://127.0.0.1:8000/v1/runs/RUN_ID/graph
 ```bash
 make doctor
 make smoke
-make test
+gates/checks.sh G-11 G-14 G-17 G-23
 cd frontend && npm run build
 git diff --check
 ```
@@ -286,6 +294,10 @@ a superuser exercises the policies only through the persona roles, never
 through the owner. When publishing the appendix, run the same suite against a
 disposable database on the Aurora cluster to cover both. These checks are not
 prerequisites for the core retrieval path.
+
+Apply the optional persona DDL only to an isolated workshop or test database
+with `make security-schema`, then run `make security-checks`. The migration
+creates cluster-global roles that outlive a dropped database.
 
 Local PostgreSQL proves PostgreSQL behavior; it does not prove Aurora network,
 parameter-group, extension, or engine-version behavior. To run the same suite on
@@ -332,6 +344,9 @@ revision in the sibling repository's `assets/README.md`.
 ```text
 backend/app/     FastAPI, search index, retrieval, rerank, tools, and synthesis
 backend/tests/   Unit and disposable-database contract tests
+admission/       Evidence-admission CLI over the authoritative database contract
+agent/           Managed tool registry and generated adapter source
+gates/           Static, retrieval, and optional security release gates
 sql/             Schema, indexes, search, diagnostics, receipts, and evaluation
 seed/            Deterministic synthetic database-incident corpus
 labs/incident/   Participant-run lock incident, observation, fix, and cleanup
