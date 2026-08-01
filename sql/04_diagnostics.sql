@@ -257,7 +257,7 @@ checks AS (
       WHERE activity.capture_id = capture.capture_id
         AND activity.state = 'active'
         AND activity.wait_event_type = 'Lock'
-        AND activity.wait_event = 'relation'
+        AND lower(activity.wait_event) = 'relation'
         AND activity.query_start IS NOT NULL
     ) AS activity_proves_wait,
     EXISTS (

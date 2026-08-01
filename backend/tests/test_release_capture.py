@@ -83,6 +83,13 @@ class FakeRds:
 
 
 class ReleaseCaptureTests(unittest.TestCase):
+    def test_release_guard_accepts_server_wait_event_casing(self) -> None:
+        diagnostics = (
+            Path(__file__).resolve().parents[2] / "sql" / "04_diagnostics.sql"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("lower(activity.wait_event) = 'relation'", diagnostics)
+
     def test_cloudwatch_contract_uses_real_aurora_metrics(self) -> None:
         samples = _cloudwatch_samples(
             FakeCloudWatch(),
