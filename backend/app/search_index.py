@@ -790,6 +790,10 @@ def _persist_search_index_bulk(
                 )
                 cursor.execute(
                     """
+                    WITH current_sources AS MATERIALIZED (
+                      SELECT evidence_id
+                      FROM casework.v_evidence_documents
+                    )
                     UPDATE retrieval.documents document
                     SET is_current = false,
                         index_state = 'superseded',
@@ -797,7 +801,7 @@ def _persist_search_index_bulk(
                     WHERE document.is_current
                       AND NOT EXISTS (
                         SELECT 1
-                        FROM casework.v_evidence_documents source
+                        FROM current_sources source
                         WHERE source.evidence_id = document.evidence_id
                       )
                     """
