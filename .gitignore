@@ -43,6 +43,7 @@ npm-debug.log*
 /seed/artifacts/*.dump.sha256
 
 # Design packaging archives: build artifacts, not source
+/design/verity-html-mockups/
 /design/*.zip
 *.parquet
 *.sqlite
