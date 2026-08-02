@@ -19,8 +19,8 @@ The resulting indexing receipt supplies run-derived IDs. Participants then:
 7. synthesize only from retrieved live evidence; and
 8. validate and replay the cited answer from persisted proof.
 
-Expected participant scale is 60-120 searchable documents, 100-250 chunks, and
-300-1,000 raw telemetry rows. That is sufficient to teach retrieval mechanics
+Expected participant scale is 104-124 searchable documents, 100-250 chunks, and
+600-1,000 raw telemetry rows. That is sufficient to teach retrieval mechanics
 and proof. It is not represented as production HNSW scale.
 
 Aurora owns ranking, relationships, citations, evaluation, and replay.

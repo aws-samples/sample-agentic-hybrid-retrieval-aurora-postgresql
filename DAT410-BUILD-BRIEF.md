@@ -20,7 +20,7 @@ tools, and persist a citation-validated answer for replay.
 - IDs use `INC-<run-suffix>`, `CHG-<run-suffix>-01/02`,
   `LOCK-<run-suffix>-01`, and `TEL-<run-suffix>-...`.
 - Raw repeated samples remain relational proof.
-- Distinct measured observations become approximately 60-120 documents and
+- Distinct measured observations become 104-124 documents and
   100-250 chunks.
 - Cohere Embed 4 vectors are generated through Bedrock during the run.
 - No authored, fictional, demo, offline, fixture, prior-run, or canned record
@@ -53,8 +53,8 @@ fusion. Agent tools and adapters consume the API and do not duplicate ranking.
 A fresh target account must prove:
 
 - zero evidence before the run;
-- 60-120 current documents, matching chunks and ready embeddings;
-- 300-1,000 raw telemetry rows;
+- 104-124 current documents, 100-250 chunks, and matching ready embeddings;
+- 600-1,000 raw telemetry rows;
 - exact and fuzzy rank 1 for the receipt-derived unsafe change;
 - mixed kinds before the `change` filter and exactly both measured changes
   afterward;

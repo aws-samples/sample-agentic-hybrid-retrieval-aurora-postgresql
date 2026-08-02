@@ -313,7 +313,7 @@ restores casework, retrieval, proof, telemetry, or vectors.
 
 - 100-120 source documents.
 - 100-250 chunks.
-- 300-1,000 raw telemetry rows.
+- 600-1,000 raw telemetry rows.
 - Runtime Cohere embeddings for every current chunk.
 - Zero cache hits on the fresh validation run.
 - One embedding space and zero drift.
