@@ -1,864 +1,356 @@
 # DAT410 Implementation Specification
 
-## Document Status
+## Status
 
-This document specifies Hybrid Retrieval Workbench as currently implemented in
-this repository for DAT410 at AWS re:Invent 2026.
+Hybrid Retrieval Workbench is the implemented DAT410 reference application for
+AWS re:Invent 2026.
 
-- **Session:** DAT410, Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
-- **Level:** 400
-- **Format:** Builders' session
-- **Duration:** 60 minutes
-- **Application status:** Implemented and locally validated
-- **Release status:** Not final until the Aurora, Bedrock, release-artifact, and
-  Workshop Studio gates in this document pass
+- Session: Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
+- Level: 400
+- Format: Builders' session
+- Duration: 60 minutes
+- Participant corpus: live-only
+- Packaging: schema-only source archive
 
-The source code, SQL, tests, and API responses are authoritative when this
-document and an implementation disagree. The corpus is synthetic. No incident,
-support case, customer, or telemetry record in this repository is an actual AWS
-or customer record.
+Application source, SQL, tests, and API responses are authoritative. The
+standing rule is that no fictional, offline, demo, authored, or previously
+captured record may enter the participant path. The Overview page's main
+graphic is the only illustrative exception and is never persisted or queried.
 
-## 1. Product Contract
+## 1. Participant Outcome
 
-Hybrid Retrieval Workbench is an incident-evidence system, not a generic
-chatbot.
-
-Amazon Aurora PostgreSQL owns:
-
-- the derived search index;
-- exact, lexical, semantic, and fuzzy retrieval;
-- metadata and ACL filtering;
-- weighted reciprocal rank fusion;
-- canonical relationship traversal;
-- candidate and stage diagnostics;
-- answer and citation receipts;
-- controlled retrieval and traversal evaluation.
-
-Authoritative operational systems own:
-
-- workflow and mutable business state;
-- current permissions;
-- actions and mutations;
-- connector cursors and source transport receipts.
-
-The production decision for each evidence source must be explicit:
-
-| Path | Use when |
-|---|---|
-| Materialize | Approved evidence must be ranked, joined, cited, evaluated, and replayed with predictable latency. |
-| Federate | A source already has a suitable index or its content should remain outside Aurora. |
-| Revalidate live | State is volatile, permission-sensitive, or will drive an action. |
-
-The workshop implements the materialized path over a controlled synthetic
-fixture. It does not simulate an unimplemented connector or source mutation.
-
-The required participant contract is incident diagnosis through hybrid
-retrieval, fusion and reranking, agent tools, cited synthesis, and diagnostics
-and replay. It uses the default App Engineer persona. RLS and `pg_columnmask`
-remain implemented security capabilities, but their App Engineer, Auditor, and
-DBA query comparison is optional appendix work rather than a participant
-prerequisite or default release gate.
-
-## 2. Participant Outcome
-
-The participant investigates one question:
-
-> Why did CHG-1842 block checkout writes during INC-2047, which visible
-> customer was affected, and what was the safe fix?
-
-The evidence-backed result is:
-
-- `CHG-1842` ran ordinary `CREATE INDEX` on the production writer.
-- PostgreSQL allowed ordinary reads while writes accumulated
-  `Lock:relation` waits.
-- `LOCK-2047-001` and `LOCK-2047-002` identify the blocking index backend.
-- visible support case `CASE-7419` identifies Acme Retail as affected, while
-  `CASE-7424` is explicitly unrelated.
-- the response cancelled the blocking build and recovered queued writers.
-- `RB-017` recommends `CREATE INDEX CONCURRENTLY` outside a transaction,
-  with progress monitoring and invalid-index cleanup after failure.
-
-Restricted support case `CASE-7421` is the optional persona-comparison fixture;
-it is not required to complete the incident diagnosis.
-
-The participant leaves with a persisted `run_id` that replays the query,
-filters, persona, retrieval controls, candidates, stages, answer, citations,
-relationship graph, and evidence timeline.
-
-## 3. System Architecture
-
-```text
-Synthetic normalized operational records
-                 |
-                 | stable ID, revision, URI, ACL, typed foreign keys
-                 v
-          casework.* relational truth
-                 |
-                 | deterministic render + search document hash + outbox
-                 v
-        retrieval.* versioned search index
-  documents -> chunks -> B-tree / GIN / HNSW indexes
-                 |
-                 | filters and ACLs before each retrieval arm
-                 v
-       canonical retrieval.* SQL functions
- exact tier + (FTS + vector + trigram -> weighted RRF) -> rerank
-                 |
-          +------+------+
-          |             |
-          v             v
-  proof.* receipts   inspectable agent tools
-          |             |
-          +------+------+
-                 v
-       cited answer through HTTP or MCP
-```
-
-### Ownership layers
-
-| Schema | Ownership |
-|---|---|
-| `casework` | Authoritative normalized workshop fixture and foreign-key relationships |
-| `retrieval` | One-way derived, rebuildable, versioned search index and relationship view |
-| `proof` | Historical retrieval, stage, answer, citation, and evaluation receipts |
-
-The derived search tables uses base tables rather than a materialized view because
-externally generated embeddings, incremental versions, tombstones, current
-version promotion, and historical citation references are not a materialized
-view refresh problem. A blocking refresh would also reintroduce an avoidable
-availability tradeoff.
-
-## 4. Controlled Corpus
-
-### Canonical evidence
-
-| Key | Kind | Purpose |
-|---|---|---|
-| `INC-2047` | Incident | Impact, read/write split, and resolution |
-| `CHG-1842` | Change | Confirmed ordinary `CREATE INDEX` cause |
-| `CHG-1838` | Change | Explicit ruled-out application worker change |
-| `LOCK-2047-001` | Lock evidence | Blocked writer and blocking index statement |
-| `LOCK-2047-002` | Lock evidence | Second blocked writer and `pg_blocking_pids` confirmation |
-| `CASE-7419` | Support case | Visible affected customer and commitment |
-| `CASE-7421` | Support case | Relevant restricted evidence for the optional persona appendix |
-| `CASE-7424` | Support case | Explicit unaffected comparison case |
-| `RB-017` | Runbook | Concurrent index build guidance and caveats |
-
-### Corpus scale
-
-- Canonical thread: 11 source records.
-- Offline local default: canonical thread plus 200 deterministic background
-  records, for 211 documents.
-- Release target: canonical thread plus deterministic background records to
-  reach approximately 15,000 documents.
-- Each generated source URI uses the `workshop://` scheme and remains synthetic.
-
-### ACL fixture
-
-The default evidence ACL is:
-
-```json
-{"visibility":"workshop","principals":[]}
-```
-
-`principals` is retained as an empty list only because
-`retrieval.documents.acl_principals` and its GIN indexes are still projected; no
-code reads it. `visibility` is the classification.
-
-Seven objects carry `"visibility":"restricted"`: `CASE-7421` (the canonical ACL
-proof), `CASE-8102`, `CASE-8137`, `INC-3162`, `INC-4117`, `CHG-6213`, and
-`CHG-3309`. They are visible only to a persona holding `can_see_restricted`
-(`dba`, `auditor`), never to `app_engineer`. RLS enforces this at
-`casework.evidence_items`, `retrieval.documents`, and `retrieval.chunks`;
-`retrieval.acl_visible` (JSONB) and `retrieval.acl_scalars_visible` (the projected
-column) apply the same expression inside every arm and at every traversal hop.
-
-## 5. Authoritative Data Model
-
-### `casework` tables
-
-| Table | Contract |
-|---|---|
-| `database_clusters` | Engine, Region, environment, service, and cluster identity |
-| `evidence_items` | Stable evidence ID, kind, external key, source URI/revision/time, ACL, tombstone |
-| `incidents` | Severity, interval, impact, resolution, and cluster |
-| `changes` | Type, SQL, timing, owner, description, and rollback |
-| `support_cases` | Account, tier, severity, SLA, description, and commitment |
-| `runbooks` | Versioned procedure, applicability, owner, and caveats |
-| `lock_evidence` | Controlled blocked/blocking PID snapshot tied to an incident |
-| `incident_changes` | Suspected, confirmed, or ruled-out relationship |
-| `incident_support_cases` | Affected, potentially affected, or unaffected relationship |
-| `incident_runbooks` | Used, recommended, or rejected relationship |
-
-`casework.evidence_items.evidence_id` is stable internal identity. Typed tables
-own domain facts. Join tables and foreign keys own canonical relationships.
-
-`casework.v_evidence_documents` is a deterministic renderer that emits source
-identity, title, body, ACL, typed filters, metadata, and SHA-256
-`search_document_hash`. It is an input contract, not the indexed search surface.
-
-## 6. search index Contract
-
-### `retrieval` relations
-
-| Relation | Contract |
-|---|---|
-| `search_index_queue` | Source revision queued for search index |
-| `search_index_builds` | Build version, model space, counts, status, timing, and error |
-| `documents` | Versioned document metadata and current/superseded state |
-| `chunks` | Versioned text, FTS vector, hash, embedding, model, and state |
-| `inferred_edges` | Non-authoritative edges with method, confidence, and revision |
-| `evidence_edges` | Read-only union of FK-derived canonical and governed inferred edges |
-
-### Identity and versioning
-
-```text
-document version =
-  evidence_id + renderer version + chunker version
-  + embedding model ID + search document hash
-
-chunk version =
-  document_version_id + chunk ordinal + chunk hash
-
-embedding cache key =
-  embedding model ID + chunk hash
-```
-
-Only one ready document can be current for an evidence item. Historical
-documents and chunks remain addressable by persisted candidates and citations.
-
-### Build lifecycle
-
-1. A typed casework transaction updates `evidence_items.source_revision`.
-2. The same transaction calls `casework.queue_evidence(evidence_id)`.
-3. The search index builder renders `casework.v_evidence_documents`.
-4. An unchanged deterministic version is reused.
-5. A changed render creates document and chunk versions.
-6. Unchanged model-and-hash embeddings are reused.
-7. The new ready document is promoted and the prior current document is
-   superseded.
-8. The matching outbox row is completed.
-
-Each document is processed in its own transaction. A failed build can leave
-some old current versions in place, but cannot promote two current ready
-versions for one item.
-
-### Tombstones
-
-An authoritative deletion sets `is_deleted`, `deleted_at`, advances the source
-revision, and queues the item. Rebuild supersedes the current search version.
-New retrieval excludes it; historical receipts remain valid.
-
-### Readiness and drift
-
-`retrieval.v_search_index_drift` detects:
-
-- missing current documents;
-- revision or search-document-hash mismatches;
-- current documents that are not ready;
-- current documents for deleted evidence;
-- missing ready embeddings.
-
-`retrieval.assert_search_index_ready()` fails closed unless every live source row
-has one current, ready, fully embedded, drift-free document. API `/ready`,
-doctor, smoke, and tests use this database assertion.
-
-## 7. Search and Index Design
-
-### Physical indexes
-
-| Index family | Purpose |
-|---|---|
-| B-tree | Exact identifiers and selective metadata/time filters |
-| GIN `tsvector` | Separate document identity/title and chunk body FTS streams |
-| GIN `gin_trgm_ops` | Identifier and title typo recovery |
-| GIN JSONB | ACL metadata support |
-| HNSW `vector_cosine_ops` | Approximate semantic candidates over ready chunk embeddings |
-
-HNSW build defaults are `m=16` and `ef_construction=64`. The API model defaults
-to `ef_search=40` and `iterative_scan=strict_order`; the frontend workshop
-preset defaults to `relaxed_order` and exposes all three scan modes.
-
-### Common filters
-
-All arms support:
-
-- evidence kinds;
-- cluster ID;
-- incident ID;
-- account;
-- severity;
-- environment;
-- start and end timestamps.
-
-Identity is not among them. No arm takes an identity parameter; each reads the
-caller's effective database role. Filters and the ACL predicate execute inside
-each arm before fusion.
-
-### Exact and full-text retrieval
-
-- Boundary-aware exact identifier matching protects IDs such as `CHG-1842`.
-- Document FTS prioritizes external key and title.
-- Chunk FTS retrieves body evidence.
-- PostgreSQL ranking values remain diagnostics.
-- Results retain one strongest passage per evidence item before the final
-  result limit.
-
-### Semantic retrieval
-
-- Cohere Embed 4 uses 1,024-dimensional vectors.
-- Stored evidence uses `search_document`.
-- Live queries use `search_query`.
-- Query and stored vectors must have the same model ID and dimensions.
-- Cosine distance produces the semantic ordering.
-- HNSW runtime settings are transaction-local through
-  `retrieval.configure_ann_runtime`.
-- Iterative scan can continue scanning after selective post-index filters.
-
-The deterministic hash provider is an offline mechanical substitute. It proves
-embedding-space enforcement and search plumbing, not semantic quality.
-
-### Fuzzy retrieval
-
-`pg_trgm` operates over normalized external identifiers and titles. It is not
-an unbounded body similarity scan. The default threshold is `0.3`.
-
-### Exact identifier tier and weighted reciprocal rank fusion
-
-The default weights are:
-
-```text
-text : vector : fuzzy = 2 : 1 : 1
-k = 60
-```
-
-For candidate `d`:
-
-```text
-RRF(d) =
-    2 / (60 + text_rank(d))
-  + 1 / (60 + vector_rank(d))
-  + 1 / (60 + fuzzy_rank(d))
-```
-
-Any absent arm contributes zero. Raw FTS, cosine, and trigram values are not
-added to the fused score. A boundary-matched exact identifier occupies
-`match_tier=1`; all fused candidates occupy `match_tier=2`. The exact tier sorts
-first and is not folded into RRF, so reweighting the fused arms cannot demote a
-named identifier. `final_score` is weighted RRF within the fused tier before
-optional model reranking.
-
-### Model reranking
-
-Cohere Rerank v3.5 receives the fused candidate pool after Aurora ranking.
-Reranking can reorder that pool, but the receipt preserves:
-
-- original arm positions;
-- raw arm diagnostics;
-- Aurora RRF score;
-- separate model rerank score;
-- whether reranking was applied;
-- rerank stage timing and model ID.
-
-No score is presented as a probability.
-
-## 8. Agent Pipeline
-
-The implemented answer sequence is:
-
-1. `decompose_question`
-2. `search_evidence`, once per subquestion plus bounded retries
-3. `follow_evidence_links`
-4. `compare_sources`
-5. `synthesize_cited_answer`
-
-`explain_ranking` is the sixth model-selectable tool and is not part of
-answering. It re-reads a persisted receipt and calls no model, so
-`answer_question` never calls
-it and the Strands system prompt does not sequence it. It is reachable as a tool
-on every transport, and the Proof surface reads the same receipt through
-`GET /v1/runs/{run_id}`.
-
-Two harnesses run the same tools over the same Aurora contract:
-
-- `backend/app/agent.py` (`POST /v1/agent/answer`) fixes the order above.
-  Evaluation and replay require it, because a graded metric and a byte-identical
-  receipt both need the same input to produce the same output.
-- `backend/app/strands_agent.py` (`POST /v1/agent/strands/answer`, and the
-  `/stream` variant the Workbench uses) advertises all six tools and lets the
-  model sequence them, so a reported trace records real decisions.
-
-Both persist the same `proof.*` receipts through the same owning
-implementations, so a run from either path replays identically.
-
-### Decomposition
-
-The deterministic planner extracts keys such as `INC-*`, `CHG-*`, `CASE-*`,
-`RB-*`, and `LOCK-*`, plus a database cluster identifier when present. It
-produces inspectable filters and steps rather than an opaque plan.
-
-### Targeted retrieval
-
-The search tool calls the canonical SQL implementation and persists the run and
-candidate receipts before synthesis.
-
-### Relationship traversal
-
-`retrieval.traverse_evidence` recursively walks canonical and inferred edges,
-applies ACL checks to seeds and every hop, records path provenance, and limits
-depth. FK-derived edges have confidence `1`; inferred edges retain their method
-and confidence and never become FK facts.
-
-### Source comparison
-
-The compare stage loads source revisions, times, filters, and explicit edges for
-the selected evidence. Each relevant edge is attached to synthesis evidence
-with:
-
-- relation;
-- direction;
-- counterpart key;
-- canonical or inferred origin;
-- confidence;
-- rationale when available.
-
-This makes source comparison an input to the answer, not a decorative stage.
-
-### Cited synthesis
-
-The model receives at most eight numbered evidence blocks. Each block includes
-source metadata, relationship context, title, and exact evidence text. The
-system prompt requires citations for factual sentences and forbids presenting
-retrieval scores as probabilities.
-
-If model synthesis is unavailable, a deterministic extractive fallback:
-
-- prefers the named incident and change;
-- selects diverse incident, change, lock, affected-case, and runbook evidence;
-- excludes ruled-out changes and explicitly unaffected cases unless named;
-- includes the visible account and safe-fix guidance;
-- persists and validates citations exactly like model synthesis.
-
-The fallback remains evidence-backed, but it is not a replacement for final
-model-quality validation.
-
-## 9. Proof, Attribution, and Replay
-
-### `proof` tables
-
-| Table | Persisted contract |
-|---|---|
-| `retrieval_runs` | Query, mode, filters, persona, models, controls, status, latency |
-| `retrieval_candidates` | Final rank, arm values/positions, RRF, rerank, evidence snapshot |
-| `run_stages` | Ordered stage name, duration, and details |
-| `agent_answers` | Question, answer, synthesis mode, model transport, token usage |
-| `answer_citations` | Citation number, source IDs, exact versions, URI, revision, quote, claim |
-| `evaluation_queries` | Controlled retrieval or traversal question |
-| `relevance_judgments` | Graded relevance and rationale |
-| `traversal_results` | Persisted graph paths used for traversal metrics |
-
-### Citation integrity
-
-`proof.validate_answer_citations(run_id)` verifies:
-
-- the evidence, document, and chunk versions resolve;
-- source URI and revision match the exact document version;
-- the quote occurs in the exact referenced chunk.
-
-This proves attribution integrity. It does not independently establish that a
-source statement or model claim is universally true.
-
-### Replay surfaces
-
-A `run_id` resolves to:
-
-- run configuration and status;
-- persisted candidates and ranking signals;
-- stage timeline;
-- persisted answer and citations;
-- canonical relationship graph;
-- chronological evidence timeline.
-
-## 10. Evaluation
-
-The controlled evaluation set contains:
-
-- `exact-change`;
-- `fuzzy-change-id`;
-- `semantic-symptom`;
-- `customer-impact`.
-
-Retrieval metrics:
-
-- recall at k;
-- precision at k;
-- mean reciprocal rank;
-- nDCG at k.
-
-Traversal metrics:
-
-- relationship recall;
-- relationship precision.
-
-Retrieval and traversal metrics are reported separately. A graph traversal is
-not scored as if it were a top-k retrieval list.
-
-## 11. HTTP API
-
-### Health and search
-
-| Method and path | Purpose |
-|---|---|
-| `GET /health` | Process liveness |
-| `GET /ready` | Database search index readiness |
-| `POST /v1/search` | Configurable canonical retrieval |
-| `POST /v1/search/vector` | Semantic mode |
-| `POST /v1/search/fts` | Lexical mode |
-| `POST /v1/search/fuzzy` | Fuzzy mode |
-
-### Agent tools
-
-| Method and path | Purpose |
-|---|---|
-| `POST /v1/agent/answer` | Complete inspectable agent path |
-| `POST /v1/agent/answer/stream` | Event-stream form of the same result |
-| `POST /v1/tools/decompose` | Deterministic decomposition |
-| `POST /v1/tools/traverse` | ACL-safe relationship traversal |
-| `POST /v1/tools/compare` | Source and relationship comparison |
-| `POST /v1/tools/synthesize` | Synthesize from a persisted run |
-
-### Evidence and proof
-
-| Method and path | Purpose |
-|---|---|
-| `GET /v1/evidence/{evidence_id}` | Current evidence, chunks, and edges |
-| `GET /v1/runs/{run_id}` | Run, candidates, stages, answer, and citations |
-| `GET /v1/runs/{run_id}/candidates` | Candidate-only receipt |
-| `GET /v1/runs/{run_id}/timeline` | Chronological evidence |
-| `GET /v1/runs/{run_id}/graph` | Canonical/inferred relationship graph |
-
-### Diagnostics and evaluation
-
-| Method and path | Purpose |
-|---|---|
-| `GET /v1/diagnostics/search-index` | Health, embedding spaces, distribution, drift, builds |
-| `GET /v1/diagnostics/corpus` | Corpus diagnostics |
-| `GET /v1/diagnostics/fusion-sql` | Canonical fusion SQL |
-| `POST /v1/diagnostics/plan` | Arm-specific query plan |
-| `GET /v1/diagnostics/index-usage` | Index usage |
-| `GET /v1/diagnostics/slow-queries` | `pg_stat_statements` retrieval diagnostics |
-| `POST /v1/evaluation` | Controlled retrieval/traversal evaluation |
-
-The public API reads the ready search index and proof state. It does not expose a
-generic source-object write endpoint.
-
-## 12. Tool Adapters
-
-### Lambda / AgentCore Gateway adapter
-
-`lambda_mcp/handler.py` is a stateless MCP-compatible adapter over the same
-Python implementations. Workshop Studio owns deployment, IAM, Gateway, target
-configuration, and the source package.
-
-### Local stdio MCP server
-
-`mcp-server/src/server.ts` transports and `server.generated.ts` registers seven
-tools over MCP:
-
-- `decompose_question`
-- `search_evidence`
-- `follow_evidence_links`
-- `compare_sources`
-- `explain_ranking`
-- `synthesize_cited_answer`
-- `answer_with_citations`
-
-It calls the FastAPI application and does not reimplement SQL or ranking.
-
-### Parity invariant
-
-HTTP, Lambda/Gateway, and stdio MCP must return the same canonical ranking and
-proof contracts because they all call the same retrieval and agent owners.
-
-## 13. Frontend Workbench
-
-The React application is an inspection workbench, not a landing page.
-
-### Investigate
-
-- scenario selector for incident, exact-ID, semantic, and typo paths;
-- hybrid, semantic, lexical, and fuzzy mode control;
-- evidence kind, cluster, incident, environment, and result filters;
-- candidate pool, RRF `k`, arm weights, fuzzy threshold, HNSW
-  `ef_search`, and iterative scan controls;
-- model-rerank control and the Viewing-as persona selector;
-- direct search and complete agent actions;
-- cited answer and horizontally scrollable citation chips;
-- fixed-column candidate receipt with FTS, vector, fuzzy, RRF, and rerank;
-- evidence, signal, and relationship inspector tabs.
-
-### Run proof
-
-- load or copy a `run_id`;
-- status, latency, candidate, RRF, HNSW, and fuzzy metrics;
-- persisted query, models, answer, and citations;
-- stage-duration timeline;
-- candidate ranking table;
-- interactive relationship graph with edge origin;
-- chronological evidence timeline.
-
-### Corpus
-
-- source/document/chunk/embedding counts;
-- search index drift and index time;
-- evidence-kind distribution;
-- model ID, dimensions, and vector timestamps;
-- recent search index build receipts.
-
-### Evaluation
-
-- mode selection;
-- retrieval/traversal query counts;
-- nDCG, recall, and MRR leaderboard;
-- expandable per-query judgments;
-- explicit note that traversal metrics are separate.
-
-### Frontend constraints
-
-- No hardcoded answer, candidate, score, citation, or proof data.
-- No remote fonts, analytics, source-system logos, or automatic external calls.
-- Operational, dense layout with restrained evidence-kind colors.
-- Inner horizontal scrolling for wide ranking and receipt tables.
-- Document-level horizontal overflow must remain zero on desktop and mobile.
-- The frontend calls only `VITE_RETRIEVAL_API_URL`.
-
-## 14. Model Configuration
-
-Configured workshop roles:
-
-| Role | Model ID | API and routing |
-|---|---|---|
-| Embedding | `us.cohere.embed-v4:0` | Bedrock Runtime `InvokeModel`, US CRIS |
-| Reranking | `cohere.rerank-v3-5:0` | Bedrock Agent Runtime `rerank` |
-| Synthesis | `global.anthropic.claude-sonnet-5` | Bedrock Runtime `Converse`, Global CRIS |
-
-Required configuration includes:
-
-- `AWS_REGION=us-east-1`
-- `AWS_DEFAULT_REGION=us-east-1`
-- `BEDROCK_EMBEDDING_MODEL`
-- `COHERE_RERANK_MODEL`
-- `BEDROCK_SYNTHESIS_MODEL`
-- `BEDROCK_MODEL_TRANSPORT=converse_global_cris`
-- `BEDROCK_SYNTHESIS_MAX_TOKENS=1200`
-
-Model IDs and transports are configuration, not application constants. Bedrock
-clients use bounded adaptive retries. Synthesis sets `maxTokens` explicitly.
-
-The validated synthesis design uses Converse plus Global CRIS. It does not
-claim that Mantle and CRIS are used simultaneously. Model lifecycle, CRIS
-support, source/destination Regions, IAM, and quotas must be rechecked before
-the event.
-
-## 15. Build and Runtime Modes
-
-### Offline local mode
+One command induces and indexes the participant's own incident:
 
 ```bash
-make schema
-make seed-local
-DOCTOR_SKIP_BEDROCK=1 make doctor
-make api
-make frontend
+make live-workshop
 ```
 
-Offline mode uses `EMBED_PROVIDER=hash` and disables model reranking. Stored and
-query embeddings must both use `local-hash-embedding-v1`.
+The resulting indexing receipt supplies:
 
-### Release-author mode
-
-Release authors may explicitly generate missing Cohere vectors:
-
-```bash
-.venv/bin/python backend/scripts/build_search_index.py \
-  --load-casework \
-  --background-documents 15000 \
-  --provider bedrock \
-  --embed-missing
+```text
+CAP-<run-suffix>
+INC-<run-suffix>
+CHG-<run-suffix>-01
+CHG-<run-suffix>-02
+LOCK-<run-suffix>-01
+TEL-<run-suffix>-...
 ```
 
-`--embed-missing` is explicit because it makes billable model calls.
-Participants do not generate the release corpus during the session.
+The participant investigates:
 
-### Workshop mode
+> What caused `INC-<run-suffix>`, how did `CHG-<run-suffix>-01` block writes,
+> how did `CHG-<run-suffix>-02` repair the behavior, and what did
+> `LOCK-<run-suffix>-01` prove?
 
-Workshop Studio must provision and package:
+The answer must be grounded in measured PostgreSQL and AWS telemetry from that
+capture. No customer, support, company, person, runbook, postmortem, or
+distractor record exists in the participant database.
 
-- target Aurora PostgreSQL and network access;
-- supported extensions and parameters;
-- preloaded casework, vectors, and indexes;
-- IAM and Bedrock access;
-- Code Editor environment;
-- immutable application source revision.
+## 2. Ownership
 
-AgentCore Gateway and its Lambda target are optional appendix infrastructure,
-not a core participant dependency.
+| Schema or surface | Owns |
+|---|---|
+| `workbench_lab` | Disposable orders table and index used to induce the incident |
+| `casework` | Live evidence identity, raw telemetry, typed facts, and canonical relationships |
+| `retrieval` | Rebuildable document versions, chunks, embeddings, indexes, ranking, and traversal |
+| `proof` | Retrieval runs, candidate signals, stages, answers, citations, evaluation, and replay |
+| Backend | API orchestration, model adapters, tools, synthesis, and readiness |
+| Frontend | Inspection UI over API and persisted proof |
 
-## 16. Sixty-Minute Core
+Operational systems remain authoritative for mutable workflow, current
+permissions, and actions. The workshop materializes only its measured incident
+evidence into Aurora PostgreSQL.
 
-| Minute | Core proof |
-|---:|---|
-| 0-5 | Incident symptoms, question, ownership boundary, and architecture |
-| 5-10 | Readiness against the preloaded corpus |
-| 10-20 | Reproduce the lock wait and prove the concurrent-index repair |
-| 20-40 | Exact, dedicated FTS, semantic, fuzzy, filter, fusion-edit, rerank, and one live plan |
-| 40-50 | Participant tool plan, traversal, comparison, bounded recovery, and cited synthesis |
-| 50-55 | Citation attribution and model-free replay |
-| 55-60 | Completed exercise chain and production boundary |
+## 3. Live Incident
 
-When behind, use the facilitator capture for the three-terminal incident and a
-saved plan observation for the live drawer. Keep the filter and fusion
-checkpoints, cited answer, and replay mandatory. Compact evaluation and deeper
-HNSW comparison run after the core path.
+`labs/incident/run_live_workshop.py` is the only participant incident producer.
+It fails before workload creation unless it proves:
 
-The core runs as the default App Engineer persona and does not require a persona
-change. Appendix work includes the RLS and `pg_columnmask` comparison in App
-Engineer, Auditor, DBA order, connector transports, release-scale generation,
-replacement-index operations, inferred-edge generation, Gateway deployment,
-production identity, and load/failover testing.
+- the target is the requested Aurora PostgreSQL writer;
+- PostgreSQL and pgvector satisfy the repository minimums;
+- the core schema is complete;
+- the participant corpus is empty;
+- Performance Insights is enabled;
+- CloudWatch and Performance Insights are reachable;
+- Cohere Embed is available through Bedrock; and
+- the embedding provider is `bedrock`.
 
-## 17. Acceptance Criteria
+The unsafe phase:
 
-### Retrieval
+- creates `workbench_lab.orders` with 25,000 generated lab rows;
+- starts ordinary `CREATE INDEX`;
+- keeps its transaction open after index construction;
+- starts six real blocked writers and two readers;
+- takes 30 samples at two-second intervals; and
+- proves granted `ShareLock`, waiting `RowExclusiveLock`,
+  `pg_blocking_pids()`, and `Lock:relation`.
 
-- `CHG-1842` is lexical rank 1 under the cluster filter.
-- A dedicated FTS query without an identifier ranks `CHG-1842` first.
-- `CGH-1842` resolves to `CHG-1842` through indexed trigram retrieval.
-- The unfiltered distractor request returns staging evidence, while the
-  participant-edited cluster filter excludes it before fusion.
-- Hybrid persists independent text, vector, and fuzzy positions.
-- Default fusion controls persist as `2:1:1`, `k=60`, threshold `0.3`.
-- Default and semantic-only RRF scores recompute from persisted positions.
-- Result sets contain at most one strongest passage per evidence item.
-- Query and stored embedding spaces must match exactly.
+The repair phase:
 
-### Relationships
+- rolls back the ordinary index transaction;
+- applies `CREATE INDEX CONCURRENTLY`;
+- proves a fresh `UPDATE` completes;
+- captures the safe lock state; and
+- requires the final index to be ready, valid, and live.
 
-- FK-derived edges remain distinguishable from inferred edges.
-- `CHG-1842` is `change_confirmed`.
-- `CHG-1838` is `change_ruled_out`.
-- `CASE-7419` is affected and `CASE-7424` is not affected.
+AWS collection filters every CloudWatch and Performance Insights observation
+to the capture window and the validated Aurora writer. The PI evidence must
+contain both `Lock:relation` and the ordinary `CREATE INDEX` SQL.
 
-### Optional persona appendix
+## 4. Authoritative Data
 
-- `CASE-7421` and the six supporting restricted objects never enter App
-  Engineer retrieval or traversal, and return zero rows at the raw table.
-- Auditor retrieves the restricted fixtures with the account name, case
-  description, customer commitment, and rendered chunk text redacted.
-- DBA retrieves the restricted fixtures unmasked.
-- The comparison is run in App Engineer, Auditor, DBA order against the same
-  query.
+### Capture tables
 
-### Proof
+| Relation | Purpose |
+|---|---|
+| `incident_capture_runs` | One participant-induced run, bounded window, target identity, and manifest |
+| `pg_stat_activity_samples` | Activity rows with observation number and raw row |
+| `pg_lock_samples` | Relation-lock rows with observation number and raw row |
+| `pg_blocking_pids_samples` | Blocking chains and literal SQL output |
+| `pg_stat_statements_samples` | Before, during, and after statement measurements |
+| `cloudwatch_metric_samples` | Five incident-window RDS metric observations |
+| `database_insights_samples` | PI top wait and SQL observations |
 
-- Every run persists candidates before synthesis.
-- Every final citation resolves to an exact document and chunk version.
-- Citation URI, revision, and quote validation passes.
-- `GET /v1/runs/{run_id}` returns the persisted answer and citations.
-- Raw scores, RRF, and rerank remain separate and inspectable.
+### Searchable evidence
 
-### search index
+| Kind | Purpose |
+|---|---|
+| `incident` | Measured write stall and resolution interval |
+| `change` | Unsafe ordinary index build and measured concurrent repair |
+| `lock_evidence` | Primary observed lock chain |
+| `telemetry` | Deterministic searchable projection of measured telemetry |
 
-- Rebuild is idempotent.
-- Unchanged content reuses model-and-hash embeddings.
-- Tombstones supersede current documents without erasing history.
-- search index drift is zero before readiness.
-- Exactly one canonical signature exists for each search function.
+The projection creates 30 activity-window, 30 lock-topology, and 30
+blocking-chain documents plus measured statement, metric, PI, and remediation
+documents. A successful run contains 104-111 searchable documents and 104-250
+chunks while retaining approximately 729-736 raw telemetry rows.
+
+`casework.v_evidence_documents` renders normalized facts deterministically. It
+emits stable evidence identity, source URI, source revision, ACL, typed filters,
+metadata, content, and a SHA-256 search-document hash.
+
+## 5. Admission
+
+`casework.admit_evidence(jsonb)` is the atomic write boundary. It requires:
+
+- source system `pg_incident_capture`;
+- Aurora PostgreSQL database identity;
+- one UUID capture ID and matching eight-character run suffix;
+- exact run-derived key forms;
+- 30 observations, six writers, and two readers;
+- at least 270 activity, 270 lock, and 180 blocking rows;
+- all three statement phases;
+- all five CloudWatch metric records;
+- Performance Insights `Lock:relation`;
+- 100-120 telemetry projection documents;
+- source URIs under the run bundle URI; and
+- one capture origin, `participant_induced`.
+
+Admission writes evidence, typed rows, telemetry, relationships, and search
+queue entries in one transaction. Any validation failure rolls back the entire
+run. An identical payload is idempotent; a mixed or changed payload is rejected.
+
+## 6. Search Index
+
+The search index version combines:
+
+- renderer version;
+- chunker version;
+- embedding model ID; and
+- search-document hash.
+
+`backend/app/search_index.py`:
+
+1. reads only queued authoritative rows;
+2. renders and chunks them;
+3. batches Cohere Embed calls through Bedrock with `search_document`;
+4. writes ready chunks and vectors;
+5. promotes one current ready document version;
+6. supersedes the prior version when content changes; and
+7. records a build receipt.
+
+Query embeddings use `search_query`. Stored and query vectors must share the
+same model ID and 1,024 dimensions. Participant indexing does not permit hash
+embeddings or a prebuilt cache.
+
+`retrieval.assert_search_index_ready()` returns `awaiting_incident` for an empty,
+drift-free schema. After admission it requires:
+
+- source document count equals current document count;
+- every current chunk has a ready embedding;
+- one embedding space;
+- zero queue or document drift; and
+- a live capture receipt.
+
+Search and agent endpoints return HTTP 409 until these checks pass.
+
+## 7. Retrieval
+
+Canonical ranking stays in `sql/03_search_functions.sql`.
+
+1. Boundary-aware exact identifiers form a deterministic first tier.
+2. PostgreSQL full-text search ranks document and chunk text.
+3. pgvector cosine search ranks semantic evidence.
+4. `pg_trgm` ranks identifier and title near matches.
+5. Weighted reciprocal rank fusion combines active arm positions.
+6. Cohere Rerank may reorder the fused candidate pool.
+
+Default RRF controls are text `2`, semantic `1`, fuzzy `1`, and `k=60`.
+PostgreSQL RRF is plain PostgreSQL SQL, not an Aurora-specific algorithm.
+Raw arm scores, arm positions, RRF, and model rerank scores remain distinct and
+none is a confidence probability.
+
+Every participant request applies `source_systems=["pg_incident_capture"]`
+inside each arm. Exercises also verify that every candidate key matches the
+current indexing receipt.
+
+## 8. Relationships
+
+Canonical relationships are rendered from foreign keys:
+
+```text
+INC-<run-suffix> -> CHG-<run-suffix>-01  change_confirmed
+INC-<run-suffix> -> CHG-<run-suffix>-02  change_remediated
+LOCK-<run-suffix>-01 -> CHG-<run-suffix>-01  blocked_by_change
+LOCK-<run-suffix>-01 -> INC-<run-suffix>  observed_during
+TEL-<run-suffix>-... -> INC-<run-suffix>  observed_during
+```
+
+`retrieval.evidence_edges` is the uniform read view. Traversal checks visibility
+at the seed and every hop. The frontend and agent never infer canonical
+relationships from prose.
+
+## 9. Agent And Synthesis
+
+The deterministic answer path:
+
+1. decomposes the question;
+2. searches each bounded subquestion;
+3. traverses declared relationships;
+4. compares the measured unsafe and repair records;
+5. reloads persisted candidates; and
+6. synthesizes a cited answer.
+
+The Strands path exposes the same tool implementations to model-directed
+selection. Both paths persist the same retrieval and citation contracts.
+
+The six model-selectable tools are `decompose_question`, `search_evidence`,
+`follow_evidence_links`, `compare_sources`, `explain_ranking`, and
+`synthesize_cited_answer`. Managed transports call the same Python owners.
+
+Synthesis uses only numbered, persisted evidence. If the synthesis model is
+unavailable, the extractive fallback uses the same run evidence and does not
+invent a record or citation.
+
+## 10. Proof
+
+`proof.retrieval_runs` is created before retrieval. Candidate rows preserve:
+
+- exact tier and final rank;
+- full-text, semantic, and fuzzy raw scores;
+- independent arm positions;
+- PostgreSQL RRF;
+- optional Cohere rerank score;
+- document and chunk versions; and
+- source URI and revision.
+
+`proof.validate_answer_citations(run_id)` verifies that each citation references
+the exact persisted document and chunk, that URI and revision match, and that
+the quoted span exists in the chunk.
+
+`GET /v1/runs/{run_id}` returns candidates, stages, answer, citations,
+relationship graph, and timeline from persisted proof without another model
+call.
+
+## 11. Public API
+
+```text
+GET  /ready
+GET  /v1/workshop/run
+POST /v1/search
+POST /v1/agent/answer
+POST /v1/agent/strands/answer
+POST /v1/tools/decompose
+POST /v1/tools/traverse
+POST /v1/tools/compare
+POST /v1/tools/explain-ranking
+POST /v1/tools/synthesize
+GET  /v1/runs/{run_id}
+GET  /v1/evidence/{evidence_id}
+POST /v1/evaluation
+```
+
+The read APIs consume the ready search index. They do not mutate authoritative
+casework.
+
+## 12. Packaging
+
+`scripts/build_live_source_archive.sh` packages one committed source revision.
+It rejects:
+
+- dirty runtime source;
+- missing live-workshop files;
+- a dump or database file;
+- generated capture JSON;
+- an embedding cache or manifest;
+- generated indexing receipts; and
+- legacy seed or admission entrypoints.
+
+The participant stack applies schema and starts with zero evidence. It never
+restores casework, retrieval, proof, telemetry, or vectors.
+
+## 13. Acceptance
+
+### Live provenance
+
+- A fresh Aurora run completes all eight checkpoints.
+- Every participant-facing source row belongs to one capture ID.
+- Every source URI is under that capture's bundle URI.
+- PostgreSQL and AWS rows fall within the bounded incident run.
+- The database contains zero foreign participant records.
+
+### Scale and indexing
+
+- 100-120 source documents.
+- 100-250 chunks.
+- 300-1,000 raw telemetry rows.
+- Runtime Cohere embeddings for every current chunk.
+- Zero cache hits on the fresh validation run.
+- One embedding space and zero drift.
+
+### Retrieval and proof
+
+- Exact, dedicated FTS, semantic, fuzzy, filter, and fusion checks pass.
+- `CGH-<run-suffix>-01` retrieves `CHG-<run-suffix>-01`.
+- RRF and rerank remain separate.
+- Agent answer cites only current-run evidence.
+- Citation validation and SQL replay pass.
+- Graph and timeline values reproduce from published verification SQL.
 
 ### Delivery
 
-- Participant core is completable inside 60 minutes.
-- No live provisioning, connector build, or 15,000-vector generation is in the
-  participant path.
-- Every abstract capability has a runnable code path or is explicitly appendix
-  work.
+- The one-hour path uses one guided incident command.
+- The archive contains no participant data.
+- The app is usable on desktop and mobile.
+- No HNSW performance claim is made from workshop-scale data.
+- Workshop Studio content matches the committed source behavior.
 
-## 18. Validation Receipt
+## 14. Validated Reference Run
 
-Validated locally on July 24, 2026:
+The August 2, 2026 fresh Aurora validation used capture
+`6949b1ef-03b7-41e7-8def-3518478fd535`, suffix `478FD535`, on Aurora PostgreSQL
+18.3. It produced:
 
-- PostgreSQL 18.4 and pgvector 0.8.2.
-- Exact schema stack applied to disposable databases.
-- 211-document deterministic local corpus.
-- 211 ready 1,024-dimensional hash embeddings.
-- Zero search index drift.
-- 28 backend tests passed.
-- Frontend TypeScript and Vite production build passed.
-- MCP TypeScript build passed.
-- All tracked Python files compiled.
-- All tracked shell scripts passed `bash -n`.
-- `git diff --check` passed with this document present.
-- Doctor passed all hard database, schema, index, ACL, search index, API, and
-  frontend gates; Bedrock probes were intentionally skipped.
-- Smoke passed lexical, fuzzy, ACL denial/allow, traversal, fallback answer,
-  five citations, and persisted receipt checks.
-- HTTP answer returned `change_confirmed` and `change_ruled_out` context and
-  cited `INC-2047`, `CHG-1842`, `LOCK-2047-001`, `CASE-7419`, and `RB-017`.
-- Lambda adapter passed the same cited-answer contract.
-- A real stdio MCP client listed all seven tools, retrieved `CHG-1842` at rank
-  1, and returned the same five citations.
-- Playwright exercised Investigate, Run proof, Corpus, and Evaluation at
-  1440x1000 and 390x844.
-- Browser checks found no console errors and zero document-level horizontal
-  overflow.
+- 110 searchable documents and chunks;
+- 110 runtime Cohere embeddings with zero cache hits;
+- 270 activity rows;
+- 270 lock rows;
+- 180 blocking rows;
+- 3 statement rows;
+- 5 CloudWatch rows;
+- 7 Performance Insights rows;
+- 8 citations in Bedrock synthesis; and
+- 216 graph edges and 110 timeline events reproduced through the replay gate.
 
-This local receipt proves PostgreSQL behavior and application integration. It
-does not substitute for target Aurora or live Bedrock release validation.
-
-## 19. Remaining Release Gates
-
-The repository is not event-release-complete until all of these core gates pass:
-
-1. Run schema, doctor, smoke, query plans, and the complete answer on the target
-   Aurora PostgreSQL engine inside the Workshop Studio VPC.
-2. Reconfirm extension versions, parameter group behavior,
-   `pg_stat_statements`, HNSW iterative scan, and planner behavior on Aurora.
-3. Recheck Bedrock model lifecycle and current model availability.
-4. Run live Cohere Embed, Cohere Rerank, and Claude synthesis probes in
-   `us-east-1` with the workshop IAM role.
-5. Generate and review the frozen 15,000-document Cohere embedding cache and
-   PostgreSQL restore artifact.
-6. Validate filtered-HNSW candidate behavior and timing at release scale.
-7. Run room-scale concurrency and throttling tests for API, Aurora, rerank, and
-   synthesis.
-8. Keep the sibling Workshop Studio content aligned now, but replace its
-   immutable source archive and `SourceRevision` only after this application
-   revision is frozen.
-9. Verify fresh-account Workshop Studio provisioning and participant commands.
-10. Record the final source revision, archive hash, expected run IDs, and
-    facilitator fallback checkpoints.
-
-The optional RLS and `pg_columnmask` appendix has separate Aurora deployment and
-security validation gates. Those gates must pass before publishing the appendix,
-but they are not prerequisites for the default incident-diagnosis release path.
-
-No local result should be described as Aurora validation, and no hash-vector
-result should be described as Cohere semantic-quality validation.
-
-## 20. Repository Ownership
-
-| Path | Owner |
-|---|---|
-| `backend/app/` | FastAPI, search index, retrieval, rerank, tools, synthesis, proof |
-| `backend/tests/` | Unit and disposable-database contracts |
-| `sql/` | Schema, indexes, search, diagnostics, receipts, evaluation, traversal |
-| `seed/` | Deterministic synthetic casework corpus and release inputs |
-| `frontend/` | Incident-evidence inspection workbench |
-| `lambda_mcp/` | Stateless AgentCore Gateway adapter |
-| `mcp-server/` | Optional local stdio MCP wrapper |
-| `scripts/` | Environment and managed-boundary helpers |
-| `docs/` | Architecture, contracts, session flow, and this specification |
-
-This repository owns application source. The sibling Workshop Studio repository
-owns infrastructure, workshop pages, deployment, and the packaged source
-archive.
+This identifier is validation evidence only. It must never be compiled into the
+participant application, guide defaults, tests, or source archive.

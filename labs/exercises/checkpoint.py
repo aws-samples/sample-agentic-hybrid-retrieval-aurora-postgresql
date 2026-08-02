@@ -5,22 +5,23 @@ import argparse
 import json
 import math
 from pathlib import Path
+import re
 from typing import Any
 
 
-TARGET_CLUSTER = "checkout-prod-cluster-01"
-STAGING_KEYS = {"CHG-1840", "INC-2044"}
+PARTICIPANT_SOURCE_SYSTEM = "pg_incident_capture"
 REQUIRED_KINDS = {
     "incident",
     "change",
-    "support_case",
-    "runbook",
     "lock_evidence",
+    "telemetry",
 }
-REQUIRED_RELATIONS = {"change_confirmed", "change_ruled_out"}
-REQUIRED_IDENTIFIERS = {"CHG-1842", "INC-2047"}
-BASELINE_LEADER = "INC-2047"
-SEMANTIC_LEADER = "CASE-7419"
+REQUIRED_RELATIONS = {
+    "change_confirmed",
+    "change_remediated",
+    "blocked_by_change",
+    "observed_during",
+}
 
 
 def load(path: str) -> dict[str, Any]:
@@ -31,26 +32,119 @@ def fail(message: str) -> None:
     raise SystemExit(f"REMEDY: {message}")
 
 
-def check_filter(before_path: str, after_path: str) -> None:
-    before = load(before_path).get("results", [])
-    after = load(after_path).get("results", [])
-    before_keys = {row.get("external_key") for row in before}
+def load_run(receipt_path: str) -> dict[str, Any]:
+    receipt = load(receipt_path)
+    required = {
+        "run_suffix",
+        "incident_key",
+        "unsafe_change_key",
+        "repair_change_key",
+        "lock_key",
+    }
+    missing = sorted(required - receipt.keys())
+    if missing:
+        fail(f"the indexing receipt is missing: {missing}")
+    suffix = str(receipt["run_suffix"])
+    expected = {
+        "incident_key": f"INC-{suffix}",
+        "unsafe_change_key": f"CHG-{suffix}-01",
+        "repair_change_key": f"CHG-{suffix}-02",
+        "lock_key": f"LOCK-{suffix}-01",
+    }
+    if not re.fullmatch(r"[A-F0-9]{8}", suffix) or any(
+        receipt[name] != value for name, value in expected.items()
+    ):
+        fail("the indexing receipt does not contain one valid run-derived identity")
+    return receipt
 
-    if not (before_keys & STAGING_KEYS):
-        fail("the unfiltered response did not expose the seeded staging distractor")
-    if not after:
-        fail("the filtered response returned no evidence")
-    leaked = [
+
+def run_identifiers(receipt: dict[str, Any]) -> set[str]:
+    return {
+        receipt["incident_key"],
+        receipt["unsafe_change_key"],
+        receipt["repair_change_key"],
+        receipt["lock_key"],
+    }
+
+
+def is_run_key(external_key: Any, receipt: dict[str, Any]) -> bool:
+    if external_key in run_identifiers(receipt):
+        return True
+    return bool(
+        isinstance(external_key, str)
+        and re.fullmatch(
+            rf"TEL-{re.escape(receipt['run_suffix'])}-[A-Z]+[0-9]+",
+            external_key,
+        )
+    )
+
+
+def validate_live_results(
+    payload: dict[str, Any],
+    label: str,
+    receipt: dict[str, Any],
+) -> list[dict[str, Any]]:
+    results = payload.get("results", [])
+    if not results:
+        fail(f"the {label} response returned no participant evidence")
+    wrong_sources = [
         row.get("external_key")
-        for row in after
-        if row.get("cluster_id") != TARGET_CLUSTER
+        for row in results
+        if row.get("source_system") != PARTICIPANT_SOURCE_SYSTEM
     ]
-    if leaked:
-        fail(f"cluster filtering still returned out-of-scope evidence: {leaked}")
+    if wrong_sources:
+        fail(
+            f"the {label} response included candidates outside "
+            f"{PARTICIPANT_SOURCE_SYSTEM}: {wrong_sources}"
+        )
+    unexpected_keys = sorted(
+        {
+            row.get("external_key")
+            for row in results
+            if not is_run_key(row.get("external_key"), receipt)
+        }
+    )
+    if unexpected_keys:
+        fail(f"the {label} response included non-capture evidence: {unexpected_keys}")
+    return results
 
+
+def check_filter(
+    baseline_path: str,
+    filtered_path: str,
+    receipt_path: str,
+) -> None:
+    receipt = load_run(receipt_path)
+    baseline = validate_live_results(
+        load(baseline_path), "unfiltered kind search", receipt
+    )
+    filtered = validate_live_results(
+        load(filtered_path), "change-filtered search", receipt
+    )
+    baseline_kinds = {row.get("evidence_kind") for row in baseline}
+    if "change" not in baseline_kinds or baseline_kinds <= {"change"}:
+        fail("the unfiltered response must contain change and non-change evidence")
+    wrong_kinds = sorted(
+        {
+            str(row.get("evidence_kind"))
+            for row in filtered
+            if row.get("evidence_kind") != "change"
+        }
+    )
+    if wrong_kinds:
+        fail(f"the kind filter retained non-change evidence: {wrong_kinds}")
+    expected_changes = {
+        receipt["unsafe_change_key"],
+        receipt["repair_change_key"],
+    }
+    filtered_keys = {row.get("external_key") for row in filtered}
+    missing_changes = sorted(expected_changes - filtered_keys)
+    if missing_changes:
+        fail(f"the kind filter omitted measured changes: {missing_changes}")
     print(
-        "OK: the unfiltered run exposed the staging distractor and "
-        f"all {len(after)} filtered rows belong to {TARGET_CLUSTER}"
+        "OK: the unfiltered live search returned "
+        f"{len(baseline_kinds)} evidence kinds; the database-side kind filter "
+        f"retained only {len(filtered)} measured changes from this capture"
     )
 
 
@@ -87,9 +181,18 @@ def validate_rrf(payload: dict[str, Any]) -> None:
             )
 
 
-def check_fusion(baseline_path: str, tuned_path: str) -> None:
+def check_fusion(
+    baseline_path: str,
+    tuned_path: str,
+    receipt_path: str,
+) -> None:
+    receipt = load_run(receipt_path)
     baseline = load(baseline_path)
     tuned = load(tuned_path)
+    baseline_results = validate_live_results(
+        baseline, "baseline fusion", receipt
+    )
+    tuned_results = validate_live_results(tuned, "tuned fusion", receipt)
     validate_rrf(baseline)
     validate_rrf(tuned)
 
@@ -106,26 +209,29 @@ def check_fusion(baseline_path: str, tuned_path: str) -> None:
     }:
         fail("set the tuned request weights to text=0, vector=4, fuzzy=0")
 
-    baseline_keys = [row["external_key"] for row in baseline.get("results", [])]
-    tuned_keys = [row["external_key"] for row in tuned.get("results", [])]
-    if not baseline_keys or baseline_keys[0] != BASELINE_LEADER:
-        fail(f"the baseline fused leader must be {BASELINE_LEADER}")
-    if not tuned_keys or tuned_keys[0] != SEMANTIC_LEADER:
-        fail(f"the semantic-only leader must be {SEMANTIC_LEADER}")
+    baseline_keys = [row["external_key"] for row in baseline_results]
+    tuned_keys = [row["external_key"] for row in tuned_results]
 
     print(
         "OK: every stored RRF score recomputes from its arm positions; "
-        f"baseline top={baseline_keys[:3]}, semantic-only top={tuned_keys[:3]}"
+        f"observed baseline top={baseline_keys[:3]}, "
+        f"observed semantic-only top={tuned_keys[:3]}"
     )
 
 
-def check_agent(plan_path: str, traversal_path: str, comparison_path: str) -> None:
+def check_agent(
+    plan_path: str,
+    traversal_path: str,
+    comparison_path: str,
+    receipt_path: str,
+) -> None:
+    receipt = load_run(receipt_path)
     plan = load(plan_path)
     traversal = load(traversal_path)
     comparison = load(comparison_path)
 
     identified_keys = set(plan.get("identified_keys", []))
-    missing_identifiers = sorted(REQUIRED_IDENTIFIERS - identified_keys)
+    missing_identifiers = sorted(run_identifiers(receipt) - identified_keys)
     if missing_identifiers:
         fail(f"the evidence plan is missing identifiers: {missing_identifiers}")
 
@@ -154,18 +260,23 @@ def check_agent(plan_path: str, traversal_path: str, comparison_path: str) -> No
         fail(f"source comparison is missing: {missing_comparison}")
 
     print(
-        "OK: the plan covers cause, impact, and remediation, and the "
-        "authoritative graph confirms one change while ruling out the other"
+        "OK: the plan covers the captured incident, change, and lock evidence, "
+        "and the authoritative graph confirms all three measured relationships"
     )
 
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser()
+    result.add_argument(
+        "--receipt",
+        required=True,
+        help="indexing-receipt-<run-suffix>.json from the live orchestrator",
+    )
     subparsers = result.add_subparsers(dest="checkpoint", required=True)
 
     filter_parser = subparsers.add_parser("filter")
-    filter_parser.add_argument("before")
-    filter_parser.add_argument("after")
+    filter_parser.add_argument("baseline")
+    filter_parser.add_argument("filtered")
 
     fusion_parser = subparsers.add_parser("fusion")
     fusion_parser.add_argument("baseline")
@@ -181,11 +292,16 @@ def parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = parser().parse_args()
     if args.checkpoint == "filter":
-        check_filter(args.before, args.after)
+        check_filter(args.baseline, args.filtered, args.receipt)
     elif args.checkpoint == "fusion":
-        check_fusion(args.baseline, args.tuned)
+        check_fusion(args.baseline, args.tuned, args.receipt)
     else:
-        check_agent(args.plan, args.traversal, args.comparison)
+        check_agent(
+            args.plan,
+            args.traversal,
+            args.comparison,
+            args.receipt,
+        )
 
 
 if __name__ == "__main__":

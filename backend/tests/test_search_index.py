@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -65,7 +66,7 @@ class EmbeddingCacheTests(unittest.TestCase):
             self.assertIsNone(cache.get("model-a", "superseded"))
             self.assertIsNone(cache.get("model-b", "current"))
 
-    def test_release_cache_is_staged_until_explicit_publication(self) -> None:
+    def test_runtime_cache_is_staged_until_explicit_publication(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "cache.jsonl"
             original = EmbeddingCache(path)
@@ -96,7 +97,7 @@ class EmbeddingCacheTests(unittest.TestCase):
 
 
 class EmbeddingCacheManifestTests(unittest.TestCase):
-    def _seeded_cache(self, directory: str) -> EmbeddingCache:
+    def _populated_cache(self, directory: str) -> EmbeddingCache:
         cache = EmbeddingCache(Path(directory) / "cache.jsonl")
         cache.put("model-a", "hash-a", [0.25] * 1024)
         cache.put("model-a", "hash-b", [0.5] * 1024)
@@ -106,7 +107,7 @@ class EmbeddingCacheManifestTests(unittest.TestCase):
 
     def test_untampered_cache_verifies(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            written = self._seeded_cache(directory)
+            written = self._populated_cache(directory)
 
             loaded = EmbeddingCache(written.path)
             loaded.load()
@@ -117,7 +118,7 @@ class EmbeddingCacheManifestTests(unittest.TestCase):
 
     def test_digest_is_independent_of_line_order(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            written = self._seeded_cache(directory)
+            written = self._populated_cache(directory)
             lines = written.path.read_text(encoding="utf-8").splitlines()
             written.path.write_text(
                 "\n".join(reversed(lines)) + "\n",
@@ -131,7 +132,7 @@ class EmbeddingCacheManifestTests(unittest.TestCase):
 
     def test_truncated_cache_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            written = self._seeded_cache(directory)
+            written = self._populated_cache(directory)
             first = written.path.read_text(encoding="utf-8").splitlines()[0]
             written.path.write_text(first + "\n", encoding="utf-8")
 
@@ -144,7 +145,7 @@ class EmbeddingCacheManifestTests(unittest.TestCase):
 
     def test_edited_vector_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            written = self._seeded_cache(directory)
+            written = self._populated_cache(directory)
             records = [
                 json.loads(line)
                 for line in written.path.read_text(encoding="utf-8").splitlines()
@@ -164,7 +165,7 @@ class EmbeddingCacheManifestTests(unittest.TestCase):
 
     def test_missing_manifest_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            written = self._seeded_cache(directory)
+            written = self._populated_cache(directory)
             written.manifest_path.unlink()
 
             loaded = EmbeddingCache(written.path)
@@ -175,15 +176,21 @@ class EmbeddingCacheManifestTests(unittest.TestCase):
             self.assertIn("is missing", str(caught.exception))
 
 
-class ReleaseCacheGuardTests(unittest.TestCase):
-    """The release cache ships to every account, so no test run may write to it."""
+class IndexBuilderCliGuardTests(unittest.TestCase):
+    """Argument validation must finish before any database connection."""
 
     def _build(self, *arguments: str) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        env["DATABASE_URL"] = (
+            "postgresql://127.0.0.1:1/no_network_test?connect_timeout=1"
+        )
         return subprocess.run(
             [sys.executable, "backend/scripts/build_search_index.py", *arguments],
             capture_output=True,
             text=True,
             cwd=Path(__file__).resolve().parents[2],
+            env=env,
+            timeout=5,
         )
 
     def test_verify_cache_rejects_a_run_that_also_embeds(self) -> None:
@@ -192,19 +199,17 @@ class ReleaseCacheGuardTests(unittest.TestCase):
         self.assertNotEqual(completed.returncode, 0)
         self.assertIn("cannot be combined", completed.stderr)
 
-    def test_embedding_into_release_cache_requires_manifest_rewrite(self) -> None:
-        completed = self._build("--embed-missing")
+    def test_hash_provider_cannot_request_live_embedding(self) -> None:
+        completed = self._build("--provider", "hash", "--embed-missing")
 
         self.assertNotEqual(completed.returncode, 0)
-        self.assertIn("refusing to add embeddings to the release cache", completed.stderr)
+        self.assertIn("only valid with --provider bedrock", completed.stderr)
 
-    def test_hash_provider_may_not_target_the_release_cache(self) -> None:
-        from backend.scripts.build_search_index import RELEASE_CACHE
-
-        completed = self._build("--provider", "hash", "--cache", str(RELEASE_CACHE))
+    def test_nonpositive_batch_size_is_rejected_before_connecting(self) -> None:
+        completed = self._build("--batch-size", "0")
 
         self.assertNotEqual(completed.returncode, 0)
-        self.assertIn("refusing to add embeddings to the release cache", completed.stderr)
+        self.assertIn("--batch-size must be positive", completed.stderr)
 
 
 if __name__ == "__main__":

@@ -36,8 +36,7 @@ For search index, retrieval, ranking, citation, or evaluation work, apply
 | `frontend/` | Inspection UI over API responses and persisted proof |
 | `lambda_mcp/` | Stateless AgentCore Gateway adapter over the API |
 | `mcp-server/` | Optional MCP wrapper over the same API |
-| `seed/` | Deterministic synthetic database-incident corpus |
-| `labs/incident/` | Participant-run PostgreSQL lock reproduction, capture, repair, and cleanup |
+| `labs/incident/` | Participant-run incident, PostgreSQL/AWS capture, repair, admission, embedding, and receipt |
 | `scripts/` | Environment and managed-boundary helpers |
 | `docs/` | Architecture, participant flow, security, and production guidance |
 
@@ -46,7 +45,15 @@ packaged source archive belong in the sibling Workshop Studio repository.
 
 ## Invariants
 
-- `casework.*` owns normalized relational truth in the workshop fixture.
+- The participant database starts with zero evidence. Only the current
+  `make live-workshop` capture may populate `casework`, `retrieval`, or `proof`.
+- No fixture, authored record, dump, snapshot, offline embedding, generated
+  capture, or previous run may enter a participant-facing result. The Overview
+  main graphic is the sole illustrative exception and never feeds retrieval.
+- Participant identifiers are derived from the capture UUID:
+  `INC-<run-suffix>`, `CHG-<run-suffix>-01/02`,
+  `LOCK-<run-suffix>-01`, and `TEL-<run-suffix>-...`.
+- `casework.*` owns normalized relational truth from that live capture.
   `retrieval.*` is one-way derived, versioned, rebuildable state.
 - Do not hand-edit indexed documents or duplicate canonical relationships.
   Foreign keys are truth; `retrieval.evidence_edges` is the uniform read view.
@@ -67,14 +74,15 @@ packaged source archive belong in the sibling Workshop Studio repository.
   canonical data when the database or model is unavailable.
 - Do not add a PostgreSQL extension unless the target Aurora PostgreSQL engine
   supports it and the workshop contract requires it.
-- Never present the synthetic corpus as real AWS or customer incident data.
+- Never add authored support, customer, runbook, postmortem, distractor, demo,
+  or synthetic corpus records to the participant path.
 
 ## Working Loop
 
 1. Inspect the owning contract and current implementation.
 2. Run `make doctor` before database- or model-dependent work.
 3. Make the smallest change at the owning boundary.
-4. Validate exact ID, semantic, fuzzy, filter, ACL, fusion, citation, and
+4. Validate exact ID, semantic, fuzzy, filter, fusion, citation, and
    receipt behavior as applicable.
 5. Run `git diff --check` and report any validation that could not run.
 

@@ -63,7 +63,7 @@ class ToolFailureTests(unittest.TestCase):
         self.run = agent_tools.start_run(None)
 
     def test_bad_run_id_returns_a_recovery_instead_of_raising(self) -> None:
-        for value in ("CHG-1842", "", "not-a-uuid"):
+        for value in ("CHG-A1B2C3D4-01", "", "not-a-uuid"):
             with self.subTest(run_id=value):
                 result = agent_tools.explain_ranking(value)
                 self.assertFalse(result["ok"])
@@ -75,12 +75,15 @@ class ToolFailureTests(unittest.TestCase):
         self.assertEqual(self.run["trace"], [])
 
     def test_unknown_evidence_kind_names_the_valid_values(self) -> None:
-        result = agent_tools.search_evidence("CHG-1842", kinds=["ticket"])
+        result = agent_tools.search_evidence(
+            "CHG-A1B2C3D4-01",
+            kinds=["not_a_kind"],
+        )
         self.assertFalse(result["ok"])
-        self.assertIn("support_case", result["recovery"])
+        self.assertIn("telemetry", result["recovery"])
 
     def test_comparison_of_one_key_is_rejected(self) -> None:
-        result = agent_tools.compare_sources(["CHG-1842"])
+        result = agent_tools.compare_sources(["CHG-A1B2C3D4-01"])
         self.assertFalse(result["ok"])
 
     def test_traversal_without_seeds_is_rejected(self) -> None:
@@ -95,7 +98,9 @@ class RoleBindingTests(unittest.TestCase):
             "backend.app.agent_tools.compare_sources_impl",
             return_value={"evidence": [], "relationships": [], "observations": []},
         ) as impl:
-            agent_tools.compare_sources(["CHG-1842", "CHG-1838"])
+            agent_tools.compare_sources(
+                ["CHG-A1B2C3D4-01", "CHG-A1B2C3D4-02"]
+            )
         self.assertEqual(impl.call_args.kwargs["role"], "dba")
 
     def test_an_unbound_run_falls_back_to_the_default_role(self) -> None:
@@ -104,7 +109,9 @@ class RoleBindingTests(unittest.TestCase):
             "backend.app.agent_tools.compare_sources_impl",
             return_value={"evidence": [], "relationships": [], "observations": []},
         ) as impl:
-            agent_tools.compare_sources(["CHG-1842", "CHG-1838"])
+            agent_tools.compare_sources(
+                ["CHG-A1B2C3D4-01", "CHG-A1B2C3D4-02"]
+            )
         self.assertEqual(impl.call_args.kwargs["role"], DEFAULT_ROLE)
 
     def test_explain_and_synthesis_use_the_bound_role(self) -> None:
@@ -124,7 +131,9 @@ class RoleBindingTests(unittest.TestCase):
                 "source_run_ids": [run_id],
                 "required_kinds": ["change"],
                 "answer": "Supported [1].",
-                "citations": [{"n": 1, "external_key": "CHG-1842"}],
+                "citations": [
+                    {"n": 1, "external_key": "CHG-A1B2C3D4-01"}
+                ],
                 "synthesis": {"mode": "test"},
             },
         ) as synthesize:
@@ -174,7 +183,7 @@ class ContextCostTests(unittest.TestCase):
                 "results": rows,
             },
         ):
-            result = agent_tools.search_evidence("CHG-1842")
+            result = agent_tools.search_evidence("CHG-A1B2C3D4-01")
 
         self.assertTrue(result["ok"])
         self.assertEqual(result["results"][0]["match"], "exact_identifier")
@@ -199,7 +208,7 @@ class ContextCostTests(unittest.TestCase):
                 "results": [],
             },
         ):
-            result = agent_tools.search_evidence("CHG-9999")
+            result = agent_tools.search_evidence("CHG-FFFFFFFF-01")
         self.assertIn("without filters", result["note"])
 
     def test_string_null_scope_filters_are_normalized(self) -> None:
@@ -214,10 +223,10 @@ class ContextCostTests(unittest.TestCase):
             },
         ) as impl:
             agent_tools.search_evidence(
-                "production runbook",
+                "measured wait telemetry",
                 cluster_id="null",
                 incident_id=" none ",
-                kinds=["runbook"],
+                kinds=["telemetry"],
             )
 
         self.assertIsNone(impl.call_args.kwargs["cluster_id"])
@@ -236,8 +245,10 @@ class AnswerOfRecordTests(unittest.TestCase):
                     "1e5a4f2c-0000-4000-8000-00000000000f"
                 ],
                 "required_kinds": ["change"],
-                "answer": "CHG-1842 took a ShareLock [1].",
-                "citations": [{"n": 1, "external_key": "CHG-1842"}],
+                "answer": "CHG-A1B2C3D4-01 took a ShareLock [1].",
+                "citations": [
+                    {"n": 1, "external_key": "CHG-A1B2C3D4-01"}
+                ],
                 "synthesis": {"mode": "bedrock"},
             },
         ):

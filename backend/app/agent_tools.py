@@ -76,7 +76,10 @@ _MODEL_ROW_FIELDS = (
 )
 
 
-def start_run(role: str | None) -> dict[str, Any]:
+def start_run(
+    role: str | None,
+    source_systems: list[str] | None = None,
+) -> dict[str, Any]:
     """Begin an agent run: bind its persona and start recording tool calls.
 
     Args:
@@ -88,6 +91,7 @@ def start_run(role: str | None) -> dict[str, Any]:
     """
     run: dict[str, Any] = {
         "role": role or DEFAULT_ROLE,
+        "source_systems": source_systems,
         "trace": [],
         "answer_of_record": None,
     }
@@ -102,6 +106,11 @@ def _run() -> dict[str, Any] | None:
 def _role() -> str:
     run = _run()
     return (run and run["role"]) or DEFAULT_ROLE
+
+
+def _source_systems() -> list[str] | None:
+    run = _run()
+    return run.get("source_systems") if run else None
 
 
 def _record(name: str, arguments: dict[str, Any], started: float, **extra: Any) -> None:
@@ -211,11 +220,14 @@ def search_evidence(
     synthesize_cited_answer both require it.
 
     Args:
-        query: Search text. Include any identifier verbatim, such as CHG-1842.
-        incident_id: Restrict to one incident, such as INC-2047.
-        cluster_id: Restrict to one database cluster, such as checkout-prod-cluster-01.
+        query: Search text. Include a receipt-derived identifier verbatim, such
+            as CHG-<run-suffix>-01.
+        incident_id: Restrict to the receipt-derived incident,
+            INC-<run-suffix>.
+        cluster_id: Restrict to the cluster recorded by the live indexing
+            receipt.
         kinds: Restrict to these evidence kinds. Valid values are incident,
-            change, support_case, runbook, lock_evidence, commitment, postmortem.
+            change, lock_evidence, telemetry.
         limit: Rows to return, 1 to 50.
 
     Returns:
@@ -247,6 +259,7 @@ def search_evidence(
         response = search_evidence_impl(
             query,
             kinds=kinds,
+            source_systems=_source_systems(),
             cluster_id=cluster_id,
             incident_id=incident_id,
             role=_role(),
@@ -291,11 +304,12 @@ def follow_evidence_links(
     """Walk declared relationships out from evidence you already retrieved.
 
     Relationships come from foreign keys, not text similarity, so this is how
-    you establish that a change caused an incident or that a runbook was
-    superseded. Every hop re-checks the caller's ACL.
+    you establish that a measured change caused or repaired an incident. Every
+    hop re-checks the caller's ACL.
 
     Args:
-        seed_external_keys: Keys to start from, such as ["INC-2047"].
+        seed_external_keys: Receipt-derived keys to start from, such as
+            ["INC-<run-suffix>"].
         max_depth: Relationship hops to follow, 0 to 8.
 
     Returns:
@@ -307,7 +321,7 @@ def follow_evidence_links(
     if not keys:
         return _failure(
             "no seed keys were given",
-            "pass external keys from a search_evidence result, such as INC-2047.",
+            "pass receipt-derived keys from a search_evidence result.",
         )
     try:
         response = follow_evidence_links_impl(
@@ -362,7 +376,8 @@ def compare_sources(external_keys: list[str]) -> dict[str, Any]:
     cluster and incident and whether an explicit relationship joins them.
 
     Args:
-        external_keys: The records to compare, such as ["CHG-1842", "CHG-1838"].
+        external_keys: Run-derived records to compare, such as
+            ["CHG-<run-suffix>-01", "CHG-<run-suffix>-02"].
 
     Returns:
         Each record's scope and revision, plus the relationships between them.
@@ -373,7 +388,7 @@ def compare_sources(external_keys: list[str]) -> dict[str, Any]:
     if len(keys) < 2:
         return _failure(
             "comparison needs at least two keys",
-            "pass two or more external keys, such as CHG-1842 and CHG-1838.",
+            "pass two or more receipt-derived external keys.",
         )
     try:
         response = compare_sources_impl(keys, role=_role())

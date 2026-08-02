@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock
 
-from backend.scripts.run_sql import run_sql_files, should_skip_masking
+from backend.scripts.run_sql import run_sql_files
 
 
 class TransactionProbe:
@@ -40,36 +40,6 @@ class ConnectionProbe:
 
     def cursor(self):
         return nullcontext(self.cursor_value)
-
-
-class MaskingMigrationDispatchTests(unittest.TestCase):
-    def test_non_masking_files_never_probe_the_engine(self) -> None:
-        cursor = MagicMock()
-
-        self.assertFalse(should_skip_masking(cursor, Path("sql/01_schema.sql")))
-        cursor.execute.assert_not_called()
-
-    def test_local_postgres_skips_an_unavailable_aurora_extension(self) -> None:
-        cursor = MagicMock()
-        cursor.fetchone.side_effect = [(False,), (False,)]
-
-        self.assertTrue(should_skip_masking(cursor, Path("sql/12_masking.sql")))
-
-    def test_aurora_fails_when_selected_masking_is_unavailable(self) -> None:
-        cursor = MagicMock()
-        cursor.fetchone.side_effect = [(False,), (True,)]
-
-        with self.assertRaisesRegex(
-            RuntimeError, "explicitly selected.*pg_columnmask is required"
-        ):
-            should_skip_masking(cursor, Path("sql/12_masking.sql"))
-
-    def test_available_masking_extension_runs_everywhere(self) -> None:
-        cursor = MagicMock()
-        cursor.fetchone.return_value = (True,)
-
-        self.assertFalse(should_skip_masking(cursor, Path("sql/12_masking.sql")))
-        self.assertEqual(cursor.execute.call_count, 1)
 
 
 class TransactionalSqlRunnerTests(unittest.TestCase):
@@ -146,51 +116,6 @@ class TransactionalSqlRunnerTests(unittest.TestCase):
         self.assertNotIn(str(third), stdout.getvalue())
         self.assertIn(str(second), stderr.getvalue())
         self.assertIn("rolled back selected SQL set", stderr.getvalue())
-
-    def test_local_masking_skip_stays_inside_the_committed_set(self) -> None:
-        first, masking = self._files(
-            ("01_first.sql", "SELECT 'first'"),
-            ("12_masking.sql", "CREATE EXTENSION pg_columnmask"),
-        )
-        cursor = MagicMock()
-        cursor.fetchone.side_effect = [(False,), (False,)]
-        connection = ConnectionProbe(cursor)
-        stdout = io.StringIO()
-
-        with redirect_stdout(stdout):
-            applied = run_sql_files(connection, [first, masking])
-
-        self.assertEqual(applied, [first])
-        self.assertEqual(connection.transaction_probe.commits, 1)
-        self.assertEqual(connection.transaction_probe.rollbacks, 0)
-        self.assertNotIn(
-            "CREATE EXTENSION pg_columnmask",
-            [call.args[0] for call in cursor.execute.call_args_list],
-        )
-        self.assertIn("Skipping sql/12_masking.sql", stdout.getvalue())
-
-    def test_aurora_missing_masking_rolls_back_preceding_files(self) -> None:
-        first, masking = self._files(
-            ("01_first.sql", "SELECT 'first'"),
-            ("12_masking.sql", "CREATE EXTENSION pg_columnmask"),
-        )
-        cursor = MagicMock()
-        cursor.fetchone.side_effect = [(False,), (True,)]
-        connection = ConnectionProbe(cursor)
-
-        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            with self.assertRaisesRegex(
-                RuntimeError, "explicitly selected.*pg_columnmask is required"
-            ):
-                run_sql_files(connection, [first, masking])
-
-        self.assertEqual(connection.transaction_probe.commits, 0)
-        self.assertEqual(connection.transaction_probe.rollbacks, 1)
-        self.assertNotIn(
-            "CREATE EXTENSION pg_columnmask",
-            [call.args[0] for call in cursor.execute.call_args_list],
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

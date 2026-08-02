@@ -17,7 +17,6 @@
 # Usage:
 #   gates/checks.sh            # run core retrieval gates
 #   gates/checks.sh G-11 G-21  # run a subset by gate id
-#   make security-checks       # run the optional RLS and masking gates
 #
 set -uo pipefail
 
@@ -30,31 +29,20 @@ else
   PYTHON="$(command -v python3 || command -v python)"
 fi
 
-# Gate registry: "G-ID|script|one-line title". Security remains available by
-# explicit ID but is not part of the default builders-session release path.
+# Gate registry: "G-ID|script|one-line title".
 CORE_GATES=(
   "G-11|noun_lint.py|Law 1 noun lint"
   "G-13|verify_sql_golden.py|Verify-SQL golden test"
   "G-14|empty_db_ui_test.py|Empty-database UI test"
   "G-17|registry_drift.py|Registry drift"
-  "G-21|fixture_arithmetic.py|Fixture arithmetic (D14) on the engine"
+  "G-21|live_fuzzy_retrieval.py|Run-derived fuzzy retrieval on the engine"
   "G-23|route_contract.py|Route contract (D16)"
-  "G-25|admission_determinism.py|Admission determinism (D21)"
+  "G-25|admission_determinism.py|Live-bundle admission determinism (D21)"
 )
 
-SECURITY_GATES=(
-  "G-27|rls_enforcement.py|RLS enforcement (D24)"
-  "G-29|masking_determinism.py|Column masking + Law-2 determinism"
-  "G-30|participant_ceremony.py|Participant zero-ceremony identity (A1)"
-  "G-31|persona_equivalence.py|Persona equivalence after the A7 collapse"
-)
-
-GATES=("${CORE_GATES[@]}" "${SECURITY_GATES[@]}")
+GATES=("${CORE_GATES[@]}")
 WANT=("$@")
 if [[ ${#WANT[@]} -eq 0 ]]; then
-  # The default command is always the core contract, even if a developer's
-  # shell or .env last enabled the optional security appendix.
-  export WORKBENCH_SECURITY_ENABLED=0
   for entry in "${CORE_GATES[@]}"; do
     IFS='|' read -r id _rest <<<"$entry"
     WANT+=("$id")

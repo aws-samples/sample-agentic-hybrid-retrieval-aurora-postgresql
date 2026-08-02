@@ -51,7 +51,7 @@ export interface TimelineGrid<E extends TimelineEventInput = TimelineEventInput>
  */
 export function systemLabel(raw?: string | null): string {
   if (!raw) return 'Unknown';
-  const cleaned = raw.replace(/^synthetic_/, '').replace(/_/g, ' ').trim();
+  const cleaned = raw.replace(/_/g, ' ').trim();
   if (!cleaned) return 'Unknown';
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }

@@ -210,6 +210,12 @@ def _param_hidden(param: ToolParam) -> ToolParam:
 def _search_filter_params() -> tuple[ToolParam, ...]:
     """The SearchRequest filter surface beyond the model-visible five."""
     return (
+        ToolParam(
+            "source_systems",
+            "array",
+            item_type="string",
+            description="Restrict to these authoritative source systems.",
+        ),
         ToolParam("account_name", "string", description="Restrict to one account."),
         ToolParam(
             "severities",
@@ -304,9 +310,9 @@ TOOLS: dict[str, ToolSpec] = {
             "synthesize_cited_answer both require it."
         ),
         params=(
-            ToolParam("query", "string", required=True, min_length=1, max_length=2000, description="Search text. Include any identifier verbatim, such as CHG-1842."),
-            ToolParam("incident_id", "string", description="Restrict to one incident, such as INC-2047."),
-            ToolParam("cluster_id", "string", description="Restrict to one database cluster, such as checkout-prod-cluster-01."),
+            ToolParam("query", "string", required=True, min_length=1, max_length=2000, description="Search text. Include a receipt-derived identifier verbatim, such as CHG-<run-suffix>-01."),
+            ToolParam("incident_id", "string", description="Restrict to the receipt-derived incident, INC-<run-suffix>."),
+            ToolParam("cluster_id", "string", description="Restrict to the cluster recorded by the live indexing receipt."),
             ToolParam("kinds", "array", item_type="string", enum=EVIDENCE_KINDS, description=_KINDS_DESCRIPTION),
             ToolParam("limit", "integer", default=8, minimum=1, maximum=50, description="Rows to return, 1 to 50."),
             *(_param_hidden(p) for p in _search_filter_params()),
@@ -323,11 +329,11 @@ TOOLS: dict[str, ToolSpec] = {
         description=(
             "Walk declared relationships out from evidence you already retrieved.\n\n"
             "Relationships come from foreign keys, not text similarity, so this is how\n"
-            "you establish that a change caused an incident or that a runbook was\n"
-            "superseded. Every hop re-checks the caller's ACL."
+            "you establish that a measured change caused or repaired an incident.\n"
+            "Every hop re-checks the caller's ACL."
         ),
         params=(
-            ToolParam("seed_external_keys", "array", required=True, item_type="string", min_length=1, max_length=20, description='Keys to start from, such as ["INC-2047"].'),
+            ToolParam("seed_external_keys", "array", required=True, item_type="string", min_length=1, max_length=20, description='Receipt-derived keys to start from, such as ["INC-<run-suffix>"].'),
             ToolParam("max_depth", "integer", default=2, minimum=0, maximum=8, description="Relationship hops to follow, 0 to 8."),
             _ROLE_PARAM,
         ),
@@ -344,7 +350,7 @@ TOOLS: dict[str, ToolSpec] = {
             "cluster and incident and whether an explicit relationship joins them."
         ),
         params=(
-            ToolParam("external_keys", "array", required=True, item_type="string", min_length=1, max_length=20, description='The records to compare, such as ["CHG-1842", "CHG-1838"].'),
+            ToolParam("external_keys", "array", required=True, item_type="string", min_length=1, max_length=20, description='Run-derived records to compare, such as ["CHG-<run-suffix>-01", "CHG-<run-suffix>-02"].'),
             _ROLE_PARAM,
         ),
         returns_description="Each record's scope and revision, plus the relationships between them.",
@@ -402,7 +408,7 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         params=(
             ToolParam("question", "string", required=True, min_length=1, max_length=4000, description="The incident question, verbatim."),
-            ToolParam("incident_id", "string", description="Restrict to one incident, such as INC-2047."),
+            ToolParam("incident_id", "string", description="Restrict to the receipt-derived incident, INC-<run-suffix>."),
             ToolParam("cluster_id", "string", description="Restrict to one database cluster."),
             ToolParam("kinds", "array", item_type="string", enum=EVIDENCE_KINDS, description=_KINDS_DESCRIPTION),
             ToolParam("limit", "integer", default=8, minimum=1, maximum=20, description="Evidence rows per retrieval, 1 to 20."),

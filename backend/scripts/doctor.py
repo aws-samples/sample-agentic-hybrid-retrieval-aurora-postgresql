@@ -23,9 +23,7 @@ REQUIRED_TABLES = (
     "casework.evidence_items",
     "casework.incidents",
     "casework.changes",
-    "casework.support_cases",
-    "casework.runbooks",
-    "casework.fixture_captures",
+    "casework.incident_capture_runs",
     "casework.lock_evidence",
     "casework.pg_stat_activity_samples",
     "casework.pg_lock_samples",
@@ -33,10 +31,8 @@ REQUIRED_TABLES = (
     "casework.pg_stat_statements_samples",
     "casework.cloudwatch_metric_samples",
     "casework.database_insights_samples",
-    "casework.customer_commitments",
-    "casework.postmortems",
-    "casework.change_runbooks",
-    "casework.support_case_commitments",
+    "casework.telemetry_evidence",
+    "casework.incident_changes",
     "retrieval.search_index_queue",
     "retrieval.search_index_builds",
     "retrieval.documents",
@@ -66,15 +62,20 @@ REQUIRED_FUNCTIONS = (
     ("retrieval", "assert_search_index_ready"),
     ("retrieval", "configure_ann_runtime"),
     ("retrieval", "traverse_evidence"),
-    ("casework", "assert_release_capture_ready"),
+    ("casework", "assert_live_capture_ready"),
+    ("casework", "admit_evidence"),
     ("proof", "validate_answer_citations"),
     ("proof", "evaluate_subquestion_coverage"),
     ("proof", "traversal_recall"),
 )
 REQUIRED_COLUMNS = (
+    ("casework", "incidents", "impact_summary"),
     ("casework", "lock_evidence", "relation_oid"),
     ("casework", "lock_evidence", "blocked_lock_mode"),
     ("casework", "lock_evidence", "blocking_lock_mode"),
+    ("casework", "pg_stat_activity_samples", "observation_number"),
+    ("casework", "pg_lock_samples", "observation_number"),
+    ("casework", "pg_blocking_pids_samples", "observation_number"),
     ("proof", "retrieval_runs", "role"),
     ("proof", "retrieval_candidates", "match_tier"),
     ("proof", "retrieval_candidates", "exact_identifier_position"),
@@ -84,28 +85,29 @@ REQUIRED_COLUMNS = (
     ("proof", "transport_invocations", "role"),
 )
 RETIRED_COLUMNS = (
+    ("casework", "incidents", "customer_impact"),
     ("proof", "retrieval_runs", "principal"),
     ("proof", "agent_runs", "principal"),
 )
 REQUIRED_FUNCTION_SIGNATURES = (
     "retrieval.full_text_search("
-    "text,text[],text,text,text,text[],text,text,text,text,"
+    "text,text[],text[],text,text,text,text[],text,text,text,text,"
     "timestamptz,timestamptz,integer"
     ")",
     "retrieval.vector_search("
-    "vector,text[],text,text,text,text[],text,text,text,text,"
+    "vector,text[],text[],text,text,text,text[],text,text,text,text,"
     "timestamptz,timestamptz,integer,integer"
     ")",
     "retrieval.fuzzy_search("
-    "text[],real,text[],text,text,text,text[],text,text,text,text,"
+    "text[],real,text[],text[],text,text,text,text[],text,text,text,text,"
     "timestamptz,timestamptz,integer"
     ")",
     "retrieval.identifier_is_indexed("
-    "text[],text[],text,text,text,text[],text,text,text,text,"
+    "text[],text[],text[],text,text,text,text[],text,text,text,text,"
     "timestamptz,timestamptz"
     ")",
     "retrieval.hybrid_search("
-    "text,vector,text[],text[],text,text,text,text[],text,text,text,text,"
+    "text,vector,text[],text[],text[],text,text,text,text[],text,text,text,text,"
     "timestamptz,timestamptz,integer,integer,integer,"
     "numeric,numeric,numeric,real"
     ")",
@@ -118,13 +120,6 @@ REQUIRED_INDEXES = (
     "retrieval.idx_documents_title_trgm",
     "retrieval.idx_chunks_search_tsv",
     "retrieval.idx_chunks_embedding_hnsw",
-)
-CANONICAL_KEYS = (
-    "INC-2047",
-    "CHG-1842",
-    "CASE-7419",
-    "RB-017",
-    "LOCK-2047-001",
 )
 DEFAULT_FRONTEND_URLS = (
     "http://127.0.0.1:5173",
@@ -298,155 +293,123 @@ def _check_catalog_objects(doctor: Doctor, cursor) -> bool:
 
 
 def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
-    security_enabled = get_settings().workbench_security_enabled
     cursor.execute(
         """
-        SELECT external_key
+        SELECT source_system, count(*) AS records
         FROM casework.evidence_items
-        WHERE external_key = ANY(%s)
-          AND NOT is_deleted
+        WHERE NOT is_deleted
+        GROUP BY source_system
+        ORDER BY source_system
         """,
-        (list(CANONICAL_KEYS),),
     )
-    present = {row["external_key"] for row in cursor.fetchall()}
-    missing = [key for key in CANONICAL_KEYS if key not in present]
-    if missing:
-        doctor.fail("canonical casework", f"missing {', '.join(missing)}")
-    else:
-        doctor.ok("canonical casework", ", ".join(CANONICAL_KEYS))
+    sources = cursor.fetchall()
+    unexpected = [
+        row["source_system"]
+        for row in sources
+        if row["source_system"] != "pg_incident_capture"
+    ]
+    if unexpected:
+        doctor.fail(
+            "live-only evidence",
+            "non-live source systems are loaded: " + ", ".join(unexpected),
+        )
+        return
+    if not sources:
+        doctor.ok(
+            "live-only evidence",
+            "schema is empty and awaiting the participant-induced incident",
+        )
+        return
 
     cursor.execute(
         """
         SELECT
-          (SELECT count(*) FROM casework.incident_changes) AS incident_changes,
-          (SELECT count(*) FROM casework.incident_support_cases) AS incident_cases,
-          (SELECT count(*) FROM casework.incident_runbooks) AS incident_runbooks
+          capture_id,
+          capture_key,
+          source_bundle_uri,
+          engine_version,
+          relation_oid,
+          upper(right(replace(capture_id::text, '-', ''), 8)) AS run_suffix
+        FROM casework.incident_capture_runs
+        WHERE capture_origin = 'participant_induced'
+        ORDER BY capture_started_at DESC
         """
     )
-    relations = cursor.fetchone()
-    if not all(int(value) > 0 for value in relations.values()):
-        doctor.fail("canonical relationships", json.dumps(relations))
-    else:
-        doctor.ok(
-            "canonical relationships",
-            ", ".join(f"{name}={value}" for name, value in relations.items()),
-        )
-
-    if security_enabled:
-        if cleared_cursor is None:
-            raise RuntimeError("security mode requires a cleared persona cursor")
-        cursor.execute(
-            """
-            SELECT count(*) AS visible
-            FROM casework.evidence_items
-            WHERE external_key = 'CASE-7421'
-              AND NOT is_deleted
-            """
-        )
-        app_engineer_visible = int(cursor.fetchone()["visible"])
-        if app_engineer_visible:
-            doctor.fail(
-                "ACL enforcement",
-                "App Engineer can read CASE-7421; restricted evidence is leaking",
-            )
-        else:
-            doctor.ok("ACL enforcement", "CASE-7421 hidden from App Engineer")
-    else:
-        cursor.execute(
-            """
-            SELECT count(*) AS visible
-            FROM retrieval.full_text_search('CASE-7421', p_limit => 50)
-            WHERE external_key = 'CASE-7421'
-            """
-        )
-        visible = int(cursor.fetchone()["visible"])
-        if visible:
-            doctor.fail(
-                "ACL enforcement",
-                "core retrieval returned CASE-7421 to App Engineer",
-            )
-        else:
-            doctor.ok(
-                "ACL enforcement",
-                "core retrieval predicate hides CASE-7421 from App Engineer",
-            )
-        doctor.ok(
-            "security mode",
-            "core retrieval; optional RLS and masking checks are not required",
-        )
-
-    fixture_cursor = cleared_cursor if security_enabled else cursor
-    fixture_cursor.execute(
-        """
-        SELECT external_key,
-               coalesce(acl ->> 'visibility', 'restricted') AS visibility
-        FROM casework.evidence_items
-        WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
-          AND NOT is_deleted
-        ORDER BY external_key
-        """
-    )
-    restricted = fixture_cursor.fetchall()
-    restricted_keys = [row["external_key"] for row in restricted]
-    if "CASE-7421" not in restricted_keys:
+    captures = cursor.fetchall()
+    if len(captures) != 1:
         doctor.fail(
-            "ACL fixture",
-            "CASE-7421 is not marked restricted; run the current core schema "
-            "migration or reseed",
+            "incident capture",
+            f"expected one participant run in the fresh database, found {len(captures)}",
         )
-    elif security_enabled and len(restricted_keys) < 2:
-        doctor.fail(
-            "ACL fixture",
-            "only CASE-7421 is restricted; reseed to load the optional "
-            "security cohort",
-        )
-    else:
-        doctor.ok(
-            "ACL fixture",
-            f"{len(restricted_keys)} restricted evidence item(s) "
-            f"({', '.join(restricted_keys)})",
-        )
-
+        return
+    capture = captures[0]
+    suffix = capture["run_suffix"]
+    incident_key = f"INC-{suffix}"
+    unsafe_change_key = f"CHG-{suffix}-01"
+    repair_change_key = f"CHG-{suffix}-02"
+    lock_key = f"LOCK-{suffix}-01"
     cursor.execute(
         """
-        SELECT capture_mode, capture_key, engine_version, relation_oid
-        FROM casework.fixture_captures
-        ORDER BY capture_started_at DESC
-        LIMIT 1
-        """
+        SELECT
+          count(*) AS total,
+          count(*) FILTER (WHERE evidence_kind = 'incident') AS incidents,
+          count(*) FILTER (WHERE evidence_kind = 'change') AS changes,
+          count(*) FILTER (WHERE evidence_kind = 'lock_evidence') AS locks,
+          count(*) FILTER (WHERE evidence_kind = 'telemetry') AS telemetry,
+          bool_and(source_uri LIKE %s || '/%%') AS one_bundle,
+          bool_and(
+            CASE evidence_kind
+              WHEN 'incident' THEN external_key = %s
+              WHEN 'change' THEN external_key IN (%s, %s)
+              WHEN 'lock_evidence' THEN external_key = %s
+              WHEN 'telemetry' THEN external_key ~ %s
+              ELSE false
+            END
+          ) AS run_scoped_keys
+        FROM casework.evidence_items
+        WHERE source_system = 'pg_incident_capture'
+          AND NOT is_deleted
+        """,
+        (
+            capture["source_bundle_uri"],
+            incident_key,
+            unsafe_change_key,
+            repair_change_key,
+            lock_key,
+            f"^TEL-{suffix}-[A-Z]+[0-9]+$",
+        ),
     )
-    capture = cursor.fetchone()
-    require_release = env_bool("DOCTOR_REQUIRE_RELEASE_CAPTURE")
-    if not capture:
-        doctor.fail("incident capture", "no genuine capture bundle is loaded")
-    elif capture["capture_mode"] == "release_aurora":
-        try:
-            cursor.execute(
-                "SELECT casework.assert_release_capture_ready() AS validation"
-            )
-            cursor.fetchone()
-            doctor.ok(
-                "incident capture",
-                f"{capture['capture_key']} is release-ready Aurora evidence",
-            )
-        except Exception as error:
-            doctor.fail("incident capture", str(error))
-    elif require_release:
+    evidence = cursor.fetchone()
+    if (
+        not 104 <= evidence["total"] <= 124
+        or evidence["incidents"] != 1
+        or evidence["changes"] != 2
+        or evidence["locks"] != 1
+        or not 100 <= evidence["telemetry"] <= 120
+        or not evidence["one_bundle"]
+        or not evidence["run_scoped_keys"]
+    ):
         doctor.fail(
-            "incident capture",
-            (
-                f"{capture['capture_key']} is offline_test; "
-                "release_aurora evidence is required"
-            ),
+            "live-only evidence",
+            f"run {suffix} does not satisfy the live corpus contract: {dict(evidence)}",
         )
     else:
         doctor.ok(
-            "incident capture",
+            "live-only evidence",
             (
-                f"{capture['capture_key']} is genuine offline_test evidence "
-                "and does not satisfy the Aurora release gate"
+                f"run {suffix} owns {evidence['total']} run-derived documents "
+                f"({evidence['telemetry']} telemetry projections)"
             ),
         )
+    try:
+        cursor.execute("SELECT casework.assert_live_capture_ready() AS validation")
+        cursor.fetchone()
+        doctor.ok(
+            "incident capture",
+            f"{capture['capture_key']} is participant-induced live Aurora evidence",
+        )
+    except Exception as error:
+        doctor.fail("incident capture", str(error))
 
 
 def _check_search_index(doctor: Doctor, cursor) -> None:
@@ -463,6 +426,12 @@ def _check_search_index(doctor: Doctor, cursor) -> None:
             f"chunks={health['current_chunks']}; drift={health['drift_issues']}"
         ),
     )
+    if health.get("status") == "awaiting_incident":
+        doctor.ok(
+            "embedding space",
+            "none yet; the participant incident has not been admitted",
+        )
+        return
 
     settings = get_settings()
     expected_model = (
@@ -555,12 +524,7 @@ def check_database(doctor: Doctor) -> None:
 
                 if not _check_catalog_objects(doctor, cursor):
                     return
-                if settings.workbench_security_enabled:
-                    with get_dict_conn("dba") as cleared_connection:
-                        with cleared_connection.cursor() as cleared_cursor:
-                            _check_casework(doctor, cursor, cleared_cursor)
-                else:
-                    _check_casework(doctor, cursor)
+                _check_casework(doctor, cursor)
                 _check_search_index(doctor, cursor)
     except Exception as error:
         doctor.fail("database connectivity", str(error))
@@ -627,7 +591,7 @@ def check_models(doctor: Doctor) -> None:
     if settings.embed_provider == "bedrock":
         try:
             embedding = embed_text(
-                "CHG-1842 relation lock incident",
+                "participant-induced relation lock incident",
                 provider="bedrock",
                 dim=settings.embed_dim,
                 input_type="search_query",
@@ -653,7 +617,7 @@ def check_models(doctor: Doctor) -> None:
             results = CohereRerankService().rerank(
                 "Which change blocked checkout writes?",
                 [
-                    "CHG-1842 ran CREATE INDEX and blocked writes.",
+                    "The measured ordinary CREATE INDEX blocked live writers.",
                     "The office lunch menu changed.",
                 ],
                 top_n=1,
@@ -686,9 +650,12 @@ def check_api_health(doctor: Doctor, require_servers: bool) -> None:
         response = requests.get(f"{api_url}/ready", timeout=3)
         response.raise_for_status()
         payload = response.json()
-        if payload.get("status") != "ready":
+        if payload.get("status") not in {"ready", "awaiting_incident"}:
             raise RuntimeError(f"unexpected readiness payload: {payload}")
-        doctor.ok("API readiness", f"{api_url}/ready returned ready")
+        doctor.ok(
+            "API readiness",
+            f"{api_url}/ready returned {payload.get('status')}",
+        )
     except Exception as error:
         doctor.fail(
             "API readiness",

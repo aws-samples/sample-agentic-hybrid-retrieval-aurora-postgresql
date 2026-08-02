@@ -1,1417 +1,275 @@
+"""Read-only contracts for a participant-generated live Aurora capture."""
+
 from __future__ import annotations
 
-import json
 import os
-from pathlib import Path
-import tempfile
 import unittest
-from unittest.mock import patch
-from urllib.parse import urlparse
 
 import psycopg
 from psycopg.rows import dict_row
 
-TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
-SECURITY_ENABLED = os.environ.get("WORKBENCH_SECURITY_ENABLED") == "1"
-if TEST_DATABASE_URL:
-    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
-    if SECURITY_ENABLED:
-        os.environ["WORKSHOP_APP_DATABASE_URL"] = TEST_DATABASE_URL
 
-from backend.app.config import get_settings
-from backend.app.embeddings import hash_embedding, to_pgvector
-from backend.app.search_index import rebuild_search_index
-from seed.capture import capture_offline_lock_fixture
-from seed.corpus import evidence_id, load_casework
-
-
-def _database_name(url: str) -> str:
-    return urlparse(url).path.lstrip("/")
-
-
-def _assert_disposable_test_database() -> None:
-    """Refuse to reseed anything but an explicitly named test database.
-
-    ``setUpClass`` TRUNCATEs every casework, retrieval, and proof table and
-    rebuilds the corpus. Two independent things must therefore agree before it
-    runs: the URL this module was handed, and the URL the application code
-    resolved through ``get_settings()``. They can diverge because pytest imports
-    sibling test modules first, which loads ``backend.app.config`` before this
-    module gets to export ``DATABASE_URL``.
-
-    Raises:
-        RuntimeError: If the two URLs disagree, or the target database name does
-            not end in ``_test`` -- the marker that says the database is
-            disposable rather than the live workshop corpus.
-    """
-    resolved = get_settings().database_url
-    if resolved != TEST_DATABASE_URL:
-        raise RuntimeError(
-            "the application resolved a different database than the test target; "
-            f"tests target {_database_name(TEST_DATABASE_URL)!r} but the app "
-            f"resolved {_database_name(resolved)!r}. Destructive tests must never "
-            "run against a database the application picked up from .env."
-        )
-    name = _database_name(TEST_DATABASE_URL)
-    if not name.endswith("_test"):
-        raise RuntimeError(
-            f"refusing to reseed database {name!r}: these tests TRUNCATE every "
-            "casework, retrieval, and proof table. Point TEST_DATABASE_URL at a "
-            "disposable database whose name ends in '_test'."
-        )
-
-
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-
-
-# The one Aurora-only file this suite cannot apply locally: sql/12_masking.sql's
-# first statement is `CREATE EXTENSION IF NOT EXISTS pg_columnmask`, and that
-# extension is not installed on a local PostgreSQL build (verified: zero rows in
-# pg_available_extensions). Named explicitly rather than caught by a broad
-# try/except around the apply loop, so a genuine SQL defect in any OTHER file
-# still fails the suite instead of being silently swallowed alongside it.
-_AURORA_ONLY_SQL_FILE = "12_masking.sql"
-
-
-def _pg_columnmask_available(connection: psycopg.Connection) -> bool:
-    """Return whether pg_columnmask can be installed on this server."""
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT 1 FROM pg_available_extensions WHERE name = 'pg_columnmask'"
-        )
-        return cursor.fetchone() is not None
-
-
-def _selected_schema_files() -> list[Path]:
-    """Return core migrations plus the optional security pair when enabled."""
-    max_version = 12 if SECURITY_ENABLED else 10
-    return sorted(
-        path
-        for path in (REPOSITORY_ROOT / "sql").glob("[0-9][0-9]_*.sql")
-        if int(path.name[:2]) <= max_version
-    )
-
-
-def _apply_schema(connection: psycopg.Connection) -> None:
-    """Apply the selected core and optional-security SQL before seeding.
-
-    Retrieval, ranking, and ACL enforcement live in SQL, so a test that runs
-    against whatever was last applied by hand is testing an unknown revision. The
-    files are idempotent (CREATE OR REPLACE, IF NOT EXISTS), and applying them
-    here means editing SQL is enough to make the suite exercise the change.
-
-    Core mode applies sql/00 through sql/10. Security mode appends sql/11 and
-    sql/12. sql/12_masking.sql is skipped loudly on local PostgreSQL when the
-    Aurora-only pg_columnmask extension is unavailable.
-
-    Args:
-        connection: An open connection to the disposable test database.
-
-    Raises:
-        RuntimeError: No versioned SQL files were found under ``sql/``.
-    """
-    files = _selected_schema_files()
-    if not files:
-        raise RuntimeError(f"no versioned SQL files found in {REPOSITORY_ROOT / 'sql'}")
-    skip_masking = SECURITY_ENABLED and not _pg_columnmask_available(connection)
-    if skip_masking:
-        print(
-            f"_apply_schema: SKIPPING sql/{_AURORA_ONLY_SQL_FILE} -- pg_columnmask "
-            "is not installed on this server (Aurora-only extension). Column "
-            "masking (auditor persona) is not exercised by this run."
-        )
-    with connection.cursor() as cursor:
-        for path in files:
-            if skip_masking and path.name == _AURORA_ONLY_SQL_FILE:
-                continue
-            cursor.execute(path.read_text(encoding="utf-8"))
-    connection.commit()
-
-
-class SchemaSelectionTests(unittest.TestCase):
-    def test_schema_selection_matches_the_active_mode(self) -> None:
-        versions = [int(path.name[:2]) for path in _selected_schema_files()]
-        expected_max = 12 if SECURITY_ENABLED else 10
-        self.assertEqual(versions, list(range(expected_max + 1)))
+LIVE_DSN = os.environ.get("LIVE_CAPTURE_DATABASE_URL")
+EXPECTED_CAPTURE_ID = os.environ.get("LIVE_CAPTURE_RUN_ID")
+LIVE_SOURCE = "pg_incident_capture"
 
 
 @unittest.skipUnless(
-    TEST_DATABASE_URL and os.environ.get("ALLOW_TEST_DATABASE_RESET") == "1",
-    "set TEST_DATABASE_URL and ALLOW_TEST_DATABASE_RESET=1 for database contract tests",
+    LIVE_DSN,
+    "set LIVE_CAPTURE_DATABASE_URL to a database populated by the current lab run",
 )
-class RetrievalContractTests(unittest.TestCase):
+class LiveRetrievalContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        _assert_disposable_test_database()
-        cls.conn = psycopg.connect(TEST_DATABASE_URL, row_factory=dict_row)
-        _apply_schema(cls.conn)
-        cls.capture_bundle = capture_offline_lock_fixture(
-            TEST_DATABASE_URL,
-            row_count=1000,
+        cls.conn = psycopg.connect(
+            LIVE_DSN,
+            autocommit=True,
+            row_factory=dict_row,
+            options="-c default_transaction_read_only=on",
         )
-        cls.casework_receipt = load_casework(
-            cls.conn,
-            capture_bundle=cls.capture_bundle,
-            background_documents=200,
-        )
-        cls.cache_dir = tempfile.TemporaryDirectory()
-        cls.receipt = rebuild_search_index(
-            cls.conn,
-            model_id="local-hash-embedding-v1",
-            cache_path=Path(cls.cache_dir.name) / "embeddings.jsonl",
-            embed_missing=True,
-            embedder=lambda texts: [hash_embedding(text, dim=1024) for text in texts],
-        )
+        target = cls.conn.execute(
+            """
+            SELECT
+              current_database() AS database_name,
+              to_regprocedure('aurora_version()') IS NOT NULL AS is_aurora
+            """
+        ).fetchone()
+        if not target["is_aurora"]:
+            raise RuntimeError(
+                "LIVE_CAPTURE_DATABASE_URL must point to Aurora PostgreSQL"
+            )
+
+        validation = cls.conn.execute(
+            "SELECT casework.assert_live_capture_ready() AS result"
+        ).fetchone()["result"]
+        if not validation["live_ready"]:
+            raise RuntimeError(f"live capture is not ready: {validation}")
+
+        capture = cls.conn.execute(
+            """
+            SELECT
+              capture_id,
+              capture_key,
+              upper(right(replace(capture_id::text, '-', ''), 8)) AS run_suffix
+            FROM casework.incident_capture_runs
+            WHERE capture_origin = 'participant_induced'
+            ORDER BY capture_started_at DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        if capture is None:
+            raise RuntimeError("no participant-induced capture is loaded")
+        cls.capture_id = str(capture["capture_id"])
+        cls.run_suffix = capture["run_suffix"]
+        cls.incident_key = f"INC-{cls.run_suffix}"
+        cls.unsafe_change_key = f"CHG-{cls.run_suffix}-01"
+        cls.repair_change_key = f"CHG-{cls.run_suffix}-02"
+        cls.lock_key = f"LOCK-{cls.run_suffix}-01"
+        cls.core_keys = {
+            cls.incident_key,
+            cls.unsafe_change_key,
+            cls.repair_change_key,
+            cls.lock_key,
+        }
+        if EXPECTED_CAPTURE_ID and cls.capture_id != EXPECTED_CAPTURE_ID:
+            raise RuntimeError(
+                f"expected capture {EXPECTED_CAPTURE_ID}, found {cls.capture_id}"
+            )
 
     @classmethod
     def tearDownClass(cls) -> None:
-        from backend.app.db import close_pool
-
-        close_pool()
         cls.conn.close()
-        cls.cache_dir.cleanup()
 
-    def tearDown(self) -> None:
-        self.conn.rollback()
+    def test_only_this_capture_is_participant_facing(self) -> None:
+        rows = self.conn.execute(
+            """
+            SELECT source_system, array_agg(external_key ORDER BY external_key) AS keys
+            FROM casework.evidence_items
+            WHERE NOT is_deleted
+            GROUP BY source_system
+            """
+        ).fetchall()
 
-    def test_search_index_is_ready_and_idempotent(self) -> None:
-        with self.conn.cursor() as cursor:
-            cursor.execute("SELECT retrieval.assert_search_index_ready() AS health")
-            health = cursor.fetchone()["health"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["source_system"], LIVE_SOURCE)
+        self.assertTrue(self.core_keys <= set(rows[0]["keys"]))
+        self.assertGreaterEqual(len(rows[0]["keys"]), 104)
+        self.assertLessEqual(len(rows[0]["keys"]), 124)
+        self.assertTrue(
+            all(
+                key in self.core_keys or key.startswith(f"TEL-{self.run_suffix}-")
+                for key in rows[0]["keys"]
+            )
+        )
 
+        projected_sources = self.conn.execute(
+            """
+            SELECT DISTINCT source_system
+            FROM retrieval.documents
+            WHERE is_current
+            ORDER BY source_system
+            """
+        ).fetchall()
+        self.assertEqual(
+            [row["source_system"] for row in projected_sources],
+            [LIVE_SOURCE],
+        )
+
+    def test_search_index_is_ready_for_exact_and_fuzzy_retrieval(self) -> None:
+        health = self.conn.execute(
+            "SELECT retrieval.assert_search_index_ready() AS result"
+        ).fetchone()["result"]
         self.assertEqual(health["status"], "ready")
         self.assertEqual(health["drift_issues"], 0)
-        self.assertEqual(health["source_documents"], health["current_documents"])
+        self.assertGreaterEqual(health["source_documents"], 104)
+        self.assertLessEqual(health["source_documents"], 124)
 
-        second = rebuild_search_index(
-            self.conn,
-            model_id="local-hash-embedding-v1",
-            cache_path=Path(self.cache_dir.name) / "embeddings.jsonl",
-            embed_missing=False,
-        )
-        self.assertEqual(second["documents_indexed"], 0)
-        self.assertEqual(
-            second["documents_skipped"],
-            health["source_documents"],
-        )
-
-    def test_search_document_hash_is_timezone_invariant(self) -> None:
-        hashes_by_timezone = {}
-        with psycopg.connect(TEST_DATABASE_URL, row_factory=dict_row) as connection:
-            with connection.cursor() as cursor:
-                for timezone in ("UTC", "America/New_York", "Asia/Kolkata"):
-                    cursor.execute(
-                        "SELECT set_config('TimeZone', %s, false)",
-                        (timezone,),
-                    )
-                    cursor.execute(
-                        """
-                        SELECT evidence_id, search_document_hash
-                        FROM casework.v_evidence_documents
-                        ORDER BY evidence_id
-                        """
-                    )
-                    hashes_by_timezone[timezone] = cursor.fetchall()
-
-        self.assertEqual(
-            hashes_by_timezone["UTC"],
-            hashes_by_timezone["America/New_York"],
-        )
-        self.assertEqual(
-            hashes_by_timezone["UTC"],
-            hashes_by_timezone["Asia/Kolkata"],
-        )
-
-    def test_search_wrapper_persists_candidate_receipt(self) -> None:
-        from backend.app.models import SearchRequest
-        from backend.app.search import run_hybrid_search
-
-        result = run_hybrid_search(
-            SearchRequest(
-                query="Why did CHG-1842 block writes on checkout-prod-cluster-01?",
-                mode="lexical",
-                cluster_id="checkout-prod-cluster-01",
-                rerank=False,
-                limit=5,
+        exact = self.conn.execute(
+            """
+            SELECT external_key, source_system
+            FROM retrieval.full_text_search(
+              %s,
+              p_source_systems => ARRAY['pg_incident_capture'],
+              p_limit => 5
             )
-        )
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                "SELECT * FROM proof.v_run_receipts WHERE run_id = %s",
-                (result["run_id"],),
-            )
-            receipt = cursor.fetchone()
-            cursor.execute(
-                """
-                SELECT external_key
-                FROM proof.v_candidate_receipts
-                WHERE run_id = %s
-                ORDER BY result_rank
-                """,
-                (result["run_id"],),
-            )
-            candidates = cursor.fetchall()
-            cursor.execute(
-                """
-                SELECT window_start, window_end
-                FROM proof.observability_refs
-                WHERE run_id = %s
-                """,
-                (result["run_id"],),
-            )
-            observability_ref = cursor.fetchone()
-
-        self.assertEqual(receipt["status"], "complete")
-        self.assertEqual(receipt["candidate_count"], len(candidates))
-        self.assertEqual(receipt["role"], "app_engineer")
-        self.assertGreaterEqual(receipt["candidate_count"], 1)
-        self.assertLessEqual(receipt["candidate_count"], 5)
-        self.assertEqual(candidates[0]["external_key"], "CHG-1842")
-        self.assertIsNotNone(observability_ref)
-        self.assertIsNotNone(observability_ref["window_start"])
-        self.assertIsNotNone(observability_ref["window_end"])
-
-    def test_synthesis_tool_reloads_evidence_from_run(self) -> None:
-        from backend.app.agent import (
-            explain_ranking_impl,
-            synthesize_cited_answer_from_run_impl,
-        )
-        from backend.app.insights import latest_cited_run
-        from backend.app.models import SearchRequest
-        from backend.app.search import run_hybrid_search
-
-        search = run_hybrid_search(
-            SearchRequest(
-                query="CHG-1842",
-                mode="lexical",
-                rerank=False,
-                limit=4,
-            )
-        )
-        with patch(
-            "backend.app.synthesis.synthesize_live",
-            return_value={
-                "answer": "CHG-1842 is the persisted top-ranked change [1].",
-                "model": "test-model",
-                "transport": "test",
-                "usage": {},
-            },
-        ):
-            result = synthesize_cited_answer_from_run_impl(
-                "What did CHG-1842 do?",
-                search["run_id"],
-                limit=4,
-            )
-
-        self.assertEqual(result["citations"][0]["external_key"], "CHG-1842")
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                "SELECT * FROM proof.validate_answer_citations(%s)",
-                (search["run_id"],),
-            )
-            validation = cursor.fetchall()
-        self.assertTrue(validation)
-        self.assertTrue(all(row["is_valid"] for row in validation))
-        replay = explain_ranking_impl(search["run_id"])
-        self.assertEqual(
-            replay["answer"]["answer_text"],
-            "CHG-1842 is the persisted top-ranked change [1].",
-        )
-        self.assertEqual(
-            replay["answer"]["citations"][0]["external_key"],
-            "CHG-1842",
-        )
-        self.assertEqual(
-            replay["answer"]["citations"][0]["document_version_id"],
-            result["citations"][0]["document_version_id"],
-        )
-        self.assertEqual(
-            replay["answer"]["citations"][0]["chunk_version_id"],
-            result["citations"][0]["chunk_version_id"],
-        )
-        self.assertEqual(replay["answer"]["validation_status"], "valid")
-        self.assertEqual(str(latest_cited_run()["run_id"]), search["run_id"])
-
-    def test_run_replay_is_bound_to_the_callers_persona(self) -> None:
-        from fastapi import HTTPException
-
-        from backend.app.agent import (
-            explain_ranking_impl,
-            synthesize_cited_answer_from_run_impl,
-        )
-        from backend.app.insights import run_graph, run_timeline
-        from backend.app.main import graph, run_receipt, timeline
-        from backend.app.models import SearchRequest
-        from backend.app.search import run_hybrid_search
-
-        search = run_hybrid_search(
-            SearchRequest(
-                query="CASE-7421",
-                mode="lexical",
-                role="dba",
-                rerank=False,
-                limit=4,
-            )
+            """,
+            (self.unsafe_change_key,),
+        ).fetchall()
+        self.assertTrue(exact)
+        self.assertEqual(exact[0]["external_key"], self.unsafe_change_key)
+        self.assertTrue(
+            all(row["source_system"] == LIVE_SOURCE for row in exact)
         )
 
-        self.assertEqual(
-            explain_ranking_impl(search["run_id"], role="dba")["run"]["role"],
-            "dba",
-        )
-        for replay in (
-            lambda: explain_ranking_impl(search["run_id"], role="app_engineer"),
-            lambda: run_graph(search["run_id"], role="app_engineer"),
-            lambda: run_timeline(search["run_id"], role="app_engineer"),
-            lambda: synthesize_cited_answer_from_run_impl(
-                "What happened in CASE-7421?",
-                search["run_id"],
-                role="app_engineer",
-            ),
-        ):
-            with self.subTest(replay=replay):
-                with self.assertRaises(ValueError):
-                    replay()
-
-        for route in (run_receipt, graph, timeline):
-            with self.subTest(route=route.__name__):
-                with self.assertRaises(HTTPException) as context:
-                    route(search["run_id"], role="app_engineer")
-                self.assertEqual(context.exception.status_code, 404)
-
-    def test_latest_cited_run_is_scoped_to_the_callers_persona(self) -> None:
-        from backend.app.agent import synthesize_cited_answer_from_run_impl
-        from backend.app.insights import latest_cited_run
-        from backend.app.models import SearchRequest
-        from backend.app.search import run_hybrid_search
-
-        run_ids: dict[str, str] = {}
-        for role, key in (
-            ("app_engineer", "CHG-1842"),
-            ("dba", "CHG-1838"),
-        ):
-            search = run_hybrid_search(
-                SearchRequest(
-                    query=key,
-                    mode="lexical",
-                    role=role,
-                    rerank=False,
-                    limit=4,
-                )
+        fuzzy = self.conn.execute(
+            """
+            SELECT external_key, source_system, score
+            FROM retrieval.fuzzy_search(
+              ARRAY[%s],
+              p_source_systems => ARRAY['pg_incident_capture'],
+              p_limit => 5
             )
-            with patch(
-                "backend.app.synthesis.synthesize_live",
-                return_value={
-                    "answer": f"{key} is the persisted top result [1].",
-                    "model": "test-model",
-                    "transport": "test",
-                    "usage": {},
-                },
-            ):
-                synthesize_cited_answer_from_run_impl(
-                    f"What happened in {key}?",
-                    search["run_id"],
-                    role=role,
-                    limit=4,
-                )
-            run_ids[role] = search["run_id"]
-
-        self.assertEqual(
-            str(latest_cited_run("app_engineer")["run_id"]),
-            run_ids["app_engineer"],
-        )
-        self.assertEqual(
-            str(latest_cited_run("dba")["run_id"]),
-            run_ids["dba"],
+            """,
+            (self.unsafe_change_key.replace("CHG-", "CGH-", 1),),
+        ).fetchall()
+        self.assertTrue(fuzzy)
+        self.assertEqual(fuzzy[0]["external_key"], self.unsafe_change_key)
+        self.assertTrue(
+            all(row["source_system"] == LIVE_SOURCE for row in fuzzy)
         )
 
-    def test_agent_run_replay_is_bound_to_the_callers_persona(self) -> None:
-        from backend.app.agent import get_agent_run_impl
+    def test_relationship_traversal_reaches_the_measured_core_records(self) -> None:
+        rows = self.conn.execute(
+            """
+            SELECT reached.external_key, reached.via_relation
+            FROM casework.evidence_items incident
+            CROSS JOIN LATERAL retrieval.traverse_evidence(
+              ARRAY[incident.evidence_id],
+              2
+            ) reached
+            WHERE incident.external_key = %s
+            """,
+            (self.incident_key,),
+        ).fetchall()
 
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO proof.agent_runs(
-                  question,
-                  role,
-                  controls_initial,
-                  contract_version,
-                  status,
-                  ended_at
-                )
-                VALUES (%s, 'dba', '{}'::jsonb, 'test', 'complete', now())
-                RETURNING agent_run_id
-                """,
-                ("Who can reopen this run?",),
-            )
-            agent_run_id = str(cursor.fetchone()["agent_run_id"])
-        self.conn.commit()
-
-        try:
-            self.assertEqual(
-                get_agent_run_impl(agent_run_id, role="dba")["role"],
-                "dba",
-            )
-            with self.assertRaises(ValueError):
-                get_agent_run_impl(agent_run_id, role="app_engineer")
-        finally:
-            with self.conn.cursor() as cursor:
-                cursor.execute(
-                    "DELETE FROM proof.agent_runs WHERE agent_run_id = %s",
-                    (agent_run_id,),
-                )
-            self.conn.commit()
-
-    def test_evaluation_separates_retrieval_from_traversal(self) -> None:
-        from backend.app.evaluation import run_evaluation
-
-        result = run_evaluation(modes=["lexical"], limit=10)
-        traversal = next(
-            query
-            for query in result["queries"]
-            if query["query_id"] == "customer-impact"
+        self.assertTrue(
+            self.core_keys <= {row["external_key"] for row in rows}
         )
-        receipt = traversal["results"][0]
-
-        self.assertEqual(result["retrieval_query_count"], 3)
-        self.assertEqual(result["traversal_query_count"], 1)
-        self.assertEqual(traversal["evaluation_type"], "traversal")
-        self.assertEqual(receipt["metrics"]["recall"], 1.0)
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT item.external_key
-                FROM proof.traversal_results result
-                JOIN casework.evidence_items item
-                  ON item.evidence_id = result.evidence_id
-                WHERE result.run_id = %s
-                """,
-                (receipt["run_id"],),
-            )
-            reached = {row["external_key"] for row in cursor.fetchall()}
-        self.assertIn("CASE-7419", reached)
-        self.assertNotIn("CASE-7421", reached)
-
-    def test_relationship_traversal_enforces_acl(self) -> None:
-        from backend.app.agent import follow_evidence_links_impl
-
-        app_engineer = follow_evidence_links_impl(
-            ["INC-2047"],
-            role="app_engineer",
-            max_depth=2,
-        )
-        app_engineer_keys = {row["external_key"] for row in app_engineer["reached"]}
-        self.assertNotIn("CASE-7421", app_engineer_keys)
-        if SECURITY_ENABLED:
-            dba = follow_evidence_links_impl(
-                ["INC-2047"],
-                role="dba",
-                max_depth=2,
-            )
-            dba_keys = {row["external_key"] for row in dba["reached"]}
-            self.assertIn("CASE-7421", dba_keys)
-
-    def test_evidence_detail_endpoint_enforces_acl(self) -> None:
-        from fastapi import HTTPException
-
-        from backend.app.main import evidence_detail
-
-        restricted = str(evidence_id("support_case", "CASE-7421"))
-        with self.assertRaises(HTTPException) as ctx:
-            evidence_detail(restricted)
-        self.assertEqual(ctx.exception.status_code, 404)
-
-        visible = evidence_detail(str(evidence_id("incident", "INC-2047")))
-        self.assertEqual(visible["evidence"]["external_key"], "INC-2047")
-
-    def test_exact_identifier_leads_lexical_arm(self) -> None:
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT external_key, explanation
-                FROM retrieval.full_text_search(
-                  %s,
-                  p_limit => 5
-                )
-                """,
-                ("Why did CHG-1842 block writes on checkout-prod-cluster-01?",),
-            )
-            rows = cursor.fetchall()
-
-        self.assertEqual(rows[0]["external_key"], "CHG-1842")
-        self.assertTrue(rows[0]["explanation"]["exact_identifier"])
-
-    def test_excluded_terms_narrow_the_lexical_arm(self) -> None:
-        # The arm ORs positive terms so a natural-language question can rank at
-        # all. Negation is still a filter: ORing it in would make "-staging"
-        # match every document that merely lacks the word.
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT
-                  count(*) FILTER (
-                    WHERE search_tsv @@ retrieval.to_or_tsquery('index build lock')
-                  ) AS plain,
-                  count(*) FILTER (
-                    WHERE search_tsv @@ retrieval.to_or_tsquery(
-                      'index build lock -staging'
-                    )
-                  ) AS excluded,
-                  count(*) AS total
-                FROM retrieval.chunks
-                """
-            )
-            counts = cursor.fetchone()
-            cursor.execute(
-                """
-                SELECT
-                  retrieval.to_or_tsquery('checkout writes blocked')::text AS ored,
-                  retrieval.to_or_tsquery('lock -staging')::text AS negated,
-                  retrieval.to_or_tsquery('lock -"create index"')::text AS phrase,
-                  retrieval.to_or_tsquery('CHG-1842 blocked')::text AS hyphenated
-                """
-            )
-            rendered = cursor.fetchone()
-
-        self.assertLess(counts["excluded"], counts["plain"])
-        self.assertLess(counts["excluded"], counts["total"])
-        self.assertEqual(rendered["ored"], "'checkout' | 'write' | 'block'")
-        self.assertEqual(rendered["negated"], "'lock' & !'stage'")
-        self.assertEqual(rendered["phrase"], "'lock' & !( 'creat' <-> 'index' )")
-        # A hyphen inside a token is part of the identifier, not an exclusion.
-        self.assertNotIn("!", rendered["hyphenated"])
-
-    def test_fuzzy_arm_recovers_mistyped_identifier(self) -> None:
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT external_key
-                FROM retrieval.fuzzy_search(
-                  %s,
-                  p_limit => 5
-                )
-                """,
-                (["CGH-1842"],),
-            )
-            rows = cursor.fetchall()
-
-        self.assertEqual(rows[0]["external_key"], "CHG-1842")
-
-    def test_restricted_identifier_never_enters_fuzzy_probes(self) -> None:
-        from backend.app.models import SearchRequest
-        from backend.app.search import _resolve_fuzzy_probe_tokens
-
-        request = SearchRequest(query="What happened on CASE-7421?", mode="hybrid")
-        self.assertEqual(
-            _resolve_fuzzy_probe_tokens(request, ["CASE-7421"]),
-            [],
-        )
-        self.assertEqual(
-            _resolve_fuzzy_probe_tokens(request, ["CGH-1842"]),
-            ["CGH-1842"],
-        )
-
-    def test_the_fuzzy_probe_answers_the_same_for_every_persona(self) -> None:
-        """The probe must be ACL-blind, which means role-invariant.
-
-        The test above runs as the default role only, and that is how this leak
-        shipped: RLS on retrieval.documents hid the restricted row from
-        persona_app_engineer, NOT EXISTS turned true, and the app_engineer -- alone among
-        the three -- had CASE-7421 fuzzed, serving it the visible near
-        neighbours of an identifier it may not read. Measured, before the fix:
-        app_engineer ['CASE-7421'], dba [], auditor []. Any divergence here means
-        the predicate is being evaluated under the caller's RLS again.
-        """
-        from backend.app.models import SearchRequest
-        from backend.app.search import _resolve_fuzzy_probe_tokens
-
-        for token, expected in (("CASE-7421", []), ("CGH-1842", ["CGH-1842"])):
-            answers = {
-                persona: _resolve_fuzzy_probe_tokens(
-                    SearchRequest(query=token, mode="hybrid", role=persona),
-                    [token],
-                )
-                for persona in ("app_engineer", "dba", "auditor")
+        self.assertTrue(
+            {"observed_during", "change_confirmed", "change_remediated"}
+            <= {
+                row["via_relation"]
+                for row in rows
+                if row["via_relation"] is not None
             }
-            with self.subTest(token=token):
-                self.assertEqual(
-                    answers,
-                    {persona: expected for persona in answers},
-                    f"the existence probe for {token} varied by persona: "
-                    f"{answers}. It is deliberately ACL-blind (it runs through "
-                    f"retrieval.identifier_is_indexed, SECURITY DEFINER), so a "
-                    f"per-persona answer means it is reading "
-                    f"retrieval.documents under the caller's RLS again",
-                )
-
-    def test_the_existence_probe_cannot_be_read_under_the_callers_rls(self) -> None:
-        """Pin the shape that makes the probe ACL-blind, not just its answers."""
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT procedure.prosecdef, procedure.proconfig
-                FROM pg_proc procedure
-                JOIN pg_namespace namespace
-                  ON namespace.oid = procedure.pronamespace
-                WHERE namespace.nspname = 'retrieval'
-                  AND procedure.proname = 'identifier_is_indexed'
-                """
-            )
-            rows = cursor.fetchall()
-
-        self.assertEqual(len(rows), 1, "expected exactly one overload")
-        self.assertTrue(
-            rows[0]["prosecdef"],
-            "retrieval.identifier_is_indexed is not SECURITY DEFINER; it would "
-            "run under the caller's RLS and report a restricted identifier as "
-            "unindexed, which sends it to the trigram arm",
         )
-        self.assertTrue(
-            any(
-                entry.startswith("search_path=")
-                for entry in (rows[0]["proconfig"] or [])
-            ),
-            "SECURITY DEFINER with no pinned search_path is a privilege-"
-            "escalation vector",
-        )
+        blocking_edge = self.conn.execute(
+            """
+            SELECT EXISTS (
+              SELECT 1
+              FROM retrieval.evidence_edges edge
+              JOIN casework.evidence_items source
+                ON source.evidence_id = edge.from_evidence_id
+              JOIN casework.evidence_items target
+                ON target.evidence_id = edge.to_evidence_id
+              WHERE source.external_key = %s
+                AND edge.relation = 'blocked_by_change'
+                AND target.external_key = %s
+            ) AS present
+            """,
+            (self.lock_key, self.unsafe_change_key),
+        ).fetchone()["present"]
+        self.assertTrue(blocking_edge)
 
-    def test_restricted_identifier_yields_no_visible_evidence(self) -> None:
-        from backend.app.models import SearchRequest
-        from backend.app.search import run_hybrid_search
+    def test_telemetry_is_complete_and_bound_to_one_capture(self) -> None:
+        counts = self.conn.execute(
+            """
+            SELECT
+              (SELECT count(*) FROM casework.pg_stat_activity_samples
+                WHERE capture_id = %(capture_id)s) AS activity,
+              (SELECT count(*) FROM casework.pg_lock_samples
+                WHERE capture_id = %(capture_id)s) AS locks,
+              (SELECT count(*) FROM casework.pg_blocking_pids_samples
+                WHERE capture_id = %(capture_id)s) AS blocking_pids,
+              (SELECT count(*) FROM casework.pg_stat_statements_samples
+                WHERE capture_id = %(capture_id)s) AS statements,
+              (SELECT count(*) FROM casework.cloudwatch_metric_samples
+                WHERE capture_id = %(capture_id)s) AS cloudwatch,
+              (SELECT count(*) FROM casework.database_insights_samples
+                WHERE capture_id = %(capture_id)s) AS database_insights
+            """,
+            {"capture_id": self.capture_id},
+        ).fetchone()
 
-        query = "CASE-7421"
-        with (
-            patch(
-                "backend.app.search._query_embedding_model",
-                return_value="local-hash-embedding-v1",
-            ),
-            patch(
-                "backend.app.search.embed_text",
-                return_value=hash_embedding(query),
-            ),
-        ):
-            result = run_hybrid_search(
-                SearchRequest(query=query, rerank=False, limit=8)
+        self.assertEqual(counts["activity"], 270)
+        self.assertEqual(counts["locks"], 270)
+        self.assertEqual(counts["blocking_pids"], 180)
+        self.assertEqual(counts["statements"], 3)
+        self.assertEqual(counts["cloudwatch"], 5)
+        self.assertGreaterEqual(counts["database_insights"], 1)
+
+        delta = self.conn.execute(
+            """
+            SELECT delta_from_before
+            FROM casework.pg_stat_statements_samples
+            WHERE capture_id = %s
+              AND phase = 'after'
+            """,
+            (self.capture_id,),
+        ).fetchone()["delta_from_before"]
+        self.assertGreaterEqual(delta["calls"], 8)
+        self.assertGreater(delta["total_exec_time"], 0)
+        self.assertGreaterEqual(delta["rows"], 8)
+
+    def test_every_measured_row_traces_to_the_selected_capture(self) -> None:
+        mismatches = self.conn.execute(
+            """
+            WITH expected(capture_id) AS (VALUES (%s::uuid)),
+            observed AS (
+              SELECT capture_id FROM casework.lock_evidence
+              UNION ALL
+              SELECT capture_id FROM casework.pg_stat_activity_samples
+              UNION ALL
+              SELECT capture_id FROM casework.pg_lock_samples
+              UNION ALL
+              SELECT capture_id FROM casework.pg_blocking_pids_samples
+              UNION ALL
+              SELECT capture_id FROM casework.pg_stat_statements_samples
+              UNION ALL
+              SELECT capture_id FROM casework.cloudwatch_metric_samples
+              UNION ALL
+              SELECT capture_id FROM casework.database_insights_samples
+              UNION ALL
+              SELECT capture_id FROM casework.telemetry_evidence
             )
-
-        self.assertEqual(result["knobs"]["identifier_tokens"], ["CASE-7421"])
-        self.assertEqual(result["knobs"]["fuzzy_probe_tokens"], [])
-        returned = {row["external_key"] for row in result["results"]}
-        self.assertNotIn("CASE-7421", returned)
-        self.assertTrue(
-            all(row.get("trigram_score") is None for row in result["results"]),
-            "the trigram arm must not substitute near neighbours for a "
-            "restricted identifier",
-        )
-
-    def test_chunk_acl_scalars_match_their_document(self) -> None:
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT count(*)::integer AS mismatched
-                FROM retrieval.chunks chunk
-                JOIN retrieval.documents document
-                  ON document.document_version_id = chunk.document_version_id
-                WHERE chunk.acl IS DISTINCT FROM document.acl
-                   OR chunk.acl_visibility IS DISTINCT FROM document.acl_visibility
-                   OR chunk.acl_principals IS DISTINCT FROM document.acl_principals
-                """
-            )
-            self.assertEqual(cursor.fetchone()["mismatched"], 0)
-
-    def test_00_legacy_acl_stamp_upgrades_and_repairs_projection(self) -> None:
-        schema_sql = (REPOSITORY_ROOT / "sql/01_schema.sql").read_text(
-            encoding="utf-8"
-        )
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE casework.evidence_items
-                   SET acl = jsonb_build_object(
-                     'visibility', 'workshop',
-                     'principals', jsonb_build_array('support' || '-lead')
-                   )
-                 WHERE external_key = 'CASE-7421'
-                """
-            )
-            cursor.execute(
-                """
-                UPDATE retrieval.documents
-                   SET acl = jsonb_build_object(
-                         'visibility', 'workshop',
-                         'principals', jsonb_build_array('support' || '-lead')
-                       ),
-                       acl_visibility = 'workshop',
-                       acl_principals = ARRAY['support' || '-lead'],
-                       search_document_hash = (
-                         SELECT source.search_document_hash
-                         FROM casework.v_evidence_documents source
-                         WHERE source.evidence_id = documents.evidence_id
-                       )
-                 WHERE external_key = 'CASE-7421'
-                """
-            )
-            cursor.execute(
-                """
-                UPDATE retrieval.chunks
-                   SET acl = jsonb_build_object(
-                         'visibility', 'workshop',
-                         'principals', jsonb_build_array('support' || '-lead')
-                       ),
-                       acl_visibility = 'workshop',
-                       acl_principals = ARRAY['support' || '-lead']
-                 WHERE evidence_id = %s
-                """,
-                (evidence_id("support_case", "CASE-7421"),),
-            )
-            cursor.execute(schema_sql)
-            cursor.execute(
-                """
-                SELECT issue
-                FROM retrieval.search_index_drift()
-                WHERE external_key = 'CASE-7421'
-                ORDER BY issue
-                """
-            )
-            upgrade_drift = [row["issue"] for row in cursor.fetchall()]
-        self.conn.commit()
-
-        self.assertEqual(upgrade_drift, ["search_document_hash_mismatch"])
-        # This disposable fixture began with the post-upgrade deterministic
-        # document ID. The real legacy cluster has only the old-hash ID, so remove
-        # this synthetic projection before exercising creation of the new version.
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                DELETE FROM retrieval.chunks
-                WHERE evidence_id = %s
-                """,
-                (evidence_id("support_case", "CASE-7421"),),
-            )
-            cursor.execute(
-                """
-                DELETE FROM retrieval.documents
-                WHERE evidence_id = %s
-                """,
-                (evidence_id("support_case", "CASE-7421"),),
-            )
-        self.conn.commit()
-
-        rebuilt = rebuild_search_index(
-            self.conn,
-            model_id="local-hash-embedding-v1",
-            cache_path=Path(self.cache_dir.name) / "embeddings.jsonl",
-            embed_missing=False,
-        )
-
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT
-                  source.acl AS source_acl,
-                  document.acl AS document_acl,
-                  document.acl_visibility AS document_visibility,
-                  document.acl_principals AS document_principals,
-                  chunk.acl AS chunk_acl,
-                  chunk.acl_visibility AS chunk_visibility,
-                  chunk.acl_principals AS chunk_principals
-                FROM casework.evidence_items source
-                JOIN retrieval.documents document USING (evidence_id)
-                JOIN retrieval.chunks chunk USING (document_version_id)
-                WHERE source.external_key = 'CASE-7421'
-                  AND document.is_current
-                """
-            )
-            upgraded = cursor.fetchone()
-            cursor.execute(
-                """
-                SELECT count(*)::integer AS drift
-                FROM retrieval.search_index_drift()
-                WHERE external_key = 'CASE-7421'
-                """
-            )
-            drift = cursor.fetchone()["drift"]
-
-        expected_acl = {"visibility": "restricted", "principals": []}
-        self.assertEqual(rebuilt["documents_indexed"], 1)
-        self.assertEqual(upgraded["source_acl"], expected_acl)
-        self.assertEqual(upgraded["document_acl"], expected_acl)
-        self.assertEqual(upgraded["document_visibility"], "restricted")
-        self.assertEqual(upgraded["document_principals"], [])
-        self.assertEqual(upgraded["chunk_acl"], expected_acl)
-        self.assertEqual(upgraded["chunk_visibility"], "restricted")
-        self.assertEqual(upgraded["chunk_principals"], [])
-        self.assertEqual(drift, 0)
-
-    def test_generated_corpus_has_unique_search_surfaces(self) -> None:
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT
-                  count(*) AS evidence_items,
-                  count(DISTINCT evidence_id) AS evidence_ids,
-                  count(DISTINCT external_key) AS external_keys
-                FROM casework.evidence_items
-                """
-            )
-            source = cursor.fetchone()
-            cursor.execute(
-                """
-                SELECT
-                  count(*) AS documents,
-                  count(DISTINCT search_document_hash) AS search_document_hashes
-                FROM retrieval.documents
-                WHERE is_current
-                """
-            )
-            documents = cursor.fetchone()
-            cursor.execute(
-                """
-                SELECT
-                  count(*) AS chunks,
-                  count(DISTINCT chunk.chunk_hash) AS chunk_hashes,
-                  count(DISTINCT chunk.embedding::text) AS embeddings
-                FROM retrieval.chunks chunk
-                JOIN retrieval.documents document
-                  ON document.document_version_id = chunk.document_version_id
-                WHERE document.is_current
-                """
-            )
-            chunks = cursor.fetchone()
-
-        expected = self.casework_receipt["evidence_items"]
-        self.assertEqual(source["evidence_items"], expected)
-        self.assertEqual(source["evidence_ids"], expected)
-        self.assertEqual(source["external_keys"], expected)
-        self.assertEqual(documents["documents"], expected)
-        self.assertEqual(documents["search_document_hashes"], expected)
-        self.assertEqual(chunks["chunks"], expected)
-        self.assertEqual(chunks["chunk_hashes"], expected)
-        self.assertEqual(chunks["embeddings"], expected)
-
-    @unittest.skipUnless(
-        SECURITY_ENABLED,
-        "set WORKBENCH_SECURITY_ENABLED=1 for pre-retrieval RLS checks",
-    )
-    def test_acl_is_applied_before_retrieval(self) -> None:
-        """The lexical arm's row set follows the connection's role.
-
-        The arms take no role argument on purpose (A7: one identity axis). The
-        predicate reads ``current_user``, so the only way to change the answer is
-        to change who is asking -- which is what ``get_dict_conn(persona)`` does
-        with ``SET LOCAL ROLE``. Running the identical statement on two persona
-        checkouts is therefore the honest test of this mechanism; passing a role
-        as an argument would test a parameter the shipped functions do not have.
-        """
-        from backend.app import db
-
-        query = "Northstar premium checkout escalation"
-        sql = """
-            SELECT external_key
-            FROM retrieval.full_text_search(%s, p_limit => 50)
-        """
-        keys = {}
-        for persona in ("app_engineer", "dba"):
-            with db.get_dict_conn(persona) as connection:
-                with connection.cursor() as cursor:
-                    cursor.execute(sql, (query,))
-                    keys[persona] = {
-                        row["external_key"] for row in cursor.fetchall()
-                    }
-
-        self.assertNotIn("CASE-7421", keys["app_engineer"])
-        self.assertIn("CASE-7421", keys["dba"])
-
-    def test_canonical_search_functions_have_one_signature_each(self) -> None:
-        # One overload each is the real assertion: removing p_principal with
-        # CREATE OR REPLACE would have ADDED a second overload carrying the old
-        # fail-open jsonb predicate, and a caller still passing p_principal would
-        # have silently kept it. The arity is one lower than before A7 for exactly
-        # that reason -- p_principal is gone and nothing replaced it, because the
-        # role is read from current_user rather than passed in.
-        expected = {
-            "full_text_search": (13, 12),
-            "vector_search": (14, 13),
-            "fuzzy_search": (14, 13),
-            "hybrid_search": (21, 19),
-        }
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT
-                  procedure.proname,
-                  count(*)::integer AS overloads,
-                  min(procedure.pronargs)::integer AS arguments,
-                  min(procedure.pronargdefaults)::integer AS defaults
-                FROM pg_proc procedure
-                JOIN pg_namespace namespace
-                  ON namespace.oid = procedure.pronamespace
-                WHERE namespace.nspname = 'retrieval'
-                  AND procedure.proname = ANY(%s)
-                GROUP BY procedure.proname
-                """,
-                (list(expected),),
-            )
-            signatures = {
-                row["proname"]: (
-                    row["overloads"],
-                    row["arguments"],
-                    row["defaults"],
-                )
-                for row in cursor.fetchall()
-            }
-
-        self.assertEqual(
-            signatures,
-            {
-                name: (1, arguments, defaults)
-                for name, (arguments, defaults) in expected.items()
-            },
-        )
-
-    def test_default_hybrid_ranks_confirmed_change_first(self) -> None:
-        query = "Why did CHG-1842 block writes on checkout-prod-cluster-01?"
-        vector = to_pgvector(hash_embedding(query))
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT external_key, match_tier, exact_identifier_position,
-                       explanation
-                FROM retrieval.hybrid_search(
-                  %s,
-                  %s::vector,
-                  p_cluster_id => 'checkout-prod-cluster-01',
-                  p_limit => 8
-                )
-                """,
-                (query, vector),
-            )
-            rows = cursor.fetchall()
-
-        self.assertEqual(rows[0]["external_key"], "CHG-1842")
-        self.assertEqual(rows[0]["match_tier"], 1)
-        self.assertEqual(rows[0]["exact_identifier_position"], 1)
-        self.assertEqual(
-            rows[0]["explanation"]["match_tier_label"],
-            "exact_identifier",
-        )
-        self.assertEqual(
-            rows[0]["explanation"]["positions"]["exact_identifier"],
-            1,
-        )
-        self.assertNotIn("exact_identifier_rrf", rows[0]["explanation"]["signals"])
-        self.assertEqual(
-            rows[0]["explanation"]["weights"],
-            {"full_text": 2.0, "semantic": 1.0, "fuzzy": 1.0},
-        )
-        self.assertEqual(rows[0]["explanation"]["rrf_k"], 60)
-        self.assertTrue(
-            all(row["match_tier"] == 2 for row in rows[1:]),
-            "only the resolved identifier belongs to the exact tier",
-        )
-
-    def test_every_rrf_score_reproduces_from_the_published_formula(self) -> None:
-        query = "Why did CHG-1842 block writes on checkout-prod-cluster-01?"
-        vector = to_pgvector(hash_embedding(query))
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT external_key, text_position, vector_position,
-                       trigram_position, rrf_score, final_score
-                FROM retrieval.hybrid_search(
-                  %s,
-                  %s::vector,
-                  p_cluster_id => 'checkout-prod-cluster-01',
-                  p_limit => 8
-                )
-                """,
-                (query, vector),
-            )
-            rows = cursor.fetchall()
-
-        self.assertTrue(rows)
-        for row in rows:
-            expected = sum(
-                weight / (60 + row[column])
-                for weight, column in (
-                    (2.0, "text_position"),
-                    (1.0, "vector_position"),
-                    (1.0, "trigram_position"),
-                )
-                if row[column] is not None
-            )
-            self.assertAlmostEqual(
-                float(row["rrf_score"]),
-                expected,
-                places=12,
-                msg=f"{row['external_key']} does not match the 3-term formula",
-            )
-            self.assertEqual(row["rrf_score"], row["final_score"])
-
-    def test_no_weighting_can_demote_a_named_identifier(self) -> None:
-        """A zero text weight and a maximal vector weight must not move CHG-1842.
-
-        The vector arm is fed the embedding of a competing change so that the
-        distractor legitimately wins the semantic arm. Before the exact tier
-        existed this combination put CHG-1907 above CHG-1842.
-        """
-        query = "Why did CHG-1842 block writes on checkout-prod-cluster-01?"
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT chunk.embedding
-                FROM retrieval.chunks chunk
-                JOIN retrieval.documents document
-                  ON document.document_version_id = chunk.document_version_id
-                WHERE document.external_key = 'CHG-1907'
-                  AND chunk.is_current
-                LIMIT 1
-                """
-            )
-            distractor_embedding = cursor.fetchone()["embedding"]
-            cursor.execute(
-                """
-                SELECT external_key, match_tier, rrf_score
-                FROM retrieval.hybrid_search(
-                  %s,
-                  %s::vector,
-                  p_cluster_id => 'checkout-prod-cluster-01',
-                  p_limit => 6,
-                  p_w_text => 0.0,
-                  p_w_vector => 10.0
-                )
-                """,
-                (query, distractor_embedding),
-            )
-            rows = cursor.fetchall()
-
-        self.assertEqual(rows[0]["external_key"], "CHG-1842")
-        self.assertEqual(rows[0]["match_tier"], 1)
-        distractor = next(row for row in rows if row["external_key"] == "CHG-1907")
-        self.assertGreater(
-            float(distractor["rrf_score"]),
-            float(rows[0]["rrf_score"]),
-            "the test is only meaningful while the distractor outscores the "
-            "exact match on weighted RRF",
-        )
-
-    def test_hybrid_persists_independent_arm_positions(self) -> None:
-        vector = to_pgvector(
-            hash_embedding("Why did CHG-1842 block writes on checkout-prod-cluster-01?")
-        )
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT external_key, text_position, vector_position,
-                       trigram_position, final_score, explanation
-                FROM retrieval.hybrid_search(
-                  %s,
-                  %s::vector,
-                  p_cluster_id => 'checkout-prod-cluster-01',
-                  p_limit => 8
-                )
-                """,
-                (
-                    "Why did CHG-1842 block writes on checkout-prod-cluster-01?",
-                    vector,
-                ),
-            )
-            rows = cursor.fetchall()
-
-        match = next(row for row in rows if row["external_key"] == "CHG-1842")
-        self.assertEqual(match["text_position"], 1)
-        self.assertAlmostEqual(
-            float(match["final_score"]),
-            float(match["explanation"]["signals"]["rrf"]),
-            places=12,
-        )
-
-    def test_hybrid_receipt_persists_default_fusion_controls(self) -> None:
-        from backend.app.models import SearchRequest
-        from backend.app.search import run_hybrid_search
-
-        query = "Why did CHG-1842 block writes on checkout-prod-cluster-01?"
-        with (
-            patch(
-                "backend.app.search._query_embedding_model",
-                return_value="local-hash-embedding-v1",
-            ),
-            patch(
-                "backend.app.search.embed_text",
-                return_value=hash_embedding(query),
-            ),
-        ):
-            result = run_hybrid_search(
-                SearchRequest(
-                    query=query,
-                    cluster_id="checkout-prod-cluster-01",
-                    rerank=False,
-                    limit=5,
-                )
-            )
-
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT
-                  rrf_k,
-                  text_weight,
-                  vector_weight,
-                  fuzzy_weight,
-                  fuzzy_threshold
-                FROM proof.v_run_receipts
-                WHERE run_id = %s
-                """,
-                (result["run_id"],),
-            )
-            receipt = cursor.fetchone()
-
-        self.assertEqual(result["results"][0]["external_key"], "CHG-1842")
-        self.assertEqual(result["knobs"]["rrf_k"], 60)
-        self.assertEqual(
-            result["knobs"]["weights"],
-            {"text": 2.0, "vector": 1.0, "fuzzy": 1.0},
-        )
-        self.assertEqual(result["knobs"]["fuzzy_threshold"], 0.3)
-        self.assertEqual(receipt["rrf_k"], 60)
-        self.assertEqual(float(receipt["text_weight"]), 2.0)
-        self.assertEqual(float(receipt["vector_weight"]), 1.0)
-        self.assertEqual(float(receipt["fuzzy_weight"]), 1.0)
-        self.assertAlmostEqual(float(receipt["fuzzy_threshold"]), 0.3)
-        self.assertEqual(
-            result["match_tiers"],
-            [
-                {
-                    "tier": 1,
-                    "label": "Exact identifier",
-                    "count": 1,
-                    "first_rank": 1,
-                    "last_rank": 1,
-                },
-                {
-                    "tier": 2,
-                    "label": "Fused candidates",
-                    "count": 4,
-                    "first_rank": 2,
-                    "last_rank": 5,
-                },
-            ],
-        )
-
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT result_rank, external_key, match_tier,
-                       exact_identifier_position
-                FROM proof.v_candidate_receipts
-                WHERE run_id = %s
-                ORDER BY result_rank
-                """,
-                (result["run_id"],),
-            )
-            candidates = cursor.fetchall()
-
-        self.assertEqual(candidates[0]["external_key"], "CHG-1842")
-        self.assertEqual(candidates[0]["match_tier"], 1)
-        self.assertEqual(candidates[0]["exact_identifier_position"], 1)
-        self.assertTrue(all(row["match_tier"] == 2 for row in candidates[1:]))
-
-    def test_agent_coverage_escalates_only_the_starved_runbook(self) -> None:
-        from backend.app.agent import answer_question, get_agent_coverage_impl
-        from backend.app.models import AgentAnswerRequest
-
-        question = (
-            "During INC-2047 on checkout-prod-cluster-01, why did checkout writes "
-            "appear to hang while reads continued? Determine whether CHG-1842 "
-            "or CHG-1838 caused the incident, identify the customer impact "
-            "visible to the current role, explain what evidence rules out "
-            "the alternative change, and cite the lock evidence and approved "
-            "runbook supporting recovery and prevention."
-        )
-        with (
-            patch(
-                "backend.app.search._query_embedding_model",
-                return_value="local-hash-embedding-v1",
-            ),
-            patch(
-                "backend.app.search.embed_text",
-                side_effect=lambda text, **_: hash_embedding(text),
-            ),
-        ):
-            response = answer_question(
-                AgentAnswerRequest(question=question, limit=8)
-            )
-        coverage = get_agent_coverage_impl(response["agent_run_id"])
-
-        self.assertEqual(response["status"], "complete")
-        self.assertEqual(len(response["subquestions"]), 5)
-        self.assertEqual(coverage["covered_count"], 5)
-        self.assertEqual(response["escalations_spent"], 1)
-        self.assertEqual(response["tool_calls_spent"], 9)
-        self.assertEqual(len(response["retrievals"]), 6)
-        self.assertEqual(len(response["escalations"]), 1)
-
-        escalation = response["escalations"][0]
-        self.assertEqual(escalation["subquestion_id"], "SQ-5")
-        self.assertEqual(escalation["missing_kinds"], ["runbook"])
-        # Runbooks are reusable procedures, so they carry neither an incident nor
-        # a cluster. Both scope filters have to go or the retry cannot reach one.
-        self.assertEqual(
-            escalation["changed"]["after"]["filters"],
-            {"cluster_id": None, "incident_id": None},
-        )
-        self.assertEqual(
-            escalation["changed"]["before"]["filters"],
-            {"cluster_id": "checkout-prod-cluster-01", "incident_id": "INC-2047"},
-        )
-        sq5 = response["subquestions"][-1]
-        self.assertEqual(sq5["attempts"], 2)
-        self.assertFalse(sq5["runs"][0]["coverage"]["covered"])
-        self.assertTrue(sq5["runs"][1]["coverage"]["covered"])
-        self.assertEqual(
-            sq5["runs"][1]["coverage"]["covering_evidence_ids"]["runbook"],
-            "RB-017",
-        )
-        # The evidence the workshop asks participants to prove from. Assembling
-        # this set is Aurora's job -- retrieval, escalation, and traversal -- so
-        # it is exact. Which subset of it the model then chooses to cite is a
-        # model decision and is asserted separately below.
-        briefed = {row["external_key"] for row in response["results"]}
-        self.assertEqual(
-            briefed,
-            {
-                "INC-2047",
-                "CHG-1842",
-                "CHG-1838",
-                "LOCK-2047-001",
-                "LOCK-2047-002",
-                "CASE-7419",
-                "CASE-7424",
-                "RB-017",
-            },
-        )
-        # CASE-7421 is relevant but restricted, and RB-092 is superseded. ACL
-        # and currency are enforced in SQL, so neither can reach the model.
-        self.assertNotIn("CASE-7421", briefed)
-        self.assertNotIn("RB-092", briefed)
-        # Every citation must resolve to briefed evidence. The count is not
-        # pinned: the model occasionally leaves one brief uncited, which is a
-        # weaker answer but not a retrieval or provenance defect.
-        cited = {citation["external_key"] for citation in response["citations"]}
-        self.assertTrue(cited)
-        self.assertLessEqual(cited, briefed)
-        # Causation and the ruled-out alternative are what the module exists to
-        # show, so those four must be cited every time.
-        self.assertLessEqual(
-            {"INC-2047", "CHG-1842", "CHG-1838", "RB-017"},
-            cited,
-        )
-
-    def test_planner_anchors_come_from_declared_relationships(self) -> None:
-        from backend.app.agent import decompose_question_impl
-
-        # A background incident has its own runbook and no lock capture. The
-        # planner has to name that runbook, not the focused fixture's, and has to
-        # stay generic where the corpus declares nothing.
-        plan = decompose_question_impl(
-            "Which customer was affected by INC-BG-00020 and what runbook "
-            "prevents a recurrence?"
-        )
-        sq5 = plan["subquestions"][-1]["text"]
-
-        self.assertIn("RB-BG-00020", sq5)
-        self.assertNotIn("RB-017", sq5)
-        self.assertIn("the lock evidence", sq5)
-        self.assertNotIn("LOCK-2047-001", sq5)
-
-    def test_transport_contract_persists_versioned_hashes(self) -> None:
-        from backend.app.contracts import InvocationContext, invoke_contract
-        from backend.app.models import SearchRequest
-        from backend.app.search import run_hybrid_search
-
-        request = SearchRequest(
-            query="CHG-1842",
-            mode="lexical",
-            rerank=False,
-            limit=3,
-        )
-        response = invoke_contract(
-            InvocationContext(
-                transport="http",
-                request_id="req-integration-contract",
-            ),
-            "search_evidence",
-            request.model_dump(mode="json"),
-            lambda: run_hybrid_search(request),
-        )
-
-        self.assertEqual(response["contract_version"], "1.0.0")
-        self.assertEqual(response["request_id"], "req-integration-contract")
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT *
-                FROM proof.transport_invocations
-                WHERE metadata ->> 'request_id' = 'req-integration-contract'
-                """
-            )
-            receipt = cursor.fetchone()
-        self.assertEqual(str(receipt["run_id"]), response["run_id"])
-        self.assertEqual(receipt["role"], "app_engineer")
-        self.assertEqual(receipt["transport"], "http")
-        self.assertEqual(receipt["status"], "succeeded")
-        self.assertEqual(len(receipt["request_hash"]), 64)
-        self.assertEqual(len(receipt["normalized_response_hash"]), 64)
-
-    def test_tombstone_supersedes_search_index_and_completes_queue(self) -> None:
-        target = evidence_id("support_case", "CASE-7424")
-        with self.conn.transaction():
-            with self.conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    UPDATE casework.evidence_items
-                    SET is_deleted = true,
-                        deleted_at = now(),
-                        source_revision = source_revision || '-deleted'
-                    WHERE evidence_id = %s
-                    """,
-                    (target,),
-                )
-                cursor.execute("SELECT casework.queue_evidence(%s)", (target,))
-
-        receipt = rebuild_search_index(
-            self.conn,
-            model_id="local-hash-embedding-v1",
-            cache_path=Path(self.cache_dir.name) / "embeddings.jsonl",
-            embed_missing=False,
-        )
-        with self.conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT is_current, index_state
-                FROM retrieval.documents
-                WHERE evidence_id = %s
-                ORDER BY indexed_at DESC NULLS LAST
-                LIMIT 1
-                """,
-                (target,),
-            )
-            document = cursor.fetchone()
-            cursor.execute(
-                """
-                SELECT status
-                FROM retrieval.search_index_queue
-                WHERE evidence_id = %s
-                ORDER BY requested_at DESC
-                LIMIT 1
-                """,
-                (target,),
-            )
-            outbox = cursor.fetchone()
-
-        self.assertGreaterEqual(receipt["documents_superseded"], 1)
-        self.assertFalse(document["is_current"])
-        self.assertEqual(document["index_state"], "superseded")
-        self.assertEqual(outbox["status"], "complete")
+            SELECT count(*) AS mismatches
+            FROM observed
+            CROSS JOIN expected
+            WHERE observed.capture_id <> expected.capture_id
+            """,
+            (self.capture_id,),
+        ).fetchone()["mismatches"]
+        self.assertEqual(mismatches, 0)
 
 
 if __name__ == "__main__":

@@ -9,11 +9,8 @@ RetrievalMode = Literal["hybrid", "semantic", "lexical", "fuzzy"]
 EvidenceKind = Literal[
     "incident",
     "change",
-    "support_case",
-    "runbook",
     "lock_evidence",
-    "commitment",
-    "postmortem",
+    "telemetry",
 ]
 IterativeScanMode = Literal["off", "strict_order", "relaxed_order"]
 
@@ -24,6 +21,7 @@ DEFAULT_ROLE: Persona = "app_engineer"
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
     kinds: list[EvidenceKind] | None = None
+    source_systems: list[str] | None = None
     cluster_id: str | None = None
     incident_id: str | None = None
     account_name: str | None = None
@@ -51,6 +49,7 @@ class SearchRequest(BaseModel):
 class AgentAnswerRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     kinds: list[EvidenceKind] | None = None
+    source_systems: list[str] | None = None
     cluster_id: str | None = None
     incident_id: str | None = None
     account_name: str | None = None
@@ -115,4 +114,5 @@ class QueryPlanRequest(BaseModel):
     limit: int = Field(10, ge=1, le=50)
     cluster_id: str | None = None
     kinds: list[EvidenceKind] | None = None
+    source_systems: list[str] | None = None
     role: Persona = DEFAULT_ROLE

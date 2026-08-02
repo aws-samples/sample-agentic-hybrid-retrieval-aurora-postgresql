@@ -8,21 +8,11 @@ carry the same SELECT and the same identity.
 from __future__ import annotations
 
 import unittest
-from types import SimpleNamespace
-from unittest.mock import patch
 
-from backend.app import db, verify_sql
+from backend.app import verify_sql
 
 
 class VerifySqlEnvelopeTests(unittest.TestCase):
-    def setUp(self) -> None:
-        settings_patch = patch.object(verify_sql, "get_settings")
-        self.get_settings = settings_patch.start()
-        self.addCleanup(settings_patch.stop)
-        self.get_settings.return_value = SimpleNamespace(
-            workbench_security_enabled=False
-        )
-
     def test_core_descriptor_carries_statement_binds_and_no_role(self) -> None:
         descriptor = verify_sql.receipt_verify_sql("rr_9b41d7", "dba")["run"]
         self.assertEqual(descriptor["binds"], {"run_id": "rr_9b41d7"})
@@ -40,20 +30,6 @@ class VerifySqlEnvelopeTests(unittest.TestCase):
         self.assertNotIn("SET LOCAL ROLE", rendered)
         self.assertEqual(lines[-1], "ROLLBACK;")
 
-    def test_security_descriptor_includes_the_persona_role(self) -> None:
-        self.get_settings.return_value = SimpleNamespace(
-            workbench_security_enabled=True
-        )
-
-        descriptor = verify_sql.receipt_verify_sql("rr_9b41d7", "auditor")["run"]
-        lines = [line for line in descriptor["rendered"].splitlines() if line.strip()]
-
-        self.assertEqual(descriptor["set_role"], "SET LOCAL ROLE persona_auditor")
-        self.assertEqual(lines[0], "BEGIN;")
-        self.assertEqual(lines[1], "SET LOCAL ROLE persona_auditor;")
-        self.assertTrue(lines[2].startswith("SELECT"))
-        self.assertEqual(lines[-1], "ROLLBACK;")
-
     def test_rendered_text_inlines_the_binds_so_a_paste_runs_as_is(self) -> None:
         rendered = verify_sql.receipt_verify_sql("rr_9b41d7", "app_engineer")["run"][
             "rendered"
@@ -67,15 +43,6 @@ class VerifySqlEnvelopeTests(unittest.TestCase):
                 verify_sql.receipt_verify_sql("rr_1", persona)
         with self.assertRaisesRegex(ValueError, "unknown persona"):
             verify_sql.receipt_verify_sql("rr_1", "support-lead")
-
-    def test_the_role_naming_rule_matches_the_connection_layer(self) -> None:
-        """verify_sql derives the role name without importing db; keep them equal."""
-        for persona in db.PERSONAS:
-            with self.subTest(persona=persona):
-                self.assertEqual(
-                    verify_sql.persona_role(persona),
-                    db.persona_role(persona),
-                )
 
     def _every_descriptor(self) -> list[tuple[str, dict[str, object]]]:
         """Return (label, descriptor) for every descriptor the registry publishes."""

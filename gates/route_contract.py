@@ -18,9 +18,7 @@ Three checks:
    ``node --experimental-strip-types`` rather than a Python reimplementation, so
    there is no twin to drift (the G-17 "one source of truth" principle).
 
-2. Contract-literal membership. Core retrieval and proof links are always
-   required. Persona-prefilled agent links are required only when
-   ``WORKBENCH_SECURITY_ENABLED=1`` for the optional security appendix.
+2. Contract-literal membership. Core retrieval and proof links are required.
 
 3. Built-bundle presence. The built frontend bundle (frontend/dist) must contain
    the preset and persona enum literals the router depends on, to catch a build
@@ -34,7 +32,6 @@ not present, reported honestly (the _common.py PASS/FAIL/BLOCKED contract).
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -77,42 +74,15 @@ CORE_CONTRACT_ROUTES: list[tuple[str, dict]] = [
     ),
 ]
 
-SECURITY_CONTRACT_ROUTES: list[tuple[str, dict]] = [
-    (
-        "#/agent?role=app_engineer",
-        {"surface": "agent", "role": "app_engineer"},
-    ),
-    (
-        "#/agent?role=dba",
-        {"surface": "agent", "role": "dba"},
-    ),
-    (
-        "#/agent?role=auditor",
-        {"surface": "agent", "role": "auditor"},
-    ),
-]
-
 CORE_BUNDLE_LITERALS = ["exact", "fuzzy", "semantic"]
-SECURITY_BUNDLE_LITERALS = ["app_engineer", "dba", "auditor"]
-
-
-def _security_enabled() -> bool:
-    value = os.environ.get("WORKBENCH_SECURITY_ENABLED", "")
-    return value.strip().lower() not in {"", "0", "false", "no", "off"}
 
 
 def _contract_routes() -> list[tuple[str, dict]]:
-    routes = list(CORE_CONTRACT_ROUTES)
-    if _security_enabled():
-        routes.extend(SECURITY_CONTRACT_ROUTES)
-    return routes
+    return list(CORE_CONTRACT_ROUTES)
 
 
 def _bundle_literals() -> list[str]:
-    literals = list(CORE_BUNDLE_LITERALS)
-    if _security_enabled():
-        literals.extend(SECURITY_BUNDLE_LITERALS)
-    return literals
+    return list(CORE_BUNDLE_LITERALS)
 
 # Node harness: import the real router, run parse+format for each contract route,
 # and emit one JSON line per route so the Python side can diff against the

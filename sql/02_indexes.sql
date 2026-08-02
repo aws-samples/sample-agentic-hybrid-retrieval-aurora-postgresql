@@ -4,29 +4,54 @@ CREATE INDEX IF NOT EXISTS idx_incidents_cluster_started
 CREATE INDEX IF NOT EXISTS idx_changes_cluster_started
   ON casework.changes(cluster_id, started_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_support_cases_account_opened
-  ON casework.support_cases(account_name, opened_at DESC);
-
 CREATE INDEX IF NOT EXISTS idx_lock_evidence_incident_captured
   ON casework.lock_evidence(incident_evidence_id, captured_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_activity_samples_capture_pid
-  ON casework.pg_stat_activity_samples(capture_id, captured_at, pid);
+  ON casework.pg_stat_activity_samples(
+    capture_id,
+    observation_number,
+    captured_at,
+    pid
+  );
 
 CREATE INDEX IF NOT EXISTS idx_lock_samples_capture_relation
-  ON casework.pg_lock_samples(capture_id, captured_at, relation_oid, granted, mode);
+  ON casework.pg_lock_samples(
+    capture_id,
+    observation_number,
+    captured_at,
+    relation_oid,
+    granted,
+    mode
+  );
 
 CREATE INDEX IF NOT EXISTS idx_blocking_pids_capture
-  ON casework.pg_blocking_pids_samples(capture_id, captured_at, blocked_pid);
+  ON casework.pg_blocking_pids_samples(
+    capture_id,
+    observation_number,
+    captured_at,
+    blocked_pid
+  );
 
 CREATE INDEX IF NOT EXISTS idx_stat_statements_capture_phase
-  ON casework.pg_stat_statements_samples(capture_id, phase, captured_at, queryid);
+  ON casework.pg_stat_statements_samples(capture_id, phase, captured_at);
 
 CREATE INDEX IF NOT EXISTS idx_cloudwatch_capture_metric
   ON casework.cloudwatch_metric_samples(capture_id, metric_name, observed_at);
 
 CREATE INDEX IF NOT EXISTS idx_database_insights_capture_type
   ON casework.database_insights_samples(capture_id, evidence_type, captured_at);
+
+CREATE INDEX IF NOT EXISTS idx_telemetry_evidence_capture_type
+  ON casework.telemetry_evidence(
+    capture_id,
+    telemetry_type,
+    observation_number,
+    observed_at
+  );
+
+CREATE INDEX IF NOT EXISTS idx_telemetry_evidence_incident
+  ON casework.telemetry_evidence(incident_evidence_id, observed_at);
 
 CREATE INDEX IF NOT EXISTS idx_search_index_queue_pending
   ON retrieval.search_index_queue(status, requested_at)
@@ -88,6 +113,10 @@ CREATE INDEX IF NOT EXISTS idx_documents_external_key_exact
   ON retrieval.documents(lower(external_key))
   WHERE is_current AND index_state = 'ready';
 
+CREATE INDEX IF NOT EXISTS idx_documents_source_system
+  ON retrieval.documents(source_system)
+  WHERE is_current AND index_state = 'ready';
+
 CREATE INDEX IF NOT EXISTS idx_chunks_document
   ON retrieval.chunks(document_version_id, chunk_ordinal);
 
@@ -122,6 +151,10 @@ CREATE INDEX IF NOT EXISTS idx_chunks_acl_principals
 
 CREATE INDEX IF NOT EXISTS idx_chunks_search_tsv
   ON retrieval.chunks USING GIN(search_tsv);
+
+CREATE INDEX IF NOT EXISTS idx_chunks_source_system
+  ON retrieval.chunks(source_system)
+  WHERE is_current AND embedding_state = 'ready';
 
 DROP INDEX IF EXISTS retrieval.idx_chunks_text_trgm;
 

@@ -269,14 +269,19 @@ def search_index_version(model_id: str) -> str:
     return f"{RENDERER_VERSION}:{CHUNKER_VERSION}:{model_id}"
 
 
-def _load_documents(conn) -> list[Document]:
+def _load_documents(
+    conn,
+    source_systems: Sequence[str] | None = None,
+) -> list[Document]:
     with conn.cursor(row_factory=dict_row) as cursor:
         cursor.execute(
             """
             SELECT *
             FROM casework.v_evidence_documents
+            WHERE (%s::text[] IS NULL OR source_system = ANY(%s::text[]))
             ORDER BY evidence_kind, external_key
-            """
+            """,
+            (source_systems, source_systems),
         )
         rows = cursor.fetchall()
 
@@ -424,38 +429,6 @@ def _mark_build_failed(conn, build_id: uuid.UUID, error: str) -> None:
         )
 
 
-def _refresh_mask_blob(cursor) -> bool:
-    """Regenerate retrieval.mask_blob from the freshly indexed corpus.
-
-    The mask patterns are baked into retrieval.mask_blob's body, so a newly
-    admitted restricted literal is invisible to it until the body is
-    regenerated. Called inside the build transaction: a failed refresh rolls the
-    build back rather than publishing an index whose blob mask is behind the
-    corpus. Runs as the index-build owner, which is exempt from masking
-    (measured), so it reads real values.
-
-    Skipped when the function is absent, which happens on any server without
-    pg_columnmask -- sql/12_masking.sql is Aurora-only and the local schema
-    build skips it. Skipping is safe in exactly one direction: the shipped
-    mask_blob body redacts the whole value, so a database that never refreshes
-    over-masks (sql/12_masking.sql:148-155). Probed with to_regprocedure rather
-    than by catching UndefinedFunction, because that error would abort the
-    surrounding build transaction.
-
-    Returns:
-        Whether the refresh ran.
-    """
-    cursor.execute(
-        "SELECT to_regprocedure('retrieval.refresh_mask_blob()') IS NOT NULL AS present"
-    )
-    row = cursor.fetchone()
-    present = row["present"] if isinstance(row, dict) else row[0]
-    if not present:
-        return False
-    cursor.execute("SELECT retrieval.refresh_mask_blob()")
-    return True
-
-
 def _complete_document_versions(conn) -> set[uuid.UUID]:
     with conn.cursor(row_factory=tuple_row) as cursor:
         cursor.execute(
@@ -599,6 +572,7 @@ def _write_index_batch(
           embedding_state,
           is_current,
           evidence_kind,
+          source_system,
           source_updated_at,
           occurred_at,
           acl,
@@ -615,7 +589,7 @@ def _write_index_batch(
         )
         VALUES (
           %s, %s, %s, %s, %s, %s, %s, %s::vector, %s,
-          'search_document', 'ready', false, %s, %s, %s,
+          'search_document', 'ready', false, %s, %s, %s, %s,
           %s::jsonb, %s, %s::text[], %s, %s, %s, %s, %s,
           %s, %s, %s
         )
@@ -627,6 +601,7 @@ def _write_index_batch(
           embedding_state = 'ready',
           is_current = false,
           evidence_kind = EXCLUDED.evidence_kind,
+          source_system = EXCLUDED.source_system,
           source_updated_at = EXCLUDED.source_updated_at,
           occurred_at = EXCLUDED.occurred_at,
           acl = EXCLUDED.acl,
@@ -653,6 +628,7 @@ def _write_index_batch(
                 to_pgvector(vectors[chunk.text_hash]),
                 model_id,
                 document.evidence_kind,
+                document.source_system,
                 document.source_updated_at,
                 document.occurred_at,
                 json.dumps(document.acl),
@@ -683,6 +659,7 @@ def _persist_search_index_bulk(
     model_id: str,
     cache_hits: int,
     embedded_count: int,
+    source_systems: Sequence[str] | None,
 ) -> dict:
     reusable = _complete_document_versions(conn)
     conn.commit()
@@ -793,18 +770,29 @@ def _persist_search_index_bulk(
                     WITH current_sources AS MATERIALIZED (
                       SELECT evidence_id
                       FROM casework.v_evidence_documents
+                      WHERE (%s::text[] IS NULL OR source_system = ANY(%s::text[]))
                     )
                     UPDATE retrieval.documents document
                     SET is_current = false,
                         index_state = 'superseded',
                         superseded_at = now()
                     WHERE document.is_current
+                      AND (
+                        %s::text[] IS NULL
+                        OR document.source_system = ANY(%s::text[])
+                      )
                       AND NOT EXISTS (
                         SELECT 1
                         FROM current_sources source
                         WHERE source.evidence_id = document.evidence_id
                       )
-                    """
+                    """,
+                    (
+                        source_systems,
+                        source_systems,
+                        source_systems,
+                        source_systems,
+                    ),
                 )
                 superseded_count = cursor.rowcount
                 cursor.execute(
@@ -831,8 +819,13 @@ def _persist_search_index_bulk(
                     FROM casework.evidence_items source
                     WHERE source.evidence_id = queue.evidence_id
                       AND source.is_deleted
+                      AND (
+                        %s::text[] IS NULL
+                        OR source.source_system = ANY(%s::text[])
+                      )
                       AND queue.status IN ('pending', 'claimed')
-                    """
+                    """,
+                    (source_systems, source_systems),
                 )
                 cursor.execute(
                     """
@@ -857,7 +850,6 @@ def _persist_search_index_bulk(
                     cursor.execute("ANALYZE retrieval.documents")
                     cursor.execute("ANALYZE retrieval.chunks")
 
-                _refresh_mask_blob(cursor)
     except BaseException as exc:
         conn.rollback()
         _mark_build_failed(conn, build_id, str(exc) or type(exc).__name__)
@@ -890,9 +882,16 @@ def rebuild_search_index(
     embedder: Callable[[list[str]], list[list[float]]] | None = None,
     verify_cache: bool = False,
     prune_unused_cache_entries: bool = False,
+    source_systems: Sequence[str] | None = None,
 ) -> dict:
+    if source_systems is not None and not source_systems:
+        raise ValueError("source_systems must be null or contain at least one value")
+    if source_systems is not None and prune_unused_cache_entries:
+        raise ValueError(
+            "a source-scoped build cannot prune a cache shared by other sources"
+        )
     version = search_index_version(model_id)
-    documents = _load_documents(conn)
+    documents = _load_documents(conn, source_systems)
     build_id = _create_build(conn, version, model_id)
     conn.commit()
 
@@ -925,8 +924,12 @@ def rebuild_search_index(
             model_id=model_id,
             cache_hits=cache_hits,
             embedded_count=embedded_count,
+            source_systems=source_systems,
         )
         result["embedding_cache_entries_pruned"] = pruned_count
+        result["source_systems"] = (
+            list(source_systems) if source_systems else None
+        )
         return result
 
     document_count = 0
@@ -1082,6 +1085,7 @@ def rebuild_search_index(
                               embedding_state,
                               is_current,
                               evidence_kind,
+                              source_system,
                               source_updated_at,
                               occurred_at,
                               acl,
@@ -1098,7 +1102,7 @@ def rebuild_search_index(
                             )
                             VALUES (
                               %s, %s, %s, %s, %s, %s, %s, %s::vector, %s,
-                              'search_document', 'ready', false, %s, %s, %s,
+                              'search_document', 'ready', false, %s, %s, %s, %s,
                               %s::jsonb, %s, %s::text[], %s, %s, %s, %s, %s,
                               %s, %s, %s
                             )
@@ -1109,6 +1113,7 @@ def rebuild_search_index(
                               embedding_input_type = EXCLUDED.embedding_input_type,
                               embedding_state = 'ready',
                               evidence_kind = EXCLUDED.evidence_kind,
+                              source_system = EXCLUDED.source_system,
                               source_updated_at = EXCLUDED.source_updated_at,
                               occurred_at = EXCLUDED.occurred_at,
                               acl = EXCLUDED.acl,
@@ -1134,6 +1139,7 @@ def rebuild_search_index(
                                 to_pgvector(vectors[chunk.text_hash]),
                                 model_id,
                                 document.evidence_kind,
+                                document.source_system,
                                 document.source_updated_at,
                                 document.occurred_at,
                                 json.dumps(document.acl),
@@ -1215,12 +1221,17 @@ def rebuild_search_index(
                         index_state = 'superseded',
                         superseded_at = now()
                     WHERE document.is_current
+                      AND (
+                        %s::text[] IS NULL
+                        OR document.source_system = ANY(%s::text[])
+                      )
                       AND NOT EXISTS (
                         SELECT 1
                         FROM casework.v_evidence_documents source
                         WHERE source.evidence_id = document.evidence_id
                       )
-                    """
+                    """,
+                    (source_systems, source_systems),
                 )
                 superseded_count = cursor.rowcount
                 cursor.execute(
@@ -1246,8 +1257,13 @@ def rebuild_search_index(
                     FROM casework.evidence_items source
                     WHERE source.evidence_id = queue.evidence_id
                       AND source.is_deleted
+                      AND (
+                        %s::text[] IS NULL
+                        OR source.source_system = ANY(%s::text[])
+                      )
                       AND queue.status IN ('pending', 'claimed')
-                    """
+                    """,
+                    (source_systems, source_systems),
                 )
                 cursor.execute(
                     """
@@ -1272,7 +1288,6 @@ def rebuild_search_index(
                     cursor.execute("ANALYZE retrieval.documents")
                     cursor.execute("ANALYZE retrieval.chunks")
 
-                _refresh_mask_blob(cursor)
     except Exception as exc:
         conn.rollback()
         _mark_build_failed(conn, build_id, str(exc))
@@ -1293,4 +1308,5 @@ def rebuild_search_index(
         "statistics_refreshed": (
             document_count >= ANALYZE_AFTER_INDEXED_DOCUMENTS
         ),
+        "source_systems": list(source_systems) if source_systems else None,
     }

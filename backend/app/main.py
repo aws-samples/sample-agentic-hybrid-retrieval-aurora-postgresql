@@ -33,6 +33,7 @@ from .insights import (
     fusion_sql,
     index_usage,
     latest_cited_run,
+    latest_live_run,
     observability_ref,
     search_index_diagnostics,
     search_index_health,
@@ -100,6 +101,15 @@ def _unavailable(area: str, error: Exception) -> HTTPException:
     )
 
 
+def _require_retrieval_ready() -> None:
+    readiness = search_index_health()
+    if readiness["status"] != "ready" or not readiness.get("run"):
+        raise HTTPException(
+            409,
+            "retrieval is awaiting the participant-induced incident and indexing receipt",
+        )
+
+
 def _invocation_context(request: Request) -> InvocationContext:
     transport = request.headers.get("x-workbench-transport", "http")
     return InvocationContext(
@@ -128,6 +138,7 @@ def ready():
 @app.post("/v1/search")
 def search(request: SearchRequest, http_request: Request):
     try:
+        _require_retrieval_ready()
         return invoke_contract(
             _invocation_context(http_request),
             "search_evidence",
@@ -165,6 +176,7 @@ def search_fuzzy(request: SearchRequest, http_request: Request):
 @app.post("/v1/agent/answer")
 def agent_answer(request: AgentAnswerRequest, http_request: Request):
     try:
+        _require_retrieval_ready()
         return invoke_contract(
             _invocation_context(http_request),
             "answer_with_citations",
@@ -179,6 +191,7 @@ def agent_answer(request: AgentAnswerRequest, http_request: Request):
 def strands_answer(request: AgentAnswerRequest, http_request: Request):
     """Answer by letting the model choose and sequence the tools itself."""
     try:
+        _require_retrieval_ready()
         return invoke_contract(
             _invocation_context(http_request),
             "strands_agent_answer",
@@ -192,6 +205,7 @@ def strands_answer(request: AgentAnswerRequest, http_request: Request):
 @app.post("/v1/agent/strands/answer/stream")
 async def strands_answer_stream(request: AgentAnswerRequest, http_request: Request):
     """Stream each tool the model selects, then the cited answer, as they happen."""
+    _require_retrieval_ready()
     context = _invocation_context(http_request)
     payload_in = request.model_dump(mode="json")
 
@@ -318,6 +332,7 @@ def tool_synthesize(request: SynthesisRequest, http_request: Request):
 
 @app.post("/v1/agent/answer/stream")
 def agent_answer_stream(request: AgentAnswerRequest, http_request: Request):
+    _require_retrieval_ready()
     response = invoke_contract(
         _invocation_context(http_request),
         "answer_with_citations",
@@ -376,8 +391,7 @@ def agent_coverage(agent_run_id: str, role: Persona = DEFAULT_ROLE):
 def evidence_detail(evidence_id: str, role: Persona = DEFAULT_ROLE):
     # Enforce the same ACL every retrieval arm and traversal hop applies, so a
     # direct by-ID read cannot bypass visibility. Evidence outside the caller's
-    # scope is reported as not found rather than acknowledged as restricted —
-    # and now RLS enforces that even if this predicate were removed.
+    # scope is reported as not found rather than acknowledged as restricted.
     try:
         with get_dict_conn(role) as connection:
             with connection.cursor() as cursor:
@@ -441,6 +455,29 @@ def latest_run(role: Persona = DEFAULT_ROLE):
         raise
     except Exception as error:
         raise _unavailable("latest cited run", error)
+
+
+@app.get("/v1/workshop/run")
+def workshop_run():
+    try:
+        run = latest_live_run()
+        if not run:
+            return {"status": "awaiting_incident", "run": None}
+        readiness = search_index_health()
+        return {
+            "status": readiness["status"],
+            "run": run,
+            "indexing_receipt": {
+                "documents": readiness["current_documents"],
+                "chunks": readiness["current_chunks"],
+                "ready_embeddings": readiness["ready_embeddings"],
+                "drift_issues": readiness["drift_issues"],
+                "last_indexed_at": readiness["last_indexed_at"],
+                "embedding_spaces": readiness["embedding_spaces"],
+            },
+        }
+    except Exception as error:
+        raise _unavailable("workshop run", error)
 
 
 @app.get("/v1/runs/{run_id}")

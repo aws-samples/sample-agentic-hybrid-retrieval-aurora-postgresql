@@ -16,28 +16,29 @@ from backend.app.synthesis import evidence_block
 class AgentContractTests(unittest.TestCase):
     def test_decomposition_extracts_database_identifiers(self) -> None:
         plan = decompose_question_impl(
-            "Why did CHG-1842 block checkout-prod-cluster-01 during INC-2047?"
+            "Why did CHG-478FD535-01 block writes during INC-478FD535?"
         )
 
-        self.assertEqual(plan["identified_keys"], ["CHG-1842", "INC-2047"])
+        self.assertEqual(
+            plan["identified_keys"],
+            ["CHG-478FD535-01", "INC-478FD535"],
+        )
         self.assertEqual(
             plan["inferred_filters"],
-            {"incident_id": "INC-2047", "cluster_id": "checkout-prod-cluster-01"},
+            {"incident_id": "INC-478FD535", "cluster_id": None},
         )
 
     def test_canonical_decomposition_drives_coverage_loop(self) -> None:
         with patch(
             "backend.app.agent._anchor_keys",
             return_value={
-                "lock_evidence": "LOCK-2047-001",
-                "runbook": "RB-017",
+                "lock_evidence": "LOCK-478FD535-01",
             },
         ):
             plan = decompose_question_impl(
-                "During INC-2047 on checkout-prod-cluster-01, determine whether "
-                "CHG-1842 or CHG-1838 caused the incident, identify customer "
-                "impact, and cite the lock evidence and approved runbook for "
-                "recovery."
+                "During INC-478FD535, determine how CHG-478FD535-01 caused the "
+                "stall, how CHG-478FD535-02 repaired it, and what the measured "
+                "lock and telemetry evidence prove."
             )
 
         self.assertEqual(
@@ -46,7 +47,11 @@ class AgentContractTests(unittest.TestCase):
         )
         self.assertEqual(
             plan["subquestions"][-1]["required_kinds"],
-            ["lock_evidence", "runbook"],
+            ["change", "telemetry"],
+        )
+        self.assertEqual(
+            plan["subquestions"][2]["required_kinds"],
+            ["telemetry"],
         )
         self.assertFalse(
             any("explain_ranking" in step for step in plan["steps"])
@@ -83,78 +88,70 @@ class AgentContractTests(unittest.TestCase):
             {
                 "evidence_id": "incident",
                 "evidence_kind": "incident",
-                "external_key": "INC-2047",
+                "external_key": "INC-478FD535",
                 "snippet": "Writes waited. Reads remained available.",
             },
             {
                 "evidence_id": "confirmed-change",
                 "evidence_kind": "change",
-                "external_key": "CHG-1842",
+                "external_key": "CHG-478FD535-01",
                 "via_relation": "change_confirmed",
                 "snippet": "Ordinary CREATE INDEX blocked writes.",
             },
             {
                 "evidence_id": "ruled-out-change",
                 "evidence_kind": "change",
-                "external_key": "CHG-1838",
+                "external_key": "CHG-478FD535-03",
                 "via_relation": "change_ruled_out",
                 "snippet": "Worker count was unrelated.",
             },
             {
                 "evidence_id": "lock",
                 "evidence_kind": "lock_evidence",
-                "external_key": "LOCK-1",
+                "external_key": "LOCK-478FD535-01",
                 "via_relation": "observed_during",
                 "snippet": "pg_blocking_pids returned [47901].",
             },
             {
-                "evidence_id": "affected-case",
-                "evidence_kind": "support_case",
-                "external_key": "CASE-7419",
-                "account_name": "Acme Retail",
-                "via_relation": "support_case_affected",
-                "snippet": "Checkout submissions timed out.",
+                "evidence_id": "telemetry",
+                "evidence_kind": "telemetry",
+                "external_key": "TEL-478FD535-ACT01",
+                "via_relation": "measured_during",
+                "snippet": "Six writers waited on Lock:relation.",
             },
             {
-                "evidence_id": "runbook",
-                "evidence_kind": "runbook",
-                "external_key": "RB-017",
-                "via_relation": "runbook_used",
+                "evidence_id": "repair-change",
+                "evidence_kind": "change",
+                "external_key": "CHG-478FD535-02",
+                "via_relation": "change_remediated",
                 "snippet": "Use CREATE INDEX CONCURRENTLY outside a transaction.",
-            },
-            {
-                "evidence_id": "unaffected-case",
-                "evidence_kind": "support_case",
-                "external_key": "CASE-7424",
-                "via_relation": "support_case_not_affected",
-                "snippet": "Catalog reads were unrelated.",
             },
         ]
 
         answer, numbers = _extractive_answer(
-            "Why did CHG-1842 cause INC-2047, who was affected, and what was safe?",
+            "How did CHG-478FD535-01 cause INC-478FD535 and how did "
+            "CHG-478FD535-02 repair it?",
             evidence,
         )
 
         self.assertEqual(numbers, [1, 2, 4, 5, 6])
-        self.assertIn("Acme Retail", answer)
+        self.assertIn("Six writers waited", answer)
         self.assertIn("CREATE INDEX CONCURRENTLY", answer)
         self.assertIn("pg_blocking_pids returned (47901)", answer)
-        self.assertNotIn("CHG-1838", answer)
-        self.assertNotIn("CASE-7424", answer)
+        self.assertNotIn("CHG-478FD535-03", answer)
 
     def test_merge_enriches_named_evidence_with_canonical_relation(self) -> None:
         retrieved = [
             {
                 "evidence_id": "change",
-                "external_key": "CHG-1842",
+                "external_key": "CHG-A1B2C3D4-01",
                 "title": "Index change",
             }
         ]
         reached = [
             {
                 "evidence_id": "change",
-                "external_key": "CHG-1842",
+                "external_key": "CHG-A1B2C3D4-01",
                 "depth": 1,
                 "via_relation": "change_confirmed",
                 "via_origin": "canonical_relation",
@@ -164,7 +161,7 @@ class AgentContractTests(unittest.TestCase):
         merged = _merge_evidence(
             retrieved,
             reached,
-            named_keys=["CHG-1842"],
+            named_keys=["CHG-A1B2C3D4-01"],
             limit=8,
         )
 
@@ -177,12 +174,12 @@ class AgentContractTests(unittest.TestCase):
         evidence = [
             {
                 "evidence_id": "incident",
-                "external_key": "INC-2047",
+                "external_key": "INC-A1B2C3D4",
                 "evidence_kind": "incident",
             },
             {
                 "evidence_id": "change",
-                "external_key": "CHG-1842",
+                "external_key": "CHG-A1B2C3D4-01",
                 "evidence_kind": "change",
             },
         ]
@@ -208,13 +205,13 @@ class AgentContractTests(unittest.TestCase):
                     "confidence": 1.0,
                     "rationale": "Lock timing matched the change.",
                     "direction": "inbound",
-                    "other_external_key": "INC-2047",
+                    "other_external_key": "INC-A1B2C3D4",
                 }
             ],
         )
         block = evidence_block(enriched)
         self.assertIn(
-            "Relationship: change_confirmed inbound INC-2047",
+            "Relationship: change_confirmed inbound INC-A1B2C3D4",
             block,
         )
 

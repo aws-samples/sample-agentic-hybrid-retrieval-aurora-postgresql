@@ -61,12 +61,9 @@ def _anchor_keys(
 ) -> dict[str, str]:
     """Name the evidence an incident declares a relationship to, per kind.
 
-    The planner writes identifiers into its subquestion text because a generic
-    phrase like "the approved runbook" retrieves background runbooks instead of
-    this incident's: 15,000 filler documents describe generic remediation, and
-    only a named key separates the one that matters. The keys come from the
-    declared edges rather than from constants, so the planner works on any
-    incident in the corpus.
+    The planner writes measured identifiers into its subquestion text so every
+    retrieval stays anchored to the participant's current capture. The keys come
+    from declared edges rather than constants.
 
     Args:
         incident_id: The incident the question named.
@@ -121,7 +118,7 @@ def _planned_subquestions(
         and (
             len(change_keys) > 1
             or re.search(
-                r"\b(?:customer|impact|runbook|recover|prevent|alternative|rule out)\b",
+                r"\b(?:repair|recover|prevent|telemetry|wait|block|alternative|rule out)\b",
                 question,
                 flags=re.IGNORECASE,
             )
@@ -131,21 +128,13 @@ def _planned_subquestions(
         incident = incident_id
         changes = " or ".join(change_keys[:2]) or "the suspected changes"
         lock_keys = [key for key in keys if key.startswith("LOCK-")]
-        runbook_keys = [key for key in keys if key.startswith("RB-")]
-        anchors = (
-            {}
-            if lock_keys and runbook_keys
-            else _anchor_keys(incident, ("lock_evidence", "runbook"), role)
+        anchors = {} if lock_keys else _anchor_keys(
+            incident, ("lock_evidence",), role
         )
         lock_reference = (
             lock_keys[0]
             if lock_keys
             else anchors.get("lock_evidence", "the lock evidence")
-        )
-        runbook_reference = (
-            runbook_keys[0]
-            if runbook_keys
-            else anchors.get("runbook", "the approved runbook")
         )
         return [
             {
@@ -164,10 +153,10 @@ def _planned_subquestions(
             {
                 "subquestion_id": "SQ-3",
                 "text": (
-                    f"Which customer impact during {incident} is visible to "
-                    "the current role?"
+                    f"What measured PostgreSQL and AWS telemetry describes the "
+                    f"stall window for {incident}?"
                 ),
-                "required_kinds": ["support_case"],
+                "required_kinds": ["telemetry"],
             },
             {
                 "subquestion_id": "SQ-4",
@@ -179,19 +168,18 @@ def _planned_subquestions(
             {
                 "subquestion_id": "SQ-5",
                 "text": (
-                    f"How do {lock_reference} and {runbook_reference} support "
-                    f"recovery and prevention for {incident}?"
+                    f"How did the measured repair change lock and statement "
+                    f"behavior for {incident}?"
                 ),
-                "required_kinds": ["lock_evidence", "runbook"],
+                "required_kinds": ["change", "telemetry"],
             },
         ]
 
     key_kinds = {
         "INC": "incident",
         "CHG": "change",
-        "CASE": "support_case",
-        "RB": "runbook",
         "LOCK": "lock_evidence",
+        "TEL": "telemetry",
     }
     required = list(
         dict.fromkeys(
@@ -202,12 +190,10 @@ def _planned_subquestions(
         )
     )
     lowered = question.lower()
-    if "customer" in lowered or "impact" in lowered:
-        required.append("support_case")
-    if "runbook" in lowered or "safe" in lowered or "recover" in lowered:
-        required.append("runbook")
     if "lock" in lowered or "blocked" in lowered or "hang" in lowered:
         required.append("lock_evidence")
+    if "telemetry" in lowered or "wait" in lowered or "metric" in lowered:
+        required.append("telemetry")
     return [
         {
             "subquestion_id": "SQ-1",
@@ -240,7 +226,7 @@ def decompose_question_impl(
         question,
     )
     keys = re.findall(
-        r"\b(?:INC|CHG|CASE|RB|LOCK)-[A-Z0-9-]+\b",
+        r"\b(?:INC|CHG|LOCK|TEL)-[A-Z0-9-]+\b",
         question,
         flags=re.IGNORECASE,
     )
@@ -273,6 +259,7 @@ def search_evidence_impl(
     query: str,
     *,
     kinds: list[str] | None = None,
+    source_systems: list[str] | None = None,
     cluster_id: str | None = None,
     incident_id: str | None = None,
     account_name: str | None = None,
@@ -299,6 +286,7 @@ def search_evidence_impl(
         SearchRequest(
             query=query,
             kinds=kinds,
+            source_systems=source_systems,
             cluster_id=cluster_id,
             incident_id=incident_id,
             account_name=account_name,
@@ -514,14 +502,10 @@ def explain_ranking_impl(
     *,
     role: str = "app_engineer",
 ) -> dict[str, Any]:
-    """Render a run's receipt under the role that run actually executed under.
+    """Render a run's receipt under its persisted request context.
 
-    A receipt must show what the run saw, not what the caller can see, so this
-    is a replay: the first checkout reads only proof.retrieval_runs (no RLS
-    policy, safe under the least-privileged persona) to learn the stored role,
-    and the second checkout re-reads the full receipt under that role, because
-    v_candidate_receipts and v_answer_receipts are security_invoker joins
-    against casework.evidence_items.
+    A receipt must show what the run saw, so the stored role remains part of the
+    replay identity even though the workshop uses one fixed visibility scope.
 
     Args:
         run_id: The retrieval run to explain.
@@ -531,12 +515,7 @@ def explain_ranking_impl(
         descriptors.
 
     Raises:
-        ValueError: No such run. Raised by _run_role before the second checkout
-            opens, so proof.v_run_receipts is never queried for a run_id that
-            does not exist: proof.retrieval_runs carries no RLS, and
-            v_run_receipts LEFT JOINs candidates and GROUPs BY run_id, so every
-            row in retrieval_runs yields exactly one receipt row. There is no
-            second not-found case to guard.
+        ValueError: No such run. Raised by _run_role before the receipt query.
     """
     stored_role = _run_role(run_id, role)
     verify = receipt_verify_sql(run_id, stored_role)
@@ -573,8 +552,7 @@ _EXTRACTIVE_KIND_ORDER = (
     "incident",
     "change",
     "lock_evidence",
-    "support_case",
-    "runbook",
+    "telemetry",
 )
 def _row_relations(row: dict[str, Any]) -> list[str]:
     relations = []
@@ -591,11 +569,7 @@ def _preferred_relation(row: dict[str, Any]) -> str | None:
     priorities = {
         "change": ("change_confirmed", "change_ruled_out"),
         "lock_evidence": ("observed_during",),
-        "support_case": (
-            "support_case_affected",
-            "support_case_not_affected",
-        ),
-        "runbook": ("runbook_used",),
+        "telemetry": ("measured_during", "measures_change"),
     }
     relations = _row_relations(row)
     for relation in priorities.get(str(row.get("evidence_kind")), ()):
@@ -610,8 +584,6 @@ def _is_negative_evidence(row: dict[str, Any]) -> bool:
     return (
         kind == "change"
         and "change_ruled_out" in relations
-        or kind == "support_case"
-        and "support_case_not_affected" in relations
     )
 
 
@@ -639,7 +611,7 @@ def _extractive_answer(
     named_keys = set(
         key.upper()
         for key in re.findall(
-            r"\b(?:INC|CHG|CASE|RB|LOCK)-[A-Z0-9-]+\b",
+            r"\b(?:INC|CHG|LOCK|TEL)-[A-Z0-9-]+\b",
             question,
             flags=re.IGNORECASE,
         )
@@ -680,18 +652,12 @@ def _extractive_answer(
         "incident": "Incident evidence",
         "change": "Change evidence",
         "lock_evidence": "Observed lock evidence",
-        "support_case": "Visible customer evidence",
-        "runbook": "Safe-fix guidance",
+        "telemetry": "Measured telemetry",
     }
     sentences = []
     for number, row in selected:
         kind = str(row.get("evidence_kind") or "")
         label = labels.get(kind, "Retrieved evidence")
-        account = (
-            f" for {row['account_name']}"
-            if kind == "support_case" and row.get("account_name")
-            else ""
-        )
         preferred_relation = _preferred_relation(row)
         relation = (
             f" ({preferred_relation.replace('_', ' ')})"
@@ -699,7 +665,7 @@ def _extractive_answer(
             else ""
         )
         sentences.append(
-            f"{label}{account}{relation}, {row['external_key']}: "
+            f"{label}{relation}, {row['external_key']}: "
             f"{_excerpt(row)} [{number}]"
         )
     return " ".join(sentences), [number for number, _ in selected]
@@ -995,13 +961,7 @@ def _evidence_for_run(
     role: str,
     limit: int = 8,
 ) -> list[dict[str, Any]]:
-    """Reload a run's persisted candidates under the role that run executed under.
-
-    RLS is FORCE-enabled on retrieval.documents and retrieval.chunks, so a
-    connection checked out under the wrong role would lose restricted rows to
-    the policy even if this query's own predicate said they were visible. This
-    is why the role has to be read first, in its own least-privileged checkout,
-    then used to open the checkout that actually reads the documents and chunks.
+    """Reload a run's persisted candidates under its request context.
 
     Args:
         run_id: The persisted retrieval run to reload.
@@ -1278,6 +1238,7 @@ def _agent_filters(
     inferred: dict[str, Any],
 ) -> dict[str, Any]:
     return {
+        "source_systems": request.source_systems,
         "cluster_id": request.cluster_id or inferred.get("cluster_id"),
         "incident_id": request.incident_id or inferred.get("incident_id"),
         "account_name": request.account_name,
@@ -1580,13 +1541,7 @@ def get_agent_run_impl(
     *,
     role: str = "app_engineer",
 ) -> dict[str, Any]:
-    """Render an agent run's receipt under the role that run executed under.
-
-    Same replay shape as explain_ranking_impl: proof.agent_runs has no RLS
-    policy, so the first checkout under the least-privileged persona is safe,
-    but the second checkout has to run as the run's own role because it joins
-    casework.evidence_items (via proof.evaluate_subquestion_coverage and the
-    now-security_invoker proof.v_answer_receipts).
+    """Render an agent run's receipt under its persisted request context.
 
     Args:
         agent_run_id: The agent run to render.
@@ -1831,11 +1786,8 @@ def _unscoped_filters(
 ) -> list[str]:
     """Name the active scope filters that no document of a missing kind carries.
 
-    A runbook is a reusable procedure, so it has no incident or cluster. Filtering
-    an incident's evidence by incident then excludes the runbook before fusion, and
-    widening the candidate pool cannot recover it. Aurora is asked which columns are
-    unpopulated for the kinds still missing rather than hardcoding which kinds those
-    are, so a corpus that starts scoping runbooks needs no code change here.
+    Aurora is asked which columns are unpopulated for any still-missing live
+    evidence kind rather than hardcoding a retry policy.
 
     Args:
         missing_kinds: Evidence kinds the first retrieval did not cover.
@@ -2172,6 +2124,7 @@ def answer_with_citations_impl(
     question: str,
     *,
     kinds: list[str] | None = None,
+    source_systems: list[str] | None = None,
     cluster_id: str | None = None,
     incident_id: str | None = None,
     account_name: str | None = None,
@@ -2214,6 +2167,7 @@ def answer_with_citations_impl(
         AgentAnswerRequest(
             question=question,
             kinds=kinds,
+            source_systems=source_systems,
             cluster_id=cluster_id,
             incident_id=incident_id,
             account_name=account_name,

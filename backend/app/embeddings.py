@@ -11,11 +11,9 @@ DEFAULT_BEDROCK_EMBEDDING_MODEL = "us.cohere.embed-v4:0"
 
 SYNONYMS = {
     "delay": ["blocked", "slipped", "late", "lag", "deferred"],
-    "customer": ["account", "client", "tenant"],
     "incident": ["outage", "sev", "service disruption"],
     "latency": ["slow", "p95", "response time", "lag"],
     "failover": ["blue green", "cutover", "switchover", "replica promotion"],
-    "commitment": ["promise", "deliverable", "timeline", "sla"],
     "bug": ["defect", "issue", "regression"],
     "slack": ["channel", "thread", "message", "conversation"],
 }

@@ -1,3 +1,3 @@
 {
-  "question": "Why did CHG-1842 block checkout writes during INC-2047, which visible customer was affected, and what was the safe fix?"
+  "question": "What caused the measured writer wait in {{INCIDENT_KEY}}, how did {{UNSAFE_CHANGE_KEY}} block writes, how did {{REPAIR_CHANGE_KEY}} repair the behavior, and what did {{LOCK_KEY}} prove?"
 }

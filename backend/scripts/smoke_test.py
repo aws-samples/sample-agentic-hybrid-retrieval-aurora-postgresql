@@ -8,7 +8,6 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.agent import answer_question, follow_evidence_links_impl  # noqa: E402
-from app.config import get_settings  # noqa: E402
 from app.db import close_pool, get_dict_conn  # noqa: E402
 from app.models import AgentAnswerRequest, SearchRequest  # noqa: E402
 from app.search import run_hybrid_search  # noqa: E402
@@ -21,6 +20,35 @@ def _keys(result: dict) -> list[str]:
 def _require(condition: bool, message: str) -> None:
     if not condition:
         raise RuntimeError(message)
+
+
+def _live_keys() -> dict[str, str]:
+    with get_dict_conn("app_engineer") as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                  upper(right(replace(capture.capture_id::text, '-', ''), 8))
+                    AS run_suffix
+                FROM casework.incident_capture_runs capture
+                WHERE capture.capture_origin = 'participant_induced'
+                ORDER BY capture.capture_started_at DESC
+                LIMIT 1
+                """
+            )
+            row = cursor.fetchone()
+    if not row:
+        raise RuntimeError(
+            "no participant-induced incident is loaded; run the live orchestrator"
+        )
+    suffix = row["run_suffix"]
+    return {
+        "incident": f"INC-{suffix}",
+        "unsafe_change": f"CHG-{suffix}-01",
+        "repair_change": f"CHG-{suffix}-02",
+        "lock": f"LOCK-{suffix}-01",
+        "fuzzy_change": f"CGH-{suffix}-01",
+    }
 
 
 def _readiness_path() -> Path:
@@ -63,8 +91,9 @@ def _write_readiness(receipts: dict[str, object]) -> Path | None:
 
 def main() -> int:
     receipts: dict[str, object] = {}
-    security_enabled = get_settings().workbench_security_enabled
     try:
+        keys = _live_keys()
+        receipts["live_keys"] = keys
         with get_dict_conn("app_engineer") as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT retrieval.assert_search_index_ready() AS health")
@@ -72,109 +101,53 @@ def main() -> int:
 
         lexical = run_hybrid_search(
             SearchRequest(
-                query="Why did CHG-1842 block writes on checkout-prod-cluster-01?",
+                query=keys["unsafe_change"],
                 mode="lexical",
-                cluster_id="checkout-prod-cluster-01",
+                source_systems=["pg_incident_capture"],
                 rerank=False,
                 limit=5,
             )
         )
         _require(
-            _keys(lexical)[0] == "CHG-1842",
+            _keys(lexical)[0] == keys["unsafe_change"],
             f"exact identifier was not lexical rank 1: {_keys(lexical)}",
         )
         receipts["lexical_run_id"] = lexical["run_id"]
 
         fuzzy = run_hybrid_search(
             SearchRequest(
-                query="CGH-1842",
+                query=keys["fuzzy_change"],
                 mode="fuzzy",
                 kinds=["change"],
-                environment="production",
+                source_systems=["pg_incident_capture"],
                 rerank=False,
                 limit=5,
             )
         )
         _require(
-            _keys(fuzzy)[0] == "CHG-1842",
-            f"mistyped identifier did not resolve to CHG-1842: {_keys(fuzzy)}",
+            _keys(fuzzy)[0] == keys["unsafe_change"],
+            (
+                f"mistyped identifier did not resolve to "
+                f"{keys['unsafe_change']}: {_keys(fuzzy)}"
+            ),
         )
         receipts["fuzzy_run_id"] = fuzzy["run_id"]
 
-        hidden = run_hybrid_search(
-            SearchRequest(
-                query="Northstar premium checkout escalation",
-                mode="lexical",
-                role="app_engineer",
-                rerank=False,
-                limit=20,
-            )
-        )
-        _require("CASE-7421" not in _keys(hidden), "restricted case leaked")
-        receipts["acl_run_ids"] = [hidden["run_id"]]
-
-        if security_enabled:
-            visible = run_hybrid_search(
-                SearchRequest(
-                    query="Northstar premium checkout escalation",
-                    mode="lexical",
-                    role="dba",
-                    rerank=False,
-                    limit=20,
-                )
-            )
-            _require(
-                "CASE-7421" in _keys(visible),
-                "authorized case was not retrievable",
-            )
-            receipts["acl_run_ids"].append(visible["run_id"])
-
-            # Prove database enforcement by persona disagreement over the same rows.
-            with get_dict_conn("app_engineer") as connection:
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        SELECT count(*) AS visible
-                        FROM casework.evidence_items
-                        WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
-                        """
-                    )
-                    app_engineer_visible = cursor.fetchone()["visible"]
-            with get_dict_conn("dba") as connection:
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        """
-                        SELECT count(*) AS visible
-                        FROM casework.evidence_items
-                        WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
-                        """
-                    )
-                    dba_visible = cursor.fetchone()["visible"]
-            _require(
-                app_engineer_visible == 0,
-                f"app_engineer saw {app_engineer_visible} restricted evidence rows; "
-                "RLS is not enforced",
-            )
-            _require(
-                dba_visible > 0,
-                "dba saw no restricted evidence rows; either the seed has none or "
-                "can_see_restricted is not granted",
-            )
-            receipts["acl_row_counts"] = {
-                "app_engineer": app_engineer_visible,
-                "dba": dba_visible,
-            }
-
         traversal = follow_evidence_links_impl(
-            ["INC-2047"],
+            [keys["incident"]],
             role="app_engineer",
             max_depth=2,
         )
         traversal_keys = {row["external_key"] for row in traversal["reached"]}
-        _require("CASE-7419" in traversal_keys, "visible support case was not traversed")
         _require(
-            "CASE-7421" not in traversal_keys,
-            "restricted case leaked in traversal",
+            {
+                keys["incident"],
+                keys["unsafe_change"],
+                keys["repair_change"],
+                keys["lock"],
+            }
+            <= traversal_keys,
+            f"live incident relationships were incomplete: {sorted(traversal_keys)}",
         )
         receipts["traversal_keys"] = sorted(traversal_keys)
 
@@ -184,9 +157,12 @@ def main() -> int:
             answer = answer_question(
                 AgentAnswerRequest(
                     question=(
-                        "Why did CHG-1842 block checkout writes during INC-2047, "
-                        "which visible customer was affected, and what was the safe fix?"
+                        f"What caused the measured writer wait in "
+                        f"{keys['incident']}, how did {keys['unsafe_change']} "
+                        f"block writes, how did {keys['repair_change']} repair "
+                        f"the behavior, and what did {keys['lock']} prove?"
                     ),
+                    source_systems=["pg_incident_capture"],
                     limit=8,
                 )
             )

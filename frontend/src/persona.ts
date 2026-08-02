@@ -3,10 +3,8 @@
 // harness can all import it without pulling in the component tree.
 //
 // These three values are the SAME enum as backend/app/models.py's Persona and
-// backend/app/db.py's PERSONAS. A fourth value here without the matching
-// GRANT in sql/11_roles_rls.sql produces a request that fails with
-// `permission denied to set role`, which is the correct failure: the database
-// is the authority on which identities exist.
+// backend/app/db.py's PERSONAS. They remain receipt metadata for production
+// extension; the live workshop uses the fixed core visibility scope.
 
 export type PersonaKey = 'app_engineer' | 'auditor' | 'dba';
 
@@ -27,14 +25,6 @@ export const PERSONA_LABELS: Record<PersonaKey, string> = {
   auditor: 'Auditor',
 };
 
-// What the app asked Postgres to become. Rendered in the receipt so a
-// participant can paste the same statement into psql and see the same rows.
-export const PERSONA_DB_ROLES: Record<PersonaKey, string> = {
-  app_engineer: 'persona_app_engineer',
-  dba: 'persona_dba',
-  auditor: 'persona_auditor',
-};
-
 export function isPersonaKey(value: string): value is PersonaKey {
   return (PERSONA_KEYS as string[]).includes(value);
 }
@@ -43,13 +33,4 @@ export function personaLabel(value?: string): string {
   return value && isPersonaKey(value)
     ? PERSONA_LABELS[value]
     : PERSONA_LABELS[DEFAULT_PERSONA];
-}
-
-/**
- * The one statement the app issued for this persona. Rendered verbatim in the
- * flip receipt: the app's claim about what it did must be the pasteable proof
- * of what it did.
- */
-export function personaSetRoleSql(value: PersonaKey): string {
-  return `SET LOCAL ROLE ${PERSONA_DB_ROLES[value]};`;
 }

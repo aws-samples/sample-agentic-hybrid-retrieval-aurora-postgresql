@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from pathlib import Path
 import sys
 import urllib.error
 import urllib.request
@@ -99,22 +100,51 @@ def _text_result(response: dict[str, Any]) -> dict[str, Any]:
     raise RuntimeError("Gateway response did not contain an MCP text result.")
 
 
+def _load_run_receipt(path: Path | None) -> dict[str, str]:
+    selected = path
+    if selected is None:
+        candidates = sorted(
+            Path("data/generated/incident-lab").glob("indexing-receipt-*.json"),
+            key=lambda candidate: candidate.stat().st_mtime,
+            reverse=True,
+        )
+        selected = candidates[0] if candidates else None
+    if selected is None or not selected.is_file():
+        raise RuntimeError(
+            "No live indexing receipt was found. Run the incident orchestrator or "
+            "pass --receipt."
+        )
+    payload = json.loads(selected.read_text(encoding="utf-8"))
+    required = (
+        "incident_key",
+        "unsafe_change_key",
+        "repair_change_key",
+        "lock_key",
+    )
+    if any(not payload.get(key) for key in required):
+        raise RuntimeError(f"{selected} is not a complete live indexing receipt")
+    return {key: str(payload[key]) for key in required}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Prove Hybrid Retrieval Workbench's Aurora retrieval contract through AgentCore Gateway."
     )
     parser.add_argument(
         "--query",
-        default="Why did CHG-1842 block writes on checkout-prod-cluster-01?",
+        help="Override the receipt-derived exact-ID query.",
     )
-    parser.add_argument("--cluster-id", default="checkout-prod-cluster-01")
+    parser.add_argument("--receipt", type=Path)
+    parser.add_argument("--cluster-id")
     parser.add_argument("--limit", type=int, default=5)
     parser.add_argument(
         "--assert-incident",
         action="store_true",
-        help="Fail unless CHG-1842 is the first ranked evidence item.",
+        help="Fail unless the receipt-derived unsafe change is ranked first.",
     )
     args = parser.parse_args()
+    keys = _load_run_receipt(args.receipt)
+    query = args.query or keys["unsafe_change_key"]
 
     region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
     url = _gateway_url()
@@ -130,7 +160,8 @@ def main() -> int:
         {
             "name": search_tool_name,
             "arguments": {
-                "query": args.query,
+                "query": query,
+                "source_systems": ["pg_incident_capture"],
                 "cluster_id": args.cluster_id,
                 "limit": args.limit,
             },
@@ -141,9 +172,13 @@ def main() -> int:
     if not results:
         raise RuntimeError("The managed retrieval returned no evidence rows.")
     top = results[0]
-    if args.assert_incident and top.get("external_key") != "CHG-1842":
+    if (
+        args.assert_incident
+        and top.get("external_key") != keys["unsafe_change_key"]
+    ):
         raise RuntimeError(
-            f"Expected CHG-1842 first, found {top.get('external_key') or 'unknown'}."
+            f"Expected {keys['unsafe_change_key']} first, found "
+            f"{top.get('external_key') or 'unknown'}."
         )
 
     answer_tool_name = _tool_name(tools, "answer_with_citations")
@@ -155,9 +190,13 @@ def main() -> int:
             "name": answer_tool_name,
             "arguments": {
                 "question": (
-                    "Why did CHG-1842 block checkout writes during INC-2047, "
-                    "which visible customer was affected, and what was the safe fix?"
+                    f"What caused the measured writer wait in "
+                    f"{keys['incident_key']}, how did "
+                    f"{keys['unsafe_change_key']} block writes, how did "
+                    f"{keys['repair_change_key']} repair the behavior, and what "
+                    f"did {keys['lock_key']} prove?"
                 ),
+                "source_systems": ["pg_incident_capture"],
                 "limit": 8,
             },
         },

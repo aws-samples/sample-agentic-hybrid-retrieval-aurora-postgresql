@@ -9,33 +9,6 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from app.db import close_pool, get_owner_conn
 
 
-def should_skip_masking(cur, path: Path) -> bool:
-    """Skip Aurora-only masking when a local PostgreSQL server cannot provide it."""
-    if path.name != "12_masking.sql":
-        return False
-
-    cur.execute(
-        "SELECT EXISTS ("
-        "SELECT 1 FROM pg_available_extensions WHERE name = 'pg_columnmask'"
-        ")"
-    )
-    if cur.fetchone()[0]:
-        return False
-
-    cur.execute("SELECT to_regprocedure('aurora_version()') IS NOT NULL")
-    if cur.fetchone()[0]:
-        raise RuntimeError(
-            "sql/12_masking.sql was explicitly selected, so pg_columnmask is "
-            "required on Aurora and this migration cannot be skipped"
-        )
-
-    print(
-        "Skipping sql/12_masking.sql: "
-        "pg_columnmask is unavailable on local PostgreSQL"
-    )
-    return True
-
-
 def run_sql_files(conn, files: Iterable[str | Path]) -> list[Path]:
     """Apply the selected SQL files as one all-or-nothing transaction."""
     paths = [Path(file) for file in files]
@@ -50,8 +23,6 @@ def run_sql_files(conn, files: Iterable[str | Path]) -> list[Path]:
                 for path in paths:
                     active_path = path
                     phase = f"applying {path}"
-                    if should_skip_masking(cur, path):
-                        continue
                     print(f"Running {path}")
                     cur.execute(path.read_text(encoding="utf-8"))
                     applied.append(path)

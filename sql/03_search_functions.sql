@@ -1,6 +1,4 @@
--- Core mode has one fixed evidence scope: workshop-visible rows. The optional
--- security module (sql/11_roles_rls.sql) replaces these signatures with
--- persona-aware predicates and adds RLS as a backstop.
+-- The workshop has one fixed evidence scope: workshop-visible rows.
 DROP FUNCTION IF EXISTS retrieval.acl_visible(jsonb, jsonb);
 
 CREATE OR REPLACE FUNCTION retrieval.acl_visible(
@@ -16,8 +14,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION retrieval.acl_visible(jsonb, name) IS
-  'Core workshop visibility predicate. p_role is retained for API compatibility '
-  'and is activated by the optional sql/11 security migration.';
+  'Core workshop visibility predicate. p_role is retained for API compatibility.';
 
 -- The scalar twin, for the projected retrieval.* tables that carry acl_visibility
 -- as a column instead of the jsonb. p_required_principals is gone: after the
@@ -56,7 +53,7 @@ AS $$
 DECLARE
   -- A leading hyphen is websearch_to_tsquery's exclusion marker. Requiring
   -- whitespace or start-of-string before it leaves hyphens inside a token
-  -- alone, so CHG-1842 and read-only are not read as exclusions.
+  -- alone, so run-derived CHG keys and read-only are not read as exclusions.
   negation_pattern constant text := '(?:^|\s)-("[^"]*"|\S+)';
   positive_text text;
   negative_text text;
@@ -132,10 +129,8 @@ SELECT
 FROM located
 $$;
 
--- retrieval.v_current_chunks was removed with the RLS work: it exposed chunk_text
--- and acl for every current chunk, had zero consumers, and as a non-security_invoker
--- view it read those tables as the owner, which holds the clearance key and so
--- satisfies every policy's second disjunct on every row.
+-- This obsolete convenience view exposed chunk text and ACL metadata and had no
+-- consumers. Keep the cleanup idempotent for databases upgraded from older builds.
 DROP VIEW IF EXISTS retrieval.v_current_chunks;
 
 -- Every canonical arm is dropped before it is recreated. CREATE OR REPLACE
@@ -143,17 +138,51 @@ DROP VIEW IF EXISTS retrieval.v_current_chunks;
 -- listed exactly so that re-running this file over an existing cluster picks up
 -- output-column changes instead of failing with "cannot change return type".
 DROP FUNCTION IF EXISTS retrieval.hybrid_search(
+  text, vector, text[], text[], text[], text, text, text, text[], text, text,
+  text, text, timestamptz, timestamptz, integer, integer, integer,
+  numeric, numeric, numeric, real
+);
+DROP FUNCTION IF EXISTS retrieval.hybrid_search(
+  text, vector, text[], text[], text, text, text, text[], text, text, text,
+  text, timestamptz, timestamptz, integer, integer, integer,
+  numeric, numeric, numeric, real
+);
+DROP FUNCTION IF EXISTS retrieval.hybrid_search(
   text, vector, text[], text[], text, text, text, text[], text, text, text,
   text, timestamptz, timestamptz, jsonb, integer, integer, integer,
   numeric, numeric, numeric, real
+);
+DROP FUNCTION IF EXISTS retrieval.fuzzy_search(
+  text[], real, text[], text[], text, text, text, text[], text, text, text, text,
+  timestamptz, timestamptz, integer
+);
+DROP FUNCTION IF EXISTS retrieval.fuzzy_search(
+  text[], real, text[], text, text, text, text[], text, text, text, text,
+  timestamptz, timestamptz, integer
 );
 DROP FUNCTION IF EXISTS retrieval.fuzzy_search(
   text[], real, text[], text, text, text, text[], text, text, text, text,
   timestamptz, timestamptz, jsonb, integer
 );
 DROP FUNCTION IF EXISTS retrieval.vector_search(
+  vector, text[], text[], text, text, text, text[], text, text, text, text,
+  timestamptz, timestamptz, integer, integer
+);
+DROP FUNCTION IF EXISTS retrieval.vector_search(
+  vector, text[], text, text, text, text[], text, text, text, text,
+  timestamptz, timestamptz, integer, integer
+);
+DROP FUNCTION IF EXISTS retrieval.vector_search(
   vector, text[], text, text, text, text[], text, text, text, text,
   timestamptz, timestamptz, jsonb, integer, integer
+);
+DROP FUNCTION IF EXISTS retrieval.full_text_search(
+  text, text[], text[], text, text, text, text[], text, text, text, text,
+  timestamptz, timestamptz, integer
+);
+DROP FUNCTION IF EXISTS retrieval.full_text_search(
+  text, text[], text, text, text, text[], text, text, text, text,
+  timestamptz, timestamptz, integer
 );
 DROP FUNCTION IF EXISTS retrieval.full_text_search(
   text, text[], text, text, text, text[], text, text, text, text,
@@ -163,6 +192,7 @@ DROP FUNCTION IF EXISTS retrieval.full_text_search(
 CREATE OR REPLACE FUNCTION retrieval.full_text_search(
   p_query text,
   p_kinds text[] DEFAULT NULL,
+  p_source_systems text[] DEFAULT NULL,
   p_cluster_id text DEFAULT NULL,
   p_incident_id text DEFAULT NULL,
   p_account_name text DEFAULT NULL,
@@ -241,6 +271,7 @@ exact_raw AS (
     AND d.index_state = 'ready'
     AND retrieval.acl_visible(d.acl)
     AND (p_kinds IS NULL OR d.evidence_kind = ANY(p_kinds))
+    AND (p_source_systems IS NULL OR d.source_system = ANY(p_source_systems))
     AND (p_cluster_id IS NULL OR d.cluster_id = p_cluster_id)
     AND (p_incident_id IS NULL OR d.incident_id = p_incident_id)
     AND (p_account_name IS NULL OR d.account_name = p_account_name)
@@ -280,6 +311,7 @@ document_raw AS (
     AND d.search_tsv @@ query.value
     AND retrieval.acl_visible(d.acl)
     AND (p_kinds IS NULL OR d.evidence_kind = ANY(p_kinds))
+    AND (p_source_systems IS NULL OR d.source_system = ANY(p_source_systems))
     AND (p_cluster_id IS NULL OR d.cluster_id = p_cluster_id)
     AND (p_incident_id IS NULL OR d.incident_id = p_incident_id)
     AND (p_account_name IS NULL OR d.account_name = p_account_name)
@@ -313,6 +345,7 @@ chunk_raw AS (
     AND d.index_state = 'ready'
     AND retrieval.acl_visible(d.acl)
     AND (p_kinds IS NULL OR d.evidence_kind = ANY(p_kinds))
+    AND (p_source_systems IS NULL OR d.source_system = ANY(p_source_systems))
     AND (p_cluster_id IS NULL OR d.cluster_id = p_cluster_id)
     AND (p_incident_id IS NULL OR d.incident_id = p_incident_id)
     AND (p_account_name IS NULL OR d.account_name = p_account_name)
@@ -387,6 +420,7 @@ $$;
 CREATE OR REPLACE FUNCTION retrieval.vector_search(
   p_query_embedding vector(1024),
   p_kinds text[] DEFAULT NULL,
+  p_source_systems text[] DEFAULT NULL,
   p_cluster_id text DEFAULT NULL,
   p_incident_id text DEFAULT NULL,
   p_account_name text DEFAULT NULL,
@@ -437,6 +471,7 @@ WITH candidates AS MATERIALIZED (
     AND c.embedding IS NOT NULL
     AND retrieval.acl_scalars_visible(c.acl_visibility)
     AND (p_kinds IS NULL OR c.evidence_kind = ANY(p_kinds))
+    AND (p_source_systems IS NULL OR c.source_system = ANY(p_source_systems))
     AND (p_cluster_id IS NULL OR c.cluster_id = p_cluster_id)
     AND (p_incident_id IS NULL OR c.incident_id = p_incident_id)
     AND (p_account_name IS NULL OR c.account_name = p_account_name)
@@ -494,6 +529,7 @@ CREATE OR REPLACE FUNCTION retrieval.fuzzy_search(
   p_probe_tokens text[],
   p_threshold real DEFAULT 0.3,
   p_kinds text[] DEFAULT NULL,
+  p_source_systems text[] DEFAULT NULL,
   p_cluster_id text DEFAULT NULL,
   p_incident_id text DEFAULT NULL,
   p_account_name text DEFAULT NULL,
@@ -553,6 +589,7 @@ matches AS MATERIALIZED (
     AND d.index_state = 'ready'
     AND retrieval.acl_scalars_visible(d.acl_visibility)
     AND (p_kinds IS NULL OR d.evidence_kind = ANY(p_kinds))
+    AND (p_source_systems IS NULL OR d.source_system = ANY(p_source_systems))
     AND (p_cluster_id IS NULL OR d.cluster_id = p_cluster_id)
     AND (p_incident_id IS NULL OR d.incident_id = p_incident_id)
     AND (p_account_name IS NULL OR d.account_name = p_account_name)
@@ -622,30 +659,19 @@ SELECT
     )
   ) AS explanation
 FROM ranked
--- A letter-for-digit typo such as CHG-1OOO scores identically against every
--- CHG-10xx key, because the typo destroys the digits that distinguish them.
--- external_key makes that tie resolve the same way on every replay.
+-- A malformed identifier can score identically against multiple nearby keys.
+-- external_key makes such ties resolve the same way on every replay.
 ORDER BY ranked.raw_score DESC, ranked.occurred_at DESC, ranked.external_key
 LIMIT greatest(1, p_limit)
 $$;
 
--- The gate on the arm above: which identifier tokens does NO indexed document
--- answer exactly? Only those get fuzzed. Fuzzing a token that IS indexed but is
--- unreadable to the caller would let the trigram arm return the token's visible
--- near neighbours, and a caller who asks for CASE-7421 and receives CASE-7419
--- has learned that CASE-7421 exists and is restricted. The exact row is already
--- withheld by the arm's own ACL predicate and by RLS; this function exists to
--- stop the NEAR MISS from being served in its place.
+-- Which identifier tokens does no indexed document answer exactly? Only those
+-- get fuzzed. Fuzzing an indexed but ACL-hidden token could return visible near
+-- neighbours and disclose that the hidden identifier exists.
 --
--- SECURITY DEFINER because the question is deliberately ACL-blind and cannot be
--- answered by a persona: retrieval.documents is RLS-forced (sql/11 section 4), so
--- under persona_app_engineer the restricted row vanishes, NOT EXISTS turns true, and
--- the caller is told "not indexed" about a row that is indexed -- inverting the
--- guarantee. Measured before this function existed: persona_app_engineer probing
--- CASE-7421 got it back as a fuzz candidate; DBA and Auditor did not.
+-- SECURITY DEFINER makes this existence check deliberately ACL-blind.
 --
--- Safe to run as the owner because of what it returns, not because of who calls
--- it. The projection is one boolean per input token. No column of any evidence
+-- The projection is one boolean per input token. No column of any evidence
 -- row crosses the boundary -- not the key, not the title, not the body -- so the
 -- only fact obtainable is the one the caller must be told to avoid the larger
 -- disclosure. It is LANGUAGE sql (no dynamic SQL) and search_path is pinned, so
@@ -654,9 +680,19 @@ $$;
 -- The filter arguments are not decoration: an identifier outside the caller's
 -- filters is legitimately unanswered by THIS search and must still be fuzzed, so
 -- the predicate has to match the arm's filters exactly or the two disagree.
+DROP FUNCTION IF EXISTS retrieval.identifier_is_indexed(
+  text[], text[], text[], text, text, text, text[], text, text, text, text,
+  timestamptz, timestamptz
+);
+DROP FUNCTION IF EXISTS retrieval.identifier_is_indexed(
+  text[], text[], text, text, text, text[], text, text, text, text,
+  timestamptz, timestamptz
+);
+
 CREATE OR REPLACE FUNCTION retrieval.identifier_is_indexed(
   p_tokens text[],
   p_kinds text[] DEFAULT NULL,
+  p_source_systems text[] DEFAULT NULL,
   p_cluster_id text DEFAULT NULL,
   p_incident_id text DEFAULT NULL,
   p_account_name text DEFAULT NULL,
@@ -686,6 +722,7 @@ AS $$
         AND d.index_state = 'ready'
         AND upper(d.external_key) = probe.token
         AND (p_kinds IS NULL OR d.evidence_kind = ANY(p_kinds))
+        AND (p_source_systems IS NULL OR d.source_system = ANY(p_source_systems))
         AND (p_cluster_id IS NULL OR d.cluster_id = p_cluster_id)
         AND (p_incident_id IS NULL OR d.incident_id = p_incident_id)
         AND (p_account_name IS NULL OR d.account_name = p_account_name)
@@ -702,42 +739,25 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION retrieval.identifier_is_indexed(
-  text[], text[], text, text, text, text[], text, text, text, text,
+  text[], text[], text[], text, text, text, text[], text, text, text, text,
   timestamptz, timestamptz
 ) IS
-  'Which identifier tokens an indexed document answers exactly, evaluated WITHOUT '
-  'the caller''s RLS. SECURITY DEFINER on purpose: a persona cannot see a '
-  'restricted row, would conclude the identifier is unindexed, and would fuzz it '
-  '-- serving the visible near neighbours of a restricted identifier. Returns one '
-  'boolean per token and no evidence column, so the owner-rights read discloses '
-  'strictly less than the fuzzing it prevents.';
+  'Which identifier tokens an indexed document answers exactly. SECURITY DEFINER '
+  'prevents a hidden exact identifier from being expanded into visible fuzzy '
+  'neighbours. Returns one boolean per token and no evidence content.';
 
--- PUBLIC holds EXECUTE on every new function by default; revoke it and grant only
--- the read personas. Guarded because this file runs before sql/11 creates them on
--- a fresh database, matching the re-grant block at the end of this file.
+-- The database owner invokes this through the canonical search function.
 REVOKE ALL ON FUNCTION retrieval.identifier_is_indexed(
-  text[], text[], text, text, text, text[], text, text, text, text,
+  text[], text[], text[], text, text, text, text[], text, text, text, text,
   timestamptz, timestamptz
 ) FROM PUBLIC;
-
-DO $$
-BEGIN
-  IF to_regrole('persona_app_engineer') IS NOT NULL
-     AND to_regrole('persona_dba') IS NOT NULL
-     AND to_regrole('persona_auditor') IS NOT NULL THEN
-    GRANT EXECUTE ON FUNCTION retrieval.identifier_is_indexed(
-      text[], text[], text, text, text, text[], text, text, text, text,
-      timestamptz, timestamptz
-    ) TO persona_app_engineer, persona_dba, persona_auditor;
-  END IF;
-END
-$$;
 
 CREATE OR REPLACE FUNCTION retrieval.hybrid_search(
   p_query text,
   p_query_embedding vector(1024),
   p_fuzzy_probe_tokens text[] DEFAULT NULL,
   p_kinds text[] DEFAULT NULL,
+  p_source_systems text[] DEFAULT NULL,
   p_cluster_id text DEFAULT NULL,
   p_incident_id text DEFAULT NULL,
   p_account_name text DEFAULT NULL,
@@ -796,6 +816,7 @@ WITH text_candidates AS MATERIALIZED (
   FROM retrieval.full_text_search(
     p_query,
     p_kinds,
+    p_source_systems,
     p_cluster_id,
     p_incident_id,
     p_account_name,
@@ -847,6 +868,7 @@ vector_candidates AS MATERIALIZED (
   FROM retrieval.vector_search(
     p_query_embedding,
     p_kinds,
+    p_source_systems,
     p_cluster_id,
     p_incident_id,
     p_account_name,
@@ -878,6 +900,7 @@ trgm_candidates AS MATERIALIZED (
     p_fuzzy_probe_tokens,
     p_fuzzy_threshold,
     p_kinds,
+    p_source_systems,
     p_cluster_id,
     p_incident_id,
     p_account_name,
@@ -1016,18 +1039,4 @@ ORDER BY
   d.occurred_at DESC,
   d.external_key
 LIMIT greatest(1, p_limit)
-$$;
-
--- Re-grant after a signature change: DROP FUNCTION discards the old grants, and
--- sql/11_roles_rls.sql may already have run. Guarded so a fresh database (where
--- the personas do not exist yet) still applies this file.
-DO $$
-BEGIN
-  IF to_regrole('persona_app_engineer') IS NOT NULL
-     AND to_regrole('persona_dba') IS NOT NULL
-     AND to_regrole('persona_auditor') IS NOT NULL THEN
-    GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA retrieval
-      TO persona_app_engineer, persona_dba, persona_auditor;
-  END IF;
-END
 $$;

@@ -14,16 +14,15 @@ from .models import SearchRequest
 from .rerank import get_cohere_rerank_service
 
 logger = logging.getLogger(__name__)
-# Identifier-shaped tokens: a short alphabetic prefix, a hyphen, then a 3-6
-# character suffix containing at least one digit.
+# Identifier-shaped tokens: a short alphabetic prefix, a hyphen, then a bounded
+# suffix containing at least one digit. Additional hyphens support run-derived
+# keys such as CHG-<run-suffix>-01.
 #
-# The suffix admits letters so that letter-for-digit typos, such as CHG-1B42 for
-# CHG-1842, are still recognized as identifier-shaped. A digits-only suffix
-# would discard them before the trigram arm ever saw them, which is the one case
-# fuzzy matching exists to serve. Requiring a digit keeps ordinary hyphenated
-# words such as read-only from being read as identifiers.
+# The suffix admits letters so that a transposed-prefix typo such as CGH for CHG
+# remains identifier-shaped and reaches the trigram arm. Requiring a digit keeps
+# ordinary hyphenated words such as read-only from being read as identifiers.
 IDENTIFIER_PATTERN = re.compile(
-    r"\b[A-Z]{2,6}-(?=[A-Z0-9]*[0-9])[A-Z0-9]{3,6}\b",
+    r"\b[A-Z]{2,6}-(?=[A-Z0-9-]*[0-9])[A-Z0-9-]{3,16}\b",
     re.IGNORECASE,
 )
 
@@ -65,6 +64,7 @@ def _candidate_limit(request: SearchRequest, rerank_enabled: bool) -> int:
 def _filters(request: SearchRequest) -> dict[str, Any]:
     return {
         "kinds": request.kinds,
+        "source_systems": request.source_systems,
         "cluster_id": request.cluster_id,
         "incident_id": request.incident_id,
         "account_name": request.account_name,
@@ -168,14 +168,11 @@ def _resolve_fuzzy_probe_tokens(
     """Return the identifier tokens that no indexed document answers exactly.
 
     Existence is deliberately evaluated without the caller's ACL, which is why
-    the predicate lives in retrieval.identifier_is_indexed (SECURITY DEFINER)
-    rather than here. Fuzzing a token the caller may not read would let the
-    trigram arm return its visible near neighbours, which tells the caller that a
-    restricted identifier is indexed. Asking the question under the caller's own
-    role inverts that: retrieval.documents is RLS-forced, so the restricted row
-    is invisible, the token reads as unindexed, and it gets fuzzed -- measured.
-    The arms still apply the ACL to everything they return, so an unreadable
-    exact match yields no rows rather than a near-miss substitute.
+    the predicate lives in retrieval.identifier_is_indexed (SECURITY DEFINER).
+    Fuzzing a token outside the fixed workshop scope could return visible near
+    neighbours and disclose that the hidden identifier is indexed. The arms
+    still apply ACL predicates to returned rows, so an unreadable exact match
+    yields no rows rather than a near-miss substitute.
     """
     if not identifier_tokens:
         return []
@@ -188,6 +185,7 @@ def _resolve_fuzzy_probe_tokens(
                 FROM retrieval.identifier_is_indexed(
                   %(tokens)s::text[],
                   %(kinds)s::text[],
+                  %(source_systems)s::text[],
                   %(cluster_id)s::text,
                   %(incident_id)s::text,
                   %(account_name)s::text,
@@ -262,6 +260,7 @@ def _common_params(
     return {
         "query": request.query,
         "kinds": request.kinds,
+        "source_systems": request.source_systems,
         "cluster_id": request.cluster_id,
         "incident_id": request.incident_id,
         "account_name": request.account_name,
@@ -285,6 +284,7 @@ def _common_params(
 
 _FILTER_ARGUMENTS = """
   p_kinds => %(kinds)s::text[],
+  p_source_systems => %(source_systems)s::text[],
   p_cluster_id => %(cluster_id)s::text,
   p_incident_id => %(incident_id)s::text,
   p_account_name => %(account_name)s::text,

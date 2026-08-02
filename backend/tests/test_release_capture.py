@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import tempfile
 import unittest
 
-from backend.scripts.capture_release_aurora import (
+from labs.incident.capture_observability import (
     METRICS,
     _cloudwatch_samples,
-    _database_insights_samples,
+    _wait_for_database_insights,
     _validate_target,
-    _write_capture,
+    _write_atomic,
 )
 
 
@@ -47,7 +47,22 @@ class FakePerformanceInsights:
                     }
                 ]
             }
-        return {"MetricList": []}
+        return {
+            "MetricList": [
+                {
+                    "Key": {
+                        "Dimensions": {
+                            "db.sql.id": "sql-1",
+                            "db.sql.statement": (
+                                "CREATE INDEX idx_orders_customer_created "
+                                "ON workbench_lab.orders(customer_id, created_at DESC)"
+                            ),
+                        }
+                    },
+                    "DataPoints": [{"Timestamp": NOW, "Value": 1.25}],
+                }
+            ]
+        }
 
 
 class FakeRds:
@@ -82,8 +97,8 @@ class FakeRds:
         }
 
 
-class ReleaseCaptureTests(unittest.TestCase):
-    def test_release_guard_accepts_server_wait_event_casing(self) -> None:
+class LiveObservabilityCaptureTests(unittest.TestCase):
+    def test_live_guard_accepts_server_wait_event_casing(self) -> None:
         diagnostics = (
             Path(__file__).resolve().parents[2] / "sql" / "04_diagnostics.sql"
         ).read_text(encoding="utf-8")
@@ -107,10 +122,11 @@ class ReleaseCaptureTests(unittest.TestCase):
         )
 
     def test_pi_relation_wait_is_normalized_to_postgresql_spelling(self) -> None:
-        samples, _ = _database_insights_samples(
+        samples = _wait_for_database_insights(
             FakePerformanceInsights(),
             resource_id="db-resource-1",
             start_time=NOW,
+            end_time=NOW + timedelta(seconds=30),
             wait_seconds=0,
         )
 
@@ -119,6 +135,7 @@ class ReleaseCaptureTests(unittest.TestCase):
             samples[0]["raw_payload"]["Key"]["Dimensions"]["db.wait_event.name"],
             "Lock:Relation",
         )
+        self.assertIn("CREATE INDEX", samples[1]["statement"])
 
     def test_target_requires_the_writer_instance(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "is not the writer"):
@@ -129,15 +146,11 @@ class ReleaseCaptureTests(unittest.TestCase):
                 instance_id="instance-1",
             )
 
-    def test_capture_output_is_atomic_and_requires_explicit_replacement(self) -> None:
+    def test_capture_output_is_atomic_and_replaces_the_prior_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "capture.json"
-            _write_capture(output, {"capture": {"version": 1}}, force=False)
-
-            with self.assertRaisesRegex(RuntimeError, "already exists"):
-                _write_capture(output, {"capture": {"version": 2}}, force=False)
-
-            _write_capture(output, {"capture": {"version": 2}}, force=True)
+            _write_atomic(output, {"capture": {"version": 1}})
+            _write_atomic(output, {"capture": {"version": 2}})
             self.assertIn('"version": 2', output.read_text(encoding="utf-8"))
 
 

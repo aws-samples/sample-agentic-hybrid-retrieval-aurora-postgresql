@@ -54,8 +54,9 @@ Returns:
       query: z.string().min(1).max(2000),
       incident_id: z.string().optional(),
       cluster_id: z.string().optional(),
-      kinds: z.array(z.enum(["incident", "change", "support_case", "runbook", "lock_evidence", "commitment", "postmortem"])).optional(),
+      kinds: z.array(z.enum(["incident", "change", "lock_evidence", "telemetry"])).optional(),
       limit: z.number().int().min(1).max(50).default(8),
+      source_systems: z.array(z.string()).optional(),
       account_name: z.string().optional(),
       severities: z.array(z.string()).optional(),
       environment: z.string().optional(),
@@ -82,6 +83,7 @@ Returns:
         cluster_id: args.cluster_id,
         kinds: args.kinds,
         limit: args.limit,
+        source_systems: args.source_systems,
         account_name: args.account_name,
         severities: args.severities,
         environment: args.environment,
@@ -110,8 +112,8 @@ Returns:
     `Walk declared relationships out from evidence you already retrieved.
 
 Relationships come from foreign keys, not text similarity, so this is how
-you establish that a change caused an incident or that a runbook was
-superseded. Every hop re-checks the caller's ACL.
+you establish that a measured change caused or repaired an incident.
+Every hop re-checks the caller's ACL.
 
 Returns:
     Each reached record with the relation and depth that reached it.`,
@@ -220,8 +222,9 @@ Returns:
       question: z.string().min(1).max(4000),
       incident_id: z.string().optional(),
       cluster_id: z.string().optional(),
-      kinds: z.array(z.enum(["incident", "change", "support_case", "runbook", "lock_evidence", "commitment", "postmortem"])).optional(),
+      kinds: z.array(z.enum(["incident", "change", "lock_evidence", "telemetry"])).optional(),
       limit: z.number().int().min(1).max(20).default(8),
+      source_systems: z.array(z.string()).optional(),
       account_name: z.string().optional(),
       severities: z.array(z.string()).optional(),
       environment: z.string().optional(),
@@ -250,6 +253,7 @@ Returns:
         cluster_id: args.cluster_id,
         kinds: args.kinds,
         limit: args.limit,
+        source_systems: args.source_systems,
         account_name: args.account_name,
         severities: args.severities,
         environment: args.environment,

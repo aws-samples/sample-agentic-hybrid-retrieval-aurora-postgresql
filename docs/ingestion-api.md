@@ -50,32 +50,17 @@ embedding.
 
 ## Build Commands
 
-Offline deterministic fixture:
+Participant-induced incident, atomic admission, and runtime indexing:
 
 ```bash
-make schema
-make seed-local
+make live-workshop
 ```
 
-search index from already loaded casework and a complete embedding cache:
-
-```bash
-make seed-project
-```
-
-Release-author-only generation of missing Cohere vectors:
-
-```bash
-.venv/bin/python backend/scripts/build_search_index.py \
-  --load-casework \
-  --background-documents 15000 \
-  --provider bedrock \
-  --embed-missing
-```
-
-`--embed-missing` is explicit because it makes billable Bedrock calls. Workshop
-accounts restore precomputed state; participants do not embed 15,000 documents
-during the session.
+The orchestrator invokes the builder with source system
+`pg_incident_capture`, `EMBED_PROVIDER=bedrock`, and an empty run-scoped cache.
+It publishes retrieval readiness only after every current chunk has a runtime
+Cohere embedding and the database reports zero drift. There is no offline
+corpus, seed target, restored vector, or precomputed embedding path.
 
 ## Idempotency
 
@@ -151,4 +136,5 @@ POST /v1/evaluation
 ```
 
 These APIs consume the ready search index. They do not mutate authoritative
-casework.
+casework. `SearchRequest.source_systems` is optional for evaluation callers and
+required by the participant frontend and agent path.

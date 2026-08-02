@@ -1,5 +1,8 @@
 {
-  "query": "same SQL signature index rehearsal staging production",
+  "query": "ordinary CREATE INDEX writer wait concurrent repair relation lock",
+  "source_systems": [
+    "pg_incident_capture"
+  ],
   "rerank": false,
-  "limit": 12
+  "limit": 8
 }

@@ -28,6 +28,17 @@ class ParticipantCheckpointTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
         self.root = Path(self.temp_dir.name)
+        self.suffix = "A1B2C3D4"
+        self.run_keys = {
+            "incident_key": f"INC-{self.suffix}",
+            "unsafe_change_key": f"CHG-{self.suffix}-01",
+            "repair_change_key": f"CHG-{self.suffix}-02",
+            "lock_key": f"LOCK-{self.suffix}-01",
+        }
+        self.receipt = self.write(
+            "indexing-receipt.json",
+            {"run_suffix": self.suffix, **self.run_keys},
+        )
 
     def write(self, name: str, payload: dict) -> str:
         path = self.root / name
@@ -60,59 +71,79 @@ class ParticipantCheckpointTests(unittest.TestCase):
         )
         return {
             "external_key": external_key,
+            "source_system": CHECKPOINT.PARTICIPANT_SOURCE_SYSTEM,
             "rrf_score": score,
             "explanation": {"positions": positions},
         }
 
-    def test_filter_requires_the_seeded_distractor_and_target_scope(self) -> None:
-        before = self.write(
-            "before.json",
+    def test_filter_requires_mixed_baseline_and_only_live_changes(self) -> None:
+        baseline = self.write(
+            "baseline.json",
             {
                 "results": [
                     {
-                        "external_key": "CHG-1840",
-                        "cluster_id": "checkout-stage-cluster-01",
+                        "external_key": self.run_keys["incident_key"],
+                        "source_system": CHECKPOINT.PARTICIPANT_SOURCE_SYSTEM,
+                        "evidence_kind": "incident",
+                    },
+                    {
+                        "external_key": self.run_keys["unsafe_change_key"],
+                        "source_system": CHECKPOINT.PARTICIPANT_SOURCE_SYSTEM,
+                        "evidence_kind": "change",
                     }
                 ]
             },
         )
-        after = self.write(
-            "after.json",
+        filtered = self.write(
+            "filtered.json",
             {
                 "results": [
                     {
-                        "external_key": "INC-2047",
-                        "cluster_id": CHECKPOINT.TARGET_CLUSTER,
-                    }
+                        "external_key": self.run_keys["unsafe_change_key"],
+                        "source_system": CHECKPOINT.PARTICIPANT_SOURCE_SYSTEM,
+                        "evidence_kind": "change",
+                    },
+                    {
+                        "external_key": self.run_keys["repair_change_key"],
+                        "source_system": CHECKPOINT.PARTICIPANT_SOURCE_SYSTEM,
+                        "evidence_kind": "change",
+                    },
                 ]
             },
         )
 
-        CHECKPOINT.check_filter(before, after)
+        CHECKPOINT.check_filter(baseline, filtered, self.receipt)
 
     def test_filter_rejects_an_out_of_scope_result(self) -> None:
-        before = self.write(
-            "before.json",
-            {"results": [{"external_key": "INC-2044"}]},
-        )
-        after = self.write(
-            "after.json",
+        baseline = self.write(
+            "baseline.json",
             {
                 "results": [
                     {
-                        "external_key": "INC-2044",
-                        "cluster_id": "checkout-stage-cluster-01",
+                        "external_key": "UNEXPECTED-001",
+                        "source_system": "unexpected_source",
+                        "evidence_kind": "incident",
+                    }
+                ]
+            },
+        )
+        filtered = self.write(
+            "filtered.json",
+            {
+                "results": [
+                    {
+                        "external_key": self.run_keys["unsafe_change_key"],
+                        "source_system": CHECKPOINT.PARTICIPANT_SOURCE_SYSTEM,
+                        "evidence_kind": "change",
                     }
                 ]
             },
         )
 
-        with self.assertRaisesRegex(SystemExit, "out-of-scope evidence"):
-            CHECKPOINT.check_filter(before, after)
+        with self.assertRaisesRegex(SystemExit, "outside pg_incident_capture"):
+            CHECKPOINT.check_filter(baseline, filtered, self.receipt)
 
-    def test_fusion_requires_recomputed_scores_and_the_expected_leader_change(
-        self,
-    ) -> None:
+    def test_fusion_recomputes_observed_live_scores(self) -> None:
         baseline_weights = {"text": 2.0, "vector": 1.0, "fuzzy": 1.0}
         tuned_weights = {"text": 0.0, "vector": 4.0, "fuzzy": 0.0}
         baseline = self.write(
@@ -121,7 +152,7 @@ class ParticipantCheckpointTests(unittest.TestCase):
                 "knobs": {"weights": baseline_weights, "rrf_k": 60},
                 "results": [
                     self.result(
-                        "INC-2047",
+                        self.run_keys["incident_key"],
                         text_position=1,
                         semantic_position=2,
                         fuzzy_position=None,
@@ -136,7 +167,7 @@ class ParticipantCheckpointTests(unittest.TestCase):
                 "knobs": {"weights": tuned_weights, "rrf_k": 60},
                 "results": [
                     self.result(
-                        "CASE-7419",
+                        self.run_keys["unsafe_change_key"],
                         text_position=3,
                         semantic_position=1,
                         fuzzy_position=None,
@@ -146,21 +177,26 @@ class ParticipantCheckpointTests(unittest.TestCase):
             },
         )
 
-        CHECKPOINT.check_fusion(baseline, tuned)
+        CHECKPOINT.check_fusion(baseline, tuned, self.receipt)
 
     def test_agent_requires_traversal_and_comparison_independently(self) -> None:
         plan, traversal, comparison = self.agent_payloads()
-        CHECKPOINT.check_agent(plan, traversal, comparison)
+        CHECKPOINT.check_agent(plan, traversal, comparison, self.receipt)
 
         comparison = self.write("empty-comparison.json", {"relationships": []})
         with self.assertRaisesRegex(SystemExit, "source comparison is missing"):
-            CHECKPOINT.check_agent(plan, traversal, comparison)
+            CHECKPOINT.check_agent(
+                plan,
+                traversal,
+                comparison,
+                self.receipt,
+            )
 
     def agent_payloads(self) -> tuple[str, str, str]:
         plan = self.write(
             "plan.json",
             {
-                "identified_keys": ["CHG-1842", "INC-2047"],
+                "identified_keys": sorted(self.run_keys.values()),
                 "subquestions": [
                     {"required_kinds": sorted(CHECKPOINT.REQUIRED_KINDS)}
                 ],

@@ -21,7 +21,7 @@ class LambdaMcpContractTests(unittest.TestCase):
         response = lambda_handler(
             {
                 "tool": "decompose_question",
-                "question": "Why did CHG-1842 cause INC-2047?",
+                "question": "Why did CHG-A1B2C3D4-01 cause INC-A1B2C3D4?",
             },
             None,
         )
@@ -29,7 +29,10 @@ class LambdaMcpContractTests(unittest.TestCase):
         self.assertFalse(response["isError"])
         result = _payload(response)["result"]
         self.assertEqual(result["contract_version"], "1.0.0")
-        self.assertEqual(result["identified_keys"], ["CHG-1842", "INC-2047"])
+        self.assertEqual(
+            result["identified_keys"],
+            ["CHG-A1B2C3D4-01", "INC-A1B2C3D4"],
+        )
 
     def test_search_uses_database_incident_filter_names(self) -> None:
         with patch(
@@ -43,7 +46,7 @@ class LambdaMcpContractTests(unittest.TestCase):
                         "query": "blocked writes",
                         "kinds": ["incident", "change"],
                         "cluster_id": "checkout-prod-cluster-01",
-                        "incident_id": "INC-2047",
+                        "incident_id": "INC-A1B2C3D4",
                         "limit": 5,
                     },
                 },
@@ -55,7 +58,8 @@ class LambdaMcpContractTests(unittest.TestCase):
             query="blocked writes",
             kinds=["incident", "change"],
             cluster_id="checkout-prod-cluster-01",
-            incident_id="INC-2047",
+            incident_id="INC-A1B2C3D4",
+            source_systems=None,
             account_name=None,
             severities=None,
             environment=None,
@@ -110,7 +114,9 @@ class LambdaMcpContractTests(unittest.TestCase):
                 {
                     "name": "answer_with_citations",
                     "arguments": {
-                        "question": "Why did CHG-1842 cause INC-2047?",
+                        "question": (
+                            "Why did CHG-A1B2C3D4-01 cause INC-A1B2C3D4?"
+                        ),
                         "max_escalations": 0,
                     },
                 },

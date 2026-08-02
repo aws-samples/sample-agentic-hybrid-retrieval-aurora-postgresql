@@ -15,10 +15,8 @@ from app.config import get_settings
 from app.db import close_pool, get_owner_conn
 from app.embeddings import hash_embedding
 from app.search_index import EmbeddingCache, rebuild_search_index
-from seed.capture import capture_offline_lock_fixture, validate_capture_bundle
-from seed.corpus import load_casework
 
-RELEASE_CACHE = Path("seed/artifacts/casework-embeddings.jsonl")
+DEFAULT_LIVE_CACHE = Path("data/generated/live-embeddings.jsonl")
 
 
 def _stage_cache(cache_path: Path) -> Path:
@@ -58,29 +56,7 @@ def _publish_cache(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Load deterministic casework and rebuild its search index."
-    )
-    parser.add_argument("--load-casework", action="store_true")
-    parser.add_argument("--background-documents", type=int, default=15000)
-    capture_group = parser.add_mutually_exclusive_group()
-    capture_group.add_argument(
-        "--capture-bundle",
-        type=Path,
-        help="load a previously captured PostgreSQL/Aurora incident bundle",
-    )
-    capture_group.add_argument(
-        "--offline-capture",
-        action="store_true",
-        help=(
-            "generate genuine local PostgreSQL lock evidence labeled offline_test; "
-            "this can never satisfy the Aurora release gate"
-        ),
-    )
-    parser.add_argument("--offline-capture-rows", type=int, default=25000)
-    parser.add_argument(
-        "--require-release-capture",
-        action="store_true",
-        help="reject any capture bundle not labeled and validated as release_aurora",
+        description="Project admitted live evidence into the search index."
     )
     parser.add_argument("--provider", choices=("bedrock", "hash"), default="bedrock")
     parser.add_argument(
@@ -95,42 +71,40 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cache",
         type=Path,
-        help="embedding cache path; defaults to the release artifact for "
-        "--provider bedrock and to a local scratch cache for --provider hash",
+        help="runtime cache for embeddings generated from admitted live evidence",
     )
     parser.add_argument(
         "--verify-cache",
         action="store_true",
-        help=(
-            "require the embedding cache to match its shipped manifest before "
-            "indexing, so every workshop account ranks identically"
-        ),
+        help="require the runtime embedding cache to match its manifest",
     )
     parser.add_argument(
         "--write-cache-manifest",
         action="store_true",
-        help="rewrite the cache manifest after indexing; use when regenerating "
-        "the release artifact",
+        help="rewrite the runtime embedding cache manifest after indexing",
+    )
+    parser.add_argument(
+        "--source-system",
+        action="append",
+        dest="source_systems",
+        help=(
+            "project only this authoritative source system; repeat for multiple "
+            "sources. Out-of-scope current documents are left unchanged"
+        ),
     )
     return parser
 
 
 def main() -> int:
     args = _parser().parse_args()
-    if args.background_documents < 0:
-        raise SystemExit("--background-documents must be non-negative")
     if args.batch_size < 1:
         raise SystemExit("--batch-size must be positive")
-    if args.offline_capture_rows < 1000:
-        raise SystemExit("--offline-capture-rows must be at least 1000")
     if args.provider == "hash" and args.embed_missing:
         raise SystemExit("--embed-missing is only valid with --provider bedrock")
-    if args.load_casework and not (args.capture_bundle or args.offline_capture):
+    if args.source_systems and args.write_cache_manifest:
         raise SystemExit(
-            "--load-casework requires --capture-bundle or --offline-capture"
+            "--source-system cannot be combined with --write-cache-manifest"
         )
-    if args.require_release_capture and not args.capture_bundle:
-        raise SystemExit("--require-release-capture requires --capture-bundle")
 
     settings = get_settings()
     if args.provider == "hash":
@@ -142,7 +116,7 @@ def main() -> int:
         model_id = settings.bedrock_embedding_model
         embed_missing = args.embed_missing
         embedder = None
-        default_cache = RELEASE_CACHE
+        default_cache = DEFAULT_LIVE_CACHE
     cache_path = args.cache or default_cache
 
     # Verification reads the cache before indexing, so a run that also writes
@@ -152,13 +126,6 @@ def main() -> int:
             "--verify-cache cannot be combined with a run that writes embeddings; "
             "embed first with --write-cache-manifest, then verify in a second run"
         )
-    if embed_missing and cache_path == RELEASE_CACHE and not args.write_cache_manifest:
-        raise SystemExit(
-            f"refusing to add embeddings to the release cache {RELEASE_CACHE} "
-            "without --write-cache-manifest, which would leave the shipped "
-            "manifest stale; pass --cache <scratch path> for test seeding"
-        )
-
     staged_cache_path: Path | None = None
     working_cache_path = cache_path
     if args.write_cache_manifest:
@@ -166,29 +133,7 @@ def main() -> int:
         working_cache_path = staged_cache_path
 
     try:
-        capture_bundle = None
-        if args.capture_bundle:
-            capture_bundle = json.loads(
-                args.capture_bundle.read_text(encoding="utf-8")
-            )
-            validate_capture_bundle(
-                capture_bundle,
-                require_release=args.require_release_capture,
-            )
-        elif args.offline_capture:
-            capture_bundle = capture_offline_lock_fixture(
-                settings.database_url,
-                row_count=args.offline_capture_rows,
-            )
-
         with get_owner_conn() as conn:
-            casework = None
-            if args.load_casework:
-                casework = load_casework(
-                    conn,
-                    capture_bundle=capture_bundle,
-                    background_documents=args.background_documents,
-                )
             search_index = rebuild_search_index(
                 conn,
                 model_id=model_id,
@@ -198,6 +143,7 @@ def main() -> int:
                 embedder=embedder,
                 verify_cache=args.verify_cache,
                 prune_unused_cache_entries=args.write_cache_manifest,
+                source_systems=args.source_systems,
             )
             with conn.cursor() as cursor:
                 cursor.execute("SELECT retrieval.assert_search_index_ready()")
@@ -213,7 +159,6 @@ def main() -> int:
         print(
             json.dumps(
                 {
-                    "casework": casework,
                     "search_index": search_index,
                     "cache_manifest": cache_manifest,
                     "health": health,

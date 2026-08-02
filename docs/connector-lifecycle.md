@@ -5,8 +5,20 @@ connector responsibilities a production system would add.
 
 ## Workshop Lifecycle
 
-The deterministic corpus loader writes normalized `casework.*` rows, queues
-every source revision, and invokes one bulk search index build. The builder scans
+The participant lifecycle starts with an empty schema and one guided live run.
+It has no checked-in fallback:
+
+```text
+live write stall + 30 PostgreSQL samples + AWS observations
+    -> deterministic projection of measured telemetry
+    -> atomic run-scoped admission
+    -> 104-111 pending source revisions
+    -> runtime Cohere embedding build
+    -> indexing receipt enables retrieval
+```
+
+The live orchestrator writes normalized `casework.*` rows, queues every source
+revision, and invokes one source-scoped search-index build. The builder scans
 `casework.v_evidence_documents`, skips deterministic versions already ready,
 and completes matching outbox rows.
 
@@ -97,7 +109,7 @@ generic untyped source-object table.
 
 | Failure | Current behavior | Recovery |
 |---|---|---|
-| Missing embedding cache entry | Build fails before search index writes | Generate the missing vector explicitly or restore the release cache |
+| Runtime embedding call fails | Build fails before retrieval readiness | Restore Bedrock access and retry the current live run build |
 | Model or network failure during generation | Build receipt is `failed` | Retry only after checking model access and cache state |
 | Per-document database error | Current transaction rolls back; build is marked failed | Correct the row/schema issue and rerun idempotently |
 | Process stops after partial progress | Promoted versions remain valid; remaining drift is visible | Rerun the search index builder and readiness assertion |

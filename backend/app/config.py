@@ -50,12 +50,6 @@ class Settings(BaseModel):
     database_url: str = Field(
         default_factory=lambda: os.environ.get("DATABASE_URL", "")
     )
-    workshop_app_database_url: str = Field(
-        default_factory=lambda: os.environ.get("WORKSHOP_APP_DATABASE_URL", "")
-    )
-    workbench_security_enabled: bool = Field(
-        default_factory=lambda: _env_bool("WORKBENCH_SECURITY_ENABLED", False)
-    )
     database_connect_timeout_seconds: int = Field(
         default_factory=lambda: _env_int(
             "DATABASE_CONNECT_TIMEOUT_SECONDS", 10, minimum=1
@@ -93,9 +87,8 @@ class Settings(BaseModel):
             "CORS_ALLOW_ORIGIN_REGEX", r"https?://(localhost|127\.0\.0\.1):[0-9]+"
         )
     )
-    # Default to real Cohere embed-v4 so live query embeddings share the exact
-    # vector space as the seeded corpus (the shipped dump is Cohere-embedded).
-    # Set EMBED_PROVIDER=hash only for an offline, no-Bedrock corpus.
+    # Default to Cohere Embed 4 so live queries use the same vector space as
+    # documents embedded during the participant's current incident run.
     embed_provider: str = Field(
         default_factory=lambda: os.environ.get("EMBED_PROVIDER", "bedrock")
     )
@@ -145,15 +138,6 @@ class Settings(BaseModel):
     app_display_name: str = Field(
         default_factory=lambda: os.environ.get(
             "APP_DISPLAY_NAME", "Hybrid Retrieval Workbench"
-        )
-    )
-    # Display identity for the live banner (SPEC 6.1, Law 1). The workshop conceit
-    # is that the retrieval engine runs on the same Aurora cluster the incident is
-    # about, so this doubles as the incident's cluster label. Env-sourced, never a
-    # value the frontend hardcodes.
-    workbench_cluster_id: str = Field(
-        default_factory=lambda: os.environ.get(
-            "WORKBENCH_CLUSTER_ID", "checkout-prod-cluster-01"
         )
     )
     # Database Insights hand-off (SPEC 6.3 / 5.4). The Aurora DbiResourceId and

@@ -29,7 +29,16 @@ BEGIN
   SELECT count(*) INTO full_drift_issues FROM retrieval.v_search_index_drift;
 
   IF health.source_documents = 0 THEN
-    RAISE EXCEPTION 'casework corpus is empty';
+    RETURN jsonb_build_object(
+      'status', 'awaiting_incident',
+      'source_documents', 0,
+      'current_documents', 0,
+      'current_chunks', 0,
+      'ready_embeddings', 0,
+      'drift_issues', full_drift_issues,
+      'last_indexed_at', NULL,
+      'embedding_spaces', '[]'::jsonb
+    );
   END IF;
 
   IF full_drift_issues <> 0 THEN

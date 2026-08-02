@@ -23,7 +23,9 @@ from backend.app.strands_agent import (
 )
 
 RUN_ID = "1e5a4f2c-0000-4000-8000-00000000000f"
-VALIDATED_ANSWER = "CHG-1842 took a ShareLock that blocked writers [1]."
+VALIDATED_ANSWER = (
+    "CHG-A1B2C3D4-01 took a ShareLock that blocked writers [1]."
+)
 
 SEARCH_RESULT = {
     "run_id": RUN_ID,
@@ -31,7 +33,7 @@ SEARCH_RESULT = {
     "match_tiers": [{"tier": 1, "count": 1}],
     "results": [
         {
-            "external_key": "CHG-1842",
+            "external_key": "CHG-A1B2C3D4-01",
             "title": "Add composite index on orders",
             "evidence_kind": "change",
             "source_revision": "rev-4",
@@ -45,7 +47,13 @@ SYNTHESIS_RESULT = {
     "source_run_ids": [RUN_ID],
     "required_kinds": ["change"],
     "answer": VALIDATED_ANSWER,
-    "citations": [{"n": 1, "external_key": "CHG-1842", "source_revision": "rev-4"}],
+    "citations": [
+        {
+            "n": 1,
+            "external_key": "CHG-A1B2C3D4-01",
+            "source_revision": "rev-4",
+        }
+    ],
     "synthesis": {"mode": "bedrock"},
 }
 
@@ -121,7 +129,7 @@ def _agent_with(script: list[Any]):
 class StrandsAgentTests(unittest.TestCase):
     def test_stream_publishes_validated_citations_before_answer_tokens(self) -> None:
         script = [
-            ("search_evidence", '{"query": "CHG-1842"}'),
+            ("search_evidence", '{"query": "CHG-A1B2C3D4-01"}'),
             (
                 "synthesize_cited_answer",
                 '{"question": "Why did writes block?", "run_ids": ["%s"]}' % RUN_ID,
@@ -158,7 +166,7 @@ class StrandsAgentTests(unittest.TestCase):
 
     def test_caller_receives_the_validated_answer_not_the_models_prose(self) -> None:
         script = [
-            ("search_evidence", '{"query": "CHG-1842"}'),
+            ("search_evidence", '{"query": "CHG-A1B2C3D4-01"}'),
             (
                 "synthesize_cited_answer",
                 '{"question": "Why did writes block?", "run_ids": ["%s"]}' % RUN_ID,
@@ -205,7 +213,9 @@ class StrandsAgentTests(unittest.TestCase):
     def test_the_tool_call_budget_stops_a_looping_model(self) -> None:
         # Strands continues a tool cycle by recursing in Python, so a model that
         # ignores the cancellation must be stopped or it exhausts the stack.
-        script = [("search_evidence", '{"query": "CHG-1842"}')]
+        script = [
+            ("search_evidence", '{"query": "CHG-A1B2C3D4-01"}')
+        ]
         with (
             patch(
                 "backend.app.agent_tools.search_evidence_impl",
@@ -224,12 +234,12 @@ class StrandsAgentTests(unittest.TestCase):
 
     def test_a_failed_loop_still_returns_an_answer_aurora_validated(self) -> None:
         script = [
-            ("search_evidence", '{"query": "CHG-1842"}'),
+            ("search_evidence", '{"query": "CHG-A1B2C3D4-01"}'),
             (
                 "synthesize_cited_answer",
                 '{"question": "Why did writes block?", "run_ids": ["%s"]}' % RUN_ID,
             ),
-            ("search_evidence", '{"query": "CHG-1842"}'),
+            ("search_evidence", '{"query": "CHG-A1B2C3D4-01"}'),
         ]
         with (
             patch(
@@ -251,7 +261,10 @@ class StrandsAgentTests(unittest.TestCase):
         self.assertIn("budget of 2", result["error"])
 
     def test_the_request_role_reaches_the_tools(self) -> None:
-        script = [("search_evidence", '{"query": "CHG-1842"}'), "Done."]
+        script = [
+            ("search_evidence", '{"query": "CHG-A1B2C3D4-01"}'),
+            "Done.",
+        ]
         with (
             patch(
                 "backend.app.agent_tools.search_evidence_impl",

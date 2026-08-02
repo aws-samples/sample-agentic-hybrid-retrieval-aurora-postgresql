@@ -12,7 +12,8 @@ Hybrid Retrieval Workbench exposes two answer paths over the same tools and the 
 
 Both write the same ``proof.*`` receipts through the same owning
 implementations, so a run from either path replays identically. Neither contains
-ranking logic: Aurora ranks, and the agent only decides what to ask it.
+ranking logic: the retrieval SQL functions rank, and the agent only decides what
+to ask them.
 """
 
 from __future__ import annotations
@@ -36,20 +37,18 @@ Aurora PostgreSQL.
 
 Every claim you make must come from a tool result. You have no knowledge of this \
 company's incidents beyond what the tools return.
+The server may bind searches to an authoritative source scope. Never ask a tool \
+to widen or replace that scope.
 
 Work in this order, adapting when a result tells you to:
 1. decompose_question, to learn which identifiers and cluster the question names.
-2. search_evidence for the incident evidence using the inferred filters. Keep \
-every run_id it returns.
-3. When the question asks for reusable guidance such as a runbook, make a \
-separate search_evidence call for that subquestion. Keep ACLs unchanged, but set \
-cluster_id and incident_id to null because reusable guidance carries neither. \
-Use JSON null, never the string "null". Keep that run_id too.
-4. follow_evidence_links from keys you retrieved, when the question asks what \
+2. search_evidence for each measured evidence requirement using the inferred \
+filters. Keep every run_id it returns.
+3. follow_evidence_links from keys you retrieved, when the question asks what \
 caused something or which record is current. Declared relationships are the only \
 proof of causation; text similarity is not.
-5. compare_sources when two records compete, to rule one out on scope or revision.
-6. synthesize_cited_answer with all supporting run_ids, last. It will refuse to \
+4. compare_sources when two records compete, to rule one out on scope or revision.
+5. synthesize_cited_answer with all supporting run_ids, last. It will refuse to \
 synthesize if any evidence kind required by the decomposed question is absent.
 
 synthesize_cited_answer produces the answer of record. Its citations are \
@@ -233,7 +232,7 @@ def answer_question_with_strands(request: AgentAnswerRequest) -> dict[str, Any]:
         run_ids and latencies, and the run_id of the answer of record.
     """
     started = perf_counter()
-    run = agent_tools.start_run(request.role)
+    run = agent_tools.start_run(request.role, request.source_systems)
     agent = build_agent(max_tool_calls=request.max_tool_calls)
 
     response: dict[str, Any] = {
@@ -274,7 +273,7 @@ async def stream_answer_with_strands(
         model's closing message.
     """
     started = perf_counter()
-    run = agent_tools.start_run(request.role)
+    run = agent_tools.start_run(request.role, request.source_systems)
     trace = run["trace"]
     agent = build_agent(max_tool_calls=request.max_tool_calls)
 

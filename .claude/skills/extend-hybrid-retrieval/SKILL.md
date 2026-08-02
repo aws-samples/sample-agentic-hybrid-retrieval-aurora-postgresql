@@ -23,7 +23,8 @@ connector or mutation.
 
 - Source or search index change: `docs/ingestion-api.md`,
   `docs/connector-lifecycle.md`, `casework.v_evidence_documents` in
-  `sql/01_schema.sql`, `backend/app/search_index.py`, and `seed/corpus.py`.
+  `sql/01_schema.sql`, `sql/10_admission.sql`,
+  `labs/incident/run_live_workshop.py`, and `backend/app/search_index.py`.
 - Retrieval or scoring change: `sql/03_search_functions.sql`,
   `backend/app/search.py`, and `backend/app/models.py`.
 - Citation or answer change: `backend/app/agent.py`,
@@ -50,7 +51,7 @@ API.
 - Fuse rank positions once through weighted RRF. Raw arm scores remain
   diagnostics and are not added again to `final_score`.
 - Treat Cohere Rerank as a post-fusion ordering stage. Preserve both
-  `rerank_score` and Aurora's RRF score.
+  `rerank_score` and PostgreSQL RRF score.
 - Persist `proof.retrieval_runs`, candidates, and stages before synthesis.
 - Build citations only from retrieved document and chunk versions and validate
   URI, revision, and quote.
@@ -63,9 +64,9 @@ API.
 
 | Concern | Required proof |
 |---|---|
-| Exact identifier | `CHG-1842` is lexical rank 1 under its cluster filter. |
+| Exact identifier | The receipt-derived unsafe change is tier-one rank 1. |
 | Semantic recall | A paraphrase retrieves the relevant incident evidence in the configured model space. |
-| Fuzzy matching | `CGH-1842` resolves to `CHG-1842` without becoming an unbounded body scan. |
+| Fuzzy matching | `CGH-<run-suffix>-01` resolves to `CHG-<run-suffix>-01` without becoming an unbounded body scan. |
 | Filters and ACLs | Out-of-scope and restricted evidence never enters an arm or traversal hop. |
 | Fusion | Arm positions, weights, RRF, and optional rerank remain inspectable and separate. |
 | Search index | Unchanged rows skip work; changed rows version; tombstones supersede; drift is zero. |
@@ -78,14 +79,15 @@ Use repository commands where applicable:
 ```bash
 make doctor
 make schema
-make seed-local
+make live-workshop
 make smoke
 make test
 git diff --check
 ```
 
-Do not run schema, seed, smoke, or resettable integration tests without an
-explicit disposable database.
+Do not run schema, live-workshop, smoke, or resettable integration tests without
+an explicit disposable database. Never substitute a fixture, prior capture,
+local embedding, or precomputed vector when the live path fails.
 
 ## 5. Report the Receipt
 

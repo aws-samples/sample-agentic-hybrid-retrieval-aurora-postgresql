@@ -7,9 +7,10 @@ a replacement for an incident-management, change-management, support, or
 observability system.
 
 ```text
-Operational systems or normalized domain tables
+Participant-induced Aurora write stall
+PostgreSQL catalogs + CloudWatch + Performance Insights
                   |
-                  | stable ID, source URI, revision, ACL
+                  | one capture ID + bounded run window
                   v
        casework.* authoritative records
                   |
@@ -32,10 +33,12 @@ Operational systems or normalized domain tables
       cited answer through HTTP or MCP
 ```
 
-Inside the workshop, `casework.*` is a controlled synthetic source-of-record
-fixture. In production, the equivalent input can be approved domain tables,
-views, exports, events, or connector output. The original systems still own
-workflow, current permissions, mutable state, and actions.
+Inside the workshop, `casework.*` contains only measurements from the
+participant's current run. Provisioning starts with zero evidence. No fixture,
+dump, authored record, or earlier capture enters the participant path. In
+production, equivalent inputs can come from approved domain tables, views,
+events, or connectors; the original systems still own workflow, current
+permissions, mutable state, and actions.
 
 ## Controlled Incident Substrate
 
@@ -44,16 +47,22 @@ the PostgreSQL locking mechanism before retrieval begins. It is deliberately
 outside all three application ownership schemas:
 
 ```text
-Three participant psql sessions
-  ordinary CREATE INDEX | reader and writer | catalog observer
+One guided participant orchestrator
+  ordinary CREATE INDEX | six writers | two readers | 30 samples
                          |
                          v
         workbench_lab.orders + PostgreSQL lock catalogs
                          |
-               measured JSON snapshot
+          PostgreSQL and AWS measurements
                          |
                          v
-          optional casework.admit_evidence
+       atomic casework.admit_evidence bundle
+                         |
+                         v
+      deterministic telemetry projection
+                         |
+                         v
+       runtime Cohere embedding build
 ```
 
 The ordinary phase holds the real `CREATE INDEX` transaction open after the
@@ -66,24 +75,25 @@ The build holds `ShareUpdateExclusiveLock` and may wait on the older virtual
 transaction, while another `UPDATE` completes. The final check requires the
 index to be ready, valid, and live.
 
-The measured snapshot can enter `casework` through the admission contract, but
-admission only queues retrieval projection. It does not synchronously generate
-an embedding or make the new row searchable. The preloaded `INC-2047` corpus
-remains the deterministic retrieval and evaluation fixture.
+The unsafe samples, repair, statement deltas, CloudWatch metrics, and
+Performance Insights observations are all required. Admission atomically
+writes `INC-<run-suffix>`, measured changes `CHG-<run-suffix>-01/02`, primary
+lock evidence `LOCK-<run-suffix>-01`, and `TEL-<run-suffix>-...` telemetry
+documents. The orchestrator projects only source system
+`pg_incident_capture`, generates runtime Cohere embeddings, and publishes a
+receipt only when 100-120 documents are current and ready.
 
-## Core and Optional Security Modes
+The participant frontend and agent requests always carry
+`source_systems=["pg_incident_capture"]` and derive identifiers from that
+receipt. The Overview main graphic is illustrative and never enters retrieval.
 
-The core workshop path is incident hybrid retrieval through cited synthesis,
-diagnostics, and replay. `make schema` applies `sql/00` through `sql/10`;
-`WORKBENCH_SECURITY_ENABLED` defaults off; and the API uses `DATABASE_URL`
-without assuming a PostgreSQL persona role. Core release validation therefore
-does not require RLS or `pg_columnmask`.
+## Participant Mode
 
-The optional security appendix applies `sql/11_roles_rls.sql` and
-`sql/12_masking.sql`, enables `WORKBENCH_SECURITY_ENABLED=1`, and requires a
-non-owner `WORKSHOP_APP_DATABASE_URL`. It adds transaction-scoped persona roles,
-forced RLS, and Auditor masking without changing the owning retrieval or proof
-contracts. These controls are appendix validation, not default release gates.
+The workshop path is live incident retrieval through cited synthesis,
+diagnostics, and replay. `make schema` applies the core schema and the API uses
+the participant database directly. The corpus contains no authored restricted
+records, so role comparison, masking, and fictional access-control exercises
+are outside this workshop.
 
 ## Three Ownership Layers
 
@@ -92,16 +102,14 @@ contracts. These controls are appendix validation, not default release gates.
 `casework.evidence_items` supplies stable evidence identity, source provenance,
 ACL metadata, and tombstone state. Typed tables hold the domain facts:
 
-- incidents and Aurora PostgreSQL clusters
-- changes and executed SQL
-- support cases and customer commitments
-- runbooks and version applicability
-- controlled lock evidence
+- participant-induced capture runs and Aurora PostgreSQL identity
+- measured incidents, changes, and executed SQL
+- raw PostgreSQL, CloudWatch, and Performance Insights rows
+- controlled lock evidence and searchable telemetry projections
 
-Join tables express incident-to-change, incident-to-case, and
-incident-to-runbook relationships with foreign keys. Lock evidence references
-its incident directly. These relations are authoritative in the workshop
-model.
+Foreign keys express incident-to-change, lock-to-change, lock-to-incident, and
+telemetry-to-incident relationships. These relations are authoritative in the
+workshop model.
 
 ### 2. `retrieval`: derived search state
 
@@ -134,7 +142,7 @@ are stored separately. Synthesis persists the answer and exact citations.
 The proof layer answers:
 
 - Which query, filters, workshop context, model space, and ANN controls were
-  used, including persona when the optional appendix is enabled?
+  used?
 - Which candidates entered the final result and from which retrieval arms?
 - What were the lexical, vector, fuzzy, RRF, and optional rerank signals?
 - Which source revision and chunk supports each cited claim?
@@ -142,13 +150,12 @@ The proof layer answers:
 
 ## Retrieval Path
 
-All retrieval arms apply metadata filters and an ACL predicate before candidates
-enter fusion: `retrieval.acl_visible(document.acl)` where the arm reads the JSONB,
+All retrieval arms apply source-system and metadata filters plus an ACL
+predicate before candidates enter fusion:
+`retrieval.acl_visible(document.acl)` where the arm reads the JSONB,
 `retrieval.acl_scalars_visible(acl_visibility)` where it reads the projected
-column. In core mode both expose the fixed workshop-visible scope and do not
-require database roles. The optional security appendix replaces the same
-function signatures with persona-aware predicates and adds RLS as a backstop if
-an arm omits the predicate.
+column. Both expose the fixed workshop-visible scope and do not require
+database roles.
 
 1. **Exact and full text:** boundary-aware identifier matching plus separate
    document and chunk `tsvector` streams.
@@ -159,7 +166,7 @@ an arm omits the predicate.
    exact identifier receives a separate lexical vote using the text weight. Raw
    arm scores are retained for diagnostics and are not added to the fused score.
 5. **Rerank:** Cohere Rerank v3.5 can reorder the fused candidate pool. The
-   Aurora RRF score and model rerank score remain separate.
+   PostgreSQL RRF score and model rerank score remain separate.
 
 The default RRF weights are lexical `2`, semantic `1`, fuzzy `1`, with
 `k=60`. These are workshop defaults and evaluation inputs, not universal
@@ -172,11 +179,8 @@ uniform read surface and unions separately governed inferred edges. Canonical
 edges have confidence `1` and retain their relational rationale. Inferred edges
 retain method, confidence, and source revision.
 
-Recursive traversal enforces ACLs at the seed and at every hop. It never turns
-an inferred relation into a foreign-key fact.
-
-In core mode that means the fixed workshop-visible scope at every hop. In the
-optional appendix, the same hop checks run under the assumed PostgreSQL persona.
+Recursive traversal enforces the fixed workshop-visible scope at the seed and
+at every hop. It never turns an inferred relation into a foreign-key fact.
 
 ## Agent Boundary
 
@@ -244,7 +248,3 @@ Editor, AgentCore Gateway, Lambda deployment, and the packaged source archive.
 Local PostgreSQL validation proves PostgreSQL semantics. Final release
 validation must also run against the target Aurora PostgreSQL engine and
 Workshop Studio network path.
-
-The default release validates the core path. Publishing the optional security
-appendix additionally requires Aurora support for `pg_columnmask` and passing
-security gates; a skipped mask migration or a `BLOCKED` gate is not a pass.

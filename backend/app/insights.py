@@ -32,7 +32,16 @@ def _readiness_payload(
     embedding_spaces: list[dict[str, Any]],
 ) -> dict[str, Any]:
     if health["source_documents"] == 0:
-        raise RuntimeError("casework corpus is empty")
+        if health["drift_issues"] != 0:
+            raise RuntimeError(
+                "empty casework has search-index drift; apply the current schema"
+            )
+        return {
+            "status": "awaiting_incident",
+            "security_mode": "core",
+            **health,
+            "embedding_spaces": [],
+        }
     if health["drift_issues"] != 0:
         raise RuntimeError(
             f"search index has {health['drift_issues']} operational drift issue(s)"
@@ -52,9 +61,7 @@ def _readiness_payload(
         )
     return {
         "status": "ready",
-        "security_mode": (
-            "persona" if get_settings().workbench_security_enabled else "core"
-        ),
+        "security_mode": "core",
         **health,
         "embedding_spaces": embedding_spaces,
     }
@@ -63,9 +70,9 @@ def _readiness_payload(
 def _cluster_identity(cursor: Any) -> dict[str, Any]:
     """Fetch live engine identity for the SPEC 6.1 banner.
 
-    The engine version and pgvector version are read from Aurora on every call
-    (Law 2: fetched, never hardcoded). The cluster id is a deployment display
-    identity sourced from configuration, not a value SQL can report.
+    The engine, pgvector, and cluster identities are read from the participant's
+    live database state. Before a capture exists, cluster_id is intentionally
+    null rather than a deployment default that might name another environment.
     """
     cursor.execute("SELECT version() AS engine_version")
     engine_version = cursor.fetchone()["engine_version"]
@@ -73,8 +80,18 @@ def _cluster_identity(cursor: Any) -> dict[str, Any]:
         "SELECT extversion FROM pg_extension WHERE extname = 'vector'"
     )
     vector_row = cursor.fetchone()
+    cursor.execute(
+        """
+        SELECT cluster_id
+        FROM casework.incident_capture_runs
+        WHERE capture_origin = 'participant_induced'
+        ORDER BY capture_started_at DESC
+        LIMIT 1
+        """
+    )
+    cluster_row = cursor.fetchone()
     return {
-        "cluster_id": get_settings().workbench_cluster_id,
+        "cluster_id": cluster_row["cluster_id"] if cluster_row else None,
         "engine_version": engine_version,
         "pgvector_version": vector_row["extversion"] if vector_row else None,
     }
@@ -88,7 +105,95 @@ def search_index_health() -> dict[str, Any]:
             cursor.execute("SELECT * FROM retrieval.v_embedding_spaces")
             embedding_spaces = cursor.fetchall()
             identity = _cluster_identity(cursor)
-    return {**_readiness_payload(health, embedding_spaces), **identity}
+            live_run = _latest_live_run(cursor)
+    return {
+        **_readiness_payload(health, embedding_spaces),
+        **identity,
+        "run": live_run,
+    }
+
+
+def _latest_live_run(cursor: Any) -> dict[str, Any] | None:
+    cursor.execute(
+        """
+        SELECT
+          capture.capture_id,
+          capture.capture_key,
+          capture.cluster_id,
+          capture.capture_started_at,
+          capture.capture_ended_at,
+          incident.external_key AS incident_key,
+          unsafe_change.external_key AS unsafe_change_key,
+          repair_change.external_key AS repair_change_key,
+          lock_item.external_key AS lock_key,
+          (
+            SELECT count(*)
+            FROM casework.evidence_items item
+            WHERE item.source_system = 'pg_incident_capture'
+              AND NOT item.is_deleted
+          ) AS source_documents,
+          (
+            SELECT count(*)
+            FROM casework.telemetry_evidence telemetry
+            WHERE telemetry.capture_id = capture.capture_id
+          ) AS telemetry_documents,
+          (
+            SELECT count(*)
+            FROM casework.pg_stat_activity_samples sample
+            WHERE sample.capture_id = capture.capture_id
+          ) + (
+            SELECT count(*)
+            FROM casework.pg_lock_samples sample
+            WHERE sample.capture_id = capture.capture_id
+          ) + (
+            SELECT count(*)
+            FROM casework.pg_blocking_pids_samples sample
+            WHERE sample.capture_id = capture.capture_id
+          ) + (
+            SELECT count(*)
+            FROM casework.pg_stat_statements_samples sample
+            WHERE sample.capture_id = capture.capture_id
+          ) + (
+            SELECT count(*)
+            FROM casework.cloudwatch_metric_samples sample
+            WHERE sample.capture_id = capture.capture_id
+          ) + (
+            SELECT count(*)
+            FROM casework.database_insights_samples sample
+            WHERE sample.capture_id = capture.capture_id
+          ) AS raw_telemetry_rows
+        FROM casework.incident_capture_runs capture
+        JOIN casework.evidence_items incident
+          ON incident.evidence_id = capture.incident_evidence_id
+        JOIN casework.incident_changes unsafe_edge
+          ON unsafe_edge.incident_evidence_id = incident.evidence_id
+         AND unsafe_edge.relationship = 'confirmed'
+        JOIN casework.evidence_items unsafe_change
+          ON unsafe_change.evidence_id = unsafe_edge.change_evidence_id
+        JOIN casework.incident_changes repair_edge
+          ON repair_edge.incident_evidence_id = incident.evidence_id
+         AND repair_edge.relationship = 'remediated'
+        JOIN casework.evidence_items repair_change
+          ON repair_change.evidence_id = repair_edge.change_evidence_id
+        JOIN casework.lock_evidence lock_row
+          ON lock_row.incident_evidence_id = incident.evidence_id
+        JOIN casework.evidence_items lock_item
+          ON lock_item.evidence_id = lock_row.evidence_id
+        WHERE capture.capture_origin = 'participant_induced'
+        ORDER BY capture.capture_started_at DESC
+        LIMIT 1
+        """
+    )
+    run = cursor.fetchone()
+    if not run:
+        return None
+    return dict(run)
+
+
+def latest_live_run() -> dict[str, Any] | None:
+    with get_dict_conn("app_engineer") as connection:
+        with connection.cursor() as cursor:
+            return _latest_live_run(cursor)
 
 
 def fusion_sql() -> dict[str, Any]:
@@ -152,12 +257,14 @@ def search_index_diagnostics() -> dict[str, Any]:
                 """
             )
             builds = cursor.fetchall()
+            live_run = _latest_live_run(cursor)
     return {
         "health": health,
         "embedding_spaces": embedding_spaces,
         "distribution": distribution,
         "drift": drift,
         "recent_builds": builds,
+        "run": live_run,
     }
 
 
@@ -348,6 +455,7 @@ def query_plan(request: QueryPlanRequest) -> dict[str, Any]:
         query=request.query,
         mode=request.arm,
         kinds=request.kinds,
+        source_systems=request.source_systems,
         cluster_id=request.cluster_id,
         limit=request.limit,
         role=request.role,
@@ -398,6 +506,7 @@ def query_plan(request: QueryPlanRequest) -> dict[str, Any]:
     result = {
         "arm": request.arm,
         "query": request.query,
+        "source_systems": request.source_systems,
         "cluster_id": request.cluster_id,
         "captured_at": captured_at,
         "plan": plan,
@@ -431,11 +540,10 @@ def query_plan(request: QueryPlanRequest) -> dict[str, Any]:
 
 
 def _run_role(run_id: str, viewer_role: str) -> str:
-    """Require a retrieval run to belong to the viewer's bound persona.
+    """Require a retrieval run to match the viewer's request context.
 
-    Replay renders under the run's own identity, not the viewer's, so a receipt
-    shows what the run actually saw. proof.retrieval_runs carries no RLS policy,
-    so the least-privileged persona can always read this column.
+    Replay uses the run's persisted context so a receipt shows the original
+    request rather than silently relabeling it.
 
     Args:
         run_id: The run whose stored identity is needed.

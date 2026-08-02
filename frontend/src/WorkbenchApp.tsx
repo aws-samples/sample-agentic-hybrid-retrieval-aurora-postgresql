@@ -2,7 +2,6 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
-  BookOpen,
   Check,
   ChevronRight,
   CircleDot,
@@ -14,7 +13,6 @@ import {
   FileSearch,
   Gauge,
   GitMerge,
-  Headphones,
   House,
   LoaderCircle,
   LockKeyhole,
@@ -33,6 +31,7 @@ import {
   X,
 } from 'lucide-react';
 import {
+  Fragment,
   FormEvent,
   ReactNode,
   type RefObject,
@@ -55,7 +54,6 @@ import {
   PERSONA_KEYS,
   PERSONA_LABELS,
   personaLabel,
-  personaSetRoleSql,
 } from './persona';
 import {
   buildTimelineGrid,
@@ -161,11 +159,8 @@ type RetrievalMode = 'hybrid' | 'semantic' | 'lexical' | 'fuzzy';
 type EvidenceKind =
   | 'incident'
   | 'change'
-  | 'support_case'
-  | 'runbook'
   | 'lock_evidence'
-  | 'commitment'
-  | 'postmortem';
+  | 'telemetry';
 type JsonRecord = Record<string, unknown>;
 
 // The exact statement the endpoint executed, bound to the visible run, so a
@@ -182,6 +177,21 @@ interface VerifySqlUnavailable {
   reason: string;
 }
 
+interface LiveRun {
+  capture_id: string;
+  capture_key: string;
+  cluster_id: string;
+  capture_started_at: string;
+  capture_ended_at: string;
+  incident_key: string;
+  unsafe_change_key: string;
+  repair_change_key: string;
+  lock_key: string;
+  source_documents: number;
+  telemetry_documents: number;
+  raw_telemetry_rows: number;
+}
+
 interface Health {
   status: string;
   security_mode: 'core' | 'persona';
@@ -191,7 +201,7 @@ interface Health {
   source_documents: number;
   current_documents: number;
   last_indexed_at: string | null;
-  cluster_id: string;
+  cluster_id: string | null;
   engine_version: string;
   pgvector_version: string | null;
   embedding_spaces: Array<{
@@ -199,6 +209,7 @@ interface Health {
     dimensions: number;
     chunks: number;
   }>;
+  run: LiveRun | null;
 }
 
 interface EvidenceSnapshot {
@@ -470,6 +481,7 @@ interface SearchIndexDiagnostics {
     completed_at: string | null;
     error?: string | null;
   }>;
+  run: LiveRun | null;
 }
 
 interface EvaluationResult {
@@ -588,15 +600,24 @@ const API_BASE = (
   import.meta.env.VITE_RETRIEVAL_API_URL || 'http://127.0.0.1:8000'
 ).replace(/\/$/, '');
 const APP_NAME = import.meta.env.VITE_APP_DISPLAY_NAME || 'Hybrid Retrieval Workbench';
-const DEFAULT_QUERY =
-  'Why did CHG-1842 block checkout writes during INC-2047, which visible customer was affected, and what was the safe fix?';
+const PARTICIPANT_SOURCE_SYSTEMS = ['pg_incident_capture'] as const;
+const DEFAULT_QUERY = '';
+
+function liveQuestion(run: LiveRun | null | undefined): string {
+  if (!run) return '';
+  return (
+    `What caused the measured writer wait in ${run.incident_key}, how did ` +
+    `${run.unsafe_change_key} block writes, how did ${run.repair_change_key} ` +
+    `repair the behavior, and what did ${run.lock_key} prove?`
+  );
+}
 
 const DEFAULT_CONTROLS: Controls = {
   query: DEFAULT_QUERY,
   mode: 'hybrid',
   kind: 'all',
-  clusterId: 'checkout-prod-cluster-01',
-  environment: 'production',
+  clusterId: '',
+  environment: '',
   limit: 8,
   candidatePool: 24,
   rrfK: 60,
@@ -637,24 +658,26 @@ function retrievalRequestKey(controls: Controls): string {
 // (fuzzy match) — all mode:'hybrid' because the teaching point is one fusion
 // handling every query shape. The remaining examples stay UI-reachable but are
 // not URL-addressable: the route contract names only the three shapes.
-const PRESETS: {
+function livePresets(run: LiveRun | null | undefined): {
   label: string;
   query: string;
   mode: RetrievalMode;
   kind: EvidenceKind | 'all';
   clusterId: string;
   presetKey?: PresetKey;
-}[] = [
+}[] {
+  if (!run) return [];
+  return [
   {
-    label: 'Production block',
-    query: DEFAULT_QUERY,
+    label: 'Measured incident',
+    query: liveQuestion(run),
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
-    clusterId: 'checkout-prod-cluster-01',
+    clusterId: '',
   },
   {
     label: 'Exact ID',
-    query: 'CHG-1842',
+    query: run.unsafe_change_key,
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
     clusterId: '',
@@ -663,7 +686,7 @@ const PRESETS: {
   {
     label: 'Semantic question',
     query:
-      'Why could customers still read order history while new checkout writes timed out after maintenance?',
+      'Why did reads continue while the writer waited behind the ordinary index build, and how did the concurrent build allow fresh DML?',
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
     clusterId: '',
@@ -671,38 +694,35 @@ const PRESETS: {
   },
   {
     label: 'Typo recovery',
-    query: 'CGH-1842',
+    query: run.unsafe_change_key.replace(/^CHG-/, 'CGH-'),
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
     clusterId: '',
     presetKey: 'fuzzy',
   },
   {
-    label: 'Support filter',
-    query:
-      'Which visible customer reported checkout timeouts during the production write block?',
+    label: 'Lock observation',
+    query: run.lock_key,
     mode: 'hybrid' as RetrievalMode,
-    kind: 'support_case' as const,
-    clusterId: 'checkout-prod-cluster-01',
-  },
-  {
-    label: 'Runbook filter',
-    query:
-      'What index build method lets checkout writes continue during production maintenance?',
-    mode: 'hybrid' as RetrievalMode,
-    kind: 'runbook' as const,
+    kind: 'lock_evidence' as const,
     clusterId: '',
   },
-];
+  {
+    label: 'Concurrent repair',
+    query:
+      'Which measured change replaced the blocking ordinary index build with CREATE INDEX CONCURRENTLY?',
+    mode: 'hybrid' as RetrievalMode,
+    kind: 'change' as const,
+    clusterId: '',
+  },
+  ];
+}
 
 const KIND_LABELS: Record<EvidenceKind, string> = {
   incident: 'Incident',
   change: 'Change',
-  support_case: 'Support case',
-  runbook: 'Runbook',
   lock_evidence: 'Lock evidence',
-  commitment: 'Commitment',
-  postmortem: 'Postmortem',
+  telemetry: 'Telemetry',
 };
 
 const TOOL_NAMES = [
@@ -846,16 +866,9 @@ function toolDecision(
     const kinds = Array.isArray(args.kinds)
       ? (args.kinds as string[]).join(', ')
       : 'all evidence';
-    const boundedRecovery =
-      Array.isArray(args.kinds) &&
-      (args.kinds as string[]).includes('runbook') &&
-      !args.cluster_id &&
-      !args.incident_id;
-    return boundedRecovery
-      ? personaMode
-        ? `Relaxed incident scope only for reusable ${kinds}; the persona stayed fixed.`
-        : `Relaxed incident scope only for reusable ${kinds}; the investigation scope stayed fixed.`
-      : `Searched ${kinds} with ${args.cluster_id || args.incident_id || 'no scope filter'}.`;
+    return `Searched ${kinds} with ${args.cluster_id || args.incident_id || 'no scope filter'}${
+      personaMode ? '; the persona stayed fixed' : ''
+    }.`;
   }
   if (event.tool === 'follow_evidence_links') {
     return `Followed declared relationships from ${
@@ -903,37 +916,11 @@ function toolResult(event: AgentTraceEvent): string {
   return event.status || 'complete';
 }
 
-function sourceRole(citation: Citation, personaMode = true): string {
-  if (citation.external_key === 'RB-017') {
-    return 'Approved guidance for recovery and prevention.';
-  }
-  if (citation.external_key.startsWith('RB-')) {
-    return 'Superseded guidance retained for explicit comparison.';
-  }
-  if (citation.external_key.startsWith('LOCK-')) {
-    return 'Observed lock state connecting the blocker to queued writers.';
-  }
-  if (citation.external_key === 'CASE-7419') {
-    return personaMode
-      ? 'Visible customer impact under the App Engineer persona.'
-      : 'Visible customer impact associated with the incident.';
-  }
-  if (citation.external_key.startsWith('CASE-')) {
-    return 'Comparison case used to rule out unrelated customer impact.';
-  }
-  if (citation.external_key === 'CHG-1842') {
-    return 'Change record and exact DDL executed during the incident.';
-  }
-  if (citation.external_key.startsWith('CHG-')) {
-    return 'Concurrent change compared and ruled out by lock evidence.';
-  }
-  if (citation.external_key === 'INC-2047') {
-    return 'Incident scope, symptom, and impact window.';
-  }
-  if (citation.external_key.startsWith('INC-')) {
-    return 'Look-alike incident retained for scope comparison.';
-  }
-  return 'Supporting evidence cited by the validated answer.';
+function citationContext(citation: Citation): string {
+  const persistedText = citation.claim?.trim() || citation.quote_text?.trim();
+  return persistedText
+    ? persistedText.replace(/\s+/g, ' ')
+    : citation.title;
 }
 
 function toolContract(
@@ -1034,7 +1021,7 @@ function rankingScore(candidate: Candidate, mode: RetrievalMode): number | null 
 }
 
 function rankingScoreLabel(mode: RetrievalMode): string {
-  if (mode === 'hybrid') return 'Aurora RRF';
+  if (mode === 'hybrid') return 'PostgreSQL RRF';
   if (mode === 'semantic') return 'Vector similarity';
   if (mode === 'lexical') return 'Full-text score';
   return 'Trigram similarity';
@@ -1054,11 +1041,11 @@ function finalOrderRule(mode: RetrievalMode, reranked: boolean): {
           rule:
             'Exact identifier matches first; Cohere orders candidates within each tier.',
           note:
-            'Aurora RRF remains the pre-rerank order. RRF and Cohere scores explain relative rank; neither is a confidence probability.',
+            'PostgreSQL RRF remains the pre-rerank order. RRF and Cohere scores explain relative rank; neither is a confidence probability.',
         }
       : {
           rule:
-            'Exact identifier matches first; Aurora weighted RRF orders every other candidate.',
+            'Exact identifier matches first; PostgreSQL weighted RRF orders every other candidate.',
           note:
             'Arm positions, not raw arm scores, enter RRF. The resulting score explains relative rank, not confidence.',
         };
@@ -1242,11 +1229,7 @@ function KindIcon({
 }) {
   if (kind === 'incident') return <TriangleAlert size={size} />;
   if (kind === 'change') return <Wrench size={size} />;
-  if (kind === 'support_case') return <Headphones size={size} />;
-  if (kind === 'runbook') return <BookOpen size={size} />;
   if (kind === 'lock_evidence') return <Activity size={size} />;
-  if (kind === 'commitment') return <FileCheck2 size={size} />;
-  if (kind === 'postmortem') return <Clipboard size={size} />;
   return <FileSearch size={size} />;
 }
 
@@ -1711,6 +1694,70 @@ function FormattedAnswer({ text }: { text: string }) {
         return part;
       })}
     </>
+  );
+}
+
+function answerParagraphs(text: string): string[] {
+  const Segmenter = (
+    Intl as unknown as {
+      Segmenter: new (
+        locale: string,
+        options: { granularity: 'sentence' },
+      ) => {
+        segment: (input: string) => Iterable<{ segment: string }>;
+      };
+    }
+  ).Segmenter;
+  const blocks = text
+    .trim()
+    .split(/\n{2,}/)
+    .map((block) => block.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  const paragraphs: string[] = [];
+
+  blocks.forEach((block) => {
+    const segmented = Array.from(
+      new Segmenter('en', { granularity: 'sentence' }).segment(block),
+      ({ segment }) => segment.trim(),
+    ).filter(Boolean);
+    const sentences = segmented.reduce<string[]>((merged, sentence) => {
+      const previous = merged[merged.length - 1];
+      if (previous && /\b(?:vs|e\.g|i\.e)\.$/i.test(previous)) {
+        merged[merged.length - 1] = `${previous} ${sentence}`;
+      } else {
+        merged.push(sentence);
+      }
+      return merged;
+    }, []);
+    let current = '';
+    let sentenceCount = 0;
+
+    sentences.forEach((sentence) => {
+      const next = current ? `${current} ${sentence}` : sentence;
+      if (current && (sentenceCount >= 2 || next.length > 760)) {
+        paragraphs.push(current);
+        current = sentence;
+        sentenceCount = 1;
+        return;
+      }
+      current = next;
+      sentenceCount += 1;
+    });
+    if (current) paragraphs.push(current);
+  });
+
+  return paragraphs.length ? paragraphs : [text];
+}
+
+function AnswerNarrative({ text }: { text: string }) {
+  return (
+    <div className="answer-prose">
+      {answerParagraphs(text).map((paragraph, index) => (
+        <p key={`${index}-${paragraph.slice(0, 24)}`}>
+          <FormattedAnswer text={paragraph} />
+        </p>
+      ))}
+    </div>
   );
 }
 
@@ -2470,24 +2517,11 @@ function armContribution(
   return weight / (controls.rrfK + rank);
 }
 
-function SignalCell({
-  positionValue,
-  rawValue,
-  rawLabel,
-}: {
-  positionValue: number | null;
-  rawValue: unknown;
-  rawLabel: string;
-}) {
+function SignalPosition({ positionValue }: { positionValue: number | null }) {
   return positionValue === null ? (
-    <span className="signal-empty">absent · +0</span>
+    <span className="signal-empty">absent</span>
   ) : (
-    <span className="signal-cell">
-      <strong>#{positionValue}</strong>
-      <small>
-        {rawLabel} {score(rawValue, 3)}
-      </small>
-    </span>
+    <strong className="signal-position">#{positionValue}</strong>
   );
 }
 
@@ -2513,126 +2547,350 @@ function FusionAnatomyTable({
   const rerankVisible = candidates.some(
     (candidate) => candidate.rerank_score != null,
   );
+  const [expandedCandidate, setExpandedCandidate] = useState<string | null>(
+    null,
+  );
+  const auroraRanks = new Map(
+    fusedOrder(candidates).map((candidate, index) => [candidate, index + 1]),
+  );
 
   return (
-    <div className="table-scroll fusion-table">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>
-              Tier
-              <small>ordered before RRF</small>
-            </th>
-            <th>Evidence</th>
-            <th>
-              Full-text
-              <small>rank · ts_rank diagnostic</small>
-            </th>
-            <th>
-              Semantic
-              <small>rank · similarity diagnostic</small>
-            </th>
-            <th>
-              Fuzzy
-              <small>rank · trigram diagnostic</small>
-            </th>
-            <th>
-              RRF contribution
-              <small>shared rank scale</small>
-            </th>
-            <th>Aurora RRF</th>
-            {rerankVisible ? (
+    <>
+      <div className="table-scroll fusion-table fusion-table-desktop">
+        <table>
+          <thead>
+            <tr>
               <th>
-                Cohere rerank
-                <small>post-fusion diagnostic</small>
+                Order
+                <small>{rerankVisible ? 'Aurora → final' : 'final rank'}</small>
               </th>
-            ) : null}
-          </tr>
-        </thead>
-        <tbody>
-          {candidates.map((candidate, index) => {
-            const text = armContribution(candidate, 'text', controls);
-            const vector = armContribution(candidate, 'vector', controls);
-            const fuzzy = armContribution(candidate, 'fuzzy', controls);
-            const total = text + vector + fuzzy;
-            const item = snapshot(candidate);
-            const tier = matchTier(candidate);
-            return (
-              <tr
-                key={`${candidate.evidence_id}-${index}`}
-                className="selectable-row"
-                onClick={() => onSelect(candidate)}
-              >
-                <td>{candidate.result_rank || index + 1}</td>
-                <td>
-                  <span className={`tier-chip tier-${tier}`}>
-                    {tier === 1 ? <CircleDot size={10} /> : null}
-                    {tier === 1 ? 'exact' : 'fused'}
-                  </span>
-                </td>
-                <td>
-                  <strong>{item.external_key}</strong>
-                  <span>{item.title}</span>
-                </td>
-                <td>
-                  <SignalCell
-                    positionValue={position(candidate, 'text')}
-                    rawValue={candidate.text_rank}
-                    rawLabel="raw"
-                  />
-                </td>
-                <td>
-                  <SignalCell
-                    positionValue={position(candidate, 'vector')}
-                    rawValue={candidate.vector_score}
-                    rawLabel="raw"
-                  />
-                </td>
-                <td>
-                  <SignalCell
-                    positionValue={position(candidate, 'fuzzy')}
-                    rawValue={candidate.trigram_score}
-                    rawLabel="raw"
-                  />
-                </td>
-                <td>
-                  <div
-                    className="contribution-bar"
-                    style={{ width: `${Math.max((total / maximum) * 100, 4)}%` }}
-                    aria-label={`Text ${text.toFixed(5)}, semantic ${vector.toFixed(5)}, fuzzy ${fuzzy.toFixed(5)}`}
+              <th>Tier</th>
+              <th>Evidence</th>
+              <th>
+                Full-text
+                <small>position</small>
+              </th>
+              <th>
+                Semantic
+                <small>position</small>
+              </th>
+              <th>
+                Fuzzy
+                <small>position</small>
+              </th>
+              <th>
+                PostgreSQL RRF
+                <small>arm subtotal</small>
+              </th>
+              <th>
+                <span className="visually-hidden">Raw diagnostics</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {candidates.map((candidate, index) => {
+              const text = armContribution(candidate, 'text', controls);
+              const vector = armContribution(candidate, 'vector', controls);
+              const fuzzy = armContribution(candidate, 'fuzzy', controls);
+              const total = text + vector + fuzzy;
+              const item = snapshot(candidate);
+              const tier = matchTier(candidate);
+              const candidateKey =
+                candidate.evidence_id || `fusion-candidate-${index}`;
+              const expanded = expandedCandidate === candidateKey;
+              const finalRank = candidate.result_rank || index + 1;
+              const auroraRank = auroraRanks.get(candidate) || finalRank;
+              return (
+                <Fragment key={candidateKey}>
+                  <tr
+                    className="selectable-row"
+                    onClick={() => onSelect(candidate)}
                   >
-                    {total ? (
-                      <>
-                        <i
-                          className="contribution-text"
-                          style={{ width: `${(text / total) * 100}%` }}
+                    <td className="fusion-order-cell">
+                      {rerankVisible ? (
+                        <RerankImpact
+                          baseRank={auroraRank}
+                          finalRank={finalRank}
+                          baseLabel="Aurora"
                         />
-                        <i
-                          className="contribution-vector"
-                          style={{ width: `${(vector / total) * 100}%` }}
+                      ) : (
+                        <strong>#{finalRank}</strong>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`tier-chip tier-${tier}`}>
+                        {tier === 1 ? <CircleDot size={10} /> : null}
+                        {tier === 1 ? 'exact' : 'fused'}
+                      </span>
+                    </td>
+                    <td className="fusion-evidence-cell">
+                      <strong>{item.external_key}</strong>
+                      <span>{item.title}</span>
+                    </td>
+                    <td>
+                      <SignalPosition
+                        positionValue={position(candidate, 'text')}
+                      />
+                    </td>
+                    <td>
+                      <SignalPosition
+                        positionValue={position(candidate, 'vector')}
+                      />
+                    </td>
+                    <td>
+                      <SignalPosition
+                        positionValue={position(candidate, 'fuzzy')}
+                      />
+                    </td>
+                    <td>
+                      <div className="fusion-rrf-cell">
+                        <strong>
+                          {score(candidate.rrf_score ?? total, 5)}
+                        </strong>
+                        <div
+                          className="contribution-bar"
+                          style={{
+                            width: `${Math.max((total / maximum) * 100, 4)}%`,
+                          }}
+                          aria-label={`Text ${text.toFixed(
+                            5,
+                          )}, semantic ${vector.toFixed(
+                            5,
+                          )}, fuzzy ${fuzzy.toFixed(5)}`}
+                        >
+                          {total ? (
+                            <>
+                              <i
+                                className="contribution-text"
+                                style={{ width: `${(text / total) * 100}%` }}
+                              />
+                              <i
+                                className="contribution-vector"
+                                style={{ width: `${(vector / total) * 100}%` }}
+                              />
+                              <i
+                                className="contribution-fuzzy"
+                                style={{ width: `${(fuzzy / total) * 100}%` }}
+                              />
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="fusion-details-cell">
+                      <button
+                        type="button"
+                        className="fusion-row-toggle"
+                        aria-label={`${
+                          expanded ? 'Hide' : 'Show'
+                        } raw diagnostics for ${
+                          item.external_key || 'candidate'
+                        }`}
+                        aria-expanded={expanded}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setExpandedCandidate(expanded ? null : candidateKey);
+                        }}
+                      >
+                        <ChevronRight size={16} aria-hidden="true" />
+                      </button>
+                    </td>
+                  </tr>
+                  {expanded ? (
+                    <tr className="fusion-diagnostic-row">
+                      <td colSpan={8}>
+                        <FusionCandidateDiagnostics
+                          candidate={candidate}
+                          controls={controls}
+                          rerankVisible={rerankVisible}
                         />
-                        <i
-                          className="contribution-fuzzy"
-                          style={{ width: `${(fuzzy / total) * 100}%` }}
-                        />
-                      </>
-                    ) : null}
-                  </div>
-                </td>
-                <td className="score-value">
-                  {score(candidate.rrf_score ?? total, 5)}
-                </td>
-                {rerankVisible ? (
-                  <td className="score-value">
-                    {score(candidate.rerank_score, 3)}
-                  </td>
-                ) : null}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="fusion-mobile-candidates">
+        {candidates.map((candidate, index) => {
+          const item = snapshot(candidate);
+          const tier = matchTier(candidate);
+          const candidateKey =
+            candidate.evidence_id || `fusion-mobile-candidate-${index}`;
+          const expanded = expandedCandidate === candidateKey;
+          const finalRank = candidate.result_rank || index + 1;
+          const auroraRank = auroraRanks.get(candidate) || finalRank;
+          return (
+            <article key={candidateKey} className="fusion-mobile-candidate">
+              <button
+                type="button"
+                className="fusion-mobile-summary"
+                aria-expanded={expanded}
+                onClick={() =>
+                  setExpandedCandidate(expanded ? null : candidateKey)
+                }
+              >
+                <span className="fusion-mobile-order">
+                  {rerankVisible ? (
+                    <RerankImpact
+                      baseRank={auroraRank}
+                      finalRank={finalRank}
+                      baseLabel="Aurora"
+                    />
+                  ) : (
+                    <strong>#{finalRank}</strong>
+                  )}
+                </span>
+                <span className="fusion-mobile-copy">
+                  <strong>{item.external_key}</strong>
+                  <small>{item.title}</small>
+                </span>
+                <span className={`tier-chip tier-${tier}`}>
+                  {tier === 1 ? <CircleDot size={10} /> : null}
+                  {tier === 1 ? 'exact' : 'fused'}
+                </span>
+                <ChevronRight
+                  className={expanded ? 'open' : ''}
+                  size={17}
+                  aria-hidden="true"
+                />
+              </button>
+              <div className="fusion-mobile-positions">
+                <span>
+                  Full-text
+                  <SignalPosition
+                    positionValue={position(candidate, 'text')}
+                  />
+                </span>
+                <span>
+                  Semantic
+                  <SignalPosition
+                    positionValue={position(candidate, 'vector')}
+                  />
+                </span>
+                <span>
+                  Fuzzy
+                  <SignalPosition
+                    positionValue={position(candidate, 'fuzzy')}
+                  />
+                </span>
+                <span>
+                  PostgreSQL RRF
+                  <strong>
+                    {score(
+                      candidate.rrf_score ??
+                        armContribution(candidate, 'text', controls) +
+                          armContribution(candidate, 'vector', controls) +
+                          armContribution(candidate, 'fuzzy', controls),
+                      5,
+                    )}
+                  </strong>
+                </span>
+              </div>
+              {expanded ? (
+                <div className="fusion-mobile-details">
+                  <FusionCandidateDiagnostics
+                    candidate={candidate}
+                    controls={controls}
+                    rerankVisible={rerankVisible}
+                  />
+                  <button
+                    type="button"
+                    className="text-command"
+                    onClick={() => onSelect(candidate)}
+                  >
+                    <FileSearch size={14} />
+                    Inspect evidence
+                  </button>
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function FusionCandidateDiagnostics({
+  candidate,
+  controls,
+  rerankVisible,
+}: {
+  candidate: Candidate;
+  controls: Controls;
+  rerankVisible: boolean;
+}) {
+  const evidence = snapshot(candidate);
+  const diagnostics = [
+    {
+      label: 'Full-text diagnostic',
+      raw: candidate.text_rank,
+      contribution: armContribution(candidate, 'text', controls),
+      present: position(candidate, 'text') !== null,
+    },
+    {
+      label: 'Semantic diagnostic',
+      raw: candidate.vector_score,
+      contribution: armContribution(candidate, 'vector', controls),
+      present: position(candidate, 'vector') !== null,
+    },
+    {
+      label: 'Fuzzy diagnostic',
+      raw: candidate.trigram_score,
+      contribution: armContribution(candidate, 'fuzzy', controls),
+      present: position(candidate, 'fuzzy') !== null,
+    },
+  ];
+
+  return (
+    <div className="fusion-diagnostic-grid">
+      {diagnostics.map((diagnostic) => (
+        <span key={diagnostic.label}>
+          <small>{diagnostic.label}</small>
+          <strong>
+            {diagnostic.present ? score(diagnostic.raw, 3) : 'absent'}
+          </strong>
+          <code>
+            {diagnostic.present
+              ? `+${diagnostic.contribution.toFixed(5)}`
+              : '+0 to RRF'}
+          </code>
+        </span>
+      ))}
+      <span>
+        <small>PostgreSQL RRF</small>
+        <strong>
+          {score(candidate.rrf_score ?? candidate.final_score, 5)}
+        </strong>
+        <code>relative rank</code>
+      </span>
+      <span>
+        <small>Source system</small>
+        <strong>{evidence.source_system || 'unavailable'}</strong>
+        <code>authoritative scope</code>
+      </span>
+      <span>
+        <small>Source URI</small>
+        <strong title={evidence.source_uri}>{evidence.source_uri || 'unavailable'}</strong>
+        <code>captured record</code>
+      </span>
+      <span>
+        <small>Source revision</small>
+        <strong title={evidence.source_revision}>
+          {evidence.source_revision || 'unavailable'}
+        </strong>
+        <code>persisted version</code>
+      </span>
+      {rerankVisible ? (
+        <span>
+          <small>Cohere rerank</small>
+          <strong>{score(candidate.rerank_score, 3)}</strong>
+          <code>post-fusion diagnostic</code>
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -2655,6 +2913,9 @@ function FusionBacktrace({
       (candidate) => candidate.evidence_id === selectedEvidenceId,
     ) || candidates[0];
   if (!selected) return null;
+  const selectedFinalRank =
+    selected.result_rank || candidates.indexOf(selected) + 1;
+  const selectedAuroraRank = fusedOrder(candidates).indexOf(selected) + 1;
   const item = snapshot(selected);
   const signals = [
     {
@@ -2743,11 +3004,14 @@ function FusionBacktrace({
         <ArrowRight size={18} aria-hidden="true" />
         <article className="fusion-trace-final">
           <FileCheck2 size={17} />
-          <span>Final rank {selected.result_rank || 1}</span>
+          <span>Final rank {selectedFinalRank}</span>
           <strong>{item.external_key}</strong>
           <small>
             {reranked && selected.rerank_score != null
-              ? `Cohere ${score(selected.rerank_score, 3)}`
+              ? `Aurora #${selectedAuroraRank} → final #${selectedFinalRank} · Cohere ${score(
+                  selected.rerank_score,
+                  3,
+                )}`
               : 'Aurora order retained'}
           </small>
         </article>
@@ -2764,6 +3028,91 @@ function FusionBacktrace({
         <code>{compactId(selected.evidence_id)}</code>
       </footer>
     </section>
+  );
+}
+
+function FusionImplementationDetails({
+  controls,
+  runId,
+}: {
+  controls: Controls;
+  runId: string;
+}) {
+  return (
+    <details className="fusion-implementation-details">
+      <summary>
+        <span className="fusion-implementation-icon">
+          <Code2 size={17} />
+        </span>
+        <span>
+          <small>Implementation details</small>
+          <strong>Weighted RRF formula and applied SQL</strong>
+        </span>
+        <ChevronRight size={18} aria-hidden="true" />
+      </summary>
+      <div className="fusion-implementation-body">
+        <div className="rrf-formula-panel">
+          <div className="rrf-formula-intro">
+            <span className="section-label">Weighted RRF formula</span>
+            <small>For each evidence item d</small>
+          </div>
+          <div
+            className="rrf-formula-expression"
+            aria-label={`RRF of d equals ${controls.textWeight} over ${controls.rrfK} plus text rank, plus ${controls.vectorWeight} over ${controls.rrfK} plus semantic rank, plus ${controls.fuzzyWeight} over ${controls.rrfK} plus fuzzy rank`}
+          >
+            <strong>RRF(d)</strong>
+            <b>=</b>
+            <span className="rrf-fraction">
+              <i>{controls.textWeight}</i>
+              <small>
+                {controls.rrfK} + r<sub>text</sub>(d)
+              </small>
+            </span>
+            <b>+</b>
+            <span className="rrf-fraction">
+              <i>{controls.vectorWeight}</i>
+              <small>
+                {controls.rrfK} + r<sub>semantic</sub>(d)
+              </small>
+            </span>
+            <b>+</b>
+            <span className="rrf-fraction">
+              <i>{controls.fuzzyWeight}</i>
+              <small>
+                {controls.rrfK} + r<sub>fuzzy</sub>(d)
+              </small>
+            </span>
+          </div>
+          <div className="rrf-formula-notes">
+            <span>
+              <b>k={controls.rrfK}</b> dampens rank outliers
+            </span>
+            <span>missing arm = 0</span>
+            <span>Cohere is not part of this formula</span>
+          </div>
+        </div>
+        <section className="sql-panel">
+          <header>
+            <span>Applied ranking rule</span>
+            <span>run {compactId(runId)}</span>
+          </header>
+          <pre>
+            <code>{`rrf_score =
+  ${controls.textWeight} / (${controls.rrfK} + text_position)
++ ${controls.vectorWeight} / (${controls.rrfK} + vector_position)
++ ${controls.fuzzyWeight} / (${controls.rrfK} + trigram_position)
+
+-- a missing arm contributes zero
+-- exact identifiers form a deterministic tier above fused rows
+ORDER BY
+  match_tier,
+  exact_identifier_position,
+  rrf_score DESC
+LIMIT ${controls.limit};`}</code>
+          </pre>
+        </section>
+      </div>
+    </details>
   );
 }
 
@@ -2848,7 +3197,7 @@ function FusionControlPanel({
         <span className="rerank-control-copy">
           <strong>Cohere rerank</strong>
           <small>
-            Optional post-fusion ordering; Aurora RRF remains persisted
+            Optional post-fusion ordering; PostgreSQL RRF remains persisted
           </small>
         </span>
         <span className="toggle-control">
@@ -2991,19 +3340,13 @@ function EvidenceGraph({
     change: 100,
     lock_evidence: 270,
     incident: 440,
-    support_case: 610,
-    runbook: 780,
-    commitment: 780,
-    postmortem: 610,
+    telemetry: 610,
   };
   const byKind: Record<EvidenceKind, GraphNode[]> = {
     incident: [],
     change: [],
-    support_case: [],
-    runbook: [],
     lock_evidence: [],
-    commitment: [],
-    postmortem: [],
+    telemetry: [],
   };
   graph.nodes.forEach((node) => {
     const bucket = byKind[node.evidence_kind];
@@ -3205,7 +3548,7 @@ function ProofChainOfCustody({
   const validationStatus = receipt.answer?.validation_status || 'persisted';
   const persona = personaLabel(receipt.run.role);
   const persistedClaim = citation.claim?.trim();
-  const claim = persistedClaim || sourceRole(citation, personaMode);
+  const claim = persistedClaim || citationContext(citation);
   const claimLabel = persistedClaim ? 'Claim' : 'Source context';
 
   const steps: Array<{
@@ -3295,7 +3638,7 @@ function ProofChainOfCustody({
               <small>
                 {itemCitation.claim?.trim()
                   ? itemCitation.claim
-                  : `Source context: ${sourceRole(itemCitation, personaMode)}`}
+                  : `Source context: ${citationContext(itemCitation)}`}
               </small>
             </button>
           );
@@ -3380,6 +3723,9 @@ export default function WorkbenchApp() {
   const [controls, setControls] = useState<Controls>(DEFAULT_CONTROLS);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [health, setHealth] = useState<Health | null>(null);
+  const runQuestion = liveQuestion(health?.run);
+  const presets = useMemo(() => livePresets(health?.run), [health?.run]);
+  const retrievalReady = health?.status === 'ready' && health?.run != null;
   const personaMode = health?.security_mode === 'persona';
   const [connectionState, setConnectionState] =
     useState<ConnectionState>('checking');
@@ -3494,8 +3840,15 @@ export default function WorkbenchApp() {
   }, [navCollapsed]);
 
   useEffect(() => {
+    if (!runQuestion) {
+      setHomeQueryText('');
+      setHomeTyping(false);
+      return;
+    }
+    homeTypingInterrupted.current = false;
+    setHomeTyping(true);
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setHomeQueryText(DEFAULT_QUERY);
+      setHomeQueryText(runQuestion);
       setHomeTyping(false);
       return;
     }
@@ -3505,12 +3858,12 @@ export default function WorkbenchApp() {
     const typeNext = () => {
       if (homeTypingInterrupted.current) return;
       character += 1;
-      setHomeQueryText(DEFAULT_QUERY.slice(0, character));
-      if (character >= DEFAULT_QUERY.length) {
+      setHomeQueryText(runQuestion.slice(0, character));
+      if (character >= runQuestion.length) {
         setHomeTyping(false);
         return;
       }
-      const typed = DEFAULT_QUERY[character - 1];
+      const typed = runQuestion[character - 1];
       timer = window.setTimeout(
         typeNext,
         typed === ',' || typed === '?' ? 80 : typed === ' ' ? 24 : 14,
@@ -3519,7 +3872,7 @@ export default function WorkbenchApp() {
 
     timer = window.setTimeout(typeNext, 220);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [runQuestion]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3528,6 +3881,21 @@ export default function WorkbenchApp() {
         if (!cancelled) {
           setHealth(ready);
           setConnectionState('ready');
+          const readyPresets = livePresets(ready.run);
+          const routePreset =
+            initialRoute.surface === 'retrieval' && initialRoute.preset
+              ? readyPresets.find(
+                  (entry) => entry.presetKey === initialRoute.preset,
+                )
+              : undefined;
+          const query = routePreset?.query || liveQuestion(ready.run);
+          setControls((current) => ({
+            ...current,
+            query,
+            mode: routePreset?.mode || current.mode,
+            kind: routePreset?.kind || current.kind,
+            clusterId: routePreset?.clusterId || current.clusterId,
+          }));
         }
       })
       .catch(() => {
@@ -3541,20 +3909,6 @@ export default function WorkbenchApp() {
     // Apply the initial deep link (SPEC 6.0). Navigation is synchronous; the run
     // to load is chosen below so a /proof/{run_id} link wins over latest-run.
     const initialRoute = parseRoute(window.location.hash);
-    if (initialRoute.surface === 'retrieval' && initialRoute.preset) {
-      const preset = PRESETS.find(
-        (entry) => entry.presetKey === initialRoute.preset,
-      );
-      if (preset) {
-        setControls((current) => ({
-          ...current,
-          query: preset.query,
-          mode: preset.mode,
-          kind: preset.kind,
-          clusterId: preset.clusterId,
-        }));
-      }
-    }
     if (initialRoute.surface === 'agent' && initialRoute.role) {
       setPersona(initialRoute.role);
     }
@@ -3764,7 +4118,7 @@ export default function WorkbenchApp() {
   // query, which is correct: an edited query is no longer a named preset.
   const activePreset: PresetKey | undefined =
     activeSurface === 'retrieval'
-      ? PRESETS.find(
+      ? presets.find(
           (preset) =>
             preset.presetKey !== undefined && preset.query === controls.query,
         )?.presetKey
@@ -3788,7 +4142,7 @@ export default function WorkbenchApp() {
   // that run. Called on mount, on back/forward, and never during state->URL sync.
   function applyRoute(route: Route) {
     if (route.surface === 'retrieval' && route.preset) {
-      const preset = PRESETS.find((entry) => entry.presetKey === route.preset);
+      const preset = presets.find((entry) => entry.presetKey === route.preset);
       if (preset) {
         setControls((current) => ({
           ...current,
@@ -3854,6 +4208,7 @@ export default function WorkbenchApp() {
     return {
       query: sourceControls.query,
       mode: sourceControls.mode,
+      source_systems: PARTICIPANT_SOURCE_SYSTEMS,
       kinds:
         sourceControls.kind === 'all' ? null : [sourceControls.kind],
       cluster_id: sourceControls.clusterId || null,
@@ -3876,7 +4231,7 @@ export default function WorkbenchApp() {
   function finishHomeTyping() {
     if (!homeTyping) return;
     homeTypingInterrupted.current = true;
-    setHomeQueryText(DEFAULT_QUERY);
+    setHomeQueryText(runQuestion);
     setHomeTyping(false);
   }
 
@@ -3933,7 +4288,7 @@ export default function WorkbenchApp() {
   }
 
   async function loadQueryPlan(arm = planArm) {
-    if (!controls.query.trim()) return;
+    if (!retrievalReady || !controls.query.trim()) return;
     const transitionVersion = roleTransitionVersion.current;
     setPlanOpen(true);
     setBusy('plan');
@@ -3945,6 +4300,7 @@ export default function WorkbenchApp() {
           query: controls.query,
           arm,
           limit: controls.limit,
+          source_systems: PARTICIPANT_SOURCE_SYSTEMS,
           cluster_id: controls.clusterId || null,
           kinds: controls.kind === 'all' ? null : [controls.kind],
           role: controls.role,
@@ -3976,7 +4332,7 @@ export default function WorkbenchApp() {
     requestedControls: Controls = controls,
   ) {
     event?.preventDefault();
-    if (!requestedControls.query.trim()) return;
+    if (!retrievalReady || !requestedControls.query.trim()) return;
     const transitionVersion = roleTransitionVersion.current;
     const requestKey = retrievalRequestKey(requestedControls);
     clearLoadedProofState();
@@ -4008,6 +4364,7 @@ export default function WorkbenchApp() {
   }
 
   async function beginInvestigation() {
+    if (!retrievalReady) return;
     const baselineQuery = homeQueryText.trim();
     if (!baselineQuery) return;
     const baselineControls = {
@@ -4027,7 +4384,7 @@ export default function WorkbenchApp() {
   }
 
   async function askAgent() {
-    if (!controls.query.trim()) return;
+    if (!retrievalReady || !controls.query.trim()) return;
     const transitionVersion = roleTransitionVersion.current;
     const requestControls = controls;
     setModule('prove');
@@ -4056,6 +4413,7 @@ export default function WorkbenchApp() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             question: requestControls.query,
+            source_systems: PARTICIPANT_SOURCE_SYSTEMS,
             max_tool_calls: 12,
             iterative_scan: requestControls.iterativeScan,
             role: requestControls.role,
@@ -4145,24 +4503,16 @@ export default function WorkbenchApp() {
         setStreamCitations(event.citations || []);
         if (event.answer) setStreamingAnswer(event.answer);
 
-        const citedKeys = new Set(
-          (event.citations || []).map((citation) => citation.external_key),
-        );
-        const requiredEvidenceCited =
-          [...citedKeys].some((key) => key.startsWith('CHG-')) &&
-          [...citedKeys].some((key) => key.startsWith('LOCK-')) &&
-          [...citedKeys].some((key) => key.startsWith('CASE-')) &&
-          citedKeys.has('RB-017');
         if (
           event.status !== 'complete' ||
           !event.answer ||
           !completedRunId ||
-          !requiredEvidenceCited
+          !(event.citations || []).length
         ) {
           setAgentStreamState('error');
           setError(
             event.error ||
-              'The agent stopped before every required claim had cited evidence.',
+              'The agent stopped before a citation-validated answer was persisted.',
           );
           return;
         }
@@ -4257,6 +4607,14 @@ export default function WorkbenchApp() {
   const rerankUnavailable =
     Boolean(receipt) && receiptRerankRequested && !finalReranked;
   const finalOrderIsFused = candidates.length ? isFusedOrder(candidates) : true;
+  const exactTierCount = candidates.filter(
+    (candidate) => matchTier(candidate) === 1,
+  ).length;
+  const activeFusionArmCount = [
+    textCandidates.length,
+    vectorCandidates.length,
+    fuzzyCandidates.length,
+  ].filter((count) => count > 0).length;
   const appliedControls: Controls = {
     ...controls,
     query: receipt?.run.query_text || controls.query,
@@ -4425,28 +4783,28 @@ export default function WorkbenchApp() {
     streamCitations.length,
     visibleCitationCount,
   ]);
-  const runbookRecovered = answerCitations.some(
-    (citation) => citation.external_key === 'RB-017',
+  const resolvedCitationCount = answerCitations.filter(
+    (citation) =>
+      citation.evidence_id &&
+      citation.document_version_id &&
+      citation.chunk_version_id &&
+      citation.source_uri &&
+      citation.source_revision &&
+      citation.quote_text,
+  ).length;
+  const citationCoverageComplete = Boolean(
+    answerCitations.length &&
+      resolvedCitationCount === answerCitations.length &&
+      answer?.validation_status === 'valid',
   );
-  const citedEvidenceKeys = new Set(
-    answerCitations.map((citation) => citation.external_key),
+  const scopedEvidenceKeys = Array.from(
+    new Set(
+      candidates
+        .map((candidate) => snapshot(candidate).external_key)
+        .filter((key): key is string => Boolean(key)),
+    ),
   );
-  const answerCoverageComplete =
-    [...citedEvidenceKeys].some((key) => key.startsWith('CHG-')) &&
-    [...citedEvidenceKeys].some((key) => key.startsWith('LOCK-')) &&
-    [...citedEvidenceKeys].some((key) => key.startsWith('CASE-')) &&
-    citedEvidenceKeys.has('RB-017');
   const currentAgentEvent = agentTrace[agentTrace.length - 1] || null;
-  const boundedRecoveryObserved = agentTrace.some((event) => {
-    const kinds = event.arguments?.kinds;
-    return (
-      event.tool === 'search_evidence' &&
-      Array.isArray(kinds) &&
-      kinds.includes('runbook') &&
-      !event.arguments?.cluster_id &&
-      !event.arguments?.incident_id
-    );
-  });
   const retrievalAvailable = Boolean(
     receipt?.run.status === 'complete' &&
       receipt.candidates.length,
@@ -4614,8 +4972,12 @@ export default function WorkbenchApp() {
         <div className="side-rail-details">
           <section className="side-rail-card">
             <span className="section-label">Incident scope</span>
-            <strong>INC-2047 · CHG-1842</strong>
-            <code>{health?.cluster_id || '—'}</code>
+            <strong>
+              {scopedEvidenceKeys.length
+                ? scopedEvidenceKeys.join(' · ')
+                : 'No evidence loaded'}
+            </strong>
+            <code>{PARTICIPANT_SOURCE_SYSTEMS.join(', ')}</code>
           </section>
           <section className="side-rail-card">
             <span className="section-label">Active retrieval run</span>
@@ -5143,7 +5505,7 @@ export default function WorkbenchApp() {
                       aria-label="Example queries"
                     >
                       <span>Examples</span>
-                      {PRESETS.map((preset) => (
+                      {presets.map((preset) => (
                         <button
                           key={preset.label}
                           type="button"
@@ -5403,11 +5765,12 @@ export default function WorkbenchApp() {
                   <header>
                     <div>
                       <span className="section-label">Applied retrieval run</span>
-                      <h2>Three rankings become one final order</h2>
+                      <h2>Exact IDs first; active rankings fuse the rest</h2>
                       <p>
-                        Each arm contributes a position, not its raw score.
-                        Weighted RRF converts those positions onto one comparable
-                        scale.
+                        Exact identifier matches enter a deterministic first
+                        tier. {activeFusionArmCount} active ranked{' '}
+                        {activeFusionArmCount === 1 ? 'arm contributes' : 'arms contribute'}{' '}
+                        persisted positions to weighted RRF.
                       </p>
                     </div>
                     <span className="status-pill ready">
@@ -5415,26 +5778,42 @@ export default function WorkbenchApp() {
                     </span>
                   </header>
                   <div className="fusion-flow">
-                    <div className="fusion-flow-arms">
-                      <span>
-                        <b>Text</b>
-                        <strong>{textCandidates.length}</strong>
-                        <small>weight {appliedControls.textWeight}</small>
+                    <div className="fusion-flow-inputs">
+                      <span className="fusion-flow-exact">
+                        <CircleDot size={17} />
+                        <small>Exact tier</small>
+                        <strong>{exactTierCount}</strong>
+                        <b>ordered first</b>
                       </span>
-                      <span>
-                        <b>Semantic</b>
-                        <strong>{vectorCandidates.length}</strong>
-                        <small>weight {appliedControls.vectorWeight}</small>
-                      </span>
-                      <span>
-                        <b>Fuzzy</b>
-                        <strong>{fuzzyCandidates.length}</strong>
-                        <small>
-                          {fuzzyCandidates.length
-                            ? `weight ${appliedControls.fuzzyWeight}`
-                            : 'abstained'}
-                        </small>
-                      </span>
+                      <div className="fusion-flow-arms">
+                        <span>
+                          <b>Text</b>
+                          <strong>{textCandidates.length}</strong>
+                          <small>
+                            {textCandidates.length
+                              ? `weight ${appliedControls.textWeight}`
+                              : 'abstained'}
+                          </small>
+                        </span>
+                        <span>
+                          <b>Semantic</b>
+                          <strong>{vectorCandidates.length}</strong>
+                          <small>
+                            {vectorCandidates.length
+                              ? `weight ${appliedControls.vectorWeight}`
+                              : 'abstained'}
+                          </small>
+                        </span>
+                        <span>
+                          <b>Fuzzy</b>
+                          <strong>{fuzzyCandidates.length}</strong>
+                          <small>
+                            {fuzzyCandidates.length
+                              ? `weight ${appliedControls.fuzzyWeight}`
+                              : 'abstained'}
+                          </small>
+                        </span>
+                      </div>
                     </div>
                     <ArrowRight size={19} aria-hidden="true" />
                     <span className="fusion-flow-rrf">
@@ -5446,7 +5825,7 @@ export default function WorkbenchApp() {
                     <span className="fusion-flow-final">
                       <FileCheck2 size={18} />
                       <small>
-                        {finalReranked ? 'Model-reranked final' : 'Aurora final'}
+                        {finalReranked ? 'Cohere final' : 'Final order'}
                       </small>
                       <strong>
                         {candidates[0]
@@ -5464,46 +5843,6 @@ export default function WorkbenchApp() {
                       setSelectedEvidenceId(candidate.evidence_id || null)
                     }
                   />
-                  <div className="rrf-formula-panel">
-                    <div className="rrf-formula-intro">
-                      <span className="section-label">Weighted RRF formula</span>
-                      <small>For each evidence item d</small>
-                    </div>
-                    <div
-                      className="rrf-formula-expression"
-                      aria-label={`RRF of d equals ${appliedControls.textWeight} over ${appliedControls.rrfK} plus text rank, plus ${appliedControls.vectorWeight} over ${appliedControls.rrfK} plus semantic rank, plus ${appliedControls.fuzzyWeight} over ${appliedControls.rrfK} plus fuzzy rank`}
-                    >
-                      <strong>RRF(d)</strong>
-                      <b>=</b>
-                      <span className="rrf-fraction">
-                        <i>{appliedControls.textWeight}</i>
-                        <small>
-                          {appliedControls.rrfK} + r<sub>text</sub>(d)
-                        </small>
-                      </span>
-                      <b>+</b>
-                      <span className="rrf-fraction">
-                        <i>{appliedControls.vectorWeight}</i>
-                        <small>
-                          {appliedControls.rrfK} + r<sub>semantic</sub>(d)
-                        </small>
-                      </span>
-                      <b>+</b>
-                      <span className="rrf-fraction">
-                        <i>{appliedControls.fuzzyWeight}</i>
-                        <small>
-                          {appliedControls.rrfK} + r<sub>fuzzy</sub>(d)
-                        </small>
-                      </span>
-                    </div>
-                    <div className="rrf-formula-notes">
-                      <span>
-                        <b>k={appliedControls.rrfK}</b> dampens rank outliers
-                      </span>
-                      <span>missing arm = 0</span>
-                      <span>Cohere is not part of this formula</span>
-                    </div>
-                  </div>
                   <div className="applied-fusion-strip">
                     <span>
                       Applied weights
@@ -5524,10 +5863,6 @@ export default function WorkbenchApp() {
                     <span>
                       Candidate pool
                       <b>{appliedControls.candidatePool}</b>
-                    </span>
-                    <span>
-                      Iterative scan
-                      <b>{ITERATIVE_SCAN_LABELS[appliedControls.iterativeScan]}</b>
                     </span>
                   </div>
                 </section>
@@ -5555,26 +5890,10 @@ export default function WorkbenchApp() {
                       busy={busy !== null}
                     />
                   </div>
-                  <section className="sql-panel">
-                    <header>
-                      <span>Applied ranking rule</span>
-                      <span>run {compactId(runId)}</span>
-                    </header>
-                    <pre>
-                      <code>{`rrf_score =
-  ${appliedControls.textWeight} / (${appliedControls.rrfK} + text_position)
-+ ${appliedControls.vectorWeight} / (${appliedControls.rrfK} + vector_position)
-+ ${appliedControls.fuzzyWeight} / (${appliedControls.rrfK} + trigram_position)
-
--- a missing arm contributes zero
--- exact identifiers form a deterministic tier above fused rows
-ORDER BY
-  match_tier,
-  exact_identifier_position,
-  rrf_score DESC
-LIMIT ${appliedControls.limit};`}</code>
-                    </pre>
-                  </section>
+                  <FusionImplementationDetails
+                    controls={appliedControls}
+                    runId={runId}
+                  />
                 </div>
 
                 {candidates.length ? (
@@ -5582,7 +5901,7 @@ LIMIT ${appliedControls.limit};`}</code>
                     <header>
                       <div>
                         <span className="section-label">Candidate pool</span>
-                        <h2>Every contribution on one shared rank scale</h2>
+                        <h2>Compare positions and final order</h2>
                       </div>
                       <div className="contribution-legend">
                         <span>
@@ -5612,14 +5931,11 @@ LIMIT ${appliedControls.limit};`}</code>
                 )}
 
                 <section className="fusion-reading-note">
-                  <span className="section-label">How to read this table</span>
+                  <span className="section-label">Reading guide</span>
                   <p>
-                    `ts_rank`, vector similarity, and trigram similarity use
-                    unrelated scales, so RRF combines only integer positions.
-                    Exact identifiers remain in a deterministic tier above fused
-                    rows. Optional Cohere reranking may reorder the final pool
-                    afterward, but it never overwrites Aurora&apos;s persisted
-                    RRF score.
+                    Open a candidate row to inspect raw arm diagnostics and
+                    contribution math. PostgreSQL RRF and Cohere rerank scores
+                    explain relative order; neither is a confidence probability.
                   </p>
                 </section>
               </div>
@@ -5989,27 +6305,39 @@ LIMIT ${appliedControls.limit};`}</code>
 
                     {agentDisplayState === 'complete' && answer ? (
                       <div className="answer-complete-prose">
-                        <p className="answer-lead">
-                          Cause, visible impact, and safe remediation all have
-                          citation-validated evidence.
-                        </p>
-                        <div className="answer-prose">
-                          <FormattedAnswer text={streamingAnswer || answer.answer_text} />
+                        <div className="answer-narrative-heading">
+                          <div>
+                            <span className="section-label">
+                              Answer of record
+                            </span>
+                            <h2>Citation-validated incident synthesis</h2>
+                          </div>
+                          <span
+                            className={`status-pill ${
+                              answer.validation_status === 'valid'
+                                ? 'ready'
+                                : ''
+                            }`}
+                          >
+                            <ShieldCheck size={12} />
+                            {answer.validation_status || 'persisted'}
+                          </span>
                         </div>
+                        <AnswerNarrative
+                          text={streamingAnswer || answer.answer_text}
+                        />
                         <div className="answer-proof-strip">
                           <span>
                             <b>{answerCitations.length}</b>
                             validated citations
                           </span>
                           <span>
-                            <b>{runbookRecovered ? 'yes' : 'no'}</b>
-                            RB-017 cited
+                            <b>{resolvedCitationCount}</b>
+                            resolved source spans
                           </span>
                           <span>
-                            <b>{agentTrace.length || 'persisted'}</b>
-                            {agentTrace.length
-                              ? 'observed tool calls'
-                              : 'answer record loaded'}
+                            <b>{answer.validation_status || 'persisted'}</b>
+                            citation gate
                           </span>
                         </div>
                         {receipt?._verify_sql?.answer ? (
@@ -6086,10 +6414,7 @@ LIMIT ${appliedControls.limit};`}</code>
                                 <em>
                                   {citation.claim?.trim()
                                     ? citation.claim
-                                    : `Source context: ${sourceRole(
-                                        citation,
-                                        personaMode,
-                                      )}`}
+                                    : `Source context: ${citationContext(citation)}`}
                                 </em>
                               </span>
                             </button>
@@ -6108,21 +6433,22 @@ LIMIT ${appliedControls.limit};`}</code>
                     {answerCitations.length ? (
                       <section className="answer-coverage-card">
                         <div>
-                          <span>Claim coverage</span>
-                          <b>{answerCoverageComplete ? '3/3' : '2/3'}</b>
+                          <span>Citation resolution</span>
+                          <b>
+                            {resolvedCitationCount}/{answerCitations.length}
+                          </b>
                         </div>
                         <div className="answer-coverage-meter">
                           <i
                             style={{
-                              width:
-                                answerCoverageComplete ? '100%' : '66.67%',
+                              width: `${answerCitations.length ? (resolvedCitationCount / answerCitations.length) * 100 : 0}%`,
                             }}
                           />
                         </div>
                         <p>
-                          {answerCoverageComplete
+                          {citationCoverageComplete
                             ? 'Every citation resolves to a source URI, revision, exact chunk, and supporting quote.'
-                            : 'The answer remains withheld until every required claim is cited.'}
+                            : 'The persisted citation record is incomplete or has not passed validation.'}
                         </p>
                       </section>
                     ) : null}
@@ -6187,8 +6513,8 @@ LIMIT ${appliedControls.limit};`}</code>
                           <div>
                             <strong>Required evidence covered</strong>
                             <p>
-                              Cause, visible customer impact, and approved
-                              remediation were present in the visible set.
+                              The persisted supporting runs supplied every
+                              evidence kind required by the decomposed question.
                             </p>
                             <small>{answerCitations.length} cited sources</small>
                           </div>
@@ -6224,18 +6550,18 @@ LIMIT ${appliedControls.limit};`}</code>
                   <div>
                     <article>
                       <span>01</span>
-                      <strong>Incident evidence stays filtered</strong>
+                      <strong>Participant evidence stays isolated</strong>
                       <p>
-                        Cause, lock, and customer evidence remain filtered to{' '}
-                        <code>{controls.clusterId}</code>.
+                        Every retrieval arm is filtered to{' '}
+                        <code>{PARTICIPANT_SOURCE_SYSTEMS.join(', ')}</code>.
                       </p>
                     </article>
-                    <article className={boundedRecoveryObserved ? 'observed' : ''}>
+                    <article className={agentDisplayState === 'complete' ? 'observed' : ''}>
                       <span>02</span>
-                      <strong>Only reusable guidance widens</strong>
+                      <strong>Canonical relationships stay measured</strong>
                       <p>
-                        The runbook subquery removes cluster and incident scope;
-                        other retrievals do not.
+                        Displayed edges come from persisted relationship reads;
+                        the frontend does not invent links between evidence.
                       </p>
                     </article>
                     <article
@@ -6252,7 +6578,7 @@ LIMIT ${appliedControls.limit};`}</code>
                       <p>
                         {personaMode
                           ? 'ACL checks apply to every retrieval and hop; '
-                          : 'Metadata filters apply to retrieval; '}
+                          : 'Source and metadata filters apply to retrieval; '}
                         missing or invalid citations keep the answer withheld.
                       </p>
                     </article>
@@ -6400,7 +6726,7 @@ LIMIT ${appliedControls.limit};`}</code>
                   <aside className="graph-controls-panel">
                     <div className="graph-scope">
                       <span className="section-label">Investigation</span>
-                      <p>{controls.query}</p>
+                      <p>{receipt?.run.query_text || controls.query}</p>
                       {personaMode ? (
                         <span className="graph-scope-persona">
                           persisted persona{' '}
@@ -6639,6 +6965,24 @@ LIMIT ${appliedControls.limit};`}</code>
                       </tbody>
                     </table>
                   </div>
+                  <div
+                    className="graph-verdict-mobile"
+                    aria-label="Relationship verdicts"
+                  >
+                    {(visibleGraph?.edges || []).map((edge) => (
+                      <article key={edge.edge_key}>
+                        <div>
+                          <span>{edge.from_external_key}</span>
+                          <ArrowRight size={13} aria-hidden="true" />
+                          <span>{edge.to_external_key}</span>
+                        </div>
+                        <strong>{edge.relation}</strong>
+                        <small>
+                          {edge.origin} · {score(edge.confidence, 2)}
+                        </small>
+                      </article>
+                    ))}
+                  </div>
                 </section>
               </>
             ) : null}
@@ -6715,12 +7059,6 @@ LIMIT ${appliedControls.limit};`}</code>
                         <div>
                           <strong>Question accepted</strong>
                           <span>
-                            {personaMode
-                              ? `${personaSetRoleSql(
-                                  (receipt?.run.role as PersonaKey) ??
-                                    controls.role,
-                                )} `
-                              : ''}
                             cluster {controls.clusterId || 'all'}.
                           </span>
                         </div>
@@ -7387,7 +7725,7 @@ LIMIT ${appliedControls.limit};`}</code>
           </span>
           <span>
             <LockKeyhole size={13} />
-            synthetic incident evidence
+            participant-generated incident evidence
           </span>
           <span>
             <FileCheck2 size={13} />
