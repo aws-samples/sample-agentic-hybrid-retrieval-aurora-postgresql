@@ -317,9 +317,32 @@ SELECT
   ) AS live_ready
 FROM checks;
 
+-- Owner-rights for the same reason retrieval.search_index_drift() above is: this
+-- is a readiness assertion over capture COMPLETENESS, not an evidence read, and
+-- its projection is boolean checks plus capture identity -- never statement text.
+--
+-- SECURITY DEFINER is load-bearing when sql/12_masking.sql is applied. The view
+-- predicates on casework.database_insights_samples.statement (top_sql_contains_index
+-- build, above), and that column is masked for persona_app_engineer and
+-- persona_auditor. pg_columnmask refuses any predicate touching a masked column:
+--   ERROR: Predicates on masked columns are not allowed
+-- Measured on Aurora PostgreSQL 18.3 as an invoker-rights function, both masked
+-- personas got that error instead of a receipt, which broke `make doctor`
+-- (backend/scripts/doctor.py checks out get_dict_conn("app_engineer")) while
+-- persona_dba and the owner passed -- so the failure looked persona-specific and
+-- unrelated to masking. Measured again with SECURITY DEFINER: both personas read it.
+-- pg_columnmask evaluates policies against the EFFECTIVE role, so a definer
+-- function owned by the unmasked owner is not subject to the caller's mask.
+--
+-- This grants no extra evidence visibility. The rows it counts are capture
+-- telemetry that sql/11_roles_rls.sql already makes readable to every persona via
+-- the capture-run gate, and the pinned search_path prevents caller-controlled
+-- name resolution.
 CREATE OR REPLACE FUNCTION casework.assert_live_capture_ready()
 RETURNS jsonb
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, casework, retrieval
 AS $$
 DECLARE
   validation casework.v_live_capture_validation%ROWTYPE;

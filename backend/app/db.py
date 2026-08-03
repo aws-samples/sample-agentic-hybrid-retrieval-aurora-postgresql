@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from typing import Iterator, Literal
 
 import psycopg
+from psycopg import sql as pgsql
 from psycopg.rows import dict_row, tuple_row
 from psycopg_pool import ConnectionPool
 
@@ -38,9 +39,42 @@ def validate_persona(persona: str) -> None:
         )
 
 
+def persona_role(persona: str) -> str:
+    """Map a persona name to its database role.
+
+    Args:
+        persona: One of PERSONAS.
+
+    Returns:
+        The NOLOGIN role name to ``SET LOCAL ROLE`` to.
+
+    Raises:
+        ValueError: The persona is not one of the three bound values. Raised
+            rather than defaulted: guessing an identity is how a fail-open bug
+            gets shipped.
+    """
+    validate_persona(persona)
+    return f"persona_{persona}"
+
+
 def _pool_conninfo() -> str:
-    """Return the participant database DSN used by the request pool."""
+    """Return the participant database DSN used by the request pool.
+
+    Core mode uses DATABASE_URL and assumes no persona role. The optional
+    security module requires WORKSHOP_APP_DATABASE_URL so that a missing
+    ``SET LOCAL ROLE`` fails closed rather than inheriting owner privileges: the
+    ``workshop_app`` login holds its persona grants ``WITH INHERIT FALSE`` and so
+    can read nothing until a persona is assumed.
+    """
     settings = get_settings()
+    if settings.workbench_security_enabled:
+        if settings.workshop_app_database_url:
+            return settings.workshop_app_database_url
+        raise RuntimeError(
+            "WORKBENCH_SECURITY_ENABLED=1 requires WORKSHOP_APP_DATABASE_URL. "
+            "Apply `make security-schema`, provision the workshop_app login, and "
+            "set its DSN before enabling persona enforcement."
+        )
     if not settings.database_url:
         raise RuntimeError(
             "DATABASE_URL is not set. For local "
@@ -101,25 +135,41 @@ def close_pool() -> None:
 def get_conn(persona: Persona, *, row_factory=None) -> Iterator[psycopg.Connection]:
     """Check out a request-path connection for the `with` block.
 
-    The persona remains positional as persisted receipt metadata. It is not an
-    authentication boundary in the workshop. Every request uses the fixed
-    workshop visibility predicate in the canonical SQL functions.
+    The persona is positional because receipts retain it either way. In core mode
+    it is validated and recorded but does not change database identity: every
+    request uses the fixed workshop visibility predicate in the canonical SQL
+    functions. With WORKBENCH_SECURITY_ENABLED=1 the checkout assumes the matching
+    NOLOGIN role for the transaction, and the same SELECT returns different rows.
+
+    The checkout owns a transaction because SET LOCAL is transaction-scoped: the
+    pool is autocommit, so outside an explicit transaction the role would apply to
+    the SET statement alone. Callers may still open their own nested
+    `conn.transaction()` — psycopg maps that to a SAVEPOINT.
 
     Args:
-        persona: One of PERSONAS. Recorded with retrieval and agent proof.
+        persona: One of PERSONAS. Recorded with retrieval and agent proof, and in
+            the optional security module it selects the database role.
         row_factory: Applied per checkout so a dict_row caller does not mutate the
             pooled connection's default for the next borrower.
 
     Yields:
         A pooled connection inside an open transaction.
     """
-    validate_persona(persona)
+    role = persona_role(persona)
+    security_enabled = get_settings().workbench_security_enabled
     pool = get_pool()
     with pool.connection() as conn:
         if row_factory is not None:
             conn.row_factory = row_factory
         try:
             with conn.transaction():
+                if security_enabled:
+                    with conn.cursor() as cursor:
+                        cursor.execute(
+                            pgsql.SQL("SET LOCAL ROLE {}").format(
+                                pgsql.Identifier(role)
+                            )
+                        )
                 yield conn
         finally:
             if row_factory is not None:

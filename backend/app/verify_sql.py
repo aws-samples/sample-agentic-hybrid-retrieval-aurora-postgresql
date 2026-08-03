@@ -34,6 +34,8 @@ from typing import Any
 
 from psycopg import sql
 
+from .config import get_settings
+
 # --- Panel grain: the receipt family (explain_ranking_impl) ------------------
 
 RUN_RECEIPT_SQL = "SELECT * FROM proof.v_run_receipts WHERE run_id = %(run_id)s"
@@ -134,12 +136,27 @@ TIMELINE_EVENT_VERIFY_SQL = (
 PERSONAS: tuple[str, ...] = ("app_engineer", "dba", "auditor")
 
 
-def _validate_persona(persona: str) -> None:
-    """Validate the receipt metadata carried by the panel."""
+def persona_role(persona: str) -> str:
+    """Map a persona to its database role.
+
+    Duplicated from backend.app.db by design: this module is pure string
+    construction and is imported by the MCP-facing tool layer, so it must not
+    pull in the connection pool. test_verify_sql.py asserts the two agree.
+
+    Args:
+        persona: One of PERSONAS.
+
+    Returns:
+        The role name the envelope will ``SET LOCAL ROLE`` to.
+
+    Raises:
+        ValueError: The persona is not one of the three bound values.
+    """
     if persona not in PERSONAS:
         raise ValueError(
             f"unknown persona {persona!r}; expected one of {', '.join(PERSONAS)}"
         )
+    return f"persona_{persona}"
 
 
 def _render(
@@ -169,9 +186,11 @@ def _descriptor(
 ) -> dict[str, Any]:
     """Return one ``_verify_sql`` descriptor.
 
-    ``statement`` + ``binds`` are what a machine executes (G-13 replays them and
-    diffs against the API JSON). ``rendered`` is the pasteable envelope a
-    participant takes to psql.
+    Four fields, two audiences. ``statement`` + ``binds`` are what a machine
+    executes (G-13 replays them and diffs against the API JSON). ``set_role`` is
+    the one identity statement the app issued, which the replayer must issue too;
+    it is null in core mode, where the app issues none. ``rendered`` is the
+    pasteable envelope a participant takes to psql.
 
     Keeping ``statement`` single and parameterized is deliberate: a multi-statement
     string cannot be client-side bound and yields only its first result set, so a
@@ -185,8 +204,12 @@ def _descriptor(
     Returns:
         The descriptor dict serialized into the API payload as ``_verify_sql``.
     """
-    _validate_persona(persona)
-    set_role = None
+    role = persona_role(persona)
+    set_role = (
+        f"SET LOCAL ROLE {role}"
+        if get_settings().workbench_security_enabled
+        else None
+    )
     return {
         "statement": statement,
         "binds": binds,

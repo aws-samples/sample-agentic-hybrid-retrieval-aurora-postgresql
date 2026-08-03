@@ -766,6 +766,35 @@ def _capture_repair(
     return repair, after
 
 
+# Performance Insights substitutes this for query text it cannot resolve. The
+# row is a real observation, but it carries no statement to protect.
+_PI_UNRESOLVED_STATEMENT = "unknown"
+
+
+def _measured_visibility(structured: dict[str, Any]) -> str:
+    """Classify one captured observation by what the capture actually contains.
+
+    Performance Insights returns the normalized query text for its top-SQL
+    dimension and withholds it for top-wait. Query text is the one thing in this
+    capture that a real operator would restrict, so the classification reads the
+    captured payload instead of labelling rows by hand.
+
+    Args:
+        structured: The measured payload for one evidence record.
+
+    Returns:
+        ``restricted`` when the capture carries resolved query text, otherwise
+        ``workshop``.
+    """
+    statement = structured.get("statement")
+    if not isinstance(statement, str):
+        return "workshop"
+    normalized = statement.strip()
+    if not normalized or normalized.lower() == _PI_UNRESOLVED_STATEMENT:
+        return "workshop"
+    return "restricted"
+
+
 def _record(
     *,
     external_key: str,
@@ -782,7 +811,7 @@ def _record(
         "source_uri": source_uri,
         "occurred_at": occurred_at,
         "available_at": available_at,
-        "acl": {"visibility": "workshop"},
+        "acl": {"visibility": _measured_visibility(structured)},
         "body": body,
         "structured": structured,
     }

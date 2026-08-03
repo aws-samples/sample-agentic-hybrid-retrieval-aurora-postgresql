@@ -117,19 +117,57 @@ def _encode(value: Any) -> Any:
 
 
 def _replay(cur, descriptor: dict[str, Any], label: str) -> Any:
-    """Execute one fixed-scope ``_verify_sql`` descriptor."""
+    """Execute one ``_verify_sql`` descriptor under its own identity.
+
+    In core mode the descriptor carries no ``set_role`` and the replay runs as the
+    gate's own read-only session. With the optional security module enabled, the
+    descriptor's ``set_role`` is issued before its ``statement`` so the replay runs
+    as the persona the panel ran as. Under RLS the same SELECT returns different
+    rows per role, so replaying without the role would diff the API's rows against
+    a *different* query's rows and call the mismatch a defect.
+
+    SET LOCAL, not SET: the caller's transaction is rolled back at the end, so the
+    role never outlives this descriptor.
+
+    The envelope assertions live here rather than in the callers because this is
+    the one choke point both grains share. Asserting them per-caller left the
+    element grain (graph edges, timeline events) unchecked, so a regression that
+    dropped ``set_role`` on that path alone would have replayed as the pool login
+    and still passed.
+    """
     require(
         descriptor["statement"].count(";") == 0,
         f"{label} _verify_sql.statement contains a ';' — it must be one "
         "parameterized SELECT; the multi-statement envelope belongs in "
         "'rendered', which humans paste and machines never execute",
     )
-    require(
-        not descriptor.get("set_role"),
-        f"{label} _verify_sql unexpectedly changes database role",
+    set_role = descriptor.get("set_role")
+    security_enabled = (
+        (read_env_value("WORKBENCH_SECURITY_ENABLED") or "").strip().lower()
+        not in {"", "0", "false", "no", "off"}
     )
-    cur.execute(descriptor["statement"], descriptor["binds"])
-    rows = [dict(row) for row in cur.fetchall()]
+    if security_enabled:
+        require(
+            isinstance(set_role, str)
+            and set_role.startswith("SET LOCAL ROLE persona_"),
+            f"{label} _verify_sql is missing its optional security envelope",
+        )
+    else:
+        require(
+            not set_role,
+            f"{label} _verify_sql unexpectedly assumes a persona in core mode",
+        )
+    if set_role:
+        # A savepoint per descriptor: SET LOCAL ROLE persists to the end of the
+        # transaction, and the next descriptor may need a different persona.
+        cur.execute("SAVEPOINT verify_role")
+        cur.execute(set_role)
+    try:
+        cur.execute(descriptor["statement"], descriptor["binds"])
+        rows = [dict(row) for row in cur.fetchall()]
+    finally:
+        if set_role:
+            cur.execute("ROLLBACK TO SAVEPOINT verify_role")
     return _encode(rows)
 
 

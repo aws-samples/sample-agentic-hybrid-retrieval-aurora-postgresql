@@ -29,7 +29,10 @@ else
   PYTHON="$(command -v python3 || command -v python)"
 fi
 
-# Gate registry: "G-ID|script|one-line title".
+# Gate registry: "G-ID|script|one-line title". The security gates remain
+# available by explicit ID but are not part of the default workshop path: the
+# core retrieval session runs on a database that has no persona role, no RLS
+# policy, and no masking policy.
 CORE_GATES=(
   "G-11|noun_lint.py|Law 1 noun lint"
   "G-13|verify_sql_golden.py|Verify-SQL golden test"
@@ -40,9 +43,19 @@ CORE_GATES=(
   "G-25|admission_determinism.py|Live-bundle admission determinism (D21)"
 )
 
-GATES=("${CORE_GATES[@]}")
+SECURITY_GATES=(
+  "G-27|rls_enforcement.py|RLS enforcement (D24)"
+  "G-29|masking_determinism.py|Column masking + Law-2 determinism"
+  "G-30|participant_ceremony.py|Participant zero-ceremony identity (A1)"
+  "G-31|persona_equivalence.py|Persona equivalence: policy changes, contract does not"
+)
+
+GATES=("${CORE_GATES[@]}" "${SECURITY_GATES[@]}")
 WANT=("$@")
 if [[ ${#WANT[@]} -eq 0 ]]; then
+  # The default command is always the core contract, even if a developer's shell
+  # or .env last enabled the optional security module.
+  export WORKBENCH_SECURITY_ENABLED=0
   for entry in "${CORE_GATES[@]}"; do
     IFS='|' read -r id _rest <<<"$entry"
     WANT+=("$id")

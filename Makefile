@@ -25,12 +25,20 @@ CORE_SQL_FILES := \
 	sql/09_traverse_evidence.sql \
 	sql/10_admission.sql
 
+# The optional security module. Applied only by `make security-schema`, and only
+# after the core files, because both depend on the casework and retrieval tables
+# they gate. Re-run sql/01_schema.sql first if evidence ACLs changed: the ACL
+# reconciliation there is what these policies read.
+SECURITY_SQL_FILES := \
+	sql/11_roles_rls.sql \
+	sql/12_masking.sql
+
 export DATABASE_URL
 export PGVECTOR_VERSION
 export PGVECTOR_MIN_VERSION
 export POSTGRES_MIN_VERSION
 
-.PHONY: install aurora-local-env schema aurora-verify doctor test live-workshop api frontend smoke clean source-archive
+.PHONY: install aurora-local-env schema security-schema security-checks agentcore-generate agentcore-invoke aurora-verify doctor test live-workshop api frontend smoke clean source-archive
 
 install:
 	python -m venv .venv
@@ -44,6 +52,37 @@ schema:
 	$(PYTHON) backend/scripts/check_pgvector.py --available --min-version $(PGVECTOR_MIN_VERSION)
 	$(PYTHON) backend/scripts/run_sql.py --files $(CORE_SQL_FILES)
 	$(PYTHON) backend/scripts/check_pgvector.py --min-version $(PGVECTOR_MIN_VERSION)
+
+# Optional module: enforce evidence access with PostgreSQL RLS and column
+# masking. Applies the core files first so the policies land on the current
+# schema, then sql/11 and sql/12. Run this against the database that already
+# holds a completed `make live-workshop` run: both files read real captured
+# evidence to decide what is restricted.
+security-schema:
+	$(PYTHON) backend/scripts/check_postgres.py --min-version $(POSTGRES_MIN_VERSION)
+	$(PYTHON) backend/scripts/check_pgvector.py --available --min-version $(PGVECTOR_MIN_VERSION)
+	$(PYTHON) backend/scripts/run_sql.py --files $(CORE_SQL_FILES) $(SECURITY_SQL_FILES)
+	$(PYTHON) backend/scripts/check_pgvector.py --min-version $(PGVECTOR_MIN_VERSION)
+
+# Prove the module on the participant's own data. FAIL_ON_BLOCKED=1 because a
+# BLOCKED security gate here means the policies were never applied, which must
+# not read as a pass.
+security-checks:
+	WORKBENCH_SECURITY_ENABLED=1 FAIL_ON_BLOCKED=1 gates/checks.sh G-27 G-29 G-30 G-31
+
+# Optional module: publish the retrieval tools through a managed AgentCore
+# Gateway. The adapters are generated from agent/registry.py, so regenerate and
+# let G-17 prove the committed files still match byte for byte.
+agentcore-generate:
+	$(PYTHON) -m agent.generate_mcp_server
+	$(PYTHON) -m agent.generate_gateway_dispatch
+	FAIL_ON_BLOCKED=1 gates/checks.sh G-17
+
+# Call the deployed Gateway with the current AWS identity and require the
+# receipt-derived unsafe change to rank first, so a green run proves Aurora
+# ranking survived the managed boundary rather than proving connectivity alone.
+agentcore-invoke:
+	$(PYTHON) scripts/invoke_agentcore_gateway.py --assert-incident
 
 aurora-verify: schema
 	$(PYTHON) backend/scripts/check_postgres.py --min-version 18.3

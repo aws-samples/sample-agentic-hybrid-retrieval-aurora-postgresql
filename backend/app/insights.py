@@ -27,6 +27,16 @@ FUSION_FUNCTIONS = [
 ]
 
 
+def _security_mode() -> str:
+    """Report which identity model the API is actually running under.
+
+    The UI reads this to decide whether to show the persona affordance at all.
+    It is derived from configuration rather than hardcoded so the frontend cannot
+    offer a persona switch against a database that has no persona roles.
+    """
+    return "persona" if get_settings().workbench_security_enabled else "core"
+
+
 def _readiness_payload(
     health: dict[str, Any],
     embedding_spaces: list[dict[str, Any]],
@@ -38,7 +48,7 @@ def _readiness_payload(
             )
         return {
             "status": "awaiting_incident",
-            "security_mode": "core",
+            "security_mode": _security_mode(),
             **health,
             "embedding_spaces": [],
         }
@@ -61,7 +71,7 @@ def _readiness_payload(
         )
     return {
         "status": "ready",
-        "security_mode": "core",
+        "security_mode": _security_mode(),
         **health,
         "embedding_spaces": embedding_spaces,
     }

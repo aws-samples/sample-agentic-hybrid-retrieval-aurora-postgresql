@@ -50,6 +50,15 @@ class Settings(BaseModel):
     database_url: str = Field(
         default_factory=lambda: os.environ.get("DATABASE_URL", "")
     )
+    # The optional security module (sql/11_roles_rls.sql + sql/12_masking.sql).
+    # Off by default: the core retrieval workshop must run on a database that has
+    # never had a persona role, an RLS policy, or a masking policy applied.
+    workshop_app_database_url: str = Field(
+        default_factory=lambda: os.environ.get("WORKSHOP_APP_DATABASE_URL", "")
+    )
+    workbench_security_enabled: bool = Field(
+        default_factory=lambda: _env_bool("WORKBENCH_SECURITY_ENABLED", False)
+    )
     database_connect_timeout_seconds: int = Field(
         default_factory=lambda: _env_int(
             "DATABASE_CONNECT_TIMEOUT_SECONDS", 10, minimum=1
