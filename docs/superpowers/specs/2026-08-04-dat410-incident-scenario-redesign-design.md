@@ -139,17 +139,12 @@ backfill session's PID for later correlation.
 **Hot-write driver (new: a lab-only FastAPI endpoint + a driver script/thread pool)** — Owns
 Phase 2's collision mechanism. The endpoint performs a real write through
 `backend/app/db.py`'s existing pool (`get_conn`/`get_dict_conn` pattern, unchanged) against a
-specific, predetermined "hot" `order_id`. **Unverified assumption, flagged for the
-implementation plan to confirm empirically before relying on it**: this design assumes an
-unbatched `UPDATE` scans in ascending physical/heap order on a freshly-bulk-loaded table, so
-the lowest `order_id`s are reached earliest and are a safe choice for guaranteed early
-collision. This was never directly measured in this session (only aggregate backfill
-duration was measured, not per-row progress) — the implementation plan should verify this
-with a quick live probe (e.g., sample which rows are already updated at a fixed point
-mid-backfill) before locking in "lowest IDs" as the hot-row selection rule. If the assumption
-is wrong, an alternative is to have the hot-write driver poll for the actual currently-locked
-row (e.g., via a non-blocking `SELECT ... FOR UPDATE NOWAIT` sweep) rather than assume a fixed
-set of IDs. Every transaction issued through this
+specific, predetermined "hot" `order_id`. **Confirmed empirically** (see Testing section's
+"Measured Baseline — New 3M-Row Mechanism"): an unbatched `UPDATE` does scan in ascending
+physical/heap order on a freshly-bulk-loaded table — 10 concurrent writers against the lowest
+10 `order_id`s all genuinely blocked while the backfill held its transaction open. "Lowest
+IDs" is a safe, verified hot-row selection rule; the `SELECT ... FOR UPDATE NOWAIT`-polling
+fallback originally proposed here is not needed. Every transaction issued through this
 endpoint runs `SET LOCAL application_name = 'workbench-lab-api-hot-write'` immediately after
 checkout, making it unambiguously identifiable in `pg_stat_activity`. The driver launches 10
 concurrent calls against 10 distinct hot IDs, then continuously issues at least 2 more to keep
@@ -294,11 +289,117 @@ requires recomputing that bound for the new phase mix, not silently reusing the 
   explicitly re-verified against a real run before this ships — not inherited from the old
   100–120 number.
 - Manual/facilitator verification: at least one full dry run against the real Aurora cluster,
-  timed end-to-end, confirming the 5–8 minute ceiling holds with real margin (this session's
-  arithmetic estimated ~1.5 minutes for the core mechanism at 3M rows, using measured
-  backfill/embedding numbers, before any hold-controller/hot-write-driver overhead — that
-  estimate needs re-confirmation once those pieces are actually built, not assumed from the
-  design-time arithmetic alone).
+  timed end-to-end, confirming the 5–8 minute ceiling holds with real margin.
+
+### Measured Baseline — Current (Unmodified) Pipeline, Real Aurora Cluster
+
+Ran the current, unmodified `run_live_workshop.py` end to end against
+`agenticretrievalcorestack-aurorapostgresretrievalc-rxrppbdex0nu` (`db.r8g.2xlarge`, Aurora
+PostgreSQL 18.3), with the Performance Insights wait temporarily and locally bypassed (never
+committed — PI cannot pass on this scenario at all, per the root-cause chain in
+`database-insights-removal-decided` memory; the bypass exists only to let the rest of the
+pipeline run for this timing baseline). Per-stage wall-clock, current 25,000-row scale:
+
+| Stage | Time |
+|---|---|
+| Preflight + Bedrock preflight embed | 4.9s |
+| Induced 60s write stall | 69.1s |
+| `CREATE INDEX CONCURRENTLY` repair | 2.1s |
+| Collect AWS observations (CloudWatch only) | 2.2s |
+| Build searchable evidence | 0.03s |
+| Admit atomically into Aurora | 0.9s |
+| Generate 103 real Cohere Embed v4 embeddings | 4.0s |
+| Publish receipt + cleanup | 0.6s |
+| **Total** | **83.6s (1.4 min)** |
+
+Real Labs 2–4 API calls against the resulting 103-document corpus (all through the live
+FastAPI app, real Bedrock calls where applicable, no mocks):
+
+| Call | Time |
+|---|---|
+| Exact/hybrid search | 3.25s |
+| Full-text search | 1.28s |
+| Vector/semantic search | 1.56s |
+| Fuzzy search (typo'd ID) | 1.52s |
+| Fusion (real generated exercise request) | 1.93s |
+| Filter (real generated exercise request) | 1.81s |
+| Decompose | 0.13s |
+| Traverse | 0.62s |
+| Compare | 0.41s |
+| **Full agent synthesis (real Claude call, 8 citations)** | **24.85s** |
+| Replay (run + candidates, no model call) | 0.82s + 0.75s |
+| Explain-ranking | 0.62s |
+
+**Headline**: ~2 minutes of pure backend/API latency across the whole pipeline, dominated by
+two fixed costs — the deliberate 60s induced stall and one 24.85s full-synthesis Bedrock
+Claude call. This rules out backend latency as a real risk to the 45–60 minute session; it
+does not by itself validate the published per-lab minute budgets, since those are about human
+reading/typing/discussion time, not server response time. The 24.85s synthesis call is a real,
+unavoidable wait a participant sits through mid-Lab-3 and should be called out in facilitator
+guidance as expected, not a hang.
+
+### Measured Baseline — New 3M-Row Mechanism, Real Aurora Cluster
+
+Ran the redesigned mechanism's PostgreSQL-side steps end to end (ad hoc script, not yet the
+shipped implementation) against the same real cluster:
+
+| Stage | Time |
+|---|---|
+| Bootstrap (5,000 customers + 3,000,000 orders) | 27.6s |
+| `ADD COLUMN priority_tier` (committed separately, no held lock) | 0.04s |
+| Backfill `UPDATE` (3M rows, transaction left open) | 22.3s |
+| 10 concurrent hot-row writes, all genuinely blocked | all timed out at ~3.1s |
+| Commit | 0.03s |
+| Query regression: before `ANALYZE` | 471.75ms (seq scan) |
+| Query regression: after `ANALYZE`, still no index | 245.65ms (seq scan) |
+| Query regression: after index | 2.24ms (index scan) |
+
+**Confirms two things empirically that the design previously flagged as assumptions:**
+1. The "lowest `order_id`s collide earliest with the backfill's scan" hypothesis (flagged
+   as unverified in the Components section above) is now confirmed — all 10 writers against
+   IDs 1–10 genuinely blocked while the backfill held its transaction open.
+2. The `ANALYZE`-doesn't-help/index-does finding replicates at a starker ratio on a fresh
+   run (471ms→245ms→2.24ms) than the original brainstorming probe (225ms→219ms→1.5ms) —
+   consistent story, real run-to-run variance in the exact numbers, timings remain reference
+   observations only.
+
+**Explicit limitation, not yet closed**: this test used direct short-lived `psycopg`
+connections with a `statement_timeout`, not the actual `psycopg_pool.ConnectionPool` /
+`pool.connection(timeout=3.0)` / `PoolTimeout` / `get_pool().get_stats()` mechanism the
+contract specifies. It verifies the PostgreSQL-side lock-contention half of Phase 2 for real;
+it does NOT yet verify genuine FastAPI-pool exhaustion, since the lab-only hot-write endpoint
+and pool-status endpoint don't exist in code yet. That verification is still owed once those
+components are built — do not treat this measurement as closing the pool-exhaustion
+acceptance criterion.
+
+### Measured Retrieval-Quality Baseline — Current 103-Document Corpus
+
+Direct inspection of real API responses (not assumed) confirms the corpus already produces
+genuinely different top results per arm even at the CURRENT, pre-redesign scale — a positive
+signal for the larger redesigned corpus:
+- Exact search on an `INC-` key correctly ranks the incident record first.
+- Full-text search surfaces `LOCK-...-01` first via lock-vocabulary match — different top
+  result from exact.
+- Vector/semantic search surfaces `CHG-...-01` first via paraphrase similarity — different
+  top result from both exact and full-text.
+- Fuzzy search correctly resolves a deliberately transposed ID (`CGH-...-01`) to the real
+  `CHG-...-01`.
+
+**Reranking produced a real, substantial, measured difference** — not a marginal reordering.
+Comparing `rerank=false` (RRF only) vs. `rerank=true` (Cohere Rerank 3.5) on the identical
+fusion query: RRF-only's top 8 results were dominated by six near-duplicate `TEL-...-A0xx`
+activity-window snapshots (clustered `rrf_score` 0.041–0.044) — it correctly found the causal
+`CHG-...-01` at #1 but buried the rest of the causal chain. Reranked, `TEL-...-R01` (repair
+verification, `rrf_score`=0.032, well outside the RRF top-8) jumped to #2, and
+`LOCK-...-01`/`CHG-...-02` (repair change) both entered the top 4 from `rrf_score`s the
+RRF-only ordering had ranked below several near-duplicate activity documents. Rerank scores
+for the promoted documents (0.52–0.69) were clearly separated from the demoted ones (~0.42),
+confirming the reranker's signal is real, not noise. Raw `rrf_score` and `final_score`
+columns were unchanged by reranking in both responses, confirming this repo's
+raw/RRF/rerank-score-separation invariant holds. This is evidence the redesign's larger,
+more evidence-diverse corpus should make this effect even clearer, not weaker — the
+qualitative story already works at 103 documents; more genuinely-distinct evidence kinds
+should sharpen it further.
 
 ## Explicitly Out of Scope
 
