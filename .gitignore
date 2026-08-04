@@ -46,3 +46,6 @@ infra/cdk/cdk.context.json
 .DS_Store
 .vscode/settings.json
 .idea/
+
+# Local design mockups: not source, never committed (see HANDOFF.md)
+/mockups/
