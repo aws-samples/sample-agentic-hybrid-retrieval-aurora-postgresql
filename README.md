@@ -137,6 +137,18 @@ local embedding substitute. Re-run `make doctor` before an event.
 This repository owns application source. The sibling Workshop Studio repository
 owns Aurora, VPC, IAM, Code Editor, AgentCore Gateway, and source packaging.
 
+If you will edit `sql/11_roles_rls.sql` or `sql/12_masking.sql`, install the
+local pre-push hook so a push touching either file cannot land without
+`make security-checks` passing against your Aurora endpoint first:
+
+```bash
+git config core.hooksPath scripts/git-hooks
+```
+
+`pg_columnmask` is Aurora-only, so this check runs locally against your own
+cluster rather than in CI. It only activates on pushes that touch those two
+files; every other push is unaffected.
+
 ## Prepare the Live Environment
 
 Point `DATABASE_URL` at the provisioned workshop Aurora database. The schema
