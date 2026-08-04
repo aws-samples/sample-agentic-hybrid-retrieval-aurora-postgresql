@@ -101,7 +101,38 @@ Combined with Gate 1's earlier incidental recovery from the same abandoned-trans
 
 ## Gate 5: Validate corpus diversity and deduplication before freezing document-count expectations
 
-**Result: pending**
+**Result: PASSED, but surfaced a real gap between the 180-250 target and the natural event count — read the finding below, this is the most consequential gate result so far**
+
+First attempt (148 documents, mechanically cycling ~3-10 fixed values through a repeated sentence template per category): **FAILED at 20.65% overall**, with `TEL-LOCK`/`TEL-POOL`/`TEL-REQ`/`TEL-WAL` all at 100% within-category near-duplicate rate. Root cause, confirmed by direct inspection: numeric variation alone inside a fixed sentence template does not produce enough lexical difference for `pg_trgm` similarity to distinguish documents — the fixed scaffolding text dominates the trigram set. This is a sharper, more specific version of the design spec's "distinct signal types, not denser sampling" principle than originally stated: **even genuinely-different numbers plugged into one template are not sufficient; the sentence structure itself must vary per event.**
+
+Second attempt (51 documents, one per genuinely distinct real event on the incident's timeline, each described in different structural language — a state-change list for pool transitions, one document per actually-distinct outcome class for requests, milestone descriptions for WAL, not time-sliced snapshots): **PASSED at 6.43% overall.**
+
+```
+documents loaded: 51
+total pairs checked: 1275
+near-duplicate pairs (trigram similarity > 0.6): 82
+
+per-category near-dupe rate (within-category pairs only):
+  TEL-LOCK: 81/190 (42.6%)
+  TEL-META: 0/45 (0.0%)
+  TEL-PLAN: 1/3 (33.3%)
+  TEL-POOL: 0/45 (0.0%)
+  TEL-REQ: 0/3 (0.0%)
+  TEL-WAL: 0/10 (0.0%)
+
+overall near-dupe rate: 6.43%
+GATE 5 PASSED (threshold: <15%)
+```
+
+**The consequential finding, separate from pass/fail**: this honestly-constructed sample — one document per genuinely distinct event across all six signal-type categories for ONE incident run — totals **51 documents**, not 180-250. `TEL-LOCK` still shows 42.6% even after the fix, because there are only 10 hot writers and their "entered wait" / "timed out" descriptions still share too much scaffolding language across writers — this category may have an inherent ceiling on how many genuinely-distinct documents it can produce for exactly 10 writers, no matter how the sentences are varied.
+
+**This means the 180-250 target, as currently scoped to "one run's four phases," may not be reachable without reintroducing the near-duplicate problem this gate exists to prevent.** Options for the Evidence builder implementation phase to resolve, not yet decided:
+1. Accept a smaller corpus (e.g., 50-80 documents) as the honest number for one run, revising the 180-250 target.
+2. Find additional genuinely distinct signal categories not yet in the six listed (e.g., per-writer individual timeline documents combining multiple signal types per writer, not one category-siloed document per writer).
+3. Increase the hot-write driver's writer count beyond 10 (changes the Two-Wave Evidence Model's specified mechanism, needs explicit re-approval, not a unilateral change).
+4. Accept a higher near-duplicate rate for `TEL-LOCK` specifically (still well under the 15% gate threshold in aggregate) since 10 writers is a deliberate, specified constant from the contract, not an accident.
+
+**Recommendation, not yet decided by the user**: option 4 is the least invasive — the aggregate 6.43% already passes with real margin, and `TEL-LOCK`'s 42.6% is isolated to one category whose event count (10 writers) is a deliberate contract constant. The 180-250 target likely needs revising downward regardless, closer to the honestly-observed ~50-80 range for a single run's four phases, once the real Evidence builder task is scoped — this should be raised explicitly before that task starts, not discovered again mid-implementation.
 
 ## Gate 6: Consolidated report and user go-ahead
 
