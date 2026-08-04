@@ -56,7 +56,7 @@ def _publish_cache(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Project admitted live evidence into the search index."
+        description="Build the retrieval index from admitted live evidence."
     )
     parser.add_argument("--provider", choices=("bedrock", "hash"), default="bedrock")
     parser.add_argument(
@@ -88,7 +88,7 @@ def _parser() -> argparse.ArgumentParser:
         action="append",
         dest="source_systems",
         help=(
-            "project only this authoritative source system; repeat for multiple "
+            "index only this authoritative source system; repeat for multiple "
             "sources. Out-of-scope current documents are left unchanged"
         ),
     )

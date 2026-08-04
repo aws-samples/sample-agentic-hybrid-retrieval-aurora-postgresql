@@ -1,4 +1,4 @@
--- Search-index drift is an owner-rights operational diagnostic. Its projection
+-- Search-index drift is an owner-rights operational diagnostic. Its result
 -- is limited to evidence identity, issue, hashes, and revisions; it never returns
 -- evidence body text. The pinned search_path prevents caller-controlled name
 -- resolution.
@@ -162,7 +162,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION retrieval.search_index_drift() IS
-  'Owner-rights drift computation with a pinned search_path. Projection stays '
+  'Owner-rights drift computation with a pinned search_path. The result stays '
   'identity + hashes + revisions, never evidence body text.';
 
 -- The database owner invokes this through the stable diagnostic view.
@@ -288,7 +288,7 @@ checks AS (
       SELECT count(*) BETWEEN 100 AND 120
       FROM casework.telemetry_evidence telemetry
       WHERE telemetry.capture_id = capture.capture_id
-    ) AS telemetry_projection_complete,
+    ) AS telemetry_evidence_complete,
     EXISTS (
       SELECT 1
       FROM casework.database_insights_samples insight
@@ -313,13 +313,13 @@ SELECT
     AND statement_delta_measured
     AND cloudwatch_metrics_complete
     AND top_wait_lock_relation
-    AND telemetry_projection_complete
+    AND telemetry_evidence_complete
   ) AS live_ready
 FROM checks;
 
 -- Owner-rights for the same reason retrieval.search_index_drift() above is: this
 -- is a readiness assertion over capture COMPLETENESS, not an evidence read, and
--- its projection is boolean checks plus capture identity -- never statement text.
+-- its result is boolean checks plus capture identity -- never statement text.
 --
 -- SECURITY DEFINER is load-bearing when sql/12_masking.sql is applied. The view
 -- predicates on casework.database_insights_samples.statement (top_sql_contains_index

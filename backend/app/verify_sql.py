@@ -13,7 +13,7 @@ Grain of reproducibility (SPEC-session Section 6.2):
   four single ``run_id``-bound SELECTs; each panel publishes one descriptor.
 * **Element grain** - composite panels (graph edges, timeline events) are not one
   SELECT, so each element publishes its own single-key SELECT drawn from the same
-  projection the batch query uses. The batch and element statements share their
+  result shape the batch query uses. The batch and element statements share their
   SELECT/FROM/JOIN block, so their columns cannot diverge; the element replays by
   its own natural key (``edge_key`` for an edge, ``evidence_id`` for an event),
   which is unique, so the replay returns exactly the displayed row.

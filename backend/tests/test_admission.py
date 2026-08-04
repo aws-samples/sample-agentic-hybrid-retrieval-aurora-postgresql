@@ -149,7 +149,7 @@ class AdmissionSchemaTest(unittest.TestCase):
             ).fetchone()[0]
         )
 
-    def test_chunks_project_source_system(self) -> None:
+    def test_chunks_carry_source_system(self) -> None:
         column = self.connection.execute(
             """
             SELECT is_nullable

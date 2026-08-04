@@ -16,7 +16,7 @@ $$;
 COMMENT ON FUNCTION retrieval.acl_visible(jsonb, name) IS
   'Core workshop visibility predicate. p_role is retained for API compatibility.';
 
--- The scalar twin, for the projected retrieval.* tables that carry acl_visibility
+-- The scalar twin, for the derived retrieval.* tables that carry acl_visibility
 -- as a column instead of the jsonb. p_required_principals is gone: after the
 -- Blocker-1 resolution acl.principals is always empty and visibility is the only
 -- classification axis.
@@ -671,7 +671,7 @@ $$;
 --
 -- SECURITY DEFINER makes this existence check deliberately ACL-blind.
 --
--- The projection is one boolean per input token. No column of any evidence
+-- The result is one boolean per input token. No column of any evidence
 -- row crosses the boundary -- not the key, not the title, not the body -- so the
 -- only fact obtainable is the one the caller must be told to avoid the larger
 -- disclosure. It is LANGUAGE sql (no dynamic SQL) and search_path is pinned, so

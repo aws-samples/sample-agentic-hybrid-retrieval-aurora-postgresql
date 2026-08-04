@@ -194,8 +194,8 @@ class ContextCostTests(unittest.TestCase):
             self.assertNotIn("rrf_score", row)
             self.assertNotIn("explanation", row)
         raw = len(json.dumps({"results": rows}, default=str))
-        projected = len(json.dumps(result, default=str))
-        self.assertLess(projected, raw // 2)
+        shaped = len(json.dumps(result, default=str))
+        self.assertLess(shaped, raw // 2)
 
     def test_empty_results_tell_the_model_what_to_try_next(self) -> None:
         agent_tools.start_run(None)

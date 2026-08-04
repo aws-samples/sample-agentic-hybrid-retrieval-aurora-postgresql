@@ -18,7 +18,7 @@ if ! command -v zip >/dev/null 2>&1; then
 fi
 
 if ! git -C "$ROOT_DIR" diff --quiet HEAD -- \
-  admission backend frontend labs lambda_mcp mcp-server scripts sql Makefile
+  .claude admission backend frontend gates labs lambda_mcp mcp-server scripts sql Makefile
 then
   echo "ERROR: runtime source has uncommitted changes; commit before packaging." >&2
   exit 1
@@ -40,6 +40,7 @@ done
 required=(
   backend/scripts/build_search_index.py
   labs/incident/capture_observability.py
+  labs/incident/prepare_workload.py
   labs/incident/run_live_workshop.py
   labs/exercises/checkpoint.py
   labs/exercises/lab2-filter-request.json
@@ -48,9 +49,17 @@ required=(
   labs/exercises/lab3-plan-request.json
   labs/exercises/lab3-traverse-request.json
   labs/exercises/lab3-compare-request.json
+  .claude/skills/extend-hybrid-retrieval/SKILL.md
   sql/01_schema.sql
   sql/07_search_index_verification.sql
   sql/10_admission.sql
+  sql/11_roles_rls.sql
+  sql/12_masking.sql
+  gates/checks.sh
+  gates/rls_enforcement.py
+  gates/masking_determinism.py
+  gates/participant_ceremony.py
+  gates/persona_equivalence.py
 )
 for path in "${required[@]}"; do
   if [ ! -f "$STAGE/$path" ]; then
@@ -84,4 +93,4 @@ printf '%s\n' "$REVISION" | zip -q -z "$OUTPUT"
 
 echo "[archive] revision: $REVISION"
 echo "[archive] output:   $OUTPUT"
-echo "[archive] participant database state: schema-only until live admission"
+echo "[archive] evidence state: zero; bootstrap generates operational workload"

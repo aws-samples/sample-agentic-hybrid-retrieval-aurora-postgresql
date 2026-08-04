@@ -9,7 +9,7 @@ that has to come first:
     the engine rather than hand-typed. This is not bookkeeping: (b) below asserts
     that ``persona_app_engineer`` sees zero restricted rows, which is trivially true
     of an empty set. The owner's own RLS exposure is measured alongside it, because
-    the owner writes every derived projection and a filtered owner truncates them
+    the owner writes every derived evidence row and a filtered owner truncates them
     while reporting success. A gate that goes green over an empty enforcement claim
     is worse than one that goes red.
 
@@ -41,7 +41,7 @@ that has to come first:
     (b')  evidence-keyed tables clear through casework.evidence_items, so a cleared
           persona must see every row the owner sees.
     (b'') capture-keyed tables have no evidence column at all. Section 6 gates them
-          either on a VISIBLE projection of the sample (the only direction that
+          either on a VISIBLE evidence row for the sample (the only direction that
           cannot invert) or, more coarsely, on the capture's own incident -- and the
           two carry different honest expectations, so each table is asserted against
           the mechanism its policy actually uses, read from the catalog.
@@ -208,7 +208,7 @@ SELECT DISTINCT evidence_id
  WHERE evidence_id = ANY(%s)
 """
 
-PROJECTED_RESTRICTED_SQL = """
+DERIVED_RESTRICTED_SQL = """
 SELECT count(*) FROM {table} WHERE is_current AND acl_visibility = 'restricted'
 """
 
@@ -225,7 +225,7 @@ SELECT count(*) FROM {table} WHERE is_current AND acl_visibility = 'restricted'
 EVIDENCE_TOUCH_SQL = "SELECT count(*) FROM {table} WHERE {predicate}"
 
 # Capture-keyed tables have no evidence column, so "restricted" is resolved one hop
-# out: which captures projected restricted evidence. Resolved HERE, as the owner, and
+# out: which captures built restricted evidence. Resolved HERE, as the owner, and
 # then handed to the persona probe as a plain array of ids.
 #
 # Two reasons the resolution cannot live inside the persona's own query, and the
@@ -269,9 +269,9 @@ CAPTURE_TOUCH_SQL = "SELECT count(*) FROM {table} WHERE capture_id = ANY(%s)"
 # DIFFERENT honest expectations and picking the wrong one produces a confidently
 # wrong verdict in either direction:
 #
-# * projection-gated (casework.database_insights_samples) requires a VISIBLE
-#   telemetry projection matching the sample's own dimension and query_id, so an
-#   uncleared persona is denied exactly the samples whose projection is restricted.
+# * evidence-row-gated (casework.database_insights_samples) requires a VISIBLE
+#   telemetry evidence row matching the sample's own dimension and query_id, so an
+#   uncleared persona is denied exactly the samples whose evidence row is restricted.
 #   Measured on this capture: 7 samples, 2 visible to app_engineer.
 # * capture-run-gated (casework.cloudwatch_metric_samples,
 #   casework.pg_stat_statements_samples) requires only that the capture's incident be
@@ -287,7 +287,7 @@ CAPTURE_TOUCH_SQL = "SELECT count(*) FROM {table} WHERE capture_id = ANY(%s)"
 # comment documents failing OPEN.
 CAPTURE_MECHANISM_SQL = """
 SELECT p.schemaname || '.' || p.tablename AS qualified,
-       bool_or(p.qual LIKE '%%telemetry_evidence%%') AS projection_gated,
+       bool_or(p.qual LIKE '%%telemetry_evidence%%') AS evidence_gated,
        bool_or(p.qual LIKE '%%incident_capture_runs%%') AS capture_run_gated
   FROM pg_policies p
  WHERE p.schemaname || '.' || p.tablename = ANY(%s)
@@ -295,35 +295,35 @@ SELECT p.schemaname || '.' || p.tablename AS qualified,
  GROUP BY 1
 """
 
-# The owner's oracle for a projection-gated table: how many samples an UNCLEARED
-# persona should reach, being those whose matching telemetry projection is
+# The owner's oracle for an evidence-row-gated table: how many samples an UNCLEARED
+# persona should reach, being those whose matching telemetry evidence row is
 # workshop-visible. Mirrors section 6's predicate exactly, with the visibility test
 # the persona's RLS would have applied made explicit instead of implicit -- so the
 # expectation is computed unfiltered and cannot inherit the filtering it checks.
-PROJECTION_VISIBLE_SQL = """
+EVIDENCE_VISIBLE_SQL = """
 SELECT count(*) FILTER (WHERE visible_workshop) AS uncleared,
        count(*) FILTER (WHERE visible_any) AS cleared
   FROM (
     SELECT
       EXISTS (
         SELECT 1
-          FROM casework.telemetry_evidence projection
+          FROM casework.telemetry_evidence evidence_row
           JOIN casework.evidence_items evidence
-            ON evidence.evidence_id = projection.evidence_id
-         WHERE projection.capture_id = sample.capture_id
-           AND projection.telemetry_type = 'database_insights'
-           AND projection.structured ->> 'dimension' = sample.dimension
-           AND NOT (projection.structured ->> 'query_id'
+            ON evidence.evidence_id = evidence_row.evidence_id
+         WHERE evidence_row.capture_id = sample.capture_id
+           AND evidence_row.telemetry_type = 'database_insights'
+           AND evidence_row.structured ->> 'dimension' = sample.dimension
+           AND NOT (evidence_row.structured ->> 'query_id'
                     IS DISTINCT FROM sample.query_id)
            AND coalesce(evidence.acl ->> 'visibility', 'restricted') = 'workshop'
       ) AS visible_workshop,
       EXISTS (
         SELECT 1
-          FROM casework.telemetry_evidence projection
-         WHERE projection.capture_id = sample.capture_id
-           AND projection.telemetry_type = 'database_insights'
-           AND projection.structured ->> 'dimension' = sample.dimension
-           AND NOT (projection.structured ->> 'query_id'
+          FROM casework.telemetry_evidence evidence_row
+         WHERE evidence_row.capture_id = sample.capture_id
+           AND evidence_row.telemetry_type = 'database_insights'
+           AND evidence_row.structured ->> 'dimension' = sample.dimension
+           AND NOT (evidence_row.structured ->> 'query_id'
                     IS DISTINCT FROM sample.query_id)
       ) AS visible_any
       FROM {table} sample
@@ -648,7 +648,7 @@ def _diagnose_empty_restricted(exposure: dict) -> str:
     * the owner is being filtered by the policies it created -> fix
       ``sql/11_roles_rls.sql``.
 
-    The second is the dangerous one. Every derived projection is written by this
+    The second is the dangerous one. Every derived evidence row is written by this
     identity, so a filtered owner silently truncates ``retrieval.documents`` and
     ``retrieval.chunks`` while reporting success (measured on PG17: 1 of 2 rows
     copied, exit 0). The row-filtering assertions below would then be true and
@@ -680,7 +680,7 @@ def _diagnose_empty_restricted(exposure: dict) -> str:
             f"{exposure['owner']} is named by every policy but does NOT hold "
             f"{CLEARANCE_GROUP}, so it reads workshop rows only. The restricted "
             f"cohort exists and is invisible to the identity that writes every "
-            f"derived projection. Restore the "
+            f"derived evidence. Restore the "
             f"GRANT {CLEARANCE_GROUP} TO current_user block in sql/11_roles_rls.sql"
         )
     return (
@@ -749,7 +749,7 @@ def _measure_capture_keyed(cur, tables: list[str], captures: list) -> dict[str, 
     """
     cur.execute(CAPTURE_MECHANISM_SQL, [tables])
     mechanisms = {
-        row[0]: "projection" if row[1] else "capture_run" if row[2] else "unrecognized"
+        row[0]: "evidence_row" if row[1] else "capture_run" if row[2] else "unrecognized"
         for row in cur.fetchall()
     }
     measured = {}
@@ -758,7 +758,7 @@ def _measure_capture_keyed(cur, tables: list[str], captures: list) -> dict[str, 
         owner_count = cur.fetchone()[0]
         mechanism = mechanisms.get(table, "unpoliced")
         oracle_sql = {
-            "projection": PROJECTION_VISIBLE_SQL,
+            "evidence_row": EVIDENCE_VISIBLE_SQL,
             "capture_run": CAPTURE_RUN_VISIBLE_SQL,
         }.get(mechanism)
         uncleared = cleared = None
@@ -775,7 +775,7 @@ def _measure_capture_keyed(cur, tables: list[str], captures: list) -> dict[str, 
 
 
 def _measure_classification(cur) -> dict:
-    """Measure the restricted set, its classification oracle, and its projections."""
+    """Measure the restricted set, its classification oracle, and derived rows."""
     cur.execute(RESTRICTED_KEYS_SQL)
     rows = cur.fetchall()
     cur.execute(CLASSIFICATION_ORACLE_SQL)
@@ -785,15 +785,15 @@ def _measure_classification(cur) -> dict:
             cur.fetchone(),
         )
     )
-    projected = {}
+    derived = {}
     for table in DERIVED_TABLES:
-        cur.execute(PROJECTED_RESTRICTED_SQL.format(table=table))
-        projected[table] = cur.fetchone()[0]
+        cur.execute(DERIVED_RESTRICTED_SQL.format(table=table))
+        derived[table] = cur.fetchone()[0]
     return {
         "restricted_keys": [row[0] for row in rows],
         "restricted_ids": [row[1] for row in rows],
         "oracle": oracle,
-        "projected": projected,
+        "derived": derived,
     }
 
 
@@ -816,7 +816,7 @@ def _measure_by_mechanism(cur, restricted_ids: list) -> dict:
         for table, columns in reference_columns.items()
         if table not in READ_PATH_TABLES and table not in run_gated_names
     }
-    # One hop out, as the owner: the captures that projected restricted evidence.
+    # One hop out, as the owner: the captures that built restricted evidence.
     # See RESTRICTED_CAPTURES_SQL for why this cannot be folded into the persona
     # probe.
     cur.execute(RESTRICTED_CAPTURES_SQL, [restricted_ids])
@@ -1031,10 +1031,10 @@ def _assert_evidence_keyed_filtering(app_conn, measured: dict) -> None:
 def _assert_capture_mechanism(table: str, mechanism: str) -> None:
     """Assert the table's policy names one of section 6's two visibility gates."""
     require(
-        mechanism in ("projection", "capture_run"),
+        mechanism in ("evidence_row", "capture_run"),
         f"{table} is keyed by capture_id and holds capture payloads, but its RLS "
         f"policy references neither casework.telemetry_evidence (a visible "
-        f"projection) nor casework.incident_capture_runs (the capture's incident) "
+        f"evidence row) nor casework.incident_capture_runs (the capture's incident) "
         f"-- so this gate cannot tell what visibility it is supposed to enforce, "
         f"and section 2 grants every persona SELECT on the schema regardless. "
         f"Gate it on one of section 6's two shapes (sql/11_roles_rls.sql "
@@ -1052,11 +1052,11 @@ def _assert_capture_visibility(table: str, entry: dict, seen: dict) -> None:
         f"{owner_count} samples at {table}, but the owner measured "
         f"{entry['uncleared']} whose visibility gate is workshop-visible. "
         + (
-            f"Section 6's predicate must REQUIRE a visible projection: a "
+            f"Section 6's predicate must REQUIRE a visible evidence row: a "
             f"`NOT EXISTS (...) OR EXISTS (...)` shape fails OPEN, because an "
             f"RLS-filtered subquery cannot tell 'no such row' from 'a row you may "
             f"not see'"
-            if mechanism == "projection"
+            if mechanism == "evidence_row"
             else f"This table is gated on its capture's incident, so a divergence "
             f"means the incident's own ACL and this policy disagree"
         )
@@ -1086,8 +1086,8 @@ def _assert_capture_keyed_filtering(app_conn, measured: dict) -> None:
     Section 6 gates them two different ways, and each is asserted against its OWN
     expectation, read off the policy body in the catalog:
 
-    * projection-gated -- an uncleared persona reads exactly the samples whose
-      matching telemetry projection is workshop-visible. Restriction here is RLS's
+    * evidence-row-gated -- an uncleared persona reads exactly the samples whose
+      matching telemetry evidence row is workshop-visible. Restriction here is RLS's
       job and the count is expected to differ between personas.
     * capture-run-gated -- visibility turns only on the capture's incident, which
       section 6 calls "coarser and deliberately so". When that incident is
@@ -1111,15 +1111,15 @@ def _assert_capture_keyed_filtering(app_conn, measured: dict) -> None:
     touch = measured["capture_touch"]
     print(
         f"\n  (b'') row filtering at the capture-keyed sample tables "
-        f"({len(captures)} captures projected restricted evidence):"
+        f"({len(captures)} captures built restricted evidence):"
     )
     require(
         captures,
-        f"no capture projected any of the {len(measured['restricted_ids'])} restricted "
+        f"no capture built any of the {len(measured['restricted_ids'])} restricted "
         f"evidence rows, so every assertion below would hold over an empty key set. "
         f"casework.telemetry_evidence.capture_id is the link this group depends on; a "
         f"capture that wrote evidence without recording its capture_id breaks the tie "
-        f"between a sample and the ACL protecting its projection "
+        f"between a sample and the ACL protecting its evidence row "
         f"(labs/incident/run_live_workshop.py)",
     )
     for table in sorted(touch):
@@ -1139,7 +1139,7 @@ def _assert_capture_keyed_filtering(app_conn, measured: dict) -> None:
         )
         _assert_capture_mechanism(table, mechanism)
         if owner_count == 0:
-            print("      (no capture projected restricted evidence)")
+            print("      (no capture built restricted evidence)")
             continue
         _assert_capture_visibility(table, entry, seen)
 
@@ -1306,18 +1306,18 @@ def _assert_owner_measurement(measured: dict) -> None:
     require(restricted, _diagnose_empty_restricted(exposure))
     _assert_classification(measured["oracle"], restricted)
 
-    # The projection must carry the restricted rows too, and this is NOT redundant
+    # The derived evidence must carry the restricted rows too, and this is NOT redundant
     # with (b). A non-superuser owner subject to FORCE but holding no clearance
-    # reads a silently truncated source: the search-index build then projects only
+    # reads a silently truncated source: the search-index build then indexes only
     # workshop rows, and (b) below reports "app_engineer sees 0 restricted rows" --
     # a PASS for the wrong reason, because there is nothing there to filter.
-    print("\n  current restricted rows in the derived projection:")
+    print("\n  current restricted rows in the derived retrieval tables:")
     for table in DERIVED_TABLES:
-        print(f"    {table}: {measured['projected'][table]}")
+        print(f"    {table}: {measured['derived'][table]}")
         require(
-            measured["projected"][table] > 0,
+            measured["derived"][table] > 0,
             f"{table} holds no current restricted rows while "
-            f"casework.evidence_items holds {len(restricted)}. The projection is "
+            f"casework.evidence_items holds {len(restricted)}. The retrieval index is "
             f"written by {exposure['owner']}, so either the search index has not "
             f"been rebuilt since the capture, or that identity could not see the "
             f"restricted rows when it built it (named by "

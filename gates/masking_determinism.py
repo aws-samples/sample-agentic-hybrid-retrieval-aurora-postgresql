@@ -121,7 +121,7 @@ MASKED_FOR = {
 # re-adding the policy would go unnoticed. This turns the absence into a claim.
 #
 # Both entries crash or break something and protect nothing, because
-# retrieval.chunks.chunk_text is the unmasked indexed projection of the same text
+# retrieval.chunks.chunk_text is the unmasked indexed copy of the same text
 # (see sql/12_masking.sql section 3 for the full measurement):
 #
 #   * casework.telemetry_evidence -- a mask here made
@@ -132,7 +132,7 @@ MASKED_FOR = {
 #     redacted appear verbatim in a chunk the auditor reads raw.
 #   * retrieval.chunks -- a mask on chunk_text makes every search function fail
 #     with "failed to postpone qual containing lateral reference", because all
-#     three project a snippet out of a LATERAL subquery.
+#     three return a snippet from a LATERAL subquery.
 MUST_NOT_BE_MASKED = (
     "casework.telemetry_evidence",
     "retrieval.chunks",
@@ -157,7 +157,7 @@ SELECT p.schemaname || '.' || p.tablename AS qualified,
 # Every masked table's primary key, from the catalog: the comparison is keyed row
 # by row against the owner's stored value, so a table-specific key column cannot
 # be hardcoded. Single-column keys only -- all four masked tables have one, and a
-# composite key would need a different projection.
+# composite key would need a different SELECT shape.
 PRIMARY_KEY_SQL = """
 SELECT a.attname
   FROM pg_index i
@@ -204,7 +204,7 @@ SELECT c.chunk_version_id, c.chunk_ordinal, c.chunk_text
 # carries the scalar on the derived tables), which is the exact column the row policy
 # tests. Reaching the classification through casework.evidence_items instead would
 # mean a two-table join, and both of those tables are protected -- the same
-# fail-open the corpus projection above documents, on the oracle side rather than
+# fail-open behavior the corpus check above documents, on the oracle side rather than
 # the measurement side. Drift between this scalar and the authoritative acl jsonb is
 # not this gate's job: G-27 asserts the classification matches the capture.
 CHUNKS_BY_VISIBILITY_SQL = """
@@ -239,8 +239,8 @@ def _as_persona(conn, persona: str, statement: str, params: list) -> list[tuple]
             cur.execute("ROLLBACK")
 
 
-def _projection(table: str, key: str, columns: list[str]) -> str:
-    """Return the keyed all-rows projection of one masked table.
+def _select_statement(table: str, key: str, columns: list[str]) -> str:
+    """Return a keyed all-rows SELECT for one masked table.
 
     Every masked column is cast to text so a jsonb mask and a text mask compare the
     same way, and the key is cast too so the client-side dict keys are hashable
@@ -269,7 +269,7 @@ def _measure_policies(cur) -> list[dict] | str:
                 f"{qualified} has a {len(keys)}-column primary key {keys}; this gate "
                 f"compares rows by a single key and cannot judge that table"
             )
-        statement = _projection(qualified, keys[0], list(columns))
+        statement = _select_statement(qualified, keys[0], list(columns))
         cur.execute(statement)
         stored = {row[0]: row[1:] for row in cur.fetchall()}
         measured.append(
@@ -606,7 +606,7 @@ def _assert_corpus_scan(app_conn, measured: dict) -> None:
     """Group (4b): the chunk corpus, held to the baseline the DDL implies.
 
     retrieval.chunks.chunk_text is deliberately NOT masked (sql/12 section 3: a
-    mask there breaks the LATERAL snippet projection in every search function), so
+    mask there breaks the LATERAL snippet SELECT in every search function), so
     RLS is what protects it. The assertion is therefore not "zero hits" -- two
     current workshop chunks legitimately carry the participant's own DML, and
     demanding zero would demand hiding the lab from the persona investigating it.

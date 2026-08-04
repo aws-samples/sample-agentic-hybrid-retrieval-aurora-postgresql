@@ -43,15 +43,20 @@ permissions, mutable state, and actions.
 ## Controlled Incident Substrate
 
 `workbench_lab.*` is a disposable operational workload used only to reproduce
-the PostgreSQL locking mechanism before retrieval begins. It is deliberately
-outside all three application ownership schemas:
+the PostgreSQL locking mechanism before retrieval begins. Workshop bootstrap
+generates 5,000 customers and 25,000 related orders while the evidence store
+remains empty. It is deliberately outside all three application ownership
+schemas:
 
 ```text
+Bootstrap: 5,000 customers + 25,000 orders, zero evidence
+                         |
+                         v
 One guided participant orchestrator
   ordinary CREATE INDEX | six writers | two readers | 30 samples
                          |
                          v
-        workbench_lab.orders + PostgreSQL lock catalogs
+ workbench_lab customers/orders + PostgreSQL lock catalogs
                          |
           PostgreSQL and AWS measurements
                          |
@@ -59,7 +64,7 @@ One guided participant orchestrator
        atomic casework.admit_evidence bundle
                          |
                          v
-      deterministic telemetry projection
+      deterministic searchable evidence build
                          |
                          v
        runtime Cohere embedding build
@@ -75,11 +80,12 @@ The build holds `ShareUpdateExclusiveLock` and may wait on the older virtual
 transaction, while another `UPDATE` completes. The final check requires the
 index to be ready, valid, and live.
 
-The unsafe samples, repair, statement deltas, CloudWatch metrics, and
-Performance Insights observations are all required. Admission atomically
+The orchestrator verifies and reuses the preloaded rows. The unsafe samples,
+repair, statement deltas, CloudWatch metrics, and Performance Insights
+observations are all required. Admission atomically
 writes `INC-<run-suffix>`, measured changes `CHG-<run-suffix>-01/02`, primary
 lock evidence `LOCK-<run-suffix>-01`, and `TEL-<run-suffix>-...` telemetry
-documents. The orchestrator projects only source system
+documents. The orchestrator indexes only source system
 `pg_incident_capture`, generates runtime Cohere embeddings, and publishes a
 receipt only when 100-120 documents are current and ready.
 
@@ -105,7 +111,7 @@ ACL metadata, and tombstone state. Typed tables hold the domain facts:
 - participant-induced capture runs and Aurora PostgreSQL identity
 - measured incidents, changes, and executed SQL
 - raw PostgreSQL, CloudWatch, and Performance Insights rows
-- controlled lock evidence and searchable telemetry projections
+- controlled lock evidence and searchable telemetry documents
 
 Foreign keys express incident-to-change, lock-to-change, lock-to-incident, and
 telemetry-to-incident relationships. These relations are authoritative in the
@@ -153,7 +159,7 @@ The proof layer answers:
 All retrieval arms apply source-system and metadata filters plus an ACL
 predicate before candidates enter fusion:
 `retrieval.acl_visible(document.acl)` where the arm reads the JSONB,
-`retrieval.acl_scalars_visible(acl_visibility)` where it reads the projected
+`retrieval.acl_scalars_visible(acl_visibility)` where it reads the derived
 column. Both expose the fixed workshop-visible scope and do not require
 database roles.
 

@@ -13,7 +13,7 @@ historical proof. That separation is the central design invariant.
 | `changes` | Change type, SQL, timing, owner, description, and rollback plan |
 | `incident_capture_runs` | Participant-induced capture identity, bounded window, relation, target, and manifest |
 | `lock_evidence` | Measured blocked/blocking PID snapshot tied to an incident and capture |
-| `telemetry_evidence` | Deterministic searchable projection of measured telemetry |
+| `telemetry_evidence` | Searchable evidence built deterministically from measured telemetry |
 | `pg_stat_activity_samples` | Raw activity rows for each observation |
 | `pg_lock_samples` | Raw relation-lock rows for each observation |
 | `pg_blocking_pids_samples` | Raw blocking chains for each observation |
@@ -129,12 +129,12 @@ Every evidence item carries:
 
 `visibility` is the only classification axis. `principals` survives as an always
 empty list because `retrieval.documents.acl_principals` and its GIN indexes are
-still projected; no code reads it.
+still copied into derived columns; no code reads it.
 
-`casework.evidence_items` keeps the JSONB. The search index projects the same
+`casework.evidence_items` keeps the JSONB. The search index copies the same
 value into the sargable columns `retrieval.documents.acl_visibility` and
 `retrieval.chunks.acl_visibility`. Anything other than `workshop` is restricted,
-and the projected columns default to `restricted`, so an unclassified row fails
+and the derived columns default to `restricted`, so an unclassified row fails
 closed.
 
 In core mode, `retrieval.acl_visible` and

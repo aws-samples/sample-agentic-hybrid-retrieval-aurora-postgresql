@@ -13,15 +13,17 @@ tools, and persist a citation-validated answer for replay.
 
 ## Evidence Contract
 
-- Provisioning applies schema only and starts at `awaiting_incident`.
+- Provisioning applies schema, generates 5,000 disposable operational
+  customers and 25,000 related orders, and starts at `awaiting_incident` with
+  zero evidence.
 - `make live-workshop` is the only participant ingestion path.
 - Every participant-facing record uses `source_system=pg_incident_capture`.
 - Every source URI and revision traces to the current capture UUID.
 - IDs use `INC-<run-suffix>`, `CHG-<run-suffix>-01/02`,
   `LOCK-<run-suffix>-01`, and `TEL-<run-suffix>-...`.
 - Raw repeated samples remain relational proof.
-- Distinct measured observations become 104-124 documents and
-  100-250 chunks.
+- Distinct measured observations become about 110 documents and 100-250
+  chunks.
 - Cohere Embed 4 vectors are generated through Bedrock during the run.
 - No authored, fictional, demo, offline, fixture, prior-run, or canned record
   is permitted. The Overview main graphic is the sole illustrative exception.
@@ -30,13 +32,14 @@ tools, and persist a citation-validated answer for replay.
 
 | Time | Build |
 |---:|---|
-| 0-5 | understand raw telemetry, searchable projection, and proof |
-| 5-10 | verify empty schema and `awaiting_incident` |
-| 10-25 | induce, sample, repair, project, embed, and receipt |
-| 25-40 | exact, FTS, semantic, fuzzy, kind filtering, RRF, rerank |
-| 40-50 | decompose, traverse, compare, synthesize |
+| 0-5 | access the environment and verify the empty evidence store |
+| 5-10 | understand the hung migration and evidence journey |
+| 10-25 | cause, fix, admit, embed, and publish the receipt |
+| 25-40 | build exact, FTS, semantic, fuzzy, filtered, fused, and reranked retrieval |
+| 40-50 | build the incident agent through decomposition, traversal, comparison, and synthesis |
 | 50-55 | validate citations and replay |
-| 55-60 | transfer the production boundary |
+| 55-58 | inspect the reusable retrieval skill |
+| 58-60 | summarize and confirm cleanup |
 
 ## Retrieval Contract
 
@@ -53,7 +56,9 @@ fusion. Agent tools and adapters consume the API and do not duplicate ranking.
 A fresh target account must prove:
 
 - zero evidence before the run;
-- 104-124 current documents, 100-250 chunks, and matching ready embeddings;
+- exactly 5,000 customers, 25,000 canonical related orders, and no target
+  incident index before the run;
+- 100-120 current documents, 100-250 chunks, and matching ready embeddings;
 - 600-1,000 raw telemetry rows;
 - exact and fuzzy rank 1 for the receipt-derived unsafe change;
 - mixed kinds before the `change` filter and exactly both measured changes

@@ -14,8 +14,10 @@ from that exact source commit, then update its three `SourceRevision` fields.
 
 ## Standing Evidence Rule
 
-The participant database starts with schema and zero evidence. The sole
-participant ingestion path is:
+The participant database starts with schema, 5,000 disposable operational
+customers, 25,000 related orders, and zero evidence. Workshop bootstrap
+generates those rows with `make prepare-workload`; they never enter retrieval
+or proof. The sole participant ingestion path is:
 
 ```text
 make live-workshop
@@ -23,7 +25,7 @@ make live-workshop
   -> sample PostgreSQL telemetry
   -> collect CloudWatch and Database Insights observations
   -> apply and measure CREATE INDEX CONCURRENTLY repair
-  -> project measured rows into searchable documents
+  -> build searchable documents from measured rows
   -> generate Cohere embeddings through Bedrock
   -> publish a run-specific indexing receipt
 ```
@@ -91,6 +93,7 @@ git diff --check
 Also inspect the source archive and fail if it contains `seed/`,
 `data/generated/`, a dump, capture JSON, embedding cache, database file, or
 proof receipt. Workshop Studio bootstrap must end at `awaiting_incident` with
+5,000 customers, 25,000 canonical related orders, no target incident index, and
 zero evidence.
 
 Do not commit generated live exports, credentials, local databases, logs,

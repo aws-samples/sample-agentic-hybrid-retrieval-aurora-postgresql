@@ -12,7 +12,7 @@
 --   PID -- which is the entire subject of the lab. The row must stay readable and
 --   the column must not.
 --
--- So: RLS scopes the projections (sql/11 section 4-6), masking redacts the
+-- So: RLS scopes the derived evidence (sql/11 section 4-6), masking redacts the
 -- statement text that survives inside rows every persona is meant to read.
 --
 -- pgcolumnmask.policy_admin_rolname is NOT required. Measured on Aurora
@@ -361,7 +361,7 @@ CALL pgcolumnmask.create_masking_policy(
 -- pg_columnmask 1.1.0, probe database dat410_rls_probe_test, 2026-08-03.
 --
 -- 1. IT CRASHED THE INSTANCE. casework.v_evidence_documents (sql/01_schema.sql)
---    joins this table to reach the telemetry branch of the evidence projection.
+--    joins this table to reach the telemetry branch of the searchable evidence.
 --    With the policy in force:
 --      BEGIN; SET LOCAL ROLE persona_auditor;
 --      SELECT count(*) FROM casework.v_evidence_documents;
@@ -380,7 +380,7 @@ CALL pgcolumnmask.create_masking_policy(
 --
 -- 2. IT PROTECTED NOTHING ANYWAY, so there is no security cost to dropping it and
 --    no reason to rewrite the view around it. retrieval.chunks.chunk_text is the
---    indexed projection of this table's body and is deliberately unmasked (see
+--    indexed copy of this table's body and is deliberately unmasked (see
 --    below). Measured: for all 5 of 5 restricted telemetry rows, the statement text
 --    the policy redacted appears VERBATIM in a current chunk with
 --    acl_visibility = 'restricted' -- which persona_auditor reads raw, because the
@@ -397,7 +397,7 @@ CALL pgcolumnmask.create_masking_policy(
 -- Retained for the next person who reaches for a mask here: the policy needed
 -- predicate_allow_list => {structured}, because sql/11's row policy on
 -- casework.database_insights_samples joins back to this table and reads
--- projected.structured ->> 'query_id'. A masked column disqualifies any predicate
+-- derived.structured ->> 'query_id'. A masked column disqualifies any predicate
 -- touching it, and an RLS predicate counts -- so before the allow list was added,
 -- persona_auditor could not read casework.database_insights_samples AT ALL, on a
 -- bare SELECT, defeated by a predicate it never wrote.
@@ -409,7 +409,7 @@ CALL pgcolumnmask.create_masking_policy(
 --
 --   pg_columnmask refuses predicates on a masked column --
 --     ERROR: Predicates on masked columns are not allowed
---   and retrieval.full_text_search, vector_search and fuzzy_search all project
+--   and retrieval.full_text_search, vector_search and fuzzy_search all return
 --   left(regexp_replace(c.chunk_text, '\s+', ' ', 'g'), 700) AS snippet
 --   out of a LATERAL subquery (sql/03_search_functions.sql:398, 513, 649, 990).
 --   With a chunk_text mask in force every one of those functions fails outright:
@@ -452,7 +452,7 @@ CALL pgcolumnmask.create_masking_policy(
 --
 -- So the enforced claim is narrow and true: what a persona without clearance
 -- cannot read is the resolved statement text Performance Insights returned, in
--- every place it lands -- the projection (RLS), the PI sample it came from (RLS),
+-- every place it lands -- the derived evidence (RLS), the PI sample it came from (RLS),
 -- and the raw pg_stat_activity copy that repeats it (masking). The claim is NOT
 -- "no SQL is visible". Anyone writing guide copy off this file should say the
 -- former.

@@ -109,7 +109,7 @@ def run() -> int:
             queued = 4 + len(payload["records"]["telemetry_documents"])
             require(
                 first["queued"] == queued,
-                "every live projected document is queued",
+                "every live searchable document is queued",
             )
             require(
                 connection.execute(

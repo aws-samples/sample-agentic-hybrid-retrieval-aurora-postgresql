@@ -23,7 +23,7 @@
 --                          a forgotten SET ROLE fails CLOSED. This is why the pool
 --                          must not be retrieval_admin: the owner holds
 --                          can_see_restricted (granted below, so the seed and index
---                          build can project the whole corpus), and a pool holding
+--                          build can index the whole corpus), and a pool holding
 --                          the clearance key would serve restricted rows to everyone.
 --   workshop_participant   LOGIN. The Lab terminal identity. Same INHERIT FALSE
 --                          persona grants, EXECUTE on admission, pg_monitor for the
@@ -460,8 +460,8 @@ ALTER TABLE retrieval.chunks        FORCE ROW LEVEL SECURITY;
 --
 -- Row three is the dangerous one, because nothing fails: the owner reads a
 -- SILENTLY TRUNCATED table. The seed, the search-index build and every derived
--- projection run as the owner, and a measured
--- `INSERT INTO projection SELECT ... FROM source` under row three copied 1 of 2
+-- evidence write run as the owner, and a measured
+-- `INSERT INTO derived_table SELECT ... FROM source` under row three copied 1 of 2
 -- rows and reported success. Restricted evidence would simply never reach
 -- retrieval.documents/chunks -- and then G-27(b) would "pass" (analyst sees 0
 -- restricted rows) for the wrong reason: there would be no restricted rows to see.
@@ -471,7 +471,7 @@ ALTER TABLE retrieval.chunks        FORCE ROW LEVEL SECURITY;
 -- This grant alone lands the build in row TWO, not row four. Measured on PG17 with a
 -- non-superuser owner, FORCE enabled, this grant applied and the policies listing
 -- only the three personas: the owner saw 0 of 2 rows, `INSERT` raised
--- "new row violates row-level security policy", and `INSERT INTO projection SELECT`
+-- "new row violates row-level security policy", and `INSERT INTO derived_table SELECT`
 -- copied 0 rows and exited 0. A PERMISSIVE policy set that names no applicable role
 -- denies every row, and the clearance key cannot rescue a role no policy applies to.
 --
@@ -574,7 +574,7 @@ CREATE POLICY rls_chunks_visibility ON retrieval.chunks
 -- FOR ALL with USING only, matching the policies above. WITH CHECK defaults to
 -- USING when omitted, and the foreign key guarantees the parent row exists, so
 -- seed INSERTs still pass -- measured: the owner inserted a new restricted parent
--- and child under FORCE, and INSERT INTO projection SELECT copied 3 of 3 rows with
+-- and child under FORCE, and INSERT INTO derived_table SELECT copied 3 of 3 rows with
 -- no silent truncation. FOR SELECT would be wrong: FORCE subjects the owner to
 -- INSERT policies too, and with no INSERT-applicable policy every seed write is
 -- denied.
@@ -582,7 +582,7 @@ CREATE POLICY rls_chunks_visibility ON retrieval.chunks
 -- CURRENT_USER in each TO list for the same reason as the policies above, which is
 -- not optional on any cluster: it is stored as an OID in pg_policy.polroles at
 -- CREATE POLICY time, and without it the owner reads zero rows and every derived
--- projection truncates while reporting success.
+-- evidence write truncates while reporting success.
 --
 -- EVERY evidence-keyed detail table, discovered from the catalog rather than
 -- listed. The bypass class is "the grant is schema-wide, so any evidence_id-keyed
@@ -662,27 +662,27 @@ $$;
 -- leak before this section existed: persona_app_engineer was denied all five
 -- restricted TEL-*-P0* rows at casework.evidence_items, then read the identical
 -- UPDATE and CREATE INDEX CONCURRENTLY statements out of
--- casework.database_insights_samples one query later. The projection is what the
--- ACL protects; the sample the projection was built from was wide open.
+-- casework.database_insights_samples one query later. The searchable evidence is
+-- what the ACL protects; the sample it was built from was wide open.
 --
--- The predicate joins the sample back to the evidence row projected FROM it --
+-- The predicate joins the sample back to the evidence row built FROM it --
 -- capture_id plus the PI query_id and dimension, which is what
--- labs/incident/run_live_workshop.py projects into telemetry_evidence.structured.
--- A visible projection is REQUIRED, not merely "not contradicted". The first draft
--- of this policy tried to be generous to samples that were never projected:
+-- labs/incident/run_live_workshop.py writes into telemetry_evidence.structured.
+-- A visible evidence row is REQUIRED, not merely "not contradicted". The first
+-- draft of this policy tried to be generous to samples without derived evidence:
 --
---   USING (NOT EXISTS (SELECT 1 FROM casework.telemetry_evidence projected ...)
+--   USING (NOT EXISTS (SELECT 1 FROM casework.telemetry_evidence derived ...)
 --          OR EXISTS   (SELECT 1 FROM casework.telemetry_evidence visible ...))
 --
 -- That failed OPEN, measured: persona_app_engineer read all 7 of 7 samples
 -- including the 5 restricted statements. A policy subquery is evaluated with the
 -- CALLER's privileges, so casework.telemetry_evidence's own RLS applies inside
--- both branches. When the projection is restricted it is invisible to the caller,
+-- both branches. When the evidence row is restricted it is invisible to the caller,
 -- which makes the NOT EXISTS branch true and admits exactly the row the ACL
 -- exists to withhold. An RLS-filtered subquery cannot distinguish "no such row"
 -- from "a row you may not see", so no predicate built on one may treat absence as
--- permission. Requiring a visible projection is the only direction that fails
--- closed: an unprojected sample is hidden from the personas and remains readable
+-- permission. Requiring a visible evidence row is the only direction that fails
+-- closed: a sample without derived evidence is hidden from the personas and remains readable
 -- by the owner, which is a cost worth paying for a predicate that cannot invert.
 --
 -- pg_stat_statements_samples has no per-statement identity to join on (its

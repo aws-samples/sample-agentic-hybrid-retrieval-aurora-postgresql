@@ -233,7 +233,7 @@ BEGIN
   IF jsonb_array_length(v_telemetry_documents) < 100
      OR jsonb_array_length(v_telemetry_documents) > 120 THEN
     RAISE EXCEPTION
-      'admission: telemetry projection must contain 100 to 120 documents'
+      'admission: searchable telemetry must contain 100 to 120 documents'
       USING ERRCODE = '22023';
   END IF;
   SELECT
@@ -263,7 +263,7 @@ BEGIN
             IS DISTINCT FROM v_incident_key
      ) THEN
     RAISE EXCEPTION
-      'admission: telemetry documents do not match the run-scoped projection contract'
+      'admission: telemetry documents do not match the run-scoped evidence contract'
       USING ERRCODE = '22023';
   END IF;
 

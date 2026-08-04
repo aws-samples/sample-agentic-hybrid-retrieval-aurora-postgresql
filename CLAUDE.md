@@ -9,8 +9,9 @@ evaluation, use the project skill at
 Keep Aurora retrieval in the canonical SQL and API boundary. Do not duplicate
 ranking in prompts, the frontend, MCP adapters, or agent harnesses.
 
-The participant path is live-data-only. It starts with zero evidence and may
-index only PostgreSQL, CloudWatch, and Database Insights observations from the
-participant's current `make live-workshop` run. Never substitute fixtures,
+The participant path is live-data-only. Bootstrap generates 5,000 disposable
+customers and 25,000 related orders, but the evidence store starts empty and
+may index only PostgreSQL, CloudWatch, and Database Insights observations from
+the participant's current `make live-workshop` run. Never substitute fixtures,
 authored records, prior captures, offline embeddings, or canned answers. The
 Overview main graphic is the only illustrative exception and is not data.

@@ -63,21 +63,31 @@ evidence into Aurora PostgreSQL.
 
 ## 3. Live Incident
 
+Workshop Studio bootstrap runs `make prepare-workload` after `make schema`.
+That step generates 5,000 rows in `workbench_lab.customers` and 25,000
+foreign-key-related rows in `workbench_lab.orders`, requires an empty evidence
+store, and creates no `casework`, `retrieval`, or `proof` records.
+
 `labs/incident/run_live_workshop.py` is the only participant incident producer.
-It fails before workload creation unless it proves:
+Before inducing the incident, it proves:
 
 - the target is the requested Aurora PostgreSQL writer;
 - PostgreSQL and pgvector satisfy the repository minimums;
 - the core schema is complete;
 - the participant corpus is empty;
+- the operational workload contains exactly 5,000 customers and 25,000
+  canonical related orders with no target incident index;
 - Performance Insights is enabled;
 - CloudWatch and Performance Insights are reachable;
 - Cohere Embed is available through Bedrock; and
 - the embedding provider is `bedrock`.
 
+The orchestrator requires the bootstrapped workload. Source-only local use runs
+`make prepare-workload` explicitly before `make live-workshop`.
+
 The unsafe phase:
 
-- creates `workbench_lab.orders` with 25,000 generated lab rows;
+- uses the 5,000 preloaded customers and 25,000 related orders;
 - starts ordinary `CREATE INDEX`;
 - keeps its transaction open after index construction;
 - starts six real blocked writers and two readers;
@@ -118,12 +128,12 @@ contain both `Lock:relation` and the ordinary `CREATE INDEX` SQL.
 | `incident` | Measured write stall and resolution interval |
 | `change` | Unsafe ordinary index build and measured concurrent repair |
 | `lock_evidence` | Primary observed lock chain |
-| `telemetry` | Deterministic searchable projection of measured telemetry |
+| `telemetry` | Searchable evidence built deterministically from measured telemetry |
 
-The projection creates 30 activity-window, 30 lock-topology, and 30
+The searchable evidence build creates 30 activity-window, 30 lock-topology, and 30
 blocking-chain documents plus measured statement, metric, PI, and remediation
-documents. A successful run contains 104-111 searchable documents and 104-250
-chunks while retaining approximately 729-736 raw telemetry rows.
+documents. A successful run contains about 110 searchable documents and
+100-250 chunks while retaining about 735 raw telemetry rows.
 
 `casework.v_evidence_documents` renders normalized facts deterministically. It
 emits stable evidence identity, source URI, source revision, ACL, typed filters,
@@ -142,7 +152,7 @@ metadata, content, and a SHA-256 search-document hash.
 - all three statement phases;
 - all five CloudWatch metric records;
 - Performance Insights `Lock:relation`;
-- 100-120 telemetry projection documents;
+- 100-120 searchable telemetry documents;
 - source URIs under the run bundle URI; and
 - one capture origin, `participant_induced`.
 
@@ -296,8 +306,9 @@ It rejects:
 - generated indexing receipts; and
 - legacy seed or admission entrypoints.
 
-The participant stack applies schema and starts with zero evidence. It never
-restores casework, retrieval, proof, telemetry, or vectors.
+The participant stack applies schema, generates the disposable operational
+workload, and starts with zero evidence. It never restores casework, retrieval,
+proof, telemetry, or vectors.
 
 ## 13. Acceptance
 

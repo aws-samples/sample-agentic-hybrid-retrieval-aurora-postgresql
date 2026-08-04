@@ -11,9 +11,15 @@ refuses to start unless it can prove that:
 
 - `DATABASE_URL` reaches the requested Aurora PostgreSQL writer;
 - the database contains the current application schema and no evidence rows;
+- the preloaded workload contains 5,000 customers, 25,000 canonical related
+  orders, and no target incident index;
 - Performance Insights is enabled;
 - CloudWatch, Performance Insights, and Bedrock are reachable; and
 - `EMBED_PROVIDER=bedrock` uses the configured Cohere embedding model.
+
+Workshop bootstrap runs `make prepare-workload` before the participant arrives.
+That command creates only the disposable operational tables and preserves the
+empty evidence store. Source-only local use runs the same command explicitly.
 
 ## Visible Checkpoints
 
@@ -25,22 +31,29 @@ The orchestrator prints eight checkpoints:
 3. apply `CREATE INDEX CONCURRENTLY`, run fresh DML, and verify `pg_index`;
 4. collect incident-window CloudWatch metrics and Performance Insights wait and
    SQL observations;
-5. project measured data into run-scoped evidence documents;
+5. build run-scoped searchable evidence from measured data;
 6. admit the complete run atomically into `casework`;
 7. batch-generate Cohere embeddings through Bedrock; and
 8. verify and publish the indexing receipt that enables participant retrieval.
 
-The unsafe phase captures 30 observations at two-second intervals. Each
-observation preserves nine `pg_stat_activity` rows, nine relation-lock rows, and
-six `pg_blocking_pids` rows. With statement, CloudWatch, and Performance
-Insights observations, a successful run retains 729-736 raw telemetry rows.
+The participant command verifies and reuses 5,000 preloaded customers and
+25,000 related orders as workload substrate. The unsafe phase then captures 30
+observations at two-second intervals. Each observation preserves nine
+`pg_stat_activity` rows, nine relation-lock rows, and six
+`pg_blocking_pids` rows. With statement, CloudWatch, and Performance Insights
+observations, a successful run retains about 735 raw telemetry rows.
 
-The deterministic projection creates 100-107 telemetry documents plus one
+The deterministic evidence build creates about 105 telemetry documents plus one
 incident, two changes, and one primary lock observation. The search index
-therefore contains 104-111 participant-generated documents and 104-250 chunks.
+therefore contains about 110 participant-generated documents and 100-250
+chunks.
 This is useful workshop scale for exact, full-text, semantic, fuzzy, fusion,
 reranking, citations, and replay. It is not presented as an HNSW performance
 benchmark.
+
+The 5,000 customer rows and 25,000 order rows never enter the evidence corpus
+and are removed with `workbench_lab`. Their measured effects survive as
+normalized telemetry, searchable evidence, and proof.
 
 ## Run-Derived Identity
 

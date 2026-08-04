@@ -233,7 +233,7 @@ class ContentViewRowFilteringTests(unittest.TestCase):
             filtered,
             "no content view hid a single row from persona_app_engineer, so this test "
             "proved nothing. Either RLS is not enforcing or the database holds no "
-            "restricted evidence -- re-run the lab so the capture projects a "
+            "restricted evidence -- re-run the lab so the capture builds a "
             "restricted cohort, then rebuild the search index",
         )
 
@@ -254,7 +254,7 @@ class ContentViewRowFilteringTests(unittest.TestCase):
             keys,
             "no evidence row is marked restricted, so the app_engineer assertion "
             "below would hold over an empty cohort. Re-run the lab: the capture "
-            "must project restricted telemetry for any of this to mean anything",
+            "must build restricted telemetry evidence for any of this to mean anything",
         )
         sql = (
             "SELECT count(*) AS n FROM casework.v_evidence_documents "

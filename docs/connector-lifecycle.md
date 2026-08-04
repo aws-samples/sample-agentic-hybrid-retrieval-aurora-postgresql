@@ -10,9 +10,9 @@ It has no checked-in fallback:
 
 ```text
 live write stall + 30 PostgreSQL samples + AWS observations
-    -> deterministic projection of measured telemetry
+    -> deterministic searchable evidence build
     -> atomic run-scoped admission
-    -> 104-111 pending source revisions
+    -> about 110 pending source revisions
     -> runtime Cohere embedding build
     -> indexing receipt enables retrieval
 ```

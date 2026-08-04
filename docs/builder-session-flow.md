@@ -9,6 +9,23 @@ The opening guide establishes the incident and system boundary. The labs then
 make each retrieval method earn its place, let participants change retrieval
 and agent decisions, and prove what the final answer used.
 
+## Guide Structure
+
+1. **Getting Started:** access the environment and verify the empty evidence
+   store.
+2. **Workshop Scenario:** understand the hung migration and where its evidence
+   comes from.
+3. **Lab 1:** cause, fix, and admit the incident.
+4. **Lab 2:** build hybrid retrieval.
+5. **Lab 3:** build the incident agent.
+6. **Lab 4:** prove and replay.
+7. **Take it home:** apply the retrieval skill.
+8. **Summary and cleanup.**
+
+Optional labs cover RLS with column masking and AgentCore publication. The
+appendix owns troubleshooting, facilitator notes, run-derived identifier
+reference, live search-index operations, and retrieval diagnostics.
+
 ## Minimal End-to-End Path
 
 Every participant must complete this path:
@@ -17,7 +34,7 @@ Every participant must complete this path:
    two readers, and 30 PostgreSQL samples.
 2. Apply and measure `CREATE INDEX CONCURRENTLY`, then collect CloudWatch and
    Performance Insights observations for that same run.
-3. Admit 104-111 run-derived records and generate every current Cohere
+3. Admit about 110 run-derived records and generate every current Cohere
    embedding through Bedrock before retrieval is enabled.
 4. Recover `CHG-<run-suffix>-01` through exact retrieval, then run a dedicated PostgreSQL
    full-text query without an identifier.
@@ -41,14 +58,14 @@ build a connector, or deploy AgentCore Gateway during the hour.
 
 | Minute | Activity | Participant proof | Time risk and cut line |
 |---:|---|---|---|
-| 0-5 | Scenario and system boundary | Connect the production write-stall question to `casework`, `retrieval`, and `proof` | No product tour |
-| 5-10 | Readiness | `make doctor` shows database and model access ready | Move blocked participants to a working paired terminal |
-| 10-22 | Reproduce and repair | Six writers wait on `Lock:relation`; readers continue; concurrent repair permits fresh DML | Pair with a participant whose live run completes; never substitute checked-in data |
-| 22-27 | Project and index | Receipt proves 100-120 documents, runtime embeddings, one capture ID, and zero drift | Retry live dependencies; do not load a fallback corpus |
-| 27-42 | Hybrid retrieval | Dedicated FTS, semantic, fuzzy, filter, and participant-edited RRF checkpoints pass | `rerank_applied=false` is a valid model fallback |
-| 40-50 | Agent tools | Build the evidence plan, traverse the captured incident, change, and lock relationships, then synthesize the cited answer | Use the complete answer endpoint if individual calls run long |
-| 50-55 | Citations and replay | Validate source URI/revision/quote and replay by `run_id` without a model call | Skip visual Proof exploration, preserve citation SQL and receipt GET |
-| 55-60 | Close | Connect the participant exercises to the production evidence boundary | Run compact evaluation after the session |
+| 0-5 | Getting Started | Access both work surfaces and prove `awaiting_incident` with zero evidence | Move blocked participants to a working paired terminal |
+| 5-10 | Workshop Scenario | Explain the hung migration and trace measured telemetry into the evidence store | No product tour |
+| 10-25 | Lab 1: Cause, fix, and admit | 5,000 customers and 25,000 related orders produce roughly 735 measured telemetry rows, 110 evidence documents, current embeddings, one capture, and zero drift | Pair with a participant whose live run completes; never substitute checked-in data |
+| 25-40 | Lab 2: Build hybrid retrieval | Exact, FTS, semantic, fuzzy, filter, participant-edited RRF, and rerank checkpoints pass | `rerank_applied=false` is a valid model fallback |
+| 40-50 | Lab 3: Build the incident agent | Build the evidence plan, traverse captured relationships, compare sources, and synthesize the cited answer | Use the complete answer endpoint if individual calls run long |
+| 50-55 | Lab 4: Prove and replay | Validate source URI, revision, and quote, then replay by `run_id` without a model call | Skip visual Proof exploration; preserve citation SQL and receipt GET |
+| 55-58 | Take it home | Inspect the reusable retrieval skill and production ownership boundary | Keep this to transfer, not another exercise |
+| 58-60 | Summary and cleanup | Confirm the temporary workload is gone while its measured proof remains | Run compact evaluation after the session |
 
 ## Core Versus Appendix
 
@@ -64,7 +81,9 @@ build a connector, or deploy AgentCore Gateway during the hour.
 - source attribution and citation validation;
 - persisted diagnostics and replay;
 - decomposition, targeted retrieval, relationship traversal, comparison,
-  ranking explanation, and cited synthesis.
+  ranking explanation, and cited synthesis;
+- a reusable retrieval skill that carries the evidence and proof contract into
+  another system.
 
 ### Extend After the Session
 
@@ -150,6 +169,7 @@ These core outputs are release gates, not slide claims.
 
 ## After The Session
 
-Production identity, authorization revalidation, RLS, and masking remain
-architecture topics. They are not demonstrated with fictional records in the
-participant environment.
+Production identity and authorization revalidation remain architecture topics
+in the required path. An event owner may enable the optional RLS and
+column-masking lab only against the participant's live capture; it never loads
+fictional records.

@@ -398,7 +398,7 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
             "live-only evidence",
             (
                 f"run {suffix} owns {evidence['total']} run-derived documents "
-                f"({evidence['telemetry']} telemetry projections)"
+                f"({evidence['telemetry']} searchable telemetry documents)"
             ),
         )
     try:

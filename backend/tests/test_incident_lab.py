@@ -7,10 +7,14 @@ import tempfile
 import unittest
 
 from labs.incident.run_live_workshop import (
+    LAB_CUSTOMER_ROWS,
+    LAB_ROWS,
+    LiveWorkshopError,
     OBSERVATION_COUNT,
     READER_COUNT,
     SOURCE_SYSTEM,
     WRITER_COUNT,
+    _assert_lab_workload_ready,
     _write_exercise_requests,
 )
 
@@ -24,6 +28,7 @@ class IncidentLabContractTests(unittest.TestCase):
         expected = {
             "README.md",
             "capture_observability.py",
+            "prepare_workload.py",
             "run_live_workshop.py",
         }
         self.assertEqual(
@@ -36,6 +41,47 @@ class IncidentLabContractTests(unittest.TestCase):
         self.assertEqual(WRITER_COUNT, 6)
         self.assertEqual(READER_COUNT, 2)
         self.assertEqual(SOURCE_SYSTEM, "pg_incident_capture")
+
+    def test_bootstrap_workload_is_operational_state_not_evidence(self) -> None:
+        source = (LAB_DIR / "prepare_workload.py").read_text(encoding="utf-8")
+
+        self.assertEqual(LAB_ROWS, 25_000)
+        self.assertEqual(LAB_CUSTOMER_ROWS, 5_000)
+        self.assertIn("prepare_lab_workload", source)
+        self.assertIn("empty participant evidence store", source)
+
+    def test_preloaded_workload_must_be_canonical_and_unindexed(self) -> None:
+        ready = {
+            "observed_row_count": LAB_ROWS,
+            "canonical_rows": LAB_ROWS,
+            "observed_customer_count": LAB_CUSTOMER_ROWS,
+            "minimum_customer_id": 1,
+            "maximum_customer_id": LAB_CUSTOMER_ROWS,
+            "referenced_customers": LAB_CUSTOMER_ROWS,
+            "orphan_order_count": 0,
+            "minimum_order_id": 1,
+            "maximum_order_id": LAB_ROWS,
+            "target_index_exists": False,
+        }
+        self.assertIs(_assert_lab_workload_ready(ready), ready)
+
+        invalid_states = (
+            None,
+            {**ready, "observed_row_count": LAB_ROWS - 1},
+            {**ready, "canonical_rows": LAB_ROWS - 1},
+            {**ready, "observed_customer_count": LAB_CUSTOMER_ROWS - 1},
+            {**ready, "minimum_customer_id": 2},
+            {**ready, "maximum_customer_id": LAB_CUSTOMER_ROWS + 1},
+            {**ready, "referenced_customers": LAB_CUSTOMER_ROWS - 1},
+            {**ready, "orphan_order_count": 1},
+            {**ready, "minimum_order_id": 2},
+            {**ready, "maximum_order_id": LAB_ROWS + 1},
+            {**ready, "target_index_exists": True},
+        )
+        for state in invalid_states:
+            with self.subTest(state=state):
+                with self.assertRaises(LiveWorkshopError):
+                    _assert_lab_workload_ready(state)
 
     def test_orchestrator_writes_only_run_derived_exercise_identifiers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -73,7 +119,7 @@ class IncidentLabContractTests(unittest.TestCase):
     def test_orchestrator_escapes_modulo_in_parameterized_setup_sql(self) -> None:
         source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")
 
-        self.assertIn("value %% 5000", source)
+        self.assertIn("(value - 1) %% %s", source)
         self.assertIn("value %% 86400", source)
 
     def test_orchestrator_fails_fast_on_an_incomplete_core_schema(self) -> None:

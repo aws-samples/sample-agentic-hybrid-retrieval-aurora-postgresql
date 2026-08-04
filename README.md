@@ -21,7 +21,7 @@ investigate their own controlled database incident:
 Aurora PostgreSQL performs exact, full-text, semantic, and fuzzy retrieval,
 weighted RRF, relationship reads, citation validation, and replayable proof.
 Every participant-path candidate comes from PostgreSQL and AWS telemetry
-measured during that run, admitted under `pg_incident_capture`, and projected
+measured during that run, admitted under `pg_incident_capture`, and indexed
 with runtime Cohere embeddings. Every candidate, agent stage, answer, and
 citation is persisted; no participant result or score is hardcoded.
 
@@ -36,6 +36,13 @@ citation is persisted; no participant result or score is hardcoded.
 and a measured `CREATE INDEX CONCURRENTLY` repair. It modifies only the
 disposable `workbench_lab` schema before atomically admitting the live run.
 
+Workshop bootstrap generates 5,000 disposable customers and 25,000 related
+orders before the participant arrives. They are operational workload, not
+retrieval records. The participant's command uses those rows to produce about
+735 measured PostgreSQL and AWS telemetry rows, which become about 110 evidence
+documents and 100-250 searchable chunks with live Cohere embeddings.
+Cleanup removes the workload while its measured evidence remains.
+
 ## Architecture
 
 ```text
@@ -46,7 +53,7 @@ PostgreSQL catalogs + CloudWatch + Performance Insights
                   v
        casework.* live relational evidence
                   |
-                  | deterministic projection
+                  | deterministic searchable evidence build
                   v
        retrieval.search_index_queue
                   |
@@ -142,8 +149,15 @@ make install
 cp .env.example .env
 
 make schema
+make prepare-workload
 make doctor
 ```
+
+`make prepare-workload` creates `workbench_lab.customers` and
+`workbench_lab.orders`; it requires an empty evidence store and does not
+populate `casework`, `retrieval`, or `proof`. Workshop Studio runs it during
+bootstrap. For source-only local use, run it explicitly before
+`make live-workshop`.
 
 Start the services in separate terminals:
 
@@ -245,9 +259,10 @@ make source-archive
 ```
 
 The producer rejects dirty runtime source, missing participant paths, generated
-captures, embedding caches, database files, and dumps. The archive provisions
-schema and application source only; participant evidence does not exist until
-`make live-workshop` succeeds.
+captures, embedding caches, database files, and dumps. The archive contains
+schema and application source only. Workshop bootstrap generates the disposable
+operational workload from that source; participant evidence does not exist
+until `make live-workshop` succeeds.
 
 ## Repository Layout
 

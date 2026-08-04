@@ -93,8 +93,8 @@ class LiveRetrievalContractTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["source_system"], LIVE_SOURCE)
         self.assertTrue(self.core_keys <= set(rows[0]["keys"]))
-        self.assertGreaterEqual(len(rows[0]["keys"]), 104)
-        self.assertLessEqual(len(rows[0]["keys"]), 124)
+        self.assertGreaterEqual(len(rows[0]["keys"]), 100)
+        self.assertLessEqual(len(rows[0]["keys"]), 120)
         self.assertTrue(
             all(
                 key in self.core_keys or key.startswith(f"TEL-{self.run_suffix}-")
@@ -121,8 +121,8 @@ class LiveRetrievalContractTests(unittest.TestCase):
         ).fetchone()["result"]
         self.assertEqual(health["status"], "ready")
         self.assertEqual(health["drift_issues"], 0)
-        self.assertGreaterEqual(health["source_documents"], 104)
-        self.assertLessEqual(health["source_documents"], 124)
+        self.assertGreaterEqual(health["source_documents"], 100)
+        self.assertLessEqual(health["source_documents"], 120)
 
         exact = self.conn.execute(
             """

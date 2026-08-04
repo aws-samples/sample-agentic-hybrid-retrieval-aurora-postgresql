@@ -11,7 +11,7 @@ Three rules distinguish it from a direct wrapper:
 1. The caller's persona is bound server-side by :func:`start_run` and
    is not a tool parameter. A model that could pass its own persona could escalate
    past the ACL, so it is bound from the request, never from the model.
-2. Returns are projected down to the fields a model can act on. The raw
+2. Returns are reduced to the fields a model can act on. The raw
    retrieval row carries 38 keys including UUIDs and legacy aliases; sending
    that for eight rows costs about 4,900 tokens per call and crowds out the
    evidence itself.
@@ -157,15 +157,15 @@ def _nullable_filter(value: str | None) -> str | None:
     return None if normalized.lower() in {"", "null", "none"} else normalized
 
 
-def _project_row(row: dict[str, Any], rank: int) -> dict[str, Any]:
-    projected: dict[str, Any] = {"rank": rank}
+def _shape_row(row: dict[str, Any], rank: int) -> dict[str, Any]:
+    shaped: dict[str, Any] = {"rank": rank}
     for field in _MODEL_ROW_FIELDS:
         value = row.get(field)
         if value is not None:
-            projected[field] = value
+            shaped[field] = value
     tier = row.get("match_tier") or 2
-    projected["match"] = "exact_identifier" if tier == 1 else "fused"
-    return projected
+    shaped["match"] = "exact_identifier" if tier == 1 else "fused"
+    return shaped
 
 
 def decompose_question(question: str) -> dict[str, Any]:
@@ -279,7 +279,7 @@ def search_evidence(
         "run_id": response["run_id"],
         "candidate_count": response.get("candidate_count"),
         "ranking_groups": response.get("match_tiers"),
-        "results": [_project_row(row, rank) for rank, row in enumerate(rows, start=1)],
+        "results": [_shape_row(row, rank) for rank, row in enumerate(rows, start=1)],
     }
     if not rows:
         result["note"] = (
@@ -592,7 +592,7 @@ def synthesize_cited_answer(question: str, run_ids: list[str]) -> dict[str, Any]
 
 
 # The functions above hold the model-facing marshalling (persona binding, row
-# projection, failure shaping). Their name, description, and input schema come from
+# response shaping and failure handling). Their name, description, and input schema come from
 # the single registry (T4), not from their docstrings: the @tool decorator's
 # explicit overrides win, so a description the model reads lives in exactly one
 # place and G-17 can prove the three transports never disagree.

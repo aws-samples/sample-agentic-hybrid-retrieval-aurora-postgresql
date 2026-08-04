@@ -108,7 +108,7 @@ SELECT c.relrowsecurity, c.relforcerowsecurity
 
 
 def _bare_select(table: str, key: str) -> str:
-    """Return the unfiltered keyed projection of one table.
+    """Return an unfiltered keyed row set from one table.
 
     No predicate beyond the key ordering: RLS is the subject under test, so any
     visibility filter here would perform the work the policy is supposed to do.
@@ -117,7 +117,7 @@ def _bare_select(table: str, key: str) -> str:
 
 
 def _expected_select(table: str, key: str, acl: str) -> str:
-    """Return the keyed projection the core security-off rule admits."""
+    """Return the keyed row set the core security-off rule admits."""
     return (
         f"SELECT {key}::text FROM {table} "
         f"WHERE {CORE_RULE.format(column=acl)} ORDER BY 1"
@@ -166,7 +166,7 @@ def _measure_as_owner(psycopg, owner_dsn: str) -> dict | str:
                 # to its own policies and this read would be filtered too. The
                 # policy admits retrieval_admin through the clearance disjunct
                 # (sql/11 grants it can_see_restricted so the index build can
-                # project the whole corpus), which is why this is the cleared
+                # index the whole corpus), which is why this is the cleared
                 # personas' expectation rather than a bypass.
                 "unfiltered": _fetch(conn, _bare_select(table, key)),
                 "core_rule": _fetch(conn, _expected_select(table, key, entry["acl"])),

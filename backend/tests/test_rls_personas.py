@@ -142,7 +142,7 @@ class RowFilteringTests(unittest.TestCase):
             raise unittest.SkipTest(
                 "no evidence row is marked restricted, so every assertion in this "
                 "class would hold vacuously. Re-run the lab: the capture must "
-                "project a restricted telemetry cohort"
+                "build a restricted telemetry cohort"
             )
 
     def test_app_engineer_sees_no_restricted_rows_on_any_read_path_table(self) -> None:
@@ -733,7 +733,7 @@ class ColumnMaskingTests(unittest.TestCase):
 
         retrieval.chunks: a mask on chunk_text makes all three search functions
         fail with "failed to postpone qual containing lateral reference", because
-        each projects a snippet out of a LATERAL subquery. RLS already covers that
+        each returns a snippet from a LATERAL subquery. RLS already covers that
         column.
         """
         with db.get_owner_conn() as conn, conn.cursor() as cursor:

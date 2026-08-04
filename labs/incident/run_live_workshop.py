@@ -34,6 +34,7 @@ OBSERVATION_COUNT = 30
 OBSERVATION_INTERVAL_SECONDS = 2.0
 WRITER_COUNT = 6
 READER_COUNT = 2
+LAB_CUSTOMER_ROWS = 5_000
 LAB_ROWS = 25_000
 SOURCE_SYSTEM = "pg_incident_capture"
 RELATION_NAME = "workbench_lab.orders"
@@ -127,6 +128,183 @@ def _statement_stats(connection: psycopg.Connection, phase: str) -> dict[str, An
     return dict(row)
 
 
+def _assert_no_live_lab_sessions(connection: psycopg.Connection) -> None:
+    stale = connection.execute(
+        """
+        SELECT array_agg(application_name ORDER BY application_name) AS names
+        FROM pg_stat_activity
+        WHERE pid <> pg_backend_pid()
+          AND datname = current_database()
+          AND application_name LIKE 'workbench-live-%'
+        """
+    ).fetchone()["names"]
+    if stale:
+        raise LiveWorkshopError(
+            "close stale workbench-live-* sessions before starting: "
+            + ", ".join(stale)
+        )
+
+
+def _assert_empty_evidence_store(connection: psycopg.Connection) -> None:
+    existing = connection.execute(
+        """
+        SELECT count(*) AS records
+        FROM casework.evidence_items
+        WHERE NOT is_deleted
+        """
+    ).fetchone()["records"]
+    if existing:
+        raise LiveWorkshopError(
+            "the participant corpus is not empty; use a fresh workshop "
+            "database so this run cannot mix with prior evidence"
+        )
+
+
+def _create_lab_workload(connection: psycopg.Connection) -> None:
+    connection.execute("DROP SCHEMA IF EXISTS workbench_lab CASCADE")
+    connection.execute("CREATE SCHEMA workbench_lab")
+    connection.execute(
+        """
+        CREATE TABLE workbench_lab.customers (
+          customer_id bigint PRIMARY KEY,
+          customer_ref text NOT NULL UNIQUE,
+          created_at timestamptz NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO workbench_lab.customers(
+          customer_id,
+          customer_ref,
+          created_at
+        )
+        SELECT
+          value,
+          'CUST-' || lpad(value::text, 5, '0'),
+          clock_timestamp() - ((value %% 86400) * interval '1 second')
+        FROM generate_series(1, %s) value
+        """,
+        (LAB_CUSTOMER_ROWS,),
+    )
+    connection.execute(
+        """
+        CREATE TABLE workbench_lab.orders (
+          order_id bigint PRIMARY KEY,
+          customer_id bigint NOT NULL
+            REFERENCES workbench_lab.customers(customer_id),
+          status text NOT NULL,
+          created_at timestamptz NOT NULL,
+          updated_at timestamptz NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO workbench_lab.orders(
+          order_id,
+          customer_id,
+          status,
+          created_at,
+          updated_at
+        )
+        SELECT
+          value,
+          1 + ((value - 1) %% %s),
+          'created',
+          clock_timestamp() - ((value %% 86400) * interval '1 second'),
+          clock_timestamp()
+        FROM generate_series(1, %s) value
+        """,
+        (LAB_CUSTOMER_ROWS, LAB_ROWS),
+    )
+    connection.execute("ANALYZE workbench_lab.customers")
+    connection.execute("ANALYZE workbench_lab.orders")
+
+
+def _lab_workload_state(
+    connection: psycopg.Connection,
+) -> dict[str, Any] | None:
+    relations = connection.execute(
+        """
+        SELECT
+          to_regclass('workbench_lab.customers') IS NOT NULL AS customers_exist,
+          to_regclass(%s) IS NOT NULL AS orders_exist
+        """,
+        (RELATION_NAME,),
+    ).fetchone()
+    if not relations["customers_exist"] or not relations["orders_exist"]:
+        return None
+    return dict(
+        connection.execute(
+            """
+            SELECT
+              %s::regclass::oid::bigint AS relation_oid,
+              count(*)::bigint AS observed_row_count,
+              count(*) FILTER (WHERE status = 'created')::bigint
+                AS canonical_rows,
+              (SELECT count(*)::bigint FROM workbench_lab.customers)
+                AS observed_customer_count,
+              (SELECT min(customer_id)::bigint FROM workbench_lab.customers)
+                AS minimum_customer_id,
+              (SELECT max(customer_id)::bigint FROM workbench_lab.customers)
+                AS maximum_customer_id,
+              count(DISTINCT customer_id)::bigint AS referenced_customers,
+              count(*) FILTER (
+                WHERE NOT EXISTS (
+                  SELECT 1
+                  FROM workbench_lab.customers customer
+                  WHERE customer.customer_id = orders.customer_id
+                )
+              )::bigint AS orphan_order_count,
+              min(order_id)::bigint AS minimum_order_id,
+              max(order_id)::bigint AS maximum_order_id,
+              pg_total_relation_size(%s::regclass)::bigint AS table_size_bytes,
+              to_regclass(%s) IS NOT NULL AS target_index_exists
+            FROM workbench_lab.orders orders
+            """,
+            (RELATION_NAME, RELATION_NAME, INDEX_NAME),
+        ).fetchone()
+    )
+
+
+def _assert_lab_workload_ready(state: dict[str, Any] | None) -> dict[str, Any]:
+    if state is None:
+        raise LiveWorkshopError(
+            "the operational workload is missing; run `make prepare-workload`"
+        )
+    if (
+        state["observed_row_count"] != LAB_ROWS
+        or state["canonical_rows"] != LAB_ROWS
+        or state["observed_customer_count"] != LAB_CUSTOMER_ROWS
+        or state["minimum_customer_id"] != 1
+        or state["maximum_customer_id"] != LAB_CUSTOMER_ROWS
+        or state["referenced_customers"] != LAB_CUSTOMER_ROWS
+        or state["orphan_order_count"] != 0
+        or state["minimum_order_id"] != 1
+        or state["maximum_order_id"] != LAB_ROWS
+        or state["target_index_exists"]
+    ):
+        raise LiveWorkshopError(
+            "the preloaded operational workload is not canonical: "
+            f"{state}"
+        )
+    return state
+
+
+def prepare_lab_workload(database_url: str) -> dict[str, Any]:
+    """Create the disposable operational substrate without admitting evidence."""
+    with _connect(
+        database_url,
+        "workbench-live-workload-bootstrap",
+        autocommit=True,
+    ) as connection:
+        _assert_no_live_lab_sessions(connection)
+        _assert_empty_evidence_store(connection)
+        _create_lab_workload(connection)
+        return _assert_lab_workload_ready(_lab_workload_state(connection))
+
+
 def _prepare_lab(
     database_url: str,
     capture_id: uuid.UUID,
@@ -136,20 +314,7 @@ def _prepare_lab(
         "workbench-live-setup",
         autocommit=True,
     ) as connection:
-        stale = connection.execute(
-            """
-            SELECT array_agg(application_name ORDER BY application_name) AS names
-            FROM pg_stat_activity
-            WHERE pid <> pg_backend_pid()
-              AND datname = current_database()
-              AND application_name LIKE 'workbench-live-%'
-            """
-        ).fetchone()["names"]
-        if stale:
-            raise LiveWorkshopError(
-                "close stale workbench-live-* sessions before starting: "
-                + ", ".join(stale)
-            )
+        _assert_no_live_lab_sessions(connection)
         identity = connection.execute(
             """
             SELECT
@@ -161,68 +326,16 @@ def _prepare_lab(
         ).fetchone()
         if identity is None:
             raise LiveWorkshopError("Aurora identity query returned no row")
-        existing = connection.execute(
-            """
-            SELECT count(*) AS records
-            FROM casework.evidence_items
-            WHERE NOT is_deleted
-            """
-        ).fetchone()["records"]
-        if existing:
-            raise LiveWorkshopError(
-                "the participant corpus is not empty; use a fresh workshop "
-                "database so this run cannot mix with prior evidence"
-            )
+        _assert_empty_evidence_store(connection)
 
-        connection.execute("DROP SCHEMA IF EXISTS workbench_lab CASCADE")
-        connection.execute("CREATE SCHEMA workbench_lab")
-        connection.execute(
-            """
-            CREATE TABLE workbench_lab.orders (
-              order_id bigint PRIMARY KEY,
-              customer_id bigint NOT NULL,
-              status text NOT NULL,
-              created_at timestamptz NOT NULL,
-              updated_at timestamptz NOT NULL
-            )
-            """
-        )
-        connection.execute(
-            """
-            INSERT INTO workbench_lab.orders(
-              order_id,
-              customer_id,
-              status,
-              created_at,
-              updated_at
-            )
-            SELECT
-              value,
-              1 + (value %% 5000),
-              'created',
-              clock_timestamp() - ((value %% 86400) * interval '1 second'),
-              clock_timestamp()
-            FROM generate_series(1, %s) value
-            """,
-            (LAB_ROWS,),
-        )
-        connection.execute("ANALYZE workbench_lab.orders")
+        workload = _assert_lab_workload_ready(_lab_workload_state(connection))
         before = _statement_stats(connection, "before")
-        relation = connection.execute(
-            """
-            SELECT
-              %s::regclass::oid::bigint AS relation_oid,
-              count(*)::bigint AS observed_row_count,
-              pg_total_relation_size(%s::regclass)::bigint AS table_size_bytes
-            FROM workbench_lab.orders
-            """,
-            (RELATION_NAME, RELATION_NAME),
-        ).fetchone()
     return (
         {
             **dict(identity),
-            **dict(relation),
+            **workload,
             "capture_id": str(capture_id),
+            "workload_preloaded": True,
         },
         before,
     )
@@ -1078,7 +1191,7 @@ def _telemetry_documents(
     )
     if not 100 <= len(documents) <= 120:
         raise LiveWorkshopError(
-            f"projection created {len(documents)} telemetry documents; "
+            f"searchable evidence build created {len(documents)} telemetry documents; "
             "expected 100 to 120"
         )
     return documents
@@ -1193,6 +1306,10 @@ def build_live_payload(
                 "capture_origin": "participant_induced",
                 "relation_name": RELATION_NAME,
                 "relation_oid": database_identity["relation_oid"],
+                "configured_customer_count": LAB_CUSTOMER_ROWS,
+                "observed_customer_count": database_identity[
+                    "observed_customer_count"
+                ],
                 "configured_row_count": LAB_ROWS,
                 "observed_row_count": database_identity["observed_row_count"],
                 "table_size_bytes": database_identity["table_size_bytes"],
@@ -1508,9 +1625,9 @@ def _verify_live_run(
             "insight_rows",
         )
     )
-    if not 104 <= counts["documents"] <= 124:
+    if not 100 <= counts["documents"] <= 120:
         raise LiveWorkshopError(
-            f"indexed document count {counts['documents']} is outside 104..124"
+            f"indexed document count {counts['documents']} is outside 100..120"
         )
     if counts["foreign_documents"] != 0:
         raise LiveWorkshopError("participant corpus contains another source or run")
@@ -1693,6 +1810,11 @@ def main() -> int:
             f"({preflight['embedding_dimensions']} dimensions)"
         )
         identity, before = _prepare_lab(args.database_url, capture_id)
+        print(
+            "workload: "
+            f"{identity['observed_customer_count']} customers, "
+            f"{identity['observed_row_count']} orders (preloaded)"
+        )
 
         _checkpoint(
             2,
@@ -1733,7 +1855,7 @@ def main() -> int:
 
         _checkpoint(
             5,
-            "Project measured evidence",
+            "Build searchable evidence",
             "building run-scoped documents from raw PostgreSQL and AWS rows",
         )
         payload = build_live_payload(
@@ -1750,7 +1872,7 @@ def main() -> int:
         )
         _write_atomic(payload_path, payload)
         print(
-            f"projected {4 + len(payload['records']['telemetry_documents'])} "
+            f"built {4 + len(payload['records']['telemetry_documents'])} "
             f"searchable documents to {payload_path}"
         )
 

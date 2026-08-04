@@ -38,7 +38,7 @@ export PGVECTOR_VERSION
 export PGVECTOR_MIN_VERSION
 export POSTGRES_MIN_VERSION
 
-.PHONY: install aurora-local-env schema security-schema security-checks agentcore-generate agentcore-invoke aurora-verify doctor test live-workshop api frontend smoke clean source-archive
+.PHONY: install aurora-local-env schema prepare-workload security-schema security-checks agentcore-generate agentcore-invoke aurora-verify doctor test live-workshop api frontend smoke clean source-archive
 
 install:
 	python -m venv .venv
@@ -52,6 +52,9 @@ schema:
 	$(PYTHON) backend/scripts/check_pgvector.py --available --min-version $(PGVECTOR_MIN_VERSION)
 	$(PYTHON) backend/scripts/run_sql.py --files $(CORE_SQL_FILES)
 	$(PYTHON) backend/scripts/check_pgvector.py --min-version $(PGVECTOR_MIN_VERSION)
+
+prepare-workload:
+	$(PYTHON) labs/incident/prepare_workload.py
 
 # Optional module: enforce evidence access with PostgreSQL RLS and column
 # masking. Applies the core files first so the policies land on the current

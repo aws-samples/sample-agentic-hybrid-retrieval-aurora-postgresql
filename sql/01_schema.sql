@@ -89,7 +89,7 @@ ALTER TABLE casework.evidence_items
 
 -- Older corpora encoded restrictedness as a named entry in acl.principals while
 -- leaving visibility='workshop'. The current contract has one classification
--- axis, so normalize that retired stamp before any retrieval projection is read.
+-- axis, so normalize that retired stamp before any derived retrieval row is read.
 UPDATE casework.evidence_items
 SET acl = jsonb_set(
   jsonb_set(acl, '{visibility}', '"restricted"'::jsonb, true),
