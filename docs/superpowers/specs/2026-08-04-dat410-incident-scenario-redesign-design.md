@@ -53,10 +53,16 @@ testing sections around that contract.
   queue/timeout; full recovery; correct post-index plan; retrieval/citations/replay use only
   current-run evidence), not "took N seconds."
 - The operational workload table is not the retrieval corpus. `workbench_lab.orders` (now
-  3,000,000 rows, up from 25,000) never enters `casework`/`retrieval`/`proof`. The searchable
-  corpus targets a 180–250 document range (not an exact number), built from genuinely
-  distinct signal types — lock/blocking-state transitions, pool saturation/recovery, request
-  latency/timeout aggregates, WAL/statement deltas, backfill/recovery/index metadata, and the
+  3,000,000 rows, up from 25,000) never enters `casework`/`retrieval`/`proof`. The 3M-row
+  table carries the volume story on its own; the searchable corpus is the smaller set of
+  meaningful observations one incident actually produces. **Expected range: 50–80
+  documents** (empirically confirmed via Gate 5 — see Testing section — NOT the 180–250
+  originally targeted; inflating the count to hit a number would mean manufacturing
+  evidence, which the live-data-only rule forbids). This is an expected range, not a hard
+  acceptance gate — see the behavioral coverage criteria in the Testing section. Built from
+  genuinely distinct signal types — lock/blocking-state transitions, pool saturation/recovery,
+  request latency/timeout aggregates, WAL/statement deltas, backfill/recovery/index metadata,
+  and the
   three query-plan checkpoints — never from denser time-sampling of the same signal.
   CloudWatch metrics do not count toward this range (best-effort supplemental only).
 - No new fragile external dependency may replace the one being removed. Reuse the existing
@@ -121,7 +127,8 @@ Participant-facing Lab 1 (target: 5–8 min ceiling)
 
 Evidence build (from measured phases 1–4 only, state-change/interval-boundary documents,
                  not one document per 250ms poll)
-  → 180–250 searchable documents → casework/retrieval/proof (unchanged admission path)
+  → ~50-80 searchable documents (expected range, gated on coverage not count)
+  → casework/retrieval/proof (unchanged admission path)
 
 Labs 2–4 (unchanged): hybrid retrieval, agent tools, citations, replay
 ```
@@ -243,11 +250,17 @@ admission/embedding steps. Performance Insights / Database Insights (`_wait_for_
 insights` and all PI-specific code in `capture_observability.py`) is removed entirely — no
 role in the new design.
 
-**Evidence builder (`run_live_workshop.py::_telemetry_documents`, modified)** — Target:
-**180–250 searchable documents**, a range rather than an exact number, produced from
-genuinely distinct signal types rather than denser time-sampling of the same four phases.
-CloudWatch metrics do not count toward this minimum (they stay best-effort supplemental
-evidence per the CloudWatch section below, and their availability is not guaranteed).
+**Evidence builder (`run_live_workshop.py::_telemetry_documents`, modified)** — Expected
+range: **50–80 searchable documents** for one incident run (empirically confirmed via Gate 5,
+`docs/superpowers/specs/2026-08-04-dat410-gate-results.md` — NOT the 180–250 originally
+targeted; a first attempt at 148 mechanically-templated documents hit a 20.65% near-duplicate
+rate, and even an honestly-varied second attempt topped out at 51 genuinely distinct
+documents for the current six-category, 10-writer design). This is an expected range, not a
+hard acceptance gate — see the behavioral coverage criteria in the Testing section for what
+actually gates readiness. Produced from genuinely distinct signal types, never from denser
+time-sampling of the same four phases. CloudWatch metrics do not count toward this range
+(they stay best-effort supplemental evidence per the CloudWatch section below, and their
+availability is not guaranteed).
 
 The critical design rule, driving every series below: **the hold controller's 250ms poll
 loop is a control mechanism, not a document-generation trigger.** Polling every 250ms for up
@@ -417,8 +430,8 @@ replace or tombstone Wave A:
    Recovery verifier asserts the 5 post-commit conditions. Query regression driver captures
    the before-`ANALYZE` and after-`ANALYZE` plan checkpoints only — the supporting index is
    NOT created here. CloudWatch collection runs in parallel (best-effort, non-blocking).
-   Evidence builder converts every measured signal into Wave A telemetry documents (180–250
-   range, state-change/interval-boundary, not per-poll). Wave A is admitted, embedded, and its
+   Evidence builder converts every measured signal into Wave A telemetry documents (50-80
+   expected range, state-change/interval-boundary, not per-poll). Wave A is admitted, embedded, and its
    receipt published. The evidence store now contains only pre-remediation, diagnostic
    evidence — the index does not exist in the database, and no post-index plan exists in
    `casework`/`retrieval`.
@@ -568,10 +581,12 @@ Directly tested Cohere Embed v4's real Bedrock `InvokeModel` batch limit (never 
 **96 texts per call is the hard cap** — 128 fails with `ValidationException: Invalid
 parameter combination`. Ran 2,000 chunks sequentially in batches of 96 against the real
 Bedrock endpoint: **27.6 seconds total, zero throttling, zero errors**, consistent ~1.1–1.4s
-per batch (two mild outliers up to 2.6s, not a systematic slowdown). At the 180–250 document
-target (assuming ~1 chunk/document, matching the current corpus's exact 1:1 ratio), embedding
-time is a rounding error against the 5–8 minute ceiling — well under the 103-document
-baseline's already-small 4.0s. Embedding throughput is not a constraint on corpus size in
+per batch (two mild outliers up to 2.6s, not a systematic slowdown). At the 50-80 document
+expected range (assuming ~1 chunk/document, matching the current corpus's exact 1:1 ratio),
+embedding time is a rounding error against the 5–8 minute ceiling — well under the
+103-document baseline's already-small 4.0s, and this measurement's headroom is even larger
+now that the range is smaller, not larger, than originally assumed. Embedding throughput was
+never the binding constraint on corpus size in
 this range; document-generation diversity (see the Evidence builder component above) is the
 real bound, not embedding speed.
 
@@ -603,6 +618,51 @@ raw/RRF/rerank-score-separation invariant holds. This is evidence the redesign's
 more evidence-diverse corpus should make this effect even clearer, not weaker — the
 qualitative story already works at 103 documents; more genuinely-distinct evidence kinds
 should sharpen it further.
+
+### Honest Framing: Sequential Scans Are Correct at This Scale, Not a Limitation
+
+At 50–80 documents, PostgreSQL's planner may correctly choose a sequential scan over an HNSW
+index scan for some retrieval arms — this is the RIGHT choice at this corpus size, not a
+limitation or a failed demonstration. **Correction to an earlier draft of this section**: an
+initial version of this note claimed this framing already existed verbatim in
+`docs/builder-session-flow.md` — checked directly against that file and no such sentence
+exists there. This is new guidance this redesign introduces, not a restatement of prior
+documentation. State it plainly in participant-facing content going forward; do not apologize
+for the sequential scan or engineer around it. Production-scale ANN index behavior belongs in
+an appendix note ("at production scale, this changes because...") — never folded into the
+core lab's numbers or presented as something the redesign failed to achieve.
+
+### Corpus Adequacy: Behavioral Coverage Criteria, Not a Document Count
+
+**DECIDED (2026-08-04, after Gate 5):** 50–80 documents is the expected range for one
+incident run — not the 180–250 originally targeted in this document's earlier drafts. Full
+reasoning and the empirical measurements that produced this number are in
+`docs/superpowers/specs/2026-08-04-dat410-gate-results.md`'s Gate 5 section. This is an
+**expected range, not a hard acceptance gate.** The `workbench_lab.orders` 3,000,000-row
+table carries the "volume" story on its own; the retrieval corpus is deliberately the smaller
+set of meaningful observations one incident actually produces. Inflating the document count
+to hit a number would mean manufacturing evidence, which the live-data-only rule forbids
+regardless of how the padding is dressed up (this is exactly what Gate 5's first attempt
+did by accident, and it was rejected once discovered, not shipped).
+
+Corpus adequacy is gated on coverage instead, matching the behavioral-acceptance pattern
+already used everywhere else in this design:
+- Every incident phase and every evidence category (the six signal types in the Evidence
+  builder component above) is represented in the admitted corpus.
+- Exact, full-text, semantic, and fuzzy retrieval produce meaningfully different top
+  candidates for the same query — already demonstrated real at 103 old-mechanism documents
+  (see the Measured Retrieval-Quality Baseline above); the implementation phase must
+  re-confirm this against the new corpus, not assume it carries over unchanged.
+- Fusion and reranking alter ordering for defensible, explainable reasons — already
+  demonstrated real (Cohere Rerank 3.5 promoting causally-relevant documents RRF buried
+  behind near-duplicates); re-confirm against the new corpus.
+- Wave B adds distinct, genuinely new validation evidence, not a restatement of Wave A
+  evidence in different words.
+- Near-duplicate rate stays bounded (Gate 5's 15% threshold, or a number the Evidence builder
+  implementation task recalibrates against real generated text — not assumed from the gate
+  script's throwaway samples).
+- Citations and replay resolve to exact document versions (Gate 2 already proved the
+  underlying replay mechanism; re-confirm end-to-end once the real admission contract exists).
 
 ## Explicitly Out of Scope
 

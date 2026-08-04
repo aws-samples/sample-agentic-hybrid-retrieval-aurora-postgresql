@@ -132,7 +132,17 @@ GATE 5 PASSED (threshold: <15%)
 3. Increase the hot-write driver's writer count beyond 10 (changes the Two-Wave Evidence Model's specified mechanism, needs explicit re-approval, not a unilateral change).
 4. Accept a higher near-duplicate rate for `TEL-LOCK` specifically (still well under the 15% gate threshold in aggregate) since 10 writers is a deliberate, specified constant from the contract, not an accident.
 
-**Recommendation, not yet decided by the user**: option 4 is the least invasive — the aggregate 6.43% already passes with real margin, and `TEL-LOCK`'s 42.6% is isolated to one category whose event count (10 writers) is a deliberate contract constant. The 180-250 target likely needs revising downward regardless, closer to the honestly-observed ~50-80 range for a single run's four phases, once the real Evidence builder task is scoped — this should be raised explicitly before that task starts, not discovered again mid-implementation.
+**DECIDED (2026-08-04):** 50-80 documents is the expected range for one incident run, not the 180-250 originally targeted. The 3,000,000-row operational workload carries the "volume" story on its own; the retrieval corpus represents the smaller set of meaningful observations one incident actually produces — inflating it would mean manufacturing evidence, which the live-data-only rule forbids regardless of how it's dressed up. The 10-writer contract stays exactly as specified (matches `DB_POOL_MAX_SIZE`); no finer sampling, no additional signal categories invented solely to hit a number.
+
+**50-80 is an expected range, not a hard acceptance gate.** The real acceptance criteria for corpus adequacy are now behavioral, matching every other gate in this plan:
+- Every incident phase and evidence category is represented in the admitted corpus.
+- Exact, full-text, semantic, and fuzzy retrieval produce meaningfully different top candidates for the same query (already demonstrated at 103 old-mechanism documents earlier this session — real, not assumed).
+- Fusion and reranking alter ordering for defensible, explainable reasons (already demonstrated: Cohere Rerank 3.5 promoted causally-relevant documents RRF had buried behind near-duplicates, at 103 documents).
+- Wave B adds distinct, genuinely new validation evidence, not a restatement of Wave A.
+- Near-duplicate rate stays bounded (this gate's own 15% threshold, or a number the real Evidence builder task recalibrates with real data).
+- Citations and replay resolve to exact document versions (already proven by Gate 2).
+
+**Honest framing for participant-facing content, not to be finessed away**: at 50-80 documents, PostgreSQL's planner may correctly choose sequential scans over HNSW index scans for some retrieval arms — this is the RIGHT choice at this corpus size, not a bug or a limitation to apologize for. State this plainly. Production-scale ANN index behavior belongs in the appendix as a documented "at scale, this changes" note, not folded into the core lab's numbers.
 
 ## Gate 6: Consolidated report and user go-ahead
 
