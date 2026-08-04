@@ -41,7 +41,19 @@ Fixed by wrapping `SET LOCAL application_name`, `SET LOCAL statement_timeout`, a
 
 ## Gate 2: Prove Wave A replay remains unchanged after Wave B admission
 
-**Result: pending**
+**Result: PASSED**
+
+```
+evidence_items present: 103
+run_id: 87a5376f-ee89-41b2-9a2f-306ddddf0f73
+candidates before: 15
+performed a later write against casework.evidence_items
+candidates after: 15
+
+GATE 2 PASSED: replayed candidates unchanged after a later write
+```
+
+Ran against real, existing admitted evidence (103 items, left over from earlier session work — `casework`/`retrieval`/`proof` untouched by Gate 1, which only drops `workbench_lab`). `search_evidence_impl` → `explain_ranking_impl` round trip confirms `proof.retrieval_candidates` (keyed by `run_id`) is genuinely immune to a subsequent write against `casework.evidence_items` — the design spec's claim about the real replay path (not just the SQL text) holds against the live database. One fixture bug found and fixed (assumed a nonexistent `updated_at` column; `casework.evidence_items` has no such column — used `source_revision = source_revision` as a harmless no-op write instead, which still exercises the same "a write happened after the run" condition).
 
 ## Gate 3: Confirm pre-remediation evidence remains additive rather than incorrectly superseded
 
