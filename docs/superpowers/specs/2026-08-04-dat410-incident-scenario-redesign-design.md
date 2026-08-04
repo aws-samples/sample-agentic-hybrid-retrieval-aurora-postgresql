@@ -3,8 +3,14 @@
 ## Objective
 
 Build one L400 Aurora PostgreSQL incident with four measured phases, presented through an
-L300 narrative accessible to every persona. It is one failed migration, not four separate
-incidents.
+L300 narrative accessible to every persona. It is one failed **online schema and data
+migration**, not four separate incidents.
+
+**Terminology note:** "migration" here always means an application-level online schema and
+data migration (an `ADD COLUMN` + backfill, of the kind an app team ships in a release) — not
+an Aurora engine-version migration/upgrade. Use "online schema and data migration" or "the
+migration" (never bare "upgrade") throughout participant-facing content to avoid confusion
+with Aurora's own version-upgrade feature.
 
 ## Background
 
@@ -74,7 +80,7 @@ does not address corpus diversity for retrieval differentiation, and non-concurr
 build time — an impractical per-participant bootstrap at real event scale.
 
 **C. One migration, four causally-chained, measured phases (chosen).** A single failed
-online migration (unbatched backfill) that cascades through lock contention → connection-pool
+online schema and data migration (unbatched backfill) that cascades through lock contention → connection-pool
 exhaustion → query-plan regression. One coherent root cause, four genuinely different
 evidence signatures (lock/transaction state, pool/request telemetry, WAL/row-churn
 signals, query-plan output), each mapped to a distinct persona entry point (app engineer,
@@ -188,6 +194,24 @@ execution time from each. If application traffic is still active during this ste
 final implementation, use and measure `CREATE INDEX CONCURRENTLY` and note the measurement;
 otherwise the plain `CREATE INDEX` used in this lab is documented as a controlled-lab repair,
 not an online-safe production recommendation.
+
+The three captured checkpoints exist to support a specific participant reasoning sequence,
+not just to display three timings. The evidence documents and any Lab-4-facing exercise
+built from this driver's output must let a participant:
+1. Compare estimated vs. actual row counts before and after `ANALYZE` (the estimate is what
+   changes; the actual row count captured in each plan is the ground truth against it).
+2. Recognize that corrected statistics do not create a missing access path — `ANALYZE`
+   changing the estimate does not, by itself, change the plan's scan type in this case
+   (measured: seq scan before and after, 225ms → 219ms).
+3. Select the appropriate composite or partial index from the query's actual predicate
+   (`WHERE priority_tier = :n`) and `ORDER BY` clause (`created_at DESC`) — not simply apply a
+   pre-supplied index definition. The reference index
+   (`priority_tier, created_at DESC`) is the answer key, not something participants are handed
+   upfront.
+4. Prove the improvement using plan nodes, buffers, rows removed, and execution time together
+   (seq scan → index scan; buffers read dropping; rows removed by filter going from millions
+   to zero; 219ms → 1.5ms) — not execution time alone, since time alone doesn't demonstrate
+   *why* the index fixed it.
 
 **CloudWatch collector (`labs/incident/capture_observability.py::_cloudwatch_samples`,
 existing, minimally modified)** — Kept, but demoted to best-effort: wrapped so a collection
