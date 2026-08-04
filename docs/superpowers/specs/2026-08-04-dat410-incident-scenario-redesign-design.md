@@ -183,20 +183,26 @@ hold, and one fresh hot-write request succeeds. Any assertion failing raises
 `LiveWorkshopError` (existing exception class), matching the existing fail-closed pattern —
 no fixture/fallback substitution.
 
-**Query regression driver (new, in the orchestration driver)** — Runs one exact, named query
-(finalized in the implementation plan; the design's reference measurement used
-`SELECT order_id, customer_id, created_at FROM workbench_lab.orders WHERE priority_tier = :n
-ORDER BY created_at DESC LIMIT 20`) through `EXPLAIN (ANALYZE, BUFFERS)` three times: before
-`ANALYZE`, after `ANALYZE` (still no index), after adding the named supporting index. Captures
-plan node type, estimated vs. actual rows, rows removed by filter, buffers, planning time, and
-execution time from each. If application traffic is still active during this step in the
-final implementation, use and measure `CREATE INDEX CONCURRENTLY` and note the measurement;
+**Query regression driver (new, split across Lab 1 and Lab 4 per the Two-Wave Evidence Model
+below — NOT a single inline step)** — Runs one exact, named query (finalized in the
+implementation plan; the design's reference measurement used `SELECT order_id, customer_id,
+created_at FROM workbench_lab.orders WHERE priority_tier = :n ORDER BY created_at DESC
+LIMIT 20`) through `EXPLAIN (ANALYZE, BUFFERS)`. **Lab 1** captures only the first two
+checkpoints — before `ANALYZE` and after `ANALYZE` (still no index) — as part of Wave A; the
+supporting index is deliberately NOT created during Lab 1. **Lab 4** is where the participant
+executes the recommended `CREATE INDEX` DDL themselves (reviewed from the Lab 3 agent's
+recommendation, not auto-applied), and the driver then captures the third checkpoint
+(after the index) as part of Wave B. Every checkpoint captures plan node type, estimated vs.
+actual rows, rows removed by filter, buffers, planning time, and execution time. If
+application traffic is still active during Lab 4's remediation step in the final
+implementation, use and measure `CREATE INDEX CONCURRENTLY` and note the measurement;
 otherwise the plain `CREATE INDEX` used in this lab is documented as a controlled-lab repair,
 not an online-safe production recommendation.
 
-The three captured checkpoints exist to support a specific participant reasoning sequence,
-not just to display three timings. The evidence documents and any Lab-4-facing exercise
-built from this driver's output must let a participant:
+The three captured checkpoints (two from Lab 1, one from Lab 4) exist to support a specific
+participant reasoning sequence spanning both labs, not just to display three timings. The
+evidence documents and any Lab-3/Lab-4-facing exercise built from this driver's output must
+let a participant:
 1. Compare estimated vs. actual row counts before and after `ANALYZE` (the estimate is what
    changes; the actual row count captured in each plan is the ground truth against it).
 2. Recognize that corrected statistics do not create a missing access path — `ANALYZE`
@@ -268,27 +274,154 @@ one document per sample, per `_telemetry_documents`) to a state-change/interval-
 pattern — a real implementation difference the plan must design deliberately, not inherit
 mechanically from the existing loop structure.
 
+## Participant-Facing Framing
+
+The lab titles and terminology below correct a real framing problem: the mechanically
+accurate names from earlier in this document ("Cause, fix, and admit the incident", "Prove
+and replay", "incident agent") make the session read as an incident-response lab with
+retrieval bolted on afterward. The actual subject of this L400 session is how Aurora
+PostgreSQL retrieves, combines, ranks, relates, cites, versions, and replays evolving
+evidence — the incident is real, but it exists to generate a complex, evolving corpus, not
+as the thing being taught. Participant-facing titles and copy must reflect that ordering.
+
+**Lab titles** (replacing today's Workshop Studio titles —
+`content/20-reproduce-write-stall/index.en.md`, `30-build-hybrid-retrieval/index.en.md`,
+`40-build-incident-agent/index.en.md`, `50-prove-and-replay/index.en.md` — directory slugs
+are internal and do not need to change unless a participant sees them):
+
+1. **Lab 1: Capture and admit live evidence** — run the controlled Aurora scenario, capture
+   its signals, and create the first searchable evidence corpus (Wave A).
+2. **Lab 2: Build hybrid retrieval in SQL** — implement exact, full-text, semantic, and fuzzy
+   retrieval, then combine them with filtering, RRF, and reranking.
+3. **Lab 3: Build the hybrid retrieval agent** — ground a read-only agent in retrieval,
+   relationship traversal, source comparison, and citations.
+4. **Lab 4: Validate, prove, and replay** — apply the agent's recommendation, admit the new
+   evidence (Wave B), compare before-and-after results, and replay the persisted runs.
+
+Participant arc: **generate evidence → build retrieval → ground an agent → validate with new
+evidence.**
+
+**Agent naming**: the participant-facing name is **Hybrid Retrieval Agent** (distinct from
+and complementary to the application's own name, "Hybrid Retrieval Workbench" —
+`backend/app/config.py`'s `APP_DISPLAY_NAME` default, unchanged). Describe it as a
+**read-only database-evidence agent**, not a generic chatbot — this description is accurate
+today (all 7 registered tools in `agent/registry.py` are read/synthesis only, none write, per
+the Two-Wave Evidence Model section above) and should stay accurate as new tools are ever
+added to the registry.
+
+**Terminology replacements** in participant-facing copy (content pages, guide text, UI
+strings if any exist — this session found none in the current frontend, so this is primarily
+a `docs/`- and Workshop Studio `content/`-scoped change, not a code change):
+| Old | New |
+|---|---|
+| "incident diagnosis" | "evidence-backed finding" |
+| "remediation delta" | "validation evidence" |
+| "incident agent" | "hybrid retrieval agent" |
+| "remediate" | "apply and validate the recommendation" |
+
+Internal package, schema, and identifier names (`labs/incident/`, `casework.*`,
+`INC-<run-suffix>`, `CHG-<run-suffix>-*`, etc.) do NOT need mechanical renaming under this
+change — the rule is participant-facing language only, matching this project's existing
+practice of keeping ticket-style internal IDs stable (see `live-data-and-naming-assessment`
+memory: real-looking names break Law 6's naming discipline; ticket-style IDs are intentional).
+
+## Two-Wave Evidence Model
+
+**Diagnose before remediation, without holding the incident's blocking transaction open
+across labs.** An earlier draft of this design considered stretching the backfill's hold
+across Labs 1–3 so participants would only see pre-remediation evidence. Rejected: that would
+make the retrieval and agent APIs themselves unavailable (they share the same connection pool
+the backfill is saturating) and leaves a 3-million-row transaction open for however long Labs
+1–3 actually take a room of participants — unbounded, not the 10–15s the hold controller
+proves and releases.
+
+**The correct mechanism: commit immediately (as already designed), then stage what gets
+*admitted*, not the transaction's lifetime.** Wave A is admitted at the end of Lab 1 and
+contains only diagnostic evidence — the lock/pool/timeout/WAL signals from Phase 1–3, plus
+the before-`ANALYZE` and after-`ANALYZE` (still no index) plan checkpoints from Phase 4. The
+missing index is not created during Lab 1 at all (a change from the Components section's
+earlier framing of the query regression driver creating the index inline) — creating it is
+Lab 4's participant action, not something the orchestrator does automatically. Because
+`casework.admit_evidence`/`retrieval.*` only ever contain what has been explicitly admitted,
+the Lab 3 agent genuinely cannot see the post-index plan or any remediation evidence — this
+is source truth, not an artificial filter layered on top of a tool call. No agent tool queries
+`workbench_lab` or live catalogs directly (confirmed: all 7 registered tools in
+`agent/registry.py` — `decompose_question`, `search_evidence`, `follow_evidence_links`,
+`compare_sources`, `explain_ranking`, `synthesize_cited_answer`, `answer_with_citations` — go
+through the canonical `retrieval.*`/`casework.*` SQL functions only, none write, none bypass
+admission), so this constraint holds without new access-control code.
+
+**Wave B is genuinely additive, not a replacement.** In Lab 4, the participant reviews the
+Lab 3 agent's cited recommendation, then executes the recommended `CREATE INDEX` DDL
+themselves in Code Editor (the agent recommends; it has no DDL privilege and no execution
+path — already true today, not a new constraint to build). The orchestrator captures the
+post-index plan, verifies the index, and admits Wave B through a **new follow-up admission
+contract** — a second, later call against the same incident/run identity, with its own
+admission ID, its own bounded observation window, and its own receipt. Wave B does not
+replace or tombstone Wave A:
+- Before-`ANALYZE`, after-`ANALYZE`, and post-index plans remain three separate, permanently
+  retrievable observations so later agent runs can compare all three, not just see the latest.
+- Wave B adds new evidence kinds — a remediation change record, an index-verification record,
+  the post-index plan, and a `validates`-style relationship connecting Wave B's remediation
+  back to Wave A's diagnosis — it does not mark any Wave A record obsolete.
+- Versioning (`is_current`/`document_version_id`, already in `sql/01_schema.sql`) is reserved
+  for genuinely mutable facts, such as the incident's own status moving from `investigating`
+  to `resolved` — not applied to the plan/telemetry observations themselves, which are each a
+  permanent, distinct historical fact.
+
+**Replay implications, verified against the actual code, not assumed:**
+- The core citation/receipt replay path (`explain_ranking_impl` in `backend/app/agent.py`,
+  backing `/v1/tools/explain-ranking` and `/v1/runs/{run_id}`) reads `proof.retrieval_candidates`
+  filtered by the stored `run_id` — a persisted snapshot written at run time. A Lab 3 run's
+  replay is already pinned to Wave A's candidates by construction; Wave B's later admission
+  cannot retroactively change what an already-completed run's receipt shows. No new pinning
+  code needed for this path.
+- **Open question for the implementation plan, not yet resolved**: `run_graph`
+  (`backend/app/insights.py`, backing `/v1/runs/{run_id}/graph`) reads a persisted seed set
+  from `proof.retrieval_candidates` but then re-runs `retrieval.traverse_evidence()` live for
+  the relationship expansion. If a participant reopens a Lab 3 run's graph view after Wave B
+  is admitted, this path could surface Wave B nodes/edges that did not exist when the run
+  happened. Decide explicitly whether this is desired ("show how the case evolved") or must
+  be pinned to Wave A only for genuine replay fidelity — do not let this default silently
+  either way.
+- An explicit `as_of_admission_id` search parameter (letting any tool pin results to a named
+  admission wave) is a reasonable production extension but is explicitly NOT needed for the
+  core workshop and would add avoidable complexity — do not build it as part of this redesign.
+
 ## Data Flow
 
 1. Workshop Studio provisioning bootstraps `workbench_lab.customers` (5,000) and
    `workbench_lab.orders` (3,000,000). Zero rows in `casework`/`retrieval`/`proof`.
-2. Participant runs the orchestrator. Migration driver commits `ADD COLUMN`, opens the
-   backfill transaction, runs the unbatched `UPDATE`, leaves it open.
-3. Hot-write driver launches 10+ tagged API writes through the real pool against
-   predetermined hot rows.
-4. Hold controller polls pool stats + PostgreSQL state every 250ms; on 3 consecutive proven
-   samples, holds 10–15s sampling every signal; then triggers commit.
-5. Recovery verifier asserts the 5 post-commit conditions.
-6. Query regression driver runs the 3 EXPLAIN checkpoints, creating the missing index between
-   checkpoints 2 and 3.
-7. CloudWatch collection runs in parallel with steps 2–6 (best-effort, non-blocking).
-8. Evidence builder converts every measured signal from steps 2–6 (plus CloudWatch if it
-   finished in time) into telemetry documents, keyed by the same `TEL-<run-suffix>-*`
-   external-ID scheme already in use.
-9. Existing admission (`casework.admit_evidence`), embedding (Bedrock Cohere Embed v4), and
-   receipt-publication steps run unchanged.
-10. Labs 2–4 proceed against this corpus exactly as today — no change to retrieval, ranking,
-    agent tools, or citation/replay mechanics.
+2. **Lab 1 — Induce and capture.** Participant runs the orchestrator. Migration driver
+   commits `ADD COLUMN`, opens the backfill transaction, runs the unbatched `UPDATE`, leaves
+   it open. Hot-write driver launches 10+ tagged API writes through the real pool against
+   predetermined hot rows. Hold controller polls pool stats + PostgreSQL state every 250ms;
+   on 3 consecutive proven samples, holds 10–15s sampling every signal; then triggers commit.
+   Recovery verifier asserts the 5 post-commit conditions. Query regression driver captures
+   the before-`ANALYZE` and after-`ANALYZE` plan checkpoints only — the supporting index is
+   NOT created here. CloudWatch collection runs in parallel (best-effort, non-blocking).
+   Evidence builder converts every measured signal into Wave A telemetry documents (180–250
+   range, state-change/interval-boundary, not per-poll). Wave A is admitted, embedded, and its
+   receipt published. The evidence store now contains only pre-remediation, diagnostic
+   evidence — the index does not exist in the database, and no post-index plan exists in
+   `casework`/`retrieval`.
+3. **Lab 2 — Investigate with SQL retrieval.** Participant searches the captured lock, pool,
+   timeout, WAL, and plan evidence directly via SQL in Code Editor, using the existing
+   exact/FTS/vector/fuzzy/RRF/rerank mechanics unchanged. Establishes from the evidence itself
+   that `ANALYZE` did not resolve the regression (the after-`ANALYZE` plan is still a seq
+   scan) — no code change from today's retrieval mechanics, only the underlying evidence
+   changes.
+4. **Lab 3 — Build the incident agent.** The agent (via the existing 7-tool registry,
+   unchanged) produces a cited diagnosis from Wave A evidence only, and recommends the
+   missing index plus batched-backfill as future practice. It cannot see or reference a
+   post-index result, because none exists yet in `retrieval.*` — source truth, not a filter.
+5. **Lab 4 — Remediate and prove.** The participant reviews the agent's recommendation, then
+   executes the recommended `CREATE INDEX` DDL themselves in Code Editor (the agent never
+   gets DDL privilege or an execution path). The orchestrator captures the post-index plan,
+   verifies the index, and admits Wave B — a new follow-up admission contract, additive to
+   Wave A, with its own admission ID, observation window, and receipt — embeds the small
+   delta, publishes the remediation receipt, and the participant replays the original Lab 3
+   investigation (unchanged, still showing Wave A only) alongside the new remediation proof.
 
 ## Error Handling
 
