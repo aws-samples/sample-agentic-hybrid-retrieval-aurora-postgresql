@@ -299,6 +299,13 @@ model outputs. The frontend calls only the configured API, retrieval applies
 the fixed workshop visibility predicate before ranking and traversal, and the
 application fails closed when required live evidence is unavailable.
 
+The optional RLS/masking lab's persona selector (`?role=app_engineer|dba|auditor`)
+is a teaching control, not an authentication boundary: each participant owns
+their own isolated Workshop Studio account and database, so selecting a
+persona only changes what that participant's own request can see inside
+their own capture. It is not a substitute for a real identity provider in any
+deployment where the API is reachable by more than one caller.
+
 ## License
 
 This project is licensed under the MIT-0 License. See [LICENSE](LICENSE).

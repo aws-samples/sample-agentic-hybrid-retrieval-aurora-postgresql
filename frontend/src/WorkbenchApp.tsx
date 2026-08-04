@@ -3490,6 +3490,9 @@ function JourneyStrip({
           </li>
         ))}
       </ol>
+      {/* Teaching control, not an auth boundary: each participant's own
+          request selects its own persona inside their own isolated account.
+          See README.md "Security". */}
       {personaMode ? (
         <div className="persona-chip">
           <span className="section-label">Viewing as</span>
