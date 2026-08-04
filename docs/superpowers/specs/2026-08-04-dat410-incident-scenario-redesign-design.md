@@ -156,6 +156,21 @@ checkout, making it unambiguously identifiable in `pg_stat_activity`. The driver
 concurrent calls against 10 distinct hot IDs, then continuously issues at least 2 more to keep
 `requests_waiting` non-zero.
 
+**Two implementation traps found and fixed while running Gate 1** (full detail in
+`docs/superpowers/specs/2026-08-04-dat410-gate-results.md`), both mandatory for the real
+endpoint, not just the gate script that discovered them:
+1. `pool.connection(timeout=3.0)` bounds only the checkout wait. A writer that gets a real
+   connection before the pool saturates has no bound on how long it then waits on the actual
+   row lock — the real endpoint MUST also set a statement-level timeout, not rely on checkout
+   timeout alone.
+2. The pool's connections run `autocommit=True` (`backend/app/db.py`'s `_configure_connection`).
+   `SET LOCAL application_name` and `SET LOCAL statement_timeout` MUST be issued inside the
+   same explicit `with conn.transaction():` block as the actual write — issuing either as a
+   separate bare `conn.execute()` call silently ends its own implicit transaction first,
+   resetting `SET LOCAL`'s effect to nothing before the write runs in a fresh transaction.
+   Verified live: this exact mistake hung a real hot-write session on `Lock:Transactionid`
+   for 50+ seconds with no timeout ever firing.
+
 **Pool-status endpoint (new, lab-only)** — A `GET` endpoint that calls `get_pool().get_stats()`
 and returns the dict directly, performing no database checkout itself (must not itself
 consume a pool slot while checking pool exhaustion, which would corrupt the measurement).
