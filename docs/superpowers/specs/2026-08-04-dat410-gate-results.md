@@ -57,7 +57,22 @@ Ran against real, existing admitted evidence (103 items, left over from earlier 
 
 ## Gate 3: Confirm pre-remediation evidence remains additive rather than incorrectly superseded
 
-**Result: pending**
+**Result: PASSED**
+
+```
+current documents before: 103
+is_current demotion queries found: 8 (expected 8, manually verified scoped on 2026-08-04)
+current documents after: 103
+
+same set of current evidence_ids: True
+content hashes unchanged (no unnecessary version bump): True
+no existing evidence lost is_current status: True
+GATE 3 PASSED
+```
+
+Ran the REAL `rebuild_search_index()` code path (not a synthetic row insert — the original plan's approach was revised after discovering `casework.evidence_items` has no `is_current` column at all; that versioning lives on `retrieval.documents`/`retrieval.chunks` only, and is populated exclusively by the search-index rebuild path). Manually audited all 8 `SET is_current = false` sites in `backend/app/search_index.py`: 2 join-scoped via `previous.evidence_id`, 2 use a bound `evidence_id`/`document_version_id` parameter, 2 use `ON CONFLICT (document_version_id)` (inherently single-row), 2 use `NOT EXISTS (...document_version_id...)` (chunk scoped to its own document's survival). None can demote an unrelated evidence item's document — confirmed by both static audit and this live behavioral run (103/103 evidence items retained `is_current=true`, identical content hashes, after a real rebuild touching the whole corpus). This directly de-risks the Two-Wave Evidence Model's core claim: admitting Wave B and rebuilding the index will not silently supersede Wave A.
+
+**Caveat, honestly noted**: this test rebuilt the SAME evidence (no new Wave-B-shaped items were actually admitted, since constructing a valid synthetic `casework.admit_evidence` payload outside a real live-workshop run would require faking the entire `admission payload v1` schema — not worth the fragility for a gate script). It proves "rebuilding doesn't spuriously demote unrelated evidence," which is the load-bearing half of the claim. It does NOT yet prove "admitting genuinely new Wave B evidence via the real follow-up admission contract correctly keeps Wave A additive" end-to-end, because that admission contract doesn't exist as code yet — that remains owed to the real "Schema and Admission" implementation phase, with its own test.
 
 ## Gate 4: Add fail-safe cleanup for timeouts, abandoned transactions, load generators, pool recovery, and reruns
 
