@@ -76,7 +76,28 @@ Ran the REAL `rebuild_search_index()` code path (not a synthetic row insert — 
 
 ## Gate 4: Add fail-safe cleanup for timeouts, abandoned transactions, load generators, pool recovery, and reruns
 
-**Result: pending** (see Gate 1's incidental abandoned-transaction recovery above — a real, unplanned positive data point for this gate, to be cross-referenced not re-derived)
+**Result: PASSED** (clean on the first deliberate attempt — consistent with Gate 1's earlier incidental recovery from a real SIGKILLed process)
+
+```
+orphan started, pid=6070
+client process SIGKILLed
+probe_abandoned_transaction: PASSED
+
+pool stats before saturation: {'connections_num': 1, 'pool_size': 1, 'pool_available': 1, 'requests_waiting': 0}
+probe_pool_recovery: PASSED (after={'connections_num': 9, 'requests_num': 15, 'requests_queued': 14,
+  'requests_wait_ms': 22514, 'usage_ms': 15622, 'pool_size': 9, 'pool_available': 9, 'requests_waiting': 0})
+
+probe_rerun_against_dirty_state: PASSED
+
+GATE 4 PASSED: {'abandoned_transaction': True, 'pool_recovery': True, 'rerun_dirty_state': True}
+```
+
+All three failure modes proven recoverable without a fresh database:
+1. A hard-killed (SIGKILL, not graceful close) client process leaves an orphaned server-side backend that `pg_terminate_backend()` cleanly removes.
+2. The real pool genuinely grows under load (1→9 connections, `requests_queued=14` confirms real queuing pressure was applied) and fully recovers to `pool_available == pool_size` afterward — no manual intervention, no restart needed.
+3. Rebuilding `workbench_lab` from a dirty/non-canonical prior state (matches the existing `_create_lab_workload`'s `DROP SCHEMA ... CASCADE` pattern) produces a clean, empty result every time.
+
+Combined with Gate 1's earlier incidental recovery from the same abandoned-transaction scenario (hit organically while debugging a real script bug, not by design), this failure mode has now been proven recoverable twice, independently.
 
 ## Gate 5: Validate corpus diversity and deduplication before freezing document-count expectations
 
