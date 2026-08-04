@@ -142,10 +142,15 @@ In core mode, `retrieval.acl_visible` and
 scope is applied before every retrieval arm enters fusion and at every traversal
 hop; it requires no persona role or RLS installation.
 
-Production identity, RLS, and masking remain architecture concerns, not
-participant demonstrations. The live workshop corpus contains no authored
-restricted customer record, and the API's workshop context is not production
-authentication.
+Production identity and authorization revalidation remain architecture
+concerns, not participant demonstrations: the API's workshop context is not
+production authentication, and its persona selection is a teaching control
+under the API caller's own AWS account, not an access-control boundary
+between separate identities. The live workshop corpus contains no authored
+restricted customer record. An event owner may enable `sql/11_roles_rls.sql`
+and `sql/12_masking.sql` as an optional lab so a participant can compare
+real RLS/masking visibility against that same live capture from inside the
+persona they select.
 
 The JSONB policy is intentionally small for teaching. A production design should
 map authenticated identity and source-system authorization into a reviewed policy,

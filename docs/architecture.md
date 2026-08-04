@@ -98,8 +98,15 @@ receipt. The Overview main graphic is illustrative and never enters retrieval.
 The workshop path is live incident retrieval through cited synthesis,
 diagnostics, and replay. `make schema` applies the core schema and the API uses
 the participant database directly. The corpus contains no authored restricted
-records, so role comparison, masking, and fictional access-control exercises
-are outside this workshop.
+records: every restricted row a persona can compare against is produced by
+that participant's own `make live-workshop` capture, never a fictional one.
+
+An event owner may additionally run `make security-schema` to enable the
+optional RLS and column-masking lab (`sql/11_roles_rls.sql`,
+`sql/12_masking.sql`) against that same live capture. It adds real
+role-based visibility comparison on top of the required path; it does not
+replace the fixed workshop visibility predicate the required path always
+uses. See `docs/builder-session-flow.md` for when it is offered.
 
 ## Three Ownership Layers
 
