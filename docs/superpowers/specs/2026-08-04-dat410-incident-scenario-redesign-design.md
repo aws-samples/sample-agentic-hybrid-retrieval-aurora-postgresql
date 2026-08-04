@@ -89,8 +89,10 @@ evidence signatures (lock/transaction state, pool/request telemetry, WAL/row-chu
 signals, query-plan output), each mapped to a distinct persona entry point (app engineer,
 DBA, data engineer, data scientist). Chosen because it satisfies corpus diversity without
 scaling any single mechanism to an impractical size, and because "one bad migration causes a
-cascading incident" is both a common real production pattern and a natural fit for the
-existing agent traversal/decompose/compare/synthesize story.
+cascading incident" is both a widely-recognized, production-representative failure pattern —
+measured and reproduced live in this lab, not an incident that occurred in an actual
+production system — and a natural fit for the existing agent
+traversal/decompose/compare/synthesize story.
 
 ## Architecture
 
