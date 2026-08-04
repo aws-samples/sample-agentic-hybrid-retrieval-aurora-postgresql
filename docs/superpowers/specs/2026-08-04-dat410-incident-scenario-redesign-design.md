@@ -54,8 +54,11 @@ testing sections around that contract.
   current-run evidence), not "took N seconds."
 - The operational workload table is not the retrieval corpus. `workbench_lab.orders` (now
   3,000,000 rows, up from 25,000) never enters `casework`/`retrieval`/`proof`. The searchable
-  corpus stays a "low hundreds" document count, built only from measured PostgreSQL, API
-  pool, request, plan, WAL, and optional AWS observations.
+  corpus targets a 180–250 document range (not an exact number), built from genuinely
+  distinct signal types — lock/blocking-state transitions, pool saturation/recovery, request
+  latency/timeout aggregates, WAL/statement deltas, backfill/recovery/index metadata, and the
+  three query-plan checkpoints — never from denser time-sampling of the same signal.
+  CloudWatch metrics do not count toward this range (best-effort supplemental only).
 - No new fragile external dependency may replace the one being removed. Reuse the existing
   FastAPI connection pool (`backend/app/db.py`, `DB_POOL_MAX_SIZE=10`) for pool exhaustion —
   do not add RDS Proxy, PgBouncer, or any new pooling infrastructure. Do not gate readiness on
@@ -114,8 +117,9 @@ Participant-facing Lab 1 (target: 5–8 min ceiling)
        Named query, EXPLAIN (ANALYZE, BUFFERS) at 3 checkpoints:
        before ANALYZE → after ANALYZE → after missing index
 
-Evidence build (from measured phases 1–4 only)
-  → low-hundreds searchable documents → casework/retrieval/proof (unchanged admission path)
+Evidence build (from measured phases 1–4 only, state-change/interval-boundary documents,
+                 not one document per 250ms poll)
+  → 180–250 searchable documents → casework/retrieval/proof (unchanged admission path)
 
 Labs 2–4 (unchanged): hybrid retrieval, agent tools, citations, replay
 ```
@@ -216,17 +220,53 @@ admission/embedding steps. Performance Insights / Database Insights (`_wait_for_
 insights` and all PI-specific code in `capture_observability.py`) is removed entirely — no
 role in the new design.
 
-**Evidence builder (`run_live_workshop.py::_telemetry_documents`, modified)** — The `A`
-(activity)/`L` (lock topology)/`B` (blocking)/`S` (statement phases)/`R` (repair
-verification) series are retargeted at the new phases' PostgreSQL-side signals (already the
-right sourcing pattern — `pg_stat_activity`/`pg_locks`/`pg_blocking_pids`/`pg_stat_statements`
-— just pointed at the new migration/pool/query-regression data instead of the old
-`CREATE INDEX` mechanism). The `P` (Performance Insights) series is deleted. A new series
-(exact letter/schema decided in the implementation plan) carries pool-exhaustion telemetry
-(`pool_size`, `pool_available`, `requests_waiting`, timeout events) and another carries the
-three EXPLAIN checkpoints. Total document count target: "low hundreds," concretely bounded in
-the implementation plan (today's acceptance check requires exactly 100–120; this redesign
-requires recomputing that bound for the new phase mix, not silently reusing the old number).
+**Evidence builder (`run_live_workshop.py::_telemetry_documents`, modified)** — Target:
+**180–250 searchable documents**, a range rather than an exact number, produced from
+genuinely distinct signal types rather than denser time-sampling of the same four phases.
+CloudWatch metrics do not count toward this minimum (they stay best-effort supplemental
+evidence per the CloudWatch section below, and their availability is not guaranteed).
+
+The critical design rule, driving every series below: **the hold controller's 250ms poll
+loop is a control mechanism, not a document-generation trigger.** Polling every 250ms for up
+to 15 seconds would be ~60 samples — turning every one into a searchable document would
+recreate exactly the near-duplicate-snapshot problem the current 103-document corpus already
+shows early signs of (six near-identical `TEL-...-A0xx` activity documents burying the causal
+chain in RRF, before rerank correctly fixes it — see the measured retrieval-quality baseline
+in Testing). Raw telemetry from every poll is still persisted (matching the existing
+`casework.*_samples` pattern — nothing is lost), but a searchable document is created only on
+a **state change** (e.g., `pool_available` transitions 1→0, a new tagged session enters
+`wait_event_type='Lock'`, a `PoolTimeout` fires) or a **meaningful interval boundary** (e.g.,
+one document per second of the proven hold, not one per 250ms poll), never on every poll
+tick.
+
+Series, replacing the current `A`/`L`/`B`/`S`/`C`/`P`/`R` letters with signal-type-organized
+documents (exact external-key letters finalized in the implementation plan, alongside the
+existing `TEL-<run-suffix>-*` scheme):
+- **Lock and blocking-state transitions** — retargets the existing `A`/`L`/`B` sourcing
+  pattern (`pg_stat_activity`/`pg_locks`/`pg_blocking_pids`) at the new backfill/hot-write
+  collision, but emits a document per *transition* (e.g., a hot-write session entering or
+  leaving a lock wait), not per poll.
+- **Pool saturation and recovery snapshots** — new series, sourced from `get_pool().get_stats()`
+  plus the correlated `pg_stat_activity` state; documents at the proven-exhaustion transition,
+  at fixed points through the hold, and at the recovery transition — not at every 250ms sample.
+- **Request latency and timeout aggregates** — new series; one document per distinct outcome
+  class (e.g., "N requests completed in Xms," "M requests raised `PoolTimeout`"), not one per
+  request.
+- **WAL and statement deltas** — retargets the existing `S` (`pg_stat_statements`) sourcing
+  pattern at the backfill's actual measured WAL volume and row-version churn (only labeled
+  "WAL pressure" if a measured latency/throughput degradation accompanies it, per the
+  terminology note above).
+- **Backfill, recovery, and index metadata** — retargets the existing `R` (repair
+  verification) sourcing pattern at the new commit/recovery/index-creation events.
+- **The three query-plan checkpoints** — one document per `EXPLAIN (ANALYZE, BUFFERS)`
+  checkpoint (before `ANALYZE`, after `ANALYZE`, after the index): exactly 3, fixed.
+
+The `P` (Performance Insights) series is deleted outright — no role in the new design.
+
+This is a change from the current codebase's pattern (`OBSERVATION_COUNT = 30` fixed samples,
+one document per sample, per `_telemetry_documents`) to a state-change/interval-boundary
+pattern — a real implementation difference the plan must design deliberately, not inherit
+mechanically from the existing loop structure.
 
 ## Data Flow
 
@@ -371,6 +411,19 @@ it does NOT yet verify genuine FastAPI-pool exhaustion, since the lab-only hot-w
 and pool-status endpoint don't exist in code yet. That verification is still owed once those
 components are built — do not treat this measurement as closing the pool-exhaustion
 acceptance criterion.
+
+### Measured Baseline — Embedding Throughput at Corpus-Target Scale
+
+Directly tested Cohere Embed v4's real Bedrock `InvokeModel` batch limit (never assumed):
+**96 texts per call is the hard cap** — 128 fails with `ValidationException: Invalid
+parameter combination`. Ran 2,000 chunks sequentially in batches of 96 against the real
+Bedrock endpoint: **27.6 seconds total, zero throttling, zero errors**, consistent ~1.1–1.4s
+per batch (two mild outliers up to 2.6s, not a systematic slowdown). At the 180–250 document
+target (assuming ~1 chunk/document, matching the current corpus's exact 1:1 ratio), embedding
+time is a rounding error against the 5–8 minute ceiling — well under the 103-document
+baseline's already-small 4.0s. Embedding throughput is not a constraint on corpus size in
+this range; document-generation diversity (see the Evidence builder component above) is the
+real bound, not embedding speed.
 
 ### Measured Retrieval-Quality Baseline — Current 103-Document Corpus
 
