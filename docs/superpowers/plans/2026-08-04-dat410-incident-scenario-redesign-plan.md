@@ -6272,7 +6272,7 @@ def open_backfill(database_url: str) -> BackfillHandle:
     started = time.monotonic()
     cursor = conn.execute(
         "UPDATE workbench_lab.orders "
-        "SET priority_tier = (order_id %% 5) + 1"
+        "SET priority_tier = (order_id % 5) + 1"
     )
     return BackfillHandle(
         pid=pid,
@@ -6282,8 +6282,10 @@ def open_backfill(database_url: str) -> BackfillHandle:
     )
 ```
 
-  Note the doubled `%%`: the same `%`-formatting hazard Task B1 flags applies to any
-  modulo in SQL passed through Python string handling. Then delete
+  Use a single `%`: this statement has no bind parameters, so `%%` reaches
+  PostgreSQL literally and fails with `42883` (`operator does not exist:
+  integer %% integer`). B1's parameterized `generate_series` inserts retain
+  doubled `%%`; this unparameterized statement must not. Then delete
   `_hold_unsafe_index`, `_blocked_writer`, `_active_reader`, and their thread wiring
   from `run_live_workshop.py`, and call this module in their place.
 

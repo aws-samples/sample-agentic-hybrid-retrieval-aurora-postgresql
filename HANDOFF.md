@@ -86,8 +86,9 @@ Completed and committed on this branch:
 - A6 (`9453a6c`) adds G-34, which structurally proves that pre-execution
   autonomy readiness cannot read post-execution evidence, plus adversarial
   static and behavioral regressions.
-- B1 bootstraps exactly 5,000 customers and 3,000,000 orders with no migration
-  columns. The workload is operational state and the evidence store stays empty.
+- B1 (`3858379`) bootstraps exactly 5,000 customers and 3,000,000 orders with
+  no migration columns. The workload is operational state and the evidence
+  store stays empty.
 
 Not yet implemented: the migration driver, pool-collision orchestration and
 evidence builder, final retrieval corpus, revised agent, participant UI and labs,
@@ -119,6 +120,15 @@ and is not release evidence.
 Current disposable-database state after B1 validation: core schema plus the
 3,000,000-row `workbench_lab` workload, zero evidence, and no optional security
 module. Reapply `make security-schema` before security-only checks.
+
+## Next Task
+
+Start B1a: create `labs/incident/migration.py`, then replace the retired
+ordinary-index hold mechanism with the separate committed `ADD COLUMN` and
+open unbatched backfill. A pre-implementation probe on Aurora 18.3 confirmed
+that `SELECT 7 % 5` returns `2`, while `SELECT 7 %% 5` fails with `42883`; use a
+single `%` in the unparameterized backfill `UPDATE`. Keep `%%` only in SQL that
+is passed through psycopg parameter interpolation.
 
 `make test` now fails before discovery unless `TEST_DATABASE_URL` names a
 resettable `_test` database on exactly PostgreSQL 18.3. Accepted targets are
