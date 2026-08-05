@@ -60,7 +60,7 @@ build a connector, or deploy AgentCore Gateway during the hour.
 |---:|---|---|---|
 | 0-5 | Getting Started | Access both work surfaces and prove `awaiting_incident` with zero evidence | Move blocked participants to a working paired terminal |
 | 5-10 | Workshop Scenario | Explain the hung migration and trace measured telemetry into the evidence store | No product tour |
-| 10-25 | Lab 1: Cause, fix, and admit | 5,000 customers and 25,000 related orders produce roughly 735 measured telemetry rows, 110 evidence documents, current embeddings, one capture, and zero drift | Pair with a participant whose live run completes; never substitute checked-in data |
+| 10-25 | Lab 1: Cause, fix, and admit | 5,000 customers and 3,000,000 related orders produce roughly 735 measured telemetry rows, 110 evidence documents, current embeddings, one capture, and zero drift | Pair with a participant whose live run completes; never substitute checked-in data |
 | 25-40 | Lab 2: Build hybrid retrieval | Exact, FTS, semantic, fuzzy, filter, participant-edited RRF, and rerank checkpoints pass | `rerank_applied=false` is a valid model fallback |
 | 40-50 | Lab 3: Build the incident agent | Build the evidence plan, traverse captured relationships, compare sources, and synthesize the cited answer | Use the complete answer endpoint if individual calls run long |
 | 50-55 | Lab 4: Prove and replay | Validate source URI, revision, and quote, then replay by `run_id` without a model call | Skip visual Proof exploration; preserve citation SQL and receipt GET |

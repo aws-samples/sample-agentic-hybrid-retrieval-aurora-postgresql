@@ -5944,6 +5944,11 @@ path and its stale tests.
   description to 3,000,000 orders
 - Modify: `backend/tests/test_incident_lab.py:48`
   (`self.assertEqual(LAB_ROWS, 25_000)`)
+- Modify: `README.md`, `docs/architecture.md`, `docs/implementation-spec.md`,
+  `docs/live-data-audit.md`, `docs/builder-session-flow.md`, and
+  `labs/incident/README.md`, plus root guidance in `CLAUDE.md`,
+  `DAT410-BUILD-BRIEF.md`, and `WORKSHOP-BUILD-SUMMARY.md` — replace the stale
+  25,000-order bootstrap scale
 - Test: `backend/tests/test_incident_lab.py`
 
 **Interfaces:**
@@ -6099,7 +6104,11 @@ SQL
 - [ ] **Step 8: Commit.**
 
 ```bash
-git add labs/incident/run_live_workshop.py backend/tests/test_incident_lab.py
+git add labs/incident/run_live_workshop.py labs/incident/prepare_workload.py \
+  backend/tests/test_incident_lab.py README.md docs/architecture.md \
+  docs/implementation-spec.md docs/live-data-audit.md \
+  docs/builder-session-flow.md labs/incident/README.md CLAUDE.md \
+  DAT410-BUILD-BRIEF.md WORKSHOP-BUILD-SUMMARY.md
 git commit -m "Bootstrap the lab workload at three million orders"
 ```
 

@@ -8,7 +8,7 @@ page's main graphic is the sole illustrative exception and never enters
 `casework`, `retrieval`, or `proof`.
 
 Workshop bootstrap generates 5,000 disposable `workbench_lab.customers` rows
-and 25,000 related `workbench_lab.orders` rows while the evidence store is
+and 3,000,000 related `workbench_lab.orders` rows while the evidence store is
 empty. Those operational rows make the incident real but are not participant
 evidence.
 

@@ -35,7 +35,7 @@ OBSERVATION_INTERVAL_SECONDS = 2.0
 WRITER_COUNT = 6
 READER_COUNT = 2
 LAB_CUSTOMER_ROWS = 5_000
-LAB_ROWS = 25_000
+LAB_ROWS = 3_000_000
 SOURCE_SYSTEM = "pg_incident_capture"
 RELATION_NAME = "workbench_lab.orders"
 INDEX_NAME = "workbench_lab.idx_orders_customer_created"
@@ -194,8 +194,7 @@ def _create_lab_workload(connection: psycopg.Connection) -> None:
           customer_id bigint NOT NULL
             REFERENCES workbench_lab.customers(customer_id),
           status text NOT NULL,
-          created_at timestamptz NOT NULL,
-          updated_at timestamptz NOT NULL
+          created_at timestamptz NOT NULL
         )
         """
     )
@@ -205,15 +204,13 @@ def _create_lab_workload(connection: psycopg.Connection) -> None:
           order_id,
           customer_id,
           status,
-          created_at,
-          updated_at
+          created_at
         )
         SELECT
           value,
           1 + ((value - 1) %% %s),
           'created',
-          clock_timestamp() - ((value %% 86400) * interval '1 second'),
-          clock_timestamp()
+          clock_timestamp() - ((value %% 86400) * interval '1 second')
         FROM generate_series(1, %s) value
         """,
         (LAB_CUSTOMER_ROWS, LAB_ROWS),

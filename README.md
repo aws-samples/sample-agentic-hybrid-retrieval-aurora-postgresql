@@ -36,7 +36,7 @@ citation is persisted; no participant result or score is hardcoded.
 and a measured `CREATE INDEX CONCURRENTLY` repair. It modifies only the
 disposable `workbench_lab` schema before atomically admitting the live run.
 
-Workshop bootstrap generates 5,000 disposable customers and 25,000 related
+Workshop bootstrap generates 5,000 disposable customers and 3,000,000 related
 orders before the participant arrives. They are operational workload, not
 retrieval records. The participant's command uses those rows to produce about
 735 measured PostgreSQL and AWS telemetry rows, which become about 110 evidence

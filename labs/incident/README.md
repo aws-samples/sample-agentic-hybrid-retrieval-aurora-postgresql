@@ -11,7 +11,7 @@ refuses to start unless it can prove that:
 
 - `DATABASE_URL` reaches the requested Aurora PostgreSQL writer;
 - the database contains the current application schema and no evidence rows;
-- the preloaded workload contains 5,000 customers, 25,000 canonical related
+- the preloaded workload contains 5,000 customers, 3,000,000 canonical related
   orders, and no target incident index;
 - Performance Insights is enabled;
 - CloudWatch, Performance Insights, and Bedrock are reachable; and
@@ -37,7 +37,7 @@ The orchestrator prints eight checkpoints:
 8. verify and publish the indexing receipt that enables participant retrieval.
 
 The participant command verifies and reuses 5,000 preloaded customers and
-25,000 related orders as workload substrate. The unsafe phase then captures 30
+3,000,000 related orders as workload substrate. The unsafe phase then captures 30
 observations at two-second intervals. Each observation preserves nine
 `pg_stat_activity` rows, nine relation-lock rows, and six
 `pg_blocking_pids` rows. With statement, CloudWatch, and Performance Insights
@@ -51,7 +51,7 @@ This is useful workshop scale for exact, full-text, semantic, fuzzy, fusion,
 reranking, citations, and replay. It is not presented as an HNSW performance
 benchmark.
 
-The 5,000 customer rows and 25,000 order rows never enter the evidence corpus
+The 5,000 customer rows and 3,000,000 order rows never enter the evidence corpus
 and are removed with `workbench_lab`. Their measured effects survive as
 normalized telemetry, searchable evidence, and proof.
 

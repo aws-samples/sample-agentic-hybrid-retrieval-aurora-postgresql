@@ -64,7 +64,7 @@ evidence into Aurora PostgreSQL.
 ## 3. Live Incident
 
 Workshop Studio bootstrap runs `make prepare-workload` after `make schema`.
-That step generates 5,000 rows in `workbench_lab.customers` and 25,000
+That step generates 5,000 rows in `workbench_lab.customers` and 3,000,000
 foreign-key-related rows in `workbench_lab.orders`, requires an empty evidence
 store, and creates no `casework`, `retrieval`, or `proof` records.
 
@@ -75,7 +75,7 @@ Before inducing the incident, it proves:
 - PostgreSQL and pgvector satisfy the repository minimums;
 - the core schema is complete;
 - the participant corpus is empty;
-- the operational workload contains exactly 5,000 customers and 25,000
+- the operational workload contains exactly 5,000 customers and 3,000,000
   canonical related orders with no target incident index;
 - Performance Insights is enabled;
 - CloudWatch and Performance Insights are reachable;
@@ -87,7 +87,7 @@ The orchestrator requires the bootstrapped workload. Source-only local use runs
 
 The unsafe phase:
 
-- uses the 5,000 preloaded customers and 25,000 related orders;
+- uses the 5,000 preloaded customers and 3,000,000 related orders;
 - starts ordinary `CREATE INDEX`;
 - keeps its transaction open after index construction;
 - starts six real blocked writers and two readers;

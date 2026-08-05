@@ -22,7 +22,7 @@ from labs.incident.run_live_workshop import (
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Create 5,000 workbench_lab customers and 25,000 orders while "
+            "Create 5,000 workbench_lab customers and 3,000,000 orders while "
             "preserving an empty participant evidence store."
         )
     )

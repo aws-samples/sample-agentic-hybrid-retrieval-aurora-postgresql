@@ -14,7 +14,7 @@ tools, and persist a citation-validated answer for replay.
 ## Evidence Contract
 
 - Provisioning applies schema, generates 5,000 disposable operational
-  customers and 25,000 related orders, and starts at `awaiting_incident` with
+  customers and 3,000,000 related orders, and starts at `awaiting_incident` with
   zero evidence.
 - `make live-workshop` is the only participant ingestion path.
 - Every participant-facing record uses `source_system=pg_incident_capture`.
@@ -56,7 +56,7 @@ fusion. Agent tools and adapters consume the API and do not duplicate ranking.
 A fresh target account must prove:
 
 - zero evidence before the run;
-- exactly 5,000 customers, 25,000 canonical related orders, and no target
+- exactly 5,000 customers, 3,000,000 canonical related orders, and no target
   incident index before the run;
 - 100-120 current documents, 100-250 chunks, and matching ready embeddings;
 - 600-1,000 raw telemetry rows;

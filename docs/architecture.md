@@ -44,12 +44,12 @@ permissions, mutable state, and actions.
 
 `workbench_lab.*` is a disposable operational workload used only to reproduce
 the PostgreSQL locking mechanism before retrieval begins. Workshop bootstrap
-generates 5,000 customers and 25,000 related orders while the evidence store
+generates 5,000 customers and 3,000,000 related orders while the evidence store
 remains empty. It is deliberately outside all three application ownership
 schemas:
 
 ```text
-Bootstrap: 5,000 customers + 25,000 orders, zero evidence
+Bootstrap: 5,000 customers + 3,000,000 orders, zero evidence
                          |
                          v
 One guided participant orchestrator

@@ -11,8 +11,8 @@ mechanism that still exists in portions of the runtime, tests, UI, and docs.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-A6 are the completed schema/admission/proof foundation. Tasks B1-G3 own
-the remaining runtime, retrieval, agent, UI, documentation,
+Tasks A1-B1 are complete. Tasks B1a-G3 own the remaining runtime, retrieval,
+agent, UI, documentation,
 infrastructure, and rehearsal work. The plan's repository-wide alignment audit
 assigns every known stale surface to an explicit task; finding an unassigned
 stale surface is a plan defect and should be corrected before implementation
@@ -86,9 +86,12 @@ Completed and committed on this branch:
 - A6 (`9453a6c`) adds G-34, which structurally proves that pre-execution
   autonomy readiness cannot read post-execution evidence, plus adversarial
   static and behavioral regressions.
+- B1 bootstraps exactly 5,000 customers and 3,000,000 orders with no migration
+  columns. The workload is operational state and the evidence store stays empty.
 
-Not yet implemented: the new orchestration and evidence builder, final retrieval
-corpus, revised agent, participant UI and labs, documentation cleanup,
+Not yet implemented: the migration driver, pool-collision orchestration and
+evidence builder, final retrieval corpus, revised agent, participant UI and labs,
+remaining documentation cleanup,
 infrastructure packaging, and live rehearsal.
 Until those tasks land, `make live-workshop` is not evidence that the approved
 scenario is complete.
@@ -105,10 +108,17 @@ PostgreSQL 18.3 cluster in `us-east-1`:
 - Supervised-execution suite under security mode: 39 tests passed, zero skips.
 - G-34 focused suite: 11 tests passed; the gate passed directly and through
   `gates/checks.sh G-34`.
+- B1 bootstrap: 32.13 seconds on `db.r8g.2xlarge`; 3,000,000 canonical orders,
+  5,000 customers, 248,193,024 bytes, fresh `ANALYZE`, no `priority_tier` or
+  `updated_at`, and zero evidence rows.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
 and is not release evidence.
+
+Current disposable-database state after B1 validation: core schema plus the
+3,000,000-row `workbench_lab` workload, zero evidence, and no optional security
+module. Reapply `make security-schema` before security-only checks.
 
 `make test` now fails before discovery unless `TEST_DATABASE_URL` names a
 resettable `_test` database on exactly PostgreSQL 18.3. Accepted targets are

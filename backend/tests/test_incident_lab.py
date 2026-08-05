@@ -42,11 +42,20 @@ class IncidentLabContractTests(unittest.TestCase):
         self.assertEqual(READER_COUNT, 2)
         self.assertEqual(SOURCE_SYSTEM, "pg_incident_capture")
 
-    def test_bootstrap_workload_is_operational_state_not_evidence(self) -> None:
+    def test_lab_workload_is_three_million_orders(self) -> None:
+        orchestrator = (LAB_DIR / "run_live_workshop.py").read_text(
+            encoding="utf-8"
+        )
+        bootstrap = orchestrator.split("def _create_lab_workload", 1)[1].split(
+            "\ndef ", 1
+        )[0]
         source = (LAB_DIR / "prepare_workload.py").read_text(encoding="utf-8")
 
-        self.assertEqual(LAB_ROWS, 25_000)
+        self.assertEqual(LAB_ROWS, 3_000_000)
         self.assertEqual(LAB_CUSTOMER_ROWS, 5_000)
+        self.assertIn("DROP SCHEMA IF EXISTS workbench_lab CASCADE", bootstrap)
+        self.assertNotIn("priority_tier", bootstrap)
+        self.assertNotIn("updated_at", bootstrap)
         self.assertIn("prepare_lab_workload", source)
         self.assertIn("empty participant evidence store", source)
 
