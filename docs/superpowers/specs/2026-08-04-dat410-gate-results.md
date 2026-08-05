@@ -227,3 +227,47 @@ copies of the most-similar document with distinct keys. G-33 failed at
 the 15% threshold. The database was fully reset, the schema and 3,000,000-row
 workload were rebuilt, and a fresh Wave A / Wave B rehearsal completed after
 the proof. No duplicate data or generated capture was retained.
+
+## D1 Implementation Acceptance: Retrieval-arm differentiation on the new corpus
+
+**Result: PASSED on Aurora PostgreSQL 18.3 with Bedrock embeddings, reranking,
+and synthesis**
+
+The permanent smoke path now makes the corpus-adequacy claim executable. It
+uses four probes over the same capture-derived corpus:
+
+| Retrieval signal | Probe result |
+|---|---|
+| Exact ID | `CHG-37AF2D23-01` |
+| Full text | `LOCK-37AF2D23-01` |
+| Semantic | `TEL-37AF2D23-R01` |
+| Fuzzy ID | `CHG-37AF2D23-01` |
+
+Exact and fuzzy intentionally agree on the named change. The full-text and
+semantic probes rank different, relevant evidence, giving three distinct top
+candidates across the four arms. The smoke assertion fails if a future corpus
+loses that differentiation; it does not assume hybrid retrieval is always the
+best result.
+
+For the causal hybrid question, PostgreSQL RRF ranked:
+
+```text
+TEL-37AF2D23-R01, TEL-37AF2D23-M08, TEL-37AF2D23-M15,
+TEL-37AF2D23-M01, TEL-37AF2D23-M04
+```
+
+With Cohere Rerank 3.5, the top five became:
+
+```text
+TEL-37AF2D23-M15, TEL-37AF2D23-M08, CHG-37AF2D23-02,
+TEL-37AF2D23-P01, TEL-37AF2D23-M03
+```
+
+The order changed, while every candidate shared by the two responses retained
+its PostgreSQL `rrf_score` and `final_score`; the separate `rerank_score`
+remains only a post-fusion ordering signal.
+
+`make smoke` completed with Bedrock synthesis and wrote ignored
+`READINESS.md` for answer run `c37e283a-b874-4546-a8fa-985932384df6`. G-13
+then compared the API's receipt panels, 63 graph edges, and 34 timeline events
+with their `_verify_sql` replays and found zero mismatches.

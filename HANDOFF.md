@@ -11,7 +11,7 @@ mechanism that still exists in portions of the runtime, tests, UI, and docs.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-C4 are complete. Tasks D1-G3 own the remaining retrieval, agent, UI,
+Tasks A1-D1 are complete. Tasks D2-G3 own the remaining agent, UI,
 documentation, infrastructure, and rehearsal work. The plan's repository-wide
 alignment audit assigns every known stale surface to an explicit task; finding an
 unassigned stale surface is a plan defect and should be corrected before
@@ -158,10 +158,14 @@ Completed and committed on this branch:
   hardcoded phases, and rejects a corpus whose `pg_trgm` near-duplicate rate
   reaches 15%. Doctor now reports the evidence-derived 50-80 document range
   as advisory volume guidance, never as an acceptance condition.
+- D1 records live retrieval-arm differentiation in the smoke receipt. Exact
+  and fuzzy ID recovery can agree, but a natural-language full-text probe and
+  a semantic pool-exhaustion probe must yield at least a third distinct top
+  candidate. It also requires Cohere rerank to change a top-five ordering
+  without changing PostgreSQL's RRF or final scores for shared candidates.
 
-Not yet implemented: revised retrieval exercises and agent; participant UI and
-labs; remaining documentation cleanup; infrastructure packaging; and the
-complete rehearsal.
+Not yet implemented: the revised agent; participant UI and labs; remaining
+documentation cleanup; infrastructure packaging; and the complete rehearsal.
 Until those tasks land, `make live-workshop` is not evidence that the approved
 scenario is release-complete.
 
@@ -285,6 +289,15 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   two-wave capture. Focused tests (12 passed, 20 expected skips, 42 subtests),
   `make doctor` (frontend warning only), and the safe core subset G-11, G-14,
   G-17, G-21, G-23, G-32, G-33, and G-34 all passed.
+- D1 retrieval-arm validation: `make smoke` passed with Bedrock synthesis
+  required. Exact and fuzzy both recovered `CHG-37AF2D23-01`, while full text
+  ranked `LOCK-37AF2D23-01` and semantic ranked `TEL-37AF2D23-R01`, satisfying
+  the three-distinct-candidate contract. The causal hybrid question produced a
+  different reranked top five while all shared candidates retained their
+  PostgreSQL RRF and final scores. G-13 then replayed the fresh smoke answer
+  `c37e283a-b874-4546-a8fa-985932384df6` through the API: receipt panels,
+  63 graph edges, and 34 timeline events all matched their published
+  `_verify_sql` results.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
@@ -298,11 +311,11 @@ Current disposable-database state after C4 validation: core schema plus the
 
 ## Next Task
 
-Start D1: re-confirm that exact, full-text, semantic, and fuzzy retrieval
-actually differentiate on the new capture-derived corpus. Preserve the
-canonical Aurora PostgreSQL search functions; update the smoke assertion and
-live-key discovery rather than manufacturing a corpus or making hybrid
-retrieval a presumed winner. Read Task D1 in the binding plan before editing.
+Start D2: reconcile the read-only Hybrid Retrieval Agent with the Wave-A-only
+diagnostic question. Preserve all seven read/synthesis tools, make the three
+causal clauses explicit, and prove that the agent's citations exclude Wave B
+evidence even when the two-wave corpus is present. Read Task D2 in the binding
+plan before editing.
 
 Current maintenance hazards:
 

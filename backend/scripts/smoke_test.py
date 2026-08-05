@@ -22,6 +22,67 @@ def _require(condition: bool, message: str) -> None:
         raise RuntimeError(message)
 
 
+def _top_key(result: dict, label: str) -> str:
+    keys = _keys(result)
+    _require(bool(keys), f"{label} retrieval returned no candidates")
+    return keys[0]
+
+
+def _assert_arms_differentiate(receipts: dict[str, object]) -> None:
+    """Require the capture-derived corpus to produce distinct retrieval signals."""
+    tops = {
+        arm: receipts.get(f"{arm}_top_key")
+        for arm in ("exact", "fulltext", "semantic", "fuzzy")
+    }
+    distinct = {key for key in tops.values() if key}
+    if len(distinct) < 3:
+        raise RuntimeError(
+            f"smoke failed: only {len(distinct)} distinct top candidates across "
+            f"four arms: {tops}"
+        )
+
+
+def _assert_rerank_reorders(
+    rrf_result: dict,
+    reranked_result: dict,
+) -> None:
+    """Keep model ordering separate from the SQL scores it reorders."""
+    rrf_top_five = _keys(rrf_result)[:5]
+    reranked_top_five = _keys(reranked_result)[:5]
+    _require(
+        rrf_top_five != reranked_top_five,
+        "Cohere rerank did not change any top-five position",
+    )
+    _require(
+        reranked_result["rerank_applied"],
+        "Cohere rerank was requested but was not applied",
+    )
+
+    rrf_scores = {
+        row["external_key"]: (row["rrf_score"], row["final_score"])
+        for row in rrf_result["results"]
+    }
+    reranked_scores = {
+        row["external_key"]: (row["rrf_score"], row["final_score"])
+        for row in reranked_result["results"]
+    }
+    shared_keys = rrf_scores.keys() & reranked_scores.keys()
+    _require(
+        bool(shared_keys),
+        "rerank result shared no candidates with the SQL RRF result",
+    )
+    changed_scores = [
+        key
+        for key in shared_keys
+        if rrf_scores[key] != reranked_scores[key]
+    ]
+    _require(
+        not changed_scores,
+        "Cohere rerank changed PostgreSQL RRF/final scores for "
+        f"{sorted(changed_scores)}",
+    )
+
+
 def _live_keys() -> dict[str, object]:
     with get_dict_conn("app_engineer") as connection:
         with connection.cursor() as cursor:
@@ -148,7 +209,7 @@ def main() -> int:
                 cursor.execute("SELECT retrieval.assert_search_index_ready() AS health")
                 receipts["search_index"] = cursor.fetchone()["health"]
 
-        lexical = run_hybrid_search(
+        exact = run_hybrid_search(
             SearchRequest(
                 query=str(keys["confirmed_change"]),
                 mode="lexical",
@@ -158,10 +219,38 @@ def main() -> int:
             )
         )
         _require(
-            _keys(lexical)[0] == keys["confirmed_change"],
-            f"exact identifier was not lexical rank 1: {_keys(lexical)}",
+            _top_key(exact, "exact") == keys["confirmed_change"],
+            f"exact identifier was not lexical rank 1: {_keys(exact)}",
         )
-        receipts["lexical_run_id"] = lexical["run_id"]
+        receipts["exact_run_id"] = exact["run_id"]
+        receipts["exact_top_key"] = _top_key(exact, "exact")
+
+        fulltext = run_hybrid_search(
+            SearchRequest(
+                query="transaction ID lock waiters pool requests timed out",
+                mode="lexical",
+                source_systems=["pg_incident_capture"],
+                rerank=False,
+                limit=5,
+            )
+        )
+        receipts["fulltext_run_id"] = fulltext["run_id"]
+        receipts["fulltext_top_key"] = _top_key(fulltext, "full-text")
+
+        semantic = run_hybrid_search(
+            SearchRequest(
+                query=(
+                    "Application requests could not obtain a free database "
+                    "connection and failed before reaching PostgreSQL."
+                ),
+                mode="semantic",
+                source_systems=["pg_incident_capture"],
+                rerank=False,
+                limit=5,
+            )
+        )
+        receipts["semantic_run_id"] = semantic["run_id"]
+        receipts["semantic_top_key"] = _top_key(semantic, "semantic")
 
         fuzzy = run_hybrid_search(
             SearchRequest(
@@ -174,13 +263,43 @@ def main() -> int:
             )
         )
         _require(
-            _keys(fuzzy)[0] == keys["confirmed_change"],
+            _top_key(fuzzy, "fuzzy") == keys["confirmed_change"],
             (
                 f"mistyped identifier did not resolve to "
                 f"{keys['confirmed_change']}: {_keys(fuzzy)}"
             ),
         )
         receipts["fuzzy_run_id"] = fuzzy["run_id"]
+        receipts["fuzzy_top_key"] = _top_key(fuzzy, "fuzzy")
+        _assert_arms_differentiate(receipts)
+
+        rerank_question = (
+            "Why did writes time out, why did they recover after the backfill "
+            "committed, and why did the orders query remain slow after ANALYZE?"
+        )
+        rrf = run_hybrid_search(
+            SearchRequest(
+                query=rerank_question,
+                mode="hybrid",
+                source_systems=["pg_incident_capture"],
+                rerank=False,
+                limit=8,
+            )
+        )
+        reranked = run_hybrid_search(
+            SearchRequest(
+                query=rerank_question,
+                mode="hybrid",
+                source_systems=["pg_incident_capture"],
+                rerank=True,
+                limit=8,
+            )
+        )
+        _assert_rerank_reorders(rrf, reranked)
+        receipts["rrf_run_id"] = rrf["run_id"]
+        receipts["rrf_top_keys"] = _keys(rrf)[:5]
+        receipts["reranked_run_id"] = reranked["run_id"]
+        receipts["reranked_top_keys"] = _keys(reranked)[:5]
 
         traversal = follow_evidence_links_impl(
             [str(keys["incident"])],
