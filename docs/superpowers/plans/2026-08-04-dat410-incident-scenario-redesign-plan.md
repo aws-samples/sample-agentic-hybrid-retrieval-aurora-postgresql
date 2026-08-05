@@ -838,18 +838,117 @@ admission works end to end" owed to this phase.
 **Owning schema/module:** `casework` schema; `sql/10_admission.sql`,
 `sql/01_schema.sql`.
 
-**Files:**
-- Modify: `sql/10_admission.sql:824-847` (the `casework.database_insights_samples`
-  insert) and the `database_insights` validation block that requires an
-  `evidence_type='top_wait'` / `dimension_value='lock:relation'` row
-- Modify: `sql/01_schema.sql` — drop the `casework.database_insights_samples`
-  table definition
+**Files:** dropping this table breaks four separate `CREATE`/`ALTER` statements at
+**apply** time, in three files this task must therefore also edit. Every one was
+measured on PostgreSQL 17.10 against a schema with the table absent, and every one
+is a hard `ERROR: relation "casework.database_insights_samples" does not exist`
+that stops `make schema` dead. `IF NOT EXISTS` and `OR REPLACE` do not save any of
+them — those clauses guard the *object being created*, never the relation it
+references:
+
+```
+sql/02_indexes.sql:42   CREATE INDEX IF NOT EXISTS idx_database_insights_capture_type   -> ERROR
+sql/04_diagnostics.sql:282,294  CREATE OR REPLACE VIEW casework.v_live_capture_validation -> ERROR
+sql/11_roles_rls.sql:705        ALTER TABLE ... ENABLE ROW LEVEL SECURITY                 -> ERROR
+sql/12_masking.sql:266          'casework.database_insights_samples'::regclass in the
+                                drop-policy loop -> ERROR, sqlstate 42P01, and the loop's
+                                `EXCEPTION WHEN undefined_object` handler (42704) does NOT
+                                catch it. Measured both codes explicitly.
+```
+
+`sql/02_indexes.sql` and `sql/04_diagnostics.sql` are in `CORE_SQL_FILES`
+(`Makefile:15-26`), so **A1's own Step 5 `make schema` fails** if they are left
+alone. `sql/11` and `sql/12` are `SECURITY_SQL_FILES`, so their breakage surfaces
+one target later at `make security-schema` — still this task's doing, and still
+this task's job.
+
+- Modify: `sql/10_admission.sql` — three sites, not one: the
+  `casework.database_insights_samples` insert (`:824-847`), the validation block
+  requiring an `evidence_type='top_wait'` / `dimension_value='lock:relation'` row
+  (`:220-231`), and the `v_rows` accumulator's
+  `+ jsonb_array_length(v_telemetry -> 'database_insights')` (`:889`). Leaving
+  `:889` behind is not cosmetic: `jsonb_array_length(NULL)` is NULL, NULL + integer
+  is NULL, and the function's returned row count silently becomes NULL for every
+  admission
+- Modify: `sql/01_schema.sql` — the table definition (`:480-495`) and the
+  `telemetry_type` CHECK constraint's `'database_insights'` enum value (`:514`).
+  **Keep** `casework.database_clusters.database_insights_mode` (`:10-11`, `:26`)
+  and `casework.lock_evidence.database_insights_slice` (`:244`, `:300`): both are
+  columns on tables this workshop still uses, both are nullable-or-defaulted, and
+  `10_admission.sql:315`/`:341` still writes the former. Removing a column is a
+  separate, wider change than removing this table, and nothing in this redesign
+  requires it. Do **not** touch the legacy `DROP TABLE IF EXISTS
+  casework.database_insights_samples CASCADE` at `:170` — that is a
+  migration-cleanup branch for pre-existing databases and must keep dropping the
+  table it is there to drop
+- Modify: `sql/02_indexes.sql:42-43` — delete
+  `idx_database_insights_capture_type` entirely. Verified it is named nowhere else
+  in the repository
+- Modify: `sql/04_diagnostics.sql` — delete the `top_wait_lock_relation` check
+  (`:281-286`) and the `top_sql_contains_index_build` check (`:291-298`) from
+  `casework.v_live_capture_validation`, **and** remove `top_wait_lock_relation`
+  from the `live_ready` AND-chain (`:313`). `top_sql_contains_index_build` is
+  computed but deliberately not in the chain today; leave that asymmetry alone by
+  deleting both check expressions. Also update the `SECURITY DEFINER` rationale
+  comment at `:325-330`, which cites the now-deleted masked-column predicate as
+  the reason for owner rights — the function stays `SECURITY DEFINER` (`make
+  doctor` and `test_retrieval_integration.py:43` call it as a persona), but the
+  stated reason changes to `pg_stat_activity_samples.query` /
+  `pg_stat_statements_samples.queries`, which are still masked
+- Modify: `sql/11_roles_rls.sql` — delete the `ENABLE`/`FORCE ROW LEVEL
+  SECURITY`, the `DROP POLICY IF EXISTS`, and the
+  `rls_database_insights_samples_visibility` policy (`:705-724`). Rewrite
+  section 6's header comment (`:650-702`), which is 50 lines built on this table
+  as its worked example — including the measured fail-open story. That story is
+  load-bearing for the next reader; re-anchor it on
+  `casework.pg_stat_statements_samples`, which keeps the same capture-keyed
+  mechanism, rather than deleting it
+- Modify: `sql/12_masking.sql` — remove the `('mask_insights_statement',
+  'casework.database_insights_samples')` tuple from the drop-policy loop (`:266`),
+  the whole `mask_insights_statement` `create_masking_policy` call (`:310-328`),
+  and the trailing rationale comment that explains this table's
+  `predicate_allow_list` (`:396-404`)
 - Modify: `backend/scripts/doctor.py:33` (`REQUIRED_TABLES`) — remove
   `casework.database_insights_samples`
-- Modify: `gates/masking_determinism.py:114` (`MASKED_FOR`) and
-  `gates/rls_enforcement.py` (`CAPTURE_MECHANISM_SQL`, `EVIDENCE_VISIBLE_SQL`) —
-  remove the same table
+- Modify: `gates/masking_determinism.py:114` (`MASKED_FOR`) — remove the same
+  table. Do **not** add it to `MUST_NOT_BE_MASKED`: that list means "this table
+  exists and must carry no policy," and a nonexistent table cannot satisfy it
+- Modify: `gates/rls_enforcement.py:314,324` — `EVIDENCE_VISIBLE_SQL` hardcodes
+  `telemetry_type = 'database_insights'`. **The brief's earlier claim that this
+  gate hardcodes the table name is wrong, verified:** `_measure_by_mechanism`
+  (`:800-833`) discovers `capture_tables` from the catalog via `CAPTURE_ONLY_SQL`,
+  and `CAPTURE_MECHANISM_SQL` takes the list as a parameter — so the table
+  disappears from this gate automatically. Only the `telemetry_type` literal is a
+  real dependency. `EVIDENCE_VISIBLE_SQL` becomes dead once no evidence-row-gated
+  table remains; leave the constant in place and record in the report that A1
+  leaves the repo with zero `evidence_row`-mechanism tables, so
+  `_measure_capture_keyed`'s `evidence_row` branch is now unexercised. Do not
+  delete it — Task C2's new telemetry types may re-populate it, and that call is
+  C2's, not A1's
+- Modify: `backend/tests/test_rls_personas.py:549-550` — remove the two
+  `casework.database_insights_samples` entries from `MASKED_COLUMNS`, and update
+  the comment above it that says "ALL SIX masked columns" (it becomes four)
+- Modify: `backend/tests/test_retrieval_integration.py:218-219,229,261` — the
+  `database_insights` count assertion and the capture-id subquery
 - Test: `backend/tests/test_admission.py`
+
+**Out of scope, deliberately, with the owning task named.** Do not widen into
+these — each is another task's deliverable and touching it here creates a
+merge conflict with that task:
+- `labs/incident/capture_observability.py`, `labs/incident/run_live_workshop.py`,
+  `backend/tests/test_release_capture.py` (which imports
+  `_wait_for_database_insights` and will fail to import once B6 deletes it) →
+  **Task B6**
+- `backend/app/config.py:152`, `backend/app/search.py:726`,
+  `backend/app/verify_sql.py:61`, `backend/app/main.py:487`,
+  `frontend/src/WorkbenchApp.tsx:1430` (the `observability_refs` Database Insights
+  hand-off) → **Task E1**
+- The `admit_evidence` payload's remaining stale scale checks → **Task A2**
+
+Because `test_release_capture.py` still imports the PI helper that B6 deletes, and
+because A2 owns the payload fixtures, **the test suite is expected to be red
+between A1 and A2/B6.** Report exactly which tests fail and why; do not repair
+them here and do not skip them.
 
 **Interfaces:**
 - Consumes: nothing from earlier phases (Gates 1–6 are complete).
@@ -865,37 +964,83 @@ this change lands on a fresh schema apply only. `sql/01_schema.sql` is applied b
 `01_schema.sql` in the same commit as the insert disappears from
 `10_admission.sql`; a half-applied pair leaves `admit_evidence` referencing a
 missing relation and every admission fails at runtime, not at apply time.
-`gates/rls_enforcement.py` and `gates/masking_determinism.py` name the table in
-Python constants, so a schema-only change turns G-27 and G-29 red — all four
-files move together.
+`gates/masking_determinism.py` names the table in a Python constant, so a
+schema-only change turns G-29 red. Every file in the Files block moves in one
+commit; a partial application is what produces the four measured apply-time
+errors.
 
 - [ ] **Step 1: Write the failing test.** Add to `backend/tests/test_admission.py`:
 
 ```python
-    def test_schema_has_no_performance_insights_surface(self) -> None:
-        schema_sql = (REPO_ROOT / "sql" / "01_schema.sql").read_text(encoding="utf-8")
+    def test_no_sql_file_references_the_deleted_insights_table(self) -> None:
+        """Every applied SQL file, not just the two that define the table.
+
+        sql/02_indexes.sql, sql/04_diagnostics.sql, sql/11_roles_rls.sql and
+        sql/12_masking.sql each CREATE or ALTER an object that references this
+        table, and a missing relation is a hard apply-time ERROR in all four --
+        `IF NOT EXISTS` and `OR REPLACE` guard the object being created, never
+        the relation it references. Measured on PostgreSQL 17.10. A test naming
+        only 01 and 10 passes while `make schema` fails.
+        """
+        for name in sorted(p.name for p in (REPO_ROOT / "sql").glob("*.sql")):
+            sql = (REPO_ROOT / "sql" / name).read_text(encoding="utf-8")
+            if name == "01_schema.sql":
+                # The legacy migration-cleanup branch must keep dropping it.
+                sql = sql.replace(
+                    "DROP TABLE IF EXISTS casework.database_insights_samples CASCADE;",
+                    "",
+                )
+            with self.subTest(sql_file=name):
+                self.assertNotIn("database_insights_samples", sql)
+
+    def test_admission_payload_has_no_database_insights_key(self) -> None:
+        """The payload key and the telemetry_type enum value are both gone.
+
+        Scoped to the two things this task removes rather than to the substring:
+        `database_insights_mode` and `database_insights_slice` are retained
+        columns on tables the workshop still uses, and a bare
+        assertNotIn("database_insights", ...) would demand their removal too.
+        """
         admission_sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
-        self.assertNotIn("database_insights_samples", schema_sql)
-        self.assertNotIn("database_insights_samples", admission_sql)
-        self.assertNotIn("database_insights", admission_sql)
+        schema_sql = (REPO_ROOT / "sql" / "01_schema.sql").read_text(encoding="utf-8")
+        self.assertNotIn("-> 'database_insights'", admission_sql)
+        self.assertNotIn("'database_insights',", schema_sql)
+        self.assertIn("database_insights_mode", admission_sql)
 ```
 
 - [ ] **Step 2: Run it and confirm it fails.**
 
 ```bash
-.venv/bin/python -m pytest backend/tests/test_admission.py::AdmissionTests::test_schema_has_no_performance_insights_surface -v
+.venv/bin/python -m pytest backend/tests/test_admission.py -k insights -v
 ```
 
-Expected: FAIL — `'database_insights_samples' unexpectedly found in ...`.
+Expected: both new tests FAIL. The per-file test must report **six** failing
+subtests — `01_schema.sql`, `02_indexes.sql`, `04_diagnostics.sql`,
+`10_admission.sql`, `11_roles_rls.sql`, `12_masking.sql`. Measured reference
+counts at this commit: 1, 1, 3, 1, 11, 4. If only two subtests fail, you are
+running a stale checkout — stop and check `git status`.
 
-- [ ] **Step 3: Delete the surface.** In `sql/10_admission.sql`, delete the
-  `casework.database_insights_samples` insert block (lines 824–847) and the
-  validation block that raises when no `database_insights` row has
-  `evidence_type = 'top_wait'` and `dimension_value = 'lock:relation'`. In
-  `sql/01_schema.sql`, delete the `casework.database_insights_samples` table
-  definition. Remove the table name from `backend/scripts/doctor.py`'s
-  `REQUIRED_TABLES`, `gates/masking_determinism.py`'s `MASKED_FOR`, and
-  `gates/rls_enforcement.py`'s `CAPTURE_MECHANISM_SQL` / `EVIDENCE_VISIBLE_SQL`.
+- [ ] **Step 3: Delete the surface.** Work the Files block above top to bottom;
+  it names every site with a line number and states what to keep. Two rules while
+  you do it:
+
+  **Do not delete by pattern.** Run `grep -n database_insights <file>` per file
+  and read each hit. The same substring covers three unrelated things: the table
+  being deleted, the `telemetry_type` enum value being deleted, and the two
+  retained columns (`database_insights_mode`, `database_insights_slice`) that must
+  survive. A blanket `sed` removes the retained columns and breaks
+  `10_admission.sql:315`'s `INSERT INTO casework.database_clusters`.
+
+  **Rewrite the comments you invalidate; do not orphan them.** Three of these
+  files carry long measured rationale anchored on this table —
+  `sql/11_roles_rls.sql:650-702` (section 6's fail-open story),
+  `sql/12_masking.sql:396-404` (the `predicate_allow_list` finding), and
+  `sql/04_diagnostics.sql:325-330` (the `SECURITY DEFINER` reason). Each documents
+  a real measurement that still applies to `pg_stat_statements_samples` or
+  `pg_stat_activity_samples`. Re-anchor them on the surviving table. A comment
+  explaining a policy on a table that no longer exists is worse than no comment,
+  and deleting the measurement loses knowledge that cost an instance crash to
+  acquire.
 
 - [ ] **Step 4: Run the test again plus the whole admission suite.**
 
@@ -905,9 +1050,24 @@ ALLOW_TEST_DATABASE_RESET=1 \
 .venv/bin/python -m pytest backend/tests/test_admission.py -v
 ```
 
-Expected: PASS on the new test. Some pre-existing admission tests will fail here
+Expected: PASS on both new tests. Some pre-existing admission tests will fail here
 because the payload fixtures still carry `database_insights` — that is Task A2's
 job; note the failures and do not paper over them.
+
+Then run the two other suites this task edits, plus the one it knowingly breaks:
+
+```bash
+TEST_DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
+WORKBENCH_SECURITY_ENABLED=1 \
+.venv/bin/python -m pytest backend/tests/test_rls_personas.py \
+  backend/tests/test_retrieval_integration.py backend/tests/test_release_capture.py -v
+```
+
+`test_release_capture.py` fails at **import** (`from ... import
+_wait_for_database_insights`) once Task B6 deletes that helper — but B6 has not run
+yet, so at A1 it should still import and pass. If it fails here, something in this
+task reached into `labs/incident/`, which is out of scope. Report the exact
+failure list with a one-line cause each.
 
 - [ ] **Step 5: Live-Aurora acceptance criteria.** Apply the schema to the
   disposable database and confirm the table is gone and `admit_evidence` still
@@ -931,11 +1091,54 @@ DO $guard$ BEGIN
   END IF;
 END $guard$;
 SELECT to_regclass('casework.database_insights_samples') IS NULL AS table_gone,
-       (SELECT count(*) FROM pg_proc WHERE proname = 'admit_evidence') AS admit_fns;
+       (SELECT count(*) FROM pg_proc WHERE proname = 'admit_evidence') AS admit_fns,
+       (SELECT count(*) FROM pg_class
+         WHERE relname = 'idx_database_insights_capture_type') AS stale_index,
+       to_regclass('casework.v_live_capture_validation') IS NOT NULL AS validation_view,
+       (SELECT count(*) FROM pg_policies
+         WHERE policyname = 'rls_database_insights_samples_visibility') AS stale_policy;
 SQL
 ```
 
-Expected: `table_gone = t`, `admit_fns = 1`.
+Expected: `table_gone = t`, `admit_fns = 1`, `stale_index = 0`,
+`validation_view = t`, `stale_policy = 0`.
+
+`make schema` applying cleanly is the load-bearing assertion here, not the row it
+prints. `make schema` runs `sql/02_indexes.sql` and `sql/04_diagnostics.sql`; both
+reference the dropped table at HEAD, and both were measured to raise a hard
+`ERROR: relation ... does not exist`. If this step's `make schema` succeeds, those
+two files were edited correctly. If it fails, read the error — it names the file
+and the statement.
+
+- [ ] **Step 5a: Apply the security module too.** `sql/11` and `sql/12` are not in
+  `CORE_SQL_FILES`, so Step 5 does not exercise them, and both were measured to
+  fail on the missing table. `sql/12`'s failure is the subtle one: its drop-policy
+  loop casts the table name to `regclass` inside a `BEGIN ... EXCEPTION WHEN
+  undefined_object` block, and a missing table raises **42P01
+  (`undefined_table`)**, not 42704 (`undefined_object`) — measured both codes. The
+  handler does not catch it and the whole `DO` block aborts.
+
+```bash
+DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
+  make security-schema
+```
+
+Expected: applies cleanly. Then confirm the two gates that name the table are
+green rather than merely quiet:
+
+```bash
+DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
+WORKBENCH_SECURITY_ENABLED=1 \
+  .venv/bin/python gates/masking_determinism.py
+DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
+WORKBENCH_SECURITY_ENABLED=1 \
+  .venv/bin/python gates/rls_enforcement.py
+```
+
+G-29 must report **four** masked columns across **two** tables, not six across
+three. A G-29 that still says six means `MASKED_FOR` was not edited and the gate
+is asserting a policy on a table that no longer exists. Record both gates' exact
+summary lines in the report.
 
 - [ ] **Step 6: Cleanup and failure recovery.** `make schema` is idempotent and
   drops/recreates; if step 5 fails partway, re-run `make schema` against the same
@@ -950,10 +1153,20 @@ Expected: `table_gone = t`, `admit_fns = 1`.
 - [ ] **Step 8: Commit.**
 
 ```bash
-git add sql/01_schema.sql sql/10_admission.sql backend/scripts/doctor.py \
-  gates/masking_determinism.py gates/rls_enforcement.py backend/tests/test_admission.py
+git add sql/01_schema.sql sql/02_indexes.sql sql/04_diagnostics.sql \
+  sql/10_admission.sql sql/11_roles_rls.sql sql/12_masking.sql \
+  backend/scripts/doctor.py gates/masking_determinism.py gates/rls_enforcement.py \
+  backend/tests/test_admission.py backend/tests/test_rls_personas.py \
+  backend/tests/test_retrieval_integration.py
 git commit -m "Remove the Performance Insights admission surface"
 ```
+
+One commit, all twelve files. Splitting the SQL files across commits leaves an
+intermediate commit where `make schema` fails, which the pre-push hook and
+`make doctor` both surface later at a point where the cause is no longer obvious.
+Do not pass `--no-verify`: this repo routes `core.hooksPath` to git-defender, a
+bypass is logged as "Pre-commit hook bypass detected" and owes a written
+justification, and the scan is fast.
 
 **Dependencies:** none beyond Gates 1–6 being complete.
 
