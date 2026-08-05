@@ -28,6 +28,7 @@ class IncidentLabContractTests(unittest.TestCase):
         expected = {
             "README.md",
             "capture_observability.py",
+            "hold_controller.py",
             "migration.py",
             "prepare_workload.py",
             "run_live_workshop.py",
@@ -210,6 +211,128 @@ class IncidentLabContractTests(unittest.TestCase):
         self.assertIn("casework.assert_live_capture_ready()", source)
         self.assertIn("retrieval.assert_search_index_ready()", source)
         self.assertIn("core schema is incomplete", source)
+
+    def test_hold_requires_three_consecutive_proving_samples(self) -> None:
+        from labs.incident.hold_controller import PollSample, evaluate_samples
+
+        proving = PollSample(
+            pool_size=10,
+            pool_max=10,
+            pool_available=0,
+            requests_waiting=2,
+            blocked_session_count=10,
+        )
+        not_proving = PollSample(
+            pool_size=10,
+            pool_max=10,
+            pool_available=1,
+            requests_waiting=2,
+            blocked_session_count=10,
+        )
+
+        self.assertFalse(
+            evaluate_samples([proving, proving], expected_blocked_sessions=10)
+        )
+        self.assertTrue(
+            evaluate_samples(
+                [proving, proving, proving], expected_blocked_sessions=10
+            )
+        )
+        self.assertFalse(
+            evaluate_samples(
+                [proving, not_proving, proving], expected_blocked_sessions=10
+            ),
+            "a non-proving sample must reset the streak, not be skipped",
+        )
+
+    def test_hold_failure_names_the_condition_that_never_held(self) -> None:
+        from labs.incident.hold_controller import PollSample, describe_failure
+
+        samples = [
+            PollSample(
+                pool_size=10,
+                pool_max=10,
+                pool_available=0,
+                requests_waiting=2,
+                blocked_session_count=7,
+            )
+        ] * 4
+
+        message = describe_failure(samples, expected_blocked_sessions=10)
+        self.assertIn("only 7 of 10", message)
+        self.assertNotIn("timeout", message.lower())
+
+        underfilled_pool = [
+            PollSample(
+                pool_size=10,
+                pool_max=10,
+                pool_available=3,
+                requests_waiting=0,
+                blocked_session_count=7,
+            )
+        ]
+        self.assertIn(
+            "only 7 of 10",
+            describe_failure(
+                underfilled_pool,
+                expected_blocked_sessions=10,
+            ),
+        )
+
+    def test_hold_expects_pool_max_blocked_sessions_not_request_count(self) -> None:
+        """Queued requests never reach PostgreSQL, so only pool-held requests can
+        be counted in pg_stat_activity.
+        """
+        from labs.incident.hold_controller import PollSample, evaluate_samples
+
+        fully_saturated = PollSample(
+            pool_size=10,
+            pool_max=10,
+            pool_available=0,
+            requests_waiting=2,
+            blocked_session_count=10,
+        )
+        samples = [fully_saturated] * 3
+
+        self.assertTrue(
+            evaluate_samples(samples, expected_blocked_sessions=10)
+        )
+        self.assertFalse(
+            evaluate_samples(samples, expected_blocked_sessions=12),
+            "expected_blocked_sessions must be DB_POOL_MAX_SIZE, not "
+            "LAB_HOT_WRITE_REQUEST_COUNT",
+        )
+
+    def test_hold_persists_every_poll_and_only_state_transitions(self) -> None:
+        from labs.incident.hold_controller import prove_hold
+
+        class Result:
+            def fetchone(self):
+                return {"blocked_session_count": 10}
+
+        class Connection:
+            def execute(self, statement, parameters):
+                self.statement = statement
+                self.parameters = parameters
+                return Result()
+
+        proof = prove_hold(
+            Connection(),  # type: ignore[arg-type]
+            backfill_pid=991,
+            pool_status=lambda: {
+                "pool_size": 10,
+                "pool_available": 0,
+                "requests_waiting": 2,
+            },
+            expected_blocked_sessions=10,
+            poll_interval=0.001,
+            hold_seconds=0,
+            max_attempt_seconds=1,
+        )
+
+        self.assertEqual(len(proof.samples), 3)
+        self.assertEqual(len(proof.state_changes), 1)
+        self.assertTrue(proof.proven_at)
 
 
 if __name__ == "__main__":

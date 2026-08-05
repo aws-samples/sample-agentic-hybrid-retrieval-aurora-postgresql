@@ -102,12 +102,20 @@ Completed and committed on this branch:
   transaction. Pool timeout is a measured HTTP-200 outcome, not a 500. Lab
   mode fails closed unless `DB_POOL_MIN_SIZE = DB_POOL_MAX_SIZE = 10`, which
   pre-opens the app's existing ten pool slots before the 12-request collision.
+- B3 adds `labs/incident/hold_controller.py` and the staged
+  `run_migration_collision()` integration. It starts 12 concurrent API writes
+  against B1a's open backfill, polls the pool and PostgreSQL every 250ms, and
+  requires three consecutive samples proving ten transaction-ID-blocked
+  sessions plus two pool waiters before its 12-second observation hold. Every
+  poll is retained; state changes are recorded only at boundaries. A failed
+  proof aborts the backfill and terminates only tagged sessions in the current
+  database.
 
-Not yet implemented: the condition-based pool-collision controller and evidence
-builder, final retrieval corpus, revised agent, participant UI and labs,
-remaining documentation cleanup, infrastructure packaging, and live rehearsal.
-Until those tasks land, `make live-workshop` is not evidence that the approved
-scenario is complete.
+Not yet implemented: recovery verification, query-regression checkpoints,
+evidence builder and admission, final retrieval corpus, revised agent,
+participant UI and labs, remaining documentation cleanup, infrastructure
+packaging, and live rehearsal. Until those tasks land, `make live-workshop` is
+not evidence that the approved scenario is complete.
 
 ## Latest Validation
 
@@ -116,7 +124,7 @@ The branch was validated on August 5 against the dedicated
 PostgreSQL 18.3 cluster in `us-east-1`:
 
 - Exact test-target preflight: passed as Aurora PostgreSQL 18.3 in `us-east-1`.
-- Full core suite: 208 tests passed, 50 expected live/security skips.
+- Full core suite: 212 tests passed, 50 expected live/security skips.
 - `make security-schema`: passed with managed `pg_columnmask` 1.1.0.
 - Supervised-execution suite under security mode: 39 tests passed, zero skips.
 - G-34 focused suite: 11 tests passed; the gate passed directly and through
@@ -140,6 +148,13 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   minimum grew only to nine slots before checkout timeouts, producing eight
   blocked sessions and four pool timeouts; this is why the equal
   minimum/maximum precondition is enforced, not merely documented.
+- B3 controller acceptance: the real 3M-row backfill updated all rows in
+  22.749 seconds. The 12-request collision collected 42 raw 250ms polls,
+  emitted one state transition, proved the combined condition, then returned
+  10 `committed` and two `pool_timeout` results. The deliberate seven-request
+  probe failed after its bounded proving period with `only 7 of 10 tagged
+  sessions were ever blocked on the backfill`; cleanup left zero tagged lock
+  waiters. The test database was reset and re-bootstrapped afterward.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
@@ -151,12 +166,12 @@ module. Reapply `make security-schema` before security-only checks.
 
 ## Next Task
 
-Start B3: build the condition-based hold controller around B1a's backfill and
-B2's routes. It must retain B2's `LAB_ENDPOINTS_ENABLED=1` and
-`DB_POOL_MIN_SIZE=DB_POOL_MAX_SIZE=10` precondition, require three consecutive
-250ms samples of ten transaction-ID-blocked sessions plus two pool waiters, and
-only then hold for 10-15 seconds before committing the backfill. Task F1 owns
-the workshop-environment wiring for these variables.
+Start B4: build the recovery verifier around B3's `HoldProof` and the B2
+hot-write outcomes. It must independently prove that the backfill no longer
+blocks, the pool is fully available with no waiters, tagged sessions have
+cleared, at least one pool timeout occurred, all ten blocked writers drained
+without statement timeout, and a fresh post-recovery write commits. Task F1
+owns the workshop-environment wiring for the lab variables.
 
 `make test` now fails before discovery unless `TEST_DATABASE_URL` names a
 resettable `_test` database on exactly PostgreSQL 18.3. Accepted targets are

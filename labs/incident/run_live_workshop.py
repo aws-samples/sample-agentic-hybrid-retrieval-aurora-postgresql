@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
 import re
 import sys
+from threading import Barrier, BrokenBarrierError
 import time
 from typing import Any
 import uuid
@@ -16,13 +19,25 @@ import uuid
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
+import requests
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
+from backend.app.config import get_settings  # noqa: E402
+from backend.app.lab_routes import HotWriteResult  # noqa: E402
 from labs.incident.capture_observability import (  # noqa: E402
     preflight_aws_observability,
     _write_atomic,
+)
+from labs.incident.hold_controller import (  # noqa: E402
+    HoldProof,
+    LiveWorkshopError,
+    prove_hold,
+)
+from labs.incident.migration import (  # noqa: E402
+    add_priority_tier_column,
+    open_backfill,
 )
 
 
@@ -34,10 +49,8 @@ LAB_ROWS = 3_000_000
 SOURCE_SYSTEM = "pg_incident_capture"
 RELATION_NAME = "workbench_lab.orders"
 INDEX_NAME = "workbench_lab.idx_orders_customer_created"
-
-
-class LiveWorkshopError(RuntimeError):
-    """Raised when a live checkpoint does not prove the workshop contract."""
+HOT_WRITE_APPLICATION_NAME = "workbench-lab-api-hot-write"
+BACKFILL_APPLICATION_NAME = "workbench-lab-backfill"
 
 
 def _utc_now() -> datetime:
@@ -275,6 +288,174 @@ def prepare_lab_workload(database_url: str) -> dict[str, Any]:
         _assert_empty_evidence_store(connection)
         _create_lab_workload(connection)
         return _assert_lab_workload_ready(_lab_workload_state(connection))
+
+
+@dataclass(frozen=True)
+class MigrationCollision:
+    """The measured result of the migration backfill and hot-write collision."""
+
+    backfill_pid: int
+    backfill_duration_seconds: float
+    backfill_rows_updated: int
+    hold_proof: HoldProof
+    hot_write_results: tuple[HotWriteResult, ...]
+
+
+def _lab_api_url() -> str:
+    base_url = os.getenv("RETRIEVAL_API_URL", "http://127.0.0.1:8000").rstrip("/")
+    if not base_url.startswith(("http://", "https://")):
+        raise LiveWorkshopError(
+            "RETRIEVAL_API_URL must be an http(s) URL for the lab API"
+        )
+    return base_url
+
+
+def _pool_status_from_api(api_url: str) -> dict[str, Any]:
+    try:
+        response = requests.get(
+            f"{api_url}/v1/lab/pool-status",
+            timeout=2.0,
+        )
+        response.raise_for_status()
+    except requests.RequestException as error:
+        raise LiveWorkshopError(
+            "could not read the lab pool status endpoint; start the API with "
+            "LAB_ENDPOINTS_ENABLED=1 and DB_POOL_MIN_SIZE=DB_POOL_MAX_SIZE=10"
+        ) from error
+    try:
+        payload = response.json()
+    except ValueError as error:
+        raise LiveWorkshopError(
+            "lab pool-status endpoint returned invalid JSON"
+        ) from error
+    if not isinstance(payload, dict):
+        raise LiveWorkshopError(
+            f"lab pool-status endpoint returned a non-object response: {payload!r}"
+        )
+    return payload
+
+
+def _run_hot_write(api_url: str, order_id: int, barrier: Barrier) -> HotWriteResult:
+    """Issue one request only after every hot writer is ready to collide."""
+    try:
+        barrier.wait(timeout=10)
+        response = requests.post(
+            f"{api_url}/v1/lab/hot-write",
+            json={"order_id": order_id},
+            timeout=60.0,
+        )
+        response.raise_for_status()
+    except (requests.RequestException, BrokenBarrierError) as error:
+        raise LiveWorkshopError(
+            f"hot-write request for order_id={order_id} did not return a measured "
+            f"result: {error}"
+        ) from error
+    try:
+        return HotWriteResult.model_validate(response.json())
+    except (TypeError, ValueError) as error:
+        raise LiveWorkshopError(
+            f"hot-write response for order_id={order_id} violates the lab contract"
+        ) from error
+
+
+def _terminate_tagged_lab_sessions(database_url: str) -> int:
+    """Terminate only this database's backfill and actively blocked hot writers."""
+    with _connect(
+        database_url,
+        "workbench-live-lab-session-cleanup",
+        autocommit=True,
+    ) as connection:
+        rows = connection.execute(
+            """
+            SELECT pg_terminate_backend(activity.pid) AS terminated
+            FROM pg_stat_activity activity
+            WHERE activity.pid <> pg_backend_pid()
+              AND activity.datname = current_database()
+              AND activity.application_name = ANY(%s)
+            """,
+            ([HOT_WRITE_APPLICATION_NAME, BACKFILL_APPLICATION_NAME],),
+        ).fetchall()
+    return sum(1 for row in rows if row["terminated"])
+
+
+def run_migration_collision(
+    database_url: str,
+    *,
+    api_url: str | None = None,
+    hold_seconds: float = 12.0,
+    max_attempt_seconds: float = 90.0,
+) -> MigrationCollision:
+    """Induce and prove the migration collision without admitting evidence.
+
+    The later Wave A admission task consumes this measured result. Keeping this
+    phase separate means a failure never publishes a corpus describing an
+    incident that did not actually occur.
+    """
+    get_settings.cache_clear()
+    settings = get_settings()
+    expected_blocked_sessions = settings.db_pool_max_size
+    request_count = settings.lab_hot_write_request_count
+
+    endpoint = api_url or _lab_api_url()
+    _pool_status_from_api(endpoint)
+
+    with _connect(
+        database_url,
+        "workbench-live-migration-ddl",
+        autocommit=False,
+    ) as ddl_connection:
+        add_priority_tier_column(ddl_connection)
+
+    backfill = open_backfill(database_url)
+    backfill_pid = backfill.pid
+    backfill_duration_seconds = backfill.duration_seconds
+    backfill_rows_updated = backfill.rows_updated
+    executor = ThreadPoolExecutor(
+        max_workers=request_count,
+        thread_name_prefix="workbench-hot-write",
+    )
+    futures = []
+    try:
+        barrier = Barrier(request_count)
+        futures = [
+            executor.submit(_run_hot_write, endpoint, order_id, barrier)
+            for order_id in range(1, request_count + 1)
+        ]
+        with _connect(
+            database_url,
+            "workbench-live-hold-controller",
+            autocommit=True,
+        ) as controller_connection:
+            hold_proof = prove_hold(
+                controller_connection,
+                backfill_pid=backfill.pid,
+                pool_status=lambda: _pool_status_from_api(endpoint),
+                expected_blocked_sessions=expected_blocked_sessions,
+                hold_seconds=hold_seconds,
+                max_attempt_seconds=max_attempt_seconds,
+            )
+
+        backfill.commit()
+        backfill = None
+        results = tuple(future.result(timeout=60.0) for future in futures)
+        return MigrationCollision(
+            backfill_pid=backfill_pid,
+            backfill_duration_seconds=backfill_duration_seconds,
+            backfill_rows_updated=backfill_rows_updated,
+            hold_proof=hold_proof,
+            hot_write_results=results,
+        )
+    except BaseException:
+        if backfill is not None:
+            try:
+                backfill.abort()
+            finally:
+                _terminate_tagged_lab_sessions(database_url)
+        else:
+            _terminate_tagged_lab_sessions(database_url)
+        raise
+    finally:
+        executor.shutdown(wait=True, cancel_futures=True)
 
 
 def _prepare_lab(
@@ -1284,10 +1465,10 @@ def _parser() -> argparse.ArgumentParser:
 def main() -> int:
     _parser().parse_args()
     print(
-        "LIVE WORKSHOP UNAVAILABLE: the retired relation-lock scenario was "
-        "removed. The online migration driver is complete, but the lab-only "
-        "pool-collision endpoint and condition-based hold controller are not "
-        "installed yet.",
+        "LIVE WORKSHOP UNAVAILABLE: the online-migration collision and "
+        "condition-based hold controller are installed, but recovery "
+        "verification, evidence construction, and two-wave admission are not "
+        "complete yet.",
         file=sys.stderr,
     )
     return 1
