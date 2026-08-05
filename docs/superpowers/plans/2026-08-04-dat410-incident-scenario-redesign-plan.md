@@ -5096,7 +5096,8 @@ B1. Do not substitute a probe table for `workbench_lab.orders` in step 15.
 - Modify: `gates/checks.sh:36-44` — add
   `"G-34|retroactive_safety.py|Retroactive-safety separation in the autonomy verdict"`
   to `CORE_GATES`
-- Test: the gate is the test; step 3 proves it can go red six different ways
+- Create: `backend/tests/test_retroactive_safety_gate.py` — ten adversarial
+  static regressions plus one self-contained behavioral contradiction test
 
 **Interfaces:**
 - Consumes: Task A5's `proof.autonomy_readiness(uuid)`,
@@ -5137,6 +5138,11 @@ action was safe beforehand" — so it gets a structural gate, not only a row tes
    assignable variables that appear in no declaration the gate can read. The
    allowlist also means an unrecognized construct fails loudly instead of passing
    silently, which is the correct direction for a gate to be wrong in.
+4. **The lexer preserves source length and the helper walk is overload-aware.**
+   Comments and literals are blanked in same-length views so every region offset
+   still addresses the original function body. Every matching overload in every
+   user schema is inspected; selecting one overload by name would let an unsafe
+   sibling implementation escape the transitive check.
 
 **This gate was built and measured against a real PostgreSQL 17 server before
 being written into this plan, and the first version of it passed the single most
@@ -5725,7 +5731,11 @@ count and the helper list printed. On the reference prototype the PASS line read
   means the call-detection regex stopped matching, and the transitive half of the
   gate has silently disarmed.
 
-- [ ] **Step 3: Prove it can go red — ten regressions, each measured.** A gate
+- [ ] **Step 3: Prove it can go red — ten regressions, each measured.** Keep
+  these regressions in `backend/tests/test_retroactive_safety_gate.py`; the
+  behavioral test must insert its own retrieval run, agent run, and deliberately
+  incomplete proposal inside one transaction before replacing the verdict
+  function, then roll the entire probe back. A gate
   never seen red is not evidence. Each regression below was run against A5's real
   function body; the measured exit code and the named defect are the acceptance
   criteria. Apply one, run the gate, confirm the result, then restore the correct
@@ -5900,7 +5910,9 @@ not in the security module.
 - [ ] **Step 8: Commit.**
 
 ```bash
-git add gates/retroactive_safety.py gates/checks.sh
+git add gates/retroactive_safety.py gates/checks.sh \
+  backend/tests/test_retroactive_safety_gate.py \
+  docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md
 git commit -m "Add G-34 retroactive-safety gate for the autonomy verdict"
 ```
 
