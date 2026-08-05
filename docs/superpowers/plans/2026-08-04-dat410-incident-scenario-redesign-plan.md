@@ -8558,13 +8558,21 @@ SIMILARITY_THRESHOLD = 0.6
 MAX_NEAR_DUPLICATE_RATE = 0.15
 ```
 
-  The core query is a read-only self-join over the current corpus:
+  The core query is a read-only self-join over the current corpus. `retrieval.documents`
+  intentionally stores indexed metadata rather than an unchunked body, so reconstruct the
+  body from each document's current chunks before comparing it:
 
 ```sql
 WITH docs AS (
-  SELECT d.document_version_id, d.search_document AS body
+  SELECT
+    d.document_version_id,
+    string_agg(c.chunk_text, E'\n' ORDER BY c.chunk_ordinal) AS body
   FROM retrieval.documents d
+  JOIN retrieval.chunks c
+    ON c.document_version_id = d.document_version_id
+   AND c.is_current
   WHERE d.is_current
+  GROUP BY d.document_version_id
 ),
 pairs AS (
   SELECT count(*) AS total,

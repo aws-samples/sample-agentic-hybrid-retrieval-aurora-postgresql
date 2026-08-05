@@ -25,6 +25,10 @@ EXPECTED_INCIDENT_PHASES = (
     "plan_regression",
 )
 EXPECTED_SIGNAL_TYPES = ("lock", "pool", "request", "wal", "meta", "plan")
+# Gate 5 measured 50-80 documents as the honest result of one incident run.
+# This is an advisory range, never an acceptance condition: behavior and
+# category coverage are the release contract.
+EXPECTED_LIVE_DOCUMENT_RANGE = (50, 80)
 REQUIRED_TABLES = (
     "casework.database_clusters",
     "casework.evidence_items",
@@ -479,6 +483,11 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
     missing_signal_types = sorted(
         set(EXPECTED_SIGNAL_TYPES) - observed_signal_types
     )
+    expected_low, expected_high = EXPECTED_LIVE_DOCUMENT_RANGE
+    volume_detail = (
+        f"{evidence['total']} run-derived documents "
+        f"({evidence['telemetry']} searchable telemetry documents)"
+    )
     if (
         not evidence["capture_scoped"]
         or not evidence["run_scoped_keys"]
@@ -497,8 +506,24 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
         doctor.ok(
             "live-only evidence",
             (
-                f"incident {incident_key} owns {evidence['total']} run-derived documents "
-                f"({evidence['telemetry']} searchable telemetry documents)"
+                f"incident {incident_key} owns {volume_detail}; "
+                "phase and signal coverage complete"
+            ),
+        )
+    if not expected_low <= evidence["total"] <= expected_high:
+        doctor.warn(
+            "live corpus volume",
+            (
+                f"{volume_detail}; outside the expected {expected_low}-{expected_high} "
+                "document range, which is advisory rather than an acceptance gate"
+            ),
+        )
+    else:
+        doctor.ok(
+            "live corpus volume",
+            (
+                f"{volume_detail}; within the expected {expected_low}-{expected_high} "
+                "document range (advisory)"
             ),
         )
     try:

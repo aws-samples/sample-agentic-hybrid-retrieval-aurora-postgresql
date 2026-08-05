@@ -190,3 +190,40 @@ participant-equivalent `CREATE INDEX ... (priority_tier, created_at DESC)`.
 It did not exist during the Wave A run. The scan shapes, filter removals, and
 buffer reduction are the acceptance signals; the timing values are this run's
 reference observations, not thresholds.
+
+## C4 Implementation Acceptance: Permanent corpus diversity gate (G-33)
+
+**Result: PASSED on Aurora PostgreSQL 18.3, including a deliberate red-path
+proof**
+
+G-33 now measures the current, derived corpus without writing to the database.
+It reconstructs each document body from current `retrieval.chunks`, requires
+the six hardcoded signal types (`lock`, `pool`, `request`, `wal`, `meta`,
+`plan`) and four hardcoded phases (`backfill`, `pool_exhaustion`, `recovery`,
+`plan_regression`), then uses a server-side `pg_trgm` self-join to reject a
+near-duplicate rate at or above 15%. An empty corpus returns `BLOCKED`, which
+is the honest unbuilt state rather than a false pass.
+
+A clean two-wave rehearsal on the dedicated Aurora PostgreSQL 18.3 `_test`
+database produced:
+
+| Measure | Result |
+|---|---:|
+| Current documents | 57 |
+| Wave A / Wave B documents | 54 / 3 |
+| Near-duplicate pairs | 99 / 1,596 |
+| Near-duplicate rate | 6.20% |
+| Required signal types | 6 / 6 |
+| Required phases | 4 / 4 |
+
+G-33 passed and G-32 separately confirmed the same Wave A / Wave B
+additivity. Doctor reports the approved 50-80 document range as advisory
+volume guidance only. Behavioral coverage and G-33's explicit diversity check,
+not a target document count, are the acceptance contract.
+
+The gate was also observed red. The disposable `_test` database received 20
+copies of the most-similar document with distinct keys. G-33 failed at
+489 near-duplicate pairs out of 2,926 (16.71%), naming the measured rate and
+the 15% threshold. The database was fully reset, the schema and 3,000,000-row
+workload were rebuilt, and a fresh Wave A / Wave B rehearsal completed after
+the proof. No duplicate data or generated capture was retained.

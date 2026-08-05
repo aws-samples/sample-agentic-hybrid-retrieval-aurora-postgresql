@@ -11,7 +11,7 @@ mechanism that still exists in portions of the runtime, tests, UI, and docs.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-C3 are complete. Tasks C4-G3 own the remaining retrieval, agent, UI,
+Tasks A1-C4 are complete. Tasks D1-G3 own the remaining retrieval, agent, UI,
 documentation, infrastructure, and rehearsal work. The plan's repository-wide
 alignment audit assigns every known stale surface to an explicit task; finding an
 unassigned stale surface is a plan defect and should be corrected before
@@ -153,10 +153,15 @@ Completed and committed on this branch:
   edges. `run_timeline` inherits the same boundary. The replay guard names
   Gate 2 so a future simplification cannot turn the historical graph back into
   a live graph.
+- C4 adds read-only core gate G-33. It reconstructs each current document from
+  its current chunks, requires all six hardcoded signal types and four
+  hardcoded phases, and rejects a corpus whose `pg_trgm` near-duplicate rate
+  reaches 15%. Doctor now reports the evidence-derived 50-80 document range
+  as advisory volume guidance, never as an acceptance condition.
 
-Not yet implemented: C4's permanent corpus-diversity gate; revised retrieval
-exercises and agent; participant UI and labs; remaining documentation cleanup;
-infrastructure packaging; and the complete rehearsal.
+Not yet implemented: revised retrieval exercises and agent; participant UI and
+labs; remaining documentation cleanup; infrastructure packaging; and the
+complete rehearsal.
 Until those tasks land, `make live-workshop` is not evidence that the approved
 scenario is release-complete.
 
@@ -270,23 +275,34 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   hazard and the boundary. The five live retrieval integration contracts and
   `make doctor` passed; doctor reported only the intentionally stopped
   frontend warning.
+- C4 corpus-diversity validation: a clean, fresh Aurora PostgreSQL 18.3
+  two-wave rehearsal produced 57 documents (54 Wave A, 3 Wave B), all six
+  signal types, and all four phases. G-33 measured 99 near-duplicate pairs out
+  of 1,596 (6.20%), passed, and G-32 still passed. The deliberate red-path
+  proof added 20 copies of the most-similar document only in the disposable
+  `_test` database; G-33 correctly failed at 489/2,926 pairs (16.71%). The
+  database was then reset, re-schematized, re-bootstrapped, and given a fresh
+  two-wave capture. Focused tests (12 passed, 20 expected skips, 42 subtests),
+  `make doctor` (frontend warning only), and the safe core subset G-11, G-14,
+  G-17, G-21, G-23, G-32, G-33, and G-34 all passed.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
 and is not release evidence.
 
-Current disposable-database state after C3 validation: core schema plus the
+Current disposable-database state after C4 validation: core schema plus the
 3,000,000-row `workbench_lab` workload, the participant-created
-`idx_orders_priority_tier_created_at` index, two live capture waves, and no optional
-security module. Reapply `make security-schema` before security-only checks.
+`idx_orders_priority_tier_created_at` index, two fresh live capture waves for
+`INC-37AF2D23`, and no optional security module. Reapply
+`make security-schema` before security-only checks.
 
 ## Next Task
 
-Start C4: add read-only G-33 corpus-diversity coverage and calibrate the
-doctor's corpus check from a current two-wave Aurora capture. The gate must use
-hardcoded signal types and phases, BLOCK when no corpus exists, and be observed
-both green on this capture and red after a deliberate near-duplicate flood in
-the disposable test database. Read Task C4 in the binding plan before editing.
+Start D1: re-confirm that exact, full-text, semantic, and fuzzy retrieval
+actually differentiate on the new capture-derived corpus. Preserve the
+canonical Aurora PostgreSQL search functions; update the smoke assertion and
+live-key discovery rather than manufacturing a corpus or making hybrid
+retrieval a presumed winner. Read Task D1 in the binding plan before editing.
 
 Current maintenance hazards:
 
