@@ -126,10 +126,10 @@ UNREFERENCED_BY_DESIGN = (
 # through a capture run (capture_id), through a proof run (run_id / agent_run_id),
 # or by reading a visibility label off it (acl / acl_visibility).
 #
-# Derived, never listed. The measured drift this catches: retrieval.search_index_queue
-# carries evidence_id and 5 of its 110 rows named restricted evidence, but
-# sql/11_roles_rls.sql section 5's loop walks casework only, so the outbox had no
-# policy while every persona held SELECT on it.
+# Derived, never listed. The measured drift this catches:
+# retrieval.search_index_queue carries evidence_id and can name restricted
+# evidence, but sql/11_roles_rls.sql section 5's loop walks casework only, so the
+# outbox had no policy while every persona held SELECT on it.
 PROTECTION_RULE_SQL = """
 WITH cols AS (
   SELECT n.nspname AS sch, c.relname AS tbl, a.attname AS col
@@ -176,27 +176,123 @@ SELECT external_key, evidence_id
 """
 
 # The classification the participant's own run produced, re-derived here from the
-# captured payload rather than from the acl column. This is the independent oracle
-# for "the restricted cohort is the rows whose capture carried resolved statement
-# text" (labs/incident/run_live_workshop.py:_measured_visibility). If the two
-# disagree, either someone relabelled evidence by hand or the classifier changed
-# without the ACLs being reconciled -- and sql/12_masking.sql reads the same
-# payload to build its redaction set, so a drift here silently empties the mask.
+# captured PostgreSQL sample rows rather than trusting the ACL label. This is the
+# independent oracle for C1's statement-text/1 contract: a restricted document
+# carries non-empty statement text plus the pg_stat_activity or pg_stat_statements
+# sample identifiers from which the builder read it. If the two disagree, either
+# someone relabelled evidence by hand or the classifier changed without the ACLs
+# being reconciled -- and sql/12_masking.sql reads the same restricted evidence to
+# build its redaction set, so a drift here silently empties the mask.
 CLASSIFICATION_ORACLE_SQL = """
-SELECT count(*) FILTER (WHERE carries AND visibility <> 'restricted') AS should_be_restricted,
-       count(*) FILTER (WHERE NOT carries AND visibility = 'restricted') AS should_be_workshop,
-       count(*) FILTER (WHERE carries) AS carries_statement
-  FROM (
-    SELECT coalesce(evidence.acl ->> 'visibility', 'restricted') AS visibility,
-           telemetry.structured ? 'statement'
-             AND btrim(coalesce(telemetry.structured ->> 'statement', '')) <> ''
-             AND lower(btrim(coalesce(telemetry.structured ->> 'statement', ''))) <> 'unknown'
-             AS carries
-      FROM casework.evidence_items evidence
-      JOIN casework.telemetry_evidence telemetry
-        ON telemetry.evidence_id = evidence.evidence_id
-     WHERE NOT evidence.is_deleted
-  ) classified
+WITH classified AS (
+  SELECT
+    evidence.evidence_id,
+    coalesce(evidence.acl ->> 'visibility', '<missing>') AS visibility,
+    evidence.acl ->> 'classifier_version' AS classifier_version,
+    evidence.acl ->> 'classification_reason' AS classification_reason,
+    evidence.acl -> 'classification_sources' AS classification_sources,
+    coalesce(telemetry.structured, '{}'::jsonb) AS structured,
+    telemetry.capture_id
+  FROM casework.evidence_items evidence
+  LEFT JOIN casework.telemetry_evidence telemetry
+    ON telemetry.evidence_id = evidence.evidence_id
+  WHERE NOT evidence.is_deleted
+),
+source_summary AS (
+  SELECT
+    classified.evidence_id,
+    count(source.source) FILTER (WHERE source.source IS NOT NULL) AS source_count,
+    count(source.source) FILTER (
+      WHERE source.source IS NOT NULL
+        AND source.source !~ '^pg_stat_activity_samples:[0-9]+$'
+        AND source.source !~ '^pg_stat_statements_samples:[0-9]+$'
+    ) AS malformed_source_count,
+    count(source.source) FILTER (
+      WHERE (
+        source.source ~ '^pg_stat_activity_samples:[0-9]+$'
+        AND EXISTS (
+          SELECT 1
+          FROM casework.pg_stat_activity_samples activity
+          WHERE activity.capture_id = classified.capture_id
+            AND activity.sample_id = CASE
+              WHEN source.source ~ '^pg_stat_activity_samples:[0-9]+$'
+                THEN split_part(source.source, ':', 2)::bigint
+            END
+            AND btrim(activity.query) <> ''
+            AND activity.query = classified.structured ->> 'statement'
+        )
+      ) OR (
+        source.source ~ '^pg_stat_statements_samples:[0-9]+$'
+        AND EXISTS (
+          SELECT 1
+          FROM casework.pg_stat_statements_samples statements
+          CROSS JOIN LATERAL jsonb_array_elements_text(statements.queries) query_text
+          WHERE statements.capture_id = classified.capture_id
+            AND statements.sample_id = CASE
+              WHEN source.source ~ '^pg_stat_statements_samples:[0-9]+$'
+                THEN split_part(source.source, ':', 2)::bigint
+            END
+            AND btrim(query_text.value) <> ''
+            AND query_text.value = classified.structured ->> 'statement'
+        )
+      )
+    ) AS matching_source_count
+  FROM classified
+  LEFT JOIN LATERAL jsonb_array_elements_text(
+    CASE
+      WHEN jsonb_typeof(classified.classification_sources) = 'array'
+        THEN classified.classification_sources
+      ELSE '[]'::jsonb
+    END
+  ) source(source) ON true
+  GROUP BY classified.evidence_id
+),
+oracle AS (
+  SELECT
+    classified.*,
+    source_summary.source_count,
+    source_summary.malformed_source_count,
+    source_summary.matching_source_count,
+    CASE
+      WHEN jsonb_typeof(classified.structured -> 'statement') IS DISTINCT FROM 'string'
+        THEN 'no_statement_text'
+      WHEN btrim(classified.structured ->> 'statement') = ''
+        THEN 'statement_text_empty'
+      ELSE 'statement_text_present'
+    END AS expected_reason
+  FROM classified
+  JOIN source_summary USING (evidence_id)
+)
+SELECT
+  count(*) FILTER (WHERE expected_reason = 'statement_text_present')
+    AS carries_statement,
+  count(*) FILTER (
+    WHERE expected_reason = 'statement_text_present'
+      AND matching_source_count > 0
+  ) AS source_backed_statement,
+  count(*) FILTER (
+    WHERE expected_reason = 'statement_text_present'
+      AND matching_source_count > 0
+      AND (
+        visibility <> 'restricted'
+        OR classifier_version <> 'statement-text/1'
+        OR classification_reason <> 'statement_text_present'
+      )
+  ) AS should_be_restricted,
+  count(*) FILTER (
+    WHERE expected_reason <> 'statement_text_present'
+      AND visibility = 'restricted'
+  ) AS should_be_workshop,
+  count(*) FILTER (
+    WHERE classifier_version <> 'statement-text/1'
+       OR classification_reason <> expected_reason
+       OR malformed_source_count > 0
+       OR (
+         expected_reason = 'statement_text_present'
+         AND (source_count = 0 OR matching_source_count = 0)
+       )
+  ) AS provenance_errors
+FROM oracle
 """
 
 # Probed by evidence_id for the reason above. DISTINCT because retrieval.documents
@@ -660,11 +756,11 @@ def _diagnose_empty_restricted(exposure: dict) -> str:
             f"the capture holds no restricted evidence. {exposure['owner']} "
             f"bypasses RLS (rolsuper={exposure['is_super']}, "
             f"rolbypassrls={exposure['bypasses_rls']}), so it read the table "
-            f"unfiltered and the absence is real: this run's Performance Insights "
-            f"capture resolved no statement text, so nothing was classified "
-            f"restricted (labs/incident/run_live_workshop.py:_measured_visibility). "
-            f"Re-run make live-workshop against a cluster with Database Insights "
-            f"advanced mode enabled"
+            f"unfiltered and the absence is real: this run produced no "
+            f"source-backed captured PostgreSQL statement text, so C1 classified "
+            f"nothing restricted. Re-run make live-workshop and confirm "
+            f"labs/incident/evidence_builder.py received the captured "
+            f"pg_stat_activity / pg_stat_statements sample rows"
         )
     unlisted = [t for t in READ_PATH_TABLES if t not in exposure["listed_on"]]
     if unlisted:
@@ -686,8 +782,9 @@ def _diagnose_empty_restricted(exposure: dict) -> str:
     return (
         f"{exposure['owner']} is named by every policy and holds "
         f"{CLEARANCE_GROUP}, so it is reading unfiltered: the capture holds no "
-        f"restricted evidence. Re-run make live-workshop against a cluster with "
-        f"Database Insights advanced mode enabled"
+        f"restricted evidence. Re-run make live-workshop and confirm "
+        f"labs/incident/evidence_builder.py received the captured "
+        f"pg_stat_activity / pg_stat_statements sample rows"
     )
 
 
@@ -781,7 +878,13 @@ def _measure_classification(cur) -> dict:
     cur.execute(CLASSIFICATION_ORACLE_SQL)
     oracle = dict(
         zip(
-            ("should_be_restricted", "should_be_workshop", "carries"),
+            (
+                "should_be_restricted",
+                "should_be_workshop",
+                "carries",
+                "source_backed",
+                "provenance_errors",
+            ),
             cur.fetchone(),
         )
     )
@@ -869,16 +972,24 @@ def _report_protection_rule(protection: list[dict]) -> None:
 def _assert_classification(oracle: dict, restricted: list[str]) -> None:
     """Assert the ACLs still agree with what the capture actually contains."""
     print(
-        f"\n  classification oracle: {oracle['carries']} telemetry rows carry "
-        f"resolved statement text; {len(restricted)} rows are labelled restricted"
+        f"\n  classification oracle: {oracle['carries']} evidence row(s) carry "
+        f"statement text; {oracle['source_backed']} have matching captured "
+        f"pg_stat_* provenance; {len(restricted)} row(s) are labelled restricted"
+    )
+    require(
+        oracle["provenance_errors"] == 0,
+        f"{oracle['provenance_errors']} evidence row(s) violate the "
+        f"statement-text/1 provenance contract. A restricted row must name "
+        f"matching pg_stat_activity_samples or pg_stat_statements_samples source "
+        f"rows; fix labs/incident/evidence_builder.py or C2's raw-sample admission",
     )
     require(
         oracle["should_be_restricted"] == 0,
-        f"{oracle['should_be_restricted']} evidence rows carry resolved captured "
-        f"statement text but are labelled workshop. The ACL and the capture "
-        f"disagree, so sql/12_masking.sql builds its redaction set from statements "
-        f"that RLS is not withholding. Re-run sql/01_schema.sql to reconcile the "
-        f"ACLs, or fix labs/incident/run_live_workshop.py:_measured_visibility",
+        f"{oracle['should_be_restricted']} source-backed evidence row(s) carry "
+        f"captured PostgreSQL statement text but are labelled workshop. The ACL and "
+        f"the capture disagree, so sql/12_masking.sql builds its redaction set from "
+        f"statements that RLS is not withholding. Fix "
+        f"labs/incident/evidence_builder.py or C2's ACL payload",
     )
     require(
         oracle["should_be_workshop"] == 0,

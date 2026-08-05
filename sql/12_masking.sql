@@ -4,13 +4,12 @@
 -- which COLUMNS a persona sees inside a row it is allowed to see. The two are not
 -- interchangeable, and this capture is the cleanest possible demonstration of why:
 --
---   casework.pg_stat_activity_samples holds 270 rows under a workshop-visible lock
---   observation. Measured on this capture, 180 of them repeat the query text of a
---   restricted Performance Insights row VERBATIM in their query column, and 60 more
---   repeat a second one. RLS cannot fix that. Hiding those rows would hide the
---   nine-row pg_stat_activity topology, the six blocked writers, and the blocking
---   PID -- which is the entire subject of the lab. The row must stay readable and
---   the column must not.
+--   casework.pg_stat_activity_samples holds the observed blocked-writer topology
+--   under a workshop-visible lock observation. Those rows can repeat the captured
+--   hot-write and backfill statements that C1 classifies as restricted. RLS cannot
+--   hide the query column without also hiding the blocker PID, wait event, and
+--   topology needed by the optional lab. The row must stay readable and the column
+--   must not.
 --
 -- So: RLS scopes the derived evidence (sql/11 section 4-6), masking redacts the
 -- statement text that survives inside rows every persona is meant to read.
@@ -88,13 +87,12 @@ COMMENT ON FUNCTION retrieval.mask_blob(text) IS
 -- ---------------------------------------------------------------------------
 -- 2. Pattern generation (A5): the pattern set is measured from the capture.
 --
--- The sensitive literal in a live capture is the resolved SQL statement text that
--- Performance Insights returned. That is the same thing
--- labs/incident/run_live_workshop.py classifies on: a captured observation
--- carrying resolved statement text becomes restricted, one carrying PI's
--- "Unknown" placeholder stays workshop. This function re-derives the literal set
--- from whatever the run actually measured, so it holds for any participant's run
--- rather than for one recorded corpus.
+-- The sensitive literal in a live capture is SQL statement text captured from
+-- pg_stat_activity or pg_stat_statements. C1's statement-text/1 classifier marks
+-- an evidence document restricted only when it carries that measured text and the
+-- sample identifiers used to read it. This function re-derives the literal set
+-- from the admitted capture, so it holds for any participant's run rather than a
+-- recorded corpus.
 --
 -- Regex metacharacters are escaped before the literals become patterns. This is
 -- not hypothetical here, it is unavoidable: every literal is SQL, so every literal
@@ -128,8 +126,8 @@ $$;
 
 COMMENT ON FUNCTION retrieval.sensitive_literals() IS
   'The source of the mask pattern set (A5): measured from the restricted captured '
-  'observations, never hand-written. Returns the resolved Performance Insights '
-  'statement text of every restricted evidence row in the current capture.';
+  'observations, never hand-written. Returns captured PostgreSQL statement text '
+  'from restricted evidence in the current capture.';
 
 CREATE OR REPLACE FUNCTION retrieval.refresh_mask_blob()
 RETURNS integer
@@ -146,11 +144,9 @@ BEGIN
     -- BOTH real whitespace and the two-character escape sequences that appear when
     -- the same text is serialized inside a jsonb column. Two measured reasons:
     --
-    -- (1) The captured statement is indented as the lab wrote it, and the SAME
-    --     statement is re-rendered with collapsed whitespace elsewhere ("... DB
-    --     load 4.5000: UPDATE workbench_lab.orders SET status = $1 ..."). A
-    --     literal-whitespace pattern matched the raw column and missed the
-    --     re-rendered copy.
+    -- (1) The captured statement can be indented in the raw sample and re-rendered
+    --     with collapsed whitespace in an evidence document. A literal-whitespace
+    --     pattern would match the source column but miss the rendered copy.
     --
     -- (2) casework.pg_stat_activity_samples.raw_row is jsonb. Casting it to text
     --     turns every newline into the two characters backslash-n, which \s cannot
@@ -291,11 +287,10 @@ $$;
 -- Measured on Aurora PostgreSQL 18.3, pg_columnmask 1.1.0: prokind = 'p'
 -- (procedures), hence CALL rather than SELECT.
 
--- The measured leak. RLS keeps these 270 rows readable on purpose (the lock
--- topology is the lesson); the query column is where the restricted statement
--- text reappears, so it is redacted by substring rather than wholesale. The
--- surrounding pid, wait_event, and state columns stay intact and are what the lab
--- actually reads.
+-- The measured leak is the statement text inside a workshop-visible lock sample.
+-- RLS keeps those rows readable because the lock topology is the lesson; the query
+-- column is redacted by substring rather than wholesale. The surrounding pid,
+-- wait_event, and state columns stay intact and are what the lab reads.
 CALL pgcolumnmask.create_masking_policy(
   'mask_activity_query',
   'casework.pg_stat_activity_samples',
@@ -312,17 +307,11 @@ CALL pgcolumnmask.create_masking_policy(
 --
 -- WHOLE-VALUE redaction here, not the substring mask, and this is the one place
 -- the difference is forced rather than chosen. pg_stat_statements stores
--- NORMALIZED query text; Performance Insights returned the statement as executed.
--- Measured on this capture, the same UPDATE appears in pg_stat_statements as
---   "UPDATE workbench_lab.orders SET status = $1, updated_at = clock_timestamp()
---    WHERE order_id = $2"
--- and in PI with a RETURNING clause and different indentation. No pattern derived
--- from retrieval.sensitive_literals() can match a string the source system rewrote
--- before storing it -- measured: mask_blob redacted raw_row and returned the
--- queries array in full. A substring mask that cannot see its target is worse than
--- no mask, because it reports success. The columns are redacted wholesale instead:
--- the phase counters (calls, rows, total_exec_time, delta_from_before) are what
--- the lab reads and they stay intact.
+-- normalized query text while pg_stat_activity can hold the submitted form. A
+-- pattern derived from one form is not guaranteed to match the other, so a
+-- substring mask could report success while returning the queries array in full.
+-- The columns are redacted wholesale instead; phase counters (calls, rows,
+-- total_exec_time, delta_from_before) remain readable for the lab.
 CALL pgcolumnmask.create_masking_policy(
   'mask_statement_phase',
   'casework.pg_stat_statements_samples',
@@ -355,22 +344,19 @@ CALL pgcolumnmask.create_masking_policy(
 --    The blast radius was the shipped app, not just tests:
 --    GET /v1/evidence/{id}?role=auditor (backend/app/main.py), three reads in
 --    backend/app/search_index.py, and sql/04_diagnostics.sql.
---    Measured after the drop: the same query returns 110 rows, the app's
---    evidence_detail shape returns 110, and pg_postmaster_start_time is unchanged.
+--    With the policy removed, the query and evidence-detail shape return normally
+--    and pg_postmaster_start_time remains unchanged.
 --
 -- 2. IT PROTECTED NOTHING ANYWAY, so there is no security cost to dropping it and
 --    no reason to rewrite the view around it. retrieval.chunks.chunk_text is the
 --    indexed copy of this table's body and is deliberately unmasked (see
---    below). Measured: for all 5 of 5 restricted telemetry rows, the statement text
---    the policy redacted appears VERBATIM in a current chunk with
---    acl_visibility = 'restricted' -- which persona_auditor reads raw, because the
---    auditor holds can_see_restricted. The policy redacted one copy of a string and
---    left the other in the retrieval path the workshop is about.
+--    below). A restricted telemetry document can have the same statement text in a
+--    current restricted chunk, which persona_auditor reads raw because the auditor
+--    holds can_see_restricted. The policy would redact one copy while leaving the
+--    retrieval path untouched.
 --
--- The correct tool here is the one already applied: RLS. Measured row scoping on
--- this table -- persona_app_engineer 101, persona_dba 106, owner 106, and
--- app_engineer reaches 0 rows whose body carries restricted statement text. The
--- persona that must not read the captured statement never reaches the row.
+-- The correct tool here is the one already applied: RLS. The persona that must not
+-- read a restricted captured statement never reaches its evidence row.
 -- persona_auditor reading it raw is the clearance sql/11 section 1 grants on
 -- purpose, identical to persona_dba, which this policy never named either.
 
@@ -394,13 +380,10 @@ CALL pgcolumnmask.create_masking_policy(
 -- chunk_text does not degrade retrieval, it removes it.
 --
 -- Not masking it is correct rather than merely convenient, because RLS already
--- covers this exact column. Measured: restricted current chunks reachable are 0
--- for persona_app_engineer, 5 for persona_auditor and 5 for persona_dba. The
--- persona that must not read the captured statement never reaches the row, so
--- there is nothing left for a column mask to protect. The auditor and the DBA both
--- hold can_see_restricted (sql/11 section 1) and are cleared for it by design --
--- redacting the auditor's snippet would contradict the clearance the same file
--- grants.
+-- covers this exact column. An App Engineer reaches no restricted current chunk;
+-- the cleared Auditor and DBA can reach them by design. The persona that must not
+-- read the captured statement never reaches the row, so there is nothing left for
+-- a column mask to protect.
 --
 -- The asymmetry with casework.pg_stat_activity_samples above is the whole point of
 -- shipping both files: that table's rows are workshop-visible to everyone and its
@@ -408,26 +391,12 @@ CALL pgcolumnmask.create_masking_policy(
 -- so it needs RLS. Applying the wrong tool to either one breaks something.
 --
 -- WHAT THIS DOES NOT HIDE, stated plainly so nobody claims more than it does.
--- Measured after both files are applied, persona_app_engineer can still read SQL
--- text in exactly two current workshop chunks:
---
---   LOCK-<suffix>-01  "Blocked statement: UPDATE workbench_lab.orders SET ...
---                      Blocking statement: CREATE INDEX idx_orders_customer_created ..."
---   TEL-<suffix>-R01  "Executed SQL: CREATE INDEX CONCURRENTLY idx_orders_customer_created ..."
---
--- That is correct and must not be "fixed". Those two rows ARE the lab: the first is
--- the measured Lock:relation proof that sql/10_admission.sql refuses a capture
--- without, and the second is the remediation that resolves it. Restricting them
--- would hide the incident from the persona whose job is to investigate it, and the
--- statements in question are the participant's own DML against their own
--- workbench_lab schema -- not a third party's query text.
---
--- So the enforced claim is narrow and true: what a persona without clearance
--- cannot read is the resolved statement text Performance Insights returned, in
--- every place it lands -- the derived evidence (RLS), the PI sample it came from (RLS),
--- and the raw pg_stat_activity copy that repeats it (masking). The claim is NOT
--- "no SQL is visible". Anyone writing guide copy off this file should say the
--- former.
+-- Workshop-visible evidence can still describe pool state, blocker PIDs, wait
+-- events, plan shape, and the participant's human-approved index action. Those are
+-- the facts needed to investigate the migration. The enforced claim is narrower:
+-- a persona without clearance cannot read captured PostgreSQL statement text from
+-- a restricted observation in the derived evidence, the raw pg_stat_activity
+-- sample, or the pg_stat_statements sample. The claim is not "no SQL is visible".
 
 -- ---------------------------------------------------------------------------
 -- 4. EXECUTE on the mask functions.

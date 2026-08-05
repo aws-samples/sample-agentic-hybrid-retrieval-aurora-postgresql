@@ -24,6 +24,7 @@ class IncidentLabContractTests(unittest.TestCase):
     def test_incident_module_file_set_matches_the_four_phase_runtime(self) -> None:
         expected = {
             "capture_observability.py",
+            "evidence_builder.py",
             "hold_controller.py",
             "migration.py",
             "prepare_workload.py",

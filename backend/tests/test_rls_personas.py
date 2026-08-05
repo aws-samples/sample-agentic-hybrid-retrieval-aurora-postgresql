@@ -91,9 +91,8 @@ def _restricted_keys() -> list[str]:
     """The restricted cohort, resolved as the owner.
 
     retrieval_admin holds can_see_restricted and is subject to its own FORCEd
-    policy, so it reads the whole corpus (measured: 110 evidence rows, 5
-    restricted) and its answer is an oracle rather than a persona restating the
-    fact under test.
+    policy, so it reads the whole corpus and its answer is an oracle rather than a
+    persona restating the fact under test.
     """
     with db.get_owner_conn() as conn, conn.cursor() as cursor:
         cursor.execute(
@@ -659,10 +658,9 @@ class ColumnMaskingTests(unittest.TestCase):
     def test_the_masked_personas_never_read_a_sensitive_literal(self) -> None:
         """The leak scan, and the honest form of it.
 
-        "Every value differs from the owner's" would FAIL a correct mask: measured
-        on the reference capture, 240 of 270 pg_stat_activity rows are redacted
-        because the other 30 legitimately contain no restricted literal. The claim
-        is therefore narrower and true -- no masked persona reads any literal
+        "Every value differs from the owner's" would FAIL a correct mask: rows with
+        no restricted literal legitimately remain unchanged. The claim is therefore
+        narrower and true -- no masked persona reads any literal
         retrieval.sensitive_literals() names, and at least one value is redacted so
         the scan is not passing on an empty mask.
         """

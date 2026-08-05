@@ -129,11 +129,18 @@ Completed and committed on this branch:
   while an unavailable metric endpoint never invalidates the PostgreSQL and
   pool evidence. Admission, the capture schema, readiness diagnostics, smoke
   discovery, and tests now describe the transaction-ID blocking and
-  four-phase contract. `_measured_visibility` remains only as compatibility
-  code until C1 replaces it with deterministic classification over captured
-  PostgreSQL statement text for the optional RLS/masking lab.
+  four-phase contract.
+- C1 adds `labs/incident/evidence_builder.py`. It turns one measured run into
+  distinct `lock`, `pool`, `request`, `wal`, `meta`, and `plan` documents and
+  never expands raw poll ticks into template rows. Its deterministic
+  `statement-text/1` classifier derives visibility from captured
+  `pg_stat_activity` / `pg_stat_statements` statement text and persists a
+  version, closed reason, and source sample IDs with every document. The
+  retired `_measured_visibility` / `unknown` compatibility path is deleted.
+  The optional RLS/masking narrative and G-27 now validate that source
+  provenance rather than the deleted Database Insights surface.
 
-Not yet implemented: evidence builder and admission, final retrieval corpus,
+Not yet implemented: two-wave admission wiring, final retrieval corpus,
 revised agent,
 participant UI and labs, remaining documentation cleanup, infrastructure
 packaging, and live rehearsal. Until those tasks land, `make live-workshop` is
@@ -203,23 +210,33 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   yet: `run_live_workshop.py` fails before database work until C1/C2 install
   the evidence builder and final two-wave admission path. Do not claim that
   unrun end-to-end proof prematurely.
+- C1 acceptance: the pure evidence-builder and incident-contract suites pass
+  (39 tests, 71 subtests). The full core suite passes on the dedicated Aurora
+  PostgreSQL 18.3 test target (238 tests, 50 expected live/security skips).
+  `make security-schema` applied cleanly; G-27 then correctly failed on the
+  empty evidence store with the new source-provenance remediation, proving its
+  classifier query compiles without pretending an unmixed corpus is a security
+  success. This is not optional-security release evidence: C2 must first admit
+  a real mixed-visibility capture, then the security gates must run against it.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
 and is not release evidence.
 
-Current disposable-database state after B5 validation: core schema plus the
+Current disposable-database state after C1 validation: core schema plus the
 3,000,000-row `workbench_lab` workload, zero evidence, and no optional security
 module. Reapply `make security-schema` before security-only checks.
 
 ## Next Task
 
-Start C1: build the six-signal-type evidence builder and replace
-`_measured_visibility` with deterministic classification over captured
-`pg_stat_activity` / `pg_stat_statements` query text. The builder must create
-the 50-80-document Wave A corpus from the B3/B4/B5 measurements, preserve
-explicit ACL classification provenance, and keep optional RLS/masking
-non-vacuous without importing Performance Insights back into the core path.
+Start C2: wire the two additive admissions. It must collect and persist the
+raw `pg_stat_activity` and `pg_stat_statements` samples before admitting the
+C1 documents, preserving the exact sample identifiers named in
+`classification_sources`; a remapped or regenerated identifier would make the
+optional RLS/masking provenance claim unreplayable. Admit only Wave A before
+the participant's human-approved index action, then capture and admit the
+additive Wave B validation evidence. Do not claim C1's 50-80-document live
+acceptance or optional-security release proof until that end-to-end run exists.
 
 `make test` now fails before discovery unless `TEST_DATABASE_URL` names a
 resettable `_test` database on exactly PostgreSQL 18.3. Accepted targets are

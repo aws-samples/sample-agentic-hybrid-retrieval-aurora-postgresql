@@ -47,15 +47,14 @@ comparison misses two of those three forms, so both sides collapse
 ``(\\s|\\[a-z])+`` to a single space - the same normalization
 ``retrieval.refresh_mask_blob()`` builds into the mask itself.
 
-What this gate does NOT claim: that no SQL text is visible anywhere. sql/12
-documents two current workshop chunks that legitimately carry the participant's
-own DML (the Lock:relation proof and its remediation), and those rows ARE the lab.
-The enforced claim is narrower and true: the resolved statement text of a
-RESTRICTED observation is unreadable to a persona without clearance in every
-column a masking policy covers, and unreachable in the chunk corpus. The
-uncleared baseline is measured per literal from the owner's side, so a literal
-that legitimately appears in a workshop-visible chunk is held to the count the
-DDL implies rather than to zero.
+What this gate does NOT claim: that no SQL text is visible anywhere.
+Workshop-visible evidence can still describe the migration, blocker topology, and
+human-approved action. The enforced claim is narrower and true: captured
+PostgreSQL statement text from a RESTRICTED observation is unreadable to a persona
+without clearance in every column a masking policy covers, and unreachable in the
+chunk corpus. The uncleared baseline is measured per literal from the owner's side,
+so a literal that legitimately appears in a workshop-visible chunk is held to the
+count the DDL implies rather than to zero.
 
 Read-only: SELECT, ``SET LOCAL ROLE``, ROLLBACK. Roles, extension, or capture
 absent -> BLOCKED.
@@ -91,8 +90,9 @@ CLEARANCE_GROUP = "can_see_restricted"
 # a mutation of exactly this mapping:
 #
 #   * DROP a policy       -> the table leaves ddm_policies, so the loop that
-#                            asserts it stops running. Measured: G-29 stayed green
-#                            while 240 rows went raw for both uncleared personas.
+#                            asserts it stops running. A catalog-only gate would
+#                            report success while captured statement rows went raw
+#                            for both uncleared personas.
 #   * WIDEN the role list -> adding persona_dba makes the gate assert "dba should
 #                            be masked", which the broken schema satisfies. The
 #                            unmasked baseline the lab compares against is now
@@ -126,9 +126,9 @@ MASKED_FOR = {
 #   * casework.telemetry_evidence -- a mask here made
 #     SET LOCAL ROLE persona_auditor; SELECT count(*) FROM
 #     casework.v_evidence_documents terminate the backend and restart the whole
-#     Aurora instance, because that view joins the masked table. Measured
-#     2026-08-03. It also protected nothing: all 5 of 5 restricted statements it
-#     redacted appear verbatim in a chunk the auditor reads raw.
+#     Aurora instance, because that view joins the masked table. It also protected
+#     nothing: the same restricted statement can appear in a chunk the auditor
+#     reads raw under its clearance.
 #   * retrieval.chunks -- a mask on chunk_text makes every search function fail
 #     with "failed to postpone qual containing lateral reference", because all
 #     three return a snippet from a LATERAL subquery.
@@ -180,10 +180,11 @@ LITERALS_SQL = "SELECT literal FROM retrieval.sensitive_literals() ORDER BY 1"
 # key) and still destroyed the assertion: retrieval.documents carries its own RLS
 # policy, so the join filtered the result before this gate could judge it. Measured
 # with retrieval.chunks' policy loosened to USING (true): persona_app_engineer read
-# all 110 chunks on a bare SELECT while the joined query still returned 105, and
-# the gate reported PASS on a schema that had handed the uncleared persona every
-# restricted chunk. A scan for what a persona can read must not read through a
-# second protected table -- the other table's protection becomes the answer.
+# every chunk on a bare SELECT while the joined query still omitted restricted
+# chunks, and the gate reported PASS on a schema that had handed the uncleared
+# persona every restricted chunk. A scan for what a persona can read must not read
+# through a second protected table -- the other table's protection becomes the
+# answer.
 #
 # The document label is dropped with it. It only decorated the output, and
 # recovering it would require the join that caused the fail-open.

@@ -113,10 +113,10 @@ WHERE n.nspname = %s AND c.relname = %s
 # tests below ask the owner which rows are restricted and probe those.
 #
 # Read as the OWNER on purpose. retrieval_admin holds can_see_restricted and is
-# subject to its own FORCEd policy, so it reads the whole corpus (measured: 110
-# rows, 5 restricted) -- an oracle, rather than a persona restating the fact under
-# test. A persona-run subquery is itself RLS-filtered, so a zero from it cannot
-# distinguish "no such row" from "a row you may not see".
+# subject to its own FORCEd policy, so it reads the whole corpus -- an oracle,
+# rather than a persona restating the fact under test. A persona-run subquery is
+# itself RLS-filtered, so a zero from it cannot distinguish "no such row" from "a
+# row you may not see".
 _RESTRICTED_KEYS_SQL = """
 SELECT external_key
   FROM casework.evidence_items

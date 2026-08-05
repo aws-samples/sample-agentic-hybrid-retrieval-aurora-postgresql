@@ -590,37 +590,6 @@ def _preflight(
     }
 
 
-# Compatibility-only classifier retained until C1 installs the replacement that
-# reads captured pg_stat_activity and pg_stat_statements rows. It is not
-# reachable from the four-phase participant path.
-_PI_UNRESOLVED_STATEMENT = "unknown"
-
-
-def _measured_visibility(structured: dict[str, Any]) -> str:
-    """Classify one captured observation by what the capture actually contains.
-
-    This legacy helper exists only to preserve the optional security contract
-    until C1 replaces it with a classifier over PostgreSQL sample rows. Query
-    text is the one thing in a capture a real operator would restrict, so the
-    classification reads the captured payload instead of labelling rows by hand.
-
-    Args:
-        structured: The measured payload for one evidence record.
-
-    Returns:
-        ``restricted`` when the capture carries resolved query text, otherwise
-        ``workshop``.
-    """
-    statement = structured.get("statement")
-    if not isinstance(statement, str):
-        return "workshop"
-    normalized = statement.strip()
-    if not normalized or normalized.lower() == _PI_UNRESOLVED_STATEMENT:
-        return "workshop"
-    return "restricted"
-
-
-
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(

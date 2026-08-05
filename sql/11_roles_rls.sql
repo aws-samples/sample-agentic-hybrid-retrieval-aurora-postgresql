@@ -658,51 +658,27 @@ $$;
 -- 6. RLS on the capture-keyed raw sample tables.
 --
 -- Sections 4 and 5 reach every table that carries an evidence reference. The raw
--- capture tables are the ones that do not, and they hold the same query text the
--- restricted rows exist to withhold. The one this section still governs:
+-- capture tables are the ones that do not. The two captured statement-text
+-- columns are also the source of C1's deterministic visibility classifier:
 --
---   casework.pg_stat_statements_samples.queries    -- statement text as jsonb
+--   casework.pg_stat_activity_samples.query       -- one observed backend
+--   casework.pg_stat_statements_samples.queries    -- normalized phase snapshot
 --
--- It is keyed by capture_id ONLY, with no evidence_id and no *_evidence_id
--- column, so section 5's catalog query cannot see it and never will.
+-- `pg_stat_activity_samples` carries `observation_evidence_id`, so section 5
+-- scopes its rows through the lock observation. Those lock observations remain
+-- workshop-visible: the blocked-PID topology is the Lab 1 evidence every
+-- participant needs. Its query column is therefore redacted by sql/12 rather than
+-- hidden by RLS.
 --
--- Task A1 dropped the Performance Insights sample table this section used to
--- gate here, which was this section's worked example for an evidence-row-gated
--- predicate: joining the sample back to the telemetry_evidence row built FROM
--- it (capture_id plus PI query_id and dimension) so that a visible evidence row
--- was REQUIRED, not merely "not contradicted". That predicate's first draft
--- tried to be generous to samples without derived evidence:
---
---   USING (NOT EXISTS (SELECT 1 FROM casework.telemetry_evidence derived ...)
---          OR EXISTS   (SELECT 1 FROM casework.telemetry_evidence visible ...))
---
--- Measured, on that table, before it was dropped: that draft failed OPEN --
--- persona_app_engineer read all 7 of 7 samples including the 5 restricted
--- statements. A policy subquery is evaluated with the CALLER's privileges, so
--- casework.telemetry_evidence's own RLS applies inside both branches. When the
--- evidence row is restricted it is invisible to the caller, which makes the NOT
--- EXISTS branch true and admits exactly the row the ACL exists to withhold. An
--- RLS-filtered subquery cannot distinguish "no such row" from "a row you may not
--- see", so no predicate built on one may treat absence as permission.
---
--- That lesson is why the surviving table's own predicate below is a bare
--- required EXISTS rather than a permissive NOT-EXISTS-OR form: pg_stat_statements_samples
--- has no per-statement identity to join on (its queries column is an array for a
--- whole phase), so it is gated on the capture run instead -- visible only while
--- the capture's own incident row is visible, with no "generous to samples
--- without a visible parent" branch to fail open. That is coarser than the
--- insights predicate was and deliberately so -- the alternative is no policy at
--- all on a table holding the statement text verbatim. Its query text is redacted
--- for personas without clearance in sql/12_masking.sql.
---
--- The three observation-keyed sample tables (pg_stat_activity_samples,
--- pg_lock_samples, pg_blocking_pids_samples) are NOT here: they carry
--- observation_evidence_id and section 5 already covers them. Row filtering is the
--- wrong tool for them anyway -- their parent lock observation is legitimately
--- workshop-visible, and measured, 180 of their 270 rows repeat a restricted
--- statement verbatim in pg_stat_activity_samples.query. RLS cannot fix that
--- without hiding the lock topology the lab is about, so sql/12_masking.sql
--- redacts the query column instead and the rows stay readable.
+-- `pg_stat_statements_samples` is keyed only by `capture_id`; it has no
+-- `evidence_id` or `*_evidence_id`, so section 5's catalog walk cannot reach it.
+-- The bare required EXISTS below makes it visible only while its capture's
+-- incident is visible. Do not make this predicate "generous" with a
+-- `NOT EXISTS ... OR EXISTS ...` branch: an RLS-filtered subquery cannot
+-- distinguish a missing parent from a parent the caller is forbidden to see, and
+-- absence must never become permission. sql/12 redacts the `queries` array for
+-- personas without clearance while retaining the phase counters needed by the
+-- optional lab.
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE casework.pg_stat_statements_samples ENABLE ROW LEVEL SECURITY;
@@ -765,15 +741,12 @@ $$;
 --
 -- retrieval.search_index_queue is here for the same reason, and it is the one
 -- evidence-keyed table outside casework: section 5's loop walks casework only, so
--- the outbox was the single table carrying an evidence_id with no policy on it.
--- Measured on this capture: 110 queue rows, 5 of them naming restricted evidence,
--- and section 2 grants every persona SELECT ON ALL TABLES IN SCHEMA retrieval. The
--- row carries no body text, but it does carry evidence_id and source_revision --
--- enough for an App Engineer to enumerate the existence and revision count of
--- evidence the ACL denies them at every other table. G-27 asserts the rule
--- structurally (every table holding an evidence, capture, run or acl reference is
--- ENABLE+FORCE), so leaving this one out would have to be encoded as a hand-typed
--- exemption -- exactly the drift the catalog-driven loop exists to prevent.
+-- the outbox is a separate evidence-bearing read path. It carries no body text,
+-- but it does expose evidence identity and source revision; an App Engineer must
+-- not enumerate rows the ACL hides elsewhere. G-27 asserts the rule structurally
+-- (every table holding an evidence, capture, run, or ACL reference is
+-- ENABLE+FORCE), so leaving this table out would require a hand-typed exemption --
+-- exactly the drift the catalog-driven loop exists to prevent.
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE retrieval.inferred_edges ENABLE ROW LEVEL SECURITY;
@@ -844,17 +817,12 @@ CREATE POLICY rls_search_index_queue_owner ON retrieval.search_index_queue
 -- Clearing through the run is necessary and NOT sufficient for the four child
 -- tables that also name evidence. Those rows must clear through the EVIDENCE too,
 -- and the measured leak is why: proof.retrieval_candidates.evidence_snapshot is a
--- copy of the document header and chunk snippet as retrieved, so an App Engineer
--- who ran a search under their own persona read
---
---   "Performance Insights measured live SQL with DB load 1.5000: WITH held AS
---    MATERIALIZED (SELECT count(*) FROM workbench_lab.orders) SELECT
---    readable_rows, pg_sleep($1) ..."
---
--- straight out of a run they legitimately owned -- the exact restricted statement
--- text that RLS had just withheld from them at casework.evidence_items,
--- retrieval.documents and retrieval.chunks. The run-role predicate passed because
--- the run WAS theirs. Measured on this capture: 3 candidate rows across 3 runs.
+-- copy of the document header and chunk snippet as retrieved. A run owned by an
+-- App Engineer can therefore outlive the visibility context that originally
+-- filtered its candidates. The run-role predicate alone would pass because the
+-- run is theirs, while a snapshot could still repeat captured PostgreSQL statement
+-- text that RLS withheld at casework.evidence_items, retrieval.documents, and
+-- retrieval.chunks.
 --
 -- The snapshot is written by the API as the schema owner, which holds clearance, so
 -- the write is not the defect: the retrieval arms themselves were persona-filtered

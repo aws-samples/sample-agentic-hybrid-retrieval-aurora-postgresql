@@ -31,9 +31,9 @@ read-path tables carry their own row policy, so a query that reaches one table
 through another lets the second table's policy supply the filtering and the gate
 reports a protection that the table under test is not providing. Measured on this
 cluster while building G-29: with ``retrieval.chunks``' policy loosened to
-``USING (true)``, a bare SELECT read all 110 chunks while the same query joined to
-``retrieval.documents`` still returned 105 -- green on a schema that had handed the
-uncleared persona every restricted chunk.
+``USING (true)``, a bare SELECT read every chunk while the same query joined to
+``retrieval.documents`` still omitted restricted chunks -- green on a schema that
+had handed the uncleared persona every restricted chunk.
 
 **No committed baseline.** An earlier design compared against a JSON file captured
 before the vocabulary collapse. That file cannot honestly exist here: the
