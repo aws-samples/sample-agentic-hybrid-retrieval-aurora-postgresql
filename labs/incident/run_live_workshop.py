@@ -1583,17 +1583,11 @@ def _verify_live_run(
                 SELECT count(*)
                 FROM casework.cloudwatch_metric_samples
                 WHERE capture_id = %s
-              ) AS metric_rows,
-              (
-                SELECT count(*)
-                FROM casework.database_insights_samples
-                WHERE capture_id = %s
-              ) AS insight_rows
+              ) AS metric_rows
             """,
             (
                 bundle_uri,
                 bundle_uri,
-                capture_id,
                 capture_id,
                 capture_id,
                 capture_id,
@@ -1622,7 +1616,6 @@ def _verify_live_run(
             "blocking_rows",
             "statement_rows",
             "metric_rows",
-            "insight_rows",
         )
     )
     if not 100 <= counts["documents"] <= 120:

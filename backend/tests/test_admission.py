@@ -106,6 +106,22 @@ class DatabaseInsightsRemovalTest(unittest.TestCase):
         self.assertNotIn("'database_insights',", schema_sql)
         self.assertIn("database_insights_mode", admission_sql)
 
+    def test_no_python_read_path_references_the_deleted_insights_table(self) -> None:
+        """bcfddef removed the table but missed two Python read paths.
+
+        backend/app/insights.py summed a subquery against the deleted table
+        into raw_telemetry_rows, and labs/incident/run_live_workshop.py did
+        the same in its post-admission verification query. Both raised
+        UndefinedTable at request time against a correctly-migrated database.
+        A test scoped only to sql/*.sql (see the sibling test above) would
+        stay green while these two call sites remained broken.
+        """
+        for relative_dir in ("backend/app", "labs/incident"):
+            for path in sorted((REPO_ROOT / relative_dir).rglob("*.py")):
+                source = path.read_text(encoding="utf-8")
+                with self.subTest(source_file=str(path.relative_to(REPO_ROOT))):
+                    self.assertNotIn("database_insights_samples", source)
+
 
 @unittest.skipUnless(
     LIVE_PAYLOAD and LIVE_CAPTURE_RUN_ID,

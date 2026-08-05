@@ -167,10 +167,6 @@ def _latest_live_run(cursor: Any) -> dict[str, Any] | None:
             SELECT count(*)
             FROM casework.cloudwatch_metric_samples sample
             WHERE sample.capture_id = capture.capture_id
-          ) + (
-            SELECT count(*)
-            FROM casework.database_insights_samples sample
-            WHERE sample.capture_id = capture.capture_id
           ) AS raw_telemetry_rows
         FROM casework.incident_capture_runs capture
         JOIN casework.evidence_items incident
