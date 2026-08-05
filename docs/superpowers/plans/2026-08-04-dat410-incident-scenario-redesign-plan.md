@@ -930,15 +930,38 @@ this task's job.
   the comment above it that says "ALL SIX masked columns" (it becomes four)
 - Modify: `backend/tests/test_retrieval_integration.py:218-219,229,261` — the
   `database_insights` count assertion and the capture-id subquery
+- Modify: `backend/app/insights.py:167-172` — `_latest_live_run` sums a
+  `count(*)` over this table into `raw_telemetry_rows`. Delete that addend. This is
+  **not** a documentation nicety: `_latest_live_run` backs `search_index_health()`,
+  `latest_live_run()`, and `search_index_diagnostics()`, and
+  `search_index_health()` is called from `backend/app/main.py:105`, `:133`, and
+  `:466`. Measured against a database with the table dropped, all three raise
+  `psycopg.errors.UndefinedTable: relation "casework.database_insights_samples"
+  does not exist` — so omitting this leaves the app's health and readiness
+  endpoints broken on exactly the schema this task produces. No test covered it,
+  which is why Step 1 below adds one that scans the Python read paths as well as
+  `sql/*.sql`
+- Modify: `labs/incident/run_live_workshop.py:1583-1619` — `_verify_live_run`
+  counts the same table as `insight_rows`. Delete the subquery, its **positional
+  `capture_id` parameter**, and the `insight_rows` entry in the `zip()` key tuple.
+  The parameter list is positional: dropping the subquery alone shifts every
+  following bind silently. After the edit the query has 7 `%s` placeholders and 7
+  arguments, down from 8 and 8. This is the one file B6 also owns; take only these
+  three lines here, because the whole file is otherwise B6's, and leaving a
+  guaranteed `UndefinedTable` in the verification path until B6 lands would make
+  every intervening live run fail at its last step
 - Test: `backend/tests/test_admission.py`
 
 **Out of scope, deliberately, with the owning task named.** Do not widen into
 these — each is another task's deliverable and touching it here creates a
 merge conflict with that task:
-- `labs/incident/capture_observability.py`, `labs/incident/run_live_workshop.py`,
+- `labs/incident/capture_observability.py`,
   `backend/tests/test_release_capture.py` (which imports
   `_wait_for_database_insights` and will fail to import once B6 deletes it) →
-  **Task B6**
+  **Task B6**. `labs/incident/run_live_workshop.py` is B6's too, **except** for
+  the three-line `insight_rows` deletion in `_verify_live_run` named in the Files
+  block above — that one query would otherwise raise `UndefinedTable` on every
+  live run between A1 and B6
 - `backend/app/config.py:152`, `backend/app/search.py:726`,
   `backend/app/verify_sql.py:61`, `backend/app/main.py:487`,
   `frontend/src/WorkbenchApp.tsx:1430` (the `observability_refs` Database Insights
@@ -1006,6 +1029,22 @@ errors.
         self.assertNotIn("-> 'database_insights'", admission_sql)
         self.assertNotIn("'database_insights',", schema_sql)
         self.assertIn("database_insights_mode", admission_sql)
+
+    def test_no_python_read_path_references_the_deleted_insights_table(self) -> None:
+        """The SQL-only test above is not sufficient, measured.
+
+        `backend/app/insights.py` sums a count over this table into
+        `raw_telemetry_rows`, and `labs/incident/run_live_workshop.py` counts it
+        as `insight_rows`. Neither is a SQL file, so the per-file test above
+        stays green while `search_index_health()` -- called from three
+        `main.py` endpoints -- raises `UndefinedTable` on the very schema this
+        task produces.
+        """
+        for relative_dir in ("backend/app", "labs/incident"):
+            for path in sorted((REPO_ROOT / relative_dir).rglob("*.py")):
+                source = path.read_text(encoding="utf-8")
+                with self.subTest(source_file=str(path.relative_to(REPO_ROOT))):
+                    self.assertNotIn("database_insights_samples", source)
 ```
 
 - [ ] **Step 2: Run it and confirm it fails.**
@@ -1014,10 +1053,12 @@ errors.
 .venv/bin/python -m pytest backend/tests/test_admission.py -k insights -v
 ```
 
-Expected: both new tests FAIL. The per-file test must report **six** failing
-subtests — `01_schema.sql`, `02_indexes.sql`, `04_diagnostics.sql`,
+Expected: all three new tests FAIL. The per-SQL-file test must report **six**
+failing subtests — `01_schema.sql`, `02_indexes.sql`, `04_diagnostics.sql`,
 `10_admission.sql`, `11_roles_rls.sql`, `12_masking.sql`. Measured reference
-counts at this commit: 1, 1, 3, 1, 11, 4. If only two subtests fail, you are
+counts at this commit: 1, 1, 3, 1, 11, 4. The Python read-path test must report
+**two** failing subtests: `backend/app/insights.py` and
+`labs/incident/run_live_workshop.py`. If only two SQL subtests fail, you are
 running a stale checkout — stop and check `git status`.
 
 - [ ] **Step 3: Delete the surface.** Work the Files block above top to bottom;
@@ -1157,11 +1198,16 @@ git add sql/01_schema.sql sql/02_indexes.sql sql/04_diagnostics.sql \
   sql/10_admission.sql sql/11_roles_rls.sql sql/12_masking.sql \
   backend/scripts/doctor.py gates/masking_determinism.py gates/rls_enforcement.py \
   backend/tests/test_admission.py backend/tests/test_rls_personas.py \
-  backend/tests/test_retrieval_integration.py
+  backend/tests/test_retrieval_integration.py \
+  backend/app/insights.py labs/incident/run_live_workshop.py
 git commit -m "Remove the Performance Insights admission surface"
 ```
 
-One commit, all twelve files. Splitting the SQL files across commits leaves an
+One commit. The `git add` list names fourteen paths; the commit will contain
+thirteen if `gates/rls_enforcement.py` needs no edit (it names the table only in
+comments, and its table list is catalog-discovered — see the Files block). Adding
+an unmodified path is a harmless no-op; do not treat a thirteen-file commit as a
+missed file. Splitting the SQL files across commits leaves an
 intermediate commit where `make schema` fails, which the pre-push hook and
 `make doctor` both surface later at a point where the cause is no longer obvious.
 Do not pass `--no-verify`: this repo routes `core.hooksPath` to git-defender, a
@@ -11606,7 +11652,16 @@ connects through the app's own pool, which is the entire mechanism.
 **Files:**
 - Modify: `labs/incident/capture_observability.py` — already stripped in Task B6;
   this task removes the remaining infra-side coupling
-- Modify: `.env.example` and `docs/` — the PI prerequisite
+- Modify: `.env.example` and `docs/` — the PI prerequisite, **and** the two
+  schema-inventory rows that Task A1 left describing a table it dropped:
+  `docs/data-model.md:22` (`| `database_insights_samples` | Incident-window
+  Performance Insights wait and SQL observations |`) and
+  `docs/implementation-spec.md:122` (`| `database_insights_samples` | PI top wait
+  and SQL observations |`). Delete both rows. A1 deliberately did not touch them —
+  its Files block is SQL, gates, and tests — so between A1 and this task the data
+  model documentation names a relation that does not exist. These are inventory
+  rows, not historical records, so Step 1's grep will hit them; that hit is this
+  task's work, not evidence that B6 is incomplete
 - Modify (sibling repo, user-owned): the Aurora cluster's
   `PerformanceInsightsEnabled` property, `PerformanceInsightsRetentionPeriod`, and
   the task role's `pi:GetResourceMetrics` / `pi:DescribeDimensionKeys` policy
