@@ -1,4 +1,4 @@
--- sql/10_admission.sql - atomic admission for one participant-induced live run.
+-- sql/10_admission.sql - atomic admission for one participant-induced capture wave.
 ALTER TABLE casework.evidence_items
   ADD COLUMN IF NOT EXISTS content_hash text;
 
@@ -34,6 +34,7 @@ SET search_path = pg_catalog, casework, retrieval
 AS $$
 DECLARE
   v_source_system constant text := 'pg_incident_capture';
+  v_wave text := coalesce(payload ->> 'wave', 'A');
   v_bundle_uri text := payload #>> '{source,uri}';
   v_cluster_id text := payload #>> '{database,cluster_id}';
   v_database_name text := payload #>> '{database,database_name}';
@@ -55,9 +56,8 @@ DECLARE
   v_run_suffix text;
   v_expected_suffix text;
   v_incident_key text;
-  v_unsafe_change_key text;
-  v_safe_change_key text;
   v_lock_key text;
+  v_lock_change_key text;
   v_payload_hash text;
   v_available_at timestamptz;
   v_existing casework.ingest_receipts%ROWTYPE;
@@ -90,6 +90,10 @@ BEGIN
     RAISE EXCEPTION 'admission: source.system must be %', v_source_system
       USING ERRCODE = '22023';
   END IF;
+  IF v_wave NOT IN ('A', 'B') THEN
+    RAISE EXCEPTION 'admission rejected: wave must be A or B, got %', v_wave
+      USING ERRCODE = '22023';
+  END IF;
   IF v_bundle_uri IS NULL OR btrim(v_bundle_uri) = '' THEN
     RAISE EXCEPTION 'admission: source.uri is required'
       USING ERRCODE = '22023';
@@ -109,12 +113,22 @@ BEGIN
   END IF;
   IF jsonb_typeof(v_capture) IS DISTINCT FROM 'object'
      OR jsonb_typeof(v_telemetry) IS DISTINCT FROM 'object'
-     OR jsonb_typeof(v_incident) IS DISTINCT FROM 'object'
      OR jsonb_typeof(v_changes) IS DISTINCT FROM 'array'
-     OR jsonb_typeof(v_lock) IS DISTINCT FROM 'object'
-     OR jsonb_typeof(v_telemetry_documents) IS DISTINCT FROM 'array' THEN
+     OR jsonb_typeof(v_telemetry_documents) IS DISTINCT FROM 'array'
+     OR (
+       v_wave = 'A'
+       AND (
+         jsonb_typeof(v_incident) IS DISTINCT FROM 'object'
+         OR jsonb_typeof(v_lock) IS DISTINCT FROM 'object'
+       )
+     )
+     OR (
+       v_wave = 'B'
+       AND (v_incident IS NOT NULL OR v_lock IS NOT NULL)
+     ) THEN
     RAISE EXCEPTION
-      'admission: capture, telemetry, incident, changes, lock, and telemetry documents are required'
+      'admission rejected: wave A requires incident, changes, lock, and telemetry '
+      'documents; wave B requires only new changes and telemetry documents'
       USING ERRCODE = '22023';
   END IF;
 
@@ -148,7 +162,7 @@ BEGIN
       USING ERRCODE = '22023';
   END;
 
-  IF v_blocked_writer_count IS NULL THEN
+  IF v_wave = 'A' AND v_blocked_writer_count IS NULL THEN
     RAISE EXCEPTION
       'admission rejected: blocked_writer_count must equal DB_POOL_MAX_SIZE (10), got <null>'
       USING ERRCODE = '22023';
@@ -165,89 +179,169 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  IF v_blocked_writer_count <> 10 THEN
+  IF v_wave = 'A' THEN
+    IF v_blocked_writer_count <> 10 THEN
+      RAISE EXCEPTION
+        'admission rejected: blocked_writer_count must equal DB_POOL_MAX_SIZE (10), got %',
+        v_blocked_writer_count
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF v_request_count <= v_blocked_writer_count THEN
+      RAISE EXCEPTION
+        'admission rejected: request_count (%) must exceed blocked_writer_count (%); '
+        'a run where every request obtained a connection produced no wait queue and '
+        'therefore no pool exhaustion',
+        v_request_count, v_blocked_writer_count
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF v_reader_count <> 0 THEN
+      RAISE EXCEPTION
+        'admission rejected: the four-phase mechanism has no reader sessions, got %',
+        v_reader_count
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF NOT (
+      v_phases @> '["backfill","pool_exhaustion","recovery","plan_regression"]'::jsonb
+    ) THEN
+      RAISE EXCEPTION
+        'admission rejected: missing incident phases, got %', v_phases
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF NOT (
+      v_signal_types @> '["lock","pool","request","wal","meta","plan"]'::jsonb
+    ) THEN
+      RAISE EXCEPTION
+        'admission rejected: every signal type must be represented, got %',
+        v_signal_types
+        USING ERRCODE = '22023';
+    END IF;
+  ELSE
+    IF v_request_count <> 0
+       OR v_blocked_writer_count <> 0
+       OR v_reader_count <> 0 THEN
+      RAISE EXCEPTION
+        'admission rejected: wave B validates the recommendation and must not '
+        'claim incident request, blocked-writer, or reader counts; got %, %, %',
+        v_request_count, v_blocked_writer_count, v_reader_count
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF NOT (v_phases @> '["plan_regression"]'::jsonb)
+       OR NOT (v_signal_types @> '["meta","plan"]'::jsonb) THEN
+      RAISE EXCEPTION
+        'admission rejected: wave B must carry plan_regression plus meta and '
+        'plan validation evidence; got phases %, signal types %',
+        v_phases, v_signal_types
+        USING ERRCODE = '22023';
+    END IF;
+  END IF;
+
+  IF v_wave = 'A' THEN
+    v_incident_key := v_incident ->> 'external_key';
+    IF v_incident_key IS DISTINCT FROM 'INC-' || v_run_suffix THEN
+      RAISE EXCEPTION
+        'admission: wave A incident identity must be derived from run suffix %',
+        v_run_suffix
+        USING ERRCODE = '22023';
+    END IF;
+  ELSE
+    v_incident_key := nullif(btrim(payload ->> 'incident_key'), '');
+    IF v_incident_key IS NULL THEN
+      RAISE EXCEPTION
+        'admission rejected: wave B must name the incident_key it attaches to'
+        USING ERRCODE = '22023';
+    END IF;
+
+    SELECT item.evidence_id
+    INTO v_incident_id
+    FROM casework.evidence_items item
+    JOIN casework.incidents incident
+      ON incident.evidence_id = item.evidence_id
+    JOIN casework.incident_capture_runs wave_a
+      ON wave_a.incident_evidence_id = incident.evidence_id
+     AND wave_a.wave = 'A'
+    WHERE item.evidence_kind = 'incident'
+      AND item.external_key = v_incident_key
+      AND item.source_system = v_source_system
+      AND incident.cluster_id = v_cluster_id
+      AND wave_a.cluster_id = v_cluster_id
+      AND NOT item.is_deleted;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION
+        'admission rejected: wave B names incident % which has no Wave A '
+        'capture on cluster %',
+        v_incident_key, v_cluster_id
+        USING ERRCODE = '22023';
+    END IF;
+  END IF;
+
+  IF jsonb_array_length(v_changes) = 0
+     OR EXISTS (
+       SELECT 1
+       FROM jsonb_array_elements(v_changes) change_record
+       WHERE change_record ->> 'external_key'
+         !~ ('^CHG-' || v_run_suffix || '-[0-9]{2}$')
+          OR change_record #>> '{structured,incident_external_key}'
+            IS DISTINCT FROM v_incident_key
+     ) THEN
     RAISE EXCEPTION
-      'admission rejected: blocked_writer_count must equal DB_POOL_MAX_SIZE (10), got %',
-      v_blocked_writer_count
+      'admission: change identifiers must be run-scoped and name incident %',
+      v_incident_key
       USING ERRCODE = '22023';
   END IF;
 
-  IF v_request_count <= v_blocked_writer_count THEN
-    RAISE EXCEPTION
-      'admission rejected: request_count (%) must exceed blocked_writer_count (%); '
-      'a run where every request obtained a connection produced no wait queue and '
-      'therefore no pool exhaustion',
-      v_request_count, v_blocked_writer_count
-      USING ERRCODE = '22023';
-  END IF;
+  IF v_wave = 'A' THEN
+    v_lock_key := v_lock ->> 'external_key';
+    v_lock_change_key := v_lock #>> '{structured,change_external_key}';
+    IF v_lock_key IS DISTINCT FROM 'LOCK-' || v_run_suffix || '-01'
+       OR v_lock #>> '{structured,incident_external_key}'
+         IS DISTINCT FROM v_incident_key
+       OR NOT EXISTS (
+         SELECT 1
+         FROM jsonb_array_elements(v_changes) change_record
+         WHERE change_record ->> 'external_key' = v_lock_change_key
+       )
+       OR NOT EXISTS (
+         SELECT 1
+         FROM jsonb_array_elements(v_changes) change_record
+         WHERE change_record #>> '{structured,relationship}' = 'confirmed'
+       ) THEN
+      RAISE EXCEPTION
+        'admission: wave A lock and confirmed change must match run suffix %',
+        v_run_suffix
+        USING ERRCODE = '22023';
+    END IF;
 
-  IF v_reader_count <> 0 THEN
-    RAISE EXCEPTION
-      'admission rejected: the four-phase mechanism has no reader sessions, got %',
-      v_reader_count
-      USING ERRCODE = '22023';
-  END IF;
-
-  IF NOT (
-    v_phases @> '["backfill","pool_exhaustion","recovery","plan_regression"]'::jsonb
-  ) THEN
-    RAISE EXCEPTION
-      'admission rejected: missing incident phases, got %', v_phases
-      USING ERRCODE = '22023';
-  END IF;
-
-  IF NOT (
-    v_signal_types @> '["lock","pool","request","wal","meta","plan"]'::jsonb
-  ) THEN
-    RAISE EXCEPTION
-      'admission rejected: every signal type must be represented, got %',
-      v_signal_types
-      USING ERRCODE = '22023';
-  END IF;
-
-  v_incident_key := v_incident ->> 'external_key';
-  v_unsafe_change_key := v_changes -> 0 ->> 'external_key';
-  v_safe_change_key := v_changes -> 1 ->> 'external_key';
-  v_lock_key := v_lock ->> 'external_key';
-  IF jsonb_array_length(v_changes) <> 2
-     OR v_incident_key IS DISTINCT FROM 'INC-' || v_run_suffix
-     OR v_unsafe_change_key IS DISTINCT FROM 'CHG-' || v_run_suffix || '-01'
-     OR v_safe_change_key IS DISTINCT FROM 'CHG-' || v_run_suffix || '-02'
-     OR v_lock_key IS DISTINCT FROM 'LOCK-' || v_run_suffix || '-01'
-     OR v_lock #>> '{structured,incident_external_key}'
-       IS DISTINCT FROM v_incident_key
-     OR v_lock #>> '{structured,change_external_key}'
-       IS DISTINCT FROM v_unsafe_change_key THEN
-    RAISE EXCEPTION
-      'admission: evidence identifiers must be derived from run suffix %',
-      v_run_suffix
-      USING ERRCODE = '22023';
-  END IF;
-  IF v_changes -> 0 #>> '{structured,change_role}' IS DISTINCT FROM 'unsafe'
-     OR v_changes -> 1 #>> '{structured,change_role}' IS DISTINCT FROM 'repair'
-     OR v_changes -> 0 #>> '{structured,relationship}' IS DISTINCT FROM 'confirmed'
-     OR v_changes -> 1 #>> '{structured,relationship}' IS DISTINCT FROM 'remediated'
-     OR v_changes -> 0 #>> '{structured,incident_external_key}'
-       IS DISTINCT FROM v_incident_key
-     OR v_changes -> 1 #>> '{structured,incident_external_key}'
-       IS DISTINCT FROM v_incident_key THEN
-    RAISE EXCEPTION
-      'admission: changes must identify the measured unsafe cause and repair'
-      USING ERRCODE = '22023';
-  END IF;
-  IF v_lock #>> '{structured,wait_event_type}' IS DISTINCT FROM 'Lock'
-     OR lower(v_lock #>> '{structured,wait_event}') IS DISTINCT FROM 'relation'
-     OR v_lock #>> '{structured,blocked_lock_mode}'
-       IS DISTINCT FROM 'RowExclusiveLock'
-     OR (v_lock #>> '{structured,blocked_lock_granted}')::boolean
-       IS DISTINCT FROM false
-     OR v_lock #>> '{structured,blocking_lock_mode}'
-       IS DISTINCT FROM 'ShareLock'
-     OR (v_lock #>> '{structured,blocking_lock_granted}')::boolean
-       IS DISTINCT FROM true THEN
-    RAISE EXCEPTION
-      'admission: lock evidence does not prove the live Lock:relation wait'
-      USING ERRCODE = '22023';
+    IF v_lock #>> '{structured,wait_event_type}' IS DISTINCT FROM 'Lock'
+       OR lower(v_lock #>> '{structured,wait_event}') IS DISTINCT FROM 'relation'
+       OR v_lock #>> '{structured,blocked_lock_mode}'
+         IS DISTINCT FROM 'RowExclusiveLock'
+       OR (v_lock #>> '{structured,blocked_lock_granted}')::boolean
+         IS DISTINCT FROM false
+       OR v_lock #>> '{structured,blocking_lock_mode}'
+         IS DISTINCT FROM 'ShareLock'
+       OR (v_lock #>> '{structured,blocking_lock_granted}')::boolean
+         IS DISTINCT FROM true THEN
+      RAISE EXCEPTION
+        'admission: lock evidence does not prove the live Lock:relation wait'
+        USING ERRCODE = '22023';
+    END IF;
+  ELSE
+    IF jsonb_array_length(v_changes) <> 1
+       OR v_changes -> 0 #>> '{structured,change_role}'
+         IS DISTINCT FROM 'validation'
+       OR v_changes -> 0 #>> '{structured,relationship}'
+         IS DISTINCT FROM 'validates'
+       OR jsonb_array_length(v_telemetry_documents) = 0 THEN
+      RAISE EXCEPTION
+        'admission rejected: wave B requires one validation change with a '
+        'validates relationship and at least one new telemetry document'
+        USING ERRCODE = '22023';
+    END IF;
   END IF;
 
   IF EXISTS (
@@ -263,7 +357,11 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  v_available_at := (v_lock ->> 'available_at')::timestamptz;
+  IF v_wave = 'A' THEN
+    v_available_at := (v_lock ->> 'available_at')::timestamptz;
+  ELSE
+    v_available_at := (v_changes -> 0 ->> 'available_at')::timestamptz;
+  END IF;
   IF v_available_at IS NULL THEN
     RAISE EXCEPTION 'admission: every record requires available_at'
       USING ERRCODE = '22023';
@@ -342,11 +440,13 @@ BEGIN
     SELECT record.kind, record.body
     FROM (
       SELECT 'incident'::text AS kind, v_incident AS body
+      WHERE v_wave = 'A'
       UNION ALL
       SELECT 'change', value
       FROM jsonb_array_elements(v_changes) value
       UNION ALL
       SELECT 'lock_evidence', v_lock
+      WHERE v_wave = 'A'
       UNION ALL
       SELECT 'telemetry', value
       FROM jsonb_array_elements(v_telemetry_documents) value
@@ -477,54 +577,56 @@ BEGIN
     v_rows := v_rows + 1;
   END LOOP;
 
-  SELECT evidence_id
-  INTO v_incident_id
-  FROM casework.evidence_items
-  WHERE evidence_kind = 'incident'
-    AND external_key = v_incident_key;
-  SELECT evidence_id
-  INTO v_lock_id
-  FROM casework.evidence_items
-  WHERE evidence_kind = 'lock_evidence'
-    AND external_key = v_lock_key;
+  IF v_wave = 'A' THEN
+    SELECT evidence_id
+    INTO v_incident_id
+    FROM casework.evidence_items
+    WHERE evidence_kind = 'incident'
+      AND external_key = v_incident_key;
+    SELECT evidence_id
+    INTO v_lock_id
+    FROM casework.evidence_items
+    WHERE evidence_kind = 'lock_evidence'
+      AND external_key = v_lock_key;
 
-  INSERT INTO casework.incidents(
-    evidence_id,
-    incident_id,
-    cluster_id,
-    severity,
-    status,
-    started_at,
-    mitigated_at,
-    resolved_at,
-    summary,
-    impact_summary,
-    resolution
-  )
-  VALUES (
-    v_incident_id,
-    v_incident_key,
-    v_cluster_id,
-    v_incident #>> '{structured,severity}',
-    v_incident #>> '{structured,status}',
-    (v_incident #>> '{structured,started_at}')::timestamptz,
-    (v_incident #>> '{structured,mitigated_at}')::timestamptz,
-    (v_incident #>> '{structured,resolved_at}')::timestamptz,
-    v_incident #>> '{structured,summary}',
-    v_incident #>> '{structured,impact_summary}',
-    v_incident #>> '{structured,resolution}'
-  )
-  ON CONFLICT (evidence_id) DO UPDATE
-    SET cluster_id = EXCLUDED.cluster_id,
-        severity = EXCLUDED.severity,
-        status = EXCLUDED.status,
-        started_at = EXCLUDED.started_at,
-        mitigated_at = EXCLUDED.mitigated_at,
-        resolved_at = EXCLUDED.resolved_at,
-        summary = EXCLUDED.summary,
-        impact_summary = EXCLUDED.impact_summary,
-        resolution = EXCLUDED.resolution;
-  v_rows := v_rows + 1;
+    INSERT INTO casework.incidents(
+      evidence_id,
+      incident_id,
+      cluster_id,
+      severity,
+      status,
+      started_at,
+      mitigated_at,
+      resolved_at,
+      summary,
+      impact_summary,
+      resolution
+    )
+    VALUES (
+      v_incident_id,
+      v_incident_key,
+      v_cluster_id,
+      v_incident #>> '{structured,severity}',
+      v_incident #>> '{structured,status}',
+      (v_incident #>> '{structured,started_at}')::timestamptz,
+      (v_incident #>> '{structured,mitigated_at}')::timestamptz,
+      (v_incident #>> '{structured,resolved_at}')::timestamptz,
+      v_incident #>> '{structured,summary}',
+      v_incident #>> '{structured,impact_summary}',
+      v_incident #>> '{structured,resolution}'
+    )
+    ON CONFLICT (evidence_id) DO UPDATE
+      SET cluster_id = EXCLUDED.cluster_id,
+          severity = EXCLUDED.severity,
+          status = EXCLUDED.status,
+          started_at = EXCLUDED.started_at,
+          mitigated_at = EXCLUDED.mitigated_at,
+          resolved_at = EXCLUDED.resolved_at,
+          summary = EXCLUDED.summary,
+          impact_summary = EXCLUDED.impact_summary,
+          resolution = EXCLUDED.resolution;
+    v_rows := v_rows + 1;
+  END IF;
 
   FOR v_record IN
     SELECT value
@@ -598,6 +700,7 @@ BEGIN
   INSERT INTO casework.incident_capture_runs(
     capture_id,
     capture_key,
+    wave,
     incident_evidence_id,
     cluster_id,
     capture_origin,
@@ -622,6 +725,7 @@ BEGIN
   VALUES (
     v_capture_id,
     v_capture ->> 'capture_key',
+    v_wave,
     v_incident_id,
     v_cluster_id,
     v_capture ->> 'capture_origin',
@@ -634,7 +738,11 @@ BEGIN
     (v_capture ->> 'configured_row_count')::bigint,
     (v_capture ->> 'observed_row_count')::bigint,
     (v_capture ->> 'table_size_bytes')::bigint,
-    1 + v_blocked_writer_count + v_reader_count,
+    CASE
+      WHEN v_wave = 'A'
+      THEN 1 + v_blocked_writer_count + v_reader_count
+      ELSE 1
+    END,
     (v_capture ->> 'capture_started_at')::timestamptz,
     (v_capture ->> 'capture_ended_at')::timestamptz,
     v_capture ->> 'capture_tool_version',
@@ -645,70 +753,72 @@ BEGIN
   );
   v_rows := v_rows + 1;
 
-  SELECT evidence_id
-  INTO v_change_id
-  FROM casework.evidence_items
-  WHERE evidence_kind = 'change'
-    AND external_key = v_unsafe_change_key;
-  INSERT INTO casework.lock_evidence(
-    evidence_id,
-    observation_id,
-    incident_evidence_id,
-    change_evidence_id,
-    capture_id,
-    captured_at,
-    relation_name,
-    relation_oid,
-    blocked_pid,
-    blocking_pid,
-    blocked_state,
-    blocked_query_start,
-    wait_event_type,
-    wait_event,
-    blocked_lock_mode,
-    blocked_lock_granted,
-    blocking_lock_mode,
-    blocking_lock_granted,
-    blocking_pids,
-    blocking_pids_sql,
-    blocking_pids_output,
-    blocked_statement,
-    blocking_statement,
-    raw_capture
-  )
-  VALUES (
-    v_lock_id,
-    v_lock_key,
-    v_incident_id,
-    v_change_id,
-    v_capture_id,
-    (v_lock #>> '{structured,captured_at}')::timestamptz,
-    v_lock #>> '{structured,relation_name}',
-    (v_lock #>> '{structured,relation_oid}')::oid,
-    (v_lock #>> '{structured,blocked_pid}')::integer,
-    (v_lock #>> '{structured,blocking_pid}')::integer,
-    v_lock #>> '{structured,blocked_state}',
-    (v_lock #>> '{structured,blocked_query_start}')::timestamptz,
-    v_lock #>> '{structured,wait_event_type}',
-    lower(v_lock #>> '{structured,wait_event}'),
-    v_lock #>> '{structured,blocked_lock_mode}',
-    (v_lock #>> '{structured,blocked_lock_granted}')::boolean,
-    v_lock #>> '{structured,blocking_lock_mode}',
-    (v_lock #>> '{structured,blocking_lock_granted}')::boolean,
-    ARRAY(
-      SELECT value::integer
-      FROM jsonb_array_elements_text(
-        coalesce(v_lock #> '{structured,blocking_pids}', '[]'::jsonb)
-      ) value
-    ),
-    v_lock #>> '{structured,blocking_pids_sql}',
-    v_lock #>> '{structured,blocking_pids_output}',
-    v_lock #>> '{structured,blocked_statement}',
-    v_lock #>> '{structured,blocking_statement}',
-    v_lock -> 'structured'
-  );
-  v_rows := v_rows + 1;
-  v_edges := v_edges + 2;
+  IF v_wave = 'A' THEN
+    SELECT evidence_id
+    INTO v_change_id
+    FROM casework.evidence_items
+    WHERE evidence_kind = 'change'
+      AND external_key = v_lock_change_key;
+    INSERT INTO casework.lock_evidence(
+      evidence_id,
+      observation_id,
+      incident_evidence_id,
+      change_evidence_id,
+      capture_id,
+      captured_at,
+      relation_name,
+      relation_oid,
+      blocked_pid,
+      blocking_pid,
+      blocked_state,
+      blocked_query_start,
+      wait_event_type,
+      wait_event,
+      blocked_lock_mode,
+      blocked_lock_granted,
+      blocking_lock_mode,
+      blocking_lock_granted,
+      blocking_pids,
+      blocking_pids_sql,
+      blocking_pids_output,
+      blocked_statement,
+      blocking_statement,
+      raw_capture
+    )
+    VALUES (
+      v_lock_id,
+      v_lock_key,
+      v_incident_id,
+      v_change_id,
+      v_capture_id,
+      (v_lock #>> '{structured,captured_at}')::timestamptz,
+      v_lock #>> '{structured,relation_name}',
+      (v_lock #>> '{structured,relation_oid}')::oid,
+      (v_lock #>> '{structured,blocked_pid}')::integer,
+      (v_lock #>> '{structured,blocking_pid}')::integer,
+      v_lock #>> '{structured,blocked_state}',
+      (v_lock #>> '{structured,blocked_query_start}')::timestamptz,
+      v_lock #>> '{structured,wait_event_type}',
+      lower(v_lock #>> '{structured,wait_event}'),
+      v_lock #>> '{structured,blocked_lock_mode}',
+      (v_lock #>> '{structured,blocked_lock_granted}')::boolean,
+      v_lock #>> '{structured,blocking_lock_mode}',
+      (v_lock #>> '{structured,blocking_lock_granted}')::boolean,
+      ARRAY(
+        SELECT value::integer
+        FROM jsonb_array_elements_text(
+          coalesce(v_lock #> '{structured,blocking_pids}', '[]'::jsonb)
+        ) value
+      ),
+      v_lock #>> '{structured,blocking_pids_sql}',
+      v_lock #>> '{structured,blocking_pids_output}',
+      v_lock #>> '{structured,blocked_statement}',
+      v_lock #>> '{structured,blocking_statement}',
+      v_lock -> 'structured'
+    );
+    v_rows := v_rows + 1;
+    v_edges := v_edges + 2;
+  END IF;
 
   INSERT INTO casework.pg_stat_activity_samples(
     capture_id,

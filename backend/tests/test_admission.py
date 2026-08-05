@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from threading import Barrier
 import unittest
+import uuid
 
 import psycopg
 
@@ -68,6 +69,285 @@ def _decoded(value):
     if isinstance(value, (list, tuple)):
         return type(value)(_decoded(item) for item in value)
     return value
+
+
+def _contract_record(
+    *,
+    external_key: str,
+    title: str,
+    source_uri: str,
+    occurred_at: str,
+    available_at: str,
+    body: str,
+    structured: dict,
+) -> dict:
+    return {
+        "external_key": external_key,
+        "title": title,
+        "source_uri": source_uri,
+        "occurred_at": occurred_at,
+        "available_at": available_at,
+        "body": body,
+        "structured": structured,
+        "acl": {
+            "visibility": "workshop",
+            "classifier_version": "contract-test/1",
+            "classification_reason": "no_statement_text",
+            "classification_sources": [],
+        },
+    }
+
+
+def _wave_contract_payload(
+    capture_id: uuid.UUID,
+    *,
+    wave: str,
+    incident_key: str | None = None,
+) -> dict:
+    """Build the smallest two-wave payload that exercises admission behavior.
+
+    This is a disposable-database contract input, not participant evidence. Wave
+    B deliberately contains only new validation records; copying Wave A's lock
+    observation into the later wave would make the test pass by violating the
+    additive-evidence design.
+    """
+    suffix = capture_id.hex[-8:].upper()
+    bundle_uri = f"workshop://contract-test/live-run/{capture_id}"
+    started_at = "2026-08-04T12:00:00+00:00"
+    ended_at = "2026-08-04T12:00:20+00:00"
+    own_incident_key = f"INC-{suffix}"
+    attached_incident_key = incident_key or own_incident_key
+
+    capture = {
+        "capture_id": str(capture_id),
+        "capture_key": f"CAP-{suffix}",
+        "run_suffix": suffix,
+        "capture_origin": "participant_induced",
+        "relation_name": "workbench_lab.orders",
+        "relation_oid": 4242,
+        "configured_row_count": 3_000_000,
+        "observed_row_count": 3_000_000,
+        "table_size_bytes": 268_435_456,
+        "capture_started_at": started_at,
+        "capture_ended_at": ended_at,
+        "capture_tool_version": "wave-admission-contract-test/1",
+        "manifest": {"contract_test": True},
+    }
+    if wave == "A":
+        capture.update(
+            {
+                "request_count": 12,
+                "blocked_writer_count": 10,
+                "reader_count": 0,
+                "phases": [
+                    "backfill",
+                    "pool_exhaustion",
+                    "recovery",
+                    "plan_regression",
+                ],
+                "signal_types": ["lock", "pool", "request", "wal", "meta", "plan"],
+            }
+        )
+    else:
+        capture.update(
+            {
+                "request_count": 0,
+                "blocked_writer_count": 0,
+                "reader_count": 0,
+                "phases": ["plan_regression"],
+                "signal_types": ["meta", "plan"],
+            }
+        )
+
+    records: dict[str, object]
+    if wave == "A":
+        unsafe_key = f"CHG-{suffix}-01"
+        records = {
+            "incident": _contract_record(
+                external_key=own_incident_key,
+                title="Measured online migration write stall",
+                source_uri=f"{bundle_uri}/incident",
+                occurred_at=started_at,
+                available_at=ended_at,
+                body="An unbatched backfill blocked concurrent writes.",
+                structured={
+                    "severity": "SEV-3",
+                    "status": "open",
+                    "started_at": started_at,
+                    "mitigated_at": None,
+                    "resolved_at": None,
+                    "summary": "The backfill blocked concurrent writes.",
+                    "impact_summary": "The application pool exhausted.",
+                    "resolution": None,
+                },
+            ),
+            "changes": [
+                _contract_record(
+                    external_key=unsafe_key,
+                    title="Unbatched priority-tier backfill",
+                    source_uri=f"{bundle_uri}/change/backfill",
+                    occurred_at=started_at,
+                    available_at=ended_at,
+                    body="One transaction updated all orders.",
+                    structured={
+                        "incident_external_key": own_incident_key,
+                        "change_role": "unsafe",
+                        "relationship": "confirmed",
+                        "rationale": "Captured blockers named the backfill PID.",
+                        "change_type": "ddl",
+                        "status": "completed",
+                        "started_at": started_at,
+                        "completed_at": ended_at,
+                        "owner_team": "workshop-participant",
+                        "execution_sql": (
+                            "UPDATE workbench_lab.orders "
+                            "SET priority_tier = 2"
+                        ),
+                        "description": "The unbatched backfill held row locks.",
+                        "rollback_plan": "ROLLBACK before commit.",
+                    },
+                ),
+                _contract_record(
+                    external_key=f"CHG-{suffix}-02",
+                    title="ANALYZE did not change the plan shape",
+                    source_uri=f"{bundle_uri}/change/analyze",
+                    occurred_at=ended_at,
+                    available_at=ended_at,
+                    body="ANALYZE completed but the query remained a sequential scan.",
+                    structured={
+                        "incident_external_key": own_incident_key,
+                        "change_role": "attempted_fix",
+                        "relationship": "ruled_out",
+                        "rationale": "The measured post-ANALYZE plan stayed sequential.",
+                        "change_type": "ddl",
+                        "status": "completed",
+                        "started_at": ended_at,
+                        "completed_at": ended_at,
+                        "owner_team": "workshop-participant",
+                        "execution_sql": "ANALYZE workbench_lab.orders",
+                        "description": "Statistics refresh did not add an access path.",
+                        "rollback_plan": "No rollback required.",
+                    },
+                ),
+            ],
+            "lock_evidence": _contract_record(
+                external_key=f"LOCK-{suffix}-01",
+                title="Measured blocked writer",
+                source_uri=f"{bundle_uri}/lock/primary",
+                occurred_at=started_at,
+                available_at=ended_at,
+                body="The writer waited while the migration transaction remained open.",
+                structured={
+                    "incident_external_key": own_incident_key,
+                    "change_external_key": unsafe_key,
+                    "captured_at": started_at,
+                    "relation_name": "workbench_lab.orders",
+                    "relation_oid": 4242,
+                    "blocked_pid": 2002,
+                    "blocking_pid": 2001,
+                    "blocked_state": "active",
+                    "blocked_query_start": started_at,
+                    "wait_event_type": "Lock",
+                    "wait_event": "relation",
+                    "blocked_lock_mode": "RowExclusiveLock",
+                    "blocked_lock_granted": False,
+                    "blocking_lock_mode": "ShareLock",
+                    "blocking_lock_granted": True,
+                    "blocking_pids": [2001],
+                    "blocking_pids_sql": "SELECT pg_blocking_pids(2002);",
+                    "blocking_pids_output": "{2001}",
+                    "blocked_statement": "UPDATE workbench_lab.orders SET status='x'",
+                    "blocking_statement": (
+                        "UPDATE workbench_lab.orders SET priority_tier=2"
+                    ),
+                },
+            ),
+            "telemetry_documents": [],
+        }
+    else:
+        validation_key = f"CHG-{suffix}-01"
+        records = {
+            "changes": [
+                _contract_record(
+                    external_key=validation_key,
+                    title="Participant-applied supporting index",
+                    source_uri=f"{bundle_uri}/change/index",
+                    occurred_at=started_at,
+                    available_at=ended_at,
+                    body="The participant created and validated the recommended index.",
+                    structured={
+                        "incident_external_key": attached_incident_key,
+                        "change_role": "validation",
+                        "relationship": "validates",
+                        "rationale": "The post-index plan used the measured index.",
+                        "change_type": "ddl",
+                        "status": "completed",
+                        "started_at": started_at,
+                        "completed_at": ended_at,
+                        "owner_team": "workshop-participant",
+                        "execution_sql": (
+                            "CREATE INDEX idx_orders_priority_created "
+                            "ON workbench_lab.orders(priority_tier, created_at DESC)"
+                        ),
+                        "description": "The new access path removed the sequential scan.",
+                        "rollback_plan": (
+                            "DROP INDEX workbench_lab.idx_orders_priority_created"
+                        ),
+                    },
+                )
+            ],
+            "telemetry_documents": [
+                _contract_record(
+                    external_key=f"TEL-{suffix}-PLAN01",
+                    title="Post-index query plan",
+                    source_uri=f"{bundle_uri}/telemetry/plan/1",
+                    occurred_at=ended_at,
+                    available_at=ended_at,
+                    body="The post-index checkpoint used an index scan.",
+                    structured={
+                        "incident_external_key": attached_incident_key,
+                        "change_external_key": validation_key,
+                        "telemetry_type": "remediation_observation",
+                        "observation_number": 1,
+                        "observed_until": ended_at,
+                        "phase": "plan_regression",
+                        "signal_type": "plan",
+                    },
+                )
+            ],
+        }
+
+    payload = {
+        "schema": "admission payload v1",
+        "kind": "incident_bundle",
+        "wave": wave,
+        "source": {
+            "system": "pg_incident_capture",
+            "uri": bundle_uri,
+            "observation_window": {"start": started_at, "end": ended_at},
+        },
+        "database": {
+            "cluster_id": "contract-test-cluster",
+            "database_name": "dat410_review_remediation_test",
+            "engine": "aurora-postgresql",
+            "engine_version": "18.3",
+            "aws_region": "us-east-1",
+            "instance_class": "db.r8g.xlarge",
+            "endpoint": "contract-test.cluster.local",
+        },
+        "capture": capture,
+        "telemetry": {
+            "pg_stat_activity": [],
+            "pg_locks": [],
+            "pg_blocking_pids": [],
+            "pg_stat_statements": [],
+            "cloudwatch_metrics": [],
+        },
+        "records": records,
+    }
+    if wave == "B":
+        payload["incident_key"] = attached_incident_key
+    return payload
 
 
 class DatabaseInsightsRemovalTest(unittest.TestCase):
@@ -273,6 +553,163 @@ class AdmissionSchemaTest(unittest.TestCase):
             """
         ).fetchone()
         self.assertEqual(_decoded(column), ("NO",))
+
+
+@unittest.skipUnless(
+    TEST_DSN and RESET_OK,
+    "needs TEST_DATABASE_URL + ALLOW_TEST_DATABASE_RESET=1",
+)
+class WaveAdmissionTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.connection = psycopg.connect(TEST_DSN, autocommit=True)
+        _assert_disposable_database(self.connection)
+        _apply_schema(self.connection, reset=True)
+
+    def tearDown(self) -> None:
+        self.connection.close()
+
+    def _admit(self, payload: dict) -> dict:
+        return self.connection.execute(
+            "SELECT casework.admit_evidence(%s::jsonb)",
+            (json.dumps(payload),),
+        ).fetchone()[0]
+
+    def test_wave_b_attaches_to_one_incident_and_replays_idempotently(self) -> None:
+        wave_a = _wave_contract_payload(uuid.uuid4(), wave="A")
+        wave_a_receipt = self._admit(wave_a)
+        incident_key = wave_a["records"]["incident"]["external_key"]
+        incident_source_uri = self.connection.execute(
+            """
+            SELECT source_uri
+            FROM casework.evidence_items
+            WHERE evidence_kind = 'incident' AND external_key = %s
+            """,
+            (incident_key,),
+        ).fetchone()[0]
+
+        wave_b = _wave_contract_payload(
+            uuid.uuid4(),
+            wave="B",
+            incident_key=incident_key,
+        )
+        wave_b_receipt = self._admit(wave_b)
+        counts_before_replay = self.connection.execute(
+            """
+            SELECT
+              (SELECT count(*) FROM casework.evidence_items
+               WHERE evidence_kind = 'incident'),
+              (SELECT count(*) FROM casework.incident_capture_runs),
+              (SELECT count(*) FROM casework.ingest_receipts),
+              (SELECT count(*) FROM casework.incident_changes
+               WHERE relationship = 'validates')
+            """
+        ).fetchone()
+
+        replay = self._admit(wave_b)
+        counts_after_replay = self.connection.execute(
+            """
+            SELECT
+              (SELECT count(*) FROM casework.evidence_items
+               WHERE evidence_kind = 'incident'),
+              (SELECT count(*) FROM casework.incident_capture_runs),
+              (SELECT count(*) FROM casework.ingest_receipts),
+              (SELECT count(*) FROM casework.incident_changes
+               WHERE relationship = 'validates')
+            """
+        ).fetchone()
+
+        self.assertFalse(wave_a_receipt["idempotent_replay"])
+        self.assertFalse(wave_b_receipt["idempotent_replay"])
+        self.assertTrue(replay["idempotent_replay"])
+        self.assertEqual(wave_b_receipt["ingest_id"], replay["ingest_id"])
+        self.assertEqual(counts_before_replay, (1, 2, 2, 1))
+        self.assertEqual(counts_after_replay, counts_before_replay)
+        self.assertEqual(
+            _decoded(
+                self.connection.execute(
+                    """
+                    SELECT array_agg(wave ORDER BY wave)
+                    FROM casework.incident_capture_runs
+                    """
+                ).fetchone()[0]
+            ),
+            ["A", "B"],
+        )
+        self.assertEqual(
+            self.connection.execute(
+                """
+                SELECT source_uri
+                FROM casework.evidence_items
+                WHERE evidence_kind = 'incident' AND external_key = %s
+                """,
+                (incident_key,),
+            ).fetchone()[0],
+            incident_source_uri,
+            "Wave B must not replace the stable Wave A incident source URI",
+        )
+
+    def test_failed_wave_b_leaves_wave_a_intact(self) -> None:
+        wave_a = _wave_contract_payload(uuid.uuid4(), wave="A")
+        self._admit(wave_a)
+        incident_key = wave_a["records"]["incident"]["external_key"]
+        wave_b = _wave_contract_payload(
+            uuid.uuid4(),
+            wave="B",
+            incident_key=incident_key,
+        )
+        wave_b["records"]["changes"][0]["structured"]["relationship"] = "remediated"
+
+        with self.assertRaises(psycopg.errors.InvalidParameterValue):
+            self._admit(wave_b)
+
+        self.assertEqual(
+            self.connection.execute(
+                """
+                SELECT
+                  (SELECT count(*) FROM casework.incident_capture_runs),
+                  (SELECT count(*) FROM casework.ingest_receipts),
+                  (SELECT count(*) FROM casework.evidence_items
+                   WHERE evidence_kind = 'incident')
+                """
+            ).fetchone(),
+            (1, 1, 1),
+        )
+
+    def test_wave_b_requires_an_existing_incident(self) -> None:
+        wave_b = _wave_contract_payload(
+            uuid.uuid4(),
+            wave="B",
+            incident_key="INC-DOESNOTEXIST",
+        )
+        with self.assertRaises(psycopg.errors.InvalidParameterValue) as caught:
+            self._admit(wave_b)
+        self.assertIn("has no Wave A capture", str(caught.exception))
+
+    def test_wave_b_cannot_attach_across_clusters(self) -> None:
+        wave_a = _wave_contract_payload(uuid.uuid4(), wave="A")
+        self._admit(wave_a)
+        incident_key = wave_a["records"]["incident"]["external_key"]
+        wave_b = _wave_contract_payload(
+            uuid.uuid4(),
+            wave="B",
+            incident_key=incident_key,
+        )
+        wave_b["database"]["cluster_id"] = "different-contract-test-cluster"
+
+        with self.assertRaises(psycopg.errors.InvalidParameterValue) as caught:
+            self._admit(wave_b)
+
+        self.assertIn("has no Wave A capture", str(caught.exception))
+        self.assertEqual(
+            self.connection.execute(
+                """
+                SELECT
+                  (SELECT count(*) FROM casework.incident_capture_runs),
+                  (SELECT count(*) FROM casework.ingest_receipts)
+                """
+            ).fetchone(),
+            (1, 1),
+        )
 
 
 @unittest.skipUnless(

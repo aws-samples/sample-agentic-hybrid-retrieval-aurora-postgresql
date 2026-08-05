@@ -184,6 +184,7 @@ $$;
 CREATE TABLE IF NOT EXISTS casework.incident_capture_runs (
   capture_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   capture_key text NOT NULL UNIQUE,
+  wave text NOT NULL DEFAULT 'A' CHECK (wave IN ('A', 'B')),
   incident_evidence_id uuid NOT NULL
     REFERENCES casework.incidents(evidence_id) ON DELETE RESTRICT,
   cluster_id text NOT NULL
@@ -215,6 +216,24 @@ CREATE TABLE IF NOT EXISTS casework.incident_capture_runs (
     AND source_bundle_sha256 IS NOT NULL
   )
 );
+
+ALTER TABLE casework.incident_capture_runs
+  ADD COLUMN IF NOT EXISTS wave text;
+
+UPDATE casework.incident_capture_runs
+SET wave = 'A'
+WHERE wave IS NULL;
+
+ALTER TABLE casework.incident_capture_runs
+  ALTER COLUMN wave SET DEFAULT 'A',
+  ALTER COLUMN wave SET NOT NULL;
+
+ALTER TABLE casework.incident_capture_runs
+  DROP CONSTRAINT IF EXISTS incident_capture_runs_wave_check;
+
+ALTER TABLE casework.incident_capture_runs
+  ADD CONSTRAINT incident_capture_runs_wave_check
+  CHECK (wave IN ('A', 'B'));
 
 CREATE TABLE IF NOT EXISTS casework.lock_evidence (
   evidence_id uuid PRIMARY KEY REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
@@ -509,7 +528,13 @@ CREATE TABLE IF NOT EXISTS casework.incident_changes (
   incident_evidence_id uuid NOT NULL REFERENCES casework.incidents(evidence_id) ON DELETE RESTRICT,
   change_evidence_id uuid NOT NULL REFERENCES casework.changes(evidence_id) ON DELETE RESTRICT,
   relationship text NOT NULL CHECK (
-    relationship IN ('suspected', 'confirmed', 'ruled_out', 'remediated')
+    relationship IN (
+      'suspected',
+      'confirmed',
+      'ruled_out',
+      'remediated',
+      'validates'
+    )
   ),
   rationale text NOT NULL,
   confirmed_by text,
@@ -521,7 +546,15 @@ ALTER TABLE casework.incident_changes
 
 ALTER TABLE casework.incident_changes
   ADD CONSTRAINT incident_changes_relationship_check
-  CHECK (relationship IN ('suspected', 'confirmed', 'ruled_out', 'remediated'));
+  CHECK (
+    relationship IN (
+      'suspected',
+      'confirmed',
+      'ruled_out',
+      'remediated',
+      'validates'
+    )
+  );
 
 CREATE OR REPLACE FUNCTION casework.sha256_text(value text)
 RETURNS text
