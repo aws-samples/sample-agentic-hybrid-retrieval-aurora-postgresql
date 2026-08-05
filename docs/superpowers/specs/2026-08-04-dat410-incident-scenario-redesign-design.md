@@ -90,6 +90,27 @@ testing sections around that contract.
   `casework.pg_stat_statements_samples.queries` — the two columns the masking module already
   protects. Same rule, same live-data-only footing, different source column. A hardcoded
   list of keys to label restricted would be authored data and is not acceptable.
+
+  **Scope of that update: the evidence layer, not the participant path.** Three boundaries
+  hold, and the third is what keeps the first two from drifting:
+  1. **The classification is replayable.** Every label carries the classifier version, a
+     machine-readable reason from a closed vocabulary, and the identifiers of the measured
+     samples it was read from. `casework.admit_evidence` requires all four and rejects a
+     record that omits any — replacing the silent `workshop` default, which was a
+     classification the database invented on a producer's behalf and which failed
+     unrestricted.
+  2. **G-27 and G-29 stay optional-security release gates.** They are registered in
+     `gates/checks.sh`'s `SECURITY_GATES`, not `CORE_GATES`, and the no-argument sweep both
+     omits them and forces `WORKBENCH_SECURITY_ENABLED=0` (measured: a sweep run with that
+     variable set to 1 still executed only the seven core gates). A red security gate means
+     the optional RLS lab is not releasable; it never means the workshop is not releasable.
+     The optional lab is releasable only against a real mixed-visibility capture — both
+     `workshop` and `restricted` rows present, counts recorded, classifier version recorded.
+  3. **Lab 3 stays retrieval-first.** Persona switching, `SET LOCAL ROLE`, and restricted
+     citations are not requirements of any core lab, and the canonical Lab 3 answer resolves
+     identically on a database that has never run `make security-schema`. Carrying the
+     classification forward is an evidence-layer obligation and an audit-trail obligation.
+     It is not permission to put the optional module on the one-hour critical path.
 - Aurora PostgreSQL owns ranking; this redesign is about evidence generation shape, not about
   moving ranking logic anywhere else.
 

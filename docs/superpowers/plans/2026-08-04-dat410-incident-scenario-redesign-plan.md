@@ -39,6 +39,17 @@
 - **No new fragile external dependency.** Reuse the existing FastAPI pool (`backend/app/db.py`, `DB_POOL_MAX_SIZE=10`) for pool exhaustion. Do not add RDS Proxy, PgBouncer, pgbench, JMeter, or ECS/Lambda-driven load generation. CloudWatch stays best-effort, non-gating, never blocking the pipeline.
 - **Participant-facing incident time (Lab 1's induce/capture) stays under the 5–8 minute ceiling.** Bootstrap (3M-row table creation) is pre-session Workshop Studio provisioning time, not counted against this ceiling.
 - **Preserve the optional RLS/masking lab and AgentCore lab** unless a task below finds a specific, concrete incompatibility (none anticipated — neither touches `workbench_lab` or the incident-generation code path today).
+- **The optional security module is never on the one-hour critical path, and the gate split that enforces this already exists.** `gates/checks.sh:36-52` registers G-11, G-13, G-14, G-17, G-21, G-23, and G-25 as `CORE_GATES` and G-27, G-29, G-30, and G-31 as `SECURITY_GATES`. Running `gates/checks.sh` with no arguments populates `WANT` from `CORE_GATES` only *and* forces `export WORKBENCH_SECURITY_ENABLED=0` (`:58`), so the core sweep cannot be turned into a security sweep by an environment variable — measured: `WORKBENCH_SECURITY_ENABLED=1 FAIL_ON_BLOCKED=1 gates/checks.sh` ran exactly seven gates and G-27 never executed. The security gates run only when named by ID (`gates/checks.sh G-27 G-29 G-30 G-31`). Three rules follow, and they bind every task in this plan:
+  - **No task may move a security gate into `CORE_GATES`, and no task may describe G-27, G-29, G-30, or G-31 as blocking core participant readiness.** A red security gate means the optional RLS lab is not releasable; it does not mean the workshop is not releasable.
+  - **Lab 3 stays retrieval-first.** No task may make persona switching, `SET LOCAL ROLE`, a restricted citation, or any `acl_visible`/`acl_scalars_visible` behaviour a requirement of Labs 1–4's core path. Phase D contains no such requirement today (verified by grep across the whole phase) and must not acquire one. The canonical Lab 3 answer must resolve identically on a database that has never run `make security-schema`.
+  - **The optional RLS lab is releasable only against a real mixed-visibility capture** — see the optional-security release criteria below. This is a separate, later gate on a separate deliverable, not a precondition for freezing the core workshop.
+- **Optional-security release criteria (separate from core participant readiness).** The core workshop is releasable when Task G3 Step 1's default sweep is green. The *optional RLS/masking lab* is releasable only when all three of the following hold, and none of them is a precondition for the core freeze:
+  1. `WORKBENCH_SECURITY_ENABLED=1 FAIL_ON_BLOCKED=1 gates/checks.sh G-27 G-29 G-30 G-31` exits 0 against a database that has had `make security-schema` applied.
+  2. That database holds a **real mixed-visibility capture** produced by an actual `make live-workshop` run: at least one `casework.evidence_items` row with `acl ->> 'visibility' = 'restricted'` **and** at least one with `'workshop'`, both classified by Task C1's classifier from the participant's own measured statement text. A corpus that is uniformly `workshop` or uniformly `restricted` proves nothing about row filtering, and a hand-labelled row is authored data — forbidden by live-data-only however it is dressed up.
+  3. The recorded evidence names the counts, not just the verdicts: the restricted row count, the workshop row count, and the classifier version that produced them. "G-27 PASS" without a count cannot distinguish a working mechanism from one that happened to fire.
+  Until (2) exists, G-27 and G-29 have nothing to judge and their result is not release evidence for the optional lab in either direction. Say so plainly rather than recording a green sweep against an unmixed corpus.
+- **Every classification is replayable: version, reason, and sources travel with the row.** Any code in this plan that assigns `acl.visibility` must record, alongside the value, the classifier version that produced it, the machine-readable reason it fired, and the identifiers of the measured samples the decision was read from. Task C1 defines the fields, Task C2 threads them into the admission payload, Task A2 makes the ACL explicit and required at the admission boundary. A visibility label with no recorded reason cannot be audited, cannot be replayed, and cannot be distinguished from a hand-labelled one — which is exactly the accusation live-data-only exists to defeat.
+- **`casework.admit_evidence` must require an explicit ACL and never silently default one.** `sql/10_admission.sql:418` currently reads `coalesce(v_record -> 'acl', '{"visibility":"workshop"}'::jsonb)`, so a producer that forgets the field gets a silently unrestricted corpus and no error anywhere. Task A2 replaces that default with a `RAISE`-guarded requirement. Silence at a classification boundary is the failure mode; a loud rejection is the fix.
 - **Aurora PostgreSQL owns ranking.** This redesign changes evidence generation shape; it never moves fusion/rerank logic out of `sql/03_search_functions.sql` or into the agent/frontend.
 - **New gate IDs start at G-32** (G-31 is the highest existing gate anywhere in the codebase, confirmed via `gates/*.py` and `gates/checks.sh`).
 - **Test convention, matching existing files exactly:** `TEST_DATABASE_URL` + `ALLOW_TEST_DATABASE_RESET=1`, database name must end in `_test`, `_apply_schema(connection, reset=True)` pattern from `backend/tests/test_admission.py`/`test_incident_lab.py`. Never run destructive tests against `DATABASE_URL` alone — always verify `current_database()` first.
@@ -1226,8 +1237,9 @@ justification, and the scan is fast.
   telemetry floors (`pg_stat_activity < 270`, `pg_locks < 270`,
   `pg_blocking_pids < 180`), the "30 distinct observation numbers per series"
   checks, `pg_stat_statements <> 3`, `cloudwatch_metrics <> 5`, the
-  `100 OR > 120` telemetry-document bound, and the "exactly 30 each of
-  `activity_window` / `lock_topology` / `blocking_chain`" checks
+  `100 OR > 120` telemetry-document bound, the "exactly 30 each of
+  `activity_window` / `lock_topology` / `blocking_chain`" checks, **and the silent
+  ACL default at `:418`** (`coalesce(v_record -> 'acl', '{"visibility":"workshop"}'::jsonb)`)
 - Modify: `backend/scripts/doctor.py:383-389` — the `104 <= total <= 124`,
   `100 <= telemetry <= 120`, `changes != 2`, `incidents != 1`, `locks != 1`
   bounds
@@ -1237,8 +1249,43 @@ justification, and the scan is fast.
 - Consumes: Task A1's payload contract (no `database_insights` key).
 - Produces: the exact payload shape the Phase B orchestrator must emit —
   `request_count = 12`, `blocked_writer_count = 10`, `reader_count = 0`, four named
-  phases, and behavior-derived document counts rather than fixed ones. Phase B's
-  payload builder is written against this and nothing else.
+  phases, behavior-derived document counts rather than fixed ones, and a **required,
+  explicit four-key `acl` object on every record** (`visibility`,
+  `classifier_version`, `classification_reason`, `classification_sources`). Phase B's
+  payload builder and Task C2's admission wiring are written against this and
+  nothing else.
+
+**The ACL becomes explicit and required, replacing a silent default.** Line 418 today
+reads `coalesce(v_record -> 'acl', '{"visibility":"workshop"}'::jsonb)`. That
+`coalesce` is a classification decision made by the database on behalf of a producer
+that forgot to make one, and it fails in the most expensive direction: a whole corpus
+comes out unrestricted, no error is raised anywhere, and the only downstream signal is
+an optional-security gate that the default sweep does not run. Two things change here,
+and they are independent:
+
+1. **The `acl` object is required** — a record without one is a rejection, not a
+   `workshop` row.
+2. **The classification must be replayable** — per the Global Constraints
+   replayability rule, `classifier_version`, `classification_reason`, and
+   `classification_sources` are required alongside `visibility`, and a `restricted`
+   label with an empty `classification_sources` array is rejected because nothing can
+   re-derive it.
+
+`visibility` is constrained to exactly `workshop` or `restricted`. Do not accept a
+third value "for future use": `retrieval.acl_visible` and
+`retrieval.acl_scalars_visible` both compute
+`coalesce(... , 'restricted') = 'workshop'` (`sql/03_search_functions.sql:13,34`), so
+any unrecognized value silently reads as restricted and the row vanishes from every
+retrieval arm with no error. Reject it at admission, where the message can name the
+offending value.
+
+**This is the admission boundary's job, not the builder's.** Task C1's classifier is
+what produces the values and Task C2 is what sends them, but neither can protect
+against a *future* producer — an exercise script, a replay harness, a sibling repo's
+tooling — that writes a bundle by hand. `admit_evidence` is the single write boundary
+(`sql/11_roles_rls.sql:398` grants `workshop_participant` execute on it and nothing
+else in `casework`), so it is the only place the requirement holds for every producer
+that will ever exist.
 
 **The payload carries two distinct counts, and collapsing them is a defect.**
 `request_count` is how many hot-write requests were launched
@@ -1291,26 +1338,129 @@ magic number here.
         self.assertNotIn("v_writer_count", sql)
         self.assertIn("v_request_count", sql)
         self.assertIn("v_blocked_writer_count", sql)
+
+    def test_admission_never_defaults_a_missing_acl(self) -> None:
+        """A silent default is a classification the database invented for a
+        producer that made none, and it fails unrestricted: the whole corpus comes
+        out 'workshop' with no error on any surface the default gate sweep runs.
+        """
+        sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
+        self.assertNotIn("""coalesce(v_record -> 'acl'""", sql)
+        self.assertIn("v_record -> 'acl' IS NULL", sql)
+```
+
+  These three are static file assertions and run without a database. The next four
+  exercise the live function and belong in the existing DSN-gated admission class
+  (`AdmissionTests`, the one with `setUp` applying the schema), because a rejection
+  message is only worth asserting on the engine that raises it:
+
+```python
+    def test_record_without_an_acl_is_rejected(self) -> None:
+        payload = self._payload_copy()
+        del payload["records"]["lock_evidence"]["acl"]
+        with self.assertRaises(psycopg.errors.RaiseException) as caught:
+            self._admit(payload)
+        self.assertIn("acl", str(caught.exception))
+        self.assertEqual(
+            self.connection.execute(
+                "SELECT count(*) FROM casework.evidence_items"
+            ).fetchone()[0],
+            0,
+            "a rejected bundle must leave zero rows",
+        )
+
+    def test_unknown_visibility_value_is_rejected(self) -> None:
+        """retrieval.acl_visible computes coalesce(..., 'restricted') = 'workshop',
+        so an unrecognized value reads as restricted and the row silently vanishes
+        from every retrieval arm. Reject it where the message can name it.
+        """
+        payload = self._payload_copy()
+        payload["records"]["lock_evidence"]["acl"]["visibility"] = "internal"
+        with self.assertRaises(psycopg.errors.RaiseException) as caught:
+            self._admit(payload)
+        self.assertIn("internal", str(caught.exception))
+
+    def test_record_missing_classification_provenance_is_rejected(self) -> None:
+        for absent in (
+            "classifier_version",
+            "classification_reason",
+            "classification_sources",
+        ):
+            with self.subTest(absent=absent):
+                payload = self._payload_copy()
+                del payload["records"]["lock_evidence"]["acl"][absent]
+                with self.assertRaises(psycopg.errors.RaiseException) as caught:
+                    self._admit(payload)
+                self.assertIn(absent, str(caught.exception))
+
+    def test_restricted_without_sources_is_rejected(self) -> None:
+        payload = self._payload_copy()
+        acl = payload["records"]["lock_evidence"]["acl"]
+        acl["visibility"] = "restricted"
+        acl["classification_reason"] = "statement_text_present"
+        acl["classification_sources"] = []
+        with self.assertRaises(psycopg.errors.RaiseException) as caught:
+            self._admit(payload)
+        self.assertIn("classification_sources", str(caught.exception))
 ```
 
 - [ ] **Step 2: Run it and confirm it fails.**
 
 ```bash
-.venv/bin/python -m pytest backend/tests/test_admission.py::AdmissionTests::test_admission_contract_matches_the_four_phase_mechanism -v
+.venv/bin/python -m pytest backend/tests/test_admission.py -k "four_phase_mechanism or never_defaults_a_missing_acl" -v
 ```
 
-Expected: FAIL — `stale contract still present: observation_count <> 30`.
+Expected: both FAIL — `stale contract still present: observation_count <> 30` and
+`'coalesce(v_record -> \'acl\'' unexpectedly found in ...`. The four live tests
+require `TEST_DATABASE_URL` and a payload whose records already carry the four-key
+`acl` object; until Task C2 produces one they will error on the `_payload_copy()`
+fixture rather than fail on the assertion. Run them at Step 5 against the real
+payload, not here — and say so in the report rather than deleting them to get a
+clean run.
 
 - [ ] **Step 3: Rewrite the contract.** In `sql/10_admission.sql`, replace the
   scale block with structural checks. The writer count is pinned to the pool max
   (a real contract, not a magic number); readers are gone because the new
-  mechanism has no reader sessions; the phase set is closed:
+  mechanism has no reader sessions; the phase set is closed.
+
+  **First declare and assign the five values, because none of them exists yet.**
+  Today's scale block reads the capture object inline
+  (`(v_capture ->> 'observation_count')::integer <> 30`, `sql/10_admission.sql:134-136`)
+  and the function's `DECLARE` block has no `v_writer_count`, `v_reader_count`, or
+  anything like them (verified by grep). The checks below name variables, so add them
+  to the `DECLARE` block alongside `v_capture` and its siblings, assigned from the
+  capture object the same way the existing declarations are:
 
 ```sql
+  v_request_count integer := (v_capture ->> 'request_count')::integer;
+  v_blocked_writer_count integer := (v_capture ->> 'blocked_writer_count')::integer;
+  v_reader_count integer := (v_capture ->> 'reader_count')::integer;
+  v_phases jsonb := v_capture -> 'phases';
+  v_signal_types jsonb := v_capture -> 'signal_types';
+```
+
+  A non-integer in one of the three count fields raises `invalid_text_representation`
+  from the `DECLARE` block, before any check runs, with a message that does not name
+  the field. Guard the three of them first so the failure is legible, then run the
+  structural checks:
+
+```sql
+  IF v_request_count IS NULL
+     OR v_blocked_writer_count IS NULL
+     OR v_reader_count IS NULL
+     OR jsonb_typeof(v_phases) IS DISTINCT FROM 'array'
+     OR jsonb_typeof(v_signal_types) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION
+      'admission rejected: capture must carry integer request_count, '
+      'blocked_writer_count, and reader_count plus phases and signal_types arrays'
+      USING ERRCODE = '22023';
+  END IF;
+
   IF v_blocked_writer_count <> 10 THEN
     RAISE EXCEPTION
       'admission rejected: blocked_writer_count must equal DB_POOL_MAX_SIZE (10), got %',
-      v_blocked_writer_count;
+      v_blocked_writer_count
+      USING ERRCODE = '22023';
   END IF;
 
   IF v_request_count <= v_blocked_writer_count THEN
@@ -1318,22 +1468,33 @@ Expected: FAIL — `stale contract still present: observation_count <> 30`.
       'admission rejected: request_count (%) must exceed blocked_writer_count (%); '
       'a run where every request obtained a connection produced no wait queue and '
       'therefore no pool exhaustion',
-      v_request_count, v_blocked_writer_count;
+      v_request_count, v_blocked_writer_count
+      USING ERRCODE = '22023';
   END IF;
 
   IF v_reader_count <> 0 THEN
     RAISE EXCEPTION
       'admission rejected: the four-phase mechanism has no reader sessions, got %',
-      v_reader_count;
+      v_reader_count
+      USING ERRCODE = '22023';
   END IF;
 
   IF NOT (
     v_phases @> '["backfill","pool_exhaustion","recovery","plan_regression"]'::jsonb
   ) THEN
     RAISE EXCEPTION
-      'admission rejected: missing incident phases, got %', v_phases;
+      'admission rejected: missing incident phases, got %', v_phases
+      USING ERRCODE = '22023';
   END IF;
 ```
+
+  Every one of the function's 19 `RAISE EXCEPTION` statements sets an explicit
+  `ERRCODE` — 17 use `'22023'` (`invalid_parameter_value`) for contract violations and
+  two use `'23505'` for external-key collisions (`:374`, `:391`) — so the new checks
+  must set one too. Contract violations take `'22023'`. The SQLSTATE is what
+  distinguishes a contract rejection from an internal error; omitting it on the new
+  checks alone would leave them raising the default `P0001` in a function where
+  nothing else does.
 
   Delete the `pg_stat_statements`, `cloudwatch_metrics <> 5`, and
   `100 OR > 120` telemetry-document bounds outright — CloudWatch is best-effort
@@ -1353,7 +1514,75 @@ Expected: FAIL — `stale contract still present: observation_count <> 30`.
   In `backend/scripts/doctor.py:383-389`, replace the fixed bounds with the same
   structural shape: assert at least one document per signal type and at least one
   document per phase, and drop the `changes != 2` / `incidents != 1` /
-  `locks != 1` equalities.
+  `locks != 1` equalities. **Do not add a persona, RLS, or masking check to
+  `doctor.py`** — it is persona-free today (verified by grep) and it runs on the
+  default participant path, where the optional module does not exist.
+
+- [ ] **Step 3a: Make the ACL explicit and required.** This edit is inside the
+  `FOR v_kind, v_record IN ... LOOP` body that starts at `sql/10_admission.sql:337`,
+  in the existing required-field validation block at `:353-362` — the same block that
+  already rejects a missing `external_key`, `title`, `occurred_at`, or `structured`.
+  Put the ACL checks there rather than in a new block: one rejection site for
+  malformed records means one place to read, and the surrounding transaction
+  guarantees zero rows on any raise:
+
+```sql
+    IF v_record -> 'acl' IS NULL THEN
+      RAISE EXCEPTION
+        'admission rejected: % record % carries no acl; visibility must be '
+        'classified by the producer, never defaulted here',
+        v_kind, v_external_key
+        USING ERRCODE = '22023';
+    END IF;
+
+    v_acl := v_record -> 'acl';
+    IF v_acl ->> 'visibility' NOT IN ('workshop', 'restricted') THEN
+      RAISE EXCEPTION
+        'admission rejected: % record % has acl.visibility %; the only values are '
+        'workshop and restricted, and any other value reads as restricted in '
+        'retrieval.acl_visible and silently removes the row from every arm',
+        v_kind, v_external_key, coalesce(v_acl ->> 'visibility', '<null>')
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF v_acl ->> 'classifier_version' IS NULL
+       OR v_acl ->> 'classification_reason' IS NULL
+       OR jsonb_typeof(v_acl -> 'classification_sources') IS DISTINCT FROM 'array' THEN
+      RAISE EXCEPTION
+        'admission rejected: % record % is missing acl classification provenance; '
+        'classifier_version, classification_reason, and a classification_sources '
+        'array are all required so the label can be replayed',
+        v_kind, v_external_key
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF v_acl ->> 'visibility' = 'restricted'
+       AND jsonb_array_length(v_acl -> 'classification_sources') = 0 THEN
+      RAISE EXCEPTION
+        'admission rejected: % record % is restricted with an empty '
+        'classification_sources array; a label nothing can re-derive is '
+        'indistinguishable from a hand-written one',
+        v_kind, v_external_key
+        USING ERRCODE = '22023';
+    END IF;
+```
+
+  Declare `v_acl jsonb;` alongside the function's other loop locals. Then replace
+  line 418's `coalesce(v_record -> 'acl', '{"visibility":"workshop"}'::jsonb)` in the
+  `INSERT INTO casework.evidence_items` column list with the bare `v_acl`.
+
+  Two things this step must **not** do:
+  - **Do not change `casework.evidence_items.acl`'s column default**
+    (`sql/01_schema.sql:44`, `DEFAULT '{"visibility":"workshop"}'::jsonb`). That
+    default serves inserts that name no `acl` column at all —
+    `backend/tests/test_admission.py:419`'s collision fixture is one — and this task
+    owns the admission contract, not the table's shape. The requirement belongs at
+    the write boundary every producer must pass through.
+  - **Do not reject the retired `acl.principals` key if a payload still carries it.**
+    `sql/01_schema.sql:91-101` normalizes the one legacy stamp
+    (`principals ? 'support-lead'`) into `visibility='restricted'` on every schema
+    apply. Rejecting it would make that migration unreachable; ignoring it is
+    correct, because `visibility` is the single classification axis now.
 
 - [ ] **Step 4: Run the test plus the admission suite.**
 
@@ -1361,7 +1590,20 @@ Expected: FAIL — `stale contract still present: observation_count <> 30`.
 .venv/bin/python -m pytest backend/tests/test_admission.py -v
 ```
 
-Expected: PASS on the new test.
+Expected: PASS on the three static tests. The four ACL rejection tests need
+`TEST_DATABASE_URL` plus a payload carrying the four-key `acl` object and will skip
+or error until Task C2 emits one — report which, and do not weaken them to get green.
+
+**Ordering consequence to record, not to fix here.** Between this task and Task C2
+the repository is in a deliberately inconsistent state: `admit_evidence` requires the
+four-key `acl` object, and `labs/incident/run_live_workshop.py:927` still emits only
+`{"visibility": _measured_visibility(structured)}`. A live `make live-workshop` run in
+that window is rejected at admission with the provenance message. That is the correct
+failure — loud, specific, and naming the missing keys — and it is strictly better than
+the alternative ordering, where C2 emits provenance that nothing validates. Two things
+follow: do **not** add a compatibility shim that accepts a `visibility`-only ACL, and
+do state the window explicitly in the commit message so whoever bisects a failing live
+run in it knows why.
 
 - [ ] **Step 5: Live-Aurora acceptance criteria.** Apply and confirm the function
   rejects an old-shaped payload with the *new* message (proving the new contract
@@ -1393,6 +1635,53 @@ DB_POOL_MAX_SIZE (10)`. Build `/tmp/old_shaped_payload.json` by dumping the
 payload the current orchestrator emits (`--output-dir` receipt) before Phase B
 changes it; delete the file afterward.
 
+  **That first check does not prove the ACL contract, so prove it separately.** The
+  capture-level scale block runs before the `FOR v_kind, v_record IN ... LOOP` at
+  `sql/10_admission.sql:337`, so an old-shaped payload is rejected on
+  `blocked_writer_count` and never reaches step 3a's validation — a passing step-5
+  run says nothing about the ACL. Take the same payload, patch the capture object so
+  it satisfies step 3, and strip the `acl` from the one record that reaches the loop
+  first. The records live under `payload['records']`, which is an **object** with the
+  keys `incident`, `changes` (an array), `lock_evidence`, and `telemetry_documents`
+  (an array) — read from `payload #> '{records,incident}'` and siblings in the
+  `DECLARE` block (`:44-48`) — and the loop's `UNION ALL` puts `incident` first:
+
+```bash
+DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
+  .venv/bin/python -c "
+import json, psycopg
+from psycopg.types.json import Jsonb
+from backend.app.config import get_settings
+dsn = get_settings().database_url
+with psycopg.connect(dsn, autocommit=True) as conn:
+    name = conn.execute('SELECT current_database()').fetchone()[0]
+    assert name.endswith('_test'), f'SAFETY ABORT: {name}'
+    payload = json.loads(open('/tmp/old_shaped_payload.json').read())
+    capture = payload['capture']
+    capture['request_count'] = 12
+    capture['blocked_writer_count'] = 10
+    capture['reader_count'] = 0
+    capture['phases'] = ['backfill', 'pool_exhaustion', 'recovery', 'plan_regression']
+    capture['signal_types'] = ['lock', 'pool', 'request', 'wal', 'meta', 'plan']
+    payload['records']['incident'].pop('acl', None)
+    try:
+        conn.execute('SELECT casework.admit_evidence(%s::jsonb)', (Jsonb(payload),))
+    except psycopg.errors.RaiseException as exc:
+        print('rejected as expected:', exc)
+    else:
+        raise SystemExit('FAILED: a record with no acl was accepted')
+"
+```
+
+  Expected: the rejection names the incident record and says its visibility must be
+  classified by the producer and never defaulted here. If it instead names
+  `blocked_writer_count`, a phase, or a signal type, the capture patch above did not
+  cover every check step 3 added — read the message, extend the patch, and re-run. If
+  it names a *different* missing field (`source_uri`, `occurred_at`), the dumped
+  payload predates more than the ACL change; regenerate it rather than hand-editing
+  further. Two independent rejections, one per contract, are the acceptance bar. One
+  rejection cannot prove both, because the checks are ordered and the first one wins.
+
 - [ ] **Step 6: Cleanup and failure recovery.** `admit_evidence` already wraps
   every insert in one transaction with an advisory lock and a receipt lookup, so
   a rejected payload leaves zero rows — Gate-style verification is a row count,
@@ -1412,7 +1701,14 @@ Expected: unchanged from before the rejection. Remove
 - [ ] **Step 7: Participant-facing changes.** None directly, but the rejection
   messages are participant-visible when a run fails. They must name the specific
   violated condition and the observed value (as above) — never a bare
-  "admission rejected."
+  "admission rejected." The ACL rejections in step 3a are held to the same standard:
+  each names the record, the offending key, and why the requirement exists, because
+  a participant seeing `admission rejected: acl` has been told nothing.
+
+  The ACL requirement adds **no** participant ceremony. It constrains what the
+  orchestrator emits, not anything the participant types, and it does not require
+  `make security-schema`, a persona, or the optional module — the four keys are
+  present on the default path because Task C1's classifier always produces them.
 
 - [ ] **Step 8: Commit.**
 
@@ -1423,6 +1719,20 @@ git commit -m "Re-derive the admission capture contract for four phases"
 
 **Dependencies:** Task A1 (the `database_insights` key must already be gone from
 the contract, or this task's structural checks fight the old validation block).
+
+**Downstream consequences of the explicit-ACL requirement, all four verified against
+the current tree — an implementer who ignores them ships a green suite and a broken
+live run:**
+- **Task C2** must emit the four-key `acl` object per record (its Interfaces block
+  carries the shape). This is the only producer on the participant path.
+- **Task C1** must produce the values; its classifier returns all four.
+- **G-25** (`gates/admission_determinism.py:97`) replays a real participant payload
+  through `admit_evidence`. It is a **core** gate, so a payload captured before this
+  change fails the core sweep — correctly, since that payload no longer conforms.
+  G-25 reads `LIVE_CAPTURE_PAYLOAD` from the current run, so the fix is to re-capture,
+  never to relax the contract.
+- **`backend/tests/test_admission.py`'s live classes** load the same payload via
+  `_load_live_payload()`. Same resolution: re-capture, do not weaken.
 
 ### Task A3: Add the follow-up admission contract for Wave B
 
@@ -6786,12 +7096,16 @@ it must land before Phase C's evidence builder consumes its checkpoints.
   delete the `--pi-wait-seconds` CLI flag. **Delete
   `_measured_visibility` (`:887-908`) and `_PI_UNRESOLVED_STATEMENT` (`:884`) only
   after Task C1's replacement classifier exists.** That function is the sole
-  producer of `visibility='restricted'` in the repository, `admit_evidence`
-  silently defaults an unlabelled record to `workshop`
-  (`sql/10_admission.sql:418`), and G-27 exits 1 rather than BLOCKED on a corpus
-  with zero restricted rows — measured. Task C1's Files block carries the
-  replacement rule and the two `gates/rls_enforcement.py` remediation strings that
-  go stale with it; read it before deleting this
+  producer of `visibility='restricted'` in the repository. Deleting it first
+  produces a uniformly unrestricted corpus, and — until Task A2 makes the ACL
+  explicit — silently: `admit_evidence` defaults an unlabelled record to `workshop`
+  (`sql/10_admission.sql:418`). The optional-security consequence is that G-27
+  exits 1 rather than BLOCKED on zero restricted rows (measured), so the optional
+  RLS lab loses its release evidence; the core sweep is unaffected, because G-27 is
+  a `SECURITY_GATES` entry that the default `gates/checks.sh` run does not execute.
+  Task C1's Files block carries the replacement classifier, its three provenance
+  fields, and the two `gates/rls_enforcement.py` remediation strings that go stale
+  with it; read it before deleting this
 - Modify: `backend/tests/test_incident_lab.py:27-37` (file-set assertion),
   `:39-43` (`OBSERVATION_COUNT`/`WRITER_COUNT`/`READER_COUNT`), `:86-131`
   (old lock-vocabulary string assertions)
@@ -6940,9 +7254,11 @@ git commit -m "Delete the Performance Insights collection path"
 **Dependencies:** Tasks B1a, B2, B3, B4, B5 — the file-set assertion names all five
 new modules, so this task cannot pass until they exist. **Also Task C1**, out of
 phase order: this task deletes `_measured_visibility` and C1 owns its replacement,
-so deleting it first leaves the corpus with no restricted cohort and G-27 red.
-Either implement C1 before this task, or leave those two functions in place here
-and let C1 delete them — state in the report which you chose.
+so deleting it first leaves the corpus with no restricted cohort, which costs the
+optional RLS lab its release evidence (G-27 red when run by ID) while leaving the
+core sweep green — a silent gap, which is the reason this dependency is written
+down. Either implement C1 before this task, or leave those two functions in place
+here and let C1 delete them — state in the report which you chose.
 
 ## Phase C — Retrieval Corpus
 
@@ -6970,9 +7286,11 @@ sentence structure itself must vary per event.
 - Produces: `build_wave_a_documents(...) -> list[EvidenceDocument]` and
   `build_wave_b_documents(...) -> list[EvidenceDocument]`, where
   `EvidenceDocument` carries `key`, `signal_type` (one of `lock`, `pool`,
-  `request`, `wal`, `meta`, `plan`), `phase`, `title`, `body`, `occurred_at`, and
-  `visibility` (`'workshop'` or `'restricted'`). Task C2 admits these; Task C3
-  indexes them.
+  `request`, `wal`, `meta`, `plan`), `phase`, `title`, `body`, `occurred_at`,
+  `visibility` (`'workshop'` or `'restricted'`), and the three provenance fields
+  `classifier_version: str`, `classification_reason: str`, and
+  `classification_sources: list[str]`. Task C2 admits all four; Task C3 indexes
+  the documents.
 
 **The `visibility` field is load-bearing and must not be dropped as unused.**
 Task B6 deletes `labs/incident/run_live_workshop.py:_measured_visibility`, which
@@ -6983,16 +7301,29 @@ nothing replaces it:
 - `casework.admit_evidence` defaults a record with no `acl` key to
   `'{"visibility":"workshop"}'` (`sql/10_admission.sql:418`). A builder that omits
   the field therefore produces a corpus with **zero** restricted rows, and no
-  error anywhere.
+  error anywhere. **Task A2 removes that silent default**, so after A2 an omitted
+  ACL is a loud admission rejection rather than a silent relabel — but this task
+  still owes the classification, because a rejection is not a corpus.
 - G-27 (`gates/rls_enforcement.py`) treats zero restricted rows as an
   **assertion failure and exits 1**, not BLOCKED. Measured against
   `dat410_review_remediation_test` after Task A1: `restricted rows measured on the
   engine: 0`, then `assertion failed: retrieval_admin is named by every policy and
   holds can_see_restricted, so it is reading unfiltered: the capture holds no
-  restricted evidence`. G-27 is in `gates/checks.sh:47`, so Task G3's final sweep
-  cannot pass with an all-`workshop` corpus.
-- The persona switcher, the ACL row-filtering assertions, and Lab 3's
-  restricted-citation behaviour all measure a cohort that would no longer exist.
+  restricted evidence`.
+- **Scope, exactly: G-27 is an optional-security gate, not a core release
+  dependency.** It is registered in `SECURITY_GATES` (`gates/checks.sh:47`), not
+  `CORE_GATES`, and the no-argument sweep both omits it and forces
+  `WORKBENCH_SECURITY_ENABLED=0` (`:58`) — measured: a
+  `WORKBENCH_SECURITY_ENABLED=1 FAIL_ON_BLOCKED=1 gates/checks.sh` run executed
+  seven gates and G-27 was not among them. So an all-`workshop` corpus does **not**
+  block Task G3's core freeze sweep; it blocks the optional RLS lab's release
+  criteria in Global Constraints, and it does so silently unless someone runs the
+  security gates by ID. That silence is the reason this classification is written
+  here rather than left to whoever eventually runs G-27.
+- The persona switcher and the ACL row-filtering assertions measure a cohort that
+  would no longer exist. Lab 3's core path does **not** depend on it — see the
+  Lab-3-stays-retrieval-first rule in Global Constraints — so this classification
+  serves the optional module and the audit trail, not the one-hour path.
 
 **Replacement classification, and why it is honest.** Classify on resolved
 statement text from the two columns `sql/12_masking.sql` still masks:
@@ -7008,12 +7339,41 @@ labels no row by hand, so it holds under the live-data-only rule. Do **not**
 substitute a hardcoded list of keys to mark restricted: that is authored data
 wearing a classification's clothes.
 
+**The classifier is deterministic and its decision is replayable, which means three
+fields travel with every label.** Per the Global Constraints replayability rule, the
+classifier is a single pure function and every document it labels carries:
+
+- `classifier_version` — the literal `"statement-text/1"`. Bump the suffix if the
+  rule itself ever changes, so an old corpus's labels stay interpretable. Define it
+  as one module-level constant, not a string repeated per call site.
+- `classification_reason` — a closed vocabulary of exactly three machine-readable
+  values, never free prose: `"statement_text_present"` (restricted),
+  `"no_statement_text"` (workshop), `"statement_text_empty"` (workshop; the field
+  existed but held only whitespace, which is a genuinely different observation from
+  its absence and is what the old `_PI_UNRESOLVED_STATEMENT` sentinel was papering
+  over). A reader must be able to distinguish "this document had no statement" from
+  "this document had a statement we could not resolve" without re-reading the
+  corpus.
+- `classification_sources` — the sample identifiers the decision was read from, as
+  `"pg_stat_activity_samples:<sample_id>"` and
+  `"pg_stat_statements_samples:<sample_id>"` strings. This is what makes the label
+  replayable: a reviewer can go back to the exact rows and re-run the rule. It must
+  be **non-empty whenever the reason is `statement_text_present`** — a restricted
+  label with no source row is unprovable, and the test in Step 1 asserts it.
+
+Determinism is a property to test, not to assert: the same input payload must
+produce byte-identical `(visibility, classifier_version, classification_reason,
+classification_sources)` on two separate calls, with `classification_sources` in a
+stable sorted order. An unsorted list makes an otherwise-identical replay diff.
+
 The rule is not vacuous on the new corpus, verified against the schema: every
 `lock` document derives from a `pg_stat_activity` sample row that carries the
 blocked writer's `UPDATE` and the backfill transaction's statement, and `plan`
 documents carry the reference query. `pool` and `request` documents describe
 connection outcomes with no statement text and stay `workshop`, which gives the
-corpus a genuine mix rather than a uniform label.
+corpus a genuine mix rather than a uniform label. That mix is what the optional
+lab's release criterion (2) in Global Constraints requires, and this task is the
+only place it can come from.
 
 **Also fix the two stale remediation strings this replacement invalidates**, in
 `gates/rls_enforcement.py:663-667` and `:686-691`. Both currently end
@@ -7078,13 +7438,102 @@ from __future__ import annotations
 import unittest
 
 from labs.incident.evidence_builder import (
+    CLASSIFIER_VERSION,
+    CLASSIFICATION_REASONS,
     SIGNAL_TYPES,
     build_wave_a_documents,
     build_wave_b_documents,
+    classify_visibility,
 )
 
 
+class VisibilityClassifierTests(unittest.TestCase):
+    """The classifier is the only producer of visibility='restricted' after the
+    Performance Insights path is deleted. Its decision must be deterministic and
+    replayable from the recorded reason and source sample IDs alone.
+    """
+
+    def test_version_is_a_single_constant(self) -> None:
+        self.assertEqual(CLASSIFIER_VERSION, "statement-text/1")
+
+    def test_reason_vocabulary_is_closed(self) -> None:
+        self.assertEqual(
+            CLASSIFICATION_REASONS,
+            ("statement_text_present", "no_statement_text", "statement_text_empty"),
+        )
+
+    def test_resolved_statement_text_is_restricted_with_its_sources(self) -> None:
+        decision = classify_visibility(
+            {
+                "statement": "UPDATE workbench_lab.orders SET priority_tier = 2",
+                "activity_sample_ids": [41, 7],
+                "statements_sample_ids": [3],
+            }
+        )
+        self.assertEqual(decision.visibility, "restricted")
+        self.assertEqual(decision.reason, "statement_text_present")
+        self.assertEqual(decision.classifier_version, CLASSIFIER_VERSION)
+        self.assertEqual(
+            decision.sources,
+            (
+                "pg_stat_activity_samples:7",
+                "pg_stat_activity_samples:41",
+                "pg_stat_statements_samples:3",
+            ),
+            "sources must be sorted so two replays diff identically",
+        )
+
+    def test_absent_and_empty_statement_text_are_different_reasons(self) -> None:
+        absent = classify_visibility({"pool_available": 0})
+        self.assertEqual(absent.visibility, "workshop")
+        self.assertEqual(absent.reason, "no_statement_text")
+        empty = classify_visibility(
+            {"statement": "   ", "activity_sample_ids": [9]}
+        )
+        self.assertEqual(empty.visibility, "workshop")
+        self.assertEqual(empty.reason, "statement_text_empty")
+
+    def test_restricted_without_a_source_row_is_rejected(self) -> None:
+        """An unprovable restricted label is worse than no label: nothing can
+        replay it, so nothing can distinguish it from a hand-written one.
+        """
+        with self.assertRaises(ValueError):
+            classify_visibility({"statement": "SELECT 1"})
+
+    def test_classification_is_byte_identical_on_replay(self) -> None:
+        payload = {
+            "statement": "UPDATE workbench_lab.orders SET priority_tier = 2",
+            "activity_sample_ids": [41, 7],
+        }
+        first = classify_visibility(payload)
+        second = classify_visibility(payload)
+        self.assertEqual(first, second)
+
+
 class EvidenceBuilderTests(unittest.TestCase):
+    def test_every_document_carries_replayable_classification(self) -> None:
+        for document in build_wave_a_documents(**self._fixture_free_inputs()):
+            with self.subTest(key=document.key):
+                self.assertIn(document.visibility, ("workshop", "restricted"))
+                self.assertEqual(document.classifier_version, CLASSIFIER_VERSION)
+                self.assertIn(document.classification_reason, CLASSIFICATION_REASONS)
+                if document.visibility == "restricted":
+                    self.assertTrue(
+                        document.classification_sources,
+                        "a restricted label with no source sample is unprovable",
+                    )
+
+    def test_wave_a_corpus_is_genuinely_mixed(self) -> None:
+        """A uniform corpus proves nothing about row filtering, which is the
+        optional RLS lab's entire subject. This is measured here on the pure
+        builder so a uniform run fails before it ever reaches admission.
+        """
+        visibilities = {
+            document.visibility
+            for document in build_wave_a_documents(**self._fixture_free_inputs())
+        }
+        self.assertEqual(visibilities, {"workshop", "restricted"})
+
     def test_signal_types_are_the_six_from_the_design(self) -> None:
         self.assertEqual(
             SIGNAL_TYPES, ("lock", "pool", "request", "wal", "meta", "plan")
@@ -7182,13 +7631,94 @@ Expected: FAIL — `ModuleNotFoundError: ... evidence_builder`.
   must say why, citing Gate 5's 20.65% failure, so the next person to touch it
   does not reintroduce the bug.
 
+  The classifier is the other half of this module. Write it as one pure function
+  with one version constant and one closed reason vocabulary, and have every
+  document construction path call it — never inline the rule at a call site:
+
+```python
+CLASSIFIER_VERSION = "statement-text/1"
+CLASSIFICATION_REASONS = (
+    "statement_text_present",
+    "no_statement_text",
+    "statement_text_empty",
+)
+
+
+@dataclass(frozen=True)
+class VisibilityDecision:
+    """One replayable classification: the label plus everything needed to redo it."""
+
+    visibility: str
+    reason: str
+    classifier_version: str
+    sources: tuple[str, ...]
+
+
+def _sources(structured: Mapping[str, Any]) -> tuple[str, ...]:
+    collected: list[str] = []
+    for key, table in (
+        ("activity_sample_ids", "pg_stat_activity_samples"),
+        ("statements_sample_ids", "pg_stat_statements_samples"),
+    ):
+        for sample_id in structured.get(key) or ():
+            collected.append(f"{table}:{int(sample_id)}")
+    return tuple(sorted(collected))
+
+
+def classify_visibility(structured: Mapping[str, Any]) -> VisibilityDecision:
+    """Classify one measured observation by whether it carries statement text.
+
+    Statement text is the one thing in this capture a real operator restricts,
+    and it is what `sql/12_masking.sql` already protects on
+    `casework.pg_stat_activity_samples.query` and
+    `casework.pg_stat_statements_samples.queries`. Reading the captured payload
+    is what keeps the label measured rather than authored.
+
+    Args:
+        structured: The measured payload for one evidence document.
+
+    Returns:
+        The label, the machine-readable reason, the classifier version, and the
+        sorted sample identifiers the decision was read from.
+
+    Raises:
+        ValueError: A restricted label carries no source sample, which would make
+            it unprovable on replay.
+    """
+    sources = _sources(structured)
+    statement = structured.get("statement")
+    if not isinstance(statement, str):
+        return VisibilityDecision("workshop", "no_statement_text", CLASSIFIER_VERSION, sources)
+    if not statement.strip():
+        return VisibilityDecision(
+            "workshop", "statement_text_empty", CLASSIFIER_VERSION, sources
+        )
+    if not sources:
+        raise ValueError(
+            "restricted classification requires at least one source sample id; "
+            f"got statement text with no activity_sample_ids or statements_sample_ids: "
+            f"{sorted(structured)}"
+        )
+    return VisibilityDecision(
+        "restricted", "statement_text_present", CLASSIFIER_VERSION, sources
+    )
+```
+
+  Note what the old `_PI_UNRESOLVED_STATEMENT = "unknown"` sentinel becomes: it is
+  **deleted, not ported**. It existed because Performance Insights substituted the
+  literal string `"unknown"` for query text it could not resolve; `pg_stat_activity`
+  has no such convention, and a real captured statement could legitimately be the
+  word `unknown`. `statement_text_empty` covers the honest case — the field was
+  present but held nothing — without a magic string that could match real data.
+
 - [ ] **Step 4: Run the tests.**
 
 ```bash
 .venv/bin/python -m pytest backend/tests/test_evidence_builder.py -v
 ```
 
-Expected: PASS, all five.
+Expected: PASS — the six `VisibilityClassifierTests` plus the ten
+`EvidenceBuilderTests`, with no skips. A skip here means the module did not import.
 
 - [ ] **Step 5: Live-Aurora acceptance criteria.** Run the real orchestrator, then
   measure the real generated corpus with the same server-side `pg_trgm` self-join
@@ -7201,6 +7731,12 @@ Expected: PASS, all five.
   3. Every one of the six signal types has at least one document.
   4. Every one of the four phases has at least one document.
   5. `plan` documents in Wave A number exactly 2, and none mentions the index.
+  6. The corpus is genuinely **mixed**: both `workshop` and `restricted` documents
+     are present, and the counts are recorded. This is optional-security release
+     criterion (2) from Global Constraints, and this run is the only place it can
+     be measured — G-27 can confirm the mix exists but cannot create it. Record the
+     two counts and the classifier version verbatim; a uniform corpus here means
+     the classifier did not fire and must be diagnosed now, not at freeze time.
 
 - [ ] **Step 6: Cleanup and failure recovery.** The builder is pure — a failure
   produces no database state. If the diversity check fails, redesign the offending
@@ -7238,12 +7774,27 @@ git commit -m "Add the six-signal-type evidence builder"
 
 **Interfaces:**
 - Consumes: Task A3's wave-aware `casework.admit_evidence(jsonb)`, Task C1's
-  documents — **including each document's `visibility` field, which must be
-  emitted into the payload as `"acl": {"visibility": <value>}`.** Dropping it is
-  not a no-op: `admit_evidence` coalesces a missing `acl` to
-  `'{"visibility":"workshop"}'` (`sql/10_admission.sql:418`), so the corpus comes
-  out uniformly unrestricted with no error, and G-27 then exits 1 on the empty
-  restricted cohort. C1's Files block explains the classification.
+  documents — **including each document's `visibility` field and its three
+  provenance fields**, emitted into every record as:
+
+```json
+"acl": {
+  "visibility": "restricted",
+  "classifier_version": "statement-text/1",
+  "classification_reason": "statement_text_present",
+  "classification_sources": ["pg_stat_activity_samples:41"]
+}
+```
+
+  All four keys are required per record. `visibility` is what the retrieval
+  predicates read; the other three are what make the label auditable and replayable
+  per the Global Constraints replayability rule, and Task A2's admission contract
+  rejects a record missing any of them. Emitting `visibility` alone leaves a corpus
+  whose labels cannot be re-derived, which is indistinguishable on inspection from
+  hand-labelled data. Dropping the `acl` object entirely is a loud admission
+  rejection after Task A2 — before A2 it was a silent relabel to `workshop`
+  (`sql/10_admission.sql:418`'s `coalesce`), which is the defect A2 removes. C1's
+  Files block explains the classification and the closed reason vocabulary.
 - Produces: `admit_wave_a(conn, documents, ...) -> AdmissionReceipt` and
   `admit_wave_b(conn, documents, *, incident_key, ...) -> AdmissionReceipt`, plus
   a `--wave {A,B}` CLI flag on `run_live_workshop.py`. Lab 4 (Phase D) invokes the
@@ -7776,6 +8327,29 @@ signal-to-noise becomes hybrid retrieval and reranking; Labs 3 and 4 are where t
 expertise gap becomes a cited, replayable recommendation; Lab 4 is where
 human-in-the-loop becomes "recommend, don't execute." Verification tasks (D1, D2) do not
 need new copy, but they must not introduce copy that frames the outcome as a fixed index.
+
+**Lab 3 is retrieval-first, and no task in this phase may make the optional security
+module a prerequisite for it.** This is stated here because the coupling would be easy
+to add by accident while Phase C is fresh in mind: Phase C carries a visibility
+classifier, and a plausible-looking next step is "have Lab 3 demonstrate it." That step
+is out of scope. Concretely, and each verified absent across this phase today:
+
+- **No persona switching.** No lab step, exercise prompt, test, or piece of copy may
+  require `SET LOCAL ROLE`, a persona DSN, `WORKBENCH_SECURITY_ENABLED=1`, or the
+  frontend's persona route to reach Lab 3's answer.
+- **No restricted citation.** The canonical Lab 3 cited set must resolve entirely from
+  `workshop`-visibility evidence. A participant on a database that has never run
+  `make security-schema` — which is every participant on the default path — must get the
+  same answer and the same citations as one who has.
+- **No `acl_visible` / `acl_scalars_visible` behaviour as a lab objective.** Those
+  predicates are load-bearing inside `sql/03_search_functions.sql` and stay there
+  untouched; they are not something Lab 3 teaches or asserts.
+
+Phase D contains none of these requirements as written, so this is a rule against
+introducing one, not a removal. If a future task believes it needs one, that is a scope
+change to raise, not an implementation detail to add — the optional module has its own
+release criteria in Global Constraints precisely so it can be exercised without
+entering the one-hour path.
 
 ### Task D1: Re-confirm the four retrieval arms differentiate on the new corpus
 
@@ -12140,17 +12714,29 @@ are Gate 1–5 reference observations from throwaway prototypes, explicitly labe
 such. This task replaces them with the real system's numbers. Any number that cannot
 be reproduced by the final run gets deleted, not softened.
 
-- [ ] **Step 1: Full gate sweep with `FAIL_ON_BLOCKED=1`.**
+- [ ] **Step 1: Core gate sweep with `FAIL_ON_BLOCKED=1`. This is the core freeze
+  gate, and it does not include the security gates.**
 
 ```bash
-WORKBENCH_SECURITY_ENABLED=1 FAIL_ON_BLOCKED=1 \
+FAIL_ON_BLOCKED=1 \
 DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
   gates/checks.sh
 ```
 
-Expected: exit 0. `FAIL_ON_BLOCKED=1` is for release verification, and this is the
-release verification. A BLOCKED gate here means a gate has nothing to judge, which at
-freeze time is indistinguishable from a gate that cannot fail.
+Expected: exit 0, with all seven `CORE_GATES` (G-11, G-13, G-14, G-17, G-21, G-23,
+G-25) PASS. `FAIL_ON_BLOCKED=1` is for release verification, and this is the release
+verification. A BLOCKED gate here means a gate has nothing to judge, which at freeze
+time is indistinguishable from a gate that cannot fail.
+
+**Do not add `WORKBENCH_SECURITY_ENABLED=1` to this command.** It would not do what
+it appears to do: the no-argument path of `gates/checks.sh` forces
+`export WORKBENCH_SECURITY_ENABLED=0` at `:58` and builds `WANT` from `CORE_GATES`
+only, so the variable is overwritten and the security gates never run — measured, a
+`WORKBENCH_SECURITY_ENABLED=1 FAIL_ON_BLOCKED=1 gates/checks.sh` run executed
+exactly seven gates. Setting it here reads as an effective control while doing
+nothing, which is worse than omitting it: a future reader concludes the freeze sweep
+covered the security module when it did not. The security gates are Step 1a's, run by
+explicit ID.
 
 G-34 deserves a named check here rather than being counted among the rest. It reports
 BLOCKED when `proof.autonomy_readiness()` does not exist, and its behavioral half
@@ -12161,16 +12747,60 @@ execution, and record G-34's PASS line verbatim including its assignment count a
 helper list. That line is the freeze-time evidence that the pre-execution path is
 absent rather than merely unused.
 
-G-27 deserves the same named treatment, for the opposite reason: it fails loudly on
-a corpus with **zero** restricted rows (measured on the migrated test database after
-Task A1: `restricted rows measured on the engine: 0`, then `assertion failed:
-retrieval_admin ... the capture holds no restricted evidence`, exit 1). That is the
-correct behaviour, and it is the tripwire for Task C1's visibility classifier
-silently not running. If G-27 fails here, do **not** treat it as a gate defect or an
-empty-database artifact: check that C1's classifier produced a mixed corpus and that
-C2 threaded `acl.visibility` into the admission payload. Record G-27's restricted-row
-count verbatim, not just its verdict — a count is what distinguishes "the mechanism
-works" from "the mechanism happened not to fire on this run."
+- [ ] **Step 1a: Optional-security release gates, run separately and by explicit
+  ID.** These judge the optional RLS/masking lab, not core participant readiness.
+  Their result never blocks the core freeze in Step 1, and Step 1 never runs them.
+  Run this step only against a database that has had `make security-schema`
+  applied — on a core-only database all four report BLOCKED, which is honest and is
+  not a release verdict for the optional lab in either direction:
+
+```bash
+WORKBENCH_SECURITY_ENABLED=1 FAIL_ON_BLOCKED=1 \
+DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
+WORKSHOP_APP_DATABASE_URL="postgresql://workshop_app@<host>:5432/dat410_review_remediation_test?sslmode=require" \
+  gates/checks.sh G-27 G-29 G-30 G-31
+```
+
+Expected: exit 0, four PASS. `WORKSHOP_APP_DATABASE_URL` is load-bearing for G-29
+only: it needs the app-pool DSN to `SET LOCAL ROLE`, and without it G-29 reports
+BLOCKED — observed during Task A1, where it was not an A1 defect but did leave the
+masking half of the sweep unexercised. Do not record a sweep as green while G-29 is
+BLOCKED for want of an environment variable.
+
+G-27 deserves a named treatment here, for the opposite reason to G-34: it fails
+loudly on a corpus with **zero** restricted rows (measured on the migrated test
+database after Task A1: `restricted rows measured on the engine: 0`, then
+`assertion failed: retrieval_admin ... the capture holds no restricted evidence`,
+exit 1). That is the correct behaviour, and it is the tripwire for Task C1's
+visibility classifier silently not running. If G-27 fails here, do **not** treat it
+as a gate defect, an empty-database artifact, or a core-workshop blocker: check that
+C1's classifier produced a mixed corpus and that C2 threaded the full four-key `acl`
+object into the admission payload.
+
+Record the numbers, not the verdicts, and check them against optional-security
+release criteria (2) and (3) in Global Constraints — the restricted row count, the
+workshop row count, and the `classifier_version` that produced them:
+
+```bash
+psql -X -v ON_ERROR_STOP=1 \
+  "postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" <<'SQL'
+SELECT acl ->> 'visibility' AS visibility,
+       acl ->> 'classifier_version' AS classifier_version,
+       count(*) AS rows
+FROM casework.evidence_items
+WHERE NOT is_deleted
+GROUP BY 1, 2
+ORDER BY 1, 2;
+SQL
+```
+
+  This one needs no `DO $guard$` block: it is a read with no write to guard.
+  Expected: **both** `workshop` and `restricted` present with nonzero counts, and one
+  `classifier_version` value across all rows. A single-visibility result means the
+  optional lab is not releasable even if all four gates said PASS — the gates would
+  have judged an unmixed corpus, which proves nothing about row filtering. A mixture
+  of `classifier_version` values means two classifier generations are in one corpus;
+  re-run the capture rather than reasoning about which rows are which.
 
 - [ ] **Step 2: Full test suite and typecheck.**
 
