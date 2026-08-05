@@ -9,6 +9,8 @@ DATABASE_URL ?= postgresql://localhost:55432/retrieval?sslmode=disable
 PGVECTOR_VERSION ?= v0.8.2
 PGVECTOR_MIN_VERSION ?= 0.8.1
 POSTGRES_MIN_VERSION ?= 18.3
+REQUIRED_TEST_POSTGRES_VERSION := 18.3
+REQUIRED_TEST_AWS_REGION := us-east-1
 PYTHON ?= .venv/bin/python
 UVICORN ?= .venv/bin/uvicorn
 SOURCE_ARCHIVE ?=
@@ -96,11 +98,18 @@ doctor:
 	$(PYTHON) backend/scripts/doctor.py
 
 test:
-	@if [ -n "$$TEST_DATABASE_URL" ] && [ "$$ALLOW_TEST_DATABASE_RESET" = "1" ]; then \
-		DATABASE_URL="$$TEST_DATABASE_URL" $(PYTHON) -m unittest discover -s backend/tests -v; \
-	else \
-		$(PYTHON) -m unittest discover -s backend/tests -v; \
+	@if [ -z "$$TEST_DATABASE_URL" ]; then \
+		echo "TEST_DATABASE_URL is required; use a disposable Aurora or local PostgreSQL $(REQUIRED_TEST_POSTGRES_VERSION) database." >&2; \
+		exit 1; \
 	fi
+	@if [ "$$ALLOW_TEST_DATABASE_RESET" != "1" ]; then \
+		echo "ALLOW_TEST_DATABASE_RESET=1 is required because the suite resets the _test database." >&2; \
+		exit 1; \
+	fi
+	DATABASE_URL="$$TEST_DATABASE_URL" $(PYTHON) backend/scripts/check_postgres.py \
+		--exact-version $(REQUIRED_TEST_POSTGRES_VERSION) --test-target \
+		--aws-region $(REQUIRED_TEST_AWS_REGION)
+	DATABASE_URL="$$TEST_DATABASE_URL" $(PYTHON) -m unittest discover -s backend/tests -v
 
 live-workshop:
 	$(PYTHON) labs/incident/run_live_workshop.py

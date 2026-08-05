@@ -250,7 +250,10 @@ git diff --check
 ```
 
 Database integration tests require a disposable database and an explicit reset
-guard:
+guard. The standard suite requires exactly PostgreSQL 18.3. It accepts either
+Aurora PostgreSQL in `us-east-1` (the release-evidence path) or a loopback
+PostgreSQL 18.3 server; it rejects remote non-Aurora PostgreSQL and other
+versions:
 
 ```bash
 TEST_DATABASE_URL='postgresql://localhost:55432/workbench_test?sslmode=disable' \
@@ -260,6 +263,8 @@ make test
 
 The suite truncates `casework`, `retrieval`, and `proof`, so it requires both
 the `_test` suffix and reset guard. Never point it at the workshop corpus.
+Release validation uses the dedicated Aurora PostgreSQL 18.3 test database;
+local runs are development feedback only.
 
 ## Package the Workshop Studio Release
 
