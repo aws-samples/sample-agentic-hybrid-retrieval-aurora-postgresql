@@ -41,9 +41,9 @@ DECLARE
   v_engine_version text := payload #>> '{database,engine_version}';
   v_aws_region text := payload #>> '{database,aws_region}';
   v_capture jsonb := payload -> 'capture';
-  v_request_count integer := (v_capture ->> 'request_count')::integer;
-  v_blocked_writer_count integer := (v_capture ->> 'blocked_writer_count')::integer;
-  v_reader_count integer := (v_capture ->> 'reader_count')::integer;
+  v_request_count integer;
+  v_blocked_writer_count integer;
+  v_reader_count integer;
   v_phases jsonb := v_capture -> 'phases';
   v_signal_types jsonb := v_capture -> 'signal_types';
   v_telemetry jsonb := payload -> 'telemetry';
@@ -76,12 +76,6 @@ DECLARE
   v_rows integer := 0;
   v_edges integer := 0;
   v_queued integer := 0;
-  v_activity_observations integer;
-  v_lock_observations integer;
-  v_blocking_observations integer;
-  v_interval_activity_documents integer;
-  v_interval_lock_documents integer;
-  v_interval_blocking_documents integer;
   v_acl jsonb;
 BEGIN
   IF payload ->> 'schema' IS DISTINCT FROM 'admission payload v1' THEN
@@ -143,6 +137,23 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  BEGIN
+    v_request_count := (v_capture ->> 'request_count')::integer;
+    v_blocked_writer_count := (v_capture ->> 'blocked_writer_count')::integer;
+    v_reader_count := (v_capture ->> 'reader_count')::integer;
+  EXCEPTION WHEN invalid_text_representation THEN
+    RAISE EXCEPTION
+      'admission rejected: capture must carry integer request_count, '
+      'blocked_writer_count, and reader_count plus phases and signal_types arrays'
+      USING ERRCODE = '22023';
+  END;
+
+  IF v_blocked_writer_count IS NULL THEN
+    RAISE EXCEPTION
+      'admission rejected: blocked_writer_count must equal DB_POOL_MAX_SIZE (10), got <null>'
+      USING ERRCODE = '22023';
+  END IF;
+
   IF v_request_count IS NULL
      OR v_blocked_writer_count IS NULL
      OR v_reader_count IS NULL
@@ -182,6 +193,15 @@ BEGIN
   ) THEN
     RAISE EXCEPTION
       'admission rejected: missing incident phases, got %', v_phases
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF NOT (
+    v_signal_types @> '["lock","pool","request","wal","meta","plan"]'::jsonb
+  ) THEN
+    RAISE EXCEPTION
+      'admission rejected: every signal type must be represented, got %',
+      v_signal_types
       USING ERRCODE = '22023';
   END IF;
 
@@ -230,69 +250,7 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  SELECT count(DISTINCT (sample ->> 'observation_number')::integer)
-  INTO v_activity_observations
-  FROM jsonb_array_elements(
-    coalesce(v_telemetry -> 'pg_stat_activity', '[]'::jsonb)
-  ) sample;
-  SELECT count(DISTINCT (sample ->> 'observation_number')::integer)
-  INTO v_lock_observations
-  FROM jsonb_array_elements(
-    coalesce(v_telemetry -> 'pg_locks', '[]'::jsonb)
-  ) sample;
-  SELECT count(DISTINCT (sample ->> 'observation_number')::integer)
-  INTO v_blocking_observations
-  FROM jsonb_array_elements(
-    coalesce(v_telemetry -> 'pg_blocking_pids', '[]'::jsonb)
-  ) sample;
-  IF jsonb_array_length(coalesce(
-       v_telemetry -> 'pg_stat_activity', '[]'::jsonb
-     )) < 270
-     OR jsonb_array_length(coalesce(
-       v_telemetry -> 'pg_locks', '[]'::jsonb
-     )) < 270
-     OR jsonb_array_length(coalesce(
-       v_telemetry -> 'pg_blocking_pids', '[]'::jsonb
-     )) < 180
-     OR v_activity_observations <> 30
-     OR v_lock_observations <> 30
-     OR v_blocking_observations <> 30
-     OR jsonb_array_length(coalesce(
-       v_telemetry -> 'pg_stat_statements', '[]'::jsonb
-     )) <> 3
-     OR jsonb_array_length(coalesce(
-       v_telemetry -> 'cloudwatch_metrics', '[]'::jsonb
-     )) <> 5 THEN
-    RAISE EXCEPTION
-      'admission: complete live PostgreSQL and CloudWatch telemetry is required'
-      USING ERRCODE = '22023';
-  END IF;
-
-  IF jsonb_array_length(v_telemetry_documents) < 100
-     OR jsonb_array_length(v_telemetry_documents) > 120 THEN
-    RAISE EXCEPTION
-      'admission: searchable telemetry must contain 100 to 120 documents'
-      USING ERRCODE = '22023';
-  END IF;
-  SELECT
-    count(*) FILTER (
-      WHERE document #>> '{structured,telemetry_type}' = 'activity_window'
-    ),
-    count(*) FILTER (
-      WHERE document #>> '{structured,telemetry_type}' = 'lock_topology'
-    ),
-    count(*) FILTER (
-      WHERE document #>> '{structured,telemetry_type}' = 'blocking_chain'
-    )
-  INTO
-    v_interval_activity_documents,
-    v_interval_lock_documents,
-    v_interval_blocking_documents
-  FROM jsonb_array_elements(v_telemetry_documents) document;
-  IF v_interval_activity_documents <> 30
-     OR v_interval_lock_documents <> 30
-     OR v_interval_blocking_documents <> 30
-     OR EXISTS (
+  IF EXISTS (
        SELECT 1
        FROM jsonb_array_elements(v_telemetry_documents) document
        WHERE document ->> 'external_key'
@@ -408,6 +366,45 @@ BEGIN
         USING ERRCODE = '22023';
     END IF;
 
+    IF v_record -> 'acl' IS NULL THEN
+      RAISE EXCEPTION
+        'admission rejected: % record % carries no acl; visibility must be '
+        'classified by the producer, never defaulted here',
+        v_kind, v_external_key
+        USING ERRCODE = '22023';
+    END IF;
+
+    v_acl := v_record -> 'acl';
+    IF v_acl ->> 'visibility' NOT IN ('workshop', 'restricted') THEN
+      RAISE EXCEPTION
+        'admission rejected: % record % has acl.visibility %; the only values are '
+        'workshop and restricted, and any other value reads as restricted in '
+        'retrieval.acl_visible and silently removes the row from every arm',
+        v_kind, v_external_key, coalesce(v_acl ->> 'visibility', '<null>')
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF v_acl ->> 'classifier_version' IS NULL
+       OR v_acl ->> 'classification_reason' IS NULL
+       OR jsonb_typeof(v_acl -> 'classification_sources') IS DISTINCT FROM 'array' THEN
+      RAISE EXCEPTION
+        'admission rejected: % record % is missing acl classification provenance; '
+        'classifier_version, classification_reason, and a classification_sources '
+        'array are all required so the label can be replayed',
+        v_kind, v_external_key
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF v_acl ->> 'visibility' = 'restricted'
+       AND jsonb_array_length(v_acl -> 'classification_sources') = 0 THEN
+      RAISE EXCEPTION
+        'admission rejected: % record % is restricted with an empty '
+        'classification_sources array; a label nothing can re-derive is '
+        'indistinguishable from a hand-written one',
+        v_kind, v_external_key
+        USING ERRCODE = '22023';
+    END IF;
+
     SELECT evidence_kind
     INTO v_existing_kind
     FROM casework.evidence_items
@@ -461,7 +458,7 @@ BEGIN
       v_source_uri,
       v_record_hash,
       (v_record ->> 'occurred_at')::timestamptz,
-      coalesce(v_record -> 'acl', '{"visibility":"workshop"}'::jsonb),
+      v_acl,
       v_record_hash,
       (v_record ->> 'available_at')::timestamptz
     )
@@ -637,9 +634,7 @@ BEGIN
     (v_capture ->> 'configured_row_count')::bigint,
     (v_capture ->> 'observed_row_count')::bigint,
     (v_capture ->> 'table_size_bytes')::bigint,
-    1
-      + (v_capture ->> 'writer_count')::integer
-      + (v_capture ->> 'reader_count')::integer,
+    1 + v_blocked_writer_count + v_reader_count,
     (v_capture ->> 'capture_started_at')::timestamptz,
     (v_capture ->> 'capture_ended_at')::timestamptz,
     v_capture ->> 'capture_tool_version',

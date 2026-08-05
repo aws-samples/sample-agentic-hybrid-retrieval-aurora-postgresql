@@ -18,6 +18,13 @@ from app.embeddings import embed_text  # noqa: E402
 from app.rerank import CohereRerankService  # noqa: E402
 
 REQUIRED_EXTENSIONS = ("vector", "pg_trgm", "pg_stat_statements")
+EXPECTED_INCIDENT_PHASES = (
+    "backfill",
+    "pool_exhaustion",
+    "recovery",
+    "plan_regression",
+)
+EXPECTED_SIGNAL_TYPES = ("lock", "pool", "request", "wal", "meta", "plan")
 REQUIRED_TABLES = (
     "casework.database_clusters",
     "casework.evidence_items",
@@ -379,18 +386,38 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
         ),
     )
     evidence = cursor.fetchone()
+    cursor.execute(
+        """
+        SELECT
+          array_agg(DISTINCT structured ->> 'phase')
+            FILTER (WHERE structured ->> 'phase' IS NOT NULL) AS phases,
+          array_agg(DISTINCT structured ->> 'signal_type')
+            FILTER (WHERE structured ->> 'signal_type' IS NOT NULL) AS signal_types
+        FROM casework.telemetry_evidence
+        WHERE capture_id = %s
+        """,
+        (capture["capture_id"],),
+    )
+    coverage = cursor.fetchone()
+    observed_phases = set(coverage["phases"] or ())
+    observed_signal_types = set(coverage["signal_types"] or ())
+    missing_phases = sorted(set(EXPECTED_INCIDENT_PHASES) - observed_phases)
+    missing_signal_types = sorted(
+        set(EXPECTED_SIGNAL_TYPES) - observed_signal_types
+    )
     if (
-        not 104 <= evidence["total"] <= 124
-        or evidence["incidents"] != 1
-        or evidence["changes"] != 2
-        or evidence["locks"] != 1
-        or not 100 <= evidence["telemetry"] <= 120
-        or not evidence["one_bundle"]
+        not evidence["one_bundle"]
         or not evidence["run_scoped_keys"]
+        or missing_phases
+        or missing_signal_types
     ):
         doctor.fail(
             "live-only evidence",
-            f"run {suffix} does not satisfy the live corpus contract: {dict(evidence)}",
+            (
+                f"run {suffix} does not satisfy the live corpus contract: "
+                f"{dict(evidence)}; missing_phases={missing_phases}; "
+                f"missing_signal_types={missing_signal_types}"
+            ),
         )
     else:
         doctor.ok(

@@ -127,17 +127,19 @@ class AdmissionContractTest(unittest.TestCase):
     def test_admission_contract_matches_the_four_phase_mechanism(self) -> None:
         sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
         for stale in (
-            "observation_count <> 30",
-            "writer_count <> 6",
-            "reader_count <> 2",
-            "pg_stat_statements",
-            "cloudwatch_metrics <> 5",
+            "(v_capture ->> 'observation_count')::integer <> 30",
+            "(v_capture ->> 'writer_count')::integer <> 6",
+            "(v_capture ->> 'reader_count')::integer <> 2",
+            "v_telemetry -> 'pg_stat_statements', '[]'::jsonb\n     )) <> 3",
+            "v_telemetry -> 'cloudwatch_metrics', '[]'::jsonb\n     )) <> 5",
         ):
             self.assertNotIn(stale, sql, f"stale contract still present: {stale}")
         self.assertIn("v_blocked_writer_count <> 10", sql)
         self.assertIn("v_request_count <= v_blocked_writer_count", sql)
         for phase in ("backfill", "pool_exhaustion", "recovery", "plan_regression"):
             self.assertIn(phase, sql)
+        for signal_type in ("lock", "pool", "request", "wal", "meta", "plan"):
+            self.assertIn(signal_type, sql)
 
     def test_admission_does_not_collapse_requests_into_blocked_writers(self) -> None:
         """A single writer_count field cannot express pool exhaustion: it has no
@@ -146,8 +148,13 @@ class AdmissionContractTest(unittest.TestCase):
         """
         sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
         self.assertNotIn("v_writer_count", sql)
+        self.assertNotIn("v_capture ->> 'writer_count'", sql)
         self.assertIn("v_request_count", sql)
         self.assertIn("v_blocked_writer_count", sql)
+        self.assertIn(
+            "1 + v_blocked_writer_count + v_reader_count",
+            sql,
+        )
 
     def test_admission_never_defaults_a_missing_acl(self) -> None:
         """A silent default is a classification the database invented for a
@@ -157,6 +164,23 @@ class AdmissionContractTest(unittest.TestCase):
         sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
         self.assertNotIn("""coalesce(v_record -> 'acl'""", sql)
         self.assertIn("v_record -> 'acl' IS NULL", sql)
+
+    def test_doctor_checks_coverage_instead_of_old_document_counts(self) -> None:
+        source = (REPO_ROOT / "backend" / "scripts" / "doctor.py").read_text(
+            encoding="utf-8"
+        )
+        for stale in (
+            '104 <= evidence["total"] <= 124',
+            '100 <= evidence["telemetry"] <= 120',
+            'evidence["incidents"] != 1',
+            'evidence["changes"] != 2',
+            'evidence["locks"] != 1',
+        ):
+            self.assertNotIn(stale, source)
+        self.assertIn("EXPECTED_INCIDENT_PHASES", source)
+        self.assertIn("EXPECTED_SIGNAL_TYPES", source)
+        self.assertIn("missing_phases", source)
+        self.assertIn("missing_signal_types", source)
 
 
 @unittest.skipUnless(
@@ -484,7 +508,7 @@ class AdmitEvidenceTest(unittest.TestCase):
     def test_record_without_an_acl_is_rejected(self) -> None:
         payload = self._payload_copy()
         del payload["records"]["lock_evidence"]["acl"]
-        with self.assertRaises(psycopg.errors.RaiseException) as caught:
+        with self.assertRaises(psycopg.errors.InvalidParameterValue) as caught:
             self._admit(payload)
         self.assertIn("acl", str(caught.exception))
         self.assertEqual(
@@ -502,7 +526,7 @@ class AdmitEvidenceTest(unittest.TestCase):
         """
         payload = self._payload_copy()
         payload["records"]["lock_evidence"]["acl"]["visibility"] = "internal"
-        with self.assertRaises(psycopg.errors.RaiseException) as caught:
+        with self.assertRaises(psycopg.errors.InvalidParameterValue) as caught:
             self._admit(payload)
         self.assertIn("internal", str(caught.exception))
 
@@ -515,7 +539,9 @@ class AdmitEvidenceTest(unittest.TestCase):
             with self.subTest(absent=absent):
                 payload = self._payload_copy()
                 del payload["records"]["lock_evidence"]["acl"][absent]
-                with self.assertRaises(psycopg.errors.RaiseException) as caught:
+                with self.assertRaises(
+                    psycopg.errors.InvalidParameterValue
+                ) as caught:
                     self._admit(payload)
                 self.assertIn(absent, str(caught.exception))
 
@@ -525,7 +551,7 @@ class AdmitEvidenceTest(unittest.TestCase):
         acl["visibility"] = "restricted"
         acl["classification_reason"] = "statement_text_present"
         acl["classification_sources"] = []
-        with self.assertRaises(psycopg.errors.RaiseException) as caught:
+        with self.assertRaises(psycopg.errors.InvalidParameterValue) as caught:
             self._admit(payload)
         self.assertIn("classification_sources", str(caught.exception))
 
