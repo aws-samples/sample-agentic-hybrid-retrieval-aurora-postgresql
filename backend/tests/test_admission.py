@@ -123,6 +123,42 @@ class DatabaseInsightsRemovalTest(unittest.TestCase):
                     self.assertNotIn("database_insights_samples", source)
 
 
+class AdmissionContractTest(unittest.TestCase):
+    def test_admission_contract_matches_the_four_phase_mechanism(self) -> None:
+        sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
+        for stale in (
+            "observation_count <> 30",
+            "writer_count <> 6",
+            "reader_count <> 2",
+            "pg_stat_statements",
+            "cloudwatch_metrics <> 5",
+        ):
+            self.assertNotIn(stale, sql, f"stale contract still present: {stale}")
+        self.assertIn("v_blocked_writer_count <> 10", sql)
+        self.assertIn("v_request_count <= v_blocked_writer_count", sql)
+        for phase in ("backfill", "pool_exhaustion", "recovery", "plan_regression"):
+            self.assertIn(phase, sql)
+
+    def test_admission_does_not_collapse_requests_into_blocked_writers(self) -> None:
+        """A single writer_count field cannot express pool exhaustion: it has no
+        way to say some requests never reached the database. Both counts must
+        survive into the contract.
+        """
+        sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
+        self.assertNotIn("v_writer_count", sql)
+        self.assertIn("v_request_count", sql)
+        self.assertIn("v_blocked_writer_count", sql)
+
+    def test_admission_never_defaults_a_missing_acl(self) -> None:
+        """A silent default is a classification the database invented for a
+        producer that made none, and it fails unrestricted: the whole corpus comes
+        out 'workshop' with no error on any surface the default gate sweep runs.
+        """
+        sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
+        self.assertNotIn("""coalesce(v_record -> 'acl'""", sql)
+        self.assertIn("v_record -> 'acl' IS NULL", sql)
+
+
 @unittest.skipUnless(
     LIVE_PAYLOAD and LIVE_CAPTURE_RUN_ID,
     "needs LIVE_CAPTURE_PAYLOAD + LIVE_CAPTURE_RUN_ID from a participant run",
@@ -444,6 +480,54 @@ class AdmitEvidenceTest(unittest.TestCase):
             ).fetchone()[0],
             0,
         )
+
+    def test_record_without_an_acl_is_rejected(self) -> None:
+        payload = self._payload_copy()
+        del payload["records"]["lock_evidence"]["acl"]
+        with self.assertRaises(psycopg.errors.RaiseException) as caught:
+            self._admit(payload)
+        self.assertIn("acl", str(caught.exception))
+        self.assertEqual(
+            self.connection.execute(
+                "SELECT count(*) FROM casework.evidence_items"
+            ).fetchone()[0],
+            0,
+            "a rejected bundle must leave zero rows",
+        )
+
+    def test_unknown_visibility_value_is_rejected(self) -> None:
+        """retrieval.acl_visible computes coalesce(..., 'restricted') = 'workshop',
+        so an unrecognized value reads as restricted and the row silently vanishes
+        from every retrieval arm. Reject it where the message can name it.
+        """
+        payload = self._payload_copy()
+        payload["records"]["lock_evidence"]["acl"]["visibility"] = "internal"
+        with self.assertRaises(psycopg.errors.RaiseException) as caught:
+            self._admit(payload)
+        self.assertIn("internal", str(caught.exception))
+
+    def test_record_missing_classification_provenance_is_rejected(self) -> None:
+        for absent in (
+            "classifier_version",
+            "classification_reason",
+            "classification_sources",
+        ):
+            with self.subTest(absent=absent):
+                payload = self._payload_copy()
+                del payload["records"]["lock_evidence"]["acl"][absent]
+                with self.assertRaises(psycopg.errors.RaiseException) as caught:
+                    self._admit(payload)
+                self.assertIn(absent, str(caught.exception))
+
+    def test_restricted_without_sources_is_rejected(self) -> None:
+        payload = self._payload_copy()
+        acl = payload["records"]["lock_evidence"]["acl"]
+        acl["visibility"] = "restricted"
+        acl["classification_reason"] = "statement_text_present"
+        acl["classification_sources"] = []
+        with self.assertRaises(psycopg.errors.RaiseException) as caught:
+            self._admit(payload)
+        self.assertIn("classification_sources", str(caught.exception))
 
     def test_concurrent_replay_collapses_to_one_receipt(self) -> None:
         payload = json.dumps(self.payload)

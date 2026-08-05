@@ -41,6 +41,11 @@ DECLARE
   v_engine_version text := payload #>> '{database,engine_version}';
   v_aws_region text := payload #>> '{database,aws_region}';
   v_capture jsonb := payload -> 'capture';
+  v_request_count integer := (v_capture ->> 'request_count')::integer;
+  v_blocked_writer_count integer := (v_capture ->> 'blocked_writer_count')::integer;
+  v_reader_count integer := (v_capture ->> 'reader_count')::integer;
+  v_phases jsonb := v_capture -> 'phases';
+  v_signal_types jsonb := v_capture -> 'signal_types';
   v_telemetry jsonb := payload -> 'telemetry';
   v_incident jsonb := payload #> '{records,incident}';
   v_changes jsonb := payload #> '{records,changes}';
@@ -77,6 +82,7 @@ DECLARE
   v_interval_activity_documents integer;
   v_interval_lock_documents integer;
   v_interval_blocking_documents integer;
+  v_acl jsonb;
 BEGIN
   IF payload ->> 'schema' IS DISTINCT FROM 'admission payload v1' THEN
     RAISE EXCEPTION 'admission: schema must be "admission payload v1"'
@@ -130,12 +136,52 @@ BEGIN
        IS DISTINCT FROM 'participant_induced'
      OR v_run_suffix IS DISTINCT FROM v_expected_suffix
      OR v_capture ->> 'capture_key'
-       IS DISTINCT FROM 'CAP-' || v_expected_suffix
-     OR (v_capture ->> 'observation_count')::integer <> 30
-     OR (v_capture ->> 'writer_count')::integer <> 6
-     OR (v_capture ->> 'reader_count')::integer <> 2 THEN
+       IS DISTINCT FROM 'CAP-' || v_expected_suffix THEN
     RAISE EXCEPTION
-      'admission: capture identity or 30-observation/6-writer/2-reader contract is invalid'
+      'admission: capture identity does not match the derived run suffix %',
+      v_expected_suffix
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF v_request_count IS NULL
+     OR v_blocked_writer_count IS NULL
+     OR v_reader_count IS NULL
+     OR jsonb_typeof(v_phases) IS DISTINCT FROM 'array'
+     OR jsonb_typeof(v_signal_types) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION
+      'admission rejected: capture must carry integer request_count, '
+      'blocked_writer_count, and reader_count plus phases and signal_types arrays'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF v_blocked_writer_count <> 10 THEN
+    RAISE EXCEPTION
+      'admission rejected: blocked_writer_count must equal DB_POOL_MAX_SIZE (10), got %',
+      v_blocked_writer_count
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF v_request_count <= v_blocked_writer_count THEN
+    RAISE EXCEPTION
+      'admission rejected: request_count (%) must exceed blocked_writer_count (%); '
+      'a run where every request obtained a connection produced no wait queue and '
+      'therefore no pool exhaustion',
+      v_request_count, v_blocked_writer_count
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF v_reader_count <> 0 THEN
+    RAISE EXCEPTION
+      'admission rejected: the four-phase mechanism has no reader sessions, got %',
+      v_reader_count
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF NOT (
+    v_phases @> '["backfill","pool_exhaustion","recovery","plan_regression"]'::jsonb
+  ) THEN
+    RAISE EXCEPTION
+      'admission rejected: missing incident phases, got %', v_phases
       USING ERRCODE = '22023';
   END IF;
 
