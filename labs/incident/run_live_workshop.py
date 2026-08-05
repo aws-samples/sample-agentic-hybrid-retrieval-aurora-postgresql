@@ -43,6 +43,11 @@ from labs.incident.recovery_verifier import (  # noqa: E402
     RecoveryProof,
     verify_recovery,
 )
+from labs.incident.query_regression import (  # noqa: E402
+    PlanCheckpoint,
+    RECOMMENDED_INDEX_NAME,
+    capture_plan_checkpoints,
+)
 
 
 OBSERVATION_COUNT = 30
@@ -52,7 +57,7 @@ LAB_CUSTOMER_ROWS = 5_000
 LAB_ROWS = 3_000_000
 SOURCE_SYSTEM = "pg_incident_capture"
 RELATION_NAME = "workbench_lab.orders"
-INDEX_NAME = "workbench_lab.idx_orders_customer_created"
+INDEX_NAME = RECOMMENDED_INDEX_NAME
 HOT_WRITE_APPLICATION_NAME = "workbench-lab-api-hot-write"
 BACKFILL_APPLICATION_NAME = "workbench-lab-backfill"
 
@@ -304,6 +309,7 @@ class MigrationCollision:
     hold_proof: HoldProof
     hot_write_results: tuple[HotWriteResult, ...]
     recovery_proof: RecoveryProof
+    wave_a_plan_checkpoints: tuple[PlanCheckpoint, ...]
 
 
 def _lab_api_url() -> str:
@@ -468,6 +474,14 @@ def run_migration_collision(
                     request_count + 1,
                 ),
             )
+        with _connect(
+            database_url,
+            "workbench-live-query-regression",
+            autocommit=True,
+        ) as regression_connection:
+            wave_a_plan_checkpoints = tuple(
+                capture_plan_checkpoints(regression_connection, tier=3)
+            )
         return MigrationCollision(
             backfill_pid=backfill_pid,
             backfill_duration_seconds=backfill_duration_seconds,
@@ -475,6 +489,7 @@ def run_migration_collision(
             hold_proof=hold_proof,
             hot_write_results=results,
             recovery_proof=recovery_proof,
+            wave_a_plan_checkpoints=wave_a_plan_checkpoints,
         )
     except BaseException:
         if backfill is not None:

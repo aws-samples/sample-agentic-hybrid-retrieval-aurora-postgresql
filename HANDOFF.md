@@ -117,9 +117,15 @@ Completed and committed on this branch:
   blocked writers drained without statement timeout, and a fresh API write
   commits. A failure reports every failed assertion by name and cleans up
   tagged sessions before re-raising.
+- B5 adds `labs/incident/query_regression.py`. It parses `EXPLAIN (ANALYZE,
+  BUFFERS, FORMAT JSON)` structurally, never by text regex. With the
+  participant-created index absent it returns only the before- and
+  after-`ANALYZE` sequential-scan checkpoints for Wave A; with the named index
+  present it returns only the Wave B index-scan checkpoint. It never creates
+  or drops an index.
 
-Not yet implemented: query-regression checkpoints, evidence builder and
-admission, final retrieval corpus, revised agent,
+Not yet implemented: evidence builder and admission, final retrieval corpus,
+revised agent,
 participant UI and labs, remaining documentation cleanup, infrastructure
 packaging, and live rehearsal. Until those tasks land, `make live-workshop` is
 not evidence that the approved scenario is complete.
@@ -131,7 +137,7 @@ The branch was validated on August 5 against the dedicated
 PostgreSQL 18.3 cluster in `us-east-1`:
 
 - Exact test-target preflight: passed as Aurora PostgreSQL 18.3 in `us-east-1`.
-- Full core suite: 216 tests passed, 50 expected live/security skips.
+- Full core suite: 218 tests passed, 50 expected live/security skips.
 - `make security-schema`: passed with managed `pg_columnmask` 1.1.0.
 - Supervised-execution suite under security mode: 39 tests passed, zero skips.
 - G-34 focused suite: 11 tests passed; the gate passed directly and through
@@ -171,22 +177,31 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   left zero tagged lock waiters. A direct clean-state probe with ten commits
   and no pool timeouts failed only on `pool_timeout_observed`, proving the two
   retrospective assertions are independent.
+- B5 query-regression acceptance: the full collision orchestrator completed
+  with a 23.108s backfill and all seven recovery assertions true, then captured
+  Wave A as `Seq Scan` at 473.911ms / 47,062 buffers before `ANALYZE` and
+  `Seq Scan` at 229.169ms / 47,059 buffers after it. The
+  participant-equivalent index produced the sole Wave B checkpoint:
+  `Index Scan`, 2.581ms, 26 buffers, and zero rows removed by filter. Both Wave
+  A scans removed 2,400,000 rows. These are measurements, not timing
+  thresholds.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
 and is not release evidence.
 
-Current disposable-database state after B4 validation: core schema plus the
+Current disposable-database state after B5 validation: core schema plus the
 3,000,000-row `workbench_lab` workload, zero evidence, and no optional security
 module. Reapply `make security-schema` before security-only checks.
 
 ## Next Task
 
-Start B5: build the query-regression driver with its before-`ANALYZE`,
-after-`ANALYZE`, and post-index plan checkpoints. Wave A may capture only the
-first two, and the post-index checkpoint must not exist until the participant
-applies the supervised recommendation in Lab 4. Task F1 owns the
-workshop-environment wiring for the lab variables.
+Start B6: delete the Performance Insights collection path and replace the
+retired ordinary-index mechanism's observability, smoke-test, schema,
+diagnostic, and release-capture contracts with the measured four-phase
+incident. Do not delete `_measured_visibility` until Task C1's live-capture
+classifier exists; it is the current producer of restricted evidence for the
+optional RLS/masking lab.
 
 `make test` now fails before discovery unless `TEST_DATABASE_URL` names a
 resettable `_test` database on exactly PostgreSQL 18.3. Accepted targets are

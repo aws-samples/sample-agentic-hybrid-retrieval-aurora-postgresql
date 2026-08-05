@@ -169,3 +169,24 @@ All five prior gates passed against the real cluster. The consolidated report wa
 - **Real HTTP pool topology remains unproven at the endpoint level.** Gate 1 exercised the real `psycopg_pool.ConnectionPool` via `open_pool()`/`get_pool()`; it did not exercise FastAPI request handling, Pydantic models, per-request ASGI threading, or the `outcome`-as-200 error contract. Task B2 owes endpoint-level proof, and it is the second stop/go gate.
 
 **Both owed items are Task A3 and Task B2 dependencies, and both are the designated stop/go points before any downstream phase begins.**
+
+## B5 Implementation Acceptance: Query Regression Checkpoints
+
+**Result: PASSED** (August 5, 2026, final implementation against Aurora PostgreSQL 18.3)
+
+The full condition-based collision ran with the shipped B5 driver. The
+23.108-second backfill reached the B3 proving condition, all seven B4 recovery
+assertions passed, and the driver captured only the two Wave A checkpoints while
+the supporting index was absent:
+
+| Checkpoint | Scan | Execution time | Rows removed by filter | Buffers |
+|---|---|---:|---:|---:|
+| before `ANALYZE` | `Seq Scan` | 473.911ms | 2,400,000 | 47,062 |
+| after `ANALYZE` | `Seq Scan` | 229.169ms | 2,400,000 | 47,059 |
+| after participant-equivalent index | `Index Scan` | 2.581ms | 0 | 26 |
+
+The post-index checkpoint was captured only after a separate,
+participant-equivalent `CREATE INDEX ... (priority_tier, created_at DESC)`.
+It did not exist during the Wave A run. The scan shapes, filter removals, and
+buffer reduction are the acceptance signals; the timing values are this run's
+reference observations, not thresholds.

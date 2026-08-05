@@ -32,6 +32,7 @@ class IncidentLabContractTests(unittest.TestCase):
             "hold_controller.py",
             "migration.py",
             "prepare_workload.py",
+            "query_regression.py",
             "recovery_verifier.py",
             "run_live_workshop.py",
         }
@@ -477,6 +478,31 @@ class IncidentLabContractTests(unittest.TestCase):
                         write_outcomes=outcomes,
                         fresh_write=lambda: fresh_result,
                     )
+
+    def test_wave_a_captures_only_the_pre_index_checkpoints(self) -> None:
+        from labs.incident.query_regression import (
+            WAVE_A_CHECKPOINTS,
+            WAVE_B_CHECKPOINTS,
+        )
+
+        self.assertEqual(
+            WAVE_A_CHECKPOINTS,
+            ("before_analyze", "after_analyze"),
+        )
+        self.assertEqual(WAVE_B_CHECKPOINTS, ("after_index",))
+        self.assertNotIn("after_index", WAVE_A_CHECKPOINTS)
+
+    def test_plan_checkpoints_assert_shape_not_timing(self) -> None:
+        source = (LAB_DIR / "query_regression.py").read_text(encoding="utf-8")
+
+        self.assertIn("Seq Scan", source)
+        self.assertIn("Index Scan", source)
+        for forbidden in ("471.75", "245.65", "2.24", "225", "219", "1.5"):
+            self.assertNotIn(
+                f"execution_ms == {forbidden}",
+                source,
+                "timings are reference observations, never assertions",
+            )
 
     def test_drain_requires_pool_max_commits_and_no_statement_timeouts(self) -> None:
         """All pool-held writers must commit after the backfill releases."""
