@@ -69,8 +69,13 @@ testing sections around that contract.
   FastAPI connection pool (`backend/app/db.py`, `DB_POOL_MAX_SIZE=10`) for pool exhaustion —
   do not add RDS Proxy, PgBouncer, or any new pooling infrastructure. Do not gate readiness on
   CloudWatch or any AWS console-side telemetry.
-- Preserve the existing optional RLS/masking lab and AgentCore lab unless this implementation
-  directly requires a compatible update to either.
+- Preserve the existing optional RLS/masking module unless this implementation directly
+  requires a compatible update to it. **Do not describe either optional module as a lab in
+  participant-facing content**: the RLS/masking module exists only on the
+  `rls-personas-column-masking` branch (deleted from `main` in f4e6399, live database
+  deliberately not migrated), and the AgentCore lab was removed in d272014, leaving only a
+  transport plus an orphaned sibling-repo page. See the Participant-Facing Framing section's
+  "Two things this arc must not claim."
 - Aurora PostgreSQL owns ranking; this redesign is about evidence generation shape, not about
   moving ranking logic anywhere else.
 
@@ -304,6 +309,99 @@ one document per sample, per `_telemetry_documents`) to a state-change/interval-
 pattern — a real implementation difference the plan must design deliberately, not inherit
 mechanically from the existing loop structure.
 
+**Action proposal writer (new, in the agent's Lab 3 answer path)** — After the agent produces
+its cited answer, writes exactly one `proof.action_proposals` row referencing that
+`agent_run_id`: structured action type and target, proposed SQL, supporting citations
+restricted to those already passing `proof.validate_answer_citations()`, preconditions,
+expected effect, and rollback guidance. **This is not a new agent tool** — the agent gains no
+capability, and `agent/registry.py` stays at seven read/synthesis-only tools. The proposal is
+recorded by the answer path from the answer the agent already produced, the same way
+`proof.answer_citations` is recorded today. The distinction matters: a tool the agent can call
+is a capability; a record written about the agent's output is an audit trail.
+
+**Supervised execution recorder (new, in the Wave B capture path)** — Writes exactly one
+`proof.action_executions` row per execution attempt: the participant's explicit approval, the
+executed SQL, the **observed** index definition read back from `pg_indexes`/`pg_get_indexdef`
+(never the participant's typed text), outcome and timestamps, before/after plan evidence
+references, and the canonical-fingerprint comparison; the Wave B receipt identifiers are
+attached to that row once admission succeeds. Reading
+the definition back from the catalog rather than trusting the input is what makes the comparison
+evidence rather than assertion.
+
+**Canonical fingerprint function and autonomy-readiness verdict (new, in `sql/`)** — Both live
+in Aurora as SQL, not in Python, for the same reason ranking does: they are the proof layer, and
+a participant must be able to run them and read them. The fingerprint normalizes action type,
+schema, table, index method, ordered key columns, included columns, and predicate into a
+comparable structure; the verdict computes `pre_execution_eligible` and
+`post_execution_validated` with explicit reasons. Full contract in the Supervised Execution
+Model section below.
+
+## Session Thesis and Closing Message
+
+This section governs every participant-facing surface — Workshop Studio content, the guide,
+UI copy, the agent's system prompt framing, and the closing slide. Where a copy decision
+elsewhere in this document or in the implementation plan appears to conflict with the thesis
+below, the thesis wins.
+
+**The outcome is not "participants fixed a missing index."** That is the mechanism, not the
+lesson. Stating it as the outcome reduces an L400 Aurora PostgreSQL session to an
+introductory query-tuning exercise, and it wastes the corpus the lab spent its whole first
+third building.
+
+**The outcome is this, and this exact wording is the session's thesis:**
+
+> At fleet scale, telemetry is abundant; trustworthy context is scarce. Participants build the
+> database-native evidence layer an operational agent needs: live signals become versioned,
+> searchable evidence; Aurora PostgreSQL retrieves, combines, ranks, relates, and cites that
+> evidence; and a human validates the recommendation before any action is taken.
+
+**Closing message, verbatim:** *you built the trusted context layer required by a fleet-scale
+database agent.*
+
+### Why this framing, and what it deliberately avoids
+
+The thesis is chosen to connect to the operational-AI themes the surrounding conference track
+raises — signal-to-noise at fleet scale, the operator expertise gap, human-in-the-loop
+control, semantic and context layers, fleet expansion — **without duplicating an
+autonomous-operations session.** This session's differentiator is that it never grants the
+agent an execution path. It builds the context substrate an autonomous system would need and
+stops precisely where a human's judgment belongs.
+
+The five theme mappings, which are how the thesis reaches each lab:
+
+| Theme | How this session realizes it | Where it lands |
+|---|---|---|
+| Signal-to-noise | Hybrid retrieval and reranking over a corpus with genuine near-duplicates and competing signals | Lab 2 |
+| The expertise gap | A cited, replayable recommendation a non-expert can audit without trusting the model | Labs 3 and 4 |
+| Human-in-the-loop | **Recommend, don't execute** — the participant runs `CREATE INDEX` themselves after reading the agent's evidence | Lab 4 |
+| Semantic and context layers | Casework (authoritative) → retrieval (derived) → proof (replayable), as three real schemas | Labs 1 through 4 |
+| Fleet expansion | The "Take it home" architecture discussion | Closing, **not** extra lab scope |
+
+**Fleet expansion is a closing architecture discussion and never becomes lab work.** No task
+may add a second cluster, a multi-tenant dimension, or a cross-fleet aggregation step to any
+lab in service of this theme. The 60-minute budget does not have room, and the theme is
+satisfied by explaining how the same evidence layer scales, not by scaling it live.
+
+**The conference-track connection above is internal positioning rationale.** No customer or
+company name appears in any participant-facing surface. Participants see the thesis and the
+closing message; they never see this subsection's reasoning.
+
+### Consequences for copy that already exists
+
+- The incident is the corpus generator, and the thesis makes that ordering explicit rather
+  than merely implied. Any page whose summary line ends at "we fixed the query" is wrong even
+  if every fact on it is right.
+- "Recommend, don't execute" is the participant-facing phrasing of the agent's read-only
+  constraint. Use it in copy; keep the mechanical statement (all tools in
+  `agent/registry.py` are read/synthesis-only) in technical text.
+- The closing message is a claim about what the participant built, so it must be literally
+  true of their own run. A participant whose Wave B admission failed did not build a
+  validated evidence layer, and the closing surface must not tell them they did — this is the
+  live-data-only rule applied to the summary, not just to the data. A static content page
+  cannot satisfy that condition, since it renders the same sentence either way, so the
+  closing message is emitted by the Wave B capture path after a successful admission. The
+  content page may set the claim up; only the run may state it.
+
 ## Participant-Facing Framing
 
 The lab titles and terminology below correct a real framing problem: the mechanically
@@ -354,6 +452,118 @@ Internal package, schema, and identifier names (`labs/incident/`, `casework.*`,
 change — the rule is participant-facing language only, matching this project's existing
 practice of keeping ticket-style internal IDs stable (see `live-data-and-naming-assessment`
 memory: real-looking names break Law 6's naming discipline; ticket-style IDs are intentional).
+
+### The central question, and why it has three clauses
+
+> Why did order writes time out during the priority-tier migration, why did the application
+> recover after commit, and why did the priority query remain slow?
+
+**The three clauses are a design decision, not stylistic padding.** No single retrieval arm
+answers all three, and that is the point: the question forces the participant through decompose
+(three sub-questions with different evidence needs), traverse (the request → connection →
+backend → blocker → migration chain that links clause one to clause two), and compare (the
+plan checkpoints that answer clause three and are unrelated to the lock evidence). A
+single-clause question would let one lexical search look sufficient and would make Lab 3's
+tool registry look like ceremony.
+
+Note also that the three clauses have **different answers with different mechanisms**: clause
+one is lock contention plus pool exhaustion, clause two is the commit releasing row locks, and
+clause three is a missing access path that has nothing to do with either. A participant who
+tries to explain all three with one cause will be contradicted by the evidence, which is the
+intended learning moment.
+
+### Session beats, with the honest emphases
+
+These are the beats the participant experiences. Each entry names the beat and the thing about
+it that must not be softened or compressed away.
+
+**Establish ground truth.** 5,000 customers and 3,000,000 orders are preloaded operational
+data; `casework`, `retrieval`, and `proof` contain zero participant evidence. **The operational
+workload is not the retrieval corpus** — this distinction is load-bearing and is why the corpus
+is 50–80 documents while the table is 3,000,000 rows.
+
+**The migration ships.** Add nullable `priority_tier`, backfill all three million rows in one
+transaction, application writes collide with that uncommitted transaction. Accessible at L300;
+the L400 mechanics are inspected progressively rather than asserted up front.
+
+**Lab 1, beat: ten writers block, visibly.** Tagged application sessions enter
+`Lock:transactionid`; `pg_blocking_pids()` identifies the backfill PID. This is the signal
+participants expect to find, and they find it.
+
+**Lab 1, beat: the queue that leaves no database footprint.** This is its own beat and must
+never be reduced to a bullet inside the previous one. The ten blocked writers appear in
+`pg_stat_activity` with a wait event and a blocking-PID chain. The additional queued requests
+appear **nowhere in the database at all** — they never obtained a connection, never entered a
+lock wait, never appeared in `pg_stat_activity`, and exist only in pool statistics and in their
+own `PoolTimeout`. A request that failed and left no database footprint is the session thesis in
+a single observation: telemetry is abundant, trustworthy context is scarce. The corrected
+12-request-against-10-slot contract (see Global Constraints) is what makes this observable at
+all — with ten requests against ten slots you can never see a fully-saturated pool and a
+non-empty wait queue in the same sample.
+
+**Lab 1, beat: the drain.** After the commit, the ten blocked writers acquire their locks and
+**commit successfully** — a measured recovery, not merely "writes recover." This is the proof
+the diagnosis was right, and it is why the blocked-statement timeout is 40 seconds rather than
+Gate 1's 3 seconds: a 3-second bound cancels every writer before the observation hold begins
+and there is no drain to observe. A run in which zero writes commit is a regression, not a
+variant.
+
+**Lab 1, beat: `ANALYZE` does not help.** The priority query is captured before and after
+`ANALYZE`; both plans are sequential scans. The supporting index is deliberately absent. What
+changes is the estimate; what does not change is the access path.
+
+**Lab 2, and the uncomfortable result.** Participants build the four arms, filter before
+fusion, adjust weighted-RRF inputs, and compare PostgreSQL fusion against Cohere reranking.
+**On at least one judged query in this repository, lexical retrieval beats hybrid** — a real,
+measured result (see the `eval-leaderboard-honesty` memory). Publish it. A workshop that shows
+an arm losing is credible; one that claims hybrid always wins is not, and the participants best
+equipped to notice are the ones whose opinion matters most. Also state plainly that at 50–80
+documents a sequential scan may be the planner's correct retrieval plan.
+
+**Lab 3, lead with the structural impossibility.** The strongest honesty claim in the workshop
+is this, and it goes first rather than last: at Lab 3 the after-index checkpoint **does not
+exist in Aurora**. If the agent asserted an improvement, it would be a fabrication with no
+citable document, and `proof.validate_answer_citations()` would fail it. That is structural
+honesty enforced by *time and schema*, not by prompt discipline — the agent is not being
+trusted to refrain, it is unable. Everything else the agent does in Lab 3 (decompose, search,
+traverse the request → connection → backend → blocker → migration chain, compare, explain
+ranking, cite) is subordinate to that point. The run ends by writing a structured, cited action
+proposal — not prose advice.
+
+**Lab 4, supervised execution.** The participant reviews and explicitly approves the proposal,
+executes the DDL themselves, then compares proposed against observed via the canonical
+fingerprint, captures and admits Wave B, inspects both receipts, replays the Lab 3 run
+unchanged, and computes the autonomy-readiness verdict. "Recommend, don't execute" is the
+participant-facing phrasing of why the agent handed them SQL instead of running it.
+
+**Transfer.** A reusable SQL hybrid-retrieval workbook; a read-only agent pattern; two
+versioned evidence receipts; persisted rankings, relationships, citations, and replay; the
+supervision record; and a production extension model — additional accounts, engines,
+connectors, ACLs, and structured outputs for human or IaC workflows. Fleet expansion and the
+read-only → human-approved → policy-bounded-autonomous progression are discussed here, as
+architecture, and never as lab work.
+
+### Two things this arc must not claim
+
+**No mixed-run timing numbers.** The measured baselines below contain two separate runs: the
+brainstorming probe (225 ms → 219 ms → 1.5 ms) and the fresh 3M-row run (471.75 ms →
+245.65 ms → 2.24 ms). Splicing them — for example "219 ms to 1.5–2.2 ms" — produces a number no
+run ever produced and violates the exact-numbers rule in Global Constraints. Publish one run's
+triple, or publish the shape instead: buffers dropping two orders of magnitude and
+rows-removed-by-filter going from roughly 2.4 million to zero. **The shape is the better
+teaching point anyway**, because execution time alone never shows *why* the index worked. Task
+G3 replaces every published number with the final run's measurements regardless.
+
+**No unsupported optional-lab promises.** Do not tell participants the session includes
+optional RLS-with-masking and AgentCore-publication labs. Current reality: the RLS and column-
+masking module exists only on the `rls-personas-column-masking` branch (`sql/11_roles_rls.sql`,
+`sql/12_masking.sql`); commit f4e6399 deleted it from `main`, and the live database is
+deliberately not migrated for it. The AgentCore **lab** was removed in d272014 — what survives
+is a transport (`lambda_mcp/handler.py`, `scripts/invoke_agentcore_gateway.py`) and an orphaned
+page in the sibling Workshop Studio repo. Additionally, the final 3 minutes of a 60-minute
+session is a cleanup slot, not room for a substantial module. If these are offered at all, they
+are **take-home extensions**, described as such, and only for the pieces that actually exist on
+the shipping branch.
 
 ## Two-Wave Evidence Model
 
@@ -418,6 +628,136 @@ replace or tombstone Wave A:
   admission wave) is a reasonable production extension but is explicitly NOT needed for the
   core workshop and would add avoidable complexity — do not build it as part of this redesign.
 
+## Supervised Execution Model
+
+**The agent stays read-only; the workflow becomes supervised read/write.** This section closes
+a real audit gap in the design as previously written: the chain ran agent recommendation →
+*nothing* → Wave B outcome. The human decision, which is the single most important event in a
+human-in-the-loop session, left no trace in Aurora. A participant could not answer "what
+exactly was proposed, did I approve it, and did I execute what was proposed?" from the
+database, which is precisely the class of question this whole workshop claims Aurora can
+answer.
+
+**What does not change, and is not negotiable:** the agent receives no write tool, no DDL
+privilege, and no execution path. All tools in `agent/registry.py` stay read/synthesis-only.
+The participant executes the DDL themselves in Code Editor. Granting the agent DDL would
+import authorization, rollback, idempotency, concurrency, and policy enforcement as new
+subjects and dilute the hybrid-retrieval focus this session exists to teach.
+
+### Two new proof tables
+
+**`proof.action_proposals`** — written by the Lab 3 agent run, one row per proposed action.
+References the `proof.agent_runs` row that produced it, so a proposal is never free-floating
+advice. Carries:
+
+- structured action type and target (not only prose): action type, schema, table, index
+  method, ordered key columns, included columns, predicate;
+- the proposed SQL text;
+- supporting citations, restricted to citations that already pass
+  `proof.validate_answer_citations()` — an unvalidated citation cannot support a proposal;
+- preconditions the action assumes;
+- expected effect;
+- rollback guidance.
+
+**`proof.action_executions`** — written during Wave B, one row per execution attempt.
+References its proposal. Carries the participant's explicit approval, the executed SQL, the
+**observed** index definition read back from the catalog (not the SQL the participant typed —
+what PostgreSQL actually created), outcome and timestamps, before/after plan evidence
+references, the Wave B admission and receipt IDs, and whether the executed action matched the
+proposal.
+
+The row is **append-only, and not merely by privilege**. Non-owner roles hold `INSERT` and
+never `UPDATE`, but the recorder that writes the row runs as the owner, and the owner holds
+`UPDATE` inherently — so the rule is enforced by a trigger on the table rather than by a
+grant. Every column that decides a verdict is written by the `INSERT` that creates the row and
+cannot be changed afterwards by anyone: an execution that did not match the proposal cannot be
+edited into one that did.
+
+One exception exists and it is not a verdict column. The two Wave B receipt identifiers are
+attached *after* the row is written, because the execution is recorded **before** admission is
+attempted. A `CREATE INDEX` that succeeded and an admission that then failed must not
+disappear from the record; recording after admission would leave zero rows, which reads as "no
+execution has been recorded" — false, and indistinguishable from a participant who skipped the
+lab. Until the receipt is attached the verdict says the result was not validated by an
+admitted Wave B capture, which is exactly true at that moment. The attachment is once-only:
+substituting a different receipt is refused.
+
+A rerun after a fixed admission failure appends a **new** row rather than amending the first.
+The verdict and the Proof surface both report the latest attempt, ordered identically, so the
+panel a participant reads and the verdict computed for them can never describe different
+attempts.
+
+### Canonical fingerprint, not raw SQL hash
+
+**Raw SQL hash equality is the wrong authoritative test, and using it would make the workshop
+lie to participants.** Whitespace, quoting, casing, optional keywords, schema qualification,
+and equivalent PostgreSQL syntax all change the hash without changing the action. A
+participant who typed the recommended index with different spacing would be told they executed
+something else.
+
+The authoritative equality test is a **canonical structured fingerprint** built from:
+
+```
+action type
+schema
+table
+index method
+ordered key columns   (order matters: (priority_tier, created_at DESC) != (created_at DESC, priority_tier))
+included columns
+predicate
+```
+
+Key column order is part of the fingerprint because it is semantically load-bearing for this
+exact index — a participant who reverses the columns has *not* executed the proposed action,
+and the workshop should say so.
+
+Raw SQL hashes are still stored on both tables, for audit and for showing participants that
+identical actions can arrive as different text. They are never the equality test.
+
+The fingerprint is computed twice from two independent sources: once from the proposal's
+structured fields, and once from the **observed catalog definition** after execution. That
+second derivation is what makes the comparison meaningful — it compares what was proposed
+against what PostgreSQL actually built, not against what the participant claims to have run.
+
+### Autonomy readiness: computed, never narrated
+
+The verdict is a SQL function over the proposal, its citations, its preconditions, and the
+execution record. It emits two independent booleans, each with explicit reasons:
+
+- **`pre_execution_eligible`** — computed from information available *before* execution only.
+  Requires: validated supporting citations; an allowlisted action type; an approved target
+  (schema and table on the allowlist); satisfied preconditions; bounded timeouts declared;
+  and rollback guidance present. Each failed requirement contributes a named reason.
+- **`post_execution_validated`** — computed from the execution record: the action succeeded,
+  the observed fingerprint matches the proposed fingerprint, and the after-plan evidence
+  demonstrates the expected effect.
+
+**Successful post-execution evidence must never be fed back into `pre_execution_eligible`.**
+An action that worked was not therefore safe to automate; a proposal missing rollback guidance
+stays ineligible even after a flawless execution. This is the single most important property
+of the verdict, and the gate for it (G-34, see the implementation plan) exists specifically to
+prove the retroactive path is absent rather than merely unused.
+
+This is an **autonomy-readiness assessment, not autonomous execution.** Nothing in this design
+executes anything without the participant. The three-stage progression — read-only
+recommendation → human-approved execution → policy-bounded autonomous execution — belongs in
+the "Take it home" closing discussion, where fleet expansion also lives, and never becomes lab
+scope.
+
+### Participant arc
+
+**Lab 3:** the agent creates a cited, structured action proposal. The post-index result does
+not yet exist, so the agent cannot claim success — and this is enforced by the database, not
+by prompt discipline. See the Participant-Facing Framing section's Lab 3 beat.
+
+**Lab 4:** the participant reviews and approves the proposal, executes the action, captures
+Wave B, compares the proposed and observed action via the canonical fingerprint, validates the
+result, and computes whether the action could qualify for future policy-bounded automation.
+
+**Cost to the participant is roughly one minute**, since they are already reviewing the
+recommendation and running the DDL. No new external dependency: two tables, one fingerprint
+function, one verdict function, all in Aurora.
+
 ## Data Flow
 
 1. Workshop Studio provisioning bootstraps `workbench_lab.customers` (5,000) and
@@ -445,13 +785,23 @@ replace or tombstone Wave A:
    unchanged) produces a cited diagnosis from Wave A evidence only, and recommends the
    missing index plus batched-backfill as future practice. It cannot see or reference a
    post-index result, because none exists yet in `retrieval.*` — source truth, not a filter.
-5. **Lab 4 — Remediate and prove.** The participant reviews the agent's recommendation, then
-   executes the recommended `CREATE INDEX` DDL themselves in Code Editor (the agent never
-   gets DDL privilege or an execution path). The orchestrator captures the post-index plan,
-   verifies the index, and admits Wave B — a new follow-up admission contract, additive to
-   Wave A, with its own admission ID, observation window, and receipt — embeds the small
-   delta, publishes the remediation receipt, and the participant replays the original Lab 3
-   investigation (unchanged, still showing Wave A only) alongside the new remediation proof.
+   The run also writes one `proof.action_proposals` row: structured action type and target,
+   proposed SQL, validated supporting citations, preconditions, expected effect, and rollback
+   guidance, referencing this `agent_run_id`.
+5. **Lab 4 — Remediate and prove.** The participant reviews and explicitly approves the
+   proposal, then executes the recommended `CREATE INDEX` DDL themselves in Code Editor (the
+   agent never gets DDL privilege or an execution path). The orchestrator captures the
+   post-index plan, verifies the index, reads the **observed** index definition back from the
+   catalog, and writes `proof.action_executions` — approval, executed SQL, observed
+   definition, outcome and timestamps, before/after plan references, and the
+   canonical-fingerprint comparison of proposed versus observed. That write happens **before**
+   admission is attempted, so an execution cannot be lost to a later failure; the Wave B
+   receipt identifiers are attached to the row afterwards. It then admits Wave B — a new
+   follow-up admission contract, additive to Wave A, with its own
+   admission ID, observation window, and receipt — embeds the small delta, publishes the
+   remediation receipt, and the participant replays the original Lab 3 investigation
+   (unchanged, still showing Wave A only) alongside the new remediation proof and the computed
+   autonomy-readiness verdict.
 
 ## Error Handling
 
@@ -493,6 +843,25 @@ replace or tombstone Wave A:
   100–120 number.
 - Manual/facilitator verification: at least one full dry run against the real Aurora cluster,
   timed end-to-end, confirming the 5–8 minute ceiling holds with real margin.
+- **Supervised execution needs adversarial tests, not happy-path tests**, because every
+  interesting property is a negative one:
+  - The canonical fingerprint must match across formatting variance: different whitespace,
+    casing, quoting, and schema qualification of the same index must produce one fingerprint.
+    The raw SQL hashes must *differ* across those same variants — that contrast is the reason
+    the fingerprint exists and should be asserted directly.
+  - The fingerprint must **not** match on reversed key column order. `(priority_tier,
+    created_at DESC)` and `(created_at DESC, priority_tier)` are different actions.
+  - `pre_execution_eligible` must be false, with a named reason, for each requirement removed
+    in isolation: unvalidated citation, non-allowlisted action, unapproved target, unsatisfied
+    precondition, unbounded timeout, missing rollback guidance. Six independent negative cases,
+    not one bundled check.
+  - **A successful execution must not flip `pre_execution_eligible` to true.** Construct a
+    proposal that is ineligible (say, no rollback guidance), execute it successfully, and assert
+    the pre-execution verdict is still false with its reason intact. This is the retroactive-
+    safety test, and it is the one test in this group that must never be skipped.
+  - The agent must hold no DDL privilege on `workbench_lab`. Assert it against the catalog
+    rather than trusting the tool registry, since privilege can be granted without touching
+    Python.
 
 ### Measured Baseline — Current (Unmodified) Pipeline, Real Aurora Cluster
 
@@ -677,3 +1046,14 @@ already used everywhere else in this design:
   application's own connection pool (pgbench connects directly to Postgres; JMeter/ECS/Lambda
   would need new infrastructure). The hot-write driver going through the real FastAPI pool is
   the only mechanism that can produce genuine `psycopg_pool` exhaustion.
+- **Granting the agent a write tool, DDL privilege, or any execution path.** Considered and
+  explicitly rejected: it would import authorization, rollback, idempotency, concurrency, and
+  policy enforcement as major new subjects and weaken the hybrid-retrieval focus. The
+  Supervised Execution Model section is the accepted alternative — a supervised read/write
+  *workflow* around a read-only agent.
+- **Live autonomous execution of any kind.** The autonomy-readiness verdict is a computed
+  assessment over recorded evidence, not an execution mode. Enabling autonomous DDL on a
+  workshop database would be less credible, not more.
+- **Restoring the optional modules as participant-facing labs**, or presenting them as fitting
+  inside the 60-minute budget. If offered, they are take-home extensions limited to what exists
+  on the shipping branch.

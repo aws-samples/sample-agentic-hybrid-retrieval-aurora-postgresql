@@ -146,4 +146,26 @@ GATE 5 PASSED (threshold: <15%)
 
 ## Gate 6: Consolidated report and user go-ahead
 
-**Result: pending — blocked on Gates 2–5**
+**Result: PASSED with corrections — go-ahead granted 2026-08-04, conditional on a correction pass completed the same day**
+
+All five prior gates passed against the real cluster. The consolidated report was delivered and the user granted go-ahead for implementation, but review of the report surfaced a mechanical contradiction in the plan that had to be fixed before any task was dispatched.
+
+**The contradiction:** Gate 1 measured nine `statement_timeout` outcomes and one `pool_timeout`, while the plan's hold contract required ten tagged sessions blocked in PostgreSQL *and* at least two requests waiting outside the pool. Ten requests against a ten-slot pool cannot produce both — a request holding a slot is not waiting for one, so ten requests bound the observable maximum at nine blocked plus one `PoolTimeout`. Separately, Gate 1's three-second `statement_timeout` cannot sustain a ten-to-fifteen-second observation hold: every writer cancels itself before the hold begins.
+
+**Corrections applied to `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md` (2026-08-04, before Task A1):**
+
+1. **Concurrency contract.** The driver launches 12–14 requests (`LAB_HOT_WRITE_REQUEST_COUNT`, default 12) against `DB_POOL_MAX_SIZE = 10`. Exactly 10 obtain connections and block on distinct rows; the remaining 2–4 never obtain a connection and return `PoolTimeout`. Two signals, two disjoint populations, never conflated.
+2. **Timeout policy, three separate bounds.** Checkout 3s (`LAB_HOT_WRITE_CHECKOUT_TIMEOUT_SECONDS`), blocked-statement 30–45s (`LAB_HOT_WRITE_STATEMENT_TIMEOUT`, default `'40s'`), controller proving loop 90s (`max_attempt_seconds`). Gate 1's `'3s'` statement timeout is a property of the gate script and is a defect if it appears in shipped config.
+3. **Drain is the honest ending.** The 10 blocked writers commit after the backfill releases its locks. Task B4 gained a seventh recovery assertion, `blocked_writers_drained`, requiring exactly `DB_POOL_MAX_SIZE` commits, zero `statement_timeout`, and at least one `pool_timeout`.
+4. **Task B3's hold parameter renamed** `writer_count` → `expected_blocked_sessions`, with a test asserting 12 is unsatisfiable by construction. The old name invited passing the request count into a condition only the pool size can satisfy.
+5. **Task A2's admission payload split** `writer_count` into `request_count` and `blocked_writer_count`, with a CHECK asserting `request_count > blocked_writer_count`. A single field cannot express that some requests never reached the database, which is the entire pool-exhaustion signal.
+6. **Task C1's corpus bodies detached from Gate 5's sample.** Gate 5's `_gate5_build_sample_documents.py` encodes nine self-cancelled writers and "no hot-write request completed successfully" — an incident the corrected mechanism does not produce. Its per-signal structure carries forward; its numbers and outcome vocabulary do not.
+7. **Task B1's `priority_tier` ownership** corrected from Task B2 to Task B1a.
+8. **Gate 1's own step text** corrected: its Step 3 predicted ten `pool_timeout` outcomes, which was never what it measured, and its Step 2 code block is now labeled as the pre-fix draft carrying both HC defects.
+
+**Still owed, carried into implementation rather than blocking it:**
+
+- **Genuinely-new Wave B admission remains unproven** (Gate 3's own caveat). Gate 3 proved rebuilding does not spuriously demote unrelated evidence; it did not prove that admitting new Wave B evidence through the real follow-up contract keeps Wave A additive, because that contract does not exist as code yet. This is a stop/go gate before Labs, UI, infrastructure, and Workshop Studio work.
+- **Real HTTP pool topology remains unproven at the endpoint level.** Gate 1 exercised the real `psycopg_pool.ConnectionPool` via `open_pool()`/`get_pool()`; it did not exercise FastAPI request handling, Pydantic models, per-request ASGI threading, or the `outcome`-as-200 error contract. Task B2 owes endpoint-level proof, and it is the second stop/go gate.
+
+**Both owed items are Task A3 and Task B2 dependencies, and both are the designated stop/go points before any downstream phase begins.**
