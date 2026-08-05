@@ -6783,7 +6783,15 @@ it must land before Phase C's evidence builder consumes its checkpoints.
   `PERIOD_SECONDS = 60` as best-effort.
 - Modify: `labs/incident/run_live_workshop.py` — delete `_sample_postgresql`'s
   9/9/6-row assertions (514–624) and replace with the new phase-derived shape;
-  delete the `--pi-wait-seconds` CLI flag
+  delete the `--pi-wait-seconds` CLI flag. **Delete
+  `_measured_visibility` (`:887-908`) and `_PI_UNRESOLVED_STATEMENT` (`:884`) only
+  after Task C1's replacement classifier exists.** That function is the sole
+  producer of `visibility='restricted'` in the repository, `admit_evidence`
+  silently defaults an unlabelled record to `workshop`
+  (`sql/10_admission.sql:418`), and G-27 exits 1 rather than BLOCKED on a corpus
+  with zero restricted rows — measured. Task C1's Files block carries the
+  replacement rule and the two `gates/rls_enforcement.py` remediation strings that
+  go stale with it; read it before deleting this
 - Modify: `backend/tests/test_incident_lab.py:27-37` (file-set assertion),
   `:39-43` (`OBSERVATION_COUNT`/`WRITER_COUNT`/`READER_COUNT`), `:86-131`
   (old lock-vocabulary string assertions)
@@ -6930,7 +6938,11 @@ git commit -m "Delete the Performance Insights collection path"
 ```
 
 **Dependencies:** Tasks B1a, B2, B3, B4, B5 — the file-set assertion names all five
-new modules, so this task cannot pass until they exist.
+new modules, so this task cannot pass until they exist. **Also Task C1**, out of
+phase order: this task deletes `_measured_visibility` and C1 owns its replacement,
+so deleting it first leaves the corpus with no restricted cohort and G-27 red.
+Either implement C1 before this task, or leave those two functions in place here
+and let C1 delete them — state in the report which you chose.
 
 ## Phase C — Retrieval Corpus
 
@@ -6958,8 +6970,62 @@ sentence structure itself must vary per event.
 - Produces: `build_wave_a_documents(...) -> list[EvidenceDocument]` and
   `build_wave_b_documents(...) -> list[EvidenceDocument]`, where
   `EvidenceDocument` carries `key`, `signal_type` (one of `lock`, `pool`,
-  `request`, `wal`, `meta`, `plan`), `phase`, `title`, `body`, `occurred_at`. Task
-  C2 admits these; Task C3 indexes them.
+  `request`, `wal`, `meta`, `plan`), `phase`, `title`, `body`, `occurred_at`, and
+  `visibility` (`'workshop'` or `'restricted'`). Task C2 admits these; Task C3
+  indexes them.
+
+**The `visibility` field is load-bearing and must not be dropped as unused.**
+Task B6 deletes `labs/incident/run_live_workshop.py:_measured_visibility`, which
+is today the **only** producer of `visibility='restricted'` anywhere in the
+repository — verified by grep. Everything downstream of it fails silently if
+nothing replaces it:
+
+- `casework.admit_evidence` defaults a record with no `acl` key to
+  `'{"visibility":"workshop"}'` (`sql/10_admission.sql:418`). A builder that omits
+  the field therefore produces a corpus with **zero** restricted rows, and no
+  error anywhere.
+- G-27 (`gates/rls_enforcement.py`) treats zero restricted rows as an
+  **assertion failure and exits 1**, not BLOCKED. Measured against
+  `dat410_review_remediation_test` after Task A1: `restricted rows measured on the
+  engine: 0`, then `assertion failed: retrieval_admin is named by every policy and
+  holds can_see_restricted, so it is reading unfiltered: the capture holds no
+  restricted evidence`. G-27 is in `gates/checks.sh:47`, so Task G3's final sweep
+  cannot pass with an all-`workshop` corpus.
+- The persona switcher, the ACL row-filtering assertions, and Lab 3's
+  restricted-citation behaviour all measure a cohort that would no longer exist.
+
+**Replacement classification, and why it is honest.** Classify on resolved
+statement text from the two columns `sql/12_masking.sql` still masks:
+`casework.pg_stat_activity_samples.query` and
+`casework.pg_stat_statements_samples.queries`. A document whose structured payload
+carries non-empty captured statement text gets `visibility='restricted'`;
+everything else gets `'workshop'`. This is the same rule
+`_measured_visibility` implemented, re-anchored from a Performance Insights
+dimension onto a `pg_stat_*` column — the participant's own live query text,
+captured in their own run, which is exactly what a real operator restricts and
+exactly what the masking policies already protect. It invents no cohort and
+labels no row by hand, so it holds under the live-data-only rule. Do **not**
+substitute a hardcoded list of keys to mark restricted: that is authored data
+wearing a classification's clothes.
+
+The rule is not vacuous on the new corpus, verified against the schema: every
+`lock` document derives from a `pg_stat_activity` sample row that carries the
+blocked writer's `UPDATE` and the backfill transaction's statement, and `plan`
+documents carry the reference query. `pool` and `request` documents describe
+connection outcomes with no statement text and stay `workshop`, which gives the
+corpus a genuine mix rather than a uniform label.
+
+**Also fix the two stale remediation strings this replacement invalidates**, in
+`gates/rls_enforcement.py:663-667` and `:686-691`. Both currently end
+`Re-run make live-workshop against a cluster with Database Insights advanced mode
+enabled` and one cites
+`labs/incident/run_live_workshop.py:_measured_visibility` by name. After Task A1
+that advice is impossible to follow and after Task B6 the cited function does not
+exist, so a facilitator hitting a genuinely empty capture is sent to a deleted
+feature. Rewrite both to name the new classifier and the `pg_stat_activity`
+statement-text condition. Task A1 deliberately left this file alone (its capture
+table list is catalog-discovered, so it needed no edit there); these two strings
+are this task's to correct because this task creates the mechanism they describe.
 
 **Migration and compatibility implications:** the old builder emitted exactly 30
 each of `activity_window` / `lock_topology` / `blocking_chain` — time-sliced
@@ -7172,7 +7238,12 @@ git commit -m "Add the six-signal-type evidence builder"
 
 **Interfaces:**
 - Consumes: Task A3's wave-aware `casework.admit_evidence(jsonb)`, Task C1's
-  documents.
+  documents — **including each document's `visibility` field, which must be
+  emitted into the payload as `"acl": {"visibility": <value>}`.** Dropping it is
+  not a no-op: `admit_evidence` coalesces a missing `acl` to
+  `'{"visibility":"workshop"}'` (`sql/10_admission.sql:418`), so the corpus comes
+  out uniformly unrestricted with no error, and G-27 then exits 1 on the empty
+  restricted cohort. C1's Files block explains the classification.
 - Produces: `admit_wave_a(conn, documents, ...) -> AdmissionReceipt` and
   `admit_wave_b(conn, documents, *, incident_key, ...) -> AdmissionReceipt`, plus
   a `--wave {A,B}` CLI flag on `run_live_workshop.py`. Lab 4 (Phase D) invokes the
@@ -12089,6 +12160,17 @@ rehearsal's own database, the one G1 left holding a real proposal and a real
 execution, and record G-34's PASS line verbatim including its assignment count and
 helper list. That line is the freeze-time evidence that the pre-execution path is
 absent rather than merely unused.
+
+G-27 deserves the same named treatment, for the opposite reason: it fails loudly on
+a corpus with **zero** restricted rows (measured on the migrated test database after
+Task A1: `restricted rows measured on the engine: 0`, then `assertion failed:
+retrieval_admin ... the capture holds no restricted evidence`, exit 1). That is the
+correct behaviour, and it is the tripwire for Task C1's visibility classifier
+silently not running. If G-27 fails here, do **not** treat it as a gate defect or an
+empty-database artifact: check that C1's classifier produced a mixed corpus and that
+C2 threaded `acl.visibility` into the admission payload. Record G-27's restricted-row
+count verbatim, not just its verdict — a count is what distinguishes "the mechanism
+works" from "the mechanism happened not to fire on this run."
 
 - [ ] **Step 2: Full test suite and typecheck.**
 

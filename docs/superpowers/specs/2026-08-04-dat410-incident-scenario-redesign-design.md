@@ -76,6 +76,20 @@ testing sections around that contract.
   deliberately not migrated), and the AgentCore lab was removed in d272014, leaving only a
   transport plus an orphaned sibling-repo page. See the Participant-Facing Framing section's
   "Two things this arc must not claim."
+
+  **This redesign does require one compatible update, and it is not optional.** Removing
+  Performance Insights removes the only producer of `acl.visibility = 'restricted'`:
+  `labs/incident/run_live_workshop.py:_measured_visibility` classified an evidence record
+  restricted when the PI capture resolved query text for it. Nothing else in the repository
+  emits that value, `casework.admit_evidence` silently defaults an unlabelled record to
+  `workshop` (`sql/10_admission.sql:418`), and G-27 exits 1 — not BLOCKED — on a corpus with
+  zero restricted rows (measured after the schema change on the disposable test database).
+  The new evidence builder therefore carries the classification forward, re-anchored onto
+  the participant's own captured statement text in
+  `casework.pg_stat_activity_samples.query` and
+  `casework.pg_stat_statements_samples.queries` — the two columns the masking module already
+  protects. Same rule, same live-data-only footing, different source column. A hardcoded
+  list of keys to label restricted would be authored data and is not acceptable.
 - Aurora PostgreSQL owns ranking; this redesign is about evidence generation shape, not about
   moving ranking logic anywhere else.
 
