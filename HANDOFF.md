@@ -4,8 +4,8 @@ Current DAT410 redesign state as of August 5, 2026.
 
 ## Read This First
 
-The branch `worktree-dat410-review-remediation` is implementing the approved
-four-phase online-migration scenario. The redesign is not release-complete.
+The `main` branch is implementing the approved four-phase online-migration
+scenario. The redesign is not release-complete.
 Do not extend the retired ordinary-`CREATE INDEX` / concurrent-index-repair
 mechanism that still exists in portions of the runtime, tests, UI, and docs.
 
@@ -22,7 +22,7 @@ continues.
 
 | Repository | Branch | Publication boundary |
 |---|---|---|
-| `sample-agentic-hybrid-retrieval-aurora-postgresql` | `worktree-dat410-review-remediation` | implementation worktree; do not edit the concurrent primary checkout |
+| `sample-agentic-hybrid-retrieval-aurora-postgresql` | `main` | implementation worktree; do not edit the concurrent primary checkout |
 | `build-agentic-hybrid-retrieval-with-amazon-aurora-postgresql` | `mainline` | stage only; the user commits and publishes Workshop Studio |
 
 Do not package or publish Workshop Studio until G3 freezes the source commit.
@@ -89,10 +89,16 @@ Completed and committed on this branch:
 - B1 (`3858379`) bootstraps exactly 5,000 customers and 3,000,000 orders with
   no migration columns. The workload is operational state and the evidence
   store stays empty.
+- B1a adds `labs/incident/migration.py`: the nullable `priority_tier` column
+  commits before the 3,000,000-row backfill opens, and `BackfillHandle` owns
+  the intentionally open transaction until recovery commits or aborts it. The
+  retired ordinary-index hold, blocked-writer, active-reader, and thread
+  orchestration code is deleted. Until B2 and B3 install the real API-pool
+  collision and condition-based controller, `make live-workshop` exits before
+  any database work instead of running the retired scenario.
 
-Not yet implemented: the migration driver, pool-collision orchestration and
-evidence builder, final retrieval corpus, revised agent, participant UI and labs,
-remaining documentation cleanup,
+Not yet implemented: pool-collision orchestration and evidence builder, final
+retrieval corpus, revised agent, participant UI and labs, remaining documentation cleanup,
 infrastructure packaging, and live rehearsal.
 Until those tasks land, `make live-workshop` is not evidence that the approved
 scenario is complete.
@@ -104,7 +110,7 @@ The branch was validated on August 5 against the dedicated
 PostgreSQL 18.3 cluster in `us-east-1`:
 
 - Exact test-target preflight: passed as Aurora PostgreSQL 18.3 in `us-east-1`.
-- Full core suite: 202 tests passed, 50 expected live/security skips.
+- Full core suite: 204 tests passed, 50 expected live/security skips.
 - `make security-schema`: passed with managed `pg_columnmask` 1.1.0.
 - Supervised-execution suite under security mode: 39 tests passed, zero skips.
 - G-34 focused suite: 11 tests passed; the gate passed directly and through
@@ -112,23 +118,28 @@ PostgreSQL 18.3 cluster in `us-east-1`:
 - B1 bootstrap: 32.13 seconds on `db.r8g.2xlarge`; 3,000,000 canonical orders,
   5,000 customers, 248,193,024 bytes, fresh `ANALYZE`, no `priority_tier` or
   `updated_at`, and zero evidence rows.
+- B1a migration acceptance: `ADD COLUMN` left no `AccessExclusiveLock`;
+  `open_backfill()` updated exactly 3,000,000 rows in 22.266 seconds and left
+  its backend `idle in transaction`; a concurrent write to `order_id = 1`
+  waited on `Lock:Transactionid` with the backfill PID in
+  `pg_blocking_pids()`, then drained after commit. The test database was
+  reset, fully re-schematized, and re-bootstrapped afterward.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
 and is not release evidence.
 
-Current disposable-database state after B1 validation: core schema plus the
+Current disposable-database state after B1a validation: core schema plus the
 3,000,000-row `workbench_lab` workload, zero evidence, and no optional security
 module. Reapply `make security-schema` before security-only checks.
 
 ## Next Task
 
-Start B1a: create `labs/incident/migration.py`, then replace the retired
-ordinary-index hold mechanism with the separate committed `ADD COLUMN` and
-open unbatched backfill. A pre-implementation probe on Aurora 18.3 confirmed
-that `SELECT 7 % 5` returns `2`, while `SELECT 7 %% 5` fails with `42883`; use a
-single `%` in the unparameterized backfill `UPDATE`. Keep `%%` only in SQL that
-is passed through psycopg parameter interpolation.
+Start B2: add the lab-only FastAPI hot-write and pool-status endpoints. They
+must use the existing 10-connection `psycopg_pool` directly, set checkout and
+statement timeouts independently, and execute `SET LOCAL application_name`,
+`SET LOCAL statement_timeout`, and the write in one explicit transaction. B3
+then connects the B1a backfill to the condition-based hold controller.
 
 `make test` now fails before discovery unless `TEST_DATABASE_URL` names a
 resettable `_test` database on exactly PostgreSQL 18.3. Accepted targets are

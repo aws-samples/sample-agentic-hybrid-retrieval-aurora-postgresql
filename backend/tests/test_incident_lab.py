@@ -28,6 +28,7 @@ class IncidentLabContractTests(unittest.TestCase):
         expected = {
             "README.md",
             "capture_observability.py",
+            "migration.py",
             "prepare_workload.py",
             "run_live_workshop.py",
         }
@@ -112,18 +113,89 @@ class IncidentLabContractTests(unittest.TestCase):
         self.assertNotIn("INC-LIVE-001", rendered)
         self.assertNotIn("REPLACE_WITH_", rendered)
 
-    def test_orchestrator_contains_both_measured_ddl_paths(self) -> None:
+    def test_old_hold_mechanism_is_gone(self) -> None:
         source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")
 
-        self.assertIn("CREATE INDEX idx_orders_customer_created", source)
-        self.assertIn(
-            "CREATE INDEX CONCURRENTLY idx_orders_customer_created",
-            source,
+        for retired in (
+            "_hold_unsafe_index",
+            "_blocked_writer",
+            "_active_reader",
+        ):
+            self.assertNotIn(
+                retired,
+                source,
+                f"{retired} implements the replaced mechanism and must be deleted",
+            )
+
+    def test_add_column_commits_before_the_backfill_opens(self) -> None:
+        from labs.incident.migration import add_priority_tier_column
+
+        class DdlConnection:
+            def __init__(self) -> None:
+                self.statements: list[str] = []
+                self.commits = 0
+
+            def execute(self, statement: str) -> None:
+                self.statements.append(statement)
+
+            def commit(self) -> None:
+                self.commits += 1
+
+        connection = DdlConnection()
+        add_priority_tier_column(connection)  # type: ignore[arg-type]
+
+        self.assertEqual(
+            connection.statements,
+            ["ALTER TABLE workbench_lab.orders ADD COLUMN priority_tier int"],
         )
-        self.assertIn("'ShareLock'", source)
-        self.assertIn("'RowExclusiveLock'", source)
-        self.assertIn("'ShareUpdateExclusiveLock'", source)
-        self.assertIn("pg_blocking_pids(pid)", source)
+        self.assertEqual(connection.commits, 1)
+
+    def test_backfill_handle_bounds_its_idle_transaction(self) -> None:
+        from labs.incident.migration import BackfillHandle
+
+        source = (LAB_DIR / "migration.py").read_text(encoding="utf-8")
+        self.assertIn("idle_in_transaction_session_timeout", source)
+        self.assertIn("order_id % 5", source)
+        self.assertNotIn("order_id %% 5", source)
+
+        class BackfillConnection:
+            def __init__(self) -> None:
+                self.commits = 0
+                self.rollbacks = 0
+                self.closes = 0
+
+            def commit(self) -> None:
+                self.commits += 1
+
+            def rollback(self) -> None:
+                self.rollbacks += 1
+
+            def close(self) -> None:
+                self.closes += 1
+
+        committed = BackfillConnection()
+        BackfillHandle(
+            pid=1,
+            duration_seconds=1.0,
+            rows_updated=LAB_ROWS,
+            _conn=committed,  # type: ignore[arg-type]
+        ).commit()
+        self.assertEqual(
+            (committed.commits, committed.rollbacks, committed.closes),
+            (1, 0, 1),
+        )
+
+        aborted = BackfillConnection()
+        BackfillHandle(
+            pid=2,
+            duration_seconds=1.0,
+            rows_updated=LAB_ROWS,
+            _conn=aborted,  # type: ignore[arg-type]
+        ).abort()
+        self.assertEqual(
+            (aborted.commits, aborted.rollbacks, aborted.closes),
+            (0, 1, 1),
+        )
 
     def test_orchestrator_escapes_modulo_in_parameterized_setup_sql(self) -> None:
         source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")

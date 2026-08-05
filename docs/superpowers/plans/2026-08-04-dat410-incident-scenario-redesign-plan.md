@@ -6237,6 +6237,7 @@ import psycopg
 
 def add_priority_tier_column(conn: psycopg.Connection) -> None:
     conn.execute("ALTER TABLE workbench_lab.orders ADD COLUMN priority_tier int")
+    conn.commit()
 
 
 @dataclass
