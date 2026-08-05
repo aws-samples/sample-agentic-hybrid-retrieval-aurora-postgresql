@@ -11,12 +11,8 @@ from labs.incident.run_live_workshop import (
     LAB_CUSTOMER_ROWS,
     LAB_ROWS,
     LiveWorkshopError,
-    OBSERVATION_COUNT,
-    READER_COUNT,
     SOURCE_SYSTEM,
-    WRITER_COUNT,
     _assert_lab_workload_ready,
-    _write_exercise_requests,
 )
 
 
@@ -25,9 +21,8 @@ LAB_DIR = REPO_ROOT / "labs" / "incident"
 
 
 class IncidentLabContractTests(unittest.TestCase):
-    def test_only_the_guided_live_path_is_shipped(self) -> None:
+    def test_incident_module_file_set_matches_the_four_phase_runtime(self) -> None:
         expected = {
-            "README.md",
             "capture_observability.py",
             "hold_controller.py",
             "migration.py",
@@ -37,15 +32,51 @@ class IncidentLabContractTests(unittest.TestCase):
             "run_live_workshop.py",
         }
         self.assertEqual(
-            {path.name for path in LAB_DIR.iterdir() if path.is_file()},
+            {path.name for path in LAB_DIR.glob("*.py")},
             expected,
         )
+        self.assertTrue(
+            (REPO_ROOT / "backend" / "app" / "lab_routes.py").is_file(),
+            "the real FastAPI pool route is part of the incident runtime",
+        )
 
-    def test_workshop_scale_comes_from_repeated_live_observations(self) -> None:
-        self.assertEqual(OBSERVATION_COUNT, 30)
-        self.assertEqual(WRITER_COUNT, 6)
-        self.assertEqual(READER_COUNT, 2)
+    def test_workshop_topology_uses_the_real_application_pool(self) -> None:
+        source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")
+
         self.assertEqual(SOURCE_SYSTEM, "pg_incident_capture")
+        self.assertIn("settings.db_pool_max_size", source)
+        self.assertIn("settings.lab_hot_write_request_count", source)
+        for retired in ("OBSERVATION_COUNT", "WRITER_COUNT", "READER_COUNT"):
+            self.assertNotIn(
+                retired,
+                source,
+                f"{retired} belongs to the retired fixed-sample mechanism",
+            )
+
+    def test_no_performance_insights_dependency_remains(self) -> None:
+        for name in ("capture_observability.py", "run_live_workshop.py"):
+            source = (LAB_DIR / name).read_text(encoding="utf-8")
+            for forbidden in (
+                "PerformanceInsightsEnabled",
+                "MAX_PI_SQL_DOCUMENTS",
+                "_wait_for_database_insights",
+                "pi-wait-seconds",
+                "performance_insights",
+            ):
+                self.assertNotIn(
+                    forbidden,
+                    source,
+                    f"{name} still references {forbidden}",
+                )
+
+    def test_cloudwatch_is_best_effort(self) -> None:
+        source = (LAB_DIR / "capture_observability.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("_cloudwatch_samples", source)
+        self.assertIn("cloudwatch_status", source)
+        self.assertIn("unavailable", source)
 
     def test_lab_workload_is_three_million_orders(self) -> None:
         orchestrator = (LAB_DIR / "run_live_workshop.py").read_text(
@@ -97,25 +128,24 @@ class IncidentLabContractTests(unittest.TestCase):
                 with self.assertRaises(LiveWorkshopError):
                     _assert_lab_workload_ready(state)
 
-    def test_orchestrator_writes_only_run_derived_exercise_identifiers(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            written = _write_exercise_requests(
-                Path(directory),
-                incident_key="INC-A1B2C3D4",
-                unsafe_change_key="CHG-A1B2C3D4-01",
-                repair_change_key="CHG-A1B2C3D4-02",
-                lock_key="LOCK-A1B2C3D4-01",
+    def test_retired_payload_builder_is_not_left_beside_the_collision_runtime(
+        self,
+    ) -> None:
+        source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")
+
+        for retired in (
+            "_telemetry_documents",
+            "build_live_payload",
+            "_admit_payload",
+            "_build_search_index",
+            "_verify_live_run",
+            "_write_exercise_requests",
+        ):
+            self.assertNotIn(
+                retired,
+                source,
+                f"{retired} belongs to the retired ordinary-index path",
             )
-            rendered = "\n".join(
-                Path(path).read_text(encoding="utf-8")
-                for path in written.values()
-            )
-        self.assertIn("INC-A1B2C3D4", rendered)
-        self.assertIn("CHG-A1B2C3D4-01", rendered)
-        self.assertIn("CHG-A1B2C3D4-02", rendered)
-        self.assertIn("LOCK-A1B2C3D4-01", rendered)
-        self.assertNotIn("INC-LIVE-001", rendered)
-        self.assertNotIn("REPLACE_WITH_", rendered)
 
     def test_old_hold_mechanism_is_gone(self) -> None:
         source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")

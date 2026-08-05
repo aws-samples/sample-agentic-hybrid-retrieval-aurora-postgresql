@@ -250,11 +250,10 @@ def _wave_contract_payload(
                     "blocked_state": "active",
                     "blocked_query_start": started_at,
                     "wait_event_type": "Lock",
-                    "wait_event": "relation",
-                    "blocked_lock_mode": "RowExclusiveLock",
+                    "wait_event": "transactionid",
+                    "blocked_locktype": "transactionid",
+                    "blocked_lock_mode": "ShareLock",
                     "blocked_lock_granted": False,
-                    "blocking_lock_mode": "ShareLock",
-                    "blocking_lock_granted": True,
                     "blocking_pids": [2001],
                     "blocking_pids_sql": "SELECT pg_blocking_pids(2002);",
                     "blocking_pids_output": "{2001}",
@@ -309,7 +308,7 @@ def _wave_contract_payload(
                     structured={
                         "incident_external_key": attached_incident_key,
                         "change_external_key": validation_key,
-                        "telemetry_type": "remediation_observation",
+                        "telemetry_type": "plan",
                         "observation_number": 1,
                         "observed_until": ended_at,
                         "phase": "plan_regression",
@@ -323,6 +322,7 @@ def _wave_contract_payload(
         "schema": "admission payload v1",
         "kind": "incident_bundle",
         "wave": wave,
+        "cloudwatch_status": "available",
         "source": {
             "system": "pg_incident_capture",
             "uri": bundle_uri,
@@ -409,13 +409,31 @@ class AdmissionContractTest(unittest.TestCase):
     def test_admission_contract_matches_the_four_phase_mechanism(self) -> None:
         sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
         for stale in (
-            "(v_capture ->> 'observation_count')::integer <> 30",
-            "(v_capture ->> 'writer_count')::integer <> 6",
-            "(v_capture ->> 'reader_count')::integer <> 2",
-            "v_telemetry -> 'pg_stat_statements', '[]'::jsonb\n     )) <> 3",
-            "v_telemetry -> 'cloudwatch_metrics', '[]'::jsonb\n     )) <> 5",
+            "lower(v_lock #>> '{structured,wait_event}') IS DISTINCT FROM 'relation'",
+            "v_lock #>> '{structured,blocked_lock_mode}'\n"
+            "         IS DISTINCT FROM 'RowExclusiveLock'",
+            "v_lock #>> '{structured,blocking_lock_mode}'\n"
+            "         IS DISTINCT FROM 'ShareLock'",
+            "OR (v_lock #>> '{structured,blocking_lock_granted}')::boolean\n"
+            "         IS DISTINCT FROM true THEN",
         ):
             self.assertNotIn(stale, sql, f"stale contract still present: {stale}")
+        self.assertIn(
+            "lower(v_lock #>> '{structured,wait_event}')\n"
+            "         IS DISTINCT FROM 'transactionid'",
+            sql,
+        )
+        self.assertIn(
+            "lower(v_lock #>> '{structured,blocked_locktype}')",
+            sql,
+        )
+        self.assertIn("pg_blocking_pids", sql)
+        self.assertIn(
+            "v_cloudwatch_status IS NULL\n"
+            "     OR v_cloudwatch_status NOT IN ('available', 'unavailable')",
+            sql,
+        )
+        self.assertNotIn("'not_collected'", sql)
         self.assertIn("v_blocked_writer_count <> 10", sql)
         self.assertIn("v_request_count <= v_blocked_writer_count", sql)
         for phase in ("backfill", "pool_exhaustion", "recovery", "plan_regression"):
@@ -489,17 +507,25 @@ class LivePayloadContractTest(unittest.TestCase):
             payload["records"]["lock_evidence"]["external_key"],
             f"LOCK-{suffix}-01",
         )
-        self.assertGreaterEqual(
-            len(payload["records"]["telemetry_documents"]),
-            100,
+        self.assertEqual(payload["capture"]["request_count"], 12)
+        self.assertEqual(payload["capture"]["blocked_writer_count"], 10)
+        self.assertEqual(payload["capture"]["reader_count"], 0)
+        self.assertEqual(
+            set(payload["capture"]["phases"]),
+            {"backfill", "pool_exhaustion", "recovery", "plan_regression"},
         )
-        self.assertLessEqual(
-            len(payload["records"]["telemetry_documents"]),
-            120,
+        self.assertEqual(
+            set(payload["capture"]["signal_types"]),
+            {"lock", "pool", "request", "wal", "meta", "plan"},
         )
-        self.assertEqual(len(payload["telemetry"]["pg_stat_activity"]), 270)
-        self.assertEqual(len(payload["telemetry"]["pg_locks"]), 270)
-        self.assertEqual(len(payload["telemetry"]["pg_blocking_pids"]), 180)
+        self.assertTrue(payload["records"]["telemetry_documents"])
+        for signal in (
+            "pg_stat_activity",
+            "pg_locks",
+            "pg_blocking_pids",
+            "pg_stat_statements",
+        ):
+            self.assertTrue(payload["telemetry"][signal], signal)
 
 
 @unittest.skipUnless(
@@ -677,6 +703,18 @@ class WaveAdmissionTest(unittest.TestCase):
             (1, 1, 1),
         )
 
+    def test_admission_requires_an_explicit_cloudwatch_result(self) -> None:
+        wave_a = _wave_contract_payload(uuid.uuid4(), wave="A")
+        del wave_a["cloudwatch_status"]
+
+        with self.assertRaises(psycopg.errors.InvalidParameterValue) as caught:
+            self._admit(wave_a)
+
+        self.assertIn(
+            "cloudwatch_status must be available or unavailable",
+            str(caught.exception),
+        )
+
     def test_wave_b_requires_an_existing_incident(self) -> None:
         wave_b = _wave_contract_payload(
             uuid.uuid4(),
@@ -730,7 +768,7 @@ class AdmitEvidenceTest(unittest.TestCase):
         self.suffix = self.payload["capture"]["run_suffix"]
         self.incident_key = f"INC-{self.suffix}"
         self.unsafe_change_key = f"CHG-{self.suffix}-01"
-        self.safe_change_key = f"CHG-{self.suffix}-02"
+        self.analyze_change_key = f"CHG-{self.suffix}-02"
         self.lock_key = f"LOCK-{self.suffix}-01"
         self.telemetry_documents = len(
             self.payload["records"]["telemetry_documents"]
@@ -759,12 +797,12 @@ class AdmitEvidenceTest(unittest.TestCase):
             receipt["edges_written"],
             4 + (2 * self.telemetry_documents),
         )
-        self.assertGreaterEqual(receipt["rows_written"], 900)
+        self.assertGreater(receipt["rows_written"], self.queued_documents)
         self.assertEqual(len(receipt["evidence"]), self.queued_documents)
         for key in (
             self.incident_key,
             self.unsafe_change_key,
-            self.safe_change_key,
+            self.analyze_change_key,
             self.lock_key,
         ):
             self.assertIn(key, receipt["evidence"])
@@ -795,10 +833,9 @@ class AdmitEvidenceTest(unittest.TestCase):
                   change.change_id,
                   lock_row.wait_event_type,
                   lock_row.wait_event,
+                  lock_row.blocked_locktype,
                   lock_row.blocked_lock_mode,
-                  lock_row.blocked_lock_granted,
-                  lock_row.blocking_lock_mode,
-                  lock_row.blocking_lock_granted
+                  lock_row.blocked_lock_granted
                 FROM casework.lock_evidence lock_row
                 JOIN casework.incidents incident
                   ON incident.evidence_id = lock_row.incident_evidence_id
@@ -815,11 +852,10 @@ class AdmitEvidenceTest(unittest.TestCase):
                 self.incident_key,
                 self.unsafe_change_key,
                 "Lock",
-                "relation",
-                "RowExclusiveLock",
-                False,
+                "transactionid",
+                "transactionid",
                 "ShareLock",
-                True,
+                False,
             ),
         )
         relationships = _decoded(
@@ -835,7 +871,7 @@ class AdmitEvidenceTest(unittest.TestCase):
             relationships,
             [
                 ("confirmed", "pg_incident_capture"),
-                ("remediated", "pg_incident_capture"),
+                ("ruled_out", "pg_incident_capture"),
             ],
         )
         counts = self.connection.execute(
@@ -894,8 +930,8 @@ class AdmitEvidenceTest(unittest.TestCase):
     def test_invalid_bundle_rolls_back_every_record(self) -> None:
         invalid = self._payload_copy()
         invalid["records"]["lock_evidence"]["structured"][
-            "blocking_lock_mode"
-        ] = "AccessExclusiveLock"
+            "blocked_locktype"
+        ] = "relation"
 
         with self.assertRaises(psycopg.errors.InvalidParameterValue):
             self._admit(invalid)

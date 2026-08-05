@@ -45,6 +45,7 @@ DECLARE
   v_request_count integer;
   v_blocked_writer_count integer;
   v_reader_count integer;
+  v_cloudwatch_status text := nullif(btrim(payload ->> 'cloudwatch_status'), '');
   v_phases jsonb := v_capture -> 'phases';
   v_signal_types jsonb := v_capture -> 'signal_types';
   v_telemetry jsonb := payload -> 'telemetry';
@@ -176,6 +177,14 @@ BEGIN
     RAISE EXCEPTION
       'admission rejected: capture must carry integer request_count, '
       'blocked_writer_count, and reader_count plus phases and signal_types arrays'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF v_cloudwatch_status IS NULL
+     OR v_cloudwatch_status NOT IN ('available', 'unavailable') THEN
+    RAISE EXCEPTION
+      'admission rejected: cloudwatch_status must be available or unavailable, got %',
+      coalesce(v_cloudwatch_status, '<null>')
       USING ERRCODE = '22023';
   END IF;
 
@@ -317,17 +326,28 @@ BEGIN
     END IF;
 
     IF v_lock #>> '{structured,wait_event_type}' IS DISTINCT FROM 'Lock'
-       OR lower(v_lock #>> '{structured,wait_event}') IS DISTINCT FROM 'relation'
-       OR v_lock #>> '{structured,blocked_lock_mode}'
-         IS DISTINCT FROM 'RowExclusiveLock'
+       OR lower(v_lock #>> '{structured,wait_event}')
+         IS DISTINCT FROM 'transactionid'
+       OR lower(v_lock #>> '{structured,blocked_locktype}')
+         IS DISTINCT FROM 'transactionid'
        OR (v_lock #>> '{structured,blocked_lock_granted}')::boolean
          IS DISTINCT FROM false
-       OR v_lock #>> '{structured,blocking_lock_mode}'
-         IS DISTINCT FROM 'ShareLock'
-       OR (v_lock #>> '{structured,blocking_lock_granted}')::boolean
-         IS DISTINCT FROM true THEN
+       OR NOT EXISTS (
+         SELECT 1
+         FROM jsonb_array_elements_text(
+           coalesce(v_lock #> '{structured,blocking_pids}', '[]'::jsonb)
+         ) blocker(pid)
+         WHERE blocker.pid::integer
+           = (v_lock #>> '{structured,blocking_pid}')::integer
+       )
+       OR v_lock #>> '{structured,blocking_pids_sql}'
+         IS DISTINCT FROM
+           'SELECT pg_blocking_pids(' ||
+           (v_lock #>> '{structured,blocked_pid}') ||
+           ');' THEN
       RAISE EXCEPTION
-        'admission: lock evidence does not prove the live Lock:relation wait'
+        'admission: lock evidence does not prove the live Lock:transactionid '
+        'wait on the backfill transaction'
         USING ERRCODE = '22023';
     END IF;
   ELSE
@@ -750,6 +770,14 @@ BEGIN
     v_bundle_uri,
     (v_capture ->> 'capture_ended_at')::timestamptz,
     coalesce(v_capture -> 'manifest', '{}'::jsonb)
+      || jsonb_build_object(
+        'phases', v_phases,
+        'signal_types', v_signal_types,
+        'request_count', v_request_count,
+        'blocked_writer_count', v_blocked_writer_count,
+        'reader_count', v_reader_count,
+        'cloudwatch_status', v_cloudwatch_status
+      )
   );
   v_rows := v_rows + 1;
 
@@ -774,6 +802,7 @@ BEGIN
       blocked_query_start,
       wait_event_type,
       wait_event,
+      blocked_locktype,
       blocked_lock_mode,
       blocked_lock_granted,
       blocking_lock_mode,
@@ -800,6 +829,7 @@ BEGIN
       (v_lock #>> '{structured,blocked_query_start}')::timestamptz,
       v_lock #>> '{structured,wait_event_type}',
       lower(v_lock #>> '{structured,wait_event}'),
+      lower(v_lock #>> '{structured,blocked_locktype}'),
       v_lock #>> '{structured,blocked_lock_mode}',
       (v_lock #>> '{structured,blocked_lock_granted}')::boolean,
       v_lock #>> '{structured,blocking_lock_mode}',

@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 import tempfile
 import unittest
 
 from labs.incident.capture_observability import (
     METRICS,
+    _collect_cloudwatch_best_effort,
     _cloudwatch_samples,
-    _wait_for_database_insights,
     _validate_target,
     _write_atomic,
 )
@@ -30,39 +30,9 @@ class FakeCloudWatch:
         }
 
 
-class FakePerformanceInsights:
-    def get_resource_metrics(self, **kwargs):
-        group = kwargs["MetricQueries"][0]["GroupBy"]["Group"]
-        if group == "db.wait_event":
-            return {
-                "MetricList": [
-                    {
-                        "Key": {
-                            "Dimensions": {
-                                "db.wait_event.name": "Lock:Relation",
-                                "db.wait_event.type": "Lock",
-                            }
-                        },
-                        "DataPoints": [{"Timestamp": NOW, "Value": 1.5}],
-                    }
-                ]
-            }
-        return {
-            "MetricList": [
-                {
-                    "Key": {
-                        "Dimensions": {
-                            "db.sql.id": "sql-1",
-                            "db.sql.statement": (
-                                "CREATE INDEX idx_orders_customer_created "
-                                "ON workbench_lab.orders(customer_id, created_at DESC)"
-                            ),
-                        }
-                    },
-                    "DataPoints": [{"Timestamp": NOW, "Value": 1.25}],
-                }
-            ]
-        }
+class FailingCloudWatch:
+    def get_metric_statistics(self, **kwargs):
+        raise RuntimeError("CloudWatch unavailable for this incident window")
 
 
 class FakeRds:
@@ -75,7 +45,6 @@ class FakeRds:
                 {
                     "DBInstanceIdentifier": kwargs["DBInstanceIdentifier"],
                     "DBClusterIdentifier": "cluster-1",
-                    "PerformanceInsightsEnabled": True,
                 }
             ]
         }
@@ -98,12 +67,15 @@ class FakeRds:
 
 
 class LiveObservabilityCaptureTests(unittest.TestCase):
-    def test_live_guard_accepts_server_wait_event_casing(self) -> None:
+    def test_live_guard_requires_transaction_id_blocking(self) -> None:
         diagnostics = (
             Path(__file__).resolve().parents[2] / "sql" / "04_diagnostics.sql"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("lower(activity.wait_event) = 'relation'", diagnostics)
+        self.assertIn(
+            "lower(activity.wait_event) = 'transactionid'",
+            diagnostics,
+        )
 
     def test_cloudwatch_contract_uses_real_aurora_metrics(self) -> None:
         samples = _cloudwatch_samples(
@@ -121,21 +93,17 @@ class LiveObservabilityCaptureTests(unittest.TestCase):
             all(sample["dimension_name"] == "DBClusterIdentifier" for sample in samples)
         )
 
-    def test_pi_relation_wait_is_normalized_to_postgresql_spelling(self) -> None:
-        samples = _wait_for_database_insights(
-            FakePerformanceInsights(),
-            resource_id="db-resource-1",
+    def test_cloudwatch_failure_is_recorded_without_failing_capture(self) -> None:
+        capture = _collect_cloudwatch_best_effort(
+            FailingCloudWatch(),
+            cluster_id="cluster-1",
             start_time=NOW,
-            end_time=NOW + timedelta(seconds=30),
-            wait_seconds=0,
+            end_time=NOW,
         )
 
-        self.assertEqual(samples[0]["dimension_value"], "Lock:relation")
-        self.assertEqual(
-            samples[0]["raw_payload"]["Key"]["Dimensions"]["db.wait_event.name"],
-            "Lock:Relation",
-        )
-        self.assertIn("CREATE INDEX", samples[1]["statement"])
+        self.assertEqual(capture["cloudwatch_status"], "unavailable")
+        self.assertEqual(capture["cloudwatch_metrics"], [])
+        self.assertIn("unavailable", capture["cloudwatch_error"])
 
     def test_target_requires_the_writer_instance(self) -> None:
         with self.assertRaisesRegex(RuntimeError, "is not the writer"):

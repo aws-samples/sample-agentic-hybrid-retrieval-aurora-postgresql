@@ -7,11 +7,11 @@ import json
 import os
 from pathlib import Path
 import tempfile
-import time
 from typing import Any
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 import psycopg
 from psycopg.conninfo import conninfo_to_dict
 from psycopg.rows import dict_row
@@ -25,7 +25,6 @@ METRICS = (
     "DatabaseConnections",
 )
 PERIOD_SECONDS = 60
-MAX_PI_SQL_DOCUMENTS = 7
 
 
 def _client_config() -> Config:
@@ -60,10 +59,6 @@ def _validate_target(
         raise RuntimeError(
             f"{instance_id} is not the writer for Aurora cluster {cluster_id}"
         )
-    if not instance.get("PerformanceInsightsEnabled"):
-        raise RuntimeError(
-            f"{instance_id} does not have Performance Insights enabled"
-        )
     configured_host = conninfo_to_dict(database_url).get("host")
     if configured_host != cluster.get("Endpoint"):
         raise RuntimeError(
@@ -90,151 +85,6 @@ def _database_identity(database_url: str) -> dict[str, Any]:
     if row is None:
         raise RuntimeError("Aurora did not return database identity")
     return dict(row)
-
-
-def _pi_rows(
-    pi,
-    *,
-    resource_id: str,
-    start_time: datetime,
-    end_time: datetime,
-    group: str,
-    limit: int = 25,
-) -> list[dict[str, Any]]:
-    response = pi.get_resource_metrics(
-        ServiceType="RDS",
-        Identifier=resource_id,
-        MetricQueries=[
-            {
-                "Metric": "db.load.avg",
-                "GroupBy": {"Group": group, "Limit": limit},
-            }
-        ],
-        StartTime=start_time,
-        EndTime=end_time,
-        PeriodInSeconds=PERIOD_SECONDS,
-    )
-    return response.get("MetricList", [])
-
-
-def _points_in_window(
-    row: dict[str, Any],
-    *,
-    start_time: datetime,
-    end_time: datetime,
-) -> list[dict[str, Any]]:
-    return [
-        point
-        for point in row.get("DataPoints", [])
-        if point.get("Timestamp")
-        and point["Timestamp"] <= end_time
-        and point["Timestamp"] + timedelta(seconds=PERIOD_SECONDS) >= start_time
-    ]
-
-
-def _wait_for_database_insights(
-    pi,
-    *,
-    resource_id: str,
-    start_time: datetime,
-    end_time: datetime,
-    wait_seconds: int,
-) -> list[dict[str, Any]]:
-    deadline = time.monotonic() + wait_seconds
-    while True:
-        query_end = max(
-            datetime.now(timezone.utc),
-            end_time + timedelta(seconds=PERIOD_SECONDS),
-        )
-        wait_rows = _pi_rows(
-            pi,
-            resource_id=resource_id,
-            start_time=start_time - timedelta(minutes=1),
-            end_time=query_end,
-            group="db.wait_event",
-        )
-        matching_waits: list[dict[str, Any]] = []
-        for row in wait_rows:
-            dimensions = row.get("Key", {}).get("Dimensions", {})
-            if str(dimensions.get("db.wait_event.name", "")).casefold() != (
-                "lock:relation"
-            ):
-                continue
-            points = _points_in_window(
-                row,
-                start_time=start_time,
-                end_time=end_time,
-            )
-            if not points:
-                continue
-            point = max(points, key=lambda item: item["Timestamp"])
-            matching_waits.append(
-                {
-                    "evidence_type": "top_wait",
-                    "captured_at": point["Timestamp"],
-                    "dimension": "db.wait_event.name",
-                    "dimension_value": "Lock:relation",
-                    "db_load": point["Value"],
-                    "statement": None,
-                    "query_id": None,
-                    "source_api": "pi:GetResourceMetrics",
-                    "raw_payload": row,
-                }
-            )
-        if matching_waits:
-            sql_observations: list[dict[str, Any]] = []
-            for row in _pi_rows(
-                pi,
-                resource_id=resource_id,
-                start_time=start_time - timedelta(minutes=1),
-                end_time=query_end,
-                group="db.sql",
-            ):
-                dimensions = row.get("Key", {}).get("Dimensions", {})
-                statement = dimensions.get("db.sql.statement")
-                points = _points_in_window(
-                    row,
-                    start_time=start_time,
-                    end_time=end_time,
-                )
-                if not statement or not points:
-                    continue
-                point = max(points, key=lambda item: item["Timestamp"])
-                sql_observations.append(
-                    {
-                        "evidence_type": "top_sql",
-                        "captured_at": point["Timestamp"],
-                        "dimension": "db.sql.id",
-                        "dimension_value": dimensions.get(
-                            "db.sql.id", "not-published"
-                        ),
-                        "db_load": point["Value"],
-                        "statement": statement,
-                        "query_id": dimensions.get("db.sql.id"),
-                        "source_api": "pi:GetResourceMetrics",
-                        "raw_payload": row,
-                    }
-                )
-            sql_observations.sort(
-                key=lambda observation: float(observation["db_load"] or 0),
-                reverse=True,
-            )
-            matching_waits.sort(
-                key=lambda observation: float(observation["db_load"] or 0),
-                reverse=True,
-            )
-            selected_sql = sql_observations[:MAX_PI_SQL_DOCUMENTS]
-            if any(
-                "create index" in str(observation["statement"]).casefold()
-                for observation in selected_sql
-            ):
-                return [matching_waits[0], *selected_sql]
-        if time.monotonic() >= deadline:
-            raise RuntimeError(
-                "Performance Insights did not publish this run's Lock:relation "
-                "wait and ordinary CREATE INDEX SQL before timeout"
-            )
-        time.sleep(15)
 
 
 def _cloudwatch_samples(
@@ -290,6 +140,39 @@ def _cloudwatch_samples(
     return samples
 
 
+def _collect_cloudwatch_best_effort(
+    cloudwatch,
+    *,
+    cluster_id: str,
+    start_time: datetime,
+    end_time: datetime,
+) -> dict[str, Any]:
+    """Return CloudWatch samples when available without gating the incident.
+
+    PostgreSQL plus application-pool observations prove the incident. CloudWatch
+    is supplemental evidence, so an unavailable metric endpoint is recorded for
+    replay instead of aborting the participant's capture.
+    """
+    try:
+        metrics = _cloudwatch_samples(
+            cloudwatch,
+            cluster_id=cluster_id,
+            start_time=start_time,
+            end_time=end_time,
+        )
+    except (BotoCoreError, ClientError, RuntimeError) as error:
+        return {
+            "cloudwatch_metrics": [],
+            "cloudwatch_status": "unavailable",
+            "cloudwatch_error": str(error),
+        }
+    return {
+        "cloudwatch_metrics": metrics,
+        "cloudwatch_status": "available",
+        "cloudwatch_error": None,
+    }
+
+
 def preflight_aws_observability(
     *,
     database_url: str,
@@ -300,32 +183,12 @@ def preflight_aws_observability(
     session = boto3.Session(region_name=region)
     config = _client_config()
     rds = session.client("rds", config=config)
-    cloudwatch = session.client("cloudwatch", config=config)
-    pi = session.client("pi", config=config)
     sts = session.client("sts", config=config)
     cluster, instance = _validate_target(
         rds,
         database_url=database_url,
         cluster_id=cluster_id,
         instance_id=instance_id,
-    )
-    now = datetime.now(timezone.utc)
-    cloudwatch.get_metric_statistics(
-        Namespace="AWS/RDS",
-        MetricName="DatabaseConnections",
-        Dimensions=[{"Name": "DBClusterIdentifier", "Value": cluster_id}],
-        StartTime=now - timedelta(minutes=5),
-        EndTime=now,
-        Period=PERIOD_SECONDS,
-        Statistics=["Average"],
-    )
-    _pi_rows(
-        pi,
-        resource_id=instance["DbiResourceId"],
-        start_time=now - timedelta(minutes=5),
-        end_time=now,
-        group="db.wait_event",
-        limit=1,
     )
     caller = sts.get_caller_identity()
     return {
@@ -344,15 +207,12 @@ def collect_aws_observability(
     instance_id: str,
     start_time: datetime,
     end_time: datetime,
-    wait_seconds: int = 300,
 ) -> dict[str, Any]:
     if end_time <= start_time:
         raise ValueError("incident end_time must be after start_time")
     config = _client_config()
     session = boto3.Session(region_name=region)
     rds = session.client("rds", config=config)
-    cloudwatch = session.client("cloudwatch", config=config)
-    pi = session.client("pi", config=config)
     sts = session.client("sts", config=config)
     cluster, instance = _validate_target(
         rds,
@@ -361,20 +221,31 @@ def collect_aws_observability(
         instance_id=instance_id,
     )
     identity = _database_identity(database_url)
-    insights = _wait_for_database_insights(
-        pi,
-        resource_id=instance["DbiResourceId"],
-        start_time=start_time,
-        end_time=end_time,
-        wait_seconds=wait_seconds,
-    )
-    metrics = _cloudwatch_samples(
-        cloudwatch,
-        cluster_id=cluster_id,
-        start_time=start_time,
-        end_time=end_time,
-    )
+    cloudwatch_region = os.getenv("CLOUDWATCH_REGION", region)
+    try:
+        cloudwatch = boto3.Session(region_name=cloudwatch_region).client(
+            "cloudwatch",
+            config=config,
+        )
+        cloudwatch_capture = _collect_cloudwatch_best_effort(
+            cloudwatch,
+            cluster_id=cluster_id,
+            start_time=start_time,
+            end_time=end_time,
+        )
+    except (BotoCoreError, ClientError, RuntimeError) as error:
+        cloudwatch_capture = {
+            "cloudwatch_metrics": [],
+            "cloudwatch_status": "unavailable",
+            "cloudwatch_error": str(error),
+        }
     caller = sts.get_caller_identity()
+    source_apis = [
+        "rds:DescribeDBClusters",
+        "rds:DescribeDBInstances",
+    ]
+    if cloudwatch_capture["cloudwatch_status"] == "available":
+        source_apis.append("cloudwatch:GetMetricStatistics")
     return json.loads(
         json.dumps(
             {
@@ -394,16 +265,11 @@ def collect_aws_observability(
                     "start": start_time,
                     "end": end_time,
                 },
-                "cloudwatch_metrics": metrics,
-                "database_insights": insights,
+                **cloudwatch_capture,
                 "capture_metadata": {
                     "collected_at": datetime.now(timezone.utc),
-                    "source_apis": [
-                        "rds:DescribeDBClusters",
-                        "rds:DescribeDBInstances",
-                        "cloudwatch:GetMetricStatistics",
-                        "pi:GetResourceMetrics",
-                    ],
+                    "source_apis": source_apis,
+                    "cloudwatch_status": cloudwatch_capture["cloudwatch_status"],
                     "caller_arn": caller["Arn"],
                     "aws_account_id": caller["Account"],
                 },

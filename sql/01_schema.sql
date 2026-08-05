@@ -251,6 +251,7 @@ CREATE TABLE IF NOT EXISTS casework.lock_evidence (
   blocked_query_start timestamptz,
   wait_event_type text NOT NULL,
   wait_event text NOT NULL,
+  blocked_locktype text,
   blocked_lock_mode text,
   blocked_lock_granted boolean,
   blocking_lock_mode text,
@@ -264,7 +265,7 @@ CREATE TABLE IF NOT EXISTS casework.lock_evidence (
   raw_capture jsonb NOT NULL DEFAULT '{}'::jsonb,
   CHECK (blocked_pid <> blocking_pid),
   CHECK (wait_event_type = 'Lock'),
-  CHECK (wait_event = 'relation')
+  CHECK (lower(wait_event) = 'transactionid')
 );
 
 ALTER TABLE casework.lock_evidence
@@ -295,6 +296,9 @@ ALTER TABLE casework.lock_evidence
   ADD COLUMN IF NOT EXISTS blocked_lock_mode text;
 
 ALTER TABLE casework.lock_evidence
+  ADD COLUMN IF NOT EXISTS blocked_locktype text;
+
+ALTER TABLE casework.lock_evidence
   ADD COLUMN IF NOT EXISTS blocked_lock_granted boolean;
 
 ALTER TABLE casework.lock_evidence
@@ -317,6 +321,13 @@ ALTER TABLE casework.lock_evidence
 
 ALTER TABLE casework.lock_evidence
   ALTER COLUMN database_insights_slice DROP NOT NULL;
+
+ALTER TABLE casework.lock_evidence
+  DROP CONSTRAINT IF EXISTS lock_evidence_wait_event_check;
+
+ALTER TABLE casework.lock_evidence
+  ADD CONSTRAINT lock_evidence_wait_event_check
+  CHECK (lower(wait_event) = 'transactionid');
 
 CREATE TABLE IF NOT EXISTS casework.pg_stat_activity_samples (
   sample_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -349,8 +360,8 @@ CREATE TABLE IF NOT EXISTS casework.pg_lock_samples (
   pid integer NOT NULL,
   locktype text NOT NULL,
   database_oid oid,
-  relation_oid oid NOT NULL,
-  relation_name text NOT NULL,
+  relation_oid oid,
+  relation_name text,
   mode text NOT NULL,
   granted boolean NOT NULL,
   fastpath boolean,
@@ -372,6 +383,10 @@ CREATE TABLE IF NOT EXISTS casework.pg_blocking_pids_samples (
   literal_output text NOT NULL,
   raw_row jsonb NOT NULL DEFAULT '{}'::jsonb
 );
+
+ALTER TABLE casework.pg_lock_samples
+  ALTER COLUMN relation_oid DROP NOT NULL,
+  ALTER COLUMN relation_name DROP NOT NULL;
 
 ALTER TABLE casework.pg_stat_activity_samples
   ADD COLUMN IF NOT EXISTS observation_number integer;
@@ -508,12 +523,12 @@ CREATE TABLE IF NOT EXISTS casework.telemetry_evidence (
     REFERENCES casework.changes(evidence_id) ON DELETE RESTRICT,
   telemetry_type text NOT NULL CHECK (
     telemetry_type IN (
-      'activity_window',
-      'lock_topology',
-      'blocking_chain',
-      'statement_phase',
-      'cloudwatch_metric',
-      'remediation_observation'
+      'lock',
+      'pool',
+      'request',
+      'wal',
+      'meta',
+      'plan'
     )
   ),
   observation_number integer CHECK (observation_number > 0),
@@ -523,6 +538,15 @@ CREATE TABLE IF NOT EXISTS casework.telemetry_evidence (
   structured jsonb NOT NULL,
   CHECK (observed_until IS NULL OR observed_until >= observed_at)
 );
+
+ALTER TABLE casework.telemetry_evidence
+  DROP CONSTRAINT IF EXISTS telemetry_evidence_telemetry_type_check;
+
+ALTER TABLE casework.telemetry_evidence
+  ADD CONSTRAINT telemetry_evidence_telemetry_type_check
+  CHECK (
+    telemetry_type IN ('lock', 'pool', 'request', 'wal', 'meta', 'plan')
+  );
 
 CREATE TABLE IF NOT EXISTS casework.incident_changes (
   incident_evidence_id uuid NOT NULL REFERENCES casework.incidents(evidence_id) ON DELETE RESTRICT,
@@ -698,19 +722,18 @@ WITH rendered AS (
     concat_ws(
       E'\n\n',
       format(
-        'Blocked PID %s was %s and waited on %s:%s for relation %s (OID %s) while PID %s ran the index build.',
+        'Blocked PID %s was %s and waited on %s:%s while PID %s held the uncommitted priority_tier backfill on relation %s (OID %s).',
         le.blocked_pid,
         coalesce(le.blocked_state, 'active'),
         le.wait_event_type,
         le.wait_event,
+        le.blocking_pid,
         le.relation_name,
-        coalesce(le.relation_oid::text, 'not loaded'),
-        le.blocking_pid
+        coalesce(le.relation_oid::text, 'not loaded')
       ),
       format(
-        'pg_locks: blocker mode=%s granted=%s; writer mode=%s granted=%s.',
-        coalesce(le.blocking_lock_mode, 'not loaded'),
-        coalesce(le.blocking_lock_granted::text, 'not loaded'),
+        'pg_locks: blocked backend locktype=%s mode=%s granted=%s; blocking PID appears in pg_blocking_pids.',
+        coalesce(le.blocked_locktype, 'not loaded'),
         coalesce(le.blocked_lock_mode, 'not loaded'),
         coalesce(le.blocked_lock_granted::text, 'not loaded')
       ),
@@ -734,6 +757,7 @@ WITH rendered AS (
         casework.canonical_timestamptz(le.blocked_query_start),
       'wait_event_type', le.wait_event_type,
       'wait_event', le.wait_event,
+      'blocked_locktype', le.blocked_locktype,
       'blocked_lock_mode', le.blocked_lock_mode,
       'blocked_lock_granted', le.blocked_lock_granted,
       'blocking_lock_mode', le.blocking_lock_mode,

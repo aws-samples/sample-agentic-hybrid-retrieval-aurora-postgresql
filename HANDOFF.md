@@ -123,6 +123,15 @@ Completed and committed on this branch:
   after-`ANALYZE` sequential-scan checkpoints for Wave A; with the named index
   present it returns only the Wave B index-scan checkpoint. It never creates
   or drops an index.
+- B6 removes all Performance Insights / Database Insights collection and
+  admission dependencies. CloudWatch is now explicitly best-effort: every
+  payload must declare `cloudwatch_status` as `available` or `unavailable`,
+  while an unavailable metric endpoint never invalidates the PostgreSQL and
+  pool evidence. Admission, the capture schema, readiness diagnostics, smoke
+  discovery, and tests now describe the transaction-ID blocking and
+  four-phase contract. `_measured_visibility` remains only as compatibility
+  code until C1 replaces it with deterministic classification over captured
+  PostgreSQL statement text for the optional RLS/masking lab.
 
 Not yet implemented: evidence builder and admission, final retrieval corpus,
 revised agent,
@@ -185,6 +194,15 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   `Index Scan`, 2.581ms, 26 buffers, and zero rows removed by filter. Both Wave
   A scans removed 2,400,000 rows. These are measurements, not timing
   thresholds.
+- B6 acceptance: `make doctor`, the full core suite, and the full core schema
+  bundle all passed against `dat410_review_remediation_test` on Aurora
+  PostgreSQL 18.3. The focused B6 suite covers CloudWatch success, unavailable
+  capture, transaction-ID readiness, explicit `cloudwatch_status` admission,
+  and removal of Performance Insights dependencies. A complete PI-disabled,
+  CloudWatch-unavailable orchestrator rehearsal is intentionally not runnable
+  yet: `run_live_workshop.py` fails before database work until C1/C2 install
+  the evidence builder and final two-wave admission path. Do not claim that
+  unrun end-to-end proof prematurely.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
@@ -196,12 +214,12 @@ module. Reapply `make security-schema` before security-only checks.
 
 ## Next Task
 
-Start B6: delete the Performance Insights collection path and replace the
-retired ordinary-index mechanism's observability, smoke-test, schema,
-diagnostic, and release-capture contracts with the measured four-phase
-incident. Do not delete `_measured_visibility` until Task C1's live-capture
-classifier exists; it is the current producer of restricted evidence for the
-optional RLS/masking lab.
+Start C1: build the six-signal-type evidence builder and replace
+`_measured_visibility` with deterministic classification over captured
+`pg_stat_activity` / `pg_stat_statements` query text. The builder must create
+the 50-80-document Wave A corpus from the B3/B4/B5 measurements, preserve
+explicit ACL classification provenance, and keep optional RLS/masking
+non-vacuous without importing Performance Insights back into the core path.
 
 `make test` now fails before discovery unless `TEST_DATABASE_URL` names a
 resettable `_test` database on exactly PostgreSQL 18.3. Accepted targets are

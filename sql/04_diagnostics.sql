@@ -176,20 +176,23 @@ DROP FUNCTION IF EXISTS casework.assert_release_capture_ready();
 DROP VIEW IF EXISTS casework.v_release_capture_validation;
 
 CREATE OR REPLACE VIEW casework.v_live_capture_validation AS
-WITH captures AS (
+WITH wave_a AS (
   SELECT *
   FROM casework.incident_capture_runs
   WHERE capture_origin = 'participant_induced'
+    AND wave = 'A'
 ),
 checks AS (
   SELECT
     capture.capture_id,
     capture.capture_key,
+    capture.incident_evidence_id,
     capture.cluster_id,
     capture.engine_version,
     capture.instance_class,
     capture.relation_oid,
     capture.capture_started_at,
+    capture.manifest ->> 'cloudwatch_status' AS cloudwatch_status,
     (
       capture.observed_row_count IS NOT NULL
       AND capture.table_size_bytes IS NOT NULL
@@ -197,109 +200,93 @@ checks AS (
       AND capture.source_bundle_sha256 IS NOT NULL
       AND capture.observability_verified_at IS NOT NULL
     ) AS capture_profile_complete,
+    (
+      capture.manifest -> 'phases' @>
+        '["backfill","pool_exhaustion","recovery","plan_regression"]'::jsonb
+    ) AS phase_contract_complete,
+    (
+      capture.manifest -> 'signal_types' @>
+        '["lock","pool","request","wal","meta","plan"]'::jsonb
+    ) AS signal_type_contract_complete,
+    (
+      (capture.manifest ->> 'request_count')::integer = 12
+      AND (capture.manifest ->> 'blocked_writer_count')::integer = 10
+      AND (capture.manifest ->> 'reader_count')::integer = 0
+    ) AS pool_exhaustion_contract_complete,
     EXISTS (
       SELECT 1
       FROM casework.pg_stat_activity_samples activity
       WHERE activity.capture_id = capture.capture_id
+        AND activity.application_name = 'workbench-lab-api-hot-write'
         AND activity.state = 'active'
         AND activity.wait_event_type = 'Lock'
-        AND lower(activity.wait_event) = 'relation'
+        AND lower(activity.wait_event) = 'transactionid'
         AND activity.query_start IS NOT NULL
-    ) AS activity_proves_wait,
-    (
-      SELECT
-        count(*) >= 270
-        AND count(DISTINCT activity.observation_number) = 30
-      FROM casework.pg_stat_activity_samples activity
-      WHERE activity.capture_id = capture.capture_id
-    ) AS activity_scale_complete,
+    ) AS activity_proves_transaction_wait,
     EXISTS (
       SELECT 1
       FROM casework.pg_lock_samples lock_sample
       WHERE lock_sample.capture_id = capture.capture_id
-        AND lock_sample.relation_oid = capture.relation_oid
-        AND lock_sample.mode = 'ShareLock'
-        AND lock_sample.granted
-    ) AS blocker_share_lock_granted,
-    EXISTS (
-      SELECT 1
-      FROM casework.pg_lock_samples lock_sample
-      WHERE lock_sample.capture_id = capture.capture_id
-        AND lock_sample.relation_oid = capture.relation_oid
-        AND lock_sample.mode = 'RowExclusiveLock'
+        AND lower(lock_sample.locktype) = 'transactionid'
         AND NOT lock_sample.granted
-    ) AS writer_row_exclusive_waiting,
-    (
-      SELECT
-        count(*) >= 270
-        AND count(DISTINCT lock_sample.observation_number) = 30
-      FROM casework.pg_lock_samples lock_sample
-      WHERE lock_sample.capture_id = capture.capture_id
-    ) AS lock_scale_complete,
+    ) AS transactionid_lock_wait_captured,
     EXISTS (
       SELECT 1
       FROM casework.pg_blocking_pids_samples blockers
+      JOIN casework.lock_evidence lock_evidence
+        ON lock_evidence.capture_id = capture.capture_id
+       AND lock_evidence.blocked_pid = blockers.blocked_pid
       WHERE blockers.capture_id = capture.capture_id
-        AND cardinality(blockers.blocking_pids) > 0
+        AND lock_evidence.blocking_pid = ANY(blockers.blocking_pids)
         AND blockers.literal_sql ~ '^SELECT pg_blocking_pids\([0-9]+\);$'
-    ) AS blocking_pids_captured,
+    ) AS backfill_blocking_pid_captured,
     (
-      SELECT
-        count(*) >= 180
-        AND count(DISTINCT blockers.observation_number) = 30
-      FROM casework.pg_blocking_pids_samples blockers
-      WHERE blockers.capture_id = capture.capture_id
-    ) AS blocking_scale_complete,
-    (
-      SELECT count(DISTINCT stats.phase) = 3
-      FROM casework.pg_stat_statements_samples stats
-      WHERE stats.capture_id = capture.capture_id
-    ) AS statement_phases_complete,
-    EXISTS (
-      SELECT 1
-      FROM casework.pg_stat_statements_samples stats
-      WHERE stats.capture_id = capture.capture_id
-        AND stats.phase = 'after'
-        AND (stats.delta_from_before ->> 'calls')::bigint >= 8
-        AND (stats.delta_from_before ->> 'total_exec_time')::double precision > 0
-    ) AS statement_delta_measured,
-    (
-      SELECT count(DISTINCT metric.metric_name) = 5
-      FROM casework.cloudwatch_metric_samples metric
-      WHERE metric.capture_id = capture.capture_id
-        AND metric.metric_name = ANY (
-          ARRAY[
-            'WriteLatency',
-            'WriteIOPS',
-            'WriteThroughput',
-            'CommitThroughput',
-            'DatabaseConnections'
-          ]
-        )
-    ) AS cloudwatch_metrics_complete,
-    (
-      SELECT count(*) BETWEEN 100 AND 120
+      SELECT count(DISTINCT telemetry.telemetry_type) = 6
       FROM casework.telemetry_evidence telemetry
       WHERE telemetry.capture_id = capture.capture_id
-    ) AS telemetry_evidence_complete
-  FROM captures capture
+        AND telemetry.telemetry_type = ANY (
+          ARRAY['lock', 'pool', 'request', 'wal', 'meta', 'plan']
+        )
+    ) AS telemetry_signal_types_complete,
+    (
+      capture.manifest ->> 'cloudwatch_status' IN ('available', 'unavailable')
+    ) AS cloudwatch_status_recorded,
+    EXISTS (
+      SELECT 1
+      FROM casework.incident_capture_runs wave_b
+      JOIN casework.incident_changes relation
+        ON relation.incident_evidence_id = wave_b.incident_evidence_id
+       AND relation.relationship = 'validates'
+      WHERE wave_b.incident_evidence_id = capture.incident_evidence_id
+        AND wave_b.wave = 'B'
+    ) AS wave_b_validates_index
+  FROM wave_a capture
 )
 SELECT
   checks.*,
   (
     capture_profile_complete
-    AND activity_proves_wait
-    AND activity_scale_complete
-    AND blocker_share_lock_granted
-    AND writer_row_exclusive_waiting
-    AND lock_scale_complete
-    AND blocking_pids_captured
-    AND blocking_scale_complete
-    AND statement_phases_complete
-    AND statement_delta_measured
-    AND cloudwatch_metrics_complete
-    AND telemetry_evidence_complete
-  ) AS live_ready
+    AND phase_contract_complete
+    AND signal_type_contract_complete
+    AND pool_exhaustion_contract_complete
+    AND activity_proves_transaction_wait
+    AND transactionid_lock_wait_captured
+    AND backfill_blocking_pid_captured
+    AND telemetry_signal_types_complete
+    AND cloudwatch_status_recorded
+  ) AS live_ready,
+  (
+    capture_profile_complete
+    AND phase_contract_complete
+    AND signal_type_contract_complete
+    AND pool_exhaustion_contract_complete
+    AND activity_proves_transaction_wait
+    AND transactionid_lock_wait_captured
+    AND backfill_blocking_pid_captured
+    AND telemetry_signal_types_complete
+    AND cloudwatch_status_recorded
+    AND wave_b_validates_index
+  ) AS two_wave_ready
 FROM checks;
 
 -- Owner-rights for the same reason retrieval.search_index_drift() above is: this
