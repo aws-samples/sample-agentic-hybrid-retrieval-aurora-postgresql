@@ -1233,10 +1233,13 @@ justification, and the scan is fast.
 
 **Files:**
 - Modify: `sql/10_admission.sql` — the hardcoded scale checks
-  (`observation_count <> 30`, `writer_count <> 6`, `reader_count <> 2`), the
-  telemetry floors (`pg_stat_activity < 270`, `pg_locks < 270`,
+  (`observation_count <> 30`, `writer_count <> 6`, `reader_count <> 2` at
+  `:134-136`), the telemetry floors (`pg_stat_activity < 270`, `pg_locks < 270`,
   `pg_blocking_pids < 180`), the "30 distinct observation numbers per series"
-  checks, `pg_stat_statements <> 3`, `cloudwatch_metrics <> 5`, the
+  checks, the two array-length bounds inside the same `OR` chain
+  (`pg_stat_statements ... )) <> 3` at `:214-216` and
+  `cloudwatch_metrics ... )) <> 5` at `:217-219` — **these two checks only, not the
+  `INSERT`s at `:764` and `:789` that persist the same arrays**), the
   `100 OR > 120` telemetry-document bound, the "exactly 30 each of
   `activity_window` / `lock_topology` / `blocking_chain`" checks, **and the silent
   ACL default at `:418`** (`coalesce(v_record -> 'acl', '{"visibility":"workshop"}'::jsonb)`)
@@ -1313,15 +1316,44 @@ magic number here.
 
 - [ ] **Step 1: Write the failing test.**
 
+**The stale-contract strings must be copied out of the file, not paraphrased, and
+they must not over-match.** Two traps, both measured against `sql/10_admission.sql`
+at the commit this task starts from:
+
+1. **A paraphrase makes the assertion vacuous.** The file does not contain
+   `observation_count <> 30`; it contains
+   `(v_capture ->> 'observation_count')::integer <> 30` (`:134-136`), and the
+   CloudWatch check is `jsonb_array_length(coalesce(\n v_telemetry -> 'cloudwatch_metrics', '[]'::jsonb\n )) <> 5` split across lines (`:217-219`), so
+   `cloudwatch_metrics <> 5` never matches either. `assertNotIn` on a string that is
+   already absent passes before you change anything and passes forever after — it is a
+   test that cannot fail. Verify each string with
+   `grep -F "<string>" sql/10_admission.sql` and confirm it matches **now**, before
+   writing the assertion. A stale-contract assertion that does not match today is a
+   defect in the test, not a pass.
+2. **A bare substring over-matches and would delete live code.**
+   `pg_stat_statements` appears four times in the file: the scale bound at `:214-216`
+   (in scope for deletion) and the `INSERT INTO casework.pg_stat_statements_samples`
+   block plus its row accumulator at `:764`, `:787`, `:854` (**not** in scope). That
+   table survives — `sql/11_roles_rls.sql:701-716` FORCEs RLS on it,
+   `sql/12_masking.sql:328-330` masks its `queries` column,
+   `gates/masking_determinism.py:114` reads it, and the design retargets the
+   statement-delta signal onto it rather than deleting it. Banning the bare substring
+   would force the implementer to delete the only writer of a still-RLS'd,
+   still-masked, still-gated table, making those policies vacuous. Assert on the
+   comparison, never on the table or payload key name.
+
+Both count checks are inside a multi-line `OR` chain, so anchor the assertion on the
+one-line fragment that is unique to the check:
+
 ```python
     def test_admission_contract_matches_the_four_phase_mechanism(self) -> None:
         sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
         for stale in (
-            "observation_count <> 30",
-            "writer_count <> 6",
-            "reader_count <> 2",
-            "pg_stat_statements",
-            "cloudwatch_metrics <> 5",
+            "(v_capture ->> 'observation_count')::integer <> 30",
+            "(v_capture ->> 'writer_count')::integer <> 6",
+            "(v_capture ->> 'reader_count')::integer <> 2",
+            "v_telemetry -> 'pg_stat_statements', '[]'::jsonb\n     )) <> 3",
+            "v_telemetry -> 'cloudwatch_metrics', '[]'::jsonb\n     )) <> 5",
         ):
             self.assertNotIn(stale, sql, f"stale contract still present: {stale}")
         self.assertIn("v_blocked_writer_count <> 10", sql)
@@ -1496,12 +1528,31 @@ clean run.
   checks alone would leave them raising the default `P0001` in a function where
   nothing else does.
 
-  Delete the `pg_stat_statements`, `cloudwatch_metrics <> 5`, and
-  `100 OR > 120` telemetry-document bounds outright — CloudWatch is best-effort
-  per Global Constraints and cannot be a hard admission floor, and the document
-  bound is recalibrated in Task C4. Replace the "exactly 30 each of
-  `activity_window` / `lock_topology` / `blocking_chain`" checks with a
-  presence-per-signal-type check:
+  Delete three more bounds outright: the `pg_stat_statements` array-length check
+  (`sql/10_admission.sql:214-216`), the `cloudwatch_metrics` array-length check
+  (`:217-219`), and the `100 OR > 120` telemetry-document bound. CloudWatch is
+  best-effort per Global Constraints and cannot be a hard admission floor, and the
+  document bound is recalibrated in Task C4.
+
+  **Delete the two array-length checks only — not the code that persists those
+  arrays.** `v_telemetry -> 'pg_stat_statements'` and
+  `v_telemetry -> 'cloudwatch_metrics'` are each read three times: once in the scale
+  block you are deleting (`:215`, `:218`), once in an `INSERT` that persists the
+  samples (`INSERT INTO casework.pg_stat_statements_samples` at `:764`, feeding from
+  `:787`; `INSERT INTO casework.cloudwatch_metric_samples` at `:789`), and once in the
+  `v_rows` accumulator (`:854-855`). Only the first read is in scope. Those inserts
+  stay.
+  `casework.pg_stat_statements_samples` in particular is load-bearing for the optional
+  security module — `sql/11_roles_rls.sql:701-716` FORCEs row-level security on it,
+  `sql/12_masking.sql:328-330` masks its `queries` column, and
+  `gates/masking_determinism.py:114` reads it — and Task C1's classifier reads its
+  `queries` column to derive `acl.visibility`. Deleting its only writer would leave an
+  empty table with policies that pass because there is nothing to filter, and would
+  silently starve the classifier. Removing a floor on how much telemetry a run must
+  produce is not the same as removing the telemetry.
+
+  Replace the "exactly 30 each of `activity_window` / `lock_topology` /
+  `blocking_chain`" checks with a presence-per-signal-type check:
 
 ```sql
   IF NOT (v_signal_types @> '["lock","pool","request","wal","meta","plan"]'::jsonb) THEN
