@@ -39,9 +39,6 @@ CREATE INDEX IF NOT EXISTS idx_stat_statements_capture_phase
 CREATE INDEX IF NOT EXISTS idx_cloudwatch_capture_metric
   ON casework.cloudwatch_metric_samples(capture_id, metric_name, observed_at);
 
-CREATE INDEX IF NOT EXISTS idx_database_insights_capture_type
-  ON casework.database_insights_samples(capture_id, evidence_type, captured_at);
-
 CREATE INDEX IF NOT EXISTS idx_telemetry_evidence_capture_type
   ON casework.telemetry_evidence(
     capture_id,

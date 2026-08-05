@@ -111,7 +111,6 @@ CLEARANCE_GROUP = "can_see_restricted"
 # not a regression, and pinning them would fail on a cosmetic edit.
 MASKED_FOR = {
     "casework.pg_stat_activity_samples": ("persona_app_engineer", "persona_auditor"),
-    "casework.database_insights_samples": ("persona_app_engineer", "persona_auditor"),
     "casework.pg_stat_statements_samples": ("persona_app_engineer", "persona_auditor"),
 }
 

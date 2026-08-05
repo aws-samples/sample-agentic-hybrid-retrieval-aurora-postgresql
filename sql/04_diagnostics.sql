@@ -277,25 +277,11 @@ checks AS (
           ]
         )
     ) AS cloudwatch_metrics_complete,
-    EXISTS (
-      SELECT 1
-      FROM casework.database_insights_samples insight
-      WHERE insight.capture_id = capture.capture_id
-        AND insight.evidence_type = 'top_wait'
-        AND insight.dimension_value = 'Lock:relation'
-    ) AS top_wait_lock_relation,
     (
       SELECT count(*) BETWEEN 100 AND 120
       FROM casework.telemetry_evidence telemetry
       WHERE telemetry.capture_id = capture.capture_id
-    ) AS telemetry_evidence_complete,
-    EXISTS (
-      SELECT 1
-      FROM casework.database_insights_samples insight
-      WHERE insight.capture_id = capture.capture_id
-        AND insight.evidence_type = 'top_sql'
-        AND insight.statement ~* 'CREATE[[:space:]]+INDEX'
-    ) AS top_sql_contains_index_build
+    ) AS telemetry_evidence_complete
   FROM captures capture
 )
 SELECT
@@ -312,7 +298,6 @@ SELECT
     AND statement_phases_complete
     AND statement_delta_measured
     AND cloudwatch_metrics_complete
-    AND top_wait_lock_relation
     AND telemetry_evidence_complete
   ) AS live_ready
 FROM checks;
@@ -321,18 +306,28 @@ FROM checks;
 -- is a readiness assertion over capture COMPLETENESS, not an evidence read, and
 -- its result is boolean checks plus capture identity -- never statement text.
 --
--- SECURITY DEFINER is load-bearing when sql/12_masking.sql is applied. The view
--- predicates on casework.database_insights_samples.statement (top_sql_contains_index
--- build, above), and that column is masked for persona_app_engineer and
--- persona_auditor. pg_columnmask refuses any predicate touching a masked column:
+-- SECURITY DEFINER stays load-bearing even though the masked-column predicate that
+-- originally forced it -- the Performance Insights sample table's statement
+-- column, inside the now-deleted top_sql_contains_index_build check -- is gone
+-- along with that table (see Task A1). Measured on Aurora PostgreSQL 18.3 as an
+-- invoker-rights function: that predicate made pg_columnmask raise
 --   ERROR: Predicates on masked columns are not allowed
--- Measured on Aurora PostgreSQL 18.3 as an invoker-rights function, both masked
--- personas got that error instead of a receipt, which broke `make doctor`
+-- for both masked personas instead of a receipt, which broke `make doctor`
 -- (backend/scripts/doctor.py checks out get_dict_conn("app_engineer")) while
 -- persona_dba and the owner passed -- so the failure looked persona-specific and
--- unrelated to masking. Measured again with SECURITY DEFINER: both personas read it.
--- pg_columnmask evaluates policies against the EFFECTIVE role, so a definer
--- function owned by the unmasked owner is not subject to the caller's mask.
+-- unrelated to masking. Measured again with SECURITY DEFINER: both personas read
+-- it, because pg_columnmask evaluates policies against the EFFECTIVE role, so a
+-- definer function owned by the unmasked owner is not subject to the caller's mask.
+--
+-- This view's own predicates no longer touch a masked column, but the capture
+-- tables it reads still carry masked columns elsewhere in the schema --
+-- casework.pg_stat_activity_samples.query/raw_row and
+-- casework.pg_stat_statements_samples.queries/raw_row (sql/12_masking.sql section
+-- 3). Dropping DEFINER now would be correct only until a future check on this view
+-- predicates on one of those, at which point invoker-rights fails exactly as
+-- measured above. Keeping it is the safer default and wider than A1 needs to
+-- change; doctor.py and test_retrieval_integration.py:43 both call this function
+-- as a persona, which is what makes the choice observable rather than academic.
 --
 -- This grants no extra evidence visibility. The rows it counts are capture
 -- telemetry that sql/11_roles_rls.sql already makes readable to every persona via

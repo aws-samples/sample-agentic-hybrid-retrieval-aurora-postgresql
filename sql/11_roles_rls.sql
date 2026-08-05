@@ -652,45 +652,41 @@ $$;
 --
 -- Sections 4 and 5 reach every table that carries an evidence reference. The raw
 -- capture tables are the ones that do not, and they hold the same query text the
--- restricted rows exist to withhold. Measured on this capture:
+-- restricted rows exist to withhold. The one this section still governs:
 --
---   casework.database_insights_samples.statement   -- the Performance Insights text
---   casework.pg_stat_statements_samples.queries    -- the same statements as jsonb
+--   casework.pg_stat_statements_samples.queries    -- statement text as jsonb
 --
--- Both are keyed by capture_id ONLY, with no evidence_id and no *_evidence_id
--- column, so section 5's catalog query cannot see them and never will. Measured
--- leak before this section existed: persona_app_engineer was denied all five
--- restricted TEL-*-P0* rows at casework.evidence_items, then read the identical
--- UPDATE and CREATE INDEX CONCURRENTLY statements out of
--- casework.database_insights_samples one query later. The searchable evidence is
--- what the ACL protects; the sample it was built from was wide open.
+-- It is keyed by capture_id ONLY, with no evidence_id and no *_evidence_id
+-- column, so section 5's catalog query cannot see it and never will.
 --
--- The predicate joins the sample back to the evidence row built FROM it --
--- capture_id plus the PI query_id and dimension, which is what
--- labs/incident/run_live_workshop.py writes into telemetry_evidence.structured.
--- A visible evidence row is REQUIRED, not merely "not contradicted". The first
--- draft of this policy tried to be generous to samples without derived evidence:
+-- Task A1 dropped the Performance Insights sample table this section used to
+-- gate here, which was this section's worked example for an evidence-row-gated
+-- predicate: joining the sample back to the telemetry_evidence row built FROM
+-- it (capture_id plus PI query_id and dimension) so that a visible evidence row
+-- was REQUIRED, not merely "not contradicted". That predicate's first draft
+-- tried to be generous to samples without derived evidence:
 --
 --   USING (NOT EXISTS (SELECT 1 FROM casework.telemetry_evidence derived ...)
 --          OR EXISTS   (SELECT 1 FROM casework.telemetry_evidence visible ...))
 --
--- That failed OPEN, measured: persona_app_engineer read all 7 of 7 samples
--- including the 5 restricted statements. A policy subquery is evaluated with the
--- CALLER's privileges, so casework.telemetry_evidence's own RLS applies inside
--- both branches. When the evidence row is restricted it is invisible to the caller,
--- which makes the NOT EXISTS branch true and admits exactly the row the ACL
--- exists to withhold. An RLS-filtered subquery cannot distinguish "no such row"
--- from "a row you may not see", so no predicate built on one may treat absence as
--- permission. Requiring a visible evidence row is the only direction that fails
--- closed: a sample without derived evidence is hidden from the personas and remains readable
--- by the owner, which is a cost worth paying for a predicate that cannot invert.
+-- Measured, on that table, before it was dropped: that draft failed OPEN --
+-- persona_app_engineer read all 7 of 7 samples including the 5 restricted
+-- statements. A policy subquery is evaluated with the CALLER's privileges, so
+-- casework.telemetry_evidence's own RLS applies inside both branches. When the
+-- evidence row is restricted it is invisible to the caller, which makes the NOT
+-- EXISTS branch true and admits exactly the row the ACL exists to withhold. An
+-- RLS-filtered subquery cannot distinguish "no such row" from "a row you may not
+-- see", so no predicate built on one may treat absence as permission.
 --
--- pg_stat_statements_samples has no per-statement identity to join on (its
--- queries column is an array for a whole phase), so it is gated on the capture
--- run instead: visible only while the capture's own incident row is visible. That
--- is coarser than the insights predicate and deliberately so -- the alternative
--- is no policy at all on a table holding the statement text verbatim. Its query
--- text is redacted for personas without clearance in sql/12_masking.sql.
+-- That lesson is why the surviving table's own predicate below is a bare
+-- required EXISTS rather than a permissive NOT-EXISTS-OR form: pg_stat_statements_samples
+-- has no per-statement identity to join on (its queries column is an array for a
+-- whole phase), so it is gated on the capture run instead -- visible only while
+-- the capture's own incident row is visible, with no "generous to samples
+-- without a visible parent" branch to fail open. That is coarser than the
+-- insights predicate was and deliberately so -- the alternative is no policy at
+-- all on a table holding the statement text verbatim. Its query text is redacted
+-- for personas without clearance in sql/12_masking.sql.
 --
 -- The three observation-keyed sample tables (pg_stat_activity_samples,
 -- pg_lock_samples, pg_blocking_pids_samples) are NOT here: they carry
@@ -701,28 +697,6 @@ $$;
 -- without hiding the lock topology the lab is about, so sql/12_masking.sql
 -- redacts the query column instead and the rows stay readable.
 -- ---------------------------------------------------------------------------
-
-ALTER TABLE casework.database_insights_samples ENABLE ROW LEVEL SECURITY;
-ALTER TABLE casework.database_insights_samples FORCE  ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS rls_database_insights_samples_visibility
-  ON casework.database_insights_samples;
-
-CREATE POLICY rls_database_insights_samples_visibility
-  ON casework.database_insights_samples
-  FOR ALL
-  TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
-  USING (
-    EXISTS (
-      SELECT 1
-      FROM casework.telemetry_evidence visible
-      WHERE visible.capture_id = casework.database_insights_samples.capture_id
-        AND visible.telemetry_type = 'database_insights'
-        AND visible.structured ->> 'dimension'
-              = casework.database_insights_samples.dimension
-        AND visible.structured ->> 'query_id'
-              IS NOT DISTINCT FROM casework.database_insights_samples.query_id
-    )
-  );
 
 ALTER TABLE casework.pg_stat_statements_samples ENABLE ROW LEVEL SECURITY;
 ALTER TABLE casework.pg_stat_statements_samples FORCE  ROW LEVEL SECURITY;

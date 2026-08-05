@@ -538,16 +538,14 @@ class ProofAuthorizationTests(unittest.TestCase):
 # measured three mutations of a policy staying green under catalog-derived
 # expectations (drop, widen, narrow). Keep in sync with sql/12 section 3 and with
 # MASKED_FOR in gates/masking_determinism.py.
-# ALL SIX masked columns, not one per table. The second column of each policy is
+# ALL FOUR masked columns, not one per table. The second column of each policy is
 # where the measured leak actually was: sql/12 redacted the statement column and
 # returned the identical text one column over in the jsonb copy (raw_row for
-# activity, raw_payload for insights, queries for statements). A test covering only
-# the obvious text column would have passed against every one of those leaks.
+# activity, queries for statements). A test covering only the obvious text column
+# would have passed against every one of those leaks.
 MASKED_COLUMNS = (
     ("casework.pg_stat_activity_samples", "query"),
     ("casework.pg_stat_activity_samples", "raw_row"),
-    ("casework.database_insights_samples", "statement"),
-    ("casework.database_insights_samples", "raw_payload"),
     ("casework.pg_stat_statements_samples", "queries"),
     ("casework.pg_stat_statements_samples", "raw_row"),
 )

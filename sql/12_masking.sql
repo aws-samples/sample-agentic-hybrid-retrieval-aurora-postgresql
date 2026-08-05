@@ -263,7 +263,6 @@ BEGIN
     SELECT *
       FROM (VALUES
         ('mask_activity_query',     'casework.pg_stat_activity_samples'),
-        ('mask_insights_statement', 'casework.database_insights_samples'),
         ('mask_statement_phase',    'casework.pg_stat_statements_samples'),
         ('mask_telemetry',          'casework.telemetry_evidence'),
         -- Dropped unconditionally: an earlier revision of this file created a
@@ -303,25 +302,6 @@ CALL pgcolumnmask.create_masking_policy(
   jsonb_build_object(
     'query',   'retrieval.mask_blob(query)',
     'raw_row', 'retrieval.mask_blob(raw_row::text)'
-  ),
-  ARRAY['persona_app_engineer', 'persona_auditor']::name[],
-  100
-);
-
--- Defense in depth behind sql/11's row policy: if that predicate is ever loosened,
--- the statement column is still redacted rather than newly exposed.
---
--- raw_payload is redacted WHOLESALE rather than by substring. It is the verbatim
--- GetResourceMetrics response, and it nests the statement under
--- Key.Dimensions."db.sql.statement" with the API's own escaping. Measured: the
--- substring mask redacted the statement column and returned the identical text
--- inside raw_payload, one column over. Whole-value redaction has nothing to miss.
-CALL pgcolumnmask.create_masking_policy(
-  'mask_insights_statement',
-  'casework.database_insights_samples',
-  jsonb_build_object(
-    'statement',   'casework.mask_redact(statement)',
-    'raw_payload', 'casework.mask_redact_json(raw_payload)'
   ),
   ARRAY['persona_app_engineer', 'persona_auditor']::name[],
   100
@@ -393,14 +373,6 @@ CALL pgcolumnmask.create_masking_policy(
 -- persona that must not read the captured statement never reaches the row.
 -- persona_auditor reading it raw is the clearance sql/11 section 1 grants on
 -- purpose, identical to persona_dba, which this policy never named either.
---
--- Retained for the next person who reaches for a mask here: the policy needed
--- predicate_allow_list => {structured}, because sql/11's row policy on
--- casework.database_insights_samples joins back to this table and reads
--- derived.structured ->> 'query_id'. A masked column disqualifies any predicate
--- touching it, and an RLS predicate counts -- so before the allow list was added,
--- persona_auditor could not read casework.database_insights_samples AT ALL, on a
--- bare SELECT, defeated by a predicate it never wrote.
 
 -- retrieval.chunks.chunk_text is deliberately NOT masked. This is the one place
 -- where masking and retrieval are incompatible, it was measured rather than

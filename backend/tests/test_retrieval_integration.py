@@ -214,9 +214,7 @@ class LiveRetrievalContractTests(unittest.TestCase):
               (SELECT count(*) FROM casework.pg_stat_statements_samples
                 WHERE capture_id = %(capture_id)s) AS statements,
               (SELECT count(*) FROM casework.cloudwatch_metric_samples
-                WHERE capture_id = %(capture_id)s) AS cloudwatch,
-              (SELECT count(*) FROM casework.database_insights_samples
-                WHERE capture_id = %(capture_id)s) AS database_insights
+                WHERE capture_id = %(capture_id)s) AS cloudwatch
             """,
             {"capture_id": self.capture_id},
         ).fetchone()
@@ -226,7 +224,6 @@ class LiveRetrievalContractTests(unittest.TestCase):
         self.assertEqual(counts["blocking_pids"], 180)
         self.assertEqual(counts["statements"], 3)
         self.assertEqual(counts["cloudwatch"], 5)
-        self.assertGreaterEqual(counts["database_insights"], 1)
 
         delta = self.conn.execute(
             """
@@ -257,8 +254,6 @@ class LiveRetrievalContractTests(unittest.TestCase):
               SELECT capture_id FROM casework.pg_stat_statements_samples
               UNION ALL
               SELECT capture_id FROM casework.cloudwatch_metric_samples
-              UNION ALL
-              SELECT capture_id FROM casework.database_insights_samples
               UNION ALL
               SELECT capture_id FROM casework.telemetry_evidence
             )

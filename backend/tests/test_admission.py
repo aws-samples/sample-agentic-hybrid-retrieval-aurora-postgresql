@@ -70,6 +70,43 @@ def _decoded(value):
     return value
 
 
+class DatabaseInsightsRemovalTest(unittest.TestCase):
+    def test_no_sql_file_references_the_deleted_insights_table(self) -> None:
+        """Every applied SQL file, not just the two that define the table.
+
+        sql/02_indexes.sql, sql/04_diagnostics.sql, sql/11_roles_rls.sql and
+        sql/12_masking.sql each CREATE or ALTER an object that references this
+        table, and a missing relation is a hard apply-time ERROR in all four --
+        `IF NOT EXISTS` and `OR REPLACE` guard the object being created, never
+        the relation it references. Measured on PostgreSQL 17.10. A test naming
+        only 01 and 10 passes while `make schema` fails.
+        """
+        for name in sorted(p.name for p in (REPO_ROOT / "sql").glob("*.sql")):
+            sql = (REPO_ROOT / "sql" / name).read_text(encoding="utf-8")
+            if name == "01_schema.sql":
+                # The legacy migration-cleanup branch must keep dropping it.
+                sql = sql.replace(
+                    "DROP TABLE IF EXISTS casework.database_insights_samples CASCADE;",
+                    "",
+                )
+            with self.subTest(sql_file=name):
+                self.assertNotIn("database_insights_samples", sql)
+
+    def test_admission_payload_has_no_database_insights_key(self) -> None:
+        """The payload key and the telemetry_type enum value are both gone.
+
+        Scoped to the two things this task removes rather than to the substring:
+        `database_insights_mode` and `database_insights_slice` are retained
+        columns on tables the workshop still uses, and a bare
+        assertNotIn("database_insights", ...) would demand their removal too.
+        """
+        admission_sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
+        schema_sql = (REPO_ROOT / "sql" / "01_schema.sql").read_text(encoding="utf-8")
+        self.assertNotIn("-> 'database_insights'", admission_sql)
+        self.assertNotIn("'database_insights',", schema_sql)
+        self.assertIn("database_insights_mode", admission_sql)
+
+
 @unittest.skipUnless(
     LIVE_PAYLOAD and LIVE_CAPTURE_RUN_ID,
     "needs LIVE_CAPTURE_PAYLOAD + LIVE_CAPTURE_RUN_ID from a participant run",

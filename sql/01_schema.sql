@@ -477,23 +477,6 @@ ALTER TABLE casework.cloudwatch_metric_samples
     )
   );
 
-CREATE TABLE IF NOT EXISTS casework.database_insights_samples (
-  sample_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  capture_id uuid NOT NULL
-    REFERENCES casework.incident_capture_runs(capture_id) ON DELETE RESTRICT,
-  evidence_type text NOT NULL CHECK (
-    evidence_type IN ('top_wait', 'top_sql', 'lock_tree')
-  ),
-  captured_at timestamptz NOT NULL,
-  dimension text NOT NULL,
-  dimension_value text NOT NULL,
-  db_load double precision,
-  statement text,
-  query_id text,
-  source_api text NOT NULL,
-  raw_payload jsonb NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS casework.telemetry_evidence (
   evidence_id uuid PRIMARY KEY
     REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
@@ -511,7 +494,6 @@ CREATE TABLE IF NOT EXISTS casework.telemetry_evidence (
       'blocking_chain',
       'statement_phase',
       'cloudwatch_metric',
-      'database_insights',
       'remediation_observation'
     )
   ),

@@ -30,7 +30,6 @@ REQUIRED_TABLES = (
     "casework.pg_blocking_pids_samples",
     "casework.pg_stat_statements_samples",
     "casework.cloudwatch_metric_samples",
-    "casework.database_insights_samples",
     "casework.telemetry_evidence",
     "casework.incident_changes",
     "retrieval.search_index_queue",

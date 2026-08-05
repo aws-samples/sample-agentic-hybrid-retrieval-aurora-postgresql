@@ -216,17 +216,9 @@ BEGIN
      )) <> 3
      OR jsonb_array_length(coalesce(
        v_telemetry -> 'cloudwatch_metrics', '[]'::jsonb
-     )) <> 5
-     OR NOT EXISTS (
-       SELECT 1
-       FROM jsonb_array_elements(coalesce(
-         v_telemetry -> 'database_insights', '[]'::jsonb
-       )) sample
-       WHERE sample ->> 'evidence_type' = 'top_wait'
-         AND lower(sample ->> 'dimension_value') = 'lock:relation'
-     ) THEN
+     )) <> 5 THEN
     RAISE EXCEPTION
-      'admission: complete live PostgreSQL, CloudWatch, and Database Insights telemetry is required'
+      'admission: complete live PostgreSQL and CloudWatch telemetry is required'
       USING ERRCODE = '22023';
   END IF;
 
@@ -821,31 +813,6 @@ BEGIN
     coalesce(sample -> 'raw_datapoint', sample)
   FROM jsonb_array_elements(v_telemetry -> 'cloudwatch_metrics') sample;
 
-  INSERT INTO casework.database_insights_samples(
-    capture_id,
-    evidence_type,
-    captured_at,
-    dimension,
-    dimension_value,
-    db_load,
-    statement,
-    query_id,
-    source_api,
-    raw_payload
-  )
-  SELECT
-    v_capture_id,
-    sample ->> 'evidence_type',
-    (sample ->> 'captured_at')::timestamptz,
-    sample ->> 'dimension',
-    sample ->> 'dimension_value',
-    (sample ->> 'db_load')::double precision,
-    sample ->> 'statement',
-    sample ->> 'query_id',
-    sample ->> 'source_api',
-    coalesce(sample -> 'raw_payload', sample)
-  FROM jsonb_array_elements(v_telemetry -> 'database_insights') sample;
-
   INSERT INTO casework.telemetry_evidence(
     evidence_id,
     telemetry_id,
@@ -886,7 +853,6 @@ BEGIN
     + jsonb_array_length(v_telemetry -> 'pg_blocking_pids')
     + jsonb_array_length(v_telemetry -> 'pg_stat_statements')
     + jsonb_array_length(v_telemetry -> 'cloudwatch_metrics')
-    + jsonb_array_length(v_telemetry -> 'database_insights')
     + jsonb_array_length(v_telemetry_documents);
   v_edges := v_edges
     + jsonb_array_length(v_telemetry_documents)
