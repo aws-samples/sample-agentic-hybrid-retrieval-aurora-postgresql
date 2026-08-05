@@ -112,7 +112,7 @@ test:
 	DATABASE_URL="$$TEST_DATABASE_URL" $(PYTHON) -m unittest discover -s backend/tests -v
 
 live-workshop:
-	$(PYTHON) labs/incident/run_live_workshop.py
+	$(PYTHON) labs/incident/run_live_workshop.py $(ARGS)
 
 source-archive:
 	scripts/build_live_source_archive.sh $(SOURCE_ARCHIVE)

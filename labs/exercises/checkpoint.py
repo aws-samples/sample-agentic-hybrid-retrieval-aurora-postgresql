@@ -18,7 +18,7 @@ REQUIRED_KINDS = {
 }
 REQUIRED_RELATIONS = {
     "change_confirmed",
-    "change_remediated",
+    "change_ruled_out",
     "blocked_by_change",
     "observed_during",
 }
@@ -38,7 +38,7 @@ def load_run(receipt_path: str) -> dict[str, Any]:
         "run_suffix",
         "incident_key",
         "unsafe_change_key",
-        "repair_change_key",
+        "analyze_change_key",
         "lock_key",
     }
     missing = sorted(required - receipt.keys())
@@ -48,7 +48,7 @@ def load_run(receipt_path: str) -> dict[str, Any]:
     expected = {
         "incident_key": f"INC-{suffix}",
         "unsafe_change_key": f"CHG-{suffix}-01",
-        "repair_change_key": f"CHG-{suffix}-02",
+        "analyze_change_key": f"CHG-{suffix}-02",
         "lock_key": f"LOCK-{suffix}-01",
     }
     if not re.fullmatch(r"[A-F0-9]{8}", suffix) or any(
@@ -62,7 +62,7 @@ def run_identifiers(receipt: dict[str, Any]) -> set[str]:
     return {
         receipt["incident_key"],
         receipt["unsafe_change_key"],
-        receipt["repair_change_key"],
+        receipt["analyze_change_key"],
         receipt["lock_key"],
     }
 
@@ -135,7 +135,7 @@ def check_filter(
         fail(f"the kind filter retained non-change evidence: {wrong_kinds}")
     expected_changes = {
         receipt["unsafe_change_key"],
-        receipt["repair_change_key"],
+        receipt["analyze_change_key"],
     }
     filtered_keys = {row.get("external_key") for row in filtered}
     missing_changes = sorted(expected_changes - filtered_keys)

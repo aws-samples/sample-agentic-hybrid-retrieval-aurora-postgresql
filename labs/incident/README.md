@@ -1,93 +1,75 @@
 # Guided Live Incident
 
-This lab has one participant entrypoint:
+The core lab creates two additive, participant-generated evidence captures.
+Neither capture reads a fixture, prior run, authored document, or precomputed
+embedding.
 
 ```bash
 make live-workshop
 ```
 
-It creates no prewritten records and reads no capture fixture. The command
-refuses to start unless it can prove that:
+The default command runs Wave A. It refuses to start unless the configured
+Aurora PostgreSQL writer has the current core schema, an empty evidence store,
+and the preloaded workload of 5,000 customers and 3,000,000 orders. The real
+FastAPI service must be running with the lab endpoints enabled and a
+ten-connection application pool. Bedrock embedding access is required.
+CloudWatch is collected as best-effort supplemental evidence; it does not gate
+the incident capture. Performance Insights and Database Insights are not core
+lab dependencies.
 
-- `DATABASE_URL` reaches the requested Aurora PostgreSQL writer;
-- the database contains the current application schema and no evidence rows;
-- the preloaded workload contains 5,000 customers, 3,000,000 canonical related
-  orders, and no target incident index;
-- Performance Insights is enabled;
-- CloudWatch, Performance Insights, and Bedrock are reachable; and
-- `EMBED_PROVIDER=bedrock` uses the configured Cohere embedding model.
+## Wave A: Diagnostic Evidence
 
-Workshop bootstrap runs `make prepare-workload` before the participant arrives.
-That command creates only the disposable operational tables and preserves the
-empty evidence store. Source-only local use runs the same command explicitly.
+Wave A is Lab 1's one live incident:
 
-## Visible Checkpoints
+1. It adds the nullable `priority_tier` column and commits that DDL.
+2. It runs one unbatched backfill in a separate open transaction.
+3. It sends twelve hot writes through the real application pool. Ten requests
+   enter PostgreSQL and wait on `Lock:transactionid`; at least two queue at the
+   pool boundary and return `pool_timeout` without a PostgreSQL backend.
+4. The controller waits for three consecutive samples proving both the pool and
+   PostgreSQL conditions, then retains the measured state for the observation
+   hold.
+5. It commits the backfill, proves recovery, and captures the before- and
+   after-`ANALYZE` sequential-scan checkpoints.
+6. It atomically admits the normalized evidence, builds the derived search
+   index with runtime Cohere embeddings, and writes a Wave A receipt.
 
-The orchestrator prints eight checkpoints:
+The Wave A receipt includes the run-derived `INC-*`, unsafe `CHG-*`, ruled-out
+`ANALYZE` `CHG-*`, and `LOCK-*` identifiers. It is the evidence available to
+the retrieval and read-only agent labs. It does not contain a post-index plan.
 
-1. preflight AWS, Aurora, schema, and Cohere access;
-2. induce a roughly 60-second stall with one ordinary `CREATE INDEX`, six
-   blocked writers, and two active readers;
-3. apply `CREATE INDEX CONCURRENTLY`, run fresh DML, and verify `pg_index`;
-4. collect incident-window CloudWatch metrics and Performance Insights wait and
-   SQL observations;
-5. build run-scoped searchable evidence from measured data;
-6. admit the complete run atomically into `casework`;
-7. batch-generate Cohere embeddings through Bedrock; and
-8. verify and publish the indexing receipt that enables participant retrieval.
+## Wave B: Validation Evidence
 
-The participant command verifies and reuses 5,000 preloaded customers and
-3,000,000 related orders as workload substrate. The unsafe phase then captures 30
-observations at two-second intervals. Each observation preserves nine
-`pg_stat_activity` rows, nine relation-lock rows, and six
-`pg_blocking_pids` rows. With statement, CloudWatch, and Performance Insights
-observations, a successful run retains about 735 raw telemetry rows.
+After the participant approves and executes the recommended index, capture the
+new outcome:
 
-The deterministic evidence build creates about 105 telemetry documents plus one
-incident, two changes, and one primary lock observation. The search index
-therefore contains about 110 participant-generated documents and 100-250
-chunks.
-This is useful workshop scale for exact, full-text, semantic, fuzzy, fusion,
-reranking, citations, and replay. It is not presented as an HNSW performance
-benchmark.
-
-The 5,000 customer rows and 3,000,000 order rows never enter the evidence corpus
-and are removed with `workbench_lab`. Their measured effects survive as
-normalized telemetry, searchable evidence, and proof.
-
-## Run-Derived Identity
-
-Each execution creates one UUID capture ID. Its final eight hexadecimal
-characters become the run suffix:
-
-```text
-INC-<suffix>
-CHG-<suffix>-01
-CHG-<suffix>-02
-LOCK-<suffix>-01
-TEL-<suffix>-...
+```bash
+make live-workshop ARGS="--wave B"
 ```
 
-The receipt, evidence source URIs, raw telemetry foreign keys, searchable
-documents, chunks, and embeddings all trace to that capture. A fresh database
-is required so evidence from different runs cannot mix.
+Wave B requires exactly one admitted Wave A capture and the participant-created
+`workbench_lab.idx_orders_priority_tier_created_at` index. It observes a fresh,
+bounded post-index `EXPLAIN (ANALYZE, BUFFERS)` checkpoint, admits only the new
+validation change and telemetry, rebuilds the derived search index, and writes
+a separate Wave B receipt. Wave B adds a `validates` relationship to the same
+incident; it never replaces or revises Wave A evidence.
 
-## Outputs
+## Outputs and Cleanup
 
-Generated files are written under `data/generated/incident-lab/` and are
-gitignored:
+Generated files under `data/generated/incident-lab/` are gitignored:
 
-- `live-run-<suffix>.json`: complete measured admission payload;
-- `embeddings-<suffix>.jsonl`: runtime embedding cache for that run;
-- `indexing-receipt-<suffix>.json`: provenance and readiness receipt; and
-- `exercises/`: requests rendered with this run's identifiers.
+- `wave-a-<suffix>.json`: Wave A admission payload;
+- `receipt-a-<suffix>.json`: Wave A indexing and capture receipt;
+- `wave-b-for-<wave-a-capture-id>.json`: Wave B admission payload;
+- `receipt-b-<suffix>.json`: Wave B indexing and validation receipt; and
+- `embeddings-<suffix>.jsonl`: runtime embedding cache for the matching wave.
 
-Retrieval should not begin until the command prints `RETRIEVAL READY` with the
-receipt path. The disposable `workbench_lab` schema is removed after successful
-verification unless `--keep-lab-schema` is passed directly to the orchestrator.
+`workbench_lab` remains available by default so Labs 2 through 4 can inspect
+the same operational substrate. Use `--drop-lab-schema` only to reclaim the
+disposable workload after a rehearsal or workshop is complete.
 
 ## Failure Rule
 
-No failure path substitutes local, fixture, demo, or previously captured data.
-If PostgreSQL telemetry, AWS observations, admission, embeddings, or readiness
-validation fails, no retrieval-ready receipt is published.
+If PostgreSQL, application-pool, admission, indexing, or readiness validation
+fails, the command does not publish a ready receipt. A failed Wave B leaves the
+already-admitted Wave A evidence intact.

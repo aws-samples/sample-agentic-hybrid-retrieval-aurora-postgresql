@@ -11,12 +11,11 @@ mechanism that still exists in portions of the runtime, tests, UI, and docs.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-B1 are complete. Tasks B1a-G3 own the remaining runtime, retrieval,
-agent, UI, documentation,
-infrastructure, and rehearsal work. The plan's repository-wide alignment audit
-assigns every known stale surface to an explicit task; finding an unassigned
-stale surface is a plan defect and should be corrected before implementation
-continues.
+Tasks A1-C2 are complete. Tasks C3-G3 own the remaining retrieval, agent, UI,
+documentation, infrastructure, and rehearsal work. The plan's repository-wide
+alignment audit assigns every known stale surface to an explicit task; finding an
+unassigned stale surface is a plan defect and should be corrected before
+implementation continues.
 
 ## Repositories
 
@@ -139,12 +138,20 @@ Completed and committed on this branch:
   retired `_measured_visibility` / `unknown` compatibility path is deleted.
   The optional RLS/masking narrative and G-27 now validate that source
   provenance rather than the deleted Database Insights surface.
+- C2 wires the two additive admission paths. Wave A runs the measured migration
+  collision, persists its raw PostgreSQL samples before the C1 documents cite
+  them, and admits/indexes diagnostic evidence. Wave B requires the
+  participant-created index, captures only the post-index validation checkpoint,
+  and is replay-idempotent. The CLI exposes `--wave {A,B}`; the lab schema now
+  survives by default, while `--drop-lab-schema` is explicit. Doctor, the
+  latest-run API, the live retrieval contract, and G-32 all resolve one incident
+  across its two capture windows.
 
-Not yet implemented: two-wave admission wiring, final retrieval corpus,
-revised agent,
-participant UI and labs, remaining documentation cleanup, infrastructure
-packaging, and live rehearsal. Until those tasks land, `make live-workshop` is
-not evidence that the approved scenario is complete.
+Not yet implemented: C3 replay-window pinning and C4's permanent corpus-diversity
+gate; revised retrieval exercises and agent; participant UI and labs; remaining
+documentation cleanup; infrastructure packaging; and the complete rehearsal.
+Until those tasks land, `make live-workshop` is not evidence that the approved
+scenario is release-complete.
 
 ## Latest Validation
 
@@ -205,11 +212,9 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   bundle all passed against `dat410_review_remediation_test` on Aurora
   PostgreSQL 18.3. The focused B6 suite covers CloudWatch success, unavailable
   capture, transaction-ID readiness, explicit `cloudwatch_status` admission,
-  and removal of Performance Insights dependencies. A complete PI-disabled,
-  CloudWatch-unavailable orchestrator rehearsal is intentionally not runnable
-  yet: `run_live_workshop.py` fails before database work until C1/C2 install
-  the evidence builder and final two-wave admission path. Do not claim that
-  unrun end-to-end proof prematurely.
+  and removal of Performance Insights dependencies. C2 then proved the
+  end-to-end two-wave path with PostgreSQL and pool evidence; CloudWatch remains
+  supplemental rather than an admission or recovery gate.
 - C1 acceptance: the pure evidence-builder and incident-contract suites pass
   (39 tests, 71 subtests). The full core suite passes on the dedicated Aurora
   PostgreSQL 18.3 test target (238 tests, 50 expected live/security skips).
@@ -218,25 +223,52 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   classifier query compiles without pretending an unmixed corpus is a security
   success. This is not optional-security release evidence: C2 must first admit
   a real mixed-visibility capture, then the security gates must run against it.
+- C2 live rehearsal: Wave A `CAP-3861DBEE` / capture
+  `f387931b-60cb-4b19-a955-55153861dbee` and Wave B `CAP-DC80FBB0` / capture
+  `7b2ffabd-6882-4a73-9667-8343dc80fbb0` attach to `INC-3861DBEE`. The indexed
+  corpus has 57 documents and chunks: 54 Wave A and 3 Wave B, including 52
+  telemetry documents. Wave A captured 308 activity rows, 1,792 lock rows,
+  280 blocker-chain rows, three statement samples, and five CloudWatch samples.
+  Replaying Wave B returned `idempotent_replay: true`, inserted zero new
+  documents, and reused all 57 embeddings. The workload retained 2,999,989
+  `created` rows and exactly 11 `touched` rows (the ten drained writers plus the
+  recovery probe), with no unexpected statuses.
+- C2 focused validation: `make doctor` passed against the two-wave Aurora
+  PostgreSQL 18.3 capture (frontend intentionally unavailable warning only);
+  G-32 passed with `Wave A 54 + Wave B 3 current documents`; all five
+  `backend.tests.test_retrieval_integration` contracts passed; the admission
+  static suite passed with its expected gated skips; and the API reported the
+  two capture keys, 57 current documents/chunks, 52 telemetry documents, and a
+  fully available 10-slot pool.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
 and is not release evidence.
 
-Current disposable-database state after C1 validation: core schema plus the
-3,000,000-row `workbench_lab` workload, zero evidence, and no optional security
-module. Reapply `make security-schema` before security-only checks.
+Current disposable-database state after C2 validation: core schema plus the
+3,000,000-row `workbench_lab` workload, the participant-created
+`idx_orders_priority_created` index, two live capture waves, and no optional
+security module. Reapply `make security-schema` before security-only checks.
 
 ## Next Task
 
-Start C2: wire the two additive admissions. It must collect and persist the
-raw `pg_stat_activity` and `pg_stat_statements` samples before admitting the
-C1 documents, preserving the exact sample identifiers named in
-`classification_sources`; a remapped or regenerated identifier would make the
-optional RLS/masking provenance claim unreplayable. Admit only Wave A before
-the participant's human-approved index action, then capture and admit the
-additive Wave B validation evidence. Do not claim C1's 50-80-document live
-acceptance or optional-security release proof until that end-to-end run exists.
+Start C3: keep the index rebuild additive across both waves and scope
+`backend/app/insights.py:run_graph` traversal to the retrieval run's own
+admission window. A replayed Wave A agent run must not discover Wave B edges
+that did not exist when the agent answered. Read Task C3 in the binding plan
+before editing. Its live acceptance requires comparing a Wave A graph before and
+after Wave B, proving it is byte-identical, while G-32 confirms every Wave A
+document remains current.
+
+Two C2 maintenance hazards are now known:
+
+- `casework.telemetry_evidence` stores the signal value in
+  `structured.telemetry_type`, not `structured.signal_type` and not a
+  `signal_type` column. Doctor, G-32, and the live retrieval test use the
+  correct key. Psycopg parameterized SQL literals containing `%` must use `%%`.
+- Keep Bedrock in `us-east-1` for this workshop. Cohere Rerank 3.5 is active
+  there and unavailable in `us-east-2`; an `AWS_REGION=us-east-2` shell makes
+  the rerank doctor check fail even though embedding and synthesis can pass.
 
 `make test` now fails before discovery unless `TEST_DATABASE_URL` names a
 resettable `_test` database on exactly PostgreSQL 18.3. Accepted targets are

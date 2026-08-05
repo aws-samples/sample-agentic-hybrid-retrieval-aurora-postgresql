@@ -124,7 +124,7 @@ def run() -> int:
                         ) AS current_documents
                     FROM casework.incident_capture_runs capture
                     JOIN casework.evidence_items item
-                      ON item.source_uri LIKE capture.source_bundle_uri || '/%'
+                      ON item.source_uri LIKE capture.source_bundle_uri || '/%%'
                      AND NOT item.is_deleted
                     LEFT JOIN retrieval.documents document
                       ON document.evidence_id = item.evidence_id
@@ -166,7 +166,7 @@ def run() -> int:
             )
 
             signal_types = _distinct_values(
-                connection, incident_evidence_id, "signal_type"
+                connection, incident_evidence_id, "telemetry_type"
             )
             missing_signals = sorted(set(EXPECTED_SIGNAL_TYPES) - signal_types)
             require(
@@ -178,13 +178,13 @@ def run() -> int:
                 row[0]
                 for row in connection.execute(
                     """
-                    SELECT DISTINCT telemetry.structured ->> 'signal_type'
+                    SELECT DISTINCT telemetry.structured ->> 'telemetry_type'
                     FROM casework.telemetry_evidence telemetry
                     JOIN casework.incident_capture_runs capture
                       ON capture.capture_id = telemetry.capture_id
                     WHERE capture.incident_evidence_id = %s
                       AND capture.wave = 'B'
-                      AND telemetry.structured ->> 'signal_type' IS NOT NULL
+                      AND telemetry.structured ->> 'telemetry_type' IS NOT NULL
                     """,
                     (incident_evidence_id,),
                 ).fetchall()

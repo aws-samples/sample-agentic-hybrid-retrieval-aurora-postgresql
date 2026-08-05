@@ -372,7 +372,7 @@ def build_wave_a_documents(
         }
         documents.append(
             _document(
-                key=f"TEL-{run_suffix}-L{ordinal:02d}E",
+                key=f"TEL-{run_suffix}-LE{ordinal:02d}",
                 signal_type="lock",
                 phase="pool_exhaustion",
                 title=f"Writer {ordinal} entered transaction-ID wait",
@@ -387,7 +387,7 @@ def build_wave_a_documents(
         )
         documents.append(
             _document(
-                key=f"TEL-{run_suffix}-L{ordinal:02d}D",
+                key=f"TEL-{run_suffix}-LD{ordinal:02d}",
                 signal_type="lock",
                 phase="recovery",
                 title=f"Writer {ordinal} drained after backfill commit",

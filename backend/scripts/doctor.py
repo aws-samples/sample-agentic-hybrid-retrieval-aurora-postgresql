@@ -330,30 +330,95 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
     cursor.execute(
         """
         SELECT
-          capture_id,
-          capture_key,
-          source_bundle_uri,
-          engine_version,
-          relation_oid,
-          upper(right(replace(capture_id::text, '-', ''), 8)) AS run_suffix
+          incident_evidence_id,
+          count(*) FILTER (WHERE wave = 'A') AS wave_a_count,
+          count(*) FILTER (WHERE wave = 'B') AS wave_b_count,
+          count(*) AS capture_count
         FROM casework.incident_capture_runs
         WHERE capture_origin = 'participant_induced'
-        ORDER BY capture_started_at DESC
+        GROUP BY incident_evidence_id
+        ORDER BY max(capture_ended_at) DESC
         """
     )
-    captures = cursor.fetchall()
-    if len(captures) != 1:
+    incidents = cursor.fetchall()
+    if len(incidents) != 1:
         doctor.fail(
             "incident capture",
-            f"expected one participant run in the fresh database, found {len(captures)}",
+            (
+                "expected one participant incident with one or two capture waves, "
+                f"found {len(incidents)} incident(s)"
+            ),
         )
         return
-    capture = captures[0]
-    suffix = capture["run_suffix"]
-    incident_key = f"INC-{suffix}"
-    unsafe_change_key = f"CHG-{suffix}-01"
-    repair_change_key = f"CHG-{suffix}-02"
-    lock_key = f"LOCK-{suffix}-01"
+    incident_group = incidents[0]
+    if (
+        incident_group["wave_a_count"] != 1
+        or incident_group["wave_b_count"] not in (0, 1)
+        or incident_group["capture_count"]
+        != incident_group["wave_a_count"] + incident_group["wave_b_count"]
+    ):
+        doctor.fail(
+            "incident capture",
+            (
+                "expected exactly one Wave A and at most one Wave B capture, got "
+                f"{dict(incident_group)}"
+            ),
+        )
+        return
+
+    cursor.execute(
+        """
+        SELECT
+          wave_a.capture_id AS wave_a_capture_id,
+          wave_a.capture_key AS wave_a_capture_key,
+          wave_a.source_bundle_uri AS wave_a_bundle_uri,
+          wave_a.engine_version,
+          wave_a.relation_oid,
+          upper(right(replace(wave_a.capture_id::text, '-', ''), 8))
+            AS wave_a_suffix,
+          wave_b.capture_id AS wave_b_capture_id,
+          wave_b.capture_key AS wave_b_capture_key,
+          wave_b.source_bundle_uri AS wave_b_bundle_uri,
+          upper(right(replace(wave_b.capture_id::text, '-', ''), 8))
+            AS wave_b_suffix,
+          incident.external_key AS incident_key
+        FROM casework.incident_capture_runs wave_a
+        JOIN casework.evidence_items incident
+          ON incident.evidence_id = wave_a.incident_evidence_id
+        LEFT JOIN casework.incident_capture_runs wave_b
+          ON wave_b.incident_evidence_id = wave_a.incident_evidence_id
+         AND wave_b.capture_origin = 'participant_induced'
+         AND wave_b.wave = 'B'
+        WHERE wave_a.incident_evidence_id = %s
+          AND wave_a.capture_origin = 'participant_induced'
+          AND wave_a.wave = 'A'
+        """,
+        (incident_group["incident_evidence_id"],),
+    )
+    capture = cursor.fetchone()
+    if capture is None:
+        doctor.fail("incident capture", "could not resolve the Wave A capture")
+        return
+
+    wave_a_suffix = capture["wave_a_suffix"]
+    wave_b_suffix = capture["wave_b_suffix"]
+    incident_key = capture["incident_key"]
+    unsafe_change_key = f"CHG-{wave_a_suffix}-01"
+    analyze_change_key = f"CHG-{wave_a_suffix}-02"
+    validation_change_key = (
+        f"CHG-{wave_b_suffix}-01" if wave_b_suffix is not None else None
+    )
+    lock_key = f"LOCK-{wave_a_suffix}-01"
+    change_keys = [unsafe_change_key, analyze_change_key]
+    if validation_change_key is not None:
+        change_keys.append(validation_change_key)
+    telemetry_suffixes = [wave_a_suffix]
+    if wave_b_suffix is not None:
+        telemetry_suffixes.append(wave_b_suffix)
+    telemetry_pattern = (
+        "^TEL-(" + "|".join(telemetry_suffixes) + ")-[A-Z]+[0-9]+$"
+    )
+
     cursor.execute(
         """
         SELECT
@@ -362,11 +427,17 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
           count(*) FILTER (WHERE evidence_kind = 'change') AS changes,
           count(*) FILTER (WHERE evidence_kind = 'lock_evidence') AS locks,
           count(*) FILTER (WHERE evidence_kind = 'telemetry') AS telemetry,
-          bool_and(source_uri LIKE %s || '/%%') AS one_bundle,
+          bool_and(
+            source_uri LIKE %s || '/%%'
+            OR (
+              %s::text IS NOT NULL
+              AND source_uri LIKE %s || '/%%'
+            )
+          ) AS capture_scoped,
           bool_and(
             CASE evidence_kind
               WHEN 'incident' THEN external_key = %s
-              WHEN 'change' THEN external_key IN (%s, %s)
+              WHEN 'change' THEN external_key = ANY(%s)
               WHEN 'lock_evidence' THEN external_key = %s
               WHEN 'telemetry' THEN external_key ~ %s
               ELSE false
@@ -377,12 +448,13 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
           AND NOT is_deleted
         """,
         (
-            capture["source_bundle_uri"],
+            capture["wave_a_bundle_uri"],
+            capture["wave_b_bundle_uri"],
+            capture["wave_b_bundle_uri"],
             incident_key,
-            unsafe_change_key,
-            repair_change_key,
+            change_keys,
             lock_key,
-            f"^TEL-{suffix}-[A-Z]+[0-9]+$",
+            telemetry_pattern,
         ),
     )
     evidence = cursor.fetchone()
@@ -391,12 +463,14 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
         SELECT
           array_agg(DISTINCT structured ->> 'phase')
             FILTER (WHERE structured ->> 'phase' IS NOT NULL) AS phases,
-          array_agg(DISTINCT structured ->> 'signal_type')
-            FILTER (WHERE structured ->> 'signal_type' IS NOT NULL) AS signal_types
-        FROM casework.telemetry_evidence
-        WHERE capture_id = %s
+          array_agg(DISTINCT telemetry.structured ->> 'telemetry_type')
+            FILTER (
+              WHERE telemetry.structured ->> 'telemetry_type' IS NOT NULL
+            ) AS signal_types
+        FROM casework.telemetry_evidence AS telemetry
+        WHERE telemetry.capture_id = %s
         """,
-        (capture["capture_id"],),
+        (capture["wave_a_capture_id"],),
     )
     coverage = cursor.fetchone()
     observed_phases = set(coverage["phases"] or ())
@@ -406,7 +480,7 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
         set(EXPECTED_SIGNAL_TYPES) - observed_signal_types
     )
     if (
-        not evidence["one_bundle"]
+        not evidence["capture_scoped"]
         or not evidence["run_scoped_keys"]
         or missing_phases
         or missing_signal_types
@@ -414,7 +488,7 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
         doctor.fail(
             "live-only evidence",
             (
-                f"run {suffix} does not satisfy the live corpus contract: "
+                f"incident {incident_key} does not satisfy the live corpus contract: "
                 f"{dict(evidence)}; missing_phases={missing_phases}; "
                 f"missing_signal_types={missing_signal_types}"
             ),
@@ -423,17 +497,41 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
         doctor.ok(
             "live-only evidence",
             (
-                f"run {suffix} owns {evidence['total']} run-derived documents "
+                f"incident {incident_key} owns {evidence['total']} run-derived documents "
                 f"({evidence['telemetry']} searchable telemetry documents)"
             ),
         )
     try:
         cursor.execute("SELECT casework.assert_live_capture_ready() AS validation")
-        cursor.fetchone()
+        validation = cursor.fetchone()["validation"]
         doctor.ok(
             "incident capture",
-            f"{capture['capture_key']} is participant-induced live Aurora evidence",
+            (
+                f"{capture['wave_a_capture_key']} is participant-induced "
+                "live Aurora evidence"
+            ),
         )
+        if capture["wave_b_capture_id"] is None:
+            doctor.ok(
+                "two-wave admission",
+                "Wave A is indexed; the participant-approved validation is pending",
+            )
+        elif validation["two_wave_ready"]:
+            doctor.ok(
+                "two-wave admission",
+                (
+                    f"{capture['wave_a_capture_key']} + "
+                    f"{capture['wave_b_capture_key']} are additive"
+                ),
+            )
+        else:
+            doctor.fail(
+                "two-wave admission",
+                (
+                    f"{capture['wave_b_capture_key']} exists but did not satisfy "
+                    "the additive validation contract"
+                ),
+            )
     except Exception as error:
         doctor.fail("incident capture", str(error))
 

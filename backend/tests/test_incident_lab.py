@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -12,6 +13,7 @@ from labs.incident.run_live_workshop import (
     LAB_ROWS,
     LiveWorkshopError,
     SOURCE_SYSTEM,
+    _parser,
     _assert_lab_workload_ready,
 )
 
@@ -100,6 +102,8 @@ class IncidentLabContractTests(unittest.TestCase):
         ready = {
             "observed_row_count": LAB_ROWS,
             "canonical_rows": LAB_ROWS,
+            "touched_rows": 0,
+            "unexpected_status_rows": 0,
             "observed_customer_count": LAB_CUSTOMER_ROWS,
             "minimum_customer_id": 1,
             "maximum_customer_id": LAB_CUSTOMER_ROWS,
@@ -115,6 +119,8 @@ class IncidentLabContractTests(unittest.TestCase):
             None,
             {**ready, "observed_row_count": LAB_ROWS - 1},
             {**ready, "canonical_rows": LAB_ROWS - 1},
+            {**ready, "touched_rows": 1},
+            {**ready, "unexpected_status_rows": 1},
             {**ready, "observed_customer_count": LAB_CUSTOMER_ROWS - 1},
             {**ready, "minimum_customer_id": 2},
             {**ready, "maximum_customer_id": LAB_CUSTOMER_ROWS + 1},
@@ -129,7 +135,40 @@ class IncidentLabContractTests(unittest.TestCase):
                 with self.assertRaises(LiveWorkshopError):
                     _assert_lab_workload_ready(state)
 
-    def test_retired_payload_builder_is_not_left_beside_the_collision_runtime(
+    def test_post_collision_workload_requires_exact_measured_write_footprint(
+        self,
+    ) -> None:
+        post_collision = {
+            "observed_row_count": LAB_ROWS,
+            "canonical_rows": LAB_ROWS - 11,
+            "touched_rows": 11,
+            "unexpected_status_rows": 0,
+            "observed_customer_count": LAB_CUSTOMER_ROWS,
+            "minimum_customer_id": 1,
+            "maximum_customer_id": LAB_CUSTOMER_ROWS,
+            "referenced_customers": LAB_CUSTOMER_ROWS,
+            "orphan_order_count": 0,
+            "minimum_order_id": 1,
+            "maximum_order_id": LAB_ROWS,
+            "target_index_exists": True,
+        }
+
+        self.assertIs(
+            _assert_lab_workload_ready(
+                post_collision,
+                target_index_expected=True,
+                expected_touched_rows=11,
+            ),
+            post_collision,
+        )
+        with self.assertRaises(LiveWorkshopError):
+            _assert_lab_workload_ready(
+                {**post_collision, "touched_rows": 10},
+                target_index_expected=True,
+                expected_touched_rows=11,
+            )
+
+    def test_retired_ordinary_index_payload_builder_is_not_left_beside_the_collision_runtime(
         self,
     ) -> None:
         source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")
@@ -137,9 +176,6 @@ class IncidentLabContractTests(unittest.TestCase):
         for retired in (
             "_telemetry_documents",
             "build_live_payload",
-            "_admit_payload",
-            "_build_search_index",
-            "_verify_live_run",
             "_write_exercise_requests",
         ):
             self.assertNotIn(
@@ -147,6 +183,44 @@ class IncidentLabContractTests(unittest.TestCase):
                 source,
                 f"{retired} belongs to the retired ordinary-index path",
             )
+
+    def test_orchestrator_exposes_both_wave_entry_points(self) -> None:
+        source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")
+
+        self.assertIn("def admit_wave_a", source)
+        self.assertIn("def admit_wave_b", source)
+        self.assertIn('"--wave"', source)
+        wave_b = source.split("def admit_wave_b", 1)[1].split("\ndef ", 1)[0]
+        self.assertIn("incident_key", wave_b)
+        wave_b_payload = source.split("def _wave_b_payload", 1)[1].split(
+            "\ndef ", 1
+        )[0]
+        self.assertIn('"wave": "B"', wave_b_payload)
+        self.assertNotIn(
+            "workbench_lab.{RECOMMENDED_INDEX_NAME}",
+            wave_b_payload,
+            "the rollback SQL must not qualify an already-qualified index name",
+        )
+
+    def test_lab_schema_survives_by_default_and_cleanup_is_explicit(self) -> None:
+        parsed = _parser().parse_args(
+            [
+                "--database-url",
+                "postgresql://example",
+                "--db-cluster-identifier",
+                "cluster",
+                "--db-instance-identifier",
+                "instance",
+            ]
+        )
+
+        self.assertFalse(
+            parsed.drop_lab_schema,
+            "Labs 2-4 require workbench_lab unless cleanup is explicitly requested",
+        )
+        source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")
+        self.assertIn("--drop-lab-schema", source)
+        self.assertNotIn("--keep-lab-schema", source)
 
     def test_old_hold_mechanism_is_gone(self) -> None:
         source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")
@@ -237,6 +311,34 @@ class IncidentLabContractTests(unittest.TestCase):
 
         self.assertIn("(value - 1) %% %s", source)
         self.assertIn("value %% 86400", source)
+
+    def test_statement_stats_serializes_its_observed_timestamp(self) -> None:
+        from labs.incident.run_live_workshop import _statement_stats
+
+        captured_at = datetime(2026, 8, 5, 12, 34, 56, tzinfo=timezone.utc)
+
+        class Cursor:
+            def fetchone(self):
+                return {
+                    "phase": "before",
+                    "captured_at": captured_at,
+                    "calls": 0,
+                    "total_exec_time": 0.0,
+                    "rows": 0,
+                    "queryids": [],
+                    "queries": [],
+                }
+
+        class Connection:
+            def execute(self, statement, parameters):
+                self.statement = statement
+                self.parameters = parameters
+                return Cursor()
+
+        sample = _statement_stats(Connection(), "before")  # type: ignore[arg-type]
+
+        self.assertEqual(sample["captured_at"], "2026-08-05T12:34:56+00:00")
+        self.assertEqual(sample["phase"], "before")
 
     def test_orchestrator_fails_fast_on_an_incomplete_core_schema(self) -> None:
         source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")

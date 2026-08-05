@@ -126,15 +126,51 @@ def search_index_health() -> dict[str, Any]:
 def _latest_live_run(cursor: Any) -> dict[str, Any] | None:
     cursor.execute(
         """
+        WITH selected_incident AS (
+          SELECT
+            capture.incident_evidence_id,
+            max(capture.capture_ended_at) AS latest_capture_ended_at
+          FROM casework.incident_capture_runs capture
+          WHERE capture.capture_origin = 'participant_induced'
+          GROUP BY capture.incident_evidence_id
+          HAVING count(*) FILTER (WHERE capture.wave = 'A') = 1
+             AND count(*) FILTER (WHERE capture.wave = 'B') <= 1
+             AND count(*) = count(*) FILTER (
+               WHERE capture.wave IN ('A', 'B')
+             )
+          ORDER BY latest_capture_ended_at DESC
+          LIMIT 1
+        ),
+        wave_a AS (
+          SELECT capture.*
+          FROM casework.incident_capture_runs capture
+          JOIN selected_incident selected
+            ON selected.incident_evidence_id = capture.incident_evidence_id
+          WHERE capture.capture_origin = 'participant_induced'
+            AND capture.wave = 'A'
+        ),
+        wave_b AS (
+          SELECT capture.*
+          FROM casework.incident_capture_runs capture
+          JOIN selected_incident selected
+            ON selected.incident_evidence_id = capture.incident_evidence_id
+          WHERE capture.capture_origin = 'participant_induced'
+            AND capture.wave = 'B'
+        )
         SELECT
-          capture.capture_id,
-          capture.capture_key,
-          capture.cluster_id,
-          capture.capture_started_at,
-          capture.capture_ended_at,
+          wave_a.capture_id,
+          wave_a.capture_key,
+          wave_a.cluster_id,
+          wave_a.capture_started_at,
+          wave_a.capture_ended_at,
+          wave_b.capture_id AS validation_capture_id,
+          wave_b.capture_key AS validation_capture_key,
+          wave_b.capture_started_at AS validation_capture_started_at,
+          wave_b.capture_ended_at AS validation_capture_ended_at,
           incident.external_key AS incident_key,
           unsafe_change.external_key AS unsafe_change_key,
-          repair_change.external_key AS repair_change_key,
+          analyze_change.external_key AS analyze_change_key,
+          validation_change.external_key AS validation_change_key,
           lock_item.external_key AS lock_key,
           (
             SELECT count(*)
@@ -145,49 +181,73 @@ def _latest_live_run(cursor: Any) -> dict[str, Any] | None:
           (
             SELECT count(*)
             FROM casework.telemetry_evidence telemetry
-            WHERE telemetry.capture_id = capture.capture_id
+            WHERE telemetry.incident_evidence_id = incident.evidence_id
           ) AS telemetry_documents,
           (
             SELECT count(*)
             FROM casework.pg_stat_activity_samples sample
-            WHERE sample.capture_id = capture.capture_id
+            WHERE sample.capture_id IN (
+              wave_a.capture_id,
+              coalesce(wave_b.capture_id, wave_a.capture_id)
+            )
           ) + (
             SELECT count(*)
             FROM casework.pg_lock_samples sample
-            WHERE sample.capture_id = capture.capture_id
+            WHERE sample.capture_id IN (
+              wave_a.capture_id,
+              coalesce(wave_b.capture_id, wave_a.capture_id)
+            )
           ) + (
             SELECT count(*)
             FROM casework.pg_blocking_pids_samples sample
-            WHERE sample.capture_id = capture.capture_id
+            WHERE sample.capture_id IN (
+              wave_a.capture_id,
+              coalesce(wave_b.capture_id, wave_a.capture_id)
+            )
           ) + (
             SELECT count(*)
             FROM casework.pg_stat_statements_samples sample
-            WHERE sample.capture_id = capture.capture_id
+            WHERE sample.capture_id IN (
+              wave_a.capture_id,
+              coalesce(wave_b.capture_id, wave_a.capture_id)
+            )
           ) + (
             SELECT count(*)
             FROM casework.cloudwatch_metric_samples sample
-            WHERE sample.capture_id = capture.capture_id
+            WHERE sample.capture_id IN (
+              wave_a.capture_id,
+              coalesce(wave_b.capture_id, wave_a.capture_id)
+            )
           ) AS raw_telemetry_rows
-        FROM casework.incident_capture_runs capture
+        FROM wave_a
         JOIN casework.evidence_items incident
-          ON incident.evidence_id = capture.incident_evidence_id
+          ON incident.evidence_id = wave_a.incident_evidence_id
         JOIN casework.incident_changes unsafe_edge
           ON unsafe_edge.incident_evidence_id = incident.evidence_id
          AND unsafe_edge.relationship = 'confirmed'
         JOIN casework.evidence_items unsafe_change
           ON unsafe_change.evidence_id = unsafe_edge.change_evidence_id
-        JOIN casework.incident_changes repair_edge
-          ON repair_edge.incident_evidence_id = incident.evidence_id
-         AND repair_edge.relationship = 'remediated'
-        JOIN casework.evidence_items repair_change
-          ON repair_change.evidence_id = repair_edge.change_evidence_id
+        JOIN casework.incident_changes analyze_edge
+          ON analyze_edge.incident_evidence_id = incident.evidence_id
+         AND analyze_edge.relationship = 'ruled_out'
+        JOIN casework.evidence_items analyze_change
+          ON analyze_change.evidence_id = analyze_edge.change_evidence_id
+        LEFT JOIN wave_b
+          ON wave_b.incident_evidence_id = incident.evidence_id
+        LEFT JOIN LATERAL (
+          SELECT change_item.external_key
+          FROM casework.incident_changes validation_edge
+          JOIN casework.evidence_items change_item
+            ON change_item.evidence_id = validation_edge.change_evidence_id
+          WHERE validation_edge.incident_evidence_id = incident.evidence_id
+            AND validation_edge.relationship = 'validates'
+          ORDER BY change_item.source_updated_at DESC
+          LIMIT 1
+        ) validation_change ON true
         JOIN casework.lock_evidence lock_row
           ON lock_row.incident_evidence_id = incident.evidence_id
         JOIN casework.evidence_items lock_item
           ON lock_item.evidence_id = lock_row.evidence_id
-        WHERE capture.capture_origin = 'participant_induced'
-        ORDER BY capture.capture_started_at DESC
-        LIMIT 1
         """
     )
     run = cursor.fetchone()

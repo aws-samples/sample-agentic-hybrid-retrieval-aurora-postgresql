@@ -58,6 +58,7 @@ class HoldProof:
 
 
 PoolStatus = Callable[[], Mapping[str, Any]]
+SampleObserver = Callable[[psycopg.Connection, PollSample], None]
 
 _BLOCKED_SESSION_COUNT_SQL = """
 SELECT count(*)::int AS blocked_session_count
@@ -277,6 +278,7 @@ def prove_hold(
     required_samples: int = 3,
     hold_seconds: float = 12.0,
     max_attempt_seconds: float = 90.0,
+    sample_observer: SampleObserver | None = None,
 ) -> HoldProof:
     """Prove the combined pool and transaction-lock condition, then observe it.
 
@@ -312,6 +314,8 @@ def prove_hold(
             pool_max=pool_max,
             pool_status=pool_status,
         )
+        if sample_observer is not None:
+            sample_observer(conn, sample)
         _append_sample(
             proof,
             sample,

@@ -183,9 +183,14 @@ interface LiveRun {
   cluster_id: string;
   capture_started_at: string;
   capture_ended_at: string;
+  validation_capture_id: string | null;
+  validation_capture_key: string | null;
+  validation_capture_started_at: string | null;
+  validation_capture_ended_at: string | null;
   incident_key: string;
   unsafe_change_key: string;
-  repair_change_key: string;
+  analyze_change_key: string;
+  validation_change_key: string | null;
   lock_key: string;
   source_documents: number;
   telemetry_documents: number;
@@ -605,10 +610,13 @@ const DEFAULT_QUERY = '';
 
 function liveQuestion(run: LiveRun | null | undefined): string {
   if (!run) return '';
+  const validation = run.validation_change_key
+    ? ` What did ${run.validation_change_key} validate after the participant-approved index?`
+    : '';
   return (
     `What caused the measured writer wait in ${run.incident_key}, how did ` +
-    `${run.unsafe_change_key} block writes, how did ${run.repair_change_key} ` +
-    `repair the behavior, and what did ${run.lock_key} prove?`
+    `${run.unsafe_change_key} block writes, why did ${run.analyze_change_key} ` +
+    `not change the access path, and what did ${run.lock_key} prove?${validation}`
   );
 }
 

@@ -11,6 +11,12 @@ import uuid
 
 import psycopg
 
+from labs.incident.run_live_workshop import (
+    LiveWorkshopError,
+    _prepare_lab_for_wave,
+    prepare_lab_workload,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SQL_FILES = [
     "sql/00_extensions.sql",
@@ -312,7 +318,6 @@ def _wave_contract_payload(
                         "observation_number": 1,
                         "observed_until": ended_at,
                         "phase": "plan_regression",
-                        "signal_type": "plan",
                     },
                 )
             ],
@@ -749,6 +754,147 @@ class WaveAdmissionTest(unittest.TestCase):
                 """
             ).fetchone(),
             (1, 1),
+        )
+
+    def test_wave_b_preparation_requires_wave_a_and_no_live_lab_sessions(self) -> None:
+        """Wave B needs Wave A evidence and retains the shared lab-session guard."""
+        try:
+            prepare_lab_workload(TEST_DSN)
+            with self.assertRaisesRegex(
+                LiveWorkshopError,
+                "Wave B requires Lab 1's admitted Wave A evidence; run Lab 1 first",
+            ):
+                _prepare_lab_for_wave(
+                    TEST_DSN,
+                    uuid.uuid4(),
+                    wave="B",
+                )
+
+            wave_a = _wave_contract_payload(uuid.uuid4(), wave="A")
+            self._admit(wave_a)
+            self.connection.execute(
+                "ALTER TABLE workbench_lab.orders ADD COLUMN priority_tier int"
+            )
+            self.connection.execute(
+                """
+                UPDATE workbench_lab.orders
+                SET status = 'touched'
+                WHERE order_id BETWEEN 1 AND 11
+                """
+            )
+            self.connection.execute(
+                """
+                CREATE INDEX idx_orders_priority_tier_created_at
+                  ON workbench_lab.orders (priority_tier, created_at DESC)
+                """
+            )
+
+            workload, _ = _prepare_lab_for_wave(
+                TEST_DSN,
+                uuid.uuid4(),
+                wave="B",
+            )
+            self.assertEqual(workload["observed_row_count"], 3_000_000)
+            self.assertEqual(workload["observed_customer_count"], 5_000)
+
+            with psycopg.connect(
+                TEST_DSN,
+                autocommit=True,
+                application_name="workbench-live-squatter",
+            ) as squatter:
+                squatter.execute("SELECT 1")
+                with self.assertRaisesRegex(
+                    LiveWorkshopError,
+                    "close stale workbench-live-\\* sessions",
+                ):
+                    _prepare_lab_for_wave(
+                        TEST_DSN,
+                        uuid.uuid4(),
+                        wave="B",
+                    )
+        finally:
+            self.connection.execute("DROP SCHEMA IF EXISTS workbench_lab CASCADE")
+
+    def test_admission_preserves_supplied_classifier_sample_ids(self) -> None:
+        """C1 provenance refers to the actual raw rows, not payload-local IDs."""
+        payload = _wave_contract_payload(uuid.uuid4(), wave="A")
+        suffix = payload["capture"]["run_suffix"]
+        activity_id = 701
+        statement_id = 702
+        payload["telemetry"]["pg_stat_activity"] = [
+            {
+                "sample_id": activity_id,
+                "observation_number": 1,
+                "captured_at": "2026-08-04T12:00:05+00:00",
+                "pid": 2002,
+                "backend_type": "client backend",
+                "application_name": "workbench-lab-api-hot-write",
+                "state": "active",
+                "wait_event_type": "Lock",
+                "wait_event": "transactionid",
+                "query_start": "2026-08-04T12:00:01+00:00",
+                "xact_start": "2026-08-04T12:00:01+00:00",
+                "query": "UPDATE workbench_lab.orders SET status = 'touched'",
+            }
+        ]
+        payload["telemetry"]["pg_stat_statements"] = [
+            {
+                "sample_id": statement_id,
+                "phase": "during",
+                "captured_at": "2026-08-04T12:00:05+00:00",
+                "calls": 1,
+                "total_exec_time": 1.0,
+                "rows": 1,
+                "queryids": [],
+                "queries": [
+                    "UPDATE workbench_lab.orders SET priority_tier = (order_id % 5) + 1"
+                ],
+            }
+        ]
+        payload["records"]["telemetry_documents"] = [
+            _contract_record(
+                external_key=f"TEL-{suffix}-X01",
+                title="Captured statement provenance",
+                source_uri=f"{payload['source']['uri']}/telemetry/provenance",
+                occurred_at="2026-08-04T12:00:05+00:00",
+                available_at="2026-08-04T12:00:20+00:00",
+                body="The captured statement text is a restricted observation.",
+                structured={
+                    "incident_external_key": f"INC-{suffix}",
+                    "change_external_key": f"CHG-{suffix}-01",
+                    "telemetry_type": "wal",
+                    "observation_number": 1,
+                    "observed_until": "2026-08-04T12:00:05+00:00",
+                    "phase": "backfill",
+                    "statement": "UPDATE workbench_lab.orders SET priority_tier = (order_id % 5) + 1",
+                    "activity_sample_ids": [activity_id],
+                    "statements_sample_ids": [statement_id],
+                },
+            )
+        ]
+        payload["records"]["telemetry_documents"][0]["acl"] = {
+            "visibility": "restricted",
+            "classifier_version": "statement-text/1",
+            "classification_reason": "statement_text_present",
+            "classification_sources": [
+                f"pg_stat_activity_samples:{activity_id}",
+                f"pg_stat_statements_samples:{statement_id}",
+            ],
+        }
+
+        self._admit(payload)
+
+        self.assertEqual(
+            self.connection.execute(
+                "SELECT sample_id FROM casework.pg_stat_activity_samples"
+            ).fetchone()[0],
+            activity_id,
+        )
+        self.assertEqual(
+            self.connection.execute(
+                "SELECT sample_id FROM casework.pg_stat_statements_samples"
+            ).fetchone()[0],
+            statement_id,
         )
 
 

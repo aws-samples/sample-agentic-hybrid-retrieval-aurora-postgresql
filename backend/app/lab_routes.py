@@ -38,6 +38,7 @@ class HotWriteResult(BaseModel):
     order_id: int
     outcome: Literal["committed", "statement_timeout", "pool_timeout"]
     waited_seconds: float
+    backend_pid: int | None = None
 
 
 def _require_lab_endpoints() -> None:
@@ -65,10 +66,14 @@ def _hot_write(request: HotWriteRequest) -> HotWriteResult:
     settings = get_settings()
     started = time.monotonic()
     pool = app_db.get_pool()
+    backend_pid: int | None = None
     try:
         with pool.connection(timeout=settings.lab_hot_write_checkout_timeout_seconds) as conn:
             # HC-2: keep the transaction-local settings and the write together.
             with conn.transaction():
+                backend_pid = conn.execute(
+                    "SELECT pg_backend_pid()"
+                ).fetchone()[0]
                 conn.execute(
                     "SET LOCAL application_name = 'workbench-lab-api-hot-write'"
                 )
@@ -97,11 +102,13 @@ def _hot_write(request: HotWriteRequest) -> HotWriteResult:
             order_id=request.order_id,
             outcome="statement_timeout",
             waited_seconds=time.monotonic() - started,
+            backend_pid=backend_pid,
         )
     return HotWriteResult(
         order_id=request.order_id,
         outcome="committed",
         waited_seconds=time.monotonic() - started,
+        backend_pid=backend_pid,
     )
 
 

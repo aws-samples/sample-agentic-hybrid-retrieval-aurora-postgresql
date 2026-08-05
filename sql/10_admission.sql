@@ -851,6 +851,7 @@ BEGIN
   END IF;
 
   INSERT INTO casework.pg_stat_activity_samples(
+    sample_id,
     capture_id,
     observation_evidence_id,
     observation_number,
@@ -866,7 +867,17 @@ BEGIN
     query,
     raw_row
   )
+  OVERRIDING SYSTEM VALUE
   SELECT
+    coalesce(
+      nullif(sample ->> 'sample_id', '')::bigint,
+      nextval(
+        pg_get_serial_sequence(
+          'casework.pg_stat_activity_samples',
+          'sample_id'
+        )
+      )
+    ),
     v_capture_id,
     v_lock_id,
     (sample ->> 'observation_number')::integer,
@@ -943,6 +954,7 @@ BEGIN
   FROM jsonb_array_elements(v_telemetry -> 'pg_blocking_pids') sample;
 
   INSERT INTO casework.pg_stat_statements_samples(
+    sample_id,
     capture_id,
     phase,
     captured_at,
@@ -954,7 +966,17 @@ BEGIN
     delta_from_before,
     raw_row
   )
+  OVERRIDING SYSTEM VALUE
   SELECT
+    coalesce(
+      nullif(sample ->> 'sample_id', '')::bigint,
+      nextval(
+        pg_get_serial_sequence(
+          'casework.pg_stat_statements_samples',
+          'sample_id'
+        )
+      )
+    ),
     v_capture_id,
     sample ->> 'phase',
     (sample ->> 'captured_at')::timestamptz,

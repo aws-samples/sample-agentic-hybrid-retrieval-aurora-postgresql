@@ -19,8 +19,7 @@ checked-in JSON files are templates and contain no evidence identifiers.
 
 The JSON checkpoints inspect API receipts only. They reject any candidate
 outside `pg_incident_capture`, reject identifiers from another capture, and
-never assert a prewritten ranking result. Pass
-`--receipt data/generated/incident-lab/indexing-receipt-<suffix>.json` to every
-checkpoint command. The RRF SQL uses a temporary table inside a rolled-back
-transaction. None of the exercises modifies canonical data or replaces the
-source application tests.
+never assert a prewritten ranking result. Labs 2 and 3 use the Wave A receipt:
+`--receipt data/generated/incident-lab/receipt-a-<suffix>.json`. The RRF SQL
+uses a temporary table inside a rolled-back transaction. None of the exercises
+modifies canonical data or replaces the source application tests.

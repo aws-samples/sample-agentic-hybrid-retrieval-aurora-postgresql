@@ -32,7 +32,7 @@ class ParticipantCheckpointTests(unittest.TestCase):
         self.run_keys = {
             "incident_key": f"INC-{self.suffix}",
             "unsafe_change_key": f"CHG-{self.suffix}-01",
-            "repair_change_key": f"CHG-{self.suffix}-02",
+            "analyze_change_key": f"CHG-{self.suffix}-02",
             "lock_key": f"LOCK-{self.suffix}-01",
         }
         self.receipt = self.write(
@@ -104,7 +104,7 @@ class ParticipantCheckpointTests(unittest.TestCase):
                         "evidence_kind": "change",
                     },
                     {
-                        "external_key": self.run_keys["repair_change_key"],
+                        "external_key": self.run_keys["analyze_change_key"],
                         "source_system": CHECKPOINT.PARTICIPANT_SOURCE_SYSTEM,
                         "evidence_kind": "change",
                     },

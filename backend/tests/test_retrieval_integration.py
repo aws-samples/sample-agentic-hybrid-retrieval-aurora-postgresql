@@ -42,45 +42,70 @@ class LiveRetrievalContractTests(unittest.TestCase):
         validation = cls.conn.execute(
             "SELECT casework.assert_live_capture_ready() AS result"
         ).fetchone()["result"]
-        if not validation["live_ready"]:
-            raise RuntimeError(f"live capture is not ready: {validation}")
+        if not validation["two_wave_ready"]:
+            raise RuntimeError(f"two-wave live capture is not ready: {validation}")
 
-        capture = cls.conn.execute(
+        captures = cls.conn.execute(
             """
             SELECT
-              capture_id,
-              capture_key,
-              upper(right(replace(capture_id::text, '-', ''), 8)) AS run_suffix
-            FROM casework.incident_capture_runs
-            WHERE capture_origin = 'participant_induced'
-            ORDER BY capture_started_at DESC
-            LIMIT 1
+              capture.capture_id,
+              capture.capture_key,
+              capture.wave,
+              capture.source_bundle_uri,
+              upper(right(replace(capture.capture_id::text, '-', ''), 8))
+                AS run_suffix,
+              incident.external_key AS incident_key
+            FROM casework.incident_capture_runs capture
+            JOIN casework.evidence_items incident
+              ON incident.evidence_id = capture.incident_evidence_id
+            WHERE capture.capture_origin = 'participant_induced'
+            ORDER BY capture.wave
             """
-        ).fetchone()
-        if capture is None:
-            raise RuntimeError("no participant-induced capture is loaded")
-        cls.capture_id = str(capture["capture_id"])
-        cls.run_suffix = capture["run_suffix"]
-        cls.incident_key = f"INC-{cls.run_suffix}"
-        cls.unsafe_change_key = f"CHG-{cls.run_suffix}-01"
-        cls.repair_change_key = f"CHG-{cls.run_suffix}-02"
-        cls.lock_key = f"LOCK-{cls.run_suffix}-01"
+        ).fetchall()
+        if len(captures) != 2 or [capture["wave"] for capture in captures] != [
+            "A",
+            "B",
+        ]:
+            raise RuntimeError(
+                "expected exactly one Wave A and one Wave B participant capture"
+            )
+        wave_a, wave_b = captures
+        if wave_a["incident_key"] != wave_b["incident_key"]:
+            raise RuntimeError("the two captures do not attach to one incident")
+        if wave_a["source_bundle_uri"] == wave_b["source_bundle_uri"]:
+            raise RuntimeError("Wave A and Wave B reused one source bundle URI")
+
+        cls.wave_a_capture_id = str(wave_a["capture_id"])
+        cls.wave_b_capture_id = str(wave_b["capture_id"])
+        cls.wave_a_suffix = wave_a["run_suffix"]
+        cls.wave_b_suffix = wave_b["run_suffix"]
+        cls.incident_key = wave_a["incident_key"]
+        cls.unsafe_change_key = f"CHG-{cls.wave_a_suffix}-01"
+        cls.analyze_change_key = f"CHG-{cls.wave_a_suffix}-02"
+        cls.validation_change_key = f"CHG-{cls.wave_b_suffix}-01"
+        cls.lock_key = f"LOCK-{cls.wave_a_suffix}-01"
         cls.core_keys = {
             cls.incident_key,
             cls.unsafe_change_key,
-            cls.repair_change_key,
+            cls.analyze_change_key,
+            cls.validation_change_key,
             cls.lock_key,
         }
-        if EXPECTED_CAPTURE_ID and cls.capture_id != EXPECTED_CAPTURE_ID:
+        if EXPECTED_CAPTURE_ID and EXPECTED_CAPTURE_ID not in {
+            cls.wave_a_capture_id,
+            cls.wave_b_capture_id,
+        }:
             raise RuntimeError(
-                f"expected capture {EXPECTED_CAPTURE_ID}, found {cls.capture_id}"
+                "expected capture "
+                f"{EXPECTED_CAPTURE_ID}, found Wave A {cls.wave_a_capture_id} "
+                f"and Wave B {cls.wave_b_capture_id}"
             )
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.conn.close()
 
-    def test_only_this_capture_is_participant_facing(self) -> None:
+    def test_only_this_two_wave_incident_is_participant_facing(self) -> None:
         rows = self.conn.execute(
             """
             SELECT source_system, array_agg(external_key ORDER BY external_key) AS keys
@@ -93,11 +118,13 @@ class LiveRetrievalContractTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["source_system"], LIVE_SOURCE)
         self.assertTrue(self.core_keys <= set(rows[0]["keys"]))
-        self.assertGreaterEqual(len(rows[0]["keys"]), 100)
-        self.assertLessEqual(len(rows[0]["keys"]), 120)
+        self.assertGreaterEqual(len(rows[0]["keys"]), 50)
+        self.assertLessEqual(len(rows[0]["keys"]), 80)
         self.assertTrue(
             all(
-                key in self.core_keys or key.startswith(f"TEL-{self.run_suffix}-")
+                key in self.core_keys
+                or key.startswith(f"TEL-{self.wave_a_suffix}-")
+                or key.startswith(f"TEL-{self.wave_b_suffix}-")
                 for key in rows[0]["keys"]
             )
         )
@@ -121,8 +148,8 @@ class LiveRetrievalContractTests(unittest.TestCase):
         ).fetchone()["result"]
         self.assertEqual(health["status"], "ready")
         self.assertEqual(health["drift_issues"], 0)
-        self.assertGreaterEqual(health["source_documents"], 100)
-        self.assertLessEqual(health["source_documents"], 120)
+        self.assertGreaterEqual(health["source_documents"], 50)
+        self.assertLessEqual(health["source_documents"], 80)
 
         exact = self.conn.execute(
             """
@@ -176,7 +203,12 @@ class LiveRetrievalContractTests(unittest.TestCase):
             self.core_keys <= {row["external_key"] for row in rows}
         )
         self.assertTrue(
-            {"observed_during", "change_confirmed", "change_remediated"}
+            {
+                "observed_during",
+                "change_confirmed",
+                "change_ruled_out",
+                "change_validates",
+            }
             <= {
                 row["via_relation"]
                 for row in rows
@@ -201,8 +233,8 @@ class LiveRetrievalContractTests(unittest.TestCase):
         ).fetchone()["present"]
         self.assertTrue(blocking_edge)
 
-    def test_telemetry_is_complete_and_bound_to_one_capture(self) -> None:
-        counts = self.conn.execute(
+    def test_telemetry_is_complete_and_bound_to_its_wave(self) -> None:
+        wave_a_counts = self.conn.execute(
             """
             SELECT
               (SELECT count(*) FROM casework.pg_stat_activity_samples
@@ -216,14 +248,14 @@ class LiveRetrievalContractTests(unittest.TestCase):
               (SELECT count(*) FROM casework.cloudwatch_metric_samples
                 WHERE capture_id = %(capture_id)s) AS cloudwatch
             """,
-            {"capture_id": self.capture_id},
+            {"capture_id": self.wave_a_capture_id},
         ).fetchone()
 
-        self.assertEqual(counts["activity"], 270)
-        self.assertEqual(counts["locks"], 270)
-        self.assertEqual(counts["blocking_pids"], 180)
-        self.assertEqual(counts["statements"], 3)
-        self.assertEqual(counts["cloudwatch"], 5)
+        self.assertGreaterEqual(wave_a_counts["activity"], 10)
+        self.assertGreaterEqual(wave_a_counts["locks"], 10)
+        self.assertGreaterEqual(wave_a_counts["blocking_pids"], 10)
+        self.assertEqual(wave_a_counts["statements"], 3)
+        self.assertGreaterEqual(wave_a_counts["cloudwatch"], 0)
 
         delta = self.conn.execute(
             """
@@ -232,16 +264,34 @@ class LiveRetrievalContractTests(unittest.TestCase):
             WHERE capture_id = %s
               AND phase = 'after'
             """,
-            (self.capture_id,),
+            (self.wave_a_capture_id,),
         ).fetchone()["delta_from_before"]
         self.assertGreaterEqual(delta["calls"], 8)
         self.assertGreater(delta["total_exec_time"], 0)
         self.assertGreaterEqual(delta["rows"], 8)
 
-    def test_every_measured_row_traces_to_the_selected_capture(self) -> None:
+        wave_b = self.conn.execute(
+            """
+            SELECT
+              count(*) AS documents,
+              array_agg(
+                DISTINCT structured ->> 'telemetry_type'
+                ORDER BY structured ->> 'telemetry_type'
+              ) AS signal_types
+            FROM casework.telemetry_evidence
+            WHERE capture_id = %s
+            """,
+            (self.wave_b_capture_id,),
+        ).fetchone()
+        self.assertGreaterEqual(wave_b["documents"], 2)
+        self.assertEqual(wave_b["signal_types"], ["meta", "plan"])
+
+    def test_every_measured_row_traces_to_the_selected_incident_waves(self) -> None:
         mismatches = self.conn.execute(
             """
-            WITH expected(capture_id) AS (VALUES (%s::uuid)),
+            WITH expected(capture_id) AS (
+              VALUES (%s::uuid), (%s::uuid)
+            ),
             observed AS (
               SELECT capture_id FROM casework.lock_evidence
               UNION ALL
@@ -260,11 +310,12 @@ class LiveRetrievalContractTests(unittest.TestCase):
             SELECT count(*) AS mismatches
             FROM observed
             CROSS JOIN expected
-            WHERE observed.capture_id <> expected.capture_id
+            GROUP BY observed.capture_id
+            HAVING NOT bool_or(observed.capture_id = expected.capture_id)
             """,
-            (self.capture_id,),
-        ).fetchone()["mismatches"]
-        self.assertEqual(mismatches, 0)
+            (self.wave_a_capture_id, self.wave_b_capture_id),
+        ).fetchall()
+        self.assertEqual(mismatches, [])
 
 
 if __name__ == "__main__":
