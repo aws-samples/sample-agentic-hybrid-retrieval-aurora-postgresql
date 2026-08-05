@@ -23,7 +23,8 @@ CORE_SQL_FILES := \
 	sql/07_search_index_verification.sql \
 	sql/08_query_runtime.sql \
 	sql/09_traverse_evidence.sql \
-	sql/10_admission.sql
+	sql/10_admission.sql \
+	sql/13_supervised_execution.sql
 
 # The optional security module. Applied only by `make security-schema`, and only
 # after the core files, because both depend on the casework and retrieval tables

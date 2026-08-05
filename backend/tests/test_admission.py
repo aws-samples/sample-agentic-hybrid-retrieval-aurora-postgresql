@@ -17,8 +17,10 @@ SQL_FILES = [
     "sql/01_schema.sql",
     "sql/02_indexes.sql",
     "sql/03_search_functions.sql",
+    "sql/06_receipts.sql",
     "sql/09_traverse_evidence.sql",
     "sql/10_admission.sql",
+    "sql/13_supervised_execution.sql",
 ]
 TEST_DSN = os.environ.get("TEST_DATABASE_URL")
 RESET_OK = os.environ.get("ALLOW_TEST_DATABASE_RESET") == "1"

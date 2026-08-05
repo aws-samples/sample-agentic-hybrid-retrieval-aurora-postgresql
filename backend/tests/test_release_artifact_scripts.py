@@ -48,6 +48,7 @@ class ReleaseArtifactScriptTests(unittest.TestCase):
             self.assertIn(f"labs/exercises/{filename}", source)
         for filename in SECURITY_FILES:
             self.assertIn(filename, source)
+        self.assertIn("sql/13_supervised_execution.sql", source)
         self.assertIn(".claude/skills/extend-hybrid-retrieval/SKILL.md", source)
         self.assertIn("for forbidden in admission design docs/superpowers seed", source)
         self.assertIn("generated evidence or database artifacts", source)

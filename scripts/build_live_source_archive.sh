@@ -53,6 +53,7 @@ required=(
   sql/01_schema.sql
   sql/07_search_index_verification.sql
   sql/10_admission.sql
+  sql/13_supervised_execution.sql
   sql/11_roles_rls.sql
   sql/12_masking.sql
   gates/checks.sh

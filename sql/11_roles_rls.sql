@@ -248,7 +248,9 @@ BEGIN
     );
     EXECUTE format(
       'GRANT INSERT ON proof.retrieval_candidates, proof.run_stages, '
-      'proof.agent_escalations, proof.transport_invocations TO %I',
+      'proof.agent_escalations, proof.transport_invocations, '
+      'proof.action_proposals, proof.action_proposal_citations, '
+      'proof.action_executions TO %I',
       v_persona
     );
     EXECUTE format(
@@ -257,6 +259,11 @@ BEGIN
     );
     EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA retrieval TO %I', v_persona);
     EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA proof TO %I', v_persona);
+    EXECUTE format(
+      'REVOKE EXECUTE ON FUNCTION proof.attach_wave_b_receipt(uuid, uuid, uuid) '
+      'FROM %I',
+      v_persona
+    );
   END LOOP;
 END
 $$;
@@ -1019,6 +1026,87 @@ BEGIN
             SELECT 1
             FROM proof.agent_runs parent
             WHERE parent.agent_run_id = proof.%I.agent_run_id
+          )
+        )
+    $fmt$, v_table, v_table, v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY proof_%s_owner ON proof.%I
+        FOR ALL TO CURRENT_USER
+        USING (true)
+        WITH CHECK (true)
+    $fmt$, v_table, v_table);
+  END LOOP;
+END
+$$;
+
+-- Supervised-execution receipts. Proposals follow their agent run; citation
+-- links and executions follow the retrieval run whose answer they prove.
+DO $$
+DECLARE
+  v_table text;
+BEGIN
+  FOREACH v_table IN ARRAY ARRAY['action_proposals']
+  LOOP
+    EXECUTE format('ALTER TABLE proof.%I ENABLE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('ALTER TABLE proof.%I FORCE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('DROP POLICY IF EXISTS proof_%s_persona ON proof.%I',
+                   v_table, v_table);
+    EXECUTE format('DROP POLICY IF EXISTS proof_%s_owner ON proof.%I',
+                   v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY proof_%s_persona ON proof.%I
+        FOR ALL
+        TO persona_app_engineer, persona_dba, persona_auditor
+        USING (
+          EXISTS (
+            SELECT 1
+            FROM proof.agent_runs parent
+            WHERE parent.agent_run_id = proof.%I.agent_run_id
+          )
+        )
+        WITH CHECK (
+          EXISTS (
+            SELECT 1
+            FROM proof.agent_runs parent
+            WHERE parent.agent_run_id = proof.%I.agent_run_id
+          )
+        )
+    $fmt$, v_table, v_table, v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY proof_%s_owner ON proof.%I
+        FOR ALL TO CURRENT_USER
+        USING (true)
+        WITH CHECK (true)
+    $fmt$, v_table, v_table);
+  END LOOP;
+
+  FOREACH v_table IN ARRAY ARRAY[
+    'action_proposal_citations',
+    'action_executions'
+  ]
+  LOOP
+    EXECUTE format('ALTER TABLE proof.%I ENABLE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('ALTER TABLE proof.%I FORCE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('DROP POLICY IF EXISTS proof_%s_persona ON proof.%I',
+                   v_table, v_table);
+    EXECUTE format('DROP POLICY IF EXISTS proof_%s_owner ON proof.%I',
+                   v_table, v_table);
+    EXECUTE format($fmt$
+      CREATE POLICY proof_%s_persona ON proof.%I
+        FOR ALL
+        TO persona_app_engineer, persona_dba, persona_auditor
+        USING (
+          EXISTS (
+            SELECT 1
+            FROM proof.retrieval_runs parent
+            WHERE parent.run_id = proof.%I.run_id
+          )
+        )
+        WITH CHECK (
+          EXISTS (
+            SELECT 1
+            FROM proof.retrieval_runs parent
+            WHERE parent.run_id = proof.%I.run_id
           )
         )
     $fmt$, v_table, v_table, v_table, v_table);

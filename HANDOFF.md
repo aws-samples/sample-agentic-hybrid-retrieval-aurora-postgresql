@@ -11,11 +11,12 @@ mechanism that still exists in portions of the runtime, tests, UI, and docs.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-A4 are the completed schema/admission foundation. Tasks A5-G3 own the
-remaining runtime, retrieval, agent, UI, documentation, infrastructure, and
-rehearsal work. The plan's repository-wide alignment audit assigns every known
-stale surface to an explicit task; finding an unassigned stale surface is a plan
-defect and should be corrected before implementation continues.
+Tasks A1-A5 are the completed schema/admission/proof foundation. Tasks A6-G3 own
+the remaining gate, runtime, retrieval, agent, UI, documentation,
+infrastructure, and rehearsal work. The plan's repository-wide alignment audit
+assigns every known stale surface to an explicit task; finding an unassigned
+stale surface is a plan defect and should be corrected before implementation
+continues.
 
 ## Repositories
 
@@ -78,12 +79,31 @@ Completed and committed on this branch:
 - A3 adds additive Wave A / Wave B admission.
 - A4 adds G-32, makes G-25 wave-aware, and preserves Wave A fuzzy identity
   after Wave B.
+- A5 adds append-only supervised-execution proposals, citation links,
+  catalog-derived action fingerprints, execution receipts, independent
+  pre/post autonomy-readiness verdicts, persona RLS, and the owner-only Wave B
+  receipt attachment.
 
-Not yet implemented: the supervised-execution schema, new orchestration and
+Not yet implemented: G-34's retroactive-safety gate, the new orchestration and
 evidence builder, final retrieval corpus, revised agent, participant UI and
 labs, documentation cleanup, infrastructure packaging, and live rehearsal.
 Until those tasks land, `make live-workshop` is not evidence that the approved
 scenario is complete.
+
+## Latest Validation
+
+Task A5 was validated on August 5 against the dedicated
+`dat410_review_remediation_test` database on the `agenticretrieval...` Aurora
+PostgreSQL 18.3 cluster in `us-east-1`:
+
+- `make schema`: passed with Aurora PostgreSQL 18.3 and pgvector 0.8.1.
+- Full core suite: 189 tests passed, 50 expected live/security skips.
+- `make security-schema`: passed with managed `pg_columnmask` 1.1.0.
+- Supervised-execution suite under security mode: 39 tests passed, zero skips.
+
+The test database contains disposable contract fixtures and is not a
+participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
+and is not release evidence.
 
 ## Database Hazard
 

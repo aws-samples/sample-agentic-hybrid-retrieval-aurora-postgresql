@@ -2393,6 +2393,10 @@ relationship, neither of which exists before A3).
 - Modify: `backend/tests/test_release_artifact_scripts.py:45-56` — assert the new
   file appears in the archive script, so the archive assertion cannot silently
   regress
+- Modify: `backend/tests/test_admission.py` — restore
+  `sql/06_receipts.sql` and `sql/13_supervised_execution.sql` after its
+  disposable-database reset. Without this, the full `make test` run deletes the
+  functions and tables required by the later supervised-execution tests.
 - Test: `backend/tests/test_supervised_execution.py` (new)
 
 **Interfaces:**
@@ -2784,6 +2788,18 @@ class FingerprintTests(unittest.TestCase):
             "a case-different string literal is a different index and must not "
             "share a canonical form",
         )
+
+    def test_whitespace_in_a_string_literal_is_not_collapsed(self) -> None:
+        """Whitespace inside a literal is data, not SQL formatting."""
+        two_spaces = self.conn.execute(
+            "SELECT proof.canonical_sql_name(%s)",
+            ("regexp_replace(note,'A  B','X')",),
+        ).fetchone()[0]
+        one_space = self.conn.execute(
+            "SELECT proof.canonical_sql_name(%s)",
+            ("regexp_replace(note,'A B','X')",),
+        ).fetchone()[0]
+        self.assertNotEqual(two_spaces, one_space)
 ```
 
 - [ ] **Step 2: Run it and confirm every test fails on a missing function.**
@@ -2793,17 +2809,19 @@ TEST_DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_tes
   .venv/bin/python -m pytest backend/tests/test_supervised_execution.py -v
 ```
 
-Expected: nine failures, each reporting `function proof.canonical_index_key(...)
+Expected: ten failures, each reporting `function proof.canonical_index_key(...)
 does not exist`, `function proof.index_action_fingerprint(...) does not exist`,
 or `relation "proof.action_proposals" does not exist`.
 
-**Four of these nine tests were each proven red against the pre-fix code, not
-merely observed green against the fixed code** (PostgreSQL 17.10, 2026-08-04, by
-restoring the earlier definitions inside a transaction and rolling back):
+**Five of these ten tests were exercised against the pre-fix code rather than
+merely observed green against the fixed code** (PostgreSQL 17.10 on 2026-08-04,
+plus PostgreSQL 18.4 during the A5 review):
 `test_a_quoted_relation_does_not_match_the_lower_case_one`,
 `test_include_columns_match_across_casing`, and
 `test_a_string_literal_in_an_expression_is_not_case_folded` all fail with the
-earlier `lower(btrim(...))` / `LIKE '%"%'` rules and pass with
+earlier `lower(btrim(...))` / `LIKE '%"%'` rules. The PostgreSQL 18.4 review
+also proved `test_whitespace_in_a_string_literal_is_not_collapsed` red against
+the whitespace-collapsing draft. All four pass with
 `proof.canonical_sql_name` plus `quote_ident`.
 `test_proposal_and_catalog_fingerprints_agree` passes both ways — it is the
 regression guard for the primary Lab 4 case, kept because it is the comparison
@@ -3097,18 +3115,20 @@ CREATE OR REPLACE FUNCTION proof.canonical_sql_name(p_text text)
 RETURNS text
 LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE
-           WHEN t.value ~ '^[A-Za-z_][A-Za-z0-9_]*$' THEN lower(t.value)
-           ELSE t.value
+           WHEN t.trimmed ~ '^[A-Za-z_][A-Za-z0-9_]*$' THEN lower(t.trimmed)
+           ELSE t.original
          END
   FROM (
-    SELECT regexp_replace(btrim(coalesce(p_text, '')), '\s+', ' ', 'g') AS value
+    SELECT coalesce(p_text, '') AS original,
+           regexp_replace(coalesce(p_text, ''), '^\s+|\s+$', '', 'g') AS trimmed
   ) t
 $$;
 
 COMMENT ON FUNCTION proof.canonical_sql_name(text) IS
   'The one case-folding rule for name-shaped fields. Folds only a string that is '
   'entirely a bare identifier; a quoted identifier or an expression is preserved '
-  'byte-exact. Folding more than this produced measured false matches.';
+  'byte-exact, including whitespace inside string literals. Folding or collapsing '
+  'more than this produced measured false matches.';
 
 -- One canonicalizer, called by BOTH sides. The proposal side passes the agent's
 -- structured fields; the observation side passes what it read out of the
@@ -3228,7 +3248,7 @@ TEST_DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_tes
   .venv/bin/python -m pytest backend/tests/test_supervised_execution.py -v
 ```
 
-Expected: all nine tests PASS. `test_no_key_columns_is_rejected` asserts the
+Expected: all ten tests PASS. `test_no_key_columns_is_rejected` asserts the
 `RAISE EXCEPTION` fires — if it fails with `psycopg.errors.InvalidTextRepresentation`
 instead, the empty array reached `array_length` as NULL and the guard used
 `array_length(...) = 0` rather than `coalesce(array_length(...), 0) = 0`.
@@ -3461,8 +3481,9 @@ TEST_DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_tes
   .venv/bin/python -m pytest backend/tests/test_supervised_execution.py -v
 ```
 
-Expected: all eight tests PASS. `tearDownClass` drops `sup_exec_probe` — the
-probe schema must not survive the run.
+Expected: all 14 tests PASS (ten fingerprint and four catalog read-back).
+`tearDownClass` drops `sup_exec_probe` — the probe schema must not survive the
+run.
 
 - [ ] **Step 8: Add the autonomy-readiness verdict.** Append to
   `sql/13_supervised_execution.sql`:
@@ -3804,19 +3825,40 @@ class AutonomyReadinessTests(unittest.TestCase):
         self._cite(proposal_id)
         foreign_agent_run_id, foreign_run_id = self._seed_run()
         del foreign_agent_run_id
+        source = self.conn.execute(
+            """
+            SELECT evidence_id, document_version_id, chunk_version_id,
+                   source_uri, source_revision, quote_text
+            FROM proof.answer_citations
+            WHERE run_id = (
+              SELECT run_id
+              FROM proof.action_proposals
+              WHERE proposal_id = %s
+            )
+            """,
+            (proposal_id,),
+        ).fetchone()
         self.conn.execute(
-            "INSERT INTO proof.agent_answers(run_id, question, answer_text, "
-            "  mode, contract_version) "
-            "VALUES (%s, 'q', 'a', 'bedrock', 'test') "
-            "ON CONFLICT (run_id) DO NOTHING",
-            (foreign_run_id,),
+            """
+            INSERT INTO proof.answer_citations(
+              run_id, citation_number, evidence_id, document_version_id,
+              chunk_version_id, source_uri, source_revision, quote_text
+            )
+            VALUES (%s, 2, %s, %s, %s, %s, %s, %s)
+            """,
+            (foreign_run_id, *source),
         )
-        with self.assertRaises(psycopg.errors.ForeignKeyViolation):
+        with self.assertRaises(psycopg.errors.ForeignKeyViolation) as caught:
             self.conn.execute(
                 "INSERT INTO proof.action_proposal_citations(proposal_id, "
-                "  run_id, citation_number, claim) VALUES (%s, %s, 1, 'borrowed')",
+                "  run_id, citation_number, claim) VALUES (%s, %s, 2, 'borrowed')",
                 (proposal_id, foreign_run_id),
             )
+        self.assertEqual(
+            caught.exception.diag.constraint_name,
+            "action_proposal_citations_proposal_id_run_id_fkey",
+            "the test must fail on proposal/run ownership, not another FK",
+        )
 
     def test_a_persona_that_cannot_read_the_citation_gets_the_same_verdict(
         self,
@@ -4182,6 +4224,11 @@ class AutonomyReadinessTests(unittest.TestCase):
         with self.conn.transaction():
             self._record(proposal_id, "failed", False)
             later = self._record(proposal_id, "succeeded", True)
+        capture_id, ingest_id = self._latest_wave_b_ids()
+        self.conn.execute(
+            "SELECT proof.attach_wave_b_receipt(%s, %s, %s)",
+            (later, capture_id, ingest_id),
+        )
         stamps = self.conn.execute(
             "SELECT count(DISTINCT approved_at), count(*) "
             "FROM proof.action_executions WHERE proposal_id = %s",
@@ -4216,8 +4263,10 @@ TEST_DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_tes
   .venv/bin/python -m pytest backend/tests/test_supervised_execution.py -v
 ```
 
-Expected: all 31 tests PASS (9 fingerprint, 4 read-back, 18 verdict; step 13 adds
-3 more for 34 in the finished file). If
+Expected: all 35 tests are discovered (ten fingerprint, four read-back, and 21
+verdict); without the security schema, the two persona-specific verdict tests
+skip and the other 33 pass. Step 13 adds four more tests for 39 in the finished
+file. If
 `test_successful_execution_does_not_flip_pre_execution_eligibility` fails, the
 pre-execution branch is reading an execution column — that is the exact defect
 the design spec forbids, and it must be fixed in the SQL, not in the test.
@@ -4778,9 +4827,8 @@ class NoDdlPrivilegeTests(unittest.TestCase):
                 self.assertFalse(row[2], f"{persona} can INSERT into orders")
                 self.assertFalse(row[3], f"{persona} can UPDATE orders")
 
-    def test_no_persona_can_update_a_recorded_proposal_or_execution(self) -> None:
-        """An UPDATE right on either table would let the record be rewritten to
-        agree with whatever happened, which is the whole comparison."""
+    def test_personas_can_insert_but_not_rewrite_proof(self) -> None:
+        """Personas may append proof, but may not rewrite or delete it."""
         for persona in self.PERSONAS:
             for table in (
                 "proof.action_proposals",
@@ -4798,6 +4846,7 @@ class NoDdlPrivilegeTests(unittest.TestCase):
                     self.assertFalse(row[1], f"{persona} can DELETE {table}")
                     self.assertTrue(row[2], f"{persona} cannot INSERT {table}")
 
+class AgentWriteBoundaryTests(unittest.TestCase):
     def test_agent_registry_exposes_exactly_the_seven_readonly_tools(self) -> None:
         """Belt to the catalog's braces. This asserts the exact expected SET,
         hardcoded as literals -- not a name-substring scan. A substring check for
@@ -4837,19 +4886,18 @@ DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?ssl
   gates/checks.sh G-27 G-29 G-30 G-31
 ```
 
-Expected: all tests PASS and all four gates PASS. `run_sql.py` takes `--files`
+Expected: all 39 tests PASS and all four gates PASS. `run_sql.py` takes `--files`
 (plural, `nargs='+'`), not `--file`. G-30 asserts the participant privilege model;
 a failure there means the new grants reached a role they should not have.
 
 `WORKBENCH_SECURITY_ENABLED=1` on the pytest line is load-bearing here and only
 here. This is the one point in Task A5 where the personas exist, so it is the one
-run where step 11b's `WaveBAttachGrantTests` executes rather than skipping. Step
-10's run deliberately omits it (the personas do not exist yet at that point, and
-the other three classes need only `TEST_DATABASE_URL`). Read pytest's summary
-line: it must say `34 passed, ` with **no** `skipped` count for this class. A run
-that reports `31 passed, 3 skipped` means the security module was never applied to
-this database and the grant assertion proved nothing — re-run `make
-security-schema` against it first.
+run where the two persona verdict tests, `WaveBAttachGrantTests`, and
+`NoDdlPrivilegeTests` execute rather than skipping. Step 10 deliberately omits
+security mode. Read pytest's summary line: it must say `39 passed` with no
+skipped count. A run that reports `34 passed, 5 skipped` means the security
+module was never applied to this database and the grant assertions proved
+nothing — re-run `make security-schema` against it first.
 
 **Three facts behind the ownership assertion, all measured on 2026-08-04 against a
 real PostgreSQL 17.10 server, because getting this check wrong makes it useless.
