@@ -240,12 +240,13 @@ as a driver failure. The backfill transaction and any blocked SQL get a longer s
 timeout (matching the existing `SET statement_timeout` pattern already used in
 `_hold_unsafe_index`).
 
-**Recovery verifier (new, in the orchestration driver)** — After commit, asserts: zero pool
-waiters, zero backfill-blocked sessions, all previously-checked-out connections returned
-(`pool_available` restored to `pool_size`), at least one `PoolTimeout` was recorded during the
-hold, and one fresh hot-write request succeeds. Any assertion failing raises
-`LiveWorkshopError` (existing exception class), matching the existing fail-closed pattern —
-no fixture/fallback substitution.
+**Recovery verifier (new, in the orchestration driver)** — After commit, independently
+asserts: the backfill PID blocks no backend, the pool is fully available, no request waits in
+the pool, no tagged session remains lock-blocked, at least one `PoolTimeout` was recorded
+during the hold, all ten previously blocked writers committed without a statement timeout, and
+one fresh hot-write request succeeds. Any assertion failing raises `LiveWorkshopError`
+(existing exception class), matching the existing fail-closed pattern — no fixture/fallback
+substitution.
 
 **Query regression driver (new, split across Lab 1 and Lab 4 per the Two-Wave Evidence Model
 below — NOT a single inline step)** — Runs one exact, named query (finalized in the
@@ -855,7 +856,7 @@ function, one verdict function, all in Aurora.
 - CloudWatch collection failures or missing datapoints are caught and recorded as
   `"cloudwatch_status": "unavailable"` in receipt metadata; they never raise
   `LiveWorkshopError` and never block the pipeline.
-- The recovery verifier's five assertions each fail independently and identifiably (not one
+- The recovery verifier's seven assertions each fail independently and identifiably (not one
   bundled check) so a partial-recovery bug is diagnosable from the error message alone.
 
 ## Testing
@@ -864,7 +865,7 @@ function, one verdict function, all in Aurora.
   existing pattern (`_apply_schema`, `TEST_DATABASE_URL`, `ALLOW_TEST_DATABASE_RESET=1`):
   hold-controller condition detection (unit-testable against a mocked/small pool + synthetic
   `pg_stat_activity` rows, not requiring a real 3M-row table for every test run), recovery
-  verifier's five assertions (each independently triggerable/failable), and the query
+  verifier's seven assertions (each independently triggerable/failable), and the query
   regression driver's three-checkpoint capture (testable at small scale — the *mechanism*
   doesn't require 3M rows, only the reference timing numbers do).
 - One live, real-scale integration test (gated behind `TEST_DATABASE_URL` +

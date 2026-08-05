@@ -39,6 +39,10 @@ from labs.incident.migration import (  # noqa: E402
     add_priority_tier_column,
     open_backfill,
 )
+from labs.incident.recovery_verifier import (  # noqa: E402
+    RecoveryProof,
+    verify_recovery,
+)
 
 
 OBSERVATION_COUNT = 30
@@ -299,6 +303,7 @@ class MigrationCollision:
     backfill_rows_updated: int
     hold_proof: HoldProof
     hot_write_results: tuple[HotWriteResult, ...]
+    recovery_proof: RecoveryProof
 
 
 def _lab_api_url() -> str:
@@ -335,17 +340,16 @@ def _pool_status_from_api(api_url: str) -> dict[str, Any]:
     return payload
 
 
-def _run_hot_write(api_url: str, order_id: int, barrier: Barrier) -> HotWriteResult:
-    """Issue one request only after every hot writer is ready to collide."""
+def _post_hot_write(api_url: str, order_id: int) -> HotWriteResult:
+    """Issue one measured hot write through the lab API."""
     try:
-        barrier.wait(timeout=10)
         response = requests.post(
             f"{api_url}/v1/lab/hot-write",
             json={"order_id": order_id},
             timeout=60.0,
         )
         response.raise_for_status()
-    except (requests.RequestException, BrokenBarrierError) as error:
+    except requests.RequestException as error:
         raise LiveWorkshopError(
             f"hot-write request for order_id={order_id} did not return a measured "
             f"result: {error}"
@@ -356,6 +360,17 @@ def _run_hot_write(api_url: str, order_id: int, barrier: Barrier) -> HotWriteRes
         raise LiveWorkshopError(
             f"hot-write response for order_id={order_id} violates the lab contract"
         ) from error
+
+
+def _run_hot_write(api_url: str, order_id: int, barrier: Barrier) -> HotWriteResult:
+    """Issue one request only after every hot writer is ready to collide."""
+    try:
+        barrier.wait(timeout=10)
+    except BrokenBarrierError as error:
+        raise LiveWorkshopError(
+            f"hot-write barrier broke before order_id={order_id} could start"
+        ) from error
+    return _post_hot_write(api_url, order_id)
 
 
 def _terminate_tagged_lab_sessions(database_url: str) -> int:
@@ -438,12 +453,28 @@ def run_migration_collision(
         backfill.commit()
         backfill = None
         results = tuple(future.result(timeout=60.0) for future in futures)
+        with _connect(
+            database_url,
+            "workbench-live-recovery-verifier",
+            autocommit=True,
+        ) as recovery_connection:
+            recovery_proof = verify_recovery(
+                recovery_connection,
+                backfill_pid=backfill_pid,
+                pool_status=lambda: _pool_status_from_api(endpoint),
+                write_outcomes=results,
+                fresh_write=lambda: _post_hot_write(
+                    endpoint,
+                    request_count + 1,
+                ),
+            )
         return MigrationCollision(
             backfill_pid=backfill_pid,
             backfill_duration_seconds=backfill_duration_seconds,
             backfill_rows_updated=backfill_rows_updated,
             hold_proof=hold_proof,
             hot_write_results=results,
+            recovery_proof=recovery_proof,
         )
     except BaseException:
         if backfill is not None:

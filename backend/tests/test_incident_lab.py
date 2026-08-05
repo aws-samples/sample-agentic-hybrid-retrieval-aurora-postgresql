@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 
 from labs.incident.run_live_workshop import (
@@ -31,6 +32,7 @@ class IncidentLabContractTests(unittest.TestCase):
             "hold_controller.py",
             "migration.py",
             "prepare_workload.py",
+            "recovery_verifier.py",
             "run_live_workshop.py",
         }
         self.assertEqual(
@@ -333,6 +335,181 @@ class IncidentLabContractTests(unittest.TestCase):
         self.assertEqual(len(proof.samples), 3)
         self.assertEqual(len(proof.state_changes), 1)
         self.assertTrue(proof.proven_at)
+
+    def test_recovery_assertions_fail_independently(self) -> None:
+        from labs.incident.recovery_verifier import (
+            RecoveryProof,
+            failed_assertions,
+        )
+
+        proof = RecoveryProof(
+            backfill_no_longer_blocking=True,
+            pool_fully_available=False,
+            no_requests_waiting=True,
+            no_sessions_blocked=True,
+            pool_timeout_observed=True,
+            blocked_writers_drained=True,
+            fresh_write_committed=False,
+        )
+        self.assertEqual(
+            failed_assertions(proof),
+            ["pool_fully_available", "fresh_write_committed"],
+        )
+        self.assertEqual(
+            failed_assertions(RecoveryProof()),
+            [],
+            "the default proof must be explicitly all-passing",
+        )
+
+    def test_recovery_rejects_a_hold_that_never_saturated_the_pool(self) -> None:
+        """Without a pool timeout, recovery assertions are vacuously green."""
+        from labs.incident.recovery_verifier import (
+            RecoveryProof,
+            failed_assertions,
+        )
+
+        proof = RecoveryProof(pool_timeout_observed=False)
+        self.assertEqual(
+            failed_assertions(proof),
+            ["pool_timeout_observed"],
+        )
+
+    def test_verify_recovery_names_each_failed_measurement(self) -> None:
+        """Each recovery signal must fail independently at the verifier boundary."""
+        from labs.incident.hold_controller import LiveWorkshopError
+        from labs.incident.recovery_verifier import verify_recovery
+
+        class Cursor:
+            def __init__(self, recovered: bool) -> None:
+                self.recovered = recovered
+
+            def fetchone(self):
+                return (self.recovered,)
+
+        class Connection:
+            def __init__(
+                self,
+                *,
+                backfill_recovered: bool = True,
+                sessions_recovered: bool = True,
+            ) -> None:
+                self.backfill_recovered = backfill_recovered
+                self.sessions_recovered = sessions_recovered
+
+            def execute(self, statement, _parameters=None):
+                if "pg_blocking_pids" in statement:
+                    return Cursor(self.backfill_recovered)
+                return Cursor(self.sessions_recovered)
+
+        good_status = {
+            "pool_size": 10,
+            "pool_available": 10,
+            "requests_waiting": 0,
+        }
+        good_outcomes = (
+            [SimpleNamespace(outcome="committed")] * 10
+            + [SimpleNamespace(outcome="pool_timeout")] * 2
+        )
+
+        cases = (
+            (
+                "backfill_no_longer_blocking",
+                Connection(backfill_recovered=False),
+                good_status,
+                good_outcomes,
+                SimpleNamespace(outcome="committed"),
+            ),
+            (
+                "pool_fully_available",
+                Connection(),
+                {**good_status, "pool_available": 9},
+                good_outcomes,
+                SimpleNamespace(outcome="committed"),
+            ),
+            (
+                "no_requests_waiting",
+                Connection(),
+                {**good_status, "requests_waiting": 1},
+                good_outcomes,
+                SimpleNamespace(outcome="committed"),
+            ),
+            (
+                "no_sessions_blocked",
+                Connection(sessions_recovered=False),
+                good_status,
+                good_outcomes,
+                SimpleNamespace(outcome="committed"),
+            ),
+            (
+                "pool_timeout_observed",
+                Connection(),
+                good_status,
+                [SimpleNamespace(outcome="committed")] * 10,
+                SimpleNamespace(outcome="committed"),
+            ),
+            (
+                "blocked_writers_drained",
+                Connection(),
+                good_status,
+                [SimpleNamespace(outcome="committed")] * 9
+                + [SimpleNamespace(outcome="pool_timeout")] * 3,
+                SimpleNamespace(outcome="committed"),
+            ),
+            (
+                "fresh_write_committed",
+                Connection(),
+                good_status,
+                good_outcomes,
+                SimpleNamespace(outcome="pool_timeout"),
+            ),
+        )
+
+        for expected, connection, status, outcomes, fresh_result in cases:
+            with self.subTest(expected=expected):
+                with self.assertRaisesRegex(
+                    LiveWorkshopError,
+                    rf"recovery verification failed on: {expected}$",
+                ):
+                    verify_recovery(
+                        connection,
+                        backfill_pid=42,
+                        pool_status=lambda: status,
+                        write_outcomes=outcomes,
+                        fresh_write=lambda: fresh_result,
+                    )
+
+    def test_drain_requires_pool_max_commits_and_no_statement_timeouts(self) -> None:
+        """All pool-held writers must commit after the backfill releases."""
+        from labs.incident.recovery_verifier import evaluate_drain
+
+        def outcomes(
+            committed: int,
+            pool_timeout: int,
+            statement_timeout: int = 0,
+        ):
+            return (
+                [SimpleNamespace(outcome="committed")] * committed
+                + [SimpleNamespace(outcome="pool_timeout")] * pool_timeout
+                + [SimpleNamespace(outcome="statement_timeout")]
+                * statement_timeout
+            )
+
+        self.assertTrue(evaluate_drain(outcomes(10, 2), pool_max_size=10))
+        self.assertFalse(
+            evaluate_drain(
+                outcomes(9, 2, 1),
+                pool_max_size=10,
+            ),
+            "a statement timeout means the statement bound was too short",
+        )
+        self.assertFalse(
+            evaluate_drain(outcomes(9, 3), pool_max_size=10),
+            "only nine commits means a blocked writer failed to drain",
+        )
+        self.assertTrue(
+            evaluate_drain(outcomes(10, 0), pool_max_size=10),
+            "pool saturation is independently verified by pool_timeout_observed",
+        )
 
 
 if __name__ == "__main__":

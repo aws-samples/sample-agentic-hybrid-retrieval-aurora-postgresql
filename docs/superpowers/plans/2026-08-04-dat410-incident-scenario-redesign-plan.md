@@ -4,7 +4,7 @@
 
 **Goal:** Replace Lab 1's broken, Performance-Insights-dependent single-incident mechanism with a real, measured, production-representative four-phase incident (unbatched migration backfill → connection-pool exhaustion → query-plan regression, diagnosed before remediation), producing a two-wave evidence corpus (expected 50–80 searchable documents per run, gated on behavioral coverage rather than a document count) that gives Labs 2–4's retrieval/agent/citation mechanics genuine material to work with.
 
-**Architecture:** A new orchestration driver in `labs/incident/` runs four phases against a real 3,000,000-row `workbench_lab.orders` table: (1) an unbatched backfill left open in an explicit transaction, (2) 12–14 tagged hot-write requests through the existing FastAPI connection pool, of which 10 obtain connections and block inside PostgreSQL on distinct rows while the remaining 2–4 never obtain a connection and exhaust their checkout timeout — proving row-lock blocking and pool exhaustion as two separately measured signals, via condition-based polling (not fixed sleeps), (3) commit, drain, and recovery verification, (4) — deferred to Lab 4 — the participant's own `CREATE INDEX` fixing a query-plan regression that `ANALYZE` alone does not fix. Evidence is admitted in two waves: Wave A (diagnostic, end of Lab 1) and Wave B (remediation, end of Lab 4, additive not replacing). The full design rationale, real measurements, and every rejected alternative are in `docs/superpowers/specs/2026-08-04-dat410-incident-scenario-redesign-design.md` — read it before starting any task below; this plan does not repeat that reasoning.
+**Architecture:** A new orchestration driver in `labs/incident/` runs four phases against a real 3,000,000-row `workbench_lab.orders` table: (1) an unbatched backfill left open in an explicit transaction, (2) 12 tagged hot-write requests through the existing FastAPI connection pool, of which 10 obtain connections and block inside PostgreSQL on distinct rows while the remaining 2 never obtain a connection and exhaust their checkout timeout — proving row-lock blocking and pool exhaustion as two separately measured signals, via condition-based polling (not fixed sleeps), (3) commit, drain, and recovery verification, (4) — deferred to Lab 4 — the participant's own `CREATE INDEX` fixing a query-plan regression that `ANALYZE` alone does not fix. Evidence is admitted in two waves: Wave A (diagnostic, end of Lab 1) and Wave B (remediation, end of Lab 4, additive not replacing). The full design rationale, real measurements, and every rejected alternative are in `docs/superpowers/specs/2026-08-04-dat410-incident-scenario-redesign-design.md` — read it before starting any task below; this plan does not repeat that reasoning.
 
 **Tech Stack:** Python 3.13 (`labs/incident/`, `backend/app/`), PL/pgSQL (`sql/`), FastAPI/`psycopg_pool`, Cohere Embed v4 via Bedrock, existing 7-tool agent registry (`agent/registry.py`), React/TypeScript frontend (`frontend/src/`), Workshop Studio content (sibling repo).
 
@@ -20,13 +20,13 @@
   - Participant-facing terminology: "incident diagnosis" → "evidence-backed finding"; "remediation delta" → "validation evidence"; "incident agent" → "hybrid retrieval agent"; "remediate" → "apply and validate the recommendation." Internal package/schema/ID names (`labs/incident/`, `casework.*`, `INC-<run-suffix>`, etc.) do NOT change.
   - Participant-facing agent name: **Hybrid Retrieval Agent**, described as a **read-only database-evidence agent** — distinct from the app's own name "Hybrid Retrieval Workbench" (`backend/app/config.py`'s `APP_DISPLAY_NAME`, unchanged).
   - Lab titles: Lab 1 "Capture and admit live evidence"; Lab 2 "Build hybrid retrieval in SQL"; Lab 3 "Build the hybrid retrieval agent"; Lab 4 "Validate, prove, and replay."
-- **Scale, exact numbers, do not round or approximate:** `workbench_lab.orders` = 3,000,000 rows (`LAB_ROWS` constant, currently 25,000). `workbench_lab.customers` stays 5,000. Corpus expectation = **50–80 searchable documents** per incident run (DECIDED 2026-08-04 after Gate 5, replacing the 180–250 figure from this plan's earlier drafts — Gate 5 measured that one honestly-constructed document per genuinely distinct event across all six signal types totals 51 documents, and that padding beyond the natural event count reintroduces the near-duplicate problem). This is an **expected range, not a hard acceptance gate** — corpus adequacy is gated on the behavioral coverage criteria in `docs/superpowers/specs/2026-08-04-dat410-incident-scenario-redesign-design.md`'s "Corpus Adequacy" section (every phase and signal type represented; the four arms produce meaningfully different top candidates; fusion/rerank reorder for defensible reasons; Wave B adds genuinely new facts; near-duplicate rate under 15%; citations and replay resolve to exact document versions). Documents must come from genuinely distinct signal types — never from denser time-sampling of the same signal. CloudWatch documents do not count toward this range. **Never inflate the count to hit a number**; that is manufacturing evidence, which the live-data-only rule forbids however it is dressed up.
+- **Scale, exact numbers, do not round or approximate:** `workbench_lab.orders` = 3,000,000 rows (`LAB_ROWS` is 3,000,000). `workbench_lab.customers` stays 5,000. Corpus expectation = **50–80 searchable documents** per incident run (DECIDED 2026-08-04 after Gate 5, replacing the 180–250 figure from this plan's earlier drafts — Gate 5 measured that one honestly-constructed document per genuinely distinct event across all six signal types totals 51 documents, and that padding beyond the natural event count reintroduces the near-duplicate problem). This is an **expected range, not a hard acceptance gate** — corpus adequacy is gated on the behavioral coverage criteria in `docs/superpowers/specs/2026-08-04-dat410-incident-scenario-redesign-design.md`'s "Corpus Adequacy" section (every phase and signal type represented; the four arms produce meaningfully different top candidates; fusion/rerank reorder for defensible reasons; Wave B adds genuinely new facts; near-duplicate rate under 15%; citations and replay resolve to exact document versions). Documents must come from genuinely distinct signal types — never from denser time-sampling of the same signal. CloudWatch documents do not count toward this range. **Never inflate the count to hit a number**; that is manufacturing evidence, which the live-data-only rule forbids however it is dressed up.
 - **Sequential scans are correct at this corpus size, and participant-facing content says so plainly.** At 50–80 documents PostgreSQL's planner may correctly prefer a sequential scan over an HNSW index scan on some retrieval arms. Do not apologize for it, do not engineer around it, and do not inflate the corpus to change it. Production-scale ANN behavior belongs in an appendix note, never folded into a core lab's numbers.
 - **Live-data-only, unchanged from the existing project rule:** zero fixtures/mocks/dummy/offline/canned records anywhere in the participant path, ever. Every document in both Wave A and Wave B must derive from genuinely measured observations of that participant's own run.
-- **Concurrency contract, exact and load-bearing — `REQUEST_COUNT` is deliberately greater than `DB_POOL_MAX_SIZE`.** The hot-write driver launches **12–14 concurrent requests** (`LAB_HOT_WRITE_REQUEST_COUNT`, default 12) against a pool of `DB_POOL_MAX_SIZE = 10`. Exactly **10 obtain a connection** and block inside PostgreSQL on **distinct** `order_id`s (`Lock:transactionid`, backfill PID in `pg_blocking_pids()`); the remaining **2–4 never obtain a connection at all** and exhaust their 3-second checkout timeout, producing `PoolTimeout`. These are two different signals measured on two different populations, and the plan never conflates them. **The arithmetic must close:** requests that hold a slot cannot simultaneously be waiting for one, so a run of exactly 10 requests can produce at most 9 blocked sessions plus 1 `PoolTimeout` — which is precisely what Gate 1 measured, and precisely why 10 was the wrong request count. Launching more requests than slots is the only way to observe a fully-blocked pool *and* a non-empty wait queue at the same instant.
+- **Concurrency contract, exact and load-bearing — `REQUEST_COUNT` is deliberately greater than `DB_POOL_MAX_SIZE`.** The participant path launches **12 concurrent requests** (`LAB_HOT_WRITE_REQUEST_COUNT=12`) against a pool of `DB_POOL_MAX_SIZE = 10`. Exactly **10 obtain a connection** and block inside PostgreSQL on **distinct** `order_id`s (`Lock:transactionid`, backfill PID in `pg_blocking_pids()`); the remaining **2 never obtain a connection at all** and exhaust their 3-second checkout timeout, producing `PoolTimeout`. These are two different signals measured on two different populations, and the plan never conflates them. **The arithmetic must close:** requests that hold a slot cannot simultaneously be waiting for one, so a run of exactly 10 requests can produce at most 9 blocked sessions plus 1 `PoolTimeout` — which is precisely what Gate 1 measured, and precisely why 10 was the wrong request count. Launching more requests than slots is the only way to observe a fully-blocked pool *and* a non-empty wait queue at the same instant. Lower counts are permitted only for deliberate failure probes, never for the participant path.
 - **Timeout policy, three separate bounds, never collapsed:** checkout timeout **3s** (`LAB_HOT_WRITE_CHECKOUT_TIMEOUT_SECONDS`) bounds only the wait for a free slot and is what the queued extras hit; blocked-statement timeout **30–45s** (`LAB_HOT_WRITE_STATEMENT_TIMEOUT`, default `'40s'`) bounds a connected writer's row-lock wait and must comfortably exceed backfill-completion time plus the 10–15s observation hold, so that blocked writers are still blocked when the hold is proven and still alive to drain after the commit; and `max_attempt_seconds` (**90s**) bounds the controller's own proving loop. A 3-second statement timeout cannot sustain a 10–15s hold — the writers would all cancel themselves before the hold began, leaving nothing blocked to observe.
 - **The hold is condition-based, never a fixed sleep.** The hold controller polls `get_pool().get_stats()` plus `pg_stat_activity`/`pg_locks` every 250ms and only begins the 10–15s observation hold after 3 consecutive samples simultaneously prove the **combined** condition: `pool_size = pool_max = 10`, `pool_available = 0`, `requests_waiting >= 2`, and exactly `DB_POOL_MAX_SIZE` (10) tagged sessions show `wait_event_type = 'Lock'` with the backfill PID in `pg_blocking_pids()`. The blocked-session expectation is `DB_POOL_MAX_SIZE`, **not** the launched request count.
-- **The first 10 writes drain successfully after the commit; the queued extras are the `PoolTimeout` evidence.** When the backfill commits, the 10 blocked writers acquire their row locks and commit — a real, observable recovery, and the honest end of the incident. The 2–4 queued requests have already returned `pool_timeout` and stay that way. A run where **zero** writes ever commit means the statement timeout fired too early (Phase B regression, see the timeout policy above); a run with **zero** `pool_timeout` means the pool never saturated and the incident did not happen.
+- **The first 10 writes drain successfully after the commit; the two queued requests are the `PoolTimeout` evidence.** When the backfill commits, the 10 blocked writers acquire their row locks and commit — a real, observable recovery, and the honest end of the incident. The two queued requests have already returned `pool_timeout` and stay that way. A run where **zero** writes ever commit means the statement timeout fired too early (Phase B regression, see the timeout policy above); a run with **zero** `pool_timeout` means the pool never saturated and the incident did not happen.
 - **The 250ms poll is control, not document generation.** Persist every raw poll sample (matching the existing `casework.*_samples` pattern). Create a searchable document only on a state change or a meaningful interval boundary — never one document per poll tick.
 - **The agent never gets DDL privilege or an execution path.** This is already true today (all 7 tools in `agent/registry.py` are read/synthesis-only) — no task in this plan may add a write-capable tool. The participant executes `CREATE INDEX` themselves in Code Editor after reviewing the agent's recommendation.
 - **Supervised execution is proven by rows, not asserted by copy, and the proof is separated in time.** Tasks A5, A6, D2a, D3, E4, and G1–G3 implement one model together, and five of its properties bind every task that touches it:
@@ -1958,7 +1958,7 @@ ALTER TABLE casework.incident_capture_runs
 
   `steady_state_connections` counts **connections**, so it sums the backfill plus
   the writers that actually held a pooled connection — `blocked_writer_count`, not
-  `request_count`. The 2–4 queued requests held no connection and must not be
+  `request_count`. The two queued requests held no connection and must not be
   counted here; including them would overstate the observed connection count by
   the size of the wait queue.
 
@@ -6747,9 +6747,9 @@ samples** simultaneously prove all four conditions: `pool_size = pool_max = 10`,
 with the backfill PID in `pg_blocking_pids()`.
 
 **`expected_blocked_sessions` is `DB_POOL_MAX_SIZE`, not the launched request
-count, and the parameter is named that way on purpose.** The driver launches
-12–14 requests; only 10 can hold a connection, so only 10 can appear in
-`pg_stat_activity` at all. The remaining 2–4 are the source of
+count, and the parameter is named that way on purpose.** The participant driver
+launches 12 requests; only 10 can hold a connection, so only 10 can appear in
+`pg_stat_activity` at all. The remaining two are the source of
 `requests_waiting >= 2` — they are counted by the pool, never by PostgreSQL.
 Naming this parameter `writer_count` invites an implementer to pass the request
 count and produce a condition that can never be satisfied: a hold that waits for
@@ -7134,9 +7134,9 @@ though it were the incident's real shape.
             evaluate_drain(outcomes(9, 3), pool_max_size=10),
             "only 9 commits means a blocked writer never drained",
         )
-        self.assertFalse(
-            evaluate_drain(outcomes(12, 0), pool_max_size=10),
-            "12 commits and zero pool_timeouts means the pool never saturated",
+        self.assertTrue(
+            evaluate_drain(outcomes(10, 0), pool_max_size=10),
+            "pool saturation is independently verified by pool_timeout_observed",
         )
 ```
 
@@ -7164,20 +7164,16 @@ def evaluate_drain(write_outcomes, *, pool_max_size: int) -> bool:
     Exactly pool_max_size requests can hold a connection, so exactly that many
     must commit. A statement_timeout means the statement bound was shorter than
     the backfill's remaining runtime plus the hold -- a regression in the timeout
-    policy, never a property of the incident. Zero pool_timeouts means the pool
-    never saturated, so the drain proves nothing.
+    policy, never a property of the incident. Pool saturation is checked by the
+    separate pool_timeout_observed assertion.
     """
     committed = sum(1 for item in write_outcomes if item.outcome == "committed")
     statement_timeouts = sum(
         1 for item in write_outcomes if item.outcome == "statement_timeout"
     )
-    pool_timeouts = sum(
-        1 for item in write_outcomes if item.outcome == "pool_timeout"
-    )
     return (
         committed == pool_max_size
         and statement_timeouts == 0
-        and pool_timeouts >= 1
     )
 
 
@@ -7216,10 +7212,12 @@ Expected: PASS.
   all seven assertions pass and `verify_recovery` returns within 5 seconds of
   commit. Then prove three failure paths separately: (a) commit the backfill but hold
   one hot-write session open, and confirm the raised message names
-  `no_sessions_blocked` specifically — not a bundled "recovery failed"; (b) run the
-  whole mechanism with `DB_POOL_MAX_SIZE` raised to **14**, above the 12 launched
-  requests, so no request ever queues and the pool never saturates, and confirm it
-  fails on `pool_timeout_observed` even though every other assertion passes;
+  `no_sessions_blocked` specifically — not a bundled "recovery failed"; (b) call
+  `verify_recovery()` against a clean database state with ten `committed`
+  outcomes, zero `pool_timeout` outcomes, a fully available pool status, and a
+  fresh committed response; confirm it fails only on `pool_timeout_observed`.
+  Do not raise `DB_POOL_MAX_SIZE` to 14 for this probe: that would invalidate
+  B3's required ten-blocked-session topology before recovery is reached;
   (c) run with `LAB_HOT_WRITE_STATEMENT_TIMEOUT='3s'` — Gate 1's value — and
   confirm it fails on `blocked_writers_drained`, because the writers cancel
   themselves instead of draining. Path (b) proves the vacuous-green guard works;

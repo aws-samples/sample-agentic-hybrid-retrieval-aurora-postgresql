@@ -110,9 +110,16 @@ Completed and committed on this branch:
   poll is retained; state changes are recorded only at boundaries. A failed
   proof aborts the backfill and terminates only tagged sessions in the current
   database.
+- B4 adds `labs/incident/recovery_verifier.py` and calls it immediately after
+  the backfill commits. It independently proves that the released backfill
+  blocks no backend, the ten-slot pool is fully available with no waiters,
+  tagged lock waiters are gone, a pool timeout actually occurred, all ten
+  blocked writers drained without statement timeout, and a fresh API write
+  commits. A failure reports every failed assertion by name and cleans up
+  tagged sessions before re-raising.
 
-Not yet implemented: recovery verification, query-regression checkpoints,
-evidence builder and admission, final retrieval corpus, revised agent,
+Not yet implemented: query-regression checkpoints, evidence builder and
+admission, final retrieval corpus, revised agent,
 participant UI and labs, remaining documentation cleanup, infrastructure
 packaging, and live rehearsal. Until those tasks land, `make live-workshop` is
 not evidence that the approved scenario is complete.
@@ -124,7 +131,7 @@ The branch was validated on August 5 against the dedicated
 PostgreSQL 18.3 cluster in `us-east-1`:
 
 - Exact test-target preflight: passed as Aurora PostgreSQL 18.3 in `us-east-1`.
-- Full core suite: 212 tests passed, 50 expected live/security skips.
+- Full core suite: 216 tests passed, 50 expected live/security skips.
 - `make security-schema`: passed with managed `pg_columnmask` 1.1.0.
 - Supervised-execution suite under security mode: 39 tests passed, zero skips.
 - G-34 focused suite: 11 tests passed; the gate passed directly and through
@@ -155,23 +162,31 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   probe failed after its bounded proving period with `only 7 of 10 tagged
   sessions were ever blocked on the backfill`; cleanup left zero tagged lock
   waiters. The test database was reset and re-bootstrapped afterward.
+- B4 recovery acceptance: two consecutive clean runs of the final verifier
+  completed against Aurora PostgreSQL 18.3. The 3M-row backfills took 22.664s
+  and 22.453s; each run proved the hold in 43–44 polls, then returned exactly
+  10 `committed` outcomes and two `pool_timeout` outcomes. All seven recovery
+  assertions passed, including a fresh post-recovery write. The deliberate
+  3-second statement-timeout run failed only on `blocked_writers_drained` and
+  left zero tagged lock waiters. A direct clean-state probe with ten commits
+  and no pool timeouts failed only on `pool_timeout_observed`, proving the two
+  retrospective assertions are independent.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
 and is not release evidence.
 
-Current disposable-database state after B2 validation: core schema plus the
+Current disposable-database state after B4 validation: core schema plus the
 3,000,000-row `workbench_lab` workload, zero evidence, and no optional security
 module. Reapply `make security-schema` before security-only checks.
 
 ## Next Task
 
-Start B4: build the recovery verifier around B3's `HoldProof` and the B2
-hot-write outcomes. It must independently prove that the backfill no longer
-blocks, the pool is fully available with no waiters, tagged sessions have
-cleared, at least one pool timeout occurred, all ten blocked writers drained
-without statement timeout, and a fresh post-recovery write commits. Task F1
-owns the workshop-environment wiring for the lab variables.
+Start B5: build the query-regression driver with its before-`ANALYZE`,
+after-`ANALYZE`, and post-index plan checkpoints. Wave A may capture only the
+first two, and the post-index checkpoint must not exist until the participant
+applies the supervised recommendation in Lab 4. Task F1 owns the
+workshop-environment wiring for the lab variables.
 
 `make test` now fails before discovery unless `TEST_DATABASE_URL` names a
 resettable `_test` database on exactly PostgreSQL 18.3. Accepted targets are
