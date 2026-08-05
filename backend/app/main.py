@@ -42,6 +42,7 @@ from .insights import (
     run_timeline,
     slow_queries,
 )
+from .lab_routes import router as lab_router
 from .models import (
     AgentAnswerRequest,
     CompareRequest,
@@ -91,6 +92,7 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+app.include_router(lab_router)
 
 
 def _unavailable(area: str, error: Exception) -> HTTPException:

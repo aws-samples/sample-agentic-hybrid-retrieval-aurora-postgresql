@@ -96,10 +96,16 @@ Completed and committed on this branch:
   orchestration code is deleted. Until B2 and B3 install the real API-pool
   collision and condition-based controller, `make live-workshop` exits before
   any database work instead of running the retired scenario.
+- B2 adds config-gated `POST /v1/lab/hot-write` and `GET /v1/lab/pool-status`
+  routes. The hot write checks out from the real application pool, then keeps
+  its application tag, statement timeout, and `UPDATE` in one explicit
+  transaction. Pool timeout is a measured HTTP-200 outcome, not a 500. Lab
+  mode fails closed unless `DB_POOL_MIN_SIZE = DB_POOL_MAX_SIZE = 10`, which
+  pre-opens the app's existing ten pool slots before the 12-request collision.
 
-Not yet implemented: pool-collision orchestration and evidence builder, final
-retrieval corpus, revised agent, participant UI and labs, remaining documentation cleanup,
-infrastructure packaging, and live rehearsal.
+Not yet implemented: the condition-based pool-collision controller and evidence
+builder, final retrieval corpus, revised agent, participant UI and labs,
+remaining documentation cleanup, infrastructure packaging, and live rehearsal.
 Until those tasks land, `make live-workshop` is not evidence that the approved
 scenario is complete.
 
@@ -110,7 +116,7 @@ The branch was validated on August 5 against the dedicated
 PostgreSQL 18.3 cluster in `us-east-1`:
 
 - Exact test-target preflight: passed as Aurora PostgreSQL 18.3 in `us-east-1`.
-- Full core suite: 204 tests passed, 50 expected live/security skips.
+- Full core suite: 208 tests passed, 50 expected live/security skips.
 - `make security-schema`: passed with managed `pg_columnmask` 1.1.0.
 - Supervised-execution suite under security mode: 39 tests passed, zero skips.
 - G-34 focused suite: 11 tests passed; the gate passed directly and through
@@ -124,22 +130,33 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   waited on `Lock:Transactionid` with the backfill PID in
   `pg_blocking_pids()`, then drained after commit. The test database was
   reset, fully re-schematized, and re-bootstrapped afterward.
+- B2 endpoint acceptance: with `LAB_ENDPOINTS_ENABLED=1` and
+  `DB_POOL_MIN_SIZE=DB_POOL_MAX_SIZE=10`, a 23.151-second open backfill and 12
+  distinct HTTP hot writes produced 10 `Lock:Transactionid` sessions blocked
+  by the backfill PID, two `pool_timeout` responses at 3.001-3.002 seconds,
+  and 10 drained `committed` responses at 3.456-3.465 seconds. The pool-status
+  route returned the proven state (`pool_size=10`, `pool_available=0`,
+  `requests_waiting=2`) in 1.51ms. A first run with the default one-connection
+  minimum grew only to nine slots before checkout timeouts, producing eight
+  blocked sessions and four pool timeouts; this is why the equal
+  minimum/maximum precondition is enforced, not merely documented.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
 and is not release evidence.
 
-Current disposable-database state after B1a validation: core schema plus the
+Current disposable-database state after B2 validation: core schema plus the
 3,000,000-row `workbench_lab` workload, zero evidence, and no optional security
 module. Reapply `make security-schema` before security-only checks.
 
 ## Next Task
 
-Start B2: add the lab-only FastAPI hot-write and pool-status endpoints. They
-must use the existing 10-connection `psycopg_pool` directly, set checkout and
-statement timeouts independently, and execute `SET LOCAL application_name`,
-`SET LOCAL statement_timeout`, and the write in one explicit transaction. B3
-then connects the B1a backfill to the condition-based hold controller.
+Start B3: build the condition-based hold controller around B1a's backfill and
+B2's routes. It must retain B2's `LAB_ENDPOINTS_ENABLED=1` and
+`DB_POOL_MIN_SIZE=DB_POOL_MAX_SIZE=10` precondition, require three consecutive
+250ms samples of ten transaction-ID-blocked sessions plus two pool waiters, and
+only then hold for 10-15 seconds before committing the backfill. Task F1 owns
+the workshop-environment wiring for these variables.
 
 `make test` now fails before discovery unless `TEST_DATABASE_URL` names a
 resettable `_test` database on exactly PostgreSQL 18.3. Accepted targets are

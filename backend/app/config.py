@@ -31,6 +31,18 @@ def _env_int(name: str, default: int, minimum: int | None = None) -> int:
         return max(minimum, parsed)
     return parsed
 
+
+def _env_float(name: str, default: float, minimum: float | None = None) -> float:
+    value = os.environ.get(name)
+    if value is None or value.strip() == "":
+        parsed = default
+    else:
+        parsed = float(value)
+    if minimum is not None:
+        return max(minimum, parsed)
+    return parsed
+
+
 def _embedding_model() -> str:
     return (
         os.environ.get("BEDROCK_EMBEDDING_MODEL")
@@ -59,6 +71,11 @@ class Settings(BaseModel):
     workbench_security_enabled: bool = Field(
         default_factory=lambda: _env_bool("WORKBENCH_SECURITY_ENABLED", False)
     )
+    # The hot-write and pool-status routes exist only to drive and observe the
+    # guided incident. They are disabled unless the workshop runner enables them.
+    lab_endpoints_enabled: bool = Field(
+        default_factory=lambda: _env_bool("LAB_ENDPOINTS_ENABLED", False)
+    )
     database_connect_timeout_seconds: int = Field(
         default_factory=lambda: _env_int(
             "DATABASE_CONNECT_TIMEOUT_SECONDS", 10, minimum=1
@@ -75,6 +92,29 @@ class Settings(BaseModel):
     )
     db_pool_max_idle_seconds: int = Field(
         default_factory=lambda: _env_int("DB_POOL_MAX_IDLE_SECONDS", 300, minimum=1)
+    )
+    # Pool checkout bounds application queuing. statement_timeout is configured
+    # separately inside the hot-write transaction so a checked-out request cannot
+    # wait on the backfill forever.
+    lab_hot_write_checkout_timeout_seconds: float = Field(
+        default_factory=lambda: _env_float(
+            "LAB_HOT_WRITE_CHECKOUT_TIMEOUT_SECONDS",
+            3.0,
+            minimum=0.1,
+        )
+    )
+    lab_hot_write_statement_timeout: str = Field(
+        default_factory=lambda: os.environ.get(
+            "LAB_HOT_WRITE_STATEMENT_TIMEOUT",
+            "40s",
+        )
+    )
+    lab_hot_write_request_count: int = Field(
+        default_factory=lambda: _env_int(
+            "LAB_HOT_WRITE_REQUEST_COUNT",
+            12,
+            minimum=1,
+        )
     )
     # Bedrock throttles hard when a full room calls it at once; adaptive retries add
     # client-side rate limiting on top of the bounded attempt count.

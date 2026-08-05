@@ -6388,6 +6388,17 @@ timeouts to `3s`; the shipped statement timeout is `'40s'` per HC-1's second
 paragraph and the Global Constraints timeout policy. A reviewer seeing `'3s'` in
 `config.py` should treat it as a defect, not as fidelity to the gate script.
 
+**The pool must be pre-opened before the collision.** Endpoint-level Aurora
+acceptance showed that a `DB_POOL_MIN_SIZE=1`, `DB_POOL_MAX_SIZE=10` process grew
+only from one to nine checked-out connections before the 3-second checkout
+deadline: eight writers reached PostgreSQL and four timed out in the pool. That
+is valid pool behavior but not the 10-blocked-plus-2-queued topology this lab
+measures. When `LAB_ENDPOINTS_ENABLED=1`, the route therefore fails closed unless
+`DB_POOL_MIN_SIZE = DB_POOL_MAX_SIZE = 10`. This still uses the application's
+existing `psycopg_pool`; it establishes all ten of its slots before the
+participant-induced collision begins. Task F1 must set both values in the
+workshop environment.
+
 **Migration and compatibility implications:** `backend/app/main.py` today has 30
 routes registered directly on `app` with no `APIRouter` and **no existing
 lab-only or config-gated route** — these two are first-of-kind, so the pattern
@@ -6609,7 +6620,7 @@ Expected: PASS, all three.
 
 ```bash
 DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
-LAB_ENDPOINTS_ENABLED=1 DB_POOL_MAX_SIZE=10 \
+LAB_ENDPOINTS_ENABLED=1 DB_POOL_MIN_SIZE=10 DB_POOL_MAX_SIZE=10 \
   .venv/bin/uvicorn backend.app.main:app --port 8099 &
 sleep 3
 curl -s localhost:8099/v1/lab/pool-status
@@ -6652,9 +6663,9 @@ curl -s localhost:8099/v1/lab/pool-status
     statement_timeout` was reset by an implicit transaction boundary, so no
     statement bound is in force. This is Gate 1 attempt 2's exact failure.
   - More than 2 `pool_timeout`s: fewer than 10 requests are reaching PostgreSQL.
-    Check `DB_POOL_MAX_SIZE` is actually 10 in this environment — a smaller pool
-    silently converts blocked writers into queued ones and quietly changes which
-    incident is being measured.
+    Check `DB_POOL_MIN_SIZE` and `DB_POOL_MAX_SIZE` are both actually 10 in this
+    environment. A cold or smaller pool silently converts blocked writers into
+    queued ones and quietly changes which incident is being measured.
 
 - [ ] **Step 6: Cleanup and failure recovery.** Kill the uvicorn process, then
   clear any tagged sessions the aborted run left behind:
