@@ -11,7 +11,7 @@ mechanism that still exists in portions of the runtime, tests, UI, and docs.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-C2 are complete. Tasks C3-G3 own the remaining retrieval, agent, UI,
+Tasks A1-C3 are complete. Tasks C4-G3 own the remaining retrieval, agent, UI,
 documentation, infrastructure, and rehearsal work. The plan's repository-wide
 alignment audit assigns every known stale surface to an explicit task; finding an
 unassigned stale surface is a plan defect and should be corrected before
@@ -146,12 +146,31 @@ Completed and committed on this branch:
   survives by default, while `--drop-lab-schema` is explicit. Doctor, the
   latest-run API, the live retrieval contract, and G-32 all resolve one incident
   across its two capture windows.
+- C3 pins `run_graph` to the incident capture window available when the
+  retrieval run began. It resolves the latest completed capture for the
+  candidate incident before `run.started_at`, retains only source-bundle
+  evidence available by that window, and consequently returns only eligible
+  edges. `run_timeline` inherits the same boundary. The replay guard names
+  Gate 2 so a future simplification cannot turn the historical graph back into
+  a live graph.
 
-Not yet implemented: C3 replay-window pinning and C4's permanent corpus-diversity
-gate; revised retrieval exercises and agent; participant UI and labs; remaining
-documentation cleanup; infrastructure packaging; and the complete rehearsal.
+Not yet implemented: C4's permanent corpus-diversity gate; revised retrieval
+exercises and agent; participant UI and labs; remaining documentation cleanup;
+infrastructure packaging; and the complete rehearsal.
 Until those tasks land, `make live-workshop` is not evidence that the approved
 scenario is release-complete.
+
+For D2/D3's supervised participant action, render the controlled-lab repair as:
+
+```sql
+CREATE INDEX idx_orders_priority_tier_created_at
+ON workbench_lab.orders (priority_tier, created_at DESC);
+```
+
+`workbench_lab.idx_orders_priority_tier_created_at` remains the catalog lookup
+identifier, but PostgreSQL rejects a schema-qualified index name in the
+`CREATE INDEX` statement itself. This was verified against the live rehearsal
+database before the valid participant-equivalent command was run.
 
 ## Latest Validation
 
@@ -237,30 +256,39 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   PostgreSQL 18.3 capture (frontend intentionally unavailable warning only);
   G-32 passed with `Wave A 54 + Wave B 3 current documents`; all five
   `backend.tests.test_retrieval_integration` contracts passed; the admission
-  static suite passed with its expected gated skips; and the API reported the
-  two capture keys, 57 current documents/chunks, 52 telemetry documents, and a
+  static suite passed with its expected gated skips; and the API reported two
+  capture keys, 57 current documents/chunks, 52 telemetry documents, and a
   fully available 10-slot pool.
+- C3 replay-window validation: the static graph guard failed before the scope
+  existed and passed after it. A fresh Aurora PostgreSQL 18.3 rehearsal reset
+  `dat410_review_remediation_test`, bootstrapped 5,000 customers and 3,000,000
+  orders, admitted Wave A (54 documents), created the participant-equivalent
+  composite index, and admitted Wave B (3 documents). Wave A's persisted graph
+  was byte-identical before and after Wave B (31 nodes, 58 edges), its document
+  hashes were unchanged, and G-32 passed. The deliberately unscoped traversal
+  would have returned 34 nodes including all 3 Wave B nodes, proving the
+  hazard and the boundary. The five live retrieval integration contracts and
+  `make doctor` passed; doctor reported only the intentionally stopped
+  frontend warning.
 
 The test database contains disposable contract fixtures and is not a
 participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
 and is not release evidence.
 
-Current disposable-database state after C2 validation: core schema plus the
+Current disposable-database state after C3 validation: core schema plus the
 3,000,000-row `workbench_lab` workload, the participant-created
-`idx_orders_priority_created` index, two live capture waves, and no optional
+`idx_orders_priority_tier_created_at` index, two live capture waves, and no optional
 security module. Reapply `make security-schema` before security-only checks.
 
 ## Next Task
 
-Start C3: keep the index rebuild additive across both waves and scope
-`backend/app/insights.py:run_graph` traversal to the retrieval run's own
-admission window. A replayed Wave A agent run must not discover Wave B edges
-that did not exist when the agent answered. Read Task C3 in the binding plan
-before editing. Its live acceptance requires comparing a Wave A graph before and
-after Wave B, proving it is byte-identical, while G-32 confirms every Wave A
-document remains current.
+Start C4: add read-only G-33 corpus-diversity coverage and calibrate the
+doctor's corpus check from a current two-wave Aurora capture. The gate must use
+hardcoded signal types and phases, BLOCK when no corpus exists, and be observed
+both green on this capture and red after a deliberate near-duplicate flood in
+the disposable test database. Read Task C4 in the binding plan before editing.
 
-Two C2 maintenance hazards are now known:
+Current maintenance hazards:
 
 - `casework.telemetry_evidence` stores the signal value in
   `structured.telemetry_type`, not `structured.signal_type` and not a

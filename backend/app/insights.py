@@ -638,6 +638,45 @@ def run_graph(run_id: str, role: str = "app_engineer") -> dict[str, Any]:
     stored_role = _run_role(run_id, role)
     with get_dict_conn(stored_role) as connection:
         with connection.cursor() as cursor:
+            # Gate 2 proved retrieval candidates are immutable, but graph edges
+            # remain live. Resolve the latest capture available when this run began
+            # so a later Wave B cannot appear in a replayed Wave A graph.
+            cursor.execute(
+                """
+                SELECT
+                  capture.incident_evidence_id,
+                  capture.capture_ended_at AS observation_window_end
+                FROM proof.retrieval_runs run
+                JOIN LATERAL (
+                  SELECT capture.*
+                  FROM casework.incident_capture_runs capture
+                  JOIN casework.incidents incident
+                    ON incident.evidence_id = capture.incident_evidence_id
+                  WHERE capture.capture_origin = 'participant_induced'
+                    AND capture.capture_ended_at IS NOT NULL
+                    AND capture.capture_ended_at <= run.started_at
+                    AND EXISTS (
+                      SELECT 1
+                      FROM proof.retrieval_candidates candidate
+                      JOIN retrieval.documents document
+                        ON document.document_version_id =
+                           candidate.document_version_id
+                      WHERE candidate.run_id = run.run_id
+                        AND document.incident_id = incident.incident_id
+                    )
+                  ORDER BY capture.capture_ended_at DESC, capture.capture_id DESC
+                  LIMIT 1
+                ) capture ON true
+                WHERE run.run_id = %s
+                """,
+                (run_id,),
+            )
+            window = cursor.fetchone()
+            if not window:
+                raise ValueError(
+                    "retrieval run "
+                    f"{run_id} has no completed participant capture before it started"
+                )
             cursor.execute(
                 """
                 SELECT DISTINCT evidence_id
@@ -652,10 +691,36 @@ def run_graph(run_id: str, role: str = "app_engineer") -> dict[str, Any]:
                 return {"run_id": run_id, "nodes": [], "edges": []}
             cursor.execute(
                 """
-                SELECT *
-                FROM retrieval.traverse_evidence(%s::uuid[], 2)
+                WITH eligible_evidence AS (
+                  SELECT DISTINCT item.evidence_id
+                  FROM casework.incident_capture_runs capture
+                  JOIN casework.evidence_items item
+                    ON item.source_uri LIKE capture.source_bundle_uri || '/%%'
+                   AND item.available_at <= %(observation_window_end)s
+                  WHERE capture.capture_origin = 'participant_induced'
+                    AND capture.incident_evidence_id =
+                        %(incident_evidence_id)s::uuid
+                    AND capture.capture_ended_at IS NOT NULL
+                    AND capture.capture_ended_at <= %(observation_window_end)s
+                    AND NOT item.is_deleted
+                )
+                SELECT traversal.*
+                FROM retrieval.traverse_evidence(
+                  %(seeds)s::uuid[],
+                  2
+                ) traversal
+                JOIN eligible_evidence eligible
+                  ON eligible.evidence_id = traversal.evidence_id
+                ORDER BY
+                  traversal.depth,
+                  traversal.evidence_kind,
+                  traversal.external_key
                 """,
-                (seeds,),
+                {
+                    "seeds": seeds,
+                    "incident_evidence_id": window["incident_evidence_id"],
+                    "observation_window_end": window["observation_window_end"],
+                },
             )
             reached = cursor.fetchall()
             reached_ids = [row["evidence_id"] for row in reached]

@@ -8484,9 +8484,12 @@ Expected: PASS.
      criterion.
   3. Content hashes of Wave A documents are unchanged after the Wave B rebuild
      (no spurious version bump) — the same check Gate 3 made.
-  4. `retrieval.search_index_builds` shows two build rows with a growing
-     `document_count`, confirming the rebuild was additive rather than
-     replacing.
+  4. `retrieval.search_index_builds` shows one Wave A build that processed the
+     baseline documents and one Wave B build that processed only the new
+     validation documents. `document_count` is intentionally per-build work,
+     not a cumulative corpus total; confirm the total grows through
+     `retrieval.assert_search_index_ready()` / the Wave B receipt and that Wave
+     B skipped the unchanged Wave A documents.
 
 - [ ] **Step 6: Cleanup and failure recovery.** A failed rebuild leaves the index
   in a partially-updated state, but the deterministic `document_version_id` makes

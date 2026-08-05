@@ -212,5 +212,26 @@ class IndexBuilderCliGuardTests(unittest.TestCase):
         self.assertIn("--batch-size must be positive", completed.stderr)
 
 
+class RunGraphReplayTests(unittest.TestCase):
+    def test_run_graph_traversal_is_scoped_to_the_run_window(self) -> None:
+        insights = (
+            Path(__file__).resolve().parents[2]
+            / "backend"
+            / "app"
+            / "insights.py"
+        )
+        source = insights.read_text(encoding="utf-8")
+        body = source.split("def run_graph")[1].split("\ndef ")[0]
+        self.assertIn("traverse_evidence", body)
+        self.assertIn("observation_window_end", body)
+        self.assertIn("source_bundle_uri", body)
+        self.assertIn("available_at", body)
+        self.assertNotIn(
+            "traverse_evidence(%s::uuid[], 2)\n",
+            body,
+            "unscoped live traversal would leak Wave B edges into a replayed Wave A graph",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
