@@ -64,6 +64,9 @@ def run() -> int:
 
     print(f"  engine: {redact_dsn(dsn)}")
     payload = json.loads(payload_path.read_text(encoding="utf-8"))
+    bundle_uri = payload.get("source", {}).get("uri")
+    if not bundle_uri:
+        return finish(GATE_ID, FAIL, "live payload has no source.uri")
     if payload.get("capture", {}).get("capture_id") != capture_id:
         return finish(
             GATE_ID,
@@ -106,38 +109,66 @@ def run() -> int:
                 first["ingest_id"] == second["ingest_id"],
                 "replay returns the same receipt",
             )
-            queued = 4 + len(payload["records"]["telemetry_documents"])
+            records = payload["records"]
+            queued = (
+                int(isinstance(records.get("incident"), dict))
+                + len(records.get("changes", []))
+                + int(isinstance(records.get("lock_evidence"), dict))
+                + len(records.get("telemetry_documents", []))
+            )
             require(
                 first["queued"] == queued,
                 "every live searchable document is queued",
             )
             require(
                 connection.execute(
-                    "SELECT count(*) FROM casework.evidence_items"
+                    """
+                    SELECT count(*)
+                    FROM casework.evidence_items
+                    WHERE source_uri LIKE %s || '/%%'
+                    """,
+                    (bundle_uri,),
                 ).fetchone()[0]
                 == queued,
-                "only this live run's evidence records are admitted",
+                "only this wave's live evidence records are admitted",
             )
+            receipts = connection.execute(
+                """
+                SELECT count(*)
+                FROM casework.ingest_receipts
+                WHERE source_uri = %s
+                """,
+                (bundle_uri,),
+            ).fetchone()[0]
             require(
-                connection.execute(
-                    "SELECT count(*) FROM casework.ingest_receipts"
-                ).fetchone()[0]
-                == 1,
-                "identical replay creates one receipt",
+                receipts == 1,
+                f"expected one receipt for {bundle_uri}, found {receipts}",
             )
 
             invalid = json.loads(json.dumps(payload))
-            invalid["records"]["lock_evidence"]["structured"][
-                "blocking_lock_mode"
-            ] = "AccessExclusiveLock"
+            if payload.get("wave", "A") == "A":
+                invalid["records"]["lock_evidence"]["structured"][
+                    "blocking_lock_mode"
+                ] = "AccessExclusiveLock"
+                invalid_description = "invalid measured lock mode"
+            else:
+                invalid["records"]["changes"][0]["structured"][
+                    "relationship"
+                ] = "confirmed"
+                invalid_description = "invalid Wave B validation relationship"
             try:
                 admit(invalid)
-                require(False, "invalid measured lock mode must raise")
+                require(False, f"{invalid_description} must raise")
             except psycopg.errors.Error:
                 pass
             require(
                 connection.execute(
-                    "SELECT count(*) FROM casework.evidence_items"
+                    """
+                    SELECT count(*)
+                    FROM casework.evidence_items
+                    WHERE source_uri LIKE %s || '/%%'
+                    """,
+                    (bundle_uri,),
                 ).fetchone()[0]
                 == queued,
                 "rejected revision writes no partial rows",

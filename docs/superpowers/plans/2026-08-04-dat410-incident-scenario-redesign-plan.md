@@ -39,7 +39,7 @@
 - **No new fragile external dependency.** Reuse the existing FastAPI pool (`backend/app/db.py`, `DB_POOL_MAX_SIZE=10`) for pool exhaustion. Do not add RDS Proxy, PgBouncer, pgbench, JMeter, or ECS/Lambda-driven load generation. CloudWatch stays best-effort, non-gating, never blocking the pipeline.
 - **Participant-facing incident time (Lab 1's induce/capture) stays under the 5–8 minute ceiling.** Bootstrap (3M-row table creation) is pre-session Workshop Studio provisioning time, not counted against this ceiling.
 - **Preserve the optional RLS/masking lab and AgentCore lab** unless a task below finds a specific, concrete incompatibility (none anticipated — neither touches `workbench_lab` or the incident-generation code path today).
-- **The optional security module is never on the one-hour critical path, and the gate split that enforces this already exists.** `gates/checks.sh:36-52` registers G-11, G-13, G-14, G-17, G-21, G-23, and G-25 as `CORE_GATES` and G-27, G-29, G-30, and G-31 as `SECURITY_GATES`. Running `gates/checks.sh` with no arguments populates `WANT` from `CORE_GATES` only *and* forces `export WORKBENCH_SECURITY_ENABLED=0` (`:58`), so the core sweep cannot be turned into a security sweep by an environment variable — measured: `WORKBENCH_SECURITY_ENABLED=1 FAIL_ON_BLOCKED=1 gates/checks.sh` ran exactly seven gates and G-27 never executed. The security gates run only when named by ID (`gates/checks.sh G-27 G-29 G-30 G-31`). Three rules follow, and they bind every task in this plan:
+- **The optional security module is never on the one-hour critical path, and the gate split that enforces this already exists.** `gates/checks.sh` keeps G-27, G-29, G-30, and G-31 in `SECURITY_GATES`; the evolving `CORE_GATES` registry is the source of truth for the default retrieval sweep. Running `gates/checks.sh` with no arguments populates `WANT` from `CORE_GATES` only *and* forces `export WORKBENCH_SECURITY_ENABLED=0`, so the core sweep cannot be turned into a security sweep by an environment variable. The original seven-gate measurement confirmed that boundary; Tasks A4 and A6 deliberately add core gates without changing it. The security gates run only when named by ID (`gates/checks.sh G-27 G-29 G-30 G-31`). Three rules follow, and they bind every task in this plan:
   - **No task may move a security gate into `CORE_GATES`, and no task may describe G-27, G-29, G-30, or G-31 as blocking core participant readiness.** A red security gate means the optional RLS lab is not releasable; it does not mean the workshop is not releasable.
   - **Lab 3 stays retrieval-first.** No task may make persona switching, `SET LOCAL ROLE`, a restricted citation, or any `acl_visible`/`acl_scalars_visible` behaviour a requirement of Labs 1–4's core path. Phase D contains no such requirement today (verified by grep across the whole phase) and must not acquire one. The canonical Lab 3 answer must resolve identically on a database that has never run `make security-schema`.
   - **The optional RLS lab is releasable only against a real mixed-visibility capture** — see the optional-security release criteria below. This is a separate, later gate on a separate deliverable, not a precondition for freezing the core workshop.
@@ -82,6 +82,14 @@ SQL
 
 These six gates exist because further design discussion cannot reduce the remaining risk — only working prototypes can. Each gate task produces a small, throwaway or semi-throwaway script proving one specific claim against the real Aurora cluster, before any schema/orchestration/UI work begins. If a gate fails, STOP and return to design — do not patch around a failed gate to keep moving.
 
+**Historical execution record:** all six gates have run. The tracked `_gate*.py`
+throwaways were removed from `labs/incident/` after the repository audit so the
+participant lab directory contains only supported runtime assets. The Files,
+write, and run steps below explain how the measurements were produced; they are
+not current commands. Use
+`docs/superpowers/specs/2026-08-04-dat410-gate-results.md` and the named historical
+commits when implementation needs to inspect a prototype.
+
 ### Gate 1: Prove all 10 API sessions block directly on the backfill while the pool-status endpoint remains responsive
 
 **Files:**
@@ -95,7 +103,7 @@ This gate closes the one unverified claim from the design spec's "Measured Basel
 
 **Retrospective note (added during the 2026-08-04 correction pass, after this gate had already run and passed):** this gate did exercise the real pool, and that claim is closed. It did **not** exercise the real HTTP endpoint, which Task B2 now owes separately. It also ran with `REQUEST_COUNT = DB_POOL_MAX_SIZE = 10` and a 3-second statement timeout, both of which the corrected concurrency and timeout contracts in Global Constraints supersede. Gate 1's outcome distribution (nine `statement_timeout`, one `pool_timeout`) is therefore a property of the gate script, not the target mechanism — the shipped mechanism launches 12 requests and expects ten `committed` plus two `pool_timeout`. The gate's two HC findings are unaffected and remain binding; only its counts and timeout value are stale. Do not use this gate's numbers as acceptance values anywhere downstream.
 
-**The code block in Step 2 below is the pre-fix draft, deliberately left as written.** It has no statement timeout and issues `SET LOCAL application_name` as a bare `conn.execute()` — the exact two defects HC-1 and HC-2 were discovered by running it. The version that actually passed is on disk at `labs/incident/_gate1_pool_block.py`; read that file, not this block, if you need the working shape. Any implementer copying Step 2's code verbatim into shipped code would reintroduce both hard contracts as bugs.
+**The code block in Step 2 below is the pre-fix draft, deliberately left as written.** It has no statement timeout and issues `SET LOCAL application_name` as a bare `conn.execute()` — the exact two defects HC-1 and HC-2 were discovered by running it. The passing prototype is preserved in historical commit `2c8c1cb` and its findings are recorded in `docs/superpowers/specs/2026-08-04-dat410-gate-results.md`; it was removed from `labs/incident/` after the repository audit because throwaway executables are not participant assets. Any implementer copying Step 2's code verbatim into shipped code would reintroduce both hard contracts as bugs.
 
 - [ ] **Step 1: Read the design spec's Two-Wave Evidence Model and Components sections again for the exact hold-controller contract**
 
@@ -832,6 +840,33 @@ Therefore: `SET LOCAL application_name`, `SET LOCAL statement_timeout`, and the
 checked-out connection. Never as separate bare `execute()` calls, never split
 across two checkouts, and never via `get_conn()` (which opens its own transaction
 for persona role-setting and is not the lab hot-write path).
+
+---
+
+## Repository-wide alignment audit (2026-08-05)
+
+The post-A3 audit reviewed all 146 tracked files at `108e604`, including runtime
+code, SQL, gates, tests, exercises, frontend, root documentation, and packaging.
+The branch is intentionally not narrative-complete while Phases B-G remain
+unimplemented. The audit found no reason to change the approved scenario, but it
+did find stale surfaces that the original Files blocks did not own. They are now
+assigned as follows:
+
+| Owner | Alignment work added by the audit |
+|---|---|
+| A4 | Wave-A identity after Wave B in G-21; schema-correct G-32; payload-derived G-25 counts |
+| B1 / B6 | `prepare_workload.py`; final transaction-ID lock constraints; diagnostics/readiness; admission and release-capture fixtures |
+| C1 / C2 | Masking/classifier narrative; doctor and latest-run two-wave identity; retrieval integration |
+| D2 | Agent decomposition, registry descriptions, generated MCP adapters, AgentCore invocation, exercises, checkpoints, and their tests |
+| E1 / E2 | Entire visible UI scenario and wire shape; provenance-derived Wave A/B corpus grouping |
+| F1 | Root docs, architecture/session docs, incident README, environment prerequisites, and source-archive completeness |
+| G3 | Final measured values, terminology sweep, core-gate registry truth, and both source/Workshop Studio thesis checks |
+
+Historical gate notes and this design plan may still name the retired mechanism
+when explaining why it was removed. Executable code, current contracts, tests,
+participant exercises, UI copy, and source-of-record documentation may not. No
+stale runtime or participant-facing surface found by this audit remains without
+an owning task.
 
 ---
 
@@ -1990,6 +2025,9 @@ the wave branch is written against checks that are about to be deleted).
 - Modify: `gates/admission_determinism.py` — `SCHEMA_FILES`, the hardcoded
   `queued = 4 + len(payload["records"]["telemetry_documents"])`, and the
   single-receipt assertion
+- Modify: `gates/live_fuzzy_retrieval.py` — resolve the Wave A identity from the
+  capture named by `LIVE_CAPTURE_RUN_ID` instead of assuming the latest capture
+  owns the unsafe-change key
 - Create: `gates/wave_additivity.py` (G-32)
 - Modify: `gates/checks.sh` — add `G-32` to `CORE_GATES`
 - Test: the gates are themselves the test; run them.
@@ -2001,10 +2039,20 @@ the wave branch is written against checks that are about to be deleted).
 **Migration and compatibility implications:** G-25 hardcodes
 `queued = 4 + len(payload["records"]["telemetry_documents"])`, which bakes in
 "exactly 1 incident + 2 changes + 1 lock" and breaks the moment Phase C changes
-document composition — derive the expected count from the payload instead. G-25
-also asserts exactly one `ingest_receipts` row after an identical replay; that
-assertion stays correct **per wave** but must not be read as "one receipt per
-incident," so scope it by `source_uri`. G-32 must obey `gates/_common.py`'s
+document composition — derive the expected count from the payload's real shape:
+`incident` and `lock_evidence` are optional objects, while `changes` and
+`telemetry_documents` are arrays. G-25 also asserts exactly one
+`ingest_receipts` row after an identical replay; that assertion stays correct
+**per wave** but must not be read as "one receipt per incident," so scope it by
+`source_uri`.
+
+G-21 has the same single-wave assumption in a different form. After Wave B,
+`ORDER BY capture_started_at DESC LIMIT 1` selects Wave B and derives a change key
+that does not name Wave A's unsafe backfill. Resolve the expected capture by ID,
+follow its `incident_evidence_id` to Wave A, and pass that incident as
+`p_incident_id` to `retrieval.fuzzy_search`.
+
+G-32 must obey `gates/_common.py`'s
 contract exactly: exit 0/1/2, `print_header`/`finish`, DSN via
 `read_env_value("DATABASE_URL")` wrapped in `redact_dsn()` before logging, and
 **read-only** — `_common.py`'s docstring states database-backed gates open a
@@ -2051,6 +2099,7 @@ TITLE = "two-wave evidence additivity"
 
 EXPECTED_PHASES = ("backfill", "pool_exhaustion", "recovery", "plan_regression")
 EXPECTED_SIGNAL_TYPES = ("lock", "pool", "request", "wal", "meta", "plan")
+EXPECTED_WAVE_B_SIGNALS = ("meta", "plan")
 
 
 def run() -> int:
@@ -2060,51 +2109,144 @@ def run() -> int:
         return finish(GATE_ID, BLOCKED, "DATABASE_URL is not set")
     print(f"database: {redact_dsn(dsn)}")
 
-    with psycopg.connect(dsn) as conn:
-        waves = [
-            row[0]
-            for row in conn.execute(
-                "SELECT DISTINCT wave FROM casework.incident_capture_runs ORDER BY wave"
-            ).fetchall()
-        ]
-        if waves != ["A", "B"]:
+    with psycopg.connect(
+        dsn, options="-c default_transaction_read_only=on"
+    ) as conn:
+        incident = conn.execute(
+            """
+            SELECT incident_evidence_id
+            FROM casework.incident_capture_runs
+            WHERE capture_origin = 'participant_induced'
+            GROUP BY incident_evidence_id
+            HAVING bool_or(wave = 'A') AND bool_or(wave = 'B')
+            ORDER BY max(capture_ended_at) DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        if incident is None:
+            waves = [
+                row[0]
+                for row in conn.execute(
+                    "SELECT DISTINCT wave FROM casework.incident_capture_runs ORDER BY wave"
+                ).fetchall()
+            ]
             return finish(
                 GATE_ID,
                 BLOCKED,
                 f"needs a completed two-wave run; found waves {waves}",
             )
 
-        demoted = conn.execute(
-            """
-            SELECT count(*)
-            FROM retrieval.documents d
-            JOIN casework.evidence_items e ON e.evidence_id = d.evidence_id
-            JOIN casework.incident_capture_runs r ON r.incident_key = e.external_id
-            WHERE r.wave = 'A' AND d.is_current = false
-            """
-        ).fetchone()[0]
-        require(demoted == 0, f"{demoted} Wave A documents were demoted")
+        incident_id = incident[0]
+        bundles = dict(
+            conn.execute(
+                """
+                SELECT wave, source_bundle_uri
+                FROM casework.incident_capture_runs
+                WHERE incident_evidence_id = %s
+                ORDER BY wave
+                """,
+                (incident_id,),
+            ).fetchall()
+        )
+        require(
+            set(bundles) == {"A", "B"},
+            "the selected incident does not have exactly one capture per wave",
+        )
+
+        coverage = {
+            row[0]: (row[1], row[2])
+            for row in conn.execute(
+                """
+                SELECT
+                  capture.wave,
+                  count(DISTINCT item.evidence_id) AS evidence_items,
+                  count(DISTINCT document.evidence_id)
+                    FILTER (
+                      WHERE document.is_current
+                        AND document.index_state = 'ready'
+                    ) AS current_documents
+                FROM casework.incident_capture_runs capture
+                JOIN casework.evidence_items item
+                  ON item.source_uri LIKE capture.source_bundle_uri || '/%'
+                 AND NOT item.is_deleted
+                LEFT JOIN retrieval.documents document
+                  ON document.evidence_id = item.evidence_id
+                WHERE capture.incident_evidence_id = %s
+                GROUP BY capture.wave
+                ORDER BY capture.wave
+                """,
+                (incident_id,),
+            ).fetchall()
+        }
+        for wave in ("A", "B"):
+            require(wave in coverage, f"wave {wave} contributed no evidence")
+            evidence_items, current_documents = coverage[wave]
+            require(
+                evidence_items == current_documents,
+                f"wave {wave} has {evidence_items} evidence items but "
+                f"{current_documents} current ready documents",
+            )
 
         validates = conn.execute(
-            "SELECT count(*) FROM casework.incident_changes WHERE relationship = 'validates'"
+            """
+            SELECT count(*)
+            FROM casework.incident_changes relation
+            JOIN casework.evidence_items change_item
+              ON change_item.evidence_id = relation.change_evidence_id
+            WHERE relation.incident_evidence_id = %s
+              AND relation.relationship = 'validates'
+              AND change_item.source_uri LIKE %s || '/%%'
+            """,
+            (incident_id, bundles["B"]),
         ).fetchone()[0]
         require(validates >= 1, "Wave B contributed no validates relationship")
 
         for phase in EXPECTED_PHASES:
             found = conn.execute(
-                "SELECT count(*) FROM casework.evidence_items WHERE phase = %s",
-                (phase,),
+                """
+                SELECT count(*)
+                FROM casework.telemetry_evidence
+                WHERE incident_evidence_id = %s
+                  AND structured ->> 'phase' = %s
+                """,
+                (incident_id, phase),
             ).fetchone()[0]
             require(found > 0, f"no evidence for phase {phase}")
 
         for signal in EXPECTED_SIGNAL_TYPES:
             found = conn.execute(
-                "SELECT count(*) FROM casework.evidence_items WHERE signal_type = %s",
-                (signal,),
+                """
+                SELECT count(*)
+                FROM casework.telemetry_evidence
+                WHERE incident_evidence_id = %s
+                  AND structured ->> 'signal_type' = %s
+                """,
+                (incident_id, signal),
             ).fetchone()[0]
             require(found > 0, f"no evidence for signal type {signal}")
 
-    return finish(GATE_ID, PASS, "both waves present, Wave A fully current")
+        wave_b_signals = {
+            row[0]
+            for row in conn.execute(
+                """
+                SELECT DISTINCT telemetry.structured ->> 'signal_type'
+                FROM casework.telemetry_evidence telemetry
+                JOIN casework.incident_capture_runs capture
+                  ON capture.capture_id = telemetry.capture_id
+                WHERE capture.incident_evidence_id = %s
+                  AND capture.wave = 'B'
+                  AND telemetry.structured ->> 'signal_type' IS NOT NULL
+                """,
+                (incident_id,),
+            ).fetchall()
+        }
+        missing_wave_b = sorted(set(EXPECTED_WAVE_B_SIGNALS) - wave_b_signals)
+        require(
+            not missing_wave_b,
+            f"Wave B is missing validation signal types: {missing_wave_b}",
+        )
+
+    return finish(GATE_ID, PASS, "both waves present and fully current")
 
 
 if __name__ == "__main__":
@@ -2134,9 +2276,11 @@ unbuilt-dependency state, matching G-13's and G-14's precedent, not a defect.
 
 ```python
     records = payload["records"]
-    queued = sum(
-        len(records[key])
-        for key in ("incidents", "changes", "locks", "telemetry_documents")
+    queued = (
+        int(isinstance(records.get("incident"), dict))
+        + len(records.get("changes", []))
+        + int(isinstance(records.get("lock_evidence"), dict))
+        + len(records.get("telemetry_documents", []))
     )
 ```
 
@@ -2149,6 +2293,11 @@ unbuilt-dependency state, matching G-13's and G-14's precedent, not a defect.
     ).fetchone()[0]
     require(receipts == 1, f"expected one receipt for {bundle_uri}, found {receipts}")
 ```
+
+  The rollback probe must also be wave-aware. Wave A corrupts the measured lock
+  mode; Wave B, which correctly has no `lock_evidence`, corrupts its validation
+  change relationship. Both branches must prove that a rejected revision leaves
+  the already-admitted wave unchanged.
 
   Update `SCHEMA_FILES` if Task A1/A3 changed which SQL files G-25 must load.
 
@@ -2178,14 +2327,26 @@ DO $guard$ BEGIN
     RAISE EXCEPTION 'SAFETY ABORT: connected to %', current_database();
   END IF;
 END $guard$;
-UPDATE retrieval.documents SET is_current = false
-WHERE document_version_id = (SELECT document_version_id FROM retrieval.documents LIMIT 1);
+UPDATE retrieval.documents document
+SET is_current = false
+WHERE document.document_version_id = (
+  SELECT candidate.document_version_id
+  FROM retrieval.documents candidate
+  JOIN casework.evidence_items item
+    ON item.evidence_id = candidate.evidence_id
+  JOIN casework.incident_capture_runs capture
+    ON item.source_uri LIKE capture.source_bundle_uri || '/%'
+  WHERE capture.wave = 'A'
+    AND candidate.is_current
+  LIMIT 1
+);
 SQL
 DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
   .venv/bin/python gates/wave_additivity.py; echo "exit=$?"
 ```
 
-Expected: `assertion failed: 1 Wave A documents were demoted`, `exit=1`. Then
+Expected: `assertion failed: wave A has ... evidence items but ... current ready
+documents`, `exit=1`. Then
 restore with `make schema` + a fresh run, or re-set `is_current = true` on that
 row. Record the measured red-and-green pair in the gate-results document — a gate
 with no proven red state is not evidence.
@@ -2203,7 +2364,8 @@ with no proven red state is not evidence.
 - [ ] **Step 8: Commit.**
 
 ```bash
-git add gates/wave_additivity.py gates/admission_determinism.py gates/checks.sh
+git add gates/wave_additivity.py gates/admission_determinism.py \
+  gates/live_fuzzy_retrieval.py gates/checks.sh
 git commit -m "Add G-32 wave additivity and de-hardcode G-25 counts"
 ```
 
@@ -5718,6 +5880,8 @@ path and its stale tests.
 **Files:**
 - Modify: `labs/incident/run_live_workshop.py:163-222` (`_create_lab_workload`) and
   the `LAB_ROWS` constant
+- Modify: `labs/incident/prepare_workload.py` — update the pre-session bootstrap
+  description to 3,000,000 orders
 - Modify: `backend/tests/test_incident_lab.py:48`
   (`self.assertEqual(LAB_ROWS, 25_000)`)
 - Test: `backend/tests/test_incident_lab.py`
@@ -7162,6 +7326,16 @@ it must land before Phase C's evidence builder consumes its checkpoints.
   (old lock-vocabulary string assertions)
 - Modify: `backend/scripts/smoke_test.py:45-51` (`_live_keys()`'s fixed 5-key
   shape)
+- Modify: `sql/01_schema.sql` — replace the retired relation-lock constraint and
+  "ran the index build" renderer text with the measured transaction-ID wait
+- Modify: `sql/04_diagnostics.sql` — replace the 30-sample,
+  `Lock:relation`, fixed CloudWatch-count, and latest-single-capture readiness
+  contract with four-phase, two-wave behavioral readiness
+- Modify: `sql/10_admission.sql` — replace A2's temporary relation-lock
+  validation with the final `Lock:transactionid` backfill contract
+- Modify: `backend/tests/test_admission.py` and
+  `backend/tests/test_release_capture.py` — replace old-mechanism fixtures and
+  assertions with the final lock/readiness contract
 - Test: `backend/tests/test_incident_lab.py`
 
 **Interfaces:**
@@ -7328,6 +7502,16 @@ sentence structure itself must vary per event.
 - Create: `labs/incident/evidence_builder.py`
 - Modify: `labs/incident/run_live_workshop.py` — call it after the recovery
   verifier
+- Modify: `sql/12_masking.sql` — re-anchor the worked masking narrative on the
+  captured `pg_stat_*` statement text and remove retired PI/index-repair examples
+- Modify: `sql/11_roles_rls.sql` and `gates/masking_determinism.py` — replace
+  retired Performance Insights and relation-lock examples without weakening the
+  optional security assertions
+- Modify: `gates/rls_enforcement.py` — point facilitator remediation to the new
+  statement-text classifier
+- Modify: `gates/persona_equivalence.py`, `backend/tests/test_db_persona.py`, and
+  `backend/tests/test_rls_personas.py` — replace the old 110-row measured examples
+  with final-run counts or count-free contract language
 - Test: `backend/tests/test_evidence_builder.py` (new)
 
 **Interfaces:**
@@ -7456,8 +7640,9 @@ blocked writers produce inherently similar descriptions — that is accepted, th
 10 blocked writers is a contract from `DB_POOL_MAX_SIZE` and is not changing, and
 the aggregate stays well under 15%.
 
-**Gate 5's sample bodies encode the wrong outcome distribution and must not be
-copied verbatim.** `labs/incident/_gate5_build_sample_documents.py` was written
+**Gate 5's retired sample bodies encoded the wrong outcome distribution and must
+not be reconstructed or copied verbatim.** The prototype preserved in historical
+commit `c9ca891` was written
 against Gate 1's measurements: nine writers cancelled by a 3-second
 `statement_timeout` and one `pool_timeout`. Under the corrected contract the real
 run produces **ten writers that block and then commit** plus **two requests that
@@ -7773,8 +7958,7 @@ Expected: PASS — the six `VisibilityClassifierTests` plus the ten
 
 - [ ] **Step 5: Live-Aurora acceptance criteria.** Run the real orchestrator, then
   measure the real generated corpus with the same server-side `pg_trgm` self-join
-  Gate 5 used (that logic moves from the throwaway
-  `_gate5_corpus_diversity.py` into a permanent gate in Task C4):
+  Gate 5 proved (that recorded logic becomes a permanent gate in Task C4):
   1. Document count lands in **50–80**. Outside that range is not an automatic
      failure — it is a signal to check whether events were padded or dropped, and
      the actual number gets recorded either way.
@@ -7821,6 +8005,13 @@ git commit -m "Add the six-signal-type evidence builder"
   `_verify_live_run` (1518–1659); add a Wave B entry point; make `main()`'s
   prepare and cleanup calls wave-aware (step 3a — without it Wave B cannot run at
   all, and Lab 4's table is destroyed at the end of Lab 1)
+- Modify: `backend/scripts/doctor.py` — resolve one incident with Wave A and Wave
+  B instead of requiring exactly one capture or deriving Wave A keys from the
+  latest capture suffix
+- Modify: `backend/app/insights.py` — make `_latest_live_run` return the
+  two-wave incident without requiring a retired `remediated` edge
+- Modify: `backend/tests/test_retrieval_integration.py` — derive Wave A and Wave B
+  identities separately and assert the additive corpus
 - Test: `backend/tests/test_incident_lab.py`
 
 **Interfaces:**
@@ -8245,18 +8436,17 @@ git commit -m "Scope run graph traversal to the run's admission window"
 - Create: `gates/corpus_diversity.py` (G-33)
 - Modify: `gates/checks.sh` — add `G-33` to `CORE_GATES`
 - Modify: `backend/scripts/doctor.py` — set the recalibrated document bounds
-- Delete: `labs/incident/_gate5_build_sample_documents.py`,
-  `labs/incident/_gate5_corpus_diversity.py`,
-  `labs/incident/_gate1_pool_block.py`, `labs/incident/_gate4_cleanup_probe.py`
-  and the remaining `_gate*.py` prototypes
+- Confirm: no `_gate*.py` prototype exists in `labs/incident/`; the repository
+  audit retired them early because they were tracked throwaways and already made
+  `test_only_the_guided_live_path_is_shipped` fail.
 
 **Interfaces:**
 - Consumes: Task C1's real generated corpus.
 - Produces: `G-33` in `CORE_GATES`.
 
-**Migration and compatibility implications:** Gate 5's diversity logic currently
-lives in a throwaway script that loads documents from `/tmp` and creates a temp
-table. The permanent gate must be **read-only** per `gates/_common.py`'s contract
+**Migration and compatibility implications:** Gate 5's historical diversity
+prototype loaded documents from `/tmp` and created a temp table. The permanent
+gate must be **read-only** per `gates/_common.py`'s contract
 (`SELECT` / `SET LOCAL` only), so it computes similarity directly against
 `retrieval.documents` with a self-join rather than `COPY`ing into a temp table.
 `pg_trgm` is already installed (`sql/00_extensions.sql`). Per the
@@ -8342,11 +8532,10 @@ Expected: all core gates PASS (G-32 and G-33 included); `doctor.py` reports OK.
   named, then reset. A gate never seen red is not evidence — this is the
   `gate-self-reference-fail-open` lesson applied.
 
-- [ ] **Step 6: Cleanup and failure recovery.** Delete every `_gate*.py` prototype
-  from `labs/incident/` with `trash` — their findings are recorded in
-  `docs/superpowers/specs/2026-08-04-dat410-gate-results.md` and Task B6's file-set
-  test requires them gone. Reset the `_test` database with `make schema` after the
-  step 5 flood.
+- [ ] **Step 6: Cleanup and failure recovery.** Confirm every `_gate*.py`
+  prototype remains absent from `labs/incident/`; their findings are recorded in
+  `docs/superpowers/specs/2026-08-04-dat410-gate-results.md`. Reset the `_test`
+  database with `make schema` after the step 5 flood.
 
 - [ ] **Step 7: Participant-facing changes.** None — gates are facilitator and CI
   tooling.
@@ -8355,8 +8544,6 @@ Expected: all core gates PASS (G-32 and G-33 included); `doctor.py` reports OK.
 
 ```bash
 git add gates/corpus_diversity.py gates/checks.sh backend/scripts/doctor.py
-git rm labs/incident/_gate1_pool_block.py labs/incident/_gate4_cleanup_probe.py \
-  labs/incident/_gate5_build_sample_documents.py labs/incident/_gate5_corpus_diversity.py
 git commit -m "Add G-33 corpus diversity gate and retire the prototypes"
 ```
 
@@ -8505,13 +8692,25 @@ git commit -m "Assert retrieval arms differentiate on the new corpus"
 
 **Dependencies:** Task C3.
 
-### Task D2: Verify the agent produces a Wave-A-only cited finding
+### Task D2: Reconcile and verify the Wave-A-only hybrid retrieval agent
 
-**Owning schema/module:** `agent/`; verification only, no registry change.
+**Owning schema/module:** `agent/`; descriptions and prompts change, while the
+seven read-only tool capabilities remain unchanged.
 
 **Files:**
-- Modify: `labs/exercises/` — the Lab 3 exercise prompt, if it names old evidence
-  keys
+- Modify: `agent/registry.py`, `backend/app/agent.py`, and
+  `backend/app/agent_tools.py` — replace repair/reads-continue decomposition with
+  the three-clause backfill, pool, and plan-regression finding
+- Regenerate: `lambda_mcp/generated_dispatch.py` and
+  `mcp-server/src/server.generated.ts`
+- Modify: `scripts/invoke_agentcore_gateway.py` — consume the Wave A receipt and
+  ask the new canonical question
+- Modify: `labs/exercises/` — reconcile Lab 2/3 requests and `checkpoint.py`,
+  including `change_validates` and separate Wave A/Wave B keys
+- Modify: `backend/tests/test_agent_and_synthesis.py`,
+  `backend/tests/test_agent_tools.py`, `backend/tests/test_participant_exercises.py`,
+  `backend/tests/test_strands_agent.py`, and `backend/tests/test_mcp_contract.py`
+  — assert the new participant-facing contract
 - Test: a new live assertion in `backend/tests/test_agent_contract.py` (new)
 
 **Interfaces:**
@@ -9885,8 +10084,9 @@ PostgreSQL 17.10; read all three before writing step 3, because the obvious fix
    `workshop_app` as holding **no direct table grants** and failing closed without a
    `SET ROLE`; owner membership would hand the pool identity `CREATE INDEX`, `DROP
    TABLE`, and `TRUNCATE` on the lab table passively, on every request. But the pool
-   does need writes: `labs/incident/_gate1_pool_block.py:96-99` drives the hot-write
-   path as `UPDATE workbench_lab.orders …` through the pool with no `SET ROLE`.
+   does need writes: Gate 1 proved the hot-write path as
+   `UPDATE workbench_lab.orders …` through the pool with no `SET ROLE`, and Task
+   B2 owns the supported endpoint.
    Measured on PostgreSQL 17.10, the narrow grant is exactly sufficient and exactly
    bounded — with `USAGE ON SCHEMA` plus `SELECT, INSERT, UPDATE, DELETE ON ALL
    TABLES` and no ownership, `UPDATE` succeeds while `CREATE INDEX` and `DROP TABLE`
@@ -9983,7 +10183,7 @@ class ApiPoolLabPrivilegeTests(unittest.TestCase):
     """The other half of the boundary: the pool writes, the pool does not alter.
 
     The hot-write path runs `UPDATE workbench_lab.orders` through the pool with no
-    SET ROLE (labs/incident/_gate1_pool_block.py:96-99), so workshop_app needs DML.
+    SET ROLE (Task B2), so workshop_app needs DML.
     It must NOT get that by joining workbench_lab_owner, which would hand the pool
     identity CREATE INDEX, DROP TABLE and TRUNCATE passively on every request. Both
     halves are executed here, because a privilege boundary that is asserted and
@@ -10947,15 +11147,18 @@ acceptance is therefore `tsc` clean plus a named visual verification against the
 live app. `frontend/src/main.tsx` is a pure live renderer with no content constants
 and no fallbacks — that property must survive this phase.
 
-### Task E1: Remove the Database Insights surface from the UI
+### Task E1: Reconcile the UI narrative and remove the Database Insights surface
 
 **Owning schema/module:** `frontend/src/`; `backend/app/main.py`'s
 `observability_refs` attachment.
 
 **Files:**
 - Modify: `backend/app/` — the `observability_refs` HTTP-layer attachment and its
-  config gate
-- Modify: `frontend/src/` — the deep-link button component and its wire type
+  config gate, plus the latest-live-run wire shape consumed by Overview
+- Modify: `frontend/src/` — the deep-link button component and its wire type;
+  replace the ordinary-index/concurrent-repair timeline, presets, labels, and
+  compound question with the four-phase online-migration narrative and Hybrid
+  Retrieval Agent terminology
 - Modify: `frontend/src/workbench.css` — the button's styles, if unshared
 - Test: `npm run build` (`tsc`) plus a live visual check
 
@@ -11057,22 +11260,18 @@ in the **view**, not in `backend/app/insights.py` — line 248 is
 `SELECT * FROM retrieval.v_corpus_distribution`, so widening the view widens the wire
 payload with no Python change and keeps `main.tsx` a pure live renderer.
 
-**`wave` must be nullable, and the reason is a schema fact worth stating exactly,
-because the obvious design is wrong.** Only `casework.telemetry_evidence` (NOT NULL)
-and `casework.lock_evidence` (nullable) carry `capture_id`. `casework.incidents` and
-`casework.changes` have **no `capture_id` column at all** — they link to a capture run
-only in the reverse direction, via
-`casework.incident_capture_runs.incident_evidence_id`. So a `wave` derived by joining
-documents to capture runs is genuinely unavailable for incident and change documents,
-and a `wave text NOT NULL` on this view would be a lie enforced by a constraint. The
-wire type is therefore `wave: "A" | "B" | null`, and the panel renders null-wave
-documents in a third, explicitly labeled group — never silently folded into Wave A.
+**`wave` is derived from provenance, not guessed from evidence kind.**
+`casework.admit_evidence` requires every record's `source_uri` to begin with that
+capture's `source_bundle_uri`, and each wave has a distinct bundle URI. That
+contract covers incident, change, lock, and telemetry records even though only
+the last two carry a `capture_id` foreign key. Join the indexed document's
+`source_uri` to the longest matching bundle URI and take that run's `wave`.
 
-Do **not** "fix" this by adding `capture_id` to `casework.incidents`: the incident is
-the thing both waves attach to (Task A3 shares exactly one `incident_key` across
-waves), so an incident belongs to no single wave. Null here is the honest answer, and
-`wave ?? "A"` in the renderer would be precisely the invented-data fallback this
-frontend forbids.
+The wire type remains `wave: "A" | "B" | null` because the view is reusable for
+future non-capture evidence. In the live-only participant path, however, a null
+wave is a provenance defect: do not fold it into Wave A and do not label all
+changes "not wave-scoped." In particular, the Wave B validation change is one of
+the clearest records the panel should attribute correctly.
 
 The panel must render whatever waves the database reports — including a single-wave
 corpus before Lab 4 runs — without a hardcoded group count (the `repeat(0)` CSS trap
@@ -11090,16 +11289,15 @@ WITH document_wave AS (
     document.document_version_id,
     document.evidence_kind,
     document.occurred_at,
-    coalesce(telemetry_run.wave, lock_run.wave) AS wave
+    capture.wave
   FROM retrieval.documents document
-  LEFT JOIN casework.telemetry_evidence telemetry
-    ON telemetry.evidence_id = document.evidence_id
-  LEFT JOIN casework.incident_capture_runs telemetry_run
-    ON telemetry_run.capture_id = telemetry.capture_id
-  LEFT JOIN casework.lock_evidence lock_item
-    ON lock_item.evidence_id = document.evidence_id
-  LEFT JOIN casework.incident_capture_runs lock_run
-    ON lock_run.capture_id = lock_item.capture_id
+  LEFT JOIN LATERAL (
+    SELECT run.wave
+    FROM casework.incident_capture_runs run
+    WHERE document.source_uri LIKE run.source_bundle_uri || '/%'
+    ORDER BY length(run.source_bundle_uri) DESC
+    LIMIT 1
+  ) capture ON true
   WHERE document.is_current
     AND document.index_state = 'ready'
 )
@@ -11128,18 +11326,18 @@ ORDER BY document.evidence_kind, document.wave NULLS FIRST;
   participant-facing text, not the letters alone:
 
 ```
-Wave A — captured during the incident
-Wave B — captured after the fix
-Not wave-scoped — the incident and change records both waves attach to
+Wave A — captured before the recommendation
+Wave B — captured after the participant validated the recommendation
+Not wave-scoped — provenance does not map this record to a capture
 ```
 
 - [ ] **Step 3: Typecheck, and confirm the row totals are unchanged.**
 
 ```bash
 cd frontend && npm run build
-DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
-  .venv/bin/python backend/scripts/run_sql.py \
-  "SELECT sum(documents), sum(chunks) FROM retrieval.v_corpus_distribution"
+/opt/homebrew/opt/libpq/bin/psql -X -v ON_ERROR_STOP=1 \
+  "postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
+  -c "SELECT sum(documents), sum(chunks) FROM retrieval.v_corpus_distribution"
 ```
 
 Expected: `tsc` errors at every place constructing a distribution element without
@@ -11170,9 +11368,9 @@ Expected: PASS, including the new panel's SQL round-tripping through G-13.
      numbers shown.
 
 - [ ] **Step 6: Cleanup and failure recovery.** No migration to undo; the field is
-  derived. If the join produces a null `wave` for any document, that is a real data
-  defect from Phase A/C — fix it there, never paper over it with a default in the
-  renderer.
+  derived. If the live-only participant corpus produces a null `wave`, that is a
+  real provenance defect from Phase A/C — fix it there, never paper over it with a
+  default in the renderer.
 
 - [ ] **Step 7: Participant-facing changes.** The Corpus surface becomes the place a
   participant sees, as a number, that fixing the problem did not rewrite the record
@@ -12348,6 +12546,13 @@ connects through the app's own pool, which is the entire mechanism.
 **Files:**
 - Modify: `labs/incident/capture_observability.py` — already stripped in Task B6;
   this task removes the remaining infra-side coupling
+- Modify: `.env.example`, `README.md`, `HANDOFF.md`, `DAT410-BUILD-BRIEF.md`,
+  `WORKSHOP-BUILD-SUMMARY.md`, `docs/`, and `labs/incident/README.md` — reconcile
+  all source-of-record and participant-facing documentation to the final narrative,
+  scale, lab titles, two-wave model, and PI-free telemetry boundary
+- Modify: `scripts/build_live_source_archive.sh` and
+  `backend/tests/test_release_artifact_scripts.py` — require every new incident,
+  exercise, gate, and supervised-execution runtime asset in the participant archive
 - Modify: `.env.example` and `docs/` — the PI prerequisite, **and** the two
   schema-inventory rows that Task A1 left describing a table it dropped:
   `docs/data-model.md:22` (`| `database_insights_samples` | Incident-window
@@ -12774,10 +12979,12 @@ DATABASE_URL="postgresql://<user>@<host>:5432/dat410_review_remediation_test?ssl
   gates/checks.sh
 ```
 
-Expected: exit 0, with all seven `CORE_GATES` (G-11, G-13, G-14, G-17, G-21, G-23,
-G-25) PASS. `FAIL_ON_BLOCKED=1` is for release verification, and this is the release
-verification. A BLOCKED gate here means a gate has nothing to judge, which at freeze
-time is indistinguishable from a gate that cannot fail.
+Expected: exit 0, with every registered `CORE_GATES` entry, including G-32, G-33,
+and G-34, PASS. Do not copy a fixed count here: the registry is the source of
+truth, and this plan deliberately adds three gates after the original seven.
+`FAIL_ON_BLOCKED=1` is for release verification, and this is the release
+verification. A BLOCKED gate here means a gate has nothing to judge, which at
+freeze time is indistinguishable from a gate that cannot fail.
 
 **Do not add `WORKBENCH_SECURITY_ENABLED=1` to this command.** It would not do what
 it appears to do: the no-argument path of `gates/checks.sh` forces

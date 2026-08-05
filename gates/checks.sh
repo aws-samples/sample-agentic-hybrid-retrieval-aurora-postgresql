@@ -41,6 +41,7 @@ CORE_GATES=(
   "G-21|live_fuzzy_retrieval.py|Run-derived fuzzy retrieval on the engine"
   "G-23|route_contract.py|Route contract (D16)"
   "G-25|admission_determinism.py|Live-bundle admission determinism (D21)"
+  "G-32|wave_additivity.py|Two-wave evidence additivity"
 )
 
 SECURITY_GATES=(

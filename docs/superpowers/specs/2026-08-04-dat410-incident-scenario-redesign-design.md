@@ -101,8 +101,8 @@ testing sections around that contract.
      unrestricted.
   2. **G-27 and G-29 stay optional-security release gates.** They are registered in
      `gates/checks.sh`'s `SECURITY_GATES`, not `CORE_GATES`, and the no-argument sweep both
-     omits them and forces `WORKBENCH_SECURITY_ENABLED=0` (measured: a sweep run with that
-     variable set to 1 still executed only the seven core gates). A red security gate means
+     omits them and forces `WORKBENCH_SECURITY_ENABLED=0` (the original seven-gate
+     measurement proved this boundary; later core gates do not change it). A red security gate means
      the optional RLS lab is not releasable; it never means the workshop is not releasable.
      The optional lab is releasable only against a real mixed-visibility capture — both
      `workshop` and `restricted` rows present, counts recorded, classifier version recorded.

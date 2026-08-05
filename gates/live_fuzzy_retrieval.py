@@ -50,42 +50,44 @@ def run() -> int:
             capture = connection.execute(
                 """
                 SELECT
-                  capture_id::text AS capture_id,
-                  upper(right(replace(capture_id::text, '-', ''), 8))
-                    AS run_suffix
-                FROM casework.incident_capture_runs
-                WHERE capture_origin = 'participant_induced'
-                ORDER BY capture_started_at DESC
+                  expected.capture_id::text AS capture_id,
+                  wave_a.capture_id::text AS wave_a_capture_id,
+                  upper(right(replace(wave_a.capture_id::text, '-', ''), 8))
+                    AS run_suffix,
+                  incident.incident_id
+                FROM casework.incident_capture_runs expected
+                JOIN casework.incident_capture_runs wave_a
+                  ON wave_a.incident_evidence_id = expected.incident_evidence_id
+                 AND wave_a.wave = 'A'
+                 AND wave_a.capture_origin = 'participant_induced'
+                JOIN casework.incidents incident
+                  ON incident.evidence_id = expected.incident_evidence_id
+                WHERE expected.capture_origin = 'participant_induced'
+                  AND lower(expected.capture_id::text) = lower(%s)
+                ORDER BY wave_a.capture_started_at
                 LIMIT 1
-                """
+                """,
+                (expected_capture,),
             ).fetchone()
             if not capture:
                 return finish(
                     GATE_ID,
-                    BLOCKED,
-                    "no participant-induced live capture is loaded",
-                )
-            if capture["capture_id"] != expected_capture:
-                return finish(
-                    GATE_ID,
                     FAIL,
-                    (
-                        f"latest capture {capture['capture_id']} does not match "
-                        f"LIVE_CAPTURE_RUN_ID {expected_capture}"
-                    ),
+                    f"LIVE_CAPTURE_RUN_ID {expected_capture} is not a loaded capture",
                 )
             target = f"CHG-{capture['run_suffix']}-01"
             probe = f"CGH-{capture['run_suffix']}-01"
             rows = connection.execute(
                 """
-                SELECT external_key, source_system, score
+                SELECT external_key, source_system, incident_id, score
                 FROM retrieval.fuzzy_search(
                   ARRAY[%s],
                   p_source_systems => ARRAY['pg_incident_capture'],
+                  p_incident_id => %s,
                   p_limit => 5
                 )
                 """,
-                (probe,),
+                (probe, capture["incident_id"]),
             ).fetchall()
     except psycopg.OperationalError as error:
         return finish(GATE_ID, BLOCKED, f"cannot reach the engine: {error}")
@@ -98,11 +100,15 @@ def run() -> int:
             FAIL,
             f"{probe} ranked {rows[0]['external_key']} ahead of {target}",
         )
-    if any(row["source_system"] != "pg_incident_capture" for row in rows):
+    if any(
+        row["source_system"] != "pg_incident_capture"
+        or row["incident_id"] != capture["incident_id"]
+        for row in rows
+    ):
         return finish(
             GATE_ID,
             FAIL,
-            "fuzzy retrieval returned evidence outside the participant run",
+            "fuzzy retrieval returned evidence outside the expected incident",
         )
     return finish(
         GATE_ID,

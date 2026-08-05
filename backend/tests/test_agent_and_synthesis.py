@@ -15,9 +15,10 @@ from backend.app.synthesis import evidence_block
 
 class AgentContractTests(unittest.TestCase):
     def test_decomposition_extracts_database_identifiers(self) -> None:
-        plan = decompose_question_impl(
-            "Why did CHG-478FD535-01 block writes during INC-478FD535?"
-        )
+        with patch("backend.app.agent._anchor_keys", return_value={}):
+            plan = decompose_question_impl(
+                "Why did CHG-478FD535-01 block writes during INC-478FD535?"
+            )
 
         self.assertEqual(
             plan["identified_keys"],
