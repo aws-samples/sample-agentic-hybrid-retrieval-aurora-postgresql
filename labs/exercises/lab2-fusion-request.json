@@ -1,5 +1,5 @@
 {
-  "query": "Why did the writer wait on a relation lock during the ordinary index build, and how did the concurrent repair change that behavior?",
+  "query": "Why did the unbatched priority_tier backfill exhaust the pool, why did two requests time out before PostgreSQL, and why did ANALYZE leave the reference query on a sequential scan?",
   "source_systems": [
     "pg_incident_capture"
   ],

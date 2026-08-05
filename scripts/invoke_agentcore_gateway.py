@@ -104,25 +104,29 @@ def _load_run_receipt(path: Path | None) -> dict[str, str]:
     selected = path
     if selected is None:
         candidates = sorted(
-            Path("data/generated/incident-lab").glob("indexing-receipt-*.json"),
+            Path("data/generated/incident-lab").glob("receipt-a-*.json"),
             key=lambda candidate: candidate.stat().st_mtime,
             reverse=True,
         )
         selected = candidates[0] if candidates else None
     if selected is None or not selected.is_file():
         raise RuntimeError(
-            "No live indexing receipt was found. Run the incident orchestrator or "
+            "No live Wave A diagnostic receipt was found. Run the incident "
+            "orchestrator or "
             "pass --receipt."
         )
     payload = json.loads(selected.read_text(encoding="utf-8"))
     required = (
+        "wave",
         "incident_key",
         "unsafe_change_key",
-        "repair_change_key",
+        "analyze_change_key",
         "lock_key",
     )
     if any(not payload.get(key) for key in required):
-        raise RuntimeError(f"{selected} is not a complete live indexing receipt")
+        raise RuntimeError(f"{selected} is not a complete Wave A receipt")
+    if payload["wave"] != "A":
+        raise RuntimeError(f"{selected} is not a Wave A diagnostic receipt")
     return {key: str(payload[key]) for key in required}
 
 
@@ -190,11 +194,15 @@ def main() -> int:
             "name": answer_tool_name,
             "arguments": {
                 "question": (
-                    f"What caused the measured writer wait in "
-                    f"{keys['incident_key']}, how did "
-                    f"{keys['unsafe_change_key']} block writes, how did "
-                    f"{keys['repair_change_key']} repair the behavior, and what "
-                    f"did {keys['lock_key']} prove?"
+                    f"How did the unbatched priority_tier backfill in "
+                    f"{keys['unsafe_change_key']} cause the write stall in "
+                    f"{keys['incident_key']}, why did queued requests time out "
+                    "and connected writers recover, and why did "
+                    f"{keys['analyze_change_key']} leave the reference query "
+                    f"slow after ANALYZE? What did {keys['lock_key']} prove "
+                    "about the blocker and why is the missing composite index "
+                    "the next action, and what should a future migration do "
+                    "differently?"
                 ),
                 "source_systems": ["pg_incident_capture"],
                 "limit": 8,

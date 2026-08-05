@@ -37,7 +37,7 @@ class ParticipantCheckpointTests(unittest.TestCase):
         }
         self.receipt = self.write(
             "indexing-receipt.json",
-            {"run_suffix": self.suffix, **self.run_keys},
+            {"wave": "A", "run_suffix": self.suffix, **self.run_keys},
         )
 
     def write(self, name: str, payload: dict) -> str:
@@ -192,6 +192,23 @@ class ParticipantCheckpointTests(unittest.TestCase):
                 self.receipt,
             )
 
+    def test_validation_requires_a_distinct_wave_b_receipt_and_edge(self) -> None:
+        comparison = self.write(
+            "validation-comparison.json",
+            {"relationships": [{"relation": "change_validates"}]},
+        )
+        wave_b = self.write(
+            "wave-b-receipt.json",
+            {
+                "wave": "B",
+                "run_suffix": "E5F6A7B8",
+                "incident_key": self.run_keys["incident_key"],
+                "validation_change_key": "CHG-E5F6A7B8-01",
+            },
+        )
+
+        CHECKPOINT.check_validation(comparison, self.receipt, wave_b)
+
     def agent_payloads(self) -> tuple[str, str, str]:
         plan = self.write(
             "plan.json",
@@ -207,7 +224,7 @@ class ParticipantCheckpointTests(unittest.TestCase):
             {
                 "reached": [
                     {"via_relation": relation}
-                    for relation in sorted(CHECKPOINT.REQUIRED_RELATIONS)
+                    for relation in sorted(CHECKPOINT.WAVE_A_REQUIRED_RELATIONS)
                 ]
             },
         )
@@ -216,7 +233,7 @@ class ParticipantCheckpointTests(unittest.TestCase):
             {
                 "relationships": [
                     {"relation": relation}
-                    for relation in sorted(CHECKPOINT.REQUIRED_RELATIONS)
+                    for relation in sorted(CHECKPOINT.WAVE_A_REQUIRED_RELATIONS)
                 ]
             },
         )

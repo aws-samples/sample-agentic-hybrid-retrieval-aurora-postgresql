@@ -21,7 +21,10 @@ class LambdaMcpContractTests(unittest.TestCase):
         response = lambda_handler(
             {
                 "tool": "decompose_question",
-                "question": "Why did CHG-A1B2C3D4-01 cause INC-A1B2C3D4?",
+                "question": (
+                    "How did CHG-A1B2C3D4-01 backfill priority_tier during "
+                    "INC-A1B2C3D4?"
+                ),
             },
             None,
         )

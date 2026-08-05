@@ -24,7 +24,7 @@ from backend.app.strands_agent import (
 
 RUN_ID = "1e5a4f2c-0000-4000-8000-00000000000f"
 VALIDATED_ANSWER = (
-    "CHG-A1B2C3D4-01 took a ShareLock that blocked writers [1]."
+    "CHG-A1B2C3D4-01 ran the unbatched priority_tier backfill that blocked writers [1]."
 )
 
 SEARCH_RESULT = {
@@ -34,10 +34,10 @@ SEARCH_RESULT = {
     "results": [
         {
             "external_key": "CHG-A1B2C3D4-01",
-            "title": "Add composite index on orders",
+            "title": "Unbatched priority_tier backfill",
             "evidence_kind": "change",
             "source_revision": "rev-4",
-            "snippet": "Ordinary CREATE INDEX blocked writes.",
+            "snippet": "The open priority_tier backfill blocked hot writers.",
             "match_tier": 1,
         }
     ],

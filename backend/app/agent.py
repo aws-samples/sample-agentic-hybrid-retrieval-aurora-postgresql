@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import dataclass
 from time import perf_counter
 from typing import Any, Iterator
 
@@ -25,6 +26,15 @@ SERVER_TOOLS = [
     "explain_ranking",
     "synthesize_cited_answer",
 ]
+
+
+@dataclass(frozen=True)
+class DiagnosticCaptureScope:
+    """The completed Wave A capture that bounds a diagnostic answer."""
+
+    incident_id: str
+    capture_id: str
+    capture_ended_at: str
 
 
 def _json(value: Any) -> str:
@@ -52,6 +62,97 @@ def agent_metadata() -> dict[str, Any]:
 def _first_match(pattern: str, question: str) -> str | None:
     match = re.search(pattern, question, flags=re.IGNORECASE)
     return match.group(0) if match else None
+
+
+def diagnostic_capture_scope_for_incident(
+    incident_id: str | None,
+    *,
+    role: str = "app_engineer",
+) -> DiagnosticCaptureScope | None:
+    """Return the completed Wave A capture for one participant incident.
+
+    The diagnostic agent is intentionally bounded to the evidence available
+    before the participant validates the recommended index in Wave B. The
+    boundary is capture provenance, not a prompt instruction or a mutable
+    incident-status field.
+    """
+    if not incident_id:
+        return None
+    with get_dict_conn(role) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                  incident.incident_id,
+                  capture.capture_id::text AS capture_id,
+                  capture.capture_ended_at
+                FROM casework.incident_capture_runs capture
+                JOIN casework.incidents incident
+                  ON incident.evidence_id = capture.incident_evidence_id
+                JOIN casework.evidence_items incident_item
+                  ON incident_item.evidence_id = incident.evidence_id
+                WHERE capture.capture_origin = 'participant_induced'
+                  AND capture.wave = 'A'
+                  AND capture.capture_ended_at IS NOT NULL
+                  AND incident.incident_id = %s
+                  AND NOT incident_item.is_deleted
+                  AND retrieval.acl_visible(incident_item.acl)
+                ORDER BY capture.capture_ended_at DESC, capture.capture_id DESC
+                LIMIT 1
+                """,
+                (incident_id,),
+            )
+            row = cursor.fetchone()
+    if not row:
+        return None
+    return DiagnosticCaptureScope(
+        incident_id=str(row["incident_id"]),
+        capture_id=str(row["capture_id"]),
+        capture_ended_at=row["capture_ended_at"].isoformat(),
+    )
+
+
+def _capture_scope_evidence_ids(
+    scope: DiagnosticCaptureScope,
+    *,
+    role: str,
+) -> set[str]:
+    """Resolve evidence that was available from this Wave A source bundle."""
+    with get_dict_conn(role) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT DISTINCT item.evidence_id::text AS evidence_id
+                FROM casework.incident_capture_runs capture
+                JOIN casework.evidence_items item
+                  ON item.source_uri LIKE capture.source_bundle_uri || '/%%'
+                 AND item.available_at <= capture.capture_ended_at
+                WHERE capture.capture_id = %s::uuid
+                  AND capture.capture_origin = 'participant_induced'
+                  AND capture.wave = 'A'
+                  AND capture.capture_ended_at IS NOT NULL
+                  AND NOT item.is_deleted
+                  AND retrieval.acl_visible(item.acl)
+                """,
+                (scope.capture_id,),
+            )
+            return {str(row["evidence_id"]) for row in cursor.fetchall()}
+
+
+def _filter_to_capture_scope(
+    evidence: list[dict[str, Any]],
+    scope: DiagnosticCaptureScope | None,
+    *,
+    role: str,
+) -> list[dict[str, Any]]:
+    """Reject evidence outside a Wave A capture before merge or citation."""
+    if scope is None:
+        return evidence
+    eligible = _capture_scope_evidence_ids(scope, role=role)
+    return [
+        row for row in evidence
+        if str(row.get("evidence_id")) in eligible
+    ]
 
 
 def _anchor_keys(
@@ -118,7 +219,8 @@ def _planned_subquestions(
         and (
             len(change_keys) > 1
             or re.search(
-                r"\b(?:repair|recover|prevent|telemetry|wait|block|alternative|rule out)\b",
+                r"\b(?:backfill|pool|timeout|recover|telemetry|wait|block|"
+                r"analyze|plan|slow|index|rule out)\b",
                 question,
                 flags=re.IGNORECASE,
             )
@@ -126,7 +228,10 @@ def _planned_subquestions(
     )
     if broad_question:
         incident = incident_id
-        changes = " or ".join(change_keys[:2]) or "the suspected changes"
+        backfill_change = change_keys[0] if change_keys else "the backfill change"
+        analyze_change = (
+            change_keys[1] if len(change_keys) > 1 else "the ANALYZE checkpoint"
+        )
         lock_keys = [key for key in keys if key.startswith("LOCK-")]
         anchors = {} if lock_keys else _anchor_keys(
             incident, ("lock_evidence",), role
@@ -140,36 +245,28 @@ def _planned_subquestions(
             {
                 "subquestion_id": "SQ-1",
                 "text": (
-                    f"Why did writes hang while reads continued during {incident}, "
-                    f"and what did {lock_reference} capture?"
+                    f"How did the unbatched priority_tier backfill in "
+                    f"{backfill_change} cause the write stall in {incident}, and "
+                    f"what did {lock_reference} prove about the blocker? What "
+                    "does that evidence imply for future backfills?"
                 ),
-                "required_kinds": ["incident", "lock_evidence"],
+                "required_kinds": ["incident", "change", "lock_evidence"],
             },
             {
                 "subquestion_id": "SQ-2",
-                "text": f"Did {changes} cause {incident}?",
-                "required_kinds": ["change", "lock_evidence"],
+                "text": (
+                    f"Why did requests queue or time out at the application pool "
+                    f"during {incident}, and what evidence proves that connected "
+                    "writers recovered after the backfill committed?"
+                ),
+                "required_kinds": ["lock_evidence", "telemetry"],
             },
             {
                 "subquestion_id": "SQ-3",
                 "text": (
-                    f"What measured PostgreSQL and AWS telemetry describes the "
-                    f"stall window for {incident}?"
-                ),
-                "required_kinds": ["telemetry"],
-            },
-            {
-                "subquestion_id": "SQ-4",
-                "text": (
-                    f"What evidence rules out the alternative change for {incident}?"
-                ),
-                "required_kinds": ["change", "lock_evidence"],
-            },
-            {
-                "subquestion_id": "SQ-5",
-                "text": (
-                    f"How did the measured repair change lock and statement "
-                    f"behavior for {incident}?"
+                    f"Why did {analyze_change} leave the reference query slow after "
+                    f"ANALYZE in {incident}, and what Wave A evidence identifies "
+                    "the missing composite index as the next action?"
                 ),
                 "required_kinds": ["change", "telemetry"],
             },
@@ -318,7 +415,9 @@ def follow_evidence_links_impl(
     *,
     role: str = "app_engineer",
     max_depth: int = 2,
+    capture_id: str | None = None,
 ) -> dict[str, Any]:
+    """Traverse canonical evidence relationships, optionally within Wave A."""
     keys = list(dict.fromkeys(key for key in seed_external_keys if key))
     if not keys:
         return {"seeds": [], "reached": [], "relationship_count": 0}
@@ -332,9 +431,24 @@ def follow_evidence_links_impl(
                 WHERE external_key = ANY(%s)
                   AND NOT is_deleted
                   AND retrieval.acl_visible(acl)
+                  AND (
+                    %s::uuid IS NULL
+                    OR EXISTS (
+                      SELECT 1
+                      FROM casework.incident_capture_runs capture
+                      WHERE capture.capture_id = %s::uuid
+                        AND capture.capture_origin = 'participant_induced'
+                        AND capture.wave = 'A'
+                        AND capture.capture_ended_at IS NOT NULL
+                        AND casework.evidence_items.source_uri
+                            LIKE capture.source_bundle_uri || '/%%'
+                        AND casework.evidence_items.available_at
+                            <= capture.capture_ended_at
+                    )
+                  )
                 ORDER BY external_key
                 """,
-                (keys,),
+                (keys, capture_id, capture_id),
             )
             seed_ids = [row["evidence_id"] for row in cursor.fetchall()]
             if not seed_ids:
@@ -369,6 +483,8 @@ def follow_evidence_links_impl(
                   document.occurred_at,
                   left(regexp_replace(chunk.chunk_text, '\\s+', ' ', 'g'), 700) AS snippet
                 FROM retrieval.traverse_evidence(%s::uuid[], %s) walk
+                JOIN casework.evidence_items item
+                  ON item.evidence_id = walk.evidence_id
                 JOIN retrieval.documents document
                   ON document.evidence_id = walk.evidence_id
                  AND document.is_current
@@ -380,9 +496,22 @@ def follow_evidence_links_impl(
                   ORDER BY candidate.chunk_ordinal
                   LIMIT 1
                 ) chunk ON true
+                WHERE (
+                  %s::uuid IS NULL
+                  OR EXISTS (
+                    SELECT 1
+                    FROM casework.incident_capture_runs capture
+                    WHERE capture.capture_id = %s::uuid
+                      AND capture.capture_origin = 'participant_induced'
+                      AND capture.wave = 'A'
+                      AND capture.capture_ended_at IS NOT NULL
+                      AND item.source_uri LIKE capture.source_bundle_uri || '/%%'
+                      AND item.available_at <= capture.capture_ended_at
+                  )
+                )
                 ORDER BY walk.depth, walk.evidence_kind, walk.external_key
                 """,
-                (seed_ids, depth),
+                (seed_ids, depth, capture_id, capture_id),
             )
             reached = cursor.fetchall()
     return {
@@ -397,6 +526,7 @@ def compare_sources_impl(
     external_keys: list[str],
     *,
     role: str = "app_engineer",
+    capture_id: str | None = None,
 ) -> dict[str, Any]:
     keys = list(dict.fromkeys(key for key in external_keys if key))
     if not keys:
@@ -425,9 +555,22 @@ def compare_sources_impl(
                 WHERE item.external_key = ANY(%s)
                   AND NOT item.is_deleted
                   AND retrieval.acl_visible(item.acl)
+                  AND (
+                    %s::uuid IS NULL
+                    OR EXISTS (
+                      SELECT 1
+                      FROM casework.incident_capture_runs capture
+                      WHERE capture.capture_id = %s::uuid
+                        AND capture.capture_origin = 'participant_induced'
+                        AND capture.wave = 'A'
+                        AND capture.capture_ended_at IS NOT NULL
+                        AND item.source_uri LIKE capture.source_bundle_uri || '/%%'
+                        AND item.available_at <= capture.capture_ended_at
+                    )
+                  )
                 ORDER BY document.occurred_at, item.external_key
                 """,
-                (keys,),
+                (keys, capture_id, capture_id),
             )
             evidence = cursor.fetchall()
             evidence_ids = [row["evidence_id"] for row in evidence]
@@ -960,6 +1103,7 @@ def _evidence_for_run(
     *,
     role: str,
     limit: int = 8,
+    capture_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Reload a run's persisted candidates under its request context.
 
@@ -1008,10 +1152,25 @@ def _evidence_for_run(
                  AND chunk.document_version_id = document.document_version_id
                 WHERE candidate.run_id = %s
                   AND retrieval.acl_visible(document.acl)
+                  AND (
+                    %s::uuid IS NULL
+                    OR EXISTS (
+                      SELECT 1
+                      FROM casework.incident_capture_runs capture
+                      JOIN casework.evidence_items item
+                        ON item.evidence_id = document.evidence_id
+                      WHERE capture.capture_id = %s::uuid
+                        AND capture.capture_origin = 'participant_induced'
+                        AND capture.wave = 'A'
+                        AND capture.capture_ended_at IS NOT NULL
+                        AND item.source_uri LIKE capture.source_bundle_uri || '/%%'
+                        AND item.available_at <= capture.capture_ended_at
+                    )
+                  )
                 ORDER BY candidate.result_rank
                 LIMIT %s
                 """,
-                (run_id, bounded_limit),
+                (run_id, capture_id, capture_id, bounded_limit),
             )
             evidence = cursor.fetchall()
     if not evidence:
@@ -1025,8 +1184,14 @@ def synthesize_cited_answer_from_run_impl(
     *,
     limit: int = 8,
     role: str = "app_engineer",
+    capture_id: str | None = None,
 ) -> dict[str, Any]:
-    evidence = _evidence_for_run(run_id, role=role, limit=limit)
+    evidence = _evidence_for_run(
+        run_id,
+        role=role,
+        limit=limit,
+        capture_id=capture_id,
+    )
     result = synthesize_cited_answer_impl(
         question,
         evidence,
@@ -1042,6 +1207,7 @@ def synthesize_cited_answer_from_runs_impl(
     *,
     limit: int = 8,
     role: str = "app_engineer",
+    capture_id: str | None = None,
 ) -> dict[str, Any]:
     """Synthesize from multiple persisted retrievals without weakening their ACLs.
 
@@ -1057,7 +1223,12 @@ def synthesize_cited_answer_from_runs_impl(
 
     bounded_limit = max(1, min(int(limit), 8))
     evidence_by_run = [
-        _evidence_for_run(run_id, role=role, limit=bounded_limit)
+        _evidence_for_run(
+            run_id,
+            role=role,
+            limit=bounded_limit,
+            capture_id=capture_id,
+        )
         for run_id in ordered_run_ids
     ]
     interleaved: list[dict[str, Any]] = []
@@ -1249,6 +1420,22 @@ def _agent_filters(
         "aws_region": request.aws_region,
         "start_date": request.start_date,
         "end_date": request.end_date,
+    }
+
+
+def _apply_diagnostic_capture_scope(
+    filters: dict[str, Any],
+    scope: DiagnosticCaptureScope | None,
+) -> dict[str, Any]:
+    """Bind a diagnostic answer to the incident's completed Wave A capture."""
+    if scope is None:
+        return filters
+    return {
+        **filters,
+        "incident_id": scope.incident_id,
+        # The caller may make the lower bound narrower, but never lift this
+        # capture-derived upper bound to admit later validation evidence.
+        "end_date": scope.capture_ended_at,
     }
 
 
@@ -1783,6 +1970,7 @@ def _unscoped_filters(
     missing_kinds: list[str],
     filters: dict[str, Any],
     role: str = "app_engineer",
+    protected: set[str] | None = None,
 ) -> list[str]:
     """Name the active scope filters that no document of a missing kind carries.
 
@@ -1794,11 +1982,17 @@ def _unscoped_filters(
         filters: The filters that retrieval ran with.
         role: The persona to check out under; the request's role in the agent
             loop.
+        protected: Active filters the bounded retry may not remove.
 
     Returns:
         Filter names to drop on the bounded retry, in ``_SCOPE_FILTERS`` order.
     """
-    active = [name for name in _SCOPE_FILTERS if filters.get(name) is not None]
+    protected = protected or set()
+    active = [
+        name
+        for name in _SCOPE_FILTERS
+        if filters.get(name) is not None and name not in protected
+    ]
     if not active or not missing_kinds:
         return []
     columns = ", ".join(f"count({name}) AS {name}" for name in active)
@@ -1838,8 +2032,13 @@ def _agent_search(
 
 def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
     started = perf_counter()
-    plan = decompose_question_impl(request.question)
+    plan = decompose_question_impl(request.question, role=request.role)
     filters = _agent_filters(request, plan["inferred_filters"])
+    diagnostic_scope = diagnostic_capture_scope_for_incident(
+        filters.get("incident_id"),
+        role=request.role,
+    )
+    filters = _apply_diagnostic_capture_scope(filters, diagnostic_scope)
     controls = _agent_controls(request)
     agent_run_id = _start_agent_run(request, plan, filters, controls)
     final_searches: list[dict[str, Any]] = []
@@ -1902,6 +2101,7 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                     coverage["missing_kinds"],
                     filters,
                     request.role,
+                    protected={"incident_id"} if diagnostic_scope else None,
                 )
                 escalated_filters = {**filters, **dict.fromkeys(unscoped)}
                 changed = {
@@ -1998,6 +2198,11 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
             for search in final_searches:
                 if result_rank < len(search["results"]):
                     retrieved.append(search["results"][result_rank])
+        retrieved = _filter_to_capture_scope(
+            retrieved,
+            diagnostic_scope,
+            role=request.role,
+        )
         planned_keys = [
             key.upper()
             for subquestion in plan["subquestions"]
@@ -2028,6 +2233,9 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
                 seed_keys,
                 role=request.role,
                 max_depth=2,
+                capture_id=(
+                    diagnostic_scope.capture_id if diagnostic_scope else None
+                ),
             )
             _append_agent_stage(
                 primary_run_id,
@@ -2046,6 +2254,11 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
             named_keys=named_keys,
             limit=request.limit,
         )
+        evidence = _filter_to_capture_scope(
+            evidence,
+            diagnostic_scope,
+            role=request.role,
+        )
         comparison = {
             "evidence": [],
             "relationships": [],
@@ -2056,6 +2269,9 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
             comparison = compare_sources_impl(
                 [row["external_key"] for row in evidence],
                 role=request.role,
+                capture_id=(
+                    diagnostic_scope.capture_id if diagnostic_scope else None
+                ),
             )
             evidence = _attach_relationships(
                 evidence,

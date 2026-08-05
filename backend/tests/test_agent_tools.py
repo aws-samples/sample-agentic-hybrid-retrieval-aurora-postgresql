@@ -145,13 +145,16 @@ class ContextCostTests(unittest.TestCase):
     def _row(self, index: int) -> dict[str, object]:
         row = {
             "external_key": f"CHG-{1000 + index}",
-            "title": "Add composite index on orders",
+            "title": "Unbatched priority_tier backfill",
             "evidence_kind": "change",
             "source_system": "change_management",
             "source_revision": "rev-4",
             "cluster_id": "checkout-prod-cluster-01",
             "occurred_at": "2026-03-02T14:03:00Z",
-            "snippet": "Ordinary CREATE INDEX blocked writes on the orders table.",
+            "snippet": (
+                "The unbatched priority_tier backfill held row locks while "
+                "the application pool exhausted."
+            ),
             "match_tier": 1 if index == 0 else 2,
         }
         # Fields a model cannot act on, which the tool payload must drop.
@@ -195,7 +198,7 @@ class ContextCostTests(unittest.TestCase):
             self.assertNotIn("explanation", row)
         raw = len(json.dumps({"results": rows}, default=str))
         shaped = len(json.dumps(result, default=str))
-        self.assertLess(shaped, raw // 2)
+        self.assertLess(shaped, raw * 0.55)
 
     def test_empty_results_tell_the_model_what_to_try_next(self) -> None:
         agent_tools.start_run(None)

@@ -15,6 +15,10 @@ Answer only from the numbered evidence supplied by the caller.
 - Distinguish observed telemetry, confirmed relationships, ruled-out changes, and guidance.
 - Never call a rerank score, cosine similarity, or reciprocal-rank-fusion score a probability.
 - If the evidence is insufficient or conflicts, state that with citations.
+- When the question asks what a future migration should do differently, present
+  bounded batches with commits as cited guidance derived from the observed
+  unbatched backfill. That guidance sentence must include the numbered citation
+  for the unbatched-backfill evidence; do not present it as an observed outcome.
 - Write exactly 5 to 7 concise sentences with no headings, bullets, or preamble.
 """
 

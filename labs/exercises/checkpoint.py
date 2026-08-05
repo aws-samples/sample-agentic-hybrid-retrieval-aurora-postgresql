@@ -16,12 +16,13 @@ REQUIRED_KINDS = {
     "lock_evidence",
     "telemetry",
 }
-REQUIRED_RELATIONS = {
+WAVE_A_REQUIRED_RELATIONS = {
     "change_confirmed",
     "change_ruled_out",
     "blocked_by_change",
     "observed_during",
 }
+WAVE_B_REQUIRED_RELATIONS = {"change_validates"}
 
 
 def load(path: str) -> dict[str, Any]:
@@ -32,9 +33,10 @@ def fail(message: str) -> None:
     raise SystemExit(f"REMEDY: {message}")
 
 
-def load_run(receipt_path: str) -> dict[str, Any]:
+def load_wave_a_receipt(receipt_path: str) -> dict[str, Any]:
     receipt = load(receipt_path)
     required = {
+        "wave",
         "run_suffix",
         "incident_key",
         "unsafe_change_key",
@@ -44,6 +46,8 @@ def load_run(receipt_path: str) -> dict[str, Any]:
     missing = sorted(required - receipt.keys())
     if missing:
         fail(f"the indexing receipt is missing: {missing}")
+    if receipt["wave"] != "A":
+        fail("Labs 2 and 3 require a Wave A diagnostic receipt")
     suffix = str(receipt["run_suffix"])
     expected = {
         "incident_key": f"INC-{suffix}",
@@ -58,7 +62,29 @@ def load_run(receipt_path: str) -> dict[str, Any]:
     return receipt
 
 
-def run_identifiers(receipt: dict[str, Any]) -> set[str]:
+def load_wave_b_receipt(receipt_path: str) -> dict[str, Any]:
+    receipt = load(receipt_path)
+    required = {
+        "wave",
+        "run_suffix",
+        "incident_key",
+        "validation_change_key",
+    }
+    missing = sorted(required - receipt.keys())
+    if missing:
+        fail(f"the validation receipt is missing: {missing}")
+    if receipt["wave"] != "B":
+        fail("validation requires a Wave B receipt")
+    suffix = str(receipt["run_suffix"])
+    if (
+        not re.fullmatch(r"[A-F0-9]{8}", suffix)
+        or receipt["validation_change_key"] != f"CHG-{suffix}-01"
+    ):
+        fail("the Wave B receipt does not contain one valid validation change")
+    return receipt
+
+
+def wave_a_identifiers(receipt: dict[str, Any]) -> set[str]:
     return {
         receipt["incident_key"],
         receipt["unsafe_change_key"],
@@ -68,7 +94,7 @@ def run_identifiers(receipt: dict[str, Any]) -> set[str]:
 
 
 def is_run_key(external_key: Any, receipt: dict[str, Any]) -> bool:
-    if external_key in run_identifiers(receipt):
+    if external_key in wave_a_identifiers(receipt):
         return True
     return bool(
         isinstance(external_key, str)
@@ -114,7 +140,7 @@ def check_filter(
     filtered_path: str,
     receipt_path: str,
 ) -> None:
-    receipt = load_run(receipt_path)
+    receipt = load_wave_a_receipt(receipt_path)
     baseline = validate_live_results(
         load(baseline_path), "unfiltered kind search", receipt
     )
@@ -186,7 +212,7 @@ def check_fusion(
     tuned_path: str,
     receipt_path: str,
 ) -> None:
-    receipt = load_run(receipt_path)
+    receipt = load_wave_a_receipt(receipt_path)
     baseline = load(baseline_path)
     tuned = load(tuned_path)
     baseline_results = validate_live_results(
@@ -225,13 +251,13 @@ def check_agent(
     comparison_path: str,
     receipt_path: str,
 ) -> None:
-    receipt = load_run(receipt_path)
+    receipt = load_wave_a_receipt(receipt_path)
     plan = load(plan_path)
     traversal = load(traversal_path)
     comparison = load(comparison_path)
 
     identified_keys = set(plan.get("identified_keys", []))
-    missing_identifiers = sorted(run_identifiers(receipt) - identified_keys)
+    missing_identifiers = sorted(wave_a_identifiers(receipt) - identified_keys)
     if missing_identifiers:
         fail(f"the evidence plan is missing identifiers: {missing_identifiers}")
 
@@ -252,10 +278,10 @@ def check_agent(
     comparison_relations = {
         row.get("relation") for row in comparison.get("relationships", [])
     }
-    missing_traversal = sorted(REQUIRED_RELATIONS - traversal_relations)
+    missing_traversal = sorted(WAVE_A_REQUIRED_RELATIONS - traversal_relations)
     if missing_traversal:
         fail(f"relationship traversal is missing: {missing_traversal}")
-    missing_comparison = sorted(REQUIRED_RELATIONS - comparison_relations)
+    missing_comparison = sorted(WAVE_A_REQUIRED_RELATIONS - comparison_relations)
     if missing_comparison:
         fail(f"source comparison is missing: {missing_comparison}")
 
@@ -265,11 +291,34 @@ def check_agent(
     )
 
 
+def check_validation(
+    comparison_path: str,
+    wave_a_receipt_path: str,
+    wave_b_receipt_path: str,
+) -> None:
+    wave_a = load_wave_a_receipt(wave_a_receipt_path)
+    wave_b = load_wave_b_receipt(wave_b_receipt_path)
+    if wave_a["incident_key"] != wave_b["incident_key"]:
+        fail("the Wave B validation receipt names a different incident")
+    if wave_a["run_suffix"] == wave_b["run_suffix"]:
+        fail("Wave B must have its own capture-derived run suffix")
+    comparison = load(comparison_path)
+    relations = {
+        row.get("relation") for row in comparison.get("relationships", [])
+    }
+    missing = sorted(WAVE_B_REQUIRED_RELATIONS - relations)
+    if missing:
+        fail(f"validation evidence is missing: {missing}")
+    print(
+        "OK: Wave B added a validation relationship for the same incident "
+        "without replacing the Wave A diagnostic evidence"
+    )
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser()
     result.add_argument(
         "--receipt",
-        required=True,
         help="indexing-receipt-<run-suffix>.json from the live orchestrator",
     )
     subparsers = result.add_subparsers(dest="checkpoint", required=True)
@@ -286,21 +335,35 @@ def parser() -> argparse.ArgumentParser:
     agent_parser.add_argument("plan")
     agent_parser.add_argument("traversal")
     agent_parser.add_argument("comparison")
+
+    validation_parser = subparsers.add_parser("validation")
+    validation_parser.add_argument("comparison")
+    validation_parser.add_argument("wave_a_receipt")
+    validation_parser.add_argument("wave_b_receipt")
     return result
 
 
 def main() -> None:
-    args = parser().parse_args()
+    command_parser = parser()
+    args = command_parser.parse_args()
+    if args.checkpoint != "validation" and not args.receipt:
+        command_parser.error("--receipt is required for filter, fusion, and agent")
     if args.checkpoint == "filter":
         check_filter(args.baseline, args.filtered, args.receipt)
     elif args.checkpoint == "fusion":
         check_fusion(args.baseline, args.tuned, args.receipt)
-    else:
+    elif args.checkpoint == "agent":
         check_agent(
             args.plan,
             args.traversal,
             args.comparison,
             args.receipt,
+        )
+    else:
+        check_validation(
+            args.comparison,
+            args.wave_a_receipt,
+            args.wave_b_receipt,
         )
 
 

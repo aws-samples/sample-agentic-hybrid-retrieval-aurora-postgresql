@@ -23,6 +23,7 @@ Three rules distinguish it from a direct wrapper:
 from __future__ import annotations
 
 import logging
+import re
 from contextvars import ContextVar
 from time import perf_counter
 from typing import Any
@@ -32,8 +33,10 @@ from strands import tool
 
 from agent.registry import TOOLS as _REGISTRY, tools_for
 from backend.app.agent import (
+    DiagnosticCaptureScope,
     compare_sources_impl,
     decompose_question_impl,
+    diagnostic_capture_scope_for_incident,
     explain_ranking_impl,
     follow_evidence_links_impl,
     search_evidence_impl,
@@ -92,6 +95,7 @@ def start_run(
     run: dict[str, Any] = {
         "role": role or DEFAULT_ROLE,
         "source_systems": source_systems,
+        "diagnostic_capture_scope": None,
         "trace": [],
         "answer_of_record": None,
     }
@@ -111,6 +115,27 @@ def _role() -> str:
 def _source_systems() -> list[str] | None:
     run = _run()
     return run.get("source_systems") if run else None
+
+
+def _diagnostic_capture_scope(
+    *,
+    incident_id: str | None = None,
+    question: str | None = None,
+) -> DiagnosticCaptureScope | None:
+    """Return this agent run's Wave A boundary, resolving it on first use."""
+    run = _run()
+    existing = run.get("diagnostic_capture_scope") if run else None
+    if existing is not None:
+        return existing
+
+    candidate = incident_id
+    if candidate is None and question:
+        match = re.search(r"\bINC-[A-Z0-9-]+\b", question, flags=re.IGNORECASE)
+        candidate = match.group(0).upper() if match else None
+    scope = diagnostic_capture_scope_for_incident(candidate, role=_role())
+    if run is not None and scope is not None:
+        run["diagnostic_capture_scope"] = scope
+    return scope
 
 
 def _record(name: str, arguments: dict[str, Any], started: float, **extra: Any) -> None:
@@ -183,6 +208,9 @@ def decompose_question(question: str) -> dict[str, Any]:
     """
     started = perf_counter()
     plan = decompose_question_impl(question, role=_role())
+    scope = _diagnostic_capture_scope(
+        incident_id=plan["inferred_filters"].get("incident_id"),
+    )
     result = {
         "identified_keys": plan["identified_keys"],
         "inferred_filters": plan["inferred_filters"],
@@ -195,6 +223,12 @@ def decompose_question(question: str) -> dict[str, Any]:
             for item in plan["subquestions"]
         ],
     }
+    if scope is not None:
+        result["diagnostic_capture"] = {
+            "wave": "A",
+            "capture_id": scope.capture_id,
+            "capture_ended_at": scope.capture_ended_at,
+        }
     _record(
         "decompose_question",
         {"question": question},
@@ -256,12 +290,17 @@ def search_evidence(
                 f"use only these kinds: {', '.join(_EVIDENCE_KINDS)}.",
             )
     try:
+        scope = _diagnostic_capture_scope(
+            incident_id=incident_id,
+            question=query,
+        )
         response = search_evidence_impl(
             query,
             kinds=kinds,
             source_systems=_source_systems(),
             cluster_id=cluster_id,
-            incident_id=incident_id,
+            incident_id=scope.incident_id if scope else incident_id,
+            end_date=scope.capture_ended_at if scope else None,
             role=_role(),
             limit=max(1, min(int(limit), 50)),
         )
@@ -304,8 +343,8 @@ def follow_evidence_links(
     """Walk declared relationships out from evidence you already retrieved.
 
     Relationships come from foreign keys, not text similarity, so this is how
-    you establish that a measured change caused or repaired an incident. Every
-    hop re-checks the caller's ACL.
+    you connect the backfill, pool, and plan evidence. Every hop re-checks the
+    caller's ACL and remains inside the Wave A boundary when one is active.
 
     Args:
         seed_external_keys: Receipt-derived keys to start from, such as
@@ -324,10 +363,12 @@ def follow_evidence_links(
             "pass receipt-derived keys from a search_evidence result.",
         )
     try:
+        scope = _diagnostic_capture_scope()
         response = follow_evidence_links_impl(
             keys,
             role=_role(),
             max_depth=max_depth,
+            capture_id=scope.capture_id if scope else None,
         )
     except Exception as error:
         logger.warning("follow_evidence_links failed: %s", error)
@@ -372,8 +413,8 @@ def follow_evidence_links(
 def compare_sources(external_keys: list[str]) -> dict[str, Any]:
     """Compare specific records on revision, timing, scope, and relationships.
 
-    Use this to rule a candidate in or out: it shows whether two records share a
-    cluster and incident and whether an explicit relationship joins them.
+    Use this to test an evidence-backed finding: it shows whether records share
+    a cluster and incident and whether an explicit relationship joins them.
 
     Args:
         external_keys: Run-derived records to compare, such as
@@ -391,7 +432,12 @@ def compare_sources(external_keys: list[str]) -> dict[str, Any]:
             "pass two or more receipt-derived external keys.",
         )
     try:
-        response = compare_sources_impl(keys, role=_role())
+        scope = _diagnostic_capture_scope()
+        response = compare_sources_impl(
+            keys,
+            role=_role(),
+            capture_id=scope.capture_id if scope else None,
+        )
     except Exception as error:
         logger.warning("compare_sources failed: %s", error)
         _record("compare_sources", arguments, started, status="failed")
@@ -501,14 +547,13 @@ def explain_ranking(run_id: str) -> dict[str, Any]:
 
 
 def synthesize_cited_answer(question: str, run_ids: list[str]) -> dict[str, Any]:
-    """Write the final answer from persisted runs, with validated citations.
+    """Write the final diagnostic answer from persisted runs, with citations.
 
-    This is the last call. Pass every run_id that supports the compound question,
-    including a bounded retry used to recover reusable guidance. The function
-    reloads the exact visible evidence Aurora persisted, refuses to synthesize if
-    a required evidence kind is missing, and validates every citation against the
-    stored chunk quote and revision. The answer it produces is delivered to the
-    user directly, so you do not need to repeat it.
+    This is the last call. Pass every run_id that supports the three-part
+    question. The function reloads the exact visible evidence Aurora persisted,
+    refuses to synthesize if a required evidence kind is missing, and validates
+    every citation against the stored chunk quote and revision. The answer it
+    produces is delivered to the user directly, so you do not need to repeat it.
 
     Args:
         question: The user's original question, verbatim.
@@ -531,10 +576,12 @@ def synthesize_cited_answer(question: str, run_ids: list[str]) -> dict[str, Any]
             "use every run_id returned by the supporting search_evidence calls.",
         )
     try:
+        scope = _diagnostic_capture_scope(question=question)
         response = synthesize_cited_answer_from_runs_impl(
             question,
             ordered_run_ids,
             role=_role(),
+            capture_id=scope.capture_id if scope else None,
         )
     except ValueError as error:
         _record("synthesize_cited_answer", arguments, started, status="incomplete")

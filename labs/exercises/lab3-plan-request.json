@@ -1,3 +1,3 @@
 {
-  "question": "What caused the measured writer wait in {{INCIDENT_KEY}}, how did {{UNSAFE_CHANGE_KEY}} block writes, how did {{REPAIR_CHANGE_KEY}} repair the behavior, and what did {{LOCK_KEY}} prove?"
+  "question": "How did the unbatched priority_tier backfill in {{UNSAFE_CHANGE_KEY}} cause the write stall in {{INCIDENT_KEY}}, why did queued requests time out and connected writers recover, and why did {{ANALYZE_CHANGE_KEY}} leave the reference query slow after ANALYZE? What did {{LOCK_KEY}} prove about the blocker, why is the missing composite index the next action, and what should a future migration do differently?"
 }

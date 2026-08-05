@@ -17,11 +17,11 @@ function pruneUndefined(payload: Record<string, unknown>): Record<string, unknow
 export function registerTools(server: McpServer, post: Post, wrap: Wrap): void {
   server.tool(
     "decompose_question",
-    `Break an incident question into the evidence steps Aurora can answer.
+    `Break the diagnostic question into the three evidence findings Aurora can answer.
 
-Call this first. It extracts the identifiers and cluster named in the
-question and returns the subquestions to retrieve, so later searches are
-filtered instead of broad.
+Call this first. It extracts the incident identifiers and returns the
+backfill/write-stall, pool-exhaustion/recovery, and plan-regression
+subquestions, so later searches stay scoped to measured evidence.
 
 Returns:
     Detected identifiers, inferred filters, and ordered subquestions.`,
@@ -45,8 +45,9 @@ Returns:
 Runs all four signals in one SQL statement: exact identifier, full text,
 pgvector semantic, and trigram fuzzy. Exact identifier matches are returned
 as a tier above the fused candidates, so a named identifier cannot be
-outranked. Keep the returned run_id: explain_ranking and
-synthesize_cited_answer both require it.
+outranked. The Hybrid Retrieval Agent binds diagnostic searches to the
+completed Wave A capture when the incident is known. Keep the returned
+run_id: explain_ranking and synthesize_cited_answer both require it.
 
 Returns:
     run_id, the ranked rows with their match tier, and the ranking groups.`,
@@ -112,8 +113,9 @@ Returns:
     `Walk declared relationships out from evidence you already retrieved.
 
 Relationships come from foreign keys, not text similarity, so this is how
-you establish that a measured change caused or repaired an incident.
-Every hop re-checks the caller's ACL.
+you connect the measured backfill, pool behavior, and plan evidence.
+Every hop re-checks the caller's ACL and stays inside the diagnostic
+capture boundary when one is active.
 
 Returns:
     Each reached record with the relation and depth that reached it.`,
@@ -136,8 +138,8 @@ Returns:
     "compare_sources",
     `Compare specific records on revision, timing, scope, and relationships.
 
-Use this to rule a candidate in or out: it shows whether two records share a
-cluster and incident and whether an explicit relationship joins them.
+Use this to test an evidence-backed finding: it shows whether records share
+a cluster and incident and whether an explicit relationship joins them.
 
 Returns:
     Each record's scope and revision, plus the relationships between them.`,
@@ -179,14 +181,13 @@ Returns:
 
   server.tool(
     "synthesize_cited_answer",
-    `Write the final answer from persisted runs, with validated citations.
+    `Write the final diagnostic answer from persisted runs, with validated citations.
 
-This is the last call. Pass every run_id that supports the compound question,
-including a bounded retry used to recover reusable guidance. The function
-reloads the exact visible evidence Aurora persisted, refuses to synthesize if
-a required evidence kind is missing, and validates every citation against the
-stored chunk quote and revision. The answer it produces is delivered to the
-user directly, so you do not need to repeat it.
+This is the last call. Pass every run_id that supports the three-part
+question. The function reloads the exact visible evidence Aurora persisted,
+refuses to synthesize if a required evidence kind is missing, and validates
+every citation against the stored chunk quote and revision. The answer it
+produces is delivered to the user directly, so you do not need to repeat it.
 
 Returns:
     The validated answer, its numbered citations, and the synthesis mode.`,
@@ -209,11 +210,13 @@ Returns:
 
   server.tool(
     "answer_with_citations",
-    `Answer an incident question end to end and return a cited answer.
+    `Answer a diagnostic question end to end and return a cited finding.
 
 Runs the whole deterministic loop server-side: decompose, retrieve once per
 subquestion, escalate within a bounded budget, then synthesize a cited answer
-from the persisted runs. Exposed to managed transports so a single call
+from the persisted runs. The diagnostic path establishes the unbatched
+backfill, pool exhaustion and recovery, and the plan regression that
+ANALYZE did not resolve. Exposed to managed transports so a single call
 reproduces the workbench answer against the same Aurora receipts.
 
 Returns:

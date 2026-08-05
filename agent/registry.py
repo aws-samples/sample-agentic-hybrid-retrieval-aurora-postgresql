@@ -285,10 +285,10 @@ TOOLS: dict[str, ToolSpec] = {
     "decompose_question": ToolSpec(
         name="decompose_question",
         description=(
-            "Break an incident question into the evidence steps Aurora can answer.\n\n"
-            "Call this first. It extracts the identifiers and cluster named in the\n"
-            "question and returns the subquestions to retrieve, so later searches are\n"
-            "filtered instead of broad."
+            "Break the diagnostic question into the three evidence findings Aurora can answer.\n\n"
+            "Call this first. It extracts the incident identifiers and returns the\n"
+            "backfill/write-stall, pool-exhaustion/recovery, and plan-regression\n"
+            "subquestions, so later searches stay scoped to measured evidence."
         ),
         params=(
             ToolParam("question", "string", required=True, min_length=1, max_length=4000, description="The user's incident question, verbatim."),
@@ -306,8 +306,9 @@ TOOLS: dict[str, ToolSpec] = {
             "Runs all four signals in one SQL statement: exact identifier, full text,\n"
             "pgvector semantic, and trigram fuzzy. Exact identifier matches are returned\n"
             "as a tier above the fused candidates, so a named identifier cannot be\n"
-            "outranked. Keep the returned run_id: explain_ranking and\n"
-            "synthesize_cited_answer both require it."
+            "outranked. The Hybrid Retrieval Agent binds diagnostic searches to the\n"
+            "completed Wave A capture when the incident is known. Keep the returned\n"
+            "run_id: explain_ranking and synthesize_cited_answer both require it."
         ),
         params=(
             ToolParam("query", "string", required=True, min_length=1, max_length=2000, description="Search text. Include a receipt-derived identifier verbatim, such as CHG-<run-suffix>-01."),
@@ -329,8 +330,9 @@ TOOLS: dict[str, ToolSpec] = {
         description=(
             "Walk declared relationships out from evidence you already retrieved.\n\n"
             "Relationships come from foreign keys, not text similarity, so this is how\n"
-            "you establish that a measured change caused or repaired an incident.\n"
-            "Every hop re-checks the caller's ACL."
+            "you connect the measured backfill, pool behavior, and plan evidence.\n"
+            "Every hop re-checks the caller's ACL and stays inside the diagnostic\n"
+            "capture boundary when one is active."
         ),
         params=(
             ToolParam("seed_external_keys", "array", required=True, item_type="string", min_length=1, max_length=20, description='Receipt-derived keys to start from, such as ["INC-<run-suffix>"].'),
@@ -346,8 +348,8 @@ TOOLS: dict[str, ToolSpec] = {
         name="compare_sources",
         description=(
             "Compare specific records on revision, timing, scope, and relationships.\n\n"
-            "Use this to rule a candidate in or out: it shows whether two records share a\n"
-            "cluster and incident and whether an explicit relationship joins them."
+            "Use this to test an evidence-backed finding: it shows whether records share\n"
+            "a cluster and incident and whether an explicit relationship joins them."
         ),
         params=(
             ToolParam("external_keys", "array", required=True, item_type="string", min_length=1, max_length=20, description='Run-derived records to compare, such as ["CHG-<run-suffix>-01", "CHG-<run-suffix>-02"].'),
@@ -378,13 +380,12 @@ TOOLS: dict[str, ToolSpec] = {
     "synthesize_cited_answer": ToolSpec(
         name="synthesize_cited_answer",
         description=(
-            "Write the final answer from persisted runs, with validated citations.\n\n"
-            "This is the last call. Pass every run_id that supports the compound question,\n"
-            "including a bounded retry used to recover reusable guidance. The function\n"
-            "reloads the exact visible evidence Aurora persisted, refuses to synthesize if\n"
-            "a required evidence kind is missing, and validates every citation against the\n"
-            "stored chunk quote and revision. The answer it produces is delivered to the\n"
-            "user directly, so you do not need to repeat it."
+            "Write the final diagnostic answer from persisted runs, with validated citations.\n\n"
+            "This is the last call. Pass every run_id that supports the three-part\n"
+            "question. The function reloads the exact visible evidence Aurora persisted,\n"
+            "refuses to synthesize if a required evidence kind is missing, and validates\n"
+            "every citation against the stored chunk quote and revision. The answer it\n"
+            "produces is delivered to the user directly, so you do not need to repeat it."
         ),
         params=(
             ToolParam("question", "string", required=True, min_length=1, max_length=4000, description="The user's original question, verbatim."),
@@ -400,10 +401,12 @@ TOOLS: dict[str, ToolSpec] = {
     "answer_with_citations": ToolSpec(
         name="answer_with_citations",
         description=(
-            "Answer an incident question end to end and return a cited answer.\n\n"
+            "Answer a diagnostic question end to end and return a cited finding.\n\n"
             "Runs the whole deterministic loop server-side: decompose, retrieve once per\n"
             "subquestion, escalate within a bounded budget, then synthesize a cited answer\n"
-            "from the persisted runs. Exposed to managed transports so a single call\n"
+            "from the persisted runs. The diagnostic path establishes the unbatched\n"
+            "backfill, pool exhaustion and recovery, and the plan regression that\n"
+            "ANALYZE did not resolve. Exposed to managed transports so a single call\n"
             "reproduces the workbench answer against the same Aurora receipts."
         ),
         params=(

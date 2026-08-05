@@ -1,5 +1,5 @@
 {
-  "query": "ordinary CREATE INDEX writer wait concurrent repair relation lock",
+  "query": "priority_tier backfill transactionid pool timeout ANALYZE sequential scan",
   "source_systems": [
     "pg_incident_capture"
   ],

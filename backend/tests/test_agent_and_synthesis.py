@@ -37,23 +37,30 @@ class AgentContractTests(unittest.TestCase):
             },
         ):
             plan = decompose_question_impl(
-                "During INC-478FD535, determine how CHG-478FD535-01 caused the "
-                "stall, how CHG-478FD535-02 repaired it, and what the measured "
-                "lock and telemetry evidence prove."
+                "During INC-478FD535, determine how the unbatched priority_tier "
+                "backfill in CHG-478FD535-01 caused the write stall, why the "
+                "application pool timed out then recovered, and why "
+                "CHG-478FD535-02 ANALYZE did not resolve the slow query."
             )
 
         self.assertEqual(
             [row["subquestion_id"] for row in plan["subquestions"]],
-            ["SQ-1", "SQ-2", "SQ-3", "SQ-4", "SQ-5"],
+            ["SQ-1", "SQ-2", "SQ-3"],
+        )
+        self.assertEqual(
+            plan["subquestions"][0]["required_kinds"],
+            ["incident", "change", "lock_evidence"],
+        )
+        self.assertEqual(
+            plan["subquestions"][1]["required_kinds"],
+            ["lock_evidence", "telemetry"],
         )
         self.assertEqual(
             plan["subquestions"][-1]["required_kinds"],
             ["change", "telemetry"],
         )
-        self.assertEqual(
-            plan["subquestions"][2]["required_kinds"],
-            ["telemetry"],
-        )
+        self.assertIn("missing composite index", plan["subquestions"][-1]["text"])
+        self.assertIn("future backfills", plan["subquestions"][0]["text"])
         self.assertFalse(
             any("explain_ranking" in step for step in plan["steps"])
         )
@@ -97,7 +104,10 @@ class AgentContractTests(unittest.TestCase):
                 "evidence_kind": "change",
                 "external_key": "CHG-478FD535-01",
                 "via_relation": "change_confirmed",
-                "snippet": "Ordinary CREATE INDEX blocked writes.",
+                "snippet": (
+                    "One unbatched priority_tier backfill held row locks after "
+                    "updating all orders."
+                ),
             },
             {
                 "evidence_id": "ruled-out-change",
@@ -118,26 +128,22 @@ class AgentContractTests(unittest.TestCase):
                 "evidence_kind": "telemetry",
                 "external_key": "TEL-478FD535-ACT01",
                 "via_relation": "measured_during",
-                "snippet": "Six writers waited on Lock:relation.",
-            },
-            {
-                "evidence_id": "repair-change",
-                "evidence_kind": "change",
-                "external_key": "CHG-478FD535-02",
-                "via_relation": "change_remediated",
-                "snippet": "Use CREATE INDEX CONCURRENTLY outside a transaction.",
+                "snippet": (
+                    "Two requests timed out at pool checkout while ten writers "
+                    "waited on Lock:transactionid, then committed after release."
+                ),
             },
         ]
 
         answer, numbers = _extractive_answer(
-            "How did CHG-478FD535-01 cause INC-478FD535 and how did "
-            "CHG-478FD535-02 repair it?",
+            "How did CHG-478FD535-01 cause the write stall in INC-478FD535, "
+            "why did the pool time out, and why did ANALYZE not fix the plan?",
             evidence,
         )
 
-        self.assertEqual(numbers, [1, 2, 4, 5, 6])
-        self.assertIn("Six writers waited", answer)
-        self.assertIn("CREATE INDEX CONCURRENTLY", answer)
+        self.assertEqual(numbers, [1, 2, 4, 5])
+        self.assertIn("Two requests timed out", answer)
+        self.assertIn("unbatched priority_tier backfill", answer)
         self.assertIn("pg_blocking_pids returned (47901)", answer)
         self.assertNotIn("CHG-478FD535-03", answer)
 
