@@ -58,9 +58,9 @@ ANSWER_RECEIPT_SQL = (
     "SELECT * FROM proof.v_answer_receipts WHERE run_id = %(run_id)s"
 )
 
-# Database Insights hand-off (SPEC 6.3). The observability window is a single
-# run_id-bound row; the deep-link buttons are composed from it plus deployment
-# config, so the reproducible number on screen is the window itself.
+# Observed-window hand-off. The window is a single run_id-bound row; the optional
+# lock-analysis link is composed from it plus deployment config, so the
+# reproducible value on screen is the window itself.
 OBSERVABILITY_REF_SQL = (
     "SELECT run_id, db_resource_id, window_start, window_end, wait_event,\n"
     "       sql_digest, captured_at\n"

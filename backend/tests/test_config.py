@@ -28,6 +28,28 @@ class ConfigTests(unittest.TestCase):
 
         self.assertEqual(completed.stdout.strip(), expected)
 
+    def test_retired_database_insights_template_is_ignored(self) -> None:
+        environment = dict(os.environ)
+        environment["WORKBENCH_DBI_URL_TEMPLATE"] = (
+            "https://console.example.invalid/database-insights"
+        )
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from backend.app.config import get_settings; "
+                    "print(hasattr(get_settings(), 'workbench_dbi_url_template'))"
+                ),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+        self.assertEqual(completed.stdout.strip(), "False")
+
 
 if __name__ == "__main__":
     unittest.main()

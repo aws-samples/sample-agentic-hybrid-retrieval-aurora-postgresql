@@ -723,12 +723,11 @@ def _persist_success(
                         "run_id": run_id,
                     },
                 )
-                # Database Insights hand-off (SPEC 6.3). The window is the run's
-                # own persisted execution window, read back after the UPDATE set
-                # completed_at, so the deep link lands on exactly the interval
-                # this run occupied. No wait_event/sql_digest here: those belong
-                # to the incident-capture path (6.4). db_resource_id is stored as
-                # NULL when the deployment has not configured one.
+                # The observed window is the run's persisted execution window,
+                # read back after the UPDATE sets completed_at. It lets the Proof
+                # surface render a configured lock-analysis link for the exact
+                # interval this run occupied. db_resource_id is NULL until the
+                # deployment configures it.
                 cursor.execute(
                     """
                     INSERT INTO proof.observability_refs(

@@ -486,9 +486,8 @@ def workshop_run():
 def run_receipt(run_id: str, role: Persona = DEFAULT_ROLE):
     try:
         receipt = explain_ranking_impl(run_id, role=role)
-        # Database Insights hand-off (SPEC 6.3) belongs to the Proof HTTP surface,
-        # not the agent's explain_ranking tool, so it is attached here rather than
-        # inside explain_ranking_impl.
+        # The observed window and optional lock-analysis link belong to the Proof
+        # HTTP surface, not the agent's explain_ranking tool.
         receipt["observability_ref"] = observability_ref(run_id, role=role)
         return receipt
     except ValueError as error:

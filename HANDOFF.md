@@ -11,7 +11,7 @@ mechanism that still exists in portions of the runtime, tests, UI, and docs.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-D3 are complete. Tasks E1-G3 own the remaining UI, documentation,
+Tasks A1-E1 are complete. Tasks E2-G3 own the remaining UI, documentation,
 infrastructure, and rehearsal work. The plan's repository-wide alignment audit
 assigns every known stale surface to an explicit task; finding an unassigned
 stale surface is a plan defect and should be corrected before implementation
@@ -180,11 +180,18 @@ Completed and committed on this branch:
   after successful admission, and prints the closing thesis only after the
   participant's own validation is ready. Wave B also rejects a proposal whose
   retrieval run was not grounded in the active Wave A incident.
+- E1 removes the retired Database Insights configuration, API, and UI branch.
+  `proof.observability_refs` still publishes the observed retrieval window with
+  its verify SQL and can render only a configured lock-analysis link. The
+  participant UI now names the Hybrid Retrieval Agent and describes the
+  measured online schema and data migration, pool exhaustion and recovery,
+  ineffective `ANALYZE`, and missing composite index rather than the retired
+  ordinary-index / concurrent-repair story.
 
-Not yet implemented: the participant UI narrative; remaining participant and
-source documentation cleanup; infrastructure packaging; and the complete
-rehearsal. Until those tasks land, `make live-workshop` is not evidence that
-the approved scenario is release-complete.
+Not yet implemented: the remaining Corpus, plan, and supervised-execution UI
+work; participant and source documentation cleanup; infrastructure packaging;
+and the complete rehearsal. Until those tasks land, `make live-workshop` is not
+evidence that the approved scenario is release-complete.
 
 For D2/D3's supervised participant action, render the controlled-lab repair as:
 
@@ -330,6 +337,15 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   The new guard's database-backed contract needs a fresh run against this
   Aurora target; it is intentionally not marked as live-proven from the
   preceding rehearsal.
+- E1 source validation: `cd frontend && npm run build` passed; the focused
+  configuration and observability tests passed (8 tests); and the API imports
+  with a retired `WORKBENCH_DBI_URL_TEMPLATE` still set, proving the key is
+  ignored. The source-level suite passed 175 tests with 110 expected skips
+  because this shell has no resettable test DSN or live capture. Its local port
+  55432 has no server, and the installed client is PostgreSQL 18.4, so it is
+  not an allowed substitute for the required Aurora or local PostgreSQL 18.3
+  test target. The E1 live UI check and G-11/G-13/G-14/G-23 remain owed to the
+  next Aurora rehearsal.
 
 The test database is disposable and never a participant database. The earlier
 local PostgreSQL 18.4 run was diagnostic only and is not release evidence.
@@ -342,11 +358,12 @@ result as rehearsal evidence.
 
 ## Next Task
 
-Start E1: reconcile the participant UI narrative and remove the retired
-Database Insights surface. The checked-in `frontend/src/WorkbenchApp.tsx` and
-top-level documentation still contain the ordinary-index / concurrent-repair
-story; do not carry that language into the redesigned participant path. Read
-Task E1 in the binding plan before editing.
+Start E2: label Wave A and Wave B evidence on the Corpus surface. Derive the
+wave from each indexed document's source-bundle URI in
+`retrieval.v_corpus_distribution`; do not guess it from evidence kind. The
+panel must show a single Wave A group before Lab 4 and prove that Wave A counts
+do not change after additive Wave B admission. Read Task E2 in the binding plan
+before editing.
 
 Current maintenance hazards:
 

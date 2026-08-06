@@ -189,11 +189,9 @@ class Settings(BaseModel):
             "APP_DISPLAY_NAME", "Hybrid Retrieval Workbench"
         )
     )
-    # Database Insights hand-off (SPEC 6.3 / 5.4). The Aurora DbiResourceId and
-    # the console deep-link templates are deployment identity captured during the
-    # dry run, never guessed. They are empty by default: with no template, the
-    # Proof surface renders the observability window but no deep-link button, so
-    # nothing points at a URL that was not verified against the target console.
+    # Lock-analysis hand-off. Deployment identity and the console URL template
+    # are captured during the dry run, never guessed. With no template, the Proof
+    # surface still renders the observation window but no deep-link button.
     workbench_db_resource_id: str = Field(
         default_factory=lambda: os.environ.get("WORKBENCH_DB_RESOURCE_ID", "")
     )
@@ -201,14 +199,9 @@ class Settings(BaseModel):
         default_factory=lambda: os.environ.get("WORKBENCH_REGION")
         or os.environ.get("AWS_REGION", "us-east-1")
     )
-    # Templates use {region}, {db_resource_id}, and optionally {window_start} /
-    # {window_end} placeholders (SPEC 5.4). The operator captures the real console
-    # URL during the dry run and templates it; the API substitutes only the
-    # placeholders the operator put in, so the console's exact time-window param
-    # format is never invented here.
-    workbench_dbi_url_template: str = Field(
-        default_factory=lambda: os.environ.get("WORKBENCH_DBI_URL_TEMPLATE", "")
-    )
+    # The lock-analysis template may use {region}, {db_resource_id}, and
+    # {window_start}/{window_end}. The API substitutes only placeholders the
+    # operator captured from the real console URL during the dry run.
     workbench_lock_url_template: str = Field(
         default_factory=lambda: os.environ.get("WORKBENCH_LOCK_URL_TEMPLATE", "")
     )

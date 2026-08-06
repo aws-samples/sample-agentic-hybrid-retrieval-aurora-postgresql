@@ -1,12 +1,46 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from backend.app.insights import (
     _collect_scans,
     _planner_summary,
     _runtime_sql,
+    observability_ref,
 )
+
+
+class _ObservabilityCursor:
+    def __init__(self, ref: dict[str, object]) -> None:
+        self._ref = ref
+
+    def __enter__(self) -> _ObservabilityCursor:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def execute(self, *_: object, **__: object) -> None:
+        return None
+
+    def fetchone(self) -> dict[str, object]:
+        return self._ref
+
+
+class _ObservabilityConnection:
+    def __init__(self, ref: dict[str, object]) -> None:
+        self._cursor = _ObservabilityCursor(ref)
+
+    def __enter__(self) -> _ObservabilityConnection:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def cursor(self) -> _ObservabilityCursor:
+        return self._cursor
 
 
 class QueryPlanInsightTests(unittest.TestCase):
@@ -93,6 +127,50 @@ class QueryPlanInsightTests(unittest.TestCase):
         self.assertIsNone(uses_hnsw)
         self.assertIn("abstained before index traversal", summary)
         self.assertIn("zero to fusion", summary)
+
+    def test_observability_ref_emits_only_the_lock_analysis_link(self) -> None:
+        ref = {
+            "db_resource_id": "db-ABC123",
+            "window_start": SimpleNamespace(isoformat=lambda: "2026-08-05T12:00:00Z"),
+            "window_end": SimpleNamespace(isoformat=lambda: "2026-08-05T12:01:00Z"),
+            "wait_event": None,
+            "sql_digest": None,
+            "captured_at": "2026-08-05T12:01:01Z",
+        }
+        settings = SimpleNamespace(
+            workbench_region="us-east-1",
+            workbench_lock_url_template=(
+                "https://console.example.invalid/locks?"
+                "region={region}&resource={db_resource_id}&start={window_start}"
+            ),
+        )
+        with (
+            patch(
+                "backend.app.insights.get_dict_conn",
+                return_value=_ObservabilityConnection(ref),
+            ),
+            patch("backend.app.insights.get_settings", return_value=settings),
+            patch(
+                "backend.app.insights._run_role",
+                return_value="app_engineer",
+            ),
+        ):
+            payload = observability_ref("run-123")
+
+        self.assertEqual(
+            payload["links"],
+            [
+                {
+                    "kind": "lock_analysis",
+                    "label": "Open lock analysis",
+                    "url": (
+                        "https://console.example.invalid/locks?"
+                        "region=us-east-1&resource=db-ABC123&"
+                        "start=2026-08-05T12:00:00Z"
+                    ),
+                }
+            ],
+        )
 
 
 if __name__ == "__main__":

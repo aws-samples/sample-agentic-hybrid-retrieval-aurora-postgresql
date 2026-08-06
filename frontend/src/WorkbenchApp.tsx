@@ -116,7 +116,7 @@ const PRIMARY_NAV: NavSurface[] = [
   },
   {
     surface: 'agent',
-    label: 'Agent',
+    label: 'Hybrid Retrieval Agent',
     Icon: Sparkles,
     lenses: [
       { key: 'answer', label: 'Answer', Icon: FileCheck2 },
@@ -373,6 +373,12 @@ interface Stage {
   details: JsonRecord;
 }
 
+type ObservabilityLink = {
+  kind: 'lock_analysis';
+  label: string;
+  url: string;
+};
+
 interface ObservabilityRef {
   run_id: string;
   ref: {
@@ -383,7 +389,7 @@ interface ObservabilityRef {
     sql_digest: string | null;
     captured_at: string;
   } | null;
-  links: { kind: string; label: string; url: string }[];
+  links: ObservabilityLink[];
   _verify_sql?: VerifySql;
 }
 
@@ -611,12 +617,14 @@ const DEFAULT_QUERY = '';
 function liveQuestion(run: LiveRun | null | undefined): string {
   if (!run) return '';
   const validation = run.validation_change_key
-    ? ` What did ${run.validation_change_key} validate after the participant-approved index?`
+    ? ` What did ${run.validation_change_key} validate after the participant approved the recommendation?`
     : '';
   return (
-    `What caused the measured writer wait in ${run.incident_key}, how did ` +
-    `${run.unsafe_change_key} block writes, why did ${run.analyze_change_key} ` +
-    `not change the access path, and what did ${run.lock_key} prove?${validation}`
+    `What evidence explains the queued write timeouts in ${run.incident_key}, ` +
+    `how did ${run.unsafe_change_key} and ${run.lock_key} connect the online ` +
+    `schema and data migration to pool exhaustion, why did connected writes ` +
+    `recover after commit, and why did ${run.analyze_change_key} show that ` +
+    `ANALYZE did not change the slow query's access path?${validation}`
   );
 }
 
@@ -694,7 +702,7 @@ function livePresets(run: LiveRun | null | undefined): {
   {
     label: 'Semantic question',
     query:
-      'Why did reads continue while the writer waited behind the ordinary index build, and how did the concurrent build allow fresh DML?',
+      'Why did one unbatched priority_tier backfill exhaust the 10-connection application pool, why did connected writes drain after commit, and why did ANALYZE leave the orders query on a sequential scan?',
     mode: 'hybrid' as RetrievalMode,
     kind: 'all' as const,
     clusterId: '',
@@ -716,9 +724,9 @@ function livePresets(run: LiveRun | null | undefined): {
     clusterId: '',
   },
   {
-    label: 'Concurrent repair',
+    label: 'Access-path finding',
     query:
-      'Which measured change replaced the blocking ordinary index build with CREATE INDEX CONCURRENTLY?',
+      'What did the before- and after-ANALYZE plans prove about the missing composite index on orders?',
     mode: 'hybrid' as RetrievalMode,
     kind: 'change' as const,
     clusterId: '',
@@ -1435,12 +1443,9 @@ function VerifyAffordance({
   );
 }
 
-// Database Insights hand-off (SPEC 6.3). When a run has an observability window
-// the reproducible window is always shown with its verify affordance (Law 2).
-// The deep-link buttons render on top only when the deployment configured a
-// resolvable console URL template, so no button ever points at an unverified URL
-// (with no template the server returns no links). Jumping to the console is
-// following a citation (Law 4).
+// The observed window is always shown with its verify affordance (Law 2). The
+// lock-analysis link renders only when the deployment configured a resolvable
+// console URL template, so no button points at an unverified URL.
 function ObservabilityHandoff({ handoff }: { handoff?: ObservabilityRef }) {
   if (!handoff?.ref) return null;
   const { ref, links } = handoff;
@@ -6070,9 +6075,9 @@ export default function WorkbenchApp() {
               <div>
                 <span className="module-kicker">
                   {proveTab === 'answer'
-                    ? 'Agent · Answer'
+                    ? 'Hybrid Retrieval Agent · Answer'
                     : proveTab === 'graph'
-                      ? 'Agent · Relationships'
+                      ? 'Hybrid Retrieval Agent · Relationships'
                     : proveTab === 'receipt'
                       ? 'Proof · Run record'
                         : proveTab === 'replay'
@@ -6098,7 +6103,7 @@ export default function WorkbenchApp() {
                 </h1>
                 <p className="module-deck">
                   {proveTab === 'answer'
-                    ? 'Observe the model-selected tool sequence, bounded recovery, and citation gate behind the incident answer.'
+                    ? 'Observe the model-selected tool sequence, bounded recovery, and citation gate behind the evidence-backed answer.'
                     : proveTab === 'graph'
                       ? personaMode
                         ? 'Traverse foreign-key-derived facts and separately labeled inference without relaxing evidence authorization.'
@@ -6177,7 +6182,7 @@ export default function WorkbenchApp() {
                     )}
                     {agentDisplayState === 'complete'
                       ? 'Investigate again'
-                      : 'Investigate with agent'}
+                      : 'Ask Hybrid Retrieval Agent'}
                   </button>
                   <div className="agent-query-meta">
                     <span
@@ -6195,7 +6200,7 @@ export default function WorkbenchApp() {
                           ? 'persisted answer loaded'
                           : 'citation gate passed'
                         : agentDisplayState === 'streaming'
-                          ? 'agent running'
+                          ? 'Hybrid Retrieval Agent running'
                           : 'ready to investigate'}
                     </span>
                     {answer?.run_id || runId ? (
@@ -6230,8 +6235,10 @@ export default function WorkbenchApp() {
                   <article className="answer-story-document">
                     {agentDisplayState === 'idle' ? (
                       <div className="answer-gate">
-                        <span className="answer-gate-count">Agent idle</span>
-                        <h2>No agent run is loaded.</h2>
+                        <span className="answer-gate-count">
+                          Hybrid Retrieval Agent idle
+                        </span>
+                        <h2>No Hybrid Retrieval Agent run is loaded.</h2>
                         <p className="answer-gate-lead">
                           No persisted or live agent evidence is available for this
                           {personaMode ? ' persona.' : ' investigation.'}
@@ -7674,29 +7681,41 @@ export default function WorkbenchApp() {
               <header>
                 <div>
                   <span className="section-label">
-                    Search-index build history
+                    Four-phase live evidence path
                   </span>
-                  <h2>Build without blocking casework</h2>
+                  <h2>Capture the evidence before the recommendation</h2>
                 </div>
                 <span className="status-pill ready">
                   {latestBuild?.status || 'checking'}
                 </span>
               </header>
-              <div className="build-methods">
+              <div className="evidence-phases">
                 <div>
-                  <strong>Ordinary CREATE INDEX</strong>
-                  <span>SHARE lock permits reads while writes queue.</span>
-                </div>
-                <div>
-                  <strong>CREATE INDEX CONCURRENTLY</strong>
+                  <strong>Online schema and data migration</strong>
                   <span>
-                    Two passes, no write blocking, INVALID cleanup on failure.
+                    Add a nullable priority_tier column, then backfill the
+                    orders table in one unbatched transaction.
                   </span>
                 </div>
                 <div>
-                  <strong>Blue/green</strong>
+                  <strong>Pool exhaustion</strong>
                   <span>
-                    Build, evaluate, then switch once the window is too large.
+                    Twelve hot writes meet the ten-slot application pool: ten
+                    block in PostgreSQL and two time out before checkout.
+                  </span>
+                </div>
+                <div>
+                  <strong>Measured recovery</strong>
+                  <span>
+                    Commit the backfill and watch the ten connected writes
+                    drain while the two checkout timeouts remain evidence.
+                  </span>
+                </div>
+                <div>
+                  <strong>Access-path finding</strong>
+                  <span>
+                    ANALYZE leaves the sequential scan in place; the missing
+                    composite index is validated only after participant approval.
                   </span>
                 </div>
               </div>

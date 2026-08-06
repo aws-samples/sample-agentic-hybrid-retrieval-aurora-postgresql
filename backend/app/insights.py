@@ -761,20 +761,20 @@ def observability_ref(
     run_id: str,
     role: str = "app_engineer",
 ) -> dict[str, Any]:
-    """Return the Database Insights hand-off for a run (SPEC 6.3).
+    """Return the observed window and optional lock-analysis link for a run.
 
-    The observability window is read from ``proof.observability_refs``; the deep
-    links are composed from it plus deployment config and appear only when a URL
-    template is configured and fully resolvable. When no row exists (a run that
-    predates this table, or a failed run) the whole ref is None.
+    The observed window is read from ``proof.observability_refs``. The lock
+    deep link is composed from it plus deployment config and appears only when a
+    URL template is configured and fully resolvable. When no row exists (a run
+    that predates this table, or a failed run) the whole ref is None.
 
     Args:
         run_id: The run whose observability window is being surfaced.
 
     Returns:
-        A payload with the stored window, any composed deep links, and a
-        ``_verify_sql`` descriptor for the window row; or ``{"run_id", "ref": None}``
-        when the run has no observability row.
+        A payload with the stored window, an optional lock-analysis link, and a
+        ``_verify_sql`` descriptor for the window row; or
+        ``{"run_id", "ref": None}`` when the run has no observability row.
     """
     stored_role = _run_role(run_id, role)
     with get_dict_conn(stored_role) as connection:
@@ -795,26 +795,18 @@ def observability_ref(
         if ref.get("window_end")
         else "",
     }
-    links = [
-        {
-            "kind": kind,
-            "label": label,
-            "url": url,
-        }
-        for kind, label, template in (
-            (
-                "database_insights",
-                "Open in Database Insights",
-                settings.workbench_dbi_url_template,
-            ),
-            (
-                "lock_analysis",
-                "Open lock analysis",
-                settings.workbench_lock_url_template,
-            ),
-        )
-        if (url := _render_deep_link(template, values))
-    ]
+    lock_url = _render_deep_link(settings.workbench_lock_url_template, values)
+    links = (
+        [
+            {
+                "kind": "lock_analysis",
+                "label": "Open lock analysis",
+                "url": lock_url,
+            }
+        ]
+        if lock_url
+        else []
+    )
     return {
         "run_id": run_id,
         "ref": ref,
