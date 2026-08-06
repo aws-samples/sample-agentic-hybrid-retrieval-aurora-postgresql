@@ -68,6 +68,71 @@ OBSERVABILITY_REF_SQL = (
     "WHERE run_id = %(run_id)s"
 )
 
+# --- Panel grain: supervised execution --------------------------------------
+# The verdict calls proof.autonomy_readiness() directly. Reimplementing its
+# eligibility rules here would create a second, drift-prone source of truth.
+ACTION_PROPOSAL_SQL = (
+    "SELECT proposal_id, agent_run_id, run_id, action_type, target_schema,\n"
+    "       target_table, index_method, is_unique, key_columns,\n"
+    "       included_columns, predicate, proposed_fingerprint, proposed_sql,\n"
+    "       proposed_sql_sha256, preconditions, expected_effect, rollback_sql,\n"
+    "       rollback_guidance, statement_timeout, lock_timeout, created_at\n"
+    "FROM proof.action_proposals\n"
+    "WHERE run_id = %(run_id)s\n"
+    "ORDER BY created_at DESC, proposal_id DESC"
+)
+
+ACTION_EXECUTION_SQL = (
+    "WITH selected_proposal AS (\n"
+    "  SELECT proposal_id\n"
+    "  FROM proof.action_proposals\n"
+    "  WHERE run_id = %(run_id)s\n"
+    "  ORDER BY created_at DESC, proposal_id DESC\n"
+    "  LIMIT 1\n"
+    ")\n"
+    "SELECT execution.execution_id, execution.proposal_id, execution.run_id,\n"
+    "       execution.approved_by, execution.approved_at,\n"
+    "       observed_index_definition, observed_fingerprint,\n"
+    "       fingerprint_matches, outcome, outcome_detail, started_at,\n"
+    "       completed_at, plan_before_checkpoint, plan_after_checkpoint,\n"
+    "       wave_b_capture_id, wave_b_ingest_id\n"
+    "FROM proof.action_executions execution\n"
+    "JOIN selected_proposal proposal\n"
+    "  ON proposal.proposal_id = execution.proposal_id\n"
+    # Keep the same ordering proof.autonomy_readiness() uses: two attempts can
+    # share approved_at, and the panel must describe the attempt it evaluated.
+    "ORDER BY execution.approved_at DESC, execution.recorded_seq DESC"
+)
+
+AUTONOMY_VERDICT_SQL = (
+    "SELECT p.proposal_id,\n"
+    "       v.pre_execution_eligible,\n"
+    "       v.pre_execution_reasons,\n"
+    "       v.post_execution_validated,\n"
+    "       v.post_execution_reasons\n"
+    "FROM proof.action_proposals p\n"
+    "CROSS JOIN proof.autonomy_readiness(p.proposal_id) v\n"
+    "WHERE p.run_id = %(run_id)s\n"
+    "ORDER BY p.created_at DESC, p.proposal_id DESC"
+)
+
+PROPOSAL_CITATION_SQL = (
+    "SELECT link.citation_number, link.claim, citation.source_uri,\n"
+    "       citation.source_revision, citation.quote_text, validation.is_valid,\n"
+    "       validation.issue\n"
+    "FROM proof.action_proposal_citations link\n"
+    "JOIN proof.action_proposals proposal\n"
+    "  ON proposal.proposal_id = link.proposal_id\n"
+    " AND proposal.run_id = link.run_id\n"
+    "LEFT JOIN proof.answer_citations citation\n"
+    "  ON citation.run_id = link.run_id\n"
+    " AND citation.citation_number = link.citation_number\n"
+    "LEFT JOIN proof.validate_answer_citations(proposal.run_id) validation\n"
+    "  ON validation.citation_number = link.citation_number\n"
+    "WHERE link.proposal_id = %(proposal_id)s\n"
+    "ORDER BY link.citation_number"
+)
+
 # --- Panel grain: corpus distribution ----------------------------------------
 # The diagnostics endpoint executes this exact statement and publishes the same
 # descriptor. Wave provenance is resolved by v_corpus_distribution itself.
@@ -243,6 +308,32 @@ def receipt_verify_sql(run_id: str, persona: str) -> dict[str, dict[str, Any]]:
         "stages": _descriptor(STAGE_RECEIPT_SQL, binds, persona),
         "answer": _descriptor(ANSWER_RECEIPT_SQL, binds, persona),
     }
+
+
+def supervision_verify_sql(
+    run_id: str,
+    persona: str,
+    proposal_id: str | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Return panel-grain descriptors for a supervised execution record.
+
+    ``proposal_id`` is supplied only after the reader has selected the proposal
+    displayed by this run. Citation links are proposal-grain, while the other
+    three panels are run-grain.
+    """
+    binds = {"run_id": run_id}
+    descriptors = {
+        "proposal": _descriptor(ACTION_PROPOSAL_SQL, binds, persona),
+        "execution": _descriptor(ACTION_EXECUTION_SQL, binds, persona),
+        "verdict": _descriptor(AUTONOMY_VERDICT_SQL, binds, persona),
+    }
+    if proposal_id is not None:
+        descriptors["citations"] = _descriptor(
+            PROPOSAL_CITATION_SQL,
+            {"proposal_id": proposal_id},
+            persona,
+        )
+    return descriptors
 
 
 def corpus_distribution_verify_sql(persona: str) -> dict[str, Any]:

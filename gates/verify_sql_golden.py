@@ -224,6 +224,42 @@ def _check_corpus_distribution(cur, api_base: str, ok_lines: list[str]) -> None:
     )
 
 
+def _check_supervision(
+    cur,
+    api_base: str,
+    run_id: str,
+    ok_lines: list[str],
+) -> None:
+    """Diff the supervised-execution panels for the smoke run.
+
+    Smoke normally creates no proposal, which is a valid empty state and
+    therefore an explicit zero-descriptor replay rather than a silent pass.
+    Proposal, execution, and verdict are set-valued SQL collapsed to the same
+    latest row that ``supervision_receipt`` publishes.
+    """
+    panel = _get_json(api_base, f"/v1/runs/{run_id}/supervision")
+    verify = panel.get("_verify_sql")
+    if not verify:
+        raise Mismatch(
+            f"/v1/runs/{run_id}/supervision carries no _verify_sql "
+            "(registry not attached)"
+        )
+    if panel.get("proposal") is None:
+        ok_lines.append(
+            "  supervision: no proposal on the smoke run; 0 descriptor(s) replayed"
+        )
+        return
+
+    for member, descriptor in verify.items():
+        published = panel[member]
+        replayed = _replay(cur, descriptor, f"supervision.{member}")
+        if member in {"proposal", "execution", "verdict"}:
+            replayed = replayed[0] if replayed else None
+        ok_lines.append(
+            _require_equal(f"supervision.{member}", replayed, published)
+        )
+
+
 def _check_elements(
     cur,
     api_base: str,
@@ -311,6 +347,7 @@ def run() -> int:
                     "timeline.event",
                     ok_lines,
                 )
+                _check_supervision(cur, api_base, run_id, ok_lines)
             conn.rollback()
     except Mismatch as mismatch:
         for line in ok_lines:

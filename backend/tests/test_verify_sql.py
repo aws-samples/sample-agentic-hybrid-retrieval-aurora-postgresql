@@ -83,6 +83,13 @@ class VerifySqlEnvelopeTests(unittest.TestCase):
     def _every_descriptor(self) -> list[tuple[str, dict[str, object]]]:
         """Return (label, descriptor) for every descriptor the registry publishes."""
         named = list(verify_sql.receipt_verify_sql("rr_1", "app_engineer").items())
+        named.extend(
+            verify_sql.supervision_verify_sql(
+                "rr_1",
+                "app_engineer",
+                "22222222-2222-2222-2222-222222222222",
+            ).items()
+        )
         named.append(
             (
                 "corpus.distribution",
@@ -99,6 +106,31 @@ class VerifySqlEnvelopeTests(unittest.TestCase):
             )
         )
         return named
+
+    def test_supervision_citation_descriptor_is_proposal_bound(self) -> None:
+        descriptors = verify_sql.supervision_verify_sql(
+            "rr_1",
+            "dba",
+            "22222222-2222-2222-2222-222222222222",
+        )
+
+        self.assertEqual(
+            descriptors["citations"]["binds"],
+            {"proposal_id": "22222222-2222-2222-2222-222222222222"},
+        )
+        self.assertNotIn("run_id", descriptors["citations"]["binds"])
+        self.assertIn(
+            "proof.validate_answer_citations",
+            descriptors["citations"]["statement"],
+        )
+        self.assertIn(
+            "WITH selected_proposal AS",
+            descriptors["execution"]["statement"],
+        )
+        self.assertIn(
+            "ON proposal.proposal_id = execution.proposal_id",
+            descriptors["execution"]["statement"],
+        )
 
     def test_no_statement_carries_a_semicolon(self) -> None:
         """The single-SELECT contract, asserted where it runs without a database.
@@ -123,6 +155,7 @@ class VerifySqlEnvelopeTests(unittest.TestCase):
         """A defaulted persona would publish SQL under an identity nobody chose."""
         for factory, args in (
             (verify_sql.receipt_verify_sql, ("rr_1",)),
+            (verify_sql.supervision_verify_sql, ("rr_1",)),
             (verify_sql.corpus_distribution_verify_sql, ()),
             (verify_sql.edge_verify_sql, ("edge-1",)),
             (verify_sql.event_verify_sql, ("11111111-1111-1111-1111-111111111111",)),

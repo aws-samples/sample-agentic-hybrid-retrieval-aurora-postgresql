@@ -9031,6 +9031,231 @@ td span {
   }
 }
 
+/* Proof · Supervision ------------------------------------------------------ */
+.supervision-theater {
+  min-width: 0;
+  margin-top: 12px;
+  padding: 22px 24px;
+  background: var(--paper);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow);
+}
+
+.supervision-theater > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.supervision-theater h2 {
+  max-width: 900px;
+  margin: 7px 0 0;
+  font: 600 17px/1.4 var(--serif);
+}
+
+.supervision-theater-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.supervision-panel {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hair-soft);
+}
+
+.supervision-panel h3 {
+  margin: 0 0 12px;
+  font: 600 14px/1.4 var(--sans);
+  color: var(--ink);
+}
+
+.supervision-panel dl {
+  display: grid;
+  grid-template-columns: minmax(140px, max-content) minmax(0, 1fr);
+  gap: 6px 18px;
+  margin: 0;
+  font: 400 14px/1.5 var(--workbench-data);
+}
+
+.supervision-panel dt {
+  color: var(--muted);
+}
+
+.supervision-panel dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+.supervision-sql {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font: 400 13px/1.6 var(--mono);
+  color: var(--ink);
+  background: var(--sql-body);
+  border-radius: var(--radius-control);
+}
+
+.supervision-note {
+  max-width: 68ch;
+  margin: 12px 0 0;
+  font: 400 13px/1.6 var(--sans);
+  color: var(--ink-soft);
+}
+
+.supervision-checks,
+.supervision-reasons,
+.supervision-citations {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.supervision-checks li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 7px 0;
+  font: 400 13px/1.5 var(--workbench-data);
+  border-bottom: 1px solid var(--hair-soft);
+}
+
+.supervision-checks li:last-child {
+  border-bottom: 0;
+}
+
+.supervision-checks strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.supervision-checks em {
+  flex-basis: 100%;
+  font-style: normal;
+  color: var(--muted);
+}
+
+.supervision-checks .is-satisfied span,
+.supervision-citations .is-valid {
+  color: var(--green);
+}
+
+.supervision-checks .is-unsatisfied span,
+.supervision-citations .is-invalid {
+  color: var(--red-deep);
+}
+
+.supervision-citations .is-unavailable {
+  color: var(--muted);
+}
+
+.supervision-citations li {
+  padding: 12px 0;
+  border-top: 1px solid var(--hair-soft);
+}
+
+.supervision-citations li:first-child {
+  border-top: 0;
+}
+
+.supervision-citations header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font: 600 13px/1.5 var(--workbench-data);
+}
+
+.supervision-citations header span {
+  white-space: nowrap;
+}
+
+.supervision-citations p,
+.supervision-citations blockquote,
+.supervision-citations code,
+.supervision-citations small {
+  display: block;
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.supervision-citations p {
+  color: var(--ink);
+  font: 400 13px/1.55 var(--sans);
+}
+
+.supervision-citations blockquote {
+  padding-left: 12px;
+  color: var(--ink-soft);
+  border-left: 2px solid var(--hair-strong);
+  font: 400 13px/1.55 var(--sans);
+}
+
+.supervision-citations code,
+.supervision-citations small {
+  color: var(--muted);
+  font: 400 12px/1.5 var(--mono);
+}
+
+.supervision-verdict .is-eligible,
+.supervision-verdict .is-validated {
+  margin: 0;
+  padding: 10px 14px;
+  font: 600 14px/1.5 var(--sans);
+  color: var(--green);
+  background: var(--green-wash);
+  border-radius: var(--radius-control);
+}
+
+.supervision-verdict .is-blocked,
+.supervision-verdict .is-unvalidated {
+  margin: 0;
+  padding: 10px 14px;
+  font: 600 14px/1.5 var(--sans);
+  color: var(--red-deep);
+  background: var(--wash);
+  border-radius: var(--radius-control);
+}
+
+.supervision-verdict .is-validated,
+.supervision-verdict .is-unvalidated {
+  margin-top: 16px;
+}
+
+.supervision-reasons li {
+  margin-top: 8px;
+  padding-left: 14px;
+  font: 400 13px/1.6 var(--sans);
+  color: var(--ink-soft);
+  border-left: 2px solid var(--hair-strong);
+}
+
+@media (max-width: 660px) {
+  .supervision-theater {
+    padding: 18px 16px;
+  }
+
+  .supervision-theater > header {
+    flex-direction: column;
+  }
+
+  .supervision-panel dl {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .supervision-panel dt {
+    margin-top: 10px;
+  }
+}
+
 @media (max-width: 660px) {
   .side-rail {
     position: sticky;

@@ -11624,15 +11624,15 @@ content constants and no fallbacks. An absent proposal is a rendered empty state
 ("no proposal recorded for this run"), never invented content.
 
 - [ ] **Step 1: Add the registry statements.** Append to
-  `backend/app/verify_sql.py`, after `OBSERVABILITY_REF_SQL`. Three panel-grain
-  statements, each a single `run_id`-bound SELECT, matching the module's stated
-  panel grain:
+  `backend/app/verify_sql.py`, after `OBSERVABILITY_REF_SQL`. Three run-grain
+  statements plus one proposal-grain citation statement, each a single SELECT
+  matching the module's stated panel grain:
 
 ```python
 # --- Panel grain: supervised execution (SPEC's Supervised Execution Model) ----
-# Three run_id-bound SELECTs. The verdict is a function call, not a recomputation:
-# the panel shows what proof.autonomy_readiness() returned, and this statement
-# replays that same call rather than re-deriving eligibility client-side.
+# Three run_id-bound SELECTs plus a proposal-bound citation SELECT. The verdict is
+# a function call, not a recomputation: the panel shows what
+# proof.autonomy_readiness() returned rather than re-deriving eligibility client-side.
 
 ACTION_PROPOSAL_SQL = (
     "SELECT proposal_id, agent_run_id, run_id, action_type, target_schema,\n"
@@ -11642,24 +11642,33 @@ ACTION_PROPOSAL_SQL = (
     "       rollback_guidance, statement_timeout, lock_timeout, created_at\n"
     "FROM proof.action_proposals\n"
     "WHERE run_id = %(run_id)s\n"
-    "ORDER BY created_at DESC"
+    "ORDER BY created_at DESC, proposal_id DESC"
 )
 
 ACTION_EXECUTION_SQL = (
-    "SELECT execution_id, proposal_id, run_id, approved_by, approved_at,\n"
+    "WITH selected_proposal AS (\n"
+    "  SELECT proposal_id\n"
+    "  FROM proof.action_proposals\n"
+    "  WHERE run_id = %(run_id)s\n"
+    "  ORDER BY created_at DESC, proposal_id DESC\n"
+    "  LIMIT 1\n"
+    ")\n"
+    "SELECT execution.execution_id, execution.proposal_id, execution.run_id,\n"
+    "       execution.approved_by, execution.approved_at,\n"
     "       observed_index_definition, observed_fingerprint,\n"
     "       fingerprint_matches, outcome, outcome_detail, started_at,\n"
     "       completed_at, plan_before_checkpoint, plan_after_checkpoint,\n"
     "       wave_b_capture_id, wave_b_ingest_id\n"
-    "FROM proof.action_executions\n"
-    "WHERE run_id = %(run_id)s\n"
+    "FROM proof.action_executions execution\n"
+    "JOIN selected_proposal proposal\n"
+    "  ON proposal.proposal_id = execution.proposal_id\n"
     # recorded_seq, byte-for-byte the same ORDER BY as
     # proof.autonomy_readiness(). Two attempts recorded in one transaction share
     # an approved_at, so ordering on it alone let the panel and the verdict pick
     # DIFFERENT rows -- the panel would show a failed attempt beside a verdict
     # computed from the successful one. Measured non-deterministic on PostgreSQL
     # 17.10; see the recorded_seq column comment in Task A5 step 3.
-    "ORDER BY approved_at DESC, recorded_seq DESC"
+    "ORDER BY execution.approved_at DESC, execution.recorded_seq DESC"
 )
 
 AUTONOMY_VERDICT_SQL = (
@@ -11671,15 +11680,19 @@ AUTONOMY_VERDICT_SQL = (
     "FROM proof.action_proposals p\n"
     "CROSS JOIN proof.autonomy_readiness(p.proposal_id) v\n"
     "WHERE p.run_id = %(run_id)s\n"
-    "ORDER BY p.created_at DESC"
+    "ORDER BY p.created_at DESC, p.proposal_id DESC"
 )
 ```
 
   And the accessor, beside `receipt_verify_sql`:
 
 ```python
-def supervision_verify_sql(run_id: str, persona: str) -> dict[str, dict[str, Any]]:
-    """Return the three panel-grain descriptors for the supervision lens.
+def supervision_verify_sql(
+    run_id: str,
+    persona: str,
+    proposal_id: str | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Return the supervision-lens descriptors.
 
     Args:
         run_id: The run whose proposal and execution are being rendered.
@@ -11688,14 +11701,22 @@ def supervision_verify_sql(run_id: str, persona: str) -> dict[str, dict[str, Any
 
     Returns:
         A ``panel -> descriptor`` map for the proposal, execution, and verdict
-        panels, each replayable with ``{"run_id": run_id}``.
+        panels. Citation links are proposal-grain and are added only when the
+        selected proposal id is available.
     """
     binds = {"run_id": run_id}
-    return {
+    descriptors = {
         "proposal": _descriptor(ACTION_PROPOSAL_SQL, binds, persona),
         "execution": _descriptor(ACTION_EXECUTION_SQL, binds, persona),
         "verdict": _descriptor(AUTONOMY_VERDICT_SQL, binds, persona),
     }
+    if proposal_id is not None:
+        descriptors["citations"] = _descriptor(
+            PROPOSAL_CITATION_SQL,
+            {"proposal_id": proposal_id},
+            persona,
+        )
+    return descriptors
 ```
 
   **The verdict panel's `_verify_sql` calls `proof.autonomy_readiness()` — it does
@@ -11715,10 +11736,11 @@ def supervision_receipt(
 ) -> dict[str, Any]:
     """Return the supervised-execution record for a run.
 
-    Three reads, in the order the participant meets them: what the agent proposed,
-    what the human executed, and what the computed autonomy verdict says about
-    both. The verdict comes from proof.autonomy_readiness() -- this function does
-    not evaluate eligibility, and neither does its caller.
+    Four reads, in the order the participant meets them: what the agent proposed,
+    its supporting citations, what the human executed, and what the computed
+    autonomy verdict says about both. The verdict comes from
+    proof.autonomy_readiness() -- this function does not evaluate eligibility,
+    and neither does its caller.
 
     Args:
         run_id: The retrieval run whose proposal and execution are being read.
@@ -11746,19 +11768,20 @@ def supervision_receipt(
                     {"proposal_id": proposals[0]["proposal_id"]},
                 )
                 citations = cursor.fetchall()
+    proposal = proposals[0] if proposals else None
     return {
         "run_id": run_id,
-        # The latest of each. proof.autonomy_readiness() reads the latest
-        # execution too, with the IDENTICAL `ORDER BY approved_at DESC,
-        # recorded_seq DESC`, so the panel and the verdict describe the same
-        # attempt rather than two different ones. If either ordering is ever
-        # changed, change both -- a panel describing one attempt beside a verdict
-        # computed from another is worse than showing nothing.
-        "proposal": proposals[0] if proposals else None,
+        # The execution CTE selects this same latest proposal first, then applies
+        # proof.autonomy_readiness()'s recorded_seq ordering within it.
+        "proposal": proposal,
         "citations": citations,
         "execution": executions[0] if executions else None,
         "verdict": verdicts[0] if verdicts else None,
-        "_verify_sql": supervision_verify_sql(run_id, stored_role),
+        "_verify_sql": supervision_verify_sql(
+            run_id,
+            stored_role,
+            str(proposal["proposal_id"]) if proposal else None,
+        ),
     }
 ```
 
@@ -12062,7 +12085,7 @@ interface SupervisionReceipt {
 ```
 
 - [ ] **Step 5i: Render the panels.** Add the block after the timeline lens's
-  closing `) : null}` (line 7306), following that block's shape. Four sections in
+  closing `) : null}` (line 7306), following that block's shape. Five sections in
   the order the participant reads them, and the verdict section renders `verdict`
   fields only:
 
@@ -12078,7 +12101,7 @@ interface SupervisionReceipt {
                   </div>
                   <div className="supervision-theater-meta">
                     <span className="status-pill">
-                      {supervision?.proposal ? '1 proposal' : 'no proposal'}
+                      {supervision?.proposal ? 'latest proposal' : 'no proposal'}
                     </span>
                     <span className="status-pill">
                       {supervision?.execution
@@ -12138,6 +12161,16 @@ interface SupervisionReceipt {
                       </p>
                       <VerifyAffordance
                         descriptor={supervision._verify_sql?.proposal}
+                      />
+                    </article>
+
+                    <article className="supervision-panel">
+                      <h3>Supporting citations</h3>
+                      {/* Render the proposal claim, quote/source/revision, and
+                          each citation's valid, invalid, or persona-unavailable
+                          status from supervision.citations. */}
+                      <VerifyAffordance
+                        descriptor={supervision._verify_sql?.citations}
                       />
                     </article>
 

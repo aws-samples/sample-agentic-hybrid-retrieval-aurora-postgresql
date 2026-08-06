@@ -27,6 +27,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   TriangleAlert,
+  UserCheck,
   Wrench,
   X,
 } from 'lucide-react';
@@ -74,6 +75,7 @@ type ProveTab =
   | 'receipt'
   | 'replay'
   | 'timeline'
+  | 'supervision'
   | 'evaluation';
 
 // Overview-first IA (D16 / SPEC 6.0). Primary nav mirrors the lab ladder;
@@ -131,6 +133,7 @@ const PRIMARY_NAV: NavSurface[] = [
       { key: 'receipt', label: 'Run record', Icon: Clipboard },
       { key: 'replay', label: 'Replay', Icon: Play },
       { key: 'timeline', label: 'Timeline', Icon: GitMerge },
+      { key: 'supervision', label: 'Supervision', Icon: UserCheck },
     ],
   },
 ];
@@ -547,6 +550,78 @@ interface RunTimeline {
   run_id: string;
   edge_count: number;
   events: TimelineEvent[];
+}
+
+interface ActionProposal {
+  proposal_id: string;
+  agent_run_id: string;
+  run_id: string;
+  action_type: string;
+  target_schema: string;
+  target_table: string;
+  index_method: string;
+  is_unique: boolean;
+  key_columns: string[];
+  included_columns: string[];
+  predicate: string | null;
+  proposed_fingerprint: string;
+  proposed_sql: string;
+  proposed_sql_sha256: string;
+  preconditions: Array<{
+    check: string;
+    satisfied: boolean;
+    detail?: string;
+  }>;
+  expected_effect: string;
+  rollback_sql: string | null;
+  rollback_guidance: string | null;
+  statement_timeout: string | null;
+  lock_timeout: string | null;
+  created_at: string;
+}
+
+interface ActionExecution {
+  execution_id: string;
+  proposal_id: string;
+  run_id: string;
+  approved_by: string;
+  approved_at: string;
+  observed_index_definition: string | null;
+  observed_fingerprint: string | null;
+  fingerprint_matches: boolean | null;
+  outcome: string;
+  outcome_detail: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  plan_before_checkpoint: string | null;
+  plan_after_checkpoint: string | null;
+  wave_b_capture_id: string | null;
+  wave_b_ingest_id: string | null;
+}
+
+interface AutonomyVerdict {
+  proposal_id: string;
+  pre_execution_eligible: boolean;
+  pre_execution_reasons: string[];
+  post_execution_validated: boolean;
+  post_execution_reasons: string[];
+}
+
+interface SupervisionReceipt {
+  run_id: string;
+  proposal: ActionProposal | null;
+  citations: Array<{
+    citation_number: number;
+    claim: string;
+    source_uri: string | null;
+    source_revision: string | null;
+    quote_text: string | null;
+    is_valid: boolean | null;
+    issue: string | null;
+  }>;
+  execution: ActionExecution | null;
+  verdict: AutonomyVerdict | null;
+  _verify_sql?: Record<string, VerifySql>;
 }
 
 interface QueryPlanResponse {
@@ -3822,6 +3897,8 @@ export default function WorkbenchApp() {
   const [receipt, setReceipt] = useState<RunReceipt | null>(null);
   const [graph, setGraph] = useState<RunGraph | null>(null);
   const [timeline, setTimeline] = useState<RunTimeline | null>(null);
+  const [supervision, setSupervision] =
+    useState<SupervisionReceipt | null>(null);
   const [answer, setAnswer] = useState<AnswerReceipt | null>(null);
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [planArm, setPlanArm] =
@@ -4080,6 +4157,7 @@ export default function WorkbenchApp() {
     setReceipt(null);
     setGraph(null);
     setTimeline(null);
+    setSupervision(null);
     setAnswer(null);
     setRunId('');
     setSelectedProofCitation(1);
@@ -4152,6 +4230,8 @@ export default function WorkbenchApp() {
             ? 'replay'
             : lens === 'timeline'
               ? 'timeline'
+              : lens === 'supervision'
+                ? 'supervision'
               : 'receipt',
         );
         break;
@@ -4183,7 +4263,8 @@ export default function WorkbenchApp() {
                 ? 'evaluation'
                 : proveTab === 'receipt' ||
                     proveTab === 'replay' ||
-                    proveTab === 'timeline'
+                    proveTab === 'timeline' ||
+                    proveTab === 'supervision'
                   ? 'proof'
                   : 'agent';
   const activeLens: string =
@@ -4335,10 +4416,14 @@ export default function WorkbenchApp() {
     setError(null);
     try {
       const roleQuery = `role=${encodeURIComponent(requestedRole)}`;
-      const [runReceipt, runGraph, runTimeline] = await Promise.all([
+      const [runReceipt, runGraph, runTimeline, runSupervision] =
+        await Promise.all([
         api<RunReceipt>(`/v1/runs/${runKey}?${roleQuery}`),
         api<RunGraph>(`/v1/runs/${runKey}/graph?${roleQuery}`),
         api<RunTimeline>(`/v1/runs/${runKey}/timeline?${roleQuery}`),
+        api<SupervisionReceipt>(
+          `/v1/runs/${runKey}/supervision?${roleQuery}`,
+        ),
       ]);
       const ranked = runReceipt.candidates.map((candidate, index) => ({
         ...candidate,
@@ -4348,6 +4433,7 @@ export default function WorkbenchApp() {
       setReceipt(runReceipt);
       setGraph(runGraph);
       setTimeline(runTimeline);
+      setSupervision(runSupervision);
       setCandidates(ranked);
       setAnswer(runReceipt.answer);
       setRunId(runReceipt.run.run_id);
@@ -6150,7 +6236,9 @@ export default function WorkbenchApp() {
                           ? 'Proof · Replay'
                           : proveTab === 'timeline'
                             ? 'Proof · Timeline'
-                            : 'Evaluation'}
+                            : proveTab === 'supervision'
+                              ? 'Proof · Supervision'
+                              : 'Evaluation'}
                 </span>
                 <h1>
                   {proveTab === 'answer' ? (
@@ -6163,6 +6251,8 @@ export default function WorkbenchApp() {
                     <>Replay the answer from its <em>database run record.</em></>
                   ) : proveTab === 'timeline' ? (
                     <>Same evidence, <em>ordered by when it happened.</em></>
+                  ) : proveTab === 'supervision' ? (
+                    <>A human approved it. <em>The database recorded both.</em></>
                   ) : (
                     <>Evidence, <em>not anecdotes.</em></>
                   )}
@@ -6180,7 +6270,9 @@ export default function WorkbenchApp() {
                           ? 'Walk the persisted retrieval stages in chronological order, reconstructed with no further model call.'
                           : proveTab === 'timeline'
                             ? 'Plot the cited evidence by source system and calendar day. Retrieval ranks it; the incident happened in order.'
-                            : 'Measure retrieval modes and graph traversal with different metrics.'}
+                            : proveTab === 'supervision'
+                              ? 'Compare the agent proposal with the human execution, then read the database-computed autonomy assessment.'
+                              : 'Measure retrieval modes and graph traversal with different metrics.'}
                 </p>
               </div>
               {proveTab !== 'answer' ? (
@@ -7383,6 +7475,258 @@ export default function WorkbenchApp() {
                     title="No timeline loaded"
                     detail="Load a run to plot its cited evidence by system and day."
                   />
+                )}
+              </section>
+            ) : null}
+
+            {proveTab === 'supervision' ? (
+              <section className="supervision-theater">
+                <header>
+                  <div>
+                    <span className="section-label">
+                      Proposed, approved, executed, assessed
+                    </span>
+                    <h2>{receipt?.run.query_text || controls.query}</h2>
+                  </div>
+                  <div className="supervision-theater-meta">
+                    <span className="status-pill">
+                      {supervision?.proposal ? 'latest proposal' : 'no proposal'}
+                    </span>
+                    <span className="status-pill">
+                      {supervision?.execution
+                        ? `executed: ${supervision.execution.outcome}`
+                        : 'not executed'}
+                    </span>
+                    <span className="status-pill">
+                      {supervision?.citations.length || 0} supporting citations
+                    </span>
+                  </div>
+                </header>
+
+                {!supervision?.proposal ? (
+                  <Empty
+                    icon={<UserCheck size={20} />}
+                    title="No proposal recorded for this run"
+                    detail="A proposal is written through the agent answer path. Runs answered another way, or before supervised execution shipped, have none."
+                  />
+                ) : (
+                  <>
+                    <article className="supervision-panel">
+                      <h3>What the agent proposed</h3>
+                      <dl>
+                        <dt>Action</dt>
+                        <dd>{supervision.proposal.action_type}</dd>
+                        <dt>Target</dt>
+                        <dd>
+                          {supervision.proposal.target_schema}.
+                          {supervision.proposal.target_table}
+                        </dd>
+                        <dt>Keys, in index order</dt>
+                        <dd>{supervision.proposal.key_columns.join(', ')}</dd>
+                        <dt>Expected effect</dt>
+                        <dd>{supervision.proposal.expected_effect}</dd>
+                        <dt>Rollback</dt>
+                        <dd>
+                          <code>
+                            {supervision.proposal.rollback_sql ||
+                              supervision.proposal.rollback_guidance ||
+                              '-'}
+                          </code>
+                        </dd>
+                        <dt>Bounds</dt>
+                        <dd>
+                          statement_timeout{' '}
+                          {supervision.proposal.statement_timeout || '-'},
+                          lock_timeout {supervision.proposal.lock_timeout || '-'}
+                        </dd>
+                      </dl>
+                      <pre className="supervision-sql">
+                        {supervision.proposal.proposed_sql}
+                      </pre>
+                      <p className="supervision-note">
+                        The agent holds no DDL privilege and no execution path.
+                        This statement is a recommendation a human runs.
+                      </p>
+                      <VerifyAffordance
+                        descriptor={supervision._verify_sql?.proposal}
+                      />
+                    </article>
+
+                    <article className="supervision-panel">
+                      <h3>Supporting citations</h3>
+                      {supervision.citations.length ? (
+                        <ol className="supervision-citations">
+                          {supervision.citations.map((citation) => (
+                            <li key={citation.citation_number}>
+                              <header>
+                                <strong>
+                                  Citation {citation.citation_number}
+                                </strong>
+                                <span
+                                  className={
+                                    citation.is_valid === true
+                                      ? 'is-valid'
+                                      : citation.is_valid === false
+                                        ? 'is-invalid'
+                                        : 'is-unavailable'
+                                  }
+                                >
+                                  {citation.is_valid === true
+                                    ? 'valid'
+                                    : citation.is_valid === false
+                                      ? citation.issue || 'invalid'
+                                      : 'not visible for this persona'}
+                                </span>
+                              </header>
+                              <p>{citation.claim}</p>
+                              <blockquote>
+                                {citation.quote_text ||
+                                  'The linked citation is not visible for this persona.'}
+                              </blockquote>
+                              <code>
+                                {citation.source_uri ||
+                                  'source unavailable for this persona'}
+                              </code>
+                              {citation.source_revision ? (
+                                <small>
+                                  revision {citation.source_revision}
+                                </small>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ol>
+                      ) : (
+                        <Empty
+                          icon={<FileCheck2 size={20} />}
+                          title="No supporting citations recorded"
+                          detail="The proposal is persisted, but it has no visible citation links."
+                        />
+                      )}
+                      <VerifyAffordance
+                        descriptor={supervision._verify_sql?.citations}
+                      />
+                    </article>
+
+                    <article className="supervision-panel">
+                      <h3>Preconditions, as measured</h3>
+                      <ul className="supervision-checks">
+                        {supervision.proposal.preconditions.map((check) => (
+                          <li
+                            key={check.check}
+                            className={
+                              check.satisfied
+                                ? 'is-satisfied'
+                                : 'is-unsatisfied'
+                            }
+                          >
+                            <strong>{check.check}</strong>
+                            <span>
+                              {check.satisfied
+                                ? 'satisfied'
+                                : 'not satisfied'}
+                            </span>
+                            {check.detail ? <em>{check.detail}</em> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </article>
+
+                    <article className="supervision-panel">
+                      <h3>What was executed</h3>
+                      {!supervision.execution ? (
+                        <Empty
+                          icon={<UserCheck size={20} />}
+                          title="No execution recorded"
+                          detail="The proposal is waiting on a human. Nothing has been run."
+                        />
+                      ) : (
+                        <>
+                          <dl>
+                            <dt>Approved by</dt>
+                            <dd>{supervision.execution.approved_by}</dd>
+                            <dt>Outcome</dt>
+                            <dd>{supervision.execution.outcome}</dd>
+                            <dt>Observed index</dt>
+                            <dd>
+                              <code>
+                                {supervision.execution
+                                  .observed_index_definition || '-'}
+                              </code>
+                            </dd>
+                            <dt>Matches the proposal</dt>
+                            <dd>
+                              {supervision.execution.fingerprint_matches
+                                ? 'yes'
+                                : 'no'}
+                            </dd>
+                            <dt>Plan evidence</dt>
+                            <dd>
+                              {supervision.execution.plan_before_checkpoint ||
+                                '-'}{' '}
+                              to{' '}
+                              {supervision.execution.plan_after_checkpoint ||
+                                '-'}
+                            </dd>
+                          </dl>
+                          <VerifyAffordance
+                            descriptor={supervision._verify_sql?.execution}
+                          />
+                        </>
+                      )}
+                    </article>
+
+                    <article className="supervision-panel supervision-verdict">
+                      <h3>Autonomy readiness</h3>
+                      <p
+                        className={
+                          supervision.verdict?.pre_execution_eligible
+                            ? 'is-eligible'
+                            : 'is-blocked'
+                        }
+                      >
+                        Before execution:{' '}
+                        {supervision.verdict?.pre_execution_eligible
+                          ? 'every pre-execution requirement was met'
+                          : 'not eligible'}
+                      </p>
+                      <ul className="supervision-reasons">
+                        {(
+                          supervision.verdict?.pre_execution_reasons ?? []
+                        ).map((reason) => (
+                          <li key={reason}>{reason}</li>
+                        ))}
+                      </ul>
+                      <p
+                        className={
+                          supervision.verdict?.post_execution_validated
+                            ? 'is-validated'
+                            : 'is-unvalidated'
+                        }
+                      >
+                        After execution:{' '}
+                        {supervision.verdict?.post_execution_validated
+                          ? 'the executed action matched the proposal and an admitted Wave B capture validated the result'
+                          : 'not validated'}
+                      </p>
+                      <ul className="supervision-reasons">
+                        {(
+                          supervision.verdict?.post_execution_reasons ?? []
+                        ).map((reason) => (
+                          <li key={reason}>{reason}</li>
+                        ))}
+                      </ul>
+                      <p className="supervision-note">
+                        This is an autonomy-readiness assessment, not autonomous
+                        execution. A human approved and executed this action. A
+                        validated result afterwards does not mean the action was
+                        safe to take unattended. The two verdicts are computed
+                        separately and neither rewrites the other.
+                      </p>
+                      <VerifyAffordance
+                        descriptor={supervision._verify_sql?.verdict}
+                      />
+                    </article>
+                  </>
                 )}
               </section>
             ) : null}

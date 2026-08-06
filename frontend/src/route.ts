@@ -40,7 +40,7 @@ export const SURFACE_LENSES: Record<RouteSurface, readonly string[]> = {
   overview: [],
   retrieval: ['results', 'fusion'],
   agent: ['answer', 'graph'],
-  proof: ['receipt', 'replay', 'timeline'],
+  proof: ['receipt', 'replay', 'timeline', 'supervision'],
   corpus: [],
   evaluation: [],
   health: [],

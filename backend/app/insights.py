@@ -11,13 +11,18 @@ from .embeddings import embed_text, to_pgvector
 from .models import QueryPlanRequest, SearchRequest
 from .search import single_arm_sql
 from .verify_sql import (
+    ACTION_EXECUTION_SQL,
+    ACTION_PROPOSAL_SQL,
+    AUTONOMY_VERDICT_SQL,
     CORPUS_DISTRIBUTION_SQL,
     EVIDENCE_EDGE_BATCH_SQL,
     OBSERVABILITY_REF_SQL,
+    PROPOSAL_CITATION_SQL,
     TIMELINE_EVENT_BATCH_SQL,
     corpus_distribution_verify_sql,
     edge_verify_sql,
     event_verify_sql,
+    supervision_verify_sql,
 )
 
 
@@ -818,6 +823,48 @@ def observability_ref(
         "ref": ref,
         "links": links,
         "_verify_sql": {"statement": OBSERVABILITY_REF_SQL, "binds": {"run_id": run_id}},
+    }
+
+
+def supervision_receipt(
+    run_id: str,
+    role: str = "app_engineer",
+) -> dict[str, Any]:
+    """Return the proposal, execution, and computed verdict for a run.
+
+    The stored run role determines visibility. This reader only renders the
+    database's autonomy verdict; it never re-evaluates eligibility from the
+    proposal or execution fields.
+    """
+    stored_role = _run_role(run_id, role)
+    with get_dict_conn(stored_role) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(ACTION_PROPOSAL_SQL, {"run_id": run_id})
+            proposals = cursor.fetchall()
+            cursor.execute(ACTION_EXECUTION_SQL, {"run_id": run_id})
+            executions = cursor.fetchall()
+            cursor.execute(AUTONOMY_VERDICT_SQL, {"run_id": run_id})
+            verdicts = cursor.fetchall()
+            citations: list[dict[str, Any]] = []
+            if proposals:
+                cursor.execute(
+                    PROPOSAL_CITATION_SQL,
+                    {"proposal_id": proposals[0]["proposal_id"]},
+                )
+                citations = cursor.fetchall()
+
+    proposal = proposals[0] if proposals else None
+    return {
+        "run_id": run_id,
+        "proposal": proposal,
+        "citations": citations,
+        "execution": executions[0] if executions else None,
+        "verdict": verdicts[0] if verdicts else None,
+        "_verify_sql": supervision_verify_sql(
+            run_id,
+            stored_role,
+            str(proposal["proposal_id"]) if proposal else None,
+        ),
     }
 
 

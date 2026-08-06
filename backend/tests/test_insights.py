@@ -9,6 +9,7 @@ from backend.app.insights import (
     _planner_summary,
     _runtime_sql,
     observability_ref,
+    supervision_receipt,
 )
 
 
@@ -40,6 +41,38 @@ class _ObservabilityConnection:
         return None
 
     def cursor(self) -> _ObservabilityCursor:
+        return self._cursor
+
+
+class _SupervisionCursor:
+    def __init__(self, result_sets: list[list[dict[str, object]]]) -> None:
+        self._result_sets = result_sets
+        self.statements: list[str] = []
+
+    def __enter__(self) -> _SupervisionCursor:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def execute(self, statement: str, *_: object, **__: object) -> None:
+        self.statements.append(statement)
+
+    def fetchall(self) -> list[dict[str, object]]:
+        return self._result_sets.pop(0)
+
+
+class _SupervisionConnection:
+    def __init__(self, cursor: _SupervisionCursor) -> None:
+        self._cursor = cursor
+
+    def __enter__(self) -> _SupervisionConnection:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def cursor(self) -> _SupervisionCursor:
         return self._cursor
 
 
@@ -173,6 +206,83 @@ class QueryPlanInsightTests(unittest.TestCase):
                 }
             ],
         )
+
+    def test_supervision_receipt_uses_the_computed_verdict_and_proposal_links(
+        self,
+    ) -> None:
+        proposal = {
+            "proposal_id": "22222222-2222-2222-2222-222222222222",
+            "action_type": "create_index",
+        }
+        execution = {"execution_id": "33333333-3333-3333-3333-333333333333"}
+        verdict = {
+            "proposal_id": proposal["proposal_id"],
+            "pre_execution_eligible": True,
+            "pre_execution_reasons": [],
+            "post_execution_validated": False,
+            "post_execution_reasons": ["no execution has been recorded yet"],
+        }
+        citation = {
+            "citation_number": 1,
+            "claim": "the index is supported by live evidence",
+            "is_valid": True,
+            "issue": None,
+        }
+        cursor = _SupervisionCursor([[proposal], [execution], [verdict], [citation]])
+        with (
+            patch(
+                "backend.app.insights.get_dict_conn",
+                return_value=_SupervisionConnection(cursor),
+            ),
+            patch(
+                "backend.app.insights._run_role",
+                return_value="app_engineer",
+            ),
+            patch(
+                "backend.app.insights.supervision_verify_sql",
+                return_value={"proposal": {"statement": "SELECT 1"}},
+            ) as verify_sql,
+        ):
+            payload = supervision_receipt("run-123")
+
+        self.assertEqual(payload["proposal"], proposal)
+        self.assertEqual(payload["execution"], execution)
+        self.assertEqual(payload["verdict"], verdict)
+        self.assertEqual(payload["citations"], [citation])
+        self.assertEqual(payload["_verify_sql"], {"proposal": {"statement": "SELECT 1"}})
+        verify_sql.assert_called_once_with(
+            "run-123",
+            "app_engineer",
+            proposal["proposal_id"],
+        )
+        self.assertEqual(len(cursor.statements), 4)
+        self.assertIn("proof.autonomy_readiness", cursor.statements[2])
+        self.assertIn("proof.action_proposal_citations", cursor.statements[3])
+
+    def test_supervision_receipt_preserves_a_run_without_a_proposal(self) -> None:
+        cursor = _SupervisionCursor([[], [], []])
+        with (
+            patch(
+                "backend.app.insights.get_dict_conn",
+                return_value=_SupervisionConnection(cursor),
+            ),
+            patch(
+                "backend.app.insights._run_role",
+                return_value="app_engineer",
+            ),
+            patch(
+                "backend.app.insights.supervision_verify_sql",
+                return_value={"proposal": {"statement": "SELECT 1"}},
+            ) as verify_sql,
+        ):
+            payload = supervision_receipt("run-123")
+
+        self.assertIsNone(payload["proposal"])
+        self.assertEqual(payload["citations"], [])
+        self.assertIsNone(payload["execution"])
+        self.assertIsNone(payload["verdict"])
+        self.assertEqual(len(cursor.statements), 3)
+        verify_sql.assert_called_once_with("run-123", "app_engineer", None)
 
 
 if __name__ == "__main__":

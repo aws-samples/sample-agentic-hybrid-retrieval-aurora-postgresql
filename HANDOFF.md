@@ -11,7 +11,7 @@ mechanism that still exists in portions of the runtime, tests, UI, and docs.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-E2 are complete. Tasks E3-G3 own the remaining UI, documentation,
+Tasks A1-E4 are complete. Tasks F1-G3 own the remaining documentation,
 infrastructure, and rehearsal work. The plan's repository-wide alignment audit
 assigns every known stale surface to an explicit task; finding an unassigned
 stale surface is a plan defect and should be corrected before implementation
@@ -193,11 +193,22 @@ Completed and committed on this branch:
   participant compare stable Wave A counts with additive Wave B counts. The
   diagnostics endpoint now publishes a canonical distribution verify descriptor,
   and G-13 replays it against the API response.
+- E3 labels a sequential scan only when its observed relation proves the
+  interpretation: a small `retrieval.*` evidence corpus may correctly scan
+  sequentially, while a sequential scan of `workbench_lab.orders` identifies the
+  missing access path that `ANALYZE` cannot create.
+- E4 adds the Proof surface's `supervision` lens and
+  `GET /v1/runs/{run_id}/supervision`. It reads the latest proposal for the run,
+  the proposal's own citation links, only execution attempts for that proposal,
+  and the database-computed autonomy verdict. The UI renders the verdict rather
+  than inferring it, and G-13 replays every returned descriptor when a proposal
+  exists. The lens explicitly distinguishes a missing proposal, a pending human
+  action, a mismatched execution, and a validated Wave B outcome.
 
-Not yet implemented: the remaining plan and supervised-execution UI work;
-participant and source documentation cleanup; infrastructure packaging; and the
-complete rehearsal. Until those tasks land, `make live-workshop` is not evidence
-that the approved scenario is release-complete.
+Not yet implemented: participant and source documentation cleanup,
+infrastructure packaging, and the complete rehearsal. Until those tasks land,
+`make live-workshop` is not evidence that the approved scenario is
+release-complete.
 
 For D2/D3's supervised participant action, render the controlled-lab repair as:
 
@@ -359,6 +370,18 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   rehearsal, apply the view to the dedicated PostgreSQL 18.3 test database,
   record the pre- and post-view document/chunk sums, verify Wave-A-only then
   two-wave rendering, and run G-13 to replay the distribution query.
+- E3 source validation: `cd frontend && npm run build` and
+  `backend/tests/test_insights.py` both passed. The live visual confirmation
+  remains owed to the Aurora rehearsal: verify the retrieval scan note appears
+  only for `retrieval.*`, the incident note only for `workbench_lab.orders`, and
+  neither note appears for index scans or unrecognized relations.
+- E4 source validation: `cd frontend && npm run build` passed; 18 focused
+  `backend.tests.test_verify_sql` and `backend.tests.test_insights` contracts
+  passed; G-11, G-14, and G-23 passed. G-13 and G-34 remain blocked here because
+  no approved Aurora PostgreSQL 18.3 `DATABASE_URL` is configured. In the full
+  rehearsal, use a proposal-bearing run to replay proposal, citations, execution,
+  and verdict descriptors; capture the pending and validated screens and prove
+  the pre-execution verdict remains byte-identical across them.
 
 The test database is disposable and never a participant database. The earlier
 local PostgreSQL 18.4 run was diagnostic only and is not release evidence.
@@ -371,11 +394,11 @@ result as rehearsal evidence.
 
 ## Next Task
 
-Start E3: distinguish the correct small-corpus retrieval sequential scan from
-the missing-index `workbench_lab.orders` sequential scan in the plan lens.
-Derive the note from the plan's relation name. Do not attach either explanation
-to an unexpected relation or an index-scan plan. Read Task E3 in the binding
-plan before editing.
+Start F1: remove the retired Performance Insights dependency from the
+infrastructure and participant documents. Keep CloudWatch supplemental,
+preserve the PostgreSQL and app-pool evidence boundary, and do not package or
+publish the sibling Workshop Studio repository before its user-owned work is
+ready. Read Task F1 in the binding plan before editing.
 
 Current maintenance hazards:
 

@@ -41,6 +41,7 @@ from .insights import (
     run_graph,
     run_timeline,
     slow_queries,
+    supervision_receipt,
 )
 from .lab_routes import router as lab_router
 from .models import (
@@ -514,6 +515,16 @@ def timeline(run_id: str, role: Persona = DEFAULT_ROLE):
         raise HTTPException(404, str(error))
     except Exception as error:
         raise _unavailable("run timeline", error)
+
+
+@app.get("/v1/runs/{run_id}/supervision")
+def supervision(run_id: str, role: Persona = DEFAULT_ROLE):
+    try:
+        return supervision_receipt(run_id, role=role)
+    except ValueError as error:
+        raise HTTPException(404, str(error))
+    except Exception as error:
+        raise _unavailable("supervision receipt", error)
 
 
 @app.get("/v1/runs/{run_id}/graph")
