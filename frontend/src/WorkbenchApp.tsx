@@ -814,6 +814,37 @@ function livePresets(run: LiveRun | null | undefined): {
   ];
 }
 
+function liveAgentExamples(run: LiveRun | null | undefined): {
+  label: string;
+  question: string;
+}[] {
+  if (!run) return [];
+  const fuzzyChangeKey = run.unsafe_change_key.replace(/^CHG-/, 'CGH-');
+
+  return [
+    {
+      label: 'Incident diagnosis',
+      question: liveQuestion(run),
+    },
+    {
+      label: 'Exact change',
+      question: `What does ${run.unsafe_change_key} record, and how did it contribute to ${run.incident_key}?`,
+    },
+    {
+      label: 'Typo recovery',
+      question: `The identifier ${fuzzyChangeKey} is misspelled. Search that typo exactly, recover the intended CHG record, and explain how that change contributed to ${run.incident_key}. Cite the recovered change record.`,
+    },
+    {
+      label: 'Pool boundary',
+      question: `Why did some writes time out before reaching PostgreSQL during ${run.incident_key}, while connected writers recovered after commit?`,
+    },
+    {
+      label: 'Access path',
+      question: `Why did the priority reference query remain slow after ANALYZE in ${run.incident_key}?`,
+    },
+  ];
+}
+
 const KIND_LABELS: Record<EvidenceKind, string> = {
   incident: 'Incident',
   change: 'Change',
@@ -3895,6 +3926,10 @@ export default function WorkbenchApp() {
   const [health, setHealth] = useState<Health | null>(null);
   const runQuestion = liveQuestion(health?.run);
   const presets = useMemo(() => livePresets(health?.run), [health?.run]);
+  const agentExamples = useMemo(
+    () => liveAgentExamples(health?.run),
+    [health?.run],
+  );
   const retrievalReady = health?.status === 'ready' && health?.run != null;
   const personaMode = health?.security_mode === 'persona';
   const [connectionState, setConnectionState] =
@@ -4189,6 +4224,13 @@ export default function WorkbenchApp() {
     setAgentCommentary('');
     setAgentUsage(null);
     setAgentLatencyMs(null);
+  }
+
+  function setAgentQuestion(question: string) {
+    setControl('query', question);
+    if (question === answer?.question) return;
+    setAnswer(null);
+    clearAgentState();
   }
 
   function clearRoleBoundState() {
@@ -6367,7 +6409,7 @@ export default function WorkbenchApp() {
                 >
                   <InvestigationQueryField
                     value={controls.query}
-                    onChange={(query) => setControl('query', query)}
+                    onChange={setAgentQuestion}
                     ariaLabel="Incident question"
                   />
                   <button
@@ -6422,6 +6464,26 @@ export default function WorkbenchApp() {
                       </span>
                     ) : null}
                   </div>
+                  {agentExamples.length ? (
+                    <div
+                      className="agent-query-examples"
+                      aria-label="Example agent investigations"
+                    >
+                      <span>Examples</span>
+                      {agentExamples.map((example) => (
+                        <button
+                          key={example.label}
+                          type="button"
+                          className={
+                            controls.query === example.question ? 'active' : ''
+                          }
+                          onClick={() => setAgentQuestion(example.question)}
+                        >
+                          {example.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </form>
 
                 <div
