@@ -14,7 +14,7 @@ substrate, not participant evidence.
 
 `labs/incident/run_live_workshop.py` is the only incident producer.
 
-**Wave A**
+**Investigation Evidence**
 
 1. validates the Aurora writer and preloaded operational workload;
 2. separately commits the nullable migration column;
@@ -27,13 +27,13 @@ substrate, not participant evidence.
 8. publishes a receipt only after admission, provenance, and search-index
    checks pass.
 
-**Wave B**
+**Validation Evidence**
 
-1. requires one Wave A incident and a participant-reviewed stored proposal;
+1. requires one Investigation Evidence incident and a participant-reviewed stored proposal;
 2. reads the participant-created index definition from Aurora's catalog;
 3. records the human approval and observed execution before validating it;
 4. captures only new post-index plan and metadata evidence; and
-5. publishes an additive validation receipt without revising Wave A.
+5. publishes an additive validation receipt without revising Investigation Evidence.
 
 No support cases, runbooks, postmortems, customer records, company names,
 person names, authored distractors, prior captures, or offline embeddings are
@@ -59,8 +59,8 @@ admitted.
   participant identifier derives from that capture UUID.
 - Retrieval accepts only `pg_incident_capture` evidence for the participant
   path.
-- Wave B attaches new evidence to the Wave A incident; it cannot replace,
-  tombstone, or alter Wave A evidence.
+- Validation Evidence attaches new evidence to the Investigation Evidence incident; it cannot replace,
+  tombstone, or alter Investigation Evidence records.
 - Archive build rejects generated captures, embedding caches, dumps, database
   files, and retired fixture/seed paths.
 - Rehearsal evidence is not compiled into guide defaults, tests, or source

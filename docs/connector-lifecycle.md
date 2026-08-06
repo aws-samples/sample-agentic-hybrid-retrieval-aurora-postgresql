@@ -9,20 +9,20 @@ The participant lifecycle starts with an empty schema and one guided live run.
 It has no checked-in fallback:
 
 ```text
-live migration evidence in Wave A
+live migration evidence in Investigation Evidence
     -> deterministic searchable evidence build
-    -> atomic Wave A admission
+    -> atomic Investigation Evidence admission
     -> cited diagnosis and structured action proposal
     -> participant-approved index action
-    -> atomic additive Wave B validation admission
+    -> atomic additive Validation Evidence admission
     -> runtime Cohere embedding build
     -> indexing receipt enables retrieval
 ```
 
 The live orchestrator writes normalized `casework.*` rows, queues every source
-revision, and invokes one source-scoped search-index build per capture wave.
+revision, and invokes one source-scoped search-index build per capture.
 The builder scans `casework.v_evidence_documents`, skips deterministic versions
-already ready, and completes matching outbox rows. Wave B only adds validation
+already ready, and completes matching outbox rows. Validation Evidence only adds validation
 evidence; it does not overwrite the diagnosis that grounded the proposal.
 
 ```text

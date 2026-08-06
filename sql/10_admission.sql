@@ -92,7 +92,7 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
   IF v_wave NOT IN ('A', 'B') THEN
-    RAISE EXCEPTION 'admission rejected: wave must be A or B, got %', v_wave
+    RAISE EXCEPTION 'admission rejected: capture stage must be A or B, got %', v_wave
       USING ERRCODE = '22023';
   END IF;
   IF v_bundle_uri IS NULL OR btrim(v_bundle_uri) = '' THEN
@@ -128,8 +128,9 @@ BEGIN
        AND (v_incident IS NOT NULL OR v_lock IS NOT NULL)
      ) THEN
     RAISE EXCEPTION
-      'admission rejected: wave A requires incident, changes, lock, and telemetry '
-      'documents; wave B requires only new changes and telemetry documents'
+      'admission rejected: Investigation Evidence requires incident, changes, '
+      'lock, and telemetry documents; Validation Evidence requires only new '
+      'changes and telemetry documents'
       USING ERRCODE = '22023';
   END IF;
 
@@ -233,7 +234,7 @@ BEGIN
        OR v_blocked_writer_count <> 0
        OR v_reader_count <> 0 THEN
       RAISE EXCEPTION
-        'admission rejected: wave B validates the recommendation and must not '
+        'admission rejected: Validation Evidence validates the recommendation and must not '
         'claim incident request, blocked-writer, or reader counts; got %, %, %',
         v_request_count, v_blocked_writer_count, v_reader_count
         USING ERRCODE = '22023';
@@ -242,7 +243,7 @@ BEGIN
     IF NOT (v_phases @> '["plan_regression"]'::jsonb)
        OR NOT (v_signal_types @> '["meta","plan"]'::jsonb) THEN
       RAISE EXCEPTION
-        'admission rejected: wave B must carry plan_regression plus meta and '
+        'admission rejected: Validation Evidence must carry plan_regression plus meta and '
         'plan validation evidence; got phases %, signal types %',
         v_phases, v_signal_types
         USING ERRCODE = '22023';
@@ -253,7 +254,7 @@ BEGIN
     v_incident_key := v_incident ->> 'external_key';
     IF v_incident_key IS DISTINCT FROM 'INC-' || v_run_suffix THEN
       RAISE EXCEPTION
-        'admission: wave A incident identity must be derived from run suffix %',
+        'admission: Investigation Evidence incident identity must be derived from run suffix %',
         v_run_suffix
         USING ERRCODE = '22023';
     END IF;
@@ -261,7 +262,7 @@ BEGIN
     v_incident_key := nullif(btrim(payload ->> 'incident_key'), '');
     IF v_incident_key IS NULL THEN
       RAISE EXCEPTION
-        'admission rejected: wave B must name the incident_key it attaches to'
+        'admission rejected: Validation Evidence must name the incident_key it attaches to'
         USING ERRCODE = '22023';
     END IF;
 
@@ -281,7 +282,7 @@ BEGIN
       AND NOT item.is_deleted;
     IF NOT FOUND THEN
       RAISE EXCEPTION
-        'admission rejected: wave B names incident % which has no Wave A '
+        'admission rejected: wave B names incident % which has no Investigation Evidence '
         'capture on cluster %',
         v_incident_key, v_cluster_id
         USING ERRCODE = '22023';
@@ -320,7 +321,7 @@ BEGIN
          WHERE change_record #>> '{structured,relationship}' = 'confirmed'
        ) THEN
       RAISE EXCEPTION
-        'admission: wave A lock and confirmed change must match run suffix %',
+        'admission: Investigation Evidence lock and confirmed change must match run suffix %',
         v_run_suffix
         USING ERRCODE = '22023';
     END IF;
@@ -358,7 +359,7 @@ BEGIN
          IS DISTINCT FROM 'validates'
        OR jsonb_array_length(v_telemetry_documents) = 0 THEN
       RAISE EXCEPTION
-        'admission rejected: wave B requires one validation change with a '
+        'admission rejected: Validation Evidence requires one validation change with a '
         'validates relationship and at least one new telemetry document'
         USING ERRCODE = '22023';
     END IF;

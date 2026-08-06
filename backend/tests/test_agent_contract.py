@@ -61,7 +61,7 @@ class AgentCitationScopeTests(unittest.TestCase):
         self.assertEqual(
             waves,
             {"A"},
-            f"diagnostic answer leaked Wave B evidence: {waves}",
+            f"diagnostic answer leaked Validation Evidence records: {waves}",
         )
         for expected in (
             "unbatched",
@@ -85,7 +85,7 @@ class AgentCitationScopeTests(unittest.TestCase):
         )
 
     def _answer_the_diagnostic_question(self) -> tuple[str, list[dict], str]:
-        """Run the canonical Wave A question against an already-admitted corpus."""
+        """Run the canonical Investigation Evidence question against an already-admitted corpus."""
         from backend.app.agent import answer_question
         from backend.app.config import get_settings
         from backend.app.models import AgentAnswerRequest
@@ -117,7 +117,7 @@ class AgentCitationScopeTests(unittest.TestCase):
             ).fetchone()
         self.assertIsNotNone(
             capture,
-            "the live test requires the named admitted Wave A plus Wave B capture",
+            "the live test requires the named admitted Investigation Evidence plus Validation Evidence capture",
         )
         assert capture is not None
         suffix = capture["capture_id"].replace("-", "")[-8:].upper()

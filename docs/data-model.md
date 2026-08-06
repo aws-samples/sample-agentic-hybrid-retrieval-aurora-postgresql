@@ -26,8 +26,8 @@ unique within an evidence kind and are globally unique for unambiguous agent
 references.
 
 The participant core admits two additive measured bundles under source system
-`pg_incident_capture`. Wave A contains the migration diagnosis; Wave B attaches
-post-index validation to the same incident without replacing Wave A. Every key
+`pg_incident_capture`. Investigation Evidence contains the migration diagnosis; Validation Evidence attaches
+post-index validation to the same incident without replacing Investigation Evidence. Every key
 is derived from its capture UUID: `INC-<run-suffix>`,
 `CHG-<run-suffix>-...`, `LOCK-<run-suffix>-01`, and
 `TEL-<run-suffix>-...`. The database starts empty, and participant retrieval
@@ -109,7 +109,7 @@ settings are inspectable tuning inputs, not guarantees of recall or latency.
 | `answer_citations` | Citation number, exact document/chunk versions, URI, revision, quote, and claim |
 | `action_proposals` | Structured, cited, catalog-checked recommendation rendered into participant SQL |
 | `action_proposal_citations` | Proposal claim links to validated answer citations |
-| `action_executions` | Append-only human approval, observed index fingerprint, and Wave B receipt link |
+| `action_executions` | Append-only human approval, observed index fingerprint, and Validation Evidence receipt link |
 | `evaluation_queries` | Controlled retrieval or traversal question |
 | `relevance_judgments` | Graded relevance label and rationale |
 | `traversal_results` | Persisted graph paths for traversal evaluation |

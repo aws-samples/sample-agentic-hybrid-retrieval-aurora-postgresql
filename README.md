@@ -43,12 +43,12 @@ backfill, and independently proves recovery.
 
 Workshop bootstrap generates 5,000 disposable customers and 3,000,000 related
 orders before the participant arrives. They are operational workload, not
-retrieval records. Wave A captures migration, lock, pool, request, WAL, and
-plan evidence as roughly 50-80 distinct searchable documents with live Cohere
-embeddings. It records pre- and post-`ANALYZE` sequential plans but does not
-create the missing composite index. Wave B is a later, additive post-index
-validation capture. Cleanup removes the workload while its measured evidence
-and proof remain available for replay.
+retrieval records. Investigation Evidence captures migration, lock, pool,
+request, WAL, and plan evidence as roughly 50-80 distinct searchable documents
+with live Cohere embeddings. It records pre- and post-`ANALYZE` sequential
+plans but does not create the missing composite index. Validation Evidence is
+a later, additive post-index capture. Cleanup removes the workload while its
+measured evidence and proof remain available for replay.
 
 ## Architecture
 
@@ -149,12 +149,14 @@ local pre-push hook so a push touching either file cannot land without
 `make security-checks` passing against your Aurora endpoint first:
 
 ```bash
-git config core.hooksPath scripts/git-hooks
+scripts/install_git_hooks.sh
 ```
 
 `pg_columnmask` is Aurora-only, so this check runs locally against your own
 cluster rather than in CI. It only activates on pushes that touch those two
-files; every other push is unaffected.
+files; every other push is unaffected. The installer preserves an existing
+global hook suite, including git-defender, and runs its pre-push hook before
+the DAT410 security checks.
 
 ## Prepare the Live Environment
 
@@ -206,7 +208,7 @@ workshop VPC.
 
 The lab-only API endpoints run with a full ten-connection pool. The pool's own
 counters prove queued callers that never reached PostgreSQL. In a third
-terminal, run Wave A. It refuses non-Aurora targets, non-writer
+terminal, run Investigation Evidence. It refuses non-Aurora targets, non-writer
 endpoints, an incorrectly configured application pool, non-Bedrock embedding
 configuration, and a non-empty participant corpus. CloudWatch is collected
 when available but never gates the incident:
@@ -215,8 +217,10 @@ when available but never gates the incident:
 make live-workshop
 ```
 
-The final line prints a Wave A receipt path. Use that receipt's run-derived
-keys:
+The CLI and receipt schema retain internal identifiers `A` and `B` for
+compatibility: `A` means Investigation Evidence and `B` means Validation
+Evidence. The final line prints an Investigation Evidence receipt path. Use
+that receipt's run-derived keys:
 
 ```bash
 RECEIPT="$(ls -t data/generated/incident-lab/receipt-a-*.json | head -1)"
@@ -232,8 +236,8 @@ curl -sS http://127.0.0.1:8000/v1/search \
 ```
 
 Ask the Hybrid Retrieval Agent the three-part diagnostic question. It can cite
-only Wave A evidence, so it cannot claim a post-index result that does not yet
-exist:
+only Investigation Evidence records, so it cannot claim a post-index result
+that does not yet exist:
 
 ```bash
 curl -sS http://127.0.0.1:8000/v1/agent/answer \
@@ -256,7 +260,7 @@ curl -sS http://127.0.0.1:8000/v1/runs/RUN_ID/supervision
 
 Lab 4 uses the proposal's rendered SQL, not a checked-in DDL statement. Follow
 [`labs/exercises/lab4-supervised-execution.md`](labs/exercises/lab4-supervised-execution.md),
-then admit the additive post-index validation wave with its approved proposal ID.
+then admit Validation Evidence with its approved proposal ID.
 
 ## Validate
 

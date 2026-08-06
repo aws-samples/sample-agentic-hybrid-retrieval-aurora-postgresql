@@ -969,7 +969,7 @@ class AutonomyReadinessTests(unittest.TestCase):
         return self.fixture["receipt_pairs"][0]
 
     def _record(self, proposal_id: str, outcome: str, matches: bool) -> str:
-        """One execution row with NULL Wave B identifiers, as Task D3's
+        """One execution row with NULL Validation Evidence identifiers, as Task D3's
         record-before-admission ordering writes it."""
         return str(
             self.conn.execute(
@@ -996,7 +996,7 @@ class AutonomyReadinessTests(unittest.TestCase):
             "an execution recorded before admission is not yet validated",
         )
         self.assertIn(
-            "the result was not validated by an admitted Wave B capture",
+            "the result was not validated by an admitted Validation Evidence capture",
             post_reasons,
         )
 
@@ -1013,7 +1013,7 @@ class AutonomyReadinessTests(unittest.TestCase):
                 "SELECT proof.attach_wave_b_receipt(%s, %s, %s)",
                 (execution_id, capture_id, ingest_id),
             )
-        self.assertIn("already carries a Wave B receipt", str(caught.exception))
+        self.assertIn("already carries a Validation Evidence receipt", str(caught.exception))
 
     def test_wave_b_capture_and_receipt_must_be_one_bundle(self) -> None:
         proposal_id = self._propose()
@@ -1026,7 +1026,7 @@ class AutonomyReadinessTests(unittest.TestCase):
                 "SELECT proof.attach_wave_b_receipt(%s, %s, %s)",
                 (execution_id, first_capture, second_ingest),
             )
-        self.assertIn("not one admitted Wave B bundle", str(caught.exception))
+        self.assertIn("not one admitted Validation Evidence bundle", str(caught.exception))
 
     def test_boolean_match_cannot_override_different_fingerprints(self) -> None:
         proposal_id = self._propose()

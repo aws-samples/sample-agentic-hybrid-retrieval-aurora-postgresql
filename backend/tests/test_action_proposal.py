@@ -1,7 +1,7 @@
 """Structured action-proposal contracts.
 
 Pure parsing and rendering checks run in every suite. The live check requires
-the current participant's Wave A capture, before the participant executes the
+the current participant's Investigation Evidence capture, before the participant executes the
 proposed index. It makes one extra Bedrock tool-use request after cited
 synthesis, so it is explicitly gated and never runs against a reset-only test
 database that has no captured incident.
@@ -160,11 +160,11 @@ class ProposalRenderingTests(unittest.TestCase):
     LIVE_CAPTURE_DATABASE_URL and LIVE_CAPTURE_RUN_ID,
     (
         "requires LIVE_CAPTURE_DATABASE_URL and LIVE_CAPTURE_RUN_ID for a "
-        "current Wave A participant capture"
+        "current Investigation Evidence participant capture"
     ),
 )
 class ProposalEmissionTests(unittest.TestCase):
-    """One real Wave A Lab 3 answer validates the append-only record."""
+    """One real Investigation Evidence Lab 3 answer validates the append-only record."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -200,8 +200,8 @@ class ProposalEmissionTests(unittest.TestCase):
             ).fetchone()
         if capture is None:
             raise RuntimeError(
-                "the live proposal test requires the named admitted Wave A "
-                "capture before Wave B"
+                "the live proposal test requires the named admitted Investigation Evidence "
+                "capture before Validation Evidence"
             )
 
         cls.capture = capture

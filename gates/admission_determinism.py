@@ -180,7 +180,7 @@ def run() -> int:
                 invalid["records"]["changes"][0]["structured"][
                     "relationship"
                 ] = "confirmed"
-                invalid_description = "invalid Wave B validation relationship"
+                invalid_description = "invalid Validation Evidence relationship"
             try:
                 admit(invalid)
                 require(False, f"{invalid_description} must raise")

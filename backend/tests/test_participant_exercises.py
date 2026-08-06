@@ -9,6 +9,9 @@ from types import ModuleType
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+LAB2_SQL = (
+    REPOSITORY_ROOT / "labs" / "exercises" / "lab2-sql-retrieval.sql"
+).read_text(encoding="utf-8")
 
 
 def load_checkpoint_module() -> ModuleType:
@@ -113,6 +116,25 @@ class ParticipantCheckpointTests(unittest.TestCase):
         )
 
         CHECKPOINT.check_filter(baseline, filtered, self.receipt)
+
+    def test_direct_sql_exercise_uses_the_current_wave_a_contract(self) -> None:
+        for expected in (
+            "{{INCIDENT_KEY}}",
+            "{{UNSAFE_CHANGE_KEY}}",
+            "{{ANALYZE_CHANGE_KEY}}",
+            "{{FUZZY_CHANGE_KEY}}",
+            "priority tier migration backfill",
+            "PoolTimeout",
+            "A sequential scan can be the correct plan",
+            "chunk.embedding_model = query_vector.embedding_model",
+        ):
+            self.assertIn(expected, LAB2_SQL)
+        for retired in (
+            "ordinary CREATE INDEX",
+            "concurrent repair",
+            "ShareLock RowExclusiveLock",
+        ):
+            self.assertNotIn(retired, LAB2_SQL)
 
     def test_filter_rejects_an_out_of_scope_result(self) -> None:
         baseline = self.write(

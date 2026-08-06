@@ -10,7 +10,7 @@ observability system.
 Participant-induced Aurora online-migration failure
 PostgreSQL catalogs + app-pool/request telemetry + optional CloudWatch
                   |
-                  | Wave A diagnosis + Wave B validation
+                  | Investigation Evidence + Validation Evidence
                   v
        casework.* authoritative records
                   |
@@ -61,7 +61,7 @@ One guided participant orchestrator
  PostgreSQL + application-pool/request + optional CloudWatch measurements
                          |
                          v
-       atomic Wave A casework.admit_evidence bundle
+       atomic Investigation Evidence casework.admit_evidence bundle
                          |
                          v
       deterministic searchable evidence build
@@ -81,12 +81,12 @@ proving both layers before its bounded observation hold.
 
 When the backfill commits, recovery independently proves that the blocked
 writes drained, the pool is available, no requests wait, and a fresh write
-commits. Wave A then captures a named query before and after `ANALYZE`; both
+commits. Investigation Evidence then captures a named query before and after `ANALYZE`; both
 are sequential scans. It admits only that diagnostic evidence under
 `pg_incident_capture`, creates runtime Cohere embeddings, and publishes a
 receipt. The participant later reviews a cited index proposal, executes its
-rendered DDL, and admits Wave B with only the post-index validation evidence.
-The two waves are additive under one incident.
+rendered DDL, and admits Validation Evidence with only the post-index validation
+evidence. The two captures are additive under one incident.
 
 The participant frontend and agent requests always carry
 `source_systems=["pg_incident_capture"]` and derive identifiers from that
@@ -152,7 +152,7 @@ positions and scores are stored in `proof.retrieval_candidates`; stage timings
 are stored separately. Synthesis persists the answer and exact citations. The
 canonical answer path also persists one structured, cited action proposal. A
 participant-approved execution is an append-only receipt that records the
-observed catalog fingerprint and links a successful Wave B admission.
+observed catalog fingerprint and links a successful Validation Evidence admission.
 
 The proof layer answers:
 

@@ -30,7 +30,7 @@ SERVER_TOOLS = [
 
 @dataclass(frozen=True)
 class DiagnosticCaptureScope:
-    """The completed Wave A capture that bounds a diagnostic answer."""
+    """The completed Investigation Evidence capture that bounds a diagnostic answer."""
 
     incident_id: str
     capture_id: str
@@ -69,10 +69,10 @@ def diagnostic_capture_scope_for_incident(
     *,
     role: str = "app_engineer",
 ) -> DiagnosticCaptureScope | None:
-    """Return the completed Wave A capture for one participant incident.
+    """Return the completed Investigation Evidence capture for one participant incident.
 
     The diagnostic agent is intentionally bounded to the evidence available
-    before the participant validates the recommended index in Wave B. The
+    before the participant validates the recommended index in Validation Evidence. The
     boundary is capture provenance, not a prompt instruction or a mutable
     incident-status field.
     """
@@ -117,7 +117,7 @@ def _capture_scope_evidence_ids(
     *,
     role: str,
 ) -> set[str]:
-    """Resolve evidence that was available from this Wave A source bundle."""
+    """Resolve evidence that was available from this Investigation Evidence source bundle."""
     with get_dict_conn(role) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -145,7 +145,7 @@ def _filter_to_capture_scope(
     *,
     role: str,
 ) -> list[dict[str, Any]]:
-    """Reject evidence outside a Wave A capture before merge or citation."""
+    """Reject evidence outside an Investigation Evidence capture before merge or citation."""
     if scope is None:
         return evidence
     eligible = _capture_scope_evidence_ids(scope, role=role)
@@ -269,7 +269,7 @@ def _planned_subquestions(
                 "subquestion_id": "SQ-3",
                 "text": (
                     f"Why did {analyze_change} leave the reference query slow after "
-                    f"ANALYZE in {incident}, and what Wave A evidence identifies "
+                    f"ANALYZE in {incident}, and what Investigation Evidence identifies "
                     "the missing composite index as the next action?"
                 ),
                 "required_kinds": ["change", "telemetry"],
@@ -421,7 +421,7 @@ def follow_evidence_links_impl(
     max_depth: int = 2,
     capture_id: str | None = None,
 ) -> dict[str, Any]:
-    """Traverse canonical evidence relationships, optionally within Wave A."""
+    """Traverse canonical evidence relationships, optionally within Investigation Evidence."""
     keys = list(dict.fromkeys(key for key in seed_external_keys if key))
     if not keys:
         return {"seeds": [], "reached": [], "relationship_count": 0}
@@ -1470,7 +1470,7 @@ def _apply_diagnostic_capture_scope(
     filters: dict[str, Any],
     scope: DiagnosticCaptureScope | None,
 ) -> dict[str, Any]:
-    """Bind a diagnostic answer to the incident's completed Wave A capture."""
+    """Bind a diagnostic answer to the incident's completed Investigation Evidence capture."""
     if scope is None:
         return filters
     return {

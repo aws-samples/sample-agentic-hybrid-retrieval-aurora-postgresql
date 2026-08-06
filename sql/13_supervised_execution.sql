@@ -625,7 +625,7 @@ BEGIN
     END IF;
     IF v_exec.wave_b_capture_id IS NULL OR v_exec.wave_b_ingest_id IS NULL THEN
       v_post := v_post
-                || 'the result was not validated by an admitted Wave B capture'::text;
+                || 'the result was not validated by an admitted Validation Evidence capture'::text;
     END IF;
   END IF;
 
@@ -645,7 +645,7 @@ COMMENT ON FUNCTION proof.autonomy_readiness(uuid) IS
 
 -- The receipt attachment. SECURITY INVOKER (the default) -- deliberately NOT
 -- SECURITY DEFINER, and deliberately granted to nobody. Its only caller is the
--- Wave B recorder, which already runs as the owner. See the plan text above:
+-- Validation Evidence recorder, which already runs as the owner. See the plan text above:
 -- the DEFINER variant was measured to add no capability and to hand every
 -- participant an arbitrary-row write.
 --
@@ -676,7 +676,7 @@ BEGIN
       AND receipt.ingest_id = p_ingest_id
   ) THEN
     RAISE EXCEPTION
-      'capture % and ingest receipt % are not one admitted Wave B bundle',
+      'capture % and ingest receipt % are not one admitted Validation Evidence bundle',
       p_capture_id, p_ingest_id;
   END IF;
 
@@ -688,7 +688,7 @@ BEGIN
      AND wave_b_ingest_id IS NULL;
   IF NOT FOUND THEN
     RAISE EXCEPTION
-      'execution % does not exist or already carries a Wave B receipt',
+      'execution % does not exist or already carries a Validation Evidence receipt',
       p_execution_id;
   END IF;
 END
@@ -697,7 +697,7 @@ $$;
 REVOKE ALL ON FUNCTION proof.attach_wave_b_receipt(uuid, uuid, uuid) FROM PUBLIC;
 
 COMMENT ON FUNCTION proof.attach_wave_b_receipt(uuid, uuid, uuid) IS
-  'Attaches a Wave B receipt to an already-recorded execution, once. Exists so '
+  'Attaches a Validation Evidence receipt to an already-recorded execution, once. Exists so '
   'the execution can be recorded BEFORE admission -- a successful CREATE INDEX '
   'followed by a failed admission must not vanish. Owner-only by design: the '
   'recorder that calls it already runs as the owner, so no GRANT is needed. Two '
@@ -707,7 +707,7 @@ COMMENT ON FUNCTION proof.attach_wave_b_receipt(uuid, uuid, uuid) IS
 
 -- The append-only rule, enforced where privilege cannot reach: the OWNER can
 -- UPDATE this table, and the whole comparison collapses if a mismatch can be
--- edited into a match. Only the two Wave B receipt columns may ever change, and
+-- edited into a match. Only the two Validation Evidence receipt columns may ever change, and
 -- only from NULL.
 --
 -- MEASURED on PostgreSQL 17.10, 2026-08-04, and TWO drafts of this trigger were
@@ -726,7 +726,7 @@ COMMENT ON FUNCTION proof.attach_wave_b_receipt(uuid, uuid, uuid) IS
 --    receipt. That also refuses the `ON DELETE SET NULL` on both receipt foreign
 --    keys, because a referential action IS an UPDATE and fires BEFORE UPDATE
 --    triggers. Measured: `DELETE FROM casework.incident_capture_runs` on a
---    referenced capture failed with `execution ... already carries a Wave B
+--    referenced capture failed with `execution ... already carries a Validation Evidence
 --    receipt`, the delete rolled back, and the capture became undeletable for as
 --    long as the execution row existed. So the rule is stated on the TRANSITION,
 --    not on the row: NULL -> value is an attach, value -> NULL is the engine
@@ -775,7 +775,7 @@ BEGIN
        OLD.plan_after_checkpoint
      ) THEN
     RAISE EXCEPTION
-      'proof.action_executions is append-only except for its Wave B receipt; '
+      'proof.action_executions is append-only except for its Validation Evidence receipt; '
       'execution % attempted to change a verdict or provenance column',
       OLD.execution_id;
   END IF;
@@ -786,7 +786,7 @@ BEGIN
          AND NEW.wave_b_ingest_id IS NOT NULL
          AND NEW.wave_b_ingest_id <> OLD.wave_b_ingest_id) THEN
     RAISE EXCEPTION
-      'execution % already carries a different Wave B receipt',
+      'execution % already carries a different Validation Evidence receipt',
       OLD.execution_id;
   END IF;
   RETURN NEW;

@@ -52,7 +52,7 @@ def load_wave_a_receipt(receipt_path: str) -> dict[str, Any]:
     if missing:
         fail(f"the indexing receipt is missing: {missing}")
     if receipt["wave"] != "A":
-        fail("Labs 2 and 3 require a Wave A diagnostic receipt")
+        fail("Labs 2 and 3 require an Investigation Evidence receipt")
     suffix = str(receipt["run_suffix"])
     expected = {
         "incident_key": f"INC-{suffix}",
@@ -79,13 +79,13 @@ def load_wave_b_receipt(receipt_path: str) -> dict[str, Any]:
     if missing:
         fail(f"the validation receipt is missing: {missing}")
     if receipt["wave"] != "B":
-        fail("validation requires a Wave B receipt")
+        fail("validation requires a Validation Evidence receipt")
     suffix = str(receipt["run_suffix"])
     if (
         not re.fullmatch(r"[A-F0-9]{8}", suffix)
         or receipt["validation_change_key"] != f"CHG-{suffix}-01"
     ):
-        fail("the Wave B receipt does not contain one valid validation change")
+        fail("the Validation Evidence receipt does not contain one valid validation change")
     return receipt
 
 
@@ -309,9 +309,9 @@ def check_validation(
     wave_a = load_wave_a_receipt(wave_a_receipt_path)
     wave_b = load_wave_b_receipt(wave_b_receipt_path)
     if wave_a["incident_key"] != wave_b["incident_key"]:
-        fail("the Wave B validation receipt names a different incident")
+        fail("the Validation Evidence receipt names a different incident")
     if wave_a["run_suffix"] == wave_b["run_suffix"]:
-        fail("Wave B must have its own capture-derived run suffix")
+        fail("Validation Evidence must have its own capture-derived run suffix")
     comparison = load(comparison_path)
     relations = {
         row.get("relation") for row in comparison.get("relationships", [])
@@ -320,8 +320,8 @@ def check_validation(
     if missing:
         fail(f"validation evidence is missing: {missing}")
     print(
-        "OK: Wave B added a validation relationship for the same incident "
-        "without replacing the Wave A diagnostic evidence"
+        "OK: Validation Evidence added a validation relationship for the same incident "
+        "without replacing the Investigation Evidence records"
     )
 
 

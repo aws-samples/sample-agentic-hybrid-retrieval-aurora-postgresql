@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""G-32 - two-wave evidence additivity.
+"""G-32 - additive evidence validation.
 
-Read-only. Confirms one incident carries both waves, every record from each wave
-has a current ready search document, and Wave B adds measured validation evidence
-without replacing Wave A.
+Read-only. Confirms one incident carries both captures, every record from each
+capture has a current ready search document, and Validation Evidence adds
+measured validation evidence without replacing Investigation Evidence.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from _common import (  # noqa: E402
 )
 
 GATE_ID = "G-32"
-TITLE = "two-wave evidence additivity"
+TITLE = "additive evidence validation"
 
 EXPECTED_PHASES = ("backfill", "pool_exhaustion", "recovery", "plan_regression")
 EXPECTED_SIGNAL_TYPES = ("lock", "pool", "request", "wal", "meta", "plan")
@@ -86,7 +86,7 @@ def run() -> int:
                 return finish(
                     GATE_ID,
                     BLOCKED,
-                    f"needs a completed two-wave run; found waves {waves}",
+                    f"needs both evidence captures; found internal stages {waves}",
                 )
 
             incident_evidence_id = incident[0]
@@ -102,12 +102,13 @@ def run() -> int:
             ).fetchall()
             require(
                 [(row[0], row[1]) for row in bundle_rows] == [("A", 1), ("B", 1)],
-                "the selected incident must have exactly one capture per wave",
+                "the selected incident must have exactly one capture per stage",
             )
             bundles = {row[0]: row[2] for row in bundle_rows}
             require(
                 bundles["A"] != bundles["B"],
-                "Wave A and Wave B reused one source bundle URI",
+                "Investigation Evidence and Validation Evidence reused one "
+                "source bundle URI",
             )
 
             coverage = {
@@ -136,11 +137,14 @@ def run() -> int:
                 ).fetchall()
             }
             for wave in ("A", "B"):
-                require(wave in coverage, f"wave {wave} contributed no evidence")
+                require(
+                    wave in coverage,
+                    f"capture stage {wave} contributed no evidence",
+                )
                 evidence_items, current_documents = coverage[wave]
                 require(
                     evidence_items == current_documents,
-                    f"wave {wave} has {evidence_items} evidence items but "
+                    f"capture stage {wave} has {evidence_items} evidence items but "
                     f"{current_documents} current ready documents",
                 )
 
@@ -156,7 +160,10 @@ def run() -> int:
                 """,
                 (incident_evidence_id, bundles["B"]),
             ).fetchone()[0]
-            require(validates >= 1, "Wave B contributed no validates relationship")
+            require(
+                validates >= 1,
+                "Validation Evidence contributed no validates relationship",
+            )
 
             phases = _distinct_values(connection, incident_evidence_id, "phase")
             missing_phases = sorted(set(EXPECTED_PHASES) - phases)
@@ -194,12 +201,12 @@ def run() -> int:
             )
             require(
                 not missing_wave_b,
-                f"Wave B is missing validation signal types: {missing_wave_b}",
+                f"Validation Evidence is missing validation signal types: {missing_wave_b}",
             )
     except psycopg.errors.UndefinedTable:
-        return finish(GATE_ID, BLOCKED, "wave-aware schema is not applied")
+        return finish(GATE_ID, BLOCKED, "capture-stage schema is not applied")
     except psycopg.errors.UndefinedColumn:
-        return finish(GATE_ID, BLOCKED, "wave-aware schema is not applied")
+        return finish(GATE_ID, BLOCKED, "capture-stage schema is not applied")
     except psycopg.OperationalError as error:
         return finish(GATE_ID, BLOCKED, f"cannot reach the engine: {error}")
 
@@ -208,7 +215,8 @@ def run() -> int:
     return finish(
         GATE_ID,
         PASS,
-        f"Wave A {a_count} + Wave B {b_count} current documents; validation is additive",
+        f"Investigation Evidence {a_count} + Validation Evidence {b_count} "
+        "current documents; validation is additive",
     )
 
 

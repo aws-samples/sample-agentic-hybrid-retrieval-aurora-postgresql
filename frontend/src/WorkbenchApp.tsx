@@ -828,11 +828,11 @@ type CorpusDistributionGroup = {
 };
 
 function corpusWaveLabel(wave: CorpusDistribution['wave']): string {
-  if (wave === 'A') return 'Wave A: captured before the recommendation';
+  if (wave === 'A') return 'Investigation Evidence: captured before the recommendation';
   if (wave === 'B') {
-    return 'Wave B: captured after the participant validated the recommendation';
+    return 'Validation Evidence: captured after the participant validated the recommendation';
   }
-  return 'Not wave-scoped: provenance does not map this record to a capture';
+  return 'Not capture-scoped: provenance does not map this record to a capture';
 }
 
 function corpusWaveClassName(wave: CorpusDistribution['wave']): string {
@@ -7705,7 +7705,7 @@ export default function WorkbenchApp() {
                       >
                         After execution:{' '}
                         {supervision.verdict?.post_execution_validated
-                          ? 'the executed action matched the proposal and an admitted Wave B capture validated the result'
+                          ? 'the executed action matched the proposal and Validation Evidence confirmed the result'
                           : 'not validated'}
                       </p>
                       <ul className="supervision-reasons">
@@ -7951,7 +7951,7 @@ export default function WorkbenchApp() {
                 <p className="module-deck">
                   Evidence documents and chunks materialized into the search
                   index on this cluster, grouped by evidence kind and admission
-                  wave, read live from Aurora.
+                  capture stage, read live from Aurora.
                 </p>
               </div>
               <div className="heading-status">

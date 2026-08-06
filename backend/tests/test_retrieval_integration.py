@@ -67,13 +67,13 @@ class LiveRetrievalContractTests(unittest.TestCase):
             "B",
         ]:
             raise RuntimeError(
-                "expected exactly one Wave A and one Wave B participant capture"
+                "expected exactly one Investigation Evidence and one Validation Evidence participant capture"
             )
         wave_a, wave_b = captures
         if wave_a["incident_key"] != wave_b["incident_key"]:
             raise RuntimeError("the two captures do not attach to one incident")
         if wave_a["source_bundle_uri"] == wave_b["source_bundle_uri"]:
-            raise RuntimeError("Wave A and Wave B reused one source bundle URI")
+            raise RuntimeError("Investigation Evidence and Validation Evidence reused one source bundle URI")
 
         cls.wave_a_capture_id = str(wave_a["capture_id"])
         cls.wave_b_capture_id = str(wave_b["capture_id"])
@@ -97,8 +97,8 @@ class LiveRetrievalContractTests(unittest.TestCase):
         }:
             raise RuntimeError(
                 "expected capture "
-                f"{EXPECTED_CAPTURE_ID}, found Wave A {cls.wave_a_capture_id} "
-                f"and Wave B {cls.wave_b_capture_id}"
+                f"{EXPECTED_CAPTURE_ID}, found Investigation Evidence {cls.wave_a_capture_id} "
+                f"and Validation Evidence {cls.wave_b_capture_id}"
             )
 
     @classmethod

@@ -224,6 +224,7 @@ class IncidentLabContractTests(unittest.TestCase):
             "lock_key": "LOCK-07E0FE86-01",
         }
         expected_files = {
+            "lab2-sql-retrieval.sql",
             "lab2-filter-request.json",
             "lab2-fusion-request.json",
             "lab3-plan-request.json",
@@ -247,6 +248,14 @@ class IncidentLabContractTests(unittest.TestCase):
             self.assertIn("CHG-07E0FE86-01", rendered_plan["question"])
             self.assertIn("CHG-07E0FE86-02", rendered_plan["question"])
             self.assertIn("LOCK-07E0FE86-01", rendered_plan["question"])
+            rendered_sql = (
+                exercise_dir / "lab2-sql-retrieval.sql"
+            ).read_text(encoding="utf-8")
+            self.assertIn("INC-07E0FE86", rendered_sql)
+            self.assertIn("CHG-07E0FE86-01", rendered_sql)
+            self.assertIn("CHG-07E0FE86-02", rendered_sql)
+            self.assertIn("CGH-07E0FE86-01", rendered_sql)
+            self.assertIn("priority tier migration backfill", rendered_sql)
             for path in exercise_dir.iterdir():
                 self.assertNotRegex(
                     path.read_text(encoding="utf-8"),

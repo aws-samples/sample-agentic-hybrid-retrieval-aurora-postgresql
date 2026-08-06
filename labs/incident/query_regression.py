@@ -1,7 +1,7 @@
 """Capture the measured query-plan regression before and after a human fix.
 
-Wave A runs while the supporting index is absent, so it records the before- and
-after-ANALYZE sequential scans. Wave B can only run after the participant has
+Investigation Evidence runs while the supporting index is absent, so it records the before- and
+after-ANALYZE sequential scans. Validation Evidence can only run after the participant has
 created the recommended index; it records the resulting index scan without
 creating, dropping, or hiding any database state.
 """
@@ -190,9 +190,9 @@ def capture_plan_checkpoints(
 ) -> list[PlanCheckpoint]:
     """Capture only the checkpoint(s) that can truthfully exist now.
 
-    The supporting index is the time boundary. Before it exists, capture Wave A,
+    The supporting index is the time boundary. Before it exists, capture Investigation Evidence,
     run ANALYZE, and prove the scan remains sequential. Once a participant has
-    created it, capture only the Wave B index-scan checkpoint.
+    created it, capture only the Validation Evidence index-scan checkpoint.
     """
     if _index_exists(conn, index_oid=index_oid):
         after_index = _capture_checkpoint(

@@ -307,7 +307,7 @@ TOOLS: dict[str, ToolSpec] = {
             "pgvector semantic, and trigram fuzzy. Exact identifier matches are returned\n"
             "as a tier above the fused candidates, so a named identifier cannot be\n"
             "outranked. The Hybrid Retrieval Agent binds diagnostic searches to the\n"
-            "completed Wave A capture when the incident is known. Keep the returned\n"
+            "completed Investigation Evidence capture when the incident is known. Keep the returned\n"
             "run_id: explain_ranking and synthesize_cited_answer both require it."
         ),
         params=(

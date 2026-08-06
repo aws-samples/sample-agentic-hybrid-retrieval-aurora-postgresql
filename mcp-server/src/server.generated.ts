@@ -46,7 +46,7 @@ Runs all four signals in one SQL statement: exact identifier, full text,
 pgvector semantic, and trigram fuzzy. Exact identifier matches are returned
 as a tier above the fused candidates, so a named identifier cannot be
 outranked. The Hybrid Retrieval Agent binds diagnostic searches to the
-completed Wave A capture when the incident is known. Keep the returned
+completed Investigation Evidence capture when the incident is known. Keep the returned
 run_id: explain_ranking and synthesize_cited_answer both require it.
 
 Returns:

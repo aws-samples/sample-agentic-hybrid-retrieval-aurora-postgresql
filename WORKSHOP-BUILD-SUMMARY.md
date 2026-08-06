@@ -14,7 +14,7 @@ that a timed-out request can leave no database footprint. Commit releases the
 backfill, the writers drain, and a named query remains sequential after
 `ANALYZE` because it lacks a composite index.
 
-Wave A turns these measured lock, pool, request, statement, WAL, and plan
+Investigation Evidence turns these measured lock, pool, request, statement, WAL, and plan
 signals into a small, diverse live corpus. Participants then:
 
 1. compare exact, full-text, semantic, and fuzzy retrieval;
@@ -29,7 +29,7 @@ signals into a small, diverse live corpus. Participants then:
 The Hybrid Retrieval Agent recommends but does not execute the missing
 composite index. The participant reviews a stored, cited proposal and runs the
 rendered DDL in Code Editor. Aurora records the approval and catalog
-fingerprint, then Wave B admits only the post-index validation evidence.
+fingerprint, then Validation Evidence admits only the post-index validation evidence.
 Participants can therefore compare what was proposed, what was executed, and
 what the database observed without rewriting the original diagnosis.
 

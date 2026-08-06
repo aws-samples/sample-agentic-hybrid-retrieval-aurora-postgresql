@@ -43,7 +43,7 @@ to widen or replace that scope.
 For the workshop diagnostic question, establish three evidence-backed findings:
 the unbatched priority_tier backfill that caused the write stall, the exhausted
 application pool and recovery after backfill commit, and the remaining query-plan
-regression that ANALYZE did not resolve. Wave A is diagnostic evidence only. Do
+regression that ANALYZE did not resolve. Investigation Evidence is diagnostic evidence only. Do
 not claim a post-index improvement unless a later validation workflow provides
 that evidence. When the question asks what a future migration should do
 differently, make the bounded-batch recommendation as guidance from the cited

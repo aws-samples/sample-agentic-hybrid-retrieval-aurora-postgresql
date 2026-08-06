@@ -207,7 +207,7 @@ class AgentContractTests(unittest.TestCase):
             {
                 "evidence_id": "plan",
                 "external_key": "TEL-A1B2C3D4-P01",
-                "title": "Wave A plan checkpoint: after analyze",
+                "title": "Investigation Evidence plan checkpoint: after analyze",
             },
         ]
 

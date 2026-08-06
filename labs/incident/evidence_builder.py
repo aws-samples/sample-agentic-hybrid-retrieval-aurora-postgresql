@@ -275,7 +275,7 @@ def build_wave_a_documents(
     statement_samples: Sequence[Mapping[str, Any]],
     plan_checkpoints: Sequence[PlanCheckpoint],
 ) -> list[EvidenceDocument]:
-    """Render Wave A facts without inventing documents from raw poll frequency.
+    """Render Investigation Evidence facts without inventing documents from raw poll frequency.
 
     ``activity_samples`` and ``statement_samples`` are captured PostgreSQL rows
     supplied by the orchestration/admission boundary. Their capture-local sample
@@ -298,10 +298,11 @@ def build_wave_a_documents(
         checkpoint.label for checkpoint in plan_checkpoints
     } != expected_labels:
         raise ValueError(
-            "Wave A requires exactly before_analyze and after_analyze plan checkpoints"
+            "Investigation Evidence requires exactly before_analyze and "
+            "after_analyze plan checkpoints"
         )
     if any(checkpoint.plan_type != "Seq Scan" for checkpoint in plan_checkpoints):
-        raise ValueError("Wave A plan checkpoints must remain sequential scans")
+        raise ValueError("Investigation Evidence plan checkpoints must remain sequential scans")
 
     unexpected_outcomes = {
         result.outcome
@@ -310,7 +311,7 @@ def build_wave_a_documents(
     }
     if unexpected_outcomes:
         raise ValueError(
-            "Wave A cannot describe unhealthy hot-write outcomes: "
+            "Investigation Evidence cannot describe unhealthy hot-write outcomes: "
             + ", ".join(sorted(unexpected_outcomes))
         )
 
@@ -324,7 +325,7 @@ def build_wave_a_documents(
     )
     if not committed or not pool_timeouts:
         raise ValueError(
-            "Wave A needs both committed blocked writers and queued pool timeouts"
+            "Investigation Evidence needs both committed blocked writers and queued pool timeouts"
         )
 
     samples = hold_proof.samples
@@ -548,7 +549,7 @@ def build_wave_a_documents(
     )
 
     if not statement_samples:
-        raise ValueError("Wave A requires captured pg_stat_statements samples")
+        raise ValueError("Investigation Evidence requires captured pg_stat_statements samples")
     for ordinal, statement_sample in enumerate(statement_samples, start=1):
         sample_id = _require_int(
             statement_sample,
@@ -734,7 +735,7 @@ def build_wave_a_documents(
         (
             "M16",
             "Rows removed by filter remained high",
-            f"Both Wave A plans removed {first_plan.rows_removed_by_filter} and "
+            f"Both Investigation Evidence plans removed {first_plan.rows_removed_by_filter} and "
             f"{second_plan.rows_removed_by_filter} rows by filter respectively, "
             "showing that the query still lacked a selective access path.",
             "plan_regression",
@@ -745,8 +746,8 @@ def build_wave_a_documents(
         ),
         (
             "M17",
-            "Wave A ends before index validation exists",
-            "Wave A contains diagnostic observations only. No post-index plan was "
+            "Investigation Evidence ends before index validation exists",
+            "Investigation Evidence contains diagnostic observations only. No post-index plan was "
             "captured, so a later improvement cannot be claimed from this evidence.",
             "plan_regression",
             {"wave": "A"},
@@ -774,7 +775,7 @@ def build_wave_a_documents(
                 key=f"TEL-{run_suffix}-P{ordinal:02d}",
                 checkpoint=checkpoint,
                 occurred_at=final_poll.observed_at,
-                wave="Wave A",
+                wave="Investigation Evidence",
             )
         )
 
@@ -791,20 +792,21 @@ def build_wave_b_documents(
     if not run_suffix:
         raise ValueError("run_suffix is required")
     if len(plan_checkpoints) != 1 or plan_checkpoints[0].label != "after_index":
-        raise ValueError("Wave B requires exactly one after_index plan checkpoint")
+        raise ValueError("Validation Evidence requires exactly one after_index plan checkpoint")
     checkpoint = plan_checkpoints[0]
     if checkpoint.plan_type != "Index Scan":
-        raise ValueError("Wave B plan checkpoint must be an index scan")
-    observed_at = _require_timestamp(occurred_at, "Wave B occurred_at")
+        raise ValueError("Validation Evidence plan checkpoint must be an index scan")
+    observed_at = _require_timestamp(occurred_at, "Validation Evidence occurred_at")
     return [
         _document(
             key=f"TEL-{run_suffix}-M01",
             signal_type="meta",
             phase="plan_regression",
-            title="Wave B captured new validation evidence",
+            title="Validation Evidence captured post-index evidence",
             body=(
-                "Wave B was captured after the participant-approved change. It adds "
-                "a new measured plan checkpoint without revising the earlier Wave A "
+                "Validation Evidence was captured after the participant-approved change. It adds "
+                "a new measured plan checkpoint without revising the earlier "
+                "Investigation Evidence "
                 "observations."
             ),
             occurred_at=observed_at,
@@ -814,6 +816,6 @@ def build_wave_b_documents(
             key=f"TEL-{run_suffix}-P01",
             checkpoint=checkpoint,
             occurred_at=observed_at,
-            wave="Wave B",
+            wave="Validation Evidence",
         ),
     ]

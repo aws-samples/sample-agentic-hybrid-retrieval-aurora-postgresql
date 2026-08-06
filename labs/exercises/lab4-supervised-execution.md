@@ -1,7 +1,7 @@
 # Lab 4: Validate, Prove, and Replay
 
-Lab 3 produced a cited proposal from Wave A evidence. The Hybrid Retrieval
-Agent can recommend an action, but it cannot execute one. This is the
+Lab 3 produced a cited proposal from Investigation Evidence. The Hybrid
+Retrieval Agent can recommend an action, but it cannot execute one. This is the
 **recommend, don't execute** boundary: you review the proposal and decide
 whether to apply it.
 
@@ -81,7 +81,7 @@ until the command has either completed or returned an error.
 
 ## 4. Capture Validation Evidence
 
-Run Wave B with the persisted proposal ID and your explicit approval. It reads
+Run Validation Evidence with the persisted proposal ID and your explicit approval. It reads
 the created index definition from Aurora's catalog, compares its canonical
 fingerprint with the proposal, records the execution before admission, and then
 captures the new plan evidence.
@@ -90,14 +90,14 @@ captures the new plan evidence.
 make live-workshop ARGS="--wave B --proposal-id $PROPOSAL_ID --approved-by $APPROVED_BY"
 ```
 
-If the index is missing or has a different definition, Wave B records that
+If the index is missing or has a different definition, Validation Evidence records that
 outcome and stops before it admits validation evidence. Review the proposed and
-observed fingerprints, correct the action if needed, and rerun Wave B. Do not
+observed fingerprints, correct the action if needed, and rerun Validation Evidence. Do not
 delete the prior execution record.
 
 ## 5. Inspect What Was Proven
 
-After a ready Wave B receipt, inspect the recorded action and the two
+After a ready Validation Evidence receipt, inspect the recorded action and the two
 independent readiness assessments.
 
 ```bash
@@ -131,11 +131,11 @@ described. `post_execution_validated` reports what this recorded outcome proved.
 does not change because the outcome was successful. Neither result authorizes
 autonomous DDL.
 
-## 6. Replay the Wave A Investigation
+## 6. Replay the Original Investigation
 
 Replay the Lab 3 run using the same `RUN_ID`. The replay remains grounded in
 the evidence that existed when that run began, so its graph and citations do
-not gain the post-index result from Wave B.
+not gain the post-index result from Validation Evidence.
 
 ```bash
 curl -fsS "http://127.0.0.1:8000/v1/runs/${RUN_ID}" \

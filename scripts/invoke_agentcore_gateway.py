@@ -111,7 +111,7 @@ def _load_run_receipt(path: Path | None) -> dict[str, str]:
         selected = candidates[0] if candidates else None
     if selected is None or not selected.is_file():
         raise RuntimeError(
-            "No live Wave A diagnostic receipt was found. Run the incident "
+            "No live Investigation Evidence diagnostic receipt was found. Run the incident "
             "orchestrator or "
             "pass --receipt."
         )
@@ -124,9 +124,9 @@ def _load_run_receipt(path: Path | None) -> dict[str, str]:
         "lock_key",
     )
     if any(not payload.get(key) for key in required):
-        raise RuntimeError(f"{selected} is not a complete Wave A receipt")
+        raise RuntimeError(f"{selected} is not a complete Investigation Evidence receipt")
     if payload["wave"] != "A":
-        raise RuntimeError(f"{selected} is not a Wave A diagnostic receipt")
+        raise RuntimeError(f"{selected} is not an Investigation Evidence receipt")
     return {key: str(payload[key]) for key in required}
 
 

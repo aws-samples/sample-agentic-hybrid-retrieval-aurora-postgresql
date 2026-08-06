@@ -26,7 +26,7 @@ evidence store. They run:
 make live-workshop
 ```
 
-Wave A captures the diagnosis of one migration:
+Investigation Evidence captures the diagnosis of one migration:
 
 ```text
 nullable priority_tier column
@@ -35,7 +35,7 @@ nullable priority_tier column
   -> two additional requests queue and timeout at the pool boundary
   -> commit and measured recovery
   -> sequential query plans before and after ANALYZE
-  -> normalized evidence, runtime embeddings, and a Wave A receipt
+  -> normalized evidence, runtime embeddings, and an Investigation Evidence receipt
 ```
 
 The participant investigates:
@@ -43,15 +43,15 @@ The participant investigates:
 > Why did order writes time out during the priority-tier migration, why did the
 > application recover after commit, and why did the priority query remain slow?
 
-The Hybrid Retrieval Agent answers from Wave A only and persists a structured,
+The Hybrid Retrieval Agent answers from Investigation Evidence only and persists a structured,
 cited index proposal. A human reviews the proposal and runs its rendered DDL.
-Wave B then captures only the observed post-index validation result:
+Validation Evidence then captures only the observed post-index validation result:
 
 ```bash
 make live-workshop ARGS="--wave B --proposal-id <uuid> --approved-by <name-or-role>"
 ```
 
-Wave B remains additive. It never replaces the diagnostic evidence that
+Validation Evidence remains additive. It never replaces the diagnostic evidence that
 grounded the proposal.
 
 ## 2. Ownership
@@ -77,7 +77,7 @@ related `workbench_lab.orders` rows. It requires zero evidence and creates no
 `casework`, `retrieval`, or `proof` records.
 
 `labs/incident/run_live_workshop.py` is the only participant incident
-producer. Wave A requires:
+producer. Investigation Evidence requires:
 
 - a requested Aurora PostgreSQL 18.3 writer in `us-east-1`;
 - current core schema and empty evidence store;
@@ -92,7 +92,7 @@ CloudWatch is best-effort supplemental evidence. A failed metric request is
 recorded as `cloudwatch_status=unavailable`; it does not invalidate the
 PostgreSQL and application-pool proof.
 
-### 3.1 Wave A
+### 3.1 Investigation Evidence
 
 1. `ALTER TABLE ... ADD COLUMN priority_tier int` commits by itself, releasing
    the DDL lock before the migration workload starts.
@@ -113,15 +113,15 @@ PostgreSQL and application-pool proof.
    the reference priority query before and after `ANALYZE`. Both must be
    sequential scans; the incident runner never creates or drops an index.
 
-### 3.2 Wave B
+### 3.2 Validation Evidence
 
-Wave B requires one valid Wave A incident and one explicit participant approval
+Validation Evidence requires one valid Investigation Evidence incident and one explicit participant approval
 of its stored proposal. It reads the actual index definition from the Aurora
 catalog, records an append-only execution receipt, and compares its canonical
 fingerprint with the proposal. A mismatch remains visible as proof and does not
 silently update the proposal.
 
-For a matching index, Wave B captures the post-index plan, admits only new
+For a matching index, Validation Evidence captures the post-index plan, admits only new
 metadata and plan evidence, rebuilds the search index, and attaches the
 receipt to the recorded execution. The participant DDL is rendered by code from
 validated proposal fields:
@@ -148,7 +148,7 @@ The agent neither runs this statement nor has a write-capable tool.
 
 ### Searchable evidence
 
-| Kind | Wave A purpose | Wave B purpose |
+| Kind | Investigation Evidence purpose | Validation Evidence purpose |
 |---|---|---|
 | `incident` | One measured migration failure | None; references the existing incident |
 | `change` | Backfill and `ANALYZE` comparison | Participant-approved index validation |
@@ -168,7 +168,8 @@ metadata, content, and SHA-256 search-document hash.
 
 ## 5. Admission
 
-`casework.admit_evidence(jsonb)` is the atomic write boundary for either wave.
+`casework.admit_evidence(jsonb)` is the atomic write boundary for either
+capture.
 It requires:
 
 - `source.system = pg_incident_capture`;
@@ -176,18 +177,18 @@ It requires:
 - source URIs beneath the capture bundle URI;
 - declared `cloudwatch_status` of `available` or `unavailable`;
 - explicit ACL classification for every record;
-- Wave A's four phases: `backfill`, `pool_exhaustion`, `recovery`, and
+- Investigation Evidence's four phases: `backfill`, `pool_exhaustion`, `recovery`, and
   `plan_regression`;
-- Wave A's six signal types: `lock`, `pool`, `request`, `wal`, `meta`, and
+- Investigation Evidence's six signal types: `lock`, `pool`, `request`, `wal`, `meta`, and
   `plan`;
 - pool-exhaustion and transaction-ID blocking proof;
-- Wave B's one existing incident, `plan_regression` phase, `meta` and `plan`
+- Validation Evidence's one existing incident, `plan_regression` phase, `meta` and `plan`
   signal types, and one validation change; and
 - a payload that is identical on replay or rejected when changed.
 
 Admission writes typed evidence, relationships, raw samples, and outbox rows
-in one transaction. A Wave B admission is a second capture linked to the
-existing incident. It cannot alter or deprecate Wave A.
+in one transaction. A Validation Evidence admission is a second capture linked to the
+existing incident. It cannot alter or deprecate Investigation Evidence.
 
 ## 6. Search Index
 
@@ -228,7 +229,7 @@ meanings and are persisted separately. No score is a probability.
 `retrieval.evidence_edges` renders foreign-key relationships as a uniform read
 surface. Traversal applies visibility at both the seed and each hop. A
 retrieval run's graph and timeline are constrained to the evidence available
-when the run started, so a Lab 3 replay does not gain Wave B evidence.
+when the run started, so a Lab 3 replay does not gain Validation Evidence records.
 
 ## 8. Hybrid Retrieval Agent and Supervised Execution
 
@@ -250,7 +251,7 @@ never handed to a participant.
 - who explicitly approved the action;
 - what PostgreSQL catalog definition was observed;
 - whether observed and proposed fingerprints match; and
-- which Wave B receipt validated the outcome.
+- which Validation Evidence receipt validated the outcome.
 
 `proof.autonomy_readiness(proposal_id)` returns a pre-execution eligibility
 verdict and an independent post-execution validation verdict with named
@@ -310,14 +311,14 @@ Release acceptance requires:
 
 - Aurora PostgreSQL 18.3 in `us-east-1` or a loopback PostgreSQL 18.3 database
   for local contract work; final release proof is Aurora;
-- zero evidence before Wave A and no participant evidence from another run;
-- a proven Wave A collision, recovery, and four-phase admission;
-- coverage of all six Wave A signal types with acceptable diversity;
+- zero evidence before Investigation Evidence and no participant evidence from another run;
+- a proven Investigation Evidence collision, recovery, and four-phase admission;
+- coverage of all six Investigation Evidence signal types with acceptable diversity;
 - runtime embeddings, one model space, and zero search-index drift;
 - differentiated exact, full-text, semantic, fuzzy, fusion, and rerank
   receipts;
-- a cited Wave A agent answer with a persisted proposal;
-- a participant-owned matching index execution, additive Wave B validation,
+- a cited Investigation Evidence agent answer with a persisted proposal;
+- a participant-owned matching index execution, additive Validation Evidence,
   and independent readiness verdicts;
 - citation validation and replay without a model call;
 - no hidden dependence on a Database Insights API permission; and
@@ -326,7 +327,7 @@ Release acceptance requires:
 The August 5 participant-path rehearsal on Aurora PostgreSQL 18.3
 `db.r8g.2xlarge` measured 25.832s for the Lab 3 answer-plus-proposal request,
 1.503s for the participant's non-concurrent index build, and 21.228s for Wave
-B admission. It also admitted 54 Wave A and three Wave B documents. These are
+B admission. It also admitted 54 Investigation Evidence and three Validation Evidence documents. These are
 reference measurements for that substrate, not deployment guarantees; a final
 Workshop Studio rehearsal must recalibrate them on its provisioned instance
 class before publishing different participant-facing numbers.

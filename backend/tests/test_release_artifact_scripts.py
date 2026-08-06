@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
+import subprocess
+import tempfile
 import unittest
+import zipfile
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -17,6 +21,7 @@ INCIDENT_FILES = {
 }
 EXERCISE_FILES = {
     "checkpoint.py",
+    "lab2-sql-retrieval.sql",
     "lab2-filter-request.json",
     "lab2-fusion-request.json",
     "lab2-rrf.sql",
@@ -43,6 +48,70 @@ SUPERVISION_RUNTIME_FILES = {
     "gates/wave_additivity.py",
     "sql/13_supervised_execution.sql",
 }
+INTERNAL_ARCHIVE_PATHS = {
+    "backend/tests",
+    "docs/superpowers",
+    "mockups",
+    "HANDOFF.md",
+    "DAT410-BUILD-BRIEF.md",
+    "WORKSHOP-BUILD-SUMMARY.md",
+    "READINESS.md",
+}
+
+
+def copy_current_repository(destination: Path) -> None:
+    tracked_and_untracked = subprocess.check_output(
+        [
+            "git",
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ],
+        cwd=REPOSITORY_ROOT,
+    ).split(b"\0")
+    for raw_path in tracked_and_untracked:
+        if not raw_path:
+            continue
+        relative = Path(raw_path.decode())
+        source = REPOSITORY_ROOT / relative
+        if not source.is_file() and not source.is_symlink():
+            continue
+        target = destination / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if source.is_symlink():
+            target.symlink_to(source.readlink())
+        else:
+            shutil.copy2(source, target)
+
+
+def commit_repository_snapshot(destination: Path) -> None:
+    subprocess.run(["git", "init", "-q"], cwd=destination, check=True)
+    subprocess.run(
+        ["git", "config", "user.name", "Archive Test"],
+        cwd=destination,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "archive-test@example.com"],
+        cwd=destination,
+        check=True,
+    )
+    subprocess.run(["git", "add", "-A"], cwd=destination, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "commit",
+            "-q",
+            "-m",
+            "Test source archive",
+        ],
+        cwd=destination,
+        check=True,
+    )
 
 
 class ReleaseArtifactScriptTests(unittest.TestCase):
@@ -67,15 +136,53 @@ class ReleaseArtifactScriptTests(unittest.TestCase):
             self.assertIn(filename, source)
         self.assertIn("gates/corpus_diversity.py", source)
         self.assertIn(".claude/skills/extend-hybrid-retrieval/SKILL.md", source)
-        self.assertIn(
-            'rm -rf "$STAGE/mockups" "$STAGE/backend/tests" "$STAGE/docs/superpowers"',
-            source,
-        )
         self.assertIn("for forbidden in admission design seed", source)
         self.assertIn("generated evidence or database artifacts", source)
         self.assertNotIn("hybrid-retrieval-seed-v2.dump", source)
         self.assertNotIn("capture_release_aurora.py", source)
         self.assertNotIn("00_setup.sql", source)
+
+    def test_built_archive_enforces_the_participant_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            snapshot = root / "repository"
+            snapshot.mkdir()
+            copy_current_repository(snapshot)
+            commit_repository_snapshot(snapshot)
+
+            archive = root / "source.zip"
+            subprocess.run(
+                [
+                    str(snapshot / "scripts" / "build_live_source_archive.sh"),
+                    str(archive),
+                ],
+                cwd=snapshot,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            with zipfile.ZipFile(archive) as package:
+                members = set(package.namelist())
+
+        self.assertIn("README.md", members)
+        self.assertIn(
+            "labs/exercises/lab2-sql-retrieval.sql",
+            members,
+        )
+        self.assertIn(
+            ".claude/skills/extend-hybrid-retrieval/SKILL.md",
+            members,
+        )
+        for internal_path in INTERNAL_ARCHIVE_PATHS:
+            self.assertFalse(
+                any(
+                    member == internal_path
+                    or member.startswith(f"{internal_path}/")
+                    for member in members
+                ),
+                internal_path,
+            )
 
     def test_archive_declares_empty_evidence_and_bootstrap_workload(self) -> None:
         source = (

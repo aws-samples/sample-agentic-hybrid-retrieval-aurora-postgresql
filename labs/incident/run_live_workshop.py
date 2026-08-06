@@ -73,6 +73,7 @@ LAB_CATALOG_REVALIDATION_ROLES = (
 )
 EXERCISE_TEMPLATE_DIR = REPO_ROOT / "labs" / "exercises"
 WAVE_A_EXERCISE_TEMPLATES = (
+    "lab2-sql-retrieval.sql",
     "lab2-filter-request.json",
     "lab2-fusion-request.json",
     "lab3-plan-request.json",
@@ -637,7 +638,7 @@ def run_migration_collision(
 ) -> MigrationCollision:
     """Induce and prove the migration collision without admitting evidence.
 
-    The later Wave A admission task consumes this measured result. Keeping this
+    The later Investigation Evidence admission task consumes this measured result. Keeping this
     phase separate means a failure never publishes a corpus describing an
     incident that did not actually occur.
     """
@@ -770,11 +771,12 @@ def _assert_wave_a_corpus_present(connection: psycopg.Connection) -> dict[str, A
     ).fetchall()
     if not rows:
         raise LiveWorkshopError(
-            "Wave B requires Lab 1's admitted Wave A evidence; run Lab 1 first"
+            "Validation Evidence requires Lab 1's admitted Investigation "
+            "Evidence; run Lab 1 first"
         )
     if len(rows) != 1:
         raise LiveWorkshopError(
-            "Wave B requires exactly one Wave A capture in this workshop database"
+            "Validation Evidence requires exactly one Investigation Evidence capture in this workshop database"
         )
     return dict(rows[0])
 
@@ -786,7 +788,7 @@ def _prepare_lab_for_wave(
     wave: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     if wave not in {"A", "B"}:
-        raise ValueError(f"unsupported capture wave {wave!r}")
+        raise ValueError(f"unsupported capture stage {wave!r}")
     with _connect(
         database_url,
         f"workbench-live-setup-{wave.lower()}",
@@ -809,12 +811,12 @@ def _prepare_lab_for_wave(
             expected_touched_rows = 0
         else:
             wave_a = _assert_wave_a_corpus_present(connection)
-            # Wave A commits one hot write per pool slot plus its verified
+            # Investigation Evidence commits one hot write per pool slot plus its verified
             # post-recovery probe through the same application pool.
             expected_touched_rows = int(wave_a["blocked_writer_count"]) + 1
         workload = _assert_lab_workload_ready(
             _lab_workload_state(connection),
-            # A Wave B participant can have run no index or a differently-shaped
+            # A Validation Evidence participant can have run no index or a differently-shaped
             # one. Both are evidence-bearing outcomes that D3 records before it
             # declines the post-index admission; preflight must not erase them.
             target_index_expected=None if wave == "B" else False,
@@ -1365,7 +1367,7 @@ def _action_proposal(
     if not proposal.pop("matches_incident"):
         raise LiveWorkshopError(
             f"stored action proposal {proposal_id} is not grounded in the current "
-            f"Wave A incident {incident_key}; run Lab 3 for this incident first"
+            f"Investigation Evidence incident {incident_key}; run Lab 3 for this incident first"
         )
     if (
         proposal["target_schema"],
@@ -1451,7 +1453,7 @@ def _resolve_observed_index(
         )
     if len(matching_rows) > 1 and observed_index_name is None:
         raise LiveWorkshopError(
-            "multiple indexes match the approved proposal; rerun Wave B with "
+            "multiple indexes match the approved proposal; rerun Validation Evidence with "
             "--observed-index <schema.index_name> to identify the one you ran"
         )
 
@@ -1488,7 +1490,7 @@ def _resolve_observed_index(
     if len(candidates) > 1:
         raise LiveWorkshopError(
             "the approved proposal did not match and multiple non-primary "
-            "indexes exist; rerun Wave B with --observed-index "
+            "indexes exist; rerun Validation Evidence with --observed-index "
             "<schema.index_name> so the mismatch can be recorded honestly"
         )
     return _observed_index_by_oid(
@@ -1522,7 +1524,7 @@ def record_action_execution(
     """
     approver = approved_by.strip()
     if not approver:
-        raise LiveWorkshopError("Wave B requires a non-empty --approved-by value")
+        raise LiveWorkshopError("Validation Evidence requires a non-empty --approved-by value")
     if outcome not in {"succeeded", "failed"}:
         raise LiveWorkshopError(
             "execution outcome must be 'succeeded' or 'failed', "
@@ -1697,8 +1699,8 @@ def _wave_b_payload(
                         available_at=ended_at,
                         body=(
                             "The participant created the recommended composite "
-                            "index. Wave B captured a new post-index plan without "
-                            "revising the earlier Wave A diagnosis."
+                            "index. Validation Evidence captured a new post-index plan without "
+                            "revising the earlier Investigation Evidence diagnosis."
                         ),
                         structured={
                             "incident_external_key": incident_key,
@@ -1716,7 +1718,7 @@ def _wave_b_payload(
                             "execution_sql": index_definition,
                             "description": (
                                 "The index supplies the selective path the "
-                                "Wave A sequential scans lacked."
+                                "Investigation Evidence sequential scans lacked."
                             ),
                             "rollback_plan": (
                                 f"DROP INDEX {RECOMMENDED_INDEX_NAME}"
@@ -1798,7 +1800,7 @@ def _materialize_wave_a_exercises(
     *,
     output_dir: Path,
 ) -> None:
-    """Write Lab 2 and Lab 3 requests from the Wave A receipt alone."""
+    """Write Lab 2 and Lab 3 requests from the Investigation Evidence receipt alone."""
     required = {
         "wave",
         "run_suffix",
@@ -1810,12 +1812,13 @@ def _materialize_wave_a_exercises(
     missing = sorted(required - receipt.keys())
     if missing:
         raise LiveWorkshopError(
-            "cannot create run-scoped exercises; the Wave A receipt is missing: "
+            "cannot create run-scoped exercises; the Investigation Evidence receipt is missing: "
             + ", ".join(missing)
         )
     if receipt["wave"] != "A":
         raise LiveWorkshopError(
-            "run-scoped Lab 2 and Lab 3 exercises require a Wave A receipt"
+            "run-scoped Lab 2 and Lab 3 exercises require an Investigation "
+            "Evidence receipt"
         )
 
     suffix = str(receipt["run_suffix"])
@@ -1829,7 +1832,7 @@ def _materialize_wave_a_exercises(
         receipt[name] != value for name, value in expected.items()
     ):
         raise LiveWorkshopError(
-            "cannot create run-scoped exercises; the Wave A receipt does not "
+            "cannot create run-scoped exercises; the Investigation Evidence receipt does not "
             "contain one valid run-derived identity"
         )
 
@@ -1838,6 +1841,7 @@ def _materialize_wave_a_exercises(
         "{{UNSAFE_CHANGE_KEY}}": expected["unsafe_change_key"],
         "{{ANALYZE_CHANGE_KEY}}": expected["analyze_change_key"],
         "{{LOCK_KEY}}": expected["lock_key"],
+        "{{FUZZY_CHANGE_KEY}}": f"CGH-{suffix}-01",
         "REPLACE_WITH_INCIDENT_ID": expected["incident_key"],
         "REPLACE_WITH_UNSAFE_CHANGE_ID": expected["unsafe_change_key"],
         "REPLACE_WITH_ANALYZE_CHANGE_ID": expected["analyze_change_key"],
@@ -1913,11 +1917,11 @@ def _attach_wave_b_receipt(
     capture_id: uuid.UUID,
     ingest_receipt: dict[str, Any],
 ) -> None:
-    """Attach an admitted Wave B receipt to an already-recorded action once."""
+    """Attach an admitted Validation Evidence receipt to an already-recorded action once."""
     ingest_id = ingest_receipt.get("ingest_id")
     if not isinstance(ingest_id, str) or not ingest_id:
         raise LiveWorkshopError(
-            "Wave B admission returned no ingest_id; the execution remains "
+            "Validation Evidence admission returned no ingest_id; the execution remains "
             "recorded but cannot claim validation"
         )
     with _connect(
@@ -2049,17 +2053,26 @@ def _verify_wave(
         health = connection.execute(
             "SELECT retrieval.assert_search_index_ready() AS health"
         ).fetchone()["health"]
+    capture_label = (
+        "Investigation Evidence" if wave == "A" else "Validation Evidence"
+    )
     if capture is None or capture["wave"] != wave:
         raise LiveWorkshopError(
-            f"admission did not persist capture {capture_id} as Wave {wave}"
+            f"admission did not persist {capture_label} capture {capture_id} "
+            f"as internal stage {wave}"
         )
     if counts["wave_documents"] == 0:
-        raise LiveWorkshopError(f"Wave {wave} did not produce indexed documents")
+        raise LiveWorkshopError(
+            f"{capture_label} did not produce indexed documents"
+        )
     if wave == "A" and not readiness["live_ready"]:
-        raise LiveWorkshopError("Wave A did not satisfy the live capture contract")
+        raise LiveWorkshopError(
+            "Investigation Evidence did not satisfy the live capture contract"
+        )
     if wave == "B" and not readiness["two_wave_ready"]:
         raise LiveWorkshopError(
-            "Wave B did not produce the required additive validation relationship"
+            "Validation Evidence did not produce the required additive "
+            "validation relationship"
         )
     return {
         "status": "ready",
@@ -2218,14 +2231,14 @@ def _parser() -> argparse.ArgumentParser:
         "--proposal-id",
         help=(
             "Lab 3 action proposal the participant reviewed; required for "
-            "Wave B so the approval and execution are tied to one recommendation"
+            "Validation Evidence so the approval and execution are tied to one recommendation"
         ),
     )
     parser.add_argument(
         "--approved-by",
         help=(
             "name or role of the human who approved the stored proposal; "
-            "required for Wave B"
+            "required for Validation Evidence"
         ),
     )
     parser.add_argument(
@@ -2252,7 +2265,7 @@ def _load_replay_payload(path: Path, *, incident_key: str) -> dict[str, Any]:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise LiveWorkshopError(
-            f"could not reuse Wave B payload {path}: {error}"
+            f"could not reuse Validation Evidence payload {path}: {error}"
         ) from error
     if (
         payload.get("wave") != "B"
@@ -2260,7 +2273,7 @@ def _load_replay_payload(path: Path, *, incident_key: str) -> dict[str, Any]:
         or not payload.get("capture", {}).get("capture_id")
     ):
         raise LiveWorkshopError(
-            f"{path} is not the saved Wave B payload for {incident_key}"
+            f"{path} is not the saved Validation Evidence payload for {incident_key}"
         )
     return payload
 
@@ -2270,12 +2283,12 @@ def main() -> int:
     try:
         if args.wave == "B" and not args.proposal_id:
             raise LiveWorkshopError(
-                "Wave B requires --proposal-id from the Lab 3 Hybrid Retrieval "
+                "Validation Evidence requires --proposal-id from the Lab 3 Hybrid Retrieval "
                 "Agent proposal"
             )
         if args.wave == "B" and not args.approved_by:
             raise LiveWorkshopError(
-                "Wave B requires --approved-by to record the human approval"
+                "Validation Evidence requires --approved-by to record the human approval"
             )
 
         capture_id = uuid.uuid4()
@@ -2293,7 +2306,7 @@ def main() -> int:
                 wave="A",
             )
             print(
-                f"Wave A preflight: {preflight['cluster_id']} / "
+                f"Investigation Evidence preflight: {preflight['cluster_id']} / "
                 f"{preflight['instance_id']}; "
                 f"{workload['observed_customer_count']} customers, "
                 f"{workload['observed_row_count']} orders"
@@ -2366,7 +2379,7 @@ def main() -> int:
                     )
                     raise LiveWorkshopError(
                         "no participant-created index was found. The failed "
-                        "execution is recorded; correct the DDL and rerun Wave B."
+                        "execution is recorded; correct the DDL and rerun Validation Evidence."
                     )
                 if observed.fingerprint != proposal["proposed_fingerprint"]:
                     completed_at = connection.execute(
@@ -2393,7 +2406,7 @@ def main() -> int:
                         "the participant-created index does not match the "
                         f"approved proposal (execution {execution_id}). Compare "
                         "the proposed and observed fingerprints, correct the "
-                        "index, and rerun Wave B."
+                        "index, and rerun Validation Evidence."
                     )
                 plan_checkpoints = tuple(
                     capture_plan_checkpoints(
@@ -2430,7 +2443,7 @@ def main() -> int:
                 instance_id=args.db_instance_identifier,
             )
             print(
-                f"Wave B preflight: {preflight['cluster_id']} / "
+                f"Validation Evidence preflight: {preflight['cluster_id']} / "
                 f"{preflight['instance_id']}; "
                 f"{workload['observed_customer_count']} customers, "
                 f"{workload['observed_row_count']} orders"
@@ -2505,7 +2518,12 @@ def main() -> int:
         if args.wave == "A":
             _materialize_wave_a_exercises(receipt, output_dir=args.output_dir)
         print(json.dumps(receipt, indent=2, default=str))
-        print(f"\nWAVE {args.wave} READY: {receipt_path}")
+        capture_label = (
+            "Investigation Evidence"
+            if args.wave == "A"
+            else "Validation Evidence"
+        )
+        print(f"\n{capture_label.upper()} READY: {receipt_path}")
         if args.wave == "B":
             print(
                 "\nyou built the trusted context layer required by a "

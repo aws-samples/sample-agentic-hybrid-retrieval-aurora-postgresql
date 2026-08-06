@@ -651,7 +651,7 @@ def run_graph(run_id: str, role: str = "app_engineer") -> dict[str, Any]:
         with connection.cursor() as cursor:
             # Gate 2 proved retrieval candidates are immutable, but graph edges
             # remain live. Resolve the latest capture available when this run began
-            # so a later Wave B cannot appear in a replayed Wave A graph.
+            # so a later Validation Evidence cannot appear in a replayed Investigation Evidence graph.
             cursor.execute(
                 """
                 SELECT

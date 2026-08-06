@@ -122,7 +122,7 @@ def _diagnostic_capture_scope(
     incident_id: str | None = None,
     question: str | None = None,
 ) -> DiagnosticCaptureScope | None:
-    """Return this agent run's Wave A boundary, resolving it on first use."""
+    """Return this agent run's Investigation Evidence boundary, resolving it on first use."""
     run = _run()
     existing = run.get("diagnostic_capture_scope") if run else None
     if existing is not None:
@@ -344,7 +344,7 @@ def follow_evidence_links(
 
     Relationships come from foreign keys, not text similarity, so this is how
     you connect the backfill, pool, and plan evidence. Every hop re-checks the
-    caller's ACL and remains inside the Wave A boundary when one is active.
+    caller's ACL and remains inside the Investigation Evidence boundary when one is active.
 
     Args:
         seed_external_keys: Receipt-derived keys to start from, such as

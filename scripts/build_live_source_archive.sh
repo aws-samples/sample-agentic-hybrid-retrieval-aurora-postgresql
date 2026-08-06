@@ -27,8 +27,21 @@ fi
 echo "[archive] exporting committed source at $REVISION"
 git -C "$ROOT_DIR" archive "$REVISION" | tar -x -C "$STAGE"
 
-# Tests and local mockups are not participant runtime.
-rm -rf "$STAGE/mockups" "$STAGE/backend/tests" "$STAGE/docs/superpowers"
+# Tests, planning records, release handoffs, and local mockups are not
+# participant runtime. Keep this list explicit so the built-archive test can
+# enforce the actual package boundary.
+internal_only_paths=(
+  mockups
+  backend/tests
+  docs/superpowers
+  HANDOFF.md
+  DAT410-BUILD-BRIEF.md
+  WORKSHOP-BUILD-SUMMARY.md
+  READINESS.md
+)
+for path in "${internal_only_paths[@]}"; do
+  rm -rf "${STAGE:?}/$path"
+done
 
 for forbidden in admission design seed; do
   if [ -e "$STAGE/$forbidden" ]; then
@@ -51,6 +64,7 @@ required=(
   labs/incident/recovery_verifier.py
   labs/incident/run_live_workshop.py
   labs/exercises/checkpoint.py
+  labs/exercises/lab2-sql-retrieval.sql
   labs/exercises/lab2-filter-request.json
   labs/exercises/lab2-fusion-request.json
   labs/exercises/lab2-rrf.sql
@@ -74,6 +88,8 @@ required=(
   gates/retroactive_safety.py
   gates/route_contract.py
   gates/wave_additivity.py
+  scripts/install_git_hooks.sh
+  scripts/git-hooks/pre-push
 )
 for path in "${required[@]}"; do
   if [ ! -f "$STAGE/$path" ]; then

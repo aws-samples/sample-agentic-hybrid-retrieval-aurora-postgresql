@@ -119,7 +119,7 @@ def _wave_contract_payload(
     """Build the smallest two-wave payload that exercises admission behavior.
 
     This is a disposable-database contract input, not participant evidence. Wave
-    B deliberately contains only new validation records; copying Wave A's lock
+    B deliberately contains only new validation records; copying Investigation Evidence's lock
     observation into the later wave would make the test pass by violating the
     additive-evidence design.
     """
@@ -661,7 +661,7 @@ class WaveAdmissionTest(unittest.TestCase):
         incident_key: str,
         unsafe_change_key: str,
     ) -> str:
-        """Persist two Wave A candidates with tied paths to their telemetry."""
+        """Persist two Investigation Evidence candidates with tied paths to their telemetry."""
         build_id = self.connection.execute(
             """
             INSERT INTO retrieval.search_index_builds(
@@ -922,7 +922,7 @@ class WaveAdmissionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             LiveWorkshopError,
-            "not grounded in the current Wave A incident",
+            "not grounded in the current Investigation Evidence incident",
         ):
             _action_proposal(
                 self.connection,
@@ -935,10 +935,10 @@ class WaveAdmissionTest(unittest.TestCase):
     ) -> None:
         """A later validation capture cannot change a historical graph route.
 
-        Each Wave A telemetry record links to the incident and, when relevant,
+        Each Investigation Evidence telemetry record links to the incident and, when relevant,
         to the migration change. With both records as retrieval candidates those
         are equally short canonical paths. The traversal must choose one stable
-        route before and after Wave B, rather than letting a join plan change
+        route before and after Validation Evidence, rather than letting a join plan change
         path, relation, or edge key during replay.
         """
         wave_a = _wave_contract_payload(uuid.uuid4(), wave="A")
@@ -996,7 +996,7 @@ class WaveAdmissionTest(unittest.TestCase):
         self.assertEqual(
             before,
             [before[0]] * len(before),
-            "replaying one Wave A run selected different equally valid paths",
+            "replaying one Investigation Evidence run selected different equally valid paths",
         )
 
         wave_b = _wave_contract_payload(
@@ -1028,7 +1028,7 @@ class WaveAdmissionTest(unittest.TestCase):
         self.assertEqual(
             after,
             [before[0]] * len(after),
-            "Wave B changed the persisted Wave A graph or its canonical route",
+            "Validation Evidence changed the persisted Investigation Evidence graph or its canonical route",
         )
 
     def test_wave_b_attaches_to_one_incident_and_replays_idempotently(self) -> None:
@@ -1102,7 +1102,7 @@ class WaveAdmissionTest(unittest.TestCase):
                 (incident_key,),
             ).fetchone()[0],
             incident_source_uri,
-            "Wave B must not replace the stable Wave A incident source URI",
+            "Validation Evidence must not replace the stable Investigation Evidence incident source URI",
         )
 
     def test_failed_wave_b_leaves_wave_a_intact(self) -> None:
@@ -1152,7 +1152,7 @@ class WaveAdmissionTest(unittest.TestCase):
         )
         with self.assertRaises(psycopg.errors.InvalidParameterValue) as caught:
             self._admit(wave_b)
-        self.assertIn("has no Wave A capture", str(caught.exception))
+        self.assertIn("has no Investigation Evidence capture", str(caught.exception))
 
     def test_wave_b_cannot_attach_across_clusters(self) -> None:
         wave_a = _wave_contract_payload(uuid.uuid4(), wave="A")
@@ -1168,7 +1168,7 @@ class WaveAdmissionTest(unittest.TestCase):
         with self.assertRaises(psycopg.errors.InvalidParameterValue) as caught:
             self._admit(wave_b)
 
-        self.assertIn("has no Wave A capture", str(caught.exception))
+        self.assertIn("has no Investigation Evidence capture", str(caught.exception))
         self.assertEqual(
             self.connection.execute(
                 """
@@ -1181,12 +1181,13 @@ class WaveAdmissionTest(unittest.TestCase):
         )
 
     def test_wave_b_preparation_requires_wave_a_and_no_live_lab_sessions(self) -> None:
-        """Wave B needs Wave A evidence and retains the shared lab-session guard."""
+        """Validation Evidence needs Investigation Evidence and retains the session guard."""
         try:
             prepare_lab_workload(TEST_DSN)
             with self.assertRaisesRegex(
                 LiveWorkshopError,
-                "Wave B requires Lab 1's admitted Wave A evidence; run Lab 1 first",
+                "Validation Evidence requires Lab 1's admitted Investigation "
+                "Evidence; run Lab 1 first",
             ):
                 _prepare_lab_for_wave(
                     TEST_DSN,

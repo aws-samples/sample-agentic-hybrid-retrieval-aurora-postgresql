@@ -229,7 +229,7 @@ class RunGraphReplayTests(unittest.TestCase):
         self.assertNotIn(
             "traverse_evidence(%s::uuid[], 2)\n",
             body,
-            "unscoped live traversal would leak Wave B edges into a replayed Wave A graph",
+            "unscoped live traversal would leak Validation Evidence edges into a replayed Investigation Evidence graph",
         )
 
 

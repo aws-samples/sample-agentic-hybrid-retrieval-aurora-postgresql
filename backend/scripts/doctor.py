@@ -350,7 +350,7 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
         doctor.fail(
             "incident capture",
             (
-                "expected one participant incident with one or two capture waves, "
+                "expected one participant incident with one or two captures, "
                 f"found {len(incidents)} incident(s)"
             ),
         )
@@ -365,7 +365,8 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
         doctor.fail(
             "incident capture",
             (
-                "expected exactly one Wave A and at most one Wave B capture, got "
+                "expected exactly one Investigation Evidence and at most one "
+                "Validation Evidence capture, got "
                 f"{dict(incident_group)}"
             ),
         )
@@ -402,7 +403,7 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
     )
     capture = cursor.fetchone()
     if capture is None:
-        doctor.fail("incident capture", "could not resolve the Wave A capture")
+        doctor.fail("incident capture", "could not resolve the Investigation Evidence capture")
         return
 
     wave_a_suffix = capture["wave_a_suffix"]
@@ -539,12 +540,12 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
         )
         if capture["wave_b_capture_id"] is None:
             doctor.ok(
-                "two-wave admission",
-                "Wave A is indexed; the participant-approved validation is pending",
+                "additive evidence admission",
+                "Investigation Evidence is indexed; the participant-approved validation is pending",
             )
         elif validation["two_wave_ready"]:
             doctor.ok(
-                "two-wave admission",
+                "additive evidence admission",
                 (
                     f"{capture['wave_a_capture_key']} + "
                     f"{capture['wave_b_capture_key']} are additive"
@@ -552,7 +553,7 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
             )
         else:
             doctor.fail(
-                "two-wave admission",
+                "additive evidence admission",
                 (
                     f"{capture['wave_b_capture_key']} exists but did not satisfy "
                     "the additive validation contract"

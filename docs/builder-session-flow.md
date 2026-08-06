@@ -8,7 +8,7 @@ proof layer from a live Aurora PostgreSQL migration failure.
 The incident is the corpus generator, not the workshop outcome. Participants
 turn measured signals into searchable evidence, use Aurora PostgreSQL to rank,
 relate, cite, and replay that evidence, and validate a human-approved
-recommendation with a second evidence wave.
+recommendation with a second evidence capture.
 
 > At fleet scale, telemetry is abundant; trustworthy context is scarce.
 
@@ -56,7 +56,7 @@ traverse the blocker chain, and compare plan checkpoints.
 
 ## Minimal End-to-End Path
 
-1. Run `make live-workshop` to produce **Wave A**. It contains only diagnostic
+1. Run `make live-workshop` to produce **Investigation Evidence**. It contains only diagnostic
    evidence from the backfill, lock wait, app-pool exhaustion, request
    timeouts, recovery, and pre/post-`ANALYZE` plan checkpoints.
 2. Confirm the generated receipt reports a current, drift-free search index.
@@ -65,7 +65,7 @@ traverse the blocker chain, and compare plan checkpoints.
 3. In Code Editor, exercise exact identifier, full-text, semantic, and fuzzy
    retrieval; apply filters inside each retrieval arm; edit weighted RRF; and
    inspect model reranking separately from PostgreSQL RRF.
-4. Run the Hybrid Retrieval Agent against Wave A. Its cited answer explains
+4. Run the Hybrid Retrieval Agent against Investigation Evidence. Its cited answer explains
    the lock/pool failure, measured drain, and missing access path. It cannot
    claim a post-index result because none has been admitted.
 5. Review the persisted structured proposal, citations, preconditions,
@@ -75,7 +75,7 @@ traverse the blocker chain, and compare plan checkpoints.
    to record the observed index fingerprint and admit only post-index
    validation evidence.
 7. Inspect the proposal, execution receipt, autonomous-readiness assessment,
-   citations, relationships, and replay of the original Wave A run.
+   citations, relationships, and replay of the original Investigation Evidence run.
 
 ## Minute-by-Minute Run of Show
 
@@ -83,10 +83,10 @@ traverse the blocker chain, and compare plan checkpoints.
 |---:|---|---|---|
 | 0-5 | Getting Started | Environment opens and evidence store is empty | Pair terminal access; do not use a prior corpus |
 | 5-10 | Workshop Scenario | Distinguish operational rows from evidence and map each source to the fact it proves | No product tour |
-| 10-18 | Lab 1 | Wave A receipt proves transaction-ID blocking, exhausted pool, timed-out queued callers, recovery, and two sequential plan checkpoints | Pair with a participant whose current Wave A run completed |
+| 10-18 | Lab 1 | Investigation Evidence receipt proves transaction-ID blocking, exhausted pool, timed-out queued callers, recovery, and two sequential plan checkpoints | Pair with a participant whose current Investigation Evidence run completed |
 | 18-38 | Lab 2 | Exact, FTS, semantic, fuzzy, pre-fusion filter, weighted RRF, and rerank checks run from the current receipt | Rerank fallback is valid; preserve SQL fusion |
 | 38-50 | Lab 3 | Cited diagnostic answer and structured action proposal are persisted | Use the complete answer path if individual tool calls run long |
-| 50-56 | Lab 4 | Participant approval, catalog fingerprint, Wave B plan evidence, citations, and Wave A replay are visible | Preserve supervised execution and replay before visual exploration |
+| 50-56 | Lab 4 | Participant approval, catalog fingerprint, Validation Evidence plan evidence, citations, and Investigation Evidence replay are visible | Preserve supervised execution and replay before visual exploration |
 | 56-58 | Take it home | Explain read-only recommendation, human-approved action, and policy-bounded future autonomy | Architecture discussion only |
 | 58-60 | Summary and cleanup | Workload cleanup is understood; proof remains replayable | Do not start an extension lab |
 
@@ -99,13 +99,13 @@ for a different Workshop Studio instance class or a cold account.
 
 | Participant-visible action | Measured time | Facilitator line |
 |---|---:|---|
-| Wave A, including local workload preparation | 78.980s wall-clock, including 33.840s to prepare the workload | The pre-provisioned workshop path does not ask participants to wait for the workload build. During the capture, the controller first proves the state and then deliberately holds it for 12s. |
+| Investigation Evidence, including local workload preparation | 78.980s wall-clock, including 33.840s to prepare the workload | The pre-provisioned workshop path does not ask participants to wait for the workload build. During the capture, the controller first proves the state and then deliberately holds it for 12s. |
 | Lab 3 cited answer and structured proposal | 25.832s endpoint wall-clock; 25.338s recorded answer latency | "The agent is grounding, citing, and recording a proposal. Give it about 30 seconds and do not submit a second request." |
 | Participant's non-concurrent `CREATE INDEX` | 1.503s | The participant action is fast in this rehearsal; the following validation admission is the longer transition. |
-| Wave B validation admission | 21.228s wall-clock | "Aurora is validating the catalog action, admitting the new evidence, and rebuilding the search index. This takes about 22 seconds in the rehearsal." |
+| Validation Evidence admission | 21.228s wall-clock | "Aurora is validating the catalog action, admitting the new evidence, and rebuilding the search index. This takes about 22 seconds in the rehearsal." |
 
-The reference Wave A capture admitted 54 documents from 297 activity rows,
-1,728 lock rows, and 270 blocker-chain rows. Wave B added three validation
+The reference Investigation Evidence capture admitted 54 documents from 297 activity rows,
+1,728 lock rows, and 270 blocker-chain rows. Validation Evidence added three validation
 documents, for 57 current documents. The corpus count is explanatory only;
 behavioral coverage and the diversity gate remain the contract.
 
@@ -119,9 +119,9 @@ packaged stack and content.
 
 The source-only path was measured three times on the dedicated Aurora PostgreSQL
 18.3 `db.r8g.2xlarge` test target. Each clean cycle rebuilt the 3,000,000-row
-operational workload and then completed Wave A:
+operational workload and then completed Investigation Evidence:
 
-| Cycle | Workload rebuild | Wave A | Combined |
+| Cycle | Workload rebuild | Investigation Evidence | Combined |
 |---|---:|---:|---:|
 | 1 | 33.86s | 87.52s | 121.38s |
 | 2 | 34.17s | 81.55s | 115.72s |
@@ -169,7 +169,7 @@ versioned evidence contract.
    post-index evidence, so the agent cannot cite an improvement that has not
    happened.
 4. **A recommendation is not an action.** The agent has no write tool or DDL
-   privilege. The participant's approval, executed SQL fingerprint, Wave B
+   privilege. The participant's approval, executed SQL fingerprint, Validation Evidence
    outcome, and readiness verdict are persisted proof.
 
 ## Facilitator Gates
@@ -186,14 +186,14 @@ Before opening the room:
   build have passed on the final source revision.
 - Bedrock embedding, reranking, and synthesis access is confirmed in
   `us-east-1`.
-- Wave A, participant-executed DDL, Wave B, citation validation, proposal
+- Investigation Evidence, participant-executed DDL, Validation Evidence, citation validation, proposal
   fingerprint comparison, and replay have been rehearsed using the
   participant role.
 - CloudWatch unavailability remains a recorded supplemental condition, not a
   participant blocker.
 
 Use the [facilitator recovery runbook](facilitator-recovery-runbook.md) for
-bounded incident, Wave B, and role-boundary recovery. It records expected
+bounded incident, Validation Evidence, and role-boundary recovery. It records expected
 failure symptoms and preserves the live-evidence rule.
 
 ## Expected Outputs
@@ -202,15 +202,15 @@ failure symptoms and preserves the live-evidence rule.
   queued callers are proven only through pool statistics and `PoolTimeout`.
 - Recovery records ten drained writes, no blocked tagged sessions, no waiting
   pool requests, and a fresh successful write.
-- Wave A contains before- and after-`ANALYZE` sequential scans. `ANALYZE` is
+- Investigation Evidence contains before- and after-`ANALYZE` sequential scans. `ANALYZE` is
   evidence, not an automatic fix.
-- The participant-created composite index produces the Wave B index-scan
+- The participant-created composite index produces the Validation Evidence index-scan
   checkpoint.
 - Exact, full-text, semantic, fuzzy, filtered, fused, and reranked retrieval
   results retain their own persisted signals.
-- The cited agent answer is limited to Wave A evidence and creates a structured
+- The cited agent answer is limited to Investigation Evidence records and creates a structured
   proposal.
-- Wave B remains additive. Replaying the Lab 3 run does not gain Wave B
+- Validation Evidence remains additive. Replaying the Lab 3 run does not gain Validation Evidence
   candidates, edges, or citations.
 - The supervision lens distinguishes a missing proposal, pending human action,
   a mismatched execution, and a validated outcome.
