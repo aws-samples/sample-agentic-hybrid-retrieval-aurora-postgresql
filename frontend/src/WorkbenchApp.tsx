@@ -1916,6 +1916,29 @@ function answerParagraphs(text: string): string[] {
   return paragraphs.length ? paragraphs : [text];
 }
 
+const INCIDENT_ANSWER_SECTIONS = [
+  { label: 'Root cause', title: 'Why the incident happened' },
+  { label: 'Inside PostgreSQL', title: 'Blocked writes and recovery' },
+  { label: 'Application pool', title: 'Why some callers timed out' },
+  { label: 'Query performance', title: 'Why ANALYZE did not help' },
+] as const;
+
+const LEGACY_INCIDENT_ANSWER_SECTIONS = [
+  { label: 'Root cause', title: 'Why the incident happened' },
+  { label: 'Inside PostgreSQL', title: 'Blocked writes and recovery' },
+  {
+    label: 'Application and query impact',
+    title: 'Timeouts and the slow query',
+  },
+] as const;
+
+function streamingAnswerParagraphs(text: string): string[] {
+  return text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
 function AnswerNarrative({
   text,
   streaming = false,
@@ -1925,43 +1948,44 @@ function AnswerNarrative({
   streaming?: boolean;
   structured?: boolean;
 }) {
-  const paragraphs = answerParagraphs(text);
+  const paragraphs =
+    streaming && structured
+      ? streamingAnswerParagraphs(text)
+      : answerParagraphs(text);
   const headings =
-    paragraphs.length >= 4
-      ? [
-          ['Root cause', 'Why the incident happened'],
-          ['Inside PostgreSQL', 'Blocked writes and recovery'],
-          ['Application pool', 'Why some callers timed out'],
-          ['Query performance', 'Why ANALYZE did not help'],
-        ]
+    streaming && structured
+      ? INCIDENT_ANSWER_SECTIONS
+      : paragraphs.length >= 4
+        ? INCIDENT_ANSWER_SECTIONS
       : paragraphs.length === 3
-        ? [
-            ['Root cause', 'Why the incident happened'],
-            ['Inside PostgreSQL', 'Blocked writes and recovery'],
-            ['Application and query impact', 'Timeouts and the slow query'],
-          ]
+        ? LEGACY_INCIDENT_ANSWER_SECTIONS
         : [];
+  const sectionCount =
+    streaming && structured
+      ? Math.max(headings.length, paragraphs.length)
+      : paragraphs.length;
 
   return (
     <div className={`answer-prose${streaming ? ' is-streaming' : ''}`}>
-      {paragraphs.map((paragraph, index) => {
+      {Array.from({ length: sectionCount }, (_, index) => {
+        const paragraph = paragraphs[index] || '';
         const heading = structured ? headings[index] : undefined;
-        const prose = (
+        const prose = paragraph ? (
           <p>
             <FormattedAnswer text={paragraph} />
             {streaming && index === paragraphs.length - 1 ? (
               <span className="answer-type-cursor" />
             ) : null}
           </p>
-        );
+        ) : null;
         return heading ? (
           <section
-            key={`${index}-${paragraph.slice(0, 24)}`}
+            key={heading.label}
             className="answer-prose-section"
           >
             <header>
-              <span className="section-label">{heading[0]}</span>
-              <h3>{heading[1]}</h3>
+              <span className="section-label">{heading.label}</span>
+              <h3>{heading.title}</h3>
             </header>
             {prose}
           </section>
@@ -6559,7 +6583,11 @@ export default function WorkbenchApp() {
                           Citation-validated prose
                         </span>
                         {streamingAnswer ? (
-                          <AnswerNarrative text={streamingAnswer} streaming />
+                          <AnswerNarrative
+                            text={streamingAnswer}
+                            streaming
+                            structured
+                          />
                         ) : (
                           <div className="answer-stream-waiting">
                             <LoaderCircle className="spin" size={18} />
