@@ -64,6 +64,54 @@ def _first_match(pattern: str, question: str) -> str | None:
     return match.group(0) if match else None
 
 
+def _current_capture_incident_id(*, role: str = "app_engineer") -> str | None:
+    """Return the incident of the newest completed Investigation Evidence capture.
+
+    The participant asks in prose. The business framing carries no identifier, and
+    the technical framing may still hold an unrendered placeholder such as
+    `INC-<run-suffix>`, which the key pattern cannot match. Without this, those
+    questions fall through to the narrow single-subquestion plan and quietly lose
+    the pool and plan-regression evidence requirements.
+
+    Resolving the incident from the capture is safe because a participant database
+    holds exactly one completed Wave A run: the row is a fact about their own
+    admitted evidence, not a guess. Returns None when no capture has completed, so
+    an empty database keeps the narrow plan rather than naming an invented
+    incident.
+
+    Args:
+        role: The caller's persona, threaded so an incident the caller cannot see
+            never enters their plan.
+
+    Returns:
+        The incident external key, or None when no completed capture is visible.
+    """
+    with get_dict_conn(role) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT incident.incident_id
+                FROM evidence.incident_capture_runs capture
+                JOIN evidence.evidence_items incident_item
+                  ON incident_item.source_uri
+                     LIKE capture.source_bundle_uri || '/%%'
+                JOIN retrieval.documents incident
+                  ON incident.evidence_id = incident_item.evidence_id
+                WHERE capture.capture_origin = 'participant_induced'
+                  AND capture.wave = 'A'
+                  AND capture.capture_ended_at IS NOT NULL
+                  AND incident.is_current
+                  AND incident.evidence_kind = 'incident'
+                  AND NOT incident_item.is_deleted
+                  AND retrieval.acl_visible(incident_item.acl)
+                ORDER BY capture.capture_ended_at DESC, capture.capture_id DESC
+                LIMIT 1
+                """
+            )
+            row = cursor.fetchone()
+    return str(row["incident_id"]) if row else None
+
+
 def diagnostic_capture_scope_for_incident(
     incident_id: str | None,
     *,
@@ -332,17 +380,22 @@ def decompose_question_impl(
         flags=re.IGNORECASE,
     )
     normalized_keys = list(dict.fromkeys(key.upper() for key in keys))
+    # An identifier the participant named always wins: redirecting a keyed
+    # question to another incident would answer something they did not ask.
+    planned_incident_id = (
+        incident_id.upper() if incident_id else _current_capture_incident_id(role=role)
+    )
     subquestions = _planned_subquestions(
         question,
         normalized_keys,
-        incident_id.upper() if incident_id else None,
+        planned_incident_id,
         role,
     )
     return {
         "question": question,
         "identified_keys": normalized_keys,
         "inferred_filters": {
-            "incident_id": incident_id.upper() if incident_id else None,
+            "incident_id": planned_incident_id,
             "cluster_id": cluster_id.lower() if cluster_id else None,
         },
         "subquestions": subquestions,

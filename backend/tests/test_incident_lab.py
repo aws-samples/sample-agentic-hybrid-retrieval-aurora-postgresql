@@ -272,6 +272,24 @@ class IncidentLabContractTests(unittest.TestCase):
                 {},
             )
 
+    def test_exercise_materialization_rejects_angle_bracket_placeholders(self) -> None:
+        """`INC-<run-suffix>` must fail loudly rather than reach a participant.
+
+        The docs write identifiers as `INC-<run-suffix>` when describing the
+        capture-derived naming scheme. That spelling is not a match for the
+        planner's key pattern, so an unrendered one does not raise: it silently
+        produces the narrow single-subquestion plan, which looks like a working
+        answer.
+        """
+        with self.assertRaisesRegex(
+            LiveWorkshopError,
+            "unresolved placeholders",
+        ):
+            _render_wave_a_exercise_template(
+                '{"question": "For INC-<run-suffix>, why did writes stall?"}',
+                {},
+            )
+
     def test_orchestrator_exposes_both_wave_entry_points(self) -> None:
         source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")
 

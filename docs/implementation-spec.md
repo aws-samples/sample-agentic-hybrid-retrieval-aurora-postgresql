@@ -40,8 +40,20 @@ nullable priority_tier column
 
 The participant investigates:
 
-> Why did order writes time out during the priority-tier migration, why did the
-> application recover after commit, and why did the priority query remain slow?
+> Why did the migration disrupt order processing, why did service recover for
+> some requests but not others, and why was the priority query still slow?
+
+That is the business framing. The technical question participants submit names
+their own capture, because the planner anchors every retrieval to it:
+
+> For `INC-<run-suffix>`, why did some order writes block inside PostgreSQL
+> while others timed out before reaching it, why did only the blocked writers
+> recover when the backfill committed, and why did the reference query remain
+> slow after `ANALYZE`?
+
+Both framings produce the same three-part evidence plan. A question that names
+no incident resolves to the current completed Investigation Evidence capture
+rather than degrading to a single subquestion.
 
 The Hybrid Retrieval Agent answers from Investigation Evidence only and persists a structured,
 cited index proposal. A human reviews the proposal and runs its rendered DDL.

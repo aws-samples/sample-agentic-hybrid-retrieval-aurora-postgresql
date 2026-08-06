@@ -49,8 +49,15 @@ In Lab 1, the participant:
 
 The central question has three clauses:
 
-> Why did writes time out during the priority-tier migration, why did the
-> application recover after commit, and why did the priority query remain slow?
+> Why did the migration disrupt order processing, why did service recover for
+> some requests but not others, and why was the priority query still slow?
+
+Participants submit the technical form, which names their own capture:
+
+> For `INC-<run-suffix>`, why did some order writes block inside PostgreSQL
+> while others timed out before reaching it, why did only the blocked writers
+> recover when the backfill committed, and why did the reference query remain
+> slow after `ANALYZE`?
 
 No retrieval arm answers all three. Participants must decompose, retrieve,
 traverse the blocker chain, and compare plan checkpoints.

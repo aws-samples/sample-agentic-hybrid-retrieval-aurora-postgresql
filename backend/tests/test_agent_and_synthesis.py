@@ -65,6 +65,89 @@ class AgentContractTests(unittest.TestCase):
             any("explain_ranking" in step for step in plan["steps"])
         )
 
+    def test_unkeyed_question_plans_from_the_current_capture(self) -> None:
+        """A question with no INC- key still earns the three-part evidence plan.
+
+        The participant-facing question is prose: the business framing carries no
+        identifier at all, and the technical framing may still hold an unrendered
+        placeholder. Both name one live capture implicitly, because a completed
+        Investigation Evidence run is the only thing the agent can answer from.
+        Falling through to the single-subquestion path loses the pool and
+        plan-regression evidence requirements silently, which reads as a working
+        answer.
+        """
+        framings = (
+            "Why did the migration disrupt order processing, why did service "
+            "recover, and why was the priority query still slow?",
+            "For INC-<run-suffix>, why did some order writes block inside "
+            "PostgreSQL while others timed out before reaching it, why did only "
+            "the blocked writers recover when the backfill committed, and why "
+            "did the reference query remain slow after ANALYZE?",
+        )
+        for question in framings:
+            with self.subTest(question=question[:40]):
+                with patch(
+                    "backend.app.agent._current_capture_incident_id",
+                    return_value="INC-478FD535",
+                ), patch(
+                    "backend.app.agent._anchor_keys",
+                    return_value={"lock_evidence": "LOCK-478FD535-01"},
+                ):
+                    plan = decompose_question_impl(question)
+
+                self.assertEqual(
+                    [row["subquestion_id"] for row in plan["subquestions"]],
+                    ["SQ-1", "SQ-2", "SQ-3"],
+                )
+                self.assertEqual(
+                    plan["subquestions"][1]["required_kinds"],
+                    ["telemetry"],
+                )
+                self.assertEqual(
+                    plan["subquestions"][-1]["required_kinds"],
+                    ["change", "telemetry"],
+                )
+                self.assertEqual(
+                    plan["inferred_filters"]["incident_id"],
+                    "INC-478FD535",
+                )
+
+    def test_unkeyed_question_without_a_capture_keeps_the_narrow_plan(self) -> None:
+        """With no completed capture, the planner must not invent an incident."""
+        with patch(
+            "backend.app.agent._current_capture_incident_id",
+            return_value=None,
+        ), patch("backend.app.agent._anchor_keys", return_value={}):
+            plan = decompose_question_impl(
+                "Why did the migration disrupt order processing, why did "
+                "service recover, and why was the priority query still slow?"
+            )
+
+        self.assertEqual(
+            [row["subquestion_id"] for row in plan["subquestions"]],
+            ["SQ-1"],
+        )
+        self.assertIsNone(plan["inferred_filters"]["incident_id"])
+
+    def test_explicit_key_still_wins_over_the_capture_fallback(self) -> None:
+        """A question naming an incident must never be redirected to another."""
+        with patch(
+            "backend.app.agent._current_capture_incident_id",
+            return_value="INC-OTHERRUN",
+        ), patch(
+            "backend.app.agent._anchor_keys",
+            return_value={"lock_evidence": "LOCK-478FD535-01"},
+        ):
+            plan = decompose_question_impl(
+                "For INC-478FD535, why did writes time out and why did the "
+                "reference query remain slow after ANALYZE?"
+            )
+
+        self.assertEqual(
+            plan["inferred_filters"]["incident_id"],
+            "INC-478FD535",
+        )
+
     def test_citation_parser_fails_closed_on_unknown_number(self) -> None:
         with self.assertRaises(ValueError):
             _cited_numbers("Claim [1]. PID list [47901].", 4)

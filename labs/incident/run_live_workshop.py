@@ -80,8 +80,16 @@ WAVE_A_EXERCISE_TEMPLATES = (
     "lab3-traverse-request.json",
     "lab3-compare-request.json",
 )
+# `<run-suffix>` is the docs' spelling for a capture-derived identifier. It has to
+# be caught here too: unlike a `{{...}}` placeholder it still looks like a valid
+# question, so an unrendered one reaches the planner, misses the key pattern, and
+# silently degrades the evidence plan instead of failing.
+#
+# Scoped to the suffix spellings on purpose. A REMEDY line telling the participant
+# to pass `run_id=<retrieval-run-uuid>` is instruction text they resolve
+# themselves, not a broken handoff, so a bare `<...>` must stay legal.
 UNRESOLVED_EXERCISE_PLACEHOLDER = re.compile(
-    r"\{\{[A-Z_]+\}\}|REPLACE_WITH_[A-Z_]+"
+    r"\{\{[A-Z_]+\}\}|REPLACE_WITH_[A-Z_]+|<(?:run-)?suffix>"
 )
 
 

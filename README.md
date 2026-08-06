@@ -14,8 +14,15 @@ Hybrid Retrieval Workbench is the runnable DAT410 reference application for
 AWS re:Invent 2026. One guided command makes participants reproduce and
 investigate their own controlled online-migration failure:
 
-> Why did order writes time out during the `priority_tier` migration, why did
-> the application recover after commit, and why did the priority query remain
+> Why did the migration disrupt order processing, why did service recover for
+> some requests but not others, and why was the priority query still slow?
+
+That business framing opens the session. The technical form participants submit
+in Lab 3 names their own capture and the two write populations it separates:
+
+> For `INC-<run-suffix>`, why did some order writes block inside PostgreSQL
+> while others timed out before reaching it, why did only the blocked writers
+> recover when the backfill committed, and why did the reference query remain
 > slow after `ANALYZE`?
 
 Aurora PostgreSQL performs exact, full-text, semantic, and fuzzy retrieval,
