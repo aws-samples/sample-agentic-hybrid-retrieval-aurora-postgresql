@@ -70,7 +70,18 @@ best_path AS (
   SELECT DISTINCT ON (walk.evidence_id)
     walk.*
   FROM walk
-  ORDER BY walk.evidence_id, walk.depth, walk.via_confidence DESC NULLS LAST
+  -- Several canonical relationships can reach one evidence item with the same
+  -- depth and confidence. Pick one complete path and edge identity
+  -- deterministically so a replay cannot change merely because PostgreSQL chose
+  -- a different equally valid join order.
+  ORDER BY
+    walk.evidence_id,
+    walk.depth,
+    walk.via_confidence DESC NULLS LAST,
+    walk.path,
+    walk.via_edge_key NULLS FIRST,
+    walk.via_relation NULLS FIRST,
+    walk.via_origin NULLS FIRST
 )
 SELECT
   item.evidence_id,

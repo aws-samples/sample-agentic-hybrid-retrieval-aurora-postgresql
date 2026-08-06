@@ -53,7 +53,7 @@ class AgentContractTests(unittest.TestCase):
         )
         self.assertEqual(
             plan["subquestions"][1]["required_kinds"],
-            ["lock_evidence", "telemetry"],
+            ["telemetry"],
         )
         self.assertEqual(
             plan["subquestions"][-1]["required_kinds"],

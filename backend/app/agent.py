@@ -259,7 +259,11 @@ def _planned_subquestions(
                     f"during {incident}, and what evidence proves that connected "
                     "writers recovered after the backfill committed?"
                 ),
-                "required_kinds": ["lock_evidence", "telemetry"],
+                # Queued callers never entered PostgreSQL, so the pool and
+                # request telemetry is the authoritative evidence for this
+                # clause. SQ-1 already requires the lock evidence that proves
+                # the connected writers' blocker.
+                "required_kinds": ["telemetry"],
             },
             {
                 "subquestion_id": "SQ-3",

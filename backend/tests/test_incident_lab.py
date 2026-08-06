@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import inspect
+import json
+import os
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
 
+import psycopg
+from psycopg.rows import dict_row
+
+from backend.app.action_proposal import IndexKey, ProposalFields, measure_preconditions
 from labs.incident.run_live_workshop import (
     LAB_CUSTOMER_ROWS,
     LAB_ROWS,
@@ -15,11 +22,34 @@ from labs.incident.run_live_workshop import (
     SOURCE_SYSTEM,
     _parser,
     _assert_lab_workload_ready,
+    _materialize_wave_a_exercises,
+    _render_wave_a_exercise_template,
+    prepare_lab_workload,
+    record_action_execution,
 )
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LAB_DIR = REPO_ROOT / "labs" / "incident"
+OWNER_DSN = os.environ.get("TEST_DATABASE_URL")
+PARTICIPANT_DSN = os.environ.get("WORKSHOP_PARTICIPANT_DATABASE_URL")
+APP_DSN = os.environ.get("WORKSHOP_APP_DATABASE_URL")
+SECURITY_ENABLED = os.environ.get("WORKBENCH_SECURITY_ENABLED") == "1"
+RESET_ALLOWED = os.environ.get("ALLOW_TEST_DATABASE_RESET") == "1"
+PRIVILEGE_TESTS_ENABLED = bool(
+    OWNER_DSN and PARTICIPANT_DSN and APP_DSN and SECURITY_ENABLED
+)
+RECORDER_TESTS_ENABLED = bool(OWNER_DSN and RESET_ALLOWED)
+_privilege_workload_prepared = False
+
+
+def _prepare_privilege_workload() -> None:
+    """Build the security-owned workload once for the direct role checks."""
+    global _privilege_workload_prepared
+    if not _privilege_workload_prepared:
+        assert OWNER_DSN is not None
+        prepare_lab_workload(OWNER_DSN)
+        _privilege_workload_prepared = True
 
 
 class IncidentLabContractTests(unittest.TestCase):
@@ -182,6 +212,55 @@ class IncidentLabContractTests(unittest.TestCase):
                 retired,
                 source,
                 f"{retired} belongs to the retired ordinary-index path",
+            )
+
+    def test_wave_a_receipt_materializes_current_run_scoped_exercises(self) -> None:
+        receipt = {
+            "wave": "A",
+            "run_suffix": "07E0FE86",
+            "incident_key": "INC-07E0FE86",
+            "unsafe_change_key": "CHG-07E0FE86-01",
+            "analyze_change_key": "CHG-07E0FE86-02",
+            "lock_key": "LOCK-07E0FE86-01",
+        }
+        expected_files = {
+            "lab2-filter-request.json",
+            "lab2-fusion-request.json",
+            "lab3-plan-request.json",
+            "lab3-traverse-request.json",
+            "lab3-compare-request.json",
+        }
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_dir = Path(temporary_directory)
+            _materialize_wave_a_exercises(receipt, output_dir=output_dir)
+            exercise_dir = output_dir / "exercises"
+            self.assertEqual(
+                {path.name for path in exercise_dir.iterdir()},
+                expected_files,
+            )
+            rendered_plan = json.loads(
+                (exercise_dir / "lab3-plan-request.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertIn("INC-07E0FE86", rendered_plan["question"])
+            self.assertIn("CHG-07E0FE86-01", rendered_plan["question"])
+            self.assertIn("CHG-07E0FE86-02", rendered_plan["question"])
+            self.assertIn("LOCK-07E0FE86-01", rendered_plan["question"])
+            for path in exercise_dir.iterdir():
+                self.assertNotRegex(
+                    path.read_text(encoding="utf-8"),
+                    r"\{\{[A-Z_]+\}\}|REPLACE_WITH_[A-Z_]+",
+                )
+
+    def test_exercise_materialization_rejects_unresolved_placeholders(self) -> None:
+        with self.assertRaisesRegex(
+            LiveWorkshopError,
+            "unresolved placeholders",
+        ):
+            _render_wave_a_exercise_template(
+                '{"question": "{{UNKNOWN_IDENTIFIER}}"}',
+                {},
             )
 
     def test_orchestrator_exposes_both_wave_entry_points(self) -> None:
@@ -669,6 +748,422 @@ class IncidentLabContractTests(unittest.TestCase):
             evaluate_drain(outcomes(10, 0), pool_max_size=10),
             "pool saturation is independently verified by pool_timeout_observed",
         )
+
+
+@unittest.skipUnless(
+    PRIVILEGE_TESTS_ENABLED,
+    "set TEST_DATABASE_URL, WORKSHOP_PARTICIPANT_DATABASE_URL, "
+    "WORKSHOP_APP_DATABASE_URL, and WORKBENCH_SECURITY_ENABLED=1",
+)
+class ParticipantIndexPrivilegeTests(unittest.TestCase):
+    """Lab 4's participant action must work through actual table ownership."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        _prepare_privilege_workload()
+
+    def test_the_participant_can_create_an_index_on_the_lab_table(self) -> None:
+        assert PARTICIPANT_DSN is not None
+        with psycopg.connect(PARTICIPANT_DSN) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT current_user")
+            self.assertEqual(cursor.fetchone()[0], "workshop_participant")
+            cursor.execute("BEGIN")
+            try:
+                cursor.execute(
+                    "CREATE INDEX probe_participant_can_index "
+                    "ON workbench_lab.orders (customer_id, created_at DESC)"
+                )
+            except psycopg.errors.InsufficientPrivilege as error:
+                self.fail(
+                    "Lab 4 requires workshop_participant to create an index on "
+                    f"workbench_lab.orders, but PostgreSQL refused it: {error}"
+                )
+            finally:
+                cursor.execute("ROLLBACK")
+
+    def test_the_index_privilege_survives_a_workload_rebuild(self) -> None:
+        assert OWNER_DSN is not None
+        prepare_lab_workload(OWNER_DSN)
+        self.test_the_participant_can_create_an_index_on_the_lab_table()
+
+
+@unittest.skipUnless(
+    PRIVILEGE_TESTS_ENABLED,
+    "set TEST_DATABASE_URL, WORKSHOP_PARTICIPANT_DATABASE_URL, "
+    "WORKSHOP_APP_DATABASE_URL, and WORKBENCH_SECURITY_ENABLED=1",
+)
+class ApiPoolLabPrivilegeTests(unittest.TestCase):
+    """The app login can write the workload but cannot alter it."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        _prepare_privilege_workload()
+
+    def test_the_pool_can_write_to_the_lab_table(self) -> None:
+        assert APP_DSN is not None
+        with psycopg.connect(APP_DSN) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT current_user")
+            self.assertEqual(cursor.fetchone()[0], "workshop_app")
+            cursor.execute("BEGIN")
+            try:
+                cursor.execute(
+                    "UPDATE workbench_lab.orders SET status = 'touched' "
+                    "WHERE order_id = (SELECT min(order_id) FROM workbench_lab.orders)"
+                )
+            except psycopg.errors.InsufficientPrivilege as error:
+                self.fail(
+                    "the hot-write route uses workshop_app directly, but its "
+                    f"UPDATE was refused: {error}"
+                )
+            finally:
+                cursor.execute("ROLLBACK")
+
+    def test_the_pool_cannot_alter_the_lab_table(self) -> None:
+        assert APP_DSN is not None
+        forbidden = (
+            (
+                "CREATE INDEX probe_pool_must_not_index "
+                "ON workbench_lab.orders (customer_id)"
+            ),
+            "DROP TABLE workbench_lab.orders",
+            "TRUNCATE workbench_lab.orders",
+            "CREATE TABLE workbench_lab.probe_pool_must_not_create (i int)",
+        )
+        with psycopg.connect(APP_DSN) as connection, connection.cursor() as cursor:
+            for statement in forbidden:
+                with self.subTest(statement=statement):
+                    cursor.execute("BEGIN")
+                    try:
+                        with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                            cursor.execute(statement)
+                    finally:
+                        cursor.execute("ROLLBACK")
+
+    def test_the_pool_is_not_a_member_of_the_lab_owner_role(self) -> None:
+        assert OWNER_DSN is not None
+        with psycopg.connect(OWNER_DSN) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT pg_has_role('workshop_app', 'workbench_lab_owner', 'USAGE')"
+            )
+            self.assertFalse(
+                cursor.fetchone()[0],
+                "workshop_app must not inherit passive CREATE INDEX, DROP, or "
+                "TRUNCATE authority from workbench_lab_owner",
+            )
+
+    def test_personas_can_revalidate_catalogs_without_workload_dml(self) -> None:
+        """Proposal preconditions need catalog visibility, not table mutation."""
+        assert APP_DSN is not None
+        fields = ProposalFields(
+            action_type="create_index",
+            target_schema="workbench_lab",
+            target_table="orders",
+            index_method="btree",
+            is_unique=False,
+            key_columns=(
+                IndexKey(column="customer_id", direction="asc"),
+                IndexKey(column="created_at", direction="desc"),
+            ),
+            included_columns=(),
+            predicate=None,
+            expected_effect="catalog revalidation contract",
+            supporting_citations=(),
+        )
+        with psycopg.connect(APP_DSN) as connection:
+            for persona in (
+                "persona_app_engineer",
+                "persona_dba",
+                "persona_auditor",
+            ):
+                with self.subTest(persona=persona), connection.transaction(), connection.cursor() as cursor:
+                    cursor.execute(f"SET LOCAL ROLE {persona}")
+                    preconditions = measure_preconditions(cursor, fields)
+                    self.assertTrue(
+                        preconditions[0]["satisfied"],
+                        f"{persona} cannot resolve workbench_lab.orders",
+                    )
+                    cursor.execute(
+                        """
+                        SELECT has_table_privilege(
+                          current_user, 'workbench_lab.orders', 'UPDATE'
+                        )
+                        """
+                    )
+                    self.assertFalse(
+                        cursor.fetchone()[0],
+                        f"{persona} gained workload-row DML while revalidating",
+                    )
+
+
+@unittest.skipUnless(
+    RECORDER_TESTS_ENABLED,
+    "set TEST_DATABASE_URL and ALLOW_TEST_DATABASE_RESET=1",
+)
+class ActionExecutionRecorderTests(unittest.TestCase):
+    """The recorder reads Aurora's catalog instead of trusting participant text."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        assert OWNER_DSN is not None
+        cls.connection = psycopg.connect(
+            OWNER_DSN,
+            autocommit=True,
+            row_factory=dict_row,
+        )
+        database_name = cls.connection.execute(
+            "SELECT current_database() AS database_name"
+        ).fetchone()["database_name"]
+        if not str(database_name).endswith("_test"):
+            raise RuntimeError(
+                f"SAFETY ABORT: refusing recorder tests against {database_name}"
+            )
+        cls.connection.execute("CREATE SCHEMA IF NOT EXISTS workbench_lab")
+        cls.connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS workbench_lab.orders (
+              order_id bigint PRIMARY KEY,
+              priority_tier integer,
+              created_at timestamptz
+            )
+            """
+        )
+        cls.connection.execute(
+            "ALTER TABLE workbench_lab.orders "
+            "ADD COLUMN IF NOT EXISTS priority_tier integer"
+        )
+        cls.connection.execute(
+            "ALTER TABLE workbench_lab.orders "
+            "ADD COLUMN IF NOT EXISTS created_at timestamptz"
+        )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        for name in (
+            "d3_recorder_matching",
+            "d3_recorder_reversed",
+            "d3_recorder_verdict",
+        ):
+            cls.connection.execute(
+                f"DROP INDEX IF EXISTS workbench_lab.{name}"
+            )
+        cls.connection.close()
+
+    def _proposal(self) -> tuple[str, str]:
+        run_id = self.connection.execute(
+            """
+            INSERT INTO proof.retrieval_runs(
+              query_text,
+              retrieval_mode,
+              rrf_k,
+              text_weight,
+              vector_weight,
+              fuzzy_weight,
+              status,
+              completed_at
+            )
+            VALUES (
+              'D3 execution recorder contract',
+              'hybrid',
+              60,
+              1,
+              1,
+              1,
+              'complete',
+              clock_timestamp()
+            )
+            RETURNING run_id::text AS run_id
+            """
+        ).fetchone()["run_id"]
+        agent_run_id = self.connection.execute(
+            """
+            INSERT INTO proof.agent_runs(
+              question,
+              role,
+              controls_initial,
+              contract_version,
+              status,
+              ended_at
+            )
+            VALUES (
+              'D3 execution recorder contract',
+              'app_engineer',
+              '{}'::jsonb,
+              'd3-contract',
+              'complete',
+              clock_timestamp()
+            )
+            RETURNING agent_run_id::text AS agent_run_id
+            """
+        ).fetchone()["agent_run_id"]
+        fingerprint = self.connection.execute(
+            """
+            SELECT proof.index_action_fingerprint(
+              'create_index',
+              'workbench_lab',
+              'orders',
+              'btree',
+              false,
+              ARRAY[
+                proof.canonical_index_key(
+                  'priority_tier', 'asc', NULL, NULL
+                ),
+                proof.canonical_index_key(
+                  'created_at', 'desc', NULL, NULL
+                )
+              ],
+              '{}'::text[],
+              NULL
+            ) AS fingerprint
+            """
+        ).fetchone()["fingerprint"]
+        proposal_id = self.connection.execute(
+            """
+            INSERT INTO proof.action_proposals(
+              agent_run_id,
+              run_id,
+              action_type,
+              target_schema,
+              target_table,
+              key_columns,
+              proposed_fingerprint,
+              proposed_sql,
+              proposed_sql_sha256,
+              preconditions,
+              expected_effect,
+              rollback_sql,
+              statement_timeout,
+              lock_timeout
+            )
+            VALUES (
+              %s::uuid,
+              %s::uuid,
+              'create_index',
+              'workbench_lab',
+              'orders',
+              ARRAY[
+                proof.canonical_index_key(
+                  'priority_tier', 'asc', NULL, NULL
+                ),
+                proof.canonical_index_key(
+                  'created_at', 'desc', NULL, NULL
+                )
+              ],
+              %s,
+              'CREATE INDEX d3 recorder contract',
+              repeat('0', 64),
+              '[{"check":"D3 contract","satisfied":true}]'::jsonb,
+              'an index scan replaces the sequential scan',
+              'DROP INDEX workbench_lab.d3_recorder_contract',
+              '5min',
+              '5s'
+            )
+            RETURNING proposal_id::text AS proposal_id
+            """,
+            (agent_run_id, run_id, fingerprint),
+        ).fetchone()["proposal_id"]
+        return proposal_id, fingerprint
+
+    def _create_index(self, name: str, definition: str) -> int:
+        self.connection.execute(f"DROP INDEX IF EXISTS workbench_lab.{name}")
+        self.connection.execute(f"CREATE INDEX {name} ON {definition}")
+        return int(
+            self.connection.execute(
+                "SELECT to_regclass(%s)::oid::integer AS index_oid",
+                (f"workbench_lab.{name}",),
+            ).fetchone()["index_oid"]
+        )
+
+    def _execution(self, execution_id: str) -> dict:
+        row = self.connection.execute(
+            """
+            SELECT
+              observed_index_definition,
+              observed_fingerprint,
+              fingerprint_matches,
+              outcome,
+              wave_b_capture_id,
+              wave_b_ingest_id
+            FROM proof.action_executions
+            WHERE execution_id = %s::uuid
+            """,
+            (execution_id,),
+        ).fetchone()
+        assert row is not None
+        return dict(row)
+
+    def _record(self, proposal_id: str, index_oid: int) -> str:
+        now = datetime.now(timezone.utc)
+        return record_action_execution(
+            self.connection,
+            proposal_id=proposal_id,
+            approved_by="workshop_participant",
+            observed_index_oid=index_oid,
+            outcome="succeeded",
+            outcome_detail=None,
+            started_at=now,
+            completed_at=now,
+            plan_before_checkpoint="before_analyze",
+            plan_after_checkpoint="after_index",
+            wave_b_capture_id=None,
+            wave_b_ingest_id=None,
+        )
+
+    def test_execution_records_the_observed_index_not_the_proposed_one(self) -> None:
+        proposal_id, expected_fingerprint = self._proposal()
+        index_oid = self._create_index(
+            "d3_recorder_matching",
+            "workbench_lab.orders (priority_tier ASC, created_at DESC)",
+        )
+        row = self._execution(self._record(proposal_id, index_oid))
+
+        self.assertEqual(row["observed_fingerprint"], expected_fingerprint)
+        self.assertTrue(row["fingerprint_matches"])
+        self.assertEqual(row["outcome"], "succeeded")
+        self.assertIn("CREATE INDEX", row["observed_index_definition"])
+        self.assertIsNone(row["wave_b_capture_id"])
+        self.assertIsNone(row["wave_b_ingest_id"])
+
+    def test_a_differently_shaped_index_is_recorded_as_a_mismatch(self) -> None:
+        proposal_id, expected_fingerprint = self._proposal()
+        index_oid = self._create_index(
+            "d3_recorder_reversed",
+            "workbench_lab.orders (created_at DESC, priority_tier ASC)",
+        )
+        row = self._execution(self._record(proposal_id, index_oid))
+
+        self.assertNotEqual(row["observed_fingerprint"], expected_fingerprint)
+        self.assertFalse(row["fingerprint_matches"])
+
+    def test_a_mismatched_execution_is_not_post_execution_validated(self) -> None:
+        proposal_id, _fingerprint = self._proposal()
+        index_oid = self._create_index(
+            "d3_recorder_verdict",
+            "workbench_lab.orders (created_at DESC, priority_tier ASC)",
+        )
+        self._record(proposal_id, index_oid)
+        verdict = self.connection.execute(
+            """
+            SELECT post_execution_validated, post_execution_reasons
+            FROM proof.autonomy_readiness(%s::uuid)
+            """,
+            (proposal_id,),
+        ).fetchone()
+
+        self.assertFalse(verdict["post_execution_validated"])
+        self.assertIn(
+            "the executed action does not match the proposed action",
+            verdict["post_execution_reasons"],
+        )
+
+    def test_the_recorder_takes_no_catalog_values_from_its_caller(self) -> None:
+        parameters = inspect.signature(record_action_execution).parameters
+        for forbidden in (
+            "observed_index_definition",
+            "observed_fingerprint",
+            "fingerprint_matches",
+        ):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, parameters)
 
 
 if __name__ == "__main__":

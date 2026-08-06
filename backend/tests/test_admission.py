@@ -2,17 +2,21 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
 from threading import Barrier
 import unittest
+from unittest.mock import patch
 import uuid
 
 import psycopg
+from psycopg.rows import dict_row
 
 from labs.incident.run_live_workshop import (
     LiveWorkshopError,
+    _action_proposal,
     _prepare_lab_for_wave,
     prepare_lab_workload,
 )
@@ -486,6 +490,12 @@ class AdmissionContractTest(unittest.TestCase):
         self.assertIn("EXPECTED_SIGNAL_TYPES", source)
         self.assertIn("missing_phases", source)
         self.assertIn("missing_signal_types", source)
+        self.assertIn("get_owner_conn(row_factory=dict_row)", source)
+        self.assertNotIn(
+            "get_dict_conn(",
+            source,
+            "doctor must inspect the complete corpus, not one RLS-filtered persona",
+        )
 
 
 @unittest.skipUnless(
@@ -606,6 +616,411 @@ class WaveAdmissionTest(unittest.TestCase):
             "SELECT casework.admit_evidence(%s::jsonb)",
             (json.dumps(payload),),
         ).fetchone()[0]
+
+    def _run_graph(self, run_id: str) -> dict:
+        """Exercise the API owner with a disposable schema-bound connection.
+
+        The regression belongs at this boundary, rather than testing the
+        traversal function in isolation: ``run_graph`` selects the historical
+        capture window, calls traversal, filters eligible evidence, and renders
+        edge verification descriptors. The test database has no optional RLS
+        roles, so a direct owner connection is the correct core-mode identity.
+        """
+        from backend.app import insights
+
+        assert TEST_DSN is not None
+
+        @contextmanager
+        def test_dict_connection(_role: str):
+            with psycopg.connect(
+                TEST_DSN,
+                autocommit=True,
+                row_factory=dict_row,
+            ) as connection:
+                yield connection
+
+        with patch.object(
+            insights,
+            "get_dict_conn",
+            side_effect=test_dict_connection,
+        ):
+            return insights.run_graph(run_id, role="app_engineer")
+
+    def _create_graph_run(
+        self,
+        *,
+        incident_key: str,
+        unsafe_change_key: str,
+    ) -> str:
+        """Persist two Wave A candidates with tied paths to their telemetry."""
+        build_id = self.connection.execute(
+            """
+            INSERT INTO retrieval.search_index_builds(
+              search_index_version, embedding_model, embedding_dimensions,
+              renderer_version, chunker_version, status, completed_at,
+              document_count, chunk_count
+            )
+            VALUES (
+              'graph-replay-contract/1', 'test-only', 1024,
+              'test/1', 'test/1', 'complete', clock_timestamp(), 2, 2
+            )
+            RETURNING build_id
+            """
+        ).fetchone()[0]
+
+        document_rows = self.connection.execute(
+            """
+            INSERT INTO retrieval.documents(
+              evidence_id, build_id, search_index_version, search_document_hash,
+              source_revision, evidence_kind, external_key, title, source_system,
+              source_uri, source_updated_at, acl, acl_visibility, cluster_id,
+              incident_id, account_name, severity, environment, service_name,
+              engine_version, aws_region, occurred_at, metadata, index_state,
+              is_current, indexed_at
+            )
+            SELECT
+              source.evidence_id,
+              %s::uuid,
+              'graph-replay-contract/1',
+              source.search_document_hash,
+              source.source_revision,
+              source.evidence_kind,
+              source.external_key,
+              source.title,
+              source.source_system,
+              source.source_uri,
+              source.source_updated_at,
+              source.acl,
+              coalesce(source.acl ->> 'visibility', 'restricted'),
+              source.cluster_id,
+              source.incident_id,
+              source.account_name,
+              source.severity,
+              source.environment,
+              source.service_name,
+              source.engine_version,
+              source.aws_region,
+              source.occurred_at,
+              source.metadata,
+              'ready',
+              false,
+              clock_timestamp()
+            FROM casework.v_evidence_documents source
+            WHERE source.external_key = ANY(%s::text[])
+            ORDER BY source.external_key
+            RETURNING document_version_id, evidence_id, external_key
+            """,
+            (build_id, [incident_key, unsafe_change_key]),
+        ).fetchall()
+        self.assertEqual(len(document_rows), 2)
+
+        candidates: list[tuple[object, object, object, str]] = []
+        for document_version_id, evidence_id, external_key in document_rows:
+            chunk_version_id = self.connection.execute(
+                """
+                INSERT INTO retrieval.chunks(
+                  document_version_id, evidence_id, chunk_ordinal, section_title,
+                  chunk_text, chunk_hash, embedding_state, is_current,
+                  evidence_kind, source_system, source_updated_at, occurred_at,
+                  acl, acl_visibility, cluster_id, incident_id, account_name,
+                  severity, environment, service_name, engine_version, aws_region
+                )
+                SELECT
+                  document.document_version_id,
+                  document.evidence_id,
+                  1,
+                  'Graph replay contract',
+                  'Contract chunk for deterministic historical graph replay.',
+                  'graph-replay-' || document.document_version_id::text,
+                  'pending',
+                  false,
+                  document.evidence_kind,
+                  document.source_system,
+                  document.source_updated_at,
+                  document.occurred_at,
+                  document.acl,
+                  document.acl_visibility,
+                  document.cluster_id,
+                  document.incident_id,
+                  document.account_name,
+                  document.severity,
+                  document.environment,
+                  document.service_name,
+                  document.engine_version,
+                  document.aws_region
+                FROM retrieval.documents document
+                WHERE document.document_version_id = %s::uuid
+                RETURNING chunk_version_id
+                """,
+                (document_version_id,),
+            ).fetchone()[0]
+            candidates.append(
+                (evidence_id, document_version_id, chunk_version_id, external_key)
+            )
+
+        run_id = self.connection.execute(
+            """
+            INSERT INTO proof.retrieval_runs(
+              query_text,
+              retrieval_mode,
+              role,
+              rrf_k,
+              text_weight,
+              vector_weight,
+              fuzzy_weight,
+              status,
+              started_at,
+              completed_at
+            )
+            VALUES (
+              'Graph replay contract',
+              'hybrid',
+              'app_engineer',
+              60,
+              1,
+              1,
+              1,
+              'complete',
+              '2026-08-04T12:00:30+00:00',
+              '2026-08-04T12:00:31+00:00'
+            )
+            RETURNING run_id::text
+            """
+        ).fetchone()[0]
+        for result_rank, (
+            evidence_id,
+            document_version_id,
+            chunk_version_id,
+            _external_key,
+        ) in enumerate(candidates, start=1):
+            self.connection.execute(
+                """
+                INSERT INTO proof.retrieval_candidates(
+                  run_id,
+                  evidence_id,
+                  document_version_id,
+                  chunk_version_id,
+                  result_rank,
+                  rrf_score,
+                  final_score,
+                  explanation,
+                  evidence_snapshot
+                )
+                VALUES (
+                  %s::uuid,
+                  %s::uuid,
+                  %s::uuid,
+                  %s::uuid,
+                  %s,
+                  0.1,
+                  0.1,
+                  '{"contract":"graph_replay"}'::jsonb,
+                  '{"contract":"graph_replay"}'::jsonb
+                )
+                """,
+                (
+                    run_id,
+                    evidence_id,
+                    document_version_id,
+                    chunk_version_id,
+                    result_rank,
+                ),
+            )
+        return str(run_id)
+
+    def _proposal_for_run(self, run_id: str) -> str:
+        """Create the smallest persisted Lab 3 proposal for a retrieval run."""
+        agent_run_id = self.connection.execute(
+            """
+            INSERT INTO proof.agent_runs(
+              question,
+              role,
+              controls_initial,
+              contract_version,
+              status,
+              ended_at
+            )
+            VALUES (
+              'Graph proposal incident contract',
+              'app_engineer',
+              '{}'::jsonb,
+              'graph-proposal-contract/1',
+              'complete',
+              clock_timestamp()
+            )
+            RETURNING agent_run_id
+            """
+        ).fetchone()[0]
+        return str(
+            self.connection.execute(
+                """
+                INSERT INTO proof.action_proposals(
+                  agent_run_id,
+                  run_id,
+                  action_type,
+                  target_schema,
+                  target_table,
+                  key_columns,
+                  proposed_fingerprint,
+                  proposed_sql,
+                  proposed_sql_sha256,
+                  preconditions,
+                  expected_effect,
+                  rollback_sql,
+                  statement_timeout,
+                  lock_timeout
+                )
+                VALUES (
+                  %s::uuid,
+                  %s::uuid,
+                  'create_index',
+                  'workbench_lab',
+                  'orders',
+                  ARRAY['priority_tier asc nulls_last default'],
+                  repeat('0', 64),
+                  'CREATE INDEX graph_proposal_contract',
+                  repeat('0', 64),
+                  '[{"check":"contract","satisfied":true}]'::jsonb,
+                  'contract only',
+                  'DROP INDEX graph_proposal_contract',
+                  '5min',
+                  '5s'
+                )
+                RETURNING proposal_id
+                """,
+                (agent_run_id, run_id),
+            ).fetchone()[0]
+        )
+
+    def test_wave_b_rejects_a_proposal_not_grounded_in_its_wave_a_incident(
+        self,
+    ) -> None:
+        wave_a = _wave_contract_payload(uuid.uuid4(), wave="A")
+        self._admit(wave_a)
+        incident_key = wave_a["records"]["incident"]["external_key"]
+        run_id = self._create_graph_run(
+            incident_key=incident_key,
+            unsafe_change_key=wave_a["records"]["changes"][0]["external_key"],
+        )
+        proposal_id = self._proposal_for_run(run_id)
+
+        proposal = _action_proposal(
+            self.connection,
+            proposal_id,
+            incident_key=incident_key,
+        )
+        self.assertEqual(proposal["proposal_id"], proposal_id)
+
+        with self.assertRaisesRegex(
+            LiveWorkshopError,
+            "not grounded in the current Wave A incident",
+        ):
+            _action_proposal(
+                self.connection,
+                proposal_id,
+                incident_key="INC-NOT-THE-RETRIEVED-INCIDENT",
+            )
+
+    def test_run_graph_uses_one_stable_wave_a_route_after_wave_b_admission(
+        self,
+    ) -> None:
+        """A later validation capture cannot change a historical graph route.
+
+        Each Wave A telemetry record links to the incident and, when relevant,
+        to the migration change. With both records as retrieval candidates those
+        are equally short canonical paths. The traversal must choose one stable
+        route before and after Wave B, rather than letting a join plan change
+        path, relation, or edge key during replay.
+        """
+        wave_a = _wave_contract_payload(uuid.uuid4(), wave="A")
+        run_suffix = wave_a["capture"]["run_suffix"]
+        incident_key = wave_a["records"]["incident"]["external_key"]
+        unsafe_change_key = wave_a["records"]["changes"][0]["external_key"]
+        wave_a["records"]["telemetry_documents"].append(
+            _contract_record(
+                external_key=f"TEL-{run_suffix}-M01",
+                title="Telemetry with incident and change relationships",
+                source_uri=f"{wave_a['source']['uri']}/telemetry/meta/1",
+                occurred_at=wave_a["capture"]["capture_started_at"],
+                available_at=wave_a["capture"]["capture_ended_at"],
+                body=(
+                    "This test-only telemetry record has two equally short "
+                    "canonical routes from the retrieved incident and change."
+                ),
+                structured={
+                    "incident_external_key": incident_key,
+                    "change_external_key": unsafe_change_key,
+                    "telemetry_type": "meta",
+                    "observation_number": 1,
+                    "observed_until": wave_a["capture"]["capture_ended_at"],
+                    "phase": "backfill",
+                },
+            )
+        )
+        self._admit(wave_a)
+        tied_routes = self.connection.execute(
+            """
+            SELECT count(*)
+            FROM casework.telemetry_evidence telemetry
+            JOIN casework.evidence_items incident
+              ON incident.evidence_id = telemetry.incident_evidence_id
+            WHERE incident.external_key = %s
+              AND telemetry.change_evidence_id IS NOT NULL
+            """,
+            (incident_key,),
+        ).fetchone()[0]
+        self.assertGreater(tied_routes, 0)
+
+        run_id = self._create_graph_run(
+            incident_key=incident_key,
+            unsafe_change_key=unsafe_change_key,
+        )
+        before = [
+            json.dumps(
+                self._run_graph(run_id),
+                sort_keys=True,
+                default=str,
+                separators=(",", ":"),
+            )
+            for _ in range(4)
+        ]
+        self.assertEqual(
+            before,
+            [before[0]] * len(before),
+            "replaying one Wave A run selected different equally valid paths",
+        )
+
+        wave_b = _wave_contract_payload(
+            uuid.uuid4(),
+            wave="B",
+            incident_key=incident_key,
+        )
+        self._admit(wave_b)
+        self.connection.execute(
+            """
+            UPDATE casework.incident_capture_runs
+            SET
+              capture_started_at = '2026-08-04T12:01:00+00:00',
+              capture_ended_at = '2026-08-04T12:01:20+00:00'
+            WHERE capture_id = %s::uuid
+            """,
+            (wave_b["capture"]["capture_id"],),
+        )
+
+        after = [
+            json.dumps(
+                self._run_graph(run_id),
+                sort_keys=True,
+                default=str,
+                separators=(",", ":"),
+            )
+            for _ in range(4)
+        ]
+        self.assertEqual(
+            after,
+            [before[0]] * len(after),
+            "Wave B changed the persisted Wave A graph or its canonical route",
+        )
 
     def test_wave_b_attaches_to_one_incident_and_replays_idempotently(self) -> None:
         wave_a = _wave_contract_payload(uuid.uuid4(), wave="A")

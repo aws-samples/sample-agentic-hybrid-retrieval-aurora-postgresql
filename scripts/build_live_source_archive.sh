@@ -49,6 +49,7 @@ required=(
   labs/exercises/lab3-plan-request.json
   labs/exercises/lab3-traverse-request.json
   labs/exercises/lab3-compare-request.json
+  labs/exercises/lab4-supervised-execution.md
   .claude/skills/extend-hybrid-retrieval/SKILL.md
   sql/01_schema.sql
   sql/07_search_index_verification.sql

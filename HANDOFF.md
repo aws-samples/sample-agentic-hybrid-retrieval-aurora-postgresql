@@ -11,11 +11,11 @@ mechanism that still exists in portions of the runtime, tests, UI, and docs.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-D1 are complete. Tasks D2-G3 own the remaining agent, UI,
-documentation, infrastructure, and rehearsal work. The plan's repository-wide
-alignment audit assigns every known stale surface to an explicit task; finding an
-unassigned stale surface is a plan defect and should be corrected before
-implementation continues.
+Tasks A1-D3 are complete. Tasks E1-G3 own the remaining UI, documentation,
+infrastructure, and rehearsal work. The plan's repository-wide alignment audit
+assigns every known stale surface to an explicit task; finding an unassigned
+stale surface is a plan defect and should be corrected before implementation
+continues.
 
 ## Repositories
 
@@ -163,11 +163,28 @@ Completed and committed on this branch:
   a semantic pool-exhaustion probe must yield at least a third distinct top
   candidate. It also requires Cohere rerank to change a top-five ordering
   without changing PostgreSQL's RRF or final scores for shared candidates.
+- D2 scopes the Hybrid Retrieval Agent to the current Wave A diagnostic
+  question. Its seven registered tools remain read/synthesis-only; a proposal
+  never makes the agent write-capable, and the agent cannot cite or claim the
+  post-index result that has not yet been admitted.
+- D2a persists one structured, cited index proposal from the canonical
+  `/v1/agent/answer` path after citation validation. Code validates the
+  model-provided fields, renders the DDL, measures catalog preconditions, and
+  stores the proposal, its citations, bounded timeouts, and rollback guidance.
+- D3 adds the Lab 4 participant-executed action. `workbench_lab_owner` gives
+  `workshop_participant` ownership only of the disposable lab workload, while
+  `workshop_app` retains narrow DML grants and cannot create indexes, drop
+  tables, or truncate. Wave B requires the stored proposal and explicit
+  approver, reads the observed index shape from Aurora's catalog, records an
+  append-only execution before admission, attaches the Wave B receipt only
+  after successful admission, and prints the closing thesis only after the
+  participant's own validation is ready. Wave B also rejects a proposal whose
+  retrieval run was not grounded in the active Wave A incident.
 
-Not yet implemented: the revised agent; participant UI and labs; remaining
-documentation cleanup; infrastructure packaging; and the complete rehearsal.
-Until those tasks land, `make live-workshop` is not evidence that the approved
-scenario is release-complete.
+Not yet implemented: the participant UI narrative; remaining participant and
+source documentation cleanup; infrastructure packaging; and the complete
+rehearsal. Until those tasks land, `make live-workshop` is not evidence that
+the approved scenario is release-complete.
 
 For D2/D3's supervised participant action, render the controlled-lab repair as:
 
@@ -298,24 +315,38 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   `c37e283a-b874-4546-a8fa-985932384df6` through the API: receipt panels,
   63 graph edges, and 34 timeline events all matched their published
   `_verify_sql` results.
+- D2/D3 rehearsal: Wave A `CAP-07E0FE86` and Wave B `CAP-EE15C094` were
+  admitted on the dedicated Aurora PostgreSQL 18.3 test database. The
+  historical Lab 3 run `c4e6c439-10bf-405d-81e1-b00fccb42605` replayed through
+  the HTTP API five times with an identical 31-node, 58-edge graph and
+  identical eight-citation set; neither contained Wave B evidence. The
+  participant created the approved index under their own role, the recorder
+  captured the catalog-derived match and attached the Wave B receipt, `doctor`
+  passed with 57 documents and all required phases and signal types, and G-13
+  plus G-34 passed. Focused Aurora suites passed before the final
+  proposal-to-incident guard: `test_admission` 17 passed with 11 expected
+  live-payload skips, and `test_incident_lab` 32 passed with six expected
+  privilege skips before the optional security identities were provisioned.
+  The new guard's database-backed contract needs a fresh run against this
+  Aurora target; it is intentionally not marked as live-proven from the
+  preceding rehearsal.
 
-The test database contains disposable contract fixtures and is not a
-participant database. The earlier local PostgreSQL 18.4 run was diagnostic only
-and is not release evidence.
+The test database is disposable and never a participant database. The earlier
+local PostgreSQL 18.4 run was diagnostic only and is not release evidence.
 
-Current disposable-database state after C4 validation: core schema plus the
-3,000,000-row `workbench_lab` workload, the participant-created
-`idx_orders_priority_tier_created_at` index, two fresh live capture waves for
-`INC-37AF2D23`, and no optional security module. Reapply
-`make security-schema` before security-only checks.
+The last D3 rehearsal used the dedicated Aurora PostgreSQL 18.3 test target
+and its state may be reset by a later contract suite. Reapply
+`make security-schema` before security-only checks, then recreate the
+three-million-row workload and capture a fresh incident before treating any
+result as rehearsal evidence.
 
 ## Next Task
 
-Start D2: reconcile the read-only Hybrid Retrieval Agent with the Wave-A-only
-diagnostic question. Preserve all seven read/synthesis tools, make the three
-causal clauses explicit, and prove that the agent's citations exclude Wave B
-evidence even when the two-wave corpus is present. Read Task D2 in the binding
-plan before editing.
+Start E1: reconcile the participant UI narrative and remove the retired
+Database Insights surface. The checked-in `frontend/src/WorkbenchApp.tsx` and
+top-level documentation still contain the ordinary-index / concurrent-repair
+story; do not carry that language into the redesigned participant path. Read
+Task E1 in the binding plan before editing.
 
 Current maintenance hazards:
 

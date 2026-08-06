@@ -18,6 +18,7 @@ EXERCISE_FILES = {
     "lab3-plan-request.json",
     "lab3-traverse-request.json",
     "lab3-compare-request.json",
+    "lab4-supervised-execution.md",
 }
 SECURITY_FILES = {
     "gates/checks.sh",

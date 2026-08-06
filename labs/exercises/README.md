@@ -1,6 +1,6 @@
 # Participant Exercises
 
-These files turn Labs 2 and 3 into bounded build exercises without asking
+These files turn Labs 2 through 4 into bounded build exercises without asking
 participants to rewrite the retrieval engine or agent framework.
 
 - `lab2-filter-request.json` returns mixed live evidence so the participant can
@@ -15,11 +15,18 @@ participants to rewrite the retrieval engine or agent framework.
   that remains unavailable until Wave B.
 - `lab3-traverse-request.json` and `lab3-compare-request.json` are populated
   from the current run's receipt by `make live-workshop`.
+- `lab4-supervised-execution.md` guides a participant through reviewing the
+  Hybrid Retrieval Agent's stored proposal, recording an explicit approval,
+  running the proposal's own DDL, capturing Wave B, and replaying the original
+  Wave A investigation.
 - `checkpoint.py` validates response files against that run's indexing receipt.
 
-`make live-workshop` writes ready-to-edit, run-scoped copies under
+After a ready Wave A receipt, `make live-workshop` writes ready-to-edit,
+run-scoped Lab 2 and Lab 3 request files under
 `data/generated/incident-lab/exercises/`. Edit those generated files. The
-checked-in JSON files are templates and contain no evidence identifiers.
+checked-in JSON files are templates and contain no evidence identifiers. Lab
+4's guide stays in this directory because it reads the proposal persisted by
+the participant's own Lab 3 run rather than a fixed identifier.
 
 The Lab 3 cited-synthesis call is a real Bedrock request and normally takes
 about 25 seconds. That wait is expected: do not submit a second answer request
@@ -28,8 +35,10 @@ while the first one is grounding and persisting the cited answer.
 The JSON checkpoints inspect API receipts only. They reject any candidate
 outside `pg_incident_capture`, reject identifiers from another capture, and
 never assert a prewritten ranking result. Labs 2 and 3 use the Wave A diagnostic
-receipt: `--receipt data/generated/incident-lab/receipt-a-<suffix>.json`. The
-later `validation` checkpoint takes both Wave A and Wave B receipts and requires
-the additive `change_validates` relationship. The RRF SQL uses a temporary table
-inside a rolled-back transaction. None of the exercises modifies canonical data
-or replaces the source application tests.
+receipt: `--receipt data/generated/incident-lab/receipt-a-<suffix>.json`. Lab 4
+uses the stored proposal rather than a checked-in DDL statement, then runs Wave B
+with `--proposal-id` and `--approved-by`. The later `validation` checkpoint takes
+both Wave A and Wave B receipts and requires the additive `change_validates`
+relationship. The RRF SQL uses a temporary table inside a rolled-back
+transaction. None of the exercises modifies canonical evidence or replaces the
+source application tests.

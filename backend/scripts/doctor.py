@@ -8,12 +8,13 @@ import sys
 from pathlib import Path
 
 import requests
+from psycopg.rows import dict_row
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.bedrock import get_bedrock_client  # noqa: E402
 from app.config import get_settings  # noqa: E402
-from app.db import close_pool, get_dict_conn  # noqa: E402
+from app.db import close_pool, get_owner_conn  # noqa: E402
 from app.embeddings import embed_text  # noqa: E402
 from app.rerank import CohereRerankService  # noqa: E402
 
@@ -608,7 +609,11 @@ def check_database(doctor: Doctor) -> None:
     min_postgres = os.environ.get("POSTGRES_MIN_VERSION", "18.3")
     min_pgvector = os.environ.get("PGVECTOR_MIN_VERSION", "0.8.1")
     try:
-        with get_dict_conn("app_engineer") as connection:
+        # This is a corpus-integrity check, not a participant request. Under the
+        # optional RLS module the app-engineer persona intentionally cannot see
+        # restricted captured evidence, so using it here would report those rows
+        # as missing signal coverage. API health below remains persona-scoped.
+        with get_owner_conn(row_factory=dict_row) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """

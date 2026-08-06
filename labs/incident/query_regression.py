@@ -151,11 +151,22 @@ def _capture_checkpoint(
     )
 
 
-def _index_exists(conn: psycopg.Connection) -> bool:
-    row = conn.execute(
-        "SELECT to_regclass(%s) IS NOT NULL AS index_exists",
-        (RECOMMENDED_INDEX_NAME,),
-    ).fetchone()
+def _index_exists(
+    conn: psycopg.Connection,
+    *,
+    index_oid: int | None = None,
+) -> bool:
+    if index_oid is not None:
+        row = conn.execute(
+            "SELECT EXISTS (SELECT 1 FROM pg_index WHERE indexrelid = %s::oid) "
+            "AS index_exists",
+            (index_oid,),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT to_regclass(%s) IS NOT NULL AS index_exists",
+            (RECOMMENDED_INDEX_NAME,),
+        ).fetchone()
     if row is None:
         raise LiveWorkshopError("index-existence query returned no result")
     if isinstance(row, Mapping):
@@ -175,6 +186,7 @@ def capture_plan_checkpoints(
     conn: psycopg.Connection,
     *,
     tier: int,
+    index_oid: int | None = None,
 ) -> list[PlanCheckpoint]:
     """Capture only the checkpoint(s) that can truthfully exist now.
 
@@ -182,7 +194,7 @@ def capture_plan_checkpoints(
     run ANALYZE, and prove the scan remains sequential. Once a participant has
     created it, capture only the Wave B index-scan checkpoint.
     """
-    if _index_exists(conn):
+    if _index_exists(conn, index_oid=index_oid):
         after_index = _capture_checkpoint(
             conn,
             label=WAVE_B_CHECKPOINTS[0],

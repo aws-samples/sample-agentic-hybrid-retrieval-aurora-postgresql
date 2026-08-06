@@ -74,6 +74,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'persona_auditor') THEN
     CREATE ROLE persona_auditor NOLOGIN;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'workbench_lab_owner') THEN
+    CREATE ROLE workbench_lab_owner NOLOGIN;
+  END IF;
 END
 $$;
 
@@ -141,7 +144,7 @@ BEGIN
   SELECT string_agg(r, ', ' ORDER BY r)
     INTO v_bad
     FROM unnest(ARRAY['can_see_restricted', 'persona_app_engineer', 'persona_dba',
-                      'persona_auditor', 'pg_monitor']) AS r
+                      'persona_auditor', 'workbench_lab_owner', 'pg_monitor']) AS r
    WHERE NOT pg_has_role(current_user, r, 'MEMBER WITH ADMIN OPTION');
 
   IF v_bad IS NOT NULL THEN
@@ -297,6 +300,36 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'workshop_participant') THEN
     CREATE ROLE workshop_participant LOGIN;
   END IF;
+END
+$$;
+
+-- ---------------------------------------------------------------------------
+-- The disposable lab-workload owner.
+--
+-- Lab 4's central step is the participant running CREATE INDEX on
+-- workbench_lab.orders themselves. PostgreSQL has no grantable CREATE INDEX
+-- privilege: the participant must own the table directly or through an inherited
+-- role membership. The tables are recreated for every workload bootstrap, so
+-- object grants would both be insufficient and disappear on the next rebuild.
+--
+-- workbench_lab_owner owns only the disposable workbench_lab schema. It is
+-- NOLOGIN and gives no role attributes. workshop_participant inherits it so a
+-- plain Code Editor session can create the approved index. workshop_app is
+-- deliberately excluded: the API pool receives narrow DML grants during each
+-- rebuild, never ownership or passive DDL.
+-- ---------------------------------------------------------------------------
+
+GRANT workbench_lab_owner TO workshop_participant WITH INHERIT TRUE;
+
+-- The bootstrap connection must SET ROLE to the ownership handle after it
+-- recreates workbench_lab. current_user is retrieval_admin locally and
+-- workshop_admin in a provisioned environment, so do not hard-code either.
+DO $$
+BEGIN
+  EXECUTE format(
+    'GRANT workbench_lab_owner TO %I WITH INHERIT TRUE',
+    current_user
+  );
 END
 $$;
 

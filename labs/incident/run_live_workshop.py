@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import re
 import sys
 from threading import Barrier, BrokenBarrierError
 import time
@@ -16,6 +17,7 @@ from typing import Any, Callable, Sequence
 import uuid
 
 import psycopg
+from psycopg import sql
 from psycopg.rows import dict_row
 import requests
 from botocore.exceptions import BotoCoreError, ClientError
@@ -62,6 +64,24 @@ RELATION_NAME = "workbench_lab.orders"
 INDEX_NAME = RECOMMENDED_INDEX_NAME
 HOT_WRITE_APPLICATION_NAME = "workbench-lab-api-hot-write"
 BACKFILL_APPLICATION_NAME = "workbench-lab-backfill"
+LAB_SCHEMA_OWNER = "workbench_lab_owner"
+LAB_WRITER_ROLE = "workshop_app"
+LAB_CATALOG_REVALIDATION_ROLES = (
+    "persona_app_engineer",
+    "persona_dba",
+    "persona_auditor",
+)
+EXERCISE_TEMPLATE_DIR = REPO_ROOT / "labs" / "exercises"
+WAVE_A_EXERCISE_TEMPLATES = (
+    "lab2-filter-request.json",
+    "lab2-fusion-request.json",
+    "lab3-plan-request.json",
+    "lab3-traverse-request.json",
+    "lab3-compare-request.json",
+)
+UNRESOLVED_EXERCISE_PLACEHOLDER = re.compile(
+    r"\{\{[A-Z_]+\}\}|REPLACE_WITH_[A-Z_]+"
+)
 
 
 def _connect(
@@ -152,9 +172,8 @@ def _assert_empty_evidence_store(connection: psycopg.Connection) -> None:
         )
 
 
-def _create_lab_workload(connection: psycopg.Connection) -> None:
-    connection.execute("DROP SCHEMA IF EXISTS workbench_lab CASCADE")
-    connection.execute("CREATE SCHEMA workbench_lab")
+def _create_lab_tables(connection: psycopg.Connection) -> None:
+    """Create the disposable lab tables as the current effective owner."""
     connection.execute(
         """
         CREATE TABLE workbench_lab.customers (
@@ -211,6 +230,68 @@ def _create_lab_workload(connection: psycopg.Connection) -> None:
     connection.execute("ANALYZE workbench_lab.orders")
 
 
+def _grant_lab_writes(connection: psycopg.Connection) -> None:
+    """Grant the pool DML and personas catalog visibility after each rebuild.
+
+    This runs after the tables are recreated because DROP SCHEMA ... CASCADE
+    removes object grants. The pool deliberately receives no membership in
+    workbench_lab_owner: hot writes need DML, while Lab 4 reserves DDL for the
+    participant. Persona-scoped agent requests only receive schema USAGE so
+    they can revalidate a proposal against PostgreSQL's catalog; they receive
+    neither workload-row DML nor DDL.
+    """
+    writer = sql.Identifier(LAB_WRITER_ROLE)
+    connection.execute(
+        sql.SQL("GRANT USAGE ON SCHEMA workbench_lab TO {}").format(writer)
+    )
+    catalog_roles = sql.SQL(", ").join(
+        sql.Identifier(role) for role in LAB_CATALOG_REVALIDATION_ROLES
+    )
+    connection.execute(
+        sql.SQL("GRANT USAGE ON SCHEMA workbench_lab TO {}").format(catalog_roles)
+    )
+    connection.execute(
+        sql.SQL(
+            "GRANT SELECT, INSERT, UPDATE, DELETE "
+            "ON ALL TABLES IN SCHEMA workbench_lab TO {}"
+        ).format(writer)
+    )
+    connection.execute(
+        sql.SQL(
+            "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA workbench_lab TO {}"
+        ).format(writer)
+    )
+
+
+def _create_lab_workload(connection: psycopg.Connection) -> None:
+    """Rebuild the operational substrate without adding participant evidence."""
+    connection.execute("DROP SCHEMA IF EXISTS workbench_lab CASCADE")
+    owner_present = bool(
+        connection.execute(
+            "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = %s) AS present",
+            (LAB_SCHEMA_OWNER,),
+        ).fetchone()["present"]
+    )
+    if not owner_present:
+        connection.execute("CREATE SCHEMA workbench_lab")
+        _create_lab_tables(connection)
+        return
+
+    connection.execute(
+        sql.SQL("CREATE SCHEMA workbench_lab AUTHORIZATION {}").format(
+            sql.Identifier(LAB_SCHEMA_OWNER)
+        )
+    )
+    connection.execute(
+        sql.SQL("SET ROLE {}").format(sql.Identifier(LAB_SCHEMA_OWNER))
+    )
+    try:
+        _create_lab_tables(connection)
+        _grant_lab_writes(connection)
+    finally:
+        connection.execute("RESET ROLE")
+
+
 def _lab_workload_state(
     connection: psycopg.Connection,
 ) -> dict[str, Any] | None:
@@ -265,7 +346,7 @@ def _lab_workload_state(
 def _assert_lab_workload_ready(
     state: dict[str, Any] | None,
     *,
-    target_index_expected: bool = False,
+    target_index_expected: bool | None = False,
     expected_touched_rows: int = 0,
 ) -> dict[str, Any]:
     if state is None:
@@ -289,7 +370,10 @@ def _assert_lab_workload_ready(
         or state["orphan_order_count"] != 0
         or state["minimum_order_id"] != 1
         or state["maximum_order_id"] != LAB_ROWS
-        or state["target_index_exists"] is not target_index_expected
+        or (
+            target_index_expected is not None
+            and state["target_index_exists"] is not target_index_expected
+        )
     ):
         raise LiveWorkshopError(
             "the preloaded operational workload is not canonical: "
@@ -730,7 +814,10 @@ def _prepare_lab_for_wave(
             expected_touched_rows = int(wave_a["blocked_writer_count"]) + 1
         workload = _assert_lab_workload_ready(
             _lab_workload_state(connection),
-            target_index_expected=wave == "B",
+            # A Wave B participant can have run no index or a differently-shaped
+            # one. Both are evidence-bearing outcomes that D3 records before it
+            # declines the post-index admission; preflight must not erase them.
+            target_index_expected=None if wave == "B" else False,
             expected_touched_rows=expected_touched_rows,
         )
         before = _statement_stats(connection, "before")
@@ -1235,18 +1322,296 @@ def _wave_a_payload(
     )
 
 
-def _read_index_definition(connection: psycopg.Connection) -> str:
+def _action_proposal(
+    connection: psycopg.Connection,
+    proposal_id: str,
+    *,
+    incident_key: str,
+) -> dict[str, Any]:
+    """Read the approved proposal only when its run retrieved this incident."""
+    with connection.cursor(row_factory=dict_row) as cursor:
+        cursor.execute(
+            """
+            SELECT
+              proposal_id::text AS proposal_id,
+              target_schema,
+              target_table,
+              proposed_fingerprint,
+              proposed_sql,
+              EXISTS (
+                SELECT 1
+                FROM proof.retrieval_candidates candidate
+                JOIN retrieval.documents document
+                  ON document.document_version_id = candidate.document_version_id
+                JOIN casework.incidents incident
+                  ON incident.incident_id = document.incident_id
+                JOIN casework.evidence_items incident_item
+                  ON incident_item.evidence_id = incident.evidence_id
+                WHERE candidate.run_id = proposal.run_id
+                  AND incident_item.external_key = %s
+                  AND NOT incident_item.is_deleted
+              ) AS matches_incident
+            FROM proof.action_proposals proposal
+            WHERE proposal.proposal_id = %s::uuid
+            """,
+            (incident_key, proposal_id),
+        )
+        row = cursor.fetchone()
+    if row is None:
+        raise LiveWorkshopError(
+            f"no stored action proposal exists for {proposal_id}; run Lab 3 first"
+        )
+    proposal = dict(row)
+    if not proposal.pop("matches_incident"):
+        raise LiveWorkshopError(
+            f"stored action proposal {proposal_id} is not grounded in the current "
+            f"Wave A incident {incident_key}; run Lab 3 for this incident first"
+        )
+    if (
+        proposal["target_schema"],
+        proposal["target_table"],
+    ) != ("workbench_lab", "orders"):
+        raise LiveWorkshopError(
+            "the approved proposal does not target workbench_lab.orders; "
+            "this Lab 4 runner will not inspect another relation"
+        )
+    return proposal
+
+
+@dataclass(frozen=True)
+class ObservedIndex:
+    """One participant-created index read back from Aurora's catalog."""
+
+    oid: int
+    fingerprint: str
+    definition: str
+
+
+def _observed_index_by_oid(
+    connection: psycopg.Connection,
+    *,
+    relation_name: str,
+    index_oid: int,
+) -> ObservedIndex | None:
     row = connection.execute(
         """
-        SELECT pg_get_indexdef(to_regclass(%s)) AS definition
+        SELECT
+          index_row.indexrelid::oid::integer AS index_oid,
+          observed.fingerprint,
+          observed.index_definition
+        FROM pg_index index_row
+        CROSS JOIN LATERAL proof.observed_index_fingerprint(
+          index_row.indexrelid
+        ) observed
+        WHERE index_row.indexrelid = %s::oid
+          AND index_row.indrelid = %s::regclass
         """,
-        (INDEX_NAME,),
+        (index_oid, relation_name),
     ).fetchone()
-    if row is None or row["definition"] is None:
-        raise LiveWorkshopError(
-            f"Wave B requires the participant-created {INDEX_NAME} index"
+    if row is None:
+        return None
+    return ObservedIndex(
+        oid=int(row["index_oid"]),
+        fingerprint=str(row["fingerprint"]),
+        definition=str(row["index_definition"]),
+    )
+
+
+def _resolve_observed_index(
+    connection: psycopg.Connection,
+    *,
+    proposal: dict[str, Any],
+    observed_index_name: str | None,
+) -> ObservedIndex | None:
+    """Resolve the created index by shape, then a named fallback.
+
+    A canonical fingerprint is the equality contract. A name is used only when
+    the participant built a different shape and the runner needs to preserve
+    that mismatch as evidence instead of treating it as no action.
+    """
+    relation_name = f"{proposal['target_schema']}.{proposal['target_table']}"
+    matching_rows = connection.execute(
+        """
+        SELECT index_row.indexrelid::oid::integer AS index_oid
+        FROM pg_index index_row
+        CROSS JOIN LATERAL proof.observed_index_fingerprint(
+          index_row.indexrelid
+        ) observed
+        WHERE index_row.indrelid = %s::regclass
+          AND observed.fingerprint = %s
+        ORDER BY index_row.indexrelid
+        """,
+        (relation_name, proposal["proposed_fingerprint"]),
+    ).fetchall()
+    if len(matching_rows) == 1:
+        return _observed_index_by_oid(
+            connection,
+            relation_name=relation_name,
+            index_oid=int(matching_rows[0]["index_oid"]),
         )
-    return str(row["definition"])
+    if len(matching_rows) > 1 and observed_index_name is None:
+        raise LiveWorkshopError(
+            "multiple indexes match the approved proposal; rerun Wave B with "
+            "--observed-index <schema.index_name> to identify the one you ran"
+        )
+
+    if observed_index_name is not None:
+        oid_row = connection.execute(
+            "SELECT to_regclass(%s)::oid::integer AS index_oid",
+            (observed_index_name,),
+        ).fetchone()
+        if oid_row is None or oid_row["index_oid"] is None:
+            return None
+        observed = _observed_index_by_oid(
+            connection,
+            relation_name=relation_name,
+            index_oid=int(oid_row["index_oid"]),
+        )
+        if observed is None:
+            raise LiveWorkshopError(
+                f"{observed_index_name!r} is not an index on {relation_name}"
+            )
+        return observed
+
+    candidates = connection.execute(
+        """
+        SELECT indexrelid::oid::integer AS index_oid
+        FROM pg_index
+        WHERE indrelid = %s::regclass
+          AND NOT indisprimary
+        ORDER BY indexrelid
+        """,
+        (relation_name,),
+    ).fetchall()
+    if len(candidates) == 0:
+        return None
+    if len(candidates) > 1:
+        raise LiveWorkshopError(
+            "the approved proposal did not match and multiple non-primary "
+            "indexes exist; rerun Wave B with --observed-index "
+            "<schema.index_name> so the mismatch can be recorded honestly"
+        )
+    return _observed_index_by_oid(
+        connection,
+        relation_name=relation_name,
+        index_oid=int(candidates[0]["index_oid"]),
+    )
+
+
+def record_action_execution(
+    connection: psycopg.Connection,
+    *,
+    proposal_id: str,
+    approved_by: str,
+    observed_index_oid: int | None,
+    outcome: str,
+    outcome_detail: str | None,
+    started_at: datetime | None,
+    completed_at: datetime | None,
+    plan_before_checkpoint: str | None,
+    plan_after_checkpoint: str | None,
+    wave_b_capture_id: str | None,
+    wave_b_ingest_id: str | None,
+) -> str:
+    """Persist one participant action with Aurora-derived catalog evidence.
+
+    The definition, canonical fingerprint, and equality result are selected from
+    ``proof.observed_index_fingerprint()`` inside the insert. Callers cannot
+    supply those values, because that would turn the execution record into an
+    assertion about what ran instead of evidence read back from Aurora.
+    """
+    approver = approved_by.strip()
+    if not approver:
+        raise LiveWorkshopError("Wave B requires a non-empty --approved-by value")
+    if outcome not in {"succeeded", "failed"}:
+        raise LiveWorkshopError(
+            "execution outcome must be 'succeeded' or 'failed', "
+            f"got {outcome!r}"
+        )
+    if outcome == "succeeded" and observed_index_oid is None:
+        raise LiveWorkshopError(
+            "a succeeded execution must name the index Aurora created; record "
+            "outcome='failed' when no index exists"
+        )
+
+    with connection.transaction(), connection.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO proof.action_executions(
+              proposal_id,
+              run_id,
+              approved_by,
+              executed_sql,
+              executed_sql_sha256,
+              observed_index_definition,
+              observed_fingerprint,
+              fingerprint_matches,
+              outcome,
+              outcome_detail,
+              started_at,
+              completed_at,
+              plan_before_checkpoint,
+              plan_after_checkpoint,
+              wave_b_capture_id,
+              wave_b_ingest_id
+            )
+            SELECT
+              proposal.proposal_id,
+              proposal.run_id,
+              %(approved_by)s,
+              observed.index_definition,
+                CASE
+                WHEN observed.index_definition IS NULL THEN NULL
+                ELSE encode(
+                  sha256(convert_to(observed.index_definition, 'UTF8')),
+                  'hex'
+                )
+              END,
+              observed.index_definition,
+              observed.fingerprint,
+              CASE
+                WHEN observed.fingerprint IS NULL THEN NULL
+                ELSE observed.fingerprint = proposal.proposed_fingerprint
+              END,
+              %(outcome)s,
+              %(outcome_detail)s,
+              %(started_at)s,
+              %(completed_at)s,
+              %(plan_before_checkpoint)s,
+              %(plan_after_checkpoint)s,
+              %(wave_b_capture_id)s::uuid,
+              %(wave_b_ingest_id)s::uuid
+            FROM proof.action_proposals proposal
+            LEFT JOIN LATERAL (
+              SELECT fingerprint, index_definition
+              FROM proof.observed_index_fingerprint(%(observed_index_oid)s::oid)
+              WHERE %(observed_index_oid)s IS NOT NULL
+            ) observed ON true
+            WHERE proposal.proposal_id = %(proposal_id)s::uuid
+            RETURNING execution_id
+            """,
+            {
+                "proposal_id": proposal_id,
+                "approved_by": approver,
+                "observed_index_oid": observed_index_oid,
+                "outcome": outcome,
+                "outcome_detail": outcome_detail,
+                "started_at": started_at,
+                "completed_at": completed_at,
+                "plan_before_checkpoint": plan_before_checkpoint,
+                "plan_after_checkpoint": plan_after_checkpoint,
+                "wave_b_capture_id": wave_b_capture_id,
+                "wave_b_ingest_id": wave_b_ingest_id,
+            },
+        )
+        row = cursor.fetchone()
+    if row is None:
+        raise LiveWorkshopError(
+            f"no proposal {proposal_id} exists to record an execution against"
+        )
+    if isinstance(row, dict):
+        return str(row["execution_id"])
+    return str(row[0])
 
 
 def _wave_b_payload(
@@ -1411,6 +1776,86 @@ def _receipt_identifiers(payload: dict[str, Any]) -> dict[str, Any]:
     return identifiers
 
 
+def _render_wave_a_exercise_template(
+    template: str,
+    replacements: dict[str, str],
+) -> str:
+    """Render one request template and reject a broken participant handoff."""
+    rendered = template
+    for placeholder, value in replacements.items():
+        rendered = rendered.replace(placeholder, value)
+    unresolved = sorted(set(UNRESOLVED_EXERCISE_PLACEHOLDER.findall(rendered)))
+    if unresolved:
+        raise LiveWorkshopError(
+            "the generated participant exercise still has unresolved placeholders: "
+            + ", ".join(unresolved)
+        )
+    return rendered
+
+
+def _materialize_wave_a_exercises(
+    receipt: dict[str, Any],
+    *,
+    output_dir: Path,
+) -> None:
+    """Write Lab 2 and Lab 3 requests from the Wave A receipt alone."""
+    required = {
+        "wave",
+        "run_suffix",
+        "incident_key",
+        "unsafe_change_key",
+        "analyze_change_key",
+        "lock_key",
+    }
+    missing = sorted(required - receipt.keys())
+    if missing:
+        raise LiveWorkshopError(
+            "cannot create run-scoped exercises; the Wave A receipt is missing: "
+            + ", ".join(missing)
+        )
+    if receipt["wave"] != "A":
+        raise LiveWorkshopError(
+            "run-scoped Lab 2 and Lab 3 exercises require a Wave A receipt"
+        )
+
+    suffix = str(receipt["run_suffix"])
+    expected = {
+        "incident_key": f"INC-{suffix}",
+        "unsafe_change_key": f"CHG-{suffix}-01",
+        "analyze_change_key": f"CHG-{suffix}-02",
+        "lock_key": f"LOCK-{suffix}-01",
+    }
+    if not re.fullmatch(r"[A-F0-9]{8}", suffix) or any(
+        receipt[name] != value for name, value in expected.items()
+    ):
+        raise LiveWorkshopError(
+            "cannot create run-scoped exercises; the Wave A receipt does not "
+            "contain one valid run-derived identity"
+        )
+
+    replacements = {
+        "{{INCIDENT_KEY}}": expected["incident_key"],
+        "{{UNSAFE_CHANGE_KEY}}": expected["unsafe_change_key"],
+        "{{ANALYZE_CHANGE_KEY}}": expected["analyze_change_key"],
+        "{{LOCK_KEY}}": expected["lock_key"],
+        "REPLACE_WITH_INCIDENT_ID": expected["incident_key"],
+        "REPLACE_WITH_UNSAFE_CHANGE_ID": expected["unsafe_change_key"],
+        "REPLACE_WITH_ANALYZE_CHANGE_ID": expected["analyze_change_key"],
+        "REPLACE_WITH_LOCK_OBSERVATION_ID": expected["lock_key"],
+    }
+    exercise_dir = output_dir / "exercises"
+    exercise_dir.mkdir(parents=True, exist_ok=True)
+    for name in WAVE_A_EXERCISE_TEMPLATES:
+        source = EXERCISE_TEMPLATE_DIR / name
+        if not source.is_file():
+            raise LiveWorkshopError(f"participant exercise template is missing: {source}")
+        rendered = _render_wave_a_exercise_template(
+            source.read_text(encoding="utf-8"),
+            replacements,
+        )
+        (exercise_dir / name).write_text(rendered, encoding="utf-8")
+
+
 def admit_wave_a(
     database_url: str,
     *,
@@ -1459,6 +1904,31 @@ def admit_wave_b(
     )
     _write_atomic(payload_path, payload)
     return payload, _admit_evidence(database_url, payload)
+
+
+def _attach_wave_b_receipt(
+    database_url: str,
+    *,
+    execution_id: str,
+    capture_id: uuid.UUID,
+    ingest_receipt: dict[str, Any],
+) -> None:
+    """Attach an admitted Wave B receipt to an already-recorded action once."""
+    ingest_id = ingest_receipt.get("ingest_id")
+    if not isinstance(ingest_id, str) or not ingest_id:
+        raise LiveWorkshopError(
+            "Wave B admission returned no ingest_id; the execution remains "
+            "recorded but cannot claim validation"
+        )
+    with _connect(
+        database_url,
+        "workbench-live-wave-b-receipt",
+        autocommit=True,
+    ) as connection:
+        connection.execute(
+            "SELECT proof.attach_wave_b_receipt(%s::uuid, %s::uuid, %s::uuid)",
+            (execution_id, str(capture_id), ingest_id),
+        )
 
 
 def _build_search_index(
@@ -1654,7 +2124,14 @@ def _preflight(
               to_regprocedure('casework.assert_live_capture_ready()') IS NOT NULL
                 AS live_capture_ready,
               to_regprocedure('retrieval.assert_search_index_ready()') IS NOT NULL
-                AS search_index_ready
+                AS search_index_ready,
+              to_regclass('proof.action_proposals') IS NOT NULL
+                AS action_proposals,
+              to_regprocedure('proof.observed_index_fingerprint(oid)') IS NOT NULL
+                AS observed_index_fingerprint,
+              to_regprocedure(
+                'proof.attach_wave_b_receipt(uuid,uuid,uuid)'
+              ) IS NOT NULL AS wave_b_receipt_attachment
             """
         ).fetchone()
     missing = [name for name, present in dict(schema).items() if not present]
@@ -1738,6 +2215,27 @@ def _parser() -> argparse.ArgumentParser:
         help="admit diagnostic evidence in Lab 1 or validation evidence in Lab 4",
     )
     parser.add_argument(
+        "--proposal-id",
+        help=(
+            "Lab 3 action proposal the participant reviewed; required for "
+            "Wave B so the approval and execution are tied to one recommendation"
+        ),
+    )
+    parser.add_argument(
+        "--approved-by",
+        help=(
+            "name or role of the human who approved the stored proposal; "
+            "required for Wave B"
+        ),
+    )
+    parser.add_argument(
+        "--observed-index",
+        help=(
+            "optional schema-qualified index name when the participant created "
+            "a differently shaped index and the catalog fallback is ambiguous"
+        ),
+    )
+    parser.add_argument(
         "--drop-lab-schema",
         action="store_true",
         help="explicitly remove workbench_lab after a completed rehearsal",
@@ -1770,26 +2268,36 @@ def _load_replay_payload(path: Path, *, incident_key: str) -> dict[str, Any]:
 def main() -> int:
     args = _parser().parse_args()
     try:
-        preflight = _preflight(
-            args.database_url,
-            region=args.region,
-            cluster_id=args.db_cluster_identifier,
-            instance_id=args.db_instance_identifier,
-        )
+        if args.wave == "B" and not args.proposal_id:
+            raise LiveWorkshopError(
+                "Wave B requires --proposal-id from the Lab 3 Hybrid Retrieval "
+                "Agent proposal"
+            )
+        if args.wave == "B" and not args.approved_by:
+            raise LiveWorkshopError(
+                "Wave B requires --approved-by to record the human approval"
+            )
+
         capture_id = uuid.uuid4()
-        workload, before_statement = _prepare_lab_for_wave(
-            args.database_url,
-            capture_id,
-            wave=args.wave,
-        )
-        print(
-            f"Wave {args.wave} preflight: {preflight['cluster_id']} / "
-            f"{preflight['instance_id']}; "
-            f"{workload['observed_customer_count']} customers, "
-            f"{workload['observed_row_count']} orders"
-        )
 
         if args.wave == "A":
+            preflight = _preflight(
+                args.database_url,
+                region=args.region,
+                cluster_id=args.db_cluster_identifier,
+                instance_id=args.db_instance_identifier,
+            )
+            workload, before_statement = _prepare_lab_for_wave(
+                args.database_url,
+                capture_id,
+                wave="A",
+            )
+            print(
+                f"Wave A preflight: {preflight['cluster_id']} / "
+                f"{preflight['instance_id']}; "
+                f"{workload['observed_customer_count']} customers, "
+                f"{workload['observed_row_count']} orders"
+            )
             run_suffix = capture_id.hex[-8:].upper()
             payload_path = args.output_dir / f"wave-a-{run_suffix}.json"
             collision = run_migration_collision(args.database_url)
@@ -1811,12 +2319,122 @@ def main() -> int:
                 payload_path=payload_path,
             )
         else:
+            workload, _before_statement = _prepare_lab_for_wave(
+                args.database_url,
+                capture_id,
+                wave="B",
+            )
             with _connect(
                 args.database_url,
                 "workbench-live-wave-b-context",
                 autocommit=True,
             ) as connection:
                 wave_a = _assert_wave_a_corpus_present(connection)
+                proposal = _action_proposal(
+                    connection,
+                    args.proposal_id,
+                    incident_key=wave_a["incident_key"],
+                )
+                started_at = connection.execute(
+                    "SELECT clock_timestamp() AS captured_at"
+                ).fetchone()["captured_at"]
+                observed = _resolve_observed_index(
+                    connection,
+                    proposal=proposal,
+                    observed_index_name=args.observed_index,
+                )
+                if observed is None:
+                    completed_at = connection.execute(
+                        "SELECT clock_timestamp() AS captured_at"
+                    ).fetchone()["captured_at"]
+                    record_action_execution(
+                        connection,
+                        proposal_id=proposal["proposal_id"],
+                        approved_by=args.approved_by,
+                        observed_index_oid=None,
+                        outcome="failed",
+                        outcome_detail=(
+                            "no non-primary index exists on workbench_lab.orders "
+                            "for Aurora to validate"
+                        ),
+                        started_at=started_at,
+                        completed_at=completed_at,
+                        plan_before_checkpoint="before_analyze",
+                        plan_after_checkpoint=None,
+                        wave_b_capture_id=None,
+                        wave_b_ingest_id=None,
+                    )
+                    raise LiveWorkshopError(
+                        "no participant-created index was found. The failed "
+                        "execution is recorded; correct the DDL and rerun Wave B."
+                    )
+                if observed.fingerprint != proposal["proposed_fingerprint"]:
+                    completed_at = connection.execute(
+                        "SELECT clock_timestamp() AS captured_at"
+                    ).fetchone()["captured_at"]
+                    execution_id = record_action_execution(
+                        connection,
+                        proposal_id=proposal["proposal_id"],
+                        approved_by=args.approved_by,
+                        observed_index_oid=observed.oid,
+                        outcome="succeeded",
+                        outcome_detail=(
+                            "Aurora catalog fingerprint did not match the "
+                            "approved proposal"
+                        ),
+                        started_at=started_at,
+                        completed_at=completed_at,
+                        plan_before_checkpoint="before_analyze",
+                        plan_after_checkpoint=None,
+                        wave_b_capture_id=None,
+                        wave_b_ingest_id=None,
+                    )
+                    raise LiveWorkshopError(
+                        "the participant-created index does not match the "
+                        f"approved proposal (execution {execution_id}). Compare "
+                        "the proposed and observed fingerprints, correct the "
+                        "index, and rerun Wave B."
+                    )
+                plan_checkpoints = tuple(
+                    capture_plan_checkpoints(
+                        connection,
+                        tier=3,
+                        index_oid=observed.oid,
+                    )
+                )
+                completed_at = connection.execute(
+                    "SELECT clock_timestamp() AS captured_at"
+                ).fetchone()["captured_at"]
+                execution_id = record_action_execution(
+                    connection,
+                    proposal_id=proposal["proposal_id"],
+                    approved_by=args.approved_by,
+                    observed_index_oid=observed.oid,
+                    outcome="succeeded",
+                    outcome_detail=None,
+                    started_at=started_at,
+                    completed_at=completed_at,
+                    plan_before_checkpoint="before_analyze",
+                    plan_after_checkpoint="after_index",
+                    wave_b_capture_id=None,
+                    wave_b_ingest_id=None,
+                )
+
+            # Record the human action before any optional AWS or Bedrock operation.
+            # A successful CREATE INDEX must remain visible even if admission later
+            # fails because a supplemental service is unavailable.
+            preflight = _preflight(
+                args.database_url,
+                region=args.region,
+                cluster_id=args.db_cluster_identifier,
+                instance_id=args.db_instance_identifier,
+            )
+            print(
+                f"Wave B preflight: {preflight['cluster_id']} / "
+                f"{preflight['instance_id']}; "
+                f"{workload['observed_customer_count']} customers, "
+                f"{workload['observed_row_count']} orders"
+            )
             payload_path = _wave_b_payload_path(
                 args.output_dir,
                 str(wave_a["capture_id"]),
@@ -1829,41 +2447,32 @@ def main() -> int:
                 capture_id = uuid.UUID(payload["capture"]["capture_id"])
                 ingest_receipt = _admit_evidence(args.database_url, payload)
             else:
-                with _connect(
-                    args.database_url,
-                    "workbench-live-wave-b-plan",
-                    autocommit=True,
-                ) as connection:
-                    started_at = connection.execute(
-                        "SELECT clock_timestamp() AS captured_at"
-                    ).fetchone()["captured_at"]
-                    plan_checkpoints = tuple(
-                        capture_plan_checkpoints(connection, tier=3)
-                    )
-                    index_definition = _read_index_definition(connection)
-                    ended_at = connection.execute(
-                        "SELECT clock_timestamp() AS captured_at"
-                    ).fetchone()["captured_at"]
                 aws_capture = collect_aws_observability(
                     database_url=args.database_url,
                     region=args.region,
                     cluster_id=args.db_cluster_identifier,
                     instance_id=args.db_instance_identifier,
                     start_time=started_at,
-                    end_time=ended_at,
+                    end_time=completed_at,
                 )
                 payload, ingest_receipt = admit_wave_b(
                     args.database_url,
                     capture_id=capture_id,
                     workload=workload,
                     incident_key=wave_a["incident_key"],
-                    index_definition=index_definition,
+                    index_definition=observed.definition,
                     plan_checkpoints=plan_checkpoints,
                     started_at=str(started_at),
-                    ended_at=str(ended_at),
+                    ended_at=str(completed_at),
                     aws_capture=aws_capture,
                     payload_path=payload_path,
                 )
+            _attach_wave_b_receipt(
+                args.database_url,
+                execution_id=execution_id,
+                capture_id=capture_id,
+                ingest_receipt=ingest_receipt,
+            )
 
         run_suffix = payload["capture"]["run_suffix"]
         index_result = _build_search_index(
@@ -1883,10 +2492,25 @@ def main() -> int:
             "index_result": index_result,
             "payload_path": str(payload_path),
         }
+        if args.wave == "B":
+            receipt.update(
+                {
+                    "proposal_id": args.proposal_id,
+                    "action_execution_id": execution_id,
+                    "approved_by": args.approved_by,
+                }
+            )
         receipt_path = args.output_dir / f"receipt-{args.wave.lower()}-{run_suffix}.json"
         _write_atomic(receipt_path, receipt)
+        if args.wave == "A":
+            _materialize_wave_a_exercises(receipt, output_dir=args.output_dir)
         print(json.dumps(receipt, indent=2, default=str))
         print(f"\nWAVE {args.wave} READY: {receipt_path}")
+        if args.wave == "B":
+            print(
+                "\nyou built the trusted context layer required by a "
+                "fleet-scale database agent."
+            )
         if args.drop_lab_schema:
             _cleanup_lab(args.database_url)
             print("workbench_lab cleanup complete")

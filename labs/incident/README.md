@@ -40,19 +40,27 @@ the retrieval and read-only agent labs. It does not contain a post-index plan.
 
 ## Wave B: Validation Evidence
 
-After the participant approves and executes the recommended index, capture the
-new outcome:
+After the participant reviews and explicitly approves the Hybrid Retrieval
+Agent's stored proposal, they execute that proposal's own DDL in Code Editor.
+Then capture the new outcome:
 
 ```bash
-make live-workshop ARGS="--wave B"
+make live-workshop ARGS="--wave B --proposal-id $PROPOSAL_ID --approved-by $APPROVED_BY"
 ```
 
 Wave B requires exactly one admitted Wave A capture and the participant-created
-`workbench_lab.idx_orders_priority_tier_created_at` index. It observes a fresh,
-bounded post-index `EXPLAIN (ANALYZE, BUFFERS)` checkpoint, admits only the new
-validation change and telemetry, rebuilds the derived search index, and writes
-a separate Wave B receipt. Wave B adds a `validates` relationship to the same
-incident; it never replaces or revises Wave A evidence.
+index described by the approved proposal. It reads the index definition from
+Aurora's catalog, compares it with the proposal's canonical fingerprint, and
+records the approval and observed execution before admission is attempted. It
+then observes a fresh, bounded post-index `EXPLAIN (ANALYZE, BUFFERS)`
+checkpoint, admits only the new validation change and telemetry, rebuilds the
+derived search index, and writes a separate Wave B receipt. The receipt is
+attached to the already-recorded execution only after admission succeeds.
+
+Wave B adds a `validates` relationship to the same incident; it never replaces
+or revises Wave A evidence. The agent recommends but does not execute: it has
+no DDL privilege or write tool. A successful readiness assessment records what
+the evidence supports; it never authorizes autonomous DDL.
 
 ## Outputs and Cleanup
 
@@ -72,4 +80,6 @@ disposable workload after a rehearsal or workshop is complete.
 
 If PostgreSQL, application-pool, admission, indexing, or readiness validation
 fails, the command does not publish a ready receipt. A failed Wave B leaves the
-already-admitted Wave A evidence intact.
+already-admitted Wave A evidence intact. If the participant's index is missing
+or does not match the approved proposal, the execution is still recorded before
+Wave B stops so the mismatch can be reviewed and corrected.
