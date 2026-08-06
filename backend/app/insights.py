@@ -412,6 +412,7 @@ def _collect_scans(node: dict[str, Any], scans: list[dict[str, Any]]) -> None:
         scans.append(
             {
                 "node_type": node.get("Node Type"),
+                "schema": node.get("Schema"),
                 "relation": node.get("Relation Name"),
                 "index": node.get("Index Name"),
                 "actual_rows": node.get("Actual Rows"),

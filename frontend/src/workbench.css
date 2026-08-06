@@ -8392,6 +8392,21 @@ td span {
   overflow-wrap: anywhere;
 }
 
+.plan-note {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  color: var(--ink-soft);
+  background: var(--paper-raised);
+  border-left: 2px solid var(--green);
+  font: 500 13px/1.5 var(--sans);
+}
+
+.plan-note--incident {
+  color: var(--ink);
+  border-left-color: var(--red);
+}
+
 .query-plan-inspector {
   min-width: 0;
   display: grid;

@@ -561,6 +561,7 @@ interface QueryPlanResponse {
   };
   scans: Array<{
     node_type: string;
+    schema: string | null;
     relation: string | null;
     index: string | null;
     actual_rows: number;
@@ -2490,6 +2491,10 @@ function QueryPlanDrawer({
               </div>
               {current.scans.length ? (
                 current.scans.map((scan, index) => {
+                  const planRelation =
+                    scan.schema && scan.relation
+                      ? `${scan.schema}.${scan.relation}`
+                      : scan.relation || '';
                   const conditions = [
                     scan.index_cond ? `Index: ${scan.index_cond}` : '',
                     scan.recheck_cond ? `Recheck: ${scan.recheck_cond}` : '',
@@ -2503,7 +2508,7 @@ function QueryPlanDrawer({
                       <span className="plan-node-index">{index + 1}</span>
                       <span className="plan-node-name">
                         <strong>{scan.node_type}</strong>
-                        <small>{scan.relation || 'working set'}</small>
+                        <small>{planRelation || 'working set'}</small>
                       </span>
                       <code>{scan.index || '—'}</code>
                       <span>
@@ -2521,6 +2526,22 @@ function QueryPlanDrawer({
                             ? ` · ${scan.rows_removed_by_filter} rows removed`
                             : ''}
                         </small>
+                      ) : null}
+                      {scan.node_type === 'Seq Scan' &&
+                      planRelation.startsWith('retrieval.') ? (
+                        <p className="plan-note">
+                          A sequential scan here is the planner making the right
+                          call. At this corpus size, scanning every chunk costs
+                          less than descending an index.
+                        </p>
+                      ) : null}
+                      {scan.node_type === 'Seq Scan' &&
+                      planRelation === 'workbench_lab.orders' ? (
+                        <p className="plan-note plan-note--incident">
+                          This sequential scan is the incident: the filter
+                          discards most rows it reads. ANALYZE cannot add the
+                          missing access path.
+                        </p>
                       ) : null}
                     </div>
                   );

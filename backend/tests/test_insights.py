@@ -52,6 +52,7 @@ class QueryPlanInsightTests(unittest.TestCase):
             "Plans": [
                 {
                     "Node Type": "Index Scan",
+                    "Schema": "retrieval",
                     "Relation Name": "chunks",
                     "Index Name": "chunks_embedding_hnsw_idx",
                     "Actual Rows": 8,
@@ -73,6 +74,7 @@ class QueryPlanInsightTests(unittest.TestCase):
 
         self.assertEqual(len(scans), 1)
         self.assertEqual(scans[0]["index"], "chunks_embedding_hnsw_idx")
+        self.assertEqual(scans[0]["schema"], "retrieval")
         self.assertEqual(scans[0]["actual_total_time_ms"], 1.75)
         self.assertEqual(scans[0]["shared_hit_blocks"], 14)
         self.assertEqual(scans[0]["rows_removed_by_filter"], 4)
