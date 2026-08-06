@@ -92,8 +92,8 @@ def _live_keys() -> dict[str, object]:
                   incident_item.external_key AS incident,
                   (
                     SELECT change_item.external_key
-                    FROM casework.incident_changes relation
-                    JOIN casework.evidence_items change_item
+                    FROM evidence.incident_changes relation
+                    JOIN evidence.evidence_items change_item
                       ON change_item.evidence_id = relation.change_evidence_id
                     WHERE relation.incident_evidence_id = incident.evidence_id
                       AND relation.relationship = 'confirmed'
@@ -102,8 +102,8 @@ def _live_keys() -> dict[str, object]:
                   ) AS confirmed_change,
                   (
                     SELECT lock_item.external_key
-                    FROM casework.lock_evidence lock_evidence
-                    JOIN casework.evidence_items lock_item
+                    FROM evidence.lock_evidence lock_evidence
+                    JOIN evidence.evidence_items lock_item
                       ON lock_item.evidence_id = lock_evidence.evidence_id
                     WHERE lock_evidence.incident_evidence_id = incident.evidence_id
                     ORDER BY lock_evidence.captured_at
@@ -115,22 +115,22 @@ def _live_keys() -> dict[str, object]:
                       SELECT incident_item.external_key AS external_key
                       UNION
                       SELECT change_item.external_key
-                      FROM casework.incident_changes relation
-                      JOIN casework.evidence_items change_item
+                      FROM evidence.incident_changes relation
+                      JOIN evidence.evidence_items change_item
                         ON change_item.evidence_id = relation.change_evidence_id
                       WHERE relation.incident_evidence_id = incident.evidence_id
                       UNION
                       SELECT lock_item.external_key
-                      FROM casework.lock_evidence lock_evidence
-                      JOIN casework.evidence_items lock_item
+                      FROM evidence.lock_evidence lock_evidence
+                      JOIN evidence.evidence_items lock_item
                         ON lock_item.evidence_id = lock_evidence.evidence_id
                       WHERE lock_evidence.incident_evidence_id = incident.evidence_id
                     ) related
                   ) AS related_keys
-                FROM casework.incidents incident
-                JOIN casework.evidence_items incident_item
+                FROM evidence.incidents incident
+                JOIN evidence.evidence_items incident_item
                   ON incident_item.evidence_id = incident.evidence_id
-                JOIN casework.incident_capture_runs capture
+                JOIN evidence.incident_capture_runs capture
                   ON capture.incident_evidence_id = incident.evidence_id
                  AND capture.wave = 'A'
                 WHERE capture.capture_origin = 'participant_induced'

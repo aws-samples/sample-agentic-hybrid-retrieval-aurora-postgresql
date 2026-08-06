@@ -100,14 +100,14 @@ class AgentCitationScopeTests(unittest.TestCase):
                 SELECT
                   wave_a.capture_id::text AS capture_id,
                   incident.incident_id
-                FROM casework.incident_capture_runs wave_a
-                JOIN casework.incidents incident
+                FROM evidence.incident_capture_runs wave_a
+                JOIN evidence.incidents incident
                   ON incident.evidence_id = wave_a.incident_evidence_id
                 WHERE wave_a.wave = 'A'
                   AND wave_a.capture_id = %s::uuid
                   AND EXISTS (
                     SELECT 1
-                    FROM casework.incident_capture_runs wave_b
+                    FROM evidence.incident_capture_runs wave_b
                     WHERE wave_b.incident_evidence_id =
                           wave_a.incident_evidence_id
                       AND wave_b.wave = 'B'
@@ -167,9 +167,9 @@ class AgentCitationScopeTests(unittest.TestCase):
                 """
                 SELECT DISTINCT capture.wave
                 FROM proof.answer_citations citation
-                JOIN casework.evidence_items item
+                JOIN evidence.evidence_items item
                   ON item.evidence_id = citation.evidence_id
-                JOIN casework.incident_capture_runs capture
+                JOIN evidence.incident_capture_runs capture
                   ON item.source_uri LIKE capture.source_bundle_uri || '/%%'
                 WHERE citation.run_id = %s::uuid
                 ORDER BY capture.wave

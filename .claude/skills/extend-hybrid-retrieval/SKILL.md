@@ -22,7 +22,7 @@ connector or mutation.
 ## 2. Read the Owning Contract
 
 - Source or search index change: `docs/ingestion-api.md`,
-  `docs/connector-lifecycle.md`, `casework.v_evidence_documents` in
+  `docs/connector-lifecycle.md`, `evidence.v_evidence_documents` in
   `sql/01_schema.sql`, `sql/10_admission.sql`,
   `labs/incident/run_live_workshop.py`, and `backend/app/search_index.py`.
 - Retrieval or scoring change: `sql/03_search_functions.sql`,
@@ -41,7 +41,7 @@ API.
 
 ## 3. Preserve the Invariants
 
-- `casework.*` is authoritative. `retrieval.*` is derived and never hand-edited.
+- `evidence.*` is authoritative. `retrieval.*` is derived and never hand-edited.
 - Stable evidence IDs, source URIs, revisions, ACLs, and typed foreign keys
   survive every indexed version.
 - Reuse a chunk embedding only when model ID and chunk hash match.

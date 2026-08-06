@@ -1,14 +1,14 @@
 CREATE INDEX IF NOT EXISTS idx_incidents_cluster_started
-  ON casework.incidents(cluster_id, started_at DESC);
+  ON evidence.incidents(cluster_id, started_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_changes_cluster_started
-  ON casework.changes(cluster_id, started_at DESC);
+  ON evidence.changes(cluster_id, started_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_lock_evidence_incident_captured
-  ON casework.lock_evidence(incident_evidence_id, captured_at DESC);
+  ON evidence.lock_evidence(incident_evidence_id, captured_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_activity_samples_capture_pid
-  ON casework.pg_stat_activity_samples(
+  ON evidence.pg_stat_activity_samples(
     capture_id,
     observation_number,
     captured_at,
@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS idx_activity_samples_capture_pid
   );
 
 CREATE INDEX IF NOT EXISTS idx_lock_samples_capture_relation
-  ON casework.pg_lock_samples(
+  ON evidence.pg_lock_samples(
     capture_id,
     observation_number,
     captured_at,
@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_lock_samples_capture_relation
   );
 
 CREATE INDEX IF NOT EXISTS idx_blocking_pids_capture
-  ON casework.pg_blocking_pids_samples(
+  ON evidence.pg_blocking_pids_samples(
     capture_id,
     observation_number,
     captured_at,
@@ -34,13 +34,13 @@ CREATE INDEX IF NOT EXISTS idx_blocking_pids_capture
   );
 
 CREATE INDEX IF NOT EXISTS idx_stat_statements_capture_phase
-  ON casework.pg_stat_statements_samples(capture_id, phase, captured_at);
+  ON evidence.pg_stat_statements_samples(capture_id, phase, captured_at);
 
 CREATE INDEX IF NOT EXISTS idx_cloudwatch_capture_metric
-  ON casework.cloudwatch_metric_samples(capture_id, metric_name, observed_at);
+  ON evidence.cloudwatch_metric_samples(capture_id, metric_name, observed_at);
 
 CREATE INDEX IF NOT EXISTS idx_telemetry_evidence_capture_type
-  ON casework.telemetry_evidence(
+  ON evidence.telemetry_evidence(
     capture_id,
     telemetry_type,
     observation_number,
@@ -48,7 +48,7 @@ CREATE INDEX IF NOT EXISTS idx_telemetry_evidence_capture_type
   );
 
 CREATE INDEX IF NOT EXISTS idx_telemetry_evidence_incident
-  ON casework.telemetry_evidence(incident_evidence_id, observed_at);
+  ON evidence.telemetry_evidence(incident_evidence_id, observed_at);
 
 CREATE INDEX IF NOT EXISTS idx_search_index_queue_pending
   ON retrieval.search_index_queue(status, requested_at)

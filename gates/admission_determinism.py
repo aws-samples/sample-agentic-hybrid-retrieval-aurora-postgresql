@@ -122,7 +122,7 @@ def run() -> int:
 
             def admit(value: dict) -> dict:
                 return connection.execute(
-                    "SELECT casework.admit_evidence(%s::jsonb)",
+                    "SELECT evidence.admit_evidence(%s::jsonb)",
                     (json.dumps(value),),
                 ).fetchone()[0]
 
@@ -149,7 +149,7 @@ def run() -> int:
                 connection.execute(
                     """
                     SELECT count(*)
-                    FROM casework.evidence_items
+                    FROM evidence.evidence_items
                     WHERE source_uri LIKE %s || '/%%'
                     """,
                     (bundle_uri,),
@@ -160,7 +160,7 @@ def run() -> int:
             receipts = connection.execute(
                 """
                 SELECT count(*)
-                FROM casework.ingest_receipts
+                FROM evidence.ingest_receipts
                 WHERE source_uri = %s
                 """,
                 (bundle_uri,),
@@ -190,7 +190,7 @@ def run() -> int:
                 connection.execute(
                     """
                     SELECT count(*)
-                    FROM casework.evidence_items
+                    FROM evidence.evidence_items
                     WHERE source_uri LIKE %s || '/%%'
                     """,
                     (bundle_uri,),

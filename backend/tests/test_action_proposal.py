@@ -182,15 +182,15 @@ class ProposalEmissionTests(unittest.TestCase):
                 SELECT
                   capture.capture_id::text AS capture_id,
                   incident.incident_id
-                FROM casework.incident_capture_runs capture
-                JOIN casework.incidents incident
+                FROM evidence.incident_capture_runs capture
+                JOIN evidence.incidents incident
                   ON incident.evidence_id = capture.incident_evidence_id
                 WHERE capture.capture_origin = 'participant_induced'
                   AND capture.wave = 'A'
                   AND capture.capture_id = %s::uuid
                   AND NOT EXISTS (
                     SELECT 1
-                    FROM casework.incident_capture_runs later
+                    FROM evidence.incident_capture_runs later
                     WHERE later.incident_evidence_id =
                           capture.incident_evidence_id
                       AND later.wave = 'B'

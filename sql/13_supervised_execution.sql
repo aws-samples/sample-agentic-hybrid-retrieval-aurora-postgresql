@@ -195,9 +195,9 @@ CREATE TABLE IF NOT EXISTS proof.action_executions (
   plan_before_checkpoint text,
   plan_after_checkpoint text,
   wave_b_capture_id uuid
-    REFERENCES casework.incident_capture_runs(capture_id) ON DELETE SET NULL,
+    REFERENCES evidence.incident_capture_runs(capture_id) ON DELETE SET NULL,
   wave_b_ingest_id uuid
-    REFERENCES casework.ingest_receipts(ingest_id) ON DELETE SET NULL,
+    REFERENCES evidence.ingest_receipts(ingest_id) ON DELETE SET NULL,
   CHECK (completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at),
   -- A succeeded execution must carry the catalog read-back and its verdict.
   -- Without this, a NULL observed_fingerprint would silently read as
@@ -664,12 +664,12 @@ CREATE OR REPLACE FUNCTION proof.attach_wave_b_receipt(
 ) RETURNS void
 LANGUAGE plpgsql
 SECURITY INVOKER
-SET search_path = pg_catalog, proof, casework AS $$
+SET search_path = pg_catalog, proof, evidence AS $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1
-    FROM casework.incident_capture_runs capture
-    JOIN casework.ingest_receipts receipt
+    FROM evidence.incident_capture_runs capture
+    JOIN evidence.ingest_receipts receipt
       ON receipt.source_uri = capture.source_bundle_uri
     WHERE capture.capture_id = p_capture_id
       AND capture.wave = 'B'
@@ -725,7 +725,7 @@ COMMENT ON FUNCTION proof.attach_wave_b_receipt(uuid, uuid, uuid) IS
 -- 2. The second draft refused ANY update to a row that already carried a
 --    receipt. That also refuses the `ON DELETE SET NULL` on both receipt foreign
 --    keys, because a referential action IS an UPDATE and fires BEFORE UPDATE
---    triggers. Measured: `DELETE FROM casework.incident_capture_runs` on a
+--    triggers. Measured: `DELETE FROM evidence.incident_capture_runs` on a
 --    referenced capture failed with `execution ... already carries a Validation Evidence
 --    receipt`, the delete rolled back, and the capture became undeletable for as
 --    long as the execution row existed. So the rule is stated on the TRANSITION,

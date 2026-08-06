@@ -10,7 +10,7 @@ AS $$
 WITH relevant AS (
   SELECT count(*)::numeric AS total
   FROM proof.relevance_judgments judgment
-  JOIN casework.evidence_items item
+  JOIN evidence.evidence_items item
     ON item.evidence_id = judgment.evidence_id
   JOIN proof.retrieval_runs run
     ON run.run_id = p_run_id
@@ -106,7 +106,7 @@ ideal_ranks AS (
       ORDER BY judgment.relevance DESC, judgment.evidence_id
     )::integer AS ideal_rank
   FROM proof.relevance_judgments judgment
-  JOIN casework.evidence_items item
+  JOIN evidence.evidence_items item
     ON item.evidence_id = judgment.evidence_id
   JOIN proof.retrieval_runs run
     ON run.run_id = p_run_id
@@ -160,7 +160,7 @@ AS $$
 WITH relevant AS (
   SELECT count(*)::numeric AS total
   FROM proof.relevance_judgments judgment
-  JOIN casework.evidence_items item
+  JOIN evidence.evidence_items item
     ON item.evidence_id = judgment.evidence_id
   JOIN proof.retrieval_runs run
     ON run.run_id = p_run_id

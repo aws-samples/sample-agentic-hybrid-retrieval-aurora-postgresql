@@ -40,7 +40,7 @@ class LiveRetrievalContractTests(unittest.TestCase):
             )
 
         validation = cls.conn.execute(
-            "SELECT casework.assert_live_capture_ready() AS result"
+            "SELECT evidence.assert_live_capture_ready() AS result"
         ).fetchone()["result"]
         if not validation["two_wave_ready"]:
             raise RuntimeError(f"two-wave live capture is not ready: {validation}")
@@ -55,8 +55,8 @@ class LiveRetrievalContractTests(unittest.TestCase):
               upper(right(replace(capture.capture_id::text, '-', ''), 8))
                 AS run_suffix,
               incident.external_key AS incident_key
-            FROM casework.incident_capture_runs capture
-            JOIN casework.evidence_items incident
+            FROM evidence.incident_capture_runs capture
+            JOIN evidence.evidence_items incident
               ON incident.evidence_id = capture.incident_evidence_id
             WHERE capture.capture_origin = 'participant_induced'
             ORDER BY capture.wave
@@ -109,7 +109,7 @@ class LiveRetrievalContractTests(unittest.TestCase):
         rows = self.conn.execute(
             """
             SELECT source_system, array_agg(external_key ORDER BY external_key) AS keys
-            FROM casework.evidence_items
+            FROM evidence.evidence_items
             WHERE NOT is_deleted
             GROUP BY source_system
             """
@@ -189,7 +189,7 @@ class LiveRetrievalContractTests(unittest.TestCase):
         rows = self.conn.execute(
             """
             SELECT reached.external_key, reached.via_relation
-            FROM casework.evidence_items incident
+            FROM evidence.evidence_items incident
             CROSS JOIN LATERAL retrieval.traverse_evidence(
               ARRAY[incident.evidence_id],
               2
@@ -220,9 +220,9 @@ class LiveRetrievalContractTests(unittest.TestCase):
             SELECT EXISTS (
               SELECT 1
               FROM retrieval.evidence_edges edge
-              JOIN casework.evidence_items source
+              JOIN evidence.evidence_items source
                 ON source.evidence_id = edge.from_evidence_id
-              JOIN casework.evidence_items target
+              JOIN evidence.evidence_items target
                 ON target.evidence_id = edge.to_evidence_id
               WHERE source.external_key = %s
                 AND edge.relation = 'blocked_by_change'
@@ -237,15 +237,15 @@ class LiveRetrievalContractTests(unittest.TestCase):
         wave_a_counts = self.conn.execute(
             """
             SELECT
-              (SELECT count(*) FROM casework.pg_stat_activity_samples
+              (SELECT count(*) FROM evidence.pg_stat_activity_samples
                 WHERE capture_id = %(capture_id)s) AS activity,
-              (SELECT count(*) FROM casework.pg_lock_samples
+              (SELECT count(*) FROM evidence.pg_lock_samples
                 WHERE capture_id = %(capture_id)s) AS locks,
-              (SELECT count(*) FROM casework.pg_blocking_pids_samples
+              (SELECT count(*) FROM evidence.pg_blocking_pids_samples
                 WHERE capture_id = %(capture_id)s) AS blocking_pids,
-              (SELECT count(*) FROM casework.pg_stat_statements_samples
+              (SELECT count(*) FROM evidence.pg_stat_statements_samples
                 WHERE capture_id = %(capture_id)s) AS statements,
-              (SELECT count(*) FROM casework.cloudwatch_metric_samples
+              (SELECT count(*) FROM evidence.cloudwatch_metric_samples
                 WHERE capture_id = %(capture_id)s) AS cloudwatch
             """,
             {"capture_id": self.wave_a_capture_id},
@@ -260,7 +260,7 @@ class LiveRetrievalContractTests(unittest.TestCase):
         delta = self.conn.execute(
             """
             SELECT delta_from_before
-            FROM casework.pg_stat_statements_samples
+            FROM evidence.pg_stat_statements_samples
             WHERE capture_id = %s
               AND phase = 'after'
             """,
@@ -278,7 +278,7 @@ class LiveRetrievalContractTests(unittest.TestCase):
                 DISTINCT structured ->> 'telemetry_type'
                 ORDER BY structured ->> 'telemetry_type'
               ) AS signal_types
-            FROM casework.telemetry_evidence
+            FROM evidence.telemetry_evidence
             WHERE capture_id = %s
             """,
             (self.wave_b_capture_id,),
@@ -293,19 +293,19 @@ class LiveRetrievalContractTests(unittest.TestCase):
               VALUES (%s::uuid), (%s::uuid)
             ),
             observed AS (
-              SELECT capture_id FROM casework.lock_evidence
+              SELECT capture_id FROM evidence.lock_evidence
               UNION ALL
-              SELECT capture_id FROM casework.pg_stat_activity_samples
+              SELECT capture_id FROM evidence.pg_stat_activity_samples
               UNION ALL
-              SELECT capture_id FROM casework.pg_lock_samples
+              SELECT capture_id FROM evidence.pg_lock_samples
               UNION ALL
-              SELECT capture_id FROM casework.pg_blocking_pids_samples
+              SELECT capture_id FROM evidence.pg_blocking_pids_samples
               UNION ALL
-              SELECT capture_id FROM casework.pg_stat_statements_samples
+              SELECT capture_id FROM evidence.pg_stat_statements_samples
               UNION ALL
-              SELECT capture_id FROM casework.cloudwatch_metric_samples
+              SELECT capture_id FROM evidence.cloudwatch_metric_samples
               UNION ALL
-              SELECT capture_id FROM casework.telemetry_evidence
+              SELECT capture_id FROM evidence.telemetry_evidence
             )
             SELECT count(*) AS mismatches
             FROM observed

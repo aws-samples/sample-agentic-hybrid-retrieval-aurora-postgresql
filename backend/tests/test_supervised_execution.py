@@ -46,7 +46,7 @@ def _ensure_proof_fixture(connection) -> dict:
     _assert_disposable_database(connection)
     connection.execute(
         """
-        INSERT INTO casework.database_clusters(
+        INSERT INTO evidence.database_clusters(
           cluster_id, engine, engine_version, aws_region, environment,
           service_name, writer_endpoint_alias, instance_class
         )
@@ -58,7 +58,7 @@ def _ensure_proof_fixture(connection) -> dict:
     )
     evidence_id = connection.execute(
         """
-        INSERT INTO casework.evidence_items(
+        INSERT INTO evidence.evidence_items(
           evidence_kind, external_key, title, source_system, source_uri,
           source_revision, source_updated_at, acl
         )
@@ -75,7 +75,7 @@ def _ensure_proof_fixture(connection) -> dict:
     ).fetchone()[0]
     connection.execute(
         """
-        INSERT INTO casework.incidents(
+        INSERT INTO evidence.incidents(
           evidence_id, incident_id, cluster_id, severity, status, started_at,
           resolved_at, summary, impact_summary, resolution
         )
@@ -147,7 +147,7 @@ def _ensure_proof_fixture(connection) -> dict:
         bundle_uri = f"test://supervised-execution/wave-b/{ordinal}"
         connection.execute(
             """
-            INSERT INTO casework.incident_capture_runs(
+            INSERT INTO evidence.incident_capture_runs(
               capture_id, capture_key, wave, incident_evidence_id, cluster_id,
               capture_origin, engine_version, instance_class, database_name,
               table_schema, table_name, relation_oid, configured_row_count,
@@ -176,7 +176,7 @@ def _ensure_proof_fixture(connection) -> dict:
         )
         connection.execute(
             """
-            INSERT INTO casework.ingest_receipts(
+            INSERT INTO evidence.ingest_receipts(
               ingest_id, source_uri, content_hash, evidence_id, external_key,
               evidence_kind, payload_hash, rows_written, edges_written, queued,
               available_at
@@ -707,7 +707,7 @@ class AutonomyReadinessTests(unittest.TestCase):
         self.assertIn("the proposal cites no evidence", reasons)
 
     def test_unapproved_target_is_ineligible(self) -> None:
-        proposal_id = self._propose(target_schema="casework")
+        proposal_id = self._propose(target_schema="evidence")
         self._cite(proposal_id)
         eligible, reasons, _, _ = self._verdict(proposal_id)
         self.assertFalse(eligible)
@@ -1121,9 +1121,9 @@ class AutonomyReadinessTests(unittest.TestCase):
         UPDATE and fires the same trigger, so that draft made every referenced
         capture undeletable for as long as its execution row existed.
 
-        This test does NOT delete a real capture run: `casework.incident_capture_runs`
+        This test does NOT delete a real capture run: `evidence.incident_capture_runs`
         is participant-induced live evidence that other tests and the Proof
-        surface read, and `casework.evidence_items` references it ON DELETE
+        surface read, and `evidence.evidence_items` references it ON DELETE
         RESTRICT. It exercises the same trigger path the referential action takes
         -- an UPDATE clearing an attached receipt to NULL -- which is exactly what
         the second draft refused."""

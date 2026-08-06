@@ -431,8 +431,8 @@ class IncidentLabContractTests(unittest.TestCase):
     def test_orchestrator_fails_fast_on_an_incomplete_core_schema(self) -> None:
         source = (LAB_DIR / "run_live_workshop.py").read_text(encoding="utf-8")
 
-        self.assertIn("casework.admit_evidence(jsonb)", source)
-        self.assertIn("casework.assert_live_capture_ready()", source)
+        self.assertIn("evidence.admit_evidence(jsonb)", source)
+        self.assertIn("evidence.assert_live_capture_ready()", source)
         self.assertIn("retrieval.assert_search_index_ready()", source)
         self.assertIn("core schema is incomplete", source)
 

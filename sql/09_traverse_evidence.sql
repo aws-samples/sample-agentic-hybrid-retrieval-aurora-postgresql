@@ -34,7 +34,7 @@ WITH RECURSIVE walk AS (
     NULL::text AS via_origin,
     NULL::numeric AS via_confidence
   FROM unnest(p_seed_evidence_ids) AS seed(evidence_id)
-  JOIN casework.evidence_items seed_item
+  JOIN evidence.evidence_items seed_item
     ON seed_item.evidence_id = seed.evidence_id
    AND NOT seed_item.is_deleted
    AND retrieval.acl_visible(seed_item.acl, p_role)
@@ -59,7 +59,7 @@ WITH RECURSIVE walk AS (
       ELSE edge.from_evidence_id
     END AS evidence_id
   ) neighbor
-  JOIN casework.evidence_items neighbor_item
+  JOIN evidence.evidence_items neighbor_item
     ON neighbor_item.evidence_id = neighbor.evidence_id
    AND NOT neighbor_item.is_deleted
    AND retrieval.acl_visible(neighbor_item.acl, p_role)
@@ -95,6 +95,6 @@ SELECT
   best_path.via_origin,
   best_path.via_confidence
 FROM best_path
-JOIN casework.evidence_items item ON item.evidence_id = best_path.evidence_id
+JOIN evidence.evidence_items item ON item.evidence_id = best_path.evidence_id
 ORDER BY best_path.depth, item.evidence_kind, item.external_key
 $$;

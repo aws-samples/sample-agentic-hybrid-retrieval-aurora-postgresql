@@ -51,7 +51,7 @@ def _readiness_payload(
     if health["source_documents"] == 0:
         if health["drift_issues"] != 0:
             raise RuntimeError(
-                "empty casework has search-index drift; apply the current schema"
+                "empty evidence has search-index drift; apply the current schema"
             )
         return {
             "status": "awaiting_incident",
@@ -100,7 +100,7 @@ def _cluster_identity(cursor: Any) -> dict[str, Any]:
     cursor.execute(
         """
         SELECT cluster_id
-        FROM casework.incident_capture_runs
+        FROM evidence.incident_capture_runs
         WHERE capture_origin = 'participant_induced'
         ORDER BY capture_started_at DESC
         LIMIT 1
@@ -137,7 +137,7 @@ def _latest_live_run(cursor: Any) -> dict[str, Any] | None:
           SELECT
             capture.incident_evidence_id,
             max(capture.capture_ended_at) AS latest_capture_ended_at
-          FROM casework.incident_capture_runs capture
+          FROM evidence.incident_capture_runs capture
           WHERE capture.capture_origin = 'participant_induced'
           GROUP BY capture.incident_evidence_id
           HAVING count(*) FILTER (WHERE capture.wave = 'A') = 1
@@ -150,7 +150,7 @@ def _latest_live_run(cursor: Any) -> dict[str, Any] | None:
         ),
         wave_a AS (
           SELECT capture.*
-          FROM casework.incident_capture_runs capture
+          FROM evidence.incident_capture_runs capture
           JOIN selected_incident selected
             ON selected.incident_evidence_id = capture.incident_evidence_id
           WHERE capture.capture_origin = 'participant_induced'
@@ -158,7 +158,7 @@ def _latest_live_run(cursor: Any) -> dict[str, Any] | None:
         ),
         wave_b AS (
           SELECT capture.*
-          FROM casework.incident_capture_runs capture
+          FROM evidence.incident_capture_runs capture
           JOIN selected_incident selected
             ON selected.incident_evidence_id = capture.incident_evidence_id
           WHERE capture.capture_origin = 'participant_induced'
@@ -181,79 +181,79 @@ def _latest_live_run(cursor: Any) -> dict[str, Any] | None:
           lock_item.external_key AS lock_key,
           (
             SELECT count(*)
-            FROM casework.evidence_items item
+            FROM evidence.evidence_items item
             WHERE item.source_system = 'pg_incident_capture'
               AND NOT item.is_deleted
           ) AS source_documents,
           (
             SELECT count(*)
-            FROM casework.telemetry_evidence telemetry
+            FROM evidence.telemetry_evidence telemetry
             WHERE telemetry.incident_evidence_id = incident.evidence_id
           ) AS telemetry_documents,
           (
             SELECT count(*)
-            FROM casework.pg_stat_activity_samples sample
+            FROM evidence.pg_stat_activity_samples sample
             WHERE sample.capture_id IN (
               wave_a.capture_id,
               coalesce(wave_b.capture_id, wave_a.capture_id)
             )
           ) + (
             SELECT count(*)
-            FROM casework.pg_lock_samples sample
+            FROM evidence.pg_lock_samples sample
             WHERE sample.capture_id IN (
               wave_a.capture_id,
               coalesce(wave_b.capture_id, wave_a.capture_id)
             )
           ) + (
             SELECT count(*)
-            FROM casework.pg_blocking_pids_samples sample
+            FROM evidence.pg_blocking_pids_samples sample
             WHERE sample.capture_id IN (
               wave_a.capture_id,
               coalesce(wave_b.capture_id, wave_a.capture_id)
             )
           ) + (
             SELECT count(*)
-            FROM casework.pg_stat_statements_samples sample
+            FROM evidence.pg_stat_statements_samples sample
             WHERE sample.capture_id IN (
               wave_a.capture_id,
               coalesce(wave_b.capture_id, wave_a.capture_id)
             )
           ) + (
             SELECT count(*)
-            FROM casework.cloudwatch_metric_samples sample
+            FROM evidence.cloudwatch_metric_samples sample
             WHERE sample.capture_id IN (
               wave_a.capture_id,
               coalesce(wave_b.capture_id, wave_a.capture_id)
             )
           ) AS raw_telemetry_rows
         FROM wave_a
-        JOIN casework.evidence_items incident
+        JOIN evidence.evidence_items incident
           ON incident.evidence_id = wave_a.incident_evidence_id
-        JOIN casework.incident_changes unsafe_edge
+        JOIN evidence.incident_changes unsafe_edge
           ON unsafe_edge.incident_evidence_id = incident.evidence_id
          AND unsafe_edge.relationship = 'confirmed'
-        JOIN casework.evidence_items unsafe_change
+        JOIN evidence.evidence_items unsafe_change
           ON unsafe_change.evidence_id = unsafe_edge.change_evidence_id
-        JOIN casework.incident_changes analyze_edge
+        JOIN evidence.incident_changes analyze_edge
           ON analyze_edge.incident_evidence_id = incident.evidence_id
          AND analyze_edge.relationship = 'ruled_out'
-        JOIN casework.evidence_items analyze_change
+        JOIN evidence.evidence_items analyze_change
           ON analyze_change.evidence_id = analyze_edge.change_evidence_id
         LEFT JOIN wave_b
           ON wave_b.incident_evidence_id = incident.evidence_id
         LEFT JOIN LATERAL (
           SELECT change_item.external_key
-          FROM casework.incident_changes validation_edge
-          JOIN casework.evidence_items change_item
+          FROM evidence.incident_changes validation_edge
+          JOIN evidence.evidence_items change_item
             ON change_item.evidence_id = validation_edge.change_evidence_id
           WHERE validation_edge.incident_evidence_id = incident.evidence_id
             AND validation_edge.relationship = 'validates'
           ORDER BY change_item.source_updated_at DESC
           LIMIT 1
         ) validation_change ON true
-        JOIN casework.lock_evidence lock_row
+        JOIN evidence.lock_evidence lock_row
           ON lock_row.incident_evidence_id = incident.evidence_id
-        JOIN casework.evidence_items lock_item
+        JOIN evidence.evidence_items lock_item
           ON lock_item.evidence_id = lock_row.evidence_id
         """
     )
@@ -660,8 +660,8 @@ def run_graph(run_id: str, role: str = "app_engineer") -> dict[str, Any]:
                 FROM proof.retrieval_runs run
                 JOIN LATERAL (
                   SELECT capture.*
-                  FROM casework.incident_capture_runs capture
-                  JOIN casework.incidents incident
+                  FROM evidence.incident_capture_runs capture
+                  JOIN evidence.incidents incident
                     ON incident.evidence_id = capture.incident_evidence_id
                   WHERE capture.capture_origin = 'participant_induced'
                     AND capture.capture_ended_at IS NOT NULL
@@ -704,8 +704,8 @@ def run_graph(run_id: str, role: str = "app_engineer") -> dict[str, Any]:
                 """
                 WITH eligible_evidence AS (
                   SELECT DISTINCT item.evidence_id
-                  FROM casework.incident_capture_runs capture
-                  JOIN casework.evidence_items item
+                  FROM evidence.incident_capture_runs capture
+                  JOIN evidence.evidence_items item
                     ON item.source_uri LIKE capture.source_bundle_uri || '/%%'
                    AND item.available_at <= %(observation_window_end)s
                   WHERE capture.capture_origin = 'participant_induced'

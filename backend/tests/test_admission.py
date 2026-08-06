@@ -571,26 +571,26 @@ class AdmissionSchemaTest(unittest.TestCase):
             SELECT procedure.prosecdef, procedure.proconfig
             FROM pg_proc procedure
             WHERE procedure.oid =
-              'casework.admit_evidence(jsonb)'::regprocedure
+              'evidence.admit_evidence(jsonb)'::regprocedure
             """
         ).fetchone()
         self.assertTrue(row[0])
         self.assertIn(
-            "search_path=pg_catalog, casework, retrieval",
+            "search_path=pg_catalog, evidence, retrieval",
             _decoded(row[1] or []),
         )
         evidence_kind = self.connection.execute(
             """
             SELECT pg_get_constraintdef(oid)
             FROM pg_constraint
-            WHERE conrelid = 'casework.evidence_items'::regclass
+            WHERE conrelid = 'evidence.evidence_items'::regclass
               AND conname = 'evidence_items_evidence_kind_check'
             """
         ).fetchone()[0]
         self.assertIn("telemetry", evidence_kind)
         self.assertIsNotNone(
             self.connection.execute(
-                "SELECT to_regclass('casework.telemetry_evidence')"
+                "SELECT to_regclass('evidence.telemetry_evidence')"
             ).fetchone()[0]
         )
 
@@ -622,7 +622,7 @@ class WaveAdmissionTest(unittest.TestCase):
 
     def _admit(self, payload: dict) -> dict:
         return self.connection.execute(
-            "SELECT casework.admit_evidence(%s::jsonb)",
+            "SELECT evidence.admit_evidence(%s::jsonb)",
             (json.dumps(payload),),
         ).fetchone()[0]
 
@@ -714,7 +714,7 @@ class WaveAdmissionTest(unittest.TestCase):
               'ready',
               false,
               clock_timestamp()
-            FROM casework.v_evidence_documents source
+            FROM evidence.v_evidence_documents source
             WHERE source.external_key = ANY(%s::text[])
             ORDER BY source.external_key
             RETURNING document_version_id, evidence_id, external_key
@@ -970,8 +970,8 @@ class WaveAdmissionTest(unittest.TestCase):
         tied_routes = self.connection.execute(
             """
             SELECT count(*)
-            FROM casework.telemetry_evidence telemetry
-            JOIN casework.evidence_items incident
+            FROM evidence.telemetry_evidence telemetry
+            JOIN evidence.evidence_items incident
               ON incident.evidence_id = telemetry.incident_evidence_id
             WHERE incident.external_key = %s
               AND telemetry.change_evidence_id IS NOT NULL
@@ -1007,7 +1007,7 @@ class WaveAdmissionTest(unittest.TestCase):
         self._admit(wave_b)
         self.connection.execute(
             """
-            UPDATE casework.incident_capture_runs
+            UPDATE evidence.incident_capture_runs
             SET
               capture_started_at = '2026-08-04T12:01:00+00:00',
               capture_ended_at = '2026-08-04T12:01:20+00:00'
@@ -1038,7 +1038,7 @@ class WaveAdmissionTest(unittest.TestCase):
         incident_source_uri = self.connection.execute(
             """
             SELECT source_uri
-            FROM casework.evidence_items
+            FROM evidence.evidence_items
             WHERE evidence_kind = 'incident' AND external_key = %s
             """,
             (incident_key,),
@@ -1053,11 +1053,11 @@ class WaveAdmissionTest(unittest.TestCase):
         counts_before_replay = self.connection.execute(
             """
             SELECT
-              (SELECT count(*) FROM casework.evidence_items
+              (SELECT count(*) FROM evidence.evidence_items
                WHERE evidence_kind = 'incident'),
-              (SELECT count(*) FROM casework.incident_capture_runs),
-              (SELECT count(*) FROM casework.ingest_receipts),
-              (SELECT count(*) FROM casework.incident_changes
+              (SELECT count(*) FROM evidence.incident_capture_runs),
+              (SELECT count(*) FROM evidence.ingest_receipts),
+              (SELECT count(*) FROM evidence.incident_changes
                WHERE relationship = 'validates')
             """
         ).fetchone()
@@ -1066,11 +1066,11 @@ class WaveAdmissionTest(unittest.TestCase):
         counts_after_replay = self.connection.execute(
             """
             SELECT
-              (SELECT count(*) FROM casework.evidence_items
+              (SELECT count(*) FROM evidence.evidence_items
                WHERE evidence_kind = 'incident'),
-              (SELECT count(*) FROM casework.incident_capture_runs),
-              (SELECT count(*) FROM casework.ingest_receipts),
-              (SELECT count(*) FROM casework.incident_changes
+              (SELECT count(*) FROM evidence.incident_capture_runs),
+              (SELECT count(*) FROM evidence.ingest_receipts),
+              (SELECT count(*) FROM evidence.incident_changes
                WHERE relationship = 'validates')
             """
         ).fetchone()
@@ -1086,7 +1086,7 @@ class WaveAdmissionTest(unittest.TestCase):
                 self.connection.execute(
                     """
                     SELECT array_agg(wave ORDER BY wave)
-                    FROM casework.incident_capture_runs
+                    FROM evidence.incident_capture_runs
                     """
                 ).fetchone()[0]
             ),
@@ -1096,7 +1096,7 @@ class WaveAdmissionTest(unittest.TestCase):
             self.connection.execute(
                 """
                 SELECT source_uri
-                FROM casework.evidence_items
+                FROM evidence.evidence_items
                 WHERE evidence_kind = 'incident' AND external_key = %s
                 """,
                 (incident_key,),
@@ -1123,9 +1123,9 @@ class WaveAdmissionTest(unittest.TestCase):
             self.connection.execute(
                 """
                 SELECT
-                  (SELECT count(*) FROM casework.incident_capture_runs),
-                  (SELECT count(*) FROM casework.ingest_receipts),
-                  (SELECT count(*) FROM casework.evidence_items
+                  (SELECT count(*) FROM evidence.incident_capture_runs),
+                  (SELECT count(*) FROM evidence.ingest_receipts),
+                  (SELECT count(*) FROM evidence.evidence_items
                    WHERE evidence_kind = 'incident')
                 """
             ).fetchone(),
@@ -1173,8 +1173,8 @@ class WaveAdmissionTest(unittest.TestCase):
             self.connection.execute(
                 """
                 SELECT
-                  (SELECT count(*) FROM casework.incident_capture_runs),
-                  (SELECT count(*) FROM casework.ingest_receipts)
+                  (SELECT count(*) FROM evidence.incident_capture_runs),
+                  (SELECT count(*) FROM evidence.ingest_receipts)
                 """
             ).fetchone(),
             (1, 1),
@@ -1311,13 +1311,13 @@ class WaveAdmissionTest(unittest.TestCase):
 
         self.assertEqual(
             self.connection.execute(
-                "SELECT sample_id FROM casework.pg_stat_activity_samples"
+                "SELECT sample_id FROM evidence.pg_stat_activity_samples"
             ).fetchone()[0],
             activity_id,
         )
         self.assertEqual(
             self.connection.execute(
-                "SELECT sample_id FROM casework.pg_stat_statements_samples"
+                "SELECT sample_id FROM evidence.pg_stat_statements_samples"
             ).fetchone()[0],
             statement_id,
         )
@@ -1351,7 +1351,7 @@ class AdmitEvidenceTest(unittest.TestCase):
 
     def _admit(self, payload: dict) -> dict:
         return self.connection.execute(
-            "SELECT casework.admit_evidence(%s::jsonb)",
+            "SELECT evidence.admit_evidence(%s::jsonb)",
             (json.dumps(payload),),
         ).fetchone()[0]
 
@@ -1382,7 +1382,7 @@ class AdmitEvidenceTest(unittest.TestCase):
             self.connection.execute(
                 """
                 SELECT evidence_kind, external_key, source_system
-                FROM casework.evidence_items
+                FROM evidence.evidence_items
                 ORDER BY evidence_kind, external_key
                 """
             ).fetchall()
@@ -1407,10 +1407,10 @@ class AdmitEvidenceTest(unittest.TestCase):
                   lock_row.blocked_locktype,
                   lock_row.blocked_lock_mode,
                   lock_row.blocked_lock_granted
-                FROM casework.lock_evidence lock_row
-                JOIN casework.incidents incident
+                FROM evidence.lock_evidence lock_row
+                JOIN evidence.incidents incident
                   ON incident.evidence_id = lock_row.incident_evidence_id
-                JOIN casework.changes change
+                JOIN evidence.changes change
                   ON change.evidence_id = lock_row.change_evidence_id
                 WHERE lock_row.observation_id = %s
                 """,
@@ -1433,7 +1433,7 @@ class AdmitEvidenceTest(unittest.TestCase):
             self.connection.execute(
                 """
                 SELECT relationship, confirmed_by
-                FROM casework.incident_changes
+                FROM evidence.incident_changes
                 ORDER BY relationship
                 """
             ).fetchall()
@@ -1448,10 +1448,10 @@ class AdmitEvidenceTest(unittest.TestCase):
         counts = self.connection.execute(
             """
             SELECT
-              (SELECT count(*) FROM casework.pg_stat_activity_samples),
-              (SELECT count(*) FROM casework.pg_lock_samples),
-              (SELECT count(*) FROM casework.pg_blocking_pids_samples),
-              (SELECT count(*) FROM casework.telemetry_evidence),
+              (SELECT count(*) FROM evidence.pg_stat_activity_samples),
+              (SELECT count(*) FROM evidence.pg_lock_samples),
+              (SELECT count(*) FROM evidence.pg_blocking_pids_samples),
+              (SELECT count(*) FROM evidence.telemetry_evidence),
               (SELECT count(*) FROM retrieval.search_index_queue)
             """
         ).fetchone()
@@ -1476,7 +1476,7 @@ class AdmitEvidenceTest(unittest.TestCase):
         self.assertEqual(first["evidence"], second["evidence"])
         self.assertEqual(
             self.connection.execute(
-                "SELECT count(*) FROM casework.ingest_receipts"
+                "SELECT count(*) FROM evidence.ingest_receipts"
             ).fetchone()[0],
             1,
         )
@@ -1493,7 +1493,7 @@ class AdmitEvidenceTest(unittest.TestCase):
             self._admit(revised)
         self.assertEqual(
             self.connection.execute(
-                "SELECT count(*) FROM casework.ingest_receipts"
+                "SELECT count(*) FROM evidence.ingest_receipts"
             ).fetchone()[0],
             1,
         )
@@ -1508,13 +1508,13 @@ class AdmitEvidenceTest(unittest.TestCase):
             self._admit(invalid)
         self.assertEqual(
             self.connection.execute(
-                "SELECT count(*) FROM casework.evidence_items"
+                "SELECT count(*) FROM evidence.evidence_items"
             ).fetchone()[0],
             0,
         )
         self.assertEqual(
             self.connection.execute(
-                "SELECT count(*) FROM casework.database_clusters"
+                "SELECT count(*) FROM evidence.database_clusters"
             ).fetchone()[0],
             0,
         )
@@ -1522,7 +1522,7 @@ class AdmitEvidenceTest(unittest.TestCase):
     def test_cross_source_collision_rolls_back_the_run(self) -> None:
         self.connection.execute(
             """
-            INSERT INTO casework.evidence_items(
+            INSERT INTO evidence.evidence_items(
               evidence_kind,
               external_key,
               title,
@@ -1543,7 +1543,7 @@ class AdmitEvidenceTest(unittest.TestCase):
             self.connection.execute(
                 """
                 SELECT count(*)
-                FROM casework.evidence_items
+                FROM evidence.evidence_items
                 WHERE external_key IN (%s, %s)
                 """,
                 (self.incident_key, self.lock_key),
@@ -1559,7 +1559,7 @@ class AdmitEvidenceTest(unittest.TestCase):
         self.assertIn("acl", str(caught.exception))
         self.assertEqual(
             self.connection.execute(
-                "SELECT count(*) FROM casework.evidence_items"
+                "SELECT count(*) FROM evidence.evidence_items"
             ).fetchone()[0],
             0,
             "a rejected bundle must leave zero rows",
@@ -1609,7 +1609,7 @@ class AdmitEvidenceTest(unittest.TestCase):
             with psycopg.connect(TEST_DSN, autocommit=True) as connection:
                 barrier.wait(timeout=10)
                 return connection.execute(
-                    "SELECT casework.admit_evidence(%s::jsonb)",
+                    "SELECT evidence.admit_evidence(%s::jsonb)",
                     (payload,),
                 ).fetchone()[0]
 

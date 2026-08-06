@@ -8,8 +8,10 @@ from gates.corpus_diversity import (
     CORPUS_SQL,
     MAX_NEAR_DUPLICATE_RATE,
     PHASES,
+    SCHEMA_PROBE_SQL,
     SIGNAL_TYPES,
     CorpusMeasurement,
+    schema_block_reason,
     validate_measurement,
 )
 
@@ -31,6 +33,62 @@ def measurement(
 
 
 class CorpusDiversityGateTests(unittest.TestCase):
+    def test_missing_current_evidence_view_blocks_before_corpus_measurement(
+        self,
+    ) -> None:
+        class StaleSchemaConnection:
+            def execute(self, sql: str):
+                self.sql = sql
+                return self
+
+            def fetchone(self):
+                return {"evidence_documents": None, "capture_wave": True}
+
+        connection = StaleSchemaConnection()
+
+        self.assertEqual(
+            schema_block_reason(connection),
+            (
+                "current incident-evidence schema is not applied; missing "
+                "evidence.v_evidence_documents"
+            ),
+        )
+        self.assertEqual(connection.sql, SCHEMA_PROBE_SQL)
+
+    def test_missing_capture_stage_column_blocks_before_corpus_measurement(
+        self,
+    ) -> None:
+        class LegacySchemaConnection:
+            def execute(self, _sql: str):
+                return self
+
+            def fetchone(self):
+                return {
+                    "evidence_documents": "evidence.v_evidence_documents",
+                    "capture_wave": False,
+                }
+
+        self.assertEqual(
+            schema_block_reason(LegacySchemaConnection()),
+            (
+                "current incident-evidence schema is not applied; missing "
+                "evidence.incident_capture_runs.wave"
+            ),
+        )
+
+    def test_current_evidence_view_allows_corpus_measurement(self) -> None:
+        class CurrentSchemaConnection:
+            def execute(self, _sql: str):
+                return self
+
+            def fetchone(self):
+                return {
+                    "evidence_documents": "evidence.v_evidence_documents",
+                    "capture_wave": True,
+                }
+
+        self.assertIsNone(schema_block_reason(CurrentSchemaConnection()))
+
     def test_complete_diverse_corpus_passes(self) -> None:
         validate_measurement(measurement())
 
@@ -64,6 +122,8 @@ class CorpusDiversityGateTests(unittest.TestCase):
         self.assertIn("JOIN retrieval.chunks AS chunk", CORPUS_SQL)
         self.assertNotIn("LEFT JOIN retrieval.chunks AS chunk", CORPUS_SQL)
         self.assertNotIn("d.search_document", CORPUS_SQL)
+        self.assertIn("to_regclass('evidence.v_evidence_documents')", SCHEMA_PROBE_SQL)
+        self.assertIn("column_name = 'wave'", SCHEMA_PROBE_SQL)
 
 
 if __name__ == "__main__":

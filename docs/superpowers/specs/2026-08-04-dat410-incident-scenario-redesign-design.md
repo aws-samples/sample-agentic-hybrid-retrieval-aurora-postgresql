@@ -53,7 +53,7 @@ testing sections around that contract.
   queue/timeout; full recovery; correct post-index plan; retrieval/citations/replay use only
   current-run evidence), not "took N seconds."
 - The operational workload table is not the retrieval corpus. `workbench_lab.orders` (now
-  3,000,000 rows, up from 25,000) never enters `casework`/`retrieval`/`proof`. The 3M-row
+  3,000,000 rows, up from 25,000) never enters `evidence`/`retrieval`/`proof`. The 3M-row
   table carries the volume story on its own; the searchable corpus is the smaller set of
   meaningful observations one incident actually produces. **Expected range: 50–80
   documents** (empirically confirmed via Gate 5 — see Testing section — NOT the 180–250
@@ -78,13 +78,13 @@ testing sections around that contract.
   Performance Insights removes the only producer of `acl.visibility = 'restricted'`:
   `labs/incident/run_live_workshop.py:_measured_visibility` classified an evidence record
   restricted when the PI capture resolved query text for it. Nothing else in the repository
-  emits that value, `casework.admit_evidence` silently defaults an unlabelled record to
+  emits that value, `evidence.admit_evidence` silently defaults an unlabelled record to
   `workshop` (`sql/10_admission.sql:418`), and G-27 exits 1 — not BLOCKED — on a corpus with
   zero restricted rows (measured after the schema change on the disposable test database).
   The new evidence builder therefore carries the classification forward, re-anchored onto
   the participant's own captured statement text in
-  `casework.pg_stat_activity_samples.query` and
-  `casework.pg_stat_statements_samples.queries` — the two columns the masking module already
+  `evidence.pg_stat_activity_samples.query` and
+  `evidence.pg_stat_statements_samples.queries` — the two columns the masking module already
   protects. Same rule, same live-data-only footing, different source column. A hardcoded
   list of keys to label restricted would be authored data and is not acceptable.
 
@@ -92,7 +92,7 @@ testing sections around that contract.
   hold, and the third is what keeps the first two from drifting:
   1. **The classification is replayable.** Every label carries the classifier version, a
      machine-readable reason from a closed vocabulary, and the identifiers of the measured
-     samples it was read from. `casework.admit_evidence` requires all four and rejects a
+     samples it was read from. `evidence.admit_evidence` requires all four and rejects a
      record that omits any — replacing the silent `workshop` default, which was a
      classification the database invented on a producer's behalf and which failed
      unrestricted.
@@ -165,7 +165,7 @@ Participant-facing Lab 1 (target: 5–8 min ceiling)
 Evidence build (from measured phases 1–4 only, state-change/interval-boundary documents,
                  not one document per 250ms poll)
   → ~50-80 searchable documents (expected range, gated on coverage not count)
-  → casework/retrieval/proof (unchanged admission path)
+  → evidence/retrieval/proof (unchanged admission path)
 
 Labs 2–4 (unchanged): hybrid retrieval, agent tools, citations, replay
 ```
@@ -307,7 +307,7 @@ recreate exactly the near-duplicate-snapshot problem the current 103-document co
 shows early signs of (six near-identical `TEL-...-A0xx` activity documents burying the causal
 chain in RRF, before rerank correctly fixes it — see the measured retrieval-quality baseline
 in Testing). Raw telemetry from every poll is still persisted (matching the existing
-`casework.*_samples` pattern — nothing is lost), but a searchable document is created only on
+`evidence.*_samples` pattern — nothing is lost), but a searchable document is created only on
 a **state change** (e.g., `pool_available` transitions 1→0, a new tagged session enters
 `wait_event_type='Lock'`, a `PoolTimeout` fires) or a **meaningful interval boundary** (e.g.,
 one document per second of the proven hold, not one per 250ms poll), never on every poll
@@ -407,7 +407,7 @@ The five theme mappings, which are how the thesis reaches each lab:
 | Signal-to-noise | Hybrid retrieval and reranking over a corpus with genuine near-duplicates and competing signals | Lab 2 |
 | The expertise gap | A cited, replayable recommendation a non-expert can audit without trusting the model | Labs 3 and 4 |
 | Human-in-the-loop | **Recommend, don't execute** — the participant runs `CREATE INDEX` themselves after reading the agent's evidence | Lab 4 |
-| Semantic and context layers | Casework (authoritative) → retrieval (derived) → proof (replayable), as three real schemas | Labs 1 through 4 |
+| Semantic and context layers | Evidence (authoritative) → retrieval (derived) → proof (replayable), as three real schemas | Labs 1 through 4 |
 | Fleet expansion | The "Take it home" architecture discussion | Closing, **not** extra lab scope |
 
 **Fleet expansion is a closing architecture discussion and never becomes lab work.** No task
@@ -480,7 +480,7 @@ a `docs/`- and Workshop Studio `content/`-scoped change, not a code change):
 | "incident agent" | "hybrid retrieval agent" |
 | "remediate" | "apply and validate the recommendation" |
 
-Internal package, schema, and identifier names (`labs/incident/`, `casework.*`,
+Internal package, schema, and identifier names (`labs/incident/`, `evidence.*`,
 `INC-<run-suffix>`, `CHG-<run-suffix>-*`, etc.) do NOT need mechanical renaming under this
 change — the rule is participant-facing language only, matching this project's existing
 practice of keeping ticket-style internal IDs stable (see `live-data-and-naming-assessment`
@@ -511,7 +511,7 @@ These are the beats the participant experiences. Each entry names the beat and t
 it that must not be softened or compressed away.
 
 **Establish ground truth.** 5,000 customers and 3,000,000 orders are preloaded operational
-data; `casework`, `retrieval`, and `proof` contain zero participant evidence. **The operational
+data; `evidence`, `retrieval`, and `proof` contain zero participant evidence. **The operational
 workload is not the retrieval corpus** — this distinction is load-bearing and is why the corpus
 is 50–80 documents while the table is 3,000,000 rows.
 
@@ -615,13 +615,13 @@ the before-`ANALYZE` and after-`ANALYZE` (still no index) plan checkpoints from 
 missing index is not created during Lab 1 at all (a change from the Components section's
 earlier framing of the query regression driver creating the index inline) — creating it is
 Lab 4's participant action, not something the orchestrator does automatically. Because
-`casework.admit_evidence`/`retrieval.*` only ever contain what has been explicitly admitted,
+`evidence.admit_evidence`/`retrieval.*` only ever contain what has been explicitly admitted,
 the Lab 3 agent genuinely cannot see the post-index plan or any remediation evidence — this
 is source truth, not an artificial filter layered on top of a tool call. No agent tool queries
 `workbench_lab` or live catalogs directly (confirmed: all 7 registered tools in
 `agent/registry.py` — `decompose_question`, `search_evidence`, `follow_evidence_links`,
 `compare_sources`, `explain_ranking`, `synthesize_cited_answer`, `answer_with_citations` — go
-through the canonical `retrieval.*`/`casework.*` SQL functions only, none write, none bypass
+through the canonical `retrieval.*`/`evidence.*` SQL functions only, none write, none bypass
 admission), so this constraint holds without new access-control code.
 
 **Wave B is genuinely additive, not a replacement.** In Lab 4, the participant reviews the
@@ -790,7 +790,7 @@ function, one verdict function, all in Aurora.
 ## Data Flow
 
 1. Workshop Studio provisioning bootstraps `workbench_lab.customers` (5,000) and
-   `workbench_lab.orders` (3,000,000). Zero rows in `casework`/`retrieval`/`proof`.
+   `workbench_lab.orders` (3,000,000). Zero rows in `evidence`/`retrieval`/`proof`.
 2. **Lab 1 — Induce and capture.** Participant runs the orchestrator. Migration driver
    commits `ADD COLUMN`, opens the backfill transaction, runs the unbatched `UPDATE`, leaves
    it open. Hot-write driver launches 10+ tagged API writes through the real pool against
@@ -803,7 +803,7 @@ function, one verdict function, all in Aurora.
    expected range, state-change/interval-boundary, not per-poll). Wave A is admitted, embedded, and its
    receipt published. The evidence store now contains only pre-remediation, diagnostic
    evidence — the index does not exist in the database, and no post-index plan exists in
-   `casework`/`retrieval`.
+   `evidence`/`retrieval`.
 3. **Lab 2 — Investigate with SQL retrieval.** Participant searches the captured lock, pool,
    timeout, WAL, and plan evidence directly via SQL in Code Editor, using the existing
    exact/FTS/vector/fuzzy/RRF/rerank mechanics unchanged. Establishes from the evidence itself

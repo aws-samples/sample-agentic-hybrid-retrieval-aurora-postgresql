@@ -19,14 +19,14 @@ live migration evidence in Investigation Evidence
     -> indexing receipt enables retrieval
 ```
 
-The live orchestrator writes normalized `casework.*` rows, queues every source
+The live orchestrator writes normalized `evidence.*` rows, queues every source
 revision, and invokes one source-scoped search-index build per capture.
-The builder scans `casework.v_evidence_documents`, skips deterministic versions
+The builder scans `evidence.v_evidence_documents`, skips deterministic versions
 already ready, and completes matching outbox rows. Validation Evidence only adds validation
 evidence; it does not overwrite the diagnosis that grounded the proposal.
 
 ```text
-casework write
+evidence write
     |
     v
 outbox pending
@@ -50,7 +50,7 @@ but the workshop builder does not need competing-consumer coordination.
 An update must:
 
 1. modify the authoritative typed row and `evidence_items.source_revision`;
-2. call `casework.queue_evidence(evidence_id)` in the same transaction;
+2. call `evidence.queue_evidence(evidence_id)` in the same transaction;
 3. render the source row deterministically;
 4. reuse embeddings for unchanged model-and-content hashes;
 5. create and promote a new document version only when the search index changes.
@@ -105,7 +105,7 @@ A real source adapter must additionally own:
 - live authorization revalidation where indexed ACLs are insufficient.
 
 Those responsibilities are deliberately outside the 60-minute workshop core.
-The extension point is the typed `casework` transaction plus outbox event, not a
+The extension point is the typed `evidence` transaction plus outbox event, not a
 generic untyped source-object table.
 
 ## Failure Handling

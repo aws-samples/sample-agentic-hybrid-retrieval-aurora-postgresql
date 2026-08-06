@@ -11,13 +11,13 @@
 ## Global Constraints
 
 - **Session thesis — the outcome every participant-facing surface must express.** The outcome is **not** "participants fixed a missing index"; that is the mechanism. The thesis, verbatim, is: *At fleet scale, telemetry is abundant; trustworthy context is scarce. Participants build the database-native evidence layer an operational agent needs: live signals become versioned, searchable evidence; Aurora PostgreSQL retrieves, combines, ranks, relates, and cites that evidence; and a human validates the recommendation before any action is taken.* The closing message, verbatim: *you built the trusted context layer required by a fleet-scale database agent.* Full rationale and the five theme mappings are in the design spec's "Session Thesis and Closing Message" section, which governs copy wherever this plan and that spec appear to disagree. Three rules follow and bind every task in Phases D, E, and G:
-  - **Signal-to-noise → hybrid retrieval and reranking (Lab 2); the expertise gap → a cited, replayable recommendation (Labs 3–4); human-in-the-loop → "recommend, don't execute" (Lab 4); semantic/context layers → casework/retrieval/proof (Labs 1–4); fleet expansion → the "Take it home" architecture discussion, in the closing only.**
+  - **Signal-to-noise → hybrid retrieval and reranking (Lab 2); the expertise gap → a cited, replayable recommendation (Labs 3–4); human-in-the-loop → "recommend, don't execute" (Lab 4); semantic/context layers → evidence/retrieval/proof (Labs 1–4); fleet expansion → the "Take it home" architecture discussion, in the closing only.**
   - **Fleet expansion never becomes lab scope.** No task may add a second cluster, a multi-tenant dimension, or cross-fleet aggregation to any lab. The theme is satisfied by explaining how the evidence layer scales, not by scaling it live inside a 60-minute budget.
   - **The closing claim must be literally true of the participant's own run.** A participant whose Wave B admission failed did not build a validated evidence layer; the closing surface must not tell them they did. This is the live-data-only rule applied to the summary text, not only to the data. It follows that the closing message is emitted by `labs/incident/run_live_workshop.py`'s `--wave B` path after a successful admission (Task D3), never printed unconditionally on a static content page, which renders identically for a failed run.
 - **Terminology, exact and non-negotiable in all participant-facing content and code comments:**
   - "migration" always means an application-level **online schema and data migration** (`ADD COLUMN` + backfill) — never Aurora engine-version migration. Say "online schema and data migration" or "the migration," never bare "upgrade."
   - This is a **real, measured, production-representative incident** — not "a production incident." It did not occur in an actual production system; it is a widely-recognized failure pattern reproduced live on a real Aurora cluster. Never write "production incident."
-  - Participant-facing terminology: "incident diagnosis" → "evidence-backed finding"; "remediation delta" → "validation evidence"; "incident agent" → "hybrid retrieval agent"; "remediate" → "apply and validate the recommendation." Internal package/schema/ID names (`labs/incident/`, `casework.*`, `INC-<run-suffix>`, etc.) do NOT change.
+  - Participant-facing terminology: "incident diagnosis" → "evidence-backed finding"; "remediation delta" → "validation evidence"; "incident agent" → "hybrid retrieval agent"; "remediate" → "apply and validate the recommendation." Internal package/schema/ID names (`labs/incident/`, `evidence.*`, `INC-<run-suffix>`, etc.) do NOT change.
   - Participant-facing agent name: **Hybrid Retrieval Agent**, described as a **read-only database-evidence agent** — distinct from the app's own name "Hybrid Retrieval Workbench" (`backend/app/config.py`'s `APP_DISPLAY_NAME`, unchanged).
   - Lab titles: Lab 1 "Capture and admit live evidence"; Lab 2 "Build hybrid retrieval in SQL"; Lab 3 "Build the hybrid retrieval agent"; Lab 4 "Validate, prove, and replay."
 - **Scale, exact numbers, do not round or approximate:** `workbench_lab.orders` = 3,000,000 rows (`LAB_ROWS` is 3,000,000). `workbench_lab.customers` stays 5,000. Corpus expectation = **50–80 searchable documents** per incident run (DECIDED 2026-08-04 after Gate 5, replacing the 180–250 figure from this plan's earlier drafts — Gate 5 measured that one honestly-constructed document per genuinely distinct event across all six signal types totals 51 documents, and that padding beyond the natural event count reintroduces the near-duplicate problem). This is an **expected range, not a hard acceptance gate** — corpus adequacy is gated on the behavioral coverage criteria in `docs/superpowers/specs/2026-08-04-dat410-incident-scenario-redesign-design.md`'s "Corpus Adequacy" section (every phase and signal type represented; the four arms produce meaningfully different top candidates; fusion/rerank reorder for defensible reasons; Wave B adds genuinely new facts; near-duplicate rate under 15%; citations and replay resolve to exact document versions). Documents must come from genuinely distinct signal types — never from denser time-sampling of the same signal. CloudWatch documents do not count toward this range. **Never inflate the count to hit a number**; that is manufacturing evidence, which the live-data-only rule forbids however it is dressed up.
@@ -27,7 +27,7 @@
 - **Timeout policy, three separate bounds, never collapsed:** checkout timeout **3s** (`LAB_HOT_WRITE_CHECKOUT_TIMEOUT_SECONDS`) bounds only the wait for a free slot and is what the queued extras hit; blocked-statement timeout **30–45s** (`LAB_HOT_WRITE_STATEMENT_TIMEOUT`, default `'40s'`) bounds a connected writer's row-lock wait and must comfortably exceed backfill-completion time plus the 10–15s observation hold, so that blocked writers are still blocked when the hold is proven and still alive to drain after the commit; and `max_attempt_seconds` (**90s**) bounds the controller's own proving loop. A 3-second statement timeout cannot sustain a 10–15s hold — the writers would all cancel themselves before the hold began, leaving nothing blocked to observe.
 - **The hold is condition-based, never a fixed sleep.** The hold controller polls `get_pool().get_stats()` plus `pg_stat_activity`/`pg_locks` every 250ms and only begins the 10–15s observation hold after 3 consecutive samples simultaneously prove the **combined** condition: `pool_size = pool_max = 10`, `pool_available = 0`, `requests_waiting >= 2`, and exactly `DB_POOL_MAX_SIZE` (10) tagged sessions show `wait_event_type = 'Lock'` with the backfill PID in `pg_blocking_pids()`. The blocked-session expectation is `DB_POOL_MAX_SIZE`, **not** the launched request count.
 - **The first 10 writes drain successfully after the commit; the two queued requests are the `PoolTimeout` evidence.** When the backfill commits, the 10 blocked writers acquire their row locks and commit — a real, observable recovery, and the honest end of the incident. The two queued requests have already returned `pool_timeout` and stay that way. A run where **zero** writes ever commit means the statement timeout fired too early (Phase B regression, see the timeout policy above); a run with **zero** `pool_timeout` means the pool never saturated and the incident did not happen.
-- **The 250ms poll is control, not document generation.** Persist every raw poll sample (matching the existing `casework.*_samples` pattern). Create a searchable document only on a state change or a meaningful interval boundary — never one document per poll tick.
+- **The 250ms poll is control, not document generation.** Persist every raw poll sample (matching the existing `evidence.*_samples` pattern). Create a searchable document only on a state change or a meaningful interval boundary — never one document per poll tick.
 - **The agent never gets DDL privilege or an execution path.** This is already true today (all 7 tools in `agent/registry.py` are read/synthesis-only) — no task in this plan may add a write-capable tool. The participant executes `CREATE INDEX` themselves in Code Editor after reviewing the agent's recommendation.
 - **Supervised execution is proven by rows, not asserted by copy, and the proof is separated in time.** Tasks A5, A6, D2a, D3, E4, and G1–G3 implement one model together, and five of its properties bind every task that touches it:
   - **The agent proposes structured fields; code renders the SQL.** A model-authored DDL string handed to a human to run is an injection sink with a human as the executor, and a free-text statement can contradict the fields stored beside it. The proposal carries action type, schema, table, index method, ordered key columns, and included columns; `render_create_index()` builds the statement from those fields, and every identifier is checked against `^[a-z_][a-z0-9_]*$`. **A partial-index predicate is rejected, not rendered** — it is the one field that would reach emitted DDL without passing that check, and it also cannot be fingerprinted consistently because the catalog rewrites it through `pg_get_expr()`. Both halves are enforced: `ValueError` in Task D2a's parser, `CHECK (predicate IS NULL)` in `proof.action_proposals`. If a future action type needs free-form SQL, it does not get to reuse this path.
@@ -45,11 +45,11 @@
   - **The optional RLS lab is releasable only against a real mixed-visibility capture** — see the optional-security release criteria below. This is a separate, later gate on a separate deliverable, not a precondition for freezing the core workshop.
 - **Optional-security release criteria (separate from core participant readiness).** The core workshop is releasable when Task G3 Step 1's default sweep is green. The *optional RLS/masking lab* is releasable only when all three of the following hold, and none of them is a precondition for the core freeze:
   1. `WORKBENCH_SECURITY_ENABLED=1 FAIL_ON_BLOCKED=1 gates/checks.sh G-27 G-29 G-30 G-31` exits 0 against a database that has had `make security-schema` applied.
-  2. That database holds a **real mixed-visibility capture** produced by an actual `make live-workshop` run: at least one `casework.evidence_items` row with `acl ->> 'visibility' = 'restricted'` **and** at least one with `'workshop'`, both classified by Task C1's classifier from the participant's own measured statement text. A corpus that is uniformly `workshop` or uniformly `restricted` proves nothing about row filtering, and a hand-labelled row is authored data — forbidden by live-data-only however it is dressed up.
+  2. That database holds a **real mixed-visibility capture** produced by an actual `make live-workshop` run: at least one `evidence.evidence_items` row with `acl ->> 'visibility' = 'restricted'` **and** at least one with `'workshop'`, both classified by Task C1's classifier from the participant's own measured statement text. A corpus that is uniformly `workshop` or uniformly `restricted` proves nothing about row filtering, and a hand-labelled row is authored data — forbidden by live-data-only however it is dressed up.
   3. The recorded evidence names the counts, not just the verdicts: the restricted row count, the workshop row count, and the classifier version that produced them. "G-27 PASS" without a count cannot distinguish a working mechanism from one that happened to fire.
   Until (2) exists, G-27 and G-29 have nothing to judge and their result is not release evidence for the optional lab in either direction. Say so plainly rather than recording a green sweep against an unmixed corpus.
 - **Every classification is replayable: version, reason, and sources travel with the row.** Any code in this plan that assigns `acl.visibility` must record, alongside the value, the classifier version that produced it, the machine-readable reason it fired, and the identifiers of the measured samples the decision was read from. Task C1 defines the fields, Task C2 threads them into the admission payload, Task A2 makes the ACL explicit and required at the admission boundary. A visibility label with no recorded reason cannot be audited, cannot be replayed, and cannot be distinguished from a hand-labelled one — which is exactly the accusation live-data-only exists to defeat.
-- **`casework.admit_evidence` must require an explicit ACL and never silently default one.** `sql/10_admission.sql:418` currently reads `coalesce(v_record -> 'acl', '{"visibility":"workshop"}'::jsonb)`, so a producer that forgets the field gets a silently unrestricted corpus and no error anywhere. Task A2 replaces that default with a `RAISE`-guarded requirement. Silence at a classification boundary is the failure mode; a loud rejection is the fix.
+- **`evidence.admit_evidence` must require an explicit ACL and never silently default one.** `sql/10_admission.sql:418` currently reads `coalesce(v_record -> 'acl', '{"visibility":"workshop"}'::jsonb)`, so a producer that forgets the field gets a silently unrestricted corpus and no error anywhere. Task A2 replaces that default with a `RAISE`-guarded requirement. Silence at a classification boundary is the failure mode; a loud rejection is the fix.
 - **Aurora PostgreSQL owns ranking.** This redesign changes evidence generation shape; it never moves fusion/rerank logic out of `sql/03_search_functions.sql` or into the agent/frontend.
 - **New gate IDs start at G-32** (G-31 is the highest existing gate anywhere in the codebase, confirmed via `gates/*.py` and `gates/checks.sh`).
 - **Test convention, matching existing files exactly:** `TEST_DATABASE_URL` + `ALLOW_TEST_DATABASE_RESET=1`, database name must end in `_test`, `_apply_schema(connection, reset=True)` pattern from `backend/tests/test_admission.py`/`test_incident_lab.py`. Never run destructive tests against `DATABASE_URL` alone — always verify `current_database()` first.
@@ -300,7 +300,7 @@ Append the gate's actual output (pass/fail, latencies, sample counts) to a new f
 - Create: `backend/tests/_gate2_replay_isolation.py` (throwaway prototype, not a shipped test — the real test class comes later in the "Schema and Admission" phase)
 
 **Interfaces:**
-- Consumes: existing `casework.admit_evidence` (unmodified at this point — this gate tests today's function twice, simulating Wave A/Wave B by admitting two different capture payloads under the same `capture_id`'s incident identity, since the real follow-up admission contract doesn't exist yet)
+- Consumes: existing `evidence.admit_evidence` (unmodified at this point — this gate tests today's function twice, simulating Wave A/Wave B by admitting two different capture payloads under the same `capture_id`'s incident identity, since the real follow-up admission contract doesn't exist yet)
 - Produces: pass/fail proving `proof.retrieval_candidates` rows written by a run against the first admission are byte-identical after a second, later admission touching the same evidence items
 
 - [ ] **Step 1: Read `backend/app/agent.py`'s `explain_ranking_impl` and `backend/tests/test_admission.py`'s existing fixtures**
@@ -347,7 +347,7 @@ def main() -> int:
     # least one evidence document. Run `make live-workshop` against
     # TEST_DATABASE_URL first if evidence_items is empty.
     with app_db.get_owner_conn() as conn:
-        count = conn.execute("SELECT count(*) FROM casework.evidence_items").fetchone()[0]
+        count = conn.execute("SELECT count(*) FROM evidence.evidence_items").fetchone()[0]
         if count == 0:
             print("SKIP: no evidence admitted yet -- run the live orchestrator against "
                   "this test database first, then re-run this gate")
@@ -360,14 +360,14 @@ def main() -> int:
     before_candidates = json.dumps(before["candidates"], sort_keys=True, default=str)
 
     # Simulate a "later admission touching the same evidence" by re-admitting
-    # something that writes to casework/retrieval without altering the specific
+    # something that writes to evidence/retrieval without altering the specific
     # candidates the run already saw -- the real Wave B admission contract does
     # not exist yet, so this gate proves the REPLAY PATH's isolation property in
     # isolation from the not-yet-built admission contract.
     with app_db.get_owner_conn() as conn:
         conn.execute(
-            "UPDATE casework.evidence_items SET updated_at = now() "
-            "WHERE evidence_id = (SELECT evidence_id FROM casework.evidence_items LIMIT 1)"
+            "UPDATE evidence.evidence_items SET updated_at = now() "
+            "WHERE evidence_id = (SELECT evidence_id FROM evidence.evidence_items LIMIT 1)"
         )
 
     after = explain_ranking_impl(run_id, role=role)
@@ -406,7 +406,7 @@ Expected: `GATE 2 PASSED`. This confirms the design spec's claim (`explain_ranki
 - Create: `backend/tests/_gate3_additive_evidence.py` (throwaway prototype)
 
 **Interfaces:**
-- Consumes: `casework.evidence_items.is_current`, `retrieval.documents.is_current` (existing versioning columns)
+- Consumes: `evidence.evidence_items.is_current`, `retrieval.documents.is_current` (existing versioning columns)
 - Produces: pass/fail proving that inserting a new evidence record referencing the same incident does NOT flip `is_current=false` on any existing, unrelated evidence record
 
 This gate exists because "additive, not replacing" is a design intent stated in the spec, not yet mechanically enforced or tested against the real versioning columns. The risk: if any existing trigger or admission logic treats "new evidence about the same incident" as "supersede the old row," Wave B would silently break Wave A's retrievability.
@@ -449,7 +449,7 @@ def main() -> int:
 
     with app_db.get_owner_conn() as conn:
         before = conn.execute(
-            "SELECT evidence_id, is_current FROM casework.evidence_items "
+            "SELECT evidence_id, is_current FROM evidence.evidence_items "
             "WHERE is_current = true ORDER BY evidence_id"
         ).fetchall()
         if not before:
@@ -463,7 +463,7 @@ def main() -> int:
         # new rows by demoting existing ones, this will surface it.
         conn.execute(
             """
-            INSERT INTO casework.evidence_items
+            INSERT INTO evidence.evidence_items
               (evidence_id, external_key, evidence_kind, source_system, source_uri,
                content_hash, is_current, is_deleted, acl)
             VALUES
@@ -474,7 +474,7 @@ def main() -> int:
         )
 
         after = conn.execute(
-            "SELECT evidence_id, is_current FROM casework.evidence_items "
+            "SELECT evidence_id, is_current FROM evidence.evidence_items "
             "WHERE evidence_id = ANY(%s)",
             (list(before_ids),),
         ).fetchall()
@@ -482,7 +482,7 @@ def main() -> int:
 
         # Clean up the probe row.
         conn.execute(
-            "DELETE FROM casework.evidence_items WHERE external_key = 'GATE3-PROBE-01'"
+            "DELETE FROM evidence.evidence_items WHERE external_key = 'GATE3-PROBE-01'"
         )
 
     unaffected = after_current == before_ids
@@ -872,7 +872,7 @@ an owning task.
 
 ## Phase A — Schema and Admission
 
-Owning schema: `casework` (authoritative) plus the `retrieval` relationship
+Owning schema: `evidence` (authoritative) plus the `retrieval` relationship
 constraint. This phase makes the database able to accept the new incident's shape
 and, for the first time, accept a **second, later admission against an existing
 incident identity** (Wave B). Nothing in this phase produces evidence; it only
@@ -881,22 +881,22 @@ admission works end to end" owed to this phase.
 
 ### Task A1: Delete the Performance Insights admission surface
 
-**Owning schema/module:** `casework` schema; `sql/10_admission.sql`,
+**Owning schema/module:** `evidence` schema; `sql/10_admission.sql`,
 `sql/01_schema.sql`.
 
 **Files:** dropping this table breaks four separate `CREATE`/`ALTER` statements at
 **apply** time, in three files this task must therefore also edit. Every one was
 measured on PostgreSQL 17.10 against a schema with the table absent, and every one
-is a hard `ERROR: relation "casework.database_insights_samples" does not exist`
+is a hard `ERROR: relation "evidence.database_insights_samples" does not exist`
 that stops `make schema` dead. `IF NOT EXISTS` and `OR REPLACE` do not save any of
 them — those clauses guard the *object being created*, never the relation it
 references:
 
 ```
 sql/02_indexes.sql:42   CREATE INDEX IF NOT EXISTS idx_database_insights_capture_type   -> ERROR
-sql/04_diagnostics.sql:282,294  CREATE OR REPLACE VIEW casework.v_live_capture_validation -> ERROR
+sql/04_diagnostics.sql:282,294  CREATE OR REPLACE VIEW evidence.v_live_capture_validation -> ERROR
 sql/11_roles_rls.sql:705        ALTER TABLE ... ENABLE ROW LEVEL SECURITY                 -> ERROR
-sql/12_masking.sql:266          'casework.database_insights_samples'::regclass in the
+sql/12_masking.sql:266          'evidence.database_insights_samples'::regclass in the
                                 drop-policy loop -> ERROR, sqlstate 42P01, and the loop's
                                 `EXCEPTION WHEN undefined_object` handler (42704) does NOT
                                 catch it. Measured both codes explicitly.
@@ -909,7 +909,7 @@ one target later at `make security-schema` — still this task's doing, and stil
 this task's job.
 
 - Modify: `sql/10_admission.sql` — three sites, not one: the
-  `casework.database_insights_samples` insert (`:824-847`), the validation block
+  `evidence.database_insights_samples` insert (`:824-847`), the validation block
   requiring an `evidence_type='top_wait'` / `dimension_value='lock:relation'` row
   (`:220-231`), and the `v_rows` accumulator's
   `+ jsonb_array_length(v_telemetry -> 'database_insights')` (`:889`). Leaving
@@ -918,13 +918,13 @@ this task's job.
   admission
 - Modify: `sql/01_schema.sql` — the table definition (`:480-495`) and the
   `telemetry_type` CHECK constraint's `'database_insights'` enum value (`:514`).
-  **Keep** `casework.database_clusters.database_insights_mode` (`:10-11`, `:26`)
-  and `casework.lock_evidence.database_insights_slice` (`:244`, `:300`): both are
+  **Keep** `evidence.database_clusters.database_insights_mode` (`:10-11`, `:26`)
+  and `evidence.lock_evidence.database_insights_slice` (`:244`, `:300`): both are
   columns on tables this workshop still uses, both are nullable-or-defaulted, and
   `10_admission.sql:315`/`:341` still writes the former. Removing a column is a
   separate, wider change than removing this table, and nothing in this redesign
   requires it. Do **not** touch the legacy `DROP TABLE IF EXISTS
-  casework.database_insights_samples CASCADE` at `:170` — that is a
+  evidence.database_insights_samples CASCADE` at `:170` — that is a
   migration-cleanup branch for pre-existing databases and must keep dropping the
   table it is there to drop
 - Modify: `sql/02_indexes.sql:42-43` — delete
@@ -932,7 +932,7 @@ this task's job.
   in the repository
 - Modify: `sql/04_diagnostics.sql` — delete the `top_wait_lock_relation` check
   (`:281-286`) and the `top_sql_contains_index_build` check (`:291-298`) from
-  `casework.v_live_capture_validation`, **and** remove `top_wait_lock_relation`
+  `evidence.v_live_capture_validation`, **and** remove `top_wait_lock_relation`
   from the `live_ready` AND-chain (`:313`). `top_sql_contains_index_build` is
   computed but deliberately not in the chain today; leave that asymmetry alone by
   deleting both check expressions. Also update the `SECURITY DEFINER` rationale
@@ -947,15 +947,15 @@ this task's job.
   section 6's header comment (`:650-702`), which is 50 lines built on this table
   as its worked example — including the measured fail-open story. That story is
   load-bearing for the next reader; re-anchor it on
-  `casework.pg_stat_statements_samples`, which keeps the same capture-keyed
+  `evidence.pg_stat_statements_samples`, which keeps the same capture-keyed
   mechanism, rather than deleting it
 - Modify: `sql/12_masking.sql` — remove the `('mask_insights_statement',
-  'casework.database_insights_samples')` tuple from the drop-policy loop (`:266`),
+  'evidence.database_insights_samples')` tuple from the drop-policy loop (`:266`),
   the whole `mask_insights_statement` `create_masking_policy` call (`:310-328`),
   and the trailing rationale comment that explains this table's
   `predicate_allow_list` (`:396-404`)
 - Modify: `backend/scripts/doctor.py:33` (`REQUIRED_TABLES`) — remove
-  `casework.database_insights_samples`
+  `evidence.database_insights_samples`
 - Modify: `gates/masking_determinism.py:114` (`MASKED_FOR`) — remove the same
   table. Do **not** add it to `MUST_NOT_BE_MASKED`: that list means "this table
   exists and must carry no policy," and a nonexistent table cannot satisfy it
@@ -972,7 +972,7 @@ this task's job.
   delete it — Task C2's new telemetry types may re-populate it, and that call is
   C2's, not A1's
 - Modify: `backend/tests/test_rls_personas.py:549-550` — remove the two
-  `casework.database_insights_samples` entries from `MASKED_COLUMNS`, and update
+  `evidence.database_insights_samples` entries from `MASKED_COLUMNS`, and update
   the comment above it that says "ALL SIX masked columns" (it becomes four)
 - Modify: `backend/tests/test_retrieval_integration.py:218-219,229,261` — the
   `database_insights` count assertion and the capture-id subquery
@@ -982,7 +982,7 @@ this task's job.
   `latest_live_run()`, and `search_index_diagnostics()`, and
   `search_index_health()` is called from `backend/app/main.py:105`, `:133`, and
   `:466`. Measured against a database with the table dropped, all three raise
-  `psycopg.errors.UndefinedTable: relation "casework.database_insights_samples"
+  `psycopg.errors.UndefinedTable: relation "evidence.database_insights_samples"
   does not exist` — so omitting this leaves the app's health and readiness
   endpoints broken on exactly the schema this task produces. No test covered it,
   which is why Step 1 below adds one that scans the Python read paths as well as
@@ -1021,7 +1021,7 @@ them here and do not skip them.
 
 **Interfaces:**
 - Consumes: nothing from earlier phases (Gates 1–6 are complete).
-- Produces: a `casework.admit_evidence(jsonb)` payload contract with **no**
+- Produces: a `evidence.admit_evidence(jsonb)` payload contract with **no**
   `database_insights` key and no `database_insights_samples` writes. Later tasks
   build payloads against this contract.
 
@@ -1056,7 +1056,7 @@ errors.
             if name == "01_schema.sql":
                 # The legacy migration-cleanup branch must keep dropping it.
                 sql = sql.replace(
-                    "DROP TABLE IF EXISTS casework.database_insights_samples CASCADE;",
+                    "DROP TABLE IF EXISTS evidence.database_insights_samples CASCADE;",
                     "",
                 )
             with self.subTest(sql_file=name):
@@ -1116,7 +1116,7 @@ running a stale checkout — stop and check `git status`.
   being deleted, the `telemetry_type` enum value being deleted, and the two
   retained columns (`database_insights_mode`, `database_insights_slice`) that must
   survive. A blanket `sed` removes the retained columns and breaks
-  `10_admission.sql:315`'s `INSERT INTO casework.database_clusters`.
+  `10_admission.sql:315`'s `INSERT INTO evidence.database_clusters`.
 
   **Rewrite the comments you invalidate; do not orphan them.** Three of these
   files carry long measured rationale anchored on this table —
@@ -1177,11 +1177,11 @@ DO $guard$ BEGIN
     RAISE EXCEPTION 'SAFETY ABORT: connected to %', current_database();
   END IF;
 END $guard$;
-SELECT to_regclass('casework.database_insights_samples') IS NULL AS table_gone,
+SELECT to_regclass('evidence.database_insights_samples') IS NULL AS table_gone,
        (SELECT count(*) FROM pg_proc WHERE proname = 'admit_evidence') AS admit_fns,
        (SELECT count(*) FROM pg_class
          WHERE relname = 'idx_database_insights_capture_type') AS stale_index,
-       to_regclass('casework.v_live_capture_validation') IS NOT NULL AS validation_view,
+       to_regclass('evidence.v_live_capture_validation') IS NOT NULL AS validation_view,
        (SELECT count(*) FROM pg_policies
          WHERE policyname = 'rls_database_insights_samples_visibility') AS stale_policy;
 SQL
@@ -1264,7 +1264,7 @@ justification, and the scan is fast.
 
 ### Task A2: Re-derive the admission capture contract for the four-phase incident
 
-**Owning schema/module:** `casework`; `sql/10_admission.sql` only.
+**Owning schema/module:** `evidence`; `sql/10_admission.sql` only.
 
 **Files:**
 - Modify: `sql/10_admission.sql` — the hardcoded scale checks
@@ -1322,7 +1322,7 @@ what produces the values and Task C2 is what sends them, but neither can protect
 against a *future* producer — an exercise script, a replay harness, a sibling repo's
 tooling — that writes a bundle by hand. `admit_evidence` is the single write boundary
 (`sql/11_roles_rls.sql:398` grants `workshop_participant` execute on it and nothing
-else in `casework`), so it is the only place the requirement holds for every producer
+else in `evidence`), so it is the only place the requirement holds for every producer
 that will ever exist.
 
 **The payload carries two distinct counts, and collapsing them is a defect.**
@@ -1367,7 +1367,7 @@ at the commit this task starts from:
    defect in the test, not a pass.
 2. **A bare substring over-matches and would delete live code.**
    `pg_stat_statements` appears four times in the file: the scale bound at `:214-216`
-   (in scope for deletion) and the `INSERT INTO casework.pg_stat_statements_samples`
+   (in scope for deletion) and the `INSERT INTO evidence.pg_stat_statements_samples`
    block plus its row accumulator at `:764`, `:787`, `:854` (**not** in scope). That
    table survives — `sql/11_roles_rls.sql:701-716` FORCEs RLS on it,
    `sql/12_masking.sql:328-330` masks its `queries` column,
@@ -1430,7 +1430,7 @@ one-line fragment that is unique to the check:
         self.assertIn("acl", str(caught.exception))
         self.assertEqual(
             self.connection.execute(
-                "SELECT count(*) FROM casework.evidence_items"
+                "SELECT count(*) FROM evidence.evidence_items"
             ).fetchone()[0],
             0,
             "a rejected bundle must leave zero rows",
@@ -1573,11 +1573,11 @@ clean run.
   arrays.** `v_telemetry -> 'pg_stat_statements'` and
   `v_telemetry -> 'cloudwatch_metrics'` are each read three times: once in the scale
   block you are deleting (`:215`, `:218`), once in an `INSERT` that persists the
-  samples (`INSERT INTO casework.pg_stat_statements_samples` at `:764`, feeding from
-  `:787`; `INSERT INTO casework.cloudwatch_metric_samples` at `:789`), and once in the
+  samples (`INSERT INTO evidence.pg_stat_statements_samples` at `:764`, feeding from
+  `:787`; `INSERT INTO evidence.cloudwatch_metric_samples` at `:789`), and once in the
   `v_rows` accumulator (`:854-855`). Only the first read is in scope. Those inserts
   stay.
-  `casework.pg_stat_statements_samples` in particular is load-bearing for the optional
+  `evidence.pg_stat_statements_samples` in particular is load-bearing for the optional
   security module — `sql/11_roles_rls.sql:701-716` FORCEs row-level security on it,
   `sql/12_masking.sql:328-330` masks its `queries` column, and
   `gates/masking_determinism.py:114` reads it — and Task C1's classifier reads its
@@ -1655,10 +1655,10 @@ clean run.
 
   Declare `v_acl jsonb;` alongside the function's other loop locals. Then replace
   line 418's `coalesce(v_record -> 'acl', '{"visibility":"workshop"}'::jsonb)` in the
-  `INSERT INTO casework.evidence_items` column list with the bare `v_acl`.
+  `INSERT INTO evidence.evidence_items` column list with the bare `v_acl`.
 
   Two things this step must **not** do:
-  - **Do not change `casework.evidence_items.acl`'s column default**
+  - **Do not change `evidence.evidence_items.acl`'s column default**
     (`sql/01_schema.sql:44`, `DEFAULT '{"visibility":"workshop"}'::jsonb`). That
     default serves inserts that name no `acl` column at all —
     `backend/tests/test_admission.py:419`'s collision fixture is one — and this task
@@ -1708,7 +1708,7 @@ with psycopg.connect(dsn, autocommit=True) as conn:
     assert name.endswith('_test'), f'SAFETY ABORT: {name}'
     payload = json.loads(open('/tmp/old_shaped_payload.json').read())
     try:
-        conn.execute('SELECT casework.admit_evidence(%s::jsonb)', (Jsonb(payload),))
+        conn.execute('SELECT evidence.admit_evidence(%s::jsonb)', (Jsonb(payload),))
     except psycopg.errors.RaiseException as exc:
         print('rejected as expected:', exc)
     else:
@@ -1751,7 +1751,7 @@ with psycopg.connect(dsn, autocommit=True) as conn:
     capture['signal_types'] = ['lock', 'pool', 'request', 'wal', 'meta', 'plan']
     payload['records']['incident'].pop('acl', None)
     try:
-        conn.execute('SELECT casework.admit_evidence(%s::jsonb)', (Jsonb(payload),))
+        conn.execute('SELECT evidence.admit_evidence(%s::jsonb)', (Jsonb(payload),))
     except psycopg.errors.RaiseException as exc:
         print('rejected as expected:', exc)
     else:
@@ -1776,7 +1776,7 @@ with psycopg.connect(dsn, autocommit=True) as conn:
 ```bash
 psql -X -v ON_ERROR_STOP=1 \
   "postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" \
-  -c "SELECT count(*) AS receipts FROM casework.ingest_receipts;"
+  -c "SELECT count(*) AS receipts FROM evidence.ingest_receipts;"
 ```
 
   This one needs no `DO $guard$` block: it is a read with no write to guard.
@@ -1822,21 +1822,21 @@ live run:**
 
 ### Task A3: Add the follow-up admission contract for Wave B
 
-**Owning schema/module:** `casework`; `sql/10_admission.sql` plus a new
-`casework.incident_capture_runs` conflict path.
+**Owning schema/module:** `evidence`; `sql/10_admission.sql` plus a new
+`evidence.incident_capture_runs` conflict path.
 
 **Files:**
 - Modify: `sql/10_admission.sql` — the identity derivation
   (`v_incident_key := 'INC-' || v_run_suffix`), the `run_suffix` cross-validation
-  against the capture ID, and the `casework.incident_capture_runs` plain INSERT
+  against the capture ID, and the `evidence.incident_capture_runs` plain INSERT
 - Modify: `sql/01_schema.sql` — add a `wave` column to
-  `casework.incident_capture_runs` and widen the `incident_changes`
+  `evidence.incident_capture_runs` and widen the `incident_changes`
   `relationship` CHECK
 - Test: `backend/tests/test_admission.py`
 
 **Interfaces:**
 - Consumes: Task A2's contract.
-- Produces: `casework.admit_evidence(payload)` accepting
+- Produces: `evidence.admit_evidence(payload)` accepting
   `payload->>'wave'` of `'A'` or `'B'`, where wave `'B'` **attaches to an
   existing incident identity** instead of deriving a new one. Phase B's Wave B
   admission call and Phase C's index rebuild both depend on this signature.
@@ -1845,7 +1845,7 @@ live run:**
 identified and could not close. Today `v_incident_key := 'INC-' || v_run_suffix`
 means **the incident key is always derived from the capture ID, so no caller can
 attach a second admission to an existing incident** — Wave B is structurally
-impossible. `casework.incident_capture_runs` is a plain INSERT with no
+impossible. `evidence.incident_capture_runs` is a plain INSERT with no
 `ON CONFLICT`, so reusing an identity raises `23505`. Both must change together.
 Separately, `sql/01_schema.sql:537-542` constrains
 `CHECK (relationship IN ('suspected','confirmed','ruled_out','remediated'))`,
@@ -1864,23 +1864,23 @@ remains valid.
         with self._connect() as conn:
             self._apply_schema(conn, reset=True)
             wave_a = self._payload(wave="A")
-            conn.execute("SELECT casework.admit_evidence(%s::jsonb)", (Jsonb(wave_a),))
+            conn.execute("SELECT evidence.admit_evidence(%s::jsonb)", (Jsonb(wave_a),))
             incident_key = conn.execute(
-                "SELECT external_id FROM casework.evidence_items "
+                "SELECT external_id FROM evidence.evidence_items "
                 "WHERE evidence_kind = 'incident'"
             ).fetchone()[0]
 
             wave_b = self._payload(wave="B", incident_key=incident_key)
-            conn.execute("SELECT casework.admit_evidence(%s::jsonb)", (Jsonb(wave_b),))
+            conn.execute("SELECT evidence.admit_evidence(%s::jsonb)", (Jsonb(wave_b),))
 
             incidents = conn.execute(
-                "SELECT count(*) FROM casework.evidence_items WHERE evidence_kind = 'incident'"
+                "SELECT count(*) FROM evidence.evidence_items WHERE evidence_kind = 'incident'"
             ).fetchone()[0]
             waves = conn.execute(
-                "SELECT array_agg(wave ORDER BY wave) FROM casework.incident_capture_runs"
+                "SELECT array_agg(wave ORDER BY wave) FROM evidence.incident_capture_runs"
             ).fetchone()[0]
             validates = conn.execute(
-                "SELECT count(*) FROM casework.incident_changes WHERE relationship = 'validates'"
+                "SELECT count(*) FROM evidence.incident_changes WHERE relationship = 'validates'"
             ).fetchone()[0]
 
         self.assertEqual(incidents, 1, "Wave B must not create a second incident")
@@ -1897,13 +1897,13 @@ ALLOW_TEST_DATABASE_RESET=1 \
 ```
 
 Expected: FAIL — either a `23505` unique violation on
-`casework.incident_capture_runs`, or two incident rows because Wave B derived its
+`evidence.incident_capture_runs`, or two incident rows because Wave B derived its
 own key.
 
 - [ ] **Step 3: Implement the follow-up contract.** In `sql/01_schema.sql`:
 
 ```sql
-ALTER TABLE casework.incident_capture_runs
+ALTER TABLE evidence.incident_capture_runs
   ADD COLUMN wave text NOT NULL DEFAULT 'A'
   CHECK (wave IN ('A', 'B'));
 ```
@@ -1932,7 +1932,7 @@ ALTER TABLE casework.incident_capture_runs
       RAISE EXCEPTION
         'admission rejected: wave B must name the incident_key it attaches to';
     END IF;
-    PERFORM 1 FROM casework.evidence_items
+    PERFORM 1 FROM evidence.evidence_items
       WHERE external_id = v_incident_key AND evidence_kind = 'incident';
     IF NOT FOUND THEN
       RAISE EXCEPTION
@@ -1942,11 +1942,11 @@ ALTER TABLE casework.incident_capture_runs
   END IF;
 ```
 
-  and give `casework.incident_capture_runs` a wave-aware key so the second
+  and give `evidence.incident_capture_runs` a wave-aware key so the second
   admission is a new row against the same incident, not a conflicting one:
 
 ```sql
-  INSERT INTO casework.incident_capture_runs (
+  INSERT INTO evidence.incident_capture_runs (
     capture_id, capture_key, run_suffix, wave, incident_key,
     steady_state_connections, observation_window_start, observation_window_end
   )
@@ -1979,16 +1979,16 @@ Expected: PASS, all tests including the nine pre-existing ones.
 - [ ] **Step 5: Live-Aurora acceptance criteria.** Against the disposable
   database, prove all four properties Gate 3 could not: (a) Wave B admits without
   a `23505`; (b) exactly one incident row exists afterward; (c) both waves have
-  distinct receipts in `casework.ingest_receipts`; (d) re-admitting the identical
+  distinct receipts in `evidence.ingest_receipts`; (d) re-admitting the identical
   Wave B payload returns `idempotent_replay: true` and adds no rows.
 
 ```bash
 psql -X -v ON_ERROR_STOP=1 \
   "postgresql://<user>@<host>:5432/dat410_review_remediation_test?sslmode=require" <<'SQL'
-SELECT (SELECT count(*) FROM casework.evidence_items WHERE evidence_kind='incident') AS incidents,
-       (SELECT count(*) FROM casework.incident_capture_runs) AS capture_runs,
-       (SELECT count(DISTINCT content_hash) FROM casework.ingest_receipts) AS receipts,
-       (SELECT count(*) FROM casework.incident_changes WHERE relationship='validates') AS validates;
+SELECT (SELECT count(*) FROM evidence.evidence_items WHERE evidence_kind='incident') AS incidents,
+       (SELECT count(*) FROM evidence.incident_capture_runs) AS capture_runs,
+       (SELECT count(DISTINCT content_hash) FROM evidence.ingest_receipts) AS receipts,
+       (SELECT count(*) FROM evidence.incident_changes WHERE relationship='validates') AS validates;
 SQL
 ```
 
@@ -2115,7 +2115,7 @@ def run() -> int:
         incident = conn.execute(
             """
             SELECT incident_evidence_id
-            FROM casework.incident_capture_runs
+            FROM evidence.incident_capture_runs
             WHERE capture_origin = 'participant_induced'
             GROUP BY incident_evidence_id
             HAVING bool_or(wave = 'A') AND bool_or(wave = 'B')
@@ -2127,7 +2127,7 @@ def run() -> int:
             waves = [
                 row[0]
                 for row in conn.execute(
-                    "SELECT DISTINCT wave FROM casework.incident_capture_runs ORDER BY wave"
+                    "SELECT DISTINCT wave FROM evidence.incident_capture_runs ORDER BY wave"
                 ).fetchall()
             ]
             return finish(
@@ -2141,7 +2141,7 @@ def run() -> int:
             conn.execute(
                 """
                 SELECT wave, source_bundle_uri
-                FROM casework.incident_capture_runs
+                FROM evidence.incident_capture_runs
                 WHERE incident_evidence_id = %s
                 ORDER BY wave
                 """,
@@ -2165,8 +2165,8 @@ def run() -> int:
                       WHERE document.is_current
                         AND document.index_state = 'ready'
                     ) AS current_documents
-                FROM casework.incident_capture_runs capture
-                JOIN casework.evidence_items item
+                FROM evidence.incident_capture_runs capture
+                JOIN evidence.evidence_items item
                   ON item.source_uri LIKE capture.source_bundle_uri || '/%'
                  AND NOT item.is_deleted
                 LEFT JOIN retrieval.documents document
@@ -2190,8 +2190,8 @@ def run() -> int:
         validates = conn.execute(
             """
             SELECT count(*)
-            FROM casework.incident_changes relation
-            JOIN casework.evidence_items change_item
+            FROM evidence.incident_changes relation
+            JOIN evidence.evidence_items change_item
               ON change_item.evidence_id = relation.change_evidence_id
             WHERE relation.incident_evidence_id = %s
               AND relation.relationship = 'validates'
@@ -2205,7 +2205,7 @@ def run() -> int:
             found = conn.execute(
                 """
                 SELECT count(*)
-                FROM casework.telemetry_evidence
+                FROM evidence.telemetry_evidence
                 WHERE incident_evidence_id = %s
                   AND structured ->> 'phase' = %s
                 """,
@@ -2217,7 +2217,7 @@ def run() -> int:
             found = conn.execute(
                 """
                 SELECT count(*)
-                FROM casework.telemetry_evidence
+                FROM evidence.telemetry_evidence
                 WHERE incident_evidence_id = %s
                   AND structured ->> 'signal_type' = %s
                 """,
@@ -2230,8 +2230,8 @@ def run() -> int:
             for row in conn.execute(
                 """
                 SELECT DISTINCT telemetry.structured ->> 'signal_type'
-                FROM casework.telemetry_evidence telemetry
-                JOIN casework.incident_capture_runs capture
+                FROM evidence.telemetry_evidence telemetry
+                JOIN evidence.incident_capture_runs capture
                   ON capture.capture_id = telemetry.capture_id
                 WHERE capture.incident_evidence_id = %s
                   AND capture.wave = 'B'
@@ -2288,7 +2288,7 @@ unbuilt-dependency state, matching G-13's and G-14's precedent, not a defect.
 
 ```python
     receipts = conn.execute(
-        "SELECT count(*) FROM casework.ingest_receipts WHERE source_uri = %s",
+        "SELECT count(*) FROM evidence.ingest_receipts WHERE source_uri = %s",
         (bundle_uri,),
     ).fetchone()[0]
     require(receipts == 1, f"expected one receipt for {bundle_uri}, found {receipts}")
@@ -2332,9 +2332,9 @@ SET is_current = false
 WHERE document.document_version_id = (
   SELECT candidate.document_version_id
   FROM retrieval.documents candidate
-  JOIN casework.evidence_items item
+  JOIN evidence.evidence_items item
     ON item.evidence_id = candidate.evidence_id
-  JOIN casework.incident_capture_runs capture
+  JOIN evidence.incident_capture_runs capture
     ON item.source_uri LIKE capture.source_bundle_uri || '/%'
   WHERE capture.wave = 'A'
     AND candidate.is_current
@@ -3034,9 +3034,9 @@ CREATE TABLE IF NOT EXISTS proof.action_executions (
   plan_before_checkpoint text,
   plan_after_checkpoint text,
   wave_b_capture_id uuid
-    REFERENCES casework.incident_capture_runs(capture_id) ON DELETE SET NULL,
+    REFERENCES evidence.incident_capture_runs(capture_id) ON DELETE SET NULL,
   wave_b_ingest_id uuid
-    REFERENCES casework.ingest_receipts(ingest_id) ON DELETE SET NULL,
+    REFERENCES evidence.ingest_receipts(ingest_id) ON DELETE SET NULL,
   CHECK (completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at),
   -- A succeeded execution must carry the catalog read-back and its verdict.
   -- Without this, a NULL observed_fingerprint would silently read as
@@ -3776,7 +3776,7 @@ class AutonomyReadinessTests(unittest.TestCase):
         self.assertIn("the proposal cites no evidence", reasons)
 
     def test_unapproved_target_is_ineligible(self) -> None:
-        proposal_id = self._propose(target_schema="casework")
+        proposal_id = self._propose(target_schema="evidence")
         self._cite(proposal_id)
         eligible, reasons, _, _ = self._verdict(proposal_id)
         self.assertFalse(eligible)
@@ -4033,8 +4033,8 @@ class AutonomyReadinessTests(unittest.TestCase):
     def _latest_wave_b_ids(self) -> tuple:
         row = self.conn.execute(
             "SELECT r.capture_id, i.ingest_id "
-            "FROM casework.incident_capture_runs r "
-            "JOIN casework.ingest_receipts i "
+            "FROM evidence.incident_capture_runs r "
+            "JOIN evidence.ingest_receipts i "
             "  ON i.source_uri = r.source_bundle_uri "
             "ORDER BY r.capture_started_at DESC LIMIT 1"
         ).fetchone()
@@ -4153,9 +4153,9 @@ class AutonomyReadinessTests(unittest.TestCase):
         UPDATE and fires the same trigger, so that draft made every referenced
         capture undeletable for as long as its execution row existed.
 
-        This test does NOT delete a real capture run: `casework.incident_capture_runs`
+        This test does NOT delete a real capture run: `evidence.incident_capture_runs`
         is participant-induced live evidence that other tests and the Proof
-        surface read, and `casework.evidence_items` references it ON DELETE
+        surface read, and `evidence.evidence_items` references it ON DELETE
         RESTRICT. It exercises the same trigger path the referential action takes
         -- an UPDATE clearing an attached receipt to NULL -- which is exactly what
         the second draft refused."""
@@ -4199,7 +4199,7 @@ class AutonomyReadinessTests(unittest.TestCase):
             (execution_id, capture_id, ingest_id),
         )
         other = self.conn.execute(
-            "SELECT capture_id FROM casework.incident_capture_runs "
+            "SELECT capture_id FROM evidence.incident_capture_runs "
             "WHERE capture_id <> %s LIMIT 1",
             (capture_id,),
         ).fetchone()
@@ -4477,7 +4477,7 @@ class WaveBAttachGrantTests(unittest.TestCase):
 - [ ] **Step 12: Put the three tables under RLS, or G-27 blocks.** This step exists
   because it was measured, not predicted. `gates/rls_enforcement.py:133-159`
   (`PROTECTION_RULE_SQL`) derives "needs a policy" **from the catalog**, and any
-  table in `casework`, `retrieval`, or `proof` carrying `evidence_id`, `capture_id`,
+  table in `evidence`, `retrieval`, or `proof` carrying `evidence_id`, `capture_id`,
   `run_id`, `agent_run_id`, `acl`, or `acl_visibility` needs one. All three new
   tables carry `run_id` or `agent_run_id`, so all three are classified
   `needs_policy = true` the moment they exist.
@@ -6732,7 +6732,7 @@ to produce real lock contention).
 - Produces: `prove_hold(conn, *, backfill_pid, pool_status,
   expected_blocked_sessions=10, poll_interval=0.25, required_samples=3,
   hold_seconds=12.0, max_attempt_seconds=90.0) -> HoldProof`, where `HoldProof` carries
-  `samples: list[PollSample]` (every raw poll, for `casework.*_samples`) and
+  `samples: list[PollSample]` (every raw poll, for `evidence.*_samples`) and
   `state_changes: list[StateChange]` (the transitions Task C2 turns into
   documents). Task C2's evidence builder consumes exactly this.
 
@@ -7614,7 +7614,7 @@ is today the **only** producer of `visibility='restricted'` anywhere in the
 repository — verified by grep. Everything downstream of it fails silently if
 nothing replaces it:
 
-- `casework.admit_evidence` defaults a record with no `acl` key to
+- `evidence.admit_evidence` defaults a record with no `acl` key to
   `'{"visibility":"workshop"}'` (`sql/10_admission.sql:418`). A builder that omits
   the field therefore produces a corpus with **zero** restricted rows, and no
   error anywhere. **Task A2 removes that silent default**, so after A2 an omitted
@@ -7643,8 +7643,8 @@ nothing replaces it:
 
 **Replacement classification, and why it is honest.** Classify on resolved
 statement text from the two columns `sql/12_masking.sql` still masks:
-`casework.pg_stat_activity_samples.query` and
-`casework.pg_stat_statements_samples.queries`. A document whose structured payload
+`evidence.pg_stat_activity_samples.query` and
+`evidence.pg_stat_statements_samples.queries`. A document whose structured payload
 carries non-empty captured statement text gets `visibility='restricted'`;
 everything else gets `'workshop'`. This is the same rule
 `_measured_visibility` implemented, re-anchored from a Performance Insights
@@ -7987,8 +7987,8 @@ def classify_visibility(structured: Mapping[str, Any]) -> VisibilityDecision:
 
     Statement text is the one thing in this capture a real operator restricts,
     and it is what `sql/12_masking.sql` already protects on
-    `casework.pg_stat_activity_samples.query` and
-    `casework.pg_stat_statements_samples.queries`. Reading the captured payload
+    `evidence.pg_stat_activity_samples.query` and
+    `evidence.pg_stat_statements_samples.queries`. Reading the captured payload
     is what keeps the label measured rather than authored.
 
     Args:
@@ -8078,8 +8078,8 @@ git commit -m "Add the six-signal-type evidence builder"
 
 ### Task C2: Wire the two-wave admission calls
 
-**Owning schema/module:** `labs/incident/`; `casework` via
-`casework.admit_evidence`.
+**Owning schema/module:** `labs/incident/`; `evidence` via
+`evidence.admit_evidence`.
 
 **Files:**
 - Modify: `labs/incident/run_live_workshop.py` — `_admit_payload` (1461–1471) and
@@ -8096,7 +8096,7 @@ git commit -m "Add the six-signal-type evidence builder"
 - Test: `backend/tests/test_incident_lab.py`
 
 **Interfaces:**
-- Consumes: Task A3's wave-aware `casework.admit_evidence(jsonb)`, Task C1's
+- Consumes: Task A3's wave-aware `evidence.admit_evidence(jsonb)`, Task C1's
   documents — **including each document's `visibility` field and its three
   provenance fields**, emitted into every record as:
 
@@ -8124,13 +8124,13 @@ git commit -m "Add the six-signal-type evidence builder"
   Wave B path.
 
 **Migration and compatibility implications:** `_admit_payload` currently calls
-`SELECT casework.admit_evidence(%s::jsonb)` with a single payload and no wave
+`SELECT evidence.admit_evidence(%s::jsonb)` with a single payload and no wave
 concept. Wave B needs its **own** capture ID, run suffix, observation window, and
 receipt — only `incident_key` is shared (Task A3). The Wave B call must therefore
 run a genuine, bounded, *second* observation window around the participant's
 `CREATE INDEX`, not reuse Wave A's window; reusing it would mean claiming the
 post-index plan was observed during the incident, which is false.
-`_verify_live_run` calls `casework.assert_live_capture_ready()` at line 1605 —
+`_verify_live_run` calls `evidence.assert_live_capture_ready()` at line 1605 —
 that function is `SECURITY DEFINER` (changed when a masked predicate broke
 `make doctor`) and its checks must accept a two-wave corpus, or Wave B admission
 succeeds and verification then fails.
@@ -8142,7 +8142,7 @@ covers them and is not optional:
 1. `main()` calls `_prepare_lab` unconditionally (`run_live_workshop.py:1812`), and
    `_prepare_lab` (`:308-340`) calls `_assert_empty_evidence_store` (`:148-160`),
    which raises `LiveWorkshopError` when **any** non-deleted
-   `casework.evidence_items` row exists. Wave A's whole purpose is to write those
+   `evidence.evidence_items` row exists. Wave A's whole purpose is to write those
    rows. So `--wave B` aborts on the corpus Wave A just created — before it reaches
    any admission code. The careless fix (skip `_prepare_lab` entirely for Wave B)
    is also wrong: it skips `_assert_no_live_lab_sessions`, the only guard against
@@ -8181,16 +8181,16 @@ covers them and is not optional:
         """Wave A writes the corpus Wave B is told to be empty of.
 
         _prepare_lab -> _assert_empty_evidence_store raises whenever any
-        non-deleted casework.evidence_items row exists, so before this fix
+        non-deleted evidence.evidence_items row exists, so before this fix
         `--wave B` aborted on Wave A's own output. Calling the wave-B preparer
         against a NON-empty store is the whole assertion.
         """
         with self._owner_conn() as conn:
             conn.execute(
-                "SELECT casework.admit_evidence(%s::jsonb)", (self._minimal_wave_a(),)
+                "SELECT evidence.admit_evidence(%s::jsonb)", (self._minimal_wave_a(),)
             )
             existing = conn.execute(
-                "SELECT count(*) FROM casework.evidence_items WHERE NOT is_deleted"
+                "SELECT count(*) FROM evidence.evidence_items WHERE NOT is_deleted"
             ).fetchone()[0]
         self.assertGreater(existing, 0, "fixture must leave a non-empty store")
         _prepare_lab_for_wave(OWNER_DSN, uuid.uuid4(), wave="B")  # must not raise
@@ -8336,7 +8336,7 @@ LAB_ENDPOINTS_ENABLED=1 \
   --output-dir data/generated/incident-lab
 ```
 
-  Acceptance criteria: both exit 0; two receipts written; `casework` shows exactly
+  Acceptance criteria: both exit 0; two receipts written; `evidence` shows exactly
   one incident, two capture runs, two distinct `ingest_receipts` rows, at least one
   `validates` relationship; and re-running the Wave B command returns
   `idempotent_replay: true` while adding zero rows. Then run
@@ -8425,7 +8425,7 @@ check still holds.
 `backend/app/insights.py:581-616` reads
 `SELECT DISTINCT evidence_id FROM proof.retrieval_candidates WHERE run_id = %s`
 (line 588) — correctly pinned, since `proof.retrieval_candidates` is immutable per
-run (Gate 2 proved a later write against `casework.evidence_items` leaves replayed
+run (Gate 2 proved a later write against `evidence.evidence_items` leaves replayed
 candidates unchanged at 15/15). But it then **live-calls**
 `SELECT * FROM retrieval.traverse_evidence(%s::uuid[], 2)` (lines 599–603), which
 walks the graph *as it exists now*. After Wave B, a replayed Lab 3 graph would
@@ -8460,7 +8460,7 @@ Expected: FAIL — `'observation_window_end' not found`.
 
 - [ ] **Step 3: Scope the traversal.** In `backend/app/insights.py`'s `run_graph`,
   resolve the run's admission window from `proof.retrieval_runs` joined to
-  `casework.incident_capture_runs`, then filter the traversal result to edges whose
+  `evidence.incident_capture_runs`, then filter the traversal result to edges whose
   endpoint evidence was admitted at or before that window's end. Add a comment
   naming Gate 2 and this hazard so the scoping is not "simplified" away later. In
   `_build_search_index`, pass the wave's own `source_systems` and run suffix
@@ -8878,7 +8878,7 @@ the env vars.
 - [ ] **Step 3: Implement the helpers.** `_answer_the_diagnostic_question()` calls
   the real answer endpoint with the canonical diagnostic question and returns the
   run ID plus cited evidence IDs. `_waves_for()` resolves each cited evidence ID to
-  its wave via `casework.incident_capture_runs`.
+  its wave via `evidence.incident_capture_runs`.
 
 - [ ] **Step 4: Run the live test against a two-wave corpus.**
 
@@ -10199,7 +10199,7 @@ statements, and still succeeds after a second full
 the pool's `UPDATE` succeeds across the same cycle and its `CREATE INDEX` does not.
 
 Check the result against `gates/participant_ceremony.py`'s privilege model: it
-asserts `workshop_participant` is denied on `casework.evidence_items` /
+asserts `workshop_participant` is denied on `evidence.evidence_items` /
 `retrieval.documents` / `retrieval.chunks` and has no
 `rolsuper`/`rolbypassrls`/`rolcreaterole`/`rolcreatedb`, and grants monitoring
 views. A `workbench_lab_owner` membership violates none of those: the role is
@@ -10931,7 +10931,7 @@ CREATE OR REPLACE FUNCTION proof.attach_wave_b_receipt(
   p_ingest_id uuid
 ) RETURNS void
 LANGUAGE plpgsql
-SET search_path = pg_catalog, proof, casework AS $$
+SET search_path = pg_catalog, proof, evidence AS $$
 BEGIN
   UPDATE proof.action_executions
      SET wave_b_capture_id = p_capture_id,
@@ -10978,7 +10978,7 @@ COMMENT ON FUNCTION proof.attach_wave_b_receipt(uuid, uuid, uuid) IS
 -- 2. The second draft refused ANY update to a row that already carried a
 --    receipt. That also refuses the `ON DELETE SET NULL` on both receipt foreign
 --    keys, because a referential action IS an UPDATE and fires BEFORE UPDATE
---    triggers. Measured: `DELETE FROM casework.incident_capture_runs` on a
+--    triggers. Measured: `DELETE FROM evidence.incident_capture_runs` on a
 --    referenced capture failed with `execution ... already carries a Wave B
 --    receipt`, the delete rolled back, and the capture became undeletable for as
 --    long as the execution row existed. So the rule is stated on the TRANSITION,
@@ -11255,7 +11255,7 @@ and no fallbacks — that property must survive this phase.
 - Test: `npm run build` (`tsc`) plus a live visual check
 
 **Interfaces:**
-- Consumes: Task A1's deletion of `casework.database_insights_samples`.
+- Consumes: Task A1's deletion of `evidence.database_insights_samples`.
 - Produces: a UI that offers only the observation window and the CloudWatch/lock
   deep links that still resolve to something real.
 
@@ -11340,7 +11340,7 @@ Corpus surface.
 - Test: `npm run build` plus a live visual check
 
 **Interfaces:**
-- Consumes: Task A3's `wave` column on `casework.incident_capture_runs`, Task C2's
+- Consumes: Task A3's `wave` column on `evidence.incident_capture_runs`, Task C2's
   two-wave admission.
 - Produces: `retrieval.v_corpus_distribution` rows carrying a nullable `wave` column,
   and a Corpus panel that groups by wave within evidence kind.
@@ -11353,7 +11353,7 @@ in the **view**, not in `backend/app/insights.py` — line 248 is
 payload with no Python change and keeps `main.tsx` a pure live renderer.
 
 **`wave` is derived from provenance, not guessed from evidence kind.**
-`casework.admit_evidence` requires every record's `source_uri` to begin with that
+`evidence.admit_evidence` requires every record's `source_uri` to begin with that
 capture's `source_bundle_uri`, and each wave has a distinct bundle URI. That
 contract covers incident, change, lock, and telemetry records even though only
 the last two carry a `capture_id` foreign key. Join the indexed document's
@@ -11385,7 +11385,7 @@ WITH document_wave AS (
   FROM retrieval.documents document
   LEFT JOIN LATERAL (
     SELECT run.wave
-    FROM casework.incident_capture_runs run
+    FROM evidence.incident_capture_runs run
     WHERE document.source_uri LIKE run.source_bundle_uri || '/%'
     ORDER BY length(run.source_bundle_uri) DESC
     LIMIT 1
@@ -12722,7 +12722,7 @@ code means B6 is incomplete — finish it before proceeding.
 
 - [ ] **Step 2: Remove the doctor check and the documented prerequisite.** Confirm
   `backend/scripts/doctor.py` no longer names the deleted
-  `casework.database_insights_samples` in `REQUIRED_TABLES` (Task A1) and carries no
+  `evidence.database_insights_samples` in `REQUIRED_TABLES` (Task A1) and carries no
   PI-specific probe.
 
 - [ ] **Step 3: Run doctor and the full gate sweep.**
@@ -13175,7 +13175,7 @@ psql -X -v ON_ERROR_STOP=1 \
 SELECT acl ->> 'visibility' AS visibility,
        acl ->> 'classifier_version' AS classifier_version,
        count(*) AS rows
-FROM casework.evidence_items
+FROM evidence.evidence_items
 WHERE NOT is_deleted
 GROUP BY 1, 2
 ORDER BY 1, 2;

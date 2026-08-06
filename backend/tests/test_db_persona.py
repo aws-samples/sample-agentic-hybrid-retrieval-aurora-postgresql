@@ -74,7 +74,7 @@ class PersonaCheckoutTests(unittest.TestCase):
 
 
 CONTENT_VIEWS = (
-    "casework.v_evidence_documents",
+    "evidence.v_evidence_documents",
     "retrieval.evidence_edges",
     "proof.v_run_receipts",
     "proof.v_answer_receipts",
@@ -84,7 +84,7 @@ CONTENT_VIEWS = (
 )
 
 EVIDENCE_CONTENT_VIEWS = (
-    "casework.v_evidence_documents",
+    "evidence.v_evidence_documents",
     "retrieval.evidence_edges",
 )
 
@@ -119,7 +119,7 @@ WHERE n.nspname = %s AND c.relname = %s
 # row you may not see".
 _RESTRICTED_KEYS_SQL = """
 SELECT external_key
-  FROM casework.evidence_items
+  FROM evidence.evidence_items
  WHERE acl ->> 'visibility' = 'restricted'
    AND NOT is_deleted
  ORDER BY external_key
@@ -240,9 +240,9 @@ class ContentViewRowFilteringTests(unittest.TestCase):
     def test_the_restricted_cohort_is_invisible_to_the_app_engineer(self) -> None:
         """Named rows, so the previous test cannot pass on an unrelated diff.
 
-        This reads casework.v_evidence_documents as the auditor, which used to
+        This reads evidence.v_evidence_documents as the auditor, which used to
         restart the entire Aurora instance: the view joins
-        casework.telemetry_evidence, and a masked role joining a masked table
+        evidence.telemetry_evidence, and a masked role joining a masked table
         segfaults the backend on pg_columnmask 1.1.0. sql/12_masking.sql no longer
         masks that table (it protected nothing -- the same statements are readable
         in the deliberately-unmasked chunk corpus), and G-29's MUST_NOT_BE_MASKED
@@ -257,7 +257,7 @@ class ContentViewRowFilteringTests(unittest.TestCase):
             "must build restricted telemetry evidence for any of this to mean anything",
         )
         sql = (
-            "SELECT count(*) AS n FROM casework.v_evidence_documents "
+            "SELECT count(*) AS n FROM evidence.v_evidence_documents "
             "WHERE external_key = ANY(%s)"
         )
         counts = {}
@@ -277,14 +277,14 @@ class ContentViewRowFilteringTests(unittest.TestCase):
             counts["app_engineer"],
             0,
             f"persona_app_engineer read {counts['app_engineer']} restricted row(s) "
-            f"out of casework.v_evidence_documents",
+            f"out of evidence.v_evidence_documents",
         )
         self.assertEqual(
             counts["auditor"],
             counts["dba"],
             "persona_auditor holds the same clearance as persona_dba, so it must "
             "reach the same rows; the two differ only in column masking, and "
-            "casework.telemetry_evidence behind this view is masked for neither",
+            "evidence.telemetry_evidence behind this view is masked for neither",
         )
 
     def test_count_only_views_do_not_differ_across_personas(self) -> None:

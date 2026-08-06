@@ -5,7 +5,7 @@ Four groups, in the order a reader should trust them, preceded by a precondition
 that has to come first:
 
 (0) the capture can prove something. Restricted rows exist in
-    ``casework.evidence_items`` AND survived into both derived tables, measured on
+    ``evidence.evidence_items`` AND survived into both derived tables, measured on
     the engine rather than hand-typed. This is not bookkeeping: (b) below asserts
     that ``persona_app_engineer`` sees zero restricted rows, which is trivially true
     of an empty set. The owner's own RLS exposure is measured alongside it, because
@@ -19,17 +19,17 @@ that has to come first:
     standing privilege path at all, so a forgotten ``SET ROLE`` cannot leak.
 
 (b) row filtering. Under ``SET LOCAL ROLE persona_app_engineer`` every restricted
-    row returns zero rows at each of ``casework.evidence_items``,
+    row returns zero rows at each of ``evidence.evidence_items``,
     ``retrieval.documents`` and ``retrieval.chunks`` - the raw tables, no arm, no
     application predicate. Under ``persona_dba`` the same rows are present. Both
     retrieval tables matter: ``vector_search`` reads ``retrieval.chunks``
     standalone and ``fuzzy_search`` reads ``retrieval.documents`` standalone, so a
-    policy on ``casework.evidence_items`` alone would leak restricted chunk text
+    policy on ``evidence.evidence_items`` alone would leak restricted chunk text
     while headers stayed filtered.
 
 (b') the same filtering at every other reachable table, discovered from the
     catalog. Section 2 of sql/11_roles_rls.sql grants each persona SELECT ON ALL
-    TABLES IN SCHEMA casework, retrieval and proof, so the bypass class is "any
+    TABLES IN SCHEMA evidence, retrieval and proof, so the bypass class is "any
     table reachable by a schema-wide grant is a door". The tables are therefore
     enumerated by asking the engine which ones carry an evidence, capture, run or
     acl reference - not by a hand-typed list, which goes stale the first time a
@@ -38,7 +38,7 @@ that has to come first:
     Three mechanisms, routed by which one the DDL uses and asserted separately
     because they fail differently and share only the app-engineer half:
 
-    (b')  evidence-keyed tables clear through casework.evidence_items, so a cleared
+    (b')  evidence-keyed tables clear through evidence.evidence_items, so a cleared
           persona must see every row the owner sees.
     (b'') capture-keyed tables have no evidence column at all. Section 6 gates them
           either on a VISIBLE evidence row for the sample (the only direction that
@@ -90,7 +90,7 @@ GATE_ID = "G-27"
 TITLE = "RLS enforcement (D24)"
 
 READ_PATH_TABLES = (
-    "casework.evidence_items",
+    "evidence.evidence_items",
     "retrieval.documents",
     "retrieval.chunks",
 )
@@ -104,7 +104,7 @@ PERSONA_ROLES = ("persona_app_engineer", "persona_dba", "persona_auditor")
 CLEARANCE_GROUP = "can_see_restricted"
 
 # The three schemas section 2 grants SELECT on, schema-wide.
-GRANTED_SCHEMAS = ("casework", "retrieval", "proof")
+GRANTED_SCHEMAS = ("evidence", "retrieval", "proof")
 
 # Tables with no reference to protect. Not an exemption list the gate trusts: the
 # structural rule below derives "needs protection" from the catalog, and these
@@ -112,11 +112,11 @@ GRANTED_SCHEMAS = ("casework", "retrieval", "proof")
 # that gains an evidence, capture or run column later starts requiring a policy
 # automatically, whether or not anyone updated this comment.
 #
-#   casework.database_clusters      cluster_id-keyed engine configuration
+#   evidence.database_clusters      cluster_id-keyed engine configuration
 #   proof.evaluation_queries        the harness's own query set
 #   retrieval.search_index_builds   build receipts (counts, model IDs, timings)
 UNREFERENCED_BY_DESIGN = (
-    "casework.database_clusters",
+    "evidence.database_clusters",
     "proof.evaluation_queries",
     "retrieval.search_index_builds",
 )
@@ -128,7 +128,7 @@ UNREFERENCED_BY_DESIGN = (
 #
 # Derived, never listed. The measured drift this catches:
 # retrieval.search_index_queue carries evidence_id and can name restricted
-# evidence, but sql/11_roles_rls.sql section 5's loop walks casework only, so the
+# evidence, but sql/11_roles_rls.sql section 5's loop walks evidence only, so the
 # outbox had no policy while every persona held SELECT on it.
 PROTECTION_RULE_SQL = """
 WITH cols AS (
@@ -169,7 +169,7 @@ SELECT c.qualified,
 # anything. ``external_key`` is what a human can act on, so it is what gets printed.
 RESTRICTED_KEYS_SQL = """
 SELECT external_key, evidence_id
-  FROM casework.evidence_items
+  FROM evidence.evidence_items
  WHERE coalesce(acl ->> 'visibility', 'restricted') = 'restricted'
    AND NOT is_deleted
  ORDER BY external_key
@@ -193,8 +193,8 @@ WITH classified AS (
     evidence.acl -> 'classification_sources' AS classification_sources,
     coalesce(telemetry.structured, '{}'::jsonb) AS structured,
     telemetry.capture_id
-  FROM casework.evidence_items evidence
-  LEFT JOIN casework.telemetry_evidence telemetry
+  FROM evidence.evidence_items evidence
+  LEFT JOIN evidence.telemetry_evidence telemetry
     ON telemetry.evidence_id = evidence.evidence_id
   WHERE NOT evidence.is_deleted
 ),
@@ -212,7 +212,7 @@ source_summary AS (
         source.source ~ '^pg_stat_activity_samples:[0-9]+$'
         AND EXISTS (
           SELECT 1
-          FROM casework.pg_stat_activity_samples activity
+          FROM evidence.pg_stat_activity_samples activity
           WHERE activity.capture_id = classified.capture_id
             AND activity.sample_id = CASE
               WHEN source.source ~ '^pg_stat_activity_samples:[0-9]+$'
@@ -225,7 +225,7 @@ source_summary AS (
         source.source ~ '^pg_stat_statements_samples:[0-9]+$'
         AND EXISTS (
           SELECT 1
-          FROM casework.pg_stat_statements_samples statements
+          FROM evidence.pg_stat_statements_samples statements
           CROSS JOIN LATERAL jsonb_array_elements_text(statements.queries) query_text
           WHERE statements.capture_id = classified.capture_id
             AND statements.sample_id = CASE
@@ -342,15 +342,15 @@ EVIDENCE_TOUCH_SQL = "SELECT count(*) FROM {table} WHERE {predicate}"
 #    must not be able to take the cluster down, so it never joins a masked table
 #    under a persona.
 #
-#    casework.telemetry_evidence itself is no longer masked -- the same crash reached
-#    casework.v_evidence_documents and the shipped app, so sql/12_masking.sql dropped
+#    evidence.telemetry_evidence itself is no longer masked -- the same crash reached
+#    evidence.v_evidence_documents and the shipped app, so sql/12_masking.sql dropped
 #    mask_telemetry and G-29's MUST_NOT_BE_MASKED now keeps it dropped. This
 #    discipline still stands: the three sample tables ARE masked, the crash shape is
 #    a property of pg_columnmask rather than of one policy, and reason 1 alone is
 #    sufficient to resolve the oracle as the owner.
 RESTRICTED_CAPTURES_SQL = """
 SELECT DISTINCT telemetry.capture_id
-  FROM casework.telemetry_evidence telemetry
+  FROM evidence.telemetry_evidence telemetry
  WHERE telemetry.evidence_id = ANY(%s)
    AND telemetry.capture_id IS NOT NULL
 """
@@ -368,15 +368,15 @@ CAPTURE_TOUCH_SQL = "SELECT count(*) FROM {table} WHERE capture_id = ANY(%s)"
 # * evidence-row-gated tables require a VISIBLE telemetry evidence row matching
 #   the sample's own dimension and query_id, so an uncleared persona is denied
 #   exactly the samples whose evidence row is restricted.
-# * capture-run-gated (casework.cloudwatch_metric_samples,
-#   casework.pg_stat_statements_samples) requires only that the capture's incident be
+# * capture-run-gated (evidence.cloudwatch_metric_samples,
+#   evidence.pg_stat_statements_samples) requires only that the capture's incident be
 #   visible. Section 6 calls this "coarser and deliberately so". Its incident is
 #   workshop-visible here, so all 3 personas legitimately read all rows and the
 #   statement text is withheld by MASKING, not by RLS.
 #
 # Asserting app_engineer == 0 on a capture-run-gated table would be asserting a
 # guarantee the DDL never made. That assertion did pass before this query existed --
-# but only because the probe joined casework.telemetry_evidence INSIDE the persona's
+# but only because the probe joined evidence.telemetry_evidence INSIDE the persona's
 # own transaction, where the join was itself RLS-filtered. The gate was reading its
 # own filtering back as the fact under test, which is the same inversion section 6's
 # comment documents failing OPEN.
@@ -402,8 +402,8 @@ SELECT count(*) FILTER (WHERE visible_workshop) AS uncleared,
     SELECT
       EXISTS (
         SELECT 1
-          FROM casework.telemetry_evidence evidence_row
-          JOIN casework.evidence_items evidence
+          FROM evidence.telemetry_evidence evidence_row
+          JOIN evidence.evidence_items evidence
             ON evidence.evidence_id = evidence_row.evidence_id
          WHERE evidence_row.capture_id = sample.capture_id
            AND evidence_row.telemetry_type = 'database_insights'
@@ -414,7 +414,7 @@ SELECT count(*) FILTER (WHERE visible_workshop) AS uncleared,
       ) AS visible_workshop,
       EXISTS (
         SELECT 1
-          FROM casework.telemetry_evidence evidence_row
+          FROM evidence.telemetry_evidence evidence_row
          WHERE evidence_row.capture_id = sample.capture_id
            AND evidence_row.telemetry_type = 'database_insights'
            AND evidence_row.structured ->> 'dimension' = sample.dimension
@@ -435,15 +435,15 @@ SELECT count(*) FILTER (WHERE visible_workshop) AS uncleared,
     SELECT
       EXISTS (
         SELECT 1
-          FROM casework.incident_capture_runs run
-          JOIN casework.evidence_items evidence
+          FROM evidence.incident_capture_runs run
+          JOIN evidence.evidence_items evidence
             ON evidence.evidence_id = run.incident_evidence_id
          WHERE run.capture_id = sample.capture_id
            AND coalesce(evidence.acl ->> 'visibility', 'restricted') = 'workshop'
       ) AS visible_workshop,
       EXISTS (
         SELECT 1
-          FROM casework.incident_capture_runs run
+          FROM evidence.incident_capture_runs run
          WHERE run.capture_id = sample.capture_id
       ) AS visible_any
       FROM {table} sample
@@ -1062,7 +1062,7 @@ def _assert_read_path_filtering(app_conn, restricted_ids: list) -> None:
 def _assert_evidence_keyed_filtering(app_conn, measured: dict) -> None:
     """Group (b'): every other evidence-keyed table, discovered from the catalog.
 
-    Scoped to the tables that clear through casework.evidence_items alone. Receipt
+    Scoped to the tables that clear through evidence.evidence_items alone. Receipt
     tables carrying a run key are routed to _assert_run_gated_filtering() instead,
     because there the cleared-persona equality asserted below would demand a
     cross-persona leak rather than forbid one.
@@ -1076,7 +1076,7 @@ def _assert_evidence_keyed_filtering(app_conn, measured: dict) -> None:
     require(
         any(count > 0 for count in touch.values()),
         f"the owner measured 0 rows touching restricted evidence across all "
-        f"{len(touch)} evidence-keyed tables while casework.evidence_items holds "
+        f"{len(touch)} evidence-keyed tables while evidence.evidence_items holds "
         f"{len(restricted_ids)} restricted rows. Every table would then take the "
         f"skip branch below and the group would report clean over policies that "
         f"deny every persona. The owner is being filtered by the policies it "
@@ -1107,8 +1107,8 @@ def _assert_evidence_keyed_filtering(app_conn, measured: dict) -> None:
             f"restricted evidence out of {table}. Section 2 of sql/11_roles_rls.sql "
             f"grants every persona SELECT ON ALL TABLES IN SCHEMA "
             f"{table.split('.')[0]}, so the app engineer is denied at "
-            f"casework.evidence_items and then reads the same evidence here. The "
-            f"policy must AND an EXISTS on casework.evidence_items for EVERY "
+            f"evidence.evidence_items and then reads the same evidence here. The "
+            f"policy must AND an EXISTS on evidence.evidence_items for EVERY "
             f"reference column this table carries ({', '.join(columns)}) -- a "
             f"single-endpoint predicate passes every row whose other endpoint the "
             f"app engineer can already see (sql/11_roles_rls.sql sections 5 and 7)",
@@ -1143,8 +1143,8 @@ def _assert_capture_mechanism(table: str, mechanism: str) -> None:
     require(
         mechanism in ("evidence_row", "capture_run"),
         f"{table} is keyed by capture_id and holds capture payloads, but its RLS "
-        f"policy references neither casework.telemetry_evidence (a visible "
-        f"evidence row) nor casework.incident_capture_runs (the capture's incident) "
+        f"policy references neither evidence.telemetry_evidence (a visible "
+        f"evidence row) nor evidence.incident_capture_runs (the capture's incident) "
         f"-- so this gate cannot tell what visibility it is supposed to enforce, "
         f"and section 2 grants every persona SELECT on the schema regardless. "
         f"Gate it on one of section 6's two shapes (sql/11_roles_rls.sql "
@@ -1207,7 +1207,7 @@ def _assert_capture_keyed_filtering(app_conn, measured: dict) -> None:
       never made.
 
     Both persona probes are a bare ``capture_id = ANY(...)`` over a key set the OWNER
-    resolved, never a join back to casework.telemetry_evidence. Two reasons, and do
+    resolved, never a join back to evidence.telemetry_evidence. Two reasons, and do
     not "simplify" them back into one query:
 
     * a subquery inside the persona's own transaction is itself RLS-filtered, so the
@@ -1227,7 +1227,7 @@ def _assert_capture_keyed_filtering(app_conn, measured: dict) -> None:
         captures,
         f"no capture built any of the {len(measured['restricted_ids'])} restricted "
         f"evidence rows, so every assertion below would hold over an empty key set. "
-        f"casework.telemetry_evidence.capture_id is the link this group depends on; a "
+        f"evidence.telemetry_evidence.capture_id is the link this group depends on; a "
         f"capture that wrote evidence without recording its capture_id breaks the tie "
         f"between a sample and the ACL protecting its evidence row "
         f"(labs/incident/run_live_workshop.py)",
@@ -1325,7 +1325,7 @@ def _assert_receipt_names_no_restricted(
             f"EVIDENCE too. This is the measured leak -- "
             f"proof.retrieval_candidates.evidence_snapshot holds the document "
             f"header and chunk snippet as retrieved, so the restricted statement "
-            f"text RLS withheld at casework.evidence_items came back out of a run "
+            f"text RLS withheld at evidence.evidence_items came back out of a run "
             f"the reader owned. Restore the catalog-derived evidence clause in "
             f"sql/11_roles_rls.sql section 8",
         )
@@ -1427,7 +1427,7 @@ def _assert_owner_measurement(measured: dict) -> None:
         require(
             measured["derived"][table] > 0,
             f"{table} holds no current restricted rows while "
-            f"casework.evidence_items holds {len(restricted)}. The retrieval index is "
+            f"evidence.evidence_items holds {len(restricted)}. The retrieval index is "
             f"written by {exposure['owner']}, so either the search index has not "
             f"been rebuilt since the capture, or that identity could not see the "
             f"restricted rows when it built it (named by "

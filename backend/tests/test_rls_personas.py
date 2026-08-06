@@ -37,7 +37,7 @@ if SECURITY_DATABASE_TESTS:
 from backend.app import db
 
 READ_PATH_TABLES = (
-    "casework.evidence_items",
+    "evidence.evidence_items",
     "retrieval.documents",
     "retrieval.chunks",
 )
@@ -98,7 +98,7 @@ def _restricted_keys() -> list[str]:
         cursor.execute(
             """
             SELECT external_key
-              FROM casework.evidence_items
+              FROM evidence.evidence_items
              WHERE acl ->> 'visibility' = 'restricted'
                AND NOT is_deleted
              ORDER BY external_key
@@ -111,14 +111,14 @@ def _count_restricted(persona: str, table: str) -> int:
     """Count the restricted rows ``persona`` reads in ``table``.
 
     A bare single-table predicate on the same scalar the row policy tests -- never
-    a join out to casework.evidence_items. A leak scan that reaches its target
+    a join out to evidence.evidence_items. A leak scan that reaches its target
     through a second protected table measures the OTHER table's protection: with
     retrieval.chunks' policy loosened to USING (true), the joined form still
     returned the filtered count while a bare SELECT handed over every restricted
     chunk. Same discipline as gates/rls_enforcement.py and G-29.
     """
-    column = "acl ->> 'visibility'" if table.startswith("casework.") else "acl_visibility"
-    current = "" if table == "casework.evidence_items" else "is_current AND "
+    column = "acl ->> 'visibility'" if table.startswith("evidence.") else "acl_visibility"
+    current = "" if table == "evidence.evidence_items" else "is_current AND "
     with db.get_dict_conn(persona) as conn, conn.cursor() as cursor:
         cursor.execute(
             f"SELECT count(*)::int AS n FROM {table} "
@@ -159,7 +159,7 @@ class RowFilteringTests(unittest.TestCase):
         for persona in ("dba", "auditor"):
             with self.subTest(persona=persona):
                 self.assertEqual(
-                    _count_restricted(persona, "casework.evidence_items"), expected
+                    _count_restricted(persona, "evidence.evidence_items"), expected
                 )
 
     def test_cleared_personas_see_restricted_documents_and_chunks(self) -> None:
@@ -193,12 +193,12 @@ class RowFilteringTests(unittest.TestCase):
         self.assertGreater(counts["app_engineer"], 0, "no workshop rows: corpus not seeded")
         self.assertEqual(len(set(counts.values())), 1, counts)
 
-    def test_casework_evidence_is_filtered_by_the_jsonb_form(self) -> None:
-        """casework carries visibility in acl->>'visibility', not a scalar column.
+    def test_evidence_evidence_is_filtered_by_the_jsonb_form(self) -> None:
+        """evidence carries visibility in acl->>'visibility', not a scalar column.
         Both predicate forms must agree or the two layers disagree on one row."""
         with db.get_dict_conn("app_engineer") as conn, conn.cursor() as cursor:
             cursor.execute(
-                "SELECT count(*)::int AS n FROM casework.evidence_items "
+                "SELECT count(*)::int AS n FROM evidence.evidence_items "
                 "WHERE external_key = ANY(%s)",
                 [self.restricted_keys],
             )
@@ -543,15 +543,15 @@ class ProofAuthorizationTests(unittest.TestCase):
 # activity, queries for statements). A test covering only the obvious text column
 # would have passed against every one of those leaks.
 MASKED_COLUMNS = (
-    ("casework.pg_stat_activity_samples", "query"),
-    ("casework.pg_stat_activity_samples", "raw_row"),
-    ("casework.pg_stat_statements_samples", "queries"),
-    ("casework.pg_stat_statements_samples", "raw_row"),
+    ("evidence.pg_stat_activity_samples", "query"),
+    ("evidence.pg_stat_activity_samples", "raw_row"),
+    ("evidence.pg_stat_statements_samples", "queries"),
+    ("evidence.pg_stat_statements_samples", "raw_row"),
 )
 
-# casework.telemetry_evidence is NOT here, and that is a fix rather than an
+# evidence.telemetry_evidence is NOT here, and that is a fix rather than an
 # omission: masking it crashed the Aurora instance through
-# casework.v_evidence_documents and protected nothing, because the same statements
+# evidence.v_evidence_documents and protected nothing, because the same statements
 # are readable in the deliberately-unmasked chunk corpus. See sql/12_masking.sql
 # section 3 and G-29's MUST_NOT_BE_MASKED.
 MASKED_FOR = ("persona_app_engineer", "persona_auditor")
@@ -620,8 +620,8 @@ class ColumnMaskingTests(unittest.TestCase):
             for persona in MASKED_FOR:
                 for function in (
                     "retrieval.mask_blob(text)",
-                    "casework.mask_redact(text)",
-                    "casework.mask_redact_json(jsonb)",
+                    "evidence.mask_redact(text)",
+                    "evidence.mask_redact_json(jsonb)",
                 ):
                     with self.subTest(persona=persona, function=function):
                         cursor.execute(
@@ -723,8 +723,8 @@ class ColumnMaskingTests(unittest.TestCase):
         """Two absences that are load-bearing, asserted so they cannot regress
         silently.
 
-        casework.telemetry_evidence: a mask here made an auditor's read of
-        casework.v_evidence_documents terminate the backend and restart the whole
+        evidence.telemetry_evidence: a mask here made an auditor's read of
+        evidence.v_evidence_documents terminate the backend and restart the whole
         Aurora instance, and it protected nothing anyway.
 
         retrieval.chunks: a mask on chunk_text makes all three search functions
@@ -739,7 +739,7 @@ class ColumnMaskingTests(unittest.TestCase):
                   FROM pgcolumnmask.ddm_policies
                  WHERE schemaname || '.' || tablename = ANY(%s)
                 """,
-                [["casework.telemetry_evidence", "retrieval.chunks"]],
+                [["evidence.telemetry_evidence", "retrieval.chunks"]],
             )
             offenders = cursor.fetchall()
         self.assertEqual(

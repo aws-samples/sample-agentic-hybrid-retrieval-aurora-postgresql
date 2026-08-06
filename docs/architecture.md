@@ -12,28 +12,39 @@ PostgreSQL catalogs + app-pool/request telemetry + optional CloudWatch
                   |
                   | Investigation Evidence + Validation Evidence
                   v
-       casework.* authoritative records
+       Authoritative Evidence (evidence.*)
                   |
                   | deterministic render + content hash
                   v
-       retrieval.* physical search index
+       Search & Ranking (retrieval.*)
  documents -> chunks -> FTS / HNSW / trigram indexes
                   |
                   | filtered candidates and rank positions
                   v
-       retrieval.* canonical SQL ranking
+       Search & Ranking canonical SQL
                   |
           +-------+-------+
           |               |
           v               v
- proof.* receipts     inspectable agent tools
+ Runs, Citations & Audit (proof.*)     inspectable agent tools
           |               |
           +-------+-------+
                   v
-      cited answer + supervised-action proof
+      cited answer + supervised-action audit trail
 ```
 
-Inside the workshop, `casework.*` contains only measurements from the
+## Participant Terminology
+
+Use the participant names in the workshop narrative. The names in backticks are
+the stable SQL schemas that participants inspect in the Code Editor.
+
+| Participant name | SQL schema | Meaning |
+|---|---|---|
+| **Authoritative Evidence** | `evidence.*` | Measured incident facts, source identity, and declared relationships. |
+| **Search & Ranking** | `retrieval.*` | Rebuildable documents, chunks, indexes, retrieval, and traversal. |
+| **Runs, Citations & Audit** | `proof.*` | The persisted query, candidates, answer, citations, supervised action, and replay record. |
+
+Inside the workshop, `evidence.*` contains only measurements from the
 participant's current run. Provisioning starts with zero evidence. No fixture,
 dump, authored record, or earlier capture enters the participant path. In
 production, equivalent inputs can come from approved domain tables, views,
@@ -61,7 +72,7 @@ One guided participant orchestrator
  PostgreSQL + application-pool/request + optional CloudWatch measurements
                          |
                          v
-       atomic Investigation Evidence casework.admit_evidence bundle
+       atomic Investigation Evidence evidence.admit_evidence bundle
                          |
                          v
       deterministic searchable evidence build
@@ -109,9 +120,9 @@ uses. See `docs/builder-session-flow.md` for when it is offered.
 
 ## Three Ownership Layers
 
-### 1. `casework`: relational truth
+### 1. Authoritative Evidence (`evidence`): relational truth
 
-`casework.evidence_items` supplies stable evidence identity, source provenance,
+`evidence.evidence_items` supplies stable evidence identity, source provenance,
 ACL metadata, and tombstone state. Typed tables hold the domain facts:
 
 - participant-induced capture runs and Aurora PostgreSQL identity
@@ -123,9 +134,9 @@ Foreign keys express incident-to-change, lock-to-change, lock-to-incident, and
 telemetry-to-incident relationships. These relations are authoritative in the
 workshop model.
 
-### 2. `retrieval`: derived search state
+### 2. Search & Ranking (`retrieval`): derived search state
 
-`casework.v_evidence_documents` deterministically renders relational rows into
+`evidence.v_evidence_documents` deterministically renders relational rows into
 searchable documents. `backend/app/search_index.py` versions those documents,
 chunks them, resolves embeddings by model and content hash, and promotes only
 ready versions to the current search surface.
@@ -145,7 +156,7 @@ The search index is not a second source of truth. It is one-way derived,
 rebuildable, and checked through `retrieval.v_search_index_drift` and
 `retrieval.assert_search_index_ready()`.
 
-### 3. `proof`: answer evidence
+### 3. Runs, Citations & Audit (`proof`): answer evidence
 
 Each request creates `proof.retrieval_runs` before retrieval. Candidate-level
 positions and scores are stored in `proof.retrieval_candidates`; stage timings

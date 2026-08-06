@@ -7,9 +7,9 @@ promised connector behavior that the one-hour session did not exercise.
 The implemented write boundary is:
 
 ```text
-typed casework transaction
-  -> casework.evidence_items source revision
-  -> casework.queue_evidence(evidence_id)
+typed evidence transaction
+  -> evidence.evidence_items source revision
+  -> evidence.queue_evidence(evidence_id)
   -> retrieval.search_index_queue
   -> backend/app/search_index.py
   -> versioned retrieval.documents and retrieval.chunks
@@ -17,8 +17,8 @@ typed casework transaction
 
 ## Source Input
 
-Every searchable casework row must resolve to one
-`casework.evidence_items` record with:
+Every searchable evidence row must resolve to one
+`evidence.evidence_items` record with:
 
 - stable `evidence_id`;
 - evidence kind and external key;
@@ -29,7 +29,7 @@ Every searchable casework row must resolve to one
 - tombstone state.
 
 Typed domain tables own facts and relationships. Search text is rendered from
-those rows by `casework.v_evidence_documents`; applications do not hand-edit
+those rows by `evidence.v_evidence_documents`; applications do not hand-edit
 `retrieval.documents`.
 
 ## search index Version
@@ -85,16 +85,16 @@ the document and chunk tables so planner statistics reflect the new corpus.
 
 ## Tombstones
 
-A source deletion is an authoritative casework update:
+A source deletion is an authoritative evidence update:
 
 ```sql
-UPDATE casework.evidence_items
+UPDATE evidence.evidence_items
 SET is_deleted = true,
     deleted_at = now(),
     source_revision = :new_revision
 WHERE evidence_id = :evidence_id;
 
-SELECT casework.queue_evidence(:evidence_id);
+SELECT evidence.queue_evidence(:evidence_id);
 ```
 
 The next build supersedes the current search document and completes the outbox
@@ -112,7 +112,7 @@ Use:
 
 - **delta/upsert processing** for webhooks or incremental polls;
 - **periodic full reconciliation** to detect source deletions;
-- **bounded batches** for casework writes and search index work;
+- **bounded batches** for evidence writes and search index work;
 - **content-hash reuse** for embeddings;
 - **live revalidation** for volatile permissions or action-driving state.
 
@@ -136,5 +136,5 @@ POST /v1/evaluation
 ```
 
 These APIs consume the ready search index. They do not mutate authoritative
-casework. `SearchRequest.source_systems` is optional for evaluation callers and
+evidence. `SearchRequest.source_systems` is optional for evaluation callers and
 required by the participant frontend and agent path.

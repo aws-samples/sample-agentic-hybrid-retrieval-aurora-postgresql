@@ -5,7 +5,7 @@ SELECT
   indexname,
   indexdef
 FROM pg_indexes
-WHERE schemaname IN ('casework', 'retrieval', 'proof')
+WHERE schemaname IN ('evidence', 'retrieval', 'proof')
 ORDER BY schemaname, tablename, indexname;
 
 CREATE OR REPLACE FUNCTION retrieval.configure_ann_runtime(

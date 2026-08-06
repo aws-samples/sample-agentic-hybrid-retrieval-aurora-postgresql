@@ -31,19 +31,19 @@ EXPECTED_SIGNAL_TYPES = ("lock", "pool", "request", "wal", "meta", "plan")
 # category coverage are the release contract.
 EXPECTED_LIVE_DOCUMENT_RANGE = (50, 80)
 REQUIRED_TABLES = (
-    "casework.database_clusters",
-    "casework.evidence_items",
-    "casework.incidents",
-    "casework.changes",
-    "casework.incident_capture_runs",
-    "casework.lock_evidence",
-    "casework.pg_stat_activity_samples",
-    "casework.pg_lock_samples",
-    "casework.pg_blocking_pids_samples",
-    "casework.pg_stat_statements_samples",
-    "casework.cloudwatch_metric_samples",
-    "casework.telemetry_evidence",
-    "casework.incident_changes",
+    "evidence.database_clusters",
+    "evidence.evidence_items",
+    "evidence.incidents",
+    "evidence.changes",
+    "evidence.incident_capture_runs",
+    "evidence.lock_evidence",
+    "evidence.pg_stat_activity_samples",
+    "evidence.pg_lock_samples",
+    "evidence.pg_blocking_pids_samples",
+    "evidence.pg_stat_statements_samples",
+    "evidence.cloudwatch_metric_samples",
+    "evidence.telemetry_evidence",
+    "evidence.incident_changes",
     "retrieval.search_index_queue",
     "retrieval.search_index_builds",
     "retrieval.documents",
@@ -64,7 +64,7 @@ REQUIRED_TABLES = (
     "proof.transport_invocations",
 )
 REQUIRED_FUNCTIONS = (
-    ("casework", "queue_evidence"),
+    ("evidence", "queue_evidence"),
     ("retrieval", "acl_visible"),
     ("retrieval", "full_text_search"),
     ("retrieval", "vector_search"),
@@ -73,20 +73,20 @@ REQUIRED_FUNCTIONS = (
     ("retrieval", "assert_search_index_ready"),
     ("retrieval", "configure_ann_runtime"),
     ("retrieval", "traverse_evidence"),
-    ("casework", "assert_live_capture_ready"),
-    ("casework", "admit_evidence"),
+    ("evidence", "assert_live_capture_ready"),
+    ("evidence", "admit_evidence"),
     ("proof", "validate_answer_citations"),
     ("proof", "evaluate_subquestion_coverage"),
     ("proof", "traversal_recall"),
 )
 REQUIRED_COLUMNS = (
-    ("casework", "incidents", "impact_summary"),
-    ("casework", "lock_evidence", "relation_oid"),
-    ("casework", "lock_evidence", "blocked_lock_mode"),
-    ("casework", "lock_evidence", "blocking_lock_mode"),
-    ("casework", "pg_stat_activity_samples", "observation_number"),
-    ("casework", "pg_lock_samples", "observation_number"),
-    ("casework", "pg_blocking_pids_samples", "observation_number"),
+    ("evidence", "incidents", "impact_summary"),
+    ("evidence", "lock_evidence", "relation_oid"),
+    ("evidence", "lock_evidence", "blocked_lock_mode"),
+    ("evidence", "lock_evidence", "blocking_lock_mode"),
+    ("evidence", "pg_stat_activity_samples", "observation_number"),
+    ("evidence", "pg_lock_samples", "observation_number"),
+    ("evidence", "pg_blocking_pids_samples", "observation_number"),
     ("proof", "retrieval_runs", "role"),
     ("proof", "retrieval_candidates", "match_tier"),
     ("proof", "retrieval_candidates", "exact_identifier_position"),
@@ -96,7 +96,7 @@ REQUIRED_COLUMNS = (
     ("proof", "transport_invocations", "role"),
 )
 RETIRED_COLUMNS = (
-    ("casework", "incidents", "customer_impact"),
+    ("evidence", "incidents", "customer_impact"),
     ("proof", "retrieval_runs", "principal"),
     ("proof", "agent_runs", "principal"),
 )
@@ -303,11 +303,11 @@ def _check_catalog_objects(doctor: Doctor, cursor) -> bool:
     return True
 
 
-def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
+def _check_evidence(doctor: Doctor, cursor, cleared_cursor=None) -> None:
     cursor.execute(
         """
         SELECT source_system, count(*) AS records
-        FROM casework.evidence_items
+        FROM evidence.evidence_items
         WHERE NOT is_deleted
         GROUP BY source_system
         ORDER BY source_system
@@ -339,7 +339,7 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
           count(*) FILTER (WHERE wave = 'A') AS wave_a_count,
           count(*) FILTER (WHERE wave = 'B') AS wave_b_count,
           count(*) AS capture_count
-        FROM casework.incident_capture_runs
+        FROM evidence.incident_capture_runs
         WHERE capture_origin = 'participant_induced'
         GROUP BY incident_evidence_id
         ORDER BY max(capture_ended_at) DESC
@@ -388,10 +388,10 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
           upper(right(replace(wave_b.capture_id::text, '-', ''), 8))
             AS wave_b_suffix,
           incident.external_key AS incident_key
-        FROM casework.incident_capture_runs wave_a
-        JOIN casework.evidence_items incident
+        FROM evidence.incident_capture_runs wave_a
+        JOIN evidence.evidence_items incident
           ON incident.evidence_id = wave_a.incident_evidence_id
-        LEFT JOIN casework.incident_capture_runs wave_b
+        LEFT JOIN evidence.incident_capture_runs wave_b
           ON wave_b.incident_evidence_id = wave_a.incident_evidence_id
          AND wave_b.capture_origin = 'participant_induced'
          AND wave_b.wave = 'B'
@@ -449,7 +449,7 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
               ELSE false
             END
           ) AS run_scoped_keys
-        FROM casework.evidence_items
+        FROM evidence.evidence_items
         WHERE source_system = 'pg_incident_capture'
           AND NOT is_deleted
         """,
@@ -473,7 +473,7 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
             FILTER (
               WHERE telemetry.structured ->> 'telemetry_type' IS NOT NULL
             ) AS signal_types
-        FROM casework.telemetry_evidence AS telemetry
+        FROM evidence.telemetry_evidence AS telemetry
         WHERE telemetry.capture_id = %s
         """,
         (capture["wave_a_capture_id"],),
@@ -529,7 +529,7 @@ def _check_casework(doctor: Doctor, cursor, cleared_cursor=None) -> None:
             ),
         )
     try:
-        cursor.execute("SELECT casework.assert_live_capture_ready() AS validation")
+        cursor.execute("SELECT evidence.assert_live_capture_ready() AS validation")
         validation = cursor.fetchone()["validation"]
         doctor.ok(
             "incident capture",
@@ -679,7 +679,7 @@ def check_database(doctor: Doctor) -> None:
 
                 if not _check_catalog_objects(doctor, cursor):
                     return
-                _check_casework(doctor, cursor)
+                _check_evidence(doctor, cursor)
                 _check_search_index(doctor, cursor)
     except Exception as error:
         doctor.fail("database connectivity", str(error))

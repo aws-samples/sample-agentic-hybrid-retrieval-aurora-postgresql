@@ -5,11 +5,11 @@ The Lab-1 terminal identity is ``workshop_participant``. Three claims:
 
 1. **Zero ceremony.** Every statement a Lab-1 snippet issues runs as-is under this
    identity: the monitoring views (``pg_stat_activity``, ``pg_locks``,
-   ``pg_stat_progress_create_index``) are readable and ``casework.admit_evidence``
+   ``pg_stat_progress_create_index``) are readable and ``evidence.admit_evidence``
    is EXECUTE-able. No ``SET ROLE`` first, no grant step, no sudo. If a participant
    has to type anything the guide does not show, the guide is wrong.
 
-2. **Fail-closed first lesson.** A bare ``SELECT`` on ``casework.evidence_items`` /
+2. **Fail-closed first lesson.** A bare ``SELECT`` on ``evidence.evidence_items`` /
    ``retrieval.documents`` / ``retrieval.chunks`` from the same identity raises
    ``permission denied`` (SQLSTATE 42501). Evidence reads require assuming a
    persona; the denial is the lesson, not a bug.
@@ -27,13 +27,13 @@ survives a naive check:
   claim is that the lab's lock-contention snippet sees the blocking session.
 
 * **SECURITY DEFINER shape of the admission function.** EXECUTE is necessary and not
-  sufficient. ``casework.admit_evidence`` writes tables the participant holds no
+  sufficient. ``evidence.admit_evidence`` writes tables the participant holds no
   grant on, so without ``prosecdef`` the EXECUTE probe reports true while
   ``./admit.sh`` dies on ``permission denied for table ingest_receipts``. The
   pinned ``search_path`` is asserted with it: a SECURITY DEFINER function with a
   caller-controlled search_path is a privilege-escalation vector.
 
-Read-only: SELECT and catalog reads. ``casework.admit_evidence`` is probed with
+Read-only: SELECT and catalog reads. ``evidence.admit_evidence`` is probed with
 ``has_function_privilege``, never invoked - the gate contract forbids writes, and
 invoking it would write evidence into the participant's own capture.
 """
@@ -69,12 +69,12 @@ MONITORING_VIEWS = (
 )
 
 DENIED_TABLES = (
-    "casework.evidence_items",
+    "evidence.evidence_items",
     "retrieval.documents",
     "retrieval.chunks",
 )
 
-ADMIT_FUNCTION = "casework.admit_evidence(jsonb)"
+ADMIT_FUNCTION = "evidence.admit_evidence(jsonb)"
 
 # Attributes the participant login must not hold. rolbypassrls is the load-bearing
 # one: with it, this identity reads every restricted row and G-27's entire subject
@@ -94,7 +94,7 @@ ADMIT_SHAPE_SQL = """
 SELECT p.prosecdef, p.proconfig, pg_get_userbyid(p.proowner)
   FROM pg_proc p
   JOIN pg_namespace n ON n.oid = p.pronamespace
- WHERE n.nspname = 'casework'
+ WHERE n.nspname = 'evidence'
    AND p.proname = 'admit_evidence'
    AND pg_get_function_identity_arguments(p.oid) = 'payload jsonb'
 """
@@ -187,7 +187,7 @@ def _assert_admission(conn, login: str) -> str | None:
         secdef,
         f"{ADMIT_FUNCTION} is not SECURITY DEFINER, so its body runs with the "
         f"caller's privileges and ./admit.sh raises permission denied on "
-        f"casework.ingest_receipts for {login}",
+        f"evidence.ingest_receipts for {login}",
     )
     require(
         any(entry.startswith("search_path=") for entry in (proconfig or [])),

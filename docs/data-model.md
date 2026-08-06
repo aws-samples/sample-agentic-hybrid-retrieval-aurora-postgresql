@@ -1,14 +1,17 @@
 # Data Model
 
-The schema separates authoritative casework, derived search state, and
-historical proof. That separation is the central design invariant.
+The schema separates **Authoritative Evidence** (`evidence`), **Search &
+Ranking** (`retrieval`), and **Runs, Citations & Audit** (`proof`). That
+separation is the central design invariant. The participant-facing names
+describe each boundary; the schema names are the stable SQL contract.
 
-## `casework`: Authoritative Evidence
+## `evidence`: Authoritative Evidence
 
 | Relation | Purpose |
 |---|---|
 | `database_clusters` | Aurora PostgreSQL cluster, engine version, Region, environment, and service metadata |
 | `evidence_items` | Stable evidence ID, type, external key, source URI, source revision, ACL, and tombstone |
+| `ingest_receipts` | Idempotent evidence-admission receipt with source, payload hash, write counts, and queue result |
 | `incidents` | Severity, interval, impact, resolution, and cluster |
 | `changes` | Change type, SQL, timing, owner, description, and rollback plan |
 | `incident_capture_runs` | Participant-induced capture identity, bounded window, relation, target, and manifest |
@@ -33,7 +36,7 @@ is derived from its capture UUID: `INC-<run-suffix>`,
 `TEL-<run-suffix>-...`. The database starts empty, and participant retrieval
 filters on source system and receipt identity before ranking.
 
-`casework.v_evidence_documents` is a deterministic renderer over the normalized
+`evidence.v_evidence_documents` is a deterministic renderer over the normalized
 tables. It emits:
 
 - source identity and revision;
@@ -49,7 +52,7 @@ document identity does not depend on the database session's `TimeZone`.
 
 The view is an input contract, not the indexed search surface.
 
-## `retrieval`: Rebuildable search index
+## `retrieval`: Search & Ranking
 
 | Relation | Purpose |
 |---|---|
@@ -98,13 +101,18 @@ defaults to `40`. pgvector iterative scan defaults to `relaxed_order` so
 post-index filters can continue scanning for enough visible candidates. These
 settings are inspectable tuning inputs, not guarantees of recall or latency.
 
-## `proof`: Replayable Evidence
+## `proof`: Runs, Citations & Audit
 
 | Relation | Purpose |
 |---|---|
 | `retrieval_runs` | Query, filters, workshop role field, model space, RRF weights, fuzzy threshold, ANN controls, rerank state, status, and latency |
 | `retrieval_candidates` | Final rank plus raw arm scores, arm positions, RRF, rerank score, and evidence snapshot |
 | `run_stages` | Ordered retrieval and agent stage timings |
+| `observability_refs` | Retrieval-window observability reference and verification context |
+| `agent_runs` | Bounded agent question, initial controls, tool-call budget, and completion state |
+| `agent_subquestions` | Decomposed evidence requirement and coverage state for an agent run |
+| `agent_retrievals` | Retrieval attempts made for an agent subquestion |
+| `agent_escalations` | Recorded retry or escalation when a subquestion lacks required evidence |
 | `agent_answers` | Question, answer text, synthesis mode, model transport, and token usage |
 | `answer_citations` | Citation number, exact document/chunk versions, URI, revision, quote, and claim |
 | `action_proposals` | Structured, cited, catalog-checked recommendation rendered into participant SQL |
@@ -113,6 +121,7 @@ settings are inspectable tuning inputs, not guarantees of recall or latency.
 | `evaluation_queries` | Controlled retrieval or traversal question |
 | `relevance_judgments` | Graded relevance label and rationale |
 | `traversal_results` | Persisted graph paths for traversal evaluation |
+| `transport_invocations` | HTTP, MCP, or AgentCore invocation receipt linked to a retrieval run when available |
 
 `proof.validate_answer_citations(run_id)` verifies that a citation URI and
 revision match the referenced document and that the quote occurs in the exact
@@ -139,7 +148,7 @@ Every evidence item carries:
 empty list because `retrieval.documents.acl_principals` and its GIN indexes are
 still copied into derived columns; no code reads it.
 
-`casework.evidence_items` keeps the JSONB. The search index copies the same
+`evidence.evidence_items` keeps the JSONB. The search index copies the same
 value into the sargable columns `retrieval.documents.acl_visibility` and
 `retrieval.chunks.acl_visibility`. Anything other than `workshop` is restricted,
 and the derived columns default to `restricted`, so an unclassified row fails
@@ -169,7 +178,7 @@ and revalidate permissions live when indexed ACL metadata is not sufficient.
 Deleting source evidence means setting `is_deleted` and `deleted_at`, updating
 the source revision, and queuing that evidence ID. search index rebuild then:
 
-1. removes the item from `casework.v_evidence_documents`;
+1. removes the item from `evidence.v_evidence_documents`;
 2. supersedes its current search document;
 3. completes the tombstone outbox event;
 4. excludes it from new search and traversal;

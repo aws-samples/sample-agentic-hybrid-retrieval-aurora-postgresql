@@ -29,7 +29,7 @@ CORE_SQL_FILES := \
 	sql/13_supervised_execution.sql
 
 # The optional security module. Applied only by `make security-schema`, and only
-# after the core files, because both depend on the casework and retrieval tables
+# after the core files, because both depend on the evidence and retrieval tables
 # they gate. Re-run sql/01_schema.sql first if evidence ACLs changed: the ACL
 # reconciliation there is what these policies read.
 SECURITY_SQL_FILES := \

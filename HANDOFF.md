@@ -491,7 +491,7 @@ and admits a full current corpus. If it raises an authorization error naming
 
 Current maintenance hazards:
 
-- `casework.telemetry_evidence` stores the signal value in
+- `evidence.telemetry_evidence` stores the signal value in
   `structured.telemetry_type`, not `structured.signal_type` and not a
   `signal_type` column. Doctor, G-32, and the live retrieval test use the
   correct key. Psycopg parameterized SQL literals containing `%` must use `%%`.

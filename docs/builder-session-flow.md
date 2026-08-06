@@ -31,8 +31,9 @@ not participant-completion requirements and must not displace the core path.
 ## Scenario
 
 Workshop Studio pre-provisions 5,000 customers and 3,000,000 orders in
-`workbench_lab`; `casework`, `retrieval`, and `proof` start empty. The workload
-is operational state, not the corpus.
+`workbench_lab`; **Authoritative Evidence** (`evidence`), **Search & Ranking**
+(`retrieval`), and **Runs, Citations & Audit** (`proof`) start empty. The
+workload is operational state, not the corpus.
 
 In Lab 1, the participant:
 
@@ -159,9 +160,9 @@ versioned evidence contract.
 
 ## Unique L400 Proof
 
-1. **Relational truth and search state are different assets.** `casework.*`
-   owns normalized evidence and relationships; `retrieval.*` is a derived,
-   versioned, rebuildable search index.
+1. **Authoritative Evidence and Search & Ranking are different assets.**
+   `evidence.*` owns normalized evidence and relationships; `retrieval.*` is a
+   derived, versioned, rebuildable search index.
 2. **Hybrid means inspectable signals, not one opaque score.** Raw lexical,
    vector, fuzzy, RRF, and rerank values remain separate. Hybrid is evaluated,
    not presumed to win for every query.
@@ -169,8 +170,9 @@ versioned evidence contract.
    post-index evidence, so the agent cannot cite an improvement that has not
    happened.
 4. **A recommendation is not an action.** The agent has no write tool or DDL
-   privilege. The participant's approval, executed SQL fingerprint, Validation Evidence
-   outcome, and readiness verdict are persisted proof.
+   privilege. The participant's approval, executed SQL fingerprint, Validation
+   Evidence outcome, and readiness verdict are persisted in Runs, Citations &
+   Audit.
 
 ## Facilitator Gates
 
@@ -179,7 +181,7 @@ Before opening the room:
 - Aurora PostgreSQL 18.3 and the Workshop Studio network path have passed the
   current rehearsal.
 - The participant database has the 3,000,000-row operational workload and
-  zero `casework`, `retrieval`, and `proof` evidence.
+  zero `evidence`, `retrieval`, and `proof` evidence.
 - The API has `LAB_ENDPOINTS_ENABLED=1` and
   `DB_POOL_MIN_SIZE=DB_POOL_MAX_SIZE=10`.
 - `make doctor`, `make smoke`, the required release gates, and the frontend

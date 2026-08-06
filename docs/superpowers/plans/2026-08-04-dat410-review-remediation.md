@@ -304,14 +304,14 @@ git commit -m "Ignore the current local mockups path, not the retired one"
 
 ---
 
-### Task 5: Add a payload-size guard to `casework.admit_evidence`
+### Task 5: Add a payload-size guard to `evidence.admit_evidence`
 
 **Files:**
 - Modify: `sql/10_admission.sql:29-80` (function header/validation block)
 - Test: `backend/tests/test_admission.py` (new test in `AdmitEvidenceTest`)
 
 **Interfaces:**
-- Consumes: `casework.admit_evidence(payload jsonb)` — existing `SECURITY DEFINER` function signature, unchanged.
+- Consumes: `evidence.admit_evidence(payload jsonb)` — existing `SECURITY DEFINER` function signature, unchanged.
 - Produces: same signature and return shape (`jsonb` receipt), now additionally raising `RAISE EXCEPTION 'admission: payload exceeds N bytes' USING ERRCODE = '22023'` for an oversized payload, in the same style as the function's other validation errors (e.g. `sql/10_admission.sql:82-86`).
 
 This closes the low-medium finding: `admit_evidence` is a `SECURITY DEFINER` entry point reachable by the low-privilege `workshop_participant`/`workshop_app` login, taking an arbitrary-shaped `jsonb` payload with no size cap before it's parsed and looped over in PL/pgSQL — a resource-exhaustion vector even though there's no SQL-injection vector (confirmed: all access uses `#>>`/`#>` jsonb operators, never string-built SQL).
@@ -333,7 +333,7 @@ Add this test method to the `AdmitEvidenceTest` class in `backend/tests/test_adm
             self._admit(oversized)
         self.assertEqual(
             self.connection.execute(
-                "SELECT count(*) FROM casework.evidence_items"
+                "SELECT count(*) FROM evidence.evidence_items"
             ).fetchone()[0],
             0,
         )
@@ -353,7 +353,7 @@ export LIVE_CAPTURE_RUN_ID="<the capture_id from that same run>"
 
 Expected: **FAIL** — no exception is currently raised for an oversized payload (the assertRaises block does not trigger, or the function successfully admits the padded payload).
 
-- [ ] **Step 3: Add the size guard to `casework.admit_evidence`**
+- [ ] **Step 3: Add the size guard to `evidence.admit_evidence`**
 
 In `sql/10_admission.sql`, immediately after the function's opening `BEGIN` and before the first existing validation (`IF payload ->> 'schema' IS DISTINCT FROM ...` at line 81), add:
 
@@ -397,7 +397,7 @@ Expected: all existing tests in `test_admission.py` still PASS — the 2 MB thre
 
 ```bash
 git add sql/10_admission.sql backend/tests/test_admission.py
-git commit -m "Cap casework.admit_evidence payload size before parsing"
+git commit -m "Cap evidence.admit_evidence payload size before parsing"
 ```
 
 ---

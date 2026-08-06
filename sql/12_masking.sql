@@ -4,7 +4,7 @@
 -- which COLUMNS a persona sees inside a row it is allowed to see. The two are not
 -- interchangeable, and this capture is the cleanest possible demonstration of why:
 --
---   casework.pg_stat_activity_samples holds the observed blocked-writer topology
+--   evidence.pg_stat_activity_samples holds the observed blocked-writer topology
 --   under a workshop-visible lock observation. Those rows can repeat the captured
 --   hot-write and backfill statements that C1 classifies as restricted. RLS cannot
 --   hide the query column without also hiding the blocker PID, wait event, and
@@ -29,7 +29,7 @@ CREATE EXTENSION IF NOT EXISTS pg_columnmask;
 -- panel and in the pasted verify-SQL (Law 2, asserted by G-29).
 -- ---------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION casework.mask_redact(p_value text)
+CREATE OR REPLACE FUNCTION evidence.mask_redact(p_value text)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
@@ -38,22 +38,22 @@ AS $$
   SELECT CASE WHEN p_value IS NULL THEN NULL ELSE '[REDACTED]' END
 $$;
 
-COMMENT ON FUNCTION casework.mask_redact(text) IS
+COMMENT ON FUNCTION evidence.mask_redact(text) IS
   'Whole-value redaction for masking policies on text columns. A bare literal is '
   'rejected by pgcolumnmask ("Invalid masking function"), so the constant needs a '
-  'function. Do NOT use on a jsonb column: see casework.mask_redact_json.';
+  'function. Do NOT use on a jsonb column: see evidence.mask_redact_json.';
 
 -- The jsonb counterpart, and it is not interchangeable with the text one.
 -- pg_columnmask casts a masking expression back to the masked column's type, so a
--- jsonb column masked with casework.mask_redact() yields the bare string
+-- jsonb column masked with evidence.mask_redact() yields the bare string
 -- "[REDACTED]" and then fails the cast:
 --   ERROR: invalid input syntax for type json
 --   DETAIL: Token "REDACTED" is invalid.
--- Measured: that made casework.pg_stat_statements_samples completely unreadable for
+-- Measured: that made evidence.pg_stat_statements_samples completely unreadable for
 -- persona_app_engineer -- not redacted, ERROR. A masking policy that renders a
 -- table unreadable is a broken app, not enforcement, and it would have shipped
 -- looking like a permissions bug. The value returned here is valid jsonb.
-CREATE OR REPLACE FUNCTION casework.mask_redact_json(p_value jsonb)
+CREATE OR REPLACE FUNCTION evidence.mask_redact_json(p_value jsonb)
 RETURNS jsonb
 LANGUAGE sql
 IMMUTABLE
@@ -62,7 +62,7 @@ AS $$
   SELECT CASE WHEN p_value IS NULL THEN NULL ELSE '"[REDACTED]"'::jsonb END
 $$;
 
-COMMENT ON FUNCTION casework.mask_redact_json(jsonb) IS
+COMMENT ON FUNCTION evidence.mask_redact_json(jsonb) IS
   'Whole-value redaction for masking policies on jsonb columns. Returns the jsonb '
   'string "[REDACTED]" so pgcolumnmask cast back to jsonb succeeds.';
 
@@ -116,8 +116,8 @@ LANGUAGE sql
 STABLE
 AS $$
   SELECT DISTINCT btrim(t.structured ->> 'statement') AS literal
-    FROM casework.telemetry_evidence t
-    JOIN casework.evidence_items e ON e.evidence_id = t.evidence_id
+    FROM evidence.telemetry_evidence t
+    JOIN evidence.evidence_items e ON e.evidence_id = t.evidence_id
    WHERE coalesce(e.acl ->> 'visibility', 'restricted') = 'restricted'
      AND t.structured ->> 'statement' IS NOT NULL
      AND length(btrim(t.structured ->> 'statement')) >= 24
@@ -148,7 +148,7 @@ BEGIN
     --     with collapsed whitespace in an evidence document. A literal-whitespace
     --     pattern would match the source column but miss the rendered copy.
     --
-    -- (2) casework.pg_stat_activity_samples.raw_row is jsonb. Casting it to text
+    -- (2) evidence.pg_stat_activity_samples.raw_row is jsonb. Casting it to text
     --     turns every newline into the two characters backslash-n, which \s cannot
     --     match. Measured leak: with a plain \s+ pattern, mask_blob redacted the
     --     query column and returned raw_row verbatim, so persona_app_engineer read
@@ -258,9 +258,9 @@ BEGIN
   FOR v_target IN
     SELECT *
       FROM (VALUES
-        ('mask_activity_query',     'casework.pg_stat_activity_samples'),
-        ('mask_statement_phase',    'casework.pg_stat_statements_samples'),
-        ('mask_telemetry',          'casework.telemetry_evidence'),
+        ('mask_activity_query',     'evidence.pg_stat_activity_samples'),
+        ('mask_statement_phase',    'evidence.pg_stat_statements_samples'),
+        ('mask_telemetry',          'evidence.telemetry_evidence'),
         -- Dropped unconditionally: an earlier revision of this file created a
         -- chunk_text policy that broke every search function (see section 3), so a
         -- database built with that revision must have it removed on re-run rather
@@ -293,7 +293,7 @@ $$;
 -- wait_event, and state columns stay intact and are what the lab reads.
 CALL pgcolumnmask.create_masking_policy(
   'mask_activity_query',
-  'casework.pg_stat_activity_samples',
+  'evidence.pg_stat_activity_samples',
   jsonb_build_object(
     'query',   'retrieval.mask_blob(query)',
     'raw_row', 'retrieval.mask_blob(raw_row::text)'
@@ -314,26 +314,26 @@ CALL pgcolumnmask.create_masking_policy(
 -- total_exec_time, delta_from_before) remain readable for the lab.
 CALL pgcolumnmask.create_masking_policy(
   'mask_statement_phase',
-  'casework.pg_stat_statements_samples',
+  'evidence.pg_stat_statements_samples',
   jsonb_build_object(
-    'queries', 'casework.mask_redact_json(queries)',
-    'raw_row', 'casework.mask_redact_json(raw_row)'
+    'queries', 'evidence.mask_redact_json(queries)',
+    'raw_row', 'evidence.mask_redact_json(raw_row)'
   ),
   ARRAY['persona_app_engineer', 'persona_auditor']::name[],
   100
 );
 
--- casework.telemetry_evidence is deliberately NOT masked, and this is a REVERSAL:
+-- evidence.telemetry_evidence is deliberately NOT masked, and this is a REVERSAL:
 -- an earlier revision of this file created a mask_telemetry policy over
 -- (body, structured) bound to persona_auditor. It is dropped above and must not
 -- come back. Two measurements killed it, both on Aurora PostgreSQL 18.3,
 -- pg_columnmask 1.1.0, probe database dat410_rls_probe_test, 2026-08-03.
 --
--- 1. IT CRASHED THE INSTANCE. casework.v_evidence_documents (sql/01_schema.sql)
+-- 1. IT CRASHED THE INSTANCE. evidence.v_evidence_documents (sql/01_schema.sql)
 --    joins this table to reach the telemetry branch of the searchable evidence.
 --    With the policy in force:
 --      BEGIN; SET LOCAL ROLE persona_auditor;
---      SELECT count(*) FROM casework.v_evidence_documents;
+--      SELECT count(*) FROM evidence.v_evidence_documents;
 --    terminated the backend -- SSL EOF, connection lost -- and restarted the whole
 --    shared Aurora instance (pg_postmaster_start_time moved). Not an error, a
 --    crash. pg_columnmask's own HINT says to exclude masked columns from
@@ -385,7 +385,7 @@ CALL pgcolumnmask.create_masking_policy(
 -- read the captured statement never reaches the row, so there is nothing left for
 -- a column mask to protect.
 --
--- The asymmetry with casework.pg_stat_activity_samples above is the whole point of
+-- The asymmetry with evidence.pg_stat_activity_samples above is the whole point of
 -- shipping both files: that table's rows are workshop-visible to everyone and its
 -- query column leaks, so it needs masking. This table's rows are already scoped,
 -- so it needs RLS. Applying the wrong tool to either one breaks something.
@@ -409,7 +409,7 @@ CALL pgcolumnmask.create_masking_policy(
 --
 -- sql/11 cannot cover these: its GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA
 -- retrieval runs BEFORE this file creates retrieval.mask_blob, it never lists
--- schema casework, and its ALTER DEFAULT PRIVILEGES covers TABLES only. A default
+-- schema evidence, and its ALTER DEFAULT PRIVILEGES covers TABLES only. A default
 -- PUBLIC grant would mask the gap today; naming the grantees keeps it correct if
 -- PUBLIC is ever revoked, as sql/11 already does for admit_evidence.
 --
@@ -418,9 +418,9 @@ CALL pgcolumnmask.create_masking_policy(
 -- nothing and stops a future policy widening from failing with 42501.
 -- ---------------------------------------------------------------------------
 
-GRANT EXECUTE ON FUNCTION casework.mask_redact(text)
+GRANT EXECUTE ON FUNCTION evidence.mask_redact(text)
   TO persona_app_engineer, persona_dba, persona_auditor;
-GRANT EXECUTE ON FUNCTION casework.mask_redact_json(jsonb)
+GRANT EXECUTE ON FUNCTION evidence.mask_redact_json(jsonb)
   TO persona_app_engineer, persona_dba, persona_auditor;
 GRANT EXECUTE ON FUNCTION retrieval.mask_blob(text)
   TO persona_app_engineer, persona_dba, persona_auditor;

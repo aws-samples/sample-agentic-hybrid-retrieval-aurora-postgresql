@@ -13,7 +13,7 @@ RETURNS TABLE (
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = pg_catalog, casework, retrieval
+SET search_path = pg_catalog, evidence, retrieval
 AS $$
   SELECT
     source.evidence_id,
@@ -21,7 +21,7 @@ AS $$
     'missing_current_document'::text AS issue,
     source.search_document_hash AS expected,
     NULL::text AS actual
-  FROM casework.v_evidence_documents source
+  FROM evidence.v_evidence_documents source
   LEFT JOIN retrieval.documents document
     ON document.evidence_id = source.evidence_id
    AND document.is_current
@@ -35,7 +35,7 @@ AS $$
     'search_document_hash_mismatch',
     source.search_document_hash,
     document.search_document_hash
-  FROM casework.v_evidence_documents source
+  FROM evidence.v_evidence_documents source
   JOIN retrieval.documents document
     ON document.evidence_id = source.evidence_id
    AND document.is_current
@@ -49,7 +49,7 @@ AS $$
     'source_revision_mismatch',
     source.source_revision,
     document.source_revision
-  FROM casework.v_evidence_documents source
+  FROM evidence.v_evidence_documents source
   JOIN retrieval.documents document
     ON document.evidence_id = source.evidence_id
    AND document.is_current
@@ -76,7 +76,7 @@ AS $$
     'not current',
     'current'
   FROM retrieval.documents document
-  JOIN casework.evidence_items source ON source.evidence_id = document.evidence_id
+  JOIN evidence.evidence_items source ON source.evidence_id = document.evidence_id
   WHERE document.is_current
     AND source.is_deleted
 
@@ -96,7 +96,7 @@ AS $$
       'visibility', document.acl_visibility,
       'principals', to_jsonb(document.acl_principals)
     )::text
-  FROM casework.evidence_items source
+  FROM evidence.evidence_items source
   JOIN retrieval.documents document
     ON document.evidence_id = source.evidence_id
    AND document.is_current
@@ -172,13 +172,13 @@ REVOKE ALL ON FUNCTION retrieval.search_index_drift() FROM PUBLIC;
 CREATE OR REPLACE VIEW retrieval.v_search_index_drift AS
 SELECT * FROM retrieval.search_index_drift();
 
-DROP FUNCTION IF EXISTS casework.assert_release_capture_ready();
-DROP VIEW IF EXISTS casework.v_release_capture_validation;
+DROP FUNCTION IF EXISTS evidence.assert_release_capture_ready();
+DROP VIEW IF EXISTS evidence.v_release_capture_validation;
 
-CREATE OR REPLACE VIEW casework.v_live_capture_validation AS
+CREATE OR REPLACE VIEW evidence.v_live_capture_validation AS
 WITH wave_a AS (
   SELECT *
-  FROM casework.incident_capture_runs
+  FROM evidence.incident_capture_runs
   WHERE capture_origin = 'participant_induced'
     AND wave = 'A'
 ),
@@ -215,7 +215,7 @@ checks AS (
     ) AS pool_exhaustion_contract_complete,
     EXISTS (
       SELECT 1
-      FROM casework.pg_stat_activity_samples activity
+      FROM evidence.pg_stat_activity_samples activity
       WHERE activity.capture_id = capture.capture_id
         AND activity.application_name = 'workbench-lab-api-hot-write'
         AND activity.state = 'active'
@@ -225,15 +225,15 @@ checks AS (
     ) AS activity_proves_transaction_wait,
     EXISTS (
       SELECT 1
-      FROM casework.pg_lock_samples lock_sample
+      FROM evidence.pg_lock_samples lock_sample
       WHERE lock_sample.capture_id = capture.capture_id
         AND lower(lock_sample.locktype) = 'transactionid'
         AND NOT lock_sample.granted
     ) AS transactionid_lock_wait_captured,
     EXISTS (
       SELECT 1
-      FROM casework.pg_blocking_pids_samples blockers
-      JOIN casework.lock_evidence lock_evidence
+      FROM evidence.pg_blocking_pids_samples blockers
+      JOIN evidence.lock_evidence lock_evidence
         ON lock_evidence.capture_id = capture.capture_id
        AND lock_evidence.blocked_pid = blockers.blocked_pid
       WHERE blockers.capture_id = capture.capture_id
@@ -242,7 +242,7 @@ checks AS (
     ) AS backfill_blocking_pid_captured,
     (
       SELECT count(DISTINCT telemetry.telemetry_type) = 6
-      FROM casework.telemetry_evidence telemetry
+      FROM evidence.telemetry_evidence telemetry
       WHERE telemetry.capture_id = capture.capture_id
         AND telemetry.telemetry_type = ANY (
           ARRAY['lock', 'pool', 'request', 'wal', 'meta', 'plan']
@@ -253,8 +253,8 @@ checks AS (
     ) AS cloudwatch_status_recorded,
     EXISTS (
       SELECT 1
-      FROM casework.incident_capture_runs wave_b
-      JOIN casework.incident_changes relation
+      FROM evidence.incident_capture_runs wave_b
+      JOIN evidence.incident_changes relation
         ON relation.incident_evidence_id = wave_b.incident_evidence_id
        AND relation.relationship = 'validates'
       WHERE wave_b.incident_evidence_id = capture.incident_evidence_id
@@ -307,8 +307,8 @@ FROM checks;
 --
 -- This view's own predicates no longer touch a masked column, but the capture
 -- tables it reads still carry masked columns elsewhere in the schema --
--- casework.pg_stat_activity_samples.query/raw_row and
--- casework.pg_stat_statements_samples.queries/raw_row (sql/12_masking.sql section
+-- evidence.pg_stat_activity_samples.query/raw_row and
+-- evidence.pg_stat_statements_samples.queries/raw_row (sql/12_masking.sql section
 -- 3). Dropping DEFINER now would be correct only until a future check on this view
 -- predicates on one of those, at which point invoker-rights fails exactly as
 -- measured above. Keeping it is the safer default and wider than A1 needs to
@@ -319,18 +319,18 @@ FROM checks;
 -- telemetry that sql/11_roles_rls.sql already makes readable to every persona via
 -- the capture-run gate, and the pinned search_path prevents caller-controlled
 -- name resolution.
-CREATE OR REPLACE FUNCTION casework.assert_live_capture_ready()
+CREATE OR REPLACE FUNCTION evidence.assert_live_capture_ready()
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, casework, retrieval
+SET search_path = pg_catalog, evidence, retrieval
 AS $$
 DECLARE
-  validation casework.v_live_capture_validation%ROWTYPE;
+  validation evidence.v_live_capture_validation%ROWTYPE;
 BEGIN
   SELECT *
   INTO validation
-  FROM casework.v_live_capture_validation
+  FROM evidence.v_live_capture_validation
   ORDER BY capture_started_at DESC
   LIMIT 1;
 
@@ -352,7 +352,7 @@ $$;
 CREATE OR REPLACE VIEW retrieval.v_search_index_health AS
 WITH source_summary AS (
   SELECT count(*) AS documents
-  FROM casework.evidence_items
+  FROM evidence.evidence_items
   WHERE NOT is_deleted
 ),
 document_summary AS (
@@ -381,7 +381,7 @@ chunk_summary AS (
 ),
 revision_drift AS (
   SELECT count(*) AS issues
-  FROM casework.evidence_items source
+  FROM evidence.evidence_items source
   LEFT JOIN retrieval.documents document
     ON document.evidence_id = source.evidence_id
    AND document.is_current
@@ -395,7 +395,7 @@ revision_drift AS (
 deleted_source_drift AS (
   SELECT count(*) AS issues
   FROM retrieval.documents document
-  JOIN casework.evidence_items source
+  JOIN evidence.evidence_items source
     ON source.evidence_id = document.evidence_id
   WHERE document.is_current
     AND source.is_deleted
@@ -460,7 +460,7 @@ WITH document_wave AS (
   FROM retrieval.documents document
   LEFT JOIN LATERAL (
     SELECT run.wave
-    FROM casework.incident_capture_runs run
+    FROM evidence.incident_capture_runs run
     WHERE document.source_uri LIKE run.source_bundle_uri || '/%'
     ORDER BY length(run.source_bundle_uri) DESC
     LIMIT 1

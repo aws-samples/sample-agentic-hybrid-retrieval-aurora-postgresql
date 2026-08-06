@@ -235,7 +235,7 @@ class PersonaUpgradeTests(unittest.TestCase):
                 """
                 SELECT polroles
                   FROM pg_policy
-                 WHERE polrelid = 'casework.evidence_items'::regclass
+                 WHERE polrelid = 'evidence.evidence_items'::regclass
                    AND polname = 'rls_evidence_items_visibility'
                 """
             )

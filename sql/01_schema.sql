@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS casework.database_clusters (
+CREATE TABLE IF NOT EXISTS evidence.database_clusters (
   cluster_id text PRIMARY KEY,
   engine text NOT NULL CHECK (engine IN ('aurora-postgresql', 'postgresql')),
   engine_version text NOT NULL,
@@ -12,20 +12,20 @@ CREATE TABLE IF NOT EXISTS casework.database_clusters (
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
-ALTER TABLE casework.database_clusters
+ALTER TABLE evidence.database_clusters
   DROP CONSTRAINT IF EXISTS database_clusters_engine_check;
 
-ALTER TABLE casework.database_clusters
+ALTER TABLE evidence.database_clusters
   ADD CONSTRAINT database_clusters_engine_check
   CHECK (engine IN ('aurora-postgresql', 'postgresql'));
 
-ALTER TABLE casework.database_clusters
+ALTER TABLE evidence.database_clusters
   ADD COLUMN IF NOT EXISTS instance_class text NOT NULL DEFAULT 'db.r8g.xlarge';
 
-ALTER TABLE casework.database_clusters
+ALTER TABLE evidence.database_clusters
   ADD COLUMN IF NOT EXISTS database_insights_mode text NOT NULL DEFAULT 'advanced';
 
-CREATE TABLE IF NOT EXISTS casework.evidence_items (
+CREATE TABLE IF NOT EXISTS evidence.evidence_items (
   evidence_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   evidence_kind text NOT NULL CHECK (
     evidence_kind IN (
@@ -55,7 +55,7 @@ DECLARE
 BEGIN
   SELECT array_agg(DISTINCT evidence_kind ORDER BY evidence_kind)
   INTO legacy_kinds
-  FROM casework.evidence_items
+  FROM evidence.evidence_items
   WHERE evidence_kind NOT IN (
     'incident',
     'change',
@@ -73,10 +73,10 @@ BEGIN
 END
 $$;
 
-ALTER TABLE casework.evidence_items
+ALTER TABLE evidence.evidence_items
   DROP CONSTRAINT IF EXISTS evidence_items_evidence_kind_check;
 
-ALTER TABLE casework.evidence_items
+ALTER TABLE evidence.evidence_items
   ADD CONSTRAINT evidence_items_evidence_kind_check
   CHECK (
     evidence_kind IN (
@@ -90,7 +90,7 @@ ALTER TABLE casework.evidence_items
 -- Older corpora encoded restrictedness as a named entry in acl.principals while
 -- leaving visibility='workshop'. The current contract has one classification
 -- axis, so normalize that retired stamp before any derived retrieval row is read.
-UPDATE casework.evidence_items
+UPDATE evidence.evidence_items
 SET acl = jsonb_set(
   jsonb_set(acl, '{visibility}', '"restricted"'::jsonb, true),
   '{principals}',
@@ -100,10 +100,10 @@ SET acl = jsonb_set(
 WHERE coalesce(acl ->> 'visibility', 'restricted') = 'workshop'
   AND acl -> 'principals' ? 'support-lead';
 
-CREATE TABLE IF NOT EXISTS casework.incidents (
-  evidence_id uuid PRIMARY KEY REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+CREATE TABLE IF NOT EXISTS evidence.incidents (
+  evidence_id uuid PRIMARY KEY REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   incident_id text NOT NULL UNIQUE,
-  cluster_id text NOT NULL REFERENCES casework.database_clusters(cluster_id) ON DELETE RESTRICT,
+  cluster_id text NOT NULL REFERENCES evidence.database_clusters(cluster_id) ON DELETE RESTRICT,
   severity text NOT NULL CHECK (severity IN ('SEV-1', 'SEV-2', 'SEV-3')),
   status text NOT NULL CHECK (status IN ('open', 'mitigated', 'resolved')),
   started_at timestamptz NOT NULL,
@@ -121,26 +121,26 @@ BEGIN
   IF EXISTS (
     SELECT 1
     FROM information_schema.columns
-    WHERE table_schema = 'casework'
+    WHERE table_schema = 'evidence'
       AND table_name = 'incidents'
       AND column_name = 'customer_impact'
   ) AND NOT EXISTS (
     SELECT 1
     FROM information_schema.columns
-    WHERE table_schema = 'casework'
+    WHERE table_schema = 'evidence'
       AND table_name = 'incidents'
       AND column_name = 'impact_summary'
   ) THEN
-    ALTER TABLE casework.incidents
+    ALTER TABLE evidence.incidents
       RENAME COLUMN customer_impact TO impact_summary;
   END IF;
 END
 $$;
 
-CREATE TABLE IF NOT EXISTS casework.changes (
-  evidence_id uuid PRIMARY KEY REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+CREATE TABLE IF NOT EXISTS evidence.changes (
+  evidence_id uuid PRIMARY KEY REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   change_id text NOT NULL UNIQUE,
-  cluster_id text NOT NULL REFERENCES casework.database_clusters(cluster_id) ON DELETE RESTRICT,
+  cluster_id text NOT NULL REFERENCES evidence.database_clusters(cluster_id) ON DELETE RESTRICT,
   change_type text NOT NULL CHECK (change_type IN ('ddl', 'configuration', 'application_release')),
   status text NOT NULL CHECK (status IN ('scheduled', 'running', 'completed', 'cancelled', 'rolled_back')),
   started_at timestamptz NOT NULL,
@@ -153,41 +153,41 @@ CREATE TABLE IF NOT EXISTS casework.changes (
 );
 
 DROP VIEW IF EXISTS retrieval.evidence_edges;
-DROP VIEW IF EXISTS casework.v_evidence_documents;
-DROP TABLE IF EXISTS casework.support_case_commitments CASCADE;
-DROP TABLE IF EXISTS casework.change_runbooks CASCADE;
-DROP TABLE IF EXISTS casework.incident_runbooks CASCADE;
-DROP TABLE IF EXISTS casework.incident_support_cases CASCADE;
-DROP TABLE IF EXISTS casework.postmortems CASCADE;
-DROP TABLE IF EXISTS casework.customer_commitments CASCADE;
-DROP TABLE IF EXISTS casework.runbooks CASCADE;
-DROP TABLE IF EXISTS casework.support_cases CASCADE;
+DROP VIEW IF EXISTS evidence.v_evidence_documents;
+DROP TABLE IF EXISTS evidence.support_case_commitments CASCADE;
+DROP TABLE IF EXISTS evidence.change_runbooks CASCADE;
+DROP TABLE IF EXISTS evidence.incident_runbooks CASCADE;
+DROP TABLE IF EXISTS evidence.incident_support_cases CASCADE;
+DROP TABLE IF EXISTS evidence.postmortems CASCADE;
+DROP TABLE IF EXISTS evidence.customer_commitments CASCADE;
+DROP TABLE IF EXISTS evidence.runbooks CASCADE;
+DROP TABLE IF EXISTS evidence.support_cases CASCADE;
 
 DO $$
 BEGIN
-  IF to_regclass('casework.fixture_captures') IS NOT NULL
-     AND to_regclass('casework.incident_capture_runs') IS NULL THEN
-    DROP TABLE IF EXISTS casework.cloudwatch_metric_samples CASCADE;
-    DROP TABLE IF EXISTS casework.pg_stat_statements_samples CASCADE;
-    DROP TABLE IF EXISTS casework.pg_blocking_pids_samples CASCADE;
-    DROP TABLE IF EXISTS casework.pg_lock_samples CASCADE;
-    DROP TABLE IF EXISTS casework.pg_stat_activity_samples CASCADE;
-    ALTER TABLE casework.lock_evidence
+  IF to_regclass('evidence.fixture_captures') IS NOT NULL
+     AND to_regclass('evidence.incident_capture_runs') IS NULL THEN
+    DROP TABLE IF EXISTS evidence.cloudwatch_metric_samples CASCADE;
+    DROP TABLE IF EXISTS evidence.pg_stat_statements_samples CASCADE;
+    DROP TABLE IF EXISTS evidence.pg_blocking_pids_samples CASCADE;
+    DROP TABLE IF EXISTS evidence.pg_lock_samples CASCADE;
+    DROP TABLE IF EXISTS evidence.pg_stat_activity_samples CASCADE;
+    ALTER TABLE evidence.lock_evidence
       DROP CONSTRAINT IF EXISTS lock_evidence_capture_id_fkey;
-    UPDATE casework.lock_evidence SET capture_id = NULL;
-    DROP TABLE casework.fixture_captures;
+    UPDATE evidence.lock_evidence SET capture_id = NULL;
+    DROP TABLE evidence.fixture_captures;
   END IF;
 END
 $$;
 
-CREATE TABLE IF NOT EXISTS casework.incident_capture_runs (
+CREATE TABLE IF NOT EXISTS evidence.incident_capture_runs (
   capture_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   capture_key text NOT NULL UNIQUE,
   wave text NOT NULL DEFAULT 'A' CHECK (wave IN ('A', 'B')),
   incident_evidence_id uuid NOT NULL
-    REFERENCES casework.incidents(evidence_id) ON DELETE RESTRICT,
+    REFERENCES evidence.incidents(evidence_id) ON DELETE RESTRICT,
   cluster_id text NOT NULL
-    REFERENCES casework.database_clusters(cluster_id) ON DELETE RESTRICT,
+    REFERENCES evidence.database_clusters(cluster_id) ON DELETE RESTRICT,
   capture_origin text NOT NULL
     CHECK (capture_origin = 'participant_induced'),
   engine_version text NOT NULL,
@@ -216,31 +216,31 @@ CREATE TABLE IF NOT EXISTS casework.incident_capture_runs (
   )
 );
 
-ALTER TABLE casework.incident_capture_runs
+ALTER TABLE evidence.incident_capture_runs
   ADD COLUMN IF NOT EXISTS wave text;
 
-UPDATE casework.incident_capture_runs
+UPDATE evidence.incident_capture_runs
 SET wave = 'A'
 WHERE wave IS NULL;
 
-ALTER TABLE casework.incident_capture_runs
+ALTER TABLE evidence.incident_capture_runs
   ALTER COLUMN wave SET DEFAULT 'A',
   ALTER COLUMN wave SET NOT NULL;
 
-ALTER TABLE casework.incident_capture_runs
+ALTER TABLE evidence.incident_capture_runs
   DROP CONSTRAINT IF EXISTS incident_capture_runs_wave_check;
 
-ALTER TABLE casework.incident_capture_runs
+ALTER TABLE evidence.incident_capture_runs
   ADD CONSTRAINT incident_capture_runs_wave_check
   CHECK (wave IN ('A', 'B'));
 
-CREATE TABLE IF NOT EXISTS casework.lock_evidence (
-  evidence_id uuid PRIMARY KEY REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+CREATE TABLE IF NOT EXISTS evidence.lock_evidence (
+  evidence_id uuid PRIMARY KEY REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   observation_id text NOT NULL UNIQUE,
-  incident_evidence_id uuid NOT NULL REFERENCES casework.incidents(evidence_id) ON DELETE RESTRICT,
-  change_evidence_id uuid REFERENCES casework.changes(evidence_id) ON DELETE RESTRICT,
+  incident_evidence_id uuid NOT NULL REFERENCES evidence.incidents(evidence_id) ON DELETE RESTRICT,
+  change_evidence_id uuid REFERENCES evidence.changes(evidence_id) ON DELETE RESTRICT,
   capture_id uuid
-    REFERENCES casework.incident_capture_runs(capture_id) ON DELETE RESTRICT,
+    REFERENCES evidence.incident_capture_runs(capture_id) ON DELETE RESTRICT,
   captured_at timestamptz NOT NULL,
   relation_name text NOT NULL,
   relation_oid oid,
@@ -267,73 +267,73 @@ CREATE TABLE IF NOT EXISTS casework.lock_evidence (
   CHECK (lower(wait_event) = 'transactionid')
 );
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS change_evidence_id uuid
-    REFERENCES casework.changes(evidence_id) ON DELETE RESTRICT;
+    REFERENCES evidence.changes(evidence_id) ON DELETE RESTRICT;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS capture_id uuid;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   DROP CONSTRAINT IF EXISTS lock_evidence_capture_id_fkey;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD CONSTRAINT lock_evidence_capture_id_fkey
   FOREIGN KEY (capture_id)
-  REFERENCES casework.incident_capture_runs(capture_id) ON DELETE RESTRICT;
+  REFERENCES evidence.incident_capture_runs(capture_id) ON DELETE RESTRICT;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS relation_oid oid;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS blocked_state text;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS blocked_query_start timestamptz;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS blocked_lock_mode text;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS blocked_locktype text;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS blocked_lock_granted boolean;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS blocking_lock_mode text;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS blocking_lock_granted boolean;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS blocking_pids integer[];
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS blocking_pids_sql text;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS blocking_pids_output text;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD COLUMN IF NOT EXISTS raw_capture jsonb NOT NULL DEFAULT '{}'::jsonb;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ALTER COLUMN database_insights_slice DROP NOT NULL;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   DROP CONSTRAINT IF EXISTS lock_evidence_wait_event_check;
 
-ALTER TABLE casework.lock_evidence
+ALTER TABLE evidence.lock_evidence
   ADD CONSTRAINT lock_evidence_wait_event_check
   CHECK (lower(wait_event) = 'transactionid');
 
-CREATE TABLE IF NOT EXISTS casework.pg_stat_activity_samples (
+CREATE TABLE IF NOT EXISTS evidence.pg_stat_activity_samples (
   sample_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   capture_id uuid NOT NULL
-    REFERENCES casework.incident_capture_runs(capture_id) ON DELETE RESTRICT,
+    REFERENCES evidence.incident_capture_runs(capture_id) ON DELETE RESTRICT,
   observation_evidence_id uuid
-    REFERENCES casework.lock_evidence(evidence_id) ON DELETE RESTRICT,
+    REFERENCES evidence.lock_evidence(evidence_id) ON DELETE RESTRICT,
   observation_number integer NOT NULL CHECK (observation_number > 0),
   captured_at timestamptz NOT NULL,
   pid integer NOT NULL,
@@ -348,12 +348,12 @@ CREATE TABLE IF NOT EXISTS casework.pg_stat_activity_samples (
   raw_row jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
-CREATE TABLE IF NOT EXISTS casework.pg_lock_samples (
+CREATE TABLE IF NOT EXISTS evidence.pg_lock_samples (
   sample_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   capture_id uuid NOT NULL
-    REFERENCES casework.incident_capture_runs(capture_id) ON DELETE RESTRICT,
+    REFERENCES evidence.incident_capture_runs(capture_id) ON DELETE RESTRICT,
   observation_evidence_id uuid
-    REFERENCES casework.lock_evidence(evidence_id) ON DELETE RESTRICT,
+    REFERENCES evidence.lock_evidence(evidence_id) ON DELETE RESTRICT,
   observation_number integer NOT NULL CHECK (observation_number > 0),
   captured_at timestamptz NOT NULL,
   pid integer NOT NULL,
@@ -368,12 +368,12 @@ CREATE TABLE IF NOT EXISTS casework.pg_lock_samples (
   raw_row jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
-CREATE TABLE IF NOT EXISTS casework.pg_blocking_pids_samples (
+CREATE TABLE IF NOT EXISTS evidence.pg_blocking_pids_samples (
   sample_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   capture_id uuid NOT NULL
-    REFERENCES casework.incident_capture_runs(capture_id) ON DELETE RESTRICT,
+    REFERENCES evidence.incident_capture_runs(capture_id) ON DELETE RESTRICT,
   observation_evidence_id uuid
-    REFERENCES casework.lock_evidence(evidence_id) ON DELETE RESTRICT,
+    REFERENCES evidence.lock_evidence(evidence_id) ON DELETE RESTRICT,
   observation_number integer NOT NULL CHECK (observation_number > 0),
   captured_at timestamptz NOT NULL,
   blocked_pid integer NOT NULL,
@@ -383,17 +383,17 @@ CREATE TABLE IF NOT EXISTS casework.pg_blocking_pids_samples (
   raw_row jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
-ALTER TABLE casework.pg_lock_samples
+ALTER TABLE evidence.pg_lock_samples
   ALTER COLUMN relation_oid DROP NOT NULL,
   ALTER COLUMN relation_name DROP NOT NULL;
 
-ALTER TABLE casework.pg_stat_activity_samples
+ALTER TABLE evidence.pg_stat_activity_samples
   ADD COLUMN IF NOT EXISTS observation_number integer;
 
-ALTER TABLE casework.pg_lock_samples
+ALTER TABLE evidence.pg_lock_samples
   ADD COLUMN IF NOT EXISTS observation_number integer;
 
-ALTER TABLE casework.pg_blocking_pids_samples
+ALTER TABLE evidence.pg_blocking_pids_samples
   ADD COLUMN IF NOT EXISTS observation_number integer;
 
 WITH numbered AS (
@@ -403,10 +403,10 @@ WITH numbered AS (
       PARTITION BY capture_id
       ORDER BY captured_at
     ) AS observation_number
-  FROM casework.pg_stat_activity_samples
+  FROM evidence.pg_stat_activity_samples
   WHERE observation_number IS NULL
 )
-UPDATE casework.pg_stat_activity_samples sample
+UPDATE evidence.pg_stat_activity_samples sample
 SET observation_number = numbered.observation_number
 FROM numbered
 WHERE numbered.sample_id = sample.sample_id;
@@ -418,10 +418,10 @@ WITH numbered AS (
       PARTITION BY capture_id
       ORDER BY captured_at
     ) AS observation_number
-  FROM casework.pg_lock_samples
+  FROM evidence.pg_lock_samples
   WHERE observation_number IS NULL
 )
-UPDATE casework.pg_lock_samples sample
+UPDATE evidence.pg_lock_samples sample
 SET observation_number = numbered.observation_number
 FROM numbered
 WHERE numbered.sample_id = sample.sample_id;
@@ -433,27 +433,27 @@ WITH numbered AS (
       PARTITION BY capture_id
       ORDER BY captured_at
     ) AS observation_number
-  FROM casework.pg_blocking_pids_samples
+  FROM evidence.pg_blocking_pids_samples
   WHERE observation_number IS NULL
 )
-UPDATE casework.pg_blocking_pids_samples sample
+UPDATE evidence.pg_blocking_pids_samples sample
 SET observation_number = numbered.observation_number
 FROM numbered
 WHERE numbered.sample_id = sample.sample_id;
 
-ALTER TABLE casework.pg_stat_activity_samples
+ALTER TABLE evidence.pg_stat_activity_samples
   ALTER COLUMN observation_number SET NOT NULL;
 
-ALTER TABLE casework.pg_lock_samples
+ALTER TABLE evidence.pg_lock_samples
   ALTER COLUMN observation_number SET NOT NULL;
 
-ALTER TABLE casework.pg_blocking_pids_samples
+ALTER TABLE evidence.pg_blocking_pids_samples
   ALTER COLUMN observation_number SET NOT NULL;
 
-CREATE TABLE IF NOT EXISTS casework.pg_stat_statements_samples (
+CREATE TABLE IF NOT EXISTS evidence.pg_stat_statements_samples (
   sample_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   capture_id uuid NOT NULL
-    REFERENCES casework.incident_capture_runs(capture_id) ON DELETE RESTRICT,
+    REFERENCES evidence.incident_capture_runs(capture_id) ON DELETE RESTRICT,
   phase text NOT NULL CHECK (phase IN ('before', 'during', 'after')),
   captured_at timestamptz NOT NULL,
   calls bigint NOT NULL CHECK (calls >= 0),
@@ -465,10 +465,10 @@ CREATE TABLE IF NOT EXISTS casework.pg_stat_statements_samples (
   raw_row jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
-CREATE TABLE IF NOT EXISTS casework.cloudwatch_metric_samples (
+CREATE TABLE IF NOT EXISTS evidence.cloudwatch_metric_samples (
   sample_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   capture_id uuid NOT NULL
-    REFERENCES casework.incident_capture_runs(capture_id) ON DELETE RESTRICT,
+    REFERENCES evidence.incident_capture_runs(capture_id) ON DELETE RESTRICT,
   metric_name text NOT NULL CHECK (
     metric_name IN (
       'WriteLatency',
@@ -489,16 +489,16 @@ CREATE TABLE IF NOT EXISTS casework.cloudwatch_metric_samples (
   raw_datapoint jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
-ALTER TABLE casework.cloudwatch_metric_samples
+ALTER TABLE evidence.cloudwatch_metric_samples
   DROP CONSTRAINT IF EXISTS cloudwatch_metric_samples_metric_name_check;
 
 -- Earlier fixture generations used names that are not AWS/RDS metrics.
 -- They cannot be truthfully remapped, so remove them before tightening the
 -- release-evidence contract.
-DELETE FROM casework.cloudwatch_metric_samples
+DELETE FROM evidence.cloudwatch_metric_samples
 WHERE metric_name IN ('DMLThroughput', 'DDLThroughput');
 
-ALTER TABLE casework.cloudwatch_metric_samples
+ALTER TABLE evidence.cloudwatch_metric_samples
   ADD CONSTRAINT cloudwatch_metric_samples_metric_name_check
   CHECK (
     metric_name IN (
@@ -510,16 +510,16 @@ ALTER TABLE casework.cloudwatch_metric_samples
     )
   );
 
-CREATE TABLE IF NOT EXISTS casework.telemetry_evidence (
+CREATE TABLE IF NOT EXISTS evidence.telemetry_evidence (
   evidence_id uuid PRIMARY KEY
-    REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+    REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   telemetry_id text NOT NULL UNIQUE,
   capture_id uuid NOT NULL
-    REFERENCES casework.incident_capture_runs(capture_id) ON DELETE RESTRICT,
+    REFERENCES evidence.incident_capture_runs(capture_id) ON DELETE RESTRICT,
   incident_evidence_id uuid NOT NULL
-    REFERENCES casework.incidents(evidence_id) ON DELETE RESTRICT,
+    REFERENCES evidence.incidents(evidence_id) ON DELETE RESTRICT,
   change_evidence_id uuid
-    REFERENCES casework.changes(evidence_id) ON DELETE RESTRICT,
+    REFERENCES evidence.changes(evidence_id) ON DELETE RESTRICT,
   telemetry_type text NOT NULL CHECK (
     telemetry_type IN (
       'lock',
@@ -538,18 +538,18 @@ CREATE TABLE IF NOT EXISTS casework.telemetry_evidence (
   CHECK (observed_until IS NULL OR observed_until >= observed_at)
 );
 
-ALTER TABLE casework.telemetry_evidence
+ALTER TABLE evidence.telemetry_evidence
   DROP CONSTRAINT IF EXISTS telemetry_evidence_telemetry_type_check;
 
-ALTER TABLE casework.telemetry_evidence
+ALTER TABLE evidence.telemetry_evidence
   ADD CONSTRAINT telemetry_evidence_telemetry_type_check
   CHECK (
     telemetry_type IN ('lock', 'pool', 'request', 'wal', 'meta', 'plan')
   );
 
-CREATE TABLE IF NOT EXISTS casework.incident_changes (
-  incident_evidence_id uuid NOT NULL REFERENCES casework.incidents(evidence_id) ON DELETE RESTRICT,
-  change_evidence_id uuid NOT NULL REFERENCES casework.changes(evidence_id) ON DELETE RESTRICT,
+CREATE TABLE IF NOT EXISTS evidence.incident_changes (
+  incident_evidence_id uuid NOT NULL REFERENCES evidence.incidents(evidence_id) ON DELETE RESTRICT,
+  change_evidence_id uuid NOT NULL REFERENCES evidence.changes(evidence_id) ON DELETE RESTRICT,
   relationship text NOT NULL CHECK (
     relationship IN (
       'suspected',
@@ -564,10 +564,10 @@ CREATE TABLE IF NOT EXISTS casework.incident_changes (
   PRIMARY KEY (incident_evidence_id, change_evidence_id)
 );
 
-ALTER TABLE casework.incident_changes
+ALTER TABLE evidence.incident_changes
   DROP CONSTRAINT IF EXISTS incident_changes_relationship_check;
 
-ALTER TABLE casework.incident_changes
+ALTER TABLE evidence.incident_changes
   ADD CONSTRAINT incident_changes_relationship_check
   CHECK (
     relationship IN (
@@ -579,7 +579,7 @@ ALTER TABLE casework.incident_changes
     )
   );
 
-CREATE OR REPLACE FUNCTION casework.sha256_text(value text)
+CREATE OR REPLACE FUNCTION evidence.sha256_text(value text)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
@@ -588,7 +588,7 @@ AS $$
   SELECT encode(sha256(convert_to(coalesce(value, ''), 'UTF8')), 'hex')
 $$;
 
-CREATE OR REPLACE FUNCTION casework.canonical_timestamptz(value timestamptz)
+CREATE OR REPLACE FUNCTION evidence.canonical_timestamptz(value timestamptz)
 RETURNS text
 LANGUAGE sql
 IMMUTABLE
@@ -601,7 +601,7 @@ AS $$
   )
 $$;
 
-CREATE OR REPLACE VIEW casework.v_evidence_documents
+CREATE OR REPLACE VIEW evidence.v_evidence_documents
 WITH (security_invoker = true) AS
 WITH rendered AS (
   SELECT
@@ -631,15 +631,15 @@ WITH rendered AS (
     ) AS body,
     jsonb_build_object(
       'status', i.status,
-      'started_at', casework.canonical_timestamptz(i.started_at),
-      'mitigated_at', casework.canonical_timestamptz(i.mitigated_at),
-      'resolved_at', casework.canonical_timestamptz(i.resolved_at),
+      'started_at', evidence.canonical_timestamptz(i.started_at),
+      'mitigated_at', evidence.canonical_timestamptz(i.mitigated_at),
+      'resolved_at', evidence.canonical_timestamptz(i.resolved_at),
       'service_name', c.service_name,
       'engine_version', c.engine_version
     ) AS metadata
-  FROM casework.evidence_items e
-  JOIN casework.incidents i ON i.evidence_id = e.evidence_id
-  JOIN casework.database_clusters c ON c.cluster_id = i.cluster_id
+  FROM evidence.evidence_items e
+  JOIN evidence.incidents i ON i.evidence_id = e.evidence_id
+  JOIN evidence.database_clusters c ON c.cluster_id = i.cluster_id
   WHERE NOT e.is_deleted
 
   UNION ALL
@@ -673,17 +673,17 @@ WITH rendered AS (
       'status', ch.status,
       'change_type', ch.change_type,
       'owner_team', ch.owner_team,
-      'completed_at', casework.canonical_timestamptz(ch.completed_at),
+      'completed_at', evidence.canonical_timestamptz(ch.completed_at),
       'service_name', c.service_name,
       'engine_version', c.engine_version
     ) AS metadata
-  FROM casework.evidence_items e
-  JOIN casework.changes ch ON ch.evidence_id = e.evidence_id
-  JOIN casework.database_clusters c ON c.cluster_id = ch.cluster_id
+  FROM evidence.evidence_items e
+  JOIN evidence.changes ch ON ch.evidence_id = e.evidence_id
+  JOIN evidence.database_clusters c ON c.cluster_id = ch.cluster_id
   LEFT JOIN LATERAL (
     SELECT incident.incident_id
-    FROM casework.incident_changes relation
-    JOIN casework.incidents incident
+    FROM evidence.incident_changes relation
+    JOIN evidence.incidents incident
       ON incident.evidence_id = relation.incident_evidence_id
     WHERE relation.change_evidence_id = ch.evidence_id
     ORDER BY
@@ -746,14 +746,14 @@ WITH rendered AS (
     ) AS body,
     jsonb_build_object(
       'observation_id', le.observation_id,
-      'captured_at', casework.canonical_timestamptz(le.captured_at),
+      'captured_at', evidence.canonical_timestamptz(le.captured_at),
       'relation_name', le.relation_name,
       'relation_oid', le.relation_oid,
       'blocked_pid', le.blocked_pid,
       'blocking_pid', le.blocking_pid,
       'blocked_state', le.blocked_state,
       'blocked_query_start',
-        casework.canonical_timestamptz(le.blocked_query_start),
+        evidence.canonical_timestamptz(le.blocked_query_start),
       'wait_event_type', le.wait_event_type,
       'wait_event', le.wait_event,
       'blocked_locktype', le.blocked_locktype,
@@ -765,15 +765,15 @@ WITH rendered AS (
       'capture_origin', capture.capture_origin,
       'capture_key', capture.capture_key,
       'observability_verified_at',
-        casework.canonical_timestamptz(capture.observability_verified_at),
+        evidence.canonical_timestamptz(capture.observability_verified_at),
       'service_name', c.service_name,
       'engine_version', c.engine_version
     ) AS metadata
-  FROM casework.evidence_items e
-  JOIN casework.lock_evidence le ON le.evidence_id = e.evidence_id
-  JOIN casework.incidents i ON i.evidence_id = le.incident_evidence_id
-  JOIN casework.database_clusters c ON c.cluster_id = i.cluster_id
-  LEFT JOIN casework.incident_capture_runs capture
+  FROM evidence.evidence_items e
+  JOIN evidence.lock_evidence le ON le.evidence_id = e.evidence_id
+  JOIN evidence.incidents i ON i.evidence_id = le.incident_evidence_id
+  JOIN evidence.database_clusters c ON c.cluster_id = i.cluster_id
+  LEFT JOIN evidence.incident_capture_runs capture
     ON capture.capture_id = le.capture_id
   WHERE NOT e.is_deleted
 
@@ -803,19 +803,19 @@ WITH rendered AS (
       'telemetry_id', telemetry.telemetry_id,
       'telemetry_type', telemetry.telemetry_type,
       'observation_number', telemetry.observation_number,
-      'observed_at', casework.canonical_timestamptz(telemetry.observed_at),
+      'observed_at', evidence.canonical_timestamptz(telemetry.observed_at),
       'observed_until',
-        casework.canonical_timestamptz(telemetry.observed_until),
+        evidence.canonical_timestamptz(telemetry.observed_until),
       'capture_id', telemetry.capture_id,
       'service_name', cluster.service_name,
       'engine_version', cluster.engine_version
     ) AS metadata
-  FROM casework.evidence_items e
-  JOIN casework.telemetry_evidence telemetry
+  FROM evidence.evidence_items e
+  JOIN evidence.telemetry_evidence telemetry
     ON telemetry.evidence_id = e.evidence_id
-  JOIN casework.incidents incident
+  JOIN evidence.incidents incident
     ON incident.evidence_id = telemetry.incident_evidence_id
-  JOIN casework.database_clusters cluster
+  JOIN evidence.database_clusters cluster
     ON cluster.cluster_id = incident.cluster_id
   WHERE NOT e.is_deleted
 )
@@ -837,7 +837,7 @@ SELECT
   rendered.occurred_at,
   rendered.body,
   rendered.metadata,
-  casework.sha256_text(
+  evidence.sha256_text(
     concat_ws(
       E'\n',
       source_revision,
@@ -864,7 +864,7 @@ FROM rendered;
 
 CREATE TABLE IF NOT EXISTS retrieval.search_index_queue (
   outbox_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  evidence_id uuid NOT NULL REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+  evidence_id uuid NOT NULL REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   source_revision text NOT NULL,
   requested_at timestamptz NOT NULL DEFAULT now(),
   claimed_at timestamptz,
@@ -893,7 +893,7 @@ CREATE TABLE IF NOT EXISTS retrieval.search_index_builds (
 
 CREATE TABLE IF NOT EXISTS retrieval.documents (
   document_version_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  evidence_id uuid NOT NULL REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+  evidence_id uuid NOT NULL REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   build_id uuid NOT NULL REFERENCES retrieval.search_index_builds(build_id) ON DELETE RESTRICT,
   search_index_version text NOT NULL,
   search_document_hash text NOT NULL,
@@ -953,7 +953,7 @@ SET
       coalesce(source.acl -> 'principals', '[]'::jsonb)
     )
   )
-FROM casework.evidence_items AS source
+FROM evidence.evidence_items AS source
 WHERE source.evidence_id = document.evidence_id
   AND (
     document.acl IS DISTINCT FROM source.acl
@@ -969,7 +969,7 @@ WHERE source.evidence_id = document.evidence_id
 CREATE TABLE IF NOT EXISTS retrieval.chunks (
   chunk_version_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   document_version_id uuid NOT NULL REFERENCES retrieval.documents(document_version_id) ON DELETE RESTRICT,
-  evidence_id uuid NOT NULL REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+  evidence_id uuid NOT NULL REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   chunk_ordinal integer NOT NULL CHECK (chunk_ordinal > 0),
   section_title text,
   chunk_text text NOT NULL,
@@ -1123,7 +1123,7 @@ BEGIN
     ALTER TABLE retrieval.chunks
       ADD CONSTRAINT chunks_evidence_id_fkey
       FOREIGN KEY (evidence_id)
-      REFERENCES casework.evidence_items(evidence_id)
+      REFERENCES evidence.evidence_items(evidence_id)
       ON DELETE RESTRICT;
   END IF;
 END
@@ -1131,8 +1131,8 @@ $$;
 
 CREATE TABLE IF NOT EXISTS retrieval.inferred_edges (
   edge_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  from_evidence_id uuid NOT NULL REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
-  to_evidence_id uuid NOT NULL REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+  from_evidence_id uuid NOT NULL REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
+  to_evidence_id uuid NOT NULL REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   relation text NOT NULL,
   confidence numeric NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
   method text NOT NULL,
@@ -1153,7 +1153,7 @@ SELECT
   'canonical_relation'::text AS origin,
   1.0::numeric AS confidence,
   jsonb_build_object('rationale', ic.rationale, 'confirmed_by', ic.confirmed_by) AS metadata
-FROM casework.incident_changes ic
+FROM evidence.incident_changes ic
 
 UNION ALL
 
@@ -1165,7 +1165,7 @@ SELECT
   'canonical_relation'::text,
   1.0::numeric,
   jsonb_build_object('captured_at', le.captured_at, 'observation_id', le.observation_id)
-FROM casework.lock_evidence le
+FROM evidence.lock_evidence le
 
 UNION ALL
 
@@ -1181,7 +1181,7 @@ SELECT
     'relation_oid', le.relation_oid,
     'blocking_pid', le.blocking_pid
   )
-FROM casework.lock_evidence le
+FROM evidence.lock_evidence le
 WHERE le.change_evidence_id IS NOT NULL
 
 UNION ALL
@@ -1200,7 +1200,7 @@ SELECT
     'observation_number', telemetry.observation_number,
     'observed_at', telemetry.observed_at
   )
-FROM casework.telemetry_evidence telemetry
+FROM evidence.telemetry_evidence telemetry
 
 UNION ALL
 
@@ -1218,7 +1218,7 @@ SELECT
     'observation_number', telemetry.observation_number,
     'observed_at', telemetry.observed_at
   )
-FROM casework.telemetry_evidence telemetry
+FROM evidence.telemetry_evidence telemetry
 WHERE telemetry.change_evidence_id IS NOT NULL
 
 UNION ALL
@@ -1233,7 +1233,7 @@ SELECT
   ie.metadata || jsonb_build_object('method', ie.method, 'source_revision', ie.source_revision)
 FROM retrieval.inferred_edges ie;
 
-CREATE OR REPLACE FUNCTION casework.queue_evidence(p_evidence_id uuid)
+CREATE OR REPLACE FUNCTION evidence.queue_evidence(p_evidence_id uuid)
 RETURNS bigint
 LANGUAGE plpgsql
 AS $$
@@ -1243,7 +1243,7 @@ DECLARE
 BEGIN
   SELECT source_revision
   INTO STRICT v_revision
-  FROM casework.evidence_items
+  FROM evidence.evidence_items
   WHERE evidence_id = p_evidence_id;
 
   INSERT INTO retrieval.search_index_queue(evidence_id, source_revision)
@@ -1322,7 +1322,7 @@ CREATE TABLE IF NOT EXISTS proof.observability_refs (
 
 CREATE TABLE IF NOT EXISTS proof.retrieval_candidates (
   run_id uuid NOT NULL REFERENCES proof.retrieval_runs(run_id) ON DELETE RESTRICT,
-  evidence_id uuid NOT NULL REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+  evidence_id uuid NOT NULL REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   document_version_id uuid NOT NULL REFERENCES retrieval.documents(document_version_id) ON DELETE RESTRICT,
   chunk_version_id uuid NOT NULL REFERENCES retrieval.chunks(chunk_version_id) ON DELETE RESTRICT,
   result_rank integer NOT NULL CHECK (result_rank > 0),
@@ -1569,7 +1569,7 @@ ALTER TABLE proof.agent_answers
 CREATE TABLE IF NOT EXISTS proof.answer_citations (
   run_id uuid NOT NULL REFERENCES proof.agent_answers(run_id) ON DELETE RESTRICT,
   citation_number integer NOT NULL CHECK (citation_number > 0),
-  evidence_id uuid NOT NULL REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+  evidence_id uuid NOT NULL REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   document_version_id uuid NOT NULL REFERENCES retrieval.documents(document_version_id) ON DELETE RESTRICT,
   chunk_version_id uuid NOT NULL REFERENCES retrieval.chunks(chunk_version_id) ON DELETE RESTRICT,
   source_uri text NOT NULL,
@@ -1601,7 +1601,7 @@ ALTER TABLE proof.evaluation_queries
 
 CREATE TABLE IF NOT EXISTS proof.relevance_judgments (
   query_id text NOT NULL REFERENCES proof.evaluation_queries(query_id) ON DELETE RESTRICT,
-  evidence_id uuid NOT NULL REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+  evidence_id uuid NOT NULL REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   relevance integer NOT NULL CHECK (relevance BETWEEN 0 AND 3),
   rationale text NOT NULL,
   PRIMARY KEY (query_id, evidence_id)
@@ -1610,7 +1610,7 @@ CREATE TABLE IF NOT EXISTS proof.relevance_judgments (
 CREATE TABLE IF NOT EXISTS proof.traversal_results (
   run_id uuid NOT NULL REFERENCES proof.retrieval_runs(run_id) ON DELETE RESTRICT,
   query_id text NOT NULL REFERENCES proof.evaluation_queries(query_id) ON DELETE RESTRICT,
-  evidence_id uuid NOT NULL REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+  evidence_id uuid NOT NULL REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   depth integer NOT NULL CHECK (depth >= 0),
   path uuid[] NOT NULL,
   via_edge_key text,

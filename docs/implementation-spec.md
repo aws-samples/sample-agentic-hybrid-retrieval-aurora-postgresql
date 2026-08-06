@@ -59,7 +59,7 @@ grounded the proposal.
 | Schema or surface | Owns |
 |---|---|
 | `workbench_lab` | Disposable customers and orders used to induce the migration |
-| `casework` | Live evidence identity, raw telemetry, typed facts, and canonical relationships |
+| `evidence` | Live evidence identity, raw telemetry, typed facts, and canonical relationships |
 | `retrieval` | Rebuildable document versions, chunks, embeddings, indexes, ranking, and traversal |
 | `proof` | Retrieval runs, candidate signals, citations, action proposals, executions, verdicts, and replay |
 | Backend | API orchestration, model adapters, lab routes, tools, synthesis, and readiness |
@@ -74,7 +74,7 @@ and its retrieval/proof model.
 Workshop Studio bootstrap runs `make prepare-workload` after `make schema`.
 That step creates exactly 5,000 `workbench_lab.customers` rows and 3,000,000
 related `workbench_lab.orders` rows. It requires zero evidence and creates no
-`casework`, `retrieval`, or `proof` records.
+`evidence`, `retrieval`, or `proof` records.
 
 `labs/incident/run_live_workshop.py` is the only participant incident
 producer. Investigation Evidence requires:
@@ -163,12 +163,12 @@ near-duplicate threshold; the expected 50-80 document range is guidance, not
 an acceptance gate.
 
 Every authoritative record is source-revisioned and rendered through
-`casework.v_evidence_documents` with stable identity, source URI, ACL,
+`evidence.v_evidence_documents` with stable identity, source URI, ACL,
 metadata, content, and SHA-256 search-document hash.
 
 ## 5. Admission
 
-`casework.admit_evidence(jsonb)` is the atomic write boundary for either
+`evidence.admit_evidence(jsonb)` is the atomic write boundary for either
 capture.
 It requires:
 

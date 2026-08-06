@@ -232,8 +232,8 @@ DECLARE
 BEGIN
   FOREACH v_persona IN ARRAY ARRAY['persona_app_engineer', 'persona_dba', 'persona_auditor']
   LOOP
-    EXECUTE format('GRANT USAGE ON SCHEMA casework, retrieval, proof TO %I', v_persona);
-    EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA casework TO %I', v_persona);
+    EXECUTE format('GRANT USAGE ON SCHEMA evidence, retrieval, proof TO %I', v_persona);
+    EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA evidence TO %I', v_persona);
     EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA retrieval TO %I', v_persona);
     EXECUTE format('GRANT SELECT ON ALL TABLES IN SCHEMA proof TO %I', v_persona);
     -- Remove grants from earlier revisions before installing the minimum write
@@ -273,7 +273,7 @@ $$;
 
 -- Future tables created by the owner inherit the same grants, so a later schema
 -- addition cannot silently become unreadable to every persona.
-ALTER DEFAULT PRIVILEGES IN SCHEMA casework
+ALTER DEFAULT PRIVILEGES IN SCHEMA evidence
   GRANT SELECT ON TABLES TO persona_app_engineer, persona_dba, persona_auditor;
 ALTER DEFAULT PRIVILEGES IN SCHEMA retrieval
   GRANT SELECT ON TABLES TO persona_app_engineer, persona_dba, persona_auditor;
@@ -411,14 +411,14 @@ $$;
 -- participant's own backend and every Lab-1 watch snippet reads as empty.
 GRANT pg_monitor TO workshop_participant;
 
--- ./admit.sh calls casework.admit_evidence. That is the ONLY casework reach the
+-- ./admit.sh calls evidence.admit_evidence. That is the ONLY evidence reach the
 -- participant gets: USAGE on the schema plus EXECUTE on the one function. No table
 -- SELECT, so a bare SELECT on evidence raises permission denied - the first lesson.
 --
 -- EXECUTE ALONE IS NOT ENOUGH, and this is the trap that would have broken Lab 1.
--- casework.admit_evidence is LANGUAGE plpgsql with NO SECURITY DEFINER clause
+-- evidence.admit_evidence is LANGUAGE plpgsql with NO SECURITY DEFINER clause
 -- (sql/10_admission.sql:36-39), so its body runs with the CALLER's privileges. Its
--- first statement reads casework.ingest_receipts (:78) and it then writes
+-- first statement reads evidence.ingest_receipts (:78) and it then writes
 -- evidence_items, lock_evidence, inferred_edges, search_index_queue and
 -- ingest_receipts. A participant holding only EXECUTE would get
 -- "permission denied for table ingest_receipts" on the Lab-1 finale, while G-30 --
@@ -434,23 +434,23 @@ GRANT pg_monitor TO workshop_participant;
 -- PUBLIC EXECUTE so reapplying its owning migration cannot weaken this boundary.
 -- The ALTER statements below are idempotent defense in depth; this file owns the
 -- role-specific grants.
-GRANT USAGE ON SCHEMA casework TO workshop_app, workshop_participant;
-GRANT EXECUTE ON FUNCTION casework.admit_evidence(jsonb) TO workshop_participant;
+GRANT USAGE ON SCHEMA evidence TO workshop_app, workshop_participant;
+GRANT EXECUTE ON FUNCTION evidence.admit_evidence(jsonb) TO workshop_participant;
 
 -- Definer rights + a pinned search_path. The pin is mandatory, not hygiene: a
 -- SECURITY DEFINER function that resolves unqualified names through the caller's
 -- search_path is the classic privilege-escalation vector, and the participant
 -- controls their own search_path. Every reference in the body is already
 -- schema-qualified; the pin makes that structural.
-ALTER FUNCTION casework.admit_evidence(jsonb) SECURITY DEFINER;
-ALTER FUNCTION casework.admit_evidence(jsonb) SET search_path = pg_catalog, casework, retrieval;
+ALTER FUNCTION evidence.admit_evidence(jsonb) SECURITY DEFINER;
+ALTER FUNCTION evidence.admit_evidence(jsonb) SET search_path = pg_catalog, evidence, retrieval;
 
 -- PUBLIC gets EXECUTE on every new function by default, which for a SECURITY
 -- DEFINER writer means any role in the cluster could admit evidence. Revoke it and
 -- re-grant only the two identities that need it.
-REVOKE ALL ON FUNCTION casework.admit_evidence(jsonb) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION casework.admit_evidence(jsonb) TO workshop_participant;
-GRANT EXECUTE ON FUNCTION casework.admit_evidence(jsonb) TO workshop_app;
+REVOKE ALL ON FUNCTION evidence.admit_evidence(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION evidence.admit_evidence(jsonb) TO workshop_participant;
+GRANT EXECUTE ON FUNCTION evidence.admit_evidence(jsonb) TO workshop_app;
 
 -- The definer is the function's owner, the schema owner (retrieval_admin), which
 -- holds can_see_restricted and therefore reads and writes every row. That is correct
@@ -463,9 +463,9 @@ GRANT EXECUTE ON FUNCTION casework.admit_evidence(jsonb) TO workshop_app;
 -- ---------------------------------------------------------------------------
 -- 4. RLS on the three read-path tables, plus the evidence detail tables.
 --
--- All three, not just casework: retrieval.vector_search reads retrieval.chunks
+-- All three, not just evidence: retrieval.vector_search reads retrieval.chunks
 -- standalone (sql/03_search_functions.sql:488-514) and retrieval.fuzzy_search reads
--- retrieval.documents standalone (:614-634). A policy on casework.evidence_items
+-- retrieval.documents standalone (:614-634). A policy on evidence.evidence_items
 -- alone would leak restricted body text through the vector and fuzzy arms while the
 -- headers stayed filtered. This is the single most important correctness
 -- requirement in this file.
@@ -481,8 +481,8 @@ GRANT EXECUTE ON FUNCTION casework.admit_evidence(jsonb) TO workshop_app;
 -- FORCE on Aurora exactly as it is locally. Any comment claiming otherwise is wrong.
 -- ---------------------------------------------------------------------------
 
-ALTER TABLE casework.evidence_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE casework.evidence_items FORCE ROW LEVEL SECURITY;
+ALTER TABLE evidence.evidence_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE evidence.evidence_items FORCE ROW LEVEL SECURITY;
 ALTER TABLE retrieval.documents     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE retrieval.documents     FORCE ROW LEVEL SECURITY;
 ALTER TABLE retrieval.chunks        ENABLE ROW LEVEL SECURITY;
@@ -533,11 +533,11 @@ BEGIN
 END
 $$;
 
-DROP POLICY IF EXISTS rls_evidence_items_visibility ON casework.evidence_items;
+DROP POLICY IF EXISTS rls_evidence_items_visibility ON evidence.evidence_items;
 DROP POLICY IF EXISTS rls_documents_visibility      ON retrieval.documents;
 DROP POLICY IF EXISTS rls_chunks_visibility         ON retrieval.chunks;
 
--- casework.evidence_items keeps its classification inside the acl jsonb
+-- evidence.evidence_items keeps its classification inside the acl jsonb
 -- (sql/01_schema.sql:40); the two retrieval tables carry the denormalized scalar
 -- (:901, :968). Same value for the same row, same fail-closed default.
 --
@@ -548,7 +548,7 @@ DROP POLICY IF EXISTS rls_chunks_visibility         ON retrieval.chunks;
 -- retrieval_admin}, and `SET LOCAL ROLE persona_app_engineer` still saw 1 of 3 rows. If it
 -- were dynamic it would match every persona and hand the analyst the clearance
 -- disjunct, which is exactly the failure G-27(b) exists to catch. It does not.
-CREATE POLICY rls_evidence_items_visibility ON casework.evidence_items
+CREATE POLICY rls_evidence_items_visibility ON evidence.evidence_items
   FOR ALL
   TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
   USING (
@@ -579,16 +579,16 @@ CREATE POLICY rls_chunks_visibility ON retrieval.chunks
 -- 5. RLS on the evidence detail tables.
 --
 -- The three policies above are necessary and NOT sufficient. The sensitive text
--- is not in casework.evidence_items -- that table holds the header (external_key,
+-- is not in evidence.evidence_items -- that table holds the header (external_key,
 -- title, acl). The body lives in per-kind detail tables keyed 1:1 on evidence_id,
--- and section 2 grants every persona SELECT ON ALL TABLES IN SCHEMA casework
+-- and section 2 grants every persona SELECT ON ALL TABLES IN SCHEMA evidence
 -- because RLS narrows reach, it does not grant it. Without the policies below, a
 -- participant does this and the whole teaching claim collapses:
 --
 --   BEGIN; SET LOCAL ROLE persona_app_engineer;
---   SELECT count(*) FROM casework.evidence_items;   -- restricted rows hidden, correct
+--   SELECT count(*) FROM evidence.evidence_items;   -- restricted rows hidden, correct
 --   SELECT body, structured
---     FROM casework.telemetry_evidence;              -- the captured SQL in full.
+--     FROM evidence.telemetry_evidence;              -- the captured SQL in full.
 --   ROLLBACK;
 --
 -- psql is the workshop's primary surface, not a back door: Lab 1's first lesson is
@@ -605,10 +605,10 @@ CREATE POLICY rls_chunks_visibility ON retrieval.chunks
 -- not deny-all.
 --
 -- The dependency on the parent's RLS is load-bearing and was verified by negative
--- control: with ALTER TABLE casework.evidence_items DISABLE ROW LEVEL SECURITY,
+-- control: with ALTER TABLE evidence.evidence_items DISABLE ROW LEVEL SECURITY,
 -- the analyst saw every child row again. The EXISTS is not self-sufficient -- it
 -- is filtered by the parent's policy. If a future change disables RLS on
--- casework.evidence_items, every table below silently opens. G-27 asserts
+-- evidence.evidence_items, every table below silently opens. G-27 asserts
 -- enabled+forced on the parent, which is what keeps that from happening quietly.
 --
 -- FOR ALL with USING only, matching the policies above. WITH CHECK defaults to
@@ -629,7 +629,7 @@ CREATE POLICY rls_chunks_visibility ON retrieval.chunks
 -- table is a door" -- a hand-maintained allowlist re-opens the hole the moment a
 -- later capture adds a kind, and the earlier authored-corpus list had already gone
 -- stale against the live telemetry schema. The catalog query cannot drift: it
--- selects ordinary tables in casework holding an evidence_id column, excluding the
+-- selects ordinary tables in evidence holding an evidence_id column, excluding the
 -- parent itself.
 -- ---------------------------------------------------------------------------
 
@@ -650,7 +650,7 @@ BEGIN
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     JOIN pg_attribute a ON a.attrelid = c.oid
-    WHERE n.nspname = 'casework'
+    WHERE n.nspname = 'evidence'
       AND c.relkind = 'r'
       AND c.relname <> 'evidence_items'
       AND a.attnum > 0
@@ -666,19 +666,19 @@ BEGIN
         ' AND ',
         v_predicate,
         format(
-          '(casework.%I.%I IS NULL OR EXISTS (SELECT 1 FROM casework.evidence_items '
-          'reachable WHERE reachable.evidence_id = casework.%I.%I))',
+          '(evidence.%I.%I IS NULL OR EXISTS (SELECT 1 FROM evidence.evidence_items '
+          'reachable WHERE reachable.evidence_id = evidence.%I.%I))',
           v_table, v_column, v_table, v_column
         )
       );
     END LOOP;
 
-    EXECUTE format('ALTER TABLE casework.%I ENABLE ROW LEVEL SECURITY', v_table);
-    EXECUTE format('ALTER TABLE casework.%I FORCE  ROW LEVEL SECURITY', v_table);
-    EXECUTE format('DROP POLICY IF EXISTS rls_%s_visibility ON casework.%I',
+    EXECUTE format('ALTER TABLE evidence.%I ENABLE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('ALTER TABLE evidence.%I FORCE  ROW LEVEL SECURITY', v_table);
+    EXECUTE format('DROP POLICY IF EXISTS rls_%s_visibility ON evidence.%I',
                    v_table, v_table);
     EXECUTE format($fmt$
-      CREATE POLICY rls_%s_visibility ON casework.%I
+      CREATE POLICY rls_%s_visibility ON evidence.%I
         FOR ALL
         TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
         USING (%s)
@@ -694,8 +694,8 @@ $$;
 -- capture tables are the ones that do not. The two captured statement-text
 -- columns are also the source of C1's deterministic visibility classifier:
 --
---   casework.pg_stat_activity_samples.query       -- one observed backend
---   casework.pg_stat_statements_samples.queries    -- normalized phase snapshot
+--   evidence.pg_stat_activity_samples.query       -- one observed backend
+--   evidence.pg_stat_statements_samples.queries    -- normalized phase snapshot
 --
 -- `pg_stat_activity_samples` carries `observation_evidence_id`, so section 5
 -- scopes its rows through the lock observation. Those lock observations remain
@@ -714,22 +714,22 @@ $$;
 -- optional lab.
 -- ---------------------------------------------------------------------------
 
-ALTER TABLE casework.pg_stat_statements_samples ENABLE ROW LEVEL SECURITY;
-ALTER TABLE casework.pg_stat_statements_samples FORCE  ROW LEVEL SECURITY;
+ALTER TABLE evidence.pg_stat_statements_samples ENABLE ROW LEVEL SECURITY;
+ALTER TABLE evidence.pg_stat_statements_samples FORCE  ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS rls_pg_stat_statements_samples_visibility
-  ON casework.pg_stat_statements_samples;
+  ON evidence.pg_stat_statements_samples;
 
 CREATE POLICY rls_pg_stat_statements_samples_visibility
-  ON casework.pg_stat_statements_samples
+  ON evidence.pg_stat_statements_samples
   FOR ALL
   TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
   USING (
     EXISTS (
       SELECT 1
-      FROM casework.incident_capture_runs run
-      JOIN casework.evidence_items reachable
+      FROM evidence.incident_capture_runs run
+      JOIN evidence.evidence_items reachable
         ON reachable.evidence_id = run.incident_evidence_id
-      WHERE run.capture_id = casework.pg_stat_statements_samples.capture_id
+      WHERE run.capture_id = evidence.pg_stat_statements_samples.capture_id
     )
   );
 
@@ -738,7 +738,7 @@ CREATE POLICY rls_pg_stat_statements_samples_visibility
 -- "every capture-keyed table is scoped by its capture's visibility" rather than a
 -- judgement call about which payloads are interesting.
 --
--- casework.database_clusters is deliberately NOT gated: it is keyed by cluster_id
+-- evidence.database_clusters is deliberately NOT gated: it is keyed by cluster_id
 -- with no capture_id and no evidence reference, and it holds engine version,
 -- region, and instance class -- the cluster's own configuration, not an
 -- observation of it. There is nothing here for a persona predicate to join to.
@@ -747,19 +747,19 @@ DECLARE
   v_table text;
 BEGIN
   FOREACH v_table IN ARRAY ARRAY['cloudwatch_metric_samples'] LOOP
-    EXECUTE format('ALTER TABLE casework.%I ENABLE ROW LEVEL SECURITY', v_table);
-    EXECUTE format('ALTER TABLE casework.%I FORCE  ROW LEVEL SECURITY', v_table);
-    EXECUTE format('DROP POLICY IF EXISTS rls_%s_visibility ON casework.%I',
+    EXECUTE format('ALTER TABLE evidence.%I ENABLE ROW LEVEL SECURITY', v_table);
+    EXECUTE format('ALTER TABLE evidence.%I FORCE  ROW LEVEL SECURITY', v_table);
+    EXECUTE format('DROP POLICY IF EXISTS rls_%s_visibility ON evidence.%I',
                    v_table, v_table);
     EXECUTE format($fmt$
-      CREATE POLICY rls_%s_visibility ON casework.%I
+      CREATE POLICY rls_%s_visibility ON evidence.%I
         FOR ALL
         TO persona_app_engineer, persona_dba, persona_auditor, CURRENT_USER
         USING (EXISTS (SELECT 1
-                         FROM casework.incident_capture_runs run
-                         JOIN casework.evidence_items reachable
+                         FROM evidence.incident_capture_runs run
+                         JOIN evidence.evidence_items reachable
                            ON reachable.evidence_id = run.incident_evidence_id
-                        WHERE run.capture_id = casework.%I.capture_id))
+                        WHERE run.capture_id = evidence.%I.capture_id))
     $fmt$, v_table, v_table, v_table);
   END LOOP;
 END
@@ -773,7 +773,7 @@ $$;
 -- admission function writes it as the schema owner.
 --
 -- retrieval.search_index_queue is here for the same reason, and it is the one
--- evidence-keyed table outside casework: section 5's loop walks casework only, so
+-- evidence-keyed table outside evidence: section 5's loop walks evidence only, so
 -- the outbox is a separate evidence-bearing read path. It carries no body text,
 -- but it does expose evidence identity and source revision; an App Engineer must
 -- not enumerate rows the ACL hides elsewhere. G-27 asserts the rule structurally
@@ -794,12 +794,12 @@ CREATE POLICY rls_inferred_edges_visibility ON retrieval.inferred_edges
   USING (
     EXISTS (
       SELECT 1
-      FROM casework.evidence_items near
+      FROM evidence.evidence_items near
       WHERE near.evidence_id = retrieval.inferred_edges.from_evidence_id
     )
     AND EXISTS (
       SELECT 1
-      FROM casework.evidence_items far
+      FROM evidence.evidence_items far
       WHERE far.evidence_id = retrieval.inferred_edges.to_evidence_id
     )
   );
@@ -818,7 +818,7 @@ DROP POLICY IF EXISTS rls_search_index_queue_owner ON retrieval.search_index_que
 
 -- FOR SELECT, not FOR ALL: nothing a persona does writes this table. The two
 -- writers are the index builder (labs/incident/run_live_workshop.py, connected as
--- the owner) and casework.admit_evidence, which is SECURITY DEFINER owned by the
+-- the owner) and evidence.admit_evidence, which is SECURITY DEFINER owned by the
 -- schema owner (sql/10_admission.sql) -- so both write under the owner policy
 -- below, not this one.
 CREATE POLICY rls_search_index_queue_visibility ON retrieval.search_index_queue
@@ -827,7 +827,7 @@ CREATE POLICY rls_search_index_queue_visibility ON retrieval.search_index_queue
   USING (
     EXISTS (
       SELECT 1
-      FROM casework.evidence_items reachable
+      FROM evidence.evidence_items reachable
       WHERE reachable.evidence_id = retrieval.search_index_queue.evidence_id
     )
   );
@@ -854,7 +854,7 @@ CREATE POLICY rls_search_index_queue_owner ON retrieval.search_index_queue
 -- App Engineer can therefore outlive the visibility context that originally
 -- filtered its candidates. The run-role predicate alone would pass because the
 -- run is theirs, while a snapshot could still repeat captured PostgreSQL statement
--- text that RLS withheld at casework.evidence_items, retrieval.documents, and
+-- text that RLS withheld at evidence.evidence_items, retrieval.documents, and
 -- retrieval.chunks.
 --
 -- The snapshot is written by the API as the schema owner, which holds clearance, so
@@ -954,7 +954,7 @@ BEGIN
                AND NOT a.attisdropped
            )
            THEN format(
-             ' AND EXISTS (SELECT 1 FROM casework.evidence_items reachable '
+             ' AND EXISTS (SELECT 1 FROM evidence.evidence_items reachable '
              'WHERE reachable.evidence_id = proof.%I.evidence_id)', v_table)
            ELSE ''
       END
@@ -1197,7 +1197,7 @@ CREATE POLICY proof_relevance_judgments_persona ON proof.relevance_judgments
   USING (
     EXISTS (
       SELECT 1
-      FROM casework.evidence_items evidence
+      FROM evidence.evidence_items evidence
       WHERE evidence.evidence_id = proof.relevance_judgments.evidence_id
     )
   );

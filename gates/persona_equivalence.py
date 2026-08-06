@@ -89,7 +89,7 @@ CORE_RULE = "coalesce({column} ->> 'visibility', 'restricted') = 'workshop'"
 # Keyed on identity, not on count. Two row sets of equal size can still differ, and
 # a policy that swapped which rows it admitted would be invisible to a count.
 READ_PATH = (
-    {"table": "casework.evidence_items", "key": "evidence_id", "acl": "acl"},
+    {"table": "evidence.evidence_items", "key": "evidence_id", "acl": "acl"},
     {"table": "retrieval.documents", "key": "document_version_id", "acl": "acl"},
     {"table": "retrieval.chunks", "key": "chunk_version_id", "acl": "acl"},
 )

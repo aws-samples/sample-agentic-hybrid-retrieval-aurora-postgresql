@@ -12,7 +12,7 @@ from psycopg.rows import dict_row, tuple_row
 from .embeddings import bedrock_embeddings, to_pgvector
 
 EMBEDDING_DIMENSIONS = 1024
-RENDERER_VERSION = "casework-renderer-v1"
+RENDERER_VERSION = "evidence-renderer-v1"
 CHUNKER_VERSION = "paragraph-chunker-v1"
 ANALYZE_AFTER_INDEXED_DOCUMENTS = 1000
 INDEX_BULK_THRESHOLD = 100
@@ -277,7 +277,7 @@ def _load_documents(
         cursor.execute(
             """
             SELECT *
-            FROM casework.v_evidence_documents
+            FROM evidence.v_evidence_documents
             WHERE (%s::text[] IS NULL OR source_system = ANY(%s::text[]))
             ORDER BY evidence_kind, external_key
             """,
@@ -769,7 +769,7 @@ def _persist_search_index_bulk(
                     """
                     WITH current_sources AS MATERIALIZED (
                       SELECT evidence_id
-                      FROM casework.v_evidence_documents
+                      FROM evidence.v_evidence_documents
                       WHERE (%s::text[] IS NULL OR source_system = ANY(%s::text[]))
                     )
                     UPDATE retrieval.documents document
@@ -816,7 +816,7 @@ def _persist_search_index_bulk(
                     SET status = 'complete',
                         completed_at = now(),
                         error = NULL
-                    FROM casework.evidence_items source
+                    FROM evidence.evidence_items source
                     WHERE source.evidence_id = queue.evidence_id
                       AND source.is_deleted
                       AND (
@@ -1227,7 +1227,7 @@ def rebuild_search_index(
                       )
                       AND NOT EXISTS (
                         SELECT 1
-                        FROM casework.v_evidence_documents source
+                        FROM evidence.v_evidence_documents source
                         WHERE source.evidence_id = document.evidence_id
                       )
                     """,
@@ -1254,7 +1254,7 @@ def rebuild_search_index(
                     SET status = 'complete',
                         completed_at = now(),
                         error = NULL
-                    FROM casework.evidence_items source
+                    FROM evidence.evidence_items source
                     WHERE source.evidence_id = queue.evidence_id
                       AND source.is_deleted
                       AND (

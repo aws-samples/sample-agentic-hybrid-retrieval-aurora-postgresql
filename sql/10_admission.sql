@@ -1,20 +1,20 @@
 -- sql/10_admission.sql - atomic admission for one participant-induced capture wave.
-ALTER TABLE casework.evidence_items
+ALTER TABLE evidence.evidence_items
   ADD COLUMN IF NOT EXISTS content_hash text;
 
-ALTER TABLE casework.evidence_items
+ALTER TABLE evidence.evidence_items
   ADD COLUMN IF NOT EXISTS available_at timestamptz;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_evidence_items_admission
-  ON casework.evidence_items (source_uri, content_hash)
+  ON evidence.evidence_items (source_uri, content_hash)
   WHERE content_hash IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS casework.ingest_receipts (
+CREATE TABLE IF NOT EXISTS evidence.ingest_receipts (
   ingest_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   source_uri text NOT NULL,
   content_hash text NOT NULL,
   evidence_id uuid NOT NULL
-    REFERENCES casework.evidence_items(evidence_id) ON DELETE RESTRICT,
+    REFERENCES evidence.evidence_items(evidence_id) ON DELETE RESTRICT,
   external_key text NOT NULL,
   evidence_kind text NOT NULL,
   payload_hash text NOT NULL,
@@ -26,11 +26,11 @@ CREATE TABLE IF NOT EXISTS casework.ingest_receipts (
   UNIQUE (source_uri, content_hash)
 );
 
-CREATE OR REPLACE FUNCTION casework.admit_evidence(payload jsonb)
+CREATE OR REPLACE FUNCTION evidence.admit_evidence(payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, casework, retrieval
+SET search_path = pg_catalog, evidence, retrieval
 AS $$
 DECLARE
   v_source_system constant text := 'pg_incident_capture';
@@ -61,7 +61,7 @@ DECLARE
   v_lock_change_key text;
   v_payload_hash text;
   v_available_at timestamptz;
-  v_existing casework.ingest_receipts%ROWTYPE;
+  v_existing evidence.ingest_receipts%ROWTYPE;
   v_record jsonb;
   v_kind text;
   v_external_key text;
@@ -268,10 +268,10 @@ BEGIN
 
     SELECT item.evidence_id
     INTO v_incident_id
-    FROM casework.evidence_items item
-    JOIN casework.incidents incident
+    FROM evidence.evidence_items item
+    JOIN evidence.incidents incident
       ON incident.evidence_id = item.evidence_id
-    JOIN casework.incident_capture_runs wave_a
+    JOIN evidence.incident_capture_runs wave_a
       ON wave_a.incident_evidence_id = incident.evidence_id
      AND wave_a.wave = 'A'
     WHERE item.evidence_kind = 'incident'
@@ -387,14 +387,14 @@ BEGIN
     RAISE EXCEPTION 'admission: every record requires available_at'
       USING ERRCODE = '22023';
   END IF;
-  v_payload_hash := casework.sha256_text(payload::text);
+  v_payload_hash := evidence.sha256_text(payload::text);
   PERFORM pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended('casework.live_run:' || v_bundle_uri, 0)
+    pg_catalog.hashtextextended('evidence.live_run:' || v_bundle_uri, 0)
   );
 
   SELECT *
   INTO v_existing
-  FROM casework.ingest_receipts
+  FROM evidence.ingest_receipts
   WHERE source_uri = v_bundle_uri
     AND content_hash = v_payload_hash
   FOR UPDATE;
@@ -411,14 +411,14 @@ BEGIN
             'evidence_kind', item.evidence_kind
           )
         )
-        FROM casework.evidence_items item
+        FROM evidence.evidence_items item
         WHERE item.source_system = v_source_system
           AND item.source_uri LIKE v_bundle_uri || '/%'
       )
     );
   END IF;
 
-  INSERT INTO casework.database_clusters(
+  INSERT INTO evidence.database_clusters(
     cluster_id,
     engine,
     engine_version,
@@ -528,7 +528,7 @@ BEGIN
 
     SELECT evidence_kind
     INTO v_existing_kind
-    FROM casework.evidence_items
+    FROM evidence.evidence_items
     WHERE external_key = v_external_key
       AND evidence_kind <> v_kind
     ORDER BY evidence_kind
@@ -544,7 +544,7 @@ BEGIN
 
     SELECT source_system, source_uri
     INTO v_existing_source_system, v_existing_source_uri
-    FROM casework.evidence_items
+    FROM evidence.evidence_items
     WHERE evidence_kind = v_kind
       AND external_key = v_external_key
     FOR UPDATE;
@@ -558,8 +558,8 @@ BEGIN
         USING ERRCODE = '23505';
     END IF;
 
-    v_record_hash := casework.sha256_text(v_record::text);
-    INSERT INTO casework.evidence_items(
+    v_record_hash := evidence.sha256_text(v_record::text);
+    INSERT INTO evidence.evidence_items(
       evidence_kind,
       external_key,
       title,
@@ -601,16 +601,16 @@ BEGIN
   IF v_wave = 'A' THEN
     SELECT evidence_id
     INTO v_incident_id
-    FROM casework.evidence_items
+    FROM evidence.evidence_items
     WHERE evidence_kind = 'incident'
       AND external_key = v_incident_key;
     SELECT evidence_id
     INTO v_lock_id
-    FROM casework.evidence_items
+    FROM evidence.evidence_items
     WHERE evidence_kind = 'lock_evidence'
       AND external_key = v_lock_key;
 
-    INSERT INTO casework.incidents(
+    INSERT INTO evidence.incidents(
       evidence_id,
       incident_id,
       cluster_id,
@@ -655,11 +655,11 @@ BEGIN
   LOOP
     SELECT evidence_id
     INTO v_change_id
-    FROM casework.evidence_items
+    FROM evidence.evidence_items
     WHERE evidence_kind = 'change'
       AND external_key = v_record ->> 'external_key';
 
-    INSERT INTO casework.changes(
+    INSERT INTO evidence.changes(
       evidence_id,
       change_id,
       cluster_id,
@@ -696,7 +696,7 @@ BEGIN
           description = EXCLUDED.description,
           rollback_plan = EXCLUDED.rollback_plan;
 
-    INSERT INTO casework.incident_changes(
+    INSERT INTO evidence.incident_changes(
       incident_evidence_id,
       change_evidence_id,
       relationship,
@@ -718,7 +718,7 @@ BEGIN
     v_edges := v_edges + 1;
   END LOOP;
 
-  INSERT INTO casework.incident_capture_runs(
+  INSERT INTO evidence.incident_capture_runs(
     capture_id,
     capture_key,
     wave,
@@ -785,10 +785,10 @@ BEGIN
   IF v_wave = 'A' THEN
     SELECT evidence_id
     INTO v_change_id
-    FROM casework.evidence_items
+    FROM evidence.evidence_items
     WHERE evidence_kind = 'change'
       AND external_key = v_lock_change_key;
-    INSERT INTO casework.lock_evidence(
+    INSERT INTO evidence.lock_evidence(
       evidence_id,
       observation_id,
       incident_evidence_id,
@@ -851,7 +851,7 @@ BEGIN
     v_edges := v_edges + 2;
   END IF;
 
-  INSERT INTO casework.pg_stat_activity_samples(
+  INSERT INTO evidence.pg_stat_activity_samples(
     sample_id,
     capture_id,
     observation_evidence_id,
@@ -874,7 +874,7 @@ BEGIN
       nullif(sample ->> 'sample_id', '')::bigint,
       nextval(
         pg_get_serial_sequence(
-          'casework.pg_stat_activity_samples',
+          'evidence.pg_stat_activity_samples',
           'sample_id'
         )
       )
@@ -895,7 +895,7 @@ BEGIN
     coalesce(sample -> 'raw_row', sample)
   FROM jsonb_array_elements(v_telemetry -> 'pg_stat_activity') sample;
 
-  INSERT INTO casework.pg_lock_samples(
+  INSERT INTO evidence.pg_lock_samples(
     capture_id,
     observation_evidence_id,
     observation_number,
@@ -928,7 +928,7 @@ BEGIN
     coalesce(sample -> 'raw_row', sample)
   FROM jsonb_array_elements(v_telemetry -> 'pg_locks') sample;
 
-  INSERT INTO casework.pg_blocking_pids_samples(
+  INSERT INTO evidence.pg_blocking_pids_samples(
     capture_id,
     observation_evidence_id,
     observation_number,
@@ -954,7 +954,7 @@ BEGIN
     coalesce(sample -> 'raw_row', sample)
   FROM jsonb_array_elements(v_telemetry -> 'pg_blocking_pids') sample;
 
-  INSERT INTO casework.pg_stat_statements_samples(
+  INSERT INTO evidence.pg_stat_statements_samples(
     sample_id,
     capture_id,
     phase,
@@ -973,7 +973,7 @@ BEGIN
       nullif(sample ->> 'sample_id', '')::bigint,
       nextval(
         pg_get_serial_sequence(
-          'casework.pg_stat_statements_samples',
+          'evidence.pg_stat_statements_samples',
           'sample_id'
         )
       )
@@ -990,7 +990,7 @@ BEGIN
     sample
   FROM jsonb_array_elements(v_telemetry -> 'pg_stat_statements') sample;
 
-  INSERT INTO casework.cloudwatch_metric_samples(
+  INSERT INTO evidence.cloudwatch_metric_samples(
     capture_id,
     metric_name,
     namespace,
@@ -1017,7 +1017,7 @@ BEGIN
     coalesce(sample -> 'raw_datapoint', sample)
   FROM jsonb_array_elements(v_telemetry -> 'cloudwatch_metrics') sample;
 
-  INSERT INTO casework.telemetry_evidence(
+  INSERT INTO evidence.telemetry_evidence(
     evidence_id,
     telemetry_id,
     capture_id,
@@ -1043,10 +1043,10 @@ BEGIN
     document ->> 'body',
     document -> 'structured'
   FROM jsonb_array_elements(v_telemetry_documents) document
-  JOIN casework.evidence_items item
+  JOIN evidence.evidence_items item
     ON item.evidence_kind = 'telemetry'
    AND item.external_key = document ->> 'external_key'
-  LEFT JOIN casework.evidence_items change_item
+  LEFT JOIN evidence.evidence_items change_item
     ON change_item.evidence_kind = 'change'
    AND change_item.external_key =
      document #>> '{structured,change_external_key}';
@@ -1068,16 +1068,16 @@ BEGIN
 
   FOR v_evidence_id IN
     SELECT item.evidence_id
-    FROM casework.evidence_items item
+    FROM evidence.evidence_items item
     WHERE item.source_system = v_source_system
       AND item.source_uri LIKE v_bundle_uri || '/%'
       AND NOT item.is_deleted
   LOOP
-    PERFORM casework.queue_evidence(v_evidence_id);
+    PERFORM evidence.queue_evidence(v_evidence_id);
     v_queued := v_queued + 1;
   END LOOP;
 
-  INSERT INTO casework.ingest_receipts(
+  INSERT INTO evidence.ingest_receipts(
     source_uri,
     content_hash,
     evidence_id,
@@ -1115,7 +1115,7 @@ BEGIN
           'evidence_kind', item.evidence_kind
         )
       )
-      FROM casework.evidence_items item
+      FROM evidence.evidence_items item
       WHERE item.source_system = v_source_system
         AND item.source_uri LIKE v_bundle_uri || '/%'
     )
@@ -1123,4 +1123,4 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION casework.admit_evidence(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION evidence.admit_evidence(jsonb) FROM PUBLIC;

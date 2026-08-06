@@ -12,8 +12,10 @@
     "zod": "^3.24.1"
   },
   "overrides": {
-    "fast-uri": "^3.1.4",
-    "@hono/node-server": "^2.0.5"
+    "fast-uri": "^3.1.5",
+    "@hono/node-server": "^2.0.5",
+    "hono": "^4.12.34",
+    "ip-address": "^10.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

@@ -401,7 +401,7 @@ def evidence_detail(evidence_id: str, role: Persona = DEFAULT_ROLE):
                 cursor.execute(
                     """
                     SELECT source.*, document.*
-                    FROM casework.v_evidence_documents source
+                    FROM evidence.v_evidence_documents source
                     LEFT JOIN retrieval.documents document
                       ON document.evidence_id = source.evidence_id
                      AND document.is_current

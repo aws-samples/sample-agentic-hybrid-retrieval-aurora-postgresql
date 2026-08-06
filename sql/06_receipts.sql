@@ -31,7 +31,7 @@ SELECT
   answer.validation_status
 FROM proof.agent_answers answer
 LEFT JOIN proof.answer_citations citation ON citation.run_id = answer.run_id
-LEFT JOIN casework.evidence_items item ON item.evidence_id = citation.evidence_id
+LEFT JOIN evidence.evidence_items item ON item.evidence_id = citation.evidence_id
 GROUP BY answer.run_id;
 
 -- Dropped rather than replaced: CREATE OR REPLACE VIEW can only append columns
@@ -62,7 +62,7 @@ SELECT
   candidate.explanation,
   candidate.evidence_snapshot
 FROM proof.retrieval_candidates candidate
-JOIN casework.evidence_items item ON item.evidence_id = candidate.evidence_id;
+JOIN evidence.evidence_items item ON item.evidence_id = candidate.evidence_id;
 
 CREATE OR REPLACE FUNCTION proof.validate_answer_citations(p_run_id uuid)
 RETURNS TABLE (
@@ -121,7 +121,7 @@ top_candidates AS MATERIALIZED (
     item.external_key,
     candidate.result_rank
   FROM proof.retrieval_candidates candidate
-  JOIN casework.evidence_items item
+  JOIN evidence.evidence_items item
     ON item.evidence_id = candidate.evidence_id
   WHERE candidate.run_id = p_run_id
   ORDER BY candidate.result_rank

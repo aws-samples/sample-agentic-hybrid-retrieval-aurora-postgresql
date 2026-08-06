@@ -86,10 +86,10 @@ def diagnostic_capture_scope_for_incident(
                   incident.incident_id,
                   capture.capture_id::text AS capture_id,
                   capture.capture_ended_at
-                FROM casework.incident_capture_runs capture
-                JOIN casework.incidents incident
+                FROM evidence.incident_capture_runs capture
+                JOIN evidence.incidents incident
                   ON incident.evidence_id = capture.incident_evidence_id
-                JOIN casework.evidence_items incident_item
+                JOIN evidence.evidence_items incident_item
                   ON incident_item.evidence_id = incident.evidence_id
                 WHERE capture.capture_origin = 'participant_induced'
                   AND capture.wave = 'A'
@@ -123,8 +123,8 @@ def _capture_scope_evidence_ids(
             cursor.execute(
                 """
                 SELECT DISTINCT item.evidence_id::text AS evidence_id
-                FROM casework.incident_capture_runs capture
-                JOIN casework.evidence_items item
+                FROM evidence.incident_capture_runs capture
+                JOIN evidence.evidence_items item
                   ON item.source_uri LIKE capture.source_bundle_uri || '/%%'
                  AND item.available_at <= capture.capture_ended_at
                 WHERE capture.capture_id = %s::uuid
@@ -431,7 +431,7 @@ def follow_evidence_links_impl(
             cursor.execute(
                 """
                 SELECT evidence_id
-                FROM casework.evidence_items
+                FROM evidence.evidence_items
                 WHERE external_key = ANY(%s)
                   AND NOT is_deleted
                   AND retrieval.acl_visible(acl)
@@ -439,14 +439,14 @@ def follow_evidence_links_impl(
                     %s::uuid IS NULL
                     OR EXISTS (
                       SELECT 1
-                      FROM casework.incident_capture_runs capture
+                      FROM evidence.incident_capture_runs capture
                       WHERE capture.capture_id = %s::uuid
                         AND capture.capture_origin = 'participant_induced'
                         AND capture.wave = 'A'
                         AND capture.capture_ended_at IS NOT NULL
-                        AND casework.evidence_items.source_uri
+                        AND evidence.evidence_items.source_uri
                             LIKE capture.source_bundle_uri || '/%%'
-                        AND casework.evidence_items.available_at
+                        AND evidence.evidence_items.available_at
                             <= capture.capture_ended_at
                     )
                   )
@@ -487,7 +487,7 @@ def follow_evidence_links_impl(
                   document.occurred_at,
                   left(regexp_replace(chunk.chunk_text, '\\s+', ' ', 'g'), 700) AS snippet
                 FROM retrieval.traverse_evidence(%s::uuid[], %s) walk
-                JOIN casework.evidence_items item
+                JOIN evidence.evidence_items item
                   ON item.evidence_id = walk.evidence_id
                 JOIN retrieval.documents document
                   ON document.evidence_id = walk.evidence_id
@@ -504,7 +504,7 @@ def follow_evidence_links_impl(
                   %s::uuid IS NULL
                   OR EXISTS (
                     SELECT 1
-                    FROM casework.incident_capture_runs capture
+                    FROM evidence.incident_capture_runs capture
                     WHERE capture.capture_id = %s::uuid
                       AND capture.capture_origin = 'participant_induced'
                       AND capture.wave = 'A'
@@ -551,7 +551,7 @@ def compare_sources_impl(
                   document.account_name,
                   document.severity,
                   document.occurred_at
-                FROM casework.evidence_items item
+                FROM evidence.evidence_items item
                 JOIN retrieval.documents document
                   ON document.evidence_id = item.evidence_id
                  AND document.is_current
@@ -563,7 +563,7 @@ def compare_sources_impl(
                     %s::uuid IS NULL
                     OR EXISTS (
                       SELECT 1
-                      FROM casework.incident_capture_runs capture
+                      FROM evidence.incident_capture_runs capture
                       WHERE capture.capture_id = %s::uuid
                         AND capture.capture_origin = 'participant_induced'
                         AND capture.wave = 'A'
@@ -1190,8 +1190,8 @@ def _evidence_for_run(
                     %s::uuid IS NULL
                     OR EXISTS (
                       SELECT 1
-                      FROM casework.incident_capture_runs capture
-                      JOIN casework.evidence_items item
+                      FROM evidence.incident_capture_runs capture
+                      JOIN evidence.evidence_items item
                         ON item.evidence_id = document.evidence_id
                       WHERE capture.capture_id = %s::uuid
                         AND capture.capture_origin = 'participant_induced'

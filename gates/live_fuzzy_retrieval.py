@@ -55,12 +55,12 @@ def run() -> int:
                   upper(right(replace(wave_a.capture_id::text, '-', ''), 8))
                     AS run_suffix,
                   incident.incident_id
-                FROM casework.incident_capture_runs expected
-                JOIN casework.incident_capture_runs wave_a
+                FROM evidence.incident_capture_runs expected
+                JOIN evidence.incident_capture_runs wave_a
                   ON wave_a.incident_evidence_id = expected.incident_evidence_id
                  AND wave_a.wave = 'A'
                  AND wave_a.capture_origin = 'participant_induced'
-                JOIN casework.incidents incident
+                JOIN evidence.incidents incident
                   ON incident.evidence_id = expected.incident_evidence_id
                 WHERE expected.capture_origin = 'participant_induced'
                   AND lower(expected.capture_id::text) = lower(%s)

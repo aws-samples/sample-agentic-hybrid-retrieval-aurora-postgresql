@@ -8062,7 +8062,7 @@ export default function WorkbenchApp() {
                 <p className="module-deck">
                   Search-index readiness, embedding coverage, and the build
                   records that prove the index was rebuilt without blocking
-                  casework, all read live from Aurora.
+                  evidence, all read live from Aurora.
                 </p>
               </div>
               <div className="heading-status">

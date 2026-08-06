@@ -162,7 +162,7 @@ def _assert_empty_evidence_store(connection: psycopg.Connection) -> None:
     existing = connection.execute(
         """
         SELECT count(*) AS records
-        FROM casework.evidence_items
+        FROM evidence.evidence_items
         WHERE NOT is_deleted
         """
     ).fetchone()["records"]
@@ -760,8 +760,8 @@ def _assert_wave_a_corpus_present(connection: psycopg.Connection) -> dict[str, A
           (capture.manifest ->> 'blocked_writer_count')::integer
             AS blocked_writer_count,
           incident.external_key AS incident_key
-        FROM casework.incident_capture_runs capture
-        JOIN casework.evidence_items incident
+        FROM evidence.incident_capture_runs capture
+        JOIN evidence.evidence_items incident
           ON incident.evidence_id = capture.incident_evidence_id
         WHERE capture.capture_origin = 'participant_induced'
           AND capture.wave = 'A'
@@ -867,12 +867,12 @@ def _reserve_classifier_sample_ids(
     ) as connection:
         _reserve_sample_ids(
             connection,
-            relation="casework.pg_stat_activity_samples",
+            relation="evidence.pg_stat_activity_samples",
             rows=activity_samples,
         )
         _reserve_sample_ids(
             connection,
-            relation="casework.pg_stat_statements_samples",
+            relation="evidence.pg_stat_statements_samples",
             rows=statement_samples,
         )
 
@@ -1345,9 +1345,9 @@ def _action_proposal(
                 FROM proof.retrieval_candidates candidate
                 JOIN retrieval.documents document
                   ON document.document_version_id = candidate.document_version_id
-                JOIN casework.incidents incident
+                JOIN evidence.incidents incident
                   ON incident.incident_id = document.incident_id
-                JOIN casework.evidence_items incident_item
+                JOIN evidence.evidence_items incident_item
                   ON incident_item.evidence_id = incident.evidence_id
                 WHERE candidate.run_id = proposal.run_id
                   AND incident_item.external_key = %s
@@ -1743,7 +1743,7 @@ def _admit_evidence(database_url: str, payload: dict[str, Any]) -> dict[str, Any
         autocommit=True,
     ) as connection:
         row = connection.execute(
-            "SELECT casework.admit_evidence(%s::jsonb) AS receipt",
+            "SELECT evidence.admit_evidence(%s::jsonb) AS receipt",
             (json.dumps(payload),),
         ).fetchone()
     if row is None:
@@ -1992,7 +1992,7 @@ def _verify_wave(
             SELECT
               (
                 SELECT count(*)
-                FROM casework.evidence_items item
+                FROM evidence.evidence_items item
                 WHERE item.source_system = %s
                   AND NOT item.is_deleted
               ) AS corpus_documents,
@@ -2005,27 +2005,27 @@ def _verify_wave(
               ) AS wave_documents,
               (
                 SELECT count(*)
-                FROM casework.pg_stat_activity_samples
+                FROM evidence.pg_stat_activity_samples
                 WHERE capture_id = %s
               ) AS activity_rows,
               (
                 SELECT count(*)
-                FROM casework.pg_lock_samples
+                FROM evidence.pg_lock_samples
                 WHERE capture_id = %s
               ) AS lock_rows,
               (
                 SELECT count(*)
-                FROM casework.pg_blocking_pids_samples
+                FROM evidence.pg_blocking_pids_samples
                 WHERE capture_id = %s
               ) AS blocking_rows,
               (
                 SELECT count(*)
-                FROM casework.pg_stat_statements_samples
+                FROM evidence.pg_stat_statements_samples
                 WHERE capture_id = %s
               ) AS statement_rows,
               (
                 SELECT count(*)
-                FROM casework.cloudwatch_metric_samples
+                FROM evidence.cloudwatch_metric_samples
                 WHERE capture_id = %s
               ) AS cloudwatch_rows
             """,
@@ -2042,13 +2042,13 @@ def _verify_wave(
         capture = connection.execute(
             """
             SELECT capture_key, wave
-            FROM casework.incident_capture_runs
+            FROM evidence.incident_capture_runs
             WHERE capture_id = %s
             """,
             (capture_id,),
         ).fetchone()
         readiness = connection.execute(
-            "SELECT casework.assert_live_capture_ready() AS receipt"
+            "SELECT evidence.assert_live_capture_ready() AS receipt"
         ).fetchone()["receipt"]
         health = connection.execute(
             "SELECT retrieval.assert_search_index_ready() AS health"
@@ -2128,13 +2128,13 @@ def _preflight(
         schema = connection.execute(
             """
             SELECT
-              to_regclass('casework.incident_capture_runs') IS NOT NULL
+              to_regclass('evidence.incident_capture_runs') IS NOT NULL
                 AS incident_capture_runs,
-              to_regclass('casework.telemetry_evidence') IS NOT NULL
+              to_regclass('evidence.telemetry_evidence') IS NOT NULL
                 AS telemetry_evidence,
-              to_regprocedure('casework.admit_evidence(jsonb)') IS NOT NULL
+              to_regprocedure('evidence.admit_evidence(jsonb)') IS NOT NULL
                 AS admit_evidence,
-              to_regprocedure('casework.assert_live_capture_ready()') IS NOT NULL
+              to_regprocedure('evidence.assert_live_capture_ready()') IS NOT NULL
                 AS live_capture_ready,
               to_regprocedure('retrieval.assert_search_index_ready()') IS NOT NULL
                 AS search_index_ready,

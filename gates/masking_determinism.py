@@ -110,12 +110,12 @@ CLEARANCE_GROUP = "can_see_restricted"
 # Policy NAMES are deliberately not pinned: a rename that preserves the mapping is
 # not a regression, and pinning them would fail on a cosmetic edit.
 MASKED_FOR = {
-    "casework.pg_stat_activity_samples": ("persona_app_engineer", "persona_auditor"),
-    "casework.pg_stat_statements_samples": ("persona_app_engineer", "persona_auditor"),
+    "evidence.pg_stat_activity_samples": ("persona_app_engineer", "persona_auditor"),
+    "evidence.pg_stat_statements_samples": ("persona_app_engineer", "persona_auditor"),
 }
 
 # Tables that must carry NO masking policy, for reasons measured rather than
-# assumed. Dropping casework.telemetry_evidence from MASKED_FOR above would
+# assumed. Dropping evidence.telemetry_evidence from MASKED_FOR above would
 # otherwise weaken this gate silently: an absent table is simply not asserted, so
 # re-adding the policy would go unnoticed. This turns the absence into a claim.
 #
@@ -123,9 +123,9 @@ MASKED_FOR = {
 # retrieval.chunks.chunk_text is the unmasked indexed copy of the same text
 # (see sql/12_masking.sql section 3 for the full measurement):
 #
-#   * casework.telemetry_evidence -- a mask here made
+#   * evidence.telemetry_evidence -- a mask here made
 #     SET LOCAL ROLE persona_auditor; SELECT count(*) FROM
-#     casework.v_evidence_documents terminate the backend and restart the whole
+#     evidence.v_evidence_documents terminate the backend and restart the whole
 #     Aurora instance, because that view joins the masked table. It also protected
 #     nothing: the same restricted statement can appear in a chunk the auditor
 #     reads raw under its clearance.
@@ -133,7 +133,7 @@ MASKED_FOR = {
 #     with "failed to postpone qual containing lateral reference", because all
 #     three return a snippet from a LATERAL subquery.
 MUST_NOT_BE_MASKED = (
-    "casework.telemetry_evidence",
+    "evidence.telemetry_evidence",
     "retrieval.chunks",
 )
 
@@ -202,7 +202,7 @@ SELECT c.chunk_version_id, c.chunk_ordinal, c.chunk_text
 #
 # Keyed on retrieval.chunks' own denormalized acl_visibility (sql/01_schema.sql
 # carries the scalar on the derived tables), which is the exact column the row policy
-# tests. Reaching the classification through casework.evidence_items instead would
+# tests. Reaching the classification through evidence.evidence_items instead would
 # mean a two-table join, and both of those tables are protected -- the same
 # fail-open behavior the corpus check above documents, on the oracle side rather than
 # the measurement side. Drift between this scalar and the authoritative acl jsonb is

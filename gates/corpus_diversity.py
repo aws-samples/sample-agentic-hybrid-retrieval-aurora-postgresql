@@ -37,6 +37,18 @@ PHASES = ("backfill", "pool_exhaustion", "recovery", "plan_regression")
 SIMILARITY_THRESHOLD = 0.6
 MAX_NEAR_DUPLICATE_RATE = 0.15
 
+SCHEMA_PROBE_SQL = """
+SELECT
+  to_regclass('evidence.v_evidence_documents') AS evidence_documents,
+  EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'evidence'
+      AND table_name = 'incident_capture_runs'
+      AND column_name = 'wave'
+  ) AS capture_wave
+"""
+
 CORPUS_SQL = """
 WITH docs AS (
   SELECT
@@ -103,6 +115,21 @@ class CorpusMeasurement:
         return self.near_duplicate_pairs / self.total_pairs
 
 
+def schema_block_reason(connection) -> str | None:
+    """Return a BLOCKED reason when the current evidence contract is absent."""
+    row = connection.execute(SCHEMA_PROBE_SQL).fetchone()
+    missing: list[str] = []
+    if row["evidence_documents"] is None:
+        missing.append("evidence.v_evidence_documents")
+    if not row["capture_wave"]:
+        missing.append("evidence.incident_capture_runs.wave")
+    if not missing:
+        return None
+    return "current incident-evidence schema is not applied; missing " + ", ".join(
+        missing
+    )
+
+
 def measure(connection) -> CorpusMeasurement:
     """Read one aggregate measurement from the current derived corpus."""
     row = connection.execute(
@@ -156,6 +183,9 @@ def run() -> int:
             row_factory=dict_row,
             options="-c default_transaction_read_only=on",
         ) as connection:
+            blocked = schema_block_reason(connection)
+            if blocked:
+                return finish(GATE_ID, BLOCKED, blocked)
             corpus = measure(connection)
     except psycopg.errors.UndefinedTable:
         return finish(GATE_ID, BLOCKED, "retrieval corpus schema is not applied")

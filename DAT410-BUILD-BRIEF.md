@@ -16,7 +16,7 @@ decision.
 ## Evidence Contract
 
 - Bootstrap creates exactly 5,000 operational customers and 3,000,000
-  operational orders while `casework`, `retrieval`, and `proof` remain empty.
+  operational orders while `evidence`, `retrieval`, and `proof` remain empty.
 - `make live-workshop` is the only participant ingestion path.
 - Investigation Evidence records a separate nullable-column commit, an unbatched backfill, ten
   transaction-ID lock waiters, at least two pool-boundary timeouts, recovery,

@@ -154,9 +154,9 @@ EVIDENCE_EDGE_SELECT = (
     "  edge.confidence,\n"
     "  edge.metadata\n"
     "FROM retrieval.evidence_edges edge\n"
-    "JOIN casework.evidence_items from_item\n"
+    "JOIN evidence.evidence_items from_item\n"
     "  ON from_item.evidence_id = edge.from_evidence_id\n"
-    "JOIN casework.evidence_items to_item\n"
+    "JOIN evidence.evidence_items to_item\n"
     "  ON to_item.evidence_id = edge.to_evidence_id"
 )
 

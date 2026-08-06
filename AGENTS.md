@@ -16,7 +16,7 @@ Read only the material relevant to the task:
   caused damage. Read it before running anything that writes.
 - `README.md`: product boundary, local runbook, and repository layout.
 - `docs/architecture.md`: service and ownership boundaries.
-- `docs/data-model.md`: `casework`, `retrieval`, and `proof` contracts.
+- `docs/data-model.md`: `evidence`, `retrieval`, and `proof` contracts.
 - `docs/ingestion-api.md`: implemented search index build contract.
 - `docs/connector-lifecycle.md`: update, tombstone, readiness, and production
   connector boundaries.
@@ -46,14 +46,14 @@ packaged source archive belong in the sibling Workshop Studio repository.
 ## Invariants
 
 - The participant database starts with zero evidence. Only the current
-  `make live-workshop` capture may populate `casework`, `retrieval`, or `proof`.
+  `make live-workshop` capture may populate `evidence`, `retrieval`, or `proof`.
 - No fixture, authored record, dump, snapshot, offline embedding, generated
   capture, or previous run may enter a participant-facing result. The Overview
   main graphic is the sole illustrative exception and never feeds retrieval.
 - Participant identifiers are derived from the capture UUID:
   `INC-<run-suffix>`, `CHG-<run-suffix>-01/02`,
   `LOCK-<run-suffix>-01`, and `TEL-<run-suffix>-...`.
-- `casework.*` owns normalized relational truth from that live capture.
+- `evidence.*` owns normalized relational truth from that live capture.
   `retrieval.*` is one-way derived, versioned, rebuildable state.
 - Do not hand-edit indexed documents or duplicate canonical relationships.
   Foreign keys are truth; `retrieval.evidence_edges` is the uniform read view.

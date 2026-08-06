@@ -35,7 +35,7 @@ def _distinct_values(connection, incident_evidence_id, field: str) -> set[str]:
     rows = connection.execute(
         f"""
         SELECT DISTINCT structured ->> '{field}'
-        FROM casework.telemetry_evidence
+        FROM evidence.telemetry_evidence
         WHERE incident_evidence_id = %s
           AND structured ->> '{field}' IS NOT NULL
         """,
@@ -64,7 +64,7 @@ def run() -> int:
             incident = connection.execute(
                 """
                 SELECT incident_evidence_id
-                FROM casework.incident_capture_runs
+                FROM evidence.incident_capture_runs
                 WHERE capture_origin = 'participant_induced'
                 GROUP BY incident_evidence_id
                 HAVING bool_or(wave = 'A') AND bool_or(wave = 'B')
@@ -78,7 +78,7 @@ def run() -> int:
                     for row in connection.execute(
                         """
                         SELECT DISTINCT wave
-                        FROM casework.incident_capture_runs
+                        FROM evidence.incident_capture_runs
                         ORDER BY wave
                         """
                     ).fetchall()
@@ -93,7 +93,7 @@ def run() -> int:
             bundle_rows = connection.execute(
                 """
                 SELECT wave, count(*), min(source_bundle_uri)
-                FROM casework.incident_capture_runs
+                FROM evidence.incident_capture_runs
                 WHERE incident_evidence_id = %s
                 GROUP BY wave
                 ORDER BY wave
@@ -123,8 +123,8 @@ def run() -> int:
                           WHERE document.is_current
                             AND document.index_state = 'ready'
                         ) AS current_documents
-                    FROM casework.incident_capture_runs capture
-                    JOIN casework.evidence_items item
+                    FROM evidence.incident_capture_runs capture
+                    JOIN evidence.evidence_items item
                       ON item.source_uri LIKE capture.source_bundle_uri || '/%%'
                      AND NOT item.is_deleted
                     LEFT JOIN retrieval.documents document
@@ -151,8 +151,8 @@ def run() -> int:
             validates = connection.execute(
                 """
                 SELECT count(*)
-                FROM casework.incident_changes relation
-                JOIN casework.evidence_items change_item
+                FROM evidence.incident_changes relation
+                JOIN evidence.evidence_items change_item
                   ON change_item.evidence_id = relation.change_evidence_id
                 WHERE relation.incident_evidence_id = %s
                   AND relation.relationship = 'validates'
@@ -186,8 +186,8 @@ def run() -> int:
                 for row in connection.execute(
                     """
                     SELECT DISTINCT telemetry.structured ->> 'telemetry_type'
-                    FROM casework.telemetry_evidence telemetry
-                    JOIN casework.incident_capture_runs capture
+                    FROM evidence.telemetry_evidence telemetry
+                    JOIN evidence.incident_capture_runs capture
                       ON capture.capture_id = telemetry.capture_id
                     WHERE capture.incident_evidence_id = %s
                       AND capture.wave = 'B'
