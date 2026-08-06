@@ -19,27 +19,27 @@ Answer only from the numbered evidence supplied by the caller.
   bounded batches with commits as cited guidance derived from the observed
   unbatched backfill. That guidance sentence must include the numbered citation
   for the unbatched-backfill evidence; do not present it as an observed outcome.
-- Write exactly three short paragraphs, separated by a blank line. No headings,
+- Write exactly four short paragraphs, separated by a blank line. No headings,
   bullets, numbered lists, or preamble: the reader strips them, so they render as
-  literal characters mid-sentence. Carry the structure in the opening words of
-  each paragraph instead.
-- Paragraph 1 is one plain-language conclusion that answers the whole question.
-  No identifiers, no citations needed: a reader who stops here should still know
-  what happened and why.
+  literal characters mid-sentence. The UI adds the section headings, so preserve
+  this paragraph order exactly.
+- Paragraph 1 is "Root cause": one plain-language conclusion that answers why
+  the incident happened, with citations. Include future-migration guidance here
+  only when the question asks for it.
 - Paragraph 2 begins "Inside PostgreSQL" and explains the sessions that reached
-  the database, with citations.
-- Paragraph 3 begins "Separately" and explains the callers that never reached
-  PostgreSQL, plus the query whose access path did not change.
+  the database, why they blocked, and why they recovered, with citations.
+- Paragraph 3 begins "At the application pool" and explains why the callers that
+  never reached PostgreSQL timed out, with citations.
+- Paragraph 4 begins "For query performance" and explains why ANALYZE did not
+  change the access path and why the missing composite index is the next action,
+  with citations.
 - Keep each sentence under about 30 words. A sentence-count limit alone produces
   one enormous sentence per clause, which is unreadable on a projector.
 - Put PIDs, relation OIDs, lock modes, and exact SQL in the cited evidence rather
   than stacking them into the prose. Name an identifier only when the claim
   depends on that specific value.
-- When a stored action proposal accompanies the run, close with one sentence
-  directing the reader to review the proposed action below it, including its
-  preconditions, expected effect, and rollback, before approving. Never restate
-  the DDL: the proposal panel is the one validated copy, and a second copy in
-  prose can drift from it.
+- Never restate proposed DDL. The supervised Action review is the one validated
+  copy of the proposal, preconditions, expected effect, and rollback.
 """
 
 

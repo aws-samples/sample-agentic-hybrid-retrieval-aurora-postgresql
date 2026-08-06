@@ -167,6 +167,8 @@ type JsonRecord = Record<string, unknown>;
 interface VerifySql {
   statement: string;
   binds: Record<string, unknown>;
+  rendered?: string;
+  set_role?: string | null;
 }
 
 // Panels whose value is a live capture or a harness aggregate cannot be replayed
@@ -1512,10 +1514,11 @@ function LiveBanner({
   );
 }
 
-// Inline the named binds as SQL literals so the statement is copy-paste runnable
-// in psql. The registry binds only text/uuid keys (run_id, edge_key, evidence_id),
-// so a quote-escaped string literal is the correct and complete rendering.
+// Older descriptors may omit the server-rendered envelope. Retain this fallback
+// for compatibility, but new descriptors include BEGIN/ROLLBACK and any required
+// persona role so the copied query mirrors the read-only API request exactly.
 function toPsql(descriptor: VerifySql): string {
+  if (descriptor.rendered) return descriptor.rendered;
   return Object.entries(descriptor.binds).reduce((statement, [name, value]) => {
     const literal =
       value === null || value === undefined
@@ -1916,22 +1919,61 @@ function answerParagraphs(text: string): string[] {
 function AnswerNarrative({
   text,
   streaming = false,
+  structured = false,
 }: {
   text: string;
   streaming?: boolean;
+  structured?: boolean;
 }) {
   const paragraphs = answerParagraphs(text);
+  const headings =
+    paragraphs.length >= 4
+      ? [
+          ['Root cause', 'Why the incident happened'],
+          ['Inside PostgreSQL', 'Blocked writes and recovery'],
+          ['Application pool', 'Why some callers timed out'],
+          ['Query performance', 'Why ANALYZE did not help'],
+        ]
+      : paragraphs.length === 3
+        ? [
+            ['Root cause', 'Why the incident happened'],
+            ['Inside PostgreSQL', 'Blocked writes and recovery'],
+            ['Application and query impact', 'Timeouts and the slow query'],
+          ]
+        : [];
 
   return (
     <div className={`answer-prose${streaming ? ' is-streaming' : ''}`}>
-      {paragraphs.map((paragraph, index) => (
-        <p key={`${index}-${paragraph.slice(0, 24)}`}>
-          <FormattedAnswer text={paragraph} />
-          {streaming && index === paragraphs.length - 1 ? (
-            <span className="answer-type-cursor" />
-          ) : null}
-        </p>
-      ))}
+      {paragraphs.map((paragraph, index) => {
+        const heading = structured ? headings[index] : undefined;
+        const prose = (
+          <p>
+            <FormattedAnswer text={paragraph} />
+            {streaming && index === paragraphs.length - 1 ? (
+              <span className="answer-type-cursor" />
+            ) : null}
+          </p>
+        );
+        return heading ? (
+          <section
+            key={`${index}-${paragraph.slice(0, 24)}`}
+            className="answer-prose-section"
+          >
+            <header>
+              <span className="section-label">{heading[0]}</span>
+              <h3>{heading[1]}</h3>
+            </header>
+            {prose}
+          </section>
+        ) : (
+          <div
+            key={`${index}-${paragraph.slice(0, 24)}`}
+            className="answer-prose-paragraph"
+          >
+            {prose}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -2021,6 +2063,7 @@ function FinalRankedEvidence({
   reranked,
   retrievalMode,
   runId,
+  verifySql,
   onSelect,
 }: {
   candidates: Candidate[];
@@ -2029,6 +2072,7 @@ function FinalRankedEvidence({
   reranked: boolean;
   retrievalMode: RetrievalMode;
   runId: string;
+  verifySql?: RunReceipt["_verify_sql"];
   onSelect: (candidate: Candidate) => void;
 }) {
   const isHybrid = retrievalMode === 'hybrid';
@@ -2367,6 +2411,28 @@ function FinalRankedEvidence({
               </aside>
             ) : null}
           </div>
+          {verifySql ? (
+            <section className="retrieval-code-editor">
+              <div>
+                <span className="section-label">Code Editor queries</span>
+                <h3>Reproduce this retrieval</h3>
+                <p>
+                  Copy the exact read-only statements for this persisted run.
+                  Each transaction rolls back after it reads the recorded result.
+                </p>
+              </div>
+              <div className="retrieval-code-editor-actions">
+                <VerifyAffordance
+                  descriptor={verifySql.run}
+                  label="retrieval run in psql"
+                />
+                <VerifyAffordance
+                  descriptor={verifySql.candidates}
+                  label="ranked evidence in psql"
+                />
+              </div>
+            </section>
+          ) : null}
         </>
       ) : (
         <Empty
@@ -5704,6 +5770,7 @@ export default function WorkbenchApp() {
                   reranked={finalReranked}
                   retrievalMode={appliedControls.mode}
                   runId={runId}
+                  verifySql={receipt?._verify_sql}
                   onSelect={selectCandidate}
                 />
 
@@ -6527,6 +6594,7 @@ export default function WorkbenchApp() {
                         </div>
                         <AnswerNarrative
                           text={streamingAnswer || answer.answer_text}
+                          structured={answer.synthesis_mode === 'bedrock'}
                         />
                         <div className="answer-proof-strip">
                           <span>

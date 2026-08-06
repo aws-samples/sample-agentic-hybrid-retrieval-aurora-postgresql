@@ -10,7 +10,20 @@ from backend.app.agent import (
     _merge_evidence,
     decompose_question_impl,
 )
-from backend.app.synthesis import evidence_block
+from backend.app.synthesis import SYSTEM_PROMPT, evidence_block
+
+
+class SynthesisPromptTests(unittest.TestCase):
+    def test_prompt_requires_the_four_incident_sections(self) -> None:
+        self.assertIn("Write exactly four short paragraphs", SYSTEM_PROMPT)
+        for section in (
+            "Root cause",
+            "Inside PostgreSQL",
+            "At the application pool",
+            "For query performance",
+        ):
+            with self.subTest(section=section):
+                self.assertIn(section, SYSTEM_PROMPT)
 
 
 class AgentContractTests(unittest.TestCase):
