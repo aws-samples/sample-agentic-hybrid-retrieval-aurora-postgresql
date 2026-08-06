@@ -271,3 +271,49 @@ remains only a post-fusion ordering signal.
 `READINESS.md` for answer run `c37e283a-b874-4546-a8fa-985932384df6`. G-13
 then compared the API's receipt panels, 63 graph edges, and 34 timeline events
 with their `_verify_sql` replays and found zero mismatches.
+
+## D2a Implementation Acceptance: Structured supervised action proposal
+
+**Result: PASSED on Aurora PostgreSQL 18.3 with Bedrock Converse tool use**
+
+The canonical `POST /v1/agent/answer` path now writes one append-only
+`proof.action_proposals` record only after Aurora validates the answer's
+citations. The model supplies structured index fields through the forced
+`record_action_proposal` Converse tool call; application code validates every
+identifier and renders the participant-reviewed DDL. The agent registry remains
+at seven read/synthesis-only tools, and the agent has no DDL execution path.
+
+The latest live proposal carried the measured key order:
+
+```text
+priority_tier asc nulls_last default
+created_at desc nulls_first default
+```
+
+The added Bedrock proposal call plus proposal persistence measured **5.741s**.
+This is an additional Lab 3 wait, not a final participant-path timing: the
+rehearsal task must measure and publish the combined synthesis-plus-proposal
+wait before facilitator copy quotes a total.
+
+The stored `proposed_sql` was executed only inside a scratch transaction on the
+dedicated `_test` database. Aurora's
+`proof.observed_index_fingerprint()` returned exactly the stored
+`proposed_fingerprint`, and the transaction rolled back, leaving the
+participant's pre-remediation index absent.
+
+The same live suite also exercised the non-canonical direct/Strands synthesis
+path over fresh retrieval runs. It returned a cited answer without creating an
+action proposal, preserving the boundary that only the canonical Lab 3 agent
+run has a persisted `proof.agent_runs` parent and can write a supervised action
+record.
+
+Validation:
+
+- Focused Python and agent contracts: 48 passed, 4 expected live skips, and 25
+  subtests passed without a live test target.
+- Live proposal suite: 4 passed in 47.51s, including canonical proposal
+  emission, validated citations, pre-execution eligibility, and no proposal
+  from direct/Strands synthesis.
+- G-17 registry-drift gate: passed.
+- G-34 retroactive-safety gate: passed against the live proposal with no
+  execution row.

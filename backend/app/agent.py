@@ -1009,6 +1009,36 @@ def _persist_answer(
                     """,
                     (run_id,),
                 )
+                # This writes an audit record about an answer the agent already
+                # produced. It is not an agent-callable capability: the registry
+                # stays at seven read/synthesis-only tools, and only a later
+                # participant step executes the rendered DDL.
+                #
+                # Strands and direct tool synthesis have no persisted
+                # proof.agent_runs parent, while extractive fallback made no
+                # recommendation. In either case, emitting a proposal would be
+                # false attribution or an FK error.
+                if agent_run_id and synthesis["mode"] == "bedrock":
+                    from .action_proposal import (
+                        persist_action_proposal,
+                        propose_action_live,
+                    )
+
+                    proposal_started = perf_counter()
+                    proposal_id = persist_action_proposal(
+                        cursor,
+                        agent_run_id=agent_run_id,
+                        run_id=run_id,
+                        fields=propose_action_live(question, answer, evidence),
+                        valid_citation_numbers=citation_numbers,
+                    )
+                    synthesis["action_proposal"] = {
+                        "proposal_id": proposal_id,
+                        "latency_ms": max(
+                            0,
+                            round((perf_counter() - proposal_started) * 1000),
+                        ),
+                    }
     return citations
 
 
@@ -1304,6 +1334,10 @@ def _merge_evidence(
     named_keys: list[str],
     limit: int,
 ) -> list[dict[str, Any]]:
+    def is_plan_checkpoint(row: dict[str, Any]) -> bool:
+        """Keep a measured EXPLAIN checkpoint in a bounded diagnostic answer."""
+        return "plan checkpoint" in str(row.get("title") or "").lower()
+
     merged: list[dict[str, Any]] = []
     seen: set[str] = set()
     reached_by_id = {
@@ -1314,8 +1348,13 @@ def _merge_evidence(
     named = [
         row for row in retrieved if row["external_key"] in set(named_keys)
     ]
+    plan_checkpoints = [row for row in retrieved if is_plan_checkpoint(row)]
     linked = [row for row in reached if row.get("depth", 0) > 0]
-    for row in [*named, *retrieved, *linked]:
+    # A plan checkpoint has the reference query's filter and ordering. Without
+    # it, a bounded answer can correctly establish "missing composite index" but
+    # leave a structured recommendation to guess the key order from unrelated
+    # hot-write telemetry.
+    for row in [*named, *plan_checkpoints, *retrieved, *linked]:
         evidence_id = str(row["evidence_id"])
         if evidence_id in seen:
             continue
@@ -2303,6 +2342,11 @@ def answer_question(request: AgentAnswerRequest) -> dict[str, Any]:
             {
                 "mode": synthesis["synthesis"]["mode"],
                 "citation_count": len(synthesis["citations"]),
+                "action_proposal_latency_ms": (
+                    synthesis["synthesis"]
+                    .get("action_proposal", {})
+                    .get("latency_ms")
+                ),
             },
             role=request.role,
         )

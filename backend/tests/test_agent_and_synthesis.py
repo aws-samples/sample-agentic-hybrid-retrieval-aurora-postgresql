@@ -177,6 +177,61 @@ class AgentContractTests(unittest.TestCase):
         self.assertEqual(merged[0]["via_relation"], "change_confirmed")
         self.assertEqual(merged[0]["via_origin"], "canonical_relation")
 
+    def test_merge_retains_a_plan_checkpoint_within_the_evidence_budget(self) -> None:
+        retrieved = [
+            {
+                "evidence_id": "incident",
+                "external_key": "INC-A1B2C3D4",
+                "title": "Participant-induced write stall",
+            },
+            {
+                "evidence_id": "change",
+                "external_key": "CHG-A1B2C3D4-01",
+                "title": "Unbatched priority-tier backfill",
+            },
+            {
+                "evidence_id": "lock",
+                "external_key": "LOCK-A1B2C3D4-01",
+                "title": "Measured transaction-ID lock wait",
+            },
+            {
+                "evidence_id": "recovery",
+                "external_key": "TEL-A1B2C3D4-M08",
+                "title": "Backfill commit began recovery",
+            },
+            {
+                "evidence_id": "pool",
+                "external_key": "TEL-A1B2C3D4-Q99",
+                "title": "Pool capacity recovered",
+            },
+            {
+                "evidence_id": "plan",
+                "external_key": "TEL-A1B2C3D4-P01",
+                "title": "Wave A plan checkpoint: after analyze",
+            },
+        ]
+
+        merged = _merge_evidence(
+            retrieved,
+            [],
+            named_keys=[
+                "INC-A1B2C3D4",
+                "CHG-A1B2C3D4-01",
+                "LOCK-A1B2C3D4-01",
+            ],
+            limit=4,
+        )
+
+        self.assertEqual(
+            [row["external_key"] for row in merged],
+            [
+                "INC-A1B2C3D4",
+                "CHG-A1B2C3D4-01",
+                "LOCK-A1B2C3D4-01",
+                "TEL-A1B2C3D4-P01",
+            ],
+        )
+
     def test_compare_relationships_are_attached_for_synthesis(self) -> None:
         evidence = [
             {
