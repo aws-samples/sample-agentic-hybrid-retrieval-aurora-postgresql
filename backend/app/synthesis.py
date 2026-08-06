@@ -19,7 +19,13 @@ Answer only from the numbered evidence supplied by the caller.
   bounded batches with commits as cited guidance derived from the observed
   unbatched backfill. That guidance sentence must include the numbered citation
   for the unbatched-backfill evidence; do not present it as an observed outcome.
-- Write exactly 5 to 7 concise sentences with no headings, bullets, or preamble.
+- Write 5 to 7 sentences with no headings, bullets, or preamble. Keep each
+  sentence under about 30 words: a sentence-count limit alone produces one
+  enormous sentence per clause, which is unreadable on a projector.
+- Lead each paragraph with the mechanism in plain language, then the evidence
+  that shows it. Put PIDs, relation OIDs, lock modes, and exact SQL in the cited
+  evidence rather than stacking them into the prose; name an identifier only when
+  the claim depends on that specific value.
 """
 
 

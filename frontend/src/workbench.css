@@ -1096,14 +1096,19 @@ button:disabled {
   border-color: var(--red);
 }
 
+/* Both fill their grid column instead of stopping at 760px. The reading measure
+   is enforced per-paragraph below, so capping the card here only left dead space
+   to the right of the answer of record. */
 .answer-streaming-prose,
 .answer-complete-prose {
   min-width: 0;
-  max-width: 760px;
 }
 
+/* Same 80ch measure as the settled .answer-prose, so the text does not reflow
+   to a different width the moment streaming finishes. */
 .answer-streaming-prose > p {
   min-width: 0;
+  max-width: 80ch;
   margin: 18px 0 0;
   color: var(--ink-soft);
   font: 500 20px/1.72 var(--serif);
@@ -1132,9 +1137,11 @@ button:disabled {
   gap: 5px;
 }
 
+/* 80ch, not the 68ch essay measure: this is read from the back of a room on a
+   projector, and 68ch at 18px serif left roughly a third of the column empty. */
 .answer-prose {
   min-width: 0;
-  max-width: 68ch;
+  max-width: 80ch;
   display: grid;
   gap: 18px;
   margin-top: 21px;
@@ -4710,7 +4717,7 @@ td span {
 }
 
 .home-query .investigation-query-field {
-  min-height: 76px;
+  min-height: 128px;
   display: grid;
   align-content: center;
   gap: 4px;
@@ -4726,10 +4733,10 @@ td span {
 .home-query textarea {
   min-width: 0;
   width: 100%;
-  min-height: 52px;
-  max-height: 90px;
+  min-height: 104px;
+  max-height: 160px;
   padding: 2px 0 0;
-  overflow: hidden;
+  overflow-y: auto;
   color: var(--ink);
   background: transparent;
   border: 0;

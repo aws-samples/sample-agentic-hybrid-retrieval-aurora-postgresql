@@ -284,7 +284,16 @@ async def stream_answer_with_strands(
     started = perf_counter()
     run = agent_tools.start_run(request.role, request.source_systems)
     trace = run["trace"]
-    agent = build_agent(max_tool_calls=request.max_tool_calls)
+    # Inside the generator body, so a construction failure (missing Bedrock
+    # credentials, bad model id) becomes a stream `error` event like any other
+    # failure. Raised here it escaped as an unhandled 500 with the traceback,
+    # after the response had already been handed to StreamingResponse.
+    build_error: Exception | None = None
+    agent: Any = None
+    try:
+        agent = build_agent(max_tool_calls=request.max_tool_calls)
+    except Exception as error:  # noqa: BLE001 - reported as a stream event below
+        build_error = error
 
     yield {
         "type": "meta",
@@ -296,6 +305,8 @@ async def stream_answer_with_strands(
     result: Any = None
     failure: str | None = None
     try:
+        if build_error is not None:
+            raise build_error
         async for event in agent.stream_async(request.question):
             while emitted < len(trace):
                 yield {"type": "tool_call", **trace[emitted]}
@@ -315,8 +326,17 @@ async def stream_answer_with_strands(
             if "result" in event:
                 result = event["result"]
     except Exception as error:
-        logger.warning("Strands agent stream failed: %s", error)
-        failure = str(error)
+        # Log the exception, stream a fixed reason. `str(error)` here reached the
+        # browser and could carry a DSN, host, or traceback fragment raised deep
+        # in retrieval; the buffered path already routes the same failure through
+        # `_unavailable`, which discloses nothing. The receipt written after the
+        # stream drains records this same text, so proof stays consistent with
+        # what the caller saw -- the detail lives in the server log.
+        logger.warning("Strands agent stream failed: %s", error, exc_info=True)
+        failure = (
+            "the agent run failed before a citation-validated answer was "
+            "persisted; check the API logs and run `make doctor`"
+        )
 
     while emitted < len(trace):
         yield {"type": "tool_call", **trace[emitted]}

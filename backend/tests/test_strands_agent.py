@@ -164,6 +164,42 @@ class StrandsAgentTests(unittest.TestCase):
             event_types.index("answer_token"),
         )
 
+    def test_stream_error_event_does_not_leak_internal_failure_detail(self) -> None:
+        """The streamed error must not carry the raw exception text.
+
+        The buffered path already routes failures through `_unavailable`, which
+        logs the exception and returns a fixed 503 message. The streamed path put
+        `str(error)` on the wire instead, so a DSN, host, or traceback fragment
+        raised deep in retrieval reached the browser. Same failure, same caller,
+        two different disclosure levels.
+        """
+        secret = "connection to host=db.internal user=retrieval_admin failed"
+
+        def _exploding_agent(*args: Any, **kwargs: Any) -> Any:
+            raise RuntimeError(secret)
+
+        async def collect_events() -> list[dict[str, Any]]:
+            return [
+                event
+                async for event in stream_answer_with_strands(
+                    AgentAnswerRequest(question="Why did writes block?")
+                )
+            ]
+
+        with patch(
+            "backend.app.strands_agent.build_agent",
+            _exploding_agent,
+        ):
+            events = asyncio.run(collect_events())
+
+        errors = [event for event in events if event["type"] == "error"]
+        self.assertTrue(errors, "the stream must still report the failure")
+        for event in errors:
+            self.assertNotIn("db.internal", event["error"])
+            self.assertNotIn("retrieval_admin", event["error"])
+            self.assertNotIn(secret, event["error"])
+            self.assertTrue(event["error"], "the caller still needs a reason")
+
     def test_caller_receives_the_validated_answer_not_the_models_prose(self) -> None:
         script = [
             ("search_evidence", '{"query": "CHG-A1B2C3D4-01"}'),

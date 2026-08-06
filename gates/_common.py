@@ -76,10 +76,18 @@ def read_env_value(name: str) -> str | None:
 
 
 def redact_dsn(dsn: str) -> str:
-    """Return URL-form and libpq keyword-form DSNs with passwords masked."""
+    """Return URL-form and libpq keyword-form DSNs with passwords masked.
+
+    The quoted-password branch is written so each character has exactly one way
+    to match: `[^'\\\\]` excludes the backslash that `\\\\.` consumes. Allowing both
+    to match it made every escape pair ambiguous, and an unterminated quote then
+    forced the engine through all combinations before failing -- 97 seconds on 30
+    pairs. The DSN comes from the environment, so that stalled the gate instead
+    of failing it.
+    """
     redacted = re.sub(r"(://[^:/@]+:)[^@]+@", r"\1***@", dsn)
     return re.sub(
-        r"(?i)(\bpassword\s*=\s*)(?:'(?:\\.|[^'])*'|[^\s]+)",
+        r"(?i)(\bpassword\s*=\s*)(?:'(?:[^'\\]|\\.)*'|[^\s]+)",
         r"\1***",
         redacted,
     )
