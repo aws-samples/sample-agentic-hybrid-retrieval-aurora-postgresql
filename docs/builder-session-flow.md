@@ -190,6 +190,10 @@ Before opening the room:
 - CloudWatch unavailability remains a recorded supplemental condition, not a
   participant blocker.
 
+Use the [facilitator recovery runbook](facilitator-recovery-runbook.md) for
+bounded incident, Wave B, and role-boundary recovery. It records expected
+failure symptoms and preserves the live-evidence rule.
+
 ## Expected Outputs
 
 - Ten connected hot writes show `Lock:transactionid` and the backfill PID;

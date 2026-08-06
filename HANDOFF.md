@@ -12,9 +12,11 @@ concurrent-index-repair mechanism.
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
 Tasks A1-E4 and F1-F2 are complete. G1's runtime participant path is complete;
-its frontend visual verification is retained for the G3 release freeze. F1's
-live PI-disabled/IAM-revoked rehearsal remains owed. G2-G3 own the remaining
-failure and release rehearsal work. The plan's repository-wide alignment audit
+its frontend visual verification is retained for the G3 release freeze. G2's
+failure-injection rehearsal is complete and documented in
+`docs/facilitator-recovery-runbook.md`. F1's live PI-disabled/IAM-revoked
+rehearsal remains owed, and G3 owns the remaining source release freeze. The
+plan's repository-wide alignment audit
 assigns every known stale surface to an explicit task; finding an unassigned
 stale surface is a plan defect and should be corrected before implementation
 continues.
@@ -432,15 +434,13 @@ result as rehearsal evidence.
 
 ## Next Task
 
-Start G2: inject the documented controller, CloudWatch, insufficient-writer,
-index-shape, Wave B, supervised-execution, and identity-boundary failures
-against the disposable Aurora PostgreSQL 18.3 test target. Record exact
-symptoms and recoveries in the facilitator runbook. Before release, also close
-F1's live proof by running `make live-workshop` with Performance Insights
-disabled on a disposable cluster or `pi:GetResourceMetrics` revoked from the
-caller. Keep CloudWatch supplemental, preserve the PostgreSQL and app-pool
-evidence boundary, and do not package or publish the sibling Workshop Studio
-repository before its user-owned work is ready.
+Start G3. Run the destructive full test suite before preserving the final
+reference corpus, then rebuild a fresh two-wave Aurora PostgreSQL 18.3
+rehearsal and run the core and optional-security gate sweeps. Capture frontend
+visual evidence only after the final corpus exists. Reconcile release wording,
+record Gate 6's explicit owed list, and keep F1's PI-disabled/IAM-revoked proof
+open unless it is actually run. Do not package or publish the sibling Workshop
+Studio repository before its user-owned work is ready.
 
 ### Workshop Studio Changes Required For F1
 

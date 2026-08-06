@@ -13005,8 +13005,9 @@ three of them.
      supervision path. Designed behavior: Wave B resolves no index by fingerprint,
      records the execution anyway with `fingerprint_matches = false`, and the
      supervision lens shows "Matches the proposal: no" while the post-execution
-     verdict reads `the executed action does not match the proposed action`.
-     **The run must not fail and the lab must remain re-runnable.** Record what the
+     verdict reads `the executed action does not match the proposed action`. The
+     Wave B command exits nonzero before admission, but the lab remains re-runnable
+     after the participant corrects the disposable-lab DDL. Record what the
      participant sees; Task D3's copy requires this read as information, not as a
      scolding.
   2. **The participant never executes.** Admit Wave B with no `CREATE INDEX` run.
@@ -13026,17 +13027,21 @@ three of them.
      **A 500 here is the NOT NULL foreign-key defect Task D2a's guard exists to
      prevent**, and it is a Phase D fix, not a runbook entry.
 
-  Also attempt, as the agent's own database role: `INSERT` into
-  `proof.action_executions` (must succeed — the agent's role has `INSERT`, and this
-  is honest: the agent records, it does not execute) and `CREATE INDEX` on
-  `workbench_lab.orders` (must fail on privileges). Record both. The distinction
-  between "can write an audit row" and "can change the database" is the whole
-  supervised-execution claim, and a rehearsal that never tests it is asserting it.
+  Also confirm the absence of a direct agent database-write capability. There is
+  no agent login and no write-capable tool: the canonical answer path persists a
+  proposal through the owner-side application boundary, and the Wave-B
+  orchestrator records the human execution after reading Aurora's catalog. The
+  API-pool identity must not receive a compensating `INSERT` privilege on
+  `proof.action_executions`; both that insert and `CREATE INDEX` on
+  `workbench_lab.orders` must fail. Record the refusal. This is stronger and
+  more accurate than a fictional "agent audit writer": the agent recommends,
+  while trusted orchestration records facts about the human's action.
 
   And once more as the **API pool** identity (`WORKSHOP_APP_DATABASE_URL`, no
-  `SET ROLE`), which is a different role from the agent's and a different role from
-  the participant's: `UPDATE workbench_lab.orders` must succeed, and `CREATE INDEX`,
-  `DROP TABLE`, and `TRUNCATE` on that table must each fail with SQLSTATE 42501.
+  `SET ROLE`), which is distinct from the participant and has no direct
+  `proof.*` write path: `UPDATE workbench_lab.orders` must succeed, and `CREATE
+  INDEX`, `DROP TABLE`, and `TRUNCATE` on that table must each fail with SQLSTATE
+  42501.
   Task D3 step 1's `ApiPoolLabPrivilegeTests` covers this against the test database;
   this is the same check against the real provisioned cluster, where the roles were
   created by the deployed `sql/11` rather than by a test fixture. Three identities,

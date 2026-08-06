@@ -400,3 +400,50 @@ The frontend was intentionally not running during this source-path rehearsal.
 No claim is made here about a rendered screen; the G3 release freeze must
 perform the frontend build and visual/API verification against the final
 Workshop Studio path.
+
+## G2 Rehearsal: Failure Injection And Facilitator Recovery
+
+**Result: PASSED on Aurora PostgreSQL 18.3.** The observed symptoms and
+bounded recoveries are published in
+[`docs/facilitator-recovery-runbook.md`](../../facilitator-recovery-runbook.md).
+
+The injected controller failures retained no stale tagged sessions or
+unadmitted evidence:
+
+| Injection | Observed behavior | Recovery result |
+|---|---|---|
+| Orchestrator `SIGKILL` during the proven hold | Client exited `137` after ten tagged blocked writers and two pool waiters | `make prepare-workload` restored the 3M-row substrate; the pool returned to 10/10 available |
+| Seven hot-write requests | Bounded prove loop stopped with `only 7 of 10 tagged sessions were ever blocked on the backfill` | No evidence or tagged session residue; default 12-request configuration remained rerunnable |
+| CloudWatch unavailable | Wave A `CAP-00C916C9` completed with `cloudwatch_status: unavailable`, 54 documents, and zero CloudWatch rows | No recovery required; PostgreSQL and pool evidence remained ready |
+| Wave B without Wave A | Exited `1` with `Wave B requires Lab 1's admitted Wave A evidence; run Lab 1 first` | Left zero evidence and execution rows in the empty target |
+
+The supervised-action cases were also exercised against Wave A
+`CAP-00C916C9`:
+
+| Injection | Observed behavior |
+|---|---|
+| Reversed index keys | Execution `bc81cd25-1262-4683-99a9-968313682dac` was persisted with `fingerprint_matches = false`; no Wave B capture was admitted |
+| Missing index | A failed append-only execution was recorded, then the runner named the missing participant-created index and instructed the participant to correct the DDL |
+| Correct index and Wave B | `workshop_participant` created the rendered composite index; Wave B `CAP-66AB0602` admitted three new documents and produced 57 current documents with zero drift |
+| Repeated Wave B | The saved payload replayed with `idempotent_replay: true`; 57 documents and embeddings were retained, with zero documents indexed and all 57 embeddings reused |
+| Repeated participant DDL | PostgreSQL returned `relation "idx_orders_priority_tier_created_at" already exists`; the matching ready index was retained |
+| Strands answer | `POST /v1/agent/strands/answer` returned `200` and cited answer run `eb2b049f-d84c-4659-9d3b-b2d15ca6948e`; its supervision receipt and `proof.action_proposals` count were both empty |
+
+The three database identities remained distinct on the real provisioned
+database:
+
+- `workshop_app` successfully ran an order `UPDATE`, but `CREATE INDEX`,
+  `DROP TABLE`, and `TRUNCATE` were denied (`42501`). It also had no `proof`
+  schema access, so it could not insert an action execution.
+- `workshop_participant` created the lab index but could not update a persisted
+  execution receipt.
+- The Hybrid Retrieval Agent has no database login or write-capable tool. The
+  owner-side canonical answer and Wave B boundaries record proposal and
+  execution facts without granting the agent or app identity direct proof
+  mutation.
+
+The G2 rehearsal leaves a real Wave A, a matching Wave B, the expected failed
+and successful append-only execution rows, and a no-proposal Strands answer in
+the disposable test database for G3 replay. F1's PI-disabled or
+`pi:GetResourceMetrics`-revoked end-to-end proof and G3's final source/UI
+freeze remain owed.
