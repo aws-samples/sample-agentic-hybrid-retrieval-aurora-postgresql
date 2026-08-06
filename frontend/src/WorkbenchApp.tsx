@@ -476,6 +476,7 @@ interface SearchIndexDiagnostics {
   }>;
   distribution: Array<{
     evidence_kind: EvidenceKind;
+    wave: 'A' | 'B' | null;
     documents: number;
     chunks: number;
     oldest_evidence: string | null;
@@ -493,6 +494,9 @@ interface SearchIndexDiagnostics {
     error?: string | null;
   }>;
   run: LiveRun | null;
+  _verify_sql?: {
+    distribution: VerifySql;
+  };
 }
 
 interface EvaluationResult {
@@ -740,6 +744,47 @@ const KIND_LABELS: Record<EvidenceKind, string> = {
   lock_evidence: 'Lock evidence',
   telemetry: 'Telemetry',
 };
+
+type CorpusDistribution = SearchIndexDiagnostics['distribution'][number];
+type CorpusDistributionGroup = {
+  wave: CorpusDistribution['wave'];
+  rows: CorpusDistribution[];
+};
+
+function corpusWaveLabel(wave: CorpusDistribution['wave']): string {
+  if (wave === 'A') return 'Wave A: captured before the recommendation';
+  if (wave === 'B') {
+    return 'Wave B: captured after the participant validated the recommendation';
+  }
+  return 'Not wave-scoped: provenance does not map this record to a capture';
+}
+
+function corpusWaveClassName(wave: CorpusDistribution['wave']): string {
+  if (wave === null) return 'distribution-wave--unscoped';
+  return `distribution-wave--${wave.toLowerCase()}`;
+}
+
+function corpusWaveRank(wave: CorpusDistribution['wave']): number {
+  return wave === 'A' ? 0 : wave === 'B' ? 1 : 2;
+}
+
+function groupCorpusDistribution(
+  rows: readonly CorpusDistribution[],
+): CorpusDistributionGroup[] {
+  const groups = new Map<string, CorpusDistributionGroup>();
+  for (const row of rows) {
+    const key = row.wave ?? 'unscoped';
+    const group = groups.get(key);
+    if (group) {
+      group.rows.push(row);
+    } else {
+      groups.set(key, { wave: row.wave, rows: [row] });
+    }
+  }
+  return [...groups.values()].sort(
+    (left, right) => corpusWaveRank(left.wave) - corpusWaveRank(right.wave),
+  );
+}
 
 const TOOL_NAMES = [
   'decompose_question',
@@ -7540,7 +7585,8 @@ export default function WorkbenchApp() {
                 </h1>
                 <p className="module-deck">
                   Evidence documents and chunks materialized into the search
-                  index on this cluster, grouped by kind, read live from Aurora.
+                  index on this cluster, grouped by evidence kind and admission
+                  wave, read live from Aurora.
                 </p>
               </div>
               <div className="heading-status">
@@ -7561,29 +7607,62 @@ export default function WorkbenchApp() {
                     {health?.current_chunks?.toLocaleString() || '—'} chunks
                   </span>
                 </header>
-                <div>
-                  {(diagnostics?.distribution || []).map((row) => (
-                    <div key={row.evidence_kind}>
-                      <span>{KIND_LABELS[row.evidence_kind]}</span>
-                      <strong>{row.documents.toLocaleString()}</strong>
-                      <i
-                        style={{
-                          width: `${Math.max(
-                            (row.documents /
-                              Math.max(
-                                ...(diagnostics?.distribution || []).map(
-                                  (item) => item.documents,
-                                ),
-                                1,
-                              )) *
-                              100,
-                            1,
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  ))}
+                <div className="distribution-groups">
+                  {groupCorpusDistribution(
+                    diagnostics?.distribution || [],
+                  ).map((group) => {
+                    const totalDocuments = group.rows.reduce(
+                      (total, row) => total + row.documents,
+                      0,
+                    );
+                    const totalChunks = group.rows.reduce(
+                      (total, row) => total + row.chunks,
+                      0,
+                    );
+                    const maximumDocuments = Math.max(
+                      ...(diagnostics?.distribution || []).map(
+                        (row) => row.documents,
+                      ),
+                      1,
+                    );
+                    return (
+                      <section
+                        className={`distribution-wave ${corpusWaveClassName(
+                          group.wave,
+                        )}`}
+                        key={group.wave ?? 'unscoped'}
+                      >
+                        <header>
+                          <strong>{corpusWaveLabel(group.wave)}</strong>
+                          <span>
+                            {totalDocuments.toLocaleString()} docs ·{' '}
+                            {totalChunks.toLocaleString()} chunks
+                          </span>
+                        </header>
+                        <div className="distribution-rows">
+                          {group.rows.map((row) => (
+                            <div key={row.evidence_kind}>
+                              <span>{KIND_LABELS[row.evidence_kind]}</span>
+                              <strong>{row.documents.toLocaleString()}</strong>
+                              <i
+                                style={{
+                                  width: `${Math.max(
+                                    (row.documents / maximumDocuments) * 100,
+                                    1,
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })}
                 </div>
+                <VerifyAffordance
+                  descriptor={diagnostics?._verify_sql?.distribution}
+                  label="verify distribution in psql"
+                />
               </section>
 
               <section className="capacity-panel">

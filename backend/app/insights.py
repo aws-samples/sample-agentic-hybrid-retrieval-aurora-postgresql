@@ -11,9 +11,11 @@ from .embeddings import embed_text, to_pgvector
 from .models import QueryPlanRequest, SearchRequest
 from .search import single_arm_sql
 from .verify_sql import (
+    CORPUS_DISTRIBUTION_SQL,
     EVIDENCE_EDGE_BATCH_SQL,
     OBSERVABILITY_REF_SQL,
     TIMELINE_EVENT_BATCH_SQL,
+    corpus_distribution_verify_sql,
     edge_verify_sql,
     event_verify_sql,
 )
@@ -301,7 +303,7 @@ def search_index_diagnostics() -> dict[str, Any]:
             health = cursor.fetchone()
             cursor.execute("SELECT * FROM retrieval.v_embedding_spaces")
             embedding_spaces = cursor.fetchall()
-            cursor.execute("SELECT * FROM retrieval.v_corpus_distribution")
+            cursor.execute(CORPUS_DISTRIBUTION_SQL)
             distribution = cursor.fetchall()
             drift = []
             if health["drift_issues"]:
@@ -331,6 +333,9 @@ def search_index_diagnostics() -> dict[str, Any]:
         "drift": drift,
         "recent_builds": builds,
         "run": live_run,
+        "_verify_sql": {
+            "distribution": corpus_distribution_verify_sql("app_engineer")
+        },
     }
 
 

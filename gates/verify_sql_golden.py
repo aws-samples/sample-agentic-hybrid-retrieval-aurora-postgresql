@@ -206,6 +206,24 @@ def _check_receipt(cur, api_base: str, run_id: str, ok_lines: list[str]) -> None
         ok_lines.append(_require_equal(f"receipt.{panel}", replayed, published))
 
 
+def _check_corpus_distribution(cur, api_base: str, ok_lines: list[str]) -> None:
+    """Diff the live Corpus distribution panel against its canonical query."""
+    diagnostics = _get_json(api_base, "/v1/diagnostics/search-index")
+    descriptor = (diagnostics.get("_verify_sql") or {}).get("distribution")
+    if not descriptor:
+        raise Mismatch(
+            "/v1/diagnostics/search-index carries no distribution _verify_sql"
+        )
+    replayed = _replay(cur, descriptor, "corpus.distribution")
+    ok_lines.append(
+        _require_equal(
+            "corpus.distribution",
+            replayed,
+            diagnostics.get("distribution") or [],
+        )
+    )
+
+
 def _check_elements(
     cur,
     api_base: str,
@@ -274,6 +292,7 @@ def run() -> int:
                     (str(REPLAY_STATEMENT_TIMEOUT_MS),),
                 )
                 _check_receipt(cur, api_base, run_id, ok_lines)
+                _check_corpus_distribution(cur, api_base, ok_lines)
                 _check_elements(
                     cur,
                     api_base,

@@ -68,6 +68,11 @@ OBSERVABILITY_REF_SQL = (
     "WHERE run_id = %(run_id)s"
 )
 
+# --- Panel grain: corpus distribution ----------------------------------------
+# The diagnostics endpoint executes this exact statement and publishes the same
+# descriptor. Wave provenance is resolved by v_corpus_distribution itself.
+CORPUS_DISTRIBUTION_SQL = "SELECT * FROM retrieval.v_corpus_distribution"
+
 # --- Element grain: graph edges ----------------------------------------------
 # One SELECT/FROM/JOIN block shared by the batch query (run_graph) and the
 # per-edge verify statement, so their columns are identical by construction.
@@ -238,6 +243,11 @@ def receipt_verify_sql(run_id: str, persona: str) -> dict[str, dict[str, Any]]:
         "stages": _descriptor(STAGE_RECEIPT_SQL, binds, persona),
         "answer": _descriptor(ANSWER_RECEIPT_SQL, binds, persona),
     }
+
+
+def corpus_distribution_verify_sql(persona: str) -> dict[str, Any]:
+    """Return the descriptor reproducing the live Corpus distribution panel."""
+    return _descriptor(CORPUS_DISTRIBUTION_SQL, {}, persona)
 
 
 def edge_verify_sql(edge_key: str, persona: str) -> dict[str, Any]:

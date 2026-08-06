@@ -452,18 +452,35 @@ CROSS JOIN currency_drift
 CROSS JOIN queue_drift;
 
 CREATE OR REPLACE VIEW retrieval.v_corpus_distribution AS
+WITH document_wave AS (
+  SELECT
+    document.document_version_id,
+    document.evidence_kind,
+    document.occurred_at,
+    capture.wave
+  FROM retrieval.documents document
+  LEFT JOIN LATERAL (
+    SELECT run.wave
+    FROM casework.incident_capture_runs run
+    WHERE document.source_uri LIKE run.source_bundle_uri || '/%'
+    ORDER BY length(run.source_bundle_uri) DESC
+    LIMIT 1
+  ) capture ON true
+  WHERE document.is_current
+    AND document.index_state = 'ready'
+)
 SELECT
   document.evidence_kind,
-  count(DISTINCT document.evidence_id) AS documents,
+  document.wave,
+  count(DISTINCT document.document_version_id) AS documents,
   count(chunk.chunk_version_id) AS chunks,
   min(document.occurred_at) AS oldest_evidence,
   max(document.occurred_at) AS newest_evidence
-FROM retrieval.documents document
-JOIN retrieval.chunks chunk ON chunk.document_version_id = document.document_version_id
-WHERE document.is_current
-  AND document.index_state = 'ready'
-GROUP BY document.evidence_kind
-ORDER BY document.evidence_kind;
+FROM document_wave document
+JOIN retrieval.chunks chunk
+  ON chunk.document_version_id = document.document_version_id
+GROUP BY document.evidence_kind, document.wave
+ORDER BY document.evidence_kind, document.wave NULLS FIRST;
 
 CREATE OR REPLACE VIEW retrieval.v_index_usage AS
 SELECT

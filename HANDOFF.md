@@ -11,7 +11,7 @@ mechanism that still exists in portions of the runtime, tests, UI, and docs.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-E1 are complete. Tasks E2-G3 own the remaining UI, documentation,
+Tasks A1-E2 are complete. Tasks E3-G3 own the remaining UI, documentation,
 infrastructure, and rehearsal work. The plan's repository-wide alignment audit
 assigns every known stale surface to an explicit task; finding an unassigned
 stale surface is a plan defect and should be corrected before implementation
@@ -187,11 +187,17 @@ Completed and committed on this branch:
   measured online schema and data migration, pool exhaustion and recovery,
   ineffective `ANALYZE`, and missing composite index rather than the retired
   ordinary-index / concurrent-repair story.
+- E2 widens `retrieval.v_corpus_distribution` with a provenance-derived
+  nullable wave. The Corpus surface groups the actual reported waves, exposes
+  a null wave as a provenance gap rather than inventing a default, and lets the
+  participant compare stable Wave A counts with additive Wave B counts. The
+  diagnostics endpoint now publishes a canonical distribution verify descriptor,
+  and G-13 replays it against the API response.
 
-Not yet implemented: the remaining Corpus, plan, and supervised-execution UI
-work; participant and source documentation cleanup; infrastructure packaging;
-and the complete rehearsal. Until those tasks land, `make live-workshop` is not
-evidence that the approved scenario is release-complete.
+Not yet implemented: the remaining plan and supervised-execution UI work;
+participant and source documentation cleanup; infrastructure packaging; and the
+complete rehearsal. Until those tasks land, `make live-workshop` is not evidence
+that the approved scenario is release-complete.
 
 For D2/D3's supervised participant action, render the controlled-lab repair as:
 
@@ -344,8 +350,15 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   because this shell has no resettable test DSN or live capture. Its local port
   55432 has no server, and the installed client is PostgreSQL 18.4, so it is
   not an allowed substitute for the required Aurora or local PostgreSQL 18.3
-  test target. The E1 live UI check and G-11/G-13/G-14/G-23 remain owed to the
-  next Aurora rehearsal.
+  test target. The E1 live UI check and G-13 replay remain owed to the next
+  Aurora rehearsal.
+- E2 source validation: `cd frontend && npm run build` passed; 22 focused
+  Python contracts passed; and G-11, G-14, and G-23 passed. G-13 now discovers
+  the smoke run ID and reaches the new Corpus replay branch, but remains blocked
+  before any database read because `DATABASE_URL` is unset. On the next Aurora
+  rehearsal, apply the view to the dedicated PostgreSQL 18.3 test database,
+  record the pre- and post-view document/chunk sums, verify Wave-A-only then
+  two-wave rendering, and run G-13 to replay the distribution query.
 
 The test database is disposable and never a participant database. The earlier
 local PostgreSQL 18.4 run was diagnostic only and is not release evidence.
@@ -358,12 +371,11 @@ result as rehearsal evidence.
 
 ## Next Task
 
-Start E2: label Wave A and Wave B evidence on the Corpus surface. Derive the
-wave from each indexed document's source-bundle URI in
-`retrieval.v_corpus_distribution`; do not guess it from evidence kind. The
-panel must show a single Wave A group before Lab 4 and prove that Wave A counts
-do not change after additive Wave B admission. Read Task E2 in the binding plan
-before editing.
+Start E3: distinguish the correct small-corpus retrieval sequential scan from
+the missing-index `workbench_lab.orders` sequential scan in the plan lens.
+Derive the note from the plan's relation name. Do not attach either explanation
+to an unexpected relation or an index-scan plan. Read Task E3 in the binding
+plan before editing.
 
 Current maintenance hazards:
 

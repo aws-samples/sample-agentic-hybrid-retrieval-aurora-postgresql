@@ -83,6 +83,12 @@ class VerifySqlEnvelopeTests(unittest.TestCase):
     def _every_descriptor(self) -> list[tuple[str, dict[str, object]]]:
         """Return (label, descriptor) for every descriptor the registry publishes."""
         named = list(verify_sql.receipt_verify_sql("rr_1", "app_engineer").items())
+        named.append(
+            (
+                "corpus.distribution",
+                verify_sql.corpus_distribution_verify_sql("app_engineer"),
+            )
+        )
         named.append(("graph.edge", verify_sql.edge_verify_sql("edge-1", "app_engineer")))
         named.append(
             (
@@ -117,6 +123,7 @@ class VerifySqlEnvelopeTests(unittest.TestCase):
         """A defaulted persona would publish SQL under an identity nobody chose."""
         for factory, args in (
             (verify_sql.receipt_verify_sql, ("rr_1",)),
+            (verify_sql.corpus_distribution_verify_sql, ()),
             (verify_sql.edge_verify_sql, ("edge-1",)),
             (verify_sql.event_verify_sql, ("11111111-1111-1111-1111-111111111111",)),
         ):
