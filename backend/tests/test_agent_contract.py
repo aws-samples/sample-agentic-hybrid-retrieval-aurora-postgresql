@@ -77,7 +77,10 @@ class AgentCitationScopeTests(unittest.TestCase):
             )
         self.assertRegex(
             answer.lower(),
-            r"(?:future migration|future backfill)[^.]*\[\d+\]",
+            (
+                r"(?:\[\d+\][^.]*\b(?:future migration|future backfill)\b|"
+                r"(?:future migration|future backfill)[^.]*\[\d+\])"
+            ),
             "future backfill guidance must cite the observed unbatched backfill",
         )
 

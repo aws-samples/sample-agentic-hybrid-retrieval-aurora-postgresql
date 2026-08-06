@@ -110,8 +110,10 @@ documents, for 57 current documents. The corpus count is explanatory only;
 behavioral coverage and the diversity gate remain the contract.
 
 The runtime rehearsal used participant and application identities end to end.
-The final release freeze still includes a visual check of the rendered frontend
-surfaces on the final Workshop Studio stack.
+The source release freeze also rendered Overview, Corpus, query-plan, and Proof
+Supervision surfaces at desktop and mobile widths against the final live corpus.
+The separate Workshop Studio rehearsal remains the publication gate for its
+packaged stack and content.
 
 ## Provisioning Budget and Stack Lifecycle
 

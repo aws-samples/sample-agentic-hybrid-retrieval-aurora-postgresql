@@ -69,13 +69,10 @@ testing sections around that contract.
   FastAPI connection pool (`backend/app/db.py`, `DB_POOL_MAX_SIZE=10`) for pool exhaustion —
   do not add RDS Proxy, PgBouncer, or any new pooling infrastructure. Do not gate readiness on
   CloudWatch or any AWS console-side telemetry.
-- Preserve the existing optional RLS/masking module unless this implementation directly
-  requires a compatible update to it. **Do not describe either optional module as a lab in
-  participant-facing content**: the RLS/masking module exists only on the
-  `rls-personas-column-masking` branch (deleted from `main` in f4e6399, live database
-  deliberately not migrated), and the AgentCore lab was removed in d272014, leaving only a
-  transport plus an orphaned sibling-repo page. See the Participant-Facing Framing section's
-  "Two things this arc must not claim."
+- Preserve the optional RLS/masking module without putting it on the one-hour critical path.
+  It now ships on `main`, is applied only by `make security-schema`, and has its own release
+  gates. AgentCore remains a transport extension rather than a core lab. See the
+  Participant-Facing Framing section's "Two things this arc must not claim."
 
   **This redesign does require one compatible update, and it is not optional.** Removing
   Performance Insights removes the only producer of `acl.visibility = 'restricted'`:
@@ -652,14 +649,10 @@ replace or tombstone Wave A:
   replay is already pinned to Wave A's candidates by construction; Wave B's later admission
   cannot retroactively change what an already-completed run's receipt shows. No new pinning
   code needed for this path.
-- **Open question for the implementation plan, not yet resolved**: `run_graph`
-  (`backend/app/insights.py`, backing `/v1/runs/{run_id}/graph`) reads a persisted seed set
-  from `proof.retrieval_candidates` but then re-runs `retrieval.traverse_evidence()` live for
-  the relationship expansion. If a participant reopens a Lab 3 run's graph view after Wave B
-  is admitted, this path could surface Wave B nodes/edges that did not exist when the run
-  happened. Decide explicitly whether this is desired ("show how the case evolved") or must
-  be pinned to Wave A only for genuine replay fidelity — do not let this default silently
-  either way.
+- `run_graph` and `run_timeline` are pinned to the latest completed capture window that
+  existed when the retrieval run began. Reopening the Lab 3 run after Wave B therefore
+  returns the same Wave A graph and timeline; the later validation evidence is available to
+  new runs without retroactively changing the historical replay.
 - An explicit `as_of_admission_id` search parameter (letting any tool pin results to a named
   admission wave) is a reasonable production extension but is explicitly NOT needed for the
   core workshop and would add avoidable complexity — do not build it as part of this redesign.
@@ -817,14 +810,14 @@ function, one verdict function, all in Aurora.
    that `ANALYZE` did not resolve the regression (the after-`ANALYZE` plan is still a seq
    scan) — no code change from today's retrieval mechanics, only the underlying evidence
    changes.
-4. **Lab 3 — Build the incident agent.** The agent (via the existing 7-tool registry,
+4. **Lab 3 — Build the hybrid retrieval agent.** The agent (via the existing 7-tool registry,
    unchanged) produces a cited diagnosis from Wave A evidence only, and recommends the
    missing index plus batched-backfill as future practice. It cannot see or reference a
    post-index result, because none exists yet in `retrieval.*` — source truth, not a filter.
    The run also writes one `proof.action_proposals` row: structured action type and target,
    proposed SQL, validated supporting citations, preconditions, expected effect, and rollback
    guidance, referencing this `agent_run_id`.
-5. **Lab 4 — Remediate and prove.** The participant reviews and explicitly approves the
+5. **Lab 4 — Validate, prove, and replay.** The participant reviews and explicitly approves the
    proposal, then executes the recommended `CREATE INDEX` DDL themselves in Code Editor (the
    agent never gets DDL privilege or an execution path). The orchestrator captures the
    post-index plan, verifies the index, reads the **observed** index definition back from the
@@ -835,8 +828,8 @@ function, one verdict function, all in Aurora.
    receipt identifiers are attached to the row afterwards. It then admits Wave B — a new
    follow-up admission contract, additive to Wave A, with its own
    admission ID, observation window, and receipt — embeds the small delta, publishes the
-   remediation receipt, and the participant replays the original Lab 3 investigation
-   (unchanged, still showing Wave A only) alongside the new remediation proof and the computed
+   validation receipt, and the participant replays the original Lab 3 investigation
+   (unchanged, still showing Wave A only) alongside the new validation proof and the computed
    autonomy-readiness verdict.
 
 ## Error Handling
@@ -899,7 +892,7 @@ function, one verdict function, all in Aurora.
     rather than trusting the tool registry, since privilege can be granted without touching
     Python.
 
-### Measured Baseline — Current (Unmodified) Pipeline, Real Aurora Cluster
+### Retired Pre-Redesign Baseline (Historical Only)
 
 Ran the current, unmodified `run_live_workshop.py` end to end against
 `agenticretrievalcorestack-aurorapostgresretrievalc-rxrppbdex0nu` (`db.r8g.2xlarge`, Aurora
@@ -946,7 +939,7 @@ reading/typing/discussion time, not server response time. The 24.85s synthesis c
 unavoidable wait a participant sits through mid-Lab-3 and should be called out in facilitator
 guidance as expected, not a hang.
 
-### Measured Baseline — New 3M-Row Mechanism, Real Aurora Cluster
+### Pre-Implementation 3M-Row Probe (Historical Only)
 
 Ran the redesigned mechanism's PostgreSQL-side steps end to end (ad hoc script, not yet the
 shipped implementation) against the same real cluster:
@@ -971,14 +964,10 @@ shipped implementation) against the same real cluster:
    consistent story, real run-to-run variance in the exact numbers, timings remain reference
    observations only.
 
-**Explicit limitation, not yet closed**: this test used direct short-lived `psycopg`
-connections with a `statement_timeout`, not the actual `psycopg_pool.ConnectionPool` /
-`pool.connection(timeout=3.0)` / `PoolTimeout` / `get_pool().get_stats()` mechanism the
-contract specifies. It verifies the PostgreSQL-side lock-contention half of Phase 2 for real;
-it does NOT yet verify genuine FastAPI-pool exhaustion, since the lab-only hot-write endpoint
-and pool-status endpoint don't exist in code yet. That verification is still owed once those
-components are built — do not treat this measurement as closing the pool-exhaustion
-acceptance criterion.
+The shipped endpoint-level implementation supersedes this probe. Its final rehearsal used
+the real FastAPI pool and 12 HTTP requests: ten sessions waited on the backfill transaction
+ID, two callers timed out before obtaining a connection, and all ten connected writers
+committed after release. Pool and PostgreSQL state were proven together before the hold.
 
 ### Measured Baseline — Embedding Throughput at Corpus-Target Scale
 
@@ -995,7 +984,7 @@ never the binding constraint on corpus size in
 this range; document-generation diversity (see the Evidence builder component above) is the
 real bound, not embedding speed.
 
-### Measured Retrieval-Quality Baseline — Current 103-Document Corpus
+### Retired 103-Document Retrieval Baseline (Historical Only)
 
 Direct inspection of real API responses (not assumed) confirms the corpus already produces
 genuinely different top results per arm even at the CURRENT, pre-redesign scale — a positive

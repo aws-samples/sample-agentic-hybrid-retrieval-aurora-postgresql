@@ -4,18 +4,19 @@ Current DAT410 redesign state as of August 5, 2026.
 
 ## Read This First
 
-The `main` branch is implementing the approved four-phase online-migration
-scenario. The redesign is not release-complete.
+The `main` branch contains the source-complete four-phase online-migration
+scenario. G3's Aurora, gate, test, source-frontend, and documentation freeze is
+complete. Workshop Studio packaging and its fresh-stack rehearsal remain
+user-owned release work.
 Do not restore the retired ordinary-`CREATE INDEX` /
 concurrent-index-repair mechanism.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-E4 and F1-F2 are complete. G1's runtime participant path is complete;
-its frontend visual verification is retained for the G3 release freeze. G2's
+Tasks A1-E4, F1-F2, and G1-G3 are complete for this source repository. G2's
 failure-injection rehearsal is complete and documented in
 `docs/facilitator-recovery-runbook.md`. F1's live PI-disabled/IAM-revoked
-rehearsal remains owed, and G3 owns the remaining source release freeze. The
+rehearsal remains owed as a deployment-boundary proof. The
 plan's repository-wide alignment audit
 assigns every known stale surface to an explicit task; finding an unassigned
 stale surface is a plan defect and should be corrected before implementation
@@ -219,9 +220,9 @@ Completed and committed on this branch:
   incident controller, supervised-execution runtime module, and release gate.
   `.env.example` documents the ten-slot Lab 1 pool configuration.
 
-Not yet complete: infrastructure packaging and the complete rehearsal. A
-source-only `make live-workshop` result is not evidence that the approved
-scenario is release-complete.
+The source implementation and source rehearsal are complete. Infrastructure
+packaging, Workshop Studio content alignment, source-revision pinning, and a
+fresh-stack Workshop Studio rehearsal remain outside this repository.
 
 For D2/D3's supervised participant action, render the controlled-lab repair as:
 
@@ -434,16 +435,14 @@ result as rehearsal evidence.
 
 ## Next Task
 
-Start G3. Run the destructive full test suite before preserving the final
-reference corpus, then rebuild a fresh two-wave Aurora PostgreSQL 18.3
-rehearsal and run the core and optional-security gate sweeps. Capture frontend
-visual evidence only after the final corpus exists. Reconcile release wording,
-record Gate 6's explicit owed list, and keep F1's PI-disabled/IAM-revoked proof
-open unless it is actually run. Do not package or publish the sibling Workshop
-Studio repository before its user-owned work is ready.
+Package this exact committed revision in the sibling Workshop Studio
+repository, update its `SourceRevision`, apply the F1 IAM/content changes below,
+and run one fresh-stack rehearsal. Keep F1's PI-disabled/IAM-revoked proof open
+unless that exact end-to-end run exits zero. Do not infer Workshop Studio
+readiness from the completed source freeze.
 
-The latest resettable full suite passed **289 tests** on the dedicated Aurora
-PostgreSQL 18.3 target. It now has **61 explicit skips**: 21 tests require
+The final resettable full suite passed **293 tests** on the dedicated Aurora
+PostgreSQL 18.3 target. It has **61 explicit skips**: 21 tests require
 capture-derived Wave A or two-wave inputs and 40 require the optional
 RLS/masking/role module. The split is intentional: proposal-emission tests
 require a named Wave A before DDL, while the citation-scope test requires the

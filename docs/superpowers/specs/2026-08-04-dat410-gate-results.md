@@ -447,3 +447,51 @@ and successful append-only execution rows, and a no-proposal Strands answer in
 the disposable test database for G3 replay. F1's PI-disabled or
 `pi:GetResourceMetrics`-revoked end-to-end proof and G3's final source/UI
 freeze remain owed.
+
+## G3 Release Freeze: Final Aurora, Gate, Test, UI, and Source Review
+
+**Result: PASSED for the source repository on August 6, 2026.**
+
+The final preserved Aurora PostgreSQL 18.3 run is Wave A
+`9038b9d1-fde3-4ca8-ac7b-abdf17ec8da6` (`INC-17EC8DA6`) plus Wave B
+`262d9e35-813e-4eaa-a497-d8b7a5fedf3e`. It produced 54 diagnostic and three
+validation documents, all six signal types, all four phases, zero index drift,
+and a 6.20% near-duplicate rate. Visibility classification is one generation,
+`statement-text/1`: 23 restricted and 34 workshop-visible rows.
+
+Lab 3 run `f82a98ee-d830-4aef-b38d-a0556c755445` produced proposal
+`16e44ae8-d081-45e6-a762-a94ddc6a8209`; participant execution
+`37f223ae-18d9-4852-94b8-940c0debbf43` matched it and Wave B validated the
+result. The final Wave A plans remained sequential scans at 481.602ms and
+254.877ms, each removing 2,400,000 rows; the participant-created index supplied
+the separate Wave B index-scan checkpoint.
+
+Release checks:
+
+- Core gates: 10 PASS, zero FAIL, zero BLOCKED.
+- Optional-security gates: four PASS, zero FAIL, zero BLOCKED.
+- Resettable Aurora suite: 293 passed, 61 explicit gated skips.
+- Optional-security contracts: 70 passed; the cluster-global upgrade mutation
+  test skipped by design because the target roles already exist.
+- Direct participant/application privilege contracts: six passed.
+- Live Wave A citation-scope regression: passed.
+- `make doctor`: passed with zero warnings, including Bedrock embedding,
+  reranking, synthesis, API, and frontend checks.
+- Frontend TypeScript/Vite build: passed. Overview, Corpus, and Proof
+  Supervision rendered from the final corpus at desktop and mobile widths with
+  no browser console, page, or request errors and no mobile horizontal
+  overflow.
+- The retired `_gate*.py` prototypes were removed; G-32, G-33, and G-34 are
+  the permanent executable contracts.
+
+Still owed outside this source freeze:
+
+1. Rehearse the exact packaged revision in a fresh Workshop Studio stack and
+   repin its `SourceRevision`.
+2. Complete F1's definitive end-to-end run with `pi:GetResourceMetrics`
+   revoked or Performance Insights disabled. The source contains no PI caller,
+   but this deployment-boundary proof remains intentionally open.
+3. Apply and publish the sibling Workshop Studio content and CloudFormation
+   changes. That repository remains user-managed.
+
+`dat410_live` was deliberately not migrated or used for release evidence.

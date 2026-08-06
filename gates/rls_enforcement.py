@@ -878,10 +878,10 @@ def _measure_classification(cur) -> dict:
     oracle = dict(
         zip(
             (
-                "should_be_restricted",
-                "should_be_workshop",
                 "carries",
                 "source_backed",
+                "should_be_restricted",
+                "should_be_workshop",
                 "provenance_errors",
             ),
             cur.fetchone(),

@@ -10,9 +10,9 @@ and a not-yet-built dependency:
   ``_verify_sql`` registry or ``agent/registry.py``). Reported honestly; never
   counted as a pass.
 
-Gates never write to or run DDL against any database. Database-backed gates open
-a read-only session (``SELECT`` / ``SET LOCAL`` only) against the ``DATABASE_URL``
-already configured for the repo.
+Database-backed gates are read-only against ``DATABASE_URL``. G-25 is the one
+explicit exception: it resets a separate ``TEST_DATABASE_URL`` after requiring
+``ALLOW_TEST_DATABASE_RESET=1`` and refusing the live rehearsal database.
 """
 
 from __future__ import annotations
@@ -76,8 +76,13 @@ def read_env_value(name: str) -> str | None:
 
 
 def redact_dsn(dsn: str) -> str:
-    """Return ``dsn`` with any ``user:password@`` credentials masked."""
-    return re.sub(r"(://[^:/@]+:)[^@]+@", r"\1***@", dsn)
+    """Return URL-form and libpq keyword-form DSNs with passwords masked."""
+    redacted = re.sub(r"(://[^:/@]+:)[^@]+@", r"\1***@", dsn)
+    return re.sub(
+        r"(?i)(\bpassword\s*=\s*)(?:'(?:\\.|[^'])*'|[^\s]+)",
+        r"\1***",
+        redacted,
+    )
 
 
 def require(condition: bool, message: str) -> None:

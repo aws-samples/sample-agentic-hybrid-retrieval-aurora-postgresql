@@ -75,9 +75,14 @@ def run() -> int:
         )
     try:
         with psycopg.connect(dsn, autocommit=True) as connection:
-            database_name = connection.execute(
-                "SELECT current_database()"
-            ).fetchone()[0]
+            target_identity = connection.execute(
+                """
+                SELECT current_database(),
+                       inet_server_addr()::text,
+                       inet_server_port()
+                """
+            ).fetchone()
+            database_name = target_identity[0]
             if isinstance(database_name, bytes):
                 database_name = database_name.decode()
             if not database_name.endswith("_test"):
@@ -86,6 +91,26 @@ def run() -> int:
                     FAIL,
                     f"refusing writes to {database_name!r}; name must end in _test",
                 )
+
+            live_dsn = os.environ.get("DATABASE_URL")
+            if live_dsn:
+                with psycopg.connect(live_dsn, autocommit=True) as live_connection:
+                    live_identity = live_connection.execute(
+                        """
+                        SELECT current_database(),
+                               inet_server_addr()::text,
+                               inet_server_port()
+                        """
+                    ).fetchone()
+                if target_identity == live_identity:
+                    return finish(
+                        GATE_ID,
+                        FAIL,
+                        (
+                            "TEST_DATABASE_URL resolves to DATABASE_URL; G-25 "
+                            "would erase the rehearsal corpus"
+                        ),
+                    )
 
             connection.execute(
                 (REPO_ROOT / "sql/99_reset.sql").read_text(encoding="utf-8")
