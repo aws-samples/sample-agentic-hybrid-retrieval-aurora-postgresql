@@ -28,9 +28,9 @@ echo "[archive] exporting committed source at $REVISION"
 git -C "$ROOT_DIR" archive "$REVISION" | tar -x -C "$STAGE"
 
 # Tests and local mockups are not participant runtime.
-rm -rf "$STAGE/mockups" "$STAGE/backend/tests"
+rm -rf "$STAGE/mockups" "$STAGE/backend/tests" "$STAGE/docs/superpowers"
 
-for forbidden in admission design docs/superpowers seed; do
+for forbidden in admission design seed; do
   if [ -e "$STAGE/$forbidden" ]; then
     echo "ERROR: retired fixture or authoring path entered archive: $forbidden" >&2
     exit 1

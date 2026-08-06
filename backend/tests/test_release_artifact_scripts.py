@@ -67,7 +67,11 @@ class ReleaseArtifactScriptTests(unittest.TestCase):
             self.assertIn(filename, source)
         self.assertIn("gates/corpus_diversity.py", source)
         self.assertIn(".claude/skills/extend-hybrid-retrieval/SKILL.md", source)
-        self.assertIn("for forbidden in admission design docs/superpowers seed", source)
+        self.assertIn(
+            'rm -rf "$STAGE/mockups" "$STAGE/backend/tests" "$STAGE/docs/superpowers"',
+            source,
+        )
+        self.assertIn("for forbidden in admission design seed", source)
         self.assertIn("generated evidence or database artifacts", source)
         self.assertNotIn("hybrid-retrieval-seed-v2.dump", source)
         self.assertNotIn("capture_release_aurora.py", source)
