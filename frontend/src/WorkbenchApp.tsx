@@ -4661,15 +4661,27 @@ export default function WorkbenchApp() {
     let streamCompleted = false;
     try {
       const response = await fetch(
-        `${API_BASE}/v1/agent/strands/answer/stream`,
+        `${API_BASE}/v1/agent/answer/stream`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             question: requestControls.query,
             source_systems: PARTICIPANT_SOURCE_SYSTEMS,
-            max_tool_calls: 12,
+            kinds:
+              requestControls.kind === 'all' ? null : [requestControls.kind],
+            cluster_id: requestControls.clusterId || null,
+            environment: requestControls.environment || null,
+            limit: requestControls.limit,
+            candidate_pool: requestControls.candidatePool,
+            rrf_k: requestControls.rrfK,
+            w_text: requestControls.textWeight,
+            w_vector: requestControls.vectorWeight,
+            w_trgm: requestControls.fuzzyWeight,
+            fuzzy_threshold: requestControls.fuzzyThreshold,
+            ef_search: requestControls.efSearch,
             iterative_scan: requestControls.iterativeScan,
+            rerank: requestControls.rerank,
             role: requestControls.role,
           }),
         },
@@ -4701,7 +4713,10 @@ export default function WorkbenchApp() {
 
       const consumeEvent = async (event: AgentTraceEvent) => {
         if (transitionVersion !== roleTransitionVersion.current) return;
-        if (event.type === 'meta') return;
+        if (event.type === 'meta') {
+          if (event.citations?.length) setStreamCitations(event.citations);
+          return;
+        }
         if (event.type === 'tool_call') {
           setAgentTrace((current) => {
             if (
@@ -4718,7 +4733,7 @@ export default function WorkbenchApp() {
           setAgentCommentary(event.commentary || event.text || '');
           return;
         }
-        if (event.type === 'answer_token') {
+        if (event.type === 'answer_token' || event.type === 'token') {
           const text = event.text || '';
           if (reducedMotion) {
             setStreamingAnswer((current) => current + text);
@@ -4740,7 +4755,7 @@ export default function WorkbenchApp() {
         }
         if (event.type === 'error') {
           setAgentStreamState('error');
-          setError(event.error || 'The Strands agent stream failed.');
+          setError(event.error || 'The agent stream failed.');
           return;
         }
         if (event.type !== 'done') return;
@@ -4793,7 +4808,7 @@ export default function WorkbenchApp() {
         if (event) await consumeEvent(event);
       }
       if (!streamCompleted) {
-        throw new Error('The Strands event stream ended before a final run record.');
+        throw new Error('The agent stream ended before a final run record.');
       }
       if (completedRunId) {
         const loaded = await loadRun(

@@ -31,8 +31,9 @@ Answer only from the numbered evidence supplied by the caller.
 - Paragraph 3 begins "At the application pool" and explains why the callers that
   never reached PostgreSQL timed out, with citations.
 - Paragraph 4 begins "For query performance" and explains why ANALYZE did not
-  change the access path and why the missing composite index is the next action,
-  with citations.
+  change the access path. State that a human must create the missing composite
+  index as the remediation, with citations, then close by directing the reader
+  to review the proposed index in Action review before executing it.
 - Keep each sentence under about 30 words. A sentence-count limit alone produces
   one enormous sentence per clause, which is unreadable on a projector.
 - Put PIDs, relation OIDs, lock modes, and exact SQL in the cited evidence rather

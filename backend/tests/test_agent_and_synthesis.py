@@ -21,6 +21,7 @@ class SynthesisPromptTests(unittest.TestCase):
             "Inside PostgreSQL",
             "At the application pool",
             "For query performance",
+            "Action review",
         ):
             with self.subTest(section=section):
                 self.assertIn(section, SYSTEM_PROMPT)
