@@ -12,18 +12,20 @@
 
 Hybrid Retrieval Workbench is the runnable DAT410 reference application for
 AWS re:Invent 2026. One guided command makes participants reproduce and
-investigate their own controlled database incident:
+investigate their own controlled online-migration failure:
 
-> What caused the measured writer wait in `INC-<run-suffix>`, how did the
-> run-derived unsafe change block writes, how did the concurrent repair change
-> the behavior, and what did the run-derived lock observation prove?
+> Why did order writes time out during the `priority_tier` migration, why did
+> the application recover after commit, and why did the priority query remain
+> slow after `ANALYZE`?
 
 Aurora PostgreSQL performs exact, full-text, semantic, and fuzzy retrieval,
 weighted RRF, relationship reads, citation validation, and replayable proof.
-Every participant-path candidate comes from PostgreSQL and AWS telemetry
-measured during that run, admitted under `pg_incident_capture`, and indexed
-with runtime Cohere embeddings. Every candidate, agent stage, answer, and
-citation is persisted; no participant result or score is hardcoded.
+Every participant-path candidate comes from a measured run, admitted under
+`pg_incident_capture`, and indexed with runtime Cohere embeddings. The
+read-only Hybrid Retrieval Agent recommends a structured index action with
+citations; a participant reviews and executes it, then admits separate
+validation evidence. Every candidate, agent stage, proposal, execution,
+answer, and citation is persisted; no participant result or score is hardcoded.
 
 > The Overview page's main graphic is illustrative. It never enters
 > `casework`, retrieval, agent context, citations, evaluation, or replay. Every
@@ -31,25 +33,30 @@ citation is persisted; no participant result or score is hardcoded.
 
 ## Incident Lab
 
-[`labs/incident`](labs/incident/README.md) orchestrates one ordinary
-`CREATE INDEX`, six blocked writers, two active readers, 30 telemetry samples,
-and a measured `CREATE INDEX CONCURRENTLY` repair. It modifies only the
-disposable `workbench_lab` schema before atomically admitting the live run.
+[`labs/incident`](labs/incident/README.md) orchestrates one unbatched
+`priority_tier` backfill in the disposable `workbench_lab` schema. Twelve hot
+writes go through the real ten-connection FastAPI pool: ten obtain connections
+and wait on the backfill's transaction ID, while at least two timeout while
+waiting for a pool slot and therefore never appear in PostgreSQL. The
+controller proves that combined state before its observation hold, commits the
+backfill, and independently proves recovery.
 
 Workshop bootstrap generates 5,000 disposable customers and 3,000,000 related
 orders before the participant arrives. They are operational workload, not
-retrieval records. The participant's command uses those rows to produce about
-735 measured PostgreSQL and AWS telemetry rows, which become about 110 evidence
-documents and 100-250 searchable chunks with live Cohere embeddings.
-Cleanup removes the workload while its measured evidence remains.
+retrieval records. Wave A captures migration, lock, pool, request, WAL, and
+plan evidence as roughly 50-80 distinct searchable documents with live Cohere
+embeddings. It records pre- and post-`ANALYZE` sequential plans but does not
+create the missing composite index. Wave B is a later, additive post-index
+validation capture. Cleanup removes the workload while its measured evidence
+and proof remain available for replay.
 
 ## Architecture
 
 ```text
-Participant-induced Aurora write stall
-PostgreSQL catalogs + CloudWatch + Performance Insights
+Participant-induced Aurora online-migration failure
+PostgreSQL catalogs + application-pool/request telemetry + optional CloudWatch
                   |
-                  | one capture ID + bounded incident window
+                  | two bounded capture windows for one incident
                   v
        casework.* live relational evidence
                   |
@@ -174,7 +181,7 @@ bootstrap. For source-only local use, run it explicitly before
 Start the services in separate terminals:
 
 ```bash
-make api
+make LAB_ENDPOINTS_ENABLED=1 DB_POOL_MIN_SIZE=10 DB_POOL_MAX_SIZE=10 api
 make frontend
 ```
 
@@ -197,47 +204,59 @@ workshop VPC.
 
 ## Try the Evidence Path
 
-Run the guided workflow. It refuses non-Aurora targets, non-writer endpoints,
-missing Performance Insights, non-Bedrock embedding configuration, and a
-non-empty participant corpus:
+The lab-only API endpoints run with a full ten-connection pool. The pool's own
+counters prove queued callers that never reached PostgreSQL. In a third
+terminal, run Wave A. It refuses non-Aurora targets, non-writer
+endpoints, an incorrectly configured application pool, non-Bedrock embedding
+configuration, and a non-empty participant corpus. CloudWatch is collected
+when available but never gates the incident:
 
 ```bash
 make live-workshop
 ```
 
-The final line prints an indexing receipt path. Use that receipt's keys:
+The final line prints a Wave A receipt path. Use that receipt's run-derived
+keys:
 
 ```bash
-RECEIPT="$(ls -t data/generated/incident-lab/indexing-receipt-*.json | head -1)"
+RECEIPT="$(ls -t data/generated/incident-lab/receipt-a-*.json | head -1)"
 INCIDENT_KEY="$(jq -r .incident_key "$RECEIPT")"
-UNSAFE_CHANGE_KEY="$(jq -r .unsafe_change_key "$RECEIPT")"
-REPAIR_CHANGE_KEY="$(jq -r .repair_change_key "$RECEIPT")"
+BACKFILL_CHANGE_KEY="$(jq -r .unsafe_change_key "$RECEIPT")"
+ANALYZE_CHANGE_KEY="$(jq -r .analyze_change_key "$RECEIPT")"
 LOCK_KEY="$(jq -r .lock_key "$RECEIPT")"
 
 curl -sS http://127.0.0.1:8000/v1/search \
   -H 'Content-Type: application/json' \
-  -d "$(jq -n --arg q "What did $UNSAFE_CHANGE_KEY change during $INCIDENT_KEY?" \
+  -d "$(jq -n --arg q "What did $BACKFILL_CHANGE_KEY change during $INCIDENT_KEY?" \
     '{query:$q,source_systems:["pg_incident_capture"],rerank:false,limit:8}')"
 ```
 
-Cited agent answer:
+Ask the Hybrid Retrieval Agent the three-part diagnostic question. It can cite
+only Wave A evidence, so it cannot claim a post-index result that does not yet
+exist:
 
 ```bash
 curl -sS http://127.0.0.1:8000/v1/agent/answer \
   -H 'Content-Type: application/json' \
   -d "$(jq -n \
-    --arg q "What caused $INCIDENT_KEY, how did $UNSAFE_CHANGE_KEY block writes, how did $REPAIR_CHANGE_KEY repair the behavior, and what did $LOCK_KEY prove?" \
+    --arg q "Why did writes time out during $BACKFILL_CHANGE_KEY, why did they recover after commit, and why did $ANALYZE_CHANGE_KEY show the priority query was still slow? What did $LOCK_KEY prove?" \
     '{question:$q,source_systems:["pg_incident_capture"],limit:8}')"
 ```
 
-Use the returned `run_id` to inspect persisted proof:
+Use the returned `run_id` to inspect persisted proof and the human-reviewed
+proposal:
 
 ```bash
 curl -sS http://127.0.0.1:8000/v1/runs/RUN_ID
 curl -sS http://127.0.0.1:8000/v1/runs/RUN_ID/candidates
 curl -sS http://127.0.0.1:8000/v1/runs/RUN_ID/timeline
 curl -sS http://127.0.0.1:8000/v1/runs/RUN_ID/graph
+curl -sS http://127.0.0.1:8000/v1/runs/RUN_ID/supervision
 ```
+
+Lab 4 uses the proposal's rendered SQL, not a checked-in DDL statement. Follow
+[`labs/exercises/lab4-supervised-execution.md`](labs/exercises/lab4-supervised-execution.md),
+then admit the additive post-index validation wave with its approved proposal ID.
 
 ## Validate
 
@@ -289,7 +308,7 @@ backend/tests/   Unit and disposable-database contract tests
 agent/           Managed tool registry and generated adapter source
 gates/           Static and live retrieval release gates
 sql/             Schema, indexes, search, diagnostics, receipts, and evaluation
-labs/incident/   Guided live incident, telemetry, repair, admission, and indexing
+labs/incident/   Guided live migration, evidence capture, admission, and indexing
 labs/exercises/  Editable retrieval and agent requests plus checkpoints
 frontend/        Incident-evidence inspection workbench
 lambda_mcp/      Stateless AgentCore Gateway Lambda adapter

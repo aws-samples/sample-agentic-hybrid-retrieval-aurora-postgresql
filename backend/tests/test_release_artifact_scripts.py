@@ -7,7 +7,12 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 INCIDENT_FILES = {
     "capture_observability.py",
+    "evidence_builder.py",
+    "hold_controller.py",
+    "migration.py",
     "prepare_workload.py",
+    "query_regression.py",
+    "recovery_verifier.py",
     "run_live_workshop.py",
 }
 EXERCISE_FILES = {
@@ -29,6 +34,15 @@ SECURITY_FILES = {
     "sql/11_roles_rls.sql",
     "sql/12_masking.sql",
 }
+SUPERVISION_RUNTIME_FILES = {
+    "backend/app/action_proposal.py",
+    "backend/app/lab_routes.py",
+    "backend/app/verify_sql.py",
+    "gates/retroactive_safety.py",
+    "gates/route_contract.py",
+    "gates/wave_additivity.py",
+    "sql/13_supervised_execution.sql",
+}
 
 
 class ReleaseArtifactScriptTests(unittest.TestCase):
@@ -49,7 +63,9 @@ class ReleaseArtifactScriptTests(unittest.TestCase):
             self.assertIn(f"labs/exercises/{filename}", source)
         for filename in SECURITY_FILES:
             self.assertIn(filename, source)
-        self.assertIn("sql/13_supervised_execution.sql", source)
+        for filename in SUPERVISION_RUNTIME_FILES:
+            self.assertIn(filename, source)
+        self.assertIn("gates/corpus_diversity.py", source)
         self.assertIn(".claude/skills/extend-hybrid-retrieval/SKILL.md", source)
         self.assertIn("for forbidden in admission design docs/superpowers seed", source)
         self.assertIn("generated evidence or database artifacts", source)

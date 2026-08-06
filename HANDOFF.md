@@ -6,16 +6,17 @@ Current DAT410 redesign state as of August 5, 2026.
 
 The `main` branch is implementing the approved four-phase online-migration
 scenario. The redesign is not release-complete.
-Do not extend the retired ordinary-`CREATE INDEX` / concurrent-index-repair
-mechanism that still exists in portions of the runtime, tests, UI, and docs.
+Do not restore the retired ordinary-`CREATE INDEX` /
+concurrent-index-repair mechanism.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-E4 are complete. Tasks F1-G3 own the remaining documentation,
-infrastructure, and rehearsal work. The plan's repository-wide alignment audit
-assigns every known stale surface to an explicit task; finding an unassigned
-stale surface is a plan defect and should be corrected before implementation
-continues.
+Tasks A1-E4 are complete. F1's source cleanup is complete; its live
+PI-disabled/IAM-revoked rehearsal remains owed. Tasks F2-G3 own the remaining
+timing, infrastructure, and rehearsal work. The plan's repository-wide
+alignment audit assigns every known stale surface to an explicit task; finding
+an unassigned stale surface is a plan defect and should be corrected before
+implementation continues.
 
 ## Repositories
 
@@ -204,11 +205,20 @@ Completed and committed on this branch:
   than inferring it, and G-13 replays every returned descriptor when a proposal
   exists. The lens explicitly distinguishes a missing proposal, a pending human
   action, a mismatched execution, and a validated Wave B outcome.
+- F1 removes stale Performance Insights / Database Insights dependencies from
+  source docs, schema cleanup, diagnostics comments, and archive requirements.
+  `README.md`, `docs/architecture.md`, `docs/builder-session-flow.md`,
+  `docs/implementation-spec.md`, `docs/live-data-audit.md`,
+  `docs/data-model.md`, `DAT410-BUILD-BRIEF.md`,
+  `WORKSHOP-BUILD-SUMMARY.md`, and `READINESS.md` now describe the current
+  migration, two-wave admission, source-native observability, and
+  human-supervised action contract. The source archive now requires every
+  incident controller, supervised-execution runtime module, and release gate.
+  `.env.example` documents the ten-slot Lab 1 pool configuration.
 
-Not yet implemented: participant and source documentation cleanup,
-infrastructure packaging, and the complete rehearsal. Until those tasks land,
-`make live-workshop` is not evidence that the approved scenario is
-release-complete.
+Not yet complete: infrastructure packaging and the complete rehearsal. A
+source-only `make live-workshop` result is not evidence that the approved
+scenario is release-complete.
 
 For D2/D3's supervised participant action, render the controlled-lab repair as:
 
@@ -394,11 +404,55 @@ result as rehearsal evidence.
 
 ## Next Task
 
-Start F1: remove the retired Performance Insights dependency from the
-infrastructure and participant documents. Keep CloudWatch supplemental,
+Start F2: measure three complete cold runs against the dedicated Aurora
+PostgreSQL 18.3 test database, record the slowest actual budget, and hand the
+user the required Workshop Studio `WaitCondition` timeout/update-path changes.
+Before then, close F1's live proof by running `make live-workshop` with
+Performance Insights disabled on a disposable cluster or
+`pi:GetResourceMetrics` revoked from the caller. Keep CloudWatch supplemental,
 preserve the PostgreSQL and app-pool evidence boundary, and do not package or
 publish the sibling Workshop Studio repository before its user-owned work is
-ready. Read Task F1 in the binding plan before editing.
+ready.
+
+### Workshop Studio Changes Required For F1
+
+The sibling repository is user-owned and has not been changed from this
+worktree. Apply these exact changes there before its release rehearsal:
+
+1. In `assets/hybrid-retrieval-code-editor.yml`, change the
+   `DBInstanceIdentifier` parameter description from "Aurora writer identifier
+   used for live Database Insights capture" to "Aurora writer identifier used
+   for live PostgreSQL and CloudWatch capture."
+2. In the Code Editor task role policy in the same file, remove only
+   `pi:GetResourceMetrics` from the statement that also grants
+   `cloudwatch:GetMetricStatistics` and `sts:GetCallerIdentity`. Keep the
+   CloudWatch and STS actions.
+3. Update the Workshop Studio scenario, evidence-journey, troubleshooting,
+   facilitator, optional-security, and asset README content that currently
+   requires a PI wait, a `Lock:relation` dimension, a concurrent-index repair,
+   or 25,000 operational orders. Point it to the source docs above:
+   transaction-ID blocking, app-pool timeouts, 3,000,000 orders, Wave A, and
+   Wave B.
+4. Leave `EnablePerformanceInsights: true`,
+   `PerformanceInsightsRetentionPeriod: 7`, and its KMS property in
+   `assets/hybrid-retrieval-database.yml` unchanged. The core path does not
+   depend on that service; disabling it is only an acceptance-test option.
+
+The load-bearing reason for the IAM removal is that no source path reads PI,
+and ASH does not sample the idle-in-transaction backfill state this scenario
+holds. Revoking the permission makes that claim testable rather than
+documentary. Preserve `proof.observability_refs`,
+`WORKBENCH_DB_RESOURCE_ID`, and `WORKBENCH_LOCK_URL_TEMPLATE`: they are an
+optional configured investigation link, not a retrieval dependency.
+
+### F1 Live Proof Still Owed
+
+No approved Aurora test `DATABASE_URL` is configured in this worktree, so F1
+has not run its definitive acceptance: a complete `make live-workshop` against
+a cluster with PI disabled, or with `pi:GetResourceMetrics` revoked from the
+calling principal. Do not mark that result passed until the command exits zero
+and admits a full current corpus. If it raises an authorization error naming
+`pi:`, find the remaining caller; do not restore the permission.
 
 Current maintenance hazards:
 

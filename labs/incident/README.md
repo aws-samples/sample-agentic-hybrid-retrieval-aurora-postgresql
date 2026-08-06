@@ -15,7 +15,10 @@ FastAPI service must be running with the lab endpoints enabled and a
 ten-connection application pool. Bedrock embedding access is required.
 CloudWatch is collected as best-effort supplemental evidence; it does not gate
 the incident capture. Performance Insights and Database Insights are not core
-lab dependencies.
+lab dependencies. The core path instead uses PostgreSQL catalogs for connected
+blockers, pool statistics and request results for callers that never reached
+PostgreSQL, and `EXPLAIN (ANALYZE, BUFFERS)` for the access path. Production
+connectors can still admit additional observability sources.
 
 ## Wave A: Diagnostic Evidence
 

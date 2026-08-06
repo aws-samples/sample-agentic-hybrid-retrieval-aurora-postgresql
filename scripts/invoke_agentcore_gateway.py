@@ -144,7 +144,7 @@ def main() -> int:
     parser.add_argument(
         "--assert-incident",
         action="store_true",
-        help="Fail unless the receipt-derived unsafe change is ranked first.",
+        help="Fail unless the receipt-derived backfill change is ranked first.",
     )
     args = parser.parse_args()
     keys = _load_run_receipt(args.receipt)

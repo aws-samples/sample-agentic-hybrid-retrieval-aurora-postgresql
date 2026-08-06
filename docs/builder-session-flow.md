@@ -2,174 +2,174 @@
 
 **Level:** 400
 **Hard duration:** 60 minutes
-**Participant outcome:** diagnose one database incident with a working hybrid
-retrieval and cited-agent path, then leave with the SQL and proof contract.
+**Participant outcome:** build a trustworthy, SQL-first hybrid retrieval and
+proof layer from a live Aurora PostgreSQL migration failure.
 
-The opening guide establishes the incident and system boundary. The labs then
-make each retrieval method earn its place, let participants change retrieval
-and agent decisions, and prove what the final answer used.
+The incident is the corpus generator, not the workshop outcome. Participants
+turn measured signals into searchable evidence, use Aurora PostgreSQL to rank,
+relate, cite, and replay that evidence, and validate a human-approved
+recommendation with a second evidence wave.
+
+> At fleet scale, telemetry is abundant; trustworthy context is scarce.
 
 ## Guide Structure
 
 1. **Getting Started:** access the environment and verify the empty evidence
    store.
-2. **Workshop Scenario:** understand the hung migration and where its evidence
-   comes from.
-3. **Lab 1:** cause, fix, and admit the incident.
-4. **Lab 2:** build hybrid retrieval.
-5. **Lab 3:** build the incident agent.
-6. **Lab 4:** prove and replay.
-7. **Take it home:** apply the retrieval skill.
+2. **Workshop Scenario:** follow one online migration through its measured
+   phases and identify where each evidence signal originates.
+3. **Lab 1: Capture and admit live evidence.**
+4. **Lab 2: Build hybrid retrieval in SQL.**
+5. **Lab 3: Build the Hybrid Retrieval Agent.**
+6. **Lab 4: Validate, prove, and replay.**
+7. **Take it home:** transfer the retrieval and supervised-action patterns.
 8. **Summary and cleanup.**
 
-Optional labs cover RLS with column masking and AgentCore publication. The
-appendix owns troubleshooting, facilitator notes, run-derived identifier
-reference, live search-index operations, and retrieval diagnostics.
+RLS, column masking, and AgentCore transport are take-home extensions. They are
+not participant-completion requirements and must not displace the core path.
+
+## Scenario
+
+Workshop Studio pre-provisions 5,000 customers and 3,000,000 orders in
+`workbench_lab`; `casework`, `retrieval`, and `proof` start empty. The workload
+is operational state, not the corpus.
+
+In Lab 1, the participant:
+
+1. adds a nullable `priority_tier` column and commits that DDL separately;
+2. opens one unbatched backfill transaction across all orders;
+3. sends 12 hot writes through the real ten-connection FastAPI pool;
+4. proves 10 PostgreSQL sessions are waiting on the backfill's transaction ID
+   while at least two callers wait outside PostgreSQL and return `PoolTimeout`;
+5. holds that proven state long enough to observe it, commits the backfill, and
+   proves the ten blocked writers drain successfully;
+6. captures a named query before and after `ANALYZE`, where both checkpoints
+   remain sequential scans because the composite index is absent.
+
+The central question has three clauses:
+
+> Why did writes time out during the priority-tier migration, why did the
+> application recover after commit, and why did the priority query remain slow?
+
+No retrieval arm answers all three. Participants must decompose, retrieve,
+traverse the blocker chain, and compare plan checkpoints.
 
 ## Minimal End-to-End Path
 
-Every participant must complete this path:
-
-1. Run `make live-workshop` to induce one real write stall with six writers,
-   two readers, and 30 PostgreSQL samples.
-2. Apply and measure `CREATE INDEX CONCURRENTLY`, then collect CloudWatch and
-   Performance Insights observations for that same run.
-3. Admit about 110 run-derived records and generate every current Cohere
-   embedding through Bedrock before retrieval is enabled.
-4. Recover `CHG-<run-suffix>-01` through exact retrieval, then run a dedicated PostgreSQL
-   full-text query without an identifier.
-5. Recover mistyped `CGH-<run-suffix>-01` through indexed trigram search and retrieve a
-   semantic symptom paraphrase through pgvector.
-6. Inspect the `pg_incident_capture` source and run-identity checks applied to
-   every participant candidate.
-7. Change the weighted-RRF controls, complete the SQL expression in a temporary
-   checkpoint table, and independently recompute the persisted score from arm
-   positions.
-8. Apply Cohere reranking without overwriting the PostgreSQL RRF score, or inspect the
-   explicit `rerank_applied=false` fallback.
-9. Build an evidence plan from decomposition, relationship traversal, and
-   source comparison before running the complete agent.
-10. Validate citation rows and replay the retrieval receipt by `run_id`.
-
-Participants do not provision Aurora, restore or generate a fictional corpus,
-build a connector, or deploy AgentCore Gateway during the hour.
+1. Run `make live-workshop` to produce **Wave A**. It contains only diagnostic
+   evidence from the backfill, lock wait, app-pool exhaustion, request
+   timeouts, recovery, and pre/post-`ANALYZE` plan checkpoints.
+2. Confirm the generated receipt reports a current, drift-free search index.
+   The target is behavioral coverage and roughly 50-80 genuinely distinct
+   documents, not padded document volume.
+3. In Code Editor, exercise exact identifier, full-text, semantic, and fuzzy
+   retrieval; apply filters inside each retrieval arm; edit weighted RRF; and
+   inspect model reranking separately from PostgreSQL RRF.
+4. Run the Hybrid Retrieval Agent against Wave A. Its cited answer explains
+   the lock/pool failure, measured drain, and missing access path. It cannot
+   claim a post-index result because none has been admitted.
+5. Review the persisted structured proposal, citations, preconditions,
+   expected effect, and rollback guidance. Explicitly approve and execute the
+   rendered SQL as the participant.
+6. Run `make live-workshop ARGS="--wave B --proposal-id ... --approved-by ..."`
+   to record the observed index fingerprint and admit only post-index
+   validation evidence.
+7. Inspect the proposal, execution receipt, autonomous-readiness assessment,
+   citations, relationships, and replay of the original Wave A run.
 
 ## Minute-by-Minute Run of Show
 
-| Minute | Activity | Participant proof | Time risk and cut line |
+| Minute | Activity | Participant proof | Cut line |
 |---:|---|---|---|
-| 0-5 | Getting Started | Access both work surfaces and prove `awaiting_incident` with zero evidence | Move blocked participants to a working paired terminal |
-| 5-10 | Workshop Scenario | Explain the hung migration and trace measured telemetry into the evidence store | No product tour |
-| 10-25 | Lab 1: Cause, fix, and admit | 5,000 customers and 3,000,000 related orders produce roughly 735 measured telemetry rows, 110 evidence documents, current embeddings, one capture, and zero drift | Pair with a participant whose live run completes; never substitute checked-in data |
-| 25-40 | Lab 2: Build hybrid retrieval | Exact, FTS, semantic, fuzzy, filter, participant-edited RRF, and rerank checkpoints pass | `rerank_applied=false` is a valid model fallback |
-| 40-50 | Lab 3: Build the incident agent | Build the evidence plan, traverse captured relationships, compare sources, and synthesize the cited answer | Use the complete answer endpoint if individual calls run long |
-| 50-55 | Lab 4: Prove and replay | Validate source URI, revision, and quote, then replay by `run_id` without a model call | Skip visual Proof exploration; preserve citation SQL and receipt GET |
-| 55-58 | Take it home | Inspect the reusable retrieval skill and production ownership boundary | Keep this to transfer, not another exercise |
-| 58-60 | Summary and cleanup | Confirm the temporary workload is gone while its measured proof remains | Run compact evaluation after the session |
+| 0-5 | Getting Started | Environment opens and evidence store is empty | Pair terminal access; do not use a prior corpus |
+| 5-10 | Workshop Scenario | Distinguish operational rows from evidence and map each source to the fact it proves | No product tour |
+| 10-18 | Lab 1 | Wave A receipt proves transaction-ID blocking, exhausted pool, timed-out queued callers, recovery, and two sequential plan checkpoints | Pair with a participant whose current Wave A run completed |
+| 18-38 | Lab 2 | Exact, FTS, semantic, fuzzy, pre-fusion filter, weighted RRF, and rerank checks run from the current receipt | Rerank fallback is valid; preserve SQL fusion |
+| 38-50 | Lab 3 | Cited diagnostic answer and structured action proposal are persisted | Use the complete answer path if individual tool calls run long |
+| 50-56 | Lab 4 | Participant approval, catalog fingerprint, Wave B plan evidence, citations, and Wave A replay are visible | Preserve supervised execution and replay before visual exploration |
+| 56-58 | Take it home | Explain read-only recommendation, human-approved action, and policy-bounded future autonomy | Architecture discussion only |
+| 58-60 | Summary and cleanup | Workload cleanup is understood; proof remains replayable | Do not start an extension lab |
 
-## Core Versus Appendix
+Final measured wait times and the documented cold-account setup budget are
+recorded only after the Aurora rehearsal. Do not substitute estimates for those
+measurements in participant copy.
 
-### Core
+## Evidence and Observability Boundary
 
-- controlled PostgreSQL lock reproduction and concurrent-index repair;
-- exact identifier and PostgreSQL full-text retrieval;
-- pgvector cosine search;
-- source-system, SQL, and metadata filters;
-- `pg_trgm` typo recovery;
-- weighted RRF;
-- Cohere model reranking;
-- source attribution and citation validation;
-- persisted diagnostics and replay;
-- decomposition, targeted retrieval, relationship traversal, comparison,
-  ranking explanation, and cited synthesis;
-- a reusable retrieval skill that carries the evidence and proof contract into
-  another system.
+The lab uses the source with the highest fidelity for each fact:
 
-### Extend After the Session
+| Fact | Authoritative lab signal |
+|---|---|
+| Which PostgreSQL sessions block and which PID blocks them | `pg_stat_activity`, `pg_locks`, and `pg_blocking_pids()` |
+| Which callers never obtained a database connection | `psycopg_pool.get_stats()` and measured API outcomes |
+| Whether the query has an access path | `EXPLAIN (ANALYZE, BUFFERS)` |
+| Statement work before/during/after the incident | `pg_stat_statements` deltas |
+| Supplemental RDS context | CloudWatch, when available |
 
-- connector transports, cursors, and full reconciliation;
-- release-scale embedding generation;
-- HNSW index creation and replacement-index operations;
-- filtered-HNSW iterative-scan comparisons;
-- additional corpora, chunkers, model spaces, and relevance judgments;
-- compact retrieval and traversal evaluation;
-- inferred-edge generation;
-- AgentCore Gateway deployment;
-- production identity mapping and live authorization revalidation;
-- load, failover, and Aurora-specific operational testing.
-
-These production extensions require additional implementation and are not
-counted as participant completion.
+Performance Insights and Database Insights are valuable production connectors
+but are not core prerequisites. Their sampling and publication behavior do not
+improve the causal proof required here. Production integrations can admit those
+sources, APM, logs, third-party monitoring, and runbooks through the same
+versioned evidence contract.
 
 ## Unique L400 Proof
 
-The content that distinguishes this session is not the list of retrievers:
-
-1. **Provenance is part of ranking.** Every candidate must belong to the
-   receipt's capture and `pg_incident_capture` source system.
-2. **Relational truth and search index are different assets.** Foreign
-   keys own incident relationships; the physical search index owns
-   externally generated vectors and indexable text. Drift is measured rather
-   than hidden.
-3. **A score is not proof.** Raw full-text, cosine, trigram, RRF, and rerank
-   values have different meanings. The persisted receipt keeps positions and
-   stages separate, and citations resolve to exact source revisions and chunks.
-
-## Failure Fallbacks
-
-| Failure | Continue with |
-|---|---|
-| Participant terminal or editor falls behind | Prevalidated complete checkout and the next numbered command |
-| Live incident falls behind | Pair with a participant whose orchestrator produced a complete current-run receipt |
-| Bedrock embedding is slow | Retry runtime indexing for that live run; do not substitute precomputed vectors |
-| Cohere rerank is unavailable | Show `rerank_applied=false` and retain PostgreSQL RRF ordering |
-| Synthesis model is unavailable | Use the extractive fallback built from the same persisted evidence rows |
-| Frontend fails | Use the HTTP endpoints and SQL receipt views |
-| Aurora connection fails for one attendee | Pair with a working environment; do not switch the room to local PostgreSQL |
-| Room is more than five minutes behind | Use the reference response for the live plan, run the filter and fusion checkpoints, and preserve the cited-answer path |
+1. **Relational truth and search state are different assets.** `casework.*`
+   owns normalized evidence and relationships; `retrieval.*` is a derived,
+   versioned, rebuildable search index.
+2. **Hybrid means inspectable signals, not one opaque score.** Raw lexical,
+   vector, fuzzy, RRF, and rerank values remain separate. Hybrid is evaluated,
+   not presumed to win for every query.
+3. **Time and schema prevent unsupported conclusions.** Lab 3 has no
+   post-index evidence, so the agent cannot cite an improvement that has not
+   happened.
+4. **A recommendation is not an action.** The agent has no write tool or DDL
+   privilege. The participant's approval, executed SQL fingerprint, Wave B
+   outcome, and readiness verdict are persisted proof.
 
 ## Facilitator Gates
 
 Before opening the room:
 
-- Workshop Studio stack is complete and Aurora is reachable from Code Editor.
-- The guided incident orchestrator passes on the target Aurora engine using the
-  participant database role.
-- Schema is current and participant evidence is empty before each run.
-- `make doctor` passes all hard gates in `us-east-1`.
-- Semantic, lexical, fuzzy, hybrid, rerank, answer, citation, and evaluation
-  receipts have known expected outputs.
-- The filter, fusion, and agent-plan participant checkpoints print `OK`.
-- A full run has been tested on the target Aurora engine, not only local
-  PostgreSQL.
-- The packaged source revision is immutable and recorded.
-- Model lifecycle, CRIS support, IAM, and quotas have been rechecked.
+- Aurora PostgreSQL 18.3 and the Workshop Studio network path have passed the
+  current rehearsal.
+- The participant database has the 3,000,000-row operational workload and
+  zero `casework`, `retrieval`, and `proof` evidence.
+- The API has `LAB_ENDPOINTS_ENABLED=1` and
+  `DB_POOL_MIN_SIZE=DB_POOL_MAX_SIZE=10`.
+- `make doctor`, `make smoke`, the required release gates, and the frontend
+  build have passed on the final source revision.
+- Bedrock embedding, reranking, and synthesis access is confirmed in
+  `us-east-1`.
+- Wave A, participant-executed DDL, Wave B, citation validation, proposal
+  fingerprint comparison, and replay have been rehearsed using the
+  participant role.
+- CloudWatch unavailability remains a recorded supplemental condition, not a
+  participant blocker.
 
 ## Expected Outputs
 
-- Dedicated FTS rank 1 for the measured unsafe change without an identifier in
-  the query.
-- Plain `CREATE INDEX` owns granted `ShareLock`; the writer waits for
-  `RowExclusiveLock`; reads continue.
-- Concurrent index build owns `ShareUpdateExclusiveLock`; fresh DML completes;
-  the resulting index is ready, valid, and live.
-- Fuzzy rank 1 for `CHG-<run-suffix>-01` from
-  `CGH-<run-suffix>-01`.
-- Every participant candidate reports source system `pg_incident_capture`.
-- Default and semantic-only weighted-RRF receipts recompute from their
-  persisted arm positions.
-- Agent synthesis identifies the measured wait, blocking DDL, and concurrent
-  repair from current-run evidence.
-- Cited answer includes real source revisions and passes
-  `proof.validate_answer_citations`.
-- The saved `run_id` replays candidates, stages, answer, and citations without
-  another model call.
+- Ten connected hot writes show `Lock:transactionid` and the backfill PID;
+  queued callers are proven only through pool statistics and `PoolTimeout`.
+- Recovery records ten drained writes, no blocked tagged sessions, no waiting
+  pool requests, and a fresh successful write.
+- Wave A contains before- and after-`ANALYZE` sequential scans. `ANALYZE` is
+  evidence, not an automatic fix.
+- The participant-created composite index produces the Wave B index-scan
+  checkpoint.
+- Exact, full-text, semantic, fuzzy, filtered, fused, and reranked retrieval
+  results retain their own persisted signals.
+- The cited agent answer is limited to Wave A evidence and creates a structured
+  proposal.
+- Wave B remains additive. Replaying the Lab 3 run does not gain Wave B
+  candidates, edges, or citations.
+- The supervision lens distinguishes a missing proposal, pending human action,
+  a mismatched execution, and a validated outcome.
 
-These core outputs are release gates, not slide claims.
+## After the Session
 
-## After The Session
-
-Production identity and authorization revalidation remain architecture topics
-in the required path. An event owner may enable the optional RLS and
-column-masking lab only against the participant's live capture; it never loads
-fictional records.
+The reusable skill is not the incident mechanism. It is the ability to convert
+authoritative operational observations into versioned evidence that can be
+filtered, ranked, related, cited, evaluated, and replayed before a human or
+automation policy acts. At fleet scale, expand the inputs and output contract,
+not the workshop's live incident surface.

@@ -372,16 +372,11 @@ class DatabaseInsightsRemovalTest(unittest.TestCase):
         the relation it references. Measured on PostgreSQL 17.10. A test naming
         only 01 and 10 passes while `make schema` fails.
         """
+        deleted_table = "database" + "_insights_samples"
         for name in sorted(p.name for p in (REPO_ROOT / "sql").glob("*.sql")):
             sql = (REPO_ROOT / "sql" / name).read_text(encoding="utf-8")
-            if name == "01_schema.sql":
-                # The legacy migration-cleanup branch must keep dropping it.
-                sql = sql.replace(
-                    "DROP TABLE IF EXISTS casework.database_insights_samples CASCADE;",
-                    "",
-                )
             with self.subTest(sql_file=name):
-                self.assertNotIn("database_insights_samples", sql)
+                self.assertNotIn(deleted_table, sql)
 
     def test_admission_payload_has_no_database_insights_key(self) -> None:
         """The payload key and the telemetry_type enum value are both gone.
@@ -393,8 +388,9 @@ class DatabaseInsightsRemovalTest(unittest.TestCase):
         """
         admission_sql = (REPO_ROOT / "sql" / "10_admission.sql").read_text(encoding="utf-8")
         schema_sql = (REPO_ROOT / "sql" / "01_schema.sql").read_text(encoding="utf-8")
-        self.assertNotIn("-> 'database_insights'", admission_sql)
-        self.assertNotIn("'database_insights',", schema_sql)
+        deleted_key = "database" + "_insights"
+        self.assertNotIn("-> '" + deleted_key + "'", admission_sql)
+        self.assertNotIn("'" + deleted_key + "',", schema_sql)
         self.assertIn("database_insights_mode", admission_sql)
 
     def test_no_python_read_path_references_the_deleted_insights_table(self) -> None:
@@ -411,7 +407,20 @@ class DatabaseInsightsRemovalTest(unittest.TestCase):
             for path in sorted((REPO_ROOT / relative_dir).rglob("*.py")):
                 source = path.read_text(encoding="utf-8")
                 with self.subTest(source_file=str(path.relative_to(REPO_ROOT))):
-                    self.assertNotIn("database_insights_samples", source)
+                    self.assertNotIn("database" + "_insights_samples", source)
+
+    def test_doctor_has_no_retired_insights_prerequisite(self) -> None:
+        source = (
+            REPO_ROOT / "backend" / "scripts" / "doctor.py"
+        ).read_text(encoding="utf-8")
+        for forbidden in (
+            "database" + "_insights",
+            "performance" + "_insights",
+            "Performance" + "Insights",
+            "pi:Get",
+        ):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, source)
 
 
 class AdmissionContractTest(unittest.TestCase):

@@ -2,110 +2,136 @@
 
 ## Status
 
-Hybrid Retrieval Workbench is the implemented DAT410 reference application for
-AWS re:Invent 2026.
+Hybrid Retrieval Workbench is the DAT410 source application for AWS re:Invent
+2026. The active scenario is a four-phase Aurora PostgreSQL online-migration
+failure with two additive evidence admissions.
 
 - Session: Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
 - Level: 400
-- Format: Builders' session
-- Duration: 60 minutes
-- Participant corpus: live-only
-- Packaging: schema-only source archive
+- Format: 60-minute builders' session
+- Participant corpus: live-only and capture-derived
+- Packaging: committed application source only, with no database state
 
-Application source, SQL, tests, and API responses are authoritative. The
-standing rule is that no fictional, offline, demo, authored, or previously
-captured record may enter the participant path. The Overview page's main
-graphic is the only illustrative exception and is never persisted or queried.
+The governing rule is that no fictional, offline, demo, authored, or previously
+captured record may enter the participant retrieval, agent, citation,
+evaluation, or proof path. The Overview graphic is the sole illustrative
+exception and is never persisted or queried.
 
 ## 1. Participant Outcome
 
-One command induces and indexes the participant's own incident:
+Participants begin with a pre-provisioned operational workload and an empty
+evidence store. They run:
 
 ```bash
 make live-workshop
 ```
 
-The resulting indexing receipt supplies:
+Wave A captures the diagnosis of one migration:
 
 ```text
-CAP-<run-suffix>
-INC-<run-suffix>
-CHG-<run-suffix>-01
-CHG-<run-suffix>-02
-LOCK-<run-suffix>-01
-TEL-<run-suffix>-...
+nullable priority_tier column
+  -> unbatched 3,000,000-row backfill
+  -> lock collision with ten pooled API writers
+  -> two additional requests queue and timeout at the pool boundary
+  -> commit and measured recovery
+  -> sequential query plans before and after ANALYZE
+  -> normalized evidence, runtime embeddings, and a Wave A receipt
 ```
 
 The participant investigates:
 
-> What caused `INC-<run-suffix>`, how did `CHG-<run-suffix>-01` block writes,
-> how did `CHG-<run-suffix>-02` repair the behavior, and what did
-> `LOCK-<run-suffix>-01` prove?
+> Why did order writes time out during the priority-tier migration, why did the
+> application recover after commit, and why did the priority query remain slow?
 
-The answer must be grounded in measured PostgreSQL and AWS telemetry from that
-capture. No customer, support, company, person, runbook, postmortem, or
-distractor record exists in the participant database.
+The Hybrid Retrieval Agent answers from Wave A only and persists a structured,
+cited index proposal. A human reviews the proposal and runs its rendered DDL.
+Wave B then captures only the observed post-index validation result:
+
+```bash
+make live-workshop ARGS="--wave B --proposal-id <uuid> --approved-by <name-or-role>"
+```
+
+Wave B remains additive. It never replaces the diagnostic evidence that
+grounded the proposal.
 
 ## 2. Ownership
 
 | Schema or surface | Owns |
 |---|---|
-| `workbench_lab` | Disposable orders table and index used to induce the incident |
+| `workbench_lab` | Disposable customers and orders used to induce the migration |
 | `casework` | Live evidence identity, raw telemetry, typed facts, and canonical relationships |
 | `retrieval` | Rebuildable document versions, chunks, embeddings, indexes, ranking, and traversal |
-| `proof` | Retrieval runs, candidate signals, stages, answers, citations, evaluation, and replay |
-| Backend | API orchestration, model adapters, tools, synthesis, and readiness |
-| Frontend | Inspection UI over API and persisted proof |
+| `proof` | Retrieval runs, candidate signals, citations, action proposals, executions, verdicts, and replay |
+| Backend | API orchestration, model adapters, lab routes, tools, synthesis, and readiness |
+| Frontend | Inspection UI over API responses and persisted proof |
 
 Operational systems remain authoritative for mutable workflow, current
-permissions, and actions. The workshop materializes only its measured incident
-evidence into Aurora PostgreSQL.
+authorization, and actions. Aurora PostgreSQL owns only the measured evidence
+and its retrieval/proof model.
 
-## 3. Live Incident
+## 3. Operational Substrate and Live Incident
 
 Workshop Studio bootstrap runs `make prepare-workload` after `make schema`.
-That step generates 5,000 rows in `workbench_lab.customers` and 3,000,000
-foreign-key-related rows in `workbench_lab.orders`, requires an empty evidence
-store, and creates no `casework`, `retrieval`, or `proof` records.
+That step creates exactly 5,000 `workbench_lab.customers` rows and 3,000,000
+related `workbench_lab.orders` rows. It requires zero evidence and creates no
+`casework`, `retrieval`, or `proof` records.
 
-`labs/incident/run_live_workshop.py` is the only participant incident producer.
-Before inducing the incident, it proves:
+`labs/incident/run_live_workshop.py` is the only participant incident
+producer. Wave A requires:
 
-- the target is the requested Aurora PostgreSQL writer;
-- PostgreSQL and pgvector satisfy the repository minimums;
-- the core schema is complete;
-- the participant corpus is empty;
-- the operational workload contains exactly 5,000 customers and 3,000,000
-  canonical related orders with no target incident index;
-- Performance Insights is enabled;
-- CloudWatch and Performance Insights are reachable;
-- Cohere Embed is available through Bedrock; and
-- the embedding provider is `bedrock`.
+- a requested Aurora PostgreSQL 18.3 writer in `us-east-1`;
+- current core schema and empty evidence store;
+- the canonical preloaded workload with no `priority_tier` column or target
+  composite index;
+- the real API with `LAB_ENDPOINTS_ENABLED=1` and
+  `DB_POOL_MIN_SIZE=DB_POOL_MAX_SIZE=10`;
+- Cohere Embed through Bedrock; and
+- a Bedrock embedding provider.
 
-The orchestrator requires the bootstrapped workload. Source-only local use runs
-`make prepare-workload` explicitly before `make live-workshop`.
+CloudWatch is best-effort supplemental evidence. A failed metric request is
+recorded as `cloudwatch_status=unavailable`; it does not invalidate the
+PostgreSQL and application-pool proof.
 
-The unsafe phase:
+### 3.1 Wave A
 
-- uses the 5,000 preloaded customers and 3,000,000 related orders;
-- starts ordinary `CREATE INDEX`;
-- keeps its transaction open after index construction;
-- starts six real blocked writers and two readers;
-- takes 30 samples at two-second intervals; and
-- proves granted `ShareLock`, waiting `RowExclusiveLock`,
-  `pg_blocking_pids()`, and `Lock:relation`.
+1. `ALTER TABLE ... ADD COLUMN priority_tier int` commits by itself, releasing
+   the DDL lock before the migration workload starts.
+2. One explicit transaction updates all orders and remains open after the
+   update. The backfill PID is retained.
+3. Twelve writes use `POST /v1/lab/hot-write` through the production
+   application pool. Each successful checkout keeps its tag, statement timeout,
+   and `UPDATE` in one explicit transaction.
+4. The controller polls every 250ms and requires three consecutive samples
+   showing a ten-slot exhausted pool, zero available connections, at least two
+   waiting callers, and ten tagged sessions waiting on transaction-ID locks
+   blocked by the backfill PID.
+5. The controller retains that proven state for a bounded observation hold,
+   commits the backfill, and verifies recovery: no blocker, available pool, no
+   waiters, no tagged lock waits, at least one recorded pool timeout, ten
+   drained writers, and a fresh committed write.
+6. The plan checkpoint captures `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` for
+   the reference priority query before and after `ANALYZE`. Both must be
+   sequential scans; the incident runner never creates or drops an index.
 
-The repair phase:
+### 3.2 Wave B
 
-- rolls back the ordinary index transaction;
-- applies `CREATE INDEX CONCURRENTLY`;
-- proves a fresh `UPDATE` completes;
-- captures the safe lock state; and
-- requires the final index to be ready, valid, and live.
+Wave B requires one valid Wave A incident and one explicit participant approval
+of its stored proposal. It reads the actual index definition from the Aurora
+catalog, records an append-only execution receipt, and compares its canonical
+fingerprint with the proposal. A mismatch remains visible as proof and does not
+silently update the proposal.
 
-AWS collection filters every CloudWatch and Performance Insights observation
-to the capture window and the validated Aurora writer. The PI evidence must
-contain both `Lock:relation` and the ordinary `CREATE INDEX` SQL.
+For a matching index, Wave B captures the post-index plan, admits only new
+metadata and plan evidence, rebuilds the search index, and attaches the
+receipt to the recorded execution. The participant DDL is rendered by code from
+validated proposal fields:
+
+```sql
+CREATE INDEX idx_orders_priority_tier_created_at
+ON workbench_lab.orders (priority_tier, created_at DESC);
+```
+
+The agent neither runs this statement nor has a write-capable tool.
 
 ## 4. Authoritative Data
 
@@ -113,170 +139,131 @@ contain both `Lock:relation` and the ordinary `CREATE INDEX` SQL.
 
 | Relation | Purpose |
 |---|---|
-| `incident_capture_runs` | One participant-induced run, bounded window, target identity, and manifest |
-| `pg_stat_activity_samples` | Activity rows with observation number and raw row |
-| `pg_lock_samples` | Relation-lock rows with observation number and raw row |
-| `pg_blocking_pids_samples` | Blocking chains and literal SQL output |
-| `pg_stat_statements_samples` | Before, during, and after statement measurements |
-| `cloudwatch_metric_samples` | Five incident-window RDS metric observations |
-| `database_insights_samples` | PI top wait and SQL observations |
+| `incident_capture_runs` | Bounded participant capture identity, wave, target, and manifest |
+| `pg_stat_activity_samples` | Activity observations including tagged waiters and blocker PID |
+| `pg_lock_samples` | Lock observations, including transaction-ID locks |
+| `pg_blocking_pids_samples` | Blocking chains and literal function output |
+| `pg_stat_statements_samples` | Statement work before, during, and after the migration |
+| `cloudwatch_metric_samples` | Supplemental incident-window RDS metric observations |
 
 ### Searchable evidence
 
-| Kind | Purpose |
-|---|---|
-| `incident` | Measured write stall and resolution interval |
-| `change` | Unsafe ordinary index build and measured concurrent repair |
-| `lock_evidence` | Primary observed lock chain |
-| `telemetry` | Searchable evidence built deterministically from measured telemetry |
+| Kind | Wave A purpose | Wave B purpose |
+|---|---|---|
+| `incident` | One measured migration failure | None; references the existing incident |
+| `change` | Backfill and `ANALYZE` comparison | Participant-approved index validation |
+| `lock_evidence` | Primary transaction-ID blocker chain | None |
+| `telemetry` | Distinct `lock`, `pool`, `request`, `wal`, `meta`, and `plan` records | New `meta` and `plan` validation records |
 
-The searchable evidence build creates 30 activity-window, 30 lock-topology, and 30
-blocking-chain documents plus measured statement, metric, PI, and remediation
-documents. A successful run contains about 110 searchable documents and
-100-250 chunks while retaining about 735 raw telemetry rows.
+`labs/incident/evidence_builder.py` creates documents from meaningful
+transitions, outcome classes, lifecycle facts, and plan checkpoints. It never
+turns every raw polling tick into a template document. A run is adequate when
+it satisfies the signal- and phase-coverage gate and stays below the
+near-duplicate threshold; the expected 50-80 document range is guidance, not
+an acceptance gate.
 
-`casework.v_evidence_documents` renders normalized facts deterministically. It
-emits stable evidence identity, source URI, source revision, ACL, typed filters,
-metadata, content, and a SHA-256 search-document hash.
+Every authoritative record is source-revisioned and rendered through
+`casework.v_evidence_documents` with stable identity, source URI, ACL,
+metadata, content, and SHA-256 search-document hash.
 
 ## 5. Admission
 
-`casework.admit_evidence(jsonb)` is the atomic write boundary. It requires:
+`casework.admit_evidence(jsonb)` is the atomic write boundary for either wave.
+It requires:
 
-- source system `pg_incident_capture`;
-- Aurora PostgreSQL database identity;
-- one UUID capture ID and matching eight-character run suffix;
-- exact run-derived key forms;
-- 30 observations, six writers, and two readers;
-- at least 270 activity, 270 lock, and 180 blocking rows;
-- all three statement phases;
-- all five CloudWatch metric records;
-- Performance Insights `Lock:relation`;
-- 100-120 searchable telemetry documents;
-- source URIs under the run bundle URI; and
-- one capture origin, `participant_induced`.
+- `source.system = pg_incident_capture`;
+- Aurora identity and a capture UUID with a matching run suffix;
+- source URIs beneath the capture bundle URI;
+- declared `cloudwatch_status` of `available` or `unavailable`;
+- explicit ACL classification for every record;
+- Wave A's four phases: `backfill`, `pool_exhaustion`, `recovery`, and
+  `plan_regression`;
+- Wave A's six signal types: `lock`, `pool`, `request`, `wal`, `meta`, and
+  `plan`;
+- pool-exhaustion and transaction-ID blocking proof;
+- Wave B's one existing incident, `plan_regression` phase, `meta` and `plan`
+  signal types, and one validation change; and
+- a payload that is identical on replay or rejected when changed.
 
-Admission writes evidence, typed rows, telemetry, relationships, and search
-queue entries in one transaction. Any validation failure rolls back the entire
-run. An identical payload is idempotent; a mixed or changed payload is rejected.
+Admission writes typed evidence, relationships, raw samples, and outbox rows
+in one transaction. A Wave B admission is a second capture linked to the
+existing incident. It cannot alter or deprecate Wave A.
 
 ## 6. Search Index
 
-The search index version combines:
-
-- renderer version;
-- chunker version;
-- embedding model ID; and
-- search-document hash.
+The derived search index version combines the renderer version, chunker
+version, embedding model ID, and search-document hash.
 
 `backend/app/search_index.py`:
 
-1. reads only queued authoritative rows;
+1. reads only queued authoritative source revisions;
 2. renders and chunks them;
-3. batches Cohere Embed calls through Bedrock with `search_document`;
-4. writes ready chunks and vectors;
-5. promotes one current ready document version;
-6. supersedes the prior version when content changes; and
+3. obtains Cohere `search_document` embeddings through Bedrock;
+4. writes ready chunk versions and vectors;
+5. promotes one current ready document version per evidence item;
+6. supersedes prior versions only when the source render changes; and
 7. records a build receipt.
 
-Query embeddings use `search_query`. Stored and query vectors must share the
-same model ID and 1,024 dimensions. Participant indexing does not permit hash
-embeddings or a prebuilt cache.
+Query embeddings use Cohere `search_query` in the same 1,024-dimensional model
+space. An empty evidence store is `awaiting_incident`; a participant search
+becomes ready only with current, fully embedded, drift-free documents from the
+current capture lineage.
 
-`retrieval.assert_search_index_ready()` returns `awaiting_incident` for an empty,
-drift-free schema. After admission it requires:
+## 7. Retrieval and Relationships
 
-- source document count equals current document count;
-- every current chunk has a ready embedding;
-- one embedding space;
-- zero queue or document drift; and
-- a live capture receipt.
+Canonical ranking remains in `sql/03_search_functions.sql`:
 
-Search and agent endpoints return HTTP 409 until these checks pass.
-
-## 7. Retrieval
-
-Canonical ranking stays in `sql/03_search_functions.sql`.
-
-1. Boundary-aware exact identifiers form a deterministic first tier.
-2. PostgreSQL full-text search ranks document and chunk text.
-3. pgvector cosine search ranks semantic evidence.
-4. `pg_trgm` ranks identifier and title near matches.
-5. Weighted reciprocal rank fusion combines active arm positions.
-6. Cohere Rerank may reorder the fused candidate pool.
+1. boundary-aware exact identifiers form a deterministic first tier;
+2. PostgreSQL full-text search ranks document and chunk text;
+3. pgvector cosine search ranks semantic evidence;
+4. `pg_trgm` ranks near matches;
+5. metadata and ACL filters apply inside every arm before fusion;
+6. weighted RRF combines arm positions; and
+7. Cohere Rerank may reorder the fused candidate pool.
 
 Default RRF controls are text `2`, semantic `1`, fuzzy `1`, and `k=60`.
-PostgreSQL RRF is plain PostgreSQL SQL, not an Aurora-specific algorithm.
-Raw arm scores, arm positions, RRF, and model rerank scores remain distinct and
-none is a confidence probability.
+Exact/raw lexical, vector, fuzzy, RRF, and model-rerank signals have different
+meanings and are persisted separately. No score is a probability.
 
-Every participant request applies `source_systems=["pg_incident_capture"]`
-inside each arm. Exercises also verify that every candidate key matches the
-current indexing receipt.
+`retrieval.evidence_edges` renders foreign-key relationships as a uniform read
+surface. Traversal applies visibility at both the seed and each hop. A
+retrieval run's graph and timeline are constrained to the evidence available
+when the run started, so a Lab 3 replay does not gain Wave B evidence.
 
-## 8. Relationships
+## 8. Hybrid Retrieval Agent and Supervised Execution
 
-Canonical relationships are rendered from foreign keys:
+The agent's seven tools are read/synthesis-only. Its canonical answer path
+decomposes the central question, searches bounded subquestions, follows
+relationships, compares sources, and synthesizes cited text. It persists
+candidate signals, stages, answer citations, and one structured action proposal
+after validating the proposal's cited support.
 
-```text
-INC-<run-suffix> -> CHG-<run-suffix>-01  change_confirmed
-INC-<run-suffix> -> CHG-<run-suffix>-02  change_remediated
-LOCK-<run-suffix>-01 -> CHG-<run-suffix>-01  blocked_by_change
-LOCK-<run-suffix>-01 -> INC-<run-suffix>  observed_during
-TEL-<run-suffix>-... -> INC-<run-suffix>  observed_during
-```
+The action proposal contains only validated fields. Application code renders
+the DDL, derives its expected catalog fingerprint, measures preconditions, and
+stores bounded timeout and rollback guidance. Model-authored free-text SQL is
+never handed to a participant.
 
-`retrieval.evidence_edges` is the uniform read view. Traversal checks visibility
-at the seed and every hop. The frontend and agent never infer canonical
-relationships from prose.
+`proof.action_proposals`, `proof.action_proposal_citations`, and
+`proof.action_executions` preserve the supervised decision:
 
-## 9. Agent And Synthesis
+- what the agent proposed and the citations that supported it;
+- who explicitly approved the action;
+- what PostgreSQL catalog definition was observed;
+- whether observed and proposed fingerprints match; and
+- which Wave B receipt validated the outcome.
 
-The deterministic answer path:
+`proof.autonomy_readiness(proposal_id)` returns a pre-execution eligibility
+verdict and an independent post-execution validation verdict with named
+reasons. It is proof for a future policy discussion, not permission for
+autonomous DDL.
 
-1. decomposes the question;
-2. searches each bounded subquestion;
-3. traverses declared relationships;
-4. compares the measured unsafe and repair records;
-5. reloads persisted candidates; and
-6. synthesizes a cited answer.
-
-The Strands path exposes the same tool implementations to model-directed
-selection. Both paths persist the same retrieval and citation contracts.
-
-The six model-selectable tools are `decompose_question`, `search_evidence`,
-`follow_evidence_links`, `compare_sources`, `explain_ranking`, and
-`synthesize_cited_answer`. Managed transports call the same Python owners.
-
-Synthesis uses only numbered, persisted evidence. If the synthesis model is
-unavailable, the extractive fallback uses the same run evidence and does not
-invent a record or citation.
-
-## 10. Proof
-
-`proof.retrieval_runs` is created before retrieval. Candidate rows preserve:
-
-- exact tier and final rank;
-- full-text, semantic, and fuzzy raw scores;
-- independent arm positions;
-- PostgreSQL RRF;
-- optional Cohere rerank score;
-- document and chunk versions; and
-- source URI and revision.
-
-`proof.validate_answer_citations(run_id)` verifies that each citation references
-the exact persisted document and chunk, that URI and revision match, and that
-the quoted span exists in the chunk.
-
-`GET /v1/runs/{run_id}` returns candidates, stages, answer, citations,
-relationship graph, and timeline from persisted proof without another model
-call.
-
-## 11. Public API
+## 9. Public API
 
 ```text
 GET  /ready
 GET  /v1/workshop/run
+POST /v1/lab/hot-write
+GET  /v1/lab/pool-status
 POST /v1/search
 POST /v1/agent/answer
 POST /v1/agent/strands/answer
@@ -286,82 +273,56 @@ POST /v1/tools/compare
 POST /v1/tools/explain-ranking
 POST /v1/tools/synthesize
 GET  /v1/runs/{run_id}
+GET  /v1/runs/{run_id}/supervision
 GET  /v1/evidence/{evidence_id}
 POST /v1/evaluation
 ```
 
-The read APIs consume the ready search index. They do not mutate authoritative
-casework.
+The lab routes are disabled outside the workshop controller and are not a
+general application write API. All retrieval, proof, and agent APIs consume
+the ready derived index; none mutates canonical evidence.
 
-## 12. Packaging
+## 10. Observability Boundary
 
-`scripts/build_live_source_archive.sh` packages one committed source revision.
-It rejects:
+The core path is source-native:
 
-- dirty runtime source;
-- missing live-workshop files;
-- a dump or database file;
-- generated capture JSON;
-- an embedding cache or manifest;
-- generated indexing receipts; and
-- legacy seed or admission entrypoints.
+- PostgreSQL catalogs prove connected blockers, lock type, and plan shape.
+- `psycopg_pool.get_stats()` and API results prove pool waiters and
+  `PoolTimeout` calls that have no PostgreSQL backend.
+- `pg_stat_statements` and `EXPLAIN (ANALYZE, BUFFERS)` prove statement work
+  and the access-path regression.
+- CloudWatch is supplemental and non-gating.
 
-The participant stack applies schema, generates the disposable operational
-workload, and starts with zero evidence. It never restores casework, retrieval,
-proof, telemetry, or vectors.
+Performance Insights and Database Insights are intentionally not prerequisites.
+They can be useful production inputs, along with APM, logs, third-party
+monitoring, and runbooks, but their availability and sampling model are outside
+the deterministic SQL-forward participant path.
 
-## 13. Acceptance
+## 11. Packaging and Acceptance
 
-### Live provenance
+`scripts/build_live_source_archive.sh` exports one committed source revision.
+It rejects dirty runtime source, missing live-incident/exercise/gate assets,
+generated captures, embedding caches, dumps, database files, and retired
+fixture/seed paths. The participant stack receives source and generates the
+operational workload; it never restores evidence or vectors.
 
-- A fresh Aurora run completes all eight checkpoints.
-- Every participant-facing source row belongs to one capture ID.
-- Every source URI is under that capture's bundle URI.
-- PostgreSQL and AWS rows fall within the bounded incident run.
-- The database contains zero foreign participant records.
+Release acceptance requires:
 
-### Scale and indexing
+- Aurora PostgreSQL 18.3 in `us-east-1` or a loopback PostgreSQL 18.3 database
+  for local contract work; final release proof is Aurora;
+- zero evidence before Wave A and no participant evidence from another run;
+- a proven Wave A collision, recovery, and four-phase admission;
+- coverage of all six Wave A signal types with acceptable diversity;
+- runtime embeddings, one model space, and zero search-index drift;
+- differentiated exact, full-text, semantic, fuzzy, fusion, and rerank
+  receipts;
+- a cited Wave A agent answer with a persisted proposal;
+- a participant-owned matching index execution, additive Wave B validation,
+  and independent readiness verdicts;
+- citation validation and replay without a model call;
+- no hidden dependence on a Database Insights API permission; and
+- a source archive containing no generated participant evidence.
 
-- 100-120 source documents.
-- 100-250 chunks.
-- 600-1,000 raw telemetry rows.
-- Runtime Cohere embeddings for every current chunk.
-- Zero cache hits on the fresh validation run.
-- One embedding space and zero drift.
-
-### Retrieval and proof
-
-- Exact, dedicated FTS, semantic, fuzzy, filter, and fusion checks pass.
-- `CGH-<run-suffix>-01` retrieves `CHG-<run-suffix>-01`.
-- RRF and rerank remain separate.
-- Agent answer cites only current-run evidence.
-- Citation validation and SQL replay pass.
-- Graph and timeline values reproduce from published verification SQL.
-
-### Delivery
-
-- The one-hour path uses one guided incident command.
-- The archive contains no participant data.
-- The app is usable on desktop and mobile.
-- No HNSW performance claim is made from workshop-scale data.
-- Workshop Studio content matches the committed source behavior.
-
-## 14. Validated Reference Run
-
-The August 2, 2026 fresh Aurora validation used capture
-`6949b1ef-03b7-41e7-8def-3518478fd535`, suffix `478FD535`, on Aurora PostgreSQL
-18.3. It produced:
-
-- 110 searchable documents and chunks;
-- 110 runtime Cohere embeddings with zero cache hits;
-- 270 activity rows;
-- 270 lock rows;
-- 180 blocking rows;
-- 3 statement rows;
-- 5 CloudWatch rows;
-- 7 Performance Insights rows;
-- 8 citations in Bedrock synthesis; and
-- 216 graph edges and 110 timeline events reproduced through the replay gate.
-
-This identifier is validation evidence only. It must never be compiled into the
-participant application, guide defaults, tests, or source archive.
+The final Aurora rehearsal records actual wait, build, and admission timings.
+Until that rehearsal publishes a single measured run, participant material must
+describe plan and evidence shape rather than quote performance numbers.

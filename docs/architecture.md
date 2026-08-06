@@ -7,10 +7,10 @@ a replacement for an incident-management, change-management, support, or
 observability system.
 
 ```text
-Participant-induced Aurora write stall
-PostgreSQL catalogs + CloudWatch + Performance Insights
+Participant-induced Aurora online-migration failure
+PostgreSQL catalogs + app-pool/request telemetry + optional CloudWatch
                   |
-                  | one capture ID + bounded run window
+                  | Wave A diagnosis + Wave B validation
                   v
        casework.* authoritative records
                   |
@@ -30,7 +30,7 @@ PostgreSQL catalogs + CloudWatch + Performance Insights
           |               |
           +-------+-------+
                   v
-      cited answer through HTTP or MCP
+      cited answer + supervised-action proof
 ```
 
 Inside the workshop, `casework.*` contains only measurements from the
@@ -53,15 +53,15 @@ Bootstrap: 5,000 customers + 3,000,000 orders, zero evidence
                          |
                          v
 One guided participant orchestrator
-  ordinary CREATE INDEX | six writers | two readers | 30 samples
+  nullable column | unbatched backfill | 12 pooled hot writes
                          |
                          v
  workbench_lab customers/orders + PostgreSQL lock catalogs
                          |
-          PostgreSQL and AWS measurements
+ PostgreSQL + application-pool/request + optional CloudWatch measurements
                          |
                          v
-       atomic casework.admit_evidence bundle
+       atomic Wave A casework.admit_evidence bundle
                          |
                          v
       deterministic searchable evidence build
@@ -70,24 +70,23 @@ One guided participant orchestrator
        runtime Cohere embedding build
 ```
 
-The ordinary phase holds the real `CREATE INDEX` transaction open after the
-build so its granted `ShareLock` remains observable. The observer proves that
-`AccessShareLock` reads continue, a writer's `RowExclusiveLock` request waits,
-and `pg_blocking_pids()` names the index backend.
+The migration first commits `ADD COLUMN priority_tier` to release its
+`AccessExclusiveLock`. It then opens one unbatched update over all three million
+orders and retains the transaction only while the controller proves the
+incident. Twelve tagged writes use the existing FastAPI pool of ten
+connections: ten wait on `Lock:transactionid` with the backfill PID in
+`pg_blocking_pids()`, while at least two wait outside PostgreSQL and record
+`PoolTimeout`. A condition-based controller requires three consecutive polls
+proving both layers before its bounded observation hold.
 
-The safe phase starts `CREATE INDEX CONCURRENTLY` behind an already-open writer.
-The build holds `ShareUpdateExclusiveLock` and may wait on the older virtual
-transaction, while another `UPDATE` completes. The final check requires the
-index to be ready, valid, and live.
-
-The orchestrator verifies and reuses the preloaded rows. The unsafe samples,
-repair, statement deltas, CloudWatch metrics, and Performance Insights
-observations are all required. Admission atomically
-writes `INC-<run-suffix>`, measured changes `CHG-<run-suffix>-01/02`, primary
-lock evidence `LOCK-<run-suffix>-01`, and `TEL-<run-suffix>-...` telemetry
-documents. The orchestrator indexes only source system
-`pg_incident_capture`, generates runtime Cohere embeddings, and publishes a
-receipt only when 100-120 documents are current and ready.
+When the backfill commits, recovery independently proves that the blocked
+writes drained, the pool is available, no requests wait, and a fresh write
+commits. Wave A then captures a named query before and after `ANALYZE`; both
+are sequential scans. It admits only that diagnostic evidence under
+`pg_incident_capture`, creates runtime Cohere embeddings, and publishes a
+receipt. The participant later reviews a cited index proposal, executes its
+rendered DDL, and admits Wave B with only the post-index validation evidence.
+The two waves are additive under one incident.
 
 The participant frontend and agent requests always carry
 `source_systems=["pg_incident_capture"]` and derive identifiers from that
@@ -117,7 +116,7 @@ ACL metadata, and tombstone state. Typed tables hold the domain facts:
 
 - participant-induced capture runs and Aurora PostgreSQL identity
 - measured incidents, changes, and executed SQL
-- raw PostgreSQL, CloudWatch, and Performance Insights rows
+- raw PostgreSQL, application-pool/request, and CloudWatch rows
 - controlled lock evidence and searchable telemetry documents
 
 Foreign keys express incident-to-change, lock-to-change, lock-to-incident, and
@@ -150,7 +149,10 @@ rebuildable, and checked through `retrieval.v_search_index_drift` and
 
 Each request creates `proof.retrieval_runs` before retrieval. Candidate-level
 positions and scores are stored in `proof.retrieval_candidates`; stage timings
-are stored separately. Synthesis persists the answer and exact citations.
+are stored separately. Synthesis persists the answer and exact citations. The
+canonical answer path also persists one structured, cited action proposal. A
+participant-approved execution is an append-only receipt that records the
+observed catalog fingerprint and links a successful Wave B admission.
 
 The proof layer answers:
 
@@ -218,6 +220,11 @@ because "the agent decided to traverse relationships here" is only true if it
 did. Its tool calls write the same retrieval and answer receipts, but the
 model-loop trace itself remains runtime state rather than a first-class
 replayable agent-run record.
+
+The agent has no write-capable tool and no DDL privilege. It recommends
+validated action fields; application code renders the SQL; the participant
+executes it. `proof.autonomy_readiness()` reports pre-execution eligibility and
+post-execution validation independently, without granting autonomous action.
 
 The boundary is harness-neutral. FastAPI, the Lambda adapter, and the stdio MCP
 server call the same Python implementations. None reimplements ranking.

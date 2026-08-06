@@ -85,7 +85,7 @@ agentcore-generate:
 	FAIL_ON_BLOCKED=1 gates/checks.sh G-17
 
 # Call the deployed Gateway with the current AWS identity and require the
-# receipt-derived unsafe change to rank first, so a green run proves Aurora
+# receipt-derived backfill change to rank first, so a green run proves Aurora
 # ranking survived the managed boundary rather than proving connectivity alone.
 agentcore-invoke:
 	$(PYTHON) scripts/invoke_agentcore_gateway.py --assert-incident

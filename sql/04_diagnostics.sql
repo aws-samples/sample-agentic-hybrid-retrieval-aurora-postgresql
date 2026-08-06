@@ -294,9 +294,8 @@ FROM checks;
 -- its result is boolean checks plus capture identity -- never statement text.
 --
 -- SECURITY DEFINER stays load-bearing even though the masked-column predicate that
--- originally forced it -- the Performance Insights sample table's statement
--- column, inside the now-deleted top_sql_contains_index_build check -- is gone
--- along with that table (see Task A1). Measured on Aurora PostgreSQL 18.3 as an
+-- originally forced it is gone along with the retired telemetry relation (see
+-- Task A1). Measured on Aurora PostgreSQL 18.3 as an
 -- invoker-rights function: that predicate made pg_columnmask raise
 --   ERROR: Predicates on masked columns are not allowed
 -- for both masked personas instead of a receipt, which broke `make doctor`

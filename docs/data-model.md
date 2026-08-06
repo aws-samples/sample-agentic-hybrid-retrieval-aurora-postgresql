@@ -19,19 +19,19 @@ historical proof. That separation is the central design invariant.
 | `pg_blocking_pids_samples` | Raw blocking chains for each observation |
 | `pg_stat_statements_samples` | Before, during, and after statement measurements |
 | `cloudwatch_metric_samples` | Incident-window RDS metric observations |
-| `database_insights_samples` | Incident-window Performance Insights wait and SQL observations |
 | `incident_changes` | Suspected, confirmed, or ruled-out change relationship |
 
 `evidence_items.evidence_id` is the stable internal identity. External keys are
 unique within an evidence kind and are globally unique for unambiguous agent
 references.
 
-The participant core admits one measured bundle under source system
-`pg_incident_capture`. Every key is derived from the capture UUID:
-`INC-<run-suffix>`, `CHG-<run-suffix>-01/02`,
-`LOCK-<run-suffix>-01`, and `TEL-<run-suffix>-...`. The database starts empty,
-and participant retrieval filters on source system and receipt identity before
-ranking.
+The participant core admits two additive measured bundles under source system
+`pg_incident_capture`. Wave A contains the migration diagnosis; Wave B attaches
+post-index validation to the same incident without replacing Wave A. Every key
+is derived from its capture UUID: `INC-<run-suffix>`,
+`CHG-<run-suffix>-...`, `LOCK-<run-suffix>-01`, and
+`TEL-<run-suffix>-...`. The database starts empty, and participant retrieval
+filters on source system and receipt identity before ranking.
 
 `casework.v_evidence_documents` is a deterministic renderer over the normalized
 tables. It emits:
@@ -107,6 +107,9 @@ settings are inspectable tuning inputs, not guarantees of recall or latency.
 | `run_stages` | Ordered retrieval and agent stage timings |
 | `agent_answers` | Question, answer text, synthesis mode, model transport, and token usage |
 | `answer_citations` | Citation number, exact document/chunk versions, URI, revision, quote, and claim |
+| `action_proposals` | Structured, cited, catalog-checked recommendation rendered into participant SQL |
+| `action_proposal_citations` | Proposal claim links to validated answer citations |
+| `action_executions` | Append-only human approval, observed index fingerprint, and Wave B receipt link |
 | `evaluation_queries` | Controlled retrieval or traversal question |
 | `relevance_judgments` | Graded relevance label and rationale |
 | `traversal_results` | Persisted graph paths for traversal evaluation |
@@ -115,6 +118,11 @@ settings are inspectable tuning inputs, not guarantees of recall or latency.
 revision match the referenced document and that the quote occurs in the exact
 referenced chunk. It validates attribution integrity; it does not claim that a
 model-generated sentence is universally true.
+
+`proof.autonomy_readiness(proposal_id)` separately reports what evidence
+supported an action before execution and what the recorded human-approved
+outcome later validated. It is an auditable readiness assessment, not
+authorization for autonomous DDL.
 
 ## ACL Model
 

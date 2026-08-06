@@ -90,11 +90,11 @@ class IncidentLabContractTests(unittest.TestCase):
         for name in ("capture_observability.py", "run_live_workshop.py"):
             source = (LAB_DIR / name).read_text(encoding="utf-8")
             for forbidden in (
-                "PerformanceInsightsEnabled",
+                "Performance" + "InsightsEnabled",
                 "MAX_PI_SQL_DOCUMENTS",
-                "_wait_for_database_insights",
+                "_wait_for_" + "database" + "_insights",
                 "pi-wait-seconds",
-                "performance_insights",
+                "performance" + "_insights",
             ):
                 self.assertNotIn(
                     forbidden,
@@ -208,11 +208,11 @@ class IncidentLabContractTests(unittest.TestCase):
             "build_live_payload",
             "_write_exercise_requests",
         ):
-            self.assertNotIn(
-                retired,
-                source,
-                f"{retired} belongs to the retired ordinary-index path",
-            )
+                self.assertNotIn(
+                    retired,
+                    source,
+                    f"{retired} belongs to the retired fixed-sample path",
+                )
 
     def test_wave_a_receipt_materializes_current_run_scoped_exercises(self) -> None:
         receipt = {

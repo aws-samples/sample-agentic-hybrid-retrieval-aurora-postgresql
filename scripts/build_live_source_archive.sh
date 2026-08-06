@@ -38,9 +38,17 @@ for forbidden in admission design docs/superpowers seed; do
 done
 
 required=(
+  backend/app/action_proposal.py
+  backend/app/lab_routes.py
+  backend/app/verify_sql.py
   backend/scripts/build_search_index.py
   labs/incident/capture_observability.py
+  labs/incident/evidence_builder.py
+  labs/incident/hold_controller.py
+  labs/incident/migration.py
   labs/incident/prepare_workload.py
+  labs/incident/query_regression.py
+  labs/incident/recovery_verifier.py
   labs/incident/run_live_workshop.py
   labs/exercises/checkpoint.py
   labs/exercises/lab2-filter-request.json
@@ -58,10 +66,14 @@ required=(
   sql/11_roles_rls.sql
   sql/12_masking.sql
   gates/checks.sh
+  gates/corpus_diversity.py
   gates/rls_enforcement.py
   gates/masking_determinism.py
   gates/participant_ceremony.py
   gates/persona_equivalence.py
+  gates/retroactive_safety.py
+  gates/route_contract.py
+  gates/wave_additivity.py
 )
 for path in "${required[@]}"; do
   if [ ! -f "$STAGE/$path" ]; then

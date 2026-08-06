@@ -1,30 +1,38 @@
 # DAT410 Build Brief
 
 **Session:** Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
-**Format:** L400 builders session, 60 minutes
+**Format:** L400 builders' session, 60 minutes
 **Application:** Hybrid Retrieval Workbench
 
 ## Objective
 
-Participants induce a real Aurora PostgreSQL write stall, create a searchable
-corpus from their own measured PostgreSQL and AWS telemetry, generate embeddings
-in real time, investigate the run with hybrid retrieval and bounded agent
-tools, and persist a citation-validated answer for replay.
+Participants generate a measured Aurora PostgreSQL online-migration failure,
+turn its live signals into a searchable evidence corpus, build hybrid retrieval
+in SQL, and ground a read-only Hybrid Retrieval Agent in citations. They then
+review and execute a structured recommendation themselves, add fresh validation
+evidence, and inspect the persisted proof of both the diagnosis and the human
+decision.
 
 ## Evidence Contract
 
-- Provisioning applies schema, generates 5,000 disposable operational
-  customers and 3,000,000 related orders, and starts at `awaiting_incident` with
-  zero evidence.
+- Bootstrap creates exactly 5,000 operational customers and 3,000,000
+  operational orders while `casework`, `retrieval`, and `proof` remain empty.
 - `make live-workshop` is the only participant ingestion path.
-- Every participant-facing record uses `source_system=pg_incident_capture`.
-- Every source URI and revision traces to the current capture UUID.
-- IDs use `INC-<run-suffix>`, `CHG-<run-suffix>-01/02`,
-  `LOCK-<run-suffix>-01`, and `TEL-<run-suffix>-...`.
-- Raw repeated samples remain relational proof.
-- Distinct measured observations become about 110 documents and 100-250
-  chunks.
-- Cohere Embed 4 vectors are generated through Bedrock during the run.
+- Wave A records a separate nullable-column commit, an unbatched backfill, ten
+  transaction-ID lock waiters, at least two pool-boundary timeouts, recovery,
+  and two sequential plan checkpoints.
+- Wave B is a new, additive capture of the participant-approved index outcome.
+  It does not replace any Wave A evidence.
+- PostgreSQL catalog evidence proves connected blockers and plans;
+  `psycopg_pool` statistics and request outcomes prove queued callers; and
+  CloudWatch remains supplemental.
+- Every participant-facing record uses
+  `source_system=pg_incident_capture` and capture-derived `INC-*`, `CHG-*`,
+  `LOCK-*`, and `TEL-*` identifiers.
+- Distinct state changes and plan checkpoints produce an honest 50-80 document
+  guidance range. Coverage and diversity gates, not a padded count, decide
+  corpus adequacy.
+- Cohere Embed 4 vectors are generated through Bedrock during each admission.
 - No authored, fictional, demo, offline, fixture, prior-run, or canned record
   is permitted. The Overview main graphic is the sole illustrative exception.
 
@@ -32,43 +40,46 @@ tools, and persist a citation-validated answer for replay.
 
 | Time | Build |
 |---:|---|
-| 0-5 | access the environment and verify the empty evidence store |
-| 5-10 | understand the hung migration and evidence journey |
-| 10-25 | cause, fix, admit, embed, and publish the receipt |
-| 25-40 | build exact, FTS, semantic, fuzzy, filtered, fused, and reranked retrieval |
-| 40-50 | build the incident agent through decomposition, traversal, comparison, and synthesis |
-| 50-55 | validate citations and replay |
-| 55-58 | inspect the reusable retrieval skill |
-| 58-60 | summarize and confirm cleanup |
+| 0-5 | Access the environment and prove the evidence store is empty |
+| 5-10 | Establish the online-migration scenario and source-to-fact map |
+| 10-18 | Capture and admit Wave A diagnostic evidence |
+| 18-38 | Build exact, full-text, semantic, fuzzy, filtered, fused, and reranked retrieval in SQL |
+| 38-50 | Build the Hybrid Retrieval Agent, cited diagnosis, and structured proposal |
+| 50-56 | Review, approve, execute, validate in Wave B, and replay |
+| 56-58 | Transfer the retrieval and supervision patterns |
+| 58-60 | Summary and cleanup |
 
-## Retrieval Contract
+## Retrieval and Action Contract
 
 Aurora PostgreSQL owns exact and full-text retrieval, pgvector semantic search,
 pg_trgm typo recovery, metadata filters, weighted reciprocal rank fusion,
-relationship reads, citation validation, evaluation, and replay.
+relationship reads, citations, evaluation, and replay. Raw arm scores,
+PostgreSQL RRF, and model rerank scores remain distinct. Filters run inside
+each arm before fusion.
 
-Raw arm scores, PostgreSQL RRF, and model rerank scores stay separate. Exact
-identifiers remain deterministic. Filters execute inside each arm before
-fusion. Agent tools and adapters consume the API and do not duplicate ranking.
+The Hybrid Retrieval Agent is read-only. It can retrieve, traverse, compare,
+and synthesize cited evidence, then persist one structured proposal. Code
+renders the allowed DDL from validated fields. The participant approves and
+runs it; Aurora records the observed catalog fingerprint, Wave B receipt, and
+pre/post autonomy-readiness verdicts.
 
 ## Acceptance
 
 A fresh target account must prove:
 
-- zero evidence before the run;
-- exactly 5,000 customers, 3,000,000 canonical related orders, and no target
-  incident index before the run;
-- 100-120 current documents, 100-250 chunks, and matching ready embeddings;
-- 600-1,000 raw telemetry rows;
-- exact and fuzzy rank 1 for the receipt-derived unsafe change;
-- mixed kinds before the `change` filter and exactly both measured changes
-  afterward;
-- recomputable RRF;
-- agent coverage of incident, change, lock, and telemetry;
-- authoritative `change_confirmed`, `change_remediated`,
-  `blocked_by_change`, and `observed_during` relationships;
-- valid citation attribution; and
-- replay with no model call.
-
-Workshop Studio packages only committed schema and application source. It never
-packages participant evidence or database state.
+- empty evidence before Wave A and the exact preloaded operational workload;
+- a combined pool/lock hold with ten blocked database sessions and at least two
+  pool-boundary timeouts;
+- full recovery after commit, including ten drained writers and a fresh write;
+- pre- and post-`ANALYZE` sequential plans in Wave A and a post-index plan in
+  Wave B;
+- all six Wave A signal types, four phases, and passing corpus-diversity
+  criteria;
+- runtime embeddings, one model space, and zero search-index drift;
+- differentiated exact, full-text, semantic, fuzzy, fusion, and rerank
+  receipts;
+- a cited Wave A agent answer, proposal, participant-owned matching execution,
+  and additive Wave B validation;
+- citation validation and replay with no model call; and
+- a Workshop Studio archive containing committed source only, never
+  participant evidence or database state.

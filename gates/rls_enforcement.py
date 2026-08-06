@@ -365,10 +365,9 @@ CAPTURE_TOUCH_SQL = "SELECT count(*) FROM {table} WHERE capture_id = ANY(%s)"
 # DIFFERENT honest expectations and picking the wrong one produces a confidently
 # wrong verdict in either direction:
 #
-# * evidence-row-gated (casework.database_insights_samples) requires a VISIBLE
-#   telemetry evidence row matching the sample's own dimension and query_id, so an
-#   uncleared persona is denied exactly the samples whose evidence row is restricted.
-#   Measured on this capture: 7 samples, 2 visible to app_engineer.
+# * evidence-row-gated tables require a VISIBLE telemetry evidence row matching
+#   the sample's own dimension and query_id, so an uncleared persona is denied
+#   exactly the samples whose evidence row is restricted.
 # * capture-run-gated (casework.cloudwatch_metric_samples,
 #   casework.pg_stat_statements_samples) requires only that the capture's incident be
 #   visible. Section 6 calls this "coarser and deliberately so". Its incident is
@@ -1190,9 +1189,9 @@ def _assert_capture_keyed_filtering(app_conn, measured: dict) -> None:
 
     A distinct mechanism, not a repeat of (b'). These tables are keyed by
     ``capture_id`` only, so section 5's catalog loop cannot see them and never will.
-    The measured leak before section 6 existed: persona_app_engineer was denied every
-    restricted evidence row and then read the identical statements out of
-    casework.database_insights_samples one query later.
+    The measured leak before section 6 existed: persona_app_engineer was denied
+    restricted evidence rows and could still read the matching statement text
+    through a capture-keyed sample relation one query later.
 
     Section 6 gates them two different ways, and each is asserted against its OWN
     expectation, read off the policy body in the catalog:
