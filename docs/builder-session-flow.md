@@ -94,6 +94,30 @@ Final measured wait times and the documented cold-account setup budget are
 recorded only after the Aurora rehearsal. Do not substitute estimates for those
 measurements in participant copy.
 
+## Provisioning Budget and Stack Lifecycle
+
+The source-only path was measured three times on the dedicated Aurora PostgreSQL
+18.3 `db.r8g.2xlarge` test target. Each clean cycle rebuilt the 3,000,000-row
+operational workload and then completed Wave A:
+
+| Cycle | Workload rebuild | Wave A | Combined |
+|---|---:|---:|---:|
+| 1 | 33.86s | 87.52s | 121.38s |
+| 2 | 34.17s | 81.55s | 115.72s |
+| 3 | 33.49s | 81.70s | 115.19s |
+
+The 121.38-second slowest observed source path is not a full cold Workshop
+Studio account measurement: it excludes Code Editor package installation,
+CloudFormation resource startup, and first-account Bedrock behavior. The
+Workshop Studio `BootstrapWaitCondition` is 2,400 seconds, which is 19.77 times
+that observed path and therefore has ample margin. A final Workshop Studio
+rehearsal must still measure its complete account bootstrap before release.
+
+The Workshop Studio SSM bootstrap custom resource acts only on stack
+**Create**. A stack **Update** acknowledges success without rerunning
+`make schema` or `make prepare-workload`; use a new stack or the documented
+database reset path when a fresh operational workload is required.
+
 ## Evidence and Observability Boundary
 
 The lab uses the source with the highest fidelity for each fact:

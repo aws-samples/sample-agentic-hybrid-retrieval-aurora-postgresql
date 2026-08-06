@@ -28,9 +28,11 @@ checked-in JSON files are templates and contain no evidence identifiers. Lab
 4's guide stays in this directory because it reads the proposal persisted by
 the participant's own Lab 3 run rather than a fixed identifier.
 
-The Lab 3 cited-synthesis call is a real Bedrock request and normally takes
-about 25 seconds. That wait is expected: do not submit a second answer request
-while the first one is grounding and persisting the cited answer.
+The Lab 3 cited-synthesis and proposal calls are real Bedrock requests. That
+wait is expected: do not submit a second answer request while the first one is
+grounding, persisting the cited answer, and recording its proposal. The final
+participant-facing wait is published only after the Aurora rehearsal measures
+the combined path.
 
 The JSON checkpoints inspect API receipts only. They reject any candidate
 outside `pg_incident_capture`, reject identifiers from another capture, and

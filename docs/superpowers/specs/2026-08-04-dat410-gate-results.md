@@ -317,3 +317,36 @@ Validation:
 - G-17 registry-drift gate: passed.
 - G-34 retroactive-safety gate: passed against the live proposal with no
   execution row.
+
+## F2 Implementation Acceptance: Source Build Budget and Bootstrap Lifecycle
+
+**Result: PASSED for the measured source path; full cold Workshop Studio
+rehearsal remains required**
+
+Three clean cycles ran on the dedicated Aurora PostgreSQL 18.3
+`db.r8g.2xlarge` test database. Each cycle rebuilt the operational workload
+and then completed a fresh Wave A capture:
+
+| Cycle | 3M workload rebuild | Wave A | Combined |
+|---|---:|---:|---:|
+| 1 | 33.86s | 87.52s | 121.38s |
+| 2 | 34.17s | 81.55s | 115.72s |
+| 3 | 33.49s | 81.70s | 115.19s |
+
+The slowest observed source path was **121.38 seconds**. It is a real
+Aurora-backed measurement, not a claim about a fully cold Workshop Studio
+account: Code Editor package installation, CloudFormation resource startup,
+and first-account Bedrock behavior were outside these runs and remain a
+Workshop Studio rehearsal requirement.
+
+The sibling Workshop Studio template currently sets
+`BootstrapWaitCondition.Timeout` to **2,400 seconds**. That is **19.77 times**
+the slowest measured source path, exceeding the Task F2 two-times requirement;
+no timeout increase is justified by the measurement.
+
+The bootstrap custom resource is **Create-only**. Its handler immediately
+acknowledges any CloudFormation Update request and does not rerun
+`make schema` or `make prepare-workload`. An update is therefore not a valid
+way to rebuild a participant substrate: use a new stack or the documented
+reset/recreate procedure. This is a lifecycle constraint to be verified again
+in the final Workshop Studio rehearsal, not a timeout defect.

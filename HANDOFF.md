@@ -11,12 +11,12 @@ concurrent-index-repair mechanism.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-E4 are complete. F1's source cleanup is complete; its live
-PI-disabled/IAM-revoked rehearsal remains owed. Tasks F2-G3 own the remaining
-timing, infrastructure, and rehearsal work. The plan's repository-wide
-alignment audit assigns every known stale surface to an explicit task; finding
-an unassigned stale surface is a plan defect and should be corrected before
-implementation continues.
+Tasks A1-E4 and F1-F2 are complete. F1's live PI-disabled/IAM-revoked
+rehearsal remains owed. Tasks G1-G3 own the remaining participant, failure, and
+release rehearsal work. The plan's repository-wide alignment audit assigns
+every known stale surface to an explicit task; finding an unassigned stale
+surface is a plan defect and should be corrected before implementation
+continues.
 
 ## Repositories
 
@@ -392,6 +392,18 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   rehearsal, use a proposal-bearing run to replay proposal, citations, execution,
   and verdict descriptors; capture the pending and validated screens and prove
   the pre-execution verdict remains byte-identical across them.
+- F2 source budget: three clean Aurora PostgreSQL 18.3 `db.r8g.2xlarge` cycles
+  rebuilt the 3,000,000-row workload and completed Wave A in 121.38s
+  (33.86s + 87.52s), 115.72s (34.17s + 81.55s), and 115.19s
+  (33.49s + 81.70s). The 121.38-second slowest observed source path is not a
+  fully cold Workshop Studio account measurement: package installation,
+  CloudFormation startup, and first-account Bedrock behavior remain for the
+  final Workshop Studio rehearsal. The sibling
+  `BootstrapWaitCondition.Timeout` is already 2,400 seconds, or 19.77x that
+  observed path, so no timeout increase is justified. Its SSM custom-resource
+  handler is Create-only; stack updates acknowledge success without rebuilding
+  schema or workload, so a new stack or documented reset/recreate path is
+  required for fresh substrate.
 
 The test database is disposable and never a participant database. The earlier
 local PostgreSQL 18.4 run was diagnostic only and is not release evidence.
@@ -404,15 +416,16 @@ result as rehearsal evidence.
 
 ## Next Task
 
-Start F2: measure three complete cold runs against the dedicated Aurora
-PostgreSQL 18.3 test database, record the slowest actual budget, and hand the
-user the required Workshop Studio `WaitCondition` timeout/update-path changes.
-Before then, close F1's live proof by running `make live-workshop` with
-Performance Insights disabled on a disposable cluster or
-`pi:GetResourceMetrics` revoked from the caller. Keep CloudWatch supplemental,
-preserve the PostgreSQL and app-pool evidence boundary, and do not package or
-publish the sibling Workshop Studio repository before its user-owned work is
-ready.
+Start G1: run all four labs from a participant seat against a fresh,
+Aurora PostgreSQL 18.3 capture. Record the participant-visible Bedrock wait,
+non-concurrent index-build time, Wave B admission time, pre- and
+post-execution autonomy verdicts, agent-role DDL refusal, API-pool privileges,
+and every point where a participant can get stuck. Before release, also close
+F1's live proof by running `make live-workshop` with Performance Insights
+disabled on a disposable cluster or `pi:GetResourceMetrics` revoked from the
+caller. Keep CloudWatch supplemental, preserve the PostgreSQL and app-pool
+evidence boundary, and do not package or publish the sibling Workshop Studio
+repository before its user-owned work is ready.
 
 ### Workshop Studio Changes Required For F1
 
