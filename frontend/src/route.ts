@@ -39,8 +39,10 @@ export interface Route {
 export const SURFACE_LENSES: Record<RouteSurface, readonly string[]> = {
   overview: [],
   retrieval: ['results', 'fusion'],
+  // Keep graph accepted here so existing agent deep links canonicalize to the
+  // Evidence record instead of dropping participants on a blank/default view.
   agent: ['answer', 'graph'],
-  proof: ['receipt', 'replay', 'timeline', 'supervision'],
+  proof: ['receipt', 'graph', 'replay', 'timeline', 'supervision'],
   corpus: [],
   evaluation: [],
   health: [],

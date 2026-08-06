@@ -76,6 +76,10 @@ CORE_CONTRACT_ROUTES: list[tuple[str, dict]] = [
         {"surface": "proof", "runId": "rr_9b41d7", "lens": "timeline"},
     ),
     (
+        "#/proof/rr_9b41d7?lens=graph",
+        {"surface": "proof", "runId": "rr_9b41d7", "lens": "graph"},
+    ),
+    (
         "#/proof/rr_9b41d7?lens=supervision",
         {"surface": "proof", "runId": "rr_9b41d7", "lens": "supervision"},
     ),

@@ -107,7 +107,7 @@ type NavSurface = {
 // goTo(); order is the lab ladder. Utility surfaces (Corpus / Evaluation /
 // Health) never appear in the primary ladder.
 const PRIMARY_NAV: NavSurface[] = [
-  { surface: 'overview', label: 'Overview', Icon: House, lenses: [] },
+  { surface: 'overview', label: 'Incident', Icon: House, lenses: [] },
   {
     surface: 'retrieval',
     label: 'Retrieval',
@@ -121,10 +121,7 @@ const PRIMARY_NAV: NavSurface[] = [
     surface: 'agent',
     label: 'Hybrid Retrieval Agent',
     Icon: Sparkles,
-    lenses: [
-      { key: 'answer', label: 'Answer', Icon: FileCheck2 },
-      { key: 'graph', label: 'Relationships', Icon: Network },
-    ],
+    lenses: [{ key: 'answer', label: 'Answer', Icon: FileCheck2 }],
   },
   {
     surface: 'proof',
@@ -3643,76 +3640,6 @@ function EvidenceGraph({
   );
 }
 
-function JourneyStrip({
-  steps,
-  onNavigate,
-  personaMode,
-  persona,
-  onPersona,
-}: {
-  steps: JourneyStep[];
-  onNavigate: (surface: JourneySurface) => void;
-  personaMode: boolean;
-  persona: PersonaKey;
-  onPersona: (next: PersonaKey) => void;
-}) {
-  return (
-    <nav className="journey-strip" aria-label="Investigation progress">
-      <span className="journey-strip-title">
-        <GitMerge size={14} />
-        Evidence journey
-      </span>
-      <ol>
-        {steps.map((step, index) => (
-          <li
-            key={step.surface}
-            className={`journey-state-${step.state}`}
-            data-next-state={steps[index + 1]?.state}
-          >
-            <button
-              type="button"
-              onClick={() => onNavigate(step.surface)}
-              aria-current={step.state === 'active' ? 'step' : undefined}
-              aria-label={`${step.label}: ${step.caption}; ${step.state}`}
-            >
-              <i aria-hidden="true">
-                {step.state === 'blocked' ? (
-                  <X size={9} />
-                ) : null}
-              </i>
-              <span>
-                <strong>{step.label}</strong>
-                <small>{step.caption}</small>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ol>
-      {/* Teaching control, not an auth boundary: each participant's own
-          request selects its own persona inside their own isolated account.
-          See README.md "Security". */}
-      {personaMode ? (
-        <div className="persona-chip">
-          <span className="section-label">Viewing as</span>
-          <div className="segmented" role="group" aria-label="Viewing as">
-            {PERSONA_KEYS.map((key) => (
-              <button
-                key={key}
-                type="button"
-                className={key === persona ? 'active' : ''}
-                aria-pressed={key === persona}
-                onClick={() => onPersona(key)}
-              >
-                {PERSONA_LABELS[key]}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </nav>
-  );
-}
-
 function ProofChainOfCustody({
   receipt,
   personaMode,
@@ -3980,9 +3907,7 @@ export default function WorkbenchApp() {
   const [agentTraceExpanded, setAgentTraceExpanded] = useState(false);
   const [streamCitations, setStreamCitations] = useState<Citation[]>([]);
   const [visibleCitationCount, setVisibleCitationCount] = useState(0);
-  const [agentMetadata, setAgentMetadata] = useState<AgentMetadata | null>(null);
   const [agentCommentary, setAgentCommentary] = useState('');
-  const [agentUsage, setAgentUsage] = useState<AgentUsage | null>(null);
   const [agentLatencyMs, setAgentLatencyMs] = useState<number | null>(null);
   const [homeQueryText, setHomeQueryText] = useState('');
   const [homeTyping, setHomeTyping] = useState(true);
@@ -3992,6 +3917,7 @@ export default function WorkbenchApp() {
     () => window.localStorage.getItem('workbench-nav-collapsed') === 'true',
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [referenceOpen, setReferenceOpen] = useState(false);
   const homeTypingInterrupted = useRef(false);
   const lastCompletedSearchKey = useRef<string | null>(null);
   const processedFusionRunRequest = useRef(0);
@@ -4220,9 +4146,7 @@ export default function WorkbenchApp() {
     setAgentTraceExpanded(false);
     setStreamCitations([]);
     setVisibleCitationCount(0);
-    setAgentMetadata(null);
     setAgentCommentary('');
-    setAgentUsage(null);
     setAgentLatencyMs(null);
   }
 
@@ -4286,6 +4210,8 @@ export default function WorkbenchApp() {
         setProveTab(
           lens === 'action' || lens === 'supervision'
             ? 'supervision'
+            : lens === 'graph'
+              ? 'graph'
             : lens === 'replay'
             ? 'replay'
             : lens === 'timeline'
@@ -4319,7 +4245,8 @@ export default function WorkbenchApp() {
               ? 'health'
               : proveTab === 'evaluation'
                 ? 'evaluation'
-                : proveTab === 'receipt' ||
+                : proveTab === 'graph' ||
+                    proveTab === 'receipt' ||
                     proveTab === 'replay' ||
                     proveTab === 'timeline' ||
                     proveTab === 'supervision'
@@ -4636,9 +4563,7 @@ export default function WorkbenchApp() {
     setAgentTraceExpanded(false);
     setStreamCitations([]);
     setVisibleCitationCount(0);
-    setAgentMetadata(null);
     setAgentCommentary('');
-    setAgentUsage(null);
     setAgentLatencyMs(null);
     setAnswer(null);
 
@@ -4686,10 +4611,7 @@ export default function WorkbenchApp() {
 
       const consumeEvent = async (event: AgentTraceEvent) => {
         if (transitionVersion !== roleTransitionVersion.current) return;
-        if (event.type === 'meta') {
-          setAgentMetadata(event.agent || null);
-          return;
-        }
+        if (event.type === 'meta') return;
         if (event.type === 'tool_call') {
           setAgentTrace((current) => {
             if (
@@ -4735,9 +4657,7 @@ export default function WorkbenchApp() {
 
         streamCompleted = true;
         completedRunId = event.run_id || '';
-        setAgentMetadata(event.agent || null);
         setAgentCommentary(event.agent_commentary || '');
-        setAgentUsage(event.usage || null);
         setAgentLatencyMs(event.total_latency_ms ?? null);
         setStreamCitations(event.citations || []);
         if (event.answer) setStreamingAnswer(event.answer);
@@ -5036,13 +4956,6 @@ export default function WorkbenchApp() {
       resolvedCitationCount === answerCitations.length &&
       answer?.validation_status === 'valid',
   );
-  const scopedEvidenceKeys = Array.from(
-    new Set(
-      candidates
-        .map((candidate) => snapshot(candidate).external_key)
-        .filter((key): key is string => Boolean(key)),
-    ),
-  );
   const currentAgentEvent = agentTrace[agentTrace.length - 1] || null;
   const visibleAgentTrace = agentTraceExpanded
     ? agentTrace
@@ -5200,50 +5113,74 @@ export default function WorkbenchApp() {
               </div>
             );
           })}
-          <div className="side-nav-divider">Utility</div>
-          {UTILITY_NAV.map(({ surface, label, Icon }) => (
+          <div className="side-reference">
             <button
               type="button"
-              key={surface}
-              className={activeSurface === surface ? 'active' : ''}
-              onClick={() => goTo(surface)}
-              title={navCollapsed ? label : undefined}
+              className="side-reference-toggle"
+              aria-expanded={referenceOpen}
+              aria-controls="reference-navigation"
+              onClick={() => setReferenceOpen((open) => !open)}
+              title={navCollapsed ? 'Open reference surfaces' : undefined}
             >
-              <Icon size={15} />
-              {label}
+              <Code2 size={15} />
+              <span className="side-nav-label">Reference</span>
+              <ChevronDown size={14} aria-hidden="true" />
             </button>
-          ))}
+            {referenceOpen ? (
+              <div id="reference-navigation" className="side-reference-links">
+                {UTILITY_NAV.map(({ surface, label, Icon }) => (
+                  <button
+                    type="button"
+                    key={surface}
+                    className={activeSurface === surface ? 'active' : ''}
+                    onClick={() => goTo(surface)}
+                  >
+                    <Icon size={14} />
+                    <span>{label}</span>
+                  </button>
+                ))}
+                {personaMode ? (
+                  <div className="side-persona-control">
+                    <span className="section-label">Viewing as</span>
+                    <div className="segmented" role="group" aria-label="Viewing as">
+                      {PERSONA_KEYS.map((key) => (
+                        <button
+                          key={key}
+                          type="button"
+                          className={key === controls.role ? 'active' : ''}
+                          aria-pressed={key === controls.role}
+                          onClick={() => setPersona(key)}
+                        >
+                          {PERSONA_LABELS[key]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </nav>
 
         <div className="side-rail-details">
-          <section className="side-rail-card">
-            <span className="section-label">Incident scope</span>
-            <strong>
-              {scopedEvidenceKeys.length
-                ? scopedEvidenceKeys.join(' · ')
-                : 'No evidence loaded'}
-            </strong>
-            <code>{PARTICIPANT_SOURCE_SYSTEMS.join(', ')}</code>
-          </section>
-          <section className="side-rail-card">
-            <span className="section-label">Active retrieval run</span>
-            {runId ? (
-              <button
-                type="button"
-                className="run-breadcrumb"
-                onClick={() => goTo('proof', 'receipt')}
-                title="Open this run record"
-              >
-                {compactId(runId)}
-              </button>
-            ) : (
+          {runId ? (
+            <button
+              type="button"
+              className="side-run-state"
+              onClick={() => goTo('proof', 'receipt')}
+              title="Open evidence record"
+            >
+              <span className="section-label">Current run</span>
+              <strong>{compactId(runId)}</strong>
+              <small>Open evidence record</small>
+            </button>
+          ) : (
+            <div className="side-run-state quiet">
+              <span className="section-label">Current run</span>
               <strong>Not started</strong>
-            )}
-            <code>
-              {health?.current_documents?.toLocaleString() || '—'} documents ·{' '}
-              {health?.drift_issues ?? '—'} drift
-            </code>
-          </section>
+              <small>Run retrieval to create a record</small>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -5251,19 +5188,6 @@ export default function WorkbenchApp() {
         {module === 'home' ? (
           <LiveBanner health={health} connectionState={connectionState} />
         ) : null}
-        <JourneyStrip
-          steps={journeySteps}
-          onNavigate={(surface) =>
-            goTo(
-              surface,
-              PRIMARY_NAV.find((item) => item.surface === surface)?.lenses[0]
-                ?.key,
-            )
-          }
-          personaMode={personaMode}
-          persona={controls.role}
-          onPersona={setPersona}
-        />
         {module !== 'home' &&
         module !== 'retrieve' &&
         activeSurface !== 'agent' &&
@@ -5572,8 +5496,8 @@ export default function WorkbenchApp() {
             <section className="home-workspaces">
               <header>
                 <div>
-                  <span className="section-label">Investigation workspaces</span>
-                  <h2>Follow one evidence thread from retrieval to proof.</h2>
+                  <span className="section-label">Continue investigation</span>
+                  <h2>Search the evidence, ground the answer, review the action.</h2>
                 </div>
                 <span className="home-workspace-status">
                   <ShieldCheck size={14} />
@@ -5585,59 +5509,39 @@ export default function WorkbenchApp() {
               <div className="home-workspace-grid">
                 <button
                   type="button"
-                  onClick={() => goTo('agent', 'answer')}
+                  onClick={() => goTo('retrieval', 'results')}
                 >
-                  <FileCheck2 size={20} />
+                  <FileSearch size={20} />
                   <span>
-                    <strong>Casefile</strong>
-                    <small>{answer?.citations.length || 0} cited sources</small>
-                  </span>
-                  <ArrowRight size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goTo('agent', 'graph')}
-                >
-                  <Network size={20} />
-                  <span>
-                    <strong>Evidence canvas</strong>
-                    <small>{graph?.node_count || 0} visible nodes</small>
-                  </span>
-                  <ArrowRight size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openQueryPlan('semantic')}
-                >
-                  <Code2 size={20} />
-                  <span>
-                    <strong>Query microscope</strong>
-                    <small>{queryPlan ? `${queryPlan.scans.length} plan scans` : 'live EXPLAIN'}</small>
-                  </span>
-                  <ArrowRight size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goTo('proof', 'replay')}
-                >
-                  <Play size={20} />
-                  <span>
-                    <strong>Replay theater</strong>
-                    <small>{receipt?.stages.length || 0} persisted stages</small>
-                  </span>
-                  <ArrowRight size={15} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goTo('evaluation')}
-                >
-                  <Gauge size={20} />
-                  <span>
-                    <strong>Benchmark matrix</strong>
+                    <strong>Search evidence</strong>
                     <small>
-                      {evaluation
-                        ? `${evaluation.query_count} judged queries`
-                        : 'judged retrieval set'}
+                      {runId
+                        ? 'Inspect the current ranked record'
+                        : 'Run an incident question'}
+                    </small>
+                  </span>
+                  <ArrowRight size={15} />
+                </button>
+                <button type="button" onClick={() => goTo('agent', 'answer')}>
+                  <Sparkles size={20} />
+                  <span>
+                    <strong>Ask the agent</strong>
+                    <small>
+                      {answer?.citations.length
+                        ? `${answer.citations.length} cited sources in the latest answer`
+                        : 'Build a citation-validated answer'}
+                    </small>
+                  </span>
+                  <ArrowRight size={15} />
+                </button>
+                <button type="button" onClick={() => goTo('proof', 'action')}>
+                  <UserCheck size={20} />
+                  <span>
+                    <strong>Review the action</strong>
+                    <small>
+                      {supervision?.proposal
+                        ? 'Inspect the supervised proposal'
+                        : 'Inspect the human decision record'}
                     </small>
                   </span>
                   <ArrowRight size={15} />
@@ -5684,31 +5588,24 @@ export default function WorkbenchApp() {
         ) : null}
         {module === 'retrieve' ? (
           <section className="module-screen retrieval-screen">
-            <header className="module-heading">
+            <header className="module-heading module-heading-compact">
               <div>
                 <span className="module-kicker">
-                  Retrieval · {diagnoseTab === 'results' ? 'Results' : 'Fusion'}
+                  {diagnoseTab === 'results'
+                    ? 'Retrieval'
+                    : 'Ranking diagnostics'}
                 </span>
                 <h1>
                   {diagnoseTab === 'results' ? (
                     <>
-                      Inspect the final rank, <em>then each signal.</em>
+                      Search <em>incident evidence.</em>
                     </>
                   ) : (
                     <>
-                      Weighted reciprocal <em>rank fusion.</em>
+                      Inspect the <em>fused rank.</em>
                     </>
                   )}
                 </h1>
-                <p
-                  className={`module-deck ${
-                    diagnoseTab === 'results' ? 'retrieval-results-deck' : ''
-                  }`}
-                >
-                  {diagnoseTab === 'results'
-                    ? 'Start with the persisted retrieval outcome. Open the ranking diagnostics only when you need to trace how each arm contributed.'
-                    : 'Only integer positions enter weighted RRF. Raw arm values stay diagnostic, and optional Cohere reranking is a separate downstream stage.'}
-                </p>
               </div>
             </header>
 
@@ -5779,22 +5676,6 @@ export default function WorkbenchApp() {
                       ))}
                     </div>
                     <div className="retrieval-query-status">
-                      <label className="results-rerank-control">
-                        <strong>Cohere rerank</strong>
-                        <span className="toggle-control">
-                          <span>{controls.rerank ? 'On' : 'Off'}</span>
-                          <input
-                            type="checkbox"
-                            checked={controls.rerank}
-                            disabled={busy !== null}
-                            aria-label="Use Cohere rerank for the next retrieval run"
-                            onChange={(event) =>
-                              setControl('rerank', event.target.checked)
-                            }
-                          />
-                          <i aria-hidden="true" />
-                        </span>
-                      </label>
                       <span
                         className={`query-receipt-state ${
                           retrievalDraftDirty
@@ -5845,11 +5726,11 @@ export default function WorkbenchApp() {
                     <span>
                       <small>Ranking diagnostics</small>
                       <strong className="retrieval-story-title">
-                        <em>How</em> this ranking was built
+                        Inspect ranking <em>diagnostics</em>
                       </strong>
                       <b>
-                        Inspect text, semantic, and fuzzy positions before
-                        weighted RRF and optional rerank.
+                        Arm positions, query plans, and ranking policy stay
+                        available when you need them.
                       </b>
                     </span>
                     <span className="ranking-breakdown-summary">
@@ -6307,96 +6188,121 @@ export default function WorkbenchApp() {
 
         {module === 'prove' ? (
           <section className="module-screen">
-            <header className="module-heading prove-heading">
+            <header
+              className={`module-heading prove-heading ${
+                proveTab === 'answer' ? 'module-heading-compact' : ''
+              }`}
+            >
               <div>
                 <span className="module-kicker">
                   {proveTab === 'answer'
-                    ? 'Hybrid Retrieval Agent · Answer'
-                    : proveTab === 'graph'
-                      ? 'Hybrid Retrieval Agent · Relationships'
-                    : proveTab === 'receipt'
-                      ? 'Proof · Run record'
-                        : proveTab === 'replay'
-                          ? 'Proof · Replay'
-                          : proveTab === 'timeline'
-                            ? 'Proof · Timeline'
-                            : proveTab === 'supervision'
-                              ? 'Proof · Supervision'
-                              : 'Evaluation'}
+                    ? 'Hybrid Retrieval Agent'
+                    : proveTab === 'evaluation'
+                      ? 'Reference · Evaluation'
+                      : proveTab === 'supervision'
+                        ? 'Proof · Action review'
+                        : 'Proof · Evidence record'}
                 </span>
                 <h1>
                   {proveTab === 'answer' ? (
-                    <>Build the answer from <em>persisted evidence.</em></>
-                  ) : proveTab === 'graph' ? (
-                    <>Inspect declared <em>evidence relationships.</em></>
-                  ) : proveTab === 'receipt' ? (
-                    <>Every candidate and citation, <em>persisted.</em></>
-                  ) : proveTab === 'replay' ? (
-                    <>Replay the answer from its <em>database run record.</em></>
-                  ) : proveTab === 'timeline' ? (
-                    <>Same evidence, <em>ordered by when it happened.</em></>
+                    <>Ground an answer in <em>incident evidence.</em></>
                   ) : proveTab === 'supervision' ? (
-                    <>A human approved it. <em>The database recorded both.</em></>
-                  ) : (
+                    <>Review the <em>human decision.</em></>
+                  ) : proveTab === 'evaluation' ? (
                     <>Evidence, <em>not anecdotes.</em></>
+                  ) : (
+                    <>Inspect the <em>evidence record.</em></>
                   )}
                 </h1>
-                <p className="module-deck">
-                  {proveTab === 'answer'
-                    ? 'Observe the model-selected tool sequence, bounded recovery, and citation gate behind the evidence-backed answer.'
-                    : proveTab === 'graph'
-                      ? personaMode
-                        ? 'Traverse foreign-key-derived facts and separately labeled inference without relaxing evidence authorization.'
-                        : 'Traverse foreign-key-derived facts and separately labeled inference while preserving evidence provenance.'
-                      : proveTab === 'receipt'
-                        ? 'Resolve the controls, candidate signals, answer, citations, and search-index state without another model call.'
-                        : proveTab === 'replay'
-                          ? 'Walk the persisted retrieval stages in chronological order, reconstructed with no further model call.'
-                          : proveTab === 'timeline'
-                            ? 'Plot the cited evidence by source system and calendar day. Retrieval ranks it; the incident happened in order.'
-                            : proveTab === 'supervision'
-                              ? 'Compare the agent proposal with the human execution, then read the database-computed autonomy assessment.'
-                              : 'Measure retrieval modes and graph traversal with different metrics.'}
-                </p>
+                {proveTab !== 'answer' ? (
+                  <p className="module-deck">
+                    {proveTab === 'supervision'
+                      ? 'Proposal, approval, execution, and validation remain separate.'
+                      : proveTab === 'evaluation'
+                        ? 'Measure retrieval modes and relationship traversal with separate metrics.'
+                        : 'Inspect the persisted record without another model call.'}
+                  </p>
+                ) : null}
               </div>
-              {proveTab !== 'answer' ? (
+              {proveTab !== 'answer' && proveTab !== 'evaluation' ? (
                 <div className="run-loader">
-                <input
-                  value={proofRunDraft}
-                  onChange={(event) => setProofRunDraft(event.target.value)}
-                  aria-label="Run ID"
-                  placeholder="Run ID"
-                />
-                <button
-                  type="button"
-                  className="icon-command"
-                  disabled={!proofRunDraft}
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(proofRunDraft);
-                    setCopied(true);
-                    window.setTimeout(() => setCopied(false), 1200);
-                  }}
-                  title="Copy run ID"
-                  aria-label="Copy run ID"
-                >
-                  {copied ? <Check size={15} /> : <Clipboard size={15} />}
-                </button>
-                <button
-                  type="button"
-                  className="run-button"
-                  onClick={() => loadRun(proofRunDraft)}
-                  disabled={!proofRunDraft || busy !== null}
-                >
-                  {busy === 'run' ? (
-                    <LoaderCircle className="spin" size={15} />
-                  ) : (
-                    <RefreshCw size={14} />
-                  )}
-                  Load
-                </button>
+                  <input
+                    value={proofRunDraft}
+                    onChange={(event) => setProofRunDraft(event.target.value)}
+                    aria-label="Run ID"
+                    placeholder="Run ID"
+                  />
+                  <button
+                    type="button"
+                    className="icon-command"
+                    disabled={!proofRunDraft}
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(proofRunDraft);
+                      setCopied(true);
+                      window.setTimeout(() => setCopied(false), 1200);
+                    }}
+                    title="Copy run ID"
+                    aria-label="Copy run ID"
+                  >
+                    {copied ? <Check size={15} /> : <Clipboard size={15} />}
+                  </button>
+                  <button
+                    type="button"
+                    className="run-button"
+                    onClick={() => loadRun(proofRunDraft)}
+                    disabled={!proofRunDraft || busy !== null}
+                  >
+                    {busy === 'run' ? (
+                      <LoaderCircle className="spin" size={15} />
+                    ) : (
+                      <RefreshCw size={14} />
+                    )}
+                    Load
+                  </button>
                 </div>
               ) : null}
             </header>
+
+            {proveTab !== 'answer' && proveTab !== 'evaluation' ? (
+              <div className="proof-viewbar">
+                <div
+                  className="segmented"
+                  role="group"
+                  aria-label="Proof section"
+                >
+                  <button
+                    type="button"
+                    className={proveTab === 'supervision' ? '' : 'active'}
+                    aria-pressed={proveTab !== 'supervision'}
+                    onClick={() => goTo('proof', 'receipt')}
+                  >
+                    Evidence record
+                  </button>
+                  <button
+                    type="button"
+                    className={proveTab === 'supervision' ? 'active' : ''}
+                    aria-pressed={proveTab === 'supervision'}
+                    onClick={() => goTo('proof', 'action')}
+                  >
+                    Action review
+                  </button>
+                </div>
+                {proveTab !== 'supervision' ? (
+                  <label className="proof-view-select">
+                    <span>Evidence view</span>
+                    <select
+                      value={proveTab}
+                      onChange={(event) => goTo('proof', event.target.value)}
+                    >
+                      <option value="receipt">Record</option>
+                      <option value="graph">Relationships</option>
+                      <option value="replay">Replay</option>
+                      <option value="timeline">Timeline</option>
+                    </select>
+                  </label>
+                ) : null}
+              </div>
+            ) : null}
 
             {proveTab === 'answer' ? (
               <section className="threadline-answer-page">
@@ -6752,6 +6658,15 @@ export default function WorkbenchApp() {
                   ) : null}
                 </div>
 
+                <details className="agent-technical-details">
+                  <summary>
+                    <span>
+                      <strong>Technical record</strong>
+                      <small>Tool trace, guardrails, and agent contract</small>
+                    </span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </summary>
+                  <div className="agent-technical-details-body">
                 <section className="answer-build-story">
                   <header>
                     <div>
@@ -6972,32 +6887,19 @@ export default function WorkbenchApp() {
                     </span>
                   </p>
                 ) : null}
+                  </div>
+                </details>
 
                 {agentDisplayState === 'complete' ? (
                   <div className="answer-next-actions">
                     <button
                       type="button"
                       className="run-button"
-                      onClick={() => goTo('agent', 'graph')}
+                      onClick={() => goTo('proof', 'receipt')}
                     >
-                      <Network size={15} />
-                      Follow source relationships
+                      <Clipboard size={15} />
+                      Open evidence record
                     </button>
-                    <button
-                      type="button"
-                      className="text-command"
-                      onClick={() => goTo('proof', 'replay')}
-                    >
-                      <Play size={15} />
-                      Replay persisted proof
-                    </button>
-                    <span>
-                      {agentMetadata?.framework || 'strands-agents'} ·{' '}
-                      {agentMetadata?.synthesis_model || answer?.model_id || 'configured model'}
-                      {agentUsage?.total_tokens
-                        ? ` · ${agentUsage.total_tokens.toLocaleString()} tokens`
-                        : ''}
-                    </span>
                   </div>
                 ) : null}
               </section>
