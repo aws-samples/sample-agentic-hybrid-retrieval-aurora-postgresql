@@ -11,11 +11,12 @@ concurrent-index-repair mechanism.
 
 The binding implementation plan is
 `docs/superpowers/plans/2026-08-04-dat410-incident-scenario-redesign-plan.md`.
-Tasks A1-E4 and F1-F2 are complete. F1's live PI-disabled/IAM-revoked
-rehearsal remains owed. Tasks G1-G3 own the remaining participant, failure, and
-release rehearsal work. The plan's repository-wide alignment audit assigns
-every known stale surface to an explicit task; finding an unassigned stale
-surface is a plan defect and should be corrected before implementation
+Tasks A1-E4 and F1-F2 are complete. G1's runtime participant path is complete;
+its frontend visual verification is retained for the G3 release freeze. F1's
+live PI-disabled/IAM-revoked rehearsal remains owed. G2-G3 own the remaining
+failure and release rehearsal work. The plan's repository-wide alignment audit
+assigns every known stale surface to an explicit task; finding an unassigned
+stale surface is a plan defect and should be corrected before implementation
 continues.
 
 ## Repositories
@@ -404,6 +405,21 @@ PostgreSQL 18.3 cluster in `us-east-1`:
   handler is Create-only; stack updates acknowledge success without rebuilding
   schema or workload, so a new stack or documented reset/recreate path is
   required for fresh substrate.
+- G1 participant-path rehearsal: fresh Wave A `CAP-889D1D34` / capture
+  `96f63d96-bdea-48fb-a402-5de1889d1d34` admitted 54 documents from 297
+  activity rows, 1,728 lock rows, and 270 blocker-chain rows. Wave B
+  `CAP-33E2F05A` / capture `b121e4fd-c156-457b-afc2-4c7333e2f05a` added
+  three documents in 21.228s. The final corpus is 57 documents. Lab 3's
+  cited answer plus structured proposal took 25.832s wall-clock (25.338s
+  recorded answer latency); the participant's index creation took 1.503s.
+  `workshop_app` correctly failed with `must be owner of table orders`, while
+  `workshop_participant` succeeded. Pre-execution eligibility and reasons
+  remained byte-identical after the validated Wave B outcome. The original
+  Wave A replay had 31 nodes, 58 edges, 31 timeline events, and eight
+  citations with no Wave B records. `make doctor` passed. An exercise
+  checkpoint was corrected to verify the spanning-tree traversal and full
+  comparison relationship sets independently. The frontend was intentionally
+  stopped; final visual verification is a G3 release item.
 
 The test database is disposable and never a participant database. The earlier
 local PostgreSQL 18.4 run was diagnostic only and is not release evidence.
@@ -416,11 +432,10 @@ result as rehearsal evidence.
 
 ## Next Task
 
-Start G1: run all four labs from a participant seat against a fresh,
-Aurora PostgreSQL 18.3 capture. Record the participant-visible Bedrock wait,
-non-concurrent index-build time, Wave B admission time, pre- and
-post-execution autonomy verdicts, agent-role DDL refusal, API-pool privileges,
-and every point where a participant can get stuck. Before release, also close
+Start G2: inject the documented controller, CloudWatch, insufficient-writer,
+index-shape, Wave B, supervised-execution, and identity-boundary failures
+against the disposable Aurora PostgreSQL 18.3 test target. Record exact
+symptoms and recoveries in the facilitator runbook. Before release, also close
 F1's live proof by running `make live-workshop` with Performance Insights
 disabled on a disposable cluster or `pi:GetResourceMetrics` revoked from the
 caller. Keep CloudWatch supplemental, preserve the PostgreSQL and app-pool

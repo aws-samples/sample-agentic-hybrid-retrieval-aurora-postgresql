@@ -224,7 +224,7 @@ class ParticipantCheckpointTests(unittest.TestCase):
             {
                 "reached": [
                     {"via_relation": relation}
-                    for relation in sorted(CHECKPOINT.WAVE_A_REQUIRED_RELATIONS)
+                    for relation in sorted(CHECKPOINT.WAVE_A_TRAVERSAL_RELATIONS)
                 ]
             },
         )

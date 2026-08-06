@@ -14,7 +14,9 @@ participants to rewrite the retrieval engine or agent framework.
   bounded-backfill guidance for future migrations from the post-index outcome
   that remains unavailable until Wave B.
 - `lab3-traverse-request.json` and `lab3-compare-request.json` are populated
-  from the current run's receipt by `make live-workshop`.
+  from the current run's receipt by `make live-workshop`. Complete the Lab 2
+  and Lab 3 checkpoints before Wave B so they remain scoped to diagnostic
+  evidence.
 - `lab4-supervised-execution.md` guides a participant through reviewing the
   Hybrid Retrieval Agent's stored proposal, recording an explicit approval,
   running the proposal's own DDL, capturing Wave B, and replaying the original
@@ -28,11 +30,13 @@ checked-in JSON files are templates and contain no evidence identifiers. Lab
 4's guide stays in this directory because it reads the proposal persisted by
 the participant's own Lab 3 run rather than a fixed identifier.
 
-The Lab 3 cited-synthesis and proposal calls are real Bedrock requests. That
-wait is expected: do not submit a second answer request while the first one is
-grounding, persisting the cited answer, and recording its proposal. The final
-participant-facing wait is published only after the Aurora rehearsal measures
-the combined path.
+The Lab 3 cited-synthesis and proposal calls are real Bedrock requests. On the
+August 5 Aurora PostgreSQL 18.3 `db.r8g.2xlarge` rehearsal, the combined
+endpoint took 25.832 seconds wall-clock (25.338 seconds recorded answer
+latency). That wait is expected: do not submit a second answer request while
+the first one is grounding, persisting the cited answer, and recording its
+proposal. Recalibrate the reference figure before using a different workshop
+instance class.
 
 The JSON checkpoints inspect API receipts only. They reject any candidate
 outside `pg_incident_capture`, reject identifiers from another capture, and

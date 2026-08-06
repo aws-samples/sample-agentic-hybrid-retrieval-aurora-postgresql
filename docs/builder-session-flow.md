@@ -90,9 +90,28 @@ traverse the blocker chain, and compare plan checkpoints.
 | 56-58 | Take it home | Explain read-only recommendation, human-approved action, and policy-bounded future autonomy | Architecture discussion only |
 | 58-60 | Summary and cleanup | Workload cleanup is understood; proof remains replayable | Do not start an extension lab |
 
-Final measured wait times and the documented cold-account setup budget are
-recorded only after the Aurora rehearsal. Do not substitute estimates for those
-measurements in participant copy.
+## Measured Participant Waits
+
+The following source-path rehearsal ran on August 5, 2026 against a fresh
+Aurora PostgreSQL 18.3 `db.r8g.2xlarge` test database with 3,000,000
+`workbench_lab.orders` rows. These are reference measurements, not a promise
+for a different Workshop Studio instance class or a cold account.
+
+| Participant-visible action | Measured time | Facilitator line |
+|---|---:|---|
+| Wave A, including local workload preparation | 78.980s wall-clock, including 33.840s to prepare the workload | The pre-provisioned workshop path does not ask participants to wait for the workload build. During the capture, the controller first proves the state and then deliberately holds it for 12s. |
+| Lab 3 cited answer and structured proposal | 25.832s endpoint wall-clock; 25.338s recorded answer latency | "The agent is grounding, citing, and recording a proposal. Give it about 30 seconds and do not submit a second request." |
+| Participant's non-concurrent `CREATE INDEX` | 1.503s | The participant action is fast in this rehearsal; the following validation admission is the longer transition. |
+| Wave B validation admission | 21.228s wall-clock | "Aurora is validating the catalog action, admitting the new evidence, and rebuilding the search index. This takes about 22 seconds in the rehearsal." |
+
+The reference Wave A capture admitted 54 documents from 297 activity rows,
+1,728 lock rows, and 270 blocker-chain rows. Wave B added three validation
+documents, for 57 current documents. The corpus count is explanatory only;
+behavioral coverage and the diversity gate remain the contract.
+
+The runtime rehearsal used participant and application identities end to end.
+The final release freeze still includes a visual check of the rendered frontend
+surfaces on the final Workshop Studio stack.
 
 ## Provisioning Budget and Stack Lifecycle
 

@@ -350,3 +350,53 @@ acknowledges any CloudFormation Update request and does not rerun
 way to rebuild a participant substrate: use a new stack or the documented
 reset/recreate procedure. This is a lifecycle constraint to be verified again
 in the final Workshop Studio rehearsal, not a timeout defect.
+
+## G1 Rehearsal: Participant Path on the Final Two-Wave Contract
+
+**Result: PASSED for the runtime participant path; frontend visual freeze
+remains a G3 release check**
+
+On August 5, 2026, a fresh rehearsal ran against
+`dat410_review_remediation_test` on Aurora PostgreSQL 18.3
+`db.r8g.2xlarge`. Wave A admitted `CAP-889D1D34`
+(`96f63d96-bdea-48fb-a402-5de1889d1d34`) and Wave B admitted
+`CAP-33E2F05A` (`b121e4fd-c156-457b-afc2-4c7333e2f05a`) under the same
+incident.
+
+| Action | Measured observation |
+|---|---|
+| Wave A | 78.980s wall-clock, including 33.840s local workload preparation; 54 documents from 297 activity rows, 1,728 lock rows, and 270 blocker-chain rows |
+| Lab 3 | `POST /v1/agent/answer` completed in 25.832s wall-clock and recorded 25.338s answer latency; retrieval run `e7c23afc-5183-4c23-8446-d660155d6dbb` produced proposal `51d671b2-31e4-476d-9f40-d4cfbca6393a` with eight citations |
+| Participant index action | The agent/app identity correctly failed with `must be owner of table orders`; a direct `workshop_participant` connection created the stored index in 1.503s |
+| Wave B | 21.228s wall-clock; additive corpus shape was 54 Wave A + 3 Wave B = 57 documents |
+
+The participant-visible plan change was real: Wave A recorded sequential scans
+at 477.382ms / 47,062 buffers before `ANALYZE` and 252.115ms / 47,059
+buffers after it. Wave B recorded an `Index Scan` at 2.794ms, 26 buffers, and
+zero rows removed by filter.
+
+Supervision proof passed without retroactive mutation:
+
+```text
+pre_execution_eligible: true
+pre_execution_reasons: []
+post_execution_validated: true
+post_execution_reasons: []
+```
+
+The pre-execution values were byte-identical before and after Wave B. The
+original Wave A replay remained isolated after Wave B: 31 graph nodes, 58
+edges, 31 timeline events, eight citations, and zero Wave B records. `make
+doctor` passed against the final two-wave corpus.
+
+One participant-exercise mismatch surfaced during the rehearsal. Traversal
+returns a deduplicated spanning tree, so it cannot expose both the direct
+incident-to-change edge and the alternate lock-to-change edge for one change.
+The checkpoint now requires the three relations available from traversal and
+uses source comparison to verify the full relationship set, including
+`blocked_by_change`. The corrected Lab 2, Lab 3, and Wave B checkpoints pass.
+
+The frontend was intentionally not running during this source-path rehearsal.
+No claim is made here about a rendered screen; the G3 release freeze must
+perform the frontend build and visual/API verification against the final
+Workshop Studio path.

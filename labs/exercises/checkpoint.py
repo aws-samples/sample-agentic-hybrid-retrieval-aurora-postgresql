@@ -22,6 +22,11 @@ WAVE_A_REQUIRED_RELATIONS = {
     "blocked_by_change",
     "observed_during",
 }
+WAVE_A_TRAVERSAL_RELATIONS = {
+    "change_confirmed",
+    "change_ruled_out",
+    "observed_during",
+}
 WAVE_B_REQUIRED_RELATIONS = {"change_validates"}
 
 
@@ -278,7 +283,12 @@ def check_agent(
     comparison_relations = {
         row.get("relation") for row in comparison.get("relationships", [])
     }
-    missing_traversal = sorted(WAVE_A_REQUIRED_RELATIONS - traversal_relations)
+    # Traversal returns a deduplicated spanning tree. The backfill change is
+    # directly reachable from the incident, so the tree cannot also report its
+    # alternate lock-to-change edge. Comparison validates that full edge set.
+    missing_traversal = sorted(
+        WAVE_A_TRAVERSAL_RELATIONS - traversal_relations
+    )
     if missing_traversal:
         fail(f"relationship traversal is missing: {missing_traversal}")
     missing_comparison = sorted(WAVE_A_REQUIRED_RELATIONS - comparison_relations)

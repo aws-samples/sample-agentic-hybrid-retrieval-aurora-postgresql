@@ -323,6 +323,10 @@ Release acceptance requires:
 - no hidden dependence on a Database Insights API permission; and
 - a source archive containing no generated participant evidence.
 
-The final Aurora rehearsal records actual wait, build, and admission timings.
-Until that rehearsal publishes a single measured run, participant material must
-describe plan and evidence shape rather than quote performance numbers.
+The August 5 participant-path rehearsal on Aurora PostgreSQL 18.3
+`db.r8g.2xlarge` measured 25.832s for the Lab 3 answer-plus-proposal request,
+1.503s for the participant's non-concurrent index build, and 21.228s for Wave
+B admission. It also admitted 54 Wave A and three Wave B documents. These are
+reference measurements for that substrate, not deployment guarantees; a final
+Workshop Studio rehearsal must recalibrate them on its provisioned instance
+class before publishing different participant-facing numbers.
