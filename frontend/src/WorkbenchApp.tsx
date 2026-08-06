@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Check,
+  ChevronDown,
   ChevronRight,
   CircleDot,
   Clipboard,
@@ -130,10 +131,8 @@ const PRIMARY_NAV: NavSurface[] = [
     label: 'Proof',
     Icon: ShieldCheck,
     lenses: [
-      { key: 'receipt', label: 'Run record', Icon: Clipboard },
-      { key: 'replay', label: 'Replay', Icon: Play },
-      { key: 'timeline', label: 'Timeline', Icon: GitMerge },
-      { key: 'supervision', label: 'Supervision', Icon: UserCheck },
+      { key: 'evidence', label: 'Evidence record', Icon: Clipboard },
+      { key: 'action', label: 'Action review', Icon: UserCheck },
     ],
   },
 ];
@@ -749,17 +748,17 @@ function retrievalRequestKey(controls: Controls): string {
 }
 
 // presetKey ties a preset to the SPEC 6.0 route vocabulary
-// (?preset={exact|fuzzy|semantic}). The three tagged entries are the workshop's
-// query-shape triad — exact identifier, paraphrase (semantic recall), and typo
-// (fuzzy match) — all mode:'hybrid' because the teaching point is one fusion
-// handling every query shape. The remaining examples stay UI-reachable but are
-// not URL-addressable: the route contract names only the three shapes.
+// (?preset={exact|fuzzy|semantic}). The typo preset intentionally uses the
+// fuzzy arm by itself: its exercise proves pg_trgm recovery, while the Fusion
+// lens separately demonstrates how weighted RRF rewards agreement across arms.
+// The remaining examples stay UI-reachable but are not URL-addressable.
 function livePresets(run: LiveRun | null | undefined): {
   label: string;
   query: string;
   mode: RetrievalMode;
   kind: EvidenceKind | 'all';
   clusterId: string;
+  rerank?: boolean;
   presetKey?: PresetKey;
 }[] {
   if (!run) return [];
@@ -791,9 +790,10 @@ function livePresets(run: LiveRun | null | undefined): {
   {
     label: 'Typo recovery',
     query: run.unsafe_change_key.replace(/^CHG-/, 'CGH-'),
-    mode: 'hybrid' as RetrievalMode,
+    mode: 'fuzzy' as RetrievalMode,
     kind: 'all' as const,
     clusterId: '',
+    rerank: false,
     presetKey: 'fuzzy',
   },
   {
@@ -1847,6 +1847,8 @@ function answerParagraphs(text: string): string[] {
     .split(/\n{2,}/)
     .map((block) => block.replace(/\s+/g, ' ').trim())
     .filter(Boolean);
+  if (blocks.length > 1) return blocks;
+
   const paragraphs: string[] = [];
 
   blocks.forEach((block) => {
@@ -1883,12 +1885,23 @@ function answerParagraphs(text: string): string[] {
   return paragraphs.length ? paragraphs : [text];
 }
 
-function AnswerNarrative({ text }: { text: string }) {
+function AnswerNarrative({
+  text,
+  streaming = false,
+}: {
+  text: string;
+  streaming?: boolean;
+}) {
+  const paragraphs = answerParagraphs(text);
+
   return (
-    <div className="answer-prose">
-      {answerParagraphs(text).map((paragraph, index) => (
+    <div className={`answer-prose${streaming ? ' is-streaming' : ''}`}>
+      {paragraphs.map((paragraph, index) => (
         <p key={`${index}-${paragraph.slice(0, 24)}`}>
           <FormattedAnswer text={paragraph} />
+          {streaming && index === paragraphs.length - 1 ? (
+            <span className="answer-type-cursor" />
+          ) : null}
         </p>
       ))}
     </div>
@@ -3929,6 +3942,7 @@ export default function WorkbenchApp() {
     useState<AgentStreamState>('idle');
   const [streamingAnswer, setStreamingAnswer] = useState('');
   const [agentTrace, setAgentTrace] = useState<AgentTraceEvent[]>([]);
+  const [agentTraceExpanded, setAgentTraceExpanded] = useState(false);
   const [streamCitations, setStreamCitations] = useState<Citation[]>([]);
   const [visibleCitationCount, setVisibleCitationCount] = useState(0);
   const [agentMetadata, setAgentMetadata] = useState<AgentMetadata | null>(null);
@@ -4054,6 +4068,7 @@ export default function WorkbenchApp() {
             mode: routePreset?.mode || current.mode,
             kind: routePreset?.kind || current.kind,
             clusterId: routePreset?.clusterId || current.clusterId,
+            rerank: routePreset?.rerank ?? current.rerank,
           }));
         }
       })
@@ -4167,6 +4182,7 @@ export default function WorkbenchApp() {
     setAgentStreamState('idle');
     setStreamingAnswer('');
     setAgentTrace([]);
+    setAgentTraceExpanded(false);
     setStreamCitations([]);
     setVisibleCitationCount(0);
     setAgentMetadata(null);
@@ -4226,12 +4242,12 @@ export default function WorkbenchApp() {
       case 'proof':
         setModule('prove');
         setProveTab(
-          lens === 'replay'
+          lens === 'action' || lens === 'supervision'
+            ? 'supervision'
+            : lens === 'replay'
             ? 'replay'
             : lens === 'timeline'
               ? 'timeline'
-              : lens === 'supervision'
-                ? 'supervision'
               : 'receipt',
         );
         break;
@@ -4275,15 +4291,26 @@ export default function WorkbenchApp() {
         : activeSurface === 'proof'
           ? proveTab
           : '';
+  const activeNavigationLens =
+    activeSurface === 'proof'
+      ? proveTab === 'supervision'
+        ? 'action'
+        : 'evidence'
+      : activeLens;
 
   // Route params derived from live state so the URL reflects them (SPEC 6.0).
-  // preset is inferred by exact query match — lossy the instant a user edits the
-  // query, which is correct: an edited query is no longer a named preset.
+  // A preset is active only while its query and retrieval behavior still match.
+  // This prevents a hybrid query with the typo text from advertising itself as
+  // the fuzzy-only exercise.
   const activePreset: PresetKey | undefined =
     activeSurface === 'retrieval'
       ? presets.find(
           (preset) =>
-            preset.presetKey !== undefined && preset.query === controls.query,
+            preset.presetKey !== undefined &&
+            preset.query === controls.query &&
+            preset.mode === controls.mode &&
+            (preset.rerank === undefined ||
+              preset.rerank === controls.rerank),
         )?.presetKey
       : undefined;
   const activePersona: PersonaKey = controls.role;
@@ -4313,6 +4340,7 @@ export default function WorkbenchApp() {
           mode: preset.mode,
           kind: preset.kind,
           clusterId: preset.clusterId,
+          rerank: preset.rerank ?? current.rerank,
         }));
       }
     }
@@ -4563,6 +4591,7 @@ export default function WorkbenchApp() {
     setAgentStreamState('streaming');
     setStreamingAnswer('');
     setAgentTrace([]);
+    setAgentTraceExpanded(false);
     setStreamCitations([]);
     setVisibleCitationCount(0);
     setAgentMetadata(null);
@@ -4973,6 +5002,11 @@ export default function WorkbenchApp() {
     ),
   );
   const currentAgentEvent = agentTrace[agentTrace.length - 1] || null;
+  const visibleAgentTrace = agentTraceExpanded
+    ? agentTrace
+    : currentAgentEvent
+      ? [currentAgentEvent]
+      : [];
   const retrievalAvailable = Boolean(
     receipt?.run.status === 'complete' &&
       receipt.candidates.length,
@@ -4990,7 +5024,7 @@ export default function WorkbenchApp() {
     (agentDisplayState === 'error' || activeSurface === 'proof');
   const journeySteps = buildJourneySteps({
     activeSurface,
-    activeLens,
+    activeLens: activeNavigationLens,
     retrievalAvailable,
     agentAvailable,
     proofAvailable,
@@ -5110,7 +5144,9 @@ export default function WorkbenchApp() {
                       <button
                         type="button"
                         key={lens.key}
-                        className={activeLens === lens.key ? 'active' : ''}
+                        className={
+                          activeNavigationLens === lens.key ? 'active' : ''
+                        }
                         onClick={() => goTo(surface, lens.key)}
                       >
                         <lens.Icon size={13} />
@@ -5309,7 +5345,7 @@ export default function WorkbenchApp() {
                   </label>
                   <textarea
                     id="home-investigation-question"
-                    rows={2}
+                    rows={4}
                     value={homeQueryText}
                     readOnly={homeTyping}
                     title={homeQueryText}
@@ -5678,7 +5714,12 @@ export default function WorkbenchApp() {
                           key={preset.label}
                           type="button"
                           className={
-                            controls.query === preset.query ? 'active' : ''
+                            controls.query === preset.query &&
+                            controls.mode === preset.mode &&
+                            (preset.rerank === undefined ||
+                              preset.rerank === controls.rerank)
+                              ? 'active'
+                              : ''
                           }
                           onClick={() =>
                             setControls((current) => ({
@@ -5687,6 +5728,7 @@ export default function WorkbenchApp() {
                               mode: preset.mode,
                               kind: preset.kind,
                               clusterId: preset.clusterId,
+                              rerank: preset.rerank ?? current.rerank,
                             }))
                           }
                         >
@@ -6411,16 +6453,35 @@ export default function WorkbenchApp() {
                             <i />
                             Investigating evidence
                           </span>
-                          <b>
-                            {agentTrace.length
-                              ? `${agentTrace.length} decisions observed`
-                              : 'starting Strands loop'}
-                          </b>
-                        </header>
-                        <div>
                           {agentTrace.length ? (
-                            agentTrace.slice(-5).map((event, index) => (
-                              <article
+                            <button
+                              type="button"
+                              className="agent-trace-toggle"
+                              aria-controls="agent-live-trace"
+                              aria-expanded={agentTraceExpanded}
+                              aria-label={
+                                agentTraceExpanded
+                                  ? 'Collapse agent trace'
+                                  : 'Expand agent trace'
+                              }
+                              onClick={() =>
+                                setAgentTraceExpanded((expanded) => !expanded)
+                              }
+                            >
+                              <span>
+                                {agentTrace.length} decision
+                                {agentTrace.length === 1 ? '' : 's'} observed
+                              </span>
+                              <ChevronDown size={14} aria-hidden="true" />
+                            </button>
+                          ) : (
+                            <b>starting Strands loop</b>
+                          )}
+                        </header>
+                        <ol id="agent-live-trace" className="agent-trace-tree">
+                          {visibleAgentTrace.length ? (
+                            visibleAgentTrace.map((event, index) => (
+                              <li
                                 key={`${event.sequence || index}-${event.tool}`}
                                 className={
                                   event === currentAgentEvent ? 'current' : ''
@@ -6436,10 +6497,10 @@ export default function WorkbenchApp() {
                                   <p>{toolDecision(event, personaMode)}</p>
                                 </div>
                                 <small>{toolResult(event)}</small>
-                              </article>
+                              </li>
                             ))
                           ) : (
-                            <article className="current">
+                            <li className="current">
                               <span>
                                 <LoaderCircle className="spin" size={13} />
                               </span>
@@ -6451,9 +6512,9 @@ export default function WorkbenchApp() {
                                 </p>
                               </div>
                               <small>live</small>
-                            </article>
+                            </li>
                           )}
-                        </div>
+                        </ol>
                       </section>
                     ) : null}
 
@@ -6463,10 +6524,7 @@ export default function WorkbenchApp() {
                           Citation-validated prose
                         </span>
                         {streamingAnswer ? (
-                          <p>
-                            <FormattedAnswer text={streamingAnswer} />
-                            <span className="answer-type-cursor" />
-                          </p>
+                          <AnswerNarrative text={streamingAnswer} streaming />
                         ) : (
                           <div className="answer-stream-waiting">
                             <LoaderCircle className="spin" size={18} />

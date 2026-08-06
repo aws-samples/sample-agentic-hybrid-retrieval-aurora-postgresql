@@ -156,13 +156,16 @@ class Settings(BaseModel):
             "converse_global_cris",
         )
     )
-    # The canonical workshop answer measures 591 output tokens, and synthesis
-    # treats a max_tokens stop as a failure and falls back to extractive text. A
-    # 700-token cap therefore degrades the headline demo on normal variance.
+    # Synthesis treats a max_tokens stop as a failure and falls back to extractive
+    # text, so the cap has to clear the answer's real ceiling rather than its
+    # average. The three-paragraph answer measures 1190-1210 output tokens on the
+    # four-clause question against live evidence, and 1365 on a sizing run, so
+    # 1200 truncated the headline demo on normal variance. 2000 leaves headroom
+    # without inviting a longer answer: length is bounded by the prompt, not here.
     bedrock_synthesis_max_tokens: int = Field(
         default_factory=lambda: _env_int(
             "BEDROCK_SYNTHESIS_MAX_TOKENS",
-            1200,
+            2000,
             minimum=1,
         )
     )
