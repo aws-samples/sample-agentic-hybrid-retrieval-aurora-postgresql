@@ -1,7 +1,8 @@
 """Hybrid Retrieval Agent contract tests.
 
-The live synthesis test costs a real Bedrock call and therefore stays gated behind
-the disposable Aurora test environment. The static guard runs in every suite.
+The live synthesis test costs a real Bedrock call and requires a completed,
+participant-generated two-wave Aurora capture. The static guard runs in every
+suite.
 """
 from __future__ import annotations
 
@@ -14,8 +15,8 @@ from psycopg.rows import dict_row
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
-ALLOW_RESET = os.environ.get("ALLOW_TEST_DATABASE_RESET") == "1"
+LIVE_CAPTURE_DATABASE_URL = os.environ.get("LIVE_CAPTURE_DATABASE_URL")
+LIVE_CAPTURE_RUN_ID = os.environ.get("LIVE_CAPTURE_RUN_ID")
 
 
 class AgentToolSurfaceTests(unittest.TestCase):
@@ -40,8 +41,11 @@ class AgentToolSurfaceTests(unittest.TestCase):
 
 
 @unittest.skipUnless(
-    TEST_DATABASE_URL and ALLOW_RESET,
-    "requires TEST_DATABASE_URL and ALLOW_TEST_DATABASE_RESET=1",
+    LIVE_CAPTURE_DATABASE_URL and LIVE_CAPTURE_RUN_ID,
+    (
+        "requires LIVE_CAPTURE_DATABASE_URL and LIVE_CAPTURE_RUN_ID for a "
+        "completed participant two-wave capture"
+    ),
 )
 class AgentCitationScopeTests(unittest.TestCase):
     @classmethod
@@ -84,7 +88,7 @@ class AgentCitationScopeTests(unittest.TestCase):
         from backend.app.models import AgentAnswerRequest
 
         with psycopg.connect(
-            TEST_DATABASE_URL,
+            LIVE_CAPTURE_DATABASE_URL,
             row_factory=dict_row,
             autocommit=True,
         ) as connection:
@@ -97,18 +101,21 @@ class AgentCitationScopeTests(unittest.TestCase):
                 JOIN casework.incidents incident
                   ON incident.evidence_id = wave_a.incident_evidence_id
                 WHERE wave_a.wave = 'A'
+                  AND wave_a.capture_id = %s::uuid
                   AND EXISTS (
                     SELECT 1
                     FROM casework.incident_capture_runs wave_b
                     WHERE wave_b.incident_evidence_id =
                           wave_a.incident_evidence_id
                       AND wave_b.wave = 'B'
-                  )
-                ORDER BY wave_a.capture_ended_at DESC, wave_a.capture_id DESC
-                LIMIT 1
-                """
+                )
+                """,
+                (LIVE_CAPTURE_RUN_ID,),
             ).fetchone()
-        self.assertIsNotNone(capture, "the live test requires an admitted two-wave corpus")
+        self.assertIsNotNone(
+            capture,
+            "the live test requires the named admitted Wave A plus Wave B capture",
+        )
         assert capture is not None
         suffix = capture["capture_id"].replace("-", "")[-8:].upper()
         question = (
@@ -122,7 +129,7 @@ class AgentCitationScopeTests(unittest.TestCase):
         )
 
         original_database_url = os.environ.get("DATABASE_URL")
-        os.environ["DATABASE_URL"] = str(TEST_DATABASE_URL)
+        os.environ["DATABASE_URL"] = str(LIVE_CAPTURE_DATABASE_URL)
         get_settings.cache_clear()
         try:
             response = answer_question(
@@ -149,7 +156,7 @@ class AgentCitationScopeTests(unittest.TestCase):
 
     def _waves_for(self, run_id: str) -> set[str]:
         with psycopg.connect(
-            TEST_DATABASE_URL,
+            LIVE_CAPTURE_DATABASE_URL,
             row_factory=dict_row,
             autocommit=True,
         ) as connection:

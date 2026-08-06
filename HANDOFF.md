@@ -442,6 +442,14 @@ record Gate 6's explicit owed list, and keep F1's PI-disabled/IAM-revoked proof
 open unless it is actually run. Do not package or publish the sibling Workshop
 Studio repository before its user-owned work is ready.
 
+The latest resettable full suite passed **289 tests** on the dedicated Aurora
+PostgreSQL 18.3 target. It now has **61 explicit skips**: 21 tests require
+capture-derived Wave A or two-wave inputs and 40 require the optional
+RLS/masking/role module. The split is intentional: proposal-emission tests
+require a named Wave A before DDL, while the citation-scope test requires the
+same named Wave A plus Wave B. Do not run either against the empty database
+created by the resettable suite.
+
 ### Workshop Studio Changes Required For F1
 
 The sibling repository is user-owned and has not been changed from this

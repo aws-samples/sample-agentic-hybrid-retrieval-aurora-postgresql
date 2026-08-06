@@ -1,8 +1,10 @@
 """Structured action-proposal contracts.
 
-Pure parsing and rendering checks run in every suite. The single live check uses
-the already-admitted Aurora corpus and makes one extra Bedrock tool-use request
-after cited synthesis, so it stays explicitly gated.
+Pure parsing and rendering checks run in every suite. The live check requires
+the current participant's Wave A capture, before the participant executes the
+proposed index. It makes one extra Bedrock tool-use request after cited
+synthesis, so it is explicitly gated and never runs against a reset-only test
+database that has no captured incident.
 """
 from __future__ import annotations
 
@@ -25,7 +27,8 @@ from backend.app.action_proposal import (
 )
 
 
-TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
+LIVE_CAPTURE_DATABASE_URL = os.environ.get("LIVE_CAPTURE_DATABASE_URL")
+LIVE_CAPTURE_RUN_ID = os.environ.get("LIVE_CAPTURE_RUN_ID")
 
 VALID_PAYLOAD = {
     "action_type": "create_index",
@@ -153,9 +156,15 @@ class ProposalRenderingTests(unittest.TestCase):
         )
 
 
-@unittest.skipUnless(TEST_DATABASE_URL, "requires TEST_DATABASE_URL")
+@unittest.skipUnless(
+    LIVE_CAPTURE_DATABASE_URL and LIVE_CAPTURE_RUN_ID,
+    (
+        "requires LIVE_CAPTURE_DATABASE_URL and LIVE_CAPTURE_RUN_ID for a "
+        "current Wave A participant capture"
+    ),
+)
 class ProposalEmissionTests(unittest.TestCase):
-    """One real Lab 3 answer is enough to validate the append-only record."""
+    """One real Wave A Lab 3 answer validates the append-only record."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -164,7 +173,7 @@ class ProposalEmissionTests(unittest.TestCase):
         from backend.app.models import AgentAnswerRequest
 
         with psycopg.connect(
-            TEST_DATABASE_URL,
+            LIVE_CAPTURE_DATABASE_URL,
             row_factory=dict_row,
             autocommit=True,
         ) as connection:
@@ -178,19 +187,22 @@ class ProposalEmissionTests(unittest.TestCase):
                   ON incident.evidence_id = capture.incident_evidence_id
                 WHERE capture.capture_origin = 'participant_induced'
                   AND capture.wave = 'A'
-                  AND EXISTS (
+                  AND capture.capture_id = %s::uuid
+                  AND NOT EXISTS (
                     SELECT 1
                     FROM casework.incident_capture_runs later
                     WHERE later.incident_evidence_id =
                           capture.incident_evidence_id
                       AND later.wave = 'B'
                   )
-                ORDER BY capture.capture_ended_at DESC, capture.capture_id DESC
-                LIMIT 1
-                """
+                """,
+                (LIVE_CAPTURE_RUN_ID,),
             ).fetchone()
         if capture is None:
-            raise RuntimeError("the live test requires an admitted two-wave corpus")
+            raise RuntimeError(
+                "the live proposal test requires the named admitted Wave A "
+                "capture before Wave B"
+            )
 
         cls.capture = capture
         suffix = capture["capture_id"].replace("-", "")[-8:].upper()
@@ -204,7 +216,7 @@ class ProposalEmissionTests(unittest.TestCase):
             "migration do differently?"
         )
         original_database_url = os.environ.get("DATABASE_URL")
-        os.environ["DATABASE_URL"] = str(TEST_DATABASE_URL)
+        os.environ["DATABASE_URL"] = str(LIVE_CAPTURE_DATABASE_URL)
         get_settings.cache_clear()
         try:
             cls.response = answer_question(
@@ -224,7 +236,7 @@ class ProposalEmissionTests(unittest.TestCase):
 
         cls.agent_run_id = cls.response["agent_run_id"]
         with psycopg.connect(
-            TEST_DATABASE_URL,
+            LIVE_CAPTURE_DATABASE_URL,
             row_factory=dict_row,
             autocommit=True,
         ) as connection:
@@ -264,7 +276,7 @@ class ProposalEmissionTests(unittest.TestCase):
         self.assertEqual(proposal["statement_timeout"], "5min")
         self.assertEqual(proposal["lock_timeout"], "5s")
         with psycopg.connect(
-            TEST_DATABASE_URL,
+            LIVE_CAPTURE_DATABASE_URL,
             row_factory=dict_row,
             autocommit=True,
         ) as connection:
@@ -280,7 +292,7 @@ class ProposalEmissionTests(unittest.TestCase):
     def test_the_proposal_cites_only_validated_citations(self) -> None:
         proposal = self._require_proposal()
         with psycopg.connect(
-            TEST_DATABASE_URL,
+            LIVE_CAPTURE_DATABASE_URL,
             row_factory=dict_row,
             autocommit=True,
         ) as connection:
@@ -305,7 +317,7 @@ class ProposalEmissionTests(unittest.TestCase):
     def test_the_fresh_proposal_is_pre_execution_eligible(self) -> None:
         proposal = self._require_proposal()
         with psycopg.connect(
-            TEST_DATABASE_URL,
+            LIVE_CAPTURE_DATABASE_URL,
             row_factory=dict_row,
             autocommit=True,
         ) as connection:
@@ -343,7 +355,7 @@ class ProposalEmissionTests(unittest.TestCase):
 
         before = self._proposal_count()
         original_database_url = os.environ.get("DATABASE_URL")
-        os.environ["DATABASE_URL"] = str(TEST_DATABASE_URL)
+        os.environ["DATABASE_URL"] = str(LIVE_CAPTURE_DATABASE_URL)
         get_settings.cache_clear()
         try:
             plan = decompose_question_impl(self.question)
@@ -376,7 +388,7 @@ class ProposalEmissionTests(unittest.TestCase):
 
     def _proposal_count(self) -> int:
         with psycopg.connect(
-            TEST_DATABASE_URL,
+            LIVE_CAPTURE_DATABASE_URL,
             row_factory=dict_row,
             autocommit=True,
         ) as connection:
