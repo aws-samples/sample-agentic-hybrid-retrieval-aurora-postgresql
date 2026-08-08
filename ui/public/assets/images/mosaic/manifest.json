@@ -1,0 +1,280 @@
+{
+  "brand": "Mosaic",
+  "asset_count": 27,
+  "assets": [
+    {
+      "path": "ui/assets/images/mosaic/atelier-32-thumb.webp",
+      "width": 640,
+      "height": 800,
+      "aspect_ratio": 0.8,
+      "bytes": 47120,
+      "sha256": "f5d61e95182a1eb8b0bcdceec7685ef877cb1656ba6dc728446da29cb2710775",
+      "source": "optimized-local-derivative",
+      "usage": "runtime-ui-asset"
+    },
+    {
+      "path": "ui/assets/images/mosaic/atelier-32.webp",
+      "width": 1200,
+      "height": 1200,
+      "aspect_ratio": 1.0,
+      "bytes": 115406,
+      "sha256": "c905713ae271cfd2feaa0f5b73a8edcb97c3f162c97388554ce94e4293a116d3",
+      "source": "optimized-local-derivative",
+      "usage": "runtime-ui-asset"
+    },
+    {
+      "path": "ui/assets/images/mosaic/auraluxe-h9-thumb.webp",
+      "width": 640,
+      "height": 800,
+      "aspect_ratio": 0.8,
+      "bytes": 43548,
+      "sha256": "96b3852831621e68de1dde103b56eeccd39df832a74a3db1a6dbed08af7ad321",
+      "source": "optimized-local-derivative",
+      "usage": "runtime-ui-asset"
+    },
+    {
+      "path": "ui/assets/images/mosaic/auraluxe-h9.webp",
+      "width": 1200,
+      "height": 1200,
+      "aspect_ratio": 1.0,
+      "bytes": 102584,
+      "sha256": "125156bc4c395e62374df5cfdb0372870f6a3882dd0ee5ca7bda3845d75f93d1",
+      "source": "optimized-local-derivative",
+      "usage": "runtime-ui-asset"
+    },
+    {
+      "path": "ui/assets/images/mosaic/echobud-s2.webp",
+      "width": 1200,
+      "height": 1200,
+      "aspect_ratio": 1.0,
+      "bytes": 134380,
+      "sha256": "b517ebdf1418050f1770032d0a7f1c0d6a320bd7482f4fa27685331d34643731",
+      "source": "optimized-local-derivative",
+      "usage": "runtime-ui-asset"
+    },
+    {
+      "path": "ui/assets/images/mosaic/forma-ergonomic-thumb.webp",
+      "width": 640,
+      "height": 800,
+      "aspect_ratio": 0.8,
+      "bytes": 36880,
+      "sha256": "6608042183ba4855f2b5df6bf91fcc614865fbdfeff39d80ac5dddf89c8a5bb1",
+      "source": "optimized-local-derivative",
+      "usage": "runtime-ui-asset"
+    },
+    {
+      "path": "ui/assets/images/mosaic/forma-ergonomic.webp",
+      "width": 1200,
+      "height": 1200,
+      "aspect_ratio": 1.0,
+      "bytes": 86274,
+      "sha256": "552112b7bfd700879de786394fbc161896b41af329261b42c6e07ec7537fe691",
+      "source": "optimized-local-derivative",
+      "usage": "runtime-ui-asset"
+    },
+    {
+      "path": "ui/assets/images/mosaic/hero-editorial-mosaic.webp",
+      "width": 1600,
+      "height": 2000,
+      "aspect_ratio": 0.8,
+      "bytes": 257840,
+      "sha256": "57aced551056a574340e081d9162d25b339f99f122ba0db0449e3517dec24044",
+      "source": "optimized-local-derivative",
+      "usage": "runtime-ui-asset"
+    },
+    {
+      "path": "ui/assets/images/mosaic/pulse-one.webp",
+      "width": 1200,
+      "height": 1200,
+      "aspect_ratio": 1.0,
+      "bytes": 114856,
+      "sha256": "de888bab65dc3d2b3bc124482d3e7bdb36f32ab607142e40b491a7ae5ed8f666",
+      "source": "optimized-local-derivative",
+      "usage": "runtime-ui-asset"
+    },
+    {
+      "path": "ui/assets/images/mosaic/stride-pro-thumb.webp",
+      "width": 640,
+      "height": 800,
+      "aspect_ratio": 0.8,
+      "bytes": 93874,
+      "sha256": "05d8b43ecfa05124b19cf67a34a2879c70e32a60901b4c32da6bf95226f03a0c",
+      "source": "optimized-local-derivative",
+      "usage": "runtime-ui-asset"
+    },
+    {
+      "path": "ui/assets/images/mosaic/stride-pro.webp",
+      "width": 1200,
+      "height": 1200,
+      "aspect_ratio": 1.0,
+      "bytes": 214594,
+      "sha256": "86e43e7372cdbcbab73c41f275995e5822eab02ba4354c9881b9dbeab020e366",
+      "source": "optimized-local-derivative",
+      "usage": "runtime-ui-asset"
+    },
+    {
+      "path": "ui/design-references/mosaic-products/02-echobud-s2-poster.png",
+      "width": 1086,
+      "height": 1448,
+      "aspect_ratio": 0.75,
+      "bytes": 1938468,
+      "sha256": "30c4592fb29b8816fa3c1d421b3b21fd0dff44b96a776cf5d559b62e6a98214f",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-products/03-pulse-one-poster.png",
+      "width": 1086,
+      "height": 1448,
+      "aspect_ratio": 0.75,
+      "bytes": 1896466,
+      "sha256": "1b69f3e4b299a34e0e475b4a99ac4022da4b2d5a87e30b88d6c2263111b9fe6e",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-products/04-stride-pro-poster.png",
+      "width": 1086,
+      "height": 1448,
+      "aspect_ratio": 0.75,
+      "bytes": 2154833,
+      "sha256": "eda8fa30eb5cfa662b5803bfae9ccb09fb8df9addc325cf3d83262b58f58a94a",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-products/06-atelier-32-poster.png",
+      "width": 1086,
+      "height": 1448,
+      "aspect_ratio": 0.75,
+      "bytes": 1967142,
+      "sha256": "02d37ebb80698428fc243278e13f4de1075fe003c423a7173182d350e49f8312",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/02-catalog.png",
+      "width": 1086,
+      "height": 1448,
+      "aspect_ratio": 0.75,
+      "bytes": 1860389,
+      "sha256": "0df84fc7519ee734e0dc605f6ce440b73f516e5a277275953b03bb83cf6eb96b",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/03-search-chat.png",
+      "width": 1086,
+      "height": 1448,
+      "aspect_ratio": 0.75,
+      "bytes": 1662871,
+      "sha256": "883934be19816650500100a43dbf79ce8f7c327cd8f0712bbc720b2b039966c8",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/04-product-detail.png",
+      "width": 1086,
+      "height": 1448,
+      "aspect_ratio": 0.75,
+      "bytes": 1792471,
+      "sha256": "a5ecf1eb4cb09f4d3d5e92bbc0672efdcf40f772fae45006d4e49a2b4972fa2e",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/inspiration-layered-catalog.png",
+      "width": 896,
+      "height": 1195,
+      "aspect_ratio": 0.7498,
+      "bytes": 1763086,
+      "sha256": "d39b73db3489a0b7d839d48b3e115c45e06b3fc57479327d675116d258fddc2d",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/inspiration-rounded-cinematic.png",
+      "width": 1790,
+      "height": 1278,
+      "aspect_ratio": 1.4006,
+      "bytes": 2396053,
+      "sha256": "d8926b43cbc3e133df9d3f91aa5a5ceb14a9f1bb10be12280c91c5edd28a5127",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/05-catalog-reference-desktop.png",
+      "width": 1586,
+      "height": 992,
+      "aspect_ratio": 1.5988,
+      "bytes": 2010134,
+      "sha256": "6c219e665615c96c5a8777f037462bcf7e92639c34f360b80b01c27ecbcae291",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/06-search-chat-reference-desktop.png",
+      "width": 1448,
+      "height": 1086,
+      "aspect_ratio": 1.3333,
+      "bytes": 1932093,
+      "sha256": "372311838ad742592020a4b0cc1374f930e6ddd07c253f7b6cd3c52aa990ffa3",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/07-product-detail-reference-desktop.png",
+      "width": 941,
+      "height": 1672,
+      "aspect_ratio": 0.5628,
+      "bytes": 1509965,
+      "sha256": "3fb0e52311a0c251f741932596b05a55d7224d2908d1e2fe2e4b8c75060c496d",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/08-catalog-mosaic-showcase-desktop.png",
+      "width": 1586,
+      "height": 992,
+      "aspect_ratio": 1.5988,
+      "bytes": 1436813,
+      "sha256": "92631db7d4e0e0e43e0a227709ab6426eb073c40a616bf4b56746d17a1a93481",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/09-catalog-reference-desktop.png",
+      "width": 1586,
+      "height": 992,
+      "aspect_ratio": 1.5988,
+      "bytes": 1871236,
+      "sha256": "60bc5b64303dbe1b409c237d8accacea9a59d7b98dbe8a73b5a3c7d66927f26a",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/10-search-chat-reference-desktop.png",
+      "width": 1448,
+      "height": 1086,
+      "aspect_ratio": 1.3333,
+      "bytes": 1757452,
+      "sha256": "37420ac892a5a41a6b1e6156d6c2a722562f055d1a9da6daa82ee4b352f5f2ba",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    },
+    {
+      "path": "ui/design-references/mosaic-ui/11-product-detail-reference-auraluxe.png",
+      "width": 941,
+      "height": 1672,
+      "aspect_ratio": 0.5628,
+      "bytes": 1820382,
+      "sha256": "fbdc1bba8b408a7ed530fa4ec2e84df74201ebe8ddc7a594ebddbe3283c4b8f8",
+      "source": "generated-in-conversation",
+      "usage": "design-reference"
+    }
+  ],
+  "notes": [
+    "These assets are local and require no image-generation access on the work laptop.",
+    "Runtime UI images are optimized WebP derivatives; design references preserve original PNG resolution."
+  ]
+}

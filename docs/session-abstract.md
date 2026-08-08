@@ -1,26 +1,12 @@
-# Session Abstract
+# Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
 
-## Session
-
-- **Event:** AWS re:Invent 2026
-- **Session ID:** DAT410
-- **Level:** 400
-- **Format:** Builders' session, 60 minutes
-
-## Title
-
-Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
-
-## Abstract
-
-At fleet scale, telemetry is abundant; trustworthy context is scarce. In this
-builders' session, induce a controlled Aurora PostgreSQL online-migration
-failure and turn its live PostgreSQL, pool, request, and optional CloudWatch
-signals into versioned, searchable evidence. Build SQL-first exact, full-text,
-semantic, and fuzzy retrieval; apply filters, weighted reciprocal rank fusion,
-and model reranking; then use a read-only Hybrid Retrieval Agent to produce a
-cited, structured recommendation. Review and execute that recommendation
-yourself, admit new validation evidence, and inspect the persisted rankings,
-relationships, citations, approval, catalog fingerprint, and replay receipt.
-Leave with code and SQL patterns for a trustworthy context layer that can
-support human-supervised database operations.
+As applications evolve from RAG to agentic workflows, retrieval must support
+more than top-k semantic matches. In this session, use Aurora PostgreSQL as the
+core search and context engine for agentic hybrid retrieval. Implement
+PostgreSQL full-text search for lexical retrieval, pgvector semantic similarity,
+SQL and metadata filters, fuzzy matching, reciprocal rank fusion, model-based
+reranking, source attribution, and retrieval diagnostics. Then wire these
+capabilities into agent tools that decompose complex questions, gather targeted
+evidence, compare sources, explain ranking signals, and synthesize cited
+answers. Leave with working code, schema patterns, ranking templates, and
+techniques for trustworthy retrieval-heavy AI applications.

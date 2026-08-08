@@ -1,0 +1,50 @@
+{
+  "carbon plate": [
+    "propulsive composite plate",
+    "race-day plate",
+    "rigid energy-return plate",
+    "plated geometry"
+  ],
+  "ergonomic": [
+    "posture-supportive",
+    "body-aligned",
+    "comfort engineered",
+    "all-day support"
+  ],
+  "lightweight": [
+    "low-mass",
+    "easy-carry",
+    "featherweight feel",
+    "reduced-weight design"
+  ],
+  "long battery life": [
+    "multi-day runtime",
+    "extended playback",
+    "all-day power",
+    "endurance battery"
+  ],
+  "noise cancelling": [
+    "active noise control",
+    "cabin-noise reduction",
+    "ambient sound suppression",
+    "quiet listening"
+  ],
+  "quiet keyboard": [
+    "low-noise typing",
+    "meeting-friendly keystrokes",
+    "soft acoustic profile",
+    "muted key action"
+  ],
+  "standing desk": [
+    "sit-stand workstation",
+    "height-adjustable desk",
+    "electric lift desk",
+    "variable-height workspace"
+  ],
+  "water resistant": [
+    "sweat ready",
+    "weather protected",
+    "splash tolerant",
+    "rain-friendly"
+  ]
+}

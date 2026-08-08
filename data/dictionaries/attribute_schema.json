@@ -1,0 +1,10 @@
+{
+  "headphones": ["active_noise_cancellation", "battery_hours", "form_factor", "multipoint", "codec", "weight_g", "water_rating"],
+  "running_shoes": ["terrain", "support", "carbon_plate", "drop_mm", "weight_g", "cushioning", "distance", "widths", "waterproof"],
+  "office_chairs": ["material", "lumbar_support", "seat_depth_adjustable", "armrests", "max_user_weight_lb", "recommended_hours", "recline_deg"],
+  "standing_desks": ["width_in", "depth_in", "height_adjustable", "height_range_in", "load_capacity_lb", "memory_presets", "cable_management"],
+  "monitors": ["size_in", "resolution", "refresh_hz", "panel", "usb_c_power_w", "color_gamut_pct", "height_adjustable", "vesa"],
+  "keyboards": ["layout", "switch_type", "wireless", "backlit", "hot_swappable", "quiet_typing", "os_compatibility"],
+  "networking": ["wifi_generation", "max_speed_mbps", "coverage_sqft", "ethernet_ports", "mesh_ready", "security_updates_years"],
+  "wearables": ["battery_days", "gps", "heart_rate", "sleep_tracking", "water_rating_atm", "training_readiness", "platforms"]
+}

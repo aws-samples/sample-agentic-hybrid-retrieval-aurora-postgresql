@@ -1,0 +1,45 @@
+{"query_id":"D-001","domain":"consumer_electronics","query":"Find wireless noise-cancelling over-ear headphones under $200 with at least 40 hours of battery life","expected_techniques":["fts","vector","filters","rrf","rerank"],"variant":1}
+{"query_id":"D-002","domain":"consumer_electronics","query":"noice canceling hedphones for long fligts under 200","expected_techniques":["pg_trgm","vector","filters","rrf"],"variant":1}
+{"query_id":"D-003","domain":"consumer_electronics","query":"A compact USB-C dock that can drive two monitors and charge my laptop","expected_techniques":["semantic","jsonb filters","rerank"],"variant":1}
+{"query_id":"D-004","domain":"consumer_electronics","query":"Which Wi-Fi system is best for a three-floor home with many devices?","expected_techniques":["semantic","metadata","rerank"],"variant":1}
+{"query_id":"D-005","domain":"consumer_electronics","query":"quiet mechancial keybaord for zoom calls","expected_techniques":["pg_trgm","fts","semantic"],"variant":1}
+{"query_id":"D-006","domain":"running_fitness","query":"Carbon-plated marathon shoes under $220 that are light enough for race day","expected_techniques":["fts","vector","filters","rrf","rerank"],"variant":1}
+{"query_id":"D-007","domain":"running_fitness","query":"marthon shoe with propulsive plate for tired late-race legs","expected_techniques":["pg_trgm","semantic","rerank"],"variant":1}
+{"query_id":"D-008","domain":"running_fitness","query":"Trail shoes for wet technical terrain with a secure fit","expected_techniques":["semantic","filters","rerank"],"variant":1}
+{"query_id":"D-009","domain":"running_fitness","query":"A quiet folding treadmill for a small apartment","expected_techniques":["semantic","metadata","filters"],"variant":1}
+{"query_id":"D-010","domain":"running_fitness","query":"Recovery tools for sore calves after long runs that fit in a carry-on","expected_techniques":["semantic","rerank"],"variant":1}
+{"query_id":"D-011","domain":"home_office","query":"Ergonomic mesh chair with adjustable lumbar support under $500","expected_techniques":["fts","vector","filters","rrf"],"variant":1}
+{"query_id":"D-012","domain":"home_office","query":"ergonmic ofice chair for 10 hour days","expected_techniques":["pg_trgm","semantic","rerank"],"variant":1}
+{"query_id":"D-013","domain":"home_office","query":"A quiet keyboard and vertical mouse for shared-office work","expected_techniques":["semantic","metadata","fusion"],"variant":1}
+{"query_id":"D-014","domain":"home_office","query":"Electric standing desk for a narrow apartment with cable management","expected_techniques":["semantic","filters","rerank"],"variant":1}
+{"query_id":"D-015","domain":"home_office","query":"Reduce speech distraction in a shared room without wearing headphones","expected_techniques":["semantic","hard negatives","rerank"],"variant":1}
+{"query_id":"D-016","domain":"consumer_electronics","query":"Find wireless noise-cancelling over-ear headphones under $200 with at least 40 hours of battery life","expected_techniques":["fts","vector","filters","rrf","rerank"],"variant":2}
+{"query_id":"D-017","domain":"consumer_electronics","query":"noice canceling hedphones for long fligts under 200","expected_techniques":["pg_trgm","vector","filters","rrf"],"variant":2}
+{"query_id":"D-018","domain":"consumer_electronics","query":"A compact USB-C dock that can drive two monitors and charge my laptop","expected_techniques":["semantic","jsonb filters","rerank"],"variant":2}
+{"query_id":"D-019","domain":"consumer_electronics","query":"Which Wi-Fi system is best for a three-floor home with many devices?","expected_techniques":["semantic","metadata","rerank"],"variant":2}
+{"query_id":"D-020","domain":"consumer_electronics","query":"quiet mechancial keybaord for zoom calls","expected_techniques":["pg_trgm","fts","semantic"],"variant":2}
+{"query_id":"D-021","domain":"running_fitness","query":"Carbon-plated marathon shoes under $220 that are light enough for race day","expected_techniques":["fts","vector","filters","rrf","rerank"],"variant":2}
+{"query_id":"D-022","domain":"running_fitness","query":"marthon shoe with propulsive plate for tired late-race legs","expected_techniques":["pg_trgm","semantic","rerank"],"variant":2}
+{"query_id":"D-023","domain":"running_fitness","query":"Trail shoes for wet technical terrain with a secure fit","expected_techniques":["semantic","filters","rerank"],"variant":2}
+{"query_id":"D-024","domain":"running_fitness","query":"A quiet folding treadmill for a small apartment","expected_techniques":["semantic","metadata","filters"],"variant":2}
+{"query_id":"D-025","domain":"running_fitness","query":"Recovery tools for sore calves after long runs that fit in a carry-on","expected_techniques":["semantic","rerank"],"variant":2}
+{"query_id":"D-026","domain":"home_office","query":"Ergonomic mesh chair with adjustable lumbar support under $500","expected_techniques":["fts","vector","filters","rrf"],"variant":2}
+{"query_id":"D-027","domain":"home_office","query":"ergonmic ofice chair for 10 hour days","expected_techniques":["pg_trgm","semantic","rerank"],"variant":2}
+{"query_id":"D-028","domain":"home_office","query":"A quiet keyboard and vertical mouse for shared-office work","expected_techniques":["semantic","metadata","fusion"],"variant":2}
+{"query_id":"D-029","domain":"home_office","query":"Electric standing desk for a narrow apartment with cable management","expected_techniques":["semantic","filters","rerank"],"variant":2}
+{"query_id":"D-030","domain":"home_office","query":"Reduce speech distraction in a shared room without wearing headphones","expected_techniques":["semantic","hard negatives","rerank"],"variant":2}
+{"query_id":"D-031","domain":"consumer_electronics","query":"Find wireless noise-cancelling over-ear headphones under $200 with at least 40 hours of battery life","expected_techniques":["fts","vector","filters","rrf","rerank"],"variant":3}
+{"query_id":"D-032","domain":"consumer_electronics","query":"noice canceling hedphones for long fligts under 200","expected_techniques":["pg_trgm","vector","filters","rrf"],"variant":3}
+{"query_id":"D-033","domain":"consumer_electronics","query":"A compact USB-C dock that can drive two monitors and charge my laptop","expected_techniques":["semantic","jsonb filters","rerank"],"variant":3}
+{"query_id":"D-034","domain":"consumer_electronics","query":"Which Wi-Fi system is best for a three-floor home with many devices?","expected_techniques":["semantic","metadata","rerank"],"variant":3}
+{"query_id":"D-035","domain":"consumer_electronics","query":"quiet mechancial keybaord for zoom calls","expected_techniques":["pg_trgm","fts","semantic"],"variant":3}
+{"query_id":"D-036","domain":"running_fitness","query":"Carbon-plated marathon shoes under $220 that are light enough for race day","expected_techniques":["fts","vector","filters","rrf","rerank"],"variant":3}
+{"query_id":"D-037","domain":"running_fitness","query":"marthon shoe with propulsive plate for tired late-race legs","expected_techniques":["pg_trgm","semantic","rerank"],"variant":3}
+{"query_id":"D-038","domain":"running_fitness","query":"Trail shoes for wet technical terrain with a secure fit","expected_techniques":["semantic","filters","rerank"],"variant":3}
+{"query_id":"D-039","domain":"running_fitness","query":"A quiet folding treadmill for a small apartment","expected_techniques":["semantic","metadata","filters"],"variant":3}
+{"query_id":"D-040","domain":"running_fitness","query":"Recovery tools for sore calves after long runs that fit in a carry-on","expected_techniques":["semantic","rerank"],"variant":3}
+{"query_id":"D-041","domain":"home_office","query":"Ergonomic mesh chair with adjustable lumbar support under $500","expected_techniques":["fts","vector","filters","rrf"],"variant":3}
+{"query_id":"D-042","domain":"home_office","query":"ergonmic ofice chair for 10 hour days","expected_techniques":["pg_trgm","semantic","rerank"],"variant":3}
+{"query_id":"D-043","domain":"home_office","query":"A quiet keyboard and vertical mouse for shared-office work","expected_techniques":["semantic","metadata","fusion"],"variant":3}
+{"query_id":"D-044","domain":"home_office","query":"Electric standing desk for a narrow apartment with cable management","expected_techniques":["semantic","filters","rerank"],"variant":3}
+{"query_id":"D-045","domain":"home_office","query":"Reduce speech distraction in a shared room without wearing headphones","expected_techniques":["semantic","hard negatives","rerank"],"variant":3}

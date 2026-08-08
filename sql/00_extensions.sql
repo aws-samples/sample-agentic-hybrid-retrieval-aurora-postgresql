@@ -1,7 +1,11 @@
+\set ON_ERROR_STOP on
+
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+CREATE EXTENSION IF NOT EXISTS unaccent;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-CREATE SCHEMA IF NOT EXISTS evidence;
-CREATE SCHEMA IF NOT EXISTS retrieval;
-CREATE SCHEMA IF NOT EXISTS proof;
+SELECT extname, extversion
+FROM pg_extension
+WHERE extname IN ('vector', 'pg_trgm', 'unaccent', 'pgcrypto')
+ORDER BY extname;

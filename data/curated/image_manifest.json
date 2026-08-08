@@ -1,0 +1,173 @@
+{
+  "1": {
+    "image_key": "auraluxe-h9.webp",
+    "path": "ui/assets/images/mosaic/auraluxe-h9.webp",
+    "quality": "mosaic_showcase",
+    "role": "mosaic_showcase_product",
+    "detail_path": "ui/assets/images/mosaic/auraluxe-h9.webp",
+    "gallery_paths": [
+      "ui/assets/images/curated/auraluxe-h95-view-1.webp",
+      "ui/assets/images/curated/auraluxe-h95-view-2.webp",
+      "ui/assets/images/curated/auraluxe-h95-view-3.webp",
+      "ui/assets/images/curated/auraluxe-h95-view-4.webp",
+      "ui/assets/images/curated/auraluxe-h95-view-5.webp",
+      "ui/assets/images/curated/auraluxe-h95-view-6.webp"
+    ]
+  },
+  "2": {
+    "image_key": "sonora-c720.webp",
+    "path": "ui/assets/images/curated/sonora-c720.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "3": {
+    "image_key": "northstar-q45.webp",
+    "path": "ui/assets/images/curated/northstar-q45.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "4": {
+    "image_key": "halo-comfort-se.webp",
+    "path": "ui/assets/images/curated/halo-comfort-se.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "5": {
+    "image_key": "luma-770nc.webp",
+    "path": "ui/assets/images/curated/luma-770nc.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "6": {
+    "image_key": "sennova-momentum.webp",
+    "path": "ui/assets/images/curated/sennova-momentum.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "17001": {
+    "image_key": "echobud-s2.webp",
+    "path": "ui/assets/images/mosaic/echobud-s2.webp",
+    "quality": "mosaic_showcase",
+    "role": "mosaic_showcase_product"
+  },
+  "17002": {
+    "image_key": "novasound-buds.webp",
+    "path": "ui/assets/images/curated/novasound-buds.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "17003": {
+    "image_key": "novasound-buds.webp",
+    "path": "ui/assets/images/curated/novasound-buds.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "116001": {
+    "image_key": "pulse-one.webp",
+    "path": "ui/assets/images/mosaic/pulse-one.webp",
+    "quality": "mosaic_showcase",
+    "role": "mosaic_showcase_product"
+  },
+  "116002": {
+    "image_key": "orbit-watch.webp",
+    "path": "ui/assets/images/curated/orbit-watch.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "234001": {
+    "image_key": "aerostride-road.webp",
+    "path": "ui/assets/images/curated/aerostride-road.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "234002": {
+    "image_key": "aerostride-road.webp",
+    "path": "ui/assets/images/curated/aerostride-road.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "234003": {
+    "image_key": "aerostride-road.webp",
+    "path": "ui/assets/images/curated/aerostride-road.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "210001": {
+    "image_key": "stride-pro.webp",
+    "path": "ui/assets/images/mosaic/stride-pro.webp",
+    "quality": "mosaic_showcase",
+    "role": "mosaic_showcase_product"
+  },
+  "210002": {
+    "image_key": "aerostride-road.webp",
+    "path": "ui/assets/images/curated/aerostride-road.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "370001": {
+    "image_key": "forma-ergonomic.webp",
+    "path": "ui/assets/images/mosaic/forma-ergonomic.webp",
+    "quality": "mosaic_showcase",
+    "role": "mosaic_showcase_product"
+  },
+  "370002": {
+    "image_key": "formamesh-chair.webp",
+    "path": "ui/assets/images/curated/formamesh-chair.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "370003": {
+    "image_key": "formamesh-chair.webp",
+    "path": "ui/assets/images/curated/formamesh-chair.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "420001": {
+    "image_key": "atelier-32.webp",
+    "path": "ui/assets/images/mosaic/atelier-32.webp",
+    "quality": "mosaic_showcase",
+    "role": "mosaic_showcase_product"
+  },
+  "420002": {
+    "image_key": "vistaview-monitor.webp",
+    "path": "ui/assets/images/curated/vistaview-monitor.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "429001": {
+    "image_key": "keysmith-keyboard.webp",
+    "path": "ui/assets/images/curated/keysmith-keyboard.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "429002": {
+    "image_key": "keysmith-keyboard.webp",
+    "path": "ui/assets/images/curated/keysmith-keyboard.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "474001": {
+    "image_key": "riser-laptop-stand.webp",
+    "path": "ui/assets/images/curated/riser-laptop-stand.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "290001": {
+    "image_key": "orbit-watch.webp",
+    "path": "ui/assets/images/curated/orbit-watch.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "452001": {
+    "image_key": "vistaview-monitor.webp",
+    "path": "ui/assets/images/curated/vistaview-monitor.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  },
+  "30001": {
+    "image_key": "novasound-buds.webp",
+    "path": "ui/assets/images/curated/novasound-buds.webp",
+    "quality": "curated_photorealistic",
+    "role": "best_match_or_demo_product"
+  }
+}

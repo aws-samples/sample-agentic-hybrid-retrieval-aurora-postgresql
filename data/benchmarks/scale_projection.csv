@@ -1,0 +1,6 @@
+scale,projection_kind,p95_latency_ms,recall_at_10,build_time_min,index_size_gb,dimensions,m,ef_search
+500000,simulated_calibrated,38.0,0.952,22.0,14.2,1024,16,128
+1000000,simulated_calibrated,40.67,0.9496,46.5,28.4,1024,16,128
+5000000,simulated_calibrated,47.12,0.944,264.5,142.0,1024,16,128
+10000000,simulated_calibrated,50.02,0.9416,559.2,284.0,1024,16,128
+100000000,simulated_calibrated,60.09,0.9336,6722.6,2840.0,1024,16,128

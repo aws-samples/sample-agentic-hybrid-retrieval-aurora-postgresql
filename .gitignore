@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
 .venv/
 .env
 .env.*
@@ -25,6 +26,7 @@ dist/
 .next/
 .vite/
 npm-debug.log*
+*.tsbuildinfo
 
 # Data outputs
 /data/generated/
@@ -47,5 +49,5 @@ infra/cdk/cdk.context.json
 .vscode/settings.json
 .idea/
 
-# Local design mockups: not source, never committed (see HANDOFF.md)
+# Local design mockups are not source and are never committed.
 /mockups/

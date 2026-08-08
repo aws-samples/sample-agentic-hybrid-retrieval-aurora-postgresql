@@ -1,0 +1,30 @@
+domain,category,products
+consumer_electronics,Accessories,10000
+consumer_electronics,Audio,55000
+consumer_electronics,Computing,36000
+consumer_electronics,Gaming,14000
+consumer_electronics,Imaging,14000
+consumer_electronics,Mobile & Power,25000
+consumer_electronics,Networking,18000
+consumer_electronics,Smart Home,18000
+consumer_electronics,Wearables,20000
+home_office,Acoustics,4000
+home_office,Air & Environment,4000
+home_office,Desks,20000
+home_office,Displays,15000
+home_office,Ergonomics,10000
+home_office,Input Devices,13000
+home_office,Lighting,10000
+home_office,Organization,10000
+home_office,Power & Connectivity,10000
+home_office,Seating,24000
+home_office,Video & Audio,10000
+running_fitness,Accessories,6000
+running_fitness,Apparel,30000
+running_fitness,Cardio Equipment,10000
+running_fitness,Footwear,50000
+running_fitness,Hydration,8000
+running_fitness,Recovery,8000
+running_fitness,Strength,18000
+running_fitness,Wearables,18000
+running_fitness,Yoga & Mobility,12000

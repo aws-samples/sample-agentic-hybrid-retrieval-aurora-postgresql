@@ -1,0 +1,227 @@
+{
+  "consumer_electronics": {
+    "Accessories": {
+      "Cleaning Kits": 1000,
+      "Device Stands": 2500,
+      "Protective Sleeves": 2000,
+      "Remote Controls": 1000,
+      "Screen Protectors": 1500,
+      "Travel Organizers": 2000
+    },
+    "Audio": {
+      "DACs & Amplifiers": 3000,
+      "Gaming Headsets": 5000,
+      "Over-Ear Headphones": 17000,
+      "Portable Speakers": 8000,
+      "Soundbars": 4000,
+      "Studio Microphones": 5000,
+      "True Wireless Earbuds": 13000
+    },
+    "Computing": {
+      "External Storage": 2000,
+      "Laptops": 9000,
+      "Mechanical Keyboards": 5000,
+      "Mini PCs": 3000,
+      "Portable Monitors": 6000,
+      "Tablets": 7000,
+      "Wireless Mice": 4000
+    },
+    "Gaming": {
+      "Game Controllers": 4000,
+      "Gaming Monitors": 4000,
+      "Handheld Consoles": 2000,
+      "Racing Wheels": 2000,
+      "Streaming Capture Cards": 2000
+    },
+    "Imaging": {
+      "Action Cameras": 3000,
+      "Camera Lenses": 3000,
+      "Digital Binoculars": 1000,
+      "Gimbals": 1000,
+      "Mirrorless Cameras": 4000,
+      "Photo Printers": 2000
+    },
+    "Mobile & Power": {
+      "Cables & Adapters": 4000,
+      "Charging Docks": 4000,
+      "Phone Cases": 4000,
+      "Power Banks": 6000,
+      "USB-C Chargers": 7000
+    },
+    "Networking": {
+      "Mesh Wi-Fi Systems": 5000,
+      "Mobile Hotspots": 2000,
+      "Network Switches": 3000,
+      "Range Extenders": 1000,
+      "Wi-Fi Routers": 7000
+    },
+    "Smart Home": {
+      "Home Hubs": 1000,
+      "Security Cameras": 5000,
+      "Smart Lighting": 4000,
+      "Smart Plugs": 2000,
+      "Smart Thermostats": 3000,
+      "Video Doorbells": 3000
+    },
+    "Wearables": {
+      "AR Glasses": 2000,
+      "Fitness Trackers": 5000,
+      "Sleep Trackers": 2000,
+      "Smart Rings": 3000,
+      "Smartwatches": 8000
+    }
+  },
+  "home_office": {
+    "Acoustics": {
+      "Acoustic Panels": 1500,
+      "Desk Dividers": 1000,
+      "Door Seals": 500,
+      "Sound Masking Devices": 1000
+    },
+    "Air & Environment": {
+      "Air Quality Monitors": 1000,
+      "Desk Fans": 750,
+      "Desktop Air Purifiers": 1500,
+      "Humidifiers": 750
+    },
+    "Desks": {
+      "Compact Desks": 2000,
+      "Corner Desks": 3000,
+      "Drafting Tables": 1000,
+      "Electric Standing Desks": 7000,
+      "Fixed Desks": 4000,
+      "Standing Desk Converters": 3000
+    },
+    "Displays": {
+      "Monitor Arms": 3000,
+      "Portable Monitors": 2000,
+      "Privacy Screens": 1000,
+      "Productivity Monitors": 6000,
+      "Ultrawide Monitors": 3000
+    },
+    "Ergonomics": {
+      "Anti-Fatigue Mats": 1500,
+      "Footrests": 2000,
+      "Keyboard Trays": 1500,
+      "Laptop Stands": 2000,
+      "Lumbar Supports": 1500,
+      "Wrist Rests": 1500
+    },
+    "Input Devices": {
+      "Ergonomic Keyboards": 3000,
+      "Graphic Tablets": 1000,
+      "Presentation Remotes": 1000,
+      "Quiet Keyboards": 4000,
+      "Trackballs": 1500,
+      "Vertical Mice": 2500
+    },
+    "Lighting": {
+      "Circadian Lighting": 1000,
+      "Desk Lamps": 4000,
+      "Floor Lamps": 1000,
+      "Monitor Light Bars": 2000,
+      "Video Conference Lights": 2000
+    },
+    "Organization": {
+      "Cable Management": 2000,
+      "Desktop Organizers": 2000,
+      "Drawer Units": 2000,
+      "File Cabinets": 1500,
+      "Pegboards": 1500,
+      "Whiteboards": 1000
+    },
+    "Power & Connectivity": {
+      "Docking Stations": 3000,
+      "KVM Switches": 1000,
+      "Surge Protectors": 1500,
+      "UPS Battery Backups": 1500,
+      "USB Hubs": 2000,
+      "Wireless Chargers": 1000
+    },
+    "Seating": {
+      "Active Stools": 2000,
+      "Ergonomic Office Chairs": 9000,
+      "Executive Chairs": 3000,
+      "Guest Chairs": 3000,
+      "Kneeling Chairs": 2000,
+      "Mesh Office Chairs": 5000
+    },
+    "Video & Audio": {
+      "Acoustic Headphones": 1000,
+      "Conference Headsets": 2000,
+      "Conference Webcams": 3000,
+      "Speakerphones": 2000,
+      "USB Microphones": 2000
+    }
+  },
+  "running_fitness": {
+    "Accessories": {
+      "Race Bib Holders": 500,
+      "Reflective Gear": 900,
+      "Running Belts": 1500,
+      "Running Socks": 1200,
+      "Shoe Care": 400,
+      "Sports Sunglasses": 1500
+    },
+    "Apparel": {
+      "Compression Wear": 3000,
+      "Leggings & Tights": 6000,
+      "Running Shorts": 6000,
+      "Running Tops": 7000,
+      "Sports Bras": 3000,
+      "Weatherproof Jackets": 5000
+    },
+    "Cardio Equipment": {
+      "Ellipticals": 1500,
+      "Exercise Bikes": 2500,
+      "Jump Ropes": 1500,
+      "Rowing Machines": 1500,
+      "Treadmills": 3000
+    },
+    "Footwear": {
+      "Carbon Racing Shoes": 8000,
+      "Cross-Training Shoes": 5000,
+      "Road Running Shoes": 14000,
+      "Stability Running Shoes": 7000,
+      "Trail Running Shoes": 10000,
+      "Walking Shoes": 6000
+    },
+    "Hydration": {
+      "Electrolyte Mixers": 1000,
+      "Hydration Vests": 2500,
+      "Insulated Bottles": 1500,
+      "Running Bottles": 2000,
+      "Soft Flasks": 1000
+    },
+    "Recovery": {
+      "Cold Therapy": 1500,
+      "Compression Sleeves": 1500,
+      "Massage Guns": 2500,
+      "Recovery Boots": 1500,
+      "Sleep & Recovery Sensors": 1000
+    },
+    "Strength": {
+      "Adjustable Dumbbells": 4000,
+      "Barbells & Plates": 3000,
+      "Kettlebells": 3000,
+      "Pull-Up Systems": 2000,
+      "Resistance Bands": 3000,
+      "Weight Benches": 3000
+    },
+    "Wearables": {
+      "Cycling Computers": 3000,
+      "GPS Running Watches": 6000,
+      "Heart Rate Monitors": 4000,
+      "Running Pods": 3000,
+      "Smart Scales": 2000
+    },
+    "Yoga & Mobility": {
+      "Balance Trainers": 1500,
+      "Foam Rollers": 2500,
+      "Mobility Tools": 2000,
+      "Pilates Accessories": 1000,
+      "Yoga Blocks": 1500,
+      "Yoga Mats": 3500
+    }
+  }
+}

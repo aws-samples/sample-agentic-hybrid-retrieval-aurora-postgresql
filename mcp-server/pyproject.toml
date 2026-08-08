@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "catalog-studio-mcp"
+version = "0.2.0"
+description = "MCP 2026-07-28 adapter for the catalog hybrid retrieval API"
+requires-python = ">=3.10"
+dependencies = [
+  "httpx>=0.28,<1",
+  "mcp==2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9",
+]
+
+[project.scripts]
+catalog-studio-mcp = "catalog_mcp.server:main"
+
+[tool.setuptools.packages.find]
+include = ["catalog_mcp*"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["mcp_tests"]
+python_files = ["contract_cases.py"]

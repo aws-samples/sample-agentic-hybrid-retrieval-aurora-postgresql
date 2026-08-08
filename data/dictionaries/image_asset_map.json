@@ -1,0 +1,1132 @@
+{
+  "strategy": "deterministic curated asset pool for demo top matches; replace with CDN/media service in production",
+  "entries": [
+    {
+      "domain": "consumer_electronics",
+      "category": "Accessories",
+      "subcategory": "Cleaning Kits",
+      "product_count": 1000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Accessories",
+      "subcategory": "Device Stands",
+      "product_count": 2500,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Accessories",
+      "subcategory": "Protective Sleeves",
+      "product_count": 2000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Accessories",
+      "subcategory": "Remote Controls",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-keyboard.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Accessories",
+      "subcategory": "Screen Protectors",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Accessories",
+      "subcategory": "Travel Organizers",
+      "product_count": 2000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Audio",
+      "subcategory": "DACs & Amplifiers",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Audio",
+      "subcategory": "Gaming Headsets",
+      "product_count": 5000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Audio",
+      "subcategory": "Over-Ear Headphones",
+      "product_count": 17000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Audio",
+      "subcategory": "Portable Speakers",
+      "product_count": 8000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Audio",
+      "subcategory": "Soundbars",
+      "product_count": 4000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Audio",
+      "subcategory": "Studio Microphones",
+      "product_count": 5000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Audio",
+      "subcategory": "True Wireless Earbuds",
+      "product_count": 13000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Computing",
+      "subcategory": "External Storage",
+      "product_count": 2000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Computing",
+      "subcategory": "Laptops",
+      "product_count": 9000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Computing",
+      "subcategory": "Mechanical Keyboards",
+      "product_count": 5000,
+      "demo_asset": "assets/images/catalog-keyboard.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Computing",
+      "subcategory": "Mini PCs",
+      "product_count": 3000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Computing",
+      "subcategory": "Portable Monitors",
+      "product_count": 6000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Computing",
+      "subcategory": "Tablets",
+      "product_count": 7000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Computing",
+      "subcategory": "Wireless Mice",
+      "product_count": 4000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Gaming",
+      "subcategory": "Game Controllers",
+      "product_count": 4000,
+      "demo_asset": "assets/images/catalog-keyboard.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Gaming",
+      "subcategory": "Gaming Monitors",
+      "product_count": 4000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Gaming",
+      "subcategory": "Handheld Consoles",
+      "product_count": 2000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Gaming",
+      "subcategory": "Racing Wheels",
+      "product_count": 2000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Gaming",
+      "subcategory": "Streaming Capture Cards",
+      "product_count": 2000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Imaging",
+      "subcategory": "Action Cameras",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Imaging",
+      "subcategory": "Camera Lenses",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Imaging",
+      "subcategory": "Digital Binoculars",
+      "product_count": 1000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Imaging",
+      "subcategory": "Gimbals",
+      "product_count": 1000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Imaging",
+      "subcategory": "Mirrorless Cameras",
+      "product_count": 4000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Imaging",
+      "subcategory": "Photo Printers",
+      "product_count": 2000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Mobile & Power",
+      "subcategory": "Cables & Adapters",
+      "product_count": 4000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Mobile & Power",
+      "subcategory": "Charging Docks",
+      "product_count": 4000,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Mobile & Power",
+      "subcategory": "Phone Cases",
+      "product_count": 4000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Mobile & Power",
+      "subcategory": "Power Banks",
+      "product_count": 6000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Mobile & Power",
+      "subcategory": "USB-C Chargers",
+      "product_count": 7000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Networking",
+      "subcategory": "Mesh Wi-Fi Systems",
+      "product_count": 5000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Networking",
+      "subcategory": "Mobile Hotspots",
+      "product_count": 2000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Networking",
+      "subcategory": "Network Switches",
+      "product_count": 3000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Networking",
+      "subcategory": "Range Extenders",
+      "product_count": 1000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Networking",
+      "subcategory": "Wi-Fi Routers",
+      "product_count": 7000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Smart Home",
+      "subcategory": "Home Hubs",
+      "product_count": 1000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Smart Home",
+      "subcategory": "Security Cameras",
+      "product_count": 5000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Smart Home",
+      "subcategory": "Smart Lighting",
+      "product_count": 4000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Smart Home",
+      "subcategory": "Smart Plugs",
+      "product_count": 2000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Smart Home",
+      "subcategory": "Smart Thermostats",
+      "product_count": 3000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Smart Home",
+      "subcategory": "Video Doorbells",
+      "product_count": 3000,
+      "demo_asset": "assets/images/thumb-electronics.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Wearables",
+      "subcategory": "AR Glasses",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-watch.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Wearables",
+      "subcategory": "Fitness Trackers",
+      "product_count": 5000,
+      "demo_asset": "assets/images/catalog-watch.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Wearables",
+      "subcategory": "Sleep Trackers",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-watch.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Wearables",
+      "subcategory": "Smart Rings",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-watch.webp"
+    },
+    {
+      "domain": "consumer_electronics",
+      "category": "Wearables",
+      "subcategory": "Smartwatches",
+      "product_count": 8000,
+      "demo_asset": "assets/images/catalog-watch.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Acoustics",
+      "subcategory": "Acoustic Panels",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Acoustics",
+      "subcategory": "Desk Dividers",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Acoustics",
+      "subcategory": "Door Seals",
+      "product_count": 500,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Acoustics",
+      "subcategory": "Sound Masking Devices",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Air & Environment",
+      "subcategory": "Air Quality Monitors",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Air & Environment",
+      "subcategory": "Desk Fans",
+      "product_count": 750,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Air & Environment",
+      "subcategory": "Desktop Air Purifiers",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Air & Environment",
+      "subcategory": "Humidifiers",
+      "product_count": 750,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Desks",
+      "subcategory": "Compact Desks",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Desks",
+      "subcategory": "Corner Desks",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Desks",
+      "subcategory": "Drafting Tables",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Desks",
+      "subcategory": "Electric Standing Desks",
+      "product_count": 7000,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Desks",
+      "subcategory": "Fixed Desks",
+      "product_count": 4000,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Desks",
+      "subcategory": "Standing Desk Converters",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Displays",
+      "subcategory": "Monitor Arms",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Displays",
+      "subcategory": "Portable Monitors",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Displays",
+      "subcategory": "Privacy Screens",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Displays",
+      "subcategory": "Productivity Monitors",
+      "product_count": 6000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Displays",
+      "subcategory": "Ultrawide Monitors",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Ergonomics",
+      "subcategory": "Anti-Fatigue Mats",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Ergonomics",
+      "subcategory": "Footrests",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Ergonomics",
+      "subcategory": "Keyboard Trays",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-keyboard.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Ergonomics",
+      "subcategory": "Laptop Stands",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Ergonomics",
+      "subcategory": "Lumbar Supports",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Ergonomics",
+      "subcategory": "Wrist Rests",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Input Devices",
+      "subcategory": "Ergonomic Keyboards",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-keyboard.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Input Devices",
+      "subcategory": "Graphic Tablets",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Input Devices",
+      "subcategory": "Presentation Remotes",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-keyboard.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Input Devices",
+      "subcategory": "Quiet Keyboards",
+      "product_count": 4000,
+      "demo_asset": "assets/images/catalog-keyboard.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Input Devices",
+      "subcategory": "Trackballs",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-keyboard.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Input Devices",
+      "subcategory": "Vertical Mice",
+      "product_count": 2500,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Lighting",
+      "subcategory": "Circadian Lighting",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Lighting",
+      "subcategory": "Desk Lamps",
+      "product_count": 4000,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Lighting",
+      "subcategory": "Floor Lamps",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Lighting",
+      "subcategory": "Monitor Light Bars",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-monitor.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Lighting",
+      "subcategory": "Video Conference Lights",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Organization",
+      "subcategory": "Cable Management",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Organization",
+      "subcategory": "Desktop Organizers",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Organization",
+      "subcategory": "Drawer Units",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Organization",
+      "subcategory": "File Cabinets",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Organization",
+      "subcategory": "Pegboards",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Organization",
+      "subcategory": "Whiteboards",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Power & Connectivity",
+      "subcategory": "Docking Stations",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-stand.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Power & Connectivity",
+      "subcategory": "KVM Switches",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Power & Connectivity",
+      "subcategory": "Surge Protectors",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Power & Connectivity",
+      "subcategory": "UPS Battery Backups",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Power & Connectivity",
+      "subcategory": "USB Hubs",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Power & Connectivity",
+      "subcategory": "Wireless Chargers",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Seating",
+      "subcategory": "Active Stools",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Seating",
+      "subcategory": "Ergonomic Office Chairs",
+      "product_count": 9000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Seating",
+      "subcategory": "Executive Chairs",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Seating",
+      "subcategory": "Guest Chairs",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Seating",
+      "subcategory": "Kneeling Chairs",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Seating",
+      "subcategory": "Mesh Office Chairs",
+      "product_count": 5000,
+      "demo_asset": "assets/images/catalog-chair.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Video & Audio",
+      "subcategory": "Acoustic Headphones",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Video & Audio",
+      "subcategory": "Conference Headsets",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Video & Audio",
+      "subcategory": "Conference Webcams",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Video & Audio",
+      "subcategory": "Speakerphones",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "home_office",
+      "category": "Video & Audio",
+      "subcategory": "USB Microphones",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-headphones.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Accessories",
+      "subcategory": "Race Bib Holders",
+      "product_count": 500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Accessories",
+      "subcategory": "Reflective Gear",
+      "product_count": 900,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Accessories",
+      "subcategory": "Running Belts",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Accessories",
+      "subcategory": "Running Socks",
+      "product_count": 1200,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Accessories",
+      "subcategory": "Shoe Care",
+      "product_count": 400,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Accessories",
+      "subcategory": "Sports Sunglasses",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Apparel",
+      "subcategory": "Compression Wear",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Apparel",
+      "subcategory": "Leggings & Tights",
+      "product_count": 6000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Apparel",
+      "subcategory": "Running Shorts",
+      "product_count": 6000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Apparel",
+      "subcategory": "Running Tops",
+      "product_count": 7000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Apparel",
+      "subcategory": "Sports Bras",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Apparel",
+      "subcategory": "Weatherproof Jackets",
+      "product_count": 5000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Cardio Equipment",
+      "subcategory": "Ellipticals",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Cardio Equipment",
+      "subcategory": "Exercise Bikes",
+      "product_count": 2500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Cardio Equipment",
+      "subcategory": "Jump Ropes",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Cardio Equipment",
+      "subcategory": "Rowing Machines",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Cardio Equipment",
+      "subcategory": "Treadmills",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Footwear",
+      "subcategory": "Carbon Racing Shoes",
+      "product_count": 8000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Footwear",
+      "subcategory": "Cross-Training Shoes",
+      "product_count": 5000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Footwear",
+      "subcategory": "Road Running Shoes",
+      "product_count": 14000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Footwear",
+      "subcategory": "Stability Running Shoes",
+      "product_count": 7000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Footwear",
+      "subcategory": "Trail Running Shoes",
+      "product_count": 10000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Footwear",
+      "subcategory": "Walking Shoes",
+      "product_count": 6000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Hydration",
+      "subcategory": "Electrolyte Mixers",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Hydration",
+      "subcategory": "Hydration Vests",
+      "product_count": 2500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Hydration",
+      "subcategory": "Insulated Bottles",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Hydration",
+      "subcategory": "Running Bottles",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Hydration",
+      "subcategory": "Soft Flasks",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Recovery",
+      "subcategory": "Cold Therapy",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Recovery",
+      "subcategory": "Compression Sleeves",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Recovery",
+      "subcategory": "Massage Guns",
+      "product_count": 2500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Recovery",
+      "subcategory": "Recovery Boots",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Recovery",
+      "subcategory": "Sleep & Recovery Sensors",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Strength",
+      "subcategory": "Adjustable Dumbbells",
+      "product_count": 4000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Strength",
+      "subcategory": "Barbells & Plates",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Strength",
+      "subcategory": "Kettlebells",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Strength",
+      "subcategory": "Pull-Up Systems",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Strength",
+      "subcategory": "Resistance Bands",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Strength",
+      "subcategory": "Weight Benches",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Wearables",
+      "subcategory": "Cycling Computers",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-watch.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Wearables",
+      "subcategory": "GPS Running Watches",
+      "product_count": 6000,
+      "demo_asset": "assets/images/catalog-watch.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Wearables",
+      "subcategory": "Heart Rate Monitors",
+      "product_count": 4000,
+      "demo_asset": "assets/images/catalog-watch.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Wearables",
+      "subcategory": "Running Pods",
+      "product_count": 3000,
+      "demo_asset": "assets/images/catalog-watch.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Wearables",
+      "subcategory": "Smart Scales",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-watch.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Yoga & Mobility",
+      "subcategory": "Balance Trainers",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Yoga & Mobility",
+      "subcategory": "Foam Rollers",
+      "product_count": 2500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Yoga & Mobility",
+      "subcategory": "Mobility Tools",
+      "product_count": 2000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Yoga & Mobility",
+      "subcategory": "Pilates Accessories",
+      "product_count": 1000,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Yoga & Mobility",
+      "subcategory": "Yoga Blocks",
+      "product_count": 1500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    },
+    {
+      "domain": "running_fitness",
+      "category": "Yoga & Mobility",
+      "subcategory": "Yoga Mats",
+      "product_count": 3500,
+      "demo_asset": "assets/images/catalog-shoe.webp"
+    }
+  ]
+}

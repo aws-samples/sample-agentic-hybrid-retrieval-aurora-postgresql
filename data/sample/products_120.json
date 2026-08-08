@@ -1,0 +1,4167 @@
+[
+  {
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 70,
+      "codec": "LDAC",
+      "connectivity": [
+        "Bluetooth",
+        "3.5mm"
+      ],
+      "foldable": false,
+      "form_factor": "over-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "IP67",
+      "weight_g": 276
+    },
+    "availability": "In Stock",
+    "brand": "FluxWorks",
+    "category": "Audio",
+    "cohorts": [
+      "selective_filter"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/over-ear-headphones/086.webp",
+    "model": "OH-F604",
+    "popularity_score": 0.3215,
+    "price_usd": 49.99,
+    "product_id": 4166,
+    "quality_score": 0.5711,
+    "rating": 4.1,
+    "review_count": 41,
+    "short_description": "Natural transparency mode for content creation, with clearer calls in noisy rooms.",
+    "sku": "CO-OVERE-0004166",
+    "subcategory": "Over-Ear Headphones",
+    "tags": [
+      "audio",
+      "noise cancelling",
+      "over-ear",
+      "wireless"
+    ],
+    "title": "FluxWorks OH-F604 Plus Over-Ear Headphone"
+  },
+  {
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 36,
+      "codec": "aptX Adaptive",
+      "connectivity": [
+        "Bluetooth",
+        "Wireless USB"
+      ],
+      "foldable": false,
+      "form_factor": "over-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "IPX4",
+      "weight_g": 226
+    },
+    "availability": "In Stock",
+    "brand": "PixelPulse",
+    "category": "Audio",
+    "cohorts": [
+      "stale_inventory"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/over-ear-headphones/172.webp",
+    "model": "OH-F211S",
+    "popularity_score": 0.0179,
+    "price_usd": 53.06,
+    "product_id": 8332,
+    "quality_score": 0.6101,
+    "rating": 4.3,
+    "review_count": 9,
+    "short_description": "Spatial audio for content creation, with immersive sound without cable clutter.",
+    "sku": "CO-OVERE-0008332",
+    "subcategory": "Over-Ear Headphones",
+    "tags": [
+      "audio",
+      "noise cancelling",
+      "over-ear",
+      "wireless"
+    ],
+    "title": "PixelPulse OH-F211S Tour Over-Ear Headphone"
+  },
+  {
+    "attributes": {
+      "active_noise_cancellation": false,
+      "battery_hours": 79,
+      "codec": "LC3",
+      "connectivity": [
+        "Bluetooth",
+        "Wireless USB"
+      ],
+      "foldable": true,
+      "form_factor": "over-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "None",
+      "weight_g": 196
+    },
+    "availability": "In Stock",
+    "brand": "HaloEdge",
+    "category": "Audio",
+    "cohorts": [
+      "typo_target"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/over-ear-headphones/018.webp",
+    "model": "OH-A815P",
+    "popularity_score": 0.0902,
+    "price_usd": 218.91,
+    "product_id": 12498,
+    "quality_score": 0.5221,
+    "rating": 3.9,
+    "review_count": 18,
+    "short_description": "Natural transparency mode for remote collaboration, with immersive sound without cable clutter.",
+    "sku": "CO-OVERE-0012498",
+    "subcategory": "Over-Ear Headphones",
+    "tags": [
+      "audio",
+      "over-ear",
+      "passive isolation",
+      "wireless"
+    ],
+    "title": "HaloEdge OH-A815P Core Over-Ear Headphone"
+  },
+  {
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 64,
+      "codec": "SBC",
+      "connectivity": [
+        "Bluetooth",
+        "USB-C"
+      ],
+      "foldable": false,
+      "form_factor": "over-ear",
+      "microphone": true,
+      "multipoint": false,
+      "water_rating": "IP55",
+      "weight_g": 334
+    },
+    "availability": "In Stock",
+    "brand": "PixelOne",
+    "category": "Audio",
+    "cohorts": [
+      "lexical_only"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/over-ear-headphones/104.webp",
+    "model": "OH-A422",
+    "popularity_score": 0.3385,
+    "price_usd": 57.51,
+    "product_id": 16664,
+    "quality_score": 0.5813,
+    "rating": 4.4,
+    "review_count": 102,
+    "short_description": "PixelOne OH-A422; Over-Ear Headphones; Midnight; catalog specification record.",
+    "sku": "CO-OVERE-0016664",
+    "subcategory": "Over-Ear Headphones",
+    "tags": [
+      "audio",
+      "noise cancelling",
+      "over-ear",
+      "wireless"
+    ],
+    "title": "PixelOne OH-A422 Prime Over-Ear Headphone"
+  },
+  {
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 40,
+      "codec": "AAC",
+      "connectivity": [
+        "Bluetooth",
+        "Wireless USB"
+      ],
+      "foldable": false,
+      "form_factor": "in-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "IPX4",
+      "weight_g": 6
+    },
+    "availability": "In Stock",
+    "brand": "HaloLink",
+    "category": "Audio",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/true-wireless-earbuds/190.webp",
+    "model": "TWE-E136",
+    "popularity_score": 0.2887,
+    "price_usd": 286.19,
+    "product_id": 20830,
+    "quality_score": 0.6956,
+    "rating": 4.5,
+    "review_count": 91,
+    "short_description": "Spatial audio for family use, with quiet focus on long flights.",
+    "sku": "CO-TRUEW-0020830",
+    "subcategory": "True Wireless Earbuds",
+    "tags": [
+      "audio",
+      "in-ear",
+      "noise cancelling",
+      "wireless"
+    ],
+    "title": "HaloLink TWE-E136 Core True Wireless Earbud"
+  },
+  {
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 27,
+      "codec": "AAC",
+      "connectivity": [
+        "Bluetooth",
+        "Wireless USB"
+      ],
+      "foldable": true,
+      "form_factor": "in-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "IP55",
+      "weight_g": 5
+    },
+    "availability": "In Stock",
+    "brand": "HaloGrid",
+    "category": "Audio",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/true-wireless-earbuds/036.webp",
+    "model": "TWE-R740",
+    "popularity_score": 0.2974,
+    "price_usd": 178.44,
+    "product_id": 24996,
+    "quality_score": 0.3023,
+    "rating": 3.8,
+    "review_count": 79,
+    "short_description": "Adaptive noise control for small spaces, with clearer calls in noisy rooms.",
+    "sku": "CO-TRUEW-0024996",
+    "subcategory": "True Wireless Earbuds",
+    "tags": [
+      "audio",
+      "in-ear",
+      "noise cancelling",
+      "wireless"
+    ],
+    "title": "HaloGrid TWE-R740 Elite True Wireless Earbud"
+  },
+  {
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 51,
+      "codec": "AAC",
+      "connectivity": [
+        "Bluetooth",
+        "USB-C"
+      ],
+      "foldable": true,
+      "form_factor": "in-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "IP55",
+      "weight_g": 8
+    },
+    "availability": "In Stock",
+    "brand": "AxionTech",
+    "category": "Audio",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/true-wireless-earbuds/122.webp",
+    "model": "TWE-M347P",
+    "popularity_score": 0.0832,
+    "price_usd": 70.24,
+    "product_id": 29162,
+    "quality_score": 0.6622,
+    "rating": 4.1,
+    "review_count": 24,
+    "short_description": "Spatial audio for home entertainment, with comfortable all-day listening.",
+    "sku": "CO-TRUEW-0029162",
+    "subcategory": "True Wireless Earbuds",
+    "tags": [
+      "audio",
+      "in-ear",
+      "noise cancelling",
+      "wireless"
+    ],
+    "title": "AxionTech TWE-M347P Max True Wireless Earbud"
+  },
+  {
+    "attributes": {
+      "bluetooth": true,
+      "channels": "7.1",
+      "power_w": 264,
+      "voice_assistant_ready": true,
+      "water_rating": "IPX5",
+      "wifi": false
+    },
+    "availability": "In Stock",
+    "brand": "VoltWave",
+    "category": "Audio",
+    "cohorts": [
+      "review_evidence"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/portable-speakers/208.webp",
+    "model": "PS-V505P",
+    "popularity_score": 0.5144,
+    "price_usd": 195.58,
+    "product_id": 33328,
+    "quality_score": 0.5302,
+    "rating": 3.9,
+    "review_count": 114,
+    "short_description": "Room-filling tuned audio for home entertainment, with balanced sound across music, film, and calls.",
+    "sku": "CO-PORTA-0033328",
+    "subcategory": "Portable Speakers",
+    "tags": [
+      "audio",
+      "speaker",
+      "wireless"
+    ],
+    "title": "VoltWave PS-V505P Edge Portable Speaker"
+  },
+  {
+    "attributes": {
+      "bluetooth": true,
+      "channels": "2.1",
+      "power_w": 344,
+      "voice_assistant_ready": false,
+      "water_rating": "None",
+      "wifi": true
+    },
+    "availability": "In Stock",
+    "brand": "EchoWorks",
+    "category": "Audio",
+    "cohorts": [
+      "typo_target",
+      "review_evidence"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/portable-speakers/054.webp",
+    "model": "PS-A112S",
+    "popularity_score": 0.3674,
+    "price_usd": 335.95,
+    "product_id": 37494,
+    "quality_score": 0.7345,
+    "rating": 4.5,
+    "review_count": 91,
+    "short_description": "Room-filling tuned audio for home entertainment, with balanced sound across music, film, and calls.",
+    "sku": "CO-PORTA-0037494",
+    "subcategory": "Portable Speakers",
+    "tags": [
+      "audio",
+      "speaker",
+      "wireless"
+    ],
+    "title": "EchoWorks PS-A112S Flex Portable Speaker"
+  },
+  {
+    "attributes": {
+      "compatibility": "Desktop",
+      "material": "Fabric",
+      "portable": true,
+      "weight_g": 1901
+    },
+    "availability": "In Stock",
+    "brand": "NovaForge",
+    "category": "Audio",
+    "cohorts": [
+      "lexical_only",
+      "selective_filter"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/studio-microphones/140.webp",
+    "model": "SM-K825",
+    "popularity_score": 0.1864,
+    "price_usd": 49.98,
+    "product_id": 41660,
+    "quality_score": 0.9448,
+    "rating": 4.8,
+    "review_count": 48,
+    "short_description": "NovaForge SM-K825; Studio Microphones; Silver; catalog specification record.",
+    "sku": "CO-STUDI-0041660",
+    "subcategory": "Studio Microphones",
+    "tags": [
+      "audio",
+      "studio microphones"
+    ],
+    "title": "NovaForge SM-K825 Tour Studio Microphone"
+  },
+  {
+    "attributes": {
+      "active_noise_cancellation": false,
+      "battery_hours": 27,
+      "codec": "LDAC",
+      "connectivity": [
+        "Bluetooth",
+        "3.5mm"
+      ],
+      "foldable": true,
+      "form_factor": "over-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "IPX4",
+      "weight_g": 263
+    },
+    "availability": "In Stock",
+    "brand": "FluxLogic",
+    "category": "Audio",
+    "cohorts": [
+      "selective_filter"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/gaming-headsets/226.webp",
+    "model": "GH-V874",
+    "popularity_score": 0.4905,
+    "price_usd": 399.99,
+    "product_id": 45826,
+    "quality_score": 0.6416,
+    "rating": 4.1,
+    "review_count": 165,
+    "short_description": "Clear call pickup for small spaces, with quiet focus on long flights.",
+    "sku": "CO-GAMIN-0045826",
+    "subcategory": "Gaming Headsets",
+    "tags": [
+      "audio",
+      "over-ear",
+      "passive isolation",
+      "wireless"
+    ],
+    "title": "FluxLogic GH-V874 Core Gaming Headset"
+  },
+  {
+    "attributes": {
+      "bluetooth": true,
+      "channels": "3.1",
+      "power_w": 139,
+      "voice_assistant_ready": false,
+      "water_rating": "IPX5",
+      "wifi": true
+    },
+    "availability": "In Stock",
+    "brand": "CobaltVision",
+    "category": "Audio",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/soundbars/072.webp",
+    "model": "S-R923",
+    "popularity_score": 0.1146,
+    "price_usd": 174.95,
+    "product_id": 49992,
+    "quality_score": 0.5816,
+    "rating": 4.3,
+    "review_count": 8,
+    "short_description": "Room-filling tuned audio for home entertainment, with balanced sound across music, film, and calls.",
+    "sku": "CO-SOUND-0049992",
+    "subcategory": "Soundbars",
+    "tags": [
+      "audio",
+      "speaker",
+      "wireless"
+    ],
+    "title": "CobaltVision S-R923 Max Soundbar"
+  },
+  {
+    "attributes": {
+      "bluetooth": true,
+      "channels": "2.0",
+      "power_w": 170,
+      "voice_assistant_ready": true,
+      "water_rating": "IP67",
+      "wifi": true
+    },
+    "availability": "In Stock",
+    "brand": "NexaWave",
+    "category": "Audio",
+    "cohorts": [
+      "popularity_bias"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/dacs-amplifiers/158.webp",
+    "model": "D&A-Z086",
+    "popularity_score": 0.9345,
+    "price_usd": 177.31,
+    "product_id": 54158,
+    "quality_score": 0.6731,
+    "rating": 4.4,
+    "review_count": 8806,
+    "short_description": "Room-filling tuned audio for small spaces, with balanced sound across music, film, and calls.",
+    "sku": "CO-DACSA-0054158",
+    "subcategory": "DACs & Amplifiers",
+    "tags": [
+      "audio",
+      "speaker",
+      "wireless"
+    ],
+    "title": "NexaWave D&A-Z086 Prime DACs & Amplifier"
+  },
+  {
+    "attributes": {
+      "battery_hours": 10,
+      "display_in": 14,
+      "memory_gb": 24,
+      "processor_tier": "Performance",
+      "storage_gb": 1024,
+      "usb_c": true,
+      "weight_kg": 2.27,
+      "wifi_generation": 7
+    },
+    "availability": "Out of Stock",
+    "brand": "EchoEdge",
+    "category": "Computing",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/laptops/004.webp",
+    "model": "L-V357P",
+    "popularity_score": 0.0899,
+    "price_usd": 1555.48,
+    "product_id": 58324,
+    "quality_score": 0.8695,
+    "rating": 4.9,
+    "review_count": 5,
+    "short_description": "Portable multitasking performance for daily commuting, with smooth work across documents, meetings, and creative apps.",
+    "sku": "CO-LAPTO-0058324",
+    "subcategory": "Laptops",
+    "tags": [
+      "computer",
+      "portable",
+      "usb-c"
+    ],
+    "title": "EchoEdge L-V357P Elite Laptop"
+  },
+  {
+    "attributes": {
+      "battery_hours": 16,
+      "display_in": 13.3,
+      "memory_gb": 24,
+      "processor_tier": "Efficient",
+      "storage_gb": 1024,
+      "usb_c": true,
+      "weight_kg": 0.59,
+      "wifi_generation": 7
+    },
+    "availability": "In Stock",
+    "brand": "VeroLabs",
+    "category": "Computing",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/laptops/090.webp",
+    "model": "L-S961S",
+    "popularity_score": 0.1218,
+    "price_usd": 1588.94,
+    "product_id": 62490,
+    "quality_score": 0.3515,
+    "rating": 3.8,
+    "review_count": 15,
+    "short_description": "Portable multitasking performance for remote collaboration, with smooth work across documents, meetings, and creative apps.",
+    "sku": "CO-LAPTO-0062490",
+    "subcategory": "Laptops",
+    "tags": [
+      "computer",
+      "portable",
+      "usb-c"
+    ],
+    "title": "VeroLabs L-S961S Prime Laptop"
+  },
+  {
+    "attributes": {
+      "battery_hours": 21,
+      "display_in": 14,
+      "memory_gb": 24,
+      "processor_tier": "Efficient",
+      "storage_gb": 512,
+      "usb_c": true,
+      "weight_kg": 1.4,
+      "wifi_generation": "6E"
+    },
+    "availability": "In Stock",
+    "brand": "OrbitAudio",
+    "category": "Computing",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/tablets/176.webp",
+    "model": "T-C566",
+    "popularity_score": 0.2381,
+    "price_usd": 576.4,
+    "product_id": 66656,
+    "quality_score": 0.8653,
+    "rating": 4.8,
+    "review_count": 98,
+    "short_description": "Portable multitasking performance for remote collaboration, with smooth work across documents, meetings, and creative apps.",
+    "sku": "CO-TABLE-0066656",
+    "subcategory": "Tablets",
+    "tags": [
+      "computer",
+      "portable",
+      "usb-c"
+    ],
+    "title": "OrbitAudio T-C566 Essential Tablet"
+  },
+  {
+    "attributes": {
+      "battery_hours": 20,
+      "display_in": 8.3,
+      "memory_gb": 24,
+      "processor_tier": "Efficient",
+      "storage_gb": 512,
+      "usb_c": true,
+      "weight_kg": 0.63,
+      "wifi_generation": 6
+    },
+    "availability": "In Stock",
+    "brand": "NimbusCore",
+    "category": "Computing",
+    "cohorts": [
+      "baseline"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/tablets/022.webp",
+    "model": "T-P173X",
+    "popularity_score": 0.2349,
+    "price_usd": 463.34,
+    "product_id": 70822,
+    "quality_score": 0.8431,
+    "rating": 4.8,
+    "review_count": 15,
+    "short_description": "Portable multitasking performance for small spaces, with smooth work across documents, meetings, and creative apps.",
+    "sku": "CO-TABLE-0070822",
+    "subcategory": "Tablets",
+    "tags": [
+      "computer",
+      "portable",
+      "usb-c"
+    ],
+    "title": "NimbusCore T-P173X Active Tablet"
+  },
+  {
+    "attributes": {
+      "color_gamut_pct": 93,
+      "height_adjustable": true,
+      "panel": "OLED",
+      "refresh_hz": 165,
+      "resolution": "1920x1080",
+      "size_in": 32,
+      "usb_c_power_w": 65,
+      "vesa": true
+    },
+    "availability": "In Stock",
+    "brand": "LumaEdge",
+    "category": "Computing",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/portable-monitors/108.webp",
+    "model": "PM-V000S",
+    "popularity_score": 0.1509,
+    "price_usd": 361.1,
+    "product_id": 74988,
+    "quality_score": 0.5077,
+    "rating": 4.0,
+    "review_count": 4,
+    "short_description": "High-density workspace display for hybrid work, with crisp text and room for side-by-side work.",
+    "sku": "CO-PORTA-0074988",
+    "subcategory": "Portable Monitors",
+    "tags": [
+      "1920x1080",
+      "32 inch",
+      "display"
+    ],
+    "title": "LumaEdge PM-V000S Ultra Portable Monitor"
+  },
+  {
+    "attributes": {
+      "backlit": false,
+      "hot_swappable": false,
+      "layout": "Split",
+      "os_compatibility": [
+        "Linux",
+        "Windows",
+        "ChromeOS",
+        "macOS"
+      ],
+      "quiet_typing": true,
+      "switch_type": "Linear",
+      "wireless": true
+    },
+    "availability": "In Stock",
+    "brand": "VoltLogic",
+    "category": "Computing",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/mechanical-keyboards/194.webp",
+    "model": "MK-C935S",
+    "popularity_score": 0.0846,
+    "price_usd": 173.73,
+    "product_id": 79154,
+    "quality_score": 0.2249,
+    "rating": 3.8,
+    "review_count": 42,
+    "short_description": "Muted key action for small spaces, with meeting-friendly typing with less desk noise.",
+    "sku": "CO-MECHA-0079154",
+    "subcategory": "Mechanical Keyboards",
+    "tags": [
+      "input",
+      "keyboard",
+      "quiet"
+    ],
+    "title": "VoltLogic MK-C935S Essential Mechanical Keyboard"
+  },
+  {
+    "attributes": {
+      "compatibility": "Mobile",
+      "material": "Polymer",
+      "portable": true,
+      "weight_g": 1395
+    },
+    "availability": "In Stock",
+    "brand": "ZenithOne",
+    "category": "Computing",
+    "cohorts": [
+      "typo_target"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/wireless-mice/040.webp",
+    "model": "WM-A984",
+    "popularity_score": 0.2889,
+    "price_usd": 168.28,
+    "product_id": 83320,
+    "quality_score": 0.667,
+    "rating": 4.0,
+    "review_count": 175,
+    "short_description": "Balanced everyday performance for hybrid work, with reliable performance for everyday use.",
+    "sku": "CO-WIREL-0083320",
+    "subcategory": "Wireless Mice",
+    "tags": [
+      "computing",
+      "wireless mice"
+    ],
+    "title": "ZenithOne WM-A984 Pro Wireless Mice"
+  },
+  {
+    "attributes": {
+      "battery_hours": 19,
+      "display_in": 13.3,
+      "processor_tier": "Efficient",
+      "storage_gb": 2048,
+      "wifi_generation": 7
+    },
+    "availability": "In Stock",
+    "brand": "LumaLogic",
+    "category": "Computing",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/mini-pcs/126.webp",
+    "model": "MP-V147",
+    "popularity_score": 0.3936,
+    "price_usd": 126.27,
+    "product_id": 87486,
+    "quality_score": 0.5914,
+    "rating": 4.0,
+    "review_count": 61,
+    "short_description": "Portable multitasking performance for daily commuting, with smooth work across documents, meetings, and creative apps.",
+    "sku": "CO-MINIP-0087486",
+    "subcategory": "Mini PCs",
+    "tags": [
+      "computer",
+      "portable",
+      "usb-c"
+    ],
+    "title": "LumaLogic MP-V147 Active Mini PC"
+  },
+  {
+    "attributes": {
+      "capacity_mah": 0,
+      "gan": false,
+      "max_power_w": 67,
+      "ports": 4,
+      "travel_ready": true,
+      "usb_c_pd": true
+    },
+    "availability": "In Stock",
+    "brand": "PixelPulse",
+    "category": "Mobile & Power",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/usb-c-chargers/212.webp",
+    "model": "UC-A196P",
+    "popularity_score": 0.096,
+    "price_usd": 63.04,
+    "product_id": 91652,
+    "quality_score": 0.7576,
+    "rating": 4.4,
+    "review_count": 15,
+    "short_description": "Compact high-output charging for small spaces, with fewer adapters across travel and desk setups.",
+    "sku": "CO-USBCC-0091652",
+    "subcategory": "USB-C Chargers",
+    "tags": [
+      "charging",
+      "power",
+      "usb-c"
+    ],
+    "title": "PixelPulse UC-A196P Tour USB-C Charger"
+  },
+  {
+    "attributes": {
+      "capacity_mah": 0,
+      "gan": true,
+      "max_power_w": 100,
+      "ports": 4,
+      "travel_ready": true,
+      "usb_c_pd": true
+    },
+    "availability": "In Stock",
+    "brand": "HaloEdge",
+    "category": "Mobile & Power",
+    "cohorts": [
+      "hard_negative"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/usb-c-chargers/058.webp",
+    "model": "UC-S800P",
+    "popularity_score": 0.318,
+    "price_usd": 38.99,
+    "product_id": 95818,
+    "quality_score": 0.9374,
+    "rating": 4.9,
+    "review_count": 173,
+    "short_description": "Compact high-output charging for travel, with fewer adapters across travel and desk setups.",
+    "sku": "CO-USBCC-0095818",
+    "subcategory": "USB-C Chargers",
+    "tags": [
+      "charging",
+      "power",
+      "usb-c"
+    ],
+    "title": "HaloEdge UC-S800P Max USB-C Charger"
+  },
+  {
+    "attributes": {
+      "capacity_mah": 20000,
+      "gan": true,
+      "max_power_w": 65,
+      "ports": 1,
+      "travel_ready": false,
+      "usb_c_pd": true
+    },
+    "availability": "In Stock",
+    "brand": "NexaAudio",
+    "category": "Mobile & Power",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/power-banks/144.webp",
+    "model": "PB-M627X",
+    "popularity_score": 0.066,
+    "price_usd": 73.9,
+    "product_id": 99984,
+    "quality_score": 0.6915,
+    "rating": 4.5,
+    "review_count": 18,
+    "short_description": "Compact high-output charging for content creation, with fewer adapters across travel and desk setups.",
+    "sku": "CO-POWER-0099984",
+    "subcategory": "Power Banks",
+    "tags": [
+      "charging",
+      "power",
+      "usb-c"
+    ],
+    "title": "NexaAudio PB-M627X Max Power Bank"
+  },
+  {
+    "attributes": {
+      "compatibility": "Desktop",
+      "material": "Fabric",
+      "portable": false,
+      "weight_g": 1675
+    },
+    "availability": "In Stock",
+    "brand": "VoltGrid",
+    "category": "Mobile & Power",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/phone-cases/230.webp",
+    "model": "PC-P565",
+    "popularity_score": 0.5163,
+    "price_usd": 92.56,
+    "product_id": 104150,
+    "quality_score": 0.8214,
+    "rating": 4.6,
+    "review_count": 195,
+    "short_description": "Balanced everyday performance for small spaces, with reliable performance for everyday use.",
+    "sku": "CO-PHONE-0104150",
+    "subcategory": "Phone Cases",
+    "tags": [
+      "mobile & power",
+      "phone cases"
+    ],
+    "title": "VoltGrid PC-P565 Flex Phone Case"
+  },
+  {
+    "attributes": {
+      "capacity_mah": 0,
+      "gan": true,
+      "max_power_w": 240,
+      "ports": 4,
+      "travel_ready": false,
+      "usb_c_pd": true
+    },
+    "availability": "In Stock",
+    "brand": "HaloGrid",
+    "category": "Mobile & Power",
+    "cohorts": [
+      "popularity_bias",
+      "review_evidence"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/charging-docks/076.webp",
+    "model": "CD-Z725X",
+    "popularity_score": 0.9756,
+    "price_usd": 55.17,
+    "product_id": 108316,
+    "quality_score": 0.6686,
+    "rating": 4.4,
+    "review_count": 5142,
+    "short_description": "Compact high-output charging for hybrid work, with fewer adapters across travel and desk setups.",
+    "sku": "CO-CHARG-0108316",
+    "subcategory": "Charging Docks",
+    "tags": [
+      "charging",
+      "power",
+      "usb-c"
+    ],
+    "title": "HaloGrid CD-Z725X Essential Charging Dock"
+  },
+  {
+    "attributes": {
+      "capacity_mah": 0,
+      "gan": true,
+      "max_power_w": 45,
+      "ports": 1,
+      "travel_ready": true,
+      "usb_c_pd": true
+    },
+    "availability": "In Stock",
+    "brand": "AxionEdge",
+    "category": "Mobile & Power",
+    "cohorts": [
+      "selective_filter",
+      "compatibility"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/cables-adapters/162.webp",
+    "model": "C&A-F885S",
+    "popularity_score": 0.7783,
+    "price_usd": 799.98,
+    "product_id": 112482,
+    "quality_score": 0.5678,
+    "rating": 4.4,
+    "review_count": 3445,
+    "short_description": "Compact high-output charging for family use, with fewer adapters across travel and desk setups.",
+    "sku": "CO-CABLE-0112482",
+    "subcategory": "Cables & Adapters",
+    "tags": [
+      "charging",
+      "power",
+      "usb-c"
+    ],
+    "title": "AxionEdge C&A-F885S Edge Cables & Adapter"
+  },
+  {
+    "attributes": {
+      "battery_days": 27,
+      "gps": false,
+      "heart_rate": true,
+      "platforms": [
+        "Web",
+        "iOS",
+        "Android"
+      ],
+      "sleep_tracking": true,
+      "training_readiness": false,
+      "water_rating_atm": 3
+    },
+    "availability": "In Stock",
+    "brand": "CobaltBeam",
+    "category": "Wearables",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/smartwatches/008.webp",
+    "model": "S-A048X",
+    "popularity_score": 0.4302,
+    "price_usd": 339.85,
+    "product_id": 116648,
+    "quality_score": 0.643,
+    "rating": 4.1,
+    "review_count": 84,
+    "short_description": "Continuous training and recovery insights for gaming, with a clearer view of effort, sleep, and readiness.",
+    "sku": "CO-SMART-0116648",
+    "subcategory": "Smartwatches",
+    "tags": [
+      "fitness",
+      "health",
+      "wearable"
+    ],
+    "title": "CobaltBeam S-A048X Flex Smartwatche"
+  },
+  {
+    "attributes": {
+      "battery_days": 3,
+      "gps": true,
+      "heart_rate": true,
+      "platforms": [
+        "Web",
+        "Android",
+        "iOS"
+      ],
+      "sleep_tracking": true,
+      "training_readiness": false,
+      "water_rating_atm": 10
+    },
+    "availability": "In Stock",
+    "brand": "VeroCore",
+    "category": "Wearables",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/smartwatches/094.webp",
+    "model": "S-F652X",
+    "popularity_score": 0.687,
+    "price_usd": 697.11,
+    "product_id": 120814,
+    "quality_score": 0.8194,
+    "rating": 4.6,
+    "review_count": 1201,
+    "short_description": "Continuous training and recovery insights for gaming, with a clearer view of effort, sleep, and readiness.",
+    "sku": "CO-SMART-0120814",
+    "subcategory": "Smartwatches",
+    "tags": [
+      "fitness",
+      "health",
+      "wearable"
+    ],
+    "title": "VeroCore S-F652X Studio Smartwatche"
+  },
+  {
+    "attributes": {
+      "battery_days": 9,
+      "gps": true,
+      "heart_rate": true,
+      "platforms": [
+        "Web",
+        "iOS"
+      ],
+      "sleep_tracking": false,
+      "training_readiness": false,
+      "water_rating_atm": 3
+    },
+    "availability": "In Stock",
+    "brand": "AxionLink",
+    "category": "Wearables",
+    "cohorts": [
+      "popularity_bias"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/fitness-trackers/180.webp",
+    "model": "FT-M368X",
+    "popularity_score": 0.9724,
+    "price_usd": 111.73,
+    "product_id": 124980,
+    "quality_score": 0.5491,
+    "rating": 4.2,
+    "review_count": 10674,
+    "short_description": "Continuous training and recovery insights for gaming, with a clearer view of effort, sleep, and readiness.",
+    "sku": "CO-FITNE-0124980",
+    "subcategory": "Fitness Trackers",
+    "tags": [
+      "fitness",
+      "health",
+      "wearable"
+    ],
+    "title": "AxionLink FT-M368X Pro Fitness Tracker"
+  },
+  {
+    "attributes": {
+      "battery_days": 7,
+      "gps": true,
+      "heart_rate": true,
+      "platforms": [
+        "Web",
+        "Android"
+      ],
+      "sleep_tracking": true,
+      "training_readiness": false,
+      "water_rating_atm": 10
+    },
+    "availability": "In Stock",
+    "brand": "MeridianTech",
+    "category": "Wearables",
+    "cohorts": [
+      "typo_target"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/smart-rings/026.webp",
+    "model": "SR-A417P",
+    "popularity_score": 0.6287,
+    "price_usd": 110.42,
+    "product_id": 129146,
+    "quality_score": 0.6389,
+    "rating": 4.2,
+    "review_count": 313,
+    "short_description": "Continuous training and recovery insights for mobile productivity, with a clearer view of effort, sleep, and readiness.",
+    "sku": "CO-SMART-0129146",
+    "subcategory": "Smart Rings",
+    "tags": [
+      "fitness",
+      "health",
+      "wearable"
+    ],
+    "title": "MeridianTech SR-A417P Edge Smart Ring"
+  },
+  {
+    "attributes": {
+      "battery_days": 24,
+      "gps": true,
+      "heart_rate": true,
+      "training_readiness": true,
+      "water_rating_atm": 5
+    },
+    "availability": "In Stock",
+    "brand": "HaloWave",
+    "category": "Wearables",
+    "cohorts": [
+      "fresh_launch"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/sleep-trackers/112.webp",
+    "model": "ST-V688S",
+    "popularity_score": 0.0649,
+    "price_usd": 120.6,
+    "product_id": 133312,
+    "quality_score": 0.3771,
+    "rating": 3.7,
+    "review_count": 10,
+    "short_description": "Continuous training and recovery insights for family use, with a clearer view of effort, sleep, and readiness.",
+    "sku": "CO-SLEEP-0133312",
+    "subcategory": "Sleep Trackers",
+    "tags": [
+      "fitness",
+      "health",
+      "wearable"
+    ],
+    "title": "HaloWave ST-V688S Edge Sleep Tracker"
+  },
+  {
+    "attributes": {
+      "coverage_sqft": 2970,
+      "ethernet_ports": 5,
+      "max_speed_mbps": 11000,
+      "mesh_ready": true,
+      "security_updates_years": 5,
+      "wifi_generation": 6
+    },
+    "availability": "In Stock",
+    "brand": "ZenithWorks",
+    "category": "Networking",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/wi-fi-routers/198.webp",
+    "model": "WR-X848S",
+    "popularity_score": 0.1007,
+    "price_usd": 646.28,
+    "product_id": 137478,
+    "quality_score": 0.6315,
+    "rating": 4.2,
+    "review_count": 22,
+    "short_description": "Adaptive whole-home networking for remote collaboration, with stable coverage across busy connected homes.",
+    "sku": "CO-WIFIR-0137478",
+    "subcategory": "Wi-Fi Routers",
+    "tags": [
+      "home",
+      "networking",
+      "wifi"
+    ],
+    "title": "ZenithWorks WR-X848S Elite Wi-Fi Router"
+  },
+  {
+    "attributes": {
+      "coverage_sqft": 6027,
+      "ethernet_ports": 8,
+      "max_speed_mbps": 6600,
+      "mesh_ready": true,
+      "security_updates_years": 4,
+      "wifi_generation": "6E"
+    },
+    "availability": "In Stock",
+    "brand": "PrismWorks",
+    "category": "Networking",
+    "cohorts": [
+      "baseline"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/wi-fi-routers/044.webp",
+    "model": "WR-P455X",
+    "popularity_score": 0.3095,
+    "price_usd": 467.98,
+    "product_id": 141644,
+    "quality_score": 0.6986,
+    "rating": 4.3,
+    "review_count": 69,
+    "short_description": "Adaptive whole-home networking for small spaces, with stable coverage across busy connected homes.",
+    "sku": "CO-WIFIR-0141644",
+    "subcategory": "Wi-Fi Routers",
+    "tags": [
+      "home",
+      "networking",
+      "wifi"
+    ],
+    "title": "PrismWorks WR-P455X Core Wi-Fi Router"
+  },
+  {
+    "attributes": {
+      "coverage_sqft": 7811,
+      "ethernet_ports": 12,
+      "max_speed_mbps": 1800,
+      "mesh_ready": true,
+      "security_updates_years": 5,
+      "wifi_generation": 6
+    },
+    "availability": "Low Stock",
+    "brand": "VeroLabs",
+    "category": "Networking",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/mesh-wi-fi-systems/130.webp",
+    "model": "MWS-Z282P",
+    "popularity_score": 0.6506,
+    "price_usd": 215.97,
+    "product_id": 145810,
+    "quality_score": 0.9192,
+    "rating": 4.7,
+    "review_count": 793,
+    "short_description": "Adaptive whole-home networking for content creation, with stable coverage across busy connected homes.",
+    "sku": "CO-MESHW-0145810",
+    "subcategory": "Mesh Wi-Fi Systems",
+    "tags": [
+      "home",
+      "networking",
+      "wifi"
+    ],
+    "title": "VeroLabs MWS-Z282P Prime Mesh Wi-Fi System"
+  },
+  {
+    "attributes": {
+      "coverage_sqft": 4843,
+      "ethernet_ports": 8,
+      "max_speed_mbps": 3000,
+      "mesh_ready": true,
+      "security_updates_years": 5,
+      "wifi_generation": "6E"
+    },
+    "availability": "In Stock",
+    "brand": "LumaTech",
+    "category": "Networking",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/network-switches/216.webp",
+    "model": "NS-E331",
+    "popularity_score": 0.3618,
+    "price_usd": 105.75,
+    "product_id": 149976,
+    "quality_score": 0.7623,
+    "rating": 4.7,
+    "review_count": 115,
+    "short_description": "Adaptive whole-home networking for remote collaboration, with stable coverage across busy connected homes.",
+    "sku": "CO-NETWO-0149976",
+    "subcategory": "Network Switches",
+    "tags": [
+      "home",
+      "networking",
+      "wifi"
+    ],
+    "title": "LumaTech NS-E331 Plus Network Switche"
+  },
+  {
+    "attributes": {
+      "mount": "A-Mount",
+      "resolution_mp": 61,
+      "stabilization": true,
+      "video": "4K30",
+      "weather_sealed": true,
+      "weight_g": 1127
+    },
+    "availability": "In Stock",
+    "brand": "AxionCore",
+    "category": "Smart Home",
+    "cohorts": [
+      "semantic_only"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/security-cameras/062.webp",
+    "model": "SC-Z269",
+    "popularity_score": 0.2615,
+    "price_usd": 189.01,
+    "product_id": 154142,
+    "quality_score": 0.5143,
+    "rating": 4.3,
+    "review_count": 17,
+    "short_description": "Detail-rich stabilized capture for home entertainment, with sharper content in motion and changing light.",
+    "sku": "CO-SECUR-0154142",
+    "subcategory": "Security Cameras",
+    "tags": [
+      "creator",
+      "imaging",
+      "video"
+    ],
+    "title": "AxionCore SC-Z269 Flex Security Camera"
+  },
+  {
+    "attributes": {
+      "mount": "Micro Four Thirds",
+      "resolution_mp": 45,
+      "stabilization": true,
+      "video": "6K30",
+      "weather_sealed": true,
+      "weight_g": 1142
+    },
+    "availability": "In Stock",
+    "brand": "CobaltLogic",
+    "category": "Smart Home",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/security-cameras/148.webp",
+    "model": "SC-R873",
+    "popularity_score": 0.1476,
+    "price_usd": 27.49,
+    "product_id": 158308,
+    "quality_score": 0.5463,
+    "rating": 4.1,
+    "review_count": 28,
+    "short_description": "Detail-rich stabilized capture for mobile productivity, with sharper content in motion and changing light.",
+    "sku": "CO-SECUR-0158308",
+    "subcategory": "Security Cameras",
+    "tags": [
+      "creator",
+      "imaging",
+      "video"
+    ],
+    "title": "CobaltLogic SC-R873 Elite Security Camera"
+  },
+  {
+    "attributes": {
+      "compatibility": "Desktop",
+      "material": "Polymer",
+      "portable": true,
+      "weight_g": 1675
+    },
+    "availability": "In Stock",
+    "brand": "VoltLogic",
+    "category": "Smart Home",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/smart-lighting/234.webp",
+    "model": "SL-K922S",
+    "popularity_score": 0.5285,
+    "price_usd": 83.91,
+    "product_id": 162474,
+    "quality_score": 0.7089,
+    "rating": 4.4,
+    "review_count": 167,
+    "short_description": "Balanced everyday performance for home entertainment, with reliable performance for everyday use.",
+    "sku": "CO-SMART-0162474",
+    "subcategory": "Smart Lighting",
+    "tags": [
+      "smart home",
+      "smart lighting"
+    ],
+    "title": "VoltLogic SL-K922S Ultra Smart Lighting"
+  },
+  {
+    "attributes": {
+      "compatibility": "Universal",
+      "material": "Composite",
+      "portable": true,
+      "weight_g": 1419
+    },
+    "availability": "In Stock",
+    "brand": "AxionLogic",
+    "category": "Smart Home",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/video-doorbells/080.webp",
+    "model": "VD-M749S",
+    "popularity_score": 0.0586,
+    "price_usd": 259.56,
+    "product_id": 166640,
+    "quality_score": 0.7231,
+    "rating": 4.4,
+    "review_count": 43,
+    "short_description": "Balanced everyday performance for travel, with reliable performance for everyday use.",
+    "sku": "CO-VIDEO-0166640",
+    "subcategory": "Video Doorbells",
+    "tags": [
+      "smart home",
+      "video doorbells"
+    ],
+    "title": "AxionLogic VD-M749S Plus Video Doorbell"
+  },
+  {
+    "attributes": {
+      "compatibility": "USB-C",
+      "material": "Aluminum",
+      "portable": true,
+      "weight_g": 1063
+    },
+    "availability": "In Stock",
+    "brand": "AxionGrid",
+    "category": "Smart Home",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/smart-plugs/166.webp",
+    "model": "SP-R023S",
+    "popularity_score": 0.5327,
+    "price_usd": 143.84,
+    "product_id": 170806,
+    "quality_score": 0.8473,
+    "rating": 4.7,
+    "review_count": 130,
+    "short_description": "Balanced everyday performance for small spaces, with reliable performance for everyday use.",
+    "sku": "CO-SMART-0170806",
+    "subcategory": "Smart Plugs",
+    "tags": [
+      "smart home",
+      "smart plugs"
+    ],
+    "title": "AxionGrid SP-R023S Core Smart Plug"
+  },
+  {
+    "attributes": {
+      "mount": "R-Mount",
+      "resolution_mp": 12,
+      "stabilization": true,
+      "video": "4K60",
+      "weather_sealed": true,
+      "weight_g": 188
+    },
+    "availability": "In Stock",
+    "brand": "AuriCore",
+    "category": "Imaging",
+    "cohorts": [
+      "hard_negative"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/mirrorless-cameras/012.webp",
+    "model": "MC-N294P",
+    "popularity_score": 0.3981,
+    "price_usd": 1162.21,
+    "product_id": 174972,
+    "quality_score": 0.7566,
+    "rating": 4.4,
+    "review_count": 150,
+    "short_description": "Detail-rich stabilized capture for small spaces, with sharper content in motion and changing light.",
+    "sku": "CO-MIRRO-0174972",
+    "subcategory": "Mirrorless Cameras",
+    "tags": [
+      "creator",
+      "imaging",
+      "video"
+    ],
+    "title": "AuriCore MC-N294P Studio Mirrorless Camera"
+  },
+  {
+    "attributes": {
+      "mount": "Micro Four Thirds",
+      "resolution_mp": 33,
+      "stabilization": false,
+      "video": "4K30",
+      "weather_sealed": true,
+      "weight_g": 1145
+    },
+    "availability": "In Stock",
+    "brand": "HaloEdge",
+    "category": "Imaging",
+    "cohorts": [
+      "hard_negative"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/camera-lenses/098.webp",
+    "model": "CL-K121P",
+    "popularity_score": 0.0133,
+    "price_usd": 327.46,
+    "product_id": 179138,
+    "quality_score": 0.8021,
+    "rating": 4.6,
+    "review_count": 12,
+    "short_description": "Detail-rich stabilized capture for travel, with sharper content in motion and changing light.",
+    "sku": "CO-CAMER-0179138",
+    "subcategory": "Camera Lenses",
+    "tags": [
+      "creator",
+      "imaging",
+      "video"
+    ],
+    "title": "HaloEdge CL-K121P Essential Camera Lense"
+  },
+  {
+    "attributes": {
+      "compatibility": "Mobile",
+      "material": "Steel",
+      "portable": false,
+      "weight_g": 1179
+    },
+    "availability": "In Stock",
+    "brand": "PixelOne",
+    "category": "Imaging",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/photo-printers/184.webp",
+    "model": "PP-E392S",
+    "popularity_score": 0.0385,
+    "price_usd": 30.37,
+    "product_id": 183304,
+    "quality_score": 0.6435,
+    "rating": 4.3,
+    "review_count": 3,
+    "short_description": "Balanced everyday performance for content creation, with reliable performance for everyday use.",
+    "sku": "CO-PHOTO-0183304",
+    "subcategory": "Photo Printers",
+    "tags": [
+      "imaging",
+      "photo printers"
+    ],
+    "title": "PixelOne PP-E392S Pro Photo Printer"
+  },
+  {
+    "attributes": {
+      "firmness": "Soft",
+      "length_cm": 174,
+      "material": "EVA",
+      "portable": true,
+      "washable": true
+    },
+    "availability": "In Stock",
+    "brand": "VoltGrid",
+    "category": "Gaming",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/game-controllers/030.webp",
+    "model": "GC-S552",
+    "popularity_score": 0.1649,
+    "price_usd": 54.88,
+    "product_id": 187470,
+    "quality_score": 0.8682,
+    "rating": 4.6,
+    "review_count": 16,
+    "short_description": "Targeted mobility and recovery support for content creation, with easier warmups and calmer post-session recovery.",
+    "sku": "CO-GAMEC-0187470",
+    "subcategory": "Game Controllers",
+    "tags": [
+      "fitness",
+      "mobility",
+      "recovery"
+    ],
+    "title": "VoltGrid GC-S552 Active Game Controller"
+  },
+  {
+    "attributes": {
+      "color_gamut_pct": 95,
+      "height_adjustable": true,
+      "panel": "OLED",
+      "refresh_hz": 60,
+      "resolution": "2560x1440",
+      "size_in": 27,
+      "usb_c_power_w": 45,
+      "vesa": true
+    },
+    "availability": "Low Stock",
+    "brand": "EchoLabs",
+    "category": "Gaming",
+    "cohorts": [
+      "near_duplicate"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/gaming-monitors/116.webp",
+    "model": "GM-R601P",
+    "popularity_score": 0.1585,
+    "price_usd": 539.33,
+    "product_id": 191636,
+    "quality_score": 0.8204,
+    "rating": 4.8,
+    "review_count": 8,
+    "short_description": "High-density workspace display for gaming, with crisp text and room for side-by-side work.",
+    "sku": "CO-GAMIN-0191636",
+    "subcategory": "Gaming Monitors",
+    "tags": [
+      "2560x1440",
+      "27 inch",
+      "display"
+    ],
+    "title": "EchoLabs GM-R601P Ultra Gaming Monitor \u2014 Forest"
+  },
+  {
+    "attributes": {
+      "material": "Composite",
+      "portable": true,
+      "weight_g": 610
+    },
+    "availability": "In Stock",
+    "brand": "AxionEdge",
+    "category": "Gaming",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/streaming-capture-cards/202.webp",
+    "model": "SCC-V872P",
+    "popularity_score": 0.3236,
+    "price_usd": 163.78,
+    "product_id": 195802,
+    "quality_score": 0.5747,
+    "rating": 3.9,
+    "review_count": 38,
+    "short_description": "Balanced everyday performance for remote collaboration, with reliable performance for everyday use.",
+    "sku": "CO-STREA-0195802",
+    "subcategory": "Streaming Capture Cards",
+    "tags": [
+      "gaming",
+      "streaming capture cards"
+    ],
+    "title": "AxionEdge SCC-V872P Elite Streaming Capture Card"
+  },
+  {
+    "attributes": {
+      "compatibility": "Desktop",
+      "material": "Steel",
+      "portable": true,
+      "weight_g": 229
+    },
+    "availability": "In Stock",
+    "brand": "CobaltBeam",
+    "category": "Gaming",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/handheld-consoles/048.webp",
+    "model": "HC-R035",
+    "popularity_score": 0.5524,
+    "price_usd": 111.31,
+    "product_id": 199968,
+    "quality_score": 0.6719,
+    "rating": 4.1,
+    "review_count": 394,
+    "short_description": "Balanced everyday performance for mobile productivity, with reliable performance for everyday use.",
+    "sku": "CO-HANDH-0199968",
+    "subcategory": "Handheld Consoles",
+    "tags": [
+      "gaming",
+      "handheld consoles"
+    ],
+    "title": "CobaltBeam HC-R035 Edge Handheld Console"
+  },
+  {
+    "attributes": {
+      "compatibility": "Mobile",
+      "material": "Polymer",
+      "portable": true,
+      "weight_g": 1147
+    },
+    "availability": "In Stock",
+    "brand": "MeridianCore",
+    "category": "Accessories",
+    "cohorts": [
+      "review_evidence"
+    ],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/protective-sleeves/134.webp",
+    "model": "PS-M638",
+    "popularity_score": 0.4623,
+    "price_usd": 130.71,
+    "product_id": 204134,
+    "quality_score": 0.6524,
+    "rating": 4.2,
+    "review_count": 88,
+    "short_description": "Balanced everyday performance for family use, with reliable performance for everyday use.",
+    "sku": "CO-PROTE-0204134",
+    "subcategory": "Protective Sleeves",
+    "tags": [
+      "accessories",
+      "protective sleeves"
+    ],
+    "title": "MeridianCore PS-M638 Elite Protective Sleeve"
+  },
+  {
+    "attributes": {
+      "compatibility": "Desktop",
+      "material": "Composite",
+      "portable": true,
+      "weight_g": 1452
+    },
+    "availability": "In Stock",
+    "brand": "NovaForge",
+    "category": "Accessories",
+    "cohorts": [],
+    "domain": "consumer_electronics",
+    "image_key": "consumer_electronics/cleaning-kits/220.webp",
+    "model": "CK-N133",
+    "popularity_score": 0.1982,
+    "price_usd": 146.13,
+    "product_id": 208300,
+    "quality_score": 0.6773,
+    "rating": 4.5,
+    "review_count": 23,
+    "short_description": "Balanced everyday performance for daily commuting, with reliable performance for everyday use.",
+    "sku": "CO-CLEAN-0208300",
+    "subcategory": "Cleaning Kits",
+    "tags": [
+      "accessories",
+      "cleaning kits"
+    ],
+    "title": "NovaForge CK-N133 Essential Cleaning Kit"
+  },
+  {
+    "attributes": {
+      "carbon_plate": false,
+      "cushioning": "maximum",
+      "distance": "Half Marathon",
+      "drop_mm": 5,
+      "support": "neutral",
+      "terrain": "road",
+      "waterproof": false,
+      "weight_g": 310,
+      "widths": [
+        "Standard"
+      ]
+    },
+    "availability": "Low Stock",
+    "brand": "SwiftOne",
+    "category": "Footwear",
+    "cohorts": [
+      "baseline",
+      "near_duplicate"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/road-running-shoes/066.webp",
+    "model": "RRS-C478P",
+    "popularity_score": 0.3654,
+    "price_usd": 182.78,
+    "product_id": 212466,
+    "quality_score": 0.5878,
+    "rating": 4.0,
+    "review_count": 255,
+    "short_description": "Responsive foam geometry for low-impact cardio, with efficient turnover during long efforts.",
+    "sku": "RU-ROADR-0212466",
+    "subcategory": "Road Running Shoes",
+    "tags": [
+      "neutral",
+      "road",
+      "running shoes"
+    ],
+    "title": "SwiftOne RRS-C478P Air Road Running Shoe \u2014 Silver"
+  },
+  {
+    "attributes": {
+      "carbon_plate": true,
+      "cushioning": "low",
+      "distance": "Half Marathon",
+      "drop_mm": 12,
+      "terrain": "road",
+      "waterproof": false,
+      "widths": [
+        "Wide",
+        "Narrow",
+        "Standard"
+      ]
+    },
+    "availability": "In Stock",
+    "brand": "AeroRun",
+    "category": "Footwear",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/road-running-shoes/152.webp",
+    "model": "RRS-N122P",
+    "popularity_score": 0.3921,
+    "price_usd": 223.08,
+    "product_id": 216632,
+    "quality_score": 0.5719,
+    "rating": 4.1,
+    "review_count": 129,
+    "short_description": "Propulsive composite plate for low-impact cardio, with efficient turnover during long efforts.",
+    "sku": "RU-ROADR-0216632",
+    "subcategory": "Road Running Shoes",
+    "tags": [
+      "carbon plate",
+      "mild stability",
+      "road",
+      "running shoes"
+    ],
+    "title": "AeroRun RRS-N122P Edge Road Running Shoe"
+  },
+  {
+    "attributes": {
+      "carbon_plate": false,
+      "cushioning": "low",
+      "distance": "10K",
+      "drop_mm": 10,
+      "support": "neutral",
+      "terrain": "road",
+      "waterproof": false,
+      "weight_g": 294,
+      "widths": [
+        "Narrow",
+        "Extra Wide"
+      ]
+    },
+    "availability": "In Stock",
+    "brand": "SummitMotion",
+    "category": "Footwear",
+    "cohorts": [
+      "hard_negative"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/road-running-shoes/238.webp",
+    "model": "RRS-P726S",
+    "popularity_score": 0.2335,
+    "price_usd": 129.02,
+    "product_id": 220798,
+    "quality_score": 0.2655,
+    "rating": 3.2,
+    "review_count": 75,
+    "short_description": "Carbon-look support shank for trail racing, with stable everyday training without a rigid race plate.",
+    "sku": "RU-ROADR-0220798",
+    "subcategory": "Road Running Shoes",
+    "tags": [
+      "neutral",
+      "non-plated",
+      "road",
+      "running shoes"
+    ],
+    "title": "SummitMotion RRS-P726S Essential Road Running Shoe"
+  },
+  {
+    "attributes": {
+      "carbon_plate": false,
+      "cushioning": "moderate",
+      "distance": "Ultra",
+      "drop_mm": 5,
+      "support": "neutral",
+      "terrain": "trail",
+      "waterproof": true,
+      "weight_g": 202,
+      "widths": [
+        "Wide",
+        "Narrow",
+        "Standard"
+      ]
+    },
+    "availability": "In Stock",
+    "brand": "TempoDynamics",
+    "category": "Footwear",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/trail-running-shoes/084.webp",
+    "model": "TRS-Z773P",
+    "popularity_score": 0.2764,
+    "price_usd": 194.97,
+    "product_id": 224964,
+    "quality_score": 0.8624,
+    "rating": 4.9,
+    "review_count": 25,
+    "short_description": "Grippy trail chassis for daily miles, with comfortable daily mileage.",
+    "sku": "RU-TRAIL-0224964",
+    "subcategory": "Trail Running Shoes",
+    "tags": [
+      "neutral",
+      "running shoes",
+      "trail"
+    ],
+    "title": "TempoDynamics TRS-Z773P Flex Trail Running Shoe"
+  },
+  {
+    "attributes": {
+      "carbon_plate": false,
+      "cushioning": "moderate",
+      "distance": "10K",
+      "drop_mm": 5,
+      "support": "neutral",
+      "terrain": "trail",
+      "waterproof": false,
+      "weight_g": 243,
+      "widths": [
+        "Extra Wide"
+      ]
+    },
+    "availability": "In Stock",
+    "brand": "AeroWorks",
+    "category": "Footwear",
+    "cohorts": [
+      "typo_target"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/trail-running-shoes/170.webp",
+    "model": "TRS-A380P",
+    "popularity_score": 0.1707,
+    "price_usd": 69.64,
+    "product_id": 229130,
+    "quality_score": 0.713,
+    "rating": 4.3,
+    "review_count": 26,
+    "short_description": "Grippy trail chassis for travel workouts, with efficient turnover during long efforts.",
+    "sku": "RU-TRAIL-0229130",
+    "subcategory": "Trail Running Shoes",
+    "tags": [
+      "neutral",
+      "running shoes",
+      "trail"
+    ],
+    "title": "AeroWorks TRS-A380P Studio Trail Running Shoe"
+  },
+  {
+    "attributes": {
+      "carbon_plate": false,
+      "cushioning": "high",
+      "distance": "5K",
+      "drop_mm": 10,
+      "support": "neutral",
+      "terrain": "trail",
+      "waterproof": true,
+      "weight_g": 252,
+      "widths": [
+        "Narrow",
+        "Standard"
+      ]
+    },
+    "availability": "In Stock",
+    "brand": "AeroFit",
+    "category": "Footwear",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/trail-running-shoes/016.webp",
+    "model": "TRS-P984S",
+    "popularity_score": 0.1948,
+    "price_usd": 121.12,
+    "product_id": 233296,
+    "quality_score": 0.8431,
+    "rating": 4.6,
+    "review_count": 24,
+    "short_description": "Stable guidance platform for mobility work, with comfortable daily mileage.",
+    "sku": "RU-TRAIL-0233296",
+    "subcategory": "Trail Running Shoes",
+    "tags": [
+      "neutral",
+      "running shoes",
+      "trail"
+    ],
+    "title": "AeroFit TRS-P984S Prime Trail Running Shoe"
+  },
+  {
+    "attributes": {
+      "carbon_plate": true,
+      "cushioning": "low",
+      "distance": "Marathon",
+      "drop_mm": 12,
+      "support": "neutral",
+      "terrain": "road",
+      "waterproof": false,
+      "weight_g": 271,
+      "widths": [
+        "Standard",
+        "Extra Wide"
+      ]
+    },
+    "availability": "In Stock",
+    "brand": "TrailRun",
+    "category": "Footwear",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/carbon-racing-shoes/102.webp",
+    "model": "CRS-P478",
+    "popularity_score": 0.4633,
+    "price_usd": 132.32,
+    "product_id": 237462,
+    "quality_score": 0.889,
+    "rating": 4.7,
+    "review_count": 210,
+    "short_description": "Propulsive composite plate for recovery, with secure footing over mixed terrain.",
+    "sku": "RU-CARBO-0237462",
+    "subcategory": "Carbon Racing Shoes",
+    "tags": [
+      "carbon plate",
+      "neutral",
+      "road",
+      "running shoes"
+    ],
+    "title": "TrailRun CRS-P478 Plus Carbon Racing Shoe"
+  },
+  {
+    "attributes": {
+      "carbon_plate": true,
+      "cushioning": "low",
+      "distance": "Daily Training",
+      "drop_mm": 0,
+      "support": "neutral",
+      "terrain": "road",
+      "waterproof": false,
+      "weight_g": 295,
+      "widths": [
+        "Narrow"
+      ]
+    },
+    "availability": "In Stock",
+    "brand": "SwiftDynamics",
+    "category": "Footwear",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/carbon-racing-shoes/188.webp",
+    "model": "CRS-K085X",
+    "popularity_score": 0.4917,
+    "price_usd": 299.87,
+    "product_id": 241628,
+    "quality_score": 0.7077,
+    "rating": 4.3,
+    "review_count": 241,
+    "short_description": "Propulsive composite plate for race day, with support through tired late-run form.",
+    "sku": "RU-CARBO-0241628",
+    "subcategory": "Carbon Racing Shoes",
+    "tags": [
+      "carbon plate",
+      "neutral",
+      "road",
+      "running shoes"
+    ],
+    "title": "SwiftDynamics CRS-K085X Core Carbon Racing Shoe"
+  },
+  {
+    "attributes": {
+      "carbon_plate": false,
+      "cushioning": "maximum",
+      "distance": "Marathon",
+      "drop_mm": 6,
+      "support": "stability",
+      "terrain": "road",
+      "waterproof": true,
+      "weight_g": 276,
+      "widths": [
+        "Standard",
+        "Wide",
+        "Narrow"
+      ]
+    },
+    "availability": "In Stock",
+    "brand": "TerrainMotion",
+    "category": "Footwear",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/stability-running-shoes/034.webp",
+    "model": "SRS-P798X",
+    "popularity_score": 0.2415,
+    "price_usd": 251.48,
+    "product_id": 245794,
+    "quality_score": 0.8003,
+    "rating": 4.4,
+    "review_count": 53,
+    "short_description": "Stable guidance platform for low-impact cardio, with secure footing over mixed terrain.",
+    "sku": "RU-STABI-0245794",
+    "subcategory": "Stability Running Shoes",
+    "tags": [
+      "road",
+      "running shoes",
+      "stability"
+    ],
+    "title": "TerrainMotion SRS-P798X Plus Stability Running Shoe"
+  },
+  {
+    "attributes": {
+      "carbon_plate": false,
+      "cushioning": "moderate",
+      "distance": "Daily Training",
+      "drop_mm": 12,
+      "support": "mild stability",
+      "terrain": "road",
+      "waterproof": false,
+      "weight_g": 180,
+      "widths": [
+        "Extra Wide",
+        "Wide"
+      ]
+    },
+    "availability": "In Stock",
+    "brand": "FlexPeak",
+    "category": "Footwear",
+    "cohorts": [
+      "compatibility"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/walking-shoes/120.webp",
+    "model": "WS-Z625",
+    "popularity_score": 0.1422,
+    "price_usd": 367.87,
+    "product_id": 249960,
+    "quality_score": 0.6735,
+    "rating": 4.4,
+    "review_count": 28,
+    "short_description": "Responsive foam geometry for race day, with efficient turnover during long efforts.",
+    "sku": "RU-WALKI-0249960",
+    "subcategory": "Walking Shoes",
+    "tags": [
+      "mild stability",
+      "road",
+      "running shoes"
+    ],
+    "title": "FlexPeak WS-Z625 Core Walking Shoe"
+  },
+  {
+    "attributes": {
+      "carbon_plate": false,
+      "cushioning": "high",
+      "distance": "Ultra",
+      "drop_mm": 12,
+      "support": "neutral",
+      "terrain": "road",
+      "waterproof": true,
+      "weight_g": 180,
+      "widths": [
+        "Narrow",
+        "Standard",
+        "Wide"
+      ]
+    },
+    "availability": "In Stock",
+    "brand": "StrideWorks",
+    "category": "Footwear",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/walking-shoes/206.webp",
+    "model": "WS-M232X",
+    "popularity_score": 0.5209,
+    "price_usd": 189.88,
+    "product_id": 254126,
+    "quality_score": 0.8051,
+    "rating": 4.7,
+    "review_count": 250,
+    "short_description": "Responsive foam geometry for mobility work, with secure footing over mixed terrain.",
+    "sku": "RU-WALKI-0254126",
+    "subcategory": "Walking Shoes",
+    "tags": [
+      "neutral",
+      "road",
+      "running shoes"
+    ],
+    "title": "StrideWorks WS-M232X Ultra Walking Shoe"
+  },
+  {
+    "attributes": {
+      "carbon_plate": true,
+      "cushioning": "moderate",
+      "distance": "Daily Training",
+      "drop_mm": 8,
+      "support": "mild stability",
+      "terrain": "road",
+      "waterproof": false,
+      "weight_g": 298,
+      "widths": [
+        "Standard",
+        "Narrow"
+      ]
+    },
+    "availability": "In Stock",
+    "brand": "VeloEndurance",
+    "category": "Footwear",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/cross-training-shoes/052.webp",
+    "model": "CS-Z170X",
+    "popularity_score": 0.4341,
+    "price_usd": 93.3,
+    "product_id": 258292,
+    "quality_score": 0.6234,
+    "rating": 4.4,
+    "review_count": 214,
+    "short_description": "Propulsive composite plate for hot-weather training, with comfortable daily mileage.",
+    "sku": "RU-CROSS-0258292",
+    "subcategory": "Cross-Training Shoes",
+    "tags": [
+      "carbon plate",
+      "mild stability",
+      "road",
+      "running shoes"
+    ],
+    "title": "VeloEndurance CS-Z170X Pro Cross-Training Shoe"
+  },
+  {
+    "attributes": {
+      "fit": "Regular",
+      "material": "Nylon Elastane",
+      "moisture_wicking": true,
+      "reflective": false,
+      "sizes": [
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL"
+      ],
+      "weather_protection": "None"
+    },
+    "availability": "In Stock",
+    "brand": "TrailWorks",
+    "category": "Apparel",
+    "cohorts": [
+      "selective_filter"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/running-tops/138.webp",
+    "model": "RT-N219P",
+    "popularity_score": 0.2806,
+    "price_usd": 49.98,
+    "product_id": 262458,
+    "quality_score": 0.4656,
+    "rating": 3.9,
+    "review_count": 66,
+    "short_description": "Fast-drying stretch fabric for race day, with less distraction through changing effort and weather.",
+    "sku": "RU-RUNNI-0262458",
+    "subcategory": "Running Tops",
+    "tags": [
+      "apparel",
+      "moisture wicking",
+      "training"
+    ],
+    "title": "TrailWorks RT-N219P Max Running Top"
+  },
+  {
+    "attributes": {
+      "fit": "Regular",
+      "material": "Merino Blend",
+      "moisture_wicking": true,
+      "reflective": true,
+      "sizes": [
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL"
+      ],
+      "weather_protection": "None"
+    },
+    "availability": "In Stock",
+    "brand": "TrailPeak",
+    "category": "Apparel",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/running-tops/224.webp",
+    "model": "RT-Z823X",
+    "popularity_score": 0.3244,
+    "price_usd": 99.33,
+    "product_id": 266624,
+    "quality_score": 0.5605,
+    "rating": 4.0,
+    "review_count": 166,
+    "short_description": "Fast-drying stretch fabric for travel workouts, with less distraction through changing effort and weather.",
+    "sku": "RU-RUNNI-0266624",
+    "subcategory": "Running Tops",
+    "tags": [
+      "apparel",
+      "moisture wicking",
+      "training"
+    ],
+    "title": "TrailPeak RT-Z823X Studio Running Top"
+  },
+  {
+    "attributes": {
+      "fit": "Compression",
+      "material": "Polyester Mesh",
+      "moisture_wicking": true,
+      "reflective": false,
+      "sizes": [
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL"
+      ],
+      "weather_protection": "None"
+    },
+    "availability": "In Stock",
+    "brand": "AeroTrail",
+    "category": "Apparel",
+    "cohorts": [
+      "hybrid_conflict"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/running-shorts/070.webp",
+    "model": "RS-M650",
+    "popularity_score": 0.4426,
+    "price_usd": 144.52,
+    "product_id": 270790,
+    "quality_score": 0.842,
+    "rating": 4.8,
+    "review_count": 246,
+    "short_description": "Fast-drying stretch fabric for marathon training, with less distraction through changing effort and weather.",
+    "sku": "RU-RUNNI-0270790",
+    "subcategory": "Running Shorts",
+    "tags": [
+      "apparel",
+      "moisture wicking",
+      "training"
+    ],
+    "title": "AeroTrail RS-M650 Edge Running Short"
+  },
+  {
+    "attributes": {
+      "fit": "Slim",
+      "material": "Merino Blend",
+      "moisture_wicking": true,
+      "reflective": false,
+      "sizes": [
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL"
+      ],
+      "weather_protection": "None"
+    },
+    "availability": "Out of Stock",
+    "brand": "RiseTrail",
+    "category": "Apparel",
+    "cohorts": [
+      "popularity_bias",
+      "review_evidence"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/leggings-tights/156.webp",
+    "model": "L&T-Z588S",
+    "popularity_score": 0.9301,
+    "price_usd": 145.9,
+    "product_id": 274956,
+    "quality_score": 0.6557,
+    "rating": 4.0,
+    "review_count": 3031,
+    "short_description": "Fast-drying stretch fabric for low-impact cardio, with less distraction through changing effort and weather.",
+    "sku": "RU-LEGGI-0274956",
+    "subcategory": "Leggings & Tights",
+    "tags": [
+      "apparel",
+      "moisture wicking",
+      "training"
+    ],
+    "title": "RiseTrail L&T-Z588S Air Leggings & Tight"
+  },
+  {
+    "attributes": {
+      "fit": "Relaxed",
+      "material": "Nylon Elastane",
+      "moisture_wicking": true,
+      "weather_protection": "Light Rain"
+    },
+    "availability": "Low Stock",
+    "brand": "TempoEndurance",
+    "category": "Apparel",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/weatherproof-jackets/002.webp",
+    "model": "WJ-X526X",
+    "popularity_score": 0.0837,
+    "price_usd": 257.3,
+    "product_id": 279122,
+    "quality_score": 0.6451,
+    "rating": 4.4,
+    "review_count": 7,
+    "short_description": "Fast-drying stretch fabric for strength training, with less distraction through changing effort and weather.",
+    "sku": "RU-WEATH-0279122",
+    "subcategory": "Weatherproof Jackets",
+    "tags": [
+      "apparel",
+      "moisture wicking",
+      "training"
+    ],
+    "title": "TempoEndurance WJ-X526X Tour Weatherproof Jacket"
+  },
+  {
+    "attributes": {
+      "fit": "Regular",
+      "material": "Polyester Mesh",
+      "moisture_wicking": true,
+      "reflective": false,
+      "sizes": [
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL"
+      ],
+      "weather_protection": "Wind"
+    },
+    "availability": "In Stock",
+    "brand": "TempoPeak",
+    "category": "Apparel",
+    "cohorts": [
+      "lexical_only"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/weatherproof-jackets/088.webp",
+    "model": "WJ-V133S",
+    "popularity_score": 0.6228,
+    "price_usd": 135.54,
+    "product_id": 283288,
+    "quality_score": 0.4414,
+    "rating": 4.0,
+    "review_count": 862,
+    "short_description": "TempoPeak WJ-V133S; Weatherproof Jackets; Forest; catalog specification record.",
+    "sku": "RU-WEATH-0283288",
+    "subcategory": "Weatherproof Jackets",
+    "tags": [
+      "apparel",
+      "moisture wicking",
+      "training"
+    ],
+    "title": "TempoPeak WJ-V133S Ultra Weatherproof Jacket"
+  },
+  {
+    "attributes": {
+      "fit": "Compression",
+      "material": "Nylon Elastane",
+      "moisture_wicking": true,
+      "reflective": false,
+      "sizes": [
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL"
+      ],
+      "weather_protection": "None"
+    },
+    "availability": "In Stock",
+    "brand": "PeakFit",
+    "category": "Apparel",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/compression-wear/174.webp",
+    "model": "CW-K846",
+    "popularity_score": 0.156,
+    "price_usd": 169.73,
+    "product_id": 287454,
+    "quality_score": 0.6716,
+    "rating": 4.3,
+    "review_count": 8,
+    "short_description": "Fast-drying stretch fabric for daily miles, with less distraction through changing effort and weather.",
+    "sku": "RU-COMPR-0287454",
+    "subcategory": "Compression Wear",
+    "tags": [
+      "apparel",
+      "moisture wicking",
+      "training"
+    ],
+    "title": "PeakFit CW-K846 Studio Compression Wear"
+  },
+  {
+    "attributes": {
+      "battery_days": 13,
+      "gps": false,
+      "heart_rate": true,
+      "platforms": [
+        "Web",
+        "Android",
+        "iOS"
+      ],
+      "sleep_tracking": true,
+      "training_readiness": true,
+      "water_rating_atm": 3
+    },
+    "availability": "Out of Stock",
+    "brand": "AeroWorks",
+    "category": "Wearables",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/gps-running-watches/020.webp",
+    "model": "GRW-V120P",
+    "popularity_score": 0.1111,
+    "price_usd": 242.08,
+    "product_id": 291620,
+    "quality_score": 0.3158,
+    "rating": 3.3,
+    "review_count": 16,
+    "short_description": "Continuous training and recovery insights for mobility work, with a clearer view of effort, sleep, and readiness.",
+    "sku": "RU-GPSRU-0291620",
+    "subcategory": "GPS Running Watches",
+    "tags": [
+      "fitness",
+      "health",
+      "wearable"
+    ],
+    "title": "AeroWorks GRW-V120P Plus GPS Running Watche"
+  },
+  {
+    "attributes": {
+      "battery_days": 12,
+      "gps": false,
+      "heart_rate": true,
+      "platforms": [
+        "Web",
+        "Android"
+      ],
+      "sleep_tracking": true,
+      "training_readiness": false,
+      "water_rating_atm": 10
+    },
+    "availability": "In Stock",
+    "brand": "AeroFit",
+    "category": "Wearables",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/gps-running-watches/106.webp",
+    "model": "GRW-V724S",
+    "popularity_score": 0.4959,
+    "price_usd": 232.63,
+    "product_id": 295786,
+    "quality_score": 0.2364,
+    "rating": 3.5,
+    "review_count": 267,
+    "short_description": "Continuous training and recovery insights for travel workouts, with a clearer view of effort, sleep, and readiness.",
+    "sku": "RU-GPSRU-0295786",
+    "subcategory": "GPS Running Watches",
+    "tags": [
+      "fitness",
+      "health",
+      "wearable"
+    ],
+    "title": "AeroFit GRW-V724S Active GPS Running Watche"
+  },
+  {
+    "attributes": {
+      "color_gamut_pct": 97,
+      "height_adjustable": true,
+      "panel": "Mini-LED",
+      "refresh_hz": 75,
+      "resolution": "5120x1440",
+      "size_in": 15.6,
+      "usb_c_power_w": 65,
+      "vesa": true
+    },
+    "availability": "In Stock",
+    "brand": "CoreWorks",
+    "category": "Wearables",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/heart-rate-monitors/192.webp",
+    "model": "HRM-X662S",
+    "popularity_score": 0.4215,
+    "price_usd": 230.58,
+    "product_id": 299952,
+    "quality_score": 0.8128,
+    "rating": 4.8,
+    "review_count": 311,
+    "short_description": "High-density workspace display for race day, with crisp text and room for side-by-side work.",
+    "sku": "RU-HEART-0299952",
+    "subcategory": "Heart Rate Monitors",
+    "tags": [
+      "15.6 inch",
+      "5120x1440",
+      "display"
+    ],
+    "title": "CoreWorks HRM-X662S Edge Heart Rate Monitor"
+  },
+  {
+    "attributes": {
+      "compatibility": "Mobile",
+      "material": "Steel",
+      "portable": true,
+      "weight_g": 1558
+    },
+    "availability": "In Stock",
+    "brand": "MotionLab",
+    "category": "Wearables",
+    "cohorts": [
+      "lexical_only"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/cycling-computers/038.webp",
+    "model": "CC-N489",
+    "popularity_score": 0.1702,
+    "price_usd": 173.29,
+    "product_id": 304118,
+    "quality_score": 0.6817,
+    "rating": 4.3,
+    "review_count": 22,
+    "short_description": "MotionLab CC-N489; Cycling Computers; Graphite; catalog specification record.",
+    "sku": "RU-CYCLI-0304118",
+    "subcategory": "Cycling Computers",
+    "tags": [
+      "cycling computers",
+      "wearables"
+    ],
+    "title": "MotionLab CC-N489 Flex Cycling Computer"
+  },
+  {
+    "attributes": {
+      "adjustable": true,
+      "commercial_grade": false,
+      "foldable": true,
+      "max_user_weight_lb": 300,
+      "weight_range_lb": "5-25"
+    },
+    "availability": "Out of Stock",
+    "brand": "TerrainMotion",
+    "category": "Strength",
+    "cohorts": [
+      "sponsored_low_relevance"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/adjustable-dumbbells/124.webp",
+    "model": "AD-R538",
+    "popularity_score": 0.5552,
+    "price_usd": 920.76,
+    "product_id": 308284,
+    "quality_score": 0.7474,
+    "rating": 4.5,
+    "review_count": 332,
+    "short_description": "Space-efficient strength progression for strength training, with more training variety without a crowded room.",
+    "sku": "RU-ADJUS-0308284",
+    "subcategory": "Adjustable Dumbbells",
+    "tags": [
+      "home gym",
+      "strength",
+      "training"
+    ],
+    "title": "TerrainMotion AD-R538 Studio Adjustable Dumbbell"
+  },
+  {
+    "attributes": {
+      "adjustable": false,
+      "commercial_grade": true,
+      "foldable": false,
+      "max_user_weight_lb": 400,
+      "weight_range_lb": "20-120"
+    },
+    "availability": "In Stock",
+    "brand": "AeroWorks",
+    "category": "Strength",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/kettlebells/210.webp",
+    "model": "K-X698P",
+    "popularity_score": 0.0329,
+    "price_usd": 128.97,
+    "product_id": 312450,
+    "quality_score": 0.7925,
+    "rating": 4.8,
+    "review_count": 7,
+    "short_description": "Space-efficient strength progression for marathon training, with more training variety without a crowded room.",
+    "sku": "RU-KETTL-0312450",
+    "subcategory": "Kettlebells",
+    "tags": [
+      "home gym",
+      "strength",
+      "training"
+    ],
+    "title": "AeroWorks K-X698P Tour Kettlebell"
+  },
+  {
+    "attributes": {
+      "adjustable": true,
+      "commercial_grade": false,
+      "foldable": false,
+      "max_user_weight_lb": 1000,
+      "weight_range_lb": "5-25"
+    },
+    "availability": "In Stock",
+    "brand": "StrideWorks",
+    "category": "Strength",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/resistance-bands/056.webp",
+    "model": "RB-K969P",
+    "popularity_score": 0.3518,
+    "price_usd": 48.59,
+    "product_id": 316616,
+    "quality_score": 0.595,
+    "rating": 4.2,
+    "review_count": 76,
+    "short_description": "Space-efficient strength progression for marathon training, with more training variety without a crowded room.",
+    "sku": "RU-RESIS-0316616",
+    "subcategory": "Resistance Bands",
+    "tags": [
+      "home gym",
+      "strength",
+      "training"
+    ],
+    "title": "StrideWorks RB-K969P Core Resistance Band"
+  },
+  {
+    "attributes": {
+      "adjustable": true,
+      "commercial_grade": false,
+      "foldable": false,
+      "max_user_weight_lb": 400,
+      "weight_range_lb": "20-120"
+    },
+    "availability": "In Stock",
+    "brand": "CoreWorks",
+    "category": "Strength",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/weight-benches/142.webp",
+    "model": "WB-Z243X",
+    "popularity_score": 0.6572,
+    "price_usd": 102.64,
+    "product_id": 320782,
+    "quality_score": 0.9589,
+    "rating": 4.9,
+    "review_count": 1824,
+    "short_description": "Space-efficient strength progression for hot-weather training, with more training variety without a crowded room.",
+    "sku": "RU-WEIGH-0320782",
+    "subcategory": "Weight Benches",
+    "tags": [
+      "home gym",
+      "strength",
+      "training"
+    ],
+    "title": "CoreWorks WB-Z243X Pro Weight Benche"
+  },
+  {
+    "attributes": {
+      "adjustable": true,
+      "commercial_grade": false,
+      "foldable": true,
+      "max_user_weight_lb": 600,
+      "weight_range_lb": "20-120"
+    },
+    "availability": "In Stock",
+    "brand": "TempoPeak",
+    "category": "Strength",
+    "cohorts": [
+      "hard_negative"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/barbells-plates/228.webp",
+    "model": "B&P-M292",
+    "popularity_score": 0.5706,
+    "price_usd": 131.59,
+    "product_id": 324948,
+    "quality_score": 0.677,
+    "rating": 4.2,
+    "review_count": 566,
+    "short_description": "Space-efficient strength progression for travel workouts, with more training variety without a crowded room.",
+    "sku": "RU-BARBE-0324948",
+    "subcategory": "Barbells & Plates",
+    "tags": [
+      "home gym",
+      "strength",
+      "training"
+    ],
+    "title": "TempoPeak B&P-M292 Essential Barbells & Plate"
+  },
+  {
+    "attributes": {
+      "firmness": "Firm",
+      "length_cm": 76,
+      "material": "High-Density Foam",
+      "portable": true,
+      "washable": true
+    },
+    "availability": "In Stock",
+    "brand": "TrailPeak",
+    "category": "Yoga & Mobility",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/yoga-mats/074.webp",
+    "model": "YM-A563X",
+    "popularity_score": 0.4596,
+    "price_usd": 89.01,
+    "product_id": 329114,
+    "quality_score": 0.5607,
+    "rating": 4.2,
+    "review_count": 314,
+    "short_description": "Targeted mobility and recovery support for trail racing, with easier warmups and calmer post-session recovery.",
+    "sku": "RU-YOGAM-0329114",
+    "subcategory": "Yoga Mats",
+    "tags": [
+      "fitness",
+      "mobility",
+      "recovery"
+    ],
+    "title": "TrailPeak YM-A563X Essential Yoga Mat"
+  },
+  {
+    "attributes": {
+      "firmness": "Soft",
+      "length_cm": 144,
+      "material": "Nylon",
+      "portable": false,
+      "washable": true
+    },
+    "availability": "In Stock",
+    "brand": "TempoFit",
+    "category": "Yoga & Mobility",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/mobility-tools/160.webp",
+    "model": "MT-S501X",
+    "popularity_score": 0.0546,
+    "price_usd": 168.35,
+    "product_id": 333280,
+    "quality_score": 0.6602,
+    "rating": 4.4,
+    "review_count": 5,
+    "short_description": "Targeted mobility and recovery support for daily miles, with easier warmups and calmer post-session recovery.",
+    "sku": "RU-MOBIL-0333280",
+    "subcategory": "Mobility Tools",
+    "tags": [
+      "fitness",
+      "mobility",
+      "recovery"
+    ],
+    "title": "TempoFit MT-S501X Ultra Mobility Tool"
+  },
+  {
+    "attributes": {
+      "firmness": "Variable",
+      "length_cm": 74,
+      "material": "Natural Rubber",
+      "portable": true,
+      "washable": true
+    },
+    "availability": "In Stock",
+    "brand": "StrideWorks",
+    "category": "Yoga & Mobility",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/pilates-accessories/006.webp",
+    "model": "PA-X550P",
+    "popularity_score": 0.5097,
+    "price_usd": 58.35,
+    "product_id": 337446,
+    "quality_score": 0.6443,
+    "rating": 4.4,
+    "review_count": 291,
+    "short_description": "Targeted mobility and recovery support for trail racing, with easier warmups and calmer post-session recovery.",
+    "sku": "RU-PILAT-0337446",
+    "subcategory": "Pilates Accessories",
+    "tags": [
+      "fitness",
+      "mobility",
+      "recovery"
+    ],
+    "title": "StrideWorks PA-X550P Pro Pilates Accessorie"
+  },
+  {
+    "attributes": {
+      "connected_training": true,
+      "noise_level_db": 66,
+      "resistance_levels": 26
+    },
+    "availability": "In Stock",
+    "brand": "PulsePeak",
+    "category": "Cardio Equipment",
+    "cohorts": [
+      "selective_filter",
+      "sparse_metadata",
+      "stale_inventory"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/exercise-bikes/092.webp",
+    "model": "EB-E710P",
+    "popularity_score": 0.1376,
+    "price_usd": 49.99,
+    "product_id": 341612,
+    "quality_score": 0.8414,
+    "rating": 4.5,
+    "review_count": 35,
+    "short_description": "Quiet connected cardio for strength training, with consistent training without leaving home.",
+    "sku": "RU-EXERC-0341612",
+    "subcategory": "Exercise Bikes",
+    "tags": [
+      "cardio",
+      "connected",
+      "home gym"
+    ],
+    "title": "PulsePeak EB-E710P Pro Exercise Bike"
+  },
+  {
+    "attributes": {
+      "connected_training": false,
+      "foldable": true,
+      "footprint_sqft": 4.3,
+      "max_user_weight_lb": 250,
+      "noise_level_db": 41,
+      "resistance_levels": 9
+    },
+    "availability": "In Stock",
+    "brand": "TempoPeak",
+    "category": "Cardio Equipment",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/ellipticals/178.webp",
+    "model": "E-P870P",
+    "popularity_score": 0.3977,
+    "price_usd": 1171.77,
+    "product_id": 345778,
+    "quality_score": 0.8537,
+    "rating": 4.6,
+    "review_count": 117,
+    "short_description": "Quiet connected cardio for race day, with consistent training without leaving home.",
+    "sku": "RU-ELLIP-0345778",
+    "subcategory": "Ellipticals",
+    "tags": [
+      "cardio",
+      "connected",
+      "home gym"
+    ],
+    "title": "TempoPeak E-P870P Core Elliptical"
+  },
+  {
+    "attributes": {
+      "bpa_free": true,
+      "capacity_ml": 650,
+      "dishwasher_safe": true,
+      "insulated": false,
+      "leakproof": true
+    },
+    "availability": "In Stock",
+    "brand": "TrailPeak",
+    "category": "Hydration",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/hydration-vests/024.webp",
+    "model": "HV-P144X",
+    "popularity_score": 0.2058,
+    "price_usd": 220.22,
+    "product_id": 349944,
+    "quality_score": 0.8477,
+    "rating": 4.7,
+    "review_count": 21,
+    "short_description": "Bounce-free hydration access for hot-weather training, with easier fueling through long training days.",
+    "sku": "RU-HYDRA-0349944",
+    "subcategory": "Hydration Vests",
+    "tags": [
+      "hydration",
+      "portable",
+      "running"
+    ],
+    "title": "TrailPeak HV-P144X Edge Hydration Vest"
+  },
+  {
+    "attributes": {
+      "bpa_free": true,
+      "capacity_ml": 650,
+      "dishwasher_safe": true,
+      "insulated": true,
+      "leakproof": true
+    },
+    "availability": "In Stock",
+    "brand": "TempoFit",
+    "category": "Hydration",
+    "cohorts": [
+      "baseline"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/electrolyte-mixers/110.webp",
+    "model": "EM-N082",
+    "popularity_score": 0.3,
+    "price_usd": 72.11,
+    "product_id": 354110,
+    "quality_score": 0.8985,
+    "rating": 4.5,
+    "review_count": 51,
+    "short_description": "Bounce-free hydration access for daily miles, with easier fueling through long training days.",
+    "sku": "RU-ELECT-0354110",
+    "subcategory": "Electrolyte Mixers",
+    "tags": [
+      "hydration",
+      "portable",
+      "running"
+    ],
+    "title": "TempoFit EM-N082 Pro Electrolyte Mixer"
+  },
+  {
+    "attributes": {
+      "firmness": "Variable",
+      "length_cm": 103,
+      "material": "Nylon",
+      "portable": true,
+      "washable": true
+    },
+    "availability": "In Stock",
+    "brand": "AeroFit",
+    "category": "Recovery",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/massage-guns/196.webp",
+    "model": "MG-K464X",
+    "popularity_score": 0.1205,
+    "price_usd": 188.44,
+    "product_id": 358276,
+    "quality_score": 0.6244,
+    "rating": 4.5,
+    "review_count": 26,
+    "short_description": "Targeted mobility and recovery support for daily miles, with easier warmups and calmer post-session recovery.",
+    "sku": "RU-MASSA-0358276",
+    "subcategory": "Massage Guns",
+    "tags": [
+      "fitness",
+      "mobility",
+      "recovery"
+    ],
+    "title": "AeroFit MG-K464X Pro Massage Gun"
+  },
+  {
+    "attributes": {
+      "firmness": "Medium",
+      "length_cm": 155,
+      "material": "Nylon",
+      "portable": true,
+      "washable": true
+    },
+    "availability": "In Stock",
+    "brand": "TrailRun",
+    "category": "Recovery",
+    "cohorts": [
+      "hard_negative",
+      "review_evidence"
+    ],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/cold-therapy/042.webp",
+    "model": "CT-Z956P",
+    "popularity_score": 0.2141,
+    "price_usd": 81.27,
+    "product_id": 362442,
+    "quality_score": 0.6146,
+    "rating": 4.1,
+    "review_count": 48,
+    "short_description": "Targeted mobility and recovery support for strength training, with easier warmups and calmer post-session recovery.",
+    "sku": "RU-COLDT-0362442",
+    "subcategory": "Cold Therapy",
+    "tags": [
+      "fitness",
+      "mobility",
+      "recovery"
+    ],
+    "title": "TrailRun CT-Z956P Ultra Cold Therapy"
+  },
+  {
+    "attributes": {
+      "compatibility": "USB-C",
+      "material": "Polymer",
+      "portable": true,
+      "weight_g": 469
+    },
+    "availability": "In Stock",
+    "brand": "TrailWorks",
+    "category": "Accessories",
+    "cohorts": [],
+    "domain": "running_fitness",
+    "image_key": "running_fitness/sports-sunglasses/128.webp",
+    "model": "SS-Z119P",
+    "popularity_score": 0.2691,
+    "price_usd": 65.14,
+    "product_id": 366608,
+    "quality_score": 0.4138,
+    "rating": 4.0,
+    "review_count": 19,
+    "short_description": "Balanced everyday performance for low-impact cardio, with reliable performance for everyday use.",
+    "sku": "RU-SPORT-0366608",
+    "subcategory": "Sports Sunglasses",
+    "tags": [
+      "accessories",
+      "sports sunglasses"
+    ],
+    "title": "TrailWorks SS-Z119P Pro Sports Sunglasse"
+  },
+  {
+    "attributes": {
+      "armrests": "Fixed",
+      "lumbar_support": "Adjustable",
+      "material": "Mesh",
+      "max_user_weight_lb": 275,
+      "recline_deg": 110,
+      "recommended_hours": 8,
+      "seat_depth_adjustable": false
+    },
+    "availability": "In Stock",
+    "brand": "ArcErgonomics",
+    "category": "Seating",
+    "cohorts": [],
+    "domain": "home_office",
+    "image_key": "home_office/ergonomic-office-chairs/214.webp",
+    "model": "EOC-P722",
+    "popularity_score": 0.299,
+    "price_usd": 797.53,
+    "product_id": 370774,
+    "quality_score": 0.8188,
+    "rating": 4.7,
+    "review_count": 132,
+    "short_description": "Body-aligned adjustable support for all-day work, with less fatigue through long desk sessions.",
+    "sku": "HO-ERGON-0370774",
+    "subcategory": "Ergonomic Office Chairs",
+    "tags": [
+      "ergonomic",
+      "office chair",
+      "seating"
+    ],
+    "title": "ArcErgonomics EOC-P722 Flex Ergonomic Office Chair"
+  },
+  {
+    "attributes": {
+      "armrests": "3D",
+      "lumbar_support": "Fixed",
+      "material": "Fabric",
+      "max_user_weight_lb": 300,
+      "recline_deg": 120,
+      "recommended_hours": 12,
+      "seat_depth_adjustable": true
+    },
+    "availability": "Low Stock",
+    "brand": "WorkStudio",
+    "category": "Seating",
+    "cohorts": [
+      "popularity_bias"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/ergonomic-office-chairs/060.webp",
+    "model": "EOC-F329P",
+    "popularity_score": 0.9432,
+    "price_usd": 491.52,
+    "product_id": 374940,
+    "quality_score": 0.6878,
+    "rating": 4.3,
+    "review_count": 2211,
+    "short_description": "Body-aligned adjustable support for standing routines, with less fatigue through long desk sessions.",
+    "sku": "HO-ERGON-0374940",
+    "subcategory": "Ergonomic Office Chairs",
+    "tags": [
+      "ergonomic",
+      "office chair",
+      "seating"
+    ],
+    "title": "WorkStudio EOC-F329P Ultra Ergonomic Office Chair"
+  },
+  {
+    "attributes": {
+      "coverage_sqft": 2005,
+      "ethernet_ports": 10,
+      "max_speed_mbps": 5400,
+      "mesh_ready": true,
+      "security_updates_years": 5,
+      "wifi_generation": "6E"
+    },
+    "availability": "In Stock",
+    "brand": "FormLab",
+    "category": "Seating",
+    "cohorts": [],
+    "domain": "home_office",
+    "image_key": "home_office/mesh-office-chairs/146.webp",
+    "model": "MOC-M931X",
+    "popularity_score": 0.1219,
+    "price_usd": 387.29,
+    "product_id": 379106,
+    "quality_score": 0.8962,
+    "rating": 4.7,
+    "review_count": 9,
+    "short_description": "Adaptive whole-home networking for deep focus, with stable coverage across busy connected homes.",
+    "sku": "HO-MESHO-0379106",
+    "subcategory": "Mesh Office Chairs",
+    "tags": [
+      "home",
+      "networking",
+      "wifi"
+    ],
+    "title": "FormLab MOC-M931X Ultra Mesh Office Chair"
+  },
+  {
+    "attributes": {
+      "coverage_sqft": 1631,
+      "ethernet_ports": 10,
+      "max_speed_mbps": 3000,
+      "mesh_ready": true,
+      "security_updates_years": 3,
+      "wifi_generation": 7
+    },
+    "availability": "In Stock",
+    "brand": "BalanceErgonomics",
+    "category": "Seating",
+    "cohorts": [
+      "semantic_only"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/mesh-office-chairs/232.webp",
+    "model": "MOC-C538",
+    "popularity_score": 0.4481,
+    "price_usd": 676.87,
+    "product_id": 383272,
+    "quality_score": 0.6888,
+    "rating": 4.1,
+    "review_count": 91,
+    "short_description": "Adaptive whole-home networking for quiet offices, with stable coverage across busy connected homes.",
+    "sku": "HO-MESHO-0383272",
+    "subcategory": "Mesh Office Chairs",
+    "tags": [
+      "home",
+      "networking",
+      "wifi"
+    ],
+    "title": "BalanceErgonomics MOC-C538 Essential Mesh Office Chair"
+  },
+  {
+    "attributes": {
+      "armrests": "Fixed",
+      "lumbar_support": "Dynamic",
+      "material": "Mesh",
+      "max_user_weight_lb": 350,
+      "recline_deg": 110,
+      "recommended_hours": 8,
+      "seat_depth_adjustable": false
+    },
+    "availability": "In Stock",
+    "brand": "HavenCraft",
+    "category": "Seating",
+    "cohorts": [
+      "semantic_only",
+      "compatibility"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/kneeling-chairs/078.webp",
+    "model": "KC-R254",
+    "popularity_score": 0.0496,
+    "price_usd": 189.51,
+    "product_id": 387438,
+    "quality_score": 0.4162,
+    "rating": 4.1,
+    "review_count": 12,
+    "short_description": "Comfort engineered for creative work, with less fatigue through long desk sessions.",
+    "sku": "HO-KNEEL-0387438",
+    "subcategory": "Kneeling Chairs",
+    "tags": [
+      "ergonomic",
+      "office chair",
+      "seating"
+    ],
+    "title": "HavenCraft KC-R254 Studio Kneeling Chair"
+  },
+  {
+    "attributes": {
+      "armrests": "Fixed",
+      "lumbar_support": "Fixed",
+      "material": "Mesh",
+      "max_user_weight_lb": 350,
+      "recline_deg": 135,
+      "recommended_hours": 8,
+      "seat_depth_adjustable": true
+    },
+    "availability": "In Stock",
+    "brand": "ContourCollective",
+    "category": "Seating",
+    "cohorts": [
+      "popularity_bias"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/guest-chairs/164.webp",
+    "model": "GC-M414S",
+    "popularity_score": 0.9604,
+    "price_usd": 211.79,
+    "product_id": 391604,
+    "quality_score": 0.6693,
+    "rating": 4.1,
+    "review_count": 9704,
+    "short_description": "Body-aligned adjustable support for shared workspaces, with less fatigue through long desk sessions.",
+    "sku": "HO-GUEST-0391604",
+    "subcategory": "Guest Chairs",
+    "tags": [
+      "ergonomic",
+      "office chair",
+      "seating"
+    ],
+    "title": "ContourCollective GC-M414S Ultra Guest Chair"
+  },
+  {
+    "attributes": {
+      "cable_management": false,
+      "depth_in": 30,
+      "height_range_in": "24-50",
+      "load_capacity_lb": 110,
+      "width_in": 48
+    },
+    "availability": "In Stock",
+    "brand": "StudioLab",
+    "category": "Desks",
+    "cohorts": [],
+    "domain": "home_office",
+    "image_key": "home_office/electric-standing-desks/010.webp",
+    "model": "ESD-Z685X",
+    "popularity_score": 0.5541,
+    "price_usd": 951.44,
+    "product_id": 395770,
+    "quality_score": 0.2998,
+    "rating": 3.5,
+    "review_count": 1095,
+    "short_description": "Quiet electric lift for multi-monitor setups, with smooth transitions between sitting and standing.",
+    "sku": "HO-ELECT-0395770",
+    "subcategory": "Electric Standing Desks",
+    "tags": [
+      "desk",
+      "standing desk",
+      "workspace"
+    ],
+    "title": "StudioLab ESD-Z685X Essential Electric Standing Desk"
+  },
+  {
+    "attributes": {
+      "cable_management": true,
+      "depth_in": 24,
+      "height_adjustable": true,
+      "height_range_in": "24-50",
+      "load_capacity_lb": 110,
+      "memory_presets": 3,
+      "width_in": 36
+    },
+    "availability": "In Stock",
+    "brand": "FocusStudio",
+    "category": "Desks",
+    "cohorts": [],
+    "domain": "home_office",
+    "image_key": "home_office/electric-standing-desks/096.webp",
+    "model": "ESD-Z292",
+    "popularity_score": 0.1293,
+    "price_usd": 766.22,
+    "product_id": 399936,
+    "quality_score": 0.4316,
+    "rating": 3.6,
+    "review_count": 3,
+    "short_description": "Quiet electric lift for multi-monitor setups, with smooth transitions between sitting and standing.",
+    "sku": "HO-ELECT-0399936",
+    "subcategory": "Electric Standing Desks",
+    "tags": [
+      "desk",
+      "standing desk",
+      "workspace"
+    ],
+    "title": "FocusStudio ESD-Z292 Air Electric Standing Desk"
+  },
+  {
+    "attributes": {
+      "cable_management": true,
+      "depth_in": 30,
+      "height_adjustable": false,
+      "height_range_in": "29-30",
+      "load_capacity_lb": 300,
+      "memory_presets": 0,
+      "width_in": 42
+    },
+    "availability": "In Stock",
+    "brand": "QuietWorks",
+    "category": "Desks",
+    "cohorts": [
+      "hybrid_conflict"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/fixed-desks/182.webp",
+    "model": "FD-X119X",
+    "popularity_score": 0.4387,
+    "price_usd": 660.09,
+    "product_id": 404102,
+    "quality_score": 0.7246,
+    "rating": 4.4,
+    "review_count": 85,
+    "short_description": "Stable compact work surface for video meetings, with a focused workspace without wasted room.",
+    "sku": "HO-FIXED-0404102",
+    "subcategory": "Fixed Desks",
+    "tags": [
+      "desk",
+      "workspace"
+    ],
+    "title": "QuietWorks FD-X119X Prime Fixed Desk"
+  },
+  {
+    "attributes": {
+      "cable_management": false,
+      "depth_in": 24,
+      "height_adjustable": true,
+      "height_range_in": "24-50",
+      "load_capacity_lb": 355,
+      "memory_presets": 4,
+      "width_in": 72
+    },
+    "availability": "In Stock",
+    "brand": "FrameSpace",
+    "category": "Desks",
+    "cohorts": [
+      "semantic_only"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/standing-desk-converters/028.webp",
+    "model": "SDC-Z943",
+    "popularity_score": 0.2196,
+    "price_usd": 1210.58,
+    "product_id": 408268,
+    "quality_score": 0.8582,
+    "rating": 4.5,
+    "review_count": 24,
+    "short_description": "Variable-height workspace for all-day work, with smooth transitions between sitting and standing.",
+    "sku": "HO-STAND-0408268",
+    "subcategory": "Standing Desk Converters",
+    "tags": [
+      "desk",
+      "standing desk",
+      "workspace"
+    ],
+    "title": "FrameSpace SDC-Z943 Essential Standing Desk Converter"
+  },
+  {
+    "attributes": {
+      "cable_management": true,
+      "depth_in": 24,
+      "height_adjustable": false,
+      "height_range_in": "29-30",
+      "load_capacity_lb": 355,
+      "memory_presets": 0,
+      "width_in": 72
+    },
+    "availability": "In Stock",
+    "brand": "StudioLiving",
+    "category": "Desks",
+    "cohorts": [],
+    "domain": "home_office",
+    "image_key": "home_office/compact-desks/114.webp",
+    "model": "CD-K217P",
+    "popularity_score": 0.249,
+    "price_usd": 712.98,
+    "product_id": 412434,
+    "quality_score": 0.8967,
+    "rating": 4.8,
+    "review_count": 22,
+    "short_description": "Stable compact work surface for standing routines, with a focused workspace without wasted room.",
+    "sku": "HO-COMPA-0412434",
+    "subcategory": "Compact Desks",
+    "tags": [
+      "desk",
+      "workspace"
+    ],
+    "title": "StudioLiving CD-K217P Active Compact Desk"
+  },
+  {
+    "attributes": {
+      "color_gamut_pct": 96,
+      "height_adjustable": false,
+      "panel": "Mini-LED",
+      "refresh_hz": 100,
+      "usb_c_power_w": 90,
+      "vesa": true
+    },
+    "availability": "In Stock",
+    "brand": "AxisLiving",
+    "category": "Displays",
+    "cohorts": [
+      "hard_negative",
+      "popularity_bias"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/productivity-monitors/200.webp",
+    "model": "PM-A488S",
+    "popularity_score": 0.9585,
+    "price_usd": 443.97,
+    "product_id": 416600,
+    "quality_score": 0.6559,
+    "rating": 4.3,
+    "review_count": 8190,
+    "short_description": "Fixed-height standing-style workspace for all-day work, with crisp text and room for side-by-side work.",
+    "sku": "HO-PRODU-0416600",
+    "subcategory": "Productivity Monitors",
+    "tags": [
+      "49 inch",
+      "5120x1440",
+      "display",
+      "fixed height"
+    ],
+    "title": "AxisLiving PM-A488S Ultra Productivity Monitor"
+  },
+  {
+    "attributes": {
+      "color_gamut_pct": 98,
+      "height_adjustable": true,
+      "panel": "OLED",
+      "refresh_hz": 120,
+      "resolution": "5120x1440",
+      "size_in": 32,
+      "usb_c_power_w": 65,
+      "vesa": true
+    },
+    "availability": "In Stock",
+    "brand": "NookLab",
+    "category": "Displays",
+    "cohorts": [
+      "review_evidence"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/ultrawide-monitors/046.webp",
+    "model": "UM-C426",
+    "popularity_score": 0.5408,
+    "price_usd": 649.97,
+    "product_id": 420766,
+    "quality_score": 0.9637,
+    "rating": 4.8,
+    "review_count": 223,
+    "short_description": "High-density workspace display for multi-monitor setups, with crisp text and room for side-by-side work.",
+    "sku": "HO-ULTRA-0420766",
+    "subcategory": "Ultrawide Monitors",
+    "tags": [
+      "32 inch",
+      "5120x1440",
+      "display"
+    ],
+    "title": "NookLab UM-C426 Plus Ultrawide Monitor"
+  },
+  {
+    "attributes": {
+      "color_gamut_pct": 90,
+      "height_adjustable": false,
+      "panel": "VA",
+      "refresh_hz": 100,
+      "resolution": "1920x1080",
+      "size_in": 49,
+      "usb_c_power_w": 45,
+      "vesa": true
+    },
+    "availability": "Low Stock",
+    "brand": "WorkSystems",
+    "category": "Displays",
+    "cohorts": [
+      "compatibility",
+      "near_duplicate"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/portable-monitors/132.webp",
+    "model": "PM-N586P",
+    "popularity_score": 0.1801,
+    "price_usd": 406.67,
+    "product_id": 424932,
+    "quality_score": 0.7211,
+    "rating": 4.3,
+    "review_count": 81,
+    "short_description": "High-density workspace display for small apartments, with crisp text and room for side-by-side work.",
+    "sku": "HO-PORTA-0424932",
+    "subcategory": "Portable Monitors",
+    "tags": [
+      "1920x1080",
+      "49 inch",
+      "display"
+    ],
+    "title": "WorkSystems PM-N586P Tour Portable Monitor \u2014 Midnight"
+  },
+  {
+    "attributes": {
+      "backlit": true,
+      "hot_swappable": false,
+      "layout": "Split",
+      "os_compatibility": [
+        "Linux",
+        "macOS",
+        "ChromeOS",
+        "Windows"
+      ],
+      "quiet_typing": true,
+      "switch_type": "Tactile",
+      "wireless": true
+    },
+    "availability": "In Stock",
+    "brand": "ErgoCraft",
+    "category": "Input Devices",
+    "cohorts": [],
+    "domain": "home_office",
+    "image_key": "home_office/quiet-keyboards/218.webp",
+    "model": "QK-V635",
+    "popularity_score": 0.0535,
+    "price_usd": 161.53,
+    "product_id": 429098,
+    "quality_score": 0.4413,
+    "rating": 3.9,
+    "review_count": 7,
+    "short_description": "Muted key action for video meetings, with meeting-friendly typing with less desk noise.",
+    "sku": "HO-QUIET-0429098",
+    "subcategory": "Quiet Keyboards",
+    "tags": [
+      "input",
+      "keyboard",
+      "quiet"
+    ],
+    "title": "ErgoCraft QK-V635 Studio Quiet Keyboard"
+  },
+  {
+    "attributes": {
+      "backlit": true,
+      "hot_swappable": true,
+      "layout": "Split",
+      "os_compatibility": [
+        "Windows",
+        "Linux"
+      ],
+      "quiet_typing": true,
+      "switch_type": "Low Profile",
+      "wireless": false
+    },
+    "availability": "In Stock",
+    "brand": "LumaCraft",
+    "category": "Input Devices",
+    "cohorts": [],
+    "domain": "home_office",
+    "image_key": "home_office/ergonomic-keyboards/064.webp",
+    "model": "EK-K795P",
+    "popularity_score": 0.1113,
+    "price_usd": 273.41,
+    "product_id": 433264,
+    "quality_score": 0.6805,
+    "rating": 4.6,
+    "review_count": 17,
+    "short_description": "Muted key action for shared workspaces, with meeting-friendly typing with less desk noise.",
+    "sku": "HO-ERGON-0433264",
+    "subcategory": "Ergonomic Keyboards",
+    "tags": [
+      "input",
+      "keyboard",
+      "quiet"
+    ],
+    "title": "LumaCraft EK-K795P Air Ergonomic Keyboard"
+  },
+  {
+    "attributes": {
+      "compatibility": "USB-C",
+      "material": "Composite",
+      "portable": false,
+      "weight_g": 647
+    },
+    "availability": "In Stock",
+    "brand": "AxisOffice",
+    "category": "Input Devices",
+    "cohorts": [
+      "fresh_launch"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/vertical-mice/150.webp",
+    "model": "VM-R069S",
+    "popularity_score": 0.5421,
+    "price_usd": 116.26,
+    "product_id": 437430,
+    "quality_score": 0.6277,
+    "rating": 4.3,
+    "review_count": 26,
+    "short_description": "Balanced everyday performance for small apartments, with reliable performance for everyday use.",
+    "sku": "HO-VERTI-0437430",
+    "subcategory": "Vertical Mice",
+    "tags": [
+      "input devices",
+      "vertical mice"
+    ],
+    "title": "AxisOffice VM-R069S Tour Vertical Mice"
+  },
+  {
+    "attributes": {
+      "battery_hours": 14,
+      "display_in": 8.3,
+      "memory_gb": 32,
+      "processor_tier": "Mainstream",
+      "storage_gb": 256,
+      "usb_c": true,
+      "weight_kg": 1.99,
+      "wifi_generation": 7
+    },
+    "availability": "In Stock",
+    "brand": "CraftLiving",
+    "category": "Input Devices",
+    "cohorts": [],
+    "domain": "home_office",
+    "image_key": "home_office/graphic-tablets/236.webp",
+    "model": "GT-S118P",
+    "popularity_score": 0.5164,
+    "price_usd": 266.15,
+    "product_id": 441596,
+    "quality_score": 0.7271,
+    "rating": 4.5,
+    "review_count": 249,
+    "short_description": "Portable multitasking performance for small apartments, with smooth work across documents, meetings, and creative apps.",
+    "sku": "HO-GRAPH-0441596",
+    "subcategory": "Graphic Tablets",
+    "tags": [
+      "computer",
+      "portable",
+      "usb-c"
+    ],
+    "title": "CraftLiving GT-S118P Edge Graphic Tablet"
+  },
+  {
+    "attributes": {
+      "cable_management": false,
+      "depth_in": 20,
+      "height_adjustable": false,
+      "height_range_in": "29-30",
+      "load_capacity_lb": 220,
+      "memory_presets": 0,
+      "width_in": 55
+    },
+    "availability": "In Stock",
+    "brand": "WorkLiving",
+    "category": "Lighting",
+    "cohorts": [
+      "near_duplicate"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/desk-lamps/082.webp",
+    "model": "DL-A574",
+    "popularity_score": 0.436,
+    "price_usd": 652.66,
+    "product_id": 445762,
+    "quality_score": 0.708,
+    "rating": 4.5,
+    "review_count": 60,
+    "short_description": "Stable compact work surface for quiet offices, with a focused workspace without wasted room.",
+    "sku": "HO-DESKL-0445762",
+    "subcategory": "Desk Lamps",
+    "tags": [
+      "desk",
+      "workspace"
+    ],
+    "title": "WorkLiving DL-A574 Flex Desk Lamp \u2014 Graphite"
+  },
+  {
+    "attributes": {
+      "auto_dimming": false,
+      "color_temperature_k": 5000,
+      "cri": 87,
+      "dimmable": true,
+      "lumens": 807,
+      "usb_power": true
+    },
+    "availability": "In Stock",
+    "brand": "SpaceLiving",
+    "category": "Lighting",
+    "cohorts": [
+      "hard_negative"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/video-conference-lights/168.webp",
+    "model": "VCL-R549S",
+    "popularity_score": 0.2793,
+    "price_usd": 84.05,
+    "product_id": 449928,
+    "quality_score": 0.7824,
+    "rating": 4.6,
+    "review_count": 95,
+    "short_description": "Glare-controlled adjustable light for all-day work, with clearer work surfaces and more flattering video calls.",
+    "sku": "HO-VIDEO-0449928",
+    "subcategory": "Video Conference Lights",
+    "tags": [
+      "desk",
+      "focus",
+      "lighting"
+    ],
+    "title": "SpaceLiving VCL-R549S Active Video Conference Light"
+  },
+  {
+    "attributes": {
+      "certified_platforms": [
+        "Meet",
+        "Webex",
+        "Teams",
+        "Zoom"
+      ],
+      "field_of_view_deg": 110,
+      "microphone_array": 4,
+      "noise_reduction": true,
+      "usb_c": true,
+      "video_resolution": "1440p"
+    },
+    "availability": "Low Stock",
+    "brand": "ErgoLab",
+    "category": "Video & Audio",
+    "cohorts": [
+      "review_evidence"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/conference-webcams/014.webp",
+    "model": "CW-R709S",
+    "popularity_score": 0.1337,
+    "price_usd": 352.69,
+    "product_id": 454094,
+    "quality_score": 0.5952,
+    "rating": 4.5,
+    "review_count": 18,
+    "short_description": "Clear meeting capture for compact rooms, with more natural conversations across remote teams.",
+    "sku": "HO-CONFE-0454094",
+    "subcategory": "Conference Webcams",
+    "tags": [
+      "collaboration",
+      "usb",
+      "video meetings"
+    ],
+    "title": "ErgoLab CW-R709S Flex Conference Webcam"
+  },
+  {
+    "attributes": {
+      "noise_reduction": true,
+      "video_resolution": null
+    },
+    "availability": "In Stock",
+    "brand": "WorkStudio",
+    "category": "Video & Audio",
+    "cohorts": [
+      "hybrid_conflict"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/usb-microphones/100.webp",
+    "model": "UM-S758P",
+    "popularity_score": 0.2342,
+    "price_usd": 340.81,
+    "product_id": 458260,
+    "quality_score": 0.7886,
+    "rating": 4.7,
+    "review_count": 64,
+    "short_description": "Clear meeting capture for multi-monitor setups, with more natural conversations across remote teams.",
+    "sku": "HO-USBMI-0458260",
+    "subcategory": "USB Microphones",
+    "tags": [
+      "collaboration",
+      "usb",
+      "video meetings"
+    ],
+    "title": "WorkStudio UM-S758P Ultra USB Microphone"
+  },
+  {
+    "attributes": {
+      "modular": true,
+      "mounting": "Desktop",
+      "tool_free": false,
+      "width_in": 37
+    },
+    "availability": "In Stock",
+    "brand": "FormLab",
+    "category": "Organization",
+    "cohorts": [],
+    "domain": "home_office",
+    "image_key": "home_office/drawer-units/186.webp",
+    "model": "DU-P807S",
+    "popularity_score": 0.2684,
+    "price_usd": 83.43,
+    "product_id": 462426,
+    "quality_score": 0.7818,
+    "rating": 4.4,
+    "review_count": 49,
+    "short_description": "Modular clutter control for quiet offices, with a clearer desk with essentials within reach.",
+    "sku": "HO-DRAWE-0462426",
+    "subcategory": "Drawer Units",
+    "tags": [
+      "organization",
+      "storage",
+      "workspace"
+    ],
+    "title": "FormLab DU-P807S Core Drawer Unit"
+  },
+  {
+    "attributes": {
+      "capacity_mah": 0,
+      "gan": true,
+      "max_power_w": 20,
+      "ports": 5,
+      "travel_ready": true,
+      "usb_c_pd": true
+    },
+    "availability": "Low Stock",
+    "brand": "BalanceErgonomics",
+    "category": "Organization",
+    "cohorts": [
+      "selective_filter"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/cable-management/032.webp",
+    "model": "CM-S967P",
+    "popularity_score": 0.3205,
+    "price_usd": 249.98,
+    "product_id": 466592,
+    "quality_score": 0.5011,
+    "rating": 4.0,
+    "review_count": 102,
+    "short_description": "Compact high-output charging for creative work, with fewer adapters across travel and desk setups.",
+    "sku": "HO-CABLE-0466592",
+    "subcategory": "Cable Management",
+    "tags": [
+      "charging",
+      "power",
+      "usb-c"
+    ],
+    "title": "BalanceErgonomics CM-S967P Air Cable Management"
+  },
+  {
+    "attributes": {
+      "material": "Steel",
+      "modular": true,
+      "mounting": "Freestanding",
+      "tool_free": false,
+      "width_in": 29
+    },
+    "availability": "In Stock",
+    "brand": "WorkOffice",
+    "category": "Organization",
+    "cohorts": [
+      "semantic_only"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/pegboards/118.webp",
+    "model": "P-F684",
+    "popularity_score": 0.0604,
+    "price_usd": 169.15,
+    "product_id": 470758,
+    "quality_score": 0.9564,
+    "rating": 4.7,
+    "review_count": 48,
+    "short_description": "Modular clutter control for creative work, with a clearer desk with essentials within reach.",
+    "sku": "HO-PEGBO-0470758",
+    "subcategory": "Pegboards",
+    "tags": [
+      "organization",
+      "storage",
+      "workspace"
+    ],
+    "title": "WorkOffice P-F684 Pro Pegboard"
+  },
+  {
+    "attributes": {
+      "battery_hours": 23,
+      "display_in": 15.6,
+      "memory_gb": 16,
+      "processor_tier": "Performance",
+      "storage_gb": 2048,
+      "usb_c": true,
+      "weight_kg": 1.53,
+      "wifi_generation": 6
+    },
+    "availability": "In Stock",
+    "brand": "ContourCollective",
+    "category": "Ergonomics",
+    "cohorts": [
+      "typo_target"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/laptop-stands/204.webp",
+    "model": "LS-A290X",
+    "popularity_score": 0.256,
+    "price_usd": 977.18,
+    "product_id": 474924,
+    "quality_score": 0.6637,
+    "rating": 4.4,
+    "review_count": 20,
+    "short_description": "Portable multitasking performance for creative work, with smooth work across documents, meetings, and creative apps.",
+    "sku": "HO-LAPTO-0474924",
+    "subcategory": "Laptop Stands",
+    "tags": [
+      "computer",
+      "portable",
+      "usb-c"
+    ],
+    "title": "ContourCollective LS-A290X Core Laptop Stand"
+  },
+  {
+    "attributes": {
+      "adjustable": false,
+      "height_range_in": "6-12",
+      "material": "Mesh",
+      "weight_capacity_lb": 20
+    },
+    "availability": "In Stock",
+    "brand": "StudioLab",
+    "category": "Ergonomics",
+    "cohorts": [
+      "selective_filter",
+      "review_evidence"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/wrist-rests/050.webp",
+    "model": "WR-F339P",
+    "popularity_score": 0.4819,
+    "price_usd": 149.99,
+    "product_id": 479090,
+    "quality_score": 0.2609,
+    "rating": 3.5,
+    "review_count": 132,
+    "short_description": "Posture-supportive adjustment for video meetings, with a more neutral setup across long workdays.",
+    "sku": "HO-WRIST-0479090",
+    "subcategory": "Wrist Rests",
+    "tags": [
+      "comfort",
+      "desk accessory",
+      "ergonomic"
+    ],
+    "title": "StudioLab WR-F339P Plus Wrist Rest"
+  },
+  {
+    "attributes": {
+      "compatibility": [
+        "Windows",
+        "macOS",
+        "Linux",
+        "ChromeOS"
+      ],
+      "display_count": 3,
+      "ethernet": false,
+      "host_connection": "Thunderbolt",
+      "ports": 13,
+      "power_delivery_w": 65
+    },
+    "availability": "In Stock",
+    "brand": "ContourErgonomics",
+    "category": "Power & Connectivity",
+    "cohorts": [],
+    "domain": "home_office",
+    "image_key": "home_office/docking-stations/136.webp",
+    "model": "DS-E610X",
+    "popularity_score": 0.1206,
+    "price_usd": 294.36,
+    "product_id": 483256,
+    "quality_score": 0.5852,
+    "rating": 4.3,
+    "review_count": 20,
+    "short_description": "Single-cable workspace connectivity for quiet offices, with faster transitions between mobile and desk work.",
+    "sku": "HO-DOCKI-0483256",
+    "subcategory": "Docking Stations",
+    "tags": [
+      "connectivity",
+      "usb-c",
+      "workspace"
+    ],
+    "title": "ContourErgonomics DS-E610X Prime Docking Station"
+  },
+  {
+    "attributes": {
+      "compatibility": [
+        "Windows",
+        "macOS",
+        "ChromeOS",
+        "Linux"
+      ],
+      "display_count": 3,
+      "ethernet": false,
+      "host_connection": "USB-C",
+      "ports": 11,
+      "power_delivery_w": 65
+    },
+    "availability": "Out of Stock",
+    "brand": "SpaceForm",
+    "category": "Power & Connectivity",
+    "cohorts": [],
+    "domain": "home_office",
+    "image_key": "home_office/surge-protectors/222.webp",
+    "model": "SP-S659X",
+    "popularity_score": 0.03,
+    "price_usd": 269.26,
+    "product_id": 487422,
+    "quality_score": 0.7557,
+    "rating": 4.4,
+    "review_count": 4,
+    "short_description": "Single-cable workspace connectivity for creative work, with faster transitions between mobile and desk work.",
+    "sku": "HO-SURGE-0487422",
+    "subcategory": "Surge Protectors",
+    "tags": [
+      "connectivity",
+      "usb-c",
+      "workspace"
+    ],
+    "title": "SpaceForm SP-S659X Studio Surge Protector"
+  },
+  {
+    "attributes": {
+      "compatibility": [
+        "ChromeOS",
+        "Linux"
+      ],
+      "display_count": 2,
+      "ethernet": true,
+      "host_connection": "HDMI",
+      "ports": 9,
+      "power_delivery_w": 65
+    },
+    "availability": "In Stock",
+    "brand": "FrameSpace",
+    "category": "Power & Connectivity",
+    "cohorts": [
+      "fresh_launch"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/kvm-switches/068.webp",
+    "model": "KS-C819S",
+    "popularity_score": 0.5211,
+    "price_usd": 164.1,
+    "product_id": 491588,
+    "quality_score": 0.8489,
+    "rating": 4.7,
+    "review_count": 62,
+    "short_description": "Single-cable workspace connectivity for deep focus, with faster transitions between mobile and desk work.",
+    "sku": "HO-KVMSW-0491588",
+    "subcategory": "KVM Switches",
+    "tags": [
+      "connectivity",
+      "usb-c",
+      "workspace"
+    ],
+    "title": "FrameSpace KS-C819S Active KVM Switche"
+  },
+  {
+    "attributes": {
+      "coverage_sqft": 103,
+      "mounting": "Clip",
+      "nrc_rating": 0.7,
+      "recycled_material_pct": 8
+    },
+    "availability": "In Stock",
+    "brand": "CalmLab",
+    "category": "Acoustics",
+    "cohorts": [
+      "baseline"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/sound-masking-devices/154.webp",
+    "model": "SMD-F979X",
+    "popularity_score": 0.1266,
+    "price_usd": 48.65,
+    "product_id": 495754,
+    "quality_score": 0.513,
+    "rating": 3.8,
+    "review_count": 26,
+    "short_description": "Focused acoustic control for compact rooms, with fewer speech distractions in shared spaces.",
+    "sku": "HO-SOUND-0495754",
+    "subcategory": "Sound Masking Devices",
+    "tags": [
+      "acoustics",
+      "focus",
+      "quiet office"
+    ],
+    "title": "CalmLab SMD-F979X Ultra Sound Masking Device"
+  },
+  {
+    "attributes": {
+      "cable_management": true,
+      "depth_in": 30,
+      "height_adjustable": false,
+      "height_range_in": "29-30",
+      "load_capacity_lb": 300,
+      "width_in": 55
+    },
+    "availability": "Low Stock",
+    "brand": "ModuCraft",
+    "category": "Air & Environment",
+    "cohorts": [
+      "compatibility"
+    ],
+    "domain": "home_office",
+    "image_key": "home_office/desk-fans/000.webp",
+    "model": "DF-Z862",
+    "popularity_score": 0.3604,
+    "price_usd": 304.68,
+    "product_id": 499920,
+    "quality_score": 0.6095,
+    "rating": 4.3,
+    "review_count": 60,
+    "short_description": "Stable compact work surface for creative work, with a focused workspace without wasted room.",
+    "sku": "HO-DESKF-0499920",
+    "subcategory": "Desk Fans",
+    "tags": [
+      "desk",
+      "workspace"
+    ],
+    "title": "ModuCraft DF-Z862 Edge Desk Fan"
+  }
+]

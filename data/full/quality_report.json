@@ -1,0 +1,64 @@
+{
+  "attributes_nonempty_pct": 99.924,
+  "availability": {
+    "In Stock": 437416,
+    "Low Stock": 52448,
+    "Out of Stock": 10136
+  },
+  "brands": 309,
+  "canonical_variant_groups_with_multiple_rows": 4465,
+  "domain_counts": {
+    "consumer_electronics": 210000,
+    "home_office": 130000,
+    "running_fitness": 160000
+  },
+  "evaluation_queries": 720,
+  "filter_target_mismatches": 0,
+  "filter_targets_found": 720,
+  "full_dataset_shards": [
+    {
+      "bytes": 41156429,
+      "path": "data/full/products_consumer_electronics.csv.gz",
+      "sha256": "d109ca13c2b6311a53eca3d1dce67bb8a484954109f813503ac53d4954d8ea47"
+    },
+    {
+      "bytes": 31485037,
+      "path": "data/full/products_running_fitness.csv.gz",
+      "sha256": "d6df9eced609d756fbc5fdec08a3c09bfc477ce77b576407587639fe9892133c"
+    },
+    {
+      "bytes": 25512547,
+      "path": "data/full/products_home_office.csv.gz",
+      "sha256": "9e7e5f5f31c35aacfb79b3d6661bcafd4afb6b6dd00b3fc3a7ef5d26ebd4e649"
+    }
+  ],
+  "github_file_limit_bytes": 100000000,
+  "github_file_limit_ok": true,
+  "invalid_updated_before_launch": 0,
+  "largest_variant_group": 4,
+  "malformed_skus": 0,
+  "price_usd": {
+    "max": 2349.64,
+    "min": 9.67,
+    "p50": 169.02,
+    "p90": 678.03
+  },
+  "rating": {
+    "mean": 4.399,
+    "p50": 4.4
+  },
+  "rows": 500000,
+  "source_systems": {
+    "Catalog API": 100102,
+    "ERP": 100057,
+    "Marketplace": 100218,
+    "PIM": 99636,
+    "Vendor Feed": 99960,
+    "curated_merchandising": 27
+  },
+  "subcategories": 160,
+  "subcategory_model_pairs": 468181,
+  "unique_product_uids": 500000,
+  "unique_skus": 500000,
+  "unsupported_filter_queries": 0
+}

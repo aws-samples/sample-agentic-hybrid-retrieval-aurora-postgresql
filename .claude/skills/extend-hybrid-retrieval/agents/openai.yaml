@@ -1,4 +1,0 @@
-interface:
-  display_name: "Extend Hybrid Retrieval"
-  short_description: "Extend retrieval with evidence receipts"
-  default_prompt: "Use $extend-hybrid-retrieval to add or diagnose a retrieval source while preserving ranking, citations, and provenance."

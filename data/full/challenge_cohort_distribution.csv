@@ -1,0 +1,16 @@
+cohort,products
+baseline,18472
+compatibility,24949
+fresh_launch,12495
+hard_negative,14966
+hybrid_conflict,12569
+lexical_only,15038
+near_duplicate,17860
+popularity_bias,14975
+review_evidence,39811
+selective_filter,25021
+semantic_only,22625
+sparse_metadata,10066
+sponsored_low_relevance,5991
+stale_inventory,10195
+typo_target,19952

@@ -1,0 +1,1351 @@
+[
+  {
+    "product_id": 1,
+    "brand": "Mosaic",
+    "model": "Auraluxe H9",
+    "title": "Mosaic Auraluxe H9 Premium Wireless Headphones",
+    "price_usd": 299.0,
+    "list_price_usd": 329.0,
+    "rating": 4.8,
+    "review_count": 2431,
+    "availability": "In Stock",
+    "inventory_count": 184,
+    "seller_count": 4,
+    "shipping_days": 2,
+    "warranty_months": 24,
+    "short_description": "Premium over-ear headphones with adaptive noise cancellation, studio-grade detail, cloud-like comfort, and exceptional battery life.",
+    "long_description": "Mosaic Auraluxe H9 combines hybrid adaptive noise cancellation, high-resolution wireless audio, multipoint pairing, and up to 60 hours of listening for travel, focused work, and long sessions.",
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 60,
+      "codec": "Hi-Res Wireless",
+      "connectivity": [
+        "Bluetooth 5.3",
+        "USB-C"
+      ],
+      "foldable": true,
+      "form_factor": "over-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "IPX4",
+      "weight_g": 245,
+      "color": "Warm Ivory",
+      "best_for": [
+        "immersive sound",
+        "long flights",
+        "focus"
+      ]
+    },
+    "tags": [
+      "premium sound",
+      "adaptive ANC",
+      "60-hour battery",
+      "travel-friendly",
+      "multipoint",
+      "Mosaic audio"
+    ],
+    "aliases": [
+      "Auraluxe H9",
+      "H95 headphones",
+      "premium noise cancelling headphones",
+      "Auraluxe over ear",
+      "Mosaic headphones"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "premium_vs_budget",
+      "semantic_intent",
+      "rerank_subjective"
+    ],
+    "image_key": "auraluxe-h9.webp"
+  },
+  {
+    "product_id": 2,
+    "brand": "Sonora",
+    "model": "WH-C720",
+    "title": "Sonora WH-C720 Wireless Noise-Cancelling Headphones",
+    "price_usd": 149.99,
+    "list_price_usd": 179.99,
+    "rating": 4.6,
+    "review_count": 1248,
+    "availability": "In Stock",
+    "inventory_count": 946,
+    "seller_count": 8,
+    "shipping_days": 1,
+    "warranty_months": 18,
+    "short_description": "Lightweight everyday ANC headphones with clear calls and up to 35 hours of battery life.",
+    "long_description": "Sonora WH-C720 is tuned for commuting, office focus, and everyday listening. Dual-sensor noise control, a lightweight 192-gram build, multipoint pairing, and dependable battery life make it a strong value under $200.",
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 35,
+      "battery_hours_anc_off": 50,
+      "codec": "AAC",
+      "connectivity": [
+        "Bluetooth 5.2",
+        "USB-C"
+      ],
+      "foldable": false,
+      "form_factor": "over-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "None",
+      "weight_g": 192,
+      "color": "Warm Ivory",
+      "best_for": [
+        "everyday use",
+        "commuting",
+        "calls"
+      ]
+    },
+    "tags": [
+      "under $200",
+      "long battery life",
+      "noise cancelling",
+      "lightweight",
+      "clear calls"
+    ],
+    "aliases": [
+      "WH C720",
+      "C720N",
+      "Sonora 720",
+      "wireless noice cancelling hedphones"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "typo_recovery",
+      "budget_filter",
+      "lexical_model"
+    ],
+    "image_key": "sonora-c720.webp"
+  },
+  {
+    "product_id": 3,
+    "brand": "Northstar Audio",
+    "model": "Space Q45",
+    "title": "Northstar Space Q45 Adaptive Noise-Cancelling Headphones",
+    "price_usd": 149.99,
+    "list_price_usd": 199.99,
+    "rating": 4.4,
+    "review_count": 982,
+    "availability": "In Stock",
+    "inventory_count": 511,
+    "seller_count": 7,
+    "shipping_days": 2,
+    "warranty_months": 18,
+    "short_description": "Adaptive ANC, high-resolution wireless audio, and marathon battery life for frequent travelers.",
+    "long_description": "Northstar Space Q45 automatically adjusts noise cancellation to the environment and delivers up to 50 hours with ANC enabled. LDAC support, generous padding, and a travel case make it ideal for flights and long work sessions.",
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 50,
+      "battery_hours_anc_off": 65,
+      "codec": "LDAC",
+      "connectivity": [
+        "Bluetooth 5.3",
+        "3.5mm",
+        "USB-C"
+      ],
+      "foldable": true,
+      "form_factor": "over-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "None",
+      "weight_g": 293,
+      "color": "Midnight",
+      "best_for": [
+        "travel",
+        "long flights",
+        "focus"
+      ]
+    },
+    "tags": [
+      "adaptive ANC",
+      "50 hour battery",
+      "LDAC",
+      "travel",
+      "under $200"
+    ],
+    "aliases": [
+      "Space Q45",
+      "Q45 adaptive",
+      "Northstar noise canceling"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "semantic_intent",
+      "attribute_filter",
+      "comparison"
+    ],
+    "image_key": "northstar-q45.webp"
+  },
+  {
+    "product_id": 4,
+    "brand": "Halo Audio",
+    "model": "Comfort SE",
+    "title": "Halo Comfort SE Wireless Noise-Cancelling Headphones",
+    "price_usd": 179.0,
+    "list_price_usd": 229.0,
+    "rating": 4.7,
+    "review_count": 2103,
+    "availability": "In Stock",
+    "inventory_count": 319,
+    "seller_count": 6,
+    "shipping_days": 2,
+    "warranty_months": 24,
+    "short_description": "Exceptionally comfortable ANC headphones with natural sound and personalized noise control.",
+    "long_description": "Halo Comfort SE emphasizes long-session comfort with soft cushions, low clamping force, and personalized noise control. A balanced tuning and excellent voice pickup make it a strong all-round recommendation below $200.",
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 24,
+      "battery_hours_anc_off": 40,
+      "codec": "AAC",
+      "connectivity": [
+        "Bluetooth 5.1",
+        "3.5mm",
+        "USB-C"
+      ],
+      "foldable": true,
+      "form_factor": "over-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "None",
+      "weight_g": 236,
+      "color": "Soft Sand",
+      "best_for": [
+        "comfort",
+        "premium ANC",
+        "daily use"
+      ]
+    },
+    "tags": [
+      "excellent ANC",
+      "legendary comfort",
+      "under $200",
+      "balanced sound"
+    ],
+    "aliases": [
+      "Comfort SE",
+      "Halo quiet comfort",
+      "comfortable ANC headphones"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "rerank_subjective",
+      "hard_negative_price",
+      "comparison"
+    ],
+    "image_key": "halo-comfort-se.webp"
+  },
+  {
+    "product_id": 5,
+    "brand": "LumaTone",
+    "model": "Live 770NC",
+    "title": "LumaTone Live 770NC Wireless Noise-Cancelling Headphones",
+    "price_usd": 129.95,
+    "list_price_usd": 159.95,
+    "rating": 4.3,
+    "review_count": 756,
+    "availability": "In Stock",
+    "inventory_count": 1022,
+    "seller_count": 9,
+    "shipping_days": 1,
+    "warranty_months": 12,
+    "short_description": "Value-focused adaptive ANC headphones with spatial audio and up to 50 hours of playback.",
+    "long_description": "LumaTone Live 770NC combines adaptive noise control, spatial listening modes, and long battery life at a compelling price. It is a practical choice for students, commuters, and home-office users.",
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 50,
+      "battery_hours_anc_off": 65,
+      "codec": "AAC",
+      "connectivity": [
+        "Bluetooth 5.3",
+        "USB-C"
+      ],
+      "foldable": false,
+      "form_factor": "over-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "None",
+      "weight_g": 256,
+      "color": "Graphite",
+      "best_for": [
+        "value",
+        "commuting",
+        "home office"
+      ]
+    },
+    "tags": [
+      "best value",
+      "adaptive ANC",
+      "long battery",
+      "spatial audio",
+      "under $150"
+    ],
+    "aliases": [
+      "770NC",
+      "Live 770",
+      "LumaTone headphones"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "budget_filter",
+      "business_signal_conflict",
+      "comparison"
+    ],
+    "image_key": "luma-770nc.webp"
+  },
+  {
+    "product_id": 6,
+    "brand": "Sennova",
+    "model": "Momentum 4",
+    "title": "Sennova Momentum 4 Wireless Headphones",
+    "price_usd": 349.95,
+    "list_price_usd": 399.95,
+    "rating": 4.6,
+    "review_count": 8700,
+    "availability": "Low Stock",
+    "inventory_count": 32,
+    "seller_count": 5,
+    "shipping_days": 3,
+    "warranty_months": 24,
+    "short_description": "Audiophile-leaning wireless headphones with excellent battery life and detailed sound.",
+    "long_description": "Sennova Momentum 4 is optimized for listeners who prioritize detail, soundstage, and extended battery life. It is intentionally a strong semantic match but fails strict under-$200 filters.",
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 60,
+      "codec": "aptX Adaptive",
+      "connectivity": [
+        "Bluetooth 5.2",
+        "3.5mm",
+        "USB-C"
+      ],
+      "foldable": false,
+      "form_factor": "over-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "None",
+      "weight_g": 293,
+      "color": "Black",
+      "best_for": [
+        "sound quality",
+        "long listening",
+        "travel"
+      ]
+    },
+    "tags": [
+      "audiophile",
+      "60 hour battery",
+      "premium",
+      "adaptive ANC"
+    ],
+    "aliases": [
+      "Momentum 4",
+      "Sennova M4"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "hard_negative_price",
+      "semantic_only",
+      "filter_rejection"
+    ],
+    "image_key": "sennova-momentum.webp"
+  },
+  {
+    "product_id": 17001,
+    "brand": "Mosaic",
+    "model": "EchoBud S2",
+    "title": "Mosaic EchoBud S2 Premium Wireless Earbuds",
+    "price_usd": 129.0,
+    "list_price_usd": 149.0,
+    "rating": 4.6,
+    "review_count": 1814,
+    "availability": "In Stock",
+    "inventory_count": 746,
+    "seller_count": 7,
+    "shipping_days": 1,
+    "warranty_months": 18,
+    "short_description": "Compact premium earbuds with active noise cancellation, clear calls, and a pocket-friendly charging case.",
+    "long_description": "Mosaic EchoBud S2 combines active noise cancellation, a three-microphone call system, and up to 28 hours with its charging case for commuting and everyday carry.",
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 8,
+      "battery_hours_with_case": 28,
+      "codec": "AAC",
+      "connectivity": [
+        "Bluetooth 5.3",
+        "USB-C"
+      ],
+      "form_factor": "in-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "IPX5",
+      "weight_g": 5,
+      "color": "Stone"
+    },
+    "tags": [
+      "active noise cancellation",
+      "28-hour battery",
+      "compact",
+      "clear calls",
+      "wireless earbuds"
+    ],
+    "aliases": [
+      "EchoBud S2",
+      "Studio Buds",
+      "NovaSound earbuds",
+      "Mosaic earbuds"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "subcategory_filter"
+    ],
+    "image_key": "echobud-s2.webp"
+  },
+  {
+    "product_id": 17002,
+    "brand": "EchoArc",
+    "model": "Air Pro 3",
+    "title": "EchoArc Air Pro 3 True Wireless Earbuds",
+    "price_usd": 149.0,
+    "list_price_usd": 179.0,
+    "rating": 4.4,
+    "review_count": 1844,
+    "availability": "In Stock",
+    "inventory_count": 905,
+    "seller_count": 8,
+    "shipping_days": 1,
+    "warranty_months": 12,
+    "short_description": "Comfortable multipoint earbuds with strong voice isolation and all-day charging-case battery.",
+    "long_description": "EchoArc Air Pro 3 balances call quality, secure fit, and adaptive noise control for daily use.",
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 9,
+      "battery_hours_with_case": 36,
+      "codec": "AAC",
+      "connectivity": [
+        "Bluetooth 5.3",
+        "USB-C"
+      ],
+      "form_factor": "in-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "IPX5",
+      "weight_g": 5,
+      "color": "Graphite"
+    },
+    "tags": [
+      "multipoint",
+      "calls",
+      "ANC",
+      "under $150"
+    ],
+    "aliases": [
+      "Air Pro 3",
+      "EchoArc buds"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "budget_filter"
+    ],
+    "image_key": "novasound-buds.webp"
+  },
+  {
+    "product_id": 17003,
+    "brand": "Auraluxe",
+    "model": "EX",
+    "title": "Auraluxe EX Premium True Wireless Earbuds",
+    "price_usd": 399.0,
+    "list_price_usd": 429.0,
+    "rating": 4.7,
+    "review_count": 886,
+    "availability": "Low Stock",
+    "inventory_count": 48,
+    "seller_count": 3,
+    "shipping_days": 3,
+    "warranty_months": 24,
+    "short_description": "Premium earbuds with sculpted aluminum details, spatial audio, and transparent call quality.",
+    "long_description": "Auraluxe EX is a premium alternative for listeners who value materials and sound refinement over price.",
+    "attributes": {
+      "active_noise_cancellation": true,
+      "battery_hours": 7,
+      "battery_hours_with_case": 28,
+      "codec": "aptX Adaptive",
+      "connectivity": [
+        "Bluetooth 5.2",
+        "USB-C"
+      ],
+      "form_factor": "in-ear",
+      "microphone": true,
+      "multipoint": true,
+      "water_rating": "IP57",
+      "weight_g": 6,
+      "color": "Nordic Sand"
+    },
+    "tags": [
+      "premium earbuds",
+      "spatial audio",
+      "luxury"
+    ],
+    "aliases": [
+      "Auraluxe EX",
+      "EX earbuds"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "premium_vs_budget"
+    ],
+    "image_key": "novasound-buds.webp"
+  },
+  {
+    "product_id": 116001,
+    "brand": "Mosaic",
+    "model": "Pulse One",
+    "title": "Mosaic Pulse One Health & Fitness Smartwatch",
+    "price_usd": 249.0,
+    "list_price_usd": 279.0,
+    "rating": 4.7,
+    "review_count": 3122,
+    "availability": "In Stock",
+    "inventory_count": 614,
+    "seller_count": 6,
+    "shipping_days": 1,
+    "warranty_months": 12,
+    "short_description": "A premium GPS smartwatch for training, recovery, sleep, and everyday health tracking.",
+    "long_description": "Mosaic Pulse One combines multiband GPS, heart-rate and sleep tracking, training-readiness insights, and up to seven days of battery life.",
+    "attributes": {
+      "battery_days": 7,
+      "gps": true,
+      "heart_rate": true,
+      "platforms": [
+        "iOS",
+        "Android"
+      ],
+      "sleep_tracking": true,
+      "training_readiness": true,
+      "water_rating_atm": 5,
+      "display_mm": 45,
+      "color": "Graphite"
+    },
+    "tags": [
+      "built-in GPS",
+      "health tracking",
+      "7-day battery",
+      "sleep",
+      "fitness"
+    ],
+    "aliases": [
+      "Pulse One",
+      "Orbit 9",
+      "Series 9 watch",
+      "Mosaic smartwatch"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "structured_filter"
+    ],
+    "image_key": "pulse-one.webp"
+  },
+  {
+    "product_id": 116002,
+    "brand": "StrideWatch",
+    "model": "Apex 965",
+    "title": "StrideWatch Apex 965 GPS Performance Watch",
+    "price_usd": 599.0,
+    "list_price_usd": 649.0,
+    "rating": 4.7,
+    "review_count": 1744,
+    "availability": "In Stock",
+    "inventory_count": 288,
+    "seller_count": 5,
+    "shipping_days": 2,
+    "warranty_months": 24,
+    "short_description": "Training-focused GPS watch with multi-band accuracy, recovery metrics, and long battery life.",
+    "long_description": "StrideWatch Apex 965 is designed for marathon training and multi-sport athletes who need reliable GPS and recovery insights.",
+    "attributes": {
+      "battery_days": 23,
+      "gps": true,
+      "heart_rate": true,
+      "platforms": [
+        "iOS",
+        "Android",
+        "Web"
+      ],
+      "sleep_tracking": true,
+      "training_readiness": true,
+      "water_rating_atm": 10,
+      "display_mm": 47,
+      "color": "Black"
+    },
+    "tags": [
+      "running GPS",
+      "training readiness",
+      "marathon",
+      "multi-band"
+    ],
+    "aliases": [
+      "Apex 965",
+      "StrideWatch running watch"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "semantic_intent"
+    ],
+    "image_key": "orbit-watch.webp"
+  },
+  {
+    "product_id": 234001,
+    "brand": "AeroStride",
+    "model": "Carbon Pro 3",
+    "title": "AeroStride Carbon Pro 3 Marathon Racing Shoes",
+    "price_usd": 219.99,
+    "list_price_usd": 249.99,
+    "rating": 4.7,
+    "review_count": 1260,
+    "availability": "In Stock",
+    "inventory_count": 342,
+    "seller_count": 5,
+    "shipping_days": 2,
+    "warranty_months": 6,
+    "short_description": "Lightweight carbon-plated racer tuned for marathon efficiency and smooth turnover.",
+    "long_description": "AeroStride Carbon Pro 3 uses a full-length carbon plate, responsive foam, and a stable forefoot geometry for marathon racing and fast long runs.",
+    "attributes": {
+      "carbon_plate": true,
+      "cushioning": "maximum",
+      "distance": "Marathon",
+      "drop_mm": 8,
+      "support": "neutral",
+      "terrain": "road",
+      "waterproof": false,
+      "weight_g": 218,
+      "widths": [
+        "Standard",
+        "Wide"
+      ],
+      "race_legal": true
+    },
+    "tags": [
+      "carbon plate",
+      "marathon",
+      "lightweight",
+      "race day"
+    ],
+    "aliases": [
+      "Carbon Pro 3",
+      "carbon plated marthon shoe",
+      "AeroStride racer"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "typo_recovery",
+      "semantic_intent",
+      "attribute_filter"
+    ],
+    "image_key": "aerostride-road.webp"
+  },
+  {
+    "product_id": 234002,
+    "brand": "Velocity",
+    "model": "Carbon 3",
+    "title": "Velocity Carbon 3 Long-Distance Racing Shoes",
+    "price_usd": 189.99,
+    "list_price_usd": 219.99,
+    "rating": 4.5,
+    "review_count": 960,
+    "availability": "In Stock",
+    "inventory_count": 455,
+    "seller_count": 6,
+    "shipping_days": 2,
+    "warranty_months": 6,
+    "short_description": "Responsive carbon racer with stable cushioning for half-marathon and marathon training.",
+    "long_description": "Velocity Carbon 3 offers a forgiving plate geometry and durable race foam for athletes who want performance without an aggressive ride.",
+    "attributes": {
+      "carbon_plate": true,
+      "cushioning": "high",
+      "distance": "Half Marathon / Marathon",
+      "drop_mm": 7,
+      "support": "neutral",
+      "terrain": "road",
+      "waterproof": false,
+      "weight_g": 232,
+      "widths": [
+        "Standard",
+        "Wide"
+      ],
+      "race_legal": true
+    },
+    "tags": [
+      "carbon plate",
+      "long distance",
+      "stable",
+      "under $200"
+    ],
+    "aliases": [
+      "Velocity Carbon",
+      "Carbon 3 shoe"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "budget_filter",
+      "comparison"
+    ],
+    "image_key": "aerostride-road.webp"
+  },
+  {
+    "product_id": 234003,
+    "brand": "Nimbus",
+    "model": "Elite Carbon",
+    "title": "Nimbus Elite Carbon Tempo Racing Shoes",
+    "price_usd": 169.99,
+    "list_price_usd": 199.99,
+    "rating": 4.4,
+    "review_count": 751,
+    "availability": "Low Stock",
+    "inventory_count": 62,
+    "seller_count": 4,
+    "shipping_days": 3,
+    "warranty_months": 6,
+    "short_description": "Versatile plated trainer for tempo work, progression runs, and first-time carbon-shoe buyers.",
+    "long_description": "Nimbus Elite Carbon uses a flexible plate and durable foam to bridge training and race day.",
+    "attributes": {
+      "carbon_plate": true,
+      "cushioning": "high",
+      "distance": "Tempo / Half Marathon",
+      "drop_mm": 6,
+      "support": "neutral",
+      "terrain": "road",
+      "waterproof": false,
+      "weight_g": 246,
+      "widths": [
+        "Standard"
+      ],
+      "race_legal": true
+    },
+    "tags": [
+      "carbon plate",
+      "tempo",
+      "value",
+      "first plated shoe"
+    ],
+    "aliases": [
+      "Nimbus Elite",
+      "Elite Carbon"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "business_signal_conflict"
+    ],
+    "image_key": "aerostride-road.webp"
+  },
+  {
+    "product_id": 210001,
+    "brand": "Mosaic",
+    "model": "Stride Pro",
+    "title": "Mosaic Stride Pro Performance Running Shoes",
+    "price_usd": 169.0,
+    "list_price_usd": 189.0,
+    "rating": 4.8,
+    "review_count": 1942,
+    "availability": "In Stock",
+    "inventory_count": 703,
+    "seller_count": 7,
+    "shipping_days": 1,
+    "warranty_months": 6,
+    "short_description": "Lightweight daily-to-long-distance running shoes tuned for energy return and all-mile comfort.",
+    "long_description": "Mosaic Stride Pro pairs a responsive energy-return midsole, breathable engineered upper, stable platform, and durable road outsole for daily training and long runs.",
+    "attributes": {
+      "carbon_plate": false,
+      "cushioning": "high",
+      "distance": "Daily Training",
+      "drop_mm": 8,
+      "support": "neutral",
+      "terrain": "road",
+      "waterproof": false,
+      "weight_g": 268,
+      "widths": [
+        "Standard",
+        "Wide"
+      ]
+    },
+    "tags": [
+      "lightweight",
+      "high energy return",
+      "long-distance comfort",
+      "daily trainer",
+      "neutral"
+    ],
+    "aliases": [
+      "Stride Pro",
+      "Cloud Road",
+      "AeroStride daily shoe",
+      "Mosaic running shoes"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "hard_negative_carbon"
+    ],
+    "image_key": "stride-pro.webp"
+  },
+  {
+    "product_id": 210002,
+    "brand": "PulseMotion",
+    "model": "Daily Flow",
+    "title": "PulseMotion Daily Flow Road Running Shoes",
+    "price_usd": 129.99,
+    "list_price_usd": 149.99,
+    "rating": 4.5,
+    "review_count": 842,
+    "availability": "In Stock",
+    "inventory_count": 841,
+    "seller_count": 8,
+    "shipping_days": 1,
+    "warranty_months": 6,
+    "short_description": "Reliable everyday road shoe with balanced cushioning and a flexible forefoot.",
+    "long_description": "PulseMotion Daily Flow is an affordable, comfortable trainer for general running and walking.",
+    "attributes": {
+      "carbon_plate": false,
+      "cushioning": "medium",
+      "distance": "Daily Training",
+      "drop_mm": 9,
+      "support": "neutral",
+      "terrain": "road",
+      "waterproof": false,
+      "weight_g": 286,
+      "widths": [
+        "Standard",
+        "Wide",
+        "Extra Wide"
+      ]
+    },
+    "tags": [
+      "daily trainer",
+      "value",
+      "road running"
+    ],
+    "aliases": [
+      "Daily Flow",
+      "PulseMotion runner"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "hard_negative_carbon"
+    ],
+    "image_key": "aerostride-road.webp"
+  },
+  {
+    "product_id": 370001,
+    "brand": "Mosaic",
+    "model": "Forma Ergonomic",
+    "title": "Mosaic Forma Ergonomic Office Chair",
+    "price_usd": 699.0,
+    "list_price_usd": 799.0,
+    "rating": 4.7,
+    "review_count": 1288,
+    "availability": "In Stock",
+    "inventory_count": 116,
+    "seller_count": 4,
+    "shipping_days": 4,
+    "warranty_months": 144,
+    "short_description": "A premium ergonomic chair with adaptive lumbar support, breathable mesh, and precise all-day adjustability.",
+    "long_description": "Mosaic Forma Ergonomic is engineered for long workdays with adaptive lumbar support, adjustable seat depth, 4D armrests, synchronized recline, and a breathable suspension back.",
+    "attributes": {
+      "armrests": "4D",
+      "lumbar_support": "Dynamic",
+      "material": "Breathable mesh",
+      "max_user_weight_lb": 350,
+      "recline_deg": 135,
+      "recommended_hours": 12,
+      "seat_depth_adjustable": true,
+      "headrest": true,
+      "color": "Graphite"
+    },
+    "tags": [
+      "adaptive lumbar",
+      "breathable mesh",
+      "ergonomic",
+      "all-day comfort",
+      "adjustable arms"
+    ],
+    "aliases": [
+      "Forma Ergonomic",
+      "Forma Mesh A8",
+      "ergonmic ofice chair",
+      "all day office chair",
+      "Mosaic office chair"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "typo_recovery",
+      "semantic_intent",
+      "premium_vs_budget"
+    ],
+    "image_key": "forma-ergonomic.webp"
+  },
+  {
+    "product_id": 370002,
+    "brand": "PostureWorks",
+    "model": "Pro Mesh",
+    "title": "PostureWorks Pro Mesh Ergonomic Chair",
+    "price_usd": 699.0,
+    "list_price_usd": 799.0,
+    "rating": 4.6,
+    "review_count": 1422,
+    "availability": "In Stock",
+    "inventory_count": 281,
+    "seller_count": 5,
+    "shipping_days": 3,
+    "warranty_months": 84,
+    "short_description": "Adjustable mesh task chair with strong lumbar support for long workdays.",
+    "long_description": "PostureWorks Pro Mesh balances adjustability, breathability, and price for demanding home-office users.",
+    "attributes": {
+      "armrests": "4D",
+      "lumbar_support": "Adjustable",
+      "material": "Mesh",
+      "max_user_weight_lb": 300,
+      "recline_deg": 130,
+      "recommended_hours": 10,
+      "seat_depth_adjustable": true,
+      "headrest": false,
+      "color": "Black"
+    },
+    "tags": [
+      "ergonomic",
+      "adjustable lumbar",
+      "mesh",
+      "10 hour chair"
+    ],
+    "aliases": [
+      "Posture Works chair",
+      "Pro Mesh"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "budget_filter",
+      "comparison"
+    ],
+    "image_key": "formamesh-chair.webp"
+  },
+  {
+    "product_id": 370003,
+    "brand": "LumaSeat",
+    "model": "Executive Air",
+    "title": "LumaSeat Executive Air Ergonomic Chair",
+    "price_usd": 899.0,
+    "list_price_usd": 999.0,
+    "rating": 4.5,
+    "review_count": 903,
+    "availability": "Low Stock",
+    "inventory_count": 47,
+    "seller_count": 4,
+    "shipping_days": 4,
+    "warranty_months": 120,
+    "short_description": "Refined executive chair with breathable back, headrest, and posture-responsive recline.",
+    "long_description": "LumaSeat Executive Air brings a more residential look to advanced ergonomic support.",
+    "attributes": {
+      "armrests": "3D",
+      "lumbar_support": "Adaptive",
+      "material": "Mesh and fabric",
+      "max_user_weight_lb": 320,
+      "recline_deg": 140,
+      "recommended_hours": 10,
+      "seat_depth_adjustable": true,
+      "headrest": true,
+      "color": "Charcoal"
+    },
+    "tags": [
+      "executive",
+      "ergonomic",
+      "headrest",
+      "premium"
+    ],
+    "aliases": [
+      "LumaSeat Air",
+      "Executive Air chair"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "rerank_subjective"
+    ],
+    "image_key": "formamesh-chair.webp"
+  },
+  {
+    "product_id": 420001,
+    "brand": "Mosaic",
+    "model": "Atelier 32",
+    "title": "Mosaic Atelier 32 Premium Workspace Display",
+    "price_usd": 549.0,
+    "list_price_usd": 599.0,
+    "rating": 4.7,
+    "review_count": 1086,
+    "availability": "In Stock",
+    "inventory_count": 371,
+    "seller_count": 7,
+    "shipping_days": 2,
+    "warranty_months": 36,
+    "short_description": "A refined 32-inch 4K workspace display with USB-C connectivity and a clean, color-accurate presentation.",
+    "long_description": "Mosaic Atelier 32 combines a color-accurate 4K IPS panel, single-cable USB-C power, and a minimal height-adjustable stand for creative work and focused productivity.",
+    "attributes": {
+      "color_gamut_pct": 98,
+      "height_adjustable": true,
+      "panel": "IPS",
+      "refresh_hz": 60,
+      "resolution": "3840x2160",
+      "size_in": 32,
+      "usb_c_power_w": 90,
+      "vesa": true,
+      "curved": false,
+      "best_for": [
+        "coding",
+        "photo editing",
+        "productivity"
+      ]
+    },
+    "tags": [
+      "32 inch",
+      "4K",
+      "USB-C",
+      "color accurate",
+      "workspace"
+    ],
+    "aliases": [
+      "Atelier 32",
+      "UW34",
+      "34 ultrawide monitor",
+      "Vista View monitor",
+      "Mosaic display"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "structured_filter",
+      "semantic_intent"
+    ],
+    "image_key": "atelier-32.webp"
+  },
+  {
+    "product_id": 420002,
+    "brand": "HorizonView",
+    "model": "38 Studio",
+    "title": "HorizonView 38-inch Productivity Display",
+    "price_usd": 899.99,
+    "list_price_usd": 999.99,
+    "rating": 4.7,
+    "review_count": 1076,
+    "availability": "In Stock",
+    "inventory_count": 142,
+    "seller_count": 5,
+    "shipping_days": 3,
+    "warranty_months": 36,
+    "short_description": "Large curved productivity monitor with sharp text, wide color, and single-cable docking.",
+    "long_description": "HorizonView 38 Studio is designed for multi-window workflows and premium home offices.",
+    "attributes": {
+      "color_gamut_pct": 99,
+      "height_adjustable": true,
+      "panel": "IPS",
+      "refresh_hz": 120,
+      "resolution": "3840x1600",
+      "size_in": 38,
+      "usb_c_power_w": 100,
+      "vesa": true,
+      "curved": true,
+      "best_for": [
+        "multi-window productivity",
+        "design",
+        "home office"
+      ]
+    },
+    "tags": [
+      "38 inch",
+      "curved",
+      "USB-C dock",
+      "premium monitor"
+    ],
+    "aliases": [
+      "Horizon 38",
+      "38 Studio display"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "premium_vs_budget"
+    ],
+    "image_key": "vistaview-monitor.webp"
+  },
+  {
+    "product_id": 429001,
+    "brand": "Keysmith",
+    "model": "MX Quiet",
+    "title": "Keysmith MX Quiet Mechanical Wireless Keyboard",
+    "price_usd": 169.99,
+    "list_price_usd": 189.99,
+    "rating": 4.7,
+    "review_count": 2905,
+    "availability": "In Stock",
+    "inventory_count": 502,
+    "seller_count": 8,
+    "shipping_days": 1,
+    "warranty_months": 24,
+    "short_description": "Low-noise mechanical keyboard with backlit keys, multi-device wireless, and premium typing feel.",
+    "long_description": "Keysmith MX Quiet uses damped tactile switches and a low-profile acoustic design for shared offices, video calls, and late-night work.",
+    "attributes": {
+      "backlit": true,
+      "hot_swappable": false,
+      "layout": "Full size",
+      "os_compatibility": [
+        "Windows",
+        "macOS",
+        "Linux"
+      ],
+      "quiet_typing": true,
+      "switch_type": "Damped tactile",
+      "wireless": true,
+      "multi_device": 3,
+      "color": "Graphite"
+    },
+    "tags": [
+      "quiet mechanical",
+      "wireless",
+      "office",
+      "backlit",
+      "multi-device"
+    ],
+    "aliases": [
+      "MX Quiet",
+      "mechancial keybaord",
+      "silent keyboard"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "typo_recovery",
+      "semantic_intent",
+      "lexical_model"
+    ],
+    "image_key": "keysmith-keyboard.webp"
+  },
+  {
+    "product_id": 429002,
+    "brand": "HushType",
+    "model": "Studio S",
+    "title": "HushType Studio S Quiet Wireless Keyboard",
+    "price_usd": 129.99,
+    "list_price_usd": 149.99,
+    "rating": 4.5,
+    "review_count": 1711,
+    "availability": "In Stock",
+    "inventory_count": 713,
+    "seller_count": 7,
+    "shipping_days": 1,
+    "warranty_months": 18,
+    "short_description": "Slim quiet keyboard designed for calls, shared rooms, and distraction-free work.",
+    "long_description": "HushType Studio S uses scissor switches and internal sound damping to minimize typing noise.",
+    "attributes": {
+      "backlit": true,
+      "hot_swappable": false,
+      "layout": "Compact full size",
+      "os_compatibility": [
+        "Windows",
+        "macOS",
+        "ChromeOS"
+      ],
+      "quiet_typing": true,
+      "switch_type": "Scissor",
+      "wireless": true,
+      "multi_device": 3,
+      "color": "Warm Gray"
+    },
+    "tags": [
+      "quiet",
+      "wireless",
+      "slim",
+      "video calls"
+    ],
+    "aliases": [
+      "Studio S keyboard",
+      "Hush Type"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "budget_filter"
+    ],
+    "image_key": "keysmith-keyboard.webp"
+  },
+  {
+    "product_id": 474001,
+    "brand": "Riser",
+    "model": "HiRise 3",
+    "title": "Riser HiRise 3 Deluxe Laptop and Phone Stand",
+    "price_usd": 79.99,
+    "list_price_usd": 99.99,
+    "rating": 4.6,
+    "review_count": 1234,
+    "availability": "In Stock",
+    "inventory_count": 864,
+    "seller_count": 8,
+    "shipping_days": 1,
+    "warranty_months": 24,
+    "short_description": "Adjustable aluminum stand that raises a laptop while keeping a phone visible and charging-ready.",
+    "long_description": "Riser HiRise 3 improves screen height and desk organization with adjustable aluminum construction and a dedicated phone shelf.",
+    "attributes": {
+      "material": "Aluminum",
+      "height_adjustable": true,
+      "laptop_size_in": [
+        11,
+        17
+      ],
+      "foldable": false,
+      "phone_shelf": true,
+      "cable_management": true,
+      "max_weight_lb": 12,
+      "color": "Silver"
+    },
+    "tags": [
+      "laptop stand",
+      "adjustable",
+      "aluminum",
+      "phone stand",
+      "ergonomic"
+    ],
+    "aliases": [
+      "Hi Rise 3",
+      "Riser stand"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "structured_filter"
+    ],
+    "image_key": "riser-laptop-stand.webp"
+  },
+  {
+    "product_id": 290001,
+    "brand": "StrideWatch",
+    "model": "Enduro 965",
+    "title": "StrideWatch Enduro 965 GPS Running Watch",
+    "price_usd": 599.99,
+    "list_price_usd": 649.99,
+    "rating": 4.8,
+    "review_count": 2388,
+    "availability": "In Stock",
+    "inventory_count": 266,
+    "seller_count": 5,
+    "shipping_days": 2,
+    "warranty_months": 24,
+    "short_description": "High-end running watch with multi-band GPS, training readiness, maps, and long battery life.",
+    "long_description": "StrideWatch Enduro 965 supports marathon plans, route navigation, recovery insights, and detailed training load analysis.",
+    "attributes": {
+      "battery_days": 23,
+      "gps": true,
+      "heart_rate": true,
+      "platforms": [
+        "iOS",
+        "Android",
+        "Web"
+      ],
+      "sleep_tracking": true,
+      "training_readiness": true,
+      "water_rating_atm": 10,
+      "maps": true,
+      "multi_band_gps": true
+    },
+    "tags": [
+      "GPS running watch",
+      "marathon",
+      "training readiness",
+      "maps"
+    ],
+    "aliases": [
+      "Enduro 965",
+      "forruner watch",
+      "StrideWatch GPS"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "typo_recovery",
+      "semantic_intent"
+    ],
+    "image_key": "orbit-watch.webp"
+  },
+  {
+    "product_id": 452001,
+    "brand": "ClearFrame",
+    "model": "Studio 4K",
+    "title": "ClearFrame Studio 4K Conference Webcam",
+    "price_usd": 189.99,
+    "list_price_usd": 219.99,
+    "rating": 4.6,
+    "review_count": 1642,
+    "availability": "In Stock",
+    "inventory_count": 491,
+    "seller_count": 7,
+    "shipping_days": 1,
+    "warranty_months": 24,
+    "short_description": "4K conference webcam with intelligent framing, low-light correction, and beamforming microphones.",
+    "long_description": "ClearFrame Studio 4K is designed for professional video calls with natural exposure, fast focus, and strong voice isolation.",
+    "attributes": {
+      "certified_platforms": [
+        "Zoom",
+        "Teams",
+        "Webex"
+      ],
+      "field_of_view_deg": 90,
+      "microphone_array": 3,
+      "noise_reduction": true,
+      "usb_c": true,
+      "video_resolution": "4K",
+      "auto_framing": true,
+      "privacy_shutter": true
+    },
+    "tags": [
+      "4K webcam",
+      "video calls",
+      "auto framing",
+      "noise reduction"
+    ],
+    "aliases": [
+      "Clear Frame 4K",
+      "conference camera"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "compatibility_filter"
+    ],
+    "image_key": "vistaview-monitor.webp"
+  },
+  {
+    "product_id": 30001,
+    "brand": "Sonora",
+    "model": "Roam 2",
+    "title": "Sonora Roam 2 Portable Bluetooth Speaker",
+    "price_usd": 179.99,
+    "list_price_usd": 199.99,
+    "rating": 4.5,
+    "review_count": 2044,
+    "availability": "In Stock",
+    "inventory_count": 635,
+    "seller_count": 8,
+    "shipping_days": 1,
+    "warranty_months": 18,
+    "short_description": "Compact water-resistant speaker with full sound, Wi-Fi handoff, and all-day battery.",
+    "long_description": "Sonora Roam 2 transitions from home Wi-Fi listening to outdoor Bluetooth playback with a durable, portable design.",
+    "attributes": {
+      "bluetooth": true,
+      "battery_hours": 12,
+      "channels": "Stereo pair capable",
+      "power_w": 40,
+      "voice_assistant_ready": true,
+      "water_rating": "IP67",
+      "wifi": true,
+      "weight_g": 430
+    },
+    "tags": [
+      "portable speaker",
+      "IP67",
+      "Wi-Fi",
+      "Bluetooth"
+    ],
+    "aliases": [
+      "Roam 2",
+      "Sonora portable speaker"
+    ],
+    "challenge_cohorts": [
+      "curated_demo",
+      "subcategory_filter"
+    ],
+    "image_key": "novasound-buds.webp"
+  }
+]

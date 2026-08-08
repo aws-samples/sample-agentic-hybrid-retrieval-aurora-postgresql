@@ -1,0 +1,70 @@
+{
+  "warning": "SIMULATED PROJECTION. Replace baseline defaults with measured results from your Aurora environment.",
+  "assumptions": {
+    "baseline_latency_p95_ms": 38.0,
+    "baseline_build_min": 22.0,
+    "baseline_index_gb": 14.2,
+    "baseline_recall": 0.952,
+    "dimensions": 1024,
+    "m": 16,
+    "ef_search": 128,
+    "output": "data/benchmarks/scale_projection.csv"
+  },
+  "rows": [
+    {
+      "scale": 500000,
+      "projection_kind": "simulated_calibrated",
+      "p95_latency_ms": 38.0,
+      "recall_at_10": 0.952,
+      "build_time_min": 22.0,
+      "index_size_gb": 14.2,
+      "dimensions": 1024,
+      "m": 16,
+      "ef_search": 128
+    },
+    {
+      "scale": 1000000,
+      "projection_kind": "simulated_calibrated",
+      "p95_latency_ms": 40.67,
+      "recall_at_10": 0.9496,
+      "build_time_min": 46.5,
+      "index_size_gb": 28.4,
+      "dimensions": 1024,
+      "m": 16,
+      "ef_search": 128
+    },
+    {
+      "scale": 5000000,
+      "projection_kind": "simulated_calibrated",
+      "p95_latency_ms": 47.12,
+      "recall_at_10": 0.944,
+      "build_time_min": 264.5,
+      "index_size_gb": 142.0,
+      "dimensions": 1024,
+      "m": 16,
+      "ef_search": 128
+    },
+    {
+      "scale": 10000000,
+      "projection_kind": "simulated_calibrated",
+      "p95_latency_ms": 50.02,
+      "recall_at_10": 0.9416,
+      "build_time_min": 559.2,
+      "index_size_gb": 284.0,
+      "dimensions": 1024,
+      "m": 16,
+      "ef_search": 128
+    },
+    {
+      "scale": 100000000,
+      "projection_kind": "simulated_calibrated",
+      "p95_latency_ms": 60.09,
+      "recall_at_10": 0.9336,
+      "build_time_min": 6722.6,
+      "index_size_gb": 2840.0,
+      "dimensions": 1024,
+      "m": 16,
+      "ef_search": 128
+    }
+  ]
+}
