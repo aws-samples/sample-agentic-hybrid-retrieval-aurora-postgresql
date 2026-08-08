@@ -2,9 +2,9 @@
 
 ## Direction
 
-Catalog Studio combines a realistic premium catalog with an inspectable
-technical workbench. Product photography and editorial type establish the
-shopping context; compact sans-serif and monospaced treatments carry retrieval
+Catalog Studio combines a realistic premium catalog with inspectable retrieval
+evidence. Product photography and editorial type establish the shopping
+context; compact sans-serif and monospaced treatments carry retrieval
 diagnostics, SQL, model identifiers, and benchmark settings.
 
 The interface is not patterned after a named retailer and does not use the

@@ -2,7 +2,8 @@
 
 ## Baseline Complete
 
-- archived the prior incident-workbench implementation on a separate branch;
+- established the catalog-retrieval workshop narrative and product discovery
+  experience;
 - retained the aws-samples license and contribution governance;
 - imported the catalog narrative, retrieval stages, SQL skeleton, and eval assets;
 - corrected generated SKU and timestamp invariants;
@@ -27,6 +28,10 @@
 - expand the screened category fallback set with publication-safe product
   merchandising assets;
 - measure Aurora HNSW and end-to-end retrieval performance.
+- assess RLS and `pg_columnmask` when tenant-scoped access or column-level
+  disclosure becomes a workshop requirement.
+- integrate the catalog product-discovery agent with AgentCore as its managed
+  runtime boundary.
 
 Hash embeddings are development-only and cannot support workshop relevance
 claims. Simulated scale output is not Aurora benchmark evidence.
