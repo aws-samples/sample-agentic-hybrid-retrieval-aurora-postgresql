@@ -1,0 +1,25 @@
+{
+  "properties": {
+    "product_ids": {
+      "items": {
+        "type": "integer"
+      },
+      "maxItems": 8,
+      "minItems": 2,
+      "title": "Product Ids",
+      "type": "array"
+    },
+    "criteria": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Criteria",
+      "type": "array"
+    }
+  },
+  "required": [
+    "product_ids"
+  ],
+  "title": "CompareProductsRequest",
+  "type": "object"
+}

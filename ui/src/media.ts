@@ -5,7 +5,7 @@ const ASSETS = "/assets/images";
 export const domainMedia: Record<Domain, string> = {
   consumer_electronics: `${ASSETS}/mosaic/auraluxe-h9.webp`,
   running_fitness: `${ASSETS}/mosaic/stride-pro.webp`,
-  home_office: `${ASSETS}/mosaic/forma-ergonomic-thumb.webp`,
+  home_office: `${ASSETS}/mosaic/forma-ergonomic-studio.webp`,
 };
 
 type MosaicImageSet = [RegExp, string[]];
@@ -50,10 +50,10 @@ const mosaicProductImageSets: MosaicImageSet[] = [
   [
     /\bforma\s*ergonomic\b/i,
     [
-      `${ASSETS}/mosaic/forma-ergonomic.webp`,
+      `${ASSETS}/mosaic/forma-ergonomic-studio.webp`,
       `${ASSETS}/mosaic/forma-ergonomic-scene.webp`,
       `${ASSETS}/mosaic/forma-ergonomic-alt.webp`,
-      `${ASSETS}/mosaic/forma-ergonomic-studio.webp`,
+      `${ASSETS}/mosaic/forma-ergonomic.webp`,
     ],
   ],
   [
@@ -121,7 +121,7 @@ const posterByProductName: Array<[RegExp, { src: string; alt: string }]> = [
 ];
 
 function productSearchText(product: ProductSummary): string {
-  return [product.title, product.category, product.subcategory, product.brand, product.model].join(" ");
+  return [product.title, product.category_path, product.brand, product.model].join(" ");
 }
 
 function matchingMosaicImageSet(product: ProductSummary): string[] | undefined {
@@ -200,10 +200,10 @@ const curatedImageByName: Array<[RegExp, string[]]> = [
   [
     /(chair|seating|stool)/i,
     [
-      `${ASSETS}/mosaic/forma-ergonomic.webp`,
+      `${ASSETS}/mosaic/forma-ergonomic-studio.webp`,
       `${ASSETS}/mosaic/forma-ergonomic-scene.webp`,
       `${ASSETS}/mosaic/forma-ergonomic-alt.webp`,
-      `${ASSETS}/mosaic/forma-ergonomic-studio.webp`,
+      `${ASSETS}/mosaic/forma-ergonomic.webp`,
       `${ASSETS}/curated/formamesh-chair.webp`,
       `${ASSETS}/catalog-chair.webp`,
     ],

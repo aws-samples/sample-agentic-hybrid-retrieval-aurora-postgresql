@@ -13,28 +13,57 @@ Domain = Literal[
     "running_fitness",
     "home_office",
 ]
-Availability = Literal["In Stock", "Low Stock", "Out of Stock"]
+# Matches mosaic.availability_status. The database is the source of truth for
+# this vocabulary; the UI maps these to display labels at the edge.
+Availability = Literal[
+    "in_stock",
+    "low_stock",
+    "out_of_stock",
+    "preorder",
+    "discontinued",
+]
 
 
 class SearchFilters(BaseModel):
+    """Filter set accepted by `mosaic_search.matches_filters`.
+
+    Prices are integer cents throughout. `numeric` is exact in PostgreSQL but
+    becomes an IEEE double the moment it crosses into JSON and JavaScript, so
+    money is carried as a count of cents and formatted only for display.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     domain: Domain | None = None
-    category: str | None = Field(default=None, min_length=1, max_length=120)
-    subcategory: str | None = Field(default=None, min_length=1, max_length=160)
+    category_key: str | None = Field(default=None, min_length=1, max_length=160)
     brand: str | None = Field(default=None, min_length=1, max_length=120)
+    brands: list[str] = Field(default_factory=list)
     availability: Availability | None = None
-    max_price: float | None = Field(default=None, ge=0, le=1_000_000)
-    min_price: float | None = Field(default=None, ge=0, le=1_000_000)
+    in_stock_only: bool = False
+    min_price_cents: int | None = Field(default=None, ge=0, le=100_000_000)
+    max_price_cents: int | None = Field(default=None, ge=0, le=100_000_000)
     min_rating: float | None = Field(default=None, ge=0, le=5)
     attributes: dict[str, str | int | float | bool | list[Any]] = Field(
         default_factory=dict
     )
+    include_refurbished: bool = False
+    include_sponsored: bool = False
 
     def as_sql_json(self) -> dict[str, Any]:
+        """Render the filter set for `matches_filters`.
+
+        Empty collections and false booleans are dropped rather than sent: the
+        SQL treats a missing key as "unconstrained", and sending
+        `in_stock_only: false` would be indistinguishable from sending nothing
+        while making every logged filter set noisier to read.
+        """
         filters = self.model_dump(exclude_none=True)
-        if not filters.get("attributes"):
-            filters.pop("attributes", None)
+        for key in ("attributes", "brands"):
+            if not filters.get(key):
+                filters.pop(key, None)
+        for key in ("in_stock_only", "include_refurbished", "include_sponsored"):
+            if not filters.get(key):
+                filters.pop(key, None)
         return filters
 
 
@@ -46,6 +75,7 @@ class SearchRequest(BaseModel):
     limit: int = Field(default=12, ge=1, le=50)
     include_diagnostics: bool = True
     rerank: bool = True
+    session_id: str | None = Field(default=None, max_length=200)
 
 
 class RankSignal(BaseModel):
@@ -55,11 +85,19 @@ class RankSignal(BaseModel):
 
 
 class ResultSignals(BaseModel):
-    lexical: RankSignal
+    """Per-arm provenance for one candidate.
+
+    `fts` is named for the PostgreSQL feature that produces it rather than the
+    generic "lexical", so a participant reading the response can find the
+    matching SQL function.
+    """
+
+    fts: RankSignal
     trigram: RankSignal
     semantic: RankSignal
     rrf_score: float
     pre_rerank_rank: int
+    pre_rerank_score: float
     rerank_score: float | None = None
     final_rank: int
     business_score: float
@@ -77,43 +115,75 @@ class SourceAttribution(BaseModel):
 
 
 class ProductSummary(BaseModel):
+    """One product as returned by search and catalog browsing.
+
+    Shapes `mosaic_search.product_document`, which is the denormalized retrieval
+    projection rather than a join across `mosaic.product` and
+    `mosaic.product_offer`.
+    """
+
     product_id: int
     sku: str
     title: str
     short_description: str
     domain: str
-    category: str
-    subcategory: str
+    category_key: str
+    category_path: str
     brand: str
     model: str
-    price_usd: float
-    list_price_usd: float
-    rating: float
+    price_cents: int
+    list_price_cents: int
+    currency: str = "USD"
+    rating: float | None = None
     review_count: int
-    availability: str
+    availability: Availability
     inventory_count: int
     attributes: dict[str, Any]
     tags: list[Any]
+    catalog_asset_key: str | None = None
+    canonical_group_id: str | None = None
+    media_tier: str | None = None
+    is_flagship: bool = False
+    is_retrieval_anchor: bool = False
     image_url: str | None = None
     image_source: str | None = None
     signals: ResultSignals | None = None
     sources: list[SourceAttribution] = Field(default_factory=list)
 
 
+class RetrievalProfile(BaseModel):
+    """Tunables for one search. Mirrors the package's `RetrievalProfile`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fts_limit: int = Field(default=120, ge=1, le=1000)
+    trigram_limit: int = Field(default=80, ge=1, le=1000)
+    semantic_limit: int = Field(default=150, ge=1, le=1000)
+    fused_limit: int = Field(default=50, ge=1, le=250)
+    result_limit: int = Field(default=12, ge=1, le=100)
+    rrf_k: int = Field(default=60, ge=1)
+    business_weight: float = Field(default=0.003, ge=0, le=0.05)
+    ef_search: int = Field(default=100, ge=1, le=1000)
+    iterative_scan: Literal["off", "strict_order", "relaxed_order"] = "relaxed_order"
+    max_scan_tuples: int = Field(default=20_000, ge=1)
+    scan_mem_multiplier: float = Field(default=1, ge=1)
+
+
 class RetrievalDiagnostics(BaseModel):
     strategy: str
     embedding_model_id: str
+    embedding_dimensions: int
     rerank_model_id: str | None
     rerank_status: Literal["applied", "disabled", "unavailable"]
-    rrf_k: int
-    arm_weights: dict[str, float]
+    retrieval_profile: RetrievalProfile
     candidate_counts: dict[str, int]
     stage_timings_ms: dict[str, float]
     total_latency_ms: int
+    warnings: list[str] = Field(default_factory=list)
 
 
 class SearchResponse(BaseModel):
-    run_id: UUID
+    search_event_id: UUID
     query: str
     normalized_query: str
     applied_filters: dict[str, Any]
@@ -131,13 +201,20 @@ class ProductMedia(BaseModel):
 
 
 class ProductReview(BaseModel):
+    """One `mosaic.product_evidence` row of type `verified_review`.
+
+    `rating` and `review_date` are optional because the evidence table allows
+    both to be null. Defaulting a missing rating to a number would invent
+    evidence the catalog does not hold.
+    """
+
     review_id: int
-    rating: int
+    rating: float | None = None
     title: str | None = None
     body: str
     verified_purchase: bool
     helpful_votes: int
-    review_date: str
+    review_date: str | None = None
     sentiment_score: float | None = None
     source_uri: str
 
@@ -159,48 +236,44 @@ class CatalogPage(BaseModel):
     facets: dict[str, list[dict[str, Any]]]
 
 
-class RetrievalRunRecord(BaseModel):
-    run_id: UUID
-    started_at: datetime
-    completed_at: datetime | None = None
+class SearchEventRecord(BaseModel):
+    """One row of `mosaic.search_event`."""
+
+    search_event_id: UUID
+    occurred_at: datetime
+    session_id: str | None = None
     query_text: str
-    normalized_query: str
+    normalized_query: str | None = None
     filters: dict[str, Any]
-    strategy: str
-    embedding_model_id: str
-    rerank_model_id: str | None = None
-    rrf_k: int
-    arm_weights: dict[str, float]
+    retrieval_profile: dict[str, Any]
     candidate_counts: dict[str, int]
-    stage_timings_ms: dict[str, float]
     total_latency_ms: int | None = None
-    result_product_ids: list[int]
     diagnostics: dict[str, Any]
 
 
-class RetrievalCandidateRecord(BaseModel):
-    run_id: UUID
+class SearchResultEventRecord(BaseModel):
+    """One row of `mosaic.search_result_event`.
+
+    `scores` and `provenance` are passed through as the database wrote them
+    rather than flattened into typed fields: the arm set is a database concern,
+    and re-declaring it here would mean editing two places whenever a channel is
+    added.
+    """
+
     product_id: int
-    lexical_rank: int | None = None
-    lexical_score: float | None = None
-    lexical_contribution: float | None = None
+    result_rank: int
+    fts_rank: int | None = None
     trigram_rank: int | None = None
-    trigram_score: float | None = None
-    trigram_contribution: float | None = None
     semantic_rank: int | None = None
-    semantic_score: float | None = None
-    semantic_contribution: float | None = None
-    rrf_score: float
-    pre_rerank_rank: int
-    rerank_score: float | None = None
-    final_rank: int | None = None
-    business_score: float
-    hard_filter_pass: bool
+    fused_rank: int | None = None
+    rerank_rank: int | None = None
+    scores: dict[str, Any]
+    provenance: dict[str, Any]
 
 
 class RetrievalRunResponse(BaseModel):
-    run: RetrievalRunRecord
-    candidates: list[RetrievalCandidateRecord]
+    run: SearchEventRecord
+    candidates: list[SearchResultEventRecord]
 
 
 class AgentRequest(BaseModel):

@@ -1,0 +1,30 @@
+version: 1
+embedding:
+  dimensions: 1024
+  distance_metric: cosine
+  product_field: mosaic_search.product_document.embedding
+  evidence_field: mosaic.product_evidence.embedding
+candidate_generation:
+  fts_limit: 120
+  trigram_limit: 80
+  semantic_limit: 150
+fusion:
+  method: reciprocal_rank_fusion
+  rrf_k: 60
+  fused_limit: 50
+  business_weight: 0.003
+rerank:
+  candidate_limit: 30
+  display_limit: 12
+hnsw:
+  m: 16
+  ef_construction: 200
+  ef_search: 100
+  iterative_scan: relaxed_order
+  max_scan_tuples: 20000
+  scan_mem_multiplier: 1
+media:
+  premium_products: 120
+  flagships: 6
+  retrieval_anchors: 30
+  products_per_shop_page: 12

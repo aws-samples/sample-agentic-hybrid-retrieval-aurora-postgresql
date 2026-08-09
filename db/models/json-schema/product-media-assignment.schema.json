@@ -1,0 +1,121 @@
+{
+  "$defs": {
+    "BrandMarkZone": {
+      "properties": {
+        "x": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Y",
+          "type": "number"
+        },
+        "width": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Width",
+          "type": "number"
+        },
+        "height": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Height",
+          "type": "number"
+        },
+        "surface": {
+          "title": "Surface",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height",
+        "surface"
+      ],
+      "title": "BrandMarkZone",
+      "type": "object"
+    },
+    "MediaRole": {
+      "enum": [
+        "catalog",
+        "detail",
+        "alternate",
+        "material_closeup",
+        "lifestyle",
+        "family_fallback",
+        "hero"
+      ],
+      "title": "MediaRole",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "product_id": {
+      "title": "Product Id",
+      "type": "integer"
+    },
+    "asset_key": {
+      "title": "Asset Key",
+      "type": "string"
+    },
+    "role": {
+      "$ref": "#/$defs/MediaRole"
+    },
+    "sort_order": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Sort Order",
+      "type": "integer"
+    },
+    "crop_anchor_x": {
+      "default": 0.5,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Crop Anchor X",
+      "type": "number"
+    },
+    "crop_anchor_y": {
+      "default": 0.5,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Crop Anchor Y",
+      "type": "number"
+    },
+    "mark_zone": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BrandMarkZone"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "alt_text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Alt Text"
+    }
+  },
+  "required": [
+    "product_id",
+    "asset_key",
+    "role"
+  ],
+  "title": "ProductMediaAssignment",
+  "type": "object"
+}

@@ -1,0 +1,209 @@
+{
+  "version": 1,
+  "name": "Mosaic Labs Golden Missions",
+  "ownership": {
+    "source_repository": "Mission contract, source application surfaces, and evaluation assertions.",
+    "workshop_studio": "Participant instructions, deliberate starter gaps, and code-editor exercises."
+  },
+  "session": {
+    "total_minutes": 47,
+    "orientation_minutes": 2,
+    "core_lab_minutes": 40,
+    "scorecard_minutes": 5
+  },
+  "corpus": {
+    "catalog_products": 500000,
+    "premium_visual_anchors": 120,
+    "embedding_model_id": "us.cohere.embed-v4:0",
+    "embedding_dimensions": 1024,
+    "candidate_generation": [
+      "fts",
+      "pg_trgm",
+      "hnsw"
+    ],
+    "fusion": "rrf",
+    "reranker": "cohere.rerank-v3-5:0"
+  },
+  "missions": [
+    {
+      "id": "exact-identity",
+      "stage": "recover",
+      "core": true,
+      "duration_minutes": 3,
+      "title": "Protect exact identity",
+      "query": "Mosaic EchoBud S2",
+      "filters": {
+        "domain": "consumer_electronics"
+      },
+      "target_product_ids": [
+        17001
+      ],
+      "expected_techniques": [
+        "fts"
+      ],
+      "checkpoint": "baseline",
+      "expected_outcome": "The exact product is retained in the first three results.",
+      "assertions": [
+        "target_in_top_k",
+        "hard_filters_hold"
+      ],
+      "top_k": 3
+    },
+    {
+      "id": "typo-recovery",
+      "stage": "recover",
+      "core": true,
+      "duration_minutes": 8,
+      "title": "Recover a misspelled request",
+      "query": "wirless noice canceling hedphones under $200 with long batery life",
+      "filters": {
+        "domain": "consumer_electronics",
+        "max_price_cents": 20000,
+        "in_stock_only": true
+      },
+      "target_product_ids": [
+        2
+      ],
+      "expected_techniques": [
+        "fts",
+        "pg_trgm",
+        "hnsw",
+        "rrf",
+        "cohere_rerank"
+      ],
+      "checkpoint": "repair",
+      "expected_outcome": "The eligible target appears after the typo-recovery candidate source is restored.",
+      "assertions": [
+        "target_in_top_k",
+        "trigram_signal_present",
+        "hard_filters_hold"
+      ],
+      "top_k": 10
+    },
+    {
+      "id": "semantic-eligibility",
+      "stage": "retrieve",
+      "core": true,
+      "duration_minutes": 9,
+      "title": "Honor intent and eligibility",
+      "query": "carbon plated marathon shoe under $220 with stable cornering",
+      "filters": {
+        "domain": "running_fitness",
+        "max_price_cents": 22000,
+        "attributes": {
+          "carbon_plate": true
+        }
+      },
+      "target_product_ids": [
+        234001
+      ],
+      "expected_techniques": [
+        "fts",
+        "hnsw",
+        "rrf",
+        "cohere_rerank"
+      ],
+      "checkpoint": "baseline",
+      "expected_outcome": "Semantic intent is expanded without admitting products that violate the required price or carbon-plate constraints.",
+      "assertions": [
+        "target_in_top_k",
+        "hard_filters_hold",
+        "semantic_signal_present"
+      ],
+      "top_k": 10
+    },
+    {
+      "id": "rank-with-evidence",
+      "stage": "rank",
+      "core": true,
+      "duration_minutes": 10,
+      "title": "Make the order defensible",
+      "query": "ergonmic mesh chiar for long workdays with adjustable lumbar support",
+      "filters": {
+        "domain": "home_office",
+        "in_stock_only": true
+      },
+      "target_product_ids": [
+        370001
+      ],
+      "expected_techniques": [
+        "pg_trgm",
+        "hnsw",
+        "rrf",
+        "cohere_rerank"
+      ],
+      "checkpoint": "comparison",
+      "expected_outcome": "The run retains FTS, trigram, HNSW, RRF, Cohere Rerank, and final rank as distinct evidence.",
+      "assertions": [
+        "target_in_top_k",
+        "rank_provenance_present",
+        "rerank_score_present",
+        "hard_filters_hold"
+      ],
+      "top_k": 10
+    },
+    {
+      "id": "agentic-research",
+      "stage": "reason",
+      "core": true,
+      "duration_minutes": 10,
+      "title": "Produce a cited recommendation",
+      "query": "Build a quiet home office under $800 and explain the trade-offs.",
+      "filters": {
+        "domain": "home_office",
+        "max_price_cents": 80000,
+        "in_stock_only": true
+      },
+      "target_product_ids": [
+        370001,
+        429001
+      ],
+      "expected_techniques": [
+        "typed_agent_tool",
+        "hnsw",
+        "rrf",
+        "cohere_rerank",
+        "source_attribution"
+      ],
+      "checkpoint": "repair",
+      "expected_outcome": "A bounded, read-only retrieval tool produces a cited answer from the retrieved catalog evidence.",
+      "assertions": [
+        "retrieval_tool_called",
+        "citations_present",
+        "citation_source_revision_present",
+        "hard_filters_hold"
+      ],
+      "top_k": 6
+    },
+    {
+      "id": "hnsw-performance",
+      "stage": "optimize",
+      "core": false,
+      "duration_minutes": 8,
+      "title": "Measure the operating point",
+      "query": "single cable 4K monitor for coding and photo editing",
+      "filters": {
+        "domain": "home_office",
+        "attributes": {
+          "usb_c": true
+        }
+      },
+      "target_product_ids": [
+        420001
+      ],
+      "expected_techniques": [
+        "hnsw",
+        "iterative_scan",
+        "recall_at_k"
+      ],
+      "checkpoint": "advanced",
+      "expected_outcome": "A measured configuration records recall, latency, index size, build time, extension version, and filter selectivity.",
+      "assertions": [
+        "target_in_top_k",
+        "measurement_configuration_persisted",
+        "measurement_kind_declared"
+      ],
+      "top_k": 10
+    }
+  ]
+}

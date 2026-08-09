@@ -3,18 +3,35 @@ export type Domain =
   | "running_fitness"
   | "home_office";
 
-export type Availability = "In Stock" | "Low Stock" | "Out of Stock";
+/** Mirrors mosaic.availability_status. Display labels live in formatAvailability. */
+export type Availability =
+  | "in_stock"
+  | "low_stock"
+  | "out_of_stock"
+  | "preorder"
+  | "discontinued";
 
+/**
+ * Mirrors the service's SearchFilters, which is what
+ * `mosaic_search.matches_filters` accepts.
+ *
+ * Prices are integer cents. A float dollar amount loses precision the moment it
+ * round-trips through JSON, so money crosses this boundary as a count of cents
+ * and is formatted only for display.
+ */
 export interface SearchFilters {
   domain?: Domain;
-  category?: string;
-  subcategory?: string;
+  category_key?: string;
   brand?: string;
+  brands?: string[];
   availability?: Availability;
-  min_price?: number;
-  max_price?: number;
+  in_stock_only?: boolean;
+  min_price_cents?: number;
+  max_price_cents?: number;
   min_rating?: number;
   attributes?: Record<string, unknown>;
+  include_refurbished?: boolean;
+  include_sponsored?: boolean;
 }
 
 export interface RankSignal {
@@ -24,11 +41,12 @@ export interface RankSignal {
 }
 
 export interface ResultSignals {
-  lexical: RankSignal;
+  fts: RankSignal;
   trigram: RankSignal;
   semantic: RankSignal;
   rrf_score: number;
   pre_rerank_rank: number;
+  pre_rerank_score: number;
   rerank_score: number | null;
   final_rank: number;
   business_score: number;
@@ -48,18 +66,24 @@ export interface ProductSummary {
   title: string;
   short_description: string;
   domain: Domain;
-  category: string;
-  subcategory: string;
+  category_key: string;
+  category_path: string;
   brand: string;
   model: string;
-  price_usd: number;
-  list_price_usd: number;
-  rating: number;
+  price_cents: number;
+  list_price_cents: number;
+  currency: string;
+  rating: number | null;
   review_count: number;
   availability: Availability;
   inventory_count: number;
   attributes: Record<string, unknown>;
   tags: unknown[];
+  catalog_asset_key: string | null;
+  canonical_group_id: string | null;
+  media_tier: string | null;
+  is_flagship: boolean;
+  is_retrieval_anchor: boolean;
   image_url: string | null;
   image_source: string | null;
   signals: ResultSignals | null;
@@ -117,7 +141,7 @@ export interface RetrievalDiagnostics {
 }
 
 export interface SearchResponse {
-  run_id: string;
+  search_event_id: string;
   query: string;
   normalized_query: string;
   applied_filters: Record<string, unknown>;

@@ -1,4 +1,11 @@
-"""Catalog browsing and source-evidence reads."""
+"""Catalog browsing and source-evidence reads over the `mosaic` schema.
+
+Browsing reads `mosaic_search.product_document`, the same denormalized
+projection the retrieval arms use, so a filter applied while browsing and the
+same filter applied while searching are evaluated by one function
+(`mosaic_search.matches_filters`) rather than two hand-written WHERE clauses that
+can drift apart.
+"""
 from __future__ import annotations
 
 import json
@@ -18,44 +25,65 @@ from service.models import (
 )
 
 _SORTS = {
-    "featured": "p.popularity_score DESC, p.quality_score DESC, p.product_id",
-    "price_asc": "p.price_usd ASC, p.product_id",
-    "price_desc": "p.price_usd DESC, p.product_id",
-    "rating": "p.rating DESC, p.review_count DESC, p.product_id",
-    "newest": "p.launch_date DESC, p.product_id",
+    "featured": "d.popularity_score DESC, d.quality_score DESC, d.product_id",
+    "price_asc": "d.price_cents ASC, d.product_id",
+    "price_desc": "d.price_cents DESC, d.product_id",
+    "rating": "d.rating DESC NULLS LAST, d.review_count DESC, d.product_id",
+    "newest": "d.freshness_score DESC, d.product_id",
 }
+
+# Facets are grouped by column name; the values are interpolated into SQL, so
+# they must come from this allowlist and never from a request.
+_FACET_COLUMNS = ("domain", "category_key", "brand_name", "availability")
+
+_SUMMARY_COLUMNS = """
+    d.product_id, d.sku, d.title, d.short_description, d.domain,
+    d.category_key, d.category_path, d.brand_name, d.model_name,
+    d.price_cents, d.list_price_cents, d.currency, d.rating, d.review_count,
+    d.availability, d.inventory_count, d.attributes, d.tags,
+    d.catalog_asset_key, d.canonical_group_id, d.media_tier, d.is_flagship,
+    d.is_retrieval_anchor, d.updated_at
+"""
 
 
 def _where(filters: SearchFilters) -> tuple[str, list[Any]]:
-    values = filters.as_sql_json()
-    return "catalog.filter_match(p, %s::jsonb)", [json.dumps(values)]
+    return "mosaic_search.matches_filters(d, %s::jsonb)", [
+        json.dumps(filters.as_sql_json())
+    ]
 
 
 def _summary(row: dict[str, Any]) -> ProductSummary:
-    revision = row["updated_at"].isoformat()
+    updated_at = row.get("updated_at")
+    revision = updated_at.isoformat() if updated_at else "unversioned"
     return ProductSummary(
         product_id=row["product_id"],
         sku=row["sku"],
         title=row["title"],
         short_description=row["short_description"],
         domain=row["domain"],
-        category=row["category"],
-        subcategory=row["subcategory"],
-        brand=row["brand"],
-        model=row["model"],
-        price_usd=float(row["price_usd"]),
-        list_price_usd=float(row["list_price_usd"]),
-        rating=float(row["rating"]),
+        category_key=row["category_key"],
+        category_path=row["category_path"],
+        brand=row["brand_name"],
+        model=row["model_name"],
+        price_cents=row["price_cents"],
+        list_price_cents=row["list_price_cents"],
+        currency=row.get("currency") or "USD",
+        rating=None if row.get("rating") is None else float(row["rating"]),
         review_count=row["review_count"],
         availability=row["availability"],
         inventory_count=row["inventory_count"],
         attributes=row["attributes"],
-        tags=row["tags"],
+        tags=list(row["tags"] or []),
+        catalog_asset_key=row.get("catalog_asset_key"),
+        canonical_group_id=row.get("canonical_group_id"),
+        media_tier=row.get("media_tier"),
+        is_flagship=bool(row.get("is_flagship")),
+        is_retrieval_anchor=bool(row.get("is_retrieval_anchor")),
         image_url=row.get("image_url"),
         image_source=row.get("image_source"),
         sources=[
             SourceAttribution(
-                source_uri=f"catalog://product/{row['product_id']}",
+                source_uri=f"mosaic://product/{row['product_id']}",
                 revision=revision,
                 title=row["title"],
                 quote=row["short_description"],
@@ -76,23 +104,27 @@ def list_products(
     where, parameters = _where(filters)
     with connect() as connection:
         total = connection.execute(
-            f"SELECT count(*) AS count FROM catalog.product p WHERE {where}",
+            f"""
+            SELECT count(*) AS count
+            FROM mosaic_search.product_document d
+            WHERE {where}
+            """,
             parameters,
         ).fetchone()["count"]
         rows = connection.execute(
             f"""
-            SELECT
-                p.product_id, p.sku, p.title, p.short_description, p.domain,
-                p.category, p.subcategory, p.brand, p.model, p.price_usd,
-                p.list_price_usd, p.rating, p.review_count, p.availability,
-                p.inventory_count, p.attributes, p.tags, p.updated_at,
-                media.image_url, media.image_source
-            FROM catalog.product p
-            LEFT JOIN catalog.product_media media
-              ON media.product_id = p.product_id
-             AND media.role = 'primary'
-             AND media.sort_order = 0
-             AND media.publication_status = 'approved'
+            SELECT {_SUMMARY_COLUMNS},
+                   media.runtime_uri AS image_url,
+                   media.image_source
+            FROM mosaic_search.product_document d
+            LEFT JOIN LATERAL (
+                SELECT a.runtime_uri, a.tier::text AS image_source
+                FROM mosaic.product_media pm
+                JOIN mosaic.media_asset a USING (asset_id)
+                WHERE pm.product_id = d.product_id AND pm.role = 'catalog'
+                ORDER BY pm.sort_order
+                LIMIT 1
+            ) media ON true
             WHERE {where}
             ORDER BY {_SORTS[sort]}
             OFFSET %s LIMIT %s
@@ -100,11 +132,11 @@ def list_products(
             [*parameters, offset, limit],
         ).fetchall()
         facets: dict[str, list[dict[str, Any]]] = {}
-        for column in ("domain", "category", "brand", "availability"):
+        for column in _FACET_COLUMNS:
             facet_rows = connection.execute(
                 f"""
-                SELECT {column} AS value, count(*) AS count
-                FROM catalog.product p
+                SELECT {column}::text AS value, count(*) AS count
+                FROM mosaic_search.product_document d
                 WHERE {where}
                 GROUP BY {column}
                 ORDER BY count(*) DESC, {column}
@@ -125,21 +157,22 @@ def list_products(
 def get_product(product_id: int) -> ProductDetail:
     with connect() as connection:
         row = connection.execute(
-            """
-            SELECT
-                p.product_id, p.sku, p.title, p.short_description,
-                p.long_description, p.domain, p.category, p.subcategory,
-                p.brand, p.model, p.price_usd, p.list_price_usd, p.rating,
-                p.review_count, p.availability, p.inventory_count, p.attributes,
-                p.tags, p.updated_at, p.canonical_group_id, p.source_system,
-                primary_media.image_url, primary_media.image_source
-            FROM catalog.product p
-            LEFT JOIN catalog.product_media primary_media
-              ON primary_media.product_id = p.product_id
-             AND primary_media.role = 'primary'
-             AND primary_media.sort_order = 0
-             AND primary_media.publication_status = 'approved'
-            WHERE p.product_id = %s
+            f"""
+            SELECT {_SUMMARY_COLUMNS},
+                   p.long_description, p.source_system,
+                   media.runtime_uri AS image_url,
+                   media.image_source
+            FROM mosaic_search.product_document d
+            JOIN mosaic.product p USING (product_id)
+            LEFT JOIN LATERAL (
+                SELECT a.runtime_uri, a.tier::text AS image_source
+                FROM mosaic.product_media pm
+                JOIN mosaic.media_asset a USING (asset_id)
+                WHERE pm.product_id = d.product_id
+                ORDER BY (pm.role <> 'detail'), pm.sort_order
+                LIMIT 1
+            ) media ON true
+            WHERE d.product_id = %s
             """,
             (product_id,),
         ).fetchone()
@@ -147,20 +180,27 @@ def get_product(product_id: int) -> ProductDetail:
             raise HTTPException(404, "Product not found")
         media_rows = connection.execute(
             """
-            SELECT role, sort_order, image_url, image_source, image_key, alt_text
-            FROM catalog.product_media
-            WHERE product_id = %s AND publication_status = 'approved'
-            ORDER BY role, sort_order
+            SELECT pm.role::text AS role, pm.sort_order, a.runtime_uri AS image_url,
+                   a.tier::text AS image_source, a.asset_key AS image_key,
+                   pm.alt_text
+            FROM mosaic.product_media pm
+            JOIN mosaic.media_asset a USING (asset_id)
+            WHERE pm.product_id = %s
+            ORDER BY pm.role, pm.sort_order
             """,
             (product_id,),
         ).fetchall()
+        # Reviews live in mosaic.product_evidence alongside specs and Q&A, each
+        # row independently embedded so the agent can cite one claim rather than
+        # a whole product.
         review_rows = connection.execute(
             """
-            SELECT review_id, rating, title, body, verified_purchase,
-                   helpful_votes, review_date, sentiment_score, source_uri
-            FROM catalog.product_review
-            WHERE product_id = %s
-            ORDER BY helpful_votes DESC, review_date DESC
+            SELECT evidence_id AS review_id, evidence_title AS title,
+                   evidence_text AS body, source_name, source_reference,
+                   rating, is_verified, source_date, metadata
+            FROM mosaic.product_evidence
+            WHERE product_id = %s AND evidence_type = 'verified_review'
+            ORDER BY rating DESC NULLS LAST, evidence_id
             LIMIT 8
             """,
             (product_id,),
@@ -169,19 +209,38 @@ def get_product(product_id: int) -> ProductDetail:
     return ProductDetail(
         **summary.model_dump(),
         long_description=row["long_description"],
-        canonical_group_id=row["canonical_group_id"],
+        canonical_group_id=row["canonical_group_id"] or "",
         source_system=row["source_system"],
         updated_at=row["updated_at"],
         media=[ProductMedia(**dict(item)) for item in media_rows],
-        reviews=[
-            ProductReview(
-                **{
-                    **dict(item),
-                    "review_date": item["review_date"].isoformat(),
-                }
-            )
-            for item in review_rows
-        ],
+        reviews=[_review(dict(item)) for item in review_rows],
+    )
+
+
+def _review(row: dict[str, Any]) -> ProductReview:
+    """Shape one `product_evidence` row of type `review` as a review.
+
+    `rating`, `is_verified`, and `source_date` are first-class columns on the
+    evidence table. Only the two fields the schema does not model — helpful votes
+    and sentiment — are read from `metadata`, and a missing value is reported as
+    absent rather than defaulted to something flattering.
+    """
+    metadata = row.get("metadata") or {}
+    source_date = row.get("source_date")
+    return ProductReview(
+        review_id=row["review_id"],
+        rating=None if row.get("rating") is None else float(row["rating"]),
+        title=row.get("title"),
+        body=row["body"],
+        verified_purchase=bool(row.get("is_verified")),
+        helpful_votes=int(metadata.get("helpful_votes", 0)),
+        review_date=source_date.isoformat() if source_date else None,
+        sentiment_score=(
+            float(metadata["sentiment_score"])
+            if metadata.get("sentiment_score") is not None
+            else None
+        ),
+        source_uri=row.get("source_reference") or f"mosaic://evidence/{row['review_id']}",
     )
 
 
@@ -189,20 +248,22 @@ def catalog_summary() -> dict[str, Any]:
     with connect() as connection:
         rows = connection.execute(
             """
-            SELECT domain, count(*) AS products, count(DISTINCT category) AS categories,
-                   count(DISTINCT subcategory) AS subcategories,
-                   count(DISTINCT brand) AS brands
-            FROM catalog.product
+            SELECT domain::text AS domain, count(*) AS products,
+                   count(DISTINCT category_key) AS categories,
+                   count(DISTINCT category_path) AS subcategories,
+                   count(DISTINCT brand_name) AS brands
+            FROM mosaic_search.product_document
             GROUP BY domain
             ORDER BY domain
             """
         ).fetchall()
         total = connection.execute(
             """
-            SELECT count(*) AS products, count(DISTINCT brand) AS brands,
-                   count(DISTINCT subcategory) AS subcategories,
+            SELECT count(*) AS products,
+                   count(DISTINCT brand_name) AS brands,
+                   count(DISTINCT category_path) AS subcategories,
                    count(*) FILTER (WHERE embedding IS NOT NULL) AS embedded_products
-            FROM catalog.product
+            FROM mosaic_search.product_document
             """
         ).fetchone()
     return {"total": dict(total), "domains": [dict(row) for row in rows]}

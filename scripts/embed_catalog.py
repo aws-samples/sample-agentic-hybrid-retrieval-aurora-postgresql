@@ -131,11 +131,28 @@ def main() -> None:
 
     with psycopg.connect(args.database_url) as conn:
         register_vector(conn)
+        # `product_document.embedding_model_key` has a foreign key to
+        # mosaic.embedding_model, so the model has to exist before any vector is
+        # written. Registering it here means the loader cannot be run against an
+        # unregistered model and silently fail at the first UPDATE.
+        conn.execute(
+            """
+            INSERT INTO mosaic.embedding_model (
+                model_key, provider, model_name, dimensions, distance_metric
+            )
+            VALUES (%s, %s, %s, %s, 'cosine')
+            ON CONFLICT (model_key) DO UPDATE
+            SET dimensions = EXCLUDED.dimensions,
+                provider = EXCLUDED.provider,
+                model_name = EXCLUDED.model_name
+            """,
+            (model_id, args.provider, model_id, args.dimensions),
+        )
+        conn.commit()
         conn.execute(
             "CREATE TEMP TABLE embedding_batch("
             "product_id bigint PRIMARY KEY, "
-            f"embedding vector({args.dimensions}), "
-            "embedding_content_hash text NOT NULL"
+            f"embedding vector({args.dimensions})"
             ") ON COMMIT DELETE ROWS"
         )
         last_id = 0
@@ -153,13 +170,11 @@ def main() -> None:
                     product_id,
                     embedding_text,
                     encode(digest(embedding_text, 'sha256'), 'hex')
-                FROM catalog.product
+                FROM mosaic_search.product_document
                 WHERE product_id > %s
                   AND (
                       embedding IS NULL
-                      OR embedding_model_id IS DISTINCT FROM %s
-                      OR embedding_content_hash IS DISTINCT FROM
-                         encode(digest(embedding_text, 'sha256'), 'hex')
+                      OR embedding_model_key IS DISTINCT FROM %s
                   )
                 ORDER BY product_id
                 LIMIT %s
@@ -171,28 +186,22 @@ def main() -> None:
             texts = [text for _, text, _ in rows]
             vectors = embed(texts)
             with conn.cursor().copy(
-                "COPY embedding_batch("
-                "product_id, embedding, embedding_content_hash"
-                ") FROM STDIN (FORMAT BINARY)"
+                "COPY embedding_batch(product_id, embedding) "
+                "FROM STDIN (FORMAT BINARY)"
             ) as copy:
-                copy.set_types(["int8", "vector", "text"])
-                for (product_id, _, digest), vector in zip(rows, vectors):
+                copy.set_types(["int8", "vector"])
+                for (product_id, _, _), vector in zip(rows, vectors):
                     copy.write_row(
-                        (
-                            product_id,
-                            np.asarray(vector, dtype=np.float32),
-                            digest,
-                        )
+                        (product_id, np.asarray(vector, dtype=np.float32))
                     )
             conn.execute(
                 """
-                UPDATE catalog.product AS product
+                UPDATE mosaic_search.product_document AS document
                 SET embedding = batch.embedding,
-                    embedding_model_id = %s,
-                    embedding_content_hash = batch.embedding_content_hash,
-                    embedded_at = clock_timestamp()
+                    embedding_model_key = %s,
+                    embedding_updated_at = clock_timestamp()
                 FROM embedding_batch AS batch
-                WHERE product.product_id = batch.product_id
+                WHERE document.product_id = batch.product_id
                 """,
                 (model_id,),
             )

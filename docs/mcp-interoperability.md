@@ -1,11 +1,10 @@
-# MCP interoperability checkpoint
+# Mosaic MCP portable tool contract
 
 ## Workshop boundary
 
-MCP is a four-to-five-minute interoperability checkpoint inside Lab 3, not a
-separate protocol lab. Participants expose the hybrid retrieval system through
-standard product-discovery tools after they have already built and inspected
-the PostgreSQL retrieval pipeline.
+MCP is an instructor-led interoperability checkpoint inside Lab 3, not a
+separate protocol lab. It makes the inspected hybrid retrieval system portable
+to another compatible agent host through standard product-discovery tools.
 
 The checkpoint proves one architectural point:
 
@@ -23,14 +22,15 @@ ranking diagnostics.
 The MCP service implements specification revision `2026-07-28` with the MCP
 Python SDK `2.0.0`. Its Streamable HTTP endpoint is stateless and supports
 `server/discover`, the per-request protocol envelope, and the `Mcp-Method` and
-`Mcp-Name` routing headers.
+`Mcp-Name` routing headers. This is the portable contract; it does not create
+another retrieval pipeline or agent harness.
 
 Strands Agents `1.48.0` requires MCP `<2`. The FastAPI/Strands environment and
 the MCP server therefore use separate Python environments:
 
 ```text
 .venv/                 FastAPI, Strands, PostgreSQL, and model clients
-mcp-server/.venv/      MCP 2.0 adapter and HTTP client
+mcp-server/.venv/      Mosaic MCP 2.0 adapter and HTTP client
 ```
 
 This is intentional. Both processes consume the same API and Pydantic response
@@ -84,5 +84,5 @@ make mcp-test
 6. Compare the MCP result with the Retrieval Lab UI and confirm both show the
    same persisted PostgreSQL ranking signals.
 
-Authentication, tenant scope, AgentCore hosting, MCP Apps, and production
-authorization policy remain take-home extensions.
+Authentication, tenant scope, AgentCore hosting, MCP Apps, Tasks, and
+production authorization policy remain take-home extensions.

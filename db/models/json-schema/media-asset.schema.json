@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "MediaTier": {
+      "enum": [
+        "flagship",
+        "premium",
+        "family",
+        "generic"
+      ],
+      "title": "MediaTier",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "asset_key": {
+      "title": "Asset Key",
+      "type": "string"
+    },
+    "tier": {
+      "$ref": "#/$defs/MediaTier"
+    },
+    "master_uri": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Master Uri"
+    },
+    "runtime_uri": {
+      "title": "Runtime Uri",
+      "type": "string"
+    },
+    "mime_type": {
+      "default": "image/webp",
+      "title": "Mime Type",
+      "type": "string"
+    },
+    "width_px": {
+      "exclusiveMinimum": 0,
+      "title": "Width Px",
+      "type": "integer"
+    },
+    "height_px": {
+      "exclusiveMinimum": 0,
+      "title": "Height Px",
+      "type": "integer"
+    },
+    "aspect_ratio": {
+      "title": "Aspect Ratio",
+      "type": "string"
+    },
+    "sha256_hex": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sha256 Hex"
+    },
+    "is_bespoke": {
+      "default": false,
+      "title": "Is Bespoke",
+      "type": "boolean"
+    },
+    "generation_metadata": {
+      "additionalProperties": true,
+      "title": "Generation Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "asset_key",
+    "tier",
+    "runtime_uri",
+    "width_px",
+    "height_px",
+    "aspect_ratio"
+  ],
+  "title": "MediaAsset",
+  "type": "object"
+}

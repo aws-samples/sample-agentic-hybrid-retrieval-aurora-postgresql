@@ -1,4 +1,4 @@
-# Catalog Studio API contract
+# Mosaic API contract
 
 ## Hybrid retrieval
 

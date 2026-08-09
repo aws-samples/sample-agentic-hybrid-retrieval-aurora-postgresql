@@ -1,0 +1,74 @@
+[
+  {
+    "product_id": 1,
+    "merchandising_title": "Mosaic Auraluxe H9",
+    "media_tier": "flagship",
+    "catalog_master": "source/auraluxe-h9-catalog-3x2.png",
+    "catalog_runtime": "runtime/auraluxe-h9-catalog-3x2.webp",
+    "detail_master": "source/auraluxe-h9-detail-1x1.png",
+    "detail_runtime": "runtime/auraluxe-h9-detail-1x1.webp",
+    "catalog_size": "1800x1200",
+    "detail_size": "1600x1600",
+    "mark_composited_in_post": true
+  },
+  {
+    "product_id": 17001,
+    "merchandising_title": "Mosaic EchoBud S2",
+    "media_tier": "flagship",
+    "catalog_master": "source/echobud-s2-catalog-3x2.png",
+    "catalog_runtime": "runtime/echobud-s2-catalog-3x2.webp",
+    "detail_master": "source/echobud-s2-detail-1x1.png",
+    "detail_runtime": "runtime/echobud-s2-detail-1x1.webp",
+    "catalog_size": "1800x1200",
+    "detail_size": "1600x1600",
+    "mark_composited_in_post": true
+  },
+  {
+    "product_id": 116001,
+    "merchandising_title": "Mosaic Pulse One",
+    "media_tier": "flagship",
+    "catalog_master": "source/pulse-one-catalog-3x2.png",
+    "catalog_runtime": "runtime/pulse-one-catalog-3x2.webp",
+    "detail_master": "source/pulse-one-detail-1x1.png",
+    "detail_runtime": "runtime/pulse-one-detail-1x1.webp",
+    "catalog_size": "1800x1200",
+    "detail_size": "1600x1600",
+    "mark_composited_in_post": true
+  },
+  {
+    "product_id": 234001,
+    "merchandising_title": "Mosaic Stride Pro",
+    "media_tier": "flagship",
+    "catalog_master": "source/stride-pro-catalog-3x2.png",
+    "catalog_runtime": "runtime/stride-pro-catalog-3x2.webp",
+    "detail_master": "source/stride-pro-detail-1x1.png",
+    "detail_runtime": "runtime/stride-pro-detail-1x1.webp",
+    "catalog_size": "1800x1200",
+    "detail_size": "1600x1600",
+    "mark_composited_in_post": true
+  },
+  {
+    "product_id": 370001,
+    "merchandising_title": "Mosaic Forma Ergonomic",
+    "media_tier": "flagship",
+    "catalog_master": "source/forma-ergonomic-catalog-3x2.png",
+    "catalog_runtime": "runtime/forma-ergonomic-catalog-3x2.webp",
+    "detail_master": "source/forma-ergonomic-detail-1x1.png",
+    "detail_runtime": "runtime/forma-ergonomic-detail-1x1.webp",
+    "catalog_size": "1800x1200",
+    "detail_size": "1600x1600",
+    "mark_composited_in_post": true
+  },
+  {
+    "product_id": 420001,
+    "merchandising_title": "Mosaic Atelier 32",
+    "media_tier": "flagship",
+    "catalog_master": "source/atelier-32-catalog-3x2.png",
+    "catalog_runtime": "runtime/atelier-32-catalog-3x2.webp",
+    "detail_master": "source/atelier-32-detail-1x1.png",
+    "detail_runtime": "runtime/atelier-32-detail-1x1.webp",
+    "catalog_size": "1800x1200",
+    "detail_size": "1600x1600",
+    "mark_composited_in_post": true
+  }
+]

@@ -1,9 +1,11 @@
 import { ArrowDown, CircleCheck, Play, SlidersHorizontal } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
 import { ErrorState, LoadingState } from "../components/States";
-import type { ProductSummary, RetrievalExample, SearchResponse } from "../types";
+import { mosaicLabMissions } from "../labMissions";
+import { useSearchParams } from "../navigation";
+import type { ProductSummary, SearchResponse } from "../types";
 
 type Stage = "lexical" | "trigram" | "semantic" | "fusion" | "rerank";
 
@@ -15,53 +17,39 @@ const stages: Array<{ id: Stage; label: string; detail: string }> = [
   { id: "rerank", label: "Rerank", detail: "Nuanced ordering of the fused pool" },
 ];
 
-const sql: Record<Stage, string> = {
-  lexical: `SELECT product_id, lexical_rank, lexical_score
-FROM catalog.search_lexical(
-  :query,
-  :filters::jsonb,
-  100
+const psqlByStage: Record<Stage, string> = {
+  lexical: `mosaic=> SELECT product_id, fts_rank, fts_score
+FROM mosaic_search.search_fts(
+  :query, :filters::jsonb, 120
 )
-ORDER BY lexical_rank;`,
-  trigram: `SELECT product_id, trigram_rank, trigram_score
-FROM catalog.search_trigram(
-  :query,
-  :filters::jsonb,
-  75,
-  0.24
+ORDER BY fts_rank;`,
+  trigram: `mosaic=> SELECT product_id, trigram_rank, trigram_score
+FROM mosaic_search.search_trigram(
+  :query, :filters::jsonb, 80, 0.20
 )
 ORDER BY trigram_rank;`,
-  semantic: `SET LOCAL hnsw.ef_search = 128;
-
-SELECT product_id, semantic_rank, semantic_score
-FROM catalog.search_semantic(
+  semantic: `mosaic=> SELECT product_id, semantic_rank, semantic_score
+FROM mosaic_search.search_vector(
   :query_embedding::vector(1024),
-  :filters::jsonb,
-  100
+  :filters::jsonb, 150
 )
 ORDER BY semantic_rank;`,
-  fusion: `SELECT *
-FROM catalog.search_hybrid_rrf(
-  :query,
-  :query_embedding::vector(1024),
-  :filters::jsonb,
-  60, 100, 75, 100, 50,
-  0.30, 0.10, 0.45
-);`,
-  rerank: `-- PostgreSQL RRF remains the candidate source.
--- Cohere Rerank 3.5 receives only the bounded top 50.
--- Persist rerank_score separately from rrf_score.
-SELECT product_id, rrf_score, pre_rerank_rank,
+  fusion: `mosaic=> SELECT product_id, rrf_score, pre_rerank_score
+FROM mosaic_search.search_hybrid_rrf(
+  :query, :query_embedding::vector(1024), :filters::jsonb
+)
+ORDER BY pre_rerank_score DESC;`,
+  rerank: `mosaic=> SELECT product_id, pre_rerank_rank,
        rerank_score, final_rank
-FROM catalog.retrieval_candidate
-WHERE run_id = :run_id
+FROM mosaic.search_result_event
+WHERE search_event_id = :search_event_id
 ORDER BY final_rank;`,
 };
 
 function stageRank(product: ProductSummary, stage: Stage): number {
   const signals = product.signals;
   if (!signals) return Number.MAX_SAFE_INTEGER;
-  if (stage === "lexical") return signals.lexical.rank ?? Number.MAX_SAFE_INTEGER;
+  if (stage === "lexical") return signals.fts.rank ?? Number.MAX_SAFE_INTEGER;
   if (stage === "trigram") return signals.trigram.rank ?? Number.MAX_SAFE_INTEGER;
   if (stage === "semantic") return signals.semantic.rank ?? Number.MAX_SAFE_INTEGER;
   if (stage === "fusion") return signals.pre_rerank_rank;
@@ -72,7 +60,7 @@ function stageScore(product: ProductSummary, stage: Stage): string {
   const signals = product.signals;
   if (!signals) return "-";
   const score =
-    stage === "lexical" ? signals.lexical.raw_score :
+    stage === "lexical" ? signals.fts.raw_score :
     stage === "trigram" ? signals.trigram.raw_score :
     stage === "semantic" ? signals.semantic.raw_score :
     stage === "fusion" ? signals.rrf_score :
@@ -81,34 +69,26 @@ function stageScore(product: ProductSummary, stage: Stage): string {
 }
 
 export function RetrievalLabPage() {
-  const [examples, setExamples] = useState<RetrievalExample[]>([]);
-  const [selected, setSelected] = useState(0);
+  const [params] = useSearchParams();
+  const requestedMission = params.get("mission");
+  const requestedIndex = mosaicLabMissions.findIndex((mission) => mission.id === requestedMission);
+  const [selected, setSelected] = useState(requestedIndex >= 0 ? requestedIndex : 0);
   const [stage, setStage] = useState<Stage>("lexical");
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    api.examples().then((rows) => {
-      const unique = rows.filter((row, index, all) =>
-        all.findIndex((candidate) => candidate.query === row.query) === index,
-      );
-      setExamples(unique);
-    }).catch(() => setExamples([]));
-  }, []);
-
-  const example = examples[selected];
+  const mission = mosaicLabMissions[selected];
   const rows = useMemo(
     () => [...(response?.results ?? [])].sort((a, b) => stageRank(a, stage) - stageRank(b, stage)),
     [response, stage],
   );
 
   async function run() {
-    if (!example) return;
+    if (!mission) return;
     setLoading(true);
     setError("");
     try {
-      setResponse(await api.search(example.query, { domain: example.domain }, { limit: 12, rerank: true }));
+      setResponse(await api.search(mission.query, mission.filters, { limit: 12, rerank: true }));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Retrieval failed");
     } finally {
@@ -120,24 +100,24 @@ export function RetrievalLabPage() {
     <div className="page lab-page">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Build and inspect</p>
-          <h1>Retrieval Lab</h1>
-          <p>Follow one candidate set from exact terms through fuzzy recovery, semantic intent, fusion, and reranking.</p>
+          <p className="eyebrow">Mosaic Labs</p>
+          <h1>Inspect a retrieval run</h1>
+          <p>Follow one golden query from candidate source through fuzzy recovery, semantic intent, fusion, and Cohere Rerank.</p>
         </div>
-        <button className="primary-button" type="button" disabled={!example || loading} onClick={() => void run()}>
+        <button className="primary-button" type="button" disabled={!mission || loading} onClick={() => void run()}>
           <Play size={17} fill="currentColor" /> Run pipeline
         </button>
       </header>
 
       <section className="lab-query-bar">
         <label>
-          <span>Workshop query</span>
+          <span>Golden query</span>
           <select value={selected} onChange={(event) => { setSelected(Number(event.target.value)); setResponse(null); }}>
-            {examples.map((item, index) => <option value={index} key={item.query_id}>{item.query}</option>)}
+            {mosaicLabMissions.map((item, index) => <option value={index} key={item.id}>{item.title}</option>)}
           </select>
         </label>
         <div className="technique-list">
-          {example?.expected_techniques.map((item) => <span key={item}>{item}</span>)}
+          {mission?.expected_techniques.map((item) => <span key={item}>{item.replaceAll("_", " ")}</span>)}
         </div>
       </section>
 
@@ -164,7 +144,7 @@ export function RetrievalLabPage() {
               <p className="eyebrow">{stages.find((item) => item.id === stage)?.label} view</p>
               <h2>Candidate order</h2>
             </div>
-            {response ? <span className="run-id">Run {response.run_id.slice(0, 8)}</span> : null}
+            {response ? <span className="run-id">Run {response.search_event_id.slice(0, 8)}</span> : null}
           </div>
           {!response && !loading ? (
             <div className="empty-ranking"><SlidersHorizontal size={24} /><p>Run the selected query to populate stage-level ranks and scores.</p></div>
@@ -181,7 +161,7 @@ export function RetrievalLabPage() {
                       <td className="mono">{stageScore(product, stage)}</td>
                       <td>
                         <span className="arm-dots" title="Lexical, trigram, semantic">
-                          <i className={product.signals?.lexical.rank ? "on" : ""} />
+                          <i className={product.signals?.fts.rank ? "on" : ""} />
                           <i className={product.signals?.trigram.rank ? "on" : ""} />
                           <i className={product.signals?.semantic.rank ? "on" : ""} />
                         </span>
@@ -194,11 +174,29 @@ export function RetrievalLabPage() {
             </div>
           ) : null}
         </section>
-        <aside className="lab-code-panel">
-          <p className="eyebrow">Code Editor checkpoint</p>
-          <h2>Canonical SQL</h2>
-          <p>{stages.find((item) => item.id === stage)?.detail}. Copy this shape into the workshop editor.</p>
-          <CodeBlock code={sql[stage]} label={`${stage}.sql`} />
+        <aside className="lab-code-panel lab-inspection-panel">
+          <p className="eyebrow">Mosaic psql</p>
+          <h2>Approved query replay</h2>
+          <p>
+            {stages.find((item) => item.id === stage)?.detail}. The Run pipeline
+            action executes the approved retrieval request; this panel never
+            opens an arbitrary browser-to-database console.
+          </p>
+          <CodeBlock code={psqlByStage[stage]} label={`${stage}.psql`} />
+          <dl className="inspection-list">
+            <div>
+              <dt>Golden target</dt>
+              <dd>{mission?.target_product_ids.map((id) => `#${id}`).join(", ") ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>Success checks</dt>
+              <dd>{mission?.assertions.map((item) => item.replaceAll("_", " ")).join(" · ") ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>Rank fields</dt>
+              <dd>RRF rank · Cohere Rerank score · final rank</dd>
+            </div>
+          </dl>
           {response?.diagnostics ? (
             <dl className="metric-list">
               <div><dt>Total latency</dt><dd>{response.diagnostics.total_latency_ms} ms</dd></div>

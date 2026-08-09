@@ -1,8 +1,8 @@
-# Catalog Studio UI design system
+# Mosaic UI design system
 
 ## Direction
 
-Catalog Studio combines a realistic premium catalog with inspectable retrieval
+Mosaic combines a realistic premium catalog with inspectable retrieval
 evidence. Product photography and editorial type establish the shopping
 context; compact sans-serif and monospaced treatments carry retrieval
 diagnostics, SQL, model identifiers, and benchmark settings.
@@ -66,13 +66,13 @@ Full-bleed category photography, one search composer, sample intents, three
 domain entry points, and a compact retrieval trust band. The hero always leaves
 the beginning of the catalog section visible.
 
-### Catalog
+### Shop
 
 Faceted product browsing with stable product cards, sort controls, pagination,
 and direct links to source-backed product detail. Mobile filters collapse into
 one disclosure so products remain in the first working viewport.
 
-### Search and agent
+### Collections
 
 A segmented Retrieval/Agent control shares one query composer. Retrieval shows
 ranked products and stage signals; Agent shows a compact cited answer with
@@ -84,6 +84,12 @@ desktop and follow the answer on mobile.
 One product image, descriptive catalog copy, price and availability, source URI
 and revision, structured attributes, and review excerpts. Product media never
 serves as evidence for an attribute.
+
+### Mosaic Labs
+
+Golden missions establish the retrieval sequence. A compact portable MCP
+contract checkpoint shows that the same typed, read-only retrieval tools are
+available to another compatible agent host without duplicating the pipeline.
 
 ### Retrieval Lab
 

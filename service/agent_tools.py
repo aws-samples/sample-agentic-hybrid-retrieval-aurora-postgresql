@@ -35,14 +35,19 @@ def start_run(
     base_filters: SearchFilters,
     result_limit: int,
 ) -> dict[str, Any]:
-    agent_run_id = uuid4()
+    # A question is one turn of one session. The schema models the session so a
+    # follow-up can be tied to what came before it; a single-turn ask still
+    # creates both rows rather than a special flat case.
+    agent_session_id = uuid4()
+    agent_turn_id = uuid4()
     state: dict[str, Any] = {
-        "agent_run_id": agent_run_id,
+        "agent_session_id": agent_session_id,
+        "agent_turn_id": agent_turn_id,
         "question": question,
         "base_filters": base_filters,
         "result_limit": result_limit,
         "trace": [],
-        "retrieval_run_ids": [],
+        "search_event_ids": [],
         "products": {},
         "searches": [],
         "answer_of_record": None,
@@ -51,10 +56,22 @@ def start_run(
     with connect() as connection:
         connection.execute(
             """
-            INSERT INTO catalog.agent_run (agent_run_id, question, model_id)
-            VALUES (%s, %s, %s)
+            INSERT INTO mosaic.agent_session (agent_session_id, metadata)
+            VALUES (%s, %s::jsonb)
             """,
-            (agent_run_id, question, get_settings().chat_model_id),
+            (
+                agent_session_id,
+                json.dumps({"model_id": get_settings().chat_model_id}),
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO mosaic.agent_turn (
+                agent_turn_id, agent_session_id, turn_number, user_message
+            )
+            VALUES (%s, %s, 1, %s)
+            """,
+            (agent_turn_id, agent_session_id, question),
         )
         connection.commit()
     return state
@@ -72,7 +89,7 @@ def _record(
     arguments: dict[str, Any],
     started: float,
     *,
-    run_id: UUID | None = None,
+    search_event_id: UUID | None = None,
     result_count: int | None = None,
     detail: str,
 ) -> None:
@@ -82,7 +99,7 @@ def _record(
             "sequence": len(state["trace"]) + 1,
             "tool": name,
             "detail": detail,
-            "retrieval_run_id": run_id,
+            "search_event_id": search_event_id,
             "result_count": result_count,
             "arguments": arguments,
             "latency_ms": round((perf_counter() - started) * 1_000, 2),
@@ -101,7 +118,8 @@ def _product_for_model(product: ProductSummary) -> dict[str, Any]:
         "title": product.title,
         "brand": product.brand,
         "model": product.model,
-        "price_usd": product.price_usd,
+        "price_cents": product.price_cents,
+        "price_display": f"${product.price_cents / 100:,.2f}",
         "rating": product.rating,
         "availability": product.availability,
         "description": product.short_description,
@@ -114,7 +132,7 @@ def _product_for_model(product: ProductSummary) -> dict[str, Any]:
                 "pre_rerank_rank": signals.pre_rerank_rank,
                 "rerank_score": signals.rerank_score,
                 "rrf_score": signals.rrf_score,
-                "lexical_rank": signals.lexical.rank,
+                "fts_rank": signals.fts.rank,
                 "trigram_rank": signals.trigram.rank,
                 "semantic_rank": signals.semantic.rank,
             }
@@ -128,12 +146,12 @@ def _product_for_model(product: ProductSummary) -> dict[str, Any]:
 def search_products(
     query: str,
     domain: str | None = None,
-    category: str | None = None,
-    subcategory: str | None = None,
+    category_key: str | None = None,
     brand: str | None = None,
     availability: str | None = None,
-    min_price: float | None = None,
-    max_price: float | None = None,
+    in_stock_only: bool = False,
+    min_price_cents: int | None = None,
+    max_price_cents: int | None = None,
     min_rating: float | None = None,
     attributes: dict[str, Any] | None = None,
     limit: int = 6,
@@ -142,35 +160,36 @@ def search_products(
 
     Use this for each distinct part of a complex shopping question. PostgreSQL
     applies hard filters inside full-text, trigram, and semantic retrieval,
-    combines arm positions with weighted RRF, and persists candidate signals
-    before Cohere Rerank orders the bounded candidate pool.
+    fuses arm positions with reciprocal rank fusion, and persists candidate
+    signals before the reranker orders the bounded candidate pool.
 
     Args:
         query: Targeted product intent or exact model/SKU text.
-        domain: Optional catalog domain.
-        category: Optional exact category.
-        subcategory: Optional exact subcategory.
-        brand: Optional exact synthetic brand.
-        availability: Optional In Stock, Low Stock, or Out of Stock constraint.
-        min_price: Optional minimum price in USD.
-        max_price: Optional maximum price in USD.
+        domain: Optional consumer_electronics, running_fitness, or home_office.
+        category_key: Optional exact category key such as over-ear-headphones.
+        brand: Optional exact brand name.
+        availability: Optional in_stock, low_stock, out_of_stock, preorder, or
+            discontinued constraint.
+        in_stock_only: Restrict to in_stock and low_stock when true.
+        min_price_cents: Optional minimum price in integer cents, so $200 is 20000.
+        max_price_cents: Optional maximum price in integer cents, so $200 is 20000.
         min_rating: Optional minimum rating from 0 to 5.
         attributes: Optional exact JSON attribute constraints.
         limit: Number of products to return, from 1 to 12.
 
     Returns:
-        A retrieval run ID and compact source-attributed products.
+        A search event ID and compact source-attributed products.
     """
     started = perf_counter()
     arguments = {
         "query": query,
         "domain": domain,
-        "category": category,
-        "subcategory": subcategory,
+        "category_key": category_key,
         "brand": brand,
         "availability": availability,
-        "min_price": min_price,
-        "max_price": max_price,
+        "in_stock_only": in_stock_only,
+        "min_price_cents": min_price_cents,
+        "max_price_cents": max_price_cents,
         "min_rating": min_rating,
         "attributes": attributes,
         "limit": limit,
@@ -184,12 +203,12 @@ def search_products(
     try:
         tool_filters = SearchFilters(
             domain=domain,
-            category=category,
-            subcategory=subcategory,
+            category_key=category_key,
             brand=brand,
             availability=availability,
-            min_price=min_price,
-            max_price=max_price,
+            in_stock_only=in_stock_only,
+            min_price_cents=min_price_cents,
+            max_price_cents=max_price_cents,
             min_rating=min_rating,
             attributes=attributes or {},
         )
@@ -223,7 +242,7 @@ def search_products(
             "retry with a narrower query or fewer filters.",
         )
 
-    state["retrieval_run_ids"].append(response.run_id)
+    state["search_event_ids"].append(response.search_event_id)
     state["searches"].append(
         {
             "query": query,
@@ -237,13 +256,13 @@ def search_products(
         "search_products",
         arguments,
         started,
-        run_id=response.run_id,
+        search_event_id=response.search_event_id,
         result_count=len(response.results),
         detail=f"Retrieved {len(response.results)} source-attributed products.",
     )
     return {
         "ok": True,
-        "run_id": str(response.run_id),
+        "search_event_id": str(response.search_event_id),
         "products": [_product_for_model(product) for product in response.results],
         "diagnostics": (
             response.diagnostics.model_dump() if response.diagnostics else None
@@ -328,11 +347,11 @@ def compare_products(product_ids: list[int]) -> dict[str, Any]:
 
 
 @tool
-def explain_retrieval(run_id: str) -> dict[str, Any]:
-    """Replay candidate-level ranking signals for one retrieval run.
+def explain_retrieval(search_event_id: str) -> dict[str, Any]:
+    """Replay candidate-level ranking signals for one search event.
 
     Args:
-        run_id: A UUID returned by search_products.
+        search_event_id: A UUID returned by search_products.
 
     Returns:
         Persisted arm ranks, raw scores, RRF contributions, reranker scores,
@@ -341,52 +360,50 @@ def explain_retrieval(run_id: str) -> dict[str, Any]:
     started = perf_counter()
     state = _state()
     try:
-        parsed = UUID(run_id)
+        parsed = UUID(search_event_id)
     except ValueError:
         return _failure(
-            "run_id is not a UUID",
-            "use the run_id returned by search_products.",
+            "search_event_id is not a UUID",
+            "use the search_event_id returned by search_products.",
         )
-    if parsed not in state["retrieval_run_ids"]:
+    # Scoped to this run on purpose: the tool is read-only, but replaying an
+    # arbitrary event would let one session read another session's telemetry.
+    if parsed not in state["search_event_ids"]:
         return _failure(
-            "run_id was not created by this agent run",
-            "use a run_id returned by search_products in this run.",
+            "search_event_id was not created by this agent run",
+            "use a search_event_id returned by search_products in this run.",
         )
     with connect() as connection:
-        run = connection.execute(
+        event = connection.execute(
             """
-            SELECT strategy, embedding_model_id, rerank_model_id, rrf_k,
-                   arm_weights, candidate_counts, stage_timings_ms,
-                   total_latency_ms
-            FROM catalog.retrieval_run
-            WHERE run_id = %s
+            SELECT query_text, normalized_query, filters, retrieval_profile,
+                   candidate_counts, total_latency_ms, diagnostics
+            FROM mosaic.search_event
+            WHERE search_event_id = %s
             """,
             (parsed,),
         ).fetchone()
         candidates = connection.execute(
             """
-            SELECT product_id, lexical_rank, lexical_score,
-                   lexical_contribution, trigram_rank, trigram_score,
-                   trigram_contribution, semantic_rank, semantic_score,
-                   semantic_contribution, rrf_score, pre_rerank_rank,
-                   rerank_score, final_rank, business_score
-            FROM catalog.retrieval_candidate
-            WHERE run_id = %s
-            ORDER BY final_rank NULLS LAST, pre_rerank_rank
+            SELECT product_id, result_rank, fts_rank, trigram_rank,
+                   semantic_rank, fused_rank, rerank_rank, scores, provenance
+            FROM mosaic.search_result_event
+            WHERE search_event_id = %s
+            ORDER BY result_rank
             LIMIT 12
             """,
             (parsed,),
         ).fetchall()
     _record(
         "explain_retrieval",
-        {"run_id": run_id},
+        {"search_event_id": search_event_id},
         started,
         result_count=len(candidates),
         detail=f"Replayed {len(candidates)} persisted candidate receipts.",
     )
     return {
         "ok": True,
-        "run": dict(run),
+        "search_event": dict(event) if event else None,
         "candidates": [dict(row) for row in candidates],
     }
 
@@ -489,45 +506,73 @@ def persist_completed_run(
     if error_type:
         persisted_usage["error_type"] = error_type
     with connect() as connection:
+        # The turn carries the assistant's answer and the plan that produced it.
         connection.execute(
             """
-            UPDATE catalog.agent_run
-            SET completed_at = clock_timestamp(),
-                plan = %s::jsonb,
-                retrieval_run_ids = %s,
-                answer = %s,
-                tool_trace = %s::jsonb,
-                usage = %s::jsonb
-            WHERE agent_run_id = %s
+            UPDATE mosaic.agent_turn
+            SET assistant_message = %s,
+                extracted_intent = %s::jsonb
+            WHERE agent_turn_id = %s
             """,
             (
-                json.dumps(plan),
-                state["retrieval_run_ids"],
                 record["answer"] if record else None,
-                json.dumps(state["trace"], default=str),
-                json.dumps(persisted_usage),
-                state["agent_run_id"],
+                json.dumps(
+                    {
+                        "plan": plan,
+                        "search_event_ids": [
+                            str(value) for value in state["search_event_ids"]
+                        ],
+                        "usage": persisted_usage,
+                    },
+                    default=str,
+                ),
+                state["agent_turn_id"],
             ),
         )
-        if record:
-            with connection.cursor() as cursor:
-                cursor.executemany(
-                    """
-                    INSERT INTO catalog.agent_citation (
-                        agent_run_id, citation_number, product_id,
-                        source_uri, source_revision, quote
-                    )
-                    VALUES (
-                        %(agent_run_id)s, %(number)s, %(product_id)s,
-                        %(source_uri)s, %(revision)s, %(quote)s
-                    )
-                    """,
-                    [
-                        {
-                            "agent_run_id": state["agent_run_id"],
-                            **citation.model_dump(),
-                        }
-                        for citation in record["citations"]
-                    ],
+        # Every tool call is audited against its registered contract. Citations
+        # ride along on the synthesis event rather than a separate table: they
+        # are that tool's output, and duplicating them would allow the audit and
+        # the answer to disagree.
+        with connection.cursor() as cursor:
+            cursor.executemany(
+                """
+                INSERT INTO mosaic.agent_tool_event (
+                    agent_turn_id, search_event_id, tool_name, tool_version,
+                    outcome, input_payload, output_payload, duration_ms
                 )
+                VALUES (
+                    %(agent_turn_id)s, %(search_event_id)s, %(tool_name)s, '1.0',
+                    %(outcome)s, %(input_payload)s::jsonb,
+                    %(output_payload)s::jsonb, %(duration_ms)s
+                )
+                """,
+                [
+                    {
+                        "agent_turn_id": state["agent_turn_id"],
+                        "search_event_id": step.get("search_event_id"),
+                        "tool_name": step["tool"],
+                        "outcome": "success",
+                        "input_payload": json.dumps(
+                            step.get("arguments") or {}, default=str
+                        ),
+                        "output_payload": json.dumps(
+                            {
+                                "detail": step["detail"],
+                                "result_count": step.get("result_count"),
+                                "citations": (
+                                    [
+                                        citation.model_dump()
+                                        for citation in record["citations"]
+                                    ]
+                                    if record and step["tool"] == "synthesize_cited_answer"
+                                    else None
+                                ),
+                            },
+                            default=str,
+                        ),
+                        "duration_ms": round(step.get("latency_ms") or 0),
+                    }
+                    for step in state["trace"]
+                ],
+            )
         connection.commit()

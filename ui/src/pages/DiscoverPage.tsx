@@ -1,8 +1,9 @@
 import {
-  Award,
+  ArrowRight,
+  Database,
+  GitCompareArrows,
   Heart,
   Menu,
-  Package,
   Search,
   ShieldCheck,
   ShoppingBag,
@@ -13,6 +14,7 @@ import {
 import { FormEvent, useState } from "react";
 import { Link } from "wouter";
 import { MosaicMark } from "../components/MosaicMark";
+import { coreMosaicLabMissions, missionLabHref } from "../labMissions";
 import { useNavigate } from "../navigation";
 import type { Domain } from "../types";
 
@@ -70,24 +72,24 @@ const categories: Category[] = [
 
 const services = [
   {
-    Icon: Award,
-    title: "Premium Quality",
-    lines: ["Carefully crafted for", "everyday performance"],
+    Icon: Search,
+    title: "Lexical + fuzzy",
+    lines: ["FTS and pg_trgm", "recover intent and typos"],
+  },
+  {
+    Icon: Database,
+    title: "Semantic retrieval",
+    lines: ["pgvector on Aurora", "captures product intent"],
+  },
+  {
+    Icon: GitCompareArrows,
+    title: "Fuse + rerank",
+    lines: ["RRF combines signals", "before final ordering"],
   },
   {
     Icon: ShieldCheck,
-    title: "2-Year Warranty",
-    lines: ["Peace of mind with", "every purchase"],
-  },
-  {
-    Icon: Package,
-    title: "Easy Returns",
-    lines: ["Hassle-free returns", "within 30 days"],
-  },
-  {
-    Icon: Truck,
-    title: "Free Shipping",
-    lines: ["Complimentary shipping", "on orders $75+"],
+    title: "Cited answers",
+    lines: ["Agent tools gather", "inspectable evidence"],
   },
 ];
 
@@ -139,8 +141,8 @@ export function DiscoverPage() {
               <Link href="/search" onClick={() => setNavOpen(false)}>
                 Collections
               </Link>
-              <Link href="/labs/retrieval" onClick={() => setNavOpen(false)}>
-                Inspiration
+              <Link href="/mosaic-labs" onClick={() => setNavOpen(false)}>
+                Mosaic Labs
               </Link>
             </nav>
             <div className="landing-actions">
@@ -173,9 +175,9 @@ export function DiscoverPage() {
             </h1>
             <p className="hero-script">Mosaic</p>
             <p className="hero-sub">
-              Lexical precision and semantic meaning,
+              Agentic product discovery on Aurora PostgreSQL,
               <br />
-              working together in every result.
+              with filters, fusion, reranking, and sources.
             </p>
 
             <form className="hero-search" onSubmit={submit} role="search">
@@ -237,6 +239,36 @@ export function DiscoverPage() {
             </section>
           </div>
         </div>
+      </section>
+
+      <section className="discover-missions" aria-labelledby="discover-missions-title">
+        <div className="discover-missions-heading">
+          <div>
+            <p className="eyebrow">Mosaic Labs</p>
+            <h2 id="discover-missions-title">Start with the golden set.</h2>
+          </div>
+          <p>
+            Five durable retrieval checks: exact identity, typo recovery,
+            semantic eligibility, defensible ranking, and cited research.
+          </p>
+          <Link className="discover-missions-link" href="/mosaic-labs">
+            View mission board <ArrowRight size={16} />
+          </Link>
+        </div>
+        <ol className="discover-mission-grid">
+          {coreMosaicLabMissions.map((mission, index) => (
+            <li key={mission.id}>
+              <Link href={missionLabHref(mission)}>
+                <span className="discover-mission-number">0{index + 1}</span>
+                <strong>{mission.title}</strong>
+                <code>{mission.query}</code>
+                <span className={`discover-mission-state ${mission.checkpoint}`}>
+                  {mission.checkpoint === "repair" ? "Repair checkpoint" : "Golden query"}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ol>
       </section>
     </div>
   );

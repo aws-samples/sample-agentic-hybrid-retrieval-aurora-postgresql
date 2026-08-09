@@ -9,18 +9,24 @@ function product(overrides: Partial<ProductSummary> = {}): ProductSummary {
     title: "Test product",
     short_description: "Test description",
     domain: "consumer_electronics",
-    category: "Audio",
-    subcategory: "Over-Ear Headphones",
+    category_key: "over-ear-headphones",
+    category_path: "Audio > Over-Ear Headphones",
     brand: "Test",
     model: "T-1",
-    price_usd: 100,
-    list_price_usd: 120,
+    price_cents: 10000,
+    list_price_cents: 12000,
+    currency: "USD",
     rating: 4.5,
     review_count: 10,
-    availability: "In Stock",
+    availability: "in_stock",
     inventory_count: 5,
     attributes: {},
     tags: [],
+    catalog_asset_key: null,
+    canonical_group_id: null,
+    media_tier: null,
+    is_flagship: false,
+    is_retrieval_anchor: false,
     image_url: null,
     image_source: null,
     signals: null,
@@ -41,7 +47,8 @@ describe("productImage", () => {
       productImage(
         product({
           domain: "home_office",
-          subcategory: "Ergonomic Office Chairs",
+          category_key: "ergonomic-office-chairs",
+          category_path: "Seating > Ergonomic Office Chairs",
         }),
       ),
     ).toMatch(/^\/assets\/images\/(?:mosaic|curated)\/[\w-]+\.webp$/);
@@ -54,8 +61,8 @@ describe("productImage", () => {
       productImage(
         product({
           domain: "running_fitness",
-          category: "Footwear",
-          subcategory: "Road Running Shoes",
+          category_key: "road-running-shoes",
+          category_path: "Footwear > Road Running Shoes",
         }),
       ),
     ).toMatch(/^\/assets\/images\/(?:mosaic|curated)\/[\w-]+\.webp$/);
@@ -66,13 +73,13 @@ describe("productImage", () => {
       productImage(
         product({
           domain: "home_office",
-          category: "Desk Accessories",
-          subcategory: "Cable Management",
+          category_key: "cable-management",
+          category_path: "Desk Accessories > Cable Management",
           title: "Cable tidy",
           brand: "Test",
         }),
       ),
-    ).toBe("/assets/images/mosaic/forma-ergonomic-thumb.webp");
+    ).toBe("/assets/images/mosaic/forma-ergonomic-studio.webp");
   });
 
   it("spreads repeated subcategories across distinct photographs", () => {
@@ -80,7 +87,7 @@ describe("productImage", () => {
     // data, so the picker keys on product_id.
     const images = new Set(
       [1, 2, 3, 4].map((product_id) =>
-        productImage(product({ product_id, subcategory: "Over-Ear Headphones" })),
+        productImage(product({ product_id, category_path: "Audio > Over-Ear Headphones" })),
       ),
     );
     expect(images.size).toBeGreaterThan(1);
@@ -96,7 +103,7 @@ describe("productImage", () => {
         productImage(
           product({
             product_id: 1000 + index * stride,
-            subcategory: "Over-Ear Headphones",
+            category_path: "Audio > Over-Ear Headphones",
           }),
         ),
       );

@@ -1,0 +1,120 @@
+{
+  "$defs": {
+    "EvidenceType": {
+      "enum": [
+        "product_spec",
+        "verified_review",
+        "expert_summary",
+        "product_qa",
+        "buying_guide",
+        "benchmark"
+      ],
+      "title": "EvidenceType",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "evidence_uid": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Uid"
+    },
+    "product_id": {
+      "title": "Product Id",
+      "type": "integer"
+    },
+    "evidence_type": {
+      "$ref": "#/$defs/EvidenceType"
+    },
+    "source_name": {
+      "title": "Source Name",
+      "type": "string"
+    },
+    "source_reference": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Reference"
+    },
+    "evidence_title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Title"
+    },
+    "evidence_text": {
+      "title": "Evidence Text",
+      "type": "string"
+    },
+    "source_date": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Date"
+    },
+    "rating": {
+      "anyOf": [
+        {
+          "maximum": 5,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rating"
+    },
+    "is_verified": {
+      "default": false,
+      "title": "Is Verified",
+      "type": "boolean"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "embedding_text": {
+      "title": "Embedding Text",
+      "type": "string"
+    }
+  },
+  "required": [
+    "product_id",
+    "evidence_type",
+    "source_name",
+    "evidence_text",
+    "embedding_text"
+  ],
+  "title": "ProductEvidenceIngest",
+  "type": "object"
+}

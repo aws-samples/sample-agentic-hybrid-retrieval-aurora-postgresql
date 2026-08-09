@@ -1,4 +1,10 @@
-"""Canonical search orchestration over PostgreSQL retrieval and managed reranking."""
+"""Search orchestration over `mosaic_search` and managed reranking.
+
+Reads the denormalized retrieval projection (`mosaic_search.product_document`)
+rather than joining the normalized catalog, and records each query in
+`mosaic.search_event` / `mosaic.search_result_event` so a participant can inspect
+exactly which arm contributed which candidate.
+"""
 from __future__ import annotations
 
 import json
@@ -18,24 +24,36 @@ from service.models import (
     RankSignal,
     ResultSignals,
     RetrievalDiagnostics,
+    RetrievalProfile,
     SearchRequest,
     SearchResponse,
     SourceAttribution,
 )
 from service.rerank import Reranker, get_reranker
 
+STRATEGY = "rrf_fusion+rerank"
+
 
 def normalize_query(query: str) -> str:
     return re.sub(r"\s+", " ", query).strip()
 
 
-def _document(row: dict[str, Any]) -> str:
+def _rerank_document(row: dict[str, Any]) -> str:
+    """Text handed to the reranker.
+
+    The projection already stores a purpose-built `rerank_text` that includes
+    decisive filters and commerce context. Rebuilding a document here would
+    diverge from what the SQL layer considers the rerank representation, so the
+    stored column is preferred and the fallback is only for rows loaded before
+    the projection was refreshed.
+    """
+    text = row.get("rerank_text")
+    if text:
+        return text
     return (
         f"{row['title']}. {row['short_description']} "
-        f"Category: {row['category']} / {row['subcategory']}. "
-        f"Brand and model: {row['brand']} {row['model']}. "
-        f"Price: ${row['price_usd']}. Availability: {row['availability']}. "
-        f"Specifications: {json.dumps(row['attributes'], sort_keys=True)}"
+        f"Category: {row['category_path']}. "
+        f"Brand and model: {row['brand_name']} {row['model_name']}."
     )
 
 
@@ -63,37 +81,44 @@ class RetrievalService:
             self.reranker = get_reranker()
         return self.reranker
 
-    def search(self, request: SearchRequest) -> SearchResponse:
+    def _profile(self, request: SearchRequest) -> RetrievalProfile:
         settings = self.settings
+        return RetrievalProfile(
+            fts_limit=settings.lexical_candidate_limit,
+            trigram_limit=settings.trigram_candidate_limit,
+            semantic_limit=settings.semantic_candidate_limit,
+            fused_limit=settings.rerank_candidate_limit,
+            result_limit=request.limit,
+            rrf_k=settings.rrf_k,
+            business_weight=settings.business_weight,
+            ef_search=settings.hnsw_ef_search,
+        )
+
+    def search(self, request: SearchRequest) -> SearchResponse:
         normalized = normalize_query(request.query)
         filters = request.filters.as_sql_json()
-        run_id = uuid4()
+        profile = self._profile(request)
+        search_event_id = uuid4()
         started = time.perf_counter()
         stage_timings: dict[str, float] = {}
-        arm_weights = {
-            "lexical": settings.lexical_weight,
-            "trigram": settings.trigram_weight,
-            "semantic": settings.semantic_weight,
-        }
+        warnings: list[str] = []
+
         with self.connection_factory() as connection:
             connection.execute(
                 """
-                INSERT INTO catalog.retrieval_run (
-                    run_id, query_text, normalized_query, filters, strategy,
-                    embedding_model_id, rerank_model_id, rrf_k, arm_weights
+                INSERT INTO mosaic.search_event (
+                    search_event_id, session_id, query_text, normalized_query,
+                    filters, retrieval_profile
                 )
-                VALUES (%s, %s, %s, %s::jsonb, 'weighted_rrf+rerank',
-                        %s, %s, %s, %s::jsonb)
+                VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb)
                 """,
                 (
-                    run_id,
+                    search_event_id,
+                    request.session_id,
                     request.query,
                     normalized,
                     json.dumps(filters),
-                    self._embedder().model_id,
-                    self._reranker().model_id if request.rerank else None,
-                    settings.rrf_k,
-                    json.dumps(arm_weights),
+                    profile.model_dump_json(),
                 ),
             )
             connection.commit()
@@ -102,51 +127,65 @@ class RetrievalService:
             embedding_started = time.perf_counter()
             query_embedding = self._embedder().embed_query(normalized)
             stage_timings["embedding"] = round(
-                (time.perf_counter() - embedding_started) * 1000,
-                3,
+                (time.perf_counter() - embedding_started) * 1000, 3
             )
 
             sql_started = time.perf_counter()
             with self.connection_factory() as connection:
+                # Per-session HNSW controls. These are SET LOCAL inside the
+                # function's transaction, so one tuned query cannot leak its
+                # ef_search into the next.
+                connection.execute(
+                    "SELECT mosaic_search.configure_hnsw(%s, %s, %s, %s)",
+                    (
+                        profile.ef_search,
+                        profile.iterative_scan,
+                        profile.max_scan_tuples,
+                        profile.scan_mem_multiplier,
+                    ),
+                )
                 rows = connection.execute(
                     """
-                    SELECT *
-                    FROM catalog.search_hybrid_rrf(
+                    SELECT h.*, d.sku, d.short_description, d.inventory_count,
+                           d.review_count, d.attributes, d.tags, d.domain,
+                           d.category_key, d.model_name, d.media_tier,
+                           d.is_flagship, d.is_retrieval_anchor, d.rerank_text,
+                           d.list_price_cents, d.currency, d.updated_at
+                    FROM mosaic_search.search_hybrid_rrf(
                         %(query)s,
-                        %(embedding)s::vector(1024),
+                        %(embedding)s::vector(%(dims)s),
                         %(filters)s::jsonb,
                         %(rrf_k)s::integer,
-                        %(lexical_limit)s::integer,
+                        %(fts_limit)s::integer,
                         %(trigram_limit)s::integer,
                         %(semantic_limit)s::integer,
-                        %(result_limit)s::integer,
-                        %(lexical_weight)s::real,
-                        %(trigram_weight)s::real,
-                        %(semantic_weight)s::real
-                    )
+                        %(fused_limit)s::integer,
+                        %(business_weight)s::real
+                    ) AS h
+                    JOIN mosaic_search.product_document d USING (product_id)
                     """,
                     {
                         "query": normalized,
-                        "embedding": np.asarray(
-                            query_embedding,
-                            dtype=np.float32,
-                        ),
+                        "embedding": np.asarray(query_embedding, dtype=np.float32),
+                        "dims": self.settings.embedding_dimensions,
                         "filters": json.dumps(filters),
-                        "rrf_k": settings.rrf_k,
-                        "lexical_limit": settings.lexical_candidate_limit,
-                        "trigram_limit": settings.trigram_candidate_limit,
-                        "semantic_limit": settings.semantic_candidate_limit,
-                        "result_limit": settings.rerank_candidate_limit,
-                        "lexical_weight": settings.lexical_weight,
-                        "trigram_weight": settings.trigram_weight,
-                        "semantic_weight": settings.semantic_weight,
+                        "rrf_k": profile.rrf_k,
+                        "fts_limit": profile.fts_limit,
+                        "trigram_limit": profile.trigram_limit,
+                        "semantic_limit": profile.semantic_limit,
+                        "fused_limit": profile.fused_limit,
+                        "business_weight": profile.business_weight,
                     },
                 ).fetchall()
             candidates = [dict(row) for row in rows]
             stage_timings["postgresql_retrieval"] = round(
-                (time.perf_counter() - sql_started) * 1000,
-                3,
+                (time.perf_counter() - sql_started) * 1000, 3
             )
+
+            # The SQL orders by pre_rerank_score; capture that as the fused rank
+            # before the reranker is allowed to reorder anything.
+            for fused_rank, row in enumerate(candidates, 1):
+                row["pre_rerank_rank"] = fused_rank
 
             rerank_status = "disabled"
             rerank_scores: dict[int, float] = {}
@@ -155,23 +194,25 @@ class RetrievalService:
                 try:
                     reranked = self._reranker().rerank(
                         normalized,
-                        [_document(row) for row in candidates],
-                        min(len(candidates), settings.rerank_candidate_limit),
+                        [_rerank_document(row) for row in candidates],
+                        min(len(candidates), profile.fused_limit),
                     )
                     rerank_scores = {
                         candidates[index]["product_id"]: score
                         for index, score in reranked
                     }
-                    if not rerank_scores and settings.rerank_required:
+                    if not rerank_scores and self.settings.rerank_required:
                         raise RuntimeError("The reranker returned no valid results")
                     rerank_status = "applied" if rerank_scores else "unavailable"
+                    if not rerank_scores:
+                        warnings.append("Reranking returned no scores; fused order kept.")
                 except Exception:
-                    if settings.rerank_required:
+                    if self.settings.rerank_required:
                         raise
                     rerank_status = "unavailable"
+                    warnings.append("Reranker unavailable; results are in fused order.")
                 stage_timings["rerank"] = round(
-                    (time.perf_counter() - rerank_started) * 1000,
-                    3,
+                    (time.perf_counter() - rerank_started) * 1000, 3
                 )
 
             if rerank_scores:
@@ -185,12 +226,11 @@ class RetrievalService:
             for final_rank, row in enumerate(candidates, 1):
                 row["rerank_score"] = rerank_scores.get(row["product_id"])
                 row["final_rank"] = final_rank
+                row["rerank_rank"] = final_rank if rerank_scores else None
 
             candidate_counts = {
                 "fused_pool": len(candidates),
-                "lexical_in_pool": sum(
-                    row["lexical_rank"] is not None for row in candidates
-                ),
+                "fts_in_pool": sum(row["fts_rank"] is not None for row in candidates),
                 "trigram_in_pool": sum(
                     row["trigram_rank"] is not None for row in candidates
                 ),
@@ -200,46 +240,73 @@ class RetrievalService:
             }
             total_latency_ms = round((time.perf_counter() - started) * 1000)
             selected = candidates[: request.limit]
+
             with self.connection_factory() as connection:
                 with connection.cursor() as cursor:
                     cursor.executemany(
                         """
-                        INSERT INTO catalog.retrieval_candidate (
-                            run_id, product_id, lexical_rank, lexical_score,
-                            lexical_contribution, trigram_rank, trigram_score,
-                            trigram_contribution, semantic_rank, semantic_score,
-                            semantic_contribution, rrf_score, pre_rerank_rank,
-                            rerank_score, final_rank, business_score
+                        INSERT INTO mosaic.search_result_event (
+                            search_event_id, product_id, result_rank, fts_rank,
+                            trigram_rank, semantic_rank, fused_rank, rerank_rank,
+                            scores, provenance
                         )
                         VALUES (
-                            %(run_id)s, %(product_id)s, %(lexical_rank)s,
-                            %(lexical_score)s, %(lexical_contribution)s,
-                            %(trigram_rank)s, %(trigram_score)s,
-                            %(trigram_contribution)s, %(semantic_rank)s,
-                            %(semantic_score)s, %(semantic_contribution)s,
-                            %(rrf_score)s, %(pre_rerank_rank)s,
-                            %(rerank_score)s, %(final_rank)s, %(business_score)s
+                            %(search_event_id)s, %(product_id)s, %(result_rank)s,
+                            %(fts_rank)s, %(trigram_rank)s, %(semantic_rank)s,
+                            %(fused_rank)s, %(rerank_rank)s,
+                            %(scores)s::jsonb, %(provenance)s::jsonb
                         )
-                        ON CONFLICT (run_id, product_id) DO NOTHING
+                        ON CONFLICT (search_event_id, product_id) DO NOTHING
                         """,
-                        [{"run_id": run_id, **row} for row in candidates],
+                        [
+                            {
+                                "search_event_id": search_event_id,
+                                "product_id": row["product_id"],
+                                "result_rank": row["final_rank"],
+                                "fts_rank": row["fts_rank"],
+                                "trigram_rank": row["trigram_rank"],
+                                "semantic_rank": row["semantic_rank"],
+                                "fused_rank": row["pre_rerank_rank"],
+                                "rerank_rank": row["rerank_rank"],
+                                "scores": json.dumps(
+                                    {
+                                        "fts": _as_float(row["fts_score"]),
+                                        "trigram": _as_float(row["trigram_score"]),
+                                        "semantic": _as_float(row["semantic_score"]),
+                                        "rrf": _as_float(row["rrf_score"]),
+                                        "business": _as_float(row["business_score"]),
+                                        "pre_rerank": _as_float(
+                                            row["pre_rerank_score"]
+                                        ),
+                                        "rerank": _as_float(row["rerank_score"]),
+                                    }
+                                ),
+                                "provenance": json.dumps(row["provenance"]),
+                            }
+                            for row in candidates
+                        ],
                     )
                 connection.execute(
                     """
-                    UPDATE catalog.retrieval_run
-                    SET completed_at = clock_timestamp(),
-                        candidate_counts = %s::jsonb,
-                        stage_timings_ms = %s::jsonb,
+                    UPDATE mosaic.search_event
+                    SET candidate_counts = %s::jsonb,
                         total_latency_ms = %s,
-                        result_product_ids = %s
-                    WHERE run_id = %s
+                        diagnostics = %s::jsonb
+                    WHERE search_event_id = %s
                     """,
                     (
                         json.dumps(candidate_counts),
-                        json.dumps(stage_timings),
                         total_latency_ms,
-                        [row["product_id"] for row in selected],
-                        run_id,
+                        json.dumps(
+                            {
+                                "status": "ok",
+                                "strategy": STRATEGY,
+                                "rerank_status": rerank_status,
+                                "stage_timings_ms": stage_timings,
+                                "warnings": warnings,
+                            }
+                        ),
+                        search_event_id,
                     ),
                 )
                 connection.commit()
@@ -247,103 +314,124 @@ class RetrievalService:
             with self.connection_factory() as connection:
                 connection.execute(
                     """
-                    UPDATE catalog.retrieval_run
-                    SET completed_at = clock_timestamp(),
-                        total_latency_ms = %s,
+                    UPDATE mosaic.search_event
+                    SET total_latency_ms = %s,
                         diagnostics = jsonb_build_object(
                             'status', 'failed',
                             'error_type', %s::text
                         )
-                    WHERE run_id = %s
+                    WHERE search_event_id = %s
                     """,
                     (
                         round((time.perf_counter() - started) * 1000),
                         type(error).__name__,
-                        run_id,
+                        search_event_id,
                     ),
                 )
                 connection.commit()
             raise
 
-        results = [self._result(row) for row in selected]
         diagnostics = None
         if request.include_diagnostics:
             diagnostics = RetrievalDiagnostics(
-                strategy="weighted_rrf+rerank",
+                strategy=STRATEGY,
                 embedding_model_id=self._embedder().model_id,
+                embedding_dimensions=self.settings.embedding_dimensions,
                 rerank_model_id=(
                     self._reranker().model_id if request.rerank else None
                 ),
                 rerank_status=rerank_status,
-                rrf_k=settings.rrf_k,
-                arm_weights=arm_weights,
+                retrieval_profile=profile,
                 candidate_counts=candidate_counts,
                 stage_timings_ms=stage_timings,
                 total_latency_ms=total_latency_ms,
+                warnings=warnings,
             )
         return SearchResponse(
-            run_id=run_id,
+            search_event_id=search_event_id,
             query=request.query,
             normalized_query=normalized,
             applied_filters=filters,
-            results=results,
+            results=[self._result(row) for row in selected],
             diagnostics=diagnostics,
         )
 
     @staticmethod
     def _result(row: dict[str, Any]) -> ProductSummary:
-        revision = row["updated_at"].isoformat()
+        updated_at = row.get("updated_at")
+        revision = updated_at.isoformat() if updated_at else "unversioned"
         return ProductSummary(
             product_id=row["product_id"],
             sku=row["sku"],
             title=row["title"],
             short_description=row["short_description"],
             domain=row["domain"],
-            category=row["category"],
-            subcategory=row["subcategory"],
-            brand=row["brand"],
-            model=row["model"],
-            price_usd=float(row["price_usd"]),
-            list_price_usd=float(row["list_price_usd"]),
-            rating=float(row["rating"]),
+            category_key=row["category_key"],
+            category_path=row["category_path"],
+            brand=row["brand_name"],
+            model=row["model_name"],
+            price_cents=row["price_cents"],
+            list_price_cents=row["list_price_cents"],
+            currency=row.get("currency") or "USD",
+            rating=_as_float(row.get("rating")),
             review_count=row["review_count"],
             availability=row["availability"],
             inventory_count=row["inventory_count"],
             attributes=row["attributes"],
-            tags=row["tags"],
-            image_url=row.get("image_url"),
-            image_source=row.get("image_source"),
+            tags=list(row["tags"] or []),
+            catalog_asset_key=row.get("catalog_asset_key"),
+            canonical_group_id=row.get("canonical_group_id"),
+            media_tier=row.get("media_tier"),
+            is_flagship=bool(row.get("is_flagship")),
+            is_retrieval_anchor=bool(row.get("is_retrieval_anchor")),
             signals=ResultSignals(
-                lexical=RankSignal(
-                    rank=row["lexical_rank"],
-                    raw_score=row["lexical_score"],
-                    rrf_contribution=row["lexical_contribution"],
+                fts=RankSignal(
+                    rank=row["fts_rank"],
+                    raw_score=_as_float(row["fts_score"]),
+                    rrf_contribution=_contribution(row, "fts"),
                 ),
                 trigram=RankSignal(
                     rank=row["trigram_rank"],
-                    raw_score=row["trigram_score"],
-                    rrf_contribution=row["trigram_contribution"],
+                    raw_score=_as_float(row["trigram_score"]),
+                    rrf_contribution=_contribution(row, "trigram"),
                 ),
                 semantic=RankSignal(
                     rank=row["semantic_rank"],
-                    raw_score=row["semantic_score"],
-                    rrf_contribution=row["semantic_contribution"],
+                    raw_score=_as_float(row["semantic_score"]),
+                    rrf_contribution=_contribution(row, "vector"),
                 ),
                 rrf_score=float(row["rrf_score"]),
                 pre_rerank_rank=row["pre_rerank_rank"],
-                rerank_score=row["rerank_score"],
+                pre_rerank_score=float(row["pre_rerank_score"]),
+                rerank_score=_as_float(row.get("rerank_score")),
                 final_rank=row["final_rank"],
                 business_score=float(row["business_score"]),
             ),
             sources=[
                 SourceAttribution(
-                    source_uri=f"catalog://product/{row['product_id']}",
+                    source_uri=f"mosaic://product/{row['product_id']}",
                     revision=revision,
                     title=row["title"],
                     quote=row["short_description"],
                 )
             ],
         )
+
+
+def _as_float(value: Any) -> float | None:
+    return None if value is None else float(value)
+
+
+def _contribution(row: dict[str, Any], channel: str) -> float | None:
+    """Pull one arm's RRF contribution out of the SQL-built provenance.
+
+    The database computes each contribution as part of fusion; recomputing it in
+    Python from the rank would be a second implementation of the same formula
+    and could disagree with what was actually fused.
+    """
+    channels = (row.get("provenance") or {}).get("channels") or {}
+    entry = channels.get(channel) or {}
+    return _as_float(entry.get("rrf_contribution"))
 
 
 _service: RetrievalService | None = None

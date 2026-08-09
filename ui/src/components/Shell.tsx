@@ -12,7 +12,7 @@ const shopLinks = [
   { to: "/", label: "Discover" },
   { to: "/catalog", label: "Shop" },
   { to: "/search", label: "Collections" },
-  { to: "/#catalog-overview", label: "Inspiration" },
+  { to: "/mosaic-labs", label: "Mosaic Labs" },
 ];
 
 function isActive(pathname: string, to: string) {

@@ -28,16 +28,20 @@ def readiness() -> dict[str, object]:
             SELECT
                 current_database() AS database_name,
                 current_setting('server_version') AS server_version,
-                to_regclass('catalog.product') IS NOT NULL AS schema_ready,
+                to_regclass('mosaic_search.product_document') IS NOT NULL
+                    AS schema_ready,
                 (SELECT extversion FROM pg_extension WHERE extname = 'vector')
                     AS vector_version,
-                (SELECT count(*) FROM catalog.product) AS product_count,
-                (SELECT count(*) FROM catalog.product WHERE embedding IS NOT NULL)
-                    AS embedded_product_count,
+                (SELECT count(*) FROM mosaic_search.product_document)
+                    AS product_count,
                 (
-                    SELECT array_agg(DISTINCT embedding_model_id)
-                    FILTER (WHERE embedding_model_id IS NOT NULL)
-                    FROM catalog.product
+                    SELECT count(*) FROM mosaic_search.product_document
+                    WHERE embedding IS NOT NULL
+                ) AS embedded_product_count,
+                (
+                    SELECT array_agg(DISTINCT embedding_model_key)
+                    FILTER (WHERE embedding_model_key IS NOT NULL)
+                    FROM mosaic_search.product_document
                 ) AS embedding_model_ids
             """
         ).fetchone()

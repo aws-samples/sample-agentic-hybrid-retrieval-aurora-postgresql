@@ -2,8 +2,8 @@
 
 ## Shared shell
 
-Desktop navigation exposes Discover, Catalog, Search & Agent, Retrieval Lab,
-and Performance. Mobile navigation collapses behind one menu button. The shell
+Desktop navigation exposes Discover, Shop, Collections, Mosaic Labs, and
+Performance. Mobile navigation collapses behind one menu button. The shell
 identifies Aurora PostgreSQL as the runtime without implying readiness when an
 API request fails.
 
@@ -14,7 +14,7 @@ language query.
 
 Components:
 
-- Catalog Studio product and workshop identity;
+- Mosaic product and workshop identity;
 - full-bleed product-category image;
 - search composer and four real sample queries;
 - exact API-backed domain counts;
@@ -23,7 +23,7 @@ Components:
 
 API: `GET /api/catalog/summary`.
 
-## `/catalog` - Catalog
+## `/catalog` - Shop
 
 Purpose: inspect physical catalog rows before retrieval.
 
@@ -37,7 +37,7 @@ Components:
 
 API: `GET /api/catalog/products`.
 
-## `/search` - Retrieval and agent
+## `/search` - Collections
 
 Purpose: run either one inspectable hybrid retrieval or a multi-tool,
 citation-validated agent answer.
@@ -57,6 +57,22 @@ Agent view:
 - collapsed Strands tool trace.
 
 API: `POST /api/search` and `POST /api/agent/answer`.
+
+## `/mosaic-labs` - Mosaic Labs
+
+Purpose: connect the five golden missions to the evidence required at each
+retrieval stage.
+
+Components:
+
+- mission contract for exact identity, typo recovery, semantic eligibility,
+  rank provenance, and cited agentic research;
+- explicit RRF and Cohere Rerank boundary;
+- instructor-led stateless MCP portable-tool checkpoint;
+- optional HNSW performance lane.
+
+API: the mission manifest is source-controlled; linked retrieval runs use
+`POST /api/search` and `GET /api/retrieval/runs/{run_id}`.
 
 ## `/products/:productId` - Product evidence
 

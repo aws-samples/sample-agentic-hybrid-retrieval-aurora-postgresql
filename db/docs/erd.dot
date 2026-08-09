@@ -1,0 +1,34 @@
+digraph MosaicERD {
+  graph [rankdir=LR, bgcolor="#fbf8f2", pad=0.3, nodesep=0.45, ranksep=0.65, fontname="Arial"];
+  node [shape=box, style="rounded,filled", fillcolor="#fffdf9", color="#7a1f24", penwidth=1.3, fontname="Arial", fontsize=10, margin="0.14,0.10"];
+  edge [color="#7a6758", arrowsize=0.7, fontname="Arial", fontsize=8];
+
+  brand [label="mosaic.brand\nsynthetic brand dimension"];
+  category [label="mosaic.category\nhierarchical taxonomy"];
+  product [label="mosaic.product\nstable identity + content", fillcolor="#f7ece7"];
+  offer [label="mosaic.product_offer\nprice + inventory + signals"];
+  merch [label="mosaic.merchandising_assignment\n120 premium / 6 flagship / 30 anchors"];
+  media [label="mosaic.media_asset\nphysical image metadata"];
+  product_media [label="mosaic.product_media\nroles + crop + mark zone"];
+  evidence [label="mosaic.product_evidence\nspecs + reviews + evidence vector"];
+  document [label="mosaic_search.product_document\nFTS + trigram + HNSW + filters", fillcolor="#efe2dc"];
+  search_event [label="mosaic.search_event\nquery telemetry + plan"];
+  tool_event [label="mosaic.agent_tool_event\ntool audit + provenance"];
+  eval_query [label="mosaic_eval.query\neval prompts + filters"];
+  judgment [label="mosaic_eval.judgment\ngraded relevance"];
+  benchmark [label="mosaic_bench.*\nHNSW profiles + measurements"];
+
+  brand -> product [label="1:N"];
+  category -> product [label="1:N"];
+  product -> offer [label="1:1"];
+  product -> merch [label="1:0..1"];
+  product -> product_media [label="1:N"];
+  media -> product_media [label="1:N"];
+  product -> evidence [label="1:N"];
+  product -> document [label="1:1 projection"];
+  document -> search_event [label="retrieval"];
+  search_event -> tool_event [label="linked"];
+  eval_query -> judgment [label="1:N"];
+  product -> judgment [label="1:N"];
+  document -> benchmark [label="measured"];
+}

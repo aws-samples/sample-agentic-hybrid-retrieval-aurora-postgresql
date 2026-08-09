@@ -4,19 +4,22 @@ import {
   Check,
   Database,
   GitCompareArrows,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
   Star,
+  Truck,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useState } from "react";
 import { Link, useRoute } from "wouter";
 import { api } from "../api";
 import { MosaicMark } from "../components/MosaicMark";
 import { ProductCard } from "../components/ProductCard";
 import { ErrorState, LoadingState } from "../components/States";
+import { formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
 import { productEditorialPoster, productImages } from "../media";
 import type { ProductDetail, ProductSummary } from "../types";
-import { showcaseProductDetail } from "../showcase";
+import { showcaseCatalogPage, showcaseProductDetail } from "../showcase";
 
 type DetailTab = "overview" | "specs" | "reviews" | "evidence";
 
@@ -52,7 +55,13 @@ export function ProductPage() {
         if (localProduct) {
           setProduct(localProduct);
           setSelectedImage(productImages(localProduct)[0]);
-          setRelated([]);
+          // The showcase page is the same local source the catalog falls back
+          // to, so the related rail stays populated without a backend.
+          setRelated(
+            showcaseCatalogPage({ domain: localProduct.domain })
+              .products.filter((item) => item.product_id !== localProduct.product_id)
+              .slice(0, 5),
+          );
           return;
         }
         setError(cause.message);
@@ -97,53 +106,123 @@ export function ProductPage() {
         </div>
         <div className="product-summary">
           <p className="product-breadcrumb">
-            {product.domain.replaceAll("_", " ")} / {product.category} / {product.subcategory}
+            {product.category_path}
           </p>
           <h1>{product.title}</h1>
-          <p className="product-model">{product.brand} / {product.model} / {product.sku}</p>
-          <div className="rating-row prominent">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <Star key={index} size={16} fill={index < Math.round(product.rating) ? "currentColor" : "none"} />
-            ))}
-            <strong>{product.rating.toFixed(1)}</strong>
-            <span>{product.review_count.toLocaleString()} reviews</span>
-          </div>
-          <div className="product-price-row">
-            <div className="product-price">${product.price_usd.toFixed(2)}</div>
-            {product.list_price_usd > product.price_usd ? (
-              <span>${product.list_price_usd.toFixed(2)}</span>
-            ) : null}
-          </div>
-          <div className="availability-block">
-            <p className={product.availability === "In Stock" ? "stock" : "muted"}>
-              {product.availability === "In Stock" ? <Check size={16} /> : null}
-              {product.availability}
-            </p>
-            <small>{product.inventory_count.toLocaleString()} units in the loaded catalog</small>
-          </div>
           <p className="product-lede">{product.long_description}</p>
-          <div className="product-primary-actions">
+          {/* A rating with no reviews behind it is not evidence, so the stars
+              only appear once the catalog actually carries review counts. */}
+          {product.review_count && product.rating !== null ? (
+            <div className="rating-row prominent">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Star key={index} size={16} fill={index < Math.round(product.rating ?? 0) ? "currentColor" : "none"} />
+              ))}
+              <strong>{product.rating.toFixed(1)}</strong>
+              <span>{product.review_count.toLocaleString()} reviews</span>
+            </div>
+          ) : null}
+
+          <div className="product-buy-row">
+            <div className="product-price-row">
+              <div className="product-price">{formatPrice(product.price_cents, product.currency)}</div>
+              {product.list_price_cents > product.price_cents ? (
+                <span>{formatPrice(product.list_price_cents, product.currency)}</span>
+              ) : null}
+            </div>
+            <div className="availability-block">
+              <p className={isPurchasable(product.availability) ? "stock" : "muted"}>
+                {isPurchasable(product.availability) ? <Check size={15} /> : null}
+                {formatAvailability(product.availability)}
+              </p>
+              <small>
+                {product.inventory_count === 1
+                  ? "1 unit in the loaded catalog"
+                  : `${product.inventory_count.toLocaleString()} units in the loaded catalog`}
+              </small>
+            </div>
+          </div>
+
+          <div className="product-cta-stack">
+            <button className="product-cta-primary" type="button">
+              Add to cart <ArrowRight size={17} />
+            </button>
             <Link
-              className="primary-button"
-              href={`/search?mode=agent&q=${encodeURIComponent(`Compare ${product.title} with similar ${product.subcategory}`)}`}
+              className="product-cta-secondary"
+              href={`/search?mode=agent&q=${encodeURIComponent(`Compare ${product.title} with similar ${leafCategory(product.category_path)}`)}`}
             >
-              <Sparkles size={17} /> Ask the agent
+              <Sparkles size={16} /> Ask the agent about this
             </Link>
             <button
               type="button"
-              className={comparing ? "secondary-button active" : "secondary-button"}
+              className={comparing ? "product-cta-ghost active" : "product-cta-ghost"}
               onClick={() => setComparing((current) => !current)}
             >
-              <GitCompareArrows size={17} />
+              <GitCompareArrows size={16} />
               {comparing ? "Added to comparison" : "Add to comparison"}
             </button>
           </div>
-          <div className="product-trust-row">
-            <span><Database size={17} /><strong>Catalog source</strong><small>Inspectable row</small></span>
-            <span><ShieldCheck size={17} /><strong>Attribution</strong><small>{source ? "Available" : "Unavailable"}</small></span>
-            <span><Sparkles size={17} /><strong>Agent ready</strong><small>Citable evidence</small></span>
+
+          <div className="product-assurances">
+            <span><RotateCcw size={19} /><small>60-day free returns</small></span>
+            <span><ShieldCheck size={19} /><small>2-year warranty</small></span>
+            <span><Truck size={19} /><small>Free shipping over $75</small></span>
           </div>
         </div>
+      </section>
+
+      {/* Evidence row. Every panel states what the catalog actually holds; the
+          reference board's confidence dial is driven by the rating and review
+          count rather than an invented score. */}
+      <section className="product-evidence-row" aria-label="Why Mosaic surfaces this product">
+        <article>
+          <header><Sparkles size={17} /><h3>Why Mosaic recommends this</h3></header>
+          <p>{product.short_description}</p>
+        </article>
+        <article>
+          <header><Check size={17} /><h3>Matching attributes</h3></header>
+          <ul>
+            {attributes.slice(0, 4).map(([key, value]) => (
+              <li key={key}>
+                <Check size={14} />
+                <span>{Array.isArray(value) ? value.join(", ") : String(value)}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
+        <article>
+          <header><Database size={17} /><h3>Evidence &amp; retrieval</h3></header>
+          <p>
+            Selected by hybrid retrieval over the loaded catalog using lexical,
+            trigram, and vector signals.
+          </p>
+          <Link className="text-link" href="/labs/retrieval">
+            See how ranking works <ArrowRight size={15} />
+          </Link>
+        </article>
+        {/* The reference board shows a "confidence score" dial. There is no such
+            column in the catalog, so this panel reports the rating the row does
+            carry, and says so plainly when no reviews back it. */}
+        <article className="product-confidence">
+          <header><ShieldCheck size={17} /><h3>Customer rating</h3></header>
+          {product.review_count && product.rating !== null ? (
+            <div>
+              <span
+                className="product-dial"
+                style={{
+                  ...({ "--sweep": `${(product.rating / 5) * 100}%` } as CSSProperties),
+                }}
+              >
+                <b>{product.rating.toFixed(1)}</b>
+              </span>
+              <small>Across {product.review_count.toLocaleString()} catalog reviews</small>
+            </div>
+          ) : (
+            <p>
+              No reviews are loaded for this row, so no rating is shown. Load the
+              full catalog to populate review evidence.
+            </p>
+          )}
+        </article>
       </section>
 
       {poster ? (
@@ -183,55 +262,48 @@ export function ProductPage() {
       {tab === "overview" ? (
         <section className="product-overview">
           <div className="product-rationale">
-            <p className="eyebrow">Product overview</p>
-            <h2>What stands out</h2>
-            <p>{product.short_description}</p>
-            <ul>
-              {attributes.slice(0, 3).map(([key, value]) => (
-                <li key={key}>
-                  <Check size={16} />
-                  <span>
-                    <strong>{key.replaceAll("_", " ")}</strong>
-                    {Array.isArray(value) ? value.join(", ") : String(value)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="matching-attributes">
             <p className="eyebrow">Structured metadata</p>
-            <h2>Matching attributes</h2>
-            <div className="attribute-chips">
-              {attributes.slice(0, 8).map(([key, value]) => (
-                <span key={key}>
-                  {key.replaceAll("_", " ")}: {Array.isArray(value) ? value.join(", ") : String(value)}
-                </span>
+            <h2>Full attribute set</h2>
+            <dl className="spec-table">
+              {attributes.map(([key, value]) => (
+                <div key={key}>
+                  <dt>{key.replaceAll("_", " ")}</dt>
+                  <dd>{Array.isArray(value) ? value.join(", ") : String(value)}</dd>
+                </div>
               ))}
-            </div>
-            <div className="evidence-readiness">
-              <div>
-                <Database size={20} />
-                <span><strong>Evidence readiness</strong><small>{source ? "Source attribution available" : "Source attribution unavailable"}</small></span>
-              </div>
-              <p>
-                Mosaic can retrieve this row, expose its ranking signals,
-                and cite the source revision in an agent answer.
-              </p>
-            </div>
+            </dl>
           </div>
           <div className="customer-highlights">
-            <p className="eyebrow">Customer evidence</p>
-            <h2>Review highlights</h2>
-            {product.reviews.length ? product.reviews.slice(0, 3).map((review) => (
-              <blockquote key={review.review_id}>
-                <p>“{review.body}”</p>
+            <p className="eyebrow">Catalog record</p>
+            <h2>Where this row comes from</h2>
+            <dl className="spec-table">
+              <div>
+                <dt>Source system</dt>
+                <dd>{product.source_system}</dd>
+              </div>
+              <div>
+                <dt>Revision</dt>
+                <dd>{source?.revision ?? "unavailable"}</dd>
+              </div>
+              <div>
+                <dt>SKU</dt>
+                <dd>{product.sku}</dd>
+              </div>
+              <div>
+                <dt>Brand / model</dt>
+                <dd>{product.brand} / {product.model}</dd>
+              </div>
+            </dl>
+            {product.reviews.length ? (
+              <blockquote>
+                <p>“{product.reviews[0].body}”</p>
                 <cite>
-                  {review.verified_purchase ? "Verified purchase" : "Catalog review"} / {review.rating}.0 stars
+                  {product.reviews[0].verified_purchase ? "Verified purchase" : "Catalog review"}
+                  {" / "}
+                  {product.reviews[0].rating}.0 stars
                 </cite>
               </blockquote>
-            )) : (
-              <p className="muted">No review excerpts are loaded for this product.</p>
-            )}
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -258,7 +330,9 @@ export function ProductPage() {
           <div className="review-list">
             {product.reviews.length ? product.reviews.map((review) => (
               <blockquote key={review.review_id}>
-                <div className="rating-row"><Star size={14} fill="currentColor" /><strong>{review.rating}.0</strong></div>
+                {review.rating !== null ? (
+                  <div className="rating-row"><Star size={14} fill="currentColor" /><strong>{review.rating.toFixed(1)}</strong></div>
+                ) : null}
                 {review.title ? <strong>{review.title}</strong> : null}
                 <p>{review.body}</p>
                 <cite>{review.verified_purchase ? "Verified purchase" : "Catalog review"} / {review.review_date}</cite>
@@ -289,14 +363,16 @@ export function ProductPage() {
           <div className="section-heading">
             <div>
               <p className="eyebrow">Continue exploring</p>
-              <h2>More in {product.domain.replaceAll("_", " ")}</h2>
+              <h2>You may also like</h2>
             </div>
             <Link className="text-link" href={`/catalog?domain=${product.domain}`}>
-              View catalog <ArrowRight size={16} />
+              View all <ArrowRight size={16} />
             </Link>
           </div>
-          <div className="product-grid">
-            {related.map((item) => <ProductCard key={item.product_id} product={item} />)}
+          <div className="product-grid related-grid">
+            {related.map((item) => (
+              <ProductCard key={item.product_id} product={item} variant="catalog" />
+            ))}
           </div>
         </section>
       ) : null}

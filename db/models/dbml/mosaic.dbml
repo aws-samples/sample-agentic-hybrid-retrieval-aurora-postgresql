@@ -1,0 +1,221 @@
+Project Mosaic {
+  database_type: 'PostgreSQL'
+  Note: 'Normalized catalog + denormalized hybrid retrieval projection for Aurora PostgreSQL'
+}
+
+Enum product_domain {
+  consumer_electronics
+  running_fitness
+  home_office
+}
+
+Enum availability_status {
+  in_stock
+  low_stock
+  out_of_stock
+  preorder
+  discontinued
+}
+
+Enum media_tier {
+  flagship
+  premium
+  family
+  generic
+}
+
+Table mosaic.brand {
+  brand_id bigint [pk, increment]
+  brand_key text [not null, unique]
+  display_name text [not null]
+  is_synthetic boolean [not null, default: true]
+  metadata jsonb [not null]
+}
+
+Table mosaic.category {
+  category_id bigint [pk, increment]
+  domain product_domain [not null]
+  parent_category_id bigint
+  category_key text [not null, unique]
+  display_name text [not null]
+  category_path text [not null]
+  depth smallint [not null]
+}
+
+Table mosaic.product {
+  product_id bigint [pk, increment]
+  product_uid uuid [not null, unique]
+  sku text [not null, unique]
+  brand_id bigint [not null]
+  category_id bigint [not null]
+  canonical_group_id text [not null]
+  model_name text [not null]
+  title text [not null]
+  short_description text [not null]
+  long_description text [not null]
+  language text [not null]
+  attributes jsonb [not null]
+  tags text[] [not null]
+  aliases text[] [not null]
+  challenge_cohorts text[] [not null]
+  launch_date date
+  source_system text [not null]
+  is_active boolean [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table mosaic.product_offer {
+  product_id bigint [pk]
+  price_cents bigint [not null]
+  list_price_cents bigint [not null]
+  currency char(3) [not null]
+  availability availability_status [not null]
+  inventory_count integer [not null]
+  rating numeric
+  review_count integer [not null]
+  popularity_score real [not null]
+  quality_score real [not null]
+  freshness_score real [not null]
+  metadata_completeness real [not null]
+  is_refurbished boolean [not null]
+  is_sponsored boolean [not null]
+  updated_at timestamptz [not null]
+}
+
+Table mosaic.merchandising_assignment {
+  product_id bigint [pk]
+  media_tier media_tier [not null]
+  merchandising_title text
+  shop_page smallint
+  shop_position smallint
+  is_flagship boolean [not null]
+  is_retrieval_anchor boolean [not null]
+  catalog_asset_key text
+  detail_asset_key text
+  metadata jsonb [not null]
+}
+
+Table mosaic.media_asset {
+  asset_id uuid [pk]
+  asset_key text [not null, unique]
+  tier media_tier [not null]
+  master_uri text
+  runtime_uri text [not null]
+  mime_type text [not null]
+  width_px integer [not null]
+  height_px integer [not null]
+  aspect_ratio text [not null]
+  sha256_hex text
+  is_bespoke boolean [not null]
+}
+
+Table mosaic.product_media {
+  product_id bigint [not null]
+  asset_id uuid [not null]
+  role text [not null]
+  sort_order smallint [not null]
+  crop_anchor_x numeric [not null]
+  crop_anchor_y numeric [not null]
+  mark_zone jsonb [not null]
+
+  indexes {
+    (product_id, role, sort_order) [pk]
+  }
+}
+
+Table mosaic.product_evidence {
+  evidence_id bigint [pk, increment]
+  evidence_uid uuid [not null, unique]
+  product_id bigint [not null]
+  evidence_type text [not null]
+  source_name text [not null]
+  source_reference text
+  evidence_title text
+  evidence_text text [not null]
+  metadata jsonb [not null]
+  embedding_text text [not null]
+  embedding vector(768)
+}
+
+Table mosaic_search.product_document {
+  product_id bigint [pk]
+  product_uid uuid [not null]
+  sku text [not null]
+  domain product_domain [not null]
+  category_id bigint [not null]
+  category_key text [not null]
+  category_path text [not null]
+  brand_id bigint [not null]
+  brand_name text [not null]
+  model_name text [not null]
+  title text [not null]
+  canonical_group_id text [not null]
+  price_cents bigint [not null]
+  availability availability_status [not null]
+  rating numeric
+  attributes jsonb [not null]
+  search_document tsvector [not null]
+  trigram_text text [not null]
+  embedding_text text [not null]
+  rerank_text text [not null]
+  embedding vector(768)
+}
+
+Table mosaic.search_event {
+  search_event_id uuid [pk]
+  occurred_at timestamptz [not null]
+  session_id text
+  query_text text [not null]
+  normalized_query text
+  filters jsonb [not null]
+  retrieval_profile jsonb [not null]
+  candidate_counts jsonb [not null]
+  total_latency_ms integer
+  plan_json jsonb
+}
+
+Table mosaic.agent_tool_event {
+  tool_event_id uuid [pk]
+  agent_turn_id uuid [not null]
+  search_event_id uuid
+  tool_name text [not null]
+  tool_version text [not null]
+  outcome text [not null]
+  input_payload jsonb [not null]
+  output_payload jsonb
+  duration_ms integer
+}
+
+Table mosaic_eval.query {
+  query_id text [pk]
+  query_text text [not null]
+  domain product_domain
+  filters jsonb [not null]
+  target_product_id bigint
+  is_demo_query boolean [not null]
+}
+
+Table mosaic_eval.judgment {
+  query_id text [not null]
+  product_id bigint [not null]
+  relevance_grade smallint [not null]
+  reason text
+
+  indexes {
+    (query_id, product_id) [pk]
+  }
+}
+
+Ref: mosaic.category.parent_category_id > mosaic.category.category_id
+Ref: mosaic.product.brand_id > mosaic.brand.brand_id
+Ref: mosaic.product.category_id > mosaic.category.category_id
+Ref: mosaic.product_offer.product_id - mosaic.product.product_id
+Ref: mosaic.merchandising_assignment.product_id - mosaic.product.product_id
+Ref: mosaic.product_media.product_id > mosaic.product.product_id
+Ref: mosaic.product_media.asset_id > mosaic.media_asset.asset_id
+Ref: mosaic.product_evidence.product_id > mosaic.product.product_id
+Ref: mosaic_search.product_document.product_id - mosaic.product.product_id
+Ref: mosaic_eval.query.target_product_id > mosaic.product.product_id
+Ref: mosaic_eval.judgment.query_id > mosaic_eval.query.query_id
+Ref: mosaic_eval.judgment.product_id > mosaic.product.product_id

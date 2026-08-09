@@ -80,4 +80,15 @@ def test_embedding_loader_uses_typed_binary_copy():
     source = (ROOT / "scripts/embed_catalog.py").read_text()
 
     assert "FROM STDIN (FORMAT BINARY)" in source
-    assert 'copy.set_types(["int8", "vector", "text"])' in source
+    # Two columns, not three: mosaic_search.product_document has no
+    # embedding_content_hash, so re-embedding is gated on the model key instead.
+    assert 'copy.set_types(["int8", "vector"])' in source
+
+
+def test_embedding_loader_registers_the_model_before_writing_vectors():
+    source = (ROOT / "scripts/embed_catalog.py").read_text()
+
+    # product_document.embedding_model_key is a foreign key to
+    # mosaic.embedding_model, so an unregistered model fails at the first UPDATE.
+    assert "INSERT INTO mosaic.embedding_model" in source
+    assert "mosaic_search.product_document" in source

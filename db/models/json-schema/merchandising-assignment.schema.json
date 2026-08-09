@@ -1,0 +1,113 @@
+{
+  "$defs": {
+    "MediaTier": {
+      "enum": [
+        "flagship",
+        "premium",
+        "family",
+        "generic"
+      ],
+      "title": "MediaTier",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "product_id": {
+      "title": "Product Id",
+      "type": "integer"
+    },
+    "media_tier": {
+      "$ref": "#/$defs/MediaTier"
+    },
+    "merchandising_title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Merchandising Title"
+    },
+    "shop_page": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Shop Page"
+    },
+    "shop_position": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Shop Position"
+    },
+    "is_flagship": {
+      "default": false,
+      "title": "Is Flagship",
+      "type": "boolean"
+    },
+    "is_retrieval_anchor": {
+      "default": false,
+      "title": "Is Retrieval Anchor",
+      "type": "boolean"
+    },
+    "catalog_asset_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Catalog Asset Key"
+    },
+    "detail_asset_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Detail Asset Key"
+    },
+    "live_demo_queries": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Live Demo Queries",
+      "type": "array"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "product_id",
+    "media_tier"
+  ],
+  "title": "MerchandisingAssignment",
+  "type": "object"
+}

@@ -3,20 +3,36 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Grid2X2,
+  List,
   Sparkles,
+  Star,
   SlidersHorizontal,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useState } from "react";
+import { Link } from "wouter";
 import { api } from "../api";
 import { MosaicMark } from "../components/MosaicMark";
 import { ProductCard } from "../components/ProductCard";
 import { SearchComposer } from "../components/SearchComposer";
 import { ErrorState, LoadingState } from "../components/States";
-import { useNavigate, useSearchParams } from "../navigation";
+import { formatAvailability, formatCategoryKey, formatPriceCompact, leafCategory } from "../format";
+import { productImage } from "../media";
+import { useSearchParams } from "../navigation";
 import { showcaseCatalogPage } from "../showcase";
-import type { AgentResponse, CatalogPage, Domain, ProductSummary, SearchFilters } from "../types";
+import type {
+  AgentResponse,
+  Availability,
+  CatalogPage,
+  Domain,
+  ProductSummary,
+  SearchFilters,
+} from "../types";
 
-const pageSize = 24;
+// 3 columns x 4 rows. The premium cohort is 120 products, so this gives exactly
+// 10 pages and matches the merchandising model in the schema package, which
+// assigns every product a shop_page and shop_position on a 12-per-page grid.
+const pageSize = 12;
 
 type ShoppingPreference = {
   id: "focus" | "move" | "listen" | "travel";
@@ -42,16 +58,15 @@ const shoppingPreferences: ShoppingPreference[] = [
     id: "listen",
     label: "Listen",
     question: "Recommend personal audio for focused listening and calls.",
-    matches: (product) => product.category === "Audio",
+    matches: (product) => product.category_path.startsWith("Audio"),
   },
   {
     id: "travel",
     label: "Travel",
     question: "Recommend compact, versatile essentials for working on the move.",
     matches: (product) =>
-      product.category === "Accessories" ||
-      product.subcategory === "Wireless Earbuds" ||
-      product.subcategory === "Over-Ear Headphones",
+      product.category_key === "accessories" ||
+      /(?:wireless earbuds|over-ear headphones)/i.test(product.category_path),
   },
 ];
 
@@ -60,16 +75,46 @@ function preferenceProducts(products: ProductSummary[], preference: ShoppingPref
   return (matching.length ? matching : products).slice(0, 3);
 }
 
+/**
+ * Upper bound of the price slider. The reference board shows "$0 — $2000+" and
+ * the live facets carry no price histogram, so the ceiling is a fixed rail with
+ * the top handle meaning "no maximum" rather than a derived value that would
+ * shift with every page of results.
+ */
+const priceCeiling = 2000;
+const priceStep = 25;
+const priceCeilingCents = priceCeiling * 100;
+
+const ratingThresholds = [5, 4, 3, 2, 1] as const;
+
+const availabilityOptions: Array<{ value: Availability | ""; label: string }> = [
+  { value: "", label: "All availability" },
+  { value: "in_stock", label: "In stock" },
+  { value: "low_stock", label: "Low stock" },
+  { value: "preorder", label: "Pre-order" },
+];
+
+type FilterSection = "categories" | "price" | "availability" | "rating";
+
+function priceFromCents(value: string | null, fallback: number) {
+  const cents = Number(value);
+  if (!Number.isFinite(cents)) return fallback;
+  return Math.min(Math.max(cents / 100, 0), priceCeiling);
+}
+
 export function CatalogPage() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState<CatalogPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [expandedFilter, setExpandedFilter] = useState<
-    "categories" | "price" | "availability" | "rating" | null
-  >("categories");
+  const [expandedFilters, setExpandedFilters] = useState<Record<FilterSection, boolean>>({
+    categories: true,
+    price: true,
+    availability: true,
+    rating: true,
+  });
+  const [catalogView, setCatalogView] = useState<"grid" | "list">("grid");
   const [preference, setPreference] = useState<ShoppingPreference>(shoppingPreferences[0]);
   const [agent, setAgent] = useState<AgentResponse | null>(null);
   const [agentLoading, setAgentLoading] = useState(false);
@@ -78,29 +123,31 @@ export function CatalogPage() {
   const domain = (searchParams.get("domain") || undefined) as Domain | undefined;
   const offset = Number(searchParams.get("offset") ?? 0);
   const sort = searchParams.get("sort") ?? "featured";
-  const availability = searchParams.get("availability") || undefined;
+  const availability = (searchParams.get("availability") || undefined) as Availability | undefined;
   const minRating = searchParams.get("min_rating");
-  const category = searchParams.get("category") || undefined;
+  const categoryKey = searchParams.get("category_key") || undefined;
   const brand = searchParams.get("brand") || undefined;
-  const minPrice = searchParams.get("min_price");
-  const maxPrice = searchParams.get("max_price");
+  const minPriceCents = searchParams.get("min_price_cents");
+  const maxPriceCents = searchParams.get("max_price_cents");
+  const lowPrice = priceFromCents(minPriceCents, 0);
+  const highPrice = priceFromCents(maxPriceCents, priceCeiling);
   const filters: SearchFilters = {
     domain,
-    category,
+    category_key: categoryKey,
     brand,
-    availability: availability as SearchFilters["availability"],
+    availability,
     min_rating: minRating ? Number(minRating) : undefined,
-    min_price: minPrice ? Number(minPrice) : undefined,
-    max_price: maxPrice ? Number(maxPrice) : undefined,
+    min_price_cents: minPriceCents ? Number(minPriceCents) : undefined,
+    max_price_cents: maxPriceCents ? Number(maxPriceCents) : undefined,
   };
   const activeFilterCount = [
     domain,
-    category,
+    categoryKey,
     brand,
     availability,
     minRating,
-    minPrice,
-    maxPrice,
+    minPriceCents,
+    maxPriceCents,
   ].filter(Boolean).length;
 
   const load = useCallback(() => {
@@ -114,7 +161,17 @@ export function CatalogPage() {
         setPage(showcaseCatalogPage(filters));
       })
       .finally(() => setLoading(false));
-  }, [domain, category, brand, availability, minRating, minPrice, maxPrice, offset, sort]);
+  }, [
+    domain,
+    categoryKey,
+    brand,
+    availability,
+    minRating,
+    minPriceCents,
+    maxPriceCents,
+    offset,
+    sort,
+  ]);
 
   useEffect(load, [load]);
 
@@ -129,6 +186,23 @@ export function CatalogPage() {
   function clearFilters() {
     const next = new URLSearchParams();
     if (sort !== "featured") next.set("sort", sort);
+    setSearchParams(next);
+  }
+
+  /**
+   * Writes both slider handles in one URL update. Calling `update` twice would
+   * queue two writes against the same `searchParams` snapshot and the second
+   * would overwrite the first.
+   */
+  function commitPrice(low: number, high: number) {
+    const nextLow = Math.round(Math.min(low, high) * 100);
+    const nextHigh = Math.round(Math.max(low, high) * 100);
+    const next = new URLSearchParams(searchParams);
+    if (nextLow > 0) next.set("min_price_cents", String(nextLow));
+    else next.delete("min_price_cents");
+    if (nextHigh < priceCeilingCents) next.set("max_price_cents", String(nextHigh));
+    else next.delete("max_price_cents");
+    next.delete("offset");
     setSearchParams(next);
   }
 
@@ -153,13 +227,14 @@ export function CatalogPage() {
     void askAgent(nextPreference.question);
   }
 
-  function toggleFilter(
-    section: "categories" | "price" | "availability" | "rating",
-  ) {
-    setExpandedFilter((current) => current === section ? null : section);
+  function toggleFilter(section: FilterSection) {
+    setExpandedFilters((current) => ({
+      ...current,
+      [section]: !current[section],
+    }));
   }
 
-  const catalogCategories = page?.facets.category ?? [];
+  const catalogCategories = page?.facets.category_key ?? [];
   const fallbackProducts = showcaseCatalogPage({}).products;
   const recommendationPool = agent?.recommendations.length
     ? agent.recommendations
@@ -205,13 +280,13 @@ export function CatalogPage() {
               {activeFilterCount ? <button type="button" onClick={clearFilters}>Clear all</button> : null}
             </div>
             <section className="catalog-filter-section">
-              <button type="button" onClick={() => toggleFilter("categories")} aria-expanded={expandedFilter === "categories"}>
-                Categories {expandedFilter === "categories" ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              <button type="button" onClick={() => toggleFilter("categories")} aria-expanded={expandedFilters.categories}>
+                Categories {expandedFilters.categories ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
-              {expandedFilter === "categories" ? (
+              {expandedFilters.categories ? (
                 <div className="filter-options">
                   <label>
-                    <input type="radio" checked={!category} onChange={() => update("category")} />
+                    <input type="radio" name="category" checked={!categoryKey} onChange={() => update("category_key")} />
                     <span>All products</span>
                     {page ? <small>{page.total.toLocaleString()}</small> : null}
                   </label>
@@ -219,10 +294,11 @@ export function CatalogPage() {
                     <label key={item.value}>
                       <input
                         type="radio"
-                        checked={category === item.value}
-                        onChange={() => update("category", item.value)}
+                        name="category"
+                        checked={categoryKey === item.value}
+                        onChange={() => update("category_key", item.value)}
                       />
-                      <span>{item.value}</span>
+                      <span>{formatCategoryKey(item.value)}</span>
                       <small>{item.count.toLocaleString()}</small>
                     </label>
                   ))}
@@ -230,84 +306,113 @@ export function CatalogPage() {
               ) : null}
             </section>
             <section className="catalog-filter-section">
-              <button type="button" onClick={() => toggleFilter("price")} aria-expanded={expandedFilter === "price"}>
-                Price range {expandedFilter === "price" ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              <button type="button" onClick={() => toggleFilter("price")} aria-expanded={expandedFilters.price}>
+                Price range {expandedFilters.price ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
-              {expandedFilter === "price" ? (
-                <div className="price-filter">
-                  <label>
-                    <span className="sr-only">Minimum price</span>
+              {expandedFilters.price ? (
+                <div className="price-range">
+                  <div className="price-range-readout">
+                    <span>${lowPrice.toLocaleString()}</span>
+                    <span>
+                      ${highPrice.toLocaleString()}
+                      {highPrice >= priceCeiling ? "+" : ""}
+                    </span>
+                  </div>
+                  {/* Two overlaid range inputs: the native control has no
+                      two-thumb mode, and the track between the handles is drawn
+                      from the same two values so it cannot drift out of sync. */}
+                  <div
+                    className="price-range-track"
+                    style={{
+                      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+                      ...({
+                        "--low": `${(lowPrice / priceCeiling) * 100}%`,
+                        "--high": `${(highPrice / priceCeiling) * 100}%`,
+                      } as CSSProperties),
+                    }}
+                  >
                     <input
-                      type="number"
-                      min="0"
-                      placeholder="Min"
-                      value={minPrice ?? ""}
-                      onChange={(event) => update("min_price", event.target.value)}
+                      type="range"
+                      aria-label="Minimum price"
+                      min={0}
+                      max={priceCeiling}
+                      step={priceStep}
+                      value={lowPrice}
+                      onChange={(event) => commitPrice(Number(event.target.value), highPrice)}
                     />
-                  </label>
-                  <span>to</span>
-                  <label>
-                    <span className="sr-only">Maximum price</span>
                     <input
-                      type="number"
-                      min="0"
-                      placeholder="Max"
-                      value={maxPrice ?? ""}
-                      onChange={(event) => update("max_price", event.target.value)}
+                      type="range"
+                      aria-label="Maximum price"
+                      min={0}
+                      max={priceCeiling}
+                      step={priceStep}
+                      value={highPrice}
+                      onChange={(event) => commitPrice(lowPrice, Number(event.target.value))}
                     />
-                  </label>
+                  </div>
                 </div>
               ) : null}
             </section>
             <section className="catalog-filter-section">
-              <button type="button" onClick={() => toggleFilter("availability")} aria-expanded={expandedFilter === "availability"}>
-                Availability {expandedFilter === "availability" ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              <button type="button" onClick={() => toggleFilter("availability")} aria-expanded={expandedFilters.availability}>
+                Availability {expandedFilters.availability ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
-              {expandedFilter === "availability" ? (
+              {expandedFilters.availability ? (
                 <div className="filter-options">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={availability === "In Stock"}
-                      onChange={(event) => update("availability", event.target.checked ? "In Stock" : undefined)}
-                    />
-                    In stock
-                  </label>
+                  {availabilityOptions.map((option) => (
+                    <label key={option.value || "all"}>
+                      <input
+                        type="radio"
+                        name="availability"
+                        checked={(availability ?? "") === option.value}
+                        onChange={() => update("availability", option.value || undefined)}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
                 </div>
               ) : null}
             </section>
             <section className="catalog-filter-section">
-              <button type="button" onClick={() => toggleFilter("rating")} aria-expanded={expandedFilter === "rating"}>
-                Rating {expandedFilter === "rating" ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              <button type="button" onClick={() => toggleFilter("rating")} aria-expanded={expandedFilters.rating}>
+                Customer rating {expandedFilters.rating ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
-              {expandedFilter === "rating" ? (
-                <select value={minRating ?? ""} onChange={(event) => update("min_rating", event.target.value)}>
-                  <option value="">Any rating</option>
-                  <option value="4">4.0 and up</option>
-                  <option value="4.5">4.5 and up</option>
-                </select>
+              {expandedFilters.rating ? (
+                <div className="rating-filter-options">
+                  {ratingThresholds.map((threshold) => (
+                    <label className="rating-filter-option" key={threshold}>
+                      <input
+                        type="radio"
+                        name="min-rating"
+                        checked={Number(minRating) === threshold}
+                        onChange={() => update("min_rating", String(threshold))}
+                      />
+                      <span className="rating-filter-stars" aria-hidden="true">
+                        {Array.from({ length: threshold }).map((_, index) => (
+                          <Star key={index} size={13} fill="currentColor" />
+                        ))}
+                      </span>
+                      <span className="rating-filter-note">&amp; up</span>
+                    </label>
+                  ))}
+                  <label className="rating-filter-option">
+                    <input
+                      type="radio"
+                      name="min-rating"
+                      checked={!minRating}
+                      onChange={() => update("min_rating")}
+                    />
+                    <span>Any rating</span>
+                  </label>
+                </div>
               ) : null}
             </section>
           </aside>
         </aside>
         <section className="catalog-results">
-          <header className="catalog-toolbar">
-            <SearchComposer
-              compact
-              placeholder="Search products..."
-              onSubmit={(query) => navigate(`/search?q=${encodeURIComponent(query)}`)}
-            />
-            <label className="catalog-sort">
-              <span className="sr-only">Sort catalog</span>
-              <select value={sort} onChange={(event) => update("sort", event.target.value)}>
-                <option value="featured">Sort by: Featured</option>
-                <option value="rating">Sort by: Rating</option>
-                <option value="price_asc">Price: low to high</option>
-                <option value="price_desc">Price: high to low</option>
-                <option value="newest">Sort by: Newest</option>
-              </select>
-            </label>
-          </header>
+          {/* Ask Mosaic leads the column: it is the primary affordance on this
+              surface, and the sort control now sits with the result count it
+              actually governs. */}
           <section className="catalog-agent" aria-label="Mosaic shopping assistant">
             <div className="catalog-agent-identity">
               <Sparkles size={20} aria-hidden="true" />
@@ -324,94 +429,147 @@ export function CatalogPage() {
               onSubmit={(query) => void askAgent(query)}
             />
           </section>
-          <section className="catalog-preferences" aria-label="Shopping preferences">
-            <span>Build your edit</span>
-            <div role="group" aria-label="Choose a shopping preference">
-              {shoppingPreferences.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={preference.id === option.id ? "active" : ""}
-                  aria-pressed={preference.id === option.id}
-                  onClick={() => selectPreference(option)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </section>
-          {agentError ? <p className="catalog-agent-error" role="status">{agentError}</p> : null}
-          {agent ? (
-            <section className="catalog-agent-answer" aria-live="polite">
-              <p className="eyebrow">Mosaic's take</p>
-              <p>{agent.answer}</p>
-            </section>
-          ) : null}
-          <section className="catalog-recommendations">
-            <header>
-              <div>
-                <p className="eyebrow">Your edit</p>
-                <h2>{agent ? "Mosaic's shortlist" : `For your ${preference.label.toLowerCase()} routine`}</h2>
-              </div>
-              <span>{agent ? agentQuestion : "Tailored to your current selection"}</span>
-            </header>
-            <div className="catalog-recommendation-grid">
-              {recommendations.map((product) => (
-                <ProductCard key={`recommendation-${product.product_id}`} product={product} variant="catalog" />
-              ))}
-            </div>
-          </section>
+
           <nav className="category-pills" aria-label="Product categories">
             <button
               type="button"
-              className={!category ? "active" : ""}
-              onClick={() => update("category")}
+              className={!categoryKey ? "active" : ""}
+              onClick={() => update("category_key")}
             >
               All products
             </button>
             {catalogCategories.slice(0, 6).map((item) => (
               <button
                 type="button"
-                className={category === item.value ? "active" : ""}
+                className={categoryKey === item.value ? "active" : ""}
                 key={item.value}
-                onClick={() => update("category", item.value)}
+                onClick={() => update("category_key", item.value)}
               >
-                {item.value}
+                {formatCategoryKey(item.value)}
               </button>
             ))}
           </nav>
+
           <div className="results-toolbar">
             <p>
               {page ? (
                 <>Showing <strong>{offset + 1}-{Math.min(offset + pageSize, page.total)}</strong> of {page.total.toLocaleString()} products</>
               ) : "Loading catalog"}
             </p>
+            <div className="catalog-result-controls">
+              <label className="catalog-sort">
+                <span className="sr-only">Sort catalog</span>
+                <select value={sort} onChange={(event) => update("sort", event.target.value)}>
+                  <option value="featured">Sort by: Featured</option>
+                  <option value="rating">Sort by: Rating</option>
+                  <option value="price_asc">Price: low to high</option>
+                  <option value="price_desc">Price: high to low</option>
+                  <option value="newest">Sort by: Newest</option>
+                </select>
+              </label>
+              <div className="catalog-view-control" role="group" aria-label="Catalog layout">
+                <button
+                  type="button"
+                  className={catalogView === "grid" ? "active" : ""}
+                  aria-pressed={catalogView === "grid"}
+                  aria-label="Grid layout"
+                  title="Grid layout"
+                  onClick={() => setCatalogView("grid")}
+                >
+                  <Grid2X2 size={17} />
+                </button>
+                <button
+                  type="button"
+                  className={catalogView === "list" ? "active" : ""}
+                  aria-pressed={catalogView === "list"}
+                  aria-label="List layout"
+                  title="List layout"
+                  onClick={() => setCatalogView("list")}
+                >
+                  <List size={18} />
+                </button>
+              </div>
+            </div>
           </div>
+
           {loading ? <LoadingState label="Loading products" /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
           {!loading && !error && page ? (
-            <>
-              <div className="product-grid">
-                {page.products.map((product) => <ProductCard key={product.product_id} product={product} variant="catalog" />)}
+            <div className="catalog-body">
+              <div>
+                <div className={catalogView === "grid" ? "product-grid" : "product-grid product-grid-list"}>
+                  {page.products.map((product) => <ProductCard key={product.product_id} product={product} variant="catalog" />)}
+                </div>
+                <div className="pagination">
+                  <button
+                    type="button"
+                    disabled={offset === 0}
+                    onClick={() => update("offset", String(Math.max(0, offset - pageSize)), false)}
+                  >
+                    <ChevronLeft size={17} /> Previous
+                  </button>
+                  <span>{offset + 1}-{Math.min(offset + pageSize, page.total)} of {page.total.toLocaleString()}</span>
+                  <button
+                    type="button"
+                    disabled={offset + pageSize >= page.total}
+                    onClick={() => update("offset", String(offset + pageSize), false)}
+                  >
+                    Next <ChevronRight size={17} />
+                  </button>
+                </div>
               </div>
-              <div className="pagination">
-                <button
-                  type="button"
-                  disabled={offset === 0}
-                  onClick={() => update("offset", String(Math.max(0, offset - pageSize)), false)}
-                >
-                  <ChevronLeft size={17} /> Previous
-                </button>
-                <span>{offset + 1}-{Math.min(offset + pageSize, page.total)} of {page.total.toLocaleString()}</span>
-                <button
-                  type="button"
-                  disabled={offset + pageSize >= page.total}
-                  onClick={() => update("offset", String(offset + pageSize), false)}
-                >
-                  Next <ChevronRight size={17} />
-                </button>
-              </div>
-            </>
+
+              <aside className="catalog-rail" aria-label="Recommended for you">
+                <div className="catalog-rail-card">
+                  <header>
+                    <Sparkles size={18} aria-hidden="true" />
+                    <span>
+                      <strong>{agent ? "Mosaic's shortlist" : "Curated for you"}</strong>
+                      <small>
+                        {agent ? agentQuestion : `Matched to your ${preference.label.toLowerCase()} routine`}
+                      </small>
+                    </span>
+                  </header>
+
+                  <div className="catalog-rail-preferences" role="group" aria-label="Choose a shopping preference">
+                    {shoppingPreferences.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={preference.id === option.id ? "active" : ""}
+                        aria-pressed={preference.id === option.id}
+                        onClick={() => selectPreference(option)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {agentError ? <p className="catalog-rail-note" role="status">{agentError}</p> : null}
+                  {agent ? <p className="catalog-rail-answer" aria-live="polite">{agent.answer}</p> : null}
+
+                  <ul className="catalog-rail-list">
+                    {recommendations.map((product, index) => (
+                      <li key={`recommendation-${product.product_id}`}>
+                        <Link href={`/products/${product.product_id}`}>
+                          <img src={productImage(product)} alt="" width={64} height={64} />
+                          <span>
+                            <em>{String(index + 1).padStart(2, "0")}</em>
+                            <strong>{product.model}</strong>
+                            <small>{leafCategory(product.category_path)}</small>
+                            <b>{formatPriceCompact(product.price_cents, product.currency)}</b>
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <p className="catalog-rail-foot">
+                    Ranked by the same hybrid retrieval that answers Ask Mosaic.
+                  </p>
+                </div>
+              </aside>
+            </div>
           ) : null}
         </section>
       </div>

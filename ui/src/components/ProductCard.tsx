@@ -1,6 +1,7 @@
 import { Check, Heart, Star } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
+import { formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
 import { productImage } from "../media";
 import type { ProductSummary } from "../types";
 
@@ -18,16 +19,19 @@ export function ProductCard({
   product,
   showSignals = false,
   showCompare = false,
+  collectionLabels = [],
   variant = "default",
 }: {
   product: ProductSummary;
   showSignals?: boolean;
   showCompare?: boolean;
+  collectionLabels?: string[];
   variant?: "default" | "catalog";
 }) {
   const [saved, setSaved] = useState(false);
   const signals = product.signals;
-  const tags = product.tags.filter((tag): tag is string => typeof tag === "string").slice(0, 2);
+  const productTags = product.tags.filter((tag): tag is string => typeof tag === "string");
+  const tags = Array.from(new Set([...collectionLabels, ...productTags])).slice(0, 3);
 
   if (variant === "catalog") {
     return (
@@ -48,15 +52,27 @@ export function ProductCard({
           <h3>
             <Link href={`/products/${product.product_id}`}>{product.model}</Link>
           </h3>
-          <p className="product-category">{product.subcategory}</p>
+          <p className="product-category">{leafCategory(product.category_path)}</p>
           <div className="catalog-card-bottom">
-            <strong>${product.price_usd.toFixed(2)}</strong>
-            <span>
-              <Star size={14} fill="currentColor" />
-              {product.rating.toFixed(1)}
-              {product.review_count ? ` (${product.review_count.toLocaleString()})` : ""}
-            </span>
+            <strong>{formatPrice(product.price_cents, product.currency)}</strong>
+            {/* No stars without reviews: the local preview seed carries a rating
+                with review_count 0, and showing it implies evidence that the
+                loaded catalog does not have. */}
+            {product.review_count && product.rating !== null ? (
+              <span>
+                <Star size={14} fill="currentColor" />
+                {product.rating.toFixed(1)}
+                {` (${product.review_count.toLocaleString()})`}
+              </span>
+            ) : null}
           </div>
+          {tags.length ? (
+            <div className="catalog-product-tags">
+              {tags.slice(0, 1).map((tag) => (
+                <span className={collectionLabels.includes(tag) ? "match-tag" : ""} key={tag}>{tag}</span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </article>
     );
@@ -78,25 +94,29 @@ export function ProductCard({
         <Heart size={17} fill={saved ? "currentColor" : "none"} />
       </button>
       <div className="product-card-body">
-        <p className="eyebrow">{product.subcategory}</p>
+        <p className="eyebrow">{leafCategory(product.category_path)}</p>
         <h3>
           <Link href={`/products/${product.product_id}`}>{product.title}</Link>
         </h3>
         <div className="price-row">
-          <strong>${product.price_usd.toFixed(2)}</strong>
-          <span className={product.availability === "In Stock" ? "stock" : "muted"}>
-            {product.availability === "In Stock" ? <Check size={14} /> : null}
-            {product.availability}
+          <strong>{formatPrice(product.price_cents, product.currency)}</strong>
+          <span className={isPurchasable(product.availability) ? "stock" : "muted"}>
+            {isPurchasable(product.availability) ? <Check size={14} /> : null}
+            {formatAvailability(product.availability)}
           </span>
         </div>
-        <div className="rating-row">
-          <Star size={15} fill="currentColor" />
-          <strong>{product.rating.toFixed(1)}</strong>
-          <span>{product.review_count.toLocaleString()} reviews</span>
-        </div>
+        {product.review_count && product.rating !== null ? (
+          <div className="rating-row">
+            <Star size={15} fill="currentColor" />
+            <strong>{product.rating.toFixed(1)}</strong>
+            <span>{product.review_count.toLocaleString()} reviews</span>
+          </div>
+        ) : null}
         {tags.length ? (
           <div className="product-tags">
-            {tags.map((tag) => <span key={tag}>{tag}</span>)}
+            {tags.map((tag) => (
+              <span className={collectionLabels.includes(tag) ? "match-tag" : ""} key={tag}>{tag}</span>
+            ))}
           </div>
         ) : null}
         <dl className="attribute-list">
@@ -109,7 +129,7 @@ export function ProductCard({
         </dl>
         {showSignals && signals ? (
           <div className="signal-strip">
-            <span>FTS {signals.lexical.rank ?? "-"}</span>
+            <span>FTS {signals.fts.rank ?? "-"}</span>
             <span>Trigram {signals.trigram.rank ?? "-"}</span>
             <span>Vector {signals.semantic.rank ?? "-"}</span>
             <span>Rerank {signals.rerank_score?.toFixed(3) ?? "-"}</span>

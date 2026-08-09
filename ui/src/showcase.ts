@@ -1,5 +1,13 @@
 import { productImages } from "./media";
-import type { CatalogPage, Domain, ProductDetail, ProductSummary, SearchFilters } from "./types";
+import type {
+  Availability,
+  CatalogPage,
+  Domain,
+  ProductDetail,
+  ProductSummary,
+  SearchFilters,
+  SearchResponse,
+} from "./types";
 
 type ShowcaseSeed = {
   product_id: number;
@@ -14,6 +22,41 @@ type ShowcaseSeed = {
   attributes: Record<string, string>;
   tags: string[];
 };
+
+function categoryKey(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function showcaseRating(item: ShowcaseSeed) {
+  const ratings = [5, 4.9, 4.7, 4.5, 4.3] as const;
+  return ratings[Math.abs(item.product_id) % ratings.length];
+}
+
+function showcaseReviewCount(item: ShowcaseSeed) {
+  return 84 + (Math.abs(item.product_id * 37) % 620);
+}
+
+function showcaseAvailability(item: ShowcaseSeed): Availability {
+  const availability: Availability[] = ["in_stock", "in_stock", "low_stock", "in_stock", "preorder"];
+  return availability[Math.abs(item.product_id) % availability.length];
+}
+
+function matchesFilters(item: ShowcaseSeed, filters: SearchFilters) {
+  const priceCents = item.price_usd * 100;
+  const itemCategoryKey = categoryKey(item.subcategory);
+
+  return (
+    (!filters.domain || item.domain === filters.domain) &&
+    (!filters.category_key || itemCategoryKey === filters.category_key) &&
+    (!filters.min_price_cents || priceCents >= filters.min_price_cents) &&
+    (!filters.max_price_cents || priceCents <= filters.max_price_cents) &&
+    (!filters.min_rating || showcaseRating(item) >= filters.min_rating) &&
+    (!filters.availability || showcaseAvailability(item) === filters.availability)
+  );
+}
 
 const showcaseSeed: ShowcaseSeed[] = [
   {
@@ -56,13 +99,13 @@ const showcaseSeed: ShowcaseSeed[] = [
     tags: ["Training", "Health"],
   },
   {
-    product_id: 210001,
+    product_id: 234001,
     model: "Stride Pro",
     domain: "running_fitness",
     category: "Footwear",
-    subcategory: "Performance Running Shoe",
+    subcategory: "Carbon Racing Shoes",
     price_usd: 159,
-    image_url: "/assets/images/mosaic/stride-pro.webp",
+    image_url: "/assets/images/mosaic/rf-carbon-racing-shoes-stride-pro-catalog-3x2.webp",
     short_description: "Responsive road-running cushioning for everyday miles.",
     long_description: "Mosaic Stride Pro balances an energetic foam midsole, breathable engineered upper, and stable geometry for daily training and long-distance comfort.",
     attributes: { terrain: "Road", cushioning: "Responsive foam", upper: "Engineered mesh" },
@@ -75,7 +118,7 @@ const showcaseSeed: ShowcaseSeed[] = [
     category: "Furniture",
     subcategory: "Task Chair",
     price_usd: 699,
-    image_url: "/assets/images/mosaic/forma-ergonomic.webp",
+    image_url: "/assets/images/mosaic/forma-ergonomic-studio.webp",
     short_description: "Adaptive, breathable seating designed for long working days.",
     long_description: "Mosaic Forma Ergonomic combines synchronized recline, adaptive lumbar support, adjustable seat depth, and a breathable suspension back.",
     attributes: { lumbar: "Adaptive support", armrests: "4D adjustable", recline: "Synchronized" },
@@ -146,6 +189,188 @@ const showcaseSeed: ShowcaseSeed[] = [
     attributes: { charging: "Fast wireless", surface: "Soft-touch", power: "USB-C" },
     tags: ["Charging", "Desk setup"],
   },
+  {
+    product_id: 2,
+    model: "Sonora WH-C720",
+    domain: "consumer_electronics",
+    category: "Audio",
+    subcategory: "Over-Ear Headphones",
+    price_usd: 279,
+    image_url: "/assets/images/mosaic/ce-over-ear-headphones-02-catalog-3x2.webp",
+    short_description: "Multi-mode noise cancellation for commutes and open offices.",
+    long_description: "Sonora WH-C720 pairs multi-mode active noise cancellation with 50 hours of playtime and soft protein leather earcups for all-day wear.",
+    attributes: { battery: "50 hours", cancellation: "Multi-mode ANC", earcups: "Protein leather" },
+    tags: ["Commute", "Focus"],
+  },
+  {
+    product_id: 3,
+    model: "Northstar Space Q45",
+    domain: "consumer_electronics",
+    category: "Audio",
+    subcategory: "Over-Ear Headphones",
+    price_usd: 329,
+    image_url: "/assets/images/mosaic/ce-over-ear-headphones-03-catalog-3x2.webp",
+    short_description: "Adaptive cancellation that reads the room and adjusts.",
+    long_description: "Northstar Space Q45 measures ambient noise continuously and adapts its cancellation profile, with a low-latency mode for calls.",
+    attributes: { battery: "44 hours", cancellation: "Adaptive ANC", calls: "Low-latency mode" },
+    tags: ["Travel", "Calls"],
+  },
+  {
+    product_id: 4,
+    model: "Halo Comfort SE",
+    domain: "consumer_electronics",
+    category: "Audio",
+    subcategory: "Over-Ear Headphones",
+    price_usd: 199,
+    image_url: "/assets/images/mosaic/ce-over-ear-headphones-04-catalog-3x2.webp",
+    short_description: "Lightweight over-ear listening built around long-session comfort.",
+    long_description: "Halo Comfort SE keeps clamping force low and padding deep, so a full working day stays comfortable without sacrificing cancellation.",
+    attributes: { battery: "38 hours", weight: "228 g", cancellation: "Hybrid ANC" },
+    tags: ["Comfort", "Everyday"],
+  },
+  {
+    product_id: 5,
+    model: "LumaTone Live 770NC",
+    domain: "consumer_electronics",
+    category: "Audio",
+    subcategory: "Over-Ear Headphones",
+    price_usd: 249,
+    image_url: "/assets/images/mosaic/ce-over-ear-headphones-05-catalog-3x2.webp",
+    short_description: "Studio-leaning tuning with cancellation you can dial back.",
+    long_description: "LumaTone Live 770NC offers a flatter reference tuning for critical listening and a stepped cancellation control for shared spaces.",
+    attributes: { battery: "40 hours", tuning: "Reference", cancellation: "Stepped ANC" },
+    tags: ["Listening", "Studio"],
+  },
+  {
+    product_id: 17002,
+    model: "EchoArc Air Pro 3",
+    domain: "consumer_electronics",
+    category: "Audio",
+    subcategory: "True Wireless Earbuds",
+    price_usd: 179,
+    image_url: "/assets/images/mosaic/ce-true-wireless-earbuds-02-catalog-3x2.webp",
+    short_description: "Compact earbuds with a secure fit for movement.",
+    long_description: "EchoArc Air Pro 3 holds position through training and commuting, with a three-microphone call system and a pocketable charging case.",
+    attributes: { battery: "30 hours with case", fit: "Secure wing", calls: "Three microphones" },
+    tags: ["Training", "Everyday carry"],
+  },
+  {
+    product_id: 17003,
+    model: "Auraluxe EX",
+    domain: "consumer_electronics",
+    category: "Audio",
+    subcategory: "True Wireless Earbuds",
+    price_usd: 219,
+    image_url: "/assets/images/mosaic/ce-true-wireless-earbuds-03-catalog-3x2.webp",
+    short_description: "Premium earbuds tuned to match the Auraluxe over-ear family.",
+    long_description: "Auraluxe EX carries the same tuning target as the over-ear range, so switching between them does not change the sound signature.",
+    attributes: { battery: "26 hours with case", tuning: "Auraluxe target", cancellation: "Adaptive ANC" },
+    tags: ["Audio", "Premium"],
+  },
+  {
+    product_id: 30001,
+    model: "Sonora Roam 2",
+    domain: "consumer_electronics",
+    category: "Audio",
+    subcategory: "Portable Speakers",
+    price_usd: 149,
+    image_url: "/assets/images/mosaic/ce-portable-speakers-catalog-3x2.webp",
+    short_description: "A room-filling portable speaker with a carry strap.",
+    long_description: "Sonora Roam 2 delivers balanced sound at low volume as well as high, pairs in stereo, and runs 20 hours between charges.",
+    attributes: { battery: "20 hours", pairing: "Stereo pair ready", water_resistance: "IP67" },
+    tags: ["Portable", "Weekend"],
+  },
+  {
+    product_id: 116002,
+    model: "StrideWatch Apex 965",
+    domain: "consumer_electronics",
+    category: "Wearables",
+    subcategory: "Smartwatches",
+    price_usd: 349,
+    image_url: "/assets/images/mosaic/ce-smartwatches-02-catalog-3x2.webp",
+    short_description: "A performance smartwatch with multi-band positioning.",
+    long_description: "StrideWatch Apex 965 tracks pace and route with multi-band GNSS, reads daily recovery signals, and runs 14 days in smartwatch mode.",
+    attributes: { battery: "14 days", positioning: "Multi-band GNSS", water_resistance: "10 ATM" },
+    tags: ["Training", "Health"],
+  },
+  {
+    product_id: 210001,
+    model: "AeroStride Cloud Road",
+    domain: "running_fitness",
+    category: "Footwear",
+    subcategory: "Road Running Shoes",
+    price_usd: 139,
+    image_url: "/assets/images/mosaic/rf-road-running-shoes-01-catalog-3x2.webp",
+    short_description: "A cushioned daily trainer for easy and long runs.",
+    long_description: "AeroStride Cloud Road uses a soft, high-stack midsole and a stable heel for the miles that make up most of a training week.",
+    attributes: { terrain: "Road", cushioning: "High stack", use: "Daily trainer" },
+    tags: ["Running", "Daily trainer"],
+  },
+  {
+    product_id: 210002,
+    model: "PulseMotion Daily Flow",
+    domain: "running_fitness",
+    category: "Footwear",
+    subcategory: "Road Running Shoes",
+    price_usd: 129,
+    image_url: "/assets/images/mosaic/rf-road-running-shoes-02-catalog-3x2.webp",
+    short_description: "A responsive road shoe for mixed-pace weeks.",
+    long_description: "PulseMotion Daily Flow balances a lighter midsole with a breathable upper, so the same shoe handles easy days and tempo efforts.",
+    attributes: { terrain: "Road", cushioning: "Responsive", upper: "Engineered mesh" },
+    tags: ["Running", "Tempo"],
+  },
+  {
+    product_id: 234002,
+    model: "Velocity Carbon 3",
+    domain: "running_fitness",
+    category: "Footwear",
+    subcategory: "Carbon Racing Shoes",
+    price_usd: 259,
+    image_url: "/assets/images/mosaic/rf-carbon-racing-shoes-02-catalog-3x2.webp",
+    short_description: "A carbon-plated racer built for long-distance efficiency.",
+    long_description: "Velocity Carbon 3 pairs a full-length carbon plate with a resilient supercritical foam for marathon-distance economy.",
+    attributes: { plate: "Full-length carbon", distance: "Marathon", drop: "8 mm" },
+    tags: ["Racing", "Marathon"],
+  },
+  {
+    product_id: 370002,
+    model: "PostureWorks Pro Mesh",
+    domain: "home_office",
+    category: "Seating",
+    subcategory: "Ergonomic Office Chairs",
+    price_usd: 599,
+    image_url: "/assets/images/mosaic/ho-ergonomic-office-chairs-02-catalog-3x2.webp",
+    short_description: "A breathable mesh chair with adjustable lumbar support.",
+    long_description: "PostureWorks Pro Mesh combines a tensioned mesh back, height-and-depth lumbar adjustment, and a synchronised recline.",
+    attributes: { back: "Tensioned mesh", lumbar: "Height and depth", recline: "Synchronised" },
+    tags: ["Workspace", "Ergonomic"],
+  },
+  {
+    product_id: 370003,
+    model: "LumaSeat Executive Air",
+    domain: "home_office",
+    category: "Seating",
+    subcategory: "Ergonomic Office Chairs",
+    price_usd: 749,
+    image_url: "/assets/images/mosaic/ho-ergonomic-office-chairs-03-catalog-3x2.webp",
+    short_description: "An executive chair with a headrest and 4D armrests.",
+    long_description: "LumaSeat Executive Air adds a height-adjustable headrest and four-way armrests to a breathable suspension back.",
+    attributes: { headrest: "Height adjustable", armrests: "4D", back: "Suspension" },
+    tags: ["Workspace", "Executive"],
+  },
+  {
+    product_id: 420002,
+    model: "HorizonView 38",
+    domain: "home_office",
+    category: "Displays",
+    subcategory: "Ultrawide Monitors",
+    price_usd: 899,
+    image_url: "/assets/images/mosaic/ho-ultrawide-monitors-02-catalog-3x2.webp",
+    short_description: "A 38-inch ultrawide for side-by-side work.",
+    long_description: "HorizonView 38 gives two full documents room to sit side by side, with single-cable USB-C power and a factory colour report.",
+    attributes: { size: "38 inch", resolution: "WQHD+", connectivity: "USB-C" },
+    tags: ["Workspace", "Productivity"],
+  },
 ];
 
 function toSummary(item: ShowcaseSeed): ProductSummary {
@@ -155,18 +380,24 @@ function toSummary(item: ShowcaseSeed): ProductSummary {
     title: `Mosaic ${item.model}`,
     short_description: item.short_description,
     domain: item.domain,
-    category: item.category,
-    subcategory: item.subcategory,
+    category_key: categoryKey(item.subcategory),
+    category_path: `${item.category} > ${item.subcategory}`,
     brand: "Mosaic",
     model: item.model,
-    price_usd: item.price_usd,
-    list_price_usd: item.price_usd,
-    rating: 4.7,
-    review_count: 0,
-    availability: "In Stock",
+    price_cents: item.price_usd * 100,
+    list_price_cents: item.price_usd * 100,
+    currency: "USD",
+    rating: showcaseRating(item),
+    review_count: showcaseReviewCount(item),
+    availability: showcaseAvailability(item),
     inventory_count: 1,
     attributes: item.attributes,
     tags: item.tags,
+    catalog_asset_key: item.image_url.split("/").at(-1)?.replace(/\.webp$/, "") ?? null,
+    canonical_group_id: null,
+    media_tier: "showcase",
+    is_flagship: item.product_id < 700000,
+    is_retrieval_anchor: item.product_id < 700000,
     image_url: item.image_url,
     image_source: "local-showcase-preview",
     signals: null,
@@ -183,12 +414,9 @@ function toSummary(item: ShowcaseSeed): ProductSummary {
 
 export function showcaseCatalogPage(filters: SearchFilters): CatalogPage {
   const products = showcaseSeed
-    .filter((item) => !filters.domain || item.domain === filters.domain)
-    .filter((item) => !filters.category || item.category === filters.category)
-    .filter((item) => !filters.min_price || item.price_usd >= filters.min_price)
-    .filter((item) => !filters.max_price || item.price_usd <= filters.max_price)
+    .filter((item) => matchesFilters(item, filters))
     .map(toSummary);
-  const categories = ["Audio", "Wearables", "Workspace", "Footwear", "Furniture", "Accessories"];
+  const categories = Array.from(new Set(showcaseSeed.map((item) => categoryKey(item.subcategory))));
 
   return {
     total: products.length,
@@ -196,9 +424,9 @@ export function showcaseCatalogPage(filters: SearchFilters): CatalogPage {
     limit: products.length,
     products,
     facets: {
-      category: categories.map((value) => ({
+      category_key: categories.map((value) => ({
         value,
-        count: showcaseSeed.filter((item) => item.category === value).length,
+        count: showcaseSeed.filter((item) => categoryKey(item.subcategory) === value).length,
       })),
       brand: [{ value: "Mosaic", count: showcaseSeed.length }],
     },
@@ -225,5 +453,50 @@ export function showcaseProductDetail(productId: number): ProductDetail | null {
       alt_text: `${product.title} product image ${index + 1}`,
     })),
     reviews: [],
+  };
+}
+
+/**
+ * Offline retrieval preview.
+ *
+ * Scores the local seed by term overlap against title, subcategory, category,
+ * brand, and attribute values. This is a lexical stand-in so the surface is
+ * navigable without a backend; it is NOT the hybrid pipeline, and the caller is
+ * responsible for labelling it as a preview. `signals` stays null because no
+ * ranking arms ran.
+ */
+export function showcaseSearchResponse(query: string, filters: SearchFilters): SearchResponse {
+  const terms = query.toLowerCase().split(/[^a-z0-9$]+/).filter((term) => term.length > 2);
+  const scored = showcaseSeed
+    .filter((item) => matchesFilters(item, filters))
+    .map((item) => {
+      const haystack = [
+        item.model,
+        item.subcategory,
+        item.category,
+        item.short_description,
+        item.long_description,
+        ...Object.values(item.attributes),
+        ...item.tags,
+      ]
+        .join(" ")
+        .toLowerCase();
+      const score = terms.reduce((total, term) => (haystack.includes(term) ? total + 1 : total), 0);
+      return { item, score };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  // With no term overlap the whole seed is shown rather than an empty page: the
+  // preview cannot rank, so hiding everything would misrepresent the catalog.
+  const rows = (scored.length ? scored.map((row) => row.item) : showcaseSeed).slice(0, 8);
+
+  return {
+    search_event_id: "local-showcase-preview",
+    query,
+    normalized_query: query.trim().toLowerCase(),
+    applied_filters: { ...filters },
+    results: rows.map(toSummary),
+    diagnostics: null,
   };
 }

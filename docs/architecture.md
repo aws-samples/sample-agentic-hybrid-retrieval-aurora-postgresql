@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-    U[Buyer / builder] --> UI[Catalog Studio conversational UI]
+    U[Buyer / builder] --> UI[Mosaic discovery UI]
     H[MCP-compatible host] --> MCP[Stateless MCP 2.0 adapter]
     MCP --> API
     UI --> API[Search orchestration API]

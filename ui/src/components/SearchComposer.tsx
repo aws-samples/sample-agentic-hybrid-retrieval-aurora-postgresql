@@ -41,7 +41,10 @@ export function SearchComposer({
         placeholder={placeholder}
         minLength={2}
       />
-      <button type="submit" disabled={pending || value.trim().length < 2}>
+      {/* Only disabled while a request is in flight. Disabling on an empty field
+          made the primary action render at 50% opacity (the global
+          button:disabled rule) on first paint, which reads as broken. */}
+      <button type="submit" disabled={pending}>
         {pending ? (
           <LoaderCircle className="spin" size={20} aria-hidden="true" />
         ) : submitLabel ? (

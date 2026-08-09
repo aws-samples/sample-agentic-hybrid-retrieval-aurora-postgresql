@@ -1,0 +1,154 @@
+{
+  "$defs": {
+    "ProductDomain": {
+      "enum": [
+        "consumer_electronics",
+        "running_fitness",
+        "home_office"
+      ],
+      "title": "ProductDomain",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "product_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Product Id"
+    },
+    "product_uid": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Product Uid"
+    },
+    "sku": {
+      "maxLength": 160,
+      "minLength": 1,
+      "title": "Sku",
+      "type": "string"
+    },
+    "domain": {
+      "$ref": "#/$defs/ProductDomain"
+    },
+    "category_key": {
+      "title": "Category Key",
+      "type": "string"
+    },
+    "category_path": {
+      "title": "Category Path",
+      "type": "string"
+    },
+    "brand_key": {
+      "title": "Brand Key",
+      "type": "string"
+    },
+    "brand_name": {
+      "title": "Brand Name",
+      "type": "string"
+    },
+    "canonical_group_id": {
+      "title": "Canonical Group Id",
+      "type": "string"
+    },
+    "model_name": {
+      "title": "Model Name",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "short_description": {
+      "title": "Short Description",
+      "type": "string"
+    },
+    "long_description": {
+      "title": "Long Description",
+      "type": "string"
+    },
+    "language": {
+      "default": "en-US",
+      "title": "Language",
+      "type": "string"
+    },
+    "attributes": {
+      "additionalProperties": true,
+      "title": "Attributes",
+      "type": "object"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "aliases": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Aliases",
+      "type": "array"
+    },
+    "challenge_cohorts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Challenge Cohorts",
+      "type": "array"
+    },
+    "launch_date": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Launch Date"
+    },
+    "source_system": {
+      "title": "Source System",
+      "type": "string"
+    },
+    "is_active": {
+      "default": true,
+      "title": "Is Active",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "sku",
+    "domain",
+    "category_key",
+    "category_path",
+    "brand_key",
+    "brand_name",
+    "canonical_group_id",
+    "model_name",
+    "title",
+    "short_description",
+    "long_description",
+    "source_system"
+  ],
+  "title": "ProductIngest",
+  "type": "object"
+}

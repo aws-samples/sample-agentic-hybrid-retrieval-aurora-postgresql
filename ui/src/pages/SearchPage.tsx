@@ -10,22 +10,86 @@ import {
   Sparkles,
   Star,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Link } from "wouter";
 import { api } from "../api";
 import { ProductCard } from "../components/ProductCard";
 import { SearchComposer } from "../components/SearchComposer";
 import { ErrorState, LoadingState } from "../components/States";
+import { formatAvailability, formatPrice, isPurchasable } from "../format";
+import { productImage } from "../media";
 import { useSearchParams } from "../navigation";
+import { showcaseSearchResponse } from "../showcase";
 import type {
   AgentResponse,
   Domain,
+  ProductSummary,
   SearchFilters,
   SearchResponse,
 } from "../types";
 
 type Mode = "retrieval" | "agent";
+type AgentActivityId = "understand" | "retrieve" | "rank" | "answer";
+type AgentActivityStatus = "pending" | "active" | "complete";
+
+const agentActivitySteps: Array<{
+  id: AgentActivityId;
+  title: string;
+  detail: string;
+}> = [
+  {
+    id: "understand",
+    title: "Interpret request",
+    detail: "Separating preferences from hard constraints.",
+  },
+  {
+    id: "retrieve",
+    title: "Retrieve evidence",
+    detail: "Gathering bounded catalog evidence.",
+  },
+  {
+    id: "rank",
+    title: "Compare ranks",
+    detail: "Checking eligibility and source provenance.",
+  },
+  {
+    id: "answer",
+    title: "Compose cited answer",
+    detail: "Delivering only source-backed claims.",
+  },
+];
+
+function initialAgentActivity() {
+  return agentActivitySteps.map((step) => ({
+    ...step,
+    status: "pending" as AgentActivityStatus,
+  }));
+}
+
+/** Entry points for the empty state, phrased to show what each mode is for. */
+const starterQueries: Array<{ query: string; mode: Mode; note: string }> = [
+  {
+    query: "noise cancelling over-ear headphones for focused work",
+    mode: "retrieval",
+    note: "Lexical and semantic arms on one query",
+  },
+  {
+    query: "ergonomic task chair with adjustable lumbar support",
+    mode: "retrieval",
+    note: "Attribute terms the lexical arm can match exactly",
+  },
+  {
+    query: "What should I buy for a quiet home office under $600?",
+    mode: "agent",
+    note: "Decomposed into several retrievals, then cited",
+  },
+  {
+    query: "Compare running shoes for daily training",
+    mode: "agent",
+    note: "Gathers evidence across products before answering",
+  },
+];
 
 const followUpPrompts = [
   "Which has the strongest customer rating?",
@@ -33,6 +97,58 @@ const followUpPrompts = [
   "Which is best for daily use?",
   "Show only in-stock options",
 ];
+
+function collectionLabels(products: ProductSummary[], product: ProductSummary, index: number) {
+  const labels: string[] = [];
+  const prices = products.map((item) => item.price_cents);
+  const ratedProducts = products.filter((item) => item.rating !== null && item.review_count > 0);
+  const lowestPrice = prices.length ? Math.min(...prices) : null;
+  const highestRating = ratedProducts.length
+    ? Math.max(...ratedProducts.map((item) => item.rating ?? 0))
+    : null;
+
+  if (index === 0) labels.push("Best overall");
+  if (highestRating !== null && product.rating === highestRating) labels.push("Top rated");
+  if (lowestPrice !== null && product.price_cents === lowestPrice) labels.push("Best value");
+  if (isPurchasable(product.availability)) labels.push("Ready to ship");
+
+  return labels.slice(0, 2);
+}
+
+function topPickReasons(
+  product: ProductSummary,
+  mode: Mode,
+  diagnostics: SearchResponse["diagnostics"] | undefined,
+) {
+  const reasons = [
+    {
+      title: mode === "agent" ? "Included in the shortlist" : "Top retrieval result",
+      detail: mode === "agent"
+        ? "The assistant selected this product from the catalog evidence it gathered."
+        : "This product ranked first in the current hybrid retrieval result set.",
+    },
+    {
+      title: isPurchasable(product.availability) ? "Ready to order" : "Availability",
+      detail: formatAvailability(product.availability),
+    },
+  ];
+
+  if (product.rating !== null && product.review_count > 0) {
+    reasons.push({
+      title: "Customer signal",
+      detail: `${product.rating.toFixed(1)} from ${product.review_count.toLocaleString()} catalog reviews`,
+    });
+  }
+
+  if (diagnostics) {
+    reasons.push({
+      title: "Hybrid evidence",
+      detail: `${diagnostics.strategy} retrieval with ${diagnostics.rerank_status} reranking`,
+    });
+  }
+
+  return reasons.slice(0, 4);
+}
 
 export function structuredAnswer(answer: string) {
   return answer.replace(
@@ -53,30 +169,83 @@ export function SearchPage() {
   const [agent, setAgent] = useState<AgentResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [preview, setPreview] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
+  const [agentStreaming, setAgentStreaming] = useState(false);
+  const [streamedAnswer, setStreamedAnswer] = useState("");
+  const [agentActivity, setAgentActivity] = useState(initialAgentActivity);
+  const requestVersion = useRef(0);
   const filters: SearchFilters = domain ? { domain } : {};
+
+  function activateAgentStage(activeId: AgentActivityId, complete = false) {
+    const activeIndex = agentActivitySteps.findIndex((step) => step.id === activeId);
+    setAgentActivity(
+      agentActivitySteps.map((step, index) => ({
+        ...step,
+        status: (
+          complete || index < activeIndex
+            ? "complete"
+            : index === activeIndex
+              ? "active"
+              : "pending"
+        ) as AgentActivityStatus,
+      })),
+    );
+  }
 
   const run = useCallback(
     async (nextQuery: string, nextMode = mode) => {
+      const version = requestVersion.current + 1;
+      requestVersion.current = version;
       setQuery(nextQuery);
       setLoading(true);
       setError("");
       setSearch(null);
       setAgent(null);
+      setAgentStreaming(false);
+      setStreamedAnswer("");
+      setTraceOpen(false);
       const nextParams = new URLSearchParams(params);
       nextParams.set("q", nextQuery);
       nextParams.set("mode", nextMode);
       setParams(nextParams, { replace: true });
       try {
         if (nextMode === "agent") {
-          setAgent(await api.agent(nextQuery, filters));
+          setAgentStreaming(true);
+          setAgentActivity(initialAgentActivity());
+          await api.agentStream(nextQuery, filters, (event) => {
+            if (version !== requestVersion.current) return;
+            if (event.type === "stage") {
+              activateAgentStage(event.id);
+            } else if (event.type === "answer_start") {
+              setAgent(event.response);
+              setLoading(false);
+            } else if (event.type === "answer_delta") {
+              setStreamedAnswer((answer) => answer + event.delta);
+            } else {
+              setAgent(event.response);
+              setStreamedAnswer(event.response.answer);
+              setAgentStreaming(false);
+              activateAgentStage("answer", true);
+            }
+          });
         } else {
           setSearch(await api.search(nextQuery, filters));
         }
+        setPreview(false);
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "Search failed");
+        // Agent mode needs the model and the catalog, so it cannot be faked.
+        // Retrieval degrades to the local seed so the surface stays navigable,
+        // and the banner below says the pipeline did not run.
+        if (nextMode === "retrieval") {
+          setSearch(showcaseSearchResponse(nextQuery, filters));
+          setPreview(true);
+        } else {
+          setError(cause instanceof Error ? cause.message : "Search failed");
+          setAgentStreaming(false);
+        }
       } finally {
-        setLoading(false);
+        if (version === requestVersion.current) setLoading(false);
       }
     },
     [domain, mode],
@@ -96,6 +265,8 @@ export function SearchPage() {
   const products = agent?.recommendations ?? search?.results ?? [];
   const diagnostics = search?.diagnostics;
   const comparisonProducts = products.slice(0, 4);
+  const topPick = products[0];
+  const topPickReasonsList = topPick ? topPickReasons(topPick, mode, diagnostics) : [];
   const comparisonAttributes = Array.from(
     new Set(
       comparisonProducts.flatMap((product) =>
@@ -117,13 +288,14 @@ export function SearchPage() {
       <header className="search-page-header">
         <SearchComposer
           initialValue={query}
-          pending={loading}
+          pending={loading || agentStreaming}
           onSubmit={(value) => void run(value)}
         />
         <div className="mode-control" aria-label="Search mode">
           <button
             type="button"
             className={mode === "retrieval" ? "active" : ""}
+            disabled={loading || agentStreaming}
             onClick={() => changeMode("retrieval")}
           >
             <SearchIcon size={16} /> Retrieval
@@ -131,6 +303,7 @@ export function SearchPage() {
           <button
             type="button"
             className={mode === "agent" ? "active" : ""}
+            disabled={loading || agentStreaming}
             onClick={() => changeMode("agent")}
           >
             <Bot size={16} /> Agent
@@ -141,23 +314,69 @@ export function SearchPage() {
       {!query && !loading ? (
         <section className="search-empty">
           <Sparkles size={28} />
-          <h1>Search the catalog or ask the agent</h1>
+          <h1>Start a collection</h1>
           <p>
-            Retrieval runs one inspectable hybrid query. Agent mode decomposes a
-            broader question and returns a citation-validated answer.
+            Begin with a product need or ask Mosaic to assemble a collection
+            from catalog evidence.
           </p>
+          {/* The page was blank on arrival with nothing to act on. These are
+              real queries against the loaded catalog, not decoration. */}
+          <div className="search-starters">
+            {starterQueries.map((starter) => (
+              <button
+                key={starter.query}
+                type="button"
+                onClick={() => void run(starter.query, starter.mode)}
+              >
+                <strong>{starter.query}</strong>
+                <small>
+                  {starter.mode === "agent" ? "Agent" : "Retrieval"} · {starter.note}
+                </small>
+              </button>
+            ))}
+          </div>
         </section>
       ) : null}
 
-      {loading ? <LoadingState label={mode === "agent" ? "Agent gathering evidence" : "Running hybrid retrieval"} /> : null}
+      {preview ? (
+        <p className="search-preview-note" role="status">
+          The retrieval service is unreachable, so these results come from the
+          local preview seed by term overlap. Ranking signals, fusion, and
+          reranking did not run.
+        </p>
+      ) : null}
+
+      {mode === "agent" && (loading || agentStreaming) ? (
+        <section className="agent-progress-surface" aria-live="polite">
+          <header>
+            <span className="agent-thinking-dot" aria-hidden="true" />
+            <div>
+              <p className="eyebrow">Mosaic Agent</p>
+              <h2>{agentStreaming ? "Building a cited response" : "Gathering catalog evidence"}</h2>
+            </div>
+            <span className="agent-progress-live">Live</span>
+          </header>
+          <ol>
+            {agentActivity.map((step) => (
+              <li key={step.id} className={step.status}>
+                <span aria-hidden="true" />
+                <div>
+                  <strong>{step.title}</strong>
+                  <small>{step.detail}</small>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      {loading && mode !== "agent" ? <LoadingState label="Running hybrid retrieval" /> : null}
       {error ? <ErrorState message={error} onRetry={() => void run(query)} /> : null}
 
       {!loading && !error && (search || agent) ? (
         <>
           <section className="search-result-heading">
-            <p className="eyebrow">
-              {mode === "agent" ? "Agent-guided product discovery" : "Hybrid retrieval results"}
-            </p>
+            <p className="eyebrow">Mosaic collection</p>
             <h1>Results for “{query}”</h1>
             <p>
               {products.length} products match this request
@@ -182,9 +401,14 @@ export function SearchPage() {
           <div className="search-workspace">
             <section className="answer-column">
               <div className="search-product-grid">
-                {products.map((product) => (
+                {products.map((product, index) => (
                   <div id={`product-${product.product_id}`} key={product.product_id}>
-                    <ProductCard product={product} showSignals showCompare />
+                    <ProductCard
+                      product={product}
+                      showSignals
+                      showCompare
+                      collectionLabels={collectionLabels(products, product, index)}
+                    />
                   </div>
                 ))}
               </div>
@@ -215,21 +439,23 @@ export function SearchPage() {
                         <tr>
                           <th>Price</th>
                           {comparisonProducts.map((product) => (
-                            <td key={product.product_id}>${product.price_usd.toFixed(2)}</td>
+                            <td key={product.product_id}>{formatPrice(product.price_cents, product.currency)}</td>
                           ))}
                         </tr>
                         <tr>
                           <th>Rating</th>
                           {comparisonProducts.map((product) => (
                             <td key={product.product_id}>
-                              <Star size={13} fill="currentColor" /> {product.rating.toFixed(1)}
+                              {product.rating !== null ? (
+                                <><Star size={13} fill="currentColor" /> {product.rating.toFixed(1)}</>
+                              ) : "Not rated"}
                             </td>
                           ))}
                         </tr>
                         <tr>
                           <th>Availability</th>
                           {comparisonProducts.map((product) => (
-                            <td key={product.product_id}>{product.availability}</td>
+                            <td key={product.product_id}>{formatAvailability(product.availability)}</td>
                           ))}
                         </tr>
                         {comparisonAttributes.map((attribute) => (
@@ -260,14 +486,37 @@ export function SearchPage() {
               <div className="assistant-title">
                 <Sparkles size={21} />
                 <div>
-                  <strong>Mosaic AI Assistant</strong>
-                  <small>{agent ? "Cited answer" : "Retrieval explanation"}</small>
+                  <strong>Mosaic Collection Assistant</strong>
+                  <small>{agent ? "Cited shortlist" : "Why this collection matches"}</small>
                 </div>
               </div>
+              {topPick ? (
+                <section className="collection-match-panel">
+                  <p className="eyebrow">Why it matched</p>
+                  <ul>
+                    {topPickReasonsList.map((reason) => (
+                      <li key={reason.title}>
+                        <CircleCheck size={16} />
+                        <span>
+                          <strong>{reason.title}</strong>
+                          <small>{reason.detail}</small>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
               {agent ? (
                 <>
-                  <div className="agent-answer">
-                    <Markdown>{structuredAnswer(agent.answer)}</Markdown>
+                  <div className={agentStreaming ? "agent-answer streaming" : "agent-answer"}>
+                    {agentStreaming ? (
+                      <p className="agent-streamed-copy">
+                        {streamedAnswer}
+                        <span className="agent-stream-cursor" aria-hidden="true" />
+                      </p>
+                    ) : (
+                      <Markdown>{structuredAnswer(agent.answer)}</Markdown>
+                    )}
                   </div>
                   {agent.citations.length ? (
                     <div className="citation-list">
@@ -329,13 +578,27 @@ export function SearchPage() {
                 </section>
               ) : null}
 
-              {products[0] ? (
-                <section className="top-result">
-                  <p className="eyebrow">Top-ranked result</p>
-                  <h2>{products[0].title}</h2>
-                  <p>{products[0].short_description}</p>
-                  <Link href={`/products/${products[0].product_id}`}>
-                    View product evidence <ArrowRight size={15} />
+              {topPick ? (
+                <section className="collection-top-pick">
+                  <header>
+                    <Sparkles size={16} />
+                    <span>Top pick</span>
+                  </header>
+                  <img src={productImage(topPick)} alt="" />
+                  <div>
+                    <span className="collection-top-pick-label">Best overall</span>
+                    <h2>{topPick.model}</h2>
+                    <p>{topPick.short_description}</p>
+                    {topPick.rating !== null && topPick.review_count > 0 ? (
+                      <span className="collection-top-pick-rating">
+                        <Star size={14} fill="currentColor" />
+                        {topPick.rating.toFixed(1)} ({topPick.review_count.toLocaleString()})
+                      </span>
+                    ) : null}
+                    <strong>{formatPrice(topPick.price_cents, topPick.currency)}</strong>
+                  </div>
+                  <Link href={`/products/${topPick.product_id}`}>
+                    View product <ArrowRight size={15} />
                   </Link>
                 </section>
               ) : null}

@@ -1,0 +1,61 @@
+{
+  "$defs": {
+    "EvidenceType": {
+      "enum": [
+        "product_spec",
+        "verified_review",
+        "expert_summary",
+        "product_qa",
+        "buying_guide",
+        "benchmark"
+      ],
+      "title": "EvidenceType",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "product_id": {
+      "title": "Product Id",
+      "type": "integer"
+    },
+    "query": {
+      "title": "Query",
+      "type": "string"
+    },
+    "query_embedding": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Query Embedding"
+    },
+    "evidence_types": {
+      "items": {
+        "$ref": "#/$defs/EvidenceType"
+      },
+      "title": "Evidence Types",
+      "type": "array"
+    },
+    "top_k": {
+      "default": 8,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Top K",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "product_id",
+    "query"
+  ],
+  "title": "EvidenceSearchRequest",
+  "type": "object"
+}

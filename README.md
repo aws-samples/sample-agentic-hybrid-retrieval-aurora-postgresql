@@ -38,12 +38,18 @@ data/full/products_home_office.csv.gz
 Every shard is below GitHub's 100 MB per-file limit. The manifest preserves
 their load order and the quality report preserves each shard's SHA-256 digest.
 
+## Local Runtime
+
+Mosaic standardizes on Python 3.13; the checked-in `.python-version` is
+`3.13.14`. `make` uses the repository virtual environment when it exists and
+rejects other Python minor versions for application and MCP work.
+
 ## Baseline Validation
 
 ```bash
-python3 -m venv .venv
+make setup
 source .venv/bin/activate
-pip install -r config/requirements.txt
+make doctor
 
 make validate
 make test
@@ -104,16 +110,21 @@ make ui-dev
 Open `http://127.0.0.1:5173`. Set `API_PORT`, `UI_PORT`, or
 `CATALOG_API_PROXY` when those defaults are already occupied.
 
-Catalog Studio provides six connected routes: Discover, Catalog, Search &
-Agent, Product Detail, Retrieval Lab, and HNSW Performance Tuning. Search and
-agent results come from the real API; the UI does not calculate retrieval
-scores or substitute static products.
+Mosaic provides connected Discover, Shop, Collections, Product Detail, Mosaic
+Labs, and HNSW Performance surfaces. The source app owns the mission contract
+in [`data/evals/mosaic_labs_missions.json`](data/evals/mosaic_labs_missions.json):
+golden queries, ground-truth product IDs, hard filters, and evaluation
+assertions. The separate Workshop Studio repository owns participant guides,
+deliberate starter gaps, and code-editor exercises. Search and agent results
+come from the real API; the UI does not calculate retrieval scores or
+substitute static products.
 
-## MCP Interoperability
+## MCP Portable Tool Contract
 
-Lab 3 includes a short MCP checkpoint over the canonical API. The adapter uses
-MCP Python SDK `2.0.0` and protocol revision `2026-07-28`, while the Strands
-runtime remains in its compatible environment:
+Lab 3 includes an instructor-led MCP checkpoint over the canonical API. The
+adapter uses MCP Python SDK `2.0.0` and protocol revision `2026-07-28` to make
+the same three typed, read-only retrieval tools portable to another compatible
+agent host. The Strands runtime remains in its compatible environment:
 
 ```bash
 make mcp-install
@@ -131,6 +142,7 @@ inspection tools. See
 ```text
 config/     Workshop and runtime configuration
 data/       Full catalog shards, samples, dictionaries, and evaluation assets
+  media/    Premium-cohort asset labels and the outstanding shot list
 docs/       Architecture, curriculum, data, evaluation, and deployment notes
 infra/      Local PostgreSQL/pgvector development support
 scripts/    Generation, loading, embedding, benchmark, and evaluation tools
@@ -139,7 +151,23 @@ service/    FastAPI, Strands tools, retrieval orchestration, and model clients
 sql/        Schema, load, index, retrieval, and lab SQL
 tests/      Dataset and contract validation
 ui/         React catalog, agent, evidence, retrieval, and performance surfaces
+  public/assets/images/mosaic/   Runtime product photography, one file per
+                                 cohort asset key (see data/media/)
 ```
+
+Product photography is named by cohort asset key, not by ad-hoc slug:
+
+```text
+<domain>-<subcategory>-<discriminator>-<role>.webp
+
+ce-over-ear-headphones-auraluxe-h9-catalog-3x2.webp
+rf-road-running-shoes-01-catalog-3x2.webp
+ho-ultrawide-monitors-atelier-32-detail-1x1.webp
+```
+
+`make media-labels` regenerates `data/media/asset_labels_120.json` from the
+schema package's cohort file, and `make media-shot-list` reports which images
+are still missing. See `docs/media-shot-list.md`.
 
 ## Benchmarking Rule
 

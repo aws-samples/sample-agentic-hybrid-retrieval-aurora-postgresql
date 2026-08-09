@@ -1,0 +1,313 @@
+{
+  "$defs": {
+    "Availability": {
+      "enum": [
+        "in_stock",
+        "low_stock",
+        "out_of_stock",
+        "preorder",
+        "discontinued"
+      ],
+      "title": "Availability",
+      "type": "string"
+    },
+    "RetrievalProfile": {
+      "properties": {
+        "fts_limit": {
+          "default": 120,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Fts Limit",
+          "type": "integer"
+        },
+        "trigram_limit": {
+          "default": 80,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Trigram Limit",
+          "type": "integer"
+        },
+        "semantic_limit": {
+          "default": 150,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Semantic Limit",
+          "type": "integer"
+        },
+        "fused_limit": {
+          "default": 50,
+          "maximum": 250,
+          "minimum": 1,
+          "title": "Fused Limit",
+          "type": "integer"
+        },
+        "result_limit": {
+          "default": 12,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Result Limit",
+          "type": "integer"
+        },
+        "rrf_k": {
+          "default": 60,
+          "minimum": 1,
+          "title": "Rrf K",
+          "type": "integer"
+        },
+        "business_weight": {
+          "default": 0.003,
+          "maximum": 0.05,
+          "minimum": 0,
+          "title": "Business Weight",
+          "type": "number"
+        },
+        "ef_search": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Ef Search",
+          "type": "integer"
+        },
+        "iterative_scan": {
+          "default": "relaxed_order",
+          "enum": [
+            "off",
+            "strict_order",
+            "relaxed_order"
+          ],
+          "title": "Iterative Scan",
+          "type": "string"
+        },
+        "max_scan_tuples": {
+          "default": 20000,
+          "minimum": 1,
+          "title": "Max Scan Tuples",
+          "type": "integer"
+        },
+        "scan_mem_multiplier": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Scan Mem Multiplier",
+          "type": "number"
+        }
+      },
+      "title": "RetrievalProfile",
+      "type": "object"
+    },
+    "SearchCandidate": {
+      "properties": {
+        "product_id": {
+          "title": "Product Id",
+          "type": "integer"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "brand_name": {
+          "title": "Brand Name",
+          "type": "string"
+        },
+        "category_path": {
+          "title": "Category Path",
+          "type": "string"
+        },
+        "price_cents": {
+          "title": "Price Cents",
+          "type": "integer"
+        },
+        "availability": {
+          "$ref": "#/$defs/Availability"
+        },
+        "rating": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rating"
+        },
+        "catalog_asset_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Catalog Asset Key"
+        },
+        "canonical_group_id": {
+          "title": "Canonical Group Id",
+          "type": "string"
+        },
+        "fts_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fts Score"
+        },
+        "trigram_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigram Score"
+        },
+        "semantic_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Semantic Score"
+        },
+        "rrf_score": {
+          "title": "Rrf Score",
+          "type": "number"
+        },
+        "business_score": {
+          "title": "Business Score",
+          "type": "number"
+        },
+        "pre_rerank_score": {
+          "title": "Pre Rerank Score",
+          "type": "number"
+        },
+        "rerank_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rerank Score"
+        },
+        "provenance": {
+          "additionalProperties": true,
+          "title": "Provenance",
+          "type": "object"
+        }
+      },
+      "required": [
+        "product_id",
+        "title",
+        "brand_name",
+        "category_path",
+        "price_cents",
+        "availability",
+        "canonical_group_id",
+        "rrf_score",
+        "business_score",
+        "pre_rerank_score"
+      ],
+      "title": "SearchCandidate",
+      "type": "object"
+    },
+    "SearchDiagnostics": {
+      "properties": {
+        "search_event_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Search Event Id"
+        },
+        "candidate_counts": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Candidate Counts",
+          "type": "object"
+        },
+        "latency_ms": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Latency Ms",
+          "type": "object"
+        },
+        "retrieval_profile": {
+          "$ref": "#/$defs/RetrievalProfile"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "retrieval_profile"
+      ],
+      "title": "SearchDiagnostics",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "query": {
+      "title": "Query",
+      "type": "string"
+    },
+    "normalized_query": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Normalized Query"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/SearchCandidate"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "diagnostics": {
+      "$ref": "#/$defs/SearchDiagnostics"
+    }
+  },
+  "required": [
+    "query",
+    "results",
+    "diagnostics"
+  ],
+  "title": "SearchResponse",
+  "type": "object"
+}

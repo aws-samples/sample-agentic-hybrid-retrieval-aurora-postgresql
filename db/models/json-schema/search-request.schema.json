@@ -1,0 +1,272 @@
+{
+  "$defs": {
+    "Availability": {
+      "enum": [
+        "in_stock",
+        "low_stock",
+        "out_of_stock",
+        "preorder",
+        "discontinued"
+      ],
+      "title": "Availability",
+      "type": "string"
+    },
+    "ProductDomain": {
+      "enum": [
+        "consumer_electronics",
+        "running_fitness",
+        "home_office"
+      ],
+      "title": "ProductDomain",
+      "type": "string"
+    },
+    "RetrievalProfile": {
+      "properties": {
+        "fts_limit": {
+          "default": 120,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Fts Limit",
+          "type": "integer"
+        },
+        "trigram_limit": {
+          "default": 80,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Trigram Limit",
+          "type": "integer"
+        },
+        "semantic_limit": {
+          "default": 150,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Semantic Limit",
+          "type": "integer"
+        },
+        "fused_limit": {
+          "default": 50,
+          "maximum": 250,
+          "minimum": 1,
+          "title": "Fused Limit",
+          "type": "integer"
+        },
+        "result_limit": {
+          "default": 12,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Result Limit",
+          "type": "integer"
+        },
+        "rrf_k": {
+          "default": 60,
+          "minimum": 1,
+          "title": "Rrf K",
+          "type": "integer"
+        },
+        "business_weight": {
+          "default": 0.003,
+          "maximum": 0.05,
+          "minimum": 0,
+          "title": "Business Weight",
+          "type": "number"
+        },
+        "ef_search": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Ef Search",
+          "type": "integer"
+        },
+        "iterative_scan": {
+          "default": "relaxed_order",
+          "enum": [
+            "off",
+            "strict_order",
+            "relaxed_order"
+          ],
+          "title": "Iterative Scan",
+          "type": "string"
+        },
+        "max_scan_tuples": {
+          "default": 20000,
+          "minimum": 1,
+          "title": "Max Scan Tuples",
+          "type": "integer"
+        },
+        "scan_mem_multiplier": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Scan Mem Multiplier",
+          "type": "number"
+        }
+      },
+      "title": "RetrievalProfile",
+      "type": "object"
+    },
+    "SearchFilters": {
+      "properties": {
+        "domain": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProductDomain"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "category_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category Key"
+        },
+        "brand": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brand"
+        },
+        "brands": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Brands",
+          "type": "array"
+        },
+        "min_price_cents": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Price Cents"
+        },
+        "max_price_cents": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Price Cents"
+        },
+        "availability": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Availability"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "in_stock_only": {
+          "default": false,
+          "title": "In Stock Only",
+          "type": "boolean"
+        },
+        "min_rating": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Rating"
+        },
+        "attributes": {
+          "additionalProperties": true,
+          "title": "Attributes",
+          "type": "object"
+        },
+        "include_refurbished": {
+          "default": false,
+          "title": "Include Refurbished",
+          "type": "boolean"
+        },
+        "include_sponsored": {
+          "default": false,
+          "title": "Include Sponsored",
+          "type": "boolean"
+        }
+      },
+      "title": "SearchFilters",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "query": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    },
+    "query_embedding": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Query Embedding"
+    },
+    "filters": {
+      "$ref": "#/$defs/SearchFilters"
+    },
+    "profile": {
+      "$ref": "#/$defs/RetrievalProfile"
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Session Id"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "title": "SearchRequest",
+  "type": "object"
+}

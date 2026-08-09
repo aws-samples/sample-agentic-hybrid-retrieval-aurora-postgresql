@@ -1,14 +1,17 @@
 """FastAPI surface for catalog browsing, retrieval labs, and agent tools."""
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
+import re
 from typing import Any
 from uuid import UUID
 
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from service.agent import get_product_discovery_agent
 from service.catalog import catalog_summary, get_product, list_products
@@ -51,6 +54,19 @@ def _model_error(error: Exception) -> HTTPException:
         code = error.response.get("Error", {}).get("Code", "BedrockError")
         return HTTPException(503, f"Amazon Bedrock request failed: {code}")
     return HTTPException(503, f"Model service unavailable: {type(error).__name__}")
+
+
+def _sse(event: str, payload: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(payload, default=str)}\n\n"
+
+
+def _answer_chunks(answer: str) -> list[str]:
+    """Keep streamed delivery readable rather than emitting one character at a time."""
+    words = re.findall(r"\S+\s*", answer)
+    return [
+        "".join(words[index:index + 7])
+        for index in range(0, len(words), 7)
+    ]
 
 
 @app.get("/api/health")
@@ -98,12 +114,12 @@ def get_catalog_summary() -> dict[str, Any]:
 @app.get("/api/catalog/products", response_model=CatalogPage)
 def get_catalog_products(
     domain: str | None = None,
-    category: str | None = None,
-    subcategory: str | None = None,
+    category_key: str | None = None,
     brand: str | None = None,
     availability: str | None = None,
-    min_price: float | None = Query(default=None, ge=0),
-    max_price: float | None = Query(default=None, ge=0),
+    in_stock_only: bool = False,
+    min_price_cents: int | None = Query(default=None, ge=0),
+    max_price_cents: int | None = Query(default=None, ge=0),
     min_rating: float | None = Query(default=None, ge=0, le=5),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=24, ge=1, le=60),
@@ -112,12 +128,12 @@ def get_catalog_products(
     try:
         filters = SearchFilters(
             domain=domain,
-            category=category,
-            subcategory=subcategory,
+            category_key=category_key,
             brand=brand,
             availability=availability,
-            min_price=min_price,
-            max_price=max_price,
+            in_stock_only=in_stock_only,
+            min_price_cents=min_price_cents,
+            max_price_cents=max_price_cents,
             min_rating=min_rating,
         )
     except ValueError as error:
@@ -155,6 +171,96 @@ def agent_answer(request: AgentRequest) -> AgentResponse:
         raise HTTPException(503, str(error)) from error
 
 
+@app.post("/api/agent/answer/stream")
+async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
+    """Stream safe retrieval progress and a paced cited-answer delivery.
+
+    The transport reports application-owned retrieval milestones, not private
+    model reasoning. Agent execution remains bounded by the same typed,
+    read-only tool contract as the completed-response endpoint.
+    """
+
+    async def events():
+        try:
+            yield _sse(
+                "stage",
+                {
+                    "id": "understand",
+                    "title": "Interpret request",
+                    "detail": "Separating preferences from hard catalog constraints.",
+                },
+            )
+            current_stage = "understand"
+            async for event in get_product_discovery_agent().stream(request):
+                tool = event.get("current_tool_use")
+                tool_name = tool.get("name") if isinstance(tool, dict) else None
+                if tool_name == "search_products":
+                    stage = (
+                        "retrieve",
+                        "Retrieve evidence",
+                        "Gathering bounded catalog evidence through read-only tools.",
+                    )
+                elif tool_name in {
+                    "get_product_evidence",
+                    "compare_products",
+                    "explain_retrieval",
+                }:
+                    stage = (
+                        "rank",
+                        "Compare ranks",
+                        "Retaining candidate provenance and eligibility checks.",
+                    )
+                elif tool_name == "synthesize_cited_answer":
+                    stage = (
+                        "answer",
+                        "Compose cited answer",
+                        "Preparing the validated answer of record.",
+                    )
+                else:
+                    stage = None
+                if stage and stage[0] != current_stage:
+                    current_stage = stage[0]
+                    yield _sse(
+                        "stage",
+                        {"id": stage[0], "title": stage[1], "detail": stage[2]},
+                    )
+
+                result = event.get("agent_response")
+                if not isinstance(result, AgentResponse):
+                    continue
+                payload = result.model_dump(mode="json")
+                yield _sse(
+                    "stage",
+                    {
+                        "id": "answer",
+                        "title": "Compose cited answer",
+                        "detail": "Delivering only claims grounded in returned catalog sources.",
+                    },
+                )
+                yield _sse(
+                    "answer_start",
+                    {"response": {**payload, "answer": ""}},
+                )
+                for delta in _answer_chunks(result.answer):
+                    yield _sse("answer_delta", {"delta": delta})
+                    await asyncio.sleep(0.012)
+                yield _sse("complete", {"response": payload})
+        except Exception as error:
+            yield _sse(
+                "error",
+                {"detail": f"Agent response failed: {type(error).__name__}"},
+            )
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @app.get("/api/retrieval/examples")
 def retrieval_examples() -> dict[str, Any]:
     rows = [
@@ -179,26 +285,42 @@ def benchmark_projection() -> dict[str, Any]:
     )
 
 
-@app.get("/api/retrieval/runs/{run_id}", response_model=RetrievalRunResponse)
-def retrieval_run(run_id: UUID) -> RetrievalRunResponse:
+@app.get(
+    "/api/retrieval/events/{search_event_id}",
+    response_model=RetrievalRunResponse,
+)
+def retrieval_event(search_event_id: UUID) -> RetrievalRunResponse:
+    """Replay the persisted provenance for one search.
+
+    This is the endpoint behind the retrieval lab: the receipts come out of
+    `mosaic.search_result_event` rather than being recomputed, so what the UI
+    shows is what was actually fused.
+    """
     with connect() as connection:
-        run = connection.execute(
-            "SELECT * FROM catalog.retrieval_run WHERE run_id = %s",
-            (run_id,),
+        event = connection.execute(
+            """
+            SELECT search_event_id, occurred_at, session_id, query_text,
+                   normalized_query, filters, retrieval_profile,
+                   candidate_counts, total_latency_ms, diagnostics
+            FROM mosaic.search_event
+            WHERE search_event_id = %s
+            """,
+            (search_event_id,),
         ).fetchone()
-        if run is None:
-            raise HTTPException(404, "Retrieval run not found")
+        if event is None:
+            raise HTTPException(404, "Search event not found")
         candidates = connection.execute(
             """
-            SELECT *
-            FROM catalog.retrieval_candidate
-            WHERE run_id = %s
-            ORDER BY final_rank NULLS LAST, pre_rerank_rank
+            SELECT product_id, result_rank, fts_rank, trigram_rank,
+                   semantic_rank, fused_rank, rerank_rank, scores, provenance
+            FROM mosaic.search_result_event
+            WHERE search_event_id = %s
+            ORDER BY result_rank
             """,
-            (run_id,),
+            (search_event_id,),
         ).fetchall()
     return RetrievalRunResponse(
-        run=dict(run),
+        run=dict(event),
         candidates=[dict(row) for row in candidates],
     )
 

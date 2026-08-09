@@ -40,8 +40,8 @@ READ_ONLY_LOOKUP = ToolAnnotations(
 )
 
 mcp = MCPServer(
-    name="catalog-studio",
-    title="Catalog Studio hybrid product retrieval",
+    name="mosaic-retrieval",
+    title="Mosaic hybrid product retrieval",
     description=(
         "Read-only product discovery through PostgreSQL full-text, pg_trgm, "
         "pgvector HNSW, hard filters, weighted RRF, and Cohere Rerank."
@@ -67,12 +67,12 @@ mcp = MCPServer(
 def search_products(
     query: str,
     domain: Domain | None = None,
-    category: str | None = None,
-    subcategory: str | None = None,
+    category_key: str | None = None,
     brand: str | None = None,
     availability: Availability | None = None,
-    min_price: float | None = None,
-    max_price: float | None = None,
+    in_stock_only: bool = False,
+    min_price_cents: int | None = None,
+    max_price_cents: int | None = None,
     min_rating: float | None = None,
     attributes: dict[str, Any] | None = None,
     limit: int = 12,
@@ -82,12 +82,12 @@ def search_products(
     """Search products with Aurora PostgreSQL hybrid retrieval."""
     filters = SearchFilters(
         domain=domain,
-        category=category,
-        subcategory=subcategory,
+        category_key=category_key,
         brand=brand,
         availability=availability,
-        min_price=min_price,
-        max_price=max_price,
+        in_stock_only=in_stock_only,
+        min_price_cents=min_price_cents,
+        max_price_cents=max_price_cents,
         min_rating=min_rating,
         attributes=attributes or {},
     )

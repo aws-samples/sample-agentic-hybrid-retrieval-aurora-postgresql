@@ -1,0 +1,164 @@
+{
+  "$defs": {
+    "Availability": {
+      "enum": [
+        "in_stock",
+        "low_stock",
+        "out_of_stock",
+        "preorder",
+        "discontinued"
+      ],
+      "title": "Availability",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "product_id": {
+      "title": "Product Id",
+      "type": "integer"
+    },
+    "price_cents": {
+      "minimum": 0,
+      "title": "Price Cents",
+      "type": "integer"
+    },
+    "list_price_cents": {
+      "minimum": 0,
+      "title": "List Price Cents",
+      "type": "integer"
+    },
+    "currency": {
+      "default": "USD",
+      "maxLength": 3,
+      "minLength": 3,
+      "title": "Currency",
+      "type": "string"
+    },
+    "availability": {
+      "$ref": "#/$defs/Availability"
+    },
+    "inventory_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Inventory Count",
+      "type": "integer"
+    },
+    "seller_count": {
+      "default": 1,
+      "minimum": 0,
+      "title": "Seller Count",
+      "type": "integer"
+    },
+    "shipping_days": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Shipping Days"
+    },
+    "warranty_months": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Warranty Months"
+    },
+    "rating": {
+      "anyOf": [
+        {
+          "maximum": 5,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rating"
+    },
+    "review_count": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Review Count",
+      "type": "integer"
+    },
+    "return_rate": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Return Rate"
+    },
+    "popularity_score": {
+      "default": 0,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Popularity Score",
+      "type": "number"
+    },
+    "quality_score": {
+      "default": 0,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Quality Score",
+      "type": "number"
+    },
+    "freshness_score": {
+      "default": 0,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Freshness Score",
+      "type": "number"
+    },
+    "metadata_completeness": {
+      "default": 1,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Metadata Completeness",
+      "type": "number"
+    },
+    "is_refurbished": {
+      "default": false,
+      "title": "Is Refurbished",
+      "type": "boolean"
+    },
+    "is_sponsored": {
+      "default": false,
+      "title": "Is Sponsored",
+      "type": "boolean"
+    },
+    "offer_metadata": {
+      "additionalProperties": true,
+      "title": "Offer Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "product_id",
+    "price_cents",
+    "list_price_cents",
+    "availability"
+  ],
+  "title": "ProductOfferIngest",
+  "type": "object"
+}

@@ -8,7 +8,7 @@ Attendees will leave with a working hybrid product search pipeline in Aurora Pos
 
 | Time | Activity | Artifact |
 |---:|---|---|
-| 0–8 min | Cinematic product-discovery setup and architecture | Catalog Studio Discover screen |
+| 0–8 min | Cinematic product-discovery setup and architecture | Mosaic Discover screen |
 | 8–18 min | Lab 1: lexical precision + typo tolerance | `05_typo_tolerance_lab.sql` |
 | 18–31 min | Lab 2: semantic candidates + metadata filters | vector query + filtered HNSW |
 | 31–43 min | Lab 3: RRF + rerank + evidence inspection + MCP checkpoint | `search_hybrid_rrf` + Retrieval Lab + typed tools |

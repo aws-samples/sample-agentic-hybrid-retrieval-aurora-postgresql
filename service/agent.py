@@ -102,26 +102,13 @@ def _usage(result: Any) -> dict[str, Any]:
 
 
 class ProductDiscoveryAgent:
-    def answer(self, request: AgentRequest) -> AgentResponse:
-        state = agent_tools.start_run(
-            request.question,
-            request.filters,
-            request.result_limit,
-        )
-        result: Any | None = None
-        error: Exception | None = None
-        try:
-            result = build_agent()(request.question)
-        except Exception as caught:
-            error = caught
-            logger.warning("Strands agent loop failed: %s", caught, exc_info=True)
-
-        usage = _usage(result) if result is not None else {}
-        agent_tools.persist_completed_run(
-            state,
-            usage=usage,
-            error_type=type(error).__name__ if error else None,
-        )
+    def _response(
+        self,
+        request: AgentRequest,
+        state: dict[str, Any],
+        result: Any | None,
+        error: Exception | None,
+    ) -> AgentResponse:
         record = state["answer_of_record"]
         if record is None:
             reason = (
@@ -159,6 +146,59 @@ class ProductDiscoveryAgent:
             citations=record["citations"],
             trace=trace,
         )
+
+    def _persist(
+        self,
+        state: dict[str, Any],
+        result: Any | None,
+        error: Exception | None,
+    ) -> None:
+        agent_tools.persist_completed_run(
+            state,
+            usage=_usage(result) if result is not None else {},
+            error_type=type(error).__name__ if error else None,
+        )
+
+    def answer(self, request: AgentRequest) -> AgentResponse:
+        state = agent_tools.start_run(
+            request.question,
+            request.filters,
+            request.result_limit,
+        )
+        result: Any | None = None
+        error: Exception | None = None
+        try:
+            result = build_agent()(request.question)
+        except Exception as caught:
+            error = caught
+            logger.warning("Strands agent loop failed: %s", caught, exc_info=True)
+
+        self._persist(state, result, error)
+        return self._response(request, state, result, error)
+
+    async def stream(self, request: AgentRequest):
+        """Yield native Strands lifecycle events for one canonical agent run."""
+        state = agent_tools.start_run(
+            request.question,
+            request.filters,
+            request.result_limit,
+        )
+        result: Any | None = None
+        error: Exception | None = None
+        try:
+            async for event in build_agent().stream_async(request.question):
+                if "result" in event:
+                    result = event["result"]
+                yield event
+        except Exception as caught:
+            error = caught
+            logger.warning("Strands streaming agent loop failed: %s", caught, exc_info=True)
+        finally:
+            self._persist(state, result, error)
+
+        if error is not None:
+            raise error
+        yield {"agent_response": self._response(request, state, result, None)}
 
 
 _agent: ProductDiscoveryAgent | None = None

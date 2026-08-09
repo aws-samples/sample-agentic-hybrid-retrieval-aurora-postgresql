@@ -1,0 +1,7 @@
+product_id,merchandising_title,catalog_asset_key,detail_asset_key,catalog_master,catalog_runtime,detail_master,detail_runtime
+1,Mosaic Auraluxe H9,auraluxe-h9-catalog-3x2,auraluxe-h9-detail-1x1,source/auraluxe-h9-catalog-3x2.png,runtime/auraluxe-h9-catalog-3x2.webp,source/auraluxe-h9-detail-1x1.png,runtime/auraluxe-h9-detail-1x1.webp
+17001,Mosaic EchoBud S2,echobud-s2-catalog-3x2,echobud-s2-detail-1x1,source/echobud-s2-catalog-3x2.png,runtime/echobud-s2-catalog-3x2.webp,source/echobud-s2-detail-1x1.png,runtime/echobud-s2-detail-1x1.webp
+116001,Mosaic Pulse One,pulse-one-catalog-3x2,pulse-one-detail-1x1,source/pulse-one-catalog-3x2.png,runtime/pulse-one-catalog-3x2.webp,source/pulse-one-detail-1x1.png,runtime/pulse-one-detail-1x1.webp
+234001,Mosaic Stride Pro,stride-pro-catalog-3x2,stride-pro-detail-1x1,source/stride-pro-catalog-3x2.png,runtime/stride-pro-catalog-3x2.webp,source/stride-pro-detail-1x1.png,runtime/stride-pro-detail-1x1.webp
+370001,Mosaic Forma Ergonomic,forma-ergonomic-catalog-3x2,forma-ergonomic-detail-1x1,source/forma-ergonomic-catalog-3x2.png,runtime/forma-ergonomic-catalog-3x2.webp,source/forma-ergonomic-detail-1x1.png,runtime/forma-ergonomic-detail-1x1.webp
+420001,Mosaic Atelier 32,atelier-32-catalog-3x2,atelier-32-detail-1x1,source/atelier-32-catalog-3x2.png,runtime/atelier-32-catalog-3x2.webp,source/atelier-32-detail-1x1.png,runtime/atelier-32-detail-1x1.webp

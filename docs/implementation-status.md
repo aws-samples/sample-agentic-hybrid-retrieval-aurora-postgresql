@@ -15,8 +15,8 @@
 - added the typed FastAPI and Strands product-discovery boundaries.
 - added an isolated MCP 2.0 service with typed, read-only product discovery
   tools and stateless `2026-07-28` discovery.
-- added the responsive React Catalog Studio application with discover, catalog,
-  search/agent, product evidence, retrieval lab, and HNSW tuning routes;
+- added the responsive React Mosaic application with Discover, Shop,
+  Collections, Product Detail, Mosaic Labs, and HNSW Performance routes;
 - validated every React route at desktop and mobile sizes against the real 5K
   API database, including a live Cohere rerank and cited Strands agent run;
 - added an audit-clean frontend production build and root Make targets.

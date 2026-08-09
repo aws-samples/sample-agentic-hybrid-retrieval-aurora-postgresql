@@ -19,7 +19,7 @@ class FakeCatalogApi:
     def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         self.calls.append(("POST", path, payload))
         return {
-            "run_id": str(uuid4()),
+            "search_event_id": str(uuid4()),
             "query": payload["query"],
             "normalized_query": payload["query"].lower(),
             "applied_filters": payload["filters"],
@@ -27,16 +27,12 @@ class FakeCatalogApi:
             "diagnostics": {
                 "strategy": "hybrid_rrf_rerank",
                 "embedding_model_id": "us.cohere.embed-v4:0",
+                "embedding_dimensions": 1024,
                 "rerank_model_id": "cohere.rerank-v3-5:0",
                 "rerank_status": "applied",
-                "rrf_k": 60,
-                "arm_weights": {
-                    "lexical": 0.30,
-                    "trigram": 0.10,
-                    "semantic": 0.45,
-                },
+                "retrieval_profile": {"rrf_k": 60},
                 "candidate_counts": {
-                    "lexical": 20,
+                    "fts": 20,
                     "trigram": 15,
                     "semantic": 30,
                 },
@@ -68,9 +64,11 @@ async def test_mcp_negotiates_2026_protocol_and_calls_canonical_api(
             "inspect_retrieval_run",
         }
         assert all(tool.annotations.read_only_hint for tool in tools.values())
+        search_parameters = tools["search_products"].input_schema["properties"]
+        assert "max_price_cents" in search_parameters
+        assert "max_price" not in search_parameters
         assert (
-            tools["search_products"]
-            .input_schema["properties"]["domain"]["anyOf"][0]["enum"]
+            search_parameters["domain"]["anyOf"][0]["enum"]
             == [
                 "consumer_electronics",
                 "running_fitness",
@@ -83,13 +81,13 @@ async def test_mcp_negotiates_2026_protocol_and_calls_canonical_api(
             {
                 "query": "quiet headphones for long flights",
                 "domain": "consumer_electronics",
-                "max_price": 200,
+                "max_price_cents": 20000,
                 "limit": 6,
             },
         )
 
     assert result.is_error is False
-    assert result.structured_content["diagnostics"]["rrf_k"] == 60
+    assert result.structured_content["diagnostics"]["retrieval_profile"]["rrf_k"] == 60
     assert api.calls == [
         (
             "POST",
@@ -98,7 +96,7 @@ async def test_mcp_negotiates_2026_protocol_and_calls_canonical_api(
                 "query": "quiet headphones for long flights",
                 "filters": {
                     "domain": "consumer_electronics",
-                    "max_price": 200.0,
+                    "max_price_cents": 20000,
                 },
                 "limit": 6,
                 "include_diagnostics": True,

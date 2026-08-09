@@ -2,6 +2,7 @@ import io
 import json
 from dataclasses import replace
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,7 +12,7 @@ from service.agent import build_agent
 from service.config import get_settings
 from service.embeddings import BedrockEmbeddingProvider, _cohere_request
 from service.main import app
-from service.models import ProductSummary, SourceAttribution
+from service.models import AgentCitation, AgentResponse, ProductSummary, SourceAttribution
 from service.rerank import BedrockReranker
 from service.synthesis import synthesize_cited_answer
 
@@ -79,15 +80,15 @@ def product() -> ProductSummary:
         title="AuriLogic Flight ANC",
         short_description="Quiet over-ear headphones with 48-hour battery life.",
         domain="consumer_electronics",
-        category="Audio",
-        subcategory="Over-Ear Headphones",
+        category_key="over-ear-headphones",
+        category_path="Audio > Over-Ear Headphones",
         brand="AuriLogic",
         model="FL-48",
-        price_usd=179.99,
-        list_price_usd=199.99,
+        price_cents=17_999,
+        list_price_cents=19_999,
         rating=4.7,
         review_count=842,
-        availability="In Stock",
+        availability="in_stock",
         inventory_count=31,
         attributes={
             "active_noise_cancellation": True,
@@ -96,7 +97,7 @@ def product() -> ProductSummary:
         tags=["travel", "noise cancellation"],
         sources=[
             SourceAttribution(
-                source_uri="catalog://product/101",
+                source_uri="mosaic://product/101",
                 revision="2026-08-07T12:00:00+00:00",
                 title="AuriLogic Flight ANC",
                 quote=(
@@ -177,7 +178,7 @@ def test_synthesis_returns_only_validated_citations():
     )
 
     assert "[1]" in answer
-    assert citations[0].source_uri == "catalog://product/101"
+    assert citations[0].source_uri == "mosaic://product/101"
     assert usage["totalTokens"] == 260
     assert client.request["inferenceConfig"]["maxTokens"] == 1_200
 
@@ -221,10 +222,60 @@ def test_public_runtime_contracts_are_inspectable():
     assert projection.json()["assumptions"]["dimensions"] == 1024
 
 
+def test_agent_stream_forwards_strands_tool_stages_and_validated_answer(monkeypatch):
+    response = AgentResponse(
+        agent_run_id=uuid4(),
+        question="What should I buy?",
+        answer="Summary\nChoose the quiet option [1].",
+        plan=[],
+        recommendations=[product()],
+        citations=[
+            AgentCitation(
+                number=1,
+                product_id=101,
+                source_uri="mosaic://product/101",
+                revision="test-revision",
+                title="AuriLogic Flight ANC",
+                quote="Quiet over-ear headphones with 48-hour battery life.",
+            )
+        ],
+        trace=[],
+    )
+
+    class FakeStreamingAgent:
+        async def stream(self, _request):
+            yield {"current_tool_use": {"name": "search_products"}}
+            yield {"current_tool_use": {"name": "compare_products"}}
+            yield {"current_tool_use": {"name": "synthesize_cited_answer"}}
+            yield {"agent_response": response}
+
+    monkeypatch.setattr(
+        "service.main.get_product_discovery_agent",
+        lambda: FakeStreamingAgent(),
+    )
+    client = TestClient(app)
+
+    stream = client.post(
+        "/api/agent/answer/stream",
+        json={"question": "What should I buy?", "filters": {}, "result_limit": 2},
+    )
+
+    assert stream.status_code == 200
+    assert "event: stage" in stream.text
+    assert '"id": "retrieve"' in stream.text
+    assert '"id": "rank"' in stream.text
+    assert "event: answer_delta" in stream.text
+    assert "event: complete" in stream.text
+    assert "Choose the quiet option [1]." in stream.text
+
+
 def test_retrieval_sql_casts_python_values_to_the_function_contract():
     source = (ROOT / "service/retrieval.py").read_text()
 
-    assert "%(embedding)s::vector(1024)" in source
+    # The vector width is a parameter now: the schema is rendered at whatever
+    # EMBEDDING_DIM says, and hardcoding 1024 in the SQL would silently mismatch
+    # a re-rendered schema instead of failing loudly.
+    assert "%(embedding)s::vector(%(dims)s)" in source
     assert "%(rrf_k)s::integer" in source
-    assert "%(lexical_weight)s::real" in source
+    assert "%(business_weight)s::real" in source
     assert "'error_type', %s::text" in source

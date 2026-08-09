@@ -1,22 +1,23 @@
 import { Activity, DatabaseZap, Gauge, HardDrive, Timer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import { CodeBlock } from "../components/CodeBlock";
 import { ErrorState, LoadingState } from "../components/States";
 import type { BenchmarkProjection } from "../types";
 
-const benchmarkSql = `BEGIN;
-SET LOCAL hnsw.ef_search = 128;
-SET LOCAL hnsw.iterative_scan = strict_order;
-
-EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
-SELECT product_id, embedding <=> :query_embedding AS distance
-FROM catalog.product
-WHERE domain = :domain
-  AND availability = 'In Stock'
-ORDER BY embedding <=> :query_embedding
-LIMIT 10;
-ROLLBACK;`;
+const advancedStrategies = [
+  {
+    title: "Baseline vector",
+    detail: "Use the prebuilt 500K `vector(1024)` HNSW index as the recall and latency baseline.",
+  },
+  {
+    title: "halfvec candidate",
+    detail: "Compare only after verifying the installed pgvector version, index support, and Recall@K target.",
+  },
+  {
+    title: "Quantized candidate",
+    detail: "Treat quantization as a measured candidate-generation trade-off, then rerank against the original representation.",
+  },
+];
 
 export function PerformancePage() {
   const [projection, setProjection] = useState<BenchmarkProjection | null>(null);
@@ -43,7 +44,7 @@ export function PerformancePage() {
     <div className="page performance-page">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Core performance lab</p>
+          <p className="eyebrow">Mosaic Labs · Optional advanced lane</p>
           <h1>HNSW Performance Tuning</h1>
           <p>Compare recall, latency, filter selectivity, and index cost without presenting projections as Aurora measurements.</p>
         </div>
@@ -110,7 +111,29 @@ export function PerformancePage() {
               <DatabaseZap size={22} />
               <span><strong>Selected run envelope</strong><small>{scale.toLocaleString()} rows / ef_search={efSearch} / selectivity={selectivity}% / {scan}</small></span>
             </div>
-            <CodeBlock code={benchmarkSql.replace("128", String(efSearch)).replace("strict_order", scan)} label="benchmark-query.sql" />
+            <dl className="benchmark-config-details">
+              <div><dt>Ground truth</dt><dd>Exact nearest neighbors</dd></div>
+              <div><dt>Runtime controls</dt><dd>ef_search={efSearch} · {scan}</dd></div>
+              <div><dt>Evidence</dt><dd>Recall@K · latency · plan · build cost</dd></div>
+            </dl>
+          </section>
+
+          <section className="advanced-strategy-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Physical strategy gate</p>
+                <h2>Do not optimize a configuration you cannot reproduce.</h2>
+              </div>
+              <span>Version and measurement required</span>
+            </div>
+            <div>
+              {advancedStrategies.map((strategy) => (
+                <article key={strategy.title}>
+                  <strong>{strategy.title}</strong>
+                  <p>{strategy.detail}</p>
+                </article>
+              ))}
+            </div>
           </section>
         </section>
       </div>

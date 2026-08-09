@@ -48,7 +48,7 @@ class CatalogApiClient:
                 base_url=self.base_url,
                 timeout=self.timeout_seconds,
                 transport=self.transport,
-                headers={"User-Agent": "catalog-studio-mcp/0.2.0"},
+                headers={"User-Agent": "mosaic-retrieval-mcp/0.2.0"},
             ) as client:
                 response = client.request(method, path, json=payload)
                 response.raise_for_status()
