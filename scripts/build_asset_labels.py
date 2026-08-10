@@ -40,7 +40,12 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = REPO / "data" / "media" / "asset_labels_120.json"
 RUNTIME_DIR = REPO / "ui" / "public" / "assets" / "images" / "mosaic"
-IMPORT_MANIFEST = REPO / "data" / "media" / "import_batch_2026-08-08.csv"
+# Every `import_batch_*.csv` in data/media is a provenance record for one
+# generation batch. Globbing rather than naming one file means a new batch is
+# picked up without editing this script; a hardcoded path silently dropped the
+# provenance of every batch after the first.
+IMPORT_MANIFEST_GLOB = "import_batch_*.csv"
+IMPORT_MANIFEST_DIR = REPO / "data" / "media"
 
 DOMAIN_PREFIX = {
     "consumer_electronics": "ce",
@@ -148,14 +153,18 @@ def report(labels: list[dict]) -> dict:
 
 
 def import_provenance() -> dict[str, dict[str, str]]:
-    if not IMPORT_MANIFEST.is_file():
-        return {}
-    with IMPORT_MANIFEST.open(newline="", encoding="utf-8") as source:
-        return {
-            row["output_filename"]: row
-            for row in csv.DictReader(source)
-            if row["output_filename"]
-        }
+    """Map runtime filename to its generation-batch record.
+
+    Later batches win on collision: re-importing an asset is a deliberate
+    replacement, so the newest manifest naming it describes the file on disk.
+    """
+    provenance: dict[str, dict[str, str]] = {}
+    for manifest in sorted(IMPORT_MANIFEST_DIR.glob(IMPORT_MANIFEST_GLOB)):
+        with manifest.open(newline="", encoding="utf-8") as source:
+            for row in csv.DictReader(source):
+                if row.get("output_filename"):
+                    provenance[row["output_filename"]] = row
+    return provenance
 
 
 def attach_runtime_status(labels: list[dict]) -> None:
