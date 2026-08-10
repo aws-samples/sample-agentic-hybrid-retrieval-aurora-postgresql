@@ -215,3 +215,20 @@ make media-shot-list                         # refreshes labels + sha256
 Record provenance in `data/media/import_batch_<date>-regen-b01.csv` with a
 per-image `note` stating what was verified in the picture, not that the bytes
 arrived. `status` is `replaced` for these, not `installed`.
+
+---
+
+## Cohort status: CLOSED
+
+120 of 120 catalog images and 6 of 6 detail images, every one content-verified
+against its intended product. Machine-checked: 126 files, correct dimensions,
+all WebP, no byte-identical duplicates. No real-world brand marks, legible text,
+or watermarks found at 2.2–2.4x zoom. No further cohort photography is planned.
+
+## Backlog (parked, unfunded)
+
+- **Expand the per-category fallback pool, assign by subcategory hash.** The
+  499,880 non-cohort products currently share a handful of `category_fallback`
+  images (`scripts/materialize_image_urls.py`), so a browse surface past the
+  cohort's 10 shop pages shows visible repetition. Revisit only if rehearsal
+  puts a browse surface on stage. No cohort budget is spent on this now.

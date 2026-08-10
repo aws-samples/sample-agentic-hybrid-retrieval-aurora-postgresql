@@ -282,8 +282,22 @@ session.
 
 `orientation 2 + lab 34 + scorecard 4 = 40`. The three retired missions
 contributed 20 minutes; 6 go to the survivors and the rest leaves the clock.
-Trim order was applied as directed: the scorecard gave up a minute before any
-exercise did, and no exercise lost time.
+
+Trim order was applied as directed — orientation and the scorecard first, the
+scorecard giving up a minute before any exercise was touched. Bringing the
+budget inside 40 then required more, so **exercises 2 and 3 returned 1 and 2
+minutes of their merge gains**: `rank-with-evidence` went 13 → 12 and
+`agentic-research` went 13 → 11 against the rejected draft. **Every exercise
+still nets positive against its pre-merge duration**:
+
+| Mission | Pre-merge | Rejected draft | Final | Net vs pre-merge |
+|---|---:|---:|---:|---:|
+| `typo-recovery` | 8 | 11 | **11** | **+3** |
+| `rank-with-evidence` | 10 | 13 | **12** | **+2** |
+| `agentic-research` | 10 | 13 | **11** | **+1** |
+
+No exercise drops below where it started; two give back part of a gain. Prose
+matches arithmetic, on the same terms the board is held to.
 
 A1.4 checks two things: the timed durations sum to at most the 40-minute lab
 frame (34 ≤ 40), and `session.total_minutes` is at most 45 — satisfied at 40
