@@ -100,6 +100,14 @@ mere presence. A per-arm recall check against a small labelled set would have.
 Restoring the pipeline is not Phase 2 scope; it is recorded here so the decision
 is deliberate rather than forgotten.
 
+**Note, and the best short argument for `declares ⇒ asserts`.** The mission that
+*taught* attribute eligibility, `semantic-eligibility`, is the mission *broken by*
+attribute eligibility: its target is `is_refurbished = true`, which the default
+filter excludes, so the exercise demonstrating that filters are load-bearing
+could not itself pass its filters. It declared `hnsw` and `fts` and asserted
+neither arm's signal for most of its life. A contract rule requiring every
+declared arm to be asserted is the cheapest thing that would have surfaced it.
+
 ---
 
 ## LOSS-3 — per-arm fusion weights

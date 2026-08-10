@@ -20,6 +20,18 @@ cites it rather than restating it.
   exit in CI-with-DSN mode. Silent skipping is how the two broken missions in
   §1 survived; the existing live tests skip when `TEST_DATABASE_URL` is unset.
 - **Aurora only.** No local databases are created for any Phase 2 work.
+- **Timing: 40 nominal, 45 ceiling, buffer never programmed.** Orientation, the
+  three exercises and the scorecard all fit inside 40. The 40-to-45 band stays
+  empty so a throttled model call or a question-heavy room has somewhere to go.
+  When something must be trimmed, orientation and the scorecard go first and
+  exercise minutes second; exercise core beats are protected.
+- **The run-of-show custody record is the lesson-coverage table** in Unit B. It
+  is the authority on which lesson belongs to which mission, and it carries the
+  deliberate-loss row explicitly, because a recorded loss is one nobody
+  re-litigates.
+- **`declares ⇒ asserts`.** A mission that names an arm must assert that arm.
+  Enforced by A1.7; see that check for why the rule is total rather than
+  case-by-case.
 
 ## What Phase 2 fixes, measured
 
@@ -67,8 +79,16 @@ edits anything:
 3. The `MosaicLabStage` union in `ui/src/labMissions.ts` covers the stages of
    **both** lists. No orphan stage: no union member unused by any mission, and
    no mission stage missing from the union.
-4. Timed `duration_minutes` sum within the **40-minute** lab frame, and
-   `session.total_minutes` respects the **45-minute ceiling**.
+4. **The budget fits inside 40 nominal and does not program the ceiling.**
+   Three sub-checks, because "respects the ceiling" is what let the first draft
+   through:
+   - timed `duration_minutes` sum ≤ the 40-minute lab frame;
+   - `orientation_minutes + Σ timed durations + scorecard_minutes ≤ 40`;
+   - `session.total_minutes ≤ 40`, **strictly less than the 45 ceiling**, so the
+     40-to-45 band is provably unallocated.
+
+   A declared total of exactly 45 is a failure, not a pass. That is the
+   distinction the first draft of this spec got wrong.
 5. Every retired mission retains every field the eval harness and the GAP
    ledger consume. The check enumerates them explicitly rather than asserting
    "all fields":
@@ -86,10 +106,25 @@ edits anything:
 6. Every assertion named by any mission resolves in `service/assertions.py`
    (already enforced by `tests/test_mission_assertions.py`; the gate calls the
    same code so there is one implementation).
-7. Every arm a mission declares in `expected_techniques` has its corresponding
-   signal assertion, where one exists. `rank-with-evidence` currently declares
-   `hnsw` without asserting `semantic_signal_present` — the same latent hole
-   class Phase 1 closed for `fts`.
+7. **`declares ⇒ asserts`.** For every arm a mission names in
+   `expected_techniques`, that mission must also carry the arm's signal
+   assertion. Not "where convenient" — the rule is total over the arms that
+   have a signal assertion (`fts`, `pg_trgm`, `hnsw`), and adding a new arm to
+   `SIGNAL_ASSERTIONS` extends the rule automatically.
+
+   This generalizes a hole found twice. Phase 1 closed it for `fts`: four of six
+   missions lost the lexical arm and every gate stayed green because no
+   assertion named it. Phase 2 found the same shape again in
+   `hnsw` — the worked example is **`rank-with-evidence`, which declares `hnsw`
+   in `expected_techniques` and does not assert `semantic_signal_present`**, so
+   its semantic arm could return nothing without failing anything.
+
+   Two instances is a pattern, and finding the third by hand is not a plan. The
+   rule prevents the third instead of discovering it: any mission that gains an
+   arm must gain the assertion in the same edit or the gate is red.
+
+   The converse is deliberately **not** checked. A mission may assert an arm it
+   does not declare — that is a stricter promise, not a contradiction.
 
 ### A2 — live checks (database required)
 
@@ -140,26 +175,67 @@ checkpoint. The eval harness and the GAP ledger continue to resolve them.
 
 | Mission | Stage | Where its content goes |
 |---|---|---|
-| `exact-identity` | `recover` | Folds into `typo-recovery` as its opening control — the "FTS is fine on an exact model name" baseline that makes the typo failure land. 60 seconds, not a 3-minute exercise. |
+| `exact-identity` | `recover` | Folds into `typo-recovery` as its opening control — the "FTS is fine on an exact model name" baseline that makes the typo failure land. 60 seconds, not a 3-minute exercise. Asserted under `typo-recovery`'s existing `fts_signal_present`; no new assertion. |
 | `semantic-eligibility` | `retrieve` | Merges into `rank-with-evidence`, which cannot do RRF without a working semantic arm. Also the mission broken by the refurbished filter. |
 | `hnsw-performance` | `optimize` | Already `core: false`. A tuning lab, not a retrieval lab; it needs a benchmark run to say anything honest. Natural self-paced appendix. |
+
+### The self-paced list ships green
+
+**Both broken missions are repaired in Unit B.** Retiring is not fixing, and a
+broken self-paced exercise is worse than a broken timed one: self-paced content
+fails **alone**. There is no floor team, no instructor to reframe it, and no
+recovery path — the participant simply concludes the system does not work. The
+honesty doctrine does not stop at the 40-minute mark.
+
+Both are data-level fixes, verified by the Unit A gate against Aurora:
+
+| Mission | Defect | Fix |
+|---|---|---|
+| `semantic-eligibility` | target 234001 is `is_refurbished = true`, which the default filter excludes | resolve the filter conflict so the target satisfies its own filters |
+| `hnsw-performance` | filters on `attributes.usb_c`; the real key is `usb_c_power_w` | correct the attribute key |
+
+Neither fix is a retrieval change; both are corrections to hand-maintained
+mission data that drifted from the generated catalog. A2.9 and A2.10 are exactly
+the checks that fail on them today, so the gate proves the repair rather than the
+author asserting it.
+
+Exit condition: **every mission in the self-paced list is green under the Unit A
+gate**, on the same terms as the timed three.
 
 ### Lesson coverage — where each surviving lesson attaches
 
 Phase 4 scopes assertions per mission, so every lesson needs a **timed** mission
 to attach to. Verified against the contract:
 
-| Lesson | Attaches to | Assertion |
+**This is the run-of-show custody record** (amendment 2). It is the authority on
+which lesson belongs to which mission, including the row that records a
+deliberate loss — recorded losses are the ones that do not get re-litigated.
+
+| Lesson | Custody | Assertion |
 |---|---|---|
-| Lexical precision on exact identity | `typo-recovery` (opening control) | `fts_signal_present` |
+| Lexical precision on exact identity | `typo-recovery` (opening control, 60s) | `fts_signal_present` (existing) |
 | Trigram typo recovery | `typo-recovery` | `trigram_signal_present` |
 | **Hard-filter eligibility** | `typo-recovery` (`max_price_cents`, `in_stock_only`) **and** `rank-with-evidence` (`in_stock_only`) | `hard_filters_hold` |
+| **JSONB attribute eligibility** | `rank-with-evidence` (`seat_depth_adjustable`) | `hard_filters_hold` — **filter must be added** |
 | Semantic recall | `rank-with-evidence` (declares `hnsw`) | `semantic_signal_present` — **must be added**, see A1.7 |
 | RRF fusion across incomparable scales | `rank-with-evidence` | `rank_provenance_present` |
 | Rerank provenance | `rank-with-evidence` | `rerank_score_present` |
+| Weighted vs unweighted fusion | `rank-with-evidence` (Unit D comparison) | identical-candidate-list assertion |
 | Typed agent tools | `agentic-research` | `retrieval_tool_called` |
 | Cited synthesis | `agentic-research` | `citations_present`, `citation_source_revision_present` |
 | **Principled abstention** | `agentic-research` (GAP-2: agent must report the gap) | `citations_present` under an unregistered tool |
+| **Index tuning — DELIBERATE LOSS from the clock** | **advanced lane** (bench harness / measured page), **not** a timed mission | `measurement_configuration_persisted`, `measurement_kind_declared` |
+
+**Custody transfer for the `measurement_*` assertions.** They do not re-home to
+a timed mission. They belong to the advanced lane — the benchmark harness and
+the measured page — where a number can be produced honestly. Phase 4 attaches
+them there, not to the timed three.
+
+The lesson leaves the clock, not the session. The scorecard/close gains one
+pointing sentence to that effect: **the operating point is measured, not
+guessed, and the self-paced lane measures it on your own cluster.** No timed
+minutes are spent on it, and specifically no 4-minute HNSW demo is funded out of
+`agentic-research`.
 
 Two lessons need explicit attention because they are at risk of retiring with
 their missions:
@@ -187,24 +263,45 @@ their missions:
 
 ### Budget
 
+**40 nominal, 45 ceiling, buffer never programmed.** Everything — orientation,
+the three exercises, the scorecard — fits inside 40. The 40-to-45 band stays
+empty. It is there to absorb a throttled Bedrock call or a room that asks
+questions, and a plan that spends it has no buffer at all, only a longer
+session.
+
 | Mission | Now (6 missions) | Phase 2 (3 missions) |
 |---|---:|---:|
 | `typo-recovery` | 8 | **11** |
-| `rank-with-evidence` | 10 | **13** |
-| `agentic-research` | 10 | **13** |
-| **lab total** | 40 | **37** |
-| orientation | 2 | 3 |
-| scorecard | 5 | 5 |
-| **declared `total_minutes`** | 47 | **45** |
-| **slack** | **0** | **3** |
+| `rank-with-evidence` | 10 | **12** |
+| `agentic-research` | 10 | **11** |
+| **lab total** | 28 | **34** |
+| orientation | 2 | 2 |
+| scorecard | 5 | **4** |
+| **declared `total_minutes`** | 47 | **40** |
+| **unprogrammed ceiling headroom** | **0** | **5** |
 
-The three retired missions contributed 20 minutes (3 + 9 + 8); 17 of those go to
-the survivors and 3 become slack, with 1 added to orientation. `orientation 3 +
-lab 37 + scorecard 5 = 45`, which meets the 45-minute ceiling exactly with the
-slack held inside the lab frame rather than declared as content.
+`orientation 2 + lab 34 + scorecard 4 = 40`. The three retired missions
+contributed 20 minutes; 6 go to the survivors and the rest leaves the clock.
+Trim order was applied as directed: the scorecard gave up a minute before any
+exercise did, and no exercise lost time.
 
-A1.4 checks two things against these numbers: the timed durations sum to at most
-the 40-minute lab frame (37 ≤ 40), and `session.total_minutes` is at most 45.
+A1.4 checks two things: the timed durations sum to at most the 40-minute lab
+frame (34 ≤ 40), and `session.total_minutes` is at most 45 — satisfied at 40
+with five minutes unallocated.
+
+### The gate's first save, recorded
+
+An earlier draft of this budget was `orientation 3 + lab 37 + scorecard 5 = 45`.
+That allocates the hard ceiling: every minute of buffer is programmed as
+content, so the first delay pushes the session past 45 with nothing to give.
+**A1.4 as written would have rejected it** — 37 exercise-minutes plus 8 of
+orientation and scorecard leaves the 40-minute frame with no room, and the
+declared total sat exactly on the ceiling rather than under it.
+
+The check therefore caught a real defect before the check existed, in the
+document that specifies it. Recorded here because it is the argument for
+shape-level gates in one line: the rule found the mistake that the person
+writing the rule had just made.
 
 ### Sibling repository
 
@@ -337,14 +434,24 @@ equivalent** to its `catalog.*` predecessor:
 
 1. `make validate-missions` is green, and red when any §1 defect is reintroduced.
 2. Three timed missions; three retired with every enumerated field intact.
-3. Every lesson in the coverage table attaches to a timed mission.
-4. `db/config/retrieval.yaml` is the only file declaring limits, `k`, or
+3. Every lesson in the custody table sits with its recorded owner — the timed
+   missions for the retrieval and agent lessons, the advanced lane for the
+   `measurement_*` pair. The deliberate-loss row is present and unchanged.
+4. **Every mission in the self-paced list is green under the gate**, on the same
+   terms as the timed three. No exercise ships broken to a lane where the
+   participant is alone.
+5. **`declares ⇒ asserts` holds for every mission in both lists**, and adding an
+   arm without its assertion turns the gate red.
+6. **The declared budget is 40 nominal with the 40-to-45 band unallocated.**
+   `session.total_minutes` is 40; A1.4 rejects a budget that programs the
+   ceiling, as it would have rejected this spec's first draft.
+7. `db/config/retrieval.yaml` is the only file declaring limits, `k`, or
    weights; the tripwire enforces it.
-5. `config/workshop.json` is deleted, its weights ported by key name.
-6. Both fusion functions consume identical candidate lists, asserted per call.
-7. `sql/` is gone; every ported consumer has a recorded equivalence run.
-8. `make test`, `npm test`, `npm run build` green; no new lint findings.
-9. `main` bootable at every commit.
+8. `config/workshop.json` is deleted, its weights ported by key name.
+9. Both fusion functions consume identical candidate lists, asserted per call.
+10. `sql/` is gone; every ported consumer has a recorded equivalence run.
+11. `make test`, `npm test`, `npm run build` green; no new lint findings.
+12. `main` bootable at every commit.
 
 ## Out of scope
 
