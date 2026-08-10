@@ -17,10 +17,12 @@ from service.agent import get_product_discovery_agent
 from service.catalog import catalog_summary, get_product, list_products
 from service.config import get_settings
 from service.db import connect, readiness
+from service.fusion_comparison import SubstrateError, get_fusion_comparison_service
 from service.models import (
     AgentRequest,
     AgentResponse,
     CatalogPage,
+    FusionComparisonResponse,
     ProductDetail,
     RetrievalRunResponse,
     SearchFilters,
@@ -159,6 +161,29 @@ def get_product_detail(product_id: int) -> ProductDetail:
 def search(request: SearchRequest) -> SearchResponse:
     try:
         return get_retrieval_service().search(request)
+    except (ClientError, BotoCoreError) as error:
+        raise _model_error(error) from error
+    except RuntimeError as error:
+        raise HTTPException(503, str(error)) from error
+
+
+@app.post("/api/retrieval/fusion-comparison", response_model=FusionComparisonResponse)
+def fusion_comparison(request: SearchRequest) -> FusionComparisonResponse:
+    """Fuse one candidate pool with unweighted and weighted RRF.
+
+    A comparison, not a behavior change: `POST /api/search` is unaffected and
+    still serves unweighted fusion. The substrate assertion runs on every call —
+    identical candidate sets in, different order out — and a violation is a 500
+    rather than a rendered comparison of two different pools.
+    """
+    try:
+        return get_fusion_comparison_service().compare(
+            request.query, request.filters, top_k=request.limit
+        )
+    except SubstrateError as error:
+        # 500, not 400: the caller did nothing wrong. The two functions have
+        # drifted apart, which is a defect in this deployment.
+        raise HTTPException(500, str(error)) from error
     except (ClientError, BotoCoreError) as error:
         raise _model_error(error) from error
     except RuntimeError as error:

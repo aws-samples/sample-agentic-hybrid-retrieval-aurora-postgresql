@@ -197,6 +197,24 @@ class RetrievalProfile(BaseModel):
     business_weight: float = Field(
         default_factory=_yaml_default("business_weight"), ge=0, le=0.05
     )
+    # pg_trgm similarity floor for the fuzzy arm. Carried on the profile so both
+    # fusion functions receive the same value; a literal at either call site would
+    # let one arm's candidate set diverge from the other's.
+    trigram_threshold: float = Field(
+        default_factory=_yaml_default("trigram_threshold"), gt=0, le=1
+    )
+    # Per-arm fusion weights. Consumed ONLY by
+    # `mosaic_search.search_hybrid_rrf_weighted`; default retrieval ignores them
+    # because RRF weights by rank position. Ported historical values (LOSS-3).
+    weight_lexical: float = Field(
+        default_factory=_yaml_default("weight_lexical"), ge=0, le=1
+    )
+    weight_semantic: float = Field(
+        default_factory=_yaml_default("weight_semantic"), ge=0, le=1
+    )
+    weight_trigram: float = Field(
+        default_factory=_yaml_default("weight_trigram"), ge=0, le=1
+    )
     ef_search: int = Field(
         default_factory=_yaml_default("hnsw_ef_search"), ge=1, le=1000
     )
@@ -314,6 +332,50 @@ class SearchResultEventRecord(BaseModel):
 class RetrievalRunResponse(BaseModel):
     run: SearchEventRecord
     candidates: list[SearchResultEventRecord]
+
+
+class FusionCandidateComparison(BaseModel):
+    """One candidate's position under both fusion methods.
+
+    All three arm ranks travel with the row. `NULL` means the arm did not return
+    this candidate, which is a fact about the arm rather than a missing value.
+    """
+
+    product_id: int
+    fts_rank: int | None = None
+    trigram_rank: int | None = None
+    semantic_rank: int | None = None
+    unweighted_rrf_score: float
+    weighted_rrf_score: float
+    unweighted_rank: int
+    weighted_rank: int
+    # Negative means the weighted order moved this candidate up.
+    rank_delta: int
+
+
+class FusionComparisonResponse(BaseModel):
+    """Unweighted and weighted RRF over one identical candidate pool.
+
+    `candidate_sets_identical` is the substrate assertion's verdict. It cannot be
+    false in a response — the service raises instead of returning a comparison
+    over two different pools — so it is carried to make the guarantee legible
+    rather than implicit.
+    """
+
+    fusion_comparison_id: UUID
+    query: str
+    applied_filters: dict[str, Any]
+    rrf_k: int
+    weights: dict[str, float]
+    candidate_sets_identical: bool
+    candidate_count: int
+    unweighted_order: list[int]
+    weighted_order: list[int]
+    orders_differ: bool
+    unweighted_latency_ms: int
+    weighted_latency_ms: int
+    candidates: list[FusionCandidateComparison]
+    moved_count: int
 
 
 class AgentRequest(BaseModel):

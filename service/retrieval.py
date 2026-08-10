@@ -32,7 +32,22 @@ from service.models import (
 )
 from service.rerank import Reranker, get_reranker
 
+# The served fusion method, named so the UI can label what actually ran instead
+# of hardcoding a claim. `search_hybrid_rrf` is unweighted; if the default is ever
+# flipped to `search_hybrid_rrf_weighted` this string changes with it and every
+# label follows, because no surface spells the method out for itself.
 STRATEGY = "rrf_fusion+rerank"
+WEIGHTED_STRATEGY = "weighted_rrf_fusion+rerank"
+
+# The served fusion function. `use_weighted_fusion` selects the other one for a
+# single service instance, so the mission gate and the eval harness can be run
+# under both modes and compared. It is NOT request-controlled and NOT a setting:
+# flipping the default is a recorded decision, and an environment variable would
+# be exactly the drift the spec forbids.
+_FUSION_FUNCTION = {
+    False: "mosaic_search.search_hybrid_rrf",
+    True: "mosaic_search.search_hybrid_rrf_weighted",
+}
 
 
 def normalize_query(query: str) -> str:
@@ -66,11 +81,14 @@ class RetrievalService:
         embedding_provider: EmbeddingProvider | None = None,
         reranker: Reranker | None = None,
         connection_factory: Callable = connect,
+        use_weighted_fusion: bool = False,
     ):
         self.settings = settings or get_settings()
         self.embedding_provider = embedding_provider
         self.reranker = reranker
         self.connection_factory = connection_factory
+        # Default False: the served path is unweighted until an explicit ruling.
+        self.use_weighted_fusion = use_weighted_fusion
 
     def _embedder(self) -> EmbeddingProvider:
         if self.embedding_provider is None:
@@ -81,6 +99,15 @@ class RetrievalService:
         if self.reranker is None:
             self.reranker = get_reranker()
         return self.reranker
+
+    def _strategy(self) -> str:
+        """Name the fusion method that actually ran.
+
+        Persisted with the run and returned in diagnostics, so every surface
+        labels what happened instead of asserting what it assumes. `ui/src/fusion.ts`
+        derives its copy from this string.
+        """
+        return WEIGHTED_STRATEGY if self.use_weighted_fusion else STRATEGY
 
     def _profile(self, request: SearchRequest) -> RetrievalProfile:
         settings = self.settings
@@ -155,14 +182,38 @@ class RetrievalService:
                         profile.scan_mem_multiplier,
                     ),
                 )
+                fusion_params: dict[str, Any] = {
+                    "query": normalized,
+                    "embedding": np.asarray(query_embedding, dtype=np.float32),
+                    "filters": json.dumps(filters),
+                    "rrf_k": profile.rrf_k,
+                    "fts_limit": profile.fts_limit,
+                    "trigram_limit": profile.trigram_limit,
+                    "semantic_limit": profile.semantic_limit,
+                    "fused_limit": profile.fused_limit,
+                    "business_weight": profile.business_weight,
+                    "trigram_threshold": profile.trigram_threshold,
+                }
+                weight_args = ""
+                if self.use_weighted_fusion:
+                    weight_args = (
+                        ",\n                        %(weight_lexical)s::real,"
+                        "\n                        %(weight_semantic)s::real,"
+                        "\n                        %(weight_trigram)s::real"
+                    )
+                    fusion_params.update(
+                        weight_lexical=profile.weight_lexical,
+                        weight_semantic=profile.weight_semantic,
+                        weight_trigram=profile.weight_trigram,
+                    )
                 rows = connection.execute(
-                    """
+                    f"""
                     SELECT h.*, d.sku, d.short_description, d.inventory_count,
                            d.review_count, d.attributes, d.tags, d.domain,
                            d.category_key, d.model_name, d.media_tier,
                            d.is_flagship, d.is_retrieval_anchor, d.rerank_text,
                            d.list_price_cents, d.currency, d.updated_at
-                    FROM mosaic_search.search_hybrid_rrf(
+                    FROM {_FUSION_FUNCTION[self.use_weighted_fusion]}(
                         %(query)s,
                         %(embedding)s::vector,
                         %(filters)s::jsonb,
@@ -171,21 +222,12 @@ class RetrievalService:
                         %(trigram_limit)s::integer,
                         %(semantic_limit)s::integer,
                         %(fused_limit)s::integer,
-                        %(business_weight)s::real
+                        %(business_weight)s::real,
+                        %(trigram_threshold)s::real{weight_args}
                     ) AS h
                     JOIN mosaic_search.product_document d USING (product_id)
                     """,
-                    {
-                        "query": normalized,
-                        "embedding": np.asarray(query_embedding, dtype=np.float32),
-                        "filters": json.dumps(filters),
-                        "rrf_k": profile.rrf_k,
-                        "fts_limit": profile.fts_limit,
-                        "trigram_limit": profile.trigram_limit,
-                        "semantic_limit": profile.semantic_limit,
-                        "fused_limit": profile.fused_limit,
-                        "business_weight": profile.business_weight,
-                    },
+                    fusion_params,
                 ).fetchall()
             candidates = [dict(row) for row in rows]
             stage_timings["postgresql_retrieval"] = round(
@@ -312,7 +354,7 @@ class RetrievalService:
                         json.dumps(
                             {
                                 "status": "ok",
-                                "strategy": STRATEGY,
+                                "strategy": self._strategy(),
                                 "rerank_status": rerank_status,
                                 "stage_timings_ms": stage_timings,
                                 "warnings": warnings,
@@ -346,7 +388,7 @@ class RetrievalService:
         diagnostics = None
         if request.include_diagnostics:
             diagnostics = RetrievalDiagnostics(
-                strategy=STRATEGY,
+                strategy=self._strategy(),
                 embedding_model_id=self._embedder().model_id,
                 embedding_dimensions=self.settings.embedding_dimensions,
                 rerank_model_id=(self._reranker().model_id if request.rerank else None),

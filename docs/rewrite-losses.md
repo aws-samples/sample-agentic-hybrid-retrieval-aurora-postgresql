@@ -329,6 +329,52 @@ the only restore path.
 
 ---
 
+## BEHAVIOR-1 — `BUSINESS_WEIGHT=` empty now falls through to the yaml
+
+Recorded 2026-08-10, Phase 2 Units C and D. A deliberate behavior change, entered
+here because it reverses an assertion an existing test made and a reader would
+otherwise find the two irreconcilable.
+
+**Before.** `service/config.py` read `os.getenv("BUSINESS_WEIGHT", "0.003")` and
+passed the result to `float()`. An empty variable — `BUSINESS_WEIGHT=` in a `.env`
+— reached `float("")`, raised, and the process refused to start.
+`tests/test_service_config.py` asserted exactly that for `["-0.1", "abc", ""]`.
+
+**After.** The value comes from `db/config/retrieval.yaml`, and an empty
+environment variable is treated as **the absence of an override**, so the
+validated yaml value is used.
+
+**Why the change is right.** With a string literal in the module there was nothing
+to fall back *to*, so refusing was the only honest option. Now there is a
+validated single source. An empty variable is not a value a user chose; it is
+usually a generated `.env` with an uninterpolated line, and taking the whole API
+down over a setting the yaml already answers is a worse failure than proceeding
+with the declared default.
+
+**What is preserved.** The property Phase 1 bought remains: an
+**out-of-range** value still refuses to start. `BUSINESS_WEIGHT=0.15` — the exact
+value behind the Phase 1 crash, where `config/.env.example` shipped it against a
+`le=0.05` bound and every search returned an unhandled HTTP 500 — is still a
+startup failure, as is any non-numeric string. Empty can no longer produce an
+unvalidated config, because there is no code path where it yields anything but the
+bounds-checked yaml value.
+
+| Value | Before | After |
+|---|---|---|
+| unset | 0.003 (literal) | 0.003 (yaml) |
+| `` (empty) | **refuses to start** | 0.003 (yaml) |
+| `0.15` | refuses to start | refuses to start |
+| `-0.1` | refuses to start | refuses to start |
+| `abc` | refuses to start | refuses to start |
+
+**What would have caught a mistake here.** The fixture, which is permanent:
+`test_an_empty_override_falls_through_to_the_yaml` alongside the parametrised
+refusals in `tests/test_service_config.py`, and `test_an_empty_environment_variable_does_not_win`
+in `tests/test_retrieval_profile.py`. The change is asserted in both directions
+rather than described.
+
+---
+
 ## LOSS-5 — an arm claimed on a mission it does not serve (closed)
 
 Recorded 2026-08-10, Phase 2 Unit B. Not a rewrite loss: a claim that was never

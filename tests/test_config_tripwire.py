@@ -20,6 +20,7 @@ from scripts.config_tripwire import (
     INDEX_PARAMETERS,
     SQL_DEFAULTS,
     Report,
+    check_exemptions_complete,
     check_index_agreement,
     check_sql_agreement,
     scan_declarations,
@@ -191,6 +192,39 @@ def test_a_stale_exemption_entry_is_caught(fake_repo):
     report = Report()
     check_sql_agreement(report, repo=fake_repo)
     assert "C1b" in rules(report)
+
+
+def test_an_unpinned_sql_default_is_caught(fake_repo):
+    """Rule 3: rule 1 cannot see `name type DEFAULT value` — it has no `=` or `:`.
+
+    Unit D added 13 such defaults, three of them fusion weights, and the tripwire
+    stayed green with none of them pinned. A monitored seam that only monitors
+    what someone remembered to list is not monitored.
+    """
+    (fake_repo / "db" / "sql" / "09_search_functions.sql").write_text(
+        "CREATE OR REPLACE FUNCTION mosaic_search.invented(\n"
+        "    q text,\n"
+        "    weight_lexical real DEFAULT 0.30\n"
+        ")\nRETURNS TABLE (product_id bigint) LANGUAGE sql AS $$ SELECT 1 $$;\n",
+        encoding="utf-8",
+    )
+    report = Report()
+    check_exemptions_complete(report, repo=fake_repo)
+    assert "C1c" in rules(report)
+
+
+def test_a_pinned_sql_default_is_not_reported_twice(fake_repo):
+    """The completeness rule must not fire on defaults rule 2 already checks."""
+    report = Report()
+    check_exemptions_complete(report, repo=fake_repo)
+    assert not report.failures, report.failures
+
+
+def test_the_real_repository_pins_every_sql_default():
+    """Regression guard: adding a function default without pinning it fails here."""
+    report = Report()
+    check_exemptions_complete(report)
+    assert report.failures == [], report.failures
 
 
 def test_every_exemption_names_a_yaml_field_or_states_a_reason():

@@ -196,6 +196,67 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
         "business_weight",
     ),
     SqlDefault(
+        "09_search_functions.sql",
+        "search_hybrid_rrf",
+        "trigram_threshold",
+        "trigram_threshold",
+    ),
+    # Unit D's weighted comparison function. Every arm cap and fusion input is
+    # pinned to the same yaml field as its unweighted twin, which is what makes
+    # "identical candidate lists" checkable at the config layer rather than only
+    # at request time.
+    SqlDefault(
+        "09_search_functions.sql", "search_hybrid_rrf_weighted", "rrf_k", "rrf_k"
+    ),
+    SqlDefault(
+        "09_search_functions.sql",
+        "search_hybrid_rrf_weighted",
+        "fts_limit",
+        "fts_limit",
+    ),
+    SqlDefault(
+        "09_search_functions.sql",
+        "search_hybrid_rrf_weighted",
+        "trigram_limit",
+        "trigram_limit",
+    ),
+    SqlDefault(
+        "09_search_functions.sql",
+        "search_hybrid_rrf_weighted",
+        "semantic_limit",
+        "semantic_limit",
+    ),
+    SqlDefault(
+        "09_search_functions.sql",
+        "search_hybrid_rrf_weighted",
+        "business_weight",
+        "business_weight",
+    ),
+    SqlDefault(
+        "09_search_functions.sql",
+        "search_hybrid_rrf_weighted",
+        "trigram_threshold",
+        "trigram_threshold",
+    ),
+    SqlDefault(
+        "09_search_functions.sql",
+        "search_hybrid_rrf_weighted",
+        "weight_lexical",
+        "weight_lexical",
+    ),
+    SqlDefault(
+        "09_search_functions.sql",
+        "search_hybrid_rrf_weighted",
+        "weight_semantic",
+        "weight_semantic",
+    ),
+    SqlDefault(
+        "09_search_functions.sql",
+        "search_hybrid_rrf_weighted",
+        "weight_trigram",
+        "weight_trigram",
+    ),
+    SqlDefault(
         "09_search_functions.sql", "configure_hnsw", "p_ef_search", "hnsw_ef_search"
     ),
     SqlDefault(
@@ -232,6 +293,49 @@ class Report:
 
     def fail(self, rule: str, detail: str) -> None:
         self.failures.append(f"{rule}: {detail}")
+
+
+def check_exemptions_complete(report: Report, *, repo: Path = REPO) -> None:
+    """Rule 3 — every SQL parameter default with a retrieval name is enumerated.
+
+    Rule 1 cannot see these. `weight_lexical real DEFAULT 0.30` has no `=` or `:`,
+    so the assignment-shaped pattern skips it, and rule 2 only checks defaults
+    that are already in `SQL_DEFAULTS`. Together those leave a hole: adding a new
+    default is silently unmonitored, and a "monitored seam" that only monitors
+    what someone remembered to list is not monitored.
+
+    Measured: Unit D added 13 defaults across two functions — including three
+    fusion weights — and the tripwire stayed green with none of them pinned.
+    """
+    exempt = {(d.function, d.parameter) for d in SQL_DEFAULTS}
+    pattern = re.compile(
+        r"\b(?P<name>" + "|".join(NUMBER_NAMES) + r")\s+[\w()]+"
+        r"(?:\s*\(\d+\))?\s+DEFAULT\s+(?P<value>-?\d+(?:\.\d+)?)",
+        re.IGNORECASE,
+    )
+    for path in sorted((repo / "db" / "sql").glob("*.sql")):
+        source = path.read_text(encoding="utf-8")
+        for signature in re.finditer(
+            r"FUNCTION\s+[\w.]*?(?P<function>\w+)\s*\((?P<body>.*?)\)\s*RETURNS",
+            source,
+            re.IGNORECASE | re.DOTALL,
+        ):
+            function = signature.group("function")
+            for found in pattern.finditer(signature.group("body")):
+                name = found.group("name")
+                if (function, name) in exempt:
+                    continue
+                report.fail(
+                    f"C1c {path.name}:{function}.{name}",
+                    explain(
+                        f"SQL parameter default {name}={found.group('value')} that "
+                        f"no SQL_DEFAULTS entry pins",
+                        f"add SqlDefault({path.name!r}, {function!r}, {name!r}, "
+                        f"<profile_field>) to scripts/config_tripwire.py so the "
+                        f"default is asserted equal to the yaml, or pass None with "
+                        f"a written reason if it has no yaml counterpart",
+                    ),
+                )
 
 
 def scan_declarations(report: Report, *, repo: Path = REPO) -> None:
@@ -458,6 +562,7 @@ def main() -> int:
 
     report = Report()
     scan_declarations(report)
+    check_exemptions_complete(report)
     check_sql_agreement(report)
     check_index_agreement(report)
 

@@ -608,6 +608,46 @@ endpoint asserts this on every call: **same candidate ID set in, different order
 out.** If the sets differ, the endpoint fails rather than rendering a comparison
 that is really comparing two different candidate pools.
 
+**The assertion must read the untruncated pool.** Both functions apply
+`LIMIT result_limit` *after* fusion, so two different orderings truncated at the
+same depth necessarily disagree about the tail. Measured on the served 50-row
+window: only **36 of 50** in common, `sets_identical` false — against full pools
+that were identical at **250**, each exactly equal to the arm union. Comparing the
+served windows would have failed a healthy substrate on every call. Hence
+`FULL_POOL_LIMIT`, which must exceed the summed arm caps (120 + 80 + 150 = 350).
+
+Measured across all six missions at full depth: **candidate sets identical on
+6 of 6**, pools 152–342, orders differ on 6 of 6.
+
+### Two deployment hazards found while landing this
+
+**`CREATE OR REPLACE` cannot change a signature — it creates an overload.**
+Adding `trigram_threshold` to `search_hybrid_rrf` left **two** live functions on
+Aurora, and a caller passing nine positional arguments would silently bind the old
+body. The stale signature is now dropped explicitly by a `DROP FUNCTION IF EXISTS`
+above the `CREATE OR REPLACE`, so the replacement is a replacement.
+
+**Whole-file replay of `09_search_functions.sql` now fails.** `SET
+pg_trgm.similarity_threshold` inside `search_trigram` needs a privilege
+`retrieval_admin` no longer holds; the function is already live with the correct
+`proconfig`. Apply only the changed functions rather than loosening a grant to
+re-apply identical SQL.
+
+### The trigram threshold stops being a positional literal
+
+`search_hybrid_rrf` called `search_trigram(q, f, trigram_limit, 0.20)`. A
+**positional** literal is invisible to the Unit C tripwire, whose rule 1 only
+matches assignment-shaped declarations. It is now a named parameter on both fusion
+functions, threaded from `candidate_generation.trigram_threshold` and pinned by the
+tripwire — so the value cannot diverge between the two functions, which is
+precisely what the substrate assertion depends on.
+
+This exposed a second hole: `name type DEFAULT value` has no `=` or `:` either, so
+**rule 1 could not see any SQL parameter default**, and rule 2 only checked the
+ones already listed. Unit D added 13 defaults — three of them fusion weights — and
+**the tripwire stayed green with none of them pinned**. New rule `C1c` requires
+every retrieval-named SQL default to be enumerated; pinned count went 16 → 26.
+
 ### MATERIALIZED
 
 LOSS-4 is **closed**: the three arms are `LANGUAGE sql` functions and therefore

@@ -18,6 +18,7 @@ import { ProductCard } from "../components/ProductCard";
 import { SearchComposer } from "../components/SearchComposer";
 import { ErrorState, LoadingState } from "../components/States";
 import { formatAvailability, formatPrice, isPurchasable } from "../format";
+import { fusionLabel } from "../fusion";
 import { productImage } from "../media";
 import { useSearchParams } from "../navigation";
 import { showcaseSearchResponse } from "../showcase";
@@ -541,7 +542,7 @@ export function SearchPage() {
                     <li><CircleCheck size={15} /> Cohere Embed v4 semantic candidates</li>
                     <li>
                       <CircleCheck size={15} />
-                      {diagnostics ? `Reciprocal rank fusion, k=${diagnostics.rrf_k}` : "Reciprocal rank fusion"}
+                      {diagnostics ? `${fusionLabel(diagnostics.strategy)}, k=${diagnostics.rrf_k}` : fusionLabel()}
                     </li>
                     <li>
                       <CircleCheck size={15} />
