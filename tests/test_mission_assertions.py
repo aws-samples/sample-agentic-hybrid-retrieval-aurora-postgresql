@@ -14,18 +14,24 @@ from pathlib import Path
 import pytest
 
 from service.assertions import (
+    ASSERTIONS,
+    ENVELOPE_ASSERTIONS,
     KNOWN_ASSERTIONS,
     SIGNAL_ASSERTIONS,
     UnknownAssertionError,
     arm_signal_present,
     evaluate_signal_assertions,
+    falsifier_for,
     signal_assertions_for,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-MISSIONS = json.loads(
+_CONTRACT = json.loads(
     (ROOT / "data/evals/mosaic_labs_missions.json").read_text(encoding="utf-8")
-)["missions"]
+)
+# Both lists. A self-paced mission fails alone, with no instructor to reframe it,
+# so it is held to exactly the same assertion rules as a timed one.
+MISSIONS = _CONTRACT["missions"] + _CONTRACT["self_paced"]
 
 # What the engine reports when every arm contributed.
 HEALTHY_COUNTS = {
@@ -101,3 +107,34 @@ def test_a_missing_count_key_does_not_read_as_a_healthy_arm():
     """Absent evidence is not evidence of a working arm."""
     assert arm_signal_present({}, "fts") is False
     assert arm_signal_present({"fused_pool": 50}, "pg_trgm") is False
+
+
+def test_every_assertion_states_how_it_can_fail():
+    """An assertion with no failure condition reads as evidence while proving nothing."""
+    for name, assertion in ASSERTIONS.items():
+        assert assertion.name == name
+        assert assertion.falsifier.strip(), name
+        assert len(assertion.falsifier) > 30, f"{name} falsifier is not specific"
+
+
+def test_falsifier_lookup_refuses_an_unknown_name():
+    with pytest.raises(UnknownAssertionError, match="unknown assertion"):
+        falsifier_for("no_such_assertion")
+
+
+def test_the_signal_and_envelope_collections_partition_the_vocabulary():
+    """Derived from one table, so an assertion cannot be in neither or both."""
+    assert set(SIGNAL_ASSERTIONS) | ENVELOPE_ASSERTIONS == KNOWN_ASSERTIONS
+    assert not set(SIGNAL_ASSERTIONS) & ENVELOPE_ASSERTIONS
+
+
+def test_every_signal_assertion_resolves_a_candidate_count_key():
+    """A technique with no count key would read as a missing key and pass silently."""
+    for name, technique in SIGNAL_ASSERTIONS.items():
+        counts = dict(HEALTHY_COUNTS)
+        assert arm_signal_present(counts, technique) is True, name
+        emptied = {
+            key: (0 if arm_signal_present({key: value}, technique) else value)
+            for key, value in counts.items()
+        }
+        assert arm_signal_present(emptied, technique) is False, name

@@ -14,7 +14,8 @@ import {
 import { Link } from "wouter";
 import {
   mosaicLabManifest,
-  mosaicLabMissions,
+  selfPacedMosaicLabMissions,
+  timedMosaicLabMissions,
   type MosaicLabMission,
   type MosaicLabStage,
 } from "../labMissions";
@@ -77,8 +78,8 @@ function checkpointLabel(mission: MosaicLabMission) {
 }
 
 export function MosaicLabsPage() {
-  const coreMissions = mosaicLabMissions.filter((mission) => mission.core);
-  const advancedMission = mosaicLabMissions.find((mission) => !mission.core);
+  const coreMissions = timedMosaicLabMissions;
+  const selfPacedMissions = selfPacedMosaicLabMissions;
 
   return (
     <div className="page mosaic-labs-page">
@@ -227,26 +228,43 @@ export function MosaicLabsPage() {
         </dl>
       </section>
 
-      {advancedMission ? (
+      {selfPacedMissions.length > 0 ? (
         <section className="mosaic-labs-advanced">
           <div>
-            <p className="eyebrow">Optional advanced lane</p>
-            <h2>{stageDetails.optimize.title}</h2>
+            <p className="eyebrow">Self-paced lane</p>
+            <h2>Run these on your own cluster, after the session.</h2>
             <p>
-              Compare prebuilt 500K index profiles, `ef_search`, selective
-              filters, and iterative scans. Evaluate `halfvec` or quantized
-              candidates only after the installed extension version and recall
-              target are verified.
+              Each one is a complete mission with the same contract and the same
+              assertions as the timed three. They are off the clock, not out of
+              the workshop: the operating point is measured here, not guessed.
             </p>
           </div>
-          <div className="mosaic-labs-advanced-checks">
-            <span><CheckCircle2 size={16} /> Recall@K against exact neighbors</span>
-            <span><CheckCircle2 size={16} /> p50, p95, index size, and build time</span>
-            <span><CheckCircle2 size={16} /> Corpus, model, index, and filter configuration</span>
+          <ol className="mosaic-labs-self-paced-list">
+            {selfPacedMissions.map((mission) => (
+              <li key={mission.id}>
+                <div>
+                  <p className="mosaic-lab-mission-meta">
+                    {mission.duration_minutes} min <span>{stageDetails[mission.stage].label}</span>
+                  </p>
+                  <h3>{mission.title}</h3>
+                  <p>{mission.expected_outcome}</p>
+                </div>
+                <Link className="mosaic-lab-mission-link" href={missionHref(mission)}>
+                  Inspect <ArrowRight size={15} />
+                </Link>
+              </li>
+            ))}
+          </ol>
+          <div className="mosaic-labs-advanced-footer">
+            <div className="mosaic-labs-advanced-checks">
+              <span><CheckCircle2 size={16} /> Recall@K against exact neighbors</span>
+              <span><CheckCircle2 size={16} /> p50, p95, index size, and build time</span>
+              <span><CheckCircle2 size={16} /> Corpus, model, index, and filter configuration</span>
+            </div>
+            <Link className="secondary-button" href="/labs/performance">
+              Inspect the advanced lane <Wrench size={16} />
+            </Link>
           </div>
-          <Link className="secondary-button" href="/labs/performance">
-            Inspect the advanced lane <Wrench size={16} />
-          </Link>
         </section>
       ) : null}
     </div>

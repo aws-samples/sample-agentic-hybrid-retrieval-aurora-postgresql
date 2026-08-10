@@ -12,6 +12,16 @@ This module is the only thing that validates the contract. Where a check needs
 filter semantics it calls `mosaic_search.matches_filters` **on the cluster**
 rather than reimplementing it, because the reimplementation is what failed.
 
+Scope, deliberately bounded: this gate checks contract-internal consistency and
+contract-versus-Aurora truth. It does not check lesson coverage or custody —
+that is the run-of-show table's job. The missing JSONB attribute filter on
+`rank-with-evidence` was invisible here **by design**, not by defect: no
+contract-internal rule is violated by a lesson going unowned, and a gate that
+guessed at pedagogy would be deriving its expectations from the thing it judges.
+
+Every failure names the rule, shows the offending value, and suggests the
+nearest fix — see `explain`.
+
 Usage
 -----
     python scripts/mission_contract.py                    # shape + live if DSN
@@ -38,6 +48,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from service.assertions import (  # noqa: E402  (path set above)
+    ASSERTIONS,
     KNOWN_ASSERTIONS,
     SIGNAL_ASSERTIONS,
 )
@@ -51,10 +62,16 @@ NOMINAL_MINUTES = 40
 CEILING_MINUTES = 45
 
 # Fields a retired mission must keep. Enumerated rather than "all fields"
-# because the point is to name what breaks: docs/intentional-gaps.md keys GAP-1
-# and GAP-2 by `id` and cites `query`, `target_product_ids` and the assertion
-# that turns green; scripts/run_eval.py consumes `query`, `filters`,
-# `target_product_ids` and `top_k`.
+# because the point is to name what breaks. Every one is read by a live
+# consumer: `ui/src/labMissions.ts` types all twelve and the retrieval lab
+# renders a self-paced mission from the same records as a timed one
+# (`expected_techniques`, `target_product_ids`, `duration_minutes`,
+# `checkpoint`); `docs/intentional-gaps.md` keys GAP-1 and GAP-2 by `id` and
+# cites `query`, `target_product_ids` and the assertion that turns green.
+#
+# `scripts/run_eval.py` is deliberately NOT cited here: it reads
+# `data/evals/queries.jsonl` against the dead `catalog.*` tree, so it consumes
+# nothing from this contract. Unit E ports it.
 REQUIRED_RETIRED_FIELDS = (
     "id",
     "stage",
@@ -69,6 +86,17 @@ REQUIRED_RETIRED_FIELDS = (
     "top_k",
     "duration_minutes",
 )
+
+
+def explain(found: str, fix: str) -> str:
+    """Render a failure in the house style: offending value, then nearest fix.
+
+    House standard, adopted after `A2.10`'s "did you mean `usb_c_power_w`?"
+    turned a five-minute hunt into a one-line correction. Every message shows
+    what was actually found and names the specific edit that resolves it, so the
+    reader never has to reconstruct the author's intent.
+    """
+    return f"found {found}; fix: {fix}"
 
 
 class Report:
@@ -134,15 +162,22 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
             f"A1.5 retired mission {mission.get('id', '<no id>')} retains "
             f"required fields",
             not missing,
-            f"missing {missing}",
+            explain(
+                f"{len(missing)} missing field(s) {missing}",
+                "restore them on this mission; ui/src/labMissions.ts types them "
+                "and docs/intentional-gaps.md cites them",
+            ),
         )
 
     # A1.1 — exactly three timed missions.
     report.check(
         "A1.1 timed mission count",
         len(timed) == TIMED_MISSION_COUNT,
-        f"expected {TIMED_MISSION_COUNT} timed missions, found {len(timed)}: "
-        f"{[m['id'] for m in timed]}",
+        explain(
+            f"{len(timed)} timed missions {[m.get('id', '<no id>') for m in timed]}",
+            f"the session funds exactly {TIMED_MISSION_COUNT}; move the extras to "
+            f"the self_paced list rather than shortening every exercise",
+        ),
     )
 
     # A1.2 — the lists are disjoint and cover every mission exactly once.
@@ -152,7 +187,11 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
     report.check(
         "A1.2 lists disjoint",
         not overlap,
-        f"missions in both lists: {overlap}",
+        explain(
+            f"mission(s) in both lists: {overlap}",
+            "delete the duplicate entry from one list; a mission is timed or "
+            "self-paced, never both",
+        ),
     )
     duplicates = sorted(
         {i for i in timed_ids + retired_ids if (timed_ids + retired_ids).count(i) > 1}
@@ -160,7 +199,10 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
     report.check(
         "A1.2 no duplicate ids",
         not duplicates,
-        f"duplicate mission ids: {duplicates}",
+        explain(
+            f"repeated mission id(s): {duplicates}",
+            "give each mission a unique id; the GAP ledger keys on it",
+        ),
     )
 
     # A1.3 — the stage union covers both lists, with no orphan members.
@@ -169,7 +211,11 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
     report.check(
         "A1.3 stage union parsed",
         bool(declared),
-        f"could not parse MosaicLabStage from {STAGE_UNION_SOURCE.name}",
+        explain(
+            f"no MosaicLabStage union in {STAGE_UNION_SOURCE.name}",
+            "restore `export type MosaicLabStage = ...` so the gate can compare "
+            "the contract's stages against the type the UI narrows on",
+        ),
     )
     if declared:
         missing = sorted(used - declared)
@@ -177,12 +223,20 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
         report.check(
             "A1.3 every mission stage is in the union",
             not missing,
-            f"stages used by missions but absent from MosaicLabStage: {missing}",
+            explain(
+                f"stage(s) {missing} used by missions but absent from the union",
+                f"add {missing} to MosaicLabStage in {STAGE_UNION_SOURCE.name}, "
+                f"or correct the mission's stage to one of {sorted(declared)}",
+            ),
         )
         report.check(
             "A1.3 no orphan union members",
             not orphans,
-            f"MosaicLabStage members no mission uses: {orphans}",
+            explain(
+                f"union member(s) {orphans} no mission uses",
+                f"delete {orphans} from MosaicLabStage; an unused stage keeps "
+                f"its UI copy alive after the mission is gone",
+            ),
         )
 
     # A1.4 — the budget fits inside 40 nominal and does not program the ceiling.
@@ -195,22 +249,36 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
     report.check(
         "A1.4a timed durations inside the lab frame",
         lab_sum <= LAB_FRAME_MINUTES,
-        f"timed durations sum to {lab_sum}, frame is {LAB_FRAME_MINUTES}",
+        explain(
+            f"timed durations sum to {lab_sum} against a "
+            f"{LAB_FRAME_MINUTES}-minute frame",
+            f"cut {lab_sum - LAB_FRAME_MINUTES} minute(s) of exercise time, or "
+            f"retire an exercise; exercise core beats are protected last",
+        ),
     )
     report.check(
         "A1.4b orientation + timed + scorecard inside nominal",
         programmed <= NOMINAL_MINUTES,
-        f"{orientation} + {lab_sum} + {scorecard} = {programmed}, "
-        f"nominal is {NOMINAL_MINUTES}",
+        explain(
+            f"{orientation} + {lab_sum} + {scorecard} = {programmed} programmed "
+            f"minutes against a {NOMINAL_MINUTES}-minute nominal session",
+            f"free {programmed - NOMINAL_MINUTES} minute(s), taking them from "
+            f"orientation ({orientation}) and the scorecard ({scorecard}) before "
+            f"any exercise",
+        ),
     )
     # Strictly less than the ceiling: a declared total of exactly 45 allocates
     # every minute of buffer as content and is a failure, not a pass.
     report.check(
         "A1.4c declared total leaves the ceiling band unallocated",
         declared_total <= NOMINAL_MINUTES,
-        f"session.total_minutes is {declared_total}; must be <= "
-        f"{NOMINAL_MINUTES} so the {NOMINAL_MINUTES}-{CEILING_MINUTES} band "
-        f"stays empty (ceiling {CEILING_MINUTES} is not a target)",
+        explain(
+            f"session.total_minutes is {declared_total}",
+            f"set it to at most {NOMINAL_MINUTES} so the "
+            f"{NOMINAL_MINUTES}-{CEILING_MINUTES} band stays unprogrammed; "
+            f"{CEILING_MINUTES} is the hard ceiling, not a target, and a plan "
+            f"that spends it has no buffer at all",
+        ),
     )
 
     # A1.6 — every named assertion resolves in service.assertions.
@@ -219,8 +287,11 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
         report.check(
             f"A1.6 {mission.get('id', '<no id>')} assertions are defined",
             not unknown,
-            f"undefined assertion(s) {unknown}; add to service/assertions.py "
-            f"or fix the contract",
+            explain(
+                f"undefined assertion(s) {unknown}",
+                f"define them in service/assertions.py with a falsifier, or "
+                f"replace them with one of {sorted(KNOWN_ASSERTIONS)}",
+            ),
         )
 
     # A1.7 — declares implies asserts, total over the arms that have a signal
@@ -235,10 +306,30 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
                 f"A1.7 {mission.get('id', '<no id>')} declares {technique} "
                 f"implies asserts",
                 needed in carried,
-                f"declares {technique!r} in expected_techniques but does not "
-                f"assert {needed!r}; the arm could return nothing without "
-                f"failing anything",
+                explain(
+                    f"{technique!r} in expected_techniques with no "
+                    f"{needed!r} in assertions, so the arm could return nothing "
+                    f"without failing anything",
+                    f"either add {needed!r} to this mission's assertions, or "
+                    f"remove {technique!r} from expected_techniques if the arm "
+                    f"is not part of this mission's lesson",
+                ),
             )
+
+    # A1.8 — every assertion in the vocabulary states how it can fail. An
+    # assertion whose failure condition cannot occur reads as evidence while
+    # proving nothing, which is the defect shape this whole phase removes.
+    for name in sorted(KNOWN_ASSERTIONS):
+        falsifier = ASSERTIONS[name].falsifier
+        report.check(
+            f"A1.8 {name} declares a falsifier",
+            bool(falsifier.strip()),
+            explain(
+                f"{name!r} has an empty falsifier",
+                "state the condition under which it fails, in "
+                "service/assertions.py; if none exists, delete the assertion",
+            ),
+        )
 
 
 def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
@@ -264,7 +355,11 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
                     if cursor.fetchone() is None:
                         report.fail(
                             f"A2.8 {label} target resolves",
-                            f"product_id {product_id} is not in mosaic.product",
+                            explain(
+                                f"product_id {product_id} is not in mosaic.product",
+                                "point the mission at a product that exists on "
+                                "the cluster, or reseed the catalog",
+                            ),
                         )
                         continue
                     report.passed.append(f"A2.8 {label} target resolves")
@@ -283,17 +378,28 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
                     if row is None:
                         report.fail(
                             f"A2.9 {label} satisfies its own filters",
-                            f"product_id {product_id} is absent from "
-                            f"mosaic_search.product_document, so the retrieval "
-                            f"projection cannot return it",
+                            explain(
+                                f"product_id {product_id} is absent from "
+                                f"mosaic_search.product_document, so no arm can "
+                                f"return it",
+                                "refresh the retrieval projection, or choose a "
+                                "target that is projected",
+                            ),
                         )
                         continue
                     if not row[0]:
                         report.fail(
                             f"A2.9 {label} satisfies its own filters",
-                            f"mosaic_search.matches_filters rejects the target "
-                            f"under its own filters {filters}; "
-                            f"{_diagnose(cursor, product_id, mission)}",
+                            explain(
+                                f"mosaic_search.matches_filters rejects the "
+                                f"target under this mission's own filters "
+                                f"{filters} — "
+                                f"{_diagnose(cursor, product_id, mission)}",
+                                "relax the conflicting filter or choose a target "
+                                "that satisfies it; a mission whose target fails "
+                                "its own filters cannot pass both "
+                                "target_in_top_k and hard_filters_hold",
+                            ),
                         )
                     else:
                         report.passed.append(f"A2.9 {label} satisfies its own filters")
@@ -312,9 +418,11 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
                         report.check(
                             f"A2.10 {label} attribute {key!r} exists",
                             bool(present and present[0]),
-                            f"filters.attributes names {key!r}, which the "
-                            f"target does not carry; "
-                            f"{_nearest_keys(cursor, product_id, key)}",
+                            explain(
+                                f"filters.attributes names {key!r}, which the "
+                                f"target does not carry",
+                                _nearest_keys(cursor, product_id, key),
+                            ),
                         )
 
 
@@ -363,7 +471,9 @@ def _nearest_keys(cursor: Any, product_id: int, key: str) -> str:
     keys = [r[0] for r in cursor.fetchall()]
     stem = key.split("_")[0]
     near = [k for k in keys if stem and stem in k]
-    return f"did you mean one of {near}?" if near else f"target carries {keys}"
+    if near:
+        return f"did you mean one of {near}?"
+    return f"use one of the keys the target carries: {sorted(keys)}"
 
 
 def main() -> int:

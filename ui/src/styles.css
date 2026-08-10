@@ -6415,13 +6415,51 @@ body {
   line-height: 1.55;
 }
 
+/* One column: the self-paced list holds three missions, so the former
+   three-column end-aligned layout has nothing to align against. */
 .mosaic-labs-advanced {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(240px, 0.7fr) auto;
-  gap: 36px;
-  align-items: end;
+  gap: 28px;
   padding: 36px 0 0;
   border-top: 1px solid var(--line);
+}
+
+.mosaic-labs-self-paced-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mosaic-labs-self-paced-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  padding: 17px 0;
+  border-top: 1px solid var(--line);
+}
+
+.mosaic-labs-self-paced-list h3 {
+  margin: 3px 0 7px;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.mosaic-labs-self-paced-list li > div > p:last-child {
+  margin: 0;
+  max-width: 720px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.mosaic-labs-advanced-footer {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.7fr) auto;
+  gap: 36px;
+  align-items: end;
 }
 
 .mosaic-labs-advanced h2 {

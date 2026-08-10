@@ -32,6 +32,21 @@ cites it rather than restating it.
 - **`declares ⇒ asserts`.** A mission that names an arm must assert that arm.
   Enforced by A1.7; see that check for why the rule is total rather than
   case-by-case.
+- **Every assertion states how it can fail.** A falsifier is a required field of
+  the assertion vocabulary, not a comment. An assertion whose failure condition
+  cannot occur reads as evidence while proving nothing, which is the defect
+  Phase 1 and Phase 2 both exist to remove. Enforced by A1.8 and by the
+  `Assertion` dataclass, which refuses to construct one.
+- **Gate error style.** Every failure names the rule, shows the offending value,
+  and suggests the nearest fix. `A2.10`'s "did you mean `usb_c_power_w`?" is the
+  exemplar; the `explain` helper applies it to every A1 and A2 message.
+- **Division of labor.** The gate covers contract-internal consistency and
+  contract-versus-Aurora truth. **Lesson coverage and custody remain the
+  table's job.** The missing JSONB attribute filter was invisible to the gate
+  **by design, not by defect**: no contract-internal rule is broken by a lesson
+  going unowned, and a gate that derived pedagogical expectations from the
+  contract it judges could not fail — the exact self-reference trap this phase
+  removes elsewhere.
 
 ## What Phase 2 fixes, measured
 
@@ -97,11 +112,18 @@ edits anything:
    `expected_techniques`, `checkpoint`, `expected_outcome`, `assertions`,
    `top_k`, `duration_minutes`
 
-   Rationale: `docs/intentional-gaps.md` keys GAP-1 and GAP-2 by mission `id`
-   and cites `query`, `target_product_ids` and the assertion that turns green;
-   `scripts/run_eval.py` consumes `query`, `filters`, `target_product_ids` and
-   `top_k`. A retired mission missing any of these silently breaks the harness
-   or the ledger.
+   Rationale: `ui/src/labMissions.ts` types all twelve, and the retrieval lab
+   renders a self-paced mission from the same record as a timed one, so a
+   missing field is a broken surface rather than a tidier file.
+   `docs/intentional-gaps.md` keys GAP-1 and GAP-2 by mission `id` and cites
+   `query`, `target_product_ids` and the assertion that turns green.
+
+   Correction to an earlier draft of this spec, which cited
+   `scripts/run_eval.py` as a consumer: it is not one. It reads
+   `data/evals/queries.jsonl` against the dead `catalog.*` tree and never opens
+   the mission contract. The enumeration is still right; the justification for
+   four of its entries was wrong, and a rule defended by a false reason is one
+   nobody can check. Unit E ports that script.
 
 6. Every assertion named by any mission resolves in `service/assertions.py`
    (already enforced by `tests/test_mission_assertions.py`; the gate calls the
@@ -114,17 +136,25 @@ edits anything:
 
    This generalizes a hole found twice. Phase 1 closed it for `fts`: four of six
    missions lost the lexical arm and every gate stayed green because no
-   assertion named it. Phase 2 found the same shape again in
-   `hnsw` — the worked example is **`rank-with-evidence`, which declares `hnsw`
-   in `expected_techniques` and does not assert `semantic_signal_present`**, so
-   its semantic arm could return nothing without failing anything.
-
-   Two instances is a pattern, and finding the third by hand is not a plan. The
-   rule prevents the third instead of discovering it: any mission that gains an
-   arm must gain the assertion in the same edit or the gate is red.
+   assertion named it. Phase 2 anticipated one further instance in `hnsw`
+   (`rank-with-evidence`). **The gate found five.** The worked example was right
+   about the shape and wrong about the count, which is the argument for a total
+   rule rather than a case-by-case sweep: hand-enumeration had already missed
+   four of the five it was enumerating.
 
    The converse is deliberately **not** checked. A mission may assert an arm it
    does not declare — that is a stricter promise, not a contradiction.
+
+8. **Every assertion in the vocabulary declares a falsifier.** Checked against
+   `service/assertions.py`, where the falsifier is a required dataclass field
+   rather than prose. An assertion that cannot fail is decoration that reads as
+   evidence.
+
+### A1 numbering note
+
+`A1.8` (falsifiers) was added during Unit B, when the falsifier field became a
+house standard. The live checks keep their original numbers `A2.8`–`A2.10`; the
+A1 and A2 series are independent, so the repeated `8` is not a collision.
 
 ### A2 — live checks (database required)
 
@@ -149,6 +179,26 @@ edits anything:
 - Deleting a required field from a retired mission turns A1.5 red.
 - Adding a fourth timed mission turns A1.1 red.
 - Unsetting the DSN with the CI flag set exits non-zero with `CANNOT VERIFY`.
+
+### First contact: expected red until B
+
+Unit A ran on the contract as it stood and reported **11 failures / 31 passes**.
+Three of those rules were red **by design**, because they encode the shape Unit B
+had not yet produced. They are bookkeeping, not open defects:
+
+| Rule | First-contact value | Cleared by | Status at end of B |
+|---|---|---|---|
+| `A1.1` | 5 timed missions, expected 3 | the 3-exercise cut | green |
+| `A1.4b` | `2 + 40 + 5 = 47` vs 40 nominal | the re-derived budget | green |
+| `A1.4c` | `total_minutes` 47, must be ≤ 40 | the re-derived budget | green |
+
+The remaining 8 were genuine defects in shipped data: five `A1.7` holes, two
+`A2.9` target/filter conflicts, and one `A2.10` wrong attribute key. **A1.7
+found five where this spec anticipated one** — see the enumeration in Unit B.
+
+Nobody should read the first-contact report as 11 open defects. Its value was
+that a gate written before the data it judges caught both classes at once, and
+distinguished them.
 
 ---
 
@@ -187,20 +237,108 @@ fails **alone**. There is no floor team, no instructor to reframe it, and no
 recovery path — the participant simply concludes the system does not work. The
 honesty doctrine does not stop at the 40-minute mark.
 
-Both are data-level fixes, verified by the Unit A gate against Aurora:
+Both are data-level fixes, verified by the Unit A gate against Aurora. Neither
+is a retrieval change; both correct hand-maintained mission data that drifted
+from the generated catalog.
 
-| Mission | Defect | Fix |
-|---|---|---|
-| `semantic-eligibility` | target 234001 is `is_refurbished = true`, which the default filter excludes | resolve the filter conflict so the target satisfies its own filters |
-| `hnsw-performance` | filters on `attributes.usb_c`; the real key is `usb_c_power_w` | correct the attribute key |
+**`semantic-eligibility` — target swapped 234001 → 234002.** Two repairs were
+measured end to end before choosing, because A2.9 only proves a target satisfies
+its filters, not that it is *retrievable*:
 
-Neither fix is a retrieval change; both are corrections to hand-maintained
-mission data that drifted from the generated catalog. A2.9 and A2.10 are exactly
-the checks that fail on them today, so the gate proves the repair rather than the
-author asserting it.
+| Option | Gate | Target rank (fts / trgm / hnsw) | Reranked position | Verdict |
+|---|---|---|---:|---|
+| add `include_refurbished: true`, keep 234001 | green | 1 / 2 / 5 | 5 of 10 | **rejected** |
+| swap target to 234002, filters unchanged | green | 1 / 1 / 4 | 7 of 10 | **chosen** |
+
+Both pass. The first was rejected on meaning, not mechanics: this mission's
+entire subject is that eligibility outranks similarity, and setting
+`include_refurbished` to make the target legal deletes the constraint the lesson
+is about. 234002 is a non-refurbished sibling — same carbon-plate racing shoe,
+$189.99 against $219.99 — so the mission keeps its filters and gains a target
+that satisfies them honestly.
+
+The swap also makes the lesson sharper than the original. Under the mission's own
+filters, 234001 is not merely ranked below 234002 — **it is not a candidate at
+all**: `matches_filters` runs *inside* each arm, so the refurbished sibling is
+excluded before scoring. Measured: zero rows visible to any arm. Eligibility is
+not a re-ranking, it is a gate, and the near-identical excluded sibling is what
+makes that visible.
+
+**`hnsw-performance` — attribute key corrected `usb_c` → `usb_c_power_w: 90`.**
+One correction to this spec's §1 claim: `usb_c` does **not** fail universally.
+4,215 products carry `usb_c` and match the predicate — the target simply is not
+one of them, because it stores the wattage under `usb_c_power_w`. The predicate
+was answerable and wrong, which is worse than unsatisfiable and obvious: the
+mission returned a full pool of 50 candidates and never its own target. Measured
+after the fix: eligible pool 3,032 products, target reranked to **position 1**.
 
 Exit condition: **every mission in the self-paced list is green under the Unit A
 gate**, on the same terms as the timed three.
+
+### The five `A1.7` violations, resolved as decisions
+
+The spec anticipated one; the gate found five. Each was resolved by measuring the
+arm alone under the mission's own filters — never by symmetry. Two measurement
+notes matter:
+
+- Arm-alone pools must be taken **after `mosaic_search.configure_hnsw`**. A first
+  pass that skipped it reported semantic pools of 0–38 against a 150 cap; those
+  numbers were an artefact of default iterative-scan limits, not of the arm. Re-run
+  correctly, the same pools are 150.
+- `semantic_in_pool > 0` only proves the arm reached the fused pool. The sharper
+  question — does the arm recall *this mission's target* — is what decided the two
+  open cases.
+
+| Mission | Arm | Measured (arm alone, under the mission's final filters) | Resolution |
+|---|---|---|---|
+| `rank-with-evidence` | `pg_trgm` | pool **2**, target **rank 2** | **ASSERT** |
+| `rank-with-evidence` | `hnsw` | pool 150, target **rank 3** | **ASSERT** |
+| `hnsw-performance` | `hnsw` | pool 150 after repair, target reranked **1** | **ASSERT** |
+| `agentic-research` | `hnsw` | pool 150, targets **not recalled** by any single arm | **ASSERT** |
+| `typo-recovery` | `hnsw` | pool 150, target **not recalled**; fts 1, trgm 1 | **UN-DECLARE** |
+
+**`rank-with-evidence`: assert both, as predicted.** Trigram is its lesson and
+HNSW feeds its fusion comparison; both recall the target in the top three when
+run alone, so both assertions are live rather than decorative. The mission also
+gained `fts` explicitly — it was already receiving the lexical arm (pool 120,
+target rank 2) and now declares and asserts it.
+
+One measured consequence of adding the attribute filter, recorded because it cuts
+against the change: **the trigram pool falls from 80 to 2.** Eligibility is
+applied inside the arm, so `seat_depth_adjustable: true` shrinks what trigram has
+to match against. The assertion still holds — 2 candidates, target at rank 2 —
+and `trigram_in_pool` is 2 of the 50 fused slots. It is thin, and thin on purpose
+is still thin: this is the arm most likely to be the first to fail if the catalog
+is reseeded with different attribute coverage. Flagged for Phase 4, which owns
+behavioral thresholds; a pool-size floor is not in Phase 2's scope and inventing
+one here would be an unmeasured number in a spec that has been rejecting those.
+
+**`hnsw-performance`: assert semantic**, its own subject. The measured trigram
+must-abstain is kept as-is: pool 0 on a clean, correctly-spelled query, and the
+mission does not declare `pg_trgm`, so nothing asserts it. That is the abstention
+rule working, not a gap.
+
+**`agentic-research`: ASSERT, against the weaker reading of the evidence.** No
+single arm recalls its targets — the fused-and-reranked run returns 429001, and
+370001 arrives through fusion rather than any one arm. The semantic pool is
+nonetheless 150 of 150, and the mission's answer is synthesized from the fused
+pool that the vector arm dominates (22 of 50 fused slots). A dead vector arm here
+would not produce a wrong rank; it would produce a *differently-sourced answer*
+with citations that still look valid — the failure mode this mission exists to
+make visible. Asserted.
+
+**`typo-recovery`: UN-DECLARE, the one case where the prior was wrong.** Every
+term in `wirless noice canceling hedphones` is misspelled. The semantic arm
+returns a full 150-row pool but **does not recall the target**; FTS and trigram
+each rank it 1. The mission's lesson is precisely that fuzzy matching recovers
+what embeddings do not, so declaring `hnsw` claimed a contribution the arm does
+not make. Removing it from `expected_techniques` is the honest edit; asserting
+`semantic_signal_present` here would have been an assertion that passes on a pool
+size while the arm contributes nothing to the outcome. This is the "no assertion
+whose failure condition cannot occur" rule catching a would-be decoration.
+
+Net: four ASSERT, one UN-DECLARE. Symmetry would have produced five ASSERTs and
+one false claim.
 
 ### Lesson coverage — where each surviving lesson attaches
 
@@ -215,9 +353,11 @@ deliberate loss — recorded losses are the ones that do not get re-litigated.
 |---|---|---|
 | Lexical precision on exact identity | `typo-recovery` (opening control, 60s) | `fts_signal_present` (existing) |
 | Trigram typo recovery | `typo-recovery` | `trigram_signal_present` |
+| **Embeddings do not recover typos** | `typo-recovery` (`hnsw` un-declared on measurement) | none — the arm is not claimed, so nothing asserts it |
 | **Hard-filter eligibility** | `typo-recovery` (`max_price_cents`, `in_stock_only`) **and** `rank-with-evidence` (`in_stock_only`) | `hard_filters_hold` |
-| **JSONB attribute eligibility** | `rank-with-evidence` (`seat_depth_adjustable`) | `hard_filters_hold` — **filter must be added** |
-| Semantic recall | `rank-with-evidence` (declares `hnsw`) | `semantic_signal_present` — **must be added**, see A1.7 |
+| **JSONB attribute eligibility** | `rank-with-evidence` (`seat_depth_adjustable`) | `hard_filters_hold` — **filter added** |
+| Semantic recall | `rank-with-evidence` (declares `hnsw`) | `semantic_signal_present` — **added**, see A1.7 |
+| **Eligibility is a gate, not a re-ranking** | `semantic-eligibility` (self-paced; excluded sibling 234001 is never a candidate) | `hard_filters_hold` with `target_in_top_k` on 234002 |
 | RRF fusion across incomparable scales | `rank-with-evidence` | `rank_provenance_present` |
 | Rerank provenance | `rank-with-evidence` | `rerank_score_present` |
 | Weighted vs unweighted fusion | `rank-with-evidence` (Unit D comparison) | identical-candidate-list assertion |
@@ -256,10 +396,19 @@ their missions:
   `matches_filters` compares JSONB containment, so a boolean predicate against
   it would never match. This is the same failure shape as
   `hnsw-performance`'s `usb_c`.
-- **Semantic abstention** — the lesson that a semantic arm can recall a product
-  the filters must then reject — attaches to `rank-with-evidence` via the same
-  added attribute filter, and is asserted by `hard_filters_hold` holding while
-  `semantic_signal_present` is non-empty.
+- **Eligibility as a gate rather than a re-ranking.** This spec previously
+  described the lesson as "a semantic arm recalls a product the filters must then
+  reject". **That is wrong on this codebase**, and correcting it matters because
+  the wrong version teaches a wrong mental model. `matches_filters` is called
+  *inside* `search_fts`, `search_trigram` and `search_vector`, so an ineligible
+  product is never a candidate — there is nothing to reject after the fact.
+  Measured: under `semantic-eligibility`'s own filters, the refurbished sibling
+  234001 returns zero rows to every arm.
+
+  The lesson keeps its custody and gains a sharper demonstration: two
+  near-identical racing shoes, one eligible and one not, where the ineligible one
+  never appears at any stage. Asserted by `hard_filters_hold` alongside
+  `target_in_top_k` on 234002.
 
 ### Budget
 
@@ -326,8 +475,16 @@ there:
 - module count 6 → 3, with the retired three presented as a self-paced appendix;
 - GAP-1 stays on `typo-recovery`, GAP-2 stays on `agentic-research` — both
   survive, so no gap needs rehoming;
-- timings must match `session` in the contract, which is the single source;
-- any guide text asserting "six missions" or the retired stage names.
+- timings must match `session` in the contract, which is the single source:
+  orientation 2, exercises 11/12/11, scorecard 4, total 40;
+- any guide text asserting "six missions" or the retired stage names;
+- **`semantic-eligibility`'s target changed 234001 → 234002** (Velocity Carbon 3,
+  $189.99). Any guide screenshot or expected-result table naming the old product
+  is now wrong;
+- **`typo-recovery` no longer declares `hnsw`.** Guide text claiming embeddings
+  help recover typos contradicts the measurement and should be inverted: on an
+  all-misspelled query the semantic arm returns a full pool and does not recall
+  the target.
 
 ---
 
@@ -455,17 +612,22 @@ equivalent** to its `catalog.*` predecessor:
    terms as the timed three. No exercise ships broken to a lane where the
    participant is alone.
 5. **`declares ⇒ asserts` holds for every mission in both lists**, and adding an
-   arm without its assertion turns the gate red.
-6. **The declared budget is 40 nominal with the 40-to-45 band unallocated.**
+   arm without its assertion turns the gate red. All five violations found at
+   first contact are resolved individually, each ASSERT with a stated falsifier
+   and each UN-DECLARE with a measured reason.
+6. **Every assertion in the vocabulary declares a falsifier**, enforced by A1.8
+   and by the dataclass that refuses to build one without it.
+7. **The declared budget is 40 nominal with the 40-to-45 band unallocated.**
    `session.total_minutes` is 40; A1.4 rejects a budget that programs the
    ceiling, as it would have rejected this spec's first draft.
-7. `db/config/retrieval.yaml` is the only file declaring limits, `k`, or
+8. **Every gate failure names the rule, the offending value, and a fix.**
+9. `db/config/retrieval.yaml` is the only file declaring limits, `k`, or
    weights; the tripwire enforces it.
-8. `config/workshop.json` is deleted, its weights ported by key name.
-9. Both fusion functions consume identical candidate lists, asserted per call.
-10. `sql/` is gone; every ported consumer has a recorded equivalence run.
-11. `make test`, `npm test`, `npm run build` green; no new lint findings.
-12. `main` bootable at every commit.
+10. `config/workshop.json` is deleted, its weights ported by key name.
+11. Both fusion functions consume identical candidate lists, asserted per call.
+12. `sql/` is gone; every ported consumer has a recorded equivalence run.
+13. `make test`, `npm test`, `npm run build` green; no new lint findings.
+14. `main` bootable at every commit.
 
 ## Out of scope
 

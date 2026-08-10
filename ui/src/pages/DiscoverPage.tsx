@@ -14,7 +14,7 @@ import {
 import { FormEvent, useState } from "react";
 import { Link } from "wouter";
 import { MosaicMark } from "../components/MosaicMark";
-import { coreMosaicLabMissions, missionLabHref } from "../labMissions";
+import { missionLabHref, timedMosaicLabMissions } from "../labMissions";
 import { useNavigate } from "../navigation";
 import type { Domain } from "../types";
 
@@ -248,15 +248,15 @@ export function DiscoverPage() {
             <h2 id="discover-missions-title">Start with the golden set.</h2>
           </div>
           <p>
-            Five durable retrieval checks: exact identity, typo recovery,
-            semantic eligibility, defensible ranking, and cited research.
+            {timedMosaicLabMissions.length} timed retrieval checks:{" "}
+            {timedMosaicLabMissions.map((mission) => mission.title.toLowerCase()).join(", ")}.
           </p>
           <Link className="discover-missions-link" href="/mosaic-labs">
             View mission board <ArrowRight size={16} />
           </Link>
         </div>
         <ol className="discover-mission-grid">
-          {coreMosaicLabMissions.map((mission, index) => (
+          {timedMosaicLabMissions.map((mission, index) => (
             <li key={mission.id}>
               <Link href={missionLabHref(mission)}>
                 <span className="discover-mission-number">0{index + 1}</span>

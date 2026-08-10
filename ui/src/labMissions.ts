@@ -38,12 +38,21 @@ interface MosaicLabManifest {
     fusion: string;
     reranker: string;
   };
+  /** The three timed exercises, in run order. */
   missions: MosaicLabMission[];
+  /** Retired exercises, kept in full so the eval harness and GAP ledger resolve. */
+  self_paced: MosaicLabMission[];
 }
 
 export const mosaicLabManifest = missionManifest as MosaicLabManifest;
-export const mosaicLabMissions = mosaicLabManifest.missions;
-export const coreMosaicLabMissions = mosaicLabMissions.filter((mission) => mission.core);
+export const timedMosaicLabMissions = mosaicLabManifest.missions;
+export const selfPacedMosaicLabMissions = mosaicLabManifest.self_paced;
+
+/**
+ * Every mission, timed first. The retrieval lab lets a participant inspect any
+ * of them, so it reads this rather than the timed list alone.
+ */
+export const mosaicLabMissions = [...timedMosaicLabMissions, ...selfPacedMosaicLabMissions];
 
 export function missionLabHref(mission: MosaicLabMission) {
   return `/labs/retrieval?mission=${encodeURIComponent(mission.id)}`;

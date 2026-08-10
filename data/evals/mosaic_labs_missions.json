@@ -1,15 +1,15 @@
 {
-  "version": 1,
+  "version": 2,
   "name": "Mosaic Labs Golden Missions",
   "ownership": {
     "source_repository": "Mission contract, source application surfaces, and evaluation assertions.",
     "workshop_studio": "Participant instructions, deliberate starter gaps, and code-editor exercises."
   },
   "session": {
-    "total_minutes": 47,
+    "total_minutes": 40,
     "orientation_minutes": 2,
-    "core_lab_minutes": 40,
-    "scorecard_minutes": 5
+    "core_lab_minutes": 34,
+    "scorecard_minutes": 4
   },
   "corpus": {
     "catalog_products": 500000,
@@ -26,35 +26,10 @@
   },
   "missions": [
     {
-      "id": "exact-identity",
-      "stage": "recover",
-      "core": true,
-      "duration_minutes": 3,
-      "title": "Protect exact identity",
-      "query": "Mosaic EchoBud S2",
-      "filters": {
-        "domain": "consumer_electronics"
-      },
-      "target_product_ids": [
-        17001
-      ],
-      "expected_techniques": [
-        "fts"
-      ],
-      "checkpoint": "baseline",
-      "expected_outcome": "The exact product is retained in the first three results.",
-      "assertions": [
-        "target_in_top_k",
-        "fts_signal_present",
-        "hard_filters_hold"
-      ],
-      "top_k": 3
-    },
-    {
       "id": "typo-recovery",
       "stage": "recover",
       "core": true,
-      "duration_minutes": 8,
+      "duration_minutes": 11,
       "title": "Recover a misspelled request",
       "query": "wirless noice canceling hedphones under $200 with long batery life",
       "filters": {
@@ -68,7 +43,6 @@
       "expected_techniques": [
         "fts",
         "pg_trgm",
-        "hnsw",
         "rrf",
         "cohere_rerank"
       ],
@@ -83,53 +57,24 @@
       "top_k": 10
     },
     {
-      "id": "semantic-eligibility",
-      "stage": "retrieve",
-      "core": true,
-      "duration_minutes": 9,
-      "title": "Honor intent and eligibility",
-      "query": "carbon plated marathon shoe under $220 with stable cornering",
-      "filters": {
-        "domain": "running_fitness",
-        "max_price_cents": 22000,
-        "attributes": {
-          "carbon_plate": true
-        }
-      },
-      "target_product_ids": [
-        234001
-      ],
-      "expected_techniques": [
-        "fts",
-        "hnsw",
-        "rrf",
-        "cohere_rerank"
-      ],
-      "checkpoint": "baseline",
-      "expected_outcome": "Semantic intent is expanded without admitting products that violate the required price or carbon-plate constraints.",
-      "assertions": [
-        "target_in_top_k",
-        "fts_signal_present",
-        "hard_filters_hold",
-        "semantic_signal_present"
-      ],
-      "top_k": 10
-    },
-    {
       "id": "rank-with-evidence",
       "stage": "rank",
       "core": true,
-      "duration_minutes": 10,
+      "duration_minutes": 12,
       "title": "Make the order defensible",
       "query": "ergonmic mesh chiar for long workdays with adjustable lumbar support",
       "filters": {
         "domain": "home_office",
-        "in_stock_only": true
+        "in_stock_only": true,
+        "attributes": {
+          "seat_depth_adjustable": true
+        }
       },
       "target_product_ids": [
         370001
       ],
       "expected_techniques": [
+        "fts",
         "pg_trgm",
         "hnsw",
         "rrf",
@@ -139,6 +84,9 @@
       "expected_outcome": "The run retains FTS, trigram, HNSW, RRF, Cohere Rerank, and final rank as distinct evidence.",
       "assertions": [
         "target_in_top_k",
+        "fts_signal_present",
+        "trigram_signal_present",
+        "semantic_signal_present",
         "rank_provenance_present",
         "rerank_score_present",
         "hard_filters_hold"
@@ -149,7 +97,7 @@
       "id": "agentic-research",
       "stage": "reason",
       "core": true,
-      "duration_minutes": 10,
+      "duration_minutes": 11,
       "title": "Produce a cited recommendation",
       "query": "Build a quiet home office under $800 and explain the trade-offs.",
       "filters": {
@@ -174,9 +122,70 @@
         "retrieval_tool_called",
         "citations_present",
         "citation_source_revision_present",
+        "semantic_signal_present",
         "hard_filters_hold"
       ],
       "top_k": 6
+    }
+  ],
+  "self_paced": [
+    {
+      "id": "exact-identity",
+      "stage": "recover",
+      "core": false,
+      "duration_minutes": 3,
+      "title": "Protect exact identity",
+      "query": "Mosaic EchoBud S2",
+      "filters": {
+        "domain": "consumer_electronics"
+      },
+      "target_product_ids": [
+        17001
+      ],
+      "expected_techniques": [
+        "fts"
+      ],
+      "checkpoint": "baseline",
+      "expected_outcome": "The exact product is retained in the first three results.",
+      "assertions": [
+        "target_in_top_k",
+        "fts_signal_present",
+        "hard_filters_hold"
+      ],
+      "top_k": 3
+    },
+    {
+      "id": "semantic-eligibility",
+      "stage": "retrieve",
+      "core": false,
+      "duration_minutes": 9,
+      "title": "Honor intent and eligibility",
+      "query": "carbon plated marathon shoe under $220 with stable cornering",
+      "filters": {
+        "domain": "running_fitness",
+        "max_price_cents": 22000,
+        "attributes": {
+          "carbon_plate": true
+        }
+      },
+      "target_product_ids": [
+        234002
+      ],
+      "expected_techniques": [
+        "fts",
+        "hnsw",
+        "rrf",
+        "cohere_rerank"
+      ],
+      "checkpoint": "baseline",
+      "expected_outcome": "Semantic intent is expanded without admitting products that violate the required price or carbon-plate constraints. Its near-identical refurbished sibling 234001 satisfies the query on every textual and semantic measure and is still never a candidate, because eligibility is applied inside each arm rather than after ranking.",
+      "assertions": [
+        "target_in_top_k",
+        "fts_signal_present",
+        "semantic_signal_present",
+        "hard_filters_hold"
+      ],
+      "top_k": 10
     },
     {
       "id": "hnsw-performance",
@@ -188,7 +197,7 @@
       "filters": {
         "domain": "home_office",
         "attributes": {
-          "usb_c": true
+          "usb_c_power_w": 90
         }
       },
       "target_product_ids": [
@@ -203,6 +212,7 @@
       "expected_outcome": "A measured configuration records recall, latency, index size, build time, extension version, and filter selectivity.",
       "assertions": [
         "target_in_top_k",
+        "semantic_signal_present",
         "measurement_configuration_persisted",
         "measurement_kind_declared"
       ],

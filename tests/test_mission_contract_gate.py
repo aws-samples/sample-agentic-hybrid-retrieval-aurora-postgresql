@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -39,47 +40,40 @@ def rules_failing(contract: dict) -> set[str]:
 
 @pytest.fixture
 def passing() -> dict:
-    """A contract shaped the way Unit B will leave it."""
-    from service.assertions import SIGNAL_ASSERTIONS
+    """The shipped contract, which Unit B left in the shape the gate demands.
 
-    contract = copy.deepcopy(load_contract())
-    keep = {"typo-recovery", "rank-with-evidence", "agentic-research"}
-    timed = [m for m in contract["missions"] if m["id"] in keep]
-    retired = [m for m in contract["missions"] if m["id"] not in keep]
-
-    technique_to_assertion = {v: k for k, v in SIGNAL_ASSERTIONS.items()}
-    for mission in timed + retired:
-        for technique in set(mission["expected_techniques"]) & set(
-            technique_to_assertion
-        ):
-            needed = technique_to_assertion[technique]
-            if needed not in mission["assertions"]:
-                mission["assertions"].append(needed)
-
-    for mission, minutes in zip(timed, (11, 12, 11)):
-        mission["duration_minutes"] = minutes
-
-    contract["missions"] = timed
-    contract["self_paced"] = retired
-    contract["session"] = {
-        "total_minutes": 40,
-        "orientation_minutes": 2,
-        "core_lab_minutes": 34,
-        "scorecard_minutes": 4,
-    }
-    return contract
+    Every mutation test below starts from the real file rather than a synthetic
+    stand-in, so a check cannot pass against a fixture that has drifted from what
+    actually ships.
+    """
+    return copy.deepcopy(load_contract())
 
 
-def test_the_target_shape_passes_every_check(passing):
+def test_the_shipped_contract_passes_every_shape_check(passing):
     assert failures_for(passing) == []
 
 
-def test_the_shipped_contract_fails_today(passing):
-    """Documents first contact: the gate must not be green on the current file."""
-    rules = rules_failing(load_contract())
-    assert "A1.1" in rules, "five timed missions must fail the count check"
-    assert "A1.4b" in rules, "47 minutes of content must fail the nominal check"
-    assert "A1.7" in rules, "declared arms without assertions must fail"
+def test_the_shipped_contract_has_the_post_unit_b_shape(passing):
+    """The three findings from first contact, now closed rather than asserted."""
+    timed, retired = split_missions(passing)
+    assert [m["id"] for m in timed] == [
+        "typo-recovery",
+        "rank-with-evidence",
+        "agentic-research",
+    ]
+    assert [m["id"] for m in retired] == [
+        "exact-identity",
+        "semantic-eligibility",
+        "hnsw-performance",
+    ]
+    session = passing["session"]
+    assert session["total_minutes"] == 40
+    assert (
+        session["orientation_minutes"]
+        + sum(m["duration_minutes"] for m in timed)
+        + session["scorecard_minutes"]
+        == 40
+    )
 
 
 def test_a_fourth_timed_mission_fails(passing):
@@ -138,6 +132,26 @@ def test_every_required_retired_field_is_enforced(passing, field):
     assert rules & {"A1.5", "A1.2"}, f"removing {field!r} was not caught"
 
 
+def test_the_gate_reads_the_self_paced_list_when_present(passing):
+    """Unit B introduced the explicit list; the gate must prefer it to `core`."""
+    assert "self_paced" in passing
+    timed, retired = split_missions(passing)
+    assert len(timed) == 3
+    assert len(retired) == 3
+    assert all(m["core"] for m in timed), "timed missions stay flagged for the UI"
+    assert not any(m["core"] for m in retired)
+
+
+def test_the_gate_falls_back_to_core_flags_without_a_self_paced_list(passing):
+    """The `core` flag still drives the split for any consumer that predates B."""
+    flattened = dict(passing)
+    flattened["missions"] = passing["missions"] + passing["self_paced"]
+    del flattened["self_paced"]
+    timed, retired = split_missions(flattened)
+    assert [m["id"] for m in timed] == [m["id"] for m in passing["missions"]]
+    assert [m["id"] for m in retired] == [m["id"] for m in passing["self_paced"]]
+
+
 def test_an_undefined_assertion_fails(passing):
     passing["missions"][0]["assertions"].append("no_such_assertion")
     assert "A1.6" in rules_failing(passing)
@@ -169,13 +183,39 @@ def test_asserting_an_undeclared_arm_is_allowed(passing):
     assert "A1.7" not in rules_failing(passing)
 
 
-def test_the_gate_reads_core_flags_before_unit_b_introduces_self_paced():
-    """Until Unit B lands there is no self_paced key; the gate must still work."""
-    contract = copy.deepcopy(load_contract())
-    assert "self_paced" not in contract
-    timed, retired = split_missions(contract)
-    assert [m["id"] for m in retired] == ["hnsw-performance"]
-    assert all(m["core"] for m in timed)
+def test_an_assertion_without_a_falsifier_is_refused(monkeypatch):
+    """A1.8: an assertion that cannot fail reads as evidence while proving nothing.
+
+    The dataclass refuses to build such an assertion, so the gate's own check is
+    exercised with a stand-in rather than a real one.
+    """
+    import scripts.mission_contract as gate
+
+    hollow = SimpleNamespace(name="target_in_top_k", arm=None, falsifier="   ")
+    monkeypatch.setattr(
+        gate, "ASSERTIONS", dict(gate.ASSERTIONS, target_in_top_k=hollow)
+    )
+    assert "A1.8" in rules_failing(copy.deepcopy(load_contract()))
+
+
+def test_the_vocabulary_refuses_a_falsifierless_assertion_at_construction():
+    """Defence in depth: the dataclass rejects it before any gate runs."""
+    from service.assertions import Assertion
+
+    with pytest.raises(ValueError, match="no falsifier"):
+        Assertion(name="invented", arm=None, falsifier="")
+
+
+def test_every_failure_message_names_the_offending_value_and_a_fix(passing):
+    """House standard: name the rule, show the value, suggest the nearest fix."""
+    passing["missions"].append(dict(passing["missions"][0], id="invented-fourth"))
+    passing["missions"][0]["stage"] = "not-in-the-union"
+    passing["self_paced"][0].pop("top_k", None)
+    failures = failures_for(passing)
+    assert failures
+    for failure in failures:
+        assert "found " in failure, failure
+        assert "fix: " in failure, failure
 
 
 def test_required_retired_fields_match_the_spec():

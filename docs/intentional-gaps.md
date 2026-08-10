@@ -27,12 +27,14 @@ reaches when every repair succeeds. Disabling code here would make the reference
 unable to demonstrate its own contract, and would make a genuine regression
 indistinguishable from a planted exercise.
 
-Verified 2026-08-09 at `d29496c`: both repair-checkpoint capabilities are fully
-wired here.
+Re-verified 2026-08-10 after the Phase 2 Unit B three-exercise cut. Both
+repair-checkpoint capabilities are fully wired here, and **both host missions
+remain in the timed list** — `typo-recovery` and `agentic-research` survived the
+cut, so neither gap needed rehoming.
 
 | Mission | Capability | Evidence it is live |
 |---|---|---|
-| `typo-recovery` | pg_trgm candidate arm | `db/sql/09_search_functions.sql:211` fuses `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` |
+| `typo-recovery` | pg_trgm candidate arm | `db/sql/09_search_functions.sql:244` fuses `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` |
 | `agentic-research` | typed retrieval tool | `service/agent_tools.py:522` registers all five `@tool` functions |
 
 ## Gap contract for Workshop Studio

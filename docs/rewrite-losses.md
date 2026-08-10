@@ -108,6 +108,24 @@ could not itself pass its filters. It declared `hnsw` and `fts` and asserted
 neither arm's signal for most of its life. A contract rule requiring every
 declared arm to be asserted is the cheapest thing that would have surfaced it.
 
+Resolution recorded 2026-08-10 (Phase 2 Unit B): the mission's target moved
+234001 → **234002**, a non-refurbished sibling of the same carbon-plate racing
+shoe, and its filters were left untouched. The rejected alternative was adding
+`include_refurbished: true`, which also turns the gate green — and deletes the
+constraint the lesson is about. Rows above that cite 234001 as this mission's
+target are historical; the trigram measurement itself is unaffected, since it was
+taken on the product rather than on the mission.
+
+The irony has a second half worth recording. The repaired mission is now a
+*better* demonstration than the original, because measuring the repair exposed
+something the original framing had wrong: `matches_filters` is evaluated **inside**
+each arm, so an ineligible product is never a candidate at all — measured at zero
+rows visible to any arm for 234001 under the mission's own filters. Eligibility is
+a gate, not a post-hoc rejection. An earlier draft of the Phase 2 spec described
+this lesson as "the semantic arm recalls a product the filters must then reject",
+which is a wrong mental model of this codebase; the near-identical excluded
+sibling is what makes the real behavior visible.
+
 ---
 
 ## LOSS-3 — per-arm fusion weights
@@ -198,3 +216,42 @@ re-proves the substrate on every call rather than trusting this record.
 
 **What would have caught it.** An assertion that arm ranks reaching fusion equal
 arm ranks in isolation. Unit D's endpoint becomes that assertion.
+
+---
+
+## LOSS-5 — an arm claimed on a mission it does not serve (closed)
+
+Recorded 2026-08-10, Phase 2 Unit B. Not a rewrite loss: a claim that was never
+true and that no gate could contradict until `declares ⇒ asserts` existed.
+
+**The claim.** `typo-recovery` listed `hnsw` in `expected_techniques`. The
+workshop's headline mission for misspelled input asserted, by declaration, that
+the semantic arm contributes to recovering it.
+
+**Measured on the live cluster.** Query
+`wirless noice canceling hedphones under $200 with long batery life`, every token
+misspelled, each arm run alone under the mission's own filters:
+
+| Arm | Pool | Target 2 rank |
+|---|---:|---:|
+| `fts` | 120 | **1** |
+| `pg_trgm` | 80 | **1** |
+| `hnsw` | 150 | **not recalled** |
+
+The vector arm returns a full 150-row pool and does not contain the mission's
+target. Cohere Embed v4 on an all-misspelled string produces a vector whose
+neighbours are plausible headphones — just not this one.
+
+**Resolution: `hnsw` un-declared**, rather than asserted. This is the case that
+justifies the falsifier requirement. `semantic_signal_present` would have *passed*
+here, on a pool size of 150, while the arm contributed nothing to the outcome —
+an assertion that cannot fail on the mission it is attached to. Adding it for
+symmetry with the other four violations would have been the exact defect shape
+Phase 1 was created to remove, reintroduced by a rule meant to prevent it.
+
+**What would have caught it.** Nothing did, for the mission's whole life: pool
+counts were never compared against target recall per arm. `declares ⇒ asserts`
+surfaced the declaration; only measuring the arm alone decided whether to assert
+it or drop it. The lesson the mission actually teaches — that fuzzy matching
+recovers what embeddings do not — is now stated by the contract rather than
+contradicted by it.
