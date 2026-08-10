@@ -218,6 +218,25 @@ BEGIN
         body_text = EXCLUDED.body_text,
         trigram_text = EXCLUDED.trigram_text,
         embedding_text = EXCLUDED.embedding_text,
+        -- Invalidate the vector when the text it was computed from changes.
+        -- Without this the projection carries an embedding of the OLD text: a
+        -- silently stale vector, which is worse than a missing one because
+        -- `scripts/embed_catalog.py` only selects rows where `embedding IS NULL`
+        -- or the model key differs, so nothing would ever recompute it. The
+        -- deleted `sql/02_upsert_from_stage.sql` did this and the port dropped
+        -- it; restored in Phase 2 Unit E.
+        embedding = CASE
+            WHEN mosaic_search.product_document.embedding_text
+                 IS DISTINCT FROM EXCLUDED.embedding_text
+            THEN NULL
+            ELSE mosaic_search.product_document.embedding
+        END,
+        embedding_model_key = CASE
+            WHEN mosaic_search.product_document.embedding_text
+                 IS DISTINCT FROM EXCLUDED.embedding_text
+            THEN NULL
+            ELSE mosaic_search.product_document.embedding_model_key
+        END,
         rerank_text = EXCLUDED.rerank_text,
         source_updated_at = EXCLUDED.source_updated_at,
         updated_at = EXCLUDED.updated_at;

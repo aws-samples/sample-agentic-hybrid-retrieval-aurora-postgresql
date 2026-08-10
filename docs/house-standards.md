@@ -76,6 +76,18 @@ integral float (`1.0` where the old hardcoded default was `1`) changed the SQL
 type psycopg inferred, so no `configure_hnsw` overload matched. Only the
 end-to-end probe against Aurora saw it.
 
+**Corollary: compare full unions, never served windows.** When a check compares
+two orderings of the same set, it must read the **untruncated** result. Any
+`LIMIT` applied *after* the thing being compared makes two different orderings
+disagree about the tail by construction, so the check fails on a healthy system.
+
+Measured: Unit D's substrate assertion first compared the served 50-row windows of
+unweighted and weighted fusion and reported the sets as different — **36 of 50 in
+common**. Both functions `LIMIT` after fusion. At full depth both return **250**,
+identical, each exactly equal to the arm union. The check was wrong, not the
+substrate. `FULL_POOL_LIMIT` must exceed the summed arm caps (120 + 80 + 150) for
+this reason, and a test asserts that relation rather than the literal.
+
 ## 4. A green check is not evidence on its own
 
 Every new gate is proven red at birth: introduce the violation it exists to
@@ -101,6 +113,26 @@ unobserved. So each exempted default is asserted **equal** to its yaml
 counterpart: exempt from *declaring*, never from *agreeing*. Same for
 `CREATE INDEX` build parameters. An exemption with no yaml counterpart must carry
 a written reason.
+
+### 5a. Every seam needs an exhaustiveness rule
+
+A seam monitored by an **enumerated list** decays, because nothing forces the list
+to stay complete. Pair every such list with a rule that the enumeration is
+exhaustive over its own domain.
+
+Exemplar, the tripwire's rule `C1c`: *all retrieval-named SQL parameter defaults
+must be enumerated in `SQL_DEFAULTS`.* Not "the ones we listed agree" — that is
+rule 2, and rule 2 alone is satisfiable by an empty list.
+
+**Worked example, measured.** The gap was an assertion-shape mismatch nobody would
+guess: rule 1 matched `name = value` and `name: value`, but a SQL default is
+`name type DEFAULT value` — **no `=` and no `:`** — so rule 1 could not see a
+single one of them, and rule 2 only checked those already listed. Unit D added
+**13 defaults, three of them fusion weights**, and the tripwire stayed **green**
+with none pinned. Two rules that each looked sound left a hole between them.
+
+The generalization: when a check's pattern and its exemption list are written
+separately, ask what the pattern *cannot see*, and make that question a rule.
 
 ## 6. Infrastructure: Aurora only
 

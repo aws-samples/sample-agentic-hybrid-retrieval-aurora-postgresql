@@ -16,11 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_workshop_model_space_is_cohere_embed_v4():
     assert COHERE_EMBED_V4_MODEL_ID == "us.cohere.embed-v4:0"
     assert COHERE_EMBED_V4_DIMENSIONS == 1024
-    assert "vector(1024)" in (ROOT / "sql/01_schema.sql").read_text()
-    assert "vector(1024)" in (ROOT / "sql/04_search_functions.sql").read_text()
-    assert "BEDROCK_EMBED_MODEL_ID=us.cohere.embed-v4:0" in (
-        ROOT / "config/.env.example"
-    ).read_text()
+    # Retargeted from the deleted `sql/` tree in Phase 2 Unit E.
+    assert "vector(1024)" in (ROOT / "db/sql/06_retrieval_projection.sql").read_text()
+    assert "vector(1024)" in (ROOT / "db/sql/09_search_functions.sql").read_text()
+    assert (
+        "BEDROCK_EMBED_MODEL_ID=us.cohere.embed-v4:0"
+        in (ROOT / "config/.env.example").read_text()
+    )
 
 
 def test_workshop_embedding_loader_rejects_another_bedrock_model():
@@ -68,12 +70,22 @@ def test_hash_embeddings_require_explicit_development_opt_in():
     assert math.isclose(sum(value * value for value in vector), 1.0)
 
 
-def test_catalog_upsert_invalidates_changed_embedding_text():
-    sql = (ROOT / "sql/02_upsert_from_stage.sql").read_text()
+def test_projection_upsert_invalidates_a_changed_embedding_text():
+    """A vector computed from replaced text must not survive the replacement.
 
-    assert "embedding_content_hash = encode(" in sql
-    assert "digest(EXCLUDED.embedding_text, 'sha256')" in sql
-    assert "ELSE NULL" in sql
+    Retargeted from the deleted `sql/02_upsert_from_stage.sql` in Phase 2 Unit E —
+    and the port had dropped the behavior, so this restored it. A stale embedding is
+    worse than a missing one: `scripts/embed_catalog.py` selects only rows where
+    `embedding IS NULL` or the model key differs, so nothing would ever recompute it.
+    """
+    sql = (ROOT / "db/sql/06_retrieval_projection.sql").read_text()
+
+    assert "embedding_text = EXCLUDED.embedding_text" in sql
+    assert "IS DISTINCT FROM EXCLUDED.embedding_text" in sql
+    # Both the vector and the model key must clear, or the row claims to have been
+    # embedded by a model that never saw this text.
+    assert sql.count("IS DISTINCT FROM EXCLUDED.embedding_text") >= 2
+    assert "THEN NULL" in sql
 
 
 def test_embedding_loader_uses_typed_binary_copy():

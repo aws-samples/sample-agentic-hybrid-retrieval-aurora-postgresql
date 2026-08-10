@@ -89,23 +89,41 @@ def test_the_client_base_url_carries_the_api_prefix():
     assert CatalogApiClient().base_url.endswith("/api")
 
 
-def test_tool_call_against_the_real_app_does_not_404():
-    """End-to-end: send the MCP client's exact request into the real app.
+def test_the_mcp_tool_path_is_a_route_the_app_declares():
+    """The MCP client's path must resolve to a handler.
 
-    `httpx.ASGITransport` is async-only, so the sync client cannot drive it.
-    `TestClient` runs the same ASGI app and is what the rest of the suite uses;
-    routing is what is under test here, not the client's transport plumbing.
+    Asserted against the app's declared routes rather than by sending a request.
+    A request cannot answer this question: `retrieval_event` legitimately returns
+    404 for an event that does not exist, so a status-code check conflates
+    "unrouted path" with "unknown id" — and reads as a pass only when no database
+    is configured, which is why it went green before Unit E supplied a DSN.
     """
-    from fastapi.testclient import TestClient
+    from fastapi.routing import APIRoute
 
     match = re.search(r'get\(f"(/retrieval/[^"]*)\{parsed_run_id\}"\)', SERVER_SOURCE)
     assert match, "inspect_retrieval_run must build its path from parsed_run_id"
-    tool_path = f"/api{match.group(1)}{uuid4()}"
+    tool_template = f"/api{match.group(1)}{{search_event_id}}"
+
+    declared = {route.path for route in app.routes if isinstance(route, APIRoute)}
+    assert tool_template in declared, (
+        f"MCP tool requests {tool_template}, which the API does not route; "
+        f"declared retrieval routes: "
+        f"{sorted(p for p in declared if '/retrieval/' in p)}"
+    )
+
+
+def test_an_unknown_retrieval_run_is_a_404_from_the_handler_not_the_router():
+    """The two 404s must be distinguishable, or the route test above is hollow."""
+    from fastapi.testclient import TestClient
 
     with TestClient(app, raise_server_exceptions=False) as client:
-        response = client.get(tool_path)
-    # No database is configured here, so the handler cannot return a payload.
-    # What matters is that routing resolved: 404 would mean the path is wrong.
-    assert response.status_code != 404, (
-        f"MCP tool requests {tool_path}, which the API does not route"
-    )
+        known_route = client.get(f"/api/retrieval/events/{uuid4()}")
+        no_such_route = client.get(f"/api/retrieval/invented/{uuid4()}")
+
+    assert no_such_route.status_code == 404
+    # A routed path reaches the handler: either the event is genuinely absent
+    # (404 with the handler's own message) or the database is unreachable (503).
+    if known_route.status_code == 404:
+        assert known_route.json()["detail"] == "Search event not found"
+    else:
+        assert known_route.status_code in {200, 500, 503}

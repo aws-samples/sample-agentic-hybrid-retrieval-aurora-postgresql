@@ -14,7 +14,6 @@ from service.catalog import get_product
 from service.config import get_settings
 from service.db import connect
 from service.models import (
-    AgentCitation,
     ProductSummary,
     SearchFilters,
     SearchRequest,

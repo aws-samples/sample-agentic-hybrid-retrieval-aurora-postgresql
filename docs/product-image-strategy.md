@@ -45,8 +45,10 @@ supplied Mosaic package as its only visual source:
   the remaining catalog.
 
 `data/full/product_image_urls.csv.gz` maps all 500,000 products to those local
-assets. `scripts/load_media.py` verifies each path, stores its SHA-256 digest,
-and publishes only `approved` rows to `mosaic.product_media`.
+assets. `db/sql/04_media.sql` and `db/sql/15_load_premium_cohort.sql` publish the
+rows into `mosaic.product_media`, applied by `make db-load-cohort`. The
+`scripts/load_media.py` that previously did this wrote to the deleted
+`catalog.product_media` and was removed in Phase 2 Unit E.
 
 The design boards in `ui/design-references` and runtime files in
 `ui/public/assets/images` are retained in their original formats. Asset

@@ -44,6 +44,75 @@ which is why Unit E's definition of done is a recorded **correctness** statement
 against live `mosaic_*` rather than an equivalence diff. See
 `docs/rewrite-losses.md`.
 
+## Connecting from a corporate network
+
+Environmental knowledge that otherwise lives in one engineer's shell history. This
+cost an hour once; it should cost nobody a second one.
+
+### Diagnose in this order
+
+**Run `sslmode=disable` first.** It splits connectivity from TLS in one command:
+
+```sh
+psql "postgresql://USER:PASS@HOST:5432/mosaic_catalog?sslmode=disable" -c 'SELECT 1'
+```
+
+| Result | Meaning |
+|---|---|
+| `FATAL: no pg_hba.conf entry for host "X.X.X.X" ... no encryption` | **The network and the security group are fine.** The server saw you and rejected the unencrypted connection. The problem is TLS — go to the remedy below. |
+| `timeout expired` | Traffic is not arriving. Security group or egress. |
+
+Do not start with the security group. A reachable port plus a hanging session
+looks like a firewall problem and is not one: `nc -z HOST 5432` reported OPEN, and
+a raw SSLRequest packet got `S` back, while `psql` still timed out.
+
+### Remedy on an Amazon office network: `sslnegotiation=direct`
+
+The corporate middlebox breaks PostgreSQL's **negotiated** TLS — send
+`SSLRequest`, then upgrade the socket in place — but passes TLS from the first
+byte.
+
+```
+sslmode=require                        → hangs
+sslmode=prefer                         → hangs
+sslmode=require&sslnegotiation=direct  → works
+```
+
+`.env`'s `DATABASE_URL` carries `&sslnegotiation=direct`. **Single-quote the
+value** or `set -a && . ./.env` dies with `parse error near '&'` — the ampersand is
+a shell background operator. Needs a PostgreSQL 17+ libpq client; psycopg honors it
+from the DSN.
+
+### Security-group caveat: corporate NAT is a pool, not an address
+
+`sg-05b26f41b295bc72d` gates the cluster and holds only `/32` rules. Amazon
+corporate egress rotates across a pool — **two IPs were observed in a single
+session** (`15.248.6.29`, `15.248.6.13`), and HTTP reflectors disagreed with each
+other. DNS-based reflection is the reliable one:
+
+```sh
+dig +short myip.opendns.com @resolver1.opendns.com
+aws ec2 authorize-security-group-ingress --region us-east-1 \
+  --group-id sg-05b26f41b295bc72d \
+  --ip-permissions 'IpProtocol=tcp,FromPort=5432,ToPort=5432,IpRanges=[{CidrIp=<ip>/32,Description="..."}]'
+```
+
+Two more things that mislead:
+
+- **Rules propagate with a lag.** The first probe after authorizing still timed
+  out; the port opened about a minute later. One failed try is not a failed rule.
+- **The symptom returns.** If the pool rotates mid-session, working connections
+  start timing out again. That is not a new problem — it is the same one with a new
+  source address.
+
+### Long sessions get dropped
+
+Through the same middlebox, long-lived TLS sessions die with
+`SSL error: unexpected eof while reading` while the cluster stays `available` and
+an immediate reconnect succeeds. Measurement scripts that run for minutes should
+retry and use one connection per sample, so a drop costs one datapoint rather than
+the whole run.
+
 ## Known hazards
 
 - `make db-init`, `db-load`, `db-load-catalog`, `db-load-media`, `db-index` still

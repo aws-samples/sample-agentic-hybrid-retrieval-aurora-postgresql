@@ -327,6 +327,141 @@ in `ARTIFACTS.md` forbids.
 irreplaceable state. `ARTIFACTS.md` now does, and records that the snapshot is
 the only restore path.
 
+### Unit E receipt — what was done, per consumer
+
+Completed 2026-08-10. Every statement below was verified against the live cluster.
+
+| Consumer | Case | Disposition | Correctness evidence |
+|---|:--:|---|---|
+| `scripts/run_eval.py` | **3** | ported to `mosaic_search.search_hybrid_rrf` | **6 of 6 golden mission targets returned in the top 10** (`typo-recovery` 2@1, `rank-with-evidence` 370001@2, `agentic-research` 429001@1, `exact-identity` 17001@1, `semantic-eligibility` 234002@1, `hnsw-performance` 420001@1). The gate's A2 checks are the baseline that exists |
+| `scripts/benchmark_hnsw.py` | **3, A-MINIMAL** | ported to `mosaic_search.product_document` | ran live: `recall@k = 1.0` at `ef_search` 32 and 128, p50 2281/2263 ms, EXPLAIN plan captured, `kind: measured`. **Output contract deferred to Phase 3** — the `mosaic_bench` write shape and the ground-truth recall definition are named as open in its docstring |
+| `scripts/load_catalog.py` | **2** | **deleted** | superseded by `db/sql/17_load_normalized_catalog.sql` via `make db-load-mosaic` |
+| `scripts/load_media.py` | **2** | **deleted** | superseded by `db/sql/04_media.sql` + `15_load_premium_cohort.sql` via `make db-load-cohort`; `docs/product-image-strategy.md` updated to point at them |
+| `tests/test_sql_integration.py` | **2** | **retargeted**, rewritten | 5 tests pass against Aurora. Three defects fixed beyond the schema name: it read `TEST_DATABASE_URL` (a database the policy says does not exist), used filter keys `subcategory`/`max_price` that `matches_filters` never accepted, and called a twelve-argument `search_hybrid_rrf` that does not exist |
+| `ui/src/showcase.test.ts` | **2** | **no change needed** | the pre-flight was wrong about this one: `catalog.facets` is a local variable named `catalog`, not a schema reference |
+
+**Two further deletions, found while porting:**
+
+- `scripts/render_sql.py` — globbed `sql/*.sql`, so after the deletion it would
+  have silently rendered **zero** files and reported success. Superseded by
+  `db/scripts/render_dimension.py` (`make db-render`). Its `make render-sql`
+  target is gone.
+- `sql/` itself — all **11** files.
+
+**Local-Postgres assumptions removed:**
+
+- the five Makefile targets, with a comment table mapping each to its `mosaic_*`
+  replacement so the knowledge survives the deletion;
+- the Makefile's `DATABASE_URL ?= …localhost…` default, replaced by a `check-dsn`
+  prerequisite on all fourteen DSN-requiring targets. An unset DSN now fails by
+  name instead of handing `psql` an empty string;
+- `config/.env.example`'s localhost DSN, and — a stronger property than the test it
+  replaced — **every retrieval number**. The file previously shipped
+  `BUSINESS_WEIGHT=0.15` against a `le=0.05` bound; a file that ships no values
+  cannot ship an unusable one. The overrides are documented in a comment instead;
+- two `README.md` examples, plus `docs/aurora-deployment.md`'s sequence (which
+  told the reader to run two deleted files) and `docs/hnsw-lab.md`'s reference to
+  the deleted `sql/06_hnsw_performance_lab.sql`.
+
+**Unported, stated rather than hidden.** The inspection and filter-selectivity
+exercises in `sql/06_hnsw_performance_lab.sql` have no `mosaic_*` equivalent. The
+`hnsw-performance` mission is their surviving home, and `docs/hnsw-lab.md` says so.
+
+### Five consumers the pre-flight missed
+
+The disposition table listed six. Deleting the files found five more, each caught
+by a test failing rather than by inspection — which is the argument for doing the
+deletion inside the suite rather than after it.
+
+| Consumer | Read | Resolution |
+|---|---|---|
+| `tests/test_media_assets.py` | imported `scripts.load_media` | two of its functions never touched the database and were the only implementation of a real rule, so they were **extracted to `scripts/media_manifest.py`** rather than deleted with the loader |
+| `tests/test_catalog_contract.py` | `sql/04_search_functions.sql` | retargeted to `db/sql/09`, and the operand renamed `(p)` → `(d)` |
+| `tests/test_dataset.py` | `sql/04_search_functions.sql` | retargeted, and narrowed to the shared filter vocabulary — see below |
+| `tests/test_workshop_model_contract.py` | `sql/01`, `sql/04`, `sql/02_upsert_from_stage.sql` | retargeted, and it found a **live defect** — see below |
+| `scripts/render_sql.py` | globbed `sql/*.sql` | deleted; it would have rendered zero files and reported success |
+
+**LOSS-6 — the projection upsert stopped invalidating stale embeddings.**
+`sql/02_upsert_from_stage.sql` nulled the embedding when `embedding_text` changed.
+`db/sql/06_retrieval_projection.sql` updates `embedding_text` and **leaves the
+vector**, so a re-projected product keeps an embedding of the *old* text. That is
+worse than a missing vector: `scripts/embed_catalog.py` selects only rows where
+`embedding IS NULL` or the model key differs, so nothing would ever recompute it —
+the row would serve a silently wrong vector indefinitely. Restored in Unit E,
+clearing both `embedding` and `embedding_model_key`, applied to the live cluster,
+and asserted by `test_projection_upsert_invalidates_a_changed_embedding_text`. The
+deleted test was the only thing that had ever checked it.
+
+**Two filter vocabularies, measured.** `scripts/catalog_contract.py` declares nine
+filter keys; `mosaic_search.matches_filters` implements five. `category`,
+`subcategory`, `max_price` and `min_price` have no database counterpart, and
+`data/evals/queries.jsonl` sends `subcategory` and `max_price` on **235 of its 720
+queries**. Verified on the live cluster: a filter set carrying both returns the same
+**194,824** products as `domain` alone, because jsonb filters ignore keys they do not
+recognise. The module now names the split (`CORPUS_ONLY_FILTER_KEYS`,
+`SHARED_FILTER_KEYS`) and a test asserts it stays accurate in both directions, so
+the divergence cannot widen unnoticed. Repointing the eval queries at the database
+vocabulary is a data change with its own judgments and is out of Phase 2's scope.
+
+**One test was passing only because no DSN was configured.**
+`test_tool_call_against_the_real_app_does_not_404` sent a request with a random UUID
+and asserted the status was not 404. But `retrieval_event` returns 404 for an event
+that does not exist, so the check conflated "unrouted path" with "unknown id" and
+could only pass while the database was unreachable. Replaced by an assertion against
+the app's declared routes, plus a second test proving the two 404s are
+distinguishable — otherwise the first is hollow. It now passes with and without a
+DSN, for the right reason in both cases.
+
+---
+
+## DECISION-1 — weighted RRF stays a comparison, not the default (CLOSED)
+
+Ruled 2026-08-10 on the Unit D measurements (commit `f08104a`). **Closed by
+measurement, not by preference.** Not re-litigable without new measurement.
+
+**The distinction that settles it.** Uniform weights *are* weighted RRF at 1:1:1,
+so the served path is not "unweighted fusion" in any deep sense — it is weighted
+fusion with equal coefficients. Therefore "weighted RRF is the taught artifact"
+does **not** imply "the historical coefficients are the default." Those are
+separate claims, and only the first is supported.
+
+**What was measured**, all six missions, live Aurora, rerank on for the assertion
+half:
+
+| Finding | Result |
+|---|---|
+| Candidate sets identical (substrate) | **6 of 6**, pools 152–342 |
+| Fusion orders differ | 6 of 6 |
+| **Assertion verdict changes** | **0** — `target_in_top_k` and every signal assertion hold identically under both modes |
+| Fusion target rank degraded | 2 of 6: `agentic-research` 6 → 16, `hnsw-performance` 1 → 15 |
+| Latency delta | **−17 ms** median over 18 samples; fusion arithmetic is not the cost |
+
+**Why not flip.** The weights degrade the two missions where they do anything
+measurable, and the mechanism is visible in pool composition: weighting shifts the
+fused pool hard toward semantic. `typo-recovery`'s trigram share falls **32 → 12**
+on an all-misspelled query, so `trigram: 0.10` suppresses the arm that mission
+exists to demonstrate. Zero assertion movement is evidence of *no harm at the
+assertion level*, not evidence of benefit. "Changes nothing you check, degrades two
+things you don't" is not an argument for a default.
+
+**The historical weights keep a permanent role**: exercise 2's B-side, labeled
+*historical, pre-rewrite, untuned for this corpus*. They were ported for
+provenance (LOSS-3) and nothing measured them against these 500,000 products or
+these six missions — which is the point of showing them.
+
+**The lesson the comparison now carries.** Weights moved **243 of exercise 2's 250**
+candidates — and **322 of 323** on the `typo-recovery` query, the highest of the
+six — while assertions moved **zero**: fusion is highly sensitive to coefficients,
+and the reranker absorbs nearly all of it. The moral is measure-before-adopt — a change
+that looks dramatic at the fusion layer can be invisible at the answer layer, and
+the only way to know which you have is to measure both.
+
+**Degraded-mode caveat, carried into the exercise and the scorecard.** That
+absorption is *conditional on rerank being on*. With rerank off, fusion order is
+load-bearing and the degradation is the answer: `agentic-research`'s target sits at
+fused rank **16** under weighted fusion. Phase 4's `rerank_off_invariant` is where
+this becomes an assertion rather than a caveat.
+
 ---
 
 ## BEHAVIOR-1 — `BUSINESS_WEIGHT=` empty now falls through to the yaml

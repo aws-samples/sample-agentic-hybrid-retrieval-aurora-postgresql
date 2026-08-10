@@ -81,7 +81,7 @@
         "cohere_rerank"
       ],
       "checkpoint": "comparison",
-      "expected_outcome": "The run retains FTS, trigram, HNSW, RRF, Cohere Rerank, and final rank as distinct evidence.",
+      "expected_outcome": "The run retains FTS, trigram, HNSW, RRF, Cohere Rerank, and final rank as distinct evidence. The B-side reruns the same candidate pool through weighted fusion using historical, pre-rewrite coefficients that were never tuned for this corpus: measured on the live cluster, the weights reorder 243 of this mission's 250 candidates -- and 322 of 323 on the typo-recovery query -- while every assertion holds unchanged, because the reranker absorbs the difference. Fusion is highly sensitive to coefficients and the answer layer is not, so a change that looks dramatic at one layer can be invisible at the other -- measure both before adopting either. That absorption depends on reranking: with rerank off the fusion order is load-bearing, and agentic-research's target falls to fused rank 16 under the same weights.",
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",

@@ -88,8 +88,14 @@ violated bound named, rather than surfacing as an HTTP 500 on every query. Copy
 
 ## Database Baseline
 
+**Aurora only.** There is no local database and no `make` target creates one; the
+cluster snapshot is the only restore path. `ARTIFACTS.md` covers what is and is not
+restorable, and how to connect from a corporate network — if `psql` hangs while the
+port looks open, start with `sslmode=disable` to tell a TLS problem from a
+firewall one.
+
 ```bash
-export DATABASE_URL='postgresql://postgres:postgres@localhost:5432/mosaic_catalog'
+export DATABASE_URL='postgresql://USER:PASSWORD@YOUR-CLUSTER.cluster-xxxx.us-east-1.rds.amazonaws.com:5432/mosaic_catalog?sslmode=require'
 make db-install
 make db-prepare-mosaic
 make db-load-mosaic
@@ -161,7 +167,7 @@ restore access.
 Start the API and React application in separate terminals:
 
 ```bash
-export DATABASE_URL='postgresql://postgres:postgres@localhost:5432/mosaic_catalog'
+export DATABASE_URL='postgresql://USER:PASSWORD@YOUR-CLUSTER.cluster-xxxx.us-east-1.rds.amazonaws.com:5432/mosaic_catalog?sslmode=require'
 make api-serve
 ```
 

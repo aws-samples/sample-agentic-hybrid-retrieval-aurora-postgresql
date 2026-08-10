@@ -16,15 +16,25 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
 
 ## Recommended sequence
 
-1. Create the cluster and database.
-2. Run `sql/00_extensions.sql` and `sql/01_schema.sql`.
-3. Load the three catalog shards declared in `data/full/manifest.json`.
-4. Populate embeddings in batches.
-5. Create relational, FTS, trigram, JSONB, and HNSW indexes.
-6. Run `ANALYZE`.
-7. Execute correctness/eval queries.
-8. Run the measured HNSW harness.
-9. Populate the UI only with measured or labeled projected values.
+1. Create the cluster and database. There is no local alternative; see
+   `ARTIFACTS.md`.
+2. `make db-install` — schemas, tables, functions, and non-concurrent indexes
+   (`db/sql/install.sql`).
+3. `make db-prepare-mosaic` then `make db-load-mosaic` — normalize and load the
+   three catalog shards declared in `data/full/manifest.json`.
+4. `make db-embed`, or `make db-import-embeddings` to restore the cached vectors
+   instead of paying for re-embedding.
+5. `make db-index-concurrent` — the HNSW indexes, which cannot be built inside a
+   transaction block and are pointless before embeddings exist.
+6. `make db-load-cohort` — the 120 premium products with real photography.
+7. `make db-smoke` — correctness queries.
+8. `make validate-missions`, `make validate-config`, `make validate-functions` —
+   the three gates. Set `MISSION_GATE_REQUIRE_DB=1` and
+   `FUNCTION_CENSUS_REQUIRE_DB=1` in CI so a missing DSN is loud.
+9. `scripts/benchmark_hnsw.py` for the measured harness.
+10. Populate the UI only with measured or labeled projected values.
+
+`make db-bootstrap-cached` runs steps 2 through 7 in order.
 
 ## Operational considerations
 

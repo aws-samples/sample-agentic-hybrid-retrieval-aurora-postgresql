@@ -5,7 +5,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from scripts.load_media import iter_media_records, normalize_asset_url
+from scripts.media_manifest import iter_media_records, normalize_asset_url
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "ui" / "public"
@@ -77,7 +77,13 @@ def test_media_mapping_covers_every_product_with_local_assets():
     assert all((PUBLIC / url.lstrip("/")).is_file() for url in image_urls)
 
 
-def test_loader_emits_only_approved_hashed_local_media():
+def test_the_manifest_emits_only_approved_hashed_local_media():
+    """Every mapped asset must exist on disk and be content-addressed.
+
+    A retired photograph that stays mapped is invisible otherwise: the dev server
+    answers a missing asset with `index.html` and a 200, so the grid renders empty
+    boxes and no other check fails. `_asset_digest` raises instead.
+    """
     roles: Counter[str] = Counter()
     rows = 0
     for record in iter_media_records():
@@ -92,4 +98,7 @@ def test_loader_emits_only_approved_hashed_local_media():
 
 def test_landing_hero_is_the_unmodified_source_asset():
     hero = PUBLIC / "assets/images/mosaic/hero-editorial-mosaic.webp"
-    assert digest(hero) == "57aced551056a574340e081d9162d25b339f99f122ba0db0449e3517dec24044"
+    assert (
+        digest(hero)
+        == "57aced551056a574340e081d9162d25b339f99f122ba0db0449e3517dec24044"
+    )

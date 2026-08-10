@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from scripts.catalog_contract import (
-    SUPPORTED_FILTER_KEYS,
+    SHARED_FILTER_KEYS,
     product_matches_filters,
     unsupported_filter_keys,
 )
@@ -88,21 +88,24 @@ def test_evaluation_filters_match_the_sql_contract():
     assert len(queries) == 720
     assert all(not unsupported_filter_keys(query["filters"]) for query in queries)
     assert all(
-        isinstance(query["filters"].get("attributes", {}), dict)
-        for query in queries
+        isinstance(query["filters"].get("attributes", {}), dict) for query in queries
     )
 
-    sql = (ROOT / "sql/04_search_functions.sql").read_text(encoding="utf-8")
-    for key in SUPPORTED_FILTER_KEYS:
-        assert f"f ? '{key}'" in sql
+    # Retargeted from the deleted `sql/04_search_functions.sql` in Phase 2 Unit E.
+    # Only the SHARED keys are asserted against the database: the four corpus-only
+    # keys have no counterpart in `matches_filters`, which is measured and recorded
+    # in `scripts/catalog_contract`. Asserting all nine here is what let the
+    # divergence sit unnoticed — the old assertion passed because the deleted SQL
+    # had a different, larger vocabulary.
+    sql = (ROOT / "db/sql/09_search_functions.sql").read_text(encoding="utf-8")
+    for key in SHARED_FILTER_KEYS:
+        assert f"f ? '{key}'" in sql, f"{key} is shared but the SQL does not probe it"
 
 
 def test_balanced_sample():
     curated = {
         int(item["product_id"])
-        for item in json.loads(
-            (ROOT / "data/curated/demo_products.json").read_text()
-        )
+        for item in json.loads((ROOT / "data/curated/demo_products.json").read_text())
     }
     with gzip.open(
         ROOT / "data/sample/products_5000.csv.gz",
@@ -146,10 +149,7 @@ def test_review_sample_matches_the_quick_start_catalog():
         encoding="utf-8",
         newline="",
     ) as source:
-        sample_ids = {
-            int(row["product_id"])
-            for row in csv.DictReader(source)
-        }
+        sample_ids = {int(row["product_id"]) for row in csv.DictReader(source)}
     with gzip.open(
         ROOT / "data/sample/reviews_15000.csv.gz",
         "rt",

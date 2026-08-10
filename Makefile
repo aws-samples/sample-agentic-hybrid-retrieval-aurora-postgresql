@@ -6,7 +6,10 @@ BOOTSTRAP_PYTHON ?= python3.13
 PYTHON ?= $(if $(wildcard $(VENV_PYTHON)),$(VENV_PYTHON),$(BOOTSTRAP_PYTHON))
 MCP_VENV ?= mcp-server/.venv
 MCP_PYTHON ?= $(MCP_VENV)/bin/python
-DATABASE_URL ?= postgresql://postgres:postgres@localhost:5432/mosaic_catalog
+# No default DSN. There is no local database (ARTIFACTS.md), so a localhost
+# default could only ever fail — or, worse, succeed against an unintended
+# cluster. Every db-* target requires DATABASE_URL to be set explicitly.
+DATABASE_URL ?=
 API_PORT ?= 8000
 UI_PORT ?= 5173
 
@@ -23,16 +26,33 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test render-sql db-install db-install-labs validate-missions validate-config lab-01 db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-init db-load db-load-catalog db-load-media db-embed db-export-embeddings db-import-embeddings db-index simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test db-install db-install-labs validate-missions validate-config validate-functions lab-01 db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-embed db-export-embeddings db-import-embeddings simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
-	validate-missions validate-config \
-	test render-sql db-render db-prepare-mosaic db-load-catalog db-load-media \
+	validate-missions validate-config validate-functions \
+	test db-render db-prepare-mosaic \
 	db-embed simulate db-export-embeddings db-import-embeddings api-serve \
 	mcp-install
 
 $(PYTHON_TARGETS): check-python
+
+# An unset DSN must fail by name, not by handing psql an empty string and letting
+# it try to reach a local socket that does not exist.
+check-dsn:
+	@test -n "$(DATABASE_URL)" || { \
+		echo "DATABASE_URL is not set. There is no local database; point it at"; \
+		echo "the Aurora cluster. See ARTIFACTS.md for the connection notes,"; \
+		echo "including sslnegotiation=direct on a corporate network."; \
+		exit 2; \
+	}
+
+DSN_TARGETS := db-install db-install-labs validate-missions validate-functions \
+	lab-01 db-load-mosaic db-index-concurrent db-load-cohort db-smoke \
+	db-bootstrap-cached db-embed db-export-embeddings db-import-embeddings \
+	api-serve
+
+$(DSN_TARGETS): check-dsn
 
 setup: check-bootstrap-python
 	$(BOOTSTRAP_PYTHON) -m venv "$(VENV)"
@@ -111,6 +131,13 @@ validate-config:
 	$(PYTHON) scripts/retrieval_profile.py --check
 	$(PYTHON) scripts/config_tripwire.py
 
+# Exactly one live signature per retrieval function. CREATE OR REPLACE cannot
+# change a signature, so a parameter change leaves the old body callable by any
+# caller passing the old argument count. Needs a DSN; set
+# FUNCTION_CENSUS_REQUIRE_DB=1 in CI so a missing DSN is a loud failure.
+validate-functions:
+	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/function_census.py
+
 # Lab 1: lexical precision and typo tolerance, against the mosaic_search tree
 # the API reads. Read-only; safe to re-run.
 lab-01:
@@ -182,19 +209,20 @@ validate:
 test:
 	$(PYTHON) -m pytest
 
-render-sql:
-	$(PYTHON) scripts/render_sql.py --vector-dim $${VECTOR_DIM:-1024}
-
-db-init:
-	psql "$(DATABASE_URL)" -f sql/00_extensions.sql -f sql/01_schema.sql
-
-db-load: db-load-catalog db-load-media
-
-db-load-catalog:
-	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/load_catalog.py
-
-db-load-media:
-	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/load_media.py
+# Five targets were DELETED in Phase 2 Unit E. They installed and loaded the
+# `catalog.*` tree, which no longer exists, against whatever DSN they were handed
+# — including the live Aurora cluster. Their replacements target `mosaic_*`:
+#
+#   old target       new target             SQL
+#   ---------------- ---------------------- ----------------------------------
+#   db-init          db-install             db/sql/install.sql
+#   db-load-catalog  db-load-mosaic         db/sql/17_load_normalized_catalog.sql
+#   db-load-media    db-load-cohort         db/sql/15_load_premium_cohort.sql
+#   db-index         db-index-concurrent    db/sql/08_indexes_concurrent.sql
+#   db-load          db-bootstrap-cached    the whole sequence, in order
+#
+# See ARTIFACTS.md for the Aurora-only policy and docs/rewrite-losses.md
+# SUBSTRATE-1 for why the predecessors cannot be run at all.
 
 db-embed:
 	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embed_catalog.py
@@ -206,9 +234,6 @@ db-export-embeddings:
 db-import-embeddings:
 	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embedding_cache.py \
 		import "$(EMBEDDING_CACHE_MANIFEST)"
-
-db-index:
-	psql "$(DATABASE_URL)" -f sql/03_indexes.sql
 
 simulate:
 	$(PYTHON) scripts/simulate_scale.py

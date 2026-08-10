@@ -69,9 +69,16 @@ Rebuild a smaller lab table with `m` and `ef_construction` variations. Observe b
 
 ## Scripts
 
-- `scripts/benchmark_hnsw.py` emits **measured** JSON results and EXPLAIN plans.
+- `scripts/benchmark_hnsw.py` emits **measured** JSON results and EXPLAIN plans,
+  against `mosaic_search.product_document`. Its output *contract* — the
+  `mosaic_bench` tables it should write to, and the ground-truth definition for
+  `recall_at_k` — is deliberately open, deferred to Phase 3's advanced-lane spec.
+  The script runs today; what it should emit is the question.
 - `scripts/simulate_scale.py` emits **simulated_calibrated** projections.
-- `sql/06_hnsw_performance_lab.sql` contains inspection and filter-selectivity exercises.
+- `db/sql/08_indexes_concurrent.sql` holds the HNSW index definitions. The
+  inspection and filter-selectivity exercises that lived in the deleted
+  `sql/06_hnsw_performance_lab.sql` are unported; the `hnsw-performance` mission in
+  `data/evals/mosaic_labs_missions.json` is their surviving home.
 
 ## UI contract
 
