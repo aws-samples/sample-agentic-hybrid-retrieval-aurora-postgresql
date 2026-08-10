@@ -1,33 +1,44 @@
-"""Runtime configuration for the catalog retrieval service."""
+"""Runtime configuration for the catalog retrieval service.
+
+Retrieval numbers come from `db/config/retrieval.yaml` via
+`scripts.retrieval_profile`, which resolves environment overrides and enforces
+bounds. This module does not restate those numbers: a default written here would
+be the fourth copy that `scripts/config_tripwire.py` exists to prevent.
+
+Non-retrieval settings (model IDs, region, CORS) are read here, because they are
+deployment identity rather than retrieval tuning and the yaml is not their home.
+"""
 
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.retrieval_profile import (  # noqa: E402  (path set above)
+    ProfileError,
+    RetrievalProfileConfig,
+    load_profile,
+)
 
 
 class ConfigurationError(RuntimeError):
     """A setting cannot serve a request, so the process must not start.
 
     `RetrievalProfile` enforces the same bounds when it is constructed per
-    request. Enforcing them here too means a bad value fails at startup with the
-    parameter named, instead of escaping as an unhandled HTTP 500 on every query.
+    request. Enforcing them at load too means a bad value fails at startup with
+    the parameter named, instead of escaping as an unhandled HTTP 500 on every
+    query — which is exactly what `BUSINESS_WEIGHT=0.15` did in Phase 1.
     """
 
 
-# Bounds are declared next to the setting and are the same numbers
-# `service.models.RetrievalProfile` enforces. Phase 2 makes
-# `db/config/retrieval.yaml` their single source; this stops the crash.
+# Bounds for settings that are NOT retrieval tuning. Retrieval bounds live in
+# `scripts.retrieval_profile.BOUNDS`, next to the yaml path they guard.
 _NUMERIC_BOUNDS: dict[str, tuple[float, float]] = {
-    "VECTOR_DIM": (1, 4096),
-    "FTS_CANDIDATE_LIMIT": (1, 1000),
-    "TRIGRAM_CANDIDATE_LIMIT": (1, 1000),
-    "SEMANTIC_CANDIDATE_LIMIT": (1, 1000),
-    "RERANK_CANDIDATE_LIMIT": (1, 250),
-    "RRF_K": (1, 10_000),
-    "BUSINESS_WEIGHT": (0, 0.05),
-    "HNSW_EF_SEARCH": (1, 1000),
     "BEDROCK_MAX_ATTEMPTS": (1, 20),
 }
 
@@ -57,6 +68,21 @@ def _bounded(name: str, default: str, cast: type[int] | type[float]):
             f"{high}. Copying config/.env.example gives a working value."
         )
     return value
+
+
+def _retrieval_profile() -> RetrievalProfileConfig:
+    """Load the yaml-sourced profile, re-raising as a configuration failure.
+
+    Callers of `get_settings` catch `ConfigurationError`; a `ProfileError`
+    escaping from here would bypass that handling and read as a crash rather
+    than a misconfiguration.
+    """
+    try:
+        return load_profile()
+    except ProfileError as error:
+        raise ConfigurationError(
+            f"db/config/retrieval.yaml does not yield a usable profile: {error}"
+        ) from error
 
 
 @dataclass(frozen=True)
@@ -102,10 +128,11 @@ def get_settings() -> Settings:
         ).split(",")
         if value.strip()
     )
+    profile = _retrieval_profile()
     return Settings(
         database_url=os.getenv("DATABASE_URL"),
         aws_region=os.getenv("BEDROCK_REGION", os.getenv("AWS_REGION", "us-east-1")),
-        vector_dimension=_bounded("VECTOR_DIM", "1024", int),
+        vector_dimension=profile.vector_dimension,
         embedding_provider=os.getenv("EMBEDDING_PROVIDER", "bedrock"),
         embedding_model_id=os.getenv(
             "BEDROCK_EMBED_MODEL_ID",
@@ -125,18 +152,19 @@ def get_settings() -> Settings:
             "ALLOW_DEVELOPMENT_EMBEDDINGS",
             False,
         ),
-        # Defaults match db/config/retrieval.yaml. Changing one without the
-        # other makes the shipped profile a lie.
-        lexical_candidate_limit=_bounded("FTS_CANDIDATE_LIMIT", "120", int),
-        trigram_candidate_limit=_bounded("TRIGRAM_CANDIDATE_LIMIT", "80", int),
-        semantic_candidate_limit=_bounded("SEMANTIC_CANDIDATE_LIMIT", "150", int),
-        rerank_candidate_limit=_bounded("RERANK_CANDIDATE_LIMIT", "50", int),
-        rrf_k=_bounded("RRF_K", "60", int),
+        # Every retrieval number below comes from db/config/retrieval.yaml, with
+        # environment overrides already applied by scripts.retrieval_profile.
+        # None is restated here; that is what made three copies possible.
+        lexical_candidate_limit=profile.fts_limit,
+        trigram_candidate_limit=profile.trigram_limit,
+        semantic_candidate_limit=profile.semantic_limit,
+        rerank_candidate_limit=profile.fused_limit,
+        rrf_k=profile.rrf_k,
         # `mosaic_search.search_hybrid_rrf` fuses by reciprocal rank and adds a
-        # small business nudge. There are no per-arm weights: RRF weights by
-        # rank position, which is the point of using it.
-        business_weight=_bounded("BUSINESS_WEIGHT", "0.003", float),
-        hnsw_ef_search=_bounded("HNSW_EF_SEARCH", "100", int),
+        # small business nudge. The per-arm weights in the yaml are consumed only
+        # by Unit D's weighted comparison function, never by default retrieval.
+        business_weight=profile.business_weight,
+        hnsw_ef_search=profile.hnsw_ef_search,
         bedrock_max_attempts=_bounded("BEDROCK_MAX_ATTEMPTS", "5", int),
         cors_origins=origins,
     )

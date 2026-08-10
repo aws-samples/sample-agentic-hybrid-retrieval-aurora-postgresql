@@ -5,6 +5,11 @@ constructed per request. Before these checks existed, an out-of-range value in
 the environment was accepted by `get_settings()` and escaped as an unhandled
 HTTP 500 on every query, because `/api/search` catches `ClientError`,
 `BotoCoreError` and `RuntimeError` but not `ValidationError`.
+
+Since Phase 2 Unit C the values themselves come from `db/config/retrieval.yaml`
+via `scripts.retrieval_profile`, which enforces the same bounds at load. These
+checks assert the behavior through `get_settings`, which is the surface the
+service reads, so they stay valid regardless of where the number is stored.
 """
 
 from __future__ import annotations
@@ -44,11 +49,30 @@ def test_shipped_example_value_is_accepted_and_validates(monkeypatch):
     assert profile.business_weight == pytest.approx(0.003)
 
 
-@pytest.mark.parametrize("value", ["-0.1", "abc", ""])
+@pytest.mark.parametrize("value", ["-0.1", "abc"])
 def test_negative_and_non_numeric_values_are_refused(monkeypatch, value):
     monkeypatch.setenv("BUSINESS_WEIGHT", value)
     with pytest.raises(ConfigurationError):
         get_settings()
+
+
+def test_an_empty_override_falls_through_to_the_yaml(monkeypatch):
+    """Deliberate change in Phase 2 Unit C: `BUSINESS_WEIGHT=` is not a value.
+
+    Before the yaml became the single source, an empty variable reached
+    `float("")` and refused to start. That was right when the fallback was a
+    string literal in this module, because there was nothing else to fall back
+    to. It is wrong now: an empty override is the *absence* of an override, and
+    the value it falls through to is the validated yaml one.
+
+    The property that mattered is preserved. The Phase 1 crash was an
+    out-of-range value reaching the request path, not an empty one, and an empty
+    variable can no longer produce an unvalidated config. What it avoids is a
+    generated `.env` with an uninterpolated `BUSINESS_WEIGHT=` line taking the
+    whole API down over a setting the yaml already answers.
+    """
+    monkeypatch.setenv("BUSINESS_WEIGHT", "")
+    assert get_settings().business_weight == pytest.approx(0.003)
 
 
 def test_env_example_ships_a_value_the_engine_accepts():

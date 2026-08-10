@@ -539,7 +539,10 @@ export function SearchPage() {
                   <ol className="pipeline-list">
                     <li><CircleCheck size={15} /> Full-text and pg_trgm candidates</li>
                     <li><CircleCheck size={15} /> Cohere Embed v4 semantic candidates</li>
-                    <li><CircleCheck size={15} /> Weighted RRF, k={diagnostics?.rrf_k ?? 60}</li>
+                    <li>
+                      <CircleCheck size={15} />
+                      {diagnostics ? `Reciprocal rank fusion, k=${diagnostics.rrf_k}` : "Reciprocal rank fusion"}
+                    </li>
                     <li>
                       <CircleCheck size={15} />
                       Cohere Rerank {diagnostics?.rerank_status ?? "unavailable"}

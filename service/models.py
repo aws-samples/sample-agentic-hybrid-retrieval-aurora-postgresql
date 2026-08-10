@@ -1,11 +1,29 @@
 """Typed public contracts for search, catalog inspection, and agent tools."""
+
 from __future__ import annotations
 
+import sys
+from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.retrieval_profile import load_profile  # noqa: E402  (path set above)
+
+
+def _yaml_default(field: str) -> Callable[[], Any]:
+    """Resolve one `RetrievalProfile` default from `db/config/retrieval.yaml`.
+
+    Returns a factory rather than a value so the yaml is read when a profile is
+    constructed, not when this module is imported. That keeps the file the single
+    source at runtime instead of at import time.
+    """
+    return lambda: getattr(load_profile(), field)
 
 
 Domain = Literal[
@@ -152,21 +170,43 @@ class ProductSummary(BaseModel):
 
 
 class RetrievalProfile(BaseModel):
-    """Tunables for one search. Mirrors the package's `RetrievalProfile`."""
+    """Tunables for one search.
+
+    Bounds are declared here and enforced per request. **Defaults are not
+    declared here**: they resolve from `db/config/retrieval.yaml` through
+    `scripts.retrieval_profile`, because a literal in this file would be a second
+    copy of every number and the copies are what drifted. `default_factory` runs
+    per construction rather than at import, so editing the yaml takes effect
+    without restarting an interpreter that has already imported this module.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    fts_limit: int = Field(default=120, ge=1, le=1000)
-    trigram_limit: int = Field(default=80, ge=1, le=1000)
-    semantic_limit: int = Field(default=150, ge=1, le=1000)
-    fused_limit: int = Field(default=50, ge=1, le=250)
-    result_limit: int = Field(default=12, ge=1, le=100)
-    rrf_k: int = Field(default=60, ge=1)
-    business_weight: float = Field(default=0.003, ge=0, le=0.05)
-    ef_search: int = Field(default=100, ge=1, le=1000)
+    fts_limit: int = Field(default_factory=_yaml_default("fts_limit"), ge=1, le=1000)
+    trigram_limit: int = Field(
+        default_factory=_yaml_default("trigram_limit"), ge=1, le=1000
+    )
+    semantic_limit: int = Field(
+        default_factory=_yaml_default("semantic_limit"), ge=1, le=1000
+    )
+    fused_limit: int = Field(default_factory=_yaml_default("fused_limit"), ge=1, le=250)
+    result_limit: int = Field(
+        default_factory=_yaml_default("display_limit"), ge=1, le=100
+    )
+    rrf_k: int = Field(default_factory=_yaml_default("rrf_k"), ge=1)
+    business_weight: float = Field(
+        default_factory=_yaml_default("business_weight"), ge=0, le=0.05
+    )
+    ef_search: int = Field(
+        default_factory=_yaml_default("hnsw_ef_search"), ge=1, le=1000
+    )
     iterative_scan: Literal["off", "strict_order", "relaxed_order"] = "relaxed_order"
-    max_scan_tuples: int = Field(default=20_000, ge=1)
-    scan_mem_multiplier: float = Field(default=1, ge=1)
+    max_scan_tuples: int = Field(
+        default_factory=_yaml_default("hnsw_max_scan_tuples"), ge=1
+    )
+    scan_mem_multiplier: float = Field(
+        default_factory=_yaml_default("hnsw_scan_mem_multiplier"), ge=1
+    )
 
 
 class RetrievalDiagnostics(BaseModel):

@@ -19,7 +19,16 @@ cites it rather than restating it.
 - **A gate that cannot check must fail loudly.** `CANNOT VERIFY` is a non-zero
   exit in CI-with-DSN mode. Silent skipping is how the two broken missions in
   §1 survived; the existing live tests skip when `TEST_DATABASE_URL` is unset.
-- **Aurora only.** No local databases are created for any Phase 2 work.
+- **Aurora only, now a standing policy.** No local databases exist or will
+  exist. The `us-east-1` cluster holds the only live tree; the snapshot is the
+  only restore path; every `make` bootstrap target points at Aurora. Recorded in
+  `ARTIFACTS.md` and `AGENTS.md`. This stopped being a preference when the two
+  local `catalog.*` databases were found dropped, taking Unit E's equivalence
+  baseline with them.
+- **House standards are binding for gates and probes** (`docs/house-standards.md`):
+  errors name the rule/value/fix; every assertion declares a falsifier; probes run
+  the production path; a green check is not evidence at birth; an exemption is a
+  monitored seam.
 - **Timing: 40 nominal, 45 ceiling, buffer never programmed.** Orientation, the
   three exercises and the scorecard all fit inside 40. The 40-to-45 band stays
   empty so a throttled model call or a question-heavy room has somewhere to go.
@@ -500,9 +509,36 @@ next to the setting.
 A check that **fails if any file other than `db/config/retrieval.yaml` declares
 a candidate limit, a fusion `k`, or a weight.** The module fixes today's three
 copies; the tripwire prevents the fourth. Scope: `service/`, `scripts/`,
-`config/`, `db/sql/`, `ui/src/`. SQL function parameter defaults are the one
-allowed exception and must be listed explicitly in the check, with a comment
-pointing at the yaml, because a Postgres function signature cannot read a file.
+`config/`, `db/sql/`, `db/config/`, `ui/src/`.
+
+**Exemptions are monitored seams, never blind spots.** A PostgreSQL function
+signature cannot read a file, so `db/sql/` parameter defaults are exempt from
+*declaring*. They are **not** exempt from *agreeing*: each exempted default is
+pinned to a yaml field and asserted equal to it. `CREATE INDEX ... WITH (...)`
+build parameters are exempt on the same grounds and monitored the same way. An
+exemption with no yaml counterpart must carry a written reason, checked by test.
+
+Sixteen defaults and index parameters are pinned. The drift fixtures — a second
+declaration, a drifted SQL default, a drifted index parameter — are **permanent
+tests** in `tests/test_config_tripwire.py`, not a one-time demonstration.
+
+### C1 findings, recorded
+
+The tripwire reported **9 violations on first contact**, two of which hand
+inspection had missed:
+
+- **The yaml disagreed with itself.** `rerank.candidate_limit: 30` sat in the
+  file that claims to be the single source and was read by nothing; the code path
+  uses `fusion.fused_limit: 50`. Deleted, not reconciled — an unread key is not a
+  configuration, it is a fourth copy inside the third.
+- **A hardcoded UI fallback.** `ui/src/pages/SearchPage.tsx` rendered
+  `k={diagnostics?.rrf_k ?? 60}`. A `??` fallback decides what a participant
+  reads, so it is structurally a declaration and the check treats it as one. The
+  same line also labelled unweighted RRF as "Weighted RRF"; both fixed.
+- The remaining 7 were `config/workshop.json` (6) and the evidence index's
+  `ef_construction = 160`, which is exempted with a stated reason: a smaller
+  corpus with a different recall target, not part of the product retrieval
+  profile.
 
 ### C2 — `config/workshop.json` is deleted
 
@@ -539,10 +575,30 @@ exercise 2, not as a behavior change.
 
 - A **new** function, `mosaic_search.search_hybrid_rrf_weighted`, alongside the
   unweighted one. `search_hybrid_rrf` is not modified.
-- The weighted side uses the **ported historical weights** from LOSS-3, not
-  numbers tuned for this purpose. The exercise text says so: real provenance
-  beats freshly-invented coefficients.
+- The weighted side uses the **ported historical weights** from LOSS-3, now living
+  in `db/config/retrieval.yaml` under `fusion.weights`, not numbers tuned for this
+  purpose. The exercise text says so: real provenance beats freshly-invented
+  coefficients.
 - One diagnostics endpoint returns both orderings for one query.
+
+### The flip is scheduled, not drifted into
+
+**Default behavior is unchanged in Unit C, and unchanged by Unit D's landing.**
+The decision to make weighted fusion the default is deliberately scheduled at
+**Unit D's STOP AND REPORT** — after the identical-candidate-list assertion has
+proven both functions consume the same pool. Until that report is accepted,
+`search_hybrid_rrf` stays the served path.
+
+The reason for pinning it to a named checkpoint: a flip that happens because the
+weighted function exists and looks better on one query is exactly the
+unmeasured-improvement failure this unit is structured to avoid. The existing eval
+already shows lexical beating hybrid on a judged query. Weights tuned on three
+missions would be overfitting presented as progress, and the only defence is that
+the switch requires an explicit decision at a recorded moment.
+
+This sentence exists so the flip cannot happen by drift. The same note is carried
+in `db/config/retrieval.yaml` beside the weights themselves, where anyone about to
+consume them will read it.
 
 ### Substrate pin
 
@@ -582,22 +638,50 @@ Consumers to port or delete: `scripts/run_eval.py`,
 `scripts/load_media.py`, `tests/test_sql_integration.py`, and one stale
 reference in `ui/src/showcase.test.ts`.
 
-### Definition of done
+### Substrate verdict — equivalence is impossible
 
-Not "11 files deleted". Every ported consumer produces output **proven
-equivalent** to its `catalog.*` predecessor:
+Checked before Unit C proceeded, and it invalidated this unit's original
+definition of done. **`catalog_workshop` and `catalog_codex_20260807` do not
+exist**, live Aurora has no `catalog` schema, and no dump, archive, or committed
+golden output exists anywhere in the tree. The DDL survives in git; the loaded
+state — 500,000 rows with real Cohere embeddings — does not, and the embedding
+cache is keyed to the `mosaic_*` projection.
 
-1. One **recorded equivalence run** per ported script, with the diff included in
-   the implementation report. `run_eval.py` and `benchmark_hnsw.py` feed numbers
-   the advanced lane displays; a silent behavior change in the port is forked
-   truth's last act.
-2. Where equivalence is impossible because the predecessor cannot run at all
-   (the `catalog` schema does not exist on the cluster), that is **stated
-   explicitly per script** rather than papered over, and the port is validated
-   against the live `mosaic_*` tree instead.
-3. The deleting commit message references these headers and the loss register,
-   closing the loop the in-file deprecation notes opened.
-4. No file outside `docs/` references `catalog.` after the deletion.
+So "diff the port against its predecessor" is unavailable for **all six**
+consumers. Rebuilding a baseline was considered and rejected: it resurrects a
+deliberately deprecated tree onto the live cluster, and at reduced scale the
+latency numbers would not transfer, buying a baseline that is not the real
+baseline. Full evidence, the reconciled 11-file inventory, and the per-consumer
+case table are recorded as SUBSTRATE-1 in `docs/rewrite-losses.md`.
+
+### Definition of done — correctness, replacing equivalence
+
+Not "11 files deleted", and no longer "proven equivalent":
+
+1. **Per script, a recorded correctness statement against live `mosaic_*`**: what
+   it now produces, why that output is right by named checks rather than
+   assertion, and the explicit line *"no predecessor comparison possible — both
+   `catalog.*` databases dropped 2026-08; DDL survives in git, loaded state does
+   not."*
+2. **The no-baseline risk is mitigated per script, by name.** For
+   `run_eval.py`, correctness is the golden missions' expected targets: the
+   contract gate's A2 checks are the baseline that *does* exist. For the two
+   loaders, correctness is a superseded-by pointer to the `mosaic_*` path plus
+   deletion. For the tests, retarget-or-delete with the reason stated.
+3. **`benchmark_hnsw.py` is A-MINIMAL**: ported to run against `mosaic_*`,
+   connectivity proven, and its **output contract explicitly deferred** to Phase
+   3's advanced-lane spec (`bench.runs` shape, ground-truth recall definition).
+   One sentence in the disposition record, so Phase 3 finds it waiting rather
+   than broken.
+4. **The five latent local-Postgres targets are resolved**: `db-init`,
+   `db-load`, `db-load-catalog`, `db-load-media`, `db-index` currently install or
+   read the dead tree against whatever DSN they are handed. Retarget to `mosaic_*`
+   equivalents or delete, per consumer disposition. `config/.env.example` and two
+   `README.md` `localhost` examples go the same way, per the Aurora-only policy in
+   `ARTIFACTS.md`.
+5. The deleting commit message references the in-file headers and the register,
+   closing the loop the deprecation notes opened.
+6. No file outside `docs/` references `catalog.` after the deletion.
 
 ---
 

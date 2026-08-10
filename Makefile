@@ -23,11 +23,11 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test render-sql db-install db-install-labs validate-missions lab-01 db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-init db-load db-load-catalog db-load-media db-embed db-export-embeddings db-import-embeddings db-index simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test render-sql db-install db-install-labs validate-missions validate-config lab-01 db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-init db-load db-load-catalog db-load-media db-embed db-export-embeddings db-import-embeddings db-index simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
-	validate-missions \
+	validate-missions validate-config \
 	test render-sql db-render db-prepare-mosaic db-load-catalog db-load-media \
 	db-embed simulate db-export-embeddings db-import-embeddings api-serve \
 	mcp-install
@@ -102,6 +102,14 @@ db-install-labs:
 # DSN is a loud failure instead of a silent skip.
 validate-missions:
 	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/mission_contract.py
+
+# db/config/retrieval.yaml is the single source for candidate limits, fusion k,
+# weights, and the trigram threshold. This fails if any other file declares one,
+# and asserts every exempted SQL default and index parameter equals its yaml
+# value. No database needed.
+validate-config:
+	$(PYTHON) scripts/retrieval_profile.py --check
+	$(PYTHON) scripts/config_tripwire.py
 
 # Lab 1: lexical precision and typo tolerance, against the mosaic_search tree
 # the API reads. Read-only; safe to re-run.

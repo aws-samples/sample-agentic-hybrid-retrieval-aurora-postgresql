@@ -5,6 +5,7 @@ rather than joining the normalized catalog, and records each query in
 `mosaic.search_event` / `mosaic.search_result_event` so a participant can inspect
 exactly which arm contributed which candidate.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,7 +13,7 @@ import re
 import time
 from collections.abc import Callable
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import numpy as np
 
@@ -135,8 +136,18 @@ class RetrievalService:
                 # Per-session HNSW controls. These are SET LOCAL inside the
                 # function's transaction, so one tuned query cannot leak its
                 # ef_search into the next.
+                # Every argument is cast explicitly. psycopg infers the SQL type
+                # from the Python type, so an integral float arriving as `1.0`
+                # rather than `1` resolves the `real` parameter to `double
+                # precision`, no overload matches, and every search fails with
+                # UndefinedFunction. Naming the types here makes the call
+                # independent of how the profile happens to be stored.
                 connection.execute(
-                    "SELECT mosaic_search.configure_hnsw(%s, %s, %s, %s)",
+                    """
+                    SELECT mosaic_search.configure_hnsw(
+                        %s::integer, %s::text, %s::integer, %s::real
+                    )
+                    """,
                     (
                         profile.ef_search,
                         profile.iterative_scan,
@@ -204,7 +215,9 @@ class RetrievalService:
                         raise RuntimeError("The reranker returned no valid results")
                     rerank_status = "applied" if rerank_scores else "unavailable"
                     if not rerank_scores:
-                        warnings.append("Reranking returned no scores; fused order kept.")
+                        warnings.append(
+                            "Reranking returned no scores; fused order kept."
+                        )
                 except Exception:
                     if self.settings.rerank_required:
                         raise
@@ -336,9 +349,7 @@ class RetrievalService:
                 strategy=STRATEGY,
                 embedding_model_id=self._embedder().model_id,
                 embedding_dimensions=self.settings.embedding_dimensions,
-                rerank_model_id=(
-                    self._reranker().model_id if request.rerank else None
-                ),
+                rerank_model_id=(self._reranker().model_id if request.rerank else None),
                 rerank_status=rerank_status,
                 retrieval_profile=profile,
                 candidate_counts=candidate_counts,

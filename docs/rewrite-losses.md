@@ -1,19 +1,33 @@
-# Rewrite loss register
+# Truth register
 
-Append-only. Capabilities that existed in the `catalog.*` tree and did not
-survive the rewrite to `mosaic_*`, plus one measurement question that the
-rewrite raised and closed.
+Append-only. Facts about this system that would otherwise live only in
+conversation: capabilities lost in the rewrite from `catalog.*` to `mosaic_*`,
+measurement questions the rewrite raised, and claims the codebase made that
+turned out to be false.
 
-This file exists because three decisions lived in conversation rather than in
-files, and a later session could not cite them. Every entry states the
-substance, the evidence, and **what would have caught it** — because in every
-case the answer is an assertion or a gate that did not exist.
+**Charter widened 2026-08-10, recorded rather than done silently.** The file was
+"rewrite loss register". LOSS-5 does not fit that title — it is not a lost
+capability but an arm a mission *claimed* and never had, so nothing was lost
+because nothing was ever there. The two candidate placements were a separate
+corrections section or a wider charter. Wider charter, because the file's actual
+function was never "losses": it is the record of things that a later session
+could not otherwise cite, and every entry already answers the same three
+questions. A corrections section would have created a placement argument for
+every future entry and split the `LOSS-n` numbering that other documents cite. The
+`LOSS-` prefix is kept for exactly that reason — the identifiers are referenced
+from `docs/superpowers/specs/`, `db/config/retrieval.yaml`, and commit messages,
+and renaming them to buy a tidier title would break more than it fixes.
+
+Every entry states the substance, the evidence, and **what would have caught
+it** — because in nearly every case the answer is an assertion or a gate that did
+not exist.
 
 Entries are never edited to hide a mistake. Corrections are appended to the
 entry with a date.
 
 All measurements below were taken against the live 500,000-product Aurora
-PostgreSQL 18.3 cluster (`mosaic_catalog`), read-only unless stated.
+PostgreSQL 18.3 cluster (`mosaic_catalog`), read-only unless stated. There is no
+local database; see `ARTIFACTS.md`.
 
 ---
 
@@ -165,6 +179,29 @@ already holds the live values.
 Unit C adds it. Without one, a fourth copy is inevitable — there were three when
 Phase 2 began, agreeing only by luck.
 
+**Resolved 2026-08-10, Phase 2 Unit C.** `scripts/retrieval_profile.py` now parses
+the yaml and supplies every retrieval number to `service/config.py` and
+`service/models.py`; no default is restated in code, and a missing key is a named
+startup failure rather than a silent fallback. The three weights above are ported
+**by key name** into `fusion.weights`. `business_signals: 0.15` is not ported and
+never enters fusion; `trigram_similarity_threshold: 0.24` is not ported and the
+live `0.20` is now *declared* in the yaml as `candidate_generation.trigram_threshold`
+and asserted equal to the SQL literal. `config/workshop.json` is deleted.
+
+`scripts/config_tripwire.py` enforces the rule and was proven red at birth on all
+three of its failure modes: a second declaration, a drifted SQL parameter default,
+and a drifted index build parameter. The fixtures are permanent tests in
+`tests/test_config_tripwire.py`, not a one-time demonstration.
+
+Two findings the tripwire produced that hand inspection had missed. First, the
+yaml *itself* carried a fourth disagreeing copy: `rerank.candidate_limit: 30`,
+read by nothing, while the code path uses `fusion.fused_limit: 50`. The file that
+claimed to be the single source disagreed with itself, and the unread key is
+deleted rather than reconciled. Second, `ui/src/pages/SearchPage.tsx` rendered
+`k={diagnostics?.rrf_k ?? 60}` — a hardcoded fallback that decides what a
+participant reads, on a line that also mislabelled unweighted RRF as "Weighted
+RRF". Both fixed.
+
 ---
 
 ## LOSS-4 — the MATERIALIZED question (closed, not a defect)
@@ -216,6 +253,79 @@ re-proves the substrate on every call rather than trusting this record.
 
 **What would have caught it.** An assertion that arm ranks reaching fusion equal
 arm ranks in isolation. Unit D's endpoint becomes that assertion.
+
+---
+
+## SUBSTRATE-1 — the `catalog.*` databases are gone; equivalence is impossible
+
+Recorded 2026-08-10 as Unit E's pre-flight receipt. Not a loss of capability: a
+loss of the **ability to verify** one.
+
+**Verified.** `catalog_workshop` and `catalog_codex_20260807` do not exist. The
+local server lists `coffee`, `postgres`, `template0`, `template1` and nothing
+else. Live Aurora has `mosaic`, `mosaic_bench`, `mosaic_eval`, `mosaic_search`,
+`mosaic_stage`, `public` — no `catalog` schema. No dump, no archive, and no
+committed golden output exists anywhere in the tree; the one committed benchmark
+artifact (`data/benchmarks/scale_projection.csv`) is output from
+`simulate_scale.py`, which never touched `catalog.*`.
+
+The DDL survives in `sql/` — `01_schema.sql` still declares
+`CREATE SCHEMA IF NOT EXISTS catalog`. The **loaded state** does not: 500,000 rows
+with real Cohere embeddings, unreconstructible without re-embedding, and the
+existing embedding cache is keyed to the `mosaic_*` projection.
+
+**Consequence.** "Diff the ported script against its predecessor" is unavailable
+for every consumer — not because the code is missing but because the data it read
+is. Unit E's definition of done is therefore a recorded **correctness** statement
+against live `mosaic_*`, with the no-baseline risk named per script, replacing
+equivalence. Rebuilding a `catalog.*` baseline was considered and rejected: it
+would resurrect a deliberately deprecated tree onto the live cluster, and at any
+reduced scale the latency numbers would not transfer, so it buys a baseline that
+is not the real baseline.
+
+### `sql/` inventory — 11 files, reconciled
+
+The earlier count of 10 predates `08_benchmark_schema.sql` being noticed. Git
+confirms 11 tracked files.
+
+| File | Defines | Superseded by |
+|---|---|---|
+| `00_extensions.sql` | extensions | `db/sql/00_extensions.sql` |
+| `01_schema.sql` | `catalog`, `catalog_stage`, `catalog_eval` + tables | `db/sql/01`–`06` |
+| `02_load_catalog.sql` | catalog COPY path | `db/sql/17_load_normalized_catalog.sql` |
+| `02_load_media.sql` | media COPY path | `db/sql/04_media.sql`, `15_load_premium_cohort.sql` |
+| `02_upsert_from_stage.sql` | stage → live upsert | `db/sql/17` |
+| `03_indexes.sql` | catalog indexes | `db/sql/07_indexes.sql`, `08_indexes_concurrent.sql` |
+| `04_search_functions.sql` | `catalog.search_lexical/trigram/vector/hybrid_rrf` | `db/sql/09_search_functions.sql` |
+| `05_typo_tolerance_lab.sql` | trigram lab | `db/sql/lab_01_typo_tolerance.sql` |
+| `06_hnsw_performance_lab.sql` | HNSW lab + `product_ce_embedding_hnsw_idx` | `db/sql/08_indexes_concurrent.sql` + advanced lane |
+| `07_load_reviews_and_evals.sql` | reviews, eval seed | `db/sql/11_evaluation.sql` |
+| `08_benchmark_schema.sql` | `catalog_bench`, `catalog_bench.vector_item` | `db/sql/13_benchmark.sql` |
+
+### Consumer disposition — case per consumer
+
+Case assignments follow the verdict above rather than preceding it. Case 1
+(predecessor runs, diff recorded) is **unavailable for all six**.
+
+| Consumer | Touches | Case | Correctness bar |
+|---|---|---|---|
+| `scripts/run_eval.py` | `catalog.search_hybrid_rrf`; reads `queries.jsonl` | **3** — runs, output untrustworthy | the golden missions' expected targets. The contract gate's `A2` checks are the baseline that *does* exist, so correctness is stated against them, not against the old output |
+| `scripts/benchmark_hnsw.py` | `catalog.product` | **3** — A-MINIMAL | ported to run against `mosaic_*`, connectivity proven. **Output contract deferred to Phase 3's advanced-lane spec** (`bench.runs` shape, ground-truth recall definition), so Phase 3 finds it waiting rather than broken |
+| `scripts/load_catalog.py` | `catalog.product`, `catalog_stage.product_raw` | **2** | superseded-by pointer to `db/sql/17_load_normalized_catalog.sql` + `make db-load-mosaic`, then deleted |
+| `scripts/load_media.py` | `catalog.product_media`, `catalog_stage.product_media_raw` | **2** | superseded-by pointer to `db/sql/04_media.sql` + `15_load_premium_cohort.sql`, then deleted |
+| `tests/test_sql_integration.py` | 4 `catalog.*` functions | **2** | already skips (no `TEST_DATABASE_URL`); retarget to `mosaic_search` or delete, reason stated |
+| `ui/src/showcase.test.ts` | `catalog.facets`, `catalog.products` in a string | **2** | stale string, not a live call; delete the reference |
+
+**Also in Unit E's scope, found during this pre-flight.** Five Makefile targets
+still install or read the dead tree and would apply it to whatever DSN they are
+handed: `db-init` (runs `sql/00` + `sql/01`), `db-load`, `db-load-catalog`,
+`db-load-media`, `db-index` (runs `sql/03`). Plus `config/.env.example` and two
+`README.md` examples still show a `localhost` DSN, which the Aurora-only policy
+in `ARTIFACTS.md` forbids.
+
+**What would have caught it.** Nothing tracked which databases held
+irreplaceable state. `ARTIFACTS.md` now does, and records that the snapshot is
+the only restore path.
 
 ---
 
