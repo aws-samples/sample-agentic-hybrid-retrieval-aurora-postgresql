@@ -77,16 +77,21 @@ The validation contract rejects:
 ## Database Baseline
 
 ```bash
-export DATABASE_URL='postgresql://postgres:postgres@localhost:5432/catalog_workshop'
-make db-init
-make db-load
-make db-index
+export DATABASE_URL='postgresql://postgres:postgres@localhost:5432/mosaic_catalog'
+make db-install
+make db-prepare-mosaic
+make db-load-mosaic
+make db-embed
+make db-index-concurrent
+make db-load-cohort
+make db-smoke
 ```
 
-`make db-load` loads both the three catalog shards and the governed 500K
-product-media mapping. The six Mosaic showcase products retain their approved
-Mosaic identities and assets; the rest of the catalog uses curated or
-category-appropriate local media.
+`make db-prepare-mosaic` transforms the three checked-in domain shards into the
+normalized catalog shape and renders the governed 120-product merchandising
+cohort. The six Mosaic showcase products retain their approved identities and
+assets; the rest of the catalog uses curated or category-appropriate local
+media.
 
 The SQL baseline owns full-text search, trigram matching, metadata filters,
 pgvector retrieval, and RRF. The workshop indexing, query, and evaluation paths
@@ -94,12 +99,43 @@ all use Cohere Embed v4 (`us.cohere.embed-v4:0`) through Amazon Bedrock with
 1,024-dimensional vectors. Hash embeddings require explicit development opt-in;
 they are not workshop results and must not be used for semantic-quality claims.
 
+### Reuse the real embedding load
+
+After all 500,000 Cohere Embed v4 vectors are ready, export a reusable,
+content-addressed cache:
+
+```bash
+make db-export-embeddings DATABASE_URL="$DATABASE_URL"
+```
+
+The ignored `build/embedding-cache/` directory contains resumable
+10,000-product float32 NPZ shards and a SHA-256 manifest. Store that directory
+under a private S3 prefix available to the Workshop Studio bootstrap role,
+rather than Git. A fresh provision downloads the artifact and runs the complete
+Mosaic bootstrap without invoking the embedding model:
+
+```bash
+make db-fetch-embeddings \
+  EMBEDDING_CACHE_URI=s3://example-workshop-assets/mosaic/embedding-cache/
+make db-bootstrap-cached \
+  DATABASE_URL="$DATABASE_URL" \
+  EMBEDDING_CACHE_MANIFEST=build/embedding-cache/manifest.json
+```
+
+Changed or missing products fail the import instead of silently receiving stale
+vectors. Run the normal embedding job afterward only when the catalog or model
+space intentionally changes. A manual Aurora cluster snapshot is the faster
+same-account restore option because it also preserves the HNSW index. The S3
+cache is the portable cross-account option for Workshop Studio account pools;
+keep the snapshot private unless specific target accounts are approved for
+restore access.
+
 ## Local Application
 
 Start the API and React application in separate terminals:
 
 ```bash
-export DATABASE_URL='postgresql://postgres:postgres@localhost:5432/catalog_workshop'
+export DATABASE_URL='postgresql://postgres:postgres@localhost:5432/mosaic_catalog'
 make api-serve
 ```
 

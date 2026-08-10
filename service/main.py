@@ -121,8 +121,10 @@ def get_catalog_products(
     min_price_cents: int | None = Query(default=None, ge=0),
     max_price_cents: int | None = Query(default=None, ge=0),
     min_rating: float | None = Query(default=None, ge=0, le=5),
+    include_refurbished: bool = True,
+    include_sponsored: bool = True,
     offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=24, ge=1, le=60),
+    limit: int = Query(default=12, ge=1, le=60),
     sort: str = "featured",
 ) -> CatalogPage:
     try:
@@ -135,6 +137,8 @@ def get_catalog_products(
             min_price_cents=min_price_cents,
             max_price_cents=max_price_cents,
             min_rating=min_rating,
+            include_refurbished=include_refurbished,
+            include_sponsored=include_sponsored,
         )
     except ValueError as error:
         raise HTTPException(422, str(error)) from error

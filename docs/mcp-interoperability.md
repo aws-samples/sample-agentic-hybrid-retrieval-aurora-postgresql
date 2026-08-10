@@ -53,7 +53,7 @@ persists a new retrieval run for diagnostics and replay.
 Start the canonical API:
 
 ```bash
-export DATABASE_URL='postgresql:///catalog_workshop'
+export DATABASE_URL='postgresql:///mosaic_catalog'
 uvicorn service.main:app --host 127.0.0.1 --port 8000
 ```
 

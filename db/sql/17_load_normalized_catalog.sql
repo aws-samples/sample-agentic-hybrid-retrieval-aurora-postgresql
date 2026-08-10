@@ -17,6 +17,11 @@
   \set offers_path 'build/normalized/offers.csv.gz'
 \endif
 
+\setenv MOSAIC_BRANDS_PATH :brands_path
+\setenv MOSAIC_CATEGORIES_PATH :categories_path
+\setenv MOSAIC_PRODUCTS_PATH :products_path
+\setenv MOSAIC_OFFERS_PATH :offers_path
+
 CREATE TEMP TABLE brand_stage (
     brand_id text, brand_key text, display_name text, is_synthetic text, metadata text
 );
@@ -40,10 +45,10 @@ CREATE TEMP TABLE offer_stage (
     offer_metadata text, effective_at text
 );
 
-\copy brand_stage FROM PROGRAM 'gzip -dc ' :'brands_path' WITH (FORMAT csv, HEADER true)
-\copy category_stage FROM PROGRAM 'gzip -dc ' :'categories_path' WITH (FORMAT csv, HEADER true)
-\copy product_stage FROM PROGRAM 'gzip -dc ' :'products_path' WITH (FORMAT csv, HEADER true)
-\copy offer_stage FROM PROGRAM 'gzip -dc ' :'offers_path' WITH (FORMAT csv, HEADER true)
+\copy brand_stage FROM PROGRAM 'gzip -dc "$MOSAIC_BRANDS_PATH"' WITH (FORMAT csv, HEADER true)
+\copy category_stage FROM PROGRAM 'gzip -dc "$MOSAIC_CATEGORIES_PATH"' WITH (FORMAT csv, HEADER true)
+\copy product_stage FROM PROGRAM 'gzip -dc "$MOSAIC_PRODUCTS_PATH"' WITH (FORMAT csv, HEADER true)
+\copy offer_stage FROM PROGRAM 'gzip -dc "$MOSAIC_OFFERS_PATH"' WITH (FORMAT csv, HEADER true)
 
 INSERT INTO mosaic.brand (brand_id, brand_key, display_name, is_synthetic, metadata)
 OVERRIDING SYSTEM VALUE

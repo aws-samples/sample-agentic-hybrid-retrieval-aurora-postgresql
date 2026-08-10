@@ -27,6 +27,45 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(request.profile.semantic_limit, 150)
         self.assertEqual(request.profile.iterative_scan, "relaxed_order")
 
+    def test_legacy_transformer_emits_semantic_category_keys(self):
+        path = ROOT / "scripts" / "transform_legacy_catalog.py"
+        spec = importlib.util.spec_from_file_location("catalog_transform_test", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        self.assertEqual(
+            module.category_key("Over-Ear Headphones"),
+            "over-ear-headphones",
+        )
+        self.assertEqual(
+            module.category_key("Cables & Adapters"),
+            "cables-adapters",
+        )
+
+    def test_legacy_transformer_namespaces_duplicate_category_keys(self):
+        path = ROOT / "scripts" / "transform_legacy_catalog.py"
+        spec = importlib.util.spec_from_file_location("catalog_transform_test", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        categories = [
+            ("consumer_electronics", "Computing", "Portable Monitors"),
+            ("home_office", "Displays", "Portable Monitors"),
+            ("consumer_electronics", "Audio", "Over-Ear Headphones"),
+        ]
+        keys = module.resolve_category_keys(categories)
+
+        self.assertEqual(keys[categories[2]], "over-ear-headphones")
+        self.assertEqual(
+            keys[categories[0]],
+            "consumer-electronics-computing-portable-monitors",
+        )
+        self.assertEqual(
+            keys[categories[1]],
+            "home-office-displays-portable-monitors",
+        )
+        self.assertEqual(len(set(keys.values())), len(categories))
+
 
 if __name__ == "__main__":
     unittest.main()

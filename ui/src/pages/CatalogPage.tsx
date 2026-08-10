@@ -97,6 +97,7 @@ const availabilityOptions: Array<{ value: Availability | ""; label: string }> = 
 type FilterSection = "categories" | "price" | "availability" | "rating";
 
 function priceFromCents(value: string | null, fallback: number) {
+  if (value === null) return fallback;
   const cents = Number(value);
   if (!Number.isFinite(cents)) return fallback;
   return Math.min(Math.max(cents / 100, 0), priceCeiling);
@@ -158,7 +159,7 @@ export function CatalogPage() {
       .then(setPage)
       .catch(() => {
         setError("");
-        setPage(showcaseCatalogPage(filters));
+        setPage(showcaseCatalogPage(filters, offset, pageSize, sort));
       })
       .finally(() => setLoading(false));
   }, [
@@ -235,7 +236,7 @@ export function CatalogPage() {
   }
 
   const catalogCategories = page?.facets.category_key ?? [];
-  const fallbackProducts = showcaseCatalogPage({}).products;
+  const fallbackProducts = showcaseCatalogPage({}, 0, 120).products;
   const recommendationPool = agent?.recommendations.length
     ? agent.recommendations
     : page?.products.length
@@ -492,12 +493,18 @@ export function CatalogPage() {
             </div>
           </div>
 
-          {loading ? <LoadingState label="Loading products" /> : null}
+          {loading && !page ? <LoadingState label="Loading products" /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
-          {!loading && !error && page ? (
-            <div className="catalog-body">
+          {!error && page ? (
+            <div
+              className={loading ? "catalog-body catalog-body-loading" : "catalog-body"}
+              aria-busy={loading}
+            >
               <div>
-                <div className={catalogView === "grid" ? "product-grid" : "product-grid product-grid-list"}>
+                <div
+                  className={catalogView === "grid" ? "product-grid catalog-page-grid" : "product-grid product-grid-list catalog-page-grid"}
+                  key={`${page.offset}-${sort}-${categoryKey ?? "all"}-${domain ?? "all"}`}
+                >
                   {page.products.map((product) => <ProductCard key={product.product_id} product={product} variant="catalog" />)}
                 </div>
                 <div className="pagination">

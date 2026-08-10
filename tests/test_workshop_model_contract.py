@@ -85,10 +85,22 @@ def test_embedding_loader_uses_typed_binary_copy():
     assert 'copy.set_types(["int8", "vector"])' in source
 
 
+def test_embedding_loader_uses_bounded_parallel_batches():
+    source = (ROOT / "scripts/embed_catalog.py").read_text()
+
+    assert "ThreadPoolExecutor(max_workers=args.workers)" in source
+    assert "--workers must be between 1 and 50" in source
+    assert "--min-product-id" in source
+    assert "--max-product-id" in source
+    assert "executor.map(embed, text_batches)" in source
+    assert "embedder.client.exceptions.ThrottlingException" in source
+
+
 def test_embedding_loader_registers_the_model_before_writing_vectors():
     source = (ROOT / "scripts/embed_catalog.py").read_text()
 
     # product_document.embedding_model_key is a foreign key to
     # mosaic.embedding_model, so an unregistered model fails at the first UPDATE.
     assert "INSERT INTO mosaic.embedding_model" in source
+    assert "is_active = EXCLUDED.is_active" in source
     assert "mosaic_search.product_document" in source

@@ -1,4 +1,6 @@
 import { productImages } from "./media";
+import mediaManifest from "../../data/media/asset_labels_120.json";
+import premiumCohort from "../../db/data/premium_cohort_120.json";
 import type {
   Availability,
   CatalogPage,
@@ -21,7 +23,18 @@ type ShowcaseSeed = {
   long_description: string;
   attributes: Record<string, string>;
   tags: string[];
+  sku?: string;
+  media_tier?: string;
+  is_flagship?: boolean;
+  is_retrieval_anchor?: boolean;
+  catalog_asset_key?: string;
+  image_source?: string;
 };
+
+type PremiumCohortRow = Omit<(typeof premiumCohort)[number], "domain"> & {
+  domain: Domain;
+};
+type MediaManifestRow = (typeof mediaManifest.products)[number];
 
 function categoryKey(value: string) {
   return value
@@ -373,10 +386,73 @@ const showcaseSeed: ShowcaseSeed[] = [
   },
 ];
 
+const authoredSeedById = new Map(
+  showcaseSeed.map((item) => [item.product_id, item]),
+);
+const mediaByProductId = new Map<number, MediaManifestRow>(
+  mediaManifest.products.map((item) => [item.product_id, item]),
+);
+const fallbackImageByDomain: Record<Domain, string> = {
+  consumer_electronics:
+    "/assets/images/mosaic/ce-over-ear-headphones-auraluxe-h9-catalog-3x2.webp",
+  running_fitness:
+    "/assets/images/mosaic/rf-carbon-racing-shoes-stride-pro-catalog-3x2.webp",
+  home_office:
+    "/assets/images/mosaic/ho-ergonomic-office-chairs-forma-ergonomic-catalog-3x2.webp",
+};
+
+function fallbackPrice(row: PremiumCohortRow) {
+  const floor = row.domain === "home_office" ? 79 : 49;
+  return floor + (Math.abs(row.product_id * 37) % 720);
+}
+
+function canonicalSeedRow(row: PremiumCohortRow): ShowcaseSeed {
+  const authored = authoredSeedById.get(row.product_id);
+  const media = mediaByProductId.get(row.product_id);
+  const imageInstalled = media?.catalog_installed ?? false;
+  const model =
+    authored?.model ?? row.merchandising_title.replace(/^Mosaic\s+/i, "");
+
+  return {
+    product_id: row.product_id,
+    model,
+    domain: row.domain,
+    category: row.category,
+    subcategory: row.subcategory,
+    price_usd: authored?.price_usd ?? fallbackPrice(row),
+    image_url:
+      imageInstalled && media
+        ? media.catalog_runtime_path
+        : fallbackImageByDomain[row.domain],
+    short_description:
+      authored?.short_description ??
+      `A premium ${row.subcategory.toLowerCase()} selection from the Mosaic ${row.category.toLowerCase()} collection.`,
+    long_description:
+      authored?.long_description ??
+      `${row.merchandising_title} is part of the fixed 120-product Mosaic workshop cohort, selected for catalog browsing and retrieval evaluation.`,
+    attributes: authored?.attributes ?? {},
+    tags: authored?.tags ?? [row.category, row.subcategory],
+    sku: row.sku,
+    media_tier: row.media_tier,
+    is_flagship: row.is_flagship,
+    is_retrieval_anchor: row.is_retrieval_anchor,
+    catalog_asset_key: media?.catalog_asset_key ?? row.catalog_asset_key,
+    image_source: imageInstalled ? "cohort-runtime" : "domain-fallback",
+  };
+}
+
+const canonicalSeed = [...(premiumCohort as PremiumCohortRow[])]
+  .sort(
+    (left, right) =>
+      left.shop_page - right.shop_page ||
+      left.shop_position - right.shop_position,
+  )
+  .map(canonicalSeedRow);
+
 function toSummary(item: ShowcaseSeed): ProductSummary {
   return {
     product_id: item.product_id,
-    sku: `MOS-${item.product_id}`,
+    sku: item.sku ?? `MOS-${item.product_id}`,
     title: `Mosaic ${item.model}`,
     short_description: item.short_description,
     domain: item.domain,
@@ -393,13 +469,16 @@ function toSummary(item: ShowcaseSeed): ProductSummary {
     inventory_count: 1,
     attributes: item.attributes,
     tags: item.tags,
-    catalog_asset_key: item.image_url.split("/").at(-1)?.replace(/\.webp$/, "") ?? null,
+    catalog_asset_key:
+      item.catalog_asset_key ??
+      item.image_url.split("/").at(-1)?.replace(/\.webp$/, "") ??
+      null,
     canonical_group_id: null,
-    media_tier: "showcase",
-    is_flagship: item.product_id < 700000,
-    is_retrieval_anchor: item.product_id < 700000,
+    media_tier: item.media_tier ?? "showcase",
+    is_flagship: item.is_flagship ?? false,
+    is_retrieval_anchor: item.is_retrieval_anchor ?? false,
     image_url: item.image_url,
-    image_source: "local-showcase-preview",
+    image_source: item.image_source ?? "local-showcase-preview",
     signals: null,
     sources: [
       {
@@ -412,29 +491,48 @@ function toSummary(item: ShowcaseSeed): ProductSummary {
   };
 }
 
-export function showcaseCatalogPage(filters: SearchFilters): CatalogPage {
-  const products = showcaseSeed
+export function showcaseCatalogPage(
+  filters: SearchFilters,
+  offset = 0,
+  limit = 12,
+  sort = "featured",
+): CatalogPage {
+  const matching = canonicalSeed
     .filter((item) => matchesFilters(item, filters))
     .map(toSummary);
-  const categories = Array.from(new Set(showcaseSeed.map((item) => categoryKey(item.subcategory))));
+  const products = [...matching];
+  if (sort === "rating") {
+    products.sort((left, right) => (right.rating ?? 0) - (left.rating ?? 0));
+  } else if (sort === "price_asc") {
+    products.sort((left, right) => left.price_cents - right.price_cents);
+  } else if (sort === "price_desc") {
+    products.sort((left, right) => right.price_cents - left.price_cents);
+  } else if (sort === "newest") {
+    products.sort((left, right) => right.product_id - left.product_id);
+  }
+  const categories = Array.from(
+    new Set(canonicalSeed.map((item) => categoryKey(item.subcategory))),
+  );
 
   return {
-    total: products.length,
-    offset: 0,
-    limit: products.length,
-    products,
+    total: matching.length,
+    offset,
+    limit,
+    products: products.slice(offset, offset + limit),
     facets: {
       category_key: categories.map((value) => ({
         value,
-        count: showcaseSeed.filter((item) => categoryKey(item.subcategory) === value).length,
+        count: canonicalSeed.filter(
+          (item) => categoryKey(item.subcategory) === value,
+        ).length,
       })),
-      brand: [{ value: "Mosaic", count: showcaseSeed.length }],
+      brand: [{ value: "Mosaic", count: canonicalSeed.length }],
     },
   };
 }
 
 export function showcaseProductDetail(productId: number): ProductDetail | null {
-  const item = showcaseSeed.find((candidate) => candidate.product_id === productId);
+  const item = canonicalSeed.find((candidate) => candidate.product_id === productId);
   if (!item) return null;
 
   const product = toSummary(item);
@@ -467,7 +565,7 @@ export function showcaseProductDetail(productId: number): ProductDetail | null {
  */
 export function showcaseSearchResponse(query: string, filters: SearchFilters): SearchResponse {
   const terms = query.toLowerCase().split(/[^a-z0-9$]+/).filter((term) => term.length > 2);
-  const scored = showcaseSeed
+  const scored = canonicalSeed
     .filter((item) => matchesFilters(item, filters))
     .map((item) => {
       const haystack = [
@@ -489,7 +587,7 @@ export function showcaseSearchResponse(query: string, filters: SearchFilters): S
 
   // With no term overlap the whole seed is shown rather than an empty page: the
   // preview cannot rank, so hiding everything would misrepresent the catalog.
-  const rows = (scored.length ? scored.map((row) => row.item) : showcaseSeed).slice(0, 8);
+  const rows = (scored.length ? scored.map((row) => row.item) : canonicalSeed).slice(0, 8);
 
   return {
     search_event_id: "local-showcase-preview",

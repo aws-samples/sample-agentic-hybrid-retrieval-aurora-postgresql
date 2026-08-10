@@ -29,6 +29,8 @@ Usage
 from __future__ import annotations
 
 import argparse
+import csv
+import hashlib
 import json
 import re
 import sys
@@ -38,6 +40,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = REPO / "data" / "media" / "asset_labels_120.json"
 RUNTIME_DIR = REPO / "ui" / "public" / "assets" / "images" / "mosaic"
+IMPORT_MANIFEST = REPO / "data" / "media" / "import_batch_2026-08-08.csv"
 
 DOMAIN_PREFIX = {
     "consumer_electronics": "ce",
@@ -66,6 +69,7 @@ def slugify(value: str) -> str:
 
 def build_labels(cohort: list[dict]) -> list[dict]:
     """Return one label record per cohort product, in cohort order."""
+    domain_sequences: Counter[str] = Counter()
     # Products sharing a subcategory need a stable discriminator. Sorting by
     # product_id first means the numbering does not shuffle between runs.
     by_subcategory: dict[tuple[str, str], list[dict]] = defaultdict(list)
@@ -78,6 +82,8 @@ def build_labels(cohort: list[dict]) -> list[dict]:
         sub_slug = slugify(subcategory)
         for index, row in enumerate(rows, start=1):
             product_id = row["product_id"]
+            domain_sequences[domain] += 1
+            asset_id = f"{prefix.upper()}-{domain_sequences[domain]:03d}"
             flagship = FLAGSHIP_SLUGS.get(product_id)
             # Non-flagships in a single-product subcategory need no number.
             if flagship:
@@ -89,6 +95,7 @@ def build_labels(cohort: list[dict]) -> list[dict]:
 
             stem = "-".join(part for part in (prefix, sub_slug, discriminator) if part)
             labels[product_id] = {
+                "asset_id": asset_id,
                 "product_id": product_id,
                 "domain": domain,
                 "category": row["category"],
@@ -103,6 +110,9 @@ def build_labels(cohort: list[dict]) -> list[dict]:
                 "asset_stem": stem,
                 "catalog_asset_key": f"{stem}-catalog-3x2",
                 "catalog_runtime": f"{stem}-catalog-3x2.webp",
+                "catalog_runtime_path": (
+                    f"/assets/images/mosaic/{stem}-catalog-3x2.webp"
+                ),
                 # Only flagships get a square detail hero; the other 114 are
                 # only ever seen in a 3:2 card frame.
                 "detail_asset_key": f"{stem}-detail-1x1" if row["is_flagship"] else None,
@@ -137,6 +147,41 @@ def report(labels: list[dict]) -> dict:
     }
 
 
+def import_provenance() -> dict[str, dict[str, str]]:
+    if not IMPORT_MANIFEST.is_file():
+        return {}
+    with IMPORT_MANIFEST.open(newline="", encoding="utf-8") as source:
+        return {
+            row["output_filename"]: row
+            for row in csv.DictReader(source)
+            if row["output_filename"]
+        }
+
+
+def attach_runtime_status(labels: list[dict]) -> None:
+    provenance = import_provenance()
+    for row in labels:
+        runtime = RUNTIME_DIR / row["catalog_runtime"]
+        row["catalog_installed"] = runtime.is_file()
+        row["catalog_sha256"] = (
+            hashlib.sha256(runtime.read_bytes()).hexdigest()
+            if runtime.is_file()
+            else None
+        )
+        imported = provenance.get(row["catalog_runtime"])
+        row["source_batch"] = imported["source_batch"] if imported else None
+        row["source_filename"] = imported["source_filename"] if imported else None
+
+        detail_name = row["detail_runtime"]
+        detail = RUNTIME_DIR / detail_name if detail_name else None
+        row["detail_installed"] = bool(detail and detail.is_file())
+        row["detail_sha256"] = (
+            hashlib.sha256(detail.read_bytes()).hexdigest()
+            if detail and detail.is_file()
+            else None
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -155,6 +200,7 @@ def main() -> int:
 
     cohort = json.loads(args.cohort.read_text())
     labels = build_labels(cohort)
+    attach_runtime_status(labels)
 
     collisions = [key for key, count in Counter(r["asset_stem"] for r in labels).items() if count > 1]
     if collisions:

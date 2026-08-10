@@ -43,6 +43,8 @@ def start_run(
     state: dict[str, Any] = {
         "agent_session_id": agent_session_id,
         "agent_turn_id": agent_turn_id,
+        # Public API compatibility: one request is one persisted agent turn.
+        "agent_run_id": agent_turn_id,
         "question": question,
         "base_filters": base_filters,
         "result_limit": result_limit,
@@ -158,7 +160,8 @@ def search_products(
 ) -> dict[str, Any]:
     """Search products with PostgreSQL hybrid retrieval and managed reranking.
 
-    Use this for each distinct part of a complex shopping question. PostgreSQL
+    Use this for one focused part of a shopping question. Use no more than two
+    searches in one agent turn. PostgreSQL
     applies hard filters inside full-text, trigram, and semantic retrieval,
     fuses arm positions with reciprocal rank fusion, and persists candidate
     signals before the reranker orders the bounded candidate pool.
@@ -224,7 +227,7 @@ def search_products(
             SearchRequest(
                 query=query,
                 filters=filters,
-                limit=max(1, min(int(limit), state["result_limit"], 12)),
+                limit=max(1, min(int(limit), state["result_limit"], 4)),
                 include_diagnostics=True,
                 rerank=True,
             )
@@ -265,7 +268,14 @@ def search_products(
         "search_event_id": str(response.search_event_id),
         "products": [_product_for_model(product) for product in response.results],
         "diagnostics": (
-            response.diagnostics.model_dump() if response.diagnostics else None
+            {
+                "strategy": response.diagnostics.strategy,
+                "rerank_status": response.diagnostics.rerank_status,
+                "candidate_counts": response.diagnostics.candidate_counts,
+                "warnings": response.diagnostics.warnings,
+            }
+            if response.diagnostics
+            else None
         ),
     }
 
@@ -474,6 +484,39 @@ def synthesize_cited_answer(
         "answer": answer,
         "citations": [citation.model_dump() for citation in citations],
     }
+
+
+def finalize_retrieved_answer(question: str) -> None:
+    """Create the validated answer if orchestration stopped after retrieval."""
+    started = perf_counter()
+    state = _state()
+    if state["answer_of_record"] is not None:
+        return
+    products = list(state["products"].values())[: min(state["result_limit"], 4)]
+    if not products:
+        raise RuntimeError("No retrieved products are available for synthesis")
+
+    answer, citations, usage = synthesize_answer(question, products)
+    state["answer_of_record"] = {
+        "answer": answer,
+        "citations": citations,
+        "recommendations": products,
+        "usage": usage,
+    }
+    _record(
+        "synthesize_cited_answer",
+        {
+            "question": question,
+            "product_ids": [product.product_id for product in products],
+            "orchestration_fallback": True,
+        },
+        started,
+        result_count=len(citations),
+        detail=(
+            "Validated cited synthesis after orchestration completed without "
+            "calling its required final tool."
+        ),
+    )
 
 
 TOOL_FUNCTIONS = (

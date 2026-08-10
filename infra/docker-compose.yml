@@ -1,18 +1,18 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg18
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: catalog
+      POSTGRES_DB: mosaic_catalog
     ports:
       - "5432:5432"
     volumes:
-      - catalog_pgdata:/var/lib/postgresql/data
+      - mosaic_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d catalog"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mosaic_catalog"]
       interval: 5s
       timeout: 5s
       retries: 20
 volumes:
-  catalog_pgdata:
+  mosaic_pgdata:

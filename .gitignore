@@ -31,6 +31,7 @@ npm-debug.log*
 # Data outputs
 /data/generated/
 /data/live/
+/build/
 
 # Runtime readiness report (bootstrap S8/S9): carries a live smoke run_id, never source
 /READINESS.md

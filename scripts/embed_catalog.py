@@ -7,11 +7,14 @@ tests. They are not valid workshop data or relevance evidence.
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import math
 import os
+import random
 import re
 import sys
+import time
 from dataclasses import replace
 from pathlib import Path
 from typing import Callable
@@ -70,7 +73,18 @@ def embedding_function(
             embedding_model_id=model_id,
         )
         embedder = BedrockEmbeddingProvider(settings)
-        return lambda texts: embedder.embed_documents(texts), model_id
+
+        def embed_documents(texts: list[str]) -> list[list[float]]:
+            for attempt in range(1, 9):
+                try:
+                    return embedder.embed_documents(texts)
+                except embedder.client.exceptions.ThrottlingException:
+                    if attempt == 8:
+                        raise
+                    time.sleep(random.uniform(1.0, min(30.0, 2.0**attempt)))
+            raise AssertionError("unreachable")
+
+        return embed_documents, model_id
 
     if not allow_development_embeddings:
         raise SystemExit(
@@ -102,7 +116,14 @@ def main() -> None:
     )
     ap.add_argument("--region", default=os.getenv("BEDROCK_REGION", "us-east-1"))
     ap.add_argument("--batch-size", type=int, default=64)
+    ap.add_argument(
+        "--workers",
+        type=int,
+        default=int(os.getenv("EMBEDDING_WORKERS", "1")),
+    )
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--min-product-id", type=int, default=1)
+    ap.add_argument("--max-product-id", type=int)
     ap.add_argument("--allow-development-embeddings", action="store_true")
     args = ap.parse_args()
     if not args.database_url:
@@ -111,8 +132,17 @@ def main() -> None:
         raise SystemExit("--dimensions must be positive")
     if args.batch_size <= 0:
         raise SystemExit("--batch-size must be positive")
+    if args.workers <= 0 or args.workers > 50:
+        raise SystemExit("--workers must be between 1 and 50")
     if args.limit is not None and args.limit <= 0:
         raise SystemExit("--limit must be positive")
+    if args.min_product_id <= 0:
+        raise SystemExit("--min-product-id must be positive")
+    if (
+        args.max_product_id is not None
+        and args.max_product_id < args.min_product_id
+    ):
+        raise SystemExit("--max-product-id must be at least --min-product-id")
 
     try:
         import numpy as np
@@ -137,14 +167,25 @@ def main() -> None:
         # unregistered model and silently fail at the first UPDATE.
         conn.execute(
             """
+            UPDATE mosaic.embedding_model
+            SET is_active = false
+            WHERE is_active
+              AND model_key <> %s
+            """,
+            (model_id,),
+        )
+        conn.execute(
+            """
             INSERT INTO mosaic.embedding_model (
-                model_key, provider, model_name, dimensions, distance_metric
+                model_key, provider, model_name, dimensions, distance_metric,
+                is_active
             )
-            VALUES (%s, %s, %s, %s, 'cosine')
+            VALUES (%s, %s, %s, %s, 'cosine', true)
             ON CONFLICT (model_key) DO UPDATE
             SET dimensions = EXCLUDED.dimensions,
                 provider = EXCLUDED.provider,
-                model_name = EXCLUDED.model_name
+                model_name = EXCLUDED.model_name,
+                is_active = EXCLUDED.is_active
             """,
             (model_id, args.provider, model_id, args.dimensions),
         )
@@ -155,64 +196,94 @@ def main() -> None:
             f"embedding vector({args.dimensions})"
             ") ON COMMIT DELETE ROWS"
         )
-        last_id = 0
+        last_id = args.min_product_id - 1
         completed = 0
-        while True:
-            if args.limit is not None and completed >= args.limit:
-                break
-            page_size = min(
-                args.batch_size,
-                args.limit - completed if args.limit is not None else args.batch_size,
-            )
-            rows = conn.execute(
-                """
-                SELECT
-                    product_id,
-                    embedding_text,
-                    encode(digest(embedding_text, 'sha256'), 'hex')
-                FROM mosaic_search.product_document
-                WHERE product_id > %s
-                  AND (
-                      embedding IS NULL
-                      OR embedding_model_key IS DISTINCT FROM %s
-                  )
-                ORDER BY product_id
-                LIMIT %s
-                """,
-                (last_id, model_id, page_size),
-            ).fetchall()
-            if not rows:
-                break
-            texts = [text for _, text, _ in rows]
-            vectors = embed(texts)
-            with conn.cursor().copy(
-                "COPY embedding_batch(product_id, embedding) "
-                "FROM STDIN (FORMAT BINARY)"
-            ) as copy:
-                copy.set_types(["int8", "vector"])
-                for (product_id, _, _), vector in zip(rows, vectors):
-                    copy.write_row(
-                        (product_id, np.asarray(vector, dtype=np.float32))
+        committed_windows = 0
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            while True:
+                if args.limit is not None and completed >= args.limit:
+                    break
+                page_size = min(
+                    args.batch_size * args.workers,
+                    (
+                        args.limit - completed
+                        if args.limit is not None
+                        else args.batch_size * args.workers
+                    ),
+                )
+                rows = conn.execute(
+                    """
+                    SELECT
+                        product_id,
+                        embedding_text,
+                        encode(digest(embedding_text, 'sha256'), 'hex')
+                    FROM mosaic_search.product_document
+                    WHERE product_id > %s
+                      AND (%s IS NULL OR product_id <= %s)
+                      AND (
+                          embedding IS NULL
+                          OR embedding_model_key IS DISTINCT FROM %s
+                      )
+                    ORDER BY product_id
+                    LIMIT %s
+                    """,
+                    (
+                        last_id,
+                        args.max_product_id,
+                        args.max_product_id,
+                        model_id,
+                        page_size,
+                    ),
+                ).fetchall()
+                if not rows:
+                    break
+                text_batches = [
+                    [text for _, text, _ in rows[offset:offset + args.batch_size]]
+                    for offset in range(0, len(rows), args.batch_size)
+                ]
+                vectors = [
+                    vector
+                    for vector_batch in executor.map(embed, text_batches)
+                    for vector in vector_batch
+                ]
+                if len(vectors) != len(rows):
+                    raise RuntimeError(
+                        f"Embedding workers returned {len(vectors)} vectors "
+                        f"for {len(rows)} products"
                     )
-            conn.execute(
-                """
-                UPDATE mosaic_search.product_document AS document
-                SET embedding = batch.embedding,
-                    embedding_model_key = %s,
-                    embedding_updated_at = clock_timestamp()
-                FROM embedding_batch AS batch
-                WHERE document.product_id = batch.product_id
-                """,
-                (model_id,),
-            )
-            conn.commit()
-            completed += len(rows)
-            last_id = rows[-1][0]
-            if completed == len(rows) or completed % max(args.batch_size * 20, 1) == 0:
-                print(f"  committed {completed:,} products; last product_id={last_id:,}")
+                with conn.cursor().copy(
+                    "COPY embedding_batch(product_id, embedding) "
+                    "FROM STDIN (FORMAT BINARY)"
+                ) as copy:
+                    copy.set_types(["int8", "vector"])
+                    for (product_id, _, _), vector in zip(rows, vectors):
+                        copy.write_row(
+                            (product_id, np.asarray(vector, dtype=np.float32))
+                        )
+                conn.execute(
+                    """
+                    UPDATE mosaic_search.product_document AS document
+                    SET embedding = batch.embedding,
+                        embedding_model_key = %s,
+                        embedding_updated_at = clock_timestamp()
+                    FROM embedding_batch AS batch
+                    WHERE document.product_id = batch.product_id
+                    """,
+                    (model_id,),
+                )
+                conn.commit()
+                completed += len(rows)
+                committed_windows += 1
+                last_id = rows[-1][0]
+                if committed_windows == 1 or committed_windows % 10 == 0:
+                    print(
+                        f"  committed {completed:,} products; "
+                        f"last product_id={last_id:,}",
+                        flush=True,
+                    )
         print(
             f"Embedded {completed:,} products with model={model_id}, "
-            f"dimensions={args.dimensions}"
+            f"dimensions={args.dimensions}, workers={args.workers}"
         )
 
 

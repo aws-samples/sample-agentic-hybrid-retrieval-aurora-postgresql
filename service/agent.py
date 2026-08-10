@@ -30,7 +30,8 @@ the bounded fused candidate set. Scores from different stages are not
 probabilities and must not be compared as though they share a scale.
 
 For a complex question:
-1. Call search_products for each distinct product need or constraint set.
+1. Use at most two focused search_products calls. Prefer one broad search when
+   the request can be answered from one ranked candidate set.
 2. Use get_product_evidence when reviews or complete specifications matter.
 3. Use compare_products when two or more retrieved options compete.
 4. Use explain_retrieval when the user asks why something ranked.
@@ -102,6 +103,24 @@ def _usage(result: Any) -> dict[str, Any]:
 
 
 class ProductDiscoveryAgent:
+    @staticmethod
+    def _finalize_if_needed(
+        request: AgentRequest,
+        state: dict[str, Any],
+    ) -> Exception | None:
+        if state["answer_of_record"] is not None or not state["products"]:
+            return None
+        try:
+            agent_tools.finalize_retrieved_answer(request.question)
+        except Exception as error:
+            logger.warning(
+                "Fallback cited synthesis failed: %s",
+                error,
+                exc_info=True,
+            )
+            return error
+        return None
+
     def _response(
         self,
         request: AgentRequest,
@@ -132,7 +151,7 @@ class ProductDiscoveryAgent:
                 sequence=item["sequence"],
                 tool=item["tool"],
                 detail=item["detail"],
-                retrieval_run_id=item.get("retrieval_run_id"),
+                retrieval_run_id=item.get("search_event_id"),
                 result_count=item.get("result_count"),
             )
             for item in state["trace"]
@@ -173,6 +192,9 @@ class ProductDiscoveryAgent:
             error = caught
             logger.warning("Strands agent loop failed: %s", caught, exc_info=True)
 
+        fallback_error = self._finalize_if_needed(request, state)
+        if error is None:
+            error = fallback_error
         self._persist(state, result, error)
         return self._response(request, state, result, error)
 
@@ -193,10 +215,13 @@ class ProductDiscoveryAgent:
         except Exception as caught:
             error = caught
             logger.warning("Strands streaming agent loop failed: %s", caught, exc_info=True)
-        finally:
-            self._persist(state, result, error)
 
-        if error is not None:
+        fallback_error = self._finalize_if_needed(request, state)
+        if error is None:
+            error = fallback_error
+        self._persist(state, result, error)
+
+        if error is not None and state["answer_of_record"] is None:
             raise error
         yield {"agent_response": self._response(request, state, result, None)}
 

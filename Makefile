@@ -6,20 +6,30 @@ BOOTSTRAP_PYTHON ?= python3.13
 PYTHON ?= $(if $(wildcard $(VENV_PYTHON)),$(VENV_PYTHON),$(BOOTSTRAP_PYTHON))
 MCP_VENV ?= mcp-server/.venv
 MCP_PYTHON ?= $(MCP_VENV)/bin/python
-DATABASE_URL ?= postgresql://postgres:postgres@localhost:5432/catalog_workshop
+DATABASE_URL ?= postgresql://postgres:postgres@localhost:5432/mosaic_catalog
 API_PORT ?= 8000
 UI_PORT ?= 5173
 
 # The Mosaic data model is vendored under db/, rendered at 1024 dimensions.
 SCHEMA_PACKAGE ?= db
 VECTOR_DIM ?= 1024
+EMBEDDING_CACHE_DIR ?= build/embedding-cache
+EMBEDDING_CACHE_MANIFEST ?= $(EMBEDDING_CACHE_DIR)/manifest.json
+EMBEDDING_CACHE_URI ?=
+MOSAIC_NORMALIZED_DIR ?= build/normalized
+MOSAIC_PREMIUM_COHORT_CSV ?= $(MOSAIC_NORMALIZED_DIR)/premium_cohort_120.csv
+MOSAIC_CATALOG_SHARDS := \
+	data/full/products_consumer_electronics.csv.gz \
+	data/full/products_running_fitness.csv.gz \
+	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test render-sql db-install db-install-labs db-render db-smoke db-index-concurrent db-load-cohort db-init db-load db-load-catalog db-load-media db-embed db-index simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test render-sql db-install db-install-labs db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-init db-load db-load-catalog db-load-media db-embed db-export-embeddings db-import-embeddings db-index simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
-	test render-sql db-render db-load-catalog db-load-media db-embed simulate \
-	api-serve mcp-install
+	test render-sql db-render db-prepare-mosaic db-load-catalog db-load-media \
+	db-embed simulate db-export-embeddings db-import-embeddings api-serve \
+	mcp-install
 
 $(PYTHON_TARGETS): check-python
 
@@ -90,15 +100,51 @@ db-render:
 	$(PYTHON) $(SCHEMA_PACKAGE)/scripts/render_dimension.py \
 		--dimension $(VECTOR_DIM) --output $(SCHEMA_PACKAGE)/sql
 
+db-prepare-mosaic:
+	$(PYTHON) $(SCHEMA_PACKAGE)/scripts/transform_legacy_catalog.py \
+		$(MOSAIC_CATALOG_SHARDS) "$(MOSAIC_NORMALIZED_DIR)"
+	$(PYTHON) scripts/export_premium_cohort.py \
+		--output "$(MOSAIC_PREMIUM_COHORT_CSV)"
+
+db-load-mosaic:
+	psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+		-v brands_path="$(MOSAIC_NORMALIZED_DIR)/brands.csv.gz" \
+		-v categories_path="$(MOSAIC_NORMALIZED_DIR)/categories.csv.gz" \
+		-v products_path="$(MOSAIC_NORMALIZED_DIR)/products.csv.gz" \
+		-v offers_path="$(MOSAIC_NORMALIZED_DIR)/offers.csv.gz" \
+		-f $(SCHEMA_PACKAGE)/sql/17_load_normalized_catalog.sql
+
 # Run after embeddings are populated.
 db-index-concurrent:
 	psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/08_indexes_concurrent.sql
 
 db-load-cohort:
-	psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/15_load_premium_cohort.sql
+	psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+		-v premium_cohort_path="$(MOSAIC_PREMIUM_COHORT_CSV)" \
+		-f $(SCHEMA_PACKAGE)/sql/15_load_premium_cohort.sql
 
 db-smoke:
 	psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/99_smoke_test.sql
+
+db-fetch-embeddings:
+	@test -n "$(EMBEDDING_CACHE_URI)" || { \
+		echo "EMBEDDING_CACHE_URI must be an s3:// prefix"; exit 2; \
+	}
+	aws s3 sync "$(EMBEDDING_CACHE_URI)" "$(EMBEDDING_CACHE_DIR)" \
+		--only-show-errors
+
+db-bootstrap-cached:
+	@test -f "$(EMBEDDING_CACHE_MANIFEST)" || { \
+		echo "Embedding cache manifest not found: $(EMBEDDING_CACHE_MANIFEST)"; \
+		exit 2; \
+	}
+	$(MAKE) db-install DATABASE_URL="$(DATABASE_URL)"
+	$(MAKE) db-prepare-mosaic
+	$(MAKE) db-load-mosaic DATABASE_URL="$(DATABASE_URL)"
+	$(MAKE) db-import-embeddings DATABASE_URL="$(DATABASE_URL)"
+	$(MAKE) db-index-concurrent DATABASE_URL="$(DATABASE_URL)"
+	$(MAKE) db-load-cohort DATABASE_URL="$(DATABASE_URL)"
+	$(MAKE) db-smoke DATABASE_URL="$(DATABASE_URL)"
 
 validate-db:
 	"$(PYTHON)" "$(SCHEMA_PACKAGE)/scripts/validate_package.py"
@@ -131,6 +177,14 @@ db-load-media:
 
 db-embed:
 	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embed_catalog.py
+
+db-export-embeddings:
+	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embedding_cache.py \
+		export --output "$(EMBEDDING_CACHE_DIR)"
+
+db-import-embeddings:
+	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embedding_cache.py \
+		import "$(EMBEDDING_CACHE_MANIFEST)"
 
 db-index:
 	psql "$(DATABASE_URL)" -f sql/03_indexes.sql

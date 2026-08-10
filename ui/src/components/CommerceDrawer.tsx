@@ -1,0 +1,526 @@
+import {
+  Check,
+  CheckCircle2,
+  ChevronLeft,
+  CreditCard,
+  LockKeyhole,
+  Minus,
+  PackageCheck,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+  ShoppingBag,
+  Trash2,
+  Truck,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  calculateOrderSummary,
+  cartProductImage,
+  type DeliveryMethod,
+  useCommerce,
+} from "../commerce";
+import { formatPrice, leafCategory } from "../format";
+
+type CheckoutStage = "cart" | "delivery" | "payment" | "review" | "complete";
+
+type DeliveryDetails = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  shippingMethod: DeliveryMethod;
+};
+
+const checkoutSteps: Array<{ stage: CheckoutStage; label: string }> = [
+  { stage: "delivery", label: "Delivery" },
+  { stage: "payment", label: "Payment" },
+  { stage: "review", label: "Review" },
+];
+
+function OrderTotals({
+  summary,
+}: {
+  summary: ReturnType<typeof calculateOrderSummary>;
+}) {
+  return (
+    <dl className="commerce-totals">
+      <div><dt>Subtotal</dt><dd>{formatPrice(summary.subtotal)}</dd></div>
+      <div>
+        <dt>Shipping</dt>
+        <dd>{summary.shipping ? formatPrice(summary.shipping) : "Complimentary"}</dd>
+      </div>
+      <div><dt>Estimated tax</dt><dd>{formatPrice(summary.tax)}</dd></div>
+      <div className="commerce-total"><dt>Total</dt><dd>{formatPrice(summary.total)}</dd></div>
+    </dl>
+  );
+}
+
+export function CommerceDrawer() {
+  const {
+    lines,
+    itemCount,
+    isCartOpen,
+    closeCart,
+    setQuantity,
+    removeItem,
+    clearCart,
+  } = useCommerce();
+  const [stage, setStage] = useState<CheckoutStage>("cart");
+  const [orderNumber, setOrderNumber] = useState("");
+  const [billingMatches, setBillingMatches] = useState(true);
+  const [delivery, setDelivery] = useState<DeliveryDetails>({
+    email: "",
+    firstName: "",
+    lastName: "",
+    address: "",
+    city: "",
+    state: "",
+    postalCode: "",
+    shippingMethod: "standard",
+  });
+  const summary = useMemo(
+    () => calculateOrderSummary(lines, delivery.shippingMethod),
+    [delivery.shippingMethod, lines],
+  );
+
+  useEffect(() => {
+    if (!isCartOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeCart();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [closeCart, isCartOpen]);
+
+  if (!isCartOpen) return null;
+
+  const activeStep = checkoutSteps.findIndex((step) => step.stage === stage);
+  const isCheckout = stage !== "cart" && stage !== "complete";
+
+  function updateDelivery(name: keyof DeliveryDetails, value: string) {
+    setDelivery((current) => ({ ...current, [name]: value }));
+  }
+
+  function finishOrder() {
+    setOrderNumber(`MOS-${Date.now().toString().slice(-8)}`);
+    setStage("complete");
+  }
+
+  function finishDemo() {
+    clearCart();
+    setStage("cart");
+    setOrderNumber("");
+    closeCart();
+  }
+
+  return (
+    <div className="commerce-layer">
+      <button
+        className="commerce-backdrop"
+        type="button"
+        aria-label="Close bag"
+        onClick={closeCart}
+      />
+      <aside
+        className="commerce-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="commerce-drawer-title"
+      >
+        <header className="commerce-drawer-header">
+          <div>
+            {stage !== "cart" && stage !== "complete" ? (
+              <button
+                className="commerce-back-button"
+                type="button"
+                aria-label="Go back"
+                onClick={() => {
+                  if (stage === "delivery") setStage("cart");
+                  if (stage === "payment") setStage("delivery");
+                  if (stage === "review") setStage("payment");
+                }}
+              >
+                <ChevronLeft size={19} />
+              </button>
+            ) : (
+              <ShoppingBag size={20} aria-hidden="true" />
+            )}
+            <span>
+              <p className="eyebrow">{isCheckout ? "Secure demo checkout" : "Mosaic shop"}</p>
+              <h2 id="commerce-drawer-title">
+                {stage === "cart" ? `Your bag (${itemCount})` : null}
+                {stage === "delivery" ? "Delivery details" : null}
+                {stage === "payment" ? "Payment" : null}
+                {stage === "review" ? "Review order" : null}
+                {stage === "complete" ? "Order confirmed" : null}
+              </h2>
+            </span>
+          </div>
+          <button
+            className="commerce-close-button"
+            type="button"
+            aria-label="Close bag"
+            onClick={closeCart}
+          >
+            <X size={20} />
+          </button>
+        </header>
+
+        {isCheckout ? (
+          <>
+            <ol className="checkout-progress" aria-label="Checkout progress">
+              {checkoutSteps.map((step, index) => (
+                <li
+                  key={step.stage}
+                  className={
+                    index < activeStep
+                      ? "complete"
+                      : index === activeStep
+                        ? "active"
+                        : ""
+                  }
+                >
+                  <span>{index < activeStep ? <Check size={12} /> : index + 1}</span>
+                  {step.label}
+                </li>
+              ))}
+            </ol>
+            <p className="demo-checkout-notice">
+              <ShieldCheck size={16} />
+              Workshop preview. No payment or order will be processed.
+            </p>
+          </>
+        ) : null}
+
+        <div className="commerce-drawer-body">
+          {stage === "cart" ? (
+            <>
+              {lines.length ? (
+                <div className="cart-lines">
+                  {lines.map(({ product, quantity }) => (
+                    <article className="cart-line" key={product.product_id}>
+                      <img src={cartProductImage(product)} alt="" />
+                      <div className="cart-line-copy">
+                        <small>{leafCategory(product.category_path)}</small>
+                        <strong>{product.model}</strong>
+                        <span>{formatPrice(product.price_cents, product.currency)}</span>
+                        <div className="cart-line-controls">
+                          <div className="quantity-stepper" aria-label={`Quantity for ${product.title}`}>
+                            <button
+                              type="button"
+                              aria-label={`Decrease ${product.title} quantity`}
+                              onClick={() => setQuantity(product.product_id, quantity - 1)}
+                            >
+                              <Minus size={14} />
+                            </button>
+                            <span aria-live="polite">{quantity}</span>
+                            <button
+                              type="button"
+                              aria-label={`Increase ${product.title} quantity`}
+                              disabled={quantity >= 9}
+                              onClick={() => setQuantity(product.product_id, quantity + 1)}
+                            >
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                          <button
+                            className="cart-remove"
+                            type="button"
+                            aria-label={`Remove ${product.title}`}
+                            onClick={() => removeItem(product.product_id)}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                      <strong>{formatPrice(product.price_cents * quantity, product.currency)}</strong>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-cart">
+                  <span><ShoppingBag size={28} /></span>
+                  <h3>Your bag is empty</h3>
+                  <p>Explore the Mosaic edit and add pieces to begin an order.</p>
+                  <button className="commerce-primary-button" type="button" onClick={closeCart}>
+                    Continue shopping
+                  </button>
+                </div>
+              )}
+
+              {lines.length ? (
+                <>
+                  <div className="shipping-progress">
+                    <Truck size={17} />
+                    <span>
+                      {summary.shipping
+                        ? `${formatPrice(7500 - summary.subtotal)} away from complimentary shipping`
+                        : "Complimentary standard shipping unlocked"}
+                    </span>
+                    <i
+                      style={{
+                        width: `${Math.min((summary.subtotal / 7500) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <OrderTotals summary={summary} />
+                </>
+              ) : null}
+            </>
+          ) : null}
+
+          {stage === "delivery" ? (
+            <form
+              className="checkout-form"
+              id="delivery-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setStage("payment");
+              }}
+            >
+              <section>
+                <h3>Contact</h3>
+                <label>
+                  Email address
+                  <input
+                    required
+                    type="email"
+                    autoComplete="email"
+                    value={delivery.email}
+                    onChange={(event) => updateDelivery("email", event.target.value)}
+                  />
+                </label>
+              </section>
+              <section>
+                <h3>Shipping address</h3>
+                <div className="checkout-field-pair">
+                  <label>
+                    First name
+                    <input
+                      required
+                      autoComplete="given-name"
+                      value={delivery.firstName}
+                      onChange={(event) => updateDelivery("firstName", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Last name
+                    <input
+                      required
+                      autoComplete="family-name"
+                      value={delivery.lastName}
+                      onChange={(event) => updateDelivery("lastName", event.target.value)}
+                    />
+                  </label>
+                </div>
+                <label>
+                  Address
+                  <input
+                    required
+                    autoComplete="street-address"
+                    value={delivery.address}
+                    onChange={(event) => updateDelivery("address", event.target.value)}
+                  />
+                </label>
+                <div className="checkout-field-triplet">
+                  <label>
+                    City
+                    <input
+                      required
+                      autoComplete="address-level2"
+                      value={delivery.city}
+                      onChange={(event) => updateDelivery("city", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    State
+                    <input
+                      required
+                      maxLength={2}
+                      autoComplete="address-level1"
+                      value={delivery.state}
+                      onChange={(event) => updateDelivery("state", event.target.value.toUpperCase())}
+                    />
+                  </label>
+                  <label>
+                    ZIP
+                    <input
+                      required
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      value={delivery.postalCode}
+                      onChange={(event) => updateDelivery("postalCode", event.target.value)}
+                    />
+                  </label>
+                </div>
+              </section>
+              <fieldset className="delivery-options">
+                <legend>Delivery method</legend>
+                <label className={delivery.shippingMethod === "standard" ? "selected" : ""}>
+                  <input
+                    type="radio"
+                    name="delivery"
+                    checked={delivery.shippingMethod === "standard"}
+                    onChange={() => updateDelivery("shippingMethod", "standard")}
+                  />
+                  <span><Truck size={18} /><b>Standard</b><small>3-5 business days</small></span>
+                  <strong>{summary.subtotal >= 7500 ? "Complimentary" : formatPrice(895)}</strong>
+                </label>
+                <label className={delivery.shippingMethod === "express" ? "selected" : ""}>
+                  <input
+                    type="radio"
+                    name="delivery"
+                    checked={delivery.shippingMethod === "express"}
+                    onChange={() => updateDelivery("shippingMethod", "express")}
+                  />
+                  <span><PackageCheck size={18} /><b>Express</b><small>1-2 business days</small></span>
+                  <strong>{formatPrice(1695)}</strong>
+                </label>
+              </fieldset>
+            </form>
+          ) : null}
+
+          {stage === "payment" ? (
+            <form
+              className="checkout-form"
+              id="payment-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setStage("review");
+              }}
+            >
+              <section>
+                <h3>Payment method</h3>
+                <p className="checkout-section-note">
+                  This checkout uses a demo card. No payment details are requested or stored.
+                </p>
+                <label className="demo-payment-card">
+                  <input type="radio" checked readOnly />
+                  <span className="payment-brand"><CreditCard size={20} /></span>
+                  <span><b>Demo Visa</b><small>Ending in 4242</small></span>
+                  <CheckCircle2 size={18} />
+                </label>
+                <div className="demo-card-preview" aria-label="Demo Visa ending in 4242">
+                  <span><CreditCard size={24} /> Mosaic</span>
+                  <strong>•••• &nbsp;•••• &nbsp;•••• &nbsp;4242</strong>
+                  <small>DEMO CARD &nbsp;&nbsp; 12/30</small>
+                </div>
+              </section>
+              <label className="checkout-checkbox">
+                <input
+                  type="checkbox"
+                  checked={billingMatches}
+                  onChange={(event) => setBillingMatches(event.target.checked)}
+                />
+                Billing address is the same as shipping
+              </label>
+              {!billingMatches ? (
+                <p className="checkout-section-note">
+                  For this preview, the demo payment method uses the shipping address.
+                </p>
+              ) : null}
+              <div className="payment-security">
+                <LockKeyhole size={17} />
+                <span><b>Protected checkout</b><small>No card data leaves this browser.</small></span>
+              </div>
+            </form>
+          ) : null}
+
+          {stage === "review" ? (
+            <div className="checkout-review">
+              <section>
+                <header><h3>Delivery</h3><button type="button" onClick={() => setStage("delivery")}>Edit</button></header>
+                <p>
+                  <strong>{delivery.firstName} {delivery.lastName}</strong><br />
+                  {delivery.address}<br />
+                  {delivery.city}, {delivery.state} {delivery.postalCode}<br />
+                  {delivery.email}
+                </p>
+              </section>
+              <section>
+                <header><h3>Payment</h3><button type="button" onClick={() => setStage("payment")}>Edit</button></header>
+                <p><CreditCard size={16} /> Demo Visa ending in 4242</p>
+              </section>
+              <section>
+                <header><h3>Items</h3><span>{itemCount} {itemCount === 1 ? "item" : "items"}</span></header>
+                <div className="review-lines">
+                  {lines.map(({ product, quantity }) => (
+                    <div key={product.product_id}>
+                      <img src={cartProductImage(product)} alt="" />
+                      <span><strong>{product.model}</strong><small>Qty {quantity}</small></span>
+                      <b>{formatPrice(product.price_cents * quantity, product.currency)}</b>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <OrderTotals summary={summary} />
+            </div>
+          ) : null}
+
+          {stage === "complete" ? (
+            <div className="checkout-complete">
+              <span><Check size={30} /></span>
+              <p className="eyebrow">Demo order {orderNumber}</p>
+              <h3>Thank you, {delivery.firstName || "shopper"}.</h3>
+              <p>
+                Your preview order is complete. No payment was charged and no order was submitted.
+              </p>
+              <div>
+                <PackageCheck size={21} />
+                <span><b>Estimated delivery</b><small>{delivery.shippingMethod === "express" ? "1-2" : "3-5"} business days</small></span>
+              </div>
+              <button className="commerce-primary-button" type="button" onClick={finishDemo}>
+                Continue shopping
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {stage !== "complete" && lines.length ? (
+          <footer className="commerce-drawer-footer">
+            {stage === "cart" ? (
+              <>
+                <button
+                  className="commerce-primary-button"
+                  type="button"
+                  onClick={() => setStage("delivery")}
+                >
+                  Checkout <LockKeyhole size={16} />
+                </button>
+                <div className="commerce-assurance-row">
+                  <span><RotateCcw size={15} /> 60-day returns</span>
+                  <span><ShieldCheck size={15} /> Secure preview</span>
+                </div>
+              </>
+            ) : null}
+            {stage === "delivery" ? (
+              <button className="commerce-primary-button" type="submit" form="delivery-form">
+                Continue to payment
+              </button>
+            ) : null}
+            {stage === "payment" ? (
+              <button className="commerce-primary-button" type="submit" form="payment-form">
+                Review order
+              </button>
+            ) : null}
+            {stage === "review" ? (
+              <button className="commerce-primary-button" type="button" onClick={finishOrder}>
+                Place demo order · {formatPrice(summary.total)}
+              </button>
+            ) : null}
+          </footer>
+        ) : null}
+      </aside>
+    </div>
+  );
+}

@@ -25,7 +25,7 @@ from service.models import (
 )
 
 _SORTS = {
-    "featured": "d.popularity_score DESC, d.quality_score DESC, d.product_id",
+    "featured": "ma.shop_page, ma.shop_position, d.product_id",
     "price_asc": "d.price_cents ASC, d.product_id",
     "price_desc": "d.price_cents DESC, d.product_id",
     "rating": "d.rating DESC NULLS LAST, d.review_count DESC, d.product_id",
@@ -96,7 +96,7 @@ def list_products(
     filters: SearchFilters,
     *,
     offset: int = 0,
-    limit: int = 24,
+    limit: int = 12,
     sort: str = "featured",
 ) -> CatalogPage:
     if sort not in _SORTS:
@@ -107,7 +107,9 @@ def list_products(
             f"""
             SELECT count(*) AS count
             FROM mosaic_search.product_document d
+            JOIN mosaic.merchandising_assignment ma USING (product_id)
             WHERE {where}
+              AND ma.shop_page IS NOT NULL
             """,
             parameters,
         ).fetchone()["count"]
@@ -117,6 +119,7 @@ def list_products(
                    media.runtime_uri AS image_url,
                    media.image_source
             FROM mosaic_search.product_document d
+            JOIN mosaic.merchandising_assignment ma USING (product_id)
             LEFT JOIN LATERAL (
                 SELECT a.runtime_uri, a.tier::text AS image_source
                 FROM mosaic.product_media pm
@@ -126,6 +129,7 @@ def list_products(
                 LIMIT 1
             ) media ON true
             WHERE {where}
+              AND ma.shop_page IS NOT NULL
             ORDER BY {_SORTS[sort]}
             OFFSET %s LIMIT %s
             """,
@@ -137,7 +141,9 @@ def list_products(
                 f"""
                 SELECT {column}::text AS value, count(*) AS count
                 FROM mosaic_search.product_document d
+                JOIN mosaic.merchandising_assignment ma USING (product_id)
                 WHERE {where}
+                  AND ma.shop_page IS NOT NULL
                 GROUP BY {column}
                 ORDER BY count(*) DESC, {column}
                 LIMIT 20

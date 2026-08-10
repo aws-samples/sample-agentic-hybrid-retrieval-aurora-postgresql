@@ -8,11 +8,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 from service import agent_tools
-from service.agent import build_agent
+from service.agent import ProductDiscoveryAgent, build_agent
 from service.config import get_settings
 from service.embeddings import BedrockEmbeddingProvider, _cohere_request
 from service.main import app
-from service.models import AgentCitation, AgentResponse, ProductSummary, SourceAttribution
+from service.models import (
+    AgentCitation,
+    AgentRequest,
+    AgentResponse,
+    ProductSummary,
+    SourceAttribution,
+)
 from service.rerank import BedrockReranker
 from service.synthesis import synthesize_cited_answer
 
@@ -194,6 +200,79 @@ def test_synthesis_rejects_citation_outside_retrieved_set():
         )
 
 
+def test_agent_finalizes_retrieved_products_when_orchestration_stops(monkeypatch):
+    citation = AgentCitation(
+        number=1,
+        product_id=101,
+        source_uri="mosaic://product/101",
+        revision="test-revision",
+        title="AuriLogic Flight ANC",
+        quote="Quiet over-ear headphones with 48-hour battery life.",
+    )
+    state = {
+        "result_limit": 4,
+        "products": {101: product()},
+        "answer_of_record": None,
+        "trace": [],
+    }
+    token = agent_tools._RUN.set(state)
+    monkeypatch.setattr(
+        agent_tools,
+        "synthesize_answer",
+        lambda *_args: ("Choose the quiet option [1].", [citation], {"totalTokens": 42}),
+    )
+    try:
+        agent_tools.finalize_retrieved_answer("What should I buy?")
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert state["answer_of_record"]["answer"] == "Choose the quiet option [1]."
+    assert state["trace"][0]["tool"] == "synthesize_cited_answer"
+    assert state["trace"][0]["arguments"]["orchestration_fallback"] is True
+
+
+def test_agent_response_uses_turn_alias_and_search_event_trace():
+    run_id = uuid4()
+    search_event_id = uuid4()
+    state = {
+        "agent_run_id": run_id,
+        "answer_of_record": {
+            "answer": "Choose the quiet option [1].",
+            "recommendations": [product()],
+            "citations": [
+                AgentCitation(
+                    number=1,
+                    product_id=101,
+                    source_uri="mosaic://product/101",
+                    revision="test-revision",
+                    title="AuriLogic Flight ANC",
+                    quote="Quiet over-ear headphones with 48-hour battery life.",
+                )
+            ],
+        },
+        "searches": [],
+        "trace": [
+            {
+                "sequence": 1,
+                "tool": "search_products",
+                "detail": "Retrieved one product.",
+                "search_event_id": search_event_id,
+                "result_count": 1,
+            }
+        ],
+    }
+
+    response = ProductDiscoveryAgent()._response(
+        AgentRequest(question="What should I buy?", result_limit=2),
+        state,
+        result=None,
+        error=None,
+    )
+
+    assert response.agent_run_id == run_id
+    assert response.trace[0].retrieval_run_id == search_event_id
+
+
 def test_strands_registers_the_read_only_product_tools():
     expected = {
         "search_products",
@@ -272,10 +351,10 @@ def test_agent_stream_forwards_strands_tool_stages_and_validated_answer(monkeypa
 def test_retrieval_sql_casts_python_values_to_the_function_contract():
     source = (ROOT / "service/retrieval.py").read_text()
 
-    # The vector width is a parameter now: the schema is rendered at whatever
-    # EMBEDDING_DIM says, and hardcoding 1024 in the SQL would silently mismatch
-    # a re-rendered schema instead of failing loudly.
-    assert "%(embedding)s::vector(%(dims)s)" in source
+    # PostgreSQL type modifiers cannot be bind parameters (`vector($1)` is a
+    # syntax error). The called function owns the rendered vector width.
+    assert "%(embedding)s::vector" in source
+    assert "::vector(%(dims)s)" not in source
     assert "%(rrf_k)s::integer" in source
     assert "%(business_weight)s::real" in source
     assert "'error_type', %s::text" in source

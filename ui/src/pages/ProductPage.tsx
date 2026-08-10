@@ -6,6 +6,7 @@ import {
   GitCompareArrows,
   RotateCcw,
   ShieldCheck,
+  ShoppingBag,
   Sparkles,
   Star,
   Truck,
@@ -13,6 +14,7 @@ import {
 import { CSSProperties, useCallback, useEffect, useState } from "react";
 import { Link, useRoute } from "wouter";
 import { api } from "../api";
+import { useCommerce } from "../commerce";
 import { MosaicMark } from "../components/MosaicMark";
 import { ProductCard } from "../components/ProductCard";
 import { ErrorState, LoadingState } from "../components/States";
@@ -24,6 +26,7 @@ import { showcaseCatalogPage, showcaseProductDetail } from "../showcase";
 type DetailTab = "overview" | "specs" | "reviews" | "evidence";
 
 export function ProductPage() {
+  const { addItem, itemQuantity } = useCommerce();
   const [, params] = useRoute("/products/:productId");
   const productId = params?.productId;
   const [product, setProduct] = useState<ProductDetail | null>(null);
@@ -87,19 +90,23 @@ export function ProductPage() {
       <Link className="back-link" href="/catalog"><ArrowLeft size={16} /> Back to catalog</Link>
       <section className="product-hero">
         <div className="product-gallery">
-          <div className="thumbnail-rail">
-            {gallery.map((image, index) => (
-              <button
-                type="button"
-                key={image}
-                className={selectedImage === image ? "active" : ""}
-                onClick={() => setSelectedImage(image)}
-                aria-label={`View product image ${index + 1}`}
-              >
-                <img src={image} alt="" />
-              </button>
-            ))}
-          </div>
+          {/* A rail with one thumbnail is a control that cannot do anything, so
+              it only renders when there is a second image to switch to. */}
+          {gallery.length > 1 ? (
+            <div className="thumbnail-rail">
+              {gallery.map((image, index) => (
+                <button
+                  type="button"
+                  key={image}
+                  className={selectedImage === image ? "active" : ""}
+                  onClick={() => setSelectedImage(image)}
+                  aria-label={`View product image ${index + 1}`}
+                >
+                  <img src={image} alt="" />
+                </button>
+              ))}
+            </div>
+          ) : null}
           <div className="product-main-image">
             <img src={selectedImage || gallery[0]} alt="" />
           </div>
@@ -143,8 +150,15 @@ export function ProductPage() {
           </div>
 
           <div className="product-cta-stack">
-            <button className="product-cta-primary" type="button">
-              Add to cart <ArrowRight size={17} />
+            <button
+              className="product-cta-primary"
+              type="button"
+              onClick={() => addItem(product)}
+            >
+              <ShoppingBag size={17} />
+              {itemQuantity(product.product_id)
+                ? `Added to cart (${itemQuantity(product.product_id)})`
+                : "Add to cart"}
             </button>
             <Link
               className="product-cta-secondary"

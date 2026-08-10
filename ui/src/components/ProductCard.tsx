@@ -1,6 +1,6 @@
-import { Check, Heart, Star } from "lucide-react";
-import { useState } from "react";
+import { Check, Heart, ShoppingBag, Star } from "lucide-react";
 import { Link } from "wouter";
+import { useCommerce } from "../commerce";
 import { formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
 import { productImage } from "../media";
 import type { ProductSummary } from "../types";
@@ -28,7 +28,14 @@ export function ProductCard({
   collectionLabels?: string[];
   variant?: "default" | "catalog";
 }) {
-  const [saved, setSaved] = useState(false);
+  const {
+    addItem,
+    isFavorite,
+    itemQuantity,
+    toggleFavorite,
+  } = useCommerce();
+  const saved = isFavorite(product.product_id);
+  const quantity = itemQuantity(product.product_id);
   const signals = product.signals;
   const productTags = product.tags.filter((tag): tag is string => typeof tag === "string");
   const tags = Array.from(new Set([...collectionLabels, ...productTags])).slice(0, 3);
@@ -44,35 +51,61 @@ export function ProductCard({
           type="button"
           aria-label={saved ? `Remove ${product.title} from saved products` : `Save ${product.title}`}
           title={saved ? "Remove saved product" : "Save product"}
-          onClick={() => setSaved((current) => !current)}
+          aria-pressed={saved}
+          onClick={() => toggleFavorite(product.product_id)}
         >
           <Heart size={18} fill={saved ? "currentColor" : "none"} />
         </button>
         <div className="product-card-body">
+          <p className="catalog-card-brand">
+            {product.brand}
+            <span>{leafCategory(product.category_path)}</span>
+          </p>
           <h3>
             <Link href={`/products/${product.product_id}`}>{product.model}</Link>
           </h3>
-          <p className="product-category">{leafCategory(product.category_path)}</p>
-          <div className="catalog-card-bottom">
-            <strong>{formatPrice(product.price_cents, product.currency)}</strong>
-            {/* No stars without reviews: the local preview seed carries a rating
-                with review_count 0, and showing it implies evidence that the
-                loaded catalog does not have. */}
+          <div className="catalog-card-evidence">
             {product.review_count && product.rating !== null ? (
-              <span>
+              <span className="catalog-card-rating">
                 <Star size={14} fill="currentColor" />
-                {product.rating.toFixed(1)}
-                {` (${product.review_count.toLocaleString()})`}
+                <b>{product.rating.toFixed(1)}</b>
+                <small>({product.review_count.toLocaleString()})</small>
               </span>
-            ) : null}
+            ) : <span className="catalog-card-rating muted">New arrival</span>}
+            <span className={isPurchasable(product.availability) ? "catalog-card-stock" : "catalog-card-stock unavailable"}>
+              <i />
+              {formatAvailability(product.availability)}
+            </span>
           </div>
-          {tags.length ? (
+          {collectionLabels.length ? (
             <div className="catalog-product-tags">
               {tags.slice(0, 1).map((tag) => (
                 <span className={collectionLabels.includes(tag) ? "match-tag" : ""} key={tag}>{tag}</span>
               ))}
             </div>
           ) : null}
+          <div className="catalog-card-buy">
+            <span>
+              <strong>{formatPrice(product.price_cents, product.currency)}</strong>
+              {product.list_price_cents > product.price_cents ? (
+                <small>{formatPrice(product.list_price_cents, product.currency)}</small>
+              ) : null}
+            </span>
+            <button
+              className={quantity ? "catalog-cart-button added" : "catalog-cart-button"}
+              type="button"
+              disabled={!isPurchasable(product.availability)}
+              aria-label={
+                quantity
+                  ? `Add another ${product.title} to cart`
+                  : `Add ${product.title} to cart`
+              }
+              onClick={() => addItem(product)}
+            >
+              {quantity ? <Check size={16} /> : <ShoppingBag size={16} />}
+              <span>{quantity ? `Added (${quantity})` : "Add to cart"}</span>
+            </button>
+          </div>
         </div>
       </article>
     );
@@ -89,7 +122,8 @@ export function ProductCard({
         type="button"
         aria-label={saved ? `Remove ${product.title} from saved products` : `Save ${product.title}`}
         title={saved ? "Remove saved product" : "Save product"}
-        onClick={() => setSaved((current) => !current)}
+        aria-pressed={saved}
+        onClick={() => toggleFavorite(product.product_id)}
       >
         <Heart size={17} fill={saved ? "currentColor" : "none"} />
       </button>

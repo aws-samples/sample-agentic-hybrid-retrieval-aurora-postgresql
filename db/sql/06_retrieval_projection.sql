@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS mosaic_search.product_document (
     canonical_group_id      text NOT NULL,
 
     price_cents             bigint NOT NULL,
+    list_price_cents        bigint NOT NULL,
+    currency                text NOT NULL,
     availability            mosaic.availability_status NOT NULL,
     inventory_count         integer NOT NULL,
     rating                  numeric(3,2),
@@ -61,6 +63,14 @@ CREATE TABLE IF NOT EXISTS mosaic_search.product_document (
     CONSTRAINT search_attributes_object CHECK (jsonb_typeof(attributes) = 'object')
 );
 
+ALTER TABLE mosaic_search.product_document
+    ADD COLUMN IF NOT EXISTS list_price_cents bigint NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS currency text NOT NULL DEFAULT 'USD';
+
+ALTER TABLE mosaic_search.product_document
+    ALTER COLUMN list_price_cents DROP DEFAULT,
+    ALTER COLUMN currency DROP DEFAULT;
+
 COMMENT ON TABLE mosaic_search.product_document IS
 'Denormalized retrieval projection. Keep common filters on the same table as the HNSW vector so filtered ANN behavior is explicit and measurable.';
 
@@ -91,7 +101,8 @@ BEGIN
     INSERT INTO mosaic_search.product_document (
         product_id, product_uid, sku, domain, category_id, category_key, category_path,
         brand_id, brand_name, model_name, title, short_description, canonical_group_id,
-        price_cents, availability, inventory_count, rating, review_count,
+        price_cents, list_price_cents, currency, availability, inventory_count,
+        rating, review_count,
         quality_score, popularity_score, freshness_score, metadata_completeness,
         is_sponsored, is_refurbished, attributes, tags, aliases, challenge_cohorts,
         media_tier, is_flagship, is_retrieval_anchor, catalog_asset_key,
@@ -113,6 +124,8 @@ BEGIN
         p.short_description,
         p.canonical_group_id,
         o.price_cents,
+        o.list_price_cents,
+        o.currency,
         o.availability,
         o.inventory_count,
         o.rating,
@@ -179,6 +192,8 @@ BEGIN
         short_description = EXCLUDED.short_description,
         canonical_group_id = EXCLUDED.canonical_group_id,
         price_cents = EXCLUDED.price_cents,
+        list_price_cents = EXCLUDED.list_price_cents,
+        currency = EXCLUDED.currency,
         availability = EXCLUDED.availability,
         inventory_count = EXCLUDED.inventory_count,
         rating = EXCLUDED.rating,

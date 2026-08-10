@@ -5,6 +5,8 @@
   \set premium_cohort_path 'data/premium_cohort_120.csv'
 \endif
 
+\setenv MOSAIC_PREMIUM_COHORT_PATH :premium_cohort_path
+
 CREATE TEMP TABLE premium_cohort_stage (
     product_id text,
     product_uid text,
@@ -25,7 +27,7 @@ CREATE TEMP TABLE premium_cohort_stage (
     challenge_cohorts text
 );
 
-\copy premium_cohort_stage FROM :'premium_cohort_path' WITH (FORMAT csv, HEADER true)
+\copy premium_cohort_stage FROM PROGRAM 'cat "$MOSAIC_PREMIUM_COHORT_PATH"' WITH (FORMAT csv, HEADER true)
 
 INSERT INTO mosaic.merchandising_assignment (
     product_id,
@@ -67,9 +69,17 @@ ON CONFLICT (product_id) DO UPDATE SET
     detail_asset_key = EXCLUDED.detail_asset_key,
     metadata = EXCLUDED.metadata;
 
-CALL mosaic_search.refresh_product_documents(
-    ARRAY(SELECT product_id::bigint FROM premium_cohort_stage)
-);
+DO $$
+DECLARE
+    cohort_product_ids bigint[];
+BEGIN
+    SELECT array_agg(product_id::bigint ORDER BY shop_page::smallint, shop_position::smallint)
+    INTO cohort_product_ids
+    FROM premium_cohort_stage;
+
+    CALL mosaic_search.refresh_product_documents(cohort_product_ids);
+END
+$$;
 
 SELECT media_tier, count(*)
 FROM mosaic.merchandising_assignment

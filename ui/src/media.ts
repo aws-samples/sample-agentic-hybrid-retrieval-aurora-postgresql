@@ -10,82 +10,32 @@ export const domainMedia: Record<Domain, string> = {
 
 type MosaicImageSet = [RegExp, string[]];
 
+/**
+ * One image per product, deliberately.
+ *
+ * These sets previously carried `-scene`/`-alt`/`-studio` companions presented
+ * as alternate shots of the same product. They are not: the files were
+ * generated in separate passes and the industrial design drifted between them,
+ * so the EchoBud S2 rail showed a stem bud in a branded rectangular case
+ * alongside stemless maroon-tipped beans in an unbranded oval one. A gallery
+ * that pairs a product with photographs of a different product is worse than a
+ * gallery with a single image, so only the shot verified to match each product
+ * is kept. Real multi-image galleries come from `product.media`, which the API
+ * owns; the gallery in ProductPage unions that in.
+ */
 const mosaicProductImageSets: MosaicImageSet[] = [
-  [
-    /\bauraluxe(?:\s+h?9)?\b/i,
-    [
-      `${ASSETS}/mosaic/auraluxe-h9.webp`,
-      `${ASSETS}/mosaic/auraluxe-h9-scene.webp`,
-      `${ASSETS}/mosaic/auraluxe-h9-alt.webp`,
-      `${ASSETS}/mosaic/auraluxe-h9-studio.webp`,
-    ],
-  ],
-  [
-    /\becho\s*bud\s*s?2\b/i,
-    [
-      `${ASSETS}/mosaic/echobud-s2.webp`,
-      `${ASSETS}/mosaic/echobud-s2-scene.webp`,
-      `${ASSETS}/mosaic/echobud-s2-alt.webp`,
-      `${ASSETS}/mosaic/echobud-s2-studio.webp`,
-    ],
-  ],
-  [
-    /\bpulse\s*one\b/i,
-    [
-      `${ASSETS}/mosaic/pulse-one.webp`,
-      `${ASSETS}/mosaic/pulse-one-scene.webp`,
-      `${ASSETS}/mosaic/pulse-one-alt.webp`,
-      `${ASSETS}/mosaic/pulse-one-studio.webp`,
-    ],
-  ],
-  [
-    /\bstride\s*pro\b/i,
-    [
-      `${ASSETS}/mosaic/stride-pro.webp`,
-      `${ASSETS}/mosaic/stride-pro-scene.webp`,
-      `${ASSETS}/mosaic/stride-pro-alt.webp`,
-      `${ASSETS}/mosaic/stride-pro-studio.webp`,
-    ],
-  ],
-  [
-    /\bforma\s*ergonomic\b/i,
-    [
-      `${ASSETS}/mosaic/forma-ergonomic-studio.webp`,
-      `${ASSETS}/mosaic/forma-ergonomic-scene.webp`,
-      `${ASSETS}/mosaic/forma-ergonomic-alt.webp`,
-      `${ASSETS}/mosaic/forma-ergonomic.webp`,
-    ],
-  ],
-  [
-    /\batelier\s*32\b/i,
-    [
-      `${ASSETS}/mosaic/atelier-32.webp`,
-      `${ASSETS}/mosaic/atelier-32-scene.webp`,
-      `${ASSETS}/mosaic/atelier-32-alt.webp`,
-      `${ASSETS}/mosaic/atelier-32-studio.webp`,
-    ],
-  ],
-  [
-    /\bmelody\s*go\b/i,
-    [`${ASSETS}/mosaic/melody-go-scene.webp`, `${ASSETS}/mosaic/melody-go-alt.webp`],
-  ],
-  [
-    /\blume\s*desk\s*lamp\b/i,
-    [
-      `${ASSETS}/mosaic/lume-desk-lamp-scene.webp`,
-      `${ASSETS}/mosaic/lume-desk-lamp-alt.webp`,
-    ],
-  ],
-  [
-    /\bcarryall\s*sleeve\b/i,
-    [`${ASSETS}/mosaic/carryall-sleeve.webp`],
-  ],
+  [/\bauraluxe(?:\s+h?9)?\b/i, [`${ASSETS}/mosaic/auraluxe-h9.webp`]],
+  [/\becho\s*bud\s*s?2\b/i, [`${ASSETS}/mosaic/echobud-s2.webp`]],
+  [/\bpulse\s*one\b/i, [`${ASSETS}/mosaic/pulse-one.webp`]],
+  [/\bstride\s*pro\b/i, [`${ASSETS}/mosaic/stride-pro.webp`]],
+  [/\bforma\s*ergonomic\b/i, [`${ASSETS}/mosaic/forma-ergonomic-studio.webp`]],
+  [/\batelier\s*32\b/i, [`${ASSETS}/mosaic/atelier-32.webp`]],
+  [/\bmelody\s*go\b/i, [`${ASSETS}/mosaic/melody-go-scene.webp`]],
+  [/\blume\s*desk\s*lamp\b/i, [`${ASSETS}/mosaic/lume-desk-lamp-scene.webp`]],
+  [/\bcarryall\s*sleeve\b/i, [`${ASSETS}/mosaic/carryall-sleeve.webp`]],
   [
     /\bflux\s*wireless\s*pad\b/i,
-    [
-      `${ASSETS}/mosaic/flux-wireless-pad-scene.webp`,
-      `${ASSETS}/mosaic/flux-wireless-pad-alt.webp`,
-    ],
+    [`${ASSETS}/mosaic/flux-wireless-pad-scene.webp`],
   ],
 ];
 

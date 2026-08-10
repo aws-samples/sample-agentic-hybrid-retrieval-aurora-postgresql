@@ -1,6 +1,8 @@
 import { Menu, Search, ShoppingBag, UserRound, X } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { useCommerce } from "../commerce";
+import { CommerceDrawer } from "./CommerceDrawer";
 import { MosaicMark } from "./MosaicMark";
 
 /**
@@ -23,6 +25,7 @@ function isActive(pathname: string, to: string) {
 
 export function Shell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const { itemCount, openCart } = useCommerce();
   const [location] = useLocation();
   const pathname = location.split("?")[0];
   const isLanding = pathname === "/" || pathname === "/discover";
@@ -66,13 +69,21 @@ export function Shell({ children }: { children: ReactNode }) {
           <button className="header-action" type="button" aria-label="Account">
             <UserRound size={18} />
           </button>
-          <button className="bag-button" type="button" aria-label="Bag">
+          <button
+            className="bag-button"
+            type="button"
+            aria-label={`Bag, ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
+            data-cart-target
+            onClick={openCart}
+          >
             <ShoppingBag size={19} />
+            {itemCount ? <span className="bag-count">{itemCount > 99 ? "99+" : itemCount}</span> : null}
           </button>
         </div>
       </header>}
 
       <main className={isLanding ? "landing-main" : undefined}>{children}</main>
+      <CommerceDrawer />
     </div>
   );
 }

@@ -71,7 +71,7 @@ function parseSseFrame(frame: string): { event: string; data: string } | null {
 export const api = {
   summary: () => request<CatalogSummary>("/api/catalog/summary"),
 
-  catalog: (filters: SearchFilters, offset = 0, limit = 24, sort = "featured") => {
+  catalog: (filters: SearchFilters, offset = 0, limit = 12, sort = "featured") => {
     const params = new URLSearchParams({
       offset: String(offset),
       limit: String(limit),

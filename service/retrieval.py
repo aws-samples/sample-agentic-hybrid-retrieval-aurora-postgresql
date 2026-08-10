@@ -153,7 +153,7 @@ class RetrievalService:
                            d.list_price_cents, d.currency, d.updated_at
                     FROM mosaic_search.search_hybrid_rrf(
                         %(query)s,
-                        %(embedding)s::vector(%(dims)s),
+                        %(embedding)s::vector,
                         %(filters)s::jsonb,
                         %(rrf_k)s::integer,
                         %(fts_limit)s::integer,
@@ -167,7 +167,6 @@ class RetrievalService:
                     {
                         "query": normalized,
                         "embedding": np.asarray(query_embedding, dtype=np.float32),
-                        "dims": self.settings.embedding_dimensions,
                         "filters": json.dumps(filters),
                         "rrf_k": profile.rrf_k,
                         "fts_limit": profile.fts_limit,
