@@ -14,8 +14,15 @@ The complete session abstract is in
 The current baseline contains the corrected catalog, evaluation assets, SQL
 retrieval layer, typed API, Cohere Embed v4 and Cohere Rerank integrations, the
 Strands agent harness, an isolated MCP 2.0 adapter, and a responsive React
-application. Deployment automation and a measured Aurora performance baseline
-remain active build phases.
+application. All 120 premium-cohort product photographs are installed.
+Deployment automation and a measured Aurora performance baseline remain active
+build phases.
+
+This repository ships nothing deliberately broken. Deliberate starter gaps live
+in the separate Workshop Studio repository;
+[`docs/intentional-gaps.md`](docs/intentional-gaps.md) records that boundary and
+the defects fixed against it, so a fixed bug is not later reclassified as an
+exercise.
 
 ## Canonical Dataset
 
@@ -74,6 +81,11 @@ The validation contract rejects:
 - a catalog shard at or above GitHub's 100 MB file limit;
 - a shard whose digest differs from the recorded quality report.
 
+Runtime settings are range-checked when they are read, so a value the engine
+cannot serve fails at startup with the parameter, the offending value, and the
+violated bound named, rather than surfacing as an HTTP 500 on every query. Copy
+`config/.env.example` to get values that validate.
+
 ## Database Baseline
 
 ```bash
@@ -98,6 +110,20 @@ pgvector retrieval, and RRF. The workshop indexing, query, and evaluation paths
 all use Cohere Embed v4 (`us.cohere.embed-v4:0`) through Amazon Bedrock with
 1,024-dimensional vectors. Hash embeddings require explicit development opt-in;
 they are not workshop results and must not be used for semantic-quality claims.
+
+The lexical arm OR-combines the query's lexemes and keeps the strict
+`websearch_to_tsquery` match as a scoring bonus. An AND-only builder makes any
+misspelled token unsatisfiable, which empties the arm on exactly the
+conversational queries the workshop uses; the strict bonus is what keeps an
+exact model-name query decisively first. Because `tsvector_to_array` discards
+`NOT`, a negation in the query requires the strict match as well, so `-wireless`
+is honored rather than inverted.
+
+Lab 1 runs read-only against that tree:
+
+```bash
+make lab-01 DATABASE_URL="$DATABASE_URL"
+```
 
 ### Reuse the real embedding load
 
@@ -146,8 +172,9 @@ make ui-dev
 Open `http://127.0.0.1:5173`. Set `API_PORT`, `UI_PORT`, or
 `CATALOG_API_PROXY` when those defaults are already occupied.
 
-Mosaic provides connected Discover, Shop, Collections, Product Detail, Mosaic
-Labs, and HNSW Performance surfaces. The source app owns the mission contract
+Mosaic provides connected Discover, Catalog, Search, Product Detail, Mosaic
+Labs, Retrieval Lab, and Performance surfaces. The source app owns the mission
+contract
 in [`data/evals/mosaic_labs_missions.json`](data/evals/mosaic_labs_missions.json):
 golden queries, ground-truth product IDs, hard filters, and evaluation
 assertions. The separate Workshop Studio repository owns participant guides,
@@ -157,10 +184,15 @@ substitute static products.
 
 ## MCP Portable Tool Contract
 
-Lab 3 includes an instructor-led MCP checkpoint over the canonical API. The
-adapter uses MCP Python SDK `2.0.0` and protocol revision `2026-07-28` to make
-the same three typed, read-only retrieval tools portable to another compatible
-agent host. The Strands runtime remains in its compatible environment:
+MCP interoperability is a self-paced appendix rather than a timed checkpoint: it
+needs a second process and an external MCP-compatible host, and its failure mode
+is environmental, which reads to a room as a broken retrieval system when it is
+not. The capability ships fully supported.
+
+The adapter uses MCP Python SDK `2.0.0` and protocol revision `2026-07-28` to
+make the same three typed, read-only retrieval tools portable to another
+compatible agent host. The Strands runtime remains in its compatible
+environment:
 
 ```bash
 make mcp-install
@@ -178,18 +210,25 @@ inspection tools. See
 ```text
 config/     Workshop and runtime configuration
 data/       Full catalog shards, samples, dictionaries, and evaluation assets
-  media/    Premium-cohort asset labels and the outstanding shot list
+  media/    Cohort asset labels, per-batch import provenance, shot list
+db/         Vendored schema package: the mosaic_* tree the application reads
+  sql/      Schema, load, index, retrieval functions, and lab SQL
 docs/       Architecture, curriculum, data, evaluation, and deployment notes
 infra/      Local PostgreSQL/pgvector development support
 scripts/    Generation, loading, embedding, benchmark, and evaluation tools
 mcp-server/ Isolated MCP 2.0 adapter over the canonical API
 service/    FastAPI, Strands tools, retrieval orchestration, and model clients
-sql/        Schema, load, index, retrieval, and lab SQL
+sql/        Superseded catalog.* tree, retained only for scripts still on it
 tests/      Dataset and contract validation
 ui/         React catalog, agent, evidence, retrieval, and performance surfaces
   public/assets/images/mosaic/   Runtime product photography, one file per
                                  cohort asset key (see data/media/)
 ```
+
+The retrieval layer the API queries lives in `db/sql/`, under the `mosaic` and
+`mosaic_search` schemas. The older `sql/` tree defines a `catalog.*` schema the
+application does not read; three scripts still target it, so it is retained
+until they move.
 
 Product photography is named by cohort asset key, not by ad-hoc slug:
 
@@ -204,6 +243,22 @@ ho-ultrawide-monitors-atelier-32-detail-1x1.webp
 `make media-labels` regenerates `data/media/asset_labels_120.json` from the
 schema package's cohort file, and `make media-shot-list` reports which images
 are still missing. See `docs/media-shot-list.md`.
+
+All 120 catalog images and all 6 flagship detail images are installed, so the
+shot list is currently empty. Import a new batch with:
+
+```bash
+SOURCE=~/Downloads/batch make media-import
+make media-shot-list
+```
+
+The importer refuses any filename that is not a cohort asset key, so a typo
+fails loudly instead of leaving the folder out of step with its manifest. Every
+batch records provenance in `data/media/import_batch_*.csv`, and each row's note
+must state what was verified **in the picture**: an early batch recorded only
+that the bytes arrived, and thirteen of its images turned out to show the wrong
+product. Nine are replaced; `docs/media-regeneration-batches.md` carries the
+generation prompt for the four still outstanding.
 
 ## Benchmarking Rule
 
