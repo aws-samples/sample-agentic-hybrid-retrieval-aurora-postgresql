@@ -23,10 +23,11 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test render-sql db-install db-install-labs lab-01 db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-init db-load db-load-catalog db-load-media db-embed db-export-embeddings db-import-embeddings db-index simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test render-sql db-install db-install-labs validate-missions lab-01 db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-init db-load db-load-catalog db-load-media db-embed db-export-embeddings db-import-embeddings db-index simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
+	validate-missions \
 	test render-sql db-render db-prepare-mosaic db-load-catalog db-load-media \
 	db-embed simulate db-export-embeddings db-import-embeddings api-serve \
 	mcp-install
@@ -94,6 +95,13 @@ db-install:
 # shows the 12 tables the application reads, not 21.
 db-install-labs:
 	cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f install_labs.sql
+
+# The mission contract gate. Shape checks always run; target checks need a DSN
+# and call mosaic_search.matches_filters on the cluster rather than
+# reimplementing filter logic. Set MISSION_GATE_REQUIRE_DB=1 in CI so a missing
+# DSN is a loud failure instead of a silent skip.
+validate-missions:
+	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/mission_contract.py
 
 # Lab 1: lexical precision and typo tolerance, against the mosaic_search tree
 # the API reads. Read-only; safe to re-run.
