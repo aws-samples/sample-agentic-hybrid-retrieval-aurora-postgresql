@@ -6,10 +6,28 @@ from the `chatgpt-2026-08-08` batch, whose manifest recorded only
 later `chatgpt-2026-08-09-*` batches recorded a per-image content check and
 audited clean, so the defect is confined to that one batch.
 
-`REGEN-B01` is **done** (imported 2026-08-09, provenance
-`import_batch_2026-08-09-regen-b01.csv`). `REGEN-B02` below is outstanding: it
-covers four more mismatches found when all 38 images of the Aug-8 batch were
-re-audited at 2.2x zoom rather than trusting the first pass.
+Both batches are **done**. `REGEN-B01` imported 2026-08-09
+(`import_batch_2026-08-09-regen-b01.csv`); `REGEN-B02` imported 2026-08-10
+(`import_batch_2026-08-10-regen-b02.csv`), covering four further mismatches
+found when all 38 images of the Aug-8 batch were re-audited at 2.2x zoom rather
+than trusting the first pass.
+
+**All 13 wrong-subject images from the `chatgpt-2026-08-08` batch are now
+replaced.** The cohort stands at 120 of 120 catalog images and 6 of 6 detail
+images, every one content-verified against its intended product.
+
+B02 generated six candidates for four slots — two duplicate pairs. Both
+rejections are recorded in the manifest with `status: rejected` and no
+`output_filename`, because the reason a candidate lost is the useful part:
+
+- the air-quality variant rendered a **legible on-screen readout**
+  (`AQI 23 Good / PM2.5 12 / CO2 680`), violating the no-text direction;
+- the chest-strap variant's sensor pod carried **embossed chevron marks** that
+  read as a brand device mark.
+
+Rejected candidates keep their original ChatGPT filenames, so the importer
+refuses them by name. That is the intended workflow: never rename a candidate
+you have not chosen.
 
 Regenerating replaces the file in place. Keep the **exact** output filename: the
 importer refuses any name that is not a cohort asset key, and the runtime reads
