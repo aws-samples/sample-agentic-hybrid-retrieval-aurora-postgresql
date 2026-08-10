@@ -1,4 +1,4 @@
-# Outstanding cohort photography — 36 images in 5 batches
+# Outstanding cohort photography — 23 images in 3 batches
 
 Regenerated after each import. **Batch IDs are recomputed from what remains,**
 so a name reused across regenerations covers different products. Always work
@@ -9,82 +9,7 @@ All outstanding images are `catalog-3x2` (**1536x1024**). Anchor batches first.
 
 ---
 
-## Batch `HO-B01` — Home office · 3 images · **1 retrieval anchor**
-
-```
-Generate 3 product photographs as one consistent catalog set.
-
-SET DIRECTION (identical for every image):
-Warm travertine and cream plaster set, soft directional daylight with leafy shadow play, muted sand and bone palette with a single deep maroon accent, product centred and sharp, shallow depth of field, no text or logos.
-
-FORMAT: 3:2 landscape, 1536x1024, one product per image, no text, no logos,
-no watermarks, no human hands.
-
-SUBJECTS:
- 1. SpaceHome AS-V398X Core Active Stool
-    category: Seating > Active Stools
- 2. ClearFrame Studio 4K Conference Webcam
-    category: Video & Audio > Conference Webcams [ANCHOR — appears on screen during the session]
- 3. SpaceForm CH-E101P Edge Conference Headset
-    category: Video & Audio > Conference Headsets
-
-Save each file with the EXACT name below, in order:
- 1. ho-active-stools-catalog-3x2.webp
- 2. ho-conference-webcams-catalog-3x2.webp
- 3. ho-conference-headsets-catalog-3x2.webp
-```
-
----
-
-## Batch `RF-B01` — Running and fitness · 10 images · **1 retrieval anchor**
-
-```
-Generate 10 product photographs as one consistent catalog set.
-
-SET DIRECTION (identical for every image):
-Warm travertine and cream plaster set, soft directional daylight with leafy shadow play, muted sand and bone palette with a single deep maroon accent, product centred and sharp, shallow depth of field, no text or logos.
-
-FORMAT: 3:2 landscape, 1536x1024, one product per image, no text, no logos,
-no watermarks, no human hands.
-
-SUBJECTS:
- 1. AeroEndurance CC-P294X Tour Cycling Computer
-    category: Wearables > Cycling Computers
- 2. EnduraOne AD-R285P Active Adjustable Dumbbell
-    category: Strength > Adjustable Dumbbells
- 3. TempoDynamics K-X215S Pro Kettlebell
-    category: Strength > Kettlebells [ANCHOR — appears on screen during the session]
- 4. TempoAthletics RB-P213 Edge Resistance Band
-    category: Strength > Resistance Bands
- 5. PulseWorks PS-S178 Air Pull-Up System
-    category: Strength > Pull-Up Systems
- 6. AtlasEndurance B&P-E800X Flex Barbells & Plate
-    category: Strength > Barbells & Plates
- 7. FlexAthletics HV-X433X Pro Hydration Vest
-    category: Hydration > Hydration Vests
- 8. CadenceAthletics MG-M879X Studio Massage Gun
-    category: Recovery > Massage Guns
- 9. TempoSport RB-N008 Pro Recovery Boot
-    category: Recovery > Recovery Boots
-10. EnduraOne CT-X823 Air Cold Therapy
-    category: Recovery > Cold Therapy
-
-Save each file with the EXACT name below, in order:
- 1. rf-cycling-computers-catalog-3x2.webp
- 2. rf-adjustable-dumbbells-catalog-3x2.webp
- 3. rf-kettlebells-catalog-3x2.webp
- 4. rf-resistance-bands-catalog-3x2.webp
- 5. rf-pull-up-systems-catalog-3x2.webp
- 6. rf-barbells-plates-catalog-3x2.webp
- 7. rf-hydration-vests-catalog-3x2.webp
- 8. rf-massage-guns-catalog-3x2.webp
- 9. rf-recovery-boots-catalog-3x2.webp
-10. rf-cold-therapy-catalog-3x2.webp
-```
-
----
-
-## Batch `RF-B02` — Running and fitness · 5 images · **1 retrieval anchor**
+## Batch `RF-B01` — Running and fitness · 5 images · **1 retrieval anchor**
 
 ```
 Generate 5 product photographs as one consistent catalog set.

@@ -1,29 +1,27 @@
 # Mosaic premium cohort — outstanding image shot list
 
-**36 images to generate** across 36 products. The 120-product cohort is fixed by the schema package; this is the subset whose runtime file is not yet installed.
+**23 images to generate** across 23 products. The 120-product cohort is fixed by the schema package; this is the subset whose runtime file is not yet installed.
 
 ## Exact domain count
 
 | Domain | Cohort | Installed | Outstanding | ChatGPT batches |
 |---|---:|---:|---:|---:|
 | Consumer electronics | 48 | 30 | 18 | 2 |
-| Running and fitness | 36 | 21 | 15 | 2 |
-| Home office and workspace | 36 | 33 | 3 | 1 |
+| Running and fitness | 36 | 31 | 5 | 1 |
+| Home office and workspace | 36 | 36 | 0 | 0 |
 
 Generate no more than 10 images per ChatGPT batch. Use the stable
 `Asset ID` in the prompt title and save the download under the exact
 `Output filename`; the importer will reject any other name.
 
-## Priority: the 3 retrieval anchors first
+## Priority: the 1 retrieval anchors first
 
 Anchors back the workshop's scripted queries and the graded relevance
 judgments, so they appear on screen during the session. Generate these
-3 before the remaining 33.
+1 before the remaining 22.
 
 | Asset ID | Subject | Output filename |
 |---|---|---|
-| `HO-020` | ClearFrame Studio 4K Conference Webcam | `ho-conference-webcams-catalog-3x2.webp` |
-| `RF-014` | TempoDynamics K-X215S Pro Kettlebell | `rf-kettlebells-catalog-3x2.webp` |
 | `RF-019` | CadencePeak MT-A621X Max Mobility Tool | `rf-mobility-tools-catalog-3x2.webp` |
 
 ## Set direction (keep constant across every shot)
@@ -153,114 +151,34 @@ filename in the tables below.
 |---|---|---|---|---|---|
 | `CE-031` | `CE-B02` | NexaGrid SC-N133S Air Security Camera | NexaGrid SC-N133S Air Security Camera | `ce-security-cameras-catalog-3x2.webp` |  |
 
-## Running and fitness (15)
-
-### Adjustable Dumbbells
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `RF-013` | `RF-B01` | EnduraOne AD-R285P Active Adjustable Dumbbell | EnduraOne AD-R285P Active Adjustable Dumbbell | `rf-adjustable-dumbbells-catalog-3x2.webp` |  |
+## Running and fitness (5)
 
 ### Balance Trainers
 
 | Asset ID | Batch | Product | Subject | Output filename | Anchor |
 |---|---|---|---|---|---|
-| `RF-020` | `RF-B02` | AeroGear BT-R031X Plus Balance Trainer | AeroGear BT-R031X Plus Balance Trainer | `rf-balance-trainers-catalog-3x2.webp` |  |
-
-### Barbells & Plates
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `RF-017` | `RF-B01` | AtlasEndurance B&P-E800X Flex Barbells & Plate | AtlasEndurance B&P-E800X Flex Barbells & Plate | `rf-barbells-plates-catalog-3x2.webp` |  |
-
-### Cold Therapy
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `RF-033` | `RF-B01` | EnduraOne CT-X823 Air Cold Therapy | EnduraOne CT-X823 Air Cold Therapy | `rf-cold-therapy-catalog-3x2.webp` |  |
-
-### Cycling Computers
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `RF-012` | `RF-B01` | AeroEndurance CC-P294X Tour Cycling Computer | AeroEndurance CC-P294X Tour Cycling Computer | `rf-cycling-computers-catalog-3x2.webp` |  |
+| `RF-020` | `RF-B01` | AeroGear BT-R031X Plus Balance Trainer | AeroGear BT-R031X Plus Balance Trainer | `rf-balance-trainers-catalog-3x2.webp` |  |
 
 ### Foam Rollers
 
 | Asset ID | Batch | Product | Subject | Output filename | Anchor |
 |---|---|---|---|---|---|
-| `RF-018` | `RF-B02` | VeloAthletics FR-E040 Tour Foam Roller | VeloAthletics FR-E040 Tour Foam Roller | `rf-foam-rollers-catalog-3x2.webp` |  |
-
-### Hydration Vests
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `RF-026` | `RF-B01` | FlexAthletics HV-X433X Pro Hydration Vest | FlexAthletics HV-X433X Pro Hydration Vest | `rf-hydration-vests-catalog-3x2.webp` |  |
-
-### Kettlebells
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `RF-014` | `RF-B01` | TempoDynamics K-X215S Pro Kettlebell | TempoDynamics K-X215S Pro Kettlebell | `rf-kettlebells-catalog-3x2.webp` | yes |
-
-### Massage Guns
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `RF-030` | `RF-B01` | CadenceAthletics MG-M879X Studio Massage Gun | CadenceAthletics MG-M879X Studio Massage Gun | `rf-massage-guns-catalog-3x2.webp` |  |
+| `RF-018` | `RF-B01` | VeloAthletics FR-E040 Tour Foam Roller | VeloAthletics FR-E040 Tour Foam Roller | `rf-foam-rollers-catalog-3x2.webp` |  |
 
 ### Mobility Tools
 
 | Asset ID | Batch | Product | Subject | Output filename | Anchor |
 |---|---|---|---|---|---|
-| `RF-019` | `RF-B02` | CadencePeak MT-A621X Max Mobility Tool | CadencePeak MT-A621X Max Mobility Tool | `rf-mobility-tools-catalog-3x2.webp` | yes |
+| `RF-019` | `RF-B01` | CadencePeak MT-A621X Max Mobility Tool | CadencePeak MT-A621X Max Mobility Tool | `rf-mobility-tools-catalog-3x2.webp` | yes |
 
 ### Pilates Accessories
 
 | Asset ID | Batch | Product | Subject | Output filename | Anchor |
 |---|---|---|---|---|---|
-| `RF-021` | `RF-B02` | FlexMotion PA-P245X Edge Pilates Accessorie | FlexMotion PA-P245X Edge Pilates Accessorie | `rf-pilates-accessories-catalog-3x2.webp` |  |
-
-### Pull-Up Systems
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `RF-016` | `RF-B01` | PulseWorks PS-S178 Air Pull-Up System | PulseWorks PS-S178 Air Pull-Up System | `rf-pull-up-systems-catalog-3x2.webp` |  |
-
-### Recovery Boots
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `RF-031` | `RF-B01` | TempoSport RB-N008 Pro Recovery Boot | TempoSport RB-N008 Pro Recovery Boot | `rf-recovery-boots-catalog-3x2.webp` |  |
-
-### Resistance Bands
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `RF-015` | `RF-B01` | TempoAthletics RB-P213 Edge Resistance Band | TempoAthletics RB-P213 Edge Resistance Band | `rf-resistance-bands-catalog-3x2.webp` |  |
+| `RF-021` | `RF-B01` | FlexMotion PA-P245X Edge Pilates Accessorie | FlexMotion PA-P245X Edge Pilates Accessorie | `rf-pilates-accessories-catalog-3x2.webp` |  |
 
 ### Running Pods
 
 | Asset ID | Batch | Product | Subject | Output filename | Anchor |
 |---|---|---|---|---|---|
-| `RF-011` | `RF-B02` | TempoPeak RP-K910X Pro Running Pod | TempoPeak RP-K910X Pro Running Pod | `rf-running-pods-catalog-3x2.webp` |  |
-
-## Home office and workspace (3)
-
-### Active Stools
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `HO-005` | `HO-B01` | SpaceHome AS-V398X Core Active Stool | SpaceHome AS-V398X Core Active Stool | `ho-active-stools-catalog-3x2.webp` |  |
-
-### Conference Headsets
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `HO-021` | `HO-B01` | SpaceForm CH-E101P Edge Conference Headset | SpaceForm CH-E101P Edge Conference Headset | `ho-conference-headsets-catalog-3x2.webp` |  |
-
-### Conference Webcams
-
-| Asset ID | Batch | Product | Subject | Output filename | Anchor |
-|---|---|---|---|---|---|
-| `HO-020` | `HO-B01` | ClearFrame Studio 4K Conference Webcam | ClearFrame Studio 4K Conference Webcam | `ho-conference-webcams-catalog-3x2.webp` | yes |
+| `RF-011` | `RF-B01` | TempoPeak RP-K910X Pro Running Pod | TempoPeak RP-K910X Pro Running Pod | `rf-running-pods-catalog-3x2.webp` |  |
