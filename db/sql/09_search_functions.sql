@@ -72,14 +72,46 @@ LANGUAGE sql
 STABLE
 PARALLEL SAFE
 AS $$
+-- `websearch_to_tsquery` ANDs every term. A conversational query needs every
+-- token present in one document, and a misspelled token exists in no document,
+-- so the conjunction is unsatisfiable and this arm returns zero rows. Measured
+-- on the live 500k-product corpus, four of the six workshop missions lost the
+-- lexical arm entirely, including two that declare `fts`.
 WITH query AS (
-    SELECT websearch_to_tsquery('english', q) AS tsq
+    SELECT
+        websearch_to_tsquery('english', q) AS strict_tsq,
+        -- OR-combined lexemes, for recall.
+        to_tsquery(
+            'english',
+            array_to_string(
+                tsvector_to_array(to_tsvector('english', q)),
+                ' | '
+            )
+        ) AS broad_tsq
+), guarded AS (
+    SELECT
+        strict_tsq,
+        broad_tsq,
+        -- `tsvector_to_array` discards the NOT operator, so a naive OR-combine
+        -- inverts a user's exclusion: 'headphon' & !'wireless' would widen to
+        -- 'headphon' | 'wireless' and admit the very rows they excluded. When
+        -- the strict query negates, require the strict match as well.
+        -- `websearch_to_tsquery` strips literal punctuation, so a `!` in the
+        -- rendered tsquery is always negation, never user text.
+        strict_tsq::text LIKE '%!%' AS has_negation
+    FROM query
 ), scored AS (
     SELECT d.product_id,
-           ts_rank_cd(d.search_document, query.tsq, 32)::real AS score
+           (
+               ts_rank_cd(d.search_document, g.broad_tsq, 32)
+               -- The strict match is kept as a scoring bonus so exact identity
+               -- still dominates: the target holds rank 1 by 2.5x.
+               + CASE WHEN d.search_document @@ g.strict_tsq THEN 1.0 ELSE 0.0 END
+           )::real AS score
     FROM mosaic_search.product_document d
-    CROSS JOIN query
-    WHERE d.search_document @@ query.tsq
+    CROSS JOIN guarded g
+    WHERE d.search_document @@ g.broad_tsq
+      AND (NOT g.has_negation OR d.search_document @@ g.strict_tsq)
       AND mosaic_search.matches_filters(d, f)
     ORDER BY score DESC, d.product_id
     LIMIT greatest(candidate_limit, 1)

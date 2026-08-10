@@ -46,7 +46,7 @@ supplied Mosaic package as its only visual source:
 
 `data/full/product_image_urls.csv.gz` maps all 500,000 products to those local
 assets. `scripts/load_media.py` verifies each path, stores its SHA-256 digest,
-and publishes only `approved` rows to `catalog.product_media`.
+and publishes only `approved` rows to `mosaic.product_media`.
 
 The design boards in `ui/design-references` and runtime files in
 `ui/public/assets/images` are retained in their original formats. Asset

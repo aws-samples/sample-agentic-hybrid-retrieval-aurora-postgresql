@@ -53,7 +53,7 @@ Compare the full metric suite, then break results down by challenge cohort.
 
 ## Online-style signals for the demo
 
-The schema includes `catalog.search_event` for query, filter, latency, result, click, and diagnostics telemetry. In a real deployment, extend this with add-to-cart, conversion, reformulation, abandonment, and human-quality feedback.
+The schema includes `mosaic.search_event` for query, filter, latency, result, click, and diagnostics telemetry. In a real deployment, extend this with add-to-cart, conversion, reformulation, abandonment, and human-quality feedback.
 
 ## Reproducibility
 

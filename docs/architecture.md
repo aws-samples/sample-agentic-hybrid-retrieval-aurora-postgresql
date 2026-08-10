@@ -53,7 +53,7 @@ retrieval-run persistence remain behind the API in Aurora PostgreSQL.
 flowchart LR
     G[Synthetic catalog generator] --> C[500K catalog in three CSV.gz shards]
     C --> LOAD[PostgreSQL COPY loader]
-    LOAD --> P[catalog.product]
+    LOAD --> P[mosaic.product]
     P --> E[Embedding batches]
     E --> V[Vector column]
     V --> I[HNSW build]

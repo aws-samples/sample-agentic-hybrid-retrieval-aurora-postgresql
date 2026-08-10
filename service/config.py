@@ -1,4 +1,5 @@
 """Runtime configuration for the catalog retrieval service."""
+
 from __future__ import annotations
 
 import os
@@ -6,11 +7,56 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 
+class ConfigurationError(RuntimeError):
+    """A setting cannot serve a request, so the process must not start.
+
+    `RetrievalProfile` enforces the same bounds when it is constructed per
+    request. Enforcing them here too means a bad value fails at startup with the
+    parameter named, instead of escaping as an unhandled HTTP 500 on every query.
+    """
+
+
+# Bounds are declared next to the setting and are the same numbers
+# `service.models.RetrievalProfile` enforces. Phase 2 makes
+# `db/config/retrieval.yaml` their single source; this stops the crash.
+_NUMERIC_BOUNDS: dict[str, tuple[float, float]] = {
+    "VECTOR_DIM": (1, 4096),
+    "FTS_CANDIDATE_LIMIT": (1, 1000),
+    "TRIGRAM_CANDIDATE_LIMIT": (1, 1000),
+    "SEMANTIC_CANDIDATE_LIMIT": (1, 1000),
+    "RERANK_CANDIDATE_LIMIT": (1, 250),
+    "RRF_K": (1, 10_000),
+    "BUSINESS_WEIGHT": (0, 0.05),
+    "HNSW_EF_SEARCH": (1, 1000),
+    "BEDROCK_MAX_ATTEMPTS": (1, 20),
+}
+
+
 def _boolean(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _bounded(name: str, default: str, cast: type[int] | type[float]):
+    """Parse a numeric setting, refusing anything outside its declared bound."""
+    raw = os.getenv(name, default)
+    try:
+        value = cast(raw)
+    except (TypeError, ValueError) as exc:
+        raise ConfigurationError(
+            f"{name}={raw!r} is not a valid {cast.__name__}. "
+            f"Set {name} to a {cast.__name__} in "
+            f"[{_NUMERIC_BOUNDS[name][0]}, {_NUMERIC_BOUNDS[name][1]}]."
+        ) from exc
+    low, high = _NUMERIC_BOUNDS[name]
+    if not low <= value <= high:
+        raise ConfigurationError(
+            f"{name}={value} is out of range; it must be between {low} and "
+            f"{high}. Copying config/.env.example gives a working value."
+        )
+    return value
 
 
 @dataclass(frozen=True)
@@ -59,7 +105,7 @@ def get_settings() -> Settings:
     return Settings(
         database_url=os.getenv("DATABASE_URL"),
         aws_region=os.getenv("BEDROCK_REGION", os.getenv("AWS_REGION", "us-east-1")),
-        vector_dimension=int(os.getenv("VECTOR_DIM", "1024")),
+        vector_dimension=_bounded("VECTOR_DIM", "1024", int),
         embedding_provider=os.getenv("EMBEDDING_PROVIDER", "bedrock"),
         embedding_model_id=os.getenv(
             "BEDROCK_EMBED_MODEL_ID",
@@ -81,16 +127,16 @@ def get_settings() -> Settings:
         ),
         # Defaults match db/config/retrieval.yaml. Changing one without the
         # other makes the shipped profile a lie.
-        lexical_candidate_limit=int(os.getenv("FTS_CANDIDATE_LIMIT", "120")),
-        trigram_candidate_limit=int(os.getenv("TRIGRAM_CANDIDATE_LIMIT", "80")),
-        semantic_candidate_limit=int(os.getenv("SEMANTIC_CANDIDATE_LIMIT", "150")),
-        rerank_candidate_limit=int(os.getenv("RERANK_CANDIDATE_LIMIT", "50")),
-        rrf_k=int(os.getenv("RRF_K", "60")),
+        lexical_candidate_limit=_bounded("FTS_CANDIDATE_LIMIT", "120", int),
+        trigram_candidate_limit=_bounded("TRIGRAM_CANDIDATE_LIMIT", "80", int),
+        semantic_candidate_limit=_bounded("SEMANTIC_CANDIDATE_LIMIT", "150", int),
+        rerank_candidate_limit=_bounded("RERANK_CANDIDATE_LIMIT", "50", int),
+        rrf_k=_bounded("RRF_K", "60", int),
         # `mosaic_search.search_hybrid_rrf` fuses by reciprocal rank and adds a
         # small business nudge. There are no per-arm weights: RRF weights by
         # rank position, which is the point of using it.
-        business_weight=float(os.getenv("BUSINESS_WEIGHT", "0.003")),
-        hnsw_ef_search=int(os.getenv("HNSW_EF_SEARCH", "100")),
-        bedrock_max_attempts=int(os.getenv("BEDROCK_MAX_ATTEMPTS", "5")),
+        business_weight=_bounded("BUSINESS_WEIGHT", "0.003", float),
+        hnsw_ef_search=_bounded("HNSW_EF_SEARCH", "100", int),
+        bedrock_max_attempts=_bounded("BEDROCK_MAX_ATTEMPTS", "5", int),
         cors_origins=origins,
     )

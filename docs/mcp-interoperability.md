@@ -42,7 +42,7 @@ contracts while preserving their compatible dependency sets.
 |---|---|---|
 | `search_products` | `POST /api/search` | Run filtered hybrid retrieval and return source-attributed products |
 | `get_product_evidence` | `GET /api/products/{product_id}` | Read specifications, approved media, source revision, and reviews |
-| `inspect_retrieval_run` | `GET /api/retrieval/runs/{run_id}` | Replay arm ranks, raw scores, RRF, rerank, business, filter, and timing signals |
+| `inspect_retrieval_run` | `GET /api/retrieval/events/{search_event_id}` | Replay arm ranks, raw scores, RRF, rerank, business, filter, and timing signals |
 
 All three tools advertise `readOnlyHint=true` and
 `destructiveHint=false`. Search is not marked idempotent because every search

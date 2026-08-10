@@ -62,7 +62,7 @@ the agent.
 ## Labs and replay
 
 - `GET /api/retrieval/examples`
-- `GET /api/retrieval/runs/{run_id}`
+- `GET /api/retrieval/events/{search_event_id}`
 - `GET /api/benchmarks/projection`
 - `GET /api/tools`
 

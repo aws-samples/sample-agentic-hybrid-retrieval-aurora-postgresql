@@ -72,7 +72,7 @@ Components:
 - optional HNSW performance lane.
 
 API: the mission manifest is source-controlled; linked retrieval runs use
-`POST /api/search` and `GET /api/retrieval/runs/{run_id}`.
+`POST /api/search` and `GET /api/retrieval/events/{search_event_id}`.
 
 ## `/products/:productId` - Product evidence
 

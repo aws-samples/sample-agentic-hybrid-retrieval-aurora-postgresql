@@ -15,16 +15,16 @@ The package ships **5,000 deterministic typo cases** in `data/evals/typo_cases.c
 
 ## Indexed text
 
-`trigram_text` combines normalized title, brand, model, subcategory, and aliases. The index is:
+`trigram_text` combines normalized title, brand, model, subcategory, and aliases. The index the API's arm actually uses is:
 
 ```sql
-CREATE INDEX product_trigram_gin_idx
-ON catalog.product USING gin (trigram_text gin_trgm_ops);
+CREATE INDEX product_document_trigram_gin_idx
+ON mosaic_search.product_document USING gin (trigram_text gin_trgm_ops);
 ```
 
 ## Core exercise
 
-Run `sql/05_typo_tolerance_lab.sql` and compare:
+Run `db/sql/lab_01_typo_tolerance.sql` and compare:
 
 1. FTS results for the misspelled query
 2. whole-identity `%` candidates for models and SKUs

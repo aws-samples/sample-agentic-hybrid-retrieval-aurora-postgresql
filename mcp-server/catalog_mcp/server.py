@@ -134,7 +134,10 @@ def get_product_evidence(product_id: int) -> ProductDetail:
 def inspect_retrieval_run(run_id: str) -> RetrievalRunResponse:
     """Read the ranking provenance persisted for a retrieval run."""
     parsed_run_id = UUID(run_id)
-    payload = get_api_client().get(f"/retrieval/runs/{parsed_run_id}")
+    # The API serves this as `/api/retrieval/events/{search_event_id}`; the
+    # client's base URL already carries `/api`. Requesting `/retrieval/runs/`
+    # returned HTTP 404 for every call.
+    payload = get_api_client().get(f"/retrieval/events/{parsed_run_id}")
     return RetrievalRunResponse.model_validate(payload)
 
 

@@ -45,6 +45,7 @@
       "expected_outcome": "The exact product is retained in the first three results.",
       "assertions": [
         "target_in_top_k",
+        "fts_signal_present",
         "hard_filters_hold"
       ],
       "top_k": 3
@@ -75,6 +76,7 @@
       "expected_outcome": "The eligible target appears after the typo-recovery candidate source is restored.",
       "assertions": [
         "target_in_top_k",
+        "fts_signal_present",
         "trigram_signal_present",
         "hard_filters_hold"
       ],
@@ -107,6 +109,7 @@
       "expected_outcome": "Semantic intent is expanded without admitting products that violate the required price or carbon-plate constraints.",
       "assertions": [
         "target_in_top_k",
+        "fts_signal_present",
         "hard_filters_hold",
         "semantic_signal_present"
       ],
