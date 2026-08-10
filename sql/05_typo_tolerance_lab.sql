@@ -1,5 +1,16 @@
 \set ON_ERROR_STOP on
 
+-- DEPRECATED: the `catalog.*` tree. The application does not read this schema;
+-- `service/retrieval.py` queries `mosaic` and `mosaic_search` (see db/sql/).
+-- Deleted by Phase 2 Unit E. See docs/rewrite-losses.md for what the rewrite
+-- dropped and docs/superpowers/specs/ for the Phase 2 design.
+-- Do not add features here. Do not point a lab at it.
+--
+-- SUPERSEDED: Phase 1 ported this lab to db/sql/lab_01_typo_tolerance.sql,
+-- which runs against mosaic_search and is what `make lab-01` executes. This
+-- copy is retained only until Unit E removes the tree; it queries a schema
+-- that does not exist on the Aurora cluster, so it cannot run.
+
 -- Module: typo tolerance with pg_trgm.
 -- Start with a visibly misspelled query that FTS alone may not recover.
 \set typo_query 'noice canceling hedphones'

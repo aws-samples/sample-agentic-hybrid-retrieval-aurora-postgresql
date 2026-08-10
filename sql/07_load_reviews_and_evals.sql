@@ -1,4 +1,11 @@
 \set ON_ERROR_STOP on
+
+-- DEPRECATED: the `catalog.*` tree. The application does not read this schema;
+-- `service/retrieval.py` queries `mosaic` and `mosaic_search` (see db/sql/).
+-- Deleted by Phase 2 Unit E. See docs/rewrite-losses.md for what the rewrite
+-- dropped and docs/superpowers/specs/ for the Phase 2 design.
+-- Do not add features here. Do not point a lab at it.
+
 CREATE TEMP TABLE review_raw (
     review_id text, product_id text, rating text, title text, body text,
     verified_purchase text, helpful_votes text, review_date text, sentiment_score text

@@ -1,3 +1,9 @@
+-- DEPRECATED: the `catalog.*` tree. The application does not read this schema;
+-- `service/retrieval.py` queries `mosaic` and `mosaic_search` (see db/sql/).
+-- Deleted by Phase 2 Unit E. See docs/rewrite-losses.md for what the rewrite
+-- dropped and docs/superpowers/specs/ for the Phase 2 design.
+-- Do not add features here. Do not point a lab at it.
+
 INSERT INTO catalog.product AS current (
     product_id, product_uid, sku, domain, category, subcategory, brand, model, title,
     short_description, long_description, price_usd, list_price_usd, currency, rating,
