@@ -7,13 +7,12 @@ Where the live state lives, what can be restored, and what cannot.
 **No local databases exist or will exist.**
 
 - The **Aurora PostgreSQL cluster** in `us-east-1` holds the only live tree
-  (`mosaic`, `mosaic_search`, `mosaic_stage`, `mosaic_eval`, `mosaic_bench`),
+  (`mosaic`, `mosaic_search`, `mosaic_eval`, `mosaic_bench`),
   500,000 products with real Cohere Embed v4 vectors at 1024 dimensions.
 - The **cluster snapshot** is the only restore path. There is no local rebuild.
 - Every `make` bootstrap target points at Aurora via `DATABASE_URL`.
-- Any Makefile target, script, or document that assumes a local PostgreSQL is
-  updated or deleted. This is not advisory: several targets currently install a
-  deleted schema onto whatever DSN they are handed. See "Known hazards" below.
+- Any Makefile target, script, or document that assumes a local PostgreSQL is a
+  defect.
 
 Rationale is recorded in `docs/house-standards.md` §6. In short: the loaded state
 of the pre-rewrite `catalog.*` tree existed only in two local databases, they
@@ -24,7 +23,7 @@ re-embedding. Local state that nothing can restore is not a convenience.
 
 | Artifact | Location | Restore path |
 |---|---|---|
-| Catalog + embeddings | Aurora `mosaic_*` | cluster snapshot |
+| Catalog + embeddings | Aurora `mosaic_*` | `mosaic-catalog-500k-cohere-v4-20260809` cluster snapshot |
 | Embedding cache | `build/embedding-cache/` | `make db-import-embeddings` (keyed to `mosaic_*`) |
 | Normalized CSV shards | `build/normalized/` | `make db-prepare-mosaic` from `data/full/*.csv.gz` |
 | Premium cohort media | `ui/public/assets/images/mosaic/` | git; 126 files, content-verified |
@@ -38,11 +37,9 @@ re-embedding. Local state that nothing can restore is not a convenience.
 Both were dropped in August 2026. Verified 2026-08-10: neither exists, and the
 live Aurora cluster has no `catalog` schema.
 
-The DDL survives in `sql/` (11 files, all carrying deprecation headers). The data
-does not. Consequence: no ported script can be diffed against its predecessor,
-which is why Unit E's definition of done is a recorded **correctness** statement
-against live `mosaic_*` rather than an equivalence diff. See
-`docs/rewrite-losses.md`.
+The historical DDL can be recovered from Git; the loaded data cannot.
+Consequently, correctness is stated against live `mosaic_*`, not against a
+reconstructed predecessor. See `docs/rewrite-losses.md`.
 
 ## Connecting from a corporate network
 
@@ -112,14 +109,3 @@ Through the same middlebox, long-lived TLS sessions die with
 an immediate reconnect succeeds. Measurement scripts that run for minutes should
 retry and use one connection per sample, so a drop costs one datapoint rather than
 the whole run.
-
-## Known hazards
-
-- `make db-init`, `db-load`, `db-load-catalog`, `db-load-media`, `db-index` still
-  target the dead `catalog.*` tree and would install it onto any DSN given to
-  them. In scope for Unit E: retarget to the `mosaic_*` equivalents or delete.
-- `config/.env.example` and two `README.md` examples still show a `localhost`
-  DSN. Same scope.
-- `scripts/run_eval.py` reads `data/evals/queries.jsonl` against
-  `catalog.search_hybrid_rrf`, which does not exist. It runs and produces
-  nothing trustworthy.

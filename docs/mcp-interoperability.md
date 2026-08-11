@@ -48,12 +48,12 @@ All three tools advertise `readOnlyHint=true` and
 `destructiveHint=false`. Search is not marked idempotent because every search
 persists a new retrieval run for diagnostics and replay.
 
-## Run locally
+## Run the adapter
 
 Start the canonical API:
 
 ```bash
-export DATABASE_URL='postgresql:///mosaic_catalog'
+export DATABASE_URL='postgresql://USER:PASSWORD@YOUR-CLUSTER.cluster-xxxx.us-east-1.rds.amazonaws.com:5432/mosaic_catalog?sslmode=require'
 uvicorn service.main:app --host 127.0.0.1 --port 8000
 ```
 

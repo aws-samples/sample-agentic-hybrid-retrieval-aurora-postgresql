@@ -72,7 +72,6 @@ mosaic-data-models-aurora-v1/
 ├── docs/                        Architecture, ERD, retrieval, media, agent, HNSW
 ├── tests/                       Offline contract/package tests
 ├── Makefile
-├── PACKAGE_MANIFEST.json
 └── SHA256SUMS
 ```
 

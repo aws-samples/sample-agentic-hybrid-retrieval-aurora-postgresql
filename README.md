@@ -45,7 +45,7 @@ data/full/products_home_office.csv.gz
 Every shard is below GitHub's 100 MB per-file limit. The manifest preserves
 their load order and the quality report preserves each shard's SHA-256 digest.
 
-## Local Runtime
+## Runtime
 
 Mosaic standardizes on Python 3.13; the checked-in `.python-version` is
 `3.13.14`. `make` uses the repository virtual environment when it exists and
@@ -59,12 +59,21 @@ source .venv/bin/activate
 make doctor
 
 make validate
-make test
 make ui-install
 make ui-build
 make ui-test
 make ui-audit
 ```
+
+The full Python gate includes five read-only integration tests against Aurora:
+
+```bash
+export DATABASE_URL='postgresql://USER:PASSWORD@YOUR-CLUSTER.cluster-xxxx.us-east-1.rds.amazonaws.com:5432/mosaic_catalog?sslmode=require'
+make test
+```
+
+An unset `DATABASE_URL` is a release-gate failure, not a skipped integration
+suite.
 
 Regenerate the canonical dataset and its quality report with:
 
@@ -220,11 +229,9 @@ data/       Full catalog shards, samples, dictionaries, and evaluation assets
 db/         Vendored schema package: the mosaic_* tree the application reads
   sql/      Schema, load, index, retrieval functions, and lab SQL
 docs/       Architecture, curriculum, data, evaluation, and deployment notes
-infra/      Local PostgreSQL/pgvector development support
 scripts/    Generation, loading, embedding, benchmark, and evaluation tools
 mcp-server/ Isolated MCP 2.0 adapter over the canonical API
 service/    FastAPI, Strands tools, retrieval orchestration, and model clients
-sql/        Superseded catalog.* tree, retained only for scripts still on it
 tests/      Dataset and contract validation
 ui/         React catalog, agent, evidence, retrieval, and performance surfaces
   public/assets/images/mosaic/   Runtime product photography, one file per
@@ -232,9 +239,7 @@ ui/         React catalog, agent, evidence, retrieval, and performance surfaces
 ```
 
 The retrieval layer the API queries lives in `db/sql/`, under the `mosaic` and
-`mosaic_search` schemas. The older `sql/` tree defines a `catalog.*` schema the
-application does not read; three scripts still target it, so it is retained
-until they move.
+`mosaic_search` schemas.
 
 Product photography is named by cohort asset key, not by ad-hoc slug:
 

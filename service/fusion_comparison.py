@@ -218,7 +218,15 @@ class FusionComparisonService:
         )
 
         if persist:
-            self._persist(response, candidates, unweighted, search_event_id, profile)
+            self._persist(
+                response,
+                candidates,
+                unweighted,
+                unweighted_ids,
+                weighted_ids,
+                search_event_id,
+                profile,
+            )
         return response
 
     def _persist(
@@ -226,6 +234,8 @@ class FusionComparisonService:
         response: FusionComparisonResponse,
         candidates: list[FusionCandidateComparison],
         unweighted: list[dict[str, Any]],
+        unweighted_order: list[int],
+        weighted_order: list[int],
         search_event_id: UUID | None,
         profile: RetrievalProfile,
     ) -> None:
@@ -262,8 +272,8 @@ class FusionComparisonService:
                         json.dumps(response.weights),
                         response.candidate_sets_identical,
                         response.candidate_count,
-                        response.unweighted_order,
-                        response.weighted_order,
+                        unweighted_order,
+                        weighted_order,
                         response.orders_differ,
                         response.unweighted_latency_ms,
                         response.weighted_latency_ms,

@@ -26,7 +26,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test db-install db-install-labs validate-missions validate-config validate-functions lab-01 db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-embed db-export-embeddings db-import-embeddings simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test db-install db-install-labs db-upgrade-snapshot validate-missions validate-config validate-functions lab-01 db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-embed db-export-embeddings db-import-embeddings simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -47,7 +47,8 @@ check-dsn:
 		exit 2; \
 	}
 
-DSN_TARGETS := db-install db-install-labs validate-missions validate-functions \
+DSN_TARGETS := test db-install db-install-labs db-upgrade-snapshot \
+	validate-missions validate-functions \
 	lab-01 db-load-mosaic db-index-concurrent db-load-cohort db-smoke \
 	db-bootstrap-cached db-embed db-export-embeddings db-import-embeddings \
 	api-serve
@@ -115,6 +116,12 @@ db-install:
 # shows the 12 tables the application reads, not 21.
 db-install-labs:
 	cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f install_labs.sql
+
+# Replays the idempotent core model over the canonical snapshot while preserving
+# search_trigram. Aurora's retrieval role cannot replace that function because
+# its function-level pg_trgm settings require a privilege RDS does not delegate.
+db-upgrade-snapshot:
+	cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f upgrade_snapshot.sql
 
 # The mission contract gate. Shape checks always run; target checks need a DSN
 # and call mosaic_search.matches_filters on the cluster rather than
@@ -207,7 +214,7 @@ validate:
 	$(PYTHON) scripts/validate_package.py
 
 test:
-	$(PYTHON) -m pytest
+	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest
 
 # Five targets were DELETED in Phase 2 Unit E. They installed and loaded the
 # `catalog.*` tree, which no longer exists, against whatever DSN they were handed

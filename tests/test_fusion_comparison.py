@@ -41,12 +41,16 @@ def row(product_id: int, score: float) -> dict[str, Any]:
 class StubCursor:
     def __init__(self) -> None:
         self.executed: list[str] = []
+        self.execute_params: list[Any] = []
+        self.executemany_rows: list[Any] = []
 
     def execute(self, sql: str, params: Any = None) -> None:
         self.executed.append(sql)
+        self.execute_params.append(params)
 
     def executemany(self, sql: str, rows: Any) -> None:
         self.executed.append(sql)
+        self.executemany_rows.append(list(rows))
 
     def __enter__(self) -> StubCursor:
         return self
@@ -232,6 +236,21 @@ def test_persistence_writes_the_run_and_every_candidate_in_one_transaction():
     assert "INSERT INTO mosaic.fusion_comparison " in written
     assert "INSERT INTO mosaic.fusion_comparison_candidate" in written
     assert connection.commits == 1
+
+
+def test_persistence_keeps_full_orders_when_the_response_is_truncated():
+    connection = StubConnection(IDENTICAL_UNWEIGHTED, IDENTICAL_WEIGHTED)
+    result = FusionComparisonService(
+        embedding_provider=StubEmbedder(), connection_factory=lambda: connection
+    ).compare("mesh chair", SearchFilters(), top_k=1, persist=True)
+
+    run_params = connection.cursor_obj.execute_params[0]
+    candidate_rows = connection.cursor_obj.executemany_rows[0]
+    assert result.unweighted_order == [1]
+    assert result.weighted_order == [2]
+    assert run_params[10] == [1, 2, 3]
+    assert run_params[11] == [2, 1, 3]
+    assert len(candidate_rows) == 3
 
 
 def test_the_weighted_sql_declares_no_literal_coefficients():

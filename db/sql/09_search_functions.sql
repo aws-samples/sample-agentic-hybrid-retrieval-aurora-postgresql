@@ -122,6 +122,9 @@ SELECT product_id,
 FROM scored
 $$;
 
+\if :{?preserve_search_trigram}
+\echo 'Preserving snapshot search_trigram; upgrade_snapshot.sql validates its signature and settings.'
+\else
 CREATE OR REPLACE FUNCTION mosaic_search.search_trigram(
     q text,
     f jsonb DEFAULT '{}'::jsonb,
@@ -170,6 +173,7 @@ SELECT product_id,
        row_number() OVER (ORDER BY score DESC, product_id)
 FROM scored
 $$;
+\endif
 
 CREATE OR REPLACE FUNCTION mosaic_search.search_vector(
     query_embedding vector(1024),

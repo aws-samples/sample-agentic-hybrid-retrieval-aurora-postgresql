@@ -94,7 +94,7 @@ def validate_sql() -> dict[str, int]:
         "15_load_premium_cohort.sql", "17_load_normalized_catalog.sql", "install.sql",
         # Evaluation and benchmark schemas install separately so a session's
         # `\dt mosaic.*` shows only the tables the application reads.
-        "install_labs.sql",
+        "install_labs.sql", "upgrade_snapshot.sql",
     }
     missing = required - {path.name for path in files}
     if missing:
