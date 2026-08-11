@@ -4,18 +4,34 @@
 
 Attendees will leave with a working hybrid product search pipeline in Aurora PostgreSQL, a measurable evaluation loop, and an engineering understanding of where FTS, `pg_trgm`, vector search, filters, fusion, reranking, and HNSW tuning each fit.
 
-## Suggested 60-minute flow
+## Session flow
 
-| Time | Activity | Artifact |
-|---:|---|---|
-| 0–8 min | Cinematic product-discovery setup and architecture | Mosaic Discover screen |
-| 8–18 min | Lab 1: lexical precision + typo tolerance | `db/sql/lab_01_typo_tolerance.sql` |
-| 18–31 min | Lab 2: semantic candidates + metadata filters | vector query + filtered HNSW |
-| 31–43 min | Lab 3: RRF + rerank + evidence inspection | `search_hybrid_rrf` + Retrieval Lab + typed tools |
-| 43–56 min | Lab 4: HNSW recall/latency/filter selectivity | measured benchmark harness |
-| 56–60 min | Production guardrails and takeaways | eval scorecard + next steps |
+`data/evals/mosaic_labs_missions.json` is the single source for the session
+shape and every timing below; `make validate-missions` fails if this table and
+that file disagree. Three timed exercises, not six — six averaged 6.7 minutes
+each with zero slack for questions or a throttled Bedrock call.
 
-A 45-minute hands-on format can merge Labs 2 and 3 and use instructor-provided embeddings/indexes.
+| Time | Activity | Mission | Artifact |
+|---:|---|---|---|
+| 0–2 min | Orientation | — | Mosaic Discover screen |
+| 2–13 min | Recover a misspelled request | `typo-recovery` | `db/sql/lab_01_typo_tolerance.sql` |
+| 13–25 min | Make the order defensible | `rank-with-evidence` | `search_hybrid_rrf` + the fusion comparison |
+| 25–36 min | Produce a cited recommendation | `agentic-research` | typed agent tools + citations |
+| 36–40 min | Guardrails and takeaways | — | eval scorecard + next steps |
+
+**40 nominal, 45 hard ceiling, and the 40-to-45 band is never programmed.** It
+absorbs a throttled model call or a room that asks questions; a plan that spends
+it has no buffer, only a longer session.
+
+Three further exercises ship **self-paced**, with the same contract and the same
+assertions: `exact-identity` (3 min), `semantic-eligibility` (9 min), and
+`hnsw-performance` (8 min). They are off the clock, not out of the workshop —
+index tuning in particular needs a benchmark run to say anything honest, and
+that cannot be done in four minutes.
+
+The lab material below is organised by technique rather than by clock position,
+so it exceeds the timed session on purpose. Lab 1 maps to `typo-recovery`, Labs 2
+and 3 to `rank-with-evidence`, Lab 4 to the self-paced `hnsw-performance`.
 
 ## Lab 1 — Find what the user typed, even when they typed it badly
 
