@@ -1,15 +1,15 @@
 {
-  "version": 2,
-  "name": "Mosaic Labs Golden Missions",
+  "version": 3,
+  "name": "Mosaic Retrieve Rank Reason Lab Contract",
   "ownership": {
-    "source_repository": "Mission contract, source application surfaces, and evaluation assertions.",
+    "source_repository": "Lab timing, retrieval examples, application surfaces, and evaluation assertions.",
     "workshop_studio": "Participant instructions, deliberate starter gaps, and code-editor exercises."
   },
   "session": {
-    "total_minutes": 40,
-    "orientation_minutes": 2,
-    "core_lab_minutes": 34,
-    "scorecard_minutes": 4
+    "total_minutes": 60,
+    "orientation_minutes": 8,
+    "core_lab_minutes": 47,
+    "scorecard_minutes": 5
   },
   "corpus": {
     "catalog_products": 500000,
@@ -27,10 +27,10 @@
   "missions": [
     {
       "id": "typo-recovery",
-      "stage": "recover",
+      "stage": "retrieve",
       "core": true,
-      "duration_minutes": 11,
-      "title": "Recover a misspelled request",
+      "duration_minutes": 15,
+      "title": "Lab 1 - Build hybrid retrieval",
       "query": "wirless noice canceling hedphones under $200 with long batery life",
       "filters": {
         "domain": "consumer_electronics",
@@ -47,7 +47,7 @@
         "cohere_rerank"
       ],
       "checkpoint": "repair",
-      "expected_outcome": "The eligible target appears after the typo-recovery candidate source is restored.",
+      "expected_outcome": "The eligible target appears after the typo-recovery candidate source is restored; exact identity and semantic eligibility remain separately testable checkpoints.",
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",
@@ -60,8 +60,8 @@
       "id": "rank-with-evidence",
       "stage": "rank",
       "core": true,
-      "duration_minutes": 12,
-      "title": "Make the order defensible",
+      "duration_minutes": 16,
+      "title": "Lab 2 - Fuse, rerank, and explain",
       "query": "ergonmic mesh chiar for long workdays with adjustable lumbar support",
       "filters": {
         "domain": "home_office",
@@ -97,8 +97,8 @@
       "id": "agentic-research",
       "stage": "reason",
       "core": true,
-      "duration_minutes": 11,
-      "title": "Produce a cited recommendation",
+      "duration_minutes": 16,
+      "title": "Lab 3 - Build the retrieval agent",
       "query": "Build a quiet home office under $800 and explain the trade-offs.",
       "filters": {
         "domain": "home_office",
@@ -128,13 +128,14 @@
       "top_k": 6
     }
   ],
-  "self_paced": [
+  "supporting_checks": [
     {
       "id": "exact-identity",
-      "stage": "recover",
-      "core": false,
-      "duration_minutes": 3,
-      "title": "Protect exact identity",
+      "stage": "retrieve",
+      "core": true,
+      "placement": "lab-1",
+      "duration_minutes": 2,
+      "title": "Checkpoint - Preserve exact identity",
       "query": "Mosaic EchoBud S2",
       "filters": {
         "domain": "consumer_electronics"
@@ -157,9 +158,10 @@
     {
       "id": "semantic-eligibility",
       "stage": "retrieve",
-      "core": false,
-      "duration_minutes": 9,
-      "title": "Honor intent and eligibility",
+      "core": true,
+      "placement": "lab-1",
+      "duration_minutes": 3,
+      "title": "Checkpoint - Apply eligibility constraints",
       "query": "carbon plated marathon shoe under $220 with stable cornering",
       "filters": {
         "domain": "running_fitness",
@@ -191,8 +193,9 @@
       "id": "hnsw-performance",
       "stage": "optimize",
       "core": false,
+      "placement": "advanced-labs",
       "duration_minutes": 8,
-      "title": "Measure the operating point",
+      "title": "Tune the HNSW operating point",
       "query": "single cable 4K monitor for coding and photo editing",
       "filters": {
         "domain": "home_office",

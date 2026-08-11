@@ -2,139 +2,127 @@
 
 ## Session promise
 
-Attendees will leave with a working hybrid product search pipeline in Aurora PostgreSQL, a measurable evaluation loop, and an engineering understanding of where FTS, `pg_trgm`, vector search, filters, fusion, reranking, and HNSW tuning each fit.
+Attendees build one retrieval system in three stages:
+
+```text
+RETRIEVE -> RANK -> REASON
+```
+
+Aurora PostgreSQL first constructs the right candidate universe, then produces
+an inspectable final order, then exposes those capabilities to a retrieval
+agent. The agent orchestrates the system; it does not replace it.
 
 ## Session flow
 
-`data/evals/mosaic_labs_missions.json` is the single source for the session
-shape and every timing below; `make validate-missions` fails if this table and
-that file disagree. Three timed exercises, not six — six averaged 6.7 minutes
-each with zero slack for questions or a throttled Bedrock call.
+`data/evals/mosaic_labs_missions.json` is the source for every timing below.
+`make validate-missions` fails if the 60-minute budget or a live target drifts.
 
-| Time | Activity | Mission | Artifact |
+| Time | Stage | Required outcome | Stable eval anchors |
 |---:|---|---|---|
-| 0–2 min | Orientation | — | Mosaic Discover screen |
-| 2–13 min | Recover a misspelled request | `typo-recovery` | `db/sql/lab_01_typo_tolerance.sql` |
-| 13–25 min | Make the order defensible | `rank-with-evidence` | `search_hybrid_rrf` + the fusion comparison |
-| 25–36 min | Produce a cited recommendation | `agentic-research` | typed agent tools + citations |
-| 36–40 min | Guardrails and takeaways | — | eval scorecard + next steps |
+| 0-8 min | Getting started | Architecture, Mosaic, and the baseline failure are visible | `typo-recovery` before repair |
+| 8-23 min | Retrieve | Build hybrid retrieval and prove typo recovery, exact identity, and eligibility | `typo-recovery`, `exact-identity`, `semantic-eligibility` |
+| 23-39 min | Rank | Fuse, rerank, inspect provenance, and explain why result 1 beat result 2 | `rank-with-evidence` |
+| 39-55 min | Reason | Restore the typed retrieval tool and produce a grounded cited recommendation | `agentic-research` |
+| 55-60 min | Wrap-up | Run the scorecard and recap the architecture | all required checks |
 
-**40 nominal, 45 hard ceiling, and the 40-to-45 band is never programmed.** It
-absorbs a throttled model call or a room that asks questions; a plan that spends
-it has no buffer, only a longer session.
+The stable IDs remain evaluation identifiers and starter-gap ownership keys.
+They are checkpoints inside three labs, not participant navigation.
 
-Three further exercises ship **self-paced**, with the same contract and the same
-assertions: `exact-identity` (3 min), `semantic-eligibility` (9 min), and
-`hnsw-performance` (8 min). They are off the clock, not out of the workshop —
-index tuning in particular needs a benchmark run to say anything honest, and
-that cannot be done in four minutes.
+## Lab 1 - Build hybrid retrieval
 
-The lab material below is organised by technique rather than by clock position,
-so it exceeds the timed session on purpose. Lab 1 maps to `typo-recovery`, Labs 2
-and 3 to `rank-with-evidence`, Lab 4 to the self-paced `hnsw-performance`.
+Goal: construct the right candidate universe before deciding the winner.
 
-## Lab 1 — Find what the user typed, even when they typed it badly
+1. Run the misspelled request and expose the disconnected `pg_trgm` arm.
+2. Restore trigram participation in unweighted RRF.
+3. Prove exact identity still survives through PostgreSQL full-text search.
+4. Use HNSW to expand semantic intent.
+5. Apply SQL and JSONB constraints inside every candidate arm.
+6. Inspect FTS, trigram, and semantic provenance independently.
 
-Start query:
+Required concepts:
 
-```text
-noice canceling hedphones under 200 for long fligts
-```
+- `tsvector`, `tsquery`, and PostgreSQL full-text search;
+- `pg_trgm` similarity for typo recovery;
+- pgvector HNSW semantic retrieval;
+- relational and metadata predicates;
+- exact identity, eligibility, and candidate provenance.
 
-Progression:
+The all-misspelled query is deliberately not presented as an embeddings success.
+On the measured 500,000-product corpus, HNSW returns plausible headphones but
+not the target; FTS and trigram recover it.
 
-1. FTS-only query exposes token mismatch.
-2. `pg_trgm` recovers fuzzy title/brand/model/category candidates.
-3. Threshold changes reveal recall-versus-noise behavior.
-4. Exact model/SKU query demonstrates why fuzzy matching must not replace lexical precision.
-5. Candidate provenance is retained for fusion and explainability.
+## Lab 2 - Fuse, rerank, and explain
 
-## Lab 2 — Understand the purchase intent
-
-Start query:
+Goal: put the right candidates in the right order without hiding the ranking
+decisions.
 
 ```text
-headphones that make a long flight quieter without dying halfway through
+FTS --------\
+pg_trgm -----+-> RRF -> bounded candidate set -> Cohere Rerank -> final order
+HNSW -------/
 ```
 
-Progression:
+Structured filters remain eligibility gates. They do not become arbitrary
+ranking weights.
 
-1. Exact vector baseline establishes ground truth for a small query set.
-2. HNSW accelerates interactive retrieval.
-3. SQL filters enforce price, stock, domain, and decisive JSON attributes.
-4. Hard negatives reveal why similarity is not product eligibility.
-5. Filter selectivity introduces iterative HNSW scans.
+Attendees retain and compare:
 
-## Lab 3 — Fuse, rerank, and explain
+- lexical, trigram, and semantic rank;
+- RRF score and pre-rerank position;
+- Cohere Rerank score and final rank;
+- candidate counts and persisted retrieval-run evidence;
+- product source URI, source revision, and attached evidence.
 
-Use three independent candidate lists:
+The B-side replays the same candidate set through historical weighted fusion.
+Measured on the live corpus, the weights reorder 243 of 250 candidates for the
+lab anchor while the reranker can absorb the difference. The checkpoint asks
+why result 1 beat result 2 across stages rather than treating the final score as
+an unexplained scalar.
 
-- PostgreSQL FTS
-- `pg_trgm`
-- semantic HNSW
+## Lab 3 - Build the retrieval agent
 
-Apply RRF with `k=60`, then enrich with business signals without allowing popularity or sponsorship to override required constraints. Send the top candidate pool to a reranker, retain component scores, and render evidence for the final answer.
+Goal: give the inspectable retrieval system to a bounded agent.
 
-### MCP interoperability — self-paced, not timed
+The working contracts remain:
 
-The MCP checkpoint is **not** part of the timed room budget. It needs a second
-process and an external MCP-compatible host inside a four-to-five-minute slot,
-against a 45-minute hard ceiling, and its failure mode is environmental — host
-not connected, port occupied — which reads to a room as "the retrieval system is
-broken" when it is not.
+- `search_products`;
+- `get_product_evidence`;
+- `compare_products`;
+- `explain_retrieval`;
+- `synthesize_cited_answer`.
 
-The capability ships and is fully supported: run `make mcp-serve` and follow
-`docs/mcp-interoperability.md` to
+The participant restores only the `search_products` registration. The agent
+then decomposes the compound request, performs targeted retrieval, preserves
+hard constraints, compares retrieved evidence, and synthesizes a cited answer.
+The trace and persisted retrieval-run IDs prove which tools and candidate pools
+produced the recommendation.
 
-1. connect a compatible host to the stateless MCP `2026-07-28` endpoint;
-2. inspect the typed, read-only product tools;
-3. run the same filtered product query through `search_products`;
-4. inspect its persisted rank signals through `inspect_retrieval_run`.
+## Advanced Labs (Optional)
 
-This is not a separate protocol lab. Its purpose is to prove that Strands, the
-React UI, and an MCP-compatible host can consume one canonical Aurora retrieval
-system — which the appendix proves without consuming timed minutes.
+Optional work does not consume the required 55-minute implementation path:
 
-Teaching comparison:
+1. Tune the HNSW operating point with recall, latency, plans, filter
+   selectivity, and iterative scans.
+2. Run retrieval evaluation and failure analysis using the existing eval
+   infrastructure.
+3. Use the troubleshooting runbook for Aurora, services, source state, and
+   Bedrock model access.
 
-| Stage | Expected behavior |
-|---|---|
-| Lexical only | exact terms/models win; paraphrases and typos suffer |
-| Semantic only | intent improves; exact model and hard constraints can drift |
-| Lexical + semantic | stronger recall, but score scales are incomparable |
-| RRF | robust rank fusion without score calibration |
-| RRF + filters | product eligibility becomes explicit |
-| RRF + rerank | nuanced relevance and hard negatives improve |
-| Full pipeline | relevance, constraints, evidence, and diagnostics are visible |
-
-## Lab 4 — HNSW is a workload, not a checkbox
-
-Measure—not merely display—the effects of:
-
-- dataset scale
-- vector dimension
-- `m`
-- `ef_construction`
-- `ef_search`
-- result count (`k`)
-- filter selectivity
-- strict vs relaxed iterative scans
-- warm vs cold cache
-- concurrency
-- index and table size
-
-The 500K catalog is the hands-on baseline. The 1M/5M/10M/100M UI presets are either measured environments or explicitly labeled projections calibrated from the measured baseline.
+MCP interoperability remains supported reference material. It is not a fourth
+required lab.
 
 ## Final production lesson
 
-The winning architecture is not “vector search.” It is a governed retrieval system:
+The winning architecture is not "vector search." It is a controlled retrieval
+system:
 
 ```text
 query understanding
-  → lexical / typo / semantic candidate generation
-  → relational eligibility filters
-  → rank fusion
-  → reranking
-  → evidence + explanation
-  → evaluation + telemetry
+  -> lexical / typo / semantic candidate generation
+  -> relational eligibility filters
+  -> reciprocal-rank fusion
+  -> model reranking
+  -> evidence + source attribution
+  -> typed agent tools
+  -> cited answer
 ```

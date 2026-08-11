@@ -10,22 +10,18 @@ so this suite runs anywhere; the live checks are exercised by
 from __future__ import annotations
 
 import copy
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from scripts.mission_contract import (
-    REQUIRED_RETIRED_FIELDS,
+    REQUIRED_SUPPORTING_FIELDS,
     Report,
     check_shape,
     load_contract,
     split_missions,
     stage_union,
 )
-
-ROOT = Path(__file__).resolve().parents[1]
-
 
 def failures_for(contract: dict) -> list[str]:
     report = Report()
@@ -53,36 +49,35 @@ def test_the_shipped_contract_passes_every_shape_check(passing):
     assert failures_for(passing) == []
 
 
-def test_the_shipped_contract_has_the_post_unit_b_shape(passing):
-    """The three findings from first contact, now closed rather than asserted."""
-    timed, retired = split_missions(passing)
-    assert [m["id"] for m in timed] == [
+def test_the_shipped_contract_has_three_labs_and_supporting_checks(passing):
+    labs, supporting = split_missions(passing)
+    assert [m["id"] for m in labs] == [
         "typo-recovery",
         "rank-with-evidence",
         "agentic-research",
     ]
-    assert [m["id"] for m in retired] == [
+    assert [m["id"] for m in supporting] == [
         "exact-identity",
         "semantic-eligibility",
         "hnsw-performance",
     ]
     session = passing["session"]
-    assert session["total_minutes"] == 40
+    assert session["total_minutes"] == 60
     assert (
         session["orientation_minutes"]
-        + sum(m["duration_minutes"] for m in timed)
+        + sum(m["duration_minutes"] for m in labs)
         + session["scorecard_minutes"]
-        == 40
+        == 60
     )
 
 
-def test_a_fourth_timed_mission_fails(passing):
+def test_a_fourth_required_lab_fails(passing):
     passing["missions"].append(dict(passing["missions"][0], id="invented-fourth"))
     assert "A1.1" in rules_failing(passing)
 
 
-def test_a_mission_in_both_lists_fails(passing):
-    passing["self_paced"].append(copy.deepcopy(passing["missions"][0]))
+def test_a_check_in_both_lists_fails(passing):
+    passing["supporting_checks"].append(copy.deepcopy(passing["missions"][0]))
     assert "A1.2" in rules_failing(passing)
 
 
@@ -102,54 +97,50 @@ def test_a_mission_stage_missing_from_the_union_fails(passing):
 @pytest.mark.parametrize(
     ("session_patch", "expected_rule"),
     [
-        ({"total_minutes": 45}, "A1.4c"),
-        ({"total_minutes": 41}, "A1.4c"),
-        ({"orientation_minutes": 10}, "A1.4b"),
-        ({"scorecard_minutes": 10}, "A1.4b"),
+        ({"total_minutes": 59}, "A1.4c"),
+        ({"total_minutes": 61}, "A1.4c"),
+        ({"orientation_minutes": 9}, "A1.4b"),
+        ({"scorecard_minutes": 6}, "A1.4b"),
     ],
 )
-def test_a_budget_that_programs_the_ceiling_fails(
+def test_a_budget_that_does_not_match_the_sixty_minute_program_fails(
     passing, session_patch, expected_rule
 ):
-    """45 is a ceiling, not a target: declaring it is a failure."""
     passing["session"].update(session_patch)
     assert expected_rule in rules_failing(passing)
 
 
-def test_forty_one_minutes_of_exercises_fails_the_lab_frame(passing):
-    passing["missions"][0]["duration_minutes"] = 41 - sum(
-        m["duration_minutes"] for m in passing["missions"][1:]
-    )
+def test_a_lab_budget_other_than_forty_seven_minutes_fails(passing):
+    passing["missions"][0]["duration_minutes"] -= 1
     assert "A1.4a" in rules_failing(passing)
 
 
-@pytest.mark.parametrize("field", REQUIRED_RETIRED_FIELDS)
-def test_every_required_retired_field_is_enforced(passing, field):
-    """The list is enumerated in the spec; each entry must actually be checked."""
-    passing["self_paced"][0].pop(field, None)
+@pytest.mark.parametrize("field", REQUIRED_SUPPORTING_FIELDS)
+def test_every_required_supporting_field_is_enforced(passing, field):
+    passing["supporting_checks"][0].pop(field, None)
     rules = rules_failing(passing)
     # Dropping `id` also breaks the disjointness report, so accept either rule.
     assert rules & {"A1.5", "A1.2"}, f"removing {field!r} was not caught"
 
 
-def test_the_gate_reads_the_self_paced_list_when_present(passing):
-    """Unit B introduced the explicit list; the gate must prefer it to `core`."""
-    assert "self_paced" in passing
-    timed, retired = split_missions(passing)
-    assert len(timed) == 3
-    assert len(retired) == 3
-    assert all(m["core"] for m in timed), "timed missions stay flagged for the UI"
-    assert not any(m["core"] for m in retired)
+def test_the_gate_reads_the_supporting_checks_list_when_present(passing):
+    assert "supporting_checks" in passing
+    labs, supporting = split_missions(passing)
+    assert len(labs) == 3
+    assert len(supporting) == 3
+    assert all(m["core"] for m in labs)
+    assert [m["core"] for m in supporting] == [True, True, False]
 
 
-def test_the_gate_falls_back_to_core_flags_without_a_self_paced_list(passing):
-    """The `core` flag still drives the split for any consumer that predates B."""
+def test_the_gate_falls_back_to_placement_without_a_supporting_list(passing):
     flattened = dict(passing)
-    flattened["missions"] = passing["missions"] + passing["self_paced"]
-    del flattened["self_paced"]
-    timed, retired = split_missions(flattened)
-    assert [m["id"] for m in timed] == [m["id"] for m in passing["missions"]]
-    assert [m["id"] for m in retired] == [m["id"] for m in passing["self_paced"]]
+    flattened["missions"] = passing["missions"] + passing["supporting_checks"]
+    del flattened["supporting_checks"]
+    labs, supporting = split_missions(flattened)
+    assert [m["id"] for m in labs] == [m["id"] for m in passing["missions"]]
+    assert [m["id"] for m in supporting] == [
+        m["id"] for m in passing["supporting_checks"]
+    ]
 
 
 def test_an_undefined_assertion_fails(passing):
@@ -210,7 +201,7 @@ def test_every_failure_message_names_the_offending_value_and_a_fix(passing):
     """House standard: name the rule, show the value, suggest the nearest fix."""
     passing["missions"].append(dict(passing["missions"][0], id="invented-fourth"))
     passing["missions"][0]["stage"] = "not-in-the-union"
-    passing["self_paced"][0].pop("top_k", None)
+    passing["supporting_checks"][0].pop("top_k", None)
     failures = failures_for(passing)
     assert failures
     for failure in failures:
@@ -218,10 +209,7 @@ def test_every_failure_message_names_the_offending_value_and_a_fix(passing):
         assert "fix: " in failure, failure
 
 
-def test_required_retired_fields_match_the_spec():
-    """The enumeration is a contract with the spec, not an implementation detail."""
-    spec = (
-        ROOT / "docs" / "superpowers" / "specs" / "2026-08-10-phase2-design.md"
-    ).read_text(encoding="utf-8")
-    for field in REQUIRED_RETIRED_FIELDS:
-        assert f"`{field}`" in spec, f"{field!r} is enforced but not in the spec"
+def test_required_supporting_fields_match_the_shipped_contract():
+    supporting = load_contract()["supporting_checks"]
+    for field in REQUIRED_SUPPORTING_FIELDS:
+        assert all(field in check for check in supporting), field

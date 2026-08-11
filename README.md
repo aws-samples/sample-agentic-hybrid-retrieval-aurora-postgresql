@@ -188,10 +188,11 @@ Open `http://127.0.0.1:5173`. Set `API_PORT`, `UI_PORT`, or
 `CATALOG_API_PROXY` when those defaults are already occupied.
 
 Mosaic provides connected Discover, Catalog, Search, Product Detail, Mosaic
-Labs, Retrieval Lab, and Performance surfaces. The source app owns the mission
+Labs, Retrieval Lab, and Performance surfaces. The source app owns the lab
 contract
 in [`data/evals/mosaic_labs_missions.json`](data/evals/mosaic_labs_missions.json):
-golden queries, ground-truth product IDs, hard filters, and evaluation
+three required labs, supporting retrieval checks, ground-truth product IDs,
+hard filters, timings, and evaluation
 assertions. The separate Workshop Studio repository owns participant guides,
 deliberate starter gaps, and code-editor exercises. Search and agent results
 come from the real API; the UI does not calculate retrieval scores or
@@ -199,10 +200,10 @@ substitute static products.
 
 ## MCP Portable Tool Contract
 
-MCP interoperability is a self-paced appendix rather than a timed checkpoint: it
-needs a second process and an external MCP-compatible host, and its failure mode
-is environmental, which reads to a room as a broken retrieval system when it is
-not. The capability ships fully supported.
+MCP interoperability is optional reference material rather than a required lab:
+it needs a second process and an external MCP-compatible host, and its failure
+mode is environmental. The capability ships fully supported without fragmenting
+the `Retrieve -> Rank -> Reason` session path.
 
 The adapter uses MCP Python SDK `2.0.0` and protocol revision `2026-07-28` to
 make the same three typed, read-only retrieval tools portable to another

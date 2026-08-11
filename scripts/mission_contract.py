@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
-"""Validate the mission contract, including against the live database.
+"""Validate the lab contract, including against the live database.
 
 `data/evals/mosaic_labs_missions.json` is the single source of truth for the
-workshop's missions, timings and assertions. Nothing validated it. `make
+workshop's labs, retrieval checks, timings, and assertions. Nothing validated it. `make
 validate` reads a different file (`data/evals/queries.jsonl`) and
 `scripts/catalog_contract.py` reimplements filter logic by hand, so it does not
 know `max_price_cents`, `in_stock_only`, or the refurbished and sponsored
-exclusions the real SQL applies. Two missions shipped that cannot pass.
+exclusions the real SQL applies. Two retrieval checks shipped that cannot pass.
 
 This module is the only thing that validates the contract. Where a check needs
 filter semantics it calls `mosaic_search.matches_filters` **on the cluster**
 rather than reimplementing it, because the reimplementation is what failed.
 
 Scope, deliberately bounded: this gate checks contract-internal consistency and
-contract-versus-Aurora truth. It does not check lesson coverage or custody —
+contract-versus-Aurora truth. It does not check lesson coverage or custody;
 that is the run-of-show table's job. The missing JSONB attribute filter on
-`rank-with-evidence` was invisible here **by design**, not by defect: no
-contract-internal rule is violated by a lesson going unowned, and a gate that
-guessed at pedagogy would be deriving its expectations from the thing it judges.
+`rank-with-evidence` was invisible here by design: no contract-internal rule is
+violated by a lesson going unowned, and a gate that guessed at pedagogy would be
+deriving its expectations from the thing it judges.
 
 Every failure names the rule, shows the offending value, and suggests the
 nearest fix — see `explain`.
@@ -57,24 +57,25 @@ CONTRACT = REPO / "data" / "evals" / "mosaic_labs_missions.json"
 STAGE_UNION_SOURCE = REPO / "ui" / "src" / "labMissions.ts"
 
 TIMED_MISSION_COUNT = 3
-LAB_FRAME_MINUTES = 40
-NOMINAL_MINUTES = 40
-CEILING_MINUTES = 45
+LAB_FRAME_MINUTES = 47
+NOMINAL_MINUTES = 60
 
-# Fields a retired mission must keep. Enumerated rather than "all fields"
+# Fields a supporting check must keep. Enumerated rather than "all fields"
 # because the point is to name what breaks. Every one is read by a live
-# consumer: `ui/src/labMissions.ts` types all twelve and the retrieval lab
-# renders a self-paced mission from the same records as a timed one
+# consumer: `ui/src/labMissions.ts` types every check and the retrieval lab
+# renders a checkpoint or advanced check from the same records as a core lab
 # (`expected_techniques`, `target_product_ids`, `duration_minutes`,
-# `checkpoint`); `docs/intentional-gaps.md` keys GAP-1 and GAP-2 by `id` and
-# cites `query`, `target_product_ids` and the assertion that turns green.
+# `checkpoint`, and `placement`); `docs/intentional-gaps.md` keys GAP-1 and
+# GAP-2 by `id` and cites `query`, `target_product_ids`, and the assertion that
+# turns green.
 #
-# `scripts/run_eval.py` is deliberately NOT cited here: it reads
-# `data/evals/queries.jsonl` against the dead `catalog.*` tree, so it consumes
-# nothing from this contract. Unit E ports it.
-REQUIRED_RETIRED_FIELDS = (
+# `scripts/run_eval.py` is deliberately not cited here: it consumes
+# `data/evals/queries.jsonl`, not this contract.
+REQUIRED_SUPPORTING_FIELDS = (
     "id",
     "stage",
+    "core",
+    "placement",
     "title",
     "query",
     "filters",
@@ -126,17 +127,17 @@ def load_contract() -> dict[str, Any]:
 
 
 def split_missions(contract: dict[str, Any]) -> tuple[list[dict], list[dict]]:
-    """Return (timed, retired).
+    """Return (required labs, supporting checks).
 
-    Unit B introduces an explicit `self_paced` list. Until then the timed set is
-    whatever carries `core: true`, so this gate reports the true count on the
-    current contract instead of failing to parse it.
+    Version 3 separates the three required labs from their checkpoints and
+    optional advanced checks. The fallback keeps the gate useful when inspecting
+    an older flattened contract during release archaeology.
     """
-    if "self_paced" in contract:
-        return list(contract["missions"]), list(contract["self_paced"])
-    timed = [m for m in contract["missions"] if m.get("core")]
-    retired = [m for m in contract["missions"] if not m.get("core")]
-    return timed, retired
+    if "supporting_checks" in contract:
+        return list(contract["missions"]), list(contract["supporting_checks"])
+    timed = [m for m in contract["missions"] if not m.get("placement")]
+    supporting = [m for m in contract["missions"] if m.get("placement")]
+    return timed, supporting
 
 
 def stage_union() -> set[str]:
@@ -149,65 +150,69 @@ def stage_union() -> set[str]:
 
 
 def check_shape(contract: dict[str, Any], report: Report) -> None:
-    timed, retired = split_missions(contract)
+    timed, supporting = split_missions(contract)
     session = contract["session"]
 
     # A1.5 runs first and every later check reads fields through `.get`, so a
-    # mission missing a required field is *reported* rather than crashing the
+    # check missing a required field is *reported* rather than crashing the
     # gate. A gate that raises tells the reader less than one that names the
     # rule, and the fields checked here are exactly the ones later rules read.
-    for mission in retired:
-        missing = [f for f in REQUIRED_RETIRED_FIELDS if f not in mission]
+    for mission in supporting:
+        missing = [f for f in REQUIRED_SUPPORTING_FIELDS if f not in mission]
         report.check(
-            f"A1.5 retired mission {mission.get('id', '<no id>')} retains "
+            f"A1.5 supporting check {mission.get('id', '<no id>')} retains "
             f"required fields",
             not missing,
             explain(
                 f"{len(missing)} missing field(s) {missing}",
-                "restore them on this mission; ui/src/labMissions.ts types them "
+                "restore them on this check; ui/src/labMissions.ts types them "
                 "and docs/intentional-gaps.md cites them",
             ),
         )
 
-    # A1.1 — exactly three timed missions.
+    # A1.1 — exactly three required labs.
     report.check(
-        "A1.1 timed mission count",
+        "A1.1 required lab count",
         len(timed) == TIMED_MISSION_COUNT,
         explain(
-            f"{len(timed)} timed missions {[m.get('id', '<no id>') for m in timed]}",
-            f"the session funds exactly {TIMED_MISSION_COUNT}; move the extras to "
-            f"the self_paced list rather than shortening every exercise",
+            f"{len(timed)} required labs {[m.get('id', '<no id>') for m in timed]}",
+            f"the session funds exactly {TIMED_MISSION_COUNT}; fold smaller outcomes "
+            f"into supporting_checks rather than adding another top-level lab",
         ),
     )
 
     # A1.2 — the lists are disjoint and cover every mission exactly once.
     timed_ids = [m.get("id", "<no id>") for m in timed]
-    retired_ids = [m.get("id", "<no id>") for m in retired]
-    overlap = sorted(set(timed_ids) & set(retired_ids))
+    supporting_ids = [m.get("id", "<no id>") for m in supporting]
+    overlap = sorted(set(timed_ids) & set(supporting_ids))
     report.check(
         "A1.2 lists disjoint",
         not overlap,
         explain(
-            f"mission(s) in both lists: {overlap}",
-            "delete the duplicate entry from one list; a mission is timed or "
-            "self-paced, never both",
+            f"retrieval check(s) in both lists: {overlap}",
+            "delete the duplicate entry from one list; an id is a required lab "
+            "anchor or a supporting check, never both",
         ),
     )
     duplicates = sorted(
-        {i for i in timed_ids + retired_ids if (timed_ids + retired_ids).count(i) > 1}
+        {
+            i
+            for i in timed_ids + supporting_ids
+            if (timed_ids + supporting_ids).count(i) > 1
+        }
     )
     report.check(
         "A1.2 no duplicate ids",
         not duplicates,
         explain(
-            f"repeated mission id(s): {duplicates}",
-            "give each mission a unique id; the GAP ledger keys on it",
+            f"repeated retrieval id(s): {duplicates}",
+            "give each check a unique id; the GAP ledger keys on it",
         ),
     )
 
     # A1.3 — the stage union covers both lists, with no orphan members.
     declared = stage_union()
-    used = {m["stage"] for m in timed + retired if "stage" in m}
+    used = {m["stage"] for m in timed + supporting if "stage" in m}
     report.check(
         "A1.3 stage union parsed",
         bool(declared),
@@ -221,12 +226,12 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
         missing = sorted(used - declared)
         orphans = sorted(declared - used)
         report.check(
-            "A1.3 every mission stage is in the union",
+            "A1.3 every lab stage is in the union",
             not missing,
             explain(
-                f"stage(s) {missing} used by missions but absent from the union",
+                f"stage(s) {missing} used by checks but absent from the union",
                 f"add {missing} to MosaicLabStage in {STAGE_UNION_SOURCE.name}, "
-                f"or correct the mission's stage to one of {sorted(declared)}",
+                f"or correct the check's stage to one of {sorted(declared)}",
             ),
         )
         report.check(
@@ -239,7 +244,7 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
             ),
         )
 
-    # A1.4 — the budget fits inside 40 nominal and does not program the ceiling.
+    # A1.4 — the 60-minute program is exact: 8 + 15 + 16 + 16 + 5.
     lab_sum = sum(m.get("duration_minutes", 0) for m in timed)
     orientation = session["orientation_minutes"]
     scorecard = session["scorecard_minutes"]
@@ -247,42 +252,36 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
     declared_total = session["total_minutes"]
 
     report.check(
-        "A1.4a timed durations inside the lab frame",
-        lab_sum <= LAB_FRAME_MINUTES,
+        "A1.4a required lab durations match the lab frame",
+        lab_sum == LAB_FRAME_MINUTES,
         explain(
-            f"timed durations sum to {lab_sum} against a "
+            f"required lab durations sum to {lab_sum} against a "
             f"{LAB_FRAME_MINUTES}-minute frame",
-            f"cut {lab_sum - LAB_FRAME_MINUTES} minute(s) of exercise time, or "
-            f"retire an exercise; exercise core beats are protected last",
+            f"set the three lab durations to 15, 16, and 16 minutes; checkpoint "
+            f"time is included inside its parent lab",
         ),
     )
     report.check(
-        "A1.4b orientation + timed + scorecard inside nominal",
-        programmed <= NOMINAL_MINUTES,
+        "A1.4b orientation + labs + wrap-up match nominal",
+        programmed == NOMINAL_MINUTES,
         explain(
             f"{orientation} + {lab_sum} + {scorecard} = {programmed} programmed "
-            f"minutes against a {NOMINAL_MINUTES}-minute nominal session",
-            f"free {programmed - NOMINAL_MINUTES} minute(s), taking them from "
-            f"orientation ({orientation}) and the scorecard ({scorecard}) before "
-            f"any exercise",
+            f"minutes against a {NOMINAL_MINUTES}-minute session",
+            "restore the 8 + 47 + 5 program so Lab 3 ends at minute 55 and the "
+            "wrap-up ends at minute 60",
         ),
     )
-    # Strictly less than the ceiling: a declared total of exactly 45 allocates
-    # every minute of buffer as content and is a failure, not a pass.
     report.check(
-        "A1.4c declared total leaves the ceiling band unallocated",
-        declared_total <= NOMINAL_MINUTES,
+        "A1.4c declared total matches the session",
+        declared_total == NOMINAL_MINUTES,
         explain(
             f"session.total_minutes is {declared_total}",
-            f"set it to at most {NOMINAL_MINUTES} so the "
-            f"{NOMINAL_MINUTES}-{CEILING_MINUTES} band stays unprogrammed; "
-            f"{CEILING_MINUTES} is the hard ceiling, not a target, and a plan "
-            f"that spends it has no buffer at all",
+            f"set it to {NOMINAL_MINUTES} for the re:Invent Builder's Session",
         ),
     )
 
     # A1.6 — every named assertion resolves in service.assertions.
-    for mission in timed + retired:
+    for mission in timed + supporting:
         unknown = sorted(set(mission.get("assertions", [])) - KNOWN_ASSERTIONS)
         report.check(
             f"A1.6 {mission.get('id', '<no id>')} assertions are defined",
@@ -297,7 +296,7 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
     # A1.7 — declares implies asserts, total over the arms that have a signal
     # assertion. The converse is deliberately not checked.
     technique_to_assertion = {v: k for k, v in SIGNAL_ASSERTIONS.items()}
-    for mission in timed + retired:
+    for mission in timed + supporting:
         declared_arms = set(mission.get("expected_techniques", []))
         carried = set(mission.get("assertions", []))
         for technique in sorted(declared_arms & set(technique_to_assertion)):
@@ -336,8 +335,8 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
     """Validate targets against the cluster using production filter logic."""
     import psycopg
 
-    timed, retired = split_missions(contract)
-    missions = timed + retired
+    timed, supporting = split_missions(contract)
+    missions = timed + supporting
 
     with psycopg.connect(dsn, connect_timeout=20) as connection:
         connection.read_only = True
@@ -497,7 +496,7 @@ def main() -> int:
     elif not dsn:
         message = (
             "CANNOT VERIFY: DATABASE_URL is not set, so A2.8 to A2.10 did not "
-            "run. Mission targets are unvalidated against the cluster."
+            "run. Lab targets are unvalidated against the cluster."
         )
         if require_db:
             report.fail("A2 live checks", message)
@@ -516,7 +515,7 @@ def main() -> int:
             else:
                 report.warn(message)
 
-    print(f"mission contract gate: {len(report.passed)} check(s) passed")
+    print(f"lab contract gate: {len(report.passed)} check(s) passed")
     for warning in report.warnings:
         print(f"WARNING: {warning}", file=sys.stderr)
     if report.failures:

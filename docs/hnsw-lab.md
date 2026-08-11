@@ -77,8 +77,9 @@ Rebuild a smaller lab table with `m` and `ef_construction` variations. Observe b
 - `scripts/simulate_scale.py` emits **simulated_calibrated** projections.
 - `db/sql/08_indexes_concurrent.sql` holds the HNSW index definitions. The
   inspection and filter-selectivity exercises that lived in the deleted
-  `sql/06_hnsw_performance_lab.sql` are unported; the `hnsw-performance` mission in
-  `data/evals/mosaic_labs_missions.json` is their surviving home.
+  `sql/06_hnsw_performance_lab.sql` are unported; the `hnsw-performance` check in
+  `data/evals/mosaic_labs_missions.json` is their surviving home under Advanced
+  Labs (Optional).
 
 ## UI contract
 

@@ -14,7 +14,7 @@ import {
 import { FormEvent, useState } from "react";
 import { Link } from "wouter";
 import { MosaicMark } from "../components/MosaicMark";
-import { missionLabHref, timedMosaicLabMissions } from "../labMissions";
+import { coreMosaicLabs, retrievalExampleHref } from "../labMissions";
 import { useNavigate } from "../navigation";
 import type { Domain } from "../types";
 
@@ -245,25 +245,25 @@ export function DiscoverPage() {
         <div className="discover-missions-heading">
           <div>
             <p className="eyebrow">Mosaic Labs</p>
-            <h2 id="discover-missions-title">Start with the golden set.</h2>
+            <h2 id="discover-missions-title">Retrieve. Rank. Reason.</h2>
           </div>
           <p>
-            {timedMosaicLabMissions.length} timed retrieval checks:{" "}
-            {timedMosaicLabMissions.map((mission) => mission.title.toLowerCase()).join(", ")}.
+            Three progressive labs build the retrieval system first, then give
+            its inspectable tools and evidence to the agent.
           </p>
           <Link className="discover-missions-link" href="/mosaic-labs">
-            View mission board <ArrowRight size={16} />
+            View lab journey <ArrowRight size={16} />
           </Link>
         </div>
         <ol className="discover-mission-grid">
-          {timedMosaicLabMissions.map((mission, index) => (
-            <li key={mission.id}>
-              <Link href={missionLabHref(mission)}>
+          {coreMosaicLabs.map((lab, index) => (
+            <li key={lab.id}>
+              <Link href={retrievalExampleHref(lab)}>
                 <span className="discover-mission-number">0{index + 1}</span>
-                <strong>{mission.title}</strong>
-                <code>{mission.query}</code>
-                <span className={`discover-mission-state ${mission.checkpoint}`}>
-                  {mission.checkpoint === "repair" ? "Repair checkpoint" : "Golden query"}
+                <strong>{lab.title}</strong>
+                <code>{lab.query}</code>
+                <span className={`discover-mission-state ${lab.checkpoint}`}>
+                  {lab.stage}
                 </span>
               </Link>
             </li>

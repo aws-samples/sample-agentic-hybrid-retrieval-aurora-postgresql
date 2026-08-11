@@ -6,7 +6,7 @@ repair.
 ## Status: this repository ships NOTHING deliberately broken
 
 Every defect found in this repository is a real defect. There is no protected
-failure. If a mission fails here, fix it.
+failure. If a lab check fails here, fix it.
 
 This document exists as the **forward contract** for the Workshop Studio
 repository, which injects the gaps. It is authoritative in one direction: a gap
@@ -19,7 +19,7 @@ and a gap not listed here must not be created.
 
 | Repository | Owns |
 |---|---|
-| This one | mission contract, application surfaces, evaluation assertions |
+| This one | lab contract, application surfaces, evaluation assertions |
 | Workshop Studio | participant instructions, **deliberate starter gaps**, code-editor exercises |
 
 The source application is the reference implementation: the state a participant
@@ -27,25 +27,24 @@ reaches when every repair succeeds. Disabling code here would make the reference
 unable to demonstrate its own contract, and would make a genuine regression
 indistinguishable from a planted exercise.
 
-Re-verified 2026-08-10 after the Phase 2 Unit B three-exercise cut. Both
-repair-checkpoint capabilities are fully wired here, and **both host missions
-remain in the timed list** — `typo-recovery` and `agentic-research` survived the
-cut, so neither gap needed rehoming.
+Re-verified 2026-08-11 for the three-lab `Retrieve -> Rank -> Reason` path. Both
+repair-checkpoint capabilities are fully wired here, and both stable IDs remain
+anchors for required labs, so neither gap needed rehoming.
 
-| Mission | Capability | Evidence it is live |
+| Lab anchor | Capability | Evidence it is live |
 |---|---|---|
 | `typo-recovery` | pg_trgm candidate arm | `db/sql/09_search_functions.sql:244` fuses `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` |
 | `agentic-research` | typed retrieval tool | `service/agent_tools.py:522` registers all five `@tool` functions |
 
 ## Gap contract for Workshop Studio
 
-Two missions carry `checkpoint: "repair"`. Their narrative promises the
+Two lab anchors carry `checkpoint: "repair"`. Their narrative promises the
 participant something to fix, so the sibling's starter template must remove
 exactly these capabilities and nothing else.
 
 ### GAP-1 — typo-recovery arm
 
-- **Mission** `typo-recovery` (`checkpoint: repair`, stage `recover`)
+- **Lab 1 anchor** `typo-recovery` (`checkpoint: repair`, stage `retrieve`)
 - **Query** `wirless noice canceling hedphones under $200 with long batery life`
 - **Target** product 2, Sonora WH-C720 Wireless Noise-Cancelling Headphones
 - **What to disable** the `typo` CTE in `mosaic_search.search_hybrid_rrf`, so the
@@ -59,7 +58,7 @@ exactly these capabilities and nothing else.
 
 ### GAP-2 — typed agent tool
 
-- **Mission** `agentic-research` (`checkpoint: repair`, stage `reason`)
+- **Lab 3 anchor** `agentic-research` (`checkpoint: repair`, stage `reason`)
 - **Query** `Build a quiet home office under $800 and explain the trade-offs.`
 - **Targets** products 370001 and 429001
 - **What to disable** remove `search_products` from
@@ -77,9 +76,9 @@ exactly these capabilities and nothing else.
 1. A gap must be **removal of a wiring point**, never a planted bug. Deleting a
    CTE or a registration is legible; a wrong constant is a puzzle.
 2. A gap must map to at least one assertion, so repair is machine-checkable.
-3. Only `checkpoint: "repair"` missions may carry gaps. `baseline`,
-   `comparison`, and `advanced` missions must pass on a correct deployment.
-4. The mission board renders a listed, unrepaired gap as `REPAIR PENDING`. Any
+3. Only `checkpoint: "repair"` lab anchors may carry gaps. `baseline`,
+   `comparison`, and `advanced` checks must pass on a correct deployment.
+4. The lab board renders a listed, unrepaired gap as `REPAIR PENDING`. Any
    failure not listed here renders `FAIL` and is a real regression.
 5. Adding a gap to the sibling requires adding it here first.
 

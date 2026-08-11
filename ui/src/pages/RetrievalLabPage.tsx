@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
 import { ErrorState, LoadingState } from "../components/States";
-import { mosaicLabMissions } from "../labMissions";
+import { mosaicRetrievalExamples } from "../labMissions";
 import { useSearchParams } from "../navigation";
 import type { ProductSummary, SearchResponse } from "../types";
 
@@ -70,25 +70,27 @@ function stageScore(product: ProductSummary, stage: Stage): string {
 
 export function RetrievalLabPage() {
   const [params] = useSearchParams();
-  const requestedMission = params.get("mission");
-  const requestedIndex = mosaicLabMissions.findIndex((mission) => mission.id === requestedMission);
+  const requestedExample = params.get("example") ?? params.get("mission");
+  const requestedIndex = mosaicRetrievalExamples.findIndex(
+    (example) => example.id === requestedExample,
+  );
   const [selected, setSelected] = useState(requestedIndex >= 0 ? requestedIndex : 0);
   const [stage, setStage] = useState<Stage>("lexical");
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const mission = mosaicLabMissions[selected];
+  const example = mosaicRetrievalExamples[selected];
   const rows = useMemo(
     () => [...(response?.results ?? [])].sort((a, b) => stageRank(a, stage) - stageRank(b, stage)),
     [response, stage],
   );
 
   async function run() {
-    if (!mission) return;
+    if (!example) return;
     setLoading(true);
     setError("");
     try {
-      setResponse(await api.search(mission.query, mission.filters, { limit: 12, rerank: true }));
+      setResponse(await api.search(example.query, example.filters, { limit: 12, rerank: true }));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Retrieval failed");
     } finally {
@@ -102,22 +104,22 @@ export function RetrievalLabPage() {
         <div>
           <p className="eyebrow">Mosaic Labs</p>
           <h1>Inspect a retrieval run</h1>
-          <p>Follow one golden query from candidate source through fuzzy recovery, semantic intent, fusion, and Cohere Rerank.</p>
+          <p>Follow one validated query from candidate source through fuzzy recovery, semantic intent, fusion, and Cohere Rerank.</p>
         </div>
-        <button className="primary-button" type="button" disabled={!mission || loading} onClick={() => void run()}>
+        <button className="primary-button" type="button" disabled={!example || loading} onClick={() => void run()}>
           <Play size={17} fill="currentColor" /> Run pipeline
         </button>
       </header>
 
       <section className="lab-query-bar">
         <label>
-          <span>Golden query</span>
+          <span>Lab or checkpoint query</span>
           <select value={selected} onChange={(event) => { setSelected(Number(event.target.value)); setResponse(null); }}>
-            {mosaicLabMissions.map((item, index) => <option value={index} key={item.id}>{item.title}</option>)}
+            {mosaicRetrievalExamples.map((item, index) => <option value={index} key={item.id}>{item.title}</option>)}
           </select>
         </label>
         <div className="technique-list">
-          {mission?.expected_techniques.map((item) => <span key={item}>{item.replaceAll("_", " ")}</span>)}
+          {example?.expected_techniques.map((item) => <span key={item}>{item.replaceAll("_", " ")}</span>)}
         </div>
       </section>
 
@@ -185,12 +187,12 @@ export function RetrievalLabPage() {
           <CodeBlock code={psqlByStage[stage]} label={`${stage}.psql`} />
           <dl className="inspection-list">
             <div>
-              <dt>Golden target</dt>
-              <dd>{mission?.target_product_ids.map((id) => `#${id}`).join(", ") ?? "-"}</dd>
+              <dt>Validated target</dt>
+              <dd>{example?.target_product_ids.map((id) => `#${id}`).join(", ") ?? "-"}</dd>
             </div>
             <div>
               <dt>Success checks</dt>
-              <dd>{mission?.assertions.map((item) => item.replaceAll("_", " ")).join(" · ") ?? "-"}</dd>
+              <dd>{example?.assertions.map((item) => item.replaceAll("_", " ")).join(" · ") ?? "-"}</dd>
             </div>
             <div>
               <dt>Rank fields</dt>

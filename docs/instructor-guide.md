@@ -2,100 +2,90 @@
 
 ## Pre-session checklist
 
-Aurora only — there is no local database and no `make` target creates one. See
+Aurora only. There is no local database and no `make` target creates one. See
 `ARTIFACTS.md`, including how to connect from a corporate network.
 
-- `make db-bootstrap-cached` — schema, catalog, cached embeddings, indexes, and
-  the premium cohort, in order
-- confirm 500,000 products and full embedding coverage: `make db-smoke`
-- **run the three gates**, which is what proves the session can actually run:
-  - `MISSION_GATE_REQUIRE_DB=1 make validate-missions` — every mission target
-    resolves and satisfies its own filters on *this* cluster
-  - `make validate-config` — retrieval numbers declared in exactly one place
-  - `FUNCTION_CENSUS_REQUIRE_DB=1 make validate-functions` — no superseded
-    function signature left callable
-- execute the eval harness and save a named baseline
-- run the HNSW matrix on the exact Aurora configuration used in the room
-- replace all sample UI performance values with measured or clearly projected data
-- prewarm the most important paths, but retain one cold-cache comparison if teaching it
-- verify fallback screenshots and instructor result files
+- confirm the restored cluster contains 500,000 products and full embedding
+  coverage with `make db-smoke`;
+- run `MISSION_GATE_REQUIRE_DB=1 make validate-missions`;
+- run `make validate-config`;
+- run `FUNCTION_CENSUS_REQUIRE_DB=1 make validate-functions`;
+- execute the eval harness and save a named baseline;
+- run the HNSW matrix on the exact Aurora configuration used in the room;
+- verify the two starter gaps, source revision, Claude Code model, and fallback
+  screenshots from a fresh Workshop Studio deployment.
 
-## Narrative
+## 60-minute path
+
+| Clock | Stage | Required outcome |
+|---|---|---|
+| 00:00-00:08 | Getting started | Open both participant surfaces, establish Mosaic, and show the baseline failure |
+| 00:08-00:23 | Retrieve | Restore trigram fusion, preserve exact identity, enforce eligibility, and inspect candidate provenance |
+| 00:23-00:39 | Rank | Inspect RRF, reranking, source evidence, and why result 1 outranked result 2 |
+| 00:39-00:55 | Reason | Restore `search_products`, inspect decomposition and retrieval runs, and produce a cited recommendation |
+| 00:55-01:00 | Wrap-up | Run the scorecard and recap the architecture |
+
+## Teaching narrative
 
 ### Opening
 
-“Product search is where retrieval techniques stop being interchangeable. A user can misspell a model, describe a benefit instead of a feature, require a hard compatibility constraint, and still expect an explainable answer in milliseconds.”
+"Product search is where retrieval techniques stop being interchangeable. A
+shopper can misspell a model, describe a benefit instead of a feature, require a
+hard compatibility constraint, and still expect an explainable answer."
 
-### `typo-recovery` takeaway (11 min)
+### Lab 1 - Build hybrid retrieval
 
-FTS is excellent at words that exist. `pg_trgm` is excellent at recovering nearby
-strings. Neither understands purchase intent by itself.
+FTS is strong when words and identifiers exist. `pg_trgm` recovers nearby
+strings. HNSW expands semantic intent. SQL predicates and JSONB filters decide
+eligibility inside every candidate arm.
 
-Measured, and worth saying out loud: on this query every token is misspelled, and
-the **semantic arm does not recall the target at all** — it returns a full 150-row
-pool of plausible headphones, none of them the answer. FTS and trigram each rank it
-first. Embeddings do not recover typos, which is why this mission does not claim
-the vector arm.
+Measured on the all-misspelled checkpoint, the semantic arm returns a full
+plausible pool without the target. Do not claim embeddings recovered the typo.
+The checkpoint proves that different retrieval channels solve different failure
+modes and that the Lab 1 objective is candidate quality, not the final winner.
 
-### `rank-with-evidence` takeaway (12 min)
+### Lab 2 - Fuse, rerank, and explain
 
-Vectors understand intent, but similarity does not prove eligibility — and
-eligibility is a **gate, not a re-ranking**: `matches_filters` runs inside each
-arm, so an ineligible product is never a candidate in the first place.
+RRF combines independent rank positions without pretending raw FTS, trigram,
+and vector scores share a scale. Cohere Rerank operates on the bounded fused
+pool. It does not replace retrieval or override deterministic eligibility.
 
-RRF then lets independently useful rankers cooperate without pretending their raw
-scores share a scale. Reranking operates on a bounded pool and handles nuanced
-relevance and hard negatives.
+The historical weighted comparison reorders 243 of 250 candidates for the lab
+anchor while reranking can absorb the difference. Ask attendees to compare
+pre-rerank and final positions for the top two results and explain the change
+using persisted rank evidence.
 
-The B-side runs the same candidate pool through weighted fusion with historical,
-pre-rewrite coefficients that were never tuned for this corpus. Measured: the
-weights reorder 243 of 250 candidates while **every assertion holds unchanged**,
-because the reranker absorbs the difference. Fusion is highly sensitive to
-coefficients and the answer layer is not — measure both before adopting either.
-With rerank *off* the absorption disappears and fusion order is load-bearing.
+### Lab 3 - Build the retrieval agent
 
-### `agentic-research` takeaway (11 min)
-
-A bounded, read-only typed tool is what makes an answer checkable. The agent
-cites catalog evidence with source revisions, and when a tool is missing it
+The agent receives typed, read-only retrieval tools. It decomposes the compound
+request, performs targeted searches, retrieves evidence, compares candidates,
+and produces a source-revisioned cited answer. If retrieval is unavailable, it
 reports the gap instead of answering from model memory.
 
-### Self-paced: `hnsw-performance` takeaway
+### Advanced Labs (Optional)
 
-HNSW quality is workload-specific. Measure recall against exact search, measure
-latency under realistic filters and concurrency, and preserve the full
-configuration with every result.
-
-This is deliberately **off the timed clock**: an honest number needs a benchmark
-run, and a four-minute demo would teach guessing. The scorecard points at it —
-the operating point is measured, not guessed, and the self-paced lane measures it
-on your own cluster.
+HNSW quality is workload-specific. An honest operating point needs measured
+recall, latency, plans, filters, and configuration, so it remains optional
+rather than becoming a rushed fourth required lab.
 
 ## Failure-safe sequence
 
-1. If the catalog load is delayed, restore from the **cluster snapshot** — that is
-   the only restore path. The "balanced 5K database" fallback that used to sit
-   here required a local PostgreSQL, which no longer exists (`ARTIFACTS.md`).
-   `data/sample/products_5000.csv.gz` still ships, but as generator fixtures, not
-   as a retrieval substrate.
-2. Catalog and product inspection remain available when model access is
-   unavailable; model-dependent retrieval must report the failure rather than
-   fabricate results.
-3. A saved measured benchmark result can populate the HNSW UI.
-4. Scale projections are visibly labeled and never substituted for measured
-   results without disclosure.
-5. If `psql` hangs while the port looks open, it is TLS rather than the firewall.
-   Run `sslmode=disable` to confirm, then add `sslnegotiation=direct`. Do not
-   spend room time on the security group first.
-
-The UI does not fall back to static product JSON when the API is unavailable.
-Use instructor screenshots only as presentation backup, never as workshop
-retrieval evidence.
+1. If the environment is delayed, restore from the cluster snapshot. That is
+   the only restore path.
+2. If snapshot sharing, KMS access, Aurora connectivity, or a required Bedrock
+   model is unavailable, stop the affected exercise and escalate the environment
+   issue. Do not switch to fixtures or a local database.
+3. Catalog inspection remains available when model access is unavailable, but
+   model-dependent retrieval must report failure rather than fabricate results.
+4. Use instructor screenshots only to explain an expected state, never as
+   evidence that a participant check passed.
+5. If `psql` hangs while the port is reachable, inspect TLS settings before the
+   security group. See `ARTIFACTS.md`.
 
 ## Suggested audience questions
 
-- Which queries are impossible to solve reliably with keyword search alone?
-- Which constraints must never be left to a reranker?
-- What should happen when inventory freshness conflicts across sources?
-- When would a partial HNSW index or partition be justified?
-- How much recall would you trade for p95 latency in your workload?
+- Which query failures require lexical, fuzzy, or semantic retrieval?
+- Which constraints must never be delegated to a reranker?
+- Why did result 1 outrank result 2 before and after reranking?
+- What evidence should an agent retain for a recommendation?
+- How much Recall@K would you trade for p95 latency in this workload?

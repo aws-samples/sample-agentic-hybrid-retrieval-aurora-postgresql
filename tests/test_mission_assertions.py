@@ -29,9 +29,9 @@ ROOT = Path(__file__).resolve().parents[1]
 _CONTRACT = json.loads(
     (ROOT / "data/evals/mosaic_labs_missions.json").read_text(encoding="utf-8")
 )
-# Both lists. A self-paced mission fails alone, with no instructor to reframe it,
-# so it is held to exactly the same assertion rules as a timed one.
-MISSIONS = _CONTRACT["missions"] + _CONTRACT["self_paced"]
+# Lab anchors, required checkpoints, and advanced checks use the same assertion
+# vocabulary because every green result must mean the same thing.
+MISSIONS = _CONTRACT["missions"] + _CONTRACT["supporting_checks"]
 
 # What the engine reports when every arm contributed.
 HEALTHY_COUNTS = {

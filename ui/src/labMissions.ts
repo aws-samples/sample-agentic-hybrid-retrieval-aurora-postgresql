@@ -1,13 +1,15 @@
 import missionManifest from "../../data/evals/mosaic_labs_missions.json";
 import type { SearchFilters } from "./types";
 
-export type MosaicLabStage = "recover" | "retrieve" | "rank" | "reason" | "optimize";
+export type MosaicLabStage = "retrieve" | "rank" | "reason" | "optimize";
 export type MosaicLabCheckpoint = "baseline" | "repair" | "comparison" | "advanced";
+export type MosaicLabPlacement = "lab-1" | "advanced-labs";
 
 export interface MosaicLabMission {
   id: string;
   stage: MosaicLabStage;
   core: boolean;
+  placement?: MosaicLabPlacement;
   duration_minutes: number;
   title: string;
   query: string;
@@ -38,22 +40,22 @@ interface MosaicLabManifest {
     fusion: string;
     reranker: string;
   };
-  /** The three timed exercises, in run order. */
+  /** The three required labs, in run order. */
   missions: MosaicLabMission[];
-  /** Retired exercises, kept in full so the eval harness and GAP ledger resolve. */
-  self_paced: MosaicLabMission[];
+  /** Required checkpoints and optional advanced checks backed by the same evaluator. */
+  supporting_checks: MosaicLabMission[];
 }
 
 export const mosaicLabManifest = missionManifest as MosaicLabManifest;
-export const timedMosaicLabMissions = mosaicLabManifest.missions;
-export const selfPacedMosaicLabMissions = mosaicLabManifest.self_paced;
+export const coreMosaicLabs = mosaicLabManifest.missions;
+export const supportingMosaicChecks = mosaicLabManifest.supporting_checks;
 
 /**
- * Every mission, timed first. The retrieval lab lets a participant inspect any
- * of them, so it reads this rather than the timed list alone.
+ * Every validated retrieval example, with the required labs first. The
+ * inspection surface can replay both lab anchors and their supporting checks.
  */
-export const mosaicLabMissions = [...timedMosaicLabMissions, ...selfPacedMosaicLabMissions];
+export const mosaicRetrievalExamples = [...coreMosaicLabs, ...supportingMosaicChecks];
 
-export function missionLabHref(mission: MosaicLabMission) {
-  return `/labs/retrieval?mission=${encodeURIComponent(mission.id)}`;
+export function retrievalExampleHref(example: MosaicLabMission) {
+  return `/labs/retrieval?example=${encodeURIComponent(example.id)}`;
 }

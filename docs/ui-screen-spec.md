@@ -60,18 +60,17 @@ API: `POST /api/search` and `POST /api/agent/answer`.
 
 ## `/mosaic-labs` - Mosaic Labs
 
-Purpose: connect the five golden missions to the evidence required at each
-retrieval stage.
+Purpose: make the three-lab `Retrieve -> Rank -> Reason` progression and its
+evidence requirements visible.
 
 Components:
 
-- mission contract for exact identity, typo recovery, semantic eligibility,
-  rank provenance, and cited agentic research;
+- three required lab cards with 15/16/16-minute timing;
+- Lab 1 checkpoints for exact identity, typo recovery, and semantic eligibility;
 - explicit RRF and Cohere Rerank boundary;
-- instructor-led stateless MCP portable-tool checkpoint;
-- optional HNSW performance lane.
+- optional HNSW performance lab.
 
-API: the mission manifest is source-controlled; linked retrieval runs use
+API: the lab manifest is source-controlled; linked retrieval runs use
 `POST /api/search` and `GET /api/retrieval/events/{search_event_id}`.
 
 ## `/products/:productId` - Product evidence
@@ -97,7 +96,7 @@ Stages:
 1. PostgreSQL full-text search;
 2. `pg_trgm`;
 3. pgvector semantic search;
-4. weighted reciprocal rank fusion;
+4. reciprocal rank fusion;
 5. Cohere Rerank.
 
 The page shows stage rank, raw stage score, candidate-arm agreement, hard

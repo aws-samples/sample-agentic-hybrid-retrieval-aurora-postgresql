@@ -11,7 +11,8 @@
   run inspection;
 - responsive React application with Discover, Catalog, Search, Product Detail,
   Mosaic Labs, Retrieval Lab, and Performance surfaces;
-- three timed missions and three self-paced missions governed by
+- three required labs, two embedded Lab 1 checkpoints, and one optional
+  advanced lab governed by
   `data/evals/mosaic_labs_missions.json`;
 - isolated MCP 2.0 adapter exposing the canonical read-only retrieval tools; and
 - snapshot-safe schema upgrades plus release gates that require the live Aurora

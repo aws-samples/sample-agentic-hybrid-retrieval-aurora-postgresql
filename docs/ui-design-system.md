@@ -87,7 +87,7 @@ serves as evidence for an attribute.
 
 ### Mosaic Labs
 
-Golden missions establish the retrieval sequence. A compact portable MCP
+The three labs establish the retrieval sequence. A compact portable MCP
 contract checkpoint shows that the same typed, read-only retrieval tools are
 available to another compatible agent host without duplicating the pipeline.
 
