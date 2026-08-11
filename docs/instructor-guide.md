@@ -8,6 +8,7 @@ Aurora only. There is no local database and no `make` target creates one. See
 - confirm the restored cluster contains 500,000 products and full embedding
   coverage with `make db-smoke`;
 - run `MISSION_GATE_REQUIRE_DB=1 make validate-missions`;
+- run `make validate-evals`;
 - run `make validate-config`;
 - run `FUNCTION_CENSUS_REQUIRE_DB=1 make validate-functions`;
 - execute the eval harness and save a named baseline;
@@ -62,7 +63,7 @@ request, performs targeted searches, retrieves evidence, compares candidates,
 and produces a source-revisioned cited answer. If retrieval is unavailable, it
 reports the gap instead of answering from model memory.
 
-### Advanced Labs (Optional)
+### Advanced Labs (OPTIONAL)
 
 HNSW quality is workload-specific. An honest operating point needs measured
 recall, latency, plans, filters, and configuration, so it remains optional

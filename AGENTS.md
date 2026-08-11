@@ -51,14 +51,15 @@ including a TypeScript `?? 60` fallback.
 
 ```sh
 make validate-missions      # contract shape + live target checks (needs DSN)
+make validate-evals         # 720 production-filter targets (needs DSN)
 python scripts/config_tripwire.py
 python scripts/retrieval_profile.py --check
 make test                  # Python
 cd ui && npm test && npm run build
 ```
 
-Set `MISSION_GATE_REQUIRE_DB=1` in CI so a missing DSN is a loud failure rather
-than a silent skip.
+Set `MISSION_GATE_REQUIRE_DB=1` in CI so a missing mission-gate DSN is a loud
+failure rather than a silent skip. `make validate-evals` always requires Aurora.
 
 ## Coding conventions
 

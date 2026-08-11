@@ -234,7 +234,7 @@ export function MosaicLabsPage() {
       {advancedLabs.length > 0 ? (
         <section className="mosaic-labs-advanced">
           <div>
-            <p className="eyebrow">Advanced Labs (Optional)</p>
+            <p className="eyebrow">Advanced Labs (OPTIONAL)</p>
             <h2>Tune the HNSW operating point with measured evidence.</h2>
             <p>
               The required path proves the retrieval architecture. The optional

@@ -23,6 +23,7 @@ import json
 import math
 import random
 import re
+import sys
 import uuid
 from collections import defaultdict
 from contextlib import ExitStack
@@ -32,6 +33,10 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from db.scripts.transform_legacy_catalog import resolve_category_keys  # noqa: E402
+
 NAMESPACE = uuid.UUID("a6b65282-ccf5-4f7b-9aa4-a0b72bf26420")
 TODAY = date(2026, 8, 6)
 
@@ -790,6 +795,14 @@ def make_eval_assets(anchors: list[dict[str, Any]], pools: dict[str, list[dict[s
     demo_path = out_dir / "demo_queries.jsonl"
     judgments_path = out_dir / "judgments.csv.gz"
     typo_path = out_dir / "typo_cases.csv"
+    category_keys = resolve_category_keys(
+        [
+            (domain, category, subcategory)
+            for domain, categories in DISTRIBUTION.items()
+            for category, subcategories in categories.items()
+            for subcategory in subcategories
+        ]
+    )
 
     intents = []
     for anchor in anchors:
@@ -805,10 +818,17 @@ def make_eval_assets(anchors: list[dict[str, Any]], pools: dict[str, list[dict[s
         domain_label = anchor["domain"].replace("_", " ")
         semantic = anchor["short_description"].lower().rstrip(".")
         price_ceiling = math.ceil(float(anchor["price_usd"]) / 50) * 50
+        base_filters: dict[str, Any] = {"domain": anchor["domain"]}
+        if anchor["is_refurbished"] == "true":
+            base_filters["include_refurbished"] = True
+        if anchor["is_sponsored"] == "true":
+            base_filters["include_sponsored"] = True
         filters: dict[str, Any] = {
-            "domain": anchor["domain"],
-            "subcategory": anchor["subcategory"],
-            "max_price": price_ceiling,
+            **base_filters,
+            "category_key": category_keys[
+                (anchor["domain"], anchor["category"], anchor["subcategory"])
+            ],
+            "max_price_cents": price_ceiling * 100,
         }
         if interesting:
             filters["attributes"] = dict(interesting)
@@ -825,7 +845,7 @@ def make_eval_assets(anchors: list[dict[str, Any]], pools: dict[str, list[dict[s
         for q, intent, techniques in queries:
             intents.append({
                 "query": q, "domain": anchor["domain"], "intent": intent,
-                "filters": filters if intent == "hybrid_filtered" else {"domain": anchor["domain"]},
+                "filters": filters if intent == "hybrid_filtered" else base_filters,
                 "expected_techniques": techniques, "target_product_id": int(anchor["product_id"]),
                 "notes": f"Synthetic ground truth anchored to {anchor['sku']} in {domain_label}."
             })

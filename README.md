@@ -15,8 +15,9 @@ The current baseline contains the corrected catalog, evaluation assets, SQL
 retrieval layer, typed API, Cohere Embed v4 and Cohere Rerank integrations, the
 Strands agent harness, an isolated MCP 2.0 adapter, and a responsive React
 application. All 120 premium-cohort product photographs are installed.
-Deployment automation and a measured Aurora performance baseline remain active
-build phases.
+Workshop Studio owns deployment automation; a fresh-stack rehearsal remains the
+final environment gate. The measured Aurora performance baseline remains an
+active build phase.
 
 This repository ships nothing deliberately broken. Deliberate starter gaps live
 in the separate Workshop Studio repository;
@@ -69,6 +70,8 @@ The full Python gate includes five read-only integration tests against Aurora:
 
 ```bash
 export DATABASE_URL='postgresql://USER:PASSWORD@YOUR-CLUSTER.cluster-xxxx.us-east-1.rds.amazonaws.com:5432/mosaic_catalog?sslmode=require'
+make validate-missions
+make validate-evals
 make test
 ```
 

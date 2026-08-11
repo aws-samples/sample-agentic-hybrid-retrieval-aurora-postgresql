@@ -26,11 +26,11 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test db-install db-install-labs db-upgrade-snapshot validate-missions validate-config validate-functions lab-01 db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-embed db-export-embeddings db-import-embeddings simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test db-install db-install-labs db-upgrade-snapshot validate-missions validate-evals validate-config validate-functions lab-01 db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-embed db-export-embeddings db-import-embeddings simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
-	validate-missions validate-config validate-functions \
+	validate-missions validate-evals validate-config validate-functions \
 	test db-render db-prepare-mosaic \
 	db-embed simulate db-export-embeddings db-import-embeddings api-serve \
 	mcp-install
@@ -48,7 +48,7 @@ check-dsn:
 	}
 
 DSN_TARGETS := test db-install db-install-labs db-upgrade-snapshot \
-	validate-missions validate-functions \
+	validate-missions validate-evals validate-functions \
 	lab-01 db-load-mosaic db-index-concurrent db-load-cohort db-smoke \
 	db-bootstrap-cached db-embed db-export-embeddings db-import-embeddings \
 	api-serve
@@ -110,25 +110,31 @@ media-import:
 # are deliberately excluded: CREATE INDEX CONCURRENTLY cannot run inside a
 # transaction block, and they are pointless before embeddings exist.
 db-install:
-	cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f install.sql
+	@cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f install.sql
 
 # Evaluation and benchmark schemas. Separate so the session's `\dt mosaic.*`
 # shows the 12 tables the application reads, not 21.
 db-install-labs:
-	cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f install_labs.sql
+	@cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f install_labs.sql
 
 # Replays the idempotent core model over the canonical snapshot while preserving
 # search_trigram. Aurora's retrieval role cannot replace that function because
 # its function-level pg_trgm settings require a privilege RDS does not delegate.
 db-upgrade-snapshot:
-	cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f upgrade_snapshot.sql
+	@cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f upgrade_snapshot.sql
 
 # The mission contract gate. Shape checks always run; target checks need a DSN
 # and call mosaic_search.matches_filters on the cluster rather than
 # reimplementing filter logic. Set MISSION_GATE_REQUIRE_DB=1 in CI so a missing
 # DSN is a loud failure instead of a silent skip.
 validate-missions:
-	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/mission_contract.py
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/mission_contract.py
+
+# The 720-query corpus uses the production SearchFilters vocabulary. This gate
+# calls matches_filters on Aurora for every target before an eval can spend
+# embedding calls or publish metrics.
+validate-evals:
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/run_eval.py --validate-only
 
 # db/config/retrieval.yaml is the single source for candidate limits, fusion k,
 # weights, and the trigram threshold. This fails if any other file declares one,
@@ -143,12 +149,12 @@ validate-config:
 # caller passing the old argument count. Needs a DSN; set
 # FUNCTION_CENSUS_REQUIRE_DB=1 in CI so a missing DSN is a loud failure.
 validate-functions:
-	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/function_census.py
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/function_census.py
 
 # Lab 1: lexical precision and typo tolerance, against the mosaic_search tree
 # the API reads. Read-only; safe to re-run.
 lab-01:
-	psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/lab_01_typo_tolerance.sql
+	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/lab_01_typo_tolerance.sql
 
 # Re-render the vendored SQL at a different embedding width.
 db-render:
@@ -162,7 +168,7 @@ db-prepare-mosaic:
 		--output "$(MOSAIC_PREMIUM_COHORT_CSV)"
 
 db-load-mosaic:
-	psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
 		-v brands_path="$(MOSAIC_NORMALIZED_DIR)/brands.csv.gz" \
 		-v categories_path="$(MOSAIC_NORMALIZED_DIR)/categories.csv.gz" \
 		-v products_path="$(MOSAIC_NORMALIZED_DIR)/products.csv.gz" \
@@ -171,15 +177,15 @@ db-load-mosaic:
 
 # Run after embeddings are populated.
 db-index-concurrent:
-	psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/08_indexes_concurrent.sql
+	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/08_indexes_concurrent.sql
 
 db-load-cohort:
-	psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
 		-v premium_cohort_path="$(MOSAIC_PREMIUM_COHORT_CSV)" \
 		-f $(SCHEMA_PACKAGE)/sql/15_load_premium_cohort.sql
 
 db-smoke:
-	psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/99_smoke_test.sql
+	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/99_smoke_test.sql
 
 db-fetch-embeddings:
 	@test -n "$(EMBEDDING_CACHE_URI)" || { \
@@ -193,13 +199,13 @@ db-bootstrap-cached:
 		echo "Embedding cache manifest not found: $(EMBEDDING_CACHE_MANIFEST)"; \
 		exit 2; \
 	}
-	$(MAKE) db-install DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-install DATABASE_URL="$(DATABASE_URL)"
 	$(MAKE) db-prepare-mosaic
-	$(MAKE) db-load-mosaic DATABASE_URL="$(DATABASE_URL)"
-	$(MAKE) db-import-embeddings DATABASE_URL="$(DATABASE_URL)"
-	$(MAKE) db-index-concurrent DATABASE_URL="$(DATABASE_URL)"
-	$(MAKE) db-load-cohort DATABASE_URL="$(DATABASE_URL)"
-	$(MAKE) db-smoke DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-load-mosaic DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-import-embeddings DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-index-concurrent DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-load-cohort DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-smoke DATABASE_URL="$(DATABASE_URL)"
 
 validate-db:
 	"$(PYTHON)" "$(SCHEMA_PACKAGE)/scripts/validate_package.py"
@@ -214,7 +220,7 @@ validate:
 	$(PYTHON) scripts/validate_package.py
 
 test:
-	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest
 
 # Five targets were DELETED in Phase 2 Unit E. They installed and loaded the
 # `catalog.*` tree, which no longer exists, against whatever DSN they were handed
@@ -232,21 +238,21 @@ test:
 # SUBSTRATE-1 for why the predecessors cannot be run at all.
 
 db-embed:
-	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embed_catalog.py
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embed_catalog.py
 
 db-export-embeddings:
-	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embedding_cache.py \
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embedding_cache.py \
 		export --output "$(EMBEDDING_CACHE_DIR)"
 
 db-import-embeddings:
-	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embedding_cache.py \
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embedding_cache.py \
 		import "$(EMBEDDING_CACHE_MANIFEST)"
 
 simulate:
 	$(PYTHON) scripts/simulate_scale.py
 
 api-serve:
-	DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m uvicorn service.main:app --host 127.0.0.1 --port $(API_PORT)
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m uvicorn service.main:app --host 127.0.0.1 --port $(API_PORT)
 
 ui-install:
 	cd ui && npm ci

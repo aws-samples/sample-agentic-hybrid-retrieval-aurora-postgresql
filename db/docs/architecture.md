@@ -43,4 +43,4 @@ flowchart LR
 
 The projection repeats high-value filter columns on the same table as the vector. This matters for filtered ANN behavior and makes the HNSW lab observable. Core tables remain normalized for maintainability.
 
-At 500K rows, keep the initial design unpartitioned so attendees can see PostgreSQL planner behavior directly. Partitioning or partial HNSW indexes are advanced extensions when filter cardinality and tenant boundaries justify them.
+At 500K rows, keep the initial design unpartitioned so attendees can see PostgreSQL planner behavior directly. Partitioning or partial HNSW indexes belong in Advanced Labs (OPTIONAL) when filter cardinality and tenant boundaries justify them.

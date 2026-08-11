@@ -68,3 +68,14 @@ Persist for every eval run:
 - Aurora engine/instance configuration
 - cache state and concurrency
 - timestamp and code commit
+
+Before model calls, validate that every packaged target exists and satisfies its
+production Mosaic filters:
+
+```bash
+make validate-evals
+```
+
+The 720-query corpus uses `category_key`, integer cent price bounds, and explicit
+refurbished or sponsored inclusion where the target requires it. Predecessor
+keys such as `subcategory` and `max_price` fail closed in `SearchFilters`.

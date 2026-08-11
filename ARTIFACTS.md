@@ -27,7 +27,7 @@ re-embedding. Local state that nothing can restore is not a convenience.
 | Embedding cache | `build/embedding-cache/` | `make db-import-embeddings` (keyed to `mosaic_*`) |
 | Normalized CSV shards | `build/normalized/` | `make db-prepare-mosaic` from `data/full/*.csv.gz` |
 | Premium cohort media | `ui/public/assets/images/mosaic/` | git; 126 files, content-verified |
-| Mission contract | `data/evals/mosaic_labs_missions.json` | git; validated by `make validate-missions` |
+| Lab contract | `data/evals/mosaic_labs_missions.json` | git; validated by `make validate-missions` |
 | Retrieval numbers | `db/config/retrieval.yaml` | git; single source, enforced by `scripts/config_tripwire.py` |
 
 ## What is not restorable

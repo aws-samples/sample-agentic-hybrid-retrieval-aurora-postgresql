@@ -8,12 +8,10 @@ Ported from `catalog.search_hybrid_rrf` in Phase 2 Unit E. **No predecessor
 comparison possible — both `catalog.*` databases dropped 2026-08; DDL survives in
 git, loaded state does not.** See SUBSTRATE-1 in docs/rewrite-losses.md.
 
-**Correctness bar, since equivalence is unavailable: the golden missions'
-expected targets.** The mission contract gate's A2 checks are the baseline that
-*does* exist — they assert on the live cluster that every mission target resolves
-and satisfies its own filters. A port that returns those targets for those queries
-is right for a reason that can be re-checked, which "matches the old CSV" never
-was: the old CSV cannot be produced.
+**Correctness bar, since equivalence is unavailable:** every packaged evaluation
+target must exist and satisfy its own production Mosaic filters. This script
+checks all query filters through `SearchFilters` and
+`mosaic_search.matches_filters` before invoking the embedding model.
 
 Two defects were fixed in the port rather than carried across. The predecessor
 hardcoded its candidate limits (`60, 100, 75, 100`) and set
@@ -33,10 +31,14 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
+
+from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.retrieval_profile import load_profile  # noqa: E402  (path set above)
+from service.models import SearchFilters  # noqa: E402  (path set above)
 
 if __package__:
     from scripts.embed_catalog import (
@@ -49,6 +51,88 @@ else:
         COHERE_EMBED_V4_DIMENSIONS,
         COHERE_EMBED_V4_MODEL_ID,
         embedding_function,
+    )
+
+
+def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> None:
+    """Fail before model calls when an eval target violates Mosaic filters."""
+    if not queries:
+        raise ValueError(
+            "Evaluation contract requires at least one query; fix: provide a "
+            "non-empty JSONL query set before publishing retrieval metrics."
+        )
+    query_ids: set[str] = set()
+    cases: list[dict[str, Any]] = []
+    for query in queries:
+        query_id = str(query.get("query_id") or "")
+        if not query_id:
+            raise ValueError("Evaluation query is missing query_id")
+        if query_id in query_ids:
+            raise ValueError(f"Duplicate evaluation query_id: {query_id}")
+        query_ids.add(query_id)
+        try:
+            target_product_id = int(query["target_product_id"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError(
+                f"{query_id} must name an integer target_product_id"
+            ) from error
+        supplied_filters = query.get("filters", {})
+        try:
+            filters = SearchFilters.model_validate(supplied_filters).as_sql_json()
+        except ValidationError as error:
+            raise ValueError(
+                f"{query_id} filters violate the Mosaic SearchFilters contract: "
+                f"found {supplied_filters!r}; fix: use category_key, integer "
+                "min_price_cents/max_price_cents, and the typed fields in "
+                "service.models.SearchFilters"
+            ) from error
+        cases.append(
+            {
+                "query_id": query_id,
+                "target_product_id": target_product_id,
+                "filters": filters,
+            }
+        )
+
+    failures = connection.execute(
+        """
+        WITH cases AS (
+            SELECT *
+            FROM jsonb_to_recordset(%s::jsonb) AS c(
+                query_id text,
+                target_product_id bigint,
+                filters jsonb
+            )
+        )
+        SELECT c.query_id,
+               c.target_product_id,
+               CASE
+                   WHEN d.product_id IS NULL THEN 'target does not exist'
+                   ELSE 'target violates its Mosaic filters'
+               END AS reason
+        FROM cases c
+        LEFT JOIN mosaic_search.product_document d
+          ON d.product_id = c.target_product_id
+        WHERE d.product_id IS NULL
+           OR NOT mosaic_search.matches_filters(d, c.filters)
+        ORDER BY c.query_id
+        """,
+        (json.dumps(cases),),
+    ).fetchall()
+    if failures:
+        sample = "; ".join(
+            f"{query_id}/{product_id}: {reason}"
+            for query_id, product_id, reason in failures[:10]
+        )
+        suffix = "" if len(failures) <= 10 else f"; plus {len(failures) - 10} more"
+        raise ValueError(
+            "Evaluation contract failed against Aurora: "
+            f"{sample}{suffix}. Fix the query filters or target IDs before "
+            "publishing retrieval metrics."
+        )
+    print(
+        f"Evaluation contract passed: {len(cases):,} targets satisfy "
+        "mosaic_search.matches_filters."
     )
 
 
@@ -83,6 +167,11 @@ def main() -> None:
     ap.add_argument("--allow-development-embeddings", action="store_true")
     ap.add_argument("--limit-queries", type=int)
     ap.add_argument("--k", type=int, default=10)
+    ap.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Validate filter shape and live target eligibility without model calls.",
+    )
     args = ap.parse_args()
     if not args.database_url:
         raise SystemExit("DATABASE_URL required")
@@ -91,14 +180,6 @@ def main() -> None:
         from pgvector.psycopg import register_vector
     except ImportError as error:
         raise SystemExit("Install config/requirements.txt") from error
-    profile = load_profile()
-    embed, model_id = embedding_function(
-        args.provider,
-        model_id=args.model_id,
-        dimensions=args.dimensions,
-        region=args.region,
-        allow_development_embeddings=args.allow_development_embeddings,
-    )
     queries = [
         json.loads(line)
         for line in args.queries.read_text(encoding="utf-8").splitlines()
@@ -106,73 +187,81 @@ def main() -> None:
     ]
     if args.limit_queries:
         queries = queries[: args.limit_queries]
-    query_vectors: list[list[float]] = []
-    for offset in range(0, len(queries), 64):
-        batch = queries[offset : offset + 64]
-        query_vectors.extend(embed([item["query"] for item in batch]))
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with (
-        psycopg.connect(args.database_url) as connection,
-        args.output.open("w", newline="", encoding="utf-8") as output,
-    ):
+    with psycopg.connect(args.database_url) as connection:
         register_vector(connection)
-        # The predecessor set this to 0.24, which never matched the live 0.20 and
-        # is recorded as stale in LOSS-3. `mosaic_search.search_trigram` sets its
-        # own thresholds per call via a function-level SET, so nothing is needed
-        # here — the arm's gate travels with the arm.
-        writer = csv.DictWriter(
-            output,
-            fieldnames=[
-                "query_id",
-                "product_id",
-                "rank",
-                "latency_ms",
-                "embedding_model_id",
-            ],
+        validate_query_contract(connection, queries)
+        if args.validate_only:
+            return
+
+        profile = load_profile()
+        embed, model_id = embedding_function(
+            args.provider,
+            model_id=args.model_id,
+            dimensions=args.dimensions,
+            region=args.region,
+            allow_development_embeddings=args.allow_development_embeddings,
         )
-        writer.writeheader()
-        for index, (query, vector) in enumerate(
-            zip(queries, query_vectors),
-            1,
-        ):
-            started = time.perf_counter()
-            rows = connection.execute(
-                """
-                SELECT product_id
-                FROM mosaic_search.search_hybrid_rrf(
-                    %(query)s::text, %(embedding)s::vector, %(filters)s::jsonb,
-                    %(rrf_k)s::integer, %(fts_limit)s::integer,
-                    %(trigram_limit)s::integer, %(semantic_limit)s::integer,
-                    %(result_limit)s::integer, %(business_weight)s::real,
-                    %(trigram_threshold)s::real
-                )
-                """,
-                {
-                    "query": query["query"],
-                    "embedding": vector,
-                    "filters": json.dumps(query.get("filters") or {}),
-                    "rrf_k": profile.rrf_k,
-                    "fts_limit": profile.fts_limit,
-                    "trigram_limit": profile.trigram_limit,
-                    "semantic_limit": profile.semantic_limit,
-                    "result_limit": max(args.k, profile.fused_limit),
-                    "business_weight": profile.business_weight,
-                    "trigram_threshold": profile.trigram_threshold,
-                },
-            ).fetchall()
-            elapsed = (time.perf_counter() - started) * 1_000
-            for rank, (product_id,) in enumerate(rows[: args.k], 1):
-                writer.writerow(
+        query_vectors: list[list[float]] = []
+        for offset in range(0, len(queries), 64):
+            batch = queries[offset : offset + 64]
+            query_vectors.extend(embed([item["query"] for item in batch]))
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        with args.output.open("w", newline="", encoding="utf-8") as output:
+            # The predecessor set this to 0.24, which never matched the live
+            # 0.20. search_trigram carries its own function-level settings.
+            writer = csv.DictWriter(
+                output,
+                fieldnames=[
+                    "query_id",
+                    "product_id",
+                    "rank",
+                    "latency_ms",
+                    "embedding_model_id",
+                ],
+            )
+            writer.writeheader()
+            for index, (query, vector) in enumerate(
+                zip(queries, query_vectors),
+                1,
+            ):
+                started = time.perf_counter()
+                rows = connection.execute(
+                    """
+                    SELECT product_id
+                    FROM mosaic_search.search_hybrid_rrf(
+                        %(query)s::text, %(embedding)s::vector, %(filters)s::jsonb,
+                        %(rrf_k)s::integer, %(fts_limit)s::integer,
+                        %(trigram_limit)s::integer, %(semantic_limit)s::integer,
+                        %(result_limit)s::integer, %(business_weight)s::real,
+                        %(trigram_threshold)s::real
+                    )
+                    """,
                     {
-                        "query_id": query["query_id"],
-                        "product_id": product_id,
-                        "rank": rank,
-                        "latency_ms": round(elapsed, 3),
-                        "embedding_model_id": model_id,
-                    }
-                )
-            if index % 50 == 0 or index == len(queries):
-                print(f"{index:,}/{len(queries):,}")
+                        "query": query["query"],
+                        "embedding": vector,
+                        "filters": json.dumps(query.get("filters") or {}),
+                        "rrf_k": profile.rrf_k,
+                        "fts_limit": profile.fts_limit,
+                        "trigram_limit": profile.trigram_limit,
+                        "semantic_limit": profile.semantic_limit,
+                        "result_limit": max(args.k, profile.fused_limit),
+                        "business_weight": profile.business_weight,
+                        "trigram_threshold": profile.trigram_threshold,
+                    },
+                ).fetchall()
+                elapsed = (time.perf_counter() - started) * 1_000
+                for rank, (product_id,) in enumerate(rows[: args.k], 1):
+                    writer.writerow(
+                        {
+                            "query_id": query["query_id"],
+                            "product_id": product_id,
+                            "rank": rank,
+                            "latency_ms": round(elapsed, 3),
+                            "embedding_model_id": model_id,
+                        }
+                    )
+                if index % 50 == 0 or index == len(queries):
+                    print(f"{index:,}/{len(queries):,}")
     print(f"Wrote {args.output} with embedding_model_id={model_id}")
 
 

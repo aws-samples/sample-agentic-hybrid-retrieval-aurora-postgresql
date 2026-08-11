@@ -97,7 +97,7 @@ hard constraints, compares retrieved evidence, and synthesizes a cited answer.
 The trace and persisted retrieval-run IDs prove which tools and candidate pools
 produced the recommendation.
 
-## Advanced Labs (Optional)
+## Advanced Labs (OPTIONAL)
 
 Optional work does not consume the required 55-minute implementation path:
 

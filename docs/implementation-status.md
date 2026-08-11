@@ -11,8 +11,8 @@
   run inspection;
 - responsive React application with Discover, Catalog, Search, Product Detail,
   Mosaic Labs, Retrieval Lab, and Performance surfaces;
-- three required labs, two embedded Lab 1 checkpoints, and one optional
-  advanced lab governed by
+- three required labs, two embedded Lab 1 checkpoints, and three optional
+  Advanced Labs; the HNSW check is governed by
   `data/evals/mosaic_labs_missions.json`;
 - isolated MCP 2.0 adapter exposing the canonical read-only retrieval tools; and
 - snapshot-safe schema upgrades plus release gates that require the live Aurora
@@ -24,7 +24,7 @@
 - behavioral assertions `rrf_recomputes` and `rerank_off_invariant`;
 - per-token trigram expansion and the measured 500K trigram latency issue;
 - broader media fallback coverage; and
-- repointing the corpus-wide evaluation set to supported filter keys.
+- measured corpus-wide evaluation results for the current Aurora configuration.
 
 Hash embeddings are development-only and cannot support workshop relevance
 claims. Simulated scale output is not Aurora benchmark evidence.

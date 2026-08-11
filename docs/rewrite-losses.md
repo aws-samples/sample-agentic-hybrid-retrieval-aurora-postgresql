@@ -392,16 +392,15 @@ clearing both `embedding` and `embedding_model_key`, applied to the live cluster
 and asserted by `test_projection_upsert_invalidates_a_changed_embedding_text`. The
 deleted test was the only thing that had ever checked it.
 
-**Two filter vocabularies, measured.** `scripts/catalog_contract.py` declares nine
-filter keys; `mosaic_search.matches_filters` implements five. `category`,
-`subcategory`, `max_price` and `min_price` have no database counterpart, and
-`data/evals/queries.jsonl` sends `subcategory` and `max_price` on **235 of its 720
-queries**. Verified on the live cluster: a filter set carrying both returns the same
-**194,824** products as `domain` alone, because jsonb filters ignore keys they do not
-recognise. The module now names the split (`CORPUS_ONLY_FILTER_KEYS`,
-`SHARED_FILTER_KEYS`) and a test asserts it stays accurate in both directions, so
-the divergence cannot widen unnoticed. Repointing the eval queries at the database
-vocabulary is a data change with its own judgments and is out of Phase 2's scope.
+**Evaluation filter divergence closed 2026-08-11.** The 235 filtered queries now
+use Mosaic `category_key` and integer `max_price_cents`; all 720 queries validate
+through `SearchFilters`. Targets that intentionally represent refurbished or
+sponsored inventory declare the corresponding include policy explicitly.
+`scripts/run_eval.py --validate-only` sends every target and filter set through
+the production `mosaic_search.matches_filters` function before any embedding
+call, and the generator emits the same production vocabulary. The measured
+failure remains useful history: predecessor `subcategory` and `max_price` keys
+returned the same 194,824 rows as `domain` alone because the SQL ignored them.
 
 **One test was passing only because no DSN was configured.**
 `test_tool_call_against_the_real_app_does_not_404` sent a request with a random UUID

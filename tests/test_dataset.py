@@ -6,10 +6,11 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from scripts.catalog_contract import (
-    SHARED_FILTER_KEYS,
+    SUPPORTED_FILTER_KEYS,
     product_matches_filters,
     unsupported_filter_keys,
 )
+from service.models import SearchFilters
 
 ROOT = Path(__file__).resolve().parents[1]
 SKU_PATTERN = re.compile(r"^[A-Z]{2}-[A-Z0-9]{1,5}-[0-9]{7}$")
@@ -90,16 +91,15 @@ def test_evaluation_filters_match_the_sql_contract():
     assert all(
         isinstance(query["filters"].get("attributes", {}), dict) for query in queries
     )
+    for query in queries:
+        SearchFilters.model_validate(query["filters"])
 
-    # Retargeted from the deleted `sql/04_search_functions.sql` in Phase 2 Unit E.
-    # Only the SHARED keys are asserted against the database: the four corpus-only
-    # keys have no counterpart in `matches_filters`, which is measured and recorded
-    # in `scripts/catalog_contract`. Asserting all nine here is what let the
-    # divergence sit unnoticed — the old assertion passed because the deleted SQL
-    # had a different, larger vocabulary.
     sql = (ROOT / "db/sql/09_search_functions.sql").read_text(encoding="utf-8")
-    for key in SHARED_FILTER_KEYS:
-        assert f"f ? '{key}'" in sql, f"{key} is shared but the SQL does not probe it"
+    assert SUPPORTED_FILTER_KEYS == set(SearchFilters.model_fields)
+    for key in SUPPORTED_FILTER_KEYS:
+        assert f"'{key}'" in sql, (
+            f"{key} is accepted by SearchFilters but matches_filters never reads it"
+        )
 
 
 def test_balanced_sample():
