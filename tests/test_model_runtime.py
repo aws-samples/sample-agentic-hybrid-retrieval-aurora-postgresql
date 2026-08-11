@@ -17,6 +17,7 @@ from service.models import (
     AgentRequest,
     AgentResponse,
     ProductSummary,
+    SearchFilters,
     SourceAttribution,
 )
 from service.rerank import BedrockReranker
@@ -284,6 +285,97 @@ def test_strands_registers_the_read_only_product_tools():
 
     assert {tool.tool_name for tool in agent_tools.TOOL_FUNCTIONS} == expected
     assert set(build_agent().tool_registry.registry) == expected
+
+
+def test_agent_tool_filters_cannot_widen_request_filters():
+    base = SearchFilters(
+        domain="home_office",
+        category_key="office-chairs",
+        brand="Mosaic",
+        availability="low_stock",
+        in_stock_only=True,
+        min_price_cents=20_000,
+        max_price_cents=80_000,
+        min_rating=4.0,
+        attributes={"seat_depth_adjustable": True},
+    )
+    supplied = SearchFilters(
+        domain="consumer_electronics",
+        category_key="over-ear-headphones",
+        brand="AuriLogic",
+        availability="preorder",
+        min_price_cents=10_000,
+        max_price_cents=120_000,
+        min_rating=3.0,
+        attributes={
+            "seat_depth_adjustable": False,
+            "quiet_operation": True,
+        },
+    )
+
+    merged = agent_tools._merge_search_filters(base, supplied)
+
+    assert merged == SearchFilters(
+        domain="home_office",
+        category_key="office-chairs",
+        brand="Mosaic",
+        availability="low_stock",
+        in_stock_only=True,
+        min_price_cents=20_000,
+        max_price_cents=80_000,
+        min_rating=4.0,
+        attributes={
+            "seat_depth_adjustable": True,
+            "quiet_operation": True,
+        },
+    )
+
+
+def test_agent_tool_filters_may_narrow_request_filters():
+    base = SearchFilters(
+        domain="home_office",
+        in_stock_only=True,
+        min_price_cents=20_000,
+        max_price_cents=80_000,
+        min_rating=4.0,
+    )
+    supplied = SearchFilters(
+        category_key="office-chairs",
+        min_price_cents=30_000,
+        max_price_cents=70_000,
+        min_rating=4.5,
+        attributes={"seat_depth_adjustable": True},
+    )
+
+    merged = agent_tools._merge_search_filters(base, supplied)
+
+    assert merged == SearchFilters(
+        domain="home_office",
+        category_key="office-chairs",
+        in_stock_only=True,
+        min_price_cents=30_000,
+        max_price_cents=70_000,
+        min_rating=4.5,
+        attributes={"seat_depth_adjustable": True},
+    )
+
+
+def test_agent_search_tool_enforces_its_two_search_budget():
+    state = {"searches": [{}, {}]}
+    token = agent_tools._RUN.set(state)
+    try:
+        result = agent_tools.search_products.__wrapped__("another broad search")
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert result == {
+        "ok": False,
+        "error": "search_products allows 2 searches per agent turn; found 2",
+        "recovery": (
+            "use the products already retrieved and call "
+            "synthesize_cited_answer, or state the evidence gap."
+        ),
+    }
 
 
 def test_public_runtime_contracts_are_inspectable():

@@ -23,6 +23,8 @@ from service.synthesis import synthesize_cited_answer as synthesize_answer
 
 logger = logging.getLogger(__name__)
 
+SEARCH_SLOTS = ("primary", "follow_up")
+
 _RUN: ContextVar[dict[str, Any] | None] = ContextVar(
     "catalog_agent_tool_run",
     default=None,
@@ -143,6 +145,48 @@ def _product_for_model(product: ProductSummary) -> dict[str, Any]:
     }
 
 
+def _merge_search_filters(
+    base: SearchFilters,
+    supplied: SearchFilters,
+) -> SearchFilters:
+    """Intersect model-proposed filters with request-level constraints."""
+
+    def exact(field: str) -> Any:
+        base_value = getattr(base, field)
+        return base_value if base_value is not None else getattr(supplied, field)
+
+    def lower_bound(field: str) -> int | float | None:
+        values = [
+            value
+            for value in (getattr(base, field), getattr(supplied, field))
+            if value is not None
+        ]
+        return max(values) if values else None
+
+    def upper_bound(field: str) -> int | None:
+        values = [
+            value
+            for value in (getattr(base, field), getattr(supplied, field))
+            if value is not None
+        ]
+        return min(values) if values else None
+
+    return SearchFilters(
+        domain=exact("domain"),
+        category_key=exact("category_key"),
+        brand=exact("brand"),
+        brands=base.brands or supplied.brands,
+        availability=exact("availability"),
+        in_stock_only=base.in_stock_only or supplied.in_stock_only,
+        min_price_cents=lower_bound("min_price_cents"),
+        max_price_cents=upper_bound("max_price_cents"),
+        min_rating=lower_bound("min_rating"),
+        attributes={**supplied.attributes, **base.attributes},
+        include_refurbished=base.include_refurbished,
+        include_sponsored=base.include_sponsored,
+    )
+
+
 @tool
 def search_products(
     query: str,
@@ -159,8 +203,8 @@ def search_products(
 ) -> dict[str, Any]:
     """Search products with PostgreSQL hybrid retrieval and managed reranking.
 
-    Use this for one focused part of a shopping question. Use no more than two
-    searches in one agent turn. PostgreSQL
+    Use this for one focused part of a shopping question. Run a primary search
+    and, only when needed, one follow-up search. PostgreSQL
     applies hard filters inside full-text, trigram, and semantic retrieval,
     fuses arm positions with reciprocal rank fusion, and persists candidate
     signals before the reranker orders the bounded candidate pool.
@@ -202,6 +246,18 @@ def search_products(
             "query was empty",
             "retry with a targeted shopping intent or exact product identifier.",
         )
+    search_budget = len(SEARCH_SLOTS)
+    if len(state["searches"]) >= search_budget:
+        return _failure(
+            (
+                f"search_products allows {search_budget} searches per agent "
+                f"turn; found {len(state['searches'])}"
+            ),
+            (
+                "use the products already retrieved and call "
+                "synthesize_cited_answer, or state the evidence gap."
+            ),
+        )
     try:
         tool_filters = SearchFilters(
             domain=domain,
@@ -214,14 +270,7 @@ def search_products(
             min_rating=min_rating,
             attributes=attributes or {},
         )
-        merged = state["base_filters"].as_sql_json()
-        supplied = tool_filters.as_sql_json()
-        merged_attributes = dict(merged.get("attributes", {}))
-        merged_attributes.update(supplied.pop("attributes", {}))
-        merged.update(supplied)
-        if merged_attributes:
-            merged["attributes"] = merged_attributes
-        filters = SearchFilters.model_validate(merged)
+        filters = _merge_search_filters(state["base_filters"], tool_filters)
         response = get_retrieval_service().search(
             SearchRequest(
                 query=query,
