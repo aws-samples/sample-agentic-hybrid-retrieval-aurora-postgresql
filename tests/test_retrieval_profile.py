@@ -1,10 +1,8 @@
 """Precedence and bounds for the yaml-sourced retrieval profile.
 
 Env > yaml is the documented contract, so it is **tested** here rather than
-asserted in prose. The bounds tests generalize Phase 1's fix: `BUSINESS_WEIGHT`
-at 0.15 against a `le=0.05` bound reached the request path and returned an
-unhandled 500 on every query. A limit of 0 or a negative `k` must now refuse to
-start, in the same error class.
+asserted in prose. A limit of 0 or a negative `k` must refuse to start in the
+same error class.
 """
 
 from __future__ import annotations
@@ -37,8 +35,9 @@ def test_the_shipped_yaml_loads_and_validates():
     assert profile.trigram_limit == 80
     assert profile.semantic_limit == 150
     assert profile.rrf_k == 60
-    assert profile.business_weight == 0.003
     assert profile.trigram_threshold == 0.20
+    assert profile.trigram_similarity_gate == 0.18
+    assert profile.trigram_word_similarity_gate == 0.5
 
 
 def test_the_ported_weights_round_trip_by_key_name():
@@ -49,11 +48,11 @@ def test_the_ported_weights_round_trip_by_key_name():
     assert profile.weight_trigram == 0.10
 
 
-def test_business_signals_weight_is_not_a_fusion_weight():
-    """0.15 is history, not configuration; it must not be loadable as a weight."""
+def test_business_signals_do_not_enter_the_required_ranking_path():
+    """Eligibility is deterministic SQL, not an implicit post-fusion score."""
     profile = load_profile()
     assert not hasattr(profile, "weight_business_signals")
-    assert profile.business_weight <= 0.05
+    assert not hasattr(profile, "business_weight")
 
 
 @pytest.mark.parametrize(
@@ -66,6 +65,12 @@ def test_business_signals_weight_is_not_a_fusion_weight():
         ("RERANK_CANDIDATE_LIMIT", "fused_limit", "25"),
         ("HNSW_EF_SEARCH", "hnsw_ef_search", "64"),
         ("VECTOR_DIM", "vector_dimension", "512"),
+        ("PG_TRGM_SIMILARITY_THRESHOLD", "trigram_similarity_gate", "0.21"),
+        (
+            "PG_TRGM_WORD_SIMILARITY_THRESHOLD",
+            "trigram_word_similarity_gate",
+            "0.55",
+        ),
     ],
 )
 def test_environment_overrides_the_yaml(monkeypatch, yaml_copy, env, field, value):
@@ -91,8 +96,6 @@ def test_an_empty_environment_variable_does_not_win(monkeypatch, yaml_copy):
         ("FTS_CANDIDATE_LIMIT", "1001"),
         ("RRF_K", "0"),
         ("RRF_K", "-1"),
-        ("BUSINESS_WEIGHT", "0.15"),
-        ("BUSINESS_WEIGHT", "-0.01"),
         ("HNSW_EF_SEARCH", "0"),
         ("VECTOR_DIM", "0"),
         ("RERANK_CANDIDATE_LIMIT", "251"),
@@ -195,5 +198,4 @@ def test_retrieval_profile_model_defaults_come_from_the_yaml():
     yaml_profile = load_profile()
     assert profile.fts_limit == yaml_profile.fts_limit
     assert profile.rrf_k == yaml_profile.rrf_k
-    assert profile.business_weight == yaml_profile.business_weight
     assert profile.result_limit == yaml_profile.display_limit

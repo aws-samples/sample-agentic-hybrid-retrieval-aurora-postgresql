@@ -1,6 +1,7 @@
 import io
 import json
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -8,7 +9,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from service import agent_tools
-from service.agent import ProductDiscoveryAgent, build_agent
+from service.agent import (
+    GroundingContractError,
+    ProductDiscoveryAgent,
+    build_agent,
+)
+from service.catalog import _detail
 from service.config import get_settings
 from service.embeddings import BedrockEmbeddingProvider, _cohere_request
 from service.main import app
@@ -16,6 +22,7 @@ from service.models import (
     AgentCitation,
     AgentRequest,
     AgentResponse,
+    EvidenceRecord,
     ProductSummary,
     SearchFilters,
     SourceAttribution,
@@ -60,16 +67,31 @@ class FakeRerankClient:
 
 
 class FakeSynthesisClient:
-    def __init__(self, answer: str):
-        self.answer = answer
+    def __init__(
+        self,
+        answer: str | list[str],
+        *,
+        stop_reason: str | list[str] = "end_turn",
+    ):
+        self.answers = answer if isinstance(answer, list) else [answer]
+        self.stop_reasons = (
+            stop_reason if isinstance(stop_reason, list) else [stop_reason]
+        )
         self.request = None
+        self.requests: list[dict] = []
 
     def converse(self, **kwargs):
         self.request = kwargs
+        self.requests.append(kwargs)
+        index = min(len(self.requests) - 1, len(self.answers) - 1)
+        stop_index = min(
+            len(self.requests) - 1,
+            len(self.stop_reasons) - 1,
+        )
         return {
             "output": {
                 "message": {
-                    "content": [{"text": self.answer}],
+                    "content": [{"text": self.answers[index]}],
                 }
             },
             "usage": {
@@ -77,6 +99,7 @@ class FakeSynthesisClient:
                 "outputTokens": 60,
                 "totalTokens": 260,
             },
+            "stopReason": self.stop_reasons[stop_index],
         }
 
 
@@ -113,6 +136,50 @@ def product() -> ProductSummary:
             )
         ],
     )
+
+
+def evidence() -> EvidenceRecord:
+    return EvidenceRecord(
+        evidence_id=9001,
+        product_id=101,
+        evidence_type="product_spec",
+        source_name="Mosaic catalog specification",
+        source_uri="mosaic://evidence/product-spec/101",
+        revision="2026-08-07",
+        title="AuriLogic Flight ANC specifications",
+        text="48-hour battery life and active noise cancellation.",
+        is_verified=True,
+    )
+
+
+def citation() -> AgentCitation:
+    return AgentCitation(
+        number=1,
+        evidence_id=9001,
+        evidence_type="product_spec",
+        product_id=101,
+        source_uri="mosaic://evidence/product-spec/101",
+        revision="2026-08-07",
+        title="AuriLogic Flight ANC specifications",
+        quote="48-hour battery life and active noise cancellation.",
+    )
+
+
+def test_product_detail_replaces_the_inherited_group_field_once():
+    detail = _detail(
+        product(),
+        {
+            "long_description": "Complete product detail.",
+            "canonical_group_id": "group-101",
+            "source_system": "mosaic",
+            "updated_at": datetime.now(UTC),
+        },
+        [],
+        [],
+    )
+
+    assert detail.canonical_group_id == "group-101"
+    assert detail.long_description == "Complete product detail."
 
 
 def test_cohere_embed_v4_request_and_response(monkeypatch):
@@ -181,13 +248,81 @@ def test_synthesis_returns_only_validated_citations():
     answer, citations, usage = synthesize_cited_answer(
         "What should I use on a long flight?",
         [product()],
+        [evidence()],
         client=client,
     )
 
     assert "[1]" in answer
-    assert citations[0].source_uri == "mosaic://product/101"
+    assert citations[0].evidence_id == 9001
+    assert citations[0].source_uri == "mosaic://evidence/product-spec/101"
     assert usage["totalTokens"] == 260
-    assert client.request["inferenceConfig"]["maxTokens"] == 1_200
+    assert client.request["inferenceConfig"] == {"maxTokens": 1_400}
+    assert '"allowed_evidence_numbers": [1]' in client.request["messages"][0][
+        "content"
+    ][0]["text"]
+    assert usage["stopReason"] == "end_turn"
+    assert usage["attempts"] == 1
+
+
+def test_synthesis_repairs_one_invalid_citation_draft_inside_its_boundary():
+    second_product = product().model_copy(
+        update={
+            "product_id": 102,
+            "title": "AuriLogic Office ANC",
+            "model": "OF-40",
+        }
+    )
+    second_evidence = evidence().model_copy(
+        update={
+            "evidence_id": 9002,
+            "product_id": 102,
+            "title": "AuriLogic Office ANC specifications",
+        }
+    )
+    client = FakeSynthesisClient(
+        [
+            (
+                "Summary\nAuriLogic Flight ANC and AuriLogic Office ANC are "
+                "the options [1]."
+            ),
+            (
+                "Summary\nThe two options fit different settings [1][2].\n"
+                "Recommendations\n"
+                "- AuriLogic Flight ANC is the travel choice [1].\n"
+                "- AuriLogic Office ANC is the office choice [2].\n"
+                "Trade-offs\nChoose by environment [1][2]."
+            ),
+        ]
+    )
+
+    answer, citations, usage = synthesize_cited_answer(
+        "Compare the options.",
+        [product(), second_product],
+        [evidence(), second_evidence],
+        client=client,
+    )
+
+    assert "Office ANC is the office choice [2]" in answer
+    assert {citation.product_id for citation in citations} == {101, 102}
+    assert len(client.requests) == 2
+    assert usage["attempts"] == 2
+    assert usage["totalTokens"] == 520
+
+
+def test_synthesis_rejects_a_truncated_model_response():
+    client = FakeSynthesisClient(
+        "Choose AuriLogic Flight ANC for long flights [1].",
+        stop_reason="max_tokens",
+    )
+
+    with pytest.raises(ValueError, match="max_tokens"):
+        synthesize_cited_answer(
+            "What should I use on a long flight?",
+            [product()],
+            [evidence()],
+            client=client,
+        )
+    assert len(client.requests) == 2
 
 
 def test_synthesis_rejects_citation_outside_retrieved_set():
@@ -197,30 +332,106 @@ def test_synthesis_rejects_citation_outside_retrieved_set():
         synthesize_cited_answer(
             "What should I buy?",
             [product()],
+            [evidence()],
+            client=client,
+        )
+
+
+def test_synthesis_rejects_zero_as_an_evidence_number():
+    client = FakeSynthesisClient("Choose AuriLogic Flight ANC [0].")
+
+    with pytest.raises(ValueError, match="outside the retrieved set"):
+        synthesize_cited_answer(
+            "What should I buy?",
+            [product()],
+            [evidence()],
+            client=client,
+        )
+
+
+def test_synthesis_requires_citations_for_every_selected_product():
+    second_product = product().model_copy(
+        update={
+            "product_id": 102,
+            "title": "AuriLogic Office ANC",
+            "model": "OF-40",
+        }
+    )
+    second_evidence = evidence().model_copy(
+        update={
+            "evidence_id": 9002,
+            "product_id": 102,
+            "title": "AuriLogic Office ANC specifications",
+        }
+    )
+    client = FakeSynthesisClient(
+        "Choose AuriLogic Flight ANC for travel [1]. "
+        "AuriLogic Office ANC is the alternative [1]."
+    )
+
+    with pytest.raises(ValueError, match="did not cite every selected product"):
+        synthesize_cited_answer(
+            "Compare the options.",
+            [product(), second_product],
+            [evidence(), second_evidence],
+            client=client,
+        )
+
+
+def test_synthesis_rejects_a_named_product_claim_citing_another_product():
+    second_product = product().model_copy(
+        update={
+            "product_id": 102,
+            "title": "AuriLogic Office ANC",
+            "model": "OF-40",
+        }
+    )
+    second_evidence = evidence().model_copy(
+        update={
+            "evidence_id": 9002,
+            "product_id": 102,
+            "title": "AuriLogic Office ANC specifications",
+        }
+    )
+    client = FakeSynthesisClient(
+        "AuriLogic Flight ANC is the travel choice [2]. "
+        "AuriLogic Office ANC is the office choice [1][2]."
+    )
+
+    with pytest.raises(ValueError, match="naming product 101"):
+        synthesize_cited_answer(
+            "Compare the options.",
+            [product(), second_product],
+            [evidence(), second_evidence],
             client=client,
         )
 
 
 def test_agent_finalizes_retrieved_products_when_orchestration_stops(monkeypatch):
-    citation = AgentCitation(
-        number=1,
-        product_id=101,
-        source_uri="mosaic://product/101",
-        revision="test-revision",
-        title="AuriLogic Flight ANC",
-        quote="Quiet over-ear headphones with 48-hour battery life.",
-    )
+    source = evidence()
     state = {
         "result_limit": 4,
         "products": {101: product()},
+        "evidence": {source.evidence_id: source},
+        "evidence_by_product": {101: [source.evidence_id]},
         "answer_of_record": None,
-        "trace": [],
+        "trace": [
+            {
+                "tool": "compare_products",
+                "arguments": {"product_ids": [101]},
+                "outcome": "success",
+            }
+        ],
     }
     token = agent_tools._RUN.set(state)
     monkeypatch.setattr(
         agent_tools,
         "synthesize_answer",
-        lambda *_args: ("Choose the quiet option [1].", [citation], {"totalTokens": 42}),
+        lambda *_args: (
+            "Choose the quiet option [1].",
+            [citation()],
+            {"totalTokens": 42},
+        ),
     )
     try:
         agent_tools.finalize_retrieved_answer("What should I buy?")
@@ -228,8 +439,97 @@ def test_agent_finalizes_retrieved_products_when_orchestration_stops(monkeypatch
         agent_tools._RUN.reset(token)
 
     assert state["answer_of_record"]["answer"] == "Choose the quiet option [1]."
-    assert state["trace"][0]["tool"] == "synthesize_cited_answer"
-    assert state["trace"][0]["arguments"]["orchestration_fallback"] is True
+    assert state["trace"][-1]["tool"] == "synthesize_cited_answer"
+    assert state["trace"][-1]["arguments"]["orchestration_fallback"] is True
+
+
+def test_grounding_completion_uses_a_bounded_cross_search_shortlist(monkeypatch):
+    second = product().model_copy(
+        update={"product_id": 102, "title": "AuriLogic Office ANC"}
+    )
+    third = product().model_copy(
+        update={"product_id": 103, "title": "Mosaic Ergonomic Chair"}
+    )
+    fourth = product().model_copy(
+        update={"product_id": 104, "title": "Mosaic Task Chair"}
+    )
+    state = {
+        "result_limit": 6,
+        "products": {
+            item.product_id: item
+            for item in (product(), second, third, fourth)
+        },
+        "evidence": {},
+        "evidence_by_product": {},
+        "answer_of_record": None,
+        "trace": [],
+        "searches": [
+            {"product_ids": [101, 102]},
+            {"product_ids": [103, 104]},
+        ],
+    }
+    evidence_calls: list[int] = []
+    finalized: list[int] = []
+
+    def read_evidence(product_id):
+        evidence_calls.append(product_id)
+        state["evidence_by_product"][product_id] = [9000 + product_id]
+        return {"ok": True}
+
+    def finalize(_question, *, product_ids):
+        finalized.extend(product_ids)
+
+    token = agent_tools._RUN.set(state)
+    monkeypatch.setattr(agent_tools, "get_product_evidence", read_evidence)
+    monkeypatch.setattr(agent_tools, "finalize_retrieved_answer", finalize)
+    try:
+        agent_tools.complete_grounded_answer("Compare the options.")
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert evidence_calls == [101, 102, 103, 104]
+    assert finalized == [101, 102, 103, 104]
+    assert agent_tools._comparison_covers(state, finalized)
+
+
+def test_grounding_completion_fails_when_evidence_is_not_attached(monkeypatch):
+    state = {
+        "result_limit": 2,
+        "products": {101: product()},
+        "evidence": {},
+        "evidence_by_product": {},
+        "answer_of_record": None,
+        "trace": [],
+        "searches": [{"product_ids": [101]}],
+    }
+    token = agent_tools._RUN.set(state)
+    monkeypatch.setattr(
+        agent_tools,
+        "get_product_evidence",
+        lambda _product_id: {"ok": True, "evidence": [evidence()]},
+    )
+    try:
+        with pytest.raises(RuntimeError, match="No retrieved evidence"):
+            agent_tools.complete_grounded_answer("What should I buy?")
+    finally:
+        agent_tools._RUN.reset(token)
+
+
+def test_multi_product_synthesis_requires_a_successful_comparison():
+    state = {
+        "trace": [],
+    }
+
+    assert agent_tools._comparison_covers(state, [101, 102]) is False
+    state["trace"].append(
+        {
+            "tool": "compare_products",
+            "arguments": {"product_ids": [101, 102]},
+            "outcome": "success",
+        }
+    )
+    assert agent_tools._comparison_covers(state, [101, 102]) is True
+    assert agent_tools._comparison_covers(state, [101, 102, 103]) is False
 
 
 def test_agent_response_uses_turn_alias_and_search_event_trace():
@@ -240,16 +540,7 @@ def test_agent_response_uses_turn_alias_and_search_event_trace():
         "answer_of_record": {
             "answer": "Choose the quiet option [1].",
             "recommendations": [product()],
-            "citations": [
-                AgentCitation(
-                    number=1,
-                    product_id=101,
-                    source_uri="mosaic://product/101",
-                    revision="test-revision",
-                    title="AuriLogic Flight ANC",
-                    quote="Quiet over-ear headphones with 48-hour battery life.",
-                )
-            ],
+            "citations": [citation()],
         },
         "searches": [],
         "trace": [
@@ -272,6 +563,95 @@ def test_agent_response_uses_turn_alias_and_search_event_trace():
 
     assert response.agent_run_id == run_id
     assert response.trace[0].retrieval_run_id == search_event_id
+
+
+def test_synchronous_agent_preserves_tool_run_context(monkeypatch):
+    run_id = uuid4()
+    source = evidence()
+    state = {
+        "agent_run_id": run_id,
+        "agent_session_id": uuid4(),
+        "agent_turn_id": run_id,
+        "question": "What should I buy?",
+        "base_filters": SearchFilters(),
+        "result_limit": 2,
+        "trace": [],
+        "search_event_ids": [],
+        "products": {101: product()},
+        "evidence": {source.evidence_id: source},
+        "evidence_by_product": {101: [source.evidence_id]},
+        "searches": [],
+        "answer_of_record": None,
+    }
+
+    def start_run(*_args):
+        agent_tools._RUN.set(state)
+        return state
+
+    class FakeAgent:
+        async def invoke_async(self, question):
+            assert agent_tools._state() is state
+            state["answer_of_record"] = {
+                "answer": "Choose the quiet option [1].",
+                "recommendations": [product()],
+                "citations": [citation()],
+                "usage": {},
+            }
+            return type("Result", (), {"metrics": {}})()
+
+    monkeypatch.setattr(agent_tools, "start_run", start_run)
+    monkeypatch.setattr("service.agent.build_agent", lambda: FakeAgent())
+    monkeypatch.setattr(agent_tools, "persist_completed_run", lambda *_args, **_kwargs: None)
+
+    response = ProductDiscoveryAgent().answer(
+        AgentRequest(question="What should I buy?", result_limit=2)
+    )
+
+    assert response.agent_run_id == run_id
+    assert response.citations[0].evidence_id == source.evidence_id
+
+
+def test_agent_surfaces_grounding_contract_failure_over_model_loop_error(
+    monkeypatch,
+):
+    state = {
+        "agent_run_id": uuid4(),
+        "products": {101: product()},
+        "answer_of_record": None,
+    }
+    persisted_errors: list[str | None] = []
+
+    class FailingAgent:
+        async def invoke_async(self, _question):
+            raise RuntimeError("model loop exhausted its token budget")
+
+    def fail_grounding(_question):
+        raise RuntimeError(
+            "No retrieved evidence is available for grounded synthesis"
+        )
+
+    monkeypatch.setattr(agent_tools, "start_run", lambda *_args: state)
+    monkeypatch.setattr("service.agent.build_agent", lambda: FailingAgent())
+    monkeypatch.setattr(
+        agent_tools,
+        "complete_grounded_answer",
+        fail_grounding,
+    )
+    monkeypatch.setattr(
+        agent_tools,
+        "persist_completed_run",
+        lambda _state, **kwargs: persisted_errors.append(kwargs["error_type"]),
+    )
+
+    with pytest.raises(
+        GroundingContractError,
+        match="evidence and citation contract",
+    ):
+        ProductDiscoveryAgent().answer(
+            AgentRequest(question="What should I buy?", result_limit=2)
+        )
+
+    assert persisted_errors == ["GroundingContractError"]
 
 
 def test_strands_registers_the_read_only_product_tools():
@@ -400,16 +780,7 @@ def test_agent_stream_forwards_strands_tool_stages_and_validated_answer(monkeypa
         answer="Summary\nChoose the quiet option [1].",
         plan=[],
         recommendations=[product()],
-        citations=[
-            AgentCitation(
-                number=1,
-                product_id=101,
-                source_uri="mosaic://product/101",
-                revision="test-revision",
-                title="AuriLogic Flight ANC",
-                quote="Quiet over-ear headphones with 48-hour battery life.",
-            )
-        ],
+        citations=[citation()],
         trace=[],
     )
 
@@ -448,5 +819,6 @@ def test_retrieval_sql_casts_python_values_to_the_function_contract():
     assert "%(embedding)s::vector" in source
     assert "::vector(%(dims)s)" not in source
     assert "%(rrf_k)s::integer" in source
-    assert "%(business_weight)s::real" in source
+    assert "%(business_weight)s::real" not in source
+    assert "ORDER BY h.pre_rerank_score DESC, h.product_id" in source
     assert "'error_type', %s::text" in source

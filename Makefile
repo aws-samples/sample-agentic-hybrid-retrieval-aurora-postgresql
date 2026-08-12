@@ -3,6 +3,7 @@ PYTHON_VERSION := 3.13
 VENV ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 BOOTSTRAP_PYTHON ?= python3.13
+UV ?= uv
 PYTHON ?= $(if $(wildcard $(VENV_PYTHON)),$(VENV_PYTHON),$(BOOTSTRAP_PYTHON))
 MCP_VENV ?= mcp-server/.venv
 MCP_PYTHON ?= $(MCP_VENV)/bin/python
@@ -12,12 +13,14 @@ MCP_PYTHON ?= $(MCP_VENV)/bin/python
 DATABASE_URL ?=
 API_PORT ?= 8000
 UI_PORT ?= 5173
+LAB_API_URL ?= http://127.0.0.1:$(API_PORT)
 
 # The Mosaic data model is vendored under db/, rendered at 1024 dimensions.
 SCHEMA_PACKAGE ?= db
 VECTOR_DIM ?= 1024
 EMBEDDING_CACHE_DIR ?= build/embedding-cache
 EMBEDDING_CACHE_MANIFEST ?= $(EMBEDDING_CACHE_DIR)/manifest.json
+EMBEDDING_CACHE_CONTRACT ?= db/config/embedding-cache.json
 EMBEDDING_CACHE_URI ?=
 MOSAIC_NORMALIZED_DIR ?= build/normalized
 MOSAIC_PREMIUM_COHORT_CSV ?= $(MOSAIC_NORMALIZED_DIR)/premium_cohort_120.csv
@@ -26,13 +29,14 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test db-install db-install-labs db-upgrade-snapshot validate-missions validate-evals validate-config validate-functions lab-01 db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings db-smoke db-index-concurrent db-load-cohort db-embed db-export-embeddings db-import-embeddings simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
 	validate-missions validate-evals validate-config validate-functions \
 	test db-render db-prepare-mosaic \
-	db-embed simulate db-export-embeddings db-import-embeddings api-serve \
+	db-embed simulate db-export-embeddings db-import-embeddings \
+	verify-embedding-cache db-configure-retrieval lab-status validate-lab-3 solution-lab-3 api-serve \
 	mcp-install
 
 $(PYTHON_TARGETS): check-python
@@ -49,20 +53,19 @@ check-dsn:
 
 DSN_TARGETS := test db-install db-install-labs db-upgrade-snapshot \
 	validate-missions validate-evals validate-functions \
-	lab-01 db-load-mosaic db-index-concurrent db-load-cohort db-smoke \
-	db-bootstrap-cached db-embed db-export-embeddings db-import-embeddings \
-	api-serve
+	lab-01 db-load-mosaic db-index-concurrent db-load-cohort db-load-evidence db-smoke \
+	db-bootstrap-cached db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
+	db-configure-retrieval db-apply-search-functions reset-lab-1 validate-lab-1 solution-lab-1 \
+	reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 api-serve
 
 $(DSN_TARGETS): check-dsn
 
 setup: check-bootstrap-python
-	$(BOOTSTRAP_PYTHON) -m venv "$(VENV)"
-	"$(VENV_PYTHON)" -m pip install --upgrade pip
-	"$(VENV_PYTHON)" -m pip install -r config/requirements.txt
-	"$(VENV_PYTHON)" -m pip check
+	$(UV) sync --frozen
+	$(UV) pip check
 
 doctor: check-python
-	"$(PYTHON)" -m pip check
+	$(UV) pip check
 
 check-python:
 	@"$(PYTHON)" -c 'import sys; expected = (3, 13); actual = sys.version_info[:2]; print(f"Python {sys.version.split()[0]} ({sys.executable})"); raise SystemExit(0 if actual == expected else "Mosaic requires Python 3.13")'
@@ -111,17 +114,21 @@ media-import:
 # transaction block, and they are pointless before embeddings exist.
 db-install:
 	@cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f install.sql
+	@$(MAKE) db-configure-retrieval DATABASE_URL="$(DATABASE_URL)"
 
 # Evaluation and benchmark schemas. Separate so the session's `\dt mosaic.*`
 # shows the 12 tables the application reads, not 21.
 db-install-labs:
 	@cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f install_labs.sql
 
-# Replays the idempotent core model over the canonical snapshot while preserving
-# search_trigram. Aurora's retrieval role cannot replace that function because
-# its function-level pg_trgm settings require a privilege RDS does not delegate.
+# Operator-only compatibility path for historical snapshot restores. Workshop
+# Studio provisions fresh Aurora through db-bootstrap-cached.
 db-upgrade-snapshot:
 	@cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f upgrade_snapshot.sql
+	@$(MAKE) db-configure-retrieval DATABASE_URL="$(DATABASE_URL)"
+
+db-configure-retrieval:
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/configure_retrieval_database.py
 
 # The mission contract gate. Shape checks always run; target checks need a DSN
 # and call mosaic_search.matches_filters on the cluster rather than
@@ -135,6 +142,8 @@ validate-missions:
 # embedding calls or publish metrics.
 validate-evals:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/run_eval.py --validate-only
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/run_eval.py \
+		--queries data/evals/canonical_queries.jsonl --validate-only
 
 # db/config/retrieval.yaml is the single source for candidate limits, fusion k,
 # weights, and the trigram threshold. This fails if any other file declares one,
@@ -155,6 +164,49 @@ validate-functions:
 # the API reads. Read-only; safe to re-run.
 lab-01:
 	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/lab_01_typo_tolerance.sql
+
+lab-status:
+	@$(PYTHON) scripts/lab_state.py status
+
+db-apply-search-functions:
+	@cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+		-f 09_search_functions.sql
+	@$(MAKE) db-configure-retrieval DATABASE_URL="$(DATABASE_URL)"
+
+reset-lab-1:
+	@$(PYTHON) scripts/lab_state.py reset --lab 1
+	@$(MAKE) db-apply-search-functions DATABASE_URL="$(DATABASE_URL)"
+
+validate-lab-1:
+	@$(PYTHON) scripts/lab_state.py validate --lab 1 --database-url "$(DATABASE_URL)"
+	@$(PYTHON) scripts/validate_lab.py --lab 1 --api-url "$(LAB_API_URL)"
+
+solution-lab-1:
+	@$(PYTHON) scripts/lab_state.py solution --lab 1
+	@$(MAKE) db-apply-search-functions DATABASE_URL="$(DATABASE_URL)"
+
+reset-lab-2:
+	@$(PYTHON) scripts/lab_state.py reset --lab 2
+	@$(MAKE) db-apply-search-functions DATABASE_URL="$(DATABASE_URL)"
+
+validate-lab-2:
+	@$(PYTHON) scripts/lab_state.py validate --lab 2 --database-url "$(DATABASE_URL)"
+	@$(PYTHON) scripts/validate_lab.py --lab 2 --api-url "$(LAB_API_URL)"
+
+solution-lab-2:
+	@$(PYTHON) scripts/lab_state.py solution --lab 2
+	@$(MAKE) db-apply-search-functions DATABASE_URL="$(DATABASE_URL)"
+
+reset-lab-3:
+	@$(PYTHON) scripts/lab_state.py reset --lab 3
+	@$(MAKE) db-apply-search-functions DATABASE_URL="$(DATABASE_URL)"
+
+validate-lab-3:
+	@$(PYTHON) scripts/lab_state.py validate --lab 3
+	@$(PYTHON) scripts/validate_lab.py --lab 3 --api-url "$(LAB_API_URL)"
+
+solution-lab-3:
+	@$(PYTHON) scripts/lab_state.py solution --lab 3
 
 # Re-render the vendored SQL at a different embedding width.
 db-render:
@@ -184,8 +236,18 @@ db-load-cohort:
 		-v premium_cohort_path="$(MOSAIC_PREMIUM_COHORT_CSV)" \
 		-f $(SCHEMA_PACKAGE)/sql/15_load_premium_cohort.sql
 
+db-load-evidence:
+	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+		-v review_evidence_path='data/sample/reviews_15000.csv.gz' \
+		-f $(SCHEMA_PACKAGE)/sql/18_load_evidence.sql
+
 db-smoke:
 	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/99_smoke_test.sql
+
+verify-embedding-cache:
+	@$(PYTHON) scripts/embedding_cache.py verify \
+		"$(EMBEDDING_CACHE_MANIFEST)" \
+		--contract "$(EMBEDDING_CACHE_CONTRACT)"
 
 db-fetch-embeddings:
 	@test -n "$(EMBEDDING_CACHE_URI)" || { \
@@ -193,19 +255,30 @@ db-fetch-embeddings:
 	}
 	aws s3 sync "$(EMBEDDING_CACHE_URI)" "$(EMBEDDING_CACHE_DIR)" \
 		--only-show-errors
+	@$(MAKE) verify-embedding-cache
 
 db-bootstrap-cached:
 	@test -f "$(EMBEDDING_CACHE_MANIFEST)" || { \
 		echo "Embedding cache manifest not found: $(EMBEDDING_CACHE_MANIFEST)"; \
 		exit 2; \
 	}
+	@$(MAKE) verify-embedding-cache
 	@$(MAKE) db-install DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-install-labs DATABASE_URL="$(DATABASE_URL)"
 	$(MAKE) db-prepare-mosaic
 	@$(MAKE) db-load-mosaic DATABASE_URL="$(DATABASE_URL)"
 	@$(MAKE) db-import-embeddings DATABASE_URL="$(DATABASE_URL)"
 	@$(MAKE) db-index-concurrent DATABASE_URL="$(DATABASE_URL)"
 	@$(MAKE) db-load-cohort DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-load-evidence DATABASE_URL="$(DATABASE_URL)"
 	@$(MAKE) db-smoke DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-verify-bootstrap DATABASE_URL="$(DATABASE_URL)"
+
+db-verify-bootstrap:
+	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+		-f $(SCHEMA_PACKAGE)/sql/98_bootstrap_acceptance.sql
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) \
+		scripts/configure_retrieval_database.py --check
 
 validate-db:
 	"$(PYTHON)" "$(SCHEMA_PACKAGE)/scripts/validate_package.py"

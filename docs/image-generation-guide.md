@@ -127,7 +127,7 @@ derived by hand.
 To convert a generated PNG to the runtime file:
 
 ```bash
-python scripts/import_generated_images.py --source ~/Downloads/mosaic-batch
+uv run python scripts/import_generated_images.py --source ~/Downloads/mosaic-batch
 ```
 
 That script matches by filename, crops to the role's aspect ratio, resizes, and
@@ -150,7 +150,7 @@ The current hero is **1586x992 landscape**, but the frame it fills is
 Generate a **portrait** replacement at **1024x1536**, then:
 
 ```bash
-python scripts/import_generated_images.py --source ~/Downloads --hero
+uv run python scripts/import_generated_images.py --source ~/Downloads --hero
 ```
 
 Subject line for the hero prompt:

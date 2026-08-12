@@ -2,10 +2,10 @@
 
 ## Shared shell
 
-Desktop navigation exposes Discover, Shop, Collections, Mosaic Labs, and
-Performance. Mobile navigation collapses behind one menu button. The shell
-identifies Aurora PostgreSQL as the runtime without implying readiness when an
-API request fails.
+Participant-facing navigation exposes exactly Discover, Shop, and Mosaic Labs.
+Product detail, retrieval inspection, and HNSW tuning are contextual deep
+routes, not competing destinations. Mobile navigation collapses behind one menu
+button.
 
 ## `/` - Discover
 
@@ -15,32 +15,37 @@ language query.
 Components:
 
 - Mosaic product and workshop identity;
-- full-bleed product-category image;
+- full-bleed product image;
 - search composer and four real sample queries;
-- exact API-backed domain counts;
-- consumer electronics, running and fitness, and home-office entry points;
-- FTS/`pg_trgm`, Cohere Embed v4, RRF, and source-attribution trust markers.
+- compact `Retrieve -> Rank -> Reason` workshop rail.
 
-API: `GET /api/catalog/summary`.
+Every search and preset leaves Discover and enters Shop. Discover never becomes
+a second results surface.
 
 ## `/catalog` - Shop
 
-Purpose: inspect physical catalog rows before retrieval.
+Purpose: use Mosaic as one integrated product-discovery experience.
 
 Components:
 
 - domain, availability, and minimum-rating filters;
 - featured, rating, price, and newest sorting;
-- stable product cards with source-backed identity;
+- direct hybrid search in the product grid;
+- an inline Ask Mosaic composer that becomes a contextual sidecar after submit;
+- stable product cards with complete 3:2 premium catalog photography;
+- inline agent shortlist cards, evidence citations, rank explanation, and tool
+  receipts;
 - pagination;
 - compact mobile filter disclosure.
 
-API: `GET /api/catalog/products`.
+API: `GET /api/catalog/products`, `POST /api/search`, and
+`POST /api/agent/answer/stream`.
 
-## `/search` - Collections
+## `/search` - Lab 3 deep route
 
-Purpose: run either one inspectable hybrid retrieval or a multi-tool,
-citation-validated agent answer.
+Purpose: preserve existing Lab 3 and bookmarked agent-inspection links. This
+route is not present in participant-facing navigation; the primary shopper
+experience is Ask Mosaic inside Shop.
 
 Retrieval view:
 
@@ -48,13 +53,6 @@ Retrieval view:
 - ranked product cards;
 - FTS, trigram, vector, and rerank signals;
 - candidate-pool counts, RRF configuration, and request latency.
-
-Agent view:
-
-- structured Summary, Recommendations, and Trade-offs;
-- citations linked to the returned product cards;
-- source-backed recommendations;
-- collapsed Strands tool trace.
 
 API: `POST /api/search` and `POST /api/agent/answer`.
 
@@ -65,9 +63,10 @@ evidence requirements visible.
 
 Components:
 
-- three required lab cards with 15/16/16-minute timing;
-- Lab 1 checkpoints for exact identity, typo recovery, and semantic eligibility;
-- explicit RRF and Cohere Rerank boundary;
+- stage switcher for Retrieve, Rank, Reason, and optional Advanced work;
+- exactly three required Broken -> Fix -> Prove lab cards;
+- all eight participant runs, grouped inside the three labs;
+- candidate-source, ranking-movement, and agent-tool signature visuals;
 - optional HNSW performance lab.
 
 API: the lab manifest is source-controlled; linked retrieval runs use
@@ -128,6 +127,7 @@ an Aurora measurement.
 
 ## Ownership boundary
 
-The React application renders API contracts. It does not reproduce SQL
+The React application renders API and lab contracts. It does not reproduce SQL
 filtering, ranking, fusion, reranking, citation validation, or run persistence.
-Those remain in the service and Aurora PostgreSQL.
+Those remain in the service and Aurora PostgreSQL. Ask Mosaic displays tool
+receipts and evidence; it never exposes hidden model chain-of-thought.

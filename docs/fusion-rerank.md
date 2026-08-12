@@ -33,9 +33,13 @@ Hard eligibility rules belong in SQL and should be applied consistently to candi
 
 A reranker may reason about preferences; it should not be trusted to repair a violated hard constraint after the fact.
 
-## Business signals
+## No hidden ranking stage
 
-Quality, popularity, freshness, shipping, and availability can break close ties. Bound their contribution so that popularity, sponsorship, or review count cannot override relevance and eligibility.
+The required path is retrievers, RRF, then bounded reranking. Availability,
+price, compatibility, sponsorship, and refurbishment are deterministic SQL
+eligibility predicates. Popularity or merchandising adjustments are not applied
+between RRF and reranking because an invisible transformation would make the
+workshop's ranking explanation false.
 
 ## Reranker contract
 

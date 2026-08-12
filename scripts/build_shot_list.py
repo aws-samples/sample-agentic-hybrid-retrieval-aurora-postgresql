@@ -8,7 +8,7 @@ each row carries the exact output filename the app expects.
 
 Usage
 -----
-    python scripts/build_shot_list.py
+    uv run python scripts/build_shot_list.py
 """
 
 from __future__ import annotations

@@ -32,7 +32,7 @@
 - tenant/catalog isolation
 - application least privilege
 - query and telemetry retention policy
-- sponsorship/business-signal bounds
+- sponsorship and refurbishment eligibility
 - explanation does not expose sensitive internal signals
 - model/provider version capture
 - fallback when embeddings or reranker are unavailable

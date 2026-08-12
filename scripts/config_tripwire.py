@@ -22,8 +22,8 @@ Two rules, because "one source" needs both halves:
 
 Usage
 -----
-    python scripts/config_tripwire.py            # both rules
-    python scripts/config_tripwire.py --explain  # also list what was scanned
+    uv run python scripts/config_tripwire.py            # both rules
+    uv run python scripts/config_tripwire.py --explain  # also list what was scanned
 """
 
 from __future__ import annotations
@@ -65,7 +65,6 @@ NUMBER_NAMES = (
     r"rerank_(?:candidate_)?limit",
     r"candidate_limit",
     r"rrf_k",
-    r"business_weight",
     r"weight_(?:lexical|semantic|trigram)",
     r"trigram_(?:similarity_)?threshold",
     r"minimum_similarity",
@@ -192,12 +191,6 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
     SqlDefault(
         "09_search_functions.sql",
         "search_hybrid_rrf",
-        "business_weight",
-        "business_weight",
-    ),
-    SqlDefault(
-        "09_search_functions.sql",
-        "search_hybrid_rrf",
         "trigram_threshold",
         "trigram_threshold",
     ),
@@ -225,12 +218,6 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
         "search_hybrid_rrf_weighted",
         "semantic_limit",
         "semantic_limit",
-    ),
-    SqlDefault(
-        "09_search_functions.sql",
-        "search_hybrid_rrf_weighted",
-        "business_weight",
-        "business_weight",
     ),
     SqlDefault(
         "09_search_functions.sql",

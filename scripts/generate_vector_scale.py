@@ -29,7 +29,7 @@ def main() -> None:
     try:
         import psycopg
         from pgvector.psycopg import register_vector
-    except ImportError as e: raise SystemExit('Install config/requirements.txt') from e
+    except ImportError as e: raise SystemExit('Run `uv sync --frozen` first') from e
     rng=np.random.default_rng(a.seed)
     centroids=normalize(rng.normal(size=(a.clusters,a.dimensions)).astype(np.float32))
     with psycopg.connect(a.database_url) as conn:

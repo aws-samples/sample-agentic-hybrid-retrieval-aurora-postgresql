@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "manifest_sha256": "134d255b14d72bcf955d5e1bde93bf4982543506464844f91291e1c84b22fc8c",
+  "embedding_model_id": "us.cohere.embed-v4:0",
+  "dimensions": 1024,
+  "vector_count": 500000,
+  "shard_count": 50
+}

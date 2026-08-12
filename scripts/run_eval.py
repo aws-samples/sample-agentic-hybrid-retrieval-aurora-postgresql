@@ -38,6 +38,7 @@ from pydantic import ValidationError
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.retrieval_profile import load_profile  # noqa: E402  (path set above)
+from scripts.eval_contract import load_evaluation_queries  # noqa: E402
 from service.models import SearchFilters  # noqa: E402  (path set above)
 
 if __package__:
@@ -70,12 +71,6 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
         if query_id in query_ids:
             raise ValueError(f"Duplicate evaluation query_id: {query_id}")
         query_ids.add(query_id)
-        try:
-            target_product_id = int(query["target_product_id"])
-        except (KeyError, TypeError, ValueError) as error:
-            raise ValueError(
-                f"{query_id} must name an integer target_product_id"
-            ) from error
         supplied_filters = query.get("filters", {})
         try:
             filters = SearchFilters.model_validate(supplied_filters).as_sql_json()
@@ -86,13 +81,43 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
                 "min_price_cents/max_price_cents, and the typed fields in "
                 "service.models.SearchFilters"
             ) from error
-        cases.append(
-            {
-                "query_id": query_id,
-                "target_product_id": target_product_id,
-                "filters": filters,
-            }
-        )
+        if "judgments" in query:
+            judgments = query.get("judgments")
+            if not isinstance(judgments, list) or not judgments:
+                raise ValueError(f"{query_id} must carry non-empty judgments")
+            for judgment in judgments:
+                try:
+                    product_id = int(judgment["product_id"])
+                    grade = int(judgment["grade"])
+                except (KeyError, TypeError, ValueError) as error:
+                    raise ValueError(
+                        f"{query_id} has an invalid graded judgment"
+                    ) from error
+                if grade not in {0, 1, 2, 3}:
+                    raise ValueError(f"{query_id}/{product_id} has grade {grade}")
+                cases.append(
+                    {
+                        "query_id": query_id,
+                        "target_product_id": product_id,
+                        "filters": filters,
+                        "require_filter_match": grade > 0,
+                    }
+                )
+        else:
+            try:
+                target_product_id = int(query["target_product_id"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError(
+                    f"{query_id} must name an integer target_product_id"
+                ) from error
+            cases.append(
+                {
+                    "query_id": query_id,
+                    "target_product_id": target_product_id,
+                    "filters": filters,
+                    "require_filter_match": True,
+                }
+            )
 
     failures = connection.execute(
         """
@@ -101,20 +126,24 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
             FROM jsonb_to_recordset(%s::jsonb) AS c(
                 query_id text,
                 target_product_id bigint,
-                filters jsonb
+                filters jsonb,
+                require_filter_match boolean
             )
         )
         SELECT c.query_id,
                c.target_product_id,
                CASE
                    WHEN d.product_id IS NULL THEN 'target does not exist'
-                   ELSE 'target violates its Mosaic filters'
+                   ELSE 'positive judgment violates its Mosaic filters'
                END AS reason
         FROM cases c
         LEFT JOIN mosaic_search.product_document d
           ON d.product_id = c.target_product_id
         WHERE d.product_id IS NULL
-           OR NOT mosaic_search.matches_filters(d, c.filters)
+           OR (
+               c.require_filter_match
+               AND NOT mosaic_search.matches_filters(d, c.filters)
+           )
         ORDER BY c.query_id
         """,
         (json.dumps(cases),),
@@ -131,8 +160,8 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
             "publishing retrieval metrics."
         )
     print(
-        f"Evaluation contract passed: {len(cases):,} targets satisfy "
-        "mosaic_search.matches_filters."
+        f"Evaluation contract passed: {len(cases):,} judged targets exist and "
+        "every positive judgment satisfies mosaic_search.matches_filters."
     )
 
 
@@ -179,12 +208,8 @@ def main() -> None:
         import psycopg
         from pgvector.psycopg import register_vector
     except ImportError as error:
-        raise SystemExit("Install config/requirements.txt") from error
-    queries = [
-        json.loads(line)
-        for line in args.queries.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
+        raise SystemExit("Run `uv sync --frozen` to install evaluation dependencies") from error
+    queries = load_evaluation_queries(args.queries)
     if args.limit_queries:
         queries = queries[: args.limit_queries]
     with psycopg.connect(args.database_url) as connection:
@@ -208,7 +233,8 @@ def main() -> None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("w", newline="", encoding="utf-8") as output:
             # The predecessor set this to 0.24, which never matched the live
-            # 0.20. search_trigram carries its own function-level settings.
+            # 0.20 score floor. pg_trgm's index gates are database defaults
+            # applied separately from the function by db-configure-retrieval.
             writer = csv.DictWriter(
                 output,
                 fieldnames=[
@@ -232,8 +258,7 @@ def main() -> None:
                         %(query)s::text, %(embedding)s::vector, %(filters)s::jsonb,
                         %(rrf_k)s::integer, %(fts_limit)s::integer,
                         %(trigram_limit)s::integer, %(semantic_limit)s::integer,
-                        %(result_limit)s::integer, %(business_weight)s::real,
-                        %(trigram_threshold)s::real
+                        %(result_limit)s::integer, %(trigram_threshold)s::real
                     )
                     """,
                     {
@@ -245,7 +270,6 @@ def main() -> None:
                         "trigram_limit": profile.trigram_limit,
                         "semantic_limit": profile.semantic_limit,
                         "result_limit": max(args.k, profile.fused_limit),
-                        "business_weight": profile.business_weight,
                         "trigram_threshold": profile.trigram_threshold,
                     },
                 ).fetchall()

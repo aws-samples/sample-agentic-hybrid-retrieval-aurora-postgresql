@@ -1,0 +1,25 @@
+[project]
+name = "mosaic-agentic-hybrid-retrieval"
+version = "0.2.0"
+description = "DAT410 Mosaic hybrid retrieval workshop on Aurora PostgreSQL"
+requires-python = "==3.13.*"
+dependencies = [
+    "boto3>=1.35,<2",
+    "fastapi>=0.115,<1",
+    "httpx>=0.27,<1",
+    "numpy>=2.0,<3",
+    "pgvector>=0.3,<1",
+    "pillow>=11,<13",
+    "psycopg[binary]>=3.2,<4",
+    "pydantic>=2.8,<3",
+    "strands-agents==1.48.0",
+    "uvicorn[standard]>=0.30,<1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

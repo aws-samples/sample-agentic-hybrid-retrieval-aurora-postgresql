@@ -59,6 +59,9 @@ def test_the_shipped_contract_has_three_labs_and_supporting_checks(passing):
     assert [m["id"] for m in supporting] == [
         "exact-identity",
         "semantic-eligibility",
+        "compare-cheaper-alternative",
+        "ranking-filter-control",
+        "evidence-grounding",
         "hnsw-performance",
     ]
     session = passing["session"]
@@ -127,9 +130,16 @@ def test_the_gate_reads_the_supporting_checks_list_when_present(passing):
     assert "supporting_checks" in passing
     labs, supporting = split_missions(passing)
     assert len(labs) == 3
-    assert len(supporting) == 3
+    assert len(supporting) == 6
     assert all(m["core"] for m in labs)
-    assert [m["core"] for m in supporting] == [True, True, False]
+    assert [m["core"] for m in supporting] == [
+        True,
+        True,
+        True,
+        True,
+        True,
+        False,
+    ]
 
 
 def test_the_gate_falls_back_to_placement_without_a_supporting_list(passing):

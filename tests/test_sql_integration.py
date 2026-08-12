@@ -72,6 +72,75 @@ def test_the_projection_is_fully_embedded_in_one_model_space(connection):
     assert at_1024 == products
 
 
+def test_database_level_trigram_gates_match_the_profile(connection, profile):
+    """Every new Aurora session must inherit deterministic pg_trgm index gates."""
+    connection.execute("SELECT similarity('mosaic', 'mosaic')").fetchone()
+    similarity_gate, word_similarity_gate = connection.execute(
+        """
+        SELECT current_setting('pg_trgm.similarity_threshold')::real,
+               current_setting('pg_trgm.word_similarity_threshold')::real
+        """
+    ).fetchone()
+    function_config = connection.execute(
+        """
+        SELECT p.proconfig
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'mosaic_search'
+          AND p.proname = 'search_trigram'
+          AND pg_get_function_identity_arguments(p.oid) =
+              'q text, f jsonb, candidate_limit integer, minimum_similarity real'
+        """
+    ).fetchone()[0]
+
+    assert similarity_gate == pytest.approx(profile.trigram_similarity_gate)
+    assert word_similarity_gate == pytest.approx(
+        profile.trigram_word_similarity_gate
+    )
+    assert function_config is None
+
+
+def test_index_visible_filter_path_matches_the_public_filter_wrapper(connection):
+    """The faster scalar path must remain semantically identical to the wrapper."""
+    rows = connection.execute(
+        """
+        WITH cases(product_id, filters) AS (
+            VALUES
+                (370001::bigint, '{"domain":"home_office"}'::jsonb),
+                (
+                    370002::bigint,
+                    '{"domain":"home_office","in_stock_only":true,'
+                    '"attributes":{"seat_depth_adjustable":true}}'::jsonb
+                ),
+                (
+                    429001::bigint,
+                    '{"category_key":"quiet-keyboards",'
+                    '"max_price_cents":18000,'
+                    '"attributes":{"quiet_typing":true}}'::jsonb
+                ),
+                (
+                    370003::bigint,
+                    '{"max_price_cents":80000,"include_sponsored":false}'::jsonb
+                )
+        )
+        SELECT
+            c.product_id,
+            mosaic_search.matches_filters(d, c.filters) AS public_result,
+            mosaic_search.matches_filter_values(
+                d.domain, d.category_key, d.brand_name, d.price_cents,
+                d.availability, d.rating, d.attributes, d.is_refurbished,
+                d.is_sponsored, c.filters
+            ) AS scalar_result
+        FROM cases c
+        JOIN mosaic_search.product_document d USING (product_id)
+        ORDER BY c.product_id
+        """
+    ).fetchall()
+
+    assert rows
+    assert all(public_result == scalar_result for _, public_result, scalar_result in rows)
+
+
 def test_a_long_natural_language_query_has_lexical_candidates(connection, profile):
     rows = connection.execute(
         """
@@ -133,8 +202,7 @@ def test_hybrid_fusion_preserves_every_arm_signal(connection, profile):
             %(query)s, %(embedding)s::vector, %(filters)s::jsonb,
             %(rrf_k)s::integer, %(fts_limit)s::integer,
             %(trigram_limit)s::integer, %(semantic_limit)s::integer,
-            %(result_limit)s::integer, %(business_weight)s::real,
-            %(trigram_threshold)s::real
+            %(result_limit)s::integer, %(trigram_threshold)s::real
         )
         LIMIT 10
         """,
@@ -147,7 +215,6 @@ def test_hybrid_fusion_preserves_every_arm_signal(connection, profile):
             "trigram_limit": profile.trigram_limit,
             "semantic_limit": profile.semantic_limit,
             "result_limit": profile.fused_limit,
-            "business_weight": profile.business_weight,
             "trigram_threshold": profile.trigram_threshold,
         },
     ).fetchall()
@@ -158,6 +225,37 @@ def test_hybrid_fusion_preserves_every_arm_signal(connection, profile):
     for row in rows:
         assert row[4] > 0
         assert "channels" in row[5]
+
+
+def test_pre_rerank_order_is_repeatable(connection, profile):
+    """Stable tie-breaking makes the visible fused order reproducible."""
+    embedding = connection.execute(
+        "SELECT embedding FROM mosaic_search.product_document WHERE product_id = 2"
+    ).fetchone()[0]
+    params = {
+        "query": "wireless noise cancelling headphones",
+        "embedding": embedding,
+        "filters": CONSUMER_ELECTRONICS,
+        "rrf_k": profile.rrf_k,
+        "fts_limit": profile.fts_limit,
+        "trigram_limit": profile.trigram_limit,
+        "semantic_limit": profile.semantic_limit,
+        "result_limit": profile.fused_limit,
+        "trigram_threshold": profile.trigram_threshold,
+    }
+    sql = """
+        SELECT product_id, rrf_score
+        FROM mosaic_search.search_hybrid_rrf(
+            %(query)s, %(embedding)s::vector, %(filters)s::jsonb,
+            %(rrf_k)s::integer, %(fts_limit)s::integer,
+            %(trigram_limit)s::integer, %(semantic_limit)s::integer,
+            %(result_limit)s::integer, %(trigram_threshold)s::real
+        )
+        ORDER BY pre_rerank_score DESC, product_id
+    """
+    first = connection.execute(sql, params).fetchall()
+    second = connection.execute(sql, params).fetchall()
+    assert first == second
 
 
 def test_the_weighted_function_takes_weights_and_the_unweighted_one_does_not(

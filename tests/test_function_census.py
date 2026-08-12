@@ -29,8 +29,8 @@ DUPLICATE = [
         "search_hybrid_rrf",
         2,
         [
-            "q text, ..., business_weight real",
-            "q text, ..., business_weight real, trigram_threshold real",
+            "q text, ..., result_limit integer",
+            "q text, ..., result_limit integer, trigram_threshold real",
         ],
     ),
 ]

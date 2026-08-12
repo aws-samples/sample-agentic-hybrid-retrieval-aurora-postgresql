@@ -77,9 +77,9 @@ LIMIT 20;
 --   * This sweep measures the SCORING function `word_similarity()`. It does not
 --     move the index gate.
 --   * The gate is `pg_trgm.word_similarity_threshold`, which
---     `mosaic_search.search_trigram` pins to 0.5 at function scope. That
---     setting is unchanged by everything below; `<%` here still admits
---     candidates at the session default before the score filter is applied.
+--     `make db-configure-retrieval` pins at database scope from
+--     `db/config/retrieval.yaml`. That setting is unchanged by everything
+--     below; `<%` here still admits candidates before the score filter runs.
 \echo ''
 \echo '-- 4. threshold sweep over the scoring function, not the index gate'
 SELECT threshold,

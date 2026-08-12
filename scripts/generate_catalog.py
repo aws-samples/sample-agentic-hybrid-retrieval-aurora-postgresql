@@ -293,6 +293,32 @@ BRANDS = {
     "home_office": make_brands("home_office", 80),
 }
 
+CHARGING_SUBCATEGORIES = {
+    "usb-c chargers",
+    "power banks",
+    "charging docks",
+    "cables & adapters",
+}
+
+APPAREL_SUBCATEGORIES = {
+    "running tops",
+    "running shorts",
+    "leggings & tights",
+    "weatherproof jackets",
+    "sports bras",
+    "compression wear",
+    "running socks",
+}
+
+ORGANIZATION_SUBCATEGORIES = {
+    "drawer units",
+    "desktop organizers",
+    "cable management",
+    "file cabinets",
+    "pegboards",
+    "whiteboards",
+}
+
 
 def product_rng(seed: int, product_id: int) -> random.Random:
     return random.Random((seed << 32) ^ product_id ^ 0x9E3779B97F4A7C15)
@@ -433,7 +459,7 @@ def specialized_attributes(ctx: ProductContext, rng: random.Random, cohorts: lis
                       "usb_c": True, "wifi_generation": rng.choice([6, "6E", 7])})
         feature, benefit = "portable multitasking performance", "smooth work across documents, meetings, and creative apps"
         tags += ["computer", "portable", "usb-c"]
-    elif "charger" in s or "power bank" in s or "cable" in s or "adapter" in s or "charging dock" in s:
+    elif s in CHARGING_SUBCATEGORIES:
         attrs.update({"max_power_w": rng.choice([20, 30, 45, 65, 67, 100, 140, 240]),
                       "ports": rng.randint(1, 6), "gan": rng.random() < 0.65,
                       "usb_c_pd": rng.random() < 0.9, "capacity_mah": rng.choice([0, 5000, 10000, 20000, 24000, 27000]) if "power bank" in s else 0,
@@ -471,7 +497,7 @@ def specialized_attributes(ctx: ProductContext, rng: random.Random, cohorts: lis
         feature = "propulsive composite plate" if carbon else rng.choice(["responsive foam geometry", "stable guidance platform", "grippy trail chassis"])
         benefit = rng.choice(["efficient turnover during long efforts", "comfortable daily mileage", "secure footing over mixed terrain", "support through tired late-run form"])
         tags += ["running shoes", terrain, support] + (["carbon plate"] if carbon else [])
-    elif any(k in s for k in ["top", "short", "legging", "tight", "jacket", "sports bra", "compression wear", "sock"]):
+    elif s in APPAREL_SUBCATEGORIES:
         attrs.update({"material": rng.choice(["Recycled Polyester", "Merino Blend", "Nylon Elastane", "Polyester Mesh"]),
                       "moisture_wicking": True, "reflective": rng.random() < 0.45,
                       "weather_protection": rng.choice(["None", "Wind", "Light Rain", "Waterproof"]) if "jacket" in s else "None",
@@ -512,7 +538,9 @@ def specialized_attributes(ctx: ProductContext, rng: random.Random, cohorts: lis
                       "recommended_hours": rng.choice([4, 6, 8, 10, 12]), "recline_deg": rng.choice([110, 120, 135, 145])})
         feature, benefit = "body-aligned adjustable support", "less fatigue through long desk sessions"
         tags += ["office chair", "ergonomic", "seating"]
-    elif "desk" in s or "drafting table" in s:
+    elif (
+        "desk" in s or "drafting table" in s
+    ) and s not in ORGANIZATION_SUBCATEGORIES:
         standing = "standing" in s or rng.random() < 0.28
         attrs.update({"width_in": rng.choice([36, 42, 48, 55, 60, 72]), "depth_in": rng.choice([20, 24, 27, 30, 32]),
                       "height_adjustable": standing, "height_range_in": "24-50" if standing else "29-30",
@@ -535,7 +563,7 @@ def specialized_attributes(ctx: ProductContext, rng: random.Random, cohorts: lis
                       "usb_c": rng.random() < 0.75, "certified_platforms": rng.sample(["Zoom", "Teams", "Meet", "Webex"], k=rng.randint(1, 4))})
         feature, benefit = "clear meeting capture", "more natural conversations across remote teams"
         tags += ["video meetings", "collaboration", "usb"]
-    elif any(k in s for k in ["organizer", "drawer", "cable management", "file cabinet", "pegboard", "whiteboard"]):
+    elif s in ORGANIZATION_SUBCATEGORIES:
         attrs.update({"material": rng.choice(["Steel", "Bamboo", "Recycled Plastic", "Felt", "Wood Composite"]),
                       "width_in": rng.randint(8, 48), "modular": rng.random() < 0.6,
                       "mounting": rng.choice(["Desktop", "Under Desk", "Wall", "Freestanding"]),

@@ -1,10 +1,9 @@
 """Catalog browsing and source-evidence reads over the `mosaic` schema.
 
 Browsing reads `mosaic_search.product_document`, the same denormalized
-projection the retrieval arms use, so a filter applied while browsing and the
-same filter applied while searching are evaluated by one function
-(`mosaic_search.matches_filters`) rather than two hand-written WHERE clauses that
-can drift apart.
+projection the retrieval arms use, so browsing and search both call the same
+scalar filter function. The public `matches_filters(product_document, jsonb)`
+validator delegates to that function rather than carrying a second predicate.
 """
 from __future__ import annotations
 
@@ -16,6 +15,7 @@ from fastapi import HTTPException
 from service.db import connect
 from service.models import (
     CatalogPage,
+    EvidenceRecord,
     ProductDetail,
     ProductMedia,
     ProductReview,
@@ -47,7 +47,11 @@ _SUMMARY_COLUMNS = """
 
 
 def _where(filters: SearchFilters) -> tuple[str, list[Any]]:
-    return "mosaic_search.matches_filters(d, %s::jsonb)", [
+    return """mosaic_search.matches_filter_values(
+        d.domain, d.category_key, d.brand_name, d.price_cents,
+        d.availability, d.rating, d.attributes, d.is_refurbished,
+        d.is_sponsored, %s::jsonb
+    )""", [
         json.dumps(filters.as_sql_json())
     ]
 
@@ -212,14 +216,26 @@ def get_product(product_id: int) -> ProductDetail:
             (product_id,),
         ).fetchall()
     summary = _summary(dict(row))
-    return ProductDetail(
-        **summary.model_dump(),
-        long_description=row["long_description"],
-        canonical_group_id=row["canonical_group_id"] or "",
-        source_system=row["source_system"],
-        updated_at=row["updated_at"],
-        media=[ProductMedia(**dict(item)) for item in media_rows],
-        reviews=[_review(dict(item)) for item in review_rows],
+    return _detail(summary, dict(row), media_rows, review_rows)
+
+
+def _detail(
+    summary: ProductSummary,
+    row: dict[str, Any],
+    media_rows: list[Any],
+    review_rows: list[Any],
+) -> ProductDetail:
+    """Promote a summary to detail while replacing inherited optional fields."""
+    return ProductDetail.model_validate(
+        {
+            **summary.model_dump(),
+            "long_description": row["long_description"],
+            "canonical_group_id": row["canonical_group_id"] or "",
+            "source_system": row["source_system"],
+            "updated_at": row["updated_at"],
+            "media": [ProductMedia(**dict(item)) for item in media_rows],
+            "reviews": [_review(dict(item)) for item in review_rows],
+        }
     )
 
 
@@ -247,6 +263,95 @@ def _review(row: dict[str, Any]) -> ProductReview:
             else None
         ),
         source_uri=row.get("source_reference") or f"mosaic://evidence/{row['review_id']}",
+    )
+
+
+def get_product_evidence_records(
+    product_id: int,
+    *,
+    limit: int = 6,
+) -> list[EvidenceRecord]:
+    """Return bounded, source-addressable evidence for one retrieved product."""
+    with connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT evidence_id, product_id, evidence_type::text AS evidence_type,
+                   source_name, source_reference, evidence_title, evidence_text,
+                   source_date, rating, is_verified, metadata, updated_at
+            FROM mosaic.product_evidence
+            WHERE product_id = %s
+            ORDER BY
+                (evidence_type = 'product_spec') DESC,
+                is_verified DESC,
+                coalesce((metadata->>'helpful_votes')::integer, 0) DESC,
+                rating DESC NULLS LAST,
+                evidence_id
+            LIMIT %s
+            """,
+            (product_id, max(1, min(limit, 12))),
+        ).fetchall()
+    return [_evidence_record(dict(row)) for row in rows]
+
+
+def get_evidence_product_ids(product_ids: list[int]) -> set[int]:
+    """Return candidate IDs that have at least one addressable evidence row."""
+    if not product_ids:
+        return set()
+    with connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT DISTINCT product_id
+            FROM mosaic.product_evidence
+            WHERE product_id = ANY (%s::bigint[])
+            """,
+            (product_ids,),
+        ).fetchall()
+    return {int(row["product_id"]) for row in rows}
+
+
+def get_evidence_record(evidence_id: int) -> EvidenceRecord:
+    """Resolve one source-addressable evidence record by its stable ID."""
+    with connect() as connection:
+        row = connection.execute(
+            """
+            SELECT evidence_id, product_id, evidence_type::text AS evidence_type,
+                   source_name, source_reference, evidence_title, evidence_text,
+                   source_date, rating, is_verified, metadata, updated_at
+            FROM mosaic.product_evidence
+            WHERE evidence_id = %s
+            """,
+            (evidence_id,),
+        ).fetchone()
+    if row is None:
+        raise KeyError(f"Evidence {evidence_id} was not found")
+    return _evidence_record(dict(row))
+
+
+def _evidence_record(row: dict[str, Any]) -> EvidenceRecord:
+    source_date = row.get("source_date")
+    updated_at = row.get("updated_at")
+    revision = (
+        source_date.isoformat()
+        if source_date
+        else updated_at.isoformat()
+        if updated_at
+        else "unversioned"
+    )
+    return EvidenceRecord(
+        evidence_id=row["evidence_id"],
+        product_id=row["product_id"],
+        evidence_type=row["evidence_type"],
+        source_name=row["source_name"],
+        source_uri=(
+            row.get("source_reference")
+            or f"mosaic://evidence/{row['evidence_id']}"
+        ),
+        revision=revision,
+        title=row.get("evidence_title") or row["source_name"],
+        text=row["evidence_text"],
+        rating=None if row.get("rating") is None else float(row["rating"]),
+        is_verified=bool(row.get("is_verified")),
+        metadata=row.get("metadata") or {},
     )
 
 

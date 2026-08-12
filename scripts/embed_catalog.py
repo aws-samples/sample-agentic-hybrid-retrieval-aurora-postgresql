@@ -149,7 +149,7 @@ def main() -> None:
         import psycopg
         from pgvector.psycopg import register_vector
     except ImportError as exc:
-        raise SystemExit("Install config/requirements.txt first") from exc
+        raise SystemExit("Run `uv sync --frozen` first") from exc
 
     embed, model_id = embedding_function(
         args.provider,

@@ -63,13 +63,6 @@
           "title": "Rrf K",
           "type": "integer"
         },
-        "business_weight": {
-          "default": 0.003,
-          "maximum": 0.05,
-          "minimum": 0,
-          "title": "Business Weight",
-          "type": "number"
-        },
         "ef_search": {
           "default": 100,
           "maximum": 1000,

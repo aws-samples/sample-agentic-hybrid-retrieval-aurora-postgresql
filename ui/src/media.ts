@@ -1,6 +1,13 @@
+import mediaManifest from "../../data/media/asset_labels_120.json";
 import type { Domain, ProductSummary } from "./types";
 
 const ASSETS = "/assets/images";
+
+const catalogImageByProductId = new Map(
+  mediaManifest.products
+    .filter((product) => product.catalog_installed)
+    .map((product) => [product.product_id, product.catalog_runtime_path]),
+);
 
 export const domainMedia: Record<Domain, string> = {
   consumer_electronics: `${ASSETS}/mosaic/auraluxe-h9.webp`,
@@ -208,9 +215,15 @@ function spread(productId: number, assetCount: number): number {
 }
 
 export function productImage(product: ProductSummary): string {
+  // The premium cohort manifest is the product-to-media contract. Some older
+  // database rows still carry square detail photography in image_url; using
+  // those in a 3:2 catalog card creates letterboxing and obscures the catalog
+  // shot selected for this exact product.
+  const catalogImage = catalogImageByProductId.get(product.product_id);
+  if (catalogImage) return catalogImage;
+  if (product.image_url?.startsWith("/")) return product.image_url;
   const mosaicImages = matchingMosaicImageSet(product);
   if (mosaicImages) return mosaicImages[0];
-  if (product.image_url?.startsWith("/")) return product.image_url;
   const searchable = productSearchText(product);
   const curated = curatedImageByName.find(([pattern]) => pattern.test(searchable));
   if (curated) {

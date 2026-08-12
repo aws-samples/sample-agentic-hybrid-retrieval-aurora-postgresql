@@ -54,13 +54,6 @@
           "title": "Rrf K",
           "type": "integer"
         },
-        "business_weight": {
-          "default": 0.003,
-          "maximum": 0.05,
-          "minimum": 0,
-          "title": "Business Weight",
-          "type": "number"
-        },
         "ef_search": {
           "default": 100,
           "maximum": 1000,
@@ -187,10 +180,6 @@
           "title": "Rrf Score",
           "type": "number"
         },
-        "business_score": {
-          "title": "Business Score",
-          "type": "number"
-        },
         "pre_rerank_score": {
           "title": "Pre Rerank Score",
           "type": "number"
@@ -222,7 +211,6 @@
         "availability",
         "canonical_group_id",
         "rrf_score",
-        "business_score",
         "pre_rerank_score"
       ],
       "title": "SearchCandidate",

@@ -21,8 +21,8 @@ agent. The agent orchestrates the system; it does not replace it.
 |---:|---|---|---|
 | 0-8 min | Getting started | Architecture, Mosaic, and the baseline failure are visible | `typo-recovery` before repair |
 | 8-23 min | Retrieve | Build hybrid retrieval and prove typo recovery, exact identity, and eligibility | `typo-recovery`, `exact-identity`, `semantic-eligibility` |
-| 23-39 min | Rank | Fuse, rerank, inspect provenance, and explain why result 1 beat result 2 | `rank-with-evidence` |
-| 39-55 min | Reason | Restore the typed retrieval tool and produce a grounded cited recommendation | `agentic-research` |
+| 23-39 min | Rank | Repair RRF, rerank, inspect provenance, and explain why result 1 beat result 2 | `rank-with-evidence` |
+| 39-55 min | Reason | Attach retrieved evidence to synthesis and produce a grounded cited recommendation | `agentic-research` |
 | 55-60 min | Wrap-up | Run the scorecard and recap the architecture | all required checks |
 
 The stable IDs remain evaluation identifiers and starter-gap ownership keys.
@@ -65,7 +65,8 @@ HNSW -------/
 Structured filters remain eligibility gates. They do not become arbitrary
 ranking weights.
 
-Attendees retain and compare:
+Attendees repair the actual `1 / (k + rank)` contribution, then retain and
+compare:
 
 - lexical, trigram, and semantic rank;
 - RRF score and pre-rerank position;
@@ -91,11 +92,11 @@ The working contracts remain:
 - `explain_retrieval`;
 - `synthesize_cited_answer`.
 
-The participant restores only the `search_products` registration. The agent
-then decomposes the compound request, performs targeted retrieval, preserves
-hard constraints, compares retrieved evidence, and synthesizes a cited answer.
-The trace and persisted retrieval-run IDs prove which tools and candidate pools
-produced the recommendation.
+The participant restores the five-line evidence-state boundary. The agent then
+decomposes the compound request, performs targeted retrieval, preserves hard
+constraints, compares retrieved evidence, and synthesizes a cited answer. The
+trace, persisted retrieval-run IDs, and resolvable evidence IDs prove which
+tools, candidates, and records produced the recommendation.
 
 ## Advanced Labs (OPTIONAL)
 

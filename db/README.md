@@ -77,13 +77,15 @@ mosaic-data-models-aurora-v1/
 
 ## Installation order
 
-The default schema uses `vector(768)` to match the existing Mosaic catalog package. To use another embedding dimension, run the rendering helper before installation.
+The checked-in schema uses `vector(1024)` for the pinned Cohere Embed v4
+catalog. To use another embedding model and dimension, render a separate SQL
+tree and regenerate the embeddings; never relabel vectors from another space.
 
 ```bash
-python scripts/render_dimension.py --dimension 1024 --output build/sql
+uv run python scripts/render_dimension.py --dimension 1536 --output build/sql
 ```
 
-For the included 768-dimensional version:
+For the included 1024-dimensional version:
 
 ```bash
 psql "$DATABASE_URL" -f sql/install.sql

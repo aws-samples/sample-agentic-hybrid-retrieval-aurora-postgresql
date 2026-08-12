@@ -2,8 +2,12 @@ import { ArrowDown, CircleCheck, Play, SlidersHorizontal } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
+import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ErrorState, LoadingState } from "../components/States";
+import { WorkshopProgress } from "../components/WorkshopProgress";
+import { retrievalLabOutcome } from "../labOutcome";
 import { mosaicRetrievalExamples } from "../labMissions";
+import { productImage } from "../media";
 import { useSearchParams } from "../navigation";
 import type { ProductSummary, SearchResponse } from "../types";
 
@@ -84,6 +88,16 @@ export function RetrievalLabPage() {
     () => [...(response?.results ?? [])].sort((a, b) => stageRank(a, stage) - stageRank(b, stage)),
     [response, stage],
   );
+  const movementRows = useMemo(
+    () => [...(response?.results ?? [])]
+      .sort((a, b) => (a.signals?.final_rank ?? 999) - (b.signals?.final_rank ?? 999))
+      .slice(0, 4),
+    [response],
+  );
+  const outcome = useMemo(
+    () => retrievalLabOutcome(example, response),
+    [example, response],
+  );
 
   async function run() {
     if (!example) return;
@@ -111,6 +125,10 @@ export function RetrievalLabPage() {
         </button>
       </header>
 
+      <WorkshopProgress
+        active={example?.stage === "reason" ? "reason" : example?.stage === "rank" ? "rank" : "retrieve"}
+      />
+
       <section className="lab-query-bar">
         <label>
           <span>Lab or checkpoint query</span>
@@ -122,6 +140,8 @@ export function RetrievalLabPage() {
           {example?.expected_techniques.map((item) => <span key={item}>{item.replaceAll("_", " ")}</span>)}
         </div>
       </section>
+
+      <LabOutcomeBanner outcome={outcome} />
 
       <nav className="stage-nav" aria-label="Retrieval stage">
         {stages.map((item, index) => (
@@ -159,13 +179,21 @@ export function RetrievalLabPage() {
                   {rows.map((product) => (
                     <tr key={product.product_id}>
                       <td><strong>{stageRank(product, stage) === Number.MAX_SAFE_INTEGER ? "-" : stageRank(product, stage)}</strong></td>
-                      <td><strong>{product.title}</strong><small>{product.brand} / {product.model}</small></td>
+                      <td>
+                        <div className="ranking-product">
+                          <img className="ranking-product-image" src={productImage(product)} alt="" />
+                          <span>
+                            <strong>{product.title}</strong>
+                            <small>{product.brand} / {product.model}</small>
+                          </span>
+                        </div>
+                      </td>
                       <td className="mono">{stageScore(product, stage)}</td>
                       <td>
-                        <span className="arm-dots" title="Lexical, trigram, semantic">
-                          <i className={product.signals?.fts.rank ? "on" : ""} />
-                          <i className={product.signals?.trigram.rank ? "on" : ""} />
-                          <i className={product.signals?.semantic.rank ? "on" : ""} />
+                        <span className="arm-provenance" aria-label="Candidate provenance">
+                          <i className={product.signals?.fts.rank ? "on" : ""}>FTS</i>
+                          <i className={product.signals?.trigram.rank ? "on" : ""}>TRGM</i>
+                          <i className={product.signals?.semantic.rank ? "on" : ""}>VEC</i>
                         </span>
                       </td>
                       <td><CircleCheck className="success-icon" size={17} /></td>
@@ -208,6 +236,46 @@ export function RetrievalLabPage() {
           ) : null}
         </aside>
       </div>
+
+      {response ? (
+        <section className="rank-movement-panel" aria-labelledby="rank-movement-title">
+          <header>
+            <div>
+              <p className="eyebrow">Why #1?</p>
+              <h2 id="rank-movement-title">Ranking movement</h2>
+            </div>
+            <p>Missing arm ranks mean that retriever did not contribute the candidate.</p>
+          </header>
+          <div className="rank-movement-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>FTS</th>
+                  <th>pg_trgm</th>
+                  <th>Vector</th>
+                  <th>RRF</th>
+                  <th>Rerank score</th>
+                  <th>Final</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movementRows.map((product) => (
+                  <tr className={product.signals?.final_rank === 1 ? "winner" : ""} key={product.product_id}>
+                    <td><strong>{product.model}</strong><small>#{product.product_id}</small></td>
+                    <td>{product.signals?.fts.rank ?? "-"}</td>
+                    <td>{product.signals?.trigram.rank ?? "-"}</td>
+                    <td>{product.signals?.semantic.rank ?? "-"}</td>
+                    <td>{product.signals?.pre_rerank_rank ?? "-"}</td>
+                    <td>{product.signals?.rerank_score?.toFixed(4) ?? "-"}</td>
+                    <td><strong>{product.signals?.final_rank ?? "-"}</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

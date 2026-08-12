@@ -5,15 +5,15 @@
 Aurora only. There is no local database and no `make` target creates one. See
 `ARTIFACTS.md`, including how to connect from a corporate network.
 
-- confirm the restored cluster contains 500,000 products and full embedding
-  coverage with `make db-smoke`;
+- confirm the asset-backed bootstrap produced 500,000 products and full
+  embedding coverage with `make db-verify-bootstrap`;
 - run `MISSION_GATE_REQUIRE_DB=1 make validate-missions`;
 - run `make validate-evals`;
 - run `make validate-config`;
 - run `FUNCTION_CENSUS_REQUIRE_DB=1 make validate-functions`;
 - execute the eval harness and save a named baseline;
 - run the HNSW matrix on the exact Aurora configuration used in the room;
-- verify the two starter gaps, source revision, Claude Code model, and fallback
+- verify the three starter gaps, source revision, Claude Code model, and fallback
   screenshots from a fresh Workshop Studio deployment.
 
 ## 60-minute path
@@ -22,9 +22,28 @@ Aurora only. There is no local database and no `make` target creates one. See
 |---|---|---|
 | 00:00-00:08 | Getting started | Open both participant surfaces, establish Mosaic, and show the baseline failure |
 | 00:08-00:23 | Retrieve | Restore trigram fusion, preserve exact identity, enforce eligibility, and inspect candidate provenance |
-| 00:23-00:39 | Rank | Inspect RRF, reranking, source evidence, and why result 1 outranked result 2 |
-| 00:39-00:55 | Reason | Restore `search_products`, inspect decomposition and retrieval runs, and produce a cited recommendation |
+| 00:23-00:39 | Rank | Repair RRF, inspect reranking evidence, and explain why result 1 outranked result 2 |
+| 00:39-00:55 | Reason | Attach retrieved evidence to synthesis, inspect tool receipts, and produce a cited recommendation |
 | 00:55-01:00 | Wrap-up | Run the scorecard and recap the architecture |
+
+## Eight participant runs
+
+The runs are checkpoints inside three labs, not eight mini-labs:
+
+| Stage | Run | Proof |
+|---|---|---|
+| Retrieve | `G-003` | The typo target moves from absent to recovered with trigram provenance |
+| Retrieve | `G-001` | Exact model identity remains in the top three with FTS provenance |
+| Retrieve | `G-013` | The eligible carbon racer remains and the refurbished sibling is excluded |
+| Rank | `G-008` | RRF moves from rank-collapsing arithmetic to `1 / (k + source_rank)` |
+| Rank | `G-007` | Mechanical and cheaper keyboard alternatives retain inspectable rank movement |
+| Rank | `G-009` | Price and headrest constraints remain pre-ranking gates |
+| Reason | `G-010` | Evidence plumbing moves a fail-closed response to a grounded cited comparison |
+| Reason | `G-020` | The 12-hour chair claim resolves to real evidence records |
+
+The query text, filters, targets, bad observation, good observation, and
+participant edit are owned by `data/evals/mosaic_labs_missions.json`. Workshop
+Studio renders those same requests and its parity script checks for drift.
 
 ## Teaching narrative
 
@@ -71,9 +90,9 @@ rather than becoming a rushed fourth required lab.
 
 ## Failure-safe sequence
 
-1. If the environment is delayed, restore from the cluster snapshot. That is
-   the only restore path.
-2. If snapshot sharing, KMS access, Aurora connectivity, or a required Bedrock
+1. If the environment is delayed, inspect the asset download, cache verification,
+   catalog load, and index-build timings before changing the bootstrap contract.
+2. If cache access, KMS access, Aurora connectivity, or a required Bedrock
    model is unavailable, stop the affected exercise and escalate the environment
    issue. Do not switch to fixtures or a local database.
 3. Catalog inspection remains available when model access is unavailable, but

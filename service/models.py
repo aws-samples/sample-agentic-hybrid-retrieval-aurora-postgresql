@@ -118,10 +118,9 @@ class ResultSignals(BaseModel):
     pre_rerank_score: float
     rerank_score: float | None = None
     final_rank: int
-    business_score: float
     score_semantics: str = (
-        "Raw arm, reciprocal-rank fusion, reranker, and business scores use "
-        "different scales and are not probabilities."
+        "Raw arm, reciprocal-rank fusion, and reranker scores use different "
+        "scales and are not probabilities."
     )
 
 
@@ -194,9 +193,6 @@ class RetrievalProfile(BaseModel):
         default_factory=_yaml_default("display_limit"), ge=1, le=100
     )
     rrf_k: int = Field(default_factory=_yaml_default("rrf_k"), ge=1)
-    business_weight: float = Field(
-        default_factory=_yaml_default("business_weight"), ge=0, le=0.05
-    )
     # pg_trgm similarity floor for the fuzzy arm. Carried on the profile so both
     # fusion functions receive the same value; a literal at either call site would
     # let one arm's candidate set diverge from the other's.
@@ -275,6 +271,20 @@ class ProductReview(BaseModel):
     review_date: str | None = None
     sentiment_score: float | None = None
     source_uri: str
+
+
+class EvidenceRecord(BaseModel):
+    evidence_id: int
+    product_id: int
+    evidence_type: str
+    source_name: str
+    source_uri: str
+    revision: str
+    title: str
+    text: str
+    rating: float | None = None
+    is_verified: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ProductDetail(ProductSummary):
@@ -398,10 +408,15 @@ class ToolTraceStep(BaseModel):
     detail: str
     retrieval_run_id: UUID | None = None
     result_count: int | None = None
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    outcome: Literal["success", "error"] = "success"
+    latency_ms: float | None = Field(default=None, ge=0)
 
 
 class AgentCitation(BaseModel):
     number: int
+    evidence_id: int
+    evidence_type: str
     product_id: int
     source_uri: str
     revision: str

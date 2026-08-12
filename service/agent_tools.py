@@ -10,7 +10,10 @@ from uuid import UUID, uuid4
 
 from strands import tool
 
-from service.catalog import get_product
+from service.catalog import (
+    get_evidence_product_ids,
+    get_product_evidence_records,
+)
 from service.config import get_settings
 from service.db import connect
 from service.models import (
@@ -52,6 +55,8 @@ def start_run(
         "trace": [],
         "search_event_ids": [],
         "products": {},
+        "evidence": {},
+        "evidence_by_product": {},
         "searches": [],
         "answer_of_record": None,
     }
@@ -95,6 +100,7 @@ def _record(
     search_event_id: UUID | None = None,
     result_count: int | None = None,
     detail: str,
+    outcome: str = "success",
 ) -> None:
     state = _state()
     state["trace"].append(
@@ -105,6 +111,7 @@ def _record(
             "search_event_id": search_event_id,
             "result_count": result_count,
             "arguments": arguments,
+            "outcome": outcome,
             "latency_ms": round((perf_counter() - started) * 1_000, 2),
         }
     )
@@ -142,6 +149,40 @@ def _product_for_model(product: ProductSummary) -> dict[str, Any]:
             if signals
             else None
         ),
+    }
+
+
+def _evidence_for_model(item: Any) -> dict[str, Any]:
+    """Return the source fields the orchestrator needs without duplicate state."""
+    return {
+        "evidence_id": item.evidence_id,
+        "product_id": item.product_id,
+        "evidence_type": item.evidence_type,
+        "source_name": item.source_name,
+        "source_uri": item.source_uri,
+        "revision": item.revision,
+        "title": item.title,
+        "text": item.text,
+        "rating": item.rating,
+        "is_verified": item.is_verified,
+    }
+
+
+def _comparison_for_model(product: ProductSummary) -> dict[str, Any]:
+    """Return only fields that change a side-by-side product decision."""
+    context = _product_for_model(product)
+    return {
+        key: context[key]
+        for key in (
+            "product_id",
+            "title",
+            "price_cents",
+            "price_display",
+            "rating",
+            "availability",
+            "attributes",
+            "ranking",
+        )
     }
 
 
@@ -220,7 +261,10 @@ def search_products(
         min_price_cents: Optional minimum price in integer cents, so $200 is 20000.
         max_price_cents: Optional maximum price in integer cents, so $200 is 20000.
         min_rating: Optional minimum rating from 0 to 5.
-        attributes: Optional exact JSON attribute constraints.
+        attributes: Optional exact JSON attribute constraints. For explicit
+            home-office requirements, use quiet_typing=true for
+            quiet-keyboards and seat_depth_adjustable=true for
+            ergonomic-office-chairs.
         limit: Number of products to return, from 1 to 12.
 
     Returns:
@@ -271,11 +315,19 @@ def search_products(
             attributes=attributes or {},
         )
         filters = _merge_search_filters(state["base_filters"], tool_filters)
+        arguments["applied_filters"] = filters.as_sql_json()
+        requested_limit = max(
+            1,
+            min(int(limit), state["result_limit"], len(SEARCH_SLOTS)),
+        )
         response = get_retrieval_service().search(
             SearchRequest(
                 query=query,
                 filters=filters,
-                limit=max(1, min(int(limit), state["result_limit"], 4)),
+                # The retrieval event retains the complete bounded rerank
+                # window. The agent shortlist is selected below from candidates
+                # that can support a citation, without changing retrieval rank.
+                limit=get_settings().rerank_candidate_limit,
                 include_diagnostics=True,
                 rerank=True,
             )
@@ -287,10 +339,37 @@ def search_products(
             arguments,
             started,
             detail=f"Search failed with {type(error).__name__}.",
+            outcome="error",
         )
         return _failure(
             f"retrieval failed with {type(error).__name__}",
             "retry with a narrower query or fewer filters.",
+        )
+
+    evidence_ids = get_evidence_product_ids(
+        [product.product_id for product in response.results]
+    )
+    grounded_results = [
+        product
+        for product in response.results
+        if product.product_id in evidence_ids
+    ][:requested_limit]
+    if not grounded_results:
+        _record(
+            "search_products",
+            arguments,
+            started,
+            search_event_id=response.search_event_id,
+            result_count=0,
+            detail=(
+                "Retrieval completed, but no candidate in the bounded rerank "
+                "window had source-addressable evidence."
+            ),
+            outcome="error",
+        )
+        return _failure(
+            "no evidence-backed products were available in the ranked window",
+            "retry with a more specific product intent or exact identifier.",
         )
 
     state["search_event_ids"].append(response.search_event_id)
@@ -299,27 +378,34 @@ def search_products(
             "query": query,
             "filters": filters,
             "purpose": f"Retrieve products for: {query}",
+            "product_ids": [
+                product.product_id for product in grounded_results
+            ],
         }
     )
-    for product in response.results:
+    for product in grounded_results:
         state["products"].setdefault(product.product_id, product)
     _record(
         "search_products",
         arguments,
         started,
         search_event_id=response.search_event_id,
-        result_count=len(response.results),
-        detail=f"Retrieved {len(response.results)} source-attributed products.",
+        result_count=len(grounded_results),
+        detail=(
+            f"Retrieved {len(grounded_results)} evidence-backed products from "
+            f"{len(response.results)} ranked candidates."
+        ),
     )
     return {
         "ok": True,
         "search_event_id": str(response.search_event_id),
-        "products": [_product_for_model(product) for product in response.results],
+        "products": [_product_for_model(product) for product in grounded_results],
         "diagnostics": (
             {
                 "strategy": response.diagnostics.strategy,
                 "rerank_status": response.diagnostics.rerank_status,
                 "candidate_counts": response.diagnostics.candidate_counts,
+                "evidence_eligible": len(grounded_results),
                 "warnings": response.diagnostics.warnings,
             }
             if response.diagnostics
@@ -336,8 +422,8 @@ def get_product_evidence(product_id: int) -> dict[str, Any]:
         product_id: A product ID returned by search_products.
 
     Returns:
-        Current product revision, structured attributes, media, and review
-        evidence with source URIs.
+        Compact retrieved-product context and bounded source-addressable
+        specification and review evidence.
     """
     started = perf_counter()
     state = _state()
@@ -346,22 +432,42 @@ def get_product_evidence(product_id: int) -> dict[str, Any]:
             "product_id was not returned by this agent run",
             "call search_products first and use a product_id from its results.",
         )
-    product = get_product(product_id)
+    product = state["products"][product_id]
+    evidence = get_product_evidence_records(
+        product_id,
+        limit=len(SEARCH_SLOTS),
+    )
+    if not evidence:
+        _record(
+            "get_product_evidence",
+            {"product_id": product_id},
+            started,
+            result_count=0,
+            detail="No evidence records were available for the retrieved product.",
+            outcome="error",
+        )
+        return _failure(
+            "no evidence records were available for this product",
+            "choose another retrieved product or state the evidence gap.",
+        )
+# LAB3_EVIDENCE_STATE_START
+    for item in evidence:
+        state["evidence"][item.evidence_id] = item
+        product_evidence = state["evidence_by_product"].setdefault(product_id, [])
+        if item.evidence_id not in product_evidence:
+            product_evidence.append(item.evidence_id)
+# LAB3_EVIDENCE_STATE_END
     _record(
         "get_product_evidence",
         {"product_id": product_id},
         started,
-        result_count=1,
-        detail=f"Read product revision and {len(product.reviews)} review sources.",
+        result_count=len(evidence),
+        detail=f"Retrieved {len(evidence)} source-addressable evidence records.",
     )
     return {
         "ok": True,
-        "product": {
-            **_product_for_model(product),
-            "long_description": product.long_description,
-            "media": [item.model_dump() for item in product.media],
-            "reviews": [item.model_dump() for item in product.reviews],
-        },
+        "product_id": product_id,
+        "evidence": [_evidence_for_model(item) for item in evidence],
     }
 
 
@@ -400,7 +506,7 @@ def compare_products(product_ids: list[int]) -> dict[str, Any]:
     )
     return {
         "ok": True,
-        "products": [_product_for_model(product) for product in products],
+        "products": [_comparison_for_model(product) for product in products],
     }
 
 
@@ -499,8 +605,40 @@ def synthesize_cited_answer(
             "synthesize only from product IDs returned by search_products.",
         )
     products = [state["products"][item] for item in unique_ids]
+    if len(unique_ids) > 1 and not _comparison_covers(state, unique_ids):
+        _record(
+            "synthesize_cited_answer",
+            {"question": question, "product_ids": unique_ids},
+            started,
+            result_count=0,
+            detail="Grounded synthesis blocked; products were not compared.",
+            outcome="error",
+        )
+        return _failure(
+            "selected products were not compared in this run",
+            "call compare_products with every selected product before synthesis.",
+        )
+    evidence = _evidence_for_products(state, unique_ids)
+    missing_evidence = [
+        product_id
+        for product_id in unique_ids
+        if not state["evidence_by_product"].get(product_id)
+    ]
+    if missing_evidence:
+        _record(
+            "synthesize_cited_answer",
+            {"question": question, "product_ids": unique_ids},
+            started,
+            result_count=0,
+            detail=f"Grounded synthesis blocked; missing evidence for {missing_evidence}.",
+            outcome="error",
+        )
+        return _failure(
+            f"products lack retrieved evidence: {missing_evidence}",
+            "call get_product_evidence for every product before synthesis.",
+        )
     try:
-        answer, citations, usage = synthesize_answer(question, products)
+        answer, citations, usage = synthesize_answer(question, products, evidence)
     except Exception as error:
         logger.warning("synthesize_cited_answer failed: %s", error)
         _record(
@@ -508,6 +646,7 @@ def synthesize_cited_answer(
             {"question": question, "product_ids": unique_ids},
             started,
             detail=f"Synthesis failed with {type(error).__name__}.",
+            outcome="error",
         )
         return _failure(
             f"synthesis failed with {type(error).__name__}",
@@ -534,17 +673,79 @@ def synthesize_cited_answer(
     }
 
 
-def finalize_retrieved_answer(question: str) -> None:
+def _fallback_product_ids(state: dict[str, Any]) -> list[int]:
+    """Choose a bounded shortlist from explicit comparison or search order."""
+    for step in reversed(state["trace"]):
+        compared = list((step.get("arguments") or {}).get("product_ids", []))
+        if (
+            step["tool"] == "compare_products"
+            and step.get("outcome", "success") == "success"
+            and 2 <= len(compared) <= 4
+            and all(product_id in state["products"] for product_id in compared)
+        ):
+            return compared
+
+    selected: list[int] = []
+    for search in state["searches"]:
+        for product_id in search.get("product_ids", [])[:2]:
+            if product_id not in selected:
+                selected.append(product_id)
+    if not selected:
+        selected.extend(state["products"])
+    limit = max(1, min(state["result_limit"], 4))
+    return selected[:limit]
+
+
+def complete_grounded_answer(question: str) -> None:
+    """Complete missing compare/evidence steps over retrieved products only."""
+    state = _state()
+    product_ids = _fallback_product_ids(state)
+    if not product_ids:
+        raise RuntimeError("No retrieved products are available for synthesis")
+
+    if len(product_ids) > 1 and not _comparison_covers(state, product_ids):
+        result = compare_products(product_ids)
+        if not result.get("ok"):
+            raise RuntimeError(result["error"])
+    for product_id in product_ids:
+        if state["evidence_by_product"].get(product_id):
+            continue
+        result = get_product_evidence(product_id)
+        if not result.get("ok"):
+            raise RuntimeError(result["error"])
+    finalize_retrieved_answer(question, product_ids=product_ids)
+
+
+def finalize_retrieved_answer(
+    question: str,
+    *,
+    product_ids: list[int] | None = None,
+) -> None:
     """Create the validated answer if orchestration stopped after retrieval."""
     started = perf_counter()
     state = _state()
     if state["answer_of_record"] is not None:
         return
-    products = list(state["products"].values())[: min(state["result_limit"], 4)]
+    selected_ids = product_ids or [
+        product_id
+        for product_id in state["evidence_by_product"]
+        if product_id in state["products"]
+    ][: min(state["result_limit"], 4)]
+    products = [state["products"][product_id] for product_id in selected_ids]
     if not products:
         raise RuntimeError("No retrieved products are available for synthesis")
+    selected_ids = [product.product_id for product in products]
+    if len(selected_ids) > 1 and not _comparison_covers(state, selected_ids):
+        raise RuntimeError(
+            "Retrieved products were not compared before grounded synthesis"
+        )
+    evidence = _evidence_for_products(state, selected_ids)
+    if not evidence:
+        raise RuntimeError(
+            "No retrieved evidence is available for grounded synthesis"
+        )
 
-    answer, citations, usage = synthesize_answer(question, products)
+    answer, citations, usage = synthesize_answer(question, products, evidence)
     state["answer_of_record"] = {
         "answer": answer,
         "citations": citations,
@@ -555,7 +756,7 @@ def finalize_retrieved_answer(question: str) -> None:
         "synthesize_cited_answer",
         {
             "question": question,
-            "product_ids": [product.product_id for product in products],
+            "product_ids": selected_ids,
             "orchestration_fallback": True,
         },
         started,
@@ -564,6 +765,29 @@ def finalize_retrieved_answer(question: str) -> None:
             "Validated cited synthesis after orchestration completed without "
             "calling its required final tool."
         ),
+    )
+
+
+def _evidence_for_products(
+    state: dict[str, Any],
+    product_ids: list[int],
+) -> list[Any]:
+    """Return evidence in product order with stable evidence-ID ordering."""
+    return [
+        state["evidence"][evidence_id]
+        for product_id in product_ids
+        for evidence_id in sorted(state["evidence_by_product"].get(product_id, []))
+    ]
+
+
+def _comparison_covers(state: dict[str, Any], product_ids: list[int]) -> bool:
+    """True when one successful comparison contains every selected product."""
+    selected = set(product_ids)
+    return any(
+        step["tool"] == "compare_products"
+        and step.get("outcome", "success") == "success"
+        and selected <= set((step.get("arguments") or {}).get("product_ids", []))
+        for step in state["trace"]
     )
 
 
@@ -597,6 +821,15 @@ def persist_completed_run(
     if error_type:
         persisted_usage["error_type"] = error_type
     with connect() as connection:
+        if state["search_event_ids"]:
+            connection.execute(
+                """
+                UPDATE mosaic.search_event
+                SET agent_turn_id = %s
+                WHERE search_event_id = ANY (%s::uuid[])
+                """,
+                (state["agent_turn_id"], state["search_event_ids"]),
+            )
         # The turn carries the assistant's answer and the plan that produced it.
         connection.execute(
             """
@@ -642,7 +875,7 @@ def persist_completed_run(
                         "agent_turn_id": state["agent_turn_id"],
                         "search_event_id": step.get("search_event_id"),
                         "tool_name": step["tool"],
-                        "outcome": "success",
+                        "outcome": step.get("outcome", "success"),
                         "input_payload": json.dumps(
                             step.get("arguments") or {}, default=str
                         ),

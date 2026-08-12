@@ -21,12 +21,16 @@ export function ProductCard({
   showCompare = false,
   collectionLabels = [],
   variant = "default",
+  assistRank,
+  highlighted = false,
 }: {
   product: ProductSummary;
   showSignals?: boolean;
   showCompare?: boolean;
   collectionLabels?: string[];
   variant?: "default" | "catalog";
+  assistRank?: number;
+  highlighted?: boolean;
 }) {
   const {
     addItem,
@@ -42,9 +46,23 @@ export function ProductCard({
 
   if (variant === "catalog") {
     return (
-      <article className="product-card catalog-product-card">
+      <article
+        className={[
+          "product-card catalog-product-card",
+          assistRank ? "assist-selected" : "",
+          highlighted ? "assist-highlighted" : "",
+        ].filter(Boolean).join(" ")}
+      >
         <Link className="product-image" href={`/products/${product.product_id}`}>
-          <img src={productImage(product)} alt="" />
+          <img
+            src={productImage(product)}
+            alt=""
+            width={1200}
+            height={800}
+            loading="lazy"
+            decoding="async"
+          />
+          {assistRank ? <span className="assist-rank-badge">{String(assistRank).padStart(2, "0")}</span> : null}
         </Link>
         <button
           className={saved ? "catalog-favorite-button active" : "catalog-favorite-button"}
@@ -84,6 +102,14 @@ export function ProductCard({
               ))}
             </div>
           ) : null}
+          {showSignals && signals ? (
+            <div className="catalog-signal-strip">
+              <span>FTS {signals.fts.rank ?? "-"}</span>
+              <span>VEC {signals.semantic.rank ?? "-"}</span>
+              <span>RRF {signals.pre_rerank_rank}</span>
+              <span>FINAL {signals.final_rank}</span>
+            </div>
+          ) : null}
           <div className="catalog-card-buy">
             <span>
               <strong>{formatPrice(product.price_cents, product.currency)}</strong>
@@ -114,7 +140,14 @@ export function ProductCard({
   return (
     <article className="product-card">
       <Link className="product-image" href={`/products/${product.product_id}`}>
-        <img src={productImage(product)} alt="" />
+        <img
+          src={productImage(product)}
+          alt=""
+          width={1200}
+          height={800}
+          loading="lazy"
+          decoding="async"
+        />
         {signals ? <span className="rank-badge">#{signals.final_rank}</span> : null}
       </Link>
       <button

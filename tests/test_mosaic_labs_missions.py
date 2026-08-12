@@ -41,7 +41,6 @@ def test_both_lists_together_cover_every_stage_and_checkpoint():
     assert {check["checkpoint"] for check in ALL_CHECKS} >= {
         "baseline",
         "repair",
-        "comparison",
         "advanced",
     }
 
@@ -51,7 +50,31 @@ def test_core_flags_distinguish_required_checkpoints_from_advanced_labs():
     supporting = {check["id"]: check for check in CONTRACT["supporting_checks"]}
     assert supporting["exact-identity"]["core"] is True
     assert supporting["semantic-eligibility"]["core"] is True
+    assert supporting["compare-cheaper-alternative"]["core"] is True
+    assert supporting["ranking-filter-control"]["core"] is True
+    assert supporting["evidence-grounding"]["core"] is True
     assert supporting["hnsw-performance"]["core"] is False
+
+
+def test_eight_participant_queries_are_distributed_across_three_labs():
+    participant_checks = CONTRACT["missions"] + [
+        check for check in CONTRACT["supporting_checks"] if check["core"]
+    ]
+    assert len(participant_checks) == 8
+    assert {
+        check["placement"]
+        for check in CONTRACT["supporting_checks"]
+        if check["core"]
+    } == {"lab-1", "lab-2", "lab-3"}
+
+
+def test_each_required_lab_declares_golden_before_and_after_observations():
+    for lab in CONTRACT["missions"]:
+        edit = lab["participant_edit"]
+        assert 5 <= edit["approximate_lines"] <= 15
+        assert len(edit["observe_before"]) >= 2
+        assert len(edit["observe_after"]) >= 2
+        assert edit["checkpoint_question"].endswith("?")
 
 
 def test_golden_targets_are_curated_products():

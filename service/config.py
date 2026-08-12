@@ -31,8 +31,7 @@ class ConfigurationError(RuntimeError):
 
     `RetrievalProfile` enforces the same bounds when it is constructed per
     request. Enforcing them at load too means a bad value fails at startup with
-    the parameter named, instead of escaping as an unhandled HTTP 500 on every
-    query — which is exactly what `BUSINESS_WEIGHT=0.15` did in Phase 1.
+    the parameter named instead of escaping as an unhandled HTTP 500.
     """
 
 
@@ -102,7 +101,6 @@ class Settings:
     semantic_candidate_limit: int
     rerank_candidate_limit: int
     rrf_k: int
-    business_weight: float
     hnsw_ef_search: int
     bedrock_max_attempts: int
     cors_origins: tuple[str, ...]
@@ -160,10 +158,6 @@ def get_settings() -> Settings:
         semantic_candidate_limit=profile.semantic_limit,
         rerank_candidate_limit=profile.fused_limit,
         rrf_k=profile.rrf_k,
-        # `mosaic_search.search_hybrid_rrf` fuses by reciprocal rank and adds a
-        # small business nudge. The per-arm weights in the yaml are consumed only
-        # by Unit D's weighted comparison function, never by default retrieval.
-        business_weight=profile.business_weight,
         hnsw_ef_search=profile.hnsw_ef_search,
         bedrock_max_attempts=_bounded("BEDROCK_MAX_ATTEMPTS", "5", int),
         cors_origins=origins,

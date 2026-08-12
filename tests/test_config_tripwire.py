@@ -88,7 +88,6 @@ def test_the_real_repository_is_clean():
     [
         ("service/second_copy.py", "fts_limit = 200\n"),
         ("service/second_copy.py", "rrf_k = 42\n"),
-        ("service/second_copy.py", 'CONFIG = {"business_weight": 0.02}\n'),
         ("service/second_copy.py", "trigram_limit=99\n"),
     ],
 )

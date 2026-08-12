@@ -31,6 +31,7 @@
       "core": true,
       "duration_minutes": 15,
       "title": "Lab 1 - Build hybrid retrieval",
+      "canonical_query_id": "G-003",
       "query": "wirless noice canceling hedphones under $200 with long batery life",
       "filters": {
         "domain": "consumer_electronics",
@@ -47,6 +48,24 @@
         "cohere_rerank"
       ],
       "checkpoint": "repair",
+      "participant_edit": {
+        "file": "db/sql/09_search_functions.sql",
+        "approximate_lines": 11,
+        "task": "Restore the trigram CTE and its candidate channel in search_hybrid_rrf.",
+        "broken_state": "The target is absent because the working pg_trgm arm is disconnected from candidate fusion.",
+        "fixed_state": "The target returns with trigram rank and RRF contribution while hard filters still hold.",
+        "observe_before": [
+          "HTTP 200: retrieval still runs through FTS, HNSW, RRF, and reranking.",
+          "Product 2 is absent from the displayed result window.",
+          "diagnostics.candidate_counts.trigram_in_pool equals 0."
+        ],
+        "observe_after": [
+          "HTTP 200 with product 2 in the first 10 results.",
+          "Product 2 has non-null signals.trigram.rank and signals.trigram.rrf_contribution.",
+          "Every result is consumer electronics, at or below $200, and in stock or low stock."
+        ],
+        "checkpoint_question": "Why did the original path miss product 2, and which signal recovered it?"
+      },
       "expected_outcome": "The eligible target appears after the typo-recovery candidate source is restored; exact identity and semantic eligibility remain separately testable checkpoints.",
       "assertions": [
         "target_in_top_k",
@@ -62,6 +81,7 @@
       "core": true,
       "duration_minutes": 16,
       "title": "Lab 2 - Fuse, rerank, and explain",
+      "canonical_query_id": "G-008",
       "query": "ergonmic mesh chiar for long workdays with adjustable lumbar support",
       "filters": {
         "domain": "home_office",
@@ -71,7 +91,7 @@
         }
       },
       "target_product_ids": [
-        370001
+        370002
       ],
       "expected_techniques": [
         "fts",
@@ -80,8 +100,26 @@
         "rrf",
         "cohere_rerank"
       ],
-      "checkpoint": "comparison",
-      "expected_outcome": "The run retains FTS, trigram, HNSW, RRF, Cohere Rerank, and final rank as distinct evidence. The B-side reruns the same candidate pool through weighted fusion using historical, pre-rewrite coefficients that were never tuned for this corpus: measured on the live cluster, the weights reorder 243 of this mission's 250 candidates -- and 322 of 323 on the typo-recovery query -- while every assertion holds unchanged, because the reranker absorbs the difference. Fusion is highly sensitive to coefficients and the answer layer is not, so a change that looks dramatic at one layer can be invisible at the other -- measure both before adopting either. That absorption depends on reranking: with rerank off the fusion order is load-bearing, and agentic-research's target falls to fused rank 16 under the same weights.",
+      "checkpoint": "repair",
+      "participant_edit": {
+        "file": "db/sql/09_search_functions.sql",
+        "approximate_lines": 6,
+        "task": "Restore the reciprocal-rank contribution formula 1 / (k + rank).",
+        "broken_state": "Product 370002 wins every retrieval arm, but collapsed RRF ties the contributions and product 370001 incorrectly becomes fused rank 1.",
+        "fixed_state": "Product 370002 is fused rank 1 and final rank 1; each source position contributes 1 / (k + rank), with deterministic ties only after relevance.",
+        "observe_before": [
+          "HTTP 200: products 370001 and 370002 both remain in the candidate and result evidence.",
+          "Product 370002 is rank 1 in FTS, pg_trgm, and semantic retrieval, yet product 370001 is fused rank 1 because every source position contributes as rank 1.",
+          "Cohere still promotes product 370002 to final rank 1, proving that a correct-looking answer can mask broken fusion."
+        ],
+        "observe_after": [
+          "Every per-arm contribution equals 1 / (k + source_rank).",
+          "Two identical requests produce the same visible pre-rerank order.",
+          "Product 370002 is fused rank 1 and final rank 1; product 370001 is fused rank 2 and final rank 2."
+        ],
+        "checkpoint_question": "Why did product 370001 lead the broken fused list even though product 370002 won every arm, and why did final output hide the defect?"
+      },
+      "expected_outcome": "The participant repairs the actual RRF contribution function, reapplies the search functions, and proves that product 370002 moves from broken fused rank 2 to repaired fused rank 1 while remaining final rank 1 after bounded reranking. Historical weighted fusion remains an optional comparison over the identical candidate pool, not the required repair.",
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",
@@ -99,7 +137,8 @@
       "core": true,
       "duration_minutes": 16,
       "title": "Lab 3 - Build the retrieval agent",
-      "query": "Build a quiet home office under $800 and explain the trade-offs.",
+      "canonical_query_id": "G-010",
+      "query": "Choose a quiet mechanical keyboard and a mesh ergonomic chair for 12-hour workdays with adjustable seat depth and dynamic lumbar support, each under $800. Compare the strongest options and explain why the cheaper alternatives ranked lower.",
       "filters": {
         "domain": "home_office",
         "max_price_cents": 80000,
@@ -117,10 +156,36 @@
         "source_attribution"
       ],
       "checkpoint": "repair",
-      "expected_outcome": "A bounded, read-only retrieval tool produces a cited answer from the retrieved catalog evidence.",
+      "participant_edit": {
+        "file": "service/agent_tools.py",
+        "approximate_lines": 5,
+        "task": "Attach retrieved evidence IDs to agent state by product before synthesis.",
+        "broken_state": "Evidence is returned to the model but grounded synthesis cannot resolve it, so the agent refuses an unsupported recommendation.",
+        "fixed_state": "Comparison and synthesis consume retrieved evidence records and return citation IDs that resolve to those records.",
+        "observe_before": [
+          "The agent invokes retrieval and evidence tools but cannot create an answer of record.",
+          "POST /api/agent/answer returns HTTP 503 instead of an unsupported recommendation.",
+          "No citation is presented as valid."
+        ],
+        "observe_after": [
+          "POST /api/agent/answer returns HTTP 200 with at least two retrieved recommendations.",
+          "The trace includes successful search_products, compare_products, get_product_evidence, and synthesize_cited_answer receipts.",
+          "Every citation evidence_id resolves exactly to a real evidence record for a recommended product."
+        ],
+        "checkpoint_question": "What did the agent decide, and what remained deterministic retrieval and evidence behavior?"
+      },
+      "expected_outcome": "A bounded, read-only agent decomposes the request, preserves structured constraints, searches and compares retrieved products, retrieves evidence, retains ranking explanation, and produces citations that resolve to real evidence records.",
       "assertions": [
+        "structured_constraints_extracted",
         "retrieval_tool_called",
+        "expected_products_considered",
+        "comparison_tool_called",
+        "evidence_tool_called",
+        "evidence_records_returned",
+        "ranking_explanation_available",
+        "recommendation_grounded",
         "citations_present",
+        "citation_ids_resolve",
         "citation_source_revision_present",
         "semantic_signal_present",
         "hard_filters_hold"
@@ -136,6 +201,7 @@
       "placement": "lab-1",
       "duration_minutes": 2,
       "title": "Checkpoint - Preserve exact identity",
+      "canonical_query_id": "G-001",
       "query": "Mosaic EchoBud S2",
       "filters": {
         "domain": "consumer_electronics"
@@ -162,6 +228,7 @@
       "placement": "lab-1",
       "duration_minutes": 3,
       "title": "Checkpoint - Apply eligibility constraints",
+      "canonical_query_id": "G-013",
       "query": "carbon plated marathon shoe under $220 with stable cornering",
       "filters": {
         "domain": "running_fitness",
@@ -188,6 +255,127 @@
         "hard_filters_hold"
       ],
       "top_k": 10
+    },
+    {
+      "id": "compare-cheaper-alternative",
+      "stage": "rank",
+      "core": true,
+      "placement": "lab-2",
+      "duration_minutes": 2,
+      "title": "Checkpoint - Compare the cheaper alternative",
+      "canonical_query_id": "G-007",
+      "query": "quiet wireless keyboard for a shared office; compare mechanical feel with the cheaper alternative",
+      "filters": {
+        "domain": "home_office",
+        "max_price_cents": 18000,
+        "in_stock_only": true,
+        "attributes": {
+          "quiet_typing": true,
+          "wireless": true
+        }
+      },
+      "target_product_ids": [
+        429001,
+        429002
+      ],
+      "expected_techniques": [
+        "fts",
+        "hnsw",
+        "rrf",
+        "cohere_rerank"
+      ],
+      "checkpoint": "baseline",
+      "expected_outcome": "Both eligible keyboards remain in the candidate set; the rank movement view shows why the mechanical option and cheaper scissor-switch alternative trade places or retain order.",
+      "assertions": [
+        "target_in_top_k",
+        "fts_signal_present",
+        "semantic_signal_present",
+        "rank_provenance_present",
+        "rerank_score_present",
+        "hard_filters_hold"
+      ],
+      "top_k": 10
+    },
+    {
+      "id": "ranking-filter-control",
+      "stage": "rank",
+      "core": true,
+      "placement": "lab-2",
+      "duration_minutes": 2,
+      "title": "Checkpoint - Keep filters outside model scoring",
+      "canonical_query_id": "G-009",
+      "query": "mesh office chair with a headrest for 12-hour days under $800",
+      "filters": {
+        "domain": "home_office",
+        "max_price_cents": 80000,
+        "in_stock_only": true,
+        "attributes": {
+          "headrest": true,
+          "seat_depth_adjustable": true
+        }
+      },
+      "target_product_ids": [
+        370001
+      ],
+      "expected_techniques": [
+        "fts",
+        "hnsw",
+        "rrf",
+        "cohere_rerank"
+      ],
+      "checkpoint": "baseline",
+      "expected_outcome": "Product 370001 remains eligible while the headrest-free and over-budget chair controls never reach fusion or reranking.",
+      "assertions": [
+        "target_in_top_k",
+        "fts_signal_present",
+        "semantic_signal_present",
+        "rank_provenance_present",
+        "rerank_score_present",
+        "hard_filters_hold"
+      ],
+      "top_k": 10
+    },
+    {
+      "id": "evidence-grounding",
+      "stage": "reason",
+      "core": true,
+      "placement": "lab-3",
+      "duration_minutes": 3,
+      "title": "Checkpoint - Resolve recommendation evidence",
+      "canonical_query_id": "G-020",
+      "query": "Which ergonomic chair best supports 12-hour workdays, and what evidence supports the recommendation?",
+      "filters": {
+        "domain": "home_office",
+        "max_price_cents": 80000,
+        "in_stock_only": true,
+        "attributes": {
+          "seat_depth_adjustable": true
+        }
+      },
+      "target_product_ids": [
+        370001
+      ],
+      "expected_techniques": [
+        "typed_agent_tool",
+        "hnsw",
+        "rrf",
+        "cohere_rerank",
+        "source_attribution"
+      ],
+      "checkpoint": "baseline",
+      "expected_outcome": "The agent retrieves a bounded chair shortlist, reads real evidence records, and cites resolvable support for the 12-hour recommendation.",
+      "assertions": [
+        "target_in_top_k",
+        "semantic_signal_present",
+        "retrieval_tool_called",
+        "evidence_tool_called",
+        "evidence_records_returned",
+        "recommendation_grounded",
+        "citations_present",
+        "citation_ids_resolve",
+        "hard_filters_hold"
+      ],
+      "top_k": 6
     },
     {
       "id": "hnsw-performance",

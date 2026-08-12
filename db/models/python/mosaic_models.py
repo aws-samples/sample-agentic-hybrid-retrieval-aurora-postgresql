@@ -189,7 +189,6 @@ class RetrievalProfile(BaseModel):
     fused_limit: int = Field(default=50, ge=1, le=250)
     result_limit: int = Field(default=12, ge=1, le=100)
     rrf_k: int = Field(default=60, ge=1)
-    business_weight: float = Field(default=0.003, ge=0, le=0.05)
     ef_search: int = Field(default=100, ge=1, le=1000)
     iterative_scan: Literal["off", "strict_order", "relaxed_order"] = "relaxed_order"
     max_scan_tuples: int = Field(default=20000, ge=1)
@@ -224,7 +223,6 @@ class SearchCandidate(BaseModel):
     trigram_score: float | None = None
     semantic_score: float | None = None
     rrf_score: float
-    business_score: float
     pre_rerank_score: float
     rerank_score: float | None = None
     provenance: dict[str, Any] = Field(default_factory=dict)

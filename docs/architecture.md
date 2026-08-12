@@ -44,7 +44,8 @@ The design intentionally demonstrates that relational filters and vector retriev
 Strands Agents calls the read-only product tools in-process. The MCP
 `2026-07-28` service runs in an isolated dependency environment and calls the
 same typed FastAPI routes over HTTP. Neither adapter owns retrieval logic:
-filters, candidate generation, weighted RRF, reranking provenance, and
+filters, candidate generation, unweighted RRF, optional weighted comparison,
+reranking provenance, and
 retrieval-run persistence remain behind the API in Aurora PostgreSQL.
 
 ## Offline pipeline

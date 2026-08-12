@@ -117,6 +117,15 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         ),
     ),
     Assertion(
+        name="structured_constraints_extracted",
+        arm=None,
+        falsifier=(
+            "no successful search_products trace carries the request's domain, "
+            "price ceiling, and stock constraint, so decomposition widened the "
+            "bounded request before retrieval"
+        ),
+    ),
+    Assertion(
         name="retrieval_tool_called",
         arm=None,
         falsifier=(
@@ -125,9 +134,65 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         ),
     ),
     Assertion(
+        name="expected_products_considered",
+        arm=None,
+        falsifier=(
+            "none of the canonical target products appears in the persisted "
+            "candidate receipts for the agent's retrieval runs"
+        ),
+    ),
+    Assertion(
+        name="comparison_tool_called",
+        arm=None,
+        falsifier=(
+            "the agent recommends among competing products without a successful "
+            "compare_products call over IDs returned by retrieval"
+        ),
+    ),
+    Assertion(
+        name="evidence_tool_called",
+        arm=None,
+        falsifier=(
+            "the agent reaches synthesis without a successful "
+            "get_product_evidence call for each recommended product"
+        ),
+    ),
+    Assertion(
+        name="evidence_records_returned",
+        arm=None,
+        falsifier=(
+            "an evidence tool succeeds with zero records, leaving synthesis "
+            "without source-addressable support"
+        ),
+    ),
+    Assertion(
+        name="ranking_explanation_available",
+        arm=None,
+        falsifier=(
+            "neither an explain_retrieval receipt nor complete persisted arm, "
+            "fused, rerank, and final ranks are available for the recommendation"
+        ),
+    ),
+    Assertion(
+        name="recommendation_grounded",
+        arm=None,
+        falsifier=(
+            "a recommended product was not returned by this run's retrieval or "
+            "has no successfully retrieved evidence before synthesis"
+        ),
+    ),
+    Assertion(
         name="citations_present",
         arm=None,
         falsifier="the answer cites no retrieved evidence",
+    ),
+    Assertion(
+        name="citation_ids_resolve",
+        arm=None,
+        falsifier=(
+            "a returned citation evidence_id does not resolve to a real "
+            "product_evidence row for the citation's product"
+        ),
     ),
     Assertion(
         name="citation_source_revision_present",

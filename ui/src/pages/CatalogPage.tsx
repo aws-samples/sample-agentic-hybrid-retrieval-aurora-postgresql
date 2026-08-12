@@ -1,17 +1,21 @@
 import {
+  ArrowUpRight,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   Grid2X2,
   List,
+  Search,
   Sparkles,
   Star,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
-import { CSSProperties, useCallback, useEffect, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
+import { AskMosaic } from "../components/AskMosaic";
 import { MosaicMark } from "../components/MosaicMark";
 import { ProductCard } from "../components/ProductCard";
 import { SearchComposer } from "../components/SearchComposer";
@@ -27,6 +31,7 @@ import type {
   Domain,
   ProductSummary,
   SearchFilters,
+  SearchResponse,
 } from "../types";
 
 // 3 columns x 4 rows. The premium cohort is 120 products, so this gives exactly
@@ -95,6 +100,7 @@ const availabilityOptions: Array<{ value: Availability | ""; label: string }> = 
 ];
 
 type FilterSection = "categories" | "price" | "availability" | "rating";
+type AgentStage = "understand" | "retrieve" | "rank" | "answer";
 
 function priceFromCents(value: string | null, fallback: number) {
   if (value === null) return fallback;
@@ -117,10 +123,22 @@ export function CatalogPage() {
   });
   const [catalogView, setCatalogView] = useState<"grid" | "list">("grid");
   const [preference, setPreference] = useState<ShoppingPreference>(shoppingPreferences[0]);
+  const [retrieval, setRetrieval] = useState<SearchResponse | null>(null);
+  const [retrievalLoading, setRetrievalLoading] = useState(false);
+  const [retrievalError, setRetrievalError] = useState("");
+  const [retrievalQuery, setRetrievalQuery] = useState(searchParams.get("q") ?? "");
   const [agent, setAgent] = useState<AgentResponse | null>(null);
   const [agentLoading, setAgentLoading] = useState(false);
   const [agentError, setAgentError] = useState("");
   const [agentQuestion, setAgentQuestion] = useState("");
+  const [agentComposerOpen, setAgentComposerOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentStage, setAgentStage] = useState<AgentStage | null>(null);
+  const [agentStageDetail, setAgentStageDetail] = useState("");
+  const [streamedAnswer, setStreamedAnswer] = useState("");
+  const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
+  const retrievalRequestVersion = useRef(0);
+  const agentRequestVersion = useRef(0);
   const domain = (searchParams.get("domain") || undefined) as Domain | undefined;
   const offset = Number(searchParams.get("offset") ?? 0);
   const sort = searchParams.get("sort") ?? "featured";
@@ -141,6 +159,7 @@ export function CatalogPage() {
     min_price_cents: minPriceCents ? Number(minPriceCents) : undefined,
     max_price_cents: maxPriceCents ? Number(maxPriceCents) : undefined,
   };
+  const activeQuery = searchParams.get("q")?.trim() ?? "";
   const activeFilterCount = [
     domain,
     categoryKey,
@@ -176,6 +195,90 @@ export function CatalogPage() {
 
   useEffect(load, [load]);
 
+  useEffect(() => {
+    const version = retrievalRequestVersion.current + 1;
+    retrievalRequestVersion.current = version;
+    setRetrievalQuery(activeQuery);
+    setRetrievalError("");
+    if (!activeQuery) {
+      setRetrieval(null);
+      setRetrievalLoading(false);
+      return;
+    }
+
+    setRetrievalLoading(true);
+    api
+      .search(activeQuery, filters, { limit: pageSize, rerank: true })
+      .then((response) => {
+        if (version === retrievalRequestVersion.current) setRetrieval(response);
+      })
+      .catch((cause) => {
+        if (version !== retrievalRequestVersion.current) return;
+        setRetrieval(null);
+        setRetrievalError(
+          cause instanceof Error
+            ? cause.message
+            : "Hybrid retrieval is unavailable",
+        );
+      })
+      .finally(() => {
+        if (version === retrievalRequestVersion.current) setRetrievalLoading(false);
+      });
+  }, [
+    activeQuery,
+    domain,
+    categoryKey,
+    brand,
+    availability,
+    minRating,
+    minPriceCents,
+    maxPriceCents,
+  ]);
+
+  const closeAgent = useCallback(() => {
+    setAgentOpen(false);
+    setHighlightedProductId(null);
+  }, []);
+
+  function openAgent() {
+    setAgentQuestion(activeQuery);
+    if (agent || agentLoading || agentError) {
+      setAgentOpen(true);
+      return;
+    }
+    setAgentComposerOpen(true);
+  }
+
+  function clearAgentResults() {
+    agentRequestVersion.current += 1;
+    setAgent(null);
+    setAgentError("");
+    setAgentQuestion("");
+    setAgentComposerOpen(false);
+    setAgentStage(null);
+    setAgentStageDetail("");
+    setStreamedAnswer("");
+    setHighlightedProductId(null);
+  }
+
+  function searchCatalog(query: string) {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("q", trimmed);
+    next.delete("offset");
+    setSearchParams(next);
+  }
+
+  function clearSearch() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("q");
+    setRetrieval(null);
+    setRetrievalError("");
+    setRetrievalQuery("");
+    setSearchParams(next);
+  }
+
   function update(name: string, value?: string, resetPage = true) {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(name, value);
@@ -187,6 +290,7 @@ export function CatalogPage() {
   function clearFilters() {
     const next = new URLSearchParams();
     if (sort !== "featured") next.set("sort", sort);
+    if (activeQuery) next.set("q", activeQuery);
     setSearchParams(next);
   }
 
@@ -210,16 +314,48 @@ export function CatalogPage() {
   async function askAgent(question: string) {
     const trimmed = question.trim();
     if (trimmed.length < 2 || agentLoading) return;
+    const version = agentRequestVersion.current + 1;
+    agentRequestVersion.current = version;
+    setAgentComposerOpen(false);
+    setAgentOpen(true);
     setAgentLoading(true);
     setAgentError("");
     setAgentQuestion(trimmed);
+    setAgent(null);
+    setAgentStage("understand");
+    setAgentStageDetail("Parsing the request into deterministic constraints and retrieval intents.");
+    setStreamedAnswer("");
     try {
-      setAgent(await api.agent(trimmed, filters));
-    } catch {
+      await api.agentStream(trimmed, filters, (event) => {
+        if (version !== agentRequestVersion.current) return;
+        if (event.type === "stage") {
+          setAgentStage(event.id);
+          setAgentStageDetail(event.detail);
+        } else if (event.type === "answer_start") {
+          setAgent(event.response);
+          setAgentStage("answer");
+          setAgentStageDetail("Composing only from the retrieved products and resolved evidence records.");
+        } else if (event.type === "answer_delta") {
+          setStreamedAnswer((answer) => answer + event.delta);
+        } else {
+          setAgent(event.response);
+          setStreamedAnswer(event.response.answer);
+          setAgentStage(null);
+          setAgentStageDetail("");
+        }
+      });
+    } catch (cause) {
+      if (version !== agentRequestVersion.current) return;
       setAgent(null);
-      setAgentError("The assistant is unavailable while the local catalog preview is active.");
+      setAgentStage(null);
+      setAgentStageDetail("");
+      setAgentError(
+        cause instanceof Error
+          ? cause.message
+          : "Ask Mosaic is unavailable",
+      );
     } finally {
-      setAgentLoading(false);
+      if (version === agentRequestVersion.current) setAgentLoading(false);
     }
   }
 
@@ -237,8 +373,15 @@ export function CatalogPage() {
 
   const catalogCategories = page?.facets.category_key ?? [];
   const fallbackProducts = showcaseCatalogPage({}, 0, 120).products;
-  const recommendationPool = agent?.recommendations.length
+  const agentProducts = agent?.recommendations.length
     ? agent.recommendations
+    : null;
+  const visibleProducts = agentProducts
+    ?? retrieval?.results
+    ?? page?.products
+    ?? [];
+  const recommendationPool = retrieval?.results.length
+    ? retrieval.results
     : page?.products.length
       ? page.products
       : fallbackProducts;
@@ -248,10 +391,13 @@ export function CatalogPage() {
       : fallbackProducts,
     preference,
   );
+  const assistRanks = new Map(
+    (agentProducts ?? []).map((product, index) => [product.product_id, index + 1]),
+  );
 
   return (
-    <div className="page mosaic-catalog-page">
-      <div className="mosaic-catalog-layout">
+    <div className={agentOpen ? "page mosaic-catalog-page assist-open" : "page mosaic-catalog-page"}>
+      <div className={agentOpen ? "mosaic-catalog-layout assist-open" : "mosaic-catalog-layout"}>
         <aside className="catalog-sidebar">
           <header className="catalog-side-heading">
             <div>
@@ -411,25 +557,92 @@ export function CatalogPage() {
           </aside>
         </aside>
         <section className="catalog-results">
-          {/* Ask Mosaic leads the column: it is the primary affordance on this
-              surface, and the sort control now sits with the result count it
-              actually governs. */}
-          <section className="catalog-agent" aria-label="Mosaic shopping assistant">
+          <section className="catalog-agent" aria-label="Mosaic product search">
             <div className="catalog-agent-identity">
-              <Sparkles size={20} aria-hidden="true" />
+              <Search size={20} aria-hidden="true" />
               <span>
-                <strong>Ask Mosaic</strong>
-                <small>Agentic hybrid retrieval</small>
+                <strong>Search Mosaic</strong>
+                <small>FTS · pg_trgm · HNSW · RRF</small>
               </span>
             </div>
-            <SearchComposer
-              compact
-              pending={agentLoading}
-              submitLabel="Ask"
-              placeholder="Describe what would work best for you"
-              onSubmit={(query) => void askAgent(query)}
-            />
+            <div className="catalog-search-actions">
+              <SearchComposer
+                compact
+                initialValue={retrievalQuery}
+                pending={retrievalLoading}
+                submitLabel="Search"
+                placeholder="Search products, models, or needs"
+                onSubmit={searchCatalog}
+              />
+              <button
+                className="catalog-assist-button"
+                type="button"
+                aria-label="Ask Mosaic"
+                aria-expanded={agentComposerOpen || agentOpen}
+                onClick={openAgent}
+              >
+                <span className="catalog-assist-mark"><Sparkles size={17} /></span>
+                <span className="catalog-assist-copy">
+                  <strong>Ask Mosaic</strong>
+                  <small>Compare with evidence</small>
+                </span>
+                <ArrowUpRight size={17} />
+              </button>
+            </div>
           </section>
+
+          {agentComposerOpen && !agentOpen ? (
+            <section
+              className="catalog-inline-assistant"
+              aria-label="Ask Mosaic composer"
+            >
+              <div className="catalog-inline-assistant-identity">
+                <span><Sparkles size={18} /></span>
+                <div>
+                  <strong>Ask Mosaic</strong>
+                  <small>Use the current query and filters</small>
+                </div>
+              </div>
+              <SearchComposer
+                compact
+                autoFocus
+                initialValue={agentQuestion}
+                inputLabel="Ask Mosaic request"
+                pending={agentLoading}
+                submitLabel="Ask"
+                placeholder="Compare products, constraints, and trade-offs"
+                onSubmit={(query) => void askAgent(query)}
+              />
+              <button
+                className="catalog-inline-assistant-close"
+                type="button"
+                aria-label="Close Ask Mosaic composer"
+                onClick={() => setAgentComposerOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </section>
+          ) : null}
+
+          {agentProducts || activeQuery || retrievalError ? (
+            <div className={retrievalError ? "catalog-query-state error" : "catalog-query-state"}>
+              <span>
+                <strong>
+                  {agentProducts
+                    ? "Ask Mosaic shortlist"
+                    : retrievalError
+                      ? "Search unavailable"
+                      : "Hybrid results"}
+                </strong>
+                {agentProducts ? agentQuestion : retrievalError || activeQuery}
+              </span>
+              {agentProducts ? (
+                <button type="button" onClick={clearAgentResults}>Clear shortlist</button>
+              ) : activeQuery ? (
+                <button type="button" onClick={clearSearch}>Clear search</button>
+              ) : null}
+            </div>
+          ) : null}
 
           <nav className="category-pills" aria-label="Product categories">
             <button
@@ -453,12 +666,19 @@ export function CatalogPage() {
 
           <div className="results-toolbar">
             <p>
-              {page ? (
+              {agentProducts ? (
+                <>Showing <strong>{agentProducts.length}</strong> Ask Mosaic recommendations</>
+              ) : retrieval ? (
+                <>
+                  Showing <strong>{retrieval.results.length}</strong> ranked products
+                  <small> · {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} fused candidates</small>
+                </>
+              ) : page ? (
                 <>Showing <strong>{offset + 1}-{Math.min(offset + pageSize, page.total)}</strong> of {page.total.toLocaleString()} products</>
               ) : "Loading catalog"}
             </p>
             <div className="catalog-result-controls">
-              <label className="catalog-sort">
+              {!retrieval && !agentProducts ? <label className="catalog-sort">
                 <span className="sr-only">Sort catalog</span>
                 <select value={sort} onChange={(event) => update("sort", event.target.value)}>
                   <option value="featured">Sort by: Featured</option>
@@ -467,7 +687,7 @@ export function CatalogPage() {
                   <option value="price_desc">Price: high to low</option>
                   <option value="newest">Sort by: Newest</option>
                 </select>
-              </label>
+              </label> : null}
               <div className="catalog-view-control" role="group" aria-label="Catalog layout">
                 <button
                   type="button"
@@ -494,20 +714,30 @@ export function CatalogPage() {
           </div>
 
           {loading && !page ? <LoadingState label="Loading products" /> : null}
+          {retrievalLoading ? <LoadingState label="Running hybrid retrieval" /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
           {!error && page ? (
             <div
-              className={loading ? "catalog-body catalog-body-loading" : "catalog-body"}
-              aria-busy={loading}
+              className={loading || retrievalLoading ? "catalog-body catalog-body-loading" : "catalog-body"}
+              aria-busy={loading || retrievalLoading}
             >
               <div>
                 <div
                   className={catalogView === "grid" ? "product-grid catalog-page-grid" : "product-grid product-grid-list catalog-page-grid"}
-                  key={`${page.offset}-${sort}-${categoryKey ?? "all"}-${domain ?? "all"}`}
+                  key={`${retrieval?.search_event_id ?? agent?.agent_run_id ?? page.offset}-${sort}-${categoryKey ?? "all"}-${domain ?? "all"}`}
                 >
-                  {page.products.map((product) => <ProductCard key={product.product_id} product={product} variant="catalog" />)}
+                  {visibleProducts.map((product) => (
+                    <ProductCard
+                      key={product.product_id}
+                      product={product}
+                      variant="catalog"
+                      showSignals={Boolean(retrieval || agentProducts)}
+                      assistRank={assistRanks.get(product.product_id)}
+                      highlighted={highlightedProductId === product.product_id}
+                    />
+                  ))}
                 </div>
-                <div className="pagination">
+                {!retrieval && !agentProducts ? <div className="pagination">
                   <button
                     type="button"
                     disabled={offset === 0}
@@ -523,17 +753,17 @@ export function CatalogPage() {
                   >
                     Next <ChevronRight size={17} />
                   </button>
-                </div>
+                </div> : null}
               </div>
 
-              <aside className="catalog-rail" aria-label="Recommended for you">
+              {!retrieval && !agentProducts ? <aside className="catalog-rail" aria-label="Recommended for you">
                 <div className="catalog-rail-card">
                   <header>
                     <Sparkles size={18} aria-hidden="true" />
                     <span>
-                      <strong>{agent ? "Mosaic's shortlist" : "Curated for you"}</strong>
+                      <strong>Curated for you</strong>
                       <small>
-                        {agent ? agentQuestion : `Matched to your ${preference.label.toLowerCase()} routine`}
+                        Matched to your {preference.label.toLowerCase()} routine
                       </small>
                     </span>
                   </header>
@@ -552,9 +782,6 @@ export function CatalogPage() {
                     ))}
                   </div>
 
-                  {agentError ? <p className="catalog-rail-note" role="status">{agentError}</p> : null}
-                  {agent ? <p className="catalog-rail-answer" aria-live="polite">{agent.answer}</p> : null}
-
                   <ul className="catalog-rail-list">
                     {recommendations.map((product, index) => (
                       <li key={`recommendation-${product.product_id}`}>
@@ -572,13 +799,26 @@ export function CatalogPage() {
                   </ul>
 
                   <p className="catalog-rail-foot">
-                    Ranked by the same hybrid retrieval that answers Ask Mosaic.
+                    Choose a brief to open Ask Mosaic with the current Shop filters.
                   </p>
                 </div>
-              </aside>
+              </aside> : null}
             </div>
           ) : null}
         </section>
+        <AskMosaic
+          open={agentOpen}
+          query={agentQuestion}
+          loading={agentLoading}
+          activeStage={agentStage}
+          activeStageDetail={agentStageDetail}
+          streamedAnswer={streamedAnswer}
+          error={agentError}
+          response={agent}
+          onClose={closeAgent}
+          onRun={(query) => void askAgent(query)}
+          onHighlight={setHighlightedProductId}
+        />
       </div>
     </div>
   );

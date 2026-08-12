@@ -11,9 +11,9 @@ asked for, and silently accepting it is how a folder stops matching its manifest
 
 Usage
 -----
-    python scripts/import_generated_images.py --source ~/Downloads/batch
-    python scripts/import_generated_images.py --source ~/Downloads/batch --dry-run
-    python scripts/import_generated_images.py --source ~/Downloads --hero
+    uv run python scripts/import_generated_images.py --source ~/Downloads/batch
+    uv run python scripts/import_generated_images.py --source ~/Downloads/batch --dry-run
+    uv run python scripts/import_generated_images.py --source ~/Downloads --hero
 """
 
 from __future__ import annotations

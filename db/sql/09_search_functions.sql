@@ -1,5 +1,53 @@
 \set ON_ERROR_STOP on
 
+CREATE OR REPLACE FUNCTION mosaic_search.matches_filter_values(
+    product_domain mosaic.product_domain,
+    product_category_key text,
+    product_brand_name text,
+    product_price_cents bigint,
+    product_availability mosaic.availability_status,
+    product_rating numeric,
+    product_attributes jsonb,
+    product_is_refurbished boolean,
+    product_is_sponsored boolean,
+    f jsonb
+)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+SELECT
+    (NOT (f ? 'domain') OR product_domain = (f->>'domain')::mosaic.product_domain) AND
+    (NOT (f ? 'category_key') OR product_category_key = f->>'category_key') AND
+    (NOT (f ? 'brand') OR lower(product_brand_name) = lower(f->>'brand')) AND
+    (
+        NOT (f ? 'brands')
+        OR jsonb_array_length(f->'brands') = 0
+        OR (f->'brands') ? product_brand_name
+    ) AND
+    (NOT (f ? 'min_price_cents') OR product_price_cents >= (f->>'min_price_cents')::bigint) AND
+    (NOT (f ? 'max_price_cents') OR product_price_cents <= (f->>'max_price_cents')::bigint) AND
+    (
+        NOT (f ? 'availability')
+        OR product_availability = (f->>'availability')::mosaic.availability_status
+    ) AND
+    (
+        NOT coalesce((f->>'in_stock_only')::boolean, false)
+        OR product_availability IN ('in_stock','low_stock')
+    ) AND
+    (NOT (f ? 'min_rating') OR coalesce(product_rating, 0) >= (f->>'min_rating')::numeric) AND
+    (NOT (f ? 'attributes') OR product_attributes @> (f->'attributes')) AND
+    (
+        coalesce((f->>'include_refurbished')::boolean, false)
+        OR NOT product_is_refurbished
+    ) AND
+    (
+        coalesce((f->>'include_sponsored')::boolean, false)
+        OR NOT product_is_sponsored
+    )
+$$;
+
 CREATE OR REPLACE FUNCTION mosaic_search.matches_filters(
     d mosaic_search.product_document,
     f jsonb
@@ -9,22 +57,18 @@ LANGUAGE sql
 IMMUTABLE
 PARALLEL SAFE
 AS $$
-SELECT
-    (NOT (f ? 'domain') OR (d).domain = (f->>'domain')::mosaic.product_domain) AND
-    (NOT (f ? 'category_key') OR (d).category_key = f->>'category_key') AND
-    (NOT (f ? 'brand') OR lower((d).brand_name) = lower(f->>'brand')) AND
-    (NOT (f ? 'brands') OR jsonb_array_length(f->'brands') = 0 OR (d).brand_name = ANY (ARRAY(SELECT jsonb_array_elements_text(f->'brands')))) AND
-    (NOT (f ? 'min_price_cents') OR (d).price_cents >= (f->>'min_price_cents')::bigint) AND
-    (NOT (f ? 'max_price_cents') OR (d).price_cents <= (f->>'max_price_cents')::bigint) AND
-    (NOT (f ? 'availability') OR (d).availability = (f->>'availability')::mosaic.availability_status) AND
-    (NOT coalesce((f->>'in_stock_only')::boolean, false) OR (d).availability IN ('in_stock','low_stock')) AND
-    (NOT (f ? 'min_rating') OR coalesce((d).rating, 0) >= (f->>'min_rating')::numeric) AND
-    -- The right operand needs parentheses: `@>` and `->` share a precedence
-    -- level and associate left, so `a @> f->'k'` parses as `(a @> f)->'k'`,
-    -- which fails with "operator does not exist: boolean -> unknown".
-    (NOT (f ? 'attributes') OR (d).attributes @> (f->'attributes')) AND
-    (coalesce((f->>'include_refurbished')::boolean, false) OR NOT (d).is_refurbished) AND
-    (coalesce((f->>'include_sponsored')::boolean, false) OR NOT (d).is_sponsored)
+SELECT mosaic_search.matches_filter_values(
+    (d).domain,
+    (d).category_key,
+    (d).brand_name,
+    (d).price_cents,
+    (d).availability,
+    (d).rating,
+    (d).attributes,
+    (d).is_refurbished,
+    (d).is_sponsored,
+    f
+)
 $$;
 
 CREATE OR REPLACE FUNCTION mosaic_search.configure_hnsw(
@@ -112,7 +156,21 @@ WITH query AS (
     CROSS JOIN guarded g
     WHERE d.search_document @@ g.broad_tsq
       AND (NOT g.has_negation OR d.search_document @@ g.strict_tsq)
-      AND mosaic_search.matches_filters(d, f)
+      -- Conservative copies of three predicates from matches_filter_values
+      -- expose the btree and JSONB GIN columns to the planner. The canonical
+      -- helper still runs below and owns every filter semantic; these clauses
+      -- can only reduce rows that it would reject.
+      AND (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
+      AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
+      AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
+      -- Pass only filter columns so this SQL function can inline and expose
+      -- scalar values without detoasting embeddings or rerank text. Passing
+      -- the complete document composite did both for every broad FTS match.
+      AND mosaic_search.matches_filter_values(
+          d.domain, d.category_key, d.brand_name, d.price_cents,
+          d.availability, d.rating, d.attributes, d.is_refurbished,
+          d.is_sponsored, f
+      )
     ORDER BY score DESC, d.product_id
     LIMIT greatest(candidate_limit, 1)
 )
@@ -122,9 +180,6 @@ SELECT product_id,
 FROM scored
 $$;
 
-\if :{?preserve_search_trigram}
-\echo 'Preserving snapshot search_trigram; upgrade_snapshot.sql validates its signature and settings.'
-\else
 CREATE OR REPLACE FUNCTION mosaic_search.search_trigram(
     q text,
     f jsonb DEFAULT '{}'::jsonb,
@@ -139,10 +194,6 @@ RETURNS TABLE (
 LANGUAGE sql
 STABLE
 PARALLEL SAFE
-SET pg_trgm.similarity_threshold = 0.18
--- `<%` reads word_similarity_threshold, not similarity_threshold. Without this
--- the OR'd gate below would inherit whatever the session left behind.
-SET pg_trgm.word_similarity_threshold = 0.5
 AS $$
 WITH scored AS (
     SELECT d.product_id,
@@ -152,7 +203,14 @@ WITH scored AS (
                strict_word_similarity(lower(q), d.trigram_text)
            )::real AS score
     FROM mosaic_search.product_document d
-    WHERE mosaic_search.matches_filters(d, f)
+    WHERE (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
+      AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
+      AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
+      AND mosaic_search.matches_filter_values(
+              d.domain, d.category_key, d.brand_name, d.price_cents,
+              d.availability, d.rating, d.attributes, d.is_refurbished,
+              d.is_sponsored, f
+          )
       -- Both index-backed gates, OR'd. `%` compares whole strings, so on a
       -- concatenated document it dilutes to near-zero: "auralux" against a
       -- 90-character trigram_text scores 0.11 and is rejected, even though
@@ -173,7 +231,6 @@ SELECT product_id,
        row_number() OVER (ORDER BY score DESC, product_id)
 FROM scored
 $$;
-\endif
 
 CREATE OR REPLACE FUNCTION mosaic_search.search_vector(
     query_embedding vector(1024),
@@ -195,7 +252,14 @@ WITH scored AS (
            d.embedding <=> query_embedding AS distance
     FROM mosaic_search.product_document d
     WHERE d.embedding IS NOT NULL
-      AND mosaic_search.matches_filters(d, f)
+      AND (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
+      AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
+      AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
+      AND mosaic_search.matches_filter_values(
+          d.domain, d.category_key, d.brand_name, d.price_cents,
+          d.availability, d.rating, d.attributes, d.is_refurbished,
+          d.is_sponsored, f
+      )
     ORDER BY d.embedding <=> query_embedding
     LIMIT greatest(candidate_limit, 1)
 )
@@ -206,6 +270,25 @@ SELECT product_id,
 FROM scored
 $$;
 
+CREATE OR REPLACE FUNCTION mosaic_search.reciprocal_rank_contribution(
+    source_rank bigint,
+    rrf_k integer
+)
+RETURNS double precision
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+AS $$
+-- LAB2_RRF_FORMULA_START
+SELECT
+    1.0::double precision
+    / (
+        rrf_k::double precision
+        + source_rank::double precision
+    )
+-- LAB2_RRF_FORMULA_END
+$$;
+
 -- Unit D added the `trigram_threshold` parameter. `CREATE OR REPLACE` cannot
 -- change a signature, so on an already-deployed cluster it creates an OVERLOAD
 -- and leaves the 9-argument version live. A caller passing 9 positional
@@ -213,6 +296,9 @@ $$;
 -- explicitly is the only way the replacement is a replacement.
 DROP FUNCTION IF EXISTS mosaic_search.search_hybrid_rrf(
     text, vector, jsonb, integer, integer, integer, integer, integer, real
+);
+DROP FUNCTION IF EXISTS mosaic_search.search_hybrid_rrf(
+    text, vector, jsonb, integer, integer, integer, integer, integer, real, real
 );
 
 CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf(
@@ -224,7 +310,6 @@ CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf(
     trigram_limit integer DEFAULT 80,
     semantic_limit integer DEFAULT 150,
     result_limit integer DEFAULT 50,
-    business_weight real DEFAULT 0.003,
     -- Threaded through rather than hardcoded at the call site below. A
     -- positional literal there was invisible to scripts/config_tripwire.py,
     -- whose rule 1 only sees assignment-shaped declarations; as a named
@@ -249,7 +334,6 @@ RETURNS TABLE (
     trigram_rank bigint,
     semantic_rank bigint,
     rrf_score double precision,
-    business_score real,
     pre_rerank_score double precision,
     provenance jsonb
 )
@@ -259,24 +343,35 @@ PARALLEL SAFE
 AS $$
 WITH fts AS (
     SELECT * FROM mosaic_search.search_fts(q, f, fts_limit)
-), typo AS (
+)
+-- LAB1_TRIGRAM_CTE_START
+, typo AS (
     SELECT * FROM mosaic_search.search_trigram(
         q, f, trigram_limit, trigram_threshold
     )
-), semantic AS (
+)
+-- LAB1_TRIGRAM_CTE_END
+, semantic AS (
     SELECT product_id, semantic_score, semantic_rank
     FROM mosaic_search.search_vector(query_embedding, f, semantic_limit)
 ), channels AS (
     SELECT product_id, 'fts'::text AS channel, fts_rank AS source_rank,
-           fts_score AS raw_score, 1.0 / (rrf_k + fts_rank) AS contribution
+           fts_score AS raw_score,
+           mosaic_search.reciprocal_rank_contribution(
+               fts_rank, rrf_k
+           ) AS contribution
     FROM fts
+-- LAB1_TRIGRAM_CHANNEL_START
     UNION ALL
     SELECT product_id, 'trigram', trigram_rank,
-           trigram_score, 1.0 / (rrf_k + trigram_rank)
+           trigram_score,
+           mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)
     FROM typo
+-- LAB1_TRIGRAM_CHANNEL_END
     UNION ALL
     SELECT product_id, 'vector', semantic_rank,
-           semantic_score, 1.0 / (rrf_k + semantic_rank)
+           semantic_score,
+           mosaic_search.reciprocal_rank_contribution(semantic_rank, rrf_k)
     FROM semantic
 ), fused AS (
     SELECT product_id,
@@ -295,7 +390,17 @@ WITH fts AS (
     FROM channels
     GROUP BY product_id
 ), enriched AS (
-    SELECT d.*,
+    SELECT d.product_id,
+           d.title,
+           d.brand_name,
+           d.category_path,
+           d.price_cents,
+           d.availability,
+           d.rating,
+           d.catalog_asset_key,
+           d.canonical_group_id,
+           d.challenge_cohorts,
+           d.is_retrieval_anchor,
            fused.rrf_score,
            fused.fts_score,
            fused.trigram_score,
@@ -303,18 +408,7 @@ WITH fts AS (
            fused.fts_rank,
            fused.trigram_rank,
            fused.semantic_rank,
-           fused.channel_provenance,
-           (
-               0.40 * d.quality_score +
-               0.25 * d.popularity_score +
-               0.15 * d.freshness_score +
-               0.10 * d.metadata_completeness +
-               0.10 * CASE d.availability
-                         WHEN 'in_stock' THEN 1.0
-                         WHEN 'low_stock' THEN 0.5
-                         ELSE 0.0
-                      END
-           )::real AS business_score
+           fused.channel_provenance
     FROM fused
     JOIN mosaic_search.product_document d USING (product_id)
 )
@@ -335,22 +429,14 @@ SELECT
     e.trigram_rank,
     e.semantic_rank,
     e.rrf_score,
-    e.business_score,
-    e.rrf_score + business_weight * e.business_score AS pre_rerank_score,
+    e.rrf_score AS pre_rerank_score,
     jsonb_build_object(
         'channels', e.channel_provenance,
-        'business', jsonb_build_object(
-            'quality', e.quality_score,
-            'popularity', e.popularity_score,
-            'freshness', e.freshness_score,
-            'metadata_completeness', e.metadata_completeness,
-            'availability', e.availability
-        ),
         'challenge_cohorts', e.challenge_cohorts,
         'is_retrieval_anchor', e.is_retrieval_anchor
     ) AS provenance
 FROM enriched e
-ORDER BY pre_rerank_score DESC, e.product_id
+ORDER BY e.rrf_score DESC, e.product_id
 LIMIT greatest(result_limit, 1)
 $$;
 
@@ -379,6 +465,11 @@ $$;
 -- The RETURNS TABLE shape matches `search_hybrid_rrf` exactly, including the
 -- `provenance` jsonb, so the diagnostics endpoint aligns rows from both
 -- functions without translating either.
+DROP FUNCTION IF EXISTS mosaic_search.search_hybrid_rrf_weighted(
+    text, vector, jsonb, integer, integer, integer, integer, integer, real,
+    real, real, real, real
+);
+
 CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf_weighted(
     q text,
     query_embedding vector(1024),
@@ -388,7 +479,6 @@ CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf_weighted(
     trigram_limit integer DEFAULT 80,
     semantic_limit integer DEFAULT 150,
     result_limit integer DEFAULT 50,
-    business_weight real DEFAULT 0.003,
     trigram_threshold real DEFAULT 0.20,
     weight_lexical real DEFAULT 0.30,
     weight_semantic real DEFAULT 0.45,
@@ -411,7 +501,6 @@ RETURNS TABLE (
     trigram_rank bigint,
     semantic_rank bigint,
     rrf_score double precision,
-    business_score real,
     pre_rerank_score double precision,
     provenance jsonb
 )
@@ -435,22 +524,30 @@ WITH fts AS (
     -- entire point of the comparison.
     SELECT product_id, 'fts'::text AS channel, fts_rank AS source_rank,
            fts_score AS raw_score,
-           weight_lexical * (1.0 / (rrf_k + fts_rank)) AS contribution,
-           1.0 / (rrf_k + fts_rank) AS unweighted_contribution,
+           weight_lexical * mosaic_search.reciprocal_rank_contribution(
+               fts_rank, rrf_k
+           ) AS contribution,
+           mosaic_search.reciprocal_rank_contribution(
+               fts_rank, rrf_k
+           ) AS unweighted_contribution,
            weight_lexical AS weight
     FROM fts
     UNION ALL
     SELECT product_id, 'trigram', trigram_rank,
            trigram_score,
-           weight_trigram * (1.0 / (rrf_k + trigram_rank)),
-           1.0 / (rrf_k + trigram_rank),
+           weight_trigram * mosaic_search.reciprocal_rank_contribution(
+               trigram_rank, rrf_k
+           ),
+           mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k),
            weight_trigram
     FROM typo
     UNION ALL
     SELECT product_id, 'vector', semantic_rank,
            semantic_score,
-           weight_semantic * (1.0 / (rrf_k + semantic_rank)),
-           1.0 / (rrf_k + semantic_rank),
+           weight_semantic * mosaic_search.reciprocal_rank_contribution(
+               semantic_rank, rrf_k
+           ),
+           mosaic_search.reciprocal_rank_contribution(semantic_rank, rrf_k),
            weight_semantic
     FROM semantic
 ), fused AS (
@@ -473,7 +570,17 @@ WITH fts AS (
     FROM channels
     GROUP BY product_id
 ), enriched AS (
-    SELECT d.*,
+    SELECT d.product_id,
+           d.title,
+           d.brand_name,
+           d.category_path,
+           d.price_cents,
+           d.availability,
+           d.rating,
+           d.catalog_asset_key,
+           d.canonical_group_id,
+           d.challenge_cohorts,
+           d.is_retrieval_anchor,
            fused.rrf_score,
            fused.unweighted_rrf_score,
            fused.fts_score,
@@ -482,18 +589,7 @@ WITH fts AS (
            fused.fts_rank,
            fused.trigram_rank,
            fused.semantic_rank,
-           fused.channel_provenance,
-           (
-               0.40 * d.quality_score +
-               0.25 * d.popularity_score +
-               0.15 * d.freshness_score +
-               0.10 * d.metadata_completeness +
-               0.10 * CASE d.availability
-                         WHEN 'in_stock' THEN 1.0
-                         WHEN 'low_stock' THEN 0.5
-                         ELSE 0.0
-                      END
-           )::real AS business_score
+           fused.channel_provenance
     FROM fused
     JOIN mosaic_search.product_document d USING (product_id)
 )
@@ -514,17 +610,9 @@ SELECT
     e.trigram_rank,
     e.semantic_rank,
     e.rrf_score,
-    e.business_score,
-    e.rrf_score + business_weight * e.business_score AS pre_rerank_score,
+    e.rrf_score AS pre_rerank_score,
     jsonb_build_object(
         'channels', e.channel_provenance,
-        'business', jsonb_build_object(
-            'quality', e.quality_score,
-            'popularity', e.popularity_score,
-            'freshness', e.freshness_score,
-            'metadata_completeness', e.metadata_completeness,
-            'availability', e.availability
-        ),
         'challenge_cohorts', e.challenge_cohorts,
         'is_retrieval_anchor', e.is_retrieval_anchor,
         -- Fusion identity and inputs travel with every row, so a persisted
@@ -541,7 +629,7 @@ SELECT
         )
     ) AS provenance
 FROM enriched e
-ORDER BY pre_rerank_score DESC, e.product_id
+ORDER BY e.rrf_score DESC, e.product_id
 LIMIT greatest(result_limit, 1)
 $$;
 

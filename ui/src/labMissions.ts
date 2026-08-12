@@ -2,8 +2,19 @@ import missionManifest from "../../data/evals/mosaic_labs_missions.json";
 import type { SearchFilters } from "./types";
 
 export type MosaicLabStage = "retrieve" | "rank" | "reason" | "optimize";
-export type MosaicLabCheckpoint = "baseline" | "repair" | "comparison" | "advanced";
-export type MosaicLabPlacement = "lab-1" | "advanced-labs";
+export type MosaicLabCheckpoint = "baseline" | "repair" | "advanced";
+export type MosaicLabPlacement = "lab-1" | "lab-2" | "lab-3" | "advanced-labs";
+
+export interface MosaicParticipantEdit {
+  file: string;
+  approximate_lines: number;
+  task: string;
+  broken_state: string;
+  fixed_state: string;
+  observe_before: string[];
+  observe_after: string[];
+  checkpoint_question: string;
+}
 
 export interface MosaicLabMission {
   id: string;
@@ -12,11 +23,13 @@ export interface MosaicLabMission {
   placement?: MosaicLabPlacement;
   duration_minutes: number;
   title: string;
+  canonical_query_id?: string;
   query: string;
   filters: SearchFilters;
   target_product_ids: number[];
   expected_techniques: string[];
   checkpoint: MosaicLabCheckpoint;
+  participant_edit?: MosaicParticipantEdit;
   expected_outcome: string;
   assertions: string[];
   top_k: number;
@@ -57,5 +70,14 @@ export const supportingMosaicChecks = mosaicLabManifest.supporting_checks;
 export const mosaicRetrievalExamples = [...coreMosaicLabs, ...supportingMosaicChecks];
 
 export function retrievalExampleHref(example: MosaicLabMission) {
+  if (example.stage === "reason") {
+    const params = new URLSearchParams({
+      mode: "agent",
+      mission: example.id,
+      q: example.query,
+      filters: JSON.stringify(example.filters),
+    });
+    return `/search?${params.toString()}`;
+  }
   return `/labs/retrieval?example=${encodeURIComponent(example.id)}`;
 }

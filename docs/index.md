@@ -7,7 +7,7 @@
 | `data-generation.md` | Regeneration, reviews, embeddings, and scale extension |
 | `retrieval-curriculum.md` | Builder-session learning flow |
 | `pg-trgm-lab.md` | Typo-tolerance lesson and evaluation |
-| `fusion-rerank.md` | Candidate fusion, filters, business signals, and reranking |
+| `fusion-rerank.md` | Candidate fusion, deterministic filters, and reranking |
 | `hnsw-lab.md` | Recall/latency/filter/build experiment design |
 | `benchmark-methodology.md` | Reproducible measurement rules |
 | `evaluation-plan.md` | Offline metrics and ablations |

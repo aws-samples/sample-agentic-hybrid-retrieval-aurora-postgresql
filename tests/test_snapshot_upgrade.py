@@ -1,4 +1,4 @@
-"""Snapshot upgrades preserve the one function Aurora cannot safely replace."""
+"""Snapshot upgrades and lab resets apply one current retrieval implementation."""
 
 from pathlib import Path
 
@@ -8,20 +8,25 @@ SEARCH_SQL = ROOT / "db" / "sql" / "09_search_functions.sql"
 UPGRADE_SQL = ROOT / "db" / "sql" / "upgrade_snapshot.sql"
 
 
-def test_search_trigram_is_guarded_for_snapshot_upgrades():
+def test_search_trigram_has_no_function_local_guc_or_preservation_branch():
     source = SEARCH_SQL.read_text(encoding="utf-8")
-    start = source.index(r"\if :{?preserve_search_trigram}")
-    end = source.index(r"\endif", start)
-    guarded = source[start:end]
-    assert "CREATE OR REPLACE FUNCTION mosaic_search.search_trigram" in guarded
-    assert "SET pg_trgm.similarity_threshold = 0.18" in guarded
-    assert "SET pg_trgm.word_similarity_threshold = 0.5" in guarded
+    assert "CREATE OR REPLACE FUNCTION mosaic_search.search_trigram" in source
+    assert "preserve_search_trigram" not in source
+    assert "SET pg_trgm.similarity_threshold" not in source
+    assert "SET pg_trgm.word_similarity_threshold" not in source
 
 
-def test_snapshot_upgrade_replays_core_and_validates_the_preserved_function():
+def test_snapshot_upgrade_replays_the_current_core_without_preserving_old_code():
     source = UPGRADE_SQL.read_text(encoding="utf-8")
-    assert r"\set preserve_search_trigram true" in source
     assert r"\ir install.sql" in source
-    assert "to_regprocedure(" in source
-    assert "pg_trgm.similarity_threshold=0.18" in source
-    assert "pg_trgm.word_similarity_threshold=0.5" in source
+    assert "preserve_search_trigram" not in source
+
+
+def test_make_targets_configure_database_defaults_and_apply_current_functions():
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    apply_target = makefile.split("db-apply-search-functions:", 1)[1].split(
+        "\n\n", 1
+    )[0]
+    assert "preserve_search_trigram" not in apply_target
+    assert "db-configure-retrieval" in apply_target
+    assert "09_search_functions.sql" in apply_target

@@ -1,5 +1,7 @@
-import pytest
+import re
 from pathlib import Path
+
+import pytest
 
 from scripts.catalog_contract import (
     SUPPORTED_FILTER_KEYS,
@@ -92,4 +94,6 @@ def test_sql_attribute_filter_uses_explicit_json_operator_precedence():
     """
     sql = (ROOT / "db/sql/09_search_functions.sql").read_text(encoding="utf-8")
 
-    assert "(d).attributes @> (f->'attributes')" in sql
+    assert "product_attributes @> (f->'attributes')" in sql
+    assert "d.attributes @> (f->'attributes')" in sql
+    assert re.search(r"@>\s+f\s*->", sql) is None

@@ -27,18 +27,18 @@ reaches when every repair succeeds. Disabling code here would make the reference
 unable to demonstrate its own contract, and would make a genuine regression
 indistinguishable from a planted exercise.
 
-Re-verified 2026-08-11 for the three-lab `Retrieve -> Rank -> Reason` path. Both
-repair-checkpoint capabilities are fully wired here, and both stable IDs remain
-anchors for required labs, so neither gap needed rehoming.
+Re-verified 2026-08-11 for the three-lab `Retrieve -> Rank -> Reason` path. All
+three repair capabilities are fully wired here.
 
 | Lab anchor | Capability | Evidence it is live |
 |---|---|---|
 | `typo-recovery` | pg_trgm candidate arm | `db/sql/09_search_functions.sql:244` fuses `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` |
-| `agentic-research` | typed retrieval tool | `service/agent_tools.py:522` registers all five `@tool` functions |
+| `rank-with-evidence` | reciprocal-rank contribution | `mosaic_search.reciprocal_rank_contribution` computes `1 / (k + rank)` |
+| `agentic-research` | evidence-to-synthesis state | `service/agent_tools.get_product_evidence` records evidence IDs by product |
 
 ## Gap contract for Workshop Studio
 
-Two lab anchors carry `checkpoint: "repair"`. Their narrative promises the
+Three lab anchors carry `checkpoint: "repair"`. Their narrative promises the
 participant something to fix, so the sibling's starter template must remove
 exactly these capabilities and nothing else.
 
@@ -56,25 +56,41 @@ exactly these capabilities and nothing else.
 - **Assertion that turns green** `trigram_signal_present`
 - **Board state before repair** `REPAIR PENDING`, never `FAIL`
 
-### GAP-2 — typed agent tool
+### GAP-2 — reciprocal-rank contribution
+
+- **Lab 2 anchor** `rank-with-evidence` (`checkpoint: repair`, stage `rank`)
+- **Query** `ergonmic mesh chiar for long workdays with adjustable lumbar support`
+- **Target** product 370002, PostureWorks Pro Mesh Ergonomic Chair
+- **What to disable** replace the marked `1 / (rrf_k + source_rank)` body with
+  `1 / (rrf_k + 1)`. Candidate generation remains intact, but every candidate
+  from an arm contributes as if it held rank 1, so within-arm order disappears.
+- **Restoring it looks like** restoring the inspectable reciprocal-rank formula.
+- **Measured movement** broken fusion orders 370001 then 370002 even though
+  370002 wins all three arms; repaired fusion orders 370002 then 370001. Cohere
+  Rerank returns 370002 then 370001 in both states, deliberately demonstrating
+  why every ranking layer needs its own validation.
+- **Assertions that turn green** `rank_provenance_present`,
+  `rerank_score_present`, plus the production validator's arithmetic and
+  repeatability checks.
+- **Board state before repair** `REPAIR PENDING`
+
+### GAP-3 — evidence-to-synthesis state
 
 - **Lab 3 anchor** `agentic-research` (`checkpoint: repair`, stage `reason`)
-- **Query** `Build a quiet home office under $800 and explain the trade-offs.`
+- **Query** the canonical compound home-office request in the mission manifest
 - **Targets** products 370001 and 429001
-- **What to disable** remove `search_products` from
-  `service/agent_tools.TOOL_FUNCTIONS`, leaving the decorated function defined.
-  The agent then has no way to gather evidence and must report the gap rather
-  than answer from model memory.
-- **Restoring it looks like** re-registering `search_products` in
-  `TOOL_FUNCTIONS`.
-- **Assertions that turn green** `retrieval_tool_called`, `citations_present`,
-  `citation_source_revision_present`
+- **What to disable** remove the marked state update that records retrieved
+  evidence IDs under their product. All tools remain registered and read-only.
+- **Restoring it looks like** attaching each returned evidence record to
+  `state["evidence"]` and `state["evidence_by_product"]`.
+- **Assertions that turn green** evidence tool, grounding, and resolvable
+  citation assertions declared by the mission.
 - **Board state before repair** `REPAIR PENDING`
 
 ## Rules
 
-1. A gap must be **removal of a wiring point**, never a planted bug. Deleting a
-   CTE or a registration is legible; a wrong constant is a puzzle.
+1. A gap must expose one legible mechanism, never an arbitrary failure. The
+   marked CTE, RRF equation, and evidence-state block are the only seams.
 2. A gap must map to at least one assertion, so repair is machine-checkable.
 3. Only `checkpoint: "repair"` lab anchors may carry gaps. `baseline`,
    `comparison`, and `advanced` checks must pass on a correct deployment.

@@ -1,107 +1,69 @@
 import {
   ArrowRight,
-  Database,
   GitCompareArrows,
-  Heart,
   Menu,
+  ScanSearch,
   Search,
   ShieldCheck,
   ShoppingBag,
-  Truck,
-  UserRound,
+  Sparkles,
   X,
 } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { Link } from "wouter";
+import { useCommerce } from "../commerce";
 import { MosaicMark } from "../components/MosaicMark";
-import { coreMosaicLabs, retrievalExampleHref } from "../labMissions";
 import { useNavigate } from "../navigation";
-import type { Domain } from "../types";
 
-/**
- * The landing board is a two-column card: an uncropped photograph on the left
- * and a cream panel on the right holding the nav, headline, search, category
- * row, and service band. Copy is fixed to the board; every element still
- * routes, so the search field and the five tiles enter the live retrieval path.
- */
-interface Category {
-  slug: string;
-  label: string;
-  lines: [string, string];
-  domain: Domain;
-  query: string;
-}
-
-const categories: Category[] = [
+const starterQueries = [
   {
-    slug: "audio",
-    label: "Audio",
-    lines: ["Focus in", "perfect sound"],
-    domain: "consumer_electronics",
-    query: "Over-ear headphones for focused work",
+    label: "Shared office",
+    query: "Quiet wireless keyboard for a shared office under $180",
   },
   {
-    slug: "workspace",
-    label: "Workspace",
-    lines: ["Comfort that", "moves with you"],
-    domain: "home_office",
-    query: "Ergonomic task seating for long sessions",
+    label: "Marathon training",
+    query: "Marathon shoe with cushioning under $180",
   },
   {
-    slug: "performance",
-    label: "Performance",
-    lines: ["Engineered for", "every stride"],
-    domain: "running_fitness",
-    query: "Cushioned running shoes for daily training",
+    label: "Long-haul travel",
+    query: "Headphones for a 14-hour flight with strong noise cancellation",
   },
   {
-    slug: "lifestyle-tech",
-    label: "Lifestyle Tech",
-    lines: ["Tools that", "simplify life"],
-    domain: "consumer_electronics",
-    query: "Displays and everyday tech that simplify a desk",
-  },
-  {
-    slug: "home",
-    label: "Home",
-    lines: ["Spaces that", "inspire calm"],
-    domain: "home_office",
-    query: "Calm home office pieces",
+    label: "All-day comfort",
+    query: "Ergonomic chair for a 12-hour workday with adjustable lumbar support",
   },
 ];
 
-const services = [
+const workshopStages = [
   {
-    Icon: Search,
-    title: "Lexical + fuzzy",
-    lines: ["FTS and pg_trgm", "recover intent and typos"],
+    number: "01",
+    label: "Retrieve",
+    detail: "Build the candidate universe",
+    Icon: ScanSearch,
   },
   {
-    Icon: Database,
-    title: "Semantic retrieval",
-    lines: ["pgvector on Aurora", "captures product intent"],
-  },
-  {
+    number: "02",
+    label: "Rank",
+    detail: "Fuse, rerank, and explain",
     Icon: GitCompareArrows,
-    title: "Fuse + rerank",
-    lines: ["RRF combines signals", "before final ordering"],
   },
   {
+    number: "03",
+    label: "Reason",
+    detail: "Orchestrate cited evidence",
     Icon: ShieldCheck,
-    title: "Cited answers",
-    lines: ["Agent tools gather", "inspectable evidence"],
   },
 ];
 
 export function DiscoverPage() {
   const navigate = useNavigate();
+  const { itemCount, openCart } = useCommerce();
   const [navOpen, setNavOpen] = useState(false);
   const [query, setQuery] = useState("");
 
-  function search(nextQuery: string, domain?: Domain) {
+  function search(nextQuery: string) {
     const params = new URLSearchParams({ q: nextQuery });
-    if (domain) params.set("domain", domain);
-    navigate(`/search?${params}`);
+    navigate(`/catalog?${params}`);
   }
 
   function submit(event: FormEvent) {
@@ -111,165 +73,103 @@ export function DiscoverPage() {
   }
 
   return (
-    <div className="landing-stage">
-      <section className="discover-hero">
-        <figure className="hero-image">
-          <img
-            src="/assets/images/mosaic/hero-landing-scene.webp"
-            alt="Sunlit workspace with an ergonomic chair, headphones on a marble stand, and a running shoe"
-            width={1586}
-            height={992}
+    <div className="discover-experience">
+      <img
+        className="discover-backdrop"
+        src="/assets/images/mosaic/hero-landing-scene.webp"
+        alt="A refined workspace with an ergonomic chair, display, headphones, and natural light"
+        width={1568}
+        height={1908}
+      />
+      <div className="discover-scrim" aria-hidden="true" />
+
+      <header className="discover-nav">
+        <Link className="discover-brand" href="/" aria-label="Mosaic home">
+          <MosaicMark />
+          <strong>Mosaic</strong>
+        </Link>
+        <nav className={navOpen ? "discover-links open" : "discover-links"} aria-label="Storefront">
+          <Link className="active" href="/" onClick={() => setNavOpen(false)}>Discover</Link>
+          <Link href="/catalog" onClick={() => setNavOpen(false)}>Shop</Link>
+          <Link href="/mosaic-labs" onClick={() => setNavOpen(false)}>Mosaic Labs</Link>
+        </nav>
+        <button
+          className="discover-bag"
+          type="button"
+          aria-label={`Bag, ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
+          onClick={openCart}
+        >
+          <ShoppingBag size={19} />
+          {itemCount ? <span className="bag-count">{itemCount > 99 ? "99+" : itemCount}</span> : null}
+        </button>
+        <button
+          className="discover-nav-toggle"
+          type="button"
+          aria-label={navOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={navOpen}
+          onClick={() => setNavOpen((current) => !current)}
+        >
+          {navOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+      </header>
+
+      <main className="discover-content">
+        <div className="discover-kicker">
+          <Sparkles size={15} />
+          Agentic product discovery on Aurora PostgreSQL
+        </div>
+        <h1>Discover what you actually mean.</h1>
+        <p>
+          Search naturally. Keep hard constraints authoritative. Compare the
+          strongest options with evidence you can inspect.
+        </p>
+
+        <form className="discover-search" onSubmit={submit} role="search">
+          <Search size={22} aria-hidden="true" />
+          <input
+            aria-label="Search products"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="What are you looking for?"
+            minLength={2}
           />
-        </figure>
+          <button type="submit" aria-label="Search Mosaic">
+            <span>Explore</span>
+            <ArrowRight size={18} />
+          </button>
+        </form>
 
-        <div className="hero-panel">
-          <header className="landing-nav">
-            <Link className="landing-nav-brand" href="/" aria-label="Mosaic home">
-              <MosaicMark />
-              <strong>Mosaic</strong>
-            </Link>
-            <nav
-              className={navOpen ? "landing-links open" : "landing-links"}
-              aria-label="Storefront"
-            >
-              <Link className="active" href="/" onClick={() => setNavOpen(false)}>
-                Discover
-              </Link>
-              <Link href="/catalog" onClick={() => setNavOpen(false)}>
-                Shop
-              </Link>
-              <Link href="/search" onClick={() => setNavOpen(false)}>
-                Collections
-              </Link>
-              <Link href="/mosaic-labs" onClick={() => setNavOpen(false)}>
-                Mosaic Labs
-              </Link>
-            </nav>
-            <div className="landing-actions">
-              <button type="button" aria-label="Account">
-                <UserRound size={19} strokeWidth={1.5} />
-              </button>
-              <button type="button" aria-label="Saved products">
-                <Heart size={19} strokeWidth={1.5} />
-              </button>
-              <button type="button" aria-label="Bag">
-                <ShoppingBag size={19} strokeWidth={1.5} />
-              </button>
-            </div>
-            <button
-              className="landing-nav-toggle"
-              type="button"
-              aria-label={navOpen ? "Close navigation" : "Open navigation"}
-              aria-expanded={navOpen}
-              onClick={() => setNavOpen((current) => !current)}
-            >
-              {navOpen ? <X size={19} /> : <Menu size={19} />}
+        <div className="discover-presets" aria-label="Suggested searches">
+          <span>Try</span>
+          {starterQueries.map((preset) => (
+            <button key={preset.label} type="button" onClick={() => search(preset.query)}>
+              <strong>{preset.label}</strong>
+              <small>{preset.query}</small>
+              <ArrowRight size={15} />
             </button>
-          </header>
-
-          <div className="hero-content">
-            <h1 className="hero-display">
-              Search,
-              <br />
-              re-engineered.
-            </h1>
-            <p className="hero-script">Mosaic</p>
-            <p className="hero-sub">
-              Agentic product discovery on Aurora PostgreSQL,
-              <br />
-              with filters, fusion, reranking, and sources.
-            </p>
-
-            <form className="hero-search" onSubmit={submit} role="search">
-              <Search size={21} strokeWidth={1.6} aria-hidden="true" />
-              <input
-                aria-label="Search products"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search products, categories, or inspiration"
-                minLength={2}
-              />
-              {/* Not disabled on an empty field: the board draws this button
-                  solid maroon, and the global button:disabled rule renders it
-                  at 50% opacity. Submitting an empty query is a no-op. */}
-              <button type="submit">Search</button>
-            </form>
-
-            <h2 className="hero-section-label">Shop by category</h2>
-            <div className="category-row">
-              {categories.map(({ slug, label, lines, domain, query: tileQuery }) => (
-                <button
-                  className="category-card"
-                  key={slug}
-                  type="button"
-                  onClick={() => search(tileQuery, domain)}
-                >
-                  <img
-                    src={`/assets/images/mosaic/category/${slug}.webp`}
-                    alt=""
-                    width={125}
-                    height={168}
-                  />
-                  <span>
-                    <strong>{label}</strong>
-                    <small>
-                      {lines[0]}
-                      <br />
-                      {lines[1]}
-                    </small>
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <section className="service-band" aria-label="Shopping services">
-              {services.map(({ Icon, title, lines }) => (
-                <div key={title}>
-                  <Icon size={29} strokeWidth={1.3} aria-hidden="true" />
-                  <span>
-                    <strong>{title}</strong>
-                    <small>
-                      {lines[0]}
-                      <br />
-                      {lines[1]}
-                    </small>
-                  </span>
-                </div>
-              ))}
-            </section>
-          </div>
+          ))}
         </div>
-      </section>
+      </main>
 
-      <section className="discover-missions" aria-labelledby="discover-missions-title">
-        <div className="discover-missions-heading">
-          <div>
-            <p className="eyebrow">Mosaic Labs</p>
-            <h2 id="discover-missions-title">Retrieve. Rank. Reason.</h2>
-          </div>
-          <p>
-            Three progressive labs build the retrieval system first, then give
-            its inspectable tools and evidence to the agent.
-          </p>
-          <Link className="discover-missions-link" href="/mosaic-labs">
-            View lab journey <ArrowRight size={16} />
-          </Link>
-        </div>
-        <ol className="discover-mission-grid">
-          {coreMosaicLabs.map((lab, index) => (
-            <li key={lab.id}>
-              <Link href={retrievalExampleHref(lab)}>
-                <span className="discover-mission-number">0{index + 1}</span>
-                <strong>{lab.title}</strong>
-                <code>{lab.query}</code>
-                <span className={`discover-mission-state ${lab.checkpoint}`}>
-                  {lab.stage}
-                </span>
-              </Link>
+      <Link className="discover-workshop-rail" href="/mosaic-labs">
+        <span className="discover-workshop-label">
+          <small>DAT410</small>
+          Build the system
+        </span>
+        <ol>
+          {workshopStages.map(({ number, label, detail, Icon }) => (
+            <li key={label}>
+              <Icon size={18} />
+              <span>
+                <small>{number}</small>
+                <strong>{label}</strong>
+                <em>{detail}</em>
+              </span>
             </li>
           ))}
         </ol>
-      </section>
+        <ArrowRight size={19} />
+      </Link>
     </div>
   );
 }

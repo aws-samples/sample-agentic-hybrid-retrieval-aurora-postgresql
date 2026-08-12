@@ -22,8 +22,8 @@ subcategory segment means a directory listing reads as a shot list.
 
 Usage
 -----
-    python scripts/build_asset_labels.py --cohort <path/to/premium_cohort_120.json>
-    python scripts/build_asset_labels.py --check   # exit 1 if the plan drifts
+    uv run python scripts/build_asset_labels.py --cohort <path/to/premium_cohort_120.json>
+    uv run python scripts/build_asset_labels.py --check   # exit 1 if the plan drifts
 """
 
 from __future__ import annotations

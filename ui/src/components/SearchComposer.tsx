@@ -4,18 +4,22 @@ import { FormEvent, useEffect, useState } from "react";
 interface SearchComposerProps {
   initialValue?: string;
   placeholder?: string;
+  inputLabel?: string;
   pending?: boolean;
   compact?: boolean;
   submitLabel?: string;
+  autoFocus?: boolean;
   onSubmit: (query: string) => void;
 }
 
 export function SearchComposer({
   initialValue = "",
   placeholder = "Describe the product, constraint, or use case",
+  inputLabel = "Product search",
   pending = false,
   compact = false,
   submitLabel,
+  autoFocus = false,
   onSubmit,
 }: SearchComposerProps) {
   const [value, setValue] = useState(initialValue);
@@ -35,11 +39,12 @@ export function SearchComposer({
     >
       <Search size={compact ? 18 : 22} aria-hidden="true" />
       <input
-        aria-label="Product search"
+        aria-label={inputLabel}
         value={value}
         onChange={(event) => setValue(event.target.value)}
         placeholder={placeholder}
         minLength={2}
+        autoFocus={autoFocus}
       />
       {/* Only disabled while a request is in flight. Disabling on an empty field
           made the primary action render at 50% opacity (the global

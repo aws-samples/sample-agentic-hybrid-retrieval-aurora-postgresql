@@ -37,8 +37,22 @@ function product(overrides: Partial<ProductSummary> = {}): ProductSummary {
 
 describe("productImage", () => {
   it("preserves an API-owned local image path", () => {
-    expect(productImage(product({ image_url: "/assets/images/custom.webp" }))).toBe(
+    expect(productImage(product({
+      product_id: 999999,
+      image_url: "/assets/images/custom.webp",
+    }))).toBe(
       "/assets/images/custom.webp",
+    );
+  });
+
+  it("uses the verified 3:2 cohort asset instead of a legacy square image", () => {
+    expect(
+      productImage(product({
+        product_id: 1,
+        image_url: "/assets/images/mosaic/auraluxe-h9.webp",
+      })),
+    ).toBe(
+      "/assets/images/mosaic/ce-over-ear-headphones-auraluxe-h9-catalog-3x2.webp",
     );
   });
 
@@ -72,6 +86,7 @@ describe("productImage", () => {
     expect(
       productImage(
         product({
+          product_id: 999998,
           domain: "home_office",
           category_key: "cable-management",
           category_path: "Desk Accessories > Cable Management",

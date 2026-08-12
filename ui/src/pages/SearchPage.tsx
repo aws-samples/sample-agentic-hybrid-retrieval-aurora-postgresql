@@ -14,11 +14,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Link } from "wouter";
 import { api } from "../api";
+import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
 import { SearchComposer } from "../components/SearchComposer";
 import { ErrorState, LoadingState } from "../components/States";
+import { WorkshopProgress } from "../components/WorkshopProgress";
 import { formatAvailability, formatPrice, isPurchasable } from "../format";
 import { fusionLabel } from "../fusion";
+import { agentLabOutcome } from "../labOutcome";
+import { mosaicRetrievalExamples } from "../labMissions";
 import { productImage } from "../media";
 import { useSearchParams } from "../navigation";
 import { showcaseSearchResponse } from "../showcase";
@@ -33,6 +37,22 @@ import type {
 type Mode = "retrieval" | "agent";
 type AgentActivityId = "understand" | "retrieve" | "rank" | "answer";
 type AgentActivityStatus = "pending" | "active" | "complete";
+
+function filtersFromParams(params: URLSearchParams): SearchFilters {
+  const serialized = params.get("filters");
+  if (serialized) {
+    try {
+      const parsed = JSON.parse(serialized);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as SearchFilters;
+      }
+    } catch {
+      // A hand-edited URL falls back to its readable domain parameter.
+    }
+  }
+  const domain = params.get("domain");
+  return domain ? { domain: domain as Domain } : {};
+}
 
 const agentActivitySteps: Array<{
   id: AgentActivityId;
@@ -161,7 +181,6 @@ export function structuredAnswer(answer: string) {
 export function SearchPage() {
   const [params, setParams] = useSearchParams();
   const initialQuery = params.get("q") ?? "";
-  const domain = (params.get("domain") || undefined) as Domain | undefined;
   const [mode, setMode] = useState<Mode>(
     params.get("mode") === "agent" ? "agent" : "retrieval",
   );
@@ -176,7 +195,10 @@ export function SearchPage() {
   const [streamedAnswer, setStreamedAnswer] = useState("");
   const [agentActivity, setAgentActivity] = useState(initialAgentActivity);
   const requestVersion = useRef(0);
-  const filters: SearchFilters = domain ? { domain } : {};
+  const filters = filtersFromParams(params);
+  const labMission = mosaicRetrievalExamples.find(
+    (mission) => mission.id === params.get("mission") && mission.stage === "reason",
+  );
 
   function activateAgentStage(activeId: AgentActivityId, complete = false) {
     const activeIndex = agentActivitySteps.findIndex((step) => step.id === activeId);
@@ -209,6 +231,9 @@ export function SearchPage() {
       const nextParams = new URLSearchParams(params);
       nextParams.set("q", nextQuery);
       nextParams.set("mode", nextMode);
+      if (labMission && nextQuery !== labMission.query) {
+        nextParams.delete("mission");
+      }
       setParams(nextParams, { replace: true });
       try {
         if (nextMode === "agent") {
@@ -249,7 +274,7 @@ export function SearchPage() {
         if (version === requestVersion.current) setLoading(false);
       }
     },
-    [domain, mode],
+    [filters, labMission, mode, params, setParams],
   );
 
   useEffect(() => {
@@ -268,6 +293,9 @@ export function SearchPage() {
   const comparisonProducts = products.slice(0, 4);
   const topPick = products[0];
   const topPickReasonsList = topPick ? topPickReasons(topPick, mode, diagnostics) : [];
+  const labOutcome = labMission
+    ? agentLabOutcome(labMission, agent, error)
+    : null;
   const comparisonAttributes = Array.from(
     new Set(
       comparisonProducts.flatMap((product) =>
@@ -312,10 +340,14 @@ export function SearchPage() {
         </div>
       </header>
 
+      <WorkshopProgress active={mode === "agent" ? "reason" : "retrieve"} />
+
+      {labOutcome ? <LabOutcomeBanner outcome={labOutcome} /> : null}
+
       {!query && !loading ? (
         <section className="search-empty">
           <Sparkles size={28} />
-          <h1>Start a collection</h1>
+          <h1>Search the Shop</h1>
           <p>
             Begin with a product need or ask Mosaic to assemble a collection
             from catalog evidence.
@@ -377,7 +409,7 @@ export function SearchPage() {
       {!loading && !error && (search || agent) ? (
         <>
           <section className="search-result-heading">
-            <p className="eyebrow">Mosaic collection</p>
+            <p className="eyebrow">Mosaic Shop</p>
             <h1>Results for “{query}”</h1>
             <p>
               {products.length} products match this request
@@ -526,6 +558,7 @@ export function SearchPage() {
                         <a key={citation.number} href={`#product-${citation.product_id}`}>
                           <span>[{citation.number}]</span>
                           <strong>{citation.title}</strong>
+                          <small>Evidence #{citation.evidence_id} · {citation.evidence_type}</small>
                         </a>
                       ))}
                     </div>
@@ -542,7 +575,7 @@ export function SearchPage() {
                     <li><CircleCheck size={15} /> Cohere Embed v4 semantic candidates</li>
                     <li>
                       <CircleCheck size={15} />
-                      {diagnostics ? `${fusionLabel(diagnostics.strategy)}, k=${diagnostics.rrf_k}` : fusionLabel()}
+                      {diagnostics ? `${fusionLabel(diagnostics.strategy)}, k=${diagnostics.retrieval_profile.rrf_k}` : fusionLabel()}
                     </li>
                     <li>
                       <CircleCheck size={15} />
@@ -572,9 +605,20 @@ export function SearchPage() {
                   {traceOpen ? (
                     <ol className="agent-trace">
                       {agent.trace.map((step) => (
-                        <li key={step.sequence}>
+                        <li className={step.outcome} key={step.sequence}>
                           <span>{step.sequence}</span>
-                          <div><strong>{step.tool}</strong><small>{step.detail}</small></div>
+                          <div>
+                            <strong>{step.tool}</strong>
+                            <small>{step.detail}</small>
+                            {Object.keys(step.arguments).length ? (
+                              <code>{JSON.stringify(step.arguments)}</code>
+                            ) : null}
+                            {step.retrieval_run_id ? (
+                              <small className="agent-trace-run">
+                                Run {step.retrieval_run_id.slice(0, 8)}
+                              </small>
+                            ) : null}
+                          </div>
                         </li>
                       ))}
                     </ol>

@@ -22,22 +22,21 @@ retired purple concept direction.
 
 | Token | Value | Use |
 |---|---|---|
-| `--maroon-950` | `#271017` | shell and trust bands |
-| `--maroon-800` | `#591a2a` | primary actions and selected stages |
-| `--maroon-100` | `#f2e6e9` | selected metadata chips |
-| `--ivory` | `#fcfaf5` | page background |
-| `--paper` | `#ffffff` | tools and product cards |
-| `--paper-warm` | `#f6f1e8` | technical secondary surfaces |
-| `--ink` | `#211d1c` | primary text |
-| `--ink-soft` | `#625b57` | supporting text |
-| `--line` | `#ddd5ca` | borders and table rules |
-| `--green` | `#1c6b55` | stock, source readiness, success |
-| `--gold` | `#9a6828` | rating and projection cautions |
+| `--mosaic-charcoal` | `#17201e` | Ask Mosaic, technical hero, and trust bands |
+| `--maroon-800` | `#671825` | primary actions and Reason-stage emphasis |
+| `--mosaic-canvas` | `#f3f5f3` | Shop and Labs page background |
+| `--mosaic-surface` | `#ffffff` | tools and product cards |
+| `--ink` | `#171514` | primary text |
+| `--ink-soft` | `#5f5955` | supporting text |
+| `--mosaic-line` | `#dce2df` | borders and table rules |
+| `--mosaic-teal` | `#0f6b63` | Retrieve, provenance, readiness, and stock |
+| `--mosaic-blue` | `#315d82` | Rank-stage emphasis |
+| `--gold` | `#9a5d20` | rating and projection cautions |
 | `--danger` | `#a43d43` | failed requests or constraints |
 
 Do not use gradients, decorative orbs, or a single-hue maroon treatment.
-Photography, ivory, charcoal, green, and gold provide the secondary visual
-signals.
+Photography, white, cool gray, charcoal, teal, blue, maroon, and gold provide
+distinct visual signals.
 
 ## Typography
 
@@ -52,32 +51,27 @@ retrieval, and performance surfaces use compact headings for scanning.
 ## Geometry and spacing
 
 - 8 px base spacing rhythm;
-- 3-4 px control and card radii;
-- stable `4 / 3` media frames for product cards;
+- 8 px maximum card radius;
+- stable `3 / 2` media frames for product cards;
 - restrained one-pixel borders and limited shadow;
-- 74 px desktop shell and 66 px mobile shell;
+- 72 px desktop shell and 64 px mobile shell;
 - full-width page bands rather than nested cards.
 
 ## Route architecture
 
 ### Discover
 
-Full-bleed category photography, one search composer, sample intents, three
-domain entry points, and a compact retrieval trust band. The hero always leaves
-the beginning of the catalog section visible.
+Full-bleed product photography, one search composer, four sample intents, and a
+compact `Retrieve -> Rank -> Reason` rail. Every search moves into Shop.
 
 ### Shop
 
-Faceted product browsing with stable product cards, sort controls, pagination,
-and direct links to source-backed product detail. Mobile filters collapse into
-one disclosure so products remain in the first working viewport.
-
-### Collections
-
-A segmented Retrieval/Agent control shares one query composer. Retrieval shows
-ranked products and stage signals; Agent shows a compact cited answer with
-Summary, Recommendations, and Trade-offs. Diagnostics stay in a side rail on
-desktop and follow the answer on mobile.
+Faceted product browsing, direct hybrid search, stable product cards, sort
+controls, pagination, and links to source-backed product detail. Ask Mosaic
+starts as an inline composer and becomes a contextual sidecar after submission.
+Desktop compresses the product grid; tablet overlays it; mobile uses the full
+working width. Recommendations, rank movement, evidence, citations, and tool
+receipts stay connected to the products still visible in Shop.
 
 ### Product detail
 
@@ -87,9 +81,9 @@ serves as evidence for an attribute.
 
 ### Mosaic Labs
 
-The three labs establish the retrieval sequence. A compact portable MCP
-contract checkpoint shows that the same typed, read-only retrieval tools are
-available to another compatible agent host without duplicating the pipeline.
+The three labs establish the retrieval sequence. Three Broken -> Fix -> Prove
+cards and eight participant runs expose candidate provenance, rank movement,
+tool boundaries, and citation grounding without creating additional labs.
 
 ### Retrieval Lab
 
@@ -116,10 +110,12 @@ simulated values from being presented as Aurora observations.
 
 ## Image boundary
 
-The checked-in photographs are screened, unbranded category fallbacks with
-local attribution. Product identity and media identity remain separate. A
-larger publication-safe merchandising set can replace the fallbacks without
-changing product IDs, source evidence, or evaluation judgments.
+The 120-product premium cohort has a checked-in, content-screened 1200 x 800
+catalog asset for every product. `data/media/asset_labels_120.json` is the
+product-to-media contract, including the six flagship mappings. Cards render
+the complete 3:2 catalog asset with no crop or hover zoom; square detail
+photography remains a product-detail concern. Product media never serves as
+evidence for an attribute.
 
 ## Accessibility
 
@@ -129,4 +125,4 @@ changing product IDs, source evidence, or evaluation judgments.
 - no color-only encoding;
 - WCAG-aware text contrast;
 - reduced-motion support;
-- layouts verified at 1440 x 1000 and 390 x 844.
+- layouts verified at 1440 x 900, 1920 x 1080, 834 x 1112, and 390 x 844.

@@ -2,7 +2,8 @@ import {
   Activity,
   ArrowRight,
   CheckCircle2,
-  FileSearch,
+  Database,
+  FileText,
   GitCompareArrows,
   ScanSearch,
   ShieldCheck,
@@ -16,11 +17,13 @@ import {
   retrievalExampleHref,
   supportingMosaicChecks,
   type MosaicLabMission,
+  type MosaicLabPlacement,
   type MosaicLabStage,
 } from "../labMissions";
 
 type StageDetail = {
   label: string;
+  verb: string;
   title: string;
   detail: string;
   Icon: typeof ScanSearch;
@@ -29,146 +32,243 @@ type StageDetail = {
 const stageDetails: Record<MosaicLabStage, StageDetail> = {
   retrieve: {
     label: "Retrieve",
+    verb: "Build the candidate universe",
     title: "Build hybrid retrieval",
-    detail: "FTS, pg_trgm, and HNSW construct an inspectable candidate universe while SQL keeps hard constraints authoritative.",
+    detail: "FTS, pg_trgm, HNSW, and SQL filters recover different kinds of relevance while preserving candidate provenance.",
     Icon: ScanSearch,
   },
   rank: {
     label: "Rank",
-    title: "Make the final order reviewable",
-    detail: "RRF fuses independent candidate ranks. Cohere Rerank then orders only the bounded pool without erasing provenance.",
+    verb: "Put candidates in order",
+    title: "Fuse, rerank, and explain",
+    detail: "RRF combines ordinal evidence, then Cohere Rerank reorders only a bounded pool without erasing where each candidate came from.",
     Icon: GitCompareArrows,
   },
   reason: {
     label: "Reason",
-    title: "Answer only from bounded evidence",
-    detail: "The agent uses typed, read-only retrieval tools and returns cited catalog sources that can be challenged.",
+    verb: "Ground the recommendation",
+    title: "Build the retrieval agent",
+    detail: "Typed tools decompose the request, compare retrieved products, resolve evidence records, and compose citations that can be checked.",
     Icon: ShieldCheck,
   },
   optimize: {
-    label: "Optimize",
-    title: "Measure the operating point",
-    detail: "Treat index choice as a workload decision, with recalled results and measured latency carried beside the configuration.",
+    label: "Advanced",
+    verb: "Measure the operating point",
+    title: "Tune HNSW",
+    detail: "Compare recall, latency, plans, and index configuration outside the required 60-minute path.",
     Icon: Activity,
   },
 };
 
-function checkpointLabel(check: MosaicLabMission) {
-  switch (check.checkpoint) {
-    case "repair":
-      return "Repair checkpoint";
-    case "comparison":
-      return "Comparison checkpoint";
-    case "advanced":
-      return "Advanced lane";
-    default:
-      return "Baseline";
+const placementByStage: Partial<Record<MosaicLabStage, MosaicLabPlacement>> = {
+  retrieve: "lab-1",
+  rank: "lab-2",
+  reason: "lab-3",
+};
+
+function checksFor(lab: MosaicLabMission) {
+  const placement = placementByStage[lab.stage];
+  return supportingMosaicChecks.filter((check) => check.core && check.placement === placement);
+}
+
+function StageVisual({ stage }: { stage: MosaicLabStage }) {
+  if (stage === "retrieve") {
+    return (
+      <div className="labs-retrieve-visual" aria-label="Hybrid candidate sources">
+        <span>FTS</span>
+        <span>pg_trgm</span>
+        <span>pgvector</span>
+        <strong>Eligible candidates</strong>
+      </div>
+    );
   }
+
+  if (stage === "rank") {
+    return (
+      <div className="labs-rank-visual" aria-label="Ranking movement">
+        <span>Lexical</span><i>01</i><b>RRF</b><i>02</i>
+        <span>Semantic</span><i>04</i><b>Rerank</b><i>01</i>
+      </div>
+    );
+  }
+
+  return (
+    <div className="labs-reason-visual" aria-label="Agent tool flow">
+      <span>search_products()</span>
+      <span>compare_products()</span>
+      <span>get_product_evidence()</span>
+      <strong>Cited answer</strong>
+    </div>
+  );
 }
 
 export function MosaicLabsPage() {
-  const labOneChecks = supportingMosaicChecks.filter((check) => check.placement === "lab-1");
+  const coreChecks = supportingMosaicChecks.filter((check) => check.core);
   const advancedLabs = supportingMosaicChecks.filter((check) => check.placement === "advanced-labs");
+  const participantRuns = coreMosaicLabs.flatMap((lab) => [lab, ...checksFor(lab)]);
 
   return (
-    <div className="page mosaic-labs-page">
-      <header className="mosaic-labs-hero">
-        <div>
-          <p className="eyebrow">Aurora PostgreSQL</p>
+    <div className="page mosaic-labs-page labs-premium">
+      <header className="labs-command-hero">
+        <div className="labs-command-copy">
+          <p className="eyebrow">DAT410 · Aurora PostgreSQL · Level 400</p>
           <h1>Mosaic Labs</h1>
-          <p className="mosaic-labs-lede">
-            Build an agentic retrieval system that earns confidence one
-            inspectable decision at a time.
+          <p className="labs-command-lede">
+            Build the retrieval system first. Then give its inspectable
+            capabilities and evidence to the agent.
           </p>
-          <dl className="mosaic-labs-facts">
-            <div>
-              <dt>Session</dt>
-              <dd>{mosaicLabManifest.session.total_minutes} minutes</dd>
-            </div>
-            <div>
-              <dt>Catalog</dt>
-              <dd>{mosaicLabManifest.corpus.catalog_products.toLocaleString()} products</dd>
-            </div>
-            <div>
-              <dt>Visual anchors</dt>
-              <dd>{mosaicLabManifest.corpus.premium_visual_anchors} premium products</dd>
-            </div>
-          </dl>
-          <div className="mosaic-labs-actions">
+          <div className="labs-command-actions">
             <Link className="primary-button" href={retrievalExampleHref(coreMosaicLabs[0])}>
               Start Lab 1 <ArrowRight size={17} />
             </Link>
-            <Link className="text-link" href="/labs/performance">
-              Open optional HNSW lab <Activity size={16} />
-            </Link>
+            <span>3 labs · 8 participant runs · 40-45 minutes hands-on</span>
           </div>
+          <dl className="labs-command-facts">
+            <div>
+              <dt>Catalog</dt>
+              <dd>{mosaicLabManifest.corpus.catalog_products.toLocaleString()}</dd>
+              <small>embedded products</small>
+            </div>
+            <div>
+              <dt>Search engine</dt>
+              <dd>Aurora</dd>
+              <small>PostgreSQL + pgvector</small>
+            </div>
+            <div>
+              <dt>Visual cohort</dt>
+              <dd>{mosaicLabManifest.corpus.premium_visual_anchors}</dd>
+              <small>premium products</small>
+            </div>
+          </dl>
         </div>
 
-        <figure>
+        <figure className="labs-command-media">
           <img
             src="/assets/images/mosaic/forma-ergonomic-studio.webp"
             alt="Mosaic ergonomic task chair in a warm studio"
+            width={1200}
+            height={1200}
           />
           <figcaption>
-            <FileSearch size={15} />
-            <span>Candidate source, rank, rerank score, final order, and source revision remain visible.</span>
+            <span><Database size={16} /> Production path</span>
+            <strong>Candidate source → rank movement → evidence → citation</strong>
           </figcaption>
         </figure>
       </header>
 
-      <nav className="mosaic-labs-stage-progress" aria-label="Workshop stages">
-        <ol>
-          {coreMosaicLabs.map((lab, index) => (
-            <li key={lab.id}>
+      <nav className="labs-stage-switcher" aria-label="Mosaic lab stages">
+        {coreMosaicLabs.map((lab, index) => {
+          const stage = stageDetails[lab.stage];
+          const Icon = stage.Icon;
+          return (
+            <a key={lab.id} href={`#${lab.id}`}>
               <span>0{index + 1}</span>
-              <strong>{stageDetails[lab.stage].label}</strong>
-              <small>{lab.title.replace(/^Lab \d - /, "")}</small>
-            </li>
-          ))}
-        </ol>
+              <Icon size={19} />
+              <strong>{stage.label}</strong>
+              <small>{stage.verb}</small>
+              <ArrowRight size={16} />
+            </a>
+          );
+        })}
+        <Link href="/labs/performance">
+          <span>+</span>
+          <Activity size={19} />
+          <strong>Advanced</strong>
+          <small>HNSW and evaluation</small>
+          <ArrowRight size={16} />
+        </Link>
       </nav>
 
-      <section className="mosaic-labs-journey" aria-labelledby="mosaic-labs-journey-title">
-        <div className="mosaic-labs-section-heading">
+      <section className="labs-core" aria-labelledby="labs-core-title">
+        <header className="labs-section-heading">
           <div>
-            <p className="eyebrow">Core path</p>
-            <h2 id="mosaic-labs-journey-title">One story from request to cited answer.</h2>
+            <p className="eyebrow">Retrieve → Rank → Reason</p>
+            <h2 id="labs-core-title">Progressively engineer one system.</h2>
           </div>
           <p>
-            The Workshop Studio owns the guided steps and code editor. This
-            surface holds the shared lab contract and the evidence each
-            stage must produce.
+            Every lab starts with a controlled failure, asks for one focused
+            participant edit, and finishes with inspectable proof.
           </p>
-        </div>
+        </header>
 
-        <ol className="mosaic-lab-mission-list">
+        <div className="labs-stage-grid">
           {coreMosaicLabs.map((lab, index) => {
             const stage = stageDetails[lab.stage];
             const Icon = stage.Icon;
-
+            const controls = checksFor(lab);
             return (
-              <li key={lab.id}>
-                <div className="mosaic-lab-mission-step">0{index + 1}</div>
-                <div className="mosaic-lab-mission-stage">
-                  <Icon size={19} aria-hidden="true" />
-                  <span>{stage.label}</span>
-                </div>
-                <div className="mosaic-lab-mission-body">
+              <article className={`labs-stage-card ${lab.stage}`} id={lab.id} key={lab.id}>
+                <header>
+                  <span>0{index + 1}</span>
                   <div>
-                    <p className="mosaic-lab-mission-meta">
-                      {lab.duration_minutes} min <span>{stage.label}</span>
-                    </p>
-                    <h3>{lab.title}</h3>
-                    <p>{stage.detail}</p>
+                    <p><Icon size={15} /> {stage.label}</p>
+                    <small>{lab.duration_minutes} min · {1 + controls.length} runs</small>
                   </div>
-                  <code>{lab.query}</code>
+                </header>
+                <div className="labs-stage-card-copy">
+                  <h3>{stage.title}</h3>
+                  <p>{stage.detail}</p>
                 </div>
-                <div className="mosaic-lab-mission-proof">
-                  <strong>Evidence to retain</strong>
-                  <span>{lab.assertions.map((assertion) => assertion.replaceAll("_", " ")).join(" · ")}</span>
-                </div>
-                <Link className="mosaic-lab-mission-link" href={retrievalExampleHref(lab)}>
-                  Inspect <ArrowRight size={15} />
+                <StageVisual stage={lab.stage} />
+                <dl className="labs-repair-sequence">
+                  <div>
+                    <dt>Broken</dt>
+                    <dd>{lab.participant_edit?.broken_state ?? "The stage does not satisfy its retrieval contract."}</dd>
+                  </div>
+                  <div>
+                    <dt>Fix</dt>
+                    <dd>{lab.participant_edit?.task ?? "Complete the focused participant edit."}</dd>
+                  </div>
+                  <div>
+                    <dt>Prove</dt>
+                    <dd>{lab.expected_outcome}</dd>
+                  </div>
+                </dl>
+                <code>{lab.query}</code>
+                <footer>
+                  <Link href={retrievalExampleHref(lab)}>
+                    Open Lab {index + 1} <ArrowRight size={15} />
+                  </Link>
+                  <span>{lab.canonical_query_id}</span>
+                </footer>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="labs-query-deck" aria-labelledby="labs-query-title">
+        <header className="labs-section-heading">
+          <div>
+            <p className="eyebrow">Eight participant runs</p>
+            <h2 id="labs-query-title">Run the failure. Make the fix. Challenge it.</h2>
+          </div>
+          <p>
+            Three repair anchors and five controls keep the session interactive
+            while testing identity, eligibility, rank movement, and grounding.
+          </p>
+        </header>
+
+        <ol>
+          {participantRuns.map((run, index) => {
+            const stage = stageDetails[run.stage];
+            return (
+              <li className={run.checkpoint === "repair" ? "repair" : ""} key={run.id}>
+                <Link href={retrievalExampleHref(run)}>
+                  <span className="labs-query-number">{String(index + 1).padStart(2, "0")}</span>
+                  <div className="labs-query-copy">
+                    <p>
+                      {stage.label}
+                      <small>{run.checkpoint === "repair" ? "Participant fix" : "Control"}</small>
+                    </p>
+                    <h3>{run.title}</h3>
+                    <code>{run.query}</code>
+                  </div>
+                  <div className="labs-query-proof">
+                    <strong>{run.canonical_query_id}</strong>
+                    <span>{run.expected_outcome}</span>
+                  </div>
+                  <ArrowRight size={17} />
                 </Link>
               </li>
             );
@@ -176,98 +276,48 @@ export function MosaicLabsPage() {
         </ol>
       </section>
 
-      <section className="mosaic-labs-rank-contract" aria-label="Ranking contract">
+      <section className="labs-architecture" aria-label="Inspectable architecture">
         <div>
-          <p className="eyebrow">Ranking contract</p>
-          <h2>Candidate generation and final order are different decisions.</h2>
-          <p>
-            Aurora PostgreSQL owns full-text, fuzzy, semantic, and filtered
-            candidate generation. RRF combines rank positions. Cohere Rerank
-            compares only the bounded fused pool, and the agent reasons over
-            those source-backed results.
-          </p>
+          <Sparkles size={18} />
+          <span>
+            <strong>Candidate provenance</strong>
+            <small>FTS, trigram, vector, and filters stay visible.</small>
+          </span>
         </div>
-        <dl>
-          <div>
-            <dt><Sparkles size={18} /> Candidate signals</dt>
-            <dd>FTS, pg_trgm, and HNSW rank and score remain independent.</dd>
-          </div>
-          <div>
-            <dt><GitCompareArrows size={18} /> Ordering evidence</dt>
-            <dd>RRF rank, Cohere Rerank score, and final rank stay distinct.</dd>
-          </div>
-          <div>
-            <dt><ShieldCheck size={18} /> Answer boundary</dt>
-            <dd>Citations include a catalog source URI and its source revision.</dd>
-          </div>
-        </dl>
-      </section>
-
-      <section className="mosaic-labs-checkpoints" aria-labelledby="mosaic-labs-checkpoints-title">
         <div>
-          <p className="eyebrow">Lab 1 checkpoints</p>
-          <h2 id="mosaic-labs-checkpoints-title">Candidate quality has more than one failure mode.</h2>
-          <p>
-            Typo recovery is the implementation repair. Exact identity and
-            semantic eligibility are fast controls inside the same required
-            lab, not separate workshop destinations.
-          </p>
+          <GitCompareArrows size={18} />
+          <span>
+            <strong>Ranking movement</strong>
+            <small>RRF, reranker score, and final rank remain distinct.</small>
+          </span>
         </div>
-        <ol className="mosaic-labs-checkpoint-list">
-          {labOneChecks.map((check) => (
-            <li key={check.id}>
-              <div>
-                <p className="mosaic-lab-mission-meta">
-                  {checkpointLabel(check)} <span>{check.duration_minutes} min within Lab 1</span>
-                </p>
-                <h3>{check.title}</h3>
-                <p>{check.expected_outcome}</p>
-              </div>
-              <Link className="mosaic-lab-mission-link" href={retrievalExampleHref(check)}>
-                Inspect <ArrowRight size={15} />
-              </Link>
-            </li>
-          ))}
-        </ol>
+        <div>
+          <FileText size={18} />
+          <span>
+            <strong>Resolvable evidence</strong>
+            <small>Every final citation maps to a real evidence record.</small>
+          </span>
+        </div>
       </section>
 
       {advancedLabs.length > 0 ? (
-        <section className="mosaic-labs-advanced">
+        <section className="labs-advanced">
           <div>
-            <p className="eyebrow">Advanced Labs (OPTIONAL)</p>
+            <p className="eyebrow">Advanced extension · optional</p>
             <h2>Tune the HNSW operating point with measured evidence.</h2>
             <p>
-              The required path proves the retrieval architecture. The optional
-              performance lab measures recall, latency, plans, and configuration
-              without consuming the 60-minute session.
+              Measure Recall@K, p50/p95 latency, plans, and index configuration
+              without placing a benchmark on the required session path.
             </p>
           </div>
-          <ol className="mosaic-labs-checkpoint-list">
-            {advancedLabs.map((check) => (
-              <li key={check.id}>
-                <div>
-                  <p className="mosaic-lab-mission-meta">
-                    Optional <span>{check.duration_minutes}+ min</span>
-                  </p>
-                  <h3>{check.title}</h3>
-                  <p>{check.expected_outcome}</p>
-                </div>
-                <Link className="mosaic-lab-mission-link" href={retrievalExampleHref(check)}>
-                  Inspect <ArrowRight size={15} />
-                </Link>
-              </li>
-            ))}
-          </ol>
-          <div className="mosaic-labs-advanced-footer">
-            <div className="mosaic-labs-advanced-checks">
-              <span><CheckCircle2 size={16} /> Recall@K against exact neighbors</span>
-              <span><CheckCircle2 size={16} /> p50, p95, index size, and build time</span>
-              <span><CheckCircle2 size={16} /> Corpus, model, index, and filter configuration</span>
-            </div>
-            <Link className="secondary-button" href="/labs/performance">
-              Inspect the advanced lane <Wrench size={16} />
-            </Link>
+          <div className="labs-advanced-proof">
+            <span><CheckCircle2 size={16} /> Exact-neighbor recall baseline</span>
+            <span><CheckCircle2 size={16} /> Latency and plan evidence</span>
+            <span><CheckCircle2 size={16} /> Corpus and index configuration</span>
           </div>
+          <Link className="secondary-button" href="/labs/performance">
+            Open advanced extension <Wrench size={16} />
+          </Link>
         </section>
       ) : null}
     </div>

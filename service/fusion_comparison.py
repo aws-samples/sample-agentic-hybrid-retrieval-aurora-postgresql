@@ -48,7 +48,7 @@ FROM mosaic_search.search_hybrid_rrf(
     %(query)s, %(embedding)s::vector, %(filters)s::jsonb, %(rrf_k)s::integer,
     %(fts_limit)s::integer, %(trigram_limit)s::integer,
     %(semantic_limit)s::integer, %(result_limit)s::integer,
-    %(business_weight)s::real, %(trigram_threshold)s::real
+    %(trigram_threshold)s::real
 )
 """
 
@@ -58,7 +58,7 @@ FROM mosaic_search.search_hybrid_rrf_weighted(
     %(query)s, %(embedding)s::vector, %(filters)s::jsonb, %(rrf_k)s::integer,
     %(fts_limit)s::integer, %(trigram_limit)s::integer,
     %(semantic_limit)s::integer, %(result_limit)s::integer,
-    %(business_weight)s::real, %(trigram_threshold)s::real,
+    %(trigram_threshold)s::real,
     %(weight_lexical)s::real, %(weight_semantic)s::real,
     %(weight_trigram)s::real
 )
@@ -129,7 +129,6 @@ class FusionComparisonService:
             # The whole pool, so the substrate check compares fusion inputs
             # rather than two truncations of different orderings.
             "result_limit": FULL_POOL_LIMIT,
-            "business_weight": profile_config.business_weight,
             "trigram_threshold": profile_config.trigram_threshold,
             "weight_lexical": profile_config.weight_lexical,
             "weight_semantic": profile_config.weight_semantic,

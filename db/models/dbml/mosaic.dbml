@@ -135,7 +135,7 @@ Table mosaic.product_evidence {
   evidence_text text [not null]
   metadata jsonb [not null]
   embedding_text text [not null]
-  embedding vector(768)
+  embedding vector(1024)
 }
 
 Table mosaic_search.product_document {
@@ -159,7 +159,7 @@ Table mosaic_search.product_document {
   trigram_text text [not null]
   embedding_text text [not null]
   rerank_text text [not null]
-  embedding vector(768)
+  embedding vector(1024)
 }
 
 Table mosaic.search_event {

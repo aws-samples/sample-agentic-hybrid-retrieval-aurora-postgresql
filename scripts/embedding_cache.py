@@ -17,6 +17,9 @@ import numpy as np
 COHERE_EMBED_V4_MODEL_ID = "us.cohere.embed-v4:0"
 COHERE_EMBED_V4_DIMENSIONS = 1024
 DEFAULT_PRODUCT_COUNT = 500_000
+DEFAULT_CONTRACT = (
+    Path(__file__).resolve().parents[1] / "db" / "config" / "embedding-cache.json"
+)
 
 
 def file_sha256(path: Path) -> str:
@@ -66,6 +69,91 @@ def load_manifest(path: Path) -> dict[str, Any]:
         raise ValueError("embedding cache vector_count does not match its shards")
     if len(str(manifest.get("catalog_content_digest", ""))) != 64:
         raise ValueError("embedding cache catalog digest is invalid")
+    return manifest
+
+
+def load_contract(path: Path) -> dict[str, Any]:
+    contract = json.loads(path.read_text(encoding="utf-8"))
+    required = {
+        "schema_version",
+        "manifest_sha256",
+        "embedding_model_id",
+        "dimensions",
+        "vector_count",
+        "shard_count",
+    }
+    missing = sorted(required - set(contract))
+    if missing:
+        raise ValueError(f"embedding cache contract is missing {missing}")
+    if len(str(contract["manifest_sha256"])) != 64:
+        raise ValueError("embedding cache contract manifest_sha256 is invalid")
+    return contract
+
+
+def verify_cache(
+    manifest_path: Path,
+    contract_path: Path = DEFAULT_CONTRACT,
+) -> dict[str, Any]:
+    """Verify the pinned workshop cache without connecting to a database."""
+    manifest_path = manifest_path.resolve()
+    contract = load_contract(contract_path.resolve())
+    manifest_hash = file_sha256(manifest_path)
+    if manifest_hash != contract["manifest_sha256"]:
+        raise ValueError(
+            "embedding cache manifest checksum mismatch: "
+            f"found {manifest_hash}, expected {contract['manifest_sha256']}; "
+            "download the pinned DAT410 asset release"
+        )
+
+    manifest = load_manifest(manifest_path)
+    comparisons = {
+        "schema_version": manifest["schema_version"],
+        "embedding_model_id": manifest.get("embedding_model_id"),
+        "dimensions": manifest.get("dimensions"),
+        "vector_count": manifest.get("vector_count"),
+        "shard_count": len(manifest["shards"]),
+    }
+    for field, found in comparisons.items():
+        expected = contract[field]
+        if found != expected:
+            raise ValueError(
+                f"embedding cache {field} mismatch: found {found!r}, "
+                f"expected {expected!r}; download the pinned DAT410 asset release"
+            )
+
+    declared = {str(shard["path"]) for shard in manifest["shards"]}
+    installed = {path.name for path in manifest_path.parent.glob("embeddings-*.npz")}
+    if installed != declared:
+        missing = sorted(declared - installed)
+        unexpected = sorted(installed - declared)
+        raise ValueError(
+            "embedding cache shard set mismatch: "
+            f"missing={missing}, unexpected={unexpected}; "
+            "re-run make db-fetch-embeddings"
+        )
+
+    catalog_digest = hashlib.sha256()
+    verified = 0
+    dimensions = int(contract["dimensions"])
+    for shard in manifest["shards"]:
+        path = manifest_path.parent / shard["path"]
+        product_ids, content_hashes, _ = validate_shard(path, shard, dimensions)
+        catalog_digest.update(catalog_records(product_ids, content_hashes))
+        verified += int(shard["count"])
+
+    actual_catalog_digest = catalog_digest.hexdigest()
+    if actual_catalog_digest != manifest["catalog_content_digest"]:
+        raise ValueError(
+            "embedding cache catalog digest mismatch: "
+            f"found {actual_catalog_digest}, "
+            f"expected {manifest['catalog_content_digest']}; "
+            "replace the incomplete or mixed cache release"
+        )
+    print(
+        "Verified DAT410 embedding cache: "
+        f"{verified:,} vectors, {len(manifest['shards'])} shards, "
+        f"model={manifest['embedding_model_id']}"
+    )
     return manifest
 
 
@@ -518,8 +606,19 @@ def main() -> None:
     import_parser.add_argument("manifest", type=Path)
     import_parser.set_defaults(handler=import_cache)
 
+    verify_parser = subparsers.add_parser("verify")
+    verify_parser.add_argument("manifest", type=Path)
+    verify_parser.add_argument(
+        "--contract",
+        type=Path,
+        default=DEFAULT_CONTRACT,
+    )
+    verify_parser.set_defaults(
+        handler=lambda parsed: verify_cache(parsed.manifest, parsed.contract)
+    )
+
     args = parser.parse_args()
-    if not args.database_url:
+    if args.command in {"export", "import"} and not args.database_url:
         raise SystemExit("DATABASE_URL or --database-url is required")
     if args.command == "export":
         if args.shard_size <= 0:

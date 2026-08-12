@@ -118,7 +118,6 @@ class RetrievalService:
             fused_limit=settings.rerank_candidate_limit,
             result_limit=request.limit,
             rrf_k=settings.rrf_k,
-            business_weight=settings.business_weight,
             ef_search=settings.hnsw_ef_search,
         )
 
@@ -191,7 +190,6 @@ class RetrievalService:
                     "trigram_limit": profile.trigram_limit,
                     "semantic_limit": profile.semantic_limit,
                     "fused_limit": profile.fused_limit,
-                    "business_weight": profile.business_weight,
                     "trigram_threshold": profile.trigram_threshold,
                 }
                 weight_args = ""
@@ -222,10 +220,10 @@ class RetrievalService:
                         %(trigram_limit)s::integer,
                         %(semantic_limit)s::integer,
                         %(fused_limit)s::integer,
-                        %(business_weight)s::real,
                         %(trigram_threshold)s::real{weight_args}
                     ) AS h
                     JOIN mosaic_search.product_document d USING (product_id)
+                    ORDER BY h.pre_rerank_score DESC, h.product_id
                     """,
                     fusion_params,
                 ).fetchall()
@@ -328,7 +326,6 @@ class RetrievalService:
                                         "trigram": _as_float(row["trigram_score"]),
                                         "semantic": _as_float(row["semantic_score"]),
                                         "rrf": _as_float(row["rrf_score"]),
-                                        "business": _as_float(row["business_score"]),
                                         "pre_rerank": _as_float(
                                             row["pre_rerank_score"]
                                         ),
@@ -457,7 +454,6 @@ class RetrievalService:
                 pre_rerank_score=float(row["pre_rerank_score"]),
                 rerank_score=_as_float(row.get("rerank_score")),
                 final_rank=row["final_rank"],
-                business_score=float(row["business_score"]),
             ),
             sources=[
                 SourceAttribution(

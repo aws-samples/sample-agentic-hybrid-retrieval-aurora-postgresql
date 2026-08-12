@@ -14,7 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from service.agent import get_product_discovery_agent
-from service.catalog import catalog_summary, get_product, list_products
+from service.catalog import (
+    catalog_summary,
+    get_evidence_record,
+    get_product,
+    list_products,
+)
 from service.config import get_settings
 from service.db import connect, readiness
 from service.fusion_comparison import SubstrateError, get_fusion_comparison_service
@@ -23,6 +28,7 @@ from service.models import (
     AgentResponse,
     CatalogPage,
     FusionComparisonResponse,
+    EvidenceRecord,
     ProductDetail,
     RetrievalRunResponse,
     SearchFilters,
@@ -155,6 +161,15 @@ def get_catalog_products(
 @app.get("/api/products/{product_id}", response_model=ProductDetail)
 def get_product_detail(product_id: int) -> ProductDetail:
     return get_product(product_id)
+
+
+@app.get("/api/evidence/{evidence_id}", response_model=EvidenceRecord)
+def get_evidence(evidence_id: int) -> EvidenceRecord:
+    """Resolve an agent citation to the evidence row that supports it."""
+    try:
+        return get_evidence_record(evidence_id)
+    except KeyError as error:
+        raise HTTPException(404, str(error)) from error
 
 
 @app.post("/api/search", response_model=SearchResponse)
@@ -370,8 +385,8 @@ def tool_contracts() -> dict[str, Any]:
             {
                 "name": "get_product_evidence",
                 "description": (
-                    "Read one product, its structured specifications, media, "
-                    "source revision, and review evidence."
+                    "Read bounded specification and review evidence with "
+                    "stable source IDs for one retrieved product."
                 ),
                 "input_schema": {
                     "type": "object",

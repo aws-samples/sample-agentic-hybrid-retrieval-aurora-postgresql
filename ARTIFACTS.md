@@ -9,7 +9,10 @@ Where the live state lives, what can be restored, and what cannot.
 - The **Aurora PostgreSQL cluster** in `us-east-1` holds the only live tree
   (`mosaic`, `mosaic_search`, `mosaic_eval`, `mosaic_bench`),
   500,000 products with real Cohere Embed v4 vectors at 1024 dimensions.
-- The **cluster snapshot** is the only restore path. There is no local rebuild.
+- The **Workshop Studio attendee path** creates a fresh encrypted cluster, loads
+  the checked-in catalog, and imports the pinned embedding cache.
+- The historical cluster snapshot remains an operator recovery artifact, not a
+  cross-account attendee dependency.
 - Every `make` bootstrap target points at Aurora via `DATABASE_URL`.
 - Any Makefile target, script, or document that assumes a local PostgreSQL is a
   defect.
@@ -23,8 +26,8 @@ re-embedding. Local state that nothing can restore is not a convenience.
 
 | Artifact | Location | Restore path |
 |---|---|---|
-| Catalog + embeddings | Aurora `mosaic_*` | `mosaic-catalog-500k-cohere-v4-20260809` cluster snapshot |
-| Embedding cache | `build/embedding-cache/` | `make db-import-embeddings` (keyed to `mosaic_*`) |
+| Catalog + embeddings | Aurora `mosaic_*` | `make db-bootstrap-cached` into a fresh Aurora cluster |
+| Embedding cache | Workshop Studio assets / `build/embedding-cache/` | `make db-fetch-embeddings`, then verified import |
 | Normalized CSV shards | `build/normalized/` | `make db-prepare-mosaic` from `data/full/*.csv.gz` |
 | Premium cohort media | `ui/public/assets/images/mosaic/` | git; 126 files, content-verified |
 | Lab contract | `data/evals/mosaic_labs_missions.json` | git; validated by `make validate-missions` |
@@ -40,6 +43,10 @@ live Aurora cluster has no `catalog` schema.
 The historical DDL can be recovered from Git; the loaded data cannot.
 Consequently, correctness is stated against live `mosaic_*`, not against a
 reconstructed predecessor. See `docs/rewrite-losses.md`.
+
+The portable cache reconstructs the current `mosaic_*` projection from checked-in
+catalog shards and pre-generated vectors. It does not reconstruct the retired
+`catalog.*` predecessor.
 
 ## Connecting from a corporate network
 

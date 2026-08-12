@@ -1,4 +1,4 @@
-import { Menu, Search, ShoppingBag, UserRound, X } from "lucide-react";
+import { Menu, Search, ShoppingBag, X } from "lucide-react";
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useCommerce } from "../commerce";
@@ -13,14 +13,19 @@ import { MosaicMark } from "./MosaicMark";
 const shopLinks = [
   { to: "/", label: "Discover" },
   { to: "/catalog", label: "Shop" },
-  { to: "/search", label: "Collections" },
   { to: "/mosaic-labs", label: "Mosaic Labs" },
 ];
 
 function isActive(pathname: string, to: string) {
-  return to === "/"
-    ? pathname === "/" || pathname === "/discover"
-    : pathname.startsWith(to);
+  if (to === "/") return pathname === "/" || pathname === "/discover";
+  if (to === "/catalog") {
+    return (
+      pathname.startsWith("/catalog")
+      || pathname.startsWith("/search")
+      || pathname.startsWith("/products/")
+    );
+  }
+  return pathname.startsWith(to);
 }
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -63,12 +68,9 @@ export function Shell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="topbar-actions">
-          <Link className="header-action" href="/search" aria-label="Search products">
+          <Link className="header-action" href="/catalog" aria-label="Search products">
             <Search size={18} />
           </Link>
-          <button className="header-action" type="button" aria-label="Account">
-            <UserRound size={18} />
-          </button>
           <button
             className="bag-button"
             type="button"

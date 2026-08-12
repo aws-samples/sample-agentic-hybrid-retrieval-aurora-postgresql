@@ -24,9 +24,9 @@ nearest fix — see `explain`.
 
 Usage
 -----
-    python scripts/mission_contract.py                    # shape + live if DSN
-    python scripts/mission_contract.py --shape-only       # never touch the DB
-    MISSION_GATE_REQUIRE_DB=1 python scripts/mission_contract.py   # CI mode
+    uv run python scripts/mission_contract.py                    # shape + live if DSN
+    uv run python scripts/mission_contract.py --shape-only       # never touch the DB
+    MISSION_GATE_REQUIRE_DB=1 uv run python scripts/mission_contract.py   # CI
 
 Exit codes
 ----------
@@ -54,19 +54,31 @@ from service.assertions import (  # noqa: E402  (path set above)
 )
 
 CONTRACT = REPO / "data" / "evals" / "mosaic_labs_missions.json"
+CANONICAL_EVALS = REPO / "data" / "evals" / "canonical_queries.jsonl"
 STAGE_UNION_SOURCE = REPO / "ui" / "src" / "labMissions.ts"
 
 TIMED_MISSION_COUNT = 3
+PARTICIPANT_QUERY_COUNT = 8
 LAB_FRAME_MINUTES = 47
 NOMINAL_MINUTES = 60
+REQUIRED_PARTICIPANT_EDIT_FIELDS = (
+    "file",
+    "approximate_lines",
+    "task",
+    "broken_state",
+    "fixed_state",
+    "observe_before",
+    "observe_after",
+    "checkpoint_question",
+)
 
 # Fields a supporting check must keep. Enumerated rather than "all fields"
 # because the point is to name what breaks. Every one is read by a live
 # consumer: `ui/src/labMissions.ts` types every check and the retrieval lab
 # renders a checkpoint or advanced check from the same records as a core lab
 # (`expected_techniques`, `target_product_ids`, `duration_minutes`,
-# `checkpoint`, and `placement`); `docs/intentional-gaps.md` keys GAP-1 and
-# GAP-2 by `id` and cites `query`, `target_product_ids`, and the assertion that
+# `checkpoint`, and `placement`); `docs/intentional-gaps.md` keys all three gaps
+# by `id` and cites `query`, `target_product_ids`, and the assertion that
 # turns green.
 #
 # `scripts/run_eval.py` is deliberately not cited here: it consumes
@@ -152,6 +164,11 @@ def stage_union() -> set[str]:
 def check_shape(contract: dict[str, Any], report: Report) -> None:
     timed, supporting = split_missions(contract)
     session = contract["session"]
+    canonical_evals = [
+        json.loads(line)
+        for line in CANONICAL_EVALS.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
     # A1.5 runs first and every later check reads fields through `.get`, so a
     # check missing a required field is *reported* rather than crashing the
@@ -314,6 +331,70 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
                     f"is not part of this mission's lesson",
                 ),
             )
+
+    # A1.5b — every required lab has one focused, inspectable participant edit.
+    for mission in timed:
+        participant_edit = mission.get("participant_edit") or {}
+        missing = [
+            field
+            for field in REQUIRED_PARTICIPANT_EDIT_FIELDS
+            if field not in participant_edit
+        ]
+        line_count = participant_edit.get("approximate_lines")
+        before = participant_edit.get("observe_before")
+        after = participant_edit.get("observe_after")
+        report.check(
+            f"A1.5b {mission.get('id', '<no id>')} participant edit declared",
+            not missing
+            and isinstance(line_count, int)
+            and 5 <= line_count <= 15
+            and isinstance(before, list)
+            and len(before) >= 2
+            and isinstance(after, list)
+            and len(after) >= 2,
+            explain(
+                f"participant_edit={participant_edit!r}; missing={missing}",
+                "declare one 5-15 line edit with file, task, broken_state, and "
+                "fixed_state for this required lab",
+            ),
+        )
+
+    # A1.5c — participant queries are owned by this manifest. Canonical
+    # judgments link by mission ID instead of carrying a second query/filter
+    # copy that can drift from Workshop Studio.
+    linked_evals = {
+        item.get("mission_id"): item
+        for item in canonical_evals
+        if item.get("mission_id")
+    }
+    participant_checks = timed + [
+        mission for mission in supporting if mission.get("core")
+    ]
+    report.check(
+        "A1.5c participant query count",
+        len(participant_checks) == PARTICIPANT_QUERY_COUNT,
+        explain(
+            f"{len(participant_checks)} core participant queries",
+            f"keep exactly {PARTICIPANT_QUERY_COUNT} short runs across the three "
+            "labs; add controls as supporting_checks, never required labs",
+        ),
+    )
+    for mission in participant_checks:
+        canonical_query_id = mission.get("canonical_query_id")
+        linked = linked_evals.get(mission.get("id"))
+        report.check(
+            f"A1.5c {mission.get('id', '<no id>')} owns one canonical query",
+            bool(re.fullmatch(r"G-\d{3}", str(canonical_query_id)))
+            and linked is not None
+            and linked.get("query_id") == canonical_query_id
+            and "query" not in linked
+            and "filters" not in linked,
+            explain(
+                f"canonical_query_id={canonical_query_id!r}, linked_eval={linked!r}",
+                "link one canonical eval by mission_id and remove query/filters "
+                "from that eval; this manifest owns participant query text",
+            ),
+        )
 
     # A1.8 — every assertion in the vocabulary states how it can fail. An
     # assertion whose failure condition cannot occur reads as evidence while

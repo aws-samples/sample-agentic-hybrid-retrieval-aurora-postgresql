@@ -1,6 +1,7 @@
 import csv
 import gzip
 import json
+import random
 import re
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -11,6 +12,7 @@ from scripts.catalog_contract import (
     unsupported_filter_keys,
 )
 from service.models import SearchFilters
+from scripts.generate_catalog import ProductContext, specialized_attributes
 
 ROOT = Path(__file__).resolve().parents[1]
 SKU_PATTERN = re.compile(r"^[A-Z]{2}-[A-Z0-9]{1,5}-[0-9]{7}$")
@@ -161,3 +163,61 @@ def test_review_sample_matches_the_quick_start_catalog():
     assert len(reviews) == 15_000
     assert {int(review["product_id"]) for review in reviews} == sample_ids
     assert sample_ids <= product_ids
+
+
+def test_subcategory_routing_does_not_use_ambiguous_substrings():
+    organizer = ProductContext(
+        464423,
+        "home_office",
+        "Organization",
+        "Desktop Organizers",
+        423,
+    )
+    cable_management = ProductContext(
+        467891,
+        "home_office",
+        "Organization",
+        "Cable Management",
+        1_891,
+    )
+
+    organizer_attributes, organizer_tags, *_ = specialized_attributes(
+        organizer, random.Random(1), []
+    )
+    cable_attributes, cable_tags, *_ = specialized_attributes(
+        cable_management, random.Random(1), []
+    )
+
+    assert organizer_tags == ["organization", "storage", "workspace"]
+    assert cable_tags == ["organization", "storage", "workspace"]
+    assert "moisture_wicking" not in organizer_attributes
+    assert "max_power_w" not in cable_attributes
+
+
+def test_exact_apparel_and_charging_subcategories_keep_their_specialization():
+    running_top = ProductContext(
+        261304,
+        "running_fitness",
+        "Apparel",
+        "Running Tops",
+        1_304,
+    )
+    charger = ProductContext(
+        100001,
+        "consumer_electronics",
+        "Mobile & Power",
+        "USB-C Chargers",
+        1,
+    )
+
+    apparel_attributes, apparel_tags, *_ = specialized_attributes(
+        running_top, random.Random(1), []
+    )
+    charger_attributes, charger_tags, *_ = specialized_attributes(
+        charger, random.Random(1), []
+    )
+
+    assert "apparel" in apparel_tags
+    assert apparel_attributes["moisture_wicking"] is True
+    assert "charging" in charger_tags
+    assert charger_attributes["usb_c_pd"] is True

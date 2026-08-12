@@ -24,7 +24,7 @@ The response contains:
 - `run_id`, original query, and normalized query;
 - applied hard filters;
 - source-attributed products;
-- separate lexical, trigram, semantic, RRF, business, and rerank signals;
+- separate lexical, trigram, semantic, RRF, and rerank signals;
 - candidate counts, arm weights, model IDs, stage timings, and total latency.
 
 Search returns ranked evidence, not a natural-language answer.

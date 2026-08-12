@@ -13,8 +13,8 @@ neither role is produced by stretching.
 
 Usage
 -----
-    python scripts/install_cohort_assets.py --dry-run
-    python scripts/install_cohort_assets.py
+    uv run python scripts/install_cohort_assets.py --dry-run
+    uv run python scripts/install_cohort_assets.py
 """
 
 from __future__ import annotations

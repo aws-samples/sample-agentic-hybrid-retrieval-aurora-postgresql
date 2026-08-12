@@ -19,7 +19,7 @@ than a silent skip.
 
 Usage
 -----
-    python scripts/function_census.py
+    uv run python scripts/function_census.py
 
 Exit codes
 ----------

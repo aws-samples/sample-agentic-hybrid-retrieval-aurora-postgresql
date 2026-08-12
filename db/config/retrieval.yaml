@@ -24,6 +24,14 @@ candidate_generation:
   # scripts/config_tripwire.py. config/workshop.json recorded 0.24; that value
   # was stale and is not ported.
   trigram_threshold: 0.20
+  # Index gates used by pg_trgm's `%` and `<%` operators. They are database
+  # defaults rather than function-local SET clauses because a fresh Aurora
+  # session has not loaded pg_trgm yet and rejects those clauses at function
+  # creation time. scripts/configure_retrieval_database.py applies and verifies
+  # these values on the target Aurora database.
+  trigram_index_gate:
+    similarity_threshold: 0.18
+    word_similarity_threshold: 0.5
 fusion:
   method: reciprocal_rank_fusion
   rrf_k: 60
@@ -35,8 +43,6 @@ fusion:
   # disagreeing copy inside the file that claimed to be the single source, and
   # it is deleted rather than reconciled.
   fused_limit: 50
-  # Post-fusion commerce nudge, hard-capped at 0.05. Not a per-arm weight.
-  business_weight: 0.003
   # Per-arm weights, ported BY KEY NAME from config/workshop.json before that
   # file was deleted (Phase 2 Unit C, LOSS-3). Provenance matters: these are the
   # pre-rewrite coefficients, not numbers invented for the comparison that
@@ -49,11 +55,10 @@ fusion:
   # assertion proves both functions consume the same pool — so the flip cannot
   # happen by drift.
   #
-  # config/workshop.json also carried weights.business_signals: 0.15. It is NOT
-  # ported and never enters fusion. It is the exact value behind the Phase 1
-  # crash: config/.env.example shipped BUSINESS_WEIGHT=0.15 against a le=0.05
-  # bound and every search returned an unhandled HTTP 500. Recorded as history
-  # in docs/rewrite-losses.md, not as configuration.
+  # config/workshop.json also carried weights.business_signals: 0.15. It is not
+  # ported: the required workshop path is retrievers -> RRF -> reranker, with
+  # hard business eligibility expressed as SQL predicates rather than a hidden
+  # score adjustment.
   weights:
     lexical: 0.30
     semantic: 0.45

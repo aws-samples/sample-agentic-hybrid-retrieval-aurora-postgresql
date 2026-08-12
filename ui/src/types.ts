@@ -49,7 +49,6 @@ export interface ResultSignals {
   pre_rerank_score: number;
   rerank_score: number | null;
   final_rank: number;
-  business_score: number;
   score_semantics: string;
 }
 
@@ -131,10 +130,25 @@ export interface CatalogPage {
 export interface RetrievalDiagnostics {
   strategy: string;
   embedding_model_id: string;
+  embedding_dimensions: number;
   rerank_model_id: string | null;
   rerank_status: "applied" | "disabled" | "unavailable";
-  rrf_k: number;
-  arm_weights: Record<string, number>;
+  retrieval_profile: {
+    rrf_k: number;
+    fts_limit: number;
+    trigram_limit: number;
+    semantic_limit: number;
+    fused_limit: number;
+    result_limit: number;
+    trigram_threshold: number;
+    ef_search: number;
+    iterative_scan: "off" | "strict_order" | "relaxed_order";
+    max_scan_tuples: number;
+    scan_mem_multiplier: number;
+    weight_lexical: number;
+    weight_semantic: number;
+    weight_trigram: number;
+  };
   candidate_counts: Record<string, number>;
   stage_timings_ms: Record<string, number>;
   total_latency_ms: number;
@@ -151,6 +165,8 @@ export interface SearchResponse {
 
 export interface AgentCitation {
   number: number;
+  evidence_id: number;
+  evidence_type: string;
   product_id: number;
   source_uri: string;
   revision: string;
@@ -175,6 +191,9 @@ export interface AgentResponse {
     detail: string;
     retrieval_run_id: string | null;
     result_count: number | null;
+    arguments: Record<string, unknown>;
+    outcome: "success" | "error";
+    latency_ms: number | null;
   }>;
 }
 

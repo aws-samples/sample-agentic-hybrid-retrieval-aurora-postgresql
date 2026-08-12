@@ -49,14 +49,15 @@ their load order and the quality report preserves each shard's SHA-256 digest.
 ## Runtime
 
 Mosaic standardizes on Python 3.13; the checked-in `.python-version` is
-`3.13.14`. `make` uses the repository virtual environment when it exists and
-rejects other Python minor versions for application and MCP work.
+`3.13.14`. The checked-in `uv.lock` is the runtime dependency contract.
+`make setup` creates `.venv` through `uv sync --frozen`; `make` then uses that
+environment and rejects other Python minor versions for application and MCP
+work.
 
 ## Baseline Validation
 
 ```bash
 make setup
-source .venv/bin/activate
 make doctor
 
 make validate
@@ -100,11 +101,11 @@ violated bound named, rather than surfacing as an HTTP 500 on every query. Copy
 
 ## Database Baseline
 
-**Aurora only.** There is no local database and no `make` target creates one; the
-cluster snapshot is the only restore path. `ARTIFACTS.md` covers what is and is not
-restorable, and how to connect from a corporate network — if `psql` hangs while the
-port looks open, start with `sslmode=disable` to tell a TLS problem from a
-firewall one.
+**Aurora only.** There is no local database and no `make` target creates one.
+Workshop Studio builds a fresh encrypted cluster from the checked-in catalog and
+the pinned embedding cache. `ARTIFACTS.md` covers what is and is not restorable,
+and how to connect from a corporate network. If `psql` hangs while the port looks
+open, start with `sslmode=disable` to tell a TLS problem from a firewall one.
 
 ```bash
 export DATABASE_URL='postgresql://USER:PASSWORD@YOUR-CLUSTER.cluster-xxxx.us-east-1.rds.amazonaws.com:5432/mosaic_catalog?sslmode=require'
@@ -168,11 +169,10 @@ make db-bootstrap-cached \
 
 Changed or missing products fail the import instead of silently receiving stale
 vectors. Run the normal embedding job afterward only when the catalog or model
-space intentionally changes. A manual Aurora cluster snapshot is the faster
-same-account restore option because it also preserves the HNSW index. The S3
-cache is the portable cross-account option for Workshop Studio account pools;
-keep the snapshot private unless specific target accounts are approved for
-restore access.
+space intentionally changes. A manual Aurora cluster snapshot remains a faster
+same-account operator recovery option because it also preserves the HNSW index.
+The S3 cache is the required portable cross-account path for Workshop Studio
+account pools.
 
 ## Local Application
 

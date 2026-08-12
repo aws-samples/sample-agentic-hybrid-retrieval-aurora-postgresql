@@ -10,11 +10,8 @@ Precedence is **environment variable > yaml > nothing**. There is no hardcoded
 fallback: a missing key is a startup failure naming the key, because a default
 that lives in code is exactly the fourth copy the tripwire exists to prevent.
 
-Every value is bounds-checked at load. Phase 1 fixed one instance of an
-out-of-range setting reaching the request path (`BUSINESS_WEIGHT=0.15` against a
-`le=0.05` bound, which returned an unhandled HTTP 500 on every query). This
-module generalizes that fix to the whole profile: a limit of 0 or a negative `k`
-refuses to start, in the same error class, with the same message shape.
+Every value is bounds-checked at load. A limit of 0 or a negative `k` refuses
+to start with the parameter and offending value named.
 
 Usage
 -----
@@ -22,8 +19,8 @@ Usage
     profile = load_profile()          # env > yaml, validated
     profile.fts_limit                 # 120
 
-    python scripts/retrieval_profile.py          # print the resolved profile
-    python scripts/retrieval_profile.py --check  # validate and exit
+    uv run python scripts/retrieval_profile.py          # print the resolved profile
+    uv run python scripts/retrieval_profile.py --check  # validate and exit
 """
 
 from __future__ import annotations
@@ -93,9 +90,22 @@ BOUNDS: tuple[Bound, ...] = (
         "candidate_generation.semantic_limit", "SEMANTIC_CANDIDATE_LIMIT", 1, 1000, int
     ),
     Bound("candidate_generation.trigram_threshold", None, 0.01, 1.0, float),
+    Bound(
+        "candidate_generation.trigram_index_gate.similarity_threshold",
+        "PG_TRGM_SIMILARITY_THRESHOLD",
+        0.01,
+        1.0,
+        float,
+    ),
+    Bound(
+        "candidate_generation.trigram_index_gate.word_similarity_threshold",
+        "PG_TRGM_WORD_SIMILARITY_THRESHOLD",
+        0.01,
+        1.0,
+        float,
+    ),
     Bound("fusion.rrf_k", "RRF_K", 1, 10_000, int),
     Bound("fusion.fused_limit", "RERANK_CANDIDATE_LIMIT", 1, 250, int),
-    Bound("fusion.business_weight", "BUSINESS_WEIGHT", 0, 0.05, float),
     Bound("fusion.weights.lexical", None, 0, 1, float),
     Bound("fusion.weights.semantic", None, 0, 1, float),
     Bound("fusion.weights.trigram", None, 0, 1, float),
@@ -117,9 +127,10 @@ class RetrievalProfileConfig:
     trigram_limit: int
     semantic_limit: int
     trigram_threshold: float
+    trigram_similarity_gate: float
+    trigram_word_similarity_gate: float
     rrf_k: int
     fused_limit: int
-    business_weight: float
     weight_lexical: float
     weight_semantic: float
     weight_trigram: float
@@ -141,9 +152,14 @@ _FIELD_FOR_PATH: dict[str, str] = {
     "candidate_generation.trigram_limit": "trigram_limit",
     "candidate_generation.semantic_limit": "semantic_limit",
     "candidate_generation.trigram_threshold": "trigram_threshold",
+    "candidate_generation.trigram_index_gate.similarity_threshold": (
+        "trigram_similarity_gate"
+    ),
+    "candidate_generation.trigram_index_gate.word_similarity_threshold": (
+        "trigram_word_similarity_gate"
+    ),
     "fusion.rrf_k": "rrf_k",
     "fusion.fused_limit": "fused_limit",
-    "fusion.business_weight": "business_weight",
     "fusion.weights.lexical": "weight_lexical",
     "fusion.weights.semantic": "weight_semantic",
     "fusion.weights.trigram": "weight_trigram",
