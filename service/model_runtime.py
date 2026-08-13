@@ -14,6 +14,16 @@ _AUTHENTICATION_CODES = {
     "InvalidClientTokenId",
     "UnrecognizedClientException",
 }
+_AUTHENTICATION_MESSAGES = {
+    code: (
+        f"Amazon Bedrock credentials are unavailable ({code}). "
+        "Refresh the active AWS session and restart the API process."
+    )
+    for code in _AUTHENTICATION_CODES
+}
+_MODEL_REQUEST_FAILED = (
+    "Amazon Bedrock request failed. Retry after checking model access and region."
+)
 
 
 class ModelRuntimeError(RuntimeError):
@@ -46,17 +56,18 @@ def model_error_code(error: BaseException) -> str | None:
 
 def model_runtime_error(error: BaseException) -> ModelRuntimeError | None:
     """Convert a model-runtime failure into a bounded participant-facing error."""
-    if isinstance(error, ModelRuntimeError):
-        return error
     code = model_error_code(error)
-    if code is None:
-        return None
-    if code in _AUTHENTICATION_CODES:
-        return ModelRuntimeError(
-            f"Amazon Bedrock credentials are unavailable ({code}). "
-            "Refresh the active AWS session and restart the API process."
-        )
-    return ModelRuntimeError(f"Amazon Bedrock request failed: {code}")
+    if code in _AUTHENTICATION_MESSAGES:
+        return ModelRuntimeError(_AUTHENTICATION_MESSAGES[code])
+    if code is not None or isinstance(error, ModelRuntimeError):
+        return ModelRuntimeError(_MODEL_REQUEST_FAILED)
+    return None
+
+
+def safe_model_runtime_message(error: BaseException, *, fallback: str) -> str:
+    """Return an allowlisted runtime message without serializing the exception."""
+    classified = model_runtime_error(error)
+    return str(classified) if classified is not None else fallback
 
 
 def bedrock_credentials_status(region: str) -> dict[str, Any]:
@@ -64,9 +75,14 @@ def bedrock_credentials_status(region: str) -> dict[str, Any]:
     try:
         boto3.client("sts", region_name=region).get_caller_identity()
     except Exception as error:
-        classified = model_runtime_error(error)
         return {
             "ready": False,
-            "error": str(classified or "AWS credential validation failed"),
+            "error": safe_model_runtime_message(
+                error,
+                fallback=(
+                    "AWS credential validation failed. Refresh the active AWS "
+                    "session and restart the API process."
+                ),
+            ),
         }
     return {"ready": True}

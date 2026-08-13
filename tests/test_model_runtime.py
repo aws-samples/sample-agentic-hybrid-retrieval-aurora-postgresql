@@ -1033,6 +1033,42 @@ def test_readiness_blocks_when_a_required_retrieval_artifact_is_missing(monkeypa
     ]
 
 
+def test_readiness_does_not_expose_credential_exception_text(monkeypatch):
+    sentinel = "SENSITIVE_CREDENTIAL_TRACE"
+
+    class FailingSts:
+        def get_caller_identity(self):
+            raise RuntimeError(sentinel)
+
+    monkeypatch.setattr(
+        "service.model_runtime.boto3.client",
+        lambda *_args, **_kwargs: FailingSts(),
+    )
+    monkeypatch.setattr(
+        "service.main.readiness",
+        lambda: {
+            "schema_ready": True,
+            "product_count": 500000,
+            "embedded_product_count": 500000,
+            "embedding_model_ids": ["us.cohere.embed-v4:0"],
+            "premium_product_count": 120,
+            "evidence_product_count": 500000,
+            "missing_retrieval_indexes": [],
+            "missing_retrieval_functions": [],
+        },
+    )
+
+    response = TestClient(app).get("/api/readiness")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "blocked"
+    assert sentinel not in response.text
+    assert response.json()["bedrock_credentials"]["error"] == (
+        "AWS credential validation failed. Refresh the active AWS session and "
+        "restart the API process."
+    )
+
+
 def test_readiness_sql_requires_artifacts_in_the_mosaic_search_schema():
     source = (ROOT / "service/db.py").read_text(encoding="utf-8")
 
@@ -1092,6 +1128,35 @@ def test_agent_stream_forwards_strands_tool_stages_and_validated_answer(monkeypa
     assert "event: answer_delta" in stream.text
     assert "event: complete" in stream.text
     assert "Choose the quiet option [1]." in stream.text
+
+
+def test_agent_stream_does_not_expose_exception_text(monkeypatch):
+    sentinel = "SENSITIVE_AGENT_STACK"
+
+    class FailingStreamingAgent:
+        async def stream(self, _request):
+            if False:
+                yield {}
+            raise RuntimeError(sentinel)
+
+    monkeypatch.setattr(
+        "service.main.get_product_discovery_agent",
+        lambda: FailingStreamingAgent(),
+    )
+
+    stream = TestClient(app).post(
+        "/api/agent/answer/stream",
+        json={"question": "What should I buy?", "filters": {}, "result_limit": 2},
+    )
+
+    assert stream.status_code == 200
+    assert "event: error" in stream.text
+    assert sentinel not in stream.text
+    assert "RuntimeError" not in stream.text
+    assert (
+        "Agent response failed. Retry after checking the runtime and retrieval "
+        "service."
+    ) in stream.text
 
 
 def test_retrieval_sql_casts_python_values_to_the_function_contract():

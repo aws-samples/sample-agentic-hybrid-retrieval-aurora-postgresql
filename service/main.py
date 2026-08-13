@@ -24,7 +24,10 @@ from service.catalog import (
 from service.config import get_settings
 from service.db import connect, readiness
 from service.fusion_comparison import SubstrateError, get_fusion_comparison_service
-from service.model_runtime import bedrock_credentials_status, model_runtime_error
+from service.model_runtime import (
+    bedrock_credentials_status,
+    safe_model_runtime_message,
+)
 from service.models import (
     AgentRequest,
     AgentResponse,
@@ -62,10 +65,12 @@ app.add_middleware(
 
 
 def _model_error(error: Exception) -> HTTPException:
-    classified = model_runtime_error(error)
     return HTTPException(
         503,
-        str(classified or f"Model service unavailable: {type(error).__name__}"),
+        safe_model_runtime_message(
+            error,
+            fallback="Model service unavailable. Retry after checking the runtime.",
+        ),
     )
 
 
@@ -337,13 +342,15 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
                     await asyncio.sleep(0.012)
                 yield _sse("complete", {"response": payload})
         except Exception as error:
-            classified = model_runtime_error(error)
             yield _sse(
                 "error",
                 {
-                    "detail": str(
-                        classified
-                        or f"Agent response failed: {type(error).__name__}"
+                    "detail": safe_model_runtime_message(
+                        error,
+                        fallback=(
+                            "Agent response failed. Retry after checking the "
+                            "runtime and retrieval service."
+                        ),
                     )
                 },
             )

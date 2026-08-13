@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 import pytest
 
 from service.config import ConfigurationError, get_settings
@@ -55,9 +57,12 @@ def test_env_example_does_not_point_at_a_local_database():
     root = Path(__file__).resolve().parents[1]
     text = (root / "config" / ".env.example").read_text()
     dsn = next(line for line in text.splitlines() if line.startswith("DATABASE_URL"))
-    assert "localhost" not in dsn
-    assert "127.0.0.1" not in dsn
-    assert "rds.amazonaws.com" in dsn
+    dsn_value = dsn.split("=", 1)[1].strip().strip("'\"")
+    hostname = urlsplit(dsn_value).hostname
+
+    assert hostname not in {"localhost", "127.0.0.1", "::1"}
+    assert hostname is not None
+    assert hostname.endswith(".rds.amazonaws.com")
 
 
 def test_env_example_documents_every_non_retrieval_runtime_setting():
