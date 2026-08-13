@@ -21,16 +21,26 @@ type Particle = {
   radius: number;
   drift: number;
   band: number;
+  /** Per-particle warmth jitter so the field reads as painted, not computed. */
+  tint: number;
 };
 
 const BANDS = 4;
 const PER_BAND = 520;
 const CORE_COUNT = 460;
 const TWO_PI = Math.PI * 2;
-/* Gold at the fringe, deep maroon at the core: the surface palette, sampled
-   from --mosaic-gold and --maroon-800. */
-const FRINGE = [179, 131, 63];
-const CORE = [103, 24, 37];
+/* Three stops sampled from the surface palette: --maroon-950 at the deep
+   core, --maroon-700 through the mid-field, and a warm gold - between
+   --gold and --gold-soft - at the outer fringe. The bright central thread
+   leans further toward --gold-soft as the field opens toward the right. */
+const CORE_DEEP = [43, 13, 19];
+const CORE = [126, 36, 49];
+const FRINGE = [201, 152, 84];
+const HIGHLIGHT = [246, 234, 217];
+
+function mixChannel(a: number[], b: number[], t: number, index: number) {
+  return a[index] + (b[index] - a[index]) * Math.min(1, Math.max(0, t));
+}
 
 function buildParticles(): Particle[] {
   const particles: Particle[] = [];
@@ -44,6 +54,7 @@ function buildParticles(): Particle[] {
         radius: 0.65 + Math.random() ** 2 * 1.45,
         drift: 0.012 + Math.random() * 0.035,
         band,
+        tint: (Math.random() * 2 - 1) * 0.08,
       });
     }
   }
@@ -54,6 +65,7 @@ function buildParticles(): Particle[] {
       radius: 0.55 + Math.random() ** 2 * 1.1,
       drift: 0.01 + Math.random() * 0.02,
       band: -1,
+      tint: Math.random() * 0.3,
     });
   }
   return particles;
@@ -84,11 +96,21 @@ function paint(
     const y = centreline(particle.x, phase, Math.max(particle.band, 0), height)
       + spread * height * 0.36;
     const distance = Math.min(1, Math.abs(spread) / 0.55);
-    const mix = particle.band < 0 ? 0 : distance;
     const alpha = (particle.band < 0 ? 0.58 : 0.5) * (1 - distance * 0.66)
       * (0.25 + envelope(particle.x) * 0.75);
-    const channel = (index: number) =>
-      Math.round(CORE[index] + (FRINGE[index] - CORE[index]) * mix);
+    const channel = (index: number) => {
+      if (particle.band < 0) {
+        // The bright core thread warms toward the highlight as the field
+        // opens up on the right, instead of sitting at one flat tone.
+        const warmth = Math.min(1, particle.tint + envelope(particle.x) * 0.55);
+        return Math.round(mixChannel(CORE, HIGHLIGHT, warmth, index));
+      }
+      const mix = Math.min(1, Math.max(0, distance + particle.tint));
+      const value = mix < 0.5
+        ? mixChannel(CORE_DEEP, CORE, mix * 2, index)
+        : mixChannel(CORE, FRINGE, (mix - 0.5) * 2, index);
+      return Math.round(value);
+    };
     ctx.fillStyle =
       `rgb(${channel(0)} ${channel(1)} ${channel(2)} / ${alpha.toFixed(3)})`;
     ctx.beginPath();

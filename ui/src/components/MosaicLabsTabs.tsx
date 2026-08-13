@@ -1,20 +1,20 @@
 import { Link } from "wouter";
 
-type MosaicLabsTab = "workshop" | "studio";
+type MosaicLabsTab = "explore" | "studio";
 
 /**
- * Keeps optional exploration separate from the three required workshop labs.
+ * Keeps the optional inspection surfaces separate from participant authoring.
  */
 export function MosaicLabsTabs({ active }: { active: MosaicLabsTab }) {
   return (
     <nav className="mosaic-labs-tabs" aria-label="Mosaic Labs views">
       <div>
         <Link
-          aria-current={active === "workshop" ? "page" : undefined}
-          className={active === "workshop" ? "active" : ""}
+          aria-current={active === "explore" ? "page" : undefined}
+          className={active === "explore" ? "active" : ""}
           href="/mosaic-labs"
         >
-          Workshop
+          Explore
         </Link>
         <Link
           aria-current={active === "studio" ? "page" : undefined}
@@ -24,7 +24,7 @@ export function MosaicLabsTabs({ active }: { active: MosaicLabsTab }) {
           Studio
         </Link>
       </div>
-      <small>Studio is optional and outside the three-lab session path.</small>
+      <small>Read-only views. Build in Code Editor, then validate in Shop.</small>
     </nav>
   );
 }

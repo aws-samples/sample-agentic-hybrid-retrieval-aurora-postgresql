@@ -36,16 +36,18 @@ describe("MosaicLabsPage", () => {
     cleanup();
   });
 
-  it("presents the three labs as read-only observation with Shop proof scenarios", async () => {
+  it("presents the three system lenses as read-only observation with Shop scenarios", async () => {
     const { container } = render(<MosaicLabsPage />);
 
     expect(screen.getByRole("heading", {
-      name: "Explore. Ask. Understand.",
+      name: "See how Mosaic decides.",
     })).toBeTruthy();
     expect(
-      screen.getByText("Build the retrieval system first. Then give it to the agent."),
+      screen.getByText(
+        "Follow one real product request from candidate generation through a grounded recommendation, without leaving the shopping context behind.",
+      ),
     ).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Workshop" }).getAttribute("aria-current")).toBe(
+    expect(screen.getByRole("link", { name: "Explore" }).getAttribute("aria-current")).toBe(
       "page",
     );
     expect(screen.getByRole("link", { name: "Studio" }).getAttribute("href")).toBe(
@@ -54,33 +56,38 @@ describe("MosaicLabsPage", () => {
     expect(container.querySelectorAll(".labs-stage-card")).toHaveLength(3);
     expect(
       screen.getByText(
-        "Workshop Studio owns the broken snippet, hint, and repair. Mosaic Labs explains the system state; Shop is the customer-facing proof.",
+        "Author the repair in Code Editor. Validate its customer-visible effect in Shop. Return here only to inspect the system evidence.",
       ),
     ).toBeTruthy();
-    expect(container.querySelectorAll(".labs-shop-proofs a")).toHaveLength(8);
+    expect(container.querySelectorAll(".labs-scenario-menu a")).toHaveLength(8);
     expect(
-      [...container.querySelectorAll(".labs-shop-proofs")].map(
+      [...container.querySelectorAll(".labs-scenario-menu")].map(
         (presets) => presets.querySelectorAll("a").length,
       ),
     ).toEqual([3, 3, 2]);
+    expect(
+      [...container.querySelectorAll<HTMLDetailsElement>(".labs-scenario-menu")].every(
+        (menu) => !menu.open,
+      ),
+    ).toBe(true);
     expect(container.querySelectorAll(".labs-engine-rail > li")).toHaveLength(6);
-    expect(await screen.findByText("Live premium catalog records")).toBeTruthy();
+    expect(await screen.findByText("Canonical catalog fixture")).toBeTruthy();
     expect(container.querySelectorAll(".labs-engine-product")).toHaveLength(engineProductIds.length);
     // The masthead field is decoration, so it carries no text and no figure a
     // presenter could read a number off, and it stays out of the a11y tree.
     expect(container.querySelector(".labs-intro-flow[aria-hidden=true] canvas")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Replay the path" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Replay fixture" })).toBeTruthy();
     expect(
-      screen.getByRole("heading", { name: "One request, three retrieval outcomes." }),
+      screen.getByRole("heading", { name: "Where one retrieval method stops being enough." }),
     ).toBeTruthy();
     expect(
-      screen.getAllByRole("link", { name: "Inspect FTS, vector, and hybrid" }),
+      screen.getAllByRole("link", { name: "Inspect the trace" }),
     ).toHaveLength(2);
     expect(
-      screen.getByRole("link", { name: /View Lab 1 in Shop/ }).getAttribute("href"),
+      screen.getByRole("link", { name: "Open a Shop scenario" }).getAttribute("href"),
     ).toMatch(/^\/catalog\?/);
     expect(
-      screen.getAllByRole("link", { name: /Open Shop scenario/ })[2].getAttribute("href"),
+      screen.getAllByRole("link", { name: "Open in Shop" })[2].getAttribute("href"),
     ).toMatch(/^\/catalog\?/);
     expect(screen.queryByText(/Restore the trigram CTE/)).toBeNull();
   });
@@ -90,7 +97,7 @@ describe("MosaicLabsPage", () => {
     try {
       render(<MosaicLabsPage />);
 
-      const replay = screen.getByRole("button", { name: "Replay the path" });
+      const replay = screen.getByRole("button", { name: "Replay fixture" });
       fireEvent.click(replay);
 
       expect((replay as HTMLButtonElement).disabled).toBe(true);
@@ -101,16 +108,17 @@ describe("MosaicLabsPage", () => {
       });
 
       expect(screen.getByText("Ground the recommendation in evidence")).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Replay the path" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Replay fixture" })).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
   });
 
   it("keeps HNSW tuning in the optional advanced lane", async () => {
-    render(<MosaicLabsPage />);
+    const { container } = render(<MosaicLabsPage />);
 
-    expect(screen.getByText("Advanced observability")).toBeTruthy();
+    expect(screen.getByText("Advanced diagnostics")).toBeTruthy();
+    expect(container.querySelector<HTMLDetailsElement>(".labs-advanced")?.open).toBe(false);
     expect(
       screen.getByRole("link", { name: /Open HNSW diagnostics/ }).getAttribute("href"),
     ).toBe("/labs/performance");

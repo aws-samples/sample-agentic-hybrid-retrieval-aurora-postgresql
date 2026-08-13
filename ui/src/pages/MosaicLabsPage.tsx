@@ -14,7 +14,7 @@ import {
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
-import { LabsIntroFlow } from "../components/LabsIntroFlow";
+import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import {
   coreMosaicLabs,
@@ -153,6 +153,9 @@ function contrastLens(example: MosaicLabMission) {
 const engineTraceMission = coreMosaicLabs[0];
 
 const engineProductIds = [2, 3, 4, 5, 1, 17001];
+
+/** One real anchor photograph per system lens, so Explore reads as physical catalog objects rather than a spec sheet. */
+const labThumbnailIds = coreMosaicLabs.map((lab) => lab.target_product_ids[0]);
 
 type EngineVisual = {
   title: string;
@@ -319,6 +322,7 @@ export function MosaicLabsPage() {
   const [isEnginePlaying, setIsEnginePlaying] = useState(false);
   const [engineProducts, setEngineProducts] = useState<ProductSummary[]>([]);
   const [engineProductsError, setEngineProductsError] = useState("");
+  const [labThumbnails, setLabThumbnails] = useState<Map<number, ProductSummary>>(new Map());
   const replayTimers = useRef<number[]>([]);
   const advancedLabs = supportingMosaicChecks.filter(
     (check) => check.placement === "advanced-labs",
@@ -328,10 +332,6 @@ export function MosaicLabsPage() {
       (check) => check.id === "exact-identity" || check.id === "semantic-intent-contrast",
     ),
   ];
-  const participantRunCount = coreMosaicLabs.reduce(
-    (count, lab) => count + 1 + checksFor(lab).length,
-    0,
-  );
   const activeEngine = engineSteps[activeEngineStep];
 
   useEffect(() => () => {
@@ -356,6 +356,24 @@ export function MosaicLabsPage() {
               : "Catalog product records are unavailable",
           );
         }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(labThumbnailIds.map((productId) => api.product(productId)))
+      .then((products) => {
+        if (!cancelled) {
+          setLabThumbnails(new Map(products.map((product) => [product.product_id, product])));
+        }
+      })
+      .catch(() => {
+        // A missing photograph is decorative; the card still carries its full
+        // text contract without one.
+        if (!cancelled) setLabThumbnails(new Map());
       });
     return () => {
       cancelled = true;
@@ -392,39 +410,29 @@ export function MosaicLabsPage() {
 
   return (
     <div className="page mosaic-labs-page labs-premium">
-      <MosaicLabsTabs active="workshop" />
+      <MosaicLabsTabs active="explore" />
 
-      <header className="labs-intro">
-        <div className="labs-intro-copy">
-          <p className="eyebrow">DAT410 · Aurora PostgreSQL · Level 400</p>
-          <h1>Explore. Ask. Understand.</h1>
-          <p className="labs-intro-deck">
-            Agentic retrieval. Intelligent ranking. Recommendations grounded in
-            evidence you can inspect.
-          </p>
-          <p className="labs-intro-thesis">
-            Build the retrieval system first. Then give it to the agent.
-          </p>
-          <div className="labs-intro-actions">
-            <Link className="primary-button" href={shopScenarioHref(coreMosaicLabs[0])}>
-              View Lab 1 in Shop <ArrowRight size={17} />
-            </Link>
-            <span>3 labs · {participantRunCount} Shop proof scenarios · 40-45 minutes</span>
-          </div>
-        </div>
-        <div className="labs-intro-flow-wrap">
-          <LabsIntroFlow />
-        </div>
-      </header>
+      <MosaicLabsMasthead
+        action={(
+          <Link className="primary-button" href={shopScenarioHref(coreMosaicLabs[0])}>
+            Open a Shop scenario <ArrowRight size={17} />
+          </Link>
+        )}
+        currentView="Explore"
+        deck="Follow one real product request from candidate generation through a grounded recommendation, without leaving the shopping context behind."
+        eyebrow="Read-only system view"
+        supportingText="Replay the system after a Code Editor repair."
+        title="See how Mosaic decides."
+      />
 
       <section className="labs-engine labs-engine-board" aria-labelledby="labs-engine-title">
         <header className="labs-engine-heading">
           <div>
-            <p className="eyebrow">Retrieval and ranking engine</p>
-            <h2 id="labs-engine-title">From one sentence to a cited recommendation.</h2>
+            <p className="eyebrow">System replay</p>
+            <h2 id="labs-engine-title">From request to grounded recommendation.</h2>
             <p>
-              Replay the architecture path to see a real Mosaic product cohort
-              enter, narrow, reorder, and resolve into grounded evidence.
+              Select a stage or replay the canonical fixture. The records are
+              real; the animation is a read-only system map, not a new query.
             </p>
           </div>
           <button
@@ -434,7 +442,7 @@ export function MosaicLabsPage() {
             type="button"
           >
             <Play size={15} fill="currentColor" />
-            {isEnginePlaying ? "Tracing the path" : "Replay the path"}
+            {isEnginePlaying ? "Replaying fixture" : "Replay fixture"}
           </button>
         </header>
 
@@ -485,7 +493,7 @@ export function MosaicLabsPage() {
           <div className="labs-engine-products-wrap">
             <div className="labs-engine-products-heading">
               <span>{activeEngine.visual.productLabel}</span>
-              <small>Live premium catalog records</small>
+              <small>Canonical catalog fixture</small>
             </div>
             {engineProducts.length ? (
               <div className="labs-engine-products" key={activeEngine.step}>
@@ -533,12 +541,12 @@ export function MosaicLabsPage() {
       >
         <header className="labs-retrieval-contrasts-heading">
           <div>
-            <p className="eyebrow">Retriever contrast</p>
-            <h2 id="labs-retrieval-contrasts-title">One request, three retrieval outcomes.</h2>
+            <p className="eyebrow">Method contrast</p>
+            <h2 id="labs-retrieval-contrasts-title">Where one retrieval method stops being enough.</h2>
           </div>
           <p>
-            Run these read-only traces to see where a single retriever stops being
-            sufficient, then inspect exactly which candidates hybrid retrieval keeps.
+            These are optional, read-only traces. They expose the candidate
+            evidence behind the same Shop scenarios participants validate.
           </p>
         </header>
         <div className="labs-retrieval-contrast-grid">
@@ -556,7 +564,7 @@ export function MosaicLabsPage() {
                   {example.expected_outcome}
                 </p>
                 <Link href={retrievalExampleHref(example)}>
-                  Inspect FTS, vector, and hybrid <ArrowRight size={15} />
+                  Inspect the trace <ArrowRight size={15} />
                 </Link>
               </article>
             );
@@ -567,12 +575,12 @@ export function MosaicLabsPage() {
       <section className="labs-core" aria-labelledby="labs-core-title">
         <header className="labs-section-heading">
           <div>
-            <p className="eyebrow">Read-only observability</p>
-            <h2 id="labs-core-title">See what each Code Editor repair changes.</h2>
+            <p className="eyebrow">Observation gallery</p>
+            <h2 id="labs-core-title">Three lenses on the same system.</h2>
           </div>
           <p>
-            Workshop Studio owns the broken snippet, hint, and repair. Mosaic Labs
-            explains the system state; Shop is the customer-facing proof.
+            Author the repair in Code Editor. Validate its customer-visible
+            effect in Shop. Return here only to inspect the system evidence.
           </p>
         </header>
 
@@ -581,68 +589,69 @@ export function MosaicLabsPage() {
             const stage = stageDetails[lab.stage];
             const Icon = stage.Icon;
             const runs = [lab, ...checksFor(lab)];
+            const thumbnail = labThumbnails.get(lab.target_product_ids[0]);
             return (
               <article className={`labs-stage-card ${lab.stage}`} id={lab.id} key={lab.id}>
-                <header className="labs-stage-heading">
-                  <span>{String(index + 1).padStart(2, "0")}</span>
-                  <Icon size={20} />
-                  <div>
-                    <p>Lab {index + 1} · {stage.label}</p>
-                    <h3>{stage.observation}</h3>
-                  </div>
-                  <small>{lab.duration_minutes} min</small>
-                </header>
+                {thumbnail ? (
+                  <figure className="labs-stage-thumbnail">
+                    <img
+                      src={productImage(thumbnail)}
+                      alt={thumbnail.title}
+                      width={640}
+                      height={280}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <figcaption>
+                      <small>Product anchor</small>
+                      <strong>{thumbnail.model}</strong>
+                    </figcaption>
+                  </figure>
+                ) : null}
+                <div className="labs-stage-content">
+                  <header className="labs-stage-heading">
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <Icon size={21} />
+                    <div>
+                      <p>{stage.label}</p>
+                      <h3>{stage.observation}</h3>
+                    </div>
+                  </header>
 
-                <div className="labs-stage-question">
-                  <span>What to inspect</span>
-                  <strong>{stage.question}</strong>
-                </div>
-
-                <p className="labs-stage-techniques">
-                  {lab.expected_techniques.map((technique) => (
-                    <span key={technique}>{labelTechnique(technique)}</span>
-                  ))}
-                </p>
-
-                <dl className="labs-observation-sequence">
-                  <div>
-                    <dt>Before</dt>
-                    <dd>{lab.participant_edit?.broken_state ?? "The stage fails its retrieval contract."}</dd>
+                  <div className="labs-stage-question">
+                    <span>Inspect this</span>
+                    <strong>{stage.question}</strong>
                   </div>
-                  <div>
-                    <dt>After</dt>
-                    <dd>{lab.participant_edit?.fixed_state ?? lab.expected_outcome}</dd>
-                  </div>
-                  <div>
-                    <dt>Shop proof</dt>
-                    <dd>{lab.expected_outcome}</dd>
-                  </div>
-                </dl>
 
-                <div className="labs-shop-proofs" aria-label={`${stage.label} Shop proof scenarios`}>
-                  <p>{runs.length} Shop proof {runs.length === 1 ? "scenario" : "scenarios"}</p>
-                  {runs.map((run, runIndex) => (
-                    <Link
-                      href={shopScenarioHref(run)}
-                      key={run.id}
-                    >
-                      <span>{String(runIndex + 1).padStart(2, "0")}</span>
-                      <div>
-                        <strong>{run.checkpoint === "repair" ? "Core scenario" : "Control scenario"}</strong>
-                        <code>{run.query}</code>
-                      </div>
-                      <small>Shop</small>
-                      <ArrowRight size={15} />
+                  <p className="labs-stage-shop-proof">
+                    <span>Shop evidence</span>
+                    {lab.expected_outcome}
+                  </p>
+
+                  <p className="labs-stage-techniques">
+                    {lab.expected_techniques.map((technique) => (
+                      <span key={technique}>{labelTechnique(technique)}</span>
+                    ))}
+                  </p>
+
+                  <details className="labs-scenario-menu">
+                    <summary>{runs.length} related Shop scenarios</summary>
+                    <div>
+                      {runs.map((run) => (
+                        <Link href={shopScenarioHref(run)} key={run.id}>
+                          <code>{run.query}</code>
+                          <ArrowRight size={15} />
+                        </Link>
+                      ))}
+                    </div>
+                  </details>
+
+                  <footer>
+                    <Link href={shopScenarioHref(lab)}>
+                      Open in Shop <ArrowRight size={16} />
                     </Link>
-                  ))}
+                  </footer>
                 </div>
-
-                <footer>
-                  <Link href={shopScenarioHref(lab)}>
-                    Open Shop scenario <ArrowRight size={15} />
-                  </Link>
-                  <span>{lab.canonical_query_id}</span>
-                </footer>
               </article>
             );
           })}
@@ -662,11 +671,11 @@ export function MosaicLabsPage() {
       </section>
 
       {advancedLabs.length > 0 ? (
-        <details className="labs-advanced" open>
+        <details className="labs-advanced">
           <summary>
             <span>
               <Activity size={18} />
-              <strong>Advanced observability</strong>
+              <strong>Advanced diagnostics</strong>
               <small>Optional HNSW operating point and retrieval evaluation</small>
             </span>
             <Wrench size={17} />

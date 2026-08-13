@@ -1,85 +1,65 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../api";
-import { showcaseProductDetail } from "../showcase";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { MosaicStudioPage } from "./MosaicStudioPage";
 
-vi.mock("../api", () => ({
-  api: {
-    product: vi.fn(),
-  },
-}));
-
-const chair = showcaseProductDetail(370001)!;
-const display = showcaseProductDetail(420001)!;
-const keyboard = {
-  ...chair,
-  product_id: 429001,
-  title: "Keysmith MX Quiet Mechanical Wireless Keyboard",
-  model: "MX Quiet",
-  brand: "Keysmith",
-  sku: "KEY-MX-QUIET",
-  category_key: "quiet-keyboards",
-  category_path: "Workspace > Input Devices > Quiet Keyboards",
-  price_cents: 16999,
-  short_description: "Quiet mechanical input for focused work.",
-  long_description: "A quiet mechanical keyboard for long, focused workdays.",
-  attributes: { quiet_typing: true, wireless: true },
-};
-
 describe("MosaicStudioPage", () => {
-  beforeEach(() => {
-    vi.mocked(api.product).mockReset();
-    vi.mocked(api.product).mockImplementation(async (productId) => {
-      const product = new Map([
-        [370001, chair],
-        [420001, display],
-        [429001, keyboard],
-      ]).get(productId);
-      if (!product) throw new Error(`Unexpected studio product ${productId}`);
-      return product;
-    });
+  beforeAll(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   });
 
   afterEach(cleanup);
 
-  it("keeps Studio outside the required Labs path and hands off to Shop", async () => {
+  it("renders curated catalog fixtures immediately without a retrieval request", () => {
     render(<MosaicStudioPage />);
 
-    expect(screen.getByRole("link", { name: "Workshop" }).getAttribute("href")).toBe(
+    expect(screen.getByRole("link", { name: "Explore" }).getAttribute("href")).toBe(
       "/mosaic-labs",
     );
     expect(screen.getByRole("link", { name: "Studio" }).getAttribute("aria-current")).toBe(
       "page",
     );
+    expect(screen.getByText("Optional exploration · Curated catalog fixture")).toBeTruthy();
+    expect(document.querySelector(".labs-intro-flow[aria-hidden=true] canvas")).toBeTruthy();
     expect(
-      screen.getByText(/It is a selected composition, not a generated recommendation\./),
+      screen.getByText(/The language below is a creative brief, not an executed search/),
     ).toBeTruthy();
-
-    await waitFor(() => {
-      expect(api.product).toHaveBeenCalledTimes(3);
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Assemble the studio" }));
-
-    expect(screen.getByRole("link", { name: /Forma Ergonomic/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Atelier 32/ })).toBeTruthy();
-    expect(screen.getByRole("link", { name: /MX Quiet/ })).toBeTruthy();
-    expect(screen.getByText("Studio assembled")).toBeTruthy();
-
-    const workspace = screen.getByRole("link", { name: "Shop the workspace" });
-    expect(workspace.getAttribute("href")).toBe("/catalog?domain=home_office");
+    expect(screen.getByRole("button", { name: "Assemble the studio" })).toBeTruthy();
+    expect(screen.getByText("Three curated sets ready")).toBeTruthy();
+    expect(screen.queryByText(/Retrieving studio candidates/)).toBeNull();
   });
 
-  it("does not fabricate products when Aurora records cannot load", async () => {
-    vi.mocked(api.product).mockRejectedValue(new Error("Aurora is unavailable"));
+  it("changes fixture briefs and rotates the visible catalog piece", () => {
     render(<MosaicStudioPage />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Assemble the studio" }));
+    expect(screen.getByRole("link", { name: /Forma Ergonomic/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Atelier 32/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Keysmith MX Quiet/ })).toBeTruthy();
+    expect(screen.getAllByText("Curated piece 1 of 3")).toHaveLength(3);
+
+    fireEvent.click(screen.getByRole("button", { name: "Try another Focus seating" }));
+    expect(screen.getByRole("link", { name: /PostureWorks Pro Mesh/ })).toBeTruthy();
+    expect(screen.getByText("Curated piece 2 of 3")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Shared studio" }));
+    expect(screen.getByRole("button", { name: "Assemble the studio" })).toBeTruthy();
+    expect(screen.getByText("A calm setup for shared creative work.")).toBeTruthy();
     expect(
-      await screen.findByText("Studio pieces are unavailable."),
+      screen.getByText("quiet wireless input for a shared creative workspace"),
     ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Assemble the studio" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Shop the workspace" })).toBeNull();
+  });
+
+  it("starts and stops the optional studio tour without waiting for retrieval", () => {
+    render(<MosaicStudioPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Play studio tour" }));
+    expect(screen.getByRole("button", { name: "Stop studio tour" })).toBeTruthy();
+    expect(screen.getByText("Studio assembled")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop studio tour" }));
+    expect(screen.getByRole("button", { name: "Play studio tour" })).toBeTruthy();
   });
 });
