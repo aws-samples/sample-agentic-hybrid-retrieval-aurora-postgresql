@@ -113,6 +113,25 @@ def test_canonical_set_covers_the_workshop_failure_modes():
     } <= concepts
 
 
+def test_agent_orchestration_is_not_scored_as_single_request_retrieval():
+    agent_case = next(query for query in QUERIES if query["query_id"] == "G-010")
+    assert agent_case["evaluation_scope"] == "agent_contract"
+
+
+def test_repaired_fixture_release_checks_are_machine_verifiable():
+    by_id = {query["query_id"]: query for query in QUERIES}
+    assert by_id["G-001"]["release_checks"] == [
+        {"type": "top_rank", "product_id": 17001}
+    ]
+    assert by_id["G-015"]["release_checks"] == [
+        {"type": "top_rank", "product_id": 210001},
+        {"type": "present_top_k", "product_id": 210002, "k": 3},
+    ]
+    assert by_id["G-019"]["release_checks"] == [
+        {"type": "top_rank", "product_id": 30001}
+    ]
+
+
 def test_lab_2_judgment_matches_the_explicit_adjustable_lumbar_intent():
     query = next(item for item in QUERIES if item["query_id"] == "G-008")
     grades = {

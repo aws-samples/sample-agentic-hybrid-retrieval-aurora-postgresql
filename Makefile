@@ -29,11 +29,11 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
-	validate-missions validate-evals validate-config validate-functions \
+	validate-missions validate-evals score-evals validate-config validate-functions \
 	test db-render db-prepare-mosaic \
 	db-embed simulate db-export-embeddings db-import-embeddings \
 	verify-embedding-cache db-configure-retrieval lab-status validate-lab-3 solution-lab-3 api-serve \
@@ -52,7 +52,7 @@ check-dsn:
 	}
 
 DSN_TARGETS := test db-install db-install-labs db-upgrade-snapshot \
-	validate-missions validate-evals validate-functions \
+	validate-missions validate-evals score-evals validate-functions \
 	lab-01 db-load-mosaic db-index-concurrent db-load-cohort db-load-evidence db-smoke \
 	db-bootstrap-cached db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
 	db-configure-retrieval db-apply-search-functions reset-lab-1 validate-lab-1 solution-lab-1 \
@@ -144,6 +144,11 @@ validate-evals:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/run_eval.py --validate-only
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/run_eval.py \
 		--queries data/evals/canonical_queries.jsonl --validate-only
+
+# Release-only model gate. It runs the served FTS + pg_trgm + HNSW + unweighted
+# RRF + managed-reranker path and rejects a scorecard regression.
+score-evals:
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/score_evals.py
 
 # db/config/retrieval.yaml is the single source for candidate limits, fusion k,
 # weights, and the trigram threshold. This fails if any other file declares one,

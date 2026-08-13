@@ -168,6 +168,14 @@ button:disabled {
   min-height: 100vh;
 }
 
+.route-loading {
+  margin: 0;
+  padding: 48px 24px;
+  color: var(--ink-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
 /* One header for every surface: brand left, nav centred, actions right.
    The landing used to draw its own copy and the two drifted to different
    wordmarks and different heights. Height comes from --topbar-height, which is

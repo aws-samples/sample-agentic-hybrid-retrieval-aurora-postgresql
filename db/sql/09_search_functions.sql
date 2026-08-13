@@ -745,13 +745,39 @@ WITH lexical AS (
     LIMIT 50
 ), semantic AS (
     SELECT e.evidence_id,
-           (1 - (e.embedding <=> query_embedding))::real AS score,
-           row_number() OVER (ORDER BY e.embedding <=> query_embedding, e.evidence_id) AS rank
+           (
+               1 - (
+                   CASE
+                       WHEN e.embedding IS NOT NULL THEN e.embedding
+                       ELSE d.embedding
+                   END <=> query_embedding
+               )
+           )::real AS score,
+           row_number() OVER (
+               ORDER BY
+                   CASE
+                       WHEN e.embedding IS NOT NULL THEN e.embedding
+                       ELSE d.embedding
+                   END <=> query_embedding,
+                   e.evidence_id
+           ) AS rank
     FROM mosaic.product_evidence e
+    JOIN mosaic_search.product_document d USING (product_id)
     WHERE e.product_id = p_product_id
-      AND e.embedding IS NOT NULL
+      AND (
+          e.embedding IS NOT NULL
+          OR (
+              e.evidence_type = 'product_spec'::mosaic.evidence_type
+              AND d.embedding IS NOT NULL
+          )
+      )
       AND (p_evidence_types IS NULL OR e.evidence_type = ANY (p_evidence_types))
-    ORDER BY e.embedding <=> query_embedding
+    ORDER BY
+        CASE
+            WHEN e.embedding IS NOT NULL THEN e.embedding
+            ELSE d.embedding
+        END <=> query_embedding,
+        e.evidence_id
     LIMIT 50
 ), fused AS (
     SELECT coalesce(l.evidence_id, s.evidence_id) AS evidence_id,

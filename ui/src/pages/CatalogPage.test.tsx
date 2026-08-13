@@ -207,6 +207,16 @@ describe("CatalogPage", () => {
     expect(screen.getAllByText("RRF #2").length).toBeGreaterThan(0);
   });
 
+  it("shows a catalog failure instead of substituting showcase products", async () => {
+    vi.mocked(api.catalog).mockRejectedValue(new Error("Aurora catalog is unavailable"));
+    renderPage();
+
+    expect(
+      await screen.findByText("Aurora catalog is unavailable"),
+    ).toBeTruthy();
+    expect(document.querySelectorAll("[data-product-id]")).toHaveLength(0);
+  });
+
   it("shows the inspectable hybrid pipeline while Shop retrieval is pending", async () => {
     let releaseSearch: (value: SearchResponse) => void = () => {};
     vi.mocked(api.search).mockImplementation(

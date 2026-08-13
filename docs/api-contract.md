@@ -24,7 +24,8 @@ The response contains:
 - `run_id`, original query, and normalized query;
 - applied hard filters;
 - source-attributed products;
-- separate lexical, trigram, semantic, RRF, and rerank signals;
+- separate lexical, trigram, semantic, RRF, and rerank signals, including the
+  model's rerank rank and any exact-SKU preservation applied to final order;
 - candidate counts, arm weights, model IDs, stage timings, and total latency.
 
 Search returns ranked evidence, not a natural-language answer.
@@ -73,8 +74,9 @@ until replaced by measured Aurora output.
 ## Runtime status
 
 - `GET /api/health` reports the configured service and model IDs.
-- `GET /api/readiness` verifies schema state, embedded rows, and model-space
-  compatibility.
+- `GET /api/readiness` verifies the product/vector counts, premium cohort,
+  specification-evidence coverage, required retrieval indexes/functions,
+  model-space compatibility, and the current process's AWS credential validity.
 
 ## Production additions
 

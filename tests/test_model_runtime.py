@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from botocore.exceptions import ClientError
 from fastapi.testclient import TestClient
 
 from service import agent_tools
@@ -25,8 +26,10 @@ from service.models import (
     EvidenceRecord,
     ProductSummary,
     SearchFilters,
+    SearchResponse,
     SourceAttribution,
 )
+from service.model_runtime import ModelRuntimeError
 from service.rerank import BedrockReranker
 from service.synthesis import synthesize_cited_answer
 
@@ -471,8 +474,9 @@ def test_grounding_completion_uses_a_bounded_cross_search_shortlist(monkeypatch)
     evidence_calls: list[int] = []
     finalized: list[int] = []
 
-    def read_evidence(product_id):
+    def read_evidence(product_id, evidence_query):
         evidence_calls.append(product_id)
+        assert evidence_query == "Compare the options."
         state["evidence_by_product"][product_id] = [9000 + product_id]
         return {"ok": True}
 
@@ -506,7 +510,7 @@ def test_grounding_completion_fails_when_evidence_is_not_attached(monkeypatch):
     monkeypatch.setattr(
         agent_tools,
         "get_product_evidence",
-        lambda _product_id: {"ok": True, "evidence": [evidence()]},
+        lambda _product_id, _evidence_query: {"ok": True, "evidence": [evidence()]},
     )
     try:
         with pytest.raises(RuntimeError, match="No retrieved evidence"):
@@ -802,6 +806,198 @@ def test_agent_search_tool_enforces_its_two_search_budget():
             "synthesize_cited_answer, or state the evidence gap."
         ),
     }
+
+
+def test_agent_search_keeps_the_served_rank_order_before_evidence_retrieval(
+    monkeypatch,
+):
+    """Evidence availability cannot rewrite product retrieval order."""
+    ranked = [
+        product().model_copy(update={"product_id": 301, "model": "First"}),
+        product().model_copy(update={"product_id": 302, "model": "Second"}),
+        product().model_copy(update={"product_id": 303, "model": "Third"}),
+    ]
+    response = SearchResponse(
+        search_event_id=uuid4(),
+        query="quiet office gear",
+        normalized_query="quiet office gear",
+        applied_filters={},
+        results=ranked,
+        diagnostics=None,
+    )
+
+    class FakeRetrieval:
+        def search(self, request):
+            assert request.limit == get_settings().rerank_candidate_limit
+            return response
+
+    state = {
+        "base_filters": SearchFilters(),
+        "result_limit": 3,
+        "searches": [],
+        "search_event_ids": [],
+        "products": {},
+        "trace": [],
+    }
+    token = agent_tools._RUN.set(state)
+    monkeypatch.setattr(agent_tools, "get_retrieval_service", lambda: FakeRetrieval())
+    try:
+        result = agent_tools.search_products.__wrapped__(
+            "quiet office gear",
+            limit=2,
+        )
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert result["ok"] is True
+    assert [item["product_id"] for item in result["products"]] == [301, 302]
+    assert state["searches"][0]["product_ids"] == [301, 302]
+    assert [item.product_id for item in state["products"].values()] == [301, 302]
+
+
+def test_evidence_tool_forwards_question_and_embedding_to_catalog(monkeypatch):
+    expected_embedding = [0.125, 0.25]
+    captured: dict[str, object] = {}
+
+    class FakeRetrieval:
+        def embed_query(self, query):
+            captured["embedding_query"] = query
+            return expected_embedding
+
+    def read_evidence(product_id, query, embedding, *, limit):
+        captured.update(
+            product_id=product_id,
+            query=query,
+            embedding=embedding,
+            limit=limit,
+        )
+        return [evidence()]
+
+    state = {
+        "products": {101: product()},
+        "evidence": {},
+        "evidence_by_product": {},
+        "trace": [],
+    }
+    token = agent_tools._RUN.set(state)
+    monkeypatch.setattr(agent_tools, "get_retrieval_service", lambda: FakeRetrieval())
+    monkeypatch.setattr(agent_tools, "get_product_evidence_records", read_evidence)
+    try:
+        result = agent_tools.get_product_evidence.__wrapped__(
+            101,
+            "Which fact supports long-flight comfort?",
+        )
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert result["ok"] is True
+    assert captured == {
+        "embedding_query": "Which fact supports long-flight comfort?",
+        "product_id": 101,
+        "query": "Which fact supports long-flight comfort?",
+        "embedding": expected_embedding,
+        "limit": len(agent_tools.SEARCH_SLOTS),
+    }
+    assert state["evidence_by_product"] == {101: [9001]}
+
+
+def test_evidence_tool_surfaces_expired_bedrock_credentials(monkeypatch):
+    class ExpiredRetrieval:
+        def embed_query(self, _query):
+            raise ClientError(
+                {"Error": {"Code": "ExpiredTokenException", "Message": "expired"}},
+                "InvokeModel",
+            )
+
+    state = {
+        "products": {101: product()},
+        "evidence": {},
+        "evidence_by_product": {},
+        "trace": [],
+    }
+    token = agent_tools._RUN.set(state)
+    monkeypatch.setattr(
+        agent_tools,
+        "get_retrieval_service",
+        lambda: ExpiredRetrieval(),
+    )
+    try:
+        with pytest.raises(
+            ModelRuntimeError,
+            match="Refresh the active AWS session and restart the API process",
+        ):
+            agent_tools.get_product_evidence.__wrapped__(
+                101,
+                "Which fact supports long-flight comfort?",
+            )
+    finally:
+        agent_tools._RUN.reset(token)
+
+
+def test_agent_api_reports_expired_bedrock_credentials_without_hiding_the_cause(
+    monkeypatch,
+):
+    class ExpiredAgent:
+        def answer(self, _request):
+            raise ClientError(
+                {"Error": {"Code": "ExpiredTokenException", "Message": "expired"}},
+                "Converse",
+            )
+
+    monkeypatch.setattr(
+        "service.main.get_product_discovery_agent",
+        lambda: ExpiredAgent(),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/agent/answer",
+        json={"question": "What should I buy?", "filters": {}, "result_limit": 2},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "Amazon Bedrock credentials are unavailable (ExpiredTokenException). "
+        "Refresh the active AWS session and restart the API process."
+    )
+
+
+def test_readiness_blocks_when_a_required_retrieval_artifact_is_missing(monkeypatch):
+    monkeypatch.setattr(
+        "service.main.readiness",
+        lambda: {
+            "schema_ready": True,
+            "product_count": 500000,
+            "embedded_product_count": 500000,
+            "embedding_model_ids": ["us.cohere.embed-v4:0"],
+            "premium_product_count": 120,
+            "evidence_product_count": 500000,
+            "missing_retrieval_indexes": ["product_document_fts_gin_idx"],
+            "missing_retrieval_functions": [],
+        },
+    )
+    monkeypatch.setattr(
+        "service.main.bedrock_credentials_status",
+        lambda _region: {"ready": True},
+    )
+    client = TestClient(app)
+
+    response = client.get("/api/readiness")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "blocked"
+    assert response.json()["database_ready"] is False
+    assert response.json()["database"]["missing_retrieval_indexes"] == [
+        "product_document_fts_gin_idx"
+    ]
+
+
+def test_readiness_sql_requires_artifacts_in_the_mosaic_search_schema():
+    source = (ROOT / "service/db.py").read_text(encoding="utf-8")
+
+    assert "index_schema.nspname = 'mosaic_search'" in source
+    assert "namespace.nspname = 'mosaic_search'" in source
+    assert "WHERE NOT EXISTS (" in source
 
 
 def test_public_runtime_contracts_are_inspectable():

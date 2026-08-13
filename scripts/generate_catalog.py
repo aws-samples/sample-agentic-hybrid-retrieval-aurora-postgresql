@@ -604,8 +604,8 @@ def specialized_attributes(ctx: ProductContext, rng: random.Random, cohorts: lis
     if "hard_negative" in cohorts:
         if "carbon_plate" in attrs:
             attrs["carbon_plate"] = False
-            feature = "carbon-look support shank"
-            benefit = "stable everyday training without a rigid race plate"
+            feature = "reinforced polymer support shank"
+            benefit = "stable everyday training"
             tags = [t for t in tags if t != "carbon plate"] + ["non-plated"]
         elif "active_noise_cancellation" in attrs:
             attrs["active_noise_cancellation"] = False

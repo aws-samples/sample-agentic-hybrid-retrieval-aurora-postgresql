@@ -16,6 +16,13 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import sys
+
+REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from scripts.catalog_overrides import apply_curated_override
 
 DOMAIN_MAP = {
     "consumer_electronics": "consumer_electronics",
@@ -86,6 +93,19 @@ def cohort_product_ids(path: Path | None) -> set[int] | None:
     return product_ids
 
 
+def load_overrides(path: Path | None) -> dict[int, dict[str, object]]:
+    """Load presentation and retrieval corrections without changing IDs."""
+    if path is None:
+        return {}
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(rows, list):
+        raise SystemExit("--overrides must contain a JSON array")
+    overrides = {int(row["product_id"]): row for row in rows}
+    if len(overrides) != len(rows):
+        raise SystemExit("--overrides contains duplicate product_id values")
+    return overrides
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=Path, nargs="+")
@@ -96,9 +116,16 @@ def main() -> None:
         type=Path,
         help="Optional JSON cohort; only rows with listed product_id values are emitted.",
     )
+    parser.add_argument(
+        "--overrides",
+        type=Path,
+        default=REPO / "data" / "curated" / "demo_products.json",
+        help="Curated catalog corrections applied before normalized output.",
+    )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     selected_product_ids = cohort_product_ids(args.cohort)
+    overrides = load_overrides(args.overrides)
 
     brand_ids: dict[str, int] = {}
     category_ids: dict[tuple[str, str, str], int] = {}
@@ -124,6 +151,9 @@ def main() -> None:
                 reader = csv.DictReader(source)
                 for row in reader:
                     product_id = int(row["product_id"])
+                    override = overrides.get(product_id)
+                    if override is not None:
+                        apply_curated_override(row, override)
                     if (
                         selected_product_ids is not None
                         and product_id not in selected_product_ids

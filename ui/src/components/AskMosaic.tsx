@@ -298,8 +298,17 @@ function Ranking({ response, open }: { response: AgentResponse; open: boolean })
         </div>
         <div>
           <dt>Reranker</dt>
-          <dd>{signals.rerank_score?.toFixed(3) ?? "-"}</dd>
+          <dd>
+            {signals.rerank_score?.toFixed(3) ?? "-"}
+            {signals.rerank_rank ? ` (#${signals.rerank_rank})` : ""}
+          </dd>
         </div>
+        {signals.exact_sku_match ? (
+          <div>
+            <dt>Catalog identity</dt>
+            <dd>Exact SKU</dd>
+          </div>
+        ) : null}
         <div>
           <dt>Final</dt>
           <dd>{signals.final_rank}</dd>

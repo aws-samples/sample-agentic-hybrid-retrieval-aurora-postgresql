@@ -41,8 +41,7 @@ BEGIN
         VALUES
             ('product_document_fts_gin_idx'),
             ('product_document_trigram_gin_idx'),
-            ('product_document_embedding_hnsw_cosine_idx'),
-            ('product_evidence_embedding_hnsw_cosine_idx')
+            ('product_document_embedding_hnsw_cosine_idx')
     ) AS required(name)
     LEFT JOIN pg_class index_relation
       ON index_relation.relname = required.name
@@ -83,11 +82,11 @@ BEGIN
             'DAT410 bootstrap requires 120 premium products; found %. Re-run make db-load-cohort.',
             premium_count;
     END IF;
-    IF evidence_count <> 15120
-       OR specification_count <> 120
+    IF evidence_count <> 515000
+       OR specification_count <> 500000
        OR review_count <> 15000 THEN
         RAISE EXCEPTION
-            'DAT410 bootstrap requires 120 specifications and 15000 verified reviews; specifications=%, reviews=%, total=%. Re-run make db-load-evidence.',
+            'DAT410 bootstrap requires 500000 product specifications and 15000 verified reviews; specifications=%, reviews=%, total=%. Re-run make db-load-evidence.',
             specification_count, review_count, evidence_count;
     END IF;
 END

@@ -1,0 +1,44 @@
+{
+  "canonical_query_count": 20,
+  "deterministic_release_checks": [
+    {
+      "product_id": 17001,
+      "query_id": "G-001",
+      "type": "top_rank"
+    },
+    {
+      "product_id": 210001,
+      "query_id": "G-015",
+      "type": "top_rank"
+    },
+    {
+      "k": 3,
+      "product_id": 210002,
+      "query_id": "G-015",
+      "type": "present_top_k"
+    },
+    {
+      "product_id": 30001,
+      "query_id": "G-019",
+      "type": "top_rank"
+    }
+  ],
+  "excluded_agent_contract_queries": [
+    "G-010"
+  ],
+  "k": 10,
+  "metrics": {
+    "mrr": 0.9228070175438597,
+    "ndcg@10": 0.8486607653000183,
+    "recall@10": 0.8245614035087719
+  },
+  "models": {
+    "embedding": "us.cohere.embed-v4:0",
+    "rerank": "cohere.rerank-v3-5:0"
+  },
+  "product_retrieval_query_count": 19,
+  "query_set": "data/evals/canonical_queries.jsonl",
+  "query_set_sha256": "f1b2fabd69fd5565eab7fd8da22b60841f7929465362f002149441cc8537bdc9",
+  "scored_query_set_sha256": "b152fc0f08e304b84ffb1a6f6b71eed3881db97a64a0a0eb0710ecdb30a7ef62",
+  "strategy": "rrf_fusion+rerank+exact_sku_preservation"
+}

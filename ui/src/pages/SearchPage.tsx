@@ -25,7 +25,6 @@ import { agentLabOutcome } from "../labOutcome";
 import { mosaicRetrievalExamples } from "../labMissions";
 import { productImage, productImageMap } from "../media";
 import { useSearchParams } from "../navigation";
-import { showcaseSearchResponse } from "../showcase";
 import type {
   AgentResponse,
   Domain,
@@ -189,7 +188,6 @@ export function SearchPage() {
   const [agent, setAgent] = useState<AgentResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [preview, setPreview] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
   const [agentStreaming, setAgentStreaming] = useState(false);
   const [streamedAnswer, setStreamedAnswer] = useState("");
@@ -258,18 +256,9 @@ export function SearchPage() {
         } else {
           setSearch(await api.search(nextQuery, filters));
         }
-        setPreview(false);
       } catch (cause) {
-        // Agent mode needs the model and the catalog, so it cannot be faked.
-        // Retrieval degrades to the local seed so the surface stays navigable,
-        // and the banner below says the pipeline did not run.
-        if (nextMode === "retrieval") {
-          setSearch(showcaseSearchResponse(nextQuery, filters));
-          setPreview(true);
-        } else {
-          setError(cause instanceof Error ? cause.message : "Search failed");
-          setAgentStreaming(false);
-        }
+        setError(cause instanceof Error ? cause.message : "Search failed");
+        setAgentStreaming(false);
       } finally {
         if (version === requestVersion.current) setLoading(false);
       }
@@ -372,14 +361,6 @@ export function SearchPage() {
             ))}
           </div>
         </section>
-      ) : null}
-
-      {preview ? (
-        <p className="search-preview-note" role="status">
-          The retrieval service is unreachable, so these results come from the
-          local preview seed by term overlap. Ranking signals, fusion, and
-          reranking did not run.
-        </p>
       ) : null}
 
       {mode === "agent" && (loading || agentStreaming) ? (

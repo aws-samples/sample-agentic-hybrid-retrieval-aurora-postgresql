@@ -73,8 +73,13 @@ The full Python gate includes five read-only integration tests against Aurora:
 export DATABASE_URL='postgresql://USER:PASSWORD@YOUR-CLUSTER.cluster-xxxx.us-east-1.rds.amazonaws.com:5432/mosaic_catalog?sslmode=require'
 make validate-missions
 make validate-evals
+make score-evals
 make test
 ```
+
+`make score-evals` is the release scorecard for the curated product-retrieval
+subset. The multi-tool agent scenario is validated through Lab 3's contract
+gate, not misrepresented as a single product-ranking query.
 
 An unset `DATABASE_URL` is a release-gate failure, not a skipped integration
 suite.
@@ -190,16 +195,17 @@ make ui-dev
 Open `http://127.0.0.1:5173`. Set `API_PORT`, `UI_PORT`, or
 `CATALOG_API_PROXY` when those defaults are already occupied.
 
-Mosaic provides connected Discover, Catalog, Search, Product Detail, Mosaic
-Labs, Retrieval Lab, and Performance surfaces. The source app owns the lab
-contract
+Mosaic visibly provides Discover, Shop, and Mosaic Labs. Product detail,
+retrieval inspection, and the optional HNSW route are contextual or internal
+surfaces rather than competing navigation destinations. The source app owns the
+lab contract
 in [`data/evals/mosaic_labs_missions.json`](data/evals/mosaic_labs_missions.json):
 three required labs, supporting retrieval checks, ground-truth product IDs,
 hard filters, timings, and evaluation
 assertions. The separate Workshop Studio repository owns participant guides,
 deliberate starter gaps, and code-editor exercises. Search and agent results
-come from the real API; the UI does not calculate retrieval scores or
-substitute static products.
+come from the real API; the UI does not calculate retrieval scores and displays
+an explicit unavailable state instead of substituting static products.
 
 ## MCP Portable Tool Contract
 

@@ -10,12 +10,10 @@ from uuid import UUID, uuid4
 
 from strands import tool
 
-from service.catalog import (
-    get_evidence_product_ids,
-    get_product_evidence_records,
-)
+from service.catalog import get_product_evidence_records
 from service.config import get_settings
 from service.db import connect
+from service.model_runtime import model_runtime_error
 from service.models import (
     ProductSummary,
     SearchFilters,
@@ -332,15 +330,18 @@ def search_products(
             SearchRequest(
                 query=query,
                 filters=filters,
-                # The retrieval event retains the complete bounded rerank
-                # window. The agent shortlist is selected below from candidates
-                # that can support a citation, without changing retrieval rank.
+                # The agent receives the complete bounded rerank window. Evidence
+                # is retrieved later for its selected products; it never changes
+                # product eligibility or retrieval order.
                 limit=get_settings().rerank_candidate_limit,
                 include_diagnostics=True,
                 rerank=True,
             )
         )
     except Exception as error:
+        classified = model_runtime_error(error)
+        if classified is not None:
+            raise classified from error
         logger.warning("search_products failed: %s", error)
         _record(
             "search_products",
@@ -354,30 +355,20 @@ def search_products(
             "retry with a narrower query or fewer filters.",
         )
 
-    evidence_ids = get_evidence_product_ids(
-        [product.product_id for product in response.results]
-    )
-    grounded_results = [
-        product
-        for product in response.results
-        if product.product_id in evidence_ids
-    ][:requested_limit]
-    if not grounded_results:
+    ranked_results = response.results[:requested_limit]
+    if not ranked_results:
         _record(
             "search_products",
             arguments,
             started,
             search_event_id=response.search_event_id,
             result_count=0,
-            detail=(
-                "Retrieval completed, but no candidate in the bounded rerank "
-                "window had source-addressable evidence."
-            ),
+            detail="Retrieval completed, but no eligible product was returned.",
             outcome="error",
         )
         return _failure(
-            "no evidence-backed products were available in the ranked window",
-            "retry with a more specific product intent or exact identifier.",
+            "no eligible products were available in the ranked window",
+            "retry with a broader query or fewer filters.",
         )
 
     state["search_event_ids"].append(response.search_event_id)
@@ -387,33 +378,32 @@ def search_products(
             "filters": filters,
             "purpose": f"Retrieve products for: {query}",
             "product_ids": [
-                product.product_id for product in grounded_results
+                product.product_id for product in ranked_results
             ],
         }
     )
-    for product in grounded_results:
+    for product in ranked_results:
         state["products"].setdefault(product.product_id, product)
     _record(
         "search_products",
         arguments,
         started,
         search_event_id=response.search_event_id,
-        result_count=len(grounded_results),
+        result_count=len(ranked_results),
         detail=(
-            f"Retrieved {len(grounded_results)} evidence-backed products from "
-            f"{len(response.results)} ranked candidates."
+            f"Retrieved {len(ranked_results)} ranked products from the bounded "
+            f"rerank window; evidence remains a separate query-grounded step."
         ),
     )
     return {
         "ok": True,
         "search_event_id": str(response.search_event_id),
-        "products": [_product_for_model(product) for product in grounded_results],
+        "products": [_product_for_model(product) for product in ranked_results],
         "diagnostics": (
             {
                 "strategy": response.diagnostics.strategy,
                 "rerank_status": response.diagnostics.rerank_status,
                 "candidate_counts": response.diagnostics.candidate_counts,
-                "evidence_eligible": len(grounded_results),
                 "warnings": response.diagnostics.warnings,
             }
             if response.diagnostics
@@ -423,11 +413,13 @@ def search_products(
 
 
 @tool
-def get_product_evidence(product_id: int) -> dict[str, Any]:
-    """Read one retrieved product's specifications and review evidence.
+def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]:
+    """Retrieve question-ranked evidence for one retrieved product.
 
     Args:
         product_id: A product ID returned by search_products.
+        evidence_query: The shopper question or focused subquestion that the
+            evidence must support.
 
     Returns:
         Compact retrieved-product context and bounded source-addressable
@@ -440,15 +432,41 @@ def get_product_evidence(product_id: int) -> dict[str, Any]:
             "product_id was not returned by this agent run",
             "call search_products first and use a product_id from its results.",
         )
-    product = state["products"][product_id]
-    evidence = get_product_evidence_records(
-        product_id,
-        limit=len(SEARCH_SLOTS),
-    )
+    if not evidence_query.strip():
+        return _failure(
+            "evidence_query was empty",
+            "pass the shopper question or a focused subquestion to rank evidence.",
+        )
+    arguments = {"product_id": product_id, "evidence_query": evidence_query}
+    try:
+        query_embedding = get_retrieval_service().embed_query(evidence_query)
+        evidence = get_product_evidence_records(
+            product_id,
+            evidence_query,
+            query_embedding,
+            limit=len(SEARCH_SLOTS),
+        )
+    except Exception as error:
+        classified = model_runtime_error(error)
+        if classified is not None:
+            raise classified from error
+        logger.warning("get_product_evidence failed: %s", error)
+        _record(
+            "get_product_evidence",
+            arguments,
+            started,
+            result_count=0,
+            detail=f"Evidence retrieval failed with {type(error).__name__}.",
+            outcome="error",
+        )
+        return _failure(
+            f"evidence retrieval failed with {type(error).__name__}",
+            "retry with a focused evidence question or another retrieved product.",
+        )
     if not evidence:
         _record(
             "get_product_evidence",
-            {"product_id": product_id},
+            arguments,
             started,
             result_count=0,
             detail="No evidence records were available for the retrieved product.",
@@ -467,10 +485,13 @@ def get_product_evidence(product_id: int) -> dict[str, Any]:
 # LAB3_EVIDENCE_STATE_END
     _record(
         "get_product_evidence",
-        {"product_id": product_id},
+        arguments,
         started,
         result_count=len(evidence),
-        detail=f"Retrieved {len(evidence)} source-addressable evidence records.",
+        detail=(
+            f"Retrieved {len(evidence)} source-addressable evidence record(s) "
+            "ranked against the supplied evidence query."
+        ),
     )
     return {
         "ok": True,
@@ -648,6 +669,9 @@ def synthesize_cited_answer(
     try:
         answer, citations, usage = synthesize_answer(question, products, evidence)
     except Exception as error:
+        classified = model_runtime_error(error)
+        if classified is not None:
+            raise classified from error
         logger.warning("synthesize_cited_answer failed: %s", error)
         _record(
             "synthesize_cited_answer",
@@ -718,7 +742,7 @@ def complete_grounded_answer(question: str) -> None:
     for product_id in product_ids:
         if state["evidence_by_product"].get(product_id):
             continue
-        result = get_product_evidence(product_id)
+        result = get_product_evidence(product_id, question)
         if not result.get("ok"):
             raise RuntimeError(result["error"])
     finalize_retrieved_answer(question, product_ids=product_ids)

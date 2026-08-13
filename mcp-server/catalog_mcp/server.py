@@ -44,7 +44,7 @@ mcp = MCPServer(
     title="Mosaic hybrid product retrieval",
     description=(
         "Read-only product discovery through PostgreSQL full-text, pg_trgm, "
-        "pgvector HNSW, hard filters, weighted RRF, and Cohere Rerank."
+        "pgvector HNSW, hard filters, unweighted RRF, and Cohere Rerank."
     ),
     instructions=(
         "Use search_products to create a source-attributed candidate set. "
@@ -125,7 +125,7 @@ def get_product_evidence(product_id: int) -> ProductDetail:
 @mcp.tool(
     title="Inspect a retrieval run",
     description=(
-        "Replay persisted lexical, trigram, semantic, RRF, rerank, business, "
+        "Replay persisted lexical, trigram, semantic, RRF, rerank, "
         "filter, timing, and final-order signals for one search run."
     ),
     annotations=READ_ONLY_LOOKUP,

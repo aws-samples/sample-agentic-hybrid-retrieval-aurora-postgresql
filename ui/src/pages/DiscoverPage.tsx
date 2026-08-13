@@ -5,7 +5,6 @@ import { api } from "../api";
 import { ProductCard } from "../components/ProductCard";
 import { productImageMap } from "../media";
 import { useNavigate } from "../navigation";
-import { showcaseCatalogPage } from "../showcase";
 import type { ProductSummary } from "../types";
 
 const starterQueries = [
@@ -110,6 +109,7 @@ export function DiscoverPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [preview, setPreview] = useState<ProductSummary[]>([]);
+  const [previewError, setPreviewError] = useState("");
   // One photograph per card. Assigned across the whole set rather than per
   // product, because a per-product hash cannot guarantee distinctness.
   const previewImages = useMemo(() => productImageMap(preview), [preview]);
@@ -120,11 +120,19 @@ export function DiscoverPage() {
     api
       .catalog({}, 0, 4, "featured")
       .then((page) => {
-        if (!cancelled) setPreview(page.products.slice(0, 4));
-      })
-      .catch(() => {
         if (!cancelled) {
-          setPreview(showcaseCatalogPage({}, 0, 4, "featured").products.slice(0, 4));
+          setPreview(page.products.slice(0, 4));
+          setPreviewError("");
+        }
+      })
+      .catch((cause) => {
+        if (!cancelled) {
+          setPreview([]);
+          setPreviewError(
+            cause instanceof Error
+              ? cause.message
+              : "Featured products are unavailable",
+          );
         }
       });
     return () => {
@@ -301,6 +309,15 @@ export function DiscoverPage() {
                 />
               ))}
             </div>
+          </section>
+        ) : previewError ? (
+          <section className="discover-section" aria-labelledby="discover-shop-title">
+            <header className="discover-section-heading">
+              <div>
+                <h2 id="discover-shop-title">Shop</h2>
+                <p role="alert">Featured products are unavailable: {previewError}</p>
+              </div>
+            </header>
           </section>
         ) : null}
 

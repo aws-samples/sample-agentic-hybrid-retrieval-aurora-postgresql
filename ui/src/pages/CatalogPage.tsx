@@ -30,7 +30,6 @@ import {
   formatCategoryKey,
 } from "../format";
 import { useSearchParams } from "../navigation";
-import { showcaseCatalogPage } from "../showcase";
 import type {
   Availability,
   CatalogPage,
@@ -243,9 +242,11 @@ export function CatalogPage() {
     api
       .catalog(filters, offset, pageSize, sort)
       .then(setPage)
-      .catch(() => {
-        setError("");
-        setPage(showcaseCatalogPage(filters, offset, pageSize, sort));
+      .catch((cause) => {
+        setPage(null);
+        setError(
+          cause instanceof Error ? cause.message : "Catalog browsing is unavailable",
+        );
       })
       .finally(() => setLoading(false));
   }, [

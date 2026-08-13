@@ -27,10 +27,16 @@ Product retrieval projection
                 ↓
           external reranker
                 ↓
+    exact catalog-SKU preservation
+                ↓
        agent compare/evidence tools
 ```
 
-Product recommendations use **one product-level embedding**. Supporting claims live in `mosaic.product_evidence` and receive their own embeddings, so the agent can separately answer:
+Product recommendations use **one product-level embedding**. Every active
+product has an authoritative specification row in `mosaic.product_evidence`;
+review evidence is available where sourced. Evidence retrieval ranks those rows
+against the question with FTS and uses the product vector only for the
+authoritative product-spec row, so the agent can separately answer:
 
 - Which products match the shopper's intent?
 - What evidence supports the recommendation?

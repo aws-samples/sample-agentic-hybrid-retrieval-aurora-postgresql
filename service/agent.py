@@ -11,6 +11,7 @@ from strands.models import BedrockModel
 
 from service import agent_tools
 from service.config import get_settings
+from service.model_runtime import ModelRuntimeError, model_runtime_error
 from service.models import (
     AgentPlanStep,
     AgentRequest,
@@ -43,8 +44,9 @@ For a complex question:
 3. Select a shortlist of two to four products total, with no more than two
    products from any focused search.
 4. In the next tool-use turn, call compare_products once and issue one
-   get_product_evidence call for every shortlisted product together. These
-   reads are independent.
+   get_product_evidence(product_id, evidence_query) call for every shortlisted
+   product together. Use the shopper question or focused subquestion as
+   evidence_query. These reads are independent.
 5. Use explain_retrieval at most once when the user asks why something ranked.
 6. Call synthesize_cited_answer exactly once, last, with only product IDs that
    search_products returned and for which evidence was retrieved.
@@ -130,6 +132,9 @@ class ProductDiscoveryAgent:
         try:
             agent_tools.complete_grounded_answer(request.question)
         except Exception as error:
+            classified = model_runtime_error(error)
+            if classified is not None:
+                return classified
             logger.warning(
                 "Fallback cited synthesis failed: %s",
                 error,
@@ -150,7 +155,7 @@ class ProductDiscoveryAgent:
     ) -> AgentResponse:
         record = state["answer_of_record"]
         if record is None:
-            if isinstance(error, GroundingContractError):
+            if isinstance(error, (GroundingContractError, ModelRuntimeError)):
                 raise error
             reason = (
                 f"Strands stopped before a citation-validated answer "
@@ -222,7 +227,9 @@ class ProductDiscoveryAgent:
             error = caught
             logger.warning("Strands agent loop failed: %s", caught, exc_info=True)
 
-        fallback_error = self._finalize_if_needed(request, state)
+        fallback_error = model_runtime_error(error) if error is not None else None
+        if fallback_error is None:
+            fallback_error = self._finalize_if_needed(request, state)
         if fallback_error is not None:
             error = fallback_error
         self._persist(state, result, error)
@@ -246,7 +253,9 @@ class ProductDiscoveryAgent:
             error = caught
             logger.warning("Strands streaming agent loop failed: %s", caught, exc_info=True)
 
-        fallback_error = self._finalize_if_needed(request, state)
+        fallback_error = model_runtime_error(error) if error is not None else None
+        if fallback_error is None:
+            fallback_error = self._finalize_if_needed(request, state)
         if fallback_error is not None:
             error = fallback_error
         self._persist(state, result, error)

@@ -117,10 +117,13 @@ class ResultSignals(BaseModel):
     pre_rerank_rank: int
     pre_rerank_score: float
     rerank_score: float | None = None
+    rerank_rank: int | None = None
+    exact_sku_match: bool = False
     final_rank: int
     score_semantics: str = (
         "Raw arm, reciprocal-rank fusion, and reranker scores use different "
-        "scales and are not probabilities."
+        "scales and are not probabilities. An exact catalog SKU remains ahead "
+        "of model reranking."
     )
 
 
@@ -229,6 +232,7 @@ class RetrievalDiagnostics(BaseModel):
     embedding_dimensions: int
     rerank_model_id: str | None
     rerank_status: Literal["applied", "disabled", "unavailable"]
+    ranking_policy: list[str] = Field(default_factory=list)
     retrieval_profile: RetrievalProfile
     candidate_counts: dict[str, int]
     stage_timings_ms: dict[str, float]

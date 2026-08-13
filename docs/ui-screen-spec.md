@@ -66,7 +66,9 @@ evidence requirements visible.
 Components:
 
 - stage switcher for Retrieve, Rank, Reason, and optional Advanced work;
-- exactly three required Broken -> Fix -> Prove lab cards;
+- an observational Retrieve -> Rank -> Reason stage switcher; the separate
+  Workshop Studio Code Editor owns each Broken -> Diagnose -> Fix exercise and
+  Shop is the proof surface;
 - all eight participant runs, grouped inside the three labs;
 - candidate-source, ranking-movement, and agent-tool signature visuals;
 - optional HNSW performance lab.

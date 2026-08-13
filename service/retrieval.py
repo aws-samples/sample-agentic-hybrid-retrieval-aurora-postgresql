@@ -37,8 +37,8 @@ from service.rerank import Reranker, get_reranker
 # of hardcoding a claim. `search_hybrid_rrf` is unweighted; if the default is ever
 # flipped to `search_hybrid_rrf_weighted` this string changes with it and every
 # label follows, because no surface spells the method out for itself.
-STRATEGY = "rrf_fusion+rerank"
-WEIGHTED_STRATEGY = "weighted_rrf_fusion+rerank"
+STRATEGY = "rrf_fusion+rerank+exact_sku_preservation"
+WEIGHTED_STRATEGY = "weighted_rrf_fusion+rerank+exact_sku_preservation"
 
 # The served fusion function. `use_weighted_fusion` selects the other one for a
 # single service instance, so the mission gate and the eval harness can be run
@@ -53,6 +53,32 @@ _FUSION_FUNCTION = {
 
 def normalize_query(query: str) -> str:
     return re.sub(r"\s+", " ", query).strip()
+
+
+def _identity_key(value: str) -> str:
+    """Return the punctuation-insensitive representation of a catalog identity."""
+    return re.sub(r"[^a-z0-9]", "", value.lower())
+
+
+def _is_exact_sku_match(query: str, sku: str) -> bool:
+    """Return whether the request contains this complete, unambiguous catalog SKU."""
+    query_key = _identity_key(query)
+    sku_key = _identity_key(sku)
+    return len(sku_key) >= 8 and sku_key in query_key
+
+
+def _final_candidate_sort_key(
+    row: dict[str, Any],
+    rerank_scores: dict[int, float],
+) -> tuple[bool, bool, float, int, int]:
+    """Order final results without allowing a reranker to override a full SKU."""
+    return (
+        not row["exact_sku_match"],
+        row["product_id"] not in rerank_scores,
+        -rerank_scores.get(row["product_id"], 0.0),
+        row["pre_rerank_rank"],
+        row["product_id"],
+    )
 
 
 def _rerank_document(row: dict[str, Any]) -> str:
@@ -119,6 +145,10 @@ class RetrievalService:
         ranking fixtures repeatable without changing SQL ranking semantics.
         """
         return tuple(self._embedder().embed_query(normalized_query))
+
+    def embed_query(self, query: str) -> list[float]:
+        """Embed one normalized query through the production retrieval provider."""
+        return list(self._embed_query(normalize_query(query)))
 
     def _profile(self, request: SearchRequest) -> RetrievalProfile:
         settings = self.settings
@@ -247,6 +277,9 @@ class RetrievalService:
             # before the reranker is allowed to reorder anything.
             for fused_rank, row in enumerate(candidates, 1):
                 row["pre_rerank_rank"] = fused_rank
+                row["exact_sku_match"] = _is_exact_sku_match(
+                    normalized, row["sku"]
+                )
 
             rerank_status = "disabled"
             rerank_scores: dict[int, float] = {}
@@ -278,18 +311,24 @@ class RetrievalService:
                     (time.perf_counter() - rerank_started) * 1000, 3
                 )
 
-            if rerank_scores:
-                candidates.sort(
-                    key=lambda row: (
-                        row["product_id"] not in rerank_scores,
-                        -rerank_scores.get(row["product_id"], 0.0),
-                        row["pre_rerank_rank"],
-                    )
-                )
+            rerank_order = sorted(
+                candidates,
+                key=lambda row: (
+                    row["product_id"] not in rerank_scores,
+                    -rerank_scores.get(row["product_id"], 0.0),
+                    row["pre_rerank_rank"],
+                    row["product_id"],
+                ),
+            )
+            for rerank_rank, row in enumerate(rerank_order, 1):
+                row["rerank_rank"] = rerank_rank if rerank_scores else None
+
+            candidates.sort(
+                key=lambda row: _final_candidate_sort_key(row, rerank_scores)
+            )
             for final_rank, row in enumerate(candidates, 1):
                 row["rerank_score"] = rerank_scores.get(row["product_id"])
                 row["final_rank"] = final_rank
-                row["rerank_rank"] = final_rank if rerank_scores else None
 
             candidate_counts = {
                 "fused_pool": len(candidates),
@@ -341,6 +380,7 @@ class RetrievalService:
                                             row["pre_rerank_score"]
                                         ),
                                         "rerank": _as_float(row["rerank_score"]),
+                                        "exact_sku_match": row["exact_sku_match"],
                                     }
                                 ),
                                 "provenance": json.dumps(row["provenance"]),
@@ -364,6 +404,11 @@ class RetrievalService:
                                 "status": "ok",
                                 "strategy": self._strategy(),
                                 "rerank_status": rerank_status,
+                                "ranking_policy": [
+                                    "RRF candidate fusion",
+                                    "managed reranking",
+                                    "exact SKU preservation",
+                                ],
                                 "stage_timings_ms": stage_timings,
                                 "warnings": warnings,
                             }
@@ -401,6 +446,11 @@ class RetrievalService:
                 embedding_dimensions=self.settings.embedding_dimensions,
                 rerank_model_id=(self._reranker().model_id if request.rerank else None),
                 rerank_status=rerank_status,
+                ranking_policy=[
+                    "RRF candidate fusion",
+                    "managed reranking",
+                    "exact SKU preservation",
+                ],
                 retrieval_profile=profile,
                 candidate_counts=candidate_counts,
                 stage_timings_ms=stage_timings,
@@ -464,6 +514,8 @@ class RetrievalService:
                 pre_rerank_rank=row["pre_rerank_rank"],
                 pre_rerank_score=float(row["pre_rerank_score"]),
                 rerank_score=_as_float(row.get("rerank_score")),
+                rerank_rank=row.get("rerank_rank"),
+                exact_sku_match=bool(row["exact_sku_match"]),
                 final_rank=row["final_rank"],
             ),
             sources=[

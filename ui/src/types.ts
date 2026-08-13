@@ -48,6 +48,8 @@ export interface ResultSignals {
   pre_rerank_rank: number;
   pre_rerank_score: number;
   rerank_score: number | null;
+  rerank_rank?: number | null;
+  exact_sku_match?: boolean;
   final_rank: number;
   score_semantics: string;
 }
@@ -133,6 +135,7 @@ export interface RetrievalDiagnostics {
   embedding_dimensions: number;
   rerank_model_id: string | null;
   rerank_status: "applied" | "disabled" | "unavailable";
+  ranking_policy?: string[];
   retrieval_profile: {
     rrf_k: number;
     fts_limit: number;

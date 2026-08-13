@@ -144,17 +144,6 @@ INDEX_PARAMETERS: tuple[IndexParameter, ...] = (
         "ef_construction",
         "hnsw_ef_construction",
     ),
-    IndexParameter(
-        "08_indexes_concurrent.sql",
-        "product_evidence_embedding_hnsw_cosine_idx",
-        "ef_construction",
-        None,
-        reason=(
-            "the evidence index is built at 160 rather than the catalog's 200; "
-            "it is a smaller corpus with a different recall target and is not "
-            "part of the product retrieval profile the yaml describes"
-        ),
-    ),
 )
 
 

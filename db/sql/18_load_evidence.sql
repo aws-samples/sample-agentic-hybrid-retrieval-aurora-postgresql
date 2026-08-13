@@ -65,8 +65,6 @@ SELECT
     lower(concat_ws(' ', d.title, d.brand_name, d.model_name, d.sku)),
     concat_ws(' ', d.title, d.short_description, d.attributes::text)
 FROM mosaic_search.product_document d
-JOIN mosaic.merchandising_assignment m USING (product_id)
-WHERE m.media_tier IN ('flagship', 'premium')
 ORDER BY d.product_id;
 
 INSERT INTO mosaic.product_evidence (

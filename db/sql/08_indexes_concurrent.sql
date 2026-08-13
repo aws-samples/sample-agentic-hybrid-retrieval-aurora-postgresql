@@ -7,11 +7,11 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS product_document_embedding_hnsw_cosine_i
     WITH (m = 16, ef_construction = 200)
     WHERE embedding IS NOT NULL;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS product_evidence_embedding_hnsw_cosine_idx
-    ON mosaic.product_evidence
-    USING hnsw (embedding vector_cosine_ops)
-    WITH (m = 16, ef_construction = 160)
-    WHERE embedding IS NOT NULL;
+-- Product evidence is selected after product retrieval. The authoritative
+-- product specification shares the product projection's vector in
+-- search_product_evidence, while source-specific facts use FTS. There is no
+-- independently embedded evidence corpus to justify a second HNSW index.
+DROP INDEX CONCURRENTLY IF EXISTS mosaic.product_evidence_embedding_hnsw_cosine_idx;
 
 ANALYZE mosaic_search.product_document;
 ANALYZE mosaic.product_evidence;

@@ -200,9 +200,10 @@ def get_product(product_id: int) -> ProductDetail:
             """,
             (product_id,),
         ).fetchall()
-        # Reviews live in mosaic.product_evidence alongside specs and Q&A, each
-        # row independently embedded so the agent can cite one claim rather than
-        # a whole product.
+        # Reviews live alongside source-addressable specifications. Evidence
+        # selection is query-grounded; a product specification reuses the
+        # product projection's vector rather than pretending reviews have vectors
+        # that were never generated.
         review_rows = connection.execute(
             """
             SELECT evidence_id AS review_id, evidence_title AS title,
@@ -268,45 +269,43 @@ def _review(row: dict[str, Any]) -> ProductReview:
 
 def get_product_evidence_records(
     product_id: int,
+    query: str,
+    query_embedding: list[float],
     *,
     limit: int = 6,
 ) -> list[EvidenceRecord]:
-    """Return bounded, source-addressable evidence for one retrieved product."""
+    """Return question-ranked, source-addressable evidence for one product."""
+    if not query.strip():
+        raise ValueError("Evidence retrieval requires a non-empty evidence query")
     with connect() as connection:
+        ranked_ids = connection.execute(
+            """
+            SELECT evidence_id
+            FROM mosaic_search.search_product_evidence(
+                %s::bigint,
+                %s::text,
+                %s::vector,
+                NULL,
+                %s::integer
+            )
+            """,
+            (product_id, query, query_embedding, max(1, min(limit, 12))),
+        ).fetchall()
+        evidence_ids = [row["evidence_id"] for row in ranked_ids]
+        if not evidence_ids:
+            return []
         rows = connection.execute(
             """
             SELECT evidence_id, product_id, evidence_type::text AS evidence_type,
                    source_name, source_reference, evidence_title, evidence_text,
                    source_date, rating, is_verified, metadata, updated_at
-            FROM mosaic.product_evidence
-            WHERE product_id = %s
-            ORDER BY
-                (evidence_type = 'product_spec') DESC,
-                is_verified DESC,
-                coalesce((metadata->>'helpful_votes')::integer, 0) DESC,
-                rating DESC NULLS LAST,
-                evidence_id
-            LIMIT %s
+            FROM unnest(%s::bigint[]) WITH ORDINALITY AS ranked(evidence_id, position)
+            JOIN mosaic.product_evidence USING (evidence_id)
+            ORDER BY ranked.position
             """,
-            (product_id, max(1, min(limit, 12))),
+            (evidence_ids,),
         ).fetchall()
     return [_evidence_record(dict(row)) for row in rows]
-
-
-def get_evidence_product_ids(product_ids: list[int]) -> set[int]:
-    """Return candidate IDs that have at least one addressable evidence row."""
-    if not product_ids:
-        return set()
-    with connect() as connection:
-        rows = connection.execute(
-            """
-            SELECT DISTINCT product_id
-            FROM mosaic.product_evidence
-            WHERE product_id = ANY (%s::bigint[])
-            """,
-            (product_ids,),
-        ).fetchall()
-    return {int(row["product_id"]) for row in rows}
 
 
 def get_evidence_record(evidence_id: int) -> EvidenceRecord:

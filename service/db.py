@@ -42,7 +42,57 @@ def readiness() -> dict[str, object]:
                     SELECT array_agg(DISTINCT embedding_model_key)
                     FILTER (WHERE embedding_model_key IS NOT NULL)
                     FROM mosaic_search.product_document
-                ) AS embedding_model_ids
+                ) AS embedding_model_ids,
+                (
+                    SELECT count(*)
+                    FROM mosaic.merchandising_assignment
+                    WHERE media_tier IN ('flagship', 'premium')
+                ) AS premium_product_count,
+                (
+                    SELECT count(DISTINCT product_id)
+                    FROM mosaic.product_evidence
+                    WHERE evidence_type = 'product_spec'
+                      AND source_name = 'Mosaic catalog specification'
+                ) AS evidence_product_count,
+                (
+                    SELECT array_agg(required.name ORDER BY required.name)
+                    FROM (
+                        VALUES
+                            ('product_document_fts_gin_idx'),
+                            ('product_document_trigram_gin_idx'),
+                            ('product_document_embedding_hnsw_cosine_idx')
+                    ) AS required(name)
+                    WHERE NOT EXISTS (
+                        SELECT 1
+                        FROM pg_class index_relation
+                        JOIN pg_namespace index_schema
+                          ON index_schema.oid = index_relation.relnamespace
+                        JOIN pg_index index_state
+                          ON index_state.indexrelid = index_relation.oid
+                        WHERE index_schema.nspname = 'mosaic_search'
+                          AND index_relation.relname = required.name
+                          AND index_relation.relkind = 'i'
+                          AND index_state.indisvalid
+                          AND index_state.indisready
+                    )
+                ) AS missing_retrieval_indexes,
+                (
+                    SELECT array_agg(required.name ORDER BY required.name)
+                    FROM (
+                        VALUES
+                            ('search_hybrid_rrf'),
+                            ('search_product_evidence'),
+                            ('matches_filters')
+                    ) AS required(name)
+                    WHERE NOT EXISTS (
+                        SELECT 1
+                        FROM pg_proc function
+                        JOIN pg_namespace namespace
+                          ON namespace.oid = function.pronamespace
+                        WHERE namespace.nspname = 'mosaic_search'
+                          AND function.proname = required.name
+                    )
+                ) AS missing_retrieval_functions
             """
         ).fetchone()
         return dict(row)

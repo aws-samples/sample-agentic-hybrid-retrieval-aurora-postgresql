@@ -3,7 +3,8 @@
 ## Included ground truth
 
 - 720 balanced evaluation queries
-- 45 polished instructor/demo queries
+- 20 curated canonical workshop queries, of which 19 are scored as
+  single-request product retrieval and one is an agent-contract scenario
 - 5,000 typo cases
 - graded judgments with relevance levels 1–3
 - challenge-cohort labels on products
@@ -46,6 +47,8 @@ Compare the full metric suite, then break results down by challenge cohort.
 - `typo_target`: intended item or acceptable alternative appears in top 10
 - `semantic_only`: vector or rerank improves nDCG over FTS baseline
 - `lexical_only`: hybrid pipeline does not bury exact model/SKU hits
+- `exact_sku`: an exact catalog SKU remains first after model reranking, while
+  diagnostics retain both the model's rerank rank and the final preserved rank
 - `hard_negative`: decisive mismatch is removed or materially demoted
 - `near_duplicate`: top results are not monopolized by one canonical group
 - `selective_filter`: result count and recall remain stable under configured iterative scan
@@ -79,3 +82,17 @@ make validate-evals
 The 720-query corpus uses `category_key`, integer cent price bounds, and explicit
 refurbished or sponsored inclusion where the target requires it. Predecessor
 keys such as `subcategory` and `max_price` fail closed in `SearchFilters`.
+
+## Canonical release scorecard
+
+`make score-evals` runs the served FTS, pg_trgm, HNSW, RRF, reranker, and
+exact-SKU preservation path against the 19 product-retrieval cases. It writes
+only an ignored per-run result CSV, verifies the committed measured baseline,
+and fails on provenance or metric regressions. It also carries machine-readable
+fixture checks for the exact SKU, non-plated road shoe, and waterproof IP67
+speaker repairs, so a good aggregate average cannot hide those failures.
+
+`G-010` is deliberately excluded from Recall@K, MRR, and nDCG. Its question
+requires targeted retrieval, comparison, evidence retrieval, citation
+resolution, and cited synthesis; score it through the Lab 3 agent-contract
+validator rather than pretending it is one product-ranking request.

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "wouter";
+import { api } from "../api";
 import { LabsIntroFlow } from "../components/LabsIntroFlow";
 import {
   coreMosaicLabs,
@@ -24,7 +25,6 @@ import {
   type MosaicLabStage,
 } from "../labMissions";
 import { productImage } from "../media";
-import { showcaseCatalogPage } from "../showcase";
 import type { ProductSummary } from "../types";
 
 type StageDetail = {
@@ -151,12 +151,7 @@ function contrastLens(example: MosaicLabMission) {
 
 const engineTraceMission = coreMosaicLabs[0];
 
-const engineCatalog = showcaseCatalogPage({}, 0, 120).products;
 const engineProductIds = [2, 3, 4, 5, 1, 17001];
-const engineProducts = engineProductIds.flatMap((productId) => {
-  const product = engineCatalog.find((candidate) => candidate.product_id === productId);
-  return product ? [product] : [];
-});
 
 type EngineVisual = {
   title: string;
@@ -321,6 +316,8 @@ const substrate = [
 export function MosaicLabsPage() {
   const [activeEngineStep, setActiveEngineStep] = useState(1);
   const [isEnginePlaying, setIsEnginePlaying] = useState(false);
+  const [engineProducts, setEngineProducts] = useState<ProductSummary[]>([]);
+  const [engineProductsError, setEngineProductsError] = useState("");
   const replayTimers = useRef<number[]>([]);
   const advancedLabs = supportingMosaicChecks.filter(
     (check) => check.placement === "advanced-labs",
@@ -338,6 +335,30 @@ export function MosaicLabsPage() {
 
   useEffect(() => () => {
     replayTimers.current.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(engineProductIds.map((productId) => api.product(productId)))
+      .then((products) => {
+        if (!cancelled) {
+          setEngineProducts(products);
+          setEngineProductsError("");
+        }
+      })
+      .catch((cause) => {
+        if (!cancelled) {
+          setEngineProducts([]);
+          setEngineProductsError(
+            cause instanceof Error
+              ? cause.message
+              : "Catalog product records are unavailable",
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const selectEngineStep = (index: number) => {
@@ -461,36 +482,44 @@ export function MosaicLabsPage() {
           <div className="labs-engine-products-wrap">
             <div className="labs-engine-products-heading">
               <span>{activeEngine.visual.productLabel}</span>
-              <small>Premium catalog cohort</small>
+              <small>Live premium catalog records</small>
             </div>
-            <div className="labs-engine-products" key={activeEngine.step}>
-              {engineProducts.map((product, index) => {
-                const state = engineProductState(product, activeEngine.visual, activeEngineStep);
-                return (
-                  <figure
-                    className={`labs-engine-product ${state.state}`}
-                    key={product.product_id}
-                    style={{
-                      "--product-order": state.rank,
-                      "--product-index": index,
-                    } as CSSProperties}
-                  >
-                    <div className="labs-engine-product-media">
-                      <img
-                        src={productImage(product)}
-                        alt={product.title}
-                        width={1200}
-                        height={800}
-                      />
-                    </div>
-                    <figcaption>
-                      <strong>{product.model}</strong>
-                      <small>{state.label}</small>
-                    </figcaption>
-                  </figure>
-                );
-              })}
-            </div>
+            {engineProducts.length ? (
+              <div className="labs-engine-products" key={activeEngine.step}>
+                {engineProducts.map((product, index) => {
+                  const state = engineProductState(product, activeEngine.visual, activeEngineStep);
+                  return (
+                    <figure
+                      className={`labs-engine-product ${state.state}`}
+                      key={product.product_id}
+                      style={{
+                        "--product-order": state.rank,
+                        "--product-index": index,
+                      } as CSSProperties}
+                    >
+                      <div className="labs-engine-product-media">
+                        <img
+                          src={productImage(product)}
+                          alt={product.title}
+                          width={1200}
+                          height={800}
+                        />
+                      </div>
+                      <figcaption>
+                        <strong>{product.model}</strong>
+                        <small>{state.label}</small>
+                      </figcaption>
+                    </figure>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="labs-engine-products-unavailable" role="status">
+                {engineProductsError
+                  ? `Catalog product records are unavailable: ${engineProductsError}`
+                  : "Loading catalog product records..."}
+              </p>
+            )}
           </div>
         </section>
       </section>

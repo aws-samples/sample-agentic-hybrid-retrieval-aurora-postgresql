@@ -23,6 +23,7 @@ from service.catalog import (
 from service.config import get_settings
 from service.db import connect, readiness
 from service.fusion_comparison import SubstrateError, get_fusion_comparison_service
+from service.model_runtime import bedrock_credentials_status, model_runtime_error
 from service.models import (
     AgentRequest,
     AgentResponse,
@@ -58,10 +59,11 @@ app.add_middleware(
 
 
 def _model_error(error: Exception) -> HTTPException:
-    if isinstance(error, ClientError):
-        code = error.response.get("Error", {}).get("Code", "BedrockError")
-        return HTTPException(503, f"Amazon Bedrock request failed: {code}")
-    return HTTPException(503, f"Model service unavailable: {type(error).__name__}")
+    classified = model_runtime_error(error)
+    return HTTPException(
+        503,
+        str(classified or f"Model service unavailable: {type(error).__name__}"),
+    )
 
 
 def _sse(event: str, payload: dict[str, Any]) -> str:
@@ -103,8 +105,22 @@ def get_readiness() -> dict[str, Any]:
     configured_model = settings.embedding_model_id
     stored_models = database.get("embedding_model_ids") or []
     model_space_ready = not stored_models or stored_models == [configured_model]
+    database_ready = (
+        bool(database["schema_ready"])
+        and database["product_count"] == 500000
+        and database["embedded_product_count"] == 500000
+        and database["premium_product_count"] == 120
+        and database["evidence_product_count"] == 500000
+        and not database["missing_retrieval_indexes"]
+        and not database["missing_retrieval_functions"]
+    )
+    bedrock_credentials = bedrock_credentials_status(settings.aws_region)
     return {
-        "status": "ready" if database["schema_ready"] and model_space_ready else "blocked",
+        "status": (
+            "ready"
+            if database_ready and model_space_ready and bedrock_credentials["ready"]
+            else "blocked"
+        ),
         "database": database,
         "configured_models": {
             "embedding": configured_model,
@@ -112,7 +128,9 @@ def get_readiness() -> dict[str, Any]:
             "agent": settings.agent_model_id,
             "synthesis": settings.synthesis_model_id,
         },
+        "database_ready": database_ready,
         "model_space_ready": model_space_ready,
+        "bedrock_credentials": bedrock_credentials,
     }
 
 
@@ -292,9 +310,15 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
                     await asyncio.sleep(0.012)
                 yield _sse("complete", {"response": payload})
         except Exception as error:
+            classified = model_runtime_error(error)
             yield _sse(
                 "error",
-                {"detail": f"Agent response failed: {type(error).__name__}"},
+                {
+                    "detail": str(
+                        classified
+                        or f"Agent response failed: {type(error).__name__}"
+                    )
+                },
             )
 
     return StreamingResponse(
@@ -378,7 +402,7 @@ def tool_contracts() -> dict[str, Any]:
             {
                 "name": "search_products",
                 "description": (
-                    "Run filtered lexical, fuzzy, semantic, weighted-RRF, "
+                    "Run filtered lexical, fuzzy, semantic, unweighted RRF, "
                     "and reranked product retrieval."
                 ),
                 "input_schema": SearchRequest.model_json_schema(),
@@ -387,13 +411,16 @@ def tool_contracts() -> dict[str, Any]:
             {
                 "name": "get_product_evidence",
                 "description": (
-                    "Read bounded specification and review evidence with "
-                    "stable source IDs for one retrieved product."
+                    "Retrieve question-ranked specification and review evidence "
+                    "with stable source IDs for one retrieved product."
                 ),
                 "input_schema": {
                     "type": "object",
-                    "properties": {"product_id": {"type": "integer"}},
-                    "required": ["product_id"],
+                    "properties": {
+                        "product_id": {"type": "integer"},
+                        "evidence_query": {"type": "string", "minLength": 1},
+                    },
+                    "required": ["product_id", "evidence_query"],
                     "additionalProperties": False,
                 },
                 "read_only": True,

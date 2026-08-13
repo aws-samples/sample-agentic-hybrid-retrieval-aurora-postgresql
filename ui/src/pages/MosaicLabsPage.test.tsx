@@ -1,8 +1,18 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../api";
+import { showcaseProductDetail } from "../showcase";
 import { MosaicLabsPage } from "./MosaicLabsPage";
+
+vi.mock("../api", () => ({
+  api: {
+    product: vi.fn(),
+  },
+}));
+
+const engineProductIds = [2, 3, 4, 5, 1, 17001];
 
 describe("MosaicLabsPage", () => {
   beforeAll(() => {
@@ -13,9 +23,20 @@ describe("MosaicLabsPage", () => {
     // output clean instead of pulling in a native canvas dependency.
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   });
-  afterEach(cleanup);
+  beforeEach(() => {
+    vi.mocked(api.product).mockReset();
+    vi.mocked(api.product).mockImplementation((productId) => {
+      const product = showcaseProductDetail(productId);
+      if (!product) return Promise.reject(new Error(`Missing test product ${productId}`));
+      return Promise.resolve(product);
+    });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    cleanup();
+  });
 
-  it("presents the three labs as read-only observation with Shop proof scenarios", () => {
+  it("presents the three labs as read-only observation with Shop proof scenarios", async () => {
     const { container } = render(<MosaicLabsPage />);
 
     expect(screen.getByRole("heading", {
@@ -37,7 +58,8 @@ describe("MosaicLabsPage", () => {
       ),
     ).toEqual([3, 3, 2]);
     expect(container.querySelectorAll(".labs-engine-rail > li")).toHaveLength(6);
-    expect(container.querySelectorAll(".labs-engine-product")).toHaveLength(6);
+    expect(await screen.findByText("Live premium catalog records")).toBeTruthy();
+    expect(container.querySelectorAll(".labs-engine-product")).toHaveLength(engineProductIds.length);
     // The masthead field is decoration, so it carries no text and no figure a
     // presenter could read a number off, and it stays out of the a11y tree.
     expect(container.querySelector(".labs-intro-flow[aria-hidden=true] canvas")).toBeTruthy();
@@ -57,7 +79,7 @@ describe("MosaicLabsPage", () => {
     expect(screen.queryByText(/Restore the trigram CTE/)).toBeNull();
   });
 
-  it("replays the visible path from query parsing through grounded evidence", () => {
+  it("replays the visible path from query parsing through grounded evidence", async () => {
     vi.useFakeTimers();
     try {
       render(<MosaicLabsPage />);
@@ -79,7 +101,7 @@ describe("MosaicLabsPage", () => {
     }
   });
 
-  it("keeps HNSW tuning in the optional advanced lane", () => {
+  it("keeps HNSW tuning in the optional advanced lane", async () => {
     render(<MosaicLabsPage />);
 
     expect(screen.getByText("Advanced observability")).toBeTruthy();
@@ -87,5 +109,17 @@ describe("MosaicLabsPage", () => {
       screen.getByRole("link", { name: /Open HNSW diagnostics/ }).getAttribute("href"),
     ).toBe("/labs/performance");
     expect(screen.getAllByText("hnsw.ef_search")).toHaveLength(2);
+  });
+
+  it("does not substitute a mock cohort when catalog records cannot load", async () => {
+    vi.mocked(api.product).mockRejectedValue(new Error("Aurora is unavailable"));
+    const { container } = render(<MosaicLabsPage />);
+
+    expect(
+      await screen.findByText(
+        "Catalog product records are unavailable: Aurora is unavailable",
+      ),
+    ).toBeTruthy();
+    expect(container.querySelectorAll(".labs-engine-product")).toHaveLength(0);
   });
 });

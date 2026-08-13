@@ -14,7 +14,7 @@ embedding:
   dimensions: 1024
   distance_metric: cosine
   product_field: mosaic_search.product_document.embedding
-  evidence_field: mosaic.product_evidence.embedding
+  evidence_field: product specifications reuse product_document.embedding; source-specific evidence uses FTS
 candidate_generation:
   fts_limit: 120
   trigram_limit: 80

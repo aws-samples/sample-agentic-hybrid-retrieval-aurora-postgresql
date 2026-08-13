@@ -21,7 +21,6 @@ import { ErrorState, LoadingState } from "../components/States";
 import { formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
 import { productEditorialPoster, productImageMap, productImages } from "../media";
 import type { ProductDetail, ProductSummary } from "../types";
-import { showcaseCatalogPage, showcaseProductDetail } from "../showcase";
 
 type DetailTab = "overview" | "specs" | "reviews" | "evidence";
 
@@ -55,19 +54,8 @@ export function ProductPage() {
         }
       })
       .catch((cause: Error) => {
-        const localProduct = showcaseProductDetail(id);
-        if (localProduct) {
-          setProduct(localProduct);
-          setSelectedImage(productImages(localProduct)[0]);
-          // The showcase page is the same local source the catalog falls back
-          // to, so the related rail stays populated without a backend.
-          setRelated(
-            showcaseCatalogPage({ domain: localProduct.domain })
-              .products.filter((item) => item.product_id !== localProduct.product_id)
-              .slice(0, 5),
-          );
-          return;
-        }
+        setProduct(null);
+        setRelated([]);
         setError(cause.message);
       })
       .finally(() => setLoading(false));

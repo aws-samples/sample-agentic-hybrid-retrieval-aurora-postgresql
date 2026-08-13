@@ -298,7 +298,7 @@ def test_the_served_default_is_unweighted():
     from service.retrieval import STRATEGY, WEIGHTED_STRATEGY, RetrievalService
 
     assert RetrievalService().use_weighted_fusion is False
-    assert STRATEGY == "rrf_fusion+rerank"
+    assert STRATEGY == "rrf_fusion+rerank+exact_sku_preservation"
     assert "weighted" in WEIGHTED_STRATEGY
 
 

@@ -108,15 +108,15 @@ def _controlled_context(question: str, result_limit: int):
     from service.models import SearchFilters, SearchRequest
     from service.retrieval import get_retrieval_service
 
-    result = get_retrieval_service().search(
+    retrieval_service = get_retrieval_service()
+    result = retrieval_service.search(
         SearchRequest(
             query=question,
             filters=SearchFilters(),
-            # Evidence is intentionally sparse relative to the 500K product
-            # catalog. Ask Mosaic may only synthesize evidence-backed products,
-            # so take a bounded candidate window and choose its first eligible
-            # shortlist rather than pretending every top retrieval row is citable.
-            limit=min(max(result_limit * 4, 12), 50),
+            # Product specifications are source-addressable for the full corpus,
+            # so this benchmark preserves the served retrieval order rather than
+            # selecting a different evidence-backed subset.
+            limit=result_limit,
             include_diagnostics=True,
             rerank=True,
             session_id="ask-mosaic-model-benchmark",
@@ -124,23 +124,29 @@ def _controlled_context(question: str, result_limit: int):
     )
     products = []
     evidence = []
-    skipped_without_evidence = []
+    evidence_query_embedding = retrieval_service.embed_query(question)
     for candidate in result.results:
-        records = get_product_evidence_records(candidate.product_id, limit=3)
+        records = get_product_evidence_records(
+            candidate.product_id,
+            question,
+            evidence_query_embedding,
+            limit=3,
+        )
         if not records:
-            skipped_without_evidence.append(candidate.product_id)
-            continue
+            raise RuntimeError(
+                "Controlled benchmark found no source-addressable evidence for "
+                f"retrieved product {candidate.product_id}"
+            )
         products.append(candidate)
         evidence.extend(records)
         if len(products) == result_limit:
             break
     if len(products) != result_limit:
         raise RuntimeError(
-            f"Controlled benchmark found only {len(products)} evidence-backed "
-            f"products in {len(result.results)} retrieved candidates; expected "
-            f"{result_limit}. Skipped product IDs: {skipped_without_evidence}"
+            f"Controlled benchmark found only {len(products)} products in "
+            f"{len(result.results)} retrieved candidates; expected {result_limit}."
         )
-    return result, products, evidence, skipped_without_evidence
+    return result, products, evidence, []
 
 
 def _measure_synthesis(
