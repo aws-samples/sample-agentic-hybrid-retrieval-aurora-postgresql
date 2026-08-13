@@ -1,89 +1,21 @@
-import { Menu, Search, ShoppingBag, X } from "lucide-react";
-import { ReactNode, useState } from "react";
-import { Link, useLocation } from "wouter";
-import { useCommerce } from "../commerce";
+import { ReactNode } from "react";
+import { useLocation } from "wouter";
 import { CommerceDrawer } from "./CommerceDrawer";
-import { MosaicMark } from "./MosaicMark";
+import { SiteHeader } from "./SiteHeader";
 
 /**
  * Storefront chrome. The reference boards read as a catalog first and an
- * instrument second, so shopper navigation sits in the header and the workshop
- * surfaces stay in a visually separate group after a divider.
+ * instrument second, so shopper navigation sits in one header on every surface
+ * and the landing only changes what is under it.
  */
-const shopLinks = [
-  { to: "/", label: "Discover" },
-  { to: "/catalog", label: "Shop" },
-  { to: "/mosaic-labs", label: "Mosaic Labs" },
-];
-
-function isActive(pathname: string, to: string) {
-  if (to === "/") return pathname === "/" || pathname === "/discover";
-  if (to === "/catalog") {
-    return (
-      pathname.startsWith("/catalog")
-      || pathname.startsWith("/search")
-      || pathname.startsWith("/products/")
-    );
-  }
-  return pathname.startsWith(to);
-}
-
 export function Shell({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const { itemCount, openCart } = useCommerce();
   const [location] = useLocation();
   const pathname = location.split("?")[0];
   const isLanding = pathname === "/" || pathname === "/discover";
-  const close = () => setOpen(false);
 
   return (
     <div className={isLanding ? "app-shell landing-shell" : "app-shell"}>
-      {!isLanding && <header className="topbar">
-        <Link className="brand" href="/" onClick={close} aria-label="Mosaic home">
-          <MosaicMark />
-          <strong>Mosaic</strong>
-        </Link>
-
-        <button
-          className="icon-button mobile-menu"
-          type="button"
-          aria-label={open ? "Close navigation" : "Open navigation"}
-          aria-expanded={open}
-          onClick={() => setOpen((current) => !current)}
-        >
-          {open ? <X size={20} /> : <Menu size={20} />}
-        </button>
-
-        <nav className={open ? "primary-nav open" : "primary-nav"}>
-          {shopLinks.map(({ to, label }) => (
-            <Link
-              key={to}
-              href={to}
-              className={isActive(pathname, to) ? "active" : ""}
-              onClick={close}
-            >
-              <span>{label}</span>
-            </Link>
-          ))}
-        </nav>
-
-        <div className="topbar-actions">
-          <Link className="header-action" href="/catalog" aria-label="Search products">
-            <Search size={18} />
-          </Link>
-          <button
-            className="bag-button"
-            type="button"
-            aria-label={`Bag, ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
-            data-cart-target
-            onClick={openCart}
-          >
-            <ShoppingBag size={19} />
-            {itemCount ? <span className="bag-count">{itemCount > 99 ? "99+" : itemCount}</span> : null}
-          </button>
-        </div>
-      </header>}
-
+      <SiteHeader />
       <main className={isLanding ? "landing-main" : undefined}>{children}</main>
       <CommerceDrawer />
     </div>

@@ -23,7 +23,7 @@ import { formatAvailability, formatPrice, isPurchasable } from "../format";
 import { fusionLabel } from "../fusion";
 import { agentLabOutcome } from "../labOutcome";
 import { mosaicRetrievalExamples } from "../labMissions";
-import { productImage } from "../media";
+import { productImage, productImageMap } from "../media";
 import { useSearchParams } from "../navigation";
 import { showcaseSearchResponse } from "../showcase";
 import type {
@@ -289,6 +289,9 @@ export function SearchPage() {
   }
 
   const products = agent?.recommendations ?? search?.results ?? [];
+  // One photograph per card. Assigned across the whole set rather than per
+  // product, because a per-product hash cannot guarantee distinctness.
+  const gridImages = productImageMap(products);
   const diagnostics = search?.diagnostics;
   const comparisonProducts = products.slice(0, 4);
   const topPick = products[0];
@@ -438,6 +441,7 @@ export function SearchPage() {
                   <div id={`product-${product.product_id}`} key={product.product_id}>
                     <ProductCard
                       product={product}
+                      imageSrc={gridImages.get(product.product_id)}
                       showSignals
                       showCompare
                       collectionLabels={collectionLabels(products, product, index)}
@@ -632,7 +636,7 @@ export function SearchPage() {
                     <Sparkles size={16} />
                     <span>Top pick</span>
                   </header>
-                  <img src={productImage(topPick)} alt="" />
+                  <img src={gridImages.get(topPick.product_id) ?? productImage(topPick)} alt="" />
                   <div>
                     <span className="collection-top-pick-label">Best overall</span>
                     <h2>{topPick.model}</h2>

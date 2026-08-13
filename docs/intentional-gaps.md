@@ -59,7 +59,7 @@ exactly these capabilities and nothing else.
 ### GAP-2 — reciprocal-rank contribution
 
 - **Lab 2 anchor** `rank-with-evidence` (`checkpoint: repair`, stage `rank`)
-- **Query** `ergonmic mesh chiar for long workdays with adjustable lumbar support`
+- **Query** `ergonomic mesh chair for long workdays with adjustable lumbar support`
 - **Target** product 370002, PostureWorks Pro Mesh Ergonomic Chair
 - **What to disable** replace the marked `1 / (rrf_k + source_rank)` body with
   `1 / (rrf_k + 1)`. Candidate generation remains intact, but every candidate

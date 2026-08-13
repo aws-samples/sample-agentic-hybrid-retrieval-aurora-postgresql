@@ -22,13 +22,19 @@ Twelve files, covering all six flagship products in both crops:
 | Mosaic Forma Ergonomic | `ho-ergonomic-office-chairs-forma-ergonomic-catalog-3x2.webp` | `…-detail-1x1.webp` |
 | Mosaic Atelier 32 | `ho-ultrawide-monitors-atelier-32-catalog-3x2.webp` | `…-detail-1x1.webp` |
 
-Plus the landing hero (`hero-landing-scene.webp`) and five category tiles under
-`mosaic/category/`. See section 5 for the hero's one outstanding issue.
+Plus two landing heroes (`hero-landing-wide.webp`, `hero-landing-scene.webp`), the
+Shop editorial plate (`editorial-fitness-wide.webp`), and five category tiles
+under `mosaic/category/`. See section 5 for how the two heroes divide.
 
-**Still to generate: 114 catalog images.** One per remaining premium product,
-3:2 only. Run `make media-shot-list` for the current list; the file is
-`docs/media-shot-list.md`, which leads with the 24 retrieval anchors that appear
-in scripted queries.
+**The cohort is complete: 120 of 120 catalog images and 6 of 6 detail images are
+installed.** `make media-shot-list` regenerates `docs/media-shot-list.md` from
+the manifest if a product's photography needs replacing.
+
+What remains is a different job. 120 photographs cover 105 of the 161 live
+subcategories at one image each, and a results page renders 12 cards, so a grid
+still repeats. `docs/image-prompts-category-plates.md` owns that: 115
+category-representative plates plus 3 per-domain still-lifes, none of them bound
+to a specific product.
 
 ---
 
@@ -39,7 +45,9 @@ in scripted queries.
 | Product catalog | **1536x1024** (3:2) | 1200x800 WebP | Card frame is 396x264 CSS at its largest; 1200 covers 2x with headroom for the wider Shop grid |
 | Product detail | **1024x1024** (1:1) | 1200x1200 WebP | Flagship hero frame is ~520 CSS square; 1200 covers 2x |
 | Category tile | **1024x1536** (2:3 portrait) | 500x672 WebP | Tile frame is 125x168 CSS; portrait source avoids cropping the subject out |
-| Landing hero | **1024x1536** (2:3 portrait) | 1568x2352 WebP | Frame is 770x938 CSS portrait; needs 1540x1876 device px |
+| Landing hero, wide | **1536x1024** (3:2) | 1672x941 WebP | Desktop frame is a full-bleed band; see section 5 |
+| Landing hero, narrow | **1024x1536** (2:3 portrait) | 1568x1908 WebP | Under 640px the frame is a tall inset card |
+| Editorial plate | **1536x1024** (3:2) | 1672x941 WebP | `.discover-plate-media` is a 16:9 frame ~720 CSS wide |
 
 ChatGPT's image tool produces 1024x1024, 1536x1024 (landscape) and 1024x1536
 (portrait). Use those three sizes exactly — asking for other dimensions gets you
@@ -136,24 +144,37 @@ cohort manifest, which is what keeps the folder honest.
 
 ---
 
-## 5. The landing hero needs regenerating
+## 5. The landing hero is two files
 
-The current hero is **1586x992 landscape**, but the frame it fills is
-**770x938 CSS portrait**. Consequences:
+The Discover hero frame changes shape with the viewport, so a `<picture>` serves
+one of two photographs and neither is force-fitted:
 
-- Horizontally it is fine (1540 device px needed, 1586 supplied).
-- Vertically it is **884px short** of the 1876 device px a Retina 16" laptop
-  demands, so the browser upscales it.
-- Because the source is landscape and the frame is portrait, cover-fit shows
-  only a 792px-wide window of the photograph. Most of the image is never seen.
+| Viewport | File | Native | Frame |
+|---|---|---|---|
+| above 640px | `hero-landing-wide.webp` | 1672x941 (16:9) | full-bleed band, ~1440x520 CSS |
+| 640px and below | `hero-landing-scene.webp` | 1568x1908 (portrait) | inset card, ~396x560 CSS |
 
-Generate a **portrait** replacement at **1024x1536**, then:
+Both are short of 2x on a Retina laptop (the band alone wants 2880 device px), so
+a wider replacement is the one worthwhile upgrade here. Do not upscale to reach
+the number — that adds bytes, not detail.
+
+Generate the wide scene at **1536x1024 landscape** and the portrait scene at
+**1024x1536**. The portrait file is what `--hero` writes:
 
 ```bash
 uv run python scripts/import_generated_images.py --source ~/Downloads --hero
 ```
 
-Subject line for the hero prompt:
+Subject line for the wide hero prompt:
+
+```text
+SUBJECT: a sunlit limestone desk shot side-on — premium cream over-ear
+headphones, a fabric-wrapped speaker, an open earbud case, a tablet on a stand,
+and a low-profile keyboard spread left to right, with the left third of the frame
+empty plaster wall carrying a soft diagonal light shaft
+```
+
+Subject line for the portrait hero prompt:
 
 ```text
 SUBJECT: a sunlit home office corner — a cream leather ergonomic task chair at a
@@ -162,26 +183,34 @@ foreground, one cream running shoe with a maroon heel on the floor, a large
 monitor showing a soft abstract maroon gradient behind the desk
 ```
 
-Keep the vertical composition: products stacked from foreground to background
-rather than spread left to right, so nothing is lost when the frame crops.
+The wide frame needs the empty third: the headline sits over it. The portrait
+frame needs products stacked foreground to background rather than spread left to
+right, so nothing is lost when a narrow card crops the sides.
 
 ---
 
 ## 6. Display targets
 
-The landing is designed to fit without scrolling on every laptop in the room.
-Verified by measurement at these viewports (inner height in CSS px):
+The landing scrolls by design. What has to survive a projector is the hero band:
+the headline, the subtitle, and the two buttons. `.discover-hero` in
+`ui/src/surfaces.css` sets `min-height: clamp(440px, calc(100vh - 344px), 700px)`,
+so the band leaves 344 CSS px of the next section visible wherever the viewport
+allows it, and stops shrinking at 440px. The search field lives further down the
+page and `Start exploring` scrolls to it.
 
-| Display | Inner height | Fits |
-|---|---:|---|
-| 4K external, 1440 scaled | 1353 | yes |
-| 1080p external | 993 | yes |
-| 16" MacBook Pro, default | 943 | yes |
-| 15" laptop 1440x900 | 758 | yes |
-| 1440x758 with large chrome | 671 | yes |
-| Very short frames | < 640 | releases fixed height and scrolls |
+| Display | Inner height | Hero band | Below the fold |
+|---|---:|---:|---:|
+| 4K external, 1440 scaled | 1353 | 700 | 653 |
+| 1080p external | 993 | 649 | 344 |
+| 16" MacBook Pro, default | 943 | 599 | 344 |
+| 15" laptop 1440x900 | 758 | 440 | 318 |
+| 1440x758 with large chrome | 671 | 440 | 231 |
 
-Mirroring a 16" laptop to a large monitor keeps the laptop's CSS viewport, so
-what fits on the laptop fits on the projector. For the largest rooms, use
-**"More Space"** in Display settings (2056 logical width) — the card is capped at
-1558 CSS px, so extra width becomes margin rather than stretched layout.
+Inner heights are measured; the band and remainder columns are the clamp
+evaluated at each one. The 440px floor is what keeps the two buttons on screen in
+the last row, where `calc(100vh - 344px)` would otherwise give 327.
+
+Mirroring a 16" laptop to a large monitor keeps the laptop's CSS viewport, so what
+reads on the laptop reads on the projector. For the largest rooms, use **"More
+Space"** in Display settings (2056 logical width); the hero goes full-bleed and
+the body is capped at 1320 CSS px, so extra width becomes margin.

@@ -79,7 +79,7 @@ const showcaseSeed: ShowcaseSeed[] = [
     category: "Audio",
     subcategory: "Over-Ear Headphones",
     price_usd: 349,
-    image_url: "/assets/images/mosaic/auraluxe-h9.webp",
+    image_url: "/assets/images/mosaic/auraluxe-h9-studio.webp",
     short_description: "Adaptive over-ear listening for focused work and travel.",
     long_description: "Mosaic Auraluxe H9 pairs adaptive noise cancellation, comfortable all-day materials, and high-resolution wireless listening for deep-focus sessions.",
     attributes: { battery: "60 hours", connectivity: "Bluetooth multipoint", cancellation: "Adaptive ANC" },

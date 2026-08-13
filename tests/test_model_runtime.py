@@ -667,6 +667,52 @@ def test_strands_registers_the_read_only_product_tools():
     assert set(build_agent().tool_registry.registry) == expected
 
 
+def test_agent_uses_the_dedicated_model_override(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class CapturingModel:
+        def __init__(self, **kwargs):
+            captured["model_id"] = kwargs["model_id"]
+
+    class CapturingAgent:
+        def __init__(self, **kwargs):
+            captured["agent_model"] = kwargs["model"]
+
+    settings = replace(
+        get_settings(),
+        agent_model_id="global.anthropic.claude-haiku-4-5-20251001-v1:0",
+    )
+    monkeypatch.setattr("service.agent.get_settings", lambda: settings)
+    monkeypatch.setattr("service.agent.BedrockModel", CapturingModel)
+    monkeypatch.setattr("service.agent.Agent", CapturingAgent)
+
+    build_agent()
+
+    assert captured["model_id"] == "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+
+def test_synthesis_uses_the_dedicated_model_override():
+    settings = replace(
+        get_settings(),
+        synthesis_model_id="global.anthropic.claude-sonnet-5",
+    )
+    client = FakeSynthesisClient(
+        "Summary\nChoose this option [1].\n\n"
+        "Recommendations\n- AuriLogic Flight ANC is quiet [1].\n\n"
+        "Trade-offs\nBattery life is not specified [1]."
+    )
+
+    synthesize_cited_answer(
+        "Which option should I choose?",
+        [product()],
+        [evidence()],
+        settings=settings,
+        client=client,
+    )
+
+    assert client.request["modelId"] == "global.anthropic.claude-sonnet-5"
+
+
 def test_agent_tool_filters_cannot_widen_request_filters():
     base = SearchFilters(
         domain="home_office",

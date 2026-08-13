@@ -85,7 +85,8 @@ def health() -> dict[str, Any]:
         "models": {
             "embedding": settings.embedding_model_id,
             "rerank": settings.rerank_model_id,
-            "agent": settings.chat_model_id,
+            "agent": settings.agent_model_id,
+            "synthesis": settings.synthesis_model_id,
         },
     }
 
@@ -108,7 +109,8 @@ def get_readiness() -> dict[str, Any]:
         "configured_models": {
             "embedding": configured_model,
             "rerank": settings.rerank_model_id,
-            "agent": settings.chat_model_id,
+            "agent": settings.agent_model_id,
+            "synthesis": settings.synthesis_model_id,
         },
         "model_space_ready": model_space_ready,
     }

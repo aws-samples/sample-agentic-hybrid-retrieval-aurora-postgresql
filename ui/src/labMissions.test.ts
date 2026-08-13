@@ -17,16 +17,25 @@ describe("participant query contract", () => {
     expect(new Set(participantChecks.map((check) => check.canonical_query_id)).size).toBe(8);
   });
 
-  it("routes reason queries to agent mode with their complete filters", () => {
+  it("routes reason queries into Shop with Ask Mosaic and complete scalar filters", () => {
     const reason = coreMosaicLabs.find((lab) => lab.stage === "reason");
     expect(reason).toBeDefined();
 
     const href = retrievalExampleHref(reason!);
     const params = new URLSearchParams(href.split("?", 2)[1]);
 
-    expect(href.startsWith("/search?")).toBe(true);
-    expect(params.get("mode")).toBe("agent");
+    expect(href.startsWith("/catalog?")).toBe(true);
+    expect(params.get("ask")).toBe("1");
     expect(params.get("mission")).toBe(reason!.id);
-    expect(JSON.parse(params.get("filters")!)).toEqual(reason!.filters);
+    expect(params.get("q")).toBe(reason!.query);
+    Object.entries(reason!.filters).forEach(([key, value]) => {
+      if (
+        typeof value === "string"
+        || typeof value === "number"
+        || typeof value === "boolean"
+      ) {
+        expect(params.get(key)).toBe(String(value));
+      }
+    });
   });
 });

@@ -32,6 +32,16 @@ source PNG.
 board's own 125x168 thumbnail, because the Aug-8 render set contains no
 equivalent styled-shelf photograph. It is softer than its four neighbours.
 
+`mosaic/hero-landing-wide.webp` and `mosaic/editorial-fitness-wide.webp` come
+from two 1672x941 editorial scenes supplied on 2026-08-12. Each source PNG gets a
+light unsharp pass (Pillow `UnsharpMask(radius=1.2, percent=55, threshold=3)`,
+chosen because it recovers edge detail without a halo on the flat wall) and is
+then encoded with `cwebp -q 94 -m 6 -sharp_yuv`. No crop and no resize, so 1672px
+is all the detail that exists: the hero band is 1440 CSS px wide, so a Retina
+laptop upscales it. A third scene from the same batch (tools and material
+samples) was rejected because the drill carries a legible third-party maker mark
+and no catalog domain covers power tools.
+
 The editorial posters contain product names and feature bullets composited into
 the pixels. They are not used as catalog photography.
 
@@ -52,18 +62,27 @@ then compare hashes against `asset-manifest.json`.
 
 | Asset group | Native size | Frame that uses it |
 |---|---|---|
-| `mosaic/hero-landing-scene.webp` | 1586x992 (1.6) | `.hero-image` |
+| `mosaic/hero-landing-wide.webp` | 1672x941 (16:9) | `.discover-backdrop` above 640px |
+| `mosaic/hero-landing-scene.webp` | 1568x1908 (770:938) | `.discover-backdrop` at 640px and below |
+| `mosaic/editorial-fitness-wide.webp` | 1672x941 (16:9) | `.discover-plate-media` |
 | `mosaic/category/*.webp` | 500x672 (125:168) | `.category-card img` |
 | `thumb-*.webp` | 480x600 (4:5) | domain tiles |
 | `mosaic/*-thumb.webp` | 640x800 (4:5) | domain tiles |
 | `mosaic/*.webp`, `curated/*` | 1200x1200 (1:1) | product cards |
 
-One crop is deliberate:
+The Discover hero is art-directed rather than cropped harder. Its frame is a wide
+band on desktop and a tall card under 640px, so a `<picture>` serves the 16:9
+scene to the band and the portrait scene to the card. Serving only the 16:9 file
+would show about a third of it on a phone.
 
-- `.hero-image > img` uses `object-position: 60% 50%`. The frame is 770x964
-  portrait and the photograph is 1586x992 landscape, so cover-fit shows a 792px
-  window of it; this keeps the chair focal while giving the headphone stand more
-  breathing room than the earlier right-biased crop.
+Two crops are deliberate:
+
+- `.discover-backdrop img` uses `object-position: center 58%`. The band is
+  roughly 1440x520 CSS and the photograph is 16:9, so cover-fit drops about 290
+  device px; biasing downward keeps the headphones, earbuds, and keyboard in
+  frame and spends the loss on empty wall.
+- At 640px and below it becomes `54% center` against the portrait scene, which
+  keeps the monitor and chair centred in a narrower card.
 
 ## Media identity is separate from product identity
 

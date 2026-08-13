@@ -1,65 +1,136 @@
-import {
-  ArrowRight,
-  GitCompareArrows,
-  Menu,
-  ScanSearch,
-  Search,
-  ShieldCheck,
-  ShoppingBag,
-  Sparkles,
-  X,
-} from "lucide-react";
-import { FormEvent, useState } from "react";
+import { ArrowRight, Search, Sparkles } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { useCommerce } from "../commerce";
-import { MosaicMark } from "../components/MosaicMark";
+import { api } from "../api";
+import { ProductCard } from "../components/ProductCard";
+import { productImageMap } from "../media";
 import { useNavigate } from "../navigation";
+import { showcaseCatalogPage } from "../showcase";
+import type { ProductSummary } from "../types";
 
 const starterQueries = [
   {
-    label: "Shared office",
-    query: "Quiet wireless keyboard for a shared office under $180",
+    topic: "Workspace",
+    title: "The Quiet Office",
+    caption: "Focus, refined.",
+    query: "Find an ergonomic mesh chair for long workdays with adjustable lumbar support.",
+    image: "/assets/images/mosaic/category/workspace.webp",
   },
   {
-    label: "Marathon training",
-    query: "Marathon shoe with cushioning under $180",
+    topic: "Performance",
+    title: "Built for Distance",
+    caption: "Cushioning, speed, balance.",
+    query: "Which marathon shoes balance cushioning and speed?",
+    image: "/assets/images/mosaic/stride-pro-studio.webp",
+    imageFit: "cover",
   },
   {
-    label: "Long-haul travel",
-    query: "Headphones for a 14-hour flight with strong noise cancellation",
-  },
-  {
-    label: "All-day comfort",
-    query: "Ergonomic chair for a 12-hour workday with adjustable lumbar support",
+    topic: "Travel",
+    title: "Fourteen Hours, First Class",
+    caption: "Comfort that outlasts the flight.",
+    query: "Which headphones stay comfortable through a 14-hour flight?",
+    image: "/assets/images/mosaic/category/audio.webp",
   },
 ];
 
-const workshopStages = [
+const labStages = [
   {
     number: "01",
-    label: "Retrieve",
-    detail: "Build the candidate universe",
-    Icon: ScanSearch,
+    stage: "Retrieve",
+    title: "Build hybrid retrieval",
+    caption: "Lexical, fuzzy, and semantic arms over one Aurora catalog.",
+    graphic: "scatter" as const,
   },
   {
     number: "02",
-    label: "Rank",
-    detail: "Fuse, rerank, and explain",
-    Icon: GitCompareArrows,
+    stage: "Rank",
+    title: "Fuse, rerank, and explain",
+    caption: "Watch candidates move as fusion and reranking take over.",
+    graphic: "waves" as const,
   },
   {
     number: "03",
-    label: "Reason",
-    detail: "Orchestrate cited evidence",
-    Icon: ShieldCheck,
+    stage: "Reason",
+    title: "Build the retrieval agent",
+    caption: "Give the system you built to an agent that cites its evidence.",
+    graphic: "graph" as const,
   },
 ];
 
+function LabGraphic({ variant }: { variant: "scatter" | "waves" | "graph" }) {
+  if (variant === "scatter") {
+    const points = [
+      [14, 44], [22, 30], [30, 50], [38, 22], [46, 38], [54, 12],
+      [62, 42], [70, 26], [78, 48], [86, 18], [94, 34], [26, 14],
+      [58, 54], [82, 8], [18, 58], [42, 56], [66, 10], [90, 52],
+    ];
+    return (
+      <svg viewBox="0 0 108 66" aria-hidden="true">
+        {points.map(([x, y], index) => (
+          <circle
+            key={`${x}-${y}`}
+            cx={x}
+            cy={y}
+            r={index % 4 === 0 ? 2.4 : 1.5}
+            fill={index % 3 === 0 ? "var(--maroon-700)" : "var(--gold)"}
+            opacity={index % 2 === 0 ? 0.85 : 0.45}
+          />
+        ))}
+      </svg>
+    );
+  }
+  if (variant === "waves") {
+    return (
+      <svg viewBox="0 0 108 66" aria-hidden="true" fill="none">
+        <path d="M4 50 C 24 50, 30 18, 54 18 S 84 44, 104 44" stroke="var(--maroon-700)" strokeWidth="1.8" />
+        <path d="M4 34 C 24 34, 34 42, 54 30 S 84 14, 104 22" stroke="var(--gold)" strokeWidth="1.4" opacity="0.8" />
+        <path d="M4 18 C 28 18, 36 54, 58 48 S 88 56, 104 58" stroke="var(--line-dark)" strokeWidth="1.2" opacity="0.9" />
+        <circle cx="54" cy="18" r="3" fill="var(--maroon-700)" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 108 66" aria-hidden="true" fill="none">
+      <path
+        d="M18 50 L 42 32 L 70 40 L 90 16 M 42 32 L 54 12 M 70 40 L 70 58"
+        stroke="var(--line-dark)"
+        strokeWidth="1.3"
+      />
+      <circle cx="18" cy="50" r="3.4" fill="var(--gold)" />
+      <circle cx="42" cy="32" r="4.2" fill="var(--maroon-700)" />
+      <circle cx="54" cy="12" r="2.8" fill="var(--gold)" />
+      <circle cx="70" cy="40" r="3.4" fill="var(--maroon-700)" opacity="0.75" />
+      <circle cx="70" cy="58" r="2.4" fill="var(--line-dark)" />
+      <circle cx="90" cy="16" r="3" fill="var(--gold)" />
+    </svg>
+  );
+}
+
 export function DiscoverPage() {
   const navigate = useNavigate();
-  const { itemCount, openCart } = useCommerce();
-  const [navOpen, setNavOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [preview, setPreview] = useState<ProductSummary[]>([]);
+  // One photograph per card. Assigned across the whole set rather than per
+  // product, because a per-product hash cannot guarantee distinctness.
+  const previewImages = useMemo(() => productImageMap(preview), [preview]);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .catalog({}, 0, 4, "featured")
+      .then((page) => {
+        if (!cancelled) setPreview(page.products.slice(0, 4));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPreview(showcaseCatalogPage({}, 0, 4, "featured").products.slice(0, 4));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function search(nextQuery: string) {
     const params = new URLSearchParams({ q: nextQuery });
@@ -72,104 +143,194 @@ export function DiscoverPage() {
     if (trimmed.length >= 2) search(trimmed);
   }
 
+  function askMosaic() {
+    const params = new URLSearchParams({ ask: "1" });
+    const trimmed = query.trim();
+    if (trimmed.length >= 2) params.set("q", trimmed);
+    navigate(`/catalog?${params}`);
+  }
+
+  function focusSearch() {
+    searchRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    searchRef.current?.focus({ preventScroll: true });
+  }
+
   return (
     <div className="discover-experience">
-      <img
-        className="discover-backdrop"
-        src="/assets/images/mosaic/hero-landing-scene.webp"
-        alt="A refined workspace with an ergonomic chair, display, headphones, and natural light"
-        width={1568}
-        height={1908}
-      />
-      <div className="discover-scrim" aria-hidden="true" />
-
-      <header className="discover-nav">
-        <Link className="discover-brand" href="/" aria-label="Mosaic home">
-          <MosaicMark />
-          <strong>Mosaic</strong>
-        </Link>
-        <nav className={navOpen ? "discover-links open" : "discover-links"} aria-label="Storefront">
-          <Link className="active" href="/" onClick={() => setNavOpen(false)}>Discover</Link>
-          <Link href="/catalog" onClick={() => setNavOpen(false)}>Shop</Link>
-          <Link href="/mosaic-labs" onClick={() => setNavOpen(false)}>Mosaic Labs</Link>
-        </nav>
-        <button
-          className="discover-bag"
-          type="button"
-          aria-label={`Bag, ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
-          onClick={openCart}
-        >
-          <ShoppingBag size={19} />
-          {itemCount ? <span className="bag-count">{itemCount > 99 ? "99+" : itemCount}</span> : null}
-        </button>
-        <button
-          className="discover-nav-toggle"
-          type="button"
-          aria-label={navOpen ? "Close navigation" : "Open navigation"}
-          aria-expanded={navOpen}
-          onClick={() => setNavOpen((current) => !current)}
-        >
-          {navOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </header>
-
-      <main className="discover-content">
-        <div className="discover-kicker">
-          <Sparkles size={15} />
-          Agentic product discovery on Aurora PostgreSQL
-        </div>
-        <h1>Discover what you actually mean.</h1>
-        <p>
-          Search naturally. Keep hard constraints authoritative. Compare the
-          strongest options with evidence you can inspect.
-        </p>
-
-        <form className="discover-search" onSubmit={submit} role="search">
-          <Search size={22} aria-hidden="true" />
-          <input
-            aria-label="Search products"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="What are you looking for?"
-            minLength={2}
+      <section className="discover-hero">
+        <picture className="discover-backdrop">
+          <source
+            media="(max-width: 640px)"
+            srcSet="/assets/images/mosaic/hero-landing-scene.webp"
+            width={1568}
+            height={1908}
           />
-          <button type="submit" aria-label="Search Mosaic">
-            <span>Explore</span>
-            <ArrowRight size={18} />
-          </button>
-        </form>
-
-        <div className="discover-presets" aria-label="Suggested searches">
-          <span>Try</span>
-          {starterQueries.map((preset) => (
-            <button key={preset.label} type="button" onClick={() => search(preset.query)}>
-              <strong>{preset.label}</strong>
-              <small>{preset.query}</small>
-              <ArrowRight size={15} />
+          <img
+            src="/assets/images/mosaic/hero-landing-wide.webp"
+            alt="A sunlit travertine desk with cream over-ear headphones, a fabric speaker, a tablet, earbuds, and a keyboard"
+            width={1672}
+            height={941}
+          />
+        </picture>
+        <div className="discover-scrim" aria-hidden="true" />
+        <div className="discover-hero-content">
+          <p className="discover-hero-kicker">The Mosaic edit</p>
+          <h1>
+            <span>Objects that shape</span>
+            <em>your world.</em>
+          </h1>
+          <p className="discover-hero-sub">
+            Curated spaces. Considered choices. Intelligent finds.
+          </p>
+          <div className="discover-hero-actions">
+            <button type="button" onClick={focusSearch}>
+              Explore collections
+              <ArrowRight size={16} aria-hidden="true" />
             </button>
-          ))}
+          </div>
         </div>
-      </main>
+      </section>
 
-      <Link className="discover-workshop-rail" href="/mosaic-labs">
-        <span className="discover-workshop-label">
-          <small>DAT410</small>
-          Build the system
-        </span>
-        <ol>
-          {workshopStages.map(({ number, label, detail, Icon }) => (
-            <li key={label}>
-              <Icon size={18} />
-              <span>
-                <small>{number}</small>
-                <strong>{label}</strong>
-                <em>{detail}</em>
+      <div className="discover-body">
+        <section className="discover-section" aria-labelledby="discover-search-title">
+          <header className="discover-section-heading">
+            <div>
+              <h2 id="discover-search-title">Try asking Mosaic</h2>
+              <p>Three considered starting points.</p>
+            </div>
+          </header>
+          <form className="discover-search" onSubmit={submit} role="search">
+            <Search size={20} aria-hidden="true" />
+            <input
+              ref={searchRef}
+              aria-label="Search products"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search for anything, in your own words"
+              minLength={2}
+            />
+            {/* The label carries the button at desktop width; below 640px the
+                arrow replaces it so Search and Ask Mosaic no longer stack into
+                three rows. aria-label keeps the accessible name identical in
+                both states. */}
+            <button className="discover-search-submit" type="submit" aria-label="Search Mosaic">
+              <span>Search</span>
+              <ArrowRight className="discover-search-submit-icon" size={18} aria-hidden="true" />
+            </button>
+            <button
+              className="discover-search-ask"
+              type="button"
+              onClick={askMosaic}
+              aria-label="Ask Mosaic"
+            >
+              <Sparkles size={15} aria-hidden="true" />
+              Ask Mosaic
+            </button>
+          </form>
+          <div className="discover-editorial-grid">
+            {starterQueries.map((starter) => (
+              <button
+                key={starter.topic}
+                className="discover-editorial-card"
+                type="button"
+                onClick={() => search(starter.query)}
+                aria-label={starter.query}
+              >
+                <span
+                  className={
+                    starter.imageFit === "cover"
+                      ? "discover-editorial-media is-cover"
+                      : "discover-editorial-media"
+                  }
+                >
+                  <img src={starter.image} alt="" loading="lazy" decoding="async" />
+                </span>
+                <span className="discover-editorial-body">
+                  <small>{starter.topic}</small>
+                  <strong>{starter.title}</strong>
+                  <em>“{starter.query}”</em>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {preview.length ? (
+          <section className="discover-section" aria-labelledby="discover-shop-title">
+            <header className="discover-section-heading">
+              <div>
+                <h2 id="discover-shop-title">Shop</h2>
+                <p>Thoughtfully designed. Expertly made.</p>
+              </div>
+              <Link className="discover-section-link" href="/catalog">
+                Shop all
+                <ArrowRight size={15} aria-hidden="true" />
+              </Link>
+            </header>
+            <div className="discover-plate">
+              <span className="discover-plate-media">
+                <img
+                  src="/assets/images/mosaic/editorial-fitness-wide.webp"
+                  alt="A maroon kettlebell, dumbbells, cushioned running shoes, a rolled mat, an insulated bottle, and a fitness watch on travertine blocks"
+                  loading="lazy"
+                  decoding="async"
+                  width={1672}
+                  height={941}
+                />
               </span>
-            </li>
-          ))}
-        </ol>
-        <ArrowRight size={19} />
-      </Link>
+              <div className="discover-plate-copy">
+                <small>Running &amp; fitness</small>
+                <strong>Built for the long run.</strong>
+                <p>
+                  Browse the 120-product edit, or describe your run to retrieve
+                  from all 500,000 products.
+                </p>
+                <Link className="discover-plate-link" href="/catalog?domain=running_fitness">
+                  Shop running &amp; fitness
+                  <ArrowRight size={14} aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+            <div className="discover-shop-grid">
+              {preview.map((product) => (
+                <ProductCard
+                  key={product.product_id}
+                  product={product}
+                  imageSrc={previewImages.get(product.product_id)}
+                  variant="catalog"
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="discover-section discover-labs" aria-labelledby="discover-labs-title">
+          <header className="discover-section-heading">
+            <div>
+              <h2 id="discover-labs-title">Mosaic Labs</h2>
+              <p>The same storefront with the hood open. DAT410 builder’s session.</p>
+            </div>
+            <Link className="discover-section-link solid" href="/mosaic-labs">
+              Launch labs
+              <ArrowRight size={15} aria-hidden="true" />
+            </Link>
+          </header>
+          <div className="discover-labs-grid">
+            {labStages.map((lab) => (
+              <Link className="discover-lab-card" key={lab.stage} href="/mosaic-labs">
+                <span className="discover-lab-graphic">
+                  <LabGraphic variant={lab.graphic} />
+                </span>
+                <small>
+                  {lab.number} · {lab.stage}
+                </small>
+                <strong>{lab.title}</strong>
+                <em>{lab.caption}</em>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

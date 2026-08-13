@@ -94,7 +94,9 @@ describe("commerce", () => {
     );
     expect(screen.getByLabelText("Cart item count").textContent).toBe("1");
     expect(screen.getByLabelText("Cart drawer status").textContent).toBe("open");
-    expect(screen.getByText("Added (1)")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: `Add another ${product.title} to cart` }),
+    ).toBeTruthy();
     expect(document.querySelector(".cart-flight")).toBeNull();
   });
 });

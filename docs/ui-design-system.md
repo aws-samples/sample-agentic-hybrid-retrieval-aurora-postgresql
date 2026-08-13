@@ -67,11 +67,12 @@ compact `Retrieve -> Rank -> Reason` rail. Every search moves into Shop.
 ### Shop
 
 Faceted product browsing, direct hybrid search, stable product cards, sort
-controls, pagination, and links to source-backed product detail. Ask Mosaic
-starts as an inline composer and becomes a contextual sidecar after submission.
+controls, pagination, and links to source-backed product detail. Ask Mosaic is a
+contextual sidecar and the only agent composer, opened from the Shop header.
 Desktop compresses the product grid; tablet overlays it; mobile uses the full
-working width. Recommendations, rank movement, evidence, citations, and tool
-receipts stay connected to the products still visible in Shop.
+working width. Recommendations, retrieved-by labels, the searches behind the
+shortlist, rank movement, evidence, citations, and tool receipts stay connected
+to the products still visible in Shop.
 
 ### Product detail
 

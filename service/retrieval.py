@@ -12,6 +12,7 @@ import json
 import re
 import time
 from collections.abc import Callable
+from functools import lru_cache
 from typing import Any
 from uuid import uuid4
 
@@ -109,6 +110,16 @@ class RetrievalService:
         """
         return WEIGHTED_STRATEGY if self.use_weighted_fusion else STRATEGY
 
+    @lru_cache(maxsize=256)
+    def _embed_query(self, normalized_query: str) -> tuple[float, ...]:
+        """Return one stable vector for repeated normalized queries.
+
+        Managed embedding inference can vary at floating-point precision across
+        otherwise identical calls. Reusing the first vector keeps workshop
+        ranking fixtures repeatable without changing SQL ranking semantics.
+        """
+        return tuple(self._embedder().embed_query(normalized_query))
+
     def _profile(self, request: SearchRequest) -> RetrievalProfile:
         settings = self.settings
         return RetrievalProfile(
@@ -152,7 +163,7 @@ class RetrievalService:
 
         try:
             embedding_started = time.perf_counter()
-            query_embedding = self._embedder().embed_query(normalized)
+            query_embedding = self._embed_query(normalized)
             stage_timings["embedding"] = round(
                 (time.perf_counter() - embedding_started) * 1000, 3
             )

@@ -154,152 +154,210 @@ button:disabled {
   margin-bottom: 8px;
   color: var(--maroon-700);
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+::selection {
+  background: var(--maroon-800);
+  color: var(--paper);
 }
 
 .app-shell {
   min-height: 100vh;
 }
 
-.topbar {
+/* One header for every surface: brand left, nav centred, actions right.
+   The landing used to draw its own copy and the two drifted to different
+   wordmarks and different heights. Height comes from --topbar-height, which is
+   also what every `100vh - header` frame subtracts, so the two cannot separate:
+   the overrides this replaced set that token inside `.topbar`, where nothing
+   outside the header could read it. */
+.site-header {
   position: sticky;
   z-index: 50;
   top: 0;
   display: grid;
-  grid-template-columns: minmax(200px, 1fr) auto minmax(200px, 1fr);
+  min-height: var(--topbar-height);
   align-items: center;
-  height: var(--topbar-height);
-  padding: 0 clamp(20px, 3vw, 44px);
-  background: var(--ivory);
+  padding: 0 clamp(18px, 3.4vw, 60px);
+  border-bottom: 1px solid rgb(92 75 62 / 12%);
+  background: rgb(252 249 243 / 92%);
+  backdrop-filter: blur(18px);
+  grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr);
 }
 
-/* Brand lockup: chevron glyph + wide-tracked wordmark, per the reference boards. */
-.brand {
+.site-brand {
   display: inline-flex;
   min-width: 0;
   align-items: center;
-  gap: 11px;
   justify-self: start;
+  gap: 12px;
+  color: var(--ink);
 }
 
-.brand-glyph {
-  width: 28px;
-  height: 24px;
+.site-brand svg {
+  width: 27px;
+  height: 27px;
   flex: 0 0 auto;
   color: var(--maroon-900);
 }
 
-/* Title-case serif wordmark beside the block M, matching the concept board.
-   The previous tracked uppercase read as a generic tech logotype. */
-.brand strong {
+/* Title-case serif wordmark beside the block M, matching the concept boards.
+   The tracked uppercase sans version read as a generic tech logotype. */
+.site-brand strong {
   color: var(--maroon-950);
   font-family: var(--display);
-  font-size: 25px;
+  font-size: 26px;
   font-weight: 500;
-  letter-spacing: 0.005em;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
-.primary-nav {
+.site-nav {
   display: flex;
-  height: 100%;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
+  gap: 34px;
 }
 
-.primary-nav a {
+.site-nav a {
   position: relative;
-  display: inline-flex;
-  height: 100%;
-  align-items: center;
-  padding: 0 15px;
-  color: var(--ink-soft);
-  font-size: 15px;
-  font-weight: 500;
+  padding: 7px 0;
+  color: #6a655f;
+  font-size: 13.5px;
+  font-weight: 560;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   transition: color 180ms ease;
 }
 
-.primary-nav a::after {
-  position: absolute;
-  right: 15px;
-  bottom: 22px;
-  left: 15px;
-  height: 1.5px;
-  background: transparent;
-  content: "";
-}
-
-.primary-nav a:hover {
+.site-nav a:hover,
+.site-nav a.active {
   color: var(--ink);
 }
 
-.primary-nav a.active {
-  color: var(--maroon-800);
-}
-
-.primary-nav a.active::after {
+.site-nav a.active::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1.5px;
   background: var(--maroon-800);
+  content: "";
 }
 
-/* The workshop routes stay reachable but visually subordinate to shopping. */
-.primary-nav a.lab {
-  font-size: 13px;
-  letter-spacing: 0.02em;
-}
-
-.nav-divider {
-  width: 1px;
-  height: 18px;
-  margin: 0 10px;
-  background: var(--line-dark);
-}
-
-.topbar-actions {
+.site-actions {
   display: inline-flex;
   align-items: center;
-  gap: 18px;
   justify-self: end;
+  gap: 8px;
 }
 
-.login-link {
-  color: var(--maroon-800);
-  font-size: 15px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.bag-button {
-  position: relative;
-  display: inline-grid;
+.site-icon {
+  display: grid;
   width: 38px;
   height: 38px;
   padding: 0;
   place-items: center;
-  border: 0;
-  background: none;
+  border: 1px solid rgb(92 75 62 / 16%);
+  border-radius: 50%;
+  background: transparent;
   color: var(--ink);
   cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.site-icon:hover {
+  border-color: rgb(92 75 62 / 34%);
+  background: rgb(255 255 255 / 60%);
+}
+
+.site-bag {
+  position: relative;
 }
 
 .bag-count {
   position: absolute;
-  top: 1px;
-  right: 1px;
+  top: -3px;
+  right: -3px;
   display: grid;
-  min-width: 17px;
-  height: 17px;
+  min-width: 18px;
+  height: 18px;
   padding: 0 4px;
   place-items: center;
+  border: 2px solid var(--ivory);
   border-radius: 9px;
   background: var(--maroon-800);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
+}
+
+.site-menu {
+  display: none;
+}
+
+/* Under 900px the three centred links become a panel under the bag, because a
+   centred row and a 38px icon cluster cannot both survive a phone width. */
+@media (max-width: 900px) {
+  :root {
+    --topbar-height: 66px;
+  }
+
+  .site-header {
+    padding: 0 17px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .site-nav {
+    position: absolute;
+    z-index: 5;
+    top: 58px;
+    right: 17px;
+    display: none;
+    width: 214px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgb(255 254 250 / 98%);
+    box-shadow: 0 20px 50px rgb(48 37 28 / 18%);
+  }
+
+  .site-nav.open {
+    display: grid;
+  }
+
+  .site-nav a {
+    padding: 12px 10px;
+    font-size: 14.5px;
+  }
+
+  .site-nav a.active::after {
+    display: none;
+  }
+
+  .site-menu {
+    display: grid;
+  }
+}
+
+/* Measured at 360px: mark, wordmark and the three 38px buttons come to 308px of
+   a 326px content box at 26px, so the wordmark is the one thing that gives. */
+@media (max-width: 460px) {
+  :root {
+    --topbar-height: 62px;
+  }
+
+  .site-brand strong {
+    font-size: 21px;
+  }
+
+  .site-brand svg {
+    width: 24px;
+    height: 24px;
+  }
 }
 
 .icon-button {
@@ -315,10 +373,6 @@ button:disabled {
 
 .icon-button:hover {
   background: var(--paper-warm);
-}
-
-.mobile-menu {
-  display: none;
 }
 
 .page {
@@ -782,7 +836,7 @@ button:disabled {
 
 .shop-agent-drawer > header .eyebrow {
   margin: 0 0 2px;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .shop-agent-drawer > header h2 {
@@ -854,7 +908,7 @@ button:disabled {
   justify-items: center;
   gap: 5px;
   color: #9b8c82;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 750;
 }
 
@@ -865,7 +919,7 @@ button:disabled {
   place-items: center;
   border: 1px solid #d8cbc0;
   border-radius: 50%;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .shop-agent-progress li.complete {
@@ -931,7 +985,7 @@ button:disabled {
 
 .shop-agent-answer > .eyebrow {
   margin-bottom: 9px;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .shop-agent-answer h2 {
@@ -1035,14 +1089,14 @@ button:disabled {
 .shop-agent-shortlist small {
   overflow: hidden;
   color: #766860;
-  font-size: 9.5px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .shop-agent-shortlist em {
   color: var(--green);
-  font-size: 9px;
+  font-size: 10px;
   font-style: normal;
 }
 
@@ -1081,7 +1135,7 @@ button:disabled {
 
 .shop-agent-ranking dt {
   color: #897b72;
-  font-size: 8.5px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
@@ -1122,7 +1176,7 @@ button:disabled {
 .shop-agent-evidence small {
   color: #8d7e74;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 8.5px;
+  font-size: 10px;
 }
 
 .shop-agent-activity li {
@@ -1141,7 +1195,7 @@ button:disabled {
   border-radius: 50%;
   background: var(--green-soft);
   color: var(--green);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -1162,7 +1216,7 @@ button:disabled {
 
 .shop-agent-activity small {
   color: #756860;
-  font-size: 9.5px;
+  font-size: 10px;
   line-height: 1.4;
 }
 
@@ -1171,14 +1225,14 @@ button:disabled {
   overflow-wrap: anywhere;
   background: #f5eee6;
   color: #5a4b43;
-  font-size: 8.5px;
+  font-size: 10px;
   line-height: 1.4;
 }
 
 .shop-agent-activity em {
   color: #8a7b72;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 8.5px;
+  font-size: 10px;
   font-style: normal;
 }
 
@@ -1244,7 +1298,7 @@ button:disabled {
   background: #f8f3ec;
   color: #6f6058;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 8px;
+  font-size: 10px;
   text-align: center;
 }
 
@@ -1565,7 +1619,7 @@ button:disabled {
 .filter-panel label small {
   margin-left: auto;
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .filter-panel input {
@@ -1704,7 +1758,7 @@ button:disabled {
 .product-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 .product-card {
@@ -1714,15 +1768,20 @@ button:disabled {
   height: 100%;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--paper);
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  border: 1px solid #efe4d7;
+  border-radius: 16px;
+  background: #fffdf9;
+  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
+  transition:
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 220ms ease;
 }
 
 .product-card:hover {
-  border-color: var(--line-dark);
-  box-shadow: var(--shadow);
+  border-color: #e0cfbc;
+  box-shadow: 0 18px 34px -18px rgb(68 42 28 / 34%);
+  transform: translateY(-3px);
 }
 
 .product-image {
@@ -1730,6 +1789,7 @@ button:disabled {
   display: block;
   aspect-ratio: 4 / 5;
   overflow: hidden;
+  border-radius: 12px 12px 0 0;
   background: var(--paper-warm);
 }
 
@@ -1737,34 +1797,35 @@ button:disabled {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 180ms ease;
+  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .product-card:hover .product-image img {
-  transform: scale(1.015);
+  transform: scale(1.035);
 }
 
 .rank-badge {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 12px;
+  left: 12px;
   display: grid;
-  min-width: 31px;
-  height: 28px;
-  padding: 0 7px;
+  min-width: 34px;
+  height: 29px;
+  padding: 0 8px;
   place-items: center;
-  border-radius: 4px;
+  border-radius: 9px;
   background: var(--maroon-900);
+  box-shadow: 0 4px 10px -4px rgb(43 13 19 / 55%), inset 0 1px 0 rgb(255 255 255 / 14%);
   color: #fff;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .favorite-button {
   position: absolute;
   z-index: 2;
-  top: 10px;
-  right: 10px;
+  top: 12px;
+  right: 12px;
   display: grid;
   width: 34px;
   height: 34px;
@@ -1773,7 +1834,13 @@ button:disabled {
   border: 1px solid rgb(255 255 255 / 75%);
   border-radius: 50%;
   background: rgb(255 253 250 / 88%);
+  backdrop-filter: blur(6px);
   color: var(--maroon-700);
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.favorite-button:hover {
+  transform: scale(1.06);
 }
 
 .favorite-button:hover,
@@ -1794,7 +1861,8 @@ button:disabled {
   min-height: 1em;
   overflow: hidden;
   color: var(--maroon-700);
-  font-size: 9px;
+  font-size: 10px;
+  letter-spacing: 0.09em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1835,7 +1903,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 9px;
+  font-size: 10.5px;
   white-space: nowrap;
 }
 
@@ -1851,7 +1919,7 @@ button:disabled {
   gap: 4px;
   margin-bottom: 12px;
   color: var(--gold);
-  font-size: 10px;
+  font-size: 11.5px;
 }
 
 .rating-row span {
@@ -1872,12 +1940,12 @@ button:disabled {
 
 .product-tags span,
 .attribute-chips span {
-  padding: 5px 7px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--paper-warm);
+  padding: 4px 10px;
+  border: 1px solid #eadfd2;
+  border-radius: 999px;
+  background: #f7f1e8;
   color: var(--ink-soft);
-  font-size: 9px;
+  font-size: 10.5px;
   text-transform: capitalize;
 }
 
@@ -1900,7 +1968,7 @@ button:disabled {
 .attribute-list dt,
 .attribute-list dd {
   overflow: hidden;
-  font-size: 9px;
+  font-size: 10.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1920,10 +1988,11 @@ button:disabled {
 .signal-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
+  gap: 5px;
   margin: 0 0 12px;
-  padding: 8px;
+  padding: 9px 10px;
   border: 1px solid #e5d6d8;
+  border-radius: 10px;
   background: var(--maroon-100);
 }
 
@@ -1931,7 +2000,7 @@ button:disabled {
   overflow: hidden;
   color: var(--maroon-800);
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 8px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1952,7 +2021,7 @@ button:disabled {
   align-items: center;
   gap: 5px;
   color: var(--ink-soft);
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 700;
 }
 
@@ -1963,8 +2032,14 @@ button:disabled {
 .product-detail-link {
   margin-left: auto;
   color: var(--maroon-700);
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: color 160ms ease;
+}
+
+.product-detail-link:hover {
+  color: var(--maroon-950);
 }
 
 .pagination {
@@ -1999,9 +2074,11 @@ button:disabled {
   width: 100%;
   max-width: 1320px;
   margin: 0 auto 24px;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  background: var(--paper);
+  overflow: hidden;
+  border: 1px solid #efe4d7;
+  border-radius: 14px;
+  background: #fffdf9;
+  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
 }
 
 .search-page-header + .workshop-progress {
@@ -2018,12 +2095,13 @@ button:disabled {
 
 .workshop-progress li {
   display: grid;
-  min-height: 54px;
-  grid-template-columns: 24px minmax(0, 1fr);
-  gap: 9px;
+  min-height: 56px;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 10px;
   align-items: center;
-  padding: 8px 14px;
-  border-right: 1px solid var(--line);
+  padding: 9px 16px;
+  border-right: 1px solid #efe4d7;
+  transition: background 200ms ease;
 }
 
 .workshop-progress li:last-child {
@@ -2032,14 +2110,14 @@ button:disabled {
 
 .workshop-progress li > span {
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   place-items: center;
   border: 1px solid var(--line-dark);
   border-radius: 50%;
   color: var(--ink-faint);
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .workshop-progress li > div {
@@ -2050,14 +2128,15 @@ button:disabled {
 
 .workshop-progress strong {
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 11.5px;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 
 .workshop-progress small {
   overflow: hidden;
   color: var(--ink-faint);
-  font-size: 10px;
+  font-size: 10.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2095,9 +2174,11 @@ button:disabled {
   gap: 12px;
   align-items: start;
   margin: 0 auto 24px;
-  padding: 14px 18px;
-  border: 1px solid var(--line);
-  background: var(--paper);
+  padding: 15px 20px;
+  border: 1px solid #efe4d7;
+  border-radius: 14px;
+  background: #fffdf9;
+  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
 }
 
 .lab-outcome > svg {
@@ -2326,7 +2407,7 @@ button:disabled {
   border-radius: 999px;
   background: var(--maroon-100);
   color: var(--maroon-800);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
 }
 
@@ -2388,7 +2469,7 @@ button:disabled {
 
 .assistant-title small {
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
@@ -2485,7 +2566,7 @@ button:disabled {
   gap: 7px;
   padding: 7px 0;
   color: var(--ink-soft);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .citation-list a:hover strong {
@@ -2511,14 +2592,14 @@ button:disabled {
 
 .metric-list dt {
   color: var(--ink-soft);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: capitalize;
 }
 
 .metric-list dd {
   margin: 0;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
 }
 
@@ -2552,7 +2633,7 @@ button:disabled {
   border-radius: 50%;
   background: var(--green-soft);
   color: var(--green);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -2564,14 +2645,14 @@ button:disabled {
 
 .agent-trace strong {
   overflow: hidden;
-  font-size: 9px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .agent-trace small {
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.4;
 }
 
@@ -2583,7 +2664,7 @@ button:disabled {
   background: var(--paper-warm);
   color: var(--ink-soft);
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -2651,7 +2732,7 @@ button:disabled {
 .comparison-heading p {
   margin: 0;
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .comparison-table-wrap {
@@ -2671,7 +2752,7 @@ button:disabled {
   padding: 10px 12px;
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  font-size: 9px;
+  font-size: 10px;
   text-align: left;
   vertical-align: top;
   overflow-wrap: anywhere;
@@ -2691,7 +2772,7 @@ button:disabled {
   display: block;
   margin-bottom: 3px;
   color: var(--maroon-700);
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
@@ -2731,7 +2812,7 @@ button:disabled {
   border-radius: 999px;
   background: transparent;
   color: var(--ink-soft);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .follow-up-prompts button:hover {
@@ -2750,7 +2831,7 @@ button:disabled {
   gap: 6px;
   margin: 0;
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 /* Product detail */
@@ -3292,10 +3373,9 @@ button:disabled {
 
 .product-rationale li strong {
   color: var(--ink);
-  font-size: 9px;
+  font-size: 10px;
   text-transform: capitalize;
 }
-
 
 .customer-highlights blockquote {
   margin: 0;
@@ -3309,7 +3389,7 @@ button:disabled {
 
 .customer-highlights cite {
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
   font-style: normal;
 }
 
@@ -3373,7 +3453,7 @@ button:disabled {
 
 .review-list cite {
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
   font-style: normal;
 }
 
@@ -3407,7 +3487,7 @@ button:disabled {
   overflow: hidden;
   color: var(--ink-soft);
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3433,6 +3513,7 @@ button:disabled {
   gap: 10px;
   margin: 22px 0;
   border: 1px dashed var(--line-dark);
+  border-radius: 14px;
   background: rgb(255 255 255 / 58%);
   color: var(--ink-soft);
   font-size: 12px;
@@ -3461,9 +3542,10 @@ button:disabled {
   gap: 24px;
   margin-bottom: 22px;
   padding: 18px 20px;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  background: var(--paper);
+  border: 1px solid #efe4d7;
+  border-radius: 14px;
+  background: #fffdf9;
+  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
 }
 
 .lab-query-bar label {
@@ -3475,8 +3557,9 @@ button:disabled {
 .lab-query-bar label > span,
 .control-panel label > span {
   color: var(--ink-soft);
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .technique-list {
@@ -3487,12 +3570,285 @@ button:disabled {
   justify-content: flex-end;
 }
 
-.stage-nav {
+/* This is evidence from the exact response above it: an arm can be absent
+   without the product becoming ineligible, because filters ran inside every
+   arm before fusion. */
+.retrieval-method-contrast {
+  margin-bottom: 24px;
+  border-top: 1px solid #dcd1c3;
+  border-bottom: 1px solid #dcd1c3;
+  background: #fbf7f0;
+}
+
+.retrieval-method-contrast > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 17px 20px;
+  border-bottom: 1px solid #e8ddd1;
+}
+
+.retrieval-method-contrast h2 {
+  margin: 2px 0 0;
+  font-family: var(--display);
+  font-size: 23px;
+  font-weight: 540;
+}
+
+.retrieval-method-contrast > header > p {
+  margin: 0;
+  color: #766d65;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.retrieval-method-contrast-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.retrieval-method-contrast-grid > article {
+  display: grid;
+  min-height: 144px;
+  align-content: start;
+  gap: 8px;
+  padding: 17px 20px;
+  border-right: 1px solid #e8ddd1;
+}
+
+.retrieval-method-contrast-grid > article:last-child {
+  border-right: 0;
+}
+
+.retrieval-method-contrast-grid > article > span {
+  color: #7b746d;
+  font-size: 9.5px;
+  font-weight: 720;
+  text-transform: uppercase;
+}
+
+.retrieval-method-contrast-grid > article > strong {
+  color: #362b27;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.retrieval-method-contrast-grid > article > p {
+  margin: 0;
+  color: #716861;
+  font-size: 10.5px;
+  line-height: 1.52;
+}
+
+.retrieval-method-contrast-grid > article.missing {
+  background: #fbefec;
+}
+
+.retrieval-method-contrast-grid > article.missing > span,
+.retrieval-method-contrast-grid > article.missing > strong {
+  color: #8c3037;
+}
+
+.retrieval-method-contrast-grid > article.present:last-child {
+  background: #f3eee5;
+}
+
+.retrieval-method-contrast > footer {
+  padding: 11px 20px;
+  border-top: 1px solid #e8ddd1;
+  color: #716861;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* Measured band for the current run. Rendered only after a query returns, so
+   there is no zeroed placeholder state a presenter could read as a result. */
+.lab-diagnostics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
+  margin-bottom: 24px;
+  overflow: hidden;
+  border: 1px solid #efe4d7;
+  border-radius: 14px;
+  background: #fffdf9;
+  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
+}
+
+.lab-diagnostics-figures {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin-bottom: 24px;
-  border: 1px solid var(--line);
+  margin: 0;
+}
+
+.lab-diagnostics-figures > div {
+  min-width: 0;
+  padding: 17px 20px;
+  border-right: 1px solid #efe4d7;
+}
+
+.lab-diagnostics-figures dt {
+  margin-bottom: 5px;
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lab-diagnostics-figures dd {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin: 0;
+  color: var(--maroon-950);
+  font-family: var(--display);
+  font-size: 27px;
+  font-weight: 500;
+  line-height: 1.05;
+}
+
+.lab-diagnostics-figures dd.mono {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.lab-diagnostics-figures dd em {
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.lab-diagnostics-figures small {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink-faint);
+  font-size: 10.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* The status word is the value, so it carries the weight of a figure rather
+   than the look of a badge sitting next to one. */
+.lab-diagnostics-status {
+  font-size: 19px;
+  text-transform: capitalize;
+}
+
+.lab-diagnostics-status.disabled,
+.lab-diagnostics-status.unavailable {
+  color: #8a5a1f;
+}
+
+.lab-diagnostics-arms {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 17px 20px;
   background: var(--paper-warm);
+}
+
+.lab-diagnostics-arms > p {
+  margin: 0 0 3px;
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.lab-diagnostics-arms > p small {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.lab-diagnostics-arms > div {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 30px;
+  gap: 10px;
+  align-items: center;
+}
+
+.lab-diagnostics-arms span {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.lab-diagnostics-arms i {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(92 75 62 / 12%);
+}
+
+.lab-diagnostics-arms b {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--maroon-700);
+}
+
+.lab-diagnostics-arms strong {
+  color: var(--ink);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  text-align: right;
+}
+
+@media (max-width: 1180px) {
+  .lab-diagnostics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lab-diagnostics-figures {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lab-diagnostics-figures > div:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .lab-diagnostics-figures > div:nth-child(-n + 3) {
+    border-bottom: 1px solid #efe4d7;
+  }
+
+  .lab-diagnostics-arms {
+    border-top: 1px solid #efe4d7;
+  }
+}
+
+@media (max-width: 640px) {
+  .lab-diagnostics-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lab-diagnostics-figures > div {
+    border-right: 1px solid #efe4d7;
+    border-bottom: 1px solid #efe4d7;
+  }
+
+  .lab-diagnostics-figures > div:nth-child(2n) {
+    border-right: 0;
+  }
+}
+
+.stage-nav {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 24px;
+  border: 1px solid #efe4d7;
+  border-radius: 14px;
+  background: #fffdf9;
+  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
 }
 
 .stage-nav-item {
@@ -3514,9 +3870,14 @@ button:disabled {
   align-content: center;
   padding: 14px;
   border: 0;
-  border-right: 1px solid var(--line);
+  border-right: 1px solid #efe4d7;
   background: transparent;
   text-align: left;
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.stage-nav-item button:not(.active):hover {
+  background: var(--paper-warm);
 }
 
 .stage-nav-item:last-child button {
@@ -3532,18 +3893,18 @@ button:disabled {
   border: 1px solid var(--line-dark);
   border-radius: 50%;
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10.5px;
 }
 
 .stage-nav-item strong {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .stage-nav-item small {
   display: -webkit-box;
   overflow: hidden;
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.35;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -3574,8 +3935,15 @@ button:disabled {
 .lab-code-panel,
 .chart-panel,
 .benchmark-config {
-  border: 1px solid var(--line);
-  background: var(--paper);
+  border: 1px solid #efe4d7;
+  border-radius: 16px;
+  background: #fffdf9;
+  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
+}
+
+.ranking-panel,
+.chart-panel {
+  overflow: hidden;
 }
 
 .ranking-panel {
@@ -3593,18 +3961,19 @@ button:disabled {
 
 .panel-heading h2 {
   margin: 0;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 800;
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 500;
 }
 
 .panel-heading > span {
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10.5px;
 }
 
 .run-id {
-  padding: 5px 7px;
+  padding: 5px 8px;
+  border-radius: 6px;
   background: var(--green-soft);
   color: var(--green);
   font-family: "SFMono-Regular", Consolas, monospace;
@@ -3626,7 +3995,7 @@ button:disabled {
 .empty-ranking p {
   max-width: 380px;
   margin: 0;
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1.55;
 }
 
@@ -3646,7 +4015,8 @@ button:disabled {
   border-bottom: 1px solid var(--line);
   background: var(--paper-warm);
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -3654,7 +4024,8 @@ button:disabled {
 .ranking-table td {
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
-  font-size: 10px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
   vertical-align: middle;
 }
 
@@ -3687,13 +4058,14 @@ button:disabled {
 .ranking-product span > small {
   margin-top: 3px;
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .ranking-product-image {
   width: 42px;
   height: 42px;
   flex: 0 0 auto;
+  border-radius: 8px;
   object-fit: cover;
   background: var(--paper-warm);
 }
@@ -3704,14 +4076,15 @@ button:disabled {
 }
 
 .arm-provenance i {
-  min-width: 31px;
-  padding: 3px 4px;
+  min-width: 33px;
+  padding: 3px 5px;
   border: 1px solid var(--line-dark);
+  border-radius: 6px;
   background: transparent;
   color: var(--ink-faint);
-  font-size: 8px;
+  font-size: 10px;
   font-style: normal;
-  font-weight: 800;
+  font-weight: 700;
   text-align: center;
 }
 
@@ -3738,17 +4111,18 @@ button:disabled {
 
 .lab-code-panel > p:not(.eyebrow) {
   color: var(--ink-soft);
-  font-size: 10px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.55;
 }
 
 .code-block {
   max-width: 100%;
   overflow: hidden;
   border: 1px solid #4a4040;
-  border-radius: 4px;
+  border-radius: 10px;
   background: #211d1c;
   color: #f7efe6;
+  box-shadow: 0 10px 24px -16px rgb(33 29 28 / 55%);
 }
 
 .code-toolbar {
@@ -3761,7 +4135,8 @@ button:disabled {
   background: #2c2725;
   color: #c9bbb5;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
 }
 
 .code-toolbar .icon-button {
@@ -3779,7 +4154,7 @@ button:disabled {
   padding: 16px;
   overflow: auto;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 10px;
+  font-size: 10.5px;
   line-height: 1.65;
   white-space: pre;
 }
@@ -3791,9 +4166,12 @@ button:disabled {
 }
 
 .rank-movement-panel {
+  overflow: hidden;
   margin-top: 28px;
-  border: 1px solid var(--line);
-  background: var(--paper);
+  border: 1px solid #efe4d7;
+  border-radius: 16px;
+  background: #fffdf9;
+  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
 }
 
 .rank-movement-panel > header {
@@ -3847,6 +4225,7 @@ button:disabled {
   background: var(--paper-warm);
   color: var(--ink-faint);
   font-size: 10px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -3866,7 +4245,7 @@ button:disabled {
   margin-top: 3px;
   color: var(--ink-faint);
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .rank-movement-panel tr.winner td {
@@ -3911,13 +4290,14 @@ button:disabled {
   display: inline-flex;
   min-height: 32px;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 13px;
   border: 1px solid #d6bd91;
-  border-radius: 4px;
+  border-radius: 999px;
   background: var(--gold-soft);
   color: #76501d;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
   white-space: nowrap;
 }
 
@@ -3960,19 +4340,20 @@ button:disabled {
 }
 
 .boundary-note {
-  padding: 14px;
+  padding: 14px 15px;
   border-left: 3px solid var(--gold);
+  border-radius: 0 10px 10px 0;
   background: var(--gold-soft);
 }
 
 .boundary-note strong {
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .boundary-note p {
   margin: 7px 0 0;
   color: var(--ink-soft);
-  font-size: 9px;
+  font-size: 10.5px;
   line-height: 1.5;
 }
 
@@ -3991,9 +4372,11 @@ button:disabled {
   display: grid;
   min-height: 128px;
   align-content: space-between;
-  padding: 16px;
-  border: 1px solid var(--line);
-  background: var(--paper);
+  padding: 17px 18px;
+  border: 1px solid #efe4d7;
+  border-radius: 14px;
+  background: #fffdf9;
+  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
 }
 
 .metric-grid svg {
@@ -4002,12 +4385,13 @@ button:disabled {
 
 .metric-grid span {
   color: var(--ink-soft);
-  font-size: 9px;
+  font-size: 10.5px;
 }
 
 .metric-grid strong {
   font-family: var(--display);
-  font-size: 23px;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
   font-weight: 500;
 }
 
@@ -4021,6 +4405,10 @@ button:disabled {
   align-items: flex-end;
   gap: 16px;
   padding: 34px 28px 24px;
+  background-image: linear-gradient(var(--line), var(--line));
+  background-position: 28px calc(100% - 46px);
+  background-repeat: no-repeat;
+  background-size: calc(100% - 56px) 1px;
 }
 
 .bar-chart button {
@@ -4039,23 +4427,26 @@ button:disabled {
   display: block;
   width: min(62px, 70%);
   justify-self: center;
-  background: #bba79e;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(to bottom, #c4b0a6, #b3a095);
   transition: height 220ms ease, background 160ms ease;
 }
 
 .bar-chart button.selected i,
 .bar-chart button:hover i {
-  background: var(--maroon-700);
+  background: linear-gradient(to bottom, var(--maroon-700), var(--maroon-900));
 }
 
 .bar-value {
   color: var(--ink-soft);
-  font-size: 9px;
+  font-family: var(--display);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 .bar-chart small {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .benchmark-config {
@@ -4079,26 +4470,17 @@ button:disabled {
 }
 
 .benchmark-config > div:first-child strong {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .benchmark-config > div:first-child small {
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 /* Responsive */
 
 @media (max-width: 1240px) {
-  .topbar {
-    grid-template-columns: minmax(205px, 1fr) auto;
-  }
-
-  .primary-nav a.lab,
-  .nav-divider {
-    display: none;
-  }
-
   .product-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -4117,45 +4499,6 @@ button:disabled {
 }
 
 @media (max-width: 980px) {
-  .topbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding: 0 22px;
-  }
-
-  .mobile-menu {
-    display: inline-grid;
-    justify-self: end;
-    border-color: var(--line-dark);
-    color: var(--maroon-800);
-  }
-
-  .primary-nav {
-    position: absolute;
-    top: var(--topbar-height);
-    right: 0;
-    left: 0;
-    display: none;
-    height: auto;
-    align-items: stretch;
-    padding: 12px 22px 18px;
-    border-bottom: 1px solid var(--line);
-    background: var(--ivory);
-    box-shadow: var(--shadow);
-  }
-
-  .primary-nav.open {
-    display: grid;
-  }
-
-  .primary-nav a {
-    height: 44px;
-    padding: 0 10px;
-  }
-
-  .primary-nav a::after {
-    display: none;
-  }
-
   .page {
     padding: 38px 26px 60px;
   }
@@ -4283,10 +4626,6 @@ button:disabled {
 
   h2 {
     font-size: 25px;
-  }
-
-  .brand strong {
-    font-size: 17px;
   }
 
   .page {
@@ -4437,10 +4776,6 @@ button:disabled {
 }
 
 @media (max-width: 460px) {
-  .topbar {
-    padding: 0 16px;
-  }
-
   .domain-grid,
   .product-grid,
   .search-product-grid,
@@ -4486,84 +4821,6 @@ button:disabled {
 
 body {
   background: #fdf8f1;
-}
-
-.topbar {
-  grid-template-columns: minmax(230px, 1fr) auto minmax(230px, 1fr);
-  height: 94px;
-  padding: 0 48px;
-  border-bottom: 1px solid #e9dfd3;
-  background: #fdfaf5;
-  box-shadow: none;
-}
-
-.brand {
-  gap: 13px;
-}
-
-.brand-glyph {
-  width: 31px;
-  height: 28px;
-}
-
-.brand strong {
-  font-family: var(--sans);
-  font-size: 19px;
-  font-weight: 750;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
-
-.primary-nav {
-  gap: 12px;
-}
-
-.primary-nav a {
-  height: 94px;
-  padding: 0 12px;
-  color: #3b302b;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.primary-nav a::after {
-  right: 12px;
-  bottom: 29px;
-  left: 12px;
-  height: 2px;
-}
-
-.primary-nav a.active {
-  color: var(--maroon-900);
-}
-
-.topbar-actions {
-  gap: 12px;
-}
-
-.header-action,
-.bag-button {
-  display: inline-grid;
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  color: #2c2521;
-}
-
-.header-action:hover,
-.bag-button:hover {
-  background: #f4ecdf;
-}
-
-.bag-count {
-  top: 0;
-  right: 0;
-  min-width: 16px;
-  height: 16px;
-  background: var(--maroon-900);
 }
 
 .mosaic-catalog-page {
@@ -4817,7 +5074,7 @@ body {
 
 .catalog-rail-list em {
   color: #b3a08f;
-  font-size: 9.5px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -4940,26 +5197,9 @@ body {
     transition: none;
   }
 
-  .catalog-product-card:hover {
-    transform: none;
-  }
-
   .catalog-product-card:hover .product-image img {
     transform: none;
   }
-}
-
-.catalog-card-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: auto;
-}
-
-.catalog-card-bottom > strong {
-  color: #2e2420;
-  font-size: 15px;
 }
 
 .catalog-add-button {
@@ -5019,16 +5259,6 @@ body {
 }
 
 @media (max-width: 980px) {
-  .topbar {
-    --topbar-height: 72px;
-    height: 72px;
-    padding: 0 22px;
-  }
-
-  .primary-nav a {
-    height: 44px;
-  }
-
   .mosaic-catalog-page,
   .mosaic-catalog-layout {
     min-height: calc(100vh - 72px);
@@ -5066,21 +5296,6 @@ body {
 }
 
 @media (max-width: 640px) {
-  .topbar {
-    --topbar-height: 64px;
-    grid-template-columns: minmax(0, 1fr) auto;
-    height: 64px;
-    padding: 0 16px;
-  }
-
-  .brand strong {
-    font-size: 15px;
-  }
-
-  .topbar-actions {
-    display: none;
-  }
-
   .catalog-side-heading h1 {
     font-size: 38px;
   }
@@ -5105,16 +5320,6 @@ body {
 }
 
 /* Reference-aligned storefront surfaces */
-
-.topbar {
-  height: 80px;
-  padding: 0 42px;
-  background: #fdfaf5;
-}
-
-.primary-nav a {
-  height: 80px;
-}
 
 .mosaic-catalog-page,
 .mosaic-catalog-layout {
@@ -5304,31 +5509,6 @@ body {
   }
 }
 
-/* Rounded card holding an inset, rounded image well. The card is a two-row grid
-   so every card in a row is the same height regardless of title length. */
-.catalog-product-card {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
-  border: 1px solid #efe4d7;
-  border-radius: 18px;
-  background: #fffdf9;
-  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
-  transition:
-    transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 220ms ease;
-}
-
-.catalog-product-card:hover {
-  border-color: #e0cfbc;
-  box-shadow: 0 18px 34px -18px rgb(68 42 28 / 34%);
-  transform: translateY(-3px);
-}
-
-/* Catalog photographs are 3:2 while verified flagship shots are square. A stable
-   3:2 frame with contain rendering keeps every full product visible without
-   changing card height or upscaling the 1200px source assets. */
 .catalog-product-card .product-image {
   aspect-ratio: 3 / 2;
   margin: 10px 10px 0;
@@ -5355,9 +5535,6 @@ body {
   padding: 14px 16px 16px;
 }
 
-/* Two lines reserved, clamped to two. `.product-card h3` sets a 2.6em floor for
-   the search grid; here the floor and the ceiling have to be the same or a
-   one-line title leaves a visible blank line above the subcategory. */
 .catalog-product-card h3 {
   display: -webkit-box;
   min-height: 0;
@@ -5370,41 +5547,6 @@ body {
   font-size: 17px;
   font-weight: 500;
   line-height: 1.25;
-}
-
-/* Reserves exactly one line so a two-word and a four-word subcategory yield the
-   same card height, without the slack a min-height in em units left behind. */
-.catalog-product-card .product-category {
-  min-height: 15px;
-  margin: 0 0 12px;
-  overflow: hidden;
-  color: #7d6c62;
-  font-size: 11.5px;
-  line-height: 15px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Price row sits on the card's bottom edge whatever the title wrapped to. */
-.catalog-product-card .catalog-card-bottom {
-  margin-top: auto;
-  padding-top: 2px;
-}
-
-.catalog-card-bottom > strong {
-  font-size: 14px;
-}
-
-.catalog-card-bottom > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #76675f;
-  font-size: 11px;
-}
-
-.catalog-card-bottom > span svg {
-  color: var(--maroon-800);
 }
 
 .catalog-favorite-button {
@@ -5429,90 +5571,11 @@ body {
   background: var(--maroon-800);
 }
 
-/* Landing — the "Designed for focus." board.
- *
- * Reference: design-references/mosaic-ui/landing.png at 1586x992. Every number
- * below was measured off that file, not estimated; the comments name the source
- * pixels so a future change can be checked rather than argued about.
- *
- *   outer card      inset 14px on all four sides, radius 20px, bg #876f5b
- *   seam            photo occupies x 0..783, panel x 784..1571 (49.8% / 50.2%)
- *   panel bg        #f5ece1
- *   panel gutter    text starts at x 836 => 52px from the seam
- *   nav             ink rows 53..90, brand glyph x 831..861, links from x 1089
- *   headline        cap "D" rows 156..198 (43px) => Newsreader 62px/0.98
- *   sub-headline    cap "T" rows 306..319 (14px) => 19px/30px
- *   search field    x 836..1516, y 386..451 (681x66), radius 14px
- *   section label   rows 486..498
- *   category row    y 521..775, 5 cards 125px wide, 15px gaps, image 168px tall
- *   service band    x 835..1516, y 812..921 (682x110), radius 14px
- */
-
 .landing-main {
   min-height: 100vh;
   background: #876f5b;
 }
 
-.landing-stage {
-  padding: 14px;
-  background: #876f5b;
-}
-
-.discover-hero {
-  position: relative;
-  display: grid;
-  /* 1586x992 board minus the 14px inset on each side. */
-  width: min(100%, 1558px);
-  height: min(964px, calc(100svh - 28px));
-  /* Board seam: photo x 14..783 (770), panel x 784..1571 (788). */
-  grid-template-columns: 770fr 788fr;
-  margin: 0 auto;
-  overflow: hidden;
-  border-radius: 20px;
-  background: #f5ece1;
-  box-shadow: 0 18px 44px rgb(41 26 15 / 26%);
-  color: #2f1e14;
-  --ink: #2f1e14;
-  --ink-soft: #5a4d41;
-  --ink-faint: #9a8d81;
-  --maroon-800: #47161d;
-  --maroon-700: #5c1f27;
-}
-
-.hero-image {
-  position: relative;
-  grid-column: 1;
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  background: #d8cec1;
-}
-
-/* The photograph is 1024x1536 portrait and this frame is 770x938, so cover-fit
-   binds on width and trims 19% of the height evenly from top and bottom. The
-   composition is centred, so no focal offset is wanted: 50% keeps the monitor,
-   chair, and headphone stand all inside the frame. A landscape source here
-   would show only half its width. */
-.hero-image > img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 50% 50%;
-}
-
-.hero-panel {
-  display: grid;
-  grid-column: 2;
-  min-width: 0;
-  /* Headline cap-top sits at board y 156. With a 62px Newsreader line box the
-     cap is inset 17px, so the content box has to start at 139 => 125px nav. */
-  grid-template-rows: 125px minmax(0, 1fr);
-  background: #f5ece1;
-}
-
-/* Nav. The board puts the brand at x 831, the four links at 1090/1179/1241/1339
-   and the icon trio at 1440..1537. Links are pushed to the right of centre, so
-   the middle track gets end alignment rather than centring. */
 .landing-nav {
   position: relative;
   z-index: 4;
@@ -5523,55 +5586,11 @@ body {
   padding: 0 35px 0 47px;
 }
 
-.landing-nav-brand {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 15px;
-  color: #26140a;
-}
-
 .landing-nav-brand .brand-glyph {
   width: 31px;
   height: 31px;
 }
 
-.landing-nav-brand strong {
-  /* Wordmark ink x 878..978 for six letters at 16px with wide tracking. */
-  font-family: var(--sans);
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-/* Board link gaps: 1179-1141=38, 1241-1209=32, 1339-1306=33 => ~34px. The last
-   link ends at 1398 and the icon trio starts at 1440, so 42px separates them —
-   but the icon boxes are inset from their glyphs, hence 30px here. */
-.landing-links {
-  display: flex;
-  justify-content: flex-end;
-  gap: 34px;
-  padding-right: 30px;
-}
-
-.landing-links a {
-  position: relative;
-  color: #5a4a3f;
-  /* 13px, not 14: "Collections" measures 66px on the board and Schibsted
-     Grotesk renders it at 66.5px/13px against 72px/14px. */
-  font-size: 13px;
-  font-weight: 400;
-  white-space: nowrap;
-  transition: color 160ms ease;
-}
-
-.landing-links a:hover {
-  color: var(--maroon-800);
-}
-
-/* The active link keeps the ink colour and takes a maroon rule 13px below the
-   baseline (board rows 86..87 against a baseline of 73). */
 .landing-links a.active::after {
   position: absolute;
   right: 0;
@@ -5582,44 +5601,12 @@ body {
   content: "";
 }
 
-/* Board icon glyphs span 1440..1455, 1480..1497, 1522..1537: 16-18px wide with
-   24px between glyph edges, so a 24px box needs a 16px gap. */
 .landing-actions {
   display: inline-flex;
   align-items: center;
   gap: 16px;
 }
 
-.landing-actions button {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  place-items: center;
-  border: 0;
-  background: transparent;
-  color: #4a3a2e;
-  transition: color 160ms ease;
-}
-
-.landing-actions button:hover {
-  color: var(--maroon-800);
-}
-
-.landing-nav-toggle {
-  display: none;
-}
-
-.hero-content {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  padding: 0 56px 0 52px;
-  overflow: hidden;
-}
-
-/* Headline. Cap height 43px measured on the "D"; Newsreader renders a 43px cap
-   at 62px. Two lines, baselines 198 and 267 => 69px leading on 62px = 1.11. */
 .hero-display {
   width: fit-content;
   margin: 0;
@@ -5632,62 +5619,6 @@ body {
   text-transform: none;
 }
 
-.hero-script {
-  width: fit-content;
-  margin: -15px 0 16px 2px;
-  color: var(--maroon-700);
-  font-family: var(--script);
-  font-size: 66px;
-  font-weight: 400;
-  line-height: 0.92;
-}
-
-.hero-sub {
-  /* Cap "T" 14px => 19px. Baselines 324 and 353 => 29px leading. */
-  width: fit-content;
-  margin: 0 0 20px;
-  color: var(--ink-soft);
-  font-size: 19px;
-  font-weight: 400;
-  line-height: 1.55;
-}
-
-/* Search field: 681x66 with a 1px #ded0c1 hairline and a nearly-white fill that
-   sits a shade above the panel. */
-.hero-search {
-  display: grid;
-  width: 100%;
-  height: 66px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  padding: 0 10px 0 22px;
-  border: 1px solid #ded0c1;
-  border-radius: 14px;
-  background: #f8f0e6;
-}
-
-.hero-search > svg {
-  color: #7c6b5d;
-}
-
-.hero-search input {
-  width: 100%;
-  min-width: 0;
-  height: 64px;
-  padding: 0 16px;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: 15px;
-}
-
-.hero-search input::placeholder {
-  color: #b3a79b;
-}
-
-/* Button ink box x 1416..1503, y 397..442 => 88x46, radius 11px. */
 .hero-search button {
   width: 88px;
   height: 46px;
@@ -5702,51 +5633,6 @@ body {
   transition: background 160ms ease;
 }
 
-.hero-search button:hover {
-  background: var(--maroon-700);
-}
-
-.hero-section-label {
-  /* Board rows 486..498, i.e. 34px below the search field's bottom edge. */
-  margin: 34px 0 22px;
-  color: #23140b;
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.category-row {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 15px;
-}
-
-.category-card {
-  display: grid;
-  min-width: 0;
-  grid-template-rows: auto minmax(0, 1fr);
-  padding: 0;
-  overflow: hidden;
-  border: 0;
-  border-radius: 12px;
-  background: #f8f1e8;
-  color: var(--ink);
-  text-align: left;
-  transition:
-    box-shadow 200ms ease,
-    transform 200ms ease;
-}
-
-.category-card img {
-  width: 100%;
-  /* 125x168 on the board. */
-  aspect-ratio: 125 / 168;
-  object-fit: cover;
-}
-
-/* Board: image bottom 688, "Audio" cap-top 708, description rows 733..758, card
-   bottom 775. That is a 20px top inset, 17px left inset, and 87px total. */
 .category-card span {
   display: flex;
   min-width: 0;
@@ -5754,40 +5640,6 @@ body {
   padding: 16px 17px 14px;
 }
 
-.category-card strong {
-  /* "Audio" measures 31px on the board; Schibsted renders it at 33px/12px
-     against 36px/13px. */
-  margin-bottom: 13px;
-  color: #23150c;
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-/* The two description lines are authored with an explicit break to match the
-   board. Without nowrap the longest ("Comfort that") re-wraps inside a 123px
-   column and the card grows a third line. */
-.category-card small {
-  /* "Focus in" measures 41px on the board => 11px (40.5px rendered). */
-  color: #94897d;
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 1.35;
-  white-space: nowrap;
-}
-
-.category-card:hover {
-  box-shadow: 0 12px 26px -16px rgb(47 30 20 / 45%);
-  transform: translateY(-2px);
-}
-
-/* Service band: 682x110, radius 14px, four columns with no dividers. The icons
-   are 26px outlines in near-black, not maroon. */
-/* Board columns start at x 857, 1016, 1180, 1353 inside a band spanning
-   835..1516: pitches of 159, 164, and 173px. The last column's description
-   ("Complimentary shipping", 103px) is the widest, so equal fractions clip it;
-   these tracks follow the board and the band's right padding absorbs the rest. */
 .service-band {
   display: grid;
   height: 110px;
@@ -5802,8 +5654,6 @@ body {
   background: #f3e9dd;
 }
 
-/* Icon glyphs are 24-30px wide and the label starts 16px past the icon's right
-   edge (board: icon 857..880, label at 896). */
 .service-band > div {
   display: flex;
   min-width: 0;
@@ -5811,50 +5661,6 @@ body {
   gap: 15px;
 }
 
-.service-band svg {
-  flex: 0 0 auto;
-  margin-top: 1px;
-  color: #2c1c12;
-}
-
-.service-band span {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.service-band strong {
-  /* Board rows 844..853 => 13px semibold; description baseline 22px lower. */
-  margin-bottom: 11px;
-  color: #23150c;
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.service-band small {
-  /* "Carefully crafted for" measures 97px on the board => 11px (101px). */
-  color: #94897d;
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 1.28;
-  white-space: nowrap;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .category-card {
-    transition: none;
-  }
-
-  .category-card:hover {
-    transform: none;
-  }
-}
-
-/* Below the board's own width the panel keeps its proportions but the type and
-   the two card rows have to give, or the 5-up row overflows the column. */
 @media (max-width: 1480px) {
   .landing-nav,
   .hero-content {
@@ -5943,29 +5749,6 @@ body {
 }
 
 @media (max-width: 1180px) {
-  .discover-hero {
-    grid-template-columns: 300px minmax(0, 1fr);
-  }
-
-  .landing-links {
-    display: none;
-  }
-
-  .landing-nav {
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-  }
-
-  .landing-nav-toggle {
-    display: inline-grid;
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    margin-left: 16px;
-    place-items: center;
-    border: 0;
-    background: transparent;
-    color: #4a3a2e;
-  }
 
   .landing-links.open {
     position: absolute;
@@ -5993,19 +5776,9 @@ body {
   }
 }
 
-/* One column: the photograph becomes a banner above the panel and the card row
-   wraps. The board has no mobile counterpart, so this is the board's grammar
-   applied at a narrower measure rather than a different design. */
 @media (max-width: 900px) {
   .landing-stage {
     padding: 10px;
-  }
-
-  .discover-hero {
-    height: auto;
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(260px, 34vh) auto;
-    border-radius: 16px;
   }
 
   .hero-image {
@@ -6056,44 +5829,6 @@ body {
   }
 }
 
-@media (max-width: 620px) {
-  .hero-display {
-    font-size: 38px;
-  }
-
-  .hero-script {
-    font-size: 47px;
-  }
-
-  .hero-sub {
-    font-size: 15px;
-  }
-
-  .hero-search {
-    height: 54px;
-    padding-left: 16px;
-  }
-
-  .hero-search input {
-    height: 52px;
-    padding: 0 10px;
-    font-size: 14px;
-  }
-
-  .hero-search button {
-    width: 74px;
-    height: 42px;
-  }
-
-  .category-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .service-band {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 1180px) {
   .mosaic-catalog-layout {
     grid-template-columns: 245px minmax(0, 1fr);
@@ -6110,15 +5845,6 @@ body {
 }
 
 @media (max-width: 860px) {
-  .topbar {
-    --topbar-height: 72px;
-    height: 72px;
-  }
-
-  .primary-nav a {
-    height: 44px;
-  }
-
   .mosaic-catalog-page,
   .mosaic-catalog-layout {
     min-height: calc(100vh - 72px);
@@ -6148,12 +5874,6 @@ body {
 }
 
 @media (max-width: 620px) {
-  .topbar {
-    --topbar-height: 64px;
-    height: 64px;
-    padding: 0 16px;
-  }
-
   .mosaic-catalog-page .product-grid {
     grid-template-columns: 1fr;
   }
@@ -6299,9 +6019,6 @@ body {
 
 }
 
-/* The landing board is intentionally full-viewport on desktop. At common
-   laptop heights, compact the presentation before its service row can reach
-   the clipped edge of the hero. */
 @media (min-width: 901px) and (max-height: 985px) {
   .hero-panel {
     grid-template-rows: 104px minmax(0, 1fr);
@@ -6368,11 +6085,6 @@ body {
   }
 }
 
-/* A 15-16" laptop running a browser with a tab strip and toolbar lands around
-   740-830 CSS px of viewport, which is below what the tier above can absorb.
-   Measured: at 758px inner height the panel needed 678px against 654 available,
-   so the service band was clipped mid-sentence by the hero's overflow. These
-   tiers trade image height and leading for a whole card. */
 @media (min-width: 901px) and (max-height: 860px) {
   .hero-panel {
     grid-template-rows: 92px minmax(0, 1fr);
@@ -6446,70 +6158,12 @@ body {
   }
 }
 
-@media (min-width: 901px) and (max-height: 780px) {
-  .hero-panel {
-    grid-template-rows: 84px minmax(0, 1fr);
-  }
-
-  .hero-display {
-    font-size: 37px;
-  }
-
-  .hero-script {
-    margin: -9px 0 6px 2px;
-    font-size: 38px;
-  }
-
-  .hero-sub {
-    margin-bottom: 10px;
-    font-size: 13.5px;
-    line-height: 1.35;
-  }
-
-  .hero-search {
-    height: 46px;
-  }
-
-  .hero-search input {
-    height: 44px;
-  }
-
-  .hero-section-label {
-    margin: 12px 0 9px;
-  }
-
-  .category-card img {
-    aspect-ratio: 125 / 90;
-  }
-
-  .category-card span {
-    padding: 8px 10px;
-  }
-
-  .service-band {
-    height: 74px;
-    margin-top: 10px;
-  }
-}
-
-/* Below ~620px of viewport there is not enough height for a photograph, a
-   headline, a search field, five cards and a service band. Rather than clip the
-   band against the hero's overflow, release the fixed height and let the page
-   scroll — the content stays whole and reachable. */
 @media (min-width: 901px) and (max-height: 640px) {
-  .discover-hero {
-    height: auto;
-    min-height: 0;
-  }
-
   .hero-image {
     min-height: 300px;
   }
 }
 
-/* Shortest supported desktop frame: a 1440x900 laptop with a large browser
-   chrome, or a mirrored display running at a scaled resolution. Below this the
-   single-column layout at 900px width is the better answer. */
 @media (min-width: 901px) and (max-height: 700px) {
   .hero-display {
     font-size: 32px;
@@ -6539,14 +6193,8 @@ body {
   }
 
   .service-band small {
-    font-size: 9.5px;
+    font-size: 10px;
   }
-}
-
-/* re:Invent storefront refinements */
-
-.landing-main .service-band small {
-  white-space: normal;
 }
 
 .catalog-sidebar .filter-options {
@@ -6615,10 +6263,6 @@ body {
   border-color: var(--maroon-900);
   background: var(--maroon-900);
   color: #fff;
-}
-
-.catalog-product-card {
-  border-radius: 8px;
 }
 
 .catalog-product-card .product-image {
@@ -6755,7 +6399,7 @@ body {
 .collection-top-pick-label {
   margin-bottom: 6px;
   color: var(--maroon-800);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -7185,7 +6829,7 @@ body {
   margin-top: auto;
   padding-top: 16px;
   color: #6d5d55;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -7245,7 +6889,7 @@ body {
 .mosaic-labs-facts dt {
   margin-bottom: 4px;
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -7419,7 +7063,7 @@ body {
   gap: 8px;
   margin: 0 0 7px;
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -7471,7 +7115,7 @@ body {
 
 .mosaic-lab-mission-proof span {
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.5;
   text-transform: capitalize;
 }
@@ -7662,7 +7306,7 @@ body {
 
 .inspection-list dt {
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -7691,7 +7335,7 @@ body {
 .benchmark-config-details dt {
   margin-bottom: 5px;
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -7954,7 +7598,7 @@ body {
   margin-left: auto;
   color: var(--maroon-800);
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -8016,7 +7660,7 @@ body {
 
 .agent-progress-surface li small {
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.4;
 }
 
@@ -8175,24 +7819,6 @@ body {
   align-self: end;
 }
 
-.catalog-product-card {
-  grid-template-rows: auto minmax(194px, 1fr);
-  border-color: #e7ddd2;
-  border-radius: 8px;
-  background: #fffefa;
-  box-shadow:
-    0 1px 2px rgb(55 37 25 / 5%),
-    0 8px 24px -22px rgb(55 37 25 / 36%);
-}
-
-.catalog-product-card:hover {
-  border-color: #ccb9a8;
-  box-shadow:
-    0 2px 5px rgb(55 37 25 / 8%),
-    0 18px 34px -18px rgb(55 37 25 / 30%);
-  transform: translateY(-3px);
-}
-
 .catalog-product-card .product-image {
   margin: 8px 8px 0;
   border-radius: 6px;
@@ -8209,7 +7835,7 @@ body {
   gap: 7px;
   margin: 0 0 6px;
   color: var(--maroon-800);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -8228,13 +7854,6 @@ body {
   margin-right: 7px;
   color: #c3b4a9;
   content: "/";
-}
-
-.catalog-product-card h3 {
-  height: 2.4em;
-  margin-bottom: 9px;
-  font-size: 18px;
-  line-height: 1.2;
 }
 
 .catalog-card-evidence {
@@ -8313,7 +7932,7 @@ body {
 
 .catalog-card-buy > span small {
   color: #9a8d84;
-  font-size: 9px;
+  font-size: 10px;
   text-decoration: line-through;
 }
 
@@ -8451,7 +8070,7 @@ body {
 
 .commerce-drawer-header .eyebrow {
   margin: 0 0 3px;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .commerce-drawer-header h2 {
@@ -8527,7 +8146,7 @@ body {
   border: 1px solid #d6cbc2;
   border-radius: 50%;
   background: #fffdf9;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .checkout-progress li.active,
@@ -8600,7 +8219,7 @@ body {
 .cart-line-copy > small {
   overflow: hidden;
   color: #8b7d74;
-  font-size: 9px;
+  font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -8783,7 +8402,7 @@ body {
   gap: 22px;
   padding-top: 11px;
   color: #7b6e66;
-  font-size: 9.5px;
+  font-size: 10px;
 }
 
 .commerce-assurance-row span {
@@ -8937,7 +8556,7 @@ body {
 
 .delivery-options label > span small {
   color: #877971;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 500;
 }
 
@@ -8981,7 +8600,7 @@ body {
 
 .demo-payment-card small {
   color: #85766d;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 500;
 }
 
@@ -9025,7 +8644,7 @@ body {
 
 .demo-card-preview small {
   color: rgb(255 255 255 / 68%);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .checkout-checkbox {
@@ -9061,7 +8680,7 @@ body {
 
 .payment-security small {
   color: #6e7d74;
-  font-size: 9.5px;
+  font-size: 10px;
 }
 
 .checkout-review {
@@ -9144,7 +8763,7 @@ body {
 
 .review-lines small {
   color: #887a72;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .review-lines b {
@@ -9216,7 +8835,7 @@ body {
 
 .checkout-complete > div small {
   color: #81736b;
-  font-size: 9.5px;
+  font-size: 10px;
 }
 
 .checkout-complete .commerce-primary-button {
@@ -9275,26 +8894,6 @@ body {
 }
 
 @media (max-width: 980px) {
-  .topbar {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 8px;
-  }
-
-  .topbar-actions {
-    display: inline-flex;
-    grid-column: 3;
-    grid-row: 1;
-  }
-
-  .topbar-actions .header-action {
-    display: none;
-  }
-
-  .mobile-menu {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
   .mosaic-catalog-page .product-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -9315,12 +8914,26 @@ body {
 }
 
 @media (max-width: 640px) {
-  .topbar {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+  .retrieval-method-contrast > header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+    padding: 15px 16px;
   }
 
-  .topbar-actions {
-    display: inline-flex;
+  .retrieval-method-contrast-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .retrieval-method-contrast-grid > article {
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid #e8ddd1;
+    padding: 15px 16px;
+  }
+
+  .retrieval-method-contrast > footer {
+    padding: 10px 16px;
   }
 
   .mosaic-catalog-page .product-grid {

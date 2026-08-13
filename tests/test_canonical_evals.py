@@ -25,9 +25,20 @@ def test_canonical_set_is_small_curated_and_unique():
 
 def test_participant_queries_resolve_from_the_lab_authority():
     mission_backed = [query for query in QUERIES if query.get("mission_id")]
+    contract = json.loads(
+        (ROOT / "data" / "evals" / "mosaic_labs_missions.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    core_mission_ids = {
+        item["id"]
+        for item in contract["missions"] + contract["supporting_checks"]
+        if item["core"]
+    }
     assert {
         (query["query_id"], query["mission_id"])
         for query in mission_backed
+        if query["mission_id"] in core_mission_ids
     } == {
         ("G-001", "exact-identity"),
         ("G-003", "typo-recovery"),
@@ -37,6 +48,13 @@ def test_participant_queries_resolve_from_the_lab_authority():
         ("G-010", "agentic-research"),
         ("G-013", "semantic-eligibility"),
         ("G-020", "evidence-grounding"),
+    }
+    assert {
+        (query["query_id"], query["mission_id"])
+        for query in mission_backed
+        if query["mission_id"] not in core_mission_ids
+    } == {
+        ("G-004", "semantic-intent-contrast"),
     }
     assert all("query" not in query and "filters" not in query for query in mission_backed)
     resolved = {

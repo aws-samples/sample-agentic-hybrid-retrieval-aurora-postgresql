@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -16,6 +17,7 @@ import type {
   AgentResponse,
   ProductSummary,
   RetrievalDiagnostics,
+  RetrievalExample,
   SearchResponse,
 } from "../types";
 import { CatalogPage } from "./CatalogPage";
@@ -25,8 +27,45 @@ vi.mock("../api", () => ({
     catalog: vi.fn(),
     search: vi.fn(),
     agentStream: vi.fn(),
+    examples: vi.fn(),
   },
 }));
+
+/**
+ * Shaped like `/api/retrieval/examples`, which serves `demo_queries.jsonl`
+ * deduplicated in file order. The second consumer_electronics row is here to
+ * prove the panel takes the first query per domain rather than the first three.
+ */
+const examples: RetrievalExample[] = [
+  {
+    query_id: "D-001",
+    domain: "consumer_electronics",
+    query: "Find wireless noise-cancelling over-ear headphones under $200",
+    expected_techniques: ["lexical", "semantic"],
+    variant: 1,
+  },
+  {
+    query_id: "D-002",
+    domain: "consumer_electronics",
+    query: "Bluetooth earbuds with a charging case",
+    expected_techniques: ["lexical"],
+    variant: 1,
+  },
+  {
+    query_id: "D-006",
+    domain: "running_fitness",
+    query: "Carbon-plated marathon shoes under $220",
+    expected_techniques: ["semantic"],
+    variant: 1,
+  },
+  {
+    query_id: "D-011",
+    domain: "home_office",
+    query: "Ergonomic mesh chair with adjustable lumbar support under $500",
+    expected_techniques: ["semantic"],
+    variant: 1,
+  },
+];
 
 const catalog = showcaseCatalogPage({}, 0, 12);
 
@@ -74,7 +113,13 @@ const agentResponse: AgentResponse = {
   agent_run_id: "agent-1",
   question: "Compare quiet keyboards under $180",
   answer: "Choose the first product based on the cited switch evidence [1].",
-  plan: [],
+  plan: [
+    {
+      query: "quiet mechanical keyboard for shared offices",
+      filters: { max_price_cents: 18000, in_stock_only: true },
+      purpose: "Retrieve products for: quiet mechanical keyboard for shared offices",
+    },
+  ],
   recommendations,
   citations: [
     {
@@ -118,8 +163,10 @@ describe("CatalogPage", () => {
     vi.mocked(api.catalog).mockReset();
     vi.mocked(api.search).mockReset();
     vi.mocked(api.agentStream).mockReset();
+    vi.mocked(api.examples).mockReset();
     vi.mocked(api.catalog).mockResolvedValue(catalog);
     vi.mocked(api.search).mockResolvedValue(searchResponse);
+    vi.mocked(api.examples).mockResolvedValue(examples);
     vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
       onEvent({
         type: "stage",
@@ -157,7 +204,33 @@ describe("CatalogPage", () => {
 
     expect(await screen.findByText("Hybrid results")).toBeTruthy();
     expect(screen.getByText(/18 fused candidates/)).toBeTruthy();
-    expect(screen.getAllByText("RRF 2").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("RRF #2").length).toBeGreaterThan(0);
+  });
+
+  it("shows the inspectable hybrid pipeline while Shop retrieval is pending", async () => {
+    let releaseSearch: (value: SearchResponse) => void = () => {};
+    vi.mocked(api.search).mockImplementation(
+      () =>
+        new Promise<SearchResponse>((resolve) => {
+          releaseSearch = resolve;
+        }),
+    );
+    window.history.replaceState({}, "", "/catalog?q=ergonomic%20mesh%20chair");
+    renderPage();
+
+    const trace = await screen.findByRole("status", {
+      name: "Hybrid retrieval trace",
+    });
+    expect(within(trace).getByText("Request dispatched")).toBeTruthy();
+    expect(within(trace).getByText("Embed and retrieve")).toBeTruthy();
+    expect(within(trace).getByText("Fuse and rerank")).toBeTruthy();
+    expect(within(trace).getByText("Return ranked products")).toBeTruthy();
+    expect(within(trace).getByText(/Cohere Embed v4/)).toBeTruthy();
+    expect(within(trace).getByText(/FTS/)).toBeTruthy();
+    expect(within(trace).getByText(/pg_trgm/)).toBeTruthy();
+    expect(within(trace).getByText(/HNSW/)).toBeTruthy();
+
+    await act(async () => releaseSearch(searchResponse));
   });
 
   it("opens Ask Mosaic, renders grounded receipts, and cross-highlights products", async () => {
@@ -165,9 +238,43 @@ describe("CatalogPage", () => {
     await screen.findByText(catalog.products[0].model);
 
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+
+    // One ask surface, and it is the panel. This used to also morph the Shop
+    // header into a second composer, so asking meant typing into one field and
+    // then watching a different field slide in beside the answer.
+    const panel = screen.getByRole("dialog", { name: "Ask Mosaic" });
     expect(
-      screen.getByRole("region", { name: "Ask Mosaic composer" }),
-    ).toBeTruthy();
+      screen.getAllByRole("textbox", { name: "Ask Mosaic request" }),
+    ).toHaveLength(1);
+
+    // The entry state names the five tools registered in service/agent_tools.py,
+    // by what each one does, with the function it calls beside it. Its whole
+    // capability list used to be the bare Python names.
+    const toolset = within(panel).getByRole("list", {
+      name: "Tools available to the agent",
+    });
+    expect(
+      within(toolset)
+        .getAllByRole("listitem")
+        .map((tool) => tool.textContent),
+    ).toEqual([
+      "Search the catalogsearch_products",
+      "Compare options side by sidecompare_products",
+      "Look up specs and reviewsget_product_evidence",
+      "Replay the ranking signalsexplain_retrieval",
+      "Write the cited recommendationsynthesize_cited_answer",
+    ]);
+
+    // Starters are queries from data/evals/demo_queries.jsonl, one per domain,
+    // so the second consumer_electronics query must not appear. They used to be
+    // three invented questions, one of which asked the agent to explain a
+    // ranking before anything had been ranked.
+    const starters = await within(panel).findByRole("list", {
+      name: "Example questions",
+    });
+    expect(
+      within(starters).getAllByRole("button").map((button) => button.textContent),
+    ).toEqual([examples[0].query, examples[2].query, examples[3].query]);
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
@@ -182,30 +289,147 @@ describe("CatalogPage", () => {
     expect(within(dialog).getByText(/max_price_cents/)).toBeTruthy();
     expect(screen.getByText("Ask Mosaic shortlist")).toBeTruthy();
 
-    const shortlistItem = within(dialog)
-      .getByText(recommendations[0].model)
-      .closest("li");
-    expect(shortlistItem).not.toBeNull();
-    fireEvent.mouseEnter(shortlistItem!);
+    // Why this row is here, from the arm ranks and the reranker score. The row
+    // used to read "RRF #2 · Final #1", which names two internal ranks and
+    // answers nothing anybody asked. trigram.rank is null in this fixture, so
+    // close spellings must not be claimed.
+    expect(within(dialog).getByText("Best match")).toBeTruthy();
     expect(
-      document.querySelector(".catalog-product-card.assist-highlighted"),
+      within(dialog).getByText(
+        "Found by your exact words + what you meant · Rerank 0.80",
+      ),
+    ).toBeTruthy();
+
+    // The searches behind the shortlist, from AgentResponse.plan, which the
+    // panel used to fetch and never render.
+    expect(within(dialog).getByText("How I searched")).toBeTruthy();
+    expect(within(dialog).getByText(agentResponse.plan[0].query)).toBeTruthy();
+    expect(within(dialog).getByText("Under $180")).toBeTruthy();
+    expect(within(dialog).getByText("In stock only")).toBeTruthy();
+
+    const shortlistButton = within(dialog).getByRole("button", {
+      name: new RegExp(recommendations[0].model),
+    });
+    fireEvent.mouseEnter(shortlistButton);
+    expect(
+      document.querySelector(".shop-product-card.assist-highlighted"),
     ).not.toBeNull();
-    fireEvent.mouseLeave(shortlistItem!);
+    fireEvent.mouseLeave(shortlistButton);
     expect(
-      document.querySelector(".catalog-product-card.assist-highlighted"),
+      document.querySelector(".shop-product-card.assist-highlighted"),
     ).toBeNull();
+
+    const linkedCatalogCard = document.querySelector(
+      `[data-product-id="${recommendations[0].product_id}"]`,
+    );
+    expect(linkedCatalogCard).not.toBeNull();
+    fireEvent.mouseEnter(linkedCatalogCard!);
+    expect(
+      within(dialog)
+        .getByRole("button", { name: new RegExp(recommendations[0].model) })
+        .closest("li")
+        ?.classList.contains("highlighted"),
+    ).toBe(true);
+    fireEvent.mouseLeave(linkedCatalogCard!);
+
+    // The composer empties, so the next thing typed is a follow-up rather than
+    // an edit of the question already answered above it.
+    expect(
+      within(dialog).getByRole<HTMLInputElement>("textbox", {
+        name: "Ask Mosaic request",
+      }).value,
+    ).toBe("");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Compare top two" }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
+
+    // The follow-up appends to the conversation. It used to overwrite the single
+    // stored response, so pressing "Compare top two" destroyed the answer that
+    // named the two products being compared.
+    expect(within(dialog).getAllByText("You asked")).toHaveLength(2);
+    expect(within(dialog).getByText(agentResponse.question)).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        `Compare ${recommendations[0].model} with ${recommendations[1].model}`
+        + " and explain the decisive trade-offs.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("marks the answer as still being written while deltas arrive", async () => {
+    let release = () => {};
+    vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
+      onEvent({
+        type: "stage",
+        id: "retrieve",
+        title: "Retrieve",
+        detail: "Searching the hybrid index.",
+      });
+      onEvent({ type: "answer_start", response: { ...agentResponse, answer: "" } });
+      onEvent({ type: "answer_delta", delta: "Choose the first product" });
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    });
+
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Ask Mosaic" });
+    expect(await within(dialog).findByText("Choose the first product")).toBeTruthy();
+    expect(document.querySelector(".ask-mosaic-answer.streaming")).not.toBeNull();
+    // Nothing to follow up on until the answer it would follow up on exists.
+    expect(
+      within(dialog).queryByRole("button", { name: "Compare top two" }),
+    ).toBeNull();
+
+    await act(async () => release());
+    expect(document.querySelector(".ask-mosaic-answer.streaming")).toBeNull();
+    expect(
+      within(dialog).getByRole("button", { name: "Compare top two" }),
+    ).toBeTruthy();
+  });
+
+  it("asks a starter question verbatim", async () => {
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: examples[2].query }));
+
+    await waitFor(() =>
+      expect(api.agentStream).toHaveBeenCalledWith(
+        examples[2].query,
+        {},
+        expect.any(Function),
+      ),
+    );
+  });
+
+  it("opens contextual filters and keeps active constraints visible", async () => {
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    const dialog = screen.getByRole("dialog", { name: "Filters" });
+    expect(dialog).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole("radio", { name: "In stock" }));
+    expect(await screen.findByRole("button", { name: /In stock/ })).toBeTruthy();
+    expect(window.location.search).toContain("availability=in_stock");
   });
 
   it("closes the sidecar and can restore the underlying Shop results", async () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
-    expect(
-      screen.getByRole("region", { name: "Ask Mosaic composer" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Ask Mosaic" })).toBeTruthy();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },

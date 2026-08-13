@@ -258,6 +258,47 @@ def test_pre_rerank_order_is_repeatable(connection, profile):
     assert first == second
 
 
+def test_common_shop_query_stays_inside_the_sql_latency_guard(connection, profile):
+    """A broad shopper query must not score six figures of lexical candidates.
+
+    The former OR-combined FTS query plus unconditional whole-string trigram
+    gate took roughly ten seconds on the 500K workshop corpus. Five seconds is
+    deliberately a guardrail rather than a benchmark claim: the query either
+    follows the selective GIN/HNSW paths or PostgreSQL cancels it loudly.
+    """
+    embedding = connection.execute(
+        "SELECT embedding FROM mosaic_search.product_document WHERE product_id = 429001"
+    ).fetchone()[0]
+    with connection.transaction():
+        connection.execute("SET LOCAL statement_timeout = '5s'")
+        rows = connection.execute(
+            """
+            SELECT product_id, fts_rank, trigram_rank, semantic_rank
+            FROM mosaic_search.search_hybrid_rrf(
+                %(query)s, %(embedding)s::vector, '{}'::jsonb,
+                %(rrf_k)s::integer, %(fts_limit)s::integer,
+                %(trigram_limit)s::integer, %(semantic_limit)s::integer,
+                %(result_limit)s::integer, %(trigram_threshold)s::real
+            )
+            """,
+            {
+                "query": "quiet wireless keyboard for a shared office",
+                "embedding": embedding,
+                "rrf_k": profile.rrf_k,
+                "fts_limit": profile.fts_limit,
+                "trigram_limit": profile.trigram_limit,
+                "semantic_limit": profile.semantic_limit,
+                "result_limit": profile.fused_limit,
+                "trigram_threshold": profile.trigram_threshold,
+            },
+        ).fetchall()
+
+    assert rows
+    assert any(row[1] is not None for row in rows), "selective FTS path is empty"
+    assert any(row[2] is not None for row in rows), "selective trigram path is empty"
+    assert any(row[3] is not None for row in rows), "HNSW path is empty"
+
+
 def test_the_weighted_function_takes_weights_and_the_unweighted_one_does_not(
     connection, profile
 ):

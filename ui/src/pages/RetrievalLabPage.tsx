@@ -3,11 +3,12 @@ import { useMemo, useState } from "react";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
+import { RetrievalDiagnosticsStrip } from "../components/RetrievalDiagnosticsStrip";
 import { ErrorState, LoadingState } from "../components/States";
 import { WorkshopProgress } from "../components/WorkshopProgress";
 import { retrievalLabOutcome } from "../labOutcome";
 import { mosaicRetrievalExamples } from "../labMissions";
-import { productImage } from "../media";
+import { productImageMap } from "../media";
 import { useSearchParams } from "../navigation";
 import type { ProductSummary, SearchResponse } from "../types";
 
@@ -72,6 +73,69 @@ function stageScore(product: ProductSummary, stage: Stage): string {
   return score == null ? "-" : score.toFixed(5);
 }
 
+type ContrastArm = {
+  id: "fts" | "semantic" | "hybrid";
+  label: string;
+  status: "present" | "missing";
+  summary: string;
+  detail: string;
+};
+
+function contrastForTarget(
+  example: typeof mosaicRetrievalExamples[number],
+  response: SearchResponse,
+): { target: ProductSummary; arms: ContrastArm[]; contributingArms: string[] } | null {
+  const targetId = example.target_product_ids[0];
+  const target = response.results.find((product) => product.product_id === targetId);
+  if (!target?.signals) return null;
+
+  const ftsRank = target.signals.fts.rank;
+  const semanticRank = target.signals.semantic.rank;
+  const contributingArms = [
+    target.signals.fts.rank !== null ? "FTS" : null,
+    target.signals.trigram.rank !== null ? "pg_trgm" : null,
+    target.signals.semantic.rank !== null ? "vector" : null,
+  ].filter((arm): arm is string => arm !== null);
+
+  return {
+    target,
+    arms: [
+      {
+        id: "fts",
+        label: "FTS only",
+        status: ftsRank === null ? "missing" : "present",
+        summary: ftsRank === null
+          ? "Break: target absent from the lexical candidate list."
+          : `Target enters the lexical candidate list at #${ftsRank}.`,
+        detail: ftsRank === null
+          ? "The terms in this request do not produce a sufficiently specific text match."
+          : "PostgreSQL full-text search preserves exact words, identifiers, and indexed aliases.",
+      },
+      {
+        id: "semantic",
+        label: "Vector only",
+        status: semanticRank === null ? "missing" : "present",
+        summary: semanticRank === null
+          ? "Break: target absent from the vector candidate list."
+          : `Target enters the HNSW candidate list at #${semanticRank}.`,
+        detail: semanticRank === null
+          ? "Embedding similarity did not preserve this exact identity in the bounded vector pool."
+          : "pgvector recovers nearby meaning, but its score is not an identity guarantee.",
+      },
+      {
+        id: "hybrid",
+        label: "Hybrid retrieval",
+        status: "present",
+        summary: `Target returns at final rank #${target.signals.final_rank}.`,
+        detail: contributingArms.length > 0
+          ? `RRF retains ${contributingArms.join(" + ")} provenance before bounded reranking.`
+          : "No candidate arm contributed this target, so this result requires investigation.",
+      },
+    ],
+    contributingArms,
+  };
+}
+
 export function RetrievalLabPage() {
   const [params] = useSearchParams();
   const requestedExample = params.get("example") ?? params.get("mission");
@@ -88,6 +152,9 @@ export function RetrievalLabPage() {
     () => [...(response?.results ?? [])].sort((a, b) => stageRank(a, stage) - stageRank(b, stage)),
     [response, stage],
   );
+  // Assigned over the whole response, so re-sorting by stage does not reshuffle
+  // which photograph a row carries.
+  const rowImages = useMemo(() => productImageMap(response?.results ?? []), [response]);
   const movementRows = useMemo(
     () => [...(response?.results ?? [])]
       .sort((a, b) => (a.signals?.final_rank ?? 999) - (b.signals?.final_rank ?? 999))
@@ -96,6 +163,10 @@ export function RetrievalLabPage() {
   );
   const outcome = useMemo(
     () => retrievalLabOutcome(example, response),
+    [example, response],
+  );
+  const targetContrast = useMemo(
+    () => (example && response ? contrastForTarget(example, response) : null),
     [example, response],
   );
 
@@ -143,6 +214,36 @@ export function RetrievalLabPage() {
 
       <LabOutcomeBanner outcome={outcome} />
 
+      {response ? <RetrievalDiagnosticsStrip response={response} /> : null}
+
+      {targetContrast ? (
+        <section className="retrieval-method-contrast" aria-labelledby="retrieval-method-contrast-title">
+          <header>
+            <div>
+              <p className="eyebrow">Measured retriever contrast</p>
+              <h2 id="retrieval-method-contrast-title">Where does this target enter?</h2>
+            </div>
+            <p>
+              Target #{targetContrast.target.product_id} · {targetContrast.target.model}
+            </p>
+          </header>
+          <div className="retrieval-method-contrast-grid">
+            {targetContrast.arms.map((arm) => (
+              <article className={arm.status} key={arm.id}>
+                <span>{arm.label}</span>
+                <strong>{arm.summary}</strong>
+                <p>{arm.detail}</p>
+              </article>
+            ))}
+          </div>
+          <footer>
+            Structured filters are applied inside every candidate arm. A missing
+            rank means that arm did not contribute this product; it does not mean
+            the product became ineligible after fusion.
+          </footer>
+        </section>
+      ) : null}
+
       <nav className="stage-nav" aria-label="Retrieval stage">
         {stages.map((item, index) => (
           <div key={item.id} className="stage-nav-item">
@@ -181,7 +282,7 @@ export function RetrievalLabPage() {
                       <td><strong>{stageRank(product, stage) === Number.MAX_SAFE_INTEGER ? "-" : stageRank(product, stage)}</strong></td>
                       <td>
                         <div className="ranking-product">
-                          <img className="ranking-product-image" src={productImage(product)} alt="" />
+                          <img className="ranking-product-image" src={rowImages.get(product.product_id)} alt="" />
                           <span>
                             <strong>{product.title}</strong>
                             <small>{product.brand} / {product.model}</small>
@@ -226,14 +327,16 @@ export function RetrievalLabPage() {
               <dt>Rank fields</dt>
               <dd>RRF rank · Cohere Rerank score · final rank</dd>
             </div>
+            {response?.diagnostics ? (
+              <div>
+                <dt>Embedding</dt>
+                <dd>
+                  {response.diagnostics.embedding_model_id} ·{" "}
+                  {response.diagnostics.embedding_dimensions}d
+                </dd>
+              </div>
+            ) : null}
           </dl>
-          {response?.diagnostics ? (
-            <dl className="metric-list">
-              <div><dt>Total latency</dt><dd>{response.diagnostics.total_latency_ms} ms</dd></div>
-              <div><dt>Fused pool</dt><dd>{response.diagnostics.candidate_counts.fused_pool}</dd></div>
-              <div><dt>Reranker</dt><dd>{response.diagnostics.rerank_status}</dd></div>
-            </dl>
-          ) : null}
         </aside>
       </div>
 

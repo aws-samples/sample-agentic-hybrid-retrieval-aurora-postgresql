@@ -31,15 +31,17 @@ Components:
 - domain, availability, and minimum-rating filters;
 - featured, rating, price, and newest sorting;
 - direct hybrid search in the product grid;
-- an inline Ask Mosaic composer that becomes a contextual sidecar after submit;
+- an Ask Mosaic sidecar that is the only agent composer, opened from the Shop
+  header, with starter questions drawn from the eval set;
 - stable product cards with complete 3:2 premium catalog photography;
-- inline agent shortlist cards, evidence citations, rank explanation, and tool
-  receipts;
+- agent shortlist cards labelled by the arms that retrieved them, the searches
+  and constraints behind the shortlist, evidence citations, rank explanation,
+  and tool receipts;
 - pagination;
 - compact mobile filter disclosure.
 
-API: `GET /api/catalog/products`, `POST /api/search`, and
-`POST /api/agent/answer/stream`.
+API: `GET /api/catalog/products`, `GET /api/retrieval/examples`, `POST
+/api/search`, and `POST /api/agent/answer/stream`.
 
 ## `/search` - Lab 3 deep route
 

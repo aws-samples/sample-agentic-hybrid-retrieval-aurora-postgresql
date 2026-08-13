@@ -94,6 +94,8 @@ class Settings:
     rerank_provider: str
     rerank_model_id: str
     chat_model_id: str | None
+    agent_model_id: str | None
+    synthesis_model_id: str | None
     rerank_required: bool
     allow_development_embeddings: bool
     lexical_candidate_limit: int
@@ -127,6 +129,10 @@ def get_settings() -> Settings:
         if value.strip()
     )
     profile = _retrieval_profile()
+    chat_model_id = os.getenv(
+        "BEDROCK_CHAT_MODEL_ID",
+        os.getenv("BEDROCK_CHAT_MODEL", "global.anthropic.claude-sonnet-5"),
+    )
     return Settings(
         database_url=os.getenv("DATABASE_URL"),
         aws_region=os.getenv("BEDROCK_REGION", os.getenv("AWS_REGION", "us-east-1")),
@@ -141,10 +147,9 @@ def get_settings() -> Settings:
             "BEDROCK_RERANK_MODEL_ID",
             "cohere.rerank-v3-5:0",
         ),
-        chat_model_id=os.getenv(
-            "BEDROCK_CHAT_MODEL_ID",
-            os.getenv("BEDROCK_CHAT_MODEL", "global.anthropic.claude-sonnet-5"),
-        ),
+        chat_model_id=chat_model_id,
+        agent_model_id=os.getenv("BEDROCK_AGENT_MODEL_ID", chat_model_id),
+        synthesis_model_id=os.getenv("BEDROCK_SYNTHESIS_MODEL_ID", chat_model_id),
         rerank_required=_boolean("RERANK_REQUIRED", True),
         allow_development_embeddings=_boolean(
             "ALLOW_DEVELOPMENT_EMBEDDINGS",

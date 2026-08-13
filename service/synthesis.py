@@ -156,8 +156,10 @@ def synthesize_cited_answer(
     client: Any | None = None,
 ) -> tuple[str, list[AgentCitation], dict[str, Any]]:
     settings = settings or get_settings()
-    if not settings.chat_model_id:
-        raise RuntimeError("BEDROCK_CHAT_MODEL_ID is not configured")
+    if not settings.synthesis_model_id:
+        raise RuntimeError(
+            "BEDROCK_SYNTHESIS_MODEL_ID or BEDROCK_CHAT_MODEL_ID is not configured"
+        )
     if not products:
         raise ValueError("At least one retrieved product is required for synthesis")
     if not evidence_records:
@@ -233,7 +235,7 @@ def synthesize_cited_answer(
         }
     ]
     request = {
-        "modelId": settings.chat_model_id,
+        "modelId": settings.synthesis_model_id,
         "system": [{"text": SYSTEM_PROMPT}],
         "inferenceConfig": {"maxTokens": 1_400},
         "requestMetadata": {

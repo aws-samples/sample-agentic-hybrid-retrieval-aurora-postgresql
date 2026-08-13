@@ -87,10 +87,12 @@ class _ToolCallBudget:
 
 def build_agent(*, max_tool_calls: int = 10) -> Agent:
     settings = get_settings()
-    if not settings.chat_model_id:
-        raise RuntimeError("BEDROCK_CHAT_MODEL_ID is not configured")
+    if not settings.agent_model_id:
+        raise RuntimeError(
+            "BEDROCK_AGENT_MODEL_ID or BEDROCK_CHAT_MODEL_ID is not configured"
+        )
     model = BedrockModel(
-        model_id=settings.chat_model_id,
+        model_id=settings.agent_model_id,
         region_name=settings.aws_region,
         max_tokens=1_200,
     )

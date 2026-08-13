@@ -82,7 +82,7 @@
       "duration_minutes": 16,
       "title": "Lab 2 - Fuse, rerank, and explain",
       "canonical_query_id": "G-008",
-      "query": "ergonmic mesh chiar for long workdays with adjustable lumbar support",
+      "query": "ergonomic mesh chair for long workdays with adjustable lumbar support",
       "filters": {
         "domain": "home_office",
         "in_stock_only": true,
@@ -202,7 +202,7 @@
       "duration_minutes": 2,
       "title": "Checkpoint - Preserve exact identity",
       "canonical_query_id": "G-001",
-      "query": "Mosaic EchoBud S2",
+      "query": "CO-TRUEW-0017001 charging case",
       "filters": {
         "domain": "consumer_electronics"
       },
@@ -213,13 +213,47 @@
         "fts"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "The exact product is retained in the first three results.",
+      "expected_outcome": "The exact catalog identifier is returned by the FTS arm with provenance, while the read-only inspection surface shows whether vector retrieval contributes an unrelated semantic neighborhood.",
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",
         "hard_filters_hold"
       ],
       "top_k": 3
+    },
+    {
+      "id": "semantic-intent-contrast",
+      "stage": "retrieve",
+      "core": false,
+      "placement": "advanced-labs",
+      "duration_minutes": 0,
+      "title": "Contrast - Intent without exact catalog language",
+      "canonical_query_id": "G-004",
+      "query": "noise cancelling headphones for a long flight under $200 with at least 40 hours of battery",
+      "filters": {
+        "domain": "consumer_electronics",
+        "max_price_cents": 20000,
+        "in_stock_only": true,
+        "attributes": {
+          "active_noise_cancellation": true
+        }
+      },
+      "target_product_ids": [
+        3
+      ],
+      "expected_techniques": [
+        "hnsw",
+        "rrf",
+        "cohere_rerank"
+      ],
+      "checkpoint": "baseline",
+      "expected_outcome": "Inspect the measured FTS, vector, and hybrid positions for intent-led language. Every arm receives the same hard filters; hybrid preserves the candidate provenance that explains the final order.",
+      "assertions": [
+        "target_in_top_k",
+        "semantic_signal_present",
+        "hard_filters_hold"
+      ],
+      "top_k": 10
     },
     {
       "id": "semantic-eligibility",

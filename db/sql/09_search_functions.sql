@@ -112,72 +112,109 @@ RETURNS TABLE (
     fts_score real,
     fts_rank bigint
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 PARALLEL SAFE
 AS $$
--- `websearch_to_tsquery` ANDs every term. A conversational query needs every
--- token present in one document, and a misspelled token exists in no document,
--- so the conjunction is unsatisfiable and this arm returns zero rows. Measured
--- on the live 500k-product corpus, four of the six workshop missions lost the
--- lexical arm entirely, including two that declare `fts`.
-WITH query AS (
-    SELECT
-        websearch_to_tsquery('english', q) AS strict_tsq,
-        -- OR-combined lexemes, for recall.
-        to_tsquery(
-            'english',
-            array_to_string(
-                tsvector_to_array(to_tsvector('english', q)),
-                ' | '
-            )
-        ) AS broad_tsq
-), guarded AS (
-    SELECT
-        strict_tsq,
-        broad_tsq,
-        -- `tsvector_to_array` discards the NOT operator, so a naive OR-combine
-        -- inverts a user's exclusion: 'headphon' & !'wireless' would widen to
-        -- 'headphon' | 'wireless' and admit the very rows they excluded. When
-        -- the strict query negates, require the strict match as well.
-        -- `websearch_to_tsquery` strips literal punctuation, so a `!` in the
-        -- rendered tsquery is always negation, never user text.
-        strict_tsq::text LIKE '%!%' AS has_negation
-    FROM query
-), scored AS (
-    SELECT d.product_id,
-           (
-               ts_rank_cd(d.search_document, g.broad_tsq, 32)
-               -- The strict match is kept as a scoring bonus so exact identity
-               -- still dominates: the target holds rank 1 by 2.5x.
-               + CASE WHEN d.search_document @@ g.strict_tsq THEN 1.0 ELSE 0.0 END
-           )::real AS score
-    FROM mosaic_search.product_document d
-    CROSS JOIN guarded g
-    WHERE d.search_document @@ g.broad_tsq
-      AND (NOT g.has_negation OR d.search_document @@ g.strict_tsq)
-      -- Conservative copies of three predicates from matches_filter_values
-      -- expose the btree and JSONB GIN columns to the planner. The canonical
-      -- helper still runs below and owns every filter semantic; these clauses
-      -- can only reduce rows that it would reject.
-      AND (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
-      AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
-      AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
-      -- Pass only filter columns so this SQL function can inline and expose
-      -- scalar values without detoasting embeddings or rerank text. Passing
-      -- the complete document composite did both for every broad FTS match.
-      AND mosaic_search.matches_filter_values(
-          d.domain, d.category_key, d.brand_name, d.price_cents,
-          d.availability, d.rating, d.attributes, d.is_refurbished,
-          d.is_sponsored, f
-      )
-    ORDER BY score DESC, d.product_id
-    LIMIT greatest(candidate_limit, 1)
-)
-SELECT product_id,
-       score,
-       row_number() OVER (ORDER BY score DESC, product_id)
-FROM scored
+DECLARE
+    strict_tsq tsquery := websearch_to_tsquery('english', q);
+    salient_terms text[];
+    active_tsq tsquery;
+    term_count integer;
+    returned_rows integer;
+BEGIN
+    -- Exact identity and well-formed lexical queries should take the most
+    -- selective GIN path. The previous implementation always widened the query
+    -- to OR, then scored 130K rows for a common five-term Shop query.
+    RETURN QUERY
+    WITH scored AS (
+        SELECT d.product_id,
+               (ts_rank_cd(d.search_document, strict_tsq, 32) + 1.0)::real AS score
+        FROM mosaic_search.product_document d
+        WHERE d.search_document @@ strict_tsq
+          AND (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
+          AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
+          AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
+          AND mosaic_search.matches_filter_values(
+              d.domain, d.category_key, d.brand_name, d.price_cents,
+              d.availability, d.rating, d.attributes, d.is_refurbished,
+              d.is_sponsored, f
+          )
+        ORDER BY score DESC, d.product_id
+        LIMIT greatest(candidate_limit, 1)
+    )
+    SELECT scored.product_id, scored.score,
+           row_number() OVER (ORDER BY scored.score DESC, scored.product_id)
+    FROM scored;
+    GET DIAGNOSTICS returned_rows = ROW_COUNT;
+    IF returned_rows > 0 THEN
+        RETURN;
+    END IF;
+
+    -- A conversational query often contains a typo, a price, or comparison
+    -- language that makes the strict conjunction unsatisfiable. Select at most
+    -- four substantive lexemes that occur in the corpus, then back off from a
+    -- four-term conjunction only when it yields no eligible rows. Each branch
+    -- remains a selective GIN query; no branch falls back to scoring every row
+    -- that contains any one common word.
+    SELECT array_agg(lexeme ORDER BY length(lexeme) DESC, lexeme)
+    INTO salient_terms
+    FROM (
+        SELECT lexeme
+        FROM unnest(tsvector_to_array(to_tsvector('english', q))) AS term(lexeme)
+        WHERE lexeme !~ '^[0-9]+$'
+          AND lexeme NOT IN (
+              'altern', 'best', 'cheap', 'cheaper', 'choos', 'compar',
+              'evid', 'explain', 'find', 'need', 'option', 'recommend',
+              'strongest', 'want'
+          )
+          AND EXISTS (
+              SELECT 1
+              FROM mosaic_search.product_document corpus
+              WHERE corpus.search_document
+                    @@ to_tsquery('english', quote_literal(lexeme))
+          )
+        ORDER BY length(lexeme) DESC, lexeme
+        LIMIT 4
+    ) AS selected;
+
+    term_count := coalesce(cardinality(salient_terms), 0);
+    WHILE term_count > 0 LOOP
+        SELECT to_tsquery(
+                   'english',
+                   string_agg(quote_literal(term), ' & ' ORDER BY ordinal)
+               )
+        INTO active_tsq
+        FROM unnest(salient_terms[1:term_count])
+             WITH ORDINALITY AS selected(term, ordinal);
+
+        RETURN QUERY
+        WITH scored AS (
+            SELECT d.product_id,
+                   ts_rank_cd(d.search_document, active_tsq, 32)::real AS score
+            FROM mosaic_search.product_document d
+            WHERE d.search_document @@ active_tsq
+              AND (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
+              AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
+              AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
+              AND mosaic_search.matches_filter_values(
+                  d.domain, d.category_key, d.brand_name, d.price_cents,
+                  d.availability, d.rating, d.attributes, d.is_refurbished,
+                  d.is_sponsored, f
+              )
+            ORDER BY score DESC, d.product_id
+            LIMIT greatest(candidate_limit, 1)
+        )
+        SELECT scored.product_id, scored.score,
+               row_number() OVER (ORDER BY scored.score DESC, scored.product_id)
+        FROM scored;
+        GET DIAGNOSTICS returned_rows = ROW_COUNT;
+        IF returned_rows > 0 THEN
+            RETURN;
+        END IF;
+        term_count := term_count - 1;
+    END LOOP;
+END
 $$;
 
 CREATE OR REPLACE FUNCTION mosaic_search.search_trigram(
@@ -191,45 +228,84 @@ RETURNS TABLE (
     trigram_score real,
     trigram_rank bigint
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 PARALLEL SAFE
 AS $$
-WITH scored AS (
-    SELECT d.product_id,
-           greatest(
-               similarity(d.trigram_text, lower(q)),
-               word_similarity(lower(q), d.trigram_text),
-               strict_word_similarity(lower(q), d.trigram_text)
-           )::real AS score
-    FROM mosaic_search.product_document d
-    WHERE (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
-      AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
-      AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
-      AND mosaic_search.matches_filter_values(
-              d.domain, d.category_key, d.brand_name, d.price_cents,
-              d.availability, d.rating, d.attributes, d.is_refurbished,
-              d.is_sponsored, f
-          )
-      -- Both index-backed gates, OR'd. `%` compares whole strings, so on a
-      -- concatenated document it dilutes to near-zero: "auralux" against a
-      -- 90-character trigram_text scores 0.11 and is rejected, even though
-      -- word_similarity scores 0.875. Gating on `%` alone made the typo
-      -- recovery arm unable to recover typos. `<%` is supported by the same
-      -- GIN/GiST trgm index, so this stays indexable.
-      AND (d.trigram_text % lower(q) OR lower(q) <% d.trigram_text)
-      AND greatest(
-          similarity(d.trigram_text, lower(q)),
-          word_similarity(lower(q), d.trigram_text),
-          strict_word_similarity(lower(q), d.trigram_text)
-      ) >= minimum_similarity
-    ORDER BY score DESC, d.product_id
-    LIMIT greatest(candidate_limit, 1)
-)
-SELECT product_id,
-       score,
-       row_number() OVER (ORDER BY score DESC, product_id)
-FROM scored
+DECLARE
+    returned_rows integer;
+BEGIN
+    -- Word similarity is the intended typo-recovery path for a query embedded
+    -- in the longer identity/alias document. Running it first avoids the broad
+    -- whole-string gate that admitted 130K index hits for a normal Shop query.
+    RETURN QUERY
+    WITH scored AS (
+        SELECT d.product_id,
+               greatest(
+                   similarity(d.trigram_text, lower(q)),
+                   word_similarity(lower(q), d.trigram_text),
+                   strict_word_similarity(lower(q), d.trigram_text)
+               )::real AS score
+        FROM mosaic_search.product_document d
+        WHERE (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
+          AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
+          AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
+          AND mosaic_search.matches_filter_values(
+                  d.domain, d.category_key, d.brand_name, d.price_cents,
+                  d.availability, d.rating, d.attributes, d.is_refurbished,
+                  d.is_sponsored, f
+              )
+          AND lower(q) <% d.trigram_text
+          AND greatest(
+              similarity(d.trigram_text, lower(q)),
+              word_similarity(lower(q), d.trigram_text),
+              strict_word_similarity(lower(q), d.trigram_text)
+          ) >= minimum_similarity
+        ORDER BY score DESC, d.product_id
+        LIMIT greatest(candidate_limit, 1)
+    )
+    SELECT scored.product_id, scored.score,
+           row_number() OVER (ORDER BY scored.score DESC, scored.product_id)
+    FROM scored;
+    GET DIAGNOSTICS returned_rows = ROW_COUNT;
+    IF returned_rows > 0 THEN
+        RETURN;
+    END IF;
+
+    -- Some misspellings are separated by intervening intent words, so the
+    -- phrase-oriented word gate can legitimately return nothing. The
+    -- whole-string gate remains a fallback, but it is no longer OR'd into every
+    -- request and therefore cannot dominate the common path.
+    RETURN QUERY
+    WITH scored AS (
+        SELECT d.product_id,
+               greatest(
+                   similarity(d.trigram_text, lower(q)),
+                   word_similarity(lower(q), d.trigram_text),
+                   strict_word_similarity(lower(q), d.trigram_text)
+               )::real AS score
+        FROM mosaic_search.product_document d
+        WHERE (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
+          AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
+          AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
+          AND mosaic_search.matches_filter_values(
+                  d.domain, d.category_key, d.brand_name, d.price_cents,
+                  d.availability, d.rating, d.attributes, d.is_refurbished,
+                  d.is_sponsored, f
+              )
+          AND d.trigram_text % lower(q)
+          AND greatest(
+              similarity(d.trigram_text, lower(q)),
+              word_similarity(lower(q), d.trigram_text),
+              strict_word_similarity(lower(q), d.trigram_text)
+          ) >= minimum_similarity
+        ORDER BY score DESC, d.product_id
+        LIMIT greatest(candidate_limit, 1)
+    )
+    SELECT scored.product_id, scored.score,
+           row_number() OVER (ORDER BY scored.score DESC, scored.product_id)
+    FROM scored;
+END
 $$;
 
 CREATE OR REPLACE FUNCTION mosaic_search.search_vector(

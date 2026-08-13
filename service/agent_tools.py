@@ -69,7 +69,15 @@ def start_run(
             """,
             (
                 agent_session_id,
-                json.dumps({"model_id": get_settings().chat_model_id}),
+                json.dumps(
+                    {
+                        # Existing telemetry readers used model_id before model
+                        # routing split into two explicit phases.
+                        "model_id": get_settings().agent_model_id,
+                        "agent_model_id": get_settings().agent_model_id,
+                        "synthesis_model_id": get_settings().synthesis_model_id,
+                    }
+                ),
             ),
         )
         connection.execute(
@@ -579,9 +587,9 @@ def synthesize_cited_answer(
 ) -> dict[str, Any]:
     """Create the answer of record from products retrieved in this run.
 
-    Call this last. It invokes global Sonnet 5 with only the selected product
-    revisions, rejects citations outside that set, and persists the validated
-    answer and citation links.
+    Call this last. It invokes the configured citation model with only the
+    selected product revisions, rejects citations outside that set, and
+    persists the validated answer and citation links.
 
     Args:
         question: The user's product question.

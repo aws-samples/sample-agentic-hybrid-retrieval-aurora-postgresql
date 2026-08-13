@@ -49,6 +49,7 @@ def test_core_flags_distinguish_required_checkpoints_from_advanced_labs():
     assert all(lab["core"] for lab in CONTRACT["missions"])
     supporting = {check["id"]: check for check in CONTRACT["supporting_checks"]}
     assert supporting["exact-identity"]["core"] is True
+    assert supporting["semantic-intent-contrast"]["core"] is False
     assert supporting["semantic-eligibility"]["core"] is True
     assert supporting["compare-cheaper-alternative"]["core"] is True
     assert supporting["ranking-filter-control"]["core"] is True

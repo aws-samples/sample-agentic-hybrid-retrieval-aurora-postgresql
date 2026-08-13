@@ -21,16 +21,21 @@ export function ProductCard({
   showCompare = false,
   collectionLabels = [],
   variant = "default",
+  imageSrc,
   assistRank,
   highlighted = false,
+  onAssistFocus,
 }: {
   product: ProductSummary;
   showSignals?: boolean;
   showCompare?: boolean;
   collectionLabels?: string[];
   variant?: "default" | "catalog";
+  /** Grid-assigned photograph. Omit outside a result set. */
+  imageSrc?: string;
   assistRank?: number;
   highlighted?: boolean;
+  onAssistFocus?: (productId: number | null) => void;
 }) {
   const {
     addItem,
@@ -48,15 +53,33 @@ export function ProductCard({
     return (
       <article
         className={[
-          "product-card catalog-product-card",
+          "shop-product-card",
           assistRank ? "assist-selected" : "",
           highlighted ? "assist-highlighted" : "",
         ].filter(Boolean).join(" ")}
+        data-product-id={product.product_id}
+        onMouseEnter={() => {
+          if (assistRank) onAssistFocus?.(product.product_id);
+        }}
+        onMouseLeave={() => {
+          if (assistRank) onAssistFocus?.(null);
+        }}
+        onFocusCapture={() => {
+          if (assistRank) onAssistFocus?.(product.product_id);
+        }}
+        onBlurCapture={(event) => {
+          if (
+            assistRank
+            && !event.currentTarget.contains(event.relatedTarget as Node | null)
+          ) {
+            onAssistFocus?.(null);
+          }
+        }}
       >
         <Link className="product-image" href={`/products/${product.product_id}`}>
           <img
-            src={productImage(product)}
-            alt=""
+            src={imageSrc ?? productImage(product)}
+            alt={product.title}
             width={1200}
             height={800}
             loading="lazy"
@@ -75,50 +98,39 @@ export function ProductCard({
           <Heart size={18} fill={saved ? "currentColor" : "none"} />
         </button>
         <div className="product-card-body">
-          <p className="catalog-card-brand">
-            {product.brand}
-            <span>{leafCategory(product.category_path)}</span>
+          <p className="shop-card-kicker">
+            <span>{product.brand}</span>
+            {leafCategory(product.category_path)}
           </p>
           <h3>
             <Link href={`/products/${product.product_id}`}>{product.model}</Link>
           </h3>
-          <div className="catalog-card-evidence">
-            {product.review_count && product.rating !== null ? (
-              <span className="catalog-card-rating">
-                <Star size={14} fill="currentColor" />
-                <b>{product.rating.toFixed(1)}</b>
-                <small>({product.review_count.toLocaleString()})</small>
-              </span>
-            ) : <span className="catalog-card-rating muted">New arrival</span>}
-            <span className={isPurchasable(product.availability) ? "catalog-card-stock" : "catalog-card-stock unavailable"}>
-              <i />
-              {formatAvailability(product.availability)}
-            </span>
-          </div>
-          {collectionLabels.length ? (
-            <div className="catalog-product-tags">
-              {tags.slice(0, 1).map((tag) => (
-                <span className={collectionLabels.includes(tag) ? "match-tag" : ""} key={tag}>{tag}</span>
-              ))}
-            </div>
-          ) : null}
           {showSignals && signals ? (
-            <div className="catalog-signal-strip">
-              <span>FTS {signals.fts.rank ?? "-"}</span>
-              <span>VEC {signals.semantic.rank ?? "-"}</span>
-              <span>RRF {signals.pre_rerank_rank}</span>
-              <span>FINAL {signals.final_rank}</span>
+            <div className="shop-card-signals" aria-label="Retrieval signals">
+              {signals.fts.rank ? <span>FTS #{signals.fts.rank}</span> : null}
+              {signals.trigram.rank ? <span>TRGM #{signals.trigram.rank}</span> : null}
+              {signals.semantic.rank ? <span>VEC #{signals.semantic.rank}</span> : null}
+              <span>RRF #{signals.pre_rerank_rank}</span>
+              <strong>Final #{signals.final_rank}</strong>
             </div>
           ) : null}
-          <div className="catalog-card-buy">
-            <span>
+          <div className="shop-card-footer">
+            <span className="shop-card-price">
               <strong>{formatPrice(product.price_cents, product.currency)}</strong>
-              {product.list_price_cents > product.price_cents ? (
-                <small>{formatPrice(product.list_price_cents, product.currency)}</small>
+              {product.review_count && product.rating !== null ? (
+                <span className="shop-card-rating">
+                  <Star size={13} fill="currentColor" />
+                  {product.rating.toFixed(1)}
+                </span>
               ) : null}
+              {isPurchasable(product.availability) ? null : (
+                <span className="shop-card-stock unavailable">
+                  {formatAvailability(product.availability)}
+                </span>
+              )}
             </span>
             <button
-              className={quantity ? "catalog-cart-button added" : "catalog-cart-button"}
+              className={quantity ? "shop-quick-add added" : "shop-quick-add"}
               type="button"
               disabled={!isPurchasable(product.availability)}
               aria-label={
@@ -126,10 +138,11 @@ export function ProductCard({
                   ? `Add another ${product.title} to cart`
                   : `Add ${product.title} to cart`
               }
+              title={quantity ? `Add another (${quantity} in bag)` : "Add to bag"}
               onClick={() => addItem(product)}
             >
-              {quantity ? <Check size={16} /> : <ShoppingBag size={16} />}
-              <span>{quantity ? `Added (${quantity})` : "Add to cart"}</span>
+              <ShoppingBag size={17} />
+              {quantity ? <span>{quantity}</span> : null}
             </button>
           </div>
         </div>
@@ -141,7 +154,7 @@ export function ProductCard({
     <article className="product-card">
       <Link className="product-image" href={`/products/${product.product_id}`}>
         <img
-          src={productImage(product)}
+          src={imageSrc ?? productImage(product)}
           alt=""
           width={1200}
           height={800}

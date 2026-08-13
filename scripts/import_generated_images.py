@@ -5,9 +5,11 @@ Drop a batch of generated images into a folder, name each one after its cohort
 asset key (or the product's asset stem), and this crops to the role's aspect
 ratio, resizes to the runtime dimensions, and writes WebP.
 
-A file whose name is not in `data/media/asset_labels_120.json` is refused rather
-than guessed at: an unrecognised name means either a typo or an image nobody
-asked for, and silently accepting it is how a folder stops matching its manifest.
+A file whose name is not in `data/media/asset_labels_120.json` (product-bound
+cohort photography) or `data/media/category_plates.json` (category-representative
+filler photography) is refused rather than guessed at: an unrecognised name means
+either a typo or an image nobody asked for, and silently accepting it is how a
+folder stops matching its manifest.
 
 Usage
 -----
@@ -19,12 +21,14 @@ Usage
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 LABELS = REPO / "data" / "media" / "asset_labels_120.json"
+PLATES = REPO / "data" / "media" / "category_plates.json"
 RUNTIME = REPO / "ui" / "public" / "assets" / "images" / "mosaic"
 HERO_NAME = "hero-landing-scene.webp"
 
@@ -55,6 +59,31 @@ def role_of(stem: str) -> str | None:
         if stem.endswith(f"-{role}"):
             return role
     return None
+
+
+def record_installed_plates(stems: set[str]) -> int:
+    """Mark imported plates installed in the manifest and stamp their digest.
+
+    `ui/src/media.ts` serves only plates whose `installed` flag is true, so a
+    plate that is generated and imported but not recorded here never reaches a
+    card. The digest is of the runtime WebP, which is what the browser fetches;
+    a digest of the source PNG would not detect a re-import at a new quality.
+    """
+    spec = json.loads(PLATES.read_text())
+    updated = 0
+    for plate in spec["plates"] + spec["domain_neutral_plates"]:
+        stem = f"{plate['plate_id']}-catalog-3x2"
+        if stem not in stems:
+            continue
+        digest = hashlib.sha256((RUNTIME / f"{stem}.webp").read_bytes()).hexdigest()
+        if plate["installed"] and plate["sha256"] == digest:
+            continue
+        plate["installed"] = True
+        plate["sha256"] = digest
+        updated += 1
+    if updated:
+        PLATES.write_text(json.dumps(spec, indent=2) + "\n")
+    return updated
 
 
 def main() -> int:
@@ -103,14 +132,21 @@ def main() -> int:
         print(f"{verb} {HERO_NAME} at {size[0]}x{size[1]}")
         return 0
 
-    known = {row["catalog_asset_key"] for row in json.loads(LABELS.read_text())["products"]}
+    cohort = json.loads(LABELS.read_text())["products"]
+    known = {row["catalog_asset_key"] for row in cohort}
+    known |= {row["detail_asset_key"] for row in cohort if row["detail_asset_key"]}
+    # Category plates are the second manifest: filler photography for corpus rows
+    # that have no product-bound plate. Same crop, resize and quality path, so a
+    # plate and a cohort card are indistinguishable in sharpness. The three
+    # domain-neutral still-lifes live in their own array and are imported the same
+    # way, so both arrays are accepted here.
+    plate_spec = json.loads(PLATES.read_text())
     known |= {
-        row["detail_asset_key"]
-        for row in json.loads(LABELS.read_text())["products"]
-        if row["detail_asset_key"]
+        f"{plate['plate_id']}-catalog-3x2"
+        for plate in plate_spec["plates"] + plate_spec["domain_neutral_plates"]
     }
 
-    written, refused = 0, []
+    written, refused, imported_stems = 0, [], set()
     for path in candidates:
         stem = path.stem
         role = role_of(stem)
@@ -122,15 +158,25 @@ def main() -> int:
             with Image.open(path) as image:
                 out = crop_to(image.convert("RGB"), ratio).resize(size, Image.LANCZOS)
                 out.save(RUNTIME / f"{stem}.webp", "WEBP", quality=QUALITY, method=6)
+            imported_stems.add(stem)
         verb = "would write" if args.dry_run else "wrote"
         print(f"{verb} {stem}.webp  ({size[0]}x{size[1]})")
         written += 1
 
+    if imported_stems:
+        recorded = record_installed_plates(imported_stems)
+        if recorded:
+            print(f"marked {recorded} plate(s) installed in {PLATES.name}")
+
     if refused:
-        print(f"\nrefused {len(refused)} file(s) not in the cohort manifest:", file=sys.stderr)
+        print(f"\nrefused {len(refused)} file(s) not in either manifest:", file=sys.stderr)
         for name in refused:
             print(f"  {name}", file=sys.stderr)
-        print("Rename them to a key from docs/media-shot-list.md.", file=sys.stderr)
+        print(
+            "Rename them to a key from docs/media-shot-list.md or a plate id from "
+            "docs/image-prompts-category-plates.md.",
+            file=sys.stderr,
+        )
 
     print(f"\n{written} runtime file(s) imported")
     return 1 if refused and not written else 0

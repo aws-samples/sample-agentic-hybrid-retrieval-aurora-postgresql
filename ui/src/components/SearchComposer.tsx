@@ -9,6 +9,8 @@ interface SearchComposerProps {
   compact?: boolean;
   submitLabel?: string;
   autoFocus?: boolean;
+  /** Empty the field after a submit, for a composer that keeps a thread. */
+  clearOnSubmit?: boolean;
   onSubmit: (query: string) => void;
 }
 
@@ -20,6 +22,7 @@ export function SearchComposer({
   compact = false,
   submitLabel,
   autoFocus = false,
+  clearOnSubmit = false,
   onSubmit,
 }: SearchComposerProps) {
   const [value, setValue] = useState(initialValue);
@@ -29,7 +32,9 @@ export function SearchComposer({
   function submit(event: FormEvent) {
     event.preventDefault();
     const query = value.trim();
-    if (query.length >= 2 && !pending) onSubmit(query);
+    if (query.length < 2 || pending) return;
+    onSubmit(query);
+    if (clearOnSubmit) setValue("");
   }
 
   return (

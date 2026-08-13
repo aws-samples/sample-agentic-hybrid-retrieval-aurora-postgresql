@@ -72,12 +72,24 @@ export const mosaicRetrievalExamples = [...coreMosaicLabs, ...supportingMosaicCh
 export function retrievalExampleHref(example: MosaicLabMission) {
   if (example.stage === "reason") {
     const params = new URLSearchParams({
-      mode: "agent",
+      ask: "1",
       mission: example.id,
       q: example.query,
-      filters: JSON.stringify(example.filters),
     });
-    return `/search?${params.toString()}`;
+    Object.entries(example.filters).forEach(([key, value]) => {
+      if (
+        value !== undefined
+        && value !== null
+        && (
+          typeof value === "string"
+          || typeof value === "number"
+          || typeof value === "boolean"
+        )
+      ) {
+        params.set(key, String(value));
+      }
+    });
+    return `/catalog?${params.toString()}`;
   }
   return `/labs/retrieval?example=${encodeURIComponent(example.id)}`;
 }

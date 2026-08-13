@@ -11,7 +11,7 @@ import {
   Star,
   Truck,
 } from "lucide-react";
-import { CSSProperties, useCallback, useEffect, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useRoute } from "wouter";
 import { api } from "../api";
 import { useCommerce } from "../commerce";
@@ -19,7 +19,7 @@ import { MosaicMark } from "../components/MosaicMark";
 import { ProductCard } from "../components/ProductCard";
 import { ErrorState, LoadingState } from "../components/States";
 import { formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
-import { productEditorialPoster, productImages } from "../media";
+import { productEditorialPoster, productImageMap, productImages } from "../media";
 import type { ProductDetail, ProductSummary } from "../types";
 import { showcaseCatalogPage, showcaseProductDetail } from "../showcase";
 
@@ -33,6 +33,7 @@ export function ProductPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [related, setRelated] = useState<ProductSummary[]>([]);
+  const relatedImages = useMemo(() => productImageMap(related), [related]);
   const [selectedImage, setSelectedImage] = useState("");
   const [tab, setTab] = useState<DetailTab>("overview");
   const [comparing, setComparing] = useState(false);
@@ -385,7 +386,12 @@ export function ProductPage() {
           </div>
           <div className="product-grid related-grid">
             {related.map((item) => (
-              <ProductCard key={item.product_id} product={item} variant="catalog" />
+              <ProductCard
+                key={item.product_id}
+                product={item}
+                imageSrc={relatedImages.get(item.product_id)}
+                variant="catalog"
+              />
             ))}
           </div>
         </section>

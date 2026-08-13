@@ -60,6 +60,29 @@ def test_env_example_does_not_point_at_a_local_database():
     assert "rds.amazonaws.com" in dsn
 
 
+def test_split_model_overrides_fall_back_to_the_legacy_chat_model(monkeypatch):
+    monkeypatch.setenv("BEDROCK_CHAT_MODEL_ID", "global.anthropic.claude-sonnet-5")
+    monkeypatch.delenv("BEDROCK_AGENT_MODEL_ID", raising=False)
+    monkeypatch.delenv("BEDROCK_SYNTHESIS_MODEL_ID", raising=False)
+
+    settings = get_settings()
+
+    assert settings.agent_model_id == "global.anthropic.claude-sonnet-5"
+    assert settings.synthesis_model_id == "global.anthropic.claude-sonnet-5"
+
+
+def test_split_model_overrides_are_independent(monkeypatch):
+    monkeypatch.setenv("BEDROCK_CHAT_MODEL_ID", "legacy-model")
+    monkeypatch.setenv("BEDROCK_AGENT_MODEL_ID", "planner-model")
+    monkeypatch.setenv("BEDROCK_SYNTHESIS_MODEL_ID", "synthesis-model")
+
+    settings = get_settings()
+
+    assert settings.chat_model_id == "legacy-model"
+    assert settings.agent_model_id == "planner-model"
+    assert settings.synthesis_model_id == "synthesis-model"
+
+
 @pytest.mark.parametrize(
     ("name", "value"),
     [
