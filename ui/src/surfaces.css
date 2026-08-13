@@ -389,9 +389,9 @@
   text-transform: uppercase;
 }
 
-/* Mosaic Studio is an optional Discover vignette. It uses real premium-cohort
-   records and links directly to their product pages; it is intentionally not
-   part of the three-lab workshop path. */
+/* Mosaic Studio is an optional Labs composition study. It uses real
+   premium-cohort records and links directly to their product pages; it is not
+   part of the three-lab workshop path or a retrieval result. */
 .discover-studio {
   position: relative;
   display: grid;
@@ -776,6 +776,32 @@
 }
 
 @media (max-width: 900px) {
+  .mosaic-labs-tabs {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mosaic-labs-tabs > small {
+    text-align: left;
+  }
+
+  .mosaic-studio-boundary {
+    grid-template-columns: 1fr;
+  }
+
+  .mosaic-studio-boundary > div,
+  .mosaic-studio-boundary > div + div {
+    padding: 15px 0;
+    border-right: 0;
+    border-bottom: 1px solid #ded6ca;
+  }
+
+  .mosaic-studio-boundary > a {
+    min-height: 48px;
+    padding-left: 0;
+  }
+
   .discover-studio {
     min-height: 0;
     grid-template-columns: 1fr;
@@ -3184,6 +3210,136 @@
   margin: 0 auto;
   padding: 42px clamp(24px, 4vw, 64px) 84px;
   background: #f7f3ec;
+}
+
+.mosaic-labs-tabs {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #ded6ca;
+}
+
+.mosaic-labs-tabs > div {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid #ded6ca;
+  border-radius: 999px;
+  background: #fffefa;
+}
+
+.mosaic-labs-tabs a {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 0 13px;
+  border-radius: 999px;
+  color: #746c64;
+  font-size: 10.5px;
+  font-weight: 730;
+  transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.mosaic-labs-tabs a:hover {
+  color: #5b1d2b;
+}
+
+.mosaic-labs-tabs a.active {
+  background: #5e1d2c;
+  box-shadow: 0 5px 12px rgb(94 29 44 / 18%);
+  color: #fffaf3;
+}
+
+.mosaic-labs-tabs > small {
+  color: #817970;
+  font-size: 10.5px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.mosaic-studio-page {
+  align-content: start;
+  min-height: calc(100dvh - var(--topbar-height));
+}
+
+.mosaic-studio-intro {
+  display: grid;
+  width: min(100%, 760px);
+  gap: 9px;
+  padding: 12px 0 5px;
+}
+
+.mosaic-studio-intro .eyebrow {
+  color: #7e2431;
+}
+
+.mosaic-studio-intro h1 {
+  margin: 0;
+  color: #302a25;
+  font-size: clamp(38px, 4vw, 58px);
+  font-weight: 460;
+  line-height: 1.03;
+}
+
+.mosaic-studio-intro > p:last-child {
+  max-width: 610px;
+  margin: 0;
+  color: #6b625b;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.mosaic-studio-boundary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0;
+  border-top: 1px solid #ded6ca;
+  border-bottom: 1px solid #ded6ca;
+}
+
+.mosaic-studio-boundary > div {
+  display: grid;
+  gap: 4px;
+  padding: 17px 20px 17px 0;
+  border-right: 1px solid #ded6ca;
+}
+
+.mosaic-studio-boundary > div + div {
+  padding-left: 20px;
+}
+
+.mosaic-studio-boundary span {
+  color: #7e2431;
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.mosaic-studio-boundary strong {
+  max-width: 330px;
+  color: #554c45;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.mosaic-studio-boundary > a {
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+  gap: 7px;
+  padding: 0 0 0 21px;
+  color: #6b2232;
+  font-size: 10.5px;
+  font-weight: 720;
+}
+
+.mosaic-studio-boundary > a:hover {
+  color: #3d1520;
 }
 
 .labs-intro {

@@ -12,6 +12,9 @@ const DiscoverPage = lazy(() =>
 const MosaicLabsPage = lazy(() =>
   import("./pages/MosaicLabsPage").then(({ MosaicLabsPage: Page }) => ({ default: Page })),
 );
+const MosaicStudioPage = lazy(() =>
+  import("./pages/MosaicStudioPage").then(({ MosaicStudioPage: Page }) => ({ default: Page })),
+);
 const PerformancePage = lazy(() =>
   import("./pages/PerformancePage").then(({ PerformancePage: Page }) => ({ default: Page })),
 );
@@ -35,6 +38,7 @@ export function App() {
             <Route path="/discover" component={DiscoverPage} />
             <Route path="/catalog" component={CatalogPage} />
             <Route path="/search" component={SearchPage} />
+            <Route path="/mosaic-labs/studio" component={MosaicStudioPage} />
             <Route path="/mosaic-labs" component={MosaicLabsPage} />
             <Route path="/inspiration">
               <Redirect to="/mosaic-labs" replace />

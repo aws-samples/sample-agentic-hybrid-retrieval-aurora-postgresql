@@ -45,6 +45,12 @@ describe("MosaicLabsPage", () => {
     expect(
       screen.getByText("Build the retrieval system first. Then give it to the agent."),
     ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Workshop" }).getAttribute("aria-current")).toBe(
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "Studio" }).getAttribute("href")).toBe(
+      "/mosaic-labs/studio",
+    );
     expect(container.querySelectorAll(".labs-stage-card")).toHaveLength(3);
     expect(
       screen.getByText(

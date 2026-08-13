@@ -3,10 +3,9 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
 import { ProductCard } from "../components/ProductCard";
-import { formatPrice } from "../format";
-import { productImage, productImageMap } from "../media";
+import { productImageMap } from "../media";
 import { useNavigate } from "../navigation";
-import type { ProductDetail, ProductSummary, SearchFilters } from "../types";
+import type { ProductSummary, SearchFilters } from "../types";
 
 type StarterQuery = {
   topic: string;
@@ -79,99 +78,6 @@ const labStages = [
   },
 ];
 
-const studioProductIds = [370001, 420001, 429001] as const;
-
-const studioPieces = [
-  { productId: 370001, zone: "Focus seating", className: "studio-piece-seat" },
-  { productId: 420001, zone: "Creative display", className: "studio-piece-display" },
-  { productId: 429001, zone: "Quiet input", className: "studio-piece-input" },
-] as const;
-
-function CreativeStudio({
-  products,
-  unavailable,
-}: {
-  products: ProductDetail[];
-  unavailable: boolean;
-}) {
-  const [assembled, setAssembled] = useState(false);
-  const productById = new Map(products.map((product) => [product.product_id, product]));
-  const hasProducts = products.length === studioPieces.length;
-
-  return (
-    <section className="discover-studio" aria-labelledby="discover-studio-title">
-      <div className="discover-studio-copy">
-        <p>Mosaic Studio</p>
-        <h2 id="discover-studio-title">A creative studio, in motion.</h2>
-        <span>
-          A quiet, capable starting point for long creative days: an ergonomic
-          seat, a precise display, and tactile input.
-        </span>
-        <p className="discover-studio-brief">A creative-workday composition.</p>
-        <div className="discover-studio-actions">
-          {hasProducts ? (
-            <button type="button" onClick={() => setAssembled((current) => !current)}>
-              <Sparkles size={15} aria-hidden="true" />
-              {assembled ? "Reset the studio" : "Assemble the studio"}
-            </button>
-          ) : (
-            <span className="discover-studio-status" role={unavailable ? "alert" : "status"}>
-              {unavailable ? "Studio pieces are unavailable." : "Preparing the studio."}
-            </span>
-          )}
-          <Link href="/catalog?domain=home_office">
-            Shop the workspace
-            <ArrowRight size={15} aria-hidden="true" />
-          </Link>
-        </div>
-      </div>
-
-      <div
-        className={assembled ? "discover-studio-canvas assembled" : "discover-studio-canvas"}
-        aria-live="polite"
-      >
-        <span className="discover-studio-grid" aria-hidden="true" />
-        <span className="discover-studio-orbit discover-studio-orbit-one" aria-hidden="true" />
-        <span className="discover-studio-orbit discover-studio-orbit-two" aria-hidden="true" />
-        <span className="discover-studio-route discover-studio-route-one" aria-hidden="true" />
-        <span className="discover-studio-route discover-studio-route-two" aria-hidden="true" />
-        {studioPieces.map(({ productId, zone, className }, index) => {
-          const product = productById.get(productId);
-          return assembled && product ? (
-            <Link
-              className={`discover-studio-piece ${className}`}
-              href={`/products/${product.product_id}`}
-              key={product.product_id}
-            >
-              <span className="discover-studio-piece-image">
-                <img
-                  src={productImage(product)}
-                  alt={product.title}
-                  width={1200}
-                  height={800}
-                  loading="lazy"
-                  decoding="async"
-                />
-              </span>
-              <span>
-                <small>{zone}</small>
-                <strong>{product.model}</strong>
-                <em>{formatPrice(product.price_cents, product.currency)}</em>
-              </span>
-              <i>{String(index + 1).padStart(2, "0")}</i>
-            </Link>
-          ) : (
-            <span className={`discover-studio-placeholder ${className}`} key={productId} />
-          );
-        })}
-        <span className="discover-studio-state">
-          {assembled ? "Studio assembled" : "Three pieces"}
-        </span>
-      </div>
-    </section>
-  );
-}
-
 function LabGraphic({ variant }: { variant: "scatter" | "waves" | "graph" }) {
   if (variant === "scatter") {
     const points = [
@@ -226,8 +132,6 @@ export function DiscoverPage() {
   const [query, setQuery] = useState("");
   const [preview, setPreview] = useState<ProductSummary[]>([]);
   const [previewError, setPreviewError] = useState("");
-  const [studioProducts, setStudioProducts] = useState<ProductDetail[]>([]);
-  const [studioUnavailable, setStudioUnavailable] = useState(false);
   // One photograph per card. Assigned across the whole set rather than per
   // product, because a per-product hash cannot guarantee distinctness.
   const previewImages = useMemo(() => productImageMap(preview), [preview]);
@@ -251,26 +155,6 @@ export function DiscoverPage() {
               ? cause.message
               : "Featured products are unavailable",
           );
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all(studioProductIds.map((productId) => api.product(productId)))
-      .then((products) => {
-        if (!cancelled) {
-          setStudioProducts(products);
-          setStudioUnavailable(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setStudioProducts([]);
-          setStudioUnavailable(true);
         }
       });
     return () => {
@@ -405,8 +289,6 @@ export function DiscoverPage() {
             ))}
           </div>
         </section>
-
-        <CreativeStudio products={studioProducts} unavailable={studioUnavailable} />
 
         {preview.length ? (
           <section className="discover-section" aria-labelledby="discover-shop-title">

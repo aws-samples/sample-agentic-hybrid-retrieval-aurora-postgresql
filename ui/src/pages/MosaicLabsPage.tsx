@@ -15,6 +15,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
 import { LabsIntroFlow } from "../components/LabsIntroFlow";
+import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import {
   coreMosaicLabs,
   mosaicLabManifest,
@@ -391,6 +392,8 @@ export function MosaicLabsPage() {
 
   return (
     <div className="page mosaic-labs-page labs-premium">
+      <MosaicLabsTabs active="workshop" />
+
       <header className="labs-intro">
         <div className="labs-intro-copy">
           <p className="eyebrow">DAT410 · Aurora PostgreSQL · Level 400</p>
