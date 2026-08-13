@@ -34,13 +34,16 @@ describe("DiscoverPage", () => {
     );
   });
 
-  it("runs a natural-language starter as a real Shop query", () => {
+  it("runs a natural-language starter with its intentional category constraint", () => {
     renderPage();
 
     const starter = "Find an ergonomic mesh chair for long workdays with adjustable lumbar support.";
     fireEvent.click(screen.getByRole("button", { name: starter }));
 
     expect(window.location.pathname).toBe("/catalog");
-    expect(new URLSearchParams(window.location.search).get("q")).toBe(starter);
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get("q")).toBe(starter);
+    expect(params.get("domain")).toBe("home_office");
+    expect(params.get("category_key")).toBe("ergonomic-office-chairs");
   });
 });

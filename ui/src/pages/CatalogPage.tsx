@@ -119,7 +119,7 @@ function mergeVisibleProducts(
 const retrievalTraceSteps = [
   {
     label: "Request dispatched",
-    detail: "Visible filters stay authoritative",
+    detail: "Hard filters apply inside every retrieval arm",
   },
   {
     label: "Embed and retrieve",
@@ -262,7 +262,17 @@ export function CatalogPage() {
     sort,
   ]);
 
-  useEffect(load, [load]);
+  useEffect(() => {
+    // Hybrid search owns the visible product grid. Loading merchandising rows
+    // and four browse facets alongside it does not improve the result and made
+    // each filter change wait on unrelated catalog work.
+    if (activeQuery) {
+      setLoading(false);
+      setError("");
+      return;
+    }
+    load();
+  }, [activeQuery, load]);
 
   useEffect(() => {
     const version = retrievalRequestVersion.current + 1;
@@ -731,15 +741,15 @@ export function CatalogPage() {
           {loading && !page && !activeQuery ? <LoadingState label="Loading products" /> : null}
           {retrievalLoading ? <HybridRetrievalTrace /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
-          {!error && page ? (
+          {!error && (page || retrieval || agentProducts) ? (
             <div
-              className={loading || retrievalLoading ? "shop-products loading" : "shop-products"}
-              aria-busy={loading || retrievalLoading}
+              className={retrievalLoading ? "shop-products loading" : "shop-products"}
+              aria-busy={retrievalLoading}
             >
               {visibleProducts.length ? (
                 <div
                   className="product-grid shop-product-grid"
-                  key={`${retrieval?.search_event_id ?? agent?.agent_run_id ?? page.offset}-${sort}-${categoryKey ?? "all"}-${domain ?? "all"}`}
+                  key={`${retrieval?.search_event_id ?? agent?.agent_run_id ?? page?.offset ?? 0}-${sort}-${categoryKey ?? "all"}-${domain ?? "all"}`}
                 >
                   {visibleProducts.map((product) => (
                     <ProductCard
@@ -761,7 +771,7 @@ export function CatalogPage() {
                   <p>Remove a constraint or clear the current search to widen the candidate set.</p>
                 </section>
               )}
-              {!retrieval && !agentProducts ? (
+              {!retrieval && !agentProducts && page ? (
                 <div className="shop-pagination">
                   <button
                     type="button"

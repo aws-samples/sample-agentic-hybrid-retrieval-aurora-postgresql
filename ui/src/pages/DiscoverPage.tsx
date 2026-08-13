@@ -5,30 +5,52 @@ import { api } from "../api";
 import { ProductCard } from "../components/ProductCard";
 import { productImageMap } from "../media";
 import { useNavigate } from "../navigation";
-import type { ProductSummary } from "../types";
+import type { ProductSummary, SearchFilters } from "../types";
 
-const starterQueries = [
+type StarterQuery = {
+  topic: string;
+  title: string;
+  caption: string;
+  query: string;
+  image: string;
+  imageFit?: "cover";
+  filters: Pick<SearchFilters, "domain" | "category_key">;
+};
+
+const starterQueries: StarterQuery[] = [
   {
     topic: "Workspace",
     title: "The Quiet Office",
     caption: "Focus, refined.",
     query: "Find an ergonomic mesh chair for long workdays with adjustable lumbar support.",
     image: "/assets/images/mosaic/category/workspace.webp",
+    filters: {
+      domain: "home_office",
+      category_key: "ergonomic-office-chairs",
+    },
   },
   {
     topic: "Performance",
     title: "Built for Distance",
     caption: "Cushioning, speed, balance.",
-    query: "Which marathon shoes balance cushioning and speed?",
+    query: "Road-running marathon shoes with a carbon plate and maximum cushioning",
     image: "/assets/images/mosaic/stride-pro-studio.webp",
     imageFit: "cover",
+    filters: {
+      domain: "running_fitness",
+      category_key: "road-running-shoes",
+    },
   },
   {
     topic: "Travel",
     title: "Fourteen Hours, First Class",
     caption: "Comfort that outlasts the flight.",
-    query: "Which headphones stay comfortable through a 14-hour flight?",
+    query: "Comfortable over-ear headphones for a 14-hour flight",
     image: "/assets/images/mosaic/category/audio.webp",
+    filters: {
+      domain: "consumer_electronics",
+      category_key: "over-ear-headphones",
+    },
   },
 ];
 
@@ -140,8 +162,13 @@ export function DiscoverPage() {
     };
   }, []);
 
-  function search(nextQuery: string) {
+  function search(
+    nextQuery: string,
+    filters: Pick<SearchFilters, "domain" | "category_key"> = {},
+  ) {
     const params = new URLSearchParams({ q: nextQuery });
+    if (filters.domain) params.set("domain", filters.domain);
+    if (filters.category_key) params.set("category_key", filters.category_key);
     navigate(`/catalog?${params}`);
   }
 
@@ -241,7 +268,7 @@ export function DiscoverPage() {
                 key={starter.topic}
                 className="discover-editorial-card"
                 type="button"
-                onClick={() => search(starter.query)}
+                onClick={() => search(starter.query, starter.filters)}
                 aria-label={starter.query}
               >
                 <span

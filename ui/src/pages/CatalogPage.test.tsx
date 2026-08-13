@@ -205,6 +205,7 @@ describe("CatalogPage", () => {
     expect(await screen.findByText("Hybrid results")).toBeTruthy();
     expect(screen.getByText(/18 fused candidates/)).toBeTruthy();
     expect(screen.getAllByText("RRF #2").length).toBeGreaterThan(0);
+    expect(api.catalog).not.toHaveBeenCalled();
   });
 
   it("shows a catalog failure instead of substituting showcase products", async () => {
