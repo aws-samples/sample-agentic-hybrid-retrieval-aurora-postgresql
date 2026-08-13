@@ -995,49 +995,376 @@
 /* Labs band */
 
 .discover-labs {
-  padding: clamp(34px, 4vw, 54px) clamp(24px, 3.4vw, 48px);
-  border-radius: 26px;
-  background: var(--paper);
-  box-shadow: 0 18px 48px rgb(48 37 28 / 7%);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .discover-labs-grid {
   display: grid;
   gap: clamp(16px, 2vw, 24px);
+  grid-auto-rows: 1fr;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .discover-lab-card {
   display: grid;
+  height: 100%;
   align-content: start;
-  gap: 9px;
-  padding: 20px 22px 24px;
-  border: 1px solid rgb(92 75 62 / 12%);
-  border-radius: 18px;
-  background: var(--mosaic-canvas);
+  gap: 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--ink);
-  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+  transition: color 180ms ease;
 }
 
 .discover-lab-card:hover {
-  border-color: rgb(92 75 62 / 26%);
-  box-shadow: 0 16px 34px rgb(48 37 28 / 8%);
-  transform: translateY(-2px);
+  color: var(--maroon-900);
 }
 
 .discover-lab-graphic {
-  display: grid;
-  height: 76px;
-  align-items: center;
-  margin-bottom: 4px;
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 18px;
+  background: #e9dfd1;
+  box-shadow: 0 12px 28px rgb(48 37 28 / 6%);
+  clip-path: inset(0 round 18px);
+  contain: paint;
+  isolation: isolate;
+  transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
 }
 
-.discover-lab-graphic svg {
+.discover-lab-scene {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+}
+
+.discover-lab-scene-photo {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: cover;
+  transition: transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.discover-lab-card small {
+.discover-lab-card:hover .discover-lab-graphic,
+.discover-lab-card:focus-visible .discover-lab-graphic {
+  border-color: rgb(126 36 49 / 27%);
+  box-shadow: 0 17px 34px rgb(48 37 28 / 11%);
+  transform: translateY(-2px);
+}
+
+.discover-lab-card:hover .discover-lab-scene-photo,
+.discover-lab-card:focus-visible .discover-lab-scene-photo {
+  transform: scale(1.025);
+}
+
+.discover-lab-query-pill,
+.discover-lab-scene-label {
+  position: absolute;
+  z-index: 4;
+  top: 18px;
+  left: 18px;
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid rgb(255 253 248 / 58%);
+  border-radius: 999px;
+  background: rgb(255 253 248 / 88%);
+  box-shadow: 0 8px 20px rgb(49 36 27 / 12%);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+  backdrop-filter: blur(10px);
+}
+
+.discover-lab-candidate {
+  position: absolute;
+  z-index: 3;
+  display: block;
+  width: 34%;
+  overflow: hidden;
+  border: 3px solid rgb(255 253 248 / 92%);
+  border-radius: 10px;
+  background: #eadfce;
+  box-shadow: 0 14px 30px rgb(47 34 24 / 22%);
+  aspect-ratio: 3 / 2;
+}
+
+.discover-lab-candidate img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.discover-lab-candidate-one {
+  right: 18px;
+  bottom: 62px;
+  transform: rotate(2deg);
+}
+
+.discover-lab-candidate-two {
+  bottom: 94px;
+  left: 18px;
+  width: 30%;
+  transform: rotate(-3deg);
+}
+
+.discover-lab-channel-strip {
+  position: absolute;
+  z-index: 5;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.discover-lab-channel-strip span {
+  display: inline-flex;
+  min-height: 27px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid rgb(255 253 248 / 52%);
+  border-radius: 999px;
+  background: rgb(54 43 35 / 80%);
+  color: #fffdf8;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0;
+  backdrop-filter: blur(9px);
+}
+
+.discover-lab-scene-rank {
+  background: #2d2723;
+}
+
+.discover-lab-scene-rank .discover-lab-scene-label {
+  color: var(--maroon-950);
+}
+
+.discover-lab-rank-products {
+  position: absolute;
+  inset: 66px 16px 58px;
+  display: grid;
+  align-items: end;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.discover-lab-rank-product {
+  position: relative;
+  display: block;
+  height: 78%;
+  overflow: hidden;
+  border: 2px solid rgb(255 253 248 / 72%);
+  border-radius: 10px;
+  background: #e9dfd1;
+  box-shadow: 0 16px 30px rgb(0 0 0 / 25%);
+  transition: height 380ms ease, transform 380ms ease;
+}
+
+.discover-lab-rank-product-one {
+  height: 100%;
+  transform: translateY(-5px);
+}
+
+.discover-lab-rank-product-three {
+  height: 86%;
+}
+
+.discover-lab-rank-product img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.discover-lab-rank-product b {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 8px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(255 253 248 / 92%);
+  color: var(--maroon-900);
+  font-size: 10px;
+  font-weight: 760;
+  box-shadow: 0 4px 12px rgb(49 36 27 / 14%);
+}
+
+.discover-lab-rank-receipt {
+  position: absolute;
+  z-index: 4;
+  right: 18px;
+  bottom: 18px;
+  left: 18px;
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: rgb(255 253 248 / 72%);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.discover-lab-rank-receipt strong {
+  color: #fffdf8;
+  font-weight: 700;
+}
+
+.discover-lab-scene-reason::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: rgb(50 35 25 / 8%);
+  content: "";
+}
+
+.discover-lab-evidence {
+  position: absolute;
+  z-index: 3;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  display: grid;
+  gap: 6px;
+  padding: 15px 16px;
+  border: 1px solid rgb(255 253 248 / 70%);
+  border-radius: 12px;
+  background: rgb(255 253 248 / 91%);
+  box-shadow: 0 16px 34px rgb(49 36 27 / 18%);
+  backdrop-filter: blur(12px);
+}
+
+.discover-lab-evidence small {
+  color: var(--maroon-800);
+  font-size: 10px;
+  font-weight: 740;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.discover-lab-evidence > strong {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.discover-lab-evidence > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.discover-lab-evidence > span b {
+  color: var(--maroon-800);
+  font-size: 10px;
+}
+
+.discover-lab-evidence em {
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(92 75 62 / 14%);
+  color: var(--ink);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .discover-lab-candidate-one {
+    animation: discover-lab-candidate-one 5.8s ease-in-out infinite;
+  }
+
+  .discover-lab-candidate-two {
+    animation: discover-lab-candidate-two 6.4s ease-in-out infinite;
+  }
+
+  .discover-lab-rank-product-one {
+    animation: discover-lab-rank-lead 5.6s ease-in-out infinite;
+  }
+
+  .discover-lab-evidence > span b {
+    animation: discover-lab-citation 3.8s ease-in-out infinite;
+  }
+}
+
+@keyframes discover-lab-candidate-one {
+  0%,
+  100% {
+    transform: translateY(0) rotate(2deg);
+  }
+
+  50% {
+    transform: translateY(-4px) rotate(1deg);
+  }
+}
+
+@keyframes discover-lab-candidate-two {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+
+  50% {
+    transform: translateY(3px) rotate(-1deg);
+  }
+}
+
+@keyframes discover-lab-rank-lead {
+  0%,
+  100% {
+    transform: translateY(-5px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes discover-lab-citation {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.discover-lab-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 6px;
+  padding: 0 3px;
+  background: var(--ivory);
+}
+
+.discover-lab-copy small {
   color: var(--maroon-800);
   font-size: 11px;
   font-weight: 620;
@@ -1045,13 +1372,13 @@
   text-transform: uppercase;
 }
 
-.discover-lab-card strong {
+.discover-lab-copy strong {
   font-family: var(--display);
   font-size: 20px;
   font-weight: 500;
 }
 
-.discover-lab-card em {
+.discover-lab-copy em {
   color: var(--ink-soft);
   font-size: 13px;
   font-style: normal;
@@ -1060,8 +1387,16 @@
 
 @media (prefers-reduced-motion: reduce) {
   .discover-editorial-card:hover .discover-editorial-media img,
-  .discover-lab-card:hover {
+  .discover-lab-card:hover .discover-lab-graphic,
+  .discover-lab-card:hover .discover-lab-scene-photo {
     transform: none;
+  }
+
+  .discover-lab-candidate-one,
+  .discover-lab-candidate-two,
+  .discover-lab-rank-product-one,
+  .discover-lab-evidence > span b {
+    animation: none;
   }
 }
 

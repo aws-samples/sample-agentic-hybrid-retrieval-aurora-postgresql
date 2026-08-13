@@ -1,11 +1,11 @@
 import { ArrowRight, Search, Sparkles } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { api } from "../api";
 import { ProductCard } from "../components/ProductCard";
 import { productImageMap } from "../media";
 import { useNavigate } from "../navigation";
-import type { ProductSummary, SearchFilters } from "../types";
+import { showcaseCatalogPage } from "../showcase";
+import type { SearchFilters } from "../types";
 
 type StarterQuery = {
   topic: string;
@@ -60,107 +60,143 @@ const labStages = [
     stage: "Retrieve",
     title: "Build hybrid retrieval",
     caption: "Lexical, fuzzy, and semantic arms over one Aurora catalog.",
-    graphic: "scatter" as const,
+    graphic: "retrieve" as const,
   },
   {
     number: "02",
     stage: "Rank",
     title: "Fuse, rerank, and explain",
     caption: "Watch candidates move as fusion and reranking take over.",
-    graphic: "waves" as const,
+    graphic: "rank" as const,
   },
   {
     number: "03",
     stage: "Reason",
     title: "Build the retrieval agent",
     caption: "Give the system you built to an agent that cites its evidence.",
-    graphic: "graph" as const,
+    graphic: "reason" as const,
   },
 ];
 
-function LabGraphic({ variant }: { variant: "scatter" | "waves" | "graph" }) {
-  if (variant === "scatter") {
-    const points = [
-      [14, 44], [22, 30], [30, 50], [38, 22], [46, 38], [54, 12],
-      [62, 42], [70, 26], [78, 48], [86, 18], [94, 34], [26, 14],
-      [58, 54], [82, 8], [18, 58], [42, 56], [66, 10], [90, 52],
-    ];
+// Discover is an editorial entry surface, not a live-search result. Loading
+// these fixed premium-cohort cards locally prevents the Shop band from
+// appearing a second after the rest of the page, while Shop remains the
+// authoritative live catalog and retrieval surface.
+const featuredPreview = showcaseCatalogPage({}, 0, 4, "featured").products;
+
+function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
+  if (variant === "retrieve") {
     return (
-      <svg viewBox="0 0 108 66" aria-hidden="true">
-        {points.map(([x, y], index) => (
-          <circle
-            key={`${x}-${y}`}
-            cx={x}
-            cy={y}
-            r={index % 4 === 0 ? 2.4 : 1.5}
-            fill={index % 3 === 0 ? "var(--maroon-700)" : "var(--gold)"}
-            opacity={index % 2 === 0 ? 0.85 : 0.45}
+      <span className="discover-lab-scene discover-lab-scene-retrieve" aria-hidden="true">
+        <img
+          className="discover-lab-scene-photo"
+          src="/assets/images/mosaic/ho-quiet-keyboards-01-catalog-3x2.webp"
+          alt=""
+          loading="lazy"
+          decoding="async"
+        />
+        <span className="discover-lab-query-pill">
+          <Search size={14} />
+          quiet mechanical keyboard
+        </span>
+        <span className="discover-lab-candidate discover-lab-candidate-one">
+          <img
+            src="/assets/images/mosaic/ho-quiet-keyboards-02-catalog-3x2.webp"
+            alt=""
+            loading="lazy"
+            decoding="async"
           />
-        ))}
-      </svg>
+        </span>
+        <span className="discover-lab-candidate discover-lab-candidate-two">
+          <img
+            src="/assets/images/mosaic/ho-ergonomic-keyboards-catalog-3x2.webp"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
+        </span>
+        <span className="discover-lab-channel-strip">
+          <span>FTS</span>
+          <span>pg_trgm</span>
+          <span>pgvector</span>
+        </span>
+      </span>
     );
   }
-  if (variant === "waves") {
+
+  if (variant === "rank") {
     return (
-      <svg viewBox="0 0 108 66" aria-hidden="true" fill="none">
-        <path d="M4 50 C 24 50, 30 18, 54 18 S 84 44, 104 44" stroke="var(--maroon-700)" strokeWidth="1.8" />
-        <path d="M4 34 C 24 34, 34 42, 54 30 S 84 14, 104 22" stroke="var(--gold)" strokeWidth="1.4" opacity="0.8" />
-        <path d="M4 18 C 28 18, 36 54, 58 48 S 88 56, 104 58" stroke="var(--line-dark)" strokeWidth="1.2" opacity="0.9" />
-        <circle cx="54" cy="18" r="3" fill="var(--maroon-700)" />
-      </svg>
+      <span className="discover-lab-scene discover-lab-scene-rank" aria-hidden="true">
+        <span className="discover-lab-scene-label">Reranked shortlist</span>
+        <span className="discover-lab-rank-products">
+          <span className="discover-lab-rank-product discover-lab-rank-product-two">
+            <b>02</b>
+            <img
+              src="/assets/images/mosaic/ho-ergonomic-office-chairs-02-catalog-3x2.webp"
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+          </span>
+          <span className="discover-lab-rank-product discover-lab-rank-product-one">
+            <b>01</b>
+            <img
+              src="/assets/images/mosaic/ho-ergonomic-office-chairs-forma-ergonomic-catalog-3x2.webp"
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+          </span>
+          <span className="discover-lab-rank-product discover-lab-rank-product-three">
+            <b>03</b>
+            <img
+              src="/assets/images/mosaic/ho-ergonomic-office-chairs-03-catalog-3x2.webp"
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+          </span>
+        </span>
+        <span className="discover-lab-rank-receipt">
+          <span>RRF</span>
+          <ArrowRight size={14} />
+          <strong>model rerank</strong>
+        </span>
+      </span>
     );
   }
+
   return (
-    <svg viewBox="0 0 108 66" aria-hidden="true" fill="none">
-      <path
-        d="M18 50 L 42 32 L 70 40 L 90 16 M 42 32 L 54 12 M 70 40 L 70 58"
-        stroke="var(--line-dark)"
-        strokeWidth="1.3"
+    <span className="discover-lab-scene discover-lab-scene-reason" aria-hidden="true">
+      <img
+        className="discover-lab-scene-photo"
+        src="/assets/images/mosaic/ce-over-ear-headphones-auraluxe-h9-catalog-3x2.webp"
+        alt=""
+        loading="lazy"
+        decoding="async"
       />
-      <circle cx="18" cy="50" r="3.4" fill="var(--gold)" />
-      <circle cx="42" cy="32" r="4.2" fill="var(--maroon-700)" />
-      <circle cx="54" cy="12" r="2.8" fill="var(--gold)" />
-      <circle cx="70" cy="40" r="3.4" fill="var(--maroon-700)" opacity="0.75" />
-      <circle cx="70" cy="58" r="2.4" fill="var(--line-dark)" />
-      <circle cx="90" cy="16" r="3" fill="var(--gold)" />
-    </svg>
+      <span className="discover-lab-evidence">
+        <small>Evidence retrieved</small>
+        <strong>Auraluxe H9</strong>
+        <span>
+          Adaptive noise cancellation <b>[1]</b>
+        </span>
+        <span>
+          Up to 60 hours <b>[2]</b>
+        </span>
+        <em>Grounded recommendation</em>
+      </span>
+    </span>
   );
 }
 
 export function DiscoverPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [preview, setPreview] = useState<ProductSummary[]>([]);
-  const [previewError, setPreviewError] = useState("");
   // One photograph per card. Assigned across the whole set rather than per
   // product, because a per-product hash cannot guarantee distinctness.
-  const previewImages = useMemo(() => productImageMap(preview), [preview]);
+  const previewImages = useMemo(() => productImageMap(featuredPreview), []);
   const searchRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .catalog({}, 0, 4, "featured")
-      .then((page) => {
-        if (!cancelled) {
-          setPreview(page.products.slice(0, 4));
-          setPreviewError("");
-        }
-      })
-      .catch((cause) => {
-        if (!cancelled) {
-          setPreview([]);
-          setPreviewError(
-            cause instanceof Error
-              ? cause.message
-              : "Featured products are unavailable",
-          );
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   function search(
     nextQuery: string,
@@ -231,7 +267,7 @@ export function DiscoverPage() {
           <header className="discover-section-heading">
             <div>
               <h2 id="discover-search-title">Try asking Mosaic</h2>
-              <p>Three considered starting points.</p>
+              <p>Start with one of these three example searches.</p>
             </div>
           </header>
           <form className="discover-search" onSubmit={submit} role="search">
@@ -290,69 +326,58 @@ export function DiscoverPage() {
           </div>
         </section>
 
-        {preview.length ? (
-          <section className="discover-section" aria-labelledby="discover-shop-title">
-            <header className="discover-section-heading">
-              <div>
-                <h2 id="discover-shop-title">Shop</h2>
-                <p>Thoughtfully designed. Expertly made.</p>
-              </div>
-              <Link className="discover-section-link" href="/catalog">
-                Shop all
-                <ArrowRight size={15} aria-hidden="true" />
+        <section className="discover-section" aria-labelledby="discover-shop-title">
+          <header className="discover-section-heading">
+            <div>
+              <h2 id="discover-shop-title">Shop</h2>
+              <p>Thoughtfully designed. Expertly made.</p>
+            </div>
+            <Link className="discover-section-link" href="/catalog">
+              Shop all
+              <ArrowRight size={15} aria-hidden="true" />
+            </Link>
+          </header>
+          <div className="discover-plate">
+            <span className="discover-plate-media">
+              <img
+                src="/assets/images/mosaic/editorial-fitness-wide.webp"
+                alt="A maroon kettlebell, dumbbells, cushioned running shoes, a rolled mat, an insulated bottle, and a fitness watch on travertine blocks"
+                loading="lazy"
+                decoding="async"
+                width={1672}
+                height={941}
+              />
+            </span>
+            <div className="discover-plate-copy">
+              <small>Running &amp; fitness</small>
+              <strong>Built for the long run.</strong>
+              <p>
+                Browse the 120-product edit, or describe your run to retrieve
+                from all 500,000 products.
+              </p>
+              <Link className="discover-plate-link" href="/catalog?domain=running_fitness">
+                Shop running &amp; fitness
+                <ArrowRight size={14} aria-hidden="true" />
               </Link>
-            </header>
-            <div className="discover-plate">
-              <span className="discover-plate-media">
-                <img
-                  src="/assets/images/mosaic/editorial-fitness-wide.webp"
-                  alt="A maroon kettlebell, dumbbells, cushioned running shoes, a rolled mat, an insulated bottle, and a fitness watch on travertine blocks"
-                  loading="lazy"
-                  decoding="async"
-                  width={1672}
-                  height={941}
-                />
-              </span>
-              <div className="discover-plate-copy">
-                <small>Running &amp; fitness</small>
-                <strong>Built for the long run.</strong>
-                <p>
-                  Browse the 120-product edit, or describe your run to retrieve
-                  from all 500,000 products.
-                </p>
-                <Link className="discover-plate-link" href="/catalog?domain=running_fitness">
-                  Shop running &amp; fitness
-                  <ArrowRight size={14} aria-hidden="true" />
-                </Link>
-              </div>
             </div>
-            <div className="discover-shop-grid">
-              {preview.map((product) => (
-                <ProductCard
-                  key={product.product_id}
-                  product={product}
-                  imageSrc={previewImages.get(product.product_id)}
-                  variant="catalog"
-                />
-              ))}
-            </div>
-          </section>
-        ) : previewError ? (
-          <section className="discover-section" aria-labelledby="discover-shop-title">
-            <header className="discover-section-heading">
-              <div>
-                <h2 id="discover-shop-title">Shop</h2>
-                <p role="alert">Featured products are unavailable: {previewError}</p>
-              </div>
-            </header>
-          </section>
-        ) : null}
+          </div>
+          <div className="discover-shop-grid">
+            {featuredPreview.map((product) => (
+              <ProductCard
+                key={product.product_id}
+                product={product}
+                imageSrc={previewImages.get(product.product_id)}
+                variant="catalog"
+              />
+            ))}
+          </div>
+        </section>
 
         <section className="discover-section discover-labs" aria-labelledby="discover-labs-title">
           <header className="discover-section-heading">
             <div>
               <h2 id="discover-labs-title">Mosaic Labs</h2>
-              <p>The same storefront with the hood open. DAT410 builder’s session.</p>
+              <p>See how Mosaic retrieves candidates, ranks results, and grounds recommendations.</p>
             </div>
             <Link className="discover-section-link solid" href="/mosaic-labs">
               Launch labs
@@ -365,11 +390,13 @@ export function DiscoverPage() {
                 <span className="discover-lab-graphic">
                   <LabGraphic variant={lab.graphic} />
                 </span>
-                <small>
-                  {lab.number} · {lab.stage}
-                </small>
-                <strong>{lab.title}</strong>
-                <em>{lab.caption}</em>
+                <span className="discover-lab-copy">
+                  <small>
+                    {lab.number} · {lab.stage}
+                  </small>
+                  <strong>{lab.title}</strong>
+                  <em>{lab.caption}</em>
+                </span>
               </Link>
             ))}
           </div>

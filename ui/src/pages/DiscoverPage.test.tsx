@@ -9,7 +9,6 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { CommerceProvider } from "../commerce";
-import { showcaseCatalogPage } from "../showcase";
 import { DiscoverPage } from "./DiscoverPage";
 
 vi.mock("../api", () => ({
@@ -23,7 +22,6 @@ describe("DiscoverPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
     vi.mocked(api.catalog).mockReset();
-    vi.mocked(api.catalog).mockResolvedValue(showcaseCatalogPage({}, 0, 4));
   });
 
   afterEach(cleanup);
@@ -48,6 +46,35 @@ describe("DiscoverPage", () => {
     expect(new URLSearchParams(window.location.search).get("q")).toBe(
       "quiet keyboard under $180",
     );
+  });
+
+  it("renders the editorial Shop preview immediately without a catalog request", () => {
+    renderPage();
+
+    expect(screen.getByRole("heading", { name: "Shop" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Auraluxe H9" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Shop all" }).getAttribute("href")).toBe("/catalog");
+    expect(vi.mocked(api.catalog)).not.toHaveBeenCalled();
+  });
+
+  it("previews Mosaic Labs with product-led retrieval, ranking, and evidence scenes", () => {
+    const { container } = renderPage();
+
+    expect(
+      screen.getByText("Start with one of these three example searches."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "See how Mosaic retrieves candidates, ranks results, and grounds recommendations.",
+      ),
+    ).toBeTruthy();
+    expect(container.querySelectorAll(".discover-lab-scene")).toHaveLength(3);
+    expect(container.querySelectorAll(".discover-lab-candidate")).toHaveLength(2);
+    expect(container.querySelectorAll(".discover-lab-rank-product")).toHaveLength(3);
+    expect(container.querySelector(".discover-lab-evidence")).toBeTruthy();
+    expect(container.querySelector(".discover-lab-svg")).toBeNull();
+    expect(container.querySelectorAll(".discover-lab-graphic")).toHaveLength(3);
+    expect(container.querySelectorAll(".discover-lab-copy")).toHaveLength(3);
   });
 
   it("runs a natural-language starter with its intentional category constraint", () => {
