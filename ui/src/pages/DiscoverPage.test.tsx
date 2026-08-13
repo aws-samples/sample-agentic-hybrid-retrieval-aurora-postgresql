@@ -1,13 +1,57 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../api";
 import { CommerceProvider } from "../commerce";
+import { showcaseCatalogPage, showcaseProductDetail } from "../showcase";
 import { DiscoverPage } from "./DiscoverPage";
+
+vi.mock("../api", () => ({
+  api: {
+    catalog: vi.fn(),
+    product: vi.fn(),
+  },
+}));
+
+const chair = showcaseProductDetail(370001)!;
+const display = showcaseProductDetail(420001)!;
+const keyboard = {
+  ...chair,
+  product_id: 429001,
+  title: "Keysmith MX Quiet Mechanical Wireless Keyboard",
+  model: "MX Quiet",
+  brand: "Keysmith",
+  sku: "KEY-MX-QUIET",
+  category_key: "quiet-keyboards",
+  category_path: "Workspace > Input Devices > Quiet Keyboards",
+  price_cents: 16999,
+  short_description: "Quiet mechanical input for focused work.",
+  long_description: "A quiet mechanical keyboard for long, focused workdays.",
+  attributes: { quiet_typing: true, wireless: true },
+};
 
 describe("DiscoverPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
+    vi.mocked(api.catalog).mockReset();
+    vi.mocked(api.product).mockReset();
+    vi.mocked(api.catalog).mockResolvedValue(showcaseCatalogPage({}, 0, 4));
+    vi.mocked(api.product).mockImplementation(async (productId) => {
+      const product = new Map([
+        [370001, chair],
+        [420001, display],
+        [429001, keyboard],
+      ]).get(productId);
+      if (!product) throw new Error(`Unexpected studio product ${productId}`);
+      return product;
+    });
   });
 
   afterEach(cleanup);
@@ -45,5 +89,28 @@ describe("DiscoverPage", () => {
     expect(params.get("q")).toBe(starter);
     expect(params.get("domain")).toBe("home_office");
     expect(params.get("category_key")).toBe("ergonomic-office-chairs");
+  });
+
+  it("keeps the optional creative studio interactive and hands off to Shop", async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(api.product).toHaveBeenCalledTimes(3);
+    });
+
+    const assemble = await screen.findByRole("button", {
+      name: "Assemble the studio",
+    });
+    fireEvent.click(assemble);
+
+    expect(screen.getByRole("link", { name: /Forma Ergonomic/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Atelier 32/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /MX Quiet/ })).toBeTruthy();
+    expect(screen.getByText("Studio assembled")).toBeTruthy();
+
+    const workspace = screen.getByRole("link", { name: "Shop the workspace" });
+    const params = new URLSearchParams(workspace.getAttribute("href")?.split("?")[1]);
+    expect(params.get("domain")).toBe("home_office");
+    expect(params.get("q")).toBeNull();
   });
 });
