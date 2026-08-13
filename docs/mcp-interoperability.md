@@ -41,7 +41,7 @@ contracts while preserving their compatible dependency sets.
 | Tool | API route | Purpose |
 |---|---|---|
 | `search_products` | `POST /api/search` | Run filtered hybrid retrieval and return source-attributed products |
-| `get_product_evidence` | `GET /api/products/{product_id}` | Read specifications, approved media, source revision, and reviews |
+| `get_product_evidence` | `POST /api/products/{product_id}/evidence` | Rank source-addressable specifications and reviews for the supplied evidence question |
 | `inspect_retrieval_run` | `GET /api/retrieval/events/{search_event_id}` | Replay arm ranks, raw scores, RRF, rerank, filter, and timing signals |
 
 All three tools advertise `readOnlyHint=true` and

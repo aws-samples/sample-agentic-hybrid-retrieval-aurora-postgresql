@@ -43,6 +43,7 @@ interface MosaicLabManifest {
     orientation_minutes: number;
     core_lab_minutes: number;
     scorecard_minutes: number;
+    contingency_minutes: number;
   };
   corpus: {
     catalog_products: number;

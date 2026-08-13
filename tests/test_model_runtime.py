@@ -901,6 +901,47 @@ def test_evidence_tool_forwards_question_and_embedding_to_catalog(monkeypatch):
     assert state["evidence_by_product"] == {101: [9001]}
 
 
+def test_product_evidence_endpoint_uses_question_ranked_evidence(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeRetrieval:
+        def embed_query(self, query):
+            captured["embedding_query"] = query
+            return [0.125, 0.25]
+
+    def read_evidence(product_id, query, embedding, *, limit):
+        captured.update(
+            product_id=product_id,
+            query=query,
+            embedding=embedding,
+            limit=limit,
+        )
+        return [evidence()]
+
+    monkeypatch.setattr("service.main.get_retrieval_service", lambda: FakeRetrieval())
+    monkeypatch.setattr("service.main.get_product_evidence_records", read_evidence)
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/products/101/evidence",
+        json={
+            "evidence_query": "Which fact supports long-flight comfort?",
+            "limit": 4,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["product_id"] == 101
+    assert response.json()["evidence"][0]["evidence_id"] == 9001
+    assert captured == {
+        "embedding_query": "Which fact supports long-flight comfort?",
+        "product_id": 101,
+        "query": "Which fact supports long-flight comfort?",
+        "embedding": [0.125, 0.25],
+        "limit": 4,
+    }
+
+
 def test_evidence_tool_surfaces_expired_bedrock_credentials(monkeypatch):
     class ExpiredRetrieval:
         def embed_query(self, _query):

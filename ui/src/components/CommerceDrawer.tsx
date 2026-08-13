@@ -14,7 +14,7 @@ import {
   Truck,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   calculateOrderSummary,
   cartProductImage,
@@ -72,6 +72,8 @@ export function CommerceDrawer() {
   } = useCommerce();
   const [stage, setStage] = useState<CheckoutStage>("cart");
   const [orderNumber, setOrderNumber] = useState("");
+  const drawerRef = useRef<HTMLElement | null>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
   const [billingMatches, setBillingMatches] = useState(true);
   const [delivery, setDelivery] = useState<DeliveryDetails>({
     email: "",
@@ -90,15 +92,59 @@ export function CommerceDrawer() {
 
   useEffect(() => {
     if (!isCartOpen) return;
+    previouslyFocused.current = (
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+    );
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") closeCart();
     };
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        drawerRef.current?.querySelectorAll<HTMLElement>(
+          [
+            'button:not([disabled])',
+            '[href]',
+            'input:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])',
+          ].join(", "),
+        ) ?? [],
+      ).filter((element) => !element.hasAttribute("hidden"));
+      if (!focusable.length) {
+        event.preventDefault();
+        drawerRef.current?.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("keydown", trapFocus);
+    window.requestAnimationFrame(() => {
+      drawerRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
+      )?.focus();
+    });
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("keydown", trapFocus);
+      if (previouslyFocused.current?.isConnected) {
+        previouslyFocused.current.focus();
+      }
     };
   }, [closeCart, isCartOpen]);
 
@@ -132,10 +178,12 @@ export function CommerceDrawer() {
         onClick={closeCart}
       />
       <aside
+        ref={drawerRef}
         className="commerce-drawer"
         role="dialog"
         aria-modal="true"
         aria-labelledby="commerce-drawer-title"
+        tabIndex={-1}
       >
         <header className="commerce-drawer-header">
           <div>

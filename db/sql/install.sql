@@ -15,7 +15,6 @@
 \ir 09_search_functions.sql
 \ir 10_agent_audit.sql
 \ir 12_telemetry.sql
-\ir 14_views.sql
 \ir 16_seed_tool_contracts.sql
 
 \echo ''

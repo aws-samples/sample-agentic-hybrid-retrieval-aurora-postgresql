@@ -37,6 +37,7 @@ from service.models import (
     RetrievalProfile,
     SearchFilters,
 )
+from service.retrieval import normalize_query
 
 # Deep enough to hold the whole fused pool: the arm caps sum to
 # 120 + 80 + 150 = 350, so no realistic union is truncated by this.
@@ -113,13 +114,17 @@ class FusionComparisonService:
         Raises:
             SubstrateError: the two functions received different candidate sets.
         """
+        normalized_query = normalize_query(query)
+        if not normalized_query:
+            raise ValueError("Fusion comparison requires a non-empty query")
+
         profile_config = load_profile()
         profile = RetrievalProfile()
         filter_json = json.dumps((filters or SearchFilters()).as_sql_json())
-        embedding = self._embedder().embed_query(query)
+        embedding = self._embedder().embed_query(normalized_query)
 
         params: dict[str, Any] = {
-            "query": query,
+            "query": normalized_query,
             "embedding": "[" + ",".join(str(x) for x in embedding) + "]",
             "filters": filter_json,
             "rrf_k": profile_config.rrf_k,
@@ -225,6 +230,7 @@ class FusionComparisonService:
                 weighted_ids,
                 search_event_id,
                 profile,
+                normalized_query,
             )
         return response
 
@@ -237,6 +243,7 @@ class FusionComparisonService:
         weighted_order: list[int],
         search_event_id: UUID | None,
         profile: RetrievalProfile,
+        normalized_query: str,
     ) -> None:
         """Write the run and every candidate in one transaction.
 
@@ -264,7 +271,7 @@ class FusionComparisonService:
                         response.fusion_comparison_id,
                         search_event_id,
                         response.query,
-                        response.query.strip(),
+                        normalized_query,
                         json.dumps(response.applied_filters),
                         profile.model_dump_json(),
                         response.rrf_k,

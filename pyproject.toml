@@ -19,7 +19,11 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.0.3,<10",
+    "ruff>=0.16,<1",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py313"

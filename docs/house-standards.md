@@ -149,5 +149,6 @@ Unit E's definition of done is a **correctness** statement against live
 `mosaic_*` rather than an equivalence diff.
 
 **Corollary.** Any Makefile target, script, or document assuming a local
-Postgres gets updated or deleted. Several targets still install the dead
-`catalog.*` tree onto whatever DSN they are handed; they are in Unit E's scope.
+Postgres gets updated or deleted. Phase 2 Unit E retired every target that
+installed the dead `catalog.*` tree. New work must target the live
+`mosaic_*` schema family only.

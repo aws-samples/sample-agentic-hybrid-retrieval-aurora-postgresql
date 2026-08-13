@@ -36,6 +36,23 @@ def test_the_api_serves_the_retrieval_event_route():
     assert "/api/retrieval/events/{search_event_id}" in _served_paths()
 
 
+def test_the_api_serves_the_query_grounded_product_evidence_route():
+    assert "/api/products/{product_id}/evidence" in _served_paths()
+
+
+def test_mcp_evidence_tool_requests_the_query_grounded_evidence_route():
+    match = re.search(
+        r'post\(\s*f"(/products/\{product_id\}/evidence)"\s*,\s*'
+        r'\{"evidence_query": evidence_query\}',
+        SERVER_SOURCE,
+    )
+    assert match, (
+        "get_product_evidence must post its evidence_query to the "
+        "question-ranked evidence route"
+    )
+    assert _route_exists("/api/products/101/evidence")
+
+
 def test_the_api_does_not_serve_the_path_the_tool_used_to_request():
     """If this ever starts passing, the fix below is no longer needed."""
     assert not _route_exists(f"/api/retrieval/runs/{uuid4()}")

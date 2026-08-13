@@ -291,6 +291,22 @@ class EvidenceRecord(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class ProductEvidenceRequest(BaseModel):
+    """Question used to rank evidence records for one already-retrieved product."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    evidence_query: str = Field(min_length=1, max_length=1_000)
+    limit: int = Field(default=6, ge=1, le=12)
+
+
+class ProductEvidenceResponse(BaseModel):
+    """Question-ranked evidence records for one product."""
+
+    product_id: int
+    evidence: list[EvidenceRecord]
+
+
 class ProductDetail(ProductSummary):
     long_description: str
     canonical_group_id: str

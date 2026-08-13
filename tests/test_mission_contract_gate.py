@@ -71,6 +71,7 @@ def test_the_shipped_contract_has_three_labs_and_supporting_checks(passing):
         session["orientation_minutes"]
         + sum(m["duration_minutes"] for m in labs)
         + session["scorecard_minutes"]
+        + session["contingency_minutes"]
         == 60
     )
 
@@ -114,7 +115,7 @@ def test_a_budget_that_does_not_match_the_sixty_minute_program_fails(
     assert expected_rule in rules_failing(passing)
 
 
-def test_a_lab_budget_other_than_forty_seven_minutes_fails(passing):
+def test_a_lab_budget_that_drifts_from_the_manifest_frame_fails(passing):
     passing["missions"][0]["duration_minutes"] -= 1
     assert "A1.4a" in rules_failing(passing)
 

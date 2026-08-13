@@ -29,7 +29,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -297,6 +297,9 @@ reviews:
 validate:
 	$(PYTHON) scripts/validate_package.py
 
+lint:
+	$(UV) run ruff check --select E9,F service tests scripts db/scripts mcp-server/catalog_mcp mcp-server/mcp_tests
+
 test:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest
 
@@ -328,6 +331,9 @@ db-import-embeddings:
 
 simulate:
 	$(PYTHON) scripts/simulate_scale.py
+
+benchmark-ask-mosaic:
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/benchmark_ask_mosaic.py
 
 api-serve:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m uvicorn service.main:app --host 127.0.0.1 --port $(API_PORT)

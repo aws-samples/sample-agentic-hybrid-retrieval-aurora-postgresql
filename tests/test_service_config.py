@@ -60,6 +60,21 @@ def test_env_example_does_not_point_at_a_local_database():
     assert "rds.amazonaws.com" in dsn
 
 
+def test_env_example_documents_every_non_retrieval_runtime_setting():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    text = (root / "config" / ".env.example").read_text()
+
+    for name in (
+        "CORS_ORIGINS",
+        "RERANK_PROVIDER",
+        "ALLOW_DEVELOPMENT_EMBEDDINGS",
+    ):
+        assert f"{name}=" in text, f"{name} is read at runtime but undocumented"
+    assert "CATALOG_MANIFEST_PATH" not in text
+
+
 def test_split_model_overrides_fall_back_to_the_legacy_chat_model(monkeypatch):
     monkeypatch.setenv("BEDROCK_CHAT_MODEL_ID", "global.anthropic.claude-sonnet-5")
     monkeypatch.delenv("BEDROCK_AGENT_MODEL_ID", raising=False)

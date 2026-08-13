@@ -59,7 +59,6 @@ STAGE_UNION_SOURCE = REPO / "ui" / "src" / "labMissions.ts"
 
 TIMED_MISSION_COUNT = 3
 PARTICIPANT_QUERY_COUNT = 8
-LAB_FRAME_MINUTES = 47
 NOMINAL_MINUTES = 60
 REQUIRED_PARTICIPANT_EDIT_FIELDS = (
     "file",
@@ -261,31 +260,36 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
             ),
         )
 
-    # A1.4 — the 60-minute program is exact: 8 + 15 + 16 + 16 + 5.
+    # A1.4 — the 60-minute program is exact. The manifest owns its allocations,
+    # including a recovery buffer; this gate only proves they agree.
     lab_sum = sum(m.get("duration_minutes", 0) for m in timed)
     orientation = session["orientation_minutes"]
+    declared_lab_frame = session["core_lab_minutes"]
     scorecard = session["scorecard_minutes"]
-    programmed = orientation + lab_sum + scorecard
+    contingency = session["contingency_minutes"]
+    programmed = orientation + lab_sum + scorecard + contingency
     declared_total = session["total_minutes"]
 
     report.check(
         "A1.4a required lab durations match the lab frame",
-        lab_sum == LAB_FRAME_MINUTES,
+        lab_sum == declared_lab_frame,
         explain(
             f"required lab durations sum to {lab_sum} against a "
-            f"{LAB_FRAME_MINUTES}-minute frame",
-            f"set the three lab durations to 15, 16, and 16 minutes; checkpoint "
-            f"time is included inside its parent lab",
+            f"{declared_lab_frame}-minute frame",
+            "align the three required lab durations with "
+            "session.core_lab_minutes; checkpoint time is included inside "
+            "its parent lab",
         ),
     )
     report.check(
-        "A1.4b orientation + labs + wrap-up match nominal",
+        "A1.4b orientation + labs + wrap-up + contingency match nominal",
         programmed == NOMINAL_MINUTES,
         explain(
-            f"{orientation} + {lab_sum} + {scorecard} = {programmed} programmed "
+            f"{orientation} + {lab_sum} + {scorecard} + {contingency} = "
+            f"{programmed} programmed "
             f"minutes against a {NOMINAL_MINUTES}-minute session",
-            "restore the 8 + 47 + 5 program so Lab 3 ends at minute 55 and the "
-            "wrap-up ends at minute 60",
+            "align the session allocations in mosaic_labs_missions.json so "
+            "they total the declared Builder's Session duration",
         ),
     )
     report.check(

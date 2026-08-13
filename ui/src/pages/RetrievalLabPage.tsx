@@ -1,5 +1,5 @@
 import { ArrowDown, CircleCheck, Play, SlidersHorizontal } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
@@ -147,6 +147,7 @@ export function RetrievalLabPage() {
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const requestVersion = useRef(0);
   const example = mosaicRetrievalExamples[selected];
   const rows = useMemo(
     () => [...(response?.results ?? [])].sort((a, b) => stageRank(a, stage) - stageRank(b, stage)),
@@ -172,14 +173,24 @@ export function RetrievalLabPage() {
 
   async function run() {
     if (!example) return;
+    const requestedExample = example;
+    const version = requestVersion.current + 1;
+    requestVersion.current = version;
     setLoading(true);
     setError("");
     try {
-      setResponse(await api.search(example.query, example.filters, { limit: 12, rerank: true }));
+      const nextResponse = await api.search(
+        requestedExample.query,
+        requestedExample.filters,
+        { limit: 12, rerank: true },
+      );
+      if (version === requestVersion.current) setResponse(nextResponse);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Retrieval failed");
+      if (version === requestVersion.current) {
+        setError(cause instanceof Error ? cause.message : "Retrieval failed");
+      }
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }
 
@@ -203,7 +214,13 @@ export function RetrievalLabPage() {
       <section className="lab-query-bar">
         <label>
           <span>Lab or checkpoint query</span>
-          <select value={selected} onChange={(event) => { setSelected(Number(event.target.value)); setResponse(null); }}>
+          <select value={selected} onChange={(event) => {
+            requestVersion.current += 1;
+            setSelected(Number(event.target.value));
+            setResponse(null);
+            setError("");
+            setLoading(false);
+          }}>
             {mosaicRetrievalExamples.map((item, index) => <option value={index} key={item.id}>{item.title}</option>)}
           </select>
         </label>

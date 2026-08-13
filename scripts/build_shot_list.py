@@ -166,7 +166,7 @@ def main() -> int:
         "| `catalog-3x2` | 1536x1024 PNG | 1200x800 WebP | catalog grid, rail, related |",
         "| `detail-1x1` | 1024x1024 PNG | 1200x1200 WebP | product page hero (flagships only) |",
         "",
-        f"Save runtime files to `ui/public/assets/images/mosaic/` using the exact",
+        "Save runtime files to `ui/public/assets/images/mosaic/` using the exact",
         "filename in the tables below.",
         "",
     ]

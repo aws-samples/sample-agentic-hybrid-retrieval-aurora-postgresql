@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
 from service.models import (  # noqa: E402
     Availability,
     Domain,
-    ProductDetail,
+    ProductEvidenceResponse,
     RetrievalRunResponse,
     SearchFilters,
     SearchRequest,
@@ -110,16 +110,22 @@ def search_products(
 @mcp.tool(
     title="Get product evidence",
     description=(
-        "Read one product revision with specifications, approved media, "
-        "source attribution, and review evidence."
+        "Rank source-addressable specification and review evidence for one "
+        "retrieved product against a focused question."
     ),
     annotations=READ_ONLY_LOOKUP,
     structured_output=True,
 )
-def get_product_evidence(product_id: int) -> ProductDetail:
-    """Read one product and its inspectable evidence."""
-    payload = get_api_client().get(f"/products/{product_id}")
-    return ProductDetail.model_validate(payload)
+def get_product_evidence(
+    product_id: int,
+    evidence_query: str,
+) -> ProductEvidenceResponse:
+    """Retrieve question-ranked evidence for one returned product ID."""
+    payload = get_api_client().post(
+        f"/products/{product_id}/evidence",
+        {"evidence_query": evidence_query},
+    )
+    return ProductEvidenceResponse.model_validate(payload)
 
 
 @mcp.tool(

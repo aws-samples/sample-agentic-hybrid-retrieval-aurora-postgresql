@@ -36,7 +36,7 @@ def test_mcp_server_uses_stateless_2026_transport_and_api_contracts() -> None:
     assert "stateless_http=True" in source
     assert 'name="mosaic-retrieval"' in source
     assert "SearchResponse.model_validate(payload)" in source
-    assert "ProductDetail.model_validate(payload)" in source
+    assert "ProductEvidenceResponse.model_validate(payload)" in source
     assert "RetrievalRunResponse.model_validate(payload)" in source
     assert "from service.models import" in source
     assert "us.cohere.embed-v4:0" not in source

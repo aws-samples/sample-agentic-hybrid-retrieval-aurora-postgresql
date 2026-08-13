@@ -145,4 +145,29 @@ describe("RetrievalLabPage retriever contrasts", () => {
     expect(screen.getByText("Target enters the HNSW candidate list at #1.")).toBeTruthy();
     expect(screen.getByText("Target returns at final rank #3.")).toBeTruthy();
   });
+
+  it("ignores a stale response after the participant changes the checkpoint", async () => {
+    let resolveFirst: (response: SearchResponse) => void = () => {};
+    vi.mocked(api.search).mockImplementationOnce(
+      () => new Promise<SearchResponse>((resolve) => {
+        resolveFirst = resolve;
+      }),
+    );
+
+    window.history.replaceState(
+      {},
+      "",
+      "/labs/retrieval?example=exact-identity",
+    );
+    render(<RetrievalLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "1" } });
+    resolveFirst(exactIdentityResponse);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Where does this target enter?")).toBeNull();
+    });
+    expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("1");
+  });
 });

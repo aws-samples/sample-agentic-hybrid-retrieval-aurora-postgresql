@@ -95,7 +95,11 @@ class StubEmbedder:
     model_id = "stub"
     dimensions = 4
 
+    def __init__(self) -> None:
+        self.queries: list[str] = []
+
     def embed_query(self, text: str) -> list[float]:
+        self.queries.append(text)
         return [0.1, 0.2, 0.3, 0.4]
 
     def embed_documents(self, texts: Any) -> list[list[float]]:
@@ -357,3 +361,15 @@ def test_filters_reach_the_sql_as_json():
     sent = json.loads(connection._params["filters"])
     assert sent["domain"] == "home_office"
     assert sent["in_stock_only"] is True
+
+
+def test_fusion_comparison_normalizes_the_sql_and_embedding_query():
+    connection = StubConnection(IDENTICAL_UNWEIGHTED, IDENTICAL_WEIGHTED)
+    embedder = StubEmbedder()
+    FusionComparisonService(
+        embedding_provider=embedder,
+        connection_factory=lambda: connection,
+    ).compare("  mesh\n  chair  ", persist=False)
+
+    assert embedder.queries == ["mesh chair"]
+    assert connection._params["query"] == "mesh chair"

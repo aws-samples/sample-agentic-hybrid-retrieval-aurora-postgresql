@@ -20,6 +20,16 @@ def test_snapshot_upgrade_replays_the_current_core_without_preserving_old_code()
     source = UPGRADE_SQL.read_text(encoding="utf-8")
     assert r"\ir install.sql" in source
     assert "preserve_search_trigram" not in source
+    for retired_object in (
+        "mosaic.v_premium_shop",
+        "mosaic.v_flagship_product",
+        "mosaic.v_shop_product",
+        "mosaic_search.v_embedding_backlog",
+        "mosaic.v_media_coverage",
+        "mosaic.attribute_definition",
+        "mosaic_search.synonym_rule",
+    ):
+        assert retired_object in source
 
 
 def test_make_targets_configure_database_defaults_and_apply_current_functions():

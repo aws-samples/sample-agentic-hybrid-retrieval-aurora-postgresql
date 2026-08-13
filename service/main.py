@@ -18,6 +18,7 @@ from service.catalog import (
     catalog_summary,
     get_evidence_record,
     get_product,
+    get_product_evidence_records,
     list_products,
 )
 from service.config import get_settings
@@ -31,6 +32,8 @@ from service.models import (
     FusionComparisonResponse,
     EvidenceRecord,
     ProductDetail,
+    ProductEvidenceRequest,
+    ProductEvidenceResponse,
     RetrievalRunResponse,
     SearchFilters,
     SearchRequest,
@@ -190,6 +193,30 @@ def get_evidence(evidence_id: int) -> EvidenceRecord:
         return get_evidence_record(evidence_id)
     except KeyError as error:
         raise HTTPException(404, str(error)) from error
+
+
+@app.post(
+    "/api/products/{product_id}/evidence",
+    response_model=ProductEvidenceResponse,
+)
+def get_question_ranked_product_evidence(
+    product_id: int,
+    request: ProductEvidenceRequest,
+) -> ProductEvidenceResponse:
+    """Return source-addressable evidence ranked for the supplied question."""
+    try:
+        query_embedding = get_retrieval_service().embed_query(request.evidence_query)
+        evidence = get_product_evidence_records(
+            product_id,
+            request.evidence_query,
+            query_embedding,
+            limit=request.limit,
+        )
+        return ProductEvidenceResponse(product_id=product_id, evidence=evidence)
+    except (ClientError, BotoCoreError) as error:
+        raise _model_error(error) from error
+    except RuntimeError as error:
+        raise HTTPException(503, str(error)) from error
 
 
 @app.post("/api/search", response_model=SearchResponse)

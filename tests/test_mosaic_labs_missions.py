@@ -27,6 +27,7 @@ def test_the_session_budget_is_internally_consistent():
         session["orientation_minutes"]
         + session["core_lab_minutes"]
         + session["scorecard_minutes"]
+        + session["contingency_minutes"]
         == session["total_minutes"]
     )
 

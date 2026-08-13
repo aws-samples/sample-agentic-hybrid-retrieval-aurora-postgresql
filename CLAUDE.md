@@ -21,7 +21,8 @@ Required labs:
 - Aurora PostgreSQL and retrieval mechanics must remain inspectable.
 - The agent orchestrates retrieval. It does not replace retrieval.
 - Do not increase required lab count beyond three.
-- Protect the approximately 45-minute hands-on budget.
+- Protect the 45-minute hands-on budget. The two-minute recovery buffer is
+  part of the 60-minute session, not hidden lab time.
 - Treat measured behavior as authoritative. Never invent benchmark or eval data.
 
 ## Review behavior

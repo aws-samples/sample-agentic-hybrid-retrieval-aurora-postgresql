@@ -9,8 +9,8 @@
   "query": "wireless noise-cancelling headphones under $200",
   "filters": {
     "domain": "consumer_electronics",
-    "max_price": 200,
-    "availability": "In Stock",
+    "max_price_cents": 20000,
+    "in_stock_only": true,
     "attributes": {"active_noise_cancellation": true}
   },
   "limit": 12,
@@ -21,12 +21,13 @@
 
 The response contains:
 
-- `run_id`, original query, and normalized query;
+- `search_event_id`, original query, and normalized query;
 - applied hard filters;
 - source-attributed products;
 - separate lexical, trigram, semantic, RRF, and rerank signals, including the
   model's rerank rank and any exact-SKU preservation applied to final order;
-- candidate counts, arm weights, model IDs, stage timings, and total latency.
+- candidate counts, the configured retrieval profile, model IDs, stage timings,
+  and total latency.
 
 Search returns ranked evidence, not a natural-language answer.
 
@@ -37,7 +38,7 @@ Search returns ranked evidence, not a natural-language answer.
 ```json
 {
   "question": "Compare quiet mechanical keyboards for shared-office calls under $200",
-  "filters": {"domain": "home_office", "max_price": 200},
+  "filters": {"domain": "home_office", "max_price_cents": 20000},
   "result_limit": 6
 }
 ```
@@ -56,9 +57,11 @@ The Strands response contains:
 - `GET /api/catalog/summary`
 - `GET /api/catalog/products`
 - `GET /api/products/{product_id}`
+- `POST /api/products/{product_id}/evidence`
 
-These routes expose the physical catalog and product evidence without invoking
-the agent.
+The evidence route requires an `evidence_query` and returns source-addressable
+specification and review records ranked for that question, without invoking the
+agent.
 
 ## Labs and replay
 

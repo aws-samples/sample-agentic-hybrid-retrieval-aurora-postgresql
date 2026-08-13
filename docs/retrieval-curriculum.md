@@ -20,10 +20,11 @@ agent. The agent orchestrates the system; it does not replace it.
 | Time | Stage | Required outcome | Stable eval anchors |
 |---:|---|---|---|
 | 0-8 min | Getting started | Architecture, Mosaic, and the baseline failure are visible | `typo-recovery` before repair |
-| 8-23 min | Retrieve | Build hybrid retrieval and prove typo recovery, exact identity, and eligibility | `typo-recovery`, `exact-identity`, `semantic-eligibility` |
-| 23-39 min | Rank | Repair RRF, rerank, inspect provenance, and explain why result 1 beat result 2 | `rank-with-evidence` |
-| 39-55 min | Reason | Attach retrieved evidence to synthesis and produce a grounded cited recommendation | `agentic-research` |
-| 55-60 min | Wrap-up | Run the scorecard and recap the architecture | all required checks |
+| 8-22 min | Retrieve | Build hybrid retrieval and prove typo recovery, exact identity, and eligibility | `typo-recovery`, `exact-identity`, `semantic-eligibility` |
+| 22-37 min | Rank | Repair RRF, rerank, inspect provenance, and explain why result 1 beat result 2 | `rank-with-evidence` |
+| 37-53 min | Reason | Attach retrieved evidence to synthesis and produce a grounded cited recommendation | `agentic-research` |
+| 53-58 min | Wrap-up | Run the scorecard and recap the architecture | all required checks |
+| 58-60 min | Recovery buffer | Absorb a transition or rerun a failed checkpoint | n/a |
 
 The stable IDs remain evaluation identifiers and starter-gap ownership keys.
 They are checkpoints inside three labs, not participant navigation.
@@ -100,7 +101,7 @@ tools, candidates, and records produced the recommendation.
 
 ## Advanced Labs (OPTIONAL)
 
-Optional work does not consume the required 55-minute implementation path:
+Optional work does not consume the required 45-minute hands-on path:
 
 1. Tune the HNSW operating point with recall, latency, plans, filter
    selectivity, and iterative scans.

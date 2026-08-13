@@ -553,8 +553,3 @@ def get_retrieval_service() -> RetrievalService:
     if _service is None:
         _service = RetrievalService()
     return _service
-
-
-def reset_retrieval_service() -> None:
-    global _service
-    _service = None

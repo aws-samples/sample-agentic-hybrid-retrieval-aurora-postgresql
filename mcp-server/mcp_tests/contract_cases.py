@@ -18,6 +18,11 @@ class FakeCatalogApi:
 
     def post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         self.calls.append(("POST", path, payload))
+        if path.startswith("/products/"):
+            return {
+                "product_id": int(path.split("/")[2]),
+                "evidence": [],
+            }
         return {
             "search_event_id": str(uuid4()),
             "query": payload["query"],
@@ -102,6 +107,33 @@ async def test_mcp_negotiates_2026_protocol_and_calls_canonical_api(
                 "include_diagnostics": True,
                 "rerank": True,
             },
+        )
+    ]
+
+
+@pytest.mark.anyio
+async def test_mcp_evidence_uses_the_same_query_grounded_contract_as_the_agent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api = FakeCatalogApi()
+    monkeypatch.setattr(server, "get_api_client", lambda: api)
+
+    async with Client(server.mcp, mode="auto") as client:
+        result = await client.call_tool(
+            "get_product_evidence",
+            {
+                "product_id": 101,
+                "evidence_query": "Which specification supports quiet typing?",
+            },
+        )
+
+    assert result.is_error is False
+    assert result.structured_content == {"product_id": 101, "evidence": []}
+    assert api.calls == [
+        (
+            "POST",
+            "/products/101/evidence",
+            {"evidence_query": "Which specification supports quiet typing?"},
         )
     ]
 

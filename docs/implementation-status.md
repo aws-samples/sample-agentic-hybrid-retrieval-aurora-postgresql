@@ -21,6 +21,10 @@
 - snapshot-safe schema upgrades plus release gates that require the live Aurora
   integration suite.
 
+Workshop Studio clones the source repository at its immutable `SourceRevision`.
+There is intentionally no source archive producer: an archive would duplicate
+the application delivery path and can drift from the pinned revision.
+
 ## Deliberately deferred
 
 - measured HNSW output contract and advanced performance lane;

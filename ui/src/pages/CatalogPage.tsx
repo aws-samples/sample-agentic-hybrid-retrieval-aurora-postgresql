@@ -21,6 +21,7 @@ import {
 import { api } from "../api";
 import { AskMosaic } from "../components/AskMosaic";
 import type { AskMosaicTurn } from "../components/AskMosaic";
+import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
 import { productImageMap } from "../media";
 import { SearchComposer } from "../components/SearchComposer";
@@ -29,6 +30,8 @@ import {
   formatAvailability,
   formatCategoryKey,
 } from "../format";
+import { agentLabOutcome } from "../labOutcome";
+import { mosaicRetrievalExamples } from "../labMissions";
 import { useSearchParams } from "../navigation";
 import type {
   Availability,
@@ -116,35 +119,26 @@ function mergeVisibleProducts(
   ].slice(0, pageSize);
 }
 
-const retrievalTraceSteps = [
-  {
-    label: "Request dispatched",
-    detail: "Hard filters apply inside every retrieval arm",
-  },
-  {
-    label: "Embed and retrieve",
-    detail: "Cohere Embed v4 · FTS · pg_trgm · HNSW",
-  },
-  {
-    label: "Fuse and rerank",
-    detail: "RRF · Cohere Rerank",
-  },
-  {
-    label: "Return ranked products",
-    detail: "Eligibility and provenance",
-  },
+const retrievalScope = [
+  "Cohere Embed v4",
+  "FTS",
+  "pg_trgm",
+  "HNSW",
+  "SQL eligibility",
+  "RRF",
+  "Cohere Rerank",
 ];
 
 function HybridRetrievalTrace() {
   return (
     <section
       className="hybrid-retrieval-trace"
-      role="status"
-      aria-label="Hybrid retrieval trace"
+      aria-live="polite"
+      aria-label="Hybrid retrieval request scope"
     >
       <header>
         <div>
-          <p>Retrieval trace</p>
+          <p>Hybrid retrieval</p>
           <strong>Building a ranked candidate set</strong>
         </div>
         <span className="hybrid-retrieval-status">
@@ -152,19 +146,13 @@ function HybridRetrievalTrace() {
           In progress
         </span>
       </header>
-      <ol>
-        {retrievalTraceSteps.map((step, index) => (
-          <li key={step.label} className={index === 0 ? "complete" : ""}>
-            <span className="hybrid-retrieval-marker" aria-hidden="true">
-              {index === 0 ? <Check size={13} /> : index + 1}
-            </span>
-            <span>
-              <strong>{step.label}</strong>
-              <small>{step.detail}</small>
-            </span>
-          </li>
-        ))}
-      </ol>
+      <p className="hybrid-retrieval-scope">
+        This request runs the same production path. Individual stages are not
+        streamed, so Mosaic does not invent their completion order.
+      </p>
+      <ul aria-label="Retrieval mechanisms in this request">
+        {retrievalScope.map((mechanism) => <li key={mechanism}>{mechanism}</li>)}
+      </ul>
     </section>
   );
 }
@@ -235,6 +223,12 @@ export function CatalogPage() {
   const answeredTurn = lastAnswered(agentTurns);
   const agent = answeredTurn?.response ?? null;
   const agentQuestion = answeredTurn?.question ?? "";
+  const labMission = mosaicRetrievalExamples.find(
+    (mission) => mission.id === searchParams.get("mission") && mission.stage === "reason",
+  );
+  const labOutcome = labMission
+    ? agentLabOutcome(labMission, agent, answeredTurn?.error ?? "")
+    : null;
 
   const load = useCallback(() => {
     setLoading(true);
@@ -691,6 +685,8 @@ export function CatalogPage() {
               <button className="clear" type="button" onClick={clearFilters}>Clear all</button>
             </div>
           ) : null}
+
+          {labOutcome ? <LabOutcomeBanner outcome={labOutcome} /> : null}
 
           {agentProducts || activeQuery || retrievalError ? (
             <div className={retrievalError ? "shop-query-state error" : "shop-query-state"}>

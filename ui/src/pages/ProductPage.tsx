@@ -3,7 +3,6 @@ import {
   ArrowRight,
   Check,
   Database,
-  GitCompareArrows,
   RotateCcw,
   ShieldCheck,
   ShoppingBag,
@@ -11,7 +10,14 @@ import {
   Star,
   Truck,
 } from "lucide-react";
-import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link, useRoute } from "wouter";
 import { api } from "../api";
 import { useCommerce } from "../commerce";
@@ -35,33 +41,45 @@ export function ProductPage() {
   const relatedImages = useMemo(() => productImageMap(related), [related]);
   const [selectedImage, setSelectedImage] = useState("");
   const [tab, setTab] = useState<DetailTab>("overview");
-  const [comparing, setComparing] = useState(false);
+  const requestVersion = useRef(0);
   const id = Number(productId);
 
   const load = useCallback(() => {
+    const version = requestVersion.current + 1;
+    requestVersion.current = version;
     setLoading(true);
     setError("");
-    api
-      .product(id)
-      .then(async (result) => {
+    void (async () => {
+      try {
+        const result = await api.product(id);
+        if (version !== requestVersion.current) return;
         setProduct(result);
         setSelectedImage(productImages(result)[0]);
         try {
           const page = await api.catalog({ domain: result.domain }, 0, 5, "rating");
+          if (version !== requestVersion.current) return;
           setRelated(page.products.filter((item) => item.product_id !== result.product_id).slice(0, 4));
         } catch {
+          if (version !== requestVersion.current) return;
           setRelated([]);
         }
-      })
-      .catch((cause: Error) => {
+      } catch (cause) {
+        if (version !== requestVersion.current) return;
         setProduct(null);
         setRelated([]);
-        setError(cause.message);
-      })
-      .finally(() => setLoading(false));
+        setError(cause instanceof Error ? cause.message : "Product detail is unavailable");
+      } finally {
+        if (version === requestVersion.current) setLoading(false);
+      }
+    })();
   }, [id]);
 
-  useEffect(load, [load]);
+  useEffect(() => {
+    load();
+    return () => {
+      requestVersion.current += 1;
+    };
+  }, [load]);
 
   if (loading) return <div className="page"><LoadingState label="Loading product evidence" /></div>;
   if (error || !product) return <div className="page"><ErrorState message={error || "Product not found"} onRetry={load} /></div>;
@@ -151,18 +169,10 @@ export function ProductPage() {
             </button>
             <Link
               className="product-cta-secondary"
-              href={`/search?mode=agent&q=${encodeURIComponent(`Compare ${product.title} with similar ${leafCategory(product.category_path)}`)}`}
+              href={`/catalog?ask=1&q=${encodeURIComponent(`Compare ${product.title} with other ${leafCategory(product.category_path)} options. Keep the current product in the comparison and explain the trade-offs.`)}`}
             >
-              <Sparkles size={16} /> Ask the agent about this
+              <Sparkles size={16} /> Compare in Ask Mosaic
             </Link>
-            <button
-              type="button"
-              className={comparing ? "product-cta-ghost active" : "product-cta-ghost"}
-              onClick={() => setComparing((current) => !current)}
-            >
-              <GitCompareArrows size={16} />
-              {comparing ? "Added to comparison" : "Add to comparison"}
-            </button>
           </div>
 
           <div className="product-assurances">

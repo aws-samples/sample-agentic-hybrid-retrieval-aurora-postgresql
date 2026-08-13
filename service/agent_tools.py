@@ -271,7 +271,9 @@ def search_products(
             home-office requirements, use quiet_typing=true for
             quiet-keyboards and seat_depth_adjustable=true for
             ergonomic-office-chairs.
-        limit: Number of products to return, from 1 to 12.
+        limit: Number of products to return, from 1 to 2. The per-search
+            response cap keeps the agent's comparison and evidence work
+            inspectable within one workshop turn.
 
     Returns:
         A search event ID and compact source-attributed products.

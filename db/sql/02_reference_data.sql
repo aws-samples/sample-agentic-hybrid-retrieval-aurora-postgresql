@@ -23,21 +23,6 @@ CREATE TABLE IF NOT EXISTS mosaic.category (
     updated_at           timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS mosaic.attribute_definition (
-    attribute_key       text PRIMARY KEY,
-    category_id         bigint REFERENCES mosaic.category(category_id),
-    display_name        text NOT NULL,
-    value_type          text NOT NULL CHECK (value_type IN ('text','number','boolean','enum','text_array','number_array')),
-    unit                text,
-    is_filterable       boolean NOT NULL DEFAULT false,
-    is_facetable        boolean NOT NULL DEFAULT false,
-    include_in_embedding boolean NOT NULL DEFAULT true,
-    include_in_rerank    boolean NOT NULL DEFAULT true,
-    enum_values         jsonb,
-    display_order       integer NOT NULL DEFAULT 0,
-    metadata            jsonb NOT NULL DEFAULT '{}'::jsonb
-);
-
 CREATE TABLE IF NOT EXISTS mosaic.embedding_model (
     model_key          text PRIMARY KEY,
     provider           text NOT NULL,

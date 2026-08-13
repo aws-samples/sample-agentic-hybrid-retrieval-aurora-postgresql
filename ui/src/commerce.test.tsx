@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   calculateOrderSummary,
@@ -9,6 +16,7 @@ import {
   useCommerce,
 } from "./commerce";
 import { ProductCard } from "./components/ProductCard";
+import { CommerceDrawer } from "./components/CommerceDrawer";
 import type { ProductSummary } from "./types";
 
 const product: ProductSummary = {
@@ -46,6 +54,7 @@ function CardHarness() {
   return (
     <>
       <ProductCard product={product} variant="catalog" />
+      <CommerceDrawer />
       <output aria-label="Cart item count">{itemCount}</output>
       <output aria-label="Cart drawer status">
         {isCartOpen ? "open" : "closed"}
@@ -98,5 +107,30 @@ describe("commerce", () => {
       screen.getByRole("button", { name: `Add another ${product.title} to cart` }),
     ).toBeTruthy();
     expect(document.querySelector(".cart-flight")).toBeNull();
+  });
+
+  it("contains keyboard focus and restores it after the bag closes", async () => {
+    render(
+      <CommerceProvider>
+        <CardHarness />
+      </CommerceProvider>,
+    );
+
+    const add = screen.getByRole("button", { name: `Add ${product.title} to cart` });
+    add.focus();
+    fireEvent.click(add);
+
+    const dialog = await screen.findByRole("dialog", { name: /your bag/i });
+    const close = within(dialog).getByRole("button", { name: "Close bag" });
+    await waitFor(() => expect(document.activeElement).toBe(close));
+
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: /checkout/i }),
+    );
+
+    fireEvent.click(close);
+    await waitFor(() => expect(dialog.isConnected).toBe(false));
+    expect(document.activeElement).toBe(add);
   });
 });

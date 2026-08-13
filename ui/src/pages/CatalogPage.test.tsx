@@ -132,6 +132,16 @@ const agentResponse: AgentResponse = {
       title: "Acoustic switch specification",
       quote: "Measured for shared-office use.",
     },
+    {
+      number: 2,
+      evidence_id: 9002,
+      evidence_type: "product_spec",
+      product_id: recommendations[1].product_id,
+      source_uri: "mosaic://evidence/9002",
+      revision: "2026-08-01",
+      title: "Alternative keyboard specification",
+      quote: "A lower-cost option with fewer mechanical controls.",
+    },
   ],
   trace: [
     {
@@ -146,13 +156,33 @@ const agentResponse: AgentResponse = {
     },
     {
       sequence: 2,
+      tool: "compare_products",
+      detail: "Compared the returned shortlist.",
+      retrieval_run_id: "search-1",
+      result_count: 2,
+      arguments: { product_ids: recommendations.map((product) => product.product_id) },
+      outcome: "success",
+      latency_ms: 8,
+    },
+    {
+      sequence: 3,
       tool: "get_product_evidence",
       detail: "Resolved supporting product evidence.",
       retrieval_run_id: null,
-      result_count: 1,
-      arguments: { product_ids: [recommendations[0].product_id] },
+      result_count: 2,
+      arguments: { product_ids: recommendations.map((product) => product.product_id) },
       outcome: "success",
       latency_ms: 18,
+    },
+    {
+      sequence: 4,
+      tool: "synthesize_cited_answer",
+      detail: "Synthesized the grounded recommendation.",
+      retrieval_run_id: null,
+      result_count: 2,
+      arguments: { citation_count: 2 },
+      outcome: "success",
+      latency_ms: 220,
     },
   ],
 };
@@ -229,19 +259,47 @@ describe("CatalogPage", () => {
     window.history.replaceState({}, "", "/catalog?q=ergonomic%20mesh%20chair");
     renderPage();
 
-    const trace = await screen.findByRole("status", {
-      name: "Hybrid retrieval trace",
-    });
-    expect(within(trace).getByText("Request dispatched")).toBeTruthy();
-    expect(within(trace).getByText("Embed and retrieve")).toBeTruthy();
-    expect(within(trace).getByText("Fuse and rerank")).toBeTruthy();
-    expect(within(trace).getByText("Return ranked products")).toBeTruthy();
-    expect(within(trace).getByText(/Cohere Embed v4/)).toBeTruthy();
-    expect(within(trace).getByText(/FTS/)).toBeTruthy();
-    expect(within(trace).getByText(/pg_trgm/)).toBeTruthy();
-    expect(within(trace).getByText(/HNSW/)).toBeTruthy();
+    const trace = await screen.findByLabelText(
+      "Hybrid retrieval request scope",
+    );
+    expect(
+      within(trace).getByText(
+        "This request runs the same production path. Individual stages are not streamed, so Mosaic does not invent their completion order.",
+      ),
+    ).toBeTruthy();
+    expect(within(trace).getByText("Cohere Embed v4")).toBeTruthy();
+    expect(within(trace).getByText("FTS")).toBeTruthy();
+    expect(within(trace).getByText("pg_trgm")).toBeTruthy();
+    expect(within(trace).getByText("HNSW")).toBeTruthy();
+    expect(within(trace).getByText("SQL eligibility")).toBeTruthy();
+    expect(within(trace).getByText("RRF")).toBeTruthy();
+    expect(within(trace).getByText("Cohere Rerank")).toBeTruthy();
 
     await act(async () => releaseSearch(searchResponse));
+  });
+
+  it("renders the Lab 3 experiment outcome on the Shop route it actually opens", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/catalog?ask=1&mission=agentic-research&q=Compare%20quiet%20keyboards",
+    );
+    renderPage();
+
+    expect(
+      await screen.findByText(
+        "Evidence is returned to the model but grounded synthesis cannot resolve it, so the agent refuses an unsupported recommendation.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("G-010 · Ready")).toBeTruthy();
+
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+
+    expect(await screen.findByText("G-010 · Fixed")).toBeTruthy();
   });
 
   it("opens Ask Mosaic, renders grounded receipts, and cross-highlights products", async () => {

@@ -8,9 +8,6 @@ Synthetic catalog brand dimension. `brand_key` is stable and machine-friendly; `
 ### `category`
 Hierarchical taxonomy. `category_path` is the human-readable breadcrumb copied into the retrieval projection.
 
-### `attribute_definition`
-Defines category-specific attribute semantics for faceting, filtering, embedding text, and reranking. The product row still stores values in JSONB to support 160 heterogeneous subcategories without a giant sparse table.
-
 ### `product`
 Stable product identity and content. `canonical_group_id` groups color/size/storage variants for result diversity. `challenge_cohorts` identifies deliberate eval cases such as typo targets, hard negatives, and selective filters.
 
@@ -44,9 +41,6 @@ One denormalized row per searchable product. It contains:
 - reranker document
 - HNSW embedding
 - source scores and merchandising flags needed by the UI
-
-### `synonym_rule`
-Optional curated expansion rules scoped globally, by domain, or by category.
 
 ## `mosaic_eval` schema
 

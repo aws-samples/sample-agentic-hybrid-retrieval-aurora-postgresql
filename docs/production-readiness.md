@@ -45,3 +45,16 @@
 - no invented benchmark labels
 - accessible charts and textual metric summaries
 - graceful partial-result state
+
+## Model-route rehearsal
+
+Use the real Aurora retrieval and evidence path to compare Bedrock model routes;
+this is a rehearsal, not a benchmark claim:
+
+```bash
+DATABASE_URL="$DATABASE_URL" make benchmark-ask-mosaic
+```
+
+The command records successful grounded tool workflows, citation coverage, and
+latency for the configured model set. Save its JSON output with the environment
+and run count before making a production model choice.

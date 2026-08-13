@@ -21,10 +21,11 @@ Aurora only. There is no local database and no `make` target creates one. See
 | Clock | Stage | Required outcome |
 |---|---|---|
 | 00:00-00:08 | Getting started | Open both participant surfaces, establish Mosaic, and show the baseline failure |
-| 00:08-00:23 | Retrieve | Restore trigram fusion, preserve exact identity, enforce eligibility, and inspect candidate provenance |
-| 00:23-00:39 | Rank | Repair RRF, inspect reranking evidence, and explain why result 1 outranked result 2 |
-| 00:39-00:55 | Reason | Attach retrieved evidence to synthesis, inspect tool receipts, and produce a cited recommendation |
-| 00:55-01:00 | Wrap-up | Run the scorecard and recap the architecture |
+| 00:08-00:22 | Retrieve | Restore trigram fusion, preserve exact identity, enforce eligibility, and inspect candidate provenance |
+| 00:22-00:37 | Rank | Repair RRF, inspect reranking evidence, and explain why result 1 outranked result 2 |
+| 00:37-00:53 | Reason | Attach retrieved evidence to synthesis, inspect tool receipts, and produce a cited recommendation |
+| 00:53-00:58 | Wrap-up | Run the scorecard and recap the architecture |
+| 00:58-01:00 | Recovery buffer | Absorb a transition or rerun the failed checkpoint without shortening the required work |
 
 ## Eight participant runs
 

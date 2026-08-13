@@ -90,7 +90,7 @@ def validate_sql() -> dict[str, int]:
         "00_extensions.sql", "01_schemas_and_types.sql", "03_catalog.sql",
         "05_evidence.sql", "06_retrieval_projection.sql", "07_indexes.sql",
         "08_indexes_concurrent.sql", "09_search_functions.sql", "10_agent_audit.sql",
-        "11_evaluation.sql", "12_telemetry.sql", "13_benchmark.sql", "14_views.sql",
+        "11_evaluation.sql", "12_telemetry.sql", "13_benchmark.sql",
         "15_load_premium_cohort.sql", "17_load_normalized_catalog.sql",
         "18_load_evidence.sql", "install.sql",
         # Evaluation and benchmark schemas install separately so a session's
