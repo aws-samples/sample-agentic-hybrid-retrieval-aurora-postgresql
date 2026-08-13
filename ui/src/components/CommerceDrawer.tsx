@@ -17,8 +17,12 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   calculateOrderSummary,
+  cartQuantityLimit,
   cartProductImage,
   type DeliveryMethod,
+  expressShipping,
+  freeShippingThreshold,
+  standardShipping,
   useCommerce,
 } from "../commerce";
 import { formatPrice, leafCategory } from "../format";
@@ -41,6 +45,19 @@ const checkoutSteps: Array<{ stage: CheckoutStage; label: string }> = [
   { stage: "payment", label: "Payment" },
   { stage: "review", label: "Review" },
 ];
+
+function emptyDeliveryDetails(): DeliveryDetails {
+  return {
+    email: "",
+    firstName: "",
+    lastName: "",
+    address: "",
+    city: "",
+    state: "",
+    postalCode: "",
+    shippingMethod: "standard",
+  };
+}
 
 function OrderTotals({
   summary,
@@ -73,21 +90,17 @@ export function CommerceDrawer() {
   const [stage, setStage] = useState<CheckoutStage>("cart");
   const [orderNumber, setOrderNumber] = useState("");
   const drawerRef = useRef<HTMLElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
-  const [billingMatches, setBillingMatches] = useState(true);
-  const [delivery, setDelivery] = useState<DeliveryDetails>({
-    email: "",
-    firstName: "",
-    lastName: "",
-    address: "",
-    city: "",
-    state: "",
-    postalCode: "",
-    shippingMethod: "standard",
-  });
+  const previousStage = useRef<CheckoutStage>(stage);
+  const [delivery, setDelivery] = useState<DeliveryDetails>(emptyDeliveryDetails);
   const summary = useMemo(
     () => calculateOrderSummary(lines, delivery.shippingMethod),
     [delivery.shippingMethod, lines],
+  );
+  const cartSummary = useMemo(
+    () => calculateOrderSummary(lines, "standard"),
+    [lines],
   );
 
   useEffect(() => {
@@ -148,6 +161,21 @@ export function CommerceDrawer() {
     };
   }, [closeCart, isCartOpen]);
 
+  useEffect(() => {
+    const changed = previousStage.current !== stage;
+    previousStage.current = stage;
+    if (!isCartOpen || !changed) return;
+    const frame = window.requestAnimationFrame(() => headingRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [isCartOpen, stage]);
+
+  useEffect(() => {
+    if (isCartOpen || stage !== "complete") return;
+    setStage("cart");
+    setOrderNumber("");
+    setDelivery(emptyDeliveryDetails());
+  }, [isCartOpen, stage]);
+
   if (!isCartOpen) return null;
 
   const activeStep = checkoutSteps.findIndex((step) => step.stage === stage);
@@ -159,6 +187,7 @@ export function CommerceDrawer() {
 
   function finishOrder() {
     setOrderNumber(`MOS-${Date.now().toString().slice(-8)}`);
+    clearCart();
     setStage("complete");
   }
 
@@ -166,6 +195,7 @@ export function CommerceDrawer() {
     clearCart();
     setStage("cart");
     setOrderNumber("");
+    setDelivery(emptyDeliveryDetails());
     closeCart();
   }
 
@@ -205,7 +235,7 @@ export function CommerceDrawer() {
             )}
             <span>
               <p className="eyebrow">{isCheckout ? "Secure demo checkout" : "Mosaic shop"}</p>
-              <h2 id="commerce-drawer-title">
+              <h2 ref={headingRef} id="commerce-drawer-title" tabIndex={-1}>
                 {stage === "cart" ? `Your bag (${itemCount})` : null}
                 {stage === "delivery" ? "Delivery details" : null}
                 {stage === "payment" ? "Payment" : null}
@@ -255,45 +285,49 @@ export function CommerceDrawer() {
             <>
               {lines.length ? (
                 <div className="cart-lines">
-                  {lines.map(({ product, quantity }) => (
-                    <article className="cart-line" key={product.product_id}>
-                      <img src={cartProductImage(product)} alt="" />
-                      <div className="cart-line-copy">
-                        <small>{leafCategory(product.category_path)}</small>
-                        <strong>{product.model}</strong>
-                        <span>{formatPrice(product.price_cents, product.currency)}</span>
-                        <div className="cart-line-controls">
-                          <div className="quantity-stepper" aria-label={`Quantity for ${product.title}`}>
+                  {lines.map(({ product, quantity }) => {
+                    const quantityLimit = cartQuantityLimit(product);
+                    return (
+                      <article className="cart-line" key={product.product_id}>
+                        <img src={cartProductImage(product)} alt="" />
+                        <div className="cart-line-copy">
+                          <small>{leafCategory(product.category_path)}</small>
+                          <strong>{product.model}</strong>
+                          <span>{formatPrice(product.price_cents, product.currency)}</span>
+                          <div className="cart-line-controls">
+                            <div className="quantity-stepper" aria-label={`Quantity for ${product.title}`}>
+                              <button
+                                type="button"
+                                aria-label={`Decrease ${product.title} quantity`}
+                                onClick={() => setQuantity(product.product_id, quantity - 1)}
+                              >
+                                <Minus size={14} />
+                              </button>
+                              <span aria-live="polite">{quantity}</span>
+                              <button
+                                type="button"
+                                aria-label={`Increase ${product.title} quantity`}
+                                title={quantity >= quantityLimit ? "Maximum available quantity reached" : undefined}
+                                disabled={quantity >= quantityLimit}
+                                onClick={() => setQuantity(product.product_id, quantity + 1)}
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
                             <button
+                              className="cart-remove"
                               type="button"
-                              aria-label={`Decrease ${product.title} quantity`}
-                              onClick={() => setQuantity(product.product_id, quantity - 1)}
+                              aria-label={`Remove ${product.title}`}
+                              onClick={() => removeItem(product.product_id)}
                             >
-                              <Minus size={14} />
-                            </button>
-                            <span aria-live="polite">{quantity}</span>
-                            <button
-                              type="button"
-                              aria-label={`Increase ${product.title} quantity`}
-                              disabled={quantity >= 9}
-                              onClick={() => setQuantity(product.product_id, quantity + 1)}
-                            >
-                              <Plus size={14} />
+                              <Trash2 size={15} />
                             </button>
                           </div>
-                          <button
-                            className="cart-remove"
-                            type="button"
-                            aria-label={`Remove ${product.title}`}
-                            onClick={() => removeItem(product.product_id)}
-                          >
-                            <Trash2 size={15} />
-                          </button>
                         </div>
-                      </div>
-                      <strong>{formatPrice(product.price_cents * quantity, product.currency)}</strong>
-                    </article>
-                  ))}
+                        <strong>{formatPrice(product.price_cents * quantity, product.currency)}</strong>
+                      </article>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="empty-cart">
@@ -311,17 +345,17 @@ export function CommerceDrawer() {
                   <div className="shipping-progress">
                     <Truck size={17} />
                     <span>
-                      {summary.shipping
-                        ? `${formatPrice(7500 - summary.subtotal)} away from complimentary shipping`
+                      {cartSummary.shipping
+                        ? `${formatPrice(freeShippingThreshold - cartSummary.subtotal)} away from complimentary shipping`
                         : "Complimentary standard shipping unlocked"}
                     </span>
                     <i
                       style={{
-                        width: `${Math.min((summary.subtotal / 7500) * 100, 100)}%`,
+                        width: `${Math.min((cartSummary.subtotal / freeShippingThreshold) * 100, 100)}%`,
                       }}
                     />
                   </div>
-                  <OrderTotals summary={summary} />
+                  <OrderTotals summary={cartSummary} />
                 </>
               ) : null}
             </>
@@ -343,6 +377,7 @@ export function CommerceDrawer() {
                   <input
                     required
                     type="email"
+                    name="email"
                     autoComplete="email"
                     value={delivery.email}
                     onChange={(event) => updateDelivery("email", event.target.value)}
@@ -356,6 +391,7 @@ export function CommerceDrawer() {
                     First name
                     <input
                       required
+                      name="given-name"
                       autoComplete="given-name"
                       value={delivery.firstName}
                       onChange={(event) => updateDelivery("firstName", event.target.value)}
@@ -365,6 +401,7 @@ export function CommerceDrawer() {
                     Last name
                     <input
                       required
+                      name="family-name"
                       autoComplete="family-name"
                       value={delivery.lastName}
                       onChange={(event) => updateDelivery("lastName", event.target.value)}
@@ -375,6 +412,7 @@ export function CommerceDrawer() {
                   Address
                   <input
                     required
+                    name="street-address"
                     autoComplete="street-address"
                     value={delivery.address}
                     onChange={(event) => updateDelivery("address", event.target.value)}
@@ -385,6 +423,7 @@ export function CommerceDrawer() {
                     City
                     <input
                       required
+                      name="address-level2"
                       autoComplete="address-level2"
                       value={delivery.city}
                       onChange={(event) => updateDelivery("city", event.target.value)}
@@ -395,6 +434,10 @@ export function CommerceDrawer() {
                     <input
                       required
                       maxLength={2}
+                      minLength={2}
+                      name="address-level1"
+                      pattern="[A-Za-z]{2}"
+                      title="Enter a two-letter state code"
                       autoComplete="address-level1"
                       value={delivery.state}
                       onChange={(event) => updateDelivery("state", event.target.value.toUpperCase())}
@@ -405,6 +448,10 @@ export function CommerceDrawer() {
                     <input
                       required
                       inputMode="numeric"
+                      maxLength={10}
+                      name="postal-code"
+                      pattern="[0-9]{5}(-[0-9]{4})?"
+                      title="Enter a five-digit ZIP code or ZIP+4"
                       autoComplete="postal-code"
                       value={delivery.postalCode}
                       onChange={(event) => updateDelivery("postalCode", event.target.value)}
@@ -422,7 +469,11 @@ export function CommerceDrawer() {
                     onChange={() => updateDelivery("shippingMethod", "standard")}
                   />
                   <span><Truck size={18} /><b>Standard</b><small>3-5 business days</small></span>
-                  <strong>{summary.subtotal >= 7500 ? "Complimentary" : formatPrice(895)}</strong>
+                  <strong>
+                    {summary.subtotal >= freeShippingThreshold
+                      ? "Complimentary"
+                      : formatPrice(standardShipping)}
+                  </strong>
                 </label>
                 <label className={delivery.shippingMethod === "express" ? "selected" : ""}>
                   <input
@@ -432,7 +483,7 @@ export function CommerceDrawer() {
                     onChange={() => updateDelivery("shippingMethod", "express")}
                   />
                   <span><PackageCheck size={18} /><b>Express</b><small>1-2 business days</small></span>
-                  <strong>{formatPrice(1695)}</strong>
+                  <strong>{formatPrice(expressShipping)}</strong>
                 </label>
               </fieldset>
             </form>
@@ -464,19 +515,9 @@ export function CommerceDrawer() {
                   <small>DEMO CARD &nbsp;&nbsp; 12/30</small>
                 </div>
               </section>
-              <label className="checkout-checkbox">
-                <input
-                  type="checkbox"
-                  checked={billingMatches}
-                  onChange={(event) => setBillingMatches(event.target.checked)}
-                />
-                Billing address is the same as shipping
-              </label>
-              {!billingMatches ? (
-                <p className="checkout-section-note">
-                  For this preview, the demo payment method uses the shipping address.
-                </p>
-              ) : null}
+              <p className="checkout-section-note">
+                For this workshop preview, the shipping address is also used as the billing address.
+              </p>
               <div className="payment-security">
                 <LockKeyhole size={17} />
                 <span><b>Protected checkout</b><small>No card data leaves this browser.</small></span>

@@ -3,6 +3,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
+import { supportingMosaicChecks } from "../labMissions";
 import { showcaseProductDetail } from "../showcase";
 import { MosaicLabsPage } from "./MosaicLabsPage";
 
@@ -71,12 +72,27 @@ describe("MosaicLabsPage", () => {
       ),
     ).toBe(true);
     expect(container.querySelectorAll(".labs-engine-rail > li")).toHaveLength(6);
+    expect(
+      container.querySelector(".labs-engine-rail button[aria-current=step] strong")?.textContent,
+    ).toBe("Query");
     expect(await screen.findByText("Canonical catalog fixture")).toBeTruthy();
     expect(container.querySelectorAll(".labs-engine-product")).toHaveLength(engineProductIds.length);
     // The masthead field is decoration, so it carries no text and no figure a
     // presenter could read a number off, and it stays out of the a11y tree.
     expect(container.querySelector(".labs-intro-flow[aria-hidden=true] canvas")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Replay fixture" })).toBeTruthy();
+    const queryExamples = screen.getByRole("group", { name: "Replay query examples" });
+    expect(queryExamples.querySelectorAll("button")).toHaveLength(3);
+    expect(
+      [...queryExamples.querySelectorAll("button")].map((button) => button.textContent),
+    ).toEqual(["Exact identity", "Typo recovery", "Semantic intent"]);
+    const exactIdentity = supportingMosaicChecks.find(
+      (check) => check.id === "exact-identity",
+    );
+    if (!exactIdentity) throw new Error("Missing exact-identity fixture");
+    expect(
+      container.querySelector(".labs-engine-query code")?.getAttribute("aria-label"),
+    ).toBe(exactIdentity.query);
     expect(
       screen.getByRole("heading", { name: "Where one retrieval method stops being enough." }),
     ).toBeTruthy();
@@ -92,23 +108,76 @@ describe("MosaicLabsPage", () => {
     expect(screen.queryByText(/Restore the trigram CTE/)).toBeNull();
   });
 
+  it("types each canonical replay query before emphasizing the replay control", () => {
+    vi.useFakeTimers();
+    const semanticIntent = supportingMosaicChecks.find(
+      (check) => check.id === "semantic-intent-contrast",
+    );
+    const exactIdentity = supportingMosaicChecks.find(
+      (check) => check.id === "exact-identity",
+    );
+    if (!semanticIntent) throw new Error("Missing semantic-intent-contrast fixture");
+    if (!exactIdentity) throw new Error("Missing exact-identity fixture");
+
+    const { container } = render(<MosaicLabsPage />);
+    const typedQuery = container.querySelector(".labs-engine-query-typed");
+    const replay = screen.getByRole("button", { name: "Replay fixture" });
+
+    expect(typedQuery?.textContent).toBe("");
+    expect(replay.classList.contains("query-ready")).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(exactIdentity.query.length * 50);
+    });
+    expect(typedQuery?.textContent).toBe(exactIdentity.query);
+    expect(replay.classList.contains("query-ready")).toBe(true);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Use Semantic intent query:/ }),
+    );
+    expect(
+      container.querySelector(".labs-engine-query code")?.getAttribute("aria-label"),
+    ).toBe(semanticIntent.query);
+    expect(typedQuery?.textContent).toBe("");
+    expect(screen.getByText("Start with one request")).toBeTruthy();
+
+    act(() => {
+      vi.advanceTimersByTime(semanticIntent.query.length * 50);
+    });
+    expect(typedQuery?.textContent).toBe(semanticIntent.query);
+    expect(replay.classList.contains("query-ready")).toBe(true);
+  });
+
   it("replays the visible path from query parsing through grounded evidence", async () => {
     vi.useFakeTimers();
     try {
-      render(<MosaicLabsPage />);
+      const { container } = render(<MosaicLabsPage />);
 
       const replay = screen.getByRole("button", { name: "Replay fixture" });
       fireEvent.click(replay);
 
       expect((replay as HTMLButtonElement).disabled).toBe(true);
-      expect(screen.getByText("Parse one request before searching")).toBeTruthy();
+      expect(replay.textContent).toContain("Replaying 1 of 6");
+      expect(container.querySelector(".labs-engine-board.is-replaying")).toBeTruthy();
+      expect(screen.getByText("Start with one request")).toBeTruthy();
 
       act(() => {
-        vi.advanceTimersByTime(620 * 5);
+        vi.advanceTimersByTime(1000);
+      });
+      expect(screen.getByText("Start with one request")).toBeTruthy();
+
+      act(() => {
+        vi.advanceTimersByTime(650);
+      });
+      expect(screen.getByText("Build a candidate universe")).toBeTruthy();
+
+      act(() => {
+        vi.runAllTimers();
       });
 
       expect(screen.getByText("Ground the recommendation in evidence")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Replay fixture" })).toBeTruthy();
+      expect(container.querySelector(".labs-engine-board.is-replaying")).toBeNull();
     } finally {
       vi.useRealTimers();
     }

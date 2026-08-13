@@ -6,6 +6,7 @@ import {
   FileText,
   GitCompareArrows,
   Play,
+  Search,
   ScanSearch,
   ShieldCheck,
   Sparkles,
@@ -153,6 +154,8 @@ function contrastLens(example: MosaicLabMission) {
 const engineTraceMission = coreMosaicLabs[0];
 
 const engineProductIds = [2, 3, 4, 5, 1, 17001];
+const engineReplayStepDurationMs = 1650;
+const engineQueryCharacterDelayMs = 50;
 
 /** One real anchor photograph per system lens, so Explore reads as physical catalog objects rather than a spec sheet. */
 const labThumbnailIds = coreMosaicLabs.map((lab) => lab.target_product_ids[0]);
@@ -165,6 +168,54 @@ type EngineVisual = {
   productOrder: number[];
 };
 
+type EngineScenario = {
+  id: string;
+  label: string;
+  mission: MosaicLabMission;
+  candidateOrder: number[];
+  eligibleProductIds: number[];
+  fusedOrder: number[];
+  rerankedOrder: number[];
+};
+
+function requiredSupportingCheck(id: string): MosaicLabMission {
+  const check = supportingMosaicChecks.find((candidate) => candidate.id === id);
+  if (!check) {
+    throw new Error(`Mosaic Labs replay requires supporting check ${id}.`);
+  }
+  return check;
+}
+
+const engineScenarios: EngineScenario[] = [
+  {
+    id: "exact-identity",
+    label: "Exact identity",
+    mission: requiredSupportingCheck("exact-identity"),
+    candidateOrder: [17001, 2, 3, 5, 4, 1],
+    eligibleProductIds: [17001, 2, 3, 5, 4, 1],
+    fusedOrder: [17001, 2, 3, 5, 4, 1],
+    rerankedOrder: [17001, 2, 3, 5, 4, 1],
+  },
+  {
+    id: "typo-recovery",
+    label: "Typo recovery",
+    mission: engineTraceMission,
+    candidateOrder: [2, 3, 4, 5, 1, 17001],
+    eligibleProductIds: [2, 3, 4, 5],
+    fusedOrder: [2, 4, 3, 5, 1, 17001],
+    rerankedOrder: [2, 4, 3, 5, 1, 17001],
+  },
+  {
+    id: "semantic-intent-contrast",
+    label: "Semantic intent",
+    mission: requiredSupportingCheck("semantic-intent-contrast"),
+    candidateOrder: [3, 5, 2, 4, 1, 17001],
+    eligibleProductIds: [2, 3, 4, 5],
+    fusedOrder: [3, 2, 5, 4, 1, 17001],
+    rerankedOrder: [3, 5, 2, 4, 1, 17001],
+  },
+];
+
 /**
  * The engine, end to end, before a participant opens a single lab.
  *
@@ -175,13 +226,13 @@ type EngineVisual = {
 const engineSteps = [
   {
     step: "01",
-    title: "Natural language query",
-    caption: "Typos, intent, and hard constraints arrive in one request.",
+    title: "Query",
+    caption: "Identity, lexical form, intent, and constraints start here.",
     owner: null as MosaicLabStage | null,
-    mechanics: [`"${engineTraceMission.query}"`],
+    mechanics: [],
     visual: {
-      title: "Parse one request before searching",
-      copy: "The fixture starts as a single imperfect request. Retrieval and ranking stay inspectable after the query is normalized.",
+      title: "Start with one request",
+      copy: "Each fixture begins with one query. Retrieval and ranking stay inspectable as the system normalizes it and builds candidates.",
       productLabel: "Premium cohort ready",
       visibleProductIds: engineProductIds,
       productOrder: engineProductIds,
@@ -263,10 +314,44 @@ const engineSteps = [
   },
 ];
 
+function engineVisualForScenario(
+  scenario: EngineScenario,
+  stepIndex: number,
+): EngineVisual {
+  const visual = engineSteps[stepIndex].visual;
+  if (stepIndex === 0 || stepIndex === 1) {
+    return {
+      ...visual,
+      visibleProductIds: engineProductIds,
+      productOrder: scenario.candidateOrder,
+    };
+  }
+  if (stepIndex === 2) {
+    return {
+      ...visual,
+      visibleProductIds: scenario.eligibleProductIds,
+      productOrder: scenario.candidateOrder,
+    };
+  }
+  if (stepIndex === 3) {
+    return {
+      ...visual,
+      visibleProductIds: scenario.eligibleProductIds,
+      productOrder: scenario.fusedOrder,
+    };
+  }
+  return {
+    ...visual,
+    visibleProductIds: scenario.rerankedOrder.slice(0, 3),
+    productOrder: scenario.rerankedOrder,
+  };
+}
+
 function engineProductState(
   product: ProductSummary,
   visual: EngineVisual,
   stepIndex: number,
+  targetProductId: number,
 ) {
   const visible = visual.visibleProductIds.includes(product.product_id);
   const rank = visual.productOrder.indexOf(product.product_id) + 1;
@@ -278,10 +363,10 @@ function engineProductState(
   if (stepIndex === 3) return { label: "Fused shortlist", state: "shortlist", rank };
   if (stepIndex === 4) return { label: "Rerank shortlist", state: "shortlist", rank };
   return {
-    label: product.product_id === engineTraceMission.target_product_ids[0]
+    label: product.product_id === targetProductId
       ? "Evidence trace"
       : "Compared product",
-    state: product.product_id === engineTraceMission.target_product_ids[0]
+    state: product.product_id === targetProductId
       ? "featured"
       : "shortlist",
     rank,
@@ -318,8 +403,10 @@ const substrate = [
 ];
 
 export function MosaicLabsPage() {
-  const [activeEngineStep, setActiveEngineStep] = useState(1);
+  const [activeEngineStep, setActiveEngineStep] = useState(0);
+  const [activeEngineScenarioIndex, setActiveEngineScenarioIndex] = useState(0);
   const [isEnginePlaying, setIsEnginePlaying] = useState(false);
+  const [visibleEngineQueryLength, setVisibleEngineQueryLength] = useState(0);
   const [engineProducts, setEngineProducts] = useState<ProductSummary[]>([]);
   const [engineProductsError, setEngineProductsError] = useState("");
   const [labThumbnails, setLabThumbnails] = useState<Map<number, ProductSummary>>(new Map());
@@ -332,11 +419,39 @@ export function MosaicLabsPage() {
       (check) => check.id === "exact-identity" || check.id === "semantic-intent-contrast",
     ),
   ];
+  const activeEngineScenario = engineScenarios[activeEngineScenarioIndex];
   const activeEngine = engineSteps[activeEngineStep];
+  const activeEngineQuery = activeEngineScenario.mission.query;
+  const activeEngineVisual = engineVisualForScenario(
+    activeEngineScenario,
+    activeEngineStep,
+  );
+  const activeEngineMechanics = activeEngineStep === 0
+    ? [`"${activeEngineQuery}"`]
+    : activeEngine.mechanics;
+  const isEngineQueryComplete = visibleEngineQueryLength >= activeEngineQuery.length;
 
   useEffect(() => () => {
     replayTimers.current.forEach((timer) => window.clearTimeout(timer));
   }, []);
+
+  useEffect(() => {
+    setVisibleEngineQueryLength(0);
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setVisibleEngineQueryLength(activeEngineQuery.length);
+      return;
+    }
+
+    let visibleCharacters = 0;
+    const timer = window.setInterval(() => {
+      visibleCharacters += 1;
+      setVisibleEngineQueryLength(visibleCharacters);
+      if (visibleCharacters >= activeEngineQuery.length) {
+        window.clearInterval(timer);
+      }
+    }, engineQueryCharacterDelayMs);
+    return () => window.clearInterval(timer);
+  }, [activeEngineQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -387,6 +502,15 @@ export function MosaicLabsPage() {
     setActiveEngineStep(index);
   };
 
+  const selectEngineScenario = (index: number) => {
+    replayTimers.current.forEach((timer) => window.clearTimeout(timer));
+    replayTimers.current = [];
+    setIsEnginePlaying(false);
+    setVisibleEngineQueryLength(0);
+    setActiveEngineScenarioIndex(index);
+    setActiveEngineStep(0);
+  };
+
   const replayEngineJourney = () => {
     replayTimers.current.forEach((timer) => window.clearTimeout(timer));
     replayTimers.current = [];
@@ -402,10 +526,12 @@ export function MosaicLabsPage() {
     engineSteps.slice(1).forEach((_, index) => {
       const timer = window.setTimeout(() => {
         setActiveEngineStep(index + 1);
-        if (index === engineSteps.length - 2) setIsEnginePlaying(false);
-      }, (index + 1) * 620);
+      }, (index + 1) * engineReplayStepDurationMs);
       replayTimers.current.push(timer);
     });
+    replayTimers.current.push(window.setTimeout(() => {
+      setIsEnginePlaying(false);
+    }, engineSteps.length * engineReplayStepDurationMs));
   };
 
   return (
@@ -425,28 +551,72 @@ export function MosaicLabsPage() {
         title="See how Mosaic decides."
       />
 
-      <section className="labs-engine labs-engine-board" aria-labelledby="labs-engine-title">
+      <section
+        className={`labs-engine labs-engine-board${isEnginePlaying ? " is-replaying" : ""}`}
+        aria-busy={isEnginePlaying}
+        aria-labelledby="labs-engine-title"
+      >
         <header className="labs-engine-heading">
           <div>
             <p className="eyebrow">System replay</p>
             <h2 id="labs-engine-title">From request to grounded recommendation.</h2>
-            <p>
+            <p className="labs-engine-description">
               Select a stage or replay the canonical fixture. The records are
               real; the animation is a read-only system map, not a new query.
             </p>
+            <div className="labs-engine-query-row">
+              <div
+              className={`labs-engine-query${isEngineQueryComplete ? " is-complete" : ""}`}
+              aria-label="Replay query"
+            >
+                <Search size={17} aria-hidden="true" />
+                <code aria-label={activeEngineQuery}>
+                  <span className="labs-engine-query-measure" aria-hidden="true">
+                    {activeEngineQuery}
+                  </span>
+                  <span className="labs-engine-query-typed" aria-hidden="true">
+                    {activeEngineQuery.slice(0, visibleEngineQueryLength)}
+                    {!isEngineQueryComplete ? (
+                      <i className="labs-engine-query-caret" />
+                    ) : null}
+                  </span>
+                </code>
+              </div>
+              <button
+                className={`labs-engine-replay${
+                  isEngineQueryComplete && !isEnginePlaying ? " query-ready" : ""
+                }`}
+                disabled={isEnginePlaying}
+                onClick={replayEngineJourney}
+                type="button"
+              >
+                <Play size={15} fill="currentColor" />
+                {isEnginePlaying
+                  ? `Replaying ${activeEngineStep + 1} of ${engineSteps.length}`
+                  : "Replay fixture"}
+              </button>
+            </div>
+            <div className="labs-engine-query-presets" role="group" aria-label="Replay query examples">
+              {engineScenarios.map((scenario, index) => (
+                <button
+                  aria-label={`Use ${scenario.label} query: ${scenario.mission.query}`}
+                  aria-pressed={index === activeEngineScenarioIndex}
+                  className={index === activeEngineScenarioIndex ? "active" : ""}
+                  key={scenario.id}
+                  onClick={() => selectEngineScenario(index)}
+                  type="button"
+                >
+                  {scenario.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <button
-            className="labs-engine-replay"
-            disabled={isEnginePlaying}
-            onClick={replayEngineJourney}
-            type="button"
-          >
-            <Play size={15} fill="currentColor" />
-            {isEnginePlaying ? "Replaying fixture" : "Replay fixture"}
-          </button>
         </header>
 
-        <ol className="labs-engine-rail" aria-label="Retrieval and ranking stages">
+        <ol
+          className={`labs-engine-rail${isEnginePlaying ? " is-replaying" : ""}`}
+          aria-label="Retrieval and ranking stages"
+        >
           {engineSteps.map((step, index) => (
             <li
               className={
@@ -475,16 +645,17 @@ export function MosaicLabsPage() {
           className="labs-engine-spotlight"
           data-stage={activeEngine.step}
           aria-live="polite"
+          key={activeEngine.step}
         >
           <div className="labs-engine-spotlight-copy">
             <p className="eyebrow">
               Step {activeEngine.step}
               {activeEngine.owner ? ` · ${stageDetails[activeEngine.owner].label}` : ""}
             </p>
-            <h3>{activeEngine.visual.title}</h3>
-            <p>{activeEngine.visual.copy}</p>
+            <h3>{activeEngineVisual.title}</h3>
+            <p>{activeEngineVisual.copy}</p>
             <ul aria-label={`${activeEngine.title} implementation details`}>
-              {activeEngine.mechanics.map((mechanic) => (
+              {activeEngineMechanics.map((mechanic) => (
                 <li key={mechanic}><code>{mechanic}</code></li>
               ))}
             </ul>
@@ -492,13 +663,18 @@ export function MosaicLabsPage() {
 
           <div className="labs-engine-products-wrap">
             <div className="labs-engine-products-heading">
-              <span>{activeEngine.visual.productLabel}</span>
+              <span>{activeEngineVisual.productLabel}</span>
               <small>Canonical catalog fixture</small>
             </div>
             {engineProducts.length ? (
               <div className="labs-engine-products" key={activeEngine.step}>
                 {engineProducts.map((product, index) => {
-                  const state = engineProductState(product, activeEngine.visual, activeEngineStep);
+                  const state = engineProductState(
+                    product,
+                    activeEngineVisual,
+                    activeEngineStep,
+                    activeEngineScenario.mission.target_product_ids[0],
+                  );
                   return (
                     <figure
                       className={`labs-engine-product ${state.state}`}

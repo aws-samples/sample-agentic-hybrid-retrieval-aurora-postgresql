@@ -20,7 +20,7 @@ import {
 } from "react";
 import { Link, useRoute } from "wouter";
 import { api } from "../api";
-import { useCommerce } from "../commerce";
+import { cartQuantityLimit, useCommerce } from "../commerce";
 import { MosaicMark } from "../components/MosaicMark";
 import { ProductCard } from "../components/ProductCard";
 import { ErrorState, LoadingState } from "../components/States";
@@ -91,6 +91,9 @@ export function ProductPage() {
   const attributes = Object.entries(product.attributes);
   const source = product.sources[0];
   const poster = productEditorialPoster(product);
+  const quantity = itemQuantity(product.product_id);
+  const quantityLimit = cartQuantityLimit(product);
+  const quantityAtLimit = quantity > 0 && quantity >= quantityLimit;
 
   return (
     <div className="page product-page">
@@ -160,12 +163,17 @@ export function ProductPage() {
             <button
               className="product-cta-primary"
               type="button"
+              disabled={!quantityLimit || quantityAtLimit}
               onClick={() => addItem(product)}
             >
               <ShoppingBag size={17} />
-              {itemQuantity(product.product_id)
-                ? `Added to cart (${itemQuantity(product.product_id)})`
-                : "Add to cart"}
+              {!quantityLimit
+                ? formatAvailability(product.availability)
+                : quantityAtLimit
+                  ? `Maximum in cart (${quantity})`
+                  : quantity
+                    ? `Add another (${quantity} in cart)`
+                    : "Add to cart"}
             </button>
             <Link
               className="product-cta-secondary"

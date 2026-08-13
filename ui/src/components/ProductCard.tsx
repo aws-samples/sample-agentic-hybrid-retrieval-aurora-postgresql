@@ -1,6 +1,6 @@
 import { Check, Heart, ShoppingBag, Star } from "lucide-react";
 import { Link } from "wouter";
-import { useCommerce } from "../commerce";
+import { cartQuantityLimit, useCommerce } from "../commerce";
 import { formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
 import { productImage } from "../media";
 import type { ProductSummary } from "../types";
@@ -45,6 +45,8 @@ export function ProductCard({
   } = useCommerce();
   const saved = isFavorite(product.product_id);
   const quantity = itemQuantity(product.product_id);
+  const quantityLimit = cartQuantityLimit(product);
+  const quantityAtLimit = quantity > 0 && quantity >= quantityLimit;
   const signals = product.signals;
   const productTags = product.tags.filter((tag): tag is string => typeof tag === "string");
   const tags = Array.from(new Set([...collectionLabels, ...productTags])).slice(0, 3);
@@ -132,13 +134,21 @@ export function ProductCard({
             <button
               className={quantity ? "shop-quick-add added" : "shop-quick-add"}
               type="button"
-              disabled={!isPurchasable(product.availability)}
+              disabled={!quantityLimit || quantityAtLimit}
               aria-label={
-                quantity
+                quantityAtLimit
+                  ? `${product.title} quantity limit reached`
+                  : quantity
                   ? `Add another ${product.title} to cart`
                   : `Add ${product.title} to cart`
               }
-              title={quantity ? `Add another (${quantity} in bag)` : "Add to bag"}
+              title={
+                quantityAtLimit
+                  ? `Maximum ${quantityLimit} in bag`
+                  : quantity
+                    ? `Add another (${quantity} in bag)`
+                    : "Add to bag"
+              }
               onClick={() => addItem(product)}
             >
               <ShoppingBag size={17} />

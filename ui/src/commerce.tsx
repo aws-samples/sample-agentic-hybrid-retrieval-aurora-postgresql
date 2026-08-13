@@ -1,4 +1,5 @@
 import {
+  useCallback,
   createContext,
   type ReactNode,
   useContext,
@@ -6,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { isPurchasable } from "./format";
 import { productImage } from "./media";
 import type { ProductSummary } from "./types";
 
@@ -23,10 +25,22 @@ export type OrderSummary = {
   total: number;
 };
 
-const freeShippingThreshold = 7500;
-const standardShipping = 895;
-const expressShipping = 1695;
+export const freeShippingThreshold = 7500;
+export const standardShipping = 895;
+export const expressShipping = 1695;
 const estimatedTaxRate = 0.0825;
+export const maxCartQuantity = 9;
+
+export function cartQuantityLimit(product: ProductSummary): number {
+  if (
+    !isPurchasable(product.availability)
+    || !Number.isInteger(product.inventory_count)
+    || product.inventory_count < 1
+  ) {
+    return 0;
+  }
+  return Math.min(maxCartQuantity, product.inventory_count);
+}
 
 export function calculateOrderSummary(
   lines: CartLine[],
@@ -79,15 +93,27 @@ function readStoredCart(): CartLine[] {
     const value = window.localStorage.getItem(cartStorageKey);
     if (!value) return [];
     const parsed = JSON.parse(value) as CartLine[];
-    return Array.isArray(parsed)
-      ? parsed.filter(
-          (line) =>
-            line?.product &&
-            Number.isInteger(line.product.product_id) &&
-            Number.isInteger(line.quantity) &&
-            line.quantity > 0,
-        )
-      : [];
+    if (!Array.isArray(parsed)) return [];
+
+    const normalized = new Map<number, CartLine>();
+    for (const line of parsed) {
+      if (
+        !line?.product
+        || !Number.isInteger(line.product.product_id)
+        || !Number.isInteger(line.quantity)
+        || line.quantity < 1
+      ) {
+        continue;
+      }
+      const limit = cartQuantityLimit(line.product);
+      if (!limit) continue;
+      const existing = normalized.get(line.product.product_id);
+      normalized.set(line.product.product_id, {
+        product: line.product,
+        quantity: Math.min((existing?.quantity ?? 0) + line.quantity, limit),
+      });
+    }
+    return Array.from(normalized.values());
   } catch {
     return [];
   }
@@ -134,7 +160,13 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
   const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
   const summary = calculateOrderSummary(lines);
 
-  function addItem(product: ProductSummary) {
+  const openCart = useCallback(() => setCartOpen(true), []);
+  const closeCart = useCallback(() => setCartOpen(false), []);
+  const clearCart = useCallback(() => setLines([]), []);
+
+  const addItem = useCallback((product: ProductSummary) => {
+    const limit = cartQuantityLimit(product);
+    if (!limit) return;
     setLines((current) => {
       const existing = current.find(
         (line) => line.product.product_id === product.product_id,
@@ -142,51 +174,49 @@ export function CommerceProvider({ children }: { children: ReactNode }) {
       if (!existing) return [...current, { product, quantity: 1 }];
       return current.map((line) =>
         line.product.product_id === product.product_id
-          ? { ...line, quantity: Math.min(line.quantity + 1, 9) }
+          ? { ...line, product, quantity: Math.min(line.quantity + 1, limit) }
           : line,
       );
     });
     setCartOpen(true);
-  }
+  }, []);
 
-  function setQuantity(productId: number, quantity: number) {
-    if (quantity < 1) {
-      setLines((current) =>
-        current.filter((line) => line.product.product_id !== productId),
-      );
-      return;
-    }
+  const setQuantity = useCallback((productId: number, quantity: number) => {
     setLines((current) =>
-      current.map((line) =>
-        line.product.product_id === productId
-          ? { ...line, quantity: Math.min(quantity, 9) }
-          : line,
-      ),
+      current.flatMap((line) => {
+        if (line.product.product_id !== productId) return [line];
+        const limit = cartQuantityLimit(line.product);
+        if (quantity < 1 || !limit) return [];
+        return [{ ...line, quantity: Math.min(Math.floor(quantity), limit) }];
+      }),
     );
-  }
+  }, []);
 
-  function toggleFavorite(productId: number) {
+  const removeItem = useCallback((productId: number) => {
+    setLines((current) =>
+      current.filter((line) => line.product.product_id !== productId),
+    );
+  }, []);
+
+  const toggleFavorite = useCallback((productId: number) => {
     setFavoriteIds((current) =>
       current.includes(productId)
         ? current.filter((id) => id !== productId)
         : [...current, productId],
     );
-  }
+  }, []);
 
   const value: CommerceContextValue = {
     lines,
     itemCount,
     summary,
     isCartOpen,
-    openCart: () => setCartOpen(true),
-    closeCart: () => setCartOpen(false),
+    openCart,
+    closeCart,
     addItem,
     setQuantity,
-    removeItem: (productId) =>
-      setLines((current) =>
-        current.filter((line) => line.product.product_id !== productId),
-      ),
-    clearCart: () => setLines([]),
+    removeItem,
+    clearCart,
     itemQuantity: (productId) =>
       lines.find((line) => line.product.product_id === productId)?.quantity ?? 0,
     isFavorite: (productId) => favoriteSet.has(productId),

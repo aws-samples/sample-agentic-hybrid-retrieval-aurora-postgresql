@@ -3094,6 +3094,12 @@ button:disabled {
   background: var(--maroon-700);
 }
 
+.product-cta-primary:disabled {
+  background: #d8cfc7;
+  color: #756960;
+  cursor: not-allowed;
+}
+
 .product-cta-secondary {
   border: 1px solid var(--maroon-800);
   background: transparent;
@@ -8048,10 +8054,10 @@ body {
   position: absolute;
   top: 0;
   right: 0;
-  display: grid;
+  display: flex;
   width: min(100%, 500px);
   height: 100%;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  flex-direction: column;
   overflow: hidden;
   background: #fffdf9;
   box-shadow: -22px 0 60px rgb(35 24 19 / 18%);
@@ -8061,6 +8067,7 @@ body {
 .commerce-drawer-header {
   display: flex;
   min-height: 88px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
@@ -8095,6 +8102,10 @@ body {
   font-weight: 720;
 }
 
+.commerce-drawer-header h2:focus {
+  outline: 0;
+}
+
 .commerce-close-button,
 .commerce-back-button {
   display: grid;
@@ -8120,6 +8131,7 @@ body {
 
 .checkout-progress {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: repeat(3, 1fr);
   margin: 0;
   padding: 14px 22px;
@@ -8184,6 +8196,7 @@ body {
 .demo-checkout-notice {
   display: flex;
   min-height: 38px;
+  flex: 0 0 auto;
   align-items: center;
   gap: 8px;
   margin: 0;
@@ -8199,6 +8212,8 @@ body {
 }
 
 .commerce-drawer-body {
+  min-height: 0;
+  flex: 1 1 auto;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 22px 24px;
@@ -8218,10 +8233,12 @@ body {
 }
 
 .cart-line > img {
+  box-sizing: border-box;
   width: 84px;
   height: 84px;
+  padding: 5px;
   border-radius: 6px;
-  object-fit: cover;
+  object-fit: contain;
   background: #f4eee7;
 }
 
@@ -8287,8 +8304,13 @@ body {
   font-size: 10px;
 }
 
-.quantity-stepper button:hover {
+.quantity-stepper button:not(:disabled):hover {
   background: #f4ede5;
+}
+
+.quantity-stepper button:disabled {
+  color: #b4a8a0;
+  cursor: not-allowed;
 }
 
 .cart-remove {
@@ -8383,6 +8405,7 @@ body {
 }
 
 .commerce-drawer-footer {
+  flex: 0 0 auto;
   padding: 15px 22px 18px;
   border-top: 1px solid #e7ded5;
   background: #fffdf9;
@@ -8660,17 +8683,6 @@ body {
 .demo-card-preview small {
   color: rgb(255 255 255 / 68%);
   font-size: 10px;
-}
-
-.checkout-checkbox {
-  display: flex !important;
-  grid-template-columns: none;
-  align-items: center;
-  gap: 8px !important;
-}
-
-.checkout-checkbox input {
-  accent-color: var(--maroon-800);
 }
 
 .payment-security {

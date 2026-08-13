@@ -11,6 +11,7 @@ import {
 import { afterEach, describe, expect, it } from "vitest";
 import {
   calculateOrderSummary,
+  cartQuantityLimit,
   CommerceProvider,
   type CartLine,
   useCommerce,
@@ -50,11 +51,12 @@ const product: ProductSummary = {
 };
 
 function CardHarness() {
-  const { isCartOpen, itemCount, isFavorite } = useCommerce();
+  const { isCartOpen, itemCount, isFavorite, openCart } = useCommerce();
   return (
     <>
       <ProductCard product={product} variant="catalog" />
       <CommerceDrawer />
+      <button type="button" onClick={openCart}>Open bag</button>
       <output aria-label="Cart item count">{itemCount}</output>
       <output aria-label="Cart drawer status">
         {isCartOpen ? "open" : "closed"}
@@ -67,7 +69,14 @@ function CardHarness() {
 }
 
 describe("commerce", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    try {
+      window.localStorage.clear();
+    } catch {
+      // The test runtime may intentionally omit persistent browser storage.
+    }
+  });
 
   it("calculates shipping and tax in cents", () => {
     const lines: CartLine[] = [{ product, quantity: 1 }];
@@ -84,6 +93,26 @@ describe("commerce", () => {
       tax: 825,
       total: 12520,
     });
+
+    const belowThreshold = [{ product: { ...product, price_cents: 5000 }, quantity: 1 }];
+    expect(calculateOrderSummary(belowThreshold)).toEqual({
+      subtotal: 5000,
+      shipping: 895,
+      tax: 413,
+      total: 6308,
+    });
+  });
+
+  it("uses availability and inventory as the cart quantity boundary", () => {
+    expect(cartQuantityLimit({ ...product, inventory_count: 2 })).toBe(2);
+    expect(cartQuantityLimit({ ...product, inventory_count: 20 })).toBe(9);
+    expect(
+      cartQuantityLimit({
+        ...product,
+        availability: "out_of_stock",
+        inventory_count: 20,
+      }),
+    ).toBe(0);
   });
 
   it("shares favorite and cart state with a catalog card", () => {
@@ -107,6 +136,41 @@ describe("commerce", () => {
       screen.getByRole("button", { name: `Add another ${product.title} to cart` }),
     ).toBeTruthy();
     expect(document.querySelector(".cart-flight")).toBeNull();
+  });
+
+  it("does not add beyond the loaded inventory", () => {
+    const scarceProduct = { ...product, inventory_count: 2 };
+
+    render(
+      <CommerceProvider>
+        <ProductCard product={scarceProduct} variant="catalog" />
+        <CommerceDrawer />
+        <CartCount />
+      </CommerceProvider>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: `Add ${product.title} to cart` }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: `Add another ${product.title} to cart` }),
+    );
+
+    expect(screen.getByLabelText("Cart item count").textContent).toBe("2");
+    expect(
+      (
+        screen.getByRole("button", {
+          name: `${product.title} quantity limit reached`,
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen.getByRole("button", {
+          name: `Increase ${product.title} quantity`,
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
   });
 
   it("contains keyboard focus and restores it after the bag closes", async () => {
@@ -133,4 +197,74 @@ describe("commerce", () => {
     await waitFor(() => expect(dialog.isConnected).toBe(false));
     expect(document.activeElement).toBe(add);
   });
+
+  it("completes the demo checkout, clears the bag, and reopens cleanly", async () => {
+    render(
+      <CommerceProvider>
+        <CardHarness />
+      </CommerceProvider>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: `Add ${product.title} to cart` }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /checkout/i }));
+
+    const deliveryHeading = await screen.findByRole("heading", {
+      name: "Delivery details",
+    });
+    await waitFor(() => expect(document.activeElement).toBe(deliveryHeading));
+
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "shopper@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("First name"), {
+      target: { value: "Avery" },
+    });
+    fireEvent.change(screen.getByLabelText("Last name"), {
+      target: { value: "Morgan" },
+    });
+    fireEvent.change(screen.getByLabelText("Address"), {
+      target: { value: "410 Mosaic Way" },
+    });
+    fireEvent.change(screen.getByLabelText("City"), {
+      target: { value: "Seattle" },
+    });
+    fireEvent.change(screen.getByLabelText("State"), {
+      target: { value: "wa" },
+    });
+    fireEvent.change(screen.getByLabelText("ZIP"), {
+      target: { value: "98101" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue to payment" }));
+    const paymentHeading = await screen.findByRole("heading", { name: "Payment" });
+    await waitFor(() => expect(document.activeElement).toBe(paymentHeading));
+
+    fireEvent.click(screen.getByRole("button", { name: "Review order" }));
+    const reviewHeading = await screen.findByRole("heading", { name: "Review order" });
+    await waitFor(() => expect(document.activeElement).toBe(reviewHeading));
+    expect(screen.getByText(/shopper@example.com/).textContent).toContain(
+      "Seattle, WA 98101",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /place demo order/i }));
+    expect(
+      await screen.findByRole("heading", { name: "Order confirmed" }),
+    ).toBeTruthy();
+    expect(screen.getByLabelText("Cart item count").textContent).toBe("0");
+
+    const confirmation = screen.getByRole("dialog", { name: "Order confirmed" });
+    fireEvent.click(within(confirmation).getByRole("button", { name: "Close bag" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open bag" }));
+    expect(
+      await screen.findByRole("heading", { name: "Your bag (0)" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Your bag is empty")).toBeTruthy();
+  });
 });
+
+function CartCount() {
+  const { itemCount } = useCommerce();
+  return <output aria-label="Cart item count">{itemCount}</output>;
+}
