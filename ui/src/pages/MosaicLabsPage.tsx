@@ -319,7 +319,10 @@ function engineVisualForScenario(
   stepIndex: number,
 ): EngineVisual {
   const visual = engineSteps[stepIndex].visual;
-  if (stepIndex === 0 || stepIndex === 1) {
+  if (stepIndex === 0) {
+    return visual;
+  }
+  if (stepIndex === 1) {
     return {
       ...visual,
       visibleProductIds: engineProductIds,
@@ -351,22 +354,33 @@ function engineProductState(
   product: ProductSummary,
   visual: EngineVisual,
   stepIndex: number,
-  targetProductId: number,
+  scenario: EngineScenario,
 ) {
   const visible = visual.visibleProductIds.includes(product.product_id);
   const rank = visual.productOrder.indexOf(product.product_id) + 1;
+  const isTarget = product.product_id === scenario.mission.target_product_ids[0];
+  const isExactIdentity = scenario.id === "exact-identity" && isTarget;
 
   if (!visible) return { label: "Outside current set", state: "muted", rank };
   if (stepIndex === 0) return { label: "Catalog record", state: "prepared", rank };
+  if (isExactIdentity && stepIndex === 1) {
+    return { label: "Exact FTS identity", state: "candidate", rank };
+  }
   if (stepIndex === 1) return { label: "Candidate", state: "candidate", rank };
   if (stepIndex === 2) return { label: "Eligible", state: "eligible", rank };
+  if (isExactIdentity && stepIndex === 3) {
+    return { label: "Identity fused at #1", state: "shortlist", rank };
+  }
   if (stepIndex === 3) return { label: "Fused shortlist", state: "shortlist", rank };
+  if (isExactIdentity && stepIndex === 4) {
+    return { label: "Exact model remains #1", state: "shortlist", rank };
+  }
   if (stepIndex === 4) return { label: "Rerank shortlist", state: "shortlist", rank };
   return {
-    label: product.product_id === targetProductId
+    label: isTarget
       ? "Evidence trace"
       : "Compared product",
-    state: product.product_id === targetProductId
+    state: isTarget
       ? "featured"
       : "shortlist",
     rank,
@@ -673,7 +687,7 @@ export function MosaicLabsPage() {
                     product,
                     activeEngineVisual,
                     activeEngineStep,
-                    activeEngineScenario.mission.target_product_ids[0],
+                    activeEngineScenario,
                   );
                   return (
                     <figure

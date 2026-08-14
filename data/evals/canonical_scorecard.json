@@ -38,7 +38,7 @@
   },
   "product_retrieval_query_count": 19,
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "f1b2fabd69fd5565eab7fd8da22b60841f7929465362f002149441cc8537bdc9",
-  "scored_query_set_sha256": "b152fc0f08e304b84ffb1a6f6b71eed3881db97a64a0a0eb0710ecdb30a7ef62",
+  "query_set_sha256": "4ec495a564f0154e00e51a1d6174ead92841a19053f0216a96f559505d8281c0",
+  "scored_query_set_sha256": "4e2369bfed361b5dbd904459e83610e3e3c13a285baedac51272f282ad86fa48",
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
 }

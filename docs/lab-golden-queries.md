@@ -20,7 +20,7 @@ Five fast control queries keep the labs interactive without adding edits:
 
 | Lab | Canonical query | Participant proves |
 |---|---|---|
-| Retrieve | `G-001` / `exact-identity` | FTS finds an exact catalog identifier and the explicit SKU-preservation policy keeps it above a conflicting reranker score |
+| Retrieve | `G-001` / `exact-identity` | FTS resolves the exact visible model name and it remains first through fusion and reranking |
 | Retrieve | `G-013` / `semantic-eligibility` | A near-identical refurbished hard negative is excluded inside every arm |
 | Rank | `G-007` / `compare-cheaper-alternative` | Rank movement between a mechanical keyboard and cheaper alternative is inspectable |
 | Rank | `G-009` / `ranking-filter-control` | Price and headrest constraints remain deterministic gates |

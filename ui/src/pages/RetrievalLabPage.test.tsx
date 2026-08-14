@@ -46,7 +46,7 @@ function responseFor(
 }
 
 const exactIdentityResponse = responseFor(
-  "CO-TRUEW-0017001 charging case",
+  "EchoBud S2",
   [
     productWithSignals(17001, {
       fts: { rank: 1, raw_score: 1, rrf_contribution: 0.01639 },

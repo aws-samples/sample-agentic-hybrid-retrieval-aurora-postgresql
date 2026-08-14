@@ -203,7 +203,7 @@
       "duration_minutes": 2,
       "title": "Checkpoint - Preserve exact identity",
       "canonical_query_id": "G-001",
-      "query": "CO-TRUEW-0017001 charging case",
+      "query": "EchoBud S2",
       "filters": {
         "domain": "consumer_electronics"
       },
@@ -214,7 +214,7 @@
         "fts"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "The exact catalog identifier is returned by the FTS arm with provenance, while the read-only inspection surface shows whether vector retrieval contributes an unrelated semantic neighborhood.",
+      "expected_outcome": "The exact visible model name is returned by the FTS arm with provenance, while the read-only inspection surface shows how the other retrieval channels behave.",
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",

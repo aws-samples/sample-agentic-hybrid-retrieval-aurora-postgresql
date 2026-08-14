@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { supportingMosaicChecks } from "../labMissions";
@@ -146,6 +153,30 @@ describe("MosaicLabsPage", () => {
     });
     expect(typedQuery?.textContent).toBe(semanticIntent.query);
     expect(replay.classList.contains("query-ready")).toBe(true);
+  });
+
+  it("moves an exact identity into first place at retrieval and explains why it stays there", async () => {
+    const { container } = render(<MosaicLabsPage />);
+
+    const echoBudFigure = () => (
+      [...container.querySelectorAll<HTMLElement>(".labs-engine-product")].find(
+        (figure) => figure.querySelector("figcaption strong")?.textContent === "EchoBud S2",
+      )
+    );
+    const stageButtons = container.querySelectorAll<HTMLButtonElement>(
+      ".labs-engine-rail button",
+    );
+
+    await waitFor(() => expect(echoBudFigure()).toBeTruthy());
+    expect(echoBudFigure()?.style.getPropertyValue("--product-order")).toBe("6");
+
+    fireEvent.click(stageButtons[1]);
+    expect(echoBudFigure()?.style.getPropertyValue("--product-order")).toBe("1");
+    expect(screen.getByText("Exact FTS identity")).toBeTruthy();
+
+    fireEvent.click(stageButtons[4]);
+    expect(echoBudFigure()?.style.getPropertyValue("--product-order")).toBe("1");
+    expect(screen.getByText("Exact model remains #1")).toBeTruthy();
   });
 
   it("replays the visible path from query parsing through grounded evidence", async () => {
