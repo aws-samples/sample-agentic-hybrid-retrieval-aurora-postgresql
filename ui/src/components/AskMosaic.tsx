@@ -520,10 +520,8 @@ function EntryState({
     <section className="ask-mosaic-empty">
       <h3>Tell me what you need.</h3>
       <p>
-        Name the product, the budget, and what has to be true about it. Mosaic
-        searches the same Aurora catalog Shop searches, compares what comes back,
-        and cites the specification and review records behind every
-        recommendation.
+        Set the product, budget, and must-haves. Mosaic compares the Aurora
+        catalog and cites the evidence behind each recommendation.
       </p>
 
       {starters.length ? (
