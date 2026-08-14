@@ -38,8 +38,9 @@ source revision:
 2. Run the request shown in Workshop Studio.
 3. Save the HTTP response and relevant retrieval event.
 4. `make solution-lab-N`
-5. Restart `mosaic-api` for Lab 3; SQL changes are live immediately for Labs 1
-   and 2.
+5. `make reset-lab-3` and `make solution-lab-3` restart the Workshop Studio
+   `mosaic-api` service automatically. SQL changes are live immediately for
+   Labs 1 and 2.
 6. Run the identical request again.
 7. Run `make validate-lab-N`.
 

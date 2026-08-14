@@ -162,6 +162,12 @@ def test_an_undefined_assertion_fails(passing):
     assert "A1.6" in rules_failing(passing)
 
 
+def test_a_duplicate_assertion_fails(passing):
+    assertion = passing["missions"][0]["assertions"][0]
+    passing["missions"][0]["assertions"].append(assertion)
+    assert "A1.6b" in rules_failing(passing)
+
+
 def test_declares_implies_asserts_for_every_signal_arm(passing):
     from service.assertions import SIGNAL_ASSERTIONS
 

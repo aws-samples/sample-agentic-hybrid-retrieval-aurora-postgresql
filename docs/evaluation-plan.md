@@ -1,98 +1,77 @@
-# Retrieval evaluation plan
+# Retrieval evaluation
 
-## Included ground truth
+Mosaic has two evaluation assets with different jobs. They are not
+interchangeable.
 
-- 720 balanced evaluation queries
-- 20 curated canonical workshop queries, of which 19 are scored as
-  single-request product retrieval and one is an agent-contract scenario
-- 5,000 typo cases
-- graded judgments with relevance levels 1–3
-- challenge-cohort labels on products
+## Canonical retrieval-quality scorecard
 
-## Offline metrics
+`data/evals/canonical_queries.jsonl` is the authoritative curated set:
 
-Primary:
+- 20 workshop queries with documented teaching concepts;
+- graded judgments from 0 (irrelevant) through 3 (ideal);
+- explicit hard negatives, expected channels, and ranking behavior;
+- 19 single-request product-retrieval cases;
+- one agent-contract case, `G-010`, validated through Lab 3 rather than
+  mis-scored as one product search.
 
-- Recall@10 and Recall@50
-- MRR
-- nDCG@10
-- constraint satisfaction rate
-- typo target recovery rate
-- hard-negative rejection rate
+Run the measured release scorecard against Aurora:
 
-Secondary:
+```bash
+make score-evals
+```
 
-- result diversity by canonical group
-- out-of-stock leakage
-- sponsored-result policy violations
-- explanation completeness
-- source freshness
-- p50/p95/p99 retrieval and total latency
+This invokes the served retrieval path: indexed PostgreSQL FTS, `pg_trgm`,
+pgvector HNSW, pre-fusion SQL filters, unweighted RRF, Cohere Rerank 3.5, and
+exact-identity preservation. It measures:
 
-## Required ablation table
+- Recall@10, using judgments graded 2 or 3 as relevant;
+- mean reciprocal rank;
+- nDCG@10 with graded gain;
+- deterministic top-rank or top-k checks for repaired fixtures.
 
-| Variant | FTS | Trigram | Vector | Filters | RRF | Rerank |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| A | ✓ | | | ✓ | | |
-| B | | | ✓ | ✓ | | |
-| C | ✓ | ✓ | | ✓ | ✓ | |
-| D | ✓ | | ✓ | ✓ | ✓ | |
-| E | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| F | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+The command writes an ignored per-run CSV and compares the measured result with
+`data/evals/canonical_scorecard.json`. The committed scorecard retains all 19
+per-query metrics and a SHA-256 identity of the exact ranked product IDs and
+positions, excluding volatile event IDs and latency. It fails if the query set,
+ranked result identity, model IDs, retrieval strategy, deterministic checks, or
+metrics drift. Use `--write-baseline` only after reviewing the Aurora ranks and
+intentionally accepting a new measured baseline.
 
-Compare the full metric suite, then break results down by challenge cohort.
+## Filter-contract corpus
 
-## Cohort-specific success criteria
-
-- `typo_target`: intended item or acceptable alternative appears in top 10
-- `semantic_only`: vector or rerank improves nDCG over FTS baseline
-- `lexical_only`: hybrid pipeline does not bury exact model/SKU hits
-- `exact_sku`: an exact catalog SKU remains first after model reranking, while
-  diagnostics retain both the model's rerank rank and the final preserved rank
-- `hard_negative`: decisive mismatch is removed or materially demoted
-- `near_duplicate`: top results are not monopolized by one canonical group
-- `selective_filter`: result count and recall remain stable under configured iterative scan
-- `sponsored_low_relevance`: sponsorship never bypasses required constraints
-
-## Online-style signals for the demo
-
-The schema includes `mosaic.search_event` for query, filter, latency, result, click, and diagnostics telemetry. In a real deployment, extend this with add-to-cart, conversion, reformulation, abandonment, and human-quality feedback.
-
-## Reproducibility
-
-Persist for every eval run:
-
-- dataset manifest hash
-- embedding model and dimension
-- index definition and size
-- all HNSW settings
-- SQL/function version
-- reranker model/version
-- Aurora engine/instance configuration
-- cache state and concurrency
-- timestamp and code commit
-
-Before model calls, validate that every packaged target exists and satisfies its
-production Mosaic filters:
+`data/evals/queries.jsonl` contains 720 generated cases. It tests that each
+target exists and satisfies the exact production `SearchFilters` contract,
+including integer-cent price bounds and explicit refurbished or sponsored
+overrides:
 
 ```bash
 make validate-evals
 ```
 
-The 720-query corpus uses `category_key`, integer cent price bounds, and explicit
-refurbished or sponsored inclusion where the target requires it. Predecessor
-keys such as `subcategory` and `max_price` fail closed in `SearchFilters`.
+This is a broad deterministic filter gate, not curated retrieval-quality ground
+truth. Do not pass its result CSV to `scripts/evaluate.py` with the canonical
+judgments. The evaluator rejects missing or unexpected query IDs so such a
+cross-corpus score cannot silently produce zero-valued metrics.
 
-## Canonical release scorecard
+## Typo corpus
 
-`make score-evals` runs the served FTS, pg_trgm, HNSW, RRF, reranker, and
-exact-SKU preservation path against the 19 product-retrieval cases. It writes
-only an ignored per-run result CSV, verifies the committed measured baseline,
-and fails on provenance or metric regressions. It also carries machine-readable
-fixture checks for the exact SKU, non-plated road shoe, and waterproof IP67
-speaker repairs, so a good aggregate average cannot hide those failures.
+`data/evals/typo_cases.csv` contains 5,000 deterministic transformations for
+focused fuzzy-retrieval experiments. The required workshop claim remains
+narrower: the canonical typo fixture proves that strict FTS misses the
+misspelled identity and `pg_trgm` restores it with visible provenance.
 
-`G-010` is deliberately excluded from Recall@K, MRR, and nDCG. Its question
-requires targeted retrieval, comparison, evidence retrieval, citation
-resolution, and cited synthesis; score it through the Lab 3 agent-contract
-validator rather than pretending it is one product-ranking request.
+## Reproducibility record
+
+For every published scorecard, retain:
+
+- source revision and canonical query-set SHA-256;
+- embedding and reranker model IDs;
+- retrieval profile and SQL strategy;
+- Aurora engine and instance configuration;
+- HNSW settings;
+- result CSV and measured scorecard JSON.
+
+Latency percentiles, ablation tables, cohort breakdowns, freshness, diversity,
+and explanation-completeness rates are useful future production studies. They
+are not implemented release metrics and must not be presented as measured
+workshop results.

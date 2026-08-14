@@ -16,6 +16,12 @@ export interface MosaicParticipantEdit {
   checkpoint_question: string;
 }
 
+export interface MosaicCitationSupport {
+  product_id: number;
+  evidence_type: string;
+  all_terms: string[];
+}
+
 export interface MosaicLabMission {
   id: string;
   stage: MosaicLabStage;
@@ -32,6 +38,7 @@ export interface MosaicLabMission {
   participant_edit?: MosaicParticipantEdit;
   expected_outcome: string;
   assertions: string[];
+  required_citation_support?: MosaicCitationSupport[];
   top_k: number;
 }
 

@@ -1,4 +1,5 @@
 import type {
+  AgentConversationContext,
   AgentResponse,
   BenchmarkProjection,
   CatalogPage,
@@ -104,13 +105,18 @@ export const api = {
       }),
     }),
 
-  agent: (question: string, filters: SearchFilters) =>
+  agent: (
+    question: string,
+    filters: SearchFilters,
+    context?: AgentConversationContext,
+  ) =>
     request<AgentResponse>("/api/agent/answer", {
       method: "POST",
       body: JSON.stringify({
         question,
         filters,
         result_limit: 6,
+        context,
       }),
     }),
 
@@ -118,6 +124,7 @@ export const api = {
     question: string,
     filters: SearchFilters,
     onEvent: (event: AgentStreamEvent) => void,
+    context?: AgentConversationContext,
   ) => {
     const response = await fetch("/api/agent/answer/stream", {
       method: "POST",
@@ -126,6 +133,7 @@ export const api = {
         question,
         filters,
         result_limit: 6,
+        context,
       }),
     });
     if (!response.ok) throw await streamResponseError(response);

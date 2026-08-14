@@ -118,6 +118,29 @@ def test_agent_orchestration_is_not_scored_as_single_request_retrieval():
     assert agent_case["evaluation_scope"] == "agent_contract"
 
 
+def test_agent_grounding_claim_requires_product_spec_support():
+    by_id = {query["query_id"]: query for query in QUERIES}
+    contract = json.loads(
+        (ROOT / "data" / "evals" / "mosaic_labs_missions.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    reason_cases = {
+        item["canonical_query_id"]: item
+        for item in contract["missions"] + contract["supporting_checks"]
+        if item["stage"] == "reason" and item.get("canonical_query_id")
+    }
+
+    assert "product_spec" in by_id["G-020"]["expected_evidence_types"]
+    assert reason_cases["G-020"]["required_citation_support"] == [
+        {
+            "product_id": 370001,
+            "evidence_type": "product_spec",
+            "all_terms": ["12", "hour"],
+        }
+    ]
+
+
 def test_repaired_fixture_release_checks_are_machine_verifiable():
     by_id = {query["query_id"]: query for query in QUERIES}
     assert by_id["G-001"]["release_checks"] == [

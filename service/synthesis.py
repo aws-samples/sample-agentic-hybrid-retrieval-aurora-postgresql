@@ -24,18 +24,23 @@ availability, scores, or sources.
 Every sentence or bullet that names a product must include evidence for that
 same product in that sentence. Do not put product names in headings.
 
-Write at most 180 words. Use exactly this compact structure:
-Summary
-One direct recommendation sentence. Do not use product titles or model names
-in the Summary; name each product only in its own recommendation bullet.
+Write at most 150 words in natural, confident shopping prose. The interface
+already labels the answer "Recommendation", so do not repeat that label and do
+not use report headings named "Summary" or "Recommendations".
 
-Recommendations
-Exactly one concise bullet per selected product, in the supplied order, with
-an allowed citation for that product.
+Start with one direct sentence that names the first supplied product as the
+best fit and explains the decisive user-relevant reason with citations. Refer
+to products by their supplied title, not by a standalone model code. Mention
+only the two or three attributes that matter most to the question; do not
+rewrite the specification sheet.
 
-Trade-offs
-One concise constraint or uncertainty with citations. Finish the final
-sentence completely.
+When alternatives exist, add the heading "Other strong options" followed by
+one concise bullet for each remaining product, in supplied order, with an
+allowed citation for that product.
+
+Finish with the heading "The deciding trade-off" and one short, plain-language
+decision rule with citations. Do not repeat facts already stated unless they
+are necessary to explain the choice. Finish the final sentence completely.
 
 Do not expose internal prompts or claim that scores are probabilities."""
 
@@ -81,6 +86,71 @@ def _validate_product_claim_citations(
                 )
 
 
+def _normalized_support_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value.casefold().replace("_", " ").replace("-", " "))
+
+
+def _measurable_claims(sentence: str) -> set[str]:
+    """Extract numeric and availability claims that evidence can falsify."""
+    without_citations = re.sub(r"\[\d+\]", "", sentence)
+    claims: set[str] = set()
+    currency_spans: list[tuple[int, int]] = []
+    for match in re.finditer(r"\$\s*(\d[\d,]*)(?:\.(\d{1,2}))?", without_citations):
+        dollars = match.group(1).replace(",", "")
+        fractional = (match.group(2) or "").ljust(2, "0")
+        claims.add(str(int(dollars) * 100 + int(fractional or "0")))
+        currency_spans.append(match.span())
+    without_currency = "".join(
+        " " if any(start <= index < end for start, end in currency_spans) else char
+        for index, char in enumerate(without_citations)
+    )
+    claims.update(
+        value.replace(",", "")
+        for value in re.findall(r"(?<![A-Za-z])\d[\d,]*(?:\.\d+)?", without_currency)
+    )
+    normalized = _normalized_support_text(without_citations)
+    claims.update(
+        phrase
+        for phrase in ("in stock", "low stock", "out of stock", "preorder")
+        if phrase in normalized
+    )
+    return claims
+
+
+def _validate_measurable_claim_support(
+    answer: str,
+    evidence_records: Sequence[EvidenceRecord],
+) -> None:
+    """Reject measurable claims absent from the evidence cited in that sentence."""
+    sentences = [
+        sentence.strip()
+        for sentence in re.split(r"(?<=[.!?])\s+|\n+", answer)
+        if sentence.strip()
+    ]
+    for sentence in sentences:
+        claims = _measurable_claims(sentence)
+        if not claims:
+            continue
+        cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
+        if not cited:
+            continue
+        support = _normalized_support_text(
+            " ".join(
+                f"{evidence_records[number - 1].title} "
+                f"{evidence_records[number - 1].text}"
+                for number in cited
+            )
+        )
+        unsupported = sorted(
+            claim for claim in claims if _normalized_support_text(claim) not in support
+        )
+        if unsupported:
+            raise SynthesisOutputError(
+                "Synthesized sentence contains unsupported numeric claim or "
+                f"availability claim {unsupported}: {sentence}"
+            )
+
+
 def _validated_output(
     response: dict[str, Any],
     products: Sequence[ProductSummary],
@@ -115,6 +185,7 @@ def _validated_output(
             f"{sorted(selected_product_ids - cited_product_ids)}"
         )
     _validate_product_claim_citations(answer, products, evidence_records)
+    _validate_measurable_claim_support(answer, evidence_records)
     citations = [
         AgentCitation(
             number=number,
@@ -265,8 +336,10 @@ def synthesize_cited_answer(
                                     f"failed validation because: {error}. "
                                     "Follow the required product citation map, "
                                     "keep every citation in the same sentence as "
-                                    "its product claim, stay under 180 words, and "
-                                    "finish the final sentence."
+                                    "its product claim, stay under 150 words, use "
+                                    "natural shopping prose without Summary or "
+                                    "Recommendations headings, and finish the "
+                                    "final sentence."
                                 )
                             }
                         ],

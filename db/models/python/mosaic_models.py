@@ -47,6 +47,7 @@ class MediaRole(str, Enum):
 
 class EvidenceType(str, Enum):
     PRODUCT_SPEC = "product_spec"
+    CUSTOMER_REVIEW = "customer_review"
     VERIFIED_REVIEW = "verified_review"
     EXPERT_SUMMARY = "expert_summary"
     PRODUCT_QA = "product_qa"

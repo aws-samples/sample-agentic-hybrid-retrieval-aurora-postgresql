@@ -553,6 +553,15 @@ def explain_retrieval(search_event_id: str) -> dict[str, Any]:
     """
     started = perf_counter()
     state = _state()
+    if any(
+        step["tool"] == "explain_retrieval"
+        and step.get("outcome", "success") == "success"
+        for step in state["trace"]
+    ):
+        return _failure(
+            "ranking was already explained in this run",
+            "continue to grounded synthesis with the existing ranking receipt.",
+        )
     try:
         parsed = UUID(search_event_id)
     except ValueError:
@@ -635,6 +644,29 @@ def synthesize_cited_answer(
             "synthesize only from product IDs returned by search_products.",
         )
     products = [state["products"][item] for item in unique_ids]
+    explanations = [
+        step
+        for step in state["trace"]
+        if step["tool"] == "explain_retrieval"
+        and step.get("outcome", "success") == "success"
+    ]
+    if len(explanations) != 1:
+        _record(
+            "synthesize_cited_answer",
+            {"question": question, "product_ids": unique_ids},
+            started,
+            result_count=0,
+            detail=(
+                "Grounded synthesis blocked; exactly one ranking explanation "
+                f"is required, found {len(explanations)}."
+            ),
+            outcome="error",
+        )
+        return _failure(
+            "selected products do not have exactly one ranking explanation",
+            "call explain_retrieval once with the strongest search_event_id "
+            "before synthesis.",
+        )
     if len(unique_ids) > 1 and not _comparison_covers(state, unique_ids):
         _record(
             "synthesize_cited_answer",
@@ -744,6 +776,25 @@ def complete_grounded_answer(question: str) -> None:
         if state["evidence_by_product"].get(product_id):
             continue
         result = get_product_evidence(product_id, question)
+        if not result.get("ok"):
+            raise RuntimeError(result["error"])
+    if any(
+        not state["evidence_by_product"].get(product_id) for product_id in product_ids
+    ):
+        raise RuntimeError(
+            "No retrieved evidence is available for every selected product"
+        )
+    if not any(
+        step["tool"] == "explain_retrieval"
+        and step.get("outcome", "success") == "success"
+        for step in state["trace"]
+    ):
+        search_event_ids = state.get("search_event_ids") or []
+        if not search_event_ids:
+            raise RuntimeError(
+                "No retrieval event is available for ranking explanation"
+            )
+        result = explain_retrieval(str(search_event_ids[0]))
         if not result.get("ok"):
             raise RuntimeError(result["error"])
     finalize_retrieved_answer(question, product_ids=product_ids)

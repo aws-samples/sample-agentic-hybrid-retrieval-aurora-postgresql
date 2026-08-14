@@ -3,6 +3,7 @@
     "EvidenceType": {
       "enum": [
         "product_spec",
+        "customer_review",
         "verified_review",
         "expert_summary",
         "product_qa",

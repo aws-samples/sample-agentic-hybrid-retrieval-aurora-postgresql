@@ -135,13 +135,19 @@ all use Cohere Embed v4 (`us.cohere.embed-v4:0`) through Amazon Bedrock with
 1,024-dimensional vectors. Hash embeddings require explicit development opt-in;
 they are not workshop results and must not be used for semantic-quality claims.
 
-The lexical arm OR-combines the query's lexemes and keeps the strict
-`websearch_to_tsquery` match as a scoring bonus. An AND-only builder makes any
-misspelled token unsatisfiable, which empties the arm on exactly the
-conversational queries the workshop uses; the strict bonus is what keeps an
-exact model-name query decisively first. Because `tsvector_to_array` discards
-`NOT`, a negation in the query requires the strict match as well, so `-wireless`
-is honored rather than inverted.
+The lexical arm first executes the indexed
+`websearch_to_tsquery('english', query)` expression exactly. That preserves
+phrases, negation, and exact product identity. Only when the strict query returns
+no eligible rows does it select at most four substantive corpus lexemes and
+back off through progressively smaller conjunctions. Each attempt remains a
+selective GIN query; the function never broadens a common conversational query
+into an unconditional OR scan across the catalog.
+
+Evidence retrieval is a separate post-shortlist stage. It fuses question-ranked
+full-text evidence with the product vector for authoritative product
+specifications. The generated customer-review corpus is explicitly synthetic
+and participates through lexical evidence retrieval; it is not presented as
+independently embedded or verified customer testimony.
 
 Lab 1 runs read-only against that tree:
 

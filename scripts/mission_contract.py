@@ -301,7 +301,8 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
 
     # A1.6 — every named assertion resolves in service.assertions.
     for mission in timed + supporting:
-        unknown = sorted(set(mission.get("assertions", [])) - KNOWN_ASSERTIONS)
+        assertions = mission.get("assertions", [])
+        unknown = sorted(set(assertions) - KNOWN_ASSERTIONS)
         report.check(
             f"A1.6 {mission.get('id', '<no id>')} assertions are defined",
             not unknown,
@@ -309,6 +310,19 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
                 f"undefined assertion(s) {unknown}",
                 f"define them in service/assertions.py with a falsifier, or "
                 f"replace them with one of {sorted(KNOWN_ASSERTIONS)}",
+            ),
+        )
+        duplicates = sorted(
+            assertion
+            for assertion in set(assertions)
+            if assertions.count(assertion) > 1
+        )
+        report.check(
+            f"A1.6b {mission.get('id', '<no id>')} assertions are unique",
+            not duplicates,
+            explain(
+                f"duplicate assertion(s) {duplicates} add no coverage",
+                "remove each duplicate from this mission's assertions list",
             ),
         )
 

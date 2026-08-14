@@ -110,6 +110,7 @@ export interface ProductReview {
   review_date: string;
   sentiment_score: number | null;
   source_uri: string;
+  source_name: string;
 }
 
 export interface ProductDetail extends ProductSummary {
@@ -175,6 +176,15 @@ export interface AgentCitation {
   revision: string;
   title: string;
   quote: string;
+}
+
+export interface AgentConversationContext {
+  previous_question: string;
+  recommendations: Array<{
+    product_id: number;
+    title: string;
+    model: string;
+  }>;
 }
 
 export interface AgentResponse {

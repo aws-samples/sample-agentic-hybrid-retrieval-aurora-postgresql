@@ -34,8 +34,7 @@ npm-debug.log*
 /build/
 /benchmarks/results/
 
-# Runtime readiness report (bootstrap S8/S9): carries a live smoke run_id, never source
-/READINESS.md
+# Per-run benchmark and smoke artifacts carry live IDs and stay outside source.
 
 *.parquet
 *.sqlite

@@ -169,8 +169,9 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="ranking_explanation_available",
         arm=None,
         falsifier=(
-            "neither an explain_retrieval receipt nor complete persisted arm, "
-            "fused, rerank, and final ranks are available for the recommendation"
+            "the agent has anything other than one successful "
+            "explain_retrieval receipt before synthesis, so its ranking "
+            "explanation cannot be tied to the tool contract"
         ),
     ),
     Assertion(
@@ -192,6 +193,15 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         falsifier=(
             "a returned citation evidence_id does not resolve to a real "
             "product_evidence row for the citation's product"
+        ),
+    ),
+    Assertion(
+        name="citation_claims_supported",
+        arm=None,
+        falsifier=(
+            "a mission-owned factual claim has no citation for the required "
+            "product and evidence type whose resolved text contains every "
+            "declared support term"
         ),
     ),
     Assertion(

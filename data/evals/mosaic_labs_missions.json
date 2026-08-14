@@ -187,9 +187,20 @@
         "recommendation_grounded",
         "citations_present",
         "citation_ids_resolve",
+        "citation_claims_supported",
         "citation_source_revision_present",
         "semantic_signal_present",
         "hard_filters_hold"
+      ],
+      "required_citation_support": [
+        {
+          "product_id": 370001,
+          "evidence_type": "product_spec",
+          "all_terms": [
+            "12",
+            "hour"
+          ]
+        }
       ],
       "top_k": 6
     }
@@ -408,7 +419,18 @@
         "recommendation_grounded",
         "citations_present",
         "citation_ids_resolve",
+        "citation_claims_supported",
         "hard_filters_hold"
+      ],
+      "required_citation_support": [
+        {
+          "product_id": 370001,
+          "evidence_type": "product_spec",
+          "all_terms": [
+            "12",
+            "hour"
+          ]
+        }
       ],
       "top_k": 6
     },

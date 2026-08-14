@@ -1,5 +1,6 @@
 import {
   ArrowUpRight,
+  ChevronDown,
   ChevronRight,
   CircleCheck,
   FileText,
@@ -9,7 +10,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import {
   formatAvailability,
@@ -210,9 +211,9 @@ function Shortlist({
               </span>
               <div>
                 {index === 0 ? <span className="ask-mosaic-card-pick">Best match</span> : null}
-                <strong>{product.model}</strong>
+                <strong>{product.title}</strong>
                 <small>
-                  {product.brand} · {formatPrice(product.price_cents, product.currency)}
+                  {product.model} · {formatPrice(product.price_cents, product.currency)}
                 </small>
                 <em>
                   {matchReason(product.signals)}
@@ -237,14 +238,12 @@ function Shortlist({
  */
 function Searches({ response }: { response: AgentResponse }) {
   return (
-    <section className="ask-mosaic-section">
-      <header>
+    <details className="ask-mosaic-receipt ask-mosaic-search-receipt">
+      <summary>
         <Search size={18} />
-        <div>
-          <h3>How I searched</h3>
-          <p>Each catalog search behind the shortlist, and what it constrained.</p>
-        </div>
-      </header>
+        How I searched
+        <span>{response.plan.length}</span>
+      </summary>
       <ol className="ask-mosaic-searches">
         {response.plan.map((step, index) => {
           const chips = describeFilters(step.filters);
@@ -265,16 +264,16 @@ function Searches({ response }: { response: AgentResponse }) {
           );
         })}
       </ol>
-    </section>
+    </details>
   );
 }
 
-function Ranking({ response, open }: { response: AgentResponse; open: boolean }) {
+function Ranking({ response }: { response: AgentResponse }) {
   const winner = response.recommendations[0];
   const signals = winner?.signals;
   if (!signals) return null;
   return (
-    <details className="ask-mosaic-ranking" open={open}>
+    <details className="ask-mosaic-ranking">
       <summary>
         <span>Why 01 ranked first</span>
         <small>{winner.model}</small>
@@ -318,9 +317,9 @@ function Ranking({ response, open }: { response: AgentResponse; open: boolean })
   );
 }
 
-function Evidence({ response, open }: { response: AgentResponse; open: boolean }) {
+function Evidence({ response }: { response: AgentResponse }) {
   return (
-    <details className="ask-mosaic-receipt" open={open}>
+    <details className="ask-mosaic-receipt">
       <summary>
         <FileText size={17} />
         Evidence
@@ -493,10 +492,10 @@ function Turn({
 
           {response.plan.length ? <Searches response={response} /> : null}
 
-          <Ranking response={response} open={isLatest} />
+          <Ranking response={response} />
 
           {response.citations.length ? (
-            <Evidence response={response} open={isLatest} />
+            <Evidence response={response} />
           ) : null}
 
           {response.trace.length ? <Activity response={response} /> : null}
@@ -531,9 +530,12 @@ function EntryState({
         <div className="ask-mosaic-starters">
           <h4>Try asking</h4>
           <ul aria-label="Example questions">
-            {starters.map((starter) => (
+            {starters.map((starter, index) => (
               <li key={starter}>
                 <button type="button" onClick={() => onRun(starter)}>
+                  <small aria-hidden="true">
+                    {String(index + 1).padStart(2, "0")}
+                  </small>
                   <span>{starter}</span>
                   <ArrowUpRight size={15} />
                 </button>
@@ -543,29 +545,36 @@ function EntryState({
         </div>
       ) : null}
 
-      <div className="ask-mosaic-capability">
-        <h4>What Mosaic can do</h4>
-        <ul className="ask-mosaic-toolset" aria-label="Tools available to the agent">
-          {agentTools.map((tool) => (
-            <li key={tool.fn}>
-              <span>{tool.label}</span>
-              <code>{tool.fn}</code>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <small>Five typed tools over those functions. No free-text SQL.</small>
+      <details className="ask-mosaic-capability">
+        <summary>
+          <span>
+            <strong>What Mosaic can do</strong>
+            <small>Five inspectable tools</small>
+          </span>
+          <ChevronDown size={17} aria-hidden="true" />
+        </summary>
+        <div>
+          <ul className="ask-mosaic-toolset" aria-label="Tools available to the agent">
+            {agentTools.map((tool) => (
+              <li key={tool.fn}>
+                <span>{tool.label}</span>
+                <code>{tool.fn}</code>
+              </li>
+            ))}
+          </ul>
+          <small>Typed tools only. No free-text SQL.</small>
+        </div>
+      </details>
     </section>
   );
 }
 
 interface AskMosaicProps {
   open: boolean;
-  /** The Shop query the panel is asking against, for the context line. */
-  shopQuery: string;
   /** What the composer starts with. The Shop query on a cold open. */
   seedQuery: string;
-  filterCount: number;
+  /** Active Shop filters passed to every agent request. */
+  contextFilters: string[];
   /** Oldest exchange first. */
   turns: AskMosaicTurn[];
   pending: boolean;
@@ -582,9 +591,8 @@ interface AskMosaicProps {
 
 export function AskMosaic({
   open,
-  shopQuery,
   seedQuery,
-  filterCount,
+  contextFilters,
   turns,
   pending,
   starters,
@@ -595,18 +603,113 @@ export function AskMosaic({
   onHighlight,
   onSelectProduct,
 }: AskMosaicProps) {
+  const [modal, setModal] = useState(
+    () => window.matchMedia?.("(max-width: 1180px)").matches ?? false,
+  );
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  const sidecarRef = useRef<HTMLElement | null>(null);
   const threadRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
+  const closeRef = useRef(onClose);
   const latest = turns.length ? turns[turns.length - 1] : null;
   const streamedLength = latest?.streamed.length ?? 0;
 
   useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const preference = window.matchMedia?.("(max-width: 1180px)");
+    if (!preference) return;
+    const updateMode = () => setModal(preference.matches);
+    updateMode();
+    preference.addEventListener?.("change", updateMode);
+    return () => preference.removeEventListener?.("change", updateMode);
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
+    previouslyFocused.current = (
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+    );
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") closeRef.current();
     };
     window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose, open]);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+      const restoreTarget = previouslyFocused.current;
+      if (restoreTarget?.isConnected) restoreTarget.focus();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !modal) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const background = [
+      ...Array.from(layerRef.current?.parentElement?.children ?? []).filter(
+        (element) => element !== layerRef.current,
+      ),
+      ...Array.from(document.querySelectorAll(".site-header")),
+    ] as HTMLElement[];
+    const prior = background.map((element) => ({
+      element,
+      inert: element.hasAttribute("inert"),
+      ariaHidden: element.getAttribute("aria-hidden"),
+    }));
+    for (const element of background) {
+      element.setAttribute("inert", "");
+      element.setAttribute("aria-hidden", "true");
+    }
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        sidecarRef.current?.querySelectorAll<HTMLElement>(
+          [
+            'button:not([disabled])',
+            '[href]',
+            'input:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])',
+          ].join(", "),
+        ) ?? [],
+      ).filter((element) => !element.hasAttribute("hidden"));
+      if (!focusable.length) {
+        event.preventDefault();
+        sidecarRef.current?.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", trapFocus);
+    const frame = window.requestAnimationFrame(() => {
+      sidecarRef.current
+        ?.querySelector<HTMLElement>('button[aria-label="Close Ask Mosaic"]')
+        ?.focus();
+    });
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", trapFocus);
+      for (const { element, inert, ariaHidden } of prior) {
+        if (!inert) element.removeAttribute("inert");
+        if (ariaHidden === null) element.removeAttribute("aria-hidden");
+        else element.setAttribute("aria-hidden", ariaHidden);
+      }
+    };
+  }, [modal, open]);
 
   /**
    * Follow the newest exchange, including while it streams.
@@ -623,7 +726,7 @@ export function AskMosaic({
   if (!open) return null;
 
   return (
-    <div className="ask-mosaic-layer">
+    <div className="ask-mosaic-layer" ref={layerRef}>
       <button
         className="ask-mosaic-backdrop"
         type="button"
@@ -631,9 +734,12 @@ export function AskMosaic({
         onClick={onClose}
       />
       <aside
+        ref={sidecarRef}
         className="ask-mosaic-sidecar"
-        role="dialog"
+        role={modal ? "dialog" : "complementary"}
+        aria-modal={modal ? "true" : undefined}
         aria-labelledby="ask-mosaic-title"
+        tabIndex={-1}
       >
         <header className="ask-mosaic-header">
           <div>
@@ -671,14 +777,18 @@ export function AskMosaic({
             above the answer, so the reply to a question appeared below the field
             that would replace it. */}
         <div className="ask-mosaic-composer">
-          <div className="ask-mosaic-context">
-            <span>Shop context</span>
-            <strong>{shopQuery || "Open catalog"}</strong>
-            <small>{filterCount || "No"} active {filterCount === 1 ? "filter" : "filters"}</small>
-          </div>
+          {contextFilters.length ? (
+            <div
+              className="ask-mosaic-context"
+              aria-label="Active filters passed to Ask Mosaic"
+            >
+              <span>Active filters</span>
+              <strong>{contextFilters.join(" · ")}</strong>
+            </div>
+          ) : null}
           <SearchComposer
             compact
-            autoFocus
+            autoFocus={!modal}
             clearOnSubmit
             initialValue={seedQuery}
             inputLabel="Ask Mosaic request"

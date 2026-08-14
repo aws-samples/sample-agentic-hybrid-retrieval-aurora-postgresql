@@ -48,6 +48,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
     CREATE TYPE mosaic.evidence_type AS ENUM (
         'product_spec',
+        'customer_review',
         'verified_review',
         'expert_summary',
         'product_qa',
@@ -55,6 +56,9 @@ DO $$ BEGIN
         'benchmark'
     );
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TYPE mosaic.evidence_type
+    ADD VALUE IF NOT EXISTS 'customer_review' AFTER 'product_spec';
 
 DO $$ BEGIN
     CREATE TYPE mosaic.retrieval_channel AS ENUM (

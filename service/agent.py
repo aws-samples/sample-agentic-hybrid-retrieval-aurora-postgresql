@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Any
 
@@ -48,7 +49,8 @@ For a complex question:
    get_product_evidence(product_id, evidence_query) call for every shortlisted
    product together. Use the shopper question or focused subquestion as
    evidence_query. These reads are independent.
-5. Use explain_retrieval at most once when the user asks why something ranked.
+5. Call explain_retrieval exactly once for the strongest search event so the
+   final recommendation always retains a replayable ranking receipt.
 6. Call synthesize_cited_answer exactly once, last, with only product IDs that
    search_products returned and for which evidence was retrieved.
 
@@ -105,6 +107,28 @@ def build_agent(*, max_tool_calls: int = 10) -> Agent:
         system_prompt=SYSTEM_PROMPT,
         hooks=[_ToolCallBudget(max_tool_calls)],
         callback_handler=None,
+    )
+
+
+def _agent_prompt(request: AgentRequest) -> str:
+    """Add bounded prior-turn references without treating them as evidence."""
+    if request.context is None:
+        return request.question
+    context = {
+        "previous_question": request.context.previous_question,
+        "previous_recommendations": [
+            recommendation.model_dump()
+            for recommendation in request.context.recommendations
+        ],
+    }
+    return (
+        f"Current shopper message: {json.dumps(request.question)}\n\n"
+        "Prior grounded turn references:\n"
+        f"{json.dumps(context)}\n\n"
+        "Resolve conversational references such as 'one', 'them', 'cheaper', "
+        "or 'the first' against those prior recommendations. They are lookup "
+        "targets only, not evidence. Re-run the normal catalog retrieval, "
+        "comparison, evidence, and cited-synthesis tools before answering."
     )
 
 
@@ -229,7 +253,7 @@ class ProductDiscoveryAgent:
             # the loop to another thread discards that context before the first
             # tool executes. The FastAPI route is synchronous, so running the
             # native async invocation here preserves the request context.
-            result = asyncio.run(build_agent().invoke_async(request.question))
+            result = asyncio.run(build_agent().invoke_async(_agent_prompt(request)))
         except Exception as caught:
             error = caught
             logger.warning("Strands agent loop failed: %s", caught, exc_info=True)
@@ -252,7 +276,7 @@ class ProductDiscoveryAgent:
         result: Any | None = None
         error: Exception | None = None
         try:
-            async for event in build_agent().stream_async(request.question):
+            async for event in build_agent().stream_async(_agent_prompt(request)):
                 if "result" in event:
                     result = event["result"]
                 yield event

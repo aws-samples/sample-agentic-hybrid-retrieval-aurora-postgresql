@@ -46,24 +46,50 @@ def _agent_response():
                 "result_count": 2,
                 "arguments": {"product_id": 429001},
             },
+            {
+                "tool": "explain_retrieval",
+                "outcome": "success",
+                "result_count": 2,
+                "arguments": {"product_ids": [370001, 429001]},
+            },
         ],
         "citations": [
             {
                 "number": 1,
                 "evidence_id": 9001,
+                "evidence_type": "product_spec",
                 "product_id": 370001,
                 "source_uri": "mosaic://evidence/9001",
                 "revision": "2026-08-11",
-                "quote": "Supports twelve-hour workdays.",
+                "quote": "Supports 12-hour workdays.",
             },
             {
                 "number": 2,
                 "evidence_id": 9002,
+                "evidence_type": "product_spec",
                 "product_id": 429001,
                 "source_uri": "mosaic://evidence/9002",
                 "revision": "2026-08-11",
                 "quote": "Damped tactile switches reduce typing noise.",
             },
+        ],
+    }
+
+
+def _mission():
+    return {
+        "filters": {
+            "domain": "home_office",
+            "max_price_cents": 80000,
+            "in_stock_only": True,
+        },
+        "target_product_ids": [370001, 429001],
+        "required_citation_support": [
+            {
+                "product_id": 370001,
+                "evidence_type": "product_spec",
+                "all_terms": ["12", "hour"],
+            }
         ],
     }
 
@@ -98,22 +124,15 @@ def _fake_request(_base_url, path, _payload=None):
 
 def test_lab_3_validator_proves_tools_grounding_and_citations(monkeypatch):
     monkeypatch.setattr(validate_lab, "_request", _fake_request)
-    mission = {
-        "filters": {
-            "domain": "home_office",
-            "max_price_cents": 80000,
-            "in_stock_only": True,
-        },
-        "target_product_ids": [370001, 429001],
-    }
 
     checks = validate_lab.validate_agent_response(
         "http://example.test",
-        mission,
+        _mission(),
         _agent_response(),
     )
 
     assert "citation IDs resolve exactly" in checks
+    assert "required claims supported" in checks
 
 
 def test_lab_3_validator_rejects_unresolved_citation(monkeypatch):
@@ -124,19 +143,11 @@ def test_lab_3_validator_rejects_unresolved_citation(monkeypatch):
         return result
 
     monkeypatch.setattr(validate_lab, "_request", mismatched)
-    mission = {
-        "filters": {
-            "domain": "home_office",
-            "max_price_cents": 80000,
-            "in_stock_only": True,
-        },
-        "target_product_ids": [370001, 429001],
-    }
 
     with pytest.raises(validate_lab.LabValidationError, match="does not resolve"):
         validate_lab.validate_agent_response(
             "http://example.test",
-            mission,
+            _mission(),
             _agent_response(),
         )
 
@@ -145,20 +156,78 @@ def test_lab_3_validator_requires_citation_coverage(monkeypatch):
     monkeypatch.setattr(validate_lab, "_request", _fake_request)
     response = _agent_response()
     response["citations"] = response["citations"][:1]
-    mission = {
-        "filters": {
-            "domain": "home_office",
-            "max_price_cents": 80000,
-            "in_stock_only": True,
-        },
-        "target_product_ids": [370001, 429001],
-    }
 
     with pytest.raises(validate_lab.LabValidationError, match="every recommended"):
         validate_lab.validate_agent_response(
             "http://example.test",
-            mission,
+            _mission(),
             response,
+        )
+
+
+def test_lab_3_validator_requires_one_successful_ranking_explanation(monkeypatch):
+    monkeypatch.setattr(validate_lab, "_request", _fake_request)
+    response = _agent_response()
+    response["trace"] = [
+        step for step in response["trace"] if step["tool"] != "explain_retrieval"
+    ]
+
+    with pytest.raises(
+        validate_lab.LabValidationError,
+        match="exactly one successful explain_retrieval",
+    ):
+        validate_lab.validate_agent_response(
+            "http://example.test",
+            _mission(),
+            response,
+        )
+
+
+def test_lab_3_validator_rejects_a_resolved_but_unsupported_claim(monkeypatch):
+    response = _agent_response()
+    response["citations"][0]["quote"] = "Supports extended workdays."
+
+    def unsupported(_base_url, path, _payload=None):
+        if path.startswith("/api/retrieval/events/"):
+            return _fake_request(_base_url, path, _payload)
+        evidence_id = int(path.rsplit("/", 1)[-1])
+        citation = next(
+            item for item in response["citations"] if item["evidence_id"] == evidence_id
+        )
+        return {
+            "evidence_id": evidence_id,
+            "product_id": citation["product_id"],
+            "source_uri": citation["source_uri"],
+            "revision": citation["revision"],
+            "text": citation["quote"],
+        }
+
+    monkeypatch.setattr(validate_lab, "_request", unsupported)
+
+    with pytest.raises(
+        validate_lab.LabValidationError,
+        match="required citation support.*12.*hour",
+    ):
+        validate_lab.validate_agent_response(
+            "http://example.test",
+            _mission(),
+            response,
+        )
+
+
+def test_lab_3_validator_rejects_dropped_jsonb_constraints(monkeypatch):
+    monkeypatch.setattr(validate_lab, "_request", _fake_request)
+    mission = _mission()
+    mission["filters"]["attributes"] = {"seat_depth_adjustable": True}
+
+    with pytest.raises(
+        validate_lab.LabValidationError,
+        match="does not preserve structured constraints",
+    ):
+        validate_lab.validate_agent_response(
+            "http://example.test",
+            mission,
+            _agent_response(),
         )
 
 

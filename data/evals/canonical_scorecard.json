@@ -36,9 +36,126 @@
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
   },
+  "per_query_metrics": [
+    {
+      "ndcg@10": 1.0,
+      "query_id": "G-001",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 1.0,
+      "query_id": "G-002",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 0.6467429303328279,
+      "query_id": "G-003",
+      "recall@10": 0.3333333333333333,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 0.2834654253028414,
+      "query_id": "G-004",
+      "recall@10": 0.5,
+      "reciprocal_rank": 0.3333333333333333
+    },
+    {
+      "ndcg@10": 0.6735439182299785,
+      "query_id": "G-005",
+      "recall@10": 0.3333333333333333,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 0.7871546029909718,
+      "query_id": "G-006",
+      "recall@10": 0.5,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 0.8996052605611106,
+      "query_id": "G-007",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 0.9467676761267002,
+      "query_id": "G-008",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 1.0,
+      "query_id": "G-009",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 1.0,
+      "query_id": "G-011",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 1.0,
+      "query_id": "G-012",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 0.3548675899387485,
+      "query_id": "G-013",
+      "recall@10": 1.0,
+      "reciprocal_rank": 0.2
+    },
+    {
+      "ndcg@10": 0.7452525342261976,
+      "query_id": "G-014",
+      "recall@10": 0.5,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 1.0,
+      "query_id": "G-015",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 1.0,
+      "query_id": "G-016",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 1.0,
+      "query_id": "G-017",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 1.0,
+      "query_id": "G-018",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 1.0,
+      "query_id": "G-019",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "ndcg@10": 0.7871546029909718,
+      "query_id": "G-020",
+      "recall@10": 0.5,
+      "reciprocal_rank": 1.0
+    }
+  ],
   "product_retrieval_query_count": 19,
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "4ec495a564f0154e00e51a1d6174ead92841a19053f0216a96f559505d8281c0",
-  "scored_query_set_sha256": "4e2369bfed361b5dbd904459e83610e3e3c13a285baedac51272f282ad86fa48",
+  "query_set_sha256": "bac6e250b3fffc9d837b68456d517766df12db1a10ac9cd960149a9c488e2180",
+  "ranked_result_sha256": "2b8ae0989c02a6c80d5098b58188bf3d1709cc95ba54852d8b89a0441a69aa5e",
+  "scored_query_set_sha256": "61168d1171a9f094f45eb4a2e6d1224bef7a048afe79a88bb210ecb6e6d1a8a3",
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
 }

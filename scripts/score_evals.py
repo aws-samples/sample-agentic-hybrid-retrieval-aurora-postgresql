@@ -66,6 +66,16 @@ def scored_query_set_sha256(queries: list[dict[str, Any]]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def ranked_result_sha256(ranked: dict[str, list[tuple[int, int]]]) -> str:
+    """Hash exact per-query ordering without volatile run or latency fields."""
+    normalized = {
+        query_id: [[rank, product_id] for rank, product_id in sorted(results)]
+        for query_id, results in sorted(ranked.items())
+    }
+    payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def validate_release_checks(
     queries: list[dict[str, Any]],
     ranked: dict[str, list[tuple[int, int]]],
@@ -202,6 +212,8 @@ def measured_scorecard(
         "product_retrieval_query_count": metrics["query_count"],
         "excluded_agent_contract_queries": excluded_agent_contract_queries,
         "deterministic_release_checks": release_checks,
+        "ranked_result_sha256": ranked_result_sha256(ranked),
+        "per_query_metrics": metrics["per_query"],
         "k": k,
         "models": {
             "embedding": settings.embedding_model_id,
@@ -225,6 +237,7 @@ def verify_scorecard(measured: dict[str, Any], baseline: dict[str, Any]) -> None
         "product_retrieval_query_count",
         "excluded_agent_contract_queries",
         "deterministic_release_checks",
+        "ranked_result_sha256",
         "k",
         "models",
         "strategy",

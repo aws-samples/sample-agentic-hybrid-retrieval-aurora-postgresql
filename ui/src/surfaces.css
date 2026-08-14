@@ -2708,16 +2708,17 @@
 }
 
 .ask-mosaic-context {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: baseline;
-  margin-bottom: 11px;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  margin: 0 4px 10px;
 }
 
 .ask-mosaic-context span {
-  color: var(--gold);
-  font-size: 11px;
+  flex: 0 0 auto;
+  color: var(--maroon-800);
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2725,16 +2726,10 @@
 
 .ask-mosaic-context strong {
   overflow: hidden;
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ask-mosaic-context small {
-  color: var(--ink-faint);
+  color: var(--ink-soft);
   font-size: 12px;
+  font-weight: 550;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -2775,6 +2770,7 @@
 }
 
 .ask-mosaic-progress li {
+  position: relative;
   display: grid;
   justify-items: center;
   gap: 7px;
@@ -2784,7 +2780,22 @@
   letter-spacing: 0.03em;
 }
 
+.ask-mosaic-progress li:not(:last-child)::after {
+  position: absolute;
+  z-index: 0;
+  top: 12px;
+  left: calc(50% + 13px);
+  width: calc(100% - 26px);
+  height: 2px;
+  border-radius: 2px;
+  background: var(--line-dark);
+  content: "";
+  transition: background 260ms ease, box-shadow 260ms ease;
+}
+
 .ask-mosaic-progress li > span {
+  position: relative;
+  z-index: 1;
   display: grid;
   width: 26px;
   height: 26px;
@@ -2797,6 +2808,11 @@
 
 .ask-mosaic-progress li.complete {
   color: var(--green);
+}
+
+.ask-mosaic-progress li.complete:not(:last-child)::after {
+  background: var(--green);
+  box-shadow: 0 0 8px rgb(44 102 81 / 18%);
 }
 
 .ask-mosaic-progress li.complete > span {
@@ -2919,8 +2935,8 @@
 .ask-mosaic-empty {
   display: grid;
   justify-items: start;
-  gap: 18px;
-  padding: 30px 0 0;
+  gap: 16px;
+  padding: 28px 0 0;
   text-align: left;
 }
 
@@ -2941,13 +2957,11 @@
   line-height: 1.6;
 }
 
-.ask-mosaic-starters,
-.ask-mosaic-capability {
+.ask-mosaic-starters {
   width: 100%;
 }
 
-.ask-mosaic-starters h4,
-.ask-mosaic-capability h4 {
+.ask-mosaic-starters h4 {
   margin: 0 0 9px;
   color: var(--ink-faint);
   font-family: var(--sans);
@@ -2957,37 +2971,39 @@
   text-transform: uppercase;
 }
 
-/*
- * The three starters are questions from `data/evals/demo_queries.jsonl`, so each
- * one is long enough to carry a real constraint. Rows, not chips: a chip row
- * truncates every one of them to "Find wireless noise-cancelling...".
- */
 .ask-mosaic-starters ul {
   display: grid;
-  gap: 7px;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .ask-mosaic-starters button {
-  display: flex;
+  display: grid;
   width: 100%;
+  min-height: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 58px;
-  padding: 12px 15px;
-  border: 1px solid rgb(92 75 62 / 13%);
-  border-radius: 14px;
-  background: var(--paper);
-  box-shadow: 0 6px 18px rgb(48 37 28 / 5%);
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: #eee7de;
+  box-shadow: none;
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 12.5px;
+  line-height: 1.38;
   text-align: left;
-  transition: border-color 180ms ease, background 180ms ease;
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.ask-mosaic-starters button > small {
+  color: var(--maroon-700);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .ask-mosaic-starters button > svg {
@@ -2997,8 +3013,59 @@
 
 .ask-mosaic-starters button:hover,
 .ask-mosaic-starters button:focus-visible {
-  border-color: var(--maroon-700);
-  background: var(--paper-warm);
+  border-color: rgb(103 24 37 / 18%);
+  background: #e8ded3;
+  transform: translateX(2px);
+}
+
+.ask-mosaic-capability {
+  width: 100%;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.ask-mosaic-capability > summary {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ask-mosaic-capability > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ask-mosaic-capability > summary > span {
+  display: grid;
+  gap: 2px;
+}
+
+.ask-mosaic-capability > summary strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.ask-mosaic-capability > summary small {
+  color: var(--ink-faint);
+  font-size: 11.5px;
+}
+
+.ask-mosaic-capability > summary > svg {
+  flex: 0 0 auto;
+  color: var(--maroon-700);
+  transition: transform 180ms ease;
+}
+
+.ask-mosaic-capability[open] > summary > svg {
+  transform: rotate(180deg);
+}
+
+.ask-mosaic-capability > div {
+  padding-bottom: 12px;
 }
 
 .ask-mosaic-toolset {
@@ -3057,6 +3124,11 @@
   color: var(--ink-faint);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.ask-mosaic-capability > div > small {
+  display: block;
+  margin-top: 9px;
 }
 
 .ask-mosaic-answer {
@@ -3224,19 +3296,23 @@
 
 .ask-mosaic-shortlist-media > small {
   position: absolute;
-  top: 7px;
-  left: 7px;
+  top: 6px;
+  left: 6px;
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   place-items: center;
+  border: 2px solid rgb(255 253 248 / 88%);
   border-radius: 50%;
-  background: rgb(69 16 27 / 94%);
-  box-shadow: 0 4px 12px rgb(43 13 19 / 24%);
-  color: #fffdf8;
-  font-family: var(--display);
-  font-size: 13px;
+  background: var(--maroon-950);
+  box-shadow: 0 4px 14px rgb(43 13 19 / 34%);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 22%);
 }
 
 .ask-mosaic-shortlist button > div {
@@ -3245,24 +3321,24 @@
   gap: 3px;
 }
 
-.ask-mosaic-shortlist strong,
-.ask-mosaic-shortlist small {
+.ask-mosaic-shortlist button > div > small {
   overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .ask-mosaic-shortlist strong {
+  display: -webkit-box;
+  overflow: hidden;
   color: var(--ink);
-  font-family: var(--display);
-  font-size: 18px;
-  font-weight: 500;
-  line-height: 1.2;
-}
-
-.ask-mosaic-shortlist small {
-  color: var(--ink-soft);
-  font-size: 12px;
+  font-family: var(--sans);
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.28;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .ask-mosaic-card-pick {
@@ -3307,6 +3383,11 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.ask-mosaic-search-receipt .ask-mosaic-searches {
+  padding: 0 15px 12px;
+  border-top: 1px solid var(--line);
 }
 
 .ask-mosaic-searches li {
@@ -5400,14 +5481,6 @@
   .ask-mosaic-body {
     padding-right: 14px;
     padding-left: 14px;
-  }
-
-  .ask-mosaic-context {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .ask-mosaic-context small {
-    display: none;
   }
 
   .ask-mosaic-shortlist {

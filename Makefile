@@ -29,7 +29,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -137,16 +137,17 @@ db-configure-retrieval:
 validate-missions:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/mission_contract.py
 
-# The 720-query corpus uses the production SearchFilters vocabulary. This gate
-# calls matches_filters on Aurora for every target before an eval can spend
-# embedding calls or publish metrics.
+# The 720-case filter-contract corpus and the 20-query canonical scorecard both
+# call matches_filters on Aurora before an eval can spend model calls or
+# publish metrics.
 validate-evals:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/run_eval.py --validate-only
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/run_eval.py \
 		--queries data/evals/canonical_queries.jsonl --validate-only
 
-# Release-only model gate. It runs the served FTS + pg_trgm + HNSW + unweighted
-# RRF + managed-reranker path and rejects a scorecard regression.
+# Release-only quality gate. It runs the 19 product-retrieval cases from the
+# curated 20-query set through served FTS + pg_trgm + HNSW + unweighted RRF +
+# managed reranking, then rejects provenance or metric regressions.
 score-evals:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/score_evals.py
 
@@ -205,6 +206,7 @@ solution-lab-2:
 reset-lab-3:
 	@$(PYTHON) scripts/lab_state.py reset --lab 3
 	@$(MAKE) db-apply-search-functions DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) restart-lab-api
 
 validate-lab-3:
 	@$(PYTHON) scripts/lab_state.py validate --lab 3
@@ -212,6 +214,22 @@ validate-lab-3:
 
 solution-lab-3:
 	@$(PYTHON) scripts/lab_state.py solution --lab 3
+	@$(MAKE) restart-lab-api
+
+restart-lab-api:
+	@if command -v systemctl >/dev/null 2>&1 \
+		&& systemctl cat mosaic-api.service >/dev/null 2>&1; then \
+		if command -v sudo >/dev/null 2>&1; then \
+			sudo systemctl restart mosaic-api.service; \
+		else \
+			systemctl restart mosaic-api.service; \
+		fi; \
+		systemctl is-active --quiet mosaic-api.service \
+			|| { echo "mosaic-api failed to restart; run systemctl status mosaic-api.service"; exit 1; }; \
+		echo "mosaic-api restarted"; \
+	else \
+		echo "mosaic-api is not systemd-managed in this environment; no restart required"; \
+	fi
 
 # Re-render the vendored SQL at a different embedding width.
 db-render:

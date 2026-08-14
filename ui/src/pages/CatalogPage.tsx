@@ -440,6 +440,18 @@ export function CatalogPage() {
   async function askAgent(question: string) {
     const trimmed = question.trim();
     if (trimmed.length < 2 || agentPending) return;
+    const context = answeredTurn?.response
+      ? {
+        previous_question: answeredTurn.question,
+        recommendations: answeredTurn.response.recommendations
+          .slice(0, 4)
+          .map((product) => ({
+            product_id: product.product_id,
+            title: product.title,
+            model: product.model,
+          })),
+      }
+      : undefined;
     const version = agentRequestVersion.current + 1;
     agentRequestVersion.current = version;
     setAgentOpen(true);
@@ -489,7 +501,7 @@ export function CatalogPage() {
             stageDetail: "",
           });
         }
-      });
+      }, context);
     } catch (cause) {
       if (version !== agentRequestVersion.current) return;
       patch({
@@ -796,9 +808,8 @@ export function CatalogPage() {
         <AskMosaic
           imageByProductId={gridImages}
           open={agentOpen}
-          shopQuery={activeQuery}
           seedQuery={activeQuery}
-          filterCount={activeFilterCount}
+          contextFilters={filterChips.map((chip) => chip.label)}
           turns={agentTurns}
           pending={agentPending}
           starters={agentStarters}

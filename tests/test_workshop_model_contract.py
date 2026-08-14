@@ -88,6 +88,17 @@ def test_projection_upsert_invalidates_a_changed_embedding_text():
     assert "THEN NULL" in sql
 
 
+def test_generated_reviews_are_honest_customer_review_evidence():
+    types = (ROOT / "db/sql/01_schemas_and_types.sql").read_text()
+    loader = (ROOT / "db/sql/18_load_evidence.sql").read_text()
+
+    assert "'customer_review'" in types
+    assert "'verified_review'" in types  # Legacy rows remain readable.
+    assert "'customer_review'::mosaic.evidence_type" in loader
+    assert "'Mosaic synthetic review corpus'" in loader
+    assert "'Mosaic verified review corpus'" not in loader
+
+
 def test_embedding_loader_uses_typed_binary_copy():
     source = (ROOT / "scripts/embed_catalog.py").read_text()
 

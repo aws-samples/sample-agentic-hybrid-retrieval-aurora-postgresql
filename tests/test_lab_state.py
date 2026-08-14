@@ -53,3 +53,16 @@ def test_resetting_next_lab_restores_previous_lab_prerequisites(tmp_path):
     assert lab_is_solved(1, repo=tmp_path)
     assert lab_is_solved(2, repo=tmp_path)
     assert not lab_is_solved(3, repo=tmp_path)
+
+
+def test_lab_3_make_recovery_restarts_the_workshop_api():
+    makefile = (REPO / "Makefile").read_text(encoding="utf-8")
+
+    reset = makefile.split("reset-lab-3:", 1)[1].split("validate-lab-3:", 1)[0]
+    solution = makefile.split("solution-lab-3:", 1)[1].split("restart-lab-api:", 1)[0]
+    restart = makefile.split("restart-lab-api:", 1)[1].split("db-render:", 1)[0]
+
+    assert "$(MAKE) restart-lab-api" in reset
+    assert "$(MAKE) restart-lab-api" in solution
+    assert "systemctl restart mosaic-api.service" in restart
+    assert "systemctl is-active --quiet mosaic-api.service" in restart

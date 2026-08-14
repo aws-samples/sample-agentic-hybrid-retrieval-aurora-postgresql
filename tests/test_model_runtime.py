@@ -13,6 +13,7 @@ from service import agent_tools
 from service.agent import (
     GroundingContractError,
     ProductDiscoveryAgent,
+    _agent_prompt,
     build_agent,
 )
 from service.catalog import _detail
@@ -263,6 +264,11 @@ def test_synthesis_returns_only_validated_citations():
         '"allowed_evidence_numbers": [1]'
         in client.request["messages"][0]["content"][0]["text"]
     )
+    system_prompt = client.request["system"][0]["text"]
+    assert "natural, confident shopping prose" in system_prompt
+    assert '"Summary" or "Recommendations"' in system_prompt
+    assert "standalone model code" in system_prompt
+    assert 'heading "The deciding trade-off"' in system_prompt
     assert usage["stopReason"] == "end_turn"
     assert usage["attempts"] == 1
 
@@ -410,6 +416,20 @@ def test_synthesis_rejects_a_named_product_claim_citing_another_product():
         )
 
 
+def test_synthesis_rejects_a_numeric_claim_absent_from_its_cited_evidence():
+    client = FakeSynthesisClient(
+        "AuriLogic Flight ANC provides 60-hour battery life [1]."
+    )
+
+    with pytest.raises(ValueError, match="unsupported numeric claim.*60"):
+        synthesize_cited_answer(
+            "What should I use on a long flight?",
+            [product()],
+            [evidence()],
+            client=client,
+        )
+
+
 def test_agent_finalizes_retrieved_products_when_orchestration_stops(monkeypatch):
     source = evidence()
     state = {
@@ -447,6 +467,7 @@ def test_agent_finalizes_retrieved_products_when_orchestration_stops(monkeypatch
 
 
 def test_grounding_completion_uses_a_bounded_cross_search_shortlist(monkeypatch):
+    search_event_id = uuid4()
     second = product().model_copy(
         update={"product_id": 102, "title": "AuriLogic Office ANC"}
     )
@@ -465,6 +486,7 @@ def test_grounding_completion_uses_a_bounded_cross_search_shortlist(monkeypatch)
         "evidence_by_product": {},
         "answer_of_record": None,
         "trace": [],
+        "search_event_ids": [search_event_id],
         "searches": [
             {"product_ids": [101, 102]},
             {"product_ids": [103, 104]},
@@ -482,8 +504,20 @@ def test_grounding_completion_uses_a_bounded_cross_search_shortlist(monkeypatch)
     def finalize(_question, *, product_ids):
         finalized.extend(product_ids)
 
+    def explain(event_id):
+        assert event_id == str(search_event_id)
+        state["trace"].append(
+            {
+                "tool": "explain_retrieval",
+                "outcome": "success",
+                "arguments": {"search_event_id": event_id},
+            }
+        )
+        return {"ok": True}
+
     token = agent_tools._RUN.set(state)
     monkeypatch.setattr(agent_tools, "get_product_evidence", read_evidence)
+    monkeypatch.setattr(agent_tools, "explain_retrieval", explain)
     monkeypatch.setattr(agent_tools, "finalize_retrieved_answer", finalize)
     try:
         agent_tools.complete_grounded_answer("Compare the options.")
@@ -493,6 +527,7 @@ def test_grounding_completion_uses_a_bounded_cross_search_shortlist(monkeypatch)
     assert evidence_calls == [101, 102, 103, 104]
     assert finalized == [101, 102, 103, 104]
     assert agent_tools._comparison_covers(state, finalized)
+    assert [step["tool"] for step in state["trace"]].count("explain_retrieval") == 1
 
 
 def test_grounding_completion_fails_when_evidence_is_not_attached(monkeypatch):
@@ -566,6 +601,36 @@ def test_agent_response_uses_turn_alias_and_search_event_trace():
 
     assert response.agent_run_id == run_id
     assert response.trace[0].retrieval_run_id == search_event_id
+
+
+def test_agent_prompt_resolves_followups_from_bounded_grounded_context():
+    request = AgentRequest(
+        question="Which one is the better value?",
+        result_limit=2,
+        context={
+            "previous_question": "Find two travel headphones under $200.",
+            "recommendations": [
+                {
+                    "product_id": 101,
+                    "title": "AuriLogic Flight ANC",
+                    "model": "FL-48",
+                },
+                {
+                    "product_id": 102,
+                    "title": "AuriLogic Office ANC",
+                    "model": "OF-40",
+                },
+            ],
+        },
+    )
+
+    prompt = _agent_prompt(request)
+
+    assert '"Which one is the better value?"' in prompt
+    assert '"product_id": 101' in prompt
+    assert '"product_id": 102' in prompt
+    assert "lookup targets only, not evidence" in prompt
+    assert "Re-run the normal catalog retrieval" in prompt
 
 
 def test_synchronous_agent_preserves_tool_run_context(monkeypatch):

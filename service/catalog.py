@@ -202,17 +202,16 @@ def get_product(product_id: int) -> ProductDetail:
             """,
             (product_id,),
         ).fetchall()
-        # Reviews live alongside source-addressable specifications. Evidence
-        # selection is query-grounded; a product specification reuses the
-        # product projection's vector rather than pretending reviews have vectors
-        # that were never generated.
+        # Generated review excerpts are labeled as synthetic customer evidence.
+        # Legacy verified_review rows remain readable after a snapshot upgrade.
         review_rows = connection.execute(
             """
             SELECT evidence_id AS review_id, evidence_title AS title,
                    evidence_text AS body, source_name, source_reference,
                    rating, is_verified, source_date, metadata
             FROM mosaic.product_evidence
-            WHERE product_id = %s AND evidence_type = 'verified_review'
+            WHERE product_id = %s
+              AND evidence_type IN ('customer_review', 'verified_review')
             ORDER BY rating DESC NULLS LAST, evidence_id
             LIMIT 8
             """,
@@ -267,6 +266,7 @@ def _review(row: dict[str, Any]) -> ProductReview:
         ),
         source_uri=row.get("source_reference")
         or f"mosaic://evidence/{row['review_id']}",
+        source_name=row["source_name"],
     )
 
 

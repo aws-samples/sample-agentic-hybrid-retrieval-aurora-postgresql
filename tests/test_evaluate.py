@@ -1,3 +1,5 @@
+import pytest
+
 from scripts.evaluate import evaluate
 
 
@@ -17,3 +19,36 @@ def test_graded_metrics_use_relevance_threshold_and_gain():
     assert metrics["recall@3"] == 1.0
     assert metrics["mrr"] == 0.75
     assert 0 < metrics["ndcg@3"] < 1
+
+
+@pytest.mark.parametrize(
+    ("truth", "ranked", "missing", "unexpected"),
+    [
+        (
+            {"G-001": {10: 3}, "G-002": {20: 3}},
+            {"G-001": [(1, 10)]},
+            "G-002",
+            "none",
+        ),
+        (
+            {"G-001": {10: 3}},
+            {"G-001": [(1, 10)], "Q-0001": [(1, 20)]},
+            "none",
+            "Q-0001",
+        ),
+    ],
+)
+def test_evaluate_rejects_result_and_judgment_query_id_mismatch(
+    truth,
+    ranked,
+    missing,
+    unexpected,
+):
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Evaluation query-ID mismatch.*"
+            f"missing results: {missing}.*unexpected results: {unexpected}"
+        ),
+    ):
+        evaluate(truth, ranked, 10)

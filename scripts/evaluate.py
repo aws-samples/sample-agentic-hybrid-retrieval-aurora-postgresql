@@ -48,6 +48,16 @@ def evaluate(
     ranked: dict[str, list[tuple[int, int]]],
     k: int,
 ) -> dict[str, object]:
+    truth_ids = set(truth)
+    result_ids = set(ranked)
+    if truth_ids != result_ids:
+        missing = ", ".join(sorted(truth_ids - result_ids)) or "none"
+        unexpected = ", ".join(sorted(result_ids - truth_ids)) or "none"
+        raise ValueError(
+            "Evaluation query-ID mismatch; "
+            f"missing results: {missing}; unexpected results: {unexpected}. "
+            "Generate results from the same query set used for judgments."
+        )
     per_query: list[dict[str, float | str]] = []
     for query_id, judgments in truth.items():
         got = [product_id for _, product_id in sorted(ranked.get(query_id, []))[:k]]

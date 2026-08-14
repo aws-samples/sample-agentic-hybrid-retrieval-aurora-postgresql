@@ -189,6 +189,11 @@ const agentResponse: AgentResponse = {
 
 describe("CatalogPage", () => {
   beforeEach(() => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
     window.history.replaceState({}, "", "/catalog");
     vi.mocked(api.catalog).mockReset();
     vi.mocked(api.search).mockReset();
@@ -210,7 +215,10 @@ describe("CatalogPage", () => {
     });
   });
 
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
 
   function renderPage() {
     return render(
@@ -311,10 +319,16 @@ describe("CatalogPage", () => {
     // One ask surface, and it is the panel. This used to also morph the Shop
     // header into a second composer, so asking meant typing into one field and
     // then watching a different field slide in beside the answer.
-    const panel = screen.getByRole("dialog", { name: "Ask Mosaic" });
+    const panel = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    expect(panel.hasAttribute("aria-modal")).toBe(false);
+    expect(document.querySelector(".shop-main")?.hasAttribute("inert")).toBe(false);
     expect(
       screen.getAllByRole("textbox", { name: "Ask Mosaic request" }),
     ).toHaveLength(1);
+    expect(within(panel).queryByText("Shop context")).toBeNull();
+    expect(
+      within(panel).queryByLabelText("Active filters passed to Ask Mosaic"),
+    ).toBeNull();
 
     // The entry state names the five tools registered in service/agent_tools.py,
     // by what each one does, with the function it calls beside it. Its whole
@@ -322,6 +336,8 @@ describe("CatalogPage", () => {
     const toolset = within(panel).getByRole("list", {
       name: "Tools available to the agent",
     });
+    const capability = within(panel).getByText("What Mosaic can do").closest("details");
+    expect(capability?.open).toBe(false);
     expect(
       within(toolset)
         .getAllByRole("listitem")
@@ -342,7 +358,9 @@ describe("CatalogPage", () => {
       name: "Example questions",
     });
     expect(
-      within(starters).getAllByRole("button").map((button) => button.textContent),
+      within(starters)
+        .getAllByRole("button")
+        .map((button) => button.querySelector("span")?.textContent),
     ).toEqual([examples[0].query, examples[2].query, examples[3].query]);
 
     fireEvent.change(
@@ -351,7 +369,7 @@ describe("CatalogPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Ask" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Ask Mosaic" });
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     expect(await within(dialog).findByText("Evidence")).toBeTruthy();
     expect(within(dialog).getByText("Acoustic switch specification")).toBeTruthy();
     expect(within(dialog).getByText("search_products")).toBeTruthy();
@@ -375,6 +393,10 @@ describe("CatalogPage", () => {
     expect(within(dialog).getByText(agentResponse.plan[0].query)).toBeTruthy();
     expect(within(dialog).getByText("Under $180")).toBeTruthy();
     expect(within(dialog).getByText("In stock only")).toBeTruthy();
+    ["How I searched", "Why 01 ranked first", "Evidence", "Activity receipts"]
+      .forEach((label) => {
+        expect(within(dialog).getByText(label).closest("details")?.open).toBe(false);
+      });
 
     const shortlistButton = within(dialog).getByRole("button", {
       name: new RegExp(recommendations[0].model),
@@ -411,6 +433,21 @@ describe("CatalogPage", () => {
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Compare top two" }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
+    expect(api.agentStream).toHaveBeenNthCalledWith(
+      2,
+      `Compare ${recommendations[0].model} with ${recommendations[1].model}`
+        + " and explain the decisive trade-offs.",
+      {},
+      expect.any(Function),
+      {
+        previous_question: agentResponse.question,
+        recommendations: recommendations.map((product) => ({
+          product_id: product.product_id,
+          title: product.title,
+          model: product.model,
+        })),
+      },
+    );
 
     // The follow-up appends to the conversation. It used to overwrite the single
     // stored response, so pressing "Compare top two" destroyed the answer that
@@ -450,7 +487,7 @@ describe("CatalogPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Ask" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Ask Mosaic" });
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     expect(await within(dialog).findByText("Choose the first product")).toBeTruthy();
     expect(document.querySelector(".ask-mosaic-answer.streaming")).not.toBeNull();
     // Nothing to follow up on until the answer it would follow up on exists.
@@ -477,6 +514,7 @@ describe("CatalogPage", () => {
         examples[2].query,
         {},
         expect.any(Function),
+        undefined,
       ),
     );
   });
@@ -492,13 +530,21 @@ describe("CatalogPage", () => {
     fireEvent.click(within(dialog).getByRole("radio", { name: "In stock" }));
     expect(await screen.findByRole("button", { name: /In stock/ })).toBeTruthy();
     expect(window.location.search).toContain("availability=in_stock");
+
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    const assist = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    const context = within(assist).getByLabelText(
+      "Active filters passed to Ask Mosaic",
+    );
+    expect(within(context).getByText("Active filters")).toBeTruthy();
+    expect(within(context).getByText("In stock")).toBeTruthy();
   });
 
   it("closes the sidecar and can restore the underlying Shop results", async () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
-    expect(screen.getByRole("dialog", { name: "Ask Mosaic" })).toBeTruthy();
+    expect(screen.getByRole("complementary", { name: "Ask Mosaic" })).toBeTruthy();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -507,13 +553,48 @@ describe("CatalogPage", () => {
     await screen.findByText("Ask Mosaic shortlist");
 
     fireEvent.click(
-      within(screen.getByRole("dialog", { name: "Ask Mosaic" }))
+      within(screen.getByRole("complementary", { name: "Ask Mosaic" }))
         .getByRole("button", { name: "Close Ask Mosaic" }),
     );
-    expect(screen.queryByRole("dialog", { name: "Ask Mosaic" })).toBeNull();
+    expect(screen.queryByRole("complementary", { name: "Ask Mosaic" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear shortlist" }));
     expect(screen.queryByText("Ask Mosaic shortlist")).toBeNull();
     expect(screen.getByText(/of 120 products/)).toBeTruthy();
+  });
+
+  it("uses modal semantics, inert background, focus trap, and focus restoration on overlays", async () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    const opener = screen.getByRole("button", { name: "Ask Mosaic" });
+    opener.focus();
+    fireEvent.click(opener);
+
+    const dialog = screen.getByRole("dialog", { name: "Ask Mosaic" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(document.querySelector(".shop-main")?.hasAttribute("inert")).toBe(true);
+    const close = within(dialog).getByRole("button", { name: "Close Ask Mosaic" });
+    await waitFor(() => expect(document.activeElement).toBe(close));
+
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    close.focus();
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(focusable.at(-1));
+
+    fireEvent.click(close);
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Ask Mosaic" })).toBeNull()
+    );
+    expect(document.querySelector(".shop-main")?.hasAttribute("inert")).toBe(false);
+    expect(document.activeElement).toBe(opener);
   });
 });

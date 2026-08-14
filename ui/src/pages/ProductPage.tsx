@@ -319,7 +319,8 @@ export function ProductPage() {
               <blockquote>
                 <p>“{product.reviews[0].body}”</p>
                 <cite>
-                  {product.reviews[0].verified_purchase ? "Verified purchase" : "Catalog review"}
+                  {product.reviews[0].source_name}
+                  {product.reviews[0].verified_purchase ? " · Verified purchase" : ""}
                   {" / "}
                   {product.reviews[0].rating}.0 stars
                 </cite>
@@ -356,7 +357,12 @@ export function ProductPage() {
                 ) : null}
                 {review.title ? <strong>{review.title}</strong> : null}
                 <p>{review.body}</p>
-                <cite>{review.verified_purchase ? "Verified purchase" : "Catalog review"} / {review.review_date}</cite>
+                <cite>
+                  {review.source_name}
+                  {review.verified_purchase ? " · Verified purchase" : ""}
+                  {" / "}
+                  {review.review_date}
+                </cite>
               </blockquote>
             )) : <p className="muted">No review evidence is loaded for this sample product.</p>}
           </div>

@@ -259,7 +259,7 @@ class ProductMedia(BaseModel):
 
 
 class ProductReview(BaseModel):
-    """One `mosaic.product_evidence` row of type `verified_review`.
+    """One source-labeled customer-review evidence row.
 
     `rating` and `review_date` are optional because the evidence table allows
     both to be null. Defaulting a missing rating to a number would invent
@@ -275,6 +275,7 @@ class ProductReview(BaseModel):
     review_date: str | None = None
     sentiment_score: float | None = None
     source_uri: str
+    source_name: str
 
 
 class EvidenceRecord(BaseModel):
@@ -408,12 +409,31 @@ class FusionComparisonResponse(BaseModel):
     moved_count: int
 
 
+class AgentContextProduct(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    product_id: int = Field(gt=0)
+    title: str = Field(min_length=1, max_length=300)
+    model: str = Field(min_length=1, max_length=120)
+
+
+class AgentConversationContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    previous_question: str = Field(min_length=4, max_length=2_000)
+    recommendations: list[AgentContextProduct] = Field(
+        min_length=1,
+        max_length=4,
+    )
+
+
 class AgentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     question: str = Field(min_length=4, max_length=2_000)
     filters: SearchFilters = Field(default_factory=SearchFilters)
     result_limit: int = Field(default=6, ge=2, le=12)
+    context: AgentConversationContext | None = None
 
 
 class AgentPlanStep(BaseModel):

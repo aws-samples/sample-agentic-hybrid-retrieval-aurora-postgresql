@@ -22,10 +22,8 @@ CREATE TEMP TABLE review_evidence_stage (
 \copy review_evidence_stage FROM PROGRAM 'gzip -cd "$MOSAIC_REVIEW_EVIDENCE_PATH"' WITH (FORMAT csv, HEADER true)
 
 DELETE FROM mosaic.product_evidence
-WHERE source_name IN (
-    'Mosaic catalog specification',
-    'Mosaic verified review corpus'
-);
+WHERE source_name = 'Mosaic catalog specification'
+   OR source_reference LIKE 'mosaic://evidence/review/%';
 
 INSERT INTO mosaic.product_evidence (
     product_id,
@@ -83,8 +81,8 @@ INSERT INTO mosaic.product_evidence (
 )
 SELECT
     r.product_id,
-    'verified_review'::mosaic.evidence_type,
-    'Mosaic verified review corpus',
+    'customer_review'::mosaic.evidence_type,
+    'Mosaic synthetic review corpus',
     format('mosaic://evidence/review/%s', r.review_id),
     r.title,
     r.body,
@@ -106,7 +104,7 @@ SELECT evidence_type, count(*)
 FROM mosaic.product_evidence
 WHERE source_name IN (
     'Mosaic catalog specification',
-    'Mosaic verified review corpus'
+    'Mosaic synthetic review corpus'
 )
 GROUP BY evidence_type
 ORDER BY evidence_type;

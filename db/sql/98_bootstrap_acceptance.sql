@@ -27,12 +27,12 @@ BEGIN
     WHERE media_tier IN ('flagship', 'premium');
     SELECT count(*),
            count(*) FILTER (WHERE evidence_type = 'product_spec'),
-           count(*) FILTER (WHERE evidence_type = 'verified_review')
+           count(*) FILTER (WHERE evidence_type = 'customer_review')
     INTO evidence_count, specification_count, review_count
     FROM mosaic.product_evidence
     WHERE source_name IN (
         'Mosaic catalog specification',
-        'Mosaic verified review corpus'
+        'Mosaic synthetic review corpus'
     );
 
     SELECT array_agg(required.name ORDER BY required.name)
@@ -86,7 +86,7 @@ BEGIN
        OR specification_count <> 500000
        OR review_count <> 15000 THEN
         RAISE EXCEPTION
-            'DAT410 bootstrap requires 500000 product specifications and 15000 verified reviews; specifications=%, reviews=%, total=%. Re-run make db-load-evidence.',
+            'DAT410 bootstrap requires 500000 product specifications and 15000 synthetic customer reviews; specifications=%, reviews=%, total=%. Re-run make db-load-evidence.',
             specification_count, review_count, evidence_count;
     END IF;
 END

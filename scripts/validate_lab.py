@@ -55,6 +55,12 @@ def _mission(stage: str) -> dict[str, Any]:
     return next(item for item in contract["missions"] if item["stage"] == stage)
 
 
+def _case(case_id: str) -> dict[str, Any]:
+    contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    cases = contract["missions"] + contract["supporting_checks"]
+    return next(item for item in cases if item["id"] == case_id)
+
+
 def _search(base_url: str, mission: dict[str, Any]) -> dict[str, Any]:
     return _request(
         base_url,
@@ -226,6 +232,34 @@ def _successful_steps(agent: dict[str, Any], tool: str) -> list[dict[str, Any]]:
     ]
 
 
+def _constraints_preserved(
+    applied: dict[str, Any],
+    required: dict[str, Any],
+) -> bool:
+    if required.get("domain") and applied.get("domain") != required["domain"]:
+        return False
+    if required.get("category_key") and (
+        applied.get("category_key") != required["category_key"]
+    ):
+        return False
+    if required.get("max_price_cents") is not None and (
+        applied.get("max_price_cents") is None
+        or applied["max_price_cents"] > required["max_price_cents"]
+    ):
+        return False
+    if required.get("min_price_cents") is not None and (
+        applied.get("min_price_cents") is None
+        or applied["min_price_cents"] < required["min_price_cents"]
+    ):
+        return False
+    if required.get("in_stock_only") and applied.get("in_stock_only") is not True:
+        return False
+    return all(
+        (applied.get("attributes") or {}).get(key) == value
+        for key, value in (required.get("attributes") or {}).items()
+    )
+
+
 def validate_agent_response(
     base_url: str,
     mission: dict[str, Any],
@@ -237,9 +271,7 @@ def validate_agent_response(
     for step in searches:
         applied = (step.get("arguments") or {}).get("applied_filters") or {}
         _require(
-            applied.get("domain") == required_filters["domain"]
-            and applied.get("max_price_cents") <= required_filters["max_price_cents"]
-            and applied.get("in_stock_only") is True,
+            _constraints_preserved(applied, required_filters),
             "Lab 3 retrieval trace does not preserve structured constraints",
         )
 
@@ -297,20 +329,12 @@ def validate_agent_response(
         "Lab 3 evidence tool returned no evidence records",
     )
 
-    explained = bool(_successful_steps(agent, "explain_retrieval"))
-    if not explained:
-        explained = all(
-            any(
-                candidate["product_id"] == product_id
-                and candidate.get("fused_rank") is not None
-                and candidate.get("rerank_rank") is not None
-                and candidate.get("result_rank") is not None
-                for run in retrieval_runs
-                for candidate in run.get("candidates") or []
-            )
-            for product_id in recommendation_ids
-        )
-    _require(explained, "Lab 3 has no replayable ranking explanation")
+    explanations = _successful_steps(agent, "explain_retrieval")
+    _require(
+        len(explanations) == 1,
+        "Lab 3 requires exactly one successful explain_retrieval tool call "
+        f"before synthesis; found {len(explanations)}",
+    )
 
     citations = agent.get("citations") or []
     _require(citations, "Lab 3 returned no citations")
@@ -319,6 +343,7 @@ def validate_agent_response(
         recommendation_ids <= cited_product_ids,
         "Lab 3 did not cite evidence for every recommended product",
     )
+    resolved_evidence: list[dict[str, Any]] = []
     for citation in citations:
         evidence = _request(base_url, f"/api/evidence/{citation['evidence_id']}")
         _require(
@@ -333,6 +358,29 @@ def validate_agent_response(
             citation["product_id"] in recommendation_ids,
             f"Lab 3 citation {citation['number']} belongs to an unselected product",
         )
+        resolved_evidence.append({**evidence, **citation})
+
+    for requirement in mission.get("required_citation_support", []):
+        required_terms = [
+            term.casefold().replace("_", " ").replace("-", " ")
+            for term in requirement["all_terms"]
+        ]
+        matching = [
+            item
+            for item in resolved_evidence
+            if item["product_id"] == requirement["product_id"]
+            and item["evidence_type"] == requirement["evidence_type"]
+            and all(
+                term in item["text"].casefold().replace("_", " ").replace("-", " ")
+                for term in required_terms
+            )
+        ]
+        _require(
+            bool(matching),
+            "Lab 3 required citation support is absent for product "
+            f"{requirement['product_id']}: evidence_type="
+            f"{requirement['evidence_type']}, terms={requirement['all_terms']}",
+        )
 
     return [
         "structured constraints preserved",
@@ -340,21 +388,27 @@ def validate_agent_response(
         "evidence retrieved for every recommendation",
         "ranking explanation replayable",
         "citation IDs resolve exactly",
+        "required claims supported",
     ]
 
 
 def validate_lab_3(base_url: str) -> list[str]:
-    mission = _mission("reason")
-    agent = _request(
-        base_url,
-        "/api/agent/answer",
-        {
-            "question": mission["query"],
-            "filters": mission["filters"],
-            "result_limit": mission["top_k"],
-        },
-    )
-    return validate_agent_response(base_url, mission, agent)
+    checks: list[str] = []
+    for mission in (_mission("reason"), _case("evidence-grounding")):
+        agent = _request(
+            base_url,
+            "/api/agent/answer",
+            {
+                "question": mission["query"],
+                "filters": mission["filters"],
+                "result_limit": mission["top_k"],
+            },
+        )
+        checks.extend(
+            f"{mission['canonical_query_id']}: {check}"
+            for check in validate_agent_response(base_url, mission, agent)
+        )
+    return checks
 
 
 def main() -> int:
