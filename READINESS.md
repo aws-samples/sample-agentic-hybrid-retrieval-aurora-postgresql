@@ -65,13 +65,16 @@ Release readiness requires one recorded Workshop Studio rehearsal:
 3. run `make db-fetch-embeddings`;
 4. verify the pinned manifest SHA-256;
 5. run `make db-bootstrap-cached`;
-6. verify 500,000 products, 500,000 embeddings, model ID, dimensions, required
+6. save `build/embedding-cache-download-timing.tsv` and
+   `build/bootstrap-timings.tsv`; the latter records every load phase,
+   `index_creation`, and the measured total;
+7. verify 500,000 products, 500,000 embeddings, model ID, dimensions, required
    FTS/trigram/HNSW indexes, evidence rows, and 120 premium products;
-7. rehearse Labs 1, 2, and 3, including independent reset and solution paths;
-8. rehearse Cohere reranking and Ask Mosaic cold starts;
-9. record deployment, transfer, bootstrap, index, first-query, reranker, and
+8. rehearse Labs 1, 2, and 3, including independent reset and solution paths;
+9. rehearse Cohere reranking and Ask Mosaic cold starts;
+10. record deployment, transfer, bootstrap, index, first-query, reranker, and
    agent timing;
-10. verify laptop, tablet, mobile, and projector layouts.
+11. verify laptop, tablet, mobile, and projector layouts.
 
 Until that rehearsal is recorded, these checks are **PENDING RUNTIME
 VERIFICATION**. No latency, throughput, or deployment-time claim may be marked

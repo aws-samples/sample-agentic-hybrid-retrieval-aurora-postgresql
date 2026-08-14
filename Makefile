@@ -22,6 +22,7 @@ EMBEDDING_CACHE_DIR ?= build/embedding-cache
 EMBEDDING_CACHE_MANIFEST ?= $(EMBEDDING_CACHE_DIR)/manifest.json
 EMBEDDING_CACHE_CONTRACT ?= db/config/embedding-cache.json
 EMBEDDING_CACHE_URI ?=
+BOOTSTRAP_TIMINGS_FILE ?= build/bootstrap-timings.tsv
 MOSAIC_NORMALIZED_DIR ?= build/normalized
 MOSAIC_PREMIUM_COHORT_CSV ?= $(MOSAIC_NORMALIZED_DIR)/premium_cohort_120.csv
 MOSAIC_CATALOG_SHARDS := \
@@ -280,22 +281,41 @@ db-fetch-embeddings:
 		--only-show-errors
 	@$(MAKE) verify-embedding-cache
 
+define bootstrap-phase
+	@set -e; database_url="$(DATABASE_URL)"; \
+	started=$$(date +%s); \
+	printf 'MOSAIC_BOOTSTRAP_PHASE_START phase=%s epoch=%s\n' \
+		"$(1)" "$$started"; \
+	$(MAKE) $(2) DATABASE_URL="$$database_url"; \
+	finished=$$(date +%s); \
+	elapsed=$$((finished - started)); \
+	printf '%s\t%s\n' "$(1)" "$$elapsed" >>"$(BOOTSTRAP_TIMINGS_FILE)"; \
+	printf 'MOSAIC_BOOTSTRAP_PHASE_END phase=%s epoch=%s elapsed_seconds=%s\n' \
+		"$(1)" "$$finished" "$$elapsed"
+endef
+
 db-bootstrap-cached:
 	@test -f "$(EMBEDDING_CACHE_MANIFEST)" || { \
 		echo "Embedding cache manifest not found: $(EMBEDDING_CACHE_MANIFEST)"; \
 		exit 2; \
 	}
 	@$(MAKE) verify-embedding-cache
-	@$(MAKE) db-install DATABASE_URL="$(DATABASE_URL)"
-	@$(MAKE) db-install-labs DATABASE_URL="$(DATABASE_URL)"
-	$(MAKE) db-prepare-mosaic
-	@$(MAKE) db-load-mosaic DATABASE_URL="$(DATABASE_URL)"
-	@$(MAKE) db-import-embeddings DATABASE_URL="$(DATABASE_URL)"
-	@$(MAKE) db-index-concurrent DATABASE_URL="$(DATABASE_URL)"
-	@$(MAKE) db-load-cohort DATABASE_URL="$(DATABASE_URL)"
-	@$(MAKE) db-load-evidence DATABASE_URL="$(DATABASE_URL)"
-	@$(MAKE) db-smoke DATABASE_URL="$(DATABASE_URL)"
-	@$(MAKE) db-verify-bootstrap DATABASE_URL="$(DATABASE_URL)"
+	@mkdir -p "$(dir $(BOOTSTRAP_TIMINGS_FILE))"
+	@: >"$(BOOTSTRAP_TIMINGS_FILE)"
+	$(call bootstrap-phase,schema_install,db-install)
+	$(call bootstrap-phase,lab_schema_install,db-install-labs)
+	$(call bootstrap-phase,catalog_prepare,db-prepare-mosaic)
+	$(call bootstrap-phase,catalog_load,db-load-mosaic)
+	$(call bootstrap-phase,embedding_import,db-import-embeddings)
+	$(call bootstrap-phase,index_creation,db-index-concurrent)
+	$(call bootstrap-phase,premium_cohort_load,db-load-cohort)
+	$(call bootstrap-phase,evidence_load,db-load-evidence)
+	$(call bootstrap-phase,smoke_test,db-smoke)
+	$(call bootstrap-phase,bootstrap_acceptance,db-verify-bootstrap)
+	@awk -F '\t' \
+		'BEGIN { total = 0 } { total += $$2 } END { print "total\t" total }' \
+		"$(BOOTSTRAP_TIMINGS_FILE)" >>"$(BOOTSTRAP_TIMINGS_FILE)"
+	@cat "$(BOOTSTRAP_TIMINGS_FILE)"
 
 db-verify-bootstrap:
 	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
