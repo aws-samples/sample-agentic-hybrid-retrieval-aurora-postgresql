@@ -7,9 +7,7 @@ def test_exact_sku_match_is_punctuation_insensitive_and_requires_full_identity()
     assert _is_exact_sku_match(
         "Find CO-TRUEW-0017001 charging case", "CO-TRUEW-0017001"
     )
-    assert _is_exact_sku_match(
-        "Find cotruew0017001 charging case", "CO-TRUEW-0017001"
-    )
+    assert _is_exact_sku_match("Find cotruew0017001 charging case", "CO-TRUEW-0017001")
     assert not _is_exact_sku_match("Find TRUEW charging case", "CO-TRUEW-0017001")
 
 

@@ -5,6 +5,7 @@ projection the retrieval arms use, so browsing and search both call the same
 scalar filter function. The public `matches_filters(product_document, jsonb)`
 validator delegates to that function rather than carrying a second predicate.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,13 +48,14 @@ _SUMMARY_COLUMNS = """
 
 
 def _where(filters: SearchFilters) -> tuple[str, list[Any]]:
-    return """mosaic_search.matches_filter_values(
+    return (
+        """mosaic_search.matches_filter_values(
         d.domain, d.category_key, d.brand_name, d.price_cents,
         d.availability, d.rating, d.attributes, d.is_refurbished,
         d.is_sponsored, %s::jsonb
-    )""", [
-        json.dumps(filters.as_sql_json())
-    ]
+    )""",
+        [json.dumps(filters.as_sql_json())],
+    )
 
 
 def _summary(row: dict[str, Any]) -> ProductSummary:
@@ -263,7 +265,8 @@ def _review(row: dict[str, Any]) -> ProductReview:
             if metadata.get("sentiment_score") is not None
             else None
         ),
-        source_uri=row.get("source_reference") or f"mosaic://evidence/{row['review_id']}",
+        source_uri=row.get("source_reference")
+        or f"mosaic://evidence/{row['review_id']}",
     )
 
 
@@ -342,8 +345,7 @@ def _evidence_record(row: dict[str, Any]) -> EvidenceRecord:
         evidence_type=row["evidence_type"],
         source_name=row["source_name"],
         source_uri=(
-            row.get("source_reference")
-            or f"mosaic://evidence/{row['evidence_id']}"
+            row.get("source_reference") or f"mosaic://evidence/{row['evidence_id']}"
         ),
         revision=revision,
         title=row.get("evidence_title") or row["source_name"],

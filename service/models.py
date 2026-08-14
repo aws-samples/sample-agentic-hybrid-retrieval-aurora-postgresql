@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.retrieval_profile import load_profile  # noqa: E402  (path set above)
+from scripts.retrieval_profile import load_profile
 
 
 def _yaml_default(field: str) -> Callable[[], Any]:

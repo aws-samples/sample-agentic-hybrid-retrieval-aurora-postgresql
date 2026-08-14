@@ -32,8 +32,8 @@ from scripts.retrieval_profile import load_profile
 from service.db import connect
 from service.embeddings import EmbeddingProvider, get_embedding_provider
 from service.models import (
-    FusionComparisonResponse,
     FusionCandidateComparison,
+    FusionComparisonResponse,
     RetrievalProfile,
     SearchFilters,
 )

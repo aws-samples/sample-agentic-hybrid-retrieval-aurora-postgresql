@@ -1,4 +1,5 @@
 """Stateless MCP 2026-07-28 tools over the catalog FastAPI service."""
+
 from __future__ import annotations
 
 import os
@@ -14,7 +15,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from service.models import (  # noqa: E402
+from catalog_mcp.api import get_api_client
+from service.models import (
     Availability,
     Domain,
     ProductEvidenceResponse,
@@ -23,8 +25,6 @@ from service.models import (  # noqa: E402
     SearchRequest,
     SearchResponse,
 )
-
-from catalog_mcp.api import get_api_client  # noqa: E402
 
 READ_ONLY_QUERY = ToolAnnotations(
     read_only_hint=True,

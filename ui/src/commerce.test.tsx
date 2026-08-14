@@ -171,6 +171,14 @@ describe("commerce", () => {
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
+
+    const decrease = screen.getByRole("button", {
+      name: `Decrease ${product.title} quantity`,
+    }) as HTMLButtonElement;
+    expect(decrease.disabled).toBe(false);
+    fireEvent.click(decrease);
+    expect(screen.getByLabelText("Cart item count").textContent).toBe("1");
+    expect(decrease.disabled).toBe(true);
   });
 
   it("contains keyboard focus and restores it after the bag closes", async () => {
@@ -261,6 +269,36 @@ describe("commerce", () => {
       await screen.findByRole("heading", { name: "Your bag (0)" }),
     ).toBeTruthy();
     expect(screen.getByText("Your bag is empty")).toBeTruthy();
+  });
+
+  it("returns to the bag after checkout is closed mid-flow", async () => {
+    render(
+      <CommerceProvider>
+        <CardHarness />
+      </CommerceProvider>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: `Add ${product.title} to cart` }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /checkout/i }));
+    const deliveryHeading = await screen.findByRole("heading", {
+      name: "Delivery details",
+    });
+    const checkoutDialog = deliveryHeading.closest<HTMLElement>('[role="dialog"]');
+    if (!checkoutDialog) throw new Error("Checkout dialog was not rendered");
+
+    fireEvent.click(
+      within(checkoutDialog).getByRole("button", { name: "Close bag" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    fireEvent.click(
+      screen.getByRole("button", { name: `Add another ${product.title} to cart` }),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Your bag (2)" }),
+    ).toBeTruthy();
   });
 });
 

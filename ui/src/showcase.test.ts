@@ -46,6 +46,34 @@ describe("local Mosaic showcase", () => {
     ).toContainEqual(expect.objectContaining({ product_id: sample!.product_id }));
   });
 
+  it("uses curated commerce facts instead of synthesized social proof", () => {
+    const featured = showcaseCatalogPage({}, 0, 4).products;
+
+    expect(featured[0]).toEqual(expect.objectContaining({
+      product_id: 1,
+      price_cents: 29900,
+      list_price_cents: 32900,
+      rating: 4.8,
+      review_count: 2431,
+      availability: "in_stock",
+      inventory_count: 184,
+    }));
+  });
+
+  it("keeps authoritative USD amounts on the integer-cent API contract", () => {
+    const products = showcaseCatalogPage({}, 0, 120).products;
+
+    expect(products).toHaveLength(120);
+    for (const product of products) {
+      expect(Number.isInteger(product.price_cents)).toBe(true);
+      expect(Number.isInteger(product.list_price_cents)).toBe(true);
+    }
+    expect(showcaseProductDetail(5)).toEqual(expect.objectContaining({
+      price_cents: 12995,
+      list_price_cents: 15995,
+    }));
+  });
+
   it("offers only the verified shot per local product, never a mismatched set", () => {
     const product = showcaseProductDetail(17001);
 

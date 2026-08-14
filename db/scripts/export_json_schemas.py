@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "models" / "python"))
 
-from mosaic_models import (  # noqa: E402
+from mosaic_models import (
     AgentToolEvent,
     CompareProductsRequest,
     EvidenceSearchRequest,
@@ -44,7 +44,9 @@ def main() -> None:
     output.mkdir(parents=True, exist_ok=True)
     for filename, model in MODELS.items():
         path = output / f"{filename}.schema.json"
-        path.write_text(json.dumps(model.model_json_schema(), indent=2) + "\n", encoding="utf-8")
+        path.write_text(
+            json.dumps(model.model_json_schema(), indent=2) + "\n", encoding="utf-8"
+        )
         print(path.relative_to(ROOT))
 
 

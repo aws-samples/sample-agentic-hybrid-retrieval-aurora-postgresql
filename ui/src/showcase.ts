@@ -1,4 +1,5 @@
 import { productImages } from "./media";
+import commerceFacts from "../../data/curated/showcase_commerce_facts_120.json";
 import mediaManifest from "../../data/media/asset_labels_120.json";
 import premiumCohort from "../../db/data/premium_cohort_120.json";
 import type {
@@ -23,6 +24,12 @@ type ShowcaseSeed = {
   long_description: string;
   attributes: Record<string, string>;
   tags: string[];
+  list_price_usd?: number;
+  currency?: string;
+  rating?: number | null;
+  review_count?: number;
+  availability?: Availability;
+  inventory_count?: number;
   sku?: string;
   media_tier?: string;
   is_flagship?: boolean;
@@ -36,6 +43,37 @@ type PremiumCohortRow = Omit<(typeof premiumCohort)[number], "domain"> & {
 };
 type MediaManifestRow = (typeof mediaManifest.products)[number];
 
+const availabilityByLabel: Record<string, Availability> = {
+  "In Stock": "in_stock",
+  "Low Stock": "low_stock",
+  "Out of Stock": "out_of_stock",
+  Preorder: "preorder",
+  Discontinued: "discontinued",
+};
+
+const commerceFactsByProductId = new Map(
+  commerceFacts.map((product) => {
+    const availability = availabilityByLabel[product.availability];
+    if (!availability) {
+      throw new Error(
+        `Curated product ${product.product_id} has unsupported availability ${product.availability}.`,
+      );
+    }
+    return [
+      product.product_id,
+      {
+        price_usd: product.price_usd,
+        list_price_usd: product.list_price_usd,
+        currency: product.currency,
+        rating: product.rating,
+        review_count: product.review_count,
+        availability,
+        inventory_count: product.inventory_count,
+      },
+    ] as const;
+  }),
+);
+
 function categoryKey(value: string) {
   return value
     .toLowerCase()
@@ -43,22 +81,12 @@ function categoryKey(value: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-function showcaseRating(item: ShowcaseSeed) {
-  const ratings = [5, 4.9, 4.7, 4.5, 4.3] as const;
-  return ratings[Math.abs(item.product_id) % ratings.length];
-}
-
-function showcaseReviewCount(item: ShowcaseSeed) {
-  return 84 + (Math.abs(item.product_id * 37) % 620);
-}
-
-function showcaseAvailability(item: ShowcaseSeed): Availability {
-  const availability: Availability[] = ["in_stock", "in_stock", "low_stock", "in_stock", "preorder"];
-  return availability[Math.abs(item.product_id) % availability.length];
+function usdToCents(value: number) {
+  return Math.round(value * 100);
 }
 
 function matchesFilters(item: ShowcaseSeed, filters: SearchFilters) {
-  const priceCents = item.price_usd * 100;
+  const priceCents = usdToCents(item.price_usd);
   const itemCategoryKey = categoryKey(item.subcategory);
 
   return (
@@ -66,8 +94,8 @@ function matchesFilters(item: ShowcaseSeed, filters: SearchFilters) {
     (!filters.category_key || itemCategoryKey === filters.category_key) &&
     (!filters.min_price_cents || priceCents >= filters.min_price_cents) &&
     (!filters.max_price_cents || priceCents <= filters.max_price_cents) &&
-    (!filters.min_rating || showcaseRating(item) >= filters.min_rating) &&
-    (!filters.availability || showcaseAvailability(item) === filters.availability)
+    (!filters.min_rating || (item.rating ?? 0) >= filters.min_rating) &&
+    (!filters.availability || item.availability === filters.availability)
   );
 }
 
@@ -401,13 +429,14 @@ const fallbackImageByDomain: Record<Domain, string> = {
     "/assets/images/mosaic/ho-ergonomic-office-chairs-forma-ergonomic-catalog-3x2.webp",
 };
 
-function fallbackPrice(row: PremiumCohortRow) {
-  const floor = row.domain === "home_office" ? 79 : 49;
-  return floor + (Math.abs(row.product_id * 37) % 720);
-}
-
 function canonicalSeedRow(row: PremiumCohortRow): ShowcaseSeed {
   const authored = authoredSeedById.get(row.product_id);
+  const commerce = commerceFactsByProductId.get(row.product_id);
+  if (!commerce) {
+    throw new Error(
+      `Premium product ${row.product_id} is missing showcase commerce facts.`,
+    );
+  }
   const media = mediaByProductId.get(row.product_id);
   const imageInstalled = media?.catalog_installed ?? false;
   const model =
@@ -419,7 +448,13 @@ function canonicalSeedRow(row: PremiumCohortRow): ShowcaseSeed {
     domain: row.domain,
     category: row.category,
     subcategory: row.subcategory,
-    price_usd: authored?.price_usd ?? fallbackPrice(row),
+    price_usd: commerce.price_usd,
+    list_price_usd: commerce.list_price_usd,
+    currency: commerce.currency,
+    rating: commerce.rating,
+    review_count: commerce.review_count,
+    availability: commerce.availability,
+    inventory_count: commerce.inventory_count,
     image_url:
       imageInstalled && media
         ? media.catalog_runtime_path
@@ -460,13 +495,13 @@ function toSummary(item: ShowcaseSeed): ProductSummary {
     category_path: `${item.category} > ${item.subcategory}`,
     brand: "Mosaic",
     model: item.model,
-    price_cents: item.price_usd * 100,
-    list_price_cents: item.price_usd * 100,
-    currency: "USD",
-    rating: showcaseRating(item),
-    review_count: showcaseReviewCount(item),
-    availability: showcaseAvailability(item),
-    inventory_count: 1,
+    price_cents: usdToCents(item.price_usd),
+    list_price_cents: usdToCents(item.list_price_usd ?? item.price_usd),
+    currency: item.currency ?? "USD",
+    rating: item.rating ?? null,
+    review_count: item.review_count ?? 0,
+    availability: item.availability ?? "out_of_stock",
+    inventory_count: item.inventory_count ?? 0,
     attributes: item.attributes,
     tags: item.tags,
     catalog_asset_key:

@@ -53,6 +53,7 @@ describe("DiscoverPage", () => {
 
     expect(screen.getByRole("heading", { name: "Shop" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Auraluxe H9" })).toBeTruthy();
+    expect(screen.getByText("4.8")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Shop all" }).getAttribute("href")).toBe("/catalog");
     expect(vi.mocked(api.catalog)).not.toHaveBeenCalled();
   });

@@ -1,4 +1,5 @@
 """Strands agent harness over read-only Aurora PostgreSQL product tools."""
+
 from __future__ import annotations
 
 import asyncio
@@ -108,9 +109,15 @@ def build_agent(*, max_tool_calls: int = 10) -> Agent:
 
 
 def _usage(result: Any) -> dict[str, Any]:
+    metrics = getattr(result, "metrics", None)
+    get_summary = getattr(metrics, "get_summary", None)
+    if not callable(get_summary):
+        return {}
     try:
-        summary = result.metrics.get_summary()
-    except Exception:
+        summary = get_summary()
+    except (AttributeError, TypeError, ValueError):
+        return {}
+    if not isinstance(summary, dict):
         return {}
     accumulated = summary.get("accumulated_usage") or {}
     return {
@@ -251,7 +258,9 @@ class ProductDiscoveryAgent:
                 yield event
         except Exception as caught:
             error = caught
-            logger.warning("Strands streaming agent loop failed: %s", caught, exc_info=True)
+            logger.warning(
+                "Strands streaming agent loop failed: %s", caught, exc_info=True
+            )
 
         fallback_error = model_runtime_error(error) if error is not None else None
         if fallback_error is None:

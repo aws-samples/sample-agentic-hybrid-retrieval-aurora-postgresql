@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Export and restore content-addressed Mosaic product embeddings."""
+
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
-from pathlib import Path
 import struct
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -417,10 +418,7 @@ def export_cache(args: argparse.Namespace) -> None:
     shards: list[dict[str, Any]] = []
     vector_count = 0
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
-        futures = [
-            executor.submit(export_shard, **spec)
-            for spec in shard_specs
-        ]
+        futures = [executor.submit(export_shard, **spec) for spec in shard_specs]
         for future in futures:
             shard, records, reused = future.result()
             catalog_digest.update(records)
@@ -434,7 +432,7 @@ def export_cache(args: argparse.Namespace) -> None:
 
     manifest = {
         "schema_version": 1,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "embedding_model_id": args.model_id,
         "dimensions": args.dimensions,
         "dtype": "float32",
@@ -461,8 +459,7 @@ def import_cache(args: argparse.Namespace) -> None:
     dimensions = int(manifest["dimensions"])
     if dimensions != COHERE_EMBED_V4_DIMENSIONS:
         raise RuntimeError(
-            f"cache dimensions must be {COHERE_EMBED_V4_DIMENSIONS}; "
-            f"found {dimensions}"
+            f"cache dimensions must be {COHERE_EMBED_V4_DIMENSIONS}; found {dimensions}"
         )
     model_id = str(manifest["embedding_model_id"])
     if model_id != COHERE_EMBED_V4_MODEL_ID:

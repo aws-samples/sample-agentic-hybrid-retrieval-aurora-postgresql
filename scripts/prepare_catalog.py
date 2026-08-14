@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Apply presentation-quality catalog overrides without changing product identity."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,10 +9,11 @@ import gzip
 import json
 import os
 import random
-from collections import defaultdict
-from pathlib import Path
 import sys
-from typing import Any, Iterable
+from collections import defaultdict
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -133,20 +135,14 @@ def rebuild_sample(
                     candidates[domain].append(row)
     missing = required_product_ids - set(required)
     if missing:
-        raise RuntimeError(
-            f"Required sample product IDs not found: {sorted(missing)}"
-        )
+        raise RuntimeError(f"Required sample product IDs not found: {sorted(missing)}")
     if fieldnames is None:
         raise RuntimeError("No catalog rows were available for the sample")
 
     rows: list[dict[str, str]] = []
     for domain, target in DOMAIN_SAMPLE_TARGETS.items():
         domain_required = sorted(
-            (
-                row
-                for row in required.values()
-                if row["domain"] == domain
-            ),
+            (row for row in required.values() if row["domain"] == domain),
             key=lambda row: int(row["product_id"]),
         )
         selected = list(domain_required)
@@ -194,17 +190,22 @@ def prepare_path(
     rows = 0
     repairs = 0
     seen: set[int] = set()
-    with gzip.open(path, "rt", newline="", encoding="utf-8") as source, gzip.open(
-        temp_path,
-        "wt",
-        newline="",
-        encoding="utf-8",
-        compresslevel=6,
-    ) as target:
+    with (
+        gzip.open(path, "rt", newline="", encoding="utf-8") as source,
+        gzip.open(
+            temp_path,
+            "wt",
+            newline="",
+            encoding="utf-8",
+            compresslevel=6,
+        ) as target,
+    ):
         reader = csv.DictReader(source)
         if reader.fieldnames is None:
             raise RuntimeError(f"{path} has no header")
-        writer = csv.DictWriter(target, fieldnames=reader.fieldnames, lineterminator="\n")
+        writer = csv.DictWriter(
+            target, fieldnames=reader.fieldnames, lineterminator="\n"
+        )
         writer.writeheader()
         for row in reader:
             rows += 1
@@ -252,7 +253,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     override_rows = (
-        [] if args.skip_overrides else json.loads(args.overrides.read_text(encoding="utf-8"))
+        []
+        if args.skip_overrides
+        else json.loads(args.overrides.read_text(encoding="utf-8"))
     )
     overrides = {int(item["product_id"]): item for item in override_rows}
     paths = args.catalog or catalog_paths(args.manifest)

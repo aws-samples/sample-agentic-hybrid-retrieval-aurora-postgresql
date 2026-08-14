@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Measure the served Mosaic retrieval path against graded canonical judgments."""
+
 from __future__ import annotations
 
 import argparse
@@ -60,8 +61,7 @@ def product_retrieval_queries(
 def scored_query_set_sha256(queries: list[dict[str, Any]]) -> str:
     """Hash the resolved records that actually contribute to retrieval metrics."""
     payload = "\n".join(
-        json.dumps(query, sort_keys=True, separators=(",", ":"))
-        for query in queries
+        json.dumps(query, sort_keys=True, separators=(",", ":")) for query in queries
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -80,7 +80,7 @@ def validate_release_checks(
             check_type = check.get("type")
             product_id = check.get("product_id")
             if not isinstance(product_id, int):
-                raise ValueError(
+                raise TypeError(
                     f"{query['query_id']} release check has product_id={product_id!r}; "
                     "use an integer catalog product ID."
                 )

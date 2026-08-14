@@ -9,14 +9,16 @@ product_documents.csv.gz. Embedding columns remain empty for the embedding job.
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import csv
 import gzip
 import hashlib
 import json
-from pathlib import Path
 import re
 import sys
+from collections import Counter
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
+from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
@@ -40,11 +42,15 @@ AVAILABILITY_MAP = {
 }
 
 
-def open_csv_writer(path: Path, fieldnames: list[str]):
-    handle = gzip.open(path, "wt", newline="", encoding="utf-8")
-    writer = csv.DictWriter(handle, fieldnames=fieldnames)
-    writer.writeheader()
-    return handle, writer
+@contextmanager
+def open_csv_writer(
+    path: Path,
+    fieldnames: list[str],
+) -> Iterator[csv.DictWriter]:
+    with gzip.open(path, "wt", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        yield writer
 
 
 def stable_key(*parts: str) -> str:
@@ -58,16 +64,11 @@ def category_key(value: str) -> str:
 def resolve_category_keys(
     categories: list[tuple[str, str, str]],
 ) -> dict[tuple[str, str, str], str]:
-    base_keys = {
-        category: category_key(category[2])
-        for category in categories
-    }
+    base_keys = {category: category_key(category[2]) for category in categories}
     counts = Counter(base_keys.values())
     resolved = {
         category: (
-            base_key
-            if counts[base_key] == 1
-            else category_key(" ".join(category))
+            base_key if counts[base_key] == 1 else category_key(" ".join(category))
         )
         for category, base_key in base_keys.items()
     }
@@ -132,18 +133,81 @@ def main() -> None:
     category_records: dict[tuple[str, str, str], dict[str, object]] = {}
     emitted_product_ids: set[int] = set()
 
-    b_handle, b_writer = open_csv_writer(args.output / "brands.csv.gz", ["brand_id", "brand_key", "display_name", "is_synthetic", "metadata"])
-    c_handle, c_writer = open_csv_writer(args.output / "categories.csv.gz", ["category_id", "domain", "parent_category_id", "category_key", "display_name", "category_path", "depth", "metadata"])
-    p_handle, p_writer = open_csv_writer(args.output / "products.csv.gz", [
-        "product_id", "product_uid", "sku", "brand_id", "category_id", "canonical_group_id", "model_name", "title",
-        "short_description", "long_description", "language", "attributes", "tags", "aliases", "challenge_cohorts",
-        "launch_date", "source_system", "content_hash", "is_active"
-    ])
-    o_handle, o_writer = open_csv_writer(args.output / "offers.csv.gz", [
-        "product_id", "price_cents", "list_price_cents", "currency", "availability", "inventory_count", "seller_count",
-        "shipping_days", "warranty_months", "rating", "review_count", "return_rate", "popularity_score", "quality_score",
-        "freshness_score", "metadata_completeness", "is_refurbished", "is_sponsored", "offer_metadata", "effective_at"
-    ])
+    output_stack = ExitStack()
+    b_writer = output_stack.enter_context(
+        open_csv_writer(
+            args.output / "brands.csv.gz",
+            ["brand_id", "brand_key", "display_name", "is_synthetic", "metadata"],
+        )
+    )
+    c_writer = output_stack.enter_context(
+        open_csv_writer(
+            args.output / "categories.csv.gz",
+            [
+                "category_id",
+                "domain",
+                "parent_category_id",
+                "category_key",
+                "display_name",
+                "category_path",
+                "depth",
+                "metadata",
+            ],
+        )
+    )
+    p_writer = output_stack.enter_context(
+        open_csv_writer(
+            args.output / "products.csv.gz",
+            [
+                "product_id",
+                "product_uid",
+                "sku",
+                "brand_id",
+                "category_id",
+                "canonical_group_id",
+                "model_name",
+                "title",
+                "short_description",
+                "long_description",
+                "language",
+                "attributes",
+                "tags",
+                "aliases",
+                "challenge_cohorts",
+                "launch_date",
+                "source_system",
+                "content_hash",
+                "is_active",
+            ],
+        )
+    )
+    o_writer = output_stack.enter_context(
+        open_csv_writer(
+            args.output / "offers.csv.gz",
+            [
+                "product_id",
+                "price_cents",
+                "list_price_cents",
+                "currency",
+                "availability",
+                "inventory_count",
+                "seller_count",
+                "shipping_days",
+                "warranty_months",
+                "rating",
+                "review_count",
+                "return_rate",
+                "popularity_score",
+                "quality_score",
+                "freshness_score",
+                "metadata_completeness",
+                "is_refurbished",
+                "is_sponsored",
+                "offer_metadata",
+                "effective_at",
+            ],
+        )
+    )
 
     try:
         for input_path in args.input:
@@ -171,7 +235,15 @@ def main() -> None:
                     if brand not in brand_ids:
                         brand_id = len(brand_ids) + 1
                         brand_ids[brand] = brand_id
-                        b_writer.writerow({"brand_id": brand_id, "brand_key": stable_key("brand", brand), "display_name": brand, "is_synthetic": "true", "metadata": "{}"})
+                        b_writer.writerow(
+                            {
+                                "brand_id": brand_id,
+                                "brand_key": stable_key("brand", brand),
+                                "display_name": brand,
+                                "is_synthetic": "true",
+                                "metadata": "{}",
+                            }
+                        )
                     brand_id = brand_ids[brand]
 
                     category_key_tuple = (domain, row["category"], row["subcategory"])
@@ -185,30 +257,69 @@ def main() -> None:
                             "display_name": row["subcategory"],
                             "category_path": f"{row['category']} > {row['subcategory']}",
                             "depth": 1,
-                            "metadata": json.dumps({"category_family": row["category"]}, separators=(",", ":")),
+                            "metadata": json.dumps(
+                                {"category_family": row["category"]},
+                                separators=(",", ":"),
+                            ),
                         }
                     category_id = category_ids[category_key_tuple]
 
-                    content_hash = hashlib.sha256((row["title"] + row["long_description"] + row["attributes_json"]).encode("utf-8")).hexdigest()
-                    p_writer.writerow({
-                        "product_id": row["product_id"], "product_uid": row["product_uid"], "sku": row["sku"], "brand_id": brand_id,
-                        "category_id": category_id, "canonical_group_id": row["canonical_group_id"], "model_name": row["model"], "title": row["title"],
-                        "short_description": row["short_description"], "long_description": row["long_description"], "language": row["language"],
-                        "attributes": row["attributes_json"], "tags": row["tags_json"],
-                        "aliases": row["aliases_json"],
-                        "challenge_cohorts": row["challenge_cohorts_json"],
-                        "launch_date": row["launch_date"], "source_system": row["source_system"], "content_hash": content_hash, "is_active": "true",
-                    })
-                    o_writer.writerow({
-                        "product_id": row["product_id"], "price_cents": round(float(row["price_usd"]) * 100),
-                        "list_price_cents": round(float(row["list_price_usd"]) * 100), "currency": row["currency"],
-                        "availability": AVAILABILITY_MAP[row["availability"]], "inventory_count": row["inventory_count"],
-                        "seller_count": row["seller_count"], "shipping_days": row["shipping_days"], "warranty_months": row["warranty_months"],
-                        "rating": row["rating"], "review_count": row["review_count"], "return_rate": row["return_rate"],
-                        "popularity_score": row["popularity_score"], "quality_score": row["quality_score"], "freshness_score": row["freshness_score"],
-                        "metadata_completeness": row["metadata_completeness"], "is_refurbished": row["is_refurbished"],
-                        "is_sponsored": row["is_sponsored"], "offer_metadata": "{}", "effective_at": row["updated_at"],
-                    })
+                    content_hash = hashlib.sha256(
+                        (
+                            row["title"]
+                            + row["long_description"]
+                            + row["attributes_json"]
+                        ).encode("utf-8")
+                    ).hexdigest()
+                    p_writer.writerow(
+                        {
+                            "product_id": row["product_id"],
+                            "product_uid": row["product_uid"],
+                            "sku": row["sku"],
+                            "brand_id": brand_id,
+                            "category_id": category_id,
+                            "canonical_group_id": row["canonical_group_id"],
+                            "model_name": row["model"],
+                            "title": row["title"],
+                            "short_description": row["short_description"],
+                            "long_description": row["long_description"],
+                            "language": row["language"],
+                            "attributes": row["attributes_json"],
+                            "tags": row["tags_json"],
+                            "aliases": row["aliases_json"],
+                            "challenge_cohorts": row["challenge_cohorts_json"],
+                            "launch_date": row["launch_date"],
+                            "source_system": row["source_system"],
+                            "content_hash": content_hash,
+                            "is_active": "true",
+                        }
+                    )
+                    o_writer.writerow(
+                        {
+                            "product_id": row["product_id"],
+                            "price_cents": round(float(row["price_usd"]) * 100),
+                            "list_price_cents": round(
+                                float(row["list_price_usd"]) * 100
+                            ),
+                            "currency": row["currency"],
+                            "availability": AVAILABILITY_MAP[row["availability"]],
+                            "inventory_count": row["inventory_count"],
+                            "seller_count": row["seller_count"],
+                            "shipping_days": row["shipping_days"],
+                            "warranty_months": row["warranty_months"],
+                            "rating": row["rating"],
+                            "review_count": row["review_count"],
+                            "return_rate": row["return_rate"],
+                            "popularity_score": row["popularity_score"],
+                            "quality_score": row["quality_score"],
+                            "freshness_score": row["freshness_score"],
+                            "metadata_completeness": row["metadata_completeness"],
+                            "is_refurbished": row["is_refurbished"],
+                            "is_sponsored": row["is_sponsored"],
+                            "offer_metadata": "{}",
+                            "effective_at": row["updated_at"],
+                        }
+                    )
                     emitted_product_ids.add(product_id)
 
             if args.limit and len(emitted_product_ids) >= args.limit:
@@ -223,8 +334,7 @@ def main() -> None:
                 }
             )
     finally:
-        for handle in (b_handle, c_handle, p_handle, o_handle):
-            handle.close()
+        output_stack.close()
 
     if selected_product_ids is not None:
         missing = selected_product_ids - emitted_product_ids
@@ -235,13 +345,18 @@ def main() -> None:
                 f"{sample}"
             )
 
-    print(json.dumps({
-        "brands": len(brand_ids),
-        "categories": len(category_ids),
-        "products": len(emitted_product_ids),
-        "inputs": [str(path) for path in args.input],
-        "output": str(args.output),
-    }, indent=2))
+    print(
+        json.dumps(
+            {
+                "brands": len(brand_ids),
+                "categories": len(category_ids),
+                "products": len(emitted_product_ids),
+                "inputs": [str(path) for path in args.input],
+                "output": str(args.output),
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

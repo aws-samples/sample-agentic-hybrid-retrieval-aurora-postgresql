@@ -1,8 +1,9 @@
 """Small PostgreSQL boundary shared by API services and scripts."""
+
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 
 import psycopg
 from pgvector.psycopg import register_vector

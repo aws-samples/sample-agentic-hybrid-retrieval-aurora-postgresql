@@ -37,9 +37,9 @@ from pydantic import ValidationError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.retrieval_profile import load_profile  # noqa: E402  (path set above)
-from scripts.eval_contract import load_evaluation_queries  # noqa: E402
-from service.models import SearchFilters  # noqa: E402  (path set above)
+from scripts.eval_contract import load_evaluation_queries
+from scripts.retrieval_profile import load_profile
+from service.models import SearchFilters
 
 if __package__:
     from scripts.embed_catalog import (
@@ -208,7 +208,9 @@ def main() -> None:
         import psycopg
         from pgvector.psycopg import register_vector
     except ImportError as error:
-        raise SystemExit("Run `uv sync --frozen` to install evaluation dependencies") from error
+        raise SystemExit(
+            "Run `uv sync --frozen` to install evaluation dependencies"
+        ) from error
     queries = load_evaluation_queries(args.queries)
     if args.limit_queries:
         queries = queries[: args.limit_queries]

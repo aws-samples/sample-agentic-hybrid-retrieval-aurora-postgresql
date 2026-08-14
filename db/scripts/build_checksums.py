@@ -9,7 +9,12 @@ OUTPUT = ROOT / "SHA256SUMS"
 
 lines = []
 for path in sorted(ROOT.rglob("*")):
-    if not path.is_file() or path == OUTPUT or path.name.endswith(".pyc") or "__pycache__" in path.parts:
+    if (
+        not path.is_file()
+        or path == OUTPUT
+        or path.name.endswith(".pyc")
+        or "__pycache__" in path.parts
+    ):
         continue
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     lines.append(f"{digest}  {path.relative_to(ROOT)}")

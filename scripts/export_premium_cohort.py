@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Render the checked-in premium cohort JSON as the PostgreSQL load CSV."""
+
 from __future__ import annotations
 
 import argparse
@@ -7,7 +8,6 @@ import csv
 import json
 from pathlib import Path
 from typing import Any
-
 
 FIELDS = [
     "product_id",
@@ -41,7 +41,7 @@ def csv_value(field: str, value: Any) -> Any:
 def export_cohort(input_path: Path, output_path: Path) -> int:
     rows = json.loads(input_path.read_text(encoding="utf-8"))
     if not isinstance(rows, list):
-        raise ValueError("premium cohort must be a JSON array")
+        raise TypeError("premium cohort must be a JSON array")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="", encoding="utf-8") as handle:
@@ -59,12 +59,7 @@ def export_cohort(input_path: Path, output_path: Path) -> int:
                 raise ValueError(
                     f"premium cohort row is missing fields: {sorted(missing)}"
                 )
-            writer.writerow(
-                {
-                    field: csv_value(field, row[field])
-                    for field in FIELDS
-                }
-            )
+            writer.writerow({field: csv_value(field, row[field]) for field in FIELDS})
     return len(rows)
 
 

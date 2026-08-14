@@ -5,11 +5,10 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from catalog_mcp import server
+from catalog_mcp.api import CatalogApiClient, CatalogApiError
 from mcp import Client
 from starlette.testclient import TestClient
-
-from catalog_mcp.api import CatalogApiClient, CatalogApiError
-from catalog_mcp import server
 
 
 class FakeCatalogApi:
@@ -72,14 +71,11 @@ async def test_mcp_negotiates_2026_protocol_and_calls_canonical_api(
         search_parameters = tools["search_products"].input_schema["properties"]
         assert "max_price_cents" in search_parameters
         assert "max_price" not in search_parameters
-        assert (
-            search_parameters["domain"]["anyOf"][0]["enum"]
-            == [
-                "consumer_electronics",
-                "running_fitness",
-                "home_office",
-            ]
-        )
+        assert search_parameters["domain"]["anyOf"][0]["enum"] == [
+            "consumer_electronics",
+            "running_fitness",
+            "home_office",
+        ]
 
         result = await client.call_tool(
             "search_products",

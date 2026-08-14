@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Compute Recall@K, MRR, and nDCG@K from graded judgments."""
+
 from __future__ import annotations
 
 import argparse
@@ -19,8 +20,7 @@ def open_text(path: Path):
 
 def dcg(grades: list[int]) -> float:
     return sum(
-        (2**grade - 1) / math.log2(index + 2)
-        for index, grade in enumerate(grades)
+        (2**grade - 1) / math.log2(index + 2) for index, grade in enumerate(grades)
     )
 
 
@@ -39,9 +39,7 @@ def load_judgments(path: Path) -> dict[str, dict[int, int]]:
         return truth
     with open_text(path) as handle:
         for row in csv.DictReader(handle):
-            truth[row["query_id"]][int(row["product_id"])] = int(
-                row["relevance_grade"]
-            )
+            truth[row["query_id"]][int(row["product_id"])] = int(row["relevance_grade"])
     return truth
 
 
@@ -53,9 +51,7 @@ def evaluate(
     per_query: list[dict[str, float | str]] = []
     for query_id, judgments in truth.items():
         got = [product_id for _, product_id in sorted(ranked.get(query_id, []))[:k]]
-        relevant = {
-            product_id for product_id, grade in judgments.items() if grade >= 2
-        }
+        relevant = {product_id for product_id, grade in judgments.items() if grade >= 2}
         recall = len(relevant & set(got)) / max(1, len(relevant))
         first = next(
             (
@@ -81,11 +77,9 @@ def evaluate(
         raise ValueError("No judgments were loaded")
     return {
         "query_count": len(per_query),
-        f"recall@{k}": sum(row[f"recall@{k}"] for row in per_query)
-        / len(per_query),
+        f"recall@{k}": sum(row[f"recall@{k}"] for row in per_query) / len(per_query),
         "mrr": sum(row["reciprocal_rank"] for row in per_query) / len(per_query),
-        f"ndcg@{k}": sum(row[f"ndcg@{k}"] for row in per_query)
-        / len(per_query),
+        f"ndcg@{k}": sum(row[f"ndcg@{k}"] for row in per_query) / len(per_query),
         "per_query": per_query,
     }
 
@@ -110,9 +104,7 @@ def main() -> None:
     ranked: dict[str, list[tuple[int, int]]] = defaultdict(list)
     with open_text(args.results) as handle:
         for row in csv.DictReader(handle):
-            ranked[row["query_id"]].append(
-                (int(row["rank"]), int(row["product_id"]))
-            )
+            ranked[row["query_id"]].append((int(row["rank"]), int(row["product_id"])))
     metrics = evaluate(truth, ranked, args.k)
     print(
         f"queries={metrics['query_count']} "

@@ -9,9 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 QUERY_PATH = ROOT / "data/evals/canonical_queries.jsonl"
 QUERIES = [
     json.loads(line)
-    for line in QUERY_PATH
-    .read_text(encoding="utf-8")
-    .splitlines()
+    for line in QUERY_PATH.read_text(encoding="utf-8").splitlines()
     if line.strip()
 ]
 RESOLVED_QUERIES = load_evaluation_queries(QUERY_PATH)
@@ -56,7 +54,9 @@ def test_participant_queries_resolve_from_the_lab_authority():
     } == {
         ("G-004", "semantic-intent-contrast"),
     }
-    assert all("query" not in query and "filters" not in query for query in mission_backed)
+    assert all(
+        "query" not in query and "filters" not in query for query in mission_backed
+    )
     resolved = {
         query["query_id"]: query
         for query in RESOLVED_QUERIES
@@ -135,8 +135,7 @@ def test_repaired_fixture_release_checks_are_machine_verifiable():
 def test_lab_2_judgment_matches_the_explicit_adjustable_lumbar_intent():
     query = next(item for item in QUERIES if item["query_id"] == "G-008")
     grades = {
-        judgment["product_id"]: judgment["grade"]
-        for judgment in query["judgments"]
+        judgment["product_id"]: judgment["grade"] for judgment in query["judgments"]
     }
 
     assert grades[370002] == 3

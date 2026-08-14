@@ -23,6 +23,9 @@ export function MosaicStudioPage() {
     STUDIO_BRIEFS[0].zones.map(() => 0),
   );
   const [isTouring, setIsTouring] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(
+    () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
+  );
   const [tourStep, setTourStep] = useState(0);
   const [tourCycle, setTourCycle] = useState(0);
   const tourTimer = useRef<number | null>(null);
@@ -37,6 +40,17 @@ export function MosaicStudioPage() {
 
   useEffect(() => () => {
     if (tourTimer.current !== null) window.clearTimeout(tourTimer.current);
+  }, []);
+
+  useEffect(() => {
+    const preference = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!preference) return;
+    const handleChange = (event: MediaQueryListEvent) => {
+      setReduceMotion(event.matches);
+      if (event.matches) setIsTouring(false);
+    };
+    preference.addEventListener("change", handleChange);
+    return () => preference.removeEventListener("change", handleChange);
   }, []);
 
   useEffect(() => {
@@ -74,6 +88,7 @@ export function MosaicStudioPage() {
   };
 
   const startTour = () => {
+    if (reduceMotion) return;
     setTourStep(0);
     setActiveBriefId(STUDIO_BRIEFS[0].id);
     setCandidateIndexes(STUDIO_BRIEFS[0].zones.map(() => 0));
@@ -141,14 +156,16 @@ export function MosaicStudioPage() {
               <Sparkles size={15} aria-hidden="true" />
               {assembled ? "Reset the studio" : "Assemble the studio"}
             </button>
-            <button
-              className="discover-studio-tour"
-              onClick={isTouring ? () => setIsTouring(false) : startTour}
-              type="button"
-            >
-              <RefreshCw size={15} aria-hidden="true" />
-              {isTouring ? "Stop studio tour" : "Play studio tour"}
-            </button>
+            {!reduceMotion ? (
+              <button
+                className="discover-studio-tour"
+                onClick={isTouring ? () => setIsTouring(false) : startTour}
+                type="button"
+              >
+                <RefreshCw size={15} aria-hidden="true" />
+                {isTouring ? "Stop studio tour" : "Play studio tour"}
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -158,7 +175,7 @@ export function MosaicStudioPage() {
               ? `discover-studio-canvas assembled${isTouring ? " touring" : ""}`
               : "discover-studio-canvas"
           }
-          aria-live="polite"
+          aria-live={isTouring ? "off" : "polite"}
         >
           <span className="discover-studio-grid" aria-hidden="true" />
           <span className="discover-studio-orbit discover-studio-orbit-one" aria-hidden="true" />

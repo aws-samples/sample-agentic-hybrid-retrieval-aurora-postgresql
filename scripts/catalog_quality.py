@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Inspect the canonical catalog shards and write a reproducible quality report."""
+
 from __future__ import annotations
 
 import csv
@@ -33,11 +34,15 @@ def percentile(values: list[float], fraction: float) -> float:
 
 
 def main() -> None:
-    manifest = json.loads((ROOT / "data/full/manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads(
+        (ROOT / "data/full/manifest.json").read_text(encoding="utf-8")
+    )
     paths = [ROOT / relative for relative in manifest["full_datasets"]]
     queries = [
         json.loads(line)
-        for line in (ROOT / "data/evals/queries.jsonl").read_text(encoding="utf-8").splitlines()
+        for line in (ROOT / "data/evals/queries.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
         if line.strip()
     ]
     target_filters: dict[int, list[tuple[str, dict[str, Any]]]] = defaultdict(list)

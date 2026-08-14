@@ -28,7 +28,9 @@ def validate_cohort() -> dict[str, object]:
     if len(ids) != len(set(ids)):
         fail("premium cohort product IDs are not unique")
     distribution = Counter(row["domain"] for row in cohort)
-    expected = Counter({"consumer_electronics": 48, "running_fitness": 36, "home_office": 36})
+    expected = Counter(
+        {"consumer_electronics": 48, "running_fitness": 36, "home_office": 36}
+    )
     if distribution != expected:
         fail(f"premium distribution {distribution} != {expected}")
     flagships = [row for row in cohort if row["is_flagship"]]
@@ -38,7 +40,9 @@ def validate_cohort() -> dict[str, object]:
     if len(anchors) != 30:
         fail(f"anchor count {len(anchors)} != 30")
     anchor_distribution = Counter(row["domain"] for row in anchors)
-    if anchor_distribution != Counter({"consumer_electronics": 10, "running_fitness": 10, "home_office": 10}):
+    if anchor_distribution != Counter(
+        {"consumer_electronics": 10, "running_fitness": 10, "home_office": 10}
+    ):
         fail(f"anchor distribution is {anchor_distribution}")
     pages = Counter(row["shop_page"] for row in cohort)
     if pages != Counter({page: 12 for page in range(1, 11)}):
@@ -87,15 +91,26 @@ def validate_sql() -> dict[str, int]:
     sql_dir = ROOT / "sql"
     files = sorted(sql_dir.glob("*.sql"))
     required = {
-        "00_extensions.sql", "01_schemas_and_types.sql", "03_catalog.sql",
-        "05_evidence.sql", "06_retrieval_projection.sql", "07_indexes.sql",
-        "08_indexes_concurrent.sql", "09_search_functions.sql", "10_agent_audit.sql",
-        "11_evaluation.sql", "12_telemetry.sql", "13_benchmark.sql",
-        "15_load_premium_cohort.sql", "17_load_normalized_catalog.sql",
-        "18_load_evidence.sql", "install.sql",
+        "00_extensions.sql",
+        "01_schemas_and_types.sql",
+        "03_catalog.sql",
+        "05_evidence.sql",
+        "06_retrieval_projection.sql",
+        "07_indexes.sql",
+        "08_indexes_concurrent.sql",
+        "09_search_functions.sql",
+        "10_agent_audit.sql",
+        "11_evaluation.sql",
+        "12_telemetry.sql",
+        "13_benchmark.sql",
+        "15_load_premium_cohort.sql",
+        "17_load_normalized_catalog.sql",
+        "18_load_evidence.sql",
+        "install.sql",
         # Evaluation and benchmark schemas install separately so a session's
         # `\dt mosaic.*` shows only the tables the application reads.
-        "install_labs.sql", "upgrade_snapshot.sql",
+        "install_labs.sql",
+        "upgrade_snapshot.sql",
     }
     missing = required - {path.name for path in files}
     if missing:
@@ -126,7 +141,11 @@ def validate_package_branding() -> None:
     allowed_binary_suffixes = {".zip", ".png", ".webp", ".jpg", ".jpeg"}
     stale = []
     for path in ROOT.rglob("*"):
-        if not path.is_file() or path.suffix.lower() in allowed_binary_suffixes or "__pycache__" in path.parts:
+        if (
+            not path.is_file()
+            or path.suffix.lower() in allowed_binary_suffixes
+            or "__pycache__" in path.parts
+        ):
             continue
         try:
             text = path.read_text(encoding="utf-8")

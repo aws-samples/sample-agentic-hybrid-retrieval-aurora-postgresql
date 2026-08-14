@@ -1,4 +1,5 @@
 """Bounded HTTP client for the canonical catalog API."""
+
 from __future__ import annotations
 
 import os
@@ -21,9 +22,7 @@ class CatalogApiClient:
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.base_url = (
-            base_url
-            or os.getenv("CATALOG_API_URL")
-            or "http://127.0.0.1:8000/api"
+            base_url or os.getenv("CATALOG_API_URL") or "http://127.0.0.1:8000/api"
         ).rstrip("/")
         self.timeout_seconds = timeout_seconds or float(
             os.getenv("CATALOG_API_TIMEOUT_SECONDS", "30")

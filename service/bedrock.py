@@ -1,4 +1,5 @@
 """Shared Amazon Bedrock clients with bounded adaptive retries."""
+
 from __future__ import annotations
 
 import threading

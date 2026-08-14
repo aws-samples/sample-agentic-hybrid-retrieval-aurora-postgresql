@@ -4,10 +4,10 @@
 Deterministic hash vectors remain available only for explicit local mechanics
 tests. They are not valid workshop data or relevance evidence.
 """
+
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import math
 import os
@@ -15,9 +15,10 @@ import random
 import re
 import sys
 import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
-from typing import Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -32,14 +33,18 @@ def hash_embed(text: str, dimensions: int) -> list[float]:
     vec = [0.0] * dimensions
     tokens = re.findall(r"[a-z0-9]+", text.lower())
     for i, token in enumerate(tokens):
-        for feature, weight in ((token, 1.0), (" ".join(tokens[i:i+2]), 0.6), (" ".join(tokens[i:i+3]), 0.25)):
+        for feature, weight in (
+            (token, 1.0),
+            (" ".join(tokens[i : i + 2]), 0.6),
+            (" ".join(tokens[i : i + 3]), 0.25),
+        ):
             if not feature:
                 continue
             digest = hashlib.blake2b(feature.encode(), digest_size=16).digest()
             idx = int.from_bytes(digest[:8], "big") % dimensions
             sign = 1.0 if digest[8] & 1 else -1.0
             vec[idx] += sign * weight
-    norm = math.sqrt(sum(x*x for x in vec)) or 1.0
+    norm = math.sqrt(sum(x * x for x in vec)) or 1.0
     return [x / norm for x in vec]
 
 
@@ -138,10 +143,7 @@ def main() -> None:
         raise SystemExit("--limit must be positive")
     if args.min_product_id <= 0:
         raise SystemExit("--min-product-id must be positive")
-    if (
-        args.max_product_id is not None
-        and args.max_product_id < args.min_product_id
-    ):
+    if args.max_product_id is not None and args.max_product_id < args.min_product_id:
         raise SystemExit("--max-product-id must be at least --min-product-id")
 
     try:
@@ -238,7 +240,7 @@ def main() -> None:
                 if not rows:
                     break
                 text_batches = [
-                    [text for _, text, _ in rows[offset:offset + args.batch_size]]
+                    [text for _, text, _ in rows[offset : offset + args.batch_size]]
                     for offset in range(0, len(rows), args.batch_size)
                 ]
                 vectors = [

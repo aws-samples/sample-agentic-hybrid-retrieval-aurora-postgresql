@@ -120,8 +120,12 @@ def build_labels(cohort: list[dict]) -> list[dict]:
                 ),
                 # Only flagships get a square detail hero; the other 114 are
                 # only ever seen in a 3:2 card frame.
-                "detail_asset_key": f"{stem}-detail-1x1" if row["is_flagship"] else None,
-                "detail_runtime": f"{stem}-detail-1x1.webp" if row["is_flagship"] else None,
+                "detail_asset_key": f"{stem}-detail-1x1"
+                if row["is_flagship"]
+                else None,
+                "detail_runtime": f"{stem}-detail-1x1.webp"
+                if row["is_flagship"]
+                else None,
                 "upstream_catalog_asset_key": row["catalog_asset_key"],
             }
 
@@ -139,7 +143,9 @@ def report(labels: list[dict]) -> dict:
     have = installed_stems()
     needed_catalog = [row for row in labels if row["catalog_runtime"][:-5] not in have]
     needed_detail = [
-        row for row in labels if row["detail_runtime"] and row["detail_runtime"][:-5] not in have
+        row
+        for row in labels
+        if row["detail_runtime"] and row["detail_runtime"][:-5] not in have
     ]
     return {
         "products": len(labels),
@@ -211,7 +217,11 @@ def main() -> int:
     labels = build_labels(cohort)
     attach_runtime_status(labels)
 
-    collisions = [key for key, count in Counter(r["asset_stem"] for r in labels).items() if count > 1]
+    collisions = [
+        key
+        for key, count in Counter(r["asset_stem"] for r in labels).items()
+        if count > 1
+    ]
     if collisions:
         print(f"FAIL: duplicate asset stems: {collisions}", file=sys.stderr)
         return 1
@@ -227,7 +237,9 @@ def main() -> int:
 
     if args.check:
         if not args.output.exists() or args.output.read_text() != serialized:
-            print("FAIL: asset labels are stale; re-run without --check", file=sys.stderr)
+            print(
+                "FAIL: asset labels are stale; re-run without --check", file=sys.stderr
+            )
             return 1
         print("asset labels up to date")
         return 0

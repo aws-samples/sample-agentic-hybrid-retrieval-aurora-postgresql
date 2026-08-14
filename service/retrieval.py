@@ -11,8 +11,8 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections import OrderedDict
 from collections.abc import Callable
-from functools import lru_cache
 from typing import Any
 from uuid import uuid4
 
@@ -116,6 +116,7 @@ class RetrievalService:
         self.connection_factory = connection_factory
         # Default False: the served path is unweighted until an explicit ruling.
         self.use_weighted_fusion = use_weighted_fusion
+        self._query_embedding_cache: OrderedDict[str, tuple[float, ...]] = OrderedDict()
 
     def _embedder(self) -> EmbeddingProvider:
         if self.embedding_provider is None:
@@ -136,7 +137,6 @@ class RetrievalService:
         """
         return WEIGHTED_STRATEGY if self.use_weighted_fusion else STRATEGY
 
-    @lru_cache(maxsize=256)
     def _embed_query(self, normalized_query: str) -> tuple[float, ...]:
         """Return one stable vector for repeated normalized queries.
 
@@ -144,7 +144,16 @@ class RetrievalService:
         otherwise identical calls. Reusing the first vector keeps workshop
         ranking fixtures repeatable without changing SQL ranking semantics.
         """
-        return tuple(self._embedder().embed_query(normalized_query))
+        cached = self._query_embedding_cache.get(normalized_query)
+        if cached is not None:
+            self._query_embedding_cache.move_to_end(normalized_query)
+            return cached
+
+        embedded = tuple(self._embedder().embed_query(normalized_query))
+        self._query_embedding_cache[normalized_query] = embedded
+        if len(self._query_embedding_cache) > 256:
+            self._query_embedding_cache.popitem(last=False)
+        return embedded
 
     def embed_query(self, query: str) -> list[float]:
         """Embed one normalized query through the production retrieval provider."""
@@ -277,9 +286,7 @@ class RetrievalService:
             # before the reranker is allowed to reorder anything.
             for fused_rank, row in enumerate(candidates, 1):
                 row["pre_rerank_rank"] = fused_rank
-                row["exact_sku_match"] = _is_exact_sku_match(
-                    normalized, row["sku"]
-                )
+                row["exact_sku_match"] = _is_exact_sku_match(normalized, row["sku"])
 
             rerank_status = "disabled"
             rerank_scores: dict[int, float] = {}

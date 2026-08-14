@@ -1,4 +1,5 @@
 """Safe Bedrock readiness and error classification shared by API surfaces."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -74,7 +75,9 @@ def bedrock_credentials_status(region: str) -> dict[str, Any]:
     """Verify that this process can authenticate to AWS without invoking a model."""
     try:
         boto3.client("sts", region_name=region).get_caller_identity()
-    except Exception as error:
+    # Readiness must fail closed for SDK adapters and credential providers,
+    # including wrappers whose exception hierarchy is not controlled here.
+    except Exception as error:  # noqa: BLE001
         return {
             "ready": False,
             "error": safe_model_runtime_message(

@@ -238,8 +238,7 @@ def validate_agent_response(
         applied = (step.get("arguments") or {}).get("applied_filters") or {}
         _require(
             applied.get("domain") == required_filters["domain"]
-            and applied.get("max_price_cents")
-            <= required_filters["max_price_cents"]
+            and applied.get("max_price_cents") <= required_filters["max_price_cents"]
             and applied.get("in_stock_only") is True,
             "Lab 3 retrieval trace does not preserve structured constraints",
         )

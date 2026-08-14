@@ -11,8 +11,8 @@ from scripts.catalog_contract import (
     product_matches_filters,
     unsupported_filter_keys,
 )
-from service.models import SearchFilters
 from scripts.generate_catalog import ProductContext, specialized_attributes
+from service.models import SearchFilters
 
 ROOT = Path(__file__).resolve().parents[1]
 SKU_PATTERN = re.compile(r"^[A-Z]{2}-[A-Z0-9]{1,5}-[0-9]{7}$")

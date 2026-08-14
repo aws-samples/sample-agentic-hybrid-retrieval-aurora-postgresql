@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SEARCH_SQL = ROOT / "db" / "sql" / "09_search_functions.sql"
 UPGRADE_SQL = ROOT / "db" / "sql" / "upgrade_snapshot.sql"
@@ -34,9 +33,9 @@ def test_snapshot_upgrade_replays_the_current_core_without_preserving_old_code()
 
 def test_make_targets_configure_database_defaults_and_apply_current_functions():
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
-    apply_target = makefile.split("db-apply-search-functions:", 1)[1].split(
-        "\n\n", 1
-    )[0]
+    apply_target = makefile.split("db-apply-search-functions:", 1)[1].split("\n\n", 1)[
+        0
+    ]
     assert "preserve_search_trigram" not in apply_target
     assert "db-configure-retrieval" in apply_target
     assert "09_search_functions.sql" in apply_target

@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.retrieval_profile import (  # noqa: E402  (path set above)
+from scripts.retrieval_profile import (
     ProfileError,
     RetrievalProfileConfig,
     load_profile,
@@ -49,7 +49,7 @@ def _boolean(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _bounded(name: str, default: str, cast: type[int] | type[float]):
+def _bounded(name: str, default: str, cast: type[int | float]):
     """Parse a numeric setting, refusing anything outside its declared bound."""
     raw = os.getenv(name, default)
     try:

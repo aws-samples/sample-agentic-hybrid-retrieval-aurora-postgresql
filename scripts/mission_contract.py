@@ -2,15 +2,13 @@
 """Validate the lab contract, including against the live database.
 
 `data/evals/mosaic_labs_missions.json` is the single source of truth for the
-workshop's labs, retrieval checks, timings, and assertions. Nothing validated it. `make
-validate` reads a different file (`data/evals/queries.jsonl`) and
-`scripts/catalog_contract.py` reimplements filter logic by hand, so it does not
-know `max_price_cents`, `in_stock_only`, or the refurbished and sponsored
-exclusions the real SQL applies. Two retrieval checks shipped that cannot pass.
+workshop's labs, retrieval checks, timings, and assertions. Package validation
+and `scripts/catalog_contract.py` cover adjacent artifact and offline-filter
+contracts; this gate owns mission-internal consistency and live target checks.
 
-This module is the only thing that validates the contract. Where a check needs
-filter semantics it calls `mosaic_search.matches_filters` **on the cluster**
-rather than reimplementing it, because the reimplementation is what failed.
+Where a check needs authoritative filter semantics, this module calls
+`mosaic_search.matches_filters` **on the cluster** rather than treating an
+offline projection as runtime proof.
 
 Scope, deliberately bounded: this gate checks contract-internal consistency and
 contract-versus-Aurora truth. It does not check lesson coverage or custody;
@@ -47,7 +45,7 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from service.assertions import (  # noqa: E402  (path set above)
+from service.assertions import (
     ASSERTIONS,
     KNOWN_ASSERTIONS,
     SIGNAL_ASSERTIONS,

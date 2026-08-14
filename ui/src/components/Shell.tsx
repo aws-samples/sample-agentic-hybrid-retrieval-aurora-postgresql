@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { useLocation } from "wouter";
+import { useCommerce } from "../commerce";
 import { CommerceDrawer } from "./CommerceDrawer";
 import { SiteHeader } from "./SiteHeader";
 
@@ -12,11 +13,18 @@ export function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const pathname = location.split("?")[0];
   const isLanding = pathname === "/" || pathname === "/discover";
+  const { isCartOpen } = useCommerce();
 
   return (
     <div className={isLanding ? "app-shell landing-shell" : "app-shell"}>
-      <SiteHeader />
-      <main className={isLanding ? "landing-main" : undefined}>{children}</main>
+      <SiteHeader inert={isCartOpen} />
+      <main
+        className={isLanding ? "landing-main" : undefined}
+        inert={isCartOpen || undefined}
+        aria-hidden={isCartOpen || undefined}
+      >
+        {children}
+      </main>
       <CommerceDrawer />
     </div>
   );

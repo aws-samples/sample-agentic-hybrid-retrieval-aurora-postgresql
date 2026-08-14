@@ -1,7 +1,9 @@
 """Managed reranking that preserves PostgreSQL RRF provenance."""
+
 from __future__ import annotations
 
-from typing import Protocol, Sequence
+from collections.abc import Sequence
+from typing import Protocol
 
 from service.bedrock import get_bedrock_client
 from service.config import Settings, get_settings
@@ -27,10 +29,7 @@ class BedrockReranker:
         self.model_arn = (
             self.model_id
             if self.model_id.startswith("arn:")
-            else (
-                f"arn:aws:bedrock:{self.region}::foundation-model/"
-                f"{self.model_id}"
-            )
+            else (f"arn:aws:bedrock:{self.region}::foundation-model/{self.model_id}")
         )
 
     def rerank(

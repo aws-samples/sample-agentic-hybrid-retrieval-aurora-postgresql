@@ -9,7 +9,6 @@ import json
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -125,9 +124,9 @@ def test_transform_applies_curated_aliases_before_bootstrap_normalization(
     )
     module.main()
 
-    with gzip.open(output / "products.csv.gz", "rt", newline="", encoding="utf-8") as handle:
+    with gzip.open(
+        output / "products.csv.gz", "rt", newline="", encoding="utf-8"
+    ) as handle:
         normalized = next(csv.DictReader(handle))
     assert normalized["title"] == "Sonora Roam 2 Portable Bluetooth Speaker"
-    assert "waterproof Wi-Fi Bluetooth speaker" in json.loads(
-        normalized["aliases"]
-    )
+    assert "waterproof Wi-Fi Bluetooth speaker" in json.loads(normalized["aliases"])

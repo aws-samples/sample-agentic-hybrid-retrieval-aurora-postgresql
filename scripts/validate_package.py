@@ -62,7 +62,9 @@ def main() -> None:
         len(shards) == 3,
         f"manifest lists {len(shards)} full dataset shards; expected 3. Regenerate data/full/manifest.json.",
     )
-    missing_shards = [str(path.relative_to(ROOT)) for path in shards if not path.is_file()]
+    missing_shards = [
+        str(path.relative_to(ROOT)) for path in shards if not path.is_file()
+    ]
     require(
         not missing_shards,
         f"full dataset shards are missing: {missing_shards}. Restore the checked-in data/full artifacts.",
@@ -81,8 +83,7 @@ def main() -> None:
     )
 
     expected_hashes = {
-        item["path"]: item["sha256"]
-        for item in quality["full_dataset_shards"]
+        item["path"]: item["sha256"] for item in quality["full_dataset_shards"]
     }
     for path in shards:
         relative_path = str(path.relative_to(ROOT))
@@ -197,7 +198,9 @@ def main() -> None:
             "Regenerate the evaluation assets with the catalog."
         ),
     )
-    print("Package validation passed: shards, hashes, row quality, eval filters, sample, and typo cohort.")
+    print(
+        "Package validation passed: shards, hashes, row quality, eval filters, sample, and typo cohort."
+    )
 
 
 if __name__ == "__main__":

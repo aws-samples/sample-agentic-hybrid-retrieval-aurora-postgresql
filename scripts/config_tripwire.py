@@ -37,7 +37,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.retrieval_profile import (  # noqa: E402  (path set above)
+from scripts.retrieval_profile import (
     RETRIEVAL_YAML,
     explain,
     load_profile,

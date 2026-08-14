@@ -22,7 +22,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.retrieval_profile import load_profile  # noqa: E402
+from scripts.retrieval_profile import load_profile
 
 
 class DatabaseConfigurationError(RuntimeError):
@@ -42,8 +42,7 @@ TRIGRAM_IDENTITY_ARGUMENTS = (
 def _expected_settings() -> dict[str, float]:
     profile = load_profile()
     return {
-        setting: float(getattr(profile, field))
-        for setting, field in SETTING_FIELDS
+        setting: float(getattr(profile, field)) for setting, field in SETTING_FIELDS
     }
 
 
@@ -119,9 +118,9 @@ def verify(dsn: str) -> None:
         stored = _stored_database_settings(connection)
         actual = {
             setting: float(
-                connection.execute(
-                    "SELECT current_setting(%s)", (setting,)
-                ).fetchone()[0]
+                connection.execute("SELECT current_setting(%s)", (setting,)).fetchone()[
+                    0
+                ]
             )
             for setting in expected
         }
@@ -146,9 +145,7 @@ def verify(dsn: str) -> None:
             failures.append(
                 f"stored {setting}={stored_value!r}, expected {expected_value:g}"
             )
-        if not math.isclose(
-            actual[setting], expected_value, rel_tol=0, abs_tol=1e-9
-        ):
+        if not math.isclose(actual[setting], expected_value, rel_tol=0, abs_tol=1e-9):
             failures.append(
                 f"new-session {setting}={actual[setting]:g}, "
                 f"expected {expected_value:g}"
@@ -169,9 +166,7 @@ def verify(dsn: str) -> None:
             "fix: run make db-apply-search-functions"
         )
 
-    rendered = ", ".join(
-        f"{setting}={value:g}" for setting, value in expected.items()
-    )
+    rendered = ", ".join(f"{setting}={value:g}" for setting, value in expected.items())
     print(f"Aurora retrieval settings verified: {rendered}")
 
 

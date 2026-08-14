@@ -13,9 +13,10 @@ from __future__ import annotations
 import csv
 import json
 import sys
+from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -71,10 +72,7 @@ def product_matches_filters(
     validate_filter_shape(filters)
     normalized = SearchFilters.model_validate(filters).as_sql_json()
 
-    if (
-        "domain" in normalized
-        and product["domain"] != normalized["domain"]
-    ):
+    if "domain" in normalized and product["domain"] != normalized["domain"]:
         return False
     if "category_key" in normalized:
         identity = (
@@ -89,29 +87,17 @@ def product_matches_filters(
         and str(product["brand"]).lower() != normalized["brand"].lower()
     ):
         return False
-    if (
-        normalized.get("brands")
-        and product["brand"] not in normalized["brands"]
-    ):
+    if normalized.get("brands") and product["brand"] not in normalized["brands"]:
         return False
 
     price_cents = round(float(product["price_usd"]) * 100)
-    if (
-        "max_price_cents" in normalized
-        and price_cents > normalized["max_price_cents"]
-    ):
+    if "max_price_cents" in normalized and price_cents > normalized["max_price_cents"]:
         return False
-    if (
-        "min_price_cents" in normalized
-        and price_cents < normalized["min_price_cents"]
-    ):
+    if "min_price_cents" in normalized and price_cents < normalized["min_price_cents"]:
         return False
 
     availability = _AVAILABILITY[str(product["availability"])]
-    if (
-        "availability" in normalized
-        and availability != normalized["availability"]
-    ):
+    if "availability" in normalized and availability != normalized["availability"]:
         return False
     if normalized.get("in_stock_only") and availability not in {
         "in_stock",
@@ -131,14 +117,11 @@ def product_matches_filters(
         if attributes.get(key) != value:
             return False
 
-    if (
-        _as_bool(product.get("is_refurbished", False))
-        and not normalized.get("include_refurbished", False)
+    if _as_bool(product.get("is_refurbished", False)) and not normalized.get(
+        "include_refurbished", False
     ):
         return False
-    if (
+    return not (
         _as_bool(product.get("is_sponsored", False))
         and not normalized.get("include_sponsored", False)
-    ):
-        return False
-    return True
+    )

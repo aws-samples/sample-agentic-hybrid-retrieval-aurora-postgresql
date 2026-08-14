@@ -179,6 +179,60 @@ describe("MosaicLabsPage", () => {
     expect(screen.getByText("Exact model remains #1")).toBeTruthy();
   });
 
+  it.each([
+    {
+      label: "Typo recovery",
+      candidate: [2, 3, 4, 5, 1, 17001],
+      fused: [2, 4, 3, 5],
+      reranked: [2, 4, 3],
+    },
+    {
+      label: "Semantic intent",
+      candidate: [3, 5, 2, 4, 1, 17001],
+      fused: [3, 2, 5, 4],
+      reranked: [3, 5, 2],
+    },
+  ])("keeps the $label replay ordering bound to its fixture", async ({
+    label,
+    candidate,
+    fused,
+    reranked,
+  }) => {
+    const { container } = render(<MosaicLabsPage />);
+    await waitFor(() => {
+      expect(container.querySelectorAll(".labs-engine-product")).toHaveLength(
+        engineProductIds.length,
+      );
+    });
+
+    const orderedVisibleProductIds = () => (
+      [...container.querySelectorAll<HTMLElement>(".labs-engine-product")]
+        .filter((figure) => !figure.classList.contains("muted"))
+        .sort(
+          (left, right) => (
+            Number(left.style.getPropertyValue("--product-order"))
+            - Number(right.style.getPropertyValue("--product-order"))
+          ),
+        )
+        .map((figure) => Number(figure.dataset.productId))
+    );
+    const stageButtons = container.querySelectorAll<HTMLButtonElement>(
+      ".labs-engine-rail button",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: new RegExp(`Use ${label} query:`) }),
+    );
+    fireEvent.click(stageButtons[1]);
+    expect(orderedVisibleProductIds()).toEqual(candidate);
+
+    fireEvent.click(stageButtons[3]);
+    expect(orderedVisibleProductIds()).toEqual(fused);
+
+    fireEvent.click(stageButtons[4]);
+    expect(orderedVisibleProductIds()).toEqual(reranked);
+  });
+
   it("replays the visible path from query parsing through grounded evidence", async () => {
     vi.useFakeTimers();
     try {

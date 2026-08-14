@@ -7,6 +7,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
@@ -96,12 +97,18 @@ def _replace_block(
 ) -> str:
     if source.count(start_marker) != 1 or source.count(end_marker) != 1:
         raise ValueError(
-            f"lab marker drift: expected one {start_marker!r} and "
-            f"{end_marker!r}"
+            f"lab marker drift: expected one {start_marker!r} and {end_marker!r}"
         )
-    start = source.index(start_marker) + len(start_marker)
-    end = source.index(end_marker, start)
-    return source[:start] + "\n" + replacement.rstrip() + "\n" + source[end:]
+    start_marker_offset = source.index(start_marker)
+    start_line_end = source.index("\n", start_marker_offset)
+    end_marker_offset = source.index(end_marker, start_line_end)
+    end_line_start = source.rfind("\n", 0, end_marker_offset) + 1
+    return (
+        source[: start_line_end + 1]
+        + replacement.rstrip()
+        + "\n"
+        + source[end_line_start:]
+    )
 
 
 def set_lab_state(
@@ -211,9 +218,7 @@ def main() -> int:
         print(f"Lab {args.lab}: SOLUTION ({path.relative_to(REPO)})")
         return 0
     if not lab_is_solved(args.lab):
-        raise SystemExit(
-            f"Lab {args.lab}: BROKEN; run make solution-lab-{args.lab}"
-        )
+        raise SystemExit(f"Lab {args.lab}: BROKEN; run make solution-lab-{args.lab}")
     if args.database_url:
         validate_database(args.lab, args.database_url)
     elif args.lab in {1, 2}:

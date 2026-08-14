@@ -1,4 +1,5 @@
 """Model-facing Strands tools over the canonical catalog API contracts."""
+
 from __future__ import annotations
 
 import json
@@ -379,9 +380,7 @@ def search_products(
             "query": query,
             "filters": filters,
             "purpose": f"Retrieve products for: {query}",
-            "product_ids": [
-                product.product_id for product in ranked_results
-            ],
+            "product_ids": [product.product_id for product in ranked_results],
         }
     )
     for product in ranked_results:
@@ -478,13 +477,13 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
             "no evidence records were available for this product",
             "choose another retrieved product or state the evidence gap.",
         )
-# LAB3_EVIDENCE_STATE_START
+    # LAB3_EVIDENCE_STATE_START
     for item in evidence:
         state["evidence"][item.evidence_id] = item
         product_evidence = state["evidence_by_product"].setdefault(product_id, [])
         if item.evidence_id not in product_evidence:
             product_evidence.append(item.evidence_id)
-# LAB3_EVIDENCE_STATE_END
+    # LAB3_EVIDENCE_STATE_END
     _record(
         "get_product_evidence",
         arguments,
@@ -760,11 +759,14 @@ def finalize_retrieved_answer(
     state = _state()
     if state["answer_of_record"] is not None:
         return
-    selected_ids = product_ids or [
-        product_id
-        for product_id in state["evidence_by_product"]
-        if product_id in state["products"]
-    ][: min(state["result_limit"], 4)]
+    selected_ids = (
+        product_ids
+        or [
+            product_id
+            for product_id in state["evidence_by_product"]
+            if product_id in state["products"]
+        ][: min(state["result_limit"], 4)]
+    )
     products = [state["products"][product_id] for product_id in selected_ids]
     if not products:
         raise RuntimeError("No retrieved products are available for synthesis")
@@ -775,9 +777,7 @@ def finalize_retrieved_answer(
         )
     evidence = _evidence_for_products(state, selected_ids)
     if not evidence:
-        raise RuntimeError(
-            "No retrieved evidence is available for grounded synthesis"
-        )
+        raise RuntimeError("No retrieved evidence is available for grounded synthesis")
 
     answer, citations, usage = synthesize_answer(question, products, evidence)
     state["answer_of_record"] = {
@@ -922,7 +922,8 @@ def persist_completed_run(
                                         citation.model_dump()
                                         for citation in record["citations"]
                                     ]
-                                    if record and step["tool"] == "synthesize_cited_answer"
+                                    if record
+                                    and step["tool"] == "synthesize_cited_answer"
                                     else None
                                 ),
                             },

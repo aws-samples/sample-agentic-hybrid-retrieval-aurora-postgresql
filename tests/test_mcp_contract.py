@@ -1,18 +1,15 @@
-from pathlib import Path
 import tomllib
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_mcp_2026_runtime_is_isolated_from_strands() -> None:
-    pyproject = tomllib.loads(
-        (ROOT / "mcp-server" / "pyproject.toml").read_text()
-    )
+    pyproject = tomllib.loads((ROOT / "mcp-server" / "pyproject.toml").read_text())
     mcp_dependencies = pyproject["project"]["dependencies"]
     shared_dependencies = (
-        ROOT / "config" / "requirements.txt"
-    ).read_text().splitlines()
+        (ROOT / "config" / "requirements.txt").read_text().splitlines()
+    )
 
     assert "mcp==2.0.0" in mcp_dependencies
     assert pyproject["project"]["requires-python"] == ">=3.13,<3.14"
@@ -29,9 +26,7 @@ def test_mosaic_runtime_contract_is_python_313() -> None:
 
 
 def test_mcp_server_uses_stateless_2026_transport_and_api_contracts() -> None:
-    source = (
-        ROOT / "mcp-server" / "catalog_mcp" / "server.py"
-    ).read_text()
+    source = (ROOT / "mcp-server" / "catalog_mcp" / "server.py").read_text()
 
     assert "stateless_http=True" in source
     assert 'name="mosaic-retrieval"' in source

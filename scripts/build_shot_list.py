@@ -52,8 +52,16 @@ def main() -> int:
     outstanding = []
     for row in rows:
         for role, runtime, size in (
-            ("catalog-3x2", row["catalog_runtime"], "1800x1200 master / 1200x800 runtime"),
-            ("detail-1x1", row["detail_runtime"], "1600x1600 master / 1200x1200 runtime"),
+            (
+                "catalog-3x2",
+                row["catalog_runtime"],
+                "1800x1200 master / 1200x800 runtime",
+            ),
+            (
+                "detail-1x1",
+                row["detail_runtime"],
+                "1600x1600 master / 1200x1200 runtime",
+            ),
         ):
             if not runtime or runtime[:-5] in have:
                 continue
@@ -112,10 +120,12 @@ def main() -> int:
     lines = [
         "# Mosaic premium cohort — outstanding image shot list",
         "",
-        f"**{len(outstanding)} images to generate** across "
-        f"{len({item['product_id'] for item in outstanding})} products. "
-        f"The 120-product cohort is fixed by the schema package; this is the subset "
-        f"whose runtime file is not yet installed.",
+        (
+            f"**{len(outstanding)} images to generate** across "
+            f"{len({item['product_id'] for item in outstanding})} products. "
+            "The 120-product cohort is fixed by the schema package; this is the "
+            "subset whose runtime file is not yet installed."
+        ),
         "",
         "## Exact domain count",
         "",

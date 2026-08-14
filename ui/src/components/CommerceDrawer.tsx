@@ -170,11 +170,11 @@ export function CommerceDrawer() {
   }, [isCartOpen, stage]);
 
   useEffect(() => {
-    if (isCartOpen || stage !== "complete") return;
+    if (isCartOpen) return;
     setStage("cart");
     setOrderNumber("");
     setDelivery(emptyDeliveryDetails());
-  }, [isCartOpen, stage]);
+  }, [isCartOpen]);
 
   if (!isCartOpen) return null;
 
@@ -299,6 +299,8 @@ export function CommerceDrawer() {
                               <button
                                 type="button"
                                 aria-label={`Decrease ${product.title} quantity`}
+                                title={quantity === 1 ? "Use Remove to delete this item" : undefined}
+                                disabled={quantity === 1}
                                 onClick={() => setQuantity(product.product_id, quantity - 1)}
                               >
                                 <Minus size={14} />

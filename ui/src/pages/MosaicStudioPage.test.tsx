@@ -9,7 +9,11 @@ describe("MosaicStudioPage", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   });
 
-  afterEach(cleanup);
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    cleanup();
+  });
 
   it("renders curated catalog fixtures immediately without a retrieval request", () => {
     render(<MosaicStudioPage />);
@@ -58,8 +62,24 @@ describe("MosaicStudioPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Play studio tour" }));
     expect(screen.getByRole("button", { name: "Stop studio tour" })).toBeTruthy();
     expect(screen.getByText("Studio assembled")).toBeTruthy();
+    expect(document.querySelector(".discover-studio-canvas")?.getAttribute("aria-live")).toBe(
+      "off",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Stop studio tour" }));
     expect(screen.getByRole("button", { name: "Play studio tour" })).toBeTruthy();
+  });
+
+  it("does not offer an auto-rotating tour when reduced motion is requested", () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+
+    render(<MosaicStudioPage />);
+
+    expect(screen.queryByRole("button", { name: "Play studio tour" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Assemble the studio" })).toBeTruthy();
   });
 });

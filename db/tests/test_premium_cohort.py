@@ -15,7 +15,9 @@ class PremiumCohortTests(unittest.TestCase):
         self.assertEqual(len(self.rows), 120)
         self.assertEqual(
             Counter(row["domain"] for row in self.rows),
-            Counter({"consumer_electronics": 48, "running_fitness": 36, "home_office": 36}),
+            Counter(
+                {"consumer_electronics": 48, "running_fitness": 36, "home_office": 36}
+            ),
         )
 
     def test_flagships_and_anchors(self):
@@ -23,7 +25,10 @@ class PremiumCohortTests(unittest.TestCase):
         self.assertEqual(sum(row["is_retrieval_anchor"] for row in self.rows), 30)
 
     def test_shop_pages_are_complete(self):
-        self.assertEqual(Counter(row["shop_page"] for row in self.rows), Counter({i: 12 for i in range(1, 11)}))
+        self.assertEqual(
+            Counter(row["shop_page"] for row in self.rows),
+            Counter({i: 12 for i in range(1, 11)}),
+        )
 
 
 if __name__ == "__main__":

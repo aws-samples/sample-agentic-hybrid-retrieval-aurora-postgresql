@@ -11,7 +11,7 @@ edit that would make it unable to fail.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 import pytest
 
@@ -47,7 +47,7 @@ class StubConnection:
     def fetchall(self) -> list[tuple]:
         return self.rows
 
-    def __enter__(self) -> StubConnection:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: object) -> None:

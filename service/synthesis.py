@@ -1,9 +1,11 @@
 """Citation-validated answer synthesis over retrieved catalog evidence."""
+
 from __future__ import annotations
 
 import json
 import re
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from service.bedrock import get_bedrock_client
 from service.config import Settings, get_settings
@@ -96,21 +98,16 @@ def _validated_output(
             "a filtered or interrupted answer cannot become the answer of record"
         )
     answer = _text(response)
-    cited_numbers = sorted(
-        {int(value) for value in re.findall(r"\[(\d+)\]", answer)}
-    )
+    cited_numbers = sorted({int(value) for value in re.findall(r"\[(\d+)\]", answer)})
     if not cited_numbers:
-        raise SynthesisOutputError(
-            "Synthesized answer did not cite catalog evidence"
-        )
+        raise SynthesisOutputError("Synthesized answer did not cite catalog evidence")
     if cited_numbers[0] < 1 or cited_numbers[-1] > len(evidence_records):
         raise SynthesisOutputError(
             "Synthesized answer cited evidence outside the retrieved set"
         )
     selected_product_ids = {product.product_id for product in products}
     cited_product_ids = {
-        evidence_records[number - 1].product_id
-        for number in cited_numbers
+        evidence_records[number - 1].product_id for number in cited_numbers
     }
     if selected_product_ids - cited_product_ids:
         raise SynthesisOutputError(
@@ -238,9 +235,7 @@ def synthesize_cited_answer(
         "modelId": settings.synthesis_model_id,
         "system": [{"text": SYSTEM_PROMPT}],
         "inferenceConfig": {"maxTokens": 1_400},
-        "requestMetadata": {
-            "application": "catalog-hybrid-retrieval-workshop"
-        },
+        "requestMetadata": {"application": "catalog-hybrid-retrieval-workshop"},
     }
     responses = [
         runtime.converse(
@@ -249,9 +244,7 @@ def synthesize_cited_answer(
         )
     ]
     try:
-        answer, citations = _validated_output(
-            responses[-1], products, evidence_records
-        )
+        answer, citations = _validated_output(responses[-1], products, evidence_records)
     except SynthesisOutputError as error:
         draft = _text(responses[-1])
         responses.append(
@@ -281,7 +274,5 @@ def synthesize_cited_answer(
                 ],
             )
         )
-        answer, citations = _validated_output(
-            responses[-1], products, evidence_records
-        )
+        answer, citations = _validated_output(responses[-1], products, evidence_records)
     return answer, citations, _combined_usage(responses)

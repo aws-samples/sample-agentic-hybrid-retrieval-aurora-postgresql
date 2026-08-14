@@ -108,7 +108,11 @@ def main() -> int:
         return 1
 
     candidates = sorted(
-        [p for p in args.source.iterdir() if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}]
+        [
+            p
+            for p in args.source.iterdir()
+            if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+        ]
     )
     if not candidates:
         print(f"FAIL: no images found in {args.source}", file=sys.stderr)
@@ -169,7 +173,9 @@ def main() -> int:
             print(f"marked {recorded} plate(s) installed in {PLATES.name}")
 
     if refused:
-        print(f"\nrefused {len(refused)} file(s) not in either manifest:", file=sys.stderr)
+        print(
+            f"\nrefused {len(refused)} file(s) not in either manifest:", file=sys.stderr
+        )
         for name in refused:
             print(f"  {name}", file=sys.stderr)
         print(

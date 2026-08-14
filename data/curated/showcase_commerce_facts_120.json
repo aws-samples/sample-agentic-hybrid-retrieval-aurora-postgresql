@@ -1,0 +1,1202 @@
+[
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 184,
+    "list_price_usd": 329.0,
+    "price_usd": 299.0,
+    "product_id": 1,
+    "rating": 4.8,
+    "review_count": 2431
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 746,
+    "list_price_usd": 149.0,
+    "price_usd": 129.0,
+    "product_id": 17001,
+    "rating": 4.6,
+    "review_count": 1814
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 614,
+    "list_price_usd": 279.0,
+    "price_usd": 249.0,
+    "product_id": 116001,
+    "rating": 4.7,
+    "review_count": 3122
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 342,
+    "list_price_usd": 249.99,
+    "price_usd": 219.99,
+    "product_id": 234001,
+    "rating": 4.7,
+    "review_count": 1260
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 116,
+    "list_price_usd": 799.0,
+    "price_usd": 699.0,
+    "product_id": 370001,
+    "rating": 4.7,
+    "review_count": 1288
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 371,
+    "list_price_usd": 599.0,
+    "price_usd": 549.0,
+    "product_id": 420001,
+    "rating": 4.7,
+    "review_count": 1086
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 946,
+    "list_price_usd": 179.99,
+    "price_usd": 149.99,
+    "product_id": 2,
+    "rating": 4.6,
+    "review_count": 1248
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 511,
+    "list_price_usd": 199.99,
+    "price_usd": 149.99,
+    "product_id": 3,
+    "rating": 4.4,
+    "review_count": 982
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 319,
+    "list_price_usd": 229.0,
+    "price_usd": 179.0,
+    "product_id": 4,
+    "rating": 4.7,
+    "review_count": 2103
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 1022,
+    "list_price_usd": 159.95,
+    "price_usd": 129.95,
+    "product_id": 5,
+    "rating": 4.3,
+    "review_count": 756
+  },
+  {
+    "availability": "Low Stock",
+    "currency": "USD",
+    "inventory_count": 32,
+    "list_price_usd": 399.95,
+    "price_usd": 349.95,
+    "product_id": 6,
+    "rating": 4.6,
+    "review_count": 8700
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 455,
+    "list_price_usd": 219.99,
+    "price_usd": 189.99,
+    "product_id": 234002,
+    "rating": 4.5,
+    "review_count": 960
+  },
+  {
+    "availability": "Low Stock",
+    "currency": "USD",
+    "inventory_count": 62,
+    "list_price_usd": 199.99,
+    "price_usd": 169.99,
+    "product_id": 234003,
+    "rating": 4.4,
+    "review_count": 751
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 703,
+    "list_price_usd": 189.0,
+    "price_usd": 169.0,
+    "product_id": 210001,
+    "rating": 4.8,
+    "review_count": 1942
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 841,
+    "list_price_usd": 149.99,
+    "price_usd": 129.99,
+    "product_id": 210002,
+    "rating": 4.5,
+    "review_count": 842
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 142,
+    "list_price_usd": 999.99,
+    "price_usd": 899.99,
+    "product_id": 420002,
+    "rating": 4.7,
+    "review_count": 1076
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 864,
+    "list_price_usd": 99.99,
+    "price_usd": 79.99,
+    "product_id": 474001,
+    "rating": 4.6,
+    "review_count": 1234
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 502,
+    "list_price_usd": 189.99,
+    "price_usd": 169.99,
+    "product_id": 429001,
+    "rating": 4.7,
+    "review_count": 2905
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 635,
+    "list_price_usd": 199.99,
+    "price_usd": 179.99,
+    "product_id": 30001,
+    "rating": 4.5,
+    "review_count": 2044
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 905,
+    "list_price_usd": 179.0,
+    "price_usd": 149.0,
+    "product_id": 17002,
+    "rating": 4.4,
+    "review_count": 1844
+  },
+  {
+    "availability": "Low Stock",
+    "currency": "USD",
+    "inventory_count": 48,
+    "list_price_usd": 429.0,
+    "price_usd": 399.0,
+    "product_id": 17003,
+    "rating": 4.7,
+    "review_count": 886
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 288,
+    "list_price_usd": 649.0,
+    "price_usd": 599.0,
+    "product_id": 116002,
+    "rating": 4.7,
+    "review_count": 1744
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 24,
+    "list_price_usd": 183.97,
+    "price_usd": 152.21,
+    "product_id": 208828,
+    "rating": 4.5,
+    "review_count": 1703
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 713,
+    "list_price_usd": 149.99,
+    "price_usd": 129.99,
+    "product_id": 429002,
+    "rating": 4.5,
+    "review_count": 1711
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 281,
+    "list_price_usd": 799.0,
+    "price_usd": 699.0,
+    "product_id": 370002,
+    "rating": 4.6,
+    "review_count": 1422
+  },
+  {
+    "availability": "Low Stock",
+    "currency": "USD",
+    "inventory_count": 47,
+    "list_price_usd": 999.0,
+    "price_usd": 899.0,
+    "product_id": 370003,
+    "rating": 4.5,
+    "review_count": 903
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 491,
+    "list_price_usd": 219.99,
+    "price_usd": 189.99,
+    "product_id": 452001,
+    "rating": 4.6,
+    "review_count": 1642
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 266,
+    "list_price_usd": 649.99,
+    "price_usd": 599.99,
+    "product_id": 290001,
+    "rating": 4.8,
+    "review_count": 2388
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 280,
+    "list_price_usd": 69.15,
+    "price_usd": 67.76,
+    "product_id": 369311,
+    "rating": 5.0,
+    "review_count": 1297
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 114,
+    "list_price_usd": 184.55,
+    "price_usd": 153.3,
+    "product_id": 368900,
+    "rating": 4.5,
+    "review_count": 4101
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 22,
+    "list_price_usd": 51.23,
+    "price_usd": 46.51,
+    "product_id": 200727,
+    "rating": 5.0,
+    "review_count": 2847
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 37,
+    "list_price_usd": 141.52,
+    "price_usd": 128.35,
+    "product_id": 202952,
+    "rating": 4.8,
+    "review_count": 998
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 6,
+    "list_price_usd": 185.79,
+    "price_usd": 179.23,
+    "product_id": 209459,
+    "rating": 4.5,
+    "review_count": 3668
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 17,
+    "list_price_usd": 137.24,
+    "price_usd": 112.39,
+    "product_id": 206921,
+    "rating": 4.9,
+    "review_count": 1979
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 70,
+    "list_price_usd": 239.52,
+    "price_usd": 187.51,
+    "product_id": 364267,
+    "rating": 4.8,
+    "review_count": 3935
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 0,
+    "list_price_usd": 117.74,
+    "price_usd": 101.14,
+    "product_id": 287896,
+    "rating": 5.0,
+    "review_count": 925
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 7,
+    "list_price_usd": 124.95,
+    "price_usd": 113.6,
+    "product_id": 276655,
+    "rating": 4.9,
+    "review_count": 1588
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 12,
+    "list_price_usd": 1452.67,
+    "price_usd": 1081.52,
+    "product_id": 345447,
+    "rating": 4.9,
+    "review_count": 1306
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 15,
+    "list_price_usd": 235.65,
+    "price_usd": 204.75,
+    "product_id": 492562,
+    "rating": 4.9,
+    "review_count": 1099
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 13,
+    "list_price_usd": 413.54,
+    "price_usd": 378.73,
+    "product_id": 493562,
+    "rating": 4.6,
+    "review_count": 80
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 8,
+    "list_price_usd": 80.75,
+    "price_usd": 72.61,
+    "product_id": 494820,
+    "rating": 5.0,
+    "review_count": 460
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 11,
+    "list_price_usd": 1160.76,
+    "price_usd": 1017.01,
+    "product_id": 497949,
+    "rating": 4.7,
+    "review_count": 3600
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 152,
+    "list_price_usd": 134.99,
+    "price_usd": 132.22,
+    "product_id": 53581,
+    "rating": 4.9,
+    "review_count": 990
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 15,
+    "list_price_usd": 213.35,
+    "price_usd": 179.79,
+    "product_id": 44051,
+    "rating": 4.6,
+    "review_count": 740
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 31,
+    "list_price_usd": 91.15,
+    "price_usd": 81.32,
+    "product_id": 90033,
+    "rating": 5.0,
+    "review_count": 725
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 44,
+    "list_price_usd": 1475.5,
+    "price_usd": 1238.86,
+    "product_id": 62137,
+    "rating": 4.9,
+    "review_count": 2398
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 27,
+    "list_price_usd": 249.77,
+    "price_usd": 228.92,
+    "product_id": 81092,
+    "rating": 5.0,
+    "review_count": 943
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 61,
+    "list_price_usd": 563.33,
+    "price_usd": 447.62,
+    "product_id": 343228,
+    "rating": 4.8,
+    "review_count": 1006
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 62,
+    "list_price_usd": 227.04,
+    "price_usd": 169.19,
+    "product_id": 347804,
+    "rating": 4.8,
+    "review_count": 370
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 26,
+    "list_price_usd": 1400.5,
+    "price_usd": 1315.04,
+    "product_id": 344665,
+    "rating": 5.0,
+    "review_count": 339
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 163,
+    "list_price_usd": 416.72,
+    "price_usd": 309.08,
+    "product_id": 257162,
+    "rating": 4.8,
+    "review_count": 5115
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 39,
+    "list_price_usd": 636.17,
+    "price_usd": 469.12,
+    "product_id": 499799,
+    "rating": 4.5,
+    "review_count": 5695
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 43,
+    "list_price_usd": 432.22,
+    "price_usd": 322.86,
+    "product_id": 496100,
+    "rating": 5.0,
+    "review_count": 516
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 8,
+    "list_price_usd": 792.37,
+    "price_usd": 614.76,
+    "product_id": 412915,
+    "rating": 4.9,
+    "review_count": 837
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 17,
+    "list_price_usd": 144.63,
+    "price_usd": 114.06,
+    "product_id": 87852,
+    "rating": 5.0,
+    "review_count": 1571
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 17,
+    "list_price_usd": 482.93,
+    "price_usd": 469.11,
+    "product_id": 73425,
+    "rating": 4.9,
+    "review_count": 5946
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 124,
+    "list_price_usd": 75.44,
+    "price_usd": 68.57,
+    "product_id": 186673,
+    "rating": 5.0,
+    "review_count": 1152
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 29,
+    "list_price_usd": 911.61,
+    "price_usd": 815.98,
+    "product_id": 190047,
+    "rating": 5.0,
+    "review_count": 1859
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 81,
+    "list_price_usd": 133.85,
+    "price_usd": 107.06,
+    "product_id": 199756,
+    "rating": 5.0,
+    "review_count": 89
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 43,
+    "list_price_usd": 908.44,
+    "price_usd": 749.46,
+    "product_id": 405293,
+    "rating": 4.6,
+    "review_count": 4109
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 20,
+    "list_price_usd": 269.44,
+    "price_usd": 203.27,
+    "product_id": 413441,
+    "rating": 5.0,
+    "review_count": 915
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 11,
+    "list_price_usd": 971.02,
+    "price_usd": 750.68,
+    "product_id": 394568,
+    "rating": 4.9,
+    "review_count": 923
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 21,
+    "list_price_usd": 649.43,
+    "price_usd": 514.04,
+    "product_id": 404018,
+    "rating": 4.5,
+    "review_count": 755
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 9,
+    "list_price_usd": 100.24,
+    "price_usd": 85.1,
+    "product_id": 354868,
+    "rating": 5.0,
+    "review_count": 761
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 32,
+    "list_price_usd": 195.69,
+    "price_usd": 188.64,
+    "product_id": 350356,
+    "rating": 4.9,
+    "review_count": 514
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 0,
+    "list_price_usd": 98.66,
+    "price_usd": 73.37,
+    "product_id": 353554,
+    "rating": 4.9,
+    "review_count": 2825
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 30,
+    "list_price_usd": 116.72,
+    "price_usd": 97.75,
+    "product_id": 197379,
+    "rating": 5.0,
+    "review_count": 650
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 19,
+    "list_price_usd": 103.08,
+    "price_usd": 100.94,
+    "product_id": 177765,
+    "rating": 4.9,
+    "review_count": 1240
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 71,
+    "list_price_usd": 700.04,
+    "price_usd": 587.77,
+    "product_id": 179349,
+    "rating": 5.0,
+    "review_count": 689
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 13,
+    "list_price_usd": 171.05,
+    "price_usd": 133.09,
+    "product_id": 185614,
+    "rating": 5.0,
+    "review_count": 2376
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 125,
+    "list_price_usd": 12.1,
+    "price_usd": 10.18,
+    "product_id": 351710,
+    "rating": 4.7,
+    "review_count": 66
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 106,
+    "list_price_usd": 58.48,
+    "price_usd": 51.18,
+    "product_id": 362142,
+    "rating": 4.6,
+    "review_count": 13040
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 50,
+    "list_price_usd": 40.87,
+    "price_usd": 38.39,
+    "product_id": 361485,
+    "rating": 4.8,
+    "review_count": 4082
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 24,
+    "list_price_usd": 219.47,
+    "price_usd": 195.4,
+    "product_id": 356401,
+    "rating": 4.6,
+    "review_count": 2782
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 18,
+    "list_price_usd": 176.34,
+    "price_usd": 129.55,
+    "product_id": 478047,
+    "rating": 5.0,
+    "review_count": 514
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 35,
+    "list_price_usd": 115.7,
+    "price_usd": 92.9,
+    "product_id": 472114,
+    "rating": 5.0,
+    "review_count": 913
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 12,
+    "list_price_usd": 288.2,
+    "price_usd": 229.15,
+    "product_id": 434091,
+    "rating": 4.7,
+    "review_count": 3628
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 32,
+    "list_price_usd": 550.39,
+    "price_usd": 504.95,
+    "product_id": 441924,
+    "rating": 4.7,
+    "review_count": 8497
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 39,
+    "list_price_usd": 260.74,
+    "price_usd": 214.33,
+    "product_id": 184720,
+    "rating": 4.9,
+    "review_count": 3712
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 23,
+    "list_price_usd": 826.05,
+    "price_usd": 790.91,
+    "product_id": 175064,
+    "rating": 4.9,
+    "review_count": 272
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 12,
+    "list_price_usd": 894.03,
+    "price_usd": 800.0,
+    "product_id": 182111,
+    "rating": 4.6,
+    "review_count": 9860
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 39,
+    "list_price_usd": 61.29,
+    "price_usd": 49.02,
+    "product_id": 112732,
+    "rating": 4.9,
+    "review_count": 5336
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 169,
+    "list_price_usd": 68.47,
+    "price_usd": 64.46,
+    "product_id": 111282,
+    "rating": 4.9,
+    "review_count": 4170
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 98,
+    "list_price_usd": 1081.72,
+    "price_usd": 797.23,
+    "product_id": 358608,
+    "rating": 4.7,
+    "review_count": 2457
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 37,
+    "list_price_usd": 700.17,
+    "price_usd": 696.54,
+    "product_id": 310352,
+    "rating": 4.9,
+    "review_count": 1884
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 25,
+    "list_price_usd": 155.14,
+    "price_usd": 135.91,
+    "product_id": 325824,
+    "rating": 4.8,
+    "review_count": 1708
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 7,
+    "list_price_usd": 152.26,
+    "price_usd": 137.91,
+    "product_id": 314404,
+    "rating": 5.0,
+    "review_count": 2136
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 56,
+    "list_price_usd": 196.63,
+    "price_usd": 192.69,
+    "product_id": 451773,
+    "rating": 4.5,
+    "review_count": 3953
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 19,
+    "list_price_usd": 730.34,
+    "price_usd": 656.06,
+    "product_id": 445995,
+    "rating": 4.9,
+    "review_count": 2544
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 18,
+    "list_price_usd": 298.95,
+    "price_usd": 250.0,
+    "product_id": 450337,
+    "rating": 4.8,
+    "review_count": 73
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 63,
+    "list_price_usd": 105.27,
+    "price_usd": 102.63,
+    "product_id": 107658,
+    "rating": 4.7,
+    "review_count": 1161
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 9,
+    "list_price_usd": 78.08,
+    "price_usd": 65.96,
+    "product_id": 102578,
+    "rating": 4.8,
+    "review_count": 3396
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 22,
+    "list_price_usd": 261.7,
+    "price_usd": 221.78,
+    "product_id": 144145,
+    "rating": 5.0,
+    "review_count": 1801
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 99,
+    "list_price_usd": 200.12,
+    "price_usd": 147.13,
+    "product_id": 151167,
+    "rating": 5.0,
+    "review_count": 517
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 94,
+    "list_price_usd": 50.99,
+    "price_usd": 37.42,
+    "product_id": 148123,
+    "rating": 5.0,
+    "review_count": 787
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 23,
+    "list_price_usd": 105.68,
+    "price_usd": 77.89,
+    "product_id": 467721,
+    "rating": 5.0,
+    "review_count": 1303
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 41,
+    "list_price_usd": 752.73,
+    "price_usd": 552.26,
+    "product_id": 464225,
+    "rating": 5.0,
+    "review_count": 428
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 96,
+    "list_price_usd": 223.41,
+    "price_usd": 201.68,
+    "product_id": 462215,
+    "rating": 4.8,
+    "review_count": 6539
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 15,
+    "list_price_usd": 194.75,
+    "price_usd": 149.98,
+    "product_id": 469315,
+    "rating": 4.7,
+    "review_count": 604
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 95,
+    "list_price_usd": 51.13,
+    "price_usd": 40.58,
+    "product_id": 322406,
+    "rating": 5.0,
+    "review_count": 295
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 25,
+    "list_price_usd": 75.44,
+    "price_usd": 60.54,
+    "product_id": 315383,
+    "rating": 4.9,
+    "review_count": 603
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 22,
+    "list_price_usd": 124.17,
+    "price_usd": 96.89,
+    "product_id": 303978,
+    "rating": 4.7,
+    "review_count": 2706
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 178,
+    "list_price_usd": 216.03,
+    "price_usd": 199.11,
+    "product_id": 153282,
+    "rating": 4.9,
+    "review_count": 680
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 53,
+    "list_price_usd": 205.37,
+    "price_usd": 160.41,
+    "product_id": 171787,
+    "rating": 4.6,
+    "review_count": 2520
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 53,
+    "list_price_usd": 134.87,
+    "price_usd": 103.55,
+    "product_id": 155297,
+    "rating": 4.7,
+    "review_count": 561
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 36,
+    "list_price_usd": 148.06,
+    "price_usd": 127.46,
+    "product_id": 160685,
+    "rating": 4.7,
+    "review_count": 1319
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 60,
+    "list_price_usd": 646.46,
+    "price_usd": 643.89,
+    "product_id": 299695,
+    "rating": 4.7,
+    "review_count": 1438
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 105,
+    "list_price_usd": 98.56,
+    "price_usd": 72.65,
+    "product_id": 301318,
+    "rating": 4.8,
+    "review_count": 3061
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 25,
+    "list_price_usd": 140.26,
+    "price_usd": 129.18,
+    "product_id": 336417,
+    "rating": 5.0,
+    "review_count": 3419
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 64,
+    "list_price_usd": 118.51,
+    "price_usd": 89.46,
+    "product_id": 331037,
+    "rating": 5.0,
+    "review_count": 2090
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 25,
+    "list_price_usd": 95.84,
+    "price_usd": 73.04,
+    "product_id": 484438,
+    "rating": 4.7,
+    "review_count": 6574
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 8,
+    "list_price_usd": 136.56,
+    "price_usd": 112.05,
+    "product_id": 389388,
+    "rating": 4.8,
+    "review_count": 2284
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 53,
+    "list_price_usd": 1732.38,
+    "price_usd": 1308.05,
+    "product_id": 385432,
+    "rating": 4.8,
+    "review_count": 2353
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 40,
+    "list_price_usd": 325.13,
+    "price_usd": 286.39,
+    "product_id": 461115,
+    "rating": 4.7,
+    "review_count": 39
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 21,
+    "list_price_usd": 136.17,
+    "price_usd": 120.63,
+    "product_id": 135825,
+    "rating": 4.8,
+    "review_count": 773
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 52,
+    "list_price_usd": 84.66,
+    "price_usd": 74.04,
+    "product_id": 127201,
+    "rating": 4.9,
+    "review_count": 4271
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 58,
+    "list_price_usd": 211.42,
+    "price_usd": 206.12,
+    "product_id": 133420,
+    "rating": 4.6,
+    "review_count": 4482
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 70,
+    "list_price_usd": 312.6,
+    "price_usd": 249.98,
+    "product_id": 333903,
+    "rating": 4.8,
+    "review_count": 1366
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 40,
+    "list_price_usd": 208.46,
+    "price_usd": 161.48,
+    "product_id": 337815,
+    "rating": 4.6,
+    "review_count": 3427
+  },
+  {
+    "availability": "In Stock",
+    "currency": "USD",
+    "inventory_count": 165,
+    "list_price_usd": 102.96,
+    "price_usd": 95.98,
+    "product_id": 460862,
+    "rating": 4.8,
+    "review_count": 578
+  }
+]

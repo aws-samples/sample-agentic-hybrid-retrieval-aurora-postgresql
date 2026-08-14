@@ -73,7 +73,7 @@ class Bound:
     env: str | None
     low: float
     high: float
-    cast: type[int] | type[float]
+    cast: type[int | float]
 
 
 # The declared surface of the profile. Bounds match

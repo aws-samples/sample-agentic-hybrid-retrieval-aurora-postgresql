@@ -1,10 +1,11 @@
 """FastAPI surface for catalog browsing, retrieval labs, and agent tools."""
+
 from __future__ import annotations
 
 import asyncio
 import json
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -32,8 +33,8 @@ from service.models import (
     AgentRequest,
     AgentResponse,
     CatalogPage,
-    FusionComparisonResponse,
     EvidenceRecord,
+    FusionComparisonResponse,
     ProductDetail,
     ProductEvidenceRequest,
     ProductEvidenceResponse,
@@ -81,10 +82,7 @@ def _sse(event: str, payload: dict[str, Any]) -> str:
 def _answer_chunks(answer: str) -> list[str]:
     """Keep streamed delivery readable rather than emitting one character at a time."""
     words = re.findall(r"\S+\s*", answer)
-    return [
-        "".join(words[index:index + 7])
-        for index in range(0, len(words), 7)
-    ]
+    return ["".join(words[index : index + 7]) for index in range(0, len(words), 7)]
 
 
 @app.get("/api/health")
@@ -341,7 +339,9 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
                     yield _sse("answer_delta", {"delta": delta})
                     await asyncio.sleep(0.012)
                 yield _sse("complete", {"response": payload})
-        except Exception as error:
+        # This is the terminal SSE boundary for model and plugin failures. It
+        # must convert every failure into an allowlisted participant message.
+        except Exception as error:  # noqa: BLE001
             yield _sse(
                 "error",
                 {

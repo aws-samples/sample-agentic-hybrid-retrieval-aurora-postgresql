@@ -64,9 +64,7 @@ def test_eight_participant_queries_are_distributed_across_three_labs():
     ]
     assert len(participant_checks) == 8
     assert {
-        check["placement"]
-        for check in CONTRACT["supporting_checks"]
-        if check["core"]
+        check["placement"] for check in CONTRACT["supporting_checks"] if check["core"]
     } == {"lab-1", "lab-2", "lab-3"}
 
 

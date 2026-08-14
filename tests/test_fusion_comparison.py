@@ -14,7 +14,7 @@ edit that would make it unable to fail.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Self
 
 import pytest
 
@@ -52,7 +52,7 @@ class StubCursor:
         self.executed.append(sql)
         self.executemany_rows.append(list(rows))
 
-    def __enter__(self) -> StubCursor:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: object) -> None:
@@ -84,7 +84,7 @@ class StubConnection:
     def commit(self) -> None:
         self.commits += 1
 
-    def __enter__(self) -> StubConnection:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc: object) -> None:
@@ -312,6 +312,15 @@ def test_the_strategy_names_the_fusion_that_ran():
 
     assert RetrievalService()._strategy() == STRATEGY
     assert RetrievalService(use_weighted_fusion=True)._strategy() == WEIGHTED_STRATEGY
+
+
+def test_query_embeddings_are_cached_per_service_instance():
+    embedder = StubEmbedder()
+    retrieval = RetrievalService(embedding_provider=embedder)
+
+    assert retrieval.embed_query("  mesh\n chair ") == [0.1, 0.2, 0.3, 0.4]
+    assert retrieval.embed_query("mesh chair") == [0.1, 0.2, 0.3, 0.4]
+    assert embedder.queries == ["mesh chair"]
 
 
 def test_fusion_mode_is_not_request_controlled():

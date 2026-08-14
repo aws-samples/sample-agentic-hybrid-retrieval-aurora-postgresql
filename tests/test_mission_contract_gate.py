@@ -23,6 +23,7 @@ from scripts.mission_contract import (
     stage_union,
 )
 
+
 def failures_for(contract: dict) -> list[str]:
     report = Report()
     check_shape(contract, report)
@@ -134,7 +135,15 @@ def test_the_gate_reads_the_supporting_checks_list_when_present(passing):
     assert len(labs) == 3
     assert len(supporting) == 7
     assert all(m["core"] for m in labs)
-    assert [m["core"] for m in supporting] == [True, False, True, True, True, True, False]
+    assert [m["core"] for m in supporting] == [
+        True,
+        False,
+        True,
+        True,
+        True,
+        True,
+        False,
+    ]
 
 
 def test_the_gate_falls_back_to_placement_without_a_supporting_list(passing):

@@ -24,11 +24,7 @@ def test_each_lab_reset_is_red_and_solution_is_byte_identical(tmp_path, lab):
 
     set_isolated_lab_state(lab, repo=tmp_path)
     assert not lab_is_solved(lab, repo=tmp_path)
-    assert all(
-        lab_is_solved(other, repo=tmp_path)
-        for other in LABS
-        if other != lab
-    )
+    assert all(lab_is_solved(other, repo=tmp_path) for other in LABS if other != lab)
 
     set_lab_state(lab, solved=True, repo=tmp_path)
     assert all(lab_is_solved(other, repo=tmp_path) for other in LABS)

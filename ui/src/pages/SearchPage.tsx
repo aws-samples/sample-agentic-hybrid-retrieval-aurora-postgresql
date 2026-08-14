@@ -192,6 +192,7 @@ export function SearchPage() {
   const [agentStreaming, setAgentStreaming] = useState(false);
   const [streamedAnswer, setStreamedAnswer] = useState("");
   const [agentActivity, setAgentActivity] = useState(initialAgentActivity);
+  const [comparisonIds, setComparisonIds] = useState<number[]>([]);
   const requestVersion = useRef(0);
   const filters = filtersFromParams(params);
   const labMission = mosaicRetrievalExamples.find(
@@ -226,6 +227,7 @@ export function SearchPage() {
       setAgentStreaming(false);
       setStreamedAnswer("");
       setTraceOpen(false);
+      setComparisonIds([]);
       const nextParams = new URLSearchParams(params);
       nextParams.set("q", nextQuery);
       nextParams.set("mode", nextMode);
@@ -243,6 +245,11 @@ export function SearchPage() {
               activateAgentStage(event.id);
             } else if (event.type === "answer_start") {
               setAgent(event.response);
+              setComparisonIds(
+                event.response.recommendations
+                  .slice(0, 4)
+                  .map((product) => product.product_id),
+              );
               setLoading(false);
             } else if (event.type === "answer_delta") {
               setStreamedAnswer((answer) => answer + event.delta);
@@ -254,7 +261,11 @@ export function SearchPage() {
             }
           });
         } else {
-          setSearch(await api.search(nextQuery, filters));
+          const response = await api.search(nextQuery, filters);
+          setSearch(response);
+          setComparisonIds(
+            response.results.slice(0, 4).map((product) => product.product_id),
+          );
         }
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Search failed");
@@ -282,7 +293,9 @@ export function SearchPage() {
   // product, because a per-product hash cannot guarantee distinctness.
   const gridImages = productImageMap(products);
   const diagnostics = search?.diagnostics;
-  const comparisonProducts = products.slice(0, 4);
+  const comparisonProducts = comparisonIds
+    .map((productId) => products.find((product) => product.product_id === productId))
+    .filter((product): product is ProductSummary => Boolean(product));
   const topPick = products[0];
   const topPickReasonsList = topPick ? topPickReasons(topPick, mode, diagnostics) : [];
   const labOutcome = labMission
@@ -302,6 +315,14 @@ export function SearchPage() {
   function followUp(nextQuery: string) {
     setMode("agent");
     void run(nextQuery, "agent");
+  }
+
+  function updateComparison(productId: number, checked: boolean) {
+    setComparisonIds((current) => {
+      if (!checked) return current.filter((id) => id !== productId);
+      if (current.includes(productId) || current.length >= 4) return current;
+      return [...current, productId];
+    });
   }
 
   return (
@@ -425,6 +446,12 @@ export function SearchPage() {
                       imageSrc={gridImages.get(product.product_id)}
                       showSignals
                       showCompare
+                      compareChecked={comparisonIds.includes(product.product_id)}
+                      compareDisabled={
+                        comparisonIds.length >= 4
+                        && !comparisonIds.includes(product.product_id)
+                      }
+                      onCompareChange={updateComparison}
                       collectionLabels={collectionLabels(products, product, index)}
                     />
                   </div>
@@ -437,7 +464,7 @@ export function SearchPage() {
                     <GitCompareArrows size={19} />
                     <div>
                       <h2>Compare key details</h2>
-                      <p>Source fields from the top-ranked products.</p>
+                      <p>Source fields from the selected products.</p>
                     </div>
                   </div>
                   <div className="comparison-table-wrap">

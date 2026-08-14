@@ -30,7 +30,7 @@ function isActive(pathname: string, to: string) {
   return pathname.startsWith(to);
 }
 
-export function SiteHeader() {
+export function SiteHeader({ inert = false }: { inert?: boolean }) {
   const [open, setOpen] = useState(false);
   const { itemCount, openCart } = useCommerce();
   const [location] = useLocation();
@@ -38,7 +38,11 @@ export function SiteHeader() {
   const close = () => setOpen(false);
 
   return (
-    <header className="site-header">
+    <header
+      className="site-header"
+      inert={inert || undefined}
+      aria-hidden={inert || undefined}
+    >
       <Link className="site-brand" href="/" onClick={close} aria-label="Mosaic home">
         <MosaicMark />
         <strong>Mosaic</strong>

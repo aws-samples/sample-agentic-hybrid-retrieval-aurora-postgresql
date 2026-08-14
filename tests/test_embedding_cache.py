@@ -1,9 +1,10 @@
 import hashlib
+import json
 from pathlib import Path
 
 import numpy as np
-from pgvector import Vector
 import pytest
+from pgvector import Vector
 
 from scripts.embedding_cache import (
     file_sha256,
@@ -132,37 +133,39 @@ def _write_cache_fixture(tmp_path: Path) -> tuple[Path, Path]:
     ).hexdigest()
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(
-        """{
-          "schema_version": 1,
-          "embedding_model_id": "us.cohere.embed-v4:0",
-          "dimensions": 1024,
-          "dtype": "float32",
-          "vector_count": 2,
-          "catalog_content_digest": "%s",
-          "shards": [{
-            "path": "embeddings-00001.npz",
-            "count": 2,
-            "first_product_id": 1,
-            "last_product_id": 2,
-            "sha256": "%s"
-          }]
-        }
-        """
-        % (catalog_digest, file_sha256(shard_path)),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "embedding_model_id": "us.cohere.embed-v4:0",
+                "dimensions": 1024,
+                "dtype": "float32",
+                "vector_count": 2,
+                "catalog_content_digest": catalog_digest,
+                "shards": [
+                    {
+                        "path": "embeddings-00001.npz",
+                        "count": 2,
+                        "first_product_id": 1,
+                        "last_product_id": 2,
+                        "sha256": file_sha256(shard_path),
+                    }
+                ],
+            }
+        ),
         encoding="utf-8",
     )
     contract_path = tmp_path / "contract.json"
     contract_path.write_text(
-        """{
-          "schema_version": 1,
-          "manifest_sha256": "%s",
-          "embedding_model_id": "us.cohere.embed-v4:0",
-          "dimensions": 1024,
-          "vector_count": 2,
-          "shard_count": 1
-        }
-        """
-        % file_sha256(manifest_path),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "manifest_sha256": file_sha256(manifest_path),
+                "embedding_model_id": "us.cohere.embed-v4:0",
+                "dimensions": 1024,
+                "vector_count": 2,
+                "shard_count": 1,
+            }
+        ),
         encoding="utf-8",
     )
     return manifest_path, contract_path

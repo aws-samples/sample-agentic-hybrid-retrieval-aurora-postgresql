@@ -298,7 +298,8 @@ validate:
 	$(PYTHON) scripts/validate_package.py
 
 lint:
-	$(UV) run ruff check --select E9,F service tests scripts db/scripts mcp-server/catalog_mcp mcp-server/mcp_tests
+	$(UV) run ruff check .
+	$(UV) run ruff format --check .
 
 test:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest

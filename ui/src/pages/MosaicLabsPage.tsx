@@ -151,7 +151,15 @@ function contrastLens(example: MosaicLabMission) {
   };
 }
 
-const engineTraceMission = coreMosaicLabs[0];
+function requiredCoreLab(id: string): MosaicLabMission {
+  const lab = coreMosaicLabs.find((candidate) => candidate.id === id);
+  if (!lab) {
+    throw new Error(`Mosaic Labs replay requires core lab ${id}.`);
+  }
+  return lab;
+}
+
+const engineTraceMission = requiredCoreLab("typo-recovery");
 
 const engineProductIds = [2, 3, 4, 5, 1, 17001];
 const engineReplayStepDurationMs = 1650;
@@ -219,9 +227,9 @@ const engineScenarios: EngineScenario[] = [
 /**
  * The engine, end to end, before a participant opens a single lab.
  *
- * Every mechanic named here is the one the service actually runs, and every
- * value comes from the mission manifest. Nothing in this diagram is a
- * measurement: measured numbers belong on a surface that has run a query.
+ * Every mechanic named here is one the service actually runs. Product orders
+ * are explicit replay fixtures, not measurements; measured ranks belong on a
+ * surface that has executed the query.
  */
 const engineSteps = [
   {
@@ -234,8 +242,6 @@ const engineSteps = [
       title: "Start with one request",
       copy: "Each fixture begins with one query. Retrieval and ranking stay inspectable as the system normalizes it and builds candidates.",
       productLabel: "Premium cohort ready",
-      visibleProductIds: engineProductIds,
-      productOrder: engineProductIds,
     },
   },
   {
@@ -252,8 +258,6 @@ const engineSteps = [
       title: "Build a candidate universe",
       copy: "Independent lexical, fuzzy, and semantic arms make the candidate set tangible before any final ordering exists.",
       productLabel: "Candidate set",
-      visibleProductIds: engineProductIds,
-      productOrder: engineProductIds,
     },
   },
   {
@@ -266,8 +270,6 @@ const engineSteps = [
       title: "Apply deterministic eligibility",
       copy: "Only candidates that satisfy the fixture's structured constraints continue. Filters are not model suggestions.",
       productLabel: "Eligible candidate",
-      visibleProductIds: [2, 3, 4, 5],
-      productOrder: [2, 3, 4, 5, 1, 17001],
     },
   },
   {
@@ -280,8 +282,6 @@ const engineSteps = [
       title: "Fuse rank lists without hiding provenance",
       copy: "RRF combines ordinal positions from each channel while the original retrieval evidence remains available for inspection.",
       productLabel: "Fused candidate",
-      visibleProductIds: [2, 3, 4, 5],
-      productOrder: [2, 4, 3, 5, 1, 17001],
     },
   },
   {
@@ -294,8 +294,6 @@ const engineSteps = [
       title: "Rerank a bounded shortlist",
       copy: "The model sees only the fused shortlist. It can change the order, but it cannot quietly expand the eligible candidate universe.",
       productLabel: "Reranked candidate",
-      visibleProductIds: [2, 4, 3],
-      productOrder: [2, 4, 3, 5, 1, 17001],
     },
   },
   {
@@ -308,8 +306,6 @@ const engineSteps = [
       title: "Ground the recommendation in evidence",
       copy: "Typed tool calls compare shortlisted products, retrieve supporting evidence, and return citation IDs that resolve to real records.",
       productLabel: "Grounded shortlist",
-      visibleProductIds: [2, 4, 3],
-      productOrder: [2, 4, 3, 5, 1, 17001],
     },
   },
 ];
@@ -320,7 +316,11 @@ function engineVisualForScenario(
 ): EngineVisual {
   const visual = engineSteps[stepIndex].visual;
   if (stepIndex === 0) {
-    return visual;
+    return {
+      ...visual,
+      visibleProductIds: engineProductIds,
+      productOrder: engineProductIds,
+    };
   }
   if (stepIndex === 1) {
     return {
@@ -425,8 +425,11 @@ export function MosaicLabsPage() {
   const [engineProductsError, setEngineProductsError] = useState("");
   const [labThumbnails, setLabThumbnails] = useState<Map<number, ProductSummary>>(new Map());
   const replayTimers = useRef<number[]>([]);
-  const advancedLabs = supportingMosaicChecks.filter(
-    (check) => check.placement === "advanced-labs",
+  const hasHnswAdvancedLab = supportingMosaicChecks.some(
+    (check) => (
+      check.id === "hnsw-performance"
+      && check.placement === "advanced-labs"
+    ),
   );
   const retrievalContrasts = [
     ...supportingMosaicChecks.filter(
@@ -554,7 +557,7 @@ export function MosaicLabsPage() {
 
       <MosaicLabsMasthead
         action={(
-          <Link className="primary-button" href={shopScenarioHref(coreMosaicLabs[0])}>
+          <Link className="primary-button" href={shopScenarioHref(engineTraceMission)}>
             Open a Shop scenario <ArrowRight size={17} />
           </Link>
         )}
@@ -692,6 +695,7 @@ export function MosaicLabsPage() {
                   return (
                     <figure
                       className={`labs-engine-product ${state.state}`}
+                      data-product-id={product.product_id}
                       key={product.product_id}
                       style={{
                         "--product-order": state.rank,
@@ -860,7 +864,7 @@ export function MosaicLabsPage() {
         ))}
       </section>
 
-      {advancedLabs.length > 0 ? (
+      {hasHnswAdvancedLab ? (
         <details className="labs-advanced">
           <summary>
             <span>

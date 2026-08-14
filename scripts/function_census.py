@@ -36,7 +36,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.retrieval_profile import explain  # noqa: E402  (path set above)
+from scripts.retrieval_profile import explain
 
 # Schemas whose functions are part of the retrieval contract. A duplicate here is
 # a correctness problem; elsewhere it may be a deliberate overload.

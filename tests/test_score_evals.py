@@ -9,7 +9,6 @@ from scripts.score_evals import (
     verify_scorecard,
 )
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 

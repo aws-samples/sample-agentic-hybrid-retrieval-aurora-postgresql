@@ -11,7 +11,13 @@ class SQLStaticTests(unittest.TestCase):
 
     def test_search_representation_is_explicit(self):
         text = (ROOT / "sql" / "06_retrieval_projection.sql").read_text()
-        for field in ("search_document", "trigram_text", "embedding_text", "rerank_text", "embedding"):
+        for field in (
+            "search_document",
+            "trigram_text",
+            "embedding_text",
+            "rerank_text",
+            "embedding",
+        ):
             self.assertIn(field, text)
 
     def test_typo_and_rrf_functions_exist(self):

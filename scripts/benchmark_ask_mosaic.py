@@ -14,6 +14,7 @@ Usage:
         --synthesis-model global.anthropic.claude-sonnet-5
     uv run python scripts/benchmark_ask_mosaic.py --output benchmarks/results/ask-mosaic.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,7 +25,6 @@ import sys
 from pathlib import Path
 from time import perf_counter
 from typing import Any
-
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -62,11 +62,7 @@ def _load_env_file(path: Path) -> None:
         value = value.strip()
         if not key:
             continue
-        if (
-            len(value) >= 2
-            and value[0] == value[-1]
-            and value[0] in {"'", '"'}
-        ):
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
             value = value[1:-1]
         os.environ.setdefault(key, value)
 
@@ -174,7 +170,9 @@ def _measure_synthesis(
                 evidence,
                 settings=get_settings(),
             )
-        except Exception as error:
+        # A benchmark run records any provider or orchestration failure and
+        # continues so one model cannot suppress results for the others.
+        except Exception as error:  # noqa: BLE001
             failures.append(f"{type(error).__name__}: {error}")
             continue
         times.append((perf_counter() - started) * 1_000)
@@ -214,7 +212,9 @@ def _measure_full_agent(
                     result_limit=result_limit,
                 )
             )
-        except Exception as error:
+        # The full agent boundary includes third-party model and tool plugins
+        # whose exception hierarchies are not under this repository's control.
+        except Exception as error:  # noqa: BLE001
             failures.append(f"{type(error).__name__}: {error}")
             continue
         total_ms = (perf_counter() - started) * 1_000
@@ -339,10 +339,7 @@ def _parse_args() -> argparse.Namespace:
         parser.error("--result-limit must be between 1 and 6")
     if bool(args.agent_model) != bool(args.synthesis_model):
         parser.error("--agent-model and --synthesis-model must be supplied together")
-    if (
-        args.agent_model
-        and args.models != list(DEFAULT_MODELS)
-    ):
+    if args.agent_model and args.models != list(DEFAULT_MODELS):
         parser.error(
             "--models cannot be combined with a split route; use either "
             "--models or --agent-model with --synthesis-model"
@@ -363,10 +360,7 @@ def main() -> int:
     routes = (
         [
             {
-                "label": (
-                    f"agent={args.agent_model};"
-                    f"synthesis={args.synthesis_model}"
-                ),
+                "label": (f"agent={args.agent_model};synthesis={args.synthesis_model}"),
                 "agent_model_id": args.agent_model,
                 "synthesis_model_id": args.synthesis_model,
             }

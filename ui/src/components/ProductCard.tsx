@@ -19,6 +19,9 @@ export function ProductCard({
   product,
   showSignals = false,
   showCompare = false,
+  compareChecked = false,
+  compareDisabled = false,
+  onCompareChange,
   collectionLabels = [],
   variant = "default",
   imageSrc,
@@ -29,6 +32,9 @@ export function ProductCard({
   product: ProductSummary;
   showSignals?: boolean;
   showCompare?: boolean;
+  compareChecked?: boolean;
+  compareDisabled?: boolean;
+  onCompareChange?: (productId: number, checked: boolean) => void;
   collectionLabels?: string[];
   variant?: "default" | "catalog";
   /** Grid-assigned photograph. Omit outside a result set. */
@@ -228,7 +234,15 @@ export function ProductCard({
         <div className="product-card-actions">
           {showCompare ? (
             <label className="compare-control">
-              <input type="checkbox" />
+              <input
+                type="checkbox"
+                aria-label={`Compare ${product.title}`}
+                checked={compareChecked}
+                disabled={compareDisabled || !onCompareChange}
+                onChange={(event) => {
+                  onCompareChange?.(product.product_id, event.currentTarget.checked);
+                }}
+              />
               Compare
             </label>
           ) : null}

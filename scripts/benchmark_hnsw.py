@@ -26,13 +26,15 @@ Both belong to Phase 3's advanced-lane spec. This is recorded so Phase 3 finds t
 script **waiting rather than broken**: it runs today, and what it should emit is an
 open question with a named owner.
 """
+
 from __future__ import annotations
+
 import argparse
 import json
 import os
 import statistics
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -40,7 +42,7 @@ def percentile(values: list[float], p: float) -> float:
     if not values:
         return float("nan")
     xs = sorted(values)
-    idx = min(len(xs)-1, max(0, round((len(xs)-1)*p)))
+    idx = min(len(xs) - 1, max(0, round((len(xs) - 1) * p)))
     return xs[idx]
 
 
@@ -50,8 +52,15 @@ def main() -> None:
     ap.add_argument("--queries", type=int, default=100)
     ap.add_argument("--k", type=int, default=10)
     ap.add_argument("--ef-search", type=int, nargs="+", default=[16, 32, 64, 128, 256])
-    ap.add_argument("--iterative-scan", choices=["off", "strict_order", "relaxed_order"], default="strict_order")
-    ap.add_argument("--filter-domain", choices=["consumer_electronics", "running_fitness", "home_office"])
+    ap.add_argument(
+        "--iterative-scan",
+        choices=["off", "strict_order", "relaxed_order"],
+        default="strict_order",
+    )
+    ap.add_argument(
+        "--filter-domain",
+        choices=["consumer_electronics", "running_fitness", "home_office"],
+    )
     ap.add_argument("--output", type=Path, default=Path("benchmarks/results/hnsw.json"))
     args = ap.parse_args()
     if not args.database_url:
@@ -67,7 +76,10 @@ def main() -> None:
         register_vector(conn)
         where = "AND domain = %s" if args.filter_domain else ""
         params = [args.filter_domain] if args.filter_domain else []
-        pool = conn.execute(f"SELECT product_id, embedding FROM mosaic_search.product_document WHERE embedding IS NOT NULL {where} ORDER BY random() LIMIT %s", params + [args.queries]).fetchall()
+        pool = conn.execute(
+            f"SELECT product_id, embedding FROM mosaic_search.product_document WHERE embedding IS NOT NULL {where} ORDER BY random() LIMIT %s",
+            params + [args.queries],
+        ).fetchall()
         results = []
         for ef in args.ef_search:
             timings, recalls = [], []
@@ -83,8 +95,12 @@ def main() -> None:
                 exact_ids = {row[0] for row in exact}
 
                 with conn.transaction():
-                    conn.execute("SELECT set_config('hnsw.ef_search', %s, true)", [str(ef)])
-                    conn.execute(f"SET LOCAL hnsw.iterative_scan = '{args.iterative_scan}'")
+                    conn.execute(
+                        "SELECT set_config('hnsw.ef_search', %s, true)", [str(ef)]
+                    )
+                    conn.execute(
+                        f"SET LOCAL hnsw.iterative_scan = '{args.iterative_scan}'"
+                    )
                     started = time.perf_counter()
                     ann = conn.execute(
                         f"SELECT product_id FROM mosaic_search.product_document WHERE embedding IS NOT NULL {where} ORDER BY embedding <=> %s LIMIT %s",
@@ -98,15 +114,30 @@ def main() -> None:
                             f"EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT product_id FROM mosaic_search.product_document WHERE embedding IS NOT NULL {where} ORDER BY embedding <=> %s LIMIT %s",
                             params + [query_vector, args.k],
                         ).fetchone()[0]
-            results.append({
-                "ef_search": ef, "iterative_scan": args.iterative_scan, "filter_domain": args.filter_domain,
-                "queries": len(timings), "k": args.k,
-                "latency_ms": {"p50": round(percentile(timings, .50), 3), "p95": round(percentile(timings, .95), 3), "mean": round(statistics.mean(timings), 3)},
-                "recall_at_k": round(statistics.mean(recalls), 5), "sample_explain": sample_plan,
-            })
-    output = {"kind": "measured", "generated_at": datetime.now(timezone.utc).isoformat(), "results": results}
+            results.append(
+                {
+                    "ef_search": ef,
+                    "iterative_scan": args.iterative_scan,
+                    "filter_domain": args.filter_domain,
+                    "queries": len(timings),
+                    "k": args.k,
+                    "latency_ms": {
+                        "p50": round(percentile(timings, 0.50), 3),
+                        "p95": round(percentile(timings, 0.95), 3),
+                        "mean": round(statistics.mean(timings), 3),
+                    },
+                    "recall_at_k": round(statistics.mean(recalls), 5),
+                    "sample_explain": sample_plan,
+                }
+            )
+    output = {
+        "kind": "measured",
+        "generated_at": datetime.now(UTC).isoformat(),
+        "results": results,
+    }
     args.output.write_text(json.dumps(output, indent=2), encoding="utf-8")
     print(json.dumps(output, indent=2))
+
 
 if __name__ == "__main__":
     main()

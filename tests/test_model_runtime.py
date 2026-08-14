@@ -19,6 +19,7 @@ from service.catalog import _detail
 from service.config import get_settings
 from service.embeddings import BedrockEmbeddingProvider, _cohere_request
 from service.main import app
+from service.model_runtime import ModelRuntimeError
 from service.models import (
     AgentCitation,
     AgentRequest,
@@ -29,7 +30,6 @@ from service.models import (
     SearchResponse,
     SourceAttribution,
 )
-from service.model_runtime import ModelRuntimeError
 from service.rerank import BedrockReranker
 from service.synthesis import synthesize_cited_answer
 
@@ -49,9 +49,7 @@ class FakeEmbeddingClient:
             for index, _ in enumerate(payload["texts"])
         ]
         return {
-            "body": io.BytesIO(
-                json.dumps({"embeddings": {"float": vectors}}).encode()
-            )
+            "body": io.BytesIO(json.dumps({"embeddings": {"float": vectors}}).encode())
         }
 
 
@@ -133,9 +131,7 @@ def product() -> ProductSummary:
                 source_uri="mosaic://product/101",
                 revision="2026-08-07T12:00:00+00:00",
                 title="AuriLogic Flight ANC",
-                quote=(
-                    "Quiet over-ear headphones with 48-hour battery life."
-                ),
+                quote=("Quiet over-ear headphones with 48-hour battery life."),
             )
         ],
     )
@@ -238,9 +234,12 @@ def test_cohere_rerank_preserves_source_indices(monkeypatch):
     )
 
     assert results == [(1, 0.91), (0, 0.62)]
-    assert client.request["rerankingConfiguration"][
-        "bedrockRerankingConfiguration"
-    ]["numberOfResults"] == 2
+    assert (
+        client.request["rerankingConfiguration"]["bedrockRerankingConfiguration"][
+            "numberOfResults"
+        ]
+        == 2
+    )
 
 
 def test_synthesis_returns_only_validated_citations():
@@ -260,9 +259,10 @@ def test_synthesis_returns_only_validated_citations():
     assert citations[0].source_uri == "mosaic://evidence/product-spec/101"
     assert usage["totalTokens"] == 260
     assert client.request["inferenceConfig"] == {"maxTokens": 1_400}
-    assert '"allowed_evidence_numbers": [1]' in client.request["messages"][0][
-        "content"
-    ][0]["text"]
+    assert (
+        '"allowed_evidence_numbers": [1]'
+        in client.request["messages"][0]["content"][0]["text"]
+    )
     assert usage["stopReason"] == "end_turn"
     assert usage["attempts"] == 1
 
@@ -459,8 +459,7 @@ def test_grounding_completion_uses_a_bounded_cross_search_shortlist(monkeypatch)
     state = {
         "result_limit": 6,
         "products": {
-            item.product_id: item
-            for item in (product(), second, third, fourth)
+            item.product_id: item for item in (product(), second, third, fourth)
         },
         "evidence": {},
         "evidence_by_product": {},
@@ -605,7 +604,9 @@ def test_synchronous_agent_preserves_tool_run_context(monkeypatch):
 
     monkeypatch.setattr(agent_tools, "start_run", start_run)
     monkeypatch.setattr("service.agent.build_agent", lambda: FakeAgent())
-    monkeypatch.setattr(agent_tools, "persist_completed_run", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        agent_tools, "persist_completed_run", lambda *_args, **_kwargs: None
+    )
 
     response = ProductDiscoveryAgent().answer(
         AgentRequest(question="What should I buy?", result_limit=2)
@@ -630,9 +631,7 @@ def test_agent_surfaces_grounding_contract_failure_over_model_loop_error(
             raise RuntimeError("model loop exhausted its token budget")
 
     def fail_grounding(_question):
-        raise RuntimeError(
-            "No retrieved evidence is available for grounded synthesis"
-        )
+        raise RuntimeError("No retrieved evidence is available for grounded synthesis")
 
     monkeypatch.setattr(agent_tools, "start_run", lambda *_args: state)
     monkeypatch.setattr("service.agent.build_agent", lambda: FailingAgent())
@@ -1154,8 +1153,7 @@ def test_agent_stream_does_not_expose_exception_text(monkeypatch):
     assert sentinel not in stream.text
     assert "RuntimeError" not in stream.text
     assert (
-        "Agent response failed. Retry after checking the runtime and retrieval "
-        "service."
+        "Agent response failed. Retry after checking the runtime and retrieval service."
     ) in stream.text
 
 

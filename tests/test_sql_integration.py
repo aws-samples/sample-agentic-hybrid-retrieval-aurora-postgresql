@@ -29,9 +29,9 @@ import pytest
 psycopg = pytest.importorskip("psycopg")
 pytest.importorskip("pgvector")
 
-from pgvector.psycopg import register_vector  # noqa: E402  (after importorskip)
+from pgvector.psycopg import register_vector
 
-from scripts.retrieval_profile import load_profile  # noqa: E402  (same)
+from scripts.retrieval_profile import load_profile
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 pytestmark = pytest.mark.skipif(
@@ -94,9 +94,7 @@ def test_database_level_trigram_gates_match_the_profile(connection, profile):
     ).fetchone()[0]
 
     assert similarity_gate == pytest.approx(profile.trigram_similarity_gate)
-    assert word_similarity_gate == pytest.approx(
-        profile.trigram_word_similarity_gate
-    )
+    assert word_similarity_gate == pytest.approx(profile.trigram_word_similarity_gate)
     assert function_config is None
 
 
@@ -138,7 +136,9 @@ def test_index_visible_filter_path_matches_the_public_filter_wrapper(connection)
     ).fetchall()
 
     assert rows
-    assert all(public_result == scalar_result for _, public_result, scalar_result in rows)
+    assert all(
+        public_result == scalar_result for _, public_result, scalar_result in rows
+    )
 
 
 def test_a_long_natural_language_query_has_lexical_candidates(connection, profile):
@@ -149,8 +149,10 @@ def test_a_long_natural_language_query_has_lexical_candidates(connection, profil
         ORDER BY fts_rank
         """,
         (
-            "wireless noise cancelling over-ear headphones under $200 with "
-            "40 hours of battery life",
+            (
+                "wireless noise cancelling over-ear headphones under $200 with "
+                "40 hours of battery life"
+            ),
             json.dumps({"domain": "consumer_electronics", "max_price_cents": 20000}),
             profile.fts_limit,
         ),

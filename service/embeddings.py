@@ -1,8 +1,10 @@
 """Real embedding adapters used by both catalog indexing and live queries."""
+
 from __future__ import annotations
 
 import json
-from typing import Protocol, Sequence
+from collections.abc import Sequence
+from typing import Protocol
 
 from service.bedrock import get_bedrock_client
 from service.config import Settings, get_settings
@@ -79,9 +81,7 @@ class BedrockEmbeddingProvider:
                     accept="application/json",
                     contentType="application/json",
                 )
-                vectors.extend(
-                    _extract_embeddings(json.loads(response["body"].read()))
-                )
+                vectors.extend(_extract_embeddings(json.loads(response["body"].read())))
         if len(vectors) != len(texts):
             raise ValueError(
                 f"Embedding model returned {len(vectors)} vectors for "

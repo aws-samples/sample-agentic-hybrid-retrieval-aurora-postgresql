@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Build the deterministic 500K product-to-media mapping."""
+
 from __future__ import annotations
 
 import argparse
