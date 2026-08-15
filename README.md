@@ -19,11 +19,13 @@ Workshop Studio owns deployment automation; a fresh-stack rehearsal remains the
 final environment gate. The measured Aurora performance baseline remains an
 active build phase.
 
-This repository ships nothing deliberately broken. Deliberate starter gaps live
-in the separate Workshop Studio repository;
-[`docs/intentional-gaps.md`](docs/intentional-gaps.md) records that boundary and
-the defects fixed against it, so a fixed bug is not later reclassified as an
-exercise.
+The checked-in state ships nothing broken: every lab seam holds its solved
+body. The deliberate starter gaps are also defined here — `scripts/lab_state.py`
+owns the broken bodies and `make reset-lab-N` injects them — while the separate
+Workshop Studio repository narrates the repairs and triggers that injection at
+provision time. [`docs/intentional-gaps.md`](docs/intentional-gaps.md) records
+that boundary and the defects fixed against it, so a fixed bug is not later
+reclassified as an exercise.
 
 ## Canonical Dataset
 
@@ -217,7 +219,7 @@ in [`data/evals/mosaic_labs_missions.json`](data/evals/mosaic_labs_missions.json
 three required labs, supporting retrieval checks, ground-truth product IDs,
 hard filters, timings, and evaluation
 assertions. The separate Workshop Studio repository owns participant guides,
-deliberate starter gaps, and code-editor exercises. Search and agent results
+provisioning-time gap injection, and code-editor exercises. Search and agent results
 come from the real API; the UI does not calculate retrieval scores and displays
 an explicit unavailable state instead of substituting static products.
 

@@ -3,24 +3,28 @@
 Authoritative manifest of what ships **deliberately broken** for participants to
 repair.
 
-## Status: this repository ships NOTHING deliberately broken
+## Status: the checked-in state ships NOTHING broken
 
-Every defect found in this repository is a real defect. There is no protected
-failure. If a lab check fails here, fix it.
+Every defect found in the committed tree is a real defect. There is no
+protected failure. If a lab check fails here, fix it.
 
-This document exists as the **forward contract** for the Workshop Studio
-repository, which injects the gaps. It is authoritative in one direction: a gap
-listed here is a gap the sibling is expected to create in its starter template,
-and a gap not listed here must not be created.
+The gaps themselves are defined and implemented **in this repository**:
+`scripts/lab_state.py` holds each broken body next to its solved body, the
+marker seams live in `db/sql/09_search_functions.sql` and
+`service/agent_tools.py`, and `make reset-lab-N` performs the injection. The
+Workshop Studio repository narrates the repairs and triggers `make reset-lab-1`
+at provision time; it ships no starter template of its own. This document is
+the authoritative manifest: a gap listed here is a gap `lab_state.py` must
+implement, and a gap not listed here must not exist.
 
-## Why the source repository holds none
+## Why the committed tree holds no broken code
 
 `data/evals/mosaic_labs_missions.json` splits ownership:
 
 | Repository | Owns |
 |---|---|
-| This one | lab contract, application surfaces, evaluation assertions |
-| Workshop Studio | participant instructions, **deliberate starter gaps**, code-editor exercises |
+| This one | lab contract, application surfaces, evaluation assertions, **gap seams and broken bodies** |
+| Workshop Studio | participant instructions, provisioning-time gap injection, code-editor exercises |
 
 The source application is the reference implementation: the state a participant
 reaches when every repair succeeds. Disabling code here would make the reference
@@ -32,15 +36,17 @@ three repair capabilities are fully wired here.
 
 | Lab anchor | Capability | Evidence it is live |
 |---|---|---|
-| `typo-recovery` | pg_trgm candidate arm | `db/sql/09_search_functions.sql:244` fuses `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` |
+| `typo-recovery` | pg_trgm candidate arm | `db/sql/09_search_functions.sql:423-429` fuses `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` between the `LAB1_TRIGRAM_CTE` markers |
 | `rank-with-evidence` | reciprocal-rank contribution | `mosaic_search.reciprocal_rank_contribution` computes `1 / (k + rank)` |
 | `agentic-research` | evidence-to-synthesis state | `service/agent_tools.get_product_evidence` records evidence IDs by product |
 
-## Gap contract for Workshop Studio
+## Gap contract
 
 Three lab anchors carry `checkpoint: "repair"`. Their narrative promises the
-participant something to fix, so the sibling's starter template must remove
-exactly these capabilities and nothing else.
+participant something to fix, so `make reset-lab-N` (backed by
+`scripts/lab_state.py`) must remove exactly these capabilities and nothing
+else. Workshop Studio invokes `make reset-lab-1` at provision time and narrates
+the later resets.
 
 ### GAP-1 — typo-recovery arm
 
@@ -52,7 +58,9 @@ exactly these capabilities and nothing else.
   `mosaic_search.search_trigram` itself installed and callable: the lesson is
   that a working arm is not contributing, not that a function is missing.
 - **Restoring it looks like** adding the `typo` CTE back to the `channels` union
-  and its `1.0 / (rrf_k + trigram_rank)` contribution.
+  with its `mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)`
+  contribution — the exact seam text in `scripts/lab_state.py`, which the
+  validator compares literally.
 - **Assertion that turns green** `trigram_signal_present`
 - **Board state before repair** `REPAIR PENDING`, never `FAIL`
 
@@ -96,7 +104,9 @@ exactly these capabilities and nothing else.
    `comparison`, and `advanced` checks must pass on a correct deployment.
 4. The lab board renders a listed, unrepaired gap as `REPAIR PENDING`. Any
    failure not listed here renders `FAIL` and is a real regression.
-5. Adding a gap to the sibling requires adding it here first.
+5. Adding a gap requires listing it here and implementing its seam markers and
+   broken body in `scripts/lab_state.py` first. The sibling only narrates and
+   triggers gaps; it never defines one.
 
 ## Non-gaps
 

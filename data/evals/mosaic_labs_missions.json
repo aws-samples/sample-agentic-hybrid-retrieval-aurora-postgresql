@@ -2,8 +2,8 @@
   "version": 3,
   "name": "Mosaic Retrieve Rank Reason Lab Contract",
   "ownership": {
-    "source_repository": "Lab timing, retrieval examples, application surfaces, and evaluation assertions.",
-    "workshop_studio": "Participant instructions, deliberate starter gaps, and code-editor exercises."
+    "source_repository": "Lab timing, retrieval examples, application surfaces, evaluation assertions, and the gap seams with their broken bodies (scripts/lab_state.py).",
+    "workshop_studio": "Participant instructions, provisioning-time gap injection, and code-editor exercises."
   },
   "session": {
     "total_minutes": 60,

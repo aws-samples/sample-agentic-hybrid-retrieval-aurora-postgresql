@@ -16,8 +16,9 @@ Aurora only. There is no local database and no `make` target creates one. See
 - run `FUNCTION_CENSUS_REQUIRE_DB=1 make validate-functions`;
 - execute the eval harness and save a named baseline;
 - run the HNSW matrix on the exact Aurora configuration used in the room;
-- verify the three starter gaps, source revision, Claude Code model, and fallback
-  screenshots from a fresh Workshop Studio deployment.
+- verify the three starter gaps, source revision, and Claude Code model from a
+  fresh Workshop Studio deployment, and keep that rehearsal's command output
+  for reference during delivery.
 
 ## 60-minute path
 
@@ -101,8 +102,10 @@ rather than becoming a rushed fourth required lab.
    issue. Do not switch to fixtures or a local database.
 3. Catalog inspection remains available when model access is unavailable, but
    model-dependent retrieval must report failure rather than fabricate results.
-4. Use instructor screenshots only to explain an expected state, never as
-   evidence that a participant check passed.
+4. To show an expected state during an outage, replay it from the instructor's
+   own rehearsal output. Nothing the instructor shows counts as evidence that
+   a participant check passed. Screenshots are retired workshop assets; do not
+   reintroduce them.
 5. If `psql` hangs while the port is reachable, inspect TLS settings before the
    security group. See `ARTIFACTS.md`.
 
