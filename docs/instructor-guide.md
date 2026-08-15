@@ -104,8 +104,8 @@ rather than becoming a rushed fourth required lab.
    model-dependent retrieval must report failure rather than fabricate results.
 4. To show an expected state during an outage, replay it from the instructor's
    own rehearsal output. Nothing the instructor shows counts as evidence that
-   a participant check passed. Screenshots are retired workshop assets; do not
-   reintroduce them.
+   a participant check passed. Incident and fallback screenshots are retired
+   workshop assets; do not reintroduce them.
 5. If `psql` hangs while the port is reachable, inspect TLS settings before the
    security group. See `ARTIFACTS.md`.
 

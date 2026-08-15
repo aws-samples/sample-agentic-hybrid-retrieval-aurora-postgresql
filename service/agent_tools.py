@@ -253,7 +253,7 @@ def search_products(
     max_price_cents: int | None = None,
     min_rating: float | None = None,
     attributes: dict[str, Any] | None = None,
-    limit: int = 6,
+    limit: int = 2,
 ) -> dict[str, Any]:
     """Search products with PostgreSQL hybrid retrieval and managed reranking.
 
