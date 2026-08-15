@@ -31,9 +31,20 @@ The response contains:
 
 Search returns ranked evidence, not a natural-language answer.
 
+## Fusion comparison
+
+`POST /api/retrieval/fusion-comparison`
+
+The comparison applies unweighted and weighted RRF to one candidate pool and
+returns both orders with their ranking signals. It fails if the two functions
+do not receive the same substrate; it does not change the production
+`POST /api/search` path.
+
 ## Cited agent answer
 
 `POST /api/agent/answer`
+
+`POST /api/agent/answer/stream`
 
 ```json
 {
@@ -52,16 +63,21 @@ The Strands response contains:
 - numbered citations;
 - bounded tool trace with retrieval run IDs.
 
+The streaming route emits server-sent application stages and then the same
+citation-validated answer contract. It does not expose model reasoning.
+
 ## Catalog inspection
 
 - `GET /api/catalog/summary`
 - `GET /api/catalog/products`
 - `GET /api/products/{product_id}`
+- `GET /api/evidence/{evidence_id}`
 - `POST /api/products/{product_id}/evidence`
 
-The evidence route requires an `evidence_query` and returns source-addressable
-specification and review records ranked for that question, without invoking the
-agent.
+The product-evidence route requires an `evidence_query` and returns
+source-addressable specification and review records ranked for that question,
+without invoking the agent. The evidence-ID route resolves a persisted
+citation to its exact evidence row.
 
 ## Labs and replay
 

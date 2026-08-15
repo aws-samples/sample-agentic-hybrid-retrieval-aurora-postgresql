@@ -99,6 +99,18 @@ def test_generated_reviews_are_honest_customer_review_evidence():
     assert "'Mosaic verified review corpus'" not in loader
 
 
+def test_live_legacy_review_evidence_remains_readable_and_counted():
+    acceptance = (ROOT / "db/sql/98_bootstrap_acceptance.sql").read_text()
+    catalog = (ROOT / "service/catalog.py").read_text()
+
+    for source in (acceptance, catalog):
+        assert "evidence_type::text" in source
+        assert "'customer_review'" in source
+        assert "'verified_review'" in source
+    assert "'Mosaic synthetic review corpus'" in acceptance
+    assert "'Mosaic verified review corpus'" in acceptance
+
+
 def test_embedding_loader_uses_typed_binary_copy():
     source = (ROOT / "scripts/embed_catalog.py").read_text()
 

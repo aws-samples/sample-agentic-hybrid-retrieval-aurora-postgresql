@@ -48,6 +48,23 @@ describe("DiscoverPage", () => {
     );
   });
 
+  it("labels the hero action for search and focuses the catalog query", () => {
+    renderPage();
+
+    const searchInput = screen.getByRole("textbox", { name: "Search products" });
+    searchInput.scrollIntoView = vi.fn();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Search the catalog" }),
+    );
+
+    expect(document.activeElement).toBe(searchInput);
+    expect(searchInput.scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "center",
+    });
+    expect(screen.queryByText("Explore collections")).toBeNull();
+  });
+
   it("renders the editorial Shop preview immediately without a catalog request", () => {
     renderPage();
 

@@ -211,7 +211,7 @@ def get_product(product_id: int) -> ProductDetail:
                    rating, is_verified, source_date, metadata
             FROM mosaic.product_evidence
             WHERE product_id = %s
-              AND evidence_type IN ('customer_review', 'verified_review')
+              AND evidence_type::text IN ('customer_review', 'verified_review')
             ORDER BY rating DESC NULLS LAST, evidence_id
             LIMIT 8
             """,

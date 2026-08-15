@@ -255,7 +255,7 @@ export function DiscoverPage() {
           </p>
           <div className="discover-hero-actions">
             <button type="button" onClick={focusSearch}>
-              Explore collections
+              Search the catalog
               <ArrowRight size={16} aria-hidden="true" />
             </button>
           </div>

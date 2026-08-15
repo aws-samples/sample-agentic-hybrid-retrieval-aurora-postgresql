@@ -141,7 +141,7 @@ Save each file with the EXACT name below, in order:
 
 ---
 
-## Batch `REGEN-B02` — Second-pass replacements · 4 images · OUTSTANDING
+## Batch `REGEN-B02` — Second-pass replacements · 4 images · DONE
 
 Found by re-auditing all 38 Aug-8 images at 2.2x zoom. `rf-gps-running-watches`
 is a **retrieval anchor** — it appears on screen during a scripted query — so it

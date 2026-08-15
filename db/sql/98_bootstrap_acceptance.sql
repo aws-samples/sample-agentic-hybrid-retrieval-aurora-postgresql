@@ -27,12 +27,18 @@ BEGIN
     WHERE media_tier IN ('flagship', 'premium');
     SELECT count(*),
            count(*) FILTER (WHERE evidence_type = 'product_spec'),
-           count(*) FILTER (WHERE evidence_type = 'customer_review')
+           count(*) FILTER (
+               WHERE evidence_type::text IN (
+                   'customer_review',
+                   'verified_review'
+               )
+           )
     INTO evidence_count, specification_count, review_count
     FROM mosaic.product_evidence
     WHERE source_name IN (
         'Mosaic catalog specification',
-        'Mosaic synthetic review corpus'
+        'Mosaic synthetic review corpus',
+        'Mosaic verified review corpus'
     );
 
     SELECT array_agg(required.name ORDER BY required.name)

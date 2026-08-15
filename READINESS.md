@@ -23,7 +23,6 @@ Run these against the release candidate:
 
 ```bash
 make lint
-make test
 make validate
 make validate-db
 python scripts/config_tripwire.py
@@ -41,6 +40,7 @@ asset transfer, or live-session timing.
 With `DATABASE_URL` pointing only at the intended Aurora cluster:
 
 ```bash
+make test
 MISSION_GATE_REQUIRE_DB=1 make validate-missions
 make validate-evals
 FUNCTION_CENSUS_REQUIRE_DB=1 make validate-functions

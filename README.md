@@ -67,7 +67,7 @@ make ui-test
 make ui-audit
 ```
 
-The full Python gate includes five read-only integration tests against Aurora:
+The full Python gate includes 9 read-only integration tests against Aurora:
 
 ```bash
 export DATABASE_URL='postgresql://USER:PASSWORD@YOUR-CLUSTER.cluster-xxxx.us-east-1.rds.amazonaws.com:5432/mosaic_catalog?sslmode=require'
@@ -284,8 +284,8 @@ fails loudly instead of leaving the folder out of step with its manifest. Every
 batch records provenance in `data/media/import_batch_*.csv`, and each row's note
 must state what was verified **in the picture**: an early batch recorded only
 that the bytes arrived, and thirteen of its images turned out to show the wrong
-product. Nine are replaced; `docs/media-regeneration-batches.md` carries the
-generation prompt for the four still outstanding.
+product. All thirteen replacements are complete and recorded in
+`docs/media-regeneration-batches.md`.
 
 ## Benchmarking Rule
 
