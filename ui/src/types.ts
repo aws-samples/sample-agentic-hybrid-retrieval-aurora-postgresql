@@ -206,6 +206,7 @@ export interface AgentResponse {
     result_count: number | null;
     arguments: Record<string, unknown>;
     outcome: "success" | "error";
+    origin?: "model" | "controller_fallback";
     latency_ms: number | null;
   }>;
 }

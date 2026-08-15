@@ -1,5 +1,13 @@
 {
+  "aurora_configuration": {
+    "database_version": "18.3",
+    "engine": "aurora-postgresql",
+    "instance_class": "db.r8g.2xlarge",
+    "vector_extension_version": "0.8.1"
+  },
   "canonical_query_count": 20,
+  "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
+  "dataset_manifest_sha256": "7cd7a5ae4c7cab2667c5433427d28a36dd12897e47f7c473f508ef93f43f95ec",
   "deterministic_release_checks": [
     {
       "product_id": 17001,
@@ -26,7 +34,14 @@
   "excluded_agent_contract_queries": [
     "G-010"
   ],
+  "hnsw_settings": {
+    "ef_search": 100,
+    "iterative_scan": "relaxed_order",
+    "max_scan_tuples": 20000,
+    "scan_mem_multiplier": 1.0
+  },
   "k": 10,
+  "measured_at": "2026-08-15T09:54:45.528037+00:00",
   "metrics": {
     "mrr": 0.9228070175438597,
     "ndcg@10": 0.8486607653000183,
@@ -156,6 +171,26 @@
   "query_set": "data/evals/canonical_queries.jsonl",
   "query_set_sha256": "bac6e250b3fffc9d837b68456d517766df12db1a10ac9cd960149a9c488e2180",
   "ranked_result_sha256": "2b8ae0989c02a6c80d5098b58188bf3d1709cc95ba54852d8b89a0441a69aa5e",
+  "retrieval_profile": {
+    "ef_search": 100,
+    "fts_limit": 120,
+    "fused_limit": 50,
+    "iterative_scan": "relaxed_order",
+    "max_scan_tuples": 20000,
+    "result_limit": 10,
+    "rrf_k": 60,
+    "scan_mem_multiplier": 1.0,
+    "semantic_limit": 150,
+    "trigram_limit": 80,
+    "trigram_threshold": 0.2,
+    "weight_lexical": 0.3,
+    "weight_semantic": 0.45,
+    "weight_trigram": 0.1
+  },
   "scored_query_set_sha256": "61168d1171a9f094f45eb4a2e6d1224bef7a048afe79a88bb210ecb6e6d1a8a3",
+  "source": {
+    "revision": "9ad1e6c12c1bca8d4d257b504b76b388a9bc4e4b",
+    "worktree_dirty": false
+  },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
 }

@@ -6,7 +6,7 @@ import json
 import logging
 from contextvars import ContextVar
 from time import perf_counter
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from strands import tool
@@ -30,6 +30,10 @@ SEARCH_SLOTS = ("primary", "follow_up")
 _RUN: ContextVar[dict[str, Any] | None] = ContextVar(
     "catalog_agent_tool_run",
     default=None,
+)
+_TRACE_ORIGIN: ContextVar[Literal["model", "controller_fallback"]] = ContextVar(
+    "catalog_agent_trace_origin",
+    default="model",
 )
 
 
@@ -108,6 +112,7 @@ def _record(
     result_count: int | None = None,
     detail: str,
     outcome: str = "success",
+    origin: Literal["model", "controller_fallback"] | None = None,
 ) -> None:
     state = _state()
     state["trace"].append(
@@ -119,6 +124,7 @@ def _record(
             "result_count": result_count,
             "arguments": arguments,
             "outcome": outcome,
+            "origin": origin or _TRACE_ORIGIN.get(),
             "latency_ms": round((perf_counter() - started) * 1_000, 2),
         }
     )
@@ -619,15 +625,15 @@ def synthesize_cited_answer(
     """Create the answer of record from products retrieved in this run.
 
     Call this last. It invokes the configured citation model with only the
-    selected product revisions, rejects citations outside that set, and
-    persists the validated answer and citation links.
+    selected product revisions, rejects citations outside that set, applies
+    deterministic claim checks, and persists the answer and citation links.
 
     Args:
         question: The user's product question.
         product_ids: Two to six product IDs returned by search_products.
 
     Returns:
-        The citation-validated answer of record.
+        The citation-bounded answer of record.
     """
     started = perf_counter()
     state = _state()
@@ -762,6 +768,15 @@ def _fallback_product_ids(state: dict[str, Any]) -> list[int]:
 
 
 def complete_grounded_answer(question: str) -> None:
+    """Complete missing grounded steps and label them as controller-owned."""
+    token = _TRACE_ORIGIN.set("controller_fallback")
+    try:
+        _complete_grounded_answer(question)
+    finally:
+        _TRACE_ORIGIN.reset(token)
+
+
+def _complete_grounded_answer(question: str) -> None:
     """Complete missing compare/evidence steps over retrieved products only."""
     state = _state()
     product_ids = _fallback_product_ids(state)
@@ -805,7 +820,7 @@ def finalize_retrieved_answer(
     *,
     product_ids: list[int] | None = None,
 ) -> None:
-    """Create the validated answer if orchestration stopped after retrieval."""
+    """Create the citation-bounded answer after model orchestration stops."""
     started = perf_counter()
     state = _state()
     if state["answer_of_record"] is not None:
@@ -842,14 +857,14 @@ def finalize_retrieved_answer(
         {
             "question": question,
             "product_ids": selected_ids,
-            "orchestration_fallback": True,
         },
         started,
         result_count=len(citations),
         detail=(
-            "Validated cited synthesis after orchestration completed without "
+            "Citation-bounded synthesis after model orchestration completed without "
             "calling its required final tool."
         ),
+        origin="controller_fallback",
     )
 
 
@@ -947,11 +962,12 @@ def persist_completed_run(
                 """
                 INSERT INTO mosaic.agent_tool_event (
                     agent_turn_id, search_event_id, tool_name, tool_version,
-                    outcome, input_payload, output_payload, duration_ms
+                    outcome, execution_origin, input_payload, output_payload,
+                    duration_ms
                 )
                 VALUES (
                     %(agent_turn_id)s, %(search_event_id)s, %(tool_name)s, '1.0',
-                    %(outcome)s, %(input_payload)s::jsonb,
+                    %(outcome)s, %(execution_origin)s, %(input_payload)s::jsonb,
                     %(output_payload)s::jsonb, %(duration_ms)s
                 )
                 """,
@@ -961,6 +977,7 @@ def persist_completed_run(
                         "search_event_id": step.get("search_event_id"),
                         "tool_name": step["tool"],
                         "outcome": step.get("outcome", "success"),
+                        "execution_origin": step.get("origin", "model"),
                         "input_payload": json.dumps(
                             step.get("arguments") or {}, default=str
                         ),

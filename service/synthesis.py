@@ -1,4 +1,4 @@
-"""Citation-validated answer synthesis over retrieved catalog evidence."""
+"""Citation-bounded synthesis with deterministic checks over retrieved evidence."""
 
 from __future__ import annotations
 

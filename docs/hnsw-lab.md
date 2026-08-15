@@ -69,11 +69,14 @@ Rebuild a smaller lab table with `m` and `ef_construction` variations. Observe b
 
 ## Scripts
 
-- `scripts/benchmark_hnsw.py` emits **measured** JSON results and EXPLAIN plans,
-  against `mosaic_search.product_document`. Its output *contract* — the
-  `mosaic_bench` tables it should write to, and the ground-truth definition for
-  `recall_at_k` — is deliberately open, deferred to Phase 3's advanced-lane spec.
-  The script runs today; what it should emit is the question.
+- `scripts/benchmark_hnsw.py` emits **measured** JSON results and persists the
+  same run to `mosaic_bench.run` and `mosaic_bench.measurement`.
+- Exact filtered ground truth disables index and bitmap scans transactionally.
+  ANN sessions call the production `mosaic_search.configure_hnsw` function.
+- Every run records source and dataset identity, Aurora engine and instance
+  identity, pgvector version, index definition and size, filter selectivity,
+  deterministic query-sample identity, runtime settings, recall, latency, and
+  an `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan.
 - `scripts/simulate_scale.py` emits **simulated_calibrated** projections.
 - `db/sql/08_indexes_concurrent.sql` holds the HNSW index definitions. The
   inspection and filter-selectivity exercises that lived in the deleted

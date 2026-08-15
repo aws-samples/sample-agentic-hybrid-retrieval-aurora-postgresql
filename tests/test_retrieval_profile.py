@@ -186,7 +186,7 @@ def test_configure_hnsw_arguments_are_explicitly_cast():
     did. The casts are the fix; this asserts they stay.
     """
     source = (REPO / "service" / "retrieval.py").read_text(encoding="utf-8")
-    call = source.split("configure_hnsw(", 1)[1].split(")", 1)[0]
+    call = source.split("SELECT mosaic_search.configure_hnsw(", 1)[1].split(")", 1)[0]
     for cast in ("::integer", "::text", "::real"):
         assert cast in call, f"configure_hnsw call lost its {cast} cast"
 

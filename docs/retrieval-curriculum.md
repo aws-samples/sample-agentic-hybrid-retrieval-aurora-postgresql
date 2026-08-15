@@ -115,6 +115,12 @@ required lab.
 
 ## Final production lesson
 
+The required path captures one persisted retrieval event's production
+`EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan on demand. Participants
+connect the FTS and trigram function scans, pgvector HNSW index scan, candidate
+caps, joins, runtime settings, and persisted rank receipt rather than treating
+Aurora as an opaque store behind the agent.
+
 The winning architecture is not "vector search." It is a controlled retrieval
 system:
 

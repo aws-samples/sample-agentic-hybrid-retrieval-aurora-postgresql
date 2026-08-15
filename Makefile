@@ -159,6 +159,7 @@ score-evals:
 validate-config:
 	$(PYTHON) scripts/retrieval_profile.py --check
 	$(PYTHON) scripts/config_tripwire.py
+	$(PYTHON) scripts/tool_contracts.py --check
 
 # Exactly one live signature per retrieval function. CREATE OR REPLACE cannot
 # change a signature, so a parameter change leaves the old body callable by any

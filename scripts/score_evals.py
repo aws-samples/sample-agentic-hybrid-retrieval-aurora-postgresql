@@ -8,6 +8,7 @@ import csv
 import hashlib
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -143,8 +144,22 @@ def measured_scorecard(
     )
     with connect() as connection:
         validate_query_contract(connection, queries)
+        database_environment = dict(
+            connection.execute(
+                """
+                SELECT aurora_db_instance_identifier() AS database_instance_id,
+                       current_setting('server_version') AS database_version,
+                       (
+                           SELECT extversion
+                           FROM pg_extension
+                           WHERE extname = 'vector'
+                       ) AS vector_extension_version
+                """
+            ).fetchone()
+        )
 
     retrieval = get_retrieval_service()
+    profile = retrieval._profile(SearchRequest(query="scorecard provenance", limit=k))
     ranked: dict[str, list[tuple[int, int]]] = {}
     with results_path.open("w", newline="", encoding="utf-8") as output:
         writer = csv.DictWriter(
@@ -219,6 +234,28 @@ def measured_scorecard(
             "embedding": settings.embedding_model_id,
             "rerank": settings.rerank_model_id,
         },
+        "source": {
+            "revision": settings.source_revision,
+            "worktree_dirty": settings.source_worktree_dirty,
+        },
+        "dataset_manifest_sha256": settings.dataset_manifest_sha256,
+        "retrieval_profile": profile.model_dump(),
+        "hnsw_settings": {
+            "ef_search": profile.ef_search,
+            "iterative_scan": profile.iterative_scan,
+            "max_scan_tuples": profile.max_scan_tuples,
+            "scan_mem_multiplier": profile.scan_mem_multiplier,
+        },
+        "aurora_configuration": {
+            "engine": "aurora-postgresql",
+            "database_version": database_environment["database_version"],
+            "vector_extension_version": database_environment[
+                "vector_extension_version"
+            ],
+            "instance_class": settings.aurora_instance_class,
+        },
+        "database_instance_id": database_environment["database_instance_id"],
+        "measured_at": datetime.now(UTC).isoformat(),
         "strategy": retrieval._strategy(),
         "metrics": {
             f"recall@{k}": metrics[f"recall@{k}"],
@@ -240,6 +277,11 @@ def verify_scorecard(measured: dict[str, Any], baseline: dict[str, Any]) -> None
         "ranked_result_sha256",
         "k",
         "models",
+        "dataset_manifest_sha256",
+        "retrieval_profile",
+        "hnsw_settings",
+        "aurora_configuration",
+        "database_instance_id",
         "strategy",
     ):
         if measured[field] != baseline.get(field):
@@ -248,6 +290,24 @@ def verify_scorecard(measured: dict[str, Any], baseline: dict[str, Any]) -> None
                 f"baseline={baseline.get(field)!r}. Establish a new measured baseline "
                 "only after reviewing the retrieval change."
             )
+    source = measured.get("source") or {}
+    if not source.get("revision") or not isinstance(source.get("worktree_dirty"), bool):
+        raise ValueError(
+            "Canonical scorecard source provenance is incomplete: "
+            f"measured={source!r}. Record revision and worktree_dirty."
+        )
+    if source["worktree_dirty"]:
+        raise ValueError(
+            "Canonical scorecard source is dirty: "
+            f"measured={source!r}; commit the reviewed source and rerun the "
+            "production scorecard before release."
+        )
+    baseline_source = baseline.get("source") or {}
+    if baseline_source.get("worktree_dirty") is not False:
+        raise ValueError(
+            "Canonical scorecard baseline was not captured from a clean source: "
+            f"baseline={baseline_source!r}; establish it from a committed checkout."
+        )
     for metric, expected in baseline["metrics"].items():
         actual = measured["metrics"].get(metric)
         if actual is None or actual < expected:
@@ -284,6 +344,12 @@ def main() -> None:
     args.results.parent.mkdir(parents=True, exist_ok=True)
     measured = measured_scorecard(args.queries, args.results, k=args.k)
     if args.write_baseline:
+        if measured["source"]["worktree_dirty"]:
+            raise SystemExit(
+                "Refusing to write a canonical baseline from a dirty source; "
+                "commit the reviewed changes, rerun, inspect the ranks, then use "
+                "--write-baseline."
+            )
         args.scorecard.write_text(
             json.dumps(measured, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",

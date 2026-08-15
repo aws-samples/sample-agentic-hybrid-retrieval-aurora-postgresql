@@ -278,7 +278,8 @@ def _measure_full_agent(
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Measure citation-validated synthesis and the full Ask Mosaic "
+            "Measure citation-bounded synthesis with deterministic claim checks "
+            "and the full Ask Mosaic "
             "workflow against the configured Aurora database."
         )
     )
@@ -298,7 +299,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--synthesis-model",
         help=(
-            "Model for citation-validated answer synthesis. Supply with "
+            "Model for citation-bounded answer synthesis. Supply with "
             "--agent-model to benchmark a split route."
         ),
     )

@@ -463,7 +463,7 @@ def test_agent_finalizes_retrieved_products_when_orchestration_stops(monkeypatch
 
     assert state["answer_of_record"]["answer"] == "Choose the quiet option [1]."
     assert state["trace"][-1]["tool"] == "synthesize_cited_answer"
-    assert state["trace"][-1]["arguments"]["orchestration_fallback"] is True
+    assert state["trace"][-1]["origin"] == "controller_fallback"
 
 
 def test_grounding_completion_uses_a_bounded_cross_search_shortlist(monkeypatch):

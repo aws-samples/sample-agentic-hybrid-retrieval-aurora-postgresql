@@ -58,13 +58,15 @@ The Strands response contains:
 
 - persisted `agent_run_id`;
 - tool-generated retrieval plan;
-- citation-validated answer of record;
+- citation-bounded answer of record with deterministic product, numeric,
+  availability, and mission-claim checks;
 - source-backed product recommendations;
 - numbered citations;
 - bounded tool trace with retrieval run IDs.
 
 The streaming route emits server-sent application stages and then the same
-citation-validated answer contract. It does not expose model reasoning.
+citation-bounded answer contract. It does not expose model reasoning or claim
+general semantic entailment.
 
 ## Catalog inspection
 
@@ -83,12 +85,22 @@ citation to its exact evidence row.
 
 - `GET /api/retrieval/examples`
 - `GET /api/retrieval/events/{search_event_id}`
+- `POST /api/retrieval/events/{search_event_id}/plan`
 - `GET /api/benchmarks/projection`
 - `GET /api/tools`
 
 Retrieval-run inspection returns persisted request, diagnostics, and
-candidate-level ranking signals. Benchmark projections are labeled simulated
-until replaced by measured Aurora output.
+candidate-level ranking signals plus source, dataset, model, SQL strategy,
+Aurora, pgvector, and HNSW identity. Plan capture replays that event's exact
+fusion call after applying `mosaic_search.configure_hnsw`, then persists
+`EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)`. It is explicit and
+on-demand because `ANALYZE` executes the query. Benchmark projections remain
+labeled simulated; `scripts/benchmark_hnsw.py` persists measured Aurora runs to
+`mosaic_bench`.
+
+`GET /api/tools` defaults to `surface=agent`; pass `surface=mcp` for the
+explicit MCP subset. Both are projections of
+`db/config/agent_tool_contracts.json`, not independent schemas.
 
 ## Runtime status
 

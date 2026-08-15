@@ -14,7 +14,7 @@ import time
 from collections import OrderedDict
 from collections.abc import Callable
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import numpy as np
 
@@ -26,6 +26,7 @@ from service.models import (
     RankSignal,
     ResultSignals,
     RetrievalDiagnostics,
+    RetrievalPlanResponse,
     RetrievalProfile,
     SearchRequest,
     SearchResponse,
@@ -171,6 +172,81 @@ class RetrievalService:
             ef_search=settings.hnsw_ef_search,
         )
 
+    @staticmethod
+    def _configure_hnsw(connection: Any, profile: RetrievalProfile) -> None:
+        connection.execute(
+            """
+            SELECT mosaic_search.configure_hnsw(
+                %s::integer, %s::text, %s::integer, %s::real
+            )
+            """,
+            (
+                profile.ef_search,
+                profile.iterative_scan,
+                profile.max_scan_tuples,
+                profile.scan_mem_multiplier,
+            ),
+        )
+
+    def _fusion_parameters(
+        self,
+        normalized_query: str,
+        query_embedding: tuple[float, ...],
+        filters: dict[str, Any],
+        profile: RetrievalProfile,
+        *,
+        weighted: bool | None = None,
+    ) -> dict[str, Any]:
+        use_weighted = self.use_weighted_fusion if weighted is None else weighted
+        parameters: dict[str, Any] = {
+            "query": normalized_query,
+            "embedding": np.asarray(query_embedding, dtype=np.float32),
+            "filters": json.dumps(filters),
+            "rrf_k": profile.rrf_k,
+            "fts_limit": profile.fts_limit,
+            "trigram_limit": profile.trigram_limit,
+            "semantic_limit": profile.semantic_limit,
+            "fused_limit": profile.fused_limit,
+            "trigram_threshold": profile.trigram_threshold,
+        }
+        if use_weighted:
+            parameters.update(
+                weight_lexical=profile.weight_lexical,
+                weight_semantic=profile.weight_semantic,
+                weight_trigram=profile.weight_trigram,
+            )
+        return parameters
+
+    def _fusion_sql(self, *, weighted: bool | None = None) -> str:
+        use_weighted = self.use_weighted_fusion if weighted is None else weighted
+        weight_args = ""
+        if use_weighted:
+            weight_args = (
+                ",\n                %(weight_lexical)s::real,"
+                "\n                %(weight_semantic)s::real,"
+                "\n                %(weight_trigram)s::real"
+            )
+        return f"""
+            SELECT h.*, d.sku, d.short_description, d.inventory_count,
+                   d.review_count, d.attributes, d.tags, d.domain,
+                   d.category_key, d.model_name, d.media_tier,
+                   d.is_flagship, d.is_retrieval_anchor, d.rerank_text,
+                   d.list_price_cents, d.currency, d.updated_at
+            FROM {_FUSION_FUNCTION[use_weighted]}(
+                %(query)s,
+                %(embedding)s::vector,
+                %(filters)s::jsonb,
+                %(rrf_k)s::integer,
+                %(fts_limit)s::integer,
+                %(trigram_limit)s::integer,
+                %(semantic_limit)s::integer,
+                %(fused_limit)s::integer,
+                %(trigram_threshold)s::real{weight_args}
+            ) AS h
+            JOIN mosaic_search.product_document d USING (product_id)
+            ORDER BY h.pre_rerank_score DESC, h.product_id
+        """
+
     def search(self, request: SearchRequest) -> SearchResponse:
         normalized = normalize_query(request.query)
         filters = request.filters.as_sql_json()
@@ -185,9 +261,20 @@ class RetrievalService:
                 """
                 INSERT INTO mosaic.search_event (
                     search_event_id, session_id, query_text, normalized_query,
-                    filters, retrieval_profile
+                    filters, retrieval_profile, source_revision,
+                    source_worktree_dirty, dataset_manifest_sha256,
+                    embedding_model_id, rerank_model_id, retrieval_strategy,
+                    database_instance_id, database_version,
+                    vector_extension_version, aurora_instance_class,
+                    hnsw_settings
                 )
-                VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                VALUES (
+                    %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s,
+                    %s, %s, aurora_db_instance_identifier(),
+                    current_setting('server_version'),
+                    (SELECT extversion FROM pg_extension WHERE extname = 'vector'),
+                    %s, %s::jsonb
+                )
                 """,
                 (
                     search_event_id,
@@ -196,6 +283,21 @@ class RetrievalService:
                     normalized,
                     json.dumps(filters),
                     profile.model_dump_json(),
+                    self.settings.source_revision,
+                    self.settings.source_worktree_dirty,
+                    self.settings.dataset_manifest_sha256,
+                    self._embedder().model_id,
+                    self._reranker().model_id if request.rerank else None,
+                    self._strategy(),
+                    self.settings.aurora_instance_class,
+                    json.dumps(
+                        {
+                            "ef_search": profile.ef_search,
+                            "iterative_scan": profile.iterative_scan,
+                            "max_scan_tuples": profile.max_scan_tuples,
+                            "scan_mem_multiplier": profile.scan_mem_multiplier,
+                        }
+                    ),
                 ),
             )
             connection.commit()
@@ -218,64 +320,15 @@ class RetrievalService:
                 # precision`, no overload matches, and every search fails with
                 # UndefinedFunction. Naming the types here makes the call
                 # independent of how the profile happens to be stored.
-                connection.execute(
-                    """
-                    SELECT mosaic_search.configure_hnsw(
-                        %s::integer, %s::text, %s::integer, %s::real
-                    )
-                    """,
-                    (
-                        profile.ef_search,
-                        profile.iterative_scan,
-                        profile.max_scan_tuples,
-                        profile.scan_mem_multiplier,
-                    ),
-                )
-                fusion_params: dict[str, Any] = {
-                    "query": normalized,
-                    "embedding": np.asarray(query_embedding, dtype=np.float32),
-                    "filters": json.dumps(filters),
-                    "rrf_k": profile.rrf_k,
-                    "fts_limit": profile.fts_limit,
-                    "trigram_limit": profile.trigram_limit,
-                    "semantic_limit": profile.semantic_limit,
-                    "fused_limit": profile.fused_limit,
-                    "trigram_threshold": profile.trigram_threshold,
-                }
-                weight_args = ""
-                if self.use_weighted_fusion:
-                    weight_args = (
-                        ",\n                        %(weight_lexical)s::real,"
-                        "\n                        %(weight_semantic)s::real,"
-                        "\n                        %(weight_trigram)s::real"
-                    )
-                    fusion_params.update(
-                        weight_lexical=profile.weight_lexical,
-                        weight_semantic=profile.weight_semantic,
-                        weight_trigram=profile.weight_trigram,
-                    )
+                self._configure_hnsw(connection, profile)
                 rows = connection.execute(
-                    f"""
-                    SELECT h.*, d.sku, d.short_description, d.inventory_count,
-                           d.review_count, d.attributes, d.tags, d.domain,
-                           d.category_key, d.model_name, d.media_tier,
-                           d.is_flagship, d.is_retrieval_anchor, d.rerank_text,
-                           d.list_price_cents, d.currency, d.updated_at
-                    FROM {_FUSION_FUNCTION[self.use_weighted_fusion]}(
-                        %(query)s,
-                        %(embedding)s::vector,
-                        %(filters)s::jsonb,
-                        %(rrf_k)s::integer,
-                        %(fts_limit)s::integer,
-                        %(trigram_limit)s::integer,
-                        %(semantic_limit)s::integer,
-                        %(fused_limit)s::integer,
-                        %(trigram_threshold)s::real{weight_args}
-                    ) AS h
-                    JOIN mosaic_search.product_document d USING (product_id)
-                    ORDER BY h.pre_rerank_score DESC, h.product_id
-                    """,
-                    fusion_params,
+                    self._fusion_sql(),
+                    self._fusion_parameters(
+                        normalized,
+                        query_embedding,
+                        filters,
+                        profile,
+                    ),
                 ).fetchall()
             candidates = [dict(row) for row in rows]
             stage_timings["postgresql_retrieval"] = round(
@@ -472,6 +525,59 @@ class RetrievalService:
             results=[self._result(row) for row in selected],
             diagnostics=diagnostics,
         )
+
+    def capture_plan(self, search_event_id: UUID) -> RetrievalPlanResponse:
+        """Capture the production fusion query plan for one persisted event."""
+        with self.connection_factory() as connection:
+            event = connection.execute(
+                """
+                SELECT normalized_query, filters, retrieval_profile,
+                       retrieval_strategy
+                FROM mosaic.search_event
+                WHERE search_event_id = %s
+                """,
+                (search_event_id,),
+            ).fetchone()
+        if event is None:
+            raise KeyError(f"Retrieval event {search_event_id} was not found")
+
+        normalized = event["normalized_query"]
+        filters = event["filters"]
+        profile = RetrievalProfile.model_validate(event["retrieval_profile"])
+        weighted = event["retrieval_strategy"] == WEIGHTED_STRATEGY
+        embedding = self._embed_query(normalized)
+        started = time.perf_counter()
+        with self.connection_factory() as connection:
+            self._configure_hnsw(connection, profile)
+            plan_row = connection.execute(
+                "EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON) "
+                + self._fusion_sql(weighted=weighted),
+                self._fusion_parameters(
+                    normalized,
+                    embedding,
+                    filters,
+                    profile,
+                    weighted=weighted,
+                ),
+            ).fetchone()
+            plan = plan_row["QUERY PLAN"] if isinstance(plan_row, dict) else plan_row[0]
+            connection.execute(
+                """
+                UPDATE mosaic.search_event
+                SET plan_json = %s::jsonb,
+                    diagnostics = diagnostics || jsonb_build_object(
+                        'plan_capture_ms', %s::numeric
+                    )
+                WHERE search_event_id = %s
+                """,
+                (
+                    json.dumps(plan),
+                    round((time.perf_counter() - started) * 1000, 3),
+                    search_event_id,
+                ),
+            )
+            connection.commit()
+        return RetrievalPlanResponse(search_event_id=search_event_id, plan=plan)
 
     @staticmethod
     def _result(row: dict[str, Any]) -> ProductSummary:

@@ -12,5 +12,5 @@
 
 \echo ''
 \echo 'Evaluation and benchmark schemas installed (mosaic_eval, mosaic_bench).'
-\echo 'These start empty: no loader ships in this repository yet, so any number'
-\echo 'they hold has to be measured on the real cluster before it is quoted.'
+\echo 'These start empty. scripts/benchmark_hnsw.py writes measured HNSW runs;'
+\echo 'any number they hold must still be measured on the real cluster before use.'

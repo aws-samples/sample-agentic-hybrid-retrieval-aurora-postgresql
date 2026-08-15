@@ -31,6 +31,23 @@ def scorecard(*, recall=0.8, mrr=0.7, ndcg=0.75):
             "embedding": "us.cohere.embed-v4:0",
             "rerank": "cohere.rerank-v3-5:0",
         },
+        "source": {"revision": "a" * 40, "worktree_dirty": False},
+        "dataset_manifest_sha256": "b" * 64,
+        "retrieval_profile": {"rrf_k": 60},
+        "hnsw_settings": {
+            "ef_search": 100,
+            "iterative_scan": "relaxed_order",
+            "max_scan_tuples": 20000,
+            "scan_mem_multiplier": 1,
+        },
+        "aurora_configuration": {
+            "engine": "aurora-postgresql",
+            "database_version": "18.3",
+            "vector_extension_version": "0.8.1",
+            "instance_class": "db.r8g.2xlarge",
+        },
+        "database_instance_id": "workshop-writer",
+        "measured_at": "2026-08-15T00:00:00+00:00",
         "strategy": "rrf_fusion+rerank+exact_sku_preservation",
         "metrics": {
             "recall@10": recall,
@@ -59,6 +76,11 @@ def test_committed_scorecard_keeps_per_query_and_ranked_result_provenance():
         f"G-{number:03d}" for number in range(1, 21)
     } - {"G-010"}
     assert len(baseline["ranked_result_sha256"]) == 64
+    assert len(baseline["dataset_manifest_sha256"]) == 64
+    assert baseline["source"]["revision"]
+    assert isinstance(baseline["source"]["worktree_dirty"], bool)
+    assert baseline["aurora_configuration"]["instance_class"]
+    assert baseline["retrieval_profile"]["rrf_k"] > 0
 
 
 @pytest.mark.parametrize(
@@ -68,6 +90,11 @@ def test_committed_scorecard_keeps_per_query_and_ranked_result_provenance():
         ("product_retrieval_query_count", 20),
         ("k", 20),
         ("models", {"embedding": "another-space", "rerank": "rerank"}),
+        ("dataset_manifest_sha256", "changed"),
+        ("retrieval_profile", {"rrf_k": 1}),
+        ("hnsw_settings", {"ef_search": 1}),
+        ("aurora_configuration", {"engine": "postgresql"}),
+        ("database_instance_id", "different-writer"),
         ("strategy", "weighted_rrf_fusion+rerank+exact_sku_preservation"),
         ("ranked_result_sha256", "changed"),
     ],
@@ -96,6 +123,32 @@ def test_scorecard_refuses_metric_regressions(metric, value):
 
     with pytest.raises(ValueError, match=f"regressed for {metric}"):
         verify_scorecard(measured, baseline)
+
+
+def test_scorecard_requires_source_revision_and_worktree_state():
+    baseline = scorecard()
+    measured = scorecard()
+    measured["source"] = {"revision": "", "worktree_dirty": "unknown"}
+
+    with pytest.raises(ValueError, match="source provenance is incomplete"):
+        verify_scorecard(measured, baseline)
+
+
+def test_scorecard_refuses_a_dirty_measured_source():
+    baseline = scorecard()
+    measured = scorecard()
+    measured["source"]["worktree_dirty"] = True
+
+    with pytest.raises(ValueError, match="source is dirty"):
+        verify_scorecard(measured, baseline)
+
+
+def test_scorecard_refuses_a_dirty_committed_baseline():
+    baseline = scorecard()
+    baseline["source"]["worktree_dirty"] = True
+
+    with pytest.raises(ValueError, match="baseline was not captured from a clean"):
+        verify_scorecard(scorecard(), baseline)
 
 
 def test_product_retrieval_scorecard_excludes_agent_contract_cases():

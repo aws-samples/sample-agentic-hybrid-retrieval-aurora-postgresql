@@ -1,0 +1,223 @@
+{
+  "version": 1,
+  "contracts": [
+    {
+      "name": "search_products",
+      "tool_version": "1.0",
+      "description": "Run filtered lexical, fuzzy, semantic, reciprocal-rank fusion, and bounded reranking over Aurora PostgreSQL.",
+      "read_only": true,
+      "surfaces": ["agent", "mcp"],
+      "input_schemas": {
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["query"],
+          "properties": {
+            "query": {"type": "string", "minLength": 1, "maxLength": 1000},
+            "domain": {
+              "type": ["string", "null"],
+              "enum": ["consumer_electronics", "running_fitness", "home_office", null]
+            },
+            "category_key": {"type": ["string", "null"]},
+            "brand": {"type": ["string", "null"]},
+            "availability": {
+              "type": ["string", "null"],
+              "enum": ["in_stock", "low_stock", "out_of_stock", "preorder", "discontinued", null]
+            },
+            "in_stock_only": {"type": "boolean"},
+            "min_price_cents": {"type": ["integer", "null"], "minimum": 0},
+            "max_price_cents": {"type": ["integer", "null"], "minimum": 0},
+            "min_rating": {"type": ["number", "null"], "minimum": 0, "maximum": 5},
+            "attributes": {"type": ["object", "null"]},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 2}
+          }
+        },
+        "mcp": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["query"],
+          "properties": {
+            "query": {"type": "string", "minLength": 2, "maxLength": 1000},
+            "domain": {
+              "type": ["string", "null"],
+              "enum": ["consumer_electronics", "running_fitness", "home_office", null]
+            },
+            "category_key": {"type": ["string", "null"]},
+            "brand": {"type": ["string", "null"]},
+            "availability": {
+              "type": ["string", "null"],
+              "enum": ["in_stock", "low_stock", "out_of_stock", "preorder", "discontinued", null]
+            },
+            "in_stock_only": {"type": "boolean"},
+            "min_price_cents": {"type": ["integer", "null"], "minimum": 0},
+            "max_price_cents": {"type": ["integer", "null"], "minimum": 0},
+            "min_rating": {"type": ["number", "null"], "minimum": 0, "maximum": 5},
+            "attributes": {"type": ["object", "null"]},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+            "include_diagnostics": {"type": "boolean"},
+            "rerank": {"type": "boolean"}
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "required": ["search_event_id", "results"],
+        "properties": {
+          "search_event_id": {"type": "string", "format": "uuid"},
+          "results": {"type": "array"},
+          "diagnostics": {"type": ["object", "null"]}
+        }
+      }
+    },
+    {
+      "name": "get_product_evidence",
+      "tool_version": "1.0",
+      "description": "Rank source-addressable specifications and reviews for one retrieved product against a focused evidence question.",
+      "read_only": true,
+      "surfaces": ["agent", "mcp"],
+      "input_schemas": {
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["product_id", "evidence_query"],
+          "properties": {
+            "product_id": {"type": "integer", "minimum": 1},
+            "evidence_query": {"type": "string", "minLength": 1}
+          }
+        },
+        "mcp": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["product_id", "evidence_query"],
+          "properties": {
+            "product_id": {"type": "integer", "minimum": 1},
+            "evidence_query": {"type": "string", "minLength": 1}
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "required": ["product_id", "evidence"],
+        "properties": {
+          "product_id": {"type": "integer"},
+          "evidence": {"type": "array"}
+        }
+      }
+    },
+    {
+      "name": "compare_products",
+      "tool_version": "1.0",
+      "description": "Compare two to five products already retrieved during the current agent turn.",
+      "read_only": true,
+      "surfaces": ["agent"],
+      "input_schemas": {
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["product_ids"],
+          "properties": {
+            "product_ids": {
+              "type": "array",
+              "items": {"type": "integer", "minimum": 1},
+              "minItems": 1,
+              "maxItems": 5,
+              "uniqueItems": true
+            }
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "required": ["ok", "products"],
+        "properties": {
+          "ok": {"type": "boolean"},
+          "products": {"type": "array"}
+        }
+      }
+    },
+    {
+      "name": "explain_retrieval",
+      "tool_version": "1.0",
+      "description": "Replay persisted arm ranks, scores, fusion contributions, reranker order, and timings for one event created by the current agent turn.",
+      "read_only": true,
+      "surfaces": ["agent"],
+      "input_schemas": {
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["search_event_id"],
+          "properties": {
+            "search_event_id": {"type": "string", "format": "uuid"}
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "required": ["ok", "search_event", "candidates"],
+        "properties": {
+          "ok": {"type": "boolean"},
+          "search_event": {"type": ["object", "null"]},
+          "candidates": {"type": "array"}
+        }
+      }
+    },
+    {
+      "name": "synthesize_cited_answer",
+      "tool_version": "1.0",
+      "description": "Create the answer of record from retrieved products and evidence, with citation bounds and deterministic claim checks.",
+      "read_only": true,
+      "surfaces": ["agent"],
+      "input_schemas": {
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["question", "product_ids"],
+          "properties": {
+            "question": {"type": "string", "minLength": 1},
+            "product_ids": {
+              "type": "array",
+              "items": {"type": "integer", "minimum": 1},
+              "minItems": 2,
+              "maxItems": 6,
+              "uniqueItems": true
+            }
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "required": ["ok", "answer", "citations"],
+        "properties": {
+          "ok": {"type": "boolean"},
+          "answer": {"type": "string"},
+          "citations": {"type": "array"}
+        }
+      }
+    },
+    {
+      "name": "inspect_retrieval_run",
+      "tool_version": "1.0",
+      "description": "Replay a persisted retrieval event through the stateless MCP adapter.",
+      "read_only": true,
+      "surfaces": ["mcp"],
+      "input_schemas": {
+        "mcp": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["run_id"],
+          "properties": {
+            "run_id": {"type": "string", "format": "uuid"}
+          }
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "required": ["run", "candidates"],
+        "properties": {
+          "run": {"type": "object"},
+          "candidates": {"type": "array"}
+        }
+      }
+    }
+  ]
+}

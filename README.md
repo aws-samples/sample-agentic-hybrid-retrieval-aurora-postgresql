@@ -112,6 +112,14 @@ the pinned embedding cache. `ARTIFACTS.md` covers what is and is not restorable,
 and how to connect from a corporate network. If `psql` hangs while the port looks
 open, start with `sslmode=disable` to tell a TLS problem from a firewall one.
 
+The application and retrieval contracts are production-shaped; the supplied
+infrastructure topology is intentionally workshop-shaped. It uses one writer,
+short backup retention, deletion policies, deletion protection disabled, and
+generated credentials so a scheduled session can be created and removed
+predictably. A production deployment must choose its own high-availability,
+backup, deletion-protection, authentication, connection-pooling, and retention
+policies rather than inheriting those workshop lifecycle defaults.
+
 ```bash
 export DATABASE_URL='postgresql://USER:PASSWORD@YOUR-CLUSTER.cluster-xxxx.us-east-1.rds.amazonaws.com:5432/mosaic_catalog?sslmode=require'
 make db-install
@@ -290,7 +298,8 @@ product. All thirteen replacements are complete and recorded in
 ## Benchmarking Rule
 
 The generated catalog is real source data. Output from
-`scripts/benchmark_hnsw.py` is measured. Output from
+`scripts/benchmark_hnsw.py` is measured and persists its complete environment,
+query-sample, plan, latency, and recall record to `mosaic_bench`. Output from
 `scripts/simulate_scale.py` is a labeled projection and must not be presented
 as Aurora performance evidence.
 

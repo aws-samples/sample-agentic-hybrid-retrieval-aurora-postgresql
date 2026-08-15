@@ -54,10 +54,11 @@ For a complex question:
 6. Call synthesize_cited_answer exactly once, last, with only product IDs that
    search_products returned and for which evidence was retrieved.
 
-synthesize_cited_answer creates the citation-validated answer of record. Do
-not rewrite it after the tool succeeds. Close with one short sentence saying
-the cited answer is ready. If a tool returns ok=false, follow its recovery
-instruction or state the evidence gap."""
+synthesize_cited_answer creates the citation-bounded answer of record and applies
+deterministic product, numeric, availability, and mission-claim checks. Do not
+rewrite it after the tool succeeds. Close with one short sentence saying the
+cited answer is ready. If a tool returns ok=false, follow its recovery instruction
+or state the evidence gap."""
 
 
 class ToolCallBudgetExceeded(RuntimeError):
@@ -65,7 +66,7 @@ class ToolCallBudgetExceeded(RuntimeError):
 
 
 class GroundingContractError(RuntimeError):
-    """The retrieved state cannot support a citation-validated answer."""
+    """The retrieved state cannot support a citation-bounded answer."""
 
 
 class _ToolCallBudget:
@@ -189,10 +190,10 @@ class ProductDiscoveryAgent:
             if isinstance(error, (GroundingContractError, ModelRuntimeError)):
                 raise error
             reason = (
-                f"Strands stopped before a citation-validated answer "
+                f"Strands stopped before a citation-bounded answer "
                 f"({type(error).__name__})."
                 if error
-                else "Strands stopped before a citation-validated answer."
+                else "Strands stopped before a citation-bounded answer."
             )
             raise RuntimeError(reason)
 
@@ -213,6 +214,7 @@ class ProductDiscoveryAgent:
                 result_count=item.get("result_count"),
                 arguments=item.get("arguments") or {},
                 outcome=item.get("outcome", "success"),
+                origin=item.get("origin", "model"),
                 latency_ms=item.get("latency_ms"),
             )
             for item in state["trace"]

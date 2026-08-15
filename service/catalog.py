@@ -21,6 +21,7 @@ from service.models import (
     ProductMedia,
     ProductReview,
     ProductSummary,
+    RetrievalProfile,
     SearchFilters,
     SourceAttribution,
 )
@@ -280,6 +281,7 @@ def get_product_evidence_records(
     """Return question-ranked, source-addressable evidence for one product."""
     if not query.strip():
         raise ValueError("Evidence retrieval requires a non-empty evidence query")
+    profile = RetrievalProfile()
     with connect() as connection:
         ranked_ids = connection.execute(
             """
@@ -289,10 +291,21 @@ def get_product_evidence_records(
                 %s::text,
                 %s::vector,
                 NULL,
+                %s::integer,
+                %s::integer,
+                %s::integer,
                 %s::integer
             )
             """,
-            (product_id, query, query_embedding, max(1, min(limit, 12))),
+            (
+                product_id,
+                query,
+                query_embedding,
+                max(1, min(limit, profile.result_limit)),
+                profile.rrf_k,
+                profile.fts_limit,
+                profile.semantic_limit,
+            ),
         ).fetchall()
         evidence_ids = [row["evidence_id"] for row in ranked_ids]
         if not evidence_ids:

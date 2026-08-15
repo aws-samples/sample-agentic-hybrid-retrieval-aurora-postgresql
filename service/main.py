@@ -6,7 +6,7 @@ import asyncio
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from scripts.tool_contracts import contracts_for_surface
 from service.agent import get_product_discovery_agent
 from service.catalog import (
     catalog_summary,
@@ -38,6 +39,7 @@ from service.models import (
     ProductDetail,
     ProductEvidenceRequest,
     ProductEvidenceResponse,
+    RetrievalPlanResponse,
     RetrievalRunResponse,
     SearchFilters,
     SearchRequest,
@@ -308,7 +310,7 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
                     stage = (
                         "answer",
                         "Compose cited answer",
-                        "Preparing the validated answer of record.",
+                        "Preparing the citation-bounded answer of record.",
                     )
                 else:
                     stage = None
@@ -404,8 +406,13 @@ def retrieval_event(search_event_id: UUID) -> RetrievalRunResponse:
         event = connection.execute(
             """
             SELECT search_event_id, occurred_at, session_id, query_text,
-                   normalized_query, filters, retrieval_profile,
-                   candidate_counts, total_latency_ms, diagnostics
+                   normalized_query, filters, retrieval_profile, source_revision,
+                   source_worktree_dirty, dataset_manifest_sha256,
+                   embedding_model_id, rerank_model_id, retrieval_strategy,
+                   database_instance_id, database_version,
+                   vector_extension_version, aurora_instance_class,
+                   hnsw_settings, candidate_counts, total_latency_ms,
+                   plan_json, diagnostics
             FROM mosaic.search_event
             WHERE search_event_id = %s
             """,
@@ -429,49 +436,23 @@ def retrieval_event(search_event_id: UUID) -> RetrievalRunResponse:
     )
 
 
+@app.post(
+    "/api/retrieval/events/{search_event_id}/plan",
+    response_model=RetrievalPlanResponse,
+)
+def capture_retrieval_plan(search_event_id: UUID) -> RetrievalPlanResponse:
+    """Capture and persist EXPLAIN ANALYZE for the event's production SQL path."""
+    try:
+        return get_retrieval_service().capture_plan(search_event_id)
+    except KeyError as error:
+        raise HTTPException(404, str(error)) from error
+    except (ClientError, BotoCoreError) as error:
+        raise _model_error(error) from error
+
+
 @app.get("/api/tools")
-def tool_contracts() -> dict[str, Any]:
-    return {
-        "tools": [
-            {
-                "name": "search_products",
-                "description": (
-                    "Run filtered lexical, fuzzy, semantic, unweighted RRF, "
-                    "and reranked product retrieval."
-                ),
-                "input_schema": SearchRequest.model_json_schema(),
-                "read_only": True,
-            },
-            {
-                "name": "get_product_evidence",
-                "description": (
-                    "Retrieve question-ranked specification and review evidence "
-                    "with stable source IDs for one retrieved product."
-                ),
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "product_id": {"type": "integer"},
-                        "evidence_query": {"type": "string", "minLength": 1},
-                    },
-                    "required": ["product_id", "evidence_query"],
-                    "additionalProperties": False,
-                },
-                "read_only": True,
-            },
-            {
-                "name": "inspect_retrieval_run",
-                "description": (
-                    "Replay candidate-level ranks, raw scores, RRF "
-                    "contributions, reranker scores, and final order."
-                ),
-                "input_schema": {
-                    "type": "object",
-                    "properties": {"run_id": {"type": "string", "format": "uuid"}},
-                    "required": ["run_id"],
-                    "additionalProperties": False,
-                },
-                "read_only": True,
-            },
-        ]
-    }
+def tool_contracts(
+    surface: Literal["agent", "mcp"] = Query(default="agent"),
+) -> dict[str, Any]:
+    """Expose one explicitly scoped view of the canonical tool contracts."""
+    return {"surface": surface, "tools": contracts_for_surface(surface)}

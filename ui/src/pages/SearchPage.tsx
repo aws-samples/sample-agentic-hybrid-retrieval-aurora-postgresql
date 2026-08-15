@@ -621,6 +621,9 @@ export function SearchPage() {
                           <span>{step.sequence}</span>
                           <div>
                             <strong>{step.tool}</strong>
+                            {step.origin === "controller_fallback" ? (
+                              <small>Application controller completion</small>
+                            ) : null}
                             <small>{step.detail}</small>
                             {Object.keys(step.arguments).length ? (
                               <code>{JSON.stringify(step.arguments)}</code>

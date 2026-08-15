@@ -109,6 +109,20 @@ def test_a_typescript_fallback_is_caught(fake_repo):
     assert "C1" in rules(report)
 
 
+def test_an_rrf_literal_inside_an_expression_is_caught(fake_repo):
+    path = fake_repo / "db" / "sql" / "evidence.sql"
+    path.write_text(
+        "SELECT 1.0 / (60 + evidence_rank) AS fused_score;\n",
+        encoding="utf-8",
+    )
+
+    report = Report()
+    scan_declarations(report, repo=fake_repo)
+
+    assert "C1" in rules(report)
+    assert any("hardcodes k=60" in failure for failure in report.failures)
+
+
 def test_a_resurrected_workshop_json_is_caught(fake_repo):
     """Unit C deleted this file; recreating it must fail rather than be ignored."""
     (fake_repo / "config").mkdir()

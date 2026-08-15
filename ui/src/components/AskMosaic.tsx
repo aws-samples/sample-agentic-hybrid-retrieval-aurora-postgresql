@@ -364,6 +364,9 @@ function Activity({ response }: { response: AgentResponse }) {
             <div>
               <strong>{toolLabels.get(step.tool) ?? step.tool}</strong>
               <code className="ask-mosaic-tool-fn">{step.tool}</code>
+              {step.origin === "controller_fallback" ? (
+                <small>Completed by the application controller</small>
+              ) : null}
               <small>{step.detail}</small>
               {Object.keys(step.arguments).length ? (
                 <code>{JSON.stringify(step.arguments)}</code>

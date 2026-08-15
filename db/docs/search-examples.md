@@ -25,7 +25,10 @@ FROM mosaic_search.search_product_evidence(
     'comfortable for a long flight while wearing glasses',
     :'query_embedding'::vector(1024),
     ARRAY['customer_review','expert_summary']::mosaic.evidence_type[],
-    8
+    8,
+    :rrf_k,
+    :fts_limit,
+    :semantic_limit
 );
 ```
 

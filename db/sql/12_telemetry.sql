@@ -9,11 +9,44 @@ CREATE TABLE IF NOT EXISTS mosaic.search_event (
     normalized_query       text,
     filters                jsonb NOT NULL DEFAULT '{}'::jsonb,
     retrieval_profile      jsonb NOT NULL DEFAULT '{}'::jsonb,
+    source_revision        text,
+    source_worktree_dirty  boolean,
+    dataset_manifest_sha256 text,
+    embedding_model_id     text,
+    rerank_model_id        text,
+    retrieval_strategy     text,
+    database_instance_id   text,
+    database_version       text,
+    vector_extension_version text,
+    aurora_instance_class  text,
+    hnsw_settings          jsonb NOT NULL DEFAULT '{}'::jsonb,
     candidate_counts       jsonb NOT NULL DEFAULT '{}'::jsonb,
     total_latency_ms       integer CHECK (total_latency_ms >= 0),
     plan_json              jsonb,
     diagnostics            jsonb NOT NULL DEFAULT '{}'::jsonb
 );
+
+ALTER TABLE mosaic.search_event
+    ADD COLUMN IF NOT EXISTS source_revision text,
+    ADD COLUMN IF NOT EXISTS source_worktree_dirty boolean,
+    ADD COLUMN IF NOT EXISTS dataset_manifest_sha256 text,
+    ADD COLUMN IF NOT EXISTS embedding_model_id text,
+    ADD COLUMN IF NOT EXISTS rerank_model_id text,
+    ADD COLUMN IF NOT EXISTS retrieval_strategy text,
+    ADD COLUMN IF NOT EXISTS database_instance_id text,
+    ADD COLUMN IF NOT EXISTS database_version text,
+    ADD COLUMN IF NOT EXISTS vector_extension_version text,
+    ADD COLUMN IF NOT EXISTS aurora_instance_class text,
+    ADD COLUMN IF NOT EXISTS hnsw_settings jsonb NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE mosaic.search_event
+    DROP CONSTRAINT IF EXISTS search_event_dataset_manifest_sha256_check;
+ALTER TABLE mosaic.search_event
+    ADD CONSTRAINT search_event_dataset_manifest_sha256_check
+    CHECK (
+        dataset_manifest_sha256 IS NULL
+        OR dataset_manifest_sha256 ~ '^[0-9a-f]{64}$'
+    );
 
 ALTER TABLE mosaic.agent_tool_event
     DROP CONSTRAINT IF EXISTS agent_tool_event_search_event_id_fkey;

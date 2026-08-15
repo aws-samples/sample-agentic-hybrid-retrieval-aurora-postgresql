@@ -32,10 +32,13 @@ exact-identity preservation. It measures:
 The command writes an ignored per-run CSV and compares the measured result with
 `data/evals/canonical_scorecard.json`. The committed scorecard retains all 19
 per-query metrics and a SHA-256 identity of the exact ranked product IDs and
-positions, excluding volatile event IDs and latency. It fails if the query set,
-ranked result identity, model IDs, retrieval strategy, deterministic checks, or
-metrics drift. Use `--write-baseline` only after reviewing the Aurora ranks and
-intentionally accepting a new measured baseline.
+positions, excluding volatile event IDs and latency. It also records the clean
+source revision, dataset-manifest hash, complete retrieval profile, HNSW
+settings, model IDs, Aurora instance identity/class/version, pgvector version,
+and measurement timestamp. It fails if any of those inputs, the ranked result
+identity, deterministic checks, or metrics drift. Baseline writes refuse a dirty
+worktree; use `--write-baseline` only after committing the reviewed source,
+reviewing the Aurora ranks, and intentionally accepting a new measured baseline.
 
 ## Filter-contract corpus
 

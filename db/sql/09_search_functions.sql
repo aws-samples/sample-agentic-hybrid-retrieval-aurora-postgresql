@@ -709,12 +709,19 @@ ORDER BY e.rrf_score DESC, e.product_id
 LIMIT greatest(result_limit, 1)
 $$;
 
+DROP FUNCTION IF EXISTS mosaic_search.search_product_evidence(
+    bigint, text, vector, mosaic.evidence_type[], integer
+);
+
 CREATE OR REPLACE FUNCTION mosaic_search.search_product_evidence(
     p_product_id bigint,
     q text,
     query_embedding vector(1024),
-    p_evidence_types mosaic.evidence_type[] DEFAULT NULL,
-    result_limit integer DEFAULT 8
+    p_evidence_types mosaic.evidence_type[],
+    result_limit integer,
+    p_rrf_k integer,
+    lexical_limit integer,
+    semantic_limit integer
 )
 RETURNS TABLE (
     evidence_id bigint,
@@ -742,7 +749,7 @@ WITH lexical AS (
       AND (p_evidence_types IS NULL OR e.evidence_type = ANY (p_evidence_types))
       AND e.evidence_document @@ websearch_to_tsquery('english', q)
     ORDER BY score DESC, e.evidence_id
-    LIMIT 50
+    LIMIT greatest(lexical_limit, 1)
 ), semantic AS (
     SELECT e.evidence_id,
            (
@@ -778,12 +785,22 @@ WITH lexical AS (
             ELSE d.embedding
         END <=> query_embedding,
         e.evidence_id
-    LIMIT 50
+    LIMIT greatest(semantic_limit, 1)
 ), fused AS (
     SELECT coalesce(l.evidence_id, s.evidence_id) AS evidence_id,
            l.score AS lexical_score,
            s.score AS semantic_score,
-           coalesce(1.0 / (60 + l.rank), 0) + coalesce(1.0 / (60 + s.rank), 0) AS fused_score
+           coalesce(
+               mosaic_search.reciprocal_rank_contribution(
+                   l.rank::integer, p_rrf_k
+               ),
+               0
+           ) + coalesce(
+               mosaic_search.reciprocal_rank_contribution(
+                   s.rank::integer, p_rrf_k
+               ),
+               0
+           ) AS fused_score
     FROM lexical l
     FULL OUTER JOIN semantic s USING (evidence_id)
 )

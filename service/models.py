@@ -335,8 +335,20 @@ class SearchEventRecord(BaseModel):
     normalized_query: str | None = None
     filters: dict[str, Any]
     retrieval_profile: dict[str, Any]
+    source_revision: str | None = None
+    source_worktree_dirty: bool | None = None
+    dataset_manifest_sha256: str | None = None
+    embedding_model_id: str | None = None
+    rerank_model_id: str | None = None
+    retrieval_strategy: str | None = None
+    database_instance_id: str | None = None
+    database_version: str | None = None
+    vector_extension_version: str | None = None
+    aurora_instance_class: str | None = None
+    hnsw_settings: dict[str, Any] = Field(default_factory=dict)
     candidate_counts: dict[str, int]
     total_latency_ms: int | None = None
+    plan_json: list[dict[str, Any]] | None = None
     diagnostics: dict[str, Any]
 
 
@@ -363,6 +375,11 @@ class SearchResultEventRecord(BaseModel):
 class RetrievalRunResponse(BaseModel):
     run: SearchEventRecord
     candidates: list[SearchResultEventRecord]
+
+
+class RetrievalPlanResponse(BaseModel):
+    search_event_id: UUID
+    plan: list[dict[str, Any]]
 
 
 class FusionCandidateComparison(BaseModel):
@@ -450,6 +467,7 @@ class ToolTraceStep(BaseModel):
     result_count: int | None = None
     arguments: dict[str, Any] = Field(default_factory=dict)
     outcome: Literal["success", "error"] = "success"
+    origin: Literal["model", "controller_fallback"] = "model"
     latency_ms: float | None = Field(default=None, ge=0)
 
 

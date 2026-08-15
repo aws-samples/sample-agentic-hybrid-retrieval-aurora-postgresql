@@ -265,6 +265,11 @@ def validate_agent_response(
     mission: dict[str, Any],
     agent: dict[str, Any],
 ) -> list[str]:
+    trace = agent.get("trace") or []
+    _require(
+        all(step.get("origin") in {"model", "controller_fallback"} for step in trace),
+        "Lab 3 trace does not identify model versus controller execution origin",
+    )
     searches = _successful_steps(agent, "search_products")
     _require(searches, "Lab 3 did not invoke search_products successfully")
     required_filters = mission["filters"]
@@ -387,6 +392,7 @@ def validate_agent_response(
         "retrieval and comparison tools invoked",
         "evidence retrieved for every recommendation",
         "ranking explanation replayable",
+        "tool execution origins explicit",
         "citation IDs resolve exactly",
         "required claims supported",
     ]

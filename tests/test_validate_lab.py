@@ -20,6 +20,7 @@ def _agent_response():
             {
                 "tool": "search_products",
                 "outcome": "success",
+                "origin": "model",
                 "retrieval_run_id": "run-1",
                 "arguments": {
                     "applied_filters": {
@@ -32,23 +33,27 @@ def _agent_response():
             {
                 "tool": "compare_products",
                 "outcome": "success",
+                "origin": "model",
                 "arguments": {"product_ids": [370001, 429001]},
             },
             {
                 "tool": "get_product_evidence",
                 "outcome": "success",
+                "origin": "model",
                 "result_count": 2,
                 "arguments": {"product_id": 370001},
             },
             {
                 "tool": "get_product_evidence",
                 "outcome": "success",
+                "origin": "model",
                 "result_count": 2,
                 "arguments": {"product_id": 429001},
             },
             {
                 "tool": "explain_retrieval",
                 "outcome": "success",
+                "origin": "model",
                 "result_count": 2,
                 "arguments": {"product_ids": [370001, 429001]},
             },
@@ -133,6 +138,20 @@ def test_lab_3_validator_proves_tools_grounding_and_citations(monkeypatch):
 
     assert "citation IDs resolve exactly" in checks
     assert "required claims supported" in checks
+    assert "tool execution origins explicit" in checks
+
+
+def test_lab_3_validator_rejects_an_unattributed_controller_step(monkeypatch):
+    monkeypatch.setattr(validate_lab, "_request", _fake_request)
+    response = _agent_response()
+    response["trace"][0].pop("origin")
+
+    with pytest.raises(validate_lab.LabValidationError, match="execution origin"):
+        validate_lab.validate_agent_response(
+            "http://example.test",
+            _mission(),
+            response,
+        )
 
 
 def test_lab_3_validator_rejects_unresolved_citation(monkeypatch):

@@ -11,7 +11,9 @@ deployment identity rather than retrieval tuning and the yaml is not their home.
 
 from __future__ import annotations
 
+import hashlib
 import os
+import subprocess
 import sys
 from dataclasses import dataclass
 from functools import lru_cache
@@ -84,6 +86,54 @@ def _retrieval_profile() -> RetrievalProfileConfig:
         ) from error
 
 
+def _source_identity() -> tuple[str, bool]:
+    """Return the configured or checked-out revision and whether files differ."""
+    configured = os.getenv("MOSAIC_SOURCE_REVISION", "").strip()
+    try:
+        revision = (
+            configured
+            or subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(Path(__file__).resolve().parents[1]),
+                    "rev-parse",
+                    "HEAD",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        )
+        dirty = bool(
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(Path(__file__).resolve().parents[1]),
+                    "status",
+                    "--porcelain",
+                    "--untracked-files=all",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return configured or "unknown", True
+    return revision or "unknown", dirty
+
+
+def _dataset_manifest_sha256() -> str:
+    """Identify the checked-in dataset manifest used by this service."""
+    override = os.getenv("MOSAIC_DATASET_MANIFEST_SHA256", "").strip()
+    if override:
+        return override
+    path = Path(__file__).resolve().parents[1] / "data" / "full" / "manifest.json"
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 @dataclass(frozen=True)
 class Settings:
     database_url: str | None
@@ -106,6 +156,10 @@ class Settings:
     hnsw_ef_search: int
     bedrock_max_attempts: int
     cors_origins: tuple[str, ...]
+    source_revision: str = "unknown"
+    source_worktree_dirty: bool = True
+    dataset_manifest_sha256: str = "unknown"
+    aurora_instance_class: str | None = None
 
     @property
     def embedding_dimensions(self) -> int:
@@ -129,6 +183,7 @@ def get_settings() -> Settings:
         if value.strip()
     )
     profile = _retrieval_profile()
+    source_revision, source_worktree_dirty = _source_identity()
     chat_model_id = os.getenv(
         "BEDROCK_CHAT_MODEL_ID",
         os.getenv("BEDROCK_CHAT_MODEL", "global.anthropic.claude-sonnet-5"),
@@ -166,4 +221,8 @@ def get_settings() -> Settings:
         hnsw_ef_search=profile.hnsw_ef_search,
         bedrock_max_attempts=_bounded("BEDROCK_MAX_ATTEMPTS", "5", int),
         cors_origins=origins,
+        source_revision=source_revision,
+        source_worktree_dirty=source_worktree_dirty,
+        dataset_manifest_sha256=_dataset_manifest_sha256(),
+        aurora_instance_class=os.getenv("AURORA_INSTANCE_CLASS") or None,
     )

@@ -95,6 +95,14 @@ FALLBACK = re.compile(
     r"\s*(?:\?\?|\|\|)\s*(?P<value>-?\d+(?:\.\d+)?)"
 )
 
+# `1 / (60 + rank)` assigns the fusion constant inside an expression rather
+# than to an `rrf_k`-shaped name. That was the blind spot that let evidence
+# fusion bypass the yaml while every assignment-shaped check remained green.
+RRF_LITERAL = re.compile(
+    r"/\s*\(\s*(?P<value>\d+(?:\.\d+)?)\s*\+\s*"
+    r"(?:[\w.]+\.)?[\w]*rank\b"
+)
+
 # Lines that name a number without declaring one.
 ALLOWED_LINE = re.compile(
     r"""(?:
@@ -247,16 +255,6 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
         "p_scan_mem_multiplier",
         "hnsw_scan_mem_multiplier",
     ),
-    SqlDefault(
-        "09_search_functions.sql",
-        "search_product_evidence",
-        "result_limit",
-        None,
-        reason=(
-            "evidence excerpt count, not a retrieval candidate limit; it has no "
-            "yaml counterpart because it does not affect candidate generation"
-        ),
-    ),
 )
 
 
@@ -362,6 +360,16 @@ def _scan_file(path: Path, relative: str, report: Report) -> None:
                 function = index.group(1)
         if ALLOWED_LINE.search(line):
             continue
+        for found in RRF_LITERAL.finditer(line):
+            report.fail(
+                f"C1 {relative}:{number}",
+                explain(
+                    f"RRF expression hardcodes k={found.group('value')}",
+                    f"pass rrf_k from "
+                    f"{RETRIEVAL_YAML.relative_to(REPO).as_posix()} and call "
+                    "mosaic_search.reciprocal_rank_contribution",
+                ),
+            )
         for pattern in (DECLARATION, FALLBACK):
             for found in pattern.finditer(line):
                 name = found.group("name")

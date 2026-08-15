@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS mosaic.agent_tool_event (
     tool_name          text NOT NULL,
     tool_version       text NOT NULL,
     outcome            mosaic.tool_outcome NOT NULL,
+    execution_origin   text NOT NULL DEFAULT 'model'
+        CHECK (execution_origin IN ('model', 'controller_fallback')),
     input_payload      jsonb NOT NULL,
     output_payload     jsonb,
     duration_ms        integer CHECK (duration_ms >= 0),
@@ -47,6 +49,14 @@ CREATE TABLE IF NOT EXISTS mosaic.agent_tool_event (
     FOREIGN KEY (tool_name, tool_version)
         REFERENCES mosaic.agent_tool_contract(tool_name, tool_version)
 );
+
+ALTER TABLE mosaic.agent_tool_event
+    ADD COLUMN IF NOT EXISTS execution_origin text NOT NULL DEFAULT 'model';
+ALTER TABLE mosaic.agent_tool_event
+    DROP CONSTRAINT IF EXISTS agent_tool_event_execution_origin_check;
+ALTER TABLE mosaic.agent_tool_event
+    ADD CONSTRAINT agent_tool_event_execution_origin_check
+    CHECK (execution_origin IN ('model', 'controller_fallback'));
 
 CREATE INDEX IF NOT EXISTS agent_tool_event_turn_idx
     ON mosaic.agent_tool_event (agent_turn_id, occurred_at);
