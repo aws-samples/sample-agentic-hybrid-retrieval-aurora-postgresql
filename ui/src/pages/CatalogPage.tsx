@@ -25,7 +25,7 @@ import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
 import { productImageMap } from "../media";
 import { SearchComposer } from "../components/SearchComposer";
-import { ErrorState, LoadingState } from "../components/States";
+import { CatalogLoadingState, ErrorState } from "../components/States";
 import {
   formatAvailability,
   formatCategoryKey,
@@ -177,6 +177,8 @@ export function CatalogPage() {
   const [agentOpen, setAgentOpen] = useState(false);
   const [agentStarters, setAgentStarters] = useState<string[]>([]);
   const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
+  const [domainsAtEnd, setDomainsAtEnd] = useState(false);
+  const domainTabsRef = useRef<HTMLElement>(null);
   const retrievalRequestVersion = useRef(0);
   const agentRequestVersion = useRef(0);
   const handledAskDeepLink = useRef(false);
@@ -547,6 +549,19 @@ export function CatalogPage() {
   const assistRanks = new Map(
     (agentProducts ?? []).map((product, index) => [product.product_id, index + 1]),
   );
+
+  const revealMoreDomains = () => {
+    const tabs = domainTabsRef.current;
+    if (!tabs) return;
+    const nextAtEnd = !domainsAtEnd;
+    tabs.scrollTo({
+      left: nextAtEnd ? tabs.scrollWidth : 0,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+    setDomainsAtEnd(nextAtEnd);
+  };
   const filterChips: Array<{
     key: string;
     label: string;
@@ -647,18 +662,34 @@ export function CatalogPage() {
           </section>
 
           <div className="shop-controls">
-            <nav className="shop-domain-tabs" aria-label="Product domains">
-              {domainOptions.map((option) => (
-                <button
-                  type="button"
-                  className={domain === option.value ? "active" : ""}
-                  key={option.value ?? "all"}
-                  onClick={() => update("domain", option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </nav>
+            <div className="shop-domain-scroller">
+              <nav
+                className="shop-domain-tabs"
+                aria-label="Product domains"
+                ref={domainTabsRef}
+              >
+                {domainOptions.map((option) => (
+                  <button
+                    type="button"
+                    className={domain === option.value ? "active" : ""}
+                    key={option.value ?? "all"}
+                    onClick={() => update("domain", option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </nav>
+              <button
+                className="shop-domain-next"
+                type="button"
+                aria-label={domainsAtEnd ? "Show earlier product domains" : "Show more product domains"}
+                onClick={revealMoreDomains}
+              >
+                {domainsAtEnd
+                  ? <ChevronLeft size={18} aria-hidden="true" />
+                  : <ChevronRight size={18} aria-hidden="true" />}
+              </button>
+            </div>
             <div className="shop-control-actions">
               <button
                 className="shop-filter-button"
@@ -746,7 +777,7 @@ export function CatalogPage() {
             ) : null}
           </div>
 
-          {loading && !page && !activeQuery ? <LoadingState label="Loading products" /> : null}
+          {loading && !page && !activeQuery ? <CatalogLoadingState /> : null}
           {retrievalLoading ? <HybridRetrievalTrace /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
           {!error && (page || retrieval || agentProducts) ? (

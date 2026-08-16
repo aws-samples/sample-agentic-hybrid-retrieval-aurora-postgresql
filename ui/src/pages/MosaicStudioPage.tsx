@@ -117,16 +117,14 @@ export function MosaicStudioPage() {
       <MosaicLabsTabs active="studio" />
 
       <MosaicLabsMasthead
-        currentView="Studio"
         deck="Explore a fast visual study made from real Mosaic catalog products. The language below is a creative brief, not an executed search."
-        eyebrow="Optional exploration · Curated catalog fixture"
         supportingText="A visual fixture, not a recommendation. Live hybrid retrieval remains in Shop."
         title="Compose a creative workspace."
       />
 
       <section className="mosaic-studio-briefs" aria-labelledby="studio-briefs-title">
         <div>
-          <p className="eyebrow" id="studio-briefs-title">Set a direction</p>
+          <h2 id="studio-briefs-title">Set a direction</h2>
           <span>Every brief has preselected catalog alternatives, ready to compose instantly.</span>
         </div>
         <div aria-label="Studio brief options" role="group">
@@ -223,7 +221,6 @@ export function MosaicStudioPage() {
                   <RefreshCw size={13} aria-hidden="true" />
                   <span>Try another</span>
                 </button>
-                <i>{String(index + 1).padStart(2, "0")}</i>
               </article>
             ) : (
               <span className={`discover-studio-placeholder ${zoneSpec.className}`} key={zoneSpec.zone} />

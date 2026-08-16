@@ -561,9 +561,7 @@ export function MosaicLabsPage() {
             Open a Shop scenario <ArrowRight size={17} />
           </Link>
         )}
-        currentView="Explore"
         deck="Follow one real product request from candidate generation through a grounded recommendation, without leaving the shopping context behind."
-        eyebrow="Read-only system view"
         supportingText="Replay the system after a Code Editor repair."
         title="See how Mosaic decides."
       />
@@ -575,7 +573,6 @@ export function MosaicLabsPage() {
       >
         <header className="labs-engine-heading">
           <div>
-            <p className="eyebrow">System replay</p>
             <h2 id="labs-engine-title">From request to grounded recommendation.</h2>
             <p className="labs-engine-description">
               Select a stage or replay the canonical fixture. The records are
@@ -662,13 +659,13 @@ export function MosaicLabsPage() {
           className="labs-engine-spotlight"
           data-stage={activeEngine.step}
           aria-live="polite"
-          key={activeEngine.step}
         >
           <div className="labs-engine-spotlight-copy">
-            <p className="eyebrow">
-              Step {activeEngine.step}
-              {activeEngine.owner ? ` · ${stageDetails[activeEngine.owner].label}` : ""}
-            </p>
+            {activeEngine.owner ? (
+              <p className="labs-engine-stage-owner">
+                {stageDetails[activeEngine.owner].label}
+              </p>
+            ) : null}
             <h3>{activeEngineVisual.title}</h3>
             <p>{activeEngineVisual.copy}</p>
             <ul aria-label={`${activeEngine.title} implementation details`}>
@@ -684,7 +681,7 @@ export function MosaicLabsPage() {
               <small>Canonical catalog fixture</small>
             </div>
             {engineProducts.length ? (
-              <div className="labs-engine-products" key={activeEngine.step}>
+              <div className="labs-engine-products">
                 {engineProducts.map((product, index) => {
                   const state = engineProductState(
                     product,
@@ -735,7 +732,6 @@ export function MosaicLabsPage() {
       >
         <header className="labs-retrieval-contrasts-heading">
           <div>
-            <p className="eyebrow">Method contrast</p>
             <h2 id="labs-retrieval-contrasts-title">Where one retrieval method stops being enough.</h2>
           </div>
           <p>
@@ -769,7 +765,6 @@ export function MosaicLabsPage() {
       <section className="labs-core" aria-labelledby="labs-core-title">
         <header className="labs-section-heading">
           <div>
-            <p className="eyebrow">Observation gallery</p>
             <h2 id="labs-core-title">Three lenses on the same system.</h2>
           </div>
           <p>
@@ -779,7 +774,7 @@ export function MosaicLabsPage() {
         </header>
 
         <div className="labs-stage-grid">
-          {coreMosaicLabs.map((lab, index) => {
+          {coreMosaicLabs.map((lab) => {
             const stage = stageDetails[lab.stage];
             const Icon = stage.Icon;
             const runs = [lab, ...checksFor(lab)];
@@ -804,7 +799,6 @@ export function MosaicLabsPage() {
                 ) : null}
                 <div className="labs-stage-content">
                   <header className="labs-stage-heading">
-                    <span>{String(index + 1).padStart(2, "0")}</span>
                     <Icon size={21} />
                     <div>
                       <p>{stage.label}</p>

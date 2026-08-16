@@ -15,6 +15,7 @@ import { CommerceProvider } from "../commerce";
 import { showcaseCatalogPage } from "../showcase";
 import type {
   AgentResponse,
+  CatalogPage as CatalogPageResponse,
   ProductSummary,
   RetrievalDiagnostics,
   RetrievalExample,
@@ -254,6 +255,27 @@ describe("CatalogPage", () => {
       await screen.findByText("Aurora catalog is unavailable"),
     ).toBeTruthy();
     expect(document.querySelectorAll("[data-product-id]")).toHaveLength(0);
+  });
+
+  it("reserves the product grid while the initial catalog request is pending", async () => {
+    let releaseCatalog: (value: CatalogPageResponse) => void = () => {};
+    vi.mocked(api.catalog).mockImplementation(
+      () =>
+        new Promise<CatalogPageResponse>((resolve) => {
+          releaseCatalog = resolve;
+        }),
+    );
+
+    renderPage();
+
+    const loading = screen.getByRole("status", { name: "Loading products" });
+    expect(loading.querySelectorAll(".catalog-skeleton-card")).toHaveLength(8);
+    expect(loading.querySelector(".spin")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Show more product domains" }),
+    ).toBeTruthy();
+
+    await act(async () => releaseCatalog(catalog));
   });
 
   it("shows the inspectable hybrid pipeline while Shop retrieval is pending", async () => {

@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
@@ -31,6 +32,7 @@ describe("MosaicLabsPage", () => {
     // output clean instead of pulling in a native canvas dependency.
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   });
+
   beforeEach(() => {
     vi.mocked(api.product).mockReset();
     vi.mocked(api.product).mockImplementation((productId) => {
@@ -87,6 +89,8 @@ describe("MosaicLabsPage", () => {
     // The masthead field is decoration, so it carries no text and no figure a
     // presenter could read a number off, and it stays out of the a11y tree.
     expect(container.querySelector(".labs-intro-flow[aria-hidden=true] canvas")).toBeTruthy();
+    expect(screen.queryByText("System replay")).toBeNull();
+    expect(screen.queryByText("Observation gallery")).toBeNull();
     expect(screen.getByRole("button", { name: "Replay fixture" })).toBeTruthy();
     const queryExamples = screen.getByRole("group", { name: "Replay query examples" });
     expect(queryExamples.querySelectorAll("button")).toHaveLength(3);
@@ -177,6 +181,25 @@ describe("MosaicLabsPage", () => {
     fireEvent.click(stageButtons[4]);
     expect(echoBudFigure()?.style.getPropertyValue("--product-order")).toBe("1");
     expect(screen.getByText("Exact model remains #1")).toBeTruthy();
+  });
+
+  it("keeps product cards mounted while replay labels and emphasis change", async () => {
+    const { container } = render(<MosaicLabsPage />);
+    const echoBudFigure = () => (
+      [...container.querySelectorAll<HTMLElement>(".labs-engine-product")].find(
+        (figure) => figure.querySelector("figcaption strong")?.textContent === "EchoBud S2",
+      )
+    );
+    const stageButtons = container.querySelectorAll<HTMLButtonElement>(
+      ".labs-engine-rail button",
+    );
+
+    await waitFor(() => expect(echoBudFigure()).toBeTruthy());
+    const initialFigure = echoBudFigure();
+    fireEvent.click(stageButtons[5]);
+
+    expect(echoBudFigure()).toBe(initialFigure);
+    expect(within(initialFigure!).getByText("Evidence trace")).toBeTruthy();
   });
 
   it.each([

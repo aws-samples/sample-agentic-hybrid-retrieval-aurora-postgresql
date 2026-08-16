@@ -24,7 +24,7 @@ describe("MosaicStudioPage", () => {
     expect(screen.getByRole("link", { name: "Studio" }).getAttribute("aria-current")).toBe(
       "page",
     );
-    expect(screen.getByText("Optional exploration · Curated catalog fixture")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Compose a creative workspace." })).toBeTruthy();
     expect(document.querySelector(".labs-intro-flow[aria-hidden=true] canvas")).toBeTruthy();
     expect(
       screen.getByText(/The language below is a creative brief, not an executed search/),
