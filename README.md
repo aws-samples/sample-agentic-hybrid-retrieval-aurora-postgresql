@@ -20,11 +20,69 @@ MCP 2.0 adapter, a 500,000-product synthetic catalog, and deterministic release
 gates. The complete session framing is in
 [the session abstract](docs/session-abstract.md).
 
+![Mosaic Discover page with product discovery and natural-language search](docs/images/mosaic-discover.webp)
+
 > [!IMPORTANT]
 > **Aurora only.** This project has no local database path. Every database
 > command must receive a `DATABASE_URL` for the intended Aurora PostgreSQL
 > cluster. See [ARTIFACTS.md](ARTIFACTS.md) before running any `db-*`, lab,
 > evaluation, or API target.
+
+**Jump to:** [Quick start](#quick-start) | [Architecture](#architecture) |
+[Workshop path](#workshop-path) | [Validation](#validation) |
+[Repository map](#repository-map)
+
+## Quick start
+
+Prerequisites:
+
+- Python `3.13` and [`uv`](https://docs.astral.sh/uv/);
+- Node.js `24` and npm;
+- PostgreSQL client tools;
+- AWS credentials for Amazon Bedrock in `us-east-1`;
+- an Aurora PostgreSQL `DATABASE_URL` for the Mosaic catalog.
+
+Install the locked dependencies and create the runtime environment:
+
+```bash
+make setup
+make ui-install
+cp config/.env.example .env
+```
+
+Edit `.env`, then start the API:
+
+```bash
+set -a
+source .env
+set +a
+make api-serve
+```
+
+Start the React application in a second terminal:
+
+```bash
+make ui-dev
+```
+
+Open `http://127.0.0.1:5173`. The API defaults to
+`http://127.0.0.1:8000`. Override `UI_PORT`, `API_PORT`, or
+`CATALOG_API_PROXY` when those ports are occupied.
+
+Useful runtime probes:
+
+```bash
+curl http://127.0.0.1:8000/api/health
+curl http://127.0.0.1:8000/api/readiness
+```
+
+`/api/readiness` validates the live schema, product and embedding counts,
+premium cohort, evidence coverage, required retrieval indexes and functions,
+model-space compatibility, and AWS credential availability.
+
+If `DATABASE_URL` contains `&`, keep it single-quoted when sourcing the file.
+Corporate-network TLS and security-group diagnostics are documented in
+[ARTIFACTS.md](ARTIFACTS.md).
 
 ## What Mosaic demonstrates
 
@@ -153,63 +211,6 @@ Real Cohere embeddings are not stored in Git. Workshop Studio restores them
 from a pinned, content-addressed cache into a fresh encrypted Aurora cluster.
 Hash embeddings require explicit development opt-in and cannot support workshop
 relevance claims.
-
-## Run the application against Aurora
-
-### Prerequisites
-
-- Python `3.13` and [`uv`](https://docs.astral.sh/uv/);
-- Node.js `24` and npm;
-- PostgreSQL client tools;
-- AWS credentials for Amazon Bedrock in `us-east-1`;
-- an Aurora PostgreSQL `DATABASE_URL` for the Mosaic catalog.
-
-Install the locked Python and UI dependencies:
-
-```bash
-make setup
-make ui-install
-```
-
-Create and edit the runtime environment:
-
-```bash
-cp config/.env.example .env
-```
-
-`DATABASE_URL` must point at Aurora. If the URL contains `&`, keep it
-single-quoted when sourcing the file. Corporate-network TLS and security-group
-diagnostics are documented in [ARTIFACTS.md](ARTIFACTS.md).
-
-Start the API:
-
-```bash
-set -a
-source .env
-set +a
-make api-serve
-```
-
-Start the React application in a second terminal:
-
-```bash
-make ui-dev
-```
-
-Open `http://127.0.0.1:5173`. The API defaults to
-`http://127.0.0.1:8000`. Override `UI_PORT`, `API_PORT`, or
-`CATALOG_API_PROXY` when those ports are occupied.
-
-Useful runtime probes:
-
-```bash
-curl http://127.0.0.1:8000/api/health
-curl http://127.0.0.1:8000/api/readiness
-```
-
-`/api/readiness` validates the live schema, product and embedding counts,
-premium cohort, evidence coverage, required retrieval indexes and functions,
-model-space compatibility, and AWS credential availability.
 
 ## Validation
 
