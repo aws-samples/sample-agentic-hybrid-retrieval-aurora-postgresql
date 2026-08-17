@@ -1,5 +1,5 @@
 import { ArrowRight, LoaderCircle, Search } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useState } from "react";
 
 interface SearchComposerProps {
   initialValue?: string;
@@ -8,6 +8,7 @@ interface SearchComposerProps {
   pending?: boolean;
   compact?: boolean;
   submitLabel?: string;
+  leadingIcon?: ReactNode;
   autoFocus?: boolean;
   /** Empty the field after a submit, for a composer that keeps a thread. */
   clearOnSubmit?: boolean;
@@ -21,6 +22,7 @@ export function SearchComposer({
   pending = false,
   compact = false,
   submitLabel,
+  leadingIcon,
   autoFocus = false,
   clearOnSubmit = false,
   onSubmit,
@@ -42,7 +44,9 @@ export function SearchComposer({
       className={compact ? "search-composer compact" : "search-composer"}
       onSubmit={submit}
     >
-      <Search size={compact ? 18 : 22} aria-hidden="true" />
+      {leadingIcon ?? (
+        <Search size={compact ? 18 : 22} aria-hidden="true" />
+      )}
       <input
         aria-label={inputLabel}
         value={value}

@@ -90,9 +90,20 @@ def _normalized_support_text(value: str) -> str:
     return re.sub(r"\s+", " ", value.casefold().replace("_", " ").replace("-", " "))
 
 
-def _measurable_claims(sentence: str) -> set[str]:
+def _measurable_claims(
+    sentence: str,
+    *,
+    ignored_phrases: Sequence[str] = (),
+) -> set[str]:
     """Extract numeric and availability claims that evidence can falsify."""
     without_citations = re.sub(r"\[\d+\]", "", sentence)
+    for phrase in sorted(ignored_phrases, key=len, reverse=True):
+        without_citations = re.sub(
+            re.escape(phrase),
+            lambda match: " " * len(match.group()),
+            without_citations,
+            flags=re.IGNORECASE,
+        )
     claims: set[str] = set()
     currency_spans: list[tuple[int, int]] = []
     for match in re.finditer(r"\$\s*(\d[\d,]*)(?:\.(\d{1,2}))?", without_citations):
@@ -117,8 +128,97 @@ def _measurable_claims(sentence: str) -> set[str]:
     return claims
 
 
+def _product_names(product: ProductSummary) -> set[str]:
+    return {
+        value.casefold()
+        for value in (product.title, product.model)
+        if len(value.strip()) >= 3
+    }
+
+
+def _named_product_mentions(
+    sentence: str,
+    products: Sequence[ProductSummary],
+) -> list[tuple[int, int, int]]:
+    """Locate non-overlapping product names for product-specific claim checks."""
+    folded = sentence.casefold()
+    candidates = sorted(
+        (
+            (match.start(), match.end(), product.product_id)
+            for product in products
+            for name in _product_names(product)
+            for match in re.finditer(re.escape(name), folded)
+        ),
+        key=lambda mention: (mention[0], -(mention[1] - mention[0])),
+    )
+    mentions: list[tuple[int, int, int]] = []
+    for candidate in candidates:
+        start, end, _ = candidate
+        if any(
+            start < accepted_end and end > accepted_start
+            for accepted_start, accepted_end, _ in mentions
+        ):
+            continue
+        mentions.append(candidate)
+    return sorted(mentions)
+
+
+def _unsupported_claims(
+    claims: set[str],
+    evidence_records: Sequence[EvidenceRecord],
+) -> list[str]:
+    support = _normalized_support_text(
+        " ".join(f"{record.title} {record.text}" for record in evidence_records)
+    )
+    unsupported: list[str] = []
+    for claim in claims:
+        normalized_claim = _normalized_support_text(claim)
+        if not re.search(
+            rf"(?<![A-Za-z0-9]){re.escape(normalized_claim)}(?![A-Za-z0-9])",
+            support,
+        ):
+            unsupported.append(claim)
+    return sorted(unsupported)
+
+
+def _product_claims(
+    sentence: str,
+    products: Sequence[ProductSummary],
+) -> list[tuple[int, set[str]]]:
+    """Associate comparison-clause measurements with the product they describe."""
+    ignored_names = {name for product in products for name in _product_names(product)}
+    by_product: dict[int, set[str]] = {}
+    clauses = re.split(
+        r"\s*(?:;|\bwhile\b|\bwhereas\b)\s*",
+        sentence,
+        flags=re.IGNORECASE,
+    )
+    for clause in clauses:
+        mentions = _named_product_mentions(clause, products)
+        claims = _measurable_claims(clause, ignored_phrases=ignored_names)
+        if not mentions or not claims:
+            continue
+        distinct_product_ids = {product_id for _, _, product_id in mentions}
+        if len(distinct_product_ids) == 1:
+            product_id = next(iter(distinct_product_ids))
+            by_product.setdefault(product_id, set()).update(claims)
+            continue
+        for index, (start, _, product_id) in enumerate(mentions):
+            segment_start = 0 if index == 0 else start
+            segment_end = (
+                mentions[index + 1][0] if index + 1 < len(mentions) else len(clause)
+            )
+            segment_claims = _measurable_claims(
+                clause[segment_start:segment_end],
+                ignored_phrases=ignored_names,
+            )
+            by_product.setdefault(product_id, set()).update(segment_claims)
+    return list(by_product.items())
+
+
 def _validate_measurable_claim_support(
     answer: str,
+    products: Sequence[ProductSummary],
     evidence_records: Sequence[EvidenceRecord],
 ) -> None:
     """Reject measurable claims absent from the evidence cited in that sentence."""
@@ -127,28 +227,36 @@ def _validate_measurable_claim_support(
         for sentence in re.split(r"(?<=[.!?])\s+|\n+", answer)
         if sentence.strip()
     ]
+    ignored_names = {name for product in products for name in _product_names(product)}
     for sentence in sentences:
-        claims = _measurable_claims(sentence)
+        claims = _measurable_claims(sentence, ignored_phrases=ignored_names)
         if not claims:
             continue
         cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
         if not cited:
             continue
-        support = _normalized_support_text(
-            " ".join(
-                f"{evidence_records[number - 1].title} "
-                f"{evidence_records[number - 1].text}"
-                for number in cited
-            )
-        )
-        unsupported = sorted(
-            claim for claim in claims if _normalized_support_text(claim) not in support
-        )
-        if unsupported:
-            raise SynthesisOutputError(
-                "Synthesized sentence contains unsupported numeric claim or "
-                f"availability claim {unsupported}: {sentence}"
-            )
+        cited_records = [evidence_records[number - 1] for number in cited]
+        mentions = _named_product_mentions(sentence, products)
+        if not mentions:
+            unsupported = _unsupported_claims(claims, cited_records)
+            if unsupported:
+                raise SynthesisOutputError(
+                    "Synthesized sentence contains unsupported numeric claim or "
+                    f"availability claim {unsupported}: {sentence}"
+                )
+            continue
+
+        for product_id, named_claims in _product_claims(sentence, products):
+            product_records = [
+                record for record in cited_records if record.product_id == product_id
+            ]
+            unsupported = _unsupported_claims(named_claims, product_records)
+            if unsupported:
+                raise SynthesisOutputError(
+                    "Synthesized sentence contains unsupported numeric claim or "
+                    f"availability claim {unsupported} for product {product_id}: "
+                    f"{sentence}"
+                )
 
 
 def _validated_output(
@@ -185,7 +293,7 @@ def _validated_output(
             f"{sorted(selected_product_ids - cited_product_ids)}"
         )
     _validate_product_claim_citations(answer, products, evidence_records)
-    _validate_measurable_claim_support(answer, evidence_records)
+    _validate_measurable_claim_support(answer, products, evidence_records)
     citations = [
         AgentCitation(
             number=number,

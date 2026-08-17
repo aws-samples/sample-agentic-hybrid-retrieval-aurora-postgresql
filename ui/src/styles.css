@@ -541,6 +541,28 @@ button:disabled {
   color: var(--ink-faint);
 }
 
+.generative-search-icon {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.generative-search-lens {
+  grid-area: 1 / 1;
+}
+
+.generative-search-sparkles {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  padding: 1px;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--maroon-800);
+  stroke-width: 2.4;
+}
+
 .search-composer button {
   display: grid;
   width: 44px;

@@ -1,17 +1,52 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
+import psycopg
 import pytest
 
 from scripts.score_evals import (
+    measured_scorecard,
     product_retrieval_queries,
     query_set_sha256,
     ranked_result_sha256,
+    run_scored_queries,
+    search_with_db_retry,
     validate_release_checks,
     verify_scorecard,
 )
+from service.models import SearchRequest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class FakeRetrieval:
+    def __init__(self, outcomes):
+        self.outcomes = list(outcomes)
+        self.queries = []
+
+    def search(self, request):
+        self.queries.append(request.query)
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+def search_response(product_id):
+    return SimpleNamespace(
+        results=[
+            SimpleNamespace(
+                product_id=product_id,
+                signals=SimpleNamespace(final_rank=1),
+            )
+        ],
+        search_event_id=f"event-{product_id}",
+        diagnostics=SimpleNamespace(
+            strategy="rrf_fusion+rerank+exact_sku_preservation",
+            total_latency_ms=125,
+        ),
+    )
 
 
 def scorecard(*, recall=0.8, mrr=0.7, ndcg=0.75):
@@ -149,6 +184,163 @@ def test_scorecard_refuses_a_dirty_committed_baseline():
 
     with pytest.raises(ValueError, match="baseline was not captured from a clean"):
         verify_scorecard(scorecard(), baseline)
+
+
+@pytest.mark.parametrize(
+    ("revision", "dirty", "message"),
+    [
+        ("a" * 40, True, "clean committed source"),
+        ("a7ddc1b", False, "full 40-character Git SHA"),
+    ],
+)
+def test_scorecard_rejects_invalid_source_before_aurora_work(
+    monkeypatch,
+    tmp_path,
+    revision,
+    dirty,
+    message,
+):
+    monkeypatch.setattr(
+        "scripts.score_evals.get_settings",
+        lambda: SimpleNamespace(
+            source_revision=revision,
+            source_worktree_dirty=dirty,
+        ),
+    )
+    monkeypatch.setattr(
+        "scripts.score_evals.connect",
+        lambda: pytest.fail("Aurora should not be queried before source validation"),
+    )
+
+    with pytest.raises(ValueError, match=message):
+        measured_scorecard(
+            ROOT / "data" / "evals" / "canonical_queries.jsonl",
+            tmp_path / "results.csv",
+            k=10,
+        )
+
+
+def test_scorecard_refuses_a_baseline_with_intervening_code_changes(monkeypatch):
+    baseline = scorecard()
+    measured = scorecard()
+    measured["source"]["revision"] = "c" * 40
+    monkeypatch.setattr(
+        "scripts.score_evals._scorecard_only_revision_delta",
+        lambda baseline_revision, measured_revision: False,
+    )
+
+    with pytest.raises(ValueError, match="source revision drifted"):
+        verify_scorecard(measured, baseline)
+
+
+def test_scorecard_accepts_the_commit_that_only_records_the_baseline(monkeypatch):
+    baseline = scorecard()
+    measured = scorecard()
+    measured["source"]["revision"] = "c" * 40
+    monkeypatch.setattr(
+        "scripts.score_evals._scorecard_only_revision_delta",
+        lambda baseline_revision, measured_revision: True,
+    )
+
+    verify_scorecard(measured, baseline)
+
+
+def test_scorecard_retries_only_a_transient_database_failure():
+    retrieval = FakeRetrieval(
+        [psycopg.OperationalError("connection reset by peer"), search_response(101)]
+    )
+    delays = []
+
+    response = search_with_db_retry(
+        retrieval,
+        SearchRequest(query="travel headphones", limit=10),
+        query_id="G-001",
+        retry_delays=(0.25,),
+        sleep=delays.append,
+    )
+
+    assert response.search_event_id == "event-101"
+    assert retrieval.queries == ["travel headphones", "travel headphones"]
+    assert delays == [0.25]
+
+
+def test_scorecard_does_not_retry_a_non_database_failure():
+    retrieval = FakeRetrieval([RuntimeError("reranker contract failed")])
+
+    with pytest.raises(RuntimeError, match="reranker contract failed"):
+        search_with_db_retry(
+            retrieval,
+            SearchRequest(query="travel headphones", limit=10),
+            query_id="G-001",
+            retry_delays=(0.25,),
+            sleep=lambda _: None,
+        )
+
+    assert retrieval.queries == ["travel headphones"]
+
+
+def test_scorecard_resumes_completed_queries_after_an_interruption(tmp_path):
+    queries = [
+        {"query_id": "G-001", "query": "travel headphones"},
+        {"query_id": "G-002", "query": "office headphones"},
+    ]
+    checkpoint = tmp_path / "scorecard.checkpoint.json"
+    identity = {"source": {"revision": "a" * 40}, "database": "writer"}
+    interrupted = FakeRetrieval(
+        [search_response(101), RuntimeError("model service unavailable")]
+    )
+
+    with pytest.raises(RuntimeError, match="model service unavailable"):
+        run_scored_queries(
+            queries,
+            interrupted,
+            k=10,
+            checkpoint_path=checkpoint,
+            checkpoint_identity=identity,
+            retry_delays=(),
+            sleep=lambda _: None,
+        )
+
+    resumed = FakeRetrieval([search_response(102)])
+    ranked, rows = run_scored_queries(
+        queries,
+        resumed,
+        k=10,
+        checkpoint_path=checkpoint,
+        checkpoint_identity=identity,
+        retry_delays=(),
+        sleep=lambda _: None,
+    )
+
+    assert resumed.queries == ["office headphones"]
+    assert ranked == {"G-001": [(1, 101)], "G-002": [(1, 102)]}
+    assert rows["G-001"][0]["search_event_id"] == "event-101"
+    assert rows["G-002"][0]["search_event_id"] == "event-102"
+
+
+def test_scorecard_refuses_a_checkpoint_from_another_run_contract(tmp_path):
+    queries = [{"query_id": "G-001", "query": "travel headphones"}]
+    checkpoint = tmp_path / "scorecard.checkpoint.json"
+    run_scored_queries(
+        queries,
+        FakeRetrieval([search_response(101)]),
+        k=10,
+        checkpoint_path=checkpoint,
+        checkpoint_identity={"source": {"revision": "a" * 40}},
+        retry_delays=(),
+        sleep=lambda _: None,
+    )
+
+    with pytest.raises(ValueError, match="provenance drifted.*--restart"):
+        run_scored_queries(
+            queries,
+            FakeRetrieval([]),
+            k=10,
+            checkpoint_path=checkpoint,
+            checkpoint_identity={"source": {"revision": "b" * 40}},
+            retry_delays=(),
+            sleep=lambda _: None,
+        )
 
 
 def test_product_retrieval_scorecard_excludes_agent_contract_cases():

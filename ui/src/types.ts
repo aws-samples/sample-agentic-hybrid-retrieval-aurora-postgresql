@@ -102,12 +102,12 @@ export interface ProductMedia {
 
 export interface ProductReview {
   review_id: number;
-  rating: number;
+  rating: number | null;
   title: string | null;
   body: string;
   verified_purchase: boolean;
   helpful_votes: number;
-  review_date: string;
+  review_date: string | null;
   sentiment_score: number | null;
   source_uri: string;
   source_name: string;

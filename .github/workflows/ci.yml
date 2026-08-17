@@ -1,0 +1,119 @@
+name: Project CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: project-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline:
+    name: Offline contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.11.21
+          uv sync --frozen
+
+      - name: Validate Python and repository contracts
+        run: |
+          make lint
+          make validate
+          make validate-db
+          make validate-config
+          uv run python scripts/mission_contract.py
+          PYTHONPATH=. uv run pytest -q
+
+      - name: Validate MCP adapter
+        run: |
+          make mcp-install
+          make mcp-test
+
+      - name: Validate UI
+        run: |
+          make ui-install
+          make ui-test
+          make ui-build
+          make ui-audit
+
+  aurora-release:
+    name: Aurora release contracts
+    if: github.event_name == 'workflow_dispatch'
+    runs-on:
+      - self-hosted
+      - linux
+      - mosaic-aurora
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: us-east-1
+      AURORA_INSTANCE_CLASS: db.r8g.2xlarge
+      AWS_CI_ROLE_ARN: ${{ secrets.MOSAIC_AURORA_CI_ROLE_ARN }}
+      DATABASE_URL: ${{ secrets.MOSAIC_AURORA_DATABASE_URL }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.11.21
+          uv sync --frozen
+
+      - name: Require the Aurora release environment
+        run: |
+          test -n "$DATABASE_URL" || {
+            echo "MOSAIC_AURORA_DATABASE_URL is required for Aurora release CI."
+            exit 2
+          }
+          test -n "$AWS_CI_ROLE_ARN" || {
+            echo "MOSAIC_AURORA_CI_ROLE_ARN is required for Bedrock release CI."
+            exit 2
+          }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ env.AWS_CI_ROLE_ARN }}
+
+      - name: Run Aurora-backed release gates
+        env:
+          MISSION_GATE_REQUIRE_DB: '1'
+          FUNCTION_CENSUS_REQUIRE_DB: '1'
+        run: |
+          make validate-missions
+          make validate-evals
+          make validate-functions
+          make db-verify-bootstrap
+          make test
+          make score-evals

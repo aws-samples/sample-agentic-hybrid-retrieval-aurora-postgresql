@@ -430,6 +430,136 @@ def test_synthesis_rejects_a_numeric_claim_absent_from_its_cited_evidence():
         )
 
 
+def test_synthesis_does_not_accept_a_numeric_substring_as_support():
+    source = evidence().model_copy(
+        update={"text": "160-hour battery life and active noise cancellation."}
+    )
+    client = FakeSynthesisClient(
+        "AuriLogic Flight ANC provides 60-hour battery life [1]."
+    )
+
+    with pytest.raises(ValueError, match="unsupported numeric claim.*60"):
+        synthesize_cited_answer(
+            "What should I use on a long flight?",
+            [product()],
+            [source],
+            client=client,
+        )
+
+
+def test_synthesis_does_not_treat_a_model_code_as_a_measurable_claim():
+    source = evidence().model_copy(
+        update={"text": "Active noise cancellation designed for travel."}
+    )
+    client = FakeSynthesisClient(
+        "AuriLogic Flight ANC (FL-48) is the travel choice [1]."
+    )
+
+    answer, citations, _ = synthesize_cited_answer(
+        "What should I use on a long flight?",
+        [product()],
+        [source],
+        client=client,
+    )
+
+    assert "FL-48" in answer
+    assert [record.product_id for record in citations] == [101]
+
+
+def test_synthesis_rejects_numeric_support_borrowed_from_another_product():
+    second_product = product().model_copy(
+        update={
+            "product_id": 102,
+            "title": "AuriLogic Office ANC",
+            "model": "OF-60",
+        }
+    )
+    second_evidence = evidence().model_copy(
+        update={
+            "evidence_id": 9002,
+            "product_id": 102,
+            "title": "AuriLogic Office ANC specifications",
+            "text": "60-hour battery life for office use.",
+        }
+    )
+    client = FakeSynthesisClient(
+        "AuriLogic Flight ANC provides 60-hour battery life [1][2]. "
+        "AuriLogic Office ANC is the office alternative [2]."
+    )
+
+    with pytest.raises(ValueError, match="unsupported numeric claim.*60.*product 101"):
+        synthesize_cited_answer(
+            "Compare the options.",
+            [product(), second_product],
+            [evidence(), second_evidence],
+            client=client,
+        )
+
+
+def test_synthesis_accepts_product_scoped_numbers_in_a_comparison():
+    second_product = product().model_copy(
+        update={
+            "product_id": 102,
+            "title": "AuriLogic Office ANC",
+            "model": "OF-60",
+        }
+    )
+    second_evidence = evidence().model_copy(
+        update={
+            "evidence_id": 9002,
+            "product_id": 102,
+            "title": "AuriLogic Office ANC specifications",
+            "text": "60-hour battery life for office use.",
+        }
+    )
+    client = FakeSynthesisClient(
+        "AuriLogic Flight ANC provides 48-hour battery life, while "
+        "AuriLogic Office ANC provides 60-hour battery life [1][2]."
+    )
+
+    answer, citations, _ = synthesize_cited_answer(
+        "Compare the options.",
+        [product(), second_product],
+        [evidence(), second_evidence],
+        client=client,
+    )
+
+    assert answer.startswith("AuriLogic Flight ANC provides 48-hour")
+    assert [record.product_id for record in citations] == [101, 102]
+
+
+def test_synthesis_assigns_pre_name_comparison_numbers_to_the_following_product():
+    second_product = product().model_copy(
+        update={
+            "product_id": 102,
+            "title": "AuriLogic Office ANC",
+            "model": "OF-60",
+        }
+    )
+    second_evidence = evidence().model_copy(
+        update={
+            "evidence_id": 9002,
+            "product_id": 102,
+            "title": "AuriLogic Office ANC specifications",
+            "text": "60-hour battery life for office use.",
+        }
+    )
+    client = FakeSynthesisClient(
+        "At 48 hours, AuriLogic Flight ANC covers long trips, while at 60 hours, "
+        "AuriLogic Office ANC lasts longer between charges [1][2]."
+    )
+
+    answer, citations, _ = synthesize_cited_answer(
+        "Compare the options.",
+        [product(), second_product],
+        [evidence(), second_evidence],
+        client=client,
+    )
+
+    assert answer.startswith("At 48 hours")
+    assert [record.product_id for record in citations] == [101, 102]
+
+
 def test_agent_finalizes_retrieved_products_when_orchestration_stops(monkeypatch):
     source = evidence()
     state = {

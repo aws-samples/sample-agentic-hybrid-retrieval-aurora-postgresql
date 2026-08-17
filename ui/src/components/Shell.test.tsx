@@ -34,6 +34,19 @@ describe("Shell navigation", () => {
         .getAllByRole("link")
         .map((link) => link.textContent),
     ).toEqual(["Discover", "Shop", "Mosaic Labs"]);
+    expect(
+      within(navigation).getByRole("link", { name: "Shop" }).getAttribute(
+        "aria-current",
+      ),
+    ).toBe("page");
+    expect(
+      within(navigation).getByRole("link", { name: "Discover" }).hasAttribute(
+        "aria-current",
+      ),
+    ).toBe(false);
+    const menu = screen.getByRole("button", { name: "Open navigation" });
+    expect(menu.getAttribute("aria-controls")).toBe(navigation.id);
+    expect(screen.queryByRole("link", { name: "Search products" })).toBeNull();
     expect(screen.queryByText("Collections")).toBeNull();
   });
 

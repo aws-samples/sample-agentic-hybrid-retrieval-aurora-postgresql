@@ -63,6 +63,15 @@ describe("MosaicLabsPage", () => {
     expect(screen.getByRole("link", { name: "Studio" }).getAttribute("href")).toBe(
       "/mosaic-labs/studio",
     );
+    const sourceLink = screen.getByRole("link", {
+      name: "View Mosaic source on GitHub (opens in a new tab)",
+    });
+    expect(sourceLink.getAttribute("href")).toBe(
+      "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql",
+    );
+    expect(sourceLink.getAttribute("target")).toBe("_blank");
+    expect(sourceLink.getAttribute("rel")).toBe("noreferrer");
+    expect(sourceLink.querySelector(".lucide-github")).toBeTruthy();
     expect(container.querySelectorAll(".labs-stage-card")).toHaveLength(3);
     expect(
       screen.getByText(

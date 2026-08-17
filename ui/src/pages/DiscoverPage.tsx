@@ -1,6 +1,7 @@
 import { ArrowRight, Search, Sparkles } from "lucide-react";
 import { FormEvent, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
+import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { ProductCard } from "../components/ProductCard";
 import { productImageMap } from "../media";
 import { useNavigate } from "../navigation";
@@ -271,7 +272,7 @@ export function DiscoverPage() {
             </div>
           </header>
           <form className="discover-search" onSubmit={submit} role="search">
-            <Search size={20} aria-hidden="true" />
+            <GenerativeSearchIcon size={20} />
             <input
               ref={searchRef}
               aria-label="Search products"

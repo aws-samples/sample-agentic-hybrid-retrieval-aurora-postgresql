@@ -321,8 +321,9 @@ export function ProductPage() {
                 <cite>
                   {product.reviews[0].source_name}
                   {product.reviews[0].verified_purchase ? " · Verified purchase" : ""}
-                  {" / "}
-                  {product.reviews[0].rating}.0 stars
+                  {product.reviews[0].rating !== null
+                    ? ` / ${product.reviews[0].rating.toFixed(1)} stars`
+                    : ""}
                 </cite>
               </blockquote>
             ) : null}
@@ -360,8 +361,7 @@ export function ProductPage() {
                 <cite>
                   {review.source_name}
                   {review.verified_purchase ? " · Verified purchase" : ""}
-                  {" / "}
-                  {review.review_date}
+                  {review.review_date ? ` / ${review.review_date}` : ""}
                 </cite>
               </blockquote>
             )) : <p className="muted">No review evidence is loaded for this sample product.</p>}

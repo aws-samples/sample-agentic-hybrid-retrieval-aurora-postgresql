@@ -278,6 +278,22 @@ describe("CatalogPage", () => {
     await act(async () => releaseCatalog(catalog));
   });
 
+  it("synchronizes the domain control after a manual horizontal scroll", () => {
+    renderPage();
+
+    const domains = screen.getByRole("navigation", { name: "Product domains" });
+    Object.defineProperties(domains, {
+      clientWidth: { configurable: true, value: 200 },
+      scrollWidth: { configurable: true, value: 500 },
+      scrollLeft: { configurable: true, writable: true, value: 300 },
+    });
+    fireEvent.scroll(domains);
+
+    expect(
+      screen.getByRole("button", { name: "Show earlier product domains" }),
+    ).toBeTruthy();
+  });
+
   it("shows the inspectable hybrid pipeline while Shop retrieval is pending", async () => {
     let releaseSearch: (value: SearchResponse) => void = () => {};
     vi.mocked(api.search).mockImplementation(

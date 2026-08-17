@@ -37,8 +37,24 @@ source revision, dataset-manifest hash, complete retrieval profile, HNSW
 settings, model IDs, Aurora instance identity/class/version, pgvector version,
 and measurement timestamp. It fails if any of those inputs, the ranked result
 identity, deterministic checks, or metrics drift. Baseline writes refuse a dirty
-worktree; use `--write-baseline` only after committing the reviewed source,
-reviewing the Aurora ranks, and intentionally accepting a new measured baseline.
+worktree. Validation requires the measured revision to equal the baseline
+revision, except for one later commit whose only changed file is the canonical
+scorecard itself; that narrow allowance avoids a self-referential commit while
+still rejecting intervening code changes. Use `--write-baseline` only after
+committing the reviewed source, reviewing the Aurora ranks, and intentionally
+accepting a new measured baseline.
+
+The release sequence is therefore:
+
+1. Commit the reviewed code and configuration.
+2. Run `make score-evals SCORE_EVAL_ARGS="--restart --write-baseline"`.
+3. Review the ranks and commit only `data/evals/canonical_scorecard.json`.
+
+The runner retries only transient psycopg connection failures for the affected
+query. After each completed query it atomically writes an ignored checkpoint
+next to the result CSV. A later invocation resumes only when the query set,
+source, models, retrieval profile, and Aurora environment still match exactly.
+Use `make score-evals SCORE_EVAL_ARGS=--restart` to discard a stale partial run.
 
 ## Filter-contract corpus
 

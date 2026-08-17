@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { CommerceProvider } from "../commerce";
@@ -78,5 +85,42 @@ describe("ProductPage", () => {
     expect(
       screen.queryByRole("heading", { name: "Mosaic Auraluxe H9" }),
     ).toBeNull();
+  });
+
+  it("renders nullable review evidence without an empty date separator", async () => {
+    const base = showcaseProductDetail(17001);
+    if (!base) throw new Error("Missing product review fixture");
+    const product = {
+      ...base,
+      reviews: [
+        {
+          review_id: 9001,
+          rating: null,
+          title: null,
+          body: "Comfortable for long listening sessions.",
+          verified_purchase: false,
+          helpful_votes: 0,
+          review_date: null,
+          sentiment_score: null,
+          source_uri: "mosaic://evidence/9001",
+          source_name: "Mosaic catalog",
+        },
+      ],
+    } satisfies ProductDetail;
+    vi.mocked(api.product).mockResolvedValue(product);
+
+    render(
+      <CommerceProvider>
+        <ProductPage />
+      </CommerceProvider>,
+    );
+
+    await screen.findByRole("heading", { name: "Mosaic EchoBud S2" });
+    fireEvent.click(screen.getByRole("button", { name: "Reviews (1)" }));
+
+    expect(document.querySelector(".review-list cite")?.textContent).toBe(
+      "Mosaic catalog",
+    );
+    expect(document.querySelector(".review-list .rating-row")).toBeNull();
   });
 });

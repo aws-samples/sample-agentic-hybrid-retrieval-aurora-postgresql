@@ -21,6 +21,7 @@ import {
 import { api } from "../api";
 import { AskMosaic } from "../components/AskMosaic";
 import type { AskMosaicTurn } from "../components/AskMosaic";
+import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
 import { productImageMap } from "../media";
@@ -562,6 +563,13 @@ export function CatalogPage() {
     });
     setDomainsAtEnd(nextAtEnd);
   };
+  const syncDomainScroll = () => {
+    const tabs = domainTabsRef.current;
+    if (!tabs) return;
+    setDomainsAtEnd(
+      tabs.scrollLeft >= Math.max(0, tabs.scrollWidth - tabs.clientWidth - 1),
+    );
+  };
   const filterChips: Array<{
     key: string;
     label: string;
@@ -645,6 +653,7 @@ export function CatalogPage() {
               compact
               initialValue={retrievalQuery}
               pending={retrievalLoading}
+              leadingIcon={<GenerativeSearchIcon size={18} />}
               submitLabel="Search"
               placeholder="Search a product, model, or describe what you need"
               onSubmit={searchCatalog}
@@ -667,6 +676,7 @@ export function CatalogPage() {
                 className="shop-domain-tabs"
                 aria-label="Product domains"
                 ref={domainTabsRef}
+                onScroll={syncDomainScroll}
               >
                 {domainOptions.map((option) => (
                   <button

@@ -1,4 +1,4 @@
-import { Menu, Search, ShoppingBag, X } from "lucide-react";
+import { Menu, ShoppingBag, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useCommerce } from "../commerce";
@@ -49,6 +49,7 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
       </Link>
 
       <nav
+        id="storefront-navigation"
         className={open ? "site-nav open" : "site-nav"}
         aria-label="Storefront"
       >
@@ -57,6 +58,7 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
             key={to}
             href={to}
             className={isActive(pathname, to) ? "active" : ""}
+            aria-current={isActive(pathname, to) ? "page" : undefined}
             onClick={close}
           >
             {label}
@@ -65,9 +67,6 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
       </nav>
 
       <div className="site-actions">
-        <Link className="site-icon" href="/catalog" aria-label="Search products">
-          <Search size={17} />
-        </Link>
         <button
           className="site-icon site-bag"
           type="button"
@@ -85,6 +84,7 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
           type="button"
           aria-label={open ? "Close navigation" : "Open navigation"}
           aria-expanded={open}
+          aria-controls="storefront-navigation"
           onClick={() => setOpen((current) => !current)}
         >
           {open ? <X size={18} /> : <Menu size={18} />}

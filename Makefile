@@ -14,6 +14,7 @@ DATABASE_URL ?=
 API_PORT ?= 8000
 UI_PORT ?= 5173
 LAB_API_URL ?= http://127.0.0.1:$(API_PORT)
+SCORE_EVAL_ARGS ?=
 
 # The Mosaic data model is vendored under db/, rendered at 1024 dimensions.
 SCHEMA_PACKAGE ?= db
@@ -150,7 +151,7 @@ validate-evals:
 # curated 20-query set through served FTS + pg_trgm + HNSW + unweighted RRF +
 # managed reranking, then rejects provenance or metric regressions.
 score-evals:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/score_evals.py
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/score_evals.py $(SCORE_EVAL_ARGS)
 
 # db/config/retrieval.yaml is the single source for candidate limits, fusion k,
 # weights, and the trigram threshold. This fails if any other file declares one,

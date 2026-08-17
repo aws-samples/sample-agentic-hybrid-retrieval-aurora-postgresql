@@ -114,5 +114,8 @@ Two more things that mislead:
 Through the same middlebox, long-lived TLS sessions die with
 `SSL error: unexpected eof while reading` while the cluster stays `available` and
 an immediate reconnect succeeds. Measurement scripts that run for minutes should
-retry and use one connection per sample, so a drop costs one datapoint rather than
-the whole run.
+retry each sample and avoid sharing one long-lived connection across the run, so
+a drop costs one attempt rather than the whole measurement. The canonical
+scorecard checkpoints each completed query and resumes only when its query,
+source, model, retrieval, and Aurora identity still match; use
+`make score-evals SCORE_EVAL_ARGS=--restart` to discard a stale partial run.

@@ -35,11 +35,14 @@ describe("DiscoverPage", () => {
   }
 
   it("routes a typed product need into Shop retrieval", () => {
-    renderPage();
+    const { container } = renderPage();
 
     fireEvent.change(screen.getByRole("textbox", { name: "Search products" }), {
       target: { value: "quiet keyboard under $180" },
     });
+    expect(
+      container.querySelector(".discover-search .generative-search-icon"),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Search Mosaic" }));
 
     expect(window.location.pathname).toBe("/catalog");

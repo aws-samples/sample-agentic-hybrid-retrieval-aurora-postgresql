@@ -1,6 +1,10 @@
+import { Github } from "lucide-react";
 import { Link } from "wouter";
 
 type MosaicLabsTab = "explore" | "studio";
+
+const sourceRepositoryUrl =
+  "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql";
 
 /**
  * Keeps the optional inspection surfaces separate from participant authoring.
@@ -25,6 +29,16 @@ export function MosaicLabsTabs({ active }: { active: MosaicLabsTab }) {
         </Link>
       </div>
       <small>Read-only views. Build in Code Editor, then validate in Shop.</small>
+      <a
+        aria-label="View Mosaic source on GitHub (opens in a new tab)"
+        className="mosaic-labs-source"
+        href={sourceRepositoryUrl}
+        rel="noreferrer"
+        target="_blank"
+      >
+        <Github aria-hidden="true" size={16} />
+        GitHub
+      </a>
     </nav>
   );
 }

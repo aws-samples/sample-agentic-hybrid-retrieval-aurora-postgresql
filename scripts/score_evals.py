@@ -7,10 +7,16 @@ import argparse
 import csv
 import hashlib
 import json
+import re
+import subprocess
 import sys
+import time
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+import psycopg
 
 REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
@@ -26,6 +32,17 @@ from service.retrieval import get_retrieval_service
 
 PRODUCT_RETRIEVAL_SCOPE = "product_retrieval"
 AGENT_CONTRACT_SCOPE = "agent_contract"
+SCORECARD_DB_RETRY_DELAYS = (1.0, 2.0)
+CANONICAL_SCORECARD_PATH = "data/evals/canonical_scorecard.json"
+RESULT_FIELDNAMES = (
+    "query_id",
+    "product_id",
+    "rank",
+    "search_event_id",
+    "strategy",
+    "total_latency_ms",
+)
+FULL_GIT_SHA = re.compile(r"[0-9a-f]{40}")
 
 
 def query_set_sha256(path: Path) -> str:
@@ -131,6 +148,307 @@ def validate_release_checks(
     return passed
 
 
+def scorecard_checkpoint_path(results_path: Path) -> Path:
+    """Return the sidecar used to resume a partially completed measurement."""
+    return results_path.with_suffix(f"{results_path.suffix}.checkpoint.json")
+
+
+def _checkpoint_identity(
+    *,
+    queries_path: Path,
+    queries: list[dict[str, Any]],
+    k: int,
+    settings: Any,
+    profile: Any,
+    database_environment: dict[str, Any],
+    strategy: str,
+) -> dict[str, Any]:
+    return {
+        "query_set_sha256": query_set_sha256(queries_path),
+        "scored_query_set_sha256": scored_query_set_sha256(queries),
+        "k": k,
+        "models": {
+            "embedding": settings.embedding_model_id,
+            "rerank": settings.rerank_model_id,
+        },
+        "source": {
+            "revision": settings.source_revision,
+            "worktree_dirty": settings.source_worktree_dirty,
+        },
+        "dataset_manifest_sha256": settings.dataset_manifest_sha256,
+        "retrieval_profile": profile.model_dump(mode="json"),
+        "aurora_configuration": {
+            "engine": "aurora-postgresql",
+            "database_version": database_environment["database_version"],
+            "vector_extension_version": database_environment[
+                "vector_extension_version"
+            ],
+            "instance_class": settings.aurora_instance_class,
+        },
+        "database_instance_id": database_environment["database_instance_id"],
+        "strategy": strategy,
+    }
+
+
+def _load_checkpoint(
+    path: Path,
+    expected_identity: dict[str, Any],
+) -> tuple[set[str], dict[str, list[tuple[int, int]]], dict[str, list[dict[str, Any]]]]:
+    if not path.exists():
+        return set(), {}, {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"Scorecard checkpoint {path} is unreadable: {error}. "
+            "Rerun with --restart to discard it."
+        ) from error
+    if payload.get("identity") != expected_identity:
+        raise ValueError(
+            "Scorecard checkpoint provenance drifted from the current query, "
+            f"source, model, retrieval, or Aurora contract: {path}. Rerun with "
+            "--restart to discard it rather than mixing measurements."
+        )
+    completed = payload.get("completed_query_ids")
+    ranked_payload = payload.get("ranked")
+    rows = payload.get("rows")
+    if (
+        not isinstance(completed, list)
+        or not isinstance(ranked_payload, dict)
+        or not isinstance(rows, dict)
+        or any(
+            not isinstance(query_id, str)
+            or query_id not in ranked_payload
+            or query_id not in rows
+            for query_id in completed
+        )
+    ):
+        raise ValueError(
+            f"Scorecard checkpoint {path} has an invalid completion shape. "
+            "Rerun with --restart to discard it."
+        )
+    ranked = {
+        query_id: [(int(rank), int(product_id)) for rank, product_id in results]
+        for query_id, results in ranked_payload.items()
+        if query_id in completed
+    }
+    checkpoint_rows = {
+        query_id: list(query_rows)
+        for query_id, query_rows in rows.items()
+        if query_id in completed
+    }
+    return set(completed), ranked, checkpoint_rows
+
+
+def _write_checkpoint(
+    path: Path,
+    *,
+    identity: dict[str, Any],
+    completed: set[str],
+    ranked: dict[str, list[tuple[int, int]]],
+    rows: dict[str, list[dict[str, Any]]],
+) -> None:
+    payload = {
+        "version": 1,
+        "identity": identity,
+        "completed_query_ids": sorted(completed),
+        "ranked": {
+            query_id: [[rank, product_id] for rank, product_id in results]
+            for query_id, results in ranked.items()
+            if query_id in completed
+        },
+        "rows": {
+            query_id: query_rows
+            for query_id, query_rows in rows.items()
+            if query_id in completed
+        },
+    }
+    temporary = path.with_name(f"{path.name}.tmp")
+    temporary.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(path)
+
+
+def search_with_db_retry(
+    retrieval: Any,
+    request: SearchRequest,
+    *,
+    query_id: str,
+    retry_delays: Sequence[float] = SCORECARD_DB_RETRY_DELAYS,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Any:
+    """Retry one scorecard sample only for transient psycopg connection failures."""
+    for attempt in range(len(retry_delays) + 1):
+        try:
+            return retrieval.search(request)
+        except (psycopg.InterfaceError, psycopg.OperationalError) as error:
+            if attempt == len(retry_delays):
+                raise
+            delay = retry_delays[attempt]
+            print(
+                f"{query_id} Aurora connection failed on attempt {attempt + 1}/"
+                f"{len(retry_delays) + 1}: {type(error).__name__}. "
+                f"Retrying this query in {delay:g}s.",
+                file=sys.stderr,
+            )
+            sleep(delay)
+    raise AssertionError("scorecard retry loop exited without a result")
+
+
+def run_scored_queries(
+    queries: list[dict[str, Any]],
+    retrieval: Any,
+    *,
+    k: int,
+    checkpoint_path: Path,
+    checkpoint_identity: dict[str, Any],
+    retry_delays: Sequence[float] = SCORECARD_DB_RETRY_DELAYS,
+    sleep: Callable[[float], None] = time.sleep,
+) -> tuple[dict[str, list[tuple[int, int]]], dict[str, list[dict[str, Any]]]]:
+    """Run or resume production retrieval one query at a time."""
+    completed, ranked, rows = _load_checkpoint(
+        checkpoint_path,
+        checkpoint_identity,
+    )
+    query_ids = {query["query_id"] for query in queries}
+    unexpected = completed - query_ids
+    if unexpected:
+        raise ValueError(
+            f"Scorecard checkpoint contains unknown queries {sorted(unexpected)}. "
+            "Rerun with --restart to discard it."
+        )
+
+    for index, query in enumerate(queries, 1):
+        query_id = query["query_id"]
+        if query_id in completed:
+            print(f"{index}/{len(queries)} {query_id} (resumed)")
+            continue
+        response = search_with_db_retry(
+            retrieval,
+            SearchRequest(
+                query=query["query"],
+                filters=SearchFilters.model_validate(query.get("filters") or {}),
+                limit=k,
+                include_diagnostics=True,
+                rerank=True,
+                session_id="canonical-release-eval",
+            ),
+            query_id=query_id,
+            retry_delays=retry_delays,
+            sleep=sleep,
+        )
+        ranked[query_id] = [
+            (result.signals.final_rank, result.product_id)
+            for result in response.results
+            if result.signals is not None
+        ]
+        rows[query_id] = [
+            {
+                "query_id": query_id,
+                "product_id": product_id,
+                "rank": rank,
+                "search_event_id": str(response.search_event_id),
+                "strategy": (
+                    response.diagnostics.strategy
+                    if response.diagnostics
+                    else "unavailable"
+                ),
+                "total_latency_ms": (
+                    response.diagnostics.total_latency_ms
+                    if response.diagnostics
+                    else None
+                ),
+            }
+            for rank, product_id in ranked[query_id]
+        ]
+        completed.add(query_id)
+        _write_checkpoint(
+            checkpoint_path,
+            identity=checkpoint_identity,
+            completed=completed,
+            ranked=ranked,
+            rows=rows,
+        )
+        print(f"{index}/{len(queries)} {query_id}")
+    return ranked, rows
+
+
+def _write_results(
+    path: Path,
+    queries: list[dict[str, Any]],
+    rows: dict[str, list[dict[str, Any]]],
+) -> None:
+    with path.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=RESULT_FIELDNAMES)
+        writer.writeheader()
+        for query in queries:
+            writer.writerows(rows[query["query_id"]])
+
+
+def _scorecard_only_revision_delta(
+    baseline_revision: str,
+    measured_revision: str,
+) -> bool:
+    """Allow the commit that records a baseline without allowing code drift."""
+    if baseline_revision == measured_revision:
+        return True
+    try:
+        is_ancestor = (
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(REPO),
+                    "merge-base",
+                    "--is-ancestor",
+                    baseline_revision,
+                    measured_revision,
+                ],
+                check=False,
+                capture_output=True,
+            ).returncode
+            == 0
+        )
+        changed_paths = set(
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(REPO),
+                    "diff",
+                    "--name-only",
+                    f"{baseline_revision}..{measured_revision}",
+                    "--",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.splitlines()
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return is_ancestor and changed_paths <= {CANONICAL_SCORECARD_PATH}
+
+
+def _validate_measurement_source(settings: Any) -> None:
+    """Fail before Aurora or model work when source provenance is not immutable."""
+    if settings.source_worktree_dirty:
+        raise ValueError(
+            "Canonical scorecard measurement requires a clean committed source; "
+            "commit or remove the current worktree changes before running the "
+            "Aurora-backed scorecard."
+        )
+    if not FULL_GIT_SHA.fullmatch(settings.source_revision):
+        raise ValueError(
+            "Canonical scorecard measurement requires a full 40-character Git SHA; "
+            f"found source revision {settings.source_revision!r}. Set "
+            "MOSAIC_SOURCE_REVISION to the immutable commit or run from a Git "
+            "checkout."
+        )
+
+
 def measured_scorecard(
     queries_path: Path,
     results_path: Path,
@@ -142,6 +460,8 @@ def measured_scorecard(
     queries, excluded_agent_contract_queries = product_retrieval_queries(
         canonical_queries
     )
+    settings = get_settings()
+    _validate_measurement_source(settings)
     with connect() as connection:
         validate_query_contract(connection, queries)
         database_environment = dict(
@@ -160,56 +480,24 @@ def measured_scorecard(
 
     retrieval = get_retrieval_service()
     profile = retrieval._profile(SearchRequest(query="scorecard provenance", limit=k))
-    ranked: dict[str, list[tuple[int, int]]] = {}
-    with results_path.open("w", newline="", encoding="utf-8") as output:
-        writer = csv.DictWriter(
-            output,
-            fieldnames=[
-                "query_id",
-                "product_id",
-                "rank",
-                "search_event_id",
-                "strategy",
-                "total_latency_ms",
-            ],
-        )
-        writer.writeheader()
-        for index, query in enumerate(queries, 1):
-            response = retrieval.search(
-                SearchRequest(
-                    query=query["query"],
-                    filters=SearchFilters.model_validate(query.get("filters") or {}),
-                    limit=k,
-                    include_diagnostics=True,
-                    rerank=True,
-                    session_id="canonical-release-eval",
-                )
-            )
-            ranked[query["query_id"]] = [
-                (result.signals.final_rank, result.product_id)
-                for result in response.results
-                if result.signals is not None
-            ]
-            for rank, product_id in ranked[query["query_id"]]:
-                writer.writerow(
-                    {
-                        "query_id": query["query_id"],
-                        "product_id": product_id,
-                        "rank": rank,
-                        "search_event_id": response.search_event_id,
-                        "strategy": (
-                            response.diagnostics.strategy
-                            if response.diagnostics
-                            else "unavailable"
-                        ),
-                        "total_latency_ms": (
-                            response.diagnostics.total_latency_ms
-                            if response.diagnostics
-                            else None
-                        ),
-                    }
-                )
-            print(f"{index}/{len(queries)} {query['query_id']}")
+    strategy = retrieval._strategy()
+    checkpoint_identity = _checkpoint_identity(
+        queries_path=queries_path,
+        queries=queries,
+        k=k,
+        settings=settings,
+        profile=profile,
+        database_environment=database_environment,
+        strategy=strategy,
+    )
+    ranked, rows = run_scored_queries(
+        queries,
+        retrieval,
+        k=k,
+        checkpoint_path=scorecard_checkpoint_path(results_path),
+        checkpoint_identity=checkpoint_identity,
+    )
+    _write_results(results_path, queries, rows)
 
     all_judgments = load_judgments(queries_path)
     release_checks = validate_release_checks(queries, ranked)
@@ -218,7 +506,6 @@ def measured_scorecard(
         ranked,
         k,
     )
-    settings = get_settings()
     return {
         "query_set": str(queries_path),
         "query_set_sha256": query_set_sha256(queries_path),
@@ -256,7 +543,7 @@ def measured_scorecard(
         },
         "database_instance_id": database_environment["database_instance_id"],
         "measured_at": datetime.now(UTC).isoformat(),
-        "strategy": retrieval._strategy(),
+        "strategy": strategy,
         "metrics": {
             f"recall@{k}": metrics[f"recall@{k}"],
             "mrr": metrics["mrr"],
@@ -303,10 +590,28 @@ def verify_scorecard(measured: dict[str, Any], baseline: dict[str, Any]) -> None
             "production scorecard before release."
         )
     baseline_source = baseline.get("source") or {}
+    if not baseline_source.get("revision"):
+        raise ValueError(
+            "Canonical scorecard baseline source revision is missing: "
+            f"baseline={baseline_source!r}; regenerate it from the clean release "
+            "revision."
+        )
     if baseline_source.get("worktree_dirty") is not False:
         raise ValueError(
             "Canonical scorecard baseline was not captured from a clean source: "
             f"baseline={baseline_source!r}; establish it from a committed checkout."
+        )
+    if not _scorecard_only_revision_delta(
+        baseline_source["revision"],
+        source["revision"],
+    ):
+        raise ValueError(
+            "Canonical scorecard source revision drifted: "
+            f"measured={source['revision']!r}; "
+            f"baseline={baseline_source['revision']!r}. Commit the reviewed "
+            "release, inspect its Aurora ranks, and write a new baseline. The "
+            "only permitted later commit is one that records "
+            f"{CANONICAL_SCORECARD_PATH} itself."
         )
     for metric, expected in baseline["metrics"].items():
         actual = measured["metrics"].get(metric)
@@ -340,8 +645,16 @@ def main() -> None:
         action="store_true",
         help="Write the current measured scorecard after an explicit review.",
     )
+    parser.add_argument(
+        "--restart",
+        action="store_true",
+        help="Discard a partial checkpoint and rerun every scorecard query.",
+    )
     args = parser.parse_args()
     args.results.parent.mkdir(parents=True, exist_ok=True)
+    checkpoint_path = scorecard_checkpoint_path(args.results)
+    if args.restart:
+        checkpoint_path.unlink(missing_ok=True)
     measured = measured_scorecard(args.queries, args.results, k=args.k)
     if args.write_baseline:
         if measured["source"]["worktree_dirty"]:
@@ -355,6 +668,7 @@ def main() -> None:
             encoding="utf-8",
         )
         print(f"Wrote measured baseline {args.scorecard}")
+        checkpoint_path.unlink(missing_ok=True)
         return
     if not args.scorecard.exists():
         raise SystemExit(
@@ -365,6 +679,7 @@ def main() -> None:
         measured,
         json.loads(args.scorecard.read_text(encoding="utf-8")),
     )
+    checkpoint_path.unlink(missing_ok=True)
     print(json.dumps(measured, indent=2, sort_keys=True))
 
 
