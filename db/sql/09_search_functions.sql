@@ -75,7 +75,7 @@ CREATE OR REPLACE FUNCTION mosaic_search.configure_hnsw(
     p_ef_search integer DEFAULT 100,
     p_iterative_scan text DEFAULT 'relaxed_order',
     p_max_scan_tuples integer DEFAULT 20000,
-    p_scan_mem_multiplier real DEFAULT 1
+    p_scan_mem_multiplier real DEFAULT 2
 )
 RETURNS void
 LANGUAGE plpgsql

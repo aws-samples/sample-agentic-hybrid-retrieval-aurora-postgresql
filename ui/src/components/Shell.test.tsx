@@ -32,8 +32,12 @@ describe("Shell navigation", () => {
     expect(
       within(navigation)
         .getAllByRole("link")
-        .map((link) => link.textContent),
-    ).toEqual(["Discover", "Shop", "Mosaic Labs"]);
+        .map((link) => link.getAttribute("href")),
+    ).toEqual(["/", "/catalog", "/mosaic-labs"]);
+    expect(
+      within(navigation).getByRole("link", { name: /Mosaic Labs/ }).textContent,
+    ).toBe("Mosaic LabsOptional");
+    expect(within(navigation).getByText("Optional").tagName).toBe("SMALL");
     expect(
       within(navigation).getByRole("link", { name: "Shop" }).getAttribute(
         "aria-current",
@@ -46,7 +50,7 @@ describe("Shell navigation", () => {
     ).toBe(false);
     const menu = screen.getByRole("button", { name: "Open navigation" });
     expect(menu.getAttribute("aria-controls")).toBe(navigation.id);
-    expect(screen.queryByRole("link", { name: "Search products" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Search the catalog" })).toBeNull();
     expect(screen.queryByText("Collections")).toBeNull();
   });
 

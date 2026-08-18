@@ -71,6 +71,7 @@ general semantic entailment.
 ## Catalog inspection
 
 - `GET /api/catalog/summary`
+- `GET /api/catalog/suggestions`
 - `GET /api/catalog/products`
 - `GET /api/products/{product_id}`
 - `GET /api/evidence/{evidence_id}`
@@ -80,6 +81,12 @@ The product-evidence route requires an `evidence_query` and returns
 source-addressable specification and review records ranked for that question,
 without invoking the agent. The evidence-ID route resolves a persisted
 citation to its exact evidence row.
+
+Catalog suggestions accept the shopper text in the `q` query parameter, require
+at least two non-space characters, and return a bounded mix of matching product,
+brand, and category identities. Product
+matches use the existing full-text index over `mosaic_search.product_document`;
+the route does not create an embedding, invoke reranking, or call a model.
 
 ## Labs and replay
 
@@ -102,12 +109,61 @@ labeled simulated; `scripts/benchmark_hnsw.py` persists measured Aurora runs to
 explicit MCP subset. Both are projections of
 `db/config/agent_tool_contracts.json`, not independent schemas.
 
+`GET /api/catalog/products` browses the 200 installed product IDs in
+`data/media/asset_labels_200.json`. `sort=featured` preserves manifest order;
+facets and other sort modes stay bounded to that photographed edit. Search and
+Ask Mosaic continue to retrieve across all 500,000 products.
+
 ## Runtime status
 
 - `GET /api/health` reports the configured service and model IDs.
 - `GET /api/readiness` verifies the product/vector counts, premium cohort,
   specification-evidence coverage, required retrieval indexes/functions,
   model-space compatibility, and the current process's AWS credential validity.
+
+## HNSW instrument
+
+Five read-only routes behind `/mosaic-labs/hnsw`. Two are live reads, two replay
+stored measurements, and one issues a real query. Which is which is the point: the
+page labels them differently because they are different kinds of claim.
+
+- `GET /api/hnsw/substrate` reads the cluster now: HNSW index size and definition,
+  the heap/TOAST/index storage split, bytes per vector against the raw fp32
+  payload, and the settings that explain those numbers (`work_mem`,
+  `maintenance_work_mem`, `shared_buffers`, `effective_cache_size`,
+  `max_parallel_workers_per_gather`). It deliberately does **not** count distinct
+  vectors: deduplicating 500,000 `vector(1024)` values sorts roughly 2 GB against a
+  4 MB `work_mem` and terminated the Aurora backend when tried.
+
+- `GET /api/hnsw/measured` serves `data/benchmarks/hnsw_measured.json` verbatim,
+  written by `make benchmark-hnsw`. It carries its own provenance (source revision,
+  dataset manifest sha256, database instance id, instance class, query-sample
+  sha256) and is refused with HTTP 503 if its `kind` is not `measured`, so a
+  projection cannot be served under a measured label.
+
+- `GET /api/hnsw/anchors` lists the query anchors the instrument offers: the 30
+  retrieval anchors, which are the products carrying real media.
+
+- `GET /api/hnsw/neighborhood/{anchor_product_id}`, with optional `preset` and `k`
+  query parameters, returns the
+  precomputed exact top-k from `mosaic_bench.exact_neighbor` with real cosine
+  distances, plus the `band` those neighbours occupy. It runs no vector query.
+  Ground truth is keyed by dataset manifest sha256; a mismatch is HTTP 503 rather
+  than a silent answer from another corpus.
+
+- `POST /api/hnsw/probe` runs one real ANN query and reports what the server did:
+  plan node, index name, server-side execution time, buffer counts, planner
+  estimate, rows returned against rows that exist, recall, and which product ids
+  were missed. Every HNSW setting is applied through
+  `mosaic_search.configure_hnsw` — the same function served retrieval calls — inside
+  one transaction with a `statement_timeout`. `filter_preset` is a key into
+  `service.hnsw_presets.FILTER_PRESETS`, never a predicate, so no request value
+  reaches the SQL. Recall is computed against the precomputed ground truth, which
+  is what bounds this endpoint's cost at a filtered HNSW scan instead of a
+  2.4-second sequential scan.
+
+  `scan_mem_multiplier` accepts 1, the pre-2026-08-17 default, so a participant can
+  reproduce the silent candidate truncation it caused and then fix it.
 
 ## Production additions
 

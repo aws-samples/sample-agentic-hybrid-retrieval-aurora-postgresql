@@ -5,6 +5,8 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
@@ -15,6 +17,7 @@ vi.mock("../api", () => ({
   api: {
     catalog: vi.fn(),
     product: vi.fn(),
+    suggestions: vi.fn(),
   },
 }));
 
@@ -22,6 +25,22 @@ describe("DiscoverPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
     vi.mocked(api.catalog).mockReset();
+    vi.mocked(api.suggestions).mockReset();
+    vi.mocked(api.suggestions).mockResolvedValue({
+      query: "sono",
+      suggestions: [
+        {
+          kind: "product",
+          label: "Sonora WH-C720 Wireless Noise-Cancelling Headphones",
+          query: "Sonora WH-C720 Wireless Noise-Cancelling Headphones",
+          product_id: 2,
+          domain: "consumer_electronics",
+          brand: "Sonora",
+          category_key: "over-ear-headphones",
+          category_path: "Audio > Over-Ear Headphones",
+        },
+      ],
+    });
   });
 
   afterEach(cleanup);
@@ -37,13 +56,13 @@ describe("DiscoverPage", () => {
   it("routes a typed product need into Shop retrieval", () => {
     const { container } = renderPage();
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Search products" }), {
+    fireEvent.change(screen.getByRole("combobox", { name: "Search products" }), {
       target: { value: "quiet keyboard under $180" },
     });
     expect(
       container.querySelector(".discover-search .generative-search-icon"),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Search Mosaic" }));
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
     expect(window.location.pathname).toBe("/catalog");
     expect(new URLSearchParams(window.location.search).get("q")).toBe(
@@ -54,7 +73,7 @@ describe("DiscoverPage", () => {
   it("labels the hero action for search and focuses the catalog query", () => {
     renderPage();
 
-    const searchInput = screen.getByRole("textbox", { name: "Search products" });
+    const searchInput = screen.getByRole("combobox", { name: "Search products" });
     searchInput.scrollIntoView = vi.fn();
     fireEvent.click(
       screen.getByRole("button", { name: "Search the catalog" }),
@@ -66,6 +85,27 @@ describe("DiscoverPage", () => {
       block: "center",
     });
     expect(screen.queryByText("Explore collections")).toBeNull();
+  });
+
+  it("shows exact product photography with the same live catalog matches as Shop", async () => {
+    renderPage();
+    const input = screen.getByRole("combobox", { name: "Search products" });
+
+    fireEvent.change(input, { target: { value: "sono" } });
+
+    const listbox = await screen.findByRole("listbox");
+    await waitFor(() => {
+      expect(api.suggestions).toHaveBeenCalledWith(
+        "sono",
+        expect.any(AbortSignal),
+      );
+    });
+    const option = within(listbox).getByRole("option", {
+      name: /Sonora WH-C720 Wireless Noise-Cancelling Headphones/,
+    });
+    expect(option.querySelector("img")?.getAttribute("src")).toBe(
+      "/assets/images/mosaic/ce-over-ear-headphones-02-catalog-3x2.webp",
+    );
   });
 
   it("renders the editorial Shop preview immediately without a catalog request", () => {

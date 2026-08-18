@@ -111,8 +111,9 @@ simulated values from being presented as Aurora observations.
 
 ## Image boundary
 
-The 120-product premium cohort has a checked-in, content-screened 1200 x 800
-catalog asset for every product. `data/media/asset_labels_120.json` is the
+The 200-product exact-photography set has a checked-in, content-screened
+1200 x 800 catalog asset for every installed product.
+`data/media/asset_labels_200.json` is the
 product-to-media contract, including the six flagship mappings. Cards render
 the complete 3:2 catalog asset with no crop or hover zoom; square detail
 photography remains a product-detail concern. Product media never serves as

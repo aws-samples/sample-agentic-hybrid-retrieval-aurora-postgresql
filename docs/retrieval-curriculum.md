@@ -19,12 +19,12 @@ agent. The agent orchestrates the system; it does not replace it.
 
 | Time | Stage | Required outcome | Stable eval anchors |
 |---:|---|---|---|
-| 0-8 min | Getting started | Architecture, Mosaic, and the baseline failure are visible | `typo-recovery` before repair |
-| 8-22 min | Retrieve | Build hybrid retrieval and prove typo recovery, exact identity, and eligibility | `typo-recovery`, `exact-identity`, `semantic-eligibility` |
-| 22-37 min | Rank | Repair RRF, rerank, inspect provenance, and explain why result 1 beat result 2 | `rank-with-evidence` |
-| 37-53 min | Reason | Attach retrieved evidence to synthesis and produce a grounded cited recommendation | `agentic-research` |
-| 53-58 min | Wrap-up | Run the scorecard and recap the architecture | all required checks |
-| 58-60 min | Recovery buffer | Absorb a transition or rerun a failed checkpoint | n/a |
+| 0-5 min | Introduction | Architecture, Mosaic, and the baseline failure are visible | `typo-recovery` before repair |
+| 5-20 min | Retrieve | Build hybrid retrieval and prove typo recovery, exact identity, and eligibility | `typo-recovery`, `exact-identity`, `semantic-eligibility` |
+| 20-35 min | Rank | Repair RRF, rerank, inspect provenance, and explain why result 1 beat result 2 | `rank-with-evidence` |
+| 35-50 min | Reason | Attach retrieved evidence to synthesis and produce a grounded cited recommendation | `agentic-research` |
+| 50-55 min | Conclusion | Run the scorecard and recap the architecture | all required checks |
+| 55-60 min | Recovery buffer | Absorb a transition or rerun a failed checkpoint | n/a |
 
 The stable IDs remain evaluation identifiers and starter-gap ownership keys.
 They are checkpoints inside three labs, not participant navigation.

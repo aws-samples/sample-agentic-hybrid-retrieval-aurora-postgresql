@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import gzip
+import io
 import json
 from pathlib import Path
 
@@ -42,6 +43,11 @@ def main() -> None:
         default=ROOT / "data" / "curated" / "image_manifest.json",
     )
     parser.add_argument(
+        "--product-media",
+        type=Path,
+        default=ROOT / "data" / "media" / "asset_labels_200.json",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=ROOT / "data" / "full" / "product_image_urls.csv.gz",
@@ -61,20 +67,32 @@ def main() -> None:
             args.curated_map.read_text(encoding="utf-8")
         ).items()
     }
+    product_media = {
+        int(item["product_id"]): item
+        for item in json.loads(args.product_media.read_text(encoding="utf-8"))[
+            "products"
+        ]
+        if item["catalog_installed"]
+    }
     fieldnames = ["product_id", "image_url", "image_source", "image_key"]
     counts = {
         "mosaic_showcase": 0,
+        "product_bound": 0,
         "curated_photorealistic": 0,
         "category_fallback": 0,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with gzip.open(
-        args.output,
-        "wt",
-        encoding="utf-8",
-        newline="",
-        compresslevel=6,
-    ) as target:
+    with (
+        args.output.open("wb") as raw,
+        gzip.GzipFile(
+            filename="",
+            mode="wb",
+            fileobj=raw,
+            compresslevel=6,
+            mtime=0,
+        ) as compressed,
+        io.TextIOWrapper(compressed, encoding="utf-8", newline="") as target,
+    ):
         writer = csv.DictWriter(target, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for catalog_path in catalog_paths(args.manifest):
@@ -86,7 +104,15 @@ def main() -> None:
             ) as source:
                 for product in csv.DictReader(source):
                     product_id = int(product["product_id"])
-                    if product_id in curated:
+                    if product_id in product_media:
+                        item = product_media[product_id]
+                        image_url = runtime_path(item["catalog_runtime_path"])
+                        image_source = (
+                            "mosaic_showcase"
+                            if item["is_flagship"]
+                            else "product_bound"
+                        )
+                    elif product_id in curated:
                         image_url = runtime_path(curated[product_id]["path"])
                         image_source = (
                             "mosaic_showcase"

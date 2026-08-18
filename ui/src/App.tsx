@@ -38,6 +38,7 @@ export function App() {
             <Route path="/discover" component={DiscoverPage} />
             <Route path="/catalog" component={CatalogPage} />
             <Route path="/search" component={SearchPage} />
+            <Route path="/mosaic-labs/hnsw" component={PerformancePage} />
             <Route path="/mosaic-labs/studio" component={MosaicStudioPage} />
             <Route path="/mosaic-labs" component={MosaicLabsPage} />
             <Route path="/inspiration">
@@ -45,7 +46,9 @@ export function App() {
             </Route>
             <Route path="/products/:productId" component={ProductPage} />
             <Route path="/labs/retrieval" component={RetrievalLabPage} />
-            <Route path="/labs/performance" component={PerformancePage} />
+            <Route path="/labs/performance">
+              <Redirect to="/mosaic-labs/hnsw" replace />
+            </Route>
             <Route>
               <Redirect to="/" replace />
             </Route>

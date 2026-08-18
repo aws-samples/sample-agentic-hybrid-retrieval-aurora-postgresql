@@ -2,6 +2,7 @@ import csv
 import gzip
 import hashlib
 import json
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from scripts.media_manifest import iter_media_records, normalize_asset_url
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "ui" / "public"
 MAPPING = ROOT / "data" / "full" / "product_image_urls.csv.gz"
+PRODUCT_MEDIA = ROOT / "data" / "media" / "asset_labels_200.json"
 
 SHOWCASE = {
     1: ("Mosaic Auraluxe H9 Premium Wireless Headphones", "auraluxe-h9.webp"),
@@ -48,6 +50,12 @@ def test_mosaic_showcase_products_and_assets_match():
 
 
 def test_media_mapping_covers_every_product_with_local_assets():
+    media_manifest = json.loads(PRODUCT_MEDIA.read_text(encoding="utf-8"))
+    installed = [
+        item for item in media_manifest["products"] if item["catalog_installed"]
+    ]
+    installed_by_id = {item["product_id"]: item for item in installed}
+    flagship_count = sum(item["is_flagship"] for item in installed)
     source_counts: Counter[str] = Counter()
     product_ids: set[int] = set()
     image_urls: set[str] = set()
@@ -65,16 +73,58 @@ def test_media_mapping_covers_every_product_with_local_assets():
     assert len(product_ids) == 500_000
     assert source_counts == Counter(
         {
-            "category_fallback": 499_973,
-            "curated_photorealistic": 21,
-            "mosaic_showcase": 6,
+            "category_fallback": 500_000 - len(installed),
+            "product_bound": len(installed) - flagship_count,
+            "mosaic_showcase": flagship_count,
         }
     )
     assert showcase_urls == {
-        product_id: f"/assets/images/mosaic/{image_key}"
-        for product_id, (_, image_key) in SHOWCASE.items()
+        product_id: installed_by_id[product_id]["catalog_runtime_path"]
+        for product_id in SHOWCASE
     }
     assert all((PUBLIC / url.lstrip("/")).is_file() for url in image_urls)
+
+
+def test_product_bound_manifest_is_one_truthful_200_product_contract():
+    manifest = json.loads(PRODUCT_MEDIA.read_text(encoding="utf-8"))
+    products = manifest["products"]
+    installed = [item for item in products if item["catalog_installed"]]
+
+    assert manifest["version"] == 2
+    assert manifest["binding_sets"] == {
+        "premium_cohort": 120,
+        "focused_hnsw_search": 80,
+    }
+    assert manifest["summary"]["products"] == len(products) == 200
+    assert len({item["product_id"] for item in products}) == 200
+    assert len({item["catalog_asset_key"] for item in products}) == 200
+    assert Counter(item["shop_page"] for item in products) == Counter(
+        {**{page: 12 for page in range(1, 17)}, 17: 8}
+    )
+    assert [(item["shop_page"], item["shop_position"]) for item in products] == [
+        (index // 12 + 1, index % 12 + 1) for index in range(200)
+    ]
+    assert manifest["summary"]["catalog_still_to_generate"] == 200 - len(installed)
+
+    for item in installed:
+        runtime = PUBLIC / item["catalog_runtime_path"].lstrip("/")
+        assert runtime.is_file()
+        assert digest(runtime) == item["catalog_sha256"]
+
+    focused = {
+        item["source_filename"]
+        for item in products
+        if item.get("binding_source") == "focused_hnsw_search"
+    }
+    prompt_filenames = {
+        match.group(1)
+        for match in re.finditer(
+            r"^SAVE AS: ([^\s]+\.png)$",
+            (ROOT / "docs/hnsw-focused-product-prompts.md").read_text(encoding="utf-8"),
+            re.MULTILINE,
+        )
+    }
+    assert focused == prompt_filenames
 
 
 def test_the_manifest_emits_only_approved_hashed_local_media():

@@ -31,7 +31,7 @@ you have not chosen.
 
 Regenerating replaces the file in place. Keep the **exact** output filename: the
 importer refuses any name that is not a cohort asset key, and the runtime reads
-these paths from `data/media/asset_labels_120.json`.
+these paths from `data/media/asset_labels_200.json`.
 
 All nine are `catalog-3x2` (**1536x1024**). None is a retrieval anchor, so none
 is on screen during a scripted query — but all nine sit on a shop page a
@@ -228,7 +228,6 @@ or watermarks found at 2.2–2.4x zoom. No further cohort photography is planned
 ## Backlog (parked, unfunded)
 
 - **Expand the per-category fallback pool, assign by subcategory hash.** The
-  499,880 non-cohort products currently share a handful of `category_fallback`
-  images (`scripts/materialize_image_urls.py`), so a browse surface past the
-  cohort's 10 shop pages shows visible repetition. Revisit only if rehearsal
-  puts a browse surface on stage. No cohort budget is spent on this now.
+  499,800 products outside the 200-product exact-photography set use
+  category-representative images, so a broad browse surface can still repeat.
+  Revisit only if rehearsal puts that surface on stage.

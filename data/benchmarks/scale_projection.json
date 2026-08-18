@@ -1,70 +1,72 @@
 {
-  "warning": "SIMULATED PROJECTION. Replace baseline defaults with measured results from your Aurora environment.",
+  "warning": "PROJECTED beyond 500K. The 500K row is measured; every larger row is extrapolated from it by the stated growth assumptions. Baseline read from data/benchmarks/hnsw_measured.json.",
   "assumptions": {
-    "baseline_latency_p95_ms": 38.0,
-    "baseline_build_min": 22.0,
-    "baseline_index_gb": 14.2,
-    "baseline_recall": 0.952,
+    "measured_source": "data/benchmarks/hnsw_measured.json",
+    "measured_captured_at": "2026-08-17T08:07:27.126043+00:00",
+    "measured_source_revision": "e5b10efde607114d0ef78bbbfaceadcd54b1a7c1",
+    "measured_instance_class": "db.r8g.2xlarge",
+    "baseline_latency_p95_ms": 2.711,
+    "baseline_recall": 0.992,
+    "bytes_per_vector": 8189,
     "dimensions": 1024,
     "m": 16,
-    "ef_search": 128,
+    "ef_construction": 200,
+    "ef_search": 100,
+    "index_size_growth": "linear in vector count",
+    "latency_growth": "log2(n) with a 5.5% per-decade penalty",
+    "recall_decay": "0.008 per decade, floored at 0.75",
     "output": "data/benchmarks/scale_projection.csv"
   },
   "rows": [
     {
       "scale": 500000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 38.0,
-      "recall_at_10": 0.952,
-      "build_time_min": 22.0,
-      "index_size_gb": 14.2,
+      "p95_latency_ms": 2.71,
+      "recall_at_10": 0.992,
+      "index_size_gb": 4.09,
       "dimensions": 1024,
       "m": 16,
-      "ef_search": 128
+      "ef_search": 100
     },
     {
       "scale": 1000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 40.67,
-      "recall_at_10": 0.9496,
-      "build_time_min": 46.5,
-      "index_size_gb": 28.4,
+      "p95_latency_ms": 2.9,
+      "recall_at_10": 0.9896,
+      "index_size_gb": 8.19,
       "dimensions": 1024,
       "m": 16,
-      "ef_search": 128
+      "ef_search": 100
     },
     {
       "scale": 5000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 47.12,
-      "recall_at_10": 0.944,
-      "build_time_min": 264.5,
-      "index_size_gb": 142.0,
+      "p95_latency_ms": 3.36,
+      "recall_at_10": 0.984,
+      "index_size_gb": 40.95,
       "dimensions": 1024,
       "m": 16,
-      "ef_search": 128
+      "ef_search": 100
     },
     {
       "scale": 10000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 50.02,
-      "recall_at_10": 0.9416,
-      "build_time_min": 559.2,
-      "index_size_gb": 284.0,
+      "p95_latency_ms": 3.57,
+      "recall_at_10": 0.9816,
+      "index_size_gb": 81.89,
       "dimensions": 1024,
       "m": 16,
-      "ef_search": 128
+      "ef_search": 100
     },
     {
       "scale": 100000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 60.09,
-      "recall_at_10": 0.9336,
-      "build_time_min": 6722.6,
-      "index_size_gb": 2840.0,
+      "p95_latency_ms": 4.29,
+      "recall_at_10": 0.9736,
+      "index_size_gb": 818.9,
       "dimensions": 1024,
       "m": 16,
-      "ef_search": 128
+      "ef_search": 100
     }
   ]
 }

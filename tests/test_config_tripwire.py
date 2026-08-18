@@ -17,11 +17,15 @@ from pathlib import Path
 import pytest
 
 from scripts.config_tripwire import (
+    ALLOWED_LINE,
+    DECLARATION,
     INDEX_PARAMETERS,
     SQL_DEFAULTS,
     Report,
     check_exemptions_complete,
     check_index_agreement,
+    check_model_agreement,
+    check_model_exemptions_complete,
     check_sql_agreement,
     scan_declarations,
 )
@@ -263,3 +267,127 @@ def test_every_failure_message_names_the_value_and_a_fix(fake_repo):
     for failure in report.failures:
         assert "found " in failure, failure
         assert "fix: " in failure, failure
+
+
+# Every field MODEL_DEFAULTS pins, at the values the yaml currently yields. The
+# values are written out rather than read from the profile on purpose: a fixture
+# that derived its expectations from the file under test could not fail, which is
+# the self-reference trap these gates exist to avoid. If the yaml moves, this
+# fixture goes stale and says so.
+MODEL = '''"""Typed application contracts."""
+
+from pydantic import BaseModel, Field
+
+
+class RetrievalProfile(BaseModel):
+    fts_limit: int = Field(default={fts_limit}, ge=1, le=1000)
+    trigram_limit: int = Field(default=80, ge=1, le=1000)
+    semantic_limit: int = Field(default=150, ge=1, le=1000)
+    fused_limit: int = Field(default=50, ge=1, le=250)
+    result_limit: int = Field(default=12, ge=1, le=100)
+    rrf_k: int = Field(default=60, ge=1)
+    ef_search: int = Field(default=100, ge=1, le=1000)
+    max_scan_tuples: int = Field(default=20000, ge=1)
+    scan_mem_multiplier: float = Field(default={scan_mem_multiplier}, ge=1)
+'''
+
+
+@pytest.fixture
+def fake_model_repo(fake_repo: Path) -> Path:
+    """`fake_repo` plus a db/models/python tree holding a clean contract file."""
+    (fake_repo / "db" / "models" / "python").mkdir(parents=True)
+    (fake_repo / "db" / "models" / "python" / "mosaic_models.py").write_text(
+        MODEL.format(fts_limit=120, scan_mem_multiplier=2), encoding="utf-8"
+    )
+    return fake_repo
+
+
+def test_the_pydantic_field_shape_is_invisible_to_rule_1():
+    """Why rule C1d has to exist rather than just widening SCAN_ROOTS.
+
+    For `scan_mem_multiplier: float = Field(default=1, ge=1)` the DECLARATION
+    pattern does not match — the token after `:` is `float`, not a number — and
+    ALLOWED_LINE matches anyway because of `ge=1`. The shape is invisible twice
+    over, so adding `db/models` to SCAN_ROOTS alone leaves the check green.
+    """
+    line = "    scan_mem_multiplier: float = Field(default=1, ge=1)\n"
+
+    assert DECLARATION.search(line) is None
+    assert ALLOWED_LINE.search(line) is not None
+
+
+def test_model_defaults_agreeing_with_the_yaml_pass(fake_model_repo: Path):
+    report = Report()
+
+    check_model_agreement(report, repo=fake_model_repo)
+
+    assert report.failures == []
+
+
+def test_a_disagreeing_model_default_fires_c1d(fake_model_repo: Path):
+    (fake_model_repo / "db" / "models" / "python" / "mosaic_models.py").write_text(
+        MODEL.format(fts_limit=999, scan_mem_multiplier=2), encoding="utf-8"
+    )
+    report = Report()
+
+    check_model_agreement(report, repo=fake_model_repo)
+
+    assert rules(report) == {"C1d"}
+    assert "999" in report.failures[0]
+    assert "fix:" in report.failures[0]
+
+
+def test_a_missing_model_default_fires_c1d(fake_model_repo: Path):
+    """A stale exemption list must fail loudly rather than skip silently."""
+    (fake_model_repo / "db" / "models" / "python" / "mosaic_models.py").write_text(
+        '"""Contracts."""\n', encoding="utf-8"
+    )
+    report = Report()
+
+    check_model_agreement(report, repo=fake_model_repo)
+
+    assert rules(report) == {"C1d"}
+
+
+def test_an_unenumerated_model_default_fires_c1e(fake_model_repo: Path):
+    """`ef_construction` holds a retrieval number and is not in MODEL_DEFAULTS.
+
+    Adding a tenth number to the packaged contract must fail until it is pinned,
+    because C1d only checks what someone remembered to list.
+    """
+    path = fake_model_repo / "db" / "models" / "python" / "mosaic_models.py"
+    path.write_text(
+        path.read_text(encoding="utf-8")
+        + "    ef_construction: int = Field(default=200, ge=4)\n",
+        encoding="utf-8",
+    )
+    report = Report()
+
+    check_model_exemptions_complete(report, repo=fake_model_repo)
+
+    assert rules(report) == {"C1e"}
+    assert "ef_construction" in report.failures[0]
+
+
+def test_a_non_retrieval_model_default_is_not_required_to_be_enumerated(
+    fake_model_repo: Path,
+):
+    path = fake_model_repo / "db" / "models" / "python" / "mosaic_models.py"
+    path.write_text(
+        path.read_text(encoding="utf-8") + "    weight_g: int = Field(default=42)\n",
+        encoding="utf-8",
+    )
+    report = Report()
+
+    check_model_exemptions_complete(report, repo=fake_model_repo)
+
+    assert report.failures == []
+
+
+def test_the_real_model_contract_agrees_with_the_yaml():
+    report = Report()
+
+    check_model_agreement(report)
+    check_model_exemptions_complete(report)
+
+    assert report.failures == [], report.failures

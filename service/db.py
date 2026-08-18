@@ -40,6 +40,12 @@ def readiness() -> dict[str, object]:
                     WHERE embedding IS NOT NULL
                 ) AS embedded_product_count,
                 (
+                    SELECT vector_dims(embedding)
+                    FROM mosaic_search.product_document
+                    WHERE embedding IS NOT NULL
+                    LIMIT 1
+                ) AS embedding_dimensions,
+                (
                     SELECT array_agg(DISTINCT embedding_model_key)
                     FILTER (WHERE embedding_model_key IS NOT NULL)
                     FROM mosaic_search.product_document

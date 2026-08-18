@@ -1,6 +1,6 @@
 import { productImages } from "./media";
 import commerceFacts from "../../data/curated/showcase_commerce_facts_120.json";
-import mediaManifest from "../../data/media/asset_labels_120.json";
+import mediaManifest from "../../data/media/asset_labels_200.json";
 import premiumCohort from "../../db/data/premium_cohort_120.json";
 import type {
   Availability,

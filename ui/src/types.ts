@@ -130,6 +130,22 @@ export interface CatalogPage {
   facets: Record<string, Array<{ value: string; count: number }>>;
 }
 
+export interface CatalogSuggestion {
+  kind: "product" | "brand" | "category";
+  label: string;
+  query: string;
+  product_id: number | null;
+  domain: Domain | null;
+  brand: string | null;
+  category_key: string | null;
+  category_path: string | null;
+}
+
+export interface CatalogSuggestionsResponse {
+  query: string;
+  suggestions: CatalogSuggestion[];
+}
+
 export interface RetrievalDiagnostics {
   strategy: string;
   embedding_model_id: string;
@@ -235,26 +251,367 @@ export interface RetrievalExample {
   variant: number;
 }
 
+/**
+ * The scale envelope, extrapolated from the measured 500K baseline.
+ *
+ * `assumptions` carries the provenance of that baseline rather than a set of
+ * hand-chosen numbers: it names the measured artifact, when it was captured, and the
+ * growth rules applied on top. `baseline_index_gb` is gone because index size is no
+ * longer a fitted parameter — it is `bytes_per_vector` times the vector count.
+ */
 export interface BenchmarkProjection {
   warning: string;
   assumptions: {
+    measured_source: string;
+    measured_captured_at: string;
+    measured_source_revision: string | null;
+    measured_instance_class: string | null;
     baseline_latency_p95_ms: number;
-    baseline_build_min: number;
-    baseline_index_gb: number;
     baseline_recall: number;
+    bytes_per_vector: number;
     dimensions: number;
     m: number;
+    ef_construction: number;
     ef_search: number;
+    index_size_growth: string;
+    latency_growth: string;
+    recall_decay: string;
+    output: string;
   };
   rows: Array<{
     scale: number;
     projection_kind: string;
     p95_latency_ms: number;
     recall_at_10: number;
-    build_time_min: number;
     index_size_gb: number;
     dimensions: number;
     m: number;
     ef_search: number;
   }>;
+}
+
+export interface ReadinessResponse {
+  status: "ready" | "blocked";
+  database_ready: boolean;
+  model_space_ready: boolean;
+  database: {
+    database_name: string;
+    server_version: string;
+    schema_ready: boolean;
+    vector_version: string | null;
+    product_count: number;
+    embedded_product_count: number;
+    embedding_dimensions: number | null;
+    embedding_model_ids: string[] | null;
+    premium_product_count: number;
+    evidence_product_count: number;
+    missing_retrieval_indexes: string[] | null;
+    missing_retrieval_functions: string[] | null;
+  };
+  configured_models: {
+    embedding: string;
+    rerank: string;
+    agent: string;
+    synthesis: string;
+  };
+  bedrock_credentials: {
+    ready: boolean;
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Live HNSW index anatomy, read from the cluster on request.
+ *
+ * `overhead_factor` is the measured index cost against the raw fp32 payload: 8,189
+ * bytes stored per 4,096-byte vector, exactly 2.0x. There is deliberately no
+ * distinct-vector count here — deduplicating 500,000 `vector(1024)` values sorts
+ * roughly 2 GB and terminated the Aurora backend when tried.
+ */
+export interface HnswSubstrate {
+  index: {
+    name: string;
+    definition: string;
+    size_bytes: number;
+    bytes_per_vector: number;
+    fp32_payload_bytes: number;
+    overhead_factor: number | null;
+  };
+  storage: HnswStorage;
+  corpus: {
+    vector_count: number;
+    anchor_count: number;
+    dimensions: number | null;
+  };
+  aurora: {
+    database_instance_id: string;
+    database_version: string;
+    vector_extension_version: string | null;
+    instance_class: string | null;
+  };
+  settings: Record<string, string>;
+}
+
+export interface HnswStorage {
+  heap_bytes: number;
+  toast_bytes: number;
+  hnsw_bytes: number;
+  other_indexes_bytes: number;
+  total_bytes: number;
+}
+
+/** One measured operating point on the recall/latency curve. */
+export interface HnswEfPoint {
+  ef_search: number;
+  server_ms: number;
+  shared_hit_blocks: number;
+  recall_at_k: number;
+  estimated_total_cost: number;
+}
+
+export interface HnswFilterMode {
+  iterative_scan: "off" | "strict_order" | "relaxed_order";
+  scan_mem_multiplier: number;
+  scan_mem_mb: number;
+  rows_returned: number;
+  min_rows_returned: number;
+  recall_at_k: number;
+  server_ms: number;
+  shared_hit_blocks: number;
+  node: string;
+}
+
+export interface HnswFilterLevel {
+  preset: string;
+  label: string;
+  character: string;
+  predicate_sql: string;
+  matching_rows: number;
+  selectivity: number;
+  exact_rows_found: number;
+  modes: HnswFilterMode[];
+}
+
+/**
+ * The measured benchmark artifact the instrument replays.
+ *
+ * Rendered under a MEASURED label, so the endpoint refuses to serve any payload whose
+ * `kind` is not `measured`.
+ */
+export interface HnswMeasured {
+  kind: "measured";
+  captured_at: string;
+  provenance: {
+    source_revision?: string;
+    dataset_manifest_sha256?: string;
+    database_instance_id?: string;
+    instance_class?: string;
+    query_sample_sha256?: string;
+    queries?: number;
+    k?: number;
+    work_mem_mb?: number;
+    [key: string]: unknown;
+  };
+  index: {
+    name: string;
+    definition: string;
+    size_bytes: number;
+    bytes_per_vector: number;
+    fp32_payload_bytes: number;
+    overhead_factor: number | null;
+    vector_count: number;
+    dimensions: number;
+    m: number;
+    ef_construction: number;
+  };
+  exact_baseline: {
+    p50_ms: number;
+    p95_ms: number;
+    mean_ms: number;
+    server_ms: number;
+    shared_hit_blocks: number;
+    node: string;
+    method: string;
+  };
+  missing_predicate: {
+    node: string;
+    server_ms: number;
+    shared_hit_blocks: number;
+    index_name: string | null;
+    compared_at_ef_search: number | null;
+    slowdown_factor: number | null;
+  };
+  ef_sweep: HnswEfPoint[];
+  filter_matrix: HnswFilterLevel[];
+  representations?: HnswRepresentations;
+  local_nvme?: HnswLocalNvme;
+}
+
+/** One index representation of the same vectors, and what it cost. */
+export interface HnswRepresentationRow {
+  representation: string;
+  overfetch: number | null;
+  index_size_bytes: number;
+  bytes_per_vector: number;
+  recall_at_k: number;
+  server_ms: number;
+  shared_hit_blocks: number;
+  build_seconds: number | null;
+}
+
+export interface HnswRepresentations {
+  ef_search: number;
+  k: number;
+  anchors: number;
+  payload_bytes: { fp32: number; halfvec: number; binary: number };
+  note: string;
+  rows: HnswRepresentationRow[];
+  quantization_distribution: {
+    why_binary_underperforms_here: string;
+    fraction_components_positive: number;
+    components_within_10pct_of_zero: number;
+    dimensions_over_80pct_one_sided: number;
+    dimensions_total: number;
+    hamming_band: [number, number];
+    top50_hamming_cosine_overlap: number;
+  };
+  blog_operating_point: {
+    correction: string;
+    reference: string;
+    anchors: number;
+    k: number;
+    rows: Array<{
+      config: string;
+      recall_at_k: number;
+      server_ms: number;
+      shared_hit_blocks: number;
+    }>;
+    tradeoff: string;
+  };
+  native_binary_comparison: {
+    question: string;
+    answer: string;
+    evidence: string[];
+    conclusion: string;
+  };
+}
+
+/**
+ * The controlled scale A/B, kept structurally separate from the workshop baseline.
+ *
+ * This is a different claim class from everything else on the page: a purpose-built cluster
+ * pair with a non-default shared_buffers and Aurora I/O-Optimized enabled. The badge says so
+ * because AWS documents I/O-Optimized as required for the tiered-cache behaviour, which
+ * makes it a condition of the result rather than a footnote to it.
+ */
+export interface HnswLocalNvme {
+  claim_class: string;
+  region: string;
+  control_cluster: string;
+  test_cluster: string;
+  headline: string;
+  controls: string[];
+  boundary: string;
+  crossover_wording: string;
+  crossover_products: number;
+  shared_buffers_bytes: number;
+  working_set_bytes: number;
+  oversubscription: number;
+  instrumentation_limit: string;
+  warm: { r8g_p50_ms: number; r8gd_p50_ms: number; read_blocks: number };
+  storage_configuration: {
+    finding: string;
+    aurora_standard: { r8g_p50_ms: number[]; r8gd_p50_ms: number[]; mean_improvement: number };
+    aurora_io_optimized: {
+      r8g_p50_ms: number[];
+      r8gd_p50_ms_steady: number[];
+      r8gd_first_pass_ms: number;
+      r8g_io_read_ms: number[];
+      r8gd_io_read_ms_steady: number[];
+      read_blocks_r8g: number[];
+      read_blocks_r8gd: number[];
+      p50_speedup: number;
+      io_reduction: number;
+    };
+  };
+  index_build: { verdict: string; r8g_seconds: number[]; r8gd_seconds: number[] };
+}
+
+export interface HnswProduct {
+  product_id: number;
+  title: string;
+  brand_name: string;
+  domain: Domain;
+  category_key: string;
+  catalog_asset_key: string | null;
+  media_tier: string | null;
+}
+
+export interface HnswNeighbor extends HnswProduct {
+  neighbor_rank: number;
+  cosine_distance: number;
+}
+
+/** The distance span the true neighbours occupy, excluding the anchor itself. */
+export interface HnswBand {
+  nearest: number;
+  kth: number;
+  width: number;
+}
+
+export interface HnswNeighborhood {
+  anchor: HnswProduct;
+  preset: string;
+  k: number;
+  neighbors: HnswNeighbor[];
+  band: HnswBand | null;
+}
+
+/**
+ * What a probe request may carry.
+ *
+ * The tuning values are optional because the endpoint resolves them from
+ * `db/config/retrieval.yaml`. Supplying them is for deliberately reproducing a
+ * non-default operating point, not for restating the served one.
+ */
+export interface HnswProbeInput {
+  anchor_product_id: number;
+  ef_search?: number;
+  iterative_scan?: "off" | "strict_order" | "relaxed_order";
+  scan_mem_multiplier?: number;
+  max_scan_tuples?: number;
+  filter_preset?: string;
+  k?: number;
+}
+
+/** What a probe response reports back, with every value resolved. */
+export interface HnswProbeSettings {
+  ef_search: number;
+  iterative_scan: "off" | "strict_order" | "relaxed_order";
+  scan_mem_multiplier: number;
+  max_scan_tuples: number;
+  k: number;
+}
+
+/** What one real query did, as reported by the server that ran it. */
+export interface HnswProbe {
+  anchor: HnswProduct;
+  preset: string;
+  settings: HnswProbeSettings;
+  sql: string;
+  rows_returned: number;
+  exact_rows_available: number;
+  recall_at_k: number;
+  missed: number[];
+  unexpected: number[];
+  plan: {
+    node: string;
+    index_name: string | null;
+    server_ms: number;
+    shared_hit_blocks: number;
+    shared_read_blocks: number;
+    estimated_total_cost: number;
+    estimated_rows: number;
+  };
+  products: Array<HnswProduct & { cosine_distance: number }>;
 }

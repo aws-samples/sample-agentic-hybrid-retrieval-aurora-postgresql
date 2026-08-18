@@ -31,7 +31,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -93,12 +93,9 @@ prepare:
 media-map:
 	$(PYTHON) scripts/materialize_image_urls.py
 
-# Premium-cohort photography. SCHEMA_PACKAGE must point at the checked-in
-# mosaic-data-models-aurora-v1 package (override on the command line until it
-# is vendored into the repository).
+# Product-bound photography: the fixed premium 120 plus the focused 80.
 media-labels:
-	$(PYTHON) scripts/build_asset_labels.py \
-		--cohort "$(SCHEMA_PACKAGE)/data/premium_cohort_120.json"
+	$(PYTHON) scripts/build_asset_labels.py
 
 media-shot-list: media-labels
 	$(PYTHON) scripts/build_shot_list.py
@@ -372,6 +369,23 @@ db-import-embeddings:
 
 simulate:
 	$(PYTHON) scripts/simulate_scale.py
+
+# Precomputes exact top-k neighbours for the 30 retrieval anchors across the six
+# filter presets. Roughly 7 minutes: each exact query is a sequential scan, measured
+# at 2.4s. Run once per corpus; the HNSW instrument computes recall against these
+# rows rather than re-running the scan per interaction.
+db-seed-exact-neighbors:
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/seed_exact_neighbors.py --k 10
+
+check-exact-neighbors:
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/seed_exact_neighbors.py --check
+
+# Captures data/benchmarks/hnsw_measured.json, the artifact the HNSW instrument
+# replays. Read-only against the catalog; writes measured rows to mosaic_bench.
+benchmark-hnsw:
+	@DATABASE_URL="$(DATABASE_URL)" AURORA_INSTANCE_CLASS="$(AURORA_INSTANCE_CLASS)" \
+		$(PYTHON) scripts/benchmark_hnsw.py --queries 25 --k 10 \
+		--ef-search 10 20 40 80 100 200 400 --filter-preset-matrix
 
 benchmark-ask-mosaic:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/benchmark_ask_mosaic.py

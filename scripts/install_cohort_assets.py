@@ -4,7 +4,7 @@
 Six of the 120 premium products are flagships whose photographs already exist,
 but they were installed under ad-hoc names (`auraluxe-h9.webp`,
 `forma-ergonomic-studio.webp`) before the cohort defined asset keys. This copies
-them to the scheme in `data/media/asset_labels_120.json` so the runtime folder
+them to the scheme in `data/media/asset_labels_200.json` so the runtime folder
 matches the manifest and the "still to generate" count is truthful.
 
 Source images stay in place; nothing is deleted. The 3:2 catalog crop is taken
@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-LABELS = REPO / "data" / "media" / "asset_labels_120.json"
+LABELS = REPO / "data" / "media" / "asset_labels_200.json"
 RUNTIME = REPO / "ui" / "public" / "assets" / "images" / "mosaic"
 
 # product_id -> (preferred source for the 3:2 catalog crop,

@@ -1,8 +1,9 @@
 # Category plates: prompts for the demo queries
 
-`docs/image-generation-guide.md` covers the 120-product cohort, where each image
-is bound to one product. This covers the other case: the corpus holds 499,880
-products with no photograph, and the demo queries return them.
+`docs/image-generation-guide.md` covers the 200-product exact-photography set,
+where each installed image is bound to one product. This covers the other case:
+the corpus has up to 499,800 products with no bound photograph, and the demo
+queries return them.
 
 ## 1. What is broken, measured
 
@@ -234,7 +235,7 @@ one.
 
 **Provenance.** A plate is verified to show the right category, the Mosaic set,
 and no third-party mark. It is not a photograph of the specific product whose
-card it appears on. `data/media/asset_labels_120.json` is the only manifest that
+card it appears on. `data/media/asset_labels_200.json` is the only manifest that
 carries product-bound provenance. Nothing in the UI or in `PROVENANCE.md` may
 describe a plate as product-verified.
 
@@ -263,21 +264,18 @@ on a card with no further code change.
    search top-pick thumbnail and the Ask Mosaic rail all agree on what a product
    looks like.
 3. **Only the generated namespace is trusted.** `image_url` from the database is
-   honoured only under `/assets/images/mosaic/`. `data/full/product_image_urls.csv.gz`
-   maps 499,973 products to eight scraped screenshots and
-   `scripts/materialize_image_urls.py` loads that column, so without this one run
-   of a documented script would put a photograph of a MacBook on 38,750 rows and
-   bypass the pools entirely.
+   honoured only under `/assets/images/mosaic/`.
+   `scripts/materialize_image_urls.py` gives installed rows from the
+   200-product manifest exact `product_bound` mappings and assigns every
+   remaining row a category fallback.
 4. **Import records itself.** `scripts/import_generated_images.py` accepts both
    plate arrays, and writes `installed: true` plus the runtime WebP's sha256 back
    into the manifest. The runtime serves only installed plates, so a plate that
    is generated and imported but not recorded would never reach a card.
-5. **Retire the tainted assets** from section 2. Still open, and it is not a
-   deletion: `tests/test_media_assets.py` asserts every mapped URL exists on disk
-   and pins three exact counts and `rows == 500_007`, and no producer script for
-   `product_image_urls.csv.gz` exists. That column needs a producer and a
-   regeneration without the 21 `curated_photorealistic` rows before the files can
-   go. No `ui/src` code path reaches them today.
+5. **Retire the tainted assets** from section 2. Done.
+   `tests/test_media_assets.py` asserts every mapped URL exists on disk,
+   derives source counts from installed manifest rows, and keeps
+   `rows == 500_007` fail-closed.
 
 ## 7. Which generator, measured
 
@@ -299,7 +297,8 @@ veined stone, white stone` still produced marble. Second, invented wordmarks on
 fictional products are worse in a public `aws-samples` repository than the
 repetition they would fix, which is the same defect section 2 is about.
 
-The 120 cohort images do not have this problem: `ho-quiet-keyboards-01` has
+The exact-product images do not have this problem:
+`ho-quiet-keyboards-01` has
 genuinely blank keycaps. So the product plates go to whichever tool produced the
 cohort, and the constraint lines in the manifest exist precisely because they are
 the ones that fail when they are absent.

@@ -325,6 +325,24 @@ class CatalogPage(BaseModel):
     facets: dict[str, list[dict[str, Any]]]
 
 
+class CatalogSuggestion(BaseModel):
+    """One catalog identity that can complete a shopper's query."""
+
+    kind: Literal["product", "brand", "category"]
+    label: str
+    query: str
+    product_id: int | None = None
+    domain: Domain | None = None
+    brand: str | None = None
+    category_key: str | None = None
+    category_path: str | None = None
+
+
+class CatalogSuggestionsResponse(BaseModel):
+    query: str
+    suggestions: list[CatalogSuggestion]
+
+
 class SearchEventRecord(BaseModel):
     """One row of `mosaic.search_event`."""
 
@@ -490,3 +508,51 @@ class AgentResponse(BaseModel):
     recommendations: list[ProductSummary]
     citations: list[AgentCitation]
     trace: list[ToolTraceStep]
+
+
+class HnswProbeRequest(BaseModel):
+    """One live HNSW probe.
+
+    Every bound here is enforced before any SQL runs. `filter_preset` is a key into
+    `service.hnsw_presets.FILTER_PRESETS`, never a predicate, so no request value can
+    reach the query text. `extra="forbid"` keeps a caller from smuggling in a planner
+    setting alongside the tuning parameters.
+
+    The ranges mirror what `mosaic_search.configure_hnsw` already validates, so a
+    rejected probe fails at the contract rather than as a database exception.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    anchor_product_id: int = Field(ge=1)
+    # Bounds are declared here; defaults are not. They resolve from
+    # db/config/retrieval.yaml through scripts.retrieval_profile, exactly as
+    # RetrievalProfile does, because a literal here would be a second copy of a served
+    # number — and config_tripwire caught precisely that when these were hardcoded.
+    ef_search: int = Field(
+        default_factory=_yaml_default("hnsw_ef_search"), ge=1, le=1000
+    )
+    # Taken from RetrievalProfile rather than restated. `iterative_scan` is a string,
+    # so it sits outside the yaml's numeric bounds table and outside the tripwire's
+    # NUMBER_NAMES; deferring to the served profile keeps it to one default rather than
+    # a copy the check cannot see.
+    iterative_scan: Literal["off", "strict_order", "relaxed_order"] = Field(
+        default_factory=lambda: RetrievalProfile().iterative_scan
+    )
+    # The lower bound is 1, the pre-2026-08-17 default, so a participant can reproduce
+    # the candidate truncation it caused and then fix it. The *default* is the yaml's.
+    scan_mem_multiplier: float = Field(
+        default_factory=_yaml_default("hnsw_scan_mem_multiplier"), ge=1, le=64
+    )
+    max_scan_tuples: int = Field(
+        default_factory=_yaml_default("hnsw_max_scan_tuples"), ge=1, le=2_000_000
+    )
+    filter_preset: str = Field(default="none", min_length=1, max_length=40)
+    k: int = Field(default=10, ge=1, le=50)
+    # Which index representation to probe. halfvec and bit are casts of the same fp32
+    # column, so switching here changes the index the query reaches, not the data.
+    representation: Literal["fp32", "halfvec", "binary"] = "fp32"
+    # Candidates the binary first pass retrieves before the fp32 rerank. Ignored for the
+    # other two. The upper bound is generous because the measured curve is still climbing
+    # at 200: 0.44 at x10, 0.76 at x50, 0.93 at x200 against 0.99 for fp32.
+    overfetch: int = Field(default=100, ge=1, le=1000)

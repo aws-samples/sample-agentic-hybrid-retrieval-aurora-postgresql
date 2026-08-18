@@ -1,142 +1,458 @@
-import { Activity, DatabaseZap, Gauge, HardDrive, Timer } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  CircleAlert,
+  Database,
+  HardDrive,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "wouter";
 import { api } from "../api";
+import { HnswControlledAb } from "../components/HnswControlledAb";
+import { HnswFilterMatrix } from "../components/HnswFilterMatrix";
+import { HnswNeighborhoodRing } from "../components/HnswNeighborhoodRing";
+import { HnswParetoCurve } from "../components/HnswParetoCurve";
+import { HnswRepresentations } from "../components/HnswRepresentations";
+import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
+import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { ErrorState, LoadingState } from "../components/States";
-import type { BenchmarkProjection } from "../types";
+import { formatBytes, storageSegments } from "../hnsw";
+import type {
+  BenchmarkProjection,
+  HnswFilterMode,
+  HnswMeasured,
+  HnswNeighborhood,
+  HnswProbe,
+  HnswProduct,
+  HnswSubstrate,
+  ReadinessResponse,
+} from "../types";
 
-const advancedStrategies = [
-  {
-    title: "Baseline vector",
-    detail: "Use the prebuilt 500K `vector(1024)` HNSW index as the recall and latency baseline.",
-  },
-  {
-    title: "halfvec candidate",
-    detail: "Compare only after verifying the installed pgvector version, index support, and Recall@K target.",
-  },
-  {
-    title: "Quantized candidate",
-    detail: "Treat quantization as a measured candidate-generation trade-off, then rerank against the original representation.",
-  },
-];
+const hnswIndexName = "product_document_embedding_hnsw_cosine_idx";
+const SERVED_EF_SEARCH = 100;
+
+/**
+ * What the measurements changed about how to operate the index.
+ *
+ * Each card cites the number it came from. The three cards that used to sit here were
+ * generic advice with nothing measured behind any of them.
+ */
+function productionLessons(measured: HnswMeasured, saturationEfSearch: number | null) {
+  const slowest = measured.ef_sweep.at(-1);
+  const saturated = measured.ef_sweep.find(
+    (point) => point.ef_search === saturationEfSearch,
+  );
+  return [
+    {
+      title: "Repeat the partial-index predicate",
+      detail:
+        `The index is partial. Drop embedding IS NOT NULL and the same query becomes a ` +
+        `${measured.missing_predicate.node} over every row at ` +
+        `${measured.missing_predicate.server_ms} ms, which is ` +
+        `${measured.missing_predicate.slowdown_factor}x the served operating point, for ` +
+        `identical output.`,
+    },
+    {
+      title:
+        saturationEfSearch === null
+          ? "Find where recall stops improving"
+          : `Stop at ef_search ${saturationEfSearch}`,
+      detail:
+        saturated && slowest
+          ? `Recall reaches ${(saturated.recall_at_k * 100).toFixed(1)}% there. ef_search ` +
+            `${slowest.ef_search} spends ` +
+            `${(slowest.shared_hit_blocks / saturated.shared_hit_blocks).toFixed(1)}x the ` +
+            `buffers to reach the same number.`
+          : "Sweep it against exact ground truth rather than assuming higher is better.",
+    },
+    {
+      title: "Raise the memory budget, not the tuple cap",
+      detail:
+        "Under a selective filter, max_scan_tuples measured identically at 20K, 100K, " +
+        "500K and 1M. The limit that binds is work_mem times scan_mem_multiplier.",
+    },
+  ];
+}
 
 export function PerformancePage() {
+  const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
+  const [measured, setMeasured] = useState<HnswMeasured | null>(null);
+  const [substrate, setSubstrate] = useState<HnswSubstrate | null>(null);
+  const [anchors, setAnchors] = useState<HnswProduct[]>([]);
+  const [neighborhood, setNeighborhood] = useState<HnswNeighborhood | null>(null);
   const [projection, setProjection] = useState<BenchmarkProjection | null>(null);
   const [error, setError] = useState("");
-  const [scale, setScale] = useState(500_000);
-  const [efSearch, setEfSearch] = useState(128);
-  const [selectivity, setSelectivity] = useState("10");
-  const [scan, setScan] = useState("strict_order");
+
+  const [efSearch, setEfSearch] = useState<number | null>(null);
+  const [anchorId, setAnchorId] = useState<number | null>(null);
+  const [preset, setPreset] = useState("none");
+  const [scan, setScan] = useState<HnswFilterMode["iterative_scan"]>("relaxed_order");
+  const [scanMemMb, setScanMemMb] = useState<number | null>(null);
+
+  const [probe, setProbe] = useState<HnswProbe | null>(null);
+  const [probing, setProbing] = useState(false);
+  const [probeError, setProbeError] = useState("");
 
   useEffect(() => {
-    api.projection().then(setProjection).catch((cause: Error) => setError(cause.message));
+    let active = true;
+    Promise.all([
+      api.readiness(),
+      api.hnswMeasured(),
+      api.hnswSubstrate(),
+      api.hnswAnchors(),
+      api.projection(),
+    ])
+      .then(([nextReadiness, nextMeasured, nextSubstrate, nextAnchors, nextProjection]) => {
+        if (!active) return;
+        setReadiness(nextReadiness);
+        setMeasured(nextMeasured);
+        setSubstrate(nextSubstrate);
+        setAnchors(nextAnchors);
+        setProjection(nextProjection);
+        setEfSearch(
+          nextMeasured.ef_sweep.find((point) => point.ef_search === SERVED_EF_SEARCH)
+            ?.ef_search ??
+            nextMeasured.ef_sweep[0]?.ef_search ??
+            null,
+        );
+        setAnchorId(nextAnchors[0]?.product_id ?? null);
+        setScanMemMb(nextMeasured.filter_matrix[0]?.modes[0]?.scan_mem_mb ?? null);
+      })
+      .catch((cause: Error) => {
+        if (active) setError(cause.message);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const row = useMemo(
-    () => projection?.rows.find((item) => item.scale === scale),
-    [projection, scale],
-  );
-  const maxLatency = Math.max(...(projection?.rows.map((item) => item.p95_latency_ms) ?? [1]));
+  useEffect(() => {
+    if (anchorId === null) return;
+    let active = true;
+    api
+      .hnswNeighborhood(anchorId, "none", 10)
+      .then((next) => {
+        if (active) setNeighborhood(next);
+      })
+      .catch((cause: Error) => {
+        if (active) setError(cause.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [anchorId]);
 
-  if (error) return <div className="page"><ErrorState message={error} /></div>;
-  if (!projection) return <div className="page"><LoadingState label="Loading benchmark envelope" /></div>;
+  // A new anchor, operating point, or filter invalidates the previous probe. Leaving it
+  // on screen would attribute one query's result to a different query.
+  useEffect(() => {
+    setProbe(null);
+    setProbeError("");
+  }, [anchorId, efSearch, preset]);
+
+  const runProbe = useCallback(() => {
+    if (anchorId === null || efSearch === null) return;
+    setProbing(true);
+    setProbeError("");
+    api
+      // scan_mem_multiplier and max_scan_tuples are omitted deliberately: the endpoint
+      // resolves them from db/config/retrieval.yaml. Sending them from here would be a
+      // second declaration of a served number.
+      .hnswProbe({
+        anchor_product_id: anchorId,
+        ef_search: efSearch,
+        iterative_scan: scan,
+        filter_preset: preset,
+        k: 10,
+      })
+      .then(setProbe)
+      .catch((cause: Error) => setProbeError(cause.message))
+      .finally(() => setProbing(false));
+  }, [anchorId, efSearch, preset, scan]);
+
+  const saturationEfSearch = useMemo(() => {
+    if (!measured || measured.ef_sweep.length === 0) return null;
+    const best = Math.max(...measured.ef_sweep.map((point) => point.recall_at_k));
+    return Math.min(
+      ...measured.ef_sweep
+        .filter((point) => point.recall_at_k === best)
+        .map((point) => point.ef_search),
+    );
+  }, [measured]);
+
+  const content = (() => {
+    if (error) return <ErrorState message={error} />;
+    if (!readiness || !measured || !substrate || !projection || efSearch === null) {
+      return <LoadingState label="Reading the live Aurora index and measured sweep" />;
+    }
+
+    const { database } = readiness;
+    const hnswIndexReady = !database.missing_retrieval_indexes?.includes(hnswIndexName);
+    const segments = storageSegments(substrate.storage);
+    const workMemMb = Number.parseInt(substrate.settings.work_mem ?? "4", 10) || 4;
+
+    return (
+      <>
+        <section className="hnsw-live" aria-labelledby="hnsw-live-title">
+          <header>
+            <div>
+              <h2 id="hnsw-live-title">What the index actually costs.</h2>
+              <p>
+                Read from the connected cluster on this request. Every size below matches
+                what <code>pg_size_pretty</code> prints for the same relation.
+              </p>
+            </div>
+            <span className="hnsw-evidence-badge live">LIVE AURORA INDEX</span>
+          </header>
+
+          <div className="hnsw-live-facts">
+            <div>
+              <strong className="hnsw-live-value hnsw-live-value--metric">
+                {substrate.corpus.vector_count.toLocaleString()}
+              </strong>
+              <span>vectors indexed</span>
+            </div>
+            <div>
+              <strong className="hnsw-live-value hnsw-live-value--metadata">
+                PostgreSQL {substrate.aurora.database_version}
+              </strong>
+              <span>Aurora engine</span>
+            </div>
+            <div>
+              <strong className="hnsw-live-value hnsw-live-value--metadata">
+                {substrate.aurora.vector_extension_version
+                  ? `pgvector ${substrate.aurora.vector_extension_version}`
+                  : "pgvector unavailable"}
+              </strong>
+              <span>vector extension</span>
+            </div>
+            <div>
+              <strong className="hnsw-live-value hnsw-live-value--metadata">
+                {substrate.corpus.dimensions
+                  ? `${substrate.corpus.dimensions.toLocaleString()} dimensions`
+                  : "Dimensions unavailable"}
+              </strong>
+              <span>Cohere Embed v4 vectors</span>
+            </div>
+            <div>
+              <strong className="hnsw-live-value hnsw-live-value--config">
+                m={measured.index.m} / ef_construction={measured.index.ef_construction}
+              </strong>
+              <span>build parameters</span>
+            </div>
+          </div>
+
+          <div className="hnsw-storage">
+            <div className="hnsw-storage-headline">
+              <HardDrive aria-hidden="true" size={18} />
+              <strong>{formatBytes(substrate.index.size_bytes)}</strong>
+              <span>
+                of HNSW index over {formatBytes(substrate.storage.heap_bytes)} of heap
+              </span>
+            </div>
+            <div
+              aria-label="Storage split of mosaic_search.product_document"
+              className="hnsw-storage-bar"
+              role="img"
+            >
+              {segments.map((segment) => (
+                <i
+                  className={`segment-${segment.key}`}
+                  key={segment.key}
+                  style={{ width: `${segment.percent}%` }}
+                  title={`${segment.label}: ${formatBytes(segment.bytes)} (${segment.percent}%)`}
+                />
+              ))}
+            </div>
+            <ul className="hnsw-storage-legend">
+              {segments.map((segment) => (
+                <li className={`segment-${segment.key}`} key={segment.key}>
+                  <i aria-hidden="true" />
+                  <span className="hnsw-storage-legend-label">{segment.label}</span>
+                  <span className="hnsw-storage-legend-metric">
+                    <strong>{formatBytes(segment.bytes)}</strong>
+                    <small>{segment.percent}% of total</small>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="hnsw-storage-note">
+              <strong>
+                {substrate.index.bytes_per_vector.toLocaleString()} bytes per vector
+              </strong>{" "}
+              against a {substrate.index.fp32_payload_bytes.toLocaleString()}-byte fp32
+              payload. That is {substrate.index.overhead_factor}x overhead at m=
+              {measured.index.m}.
+              The index is larger than the TOAST that stores the vectors it indexes.
+              Relation overhead covers TOAST indexes and auxiliary relation forks.
+            </p>
+          </div>
+
+          <footer className={hnswIndexReady ? "" : "blocked"}>
+            {hnswIndexReady ? (
+              <CheckCircle2 aria-hidden="true" size={18} />
+            ) : (
+              <CircleAlert aria-hidden="true" size={18} />
+            )}
+            <span>
+              <strong>
+                {hnswIndexReady ? "HNSW index ready" : "HNSW index unavailable"}
+              </strong>
+              <code>{hnswIndexName}</code>
+            </span>
+            <small>{database.database_name}</small>
+          </footer>
+        </section>
+
+        {measured.representations ? (
+          <HnswRepresentations
+            fp32SizeBytes={substrate.index.size_bytes}
+            representations={measured.representations}
+          />
+        ) : null}
+
+        <HnswParetoCurve
+          efSearch={efSearch}
+          measured={measured}
+          onEfChange={setEfSearch}
+          onProbe={runProbe}
+          probe={probe}
+          probeError={probeError}
+          probing={probing}
+        />
+
+        {neighborhood ? (
+          <HnswNeighborhoodRing
+            anchors={anchors}
+            efSearch={efSearch}
+            neighborhood={neighborhood}
+            onAnchorChange={setAnchorId}
+            probe={probe}
+          />
+        ) : null}
+
+        {measured.filter_matrix.length > 0 && scanMemMb !== null ? (
+          <HnswFilterMatrix
+            levels={measured.filter_matrix}
+            onPresetChange={setPreset}
+            onScanChange={setScan}
+            onScanMemChange={setScanMemMb}
+            preset={preset}
+            scan={scan}
+            scanMemMb={scanMemMb}
+            workMemMb={workMemMb}
+          />
+        ) : null}
+
+        <section className="hnsw-envelope" aria-labelledby="hnsw-envelope-title">
+          <header>
+            <div>
+              <h2 id="hnsw-envelope-title">
+                Where this goes at ten and a hundred million.
+              </h2>
+              <p>
+                Extrapolated from the measured 500K row above. Index size is arithmetic at{" "}
+                {projection.assumptions.bytes_per_vector.toLocaleString()} bytes per vector;
+                latency and recall use the stated growth assumptions.
+              </p>
+            </div>
+            <span className="hnsw-evidence-badge projected">
+              PROJECTED FROM 500K BASELINE
+            </span>
+          </header>
+
+          <div
+            aria-label="Projected HNSW scale envelope"
+            className="hnsw-table-scroll"
+            role="region"
+            tabIndex={0}
+          >
+            <table className="hnsw-envelope-table">
+              <thead>
+                <tr>
+                  <th scope="col">Catalog</th>
+                  <th scope="col">Projected p95</th>
+                  <th scope="col">Projected Recall@10</th>
+                  <th scope="col">Projected index</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projection.rows.map((row) => (
+                  <tr
+                    className={row.scale === 500_000 ? "baseline" : undefined}
+                    key={row.scale}
+                  >
+                    <th scope="row">
+                      <Database aria-hidden="true" size={15} />
+                      {row.scale >= 1_000_000
+                        ? `${row.scale / 1_000_000}M`
+                        : `${row.scale / 1_000}K`}
+                      {row.scale === 500_000 ? <em>measured</em> : null}
+                    </th>
+                    <td>{row.p95_latency_ms.toFixed(2)} ms</td>
+                    <td>{(row.recall_at_10 * 100).toFixed(2)}%</td>
+                    <td>
+                      {row.index_size_gb.toLocaleString(undefined, {
+                        maximumFractionDigits: 1,
+                      })}{" "}
+                      GB
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <footer>
+            <code>{projection.assumptions.latency_growth}</code>
+            <code>{projection.assumptions.recall_decay}</code>
+            <code>index: {projection.assumptions.index_size_growth}</code>
+          </footer>
+
+          {measured.local_nvme ? (
+            <p className="hnsw-envelope-crossover">{measured.local_nvme.crossover_wording}</p>
+          ) : null}
+        </section>
+
+        {measured.local_nvme ? <HnswControlledAb nvme={measured.local_nvme} /> : null}
+
+        <section className="hnsw-production" aria-labelledby="hnsw-production-title">
+          <header>
+            <h2 id="hnsw-production-title">What the measurements changed.</h2>
+            <p>Three operating decisions, each traceable to a number above.</p>
+          </header>
+          <div>
+            {productionLessons(measured, saturationEfSearch).map((lesson) => (
+              <article key={lesson.title}>
+                <CheckCircle2 aria-hidden="true" size={18} />
+                <strong>{lesson.title}</strong>
+                <p>{lesson.detail}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <nav className="hnsw-next" aria-label="Continue through Mosaic Labs">
+          <Link href="/mosaic-labs">
+            <ArrowLeft aria-hidden="true" size={16} /> Explore Labs
+          </Link>
+          <Link href="/mosaic-labs/studio">
+            Open Studio <ArrowRight aria-hidden="true" size={16} />
+          </Link>
+        </nav>
+      </>
+    );
+  })();
 
   return (
-    <div className="page performance-page">
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Mosaic Labs · Optional advanced lane</p>
-          <h1>HNSW Performance Tuning</h1>
-          <p>Compare recall, latency, filter selectivity, and index cost without presenting projections as Aurora measurements.</p>
-        </div>
-        <span className="projection-badge">Projected package baseline</span>
-      </header>
-
-      <div className="performance-layout">
-        <aside className="control-panel">
-          <h2>Experiment controls</h2>
-          <label><span>Catalog scale</span>
-            <select value={scale} onChange={(event) => setScale(Number(event.target.value))}>
-              {projection.rows.map((item) => <option key={item.scale} value={item.scale}>{item.scale.toLocaleString()}</option>)}
-            </select>
-          </label>
-          <label><span>ef_search <strong>{efSearch}</strong></span>
-            <input type="range" min="16" max="512" step="16" value={efSearch} onChange={(event) => setEfSearch(Number(event.target.value))} />
-          </label>
-          <label><span>Filter selectivity</span>
-            <select value={selectivity} onChange={(event) => setSelectivity(event.target.value)}>
-              {["100", "25", "10", "1", "0.1"].map((value) => (
-                <option key={value} value={value}>{value}%</option>
-              ))}
-            </select>
-          </label>
-          <label><span>Iterative scan</span>
-            <select value={scan} onChange={(event) => setScan(event.target.value)}>
-              <option value="off">Off</option>
-              <option value="strict_order">Strict order</option>
-              <option value="relaxed_order">Relaxed order</option>
-            </select>
-          </label>
-          <div className="boundary-note">
-            <strong>Measurement boundary</strong>
-            <p>Changing controls prepares a benchmark configuration. The displayed metrics remain the package projection until the harness records a matching Aurora run.</p>
-          </div>
-        </aside>
-
-        <section className="performance-main">
-          <div className="metric-grid">
-            <article><Timer size={20} /><span>Projected p95</span><strong>{row?.p95_latency_ms.toFixed(1)} ms</strong></article>
-            <article><Gauge size={20} /><span>Projected recall@10</span><strong>{((row?.recall_at_10 ?? 0) * 100).toFixed(1)}%</strong></article>
-            <article><HardDrive size={20} /><span>Projected index</span><strong>{row?.index_size_gb.toLocaleString()} GB</strong></article>
-            <article><Activity size={20} /><span>Projected build</span><strong>{row?.build_time_min.toLocaleString()} min</strong></article>
-          </div>
-
-          <section className="chart-panel">
-            <div className="panel-heading">
-              <div><p className="eyebrow">Scale projection</p><h2>p95 latency by catalog size</h2></div>
-              <span>1024 dimensions / m=16 / ef_search=128</span>
-            </div>
-            <div className="bar-chart" role="img" aria-label="Projected p95 latency by catalog size">
-              {projection.rows.map((item) => (
-                <button key={item.scale} type="button" className={item.scale === scale ? "selected" : ""} onClick={() => setScale(item.scale)}>
-                  <span className="bar-value">{item.p95_latency_ms.toFixed(1)} ms</span>
-                  <i style={{ height: `${Math.max(12, item.p95_latency_ms / maxLatency * 100)}%` }} />
-                  <small>{item.scale >= 1_000_000 ? `${item.scale / 1_000_000}M` : "500K"}</small>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="benchmark-config">
-            <div>
-              <DatabaseZap size={22} />
-              <span><strong>Selected run envelope</strong><small>{scale.toLocaleString()} rows / ef_search={efSearch} / selectivity={selectivity}% / {scan}</small></span>
-            </div>
-            <dl className="benchmark-config-details">
-              <div><dt>Ground truth</dt><dd>Exact nearest neighbors</dd></div>
-              <div><dt>Runtime controls</dt><dd>ef_search={efSearch} · {scan}</dd></div>
-              <div><dt>Evidence</dt><dd>Recall@K · latency · plan · build cost</dd></div>
-            </dl>
-          </section>
-
-          <section className="advanced-strategy-panel">
-            <div className="panel-heading">
-              <div>
-                <p className="eyebrow">Physical strategy gate</p>
-                <h2>Do not optimize a configuration you cannot reproduce.</h2>
-              </div>
-              <span>Version and measurement required</span>
-            </div>
-            <div>
-              {advancedStrategies.map((strategy) => (
-                <article key={strategy.title}>
-                  <strong>{strategy.title}</strong>
-                  <p>{strategy.detail}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        </section>
-      </div>
+    <div className="page mosaic-labs-page labs-premium hnsw-page">
+      <MosaicLabsTabs active="hnsw" />
+      <MosaicLabsMasthead
+        deck="Measure the index against exact ground truth, watch recall stop improving, and find the filter that returns nothing while ten matches exist."
+        supportingText="Measured on the live 500K corpus. Projections are labelled."
+        title="Tune HNSW against ground truth."
+      />
+      {content}
     </div>
   );
 }

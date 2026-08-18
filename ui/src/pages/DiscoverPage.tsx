@@ -1,12 +1,19 @@
 import { ArrowRight, Search, Sparkles } from "lucide-react";
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
+import {
+  CatalogSearchComposer,
+  catalogGhostQueries,
+} from "../components/CatalogSearchComposer";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { ProductCard } from "../components/ProductCard";
 import { productImageMap } from "../media";
 import { useNavigate } from "../navigation";
 import { showcaseCatalogPage } from "../showcase";
 import type { SearchFilters } from "../types";
+
+const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 type StarterQuery = {
   topic: string;
@@ -194,10 +201,23 @@ function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
 export function DiscoverPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [searchCue, setSearchCue] = useState(0);
   // One photograph per card. Assigned across the whole set rather than per
   // product, because a per-product hash cannot guarantee distinctness.
   const previewImages = useMemo(() => productImageMap(featuredPreview), []);
   const searchRef = useRef<HTMLInputElement>(null);
+  const reduceMotion = useReducedMotion() ?? false;
+  const heroItem = (delay: number) => ({
+    initial: reduceMotion
+      ? { opacity: 0.84 }
+      : { opacity: 0, y: 10, filter: "blur(5px)" },
+    animate: reduceMotion
+      ? { opacity: 1 }
+      : { opacity: 1, y: 0, filter: "blur(0px)" },
+    transition: reduceMotion
+      ? { duration: 0.18 }
+      : { duration: 0.56, delay, ease: EASE_OUT },
+  });
 
   function search(
     nextQuery: string,
@@ -209,12 +229,6 @@ export function DiscoverPage() {
     navigate(`/catalog?${params}`);
   }
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    const trimmed = query.trim();
-    if (trimmed.length >= 2) search(trimmed);
-  }
-
   function askMosaic() {
     const params = new URLSearchParams({ ask: "1" });
     const trimmed = query.trim();
@@ -223,6 +237,7 @@ export function DiscoverPage() {
   }
 
   function focusSearch() {
+    setSearchCue((current) => current + 1);
     searchRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     searchRef.current?.focus({ preventScroll: true });
   }
@@ -230,7 +245,24 @@ export function DiscoverPage() {
   return (
     <div className="discover-experience">
       <section className="discover-hero">
-        <picture className="discover-backdrop">
+        <motion.picture
+          className="discover-backdrop"
+          initial={
+            reduceMotion
+              ? { opacity: 0.88 }
+              : { opacity: 0.78, scale: 1.025, clipPath: "inset(0 0 0 4%)" }
+          }
+          animate={
+            reduceMotion
+              ? { opacity: 1 }
+              : { opacity: 1, scale: 1, clipPath: "inset(0 0 0 0%)" }
+          }
+          transition={
+            reduceMotion
+              ? { duration: 0.2 }
+              : { duration: 0.8, ease: EASE_OUT }
+          }
+        >
           <source
             media="(max-width: 640px)"
             srcSet="/assets/images/mosaic/hero-landing-scene.webp"
@@ -243,23 +275,25 @@ export function DiscoverPage() {
             width={1672}
             height={941}
           />
-        </picture>
+        </motion.picture>
         <div className="discover-scrim" aria-hidden="true" />
         <div className="discover-hero-content">
-          <p className="discover-hero-kicker">The Mosaic edit</p>
+          <motion.p className="discover-hero-kicker" {...heroItem(0.12)}>
+            The Mosaic edit
+          </motion.p>
           <h1>
-            <span>Objects that shape</span>
-            <em>your world.</em>
+            <motion.span {...heroItem(0.18)}>Objects that shape</motion.span>
+            <motion.em {...heroItem(0.25)}>your world.</motion.em>
           </h1>
-          <p className="discover-hero-sub">
+          <motion.p className="discover-hero-sub" {...heroItem(0.32)}>
             Curated spaces. Considered choices. Intelligent finds.
-          </p>
-          <div className="discover-hero-actions">
+          </motion.p>
+          <motion.div className="discover-hero-actions" {...heroItem(0.39)}>
             <button type="button" onClick={focusSearch}>
               Search the catalog
               <ArrowRight size={16} aria-hidden="true" />
             </button>
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -271,24 +305,34 @@ export function DiscoverPage() {
               <p>Start with one of these three example searches.</p>
             </div>
           </header>
-          <form className="discover-search" onSubmit={submit} role="search">
-            <GenerativeSearchIcon size={20} />
-            <input
-              ref={searchRef}
-              aria-label="Search products"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
+          <motion.div
+            className="discover-search"
+            role="search"
+            animate={
+              searchCue === 0
+                ? { scale: 1 }
+                : reduceMotion
+                  ? { opacity: [1, 0.84, 1] }
+                  : {
+                    scale: [1, 1.012, 1],
+                    filter: [
+                      "drop-shadow(0 0 0 rgb(126 36 49 / 0%))",
+                      "drop-shadow(0 10px 20px rgb(126 36 49 / 18%))",
+                      "drop-shadow(0 0 0 rgb(126 36 49 / 0%))",
+                    ],
+                  }
+            }
+            transition={{ duration: reduceMotion ? 0.2 : 0.46, ease: EASE_OUT }}
+          >
+            <CatalogSearchComposer
+              idleSuggestions={catalogGhostQueries}
+              inputLabel="Search products"
+              inputRef={searchRef}
+              leadingIcon={<GenerativeSearchIcon size={20} />}
+              onSubmit={search}
+              onValueChange={setQuery}
               placeholder="Search for anything, in your own words"
-              minLength={2}
             />
-            {/* The label carries the button at desktop width; below 640px the
-                arrow replaces it so Search and Ask Mosaic no longer stack into
-                three rows. aria-label keeps the accessible name identical in
-                both states. */}
-            <button className="discover-search-submit" type="submit" aria-label="Search Mosaic">
-              <span>Search</span>
-              <ArrowRight className="discover-search-submit-icon" size={18} aria-hidden="true" />
-            </button>
             <button
               className="discover-search-ask"
               type="button"
@@ -298,7 +342,7 @@ export function DiscoverPage() {
               <Sparkles size={15} aria-hidden="true" />
               Ask Mosaic
             </button>
-          </form>
+          </motion.div>
           <div className="discover-editorial-grid">
             {starterQueries.map((starter) => (
               <button
@@ -353,7 +397,7 @@ export function DiscoverPage() {
               <small>Running &amp; fitness</small>
               <strong>Built for the long run.</strong>
               <p>
-                Browse the 120-product edit, or describe your run to retrieve
+                Browse the 200-product edit, or describe your run to retrieve
                 from all 500,000 products.
               </p>
               <Link className="discover-plate-link" href="/catalog?domain=running_fitness">

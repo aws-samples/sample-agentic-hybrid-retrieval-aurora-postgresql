@@ -63,6 +63,10 @@ describe("MosaicLabsPage", () => {
     expect(screen.getByRole("link", { name: "Studio" }).getAttribute("href")).toBe(
       "/mosaic-labs/studio",
     );
+    expect(
+      screen.getByRole("link", { name: "HNSW at scale" }).getAttribute("href"),
+    ).toBe("/mosaic-labs/hnsw");
+    expect(screen.getByText("Optional read-only views.")).toBeTruthy();
     const sourceLink = screen.getByRole("link", {
       name: "View Mosaic source on GitHub (opens in a new tab)",
     });
@@ -71,7 +75,9 @@ describe("MosaicLabsPage", () => {
     );
     expect(sourceLink.getAttribute("target")).toBe("_blank");
     expect(sourceLink.getAttribute("rel")).toBe("noreferrer");
-    expect(sourceLink.querySelector(".lucide-github")).toBeTruthy();
+    expect(sourceLink.querySelector("img")?.getAttribute("src")).toBe(
+      "/assets/icons/github-mark.svg",
+    );
     expect(container.querySelectorAll(".labs-stage-card")).toHaveLength(3);
     expect(
       screen.getByText(
@@ -95,9 +101,10 @@ describe("MosaicLabsPage", () => {
     ).toBe("Query");
     expect(await screen.findByText("Canonical catalog fixture")).toBeTruthy();
     expect(container.querySelectorAll(".labs-engine-product")).toHaveLength(engineProductIds.length);
-    // The masthead field is decoration, so it carries no text and no figure a
-    // presenter could read a number off, and it stays out of the a11y tree.
-    expect(container.querySelector(".labs-intro-flow[aria-hidden=true] canvas")).toBeTruthy();
+    expect(container.querySelector(".labs-intro")?.classList).toContain(
+      "labs-intro--compact",
+    );
+    expect(container.querySelector(".labs-intro-flow")).toBeNull();
     expect(screen.queryByText("System replay")).toBeNull();
     expect(screen.queryByText("Observation gallery")).toBeNull();
     expect(screen.getByRole("button", { name: "Replay fixture" })).toBeTruthy();
@@ -126,6 +133,14 @@ describe("MosaicLabsPage", () => {
       screen.getAllByRole("link", { name: "Open in Shop" })[2].getAttribute("href"),
     ).toMatch(/^\/catalog\?/);
     expect(screen.queryByText(/Restore the trigram CTE/)).toBeNull();
+  });
+
+  it("routes advanced HNSW diagnostics into the canonical Labs view", () => {
+    render(<MosaicLabsPage />);
+
+    expect(
+      screen.getByRole("link", { name: "Open HNSW at scale" }).getAttribute("href"),
+    ).toBe("/mosaic-labs/hnsw");
   });
 
   it("types each canonical replay query before emphasizing the replay control", () => {
@@ -306,8 +321,8 @@ describe("MosaicLabsPage", () => {
     expect(screen.getByText("Advanced diagnostics")).toBeTruthy();
     expect(container.querySelector<HTMLDetailsElement>(".labs-advanced")?.open).toBe(false);
     expect(
-      screen.getByRole("link", { name: /Open HNSW diagnostics/ }).getAttribute("href"),
-    ).toBe("/labs/performance");
+      screen.getByRole("link", { name: /Open HNSW at scale/ }).getAttribute("href"),
+    ).toBe("/mosaic-labs/hnsw");
     expect(screen.getAllByText("hnsw.ef_search")).toHaveLength(2);
   });
 

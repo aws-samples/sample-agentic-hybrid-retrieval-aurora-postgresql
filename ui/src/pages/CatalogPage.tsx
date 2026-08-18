@@ -12,20 +12,29 @@ import {
   X,
 } from "lucide-react";
 import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+} from "motion/react";
+import {
   CSSProperties,
   useCallback,
   useEffect,
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { api } from "../api";
 import { AskMosaic } from "../components/AskMosaic";
 import type { AskMosaicTurn } from "../components/AskMosaic";
+import {
+  CatalogSearchComposer,
+  catalogGhostQueries,
+} from "../components/CatalogSearchComposer";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
 import { productImageMap } from "../media";
-import { SearchComposer } from "../components/SearchComposer";
 import { CatalogLoadingState, ErrorState } from "../components/States";
 import {
   formatAvailability,
@@ -49,6 +58,7 @@ const priceCeiling = 2000;
 const priceStep = 25;
 const priceCeilingCents = priceCeiling * 100;
 const ratingThresholds = [5, 4, 3, 2, 1] as const;
+const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 const domainOptions: Array<{ value?: Domain; label: string }> = [
   { label: "All products" },
@@ -183,6 +193,7 @@ export function CatalogPage() {
   const retrievalRequestVersion = useRef(0);
   const agentRequestVersion = useRef(0);
   const handledAskDeepLink = useRef(false);
+  const reduceMotion = useReducedMotion() ?? false;
 
   const domain = (searchParams.get("domain") || undefined) as Domain | undefined;
   const offset = Number(searchParams.get("offset") ?? 0);
@@ -331,6 +342,25 @@ export function CatalogPage() {
     };
   }, []);
 
+  /**
+   * The assist rail collapses the product grid from three columns to two, so
+   * toggling it reflows the whole shop canvas in one frame. A view transition
+   * cross-fades that reflow instead of letting it snap; where the API is
+   * missing or the visitor prefers reduced motion, the plain state change
+   * keeps the instant behavior. flushSync forces the commit inside the
+   * snapshot callback so the transition captures the finished layout.
+   */
+  const setAssistOpen = useCallback((next: boolean) => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion || typeof document.startViewTransition !== "function") {
+      setAgentOpen(next);
+      return;
+    }
+    document.startViewTransition(() => {
+      flushSync(() => setAgentOpen(next));
+    });
+  }, []);
+
   useEffect(() => {
     if (
       handledAskDeepLink.current
@@ -339,8 +369,8 @@ export function CatalogPage() {
       return;
     }
     handledAskDeepLink.current = true;
-    setAgentOpen(true);
-  }, [activeQuery, searchParams]);
+    setAssistOpen(true);
+  }, [activeQuery, searchParams, setAssistOpen]);
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -359,14 +389,14 @@ export function CatalogPage() {
    * copied link reopens the panel the participant just dismissed.
    */
   const closeAgent = useCallback(() => {
-    setAgentOpen(false);
+    setAssistOpen(false);
     setHighlightedProductId(null);
     const next = new URLSearchParams(searchParams);
     const openers = ["ask", "mode", "mission"].filter((name) => next.has(name));
     if (!openers.length) return;
     for (const name of openers) next.delete(name);
     setSearchParams(next);
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setAssistOpen, setSearchParams]);
 
   function update(name: string, value?: string, resetPage = true) {
     const next = new URLSearchParams(searchParams);
@@ -423,13 +453,13 @@ export function CatalogPage() {
    * watching a different field slide in beside the answer.
    */
   function openAgent() {
-    setAgentOpen(true);
+    setAssistOpen(true);
   }
 
   function clearAgentResults() {
     agentRequestVersion.current += 1;
     setAgentTurns([]);
-    setAgentOpen(false);
+    setAssistOpen(false);
     setHighlightedProductId(null);
   }
 
@@ -457,6 +487,8 @@ export function CatalogPage() {
       : undefined;
     const version = agentRequestVersion.current + 1;
     agentRequestVersion.current = version;
+    // The composer lives inside the panel, so it is already open here; the
+    // plain set skips a full-page view-transition snapshot for a no-op.
     setAgentOpen(true);
     setAgentTurns((turns) => [
       ...turns,
@@ -642,19 +674,19 @@ export function CatalogPage() {
             <p className="shop-kicker">Shop</p>
             <h1>The Mosaic edit</h1>
             <p className="shop-lede">
-              Browse the 120-product Mosaic edit, photographed in one light.
-              Search and Ask Mosaic retrieve across the complete
-              500,000-product catalog.
+              Browse the 200-product photographed Mosaic edit, or describe what
+              you need.
+              Search and Ask Mosaic retrieve from all 500,000 products in the
+              Aurora catalog.
             </p>
           </header>
 
           <section className="shop-search" aria-label="Mosaic product search">
-            <SearchComposer
-              compact
+            <CatalogSearchComposer
               initialValue={retrievalQuery}
+              idleSuggestions={catalogGhostQueries}
               pending={retrievalLoading}
               leadingIcon={<GenerativeSearchIcon size={18} />}
-              submitLabel="Search"
               placeholder="Search a product, model, or describe what you need"
               onSubmit={searchCatalog}
             />
@@ -686,6 +718,17 @@ export function CatalogPage() {
                     onClick={() => update("domain", option.value)}
                   >
                     {option.label}
+                    {domain === option.value ? (
+                      <motion.span
+                        className="shop-domain-indicator"
+                        layoutId="shop-domain-indicator"
+                        transition={
+                          reduceMotion
+                            ? { duration: 0 }
+                            : { duration: 0.24, ease: EASE_OUT }
+                        }
+                      />
+                    ) : null}
                   </button>
                 ))}
               </nav>
@@ -728,16 +771,37 @@ export function CatalogPage() {
             </div>
           </div>
 
-          {filterChips.length ? (
-            <div className="shop-filter-chips" aria-label="Active filters">
-              {filterChips.map((chip) => (
-                <button type="button" key={chip.key} onClick={chip.remove}>
-                  {chip.label} <X size={13} />
-                </button>
-              ))}
-              <button className="clear" type="button" onClick={clearFilters}>Clear all</button>
-            </div>
-          ) : null}
+          <AnimatePresence initial={false}>
+            {filterChips.length ? (
+              <motion.div
+                className="shop-filter-chips"
+                aria-label="Active filters"
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                transition={{ duration: reduceMotion ? 0.12 : 0.18, ease: EASE_OUT }}
+                layout={!reduceMotion}
+              >
+                <AnimatePresence initial={false}>
+                  {filterChips.map((chip) => (
+                    <motion.button
+                      type="button"
+                      key={chip.key}
+                      onClick={chip.remove}
+                      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94 }}
+                      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+                      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94 }}
+                      transition={{ duration: reduceMotion ? 0.1 : 0.16, ease: EASE_OUT }}
+                      layout={!reduceMotion}
+                    >
+                      {chip.label} <X size={13} />
+                    </motion.button>
+                  ))}
+                </AnimatePresence>
+                <button className="clear" type="button" onClick={clearFilters}>Clear all</button>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
 
           {labOutcome ? <LabOutcomeBanner outcome={labOutcome} /> : null}
 
@@ -778,10 +842,10 @@ export function CatalogPage() {
                   <strong>{offset + 1}-{Math.min(offset + pageSize, page.total)}</strong>
                   {" "}of {page.total.toLocaleString()} products
                 </>
-              ) : "Loading catalog"}
+              ) : retrievalLoading && activeQuery ? "Searching products" : "Loading catalog"}
             </p>
             {agent && !agentOpen ? (
-              <button type="button" onClick={() => setAgentOpen(true)}>
+              <button type="button" onClick={() => setAssistOpen(true)}>
                 <Sparkles size={15} /> Reopen Ask Mosaic
               </button>
             ) : null}
@@ -789,6 +853,7 @@ export function CatalogPage() {
 
           {loading && !page && !activeQuery ? <CatalogLoadingState /> : null}
           {retrievalLoading ? <HybridRetrievalTrace /> : null}
+          {retrievalLoading && !page && !retrieval ? <CatalogLoadingState /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
           {!error && (page || retrieval || agentProducts) ? (
             <div
@@ -796,9 +861,20 @@ export function CatalogPage() {
               aria-busy={retrievalLoading}
             >
               {visibleProducts.length ? (
-                <div
+                <motion.div
                   className="product-grid shop-product-grid"
                   key={`${retrieval?.search_event_id ?? agent?.agent_run_id ?? page?.offset ?? 0}-${sort}-${categoryKey ?? "all"}-${domain ?? "all"}`}
+                  initial={
+                    reduceMotion
+                      ? { opacity: 0.82 }
+                      : { opacity: 0.62, filter: "blur(2px)" }
+                  }
+                  animate={
+                    reduceMotion
+                      ? { opacity: 1 }
+                      : { opacity: 1, filter: "blur(0px)" }
+                  }
+                  transition={{ duration: reduceMotion ? 0.12 : 0.24, ease: EASE_OUT }}
                 >
                   {visibleProducts.map((product) => (
                     <ProductCard
@@ -812,7 +888,7 @@ export function CatalogPage() {
                       onAssistFocus={setHighlightedProductId}
                     />
                   ))}
-                </div>
+                </motion.div>
               ) : (
                 <section className="shop-empty">
                   <Search size={24} />
@@ -862,21 +938,30 @@ export function CatalogPage() {
         />
       </div>
 
-      {filtersOpen ? (
-        <div className="shop-filter-layer">
-          <button
-            className="shop-filter-backdrop"
-            type="button"
-            aria-label="Close filters"
-            onClick={() => setFiltersOpen(false)}
-          />
-          <aside
-            className="shop-filter-sheet"
-            id="shop-filter-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="shop-filter-title"
-          >
+      <AnimatePresence initial={false}>
+        {filtersOpen ? (
+          <div className="shop-filter-layer">
+            <motion.button
+              className="shop-filter-backdrop"
+              type="button"
+              aria-label="Close filters"
+              onClick={() => setFiltersOpen(false)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: reduceMotion ? 0.1 : 0.18 }}
+            />
+            <motion.aside
+              className="shop-filter-sheet"
+              id="shop-filter-sheet"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="shop-filter-title"
+              initial={reduceMotion ? { opacity: 0 } : { x: "100%" }}
+              animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { x: "100%" }}
+              transition={{ duration: reduceMotion ? 0.12 : 0.28, ease: EASE_OUT }}
+            >
             <header>
               <div>
                 <p className="eyebrow">Narrow the candidate set</p>
@@ -1048,9 +1133,10 @@ export function CatalogPage() {
                 Show products
               </button>
             </footer>
-          </aside>
-        </div>
-      ) : null}
+            </motion.aside>
+          </div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

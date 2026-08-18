@@ -1,5 +1,5 @@
-import { Menu, ShoppingBag, X } from "lucide-react";
-import { useState } from "react";
+import { CircleUserRound, Menu, ShoppingBag, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useCommerce } from "../commerce";
 import { MosaicMark } from "./MosaicMark";
@@ -15,7 +15,7 @@ import { MosaicMark } from "./MosaicMark";
 const navLinks = [
   { to: "/", label: "Discover" },
   { to: "/catalog", label: "Shop" },
-  { to: "/mosaic-labs", label: "Mosaic Labs" },
+  { to: "/mosaic-labs", label: "Mosaic Labs", optional: true },
 ];
 
 function isActive(pathname: string, to: string) {
@@ -32,10 +32,29 @@ function isActive(pathname: string, to: string) {
 
 export function SiteHeader({ inert = false }: { inert?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement | null>(null);
   const { itemCount, openCart } = useCommerce();
   const [location] = useLocation();
   const pathname = location.split("?")[0];
   const close = () => setOpen(false);
+
+  useEffect(() => {
+    if (!accountOpen) return;
+    const dismiss = (event: MouseEvent) => {
+      if (event.target instanceof Node && accountRef.current?.contains(event.target)) return;
+      setAccountOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAccountOpen(false);
+    };
+    document.addEventListener("mousedown", dismiss);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("mousedown", dismiss);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [accountOpen]);
 
   return (
     <header
@@ -53,7 +72,7 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
         className={open ? "site-nav open" : "site-nav"}
         aria-label="Storefront"
       >
-        {navLinks.map(({ to, label }) => (
+        {navLinks.map(({ to, label, optional }) => (
           <Link
             key={to}
             href={to}
@@ -61,12 +80,30 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
             aria-current={isActive(pathname, to) ? "page" : undefined}
             onClick={close}
           >
-            {label}
+            <span>{label}</span>
+            {optional ? <small className="site-nav-optional">Optional</small> : null}
           </Link>
         ))}
       </nav>
 
       <div className="site-actions">
+        <div className="site-account" ref={accountRef}>
+          <button
+            className="site-icon"
+            type="button"
+            aria-label="Account"
+            aria-expanded={accountOpen}
+            onClick={() => setAccountOpen((current) => !current)}
+          >
+            <CircleUserRound size={17} />
+          </button>
+          {accountOpen ? (
+            <div className="site-account-pop" role="status">
+              <strong>Workshop guest</strong>
+              <span>Sign-in is not part of this preview build.</span>
+            </div>
+          ) : null}
+        </div>
         <button
           className="site-icon site-bag"
           type="button"

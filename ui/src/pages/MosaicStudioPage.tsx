@@ -118,6 +118,7 @@ export function MosaicStudioPage() {
 
       <MosaicLabsMasthead
         deck="Explore a fast visual study made from real Mosaic catalog products. The language below is a creative brief, not an executed search."
+        showFlow
         supportingText="A visual fixture, not a recommendation. Live hybrid retrieval remains in Shop."
         title="Compose a creative workspace."
       />

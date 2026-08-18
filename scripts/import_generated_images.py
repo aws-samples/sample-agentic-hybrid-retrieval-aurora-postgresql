@@ -5,7 +5,7 @@ Drop a batch of generated images into a folder, name each one after its cohort
 asset key (or the product's asset stem), and this crops to the role's aspect
 ratio, resizes to the runtime dimensions, and writes WebP.
 
-A file whose name is not in `data/media/asset_labels_120.json` (product-bound
+A file whose name is not in `data/media/asset_labels_200.json` (product-bound
 cohort photography) or `data/media/category_plates.json` (category-representative
 filler photography) is refused rather than guessed at: an unrecognised name means
 either a typo or an image nobody asked for, and silently accepting it is how a
@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-LABELS = REPO / "data" / "media" / "asset_labels_120.json"
+LABELS = REPO / "data" / "media" / "asset_labels_200.json"
 PLATES = REPO / "data" / "media" / "category_plates.json"
 RUNTIME = REPO / "ui" / "public" / "assets" / "images" / "mosaic"
 HERO_NAME = "hero-landing-scene.webp"

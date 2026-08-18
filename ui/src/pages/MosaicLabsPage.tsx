@@ -879,8 +879,8 @@ export function MosaicLabsPage() {
               <span><CheckCircle2 size={16} /> Query: <code>hnsw.ef_search</code> and iterative scan</span>
               <span><CheckCircle2 size={16} /> Evidence: Recall@K, p50/p95, and <code>EXPLAIN (ANALYZE, BUFFERS)</code></span>
             </div>
-            <Link className="secondary-button" href="/labs/performance">
-              Open HNSW diagnostics <ArrowRight size={16} />
+            <Link className="secondary-button" href="/mosaic-labs/hnsw">
+              Open HNSW at scale <ArrowRight size={16} />
             </Link>
           </div>
         </details>

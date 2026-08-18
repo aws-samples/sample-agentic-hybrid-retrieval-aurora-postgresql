@@ -9,8 +9,10 @@
 
 \ir 11_evaluation.sql
 \ir 13_benchmark.sql
+\ir 14_exact_neighbor.sql
 
 \echo ''
 \echo 'Evaluation and benchmark schemas installed (mosaic_eval, mosaic_bench).'
-\echo 'These start empty. scripts/benchmark_hnsw.py writes measured HNSW runs;'
+\echo 'These start empty. scripts/benchmark_hnsw.py writes measured HNSW runs and'
+\echo 'scripts/seed_exact_neighbors.py fills mosaic_bench.exact_neighbor;'
 \echo 'any number they hold must still be measured on the real cluster before use.'

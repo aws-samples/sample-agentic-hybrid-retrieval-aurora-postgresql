@@ -63,6 +63,28 @@
   --display: Newsreader, Georgia, "Times New Roman", serif;
   --script: Parisienne, "Snell Roundhand", cursive;
   --sans: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  /* Mosaic Labs type scale. One scale for Explore, HNSW at scale and Studio.
+     Before this the three views carried 161 font-size declarations across 38
+     distinct values, 78 of them 11px or smaller — below a usable projector floor,
+     and inconsistent between views for the same class of label, so .hnsw-* read
+     smaller than .labs-*. Eight steps rather than six: collapsing 16-17px deck
+     copy into 15px body, or 18-20px panel headings into one step, flattens
+     hierarchy the layouts depend on. scripts/labs_type_scale.py fails the build
+     on any literal added back inside a Labs selector family. */
+  /* 54px cap, not 72px. The three dead .labs-intro-copy h1 rules carried
+     clamp(48/4.6vw/66), clamp(52/5vw/72) and clamp(44/4.4vw/62); the last one won, so
+     the size that had actually been rendering was 62px. Taking the largest of the three
+     as the token raised every Labs masthead instead of preserving it, and pushed two of
+     the three headlines onto a second line. 54px fits 'Tune HNSW against ground truth.'
+     on one line at 1440 and keeps the display-to-h2 step at a legible 1.4x. */
+  --labs-display: clamp(36px, 3.6vw, 54px);
+  --labs-h2: clamp(30px, 2.6vw, 40px);
+  --labs-h3: 19px;
+  --labs-lead: 17px;
+  --labs-body: 15px;
+  --labs-detail: 13px;
+  --labs-micro: 12px;
+  --labs-mono: 13px;
   --topbar-height: 76px;
   --page-width: 1480px;
 }
@@ -263,6 +285,9 @@ button:disabled {
 
 .site-nav a {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   padding: 7px 0;
   color: #6a655f;
   font-size: 13.5px;
@@ -270,6 +295,16 @@ button:disabled {
   letter-spacing: 0.02em;
   white-space: nowrap;
   transition: color 180ms ease;
+}
+
+.site-nav-optional {
+  padding-left: 7px;
+  border-left: 1px solid #cdbb9f;
+  color: #8a642f;
+  font-size: 11px;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.1;
 }
 
 .site-nav a:hover,
@@ -315,6 +350,40 @@ button:disabled {
 
 .site-bag {
   position: relative;
+}
+
+.site-account {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Sign-in doesn't exist in the workshop build, so the account affordance from
+   the reference boards opens a labelled preview note instead of dead UI. */
+.site-account-pop {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 10px);
+  right: 0;
+  display: grid;
+  width: 228px;
+  padding: 13px 15px;
+  gap: 3px;
+  border: 1px solid rgb(92 75 62 / 16%);
+  border-radius: 12px;
+  background: rgb(255 254 250 / 98%);
+  box-shadow: 0 20px 50px rgb(48 37 28 / 18%);
+}
+
+.site-account-pop strong {
+  color: var(--maroon-950);
+  font-size: 13px;
+  font-weight: 640;
+}
+
+.site-account-pop span {
+  color: #6a655f;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .bag-count {
@@ -380,6 +449,12 @@ button:disabled {
 
   .site-menu {
     display: grid;
+  }
+
+  /* The 360px measurement below budgets for exactly three 38px buttons
+     (search, bag, menu), so the desktop-only account chip is the one to go. */
+  .site-account {
+    display: none;
   }
 }
 
@@ -4364,200 +4439,6 @@ button:disabled {
   }
 }
 
-/* Performance lab */
-
-.projection-badge {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  padding: 0 13px;
-  border: 1px solid #d6bd91;
-  border-radius: 999px;
-  background: var(--gold-soft);
-  color: #76501d;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-}
-
-.performance-layout {
-  display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
-  gap: 30px;
-  align-items: start;
-}
-
-.control-panel {
-  position: sticky;
-  top: calc(var(--topbar-height) + 22px);
-  display: grid;
-  gap: 22px;
-  padding-right: 24px;
-  border-right: 1px solid var(--line);
-}
-
-.control-panel h2 {
-  margin: 0;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.control-panel label {
-  display: grid;
-  gap: 8px;
-}
-
-.control-panel label > span {
-  display: flex;
-  justify-content: space-between;
-}
-
-.control-panel input[type="range"] {
-  width: 100%;
-  accent-color: var(--maroon-700);
-}
-
-.boundary-note {
-  padding: 14px 15px;
-  border-left: 3px solid var(--gold);
-  border-radius: 0 10px 10px 0;
-  background: var(--gold-soft);
-}
-
-.boundary-note strong {
-  font-size: 11px;
-}
-
-.boundary-note p {
-  margin: 7px 0 0;
-  color: var(--ink-soft);
-  font-size: 10.5px;
-  line-height: 1.5;
-}
-
-.performance-main {
-  min-width: 0;
-}
-
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 22px;
-}
-
-.metric-grid article {
-  display: grid;
-  min-height: 128px;
-  align-content: space-between;
-  padding: 17px 18px;
-  border: 1px solid #efe4d7;
-  border-radius: 14px;
-  background: #fffdf9;
-  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
-}
-
-.metric-grid svg {
-  color: var(--maroon-700);
-}
-
-.metric-grid span {
-  color: var(--ink-soft);
-  font-size: 10.5px;
-}
-
-.metric-grid strong {
-  font-family: var(--display);
-  font-size: 26px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-}
-
-.chart-panel {
-  margin-bottom: 22px;
-}
-
-.bar-chart {
-  display: flex;
-  height: 330px;
-  align-items: flex-end;
-  gap: 16px;
-  padding: 34px 28px 24px;
-  background-image: linear-gradient(var(--line), var(--line));
-  background-position: 28px calc(100% - 46px);
-  background-repeat: no-repeat;
-  background-size: calc(100% - 56px) 1px;
-}
-
-.bar-chart button {
-  position: relative;
-  display: grid;
-  height: 100%;
-  flex: 1;
-  grid-template-rows: 20px 1fr 22px;
-  align-items: end;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.bar-chart i {
-  display: block;
-  width: min(62px, 70%);
-  justify-self: center;
-  border-radius: 8px 8px 0 0;
-  background: linear-gradient(to bottom, #c4b0a6, #b3a095);
-  transition: height 220ms ease, background 160ms ease;
-}
-
-.bar-chart button.selected i,
-.bar-chart button:hover i {
-  background: linear-gradient(to bottom, var(--maroon-700), var(--maroon-900));
-}
-
-.bar-value {
-  color: var(--ink-soft);
-  font-family: var(--display);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.bar-chart small {
-  color: var(--ink-soft);
-  font-size: 11px;
-}
-
-.benchmark-config {
-  padding: 20px;
-}
-
-.benchmark-config > div:first-child {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.benchmark-config > div:first-child svg {
-  color: var(--maroon-700);
-}
-
-.benchmark-config > div:first-child span {
-  display: grid;
-  gap: 3px;
-}
-
-.benchmark-config > div:first-child strong {
-  font-size: 12px;
-}
-
-.benchmark-config > div:first-child small {
-  color: var(--ink-faint);
-  font-size: 10px;
-}
-
 /* Responsive */
 
 @media (max-width: 1240px) {
@@ -4677,25 +4558,12 @@ button:disabled {
     border-bottom: 0;
   }
 
-  .lab-workspace,
-  .performance-layout {
+  .lab-workspace {
     grid-template-columns: 1fr;
   }
 
-  .lab-code-panel,
-  .control-panel {
+  .lab-code-panel {
     position: static;
-  }
-
-  .control-panel {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 20px;
-    border: 1px solid var(--line);
-  }
-
-  .control-panel h2,
-  .boundary-note {
-    grid-column: 1 / -1;
   }
 }
 
@@ -4729,8 +4597,7 @@ button:disabled {
 
   .domain-grid,
   .product-grid,
-  .search-product-grid,
-  .metric-grid {
+  .search-product-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -4839,27 +4706,12 @@ button:disabled {
     justify-content: flex-start;
   }
 
-  .control-panel {
-    grid-template-columns: 1fr;
-  }
-
-  .control-panel h2,
-  .boundary-note {
-    grid-column: 1;
-  }
-
-  .bar-chart {
-    height: 270px;
-    gap: 8px;
-    padding: 30px 12px 18px;
-  }
 }
 
 @media (max-width: 460px) {
   .domain-grid,
   .product-grid,
-  .search-product-grid,
-  .metric-grid {
+  .search-product-grid {
     grid-template-columns: 1fr;
   }
 
@@ -7399,68 +7251,6 @@ body {
   text-transform: capitalize;
 }
 
-.benchmark-config-details {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin: 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-}
-
-.benchmark-config-details div {
-  min-width: 0;
-}
-
-.benchmark-config-details dt {
-  margin-bottom: 5px;
-  color: var(--ink-faint);
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.benchmark-config-details dd {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 10px;
-  line-height: 1.5;
-}
-
-.advanced-strategy-panel {
-  margin-top: 22px;
-  border: 1px solid var(--line);
-  background: var(--paper);
-}
-
-.advanced-strategy-panel > div:last-child {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.advanced-strategy-panel article {
-  min-height: 138px;
-  padding: 18px 20px;
-  border-right: 1px solid var(--line);
-}
-
-.advanced-strategy-panel article:last-child {
-  border-right: 0;
-}
-
-.advanced-strategy-panel article strong {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 11px;
-}
-
-.advanced-strategy-panel article p {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 10px;
-  line-height: 1.55;
-}
-
 @media (max-width: 1120px) {
   .discover-missions-heading,
   .mosaic-labs-section-heading,
@@ -7607,9 +7397,7 @@ body {
     grid-column: 2;
   }
 
-  .mosaic-labs-rank-contract dl,
-  .benchmark-config-details,
-  .advanced-strategy-panel > div:last-child {
+  .mosaic-labs-rank-contract dl {
     grid-template-columns: 1fr;
   }
 
@@ -7622,15 +7410,6 @@ body {
     gap: 22px;
   }
 
-  .advanced-strategy-panel article {
-    min-height: 0;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .advanced-strategy-panel article:last-child {
-    border-bottom: 0;
-  }
 }
 
 /* Agentic response delivery */
@@ -8272,12 +8051,15 @@ body {
   color: var(--green);
 }
 
+/* Remounted per checkout stage (key={stage}), so each step enters with a
+   short fade instead of an instant content swap. */
 .commerce-drawer-body {
   min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 22px 24px;
+  animation: commerce-stage-in 200ms ease-out;
 }
 
 .cart-lines {
@@ -8939,6 +8721,13 @@ body {
   from { transform: translateX(100%); }
 }
 
+@keyframes commerce-stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
 @keyframes catalog-page-enter {
   from {
     opacity: 0;
@@ -9093,6 +8882,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .commerce-backdrop,
   .commerce-drawer,
+  .commerce-drawer-body,
   .page,
   .catalog-page-grid,
   .catalog-product-card,

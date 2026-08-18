@@ -12,10 +12,12 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { CommerceProvider } from "../commerce";
+import { catalogGhostQueries } from "../components/CatalogSearchComposer";
 import { showcaseCatalogPage } from "../showcase";
 import type {
   AgentResponse,
   CatalogPage as CatalogPageResponse,
+  CatalogSuggestion,
   ProductSummary,
   RetrievalDiagnostics,
   RetrievalExample,
@@ -26,6 +28,7 @@ import { CatalogPage } from "./CatalogPage";
 vi.mock("../api", () => ({
   api: {
     catalog: vi.fn(),
+    suggestions: vi.fn(),
     search: vi.fn(),
     agentStream: vi.fn(),
     examples: vi.fn(),
@@ -68,7 +71,32 @@ const examples: RetrievalExample[] = [
   },
 ];
 
-const catalog = showcaseCatalogPage({}, 0, 12);
+const catalog = {
+  ...showcaseCatalogPage({}, 0, 12),
+  total: 200,
+};
+const suggestions: CatalogSuggestion[] = [
+  {
+    kind: "product",
+    label: "Mosaic Auraluxe H9 Premium Wireless Headphones",
+    query: "Mosaic Auraluxe H9 Premium Wireless Headphones",
+    product_id: 1,
+    domain: "consumer_electronics",
+    brand: "Mosaic",
+    category_key: "over-ear-headphones",
+    category_path: "Audio > Over-Ear Headphones",
+  },
+  {
+    kind: "brand",
+    label: "Auraluxe",
+    query: "Auraluxe",
+    product_id: null,
+    domain: null,
+    brand: "Auraluxe",
+    category_key: null,
+    category_path: null,
+  },
+];
 
 function rankedProduct(product: ProductSummary, finalRank: number): ProductSummary {
   return {
@@ -197,10 +225,15 @@ describe("CatalogPage", () => {
     }));
     window.history.replaceState({}, "", "/catalog");
     vi.mocked(api.catalog).mockReset();
+    vi.mocked(api.suggestions).mockReset();
     vi.mocked(api.search).mockReset();
     vi.mocked(api.agentStream).mockReset();
     vi.mocked(api.examples).mockReset();
     vi.mocked(api.catalog).mockResolvedValue(catalog);
+    vi.mocked(api.suggestions).mockResolvedValue({
+      query: "aura",
+      suggestions,
+    });
     vi.mocked(api.search).mockResolvedValue(searchResponse);
     vi.mocked(api.examples).mockResolvedValue(examples);
     vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
@@ -229,6 +262,18 @@ describe("CatalogPage", () => {
     );
   }
 
+  it("distinguishes curated browsing from full-catalog retrieval", async () => {
+    renderPage();
+
+    expect(
+      screen.getByText(
+        "Browse the 200-product photographed Mosaic edit, or describe what you need. "
+          + "Search and Ask Mosaic retrieve from all 500,000 products in the Aurora catalog.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/photographed in one light/i)).toBeNull();
+  });
+
   it("runs hybrid retrieval from the Shop query and renders real rank signals", async () => {
     window.history.replaceState({}, "", "/catalog?q=quiet%20keyboard");
     renderPage();
@@ -245,6 +290,64 @@ describe("CatalogPage", () => {
     expect(screen.getByText(/18 fused candidates/)).toBeTruthy();
     expect(screen.getAllByText("RRF #2").length).toBeGreaterThan(0);
     expect(api.catalog).not.toHaveBeenCalled();
+  });
+
+  it("offers keyboard-selectable catalog matches before hybrid retrieval", async () => {
+    renderPage();
+    const input = screen.getByRole("combobox", { name: "Product search" });
+
+    fireEvent.change(input, { target: { value: "a" } });
+    await new Promise((resolve) => window.setTimeout(resolve, 220));
+    expect(api.suggestions).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: "aura" } });
+    const listbox = await screen.findByRole("listbox");
+    await waitFor(() => {
+      expect(api.suggestions).toHaveBeenCalledWith(
+        "aura",
+        expect.any(AbortSignal),
+      );
+    });
+    expect(
+      within(listbox).getByRole("option", {
+        name: /Mosaic Auraluxe H9 Premium Wireless Headphones/,
+      }),
+    ).toBeTruthy();
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.submit(input.closest("form")!);
+
+    await waitFor(() => {
+      expect(api.search).toHaveBeenCalledWith(
+        suggestions[0].query,
+        {},
+        { limit: 12, rerank: true },
+      );
+    });
+  });
+
+  it("surfaces a validated catalog query after the empty field rests", async () => {
+    renderPage();
+    const input = screen.getByRole("combobox", { name: "Product search" });
+
+    expect(document.querySelector(".catalog-idle-suggestion")).toBeNull();
+    await waitFor(
+      () => {
+        expect(
+          document.querySelector(".catalog-idle-suggestion")?.textContent,
+        ).toBe(catalogGhostQueries[0]);
+      },
+      { timeout: 1800 },
+    );
+
+    fireEvent.submit(input.closest("form")!);
+    await waitFor(() => {
+      expect(api.search).toHaveBeenCalledWith(
+        catalogGhostQueries[0],
+        {},
+        { limit: 12, rerank: true },
+      );
+    });
   });
 
   it("shows a catalog failure instead of substituting showcase products", async () => {
@@ -294,6 +397,25 @@ describe("CatalogPage", () => {
     ).toBeTruthy();
   });
 
+  it("moves one shared indicator between product domains", async () => {
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+
+    const allProducts = screen.getByRole("button", { name: "All products" });
+    const running = screen.getByRole("button", { name: "Running & fitness" });
+    expect(allProducts.querySelector(".shop-domain-indicator")).toBeTruthy();
+    expect(document.querySelectorAll(".shop-domain-indicator")).toHaveLength(1);
+
+    fireEvent.click(running);
+
+    await waitFor(() => {
+      expect(window.location.search).toContain("domain=running_fitness");
+      expect(running.querySelector(".shop-domain-indicator")).toBeTruthy();
+    });
+    expect(allProducts.querySelector(".shop-domain-indicator")).toBeNull();
+    expect(document.querySelectorAll(".shop-domain-indicator")).toHaveLength(1);
+  });
+
   it("shows the inspectable hybrid pipeline while Shop retrieval is pending", async () => {
     let releaseSearch: (value: SearchResponse) => void = () => {};
     vi.mocked(api.search).mockImplementation(
@@ -320,6 +442,10 @@ describe("CatalogPage", () => {
     expect(within(trace).getByText("SQL eligibility")).toBeTruthy();
     expect(within(trace).getByText("RRF")).toBeTruthy();
     expect(within(trace).getByText("Cohere Rerank")).toBeTruthy();
+    expect(
+      screen.getByRole("status", { name: "Loading products" })
+        .querySelectorAll(".catalog-skeleton-card"),
+    ).toHaveLength(8);
 
     await act(async () => releaseSearch(searchResponse));
   });
@@ -598,7 +724,7 @@ describe("CatalogPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Clear shortlist" }));
     expect(screen.queryByText("Ask Mosaic shortlist")).toBeNull();
-    expect(screen.getByText(/of 120 products/)).toBeTruthy();
+    expect(screen.getByText(/of 200 products/)).toBeTruthy();
   });
 
   it("uses modal semantics, inert background, focus trap, and focus restoration on overlays", async () => {

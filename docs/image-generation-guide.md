@@ -26,15 +26,27 @@ Plus two landing heroes (`hero-landing-wide.webp`, `hero-landing-scene.webp`), t
 Shop editorial plate (`editorial-fitness-wide.webp`), and five category tiles
 under `mosaic/category/`. See section 5 for how the two heroes divide.
 
-**The cohort is complete: 120 of 120 catalog images and 6 of 6 detail images are
-installed.** `make media-shot-list` regenerates `docs/media-shot-list.md` from
-the manifest if a product's photography needs replacing.
+**The premium cohort is complete: 120 of 120 catalog images and 6 of 6 detail
+images are installed.** The product-bound media source is now the single
+200-product `data/media/asset_labels_200.json` manifest. Its
+`catalog_still_to_generate` value is the authority for any focused image still
+awaiting review or replacement.
 
 What remains is a different job. 120 photographs cover 105 of the 161 live
 subcategories at one image each, and a results page renders 12 cards, so a grid
 still repeats. `docs/image-prompts-category-plates.md` owns that: 115
 category-representative plates plus 3 per-domain still-lifes, none of them bound
 to a specific product.
+
+The same manifest adds 80 exact-product bindings outside the premium cohort:
+49 products from the six flagship HNSW neighbourhoods, plus 16
+running-and-fitness and 15 home-office products from frequent Search, Discover,
+and lab paths. `docs/hnsw-focused-product-prompts.md` contains the product-bound
+prompt set and exact output filenames. Reviewed files are marked installed and
+hashed in the 200-product manifest; pending rows remain unavailable to the UI.
+They also improve normal search surfaces whenever the same product IDs rank.
+Products outside the 200-product bound set continue to use category plates as
+explicitly representative fallbacks.
 
 ---
 

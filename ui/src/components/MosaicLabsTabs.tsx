@@ -1,7 +1,6 @@
-import { Github } from "lucide-react";
 import { Link } from "wouter";
 
-type MosaicLabsTab = "explore" | "studio";
+type MosaicLabsTab = "explore" | "hnsw" | "studio";
 
 const sourceRepositoryUrl =
   "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql";
@@ -21,6 +20,13 @@ export function MosaicLabsTabs({ active }: { active: MosaicLabsTab }) {
           Explore
         </Link>
         <Link
+          aria-current={active === "hnsw" ? "page" : undefined}
+          className={active === "hnsw" ? "active" : ""}
+          href="/mosaic-labs/hnsw"
+        >
+          HNSW at scale
+        </Link>
+        <Link
           aria-current={active === "studio" ? "page" : undefined}
           className={active === "studio" ? "active" : ""}
           href="/mosaic-labs/studio"
@@ -28,7 +34,9 @@ export function MosaicLabsTabs({ active }: { active: MosaicLabsTab }) {
           Studio
         </Link>
       </div>
-      <small>Read-only views. Build in Code Editor, then validate in Shop.</small>
+      <small>
+        <strong>Optional read-only views.</strong> Build in Code Editor, then validate in Shop.
+      </small>
       <a
         aria-label="View Mosaic source on GitHub (opens in a new tab)"
         className="mosaic-labs-source"
@@ -36,7 +44,13 @@ export function MosaicLabsTabs({ active }: { active: MosaicLabsTab }) {
         rel="noreferrer"
         target="_blank"
       >
-        <Github aria-hidden="true" size={16} />
+        <img
+          alt=""
+          aria-hidden="true"
+          height="16"
+          src="/assets/icons/github-mark.svg"
+          width="16"
+        />
         GitHub
       </a>
     </nav>

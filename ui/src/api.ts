@@ -3,8 +3,15 @@ import type {
   AgentResponse,
   BenchmarkProjection,
   CatalogPage,
+  CatalogSuggestionsResponse,
   CatalogSummary,
+  HnswMeasured,
+  HnswNeighborhood,
+  HnswProbe,
+  HnswProbeInput,
+  HnswSubstrate,
   ProductDetail,
+  ReadinessResponse,
   RetrievalExample,
   SearchFilters,
   SearchResponse,
@@ -71,6 +78,12 @@ function parseSseFrame(frame: string): { event: string; data: string } | null {
 
 export const api = {
   summary: () => request<CatalogSummary>("/api/catalog/summary"),
+
+  suggestions: (query: string, signal?: AbortSignal) =>
+    request<CatalogSuggestionsResponse>(
+      `/api/catalog/suggestions?q=${encodeURIComponent(query)}`,
+      { signal },
+    ),
 
   catalog: (filters: SearchFilters, offset = 0, limit = 12, sort = "featured") => {
     const params = new URLSearchParams({
@@ -189,4 +202,31 @@ export const api = {
 
   projection: () =>
     request<BenchmarkProjection>("/api/benchmarks/projection"),
+
+  readiness: () =>
+    request<ReadinessResponse>("/api/readiness"),
+
+  hnswSubstrate: () => request<HnswSubstrate>("/api/hnsw/substrate"),
+
+  hnswMeasured: () => request<HnswMeasured>("/api/hnsw/measured"),
+
+  hnswAnchors: async () => {
+    const body = await request<{ anchors: HnswProbe["anchor"][] }>(
+      "/api/hnsw/anchors",
+    );
+    return body.anchors;
+  },
+
+  hnswNeighborhood: (anchorProductId: number, preset = "none", k = 10) => {
+    const params = new URLSearchParams({ preset, k: String(k) });
+    return request<HnswNeighborhood>(
+      `/api/hnsw/neighborhood/${anchorProductId}?${params}`,
+    );
+  },
+
+  hnswProbe: (input: HnswProbeInput) =>
+    request<HnswProbe>("/api/hnsw/probe", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 };

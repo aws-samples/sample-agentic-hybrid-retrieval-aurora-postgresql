@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "purpose": "Category-representative catalog photography for the 499,880 corpus products that have no product-bound cohort plate. One plate per file, one file per generation.",
+  "purpose": "Category-representative catalog photography for the 499,800 corpus products outside the 200-product exact-photography set. One plate per file, one file per generation.",
   "provenance_tier": "category-representative",
-  "provenance_note": "A plate is verified to show the correct product category, the Mosaic set, and no third-party mark. It is NOT a photograph of the specific product whose card it appears on. Only the 120 rows in asset_labels_120.json carry product-bound provenance. Never describe a plate as product-verified.",
+  "provenance_note": "A plate is verified to show the correct product category, the Mosaic set, and no third-party mark. It is NOT a photograph of the specific product whose card it appears on. Only installed rows in asset_labels_200.json carry product-bound provenance. Never describe a plate as product-verified.",
   "role": "catalog-3x2",
   "generation_size": "1536x1024",
   "runtime_size": "1200x800",

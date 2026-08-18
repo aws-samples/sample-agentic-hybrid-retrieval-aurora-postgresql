@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import mediaManifest from "../../data/media/asset_labels_120.json";
+import mediaManifest from "../../data/media/asset_labels_200.json";
 
 const publicDir = fileURLToPath(new URL("../public", import.meta.url));
 
@@ -25,13 +25,17 @@ describe("media asset paths", () => {
     expect(missing).toEqual([]);
   });
 
-  it("ships every premium cohort catalog image referenced by the manifest", () => {
+  it("ships every installed product-bound image referenced by the manifest", () => {
     const installed = mediaManifest.products.filter((product) => product.catalog_installed);
     const missing = installed
       .map((product) => product.catalog_runtime_path)
       .filter((path) => !existsSync(publicDir + path));
 
-    expect(installed).toHaveLength(120);
+    expect(mediaManifest.products).toHaveLength(200);
+    expect(installed).toHaveLength(
+      mediaManifest.summary.products -
+        mediaManifest.summary.catalog_still_to_generate,
+    );
     expect(missing).toEqual([]);
   });
 });

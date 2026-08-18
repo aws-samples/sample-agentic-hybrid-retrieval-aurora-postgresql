@@ -24,7 +24,13 @@ describe("MosaicStudioPage", () => {
     expect(screen.getByRole("link", { name: "Studio" }).getAttribute("aria-current")).toBe(
       "page",
     );
+    expect(
+      screen.getByRole("link", { name: "HNSW at scale" }).getAttribute("href"),
+    ).toBe("/mosaic-labs/hnsw");
     expect(screen.getByRole("heading", { name: "Compose a creative workspace." })).toBeTruthy();
+    expect(document.querySelector(".labs-intro")?.classList).toContain(
+      "labs-intro--animated",
+    );
     expect(document.querySelector(".labs-intro-flow[aria-hidden=true] canvas")).toBeTruthy();
     expect(
       screen.getByText(/The language below is a creative brief, not an executed search/),

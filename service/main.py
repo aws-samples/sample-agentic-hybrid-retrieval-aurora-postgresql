@@ -14,9 +14,12 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from scripts.seed_exact_neighbors import StaleGroundTruth
 from scripts.tool_contracts import contracts_for_surface
+from service import hnsw
 from service.agent import get_product_discovery_agent
 from service.catalog import (
+    catalog_suggestions,
     catalog_summary,
     get_evidence_record,
     get_product,
@@ -34,8 +37,10 @@ from service.models import (
     AgentRequest,
     AgentResponse,
     CatalogPage,
+    CatalogSuggestionsResponse,
     EvidenceRecord,
     FusionComparisonResponse,
+    HnswProbeRequest,
     ProductDetail,
     ProductEvidenceRequest,
     ProductEvidenceResponse,
@@ -145,6 +150,19 @@ def get_readiness() -> dict[str, Any]:
 @app.get("/api/catalog/summary")
 def get_catalog_summary() -> dict[str, Any]:
     return catalog_summary()
+
+
+@app.get("/api/catalog/suggestions", response_model=CatalogSuggestionsResponse)
+def get_catalog_suggestions(
+    q: str = Query(min_length=2, max_length=120),
+) -> CatalogSuggestionsResponse:
+    normalized = " ".join(q.split())
+    if len(normalized) < 2:
+        raise HTTPException(
+            422,
+            "Catalog suggestions require at least two non-space characters.",
+        )
+    return catalog_suggestions(normalized)
 
 
 @app.get("/api/catalog/products", response_model=CatalogPage)
@@ -456,3 +474,65 @@ def tool_contracts(
 ) -> dict[str, Any]:
     """Expose one explicitly scoped view of the canonical tool contracts."""
     return {"surface": surface, "tools": contracts_for_surface(surface)}
+
+
+@app.get("/api/hnsw/substrate")
+def hnsw_substrate_route() -> dict[str, Any]:
+    """Live HNSW index anatomy and storage split from the connected cluster."""
+    try:
+        return hnsw.substrate()
+    except Exception as error:
+        raise HTTPException(
+            503, f"HNSW substrate unavailable: {type(error).__name__}"
+        ) from error
+
+
+@app.get("/api/hnsw/measured")
+def hnsw_measured_route() -> dict[str, Any]:
+    """The committed measured benchmark artifact, with its provenance."""
+    try:
+        return hnsw.measured()
+    except RuntimeError as error:
+        raise HTTPException(503, str(error)) from error
+
+
+@app.get("/api/hnsw/anchors")
+def hnsw_anchors_route() -> dict[str, Any]:
+    """The query anchors the instrument offers: the imaged retrieval anchors."""
+    try:
+        return {"anchors": hnsw.anchors()}
+    except Exception as error:
+        raise HTTPException(
+            503, f"HNSW anchors unavailable: {type(error).__name__}"
+        ) from error
+
+
+@app.get("/api/hnsw/neighborhood/{anchor_product_id}")
+def hnsw_neighborhood_route(
+    anchor_product_id: int,
+    preset: str = Query(default="none"),
+    k: int = Query(default=10, ge=1, le=50),
+) -> dict[str, Any]:
+    """Precomputed exact neighbours for one anchor, with their real distances."""
+    try:
+        return hnsw.neighborhood(anchor_product_id, preset=preset, k=k)
+    except KeyError as error:
+        raise HTTPException(404, str(error.args[0])) from error
+    except StaleGroundTruth as error:
+        raise HTTPException(503, str(error)) from error
+
+
+@app.post("/api/hnsw/probe")
+def hnsw_probe_route(request: HnswProbeRequest) -> dict[str, Any]:
+    """Run one real ANN query and report what the server actually did.
+
+    Recall is computed against precomputed ground truth, never by re-running the
+    exact scan, so this endpoint's cost ceiling is a filtered HNSW scan rather than
+    a sequential scan over 3,870 MB of TOASTed vectors.
+    """
+    try:
+        return hnsw.probe(request)
+    except KeyError as error:
+        raise HTTPException(404, str(error.args[0])) from error
+    except StaleGroundTruth as error:
+        raise HTTPException(503, str(error)) from error

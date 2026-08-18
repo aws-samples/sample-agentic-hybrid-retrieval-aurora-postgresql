@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Assign stable, descriptive asset keys to the 120-product premium cohort.
+"""Build the 200-product exact-photography manifest.
 
-The upstream queue names 114 of the 120 products `premium-<product_id>`, which
-says nothing about what the photograph should show. That makes the generation
-backlog hard to work through and the runtime folder impossible to skim.
+The manifest combines the fixed 120-product premium cohort with 80 exact-product
+bindings selected for HNSW, Search, Discover, and lab paths. The focused binding
+filenames come from `docs/hnsw-focused-product-prompts.md`; product identity
+comes from the checked-in 500K catalog.
 
-This derives a readable slug from each product's merchandising identity instead,
-and reports exactly which images still need to be produced.
+The premium cohort's upstream keys are normalized into readable asset names.
+The focused set already uses product-id-qualified names, so those keys are
+validated rather than rewritten.
 
 Naming scheme
 -------------
@@ -22,7 +24,7 @@ subcategory segment means a directory listing reads as a shot list.
 
 Usage
 -----
-    uv run python scripts/build_asset_labels.py --cohort <path/to/premium_cohort_120.json>
+    uv run python scripts/build_asset_labels.py
     uv run python scripts/build_asset_labels.py --check   # exit 1 if the plan drifts
 """
 
@@ -30,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import hashlib
 import json
 import re
@@ -38,7 +41,10 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT = REPO / "data" / "media" / "asset_labels_120.json"
+DEFAULT_COHORT = REPO / "db" / "data" / "premium_cohort_120.json"
+DEFAULT_FOCUSED_PROMPTS = REPO / "docs" / "hnsw-focused-product-prompts.md"
+DEFAULT_CATALOG_MANIFEST = REPO / "data" / "full" / "manifest.json"
+DEFAULT_OUTPUT = REPO / "data" / "media" / "asset_labels_200.json"
 RUNTIME_DIR = REPO / "ui" / "public" / "assets" / "images" / "mosaic"
 # Every `import_batch_*.csv` in data/media is a provenance record for one
 # generation batch. Globbing rather than naming one file means a new batch is
@@ -46,6 +52,7 @@ RUNTIME_DIR = REPO / "ui" / "public" / "assets" / "images" / "mosaic"
 # provenance of every batch after the first.
 IMPORT_MANIFEST_GLOB = "import_batch_*.csv"
 IMPORT_MANIFEST_DIR = REPO / "data" / "media"
+SHOP_PAGE_SIZE = 12
 
 DOMAIN_PREFIX = {
     "consumer_electronics": "ce",
@@ -132,11 +139,120 @@ def build_labels(cohort: list[dict]) -> list[dict]:
     return [labels[row["product_id"]] for row in cohort]
 
 
+def focused_bindings(path: Path) -> list[tuple[int, str]]:
+    """Return the 80 prompt-defined product IDs and catalog filenames."""
+    pattern = re.compile(
+        r"```text\nPRODUCT ID: (\d+)\n.*?"
+        r"SAVE AS: ([^\n]+-catalog-3x2\.png)\n```",
+        re.DOTALL,
+    )
+    bindings = [
+        (int(product_id), filename)
+        for product_id, filename in pattern.findall(path.read_text(encoding="utf-8"))
+    ]
+    if len(bindings) != 80:
+        raise ValueError(
+            f"{path.relative_to(REPO)} declares {len(bindings)} focused bindings; "
+            "expected 80"
+        )
+    product_ids = [product_id for product_id, _ in bindings]
+    filenames = [filename for _, filename in bindings]
+    if len(set(product_ids)) != len(product_ids):
+        raise ValueError("focused photography repeats a product ID")
+    if len(set(filenames)) != len(filenames):
+        raise ValueError("focused photography repeats a SAVE AS filename")
+    return bindings
+
+
+def catalog_rows(
+    product_ids: set[int],
+    manifest_path: Path,
+) -> dict[int, dict[str, str]]:
+    """Load the requested product rows from the checked-in catalog shards."""
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    found: dict[int, dict[str, str]] = {}
+    for relative_path in manifest["full_datasets"]:
+        with gzip.open(
+            REPO / relative_path,
+            "rt",
+            encoding="utf-8",
+            newline="",
+        ) as source:
+            for row in csv.DictReader(source):
+                product_id = int(row["product_id"])
+                if product_id in product_ids:
+                    found[product_id] = row
+    missing = product_ids - set(found)
+    if missing:
+        raise ValueError(
+            f"focused photography product IDs are absent from the catalog: "
+            f"{sorted(missing)}"
+        )
+    return found
+
+
+def build_focused_labels(
+    bindings: list[tuple[int, str]],
+    products: dict[int, dict[str, str]],
+    cohort_labels: list[dict],
+) -> list[dict]:
+    """Build exact-product media records for the focused 80-product set."""
+    domain_sequences = Counter(row["domain"] for row in cohort_labels)
+    focused: list[dict] = []
+    for product_id, filename in bindings:
+        row = products[product_id]
+        prefix = DOMAIN_PREFIX[row["domain"]]
+        expected_prefix = f"{prefix}-{slugify(row['subcategory'])}-p{product_id}"
+        stem = filename.removesuffix(".png").removesuffix("-catalog-3x2")
+        if stem != expected_prefix:
+            raise ValueError(
+                f"focused product {product_id} filename stem is {stem!r}; "
+                f"expected {expected_prefix!r}"
+            )
+        domain_sequences[row["domain"]] += 1
+        focused.append(
+            {
+                "asset_id": (f"{prefix.upper()}-{domain_sequences[row['domain']]:03d}"),
+                "product_id": product_id,
+                "domain": row["domain"],
+                "category": row["category"],
+                "subcategory": row["subcategory"],
+                "merchandising_title": row["title"],
+                "source_title": row["title"],
+                "media_tier": "premium",
+                "binding_source": "focused_hnsw_search",
+                "shop_page": None,
+                "shop_position": None,
+                "is_flagship": False,
+                "is_retrieval_anchor": False,
+                "asset_stem": stem,
+                "catalog_asset_key": f"{stem}-catalog-3x2",
+                "catalog_runtime": f"{stem}-catalog-3x2.webp",
+                "catalog_runtime_path": (
+                    f"/assets/images/mosaic/{stem}-catalog-3x2.webp"
+                ),
+                "detail_asset_key": None,
+                "detail_runtime": None,
+                "upstream_catalog_asset_key": row["image_key"],
+                "source_batch": "dat410-focused-2026-08-17",
+                "source_filename": filename,
+            }
+        )
+    return focused
+
+
 def installed_stems() -> set[str]:
     """Runtime filenames already present, without extension."""
     if not RUNTIME_DIR.is_dir():
         return set()
     return {path.stem for path in RUNTIME_DIR.glob("*.webp")}
+
+
+def assign_shop_positions(labels: list[dict]) -> None:
+    """Place every photographed product into the browsable Shop edit."""
+    for index, row in enumerate(labels):
+        row["shop_page"] = index // SHOP_PAGE_SIZE + 1
+        row["shop_position"] = index % SHOP_PAGE_SIZE + 1
 
 
 def report(labels: list[dict]) -> dict:
@@ -184,8 +300,12 @@ def attach_runtime_status(labels: list[dict]) -> None:
             else None
         )
         imported = provenance.get(row["catalog_runtime"])
-        row["source_batch"] = imported["source_batch"] if imported else None
-        row["source_filename"] = imported["source_filename"] if imported else None
+        row["source_batch"] = (
+            imported["source_batch"] if imported else row.get("source_batch")
+        )
+        row["source_filename"] = (
+            imported["source_filename"] if imported else row.get("source_filename")
+        )
 
         detail_name = row["detail_runtime"]
         detail = RUNTIME_DIR / detail_name if detail_name else None
@@ -202,8 +322,20 @@ def main() -> int:
     parser.add_argument(
         "--cohort",
         type=Path,
-        required=True,
-        help="premium_cohort_120.json from the schema package",
+        default=DEFAULT_COHORT,
+        help="fixed 120-product premium cohort",
+    )
+    parser.add_argument(
+        "--focused-prompts",
+        type=Path,
+        default=DEFAULT_FOCUSED_PROMPTS,
+        help="prompt document containing the 80 focused SAVE AS bindings",
+    )
+    parser.add_argument(
+        "--catalog-manifest",
+        type=Path,
+        default=DEFAULT_CATALOG_MANIFEST,
+        help="catalog package manifest used to resolve focused product identity",
     )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument(
@@ -214,7 +346,18 @@ def main() -> int:
     args = parser.parse_args()
 
     cohort = json.loads(args.cohort.read_text())
-    labels = build_labels(cohort)
+    cohort_labels = build_labels(cohort)
+    bindings = focused_bindings(args.focused_prompts)
+    products = catalog_rows(
+        {product_id for product_id, _ in bindings},
+        args.catalog_manifest,
+    )
+    labels = cohort_labels + build_focused_labels(
+        bindings,
+        products,
+        cohort_labels,
+    )
+    assign_shop_positions(labels)
     attach_runtime_status(labels)
 
     collisions = [
@@ -228,8 +371,12 @@ def main() -> int:
 
     summary = report(labels)
     payload = {
-        "version": 1,
+        "version": 2,
         "naming_scheme": "<domain>-<subcategory>-<discriminator>-<role>",
+        "binding_sets": {
+            "premium_cohort": 120,
+            "focused_hnsw_search": 80,
+        },
         "summary": summary,
         "products": labels,
     }

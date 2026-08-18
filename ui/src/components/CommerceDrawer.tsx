@@ -280,7 +280,9 @@ export function CommerceDrawer() {
           </>
         ) : null}
 
-        <div className="commerce-drawer-body">
+        {/* key={stage} remounts the body per checkout step so the stage-in
+            animation plays on each transition and scroll resets to the top. */}
+        <div className="commerce-drawer-body" key={stage}>
           {stage === "cart" ? (
             <>
               {lines.length ? (

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { domainMedia, productImage, productImageMap } from "./media";
+import {
+  domainMedia,
+  productBoundImage,
+  productImage,
+  productImageMap,
+} from "./media";
 import type { Domain, ProductSummary } from "./types";
 
 function product(overrides: Partial<ProductSummary> = {}): ProductSummary {
@@ -41,6 +46,12 @@ function filler(product_id: number, overrides: Partial<ProductSummary> = {}) {
 }
 
 describe("productImage", () => {
+  it("resolves the exact Sonora catalog photograph from the 200-product manifest", () => {
+    expect(productBoundImage(2)).toBe(
+      "/assets/images/mosaic/ce-over-ear-headphones-02-catalog-3x2.webp",
+    );
+  });
+
   it("preserves a database path into the generated namespace", () => {
     expect(productImage(product({
       product_id: 999999,
@@ -129,15 +140,15 @@ describe("productImage", () => {
   });
 
   it("falls back to a neutral still-life when the category has no photograph", () => {
-    // 52 of the 161 categories in data/dictionaries/taxonomy.json still hold no
-    // installed photography and no interchangeable neighbour: a running shoe is
-    // not a running top, and nothing in the corpus looks like a monitor arm.
+    // Some categories in data/dictionaries/taxonomy.json still hold no installed
+    // photography and no interchangeable neighbour: a running shoe is not a
+    // running top, and a desk fan is not a humidifier.
     // Each of these used to resolve to a photograph of one specific product,
     // so a page of studio microphones was illustrated with the Auraluxe H9.
     const empty: Array<[Domain, string, string, string]> = [
       ["consumer_electronics", "studio-microphones", "Audio > Studio Microphones", "ce"],
       ["running_fitness", "running-tops", "Apparel > Running Tops", "rf"],
-      ["home_office", "monitor-arms", "Displays > Monitor Arms", "ho"],
+      ["home_office", "humidifiers", "Air & Environment > Humidifiers", "ho"],
     ];
     for (const [index, [domain, key, path, prefix]] of empty.entries()) {
       expect(
@@ -172,7 +183,7 @@ describe("productImage", () => {
 
 describe("productImageMap", () => {
   /**
-   * Installed photography for `over-ear-headphones`: six product-bound cohort
+   * Installed photography for `over-ear-headphones`: fourteen product-bound
    * shots plus six category plates.
    *
    * Hard-coded rather than derived from the manifests, because a test that reads
@@ -181,7 +192,7 @@ describe("productImageMap", () => {
    * which is the signal to raise `exhausting` with it - they only measure the
    * exhaustion behaviour while they draw more rows than the pool holds.
    */
-  const headphonePool = 12;
+  const headphonePool = 20;
   const exhausting = headphonePool * 2;
 
   it("gives every card its own photograph while the pool lasts", () => {

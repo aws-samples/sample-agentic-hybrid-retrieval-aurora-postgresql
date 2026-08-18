@@ -19,7 +19,12 @@ import {
   formatPriceCompact,
 } from "../format";
 import { domainLabels, productImage } from "../media";
-import type { AgentResponse, ResultSignals, SearchFilters } from "../types";
+import type {
+  AgentResponse,
+  ProductSummary,
+  ResultSignals,
+  SearchFilters,
+} from "../types";
 import { SearchComposer } from "./SearchComposer";
 
 export type AssistStage = "understand" | "retrieve" | "rank" | "answer";
@@ -129,6 +134,47 @@ function describeFilters(filters: SearchFilters): string[] {
     ),
   ];
   return chips.filter((chip): chip is string => Boolean(chip));
+}
+
+function escapePattern(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Emphasize only products present in the grounded recommendation contract.
+ *
+ * The cited synthesis model is not required to author presentation Markdown.
+ * Applying emphasis at the UI boundary makes product names consistent without
+ * changing the answer of record or inferring names from untrusted prose.
+ */
+export function boldRecommendationNames(
+  answer: string,
+  recommendations: ProductSummary[],
+) {
+  const names = Array.from(
+    new Set(
+      recommendations.flatMap((product) => [
+        product.title.trim(),
+        `${product.brand} ${product.model}`.trim(),
+      ]),
+    ),
+  )
+    .filter((name) => name.length >= 5)
+    .sort((left, right) => right.length - left.length);
+  if (!names.length) return answer;
+
+  const productName = new RegExp(
+    `(${names.map(escapePattern).join("|")})`,
+    "gi",
+  );
+  return answer
+    .split(/(\*\*[^*]+\*\*)/g)
+    .map((segment) => (
+      segment.startsWith("**")
+        ? segment
+        : segment.replace(productName, "**$1**")
+    ))
+    .join("");
 }
 
 function StageRail({ activeStage }: { activeStage: AssistStage | null }) {
@@ -482,7 +528,12 @@ function Turn({
             className={turn.loading ? "ask-mosaic-answer streaming" : "ask-mosaic-answer"}
           >
             <p><Sparkles size={14} /> Recommendation</p>
-            <Markdown>{turn.streamed || response.answer}</Markdown>
+            <Markdown>
+              {boldRecommendationNames(
+                turn.streamed || response.answer,
+                response.recommendations,
+              )}
+            </Markdown>
           </section>
 
           <Shortlist

@@ -1,14 +1,19 @@
-import cohortManifest from "../../data/media/asset_labels_120.json";
+import mediaManifest from "../../data/media/asset_labels_200.json";
 import plateManifest from "../../data/media/category_plates.json";
 import type { Domain, ProductSummary } from "./types";
 
 const ASSETS = "/assets/images";
 
 const catalogImageByProductId = new Map(
-  cohortManifest.products
+  mediaManifest.products
     .filter((product) => product.catalog_installed)
     .map((product) => [product.product_id, product.catalog_runtime_path]),
 );
+
+/** The manifest-bound catalog photograph for an exact product, when installed. */
+export function productBoundImage(productId: number): string | null {
+  return catalogImageByProductId.get(productId) ?? null;
+}
 
 /**
  * Last resort, and unreachable while all three domain-neutral plates exist.
@@ -106,8 +111,9 @@ function matchingMosaicImageSet(product: ProductSummary): string[] | undefined {
 }
 
 /**
- * The corpus holds 500,000 products and 120 photographs, so most rows a query
- * returns are filled from a category pool rather than from their own shot.
+ * The corpus holds 500,000 products and a 200-product exact-photography set, so
+ * most rows a query returns are filled from a category pool rather than from
+ * their own shot.
  *
  * Pools are keyed by the API's `category_key`, not by a regex over the title.
  * The regex version matched on substrings and so illustrated whole categories
@@ -136,11 +142,11 @@ function slugify(value: string): string {
 }
 
 /**
- * Cohort images are product-bound, and they are also the only photograph many
+ * Exact images are product-bound, and they are also the only photograph many
  * categories have, so each one joins the pool for its own category. The product
  * it was shot for still gets it first, from `catalogImageByProductId`.
  *
- * A cohort row is registered under both forms the service can emit for its
+ * A manifest row is registered under both forms the service can emit for its
  * category: the bare subcategory slug, and the fully qualified
  * domain-family-subcategory slug it falls back to when two domains share a
  * subcategory name. Registering both is exact rather than a guess. The
@@ -160,7 +166,7 @@ function buildCategoryPools(): Map<string, string[]> {
       pool.push(path);
     }
   };
-  for (const product of cohortManifest.products) {
+  for (const product of mediaManifest.products) {
     if (!product.catalog_installed) continue;
     add(slugify(product.subcategory), product.catalog_runtime_path);
     add(
@@ -213,31 +219,35 @@ function spread(productId: number, assetCount: number): number {
  * Generated photography. Anything outside it is the scraped substrate that the
  * category pools replaced, and a database column may still point into it.
  *
- * `data/full/product_image_urls.csv.gz` maps 499,973 of the 500,000 products to
- * one of eight scraped product-card screenshots, and `materialize_image_urls.py`
- * loads that column. Honouring any local path here would let one run of that
- * script put a photograph of a MacBook on 38,750 rows and bypass the pools
- * entirely, so a path is trusted only if it names the generated namespace.
+ * `data/full/product_image_urls.csv.gz` maps installed exact products into this
+ * namespace and sends the remaining corpus to category fallbacks. A path is
+ * still trusted only if it names the generated namespace, so stale catalog data
+ * cannot bypass the governed pools.
  */
 const GENERATED_PREFIX = `${ASSETS}/mosaic/`;
+
+type CategoryImageProduct = Pick<
+  ProductSummary,
+  "product_id" | "domain" | "category_key"
+>;
 
 /**
  * The photograph that belongs to this exact product, or null if none does.
  *
- * The premium cohort manifest is the product-to-media contract. Some older
+ * The 200-product manifest is the product-to-media contract. Some older
  * database rows still carry square detail photography in image_url; using those
  * in a 3:2 catalog card creates letterboxing and obscures the catalog shot
  * selected for this exact product.
  */
 function boundImage(product: ProductSummary): string | null {
-  const catalogImage = catalogImageByProductId.get(product.product_id);
+  const catalogImage = productBoundImage(product.product_id);
   if (catalogImage) return catalogImage;
   if (product.image_url?.startsWith(GENERATED_PREFIX)) return product.image_url;
   return matchingMosaicImageSet(product)?.[0] ?? null;
 }
 
 /** Every photograph eligible for a row in this category, best match first. */
-function categoryPool(product: ProductSummary): string[] {
+function categoryPool(product: CategoryImageProduct): string[] {
   const primary = categoryPools.get(product.category_key) ?? [];
   const related = (relatedCategories[product.category_key] ?? [])
     .flatMap((key) => categoryPools.get(key) ?? [])
@@ -247,11 +257,47 @@ function categoryPool(product: ProductSummary): string[] {
   return [neutralPlateByDomain.get(product.domain) ?? domainMedia[product.domain]];
 }
 
+/**
+ * A category-verified product photograph for a row that has no bound image.
+ *
+ * This does not claim that the pictured product is the exact SKU. Callers must keep
+ * that provenance visible anywhere the image could be read as product-bound.
+ */
+export function categoryProductImage(product: CategoryImageProduct): string {
+  const pool = categoryPool(product);
+  return pool[spread(product.product_id, pool.length)];
+}
+
+/**
+ * Assign representative category photography across a set without avoidable repeats.
+ *
+ * `reserved` contains exact product images already visible in the same composition, so
+ * a representative node does not immediately reuse the anchor's photograph while an
+ * unused image remains in the category pool.
+ */
+export function categoryProductImageMap(
+  products: CategoryImageProduct[],
+  reserved: Iterable<string> = [],
+): Map<number, string> {
+  const assigned = new Map<number, string>();
+  const uses = new Map<string, number>();
+  for (const path of reserved) {
+    uses.set(path, (uses.get(path) ?? 0) + 1);
+  }
+  for (const product of products) {
+    if (assigned.has(product.product_id)) continue;
+    const pool = categoryPool(product);
+    const chosen = leastUsed(pool, spread(product.product_id, pool.length), uses);
+    uses.set(chosen, (uses.get(chosen) ?? 0) + 1);
+    assigned.set(product.product_id, chosen);
+  }
+  return assigned;
+}
+
 export function productImage(product: ProductSummary): string {
   const bound = boundImage(product);
   if (bound) return bound;
-  const pool = categoryPool(product);
-  return pool[spread(product.product_id, pool.length)];
+  return categoryProductImage(product);
 }
 
 /**

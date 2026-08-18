@@ -20,6 +20,20 @@ Two rules, because "one source" needs both halves:
    unmonitored exemption is how a "single source" acquires a second copy that
    nobody is looking for.
 
+3. **Packaged model defaults must AGREE.** `db/models/python/*.py` declares the
+   shipped API contract, and a `Field(default=...)` cannot read a yaml file
+   either, so those defaults get the same treatment: exempt from declaring,
+   pinned to the yaml, and enumerated exhaustively (`C1d`, `C1e`).
+
+   This directory was outside `SCAN_ROOTS` until 2026-08-17 and held a complete
+   second `RetrievalProfile` — nine numbers agreeing with the yaml by luck, and
+   feeding two generated json-schemas shipped inside `db/`. Widening `SCAN_ROOTS`
+   alone would not have found it: for
+   `scan_mem_multiplier: float = Field(default=1, ge=1)`, `DECLARATION` does not
+   match because the token after `:` is `float`, and `ALLOWED_LINE` matches anyway
+   because of `ge=1`. Invisible twice over, which is why it needs its own rule
+   rather than a wider net.
+
 Usage
 -----
     uv run python scripts/config_tripwire.py            # both rules
@@ -51,6 +65,8 @@ SCAN_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("config", (".json", ".txt")),
     ("db/sql", (".sql",)),
     ("db/config", (".yaml", ".yml", ".json")),
+    ("db/models/python", (".py",)),
+    ("db/models/json-schema", (".json",)),
     ("ui/src", (".ts", ".tsx")),
 )
 
@@ -149,6 +165,21 @@ INDEX_PARAMETERS: tuple[IndexParameter, ...] = (
     IndexParameter(
         "08_indexes_concurrent.sql",
         "product_document_embedding_hnsw_cosine_idx",
+        "ef_construction",
+        "hnsw_ef_construction",
+    ),
+    # The quantized representations are built with the same graph parameters as the fp32
+    # index on purpose: if m or ef_construction differed, a size or recall comparison
+    # between representations would be measuring two changes at once.
+    IndexParameter(
+        "19_indexes_quantized.sql",
+        "product_document_embedding_hnsw_halfvec_idx",
+        "ef_construction",
+        "hnsw_ef_construction",
+    ),
+    IndexParameter(
+        "19_indexes_quantized.sql",
+        "product_document_embedding_hnsw_binary_idx",
         "ef_construction",
         "hnsw_ef_construction",
     ),
@@ -256,6 +287,80 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
         "hnsw_scan_mem_multiplier",
     ),
 )
+
+
+# Pydantic field defaults in the packaged contract models. Exempt from rule 1 for
+# the same reason as SQL parameter defaults — a `Field(default=...)` cannot read a
+# yaml file — and monitored the same way: each is pinned to the yaml value it must
+# equal.
+#
+# Measured, and the reason this table exists rather than just a wider SCAN_ROOTS:
+# for `scan_mem_multiplier: float = Field(default=1, ge=1)`, DECLARATION does not
+# match (the token after `:` is `float`, not a number) AND ALLOWED_LINE matches
+# (because of `ge=1`). The shape is invisible twice over.
+# `db/models/python/mosaic_models.py` held nine such numbers agreeing with the yaml
+# by luck, feeding two generated json-schemas shipped inside db/. That is the LOSS-3
+# shape this whole check exists to prevent, in the one directory it did not read.
+@dataclass(frozen=True)
+class ModelDefault:
+    """One exempted Pydantic field default and the yaml value it must match."""
+
+    file: str
+    model: str
+    field: str
+    profile_field: str | None
+    reason: str = ""
+
+
+MODEL_DEFAULTS: tuple[ModelDefault, ...] = (
+    ModelDefault(
+        "python/mosaic_models.py", "RetrievalProfile", "fts_limit", "fts_limit"
+    ),
+    ModelDefault(
+        "python/mosaic_models.py", "RetrievalProfile", "trigram_limit", "trigram_limit"
+    ),
+    ModelDefault(
+        "python/mosaic_models.py",
+        "RetrievalProfile",
+        "semantic_limit",
+        "semantic_limit",
+    ),
+    ModelDefault(
+        "python/mosaic_models.py", "RetrievalProfile", "fused_limit", "fused_limit"
+    ),
+    ModelDefault("python/mosaic_models.py", "RetrievalProfile", "rrf_k", "rrf_k"),
+    # `result_limit` names two different quantities. In SQL,
+    # `search_hybrid_rrf.result_limit` is the fused pool size and is pinned to
+    # `fused_limit` (50). Here it is the number of rows shown to a participant and
+    # is pinned to `rerank.display_limit` (12). Same identifier, different meaning,
+    # different value — so the pin has to name the field, not the word.
+    ModelDefault(
+        "python/mosaic_models.py", "RetrievalProfile", "result_limit", "display_limit"
+    ),
+    ModelDefault(
+        "python/mosaic_models.py", "RetrievalProfile", "ef_search", "hnsw_ef_search"
+    ),
+    ModelDefault(
+        "python/mosaic_models.py",
+        "RetrievalProfile",
+        "max_scan_tuples",
+        "hnsw_max_scan_tuples",
+    ),
+    ModelDefault(
+        "python/mosaic_models.py",
+        "RetrievalProfile",
+        "scan_mem_multiplier",
+        "hnsw_scan_mem_multiplier",
+    ),
+)
+
+# `field: type = Field(...)` — the packaged contracts' declaration shape.
+MODEL_FIELD_DEFAULT = re.compile(
+    r"^[ \t]+(?P<field>\w+)\s*:\s*[^=\n]+?=\s*Field\((?P<arguments>[^)]*)\)",
+    re.MULTILINE,
+)
+MODEL_CLASS = re.compile(r"^class\s+(?P<model>\w+)\s*\(", re.MULTILINE)
+FIELD_DEFAULT_VALUE = re.compile(r"\bdefault\s*=\s*(?P<value>-?\d+(?:\.\d+)?)")
 
 
 class Report:
@@ -449,6 +554,106 @@ def check_sql_agreement(report: Report, *, repo: Path = REPO) -> None:
             )
 
 
+def _model_field_defaults(source: str) -> dict[tuple[str, str], str]:
+    """Map `(class name, field name)` to the numeric `Field(default=...)` literal.
+
+    Fields whose default is non-numeric or absent are omitted: this table pins
+    retrieval *numbers*, and a `default_factory` or a sentinel is not one.
+    """
+    boundaries = [
+        (match.start(), match.group("model")) for match in MODEL_CLASS.finditer(source)
+    ]
+    defaults: dict[tuple[str, str], str] = {}
+    for match in MODEL_FIELD_DEFAULT.finditer(source):
+        value = FIELD_DEFAULT_VALUE.search(match.group("arguments"))
+        if value is None:
+            continue
+        model = next(
+            (name for start, name in reversed(boundaries) if start < match.start()),
+            "",
+        )
+        defaults[(model, match.group("field"))] = value.group("value")
+    return defaults
+
+
+def check_model_agreement(report: Report, *, repo: Path = REPO) -> None:
+    """Rule C1d — every exempted model field default equals its yaml value."""
+    profile = load_profile()
+    for entry in MODEL_DEFAULTS:
+        path = repo / "db" / "models" / entry.file
+        if not path.exists():
+            report.fail(
+                "C1d missing file",
+                explain(
+                    f"{entry.file} is absent but listed as an exemption",
+                    "remove the MODEL_DEFAULTS entry, or restore the file",
+                ),
+            )
+            continue
+        actual = _model_field_defaults(path.read_text(encoding="utf-8")).get(
+            (entry.model, entry.field)
+        )
+        if actual is None:
+            report.fail(
+                f"C1d {entry.model}.{entry.field}",
+                explain(
+                    "no numeric Field(default=...) found for this field",
+                    "the exemption list is stale: update MODEL_DEFAULTS to match "
+                    "the model, or restore the default",
+                ),
+            )
+            continue
+        if entry.profile_field is None:
+            report.scanned.append(
+                f"{entry.model}.{entry.field} (exempt: {entry.reason})"
+            )
+            continue
+        expected = getattr(profile, entry.profile_field)
+        if float(actual) != float(expected):
+            report.fail(
+                f"C1d {entry.model}.{entry.field}",
+                explain(
+                    f"model default {actual} but {RETRIEVAL_YAML.name} yields "
+                    f"{expected} for {entry.profile_field!r}",
+                    f"set the model default to {expected} and regenerate the "
+                    f"json-schemas with `cd db && make schemas` — the packaged "
+                    f"contract ships this number to consumers that never read the "
+                    f"yaml",
+                ),
+            )
+        else:
+            report.scanned.append(
+                f"{entry.model}.{entry.field} == {entry.profile_field}"
+            )
+
+
+def check_model_exemptions_complete(report: Report, *, repo: Path = REPO) -> None:
+    """Rule C1e — every retrieval-named model field default is enumerated.
+
+    C1d only checks what is already listed, and rule 1 cannot see this shape at all.
+    Without an exhaustiveness rule a tenth number added to `RetrievalProfile` is
+    silently unmonitored — the same gap `C1c` closes for SQL parameter defaults.
+    """
+    enumerated = {(entry.model, entry.field) for entry in MODEL_DEFAULTS}
+    names = re.compile(r"^(?:" + "|".join(NUMBER_NAMES) + r")$")
+    root = repo / "db" / "models" / "python"
+    for path in sorted(root.glob("*.py")) if root.exists() else []:
+        for (model, field), value in _model_field_defaults(
+            path.read_text(encoding="utf-8")
+        ).items():
+            if not names.match(field) or (model, field) in enumerated:
+                continue
+            report.fail(
+                f"C1e {model}.{field}",
+                explain(
+                    f"{path.name} declares {field}={value} with no MODEL_DEFAULTS "
+                    f"entry",
+                    f'add ModelDefault("python/{path.name}", "{model}", '
+                    f'"{field}", <profile field>) so it is pinned to the yaml',
+                ),
+            )
+
+
 def check_index_agreement(report: Report, *, repo: Path = REPO) -> None:
     """Rule 2, second half — every exempted index build parameter agrees."""
     profile = load_profile()
@@ -549,11 +754,13 @@ def main() -> int:
     check_exemptions_complete(report)
     check_sql_agreement(report)
     check_index_agreement(report)
+    check_model_agreement(report)
+    check_model_exemptions_complete(report)
 
-    pinned = len(SQL_DEFAULTS) + len(INDEX_PARAMETERS)
+    pinned = len(SQL_DEFAULTS) + len(INDEX_PARAMETERS) + len(MODEL_DEFAULTS)
     print(
         f"config tripwire: {len(report.scanned)} file(s)/exemption(s) checked, "
-        f"{pinned} SQL default(s)/index parameter(s) pinned"
+        f"{pinned} SQL/index/model default(s) pinned"
     )
     if args.explain:
         for item in report.scanned:

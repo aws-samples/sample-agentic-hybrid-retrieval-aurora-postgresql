@@ -9,6 +9,7 @@ validator delegates to that function rather than carrying a second predicate.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
@@ -16,6 +17,8 @@ from fastapi import HTTPException
 from service.db import connect
 from service.models import (
     CatalogPage,
+    CatalogSuggestion,
+    CatalogSuggestionsResponse,
     EvidenceRecord,
     ProductDetail,
     ProductMedia,
@@ -27,7 +30,7 @@ from service.models import (
 )
 
 _SORTS = {
-    "featured": "ma.shop_page, ma.shop_position, d.product_id",
+    "featured": "photographed.ordinality, d.product_id",
     "price_asc": "d.price_cents ASC, d.product_id",
     "price_desc": "d.price_cents DESC, d.product_id",
     "rating": "d.rating DESC NULLS LAST, d.review_count DESC, d.product_id",
@@ -37,6 +40,11 @@ _SORTS = {
 # Facets are grouped by column name; the values are interpolated into SQL, so
 # they must come from this allowlist and never from a request.
 _FACET_COLUMNS = ("domain", "category_key", "brand_name", "availability")
+_SUGGESTIONS_PER_KIND = 3
+_SUGGESTION_COUNT = 8
+_PRODUCT_MEDIA_MANIFEST = (
+    Path(__file__).resolve().parents[1] / "data" / "media" / "asset_labels_200.json"
+)
 
 _SUMMARY_COLUMNS = """
     d.product_id, d.sku, d.title, d.short_description, d.domain,
@@ -46,6 +54,37 @@ _SUMMARY_COLUMNS = """
     d.catalog_asset_key, d.canonical_group_id, d.media_tier, d.is_flagship,
     d.is_retrieval_anchor, d.updated_at
 """
+
+
+def _load_photographed_product_ids() -> tuple[int, ...]:
+    """Load the complete installed Shop edit in its governed display order."""
+    manifest = json.loads(_PRODUCT_MEDIA_MANIFEST.read_text(encoding="utf-8"))
+    products = manifest.get("products")
+    if not isinstance(products, list) or not products:
+        raise RuntimeError(
+            "Product media rule failed: data/media/asset_labels_200.json must "
+            "declare a non-empty products list. Rebuild it with "
+            "scripts/build_asset_labels.py."
+        )
+    unavailable = [
+        row.get("product_id") for row in products if not row.get("catalog_installed")
+    ]
+    if unavailable:
+        raise RuntimeError(
+            "Product media rule failed: every Shop product needs installed "
+            f"catalog photography; unavailable product IDs: {unavailable}. "
+            "Install the reviewed assets and rebuild the manifest."
+        )
+    product_ids = tuple(int(row["product_id"]) for row in products)
+    if len(set(product_ids)) != len(product_ids):
+        raise RuntimeError(
+            "Product media rule failed: product IDs in "
+            "data/media/asset_labels_200.json must be unique."
+        )
+    return product_ids
+
+
+_PHOTOGRAPHED_PRODUCT_IDS = _load_photographed_product_ids()
 
 
 def _where(filters: SearchFilters) -> tuple[str, list[Any]]:
@@ -109,24 +148,34 @@ def list_products(
     if sort not in _SORTS:
         raise HTTPException(422, f"Unsupported sort: {sort}")
     where, parameters = _where(filters)
+    photographed = list(_PHOTOGRAPHED_PRODUCT_IDS)
     with connect() as connection:
         total = connection.execute(
             f"""
+            WITH photographed AS (
+                SELECT product_id, ordinality
+                FROM unnest(%s::bigint[]) WITH ORDINALITY
+                     AS ordered(product_id, ordinality)
+            )
             SELECT count(*) AS count
-            FROM mosaic_search.product_document d
-            JOIN mosaic.merchandising_assignment ma USING (product_id)
+            FROM photographed
+            JOIN mosaic_search.product_document d USING (product_id)
             WHERE {where}
-              AND ma.shop_page IS NOT NULL
             """,
-            parameters,
+            [photographed, *parameters],
         ).fetchone()["count"]
         rows = connection.execute(
             f"""
+            WITH photographed AS (
+                SELECT product_id, ordinality
+                FROM unnest(%s::bigint[]) WITH ORDINALITY
+                     AS ordered(product_id, ordinality)
+            )
             SELECT {_SUMMARY_COLUMNS},
                    media.runtime_uri AS image_url,
                    media.image_source
             FROM mosaic_search.product_document d
-            JOIN mosaic.merchandising_assignment ma USING (product_id)
+            JOIN photographed USING (product_id)
             LEFT JOIN LATERAL (
                 SELECT a.runtime_uri, a.tier::text AS image_source
                 FROM mosaic.product_media pm
@@ -136,26 +185,29 @@ def list_products(
                 LIMIT 1
             ) media ON true
             WHERE {where}
-              AND ma.shop_page IS NOT NULL
             ORDER BY {_SORTS[sort]}
             OFFSET %s LIMIT %s
             """,
-            [*parameters, offset, limit],
+            [photographed, *parameters, offset, limit],
         ).fetchall()
         facets: dict[str, list[dict[str, Any]]] = {}
         for column in _FACET_COLUMNS:
             facet_rows = connection.execute(
                 f"""
+                WITH photographed AS (
+                    SELECT product_id, ordinality
+                    FROM unnest(%s::bigint[]) WITH ORDINALITY
+                         AS ordered(product_id, ordinality)
+                )
                 SELECT {column}::text AS value, count(*) AS count
                 FROM mosaic_search.product_document d
-                JOIN mosaic.merchandising_assignment ma USING (product_id)
+                JOIN photographed USING (product_id)
                 WHERE {where}
-                  AND ma.shop_page IS NOT NULL
                 GROUP BY {column}
                 ORDER BY count(*) DESC, {column}
                 LIMIT 20
                 """,
-                parameters,
+                [photographed, *parameters],
             ).fetchall()
             facets[column] = [dict(row) for row in facet_rows]
     return CatalogPage(
@@ -164,6 +216,127 @@ def list_products(
         limit=limit,
         products=[_summary(dict(row)) for row in rows],
         facets=facets,
+    )
+
+
+def catalog_suggestions(query: str) -> CatalogSuggestionsResponse:
+    """Return bounded prefix matches without invoking embedding or rerank models.
+
+    Product matches use the production projection's existing FTS GIN index.
+    Brand and category tables are small identity dictionaries, so their prefix
+    scans do not fan out through the 500,000-row product corpus.
+    """
+    normalized = " ".join(query.split())
+    with connect() as connection:
+        rows = connection.execute(
+            """
+            WITH prefix_query AS (
+                SELECT CASE
+                    WHEN count(*) = 0 THEN NULL
+                    ELSE to_tsquery(
+                        'english',
+                        string_agg(
+                            quote_literal(term) || ':*',
+                            ' & ' ORDER BY ordinal
+                        )
+                    )
+                END AS value
+                FROM unnest(
+                    tsvector_to_array(to_tsvector('english', %s))
+                ) WITH ORDINALITY AS terms(term, ordinal)
+            ),
+            product_matches AS (
+                SELECT
+                    'product'::text AS kind,
+                    d.title AS label,
+                    d.title AS query,
+                    d.product_id,
+                    d.domain::text AS domain,
+                    d.brand_name AS brand,
+                    d.category_key,
+                    d.category_path,
+                    1 AS kind_order,
+                    row_number() OVER (
+                        ORDER BY
+                            (lower(d.title) LIKE lower(%s) || '%%') DESC,
+                            (lower(d.model_name) LIKE lower(%s) || '%%') DESC,
+                            ts_rank_cd(d.search_document, prefix_query.value) DESC,
+                            d.popularity_score DESC,
+                            d.product_id
+                    ) AS match_order
+                FROM mosaic_search.product_document d
+                CROSS JOIN prefix_query
+                WHERE prefix_query.value IS NOT NULL
+                  AND d.search_document @@ prefix_query.value
+                ORDER BY match_order
+                LIMIT %s
+            ),
+            brand_matches AS (
+                SELECT
+                    'brand'::text AS kind,
+                    b.display_name AS label,
+                    b.display_name AS query,
+                    NULL::bigint AS product_id,
+                    NULL::text AS domain,
+                    b.display_name AS brand,
+                    NULL::text AS category_key,
+                    NULL::text AS category_path,
+                    2 AS kind_order,
+                    row_number() OVER (
+                        ORDER BY length(b.display_name), b.display_name
+                    ) AS match_order
+                FROM mosaic.brand b
+                WHERE to_tsvector('english', b.display_name)
+                      @@ (SELECT value FROM prefix_query)
+                ORDER BY match_order
+                LIMIT %s
+            ),
+            category_matches AS (
+                SELECT
+                    'category'::text AS kind,
+                    c.display_name AS label,
+                    c.display_name AS query,
+                    NULL::bigint AS product_id,
+                    c.domain::text AS domain,
+                    NULL::text AS brand,
+                    c.category_key,
+                    c.category_path,
+                    3 AS kind_order,
+                    row_number() OVER (
+                        ORDER BY c.depth DESC, length(c.display_name), c.display_name
+                    ) AS match_order
+                FROM mosaic.category c
+                WHERE c.depth > 0
+                  AND to_tsvector('english', c.display_name)
+                      @@ (SELECT value FROM prefix_query)
+                ORDER BY match_order
+                LIMIT %s
+            )
+            SELECT kind, label, query, product_id, domain, brand,
+                   category_key, category_path
+            FROM (
+                SELECT * FROM product_matches
+                UNION ALL
+                SELECT * FROM brand_matches
+                UNION ALL
+                SELECT * FROM category_matches
+            ) matches
+            ORDER BY kind_order, match_order
+            LIMIT %s
+            """,
+            (
+                normalized,
+                normalized,
+                normalized,
+                _SUGGESTIONS_PER_KIND,
+                _SUGGESTIONS_PER_KIND,
+                _SUGGESTIONS_PER_KIND,
+                _SUGGESTION_COUNT,
+            ),
+        ).fetchall()
+    return CatalogSuggestionsResponse(
+        query=normalized,
+        suggestions=[CatalogSuggestion(**dict(row)) for row in rows],
     )
 
 

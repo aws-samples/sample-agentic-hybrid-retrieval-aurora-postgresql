@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Emit the outstanding image backlog as a working shot list.
 
-Reads `data/media/asset_labels_120.json`, subtracts what is already installed,
+Reads `data/media/asset_labels_200.json`, subtracts what is already installed,
 and writes a CSV plus a grouped Markdown checklist. The Markdown is ordered by
 domain then subcategory so a generation session can work straight down it, and
 each row carries the exact output filename the app expects.
@@ -19,7 +19,7 @@ from collections import defaultdict
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-LABELS = REPO / "data" / "media" / "asset_labels_120.json"
+LABELS = REPO / "data" / "media" / "asset_labels_200.json"
 RUNTIME = REPO / "ui" / "public" / "assets" / "images" / "mosaic"
 OUT_CSV = REPO / "data" / "media" / "shot_list_outstanding.csv"
 OUT_MD = REPO / "docs" / "media-shot-list.md"
@@ -36,7 +36,7 @@ DOMAIN_PREFIX = {
 }
 
 # The whole cohort is one photographic set; these are the constants a generation
-# prompt has to repeat so 120 images look like one catalog.
+# prompt has to repeat so the product-bound images look like one catalog.
 SET_DIRECTION = (
     "Warm travertine and cream plaster set, soft directional daylight with leafy "
     "shadow play, muted sand and bone palette with a single deep maroon accent, "
@@ -123,8 +123,9 @@ def main() -> int:
         (
             f"**{len(outstanding)} images to generate** across "
             f"{len({item['product_id'] for item in outstanding})} products. "
-            "The 120-product cohort is fixed by the schema package; this is the "
-            "subset whose runtime file is not yet installed."
+            "The 200-product exact-photography set is fixed by the premium "
+            "cohort and focused HNSW/Search contracts; this is the subset whose "
+            "runtime file is not yet installed."
         ),
         "",
         "## Exact domain count",

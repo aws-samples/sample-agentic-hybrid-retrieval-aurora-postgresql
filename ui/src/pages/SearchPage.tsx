@@ -17,7 +17,7 @@ import { api } from "../api";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
 import { SearchComposer } from "../components/SearchComposer";
-import { ErrorState, LoadingState } from "../components/States";
+import { CatalogLoadingState, ErrorState } from "../components/States";
 import { WorkshopProgress } from "../components/WorkshopProgress";
 import { formatAvailability, formatPrice, isPurchasable } from "../format";
 import { fusionLabel } from "../fusion";
@@ -408,7 +408,19 @@ export function SearchPage() {
         </section>
       ) : null}
 
-      {loading && mode !== "agent" ? <LoadingState label="Running hybrid retrieval" /> : null}
+      {/* A centered spinner collapsed the results column on every rerun, so the
+          page bounced between layouts. The heading plus the shared skeleton
+          keeps the grid footprint stable while retrieval runs. */}
+      {loading && mode !== "agent" ? (
+        <>
+          <section className="search-result-heading" aria-live="polite">
+            <p className="eyebrow">Mosaic Shop</p>
+            <h1>Searching for “{query}”</h1>
+            <p>Running hybrid retrieval across the catalog.</p>
+          </section>
+          <CatalogLoadingState />
+        </>
+      ) : null}
       {error ? <ErrorState message={error} onRetry={() => void run(query)} /> : null}
 
       {!loading && !error && (search || agent) ? (

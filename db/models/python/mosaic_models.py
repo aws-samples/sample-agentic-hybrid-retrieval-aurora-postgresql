@@ -193,7 +193,7 @@ class RetrievalProfile(BaseModel):
     ef_search: int = Field(default=100, ge=1, le=1000)
     iterative_scan: Literal["off", "strict_order", "relaxed_order"] = "relaxed_order"
     max_scan_tuples: int = Field(default=20000, ge=1)
-    scan_mem_multiplier: float = Field(default=1, ge=1)
+    scan_mem_multiplier: float = Field(default=2, ge=1)
 
 
 class SearchRequest(BaseModel):

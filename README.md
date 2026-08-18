@@ -157,9 +157,9 @@ RETRIEVE -> RANK -> REASON
 
 | Lab | Time | Participant outcome |
 |---|---:|---|
-| **1. Build hybrid retrieval** | 14 min | Restore typo recovery while preserving exact identity, semantic intent, and hard eligibility constraints |
+| **1. Build hybrid retrieval** | 15 min | Restore typo recovery while preserving exact identity, semantic intent, and hard eligibility constraints |
 | **2. Fuse, rerank, and explain** | 15 min | Repair `1 / (k + rank)`, retain rank provenance, rerank a bounded pool, and explain movement |
-| **3. Build the retrieval agent** | 16 min | Connect retrieved evidence to comparison and citation-bounded synthesis |
+| **3. Build the retrieval agent** | 15 min | Connect retrieved evidence to comparison and citation-bounded synthesis |
 
 The checked-in source is the solved reference implementation. Deliberate
 starter states are injected by `scripts/lab_state.py`; a failure already present
@@ -191,6 +191,7 @@ The Aurora release contract verifies:
 | Rerank model | `cohere.rerank-v3-5:0` |
 | Agent and synthesis model | `global.anthropic.claude-sonnet-5` |
 | Premium visual cohort | 120 products |
+| Photographed Shop edit | 200 products |
 | Product specification coverage | 500,000 products |
 | Generated review evidence | 15,000 records |
 | Filter-contract cases | 720 |
@@ -342,7 +343,7 @@ Do not duplicate these contracts:
 | Assertion vocabulary and falsifiers | [`service/assertions.py`](service/assertions.py) |
 | Agent and MCP tool schemas | [`db/config/agent_tool_contracts.json`](db/config/agent_tool_contracts.json) |
 | Dataset load order and domain counts | [`data/full/manifest.json`](data/full/manifest.json) |
-| Premium product media contract | [`data/media/asset_labels_120.json`](data/media/asset_labels_120.json) |
+| Product-bound media contract | [`data/media/asset_labels_200.json`](data/media/asset_labels_200.json) |
 
 Repository gates reject duplicate retrieval constants, configuration drift,
 missing falsifiers, malformed mission contracts, stale SQL defaults, and

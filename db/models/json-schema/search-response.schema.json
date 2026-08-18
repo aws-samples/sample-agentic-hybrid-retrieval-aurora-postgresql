@@ -78,7 +78,7 @@
           "type": "integer"
         },
         "scan_mem_multiplier": {
-          "default": 1,
+          "default": 2,
           "minimum": 1,
           "title": "Scan Mem Multiplier",
           "type": "number"

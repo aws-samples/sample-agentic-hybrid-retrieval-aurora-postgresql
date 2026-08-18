@@ -73,7 +73,18 @@ hnsw:
   ef_search: 100
   iterative_scan: relaxed_order
   max_scan_tuples: 20000
-  scan_mem_multiplier: 1
+  # Raised from 1 to 2 on 2026-08-17. At 1, mosaic_search.search_vector under a
+  # filter anti-correlated with the query neighbourhood returned 42-150 of 150
+  # candidates (mean 109.1) across eight retrieval anchors with
+  # domain='home_office' — up to 72% of the pool lost silently, then fused by RRF
+  # as if complete.
+  #
+  # The binding limit is `work_mem x scan_mem_multiplier`, which is 4MB on this
+  # cluster. max_scan_tuples is NOT the constraint: measured 0 rows at 20K, 100K,
+  # 500K and 1M alike on the same query. 2 restores 150/150 and costs +0.1ms
+  # unfiltered and on uncorrelated filters, +16ms on the pathological one. 4 and 8
+  # measured no better than 2.
+  scan_mem_multiplier: 2
 media:
   premium_products: 120
   flagships: 6
