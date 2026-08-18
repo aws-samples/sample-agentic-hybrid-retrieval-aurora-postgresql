@@ -12,9 +12,10 @@ from typing import Any, Literal
 from uuid import UUID
 
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from psycopg_pool import PoolTimeout
 
 from scripts.seed_exact_neighbors import StaleGroundTruth
 from scripts.tool_contracts import contracts_for_surface
@@ -94,6 +95,29 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
+
+@app.exception_handler(PoolTimeout)
+async def _pool_saturated(_: Request, __: PoolTimeout) -> JSONResponse:
+    """Say the pool is busy rather than returning a bare 500.
+
+    `PoolTimeout` subclasses `psycopg.OperationalError`, not `RuntimeError`, so the
+    `except RuntimeError` in each route does not catch it and Starlette answers
+    "Internal Server Error" with no explanation. Under a full workshop room that is
+    the most likely failure, and it is the one a participant can act on.
+    """
+    settings = get_settings()
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": (
+                "Every database connection is busy. Retry in a moment. If this "
+                f"persists, raise DB_POOL_MAX_SIZE (currently "
+                f"{settings.db_pool_max_size}) or DB_POOL_TIMEOUT_SECONDS "
+                f"(currently {settings.db_pool_timeout:g}s)."
+            )
+        },
+    )
 
 
 def _model_error(error: Exception) -> HTTPException:
