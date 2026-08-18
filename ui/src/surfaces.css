@@ -2082,7 +2082,11 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  margin-top: clamp(22px, 2.6vw, 36px);
+  /* The card is meant to sit into the still's lower edge, not over its subject.
+     At 36px it started 294px into a 490px photo and hid 40% of it, including the
+     plinth the objects stand on. This drops it far enough to keep the staging
+     visible while the layered overlap survives. */
+  margin-top: clamp(34px, 7vw, 104px);
   border: 1px solid rgb(92 75 62 / 10%);
   border-radius: 20px;
   background: var(--paper);
