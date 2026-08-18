@@ -30,6 +30,9 @@ interface CatalogSearchComposerProps {
   pending?: boolean;
   leadingIcon?: ReactNode;
   placeholder?: string;
+  /** Keep editorial surfaces quiet until the shopper asks to inspect matches. */
+  suggestionsOnType?: boolean;
+  showSuggestions?: boolean;
   onValueChange?: (value: string) => void;
   onSubmit: (query: string) => void;
 }
@@ -74,6 +77,8 @@ export function CatalogSearchComposer({
   pending = false,
   leadingIcon,
   placeholder = "Search a product, model, or describe what you need",
+  suggestionsOnType = true,
+  showSuggestions = true,
   onValueChange,
   onSubmit,
 }: CatalogSearchComposerProps) {
@@ -125,7 +130,7 @@ export function CatalogSearchComposer({
     setSuggestionsPending(true);
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      setOpen(true);
+      if (suggestionsOnType) setOpen(true);
       api
         .suggestions(trimmed, controller.signal)
         .then((response) => {
@@ -150,7 +155,7 @@ export function CatalogSearchComposer({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [hasQuery, initialValue, trimmed]);
+  }, [hasQuery, initialValue, suggestionsOnType, trimmed]);
 
   function submit(query: string) {
     const normalized = query.trim();
@@ -244,10 +249,18 @@ export function CatalogSearchComposer({
           setValue(event.target.value);
           onValueChange?.(event.target.value);
           setShowIdleSuggestion(false);
-          setOpen(event.target.value.trim().length >= 2);
+          setOpen(
+            suggestionsOnType && event.target.value.trim().length >= 2,
+          );
         }}
         onFocus={() => {
-          if (hasQuery && trimmed !== initialValue.trim()) setOpen(true);
+          if (
+            suggestionsOnType
+            && hasQuery
+            && trimmed !== initialValue.trim()
+          ) {
+            setOpen(true);
+          }
         }}
         onKeyDown={handleKeyDown}
       />
@@ -262,7 +275,7 @@ export function CatalogSearchComposer({
         )}
       </button>
 
-      {open ? (
+      {open && showSuggestions ? (
         <div
           aria-label="Catalog suggestions"
           className="catalog-suggestions"

@@ -88,6 +88,36 @@ def test_band_of_no_neighbours_is_none():
     assert neighborhood_band([]) is None
 
 
+def test_missing_probe_ground_truth_is_refused_instead_of_reporting_zero_recall():
+    from scripts.seed_exact_neighbors import StaleGroundTruth
+    from service.hnsw import require_probe_ground_truth
+
+    with pytest.raises(StaleGroundTruth) as raised:
+        require_probe_ground_truth(
+            {},
+            anchor_product_id=1,
+            preset_key="none",
+            k=10,
+            manifest_sha256="current-manifest",
+        )
+
+    message = str(raised.value)
+    assert "current-manifest" in message
+    assert "make db-seed-exact-neighbors" in message
+
+
+def test_probe_ground_truth_keeps_exact_rank_order():
+    from service.hnsw import require_probe_ground_truth
+
+    assert require_probe_ground_truth(
+        {(1, "none"): [1, 10, 20]},
+        anchor_product_id=1,
+        preset_key="none",
+        k=2,
+        manifest_sha256="current-manifest",
+    ) == [1, 10]
+
+
 def test_hnsw_products_include_the_category_identity_needed_for_photography():
     from service.hnsw import _PRODUCT_COLUMNS
 

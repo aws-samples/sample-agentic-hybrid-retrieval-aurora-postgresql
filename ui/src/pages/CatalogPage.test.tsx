@@ -12,6 +12,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { CommerceProvider } from "../commerce";
+import { stageDwellMs } from "../components/AskMosaic";
 import { catalogGhostQueries } from "../components/CatalogSearchComposer";
 import { showcaseCatalogPage } from "../showcase";
 import type {
@@ -254,6 +255,119 @@ describe("CatalogPage", () => {
     vi.unstubAllGlobals();
   });
 
+  it("reveals retrieved candidates on the stage that is still running", async () => {
+    // The panel built its stage content from the finished response only, so
+    // every card stayed empty for the length of the run: the in-progress stage
+    // rendered an expanded chevron over a blank box, and everything appeared at
+    // once at the end. `partial` carries retrieval that has already returned.
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
+      onEvent({
+        type: "stage",
+        id: "retrieve",
+        title: "Retrieve",
+        detail: "Searching the hybrid index.",
+      });
+      onEvent({
+        type: "partial",
+        partial: {
+          plan: agentResponse.plan,
+          candidates: agentResponse.recommendations,
+          trace: agentResponse.trace,
+        },
+      });
+      await held;
+      onEvent({ type: "complete", response: agentResponse });
+    });
+
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    const timeline = within(dialog).getByLabelText("Evidence timeline");
+    await waitFor(() =>
+      expect(within(dialog).queryByText("Candidates retrieved")).not.toBeNull());
+
+    // By class, not by role: an open card puts its candidate rows inside the
+    // timeline, so `getAllByRole("button")` no longer means "the four stages".
+    const stageCards = () => [
+      ...timeline.querySelectorAll<HTMLButtonElement>(".ask-mosaic-stage-summary"),
+    ];
+    const running = stageCards();
+    expect(running).toHaveLength(4);
+    // Retrieve is the stage in progress, and it is showing real rows.
+    expect(running[1].getAttribute("aria-expanded")).toBe("true");
+    const revealed = dialog.querySelector<HTMLElement>(".ask-mosaic-shortlist");
+    expect(
+      within(revealed!).getByRole("button", {
+        name: new RegExp(recommendations[0].model),
+      }),
+    ).toBeTruthy();
+    // Interpret finished mid-run, so it holds its result open for a beat and
+    // then folds itself away. Instant folding meant nothing was ever legible.
+    expect(running[0].getAttribute("aria-expanded")).toBe("true");
+    expect(within(dialog).getByText("What I understood")).toBeTruthy();
+    await waitFor(
+      () => expect(stageCards()[0].getAttribute("aria-expanded")).toBe("false"),
+      { timeout: stageDwellMs + 2000 },
+    );
+    // The card collapses its height first and unmounts the content after, so
+    // this is reached once the exit finishes rather than in the same frame.
+    await waitFor(() =>
+      expect(within(dialog).queryByText("What I understood")).toBeNull());
+    // Compare and Cite have not run. Candidate rows exist, so their panels
+    // could be built - a pending stage must still disclose nothing.
+    expect(running[2].hasAttribute("aria-expanded")).toBe(false);
+    expect(running[2].disabled).toBe(true);
+    expect(within(dialog).queryByText("Compared on catalog data")).toBeNull();
+
+    release();
+    await waitFor(() =>
+      expect(within(dialog).queryByText("Final recommendation")).not.toBeNull());
+    // Finishing folds the retrieve card back up, leaving the answer open.
+    expect(stageCards().map((card) => card.getAttribute("aria-expanded")))
+      .toEqual(["false", "false", "false", "true"]);
+  });
+
+  it("ends the answer in the store, with the cited products buyable", async () => {
+    // The answer used to finish as prose. These are the same products the prose
+    // names - `recommendations` is the cited set - and the bag button is the
+    // cart the rest of the store uses, not a decorative one.
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    await within(dialog).findByText("Final recommendation");
+    const picks = within(dialog).getByLabelText("Recommended products");
+    expect(
+      [...picks.querySelectorAll(".ask-mosaic-pick-open strong")]
+        .map((name) => name.textContent),
+    ).toEqual(
+      recommendations
+        .slice(0, 3)
+        .map((product) => `${product.brand} ${product.model}`),
+    );
+
+    const add = within(picks).getAllByRole("button", { name: /Add to bag/ })[0];
+    fireEvent.click(add);
+    expect(within(picks).getAllByRole("button", { name: /In bag \(1\)/ })).toHaveLength(1);
+  });
+
   function renderPage() {
     return render(
       <CommerceProvider>
@@ -267,8 +381,7 @@ describe("CatalogPage", () => {
 
     expect(
       screen.getByText(
-        "Browse the 200-product photographed Mosaic edit, or describe what you need. "
-          + "Search and Ask Mosaic retrieve from all 500,000 products in the Aurora catalog.",
+        "Search naturally, browse with intention, or ask Mosaic for help finding what fits.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/photographed in one light/i)).toBeNull();
@@ -469,7 +582,7 @@ describe("CatalogPage", () => {
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
     );
-    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     expect(await screen.findByText("G-010 · Fixed")).toBeTruthy();
   });
@@ -531,38 +644,83 @@ describe("CatalogPage", () => {
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
     );
-    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    expect(await within(dialog).findByText("Evidence")).toBeTruthy();
+    const timeline = within(dialog).getByLabelText("Evidence timeline");
+    expect(
+      [...timeline.querySelectorAll(".ask-mosaic-stage-label")]
+        .map((stage) => stage.textContent),
+    ).toEqual(["Interpret", "Retrieve", "Compare", "Cite"]);
+    // The settled state. While the run is live a step that just finished holds
+    // its result open for a dwell, so this has to wait for the run to finish
+    // before it can claim the cards are folded.
+    await within(dialog).findByText("Final recommendation");
+    // By class, not by role: an open card puts its candidate rows in the
+    // timeline too, so `getAllByRole("button")` is not "the four stages".
+    const stageButtons = [
+      ...timeline.querySelectorAll<HTMLButtonElement>(".ask-mosaic-stage-summary"),
+    ];
+    expect(stageButtons).toHaveLength(4);
+    expect(stageButtons.map((button) => button.getAttribute("aria-expanded"))).toEqual([
+      "false",
+      "false",
+      "false",
+      "true",
+    ]);
+    // Folded cards animate their height down and unmount the content after, so
+    // these are reached once those exits finish.
+    await waitFor(() => {
+      expect(within(dialog).queryByText("Candidates retrieved")).toBeNull();
+      expect(within(dialog).queryByText("Compared on catalog data")).toBeNull();
+    });
+
+    const evidence = await within(dialog).findByText("Evidence");
+    expect(evidence.closest("details")?.open).toBe(false);
+    expect(within(dialog).getByText("Final recommendation")).toBeTruthy();
+    fireEvent.click(evidence);
     expect(within(dialog).getByText("Acoustic switch specification")).toBeTruthy();
+
+    const activity = within(dialog).getByText("Activity receipts");
+    expect(activity.closest("details")?.open).toBe(false);
+    fireEvent.click(activity);
     expect(within(dialog).getByText("search_products")).toBeTruthy();
     expect(within(dialog).getByText(/max_price_cents/)).toBeTruthy();
     expect(screen.getByText("Ask Mosaic shortlist")).toBeTruthy();
+
+    fireEvent.click(stageButtons[1]);
+    expect(stageButtons[1].getAttribute("aria-expanded")).toBe("true");
 
     // Why this row is here, from the arm ranks and the reranker score. The row
     // used to read "RRF #2 · Final #1", which names two internal ranks and
     // answers nothing anybody asked. trigram.rank is null in this fixture, so
     // close spellings must not be claimed.
     expect(within(dialog).getByText("Best match")).toBeTruthy();
-    expect(
-      within(dialog).getByText(
-        "Found by your exact words + what you meant · Rerank 0.80",
-      ),
-    ).toBeTruthy();
+    const signals = within(dialog).getAllByLabelText(
+      "Why this candidate was retrieved",
+    );
+    expect([...signals[0].querySelectorAll("span")].map((chip) => chip.textContent))
+      .toEqual(["Your exact words", "What you meant", "Rerank 0.80"]);
+
+    fireEvent.click(stageButtons[0]);
+    expect(stageButtons[0].getAttribute("aria-expanded")).toBe("true");
+    expect(within(dialog).getByText("Under $180")).toBeTruthy();
+    expect(within(dialog).getByText("In stock only")).toBeTruthy();
 
     // The searches behind the shortlist, from AgentResponse.plan, which the
     // panel used to fetch and never render.
     expect(within(dialog).getByText("How I searched")).toBeTruthy();
     expect(within(dialog).getByText(agentResponse.plan[0].query)).toBeTruthy();
-    expect(within(dialog).getByText("Under $180")).toBeTruthy();
-    expect(within(dialog).getByText("In stock only")).toBeTruthy();
-    ["How I searched", "Why 01 ranked first", "Evidence", "Activity receipts"]
-      .forEach((label) => {
-        expect(within(dialog).getByText(label).closest("details")?.open).toBe(false);
-      });
+    expect(within(dialog).getByText("How I searched").closest("details")?.open).toBe(false);
 
-    const shortlistButton = within(dialog).getByRole("button", {
+    fireEvent.click(stageButtons[2]);
+    expect(stageButtons[2].getAttribute("aria-expanded")).toBe("true");
+    expect(within(dialog).getByText("Why 01 ranked first").closest("details")?.open).toBe(false);
+
+    // Scoped to the candidate list: the answer now carries the same products as
+    // buyable picks, so the product name matches a button in two places.
+    const shortlist = dialog.querySelector<HTMLElement>(".ask-mosaic-shortlist");
+    const shortlistButton = within(shortlist!).getByRole("button", {
       name: new RegExp(recommendations[0].model),
     });
     fireEvent.mouseEnter(shortlistButton);
@@ -580,7 +738,7 @@ describe("CatalogPage", () => {
     expect(linkedCatalogCard).not.toBeNull();
     fireEvent.mouseEnter(linkedCatalogCard!);
     expect(
-      within(dialog)
+      within(shortlist!)
         .getByRole("button", { name: new RegExp(recommendations[0].model) })
         .closest("li")
         ?.classList.contains("highlighted"),
@@ -649,7 +807,7 @@ describe("CatalogPage", () => {
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
     );
-    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     expect(await within(dialog).findByText("Choose the first product")).toBeTruthy();
@@ -687,7 +845,7 @@ describe("CatalogPage", () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);
 
-    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "All filters" }));
     const dialog = screen.getByRole("dialog", { name: "Filters" });
     expect(dialog).toBeTruthy();
 
@@ -713,7 +871,7 @@ describe("CatalogPage", () => {
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
     );
-    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
     await screen.findByText("Ask Mosaic shortlist");
 
     fireEvent.click(

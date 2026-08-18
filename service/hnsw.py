@@ -408,6 +408,27 @@ def _explain_probe(connection: Any, sql: str, parameters: list[Any]) -> dict[str
     }
 
 
+def require_probe_ground_truth(
+    truth: dict[tuple[int, str], list[int]],
+    *,
+    anchor_product_id: int,
+    preset_key: str,
+    k: int,
+    manifest_sha256: str,
+) -> list[int]:
+    """Return the probe's exact neighbors or refuse to report synthetic recall."""
+    expected = truth.get((anchor_product_id, preset_key), [])[:k]
+    if not expected:
+        raise StaleGroundTruth(
+            explain(
+                f"no stored neighbours for anchor {anchor_product_id}, preset "
+                f"{preset_key!r}, k={k} at manifest {manifest_sha256}",
+                "run `make db-seed-exact-neighbors`",
+            )
+        )
+    return expected
+
+
 def probe(request: Any) -> dict[str, Any]:
     """Run one real ANN query and report what the server actually did.
 
@@ -434,9 +455,13 @@ def probe(request: Any) -> dict[str, Any]:
                     "choose an anchor from GET /api/hnsw/anchors",
                 )
             )
-        truth = load_ground_truth(
-            connection, manifest_sha256=manifest, k=request.k
-        ).get((request.anchor_product_id, preset.key), [])
+        truth = require_probe_ground_truth(
+            load_ground_truth(connection, manifest_sha256=manifest, k=request.k),
+            anchor_product_id=request.anchor_product_id,
+            preset_key=preset.key,
+            k=request.k,
+            manifest_sha256=manifest,
+        )
 
         # One real transaction. A nested block would degrade to a SAVEPOINT, and
         # SET LOCAL survives its release — the mechanism that once made a whole
@@ -481,7 +506,7 @@ def probe(request: Any) -> dict[str, Any]:
             else []
         )
 
-    expected = truth[: request.k]
+    expected = truth
     return {
         "anchor": {
             key: value for key, value in dict(anchor).items() if key != "embedding"

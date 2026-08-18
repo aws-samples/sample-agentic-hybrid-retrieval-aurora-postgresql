@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { LabsIntroFlow } from "./LabsIntroFlow";
 
 type MosaicLabsMastheadProps = {
-  title: string;
+  title: ReactNode;
   deck: string;
   action?: ReactNode;
   supportingText?: string;

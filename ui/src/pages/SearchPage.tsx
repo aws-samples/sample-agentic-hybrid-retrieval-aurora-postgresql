@@ -253,12 +253,14 @@ export function SearchPage() {
               setLoading(false);
             } else if (event.type === "answer_delta") {
               setStreamedAnswer((answer) => answer + event.delta);
-            } else {
+            } else if (event.type === "complete") {
               setAgent(event.response);
               setStreamedAnswer(event.response.answer);
               setAgentStreaming(false);
               activateAgentStage("answer", true);
             }
+            // `partial` carries mid-run retrieval for the Ask Mosaic rail. This
+            // surface renders the finished response only.
           });
         } else {
           const response = await api.search(nextQuery, filters);

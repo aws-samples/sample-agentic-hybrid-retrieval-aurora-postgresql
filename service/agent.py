@@ -15,6 +15,7 @@ from service import agent_tools
 from service.config import get_settings
 from service.model_runtime import ModelRuntimeError, model_runtime_error
 from service.models import (
+    AgentPartial,
     AgentPlanStep,
     AgentRequest,
     AgentResponse,
@@ -22,6 +23,58 @@ from service.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _plan_steps(state: dict[str, Any]) -> list[AgentPlanStep]:
+    return [
+        AgentPlanStep(
+            query=item["query"],
+            filters=item["filters"],
+            purpose=item["purpose"],
+        )
+        for item in state["searches"]
+    ]
+
+
+def _trace_steps(state: dict[str, Any]) -> list[ToolTraceStep]:
+    return [
+        ToolTraceStep(
+            sequence=item["sequence"],
+            tool=item["tool"],
+            detail=item["detail"],
+            retrieval_run_id=item.get("search_event_id"),
+            result_count=item.get("result_count"),
+            arguments=item.get("arguments") or {},
+            outcome=item.get("outcome", "success"),
+            origin=item.get("origin", "model"),
+            latency_ms=item.get("latency_ms"),
+        )
+        for item in state["trace"]
+    ]
+
+
+def _partial(state: dict[str, Any]) -> AgentPartial:
+    """The run state so far, in the shape the finished response uses.
+
+    Candidates are ordered newest search first, then by that search's ranked
+    order, so the shortlist matches what the agent is currently working from.
+    `state["products"]` is keyed by id, and iterating it would order the panel by
+    whichever product happened to be inserted first.
+    """
+    ordered_ids: list[int] = []
+    for search in reversed(state["searches"]):
+        for product_id in search["product_ids"]:
+            if product_id not in ordered_ids:
+                ordered_ids.append(product_id)
+    return AgentPartial(
+        plan=_plan_steps(state),
+        candidates=[
+            state["products"][product_id]
+            for product_id in ordered_ids
+            if product_id in state["products"]
+        ],
+        trace=_trace_steps(state),
+    )
 
 SYSTEM_PROMPT = f"""You are a read-only product-discovery agent using Amazon
 Aurora PostgreSQL as the search and context engine.
@@ -197,36 +250,14 @@ class ProductDiscoveryAgent:
             )
             raise RuntimeError(reason)
 
-        plans = [
-            AgentPlanStep(
-                query=item["query"],
-                filters=item["filters"],
-                purpose=item["purpose"],
-            )
-            for item in state["searches"]
-        ]
-        trace = [
-            ToolTraceStep(
-                sequence=item["sequence"],
-                tool=item["tool"],
-                detail=item["detail"],
-                retrieval_run_id=item.get("search_event_id"),
-                result_count=item.get("result_count"),
-                arguments=item.get("arguments") or {},
-                outcome=item.get("outcome", "success"),
-                origin=item.get("origin", "model"),
-                latency_ms=item.get("latency_ms"),
-            )
-            for item in state["trace"]
-        ]
         return AgentResponse(
             agent_run_id=state["agent_run_id"],
             question=request.question,
             answer=record["answer"],
-            plan=plans,
+            plan=_plan_steps(state),
             recommendations=record["recommendations"],
             citations=record["citations"],
-            trace=trace,
+            trace=_trace_steps(state),
         )
 
     def _persist(
@@ -277,11 +308,23 @@ class ProductDiscoveryAgent:
         )
         result: Any | None = None
         error: Exception | None = None
+        # Emit a snapshot only when a tool has actually added something. A
+        # `current_tool_use` arrives on every streamed delta, so keying off the
+        # event alone would re-send the same shortlist dozens of times per tool.
+        produced = (0, 0, 0)
         try:
             async for event in build_agent().stream_async(_agent_prompt(request)):
                 if "result" in event:
                     result = event["result"]
                 yield event
+                progress = (
+                    len(state["searches"]),
+                    len(state["products"]),
+                    len(state["trace"]),
+                )
+                if progress != produced:
+                    produced = progress
+                    yield {"agent_partial": _partial(state)}
         except Exception as caught:
             error = caught
             logger.warning(

@@ -8,6 +8,7 @@ interface SearchComposerProps {
   pending?: boolean;
   compact?: boolean;
   submitLabel?: string;
+  submitIcon?: ReactNode;
   leadingIcon?: ReactNode;
   autoFocus?: boolean;
   /** Empty the field after a submit, for a composer that keeps a thread. */
@@ -22,6 +23,7 @@ export function SearchComposer({
   pending = false,
   compact = false,
   submitLabel,
+  submitIcon,
   leadingIcon,
   autoFocus = false,
   clearOnSubmit = false,
@@ -58,15 +60,22 @@ export function SearchComposer({
       {/* Only disabled while a request is in flight. Disabling on an empty field
           made the primary action render at 50% opacity (the global
           button:disabled rule) on first paint, which reads as broken. */}
-      <button type="submit" disabled={pending}>
+      <button
+        type="submit"
+        disabled={pending}
+        aria-label={submitIcon ? submitLabel ?? "Submit search" : undefined}
+        title={submitIcon ? submitLabel ?? "Submit search" : undefined}
+      >
         {pending ? (
           <LoaderCircle className="spin" size={20} aria-hidden="true" />
+        ) : submitIcon ? (
+          submitIcon
         ) : submitLabel ? (
           <span>{submitLabel}</span>
         ) : (
           <ArrowRight size={20} aria-hidden="true" />
         )}
-        {submitLabel ? null : <span className="sr-only">Search</span>}
+        {submitIcon || submitLabel ? null : <span className="sr-only">Search</span>}
       </button>
     </form>
   );

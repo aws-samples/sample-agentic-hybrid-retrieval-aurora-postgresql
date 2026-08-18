@@ -306,6 +306,14 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
             )
             current_stage = "understand"
             async for event in get_product_discovery_agent().stream(request):
+                # Retrieval that has already happened, forwarded as soon as it
+                # lands. Without this the panel holds four collapsed stages for
+                # the length of the run and reveals everything at the end.
+                partial = event.get("agent_partial")
+                if partial is not None:
+                    yield _sse("partial", {"partial": partial.model_dump(mode="json")})
+                    continue
+
                 tool = event.get("current_tool_use")
                 tool_name = tool.get("name") if isinstance(tool, dict) else None
                 if tool_name == "search_products":

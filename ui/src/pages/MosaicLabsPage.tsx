@@ -447,6 +447,19 @@ export function MosaicLabsPage() {
     ? [`"${activeEngineQuery}"`]
     : activeEngine.mechanics;
   const isEngineQueryComplete = visibleEngineQueryLength >= activeEngineQuery.length;
+  const engineEntries = engineProducts.map((product) => ({
+    product,
+    state: engineProductState(
+      product,
+      activeEngineVisual,
+      activeEngineStep,
+      activeEngineScenario,
+    ),
+  }));
+  const visibleEngineEntries = engineEntries
+    .filter(({ state }) => state.state !== "muted")
+    .sort((left, right) => left.state.rank - right.state.rank);
+  const leadingEngineEntry = visibleEngineEntries[0] ?? null;
 
   useEffect(() => () => {
     replayTimers.current.forEach((timer) => window.clearTimeout(timer));
@@ -561,9 +574,9 @@ export function MosaicLabsPage() {
             Open a Shop scenario <ArrowRight size={17} />
           </Link>
         )}
-        deck="Follow one real product request from candidate generation through a grounded recommendation, without leaving the shopping context behind."
+        deck="Follow a real request as it moves from intent to an evidence-backed recommendation."
         supportingText="Replay the system after a Code Editor repair."
-        title="See how Mosaic decides."
+        title={<>Retrieval observatory. <em>Grounded answers.</em></>}
       />
 
       <section
@@ -573,57 +586,12 @@ export function MosaicLabsPage() {
       >
         <header className="labs-engine-heading">
           <div>
-            <h2 id="labs-engine-title">From request to grounded recommendation.</h2>
+            <h2 id="labs-engine-title">From request to grounded output.</h2>
             <p className="labs-engine-description">
-              Select a stage or replay the canonical fixture. The records are
-              real; the animation is a read-only system map, not a new query.
+              Select a stage or replay a validated fixture. Product records come
+              from the catalog; the replay explains the system without claiming
+              a fresh measured run.
             </p>
-            <div className="labs-engine-query-row">
-              <div
-              className={`labs-engine-query${isEngineQueryComplete ? " is-complete" : ""}`}
-              aria-label="Replay query"
-            >
-                <Search size={17} aria-hidden="true" />
-                <code aria-label={activeEngineQuery}>
-                  <span className="labs-engine-query-measure" aria-hidden="true">
-                    {activeEngineQuery}
-                  </span>
-                  <span className="labs-engine-query-typed" aria-hidden="true">
-                    {activeEngineQuery.slice(0, visibleEngineQueryLength)}
-                    {!isEngineQueryComplete ? (
-                      <i className="labs-engine-query-caret" />
-                    ) : null}
-                  </span>
-                </code>
-              </div>
-              <button
-                className={`labs-engine-replay${
-                  isEngineQueryComplete && !isEnginePlaying ? " query-ready" : ""
-                }`}
-                disabled={isEnginePlaying}
-                onClick={replayEngineJourney}
-                type="button"
-              >
-                <Play size={15} fill="currentColor" />
-                {isEnginePlaying
-                  ? `Replaying ${activeEngineStep + 1} of ${engineSteps.length}`
-                  : "Replay fixture"}
-              </button>
-            </div>
-            <div className="labs-engine-query-presets" role="group" aria-label="Replay query examples">
-              {engineScenarios.map((scenario, index) => (
-                <button
-                  aria-label={`Use ${scenario.label} query: ${scenario.mission.query}`}
-                  aria-pressed={index === activeEngineScenarioIndex}
-                  className={index === activeEngineScenarioIndex ? "active" : ""}
-                  key={scenario.id}
-                  onClick={() => selectEngineScenario(index)}
-                  type="button"
-                >
-                  {scenario.label}
-                </button>
-              ))}
-            </div>
           </div>
         </header>
 
@@ -655,41 +623,83 @@ export function MosaicLabsPage() {
           ))}
         </ol>
 
-        <section
-          className="labs-engine-spotlight"
-          data-stage={activeEngine.step}
-          aria-live="polite"
-        >
-          <div className="labs-engine-spotlight-copy">
-            {activeEngine.owner ? (
-              <p className="labs-engine-stage-owner">
-                {stageDetails[activeEngine.owner].label}
-              </p>
-            ) : null}
-            <h3>{activeEngineVisual.title}</h3>
-            <p>{activeEngineVisual.copy}</p>
-            <ul aria-label={`${activeEngine.title} implementation details`}>
-              {activeEngineMechanics.map((mechanic) => (
-                <li key={mechanic}><code>{mechanic}</code></li>
+        <div className="labs-observatory-workspace" aria-live="polite">
+          <aside className="labs-observatory-request">
+            <header>
+              <span>Request</span>
+              <strong>Validated fixture</strong>
+            </header>
+            <div
+              className={`labs-engine-query${isEngineQueryComplete ? " is-complete" : ""}`}
+              aria-label="Replay query"
+            >
+              <Search size={17} aria-hidden="true" />
+              <code aria-label={activeEngineQuery}>
+                <span className="labs-engine-query-measure" aria-hidden="true">
+                  {activeEngineQuery}
+                </span>
+                <span className="labs-engine-query-typed" aria-hidden="true">
+                  {activeEngineQuery.slice(0, visibleEngineQueryLength)}
+                  {!isEngineQueryComplete ? <i className="labs-engine-query-caret" /> : null}
+                </span>
+              </code>
+            </div>
+            <div
+              className="labs-engine-query-presets"
+              role="group"
+              aria-label="Replay query examples"
+            >
+              {engineScenarios.map((scenario, index) => (
+                <button
+                  aria-label={`Use ${scenario.label} query: ${scenario.mission.query}`}
+                  aria-pressed={index === activeEngineScenarioIndex}
+                  className={index === activeEngineScenarioIndex ? "active" : ""}
+                  key={scenario.id}
+                  onClick={() => selectEngineScenario(index)}
+                  type="button"
+                >
+                  {scenario.label}
+                </button>
               ))}
-            </ul>
-          </div>
+            </div>
+            <dl className="labs-observatory-request-facts">
+              <div>
+                <dt>Fixture</dt>
+                <dd>{activeEngineScenario.mission.id}</dd>
+              </div>
+              <div>
+                <dt>Target</dt>
+                <dd>#{activeEngineScenario.mission.target_product_ids[0]}</dd>
+              </div>
+              <div>
+                <dt>Expected techniques</dt>
+                <dd>{activeEngineScenario.mission.expected_techniques.length}</dd>
+              </div>
+            </dl>
+            <button
+              className={`labs-engine-replay${
+                isEngineQueryComplete && !isEnginePlaying ? " query-ready" : ""
+              }`}
+              disabled={isEnginePlaying}
+              onClick={replayEngineJourney}
+              type="button"
+            >
+              <Play size={15} fill="currentColor" />
+              {isEnginePlaying
+                ? `Replaying ${activeEngineStep + 1} of ${engineSteps.length}`
+                : "Replay fixture"}
+            </button>
+          </aside>
 
-          <div className="labs-engine-products-wrap">
-            <div className="labs-engine-products-heading">
+          <section className="labs-observatory-candidates">
+            <header className="labs-engine-products-heading">
               <span>{activeEngineVisual.productLabel}</span>
               <small>Canonical catalog fixture</small>
-            </div>
-            {engineProducts.length ? (
-              <div className="labs-engine-products">
-                {engineProducts.map((product, index) => {
-                  const state = engineProductState(
-                    product,
-                    activeEngineVisual,
-                    activeEngineStep,
-                    activeEngineScenario,
-                  );
-                  return (
+            </header>
+            {engineEntries.length ? (
+              <>
+                <div className="labs-engine-products" aria-label="Candidate cohort">
+                  {engineEntries.map(({ product, state }, index) => (
                     <figure
                       className={`labs-engine-product ${state.state}`}
                       data-product-id={product.product_id}
@@ -712,9 +722,28 @@ export function MosaicLabsPage() {
                         <small>{state.label}</small>
                       </figcaption>
                     </figure>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+                <div className="labs-observatory-shortlist">
+                  <header>
+                    <h3>Ranked shortlist</h3>
+                    <span>{visibleEngineEntries.length} visible</span>
+                  </header>
+                  <ol>
+                    {visibleEngineEntries.slice(0, 4).map(({ product, state }) => (
+                      <li key={product.product_id}>
+                        <span>{String(state.rank).padStart(2, "0")}</span>
+                        <img src={productImage(product)} alt="" width={72} height={48} />
+                        <div>
+                          <strong>{product.model}</strong>
+                          <small>{product.brand}</small>
+                        </div>
+                        <em>{state.label}</em>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </>
             ) : (
               <p className="labs-engine-products-unavailable" role="status">
                 {engineProductsError
@@ -722,8 +751,72 @@ export function MosaicLabsPage() {
                   : "Loading catalog product records..."}
               </p>
             )}
+          </section>
+
+          <aside
+            className="labs-engine-spotlight labs-observatory-evidence"
+            data-stage={activeEngine.step}
+          >
+            <header>
+              <span>Evidence &amp; rationale</span>
+              <small>{activeEngine.title}</small>
+            </header>
+            {leadingEngineEntry ? (
+              <figure>
+                <img
+                  src={productImage(leadingEngineEntry.product)}
+                  alt={leadingEngineEntry.product.title}
+                  width={1200}
+                  height={800}
+                />
+                <figcaption>
+                  <small>Current leader</small>
+                  <strong>{leadingEngineEntry.product.model}</strong>
+                  <span>{leadingEngineEntry.state.label}</span>
+                </figcaption>
+              </figure>
+            ) : null}
+            <div className="labs-engine-spotlight-copy">
+              {activeEngine.owner ? (
+                <p className="labs-engine-stage-owner">
+                  {stageDetails[activeEngine.owner].label}
+                </p>
+              ) : null}
+              <h3>{activeEngineVisual.title}</h3>
+              <p>{activeEngineVisual.copy}</p>
+              <ul aria-label={`${activeEngine.title} implementation details`}>
+                {activeEngineMechanics.map((mechanic) => (
+                  <li key={mechanic}><code>{mechanic}</code></li>
+                ))}
+              </ul>
+            </div>
+            <Link href={retrievalExampleHref(activeEngineScenario.mission)}>
+              Inspect the trace <ArrowRight size={15} />
+            </Link>
+          </aside>
+        </div>
+
+        <footer className="labs-observatory-telemetry" aria-label="Replay telemetry">
+          <div>
+            <span>Pipeline state</span>
+            <strong>{isEnginePlaying ? "Replay in progress" : activeEngine.title}</strong>
           </div>
-        </section>
+          <div>
+            <span>Visible cohort</span>
+            <strong>{visibleEngineEntries.length} of {engineEntries.length || engineProductIds.length}</strong>
+          </div>
+          <div>
+            <span>Active stage</span>
+            <strong>{activeEngineStep + 1} / {engineSteps.length}</strong>
+          </div>
+          <div>
+            <span>Top signal</span>
+            <strong>{activeEngineMechanics[0] ?? "Catalog request"}</strong>
+          </div>
+          <Link href={retrievalExampleHref(activeEngineScenario.mission)}>
+            Open trace <ArrowRight size={14} />
+          </Link>
+        </footer>
       </section>
 
       <section

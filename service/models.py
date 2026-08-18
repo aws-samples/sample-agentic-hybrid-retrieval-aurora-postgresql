@@ -510,6 +510,21 @@ class AgentResponse(BaseModel):
     trace: list[ToolTraceStep]
 
 
+class AgentPartial(BaseModel):
+    """What retrieval has produced part-way through a run.
+
+    The same fields as `AgentResponse` minus the answer and its citations, which
+    do not exist until the grounded synthesis tool writes the answer of record.
+    Every row here was returned by a tool that already ran, so a client can show
+    the shortlist the agent is working from without waiting for, or inferring,
+    the answer.
+    """
+
+    plan: list[AgentPlanStep]
+    candidates: list[ProductSummary]
+    trace: list[ToolTraceStep]
+
+
 class HnswProbeRequest(BaseModel):
     """One live HNSW probe.
 

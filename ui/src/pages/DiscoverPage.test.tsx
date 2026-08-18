@@ -70,42 +70,72 @@ describe("DiscoverPage", () => {
     );
   });
 
-  it("labels the hero action for search and focuses the catalog query", () => {
-    renderPage();
+  it("puts the only search field in the hero, with no scroll-to-search step", () => {
+    const { container } = renderPage();
 
-    const searchInput = screen.getByRole("combobox", { name: "Search products" });
-    searchInput.scrollIntoView = vi.fn();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Search the catalog" }),
-    );
-
-    expect(document.activeElement).toBe(searchInput);
-    expect(searchInput.scrollIntoView).toHaveBeenCalledWith({
-      behavior: "smooth",
-      block: "center",
-    });
+    expect(
+      container.querySelectorAll("input[role='combobox']"),
+    ).toHaveLength(1);
+    expect(
+      container.querySelector(".discover-hero .discover-search input"),
+    ).toBe(screen.getByRole("combobox", { name: "Search products" }));
+    expect(screen.queryByRole("button", { name: "Search the catalog" })).toBeNull();
     expect(screen.queryByText("Explore collections")).toBeNull();
   });
 
-  it("shows exact product photography with the same live catalog matches as Shop", async () => {
+  it("searches a hero prompt chip for exactly the words printed on it", () => {
+    const { container } = renderPage();
+
+    const chips = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(".discover-hero-prompts > button"),
+    );
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      "Best noise-cancelling headphones",
+      "Ergonomic office chair",
+      "Headphones for a long flight",
+      "Sonora WH-C720",
+      "Auraluxe H9",
+      "Carbon-plated shoes",
+    ]);
+
+    fireEvent.click(chips[0]);
+
+    expect(window.location.pathname).toBe("/catalog");
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get("q")).toBe("Best noise-cancelling headphones");
+    expect(params.get("category_key")).toBe("over-ear-headphones");
+  });
+
+  it("links every category tile to a real filtered catalog route", () => {
+    const { container } = renderPage();
+
+    const tiles = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>(".discover-intention-tile"),
+    );
+    expect(tiles).toHaveLength(6);
+    expect(tiles[0].getAttribute("href")).toBe(
+      "/catalog?domain=consumer_electronics&category_key=over-ear-headphones",
+    );
+    // No product counts: Discover never requests the facets that would back them.
+    expect(
+      container.querySelector(".discover-intention-rail")?.textContent,
+    ).not.toMatch(/\d/);
+  });
+
+  it("keeps editorial search free of a typeahead overlay", async () => {
     renderPage();
     const input = screen.getByRole("combobox", { name: "Search products" });
 
     fireEvent.change(input, { target: { value: "sono" } });
-
-    const listbox = await screen.findByRole("listbox");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    fireEvent.keyDown(input, { key: "ArrowDown" });
     await waitFor(() => {
       expect(api.suggestions).toHaveBeenCalledWith(
         "sono",
         expect.any(AbortSignal),
       );
     });
-    const option = within(listbox).getByRole("option", {
-      name: /Sonora WH-C720 Wireless Noise-Cancelling Headphones/,
-    });
-    expect(option.querySelector("img")?.getAttribute("src")).toBe(
-      "/assets/images/mosaic/ce-over-ear-headphones-02-catalog-3x2.webp",
-    );
+    expect(screen.queryByRole("listbox")).toBeNull();
   });
 
   it("renders the editorial Shop preview immediately without a catalog request", () => {
@@ -122,7 +152,10 @@ describe("DiscoverPage", () => {
     const { container } = renderPage();
 
     expect(
-      screen.getByText("Start with one of these three example searches."),
+      screen.getByText(
+        "Each of these three runs hybrid retrieval over the catalog, with"
+        + " its category constraint already applied.",
+      ),
     ).toBeTruthy();
     expect(
       screen.getByText(

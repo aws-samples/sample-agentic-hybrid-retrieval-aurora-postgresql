@@ -203,28 +203,44 @@ export interface AgentConversationContext {
   }>;
 }
 
+export interface AgentPlanStep {
+  query: string;
+  filters: SearchFilters;
+  purpose: string;
+}
+
+export interface ToolTraceStep {
+  sequence: number;
+  tool: string;
+  detail: string;
+  retrieval_run_id: string | null;
+  result_count: number | null;
+  arguments: Record<string, unknown>;
+  outcome: "success" | "error";
+  origin?: "model" | "controller_fallback";
+  latency_ms: number | null;
+}
+
 export interface AgentResponse {
   agent_run_id: string;
   question: string;
   answer: string;
-  plan: Array<{
-    query: string;
-    filters: SearchFilters;
-    purpose: string;
-  }>;
+  plan: AgentPlanStep[];
   recommendations: ProductSummary[];
   citations: AgentCitation[];
-  trace: Array<{
-    sequence: number;
-    tool: string;
-    detail: string;
-    retrieval_run_id: string | null;
-    result_count: number | null;
-    arguments: Record<string, unknown>;
-    outcome: "success" | "error";
-    origin?: "model" | "controller_fallback";
-    latency_ms: number | null;
-  }>;
+  trace: ToolTraceStep[];
+}
+
+/**
+ * Retrieval that has already run, delivered mid-stream.
+ *
+ * No answer and no citations: those only exist once the grounded synthesis tool
+ * writes the answer of record, which is the last thing a run does.
+ */
+export interface AgentPartial {
+  plan: AgentPlanStep[];
+  candidates: ProductSummary[];
+  trace: ToolTraceStep[];
 }
 
 export interface CatalogSummary {

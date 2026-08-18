@@ -136,50 +136,61 @@
   line-height: 1.6;
 }
 
-.discover-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-start;
-  gap: 12px;
-  margin-top: 30px;
+/* The search pill sits in the hero rather than a section below it, so the field
+   is the first thing the surface offers. The scrim already flattens the left of
+   the photograph, which is what lets a paper-coloured pill read cleanly here. */
+.discover-hero .discover-search {
+  width: min(100%, 780px);
+  max-width: 780px;
+  margin-top: 28px;
 }
 
-.discover-hero-actions button,
-.discover-hero-actions a {
-  display: inline-flex;
-  min-height: 48px;
+.discover-hero-prompts {
+  display: grid;
+  width: min(100%, 780px);
   align-items: center;
-  gap: 10px;
-  padding: 0 22px;
-  border: 1px solid transparent;
-  border-radius: 10px;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.discover-hero-prompts > span {
+  grid-column: 1 / -1;
+  margin-right: 0;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.discover-hero-prompts > button {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgb(92 75 62 / 18%);
+  border-radius: 999px;
+  background: rgb(255 253 248 / 82%);
+  color: var(--ink);
   font-size: 12.5px;
-  font-weight: 680;
-  transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  font-weight: 560;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
 }
 
-.discover-hero-actions button {
-  background: linear-gradient(135deg, var(--maroon-800), var(--maroon-950));
-  box-shadow: 0 10px 24px rgb(69 16 27 / 20%);
-  color: #fffdf8;
+@media (max-width: 720px) {
+  .discover-hero-prompts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.discover-hero-actions button:hover {
-  box-shadow: 0 13px 30px rgb(69 16 27 / 27%);
-  transform: translateY(-1px);
-}
-
-.discover-hero-actions a {
-  border-color: rgb(255 253 248 / 46%);
-  background: rgb(255 253 248 / 8%);
-  color: #fffdf8;
-  backdrop-filter: blur(6px);
-}
-
-.discover-hero-actions a:hover {
-  border-color: #fffdf8;
-  background: rgb(255 253 248 / 96%);
-  color: var(--maroon-950);
+.discover-hero-prompts > button:hover,
+.discover-hero-prompts > button:focus-visible {
+  border-color: var(--maroon-800);
+  background: var(--paper);
+  color: var(--maroon-900);
 }
 
 /* Scrolling body */
@@ -260,10 +271,12 @@
 
 /* Editorial intent cards */
 
+/* One lead intent beside two supporting ones. The asymmetry is what stops three
+   equal cards from reading as a menu with no recommendation in it. */
 .discover-editorial-grid {
   display: grid;
   gap: clamp(18px, 2vw, 26px);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
 }
 
 .discover-editorial-card {
@@ -274,6 +287,90 @@
   gap: 16px;
   text-align: left;
   transition: transform 220ms ease;
+}
+
+.discover-editorial-card.is-featured {
+  grid-row: span 2;
+  align-items: center;
+  padding: clamp(20px, 2.2vw, 30px);
+  border: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 22px;
+  background: var(--mosaic-surface);
+  box-shadow: 0 14px 34px rgb(48 37 28 / 7%);
+  gap: clamp(20px, 2.4vw, 34px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 45%);
+}
+
+/* Copy first, photograph second, without reordering the DOM: the image span
+   carries an empty alt, so leaving it first in source costs a reader nothing. */
+.discover-editorial-card.is-featured .discover-editorial-media {
+  grid-area: 1 / 2;
+}
+
+.discover-editorial-card.is-featured .discover-editorial-body {
+  grid-area: 1 / 1;
+  gap: 10px;
+}
+
+.discover-editorial-card.is-featured .discover-editorial-body strong {
+  font-size: clamp(26px, 2.4vw, 34px);
+  line-height: 1.12;
+}
+
+.discover-editorial-card.is-featured .discover-editorial-body em {
+  font-size: 14px;
+}
+
+.discover-editorial-run {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-self: start;
+  gap: 9px;
+  margin-top: 6px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--maroon-800), var(--maroon-950));
+  box-shadow: 0 9px 22px rgb(69 16 27 / 19%);
+  color: #fffdf8;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 680;
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+.discover-editorial-card.is-featured:hover .discover-editorial-run {
+  box-shadow: 0 12px 28px rgb(69 16 27 / 26%);
+  transform: translateY(-1px);
+}
+
+/* Supporting intents: small plate, copy beside it, so two of them stack to the
+   height of the featured card without inflating their photographs. */
+.discover-editorial-card:not(.is-featured) {
+  align-items: center;
+  padding: 15px 20px 15px 15px;
+  border: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 18px;
+  background: var(--mosaic-surface);
+  gap: 18px;
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+.discover-editorial-card:not(.is-featured):hover {
+  border-color: rgb(92 75 62 / 26%);
+}
+
+.discover-editorial-card:not(.is-featured) .discover-editorial-media {
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.discover-editorial-card:not(.is-featured) .discover-editorial-body strong {
+  font-size: 18px;
+}
+
+.discover-editorial-card:not(.is-featured) .discover-editorial-body em {
+  font-size: 12.5px;
 }
 
 .discover-editorial-media {
@@ -345,10 +442,77 @@
   text-transform: uppercase;
 }
 
+/* Category rail
+ *
+ * Six real `category_key` values, each on its own commissioned plate. It scrolls
+ * sideways rather than wrapping, so the row height stays fixed however many
+ * entries the list grows to. The 140px floor is low enough that all six still
+ * fit unclipped down to a 1024px laptop; narrower than that the row becomes a
+ * real scroller, which is where a partly visible tile reads as an affordance
+ * rather than a broken edge.
+ */
+
+.discover-intention-rail {
+  display: grid;
+  gap: clamp(12px, 1.4vw, 18px);
+  grid-auto-columns: minmax(140px, 1fr);
+  grid-auto-flow: column;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x proximity;
+}
+
+.discover-intention-tile {
+  display: grid;
+  gap: 11px;
+  scroll-snap-align: start;
+  transition: transform 200ms ease;
+}
+
+.discover-intention-tile:hover {
+  transform: translateY(-2px);
+}
+
+.discover-intention-media {
+  display: block;
+  overflow: hidden;
+  border: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 14px;
+  background: #e7e0d5;
+  box-shadow: 0 10px 24px rgb(48 37 28 / 6%);
+  aspect-ratio: 3 / 2;
+}
+
+.discover-intention-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 240ms ease;
+}
+
+.discover-intention-tile:hover .discover-intention-media img {
+  transform: scale(1.04);
+}
+
+.discover-intention-label {
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.discover-intention-tile:hover .discover-intention-label {
+  color: var(--maroon-900);
+}
+
 /* Mosaic Studio is an optional Labs composition study. It uses real
    premium-cohort records and links directly to their product pages; it is not
    part of the three-lab workshop path or a retrieval result. */
 .discover-studio {
+  /* Espresso field. Every control inside it - the two actions and, once the
+     canvas assembles, each piece - sits on dark, so the ring inverts here. */
+  --focus: #f6ece7;
+
   position: relative;
   display: grid;
   min-height: 400px;
@@ -942,48 +1106,174 @@
 
 /* Labs band */
 
+/* The closing statement of the route. A deep-maroon panel, aligned to the Shop
+   grid above it, with the three lab scenes carried over onto it: warm
+   photography on dark ground reads as plates in a magazine rather than as app
+   cards, and the dark field is the only place on Discover that inverts. */
 .discover-labs {
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  /* The only inverted field on the route, so the maroon focus ring would land
+     on maroon here. Its one focusable is the CTA. */
+  --focus: #f6ece7;
+
+  position: relative;
+  isolation: isolate;
+  gap: 0;
+  overflow: hidden;
+  padding: clamp(26px, 3vw, 44px);
+  border-radius: 24px;
+  background:
+    radial-gradient(118% 150% at 4% 6%, #5d1421 0%, rgb(93 20 33 / 0%) 56%),
+    linear-gradient(112deg, var(--maroon-950) 0%, #380e18 44%, var(--maroon-900) 100%);
+  box-shadow: 0 24px 56px rgb(43 13 19 / 24%);
+}
+
+/* Blurred hard, so three converging arms read as light pooling in the lower
+   left rather than as wires drawn across the statement. Anchored to the bottom
+   for the same reason: the type sits above the pool, never inside it. */
+.discover-labs-signal {
+  position: absolute;
+  z-index: 0;
+  inset: auto auto 0 0;
+  display: block;
+  width: min(48%, 560px);
+  height: 44%;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 14%, #000 88%, transparent 100%);
+  pointer-events: none;
+}
+
+.discover-labs-signal svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: blur(7px);
+  opacity: 0.72;
+}
+
+.discover-labs-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-items: center;
+  gap: clamp(24px, 3vw, 44px);
+  grid-template-columns: minmax(252px, 0.8fr) minmax(0, 2fr);
+}
+
+.discover-labs-copy {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+  padding-right: clamp(0px, 1vw, 14px);
+}
+
+.discover-labs-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: #dcb277;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.discover-labs-kicker::before {
+  width: 26px;
+  height: 1px;
+  background: currentColor;
+  content: "";
+  opacity: 0.66;
+}
+
+.discover-labs h2 {
+  margin: 0;
+  color: #fdf7ec;
+  font-family: var(--display);
+  font-size: clamp(28px, 2.6vw, 36px);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.06;
+}
+
+.discover-labs h2 em {
+  display: block;
+  color: #e3bc85;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.discover-labs-lede {
+  max-width: 34ch;
+  margin: 0;
+  color: rgb(253 247 236 / 74%);
+  font-size: 13.5px;
+  line-height: 1.62;
+}
+
+.discover-labs-cta {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 9px;
+  margin-top: 4px;
+  padding: 0 20px;
+  border: 1px solid rgb(253 247 236 / 34%);
+  border-radius: 999px;
+  color: #fdf7ec;
+  font-size: 12.5px;
+  font-weight: 640;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease,
+    gap 180ms ease;
+}
+
+.discover-labs-cta:hover {
+  border-color: #fdf7ec;
+  background: #fdf7ec;
+  gap: 13px;
+  color: var(--maroon-950);
 }
 
 .discover-labs-grid {
   display: grid;
-  gap: clamp(16px, 2vw, 24px);
-  grid-auto-rows: 1fr;
+  gap: clamp(12px, 1.4vw, 18px);
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* A single dropped plate gives the row an editorial rhythm. Margin rather than
+   a transform, so the band grows by the offset instead of clipping the caption
+   against its own overflow. */
+.discover-labs-grid > :nth-child(2) {
+  margin-top: clamp(10px, 1.6vw, 24px);
 }
 
 .discover-lab-card {
   display: grid;
   height: 100%;
   align-content: start;
-  gap: 14px;
+  gap: 12px;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--ink);
+  color: #fdf7ec;
   transition: color 180ms ease;
 }
 
 .discover-lab-card:hover {
-  color: var(--maroon-900);
+  color: #f0d3a6;
 }
 
 .discover-lab-graphic {
   position: relative;
   display: block;
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
-  border: 1px solid rgb(92 75 62 / 12%);
-  border-radius: 18px;
+  border: 1px solid rgb(253 247 236 / 16%);
+  border-radius: 14px;
   background: #e9dfd1;
-  box-shadow: 0 12px 28px rgb(48 37 28 / 6%);
-  clip-path: inset(0 round 18px);
+  box-shadow: 0 18px 38px rgb(20 6 10 / 34%);
+  clip-path: inset(0 round 14px);
   contain: paint;
   isolation: isolate;
   transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
@@ -1007,9 +1297,9 @@
 
 .discover-lab-card:hover .discover-lab-graphic,
 .discover-lab-card:focus-visible .discover-lab-graphic {
-  border-color: rgb(126 36 49 / 27%);
-  box-shadow: 0 17px 34px rgb(48 37 28 / 11%);
-  transform: translateY(-2px);
+  border-color: rgb(240 211 166 / 52%);
+  box-shadow: 0 22px 44px rgb(20 6 10 / 44%);
+  transform: translateY(-3px);
 }
 
 .discover-lab-card:hover .discover-lab-scene-photo,
@@ -1021,20 +1311,22 @@
 .discover-lab-scene-label {
   position: absolute;
   z-index: 4;
-  top: 18px;
-  left: 18px;
+  top: 14px;
+  left: 14px;
   display: inline-flex;
-  min-height: 36px;
+  max-width: calc(100% - 28px);
+  min-height: 30px;
   align-items: center;
-  gap: 8px;
-  padding: 0 13px;
+  gap: 7px;
+  padding: 0 11px;
   border: 1px solid rgb(255 253 248 / 58%);
   border-radius: 999px;
-  background: rgb(255 253 248 / 88%);
-  box-shadow: 0 8px 20px rgb(49 36 27 / 12%);
+  background: rgb(255 253 248 / 90%);
+  box-shadow: 0 8px 18px rgb(49 36 27 / 14%);
   color: var(--ink);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 650;
+  white-space: nowrap;
   backdrop-filter: blur(10px);
 }
 
@@ -1042,12 +1334,12 @@
   position: absolute;
   z-index: 3;
   display: block;
-  width: 34%;
+  width: 40%;
   overflow: hidden;
-  border: 3px solid rgb(255 253 248 / 92%);
-  border-radius: 10px;
+  border: 2.5px solid rgb(255 253 248 / 92%);
+  border-radius: 9px;
   background: #eadfce;
-  box-shadow: 0 14px 30px rgb(47 34 24 / 22%);
+  box-shadow: 0 12px 26px rgb(47 34 24 / 26%);
   aspect-ratio: 3 / 2;
 }
 
@@ -1058,42 +1350,43 @@
 }
 
 .discover-lab-candidate-one {
-  right: 18px;
-  bottom: 62px;
+  right: 14px;
+  bottom: 54px;
   transform: rotate(2deg);
 }
 
 .discover-lab-candidate-two {
-  bottom: 94px;
-  left: 18px;
-  width: 30%;
+  bottom: 92px;
+  left: 14px;
+  width: 34%;
   transform: rotate(-3deg);
 }
 
 .discover-lab-channel-strip {
   position: absolute;
   z-index: 5;
-  right: 16px;
-  bottom: 16px;
-  left: 16px;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .discover-lab-channel-strip span {
   display: inline-flex;
-  min-height: 27px;
+  min-height: 24px;
   align-items: center;
-  padding: 0 9px;
+  padding: 0 8px;
   border: 1px solid rgb(255 253 248 / 52%);
   border-radius: 999px;
-  background: rgb(54 43 35 / 80%);
+  background: rgb(54 43 35 / 82%);
   color: #fffdf8;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 10px;
+  font-size: 9.5px;
   letter-spacing: 0;
+  white-space: nowrap;
   backdrop-filter: blur(9px);
 }
 
@@ -1105,12 +1398,17 @@
   color: var(--maroon-950);
 }
 
+/* Anchored to the bottom with an explicit height rather than stretched between
+   two insets: on the taller plate the stretched version cropped each product
+   into a sliver. The negative inline margin overlaps the three cards, which buys
+   back the width that overlap costs in the grid track. */
 .discover-lab-rank-products {
   position: absolute;
-  inset: 66px 16px 58px;
+  inset: auto 12px 40px;
   display: grid;
+  height: 62%;
   align-items: end;
-  gap: 8px;
+  gap: 0;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -1118,15 +1416,17 @@
   position: relative;
   display: block;
   height: 78%;
+  margin-inline: -4px;
   overflow: hidden;
   border: 2px solid rgb(255 253 248 / 72%);
-  border-radius: 10px;
+  border-radius: 9px;
   background: #e9dfd1;
-  box-shadow: 0 16px 30px rgb(0 0 0 / 25%);
+  box-shadow: 0 14px 26px rgb(0 0 0 / 28%);
   transition: transform 380ms ease;
 }
 
 .discover-lab-rank-product-one {
+  z-index: 2;
   height: 100%;
   transform: translateY(-5px);
 }
@@ -1144,16 +1444,16 @@
 .discover-lab-rank-product b {
   position: absolute;
   z-index: 2;
-  top: 8px;
-  left: 8px;
+  top: 6px;
+  left: 6px;
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   place-items: center;
   border-radius: 50%;
   background: rgb(255 253 248 / 92%);
   color: var(--maroon-900);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 760;
   box-shadow: 0 4px 12px rgb(49 36 27 / 14%);
 }
@@ -1161,16 +1461,16 @@
 .discover-lab-rank-receipt {
   position: absolute;
   z-index: 4;
-  right: 18px;
-  bottom: 18px;
-  left: 18px;
+  right: 14px;
+  bottom: 14px;
+  left: 14px;
   display: flex;
-  min-height: 30px;
+  min-height: 26px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 7px;
   color: rgb(255 253 248 / 72%);
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
@@ -1190,16 +1490,16 @@
 .discover-lab-evidence {
   position: absolute;
   z-index: 3;
-  right: 16px;
-  bottom: 16px;
-  left: 16px;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
   display: grid;
-  gap: 6px;
-  padding: 15px 16px;
+  gap: 5px;
+  padding: 13px 14px;
   border: 1px solid rgb(255 253 248 / 70%);
-  border-radius: 12px;
-  background: rgb(255 253 248 / 91%);
-  box-shadow: 0 16px 34px rgb(49 36 27 / 18%);
+  border-radius: 11px;
+  background: rgb(255 253 248 / 92%);
+  box-shadow: 0 16px 32px rgb(49 36 27 / 22%);
   backdrop-filter: blur(12px);
 }
 
@@ -1212,8 +1512,9 @@
 }
 
 .discover-lab-evidence > strong {
+  color: var(--ink);
   font-family: var(--display);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 500;
 }
 
@@ -1221,22 +1522,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .discover-lab-evidence > span b {
   color: var(--maroon-800);
-  font-size: 10px;
+  font-size: 9.5px;
 }
 
 .discover-lab-evidence em {
   margin-top: 2px;
-  padding-top: 8px;
+  padding-top: 7px;
   border-top: 1px solid rgb(92 75 62 / 14%);
   color: var(--ink);
-  font-size: 11px;
+  font-size: 10.5px;
   font-style: normal;
   font-weight: 700;
 }
@@ -1245,34 +1546,40 @@
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 6px;
-  padding: 0 3px;
-  background: var(--ivory);
+  gap: 5px;
+  padding: 0 2px;
+  background: transparent;
 }
 
 .discover-lab-copy small {
-  color: var(--maroon-800);
-  font-size: 11px;
-  font-weight: 620;
+  color: #dcb277;
+  font-size: 10px;
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
+/* Left to inherit from the card so the hover tint reaches the title. */
 .discover-lab-copy strong {
   font-family: var(--display);
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 500;
+  line-height: 1.2;
 }
 
 .discover-lab-copy em {
-  color: var(--ink-soft);
-  font-size: 13px;
+  color: rgb(253 247 236 / 68%);
+  font-size: 12px;
   font-style: normal;
-  line-height: 1.5;
+  line-height: 1.48;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .discover-editorial-card:hover,
   .discover-editorial-card:hover .discover-editorial-media img,
+  .discover-editorial-card.is-featured:hover .discover-editorial-run,
+  .discover-intention-tile:hover,
+  .discover-intention-tile:hover .discover-intention-media img,
   .discover-lab-card:hover .discover-lab-graphic,
   .discover-lab-card:hover .discover-lab-scene-photo {
     transform: none;
@@ -1338,12 +1645,77 @@
   line-height: 1.02;
 }
 
+/* Block, not inline: the second clause is the line that carries the italic, so
+   it must break there at every width rather than wherever the column ends. */
+
+.shop-heading h1 em {
+  display: block;
+  color: var(--maroon-800);
+  font-style: italic;
+  font-weight: 400;
+}
+
 .shop-lede {
   max-width: 58ch;
   margin: 0;
   color: var(--ink-soft);
   font-size: 14.5px;
   line-height: 1.6;
+}
+
+/* Editorial hero: the still bleeds off the top and right of the surface, the
+   headline sits on bare canvas beside it, and the search console straddles the
+   photograph's lower edge. The negative margins cancel .shop-main's padding, so
+   the bleed stops at the same 1400px column as the product grid and keeps
+   working when the Ask Mosaic sidecar narrows the column. */
+
+.shop-hero {
+  position: relative;
+  margin: calc(-1 * clamp(34px, 4vw, 58px)) calc(-1 * clamp(24px, 5vw, 60px)) 0;
+  padding: clamp(34px, 4vw, 58px) clamp(24px, 5vw, 60px) 0;
+}
+
+.shop-hero-photo {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(58%, 880px);
+  height: clamp(320px, 34vw, 500px);
+  overflow: hidden;
+  /* The still opens on an ivory wall, so a soft left edge reads as one
+     continuous surface with the canvas rather than a pasted-in rectangle. */
+  mask-image: linear-gradient(90deg, transparent 0, #000 14%);
+}
+
+/* The console card covers most of the still's lower edge, but a strip of it
+   stays visible outside the card's right margin. Fading that strip into the
+   canvas avoids a cut line hanging in mid-air beside the card. */
+
+.shop-hero-photo::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: clamp(60px, 8vw, 110px);
+  background: linear-gradient(180deg, rgb(246 244 239 / 0%), var(--mosaic-canvas));
+  content: "";
+}
+
+.shop-hero-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 62% 48%;
+}
+
+.shop-hero .shop-heading {
+  position: relative;
+  max-width: 44%;
+  margin-bottom: 0;
+}
+
+.shop-hero .shop-lede {
+  max-width: 46ch;
 }
 
 /* Search + Ask. The pill shell is shared with Discover so the two surfaces
@@ -1368,6 +1740,22 @@
 .shop-search:focus-within {
   border-color: rgb(92 75 62 / 34%);
   box-shadow: 0 14px 38px rgb(48 37 28 / 11%);
+}
+
+/* The focus-within border above only shifts one brown tint to another, which is
+   not an indicator. Here the pill is this wrapper and the composer form inside
+   it is transparent, so the keyboard ring goes on the wrapper - a ring on the
+   form would be drawn inside the pill. Scoped to the field: the Ask Mosaic
+   button sharing the pill carries its own ring. */
+.discover-search:has(input:focus-visible),
+.shop-search:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.discover-search .search-composer:has(input:focus-visible),
+.shop-search .search-composer:has(input:focus-visible) {
+  outline: 0;
 }
 
 .shop-search {
@@ -1668,6 +2056,171 @@
   left: 118%;
 }
 
+/* The search console. Deliberately not clipped: the autocomplete panel drops
+   out of the pill on absolute position, so overflow: hidden here would cut the
+   suggestions off. Only the note cell clips, for its photograph. */
+
+.shop-console {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: clamp(22px, 2.6vw, 36px);
+  border: 1px solid rgb(92 75 62 / 10%);
+  border-radius: 20px;
+  background: var(--paper);
+  box-shadow: 0 20px 48px rgb(48 37 28 / 13%);
+}
+
+.shop-console-search {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 15px;
+  padding: clamp(15px, 1.5vw, 21px);
+}
+
+/* Inside the console the pill is a field, not a raised object - the card
+   already carries the elevation. */
+
+.shop-console .shop-search {
+  min-height: 0;
+  padding: 6px 7px 6px 3px;
+  border-color: rgb(92 75 62 / 15%);
+  box-shadow: none;
+}
+
+.shop-console .shop-search:focus-within {
+  border-color: rgb(92 75 62 / 34%);
+  box-shadow: 0 8px 20px rgb(48 37 28 / 8%);
+}
+
+/* One row that scrolls. These are whole example queries rather than one-word
+   facets, so wrapping them turns a caption into a three-line block and pushes
+   the console over the photograph's bottom edge. */
+
+.shop-suggested {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  overflow-x: auto;
+  padding: 0 5px 2px;
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 34px), transparent);
+  scrollbar-width: none;
+}
+
+.shop-suggested::-webkit-scrollbar {
+  display: none;
+}
+
+.shop-suggested > span {
+  flex: 0 0 auto;
+  margin-right: 3px;
+  color: var(--ink-soft);
+  font-size: 10.5px;
+  font-weight: 620;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.shop-suggested > button {
+  min-height: 34px;
+  flex: 0 0 auto;
+  padding: 0 15px;
+  border: 1px solid rgb(92 75 62 / 16%);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12.5px;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.shop-suggested > button:hover {
+  border-color: rgb(92 75 62 / 34%);
+  background: var(--mosaic-stone);
+}
+
+.shop-console-note {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  overflow: hidden;
+  padding: clamp(17px, 1.7vw, 23px) 132px clamp(17px, 1.7vw, 23px) clamp(20px, 2vw, 28px);
+  border-top: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 0 0 20px 20px;
+  background: linear-gradient(180deg, rgb(236 231 222 / 34%), rgb(236 231 222 / 0%) 72%);
+}
+
+/* The note sits beside the search field only where both cells can hold their
+   content. Ask Mosaic takes 410-520px off this column when it opens as a
+   sidecar, which is why the width test also excludes that state. */
+
+@media (min-width: 1181px) {
+  .shop-canvas:not(.assist-open) .shop-console {
+    grid-template-columns: minmax(0, 1.44fr) minmax(0, 1fr);
+  }
+
+  .shop-canvas:not(.assist-open) .shop-console-note {
+    border-top: 0;
+    border-left: 1px solid rgb(92 75 62 / 12%);
+    border-radius: 0 20px 20px 0;
+  }
+}
+
+.shop-console-note > small {
+  color: var(--maroon-800);
+  font-size: 10.5px;
+  font-weight: 620;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.shop-console-note > strong {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.shop-console-note ul {
+  display: grid;
+  gap: 5px;
+  margin: 5px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shop-console-note li {
+  display: grid;
+  align-items: start;
+  gap: 8px;
+  grid-template-columns: 15px minmax(0, 1fr);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.shop-console-note li svg {
+  margin-top: 2px;
+  color: var(--maroon-800);
+}
+
+/* Bleeds into the card's outside corner, faded so it reads as part of the
+   paper rather than a second panel. */
+
+.shop-console-note-photo {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 148px;
+  height: 100%;
+  object-fit: cover;
+  object-position: 46% 54%;
+  mask-image: linear-gradient(90deg, transparent 0, #000 62%);
+  pointer-events: none;
+}
+
 /* Category + control row */
 
 .shop-controls {
@@ -1798,7 +2351,7 @@
 
 .shop-sort:has(select:focus-visible) {
   border-color: var(--maroon-700);
-  outline: 3px solid rgb(13 110 117 / 38%);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -2147,19 +2700,28 @@
   position: relative;
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 3 / 2;
   overflow: hidden;
   border-radius: 0;
   background: #efebe4;
 }
 
+/* The catalog plates are already 3:2, so they fill this frame with no crop. The
+   product-bound studio files are square; cover trades their top and bottom
+   margin for a photograph that reaches both card edges, which is what makes the
+   card read as an image rather than a framed thumbnail. */
+
 .shop-product-card .product-image img {
   width: 100%;
   height: 100%;
-  padding: 10px;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
   image-rendering: auto;
+  transition: transform 240ms ease;
+}
+
+.shop-product-card:hover .product-image img {
+  transform: scale(1.035);
 }
 
 .shop-product-card .catalog-favorite-button {
@@ -2207,7 +2769,7 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  padding: 15px 16px 16px;
+  padding: 13px 15px 13px;
 }
 
 .shop-card-kicker {
@@ -2300,7 +2862,9 @@
   justify-content: space-between;
   gap: 12px;
   margin-top: auto;
-  padding-top: 13px;
+  /* The add button is taller than the price it sits beside, so it already
+     supplies most of the space under the title. */
+  padding-top: 7px;
 }
 
 .shop-card-price {
@@ -2320,8 +2884,8 @@
 .shop-quick-add {
   position: relative;
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
   padding: 0;
   place-items: center;
@@ -2815,7 +3379,17 @@
   background: #ece5dc;
 }
 
-.ask-mosaic-ask span {
+/*
+ * The "YOU ASKED" eyebrow only.
+ *
+ * This was `.ask-mosaic-ask span`, which also matched the icon medallion and the
+ * edit/re-ask control group - both spans, both direct children. At 0,1,1 it beat
+ * `.ask-mosaic-request-icon` (0,1,0), so `display: block` overrode that rule's
+ * `display: grid`, `place-items: center` stopped applying, and the sparkle sat
+ * in the medallion's top-left corner instead of its centre. The control group
+ * lost its `inline-flex` and `gap` the same way.
+ */
+.ask-mosaic-request-copy > span {
   display: block;
   margin-bottom: 4px;
   color: var(--gold);
@@ -2831,6 +3405,32 @@
   font-size: 14px;
   font-weight: 550;
   line-height: 1.45;
+}
+
+/* Re-runs this question as a new turn, leaving the answer it already produced in
+   place above it. Only the newest exchange carries one, so the button is always
+   next to the request the next turn will follow. */
+
+.ask-mosaic-ask-again {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 4px 11px 4px 9px;
+  border: 1px solid rgb(92 75 62 / 18%);
+  border-radius: 999px;
+  background: rgb(255 253 248 / 66%);
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  font-weight: 620;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.ask-mosaic-ask-again:hover,
+.ask-mosaic-ask-again:focus-visible {
+  border-color: var(--maroon-700);
+  background: var(--paper);
+  color: var(--maroon-900);
 }
 
 /* Opaque, not translucent and blurred. This bar sits under a scrolling column
@@ -2895,90 +3495,6 @@
 
 .ask-mosaic-composer .search-composer button:hover:not(:disabled) {
   background: var(--maroon-800);
-}
-
-.ask-mosaic-progress {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 16px 0 0;
-  padding: 0 0 16px;
-  border-bottom: 1px solid var(--line);
-  list-style: none;
-}
-
-.ask-mosaic-progress li {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 7px;
-  color: var(--ink-faint);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.03em;
-}
-
-.ask-mosaic-progress li:not(:last-child)::after {
-  position: absolute;
-  z-index: 0;
-  top: 12px;
-  left: calc(50% + 13px);
-  width: calc(100% - 26px);
-  height: 2px;
-  border-radius: 2px;
-  background: var(--line-dark);
-  content: "";
-  transition: background 260ms ease, box-shadow 260ms ease;
-}
-
-.ask-mosaic-progress li > span {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  width: 26px;
-  height: 26px;
-  place-items: center;
-  border: 1px solid var(--line-dark);
-  border-radius: 50%;
-  background: var(--paper);
-  font-size: 11px;
-}
-
-.ask-mosaic-progress li.complete {
-  color: var(--green);
-}
-
-.ask-mosaic-progress li.complete:not(:last-child)::after {
-  background: var(--green);
-  box-shadow: 0 0 8px rgb(44 102 81 / 18%);
-}
-
-.ask-mosaic-progress li.complete > span {
-  border-color: var(--green);
-  background: var(--green-soft);
-}
-
-.ask-mosaic-progress li.active {
-  color: var(--maroon-900);
-}
-
-.ask-mosaic-progress li.active > span {
-  border-color: var(--maroon-800);
-  background: var(--maroon-100);
-  animation: ask-mosaic-pulse 1.9s ease-out infinite;
-}
-
-@keyframes ask-mosaic-pulse {
-  from {
-    box-shadow: 0 0 0 0 rgb(103 24 37 / 32%);
-  }
-
-  70% {
-    box-shadow: 0 0 0 9px rgb(103 24 37 / 0%);
-  }
-
-  to {
-    box-shadow: 0 0 0 0 rgb(103 24 37 / 0%);
-  }
 }
 
 .ask-mosaic-live {
@@ -3377,6 +3893,47 @@
   font-size: 12px;
 }
 
+/* The constraints the agent's searches actually carried, at the Interpret
+   position above the answer. Chips rather than a list, because each one is a
+   single field of a SearchFilters the service already ran. */
+
+.ask-mosaic-criteria {
+  margin-top: 18px;
+  padding: 12px 15px 14px;
+  border: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 6px;
+  background: var(--paper);
+}
+
+.ask-mosaic-criteria h3 {
+  margin: 0 0 9px;
+  color: var(--maroon-900);
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.ask-mosaic-criteria ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-mosaic-criteria li {
+  padding: 4px 10px;
+  border: 1px solid rgb(103 24 37 / 16%);
+  border-radius: 999px;
+  background: var(--maroon-100);
+  color: var(--maroon-900);
+  font-size: 11.5px;
+  font-weight: 620;
+}
+
 .ask-mosaic-shortlist {
   display: grid;
   gap: 12px;
@@ -3389,14 +3946,25 @@
   min-width: 0;
 }
 
+/*
+ * Photograph, name, price, and the arms that retrieved the row.
+ *
+ * Two rows so the signal chips get the full width of the card rather than the
+ * ~170px left over beside a right-aligned price. The thumbnail and the chevron
+ * span both rows; naming them in each row of `grid-template-areas` is what
+ * makes them span.
+ */
 .ask-mosaic-shortlist button {
   display: grid;
   width: 100%;
-  min-height: 118px;
-  grid-template-columns: 116px minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: center;
-  padding: 10px 14px 10px 10px;
+  min-height: 94px;
+  grid-template-areas:
+    "media copy     price   chevron"
+    "media signals  signals chevron";
+  grid-template-columns: 80px minmax(0, 1fr) auto 14px;
+  gap: 7px 12px;
+  align-items: start;
+  padding: 11px 12px 11px 11px;
   border: 1px solid rgb(92 75 62 / 12%);
   border-radius: 16px;
   background: var(--paper);
@@ -3416,10 +3984,12 @@
 .ask-mosaic-shortlist-media {
   position: relative;
   display: block;
-  width: 116px;
-  height: 96px;
+  width: 80px;
+  height: 80px;
+  align-self: center;
   overflow: hidden;
-  border-radius: 12px;
+  grid-area: media;
+  border-radius: 10px;
   background: #efebe4;
 }
 
@@ -3433,11 +4003,11 @@
 
 .ask-mosaic-shortlist-media > small {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  top: 5px;
+  left: 5px;
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   place-items: center;
   border: 2px solid rgb(255 253 248 / 88%);
   border-radius: 50%;
@@ -3445,33 +4015,60 @@
   box-shadow: 0 4px 14px rgb(43 13 19 / 34%);
   color: #fff;
   font-family: var(--sans);
-  font-size: 12.5px;
+  font-size: 11px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   text-shadow: 0 1px 2px rgb(0 0 0 / 22%);
 }
 
-.ask-mosaic-shortlist button > div {
+.ask-mosaic-shortlist-copy {
   display: grid;
   min-width: 0;
+  align-self: center;
   gap: 3px;
+  grid-area: copy;
 }
 
-.ask-mosaic-shortlist button > div > small {
+.ask-mosaic-shortlist-copy > small {
   overflow: hidden;
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: 11.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ask-mosaic-shortlist strong {
+.ask-mosaic-shortlist-meta {
+  display: grid;
+  align-self: center;
+  gap: 2px;
+  grid-area: price;
+  justify-items: end;
+  text-align: right;
+}
+
+.ask-mosaic-shortlist-meta > strong {
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ask-mosaic-shortlist-meta > small {
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ask-mosaic-shortlist-copy > strong {
   display: -webkit-box;
   overflow: hidden;
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 14.5px;
+  font-size: 13.5px;
   font-weight: 700;
   line-height: 1.28;
   -webkit-box-orient: vertical;
@@ -3493,18 +4090,125 @@
 
 /* Which arms found the row, and the reranker score. This used to read
    "RRF #2 · Final #1", which names two internal ranks and answers nothing a
-   shopper asked; it wraps to a second line rather than ellipsising, because the
-   arm names are the reason and the number alone is not. */
-.ask-mosaic-shortlist em {
+   shopper asked. One chip per arm, because the arm names are the reason and the
+   number alone is not; they wrap as units rather than mid-phrase. */
+.ask-mosaic-shortlist-signals {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-self: center;
+  gap: 5px;
+  grid-area: signals;
+}
+
+.ask-mosaic-shortlist-signals > span {
+  padding: 3px 7px;
+  border: 1px solid #e2d6cf;
+  border-radius: 5px;
+  background: #fbf5f2;
   color: var(--maroon-800);
-  font-size: 11.5px;
-  font-style: normal;
+  font-family: var(--sans);
+  font-size: 9.5px;
+  font-weight: 640;
   font-variant-numeric: tabular-nums;
-  line-height: 1.4;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .ask-mosaic-shortlist button > svg {
+  align-self: center;
+  grid-area: chevron;
   color: var(--ink-faint);
+}
+
+/*
+ * Side-by-side product records, three columns wide inside a 410-520px sidecar.
+ *
+ * The box scrolls sideways rather than the panel, and the field-name column is
+ * sticky, so a value is never read against the wrong row while it does.
+ */
+.ask-mosaic-compare-scroll {
+  overflow-x: auto;
+  border: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.ask-mosaic-compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.ask-mosaic-compare th,
+.ask-mosaic-compare td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.ask-mosaic-compare tbody tr:last-child th,
+.ask-mosaic-compare tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ask-mosaic-compare tbody th {
+  position: sticky;
+  left: 0;
+  background: var(--paper);
+  color: var(--ink-faint);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ask-mosaic-compare thead th,
+.ask-mosaic-compare thead td {
+  min-width: 106px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.ask-mosaic-compare thead th small {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--gold);
+  font-size: 9.5px;
+  font-weight: 780;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.ask-mosaic-compare tbody td {
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Marks the column holding the ranked leader. It says which product finished
+   first, not that any value in the column is the better one. */
+
+/* Olive, the colour this panel already uses for a step that passed. Maroon is
+   the brand accent and reads as a warning next to a table of prices. */
+.ask-mosaic-compare .leader {
+  background: rgb(113 131 75 / 9%);
+  color: var(--ink);
+}
+
+.ask-mosaic-compare thead th.leader {
+  background: rgb(113 131 75 / 15%);
+  box-shadow: inset 0 2px 0 #71834b;
+}
+
+.ask-mosaic-compare thead th.leader small {
+  color: #5c6b3d;
 }
 
 /*
@@ -5102,13 +5806,19 @@
 /* Responsive composition */
 
 @media (max-width: 1460px) {
-  .shop-product-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .shop-canvas.assist-open .shop-main {
     padding-right: 22px;
     padding-left: 22px;
+  }
+}
+
+/* Four across holds down to ~1280, where a card is still 265px wide - wide
+   enough for the photograph to carry the card, which is the point of the grid.
+   The Ask Mosaic sidecar overrides this to two on its own. */
+
+@media (max-width: 1280px) {
+  .shop-product-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -5205,6 +5915,71 @@
     width: auto;
     margin-top: 0;
   }
+
+  /* Below the two-column band the statement becomes a single banner row with the
+     pill at the far right, and the plates take the full width beneath it - so
+     they revert to squares rather than growing into very tall portraits. */
+  .discover-labs-inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+  }
+
+  /* Follows the type up to the banner row, capped so the pool stays behind the
+     statement instead of spilling over the plates. Blurred harder than the
+     desktop figure: at this height the strands run level with the headline, and
+     anything sharper reads as a beam pointed at the type. */
+  .discover-labs-signal {
+    inset: 0 auto auto 0;
+    width: min(78%, 860px);
+    height: min(48%, 200px);
+  }
+
+  .discover-labs-signal svg {
+    filter: blur(14px);
+    opacity: 0.58;
+  }
+
+  .discover-labs-copy {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .discover-labs-kicker,
+  .discover-labs h2,
+  .discover-labs-lede {
+    grid-column: 1;
+  }
+
+  .discover-labs-lede {
+    max-width: 76ch;
+  }
+
+  .discover-labs-cta {
+    margin-top: 0;
+    grid-column: 2;
+    grid-row: 1 / -1;
+    align-self: center;
+    justify-self: end;
+  }
+
+  .discover-labs-grid > :nth-child(2) {
+    margin-top: 0;
+  }
+
+  .discover-lab-graphic {
+    aspect-ratio: 1;
+  }
+
+  /* The headline needs more of the row than the still does once the column
+     narrows, or "Find what fits" breaks across three lines. */
+  .shop-hero-photo {
+    width: min(52%, 640px);
+    height: clamp(272px, 30vw, 360px);
+  }
+
+  .shop-hero .shop-heading {
+    max-width: 47%;
+  }
 }
 
 @media (max-width: 900px) {
@@ -5262,6 +6037,24 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  /* Two columns no longer hold both the headline and the still, so the still
+     becomes a full-width band and the type moves below it. */
+  .shop-hero {
+    padding-top: 0;
+  }
+
+  .shop-hero-photo {
+    position: static;
+    width: auto;
+    height: clamp(190px, 32vw, 260px);
+    margin: 0 calc(-1 * clamp(24px, 5vw, 60px)) clamp(24px, 3vw, 34px);
+    mask-image: none;
+  }
+
+  .shop-hero .shop-heading {
+    max-width: none;
+  }
+
   .labs-premium {
     gap: 32px;
     padding: 28px 20px 56px;
@@ -5310,13 +6103,52 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .discover-hero-content {
-    padding-inline: 22px;
+  /* The overlaid hero is a desktop composition. Below 900px the copy column is
+     too narrow to keep the headline, lede, search field and prompt row clear of
+     the photograph - the prompt chips end up floating over the still life - so
+     the picture becomes its own band and the copy sits on paper beneath it. */
+  .discover-hero {
+    min-height: 0;
+    align-items: stretch;
+    background: var(--mosaic-surface);
+    grid-template-rows: 260px auto;
   }
 
-  /* Three intents stay in three columns: a 2-up grid orphans the third card. */
+  .discover-backdrop {
+    position: relative;
+    z-index: 0;
+    inset: auto;
+    height: 260px;
+    grid-row: 1;
+  }
+
+  /* Nothing overlaps the photograph any more, so there is nothing to even out. */
+  .discover-scrim {
+    display: none;
+  }
+
+  .discover-hero-content {
+    width: 100%;
+    padding: 30px 30px 34px;
+    grid-row: 2;
+  }
+
+  /* Under 900px the featured card's copy and plate no longer both fit on one
+     row, so the whole set stacks and the lead card keeps its emphasis through
+     size rather than through position. */
   .discover-editorial-grid {
     gap: 14px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .discover-editorial-card.is-featured {
+    grid-row: auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 38%);
+  }
+
+  /* Once the row is scrolling anyway, stop shrinking the plates to fit. */
+  .discover-intention-rail {
+    grid-auto-columns: minmax(170px, 1fr);
   }
 
   .discover-plate {
@@ -5327,14 +6159,54 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .discover-labs {
+    padding: 22px 18px 26px;
+    border-radius: 18px;
+  }
+
+  /* One plate per row: a landscape crop keeps a full-width scene from taking
+     over the viewport. */
   .discover-labs-grid {
     grid-template-columns: 1fr;
   }
+
+  .discover-lab-graphic {
+    aspect-ratio: 16 / 10;
+  }
+
+  /* The overlays are proportioned for a ~270px portrait plate. On a full-width
+     landscape one the same percentages leave the rank cluster floating over dead
+     ground and stretch the evidence card into a banner, so both re-anchor. */
+  .discover-lab-rank-products {
+    inset: auto 14px 32px;
+    height: 78%;
+  }
+
+  /* The rank order is carried by height, so the three restate together - a lone
+     override on the base class would flatten the leader back into the pack. */
+  .discover-lab-rank-product {
+    height: 84%;
+    margin-inline: -6px;
+  }
+
+  .discover-lab-rank-product-one {
+    height: 100%;
+  }
+
+  .discover-lab-rank-product-three {
+    height: 91%;
+  }
+
+  .discover-lab-evidence {
+    right: auto;
+    max-width: min(360px, 68%);
+  }
 }
 
-/* Laptop-height desktops (1366x768 is the room projector) sit against the hero's
-   440px floor, so the height formula alone cannot clear the fold there. Tighter
-   block padding buys the remaining room. */
+/* Laptop-height desktops (1366x768 is the room projector) have to clear the fold
+   with the headline, lede, search field and prompt row all inside the hero. The
+   base min(560px, 100vh - 128px) height does not buy that room on its own;
+   tighter block padding does. */
 @media (min-width: 901px) and (max-height: 850px) {
   .discover-hero-content {
     padding-block: clamp(40px, 6vh, 64px);
@@ -5349,10 +6221,10 @@
   }
 }
 
-/* Below 700px of viewport height the base 440px floor is what pushes the search
-   field under the fold - a 1024x640 projector mode ends up 66px short. Keep the
-   height formula and lower only the floor, so a short window gets every pixel
-   it can spare and still keeps the field on screen. */
+/* Shorter windows still (1024x640 projector mode is the tight case) need more.
+   Recompute the height against the shorter window - a 440px ceiling instead of
+   560px, and more chrome subtracted - and fix the block padding, so the hero
+   asks for no more height than its own content needs. */
 @media (min-width: 901px) and (max-height: 700px) {
   .discover-hero {
     min-height: clamp(260px, calc(100vh - 344px), 440px);
@@ -5364,6 +6236,32 @@
 }
 
 @media (max-width: 640px) {
+  /* No room for a banner row on a phone: the statement stacks again and the pill
+     goes back under the lede. */
+  .discover-labs-copy {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .discover-labs-cta {
+    margin-top: 4px;
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .discover-labs-signal {
+    width: 100%;
+    height: min(52%, 240px);
+  }
+
+  /* A phone plate is ~190px tall, so the cluster has to clear both the shortlist
+     pill above it and the fusion receipt below it or the leader card lands under
+     one of them. */
+  .discover-lab-rank-products {
+    inset: auto 12px 40px;
+    height: 56%;
+  }
+
   /* The 60px strip of catalog the panel leaves visible at tablet width is worth
      a third of the shortlist's text column on a phone, and there is nothing to
      read in it while the panel is open. */
@@ -5430,33 +6328,44 @@
     overflow: visible;
   }
 
+  /* The stacked hero arrives at 900px; a phone only needs a shallower band. */
   .discover-hero {
     width: calc(100% - 24px);
-    min-height: 590px;
     margin: 12px auto 0;
     border-radius: 18px;
+    grid-template-rows: 236px auto;
+  }
+
+  .discover-backdrop {
+    height: 236px;
   }
 
   .discover-backdrop img {
     object-position: 61% center;
   }
 
-  .discover-scrim {
-    background: linear-gradient(
-      0deg,
-      rgb(249 246 241 / 98%) 0%,
-      rgb(249 246 241 / 92%) 38%,
-      rgb(249 246 241 / 20%) 72%,
-      transparent 100%
-    );
+  .discover-hero-content {
+    justify-items: start;
+    padding: 26px 24px 32px;
+    text-align: left;
   }
 
-  .discover-hero-content {
+  .discover-hero .discover-search {
+    max-width: none;
+    margin-top: 20px;
+  }
+
+  /* Three chips in a column would push the field off a phone screen; the row
+     scrolls sideways instead. */
+  .discover-hero-prompts {
     width: 100%;
-    align-self: end;
-    justify-items: start;
-    padding: 270px 24px 36px;
-    text-align: left;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .discover-hero-prompts > button {
+    flex: 0 0 auto;
   }
 
   .discover-hero h1 {
@@ -5477,6 +6386,20 @@
     grid-template-columns: minmax(0, 1fr);
     padding: 10px;
     border-radius: 22px;
+  }
+
+  .shop-console .shop-search {
+    padding: 8px;
+  }
+
+  /* A 148px photograph on a phone-width card leaves the bullets about 180px of
+     column, which wraps every one of them onto three lines. */
+  .shop-console-note {
+    padding-right: clamp(20px, 2vw, 28px);
+  }
+
+  .shop-console-note-photo {
+    display: none;
   }
 
   .discover-search {
@@ -5623,27 +6546,6 @@
     grid-template-columns: 1fr;
   }
 
-  .ask-mosaic-shortlist button {
-    min-height: 120px;
-    grid-template-columns: 112px minmax(0, 1fr) auto;
-    grid-template-rows: auto;
-  }
-
-  .ask-mosaic-shortlist-media {
-    width: 112px;
-    height: 94px;
-    grid-column: 1;
-  }
-
-  .ask-mosaic-shortlist button > div {
-    grid-column: 2;
-    align-self: center;
-  }
-
-  .ask-mosaic-shortlist button > svg {
-    grid-column: 3;
-  }
-
   .labs-premium {
     gap: 32px;
     padding: 22px 14px 46px;
@@ -5689,28 +6591,12 @@
     overflow-wrap: anywhere;
   }
 
-  /* Phone spacing brings the content block to 399px so kicker, headline,
-     subtitle, and both buttons sit inside the 420px frame. */
-  .discover-hero-content {
-    padding-block: 26px;
-  }
-
   .discover-hero-kicker {
     margin-bottom: 12px;
   }
 
   .discover-hero-sub {
     margin-top: 14px;
-  }
-
-  .discover-hero-actions {
-    gap: 10px;
-    margin-top: 20px;
-  }
-
-  .discover-hero-actions button,
-  .discover-hero-actions a {
-    padding: 0 22px;
   }
 
   /* The autocomplete and Ask Mosaic stay in two rows so the editorial stories
@@ -5729,6 +6615,20 @@
   .discover-editorial-grid,
   .discover-shop-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* On a phone the featured card's plate goes above its copy rather than beside
+     it; a 38% column is too narrow to show the object. */
+  .discover-editorial-card.is-featured {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .discover-editorial-card.is-featured .discover-editorial-media {
+    grid-area: auto;
+  }
+
+  .discover-editorial-card.is-featured .discover-editorial-body {
+    grid-area: auto;
   }
 }
 
@@ -5750,7 +6650,7 @@
   .shop-filter-sheet,
   .ask-mosaic-sidecar,
   .ask-mosaic-turn,
-  .ask-mosaic-progress li.active > span,
+  .ask-mosaic-progress > li.active .ask-mosaic-stage-node,
   .ask-mosaic-live::after,
   .ask-mosaic-answer.streaming > :last-child::after {
     animation: none;
@@ -6408,6 +7308,11 @@
 }
 
 .labs-engine-board {
+  /* Inverted field, so the default maroon ring would land on maroon. Every
+     control in the pipeline - presets, stage rail, replay - is keyboard
+     reachable, so this one has to carry. */
+  --focus: #f6ece7;
+
   position: relative;
   gap: 36px;
   overflow: hidden;
@@ -7417,7 +8322,10 @@
   font-size: var(--labs-h2);
 }
 
-@media (max-width: 1460px) {
+/* Tracks .shop-product-grid so the skeleton does not resolve into a different
+   column count than the products that replace it. */
+
+@media (max-width: 1280px) {
   .catalog-skeleton-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -8979,4 +9887,1670 @@
   .hnsw-ab-controls {
     padding-inline: 16px;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Mosaic premium alignment. These rules finish the Claude Code pass against
+   the supplied Discover, Shop, Ask Mosaic, and Retrieval Observatory boards.
+   They intentionally leave the HNSW and Studio instruments structurally intact.
+   --------------------------------------------------------------------------- */
+
+.discover-hero {
+  border-radius: 12px;
+  box-shadow: 0 16px 42px rgb(48 37 28 / 8%);
+}
+
+.discover-editorial-card.is-featured,
+.discover-editorial-card:not(.is-featured),
+.discover-intention-media {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.discover-editorial-card.is-featured .discover-editorial-media,
+.discover-editorial-card:not(.is-featured) .discover-editorial-media {
+  border-radius: 6px;
+}
+
+.discover-labs {
+  border-radius: 8px;
+}
+
+.shop-console {
+  border-radius: 8px;
+  box-shadow: 0 16px 38px rgb(48 37 28 / 9%);
+}
+
+.shop-console-note {
+  border-radius: 0 0 8px 8px;
+}
+
+@media (min-width: 1181px) {
+  .shop-canvas:not(.assist-open) .shop-console-note {
+    border-radius: 0 8px 8px 0;
+  }
+}
+
+.shop-controls {
+  margin-top: clamp(30px, 3.4vw, 46px);
+  padding-bottom: 12px;
+}
+
+.shop-filter-toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 14px 0;
+  border-bottom: 1px solid rgb(92 75 62 / 12%);
+  scrollbar-width: none;
+}
+
+.shop-filter-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.shop-filter-toolbar > button,
+.shop-filter-toolbar .shop-sort {
+  display: inline-flex;
+  min-height: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid rgb(92 75 62 / 17%);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 620;
+  letter-spacing: 0;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.shop-filter-toolbar > button:hover,
+.shop-filter-toolbar .shop-sort:hover {
+  border-color: rgb(92 75 62 / 34%);
+  background: #f1ece4;
+}
+
+.shop-filter-toolbar .shop-filter-button.all {
+  border-color: var(--maroon-800);
+  color: var(--maroon-900);
+}
+
+.shop-filter-toolbar .shop-filter-button > span {
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--maroon-800);
+  color: #fff;
+  font-size: 10px;
+}
+
+.shop-filter-toolbar .shop-sort {
+  min-width: 136px;
+  margin-left: auto;
+  padding-right: 10px;
+}
+
+.shop-filter-toolbar .shop-sort select {
+  width: 100%;
+  padding: 0 24px 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.shop-stock-toggle > span {
+  position: relative;
+  display: block;
+  width: 30px;
+  height: 17px;
+  border-radius: 9px;
+  background: #c9c4bc;
+  transition: background 180ms ease;
+}
+
+.shop-stock-toggle > span i {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(48 37 28 / 20%);
+  transition: transform 180ms ease;
+}
+
+.shop-stock-toggle.active {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.shop-stock-toggle.active > span {
+  background: var(--green);
+}
+
+.shop-stock-toggle.active > span i {
+  transform: translateX(13px);
+}
+
+.shop-product-card {
+  border-radius: 6px;
+}
+
+.shop-canvas.assist-open {
+  grid-template-columns: minmax(0, 1fr) clamp(520px, 40vw, 680px);
+}
+
+.ask-mosaic-sidecar {
+  width: clamp(520px, 40vw, 680px);
+  border-left-color: #d8cfc3;
+  background: #fcf9f3;
+  box-shadow: -18px 0 52px rgb(48 37 28 / 9%);
+}
+
+.ask-mosaic-header {
+  min-height: 86px;
+  padding: 17px 22px;
+  border-bottom-color: #ded5ca;
+  background: rgb(252 249 243 / 96%);
+}
+
+.ask-mosaic-header > div > span {
+  width: 42px;
+  height: 42px;
+  background: var(--maroon-900);
+  color: #e6c27e;
+}
+
+.ask-mosaic-header h2 {
+  color: var(--maroon-950);
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.ask-mosaic-header p {
+  margin-top: 5px;
+  color: #766e67;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ask-mosaic-body {
+  padding: 20px 22px 30px;
+  scrollbar-color: rgb(126 36 49 / 38%) transparent;
+}
+
+.ask-mosaic-turn {
+  display: grid;
+  gap: 18px;
+}
+
+.ask-mosaic-ask {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px 15px;
+  padding: 18px 20px;
+  border: 1px solid #ded5ca;
+  border-radius: 8px;
+  background: #fffdf9;
+}
+
+.ask-mosaic-request-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  place-items: center;
+  border: 1px solid #e5d7c7;
+  border-radius: 50%;
+  background: #faf2e5;
+  color: #a46d2f;
+  letter-spacing: 0;
+}
+
+.ask-mosaic-request-copy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.ask-mosaic-request-copy > span {
+  margin: 0;
+  color: var(--maroon-800);
+}
+
+.ask-mosaic-request-copy p {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 20px;
+  line-height: 1.28;
+}
+
+.ask-mosaic-request-actions {
+  display: inline-flex;
+  grid-column: 3;
+  gap: 5px;
+}
+
+.ask-mosaic-edit-request,
+.ask-mosaic-ask-again {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--maroon-800);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ask-mosaic-edit-request:hover,
+.ask-mosaic-edit-request:focus-visible,
+.ask-mosaic-ask-again:hover,
+.ask-mosaic-ask-again:focus-visible {
+  border-color: #d8c9c1;
+  background: #f4ede6;
+}
+
+.ask-mosaic-timeline {
+  min-width: 0;
+}
+
+.ask-mosaic-timeline-heading {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 28px;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 13px;
+  padding: 0 12px;
+  border: 1px solid #dbcac3;
+  border-radius: 14px;
+  color: var(--maroon-800);
+  font-size: 10px;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ask-mosaic-progress {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  list-style: none;
+}
+
+/*
+ * Direct children only.
+ *
+ * This was `.ask-mosaic-progress li`, which also matched every list item nested
+ * inside a stage card - the candidate rows, the criteria chips, the searches,
+ * the citations and the trace. Each of those inherited the rail's
+ * `34px minmax(0, 1fr)` grid, so a candidate row button landed in the 34px
+ * column, its flexible column resolved to 0px, and the 76px thumbnail and the
+ * chevron overflowed a 34px-wide button. Measured before the fix: `btn w=34`,
+ * `grid-template-columns: 76px 0px 17px`.
+ */
+.ask-mosaic-progress > li {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 104px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 0 0 16px;
+  color: #746b64;
+  font-family: var(--sans);
+  font-size: 14px;
+  text-align: left;
+}
+
+.ask-mosaic-progress > li:last-child {
+  padding-bottom: 0;
+}
+
+.ask-mosaic-progress > li:not(:last-child)::after {
+  position: absolute;
+  z-index: 0;
+  top: 30px;
+  left: 16px;
+  width: 1px;
+  height: calc(100% - 18px);
+  border-radius: 0;
+  background: #d4cbc0;
+  content: "";
+}
+
+.ask-mosaic-progress > li.complete:not(:last-child)::after {
+  background: linear-gradient(#71834b 0 45%, #d4cbc0 78%);
+}
+
+/*
+ * Node in its own track, label beside it.
+ *
+ * Stacked under the node, the label started at x=0 while the connector runs down
+ * the node's centre at x=16, so "Interpret" and "COMPLETE" were struck through
+ * by the line.
+ */
+.ask-mosaic-stage-rail {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 8px;
+}
+
+.ask-mosaic-stage-rail > .ask-mosaic-stage-node {
+  grid-area: 1 / 1 / 3 / 2;
+}
+
+.ask-mosaic-stage-label {
+  grid-column: 2;
+  align-self: end;
+}
+
+.ask-mosaic-stage-state {
+  grid-column: 2;
+  align-self: start;
+}
+
+.ask-mosaic-progress .ask-mosaic-stage-node {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid #cbbfb2;
+  border-radius: 50%;
+  background: #fffdf9;
+  color: #8c8178;
+  font-family: var(--sans);
+  font-size: 11px;
+}
+
+.ask-mosaic-progress > li.complete .ask-mosaic-stage-node {
+  border-color: #71834b;
+  background: #71834b;
+  color: #fff;
+}
+
+.ask-mosaic-progress > li.active .ask-mosaic-stage-node {
+  border-color: var(--maroon-800);
+  background: var(--maroon-800);
+  color: #fff;
+  animation: none;
+}
+
+.ask-mosaic-stage-panel {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #ded5ca;
+  border-radius: 8px;
+  background: #fffdf9;
+}
+
+.ask-mosaic-progress > li.pending .ask-mosaic-stage-panel {
+  background: #fbf8f2;
+  opacity: 0.72;
+}
+
+.ask-mosaic-progress > li.active .ask-mosaic-stage-panel {
+  border-color: #c8aeb1;
+  box-shadow: 0 8px 24px rgb(73 43 33 / 5%);
+}
+
+.ask-mosaic-stage-summary {
+  display: grid;
+  width: 100%;
+  min-height: 62px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.ask-mosaic-stage-summary:focus-visible {
+  outline: 2px solid var(--maroon-700);
+  outline-offset: -2px;
+}
+
+.ask-mosaic-stage-summary:disabled {
+  cursor: default;
+}
+
+.ask-mosaic-stage-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.ask-mosaic-stage-label {
+  color: #302a25;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.1;
+  text-transform: none;
+}
+
+.ask-mosaic-progress > li.active .ask-mosaic-stage-label {
+  color: var(--maroon-900);
+}
+
+.ask-mosaic-progress > li.pending .ask-mosaic-stage-label {
+  color: #8c8178;
+}
+
+.ask-mosaic-stage-copy > strong {
+  color: #302a25;
+  font-family: var(--sans);
+  font-size: 14.5px;
+  font-weight: 720;
+}
+
+/* Two lines, not one ellipsised one. The stage descriptions are sentences and
+   the card is 430px wide, so `white-space: nowrap` cut every one of them in
+   half. */
+.ask-mosaic-stage-copy > span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #6f675f;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ask-mosaic-stage-state {
+  color: #8c8178;
+  font-family: var(--sans);
+  font-size: 8.5px;
+  font-weight: 740;
+  letter-spacing: 0.07em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.ask-mosaic-progress > li.complete .ask-mosaic-stage-state {
+  color: #63743f;
+}
+
+.ask-mosaic-progress > li.active .ask-mosaic-stage-state {
+  color: var(--maroon-800);
+}
+
+.ask-mosaic-stage-chevron {
+  color: #81766d;
+  transition: transform 180ms ease;
+}
+
+.ask-mosaic-stage-chevron.open {
+  transform: rotate(180deg);
+}
+
+.ask-mosaic-stage-content {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0 16px 16px;
+  border-top: 1px solid #e5ddd3;
+  font-family: var(--sans);
+}
+
+.ask-mosaic-stage-content .ask-mosaic-criteria {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 14px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.ask-mosaic-stage-content .ask-mosaic-criteria h3 {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.ask-mosaic-stage-content > .ask-mosaic-section {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 14px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.ask-mosaic-stage-content .ask-mosaic-section > header {
+  margin-bottom: 10px;
+}
+
+.ask-mosaic-stage-content .ask-mosaic-section h3 {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 720;
+}
+
+.ask-mosaic-stage-content .ask-mosaic-section header p {
+  font-family: var(--sans);
+  font-size: 11.5px;
+}
+
+.ask-mosaic-stage-content .ask-mosaic-shortlist {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  overflow: visible;
+  padding: 0;
+}
+
+.ask-mosaic-stage-content .ask-mosaic-shortlist li {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+/* Denser inside a stage card, which already supplies the border and the lift.
+   The standalone row's 26px drop shadow reads as a second card stacked on the
+   first one. */
+.ask-mosaic-stage-content .ask-mosaic-shortlist button {
+  min-height: 86px;
+  grid-template-columns: 68px minmax(0, 1fr) auto 14px;
+  gap: 6px 11px;
+  padding: 9px 10px 9px 9px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(48 37 28 / 5%);
+}
+
+.ask-mosaic-stage-content .ask-mosaic-shortlist-media {
+  width: 68px;
+  height: 68px;
+  border-radius: 8px;
+}
+
+.ask-mosaic-stage-content .ask-mosaic-shortlist-copy > strong {
+  font-size: 12.5px;
+}
+
+.ask-mosaic-stage-content .ask-mosaic-shortlist-meta > strong {
+  font-size: 13px;
+}
+
+.ask-mosaic-stage-content .ask-mosaic-criteria li {
+  min-height: 0;
+  padding: 5px 9px;
+  font-family: var(--sans);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.ask-mosaic-stage-content .ask-mosaic-ranking,
+.ask-mosaic-stage-content .ask-mosaic-receipt {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 12px;
+  border-radius: 6px;
+}
+
+@media (max-width: 640px) {
+  .ask-mosaic-progress > li {
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .ask-mosaic-stage-summary {
+    padding: 12px;
+  }
+
+  .ask-mosaic-stage-content {
+    padding: 0 12px 12px;
+  }
+
+  /* No chevron and no side-by-side price: the price gets its own row on the left
+     so the name keeps a readable measure. */
+  .ask-mosaic-stage-content .ask-mosaic-shortlist button {
+    grid-template-areas:
+      "media copy"
+      "media price"
+      "media signals";
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .ask-mosaic-stage-content .ask-mosaic-shortlist-media {
+    width: 64px;
+    height: 64px;
+  }
+
+  .ask-mosaic-stage-content .ask-mosaic-shortlist-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    text-align: left;
+  }
+
+  .ask-mosaic-stage-content .ask-mosaic-shortlist button > svg {
+    display: none;
+  }
+}
+
+/*
+ * The cited products, priced and buyable, under the answer that names them.
+ *
+ * Two controls per row, so this cannot reuse the candidate row: that whole row
+ * is one button, and a bag button inside it would be a button inside a button.
+ */
+.ask-mosaic-picks {
+  margin-top: 15px;
+  padding-top: 14px;
+  border-top: 1px solid #e2d8cc;
+}
+
+.ask-mosaic-picks > ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-mosaic-picks > ol > li {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 8px 10px;
+  border: 1px solid #e4dad0;
+  border-radius: 8px;
+  background: #fffdf9;
+}
+
+.ask-mosaic-pick-open {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: 46px minmax(0, 1fr);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.ask-mosaic-pick-open > img {
+  width: 46px;
+  height: 46px;
+  border-radius: 7px;
+  background: #efebe4;
+  object-fit: contain;
+}
+
+.ask-mosaic-pick-open > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.ask-mosaic-pick-open strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ask-mosaic-pick-open small {
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 10.5px;
+}
+
+.ask-mosaic-pick-open:hover strong,
+.ask-mosaic-pick-open:focus-visible strong {
+  color: var(--maroon-900);
+}
+
+.ask-mosaic-pick-meta {
+  display: grid;
+  gap: 1px;
+  justify-items: end;
+  text-align: right;
+}
+
+.ask-mosaic-pick-meta > strong {
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ask-mosaic-pick-meta > small {
+  color: var(--ink-faint);
+  font-family: var(--sans);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.ask-mosaic-pick-add {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: 1px solid var(--maroon-900);
+  border-radius: 6px;
+  background: var(--maroon-900);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 720;
+  letter-spacing: 0.02em;
+  transition: background 160ms ease, border-color 160ms ease;
+  white-space: nowrap;
+}
+
+.ask-mosaic-pick-add:hover:not(:disabled) {
+  border-color: var(--maroon-950);
+  background: var(--maroon-950);
+}
+
+.ask-mosaic-pick-add.in-bag {
+  border-color: #71834b;
+  background: #71834b;
+}
+
+.ask-mosaic-pick-add:disabled {
+  border-color: #d8cfc3;
+  background: #eee7dd;
+  color: #8c8178;
+  cursor: default;
+}
+
+.ask-mosaic-live,
+.ask-mosaic-criteria,
+.ask-mosaic-answer,
+.ask-mosaic-section,
+.ask-mosaic-ranking,
+.ask-mosaic-receipt {
+  border-radius: 8px;
+}
+
+.ask-mosaic-live {
+  border-color: #d8cfc3;
+  background: #f8f2e9;
+}
+
+.ask-mosaic-answer {
+  margin-top: 0;
+  padding: 18px 20px;
+  border: 1px solid #e0d7cc;
+  background: #f7f1e8;
+}
+
+.ask-mosaic-answer > p:first-child {
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+/*
+ * One family and one scale for the whole answer body.
+ *
+ * Paragraphs were display serif at 18px while the bullets under "Other strong
+ * options" stayed sans at 13.5px, so a single recommendation rendered in two
+ * typefaces at two sizes. Its sub-headings keep the sans small-caps of every
+ * other label in this panel, which is a label, not body text.
+ */
+.ask-mosaic-answer > p:not(:first-child),
+.ask-mosaic-answer li {
+  color: #302a25;
+  font-family: var(--display);
+  font-size: 16.5px;
+  line-height: 1.55;
+}
+
+.ask-mosaic-answer li {
+  margin-bottom: 6px;
+}
+
+.ask-mosaic-answer li::marker {
+  color: var(--maroon-800);
+}
+
+.ask-mosaic-answer h1,
+.ask-mosaic-answer h2,
+.ask-mosaic-answer h3 {
+  margin: 17px 0 7px;
+  color: var(--maroon-900);
+  font-family: var(--sans);
+  font-size: 9.5px;
+  font-weight: 780;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ask-mosaic-cited-support {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 0 9px;
+  border: 1px solid #bfc99f;
+  border-radius: 12px;
+  color: #5f7438;
+  font-family: var(--sans);
+  font-size: 8.5px;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+}
+
+.ask-mosaic-comparison {
+  padding-bottom: 12px;
+}
+
+.ask-mosaic-compare th,
+.ask-mosaic-compare td {
+  padding: 10px 9px;
+}
+
+.ask-mosaic-composer {
+  padding: 13px 18px 16px;
+  border-top-color: #ded5ca;
+  background: rgb(252 249 243 / 97%);
+}
+
+.ask-mosaic-composer .search-composer {
+  min-height: 54px;
+  border-color: #cdbfb4;
+  border-radius: 27px;
+  background: #fffdf9;
+}
+
+.ask-mosaic-composer .search-composer button {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.labs-intro-copy h1 em {
+  display: inline;
+  color: var(--maroon-800);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.labs-engine-board {
+  --focus: var(--maroon-800);
+
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #d9d0c5;
+  border-radius: 8px;
+  background: #fffdf9;
+  box-shadow: 0 16px 42px rgb(73 43 33 / 6%);
+  color: var(--ink);
+}
+
+.labs-engine-board::before {
+  display: none;
+}
+
+.labs-engine-heading {
+  padding: 22px 26px 18px;
+  border-bottom: 1px solid #e1d8cd;
+}
+
+.labs-engine-heading h2 {
+  margin: 0;
+  color: #302a25;
+  font-size: var(--labs-h2);
+}
+
+.labs-engine-description {
+  max-width: 780px;
+  margin: 8px 0 0;
+  color: #6b655f;
+}
+
+.labs-engine-rail {
+  display: grid;
+  padding: 17px 22px 13px;
+  overflow-x: auto;
+  border-bottom: 1px solid #e1d8cd;
+  background: #faf6ef;
+  grid-template-columns: repeat(6, minmax(150px, 1fr));
+}
+
+.labs-engine-rail > li {
+  min-width: 0;
+  padding: 0 12px 18px;
+}
+
+.labs-engine-rail > li:not(:last-child)::after {
+  background: #d7cec2;
+}
+
+.labs-engine-rail > li::before {
+  bottom: -5px;
+  border-color: #bdb3a7;
+  background: #fffdf9;
+}
+
+.labs-engine-rail > li.complete::before,
+.labs-engine-rail > li.active::before {
+  border-color: var(--maroon-800);
+  background: var(--maroon-800);
+}
+
+.labs-engine-rail > li.active::before {
+  box-shadow: 0 0 0 5px rgb(126 36 49 / 12%);
+}
+
+.labs-engine-rail button {
+  color: #746d66;
+}
+
+.labs-engine-rail button:hover,
+.labs-engine-rail > li.active button,
+.labs-engine-rail > li.complete button {
+  color: #2f2925;
+}
+
+.labs-engine-rail button > span {
+  color: var(--maroon-800);
+}
+
+.labs-engine-rail button > small {
+  color: #8b6a35;
+}
+
+.labs-observatory-workspace {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(220px, 0.72fr) minmax(420px, 1.65fr) minmax(280px, 0.9fr);
+}
+
+.labs-observatory-request,
+.labs-observatory-candidates,
+.labs-observatory-evidence {
+  min-width: 0;
+}
+
+.labs-observatory-request {
+  display: grid;
+  align-content: start;
+  gap: 15px;
+  padding: 20px;
+  border-right: 1px solid #e1d8cd;
+  background: #fbf7f0;
+}
+
+.labs-observatory-request > header,
+.labs-observatory-evidence > header {
+  display: grid;
+  gap: 3px;
+}
+
+.labs-observatory-request > header span,
+.labs-observatory-evidence > header span {
+  color: var(--maroon-800);
+  font-size: var(--labs-micro);
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.labs-observatory-request > header strong {
+  color: #312b27;
+  font-family: var(--display);
+  font-size: var(--labs-h3);
+  font-weight: 540;
+}
+
+.labs-observatory-request .labs-engine-query {
+  min-height: 112px;
+  align-items: start;
+  padding: 13px;
+  border-color: #d9cec1;
+  border-radius: 6px;
+  background: #fffdf9;
+  box-shadow: none;
+}
+
+.labs-observatory-request .labs-engine-query.is-complete {
+  border-color: #d9cec1;
+  background: #fffdf9;
+  opacity: 1;
+  transform: none;
+}
+
+.labs-observatory-request .labs-engine-query code {
+  color: #3c342f;
+  font-size: var(--labs-detail);
+  font-weight: 560;
+}
+
+.labs-observatory-request .labs-engine-query-presets {
+  display: grid;
+  width: 100%;
+  margin: 0;
+  grid-template-columns: 1fr;
+}
+
+.labs-observatory-request .labs-engine-query-presets button {
+  min-height: 34px;
+  justify-content: flex-start;
+  border-color: #ded4c8;
+  border-radius: 5px;
+  background: #fffdf9;
+  color: #625b55;
+}
+
+.labs-observatory-request .labs-engine-query-presets button:hover {
+  border-color: #bda99b;
+  color: var(--maroon-800);
+  transform: none;
+}
+
+.labs-observatory-request .labs-engine-query-presets button.active {
+  border-color: var(--maroon-800);
+  background: #f2e7e7;
+  color: var(--maroon-900);
+}
+
+.labs-observatory-request-facts {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid #e1d8cd;
+}
+
+.labs-observatory-request-facts > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #e1d8cd;
+}
+
+.labs-observatory-request-facts dt {
+  color: #766f68;
+  font-size: var(--labs-micro);
+}
+
+.labs-observatory-request-facts dd {
+  margin: 0;
+  color: #3f3732;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--labs-mono);
+  text-align: right;
+}
+
+.labs-observatory-request .labs-engine-replay {
+  width: 100%;
+  min-height: 42px;
+  border-color: var(--maroon-900);
+  border-radius: 5px;
+  background: var(--maroon-900);
+  box-shadow: none;
+  color: #fffaf3;
+}
+
+.labs-observatory-request .labs-engine-replay:hover:not(:disabled) {
+  background: var(--maroon-800);
+  box-shadow: none;
+}
+
+.labs-observatory-request .labs-engine-replay.query-ready {
+  animation: none;
+}
+
+.labs-observatory-candidates {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 20px;
+}
+
+.labs-engine-products-heading {
+  padding-bottom: 9px;
+  border-bottom: 1px solid #e1d8cd;
+}
+
+.labs-engine-products-heading span {
+  color: #312b27;
+}
+
+.labs-engine-products-heading small {
+  color: #8b6a35;
+}
+
+.labs-engine-products {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(6, minmax(70px, 1fr));
+}
+
+.labs-engine-product {
+  min-width: 0;
+  gap: 5px;
+}
+
+.labs-engine-product-media {
+  border-color: #dfd5c9;
+  border-radius: 5px;
+  background: #eee7dd;
+  box-shadow: none;
+}
+
+.labs-engine-product.shortlist .labs-engine-product-media,
+.labs-engine-product.featured .labs-engine-product-media {
+  border-color: var(--maroon-800);
+}
+
+.labs-engine-product.featured .labs-engine-product-media {
+  box-shadow: 0 0 0 2px rgb(126 36 49 / 10%);
+}
+
+.labs-engine-product figcaption strong {
+  color: #403730;
+  font-size: var(--labs-micro);
+}
+
+.labs-engine-product figcaption small {
+  color: #8b6a35;
+  font-size: var(--labs-micro);
+}
+
+.labs-observatory-shortlist {
+  border-top: 1px solid #e1d8cd;
+}
+
+.labs-observatory-shortlist > header {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.labs-observatory-shortlist h3 {
+  margin: 0;
+  color: #312b27;
+  font-family: var(--display);
+  font-size: var(--labs-h3);
+  font-weight: 540;
+}
+
+.labs-observatory-shortlist > header span {
+  color: #817971;
+  font-size: var(--labs-micro);
+}
+
+.labs-observatory-shortlist ol {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-observatory-shortlist li {
+  display: grid;
+  min-height: 56px;
+  grid-template-columns: 26px 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 4px;
+  border-top: 1px solid #e7dfd5;
+}
+
+.labs-observatory-shortlist li > span {
+  color: var(--maroon-800);
+  font-family: var(--display);
+  font-size: var(--labs-body);
+}
+
+.labs-observatory-shortlist li img {
+  width: 58px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.labs-observatory-shortlist li > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.labs-observatory-shortlist strong {
+  overflow: hidden;
+  color: #342d29;
+  font-size: var(--labs-detail);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.labs-observatory-shortlist small {
+  color: #7c746d;
+  font-size: var(--labs-micro);
+}
+
+.labs-observatory-shortlist em {
+  max-width: 116px;
+  color: #657442;
+  font-size: var(--labs-micro);
+  font-style: normal;
+  text-align: right;
+}
+
+.labs-observatory-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 20px;
+  border-left: 1px solid #e1d8cd;
+  background: #fbf7f0;
+}
+
+.labs-observatory-evidence > header {
+  display: flex;
+  min-height: 34px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.labs-observatory-evidence > header small {
+  color: #817971;
+  font-size: var(--labs-micro);
+}
+
+.labs-observatory-evidence > figure {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #eae1d5;
+  aspect-ratio: 4 / 3;
+}
+
+.labs-observatory-evidence > figure img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.labs-observatory-evidence > figure figcaption {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  gap: 2px;
+  padding: 28px 12px 10px;
+  background: linear-gradient(180deg, transparent, rgb(32 23 18 / 78%));
+  color: #fff;
+}
+
+.labs-observatory-evidence > figure figcaption small,
+.labs-observatory-evidence > figure figcaption span {
+  font-size: var(--labs-micro);
+}
+
+.labs-observatory-evidence > figure figcaption strong {
+  font-family: var(--display);
+  font-size: var(--labs-h3);
+  font-weight: 540;
+}
+
+.labs-observatory-evidence .labs-engine-spotlight-copy {
+  display: grid;
+  gap: 9px;
+}
+
+.labs-observatory-evidence .labs-engine-stage-owner {
+  color: var(--maroon-800);
+}
+
+.labs-observatory-evidence .labs-engine-spotlight-copy h3 {
+  color: #302a25;
+  font-size: var(--labs-h3);
+}
+
+.labs-observatory-evidence .labs-engine-spotlight-copy > p:not(.eyebrow) {
+  color: #6b655f;
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+.labs-observatory-evidence .labs-engine-spotlight-copy ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-observatory-evidence .labs-engine-spotlight-copy code,
+.labs-observatory-evidence[data-stage="01"] .labs-engine-spotlight-copy code {
+  display: block;
+  padding: 6px 8px;
+  border: 1px solid #ded4c8;
+  border-radius: 4px;
+  background: #fffdf9;
+  color: #5d202d;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--labs-mono);
+  overflow-wrap: anywhere;
+}
+
+.labs-observatory-evidence > a {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 7px;
+  margin-top: auto;
+  color: var(--maroon-800);
+  font-size: var(--labs-detail);
+  font-weight: 720;
+}
+
+.labs-observatory-telemetry {
+  display: grid;
+  border-top: 1px solid #e1d8cd;
+  background: #f7f1e8;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+}
+
+.labs-observatory-telemetry > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 15px 18px;
+  border-right: 1px solid #e1d8cd;
+}
+
+.labs-observatory-telemetry span {
+  color: #817971;
+  font-size: var(--labs-micro);
+  text-transform: uppercase;
+}
+
+.labs-observatory-telemetry strong {
+  overflow: hidden;
+  color: #3c342f;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--labs-mono);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.labs-observatory-telemetry > a {
+  display: inline-flex;
+  min-height: 58px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 18px;
+  color: var(--maroon-800);
+  font-size: var(--labs-detail);
+  font-weight: 720;
+}
+
+@media (max-width: 1280px) {
+  .shop-canvas.assist-open {
+    grid-template-columns: minmax(0, 1fr) min(520px, 42vw);
+  }
+
+  .ask-mosaic-sidecar {
+    width: min(520px, 42vw);
+  }
+
+  .labs-observatory-workspace {
+    grid-template-columns: minmax(210px, 0.65fr) minmax(0, 1.35fr);
+  }
+
+  .labs-observatory-evidence {
+    grid-column: 1 / -1;
+    border-top: 1px solid #e1d8cd;
+    border-left: 0;
+  }
+
+  .labs-observatory-evidence > figure {
+    width: min(280px, 32%);
+    float: left;
+  }
+}
+
+@media (max-width: 1180px) {
+  .ask-mosaic-sidecar {
+    width: min(680px, calc(100vw - 48px));
+  }
+}
+
+@media (max-width: 900px) {
+  .shop-filter-toolbar {
+    margin-inline: -2px;
+    padding-inline: 2px;
+    mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 32px), transparent);
+  }
+
+  .shop-filter-toolbar .shop-sort {
+    margin-left: 0;
+  }
+
+  .labs-engine-rail {
+    grid-template-columns: repeat(6, minmax(148px, 1fr));
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline proximity;
+  }
+
+  .labs-engine-rail > li {
+    scroll-snap-align: start;
+  }
+
+  .labs-observatory-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .labs-observatory-request,
+  .labs-observatory-evidence {
+    border-right: 0;
+    border-bottom: 1px solid #e1d8cd;
+    border-left: 0;
+  }
+
+  .labs-observatory-evidence {
+    grid-column: auto;
+  }
+
+  .labs-observatory-request .labs-engine-query-presets {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .labs-observatory-telemetry {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .labs-observatory-telemetry > a {
+    grid-column: 1 / -1;
+    border-top: 1px solid #e1d8cd;
+  }
+}
+
+@media (max-width: 640px) {
+  .discover-hero {
+    border-radius: 0;
+  }
+
+  .shop-console {
+    border-radius: 7px;
+  }
+
+  .shop-filter-toolbar {
+    padding-block: 11px;
+  }
+
+  .ask-mosaic-sidecar {
+    width: 100vw;
+    max-width: none;
+    border-left: 0;
+  }
+
+  .ask-mosaic-header {
+    min-height: 72px;
+    padding: 12px 15px;
+  }
+
+  .ask-mosaic-header h2 {
+    font-size: 25px;
+  }
+
+  .ask-mosaic-body {
+    padding: 15px 14px 24px;
+  }
+
+  .ask-mosaic-ask {
+    grid-template-columns: 42px minmax(0, 1fr);
+    padding: 15px;
+  }
+
+  .ask-mosaic-request-actions {
+    grid-column: 2;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .ask-mosaic-request-copy p {
+    font-size: 18px;
+  }
+
+  .ask-mosaic-progress {
+    min-width: 0;
+  }
+
+  .ask-mosaic-turn {
+    overflow: hidden;
+  }
+
+  .ask-mosaic-composer {
+    padding: 11px 12px 13px;
+  }
+
+  .labs-engine-heading {
+    padding: 18px;
+  }
+
+  .labs-engine-rail {
+    padding-inline: 10px;
+  }
+
+  .labs-observatory-request,
+  .labs-observatory-candidates,
+  .labs-observatory-evidence {
+    padding: 16px;
+  }
+
+  .labs-observatory-request .labs-engine-query-presets {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .labs-engine-products {
+    grid-template-columns: repeat(6, 92px);
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .labs-observatory-shortlist li {
+    grid-template-columns: 24px 52px minmax(0, 1fr);
+  }
+
+  .labs-observatory-shortlist li img {
+    width: 52px;
+    height: 36px;
+  }
+
+  .labs-observatory-shortlist em {
+    display: none;
+  }
+
+  .labs-observatory-evidence > figure {
+    width: 100%;
+    float: none;
+  }
+
+  .labs-observatory-telemetry {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .labs-observatory-telemetry > div {
+    border-right: 0;
+    border-bottom: 1px solid #e1d8cd;
+  }
+
+  .labs-observatory-telemetry > a {
+    grid-column: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-stock-toggle > span,
+  .shop-stock-toggle > span i,
+  .ask-mosaic-stage-chevron {
+    transition: none;
+  }
+}
+
+.discover-search .catalog-suggestions {
+  display: none;
 }

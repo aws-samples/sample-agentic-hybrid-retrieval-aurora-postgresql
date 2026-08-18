@@ -268,7 +268,11 @@ def test_synthesis_returns_only_validated_citations():
     assert "natural, confident shopping prose" in system_prompt
     assert '"Summary" or "Recommendations"' in system_prompt
     assert "standalone model code" in system_prompt
-    assert 'heading "The deciding trade-off"' in system_prompt
+    # A Markdown heading, not bold text: emitted as bold the label ran into the
+    # sentence after it and the panel rendered one undivided paragraph.
+    assert 'Markdown heading "### The deciding trade-off"' in system_prompt
+    assert 'Markdown heading "### Other strong options"' in system_prompt
+    assert "never as bold text inside a sentence" in system_prompt
     assert usage["stopReason"] == "end_turn"
     assert usage["attempts"] == 1
 
@@ -464,6 +468,79 @@ def test_synthesis_does_not_treat_a_model_code_as_a_measurable_claim():
 
     assert "FL-48" in answer
     assert [record.product_id for record in citations] == [101]
+
+
+def test_synthesis_accepts_a_budget_ceiling_the_catalog_price_clears():
+    # Measured against live Aurora on 2026-08-18: the shopper asks for
+    # headphones "under $200", the answer restates that ceiling, and the
+    # validator read the $200 as an unsupported claim about the product because
+    # "20000" is absent from the review text. Every retry failed the same way and
+    # the panel replaced its whole timeline with an error banner, on a question
+    # a participant is very likely to type. The price is $179.99, so the
+    # comparison is decidable from the record.
+    client = FakeSynthesisClient(
+        "AuriLogic Flight ANC has 48-hour battery life and a price tag that "
+        "comfortably beats the $200 ceiling [1]."
+    )
+
+    answer, citations, _ = synthesize_cited_answer(
+        "Find over-ear headphones under $200.",
+        [product()],
+        [evidence()],
+        client=client,
+    )
+
+    assert "$200" in answer
+    assert [record.product_id for record in citations] == [101]
+
+
+def test_synthesis_accepts_a_price_the_catalog_record_states_exactly():
+    # $179.99 is `price_cents`, which the spec text never repeats.
+    client = FakeSynthesisClient(
+        "AuriLogic Flight ANC costs $179.99 and has 48-hour battery life [1]."
+    )
+
+    answer, _, _ = synthesize_cited_answer(
+        "What does it cost?",
+        [product()],
+        [evidence()],
+        client=client,
+    )
+
+    assert "$179.99" in answer
+
+
+def test_synthesis_rejects_a_budget_ceiling_the_catalog_price_breaks():
+    # The guard has to survive the fix: a bound is only settled when the record
+    # actually satisfies it. This product is $179.99, so "under $100" is false.
+    client = FakeSynthesisClient(
+        "AuriLogic Flight ANC has 48-hour battery life and comes in under "
+        "$100 [1]."
+    )
+
+    with pytest.raises(ValueError, match="unsupported numeric claim.*10000"):
+        synthesize_cited_answer(
+            "Find over-ear headphones under $100.",
+            [product()],
+            [evidence()],
+            client=client,
+        )
+
+
+def test_synthesis_rejects_a_wrong_price_stated_without_a_comparison():
+    # No comparison cue, so this is a flat assertion about the price and has to
+    # match the record. $149.99 is not $179.99.
+    client = FakeSynthesisClient(
+        "AuriLogic Flight ANC costs $149.99 and has 48-hour battery life [1]."
+    )
+
+    with pytest.raises(ValueError, match="unsupported numeric claim.*14999"):
+        synthesize_cited_answer(
+            "What does it cost?",
+            [product()],
+            [evidence()],
+            client=client,
+        )
 
 
 def test_synthesis_rejects_numeric_support_borrowed_from_another_product():

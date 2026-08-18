@@ -50,11 +50,11 @@ describe("MosaicLabsPage", () => {
     const { container } = render(<MosaicLabsPage />);
 
     expect(screen.getByRole("heading", {
-      name: "See how Mosaic decides.",
+      name: "Retrieval observatory. Grounded answers.",
     })).toBeTruthy();
     expect(
       screen.getByText(
-        "Follow one real product request from candidate generation through a grounded recommendation, without leaving the shopping context behind.",
+        "Follow a real request as it moves from intent to an evidence-backed recommendation.",
       ),
     ).toBeTruthy();
     expect(screen.getByRole("link", { name: "Explore" }).getAttribute("aria-current")).toBe(
@@ -125,7 +125,7 @@ describe("MosaicLabsPage", () => {
     ).toBeTruthy();
     expect(
       screen.getAllByRole("link", { name: "Inspect the trace" }),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(
       screen.getByRole("link", { name: "Open a Shop scenario" }).getAttribute("href"),
     ).toMatch(/^\/catalog\?/);
@@ -200,11 +200,11 @@ describe("MosaicLabsPage", () => {
 
     fireEvent.click(stageButtons[1]);
     expect(echoBudFigure()?.style.getPropertyValue("--product-order")).toBe("1");
-    expect(screen.getByText("Exact FTS identity")).toBeTruthy();
+    expect(screen.getAllByText("Exact FTS identity").length).toBeGreaterThan(0);
 
     fireEvent.click(stageButtons[4]);
     expect(echoBudFigure()?.style.getPropertyValue("--product-order")).toBe("1");
-    expect(screen.getByText("Exact model remains #1")).toBeTruthy();
+    expect(screen.getAllByText("Exact model remains #1").length).toBeGreaterThan(0);
   });
 
   it("keeps product cards mounted while replay labels and emphasis change", async () => {

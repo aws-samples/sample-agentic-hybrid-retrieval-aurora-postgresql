@@ -1,0 +1,64 @@
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+
+const srcDir = fileURLToPath(new URL(".", import.meta.url));
+const publicDir = fileURLToPath(new URL("../public", import.meta.url));
+const gitDir = fileURLToPath(new URL("../../.git", import.meta.url));
+
+function sourceFiles(): string[] {
+  return readdirSync(srcDir, { recursive: true, encoding: "utf8" })
+    .filter((entry) => /\.tsx?$/.test(entry) && !/\.test\.tsx?$/.test(entry));
+}
+
+async function hardcodedImagePaths(): Promise<Map<string, string[]>> {
+  const byFile = new Map<string, string[]>();
+  for (const file of sourceFiles()) {
+    const source = await readFile(srcDir + file, "utf8");
+    const paths = [...source.matchAll(/"(\/assets\/images\/[^"]+)"/g)].map((match) => match[1]);
+    if (paths.length) byFile.set(file, paths);
+  }
+  return byFile;
+}
+
+function gitTrackedImages(): Set<string> | null {
+  // A source export has no .git, and there the on-disk check is all we can make.
+  if (!existsSync(gitDir)) return null;
+  const listed = execFileSync("git", ["ls-files", "-z", "--", "assets/images"], {
+    cwd: publicDir,
+    encoding: "utf8",
+  });
+  return new Set(listed.split("\0").filter(Boolean).map((name) => `/${name}`));
+}
+
+describe("hardcoded asset references", () => {
+  it("point at images that exist in public/", async () => {
+    // Vite answers a missing asset with the SPA index.html and a 200, so a
+    // renamed or never-committed photograph renders as an empty box instead of
+    // failing the build. Every surface that names an asset inline is covered,
+    // not just the one where that first bit us.
+    const byFile = await hardcodedImagePaths();
+    expect(byFile.size).toBeGreaterThan(0);
+
+    const missing = [...byFile].flatMap(([file, paths]) => paths
+      .filter((path) => !existsSync(publicDir + path))
+      .map((path) => `${file}: ${path}`));
+    expect(missing).toEqual([]);
+  });
+
+  it("point at images the repository actually carries", async () => {
+    // The check above passes for a photograph that was generated locally and
+    // never added, which is the shape this breaks in: the surface looks right
+    // here and ships with an empty hero for everyone who clones.
+    const tracked = gitTrackedImages();
+    if (!tracked) return;
+
+    const byFile = await hardcodedImagePaths();
+    const untracked = [...byFile].flatMap(([file, paths]) => paths
+      .filter((path) => !tracked.has(path))
+      .map((path) => `${file}: ${path}`));
+    expect(untracked).toEqual([]);
+  });
+});

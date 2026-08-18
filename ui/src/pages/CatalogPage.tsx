@@ -80,7 +80,7 @@ const availabilityOptions: Array<{ value: Availability | ""; label: string }> = 
   { value: "preorder", label: "Pre-order" },
 ];
 
-type FilterSection = "categories" | "price" | "availability" | "rating";
+type FilterSection = "categories" | "brand" | "price" | "availability" | "rating";
 
 function priceFromCents(value: string | null, fallback: number) {
   if (value === null) return fallback;
@@ -176,6 +176,7 @@ export function CatalogPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedFilters, setExpandedFilters] = useState<Record<FilterSection, boolean>>({
     categories: true,
+    brand: true,
     price: true,
     availability: true,
     rating: true,
@@ -496,6 +497,7 @@ export function CatalogPage() {
         id: version,
         question: trimmed,
         response: null,
+        partial: null,
         streamed: "",
         stage: "understand",
         stageDetail:
@@ -514,6 +516,8 @@ export function CatalogPage() {
         if (version !== agentRequestVersion.current) return;
         if (event.type === "stage") {
           patch({ stage: event.id, stageDetail: event.detail });
+        } else if (event.type === "partial") {
+          patch({ partial: event.partial });
         } else if (event.type === "answer_start") {
           patch({
             response: event.response,
@@ -556,6 +560,16 @@ export function CatalogPage() {
     }));
   }
 
+  function openFilterSection(section?: FilterSection) {
+    if (section) {
+      setExpandedFilters((current) => ({
+        ...current,
+        [section]: true,
+      }));
+    }
+    setFiltersOpen(true);
+  }
+
   function focusCatalogProduct(productId: number) {
     setHighlightedProductId(productId);
     window.requestAnimationFrame(() => {
@@ -571,6 +585,7 @@ export function CatalogPage() {
   }
 
   const catalogCategories = page?.facets.category_key ?? [];
+  const catalogBrands = page?.facets.brand ?? [];
   const baseProducts = retrieval?.results ?? page?.products ?? [];
   const agentProducts = agent?.recommendations.length
     ? agent.recommendations
@@ -670,37 +685,95 @@ export function CatalogPage() {
     <div className={agentOpen ? "page mosaic-catalog-page assist-open" : "page mosaic-catalog-page"}>
       <div className={agentOpen ? "shop-canvas assist-open" : "shop-canvas"}>
         <section className="shop-main">
-          <header className="shop-heading">
-            <p className="shop-kicker">Shop</p>
-            <h1>The Mosaic edit</h1>
-            <p className="shop-lede">
-              Browse the 200-product photographed Mosaic edit, or describe what
-              you need.
-              Search and Ask Mosaic retrieve from all 500,000 products in the
-              Aurora catalog.
-            </p>
-          </header>
+          <div className="shop-hero">
+            <div className="shop-hero-photo">
+              <img
+                src="/assets/images/mosaic/hero-editorial-still.webp"
+                alt=""
+                width={1672}
+                height={941}
+                fetchPriority="high"
+                decoding="async"
+              />
+            </div>
 
-          <section className="shop-search" aria-label="Mosaic product search">
-            <CatalogSearchComposer
-              initialValue={retrievalQuery}
-              idleSuggestions={catalogGhostQueries}
-              pending={retrievalLoading}
-              leadingIcon={<GenerativeSearchIcon size={18} />}
-              placeholder="Search a product, model, or describe what you need"
-              onSubmit={searchCatalog}
-            />
-            <button
-              className="shop-search-ask"
-              type="button"
-              aria-label="Ask Mosaic"
-              aria-expanded={agentOpen}
-              onClick={openAgent}
-            >
-              <Sparkles size={15} aria-hidden="true" />
-              {agent ? "Return to Ask Mosaic" : "Ask Mosaic"}
-            </button>
-          </section>
+            <header className="shop-heading">
+              <p className="shop-kicker">Shop</p>
+              <h1>
+                Find what fits <em>your world.</em>
+              </h1>
+              <p className="shop-lede">
+                Search naturally, browse with intention, or ask Mosaic for help
+                finding what fits.
+              </p>
+            </header>
+
+            <div className="shop-console">
+              <div className="shop-console-search">
+                <section className="shop-search" aria-label="Mosaic product search">
+                  <CatalogSearchComposer
+                    initialValue={retrievalQuery}
+                    idleSuggestions={catalogGhostQueries}
+                    pending={retrievalLoading}
+                    leadingIcon={<GenerativeSearchIcon size={18} />}
+                    placeholder="Search a product, model, or describe what you need"
+                    onSubmit={searchCatalog}
+                  />
+                  <button
+                    className="shop-search-ask"
+                    type="button"
+                    aria-label="Ask Mosaic"
+                    aria-expanded={agentOpen}
+                    onClick={openAgent}
+                  >
+                    <Sparkles size={15} aria-hidden="true" />
+                    {agent ? "Return to Ask Mosaic" : "Ask Mosaic"}
+                  </button>
+                </section>
+
+                <div className="shop-suggested" aria-label="Suggested searches">
+                  <span>Suggested for you</span>
+                  {catalogGhostQueries.slice(0, 3).map((suggestion) => (
+                    <button
+                      type="button"
+                      key={suggestion}
+                      onClick={() => searchCatalog(suggestion)}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <aside className="shop-console-note" aria-label="What Ask Mosaic does">
+                <small>Ask Mosaic</small>
+                <strong>I can help you choose.</strong>
+                <ul>
+                  <li>
+                    <Check size={13} aria-hidden="true" />
+                    Turns your request into catalog constraints
+                  </li>
+                  <li>
+                    <Check size={13} aria-hidden="true" />
+                    Compares candidates on record data
+                  </li>
+                  <li>
+                    <Check size={13} aria-hidden="true" />
+                    Cites the evidence behind each pick
+                  </li>
+                </ul>
+                <img
+                  className="shop-console-note-photo"
+                  src="/assets/images/mosaic/echobud-s2.webp"
+                  alt=""
+                  width={1200}
+                  height={1200}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </aside>
+            </div>
+          </div>
 
           <div className="shop-controls">
             <div className="shop-domain-scroller">
@@ -743,32 +816,59 @@ export function CatalogPage() {
                   : <ChevronRight size={18} aria-hidden="true" />}
               </button>
             </div>
-            <div className="shop-control-actions">
-              <button
-                className="shop-filter-button"
-                type="button"
-                aria-expanded={filtersOpen}
-                aria-controls="shop-filter-sheet"
-                onClick={() => setFiltersOpen(true)}
-              >
-                <SlidersHorizontal size={17} />
-                Filters
-                {activeFilterCount ? <span>{activeFilterCount}</span> : null}
-              </button>
-              {!retrieval ? (
-                <label className="shop-sort">
-                  <span className="sr-only">Sort catalog</span>
-                  <select value={sort} onChange={(event) => update("sort", event.target.value)}>
-                    <option value="featured">Featured</option>
-                    <option value="rating">Highest rated</option>
-                    <option value="price_asc">Price: low to high</option>
-                    <option value="price_desc">Price: high to low</option>
-                    <option value="newest">Newest</option>
-                  </select>
-                  <ChevronDown size={15} aria-hidden="true" />
-                </label>
-              ) : null}
-            </div>
+          </div>
+
+          <div className="shop-filter-toolbar" aria-label="Product filters">
+            <button
+              className="shop-filter-button all"
+              type="button"
+              aria-expanded={filtersOpen}
+              aria-controls="shop-filter-sheet"
+              onClick={() => openFilterSection()}
+            >
+              <SlidersHorizontal size={16} />
+              All filters
+              {activeFilterCount ? <span>{activeFilterCount}</span> : null}
+            </button>
+            <button type="button" onClick={() => openFilterSection("categories")}>
+              {categoryKey ? formatCategoryKey(categoryKey) : "Category"}
+              <ChevronDown size={14} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => openFilterSection("brand")}>
+              {brand || "Brand"}
+              <ChevronDown size={14} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => openFilterSection("price")}>
+              {minPriceCents || maxPriceCents ? `$${lowPrice}-$${highPrice}` : "Price"}
+              <ChevronDown size={14} aria-hidden="true" />
+            </button>
+            <button type="button" onClick={() => openFilterSection("rating")}>
+              {minRating ? `${minRating}+ stars` : "Rating"}
+              <ChevronDown size={14} aria-hidden="true" />
+            </button>
+            <button
+              className={inStockOnly ? "shop-stock-toggle active" : "shop-stock-toggle"}
+              type="button"
+              role="switch"
+              aria-checked={inStockOnly}
+              onClick={() => update("in_stock_only", inStockOnly ? undefined : "true")}
+            >
+              In stock
+              <span aria-hidden="true"><i /></span>
+            </button>
+            {!retrieval ? (
+              <label className="shop-sort">
+                <span className="sr-only">Sort catalog</span>
+                <select value={sort} onChange={(event) => update("sort", event.target.value)}>
+                  <option value="featured">Featured</option>
+                  <option value="rating">Highest rated</option>
+                  <option value="price_asc">Price: low to high</option>
+                  <option value="price_desc">Price: high to low</option>
+                  <option value="newest">Newest</option>
+                </select>
+                <ChevronDown size={15} aria-hidden="true" />
+              </label>
+            ) : null}
           </div>
 
           <AnimatePresence initial={false}>
@@ -1003,6 +1103,42 @@ export function CatalogPage() {
                           onChange={() => update("category_key", item.value)}
                         />
                         <span>{formatCategoryKey(item.value)}</span>
+                        <small>{item.count.toLocaleString()}</small>
+                      </label>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="shop-filter-section">
+                <button
+                  type="button"
+                  onClick={() => toggleFilter("brand")}
+                  aria-expanded={expandedFilters.brand}
+                >
+                  Brand
+                  {expandedFilters.brand ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+                {expandedFilters.brand ? (
+                  <div className="shop-filter-options">
+                    <label>
+                      <input
+                        type="radio"
+                        name="brand"
+                        checked={!brand}
+                        onChange={() => update("brand")}
+                      />
+                      <span>All brands</span>
+                    </label>
+                    {catalogBrands.slice(0, 10).map((item) => (
+                      <label key={item.value}>
+                        <input
+                          type="radio"
+                          name="brand"
+                          checked={brand === item.value}
+                          onChange={() => update("brand", item.value)}
+                        />
+                        <span>{item.value}</span>
                         <small>{item.count.toLocaleString()}</small>
                       </label>
                     ))}

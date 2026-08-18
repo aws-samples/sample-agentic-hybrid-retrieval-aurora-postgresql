@@ -1,5 +1,6 @@
 import type {
   AgentConversationContext,
+  AgentPartial,
   AgentResponse,
   BenchmarkProjection,
   CatalogPage,
@@ -33,6 +34,7 @@ export type AgentStreamEvent =
     title: string;
     detail: string;
   }
+  | { type: "partial"; partial: AgentPartial }
   | { type: "answer_start"; response: AgentResponse }
   | { type: "answer_delta"; delta: string }
   | { type: "complete"; response: AgentResponse };
@@ -172,6 +174,11 @@ export const api = {
           }
           if (parsed.event === "stage") {
             onEvent({ type: "stage", ...payload } as AgentStreamEvent);
+          } else if (parsed.event === "partial") {
+            onEvent({
+              type: "partial",
+              partial: payload.partial as AgentPartial,
+            });
           } else if (parsed.event === "answer_start") {
             onEvent({
               type: "answer_start",

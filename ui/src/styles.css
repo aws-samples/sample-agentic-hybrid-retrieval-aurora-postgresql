@@ -54,7 +54,9 @@
   --gold: #9a5d20;
   --gold-soft: #f6ead9;
   --danger: #a33c43;
-  --focus: #0d6e75;
+  /* Keyboard focus ring. Dark surfaces re-point this token locally, since a
+     maroon ring on a maroon panel is not a ring. */
+  --focus: #671825;
   --shadow: 0 16px 36px rgb(43 13 19 / 8%);
   /* Type system. Both faces were identified by matching normalized glyph masks
      against the landing board rather than by eye: Newsreader scored IoU 0.710
@@ -179,7 +181,7 @@ button:disabled {
 }
 
 :focus-visible {
-  outline: 3px solid rgb(13 110 117 / 38%);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -610,6 +612,16 @@ button:disabled {
   background: transparent;
   color: var(--ink);
   font-size: 14px;
+}
+
+/* The input suppresses its own outline above so the pill owns the focus
+   treatment, which left the field with no keyboard indicator at all. The form is
+   the pill on every surface except Discover and Shop, where a wrapper is; those
+   two move the ring outward to the wrapper. Scoped to the field so the submit
+   button beside it still rings on its own. */
+.search-composer:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
 }
 
 .search-composer input::placeholder {
@@ -1858,7 +1870,7 @@ button:disabled {
 }
 
 .price-range-track input[type="range"]:focus-visible::-webkit-slider-thumb {
-  outline: 3px solid rgb(13 110 117 / 38%);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -4264,6 +4276,9 @@ button:disabled {
 }
 
 .code-block {
+  /* Dark panel, so the maroon ring would be invisible on its toolbar. */
+  --focus: #f6ece7;
+
   max-width: 100%;
   overflow: hidden;
   border: 1px solid #4a4040;
@@ -5115,14 +5130,6 @@ body {
   color: #fff;
 }
 
-/* 3 x 4. Every row is the same height because each card is a two-row grid
-   (fixed-ratio image, then a body that stretches), so a long product name
-   cannot make one card taller than its neighbours. */
-.mosaic-catalog-page .product-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .catalog-product-card,
   .catalog-product-card .product-image img {
@@ -5185,9 +5192,6 @@ body {
     padding-right: 28px;
   }
 
-  .mosaic-catalog-page .product-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 980px) {
@@ -5222,9 +5226,6 @@ body {
     padding: 22px 24px 48px;
   }
 
-  .mosaic-catalog-page .product-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 640px) {
@@ -5245,10 +5246,6 @@ body {
     margin: 20px 0;
   }
 
-  .mosaic-catalog-page .product-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-  }
 }
 
 /* Reference-aligned storefront surfaces */
@@ -5399,25 +5396,12 @@ body {
   margin-bottom: 16px;
 }
 
-/* The rail keeps its column down to 1180; the grid gives up a column first so
-   the cards never squeeze below a readable width. */
-/* The rail keeps its column down to 1180. Below 1500 the grid gives up one
-   column so cards never squeeze narrower than their 3:2 image reads well at. */
+/* The rail keeps its column down to 1180, narrowing first so the grid beside
+   it does not have to give one up. */
 @media (max-width: 1500px) {
-  .mosaic-catalog-page .product-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .catalog-body {
     grid-template-columns: minmax(0, 1fr) 268px;
     gap: 20px;
-  }
-}
-
-/* Rail drops away, so the grid can have its three columns back. */
-@media (max-width: 1180px) {
-  .mosaic-catalog-page .product-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -5771,9 +5755,6 @@ body {
     padding-right: 24px;
   }
 
-  .mosaic-catalog-page .product-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 860px) {
@@ -5806,9 +5787,6 @@ body {
 }
 
 @media (max-width: 620px) {
-  .mosaic-catalog-page .product-grid {
-    grid-template-columns: 1fr;
-  }
 
   .catalog-toolbar {
     grid-template-columns: 1fr;
@@ -7643,11 +7621,6 @@ body {
   animation: catalog-page-enter 220ms ease-out both;
 }
 
-.mosaic-catalog-page .product-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
-}
-
 .catalog-rail {
   position: static;
   margin-top: 32px;
@@ -8771,9 +8744,6 @@ body {
 }
 
 @media (max-width: 980px) {
-  .mosaic-catalog-page .product-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 
   .catalog-rail-card {
     grid-template-columns: 1fr;
@@ -8811,11 +8781,6 @@ body {
 
   .retrieval-method-contrast > footer {
     padding: 10px 16px;
-  }
-
-  .mosaic-catalog-page .product-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
   }
 
   .catalog-card-buy {

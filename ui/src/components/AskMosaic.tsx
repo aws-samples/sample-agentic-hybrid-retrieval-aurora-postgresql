@@ -6,12 +6,18 @@ import {
   FileText,
   GitCompareArrows,
   LoaderCircle,
+  PencilLine,
+  RotateCcw,
   Search,
+  Send,
+  ShoppingBag,
   Sparkles,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Markdown from "react-markdown";
+import { cartQuantityLimit, useCommerce } from "../commerce";
 import {
   formatAvailability,
   formatCategoryKey,
@@ -20,10 +26,14 @@ import {
 } from "../format";
 import { domainLabels, productImage } from "../media";
 import type {
+  AgentCitation,
+  AgentPartial,
+  AgentPlanStep,
   AgentResponse,
   ProductSummary,
   ResultSignals,
   SearchFilters,
+  ToolTraceStep,
 } from "../types";
 import { SearchComposer } from "./SearchComposer";
 
@@ -43,6 +53,11 @@ export interface AskMosaicTurn {
   id: number;
   question: string;
   response: AgentResponse | null;
+  /**
+   * Retrieval that has landed while the run is still going, so the stage that
+   * is in progress has something real to show. Superseded by `response`.
+   */
+  partial: AgentPartial | null;
   /** Text delivered so far by `answer_delta`. Empty until the first token. */
   streamed: string;
   stage: AssistStage | null;
@@ -51,11 +66,36 @@ export interface AskMosaicTurn {
   loading: boolean;
 }
 
-const stages: Array<{ id: AssistStage; label: string }> = [
-  { id: "understand", label: "Interpret" },
-  { id: "retrieve", label: "Retrieve" },
-  { id: "rank", label: "Compare" },
-  { id: "answer", label: "Cite" },
+const stages: Array<{
+  id: AssistStage;
+  label: string;
+  title: string;
+  description: string;
+}> = [
+  {
+    id: "understand",
+    label: "Interpret",
+    title: "Intent understanding",
+    description: "Resolve the request into catalog constraints.",
+  },
+  {
+    id: "retrieve",
+    label: "Retrieve",
+    title: "Retrieve candidates",
+    description: "Search the catalog and gather evidence-backed products.",
+  },
+  {
+    id: "rank",
+    label: "Compare",
+    title: "Compare & evaluate",
+    description: "Compare the retrieved shortlist using catalog-backed facts.",
+  },
+  {
+    id: "answer",
+    label: "Cite",
+    title: "Cite & summarize",
+    description: "Ground the recommendation in inspectable product evidence.",
+  },
 ];
 
 /**
@@ -90,21 +130,29 @@ const toolLabels = new Map(agentTools.map((tool) => [tool.fn, tool.label]));
  * is the one bounded relevance figure the service actually produces.
  */
 const armLabels: Array<[keyof Pick<ResultSignals, "fts" | "trigram" | "semantic">, string]> = [
-  ["fts", "your exact words"],
-  ["trigram", "close spellings"],
-  ["semantic", "what you meant"],
+  ["fts", "Your exact words"],
+  ["trigram", "Close spellings"],
+  ["semantic", "What you meant"],
 ];
 
-function matchReason(signals: ResultSignals | null | undefined): string {
-  if (!signals) return "In the retrieved shortlist";
+/**
+ * One chip per arm that retrieved the row, then the reranker score.
+ *
+ * This was a single sentence - "Found by your exact words + close spellings ·
+ * Rerank 0.83" - which is 40-odd characters of prose in a column narrow enough
+ * to break it across five lines. The chips carry the same measured facts and
+ * wrap as units instead of mid-phrase.
+ */
+export function retrievalChips(signals: ResultSignals | null | undefined): string[] {
+  if (!signals) return ["In the retrieved shortlist"];
   const matched = armLabels
     .filter(([arm]) => signals[arm].rank != null)
     .map(([, label]) => label);
-  const found = matched.length
-    ? `Found by ${matched.join(" + ")}`
-    : "Carried in by rank fusion";
-  if (signals.rerank_score == null) return found;
-  return `${found} · Rerank ${signals.rerank_score.toFixed(2)}`;
+  const chips = matched.length ? matched : ["Carried in by rank fusion"];
+  if (signals.rerank_score != null) {
+    chips.push(`Rerank ${signals.rerank_score.toFixed(2)}`);
+  }
+  return chips;
 }
 
 /**
@@ -177,37 +225,308 @@ export function boldRecommendationNames(
     .join("");
 }
 
-function StageRail({ activeStage }: { activeStage: AssistStage | null }) {
-  const activeIndex = activeStage
+function StageRail({
+  activeStage,
+  complete,
+  stageDetail,
+  panels,
+}: {
+  activeStage: AssistStage | null;
+  complete: boolean;
+  stageDetail: string;
+  panels: Partial<Record<AssistStage, ReactNode>>;
+}) {
+  const activeIndex = complete
+    ? stages.length
+    : activeStage
     ? stages.findIndex((item) => item.id === activeStage)
-    : stages.length;
+    : 0;
   return (
-    <ol className="ask-mosaic-progress" aria-label="Ask Mosaic activity">
-      {stages.map((stage, index) => {
-        const state = index < activeIndex
-          ? "complete"
-          : index === activeIndex
-            ? "active"
-            : "";
-        return (
-          <li className={state} key={stage.id}>
-            <span>
-              {state === "complete"
-                ? <CircleCheck size={14} />
-                : state === "active"
-                  ? <LoaderCircle className="spin" size={14} />
-                  : index + 1}
-            </span>
-            {stage.label}
-          </li>
-        );
-      })}
-    </ol>
+    <section className="ask-mosaic-timeline" aria-label="Evidence timeline">
+      <p className="ask-mosaic-timeline-heading">
+        <GitCompareArrows size={14} aria-hidden="true" />
+        Evidence timeline
+      </p>
+      <ol className="ask-mosaic-progress" aria-label="Ask Mosaic activity">
+        {stages.map((stage, index) => {
+          const state = index < activeIndex
+            ? "complete"
+            : index === activeIndex
+              ? "active"
+              : "pending";
+          const stateLabel = state === "complete"
+            ? "Complete"
+            : state === "active"
+              ? "In progress"
+              : "Pending";
+          const description = state === "active" && stageDetail
+            ? stageDetail
+            : stage.description;
+          return (
+            <li className={state} key={stage.id}>
+              {/* Step name and state live beside the node, not inside the card.
+                  In the card they competed with the title for a 3-column header
+                  and the description ellipsised at half its length. */}
+              <span className="ask-mosaic-stage-rail">
+                <span className="ask-mosaic-stage-node" aria-hidden="true">
+                  {state === "complete"
+                    ? <CircleCheck size={16} />
+                    : state === "active"
+                      ? <LoaderCircle className="spin" size={16} />
+                      : index + 1}
+                </span>
+                <small className="ask-mosaic-stage-label">{stage.label}</small>
+                <small className="ask-mosaic-stage-state">{stateLabel}</small>
+              </span>
+              <StageDisclosure
+                key={`${stage.id}-${state}`}
+                description={description}
+                live={!complete}
+                openWhenComplete={stage.id === "answer"}
+                panel={panels[stage.id]}
+                state={state}
+                title={stage.title}
+              />
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+/** How long a finished step holds its result open before folding itself away. */
+export const stageDwellMs = 2200;
+
+function StageDisclosure({
+  description,
+  live,
+  openWhenComplete,
+  panel,
+  state,
+  title,
+}: {
+  description: string;
+  /** The run is still going, so a step that just finished gets its dwell. */
+  live: boolean;
+  openWhenComplete: boolean;
+  panel: ReactNode;
+  state: "complete" | "active" | "pending";
+  title: string;
+}) {
+  /**
+   * `null` until the reader touches the control, so the default follows the run:
+   * open while the stage is working, folded once it finishes. The remount on
+   * every state change (see the `key` at the call site) clears the override, so
+   * a stage the reader opened by hand does not stay pinned open forever.
+   */
+  const [expanded, setExpanded] = useState<boolean | null>(null);
+  const touched = useRef(false);
+  const reduceMotion = useReducedMotion();
+  // A stage that has not run discloses nothing even when later stages have
+  // produced data it could render. Comparison content under a pending Compare
+  // step would claim a comparison that has not happened.
+  const hasPanel = Boolean(panel) && state !== "pending";
+  // A step that just finished during a live run holds its result open for a beat
+  // so the reader sees what it produced, then folds itself away. Without the
+  // dwell the fold is same-frame: the panel goes straight from working to a row
+  // of closed cards and nothing was ever legible.
+  const dwells = live && state === "complete" && !openWhenComplete;
+  const open = hasPanel
+    && (expanded
+      ?? (state === "active" || dwells || (state === "complete" && openWhenComplete)));
+
+  useEffect(() => {
+    if (!dwells || !hasPanel) return;
+    const timer = window.setTimeout(() => {
+      if (!touched.current) setExpanded(false);
+    }, stageDwellMs);
+    return () => window.clearTimeout(timer);
+  }, [dwells, hasPanel]);
+
+  return (
+    <section className="ask-mosaic-stage-panel">
+      <button
+        className="ask-mosaic-stage-summary"
+        type="button"
+        aria-expanded={hasPanel ? open : undefined}
+        // Nothing to disclose yet: a pending stage has not run, and a stage that
+        // is working has produced nothing until its first tool returns. The
+        // control used to stay enabled and expanded through both, so an active
+        // card opened onto an empty box.
+        disabled={!hasPanel}
+        onClick={() => {
+          // Stops the dwell timer from folding a card the reader just opened.
+          touched.current = true;
+          setExpanded(!open);
+        }}
+      >
+        <span className="ask-mosaic-stage-copy">
+          <strong>{title}</strong>
+          <span>{description}</span>
+        </span>
+        {hasPanel ? (
+          <ChevronDown
+            className={open
+              ? "ask-mosaic-stage-chevron open"
+              : "ask-mosaic-stage-chevron"}
+            size={17}
+          />
+        ) : null}
+      </button>
+      {/* Height, not display. The content was mounted and unmounted outright, so
+          a step folding itself away after its dwell snapped the whole panel up by
+          however tall its result was. The padding and rule live on the inner
+          element, or a collapsed panel would still draw 16px of them. */}
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            key="content"
+            style={{ overflow: "hidden" }}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={reduceMotion
+              ? { duration: 0 }
+              : { duration: 0.24, ease: [0.16, 1, 0.3, 1], opacity: { duration: 0.16 } }}
+          >
+            <div className="ask-mosaic-stage-content">{panel}</div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </section>
+  );
+}
+
+/**
+ * The constraints that actually ran, surfaced at the Interpret position.
+ *
+ * The union of `plan[].filters` across the searches the agent issued - each
+ * chip is a constraint retrieval enforced against the catalog, deduplicated
+ * across steps. The reference design labeled invented chips "extracted";
+ * these are the extracted ones, read back from the executed plan.
+ */
+function Criteria({ plan }: { plan: AgentPlanStep[] }) {
+  const chips = Array.from(
+    new Set(plan.flatMap((step) => describeFilters(step.filters))),
+  );
+  if (!chips.length) return null;
+  return (
+    <section className="ask-mosaic-criteria">
+      <h3>What I understood</h3>
+      <ul aria-label="Constraints Mosaic searched with">
+        {chips.map((chip) => (
+          <li key={chip}>{chip}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** A value the comparison table can print without inventing anything. */
+function comparableAttribute(value: unknown): value is string | number | boolean {
+  return (
+    (typeof value === "string" && value.length > 0 && value.length <= 40)
+    || typeof value === "number"
+    || typeof value === "boolean"
+  );
+}
+
+function attributeText(value: string | number | boolean): string {
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value);
+}
+
+/**
+ * Side-by-side catalog facts for the top of the shortlist.
+ *
+ * Every row is a field of the product record: price, rating, availability,
+ * and whichever attributes all compared products carry. The reference design
+ * scored candidates "Very good" / "Excellent" per factor; no such judgment
+ * exists in the contract, so none is printed.
+ */
+function CompareMatrix({ candidates }: { candidates: ProductSummary[] }) {
+  const products = candidates.slice(0, 3);
+  if (products.length < 2) return null;
+  const sharedAttributes = Object.entries(products[0].attributes)
+    .filter(([name, value]) => (
+      comparableAttribute(value)
+      && products.every((product) => comparableAttribute(product.attributes[name]))
+    ))
+    .map(([name]) => name)
+    .slice(0, 3);
+  return (
+    <section className="ask-mosaic-section ask-mosaic-comparison">
+      <header>
+        <GitCompareArrows size={18} />
+        <div>
+          <h3>Compared on catalog data</h3>
+          <p>Every value below comes from the product records in this shortlist.</p>
+        </div>
+      </header>
+      <div className="ask-mosaic-compare-scroll">
+        <table className="ask-mosaic-compare">
+          <thead>
+            <tr>
+              <td />
+              {products.map((product, index) => (
+                <th
+                  className={index === 0 ? "leader" : undefined}
+                  key={product.product_id}
+                  scope="col"
+                >
+                  <small>{String(index + 1).padStart(2, "0")}</small>
+                  {`${product.brand} ${product.model}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Price</th>
+              {products.map((product, index) => (
+                <td className={index === 0 ? "leader" : undefined} key={product.product_id}>
+                  {formatPrice(product.price_cents, product.currency)}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <th scope="row">Rating</th>
+              {products.map((product, index) => (
+                <td className={index === 0 ? "leader" : undefined} key={product.product_id}>
+                  {product.rating != null
+                    ? `${product.rating.toFixed(1)} (${product.review_count})`
+                    : "-"}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <th scope="row">Availability</th>
+              {products.map((product, index) => (
+                <td className={index === 0 ? "leader" : undefined} key={product.product_id}>
+                  {formatAvailability(product.availability)}
+                </td>
+              ))}
+            </tr>
+            {sharedAttributes.map((name) => (
+              <tr key={name}>
+                <th scope="row">{name.replace(/_/g, " ")}</th>
+                {products.map((product, index) => (
+                  <td className={index === 0 ? "leader" : undefined} key={product.product_id}>
+                    {attributeText(product.attributes[name] as string | number | boolean)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
 interface ShortlistProps {
-  response: AgentResponse;
+  candidates: ProductSummary[];
   imageByProductId: Map<number, string>;
   highlightedProductId: number | null;
   onHighlight: (productId: number | null) => void;
@@ -215,7 +534,7 @@ interface ShortlistProps {
 }
 
 function Shortlist({
-  response,
+  candidates,
   imageByProductId,
   highlightedProductId,
   onHighlight,
@@ -226,12 +545,12 @@ function Shortlist({
       <header>
         <GitCompareArrows size={18} />
         <div>
-          <h3>What I would consider</h3>
-          <p>Why each one is here. Select a product to locate it in Shop.</p>
+          <h3>Candidates retrieved</h3>
+          <p>Real catalog products, ordered by the current retrieval result.</p>
         </div>
       </header>
       <ol className="ask-mosaic-shortlist">
-        {response.recommendations.slice(0, 4).map((product, index) => (
+        {candidates.slice(0, 4).map((product, index) => (
           <li
             className={highlightedProductId === product.product_id ? "highlighted" : ""}
             key={product.product_id}
@@ -255,17 +574,29 @@ function Shortlist({
                 />
                 <small>{String(index + 1).padStart(2, "0")}</small>
               </span>
-              <div>
+              {/* Phrasing content only. A button may not contain `div` or `ol`,
+                  and the row carries four distinct fields that each need their
+                  own grid area. */}
+              <span className="ask-mosaic-shortlist-copy">
                 {index === 0 ? <span className="ask-mosaic-card-pick">Best match</span> : null}
-                <strong>{product.title}</strong>
-                <small>
-                  {product.model} · {formatPrice(product.price_cents, product.currency)}
-                </small>
-                <em>
-                  {matchReason(product.signals)}
-                </em>
-              </div>
-              <ChevronRight size={17} />
+                <strong>{product.brand} {product.model}</strong>
+                <small>{formatCategoryKey(product.category_key)}</small>
+              </span>
+              <span className="ask-mosaic-shortlist-meta">
+                <strong>{formatPrice(product.price_cents, product.currency)}</strong>
+                {product.rating != null ? (
+                  <small>{product.rating.toFixed(1)} · {product.review_count} reviews</small>
+                ) : null}
+              </span>
+              <span
+                className="ask-mosaic-shortlist-signals"
+                aria-label="Why this candidate was retrieved"
+              >
+                {retrievalChips(product.signals).map((chip) => (
+                  <span key={chip}>{chip}</span>
+                ))}
+              </span>
+              <ChevronRight size={16} aria-hidden="true" />
             </button>
           </li>
         ))}
@@ -282,40 +613,31 @@ function Shortlist({
  * workspace and past views", which describes personalisation this system does
  * not do.
  */
-function Searches({ response }: { response: AgentResponse }) {
+function Searches({ plan }: { plan: AgentPlanStep[] }) {
   return (
     <details className="ask-mosaic-receipt ask-mosaic-search-receipt">
       <summary>
         <Search size={18} />
         How I searched
-        <span>{response.plan.length}</span>
+        <span>{plan.length}</span>
       </summary>
       <ol className="ask-mosaic-searches">
-        {response.plan.map((step, index) => {
-          const chips = describeFilters(step.filters);
-          return (
-            <li key={`${index}-${step.query}`}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <div>
-                <strong>{step.query}</strong>
-                {chips.length ? (
-                  <p>
-                    {chips.map((chip) => <em key={chip}>{chip}</em>)}
-                  </p>
-                ) : (
-                  <small>No constraints beyond the query</small>
-                )}
-              </div>
-            </li>
-          );
-        })}
+        {plan.map((step, index) => (
+          <li key={`${index}-${step.query}`}>
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <div>
+              <strong>{step.query}</strong>
+              <small>{step.purpose || "No constraints beyond the query"}</small>
+            </div>
+          </li>
+        ))}
       </ol>
     </details>
   );
 }
 
-function Ranking({ response }: { response: AgentResponse }) {
-  const winner = response.recommendations[0];
+function Ranking({ candidates }: { candidates: ProductSummary[] }) {
+  const winner = candidates[0];
   const signals = winner?.signals;
   if (!signals) return null;
   return (
@@ -363,16 +685,16 @@ function Ranking({ response }: { response: AgentResponse }) {
   );
 }
 
-function Evidence({ response }: { response: AgentResponse }) {
+function Evidence({ citations }: { citations: AgentCitation[] }) {
   return (
     <details className="ask-mosaic-receipt">
       <summary>
         <FileText size={17} />
         Evidence
-        <span>{response.citations.length}</span>
+        <span>{citations.length}</span>
       </summary>
       <ol className="ask-mosaic-evidence">
-        {response.citations.map((citation) => (
+        {citations.map((citation) => (
           <li key={`${citation.number}-${citation.evidence_id}`}>
             <span>[{citation.number}]</span>
             <div>
@@ -395,16 +717,16 @@ function Evidence({ response }: { response: AgentResponse }) {
  * citations off a laptop screen; the count in the summary is what a reader needs
  * at a glance.
  */
-function Activity({ response }: { response: AgentResponse }) {
+function Activity({ trace }: { trace: ToolTraceStep[] }) {
   return (
     <details className="ask-mosaic-receipt">
       <summary>
         <CircleCheck size={17} />
         Activity receipts
-        <span>{response.trace.length}</span>
+        <span>{trace.length}</span>
       </summary>
       <ol className="ask-mosaic-activity">
-        {response.trace.map((step) => (
+        {trace.map((step) => (
           <li className={step.outcome} key={step.sequence}>
             <span>{String(step.sequence).padStart(2, "0")}</span>
             <div>
@@ -430,6 +752,79 @@ function Activity({ response }: { response: AgentResponse }) {
         ))}
       </ol>
     </details>
+  );
+}
+
+/**
+ * The recommended products, buyable.
+ *
+ * `recommendations` is the cited set the answer of record was written from, so
+ * these are the same products the prose names - not a second, looser shortlist.
+ * The bag button is the cart the rest of the store uses, so a participant can
+ * finish the errand the answer started instead of reading about it.
+ */
+function Picks({
+  products,
+  imageByProductId,
+  onHighlight,
+  onSelectProduct,
+}: {
+  products: ProductSummary[];
+  imageByProductId: Map<number, string>;
+  onHighlight: (productId: number | null) => void;
+  onSelectProduct: (productId: number) => void;
+}) {
+  const { addItem, itemQuantity } = useCommerce();
+  if (!products.length) return null;
+  return (
+    <section className="ask-mosaic-picks" aria-label="Recommended products">
+      <ol>
+        {products.slice(0, 3).map((product) => {
+          const inBag = itemQuantity(product.product_id);
+          const limit = cartQuantityLimit(product);
+          return (
+            <li key={product.product_id}>
+              <button
+                className="ask-mosaic-pick-open"
+                type="button"
+                onClick={() => onSelectProduct(product.product_id)}
+                onFocus={() => onHighlight(product.product_id)}
+                onBlur={() => onHighlight(null)}
+                onMouseEnter={() => onHighlight(product.product_id)}
+                onMouseLeave={() => onHighlight(null)}
+              >
+                <img
+                  src={imageByProductId.get(product.product_id) ?? productImage(product)}
+                  alt=""
+                  width={1200}
+                  height={800}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span>
+                  <strong>{product.brand} {product.model}</strong>
+                  <small>{formatCategoryKey(product.category_key)}</small>
+                </span>
+              </button>
+              <span className="ask-mosaic-pick-meta">
+                <strong>{formatPrice(product.price_cents, product.currency)}</strong>
+                <small>{formatAvailability(product.availability)}</small>
+              </span>
+              <button
+                className={inBag ? "ask-mosaic-pick-add in-bag" : "ask-mosaic-pick-add"}
+                type="button"
+                disabled={!limit || inBag >= limit}
+                title={limit ? undefined : "Out of stock"}
+                onClick={() => addItem(product)}
+              >
+                <ShoppingBag size={14} aria-hidden="true" />
+                {inBag ? `In bag (${inBag})` : "Add to bag"}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -482,6 +877,7 @@ interface TurnProps {
   imageByProductId: Map<number, string>;
   highlightedProductId: number | null;
   onRun: (query: string) => void;
+  onEdit: (query: string) => void;
   onHighlight: (productId: number | null) => void;
   onSelectProduct: (productId: number) => void;
 }
@@ -492,29 +888,95 @@ function Turn({
   imageByProductId,
   highlightedProductId,
   onRun,
+  onEdit,
   onHighlight,
   onSelectProduct,
 }: TurnProps) {
   const response = turn.response;
-  const stage = stages.find((item) => item.id === turn.stage);
+  /**
+   * Whichever retrieval has landed. The finished response supersedes the partial
+   * because its shortlist is the cited one; until it arrives, the partial is what
+   * the tools have actually returned. A stage with nothing yet gets `null`, which
+   * is what keeps its card from opening onto an empty box.
+   */
+  const plan: AgentPlanStep[] = response?.plan ?? turn.partial?.plan ?? [];
+  const candidates: ProductSummary[] =
+    response?.recommendations ?? turn.partial?.candidates ?? [];
+  const trace: ToolTraceStep[] = response?.trace ?? turn.partial?.trace ?? [];
+  const citations: AgentCitation[] = response?.citations ?? [];
+  const comparison = candidates.length > 1
+    ? (
+      <>
+        <CompareMatrix candidates={candidates} />
+        <Ranking candidates={candidates} />
+      </>
+    )
+    : null;
+  const stagePanels: Partial<Record<AssistStage, ReactNode>> = {
+    understand: plan.length ? <Criteria plan={plan} /> : null,
+    retrieve: candidates.length
+      ? (
+        <>
+          <Shortlist
+            candidates={candidates}
+            imageByProductId={imageByProductId}
+            highlightedProductId={highlightedProductId}
+            onHighlight={onHighlight}
+            onSelectProduct={onSelectProduct}
+          />
+          {plan.length ? <Searches plan={plan} /> : null}
+        </>
+      )
+      : null,
+    rank: comparison,
+    answer: citations.length || trace.length
+      ? (
+        <>
+          {citations.length ? <Evidence citations={citations} /> : null}
+          {trace.length ? <Activity trace={trace} /> : null}
+        </>
+      )
+      : null,
+  };
   return (
     <article className="ask-mosaic-turn">
       <div className="ask-mosaic-ask">
-        <span>You asked</span>
-        <p>{turn.question}</p>
+        <span className="ask-mosaic-request-icon" aria-hidden="true">
+          <Sparkles size={18} />
+        </span>
+        <div className="ask-mosaic-request-copy">
+          <span>You asked</span>
+          <p>{turn.question}</p>
+        </div>
+        {isLatest && !turn.loading ? (
+          <span className="ask-mosaic-request-actions">
+            <button
+              className="ask-mosaic-edit-request"
+              type="button"
+              onClick={() => onEdit(turn.question)}
+            >
+              <PencilLine size={13} aria-hidden="true" />
+              Edit request
+            </button>
+            <button
+              className="ask-mosaic-ask-again"
+              type="button"
+              onClick={() => onRun(turn.question)}
+            >
+              <RotateCcw size={13} aria-hidden="true" />
+              Ask again
+            </button>
+          </span>
+        ) : null}
       </div>
 
-      {turn.loading || turn.stage ? <StageRail activeStage={turn.stage} /> : null}
-
-      {turn.loading && stage ? (
-        <section className="ask-mosaic-live" role="status">
-          <LoaderCircle className="spin" size={20} />
-          <div>
-            <small>Working now</small>
-            <strong>{stage.label}</strong>
-            <p>{turn.stageDetail}</p>
-          </div>
-        </section>
+      {turn.loading || turn.stage || response ? (
+        <StageRail
+          activeStage={response ? "answer" : turn.stage}
+          complete={Boolean(response && !turn.loading)}
+          stageDetail={turn.stageDetail}
+          panels={stagePanels}
+        />
       ) : null}
 
       {turn.error ? <p className="ask-mosaic-error" role="alert">{turn.error}</p> : null}
@@ -527,32 +989,32 @@ function Turn({
           <section
             className={turn.loading ? "ask-mosaic-answer streaming" : "ask-mosaic-answer"}
           >
-            <p><Sparkles size={14} /> Recommendation</p>
+            <p>
+              <Sparkles size={14} />
+              {turn.loading ? "Answer draft (in progress)" : "Final recommendation"}
+              {response.citations.length ? (
+                <span className="ask-mosaic-cited-support">
+                  <CircleCheck size={12} aria-hidden="true" />
+                  Cited support
+                </span>
+              ) : null}
+            </p>
             <Markdown>
               {boldRecommendationNames(
                 turn.streamed || response.answer,
                 response.recommendations,
               )}
             </Markdown>
+            {/* The prose named these products. Here they are, priced and
+                buyable, so the recommendation ends in the store rather than in
+                a paragraph. */}
+            <Picks
+              products={response.recommendations}
+              imageByProductId={imageByProductId}
+              onHighlight={onHighlight}
+              onSelectProduct={onSelectProduct}
+            />
           </section>
-
-          <Shortlist
-            response={response}
-            imageByProductId={imageByProductId}
-            highlightedProductId={highlightedProductId}
-            onHighlight={onHighlight}
-            onSelectProduct={onSelectProduct}
-          />
-
-          {response.plan.length ? <Searches response={response} /> : null}
-
-          <Ranking response={response} />
-
-          {response.citations.length ? (
-            <Evidence response={response} />
-          ) : null}
-
-          {response.trace.length ? <Activity response={response} /> : null}
 
           {isLatest && !turn.loading ? (
             <FollowUps response={response} onRun={onRun} />
@@ -572,12 +1034,6 @@ function EntryState({
 }) {
   return (
     <section className="ask-mosaic-empty">
-      <h3>Tell me what you need.</h3>
-      <p>
-        Set the product, budget, and must-haves. Mosaic compares the Aurora
-        catalog and cites the evidence behind each recommendation.
-      </p>
-
       {starters.length ? (
         <div className="ask-mosaic-starters">
           <h4>Try asking</h4>
@@ -658,6 +1114,10 @@ export function AskMosaic({
   const [modal, setModal] = useState(
     () => window.matchMedia?.("(max-width: 1180px)").matches ?? false,
   );
+  const [composerDraft, setComposerDraft] = useState({
+    value: seedQuery,
+    version: 0,
+  });
   const layerRef = useRef<HTMLDivElement | null>(null);
   const sidecarRef = useRef<HTMLElement | null>(null);
   const threadRef = useRef<HTMLDivElement | null>(null);
@@ -669,6 +1129,13 @@ export function AskMosaic({
   useEffect(() => {
     closeRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => {
+    setComposerDraft((current) => ({
+      value: seedQuery,
+      version: current.version + 1,
+    }));
+  }, [seedQuery]);
 
   useEffect(() => {
     const preference = window.matchMedia?.("(max-width: 1180px)");
@@ -777,6 +1244,20 @@ export function AskMosaic({
 
   if (!open) return null;
 
+  const editRequest = (question: string) => {
+    setComposerDraft((current) => ({
+      value: question,
+      version: current.version + 1,
+    }));
+    window.requestAnimationFrame(() => {
+      const input = sidecarRef.current?.querySelector<HTMLInputElement>(
+        ".ask-mosaic-composer input",
+      );
+      input?.focus();
+      input?.setSelectionRange(question.length, question.length);
+    });
+  };
+
   return (
     <div className="ask-mosaic-layer" ref={layerRef}>
       <button
@@ -797,8 +1278,8 @@ export function AskMosaic({
           <div>
             <span><Sparkles size={19} /></span>
             <div>
-              <p>Your intelligent shopping guide</p>
               <h2 id="ask-mosaic-title">Ask Mosaic</h2>
+              <p>Your intelligent shopping guide</p>
             </div>
           </div>
           <button type="button" aria-label="Close Ask Mosaic" onClick={onClose}>
@@ -816,6 +1297,7 @@ export function AskMosaic({
                 imageByProductId={imageByProductId}
                 highlightedProductId={highlightedProductId}
                 onRun={onRun}
+                onEdit={editRequest}
                 onHighlight={onHighlight}
                 onSelectProduct={onSelectProduct}
               />
@@ -839,13 +1321,15 @@ export function AskMosaic({
             </div>
           ) : null}
           <SearchComposer
+            key={composerDraft.version}
             compact
             autoFocus={!modal}
             clearOnSubmit
-            initialValue={seedQuery}
+            initialValue={composerDraft.value}
             inputLabel="Ask Mosaic request"
             pending={pending}
-            submitLabel="Ask"
+            submitIcon={<Send size={18} aria-hidden="true" />}
+            submitLabel="Send request"
             placeholder={turns.length ? "Ask a follow-up" : "What are you shopping for?"}
             onSubmit={onRun}
           />
