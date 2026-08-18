@@ -157,8 +157,8 @@ RETRIEVE -> RANK -> REASON
 
 | Lab | Time | Participant outcome |
 |---|---:|---|
-| **1. Build hybrid retrieval** | 15 min | Restore typo recovery while preserving exact identity, semantic intent, and hard eligibility constraints |
-| **2. Fuse, rerank, and explain** | 15 min | Repair `1 / (k + rank)`, retain rank provenance, rerank a bounded pool, and explain movement |
+| **1. Build hybrid retrieval** | 10 min | Restore typo recovery while preserving exact identity, semantic intent, and hard eligibility constraints |
+| **2. Fuse, rerank, and inspect** | 10 min | Repair `1 / (k + rank)`, retain rank provenance, rerank a bounded pool, and explain movement |
 | **3. Build the retrieval agent** | 15 min | Connect retrieved evidence to comparison and citation-bounded synthesis |
 
 The checked-in source is the solved reference implementation. Deliberate

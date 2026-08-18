@@ -168,7 +168,7 @@ const labStages = [
   {
     number: "02",
     stage: "Rank",
-    title: "Fuse, rerank, and explain",
+    title: "Fuse, rerank, and inspect",
     caption: "Watch candidates move as fusion and reranking take over.",
     graphic: "rank" as const,
   },
@@ -467,10 +467,14 @@ export function DiscoverPage() {
         <section className="discover-section" aria-labelledby="discover-starters-title">
           <header className="discover-section-heading">
             <div>
-              <h2 id="discover-starters-title">Start with a real need</h2>
+              <h2 id="discover-starters-title">Every question runs hybrid retrieval</h2>
+              {/* The three arms in the words the rest of the product uses for
+                  them, not "FTS / trigram / vector". Two of these starters go to
+                  Shop and one opens the agent, and all three retrieve the same
+                  way, so the claim holds for each. */}
               <p>
-                Each of these three runs hybrid retrieval over the catalog, with
-                its category constraint already applied.
+                Exact words, close spellings, and meaning, together over the live
+                catalog, with each starter's category filter already applied.
               </p>
             </div>
           </header>
@@ -532,44 +536,10 @@ export function DiscoverPage() {
           </div>
         </section>
 
-        <section className="discover-section" aria-labelledby="discover-intention-title">
-          <header className="discover-section-heading">
-            <div>
-              <h2 id="discover-intention-title">Shop with intention</h2>
-              <p>Browse a category with its filter already set.</p>
-            </div>
-            <Link className="discover-section-link" href="/catalog">
-              View all
-              <ArrowRight size={15} aria-hidden="true" />
-            </Link>
-          </header>
-          <div className="discover-intention-rail">
-            {intentionCategories.map((category) => (
-              <Link
-                className="discover-intention-tile"
-                key={category.categoryKey}
-                href={`/catalog?domain=${category.domain}&category_key=${category.categoryKey}`}
-              >
-                <span className="discover-intention-media">
-                  <img
-                    src={category.image}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    width={1200}
-                    height={800}
-                  />
-                </span>
-                <span className="discover-intention-label">{category.label}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-
         <section className="discover-section" aria-labelledby="discover-shop-title">
           <header className="discover-section-heading">
             <div>
-              <h2 id="discover-shop-title">Shop</h2>
+              <h2 id="discover-shop-title">Shop with intention</h2>
               <p>Thoughtfully designed. Expertly made.</p>
             </div>
             <Link className="discover-section-link" href="/catalog">
@@ -610,6 +580,34 @@ export function DiscoverPage() {
                 variant="catalog"
               />
             ))}
+          </div>
+          {/* The category tiles were their own section with its own "Shop with
+              intention" heading directly above this one, so the landing asked
+              twice for the same errand. Folded in under one heading: the edit
+              first, then the categories as the other way into Shop. */}
+          <div className="discover-intention-fold">
+            <p>Browse a category with its filter already set.</p>
+            <div className="discover-intention-rail">
+              {intentionCategories.map((category) => (
+                <Link
+                  className="discover-intention-tile"
+                  key={category.categoryKey}
+                  href={`/catalog?domain=${category.domain}&category_key=${category.categoryKey}`}
+                >
+                  <span className="discover-intention-media">
+                    <img
+                      src={category.image}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      width={1200}
+                      height={800}
+                    />
+                  </span>
+                  <span className="discover-intention-label">{category.label}</span>
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
 

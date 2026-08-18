@@ -7,10 +7,10 @@
   },
   "session": {
     "total_minutes": 60,
-    "orientation_minutes": 5,
-    "core_lab_minutes": 45,
+    "orientation_minutes": 10,
+    "core_lab_minutes": 35,
     "scorecard_minutes": 5,
-    "contingency_minutes": 5
+    "contingency_minutes": 10
   },
   "corpus": {
     "catalog_products": 500000,
@@ -30,7 +30,7 @@
       "id": "typo-recovery",
       "stage": "retrieve",
       "core": true,
-      "duration_minutes": 15,
+      "duration_minutes": 10,
       "title": "Lab 1 - Build hybrid retrieval",
       "canonical_query_id": "G-003",
       "query": "wirless noice canceling hedphones under $200 with long batery life",
@@ -80,8 +80,8 @@
       "id": "rank-with-evidence",
       "stage": "rank",
       "core": true,
-      "duration_minutes": 15,
-      "title": "Lab 2 - Fuse, rerank, and explain",
+      "duration_minutes": 10,
+      "title": "Lab 2 - Fuse, rerank, and inspect",
       "canonical_query_id": "G-008",
       "query": "ergonomic mesh chair for long workdays with adjustable lumbar support",
       "filters": {

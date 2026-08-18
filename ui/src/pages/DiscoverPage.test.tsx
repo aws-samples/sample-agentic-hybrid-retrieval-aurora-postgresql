@@ -141,7 +141,11 @@ describe("DiscoverPage", () => {
   it("renders the editorial Shop preview immediately without a catalog request", () => {
     renderPage();
 
-    expect(screen.getByRole("heading", { name: "Shop" })).toBeTruthy();
+    // One shopping section, not two. The category tiles used to carry their own
+    // "Shop with intention" heading directly above this one.
+    expect(screen.getByRole("heading", { name: "Shop with intention" })).toBeTruthy();
+    expect(screen.getAllByRole("heading", { name: /Shop with intention/ })).toHaveLength(1);
+    expect(screen.getByText("Browse a category with its filter already set.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Auraluxe H9" })).toBeTruthy();
     expect(screen.getByText("4.8")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Shop all" }).getAttribute("href")).toBe("/catalog");
@@ -153,10 +157,12 @@ describe("DiscoverPage", () => {
 
     expect(
       screen.getByText(
-        "Each of these three runs hybrid retrieval over the catalog, with"
-        + " its category constraint already applied.",
+        "Exact words, close spellings, and meaning, together over the live"
+        + " catalog, with each starter's category filter already applied.",
       ),
     ).toBeTruthy();
+    // Lab 2 dropped "explain"; the Labs page carries the same title.
+    expect(screen.getByText("Fuse, rerank, and inspect")).toBeTruthy();
     expect(
       screen.getByText(
         "See how Mosaic retrieves candidates, ranks results, and grounds recommendations.",

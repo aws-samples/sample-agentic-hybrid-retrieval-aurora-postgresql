@@ -52,7 +52,7 @@ const stageDetails: Record<MosaicLabStage, StageDetail> = {
   rank: {
     label: "Rank",
     verb: "Put candidates in order",
-    title: "Fuse, rerank, and explain",
+    title: "Fuse, rerank, and inspect",
     observation: "Rank movement",
     question: "Why did #1 beat #2?",
     detail: "Make ordinal fusion and bounded model reranking visible without hiding candidate provenance.",
@@ -165,8 +165,28 @@ const engineProductIds = [2, 3, 4, 5, 1, 17001];
 const engineReplayStepDurationMs = 1650;
 const engineQueryCharacterDelayMs = 50;
 
-/** One real anchor photograph per system lens, so Explore reads as physical catalog objects rather than a spec sheet. */
-const labThumbnailIds = coreMosaicLabs.map((lab) => lab.target_product_ids[0]);
+/**
+ * One real anchor photograph per system lens, so Explore reads as physical
+ * catalog objects rather than a spec sheet.
+ *
+ * Each lens takes its mission's first target by default, which gave two of the
+ * three an `ergonomic-office-chairs` product: the rank lab targets the
+ * PostureWorks mesh chair and the reason lab's first target is the Forma chair.
+ * `agentic-research` also targets a quiet keyboard, and its query names the
+ * keyboard before the chair, so the keyboard stands in for that lens and the row
+ * covers three categories. Indexed into the mission's own target list rather
+ * than pinning a product id, so editing the manifest cannot silently desync it.
+ */
+const labThumbnailTargetIndex: Record<string, number> = {
+  "agentic-research": 1,
+};
+
+function labThumbnailId(lab: MosaicLabMission): number {
+  const preferred = lab.target_product_ids[labThumbnailTargetIndex[lab.id] ?? 0];
+  return preferred ?? lab.target_product_ids[0];
+}
+
+const labThumbnailIds = coreMosaicLabs.map(labThumbnailId);
 
 type EngineVisual = {
   title: string;
@@ -871,7 +891,7 @@ export function MosaicLabsPage() {
             const stage = stageDetails[lab.stage];
             const Icon = stage.Icon;
             const runs = [lab, ...checksFor(lab)];
-            const thumbnail = labThumbnails.get(lab.target_product_ids[0]);
+            const thumbnail = labThumbnails.get(labThumbnailId(lab));
             return (
               <article className={`labs-stage-card ${lab.stage}`} id={lab.id} key={lab.id}>
                 {thumbnail ? (

@@ -69,7 +69,7 @@ plausible pool without the target. Do not claim embeddings recovered the typo.
 The checkpoint proves that different retrieval channels solve different failure
 modes and that the Lab 1 objective is candidate quality, not the final winner.
 
-### Lab 2 - Fuse, rerank, and explain
+### Lab 2 - Fuse, rerank, and inspect
 
 RRF combines independent rank positions without pretending raw FTS, trigram,
 and vector scores share a scale. Cohere Rerank operates on the bounded fused

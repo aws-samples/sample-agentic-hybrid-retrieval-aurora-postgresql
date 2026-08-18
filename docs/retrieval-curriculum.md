@@ -52,7 +52,7 @@ The all-misspelled query is deliberately not presented as an embeddings success.
 On the measured 500,000-product corpus, HNSW returns plausible headphones but
 not the target; FTS and trigram recover it.
 
-## Lab 2 - Fuse, rerank, and explain
+## Lab 2 - Fuse, rerank, and inspect
 
 Goal: put the right candidates in the right order without hiding the ranking
 decisions.

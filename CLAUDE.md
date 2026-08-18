@@ -9,7 +9,7 @@ Retrieve -> Rank -> Reason
 
 Required labs:
 1. Build hybrid retrieval
-2. Fuse, rerank, and explain
+2. Fuse, rerank, and inspect
 3. Build the retrieval agent
 
 ## Design principles

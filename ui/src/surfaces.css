@@ -454,6 +454,22 @@
  * rather than a broken edge.
  */
 
+/* The category rail sits under the same heading as the featured edit, separated
+   by a rule rather than by a second section header. */
+.discover-intention-fold {
+  display: grid;
+  gap: 14px;
+  margin-top: clamp(22px, 2.4vw, 34px);
+  padding-top: clamp(18px, 2vw, 26px);
+  border-top: 1px solid rgb(92 75 62 / 12%);
+}
+
+.discover-intention-fold > p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+}
+
 .discover-intention-rail {
   display: grid;
   gap: clamp(12px, 1.4vw, 18px);
