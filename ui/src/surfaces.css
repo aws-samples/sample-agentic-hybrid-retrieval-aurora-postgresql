@@ -380,8 +380,10 @@
   border-radius: 16px;
   background: #e2d3c0;
   box-shadow: 0 12px 30px rgb(48 37 28 / 7%);
-  /* The three commissioned starters are portrait photographs. The former
-     landscape frame removed the chair base and much of the shoe/headphones. */
+  /* Portrait, because the commissioned starter photographs are portrait crops
+     and the former landscape frame removed the chair base and much of the
+     shoe. A starter illustrated by a 3:2 catalog plate instead sets
+     `imageFit: "cover"` so it fills this frame rather than letterboxing in it. */
   aspect-ratio: 4 / 5;
 }
 

@@ -40,6 +40,10 @@ const starterQueries: StarterQuery[] = [
     prompt: "Best noise-cancelling headphones",
     query: "Find the best over-ear headphones for focus and travel.",
     image: "/assets/images/mosaic/ce-over-ear-headphones-02-catalog-3x2.webp",
+    // The catalog plates are 3:2 and the frame is 4:5, so this one fills the
+    // frame rather than sitting letterboxed inside it. The other two starters
+    // are portrait crops that already fit.
+    imageFit: "cover",
     filters: {
       domain: "consumer_electronics",
       category_key: "over-ear-headphones",
