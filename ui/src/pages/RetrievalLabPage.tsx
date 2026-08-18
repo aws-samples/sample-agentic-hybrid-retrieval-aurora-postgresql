@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
+import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { RetrievalDiagnosticsStrip } from "../components/RetrievalDiagnosticsStrip";
 import { ErrorState, LoadingState } from "../components/States";
@@ -195,21 +196,32 @@ export function RetrievalLabPage() {
     }
   }
 
+  // The same wrapper and masthead the other three Labs views use. This page was
+  // the only one still on the generic `.page-header`, whose h1 is 52px at weight
+  // 500 against the Labs masthead's 51.84px at 450, and whose heading steps are
+  // not the shared `--labs-*` scale at all. That is invisible until the Labs tab
+  // strip sits directly above it, which is when two type systems end up stacked in
+  // one viewport. `.page-header` is outside the families the type-scale gate
+  // inspects, so nothing caught it.
   return (
-    <div className="page lab-page">
+    <div className="page mosaic-labs-page labs-premium lab-page">
       {/* The same strip the other Labs views carry, so this surface is reachable
           from them and they are reachable from here. */}
       <MosaicLabsTabs active="retrieval" />
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Mosaic Labs</p>
-          <h1>Inspect a retrieval run</h1>
-          <p>Follow one validated query from candidate source through fuzzy recovery, semantic intent, fusion, and Cohere Rerank.</p>
-        </div>
-        <button className="primary-button" type="button" disabled={!example || loading} onClick={() => void run()}>
-          <Play size={17} fill="currentColor" /> Run pipeline
-        </button>
-      </header>
+      <MosaicLabsMasthead
+        action={(
+          <button
+            className="primary-button"
+            type="button"
+            disabled={!example || loading}
+            onClick={() => void run()}
+          >
+            <Play size={17} fill="currentColor" /> Run pipeline
+          </button>
+        )}
+        deck="Follow one validated query from candidate source through fuzzy recovery, semantic intent, fusion, and Cohere Rerank."
+        title="Inspect a retrieval run"
+      />
 
       <WorkshopProgress
         active={example?.stage === "reason" ? "reason" : example?.stage === "rank" ? "rank" : "retrieve"}

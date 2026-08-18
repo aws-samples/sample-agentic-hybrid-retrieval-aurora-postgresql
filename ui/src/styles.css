@@ -4165,10 +4165,14 @@ button:disabled {
   border-bottom: 1px solid var(--line);
 }
 
+/* Retrieval Lab only. The literal here was already exactly --labs-h3, so this
+   changes nothing on screen and puts the last heading on that page through the
+   shared scale. `.panel-heading` is not one of the families the type-scale gate
+   inspects, which is why a hardcoded step survived here. */
 .panel-heading h2 {
   margin: 0;
   font-family: var(--display);
-  font-size: 19px;
+  font-size: var(--labs-h3);
   font-weight: 500;
 }
 
