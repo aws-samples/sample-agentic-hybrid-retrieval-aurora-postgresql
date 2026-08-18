@@ -165,40 +165,37 @@ const engineProductIds = [2, 3, 4, 5, 1, 17001];
 const engineReplayStepDurationMs = 1650;
 const engineQueryCharacterDelayMs = 50;
 
-/**
- * The product each lens pictures. It has to be a product that lens's own Shop
- * scenarios actually target, or the frame claims a relationship the labs do not
- * have.
- *
- * Every mission's first target pictured an `ergonomic-office-chairs` product in
- * two of the three lenses. `agentic-research` targets the Keysmith keyboard as
- * well as the Forma chair, and its query names the keyboard first, so picturing
- * the keyboard keeps the three lenses in three categories without reaching
- * outside the lab for a photograph.
- */
-const labAnchorByStage: Partial<Record<MosaicLabStage, number>> = {
-  reason: 429001, // Keysmith MX Quiet, a target of agentic-research itself
-};
-
-/** Every product id the lens's own Shop scenarios run against. */
+/** Every product id the lens's own Shop scenarios run against, with repeats. */
 export function labScenarioTargets(lab: MosaicLabMission): number[] {
   return [lab, ...checksFor(lab)].flatMap((run) => run.target_product_ids);
 }
 
 /**
- * Fails at module load rather than shipping a frame whose product is unrelated
- * to the scenarios listed beside it. The mission manifest is data, so an edit
- * there could otherwise silently decouple the two.
+ * The product each lens pictures: whichever one its own Shop scenarios run
+ * against most, with the mission's first target breaking a tie.
+ *
+ * Derived, not listed. The frame is captioned "Product anchor", so it asserts a
+ * relationship to the scenarios beside it, and choosing the photograph by hand
+ * broke that: the reason lens showed a keyboard while both of its scenarios ask
+ * about an ergonomic chair, and the keyboard belongs to the rank lens's
+ * `compare-cheaper-alternative` run. Reading it off the manifest means the two
+ * cannot drift apart when the manifest changes.
  */
 export function labAnchorId(lab: MosaicLabMission): number {
-  const preferred = labAnchorByStage[lab.stage];
-  if (preferred === undefined) return lab.target_product_ids[0];
-  if (!labScenarioTargets(lab).includes(preferred)) {
-    throw new Error(
-      `Mosaic Labs anchor ${preferred} is not targeted by any ${lab.stage} Shop scenario.`,
-    );
+  const targets = labScenarioTargets(lab);
+  const uses = new Map<number, number>();
+  for (const id of targets) uses.set(id, (uses.get(id) ?? 0) + 1);
+
+  let anchor = lab.target_product_ids[0];
+  let most = uses.get(anchor) ?? 0;
+  for (const id of targets) {
+    const count = uses.get(id) ?? 0;
+    if (count > most) {
+      anchor = id;
+      most = count;
+    }
   }
-  return preferred;
+  return anchor;
 }
 
 const labThumbnailIds = coreMosaicLabs.map(labAnchorId);

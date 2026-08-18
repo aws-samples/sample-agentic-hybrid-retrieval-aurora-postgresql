@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
@@ -27,7 +29,7 @@ from service.catalog import (
     list_products,
 )
 from service.config import get_settings
-from service.db import connect, readiness
+from service.db import close_pool, connect, get_pool, readiness
 from service.fusion_comparison import SubstrateError, get_fusion_comparison_service
 from service.model_runtime import (
     bedrock_credentials_status,
@@ -55,6 +57,27 @@ from service.retrieval import get_retrieval_service
 ROOT = Path(__file__).resolve().parents[1]
 settings = get_settings()
 
+
+@asynccontextmanager
+async def _lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Own the connection pool for the life of the process.
+
+    Opening it here means the first participant request does not pay for pool
+    construction, and closing it lets uvicorn shut down without leaving Aurora
+    sessions to time out. A missing `DATABASE_URL` still has to surface per
+    request rather than at boot, because `/api/health` answers without a database
+    and the readiness endpoint exists to report exactly that failure.
+    """
+    try:
+        get_pool()
+    except RuntimeError:
+        pass
+    try:
+        yield
+    finally:
+        close_pool()
+
+
 app = FastAPI(
     title="Catalog Hybrid Retrieval API",
     description=(
@@ -62,6 +85,7 @@ app = FastAPI(
         "and agentic product discovery on Aurora PostgreSQL."
     ),
     version="0.2.0",
+    lifespan=_lifespan,
 )
 app.add_middleware(
     CORSMiddleware,

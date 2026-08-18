@@ -41,6 +41,8 @@ class ConfigurationError(RuntimeError):
 # `scripts.retrieval_profile.BOUNDS`, next to the yaml path they guard.
 _NUMERIC_BOUNDS: dict[str, tuple[float, float]] = {
     "BEDROCK_MAX_ATTEMPTS": (1, 20),
+    "DB_POOL_MAX_SIZE": (1, 64),
+    "DB_POOL_TIMEOUT_SECONDS": (1, 120),
 }
 
 
@@ -155,6 +157,8 @@ class Settings:
     rrf_k: int
     hnsw_ef_search: int
     bedrock_max_attempts: int
+    db_pool_max_size: int
+    db_pool_timeout: float
     cors_origins: tuple[str, ...]
     source_revision: str = "unknown"
     source_worktree_dirty: bool = True
@@ -220,6 +224,13 @@ def get_settings() -> Settings:
         rrf_k=profile.rrf_k,
         hnsw_ef_search=profile.hnsw_ef_search,
         bedrock_max_attempts=_bounded("BEDROCK_MAX_ATTEMPTS", "5", int),
+        # Sized for a workshop room rather than a single reader. Uvicorn runs
+        # synchronous routes on a bounded thread pool, and one agent turn checks a
+        # connection out eight times in sequence, so 16 covers concurrent turns
+        # without letting a stampede open hundreds of Aurora sessions. The timeout
+        # exists so exhaustion surfaces as an error instead of a hung request.
+        db_pool_max_size=_bounded("DB_POOL_MAX_SIZE", "16", int),
+        db_pool_timeout=_bounded("DB_POOL_TIMEOUT_SECONDS", "20", float),
         cors_origins=origins,
         source_revision=source_revision,
         source_worktree_dirty=source_worktree_dirty,

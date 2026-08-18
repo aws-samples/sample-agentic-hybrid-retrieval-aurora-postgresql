@@ -46,18 +46,26 @@ describe("MosaicLabsPage", () => {
     cleanup();
   });
 
-  it("pictures a product each lens's own Shop scenarios target", () => {
-    // The frame is captioned "Product anchor", so the product has to belong to
-    // the scenarios listed beside it. Picturing something the lab never touches
-    // claims a relationship the manifest does not have, and the manifest is data
-    // that can be edited without touching this page.
+  it("pictures whichever product each lens's own Shop scenarios run against most", () => {
+    // The frame is captioned "Product anchor", so it asserts a relationship to
+    // the scenarios listed beside it. Choosing the photograph by hand broke that:
+    // the reason lens pictured a keyboard while both of its scenarios ask about
+    // an ergonomic chair.
     for (const lab of coreMosaicLabs) {
-      expect(labScenarioTargets(lab)).toContain(labAnchorId(lab));
+      const targets = labScenarioTargets(lab);
+      const anchor = labAnchorId(lab);
+      expect(targets).toContain(anchor);
+
+      const uses = (id: number) => targets.filter((target) => target === id).length;
+      for (const target of targets) {
+        expect(uses(anchor)).toBeGreaterThanOrEqual(uses(target));
+      }
     }
 
-    // Three lenses, three products. Two of them used to be ergonomic chairs.
+    // One distinct product per lens, and the reason lens lands on its chair.
     const anchors = coreMosaicLabs.map(labAnchorId);
     expect(new Set(anchors).size).toBe(anchors.length);
+    expect(anchors).toEqual([2, 370002, 370001]);
   });
 
   it("presents the three system lenses as read-only observation with Shop scenarios", async () => {
