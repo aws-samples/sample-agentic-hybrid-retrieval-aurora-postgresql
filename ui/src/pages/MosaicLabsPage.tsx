@@ -163,7 +163,6 @@ const engineTraceMission = requiredCoreLab("typo-recovery");
 
 const engineProductIds = [2, 3, 4, 5, 1, 17001];
 const engineReplayStepDurationMs = 1650;
-const engineQueryCharacterDelayMs = 50;
 
 /** Every product id the lens's own Shop scenarios run against, with repeats. */
 export function labScenarioTargets(lab: MosaicLabMission): number[] {
@@ -452,7 +451,6 @@ export function MosaicLabsPage() {
   const [activeEngineStep, setActiveEngineStep] = useState(0);
   const [activeEngineScenarioIndex, setActiveEngineScenarioIndex] = useState(0);
   const [isEnginePlaying, setIsEnginePlaying] = useState(false);
-  const [visibleEngineQueryLength, setVisibleEngineQueryLength] = useState(0);
   const [engineProducts, setEngineProducts] = useState<ProductSummary[]>([]);
   const [engineProductsError, setEngineProductsError] = useState("");
   const [labThumbnails, setLabThumbnails] = useState<Map<number, ProductSummary>>(new Map());
@@ -478,7 +476,6 @@ export function MosaicLabsPage() {
   const activeEngineMechanics = activeEngineStep === 0
     ? [`"${activeEngineQuery}"`]
     : activeEngine.mechanics;
-  const isEngineQueryComplete = visibleEngineQueryLength >= activeEngineQuery.length;
   const engineEntries = engineProducts.map((product) => ({
     product,
     state: engineProductState(
@@ -497,23 +494,6 @@ export function MosaicLabsPage() {
     replayTimers.current.forEach((timer) => window.clearTimeout(timer));
   }, []);
 
-  useEffect(() => {
-    setVisibleEngineQueryLength(0);
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setVisibleEngineQueryLength(activeEngineQuery.length);
-      return;
-    }
-
-    let visibleCharacters = 0;
-    const timer = window.setInterval(() => {
-      visibleCharacters += 1;
-      setVisibleEngineQueryLength(visibleCharacters);
-      if (visibleCharacters >= activeEngineQuery.length) {
-        window.clearInterval(timer);
-      }
-    }, engineQueryCharacterDelayMs);
-    return () => window.clearInterval(timer);
-  }, [activeEngineQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -568,7 +548,6 @@ export function MosaicLabsPage() {
     replayTimers.current.forEach((timer) => window.clearTimeout(timer));
     replayTimers.current = [];
     setIsEnginePlaying(false);
-    setVisibleEngineQueryLength(0);
     setActiveEngineScenarioIndex(index);
     setActiveEngineStep(0);
   };
@@ -661,20 +640,13 @@ export function MosaicLabsPage() {
               <span>Request</span>
               <strong>Validated fixture</strong>
             </header>
-            <div
-              className={`labs-engine-query${isEngineQueryComplete ? " is-complete" : ""}`}
-              aria-label="Replay query"
-            >
+            {/* The query is a validated fixture that is already on screen, so it
+                is printed. It used to appear one character at a time behind a
+                blinking caret, which simulates a system typing rather than
+                showing what it ran. */}
+            <div className="labs-engine-query is-complete" aria-label="Replay query">
               <Search size={17} aria-hidden="true" />
-              <code aria-label={activeEngineQuery}>
-                <span className="labs-engine-query-measure" aria-hidden="true">
-                  {activeEngineQuery}
-                </span>
-                <span className="labs-engine-query-typed" aria-hidden="true">
-                  {activeEngineQuery.slice(0, visibleEngineQueryLength)}
-                  {!isEngineQueryComplete ? <i className="labs-engine-query-caret" /> : null}
-                </span>
-              </code>
+              <code>{activeEngineQuery}</code>
             </div>
             <div
               className="labs-engine-query-presets"
@@ -709,9 +681,7 @@ export function MosaicLabsPage() {
               </div>
             </dl>
             <button
-              className={`labs-engine-replay${
-                isEngineQueryComplete && !isEnginePlaying ? " query-ready" : ""
-              }`}
+              className={`labs-engine-replay${!isEnginePlaying ? " query-ready" : ""}`}
               disabled={isEnginePlaying}
               onClick={replayEngineJourney}
               type="button"

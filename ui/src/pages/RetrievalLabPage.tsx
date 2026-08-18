@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
+import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { RetrievalDiagnosticsStrip } from "../components/RetrievalDiagnosticsStrip";
 import { ErrorState, LoadingState } from "../components/States";
 import { WorkshopProgress } from "../components/WorkshopProgress";
@@ -196,6 +197,9 @@ export function RetrievalLabPage() {
 
   return (
     <div className="page lab-page">
+      {/* The same strip the other Labs views carry, so this surface is reachable
+          from them and they are reachable from here. */}
+      <MosaicLabsTabs active="retrieval" />
       <header className="page-header">
         <div>
           <p className="eyebrow">Mosaic Labs</p>

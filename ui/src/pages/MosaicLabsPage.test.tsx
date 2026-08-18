@@ -139,8 +139,9 @@ describe("MosaicLabsPage", () => {
       (check) => check.id === "exact-identity",
     );
     if (!exactIdentity) throw new Error("Missing exact-identity fixture");
+    // The query is the element's text now, so it needs no aria-label restating it.
     expect(
-      container.querySelector(".labs-engine-query code")?.getAttribute("aria-label"),
+      container.querySelector(".labs-engine-query code")?.textContent,
     ).toBe(exactIdentity.query);
     expect(
       screen.getByRole("heading", { name: "Where one retrieval method stops being enough." }),
@@ -165,8 +166,10 @@ describe("MosaicLabsPage", () => {
     ).toBe("/mosaic-labs/hnsw");
   });
 
-  it("types each canonical replay query before emphasizing the replay control", () => {
-    vi.useFakeTimers();
+  it("prints each canonical replay query rather than typing it out", () => {
+    // The query is a validated fixture that is already known when the page
+    // renders. It used to arrive one character at a time behind a blinking
+    // caret, which simulates a system typing instead of showing what it ran.
     const semanticIntent = supportingMosaicChecks.find(
       (check) => check.id === "semantic-intent-contrast",
     );
@@ -177,31 +180,19 @@ describe("MosaicLabsPage", () => {
     if (!exactIdentity) throw new Error("Missing exact-identity fixture");
 
     const { container } = render(<MosaicLabsPage />);
-    const typedQuery = container.querySelector(".labs-engine-query-typed");
+    const query = () => container.querySelector(".labs-engine-query code")?.textContent;
     const replay = screen.getByRole("button", { name: "Replay fixture" });
 
-    expect(typedQuery?.textContent).toBe("");
-    expect(replay.classList.contains("query-ready")).toBe(false);
-
-    act(() => {
-      vi.advanceTimersByTime(exactIdentity.query.length * 50);
-    });
-    expect(typedQuery?.textContent).toBe(exactIdentity.query);
+    // No timers advanced: the whole query is on screen from the first paint.
+    expect(query()).toBe(exactIdentity.query);
     expect(replay.classList.contains("query-ready")).toBe(true);
+    expect(container.querySelector(".labs-engine-query-caret")).toBeNull();
 
     fireEvent.click(
       screen.getByRole("button", { name: /Use Semantic intent query:/ }),
     );
-    expect(
-      container.querySelector(".labs-engine-query code")?.getAttribute("aria-label"),
-    ).toBe(semanticIntent.query);
-    expect(typedQuery?.textContent).toBe("");
+    expect(query()).toBe(semanticIntent.query);
     expect(screen.getByText("Start with one request")).toBeTruthy();
-
-    act(() => {
-      vi.advanceTimersByTime(semanticIntent.query.length * 50);
-    });
-    expect(typedQuery?.textContent).toBe(semanticIntent.query);
     expect(replay.classList.contains("query-ready")).toBe(true);
   });
 

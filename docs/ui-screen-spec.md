@@ -56,7 +56,7 @@ Retrieval view:
 - FTS, trigram, vector, and rerank signals;
 - candidate-pool counts, RRF configuration, and request latency.
 
-API: `POST /api/search` and `POST /api/agent/answer`.
+API: `POST /api/search` and `POST /api/agent/answer/stream`.
 
 ## `/mosaic-labs` - Mosaic Labs
 

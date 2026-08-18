@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 
-type MosaicLabsTab = "explore" | "hnsw" | "studio";
+type MosaicLabsTab = "explore" | "retrieval" | "hnsw" | "studio";
 
 const sourceRepositoryUrl =
   "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql";
@@ -18,6 +18,15 @@ export function MosaicLabsTabs({ active }: { active: MosaicLabsTab }) {
           href="/mosaic-labs"
         >
           Explore
+        </Link>
+        {/* A documented participant surface that had no path from here, so the
+            only ways in were a product page link and a lab mission deep link. */}
+        <Link
+          aria-current={active === "retrieval" ? "page" : undefined}
+          className={active === "retrieval" ? "active" : ""}
+          href="/labs/retrieval"
+        >
+          Retrieval Lab
         </Link>
         <Link
           aria-current={active === "hnsw" ? "page" : undefined}

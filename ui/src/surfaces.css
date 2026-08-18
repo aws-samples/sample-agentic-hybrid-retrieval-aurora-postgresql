@@ -7458,8 +7458,8 @@
 }
 
 .labs-engine-query code {
-  position: relative;
   display: block;
+  white-space: pre-wrap;
   min-width: 0;
   color: #45101b;
   font-family: var(--sans);
@@ -7469,43 +7469,6 @@
   overflow-wrap: anywhere;
 }
 
-.labs-engine-query-measure,
-.labs-engine-query-typed {
-  display: block;
-  white-space: pre-wrap;
-}
-
-.labs-engine-query-measure {
-  visibility: hidden;
-}
-
-.labs-engine-query-typed {
-  position: absolute;
-  inset: 0;
-}
-
-.labs-engine-query-caret {
-  display: inline-block;
-  width: 1px;
-  height: 1.05em;
-  margin-left: 2px;
-  background: #7e2431;
-  box-shadow: 0 0 7px rgb(126 36 49 / 35%);
-  vertical-align: -0.14em;
-  animation: labs-engine-query-caret 760ms steps(1, end) infinite;
-}
-
-@keyframes labs-engine-query-caret {
-  0%,
-  48% {
-    opacity: 1;
-  }
-
-  49%,
-  100% {
-    opacity: 0;
-  }
-}
 
 .labs-engine-query-presets {
   display: flex;

@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
@@ -94,6 +95,24 @@ describe("RetrievalLabPage retriever contrasts", () => {
   });
 
   afterEach(cleanup);
+
+  it("is reachable from the other Labs views and marks itself current", () => {
+    // A documented participant surface that carried no Labs navigation, so the
+    // only ways in were a product-page link and a lab-mission deep link.
+    render(<RetrievalLabPage />);
+
+    const strip = screen.getByRole("navigation", { name: "Mosaic Labs views" });
+    // Internal routes only; the strip also carries an outbound GitHub link.
+    expect(
+      within(strip)
+        .getAllByRole("link")
+        .map((link) => link.getAttribute("href"))
+        .filter((href) => href?.startsWith("/")),
+    ).toEqual(["/mosaic-labs", "/labs/retrieval", "/mosaic-labs/hnsw", "/mosaic-labs/studio"]);
+    expect(
+      within(strip).getByRole("link", { name: "Retrieval Lab" }).getAttribute("aria-current"),
+    ).toBe("page");
+  });
 
   it("makes the FTS identity win and vector miss observable from live ranks", async () => {
     window.history.replaceState(
