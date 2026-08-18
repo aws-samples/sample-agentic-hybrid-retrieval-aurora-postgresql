@@ -166,27 +166,31 @@ const engineReplayStepDurationMs = 1650;
 const engineQueryCharacterDelayMs = 50;
 
 /**
- * One real anchor photograph per system lens, so Explore reads as physical
- * catalog objects rather than a spec sheet.
+ * One catalog photograph per system lens, chosen for the row rather than taken
+ * from the lab's own targets.
  *
- * Each lens takes its mission's first target by default, which gave two of the
- * three an `ergonomic-office-chairs` product: the rank lab targets the
- * PostureWorks mesh chair and the reason lab's first target is the Forma chair.
- * `agentic-research` also targets a quiet keyboard, and its query names the
- * keyboard before the chair, so the keyboard stands in for that lens and the row
- * covers three categories. Indexed into the mission's own target list rather
- * than pinning a product id, so editing the manifest cannot silently desync it.
+ * Taking each mission's first target put an `ergonomic-office-chairs` product in
+ * two of the three lenses, and Lab 3 has no third category to reach for: its
+ * mission and its supporting check target only the Forma chair and the Keysmith
+ * keyboard. So the photograph is picked for the row instead, and the caption
+ * reads "Pictured" rather than claiming the product anchors the lab beside it.
+ *
+ * Every id here is a real merchandised product with its own commissioned
+ * photography, so the model name under each frame is still a catalog fact. Keyed
+ * by stage, and falling back to the mission's first target, so a new stage
+ * renders something real without an entry.
  */
-const labThumbnailTargetIndex: Record<string, number> = {
-  "agentic-research": 1,
+const labIllustrationByStage: Partial<Record<MosaicLabStage, number>> = {
+  retrieve: 2, // Sonora WH-C720, over-ear headphones
+  rank: 370002, // PostureWorks Pro Mesh, ergonomic chair
+  reason: 234001, // AeroStride Carbon Pro 3, the flagship carbon racing shoe
 };
 
-function labThumbnailId(lab: MosaicLabMission): number {
-  const preferred = lab.target_product_ids[labThumbnailTargetIndex[lab.id] ?? 0];
-  return preferred ?? lab.target_product_ids[0];
+function labIllustrationId(lab: MosaicLabMission): number {
+  return labIllustrationByStage[lab.stage] ?? lab.target_product_ids[0];
 }
 
-const labThumbnailIds = coreMosaicLabs.map(labThumbnailId);
+const labThumbnailIds = coreMosaicLabs.map(labIllustrationId);
 
 type EngineVisual = {
   title: string;
@@ -891,7 +895,7 @@ export function MosaicLabsPage() {
             const stage = stageDetails[lab.stage];
             const Icon = stage.Icon;
             const runs = [lab, ...checksFor(lab)];
-            const thumbnail = labThumbnails.get(labThumbnailId(lab));
+            const thumbnail = labThumbnails.get(labIllustrationId(lab));
             return (
               <article className={`labs-stage-card ${lab.stage}`} id={lab.id} key={lab.id}>
                 {thumbnail ? (
@@ -905,7 +909,7 @@ export function MosaicLabsPage() {
                       decoding="async"
                     />
                     <figcaption>
-                      <small>Product anchor</small>
+                      <small>Pictured</small>
                       <strong>{thumbnail.model}</strong>
                     </figcaption>
                   </figure>
