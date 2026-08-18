@@ -11,9 +11,9 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
-import { supportingMosaicChecks } from "../labMissions";
+import { coreMosaicLabs, supportingMosaicChecks } from "../labMissions";
 import { showcaseProductDetail } from "../showcase";
-import { MosaicLabsPage } from "./MosaicLabsPage";
+import { labAnchorId, labScenarioTargets, MosaicLabsPage } from "./MosaicLabsPage";
 
 vi.mock("../api", () => ({
   api: {
@@ -44,6 +44,20 @@ describe("MosaicLabsPage", () => {
   afterEach(() => {
     vi.useRealTimers();
     cleanup();
+  });
+
+  it("pictures a product each lens's own Shop scenarios target", () => {
+    // The frame is captioned "Product anchor", so the product has to belong to
+    // the scenarios listed beside it. Picturing something the lab never touches
+    // claims a relationship the manifest does not have, and the manifest is data
+    // that can be edited without touching this page.
+    for (const lab of coreMosaicLabs) {
+      expect(labScenarioTargets(lab)).toContain(labAnchorId(lab));
+    }
+
+    // Three lenses, three products. Two of them used to be ergonomic chairs.
+    const anchors = coreMosaicLabs.map(labAnchorId);
+    expect(new Set(anchors).size).toBe(anchors.length);
   });
 
   it("presents the three system lenses as read-only observation with Shop scenarios", async () => {

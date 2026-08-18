@@ -166,31 +166,42 @@ const engineReplayStepDurationMs = 1650;
 const engineQueryCharacterDelayMs = 50;
 
 /**
- * One catalog photograph per system lens, chosen for the row rather than taken
- * from the lab's own targets.
+ * The product each lens pictures. It has to be a product that lens's own Shop
+ * scenarios actually target, or the frame claims a relationship the labs do not
+ * have.
  *
- * Taking each mission's first target put an `ergonomic-office-chairs` product in
- * two of the three lenses, and Lab 3 has no third category to reach for: its
- * mission and its supporting check target only the Forma chair and the Keysmith
- * keyboard. So the photograph is picked for the row instead, and the caption
- * reads "Pictured" rather than claiming the product anchors the lab beside it.
- *
- * Every id here is a real merchandised product with its own commissioned
- * photography, so the model name under each frame is still a catalog fact. Keyed
- * by stage, and falling back to the mission's first target, so a new stage
- * renders something real without an entry.
+ * Every mission's first target pictured an `ergonomic-office-chairs` product in
+ * two of the three lenses. `agentic-research` targets the Keysmith keyboard as
+ * well as the Forma chair, and its query names the keyboard first, so picturing
+ * the keyboard keeps the three lenses in three categories without reaching
+ * outside the lab for a photograph.
  */
-const labIllustrationByStage: Partial<Record<MosaicLabStage, number>> = {
-  retrieve: 2, // Sonora WH-C720, over-ear headphones
-  rank: 370002, // PostureWorks Pro Mesh, ergonomic chair
-  reason: 234001, // AeroStride Carbon Pro 3, the flagship carbon racing shoe
+const labAnchorByStage: Partial<Record<MosaicLabStage, number>> = {
+  reason: 429001, // Keysmith MX Quiet, a target of agentic-research itself
 };
 
-function labIllustrationId(lab: MosaicLabMission): number {
-  return labIllustrationByStage[lab.stage] ?? lab.target_product_ids[0];
+/** Every product id the lens's own Shop scenarios run against. */
+export function labScenarioTargets(lab: MosaicLabMission): number[] {
+  return [lab, ...checksFor(lab)].flatMap((run) => run.target_product_ids);
 }
 
-const labThumbnailIds = coreMosaicLabs.map(labIllustrationId);
+/**
+ * Fails at module load rather than shipping a frame whose product is unrelated
+ * to the scenarios listed beside it. The mission manifest is data, so an edit
+ * there could otherwise silently decouple the two.
+ */
+export function labAnchorId(lab: MosaicLabMission): number {
+  const preferred = labAnchorByStage[lab.stage];
+  if (preferred === undefined) return lab.target_product_ids[0];
+  if (!labScenarioTargets(lab).includes(preferred)) {
+    throw new Error(
+      `Mosaic Labs anchor ${preferred} is not targeted by any ${lab.stage} Shop scenario.`,
+    );
+  }
+  return preferred;
+}
+
+const labThumbnailIds = coreMosaicLabs.map(labAnchorId);
 
 type EngineVisual = {
   title: string;
@@ -895,7 +906,7 @@ export function MosaicLabsPage() {
             const stage = stageDetails[lab.stage];
             const Icon = stage.Icon;
             const runs = [lab, ...checksFor(lab)];
-            const thumbnail = labThumbnails.get(labIllustrationId(lab));
+            const thumbnail = labThumbnails.get(labAnchorId(lab));
             return (
               <article className={`labs-stage-card ${lab.stage}`} id={lab.id} key={lab.id}>
                 {thumbnail ? (
@@ -909,7 +920,7 @@ export function MosaicLabsPage() {
                       decoding="async"
                     />
                     <figcaption>
-                      <small>Pictured</small>
+                      <small>Product anchor</small>
                       <strong>{thumbnail.model}</strong>
                     </figcaption>
                   </figure>
