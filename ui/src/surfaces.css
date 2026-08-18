@@ -6948,12 +6948,38 @@
   align-content: start;
 }
 
+/* One panel's input is missing, so one panel says so. This replaces the ring in
+   place; it used to be the whole page, because the neighbourhood fetch wrote the
+   page-level error state. */
+.hnsw-neighborhood-unavailable {
+  display: grid;
+  gap: 7px;
+  padding: 20px 22px;
+}
+
+.hnsw-neighborhood-unavailable h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 720;
+}
+
+.hnsw-neighborhood-unavailable p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
 .hnsw-live,
 .hnsw-envelope,
 .hnsw-pareto,
 .hnsw-ring,
 .hnsw-cliff,
 .hnsw-repr,
+.hnsw-neighborhood-unavailable,
 .hnsw-ab {
   overflow: hidden;
   border: 1px solid #ded3c6;

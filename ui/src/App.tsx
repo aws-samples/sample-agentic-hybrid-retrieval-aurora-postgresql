@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Redirect, Route, Switch } from "wouter";
 import { CommerceProvider } from "./commerce";
+import { RouteErrorBoundary } from "./components/RouteErrorBoundary";
 import { Shell } from "./components/Shell";
 
 const CatalogPage = lazy(() =>
@@ -32,28 +33,35 @@ export function App() {
   return (
     <CommerceProvider>
       <Shell>
-        <Suspense fallback={<p className="route-loading" role="status">Loading Mosaic...</p>}>
-          <Switch>
-            <Route path="/" component={DiscoverPage} />
-            <Route path="/discover" component={DiscoverPage} />
-            <Route path="/catalog" component={CatalogPage} />
-            <Route path="/search" component={SearchPage} />
-            <Route path="/mosaic-labs/hnsw" component={PerformancePage} />
-            <Route path="/mosaic-labs/studio" component={MosaicStudioPage} />
-            <Route path="/mosaic-labs" component={MosaicLabsPage} />
-            <Route path="/inspiration">
-              <Redirect to="/mosaic-labs" replace />
-            </Route>
-            <Route path="/products/:productId" component={ProductPage} />
-            <Route path="/labs/retrieval" component={RetrievalLabPage} />
-            <Route path="/labs/performance">
-              <Redirect to="/mosaic-labs/hnsw" replace />
-            </Route>
-            <Route>
-              <Redirect to="/" replace />
-            </Route>
-          </Switch>
-        </Suspense>
+        {/* Inside Shell so the header and cart survive a failed surface, and
+            outside Suspense so a rejected lazy import lands here rather than
+            leaving the fallback on screen forever. */}
+        <RouteErrorBoundary>
+          <Suspense
+            fallback={<p className="route-loading" role="status">Loading Mosaic...</p>}
+          >
+            <Switch>
+              <Route path="/" component={DiscoverPage} />
+              <Route path="/discover" component={DiscoverPage} />
+              <Route path="/catalog" component={CatalogPage} />
+              <Route path="/search" component={SearchPage} />
+              <Route path="/mosaic-labs/hnsw" component={PerformancePage} />
+              <Route path="/mosaic-labs/studio" component={MosaicStudioPage} />
+              <Route path="/mosaic-labs" component={MosaicLabsPage} />
+              <Route path="/inspiration">
+                <Redirect to="/mosaic-labs" replace />
+              </Route>
+              <Route path="/products/:productId" component={ProductPage} />
+              <Route path="/labs/retrieval" component={RetrievalLabPage} />
+              <Route path="/labs/performance">
+                <Redirect to="/mosaic-labs/hnsw" replace />
+              </Route>
+              <Route>
+                <Redirect to="/" replace />
+              </Route>
+            </Switch>
+          </Suspense>
+        </RouteErrorBoundary>
       </Shell>
     </CommerceProvider>
   );

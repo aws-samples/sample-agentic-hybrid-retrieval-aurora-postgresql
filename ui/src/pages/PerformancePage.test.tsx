@@ -194,6 +194,26 @@ describe("PerformancePage", () => {
 
   afterEach(cleanup);
 
+  it("keeps the instrument when only exact ground truth is missing", async () => {
+    // The neighbourhood endpoint answers 503 when mosaic_bench.exact_neighbor has
+    // no rows for the connected dataset manifest. That used to write the
+    // page-level error state, so one failing panel replaced the substrate sizes,
+    // the measured sweep, the anchors and the projection that had all loaded.
+    vi.mocked(api.hnswNeighborhood).mockRejectedValue(
+      new Error("found no stored neighbours for anchor 1; fix: run make db-seed-exact-neighbors"),
+    );
+
+    render(<PerformancePage />);
+
+    expect(await screen.findByText("LIVE AURORA INDEX")).toBeTruthy();
+    expect(screen.getByText("PROJECTED FROM 500K BASELINE")).toBeTruthy();
+    expect(screen.getAllByText("MEASURED").length).toBeGreaterThan(0);
+
+    // The one panel that needed it says so, and says how to fix it.
+    const notice = await screen.findByText(/found no stored neighbours/);
+    expect(notice.closest(".hnsw-neighborhood-unavailable")).not.toBeNull();
+  });
+
   it("keeps live, measured, and projected evidence separately labelled", async () => {
     const { container } = render(<PerformancePage />);
 

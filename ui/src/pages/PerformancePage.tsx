@@ -81,6 +81,7 @@ export function PerformancePage() {
   const [substrate, setSubstrate] = useState<HnswSubstrate | null>(null);
   const [anchors, setAnchors] = useState<HnswProduct[]>([]);
   const [neighborhood, setNeighborhood] = useState<HnswNeighborhood | null>(null);
+  const [neighborhoodError, setNeighborhoodError] = useState("");
   const [projection, setProjection] = useState<BenchmarkProjection | null>(null);
   const [error, setError] = useState("");
 
@@ -127,16 +128,33 @@ export function PerformancePage() {
     };
   }, []);
 
+  /**
+   * The exact-neighbour ring for the selected anchor, and only that.
+   *
+   * This used to write the page-level `error`, which the early return below turns
+   * into a full-page error state. One 503 from this endpoint - the shape it fails
+   * in when `mosaic_bench.exact_neighbor` has no rows for the connected dataset
+   * manifest - therefore discarded the substrate sizes, the measured sweep, the
+   * anchors, and the projection that had all loaded successfully, and the page
+   * rendered nothing but the message. Ground truth is one panel's input.
+   */
   useEffect(() => {
     if (anchorId === null) return;
     let active = true;
+    setNeighborhoodError("");
     api
       .hnswNeighborhood(anchorId, "none", 10)
       .then((next) => {
-        if (active) setNeighborhood(next);
+        if (active) {
+          setNeighborhood(next);
+          setNeighborhoodError("");
+        }
       })
       .catch((cause: Error) => {
-        if (active) setError(cause.message);
+        if (active) {
+          setNeighborhood(null);
+          setNeighborhoodError(cause.message);
+        }
       });
     return () => {
       active = false;
@@ -329,6 +347,11 @@ export function PerformancePage() {
             onAnchorChange={setAnchorId}
             probe={probe}
           />
+        ) : neighborhoodError ? (
+          <section className="hnsw-neighborhood-unavailable" aria-live="polite">
+            <h2>Exact neighbours are unavailable for this anchor.</h2>
+            <p>{neighborhoodError}</p>
+          </section>
         ) : null}
 
         {measured.filter_matrix.length > 0 && scanMemMb !== null ? (

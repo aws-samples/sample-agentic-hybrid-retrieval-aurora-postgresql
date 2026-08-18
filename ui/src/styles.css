@@ -232,6 +232,52 @@ button:disabled {
   text-align: center;
 }
 
+/* What a failed surface looks like instead of a blank document. The header and
+   the cart are outside the boundary, so the participant is still oriented. */
+.route-error {
+  display: grid;
+  max-width: 34rem;
+  justify-items: start;
+  gap: 10px;
+  margin: 0 auto;
+  padding: 72px 24px;
+}
+
+.route-error h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 26px;
+}
+
+.route-error p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.route-error-hint {
+  color: var(--ink-muted);
+}
+
+.route-error button {
+  min-height: 40px;
+  margin-top: 8px;
+  padding: 0 18px;
+  border: 1px solid var(--maroon-900);
+  border-radius: 6px;
+  background: var(--maroon-900);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.route-error button:hover {
+  border-color: var(--maroon-950);
+  background: var(--maroon-950);
+}
+
 /* One header for every surface: brand left, nav centred, actions right.
    The landing used to draw its own copy and the two drifted to different
    wordmarks and different heights. Height comes from --topbar-height, which is
