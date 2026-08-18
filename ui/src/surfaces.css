@@ -9649,6 +9649,25 @@
   color: #8b8177;
 }
 
+.hnsw-repr-reference a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--maroon-800);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hnsw-repr-reference a:hover,
+.hnsw-repr-reference a:focus-visible {
+  color: var(--maroon-950);
+}
+
+.hnsw-repr-reference a svg {
+  flex-shrink: 0;
+  align-self: center;
+}
+
 /* Controlled scale A/B ------------------------------------------------------ */
 
 .hnsw-ab {

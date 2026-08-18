@@ -483,7 +483,18 @@ describe("PerformancePage", () => {
     expect(screen.getByText(/cut the index by 3x, not 2x/)).toBeTruthy();
     expect(screen.getByText("Existing index")).toBeTruthy();
     expect(screen.queryByText("not measured")).toBeNull();
-    expect(screen.getByText("AWS Blog (forthcoming)")).toBeTruthy();
+    // The citation was a "forthcoming" placeholder until the post published. It
+    // is a real outbound link now, and still names no authors.
+    const reference = screen.getByRole("link", {
+      name: /Scale pgvector with binary quantization on Amazon Aurora PostgreSQL/,
+    });
+    expect(reference.getAttribute("href")).toBe(
+      "https://aws.amazon.com/blogs/database/scale-pgvector-with-binary-quantization-on-amazon-aurora-postgresql/",
+    );
+    expect(reference.getAttribute("target")).toBe("_blank");
+    expect(reference.getAttribute("rel")).toBe("noreferrer");
+    expect(screen.getByText(/AWS Database Blog, 18 August 2026/)).toBeTruthy();
+    expect(screen.queryByText("AWS Blog (forthcoming)")).toBeNull();
     expect(screen.queryByText(/Dille|Manickam/)).toBeNull();
   });
 

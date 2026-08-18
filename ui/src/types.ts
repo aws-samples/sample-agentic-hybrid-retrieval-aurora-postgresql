@@ -494,6 +494,9 @@ export interface HnswRepresentations {
   blog_operating_point: {
     correction: string;
     reference: string;
+    /** Optional so an artifact written before the post published still parses. */
+    reference_source?: string;
+    reference_url?: string;
     anchors: number;
     k: number;
     rows: Array<{

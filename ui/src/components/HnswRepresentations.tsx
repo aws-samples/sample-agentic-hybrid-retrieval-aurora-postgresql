@@ -1,4 +1,4 @@
-import { Info, Layers } from "lucide-react";
+import { ExternalLink, Info, Layers } from "lucide-react";
 import { formatBytes } from "../hnsw";
 import type { HnswRepresentations as Representations } from "../types";
 
@@ -171,8 +171,29 @@ export function HnswRepresentations({
           </table>
         </div>
         <p>{blog_operating_point.tradeoff}</p>
+        {/* The citation was the placeholder "AWS Blog (forthcoming)" until the post
+            published. It carries a URL now, so it is a link; without one it still
+            renders as plain text rather than a dead anchor. */}
         <p className="hnsw-repr-reference">
-          Reference: <cite>{blog_operating_point.reference}</cite>.
+          Reference:{" "}
+          <cite>
+            {blog_operating_point.reference_url ? (
+              <a
+                href={blog_operating_point.reference_url}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {blog_operating_point.reference}
+                <ExternalLink aria-hidden="true" size={13} />
+                <span className="sr-only">(opens in a new tab)</span>
+              </a>
+            ) : (
+              blog_operating_point.reference
+            )}
+          </cite>
+          {blog_operating_point.reference_source
+            ? `, ${blog_operating_point.reference_source}`
+            : ""}.
         </p>
       </details>
     </section>

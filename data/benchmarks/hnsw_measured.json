@@ -1082,7 +1082,9 @@
     },
     "blog_operating_point": {
       "correction": "An earlier reading of these representations concluded binary underperforms on this corpus. That was an artifact of measuring at ef_search=100 with rerank depth <=200. At the deep-rerank operating point (ef_search=800, rerank 1400) binary reaches 0.9967 and EXCEEDS fp32 HNSW's 0.9933, because reranking 1,400 candidates by exact cosine surfaces neighbours that fp32 HNSW's greedy ef_search=100 traversal never visits. Recall saturates at 1400; 3000 adds nothing.",
-      "reference": "AWS Blog (forthcoming)",
+      "reference": "Scale pgvector with binary quantization on Amazon Aurora PostgreSQL",
+      "reference_source": "AWS Database Blog, 18 August 2026",
+      "reference_url": "https://aws.amazon.com/blogs/database/scale-pgvector-with-binary-quantization-on-amazon-aurora-postgresql/",
       "anchors": 30,
       "k": 10,
       "rows": [
