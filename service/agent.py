@@ -76,6 +76,7 @@ def _partial(state: dict[str, Any]) -> AgentPartial:
         trace=_trace_steps(state),
     )
 
+
 SYSTEM_PROMPT = f"""You are a read-only product-discovery agent using Amazon
 Aurora PostgreSQL as the search and context engine.
 

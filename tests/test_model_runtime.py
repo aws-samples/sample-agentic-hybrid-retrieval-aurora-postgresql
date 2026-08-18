@@ -514,8 +514,7 @@ def test_synthesis_rejects_a_budget_ceiling_the_catalog_price_breaks():
     # The guard has to survive the fix: a bound is only settled when the record
     # actually satisfies it. This product is $179.99, so "under $100" is false.
     client = FakeSynthesisClient(
-        "AuriLogic Flight ANC has 48-hour battery life and comes in under "
-        "$100 [1]."
+        "AuriLogic Flight ANC has 48-hour battery life and comes in under $100 [1]."
     )
 
     with pytest.raises(ValueError, match="unsupported numeric claim.*10000"):

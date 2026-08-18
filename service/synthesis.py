@@ -97,11 +97,26 @@ _CURRENCY_PATTERN = r"\$\s*(\d[\d,]*)(?:\.(\d{1,2}))?"
 # Phrases that make the amount after them a bound the answer is comparing
 # against, rather than a figure it is asserting about the product.
 _CEILING_CUES = (
-    "under", "below", "beneath", "within", "less than", "cheaper than",
-    "no more than", "up to", "at or below", "beats", "beat", "beating",
+    "under",
+    "below",
+    "beneath",
+    "within",
+    "less than",
+    "cheaper than",
+    "no more than",
+    "up to",
+    "at or below",
+    "beats",
+    "beat",
+    "beating",
 )
 _FLOOR_CUES = (
-    "over", "above", "more than", "at least", "starting at", "upwards of",
+    "over",
+    "above",
+    "more than",
+    "at least",
+    "starting at",
+    "upwards of",
 )
 
 
@@ -138,7 +153,10 @@ def _currency_bounds(sentence: str) -> dict[str, str]:
     bounds: dict[str, str] = {}
     # Ceilings second, so they win the overlap: the floor cue "more than" is a
     # substring of the ceiling cue "no more than".
-    for direction, pattern in (("floor", _FLOOR_PATTERN), ("ceiling", _CEILING_PATTERN)):
+    for direction, pattern in (
+        ("floor", _FLOOR_PATTERN),
+        ("ceiling", _CEILING_PATTERN),
+    ):
         for match in pattern.finditer(sentence):
             bounds[_cents(match.group(1), match.group(2))] = direction
     return bounds
@@ -336,7 +354,8 @@ def _validate_measurable_claim_support(
             unsupported = [
                 claim
                 for claim in _unsupported_claims(claims, cited_records)
-                if claim not in _price_settled_claims(
+                if claim
+                not in _price_settled_claims(
                     sentence,
                     claims,
                     cited_products,
