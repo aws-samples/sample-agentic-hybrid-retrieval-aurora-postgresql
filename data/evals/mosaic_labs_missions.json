@@ -54,11 +54,11 @@
         "file": "db/sql/09_search_functions.sql",
         "approximate_lines": 11,
         "task": "Restore the trigram CTE and its candidate channel in search_hybrid_rrf.",
-        "broken_state": "The target is absent because the working pg_trgm arm is disconnected from candidate fusion.",
+        "broken_state": "The pg_trgm arm is disconnected from candidate fusion, so the target returns with no trigram rank and no RRF contribution.",
         "fixed_state": "The target returns with trigram rank and RRF contribution while hard filters still hold.",
         "observe_before": [
           "HTTP 200: retrieval still runs through FTS, HNSW, RRF, and reranking.",
-          "Product 2 is absent from the displayed result window.",
+          "Product 2 still appears, carried by an FTS rank alone, with signals.trigram.rank and signals.trigram.rrf_contribution null.",
           "diagnostics.candidate_counts.trigram_in_pool equals 0."
         ],
         "observe_after": [
