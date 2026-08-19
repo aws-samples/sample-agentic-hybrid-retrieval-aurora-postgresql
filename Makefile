@@ -407,6 +407,17 @@ simulate:
 db-seed-exact-neighbors:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/seed_exact_neighbors.py --k 10
 
+# Which models this account may actually invoke. An ACTIVE inference profile is
+# not entitlement: a fresh Workshop Studio account answered "anthropic.claude-
+# sonnet-5 is not available for this account" for the pinned agent model, and the
+# Claude Code preflight failed three times as a result. The model ids come from
+# service.config so this cannot drift from what the application asks for.
+check-model-access:
+	@$(PYTHON) scripts/check_model_access.py \
+	  --chat "$$($(PYTHON) -c 'from service.config import get_settings as g; print(g().agent_model_id)')" \
+	  --embed "$$($(PYTHON) -c 'from service.config import get_settings as g; print(g().embedding_model_id)')" \
+	  --rerank "$$($(PYTHON) -c 'from service.config import get_settings as g; print(g().rerank_model_id)')"
+
 check-exact-neighbors:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/seed_exact_neighbors.py --check
 
