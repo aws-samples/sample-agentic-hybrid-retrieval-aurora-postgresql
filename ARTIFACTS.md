@@ -70,7 +70,7 @@ Do not start with the security group. A reachable port plus a hanging session
 looks like a firewall problem and is not one: `nc -z HOST 5432` reported OPEN, and
 a raw SSLRequest packet got `S` back, while `psql` still timed out.
 
-### Remedy on an Amazon office network: `sslnegotiation=direct`
+### Remedy on a corporate network: `sslnegotiation=direct`
 
 The corporate middlebox breaks PostgreSQL's **negotiated** TLS — send
 `SSLRequest`, then upgrade the socket in place — but passes TLS from the first
@@ -89,15 +89,15 @@ from the DSN.
 
 ### Security-group caveat: corporate NAT is a pool, not an address
 
-`sg-05b26f41b295bc72d` gates the cluster and holds only `/32` rules. Amazon
-corporate egress rotates across a pool — **two IPs were observed in a single
-session** (`15.248.6.29`, `15.248.6.13`), and HTTP reflectors disagreed with each
-other. DNS-based reflection is the reliable one:
+The cluster's security group holds only `/32` rules, and corporate egress
+rotates across a pool — **two different source addresses were observed in a
+single session**, and HTTP reflectors disagreed with each other about which one
+was in use. DNS-based reflection is the reliable one:
 
 ```sh
 dig +short myip.opendns.com @resolver1.opendns.com
 aws ec2 authorize-security-group-ingress --region us-east-1 \
-  --group-id sg-05b26f41b295bc72d \
+  --group-id <your-security-group-id> \
   --ip-permissions 'IpProtocol=tcp,FromPort=5432,ToPort=5432,IpRanges=[{CidrIp=<ip>/32,Description="..."}]'
 ```
 
