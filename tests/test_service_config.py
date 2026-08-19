@@ -81,14 +81,14 @@ def test_env_example_documents_every_non_retrieval_runtime_setting():
 
 
 def test_split_model_overrides_fall_back_to_the_legacy_chat_model(monkeypatch):
-    monkeypatch.setenv("BEDROCK_CHAT_MODEL_ID", "global.anthropic.claude-sonnet-5")
+    monkeypatch.setenv("BEDROCK_CHAT_MODEL_ID", "global.anthropic.claude-sonnet-4-6")
     monkeypatch.delenv("BEDROCK_AGENT_MODEL_ID", raising=False)
     monkeypatch.delenv("BEDROCK_SYNTHESIS_MODEL_ID", raising=False)
 
     settings = get_settings()
 
-    assert settings.agent_model_id == "global.anthropic.claude-sonnet-5"
-    assert settings.synthesis_model_id == "global.anthropic.claude-sonnet-5"
+    assert settings.agent_model_id == "global.anthropic.claude-sonnet-4-6"
+    assert settings.synthesis_model_id == "global.anthropic.claude-sonnet-4-6"
 
 
 def test_split_model_overrides_are_independent(monkeypatch):

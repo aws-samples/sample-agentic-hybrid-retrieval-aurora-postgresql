@@ -216,8 +216,8 @@ cat >/etc/profile.d/mosaic-claude.sh <<'EOF'
 export AWS_REGION=us-east-1
 export AWS_DEFAULT_REGION=us-east-1
 export CLAUDE_CODE_USE_BEDROCK=1
-export ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5
-export CLAUDE_CODE_MODEL=global.anthropic.claude-sonnet-5
+export ANTHROPIC_MODEL=global.anthropic.claude-sonnet-4-6
+export CLAUDE_CODE_MODEL=global.anthropic.claude-sonnet-4-6
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 EOF
 chmod 644 /etc/profile.d/mosaic-claude.sh
@@ -238,13 +238,13 @@ for preflight_attempt in 1 2 3; do
       AWS_REGION="$AWS_REGION" \
       AWS_DEFAULT_REGION="$AWS_REGION" \
       CLAUDE_CODE_USE_BEDROCK=1 \
-      ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5 \
-      CLAUDE_CODE_MODEL=global.anthropic.claude-sonnet-5 \
+      ANTHROPIC_MODEL=global.anthropic.claude-sonnet-4-6 \
+      CLAUDE_CODE_MODEL=global.anthropic.claude-sonnet-4-6 \
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       timeout 180 "$CLAUDE_BIN" \
         --bare \
         --tools "" \
-        --model global.anthropic.claude-sonnet-5 \
+        --model global.anthropic.claude-sonnet-4-6 \
         --no-session-persistence \
         --output-format text \
         --print \
@@ -338,9 +338,9 @@ BEDROCK_EMBED_MODEL_ID=us.cohere.embed-v4:0
 RERANK_PROVIDER=bedrock
 BEDROCK_RERANK_MODEL_ID=cohere.rerank-v3-5:0
 RERANK_REQUIRED=true
-BEDROCK_CHAT_MODEL_ID=global.anthropic.claude-sonnet-5
-BEDROCK_AGENT_MODEL_ID=global.anthropic.claude-sonnet-5
-BEDROCK_SYNTHESIS_MODEL_ID=global.anthropic.claude-sonnet-5
+BEDROCK_CHAT_MODEL_ID=global.anthropic.claude-sonnet-4-6
+BEDROCK_AGENT_MODEL_ID=global.anthropic.claude-sonnet-4-6
+BEDROCK_SYNTHESIS_MODEL_ID=global.anthropic.claude-sonnet-4-6
 ALLOW_DEVELOPMENT_EMBEDDINGS=false
 BEDROCK_MAX_ATTEMPTS=5
 MOSAIC_SOURCE_REVISION=$SOURCE_REVISION

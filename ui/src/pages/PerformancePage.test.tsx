@@ -171,8 +171,8 @@ const readiness: ReadinessResponse = {
   configured_models: {
     embedding: "us.cohere.embed-v4:0",
     rerank: "cohere.rerank-v3-5:0",
-    agent: "global.anthropic.claude-sonnet-5",
-    synthesis: "global.anthropic.claude-sonnet-5",
+    agent: "global.anthropic.claude-sonnet-4-6",
+    synthesis: "global.anthropic.claude-sonnet-4-6",
   },
   bedrock_credentials: { ready: true },
 };

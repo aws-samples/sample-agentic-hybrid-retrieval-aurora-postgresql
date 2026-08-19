@@ -11,7 +11,7 @@ Usage:
     uv run python scripts/benchmark_ask_mosaic.py --runs 3 --full-runs 2
     uv run python scripts/benchmark_ask_mosaic.py \
         --agent-model global.anthropic.claude-haiku-4-5-20251001-v1:0 \
-        --synthesis-model global.anthropic.claude-sonnet-5
+        --synthesis-model global.anthropic.claude-sonnet-4-6
     uv run python scripts/benchmark_ask_mosaic.py --output benchmarks/results/ask-mosaic.json
 """
 
@@ -31,6 +31,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+# Sonnet 5 and Opus 4.8 are not on Workshop Studio's enabled-model list, so this
+# sweep only completes on an account with its own model access. Run
+# `make check-model-access` first if a model here returns AccessDeniedException.
 DEFAULT_MODELS = (
     "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "global.anthropic.claude-sonnet-4-6",

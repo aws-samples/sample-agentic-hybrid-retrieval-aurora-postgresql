@@ -189,7 +189,7 @@ The Aurora release contract verifies:
 | Embedding model | `us.cohere.embed-v4:0` |
 | Embedding dimensions | 1,024 |
 | Rerank model | `cohere.rerank-v3-5:0` |
-| Agent and synthesis model | `global.anthropic.claude-sonnet-5` |
+| Agent and synthesis model | `global.anthropic.claude-sonnet-4-6` |
 | Premium visual cohort | 120 products |
 | Photographed Shop edit | 200 products |
 | Product specification coverage | 500,000 products |

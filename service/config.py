@@ -190,7 +190,7 @@ def get_settings() -> Settings:
     source_revision, source_worktree_dirty = _source_identity()
     chat_model_id = os.getenv(
         "BEDROCK_CHAT_MODEL_ID",
-        os.getenv("BEDROCK_CHAT_MODEL", "global.anthropic.claude-sonnet-5"),
+        os.getenv("BEDROCK_CHAT_MODEL", "global.anthropic.claude-sonnet-4-6"),
     )
     return Settings(
         database_url=os.getenv("DATABASE_URL"),

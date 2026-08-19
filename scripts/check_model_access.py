@@ -30,7 +30,7 @@ Usage
 
     # Standalone on any box with the account's credentials:
     python3 scripts/check_model_access.py \\
-      --chat global.anthropic.claude-sonnet-5 \\
+      --chat global.anthropic.claude-sonnet-4-6 \\
       --embed us.cohere.embed-v4:0 \\
       --rerank cohere.rerank-v3-5:0
 
@@ -59,9 +59,12 @@ DEFAULT_REGION = "us-east-1"
 
 # Diagnostic probes, not configuration. When a pinned model is not entitled, the
 # useful question is which comparable model is, so these are tried too and
-# reported separately. They are never used by the application.
+# reported separately. They are never used by the application. Every entry is on
+# Workshop Studio's enabled-model list, so an answer here is a model the workshop
+# may actually pin. The one already passed as --chat is skipped.
 CHAT_FALLBACKS = (
     "global.anthropic.claude-sonnet-4-6",
+    "global.anthropic.claude-opus-4-6-v1",
     "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
     "global.anthropic.claude-haiku-4-5-20251001-v1:0",
 )

@@ -1047,7 +1047,7 @@ def test_agent_uses_the_dedicated_model_override(monkeypatch):
 def test_synthesis_uses_the_dedicated_model_override():
     settings = replace(
         get_settings(),
-        synthesis_model_id="global.anthropic.claude-sonnet-5",
+        synthesis_model_id="global.anthropic.claude-sonnet-4-6",
     )
     client = FakeSynthesisClient(
         "Summary\nChoose this option [1].\n\n"
@@ -1063,7 +1063,7 @@ def test_synthesis_uses_the_dedicated_model_override():
         client=client,
     )
 
-    assert client.request["modelId"] == "global.anthropic.claude-sonnet-5"
+    assert client.request["modelId"] == "global.anthropic.claude-sonnet-4-6"
 
 
 def test_agent_tool_filters_cannot_widen_request_filters():
