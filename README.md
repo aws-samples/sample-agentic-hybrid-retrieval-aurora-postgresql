@@ -101,8 +101,8 @@ The visible application surfaces are:
 
 - **Discover** - editorial product discovery and direct search;
 - **Shop** - hybrid search, filters, sorting, product detail, and Ask Mosaic;
-- **Mosaic Labs** - read-only retrieval, ranking, evidence, and studio
-  inspection views.
+- **Retrieval Observatory** - read-only inspection of retrieval, ranking, and
+  evidence, with HNSW-at-scale and Studio alongside it.
 
 Search and agent results always come from the API. The UI does not recreate
 retrieval scores or silently substitute fixture products when Aurora, Bedrock,
@@ -112,7 +112,7 @@ reranking, evidence, or synthesis is unavailable.
 
 ```mermaid
 flowchart LR
-    U[Buyer or builder] --> UI[React: Discover, Shop, Mosaic Labs]
+    U[Buyer or builder] --> UI[React: Discover, Shop, Retrieval Observatory]
     UI --> API[FastAPI retrieval and agent API]
     H[MCP-compatible host] --> MCP[MCP 2.0 adapter]
     MCP --> API
@@ -361,7 +361,7 @@ mcp-server/   Isolated MCP 2.0 adapter
 scripts/      Data, embedding, validation, scorecard, and benchmark tooling
 service/      FastAPI, retrieval orchestration, Strands tools, and model clients
 tests/        Dataset, SQL, API, provenance, and release-contract tests
-ui/           React storefront, Ask Mosaic, and Mosaic Labs
+ui/           React storefront, Ask Mosaic, and the Retrieval Observatory
 ```
 
 Start with:
