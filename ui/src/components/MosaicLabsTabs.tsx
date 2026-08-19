@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { RETRIEVAL_SURFACE } from "../navigation";
 
 type MosaicLabsTab = "retrieval" | "hnsw" | "studio";
 
@@ -15,9 +16,9 @@ export function MosaicLabsTabs({ active }: { active: MosaicLabsTab }) {
         <Link
           aria-current={active === "retrieval" ? "page" : undefined}
           className={active === "retrieval" ? "active" : ""}
-          href="/labs/retrieval"
+          href={RETRIEVAL_SURFACE.path}
         >
-          Retrieval Observatory
+          {RETRIEVAL_SURFACE.label}
         </Link>
         <Link
           aria-current={active === "hnsw" ? "page" : undefined}

@@ -10,7 +10,7 @@ import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { ProductCard } from "../components/ProductCard";
 import { mosaicRetrievalExamples, retrievalExampleHref } from "../labMissions";
 import { productImageMap } from "../media";
-import { useNavigate } from "../navigation";
+import { RETRIEVAL_SURFACE, useNavigate } from "../navigation";
 import { showcaseCatalogPage } from "../showcase";
 import type { SearchFilters } from "../types";
 
@@ -303,12 +303,12 @@ function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
 }
 
 /**
- * The signal figure behind the Labs band.
+ * The signal figure behind the Retrieval Observatory band.
  *
  * Three strands converge into one and hand off to the photographs on the right,
  * which is the shape of the thing the labs teach: a lexical, a fuzzy, and a
  * semantic arm fused into a single ranked list. Decorative, so it carries no
- * numbers - the measured values live on the Labs surface itself.
+ * numbers - the measured values live on the Observatory itself.
  */
 function LabsSignal() {
   return (
@@ -624,7 +624,7 @@ export function DiscoverPage() {
           <LabsSignal />
           <div className="discover-labs-inner">
             <div className="discover-labs-copy">
-              <p className="discover-labs-kicker">Mosaic Labs</p>
+              <p className="discover-labs-kicker">{RETRIEVAL_SURFACE.label}</p>
               <h2 id="discover-labs-title">
                 Built for how you <em>think.</em>
               </h2>
@@ -632,7 +632,7 @@ export function DiscoverPage() {
                 See how Mosaic retrieves candidates, ranks results, and grounds recommendations.
               </p>
               <Link className="discover-labs-cta" href="/labs/retrieval">
-                Open Retrieval Observatory
+                Open the Observatory
                 <ArrowRight size={15} aria-hidden="true" />
               </Link>
             </div>

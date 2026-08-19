@@ -2,6 +2,7 @@ import { CircleUserRound, Menu, ShoppingBag, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useCommerce } from "../commerce";
+import { RETRIEVAL_SURFACE } from "../navigation";
 import { MosaicMark } from "./MosaicMark";
 
 /**
@@ -15,7 +16,7 @@ import { MosaicMark } from "./MosaicMark";
 const navLinks = [
   { to: "/", label: "Discover" },
   { to: "/catalog", label: "Shop" },
-  { to: "/labs/retrieval", label: "Retrieval Observatory", optional: true },
+  { to: RETRIEVAL_SURFACE.path, label: RETRIEVAL_SURFACE.label, optional: true },
 ];
 
 function isActive(pathname: string, to: string) {

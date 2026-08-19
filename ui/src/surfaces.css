@@ -4873,7 +4873,6 @@
   position: relative;
   display: grid;
   min-height: 430px;
-  grid-template-rows: auto 190px;
   overflow: hidden;
   border-bottom: 1px solid #dfd6c9;
   background: #f7f3ec;
@@ -4933,37 +4932,6 @@
 .labs-intro-actions > span {
   color: var(--ink-soft);
   font-size: var(--labs-micro);
-}
-
-/* Decorative maroon-and-gold field. It carries no measurements; the engine
-   below is the inspectable surface. */
-.labs-intro-flow-wrap {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 1180px);
-  height: 190px;
-  justify-self: center;
-  min-width: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.labs-intro-flow {
-  position: absolute;
-  inset: 0;
-}
-
-.labs-intro-flow > canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    #000 10%,
-    #000 90%,
-    transparent 100%
-  );
 }
 
 @keyframes labs-product-enter {
@@ -5141,28 +5109,11 @@
 
   .labs-intro {
     min-height: 410px;
-    grid-template-rows: auto 150px;
   }
 
   .labs-intro-copy {
     width: 100%;
     padding: 20px 24px 0;
-  }
-
-  .labs-intro-flow-wrap {
-    position: relative;
-    width: 100%;
-    height: 150px;
-  }
-
-  .labs-intro-flow > canvas {
-    mask-image: linear-gradient(
-      to right,
-      transparent 0%,
-      #000 8%,
-      #000 92%,
-      transparent 100%
-    );
   }
 
   /* The overlaid hero is a desktop composition. Below 900px the copy column is
@@ -5345,7 +5296,6 @@
 
   .labs-intro {
     min-height: 430px;
-    grid-template-rows: auto 135px;
   }
 
   .labs-intro-copy {
@@ -5866,7 +5816,6 @@
 
 .labs-intro {
   min-height: 456px;
-  grid-template-rows: auto 194px;
   border-bottom-color: #d7cec1;
 }
 
@@ -5904,11 +5853,6 @@
 
 .labs-intro-actions > span {
   font-size: var(--labs-detail);
-}
-
-.labs-intro-flow-wrap {
-  width: min(100%, 1260px);
-  height: 194px;
 }
 
 /* Retrieval Observatory. Five retrievers across, results down.
@@ -6884,7 +6828,6 @@
 
   .labs-intro {
     min-height: 458px;
-    grid-template-rows: auto 136px;
   }
 
   .labs-intro-copy {
@@ -6899,10 +6842,7 @@
     font-size: var(--labs-lead);
   }
 
-  .labs-intro-flow-wrap {
-    height: 136px;
   }
-}
 
 /* Audit refinements preserve the Mosaic palette and particle identity while
    tightening Labs hierarchy and stabilizing Shop on small screens. */
@@ -6917,10 +6857,6 @@
   border-bottom-color: #d7cec1;
 }
 
-.labs-intro-flow-wrap {
-  margin-inline: auto;
-}
-
 .labs-intro-copy {
   width: min(100%, 900px);
   align-items: flex-start;
@@ -6929,12 +6865,8 @@
   text-align: left;
 }
 
-.labs-intro--compact .labs-intro-copy {
+.labs-intro-copy {
   padding-block: 24px 26px;
-}
-
-.labs-intro--animated .labs-intro-copy {
-  padding-bottom: 24px;
 }
 
 .labs-intro-copy h1 {
@@ -7009,7 +6941,7 @@
     padding: 20px 0 26px;
   }
 
-  .labs-intro--compact .labs-intro-copy {
+  .labs-intro-copy {
     padding-block: 18px 20px;
   }
 

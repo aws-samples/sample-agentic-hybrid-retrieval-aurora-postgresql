@@ -226,10 +226,7 @@ describe("PerformancePage", () => {
       expect(badge.classList).toContain("measured");
       expect(badge.classList).not.toContain("live");
     });
-    expect(container.querySelector(".labs-intro")?.classList).toContain(
-      "labs-intro--compact",
-    );
-    expect(container.querySelector(".labs-intro-flow")).toBeNull();
+    expect(container.querySelector(".labs-intro")?.className).toBe("labs-intro");
     expect(
       screen.getByRole("link", { name: "HNSW at scale" }).getAttribute("aria-current"),
     ).toBe("page");

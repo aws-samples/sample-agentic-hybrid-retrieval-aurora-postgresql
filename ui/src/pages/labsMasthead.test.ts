@@ -52,4 +52,20 @@ describe("Mosaic Labs surfaces", () => {
       .map(([file]) => file);
     expect(bespoke).toEqual([]);
   });
+
+  it("none asks the masthead for a decorative variant", async () => {
+    // Studio passed `showFlow` for a 194px particle canvas that measured nothing.
+    // It pushed Studio's own masthead rule 234px below the last line of copy, so
+    // that rule and the next section's read as two hairlines around an empty band
+    // while the other three surfaces went copy, rule, gap, section.
+    //
+    // One masthead with no variants is what keeps that from being reintroduced for
+    // one surface at a time. Asserted over the derived surface set, so a fourth
+    // Labs view is covered without anybody remembering to add it here.
+    const surfaces = await labsSurfaces();
+    const decorated = surfaces
+      .filter(([, source]) => /showFlow|LabsIntroFlow|labs-intro--/.test(source))
+      .map(([file]) => file);
+    expect(decorated).toEqual([]);
+  });
 });

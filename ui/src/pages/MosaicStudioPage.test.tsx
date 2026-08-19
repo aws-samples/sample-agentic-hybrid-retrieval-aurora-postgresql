@@ -28,10 +28,11 @@ describe("MosaicStudioPage", () => {
       screen.getByRole("link", { name: "HNSW at scale" }).getAttribute("href"),
     ).toBe("/mosaic-labs/hnsw");
     expect(screen.getByRole("heading", { name: "Compose a creative workspace." })).toBeTruthy();
-    expect(document.querySelector(".labs-intro")?.classList).toContain(
-      "labs-intro--animated",
-    );
-    expect(document.querySelector(".labs-intro-flow[aria-hidden=true] canvas")).toBeTruthy();
+    // Studio carries the same masthead as every other Labs surface. It used to add
+    // a 194px particle canvas that measured nothing and left its own rule stranded
+    // 234px below the last line of copy.
+    expect(document.querySelector(".labs-intro")?.className).toBe("labs-intro");
+    expect(document.querySelector(".labs-intro canvas")).toBeNull();
     expect(
       screen.getByText(/The language below is a creative brief, not an executed search/),
     ).toBeTruthy();

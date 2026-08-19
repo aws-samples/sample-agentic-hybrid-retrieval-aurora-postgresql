@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { CommerceProvider } from "../commerce";
 import { mosaicRetrievalExamples, retrievalExampleHref } from "../labMissions";
+import { RETRIEVAL_SURFACE } from "../navigation";
 import { DiscoverPage } from "./DiscoverPage";
 
 vi.mock("../api", () => ({
@@ -153,7 +154,7 @@ describe("DiscoverPage", () => {
     expect(vi.mocked(api.catalog)).not.toHaveBeenCalled();
   });
 
-  it("previews Mosaic Labs with product-led retrieval, ranking, and evidence scenes", () => {
+  it("previews the Observatory with product-led retrieval, ranking, and evidence scenes", () => {
     const { container } = renderPage();
 
     expect(
@@ -162,7 +163,7 @@ describe("DiscoverPage", () => {
         + " catalog, with each starter's category filter already applied.",
       ),
     ).toBeTruthy();
-    // Lab 2 dropped "explain"; the Labs page carries the same title.
+    // Lab 2 dropped "explain"; the Observatory carries the same title.
     expect(screen.getByText("Fuse, rerank, and inspect")).toBeTruthy();
     expect(
       screen.getByText(
@@ -176,6 +177,25 @@ describe("DiscoverPage", () => {
     expect(container.querySelector(".discover-lab-svg")).toBeNull();
     expect(container.querySelectorAll(".discover-lab-graphic")).toHaveLength(3);
     expect(container.querySelectorAll(".discover-lab-copy")).toHaveLength(3);
+  });
+
+  it("names the surface it links to, with the one name for it", () => {
+    // The band's kicker read "Mosaic Labs" while its own button read "Open
+    // Retrieval Observatory" and its links went to /labs/retrieval. Three names for
+    // one destination, two of them on one screen.
+    //
+    // The name comes from RETRIEVAL_SURFACE, which the header and the Labs tab
+    // strip also read, so renaming the surface cannot leave this page behind.
+    const { container } = renderPage();
+    const band = container.querySelector(".discover-labs")!;
+
+    expect(band.querySelector(".discover-labs-kicker")?.textContent).toBe(
+      RETRIEVAL_SURFACE.label,
+    );
+    expect(band.textContent).not.toContain("Mosaic Labs");
+    expect(
+      band.querySelector<HTMLAnchorElement>(".discover-labs-cta")?.getAttribute("href"),
+    ).toBe(RETRIEVAL_SURFACE.path);
   });
 
   it("links every canonical lab scenario from Discover to its real inspection surface", () => {
