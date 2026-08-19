@@ -1,665 +1,277 @@
-import { ArrowRight, Play, Search } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { api } from "../api";
+import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CodeBlock } from "../components/CodeBlock";
+import { mosaicRetrievalExamples, type MosaicLabMission } from "../labMissions";
+import { productImageMap } from "../media";
 import {
-  coreMosaicLabs,
-  mosaicLabManifest,
-  supportingMosaicChecks,
-  type MosaicLabMission,
-  type MosaicLabStage,
-} from "../labMissions";
-import { productImage } from "../media";
-import type { ProductSummary } from "../types";
+  buildRetrievalMatrix,
+  matrixSummary,
+  type ColumnKey,
+  type MatrixRow,
+} from "../retrievalMatrix";
+import { seedProvenance, seedRunFor } from "../retrievalSeed";
+import type { SearchResponse } from "../types";
 
-type EngineVisual = {
-  title: string;
-  copy: string;
-  productLabel: string;
-  visibleProductIds: number[];
-  productOrder: number[];
-};
+/**
+ * The Retrieval Observatory: five retrievers, one row per result, side by side.
+ *
+ * The point of this surface is a comparison, and a comparison has to be visible
+ * all at once. The version this replaces showed one retriever at a time behind a
+ * tab strip, so eleven of twelve rows read as an empty column and the difference
+ * between "found by exact words" and "found by meaning" never appeared on screen.
+ * Reading it required clicking five tabs and remembering what the last one said.
+ *
+ * So the arms are columns and the results are rows. Every number is a value the
+ * run reported. Where a row needs a sentence to explain itself, the sentence is
+ * derived from those values rather than written in advance.
+ */
 
-type EngineScenario = {
-  id: string;
-  label: string;
-  mission: MosaicLabMission;
-  candidateOrder: number[];
-  eligibleProductIds: number[];
-  fusedOrder: number[];
-  rerankedOrder: number[];
-};
-
-type EngineStep = {
-  step: string;
-  title: string;
-  owner: MosaicLabStage | null;
-  mechanics: string[];
-  visual: Omit<EngineVisual, "visibleProductIds" | "productOrder">;
-};
-
-type RepairView = "before" | "after";
-
-type FixtureOutcome = {
-  eyebrow: string;
-  title: string;
-  detail: string;
-  tags: string[];
-};
-
-const stageLabels: Record<MosaicLabStage, string> = {
-  retrieve: "Retrieve",
-  rank: "Rank",
-  reason: "Reason",
-  optimize: "Advanced",
-};
-
-const engineProductIds = [2, 3, 4, 5, 1, 17001];
-const engineReplayStepDurationMs = 1650;
-
-function requiredCoreLab(id: string): MosaicLabMission {
-  const lab = coreMosaicLabs.find((candidate) => candidate.id === id);
-  if (!lab) throw new Error(`Retrieval Observatory requires core lab ${id}.`);
-  return lab;
-}
-
-function requiredSupportingCheck(id: string): MosaicLabMission {
-  const check = supportingMosaicChecks.find((candidate) => candidate.id === id);
-  if (!check) throw new Error(`Retrieval Observatory requires supporting check ${id}.`);
-  return check;
-}
-
-const engineScenarios: EngineScenario[] = [
-  {
-    id: "exact-identity",
-    label: "Exact identity",
-    mission: requiredSupportingCheck("exact-identity"),
-    candidateOrder: [17001, 2, 3, 5, 4, 1],
-    eligibleProductIds: [17001, 2, 3, 5, 4, 1],
-    fusedOrder: [17001, 2, 3, 5, 4, 1],
-    rerankedOrder: [17001, 2, 3, 5, 4, 1],
-  },
-  {
-    id: "typo-recovery",
-    label: "Typo recovery",
-    mission: requiredCoreLab("typo-recovery"),
-    candidateOrder: [2, 3, 4, 5, 1, 17001],
-    eligibleProductIds: [2, 3, 4, 5],
-    fusedOrder: [2, 4, 3, 5, 1, 17001],
-    rerankedOrder: [2, 4, 3, 5, 1, 17001],
-  },
-  {
-    id: "semantic-intent-contrast",
-    label: "Semantic intent",
-    mission: requiredSupportingCheck("semantic-intent-contrast"),
-    candidateOrder: [3, 5, 2, 4, 1, 17001],
-    eligibleProductIds: [2, 3, 4, 5],
-    fusedOrder: [3, 2, 5, 4, 1, 17001],
-    rerankedOrder: [3, 5, 2, 4, 1, 17001],
-  },
-];
-
-const engineSteps: EngineStep[] = [
-  {
-    step: "01",
-    title: "Query",
-    owner: null,
-    mechanics: [],
-    visual: {
-      title: "Start with one request",
-      copy: "Each fixture begins with one query. Retrieval and ranking stay inspectable as the system normalizes it and builds candidates.",
-      productLabel: "Premium cohort ready",
-    },
-  },
-  {
-    step: "02",
-    title: "Candidate generation",
-    owner: "retrieve",
-    mechanics: [
-      "tsvector + ts_rank_cd",
-      "pg_trgm similarity",
-      `pgvector HNSW · ${mosaicLabManifest.corpus.embedding_dimensions}d cosine`,
-    ],
-    visual: {
-      title: "Build a candidate universe",
-      copy: "Independent lexical, fuzzy, and semantic arms make the candidate set tangible before any final ordering exists.",
-      productLabel: "Candidate set",
-    },
-  },
-  {
-    step: "03",
-    title: "Structured filters",
-    owner: "retrieve",
-    mechanics: ["price", "category", "availability", "rating"],
-    visual: {
-      title: "Apply deterministic eligibility",
-      copy: "Only candidates that satisfy the fixture's structured constraints continue. Filters are not model suggestions.",
-      productLabel: "Eligible candidate",
-    },
-  },
-  {
-    step: "04",
-    title: "Reciprocal rank fusion",
-    owner: "rank",
-    mechanics: ["1 / (k + rank) per channel", "candidate provenance preserved"],
-    visual: {
-      title: "Fuse rank lists without hiding provenance",
-      copy: "RRF combines ordinal positions from each channel while the original retrieval evidence remains available for inspection.",
-      productLabel: "Fused candidate",
-    },
-  },
-  {
-    step: "05",
-    title: "Cross-encoder rerank",
-    owner: "rank",
-    mechanics: [mosaicLabManifest.corpus.reranker],
-    visual: {
-      title: "Rerank a bounded shortlist",
-      copy: "The model sees only the fused shortlist. It can change the order, but it cannot quietly expand the eligible candidate universe.",
-      productLabel: "Reranked candidate",
-    },
-  },
-  {
-    step: "06",
-    title: "Grounded recommendation",
-    owner: "reason",
-    mechanics: ["search_products()", "compare_products()", "get_product_evidence()"],
-    visual: {
-      title: "Ground the recommendation in evidence",
-      copy: "Typed tool calls compare shortlisted products, retrieve supporting evidence, and return citation IDs that resolve to real records.",
-      productLabel: "Grounded shortlist",
-    },
-  },
-];
-
-function engineVisualForScenario(
-  scenario: EngineScenario,
-  stepIndex: number,
-  repairView: RepairView,
-): EngineVisual {
-  const visual = engineSteps[stepIndex].visual;
-  let result: EngineVisual;
-  if (stepIndex === 0) {
-    result = { ...visual, visibleProductIds: engineProductIds, productOrder: engineProductIds };
-  } else if (stepIndex === 1) {
-    result = {
-      ...visual,
-      visibleProductIds: engineProductIds,
-      productOrder: scenario.candidateOrder,
-    };
-  } else if (stepIndex === 2) {
-    result = {
-      ...visual,
-      visibleProductIds: scenario.eligibleProductIds,
-      productOrder: scenario.candidateOrder,
-    };
-  } else if (stepIndex === 3) {
-    result = {
-      ...visual,
-      visibleProductIds: scenario.eligibleProductIds,
-      productOrder: scenario.fusedOrder,
-    };
-  } else {
-    result = {
-      ...visual,
-      visibleProductIds: scenario.rerankedOrder.slice(0, 3),
-      productOrder: scenario.rerankedOrder,
-    };
-  }
-
-  if (repairView !== "before" || !scenario.mission.participant_edit || stepIndex === 0) {
-    return result;
-  }
-
-  const targetId = scenario.mission.target_product_ids[0];
-  return {
-    ...result,
-    visibleProductIds: result.visibleProductIds.filter((id) => id !== targetId),
-    productOrder: result.productOrder.filter((id) => id !== targetId),
-  };
-}
-
-function engineProductState(
-  product: ProductSummary,
-  visual: EngineVisual,
-  stepIndex: number,
-  scenario: EngineScenario,
-  repairView: RepairView,
-) {
-  const visible = visual.visibleProductIds.includes(product.product_id);
-  const rank = visual.productOrder.indexOf(product.product_id) + 1;
-  const isTarget = product.product_id === scenario.mission.target_product_ids[0];
-  const isExactIdentity = scenario.id === "exact-identity" && isTarget;
-
-  if (!visible && repairView === "before" && scenario.mission.participant_edit && isTarget) {
-    return { label: "Target not recovered", state: "muted target-missed", rank };
-  }
-  if (!visible) return { label: "Outside current set", state: "muted", rank };
-  if (stepIndex === 0) return { label: "Catalog record", state: "prepared", rank };
-  if (isExactIdentity && stepIndex === 1) {
-    return { label: "Exact FTS identity", state: "candidate", rank };
-  }
-  if (stepIndex === 1) return { label: "Candidate", state: "candidate", rank };
-  if (stepIndex === 2) return { label: "Eligible", state: "eligible", rank };
-  if (isExactIdentity && stepIndex === 3) {
-    return { label: "Identity fused at #1", state: "shortlist", rank };
-  }
-  if (stepIndex === 3) return { label: "Fused shortlist", state: "shortlist", rank };
-  if (isExactIdentity && stepIndex === 4) {
-    return { label: "Exact model remains #1", state: "shortlist", rank };
-  }
-  if (stepIndex === 4) return { label: "Rerank shortlist", state: "shortlist", rank };
-  return {
-    label: isTarget ? "Evidence trace" : "Compared product",
-    state: isTarget ? "featured" : "shortlist",
-    rank,
-  };
-}
-
-function fixtureOutcome(
-  scenario: EngineScenario,
-  repairView: RepairView,
-  targetName: string,
-): FixtureOutcome {
-  const edit = scenario.mission.participant_edit;
-  if (!edit) {
-    return {
-      eyebrow: "Illustrated fixture",
-      title: "This replay explains the retrieval flow, not a measured run.",
-      detail: "Choose Typo recovery to compare the disconnected and restored pg_trgm candidate path.",
-      tags: ["No live result", `Target: ${targetName}`],
-    };
-  }
-
-  if (repairView === "before") {
-    return {
-      eyebrow: "What this proves",
-      title: `Before repair: ${targetName} is not recovered.`,
-      detail: edit.broken_state,
-      tags: ["Target absent", "pg_trgm pool: 0", "No trigram contribution"],
-    };
-  }
-
-  return {
-    eyebrow: "What this proves",
-    title: `After repair: ${targetName} is recovered.`,
-    detail: edit.fixed_state,
-    tags: ["Target returned", "pg_trgm rank present", "RRF contribution present"],
-  };
-}
-
-type RetrievalObservatoryProps = {
+interface RetrievalObservatoryProps {
+  example: MosaicLabMission | undefined;
   onSelectExample: (id: string) => void;
-};
+  /** The most recent live response, or null before the participant has run one. */
+  response: SearchResponse | null;
+  loading: boolean;
+}
 
-export function RetrievalObservatory({ onSelectExample }: RetrievalObservatoryProps) {
-  const [activeEngineStep, setActiveEngineStep] = useState(0);
-  const [activeEngineScenarioIndex, setActiveEngineScenarioIndex] = useState(0);
-  const [repairView, setRepairView] = useState<RepairView>("after");
-  const [hasRunFixture, setHasRunFixture] = useState(false);
-  const [isEnginePlaying, setIsEnginePlaying] = useState(false);
-  const [engineProducts, setEngineProducts] = useState<ProductSummary[]>([]);
-  const [engineProductsError, setEngineProductsError] = useState("");
-  const replayTimers = useRef<number[]>([]);
-  const activeEngineScenario = engineScenarios[activeEngineScenarioIndex];
-  const activeEngine = engineSteps[activeEngineStep];
-  const activeEngineVisual = engineVisualForScenario(
-    activeEngineScenario,
-    activeEngineStep,
-    repairView,
+function MovementBadge({ movement }: { movement: number }) {
+  if (movement === 0) {
+    return (
+      <span className="labs-matrix-delta held">
+        <Minus aria-hidden="true" size={13} /> held
+      </span>
+    );
+  }
+  const rose = movement > 0;
+  return (
+    <span className={`labs-matrix-delta ${rose ? "rose" : "fell"}`}>
+      {rose
+        ? <ArrowUp aria-hidden="true" size={13} />
+        : <ArrowDown aria-hidden="true" size={13} />}
+      {Math.abs(movement)}
+    </span>
   );
-  const activeEngineMechanics = activeEngineStep === 0
-    ? [`"${activeEngineScenario.mission.query}"`]
-    : activeEngine.mechanics;
-  const engineEntries = engineProducts.map((product) => ({
-    product,
-    state: engineProductState(
-      product,
-      activeEngineVisual,
-      activeEngineStep,
-      activeEngineScenario,
-      repairView,
-    ),
-  }));
-  const visibleEngineEntries = engineEntries
-    .filter(({ state }) => state.state !== "muted")
-    .sort((left, right) => left.state.rank - right.state.rank);
-  const leadingEngineEntry = visibleEngineEntries[0] ?? null;
-  const targetProduct = engineProducts.find(
-    (product) => product.product_id === activeEngineScenario.mission.target_product_ids[0],
+}
+
+function MatrixRowGroup({
+  row,
+  image,
+  focused,
+}: {
+  row: MatrixRow;
+  image: string | undefined;
+  focused: ColumnKey | null;
+}) {
+  return (
+    <tbody className={row.isTarget ? "is-target" : undefined}>
+      <tr>
+        <th scope="row">
+          <span className="labs-matrix-rank">{row.finalRank}</span>
+          <img alt="" height={44} src={image} width={44} />
+          <span className="labs-matrix-identity">
+            <strong>{row.product.title}</strong>
+            <small>
+              {row.product.brand} / {row.product.model}
+              {row.isTarget ? <em> · scenario target</em> : null}
+            </small>
+          </span>
+        </th>
+        {row.cells.map((cell) => (
+          <td
+            className={[
+              "labs-matrix-cell",
+              cell.missing ? "is-missing" : "is-hit",
+              focused === cell.key ? "is-focused" : "",
+            ].filter(Boolean).join(" ")}
+            key={cell.key}
+          >
+            {cell.missing ? (
+              <span className="labs-matrix-miss" title="This stage produced nothing for this row">
+                not found
+              </span>
+            ) : (
+              <>
+                <strong>{cell.label}</strong>
+                {cell.detail ? <small>{cell.detail}</small> : null}
+              </>
+            )}
+          </td>
+        ))}
+        <td className="labs-matrix-move">
+          <span>
+            {row.beforeRank} <ArrowDown aria-hidden="true" className="labs-matrix-arrow" size={13} />{" "}
+            {row.finalRank}
+          </span>
+          <MovementBadge movement={row.movement} />
+        </td>
+      </tr>
+      <tr className="labs-matrix-why">
+        <td colSpan={7}>
+          <p>{row.verdict}</p>
+          <ul aria-label={`Why ${row.product.model} matched`}>
+            {row.reasons.map((reason) => (
+              <li className={reason.kind} key={reason.label}>{reason.label}</li>
+            ))}
+          </ul>
+        </td>
+      </tr>
+    </tbody>
   );
-  const targetName = targetProduct?.model
-    ?? `Product #${activeEngineScenario.mission.target_product_ids[0]}`;
-  const outcome = fixtureOutcome(activeEngineScenario, repairView, targetName);
+}
 
-  useEffect(() => () => {
-    replayTimers.current.forEach((timer) => window.clearTimeout(timer));
-  }, []);
+export function RetrievalObservatory({
+  example,
+  onSelectExample,
+  response,
+  loading,
+}: RetrievalObservatoryProps) {
+  const [focused, setFocused] = useState<ColumnKey | null>(null);
 
-  useEffect(() => {
-    if (!hasRunFixture) return;
-    let cancelled = false;
-    Promise.all(engineProductIds.map((productId) => api.product(productId)))
-      .then((products) => {
-        if (!cancelled) {
-          setEngineProducts(products);
-          setEngineProductsError("");
-        }
-      })
-      .catch((cause) => {
-        if (!cancelled) {
-          setEngineProducts([]);
-          setEngineProductsError(
-            cause instanceof Error ? cause.message : "Catalog product records are unavailable",
-          );
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [hasRunFixture]);
+  const shown = response ?? seedRunFor(example?.id);
+  const isLive = response !== null;
 
-  const cancelReplay = () => {
-    replayTimers.current.forEach((timer) => window.clearTimeout(timer));
-    replayTimers.current = [];
-    setIsEnginePlaying(false);
-  };
-
-  const selectEngineStep = (index: number) => {
-    cancelReplay();
-    setActiveEngineStep(index);
-  };
-
-  const selectEngineScenario = (index: number) => {
-    cancelReplay();
-    const scenario = engineScenarios[index];
-    setActiveEngineScenarioIndex(index);
-    setRepairView(scenario.mission.participant_edit ? "before" : "after");
-    setActiveEngineStep(0);
-    setHasRunFixture(false);
-  };
-
-  const replayEngineJourney = () => {
-    cancelReplay();
-    setHasRunFixture(true);
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setActiveEngineStep(engineSteps.length - 1);
-      return;
-    }
-
-    setActiveEngineStep(0);
-    setIsEnginePlaying(true);
-    engineSteps.slice(1).forEach((_, index) => {
-      const timer = window.setTimeout(() => {
-        setActiveEngineStep(index + 1);
-      }, (index + 1) * engineReplayStepDurationMs);
-      replayTimers.current.push(timer);
-    });
-    replayTimers.current.push(window.setTimeout(() => {
-      setIsEnginePlaying(false);
-    }, engineSteps.length * engineReplayStepDurationMs));
-  };
-
-  const inspectLiveTrace = (id: string) => {
-    onSelectExample(id);
-    if (typeof window.requestAnimationFrame !== "function") return;
-    window.requestAnimationFrame(() => {
-      const trace = document.getElementById("retrieval-run");
-      if (typeof trace?.scrollIntoView === "function") {
-        trace.scrollIntoView({ block: "start" });
-      }
-    });
-  };
+  const matrix = useMemo(
+    () => (shown ? buildRetrievalMatrix(shown, example?.target_product_ids ?? []) : null),
+    [shown, example],
+  );
+  const images = useMemo(
+    () => productImageMap(matrix?.rows.map((row) => row.product) ?? []),
+    [matrix],
+  );
+  const focusedColumn = matrix?.columns.find((column) => column.key === focused) ?? null;
 
   return (
-    <section
-      className={`labs-engine labs-engine-board${isEnginePlaying ? " is-replaying" : ""}`}
-      aria-busy={isEnginePlaying}
-      aria-labelledby="labs-engine-title"
-    >
-      <header className="labs-engine-heading">
+    <section className="labs-matrix" aria-labelledby="labs-matrix-title">
+      <header className="labs-matrix-heading">
         <div>
-          <h2 id="labs-engine-title">From request to grounded output.</h2>
-          <p className="labs-engine-description">
-            Select a stage or replay a validated fixture. Product records come
-            from the catalog; the replay explains the system without claiming
-            a fresh measured run.
-          </p>
+          <p className="eyebrow">Five retrievers, one result set</p>
+          <h2 id="labs-matrix-title">What each retriever found</h2>
+          {matrix ? (
+            <p className="labs-matrix-summary">{matrixSummary(matrix)}</p>
+          ) : (
+            <p className="labs-matrix-summary">
+              Run the pipeline to compare this scenario across all five retrievers.
+            </p>
+          )}
+        </div>
+        <div className="labs-matrix-provenance">
+          {/* Only ever labels a run that is on screen. Printing "Captured run"
+              beside an empty matrix would claim provenance for nothing. */}
+          {shown ? (
+            <>
+              <span className={`labs-matrix-badge ${isLive ? "is-live" : "is-captured"}`}>
+                {isLive ? "Live run" : "Captured run"}
+              </span>
+              <dl>
+                <div>
+                  <dt>Run</dt>
+                  <dd className="mono">{shown.search_event_id.slice(0, 8)}</dd>
+                </div>
+                <div>
+                  <dt>{isLive ? "Source" : "Captured"}</dt>
+                  <dd>{isLive ? "This browser, just now" : seedProvenance.captured_at}</dd>
+                </div>
+              </dl>
+            </>
+          ) : null}
         </div>
       </header>
 
-      <ol
-        className={`labs-engine-rail${isEnginePlaying ? " is-replaying" : ""}`}
-        aria-label="Retrieval and ranking stages"
-      >
-        {engineSteps.map((step, index) => (
-          <li
-            className={
-              index < activeEngineStep ? "complete" : index === activeEngineStep ? "active" : ""
-            }
-            key={step.step}
+      <div className="labs-matrix-controls">
+        <label>
+          <span>Scenario</span>
+          <select
+            onChange={(event) => onSelectExample(event.target.value)}
+            value={example?.id ?? ""}
           >
-            <button
-              aria-current={index === activeEngineStep ? "step" : undefined}
-              disabled={!hasRunFixture}
-              onClick={() => selectEngineStep(index)}
-              type="button"
-            >
-              <span>{step.step}</span>
-              <strong>{step.title}</strong>
-              {step.owner ? <small>{stageLabels[step.owner]}</small> : null}
-            </button>
-          </li>
-        ))}
-      </ol>
-
-      <div className="labs-observatory-workspace" aria-live="polite">
-        <aside className="labs-observatory-request">
-          <header>
-            <span>Request</span>
-            <strong>Validated fixture</strong>
-          </header>
-          <div className="labs-engine-query is-complete" aria-label="Replay query">
-            <Search size={17} aria-hidden="true" />
-            <code>{activeEngineScenario.mission.query}</code>
-          </div>
-          <div
-            className="labs-engine-query-presets"
-            role="group"
-            aria-label="Replay query examples"
-          >
-            {engineScenarios.map((scenario, index) => (
-              <button
-                aria-label={`Use ${scenario.label} query: ${scenario.mission.query}`}
-                aria-pressed={index === activeEngineScenarioIndex}
-                className={index === activeEngineScenarioIndex ? "active" : ""}
-                key={scenario.id}
-                onClick={() => selectEngineScenario(index)}
-                type="button"
-              >
-                {scenario.label}
-              </button>
+            {mosaicRetrievalExamples.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.discover_label}
+              </option>
             ))}
-          </div>
-          {activeEngineScenario.mission.participant_edit ? (
-            <div
-              className="labs-observatory-repair-toggle"
-              role="group"
-              aria-label={`${activeEngineScenario.label} repair state`}
-            >
-              <span>Show</span>
-              <button
-                aria-pressed={repairView === "before"}
-                className={repairView === "before" ? "active" : ""}
-                onClick={() => setRepairView("before")}
-                type="button"
-              >
-                Before repair
-              </button>
-              <button
-                aria-pressed={repairView === "after"}
-                className={repairView === "after" ? "active" : ""}
-                onClick={() => setRepairView("after")}
-                type="button"
-              >
-                After repair
-              </button>
-            </div>
-          ) : null}
-          <dl className="labs-observatory-request-facts">
-            <div>
-              <dt>Fixture</dt>
-              <dd>{activeEngineScenario.mission.id}</dd>
-            </div>
-            <div>
-              <dt>Target</dt>
-              <dd>#{activeEngineScenario.mission.target_product_ids[0]}</dd>
-            </div>
-            <div>
-              <dt>Expected techniques</dt>
-              <dd>{activeEngineScenario.mission.expected_techniques.length}</dd>
-            </div>
-          </dl>
-          <button
-            className={`labs-engine-replay${!isEnginePlaying ? " query-ready" : ""}`}
-            disabled={isEnginePlaying}
-            onClick={replayEngineJourney}
-            type="button"
-          >
-            <Play size={15} fill="currentColor" />
-            {isEnginePlaying
-              ? `Replaying ${activeEngineStep + 1} of ${engineSteps.length}`
-              : "Replay fixture"}
-          </button>
-        </aside>
-
-        <section className="labs-observatory-candidates">
-          <header className="labs-engine-products-heading">
-            <span>{activeEngineVisual.productLabel}</span>
-            <small>Canonical catalog fixture</small>
-          </header>
-          {!hasRunFixture ? (
-            <p className="labs-observatory-candidates-empty" role="status">
-              Awaiting fixture replay.
-            </p>
-          ) : engineEntries.length ? (
-            <>
-              <div className="labs-engine-products" aria-label="Candidate cohort">
-                {engineEntries.map(({ product, state }, index) => (
-                  <figure
-                    className={`labs-engine-product ${state.state}`}
-                    data-product-id={product.product_id}
-                    key={product.product_id}
-                    style={{
-                      "--product-order": state.rank,
-                      "--product-index": index,
-                    } as CSSProperties}
-                  >
-                    <div className="labs-engine-product-media">
-                      <img
-                        src={productImage(product)}
-                        alt={product.title}
-                        width={1200}
-                        height={800}
-                      />
-                    </div>
-                    <figcaption>
-                      <strong>{product.model}</strong>
-                      <small>{state.label}</small>
-                    </figcaption>
-                  </figure>
-                ))}
-              </div>
-              <div className="labs-observatory-shortlist">
-                <header>
-                  <h3>Ranked shortlist</h3>
-                  <span>{visibleEngineEntries.length} visible</span>
-                </header>
-                <ol>
-                  {visibleEngineEntries.slice(0, 4).map(({ product, state }) => (
-                    <li key={product.product_id}>
-                      <span>{String(state.rank).padStart(2, "0")}</span>
-                      <img src={productImage(product)} alt="" width={72} height={48} />
-                      <div>
-                        <strong>{product.model}</strong>
-                        <small>{product.brand}</small>
-                      </div>
-                      <em>{state.label}</em>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </>
-          ) : (
-            <p className="labs-engine-products-unavailable" role="status">
-              {engineProductsError
-                ? `Catalog product records are unavailable: ${engineProductsError}`
-                : "Loading catalog product records..."}
-            </p>
-          )}
-        </section>
-
-        <aside
-          className="labs-engine-spotlight labs-observatory-evidence"
-          data-stage={activeEngine.step}
-        >
-          <header>
-            <span>Evidence &amp; rationale</span>
-            <small>{activeEngine.title}</small>
-          </header>
-          {leadingEngineEntry ? (
-            <figure>
-              <img
-                src={productImage(leadingEngineEntry.product)}
-                alt={leadingEngineEntry.product.title}
-                width={1200}
-                height={800}
-              />
-              <figcaption>
-                <small>Current leader</small>
-                <strong>{leadingEngineEntry.product.model}</strong>
-                <span>{leadingEngineEntry.state.label}</span>
-              </figcaption>
-            </figure>
-          ) : null}
-          <div className="labs-engine-spotlight-copy">
-            {activeEngine.owner ? (
-              <p className="labs-engine-stage-owner">{stageLabels[activeEngine.owner]}</p>
-            ) : null}
-            <h3>{activeEngineVisual.title}</h3>
-            <p>{activeEngineVisual.copy}</p>
-            <ul aria-label={`${activeEngine.title} implementation details`}>
-              {activeEngineMechanics.map((mechanic) => (
-                <li key={mechanic}><code>{mechanic}</code></li>
-              ))}
-            </ul>
-          </div>
-          <button
-            className="labs-observatory-trace"
-            onClick={() => inspectLiveTrace(activeEngineScenario.mission.id)}
-            type="button"
-          >
-            Inspect live trace <ArrowRight size={15} />
-          </button>
-        </aside>
+          </select>
+        </label>
+        <p className="labs-matrix-query">
+          <code>{example?.query}</code>
+        </p>
       </div>
 
-      <footer className="labs-observatory-outcome" aria-live="polite">
-        <div className="labs-observatory-outcome-copy">
-          <span>{outcome.eyebrow}</span>
-          <strong>{outcome.title}</strong>
-          <p>{outcome.detail}</p>
-        </div>
-        <ul aria-label="Fixture outcome">
-          {outcome.tags.map((tag) => <li key={tag}>{tag}</li>)}
-        </ul>
-        <button
-          className="labs-observatory-trace"
-          onClick={() => inspectLiveTrace(activeEngineScenario.mission.id)}
-          type="button"
-        >
-          Open live trace <ArrowRight size={14} />
-        </button>
-      </footer>
+      {matrix ? (
+        <>
+          <div className="labs-matrix-scroll">
+            <table className="labs-matrix-table">
+              <caption className="sr-only">
+                Each retriever's rank for every returned product, then the order
+                before and after reranking.
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Result</th>
+                  {matrix.columns.map((column) => (
+                    <th key={column.key} scope="col">
+                      <button
+                        aria-pressed={focused === column.key}
+                        className={focused === column.key ? "is-focused" : undefined}
+                        onClick={() =>
+                          setFocused(focused === column.key ? null : column.key)}
+                        type="button"
+                      >
+                        <strong>{column.label}</strong>
+                        <small>{column.mechanism}</small>
+                        <span>
+                          {column.measure} <em>{column.measureDetail}</em>
+                        </span>
+                      </button>
+                    </th>
+                  ))}
+                  <th scope="col">
+                    <span className="labs-matrix-move-head">
+                      <strong>Before / after</strong>
+                      <small>position among these rows</small>
+                    </span>
+                  </th>
+                </tr>
+              </thead>
+              {matrix.rows.map((row) => (
+                <MatrixRowGroup
+                  focused={focused}
+                  image={images.get(row.product.product_id)}
+                  key={row.product.product_id}
+                  row={row}
+                />
+              ))}
+            </table>
+          </div>
+
+          <footer className="labs-matrix-footer">
+            {focusedColumn ? (
+              <div className="labs-matrix-sql">
+                <p className="eyebrow">{focusedColumn.label} in psql</p>
+                <CodeBlock code={focusedColumn.sql} label={`${focusedColumn.key}.sql`} />
+              </div>
+            ) : (
+              <p className="labs-matrix-sql-hint">
+                Select a column heading to isolate that retriever and read the query
+                behind it.
+              </p>
+            )}
+            <p className="labs-matrix-note">
+              Arm ranks are positions within each retriever's own candidate list, so
+              they run past the twelve rows shown here. <strong>Before / after</strong>
+              {" "}compares positions among these rows only: the left number is the
+              order that would have shipped with reranking off. Raw arm scores, fused
+              scores, and rerank scores are on different scales and are not
+              probabilities.
+            </p>
+          </footer>
+        </>
+      ) : (
+        <p className="labs-matrix-awaiting" role="status">
+          {loading
+            ? "Embedding the query, running all three arms, fusing, and reranking."
+            : `No run for ${example?.discover_label ?? "this scenario"} yet. Run the pipeline to fill the matrix.`}
+        </p>
+      )}
     </section>
   );
 }

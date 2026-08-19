@@ -11,6 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { mosaicRetrievalExamples } from "../labMissions";
+import { seedProvenance } from "../retrievalSeed";
 import { showcaseCatalogPage } from "../showcase";
 import type { ProductSummary, RetrievalDiagnostics, SearchResponse } from "../types";
 import { RetrievalLabPage } from "./RetrievalLabPage";
@@ -20,8 +21,32 @@ vi.mock("../api", () => ({
     search: vi.fn(),
   },
 }));
+
+// The instrument has its own tests. What matters here is that the page runs the
+// right query and hands the response down, so the mock reports what it received.
 vi.mock("../components/RetrievalObservatory", () => ({
-  RetrievalObservatory: () => <section aria-label="Retrieval Observatory" />,
+  RetrievalObservatory: ({
+    example,
+    loading,
+    onSelectExample,
+    response,
+  }: {
+    example?: { id: string };
+    loading: boolean;
+    onSelectExample: (id: string) => void;
+    response: SearchResponse | null;
+  }) => (
+    <section aria-label="Retrieval Observatory">
+      <p>observatory scenario: {example?.id}</p>
+      <p>observatory run: {response ? response.search_event_id : "none"}</p>
+      <p>observatory loading: {String(loading)}</p>
+      {/* The instrument owns the scenario control, so the page is only reachable
+          through this callback. */}
+      <button onClick={() => onSelectExample("exact-identity")} type="button">
+        pick exact-identity
+      </button>
+    </section>
+  ),
 }));
 
 const catalog = showcaseCatalogPage({}, 0, 120);
@@ -36,11 +61,12 @@ function productWithSignals(
 }
 
 function responseFor(
+  searchEventId: string,
   query: string,
   results: ProductSummary[],
 ): SearchResponse {
   return {
-    search_event_id: "retrieval-contrast",
+    search_event_id: searchEventId,
     query,
     normalized_query: query,
     applied_filters: {},
@@ -49,10 +75,13 @@ function responseFor(
   };
 }
 
-const exactIdentityResponse = responseFor(
-  "EchoBud S2",
+const firstExample = mosaicRetrievalExamples[0];
+
+const primaryResponse = responseFor(
+  "retrieval-primary",
+  firstExample.query,
   [
-    productWithSignals(17001, {
+    productWithSignals(2, {
       fts: { rank: 1, raw_score: 1, rrf_contribution: 0.01639 },
       trigram: { rank: 1, raw_score: 1, rrf_contribution: 0.01639 },
       semantic: { rank: null, raw_score: null, rrf_contribution: null },
@@ -60,24 +89,7 @@ const exactIdentityResponse = responseFor(
       pre_rerank_rank: 1,
       pre_rerank_score: 0.03279,
       rerank_score: 0.72,
-      final_rank: 2,
-      score_semantics: "rank_fusion_then_bounded_rerank",
-    }),
-  ],
-);
-
-const semanticIntentResponse = responseFor(
-  "noise cancelling headphones for a long flight under $200 with at least 40 hours of battery",
-  [
-    productWithSignals(3, {
-      fts: { rank: null, raw_score: null, rrf_contribution: null },
-      trigram: { rank: null, raw_score: null, rrf_contribution: null },
-      semantic: { rank: 1, raw_score: 0.82, rrf_contribution: 0.01639 },
-      rrf_score: 0.01639,
-      pre_rerank_rank: 5,
-      pre_rerank_score: 0.01639,
-      rerank_score: 0.77,
-      final_rank: 3,
+      final_rank: 1,
       score_semantics: "rank_fusion_then_bounded_rerank",
     }),
   ],
@@ -96,10 +108,10 @@ const firstComparisonDiagnostics = {
 } satisfies NonNullable<SearchResponse["diagnostics"]>;
 
 const firstComparisonResponse = {
-  ...exactIdentityResponse,
+  ...primaryResponse,
   search_event_id: "first-retrieval-run",
   results: [
-    productWithSignals(17001, {
+    productWithSignals(2, {
       fts: { rank: 1, raw_score: 1, rrf_contribution: 0.01639 },
       trigram: { rank: null, raw_score: null, rrf_contribution: null },
       semantic: { rank: null, raw_score: null, rrf_contribution: null },
@@ -115,10 +127,10 @@ const firstComparisonResponse = {
 } satisfies SearchResponse;
 
 const latestComparisonResponse = {
-  ...exactIdentityResponse,
+  ...primaryResponse,
   search_event_id: "latest-retrieval-run",
   results: [
-    productWithSignals(17001, {
+    productWithSignals(2, {
       fts: { rank: 1, raw_score: 1, rrf_contribution: 0.01639 },
       trigram: { rank: 1, raw_score: 0.87, rrf_contribution: 0.01639 },
       semantic: { rank: null, raw_score: null, rrf_contribution: null },
@@ -136,18 +148,11 @@ const latestComparisonResponse = {
   },
 } satisfies SearchResponse;
 
-describe("RetrievalLabPage retriever contrasts", () => {
+describe("RetrievalLabPage", () => {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/labs/retrieval");
     vi.mocked(api.search).mockReset();
-    vi.mocked(api.search).mockImplementation((query) => {
-      if (query === exactIdentityResponse.query) {
-        return Promise.resolve(exactIdentityResponse);
-      }
-      if (query === semanticIntentResponse.query) {
-        return Promise.resolve(semanticIntentResponse);
-      }
-      throw new Error(`Unexpected contrast query: ${query}`);
-    });
+    vi.mocked(api.search).mockResolvedValue(primaryResponse);
   });
 
   afterEach(cleanup);
@@ -171,55 +176,67 @@ describe("RetrievalLabPage retriever contrasts", () => {
     ).toBe("page");
   });
 
-  it("makes the FTS identity win and vector miss observable from live ranks", async () => {
-    window.history.replaceState(
-      {},
-      "",
-      "/labs/retrieval?example=exact-identity",
-    );
+  it("carries exactly one way to start a run", () => {
+    // Two run controls with different verbs, one live and one replaying a fixture,
+    // is how this page ended up teaching that the numbers were not measured.
     render(<RetrievalLabPage />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
-
-    await waitFor(() => {
-      expect(api.search).toHaveBeenCalledWith(
-        exactIdentityResponse.query,
-        { domain: "consumer_electronics" },
-        { limit: 12, rerank: true },
-      );
-    });
-    expect(await screen.findByText("Where does this target enter?")).toBeTruthy();
-    expect(screen.getByText("Target enters the lexical candidate list at #1.")).toBeTruthy();
-    expect(screen.getByText("Break: target absent from the vector candidate list.")).toBeTruthy();
-    expect(screen.getByText("Target returns at final rank #2.")).toBeTruthy();
+    const actions = screen
+      .getAllByRole("button")
+      .map((button) => button.textContent?.trim());
+    expect(actions.filter((label) => /^Run|^Replay/.test(label ?? ""))).toEqual([
+      "Run pipeline",
+    ]);
   });
 
-  it("makes the semantic win and lexical miss observable from live ranks", async () => {
-    const semanticExample = mosaicRetrievalExamples.find(
+  it("judges the checkpoint against the run that is on screen", () => {
+    // The banner used to judge live responses only, so on arrival it asserted
+    // "The target is absent because the working pg_trgm arm is disconnected from
+    // candidate fusion" directly beneath a captured run showing that target at
+    // rank 1 with a trigram contribution. The panel refuted its own banner.
+    const captured = mosaicRetrievalExamples.find(
+      (candidate) => candidate.id === seedProvenance.mission_id,
+    )!;
+    const edit = captured.participant_edit!;
+    render(<RetrievalLabPage />);
+
+    // The capture comes from an intact database, so the checkpoint reads as met.
+    expect(screen.getByText(edit.fixed_state)).toBeTruthy();
+    expect(screen.queryByText(edit.broken_state)).toBeNull();
+  });
+
+  it("has nothing to judge for a scenario with no run yet", () => {
+    // The capture describes one scenario. Under any other, the banner reports the
+    // ready state rather than borrowing a verdict from a run of something else.
+    const other = mosaicRetrievalExamples.find(
+      (candidate) => candidate.id !== seedProvenance.mission_id && candidate.stage === "retrieve",
+    )!;
+    window.history.replaceState({}, "", `/labs/retrieval?example=${other.id}`);
+    render(<RetrievalLabPage />);
+
+    expect(screen.getByText("Run to observe")).toBeTruthy();
+  });
+
+  it("runs the deep-linked scenario and hands the response to the instrument", async () => {
+    const requested = mosaicRetrievalExamples.find(
       (example) => example.id === "semantic-intent-contrast",
     );
-    if (!semanticExample) throw new Error("Missing semantic-intent-contrast example");
-
-    window.history.replaceState(
-      {},
-      "",
-      "/labs/retrieval?example=semantic-intent-contrast",
-    );
+    if (!requested) throw new Error("Missing semantic-intent-contrast scenario");
+    window.history.replaceState({}, "", "/labs/retrieval?example=semantic-intent-contrast");
     render(<RetrievalLabPage />);
+
+    expect(screen.getByText(`observatory scenario: ${requested.id}`)).toBeTruthy();
+    expect(screen.getByText("observatory run: none")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
 
     await waitFor(() => {
       expect(api.search).toHaveBeenCalledWith(
-        semanticExample.query,
-        semanticExample.filters,
+        requested.query,
+        requested.filters,
         { limit: 12, rerank: true },
       );
     });
-    expect(await screen.findByText("Where does this target enter?")).toBeTruthy();
-    expect(screen.getByText("Break: target absent from the lexical candidate list.")).toBeTruthy();
-    expect(screen.getByText("Target enters the HNSW candidate list at #1.")).toBeTruthy();
-    expect(screen.getByText("Target returns at final rank #3.")).toBeTruthy();
+    expect(await screen.findByText("observatory run: retrieval-primary")).toBeTruthy();
   });
 
   it("shows an immediate running state while the retrieval request is in flight", async () => {
@@ -236,11 +253,12 @@ describe("RetrievalLabPage retriever contrasts", () => {
     const action = screen.getByRole("button", { name: "Running pipeline" });
     expect((action as HTMLButtonElement).disabled).toBe(true);
     expect(action.getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByText("observatory loading: true")).toBeTruthy();
     expect(screen.getByRole("status").textContent).toContain(
       "Embedding, retrieving, fusing, and reranking.",
     );
 
-    resolveSearch(exactIdentityResponse);
+    resolveSearch(primaryResponse);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Run pipeline" })).toBeTruthy();
@@ -260,42 +278,40 @@ describe("RetrievalLabPage retriever contrasts", () => {
       "The Mosaic API AWS session has expired. Refresh it, restart the API, then retry.",
     );
     expect(screen.getByRole("button", { name: "Retry pipeline" })).toBeTruthy();
+    // A failed live call scopes itself to a notice; it does not blank the page.
+    expect(screen.getByLabelText("Retrieval Observatory")).toBeTruthy();
   });
 
-  it("ignores a stale response after the participant changes the checkpoint", async () => {
+  it("ignores a stale response after the participant changes the scenario", async () => {
     let resolveFirst: (response: SearchResponse) => void = () => {};
     vi.mocked(api.search).mockImplementationOnce(
       () => new Promise<SearchResponse>((resolve) => {
         resolveFirst = resolve;
       }),
     );
-
-    window.history.replaceState(
-      {},
-      "",
-      "/labs/retrieval?example=exact-identity",
-    );
     render(<RetrievalLabPage />);
 
     fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "1" } });
-    resolveFirst(exactIdentityResponse);
+    fireEvent.click(screen.getByRole("button", { name: "pick exact-identity" }));
+    resolveFirst(primaryResponse);
 
     await waitFor(() => {
-      expect(screen.queryByText("Where does this target enter?")).toBeNull();
+      expect(screen.getByText("observatory scenario: exact-identity")).toBeTruthy();
     });
-    expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe("1");
+    // The superseded response never reaches the instrument, and the run state it
+    // left behind is cleared rather than left spinning.
+    expect(screen.getByText("observatory run: none")).toBeTruthy();
+    expect(screen.getByText("observatory loading: false")).toBeTruthy();
   });
 
   it("preserves factual first and latest run measures after a second pipeline run", async () => {
     vi.mocked(api.search)
       .mockResolvedValueOnce(firstComparisonResponse)
       .mockResolvedValueOnce(latestComparisonResponse);
-    window.history.replaceState({}, "", "/labs/retrieval?example=exact-identity");
     render(<RetrievalLabPage />);
 
     fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
-    await screen.findByText("Target returns at final rank #6.");
+    await screen.findByText("observatory run: first-retrieval-run");
     fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
 
     expect(await screen.findByText("First run and latest run")).toBeTruthy();
