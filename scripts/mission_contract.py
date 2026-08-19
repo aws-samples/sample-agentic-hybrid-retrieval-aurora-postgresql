@@ -86,6 +86,7 @@ REQUIRED_SUPPORTING_FIELDS = (
     "core",
     "placement",
     "title",
+    "discover_label",
     "query",
     "filters",
     "target_product_ids",
@@ -183,6 +184,35 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
                 "and docs/intentional-gaps.md cites them",
             ),
         )
+
+    all_missions = timed + supporting
+    labels = [
+        str(mission.get("discover_label", "")).strip() for mission in all_missions
+    ]
+    missing_labels = [
+        mission.get("id", "<no id>")
+        for mission, label in zip(all_missions, labels)
+        if not label
+    ]
+    report.check(
+        "A1.5b every retrieval scenario has a Discover label",
+        not missing_labels,
+        explain(
+            f"scenario(s) without discover_label: {missing_labels}",
+            "add one short, technique-specific discover_label to each mission so "
+            "Discover can route participants to the canonical scenario",
+        ),
+    )
+    duplicate_labels = sorted({label for label in labels if labels.count(label) > 1})
+    report.check(
+        "A1.5c Discover labels are unique",
+        not duplicate_labels,
+        explain(
+            f"duplicate discover_label value(s): {duplicate_labels}",
+            "give every retrieval scenario a distinct discover_label; the "
+            "Discover rail must make the scenario choice unambiguous",
+        ),
+    )
 
     # A1.1 — exactly three required labs.
     report.check(

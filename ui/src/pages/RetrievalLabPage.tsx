@@ -1,12 +1,19 @@
-import { ArrowDown, CircleCheck, Play, SlidersHorizontal } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDown,
+  CircleCheck,
+  LoaderCircle,
+  Play,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useMemo, useRef, useState } from "react";
-import { api } from "../api";
+import { ApiError, api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
+import { RetrievalObservatory } from "../components/RetrievalObservatory";
 import { RetrievalDiagnosticsStrip } from "../components/RetrievalDiagnosticsStrip";
-import { ErrorState, LoadingState } from "../components/States";
 import { WorkshopProgress } from "../components/WorkshopProgress";
 import { retrievalLabOutcome } from "../labOutcome";
 import { mosaicRetrievalExamples } from "../labMissions";
@@ -83,6 +90,59 @@ type ContrastArm = {
   detail: string;
 };
 
+type RunMeasurement = {
+  label: string;
+  value: string;
+};
+
+function pipelineFailureMessage(cause: unknown): string {
+  const message = cause instanceof Error ? cause.message : "Retrieval failed";
+  if (/ExpiredToken|Bedrock credentials are unavailable/i.test(message)) {
+    return "The Mosaic API AWS session has expired. Refresh it, restart the API, then retry.";
+  }
+  if (cause instanceof ApiError && cause.status === 404) {
+    return "The active preview is not connected to the Mosaic search API. Point it at Mosaic, then retry.";
+  }
+  return message;
+}
+
+function runMeasurements(
+  example: typeof mosaicRetrievalExamples[number],
+  response: SearchResponse,
+): RunMeasurement[] {
+  const targets = response.results.filter((product) =>
+    example.target_product_ids.includes(product.product_id),
+  );
+  const bestPreRerankRank = Math.min(
+    ...targets.map((product) => product.signals?.pre_rerank_rank ?? Number.MAX_SAFE_INTEGER),
+  );
+  const bestFinalRank = Math.min(
+    ...targets.map((product) => product.signals?.final_rank ?? Number.MAX_SAFE_INTEGER),
+  );
+  const formatRank = (rank: number) => (
+    !Number.isFinite(rank) || rank === Number.MAX_SAFE_INTEGER ? "Not shown" : `#${rank}`
+  );
+
+  return [
+    {
+      label: "Targets shown",
+      value: `${targets.length} / ${example.target_product_ids.length}`,
+    },
+    {
+      label: "Best before rerank",
+      value: formatRank(bestPreRerankRank),
+    },
+    {
+      label: "Best final rank",
+      value: formatRank(bestFinalRank),
+    },
+    {
+      label: "pg_trgm candidate pool",
+      value: String(response.diagnostics?.candidate_counts.trigram_in_pool ?? "Not reported"),
+    },
+  ];
+}
+
 function contrastForTarget(
   example: typeof mosaicRetrievalExamples[number],
   response: SearchResponse,
@@ -147,6 +207,8 @@ export function RetrievalLabPage() {
   const [selected, setSelected] = useState(requestedIndex >= 0 ? requestedIndex : 0);
   const [stage, setStage] = useState<Stage>("lexical");
   const [response, setResponse] = useState<SearchResponse | null>(null);
+  const [firstResponse, setFirstResponse] = useState<SearchResponse | null>(null);
+  const [runCount, setRunCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const requestVersion = useRef(0);
@@ -172,6 +234,26 @@ export function RetrievalLabPage() {
     () => (example && response ? contrastForTarget(example, response) : null),
     [example, response],
   );
+  const firstRunMeasurements = useMemo(
+    () => (example && firstResponse ? runMeasurements(example, firstResponse) : []),
+    [example, firstResponse],
+  );
+  const latestRunMeasurements = useMemo(
+    () => (example && response ? runMeasurements(example, response) : []),
+    [example, response],
+  );
+
+  const selectExample = (id: string) => {
+    const index = mosaicRetrievalExamples.findIndex((candidate) => candidate.id === id);
+    if (index < 0) return;
+    requestVersion.current += 1;
+    setSelected(index);
+    setResponse(null);
+    setFirstResponse(null);
+    setRunCount(0);
+    setError("");
+    setLoading(false);
+  };
 
   async function run() {
     if (!example) return;
@@ -186,10 +268,14 @@ export function RetrievalLabPage() {
         requestedExample.filters,
         { limit: 12, rerank: true },
       );
-      if (version === requestVersion.current) setResponse(nextResponse);
+      if (version === requestVersion.current) {
+        setFirstResponse((first) => first ?? nextResponse);
+        setResponse(nextResponse);
+        setRunCount((count) => count + 1);
+      }
     } catch (cause) {
       if (version === requestVersion.current) {
-        setError(cause instanceof Error ? cause.message : "Retrieval failed");
+        setError(pipelineFailureMessage(cause));
       }
     } finally {
       if (version === requestVersion.current) setLoading(false);
@@ -210,32 +296,52 @@ export function RetrievalLabPage() {
       <MosaicLabsTabs active="retrieval" />
       <MosaicLabsMasthead
         action={(
-          <button
-            className="primary-button"
-            type="button"
-            disabled={!example || loading}
-            onClick={() => void run()}
-          >
-            <Play size={17} fill="currentColor" /> Run pipeline
-          </button>
+          <div className="retrieval-run-action">
+            <button
+              className="primary-button"
+              type="button"
+              aria-busy={loading}
+              disabled={!example || loading}
+              onClick={() => void run()}
+            >
+              {loading ? (
+                <LoaderCircle aria-hidden="true" className="spin" size={17} />
+              ) : (
+                <Play aria-hidden="true" size={17} fill="currentColor" />
+              )}
+              {loading ? "Running pipeline" : "Run pipeline"}
+            </button>
+            {loading ? (
+              <span className="retrieval-run-feedback" role="status">
+                Embedding, retrieving, fusing, and reranking.
+              </span>
+            ) : null}
+            {error ? (
+              <div className="retrieval-run-feedback error">
+                <AlertTriangle aria-hidden="true" size={17} />
+                <span role="alert">{error}</span>
+                <button type="button" className="secondary-button" onClick={() => void run()}>
+                  Retry pipeline
+                </button>
+              </div>
+            ) : null}
+          </div>
         )}
-        deck="Follow one validated query from candidate source through fuzzy recovery, semantic intent, fusion, and Cohere Rerank."
-        title="Inspect a retrieval run"
+        deck="See the candidate set change, then run the same validated trace against Aurora."
+        title="Retrieval Observatory"
       />
+
+      <RetrievalObservatory onSelectExample={selectExample} />
 
       <WorkshopProgress
         active={example?.stage === "reason" ? "reason" : example?.stage === "rank" ? "rank" : "retrieve"}
       />
 
-      <section className="lab-query-bar">
+      <section className="lab-query-bar" id="retrieval-run">
         <label>
-          <span>Lab or checkpoint query</span>
+          <span>Validated trace</span>
           <select value={selected} onChange={(event) => {
-            requestVersion.current += 1;
-            setSelected(Number(event.target.value));
-            setResponse(null);
-            setError("");
-            setLoading(false);
+            selectExample(mosaicRetrievalExamples[Number(event.target.value)].id);
           }}>
             {mosaicRetrievalExamples.map((item, index) => <option value={index} key={item.id}>{item.title}</option>)}
           </select>
@@ -248,6 +354,36 @@ export function RetrievalLabPage() {
       <LabOutcomeBanner outcome={outcome} />
 
       {response ? <RetrievalDiagnosticsStrip response={response} /> : null}
+
+      {firstResponse && response && runCount > 1 ? (
+        <section className="retrieval-run-comparison" aria-labelledby="retrieval-run-comparison-title">
+          <header>
+            <div>
+              <p className="eyebrow">Live run comparison</p>
+              <h2 id="retrieval-run-comparison-title">First run and latest run</h2>
+            </div>
+            <p>Each value comes from its recorded response.</p>
+          </header>
+          <div className="retrieval-run-comparison-grid">
+            {[
+              { label: "First run", measurements: firstRunMeasurements },
+              { label: "Latest run", measurements: latestRunMeasurements },
+            ].map((snapshot) => (
+              <section aria-label={`${snapshot.label} metrics`} key={snapshot.label}>
+                <h3>{snapshot.label}</h3>
+                <dl>
+                  {snapshot.measurements.map((measurement) => (
+                    <div key={measurement.label}>
+                      <dt>{measurement.label}</dt>
+                      <dd>{measurement.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {targetContrast ? (
         <section className="retrieval-method-contrast" aria-labelledby="retrieval-method-contrast-title">
@@ -289,9 +425,6 @@ export function RetrievalLabPage() {
           </div>
         ))}
       </nav>
-
-      {loading ? <LoadingState label="Embedding, retrieving, fusing, and reranking" /> : null}
-      {error ? <ErrorState message={error} onRetry={() => void run()} /> : null}
 
       <div className="lab-workspace">
         <section className="ranking-panel">

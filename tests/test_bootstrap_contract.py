@@ -137,3 +137,17 @@ def test_uv_is_pinned_rather_than_floating(script: str) -> None:
         "the bootstrap installs uv without a pin, so two participants can get "
         "different resolvers on the same commit"
     )
+
+
+def test_al2023_bootstrap_does_not_request_full_curl(script: str) -> None:
+    """Amazon Linux 2023 already provides curl-minimal, which conflicts with curl."""
+    package_install = re.search(
+        r"^dnf install -y (?P<packages>.*?\bunzip)$",
+        script,
+        re.MULTILINE | re.DOTALL,
+    )
+    assert package_install, "the bootstrap package installation could not be found"
+    packages = package_install.group("packages").replace("\\\n", " ").split()
+    assert "curl" not in packages, (
+        "AL2023 ships curl-minimal; do not request the conflicting full curl RPM"
+    )

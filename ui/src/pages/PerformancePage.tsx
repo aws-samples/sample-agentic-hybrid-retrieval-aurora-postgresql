@@ -456,8 +456,8 @@ export function PerformancePage() {
         </section>
 
         <nav className="hnsw-next" aria-label="Continue through Mosaic Labs">
-          <Link href="/mosaic-labs">
-            <ArrowLeft aria-hidden="true" size={16} /> Explore Labs
+          <Link href="/labs/retrieval">
+            <ArrowLeft aria-hidden="true" size={16} /> Retrieval Observatory
           </Link>
           <Link href="/mosaic-labs/studio">
             Open Studio <ArrowRight aria-hidden="true" size={16} />

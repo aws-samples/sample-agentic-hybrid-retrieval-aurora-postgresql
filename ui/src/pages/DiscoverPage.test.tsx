@@ -11,6 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { CommerceProvider } from "../commerce";
+import { mosaicRetrievalExamples, retrievalExampleHref } from "../labMissions";
 import { DiscoverPage } from "./DiscoverPage";
 
 vi.mock("../api", () => ({
@@ -175,6 +176,23 @@ describe("DiscoverPage", () => {
     expect(container.querySelector(".discover-lab-svg")).toBeNull();
     expect(container.querySelectorAll(".discover-lab-graphic")).toHaveLength(3);
     expect(container.querySelectorAll(".discover-lab-copy")).toHaveLength(3);
+  });
+
+  it("links every canonical lab scenario from Discover to its real inspection surface", () => {
+    const { container } = renderPage();
+    const scenarios = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>(".discover-labs-scenario"),
+    );
+
+    expect(scenarios).toHaveLength(mosaicRetrievalExamples.length);
+    expect(scenarios.map((scenario) => scenario.getAttribute("href"))).toEqual(
+      mosaicRetrievalExamples.map(retrievalExampleHref),
+    );
+    expect(screen.getByText("Typo recovery with pg_trgm")).toBeTruthy();
+    expect(screen.getByText("Exact identity with FTS")).toBeTruthy();
+    expect(screen.getByText("Intent: flight-ready headphones")).toBeTruthy();
+    expect(screen.getByText("Tune the HNSW operating point")).toBeTruthy();
+    expect(screen.getAllByText("Before / after")).toHaveLength(3);
   });
 
   it("runs a natural-language starter with its intentional category constraint", () => {

@@ -3754,6 +3754,51 @@ button:disabled {
   box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
 }
 
+.retrieval-run-action {
+  display: flex;
+  max-width: min(100%, 720px);
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.retrieval-run-action .primary-button {
+  white-space: nowrap;
+}
+
+.retrieval-run-feedback {
+  display: inline-flex;
+  min-height: 44px;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.retrieval-run-feedback.error {
+  flex: 1 1 460px;
+  padding: 7px 8px 7px 12px;
+  border: 1px solid #d6aaa5;
+  border-radius: 6px;
+  background: #fff4f2;
+  color: #8c3037;
+}
+
+.retrieval-run-feedback.error > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.retrieval-run-feedback.error .secondary-button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding-inline: 10px;
+  border-color: currentColor;
+  color: inherit;
+}
+
 .lab-query-bar label {
   display: grid;
   flex: 1;
@@ -3866,6 +3911,84 @@ button:disabled {
   color: #716861;
   font-size: 10px;
   line-height: 1.5;
+}
+
+.retrieval-run-comparison {
+  margin-bottom: 24px;
+  overflow: hidden;
+  border: 1px solid #dcd1c3;
+  border-radius: 8px;
+  background: #fbf7f0;
+}
+
+.retrieval-run-comparison > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 17px 20px;
+  border-bottom: 1px solid #e8ddd1;
+}
+
+.retrieval-run-comparison h2 {
+  margin: 2px 0 0;
+  font-family: var(--display);
+  font-size: 23px;
+  font-weight: 540;
+}
+
+.retrieval-run-comparison > header > p {
+  margin: 0;
+  color: #766d65;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.retrieval-run-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.retrieval-run-comparison-grid > section {
+  min-width: 0;
+  padding: 17px 20px;
+}
+
+.retrieval-run-comparison-grid > section + section {
+  border-left: 1px solid #e8ddd1;
+}
+
+.retrieval-run-comparison h3 {
+  margin: 0 0 12px;
+  color: #362b27;
+  font-size: 12px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.retrieval-run-comparison dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.retrieval-run-comparison dt {
+  margin-bottom: 4px;
+  color: #766d65;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.retrieval-run-comparison dd {
+  margin: 0;
+  color: #362b27;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
 }
 
 /* Measured band for the current run. Rendered only after a query returns, so
@@ -4165,7 +4288,7 @@ button:disabled {
   border-bottom: 1px solid var(--line);
 }
 
-/* Retrieval Lab only. The literal here was already exactly --labs-h3, so this
+/* Retrieval Observatory only. The literal here was already exactly --labs-h3, so this
    changes nothing on screen and puts the last heading on that page through the
    shared scale. `.panel-heading` is not one of the families the type-scale gate
    inspects, which is why a hardcoded step survived here. */
@@ -8811,6 +8934,39 @@ body {
 }
 
 @media (max-width: 640px) {
+  .retrieval-run-action,
+  .retrieval-run-feedback.error {
+    width: 100%;
+  }
+
+  .retrieval-run-feedback.error {
+    align-items: flex-start;
+  }
+
+  .retrieval-run-feedback.error .secondary-button {
+    align-self: center;
+  }
+
+  .retrieval-run-comparison > header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+    padding: 15px 16px;
+  }
+
+  .retrieval-run-comparison-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .retrieval-run-comparison-grid > section {
+    padding: 15px 16px;
+  }
+
+  .retrieval-run-comparison-grid > section + section {
+    border-top: 1px solid #e8ddd1;
+    border-left: 0;
+  }
+
   .retrieval-method-contrast > header {
     align-items: flex-start;
     flex-direction: column;

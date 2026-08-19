@@ -41,7 +41,7 @@ done
 REPO="$HOME_FOLDER/sample-agentic-hybrid-retrieval-aurora-postgresql"
 
 dnf install -y git jq nginx nodejs20 npm python3.13 python3.13-pip \
-  python3.13-setuptools gcc gcc-c++ make sudo curl tar gzip unzip
+  python3.13-setuptools gcc gcc-c++ make sudo tar gzip unzip
 command -v aws >/dev/null 2>&1 || \
   (dnf install -y awscli2 || dnf install -y awscli)
 python3.13 -m pip install --no-cache-dir uv==0.11.21

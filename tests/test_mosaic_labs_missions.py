@@ -77,6 +77,13 @@ def test_each_required_lab_declares_golden_before_and_after_observations():
         assert edit["checkpoint_question"].endswith("?")
 
 
+def test_every_retrieval_scenario_has_a_distinct_discover_label():
+    labels = [check["discover_label"] for check in ALL_CHECKS]
+
+    assert all(label.strip() for label in labels)
+    assert len(set(labels)) == len(labels)
+
+
 def test_golden_targets_are_curated_products():
     curated = {
         int(product["product_id"])

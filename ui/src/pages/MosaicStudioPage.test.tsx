@@ -18,8 +18,8 @@ describe("MosaicStudioPage", () => {
   it("renders curated catalog fixtures immediately without a retrieval request", () => {
     render(<MosaicStudioPage />);
 
-    expect(screen.getByRole("link", { name: "Explore" }).getAttribute("href")).toBe(
-      "/mosaic-labs",
+    expect(screen.getByRole("link", { name: "Retrieval Observatory" }).getAttribute("href")).toBe(
+      "/labs/retrieval",
     );
     expect(screen.getByRole("link", { name: "Studio" }).getAttribute("aria-current")).toBe(
       "page",

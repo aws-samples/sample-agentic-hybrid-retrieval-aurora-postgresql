@@ -355,6 +355,7 @@ multiple live signatures for retrieval functions.
 config/       Runtime configuration and environment example
 data/         Catalog shards, dictionaries, evaluations, and media manifests
 db/           Aurora schemas, loaders, indexes, retrieval functions, and labs
+deploy/       Source-owned Code Editor bootstrap and delivery contract
 docs/         Architecture, curriculum, evaluation, operations, and UI contracts
 mcp-server/   Isolated MCP 2.0 adapter
 scripts/      Data, embedding, validation, scorecard, and benchmark tooling

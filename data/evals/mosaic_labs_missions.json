@@ -32,6 +32,7 @@
       "core": true,
       "duration_minutes": 10,
       "title": "Lab 1 - Build hybrid retrieval",
+      "discover_label": "Typo recovery with pg_trgm",
       "canonical_query_id": "G-003",
       "query": "wirless noice canceling hedphones under $200 with long batery life",
       "filters": {
@@ -82,6 +83,7 @@
       "core": true,
       "duration_minutes": 10,
       "title": "Lab 2 - Fuse, rerank, and inspect",
+      "discover_label": "RRF ranking before rerank",
       "canonical_query_id": "G-008",
       "query": "ergonomic mesh chair for long workdays with adjustable lumbar support",
       "filters": {
@@ -138,6 +140,7 @@
       "core": true,
       "duration_minutes": 15,
       "title": "Lab 3 - Build the retrieval agent",
+      "discover_label": "Evidence-backed agent answer",
       "canonical_query_id": "G-010",
       "query": "Choose a quiet mechanical keyboard and a mesh ergonomic chair for 12-hour workdays with adjustable seat depth and dynamic lumbar support, each under $800. Compare the strongest options and explain why the cheaper alternatives ranked lower.",
       "filters": {
@@ -213,6 +216,7 @@
       "placement": "lab-1",
       "duration_minutes": 2,
       "title": "Checkpoint - Preserve exact identity",
+      "discover_label": "Exact identity with FTS",
       "canonical_query_id": "G-001",
       "query": "EchoBud S2",
       "filters": {
@@ -240,6 +244,7 @@
       "placement": "advanced-labs",
       "duration_minutes": 0,
       "title": "Contrast - Intent without exact catalog language",
+      "discover_label": "Intent: flight-ready headphones",
       "canonical_query_id": "G-004",
       "query": "noise cancelling headphones for a long flight under $200 with at least 40 hours of battery",
       "filters": {
@@ -274,6 +279,7 @@
       "placement": "lab-1",
       "duration_minutes": 3,
       "title": "Checkpoint - Apply eligibility constraints",
+      "discover_label": "Intent with hard eligibility filters",
       "canonical_query_id": "G-013",
       "query": "carbon plated marathon shoe under $220 with stable cornering",
       "filters": {
@@ -309,6 +315,7 @@
       "placement": "lab-2",
       "duration_minutes": 2,
       "title": "Checkpoint - Compare the cheaper alternative",
+      "discover_label": "Rerank a quieter keyboard choice",
       "canonical_query_id": "G-007",
       "query": "quiet wireless keyboard for a shared office; compare mechanical feel with the cheaper alternative",
       "filters": {
@@ -349,6 +356,7 @@
       "placement": "lab-2",
       "duration_minutes": 2,
       "title": "Checkpoint - Keep filters outside model scoring",
+      "discover_label": "Keep chair filters out of scoring",
       "canonical_query_id": "G-009",
       "query": "mesh office chair with a headrest for 12-hour days under $800",
       "filters": {
@@ -388,6 +396,7 @@
       "placement": "lab-3",
       "duration_minutes": 3,
       "title": "Checkpoint - Resolve recommendation evidence",
+      "discover_label": "Ground a 12-hour chair recommendation",
       "canonical_query_id": "G-020",
       "query": "Which ergonomic chair best supports 12-hour workdays, and what evidence supports the recommendation?",
       "filters": {
@@ -441,6 +450,7 @@
       "placement": "advanced-labs",
       "duration_minutes": 8,
       "title": "Tune the HNSW operating point",
+      "discover_label": "Tune the HNSW operating point",
       "query": "single cable 4K monitor for coding and photo editing",
       "filters": {
         "domain": "home_office",

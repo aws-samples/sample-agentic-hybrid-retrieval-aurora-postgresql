@@ -35,7 +35,7 @@ describe("Mosaic Labs surfaces", () => {
     // Going through MosaicLabsMasthead makes the scale follow from the component,
     // so a Labs surface cannot pick up a second type system by accident.
     const surfaces = await labsSurfaces();
-    expect(surfaces.length).toBeGreaterThanOrEqual(4);
+    expect(surfaces.length).toBeGreaterThanOrEqual(3);
 
     const missing = surfaces
       .filter(([, source]) => !source.includes("<MosaicLabsMasthead"))

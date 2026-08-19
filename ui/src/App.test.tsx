@@ -10,7 +10,6 @@ vi.mock("./components/Shell", () => ({
 vi.mock("./pages/DiscoverPage", () => ({ DiscoverPage: () => <p>Discover route</p> }));
 vi.mock("./pages/CatalogPage", () => ({ CatalogPage: () => <p>Catalog route</p> }));
 vi.mock("./pages/SearchPage", () => ({ SearchPage: () => <p>Search route</p> }));
-vi.mock("./pages/MosaicLabsPage", () => ({ MosaicLabsPage: () => <p>Explore route</p> }));
 vi.mock("./pages/MosaicStudioPage", () => ({ MosaicStudioPage: () => <p>Studio route</p> }));
 vi.mock("./pages/PerformancePage", () => ({ PerformancePage: () => <p>HNSW route</p> }));
 vi.mock("./pages/ProductPage", () => ({ ProductPage: () => <p>Product route</p> }));
@@ -32,5 +31,13 @@ describe("App Labs routes", () => {
 
     await waitFor(() => expect(window.location.pathname).toBe("/mosaic-labs/hnsw"));
     expect(await screen.findByText("HNSW route")).toBeTruthy();
+  });
+
+  it("redirects the retired Explore route to Retrieval Observatory", async () => {
+    window.history.replaceState({}, "", "/mosaic-labs");
+    render(<App />);
+
+    await waitFor(() => expect(window.location.pathname).toBe("/labs/retrieval"));
+    expect(await screen.findByText("Retrieval route")).toBeTruthy();
   });
 });

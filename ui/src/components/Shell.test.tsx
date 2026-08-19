@@ -33,10 +33,10 @@ describe("Shell navigation", () => {
       within(navigation)
         .getAllByRole("link")
         .map((link) => link.getAttribute("href")),
-    ).toEqual(["/", "/catalog", "/mosaic-labs"]);
+    ).toEqual(["/", "/catalog", "/labs/retrieval"]);
     expect(
-      within(navigation).getByRole("link", { name: /Mosaic Labs/ }).textContent,
-    ).toBe("Mosaic LabsOptional");
+      within(navigation).getByRole("link", { name: /Retrieval Observatory/ }).textContent,
+    ).toBe("Retrieval ObservatoryOptional");
     expect(within(navigation).getByText("Optional").tagName).toBe("SMALL");
     expect(
       within(navigation).getByRole("link", { name: "Shop" }).getAttribute(

@@ -15,7 +15,7 @@ import { MosaicMark } from "./MosaicMark";
 const navLinks = [
   { to: "/", label: "Discover" },
   { to: "/catalog", label: "Shop" },
-  { to: "/mosaic-labs", label: "Mosaic Labs", optional: true },
+  { to: "/labs/retrieval", label: "Retrieval Observatory", optional: true },
 ];
 
 function isActive(pathname: string, to: string) {

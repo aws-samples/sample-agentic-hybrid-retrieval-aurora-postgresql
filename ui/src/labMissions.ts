@@ -29,6 +29,8 @@ export interface MosaicLabMission {
   placement?: MosaicLabPlacement;
   duration_minutes: number;
   title: string;
+  /** Compact participant-facing label for the Discover scenario rail. */
+  discover_label: string;
   canonical_query_id?: string;
   query: string;
   filters: SearchFilters;

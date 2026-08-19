@@ -8,6 +8,7 @@ import {
 } from "../components/CatalogSearchComposer";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { ProductCard } from "../components/ProductCard";
+import { mosaicRetrievalExamples, retrievalExampleHref } from "../labMissions";
 import { productImageMap } from "../media";
 import { useNavigate } from "../navigation";
 import { showcaseCatalogPage } from "../showcase";
@@ -180,6 +181,14 @@ const labStages = [
     graphic: "reason" as const,
   },
 ];
+
+function scenarioStateLabel(
+  checkpoint: typeof mosaicRetrievalExamples[number]["checkpoint"],
+) {
+  if (checkpoint === "repair") return "Before / after";
+  if (checkpoint === "advanced") return "Advanced";
+  return "Inspect";
+}
 
 // Discover is an editorial entry surface, not a live-search result. Loading
 // these fixed premium-cohort cards locally prevents the Shop band from
@@ -622,14 +631,14 @@ export function DiscoverPage() {
               <p className="discover-labs-lede">
                 See how Mosaic retrieves candidates, ranks results, and grounds recommendations.
               </p>
-              <Link className="discover-labs-cta" href="/mosaic-labs">
-                Explore Mosaic Labs
+              <Link className="discover-labs-cta" href="/labs/retrieval">
+                Open Retrieval Observatory
                 <ArrowRight size={15} aria-hidden="true" />
               </Link>
             </div>
             <div className="discover-labs-grid">
               {labStages.map((lab) => (
-                <Link className="discover-lab-card" key={lab.stage} href="/mosaic-labs">
+                <Link className="discover-lab-card" key={lab.stage} href="/labs/retrieval">
                   <span className="discover-lab-graphic">
                     <LabGraphic variant={lab.graphic} />
                   </span>
@@ -643,6 +652,37 @@ export function DiscoverPage() {
                 </Link>
               ))}
             </div>
+            <section
+              className="discover-labs-scenarios"
+              aria-labelledby="discover-labs-scenarios-title"
+            >
+              <header>
+                <div>
+                  <p className="discover-labs-scenarios-kicker">Try a lab scenario</p>
+                  <h3 id="discover-labs-scenarios-title">
+                    Observe the retrieval behavior, then repair it.
+                  </h3>
+                </div>
+              </header>
+              <div className="discover-labs-scenarios-grid">
+                {mosaicRetrievalExamples.map((scenario) => (
+                  <Link
+                    className="discover-labs-scenario"
+                    key={scenario.id}
+                    href={retrievalExampleHref(scenario)}
+                    aria-label={`${scenario.discover_label}: ${scenario.query}`}
+                  >
+                    <span className="discover-labs-scenario-state">
+                      {scenarioStateLabel(scenario.checkpoint)}
+                    </span>
+                    <strong>{scenario.discover_label}</strong>
+                    <span className="discover-labs-scenario-query">
+                      Try: {scenario.query}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
           </div>
         </section>
       </div>

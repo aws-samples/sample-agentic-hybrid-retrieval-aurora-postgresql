@@ -1951,8 +1951,7 @@ def generate(scale: float, seed: int, out_root: Path) -> dict[str, Any]:
     data_sample = out_root / "data" / "sample"
     data_eval = out_root / "data" / "evals"
     data_dict = out_root / "data" / "dictionaries"
-    ui_data = out_root / "ui" / "data"
-    for p in [data_full, data_sample, data_eval, data_dict, ui_data]:
+    for p in [data_full, data_sample, data_eval, data_dict]:
         p.mkdir(parents=True, exist_ok=True)
 
     full_paths = {
@@ -1960,7 +1959,6 @@ def generate(scale: float, seed: int, out_root: Path) -> dict[str, Any]:
     }
     sample_path = data_sample / "products_5000.csv.gz"
     sample_json_path = data_sample / "products_120.json"
-    ui_json_path = ui_data / "products.json"
 
     domain_sample_targets = {
         "consumer_electronics": 2_100,
@@ -1975,7 +1973,6 @@ def generate(scale: float, seed: int, out_root: Path) -> dict[str, Any]:
     availability_counts = defaultdict(int)
     anchors: list[dict[str, Any]] = []
     pools: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    ui_products: list[dict[str, Any]] = []
     sample_products_json: list[dict[str, Any]] = []
 
     total_expected = round(sum(DOMAIN_COUNTS.values()) * scale)
@@ -2036,41 +2033,6 @@ def generate(scale: float, seed: int, out_root: Path) -> dict[str, Any]:
                 and i % 97 == 0
             ):
                 anchors.append(row)
-            if (
-                len(ui_products) < 36
-                and float(row["rating"]) >= 4.0
-                and row["availability"] != "Out of Stock"
-                and (
-                    (
-                        row["domain"] == "consumer_electronics"
-                        and row["subcategory"]
-                        in [
-                            "Over-Ear Headphones",
-                            "Mechanical Keyboards",
-                            "Portable Monitors",
-                        ]
-                    )
-                    or (
-                        row["domain"] == "running_fitness"
-                        and row["subcategory"]
-                        in [
-                            "Carbon Racing Shoes",
-                            "Trail Running Shoes",
-                            "GPS Running Watches",
-                        ]
-                    )
-                    or (
-                        row["domain"] == "home_office"
-                        and row["subcategory"]
-                        in [
-                            "Ergonomic Office Chairs",
-                            "Electric Standing Desks",
-                            "Quiet Keyboards",
-                        ]
-                    )
-                )
-            ):
-                ui_products.append(row)
 
             if i % 50_000 == 0:
                 print(f"  {i:,}/{total_expected:,}", flush=True)
@@ -2100,7 +2062,6 @@ def generate(scale: float, seed: int, out_root: Path) -> dict[str, Any]:
         }
 
     write_json(sample_json_path, [compact(r) for r in sample_products_json])
-    write_json(ui_json_path, [compact(r) for r in ui_products[:30]])
 
     eval_counts = make_eval_assets(anchors, pools, seed, data_eval)
 

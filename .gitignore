@@ -52,3 +52,6 @@ infra/cdk/cdk.context.json
 
 # Local design mockups are not source and are never committed.
 /mockups/
+
+# `screen -L` transcript from running the dev servers locally.
+/screenlog.*

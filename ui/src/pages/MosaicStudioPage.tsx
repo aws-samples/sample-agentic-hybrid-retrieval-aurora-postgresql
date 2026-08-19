@@ -263,7 +263,7 @@ export function MosaicStudioPage() {
           <span>What it does not claim</span>
           <strong>Live retrieval, cross-item compatibility, bundle ranking, or agent-composed reasoning.</strong>
         </div>
-        <Link href="/mosaic-labs">
+        <Link href="/labs/retrieval">
           Inspect the retrieval system <ArrowRight size={15} />
         </Link>
       </section>

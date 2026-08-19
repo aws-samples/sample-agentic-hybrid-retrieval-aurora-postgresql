@@ -1257,6 +1257,95 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.discover-labs-scenarios {
+  grid-column: 1 / -1;
+  margin-top: clamp(12px, 2.4vw, 28px);
+  padding-top: clamp(18px, 2.4vw, 28px);
+  border-top: 1px solid rgb(253 247 236 / 22%);
+}
+
+.discover-labs-scenarios > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.discover-labs-scenarios-kicker {
+  margin: 0 0 5px;
+  color: #dcb277;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.discover-labs-scenarios h3 {
+  max-width: 32ch;
+  margin: 0;
+  color: #fdf7ec;
+  font-family: var(--display);
+  font-size: clamp(19px, 1.6vw, 24px);
+  font-weight: 450;
+  line-height: 1.15;
+}
+
+.discover-labs-scenarios-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.discover-labs-scenario {
+  display: grid;
+  min-width: 0;
+  min-height: 132px;
+  align-content: start;
+  gap: 7px;
+  padding: 15px 16px;
+  border: 1px solid rgb(253 247 236 / 22%);
+  border-radius: 8px;
+  background: rgb(20 6 10 / 20%);
+  color: #fdf7ec;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.discover-labs-scenario:hover,
+.discover-labs-scenario:focus-visible {
+  border-color: rgb(242 213 164 / 76%);
+  background: rgb(253 247 236 / 11%);
+  color: #fdf7ec;
+  transform: translateY(-1px);
+}
+
+.discover-labs-scenario:focus-visible {
+  outline: 2px solid #f2d5a4;
+  outline-offset: 3px;
+}
+
+.discover-labs-scenario-state {
+  color: #e3bc85;
+  font-size: 9.5px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.discover-labs-scenario strong {
+  color: #fdf7ec;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.32;
+}
+
+.discover-labs-scenario-query {
+  color: rgb(253 247 236 / 74%);
+  font-size: 11px;
+  line-height: 1.48;
+  overflow-wrap: anywhere;
+}
+
 /* A single dropped plate gives the row an editorial rhythm. Margin rather than
    a transform, so the band grows by the offset instead of clipping the caption
    against its own overflow. */
@@ -5988,6 +6077,10 @@
     margin-top: 0;
   }
 
+  .discover-labs-scenarios {
+    margin-top: 0;
+  }
+
   .discover-lab-graphic {
     aspect-ratio: 1;
   }
@@ -6189,6 +6282,10 @@
   /* One plate per row: a landscape crop keeps a full-width scene from taking
      over the viewport. */
   .discover-labs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .discover-labs-scenarios-grid {
     grid-template-columns: 1fr;
   }
 
@@ -10942,6 +11039,11 @@
   color: #8b6a35;
 }
 
+.labs-engine-rail button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .labs-observatory-workspace {
   display: grid;
   min-width: 0;
@@ -11036,6 +11138,47 @@
   color: var(--maroon-900);
 }
 
+.labs-observatory-repair-toggle {
+  display: grid;
+  grid-template-columns: auto repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid #ded4c8;
+  border-radius: 6px;
+  background: #fffdf9;
+}
+
+.labs-observatory-repair-toggle > span {
+  padding-inline: 6px;
+  color: #766f68;
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.labs-observatory-repair-toggle button {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #625b55;
+  font-size: var(--labs-micro);
+  font-weight: 720;
+  text-align: center;
+}
+
+.labs-observatory-repair-toggle button:hover {
+  background: #f2e7e7;
+  color: var(--maroon-800);
+}
+
+.labs-observatory-repair-toggle button.active {
+  background: var(--maroon-900);
+  color: #fffaf3;
+}
+
 .labs-observatory-request-facts {
   display: grid;
   gap: 0;
@@ -11089,6 +11232,18 @@
   align-content: start;
   gap: 18px;
   padding: 20px;
+}
+
+.labs-observatory-candidates-empty {
+  display: grid;
+  min-height: 330px;
+  place-items: center;
+  margin: 0;
+  border: 1px dashed #d9cec1;
+  border-radius: 6px;
+  color: #766f68;
+  font-size: var(--labs-detail);
+  text-align: center;
 }
 
 .labs-engine-products-heading {
@@ -11324,57 +11479,114 @@
   overflow-wrap: anywhere;
 }
 
-.labs-observatory-evidence > a {
+.labs-observatory-evidence > a,
+.labs-observatory-evidence > button {
   display: inline-flex;
+  min-height: 36px;
   width: fit-content;
   align-items: center;
   gap: 7px;
   margin-top: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--maroon-800);
   font-size: var(--labs-detail);
   font-weight: 720;
+  text-align: left;
 }
 
-.labs-observatory-telemetry {
+.labs-observatory-trace {
+  cursor: pointer;
+}
+
+.labs-observatory-trace:hover,
+.labs-observatory-trace:focus-visible {
+  color: var(--maroon-950);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.labs-observatory-outcome {
   display: grid;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 20px;
   border-top: 1px solid #e1d8cd;
   background: #f7f1e8;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr) auto;
 }
 
-.labs-observatory-telemetry > div {
+.labs-observatory-outcome-copy {
   display: grid;
   min-width: 0;
   gap: 4px;
-  padding: 15px 18px;
-  border-right: 1px solid #e1d8cd;
 }
 
-.labs-observatory-telemetry span {
-  color: #817971;
+.labs-observatory-outcome-copy > span {
+  color: var(--maroon-800);
   font-size: var(--labs-micro);
+  font-weight: 760;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.labs-observatory-telemetry strong {
-  overflow: hidden;
+.labs-observatory-outcome-copy > strong {
   color: #3c342f;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: var(--labs-mono);
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-family: var(--display);
+  font-size: var(--labs-h3);
+  font-weight: 540;
 }
 
-.labs-observatory-telemetry > a {
+.labs-observatory-outcome-copy > p {
+  max-width: 72ch;
+  margin: 0;
+  color: #6b655f;
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-observatory-outcome > ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-observatory-outcome > ul > li {
+  padding: 6px 8px;
+  border: 1px solid #d9cec1;
+  border-radius: 4px;
+  background: #fffdf9;
+  color: #5d202d;
+  font-size: var(--labs-micro);
+  font-weight: 700;
+}
+
+.labs-observatory-outcome > button {
   display: inline-flex;
-  min-height: 58px;
+  min-height: 42px;
   align-items: center;
   gap: 7px;
-  padding: 0 18px;
-  color: var(--maroon-800);
+  justify-content: center;
+  padding: 0 13px;
+  border: 1px solid var(--maroon-800);
+  border-radius: 5px;
+  background: var(--maroon-900);
+  color: #fffaf3;
   font-size: var(--labs-detail);
   font-weight: 720;
+  text-align: left;
+}
+
+.labs-observatory-outcome > button:hover,
+.labs-observatory-outcome > button:focus-visible {
+  border-color: var(--maroon-950);
+  background: var(--maroon-800);
+  color: #fffaf3;
+  text-decoration: none;
 }
 
 @media (max-width: 1280px) {
@@ -11448,13 +11660,16 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .labs-observatory-telemetry {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .labs-observatory-outcome {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .labs-observatory-telemetry > a {
+  .labs-observatory-outcome > ul {
     grid-column: 1 / -1;
-    border-top: 1px solid #e1d8cd;
+  }
+
+  .labs-observatory-outcome > button {
+    grid-column: 1 / -1;
   }
 }
 
@@ -11559,16 +11774,11 @@
     float: none;
   }
 
-  .labs-observatory-telemetry {
+  .labs-observatory-outcome {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .labs-observatory-telemetry > div {
-    border-right: 0;
-    border-bottom: 1px solid #e1d8cd;
-  }
-
-  .labs-observatory-telemetry > a {
+  .labs-observatory-outcome > button {
     grid-column: 1;
   }
 }

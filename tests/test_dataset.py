@@ -165,6 +165,14 @@ def test_review_sample_matches_the_quick_start_catalog():
     assert sample_ids <= product_ids
 
 
+def test_catalog_generator_does_not_emit_a_ui_fixture():
+    """The storefront must obtain products from the API, not generated static data."""
+    generator = (ROOT / "scripts/generate_catalog.py").read_text(encoding="utf-8")
+
+    assert not (ROOT / "ui/data/products.json").exists()
+    assert 'out_root / "ui"' not in generator
+
+
 def test_subcategory_routing_does_not_use_ambiguous_substrings():
     organizer = ProductContext(
         464423,
