@@ -79,6 +79,44 @@ export const supportingMosaicChecks = mosaicLabManifest.supporting_checks;
  */
 export const mosaicRetrievalExamples = [...coreMosaicLabs, ...supportingMosaicChecks];
 
+/** Workshop reading order: Retrieve, then Rank, then Reason, then the extras. */
+const STAGE_ORDER: MosaicLabStage[] = ["retrieve", "rank", "reason", "optimize"];
+
+export const stageLabels: Record<MosaicLabStage, string> = {
+  retrieve: "Retrieve",
+  rank: "Rank",
+  reason: "Reason",
+  optimize: "Advanced",
+};
+
+/**
+ * The scenarios grouped the way the session runs, for a picker.
+ *
+ * The flat list is manifest order: the three core labs, then the supporting
+ * checks. That interleaves stages, so a picker built straight from it reads
+ * retrieve, rank, reason, retrieve, retrieve, retrieve, rank, rank, reason,
+ * optimize, and the canonical query ids jump 003, 008, 010, 001, 004, 013.
+ * Grouping by stage and sorting by canonical id inside each group gives one
+ * reading order without renaming anything: those ids are bound by
+ * scripts/mission_contract.py to a graded query in
+ * data/evals/canonical_queries.jsonl, so they are not ours to renumber.
+ */
+export function retrievalExamplesByStage(): Array<{
+  stage: MosaicLabStage;
+  label: string;
+  examples: MosaicLabMission[];
+}> {
+  return STAGE_ORDER.map((stage) => ({
+    stage,
+    label: stageLabels[stage],
+    examples: mosaicRetrievalExamples
+      .filter((example) => example.stage === stage)
+      .sort((left, right) =>
+        (left.canonical_query_id ?? "G-999").localeCompare(right.canonical_query_id ?? "G-999"),
+      ),
+  })).filter((group) => group.examples.length > 0);
+}
+
 export function retrievalExampleHref(example: MosaicLabMission) {
   if (example.stage === "reason") {
     const params = new URLSearchParams({

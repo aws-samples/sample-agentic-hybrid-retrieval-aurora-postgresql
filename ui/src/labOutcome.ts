@@ -15,6 +15,22 @@ export interface LabOutcome {
   detail: string;
 }
 
+/**
+ * How a checkpoint names itself.
+ *
+ * The bare code came first: participants read "G-003" as the first words on the
+ * banner with nothing to say what G was or why the sequence jumped 003, 008, 010.
+ * It is a query id in data/evals/canonical_queries.jsonl, the graded set the
+ * evaluator scores against, and scripts/mission_contract.py binds each mission to
+ * one. Naming it is three words and removes the puzzle; renumbering it would
+ * break that binding.
+ */
+function checkpointName(mission: MosaicLabMission): string {
+  return mission.canonical_query_id
+    ? `Canonical query ${mission.canonical_query_id}`
+    : mission.id;
+}
+
 function matchesFilters(product: ProductSummary, filters: SearchFilters) {
   return (
     (!filters.domain || product.domain === filters.domain)
@@ -56,7 +72,7 @@ function rrfIsCorrect(product: ProductSummary, rrfK: number) {
 function readyOutcome(mission: MosaicLabMission): LabOutcome {
   return {
     tone: "ready",
-    label: `${mission.canonical_query_id ?? mission.id} · Ready`,
+    label: `${checkpointName(mission)} · Ready`,
     title: "Run to observe",
     detail: mission.participant_edit?.broken_state ?? mission.expected_outcome,
   };
@@ -69,7 +85,7 @@ function participantOutcome(
   const edit = mission.participant_edit!;
   return {
     tone: fixed ? "fixed" : "broken",
-    label: `${mission.canonical_query_id ?? mission.id} · ${fixed ? "Fixed" : "Broken"}`,
+    label: `${checkpointName(mission)} · ${fixed ? "Fixed" : "Broken"}`,
     title: fixed ? edit.fixed_state : edit.broken_state,
     detail: edit.checkpoint_question,
   };
@@ -122,7 +138,7 @@ export function retrievalLabOutcome(
   const observed = targetsPresent && eligible;
   return {
     tone: observed ? "fixed" : "broken",
-    label: `${mission.canonical_query_id ?? mission.id} · ${
+    label: `${checkpointName(mission)} · ${
       observed ? "Checkpoint observed" : "Checkpoint needs attention"
     }`,
     title: mission.expected_outcome,
@@ -171,7 +187,7 @@ export function agentLabOutcome(
 
   return {
     tone: grounded ? "fixed" : "broken",
-    label: `${mission.canonical_query_id ?? mission.id} · ${
+    label: `${checkpointName(mission)} · ${
       grounded ? "Checkpoint observed" : "Checkpoint needs attention"
     }`,
     title: mission.expected_outcome,

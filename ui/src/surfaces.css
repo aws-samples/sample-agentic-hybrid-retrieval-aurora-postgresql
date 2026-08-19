@@ -4707,13 +4707,16 @@
   min-height: calc(100dvh - var(--topbar-height));
 }
 
+/* No border-top: the masthead's own bottom rule already closes the space above
+   this, and .labs-premium puts a 40px gap between them, so the two hairlines read
+   as a pair bracketing an empty band on the same ivory. One rule per boundary.
+   The section below is a dark rounded card, whose top edge is its own outline. */
 .mosaic-studio-briefs {
   display: grid;
   grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
   gap: 22px;
   align-items: end;
   padding: 19px 0;
-  border-top: 1px solid #ded6ca;
   border-bottom: 1px solid #ded6ca;
 }
 
@@ -5965,13 +5968,8 @@
   background: #fdfbf6;
 }
 
-.labs-matrix-controls label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.labs-matrix-controls label > span {
+.labs-matrix-controls > span {
+  flex-shrink: 0;
   color: #8a8179;
   font-size: var(--labs-micro);
   font-weight: 700;
@@ -5979,20 +5977,41 @@
   text-transform: uppercase;
 }
 
-.labs-matrix-controls select {
-  min-width: 260px;
-  padding: 7px 10px;
-  border: 1px solid #d5cabb;
-  border-radius: 2px;
+/* Pick, then run. The picker sits beside Run pipeline in the masthead, because it
+   used to sit below the button that consumed it. */
+.retrieval-scenario-picker {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.retrieval-scenario-picker > span {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.retrieval-scenario-picker select {
+  min-height: 44px;
+  min-width: 250px;
+  padding: 0 12px;
+  border: 1px solid #cdbfae;
+  border-radius: 999px;
   background: #fffefa;
   color: #2f2924;
   font-family: var(--sans);
   font-size: var(--labs-detail);
 }
 
-.labs-matrix-controls select:focus-visible {
+.retrieval-scenario-picker select:hover {
+  border-color: #a87845;
+}
+
+.retrieval-scenario-picker select:focus-visible {
   outline: 2px solid var(--focus);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
 .labs-matrix-query {
@@ -6344,8 +6363,17 @@
 @media (max-width: 900px) {
   .labs-matrix-controls {
     flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .retrieval-scenario-picker {
+    width: 100%;
+  }
+
+  .retrieval-scenario-picker select {
+    flex: 1;
+    min-width: 0;
   }
 
   .labs-matrix-query {

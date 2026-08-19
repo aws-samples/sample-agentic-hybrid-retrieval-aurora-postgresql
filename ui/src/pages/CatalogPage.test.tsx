@@ -576,7 +576,7 @@ describe("CatalogPage", () => {
         "Evidence is returned to the model but grounded synthesis cannot resolve it, so the agent refuses an unsupported recommendation.",
       ),
     ).toBeTruthy();
-    expect(screen.getByText("G-010 · Ready")).toBeTruthy();
+    expect(screen.getByText("Canonical query G-010 · Ready")).toBeTruthy();
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
@@ -584,7 +584,9 @@ describe("CatalogPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
-    expect(await screen.findByText("G-010 · Fixed")).toBeTruthy();
+    // The banner names what the id is: it used to print the bare code as the
+    // first words a participant read.
+    expect(await screen.findByText("Canonical query G-010 · Fixed")).toBeTruthy();
   });
 
   it("opens Ask Mosaic, renders grounded receipts, and cross-highlights products", async () => {

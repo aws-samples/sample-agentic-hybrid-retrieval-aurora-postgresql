@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
-import { mosaicRetrievalExamples } from "../labMissions";
+import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
 import { seedProvenance } from "../retrievalSeed";
 import { showcaseCatalogPage } from "../showcase";
 import type { ProductSummary, RetrievalDiagnostics, SearchResponse } from "../types";
@@ -28,23 +28,16 @@ vi.mock("../components/RetrievalObservatory", () => ({
   RetrievalObservatory: ({
     example,
     loading,
-    onSelectExample,
     response,
   }: {
     example?: { id: string };
     loading: boolean;
-    onSelectExample: (id: string) => void;
     response: SearchResponse | null;
   }) => (
     <section aria-label="Retrieval Observatory">
       <p>observatory scenario: {example?.id}</p>
       <p>observatory run: {response ? response.search_event_id : "none"}</p>
       <p>observatory loading: {String(loading)}</p>
-      {/* The instrument owns the scenario control, so the page is only reachable
-          through this callback. */}
-      <button onClick={() => onSelectExample("exact-identity")} type="button">
-        pick exact-identity
-      </button>
     </section>
   ),
 }));
@@ -188,6 +181,54 @@ describe("RetrievalLabPage", () => {
     ]);
   });
 
+  it("puts the scenario choice before the action that runs it", () => {
+    // The picker used to sit inside the matrix, below the button that consumed it,
+    // so the page read run-then-pick. Both controls are now in the masthead in the
+    // order they are used.
+    const { container } = render(<RetrievalLabPage />);
+    const action = container.querySelector(".retrieval-run-action")!;
+    const controls = [...action.querySelectorAll("select, button")];
+
+    expect(controls[0].tagName).toBe("SELECT");
+    expect(controls[1].textContent).toContain("Run pipeline");
+    // One picker on the page, not one per instrument.
+    expect(container.querySelectorAll("select")).toHaveLength(1);
+  });
+
+  it("groups the scenarios the way the session runs them", () => {
+    // Manifest order interleaves stages and the canonical ids jump 003, 008, 010,
+    // 001, 004. Those ids are bound to graded queries in canonical_queries.jsonl,
+    // so the fix is the reading order, not a renumbering.
+    render(<RetrievalLabPage />);
+    const select = screen.getByRole("combobox");
+    const groups = [...select.querySelectorAll("optgroup")].map((group) =>
+      group.getAttribute("label"),
+    );
+
+    expect(groups).toEqual(["Retrieve", "Rank", "Reason", "Advanced"]);
+    expect(
+      [...select.querySelectorAll("option")].map((option) => option.textContent),
+    ).toEqual(
+      retrievalExamplesByStage().flatMap((group) =>
+        group.examples.map((example) => example.discover_label),
+      ),
+    );
+  });
+
+  it("says what a canonical query id is instead of printing the bare code", () => {
+    // "G-003 · Ready" was the first thing a participant read, with nothing to say
+    // what G meant.
+    const captured = mosaicRetrievalExamples.find(
+      (candidate) => candidate.id === seedProvenance.mission_id,
+    )!;
+    render(<RetrievalLabPage />);
+
+    const banner = document.querySelector(".lab-outcome")!;
+    expect(banner.textContent).toContain(
+      `Canonical query ${captured.canonical_query_id}`,
+    );
+  });
+
   it("judges the checkpoint against the run that is on screen", () => {
     // The banner used to judge live responses only, so on arrival it asserted
     // "The target is absent because the working pg_trgm arm is disconnected from
@@ -292,7 +333,7 @@ describe("RetrievalLabPage", () => {
     render(<RetrievalLabPage />);
 
     fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
-    fireEvent.click(screen.getByRole("button", { name: "pick exact-identity" }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "exact-identity" } });
     resolveFirst(primaryResponse);
 
     await waitFor(() => {

@@ -40,26 +40,17 @@ done
 
 REPO="$HOME_FOLDER/sample-agentic-hybrid-retrieval-aurora-postgresql"
 
-dnf install -y git jq nginx nodejs20 npm python3.13 python3.13-pip \
+dnf install -y git jq nginx nodejs20 npm postgresql15 python3.13 python3.13-pip \
   python3.13-setuptools gcc gcc-c++ make sudo tar gzip unzip
 command -v aws >/dev/null 2>&1 || \
   (dnf install -y awscli2 || dnf install -y awscli)
 python3.13 -m pip install --no-cache-dir uv==0.11.21
 uv --version
 
-PGDG_BASE='https://download.postgresql.org/pub/repos/yum/18/redhat/rhel-9-aarch64'
-PG_CLIENT_RPM='postgresql18-18.3-1PGDG.rhel9.7.aarch64.rpm'
-PG_LIBS_RPM='postgresql18-libs-18.3-1PGDG.rhel9.7.aarch64.rpm'
-curl -fsSL "$PGDG_BASE/$PG_CLIENT_RPM" -o "/tmp/$PG_CLIENT_RPM"
-curl -fsSL "$PGDG_BASE/$PG_LIBS_RPM" -o "/tmp/$PG_LIBS_RPM"
-printf '%s  %s\n' \
-  '250137c5e0ca30a59871a9e1356009b8fa6fdf34f178cf849b2eb77e1d71839d' \
-  "/tmp/$PG_CLIENT_RPM" \
-  '4d6d69d43a4cba9fe417dc355ecda6386e69b79fdbc8509ef365c50d3d05b9af' \
-  "/tmp/$PG_LIBS_RPM" | sha256sum -c -
-dnf install -y "/tmp/$PG_LIBS_RPM" "/tmp/$PG_CLIENT_RPM"
-ln -sf /usr/pgsql-18/bin/psql /usr/local/bin/psql
-psql --version | grep -q ' 18.3'
+# The RHEL 9 PGDG client RPM depends on libldap.so.2, which AL2023 does not
+# provide. PostgreSQL 15's packaged psql uses the compatible standard TLS
+# negotiation path against the Aurora PostgreSQL 18 server.
+psql --version | grep -Eq '^psql \(PostgreSQL\) 15\.'
 
 if ! id "$CODE_EDITOR_USER" >/dev/null 2>&1; then
   useradd -m -s /bin/bash "$CODE_EDITOR_USER"
@@ -323,7 +314,7 @@ user, password, host, port, database = sys.argv[1:6]
 print(
     f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
     f"@{host}:{port}/{database}"
-    "?sslmode=require&sslnegotiation=direct"
+    "?sslmode=require"
 )
 PY
 )
@@ -447,7 +438,7 @@ user, password, host, port, database = sys.argv[1:6]
 print(
     f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
     f"@{host}:{port}/{database}"
-    "?sslmode=require&sslnegotiation=direct"
+    "?sslmode=require"
 )
 PY
 )

@@ -7,7 +7,7 @@ import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { RetrievalDiagnosticsStrip } from "../components/RetrievalDiagnosticsStrip";
 import { RetrievalObservatory } from "../components/RetrievalObservatory";
 import { WorkshopProgress } from "../components/WorkshopProgress";
-import { mosaicRetrievalExamples } from "../labMissions";
+import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
 import { retrievalLabOutcome } from "../labOutcome";
 import { useSearchParams } from "../navigation";
 import { seedRunFor } from "../retrievalSeed";
@@ -152,6 +152,25 @@ export function RetrievalLabPage() {
       <MosaicLabsMasthead
         action={(
           <div className="retrieval-run-action">
+            {/* Pick, then run. The scenario control used to sit inside the matrix
+                below this button, so the order of operations read backwards. */}
+            <label className="retrieval-scenario-picker">
+              <span>Scenario</span>
+              <select
+                onChange={(event) => selectExample(event.target.value)}
+                value={example?.id ?? ""}
+              >
+                {retrievalExamplesByStage().map((group) => (
+                  <optgroup key={group.stage} label={group.label}>
+                    {group.examples.map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.discover_label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
             <button
               className="primary-button"
               type="button"
@@ -193,7 +212,6 @@ export function RetrievalLabPage() {
       <RetrievalObservatory
         example={example}
         loading={loading}
-        onSelectExample={selectExample}
         response={response}
       />
 

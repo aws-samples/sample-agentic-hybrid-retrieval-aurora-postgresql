@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CodeBlock } from "../components/CodeBlock";
-import { mosaicRetrievalExamples, type MosaicLabMission } from "../labMissions";
+import type { MosaicLabMission } from "../labMissions";
 import { productImageMap } from "../media";
 import {
   buildRetrievalMatrix,
@@ -28,7 +28,6 @@ import type { SearchResponse } from "../types";
 
 interface RetrievalObservatoryProps {
   example: MosaicLabMission | undefined;
-  onSelectExample: (id: string) => void;
   /** The most recent live response, or null before the participant has run one. */
   response: SearchResponse | null;
   loading: boolean;
@@ -121,7 +120,6 @@ function MatrixRowGroup({
 
 export function RetrievalObservatory({
   example,
-  onSelectExample,
   response,
   loading,
 }: RetrievalObservatoryProps) {
@@ -177,20 +175,10 @@ export function RetrievalObservatory({
         </div>
       </header>
 
+      {/* The scenario is chosen beside Run pipeline in the masthead, so this only
+          reports the query that produced what is below it. */}
       <div className="labs-matrix-controls">
-        <label>
-          <span>Scenario</span>
-          <select
-            onChange={(event) => onSelectExample(event.target.value)}
-            value={example?.id ?? ""}
-          >
-            {mosaicRetrievalExamples.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {candidate.discover_label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <span>Query</span>
         <p className="labs-matrix-query">
           <code>{example?.query}</code>
         </p>

@@ -139,15 +139,36 @@ def test_uv_is_pinned_rather_than_floating(script: str) -> None:
     )
 
 
-def test_al2023_bootstrap_does_not_request_full_curl(script: str) -> None:
-    """Amazon Linux 2023 already provides curl-minimal, which conflicts with curl."""
+def _bootstrap_packages(script: str) -> list[str]:
+    """Return the AL2023 packages installed before the application bootstrap."""
     package_install = re.search(
         r"^dnf install -y (?P<packages>.*?\bunzip)$",
         script,
         re.MULTILINE | re.DOTALL,
     )
     assert package_install, "the bootstrap package installation could not be found"
-    packages = package_install.group("packages").replace("\\\n", " ").split()
+    return package_install.group("packages").replace("\\\n", " ").split()
+
+
+def test_al2023_bootstrap_does_not_request_full_curl(script: str) -> None:
+    """Amazon Linux 2023 already provides curl-minimal, which conflicts with curl."""
+    packages = _bootstrap_packages(script)
     assert "curl" not in packages, (
         "AL2023 ships curl-minimal; do not request the conflicting full curl RPM"
+    )
+
+
+def test_al2023_bootstrap_uses_the_native_postgresql_client(script: str) -> None:
+    """RHEL PGDG RPMs require a libldap ABI that AL2023 does not ship."""
+    assert "postgresql15" in _bootstrap_packages(script), (
+        "install AL2023's postgresql15 package instead of a RHEL PGDG client RPM"
+    )
+    assert "PGDG_BASE" not in script, (
+        "do not mix RHEL PGDG RPMs into AL2023; they need unavailable libldap.so.2"
+    )
+    assert "sslnegotiation=direct" not in script, (
+        "postgresql15 predates sslnegotiation=direct; use sslmode=require for psql"
+    )
+    assert "psql --version | grep -Eq '^psql \\(PostgreSQL\\) 15\\.'" in script, (
+        "verify the AL2023 PostgreSQL 15 client was installed before using psql"
     )

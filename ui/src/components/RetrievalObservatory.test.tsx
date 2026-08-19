@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { mosaicRetrievalExamples } from "../labMissions";
 import { seedProvenance, seedRun } from "../retrievalSeed";
 import type { SearchResponse } from "../types";
@@ -40,7 +40,6 @@ function renderObservatory(props: Partial<Parameters<typeof RetrievalObservatory
     <RetrievalObservatory
       example={seedExample}
       loading={false}
-      onSelectExample={() => {}}
       response={null}
       {...props}
     />,
@@ -154,21 +153,6 @@ describe("RetrievalObservatory", () => {
     )!;
     renderObservatory({ example: other, loading: true });
     expect(screen.getByRole("status").textContent).toContain("Embedding the query");
-  });
-
-  it("changes scenario through one control", () => {
-    const onSelectExample = vi.fn();
-    renderObservatory({ onSelectExample });
-
-    const select = screen.getByRole("combobox") as HTMLSelectElement;
-    expect(select.value).toBe(seedProvenance.mission_id);
-    expect(within(select).getAllByRole("option")).toHaveLength(mosaicRetrievalExamples.length);
-
-    const other = mosaicRetrievalExamples.find(
-      (candidate) => candidate.id !== seedProvenance.mission_id,
-    )!;
-    fireEvent.change(select, { target: { value: other.id } });
-    expect(onSelectExample).toHaveBeenCalledWith(other.id);
   });
 
   it("states the limits of the numbers it draws", () => {
