@@ -13,6 +13,12 @@ MCP_PYTHON ?= $(MCP_VENV)/bin/python
 DATABASE_URL ?=
 API_PORT ?= 8000
 UI_PORT ?= 5173
+# deploy/mosaic-bootstrap.sh is the source of truth; the workshop repository keeps
+# a byte-identical copy because CloudFormation UserData reads it from S3 before any
+# clone exists. See deploy/README.md.
+BOOTSTRAP_SCRIPT ?= deploy/mosaic-bootstrap.sh
+WORKSHOP_REPO ?= ../build-agentic-hybrid-retrieval-with-amazon-aurora-postgresql
+WORKSHOP_BOOTSTRAP ?= $(WORKSHOP_REPO)/assets/mosaic-bootstrap.sh
 LAB_API_URL ?= http://127.0.0.1:$(API_PORT)
 SCORE_EVAL_ARGS ?=
 
@@ -31,7 +37,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve sync-bootstrap check-bootstrap-sync
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -334,9 +340,33 @@ reviews:
 validate:
 	$(PYTHON) scripts/validate_package.py
 
+# The workshop repository's copy is a delivery artifact, not a second source. Edit
+# deploy/mosaic-bootstrap.sh, run this, and commit both.
+sync-bootstrap:
+	@test -f "$(WORKSHOP_BOOTSTRAP)" || { \
+		echo "No workshop copy at $(WORKSHOP_BOOTSTRAP)."; \
+		echo "Set WORKSHOP_REPO to the workshop checkout."; exit 1; }
+	@cp "$(BOOTSTRAP_SCRIPT)" "$(WORKSHOP_BOOTSTRAP)"
+	@echo "Synced $(BOOTSTRAP_SCRIPT) -> $(WORKSHOP_BOOTSTRAP)"
+	@echo "BootstrapScriptSha256: $$(shasum -a 256 "$(BOOTSTRAP_SCRIPT)" | cut -d" " -f1)"
+
+# Skips rather than fails when the workshop repository is not checked out beside
+# this one, so a plain clone of this repository still passes.
+check-bootstrap-sync:
+	@if [ ! -f "$(WORKSHOP_BOOTSTRAP)" ]; then \
+		echo "check-bootstrap-sync: skipped, no workshop checkout at $(WORKSHOP_REPO)"; \
+	elif cmp -s "$(BOOTSTRAP_SCRIPT)" "$(WORKSHOP_BOOTSTRAP)"; then \
+		echo "check-bootstrap-sync: identical"; \
+	else \
+		echo "check-bootstrap-sync: FAILED, the two copies differ"; \
+		diff -u "$(WORKSHOP_BOOTSTRAP)" "$(BOOTSTRAP_SCRIPT)" | head -40; \
+		echo "Run: make sync-bootstrap"; exit 1; \
+	fi
+
 lint:
 	$(UV) run ruff check .
 	$(UV) run ruff format --check .
+	@$(MAKE) --no-print-directory check-bootstrap-sync
 
 test:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest
