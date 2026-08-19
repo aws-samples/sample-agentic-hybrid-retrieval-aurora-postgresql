@@ -150,6 +150,32 @@ def _bootstrap_packages(script: str) -> list[str]:
     return package_install.group("packages").replace("\\\n", " ").split()
 
 
+def test_bootstrap_installs_one_node_family_and_asserts_it(script: str) -> None:
+    """AL2023 arbitrates Node through `alternatives`, so asking for two loses.
+
+    The bare `npm` package is Node 18's and pulls nodejs-18 in as a dependency. A
+    box that asked for `nodejs20 npm` ran Node 18: npm reported EBADENGINE for
+    @anthropic-ai/claude-code, which declares `node >=22`, and the tool ran outside
+    its supported engine. Requesting exactly one family removes the arbitration,
+    and asserting the active version turns a wrong link into an immediate failure
+    rather than a Claude Code preflight that times out three times.
+    """
+    packages = _bootstrap_packages(script)
+    node_packages = {name for name in packages if name.startswith("nodejs")}
+    assert node_packages == {"nodejs22", "nodejs22-npm"}, (
+        f"the bootstrap requests Node packages {sorted(node_packages)}; ask for one "
+        "family only, and for 22 because the pinned Claude Code needs node >=22"
+    )
+    assert "npm" not in packages, (
+        "the unversioned npm package is Node 18's and installs nodejs-18 as a "
+        "dependency, which then wins the alternatives link"
+    )
+    assert r"node --version | grep -Eq '^v22\.'" in script, (
+        "the bootstrap does not assert which Node is active, so a wrong "
+        "alternatives link surfaces later as an EBADENGINE warning"
+    )
+
+
 def test_al2023_bootstrap_does_not_request_full_curl(script: str) -> None:
     """Amazon Linux 2023 already provides curl-minimal, which conflicts with curl."""
     packages = _bootstrap_packages(script)

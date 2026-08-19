@@ -40,8 +40,15 @@ done
 
 REPO="$HOME_FOLDER/sample-agentic-hybrid-retrieval-aurora-postgresql"
 
-dnf install -y git jq nginx nodejs20 npm postgresql15 python3.13 python3.13-pip \
-  python3.13-setuptools gcc gcc-c++ make sudo tar gzip unzip
+# nodejs22, not nodejs20, and never the bare `npm`. AL2023 registers each Node
+# through `alternatives`, and the unversioned `npm` package is Node 18's: asking
+# for it silently installs nodejs-18 as a dependency, which then wins the
+# alternatives link. A box provisioned that way ran Node 18 while the package
+# list said 20, and @anthropic-ai/claude-code declares `node >=22`, so npm
+# reported EBADENGINE at install time and the tool ran outside its supported
+# engine. Installing one Node family leaves nothing to arbitrate.
+dnf install -y git jq nginx nodejs22 nodejs22-npm postgresql15 python3.13 \
+  python3.13-pip python3.13-setuptools gcc gcc-c++ make sudo tar gzip unzip
 command -v aws >/dev/null 2>&1 || \
   (dnf install -y awscli2 || dnf install -y awscli)
 python3.13 -m pip install --no-cache-dir uv==0.11.21
@@ -51,6 +58,8 @@ uv --version
 # provide. PostgreSQL 15's packaged psql uses the compatible standard TLS
 # negotiation path against the Aurora PostgreSQL 18 server.
 psql --version | grep -Eq '^psql \(PostgreSQL\) 15\.'
+node --version | grep -Eq '^v22\.'
+npm --version >/dev/null
 
 if ! id "$CODE_EDITOR_USER" >/dev/null 2>&1; then
   useradd -m -s /bin/bash "$CODE_EDITOR_USER"
