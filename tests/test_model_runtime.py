@@ -542,6 +542,85 @@ def test_synthesis_rejects_a_wrong_price_stated_without_a_comparison():
         )
 
 
+def test_synthesis_accepts_an_alphanumeric_spec_value_the_evidence_states():
+    # Measured against live Aurora on 2026-08-19 while re-pinning the chat model:
+    # the catalog states `"armrests": "4D"`, four of the six candidate models
+    # wrote "4D armrests", and the guard rejected the digit "4" on its own. The
+    # extraction split the token but the support search did not, so an answer
+    # that quoted the record exactly could not pass. Sonnet 5 only escaped this
+    # by never choosing the phrase.
+    source = evidence().model_copy(
+        update={"text": 'Active noise cancellation. Attributes: {"armrests": "4D"}.'}
+    )
+    client = FakeSynthesisClient("AuriLogic Flight ANC has 4D armrests [1].")
+
+    answer, citations, _ = synthesize_cited_answer(
+        "Are the armrests adjustable?",
+        [product()],
+        [source],
+        client=client,
+    )
+
+    assert "4D armrests" in answer
+    assert [record.product_id for record in citations] == [101]
+
+
+def test_synthesis_accepts_a_spec_value_whose_letters_come_first():
+    # Measured against live Aurora on 2026-08-19: the catalog states
+    # `"water_rating": "IP55"` and both Sonnet 4.6 and Sonnet 5 wrote "IP55".
+    # Extraction skipped the first digit because a letter precedes it, then
+    # matched the second one on its own, so the guard rejected the claim "5" out
+    # of a token the record states verbatim.
+    source = evidence().model_copy(
+        update={"text": 'Noise cancellation. Attributes: {"water_rating": "IP55"}.'}
+    )
+    client = FakeSynthesisClient("AuriLogic Flight ANC carries an IP55 rating [1].")
+
+    answer, _, _ = synthesize_cited_answer(
+        "Is it water resistant?",
+        [product()],
+        [source],
+        client=client,
+    )
+
+    assert "IP55" in answer
+
+
+def test_synthesis_rejects_a_letters_first_spec_value_the_evidence_contradicts():
+    # The falsifier: reading "IP55" as one token has to keep a different rating
+    # out. Neither "IP68" nor its numeric core appears in the record.
+    source = evidence().model_copy(
+        update={"text": 'Noise cancellation. Attributes: {"water_rating": "IP55"}.'}
+    )
+    client = FakeSynthesisClient("AuriLogic Flight ANC carries an IP68 rating [1].")
+
+    with pytest.raises(ValueError, match=r"claim \['IP68'\] for product 101"):
+        synthesize_cited_answer(
+            "Is it water resistant?",
+            [product()],
+            [source],
+            client=client,
+        )
+
+
+def test_synthesis_rejects_an_alphanumeric_spec_value_the_evidence_contradicts():
+    # The falsifier for the fix above: reading "4D" as one token has to keep
+    # rejecting a different one. Accepting the bare digit run would let "8D"
+    # through on evidence that says "4D".
+    source = evidence().model_copy(
+        update={"text": 'Active noise cancellation. Attributes: {"armrests": "4D"}.'}
+    )
+    client = FakeSynthesisClient("AuriLogic Flight ANC has 8D armrests [1].")
+
+    with pytest.raises(ValueError, match=r"claim \['8D'\] for product 101"):
+        synthesize_cited_answer(
+            "Are the armrests adjustable?",
+            [product()],
+            [source],
+            client=client,
+        )
+
+
 def test_synthesis_rejects_numeric_support_borrowed_from_another_product():
     second_product = product().model_copy(
         update={

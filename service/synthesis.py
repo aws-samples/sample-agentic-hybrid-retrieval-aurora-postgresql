@@ -24,6 +24,12 @@ availability, scores, or sources.
 Every sentence or bullet that names a product must include evidence for that
 same product in that sentence. Do not put product names in headings.
 
+Prices in the evidence are integer cents. Convert one exactly and keep both
+decimal places, so 39999 cents is "$399.99". Never round a price and never
+soften one with "roughly", "around", or "about". Write every other figure in the
+form the evidence uses, including any unit letters, and do not introduce a
+threshold of your own, not even as a rule of thumb.
+
 Write at most 150 words in natural, confident shopping prose. The interface
 already labels the answer "Recommendation", so do not repeat that label and do
 not use report headings named "Summary" or "Recommendations".
@@ -222,9 +228,17 @@ def _measurable_claims(
         " " if any(start <= index < end for start, end in currency_spans) else char
         for index, char in enumerate(without_citations)
     )
+    # A figure's attached letters belong to it. The catalog writes
+    # `"armrests": "4D"` and `"water_rating": "IP55"`, so an answer repeating
+    # either verbatim has to be checkable as that whole token. Matching a digit
+    # run inside one produced claims the record never states alone - "4" out of
+    # "4D", and "5" out of "IP55" because only the second digit cleared a
+    # letters-only lookbehind - and it left an invented "IP68" unchecked.
     claims.update(
         value.replace(",", "")
-        for value in re.findall(r"(?<![A-Za-z])\d[\d,]*(?:\.\d+)?", without_currency)
+        for value in re.findall(
+            r"(?<![A-Za-z0-9])[A-Za-z]*\d[\d,]*(?:\.\d+)?[A-Za-z]*", without_currency
+        )
     )
     normalized = _normalized_support_text(without_citations)
     claims.update(
@@ -279,10 +293,20 @@ def _unsupported_claims(
     )
     unsupported: list[str] = []
     for claim in claims:
-        normalized_claim = _normalized_support_text(claim)
-        if not re.search(
-            rf"(?<![A-Za-z0-9]){re.escape(normalized_claim)}(?![A-Za-z0-9])",
-            support,
+        # A figure carrying letters is supported by either form: the record may
+        # write "4D" where the answer does, or "48-hour" where the answer wrote
+        # "48h". Both readings have to miss before the claim is unsupported.
+        readings = {claim}
+        numeric_core = re.search(r"\d[\d,]*(?:\.\d+)?", claim)
+        if numeric_core and numeric_core.group() != claim:
+            readings.add(numeric_core.group())
+        if not any(
+            re.search(
+                rf"(?<![A-Za-z0-9]){re.escape(_normalized_support_text(reading))}"
+                r"(?![A-Za-z0-9])",
+                support,
+            )
+            for reading in readings
         ):
             unsupported.append(claim)
     return sorted(unsupported)
