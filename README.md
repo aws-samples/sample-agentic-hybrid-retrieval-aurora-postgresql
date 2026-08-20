@@ -191,7 +191,7 @@ The Aurora release contract verifies:
 | Rerank model | `cohere.rerank-v3-5:0` |
 | Agent and synthesis model | `global.anthropic.claude-sonnet-4-6` |
 | Premium visual cohort | 120 products |
-| Photographed Shop edit | 120 products |
+| Photographed Shop edit | 200 products |
 | Product specification coverage | 500,000 products |
 | Generated review evidence | 15,000 records |
 | Filter-contract cases | 720 |
