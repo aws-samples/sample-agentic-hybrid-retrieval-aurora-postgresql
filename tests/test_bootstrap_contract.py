@@ -223,3 +223,29 @@ def test_bootstrap_blocks_commits_without_breaking_diff(script: str) -> None:
     assert 'git -C "$REPO" diff --name-only' in script, (
         "the Lab 1 seam assertion still depends on reading the diff"
     )
+
+
+def test_code_editor_opens_a_terminal_and_skips_the_trust_prompt(script: str) -> None:
+    """First open should land in a terminal with no dialogs in the way.
+
+    A folderOpen task only fires from the .vscode of the folder Code Editor
+    actually opens, which is `$REPO` per --default-folder, not its parent. And
+    without task.allowAutomaticTasks the editor prompts instead of running it, so
+    both halves have to be present for the terminal to appear by itself.
+    """
+    assert '"runOn": { "runOn"' not in script, "runOptions is the wrapping key"
+    assert '"runOn": "folderOpen"' in script, "the task must run on folder open"
+    assert '"$REPO/.vscode"' in script, (
+        "write the task into the opened folder, not the parent"
+    )
+    assert '"task.allowAutomaticTasks": "on"' in script, (
+        "without this Code Editor prompts rather than running the task"
+    )
+    for key in (
+        '"security.workspace.trust.enabled": false',
+        '"security.workspace.trust.startupPrompt": "never"',
+    ):
+        assert key in script, f"missing workspace-trust suppression: {key}"
+    assert ".code-editor-server/data/User" in script, (
+        "user settings belong in the server's own user-data directory"
+    )

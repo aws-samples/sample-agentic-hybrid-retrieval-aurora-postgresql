@@ -288,6 +288,58 @@ chmod 0755 /opt/mosaic-workshop/git-hooks/pre-commit
 sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" config \
   core.hooksPath /opt/mosaic-workshop/git-hooks
 
+# Code Editor opens $REPO (see --default-folder in its unit), and a folderOpen
+# task only fires from the .vscode/ of the folder that is actually opened, so both
+# files go there rather than in the parent. task.allowAutomaticTasks must be "on"
+# or Code Editor prompts instead of running the task, and the workspace-trust keys
+# are what suppress the "do you trust the authors" dialog on first open. The
+# sibling Pellier bootstrap established this shape after writing the task to the
+# unopened parent, where it silently never ran.
+CODE_EDITOR_SETTINGS="/home/$CODE_EDITOR_USER/.code-editor-server/data/User"
+install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" "$CODE_EDITOR_SETTINGS"
+cat >"$CODE_EDITOR_SETTINGS/settings.json" <<'EOF'
+{
+  "security.workspace.trust.enabled": false,
+  "security.workspace.trust.startupPrompt": "never",
+  "security.workspace.trust.banner": "never",
+  "security.workspace.trust.emptyWindow": false,
+  "task.allowAutomaticTasks": "on",
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "workbench.startupEditor": "none",
+  "extensions.ignoreRecommendations": true,
+  "telemetry.telemetryLevel": "off"
+}
+EOF
+chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$CODE_EDITOR_SETTINGS/settings.json"
+
+install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" "$REPO/.vscode"
+cat >"$REPO/.vscode/tasks.json" <<'EOF'
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Mosaic terminal",
+      "type": "shell",
+      "command": "bash",
+      "args": ["-l"],
+      "presentation": {
+        "echo": false,
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true,
+        "close": false
+      },
+      "runOptions": { "runOn": "folderOpen" },
+      "isBackground": false,
+      "problemMatcher": []
+    }
+  ]
+}
+EOF
+chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.vscode"
+
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" \
   "/home/$CODE_EDITOR_USER/.claude"
 cat >"/home/$CODE_EDITOR_USER/.claude/CLAUDE.md" <<'EOF'

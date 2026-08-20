@@ -47,7 +47,7 @@ infra/cdk/cdk.context.json
 
 # OS/editor
 .DS_Store
-.vscode/settings.json
+.vscode/
 .idea/
 
 # Local design mockups are not source and are never committed.
