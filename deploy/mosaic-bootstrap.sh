@@ -602,12 +602,37 @@ curl -fsS -X POST http://127.0.0.1:8000/api/search \
     "include_diagnostics": true,
     "rerank": true
   }' >/tmp/lab1-broken-proof.json
+# Lab 1's broken state disconnects the pg_trgm arm from candidate fusion. It does
+# not hide the target: measured on the live 500,000-row cluster with a real
+# Bedrock query embedding, product 2 still arrives at fused rank 1 from FTS rank 1
+# because "canceling" is the one correctly spelled term in the query. Asserting
+# the target was absent contradicted data/evals/mosaic_labs_missions.json, which
+# says the target "returns with no trigram rank and no RRF contribution", and it
+# failed every stack at this line. What distinguishes broken from fixed is the
+# empty trigram channel, so that is what this checks.
 jq -e '
   .diagnostics.candidate_counts.trigram_in_pool == 0 and
-  all(.results[]; .product_id != 2)
+  any(.results[]; .product_id == 2)
 ' /tmp/lab1-broken-proof.json
+
+printf '\n=== MOSAIC BOOTSTRAP GREEN ===\n'
+jq -r '"  products            \(.database.product_count)
+  embeddings          \(.database.embedded_product_count)
+  embedding model     \(.database.embedding_model_ids | join(", "))
+  database            \(.database.database_name)
+  status              \(.status)"' /tmp/readiness.json
+jq -r '"  agent model         \(.models.agent)
+  synthesis model     \(.models.synthesis)
+  rerank model        \(.models.rerank)"' /tmp/health.json
+jq -r '"  rerank             \(.diagnostics.rerank_status), \(.results | length) result(s)"' \
+  /tmp/model-access-search.json
+jq -r '"  lab 1 broken       trigram_in_pool=\(.diagnostics.candidate_counts.trigram_in_pool), target present"' \
+  /tmp/lab1-broken-proof.json
+printf '  timings             see build/bootstrap-timings.tsv\n'
+printf '=== every acceptance check passed; signalling CloudFormation ===\n\n'
 
 trap - ERR
 curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
   --data-binary '{"Status":"SUCCESS","Reason":"Mosaic bootstrap complete","UniqueId":"userdata","Data":"ready"}' \
   "$BOOTSTRAP_WAIT_HANDLE"
+printf 'MOSAIC_BOOTSTRAP_COMPLETE\n'
