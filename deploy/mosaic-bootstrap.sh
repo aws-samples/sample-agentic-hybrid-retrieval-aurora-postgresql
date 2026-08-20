@@ -547,20 +547,29 @@ systemctl daemon-reload
 systemctl enable mosaic-api mosaic-ui
 systemctl restart mosaic-api mosaic-ui
 
+# Poll quietly. uvicorn has never bound the port by the first attempt, so -S here
+# printed "curl: (7) Failed to connect to 127.0.0.1 port 8000" into the log of
+# every successful run, which reads as a failure in an otherwise clean bootstrap
+# and is the first thing anyone tailing the log asks about. Errors are still
+# shown, once, if the services genuinely never answer.
+printf 'waiting for mosaic-api and mosaic-ui to answer\n'
 for attempt in $(seq 1 60); do
-  if curl -fsS http://127.0.0.1:8000/api/health >/tmp/health.json &&
-     curl -fsS http://127.0.0.1:8000/api/readiness >/tmp/readiness.json &&
-     curl -fsS http://127.0.0.1:5173/ >/dev/null &&
-     curl -fsS \
+  if curl -fs http://127.0.0.1:8000/api/health >/tmp/health.json &&
+     curl -fs http://127.0.0.1:8000/api/readiness >/tmp/readiness.json &&
+     curl -fs http://127.0.0.1:5173/ >/dev/null &&
+     curl -fs \
        -H "X-Mosaic-Origin-Verify: $CODE_EDITOR_PASSWORD" \
        http://127.0.0.1:8081/ >/dev/null &&
-     curl -fsS \
+     curl -fs \
        -H "X-Mosaic-Origin-Verify: $CODE_EDITOR_PASSWORD" \
        http://127.0.0.1:8081/api/readiness \
        >/tmp/proxy-readiness.json; then
+    printf 'services answered on attempt %s\n' "$attempt"
     break
   fi
   if [ "$attempt" -eq 60 ]; then
+    printf 'services did not answer after 60 attempts; last error and unit status follow\n'
+    curl -fsS http://127.0.0.1:8000/api/health || true
     systemctl status mosaic-api mosaic-ui --no-pager || true
     exit 1
   fi
