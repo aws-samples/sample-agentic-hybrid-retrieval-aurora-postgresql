@@ -204,13 +204,14 @@ nginx -t
 systemctl enable nginx code-editor
 systemctl restart nginx code-editor
 
-npm install -g @anthropic-ai/claude-code@2.1.232
+CLAUDE_CODE_VERSION=2.1.232
+npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
 CLAUDE_BIN=$(command -v claude)
 test -n "$CLAUDE_BIN"
 if [ "$CLAUDE_BIN" != /usr/local/bin/claude ]; then
   ln -sf "$CLAUDE_BIN" /usr/local/bin/claude
 fi
-claude --version | grep -q '^2.1.232 '
+claude --version | grep -q "^$CLAUDE_CODE_VERSION "
 
 cat >/etc/profile.d/mosaic-claude.sh <<'EOF'
 export AWS_REGION=us-east-1
@@ -304,8 +305,16 @@ cat >"$CODE_EDITOR_SETTINGS/settings.json" <<'EOF'
   "security.workspace.trust.banner": "never",
   "security.workspace.trust.emptyWindow": false,
   "task.allowAutomaticTasks": "on",
+  "git.enabled": false,
+  "editor.fontSize": 15,
+  "terminal.integrated.fontSize": 18,
+  "window.zoomLevel": 1,
   "terminal.integrated.defaultProfile.linux": "bash",
+  "workbench.colorTheme": "Default Dark Modern",
   "workbench.startupEditor": "none",
+  "workbench.welcomePage.walkthroughs.openOnInstall": false,
+  "workbench.tips.enabled": false,
+  "update.showReleaseNotes": false,
   "extensions.ignoreRecommendations": true,
   "telemetry.telemetryLevel": "off"
 }
@@ -339,6 +348,13 @@ cat >"$REPO/.vscode/tasks.json" <<'EOF'
 }
 EOF
 chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.vscode"
+
+# Claude Code asks every participant to choose a text style on first run. The
+# onboarding flags live in ~/.claude.json, and lastOnboardingVersion has to match
+# the pinned CLI or the flow reappears. Merge rather than overwrite: the
+# bootstrap's own preflight invoke may already have written that file.
+sudo -u "$CODE_EDITOR_USER" -H \
+  python3.13 /opt/mosaic-workshop/claude-onboarding.py "$CLAUDE_CODE_VERSION"
 
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" \
   "/home/$CODE_EDITOR_USER/.claude"
@@ -422,6 +438,30 @@ DB_SECRET_ARN=$DB_SECRET_ARN
 EOF
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.env"
 chmod 600 "$REPO/.env"
+
+# Twenty-seven lab commands use "$DATABASE_URL", and the guide sourced .env once
+# on the introduction page. Any new terminal lost it, every one of those commands
+# then ran as psql "" and fell back to a local socket that does not exist, and a
+# bare `psql` never worked at all. Load it in every interactive shell instead, and
+# give libpq its own variables so `psql` with no arguments reaches Aurora too. The
+# password stays out of the environment and out of /etc, in a 0600 ~/.pgpass.
+cat >>"/home/$CODE_EDITOR_USER/.bashrc" <<EOF
+set -a
+[ -r '$REPO/.env' ] && . '$REPO/.env'
+set +a
+export PGHOST='$DB_CLUSTER_ENDPOINT'
+export PGPORT='$DB_PORT'
+export PGUSER='$DB_USER'
+export PGDATABASE='$DB_NAME'
+export PGSSLMODE=require
+EOF
+printf '%s:%s:%s:%s:%s\n' \
+  "$DB_CLUSTER_ENDPOINT" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASSWORD" \
+  >"/home/$CODE_EDITOR_USER/.pgpass"
+chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.pgpass"
+chmod 600 "/home/$CODE_EDITOR_USER/.pgpass"
+sudo -u "$CODE_EDITOR_USER" -H bash -lc \
+  "psql -X -Atc 'SELECT 1' >/dev/null"
 
 sudo -u "$CODE_EDITOR_USER" -H bash -lc \
   "cd '$REPO' && uv sync --frozen && uv pip check"

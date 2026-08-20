@@ -225,6 +225,49 @@ def test_bootstrap_blocks_commits_without_breaking_diff(script: str) -> None:
     )
 
 
+def test_bare_psql_reaches_aurora_from_any_shell(script: str) -> None:
+    """`psql` with no arguments and "$DATABASE_URL" must both work in a new shell.
+
+    Twenty-seven lab commands use "$DATABASE_URL". The guide sourced .env once on
+    the introduction page, so a second terminal ran them as psql "" and fell back
+    to a Unix socket that does not exist on this host.
+    """
+    assert "[ -r '$REPO/.env' ] && . '$REPO/.env'" in script, (
+        "every interactive shell must load the generated .env"
+    )
+    for variable in ("PGHOST", "PGPORT", "PGUSER", "PGDATABASE", "PGSSLMODE"):
+        assert f"export {variable}=" in script, (
+            f"libpq needs {variable} for a bare psql invocation"
+        )
+    assert "/.pgpass" in script, (
+        "the password belongs in ~/.pgpass, not the environment"
+    )
+    assert 'chmod 600 "/home/$CODE_EDITOR_USER/.pgpass"' in script, (
+        "libpq refuses a ~/.pgpass that is not 0600"
+    )
+    assert "psql -X -Atc 'SELECT 1'" in script, (
+        "prove the participant connection during bootstrap, not at the lab"
+    )
+
+
+def test_code_editor_hides_git_and_is_legible(script: str) -> None:
+    """No source-control decorations, and readable at the back of a room."""
+    assert '"git.enabled": false' in script, (
+        "the injected Lab 1 seam showed as a modified badge a participant may revert"
+    )
+    assert '"workbench.colorTheme": "Default Dark Modern"' in script
+    assert '"terminal.integrated.fontSize": 18' in script
+    assert '"window.zoomLevel"' in script, "whole-UI scale, not just the editor font"
+
+
+def test_claude_code_skips_its_first_run_prompt(script: str) -> None:
+    """Onboarding is version-gated, so the flag alone is not enough."""
+    assert "claude-onboarding.py" in script
+    assert "$CLAUDE_CODE_VERSION" in script, (
+        "the install and the onboarding version must come from one pin"
+    )
+
+
 def test_code_editor_opens_a_terminal_and_skips_the_trust_prompt(script: str) -> None:
     """First open should land in a terminal with no dialogs in the way.
 
