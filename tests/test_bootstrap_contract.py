@@ -198,3 +198,28 @@ def test_al2023_bootstrap_uses_the_native_postgresql_client(script: str) -> None
     assert "psql --version | grep -Eq '^psql \\(PostgreSQL\\) 15\\.'" in script, (
         "verify the AL2023 PostgreSQL 15 client was installed before using psql"
     )
+
+
+def test_bootstrap_blocks_commits_without_breaking_diff(script: str) -> None:
+    """The checkout must refuse commits while still reading as a working tree.
+
+    A committed lab edit empties the diff a participant is asked to inspect, and
+    it leaves a checkout whose history no longer matches the pinned revision.
+    Reading stays intact because the bootstrap asserts the Lab 1 seam with
+    `git diff --name-only` and the API records `source_worktree_dirty`.
+    """
+    assert "core.hooksPath /opt/mosaic-workshop/git-hooks" in script, (
+        "point core.hooksPath at a hook directory outside the checkout"
+    )
+    assert "/opt/mosaic-workshop/git-hooks/pre-commit" in script, (
+        "install a pre-commit hook that refuses commits"
+    )
+    assert "Commits are disabled in this workshop checkout." in script, (
+        "the refusal must explain itself to a participant"
+    )
+    assert ".githooks" not in script, (
+        "a hook directory inside the checkout shows up as untracked in git status"
+    )
+    assert 'git -C "$REPO" diff --name-only' in script, (
+        "the Lab 1 seam assertion still depends on reading the diff"
+    )

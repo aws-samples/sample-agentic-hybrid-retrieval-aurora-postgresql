@@ -267,6 +267,27 @@ sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" fetch --depth 1 origin "$SOURCE_RE
 sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" checkout --detach FETCH_HEAD
 test "$(sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" rev-parse HEAD)" = "$SOURCE_REVISION"
 
+# Refuse commits in the participant checkout. Reading the tree stays untouched,
+# because every lab instructs `git diff` to inspect its seam and the API records
+# `source_worktree_dirty` from the same state. Committing is the part nothing in
+# the session needs: it would fold a lab edit into history, leave `git diff`
+# empty, and hide the very seam the exercise asks a participant to look at.
+# The hook lives outside the checkout on purpose. Inside it, the directory would
+# show up as untracked in `git status` and in the Code Editor source-control
+# panel, adding a second piece of clutter to the tree this is meant to keep tidy.
+install -d -m 0755 /opt/mosaic-workshop/git-hooks
+cat >/opt/mosaic-workshop/git-hooks/pre-commit <<'HOOK'
+#!/bin/sh
+echo "Commits are disabled in this workshop checkout." >&2
+echo "Your edits are already live - the API reads the files directly." >&2
+echo "Each lab inspects its own change with:  git diff" >&2
+echo "Committing would empty that diff and hide the seam you are working on." >&2
+exit 1
+HOOK
+chmod 0755 /opt/mosaic-workshop/git-hooks/pre-commit
+sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" config \
+  core.hooksPath /opt/mosaic-workshop/git-hooks
+
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" \
   "/home/$CODE_EDITOR_USER/.claude"
 cat >"/home/$CODE_EDITOR_USER/.claude/CLAUDE.md" <<'EOF'
