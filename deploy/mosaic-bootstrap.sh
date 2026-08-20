@@ -353,8 +353,22 @@ chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.vscode"
 # onboarding flags live in ~/.claude.json, and lastOnboardingVersion has to match
 # the pinned CLI or the flow reappears. Merge rather than overwrite: the
 # bootstrap's own preflight invoke may already have written that file.
-sudo -u "$CODE_EDITOR_USER" -H \
-  python3.13 /opt/mosaic-workshop/claude-onboarding.py "$CLAUDE_CODE_VERSION"
+sudo -u "$CODE_EDITOR_USER" -H python3.13 - "$CLAUDE_CODE_VERSION" <<'CLAUDE_ONBOARDING'
+import json
+import pathlib
+import sys
+
+version = sys.argv[1]
+path = pathlib.Path.home() / ".claude.json"
+try:
+    config = json.loads(path.read_text(encoding="utf-8"))
+except (OSError, ValueError):
+    config = {}
+config["hasCompletedOnboarding"] = True
+config["lastOnboardingVersion"] = version
+path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+path.chmod(0o600)
+CLAUDE_ONBOARDING
 
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" \
   "/home/$CODE_EDITOR_USER/.claude"

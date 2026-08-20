@@ -262,9 +262,41 @@ def test_code_editor_hides_git_and_is_legible(script: str) -> None:
 
 def test_claude_code_skips_its_first_run_prompt(script: str) -> None:
     """Onboarding is version-gated, so the flag alone is not enough."""
-    assert "claude-onboarding.py" in script
+    assert '"hasCompletedOnboarding"' in script, "the flag itself"
+    assert '"lastOnboardingVersion"' in script, (
+        "onboarding re-runs when the recorded version predates the installed CLI"
+    )
     assert "$CLAUDE_CODE_VERSION" in script, (
         "the install and the onboarding version must come from one pin"
+    )
+
+
+def test_bootstrap_never_executes_a_file_it_does_not_create(script: str) -> None:
+    """Every interpreter target must exist on the box by the time it runs.
+
+    A previous revision called python3.13 on a helper under /opt that nothing ever
+    copied there, and the contract test asserted only that the *filename* appeared
+    in the script, so it passed while the path was unreachable. Assert the path is
+    real instead of asserting a string is present.
+    """
+    invocations = re.findall(
+        r"(?:python3\.13|python3|bash|sh)\s+((?:/|\$)[^\s\\'\"]+)", script
+    )
+    unreachable = []
+    for target in set(invocations):
+        if target.startswith("$REPO"):
+            continue  # the checkout, verified against SOURCE_REVISION earlier
+        created = (
+            f'cat >"{target}"' in script
+            or f"cat >{target}" in script
+            or f"install -d {target}" in script
+            or f'-o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" {target}' in script
+        )
+        if not created:
+            unreachable.append(target)
+    assert not unreachable, (
+        f"bootstrap executes paths it never creates: {sorted(unreachable)}; "
+        "inline the code or install the file before calling it"
     )
 
 
