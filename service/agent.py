@@ -201,9 +201,7 @@ def _agent_prompt(
         "authorized_search_event_ids": [
             str(event_id)
             for event_id in (
-                state.get("context_search_event_ids", [])
-                if state is not None
-                else []
+                state.get("context_search_event_ids", []) if state is not None else []
             )
         ],
     }

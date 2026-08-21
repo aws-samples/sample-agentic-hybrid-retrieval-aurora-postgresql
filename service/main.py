@@ -345,9 +345,7 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
     async def events():
         try:
             execution_path = (
-                "focused_follow_up"
-                if request.context is not None
-                else "full_retrieval"
+                "focused_follow_up" if request.context is not None else "full_retrieval"
             )
             yield _sse(
                 "stage",

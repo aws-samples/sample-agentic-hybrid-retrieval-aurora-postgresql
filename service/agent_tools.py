@@ -54,9 +54,7 @@ def _signals_from_receipt(row: dict[str, Any]) -> ResultSignals:
     channels = (row.get("provenance") or {}).get("channels") or {}
 
     def contribution(channel: str) -> float | None:
-        return _optional_float(
-            (channels.get(channel) or {}).get("rrf_contribution")
-        )
+        return _optional_float((channels.get(channel) or {}).get("rrf_contribution"))
 
     return ResultSignals(
         fts=RankSignal(
@@ -194,9 +192,7 @@ def _load_conversation_context(
             """,
             (row["agent_session_id"], context_event_ids),
         ).fetchall()
-        authorized_ids = {
-            item["search_event_id"] for item in authorized_rows
-        }
+        authorized_ids = {item["search_event_id"] for item in authorized_rows}
         if authorized_ids != set(context_event_ids):
             raise ConversationContextError(
                 "The previous Ask Mosaic ranking scope is no longer valid"
@@ -299,12 +295,8 @@ def start_run(
         "trace": [],
         "search_event_ids": [],
         "context_search_event_ids": context_search_event_ids,
-        "context_product_ids": [
-            product.product_id for product in context_products
-        ],
-        "products": {
-            product.product_id: product for product in context_products
-        },
+        "context_product_ids": [product.product_id for product in context_products],
+        "products": {product.product_id: product for product in context_products},
         "evidence": {},
         "evidence_by_product": {},
         "searches": [],
@@ -1200,12 +1192,9 @@ def _persisted_intent(
     """Build the server-owned scope needed to authorize a later follow-up."""
     return {
         "plan": plan,
-        "search_event_ids": [
-            str(value) for value in state["search_event_ids"]
-        ],
+        "search_event_ids": [str(value) for value in state["search_event_ids"]],
         "context_search_event_ids": [
-            str(value)
-            for value in state.get("context_search_event_ids", [])
+            str(value) for value in state.get("context_search_event_ids", [])
         ],
         "context_product_ids": state.get("context_product_ids", []),
         "execution_path": state.get("execution_path", "full_retrieval"),

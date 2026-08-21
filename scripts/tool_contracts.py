@@ -83,8 +83,7 @@ def shared_contract_receipt() -> dict[str, Any]:
     """Describe the invariants preserved across agent and MCP projections."""
     by_surface = {
         surface: {
-            contract["name"]: contract
-            for contract in contracts_for_surface(surface)
+            contract["name"]: contract for contract in contracts_for_surface(surface)
         }
         for surface in ("agent", "mcp")
     }
@@ -98,9 +97,7 @@ def shared_contract_receipt() -> dict[str, Any]:
         ]
         for name in shared_names
     }
-    mismatches = {
-        name: fields for name, fields in mismatches.items() if fields
-    }
+    mismatches = {name: fields for name, fields in mismatches.items() if fields}
     if mismatches:
         raise ToolContractError(
             "shared agent and MCP tool invariants drifted; "

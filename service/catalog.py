@@ -246,7 +246,9 @@ def get_product_summaries(product_ids: list[int]) -> list[ProductSummary]:
         ).fetchall()
     products = [_summary(dict(row)) for row in rows]
     found_ids = {product.product_id for product in products}
-    missing_ids = [product_id for product_id in ordered_ids if product_id not in found_ids]
+    missing_ids = [
+        product_id for product_id in ordered_ids if product_id not in found_ids
+    ]
     if missing_ids:
         raise KeyError(f"Authorized products are no longer available: {missing_ids}")
     return products

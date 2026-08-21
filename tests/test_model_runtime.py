@@ -971,18 +971,14 @@ def test_followup_context_is_loaded_from_the_grounded_aurora_turn(monkeypatch):
                         "input_payload": {"product_ids": [101]},
                         "extracted_intent": {
                             "search_event_ids": [],
-                            "context_search_event_ids": [
-                                str(inherited_event_id)
-                            ],
+                            "context_search_event_ids": [str(inherited_event_id)],
                             "selected_products": previous_products,
                         },
                     }
                 )
             if "FROM mosaic.search_event AS event" in sql:
                 assert parameters == (session_id, [inherited_event_id])
-                return Result(
-                    many=[{"search_event_id": inherited_event_id}]
-                )
+                return Result(many=[{"search_event_id": inherited_event_id}])
             assert "JOIN mosaic.search_result_event AS receipt" in sql
             assert parameters == ([inherited_event_id], [101])
             return Result(
@@ -1161,11 +1157,16 @@ def test_focused_followup_synthesis_does_not_require_a_ranking_replay(
         "synthesize_answer",
         lambda *_args: (
             "Choose the lower-priced option [1][2].",
-            [citation(), citation().model_copy(update={
-                "number": 2,
-                "evidence_id": 9002,
-                "product_id": 102,
-            })],
+            [
+                citation(),
+                citation().model_copy(
+                    update={
+                        "number": 2,
+                        "evidence_id": 9002,
+                        "product_id": 102,
+                    }
+                ),
+            ],
             {"totalTokens": 42},
         ),
     )
@@ -1179,7 +1180,9 @@ def test_focused_followup_synthesis_does_not_require_a_ranking_replay(
         agent_tools._RUN.reset(token)
 
     assert result["ok"] is True
-    assert state["answer_of_record"]["answer"] == "Choose the lower-priced option [1][2]."
+    assert (
+        state["answer_of_record"]["answer"] == "Choose the lower-priced option [1][2]."
+    )
     assert all(step["tool"] != "explain_retrieval" for step in state["trace"])
 
 
@@ -1210,7 +1213,9 @@ def test_focused_followup_controller_fallback_skips_ranking_replay(monkeypatch):
         "explain_retrieval",
         lambda event_id: explained.append(event_id) or {"ok": True},
     )
-    monkeypatch.setattr(agent_tools, "finalize_retrieved_answer", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        agent_tools, "finalize_retrieved_answer", lambda *_args, **_kwargs: None
+    )
     token = agent_tools._RUN.set(state)
     try:
         agent_tools.complete_grounded_answer("Does the first one support multipoint?")
