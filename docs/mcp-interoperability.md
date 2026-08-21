@@ -2,9 +2,10 @@
 
 ## Workshop boundary
 
-MCP is an instructor-led interoperability checkpoint inside Lab 3, not a
-separate protocol lab. It makes the inspected hybrid retrieval system portable
-to another compatible agent host through standard product-discovery tools.
+MCP appears only in the productionization reveal after Lab 3. It is not a
+participant build, protocol lesson, or fourth lab. It shows why keeping
+retrieval behind typed contracts makes the inspected system portable to another
+compatible agent host.
 
 The checkpoint proves one architectural point:
 
@@ -16,6 +17,12 @@ MCP-compatible host ---+
 
 The adapters do not reimplement filters, retrieval arms, RRF, reranking, or
 ranking diagnostics.
+
+`scripts/tool_contracts.py --check` proves the portable boundary that exists in
+this repository: the two shared agent/MCP tools retain their version, output
+schema, and read-only policy, while each transport keeps its own input shape and
+trace. It does not claim a deployed Amazon Bedrock AgentCore Gateway or
+runtime-result parity that was not measured.
 
 ## Protocol and dependency boundary
 
@@ -73,7 +80,7 @@ Run its protocol and adapter tests with:
 make mcp-test
 ```
 
-## Participant checkpoint
+## Optional operator check
 
 1. Connect an MCP-compatible inspector or host to `/mcp`.
 2. Confirm discovery negotiates `2026-07-28`.
@@ -84,5 +91,13 @@ make mcp-test
 6. Compare the MCP result with the Retrieval Lab UI and confirm both show the
    same persisted PostgreSQL ranking signals.
 
-Authentication, tenant scope, AgentCore hosting, MCP Apps, Tasks, and
-production authorization policy remain take-home extensions.
+This optional check can prove candidate, eligibility, RRF, and evidence payload
+preservation through the local MCP adapter. Citation authorization remains an
+application concern: `search_products` does not synthesize an answer.
+
+[Amazon Bedrock AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agents-tools-runtime.html)
+can host custom agent code, and
+[AgentCore Gateway](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html)
+can expose APIs, Lambda functions, or MCP servers as tools. Authentication,
+tenant scope, managed hosting, and production authorization policy remain
+take-home extensions.

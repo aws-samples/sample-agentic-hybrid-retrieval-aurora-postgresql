@@ -31,6 +31,7 @@ export type AgentStreamEvent =
   | {
     type: "stage";
     id: "understand" | "retrieve" | "rank" | "answer";
+    path: "focused_follow_up" | "full_retrieval";
     title: string;
     detail: string;
   }

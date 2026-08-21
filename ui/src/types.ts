@@ -195,6 +195,7 @@ export interface AgentCitation {
 }
 
 export interface AgentConversationContext {
+  previous_agent_run_id: string;
   previous_question: string;
   recommendations: Array<{
     product_id: number;

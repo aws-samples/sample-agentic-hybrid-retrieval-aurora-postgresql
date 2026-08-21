@@ -32,7 +32,7 @@
       "core": true,
       "duration_minutes": 10,
       "title": "Lab 1 - Build hybrid retrieval",
-      "discover_label": "Typo recovery with pg_trgm",
+      "discover_label": "Candidate recall across retrievers",
       "canonical_query_id": "G-003",
       "query": "wirless noice canceling hedphones under $200 with long batery life",
       "filters": {
@@ -54,8 +54,8 @@
         "file": "db/sql/09_search_functions.sql",
         "approximate_lines": 11,
         "task": "Restore the trigram CTE and its candidate channel in search_hybrid_rrf.",
-        "broken_state": "The pg_trgm arm is disconnected from candidate fusion, so the target returns with no trigram rank and no RRF contribution.",
-        "fixed_state": "The target returns with trigram rank and RRF contribution while hard filters still hold.",
+        "broken_state": "The target still appears through incidental FTS overlap, but the disconnected pg_trgm arm contributes no candidate, rank, or RRF evidence.",
+        "fixed_state": "The target retains its eligible result and now carries trigram rank and RRF contribution while hard filters still hold.",
         "observe_before": [
           "HTTP 200: retrieval still runs through FTS, HNSW, RRF, and reranking.",
           "Product 2 still appears, carried by an FTS rank alone, with signals.trigram.rank and signals.trigram.rrf_contribution null.",
@@ -66,9 +66,9 @@
           "Product 2 has non-null signals.trigram.rank and signals.trigram.rrf_contribution.",
           "Every result is consumer electronics, at or below $200, and in stock or low stock."
         ],
-        "checkpoint_question": "Why did the original path miss product 2, and which signal recovered it?"
+        "checkpoint_question": "Why was seeing product 2 not enough to declare retrieval healthy, and which missing signal did the repair restore?"
       },
-      "expected_outcome": "The eligible target appears after the typo-recovery candidate source is restored; exact identity and semantic eligibility remain separately testable checkpoints.",
+      "expected_outcome": "The eligible target retains its result while the restored typo-recovery arm adds the missing candidate and rank provenance; exact identity and semantic eligibility remain separately testable checkpoints.",
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",
@@ -178,7 +178,7 @@
         ],
         "checkpoint_question": "What did the agent decide, and what remained deterministic retrieval and evidence behavior?"
       },
-      "expected_outcome": "A bounded, read-only agent decomposes the request, preserves structured constraints, searches and compares retrieved products, retrieves evidence, retains ranking explanation, and produces citations that resolve to real evidence records.",
+      "expected_outcome": "A bounded, read-only agent uses typed retrieval, comparison, ranking, evidence, and synthesis tools under application-owned authorization, producing citations that resolve to real evidence records.",
       "assertions": [
         "structured_constraints_extracted",
         "retrieval_tool_called",

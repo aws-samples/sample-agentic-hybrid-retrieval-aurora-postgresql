@@ -8,6 +8,7 @@ from scripts.tool_contracts import (
     SQL_PATH,
     contracts_for_surface,
     render_database_sql,
+    shared_contract_receipt,
 )
 from service import agent_tools
 from service.main import app
@@ -40,6 +41,14 @@ def _function_arguments(path: Path, names: set[str]) -> dict[str, set[str]]:
 
 def test_database_registry_is_generated_from_the_canonical_contract():
     assert SQL_PATH.read_text(encoding="utf-8") == render_database_sql()
+
+
+def test_shared_agent_and_mcp_tools_preserve_portable_output_invariants():
+    assert shared_contract_receipt() == {
+        "shared_tools": ["get_product_evidence", "search_products"],
+        "preserved_fields": ["tool_version", "output_schema", "read_only"],
+        "transport_specific_fields": ["input_schema", "transport_trace"],
+    }
 
 
 def test_strands_signatures_match_the_agent_contract():

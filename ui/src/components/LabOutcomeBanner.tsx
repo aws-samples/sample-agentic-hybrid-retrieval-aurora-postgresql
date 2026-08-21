@@ -15,9 +15,13 @@ export function LabOutcomeBanner({ outcome }: { outcome: LabOutcome }) {
       aria-live="polite"
       aria-label="Workshop experiment state"
     >
-      <Icon size={22} aria-hidden="true" />
-      <div>
+      <div className="lab-outcome-status">
+        <span className="lab-outcome-icon">
+          <Icon size={18} aria-hidden="true" />
+        </span>
         <span>{outcome.label}</span>
+      </div>
+      <div className="lab-outcome-copy">
         <strong>{outcome.title}</strong>
         <p>{outcome.detail}</p>
       </div>

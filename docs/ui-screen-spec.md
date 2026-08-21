@@ -37,6 +37,8 @@ Components:
 - agent shortlist cards labelled by the arms that retrieved them, the searches
   and constraints behind the shortlist, evidence citations, rank explanation,
   and tool receipts;
+- one compact receipt vocabulary across search and agent turns: filters,
+  candidates by arm, fused rank, rerank, evidence IDs, and latency;
 - pagination;
 - compact mobile filter disclosure.
 
@@ -69,7 +71,8 @@ Components:
 - an observational Retrieve -> Rank -> Reason stage switcher; the separate
   Workshop Studio Code Editor owns each Broken -> Diagnose -> Fix exercise and
   Shop is the proof surface;
-- all eight participant runs, grouped inside the three labs;
+- three participant requests and five validator-owned proof anchors, grouped
+  inside the three labs;
 - candidate-source, ranking-movement, and agent-tool signature visuals;
 - optional HNSW performance lab.
 
@@ -103,7 +106,8 @@ Stages:
 5. Cohere Rerank.
 
 The page shows stage rank, raw stage score, candidate-arm agreement, hard
-eligibility, run ID, diagnostics, and directly copyable canonical SQL.
+eligibility, run ID, the shared compact receipt, diagnostics, and directly
+copyable canonical SQL.
 
 API: `GET /api/retrieval/examples` and `POST /api/search`.
 

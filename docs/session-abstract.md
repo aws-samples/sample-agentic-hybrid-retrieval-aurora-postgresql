@@ -1,12 +1,16 @@
 # Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
 
-As applications evolve from RAG to agentic workflows, retrieval must support
-more than top-k semantic matches. In this session, use Aurora PostgreSQL as the
-core search and context engine for agentic hybrid retrieval. Implement
-PostgreSQL full-text search for lexical retrieval, pgvector semantic similarity,
-SQL and metadata filters, fuzzy matching, reciprocal rank fusion, model-based
-reranking, source attribution, and retrieval diagnostics. Then wire these
-capabilities into agent tools that decompose complex questions, gather targeted
-evidence, compare sources, explain ranking signals, and synthesize cited
-answers. Leave with working code, schema patterns, ranking templates, and
-techniques for trustworthy retrieval-heavy AI applications.
+Retrieval correctness is a pipeline property, not a top-1 result. In this
+hands-on session, use Amazon Aurora PostgreSQL as the search and context engine
+for a 500,000-product catalog, then diagnose three production-shaped failures
+whose individual components still work. Restore a disconnected fuzzy candidate
+arm, repair reciprocal-rank fusion that a model reranker masks, and reconnect
+product-owned evidence to citation authorization for a bounded Strands agent.
+
+Along the way, inspect PostgreSQL full-text search, `pg_trgm`, pgvector HNSW,
+SQL and JSONB eligibility filters, reciprocal-rank fusion, Cohere Rerank on
+Amazon Bedrock, source-addressable evidence, and persisted retrieval receipts.
+The agent can request typed, read-only tools, but application code decides what
+executes and which evidence may reach synthesis. Leave with working code,
+ranking and evidence contracts, and a repeatable method for proving retrieval
+quality across Retrieve, Rank, and Reason.

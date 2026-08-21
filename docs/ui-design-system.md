@@ -83,8 +83,9 @@ serves as evidence for an attribute.
 ### Mosaic Labs
 
 The three labs establish the retrieval sequence. Three Broken -> Fix -> Prove
-cards and eight participant runs expose candidate provenance, rank movement,
-tool boundaries, and citation grounding without creating additional labs.
+cards, three participant requests, and five validator-owned controls expose
+candidate provenance, rank movement, tool boundaries, and citation grounding
+without creating additional labs.
 
 ### Retrieval Lab
 

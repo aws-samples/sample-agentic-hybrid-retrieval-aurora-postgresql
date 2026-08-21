@@ -13,7 +13,7 @@
 | `benchmark-methodology.md` | Reproducible measurement rules |
 | `evaluation-plan.md` | Offline metrics and ablations |
 | `query-catalog.md` | Curated demonstration queries |
-| `lab-golden-queries.md` | Eight participant runs, expected observations, and recovery |
+| `lab-golden-queries.md` | Three lab experiments, five proof anchors, and recovery |
 | `ui-design-system.md` | Maroon/ivory product-discovery and retrieval-evidence design language |
 | `ui-screen-spec.md` | UI screen, component, and payload contracts |
 | `api-contract.md` | Search API request/response contract |

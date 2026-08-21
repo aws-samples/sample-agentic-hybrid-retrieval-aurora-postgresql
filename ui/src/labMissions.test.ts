@@ -6,15 +6,15 @@ import {
 } from "./labMissions";
 
 describe("participant query contract", () => {
-  it("keeps eight participant runs inside exactly three required labs", () => {
-    const participantChecks = [
+  it("keeps three participant requests and five controls inside three labs", () => {
+    const proofAnchors = [
       ...coreMosaicLabs,
       ...supportingMosaicChecks.filter((check) => check.core),
     ];
 
     expect(coreMosaicLabs).toHaveLength(3);
-    expect(participantChecks).toHaveLength(8);
-    expect(new Set(participantChecks.map((check) => check.canonical_query_id)).size).toBe(8);
+    expect(proofAnchors).toHaveLength(8);
+    expect(new Set(proofAnchors.map((check) => check.canonical_query_id)).size).toBe(8);
   });
 
   it("routes reason queries into Shop with Ask Mosaic and complete scalar filters", () => {

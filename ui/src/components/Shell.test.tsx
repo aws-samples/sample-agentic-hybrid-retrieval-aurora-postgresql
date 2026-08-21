@@ -36,7 +36,7 @@ describe("Shell navigation", () => {
     ).toEqual(["/", "/catalog", "/labs/retrieval"]);
     expect(
       within(navigation).getByRole("link", { name: /Retrieval Observatory/ }).textContent,
-    ).toBe("Retrieval ObservatoryOptional");
+    ).toBe("ObservatoryOptional");
     expect(within(navigation).getByText("Optional").tagName).toBe("SMALL");
     expect(
       within(navigation).getByRole("link", { name: "Shop" }).getAttribute(
@@ -50,6 +50,7 @@ describe("Shell navigation", () => {
     ).toBe(false);
     const menu = screen.getByRole("button", { name: "Open navigation" });
     expect(menu.getAttribute("aria-controls")).toBe(navigation.id);
+    expect(screen.queryByRole("button", { name: "Account" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Search the catalog" })).toBeNull();
     expect(screen.queryByText("Collections")).toBeNull();
   });

@@ -9,7 +9,6 @@ import {
   type ColumnKey,
   type MatrixRow,
 } from "../retrievalMatrix";
-import { seedProvenance, seedRunFor } from "../retrievalSeed";
 import type { SearchResponse } from "../types";
 
 /**
@@ -125,12 +124,9 @@ export function RetrievalObservatory({
 }: RetrievalObservatoryProps) {
   const [focused, setFocused] = useState<ColumnKey | null>(null);
 
-  const shown = response ?? seedRunFor(example?.id);
-  const isLive = response !== null;
-
   const matrix = useMemo(
-    () => (shown ? buildRetrievalMatrix(shown, example?.target_product_ids ?? []) : null),
-    [shown, example],
+    () => (response ? buildRetrievalMatrix(response, example?.target_product_ids ?? []) : null),
+    [response, example],
   );
   const images = useMemo(
     () => productImageMap(matrix?.rows.map((row) => row.product) ?? []),
@@ -139,7 +135,11 @@ export function RetrievalObservatory({
   const focusedColumn = matrix?.columns.find((column) => column.key === focused) ?? null;
 
   return (
-    <section className="labs-matrix" aria-labelledby="labs-matrix-title">
+    <section
+      aria-busy={loading}
+      className="labs-matrix"
+      aria-labelledby="labs-matrix-title"
+    >
       <header className="labs-matrix-heading">
         <div>
           <p className="eyebrow">Five retrievers, one result set</p>
@@ -153,21 +153,17 @@ export function RetrievalObservatory({
           )}
         </div>
         <div className="labs-matrix-provenance">
-          {/* Only ever labels a run that is on screen. Printing "Captured run"
-              beside an empty matrix would claim provenance for nothing. */}
-          {shown ? (
+          {response ? (
             <>
-              <span className={`labs-matrix-badge ${isLive ? "is-live" : "is-captured"}`}>
-                {isLive ? "Live run" : "Captured run"}
-              </span>
+              <span className="labs-matrix-badge is-live">Live run</span>
               <dl>
                 <div>
                   <dt>Run</dt>
-                  <dd className="mono">{shown.search_event_id.slice(0, 8)}</dd>
+                  <dd className="mono">{response.search_event_id.slice(0, 8)}</dd>
                 </div>
                 <div>
-                  <dt>{isLive ? "Source" : "Captured"}</dt>
-                  <dd>{isLive ? "This browser, just now" : seedProvenance.captured_at}</dd>
+                  <dt>Source</dt>
+                  <dd>This browser, just now</dd>
                 </div>
               </dl>
             </>
@@ -175,18 +171,23 @@ export function RetrievalObservatory({
         </div>
       </header>
 
-      {/* The scenario is chosen beside Run pipeline in the masthead, so this only
-          reports the query that produced what is below it. */}
-      <div className="labs-matrix-controls">
-        <span>Query</span>
-        <p className="labs-matrix-query">
-          <code>{example?.query}</code>
-        </p>
-      </div>
+      {response ? (
+        <div className="labs-matrix-controls">
+          <span>Query</span>
+          <p className="labs-matrix-query">
+            <code>{response.query}</code>
+          </p>
+        </div>
+      ) : null}
 
       {matrix ? (
         <>
-          <div className="labs-matrix-scroll">
+          <div
+            aria-label="Retrieval result comparison"
+            className="labs-matrix-scroll"
+            role="region"
+            tabIndex={0}
+          >
             <table className="labs-matrix-table">
               <caption className="sr-only">
                 Each retriever's rank for every returned product, then the order

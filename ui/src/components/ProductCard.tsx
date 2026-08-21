@@ -114,13 +114,41 @@ export function ProductCard({
             <Link href={`/products/${product.product_id}`}>{product.model}</Link>
           </h3>
           {showSignals && signals ? (
-            <div className="shop-card-signals" aria-label="Retrieval signals">
-              {signals.fts.rank ? <span>FTS #{signals.fts.rank}</span> : null}
-              {signals.trigram.rank ? <span>TRGM #{signals.trigram.rank}</span> : null}
-              {signals.semantic.rank ? <span>VEC #{signals.semantic.rank}</span> : null}
-              <span>RRF #{signals.pre_rerank_rank}</span>
-              <strong>Final #{signals.final_rank}</strong>
-            </div>
+            <details className="shop-card-signals">
+              <summary
+                aria-label={`Why ${product.model} ranked number ${signals.final_rank}`}
+              >
+                Why ranked #{signals.final_rank}
+              </summary>
+              <dl>
+                {signals.fts.rank ? (
+                  <div>
+                    <dt>Exact terms</dt>
+                    <dd>#{signals.fts.rank}</dd>
+                  </div>
+                ) : null}
+                {signals.trigram.rank ? (
+                  <div>
+                    <dt>Close spelling</dt>
+                    <dd>#{signals.trigram.rank}</dd>
+                  </div>
+                ) : null}
+                {signals.semantic.rank ? (
+                  <div>
+                    <dt>Meaning match</dt>
+                    <dd>#{signals.semantic.rank}</dd>
+                  </div>
+                ) : null}
+                <div>
+                  <dt>Before reranking</dt>
+                  <dd>#{signals.pre_rerank_rank}</dd>
+                </div>
+                <div>
+                  <dt>Final position</dt>
+                  <dd>#{signals.final_rank}</dd>
+                </div>
+              </dl>
+            </details>
           ) : null}
           <div className="shop-card-footer">
             <span className="shop-card-price">

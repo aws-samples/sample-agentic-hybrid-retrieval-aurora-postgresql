@@ -11,7 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { CommerceProvider } from "../commerce";
-import { mosaicRetrievalExamples, retrievalExampleHref } from "../labMissions";
+import { coreMosaicLabs, retrievalExampleHref } from "../labMissions";
 import { RETRIEVAL_SURFACE } from "../navigation";
 import { DiscoverPage } from "./DiscoverPage";
 
@@ -85,19 +85,19 @@ describe("DiscoverPage", () => {
     expect(screen.queryByText("Explore collections")).toBeNull();
   });
 
-  it("searches a hero prompt chip for exactly the words printed on it", () => {
+  it("keeps three search-aligned hero prompts and searches the printed words", () => {
     const { container } = renderPage();
 
     const chips = Array.from(
       container.querySelectorAll<HTMLButtonElement>(".discover-hero-prompts > button"),
     );
+    expect(container.querySelector(".discover-hero-prompts > span")?.textContent).toBe(
+      "Try a search",
+    );
     expect(chips.map((chip) => chip.textContent)).toEqual([
       "Best noise-cancelling headphones",
       "Ergonomic office chair",
       "Headphones for a long flight",
-      "Sonora WH-C720",
-      "Auraluxe H9",
-      "Carbon-plated shoes",
     ]);
 
     fireEvent.click(chips[0]);
@@ -198,20 +198,21 @@ describe("DiscoverPage", () => {
     ).toBe(RETRIEVAL_SURFACE.path);
   });
 
-  it("links every canonical lab scenario from Discover to its real inspection surface", () => {
+  it("links the three required labs to their real inspection surfaces", () => {
     const { container } = renderPage();
     const scenarios = Array.from(
       container.querySelectorAll<HTMLAnchorElement>(".discover-labs-scenario"),
     );
 
-    expect(scenarios).toHaveLength(mosaicRetrievalExamples.length);
+    expect(scenarios).toHaveLength(coreMosaicLabs.length);
     expect(scenarios.map((scenario) => scenario.getAttribute("href"))).toEqual(
-      mosaicRetrievalExamples.map(retrievalExampleHref),
+      coreMosaicLabs.map(retrievalExampleHref),
     );
-    expect(screen.getByText("Typo recovery with pg_trgm")).toBeTruthy();
-    expect(screen.getByText("Exact identity with FTS")).toBeTruthy();
-    expect(screen.getByText("Intent: flight-ready headphones")).toBeTruthy();
-    expect(screen.getByText("Tune the HNSW operating point")).toBeTruthy();
+    expect(screen.getByText("Candidate recall across retrievers")).toBeTruthy();
+    expect(screen.getByText("RRF ranking before rerank")).toBeTruthy();
+    expect(screen.getByText("Evidence-backed agent answer")).toBeTruthy();
+    expect(screen.queryByText("Exact identity with FTS")).toBeNull();
+    expect(screen.queryByText("Tune the HNSW operating point")).toBeNull();
     expect(screen.getAllByText("Before / after")).toHaveLength(3);
   });
 

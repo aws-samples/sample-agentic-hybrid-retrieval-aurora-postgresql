@@ -11,7 +11,6 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
-import { seedProvenance } from "../retrievalSeed";
 import { showcaseCatalogPage } from "../showcase";
 import type { ProductSummary, RetrievalDiagnostics, SearchResponse } from "../types";
 import { RetrievalLabPage } from "./RetrievalLabPage";
@@ -87,6 +86,17 @@ const primaryResponse = responseFor(
     }),
   ],
 );
+primaryResponse.diagnostics = {
+  strategy: "hybrid",
+  embedding_model_id: "us.cohere.embed-v4:0",
+  embedding_dimensions: 1024,
+  rerank_model_id: "cohere.rerank-v3-5:0",
+  rerank_status: "applied",
+  retrieval_profile: {} as RetrievalDiagnostics["retrieval_profile"],
+  candidate_counts: { trigram_in_pool: 4 },
+  stage_timings_ms: {},
+  total_latency_ms: 100,
+};
 
 const firstComparisonDiagnostics = {
   strategy: "hybrid",
@@ -187,12 +197,22 @@ describe("RetrievalLabPage", () => {
     // order they are used.
     const { container } = render(<RetrievalLabPage />);
     const action = container.querySelector(".retrieval-run-action")!;
-    const controls = [...action.querySelectorAll("select, button")];
+    const controls = [...action.querySelectorAll("select, input, button")];
 
     expect(controls[0].tagName).toBe("SELECT");
-    expect(controls[1].textContent).toContain("Run pipeline");
+    expect(controls[1].tagName).toBe("INPUT");
+    expect(controls[2].textContent).toContain("Run pipeline");
     // One picker on the page, not one per instrument.
     expect(container.querySelectorAll("select")).toHaveLength(1);
+  });
+
+  it("keeps a deliberate typo query under participant control", () => {
+    render(<RetrievalLabPage />);
+
+    const query = screen.getByRole("searchbox", { name: "Retrieval query" });
+    expect(query.getAttribute("spellcheck")).toBe("false");
+    expect(query.getAttribute("autocomplete")).toBe("off");
+    expect((query as HTMLInputElement).value).toContain("wirless");
   });
 
   it("groups the scenarios the way the session runs them", () => {
@@ -215,46 +235,40 @@ describe("RetrievalLabPage", () => {
     );
   });
 
-  it("says what a canonical query id is instead of printing the bare code", () => {
-    // "G-003 · Ready" was the first thing a participant read, with nothing to say
-    // what G meant.
-    const captured = mosaicRetrievalExamples.find(
-      (candidate) => candidate.id === seedProvenance.mission_id,
-    )!;
+  it("does not claim an outcome before a live run exists", () => {
     render(<RetrievalLabPage />);
 
-    const banner = document.querySelector(".lab-outcome")!;
-    expect(banner.textContent).toContain(
-      `Canonical query ${captured.canonical_query_id}`,
-    );
+    expect(document.querySelector(".lab-outcome")).toBeNull();
   });
 
-  it("judges the checkpoint against the run that is on screen", () => {
-    // The banner used to judge live responses only, so on arrival it asserted
-    // "The target is absent because the working pg_trgm arm is disconnected from
-    // candidate fusion" directly beneath a captured run showing that target at
-    // rank 1 with a trigram contribution. The panel refuted its own banner.
-    const captured = mosaicRetrievalExamples.find(
-      (candidate) => candidate.id === seedProvenance.mission_id,
-    )!;
-    const edit = captured.participant_edit!;
+  it("judges the selected checkpoint after its canonical query runs", async () => {
     render(<RetrievalLabPage />);
 
-    // The capture comes from an intact database, so the checkpoint reads as met.
-    expect(screen.getByText(edit.fixed_state)).toBeTruthy();
-    expect(screen.queryByText(edit.broken_state)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+
+    expect(await screen.findByText("Repair verified")).toBeTruthy();
+    expect(screen.getByText("Fuzzy retrieval is contributing")).toBeTruthy();
+    expect(screen.queryByText(/Canonical query/)).toBeNull();
   });
 
-  it("has nothing to judge for a scenario with no run yet", () => {
-    // The capture describes one scenario. Under any other, the banner reports the
-    // ready state rather than borrowing a verdict from a run of something else.
-    const other = mosaicRetrievalExamples.find(
-      (candidate) => candidate.id !== seedProvenance.mission_id && candidate.stage === "retrieve",
-    )!;
-    window.history.replaceState({}, "", `/labs/retrieval?example=${other.id}`);
+  it("runs an edited query live without claiming the checkpoint passed", async () => {
+    const customQuery = "quiet office keyboard with tactile switches";
     render(<RetrievalLabPage />);
 
-    expect(screen.getByText("Run to observe")).toBeTruthy();
+    fireEvent.change(screen.getByRole("searchbox", { name: "Retrieval query" }), {
+      target: { value: customQuery },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+
+    await waitFor(() => {
+      expect(api.search).toHaveBeenCalledWith(
+        customQuery,
+        firstExample.filters,
+        { limit: 12, rerank: true },
+      );
+    });
+    expect(await screen.findByText("Live run complete")).toBeTruthy();
+    expect(screen.queryByText("Repair verified")).toBeNull();
   });
 
   it("runs the deep-linked scenario and hands the response to the instrument", async () => {

@@ -374,8 +374,8 @@ button:disabled {
 
 .site-icon {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   place-items: center;
   border: 1px solid rgb(92 75 62 / 16%);
@@ -393,40 +393,6 @@ button:disabled {
 
 .site-bag {
   position: relative;
-}
-
-.site-account {
-  position: relative;
-  display: inline-flex;
-}
-
-/* Sign-in doesn't exist in the workshop build, so the account affordance from
-   the reference boards opens a labelled preview note instead of dead UI. */
-.site-account-pop {
-  position: absolute;
-  z-index: 8;
-  top: calc(100% + 10px);
-  right: 0;
-  display: grid;
-  width: 228px;
-  padding: 13px 15px;
-  gap: 3px;
-  border: 1px solid rgb(92 75 62 / 16%);
-  border-radius: 12px;
-  background: rgb(255 254 250 / 98%);
-  box-shadow: 0 20px 50px rgb(48 37 28 / 18%);
-}
-
-.site-account-pop strong {
-  color: var(--maroon-950);
-  font-size: 13px;
-  font-weight: 640;
-}
-
-.site-account-pop span {
-  color: #6a655f;
-  font-size: 12px;
-  line-height: 1.45;
 }
 
 .bag-count {
@@ -494,15 +460,9 @@ button:disabled {
     display: grid;
   }
 
-  /* The 360px measurement below budgets for exactly three 38px buttons
-     (search, bag, menu), so the desktop-only account chip is the one to go. */
-  .site-account {
-    display: none;
-  }
 }
 
-/* Measured at 360px: mark, wordmark and the three 38px buttons come to 308px of
-   a 326px content box at 26px, so the wordmark is the one thing that gives. */
+/* The compact wordmark leaves room for the 44px bag and menu targets. */
 @media (max-width: 460px) {
   :root {
     --topbar-height: 62px;
@@ -2346,71 +2306,95 @@ button:disabled {
   display: grid;
   width: 100%;
   max-width: 1320px;
-  grid-template-columns: 26px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  margin: 0 auto 24px;
-  padding: 15px 20px;
-  border: 1px solid #efe4d7;
-  border-radius: 14px;
-  background: #fffdf9;
-  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
+  grid-template-columns: minmax(150px, 0.28fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  margin: 0 auto;
+  padding: 13px 16px;
+  border: 1px solid #e5dbcf;
+  border-radius: 8px;
+  background: #fffefa;
 }
 
-.lab-outcome > svg {
-  margin-top: 3px;
+.lab-outcome-status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
 }
 
-.lab-outcome > div {
+.lab-outcome-icon {
   display: grid;
-  gap: 4px;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #f0e9e0;
+  color: var(--ink-faint);
 }
 
-.lab-outcome span {
+.lab-outcome-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.lab-outcome-status > span:last-child {
   color: var(--ink-faint);
   font-size: var(--labs-micro);
-  font-weight: 800;
+  font-weight: 750;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .lab-outcome strong {
   color: var(--ink);
-  font-size: var(--labs-lead);
-  line-height: 1.35;
+  font-size: var(--labs-body);
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .lab-outcome p {
   margin: 0;
   color: var(--ink-soft);
-  font-size: var(--labs-micro);
-  line-height: 1.5;
+  font-size: var(--labs-detail);
+  line-height: 1.45;
 }
 
 .lab-outcome.ready {
-  border-left: 4px solid var(--line-dark);
+  border-color: #dfd4c7;
 }
 
-.lab-outcome.ready > svg {
+.lab-outcome.ready .lab-outcome-icon {
   color: var(--ink-faint);
 }
 
 .lab-outcome.broken {
-  border-left: 4px solid #a13b2f;
+  border-color: #e5bdb7;
   background: #fff8f6;
 }
 
-.lab-outcome.broken > svg,
-.lab-outcome.broken span {
+.lab-outcome.broken .lab-outcome-icon {
+  background: #f7dfdb;
+}
+
+.lab-outcome.broken .lab-outcome-icon,
+.lab-outcome.broken .lab-outcome-status > span:last-child {
   color: #8a2e24;
 }
 
 .lab-outcome.fixed {
-  border-left: 4px solid var(--green);
+  border-color: #bad5c7;
   background: var(--green-soft);
 }
 
-.lab-outcome.fixed > svg,
-.lab-outcome.fixed span {
+.lab-outcome.fixed .lab-outcome-icon {
+  background: #d9eadd;
+}
+
+.lab-outcome.fixed .lab-outcome-icon,
+.lab-outcome.fixed .lab-outcome-status > span:last-child {
   color: var(--green);
 }
 
@@ -3716,13 +3700,23 @@ button:disabled {
 
 .retrieval-run-action {
   display: flex;
-  max-width: min(100%, 720px);
-  align-items: center;
+  width: min(100%, 980px);
+  min-width: 0;
+  max-width: 100%;
+  align-items: end;
   flex-wrap: wrap;
   gap: 10px;
+  padding: 12px;
+  border: 1px solid #ded5c8;
+  border-radius: 8px;
+  background: #fffefa;
+  box-shadow: 0 4px 14px rgb(55 36 25 / 4%);
 }
 
 .retrieval-run-action .primary-button {
+  min-height: 44px;
+  border-radius: 6px;
+  box-shadow: none;
   white-space: nowrap;
 }
 
@@ -4116,7 +4110,8 @@ button:disabled {
   }
 
   .lab-outcome {
-    grid-template-columns: 22px minmax(0, 1fr);
+    grid-template-columns: 1fr;
+    gap: 9px;
     padding: 12px;
   }
 

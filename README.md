@@ -14,6 +14,11 @@ combines PostgreSQL full-text search, `pg_trgm`, pgvector HNSW, hard relational
 filters, reciprocal-rank fusion, managed reranking, source-addressable evidence,
 and bounded agent tools in one inspectable retrieval system.
 
+The session thesis is simple: **retrieval correctness is a pipeline property,
+not a top-1 result**. Each required lab breaks composition while the underlying
+components remain healthy: candidate recall in Retrieve, contribution arithmetic
+in Rank, and evidence authorization in Reason.
+
 The reference application includes a responsive React storefront, a typed
 FastAPI service, a Strands agent with citation-bounded synthesis, an optional
 MCP 2.0 adapter, a 500,000-product synthetic catalog, and deterministic release
@@ -157,9 +162,9 @@ RETRIEVE -> RANK -> REASON
 
 | Lab | Time | Participant outcome |
 |---|---:|---|
-| **1. Build hybrid retrieval** | 10 min | Restore typo recovery while preserving exact identity, semantic intent, and hard eligibility constraints |
-| **2. Fuse, rerank, and inspect** | 10 min | Repair `1 / (k + rank)`, retain rank provenance, rerank a bounded pool, and explain movement |
-| **3. Build the retrieval agent** | 15 min | Connect retrieved evidence to comparison and citation-bounded synthesis |
+| **1. Build hybrid retrieval** | 10 min | Prove the right eligible candidates entered the pool, then reconnect one missing candidate arm |
+| **2. Fuse, rerank, and inspect** | 10 min | Repair `1 / (k + rank)` and prove why a correct final answer can hide incorrect fusion |
+| **3. Build the retrieval agent** | 15 min | Attach evidence identity to application-owned synthesis state and prove every citation resolves |
 
 The checked-in source is the solved reference implementation. Deliberate
 starter states are injected by `scripts/lab_state.py`; a failure already present
@@ -257,6 +262,12 @@ production `mosaic_search.matches_filters` function. `make score-evals` runs
 the served retrieval path over the canonical scorecard and verifies source,
 dataset, retrieval-profile, model, Aurora, ranked-result, and metric provenance.
 It is a release gate, not a general benchmark command.
+
+These assets answer different questions:
+
+- golden lab anchors ask whether critical behavior regressed;
+- the 19 product-retrieval cases measure retrieval quality;
+- the 720 generated fixtures test whether filters violated their contract.
 
 Only `scripts/benchmark_hnsw.py` records measured Aurora performance.
 `scripts/simulate_scale.py` produces a labeled projection and must not be

@@ -6,11 +6,11 @@ import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { RetrievalDiagnosticsStrip } from "../components/RetrievalDiagnosticsStrip";
 import { RetrievalObservatory } from "../components/RetrievalObservatory";
+import { SearchRetrievalReceipt } from "../components/RetrievalReceipt";
 import { WorkshopProgress } from "../components/WorkshopProgress";
 import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
-import { retrievalLabOutcome } from "../labOutcome";
+import { liveRetrievalOutcome, retrievalLabOutcome } from "../labOutcome";
 import { useSearchParams } from "../navigation";
-import { seedRunFor } from "../retrievalSeed";
 import type { SearchResponse } from "../types";
 
 type RunMeasurement = {
@@ -72,22 +72,27 @@ export function RetrievalLabPage() {
   const requestedIndex = mosaicRetrievalExamples.findIndex(
     (example) => example.id === requestedExample,
   );
-  const [selected, setSelected] = useState(requestedIndex >= 0 ? requestedIndex : 0);
+  const initialIndex = requestedIndex >= 0 ? requestedIndex : 0;
+  const [selected, setSelected] = useState(initialIndex);
+  const [query, setQuery] = useState(
+    () => mosaicRetrievalExamples[initialIndex]?.query ?? "",
+  );
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [firstResponse, setFirstResponse] = useState<SearchResponse | null>(null);
+  const [executedQuery, setExecutedQuery] = useState("");
   const [runCount, setRunCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const requestVersion = useRef(0);
   const example = mosaicRetrievalExamples[selected];
-  // The banner has to judge the run the participant can see. Judging only live
-  // responses meant it printed "the target is absent because the pg_trgm arm is
-  // disconnected" directly beneath a captured run showing that target at rank 1
-  // with a trigram contribution: a claim the panel above it refuted.
-  const shownResponse = response ?? seedRunFor(example?.id);
   const outcome = useMemo(
-    () => retrievalLabOutcome(example, shownResponse),
-    [example, shownResponse],
+    () => {
+      if (!response) return null;
+      return executedQuery === example.query
+        ? retrievalLabOutcome(example, response)
+        : liveRetrievalOutcome(response);
+    },
+    [example, executedQuery, response],
   );
   const firstRunMeasurements = useMemo(
     () => (example && firstResponse ? runMeasurements(example, firstResponse) : []),
@@ -103,15 +108,29 @@ export function RetrievalLabPage() {
     if (index < 0) return;
     requestVersion.current += 1;
     setSelected(index);
+    setQuery(mosaicRetrievalExamples[index].query);
     setResponse(null);
     setFirstResponse(null);
+    setExecutedQuery("");
+    setRunCount(0);
+    setError("");
+    setLoading(false);
+  };
+
+  const editQuery = (value: string) => {
+    requestVersion.current += 1;
+    setQuery(value);
+    setResponse(null);
+    setFirstResponse(null);
+    setExecutedQuery("");
     setRunCount(0);
     setError("");
     setLoading(false);
   };
 
   async function run() {
-    if (!example) return;
+    const requestedQuery = query.trim();
+    if (!example || !requestedQuery) return;
     const requestedExample = example;
     const version = requestVersion.current + 1;
     requestVersion.current = version;
@@ -119,13 +138,14 @@ export function RetrievalLabPage() {
     setError("");
     try {
       const nextResponse = await api.search(
-        requestedExample.query,
+        requestedQuery,
         requestedExample.filters,
         { limit: 12, rerank: true },
       );
       if (version === requestVersion.current) {
         setFirstResponse((first) => first ?? nextResponse);
         setResponse(nextResponse);
+        setExecutedQuery(requestedQuery);
         setRunCount((count) => count + 1);
       }
     } catch (cause) {
@@ -151,7 +171,13 @@ export function RetrievalLabPage() {
       <MosaicLabsTabs active="retrieval" />
       <MosaicLabsMasthead
         action={(
-          <div className="retrieval-run-action">
+          <form
+            className="retrieval-run-action"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void run();
+            }}
+          >
             {/* Pick, then run. The scenario control used to sit inside the matrix
                 below this button, so the order of operations read backwards. */}
             <label className="retrieval-scenario-picker">
@@ -171,12 +197,22 @@ export function RetrievalLabPage() {
                 ))}
               </select>
             </label>
+            <label className="retrieval-query-field">
+              <span>Query</span>
+              <input
+                aria-label="Retrieval query"
+                autoComplete="off"
+                onChange={(event) => editQuery(event.target.value)}
+                spellCheck={false}
+                type="search"
+                value={query}
+              />
+            </label>
             <button
               className="primary-button"
-              type="button"
+              type="submit"
               aria-busy={loading}
-              disabled={!example || loading}
-              onClick={() => void run()}
+              disabled={!example || !query.trim() || loading}
             >
               {loading ? (
                 <LoaderCircle aria-hidden="true" className="spin" size={17} />
@@ -199,9 +235,9 @@ export function RetrievalLabPage() {
                 </button>
               </div>
             ) : null}
-          </div>
+          </form>
         )}
-        deck="Compare all five retrievers on one result set, then run the same scenario against Aurora and watch the ranks change."
+        deck="Edit a scenario query, run it against Aurora, and compare all five retrieval stages on the same result set."
         title="Retrieval Observatory"
       />
 
@@ -209,13 +245,15 @@ export function RetrievalLabPage() {
         active={example?.stage === "reason" ? "reason" : example?.stage === "rank" ? "rank" : "retrieve"}
       />
 
+      {outcome ? <LabOutcomeBanner outcome={outcome} /> : null}
+
       <RetrievalObservatory
         example={example}
         loading={loading}
         response={response}
       />
 
-      <LabOutcomeBanner outcome={outcome} />
+      {response ? <SearchRetrievalReceipt response={response} /> : null}
 
       {response ? <RetrievalDiagnosticsStrip response={response} /> : null}
 

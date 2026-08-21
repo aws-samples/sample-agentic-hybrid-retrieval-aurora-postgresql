@@ -15,22 +15,6 @@ export interface LabOutcome {
   detail: string;
 }
 
-/**
- * How a checkpoint names itself.
- *
- * The bare code came first: participants read "G-003" as the first words on the
- * banner with nothing to say what G was or why the sequence jumped 003, 008, 010.
- * It is a query id in data/evals/canonical_queries.jsonl, the graded set the
- * evaluator scores against, and scripts/mission_contract.py binds each mission to
- * one. Naming it is three words and removes the puzzle; renumbering it would
- * break that binding.
- */
-function checkpointName(mission: MosaicLabMission): string {
-  return mission.canonical_query_id
-    ? `Canonical query ${mission.canonical_query_id}`
-    : mission.id;
-}
-
 function matchesFilters(product: ProductSummary, filters: SearchFilters) {
   return (
     (!filters.domain || product.domain === filters.domain)
@@ -72,9 +56,67 @@ function rrfIsCorrect(product: ProductSummary, rrfK: number) {
 function readyOutcome(mission: MosaicLabMission): LabOutcome {
   return {
     tone: "ready",
-    label: `${checkpointName(mission)} · Ready`,
-    title: "Run to observe",
-    detail: mission.participant_edit?.broken_state ?? mission.expected_outcome,
+    label: "Ready to run",
+    title: mission.discover_label,
+    detail: "Run this scenario against Aurora to inspect the measured result.",
+  };
+}
+
+function participantCopy(
+  mission: MosaicLabMission,
+  fixed: boolean,
+): Pick<LabOutcome, "label" | "title" | "detail"> {
+  if (mission.stage === "retrieve") {
+    return fixed
+      ? {
+          label: "Repair verified",
+          title: "Fuzzy retrieval is contributing",
+          detail:
+            "The target carries a pg_trgm rank and RRF contribution, and every result remains eligible.",
+        }
+      : {
+          label: "Issue reproduced",
+          title: "Fuzzy retrieval is still disconnected",
+          detail:
+            "The request completed, but the target has no trigram contribution in the fused pool.",
+        };
+  }
+  if (mission.stage === "rank") {
+    return fixed
+      ? {
+          label: "Repair verified",
+          title: "Fusion now respects source rank",
+          detail:
+            "Per-arm contributions follow 1 / (k + rank), and the expected product leads before reranking.",
+        }
+      : {
+          label: "Issue reproduced",
+          title: "Fusion is flattening per-arm rank",
+          detail:
+            "The final order looks plausible, but the fused order does not preserve each arm's rank.",
+        };
+  }
+  if (mission.stage === "reason") {
+    return fixed
+      ? {
+          label: "Grounding verified",
+          title: "Every citation resolves to retrieved evidence",
+          detail:
+            "The answer of record is bounded to retrieved products and product-owned evidence.",
+        }
+      : {
+          label: "Grounding blocked",
+          title: "Synthesis cannot authorize its evidence",
+          detail:
+            "Retrieval completed, but the application correctly refused an unsupported answer.",
+        };
+  }
+  return {
+    label: fixed ? "Check passed" : "Review needed",
+    title: mission.discover_label,
+    detail: fixed
+      ? "The measured response satisfies this checkpoint."
+      : "The measured response does not yet satisfy this checkpoint.",
   };
 }
 
@@ -82,12 +124,9 @@ function participantOutcome(
   mission: MosaicLabMission,
   fixed: boolean,
 ): LabOutcome {
-  const edit = mission.participant_edit!;
   return {
     tone: fixed ? "fixed" : "broken",
-    label: `${checkpointName(mission)} · ${fixed ? "Fixed" : "Broken"}`,
-    title: fixed ? edit.fixed_state : edit.broken_state,
-    detail: edit.checkpoint_question,
+    ...participantCopy(mission, fixed),
   };
 }
 
@@ -138,13 +177,22 @@ export function retrievalLabOutcome(
   const observed = targetsPresent && eligible;
   return {
     tone: observed ? "fixed" : "broken",
-    label: `${checkpointName(mission)} · ${
-      observed ? "Checkpoint observed" : "Checkpoint needs attention"
-    }`,
-    title: mission.expected_outcome,
+    label: observed ? "Check passed" : "Review needed",
+    title: observed ? "Expected targets are present" : "Expected targets are missing",
     detail: observed
       ? "Inspect the visible provenance before accepting the checkpoint."
       : "The current response does not contain every expected eligible target.",
+  };
+}
+
+export function liveRetrievalOutcome(response: SearchResponse): LabOutcome {
+  const resultCount = response.results.length;
+  return {
+    tone: "ready",
+    label: "Live run complete",
+    title: `${resultCount} ranked ${resultCount === 1 ? "result" : "results"}`,
+    detail:
+      "This query is outside the selected checkpoint. Inspect its per-arm ranks and eligibility directly.",
   };
 }
 
@@ -187,10 +235,10 @@ export function agentLabOutcome(
 
   return {
     tone: grounded ? "fixed" : "broken",
-    label: `${checkpointName(mission)} · ${
-      grounded ? "Checkpoint observed" : "Checkpoint needs attention"
-    }`,
-    title: mission.expected_outcome,
+    label: grounded ? "Grounding verified" : "Grounding blocked",
+    title: grounded
+      ? "Every citation resolves to retrieved evidence"
+      : "The answer is missing required grounding",
     detail: grounded
       ? "Tool receipts and evidence-backed citations are visible below."
       : "The current answer does not expose the required grounding evidence.",

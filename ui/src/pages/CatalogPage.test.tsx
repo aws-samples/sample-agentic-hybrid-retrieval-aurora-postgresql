@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { CommerceProvider } from "../commerce";
 import { stageDwellMs } from "../components/AskMosaic";
-import { catalogGhostQueries } from "../components/CatalogSearchComposer";
 import { showcaseCatalogPage } from "../showcase";
 import type {
   AgentResponse,
@@ -38,29 +37,42 @@ vi.mock("../api", () => ({
 
 /**
  * Shaped like `/api/retrieval/examples`, which serves `demo_queries.jsonl`
- * deduplicated in file order. The second consumer_electronics row is here to
- * prove the panel takes the first query per domain rather than the first three.
+ * deduplicated in file order.
+ *
+ * Every row earns its place by making one rule in `starterExamples` falsifiable.
+ * `D-001` is a longer `exact` query than `D-006`, so the panel has to take the
+ * shortest of a path rather than the first. `D-007` is shorter still and names
+ * `fts`, so it would win the `exact` path unless `pg_trgm` outranks `fts`, and
+ * it is the shortest `misspelled` query, so it would beat `D-002` unless an
+ * unused domain is preferred. Drop either rule and the expected order changes.
  */
 const examples: RetrievalExample[] = [
   {
     query_id: "D-001",
     domain: "consumer_electronics",
     query: "Find wireless noise-cancelling over-ear headphones under $200",
-    expected_techniques: ["lexical", "semantic"],
+    expected_techniques: ["fts", "vector"],
     variant: 1,
   },
   {
     query_id: "D-002",
     domain: "consumer_electronics",
-    query: "Bluetooth earbuds with a charging case",
-    expected_techniques: ["lexical"],
+    query: "noice canceling hedphones for long fligts under 200",
+    expected_techniques: ["pg_trgm", "vector"],
     variant: 1,
   },
   {
     query_id: "D-006",
     domain: "running_fitness",
     query: "Carbon-plated marathon shoes under $220",
-    expected_techniques: ["semantic"],
+    expected_techniques: ["fts", "vector"],
+    variant: 1,
+  },
+  {
+    query_id: "D-007",
+    domain: "running_fitness",
+    query: "marthon shoe with plate",
+    expected_techniques: ["pg_trgm", "fts", "semantic"],
     variant: 1,
   },
   {
@@ -241,6 +253,7 @@ describe("CatalogPage", () => {
       onEvent({
         type: "stage",
         id: "retrieve",
+        path: "full_retrieval",
         title: "Retrieve",
         detail: "Searching the hybrid index.",
       });
@@ -268,6 +281,7 @@ describe("CatalogPage", () => {
       onEvent({
         type: "stage",
         id: "retrieve",
+        path: "full_retrieval",
         title: "Retrieve",
         detail: "Searching the hybrid index.",
       });
@@ -381,7 +395,7 @@ describe("CatalogPage", () => {
 
     expect(
       screen.getByText(
-        "Search naturally, browse with intention, or ask Mosaic for help finding what fits.",
+        "Search in natural language, browse with intention, or ask Mosaic for help finding what fits.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/photographed in one light/i)).toBeNull();
@@ -400,8 +414,21 @@ describe("CatalogPage", () => {
     });
 
     expect(await screen.findByText("Hybrid results")).toBeTruthy();
-    expect(screen.getByText(/18 fused candidates/)).toBeTruthy();
-    expect(screen.getAllByText("RRF #2").length).toBeGreaterThan(0);
+    expect(screen.getByText(/18 candidates considered/)).toBeTruthy();
+    expect(screen.queryByText(/fused candidates/)).toBeNull();
+    const rankingReceipt = screen
+      .getByText("How these results were ranked")
+      .closest("details");
+    expect(rankingReceipt?.open).toBe(false);
+    const productReceipt = screen
+      .getAllByText("Why ranked #1")[0]
+      .closest("details");
+    expect(productReceipt?.open).toBe(false);
+    fireEvent.click(within(productReceipt!).getByText("Why ranked #1"));
+    expect(within(productReceipt!).getByText("Exact terms")).toBeTruthy();
+    expect(within(productReceipt!).getAllByText("#1").length).toBeGreaterThan(0);
+    expect(screen.queryByText("FTS #1")).toBeNull();
+    expect(screen.queryByText("RRF #2")).toBeNull();
     expect(api.catalog).not.toHaveBeenCalled();
   });
 
@@ -412,8 +439,20 @@ describe("CatalogPage", () => {
     fireEvent.change(input, { target: { value: "a" } });
     await new Promise((resolve) => window.setTimeout(resolve, 220));
     expect(api.suggestions).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Keep typing: use at least 2 characters."),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Search" }).hasAttribute("disabled"))
+      .toBe(true);
+    fireEvent.submit(input.closest("form")!);
+    expect(api.search).not.toHaveBeenCalled();
 
     fireEvent.change(input, { target: { value: "aura" } });
+    expect(
+      screen.queryByText("Keep typing: use at least 2 characters."),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Search" }).hasAttribute("disabled"))
+      .toBe(false);
     const listbox = await screen.findByRole("listbox");
     await waitFor(() => {
       expect(api.suggestions).toHaveBeenCalledWith(
@@ -439,28 +478,13 @@ describe("CatalogPage", () => {
     });
   });
 
-  it("surfaces a validated catalog query after the empty field rests", async () => {
+  it("does not duplicate the visible suggested searches inside an empty field", () => {
     renderPage();
     const input = screen.getByRole("combobox", { name: "Product search" });
 
     expect(document.querySelector(".catalog-idle-suggestion")).toBeNull();
-    await waitFor(
-      () => {
-        expect(
-          document.querySelector(".catalog-idle-suggestion")?.textContent,
-        ).toBe(catalogGhostQueries[0]);
-      },
-      { timeout: 1800 },
-    );
-
     fireEvent.submit(input.closest("form")!);
-    await waitFor(() => {
-      expect(api.search).toHaveBeenCalledWith(
-        catalogGhostQueries[0],
-        {},
-        { limit: 12, rerank: true },
-      );
-    });
+    expect(api.search).not.toHaveBeenCalled();
   });
 
   it("shows a catalog failure instead of substituting showcase products", async () => {
@@ -516,6 +540,8 @@ describe("CatalogPage", () => {
 
     const allProducts = screen.getByRole("button", { name: "All products" });
     const running = screen.getByRole("button", { name: "Running & fitness" });
+    expect(allProducts.getAttribute("aria-pressed")).toBe("true");
+    expect(running.getAttribute("aria-pressed")).toBe("false");
     expect(allProducts.querySelector(".shop-domain-indicator")).toBeTruthy();
     expect(document.querySelectorAll(".shop-domain-indicator")).toHaveLength(1);
 
@@ -525,6 +551,8 @@ describe("CatalogPage", () => {
       expect(window.location.search).toContain("domain=running_fitness");
       expect(running.querySelector(".shop-domain-indicator")).toBeTruthy();
     });
+    expect(allProducts.getAttribute("aria-pressed")).toBe("false");
+    expect(running.getAttribute("aria-pressed")).toBe("true");
     expect(allProducts.querySelector(".shop-domain-indicator")).toBeNull();
     expect(document.querySelectorAll(".shop-domain-indicator")).toHaveLength(1);
   });
@@ -571,12 +599,8 @@ describe("CatalogPage", () => {
     );
     renderPage();
 
-    expect(
-      await screen.findByText(
-        "Evidence is returned to the model but grounded synthesis cannot resolve it, so the agent refuses an unsupported recommendation.",
-      ),
-    ).toBeTruthy();
-    expect(screen.getByText("Canonical query G-010 · Ready")).toBeTruthy();
+    await screen.findByRole("complementary", { name: "Ask Mosaic" });
+    expect(document.querySelector(".lab-outcome")).toBeNull();
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
@@ -584,9 +608,10 @@ describe("CatalogPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
-    // The banner names what the id is: it used to print the bare code as the
-    // first words a participant read.
-    expect(await screen.findByText("Canonical query G-010 · Fixed")).toBeTruthy();
+    expect(await screen.findByText("Grounding verified")).toBeTruthy();
+    expect(
+      screen.getByText("Every citation resolves to retrieved evidence"),
+    ).toBeTruthy();
   });
 
   it("opens Ask Mosaic, renders grounded receipts, and cross-highlights products", async () => {
@@ -629,18 +654,28 @@ describe("CatalogPage", () => {
       "Write the cited recommendationsynthesize_cited_answer",
     ]);
 
-    // Starters are queries from data/evals/demo_queries.jsonl, one per domain,
-    // so the second consumer_electronics query must not appear. They used to be
-    // three invented questions, one of which asked the agent to explain a
-    // ranking before anything had been ranked.
+    // Starters are queries from data/evals/demo_queries.jsonl, one per retrieval
+    // path and spanning all three domains. Each card carries the path it is
+    // written to exercise and that row's expected_techniques verbatim, so the
+    // entry state shows the exact/fuzzy/semantic contrast before anyone types.
     const starters = await within(panel).findByRole("list", {
       name: "Example questions",
     });
     expect(
       within(starters)
         .getAllByRole("button")
-        .map((button) => button.querySelector("span")?.textContent),
-    ).toEqual([examples[0].query, examples[2].query, examples[3].query]);
+        .map((button) => [
+          button.querySelector(".ask-mosaic-starter-path")?.textContent,
+          button.querySelector(".ask-mosaic-starter-query")?.textContent,
+          [...button.querySelectorAll(".ask-mosaic-starter-arms code")]
+            .map((arm) => arm.textContent)
+            .join(" "),
+        ]),
+    ).toEqual([
+      ["Exact terms", examples[2].query, "fts vector"],
+      ["Misspelled", examples[1].query, "pg_trgm vector"],
+      ["Plain language", examples[4].query, "semantic"],
+    ]);
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
@@ -764,6 +799,7 @@ describe("CatalogPage", () => {
       {},
       expect.any(Function),
       {
+        previous_agent_run_id: agentResponse.agent_run_id,
         previous_question: agentResponse.question,
         recommendations: recommendations.map((product) => ({
           product_id: product.product_id,
@@ -786,12 +822,103 @@ describe("CatalogPage", () => {
     ).toBeTruthy();
   });
 
+  it("shows a compact evidence path for a closed-world follow-up", async () => {
+    let invocation = 0;
+    vi.mocked(api.agentStream).mockImplementation(
+      async (_question, _filters, onEvent) => {
+        invocation += 1;
+        if (invocation === 1) {
+          onEvent({
+            type: "stage",
+            id: "retrieve",
+            path: "full_retrieval",
+            title: "Retrieve",
+            detail: "Searching the hybrid index.",
+          });
+        } else {
+          onEvent({
+            type: "stage",
+            id: "rank",
+            path: "focused_follow_up",
+            title: "Inspect prior shortlist",
+            detail: "Reading only the records needed for this follow-up.",
+          });
+        }
+        onEvent({ type: "complete", response: agentResponse });
+      },
+    );
+
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    await within(dialog).findByText("Final recommendation");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Compare top two" }));
+    await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
+
+    const timelines = within(dialog).getAllByLabelText("Evidence timeline");
+    const followupCards = timelines[1].querySelectorAll(".ask-mosaic-stage-summary");
+    expect(followupCards).toHaveLength(3);
+    expect(within(timelines[1]).getByText("Follow-up")).toBeTruthy();
+    expect(within(timelines[1]).getByText("Inspect")).toBeTruthy();
+    expect(within(timelines[1]).queryByText("Retrieve")).toBeNull();
+  });
+
+  it("returns a new-candidate follow-up to the full retrieval path", async () => {
+    let invocation = 0;
+    vi.mocked(api.agentStream).mockImplementation(
+      async (_question, _filters, onEvent) => {
+        invocation += 1;
+        onEvent({
+          type: "stage",
+          id: "retrieve",
+          path: "full_retrieval",
+          title: "Retrieve",
+          detail: "Searching the hybrid index.",
+        });
+        onEvent({ type: "complete", response: agentResponse });
+      },
+    );
+
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    await within(dialog).findByText("Final recommendation");
+
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: "Show me cheaper alternatives." } },
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send request" }));
+    await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
+
+    const timelines = within(dialog).getAllByLabelText("Evidence timeline");
+    const followupCards = timelines[1].querySelectorAll(".ask-mosaic-stage-summary");
+    expect(followupCards).toHaveLength(4);
+    expect(within(timelines[1]).getByText("Retrieve")).toBeTruthy();
+    expect(within(timelines[1]).getByText("Compare")).toBeTruthy();
+    expect(invocation).toBe(2);
+  });
+
   it("marks the answer as still being written while deltas arrive", async () => {
     let release = () => {};
     vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
       onEvent({
         type: "stage",
         id: "retrieve",
+        path: "full_retrieval",
         title: "Retrieve",
         detail: "Searching the hybrid index.",
       });
@@ -850,10 +977,20 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "All filters" }));
     const dialog = screen.getByRole("dialog", { name: "Filters" });
     expect(dialog).toBeTruthy();
+    expect(
+      within(dialog).getByRole("button", { name: "Category" })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+    expect(
+      within(dialog).getByRole("button", { name: "Availability" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
 
+    fireEvent.click(within(dialog).getByRole("button", { name: "Availability" }));
     fireEvent.click(within(dialog).getByRole("radio", { name: "In stock" }));
-    expect(await screen.findByRole("button", { name: /In stock/ })).toBeTruthy();
     expect(window.location.search).toContain("availability=in_stock");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+    expect(await screen.findByRole("button", { name: /In stock/ })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
     const assist = screen.getByRole("complementary", { name: "Ask Mosaic" });
@@ -862,6 +999,46 @@ describe("CatalogPage", () => {
     );
     expect(within(context).getByText("Active filters")).toBeTruthy();
     expect(within(context).getByText("In stock")).toBeTruthy();
+  });
+
+  it("contains filter focus, makes the background inert, and restores its trigger", async () => {
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    const opener = screen.getByRole("button", { name: "Brand" });
+    opener.focus();
+    fireEvent.click(opener);
+
+    const dialog = screen.getByRole("dialog", { name: "Filters" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(document.querySelector(".shop-canvas")?.hasAttribute("inert")).toBe(true);
+    expect(document.body.style.overflow).toBe("hidden");
+    expect(
+      within(dialog).getByRole("button", { name: "Category" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+    expect(
+      within(dialog).getByRole("button", { name: "Brand" })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+
+    const close = within(dialog).getByRole("button", { name: "Close filters" });
+    await waitFor(() => expect(document.activeElement).toBe(close));
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    close.focus();
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(focusable.at(-1));
+
+    fireEvent.click(close);
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Filters" })).toBeNull()
+    );
+    expect(document.querySelector(".shop-canvas")?.hasAttribute("inert")).toBe(false);
+    expect(document.body.style.overflow).toBe("");
+    expect(document.activeElement).toBe(opener);
   });
 
   it("closes the sidecar and can restore the underlying Shop results", async () => {

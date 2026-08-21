@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { mosaicRetrievalExamples } from "../labMissions";
 import { seedProvenance, seedRun } from "../retrievalSeed";
@@ -49,21 +55,18 @@ function renderObservatory(props: Partial<Parameters<typeof RetrievalObservatory
 describe("RetrievalObservatory", () => {
   afterEach(cleanup);
 
-  it("opens on a real captured run rather than an empty instrument", () => {
+  it("opens empty until a live run completes", () => {
     const { container } = renderObservatory();
 
-    expect(screen.getByText("Captured run")).toBeTruthy();
-    expect(screen.getByText(seedProvenance.captured_at)).toBeTruthy();
-    expect(screen.getByText(seedRun.search_event_id.slice(0, 8))).toBeTruthy();
-    // One row group per returned product, so nothing waits on a button press.
-    expect(container.querySelectorAll(".labs-matrix-table tbody")).toHaveLength(
-      seedRun.results.length,
+    expect(container.querySelector(".labs-matrix-table")).toBeNull();
+    expect(screen.queryByText("Live run")).toBeNull();
+    expect(screen.getByRole("status").textContent).toContain(
+      `No run for ${seedExample.discover_label} yet`,
     );
-    expect(screen.queryByText(/Run the pipeline to fill the matrix/)).toBeNull();
   });
 
   it("compares all five retrievers side by side, with the count each found", () => {
-    renderObservatory();
+    renderObservatory({ response: seedRun });
 
     const headings = screen.getAllByRole("columnheader").map((cell) => cell.textContent);
     expect(headings[0]).toBe("Result");
@@ -83,14 +86,14 @@ describe("RetrievalObservatory", () => {
   it("marks an arm that returned nothing as not found, not as zero", () => {
     // A rank of 0 or a dash reads as "ranked last". The distinction the labs turn
     // on is that the retriever never produced the row at all.
-    const { container } = renderObservatory();
+    const { container } = renderObservatory({ response: seedRun });
     const misses = container.querySelectorAll(".labs-matrix-cell.is-missing");
     expect(misses.length).toBeGreaterThan(0);
     misses.forEach((cell) => expect(cell.textContent).toBe("not found"));
   });
 
   it("explains each row from its own signals", () => {
-    const { container } = renderObservatory();
+    const { container } = renderObservatory({ response: seedRun });
     const rows = container.querySelectorAll(".labs-matrix-table tbody");
 
     // The seed's target matched on exact words and a repaired spelling.
@@ -108,7 +111,7 @@ describe("RetrievalObservatory", () => {
   });
 
   it("reveals the query behind a retriever when its heading is selected", () => {
-    const { container } = renderObservatory();
+    const { container } = renderObservatory({ response: seedRun });
     expect(container.querySelector(".labs-matrix-cell.is-focused")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /Close spellings/ }));
@@ -122,26 +125,22 @@ describe("RetrievalObservatory", () => {
     expect(container.querySelector(".labs-matrix-cell.is-focused")).toBeNull();
   });
 
-  it("replaces the capture with a live run and says which it is showing", () => {
+  it("labels a completed response as a live run", () => {
     const { container } = renderObservatory({ response: liveResponse });
 
     expect(screen.getByText("Live run")).toBeTruthy();
-    expect(screen.queryByText("Captured run")).toBeNull();
     expect(screen.getByText("feedface")).toBeTruthy();
     expect(container.querySelectorAll(".labs-matrix-table tbody")).toHaveLength(1);
     expect(screen.getByText("Liveonly Test Headphone")).toBeTruthy();
   });
 
-  it("refuses to show the capture under a scenario it was not captured for", () => {
-    // Reusing one scenario's ranks as another's illustration is the exact failure
-    // the fixture replay committed. Better to ask for a run.
+  it("keeps every scenario empty until it has its own live run", () => {
     const other = mosaicRetrievalExamples.find(
       (candidate) => candidate.id !== seedProvenance.mission_id,
     )!;
     const { container } = renderObservatory({ example: other });
 
     expect(container.querySelector(".labs-matrix-table")).toBeNull();
-    expect(screen.queryByText("Captured run")).toBeNull();
     expect(screen.getByRole("status").textContent).toContain(
       `No run for ${other.discover_label} yet`,
     );
@@ -151,12 +150,23 @@ describe("RetrievalObservatory", () => {
     const other = mosaicRetrievalExamples.find(
       (candidate) => candidate.id !== seedProvenance.mission_id,
     )!;
-    renderObservatory({ example: other, loading: true });
+    const { container } = renderObservatory({ example: other, loading: true });
     expect(screen.getByRole("status").textContent).toContain("Embedding the query");
+    expect(container.querySelector(".labs-matrix")?.getAttribute("aria-busy")).toBe("true");
+  });
+
+  it("makes the result matrix a keyboard-focusable scroll region", () => {
+    renderObservatory({ response: seedRun });
+
+    const region = screen.getByRole("region", {
+      name: "Retrieval result comparison",
+    });
+    expect(region.getAttribute("tabindex")).toBe("0");
+    expect(within(region).getByRole("table")).toBeTruthy();
   });
 
   it("states the limits of the numbers it draws", () => {
-    renderObservatory();
+    renderObservatory({ response: seedRun });
     const note = document.querySelector(".labs-matrix-note")!;
     expect(note.textContent).toContain("positions within each retriever's own candidate list");
     expect(note.textContent).toContain("order that would have shipped with reranking off");

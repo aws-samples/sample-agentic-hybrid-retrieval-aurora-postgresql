@@ -49,7 +49,7 @@
 .discover-backdrop,
 .discover-scrim {
   position: absolute;
-  z-index: -2;
+  z-index: 0;
   inset: 0;
   width: 100%;
   height: 100%;
@@ -67,18 +67,20 @@
 /* The source image deliberately leaves a quiet wall on the left. The scrim
    evens that field without muting the product still life on the right. */
 .discover-scrim {
-  z-index: -1;
+  pointer-events: none;
   background:
     linear-gradient(
       90deg,
-      rgb(249 246 241 / 96%) 0%,
-      rgb(249 246 241 / 86%) 30%,
-      rgb(249 246 241 / 24%) 55%,
-      rgb(249 246 241 / 0%) 72%
+      #f9f6f1 0%,
+      #f9f6f1 48%,
+      rgb(249 246 241 / 96%) 60%,
+      rgb(249 246 241 / 0%) 78%
     );
 }
 
 .discover-hero-content {
+  position: relative;
+  z-index: 1;
   display: grid;
   width: min(880px, 67%);
   justify-items: start;
@@ -1265,15 +1267,15 @@
 }
 
 .discover-labs-scenarios > header {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
   gap: 20px;
   margin-bottom: 14px;
 }
 
 .discover-labs-scenarios-kicker {
-  margin: 0 0 5px;
+  margin: 0;
   color: #dcb277;
   font-size: 10px;
   font-weight: 750;
@@ -1282,7 +1284,7 @@
 }
 
 .discover-labs-scenarios h3 {
-  max-width: 32ch;
+  max-width: none;
   margin: 0;
   color: #fdf7ec;
   font-family: var(--display);
@@ -1293,7 +1295,7 @@
 
 .discover-labs-scenarios-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1340,10 +1342,15 @@
 }
 
 .discover-labs-scenario-query {
+  display: -webkit-box;
+  max-height: calc(1.48em * 3);
+  overflow: hidden;
   color: rgb(253 247 236 / 74%);
   font-size: 11px;
   line-height: 1.48;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 /* A single dropped plate gives the row an editorial rhythm. Margin rather than
@@ -1903,6 +1910,25 @@
   animation: catalog-idle-suggestion-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.catalog-autocomplete.invalid {
+  margin-bottom: 24px;
+}
+
+.catalog-query-hint {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 5px);
+  left: 18px;
+  color: #8a2e24;
+  font-size: 11.5px;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.catalog-autocomplete input[aria-invalid="true"] {
+  color: #6f261f;
+}
+
 .catalog-autocomplete > input,
 .catalog-idle-suggestion {
   grid-row: 1;
@@ -2234,7 +2260,7 @@
 }
 
 .shop-suggested > button {
-  min-height: 34px;
+  min-height: 44px;
   flex: 0 0 auto;
   padding: 0 15px;
   border: 1px solid rgb(92 75 62 / 16%);
@@ -2302,6 +2328,10 @@
   list-style: none;
 }
 
+.shop-console-note-mobile {
+  display: none;
+}
+
 .shop-console-note li {
   display: grid;
   align-items: start;
@@ -2367,7 +2397,7 @@
 
 .shop-domain-tabs button {
   position: relative;
-  min-height: 32px;
+  min-height: 44px;
   flex: 0 0 auto;
   padding: 0;
   border: 0;
@@ -2482,7 +2512,7 @@
 
 .shop-filter-chips button {
   display: inline-flex;
-  min-height: 32px;
+  min-height: 44px;
   align-items: center;
   gap: 7px;
   padding: 0 14px;
@@ -2543,7 +2573,7 @@
 }
 
 .shop-query-state > button {
-  min-height: 32px;
+  min-height: 44px;
   flex: 0 0 auto;
   padding: 0;
   border: 0;
@@ -2597,7 +2627,7 @@
 
 .shop-results-heading > button {
   display: inline-flex;
-  min-height: 36px;
+  min-height: 44px;
   align-items: center;
   gap: 8px;
   padding: 0 16px;
@@ -2838,8 +2868,8 @@
 .shop-product-card .catalog-favorite-button {
   top: 12px;
   right: 12px;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border: 1px solid rgb(108 34 49 / 24%);
   background: rgb(255 254 250 / 94%);
   color: var(--maroon-900);
@@ -2941,30 +2971,58 @@
 }
 
 .shop-card-signals {
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 6px;
+  display: block;
   margin-top: 11px;
-  overflow: hidden;
 }
 
-.shop-card-signals span,
-.shop-card-signals strong {
-  flex: 0 0 auto;
-  padding: 3px 8px;
-  border-radius: 4px;
-  background: rgb(92 75 62 / 7%);
-  color: var(--ink-soft);
-  font-family: var(--mono);
+.shop-card-signals > summary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--maroon-800);
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 700;
+  list-style-position: inside;
+  text-underline-offset: 3px;
+}
+
+.shop-card-signals > summary:hover {
+  text-decoration: underline;
+}
+
+.shop-card-signals > dl {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 7px;
+  padding: 9px 10px;
+  border: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 6px;
+  background: #faf6ef;
+}
+
+.shop-card-signals > dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.shop-card-signals dt,
+.shop-card-signals dd {
+  margin: 0;
   font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  line-height: 1.35;
 }
 
-.shop-card-signals strong {
-  background: var(--maroon-100);
-  color: var(--maroon-900);
+.shop-card-signals dt {
+  color: var(--ink-soft);
+}
+
+.shop-card-signals dd {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-weight: 700;
 }
 
 .shop-card-footer {
@@ -2995,8 +3053,8 @@
 .shop-quick-add {
   position: relative;
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   flex: 0 0 auto;
   padding: 0;
   place-items: center;
@@ -3097,7 +3155,7 @@
 
 .shop-pagination button {
   display: inline-flex;
-  min-height: 36px;
+  min-height: 44px;
   align-items: center;
   gap: 8px;
   padding: 0;
@@ -3159,7 +3217,7 @@
   top: 0;
   right: 0;
   display: grid;
-  width: min(430px, 100vw);
+  width: min(430px, 100%);
   height: 100dvh;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
@@ -3177,21 +3235,23 @@
   border-bottom: 1px solid var(--mosaic-line);
 }
 
-.shop-filter-sheet > header .eyebrow {
-  margin: 0 0 5px;
-  color: var(--maroon-800);
+.shop-filter-sheet > header h2 {
+  margin: 0 0 4px;
+  font-size: 31px;
 }
 
-.shop-filter-sheet > header h2 {
+.shop-filter-sheet > header p {
   margin: 0;
-  font-size: 31px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .shop-filter-sheet > header > button,
 .ask-mosaic-header > button {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   flex: 0 0 auto;
   padding: 0;
   place-items: center;
@@ -3239,7 +3299,7 @@
 .shop-filter-options label,
 .shop-rating-options label {
   display: flex;
-  min-height: 25px;
+  min-height: 44px;
   align-items: center;
   gap: 9px;
   color: #57514b;
@@ -3347,6 +3407,36 @@
   border-color: var(--maroon-900);
   background: var(--maroon-900);
   color: #fffdf8;
+}
+
+.shop-ranking-receipt {
+  margin-bottom: 20px;
+  border-block: 1px solid var(--line);
+}
+
+.shop-ranking-receipt > summary {
+  display: grid;
+  min-height: 52px;
+  align-content: center;
+  gap: 2px;
+  padding-right: 8px;
+  color: var(--maroon-900);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  list-style-position: inside;
+}
+
+.shop-ranking-receipt > summary small {
+  margin-left: 18px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.shop-ranking-receipt .retrieval-receipt {
+  margin: 0;
+  border-bottom: 0;
 }
 
 /*
@@ -3693,8 +3783,9 @@
  *
  * It used to be a centred icon over three invented example questions, so it
  * both looked like a chatbot splash and made a claim the surface could not keep.
- * It now names the five typed tools the service registers, which is reading
- * matter, so it is set left like the rest of the page.
+ * It now offers one eval-set query per retrieval path and names the typed tools
+ * the service registers, which is reading matter, so it is set left like the
+ * rest of the page.
  */
 .ask-mosaic-empty {
   display: grid;
@@ -3704,29 +3795,12 @@
   text-align: left;
 }
 
-.ask-mosaic-empty h3 {
-  margin: 0;
-  color: var(--ink);
-  font-family: var(--display);
-  font-size: 31px;
-  font-weight: 500;
-  line-height: 1.15;
-}
-
-.ask-mosaic-empty p {
-  max-width: 42ch;
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 13.5px;
-  line-height: 1.6;
-}
-
 .ask-mosaic-starters {
   width: 100%;
 }
 
 .ask-mosaic-starters h4 {
-  margin: 0 0 9px;
+  margin: 0 0 10px;
   color: var(--ink-faint);
   font-family: var(--sans);
   font-size: 11px;
@@ -3737,49 +3811,117 @@
 
 .ask-mosaic-starters ul {
   display: grid;
-  gap: 6px;
+  gap: 9px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/*
+ * One card per retrieval path. The path name is the headline and the query sits
+ * under it, so three short labels carry the scan and the sentences stop
+ * competing with each other. These were flat one-line rows of the eval set's
+ * three longest queries.
+ */
 .ask-mosaic-starters button {
+  position: relative;
   display: grid;
   width: 100%;
-  min-height: 0;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  background: #eee7de;
-  box-shadow: none;
+  grid-template-areas:
+    "path go"
+    "query query"
+    "arms arms";
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 10px;
+  padding: 12px 14px 11px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--paper);
+  box-shadow: 0 1px 2px rgb(48 37 28 / 4%);
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 12.5px;
-  line-height: 1.38;
   text-align: left;
-  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
-}
-
-.ask-mosaic-starters button > small {
-  color: var(--maroon-700);
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.ask-mosaic-starters button > svg {
-  flex: 0 0 auto;
-  color: var(--maroon-700);
+  transition: border-color 200ms ease, box-shadow 200ms ease,
+    transform 200ms ease;
 }
 
 .ask-mosaic-starters button:hover,
 .ask-mosaic-starters button:focus-visible {
-  border-color: rgb(103 24 37 / 18%);
-  background: #e8ded3;
-  transform: translateX(2px);
+  border-color: rgb(103 24 37 / 26%);
+  box-shadow: 0 8px 22px rgb(103 24 37 / 10%);
+  transform: translateY(-1px);
+}
+
+.ask-mosaic-starters button:active {
+  box-shadow: 0 1px 2px rgb(48 37 28 / 4%);
+  transform: translateY(0);
+}
+
+.ask-mosaic-starter-path {
+  align-self: center;
+  grid-area: path;
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ask-mosaic-starter-go {
+  align-self: center;
+  grid-area: go;
+  color: var(--maroon-700);
+  opacity: 0.45;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.ask-mosaic-starters button:hover .ask-mosaic-starter-go,
+.ask-mosaic-starters button:focus-visible .ask-mosaic-starter-go {
+  opacity: 1;
+  transform: translate(2px, -2px);
+}
+
+.ask-mosaic-starter-query {
+  grid-area: query;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.42;
+}
+
+/* The techniques the eval set expects the query to exercise, set in mono so
+   `pg_trgm` and `rrf` read as the identifiers they are rather than as prose. */
+.ask-mosaic-starter-arms {
+  display: flex;
+  flex-wrap: wrap;
+  grid-area: arms;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.ask-mosaic-starter-arms code {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.ask-mosaic-starters > small {
+  display: block;
+  max-width: 44ch;
+  margin-top: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-mosaic-starters button:hover,
+  .ask-mosaic-starters button:focus-visible,
+  .ask-mosaic-starters button:hover .ask-mosaic-starter-go,
+  .ask-mosaic-starters button:focus-visible .ask-mosaic-starter-go {
+    transform: none;
+  }
 }
 
 .ask-mosaic-capability {
@@ -5190,6 +5332,11 @@
     grid-template-columns: 1fr;
   }
 
+  .discover-labs-scenarios > header {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
   .discover-lab-graphic {
     aspect-ratio: 16 / 10;
   }
@@ -5385,14 +5532,59 @@
     border-radius: 22px;
   }
 
+  .shop-hero-photo {
+    height: 174px;
+    margin-bottom: 20px;
+  }
+
+  .shop-console {
+    margin-top: 20px;
+  }
+
   .shop-console .shop-search {
     padding: 8px;
+  }
+
+  .shop-suggested {
+    overflow: hidden;
+    mask-image: none;
+  }
+
+  .shop-suggested > button {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shop-suggested > button:nth-of-type(n + 2) {
+    display: none;
   }
 
   /* A 148px photograph on a phone-width card leaves the bullets about 180px of
      column, which wraps every one of them onto three lines. */
   .shop-console-note {
+    gap: 3px;
+    padding-block: 14px;
     padding-right: clamp(20px, 2vw, 28px);
+  }
+
+  .shop-console-note > small {
+    display: none;
+  }
+
+  .shop-console-note ul {
+    display: none;
+  }
+
+  .shop-console-note-mobile {
+    display: block;
+    max-width: 34ch;
+    margin: 2px 0 0;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    line-height: 1.45;
   }
 
   .shop-console-note-photo {
@@ -5497,8 +5689,8 @@
   .shop-product-card .catalog-favorite-button {
     top: 8px;
     right: 8px;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
   }
 
   .shop-product-card h3 {
@@ -5609,10 +5801,6 @@
   .shop-product-grid,
   .shop-canvas.assist-open .shop-product-grid {
     grid-template-columns: 1fr;
-  }
-
-  .shop-card-signals {
-    display: none;
   }
 }
 
@@ -5758,6 +5946,10 @@
   padding-block: 36px 92px;
 }
 
+.mosaic-labs-page > * {
+  min-width: 0;
+}
+
 .mosaic-labs-tabs {
   min-height: 44px;
   padding-bottom: 18px;
@@ -5844,6 +6036,8 @@
 }
 
 .labs-intro-actions {
+  width: 100%;
+  min-width: 0;
   gap: 18px;
   margin-top: 20px;
 }
@@ -5910,8 +6104,7 @@
   gap: 18px;
 }
 
-/* Which run is on screen, in the same idiom the HNSW view uses for MEASURED
-   against PROJECTED. Never rendered without a run behind it. */
+/* Which live run is on screen. Never rendered without a response behind it. */
 .labs-matrix-badge {
   padding: 5px 10px;
   border: 1px solid;
@@ -5921,12 +6114,6 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
-}
-
-.labs-matrix-badge.is-captured {
-  border-color: #d9c9a8;
-  background: #f6ead9;
-  color: #8b6832;
 }
 
 .labs-matrix-badge.is-live {
@@ -5973,32 +6160,42 @@
   color: #8a8179;
   font-size: var(--labs-micro);
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 /* Pick, then run. The picker sits beside Run pipeline in the masthead, because it
    used to sit below the button that consumed it. */
 .retrieval-scenario-picker {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+  display: grid;
+  min-width: 220px;
+  flex: 0 1 300px;
+  gap: 5px;
 }
 
-.retrieval-scenario-picker > span {
+.retrieval-query-field {
+  display: grid;
+  min-width: 240px;
+  flex: 1 1 380px;
+  gap: 5px;
+}
+
+.retrieval-scenario-picker > span,
+.retrieval-query-field > span {
   color: var(--ink-soft);
   font-size: var(--labs-micro);
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .retrieval-scenario-picker select {
+  width: 100%;
   min-height: 44px;
-  min-width: 250px;
+  min-width: 0;
   padding: 0 12px;
   border: 1px solid #cdbfae;
-  border-radius: 999px;
+  border-radius: 6px;
   background: #fffefa;
   color: #2f2924;
   font-family: var(--sans);
@@ -6014,14 +6211,33 @@
   outline-offset: 2px;
 }
 
+.retrieval-query-field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #cdbfae;
+  border-radius: 6px;
+  background: #fffefa;
+  color: #2f2924;
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+}
+
+.retrieval-query-field input:hover {
+  border-color: #a87845;
+}
+
+.retrieval-query-field input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .labs-matrix-query {
   min-width: 0;
   margin: 0;
-  overflow: hidden;
+  overflow-wrap: anywhere;
   color: #6b625b;
-  font-size: var(--labs-mono);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: var(--labs-detail);
 }
 
 .labs-matrix-query code {
@@ -6029,7 +6245,29 @@
 }
 
 .labs-matrix-scroll {
-  overflow-x: auto;
+  max-height: clamp(420px, 62vh, 720px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: #c5b7a5 transparent;
+  scrollbar-width: thin;
+}
+
+.labs-matrix-scroll:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.labs-matrix-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.labs-matrix-scroll::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: #c5b7a5;
+  background-clip: padding-box;
 }
 
 .labs-matrix-table {
@@ -6039,6 +6277,9 @@
 }
 
 .labs-matrix-table thead th {
+  position: sticky;
+  z-index: 3;
+  top: 0;
   padding: 12px 14px;
   border-bottom: 1px solid #ded5c8;
   background: #f7f3ec;
@@ -6051,7 +6292,12 @@
 }
 
 .labs-matrix-table thead th:first-child {
+  position: sticky;
+  z-index: 5;
+  left: 0;
   min-width: 300px;
+  background: #f7f3ec;
+  box-shadow: 8px 0 12px -13px rgb(47 41 36 / 74%);
 }
 
 /* Each heading selects its retriever: the cells below highlight and the query
@@ -6134,11 +6380,24 @@
 }
 
 .labs-matrix-table tbody th {
+  position: sticky;
+  z-index: 2;
+  left: 0;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 13px 14px 4px;
+  background: #fffefa;
+  box-shadow: 8px 0 12px -13px rgb(47 41 36 / 74%);
   font-weight: 400;
+}
+
+.labs-matrix-table tbody:hover th {
+  background: #fdfbf6;
+}
+
+.labs-matrix-table tbody.is-target th {
+  background: #f6f9f6;
 }
 
 .labs-matrix-rank {
@@ -6339,6 +6598,11 @@
   line-height: 1.6;
 }
 
+.labs-matrix-note {
+  width: 100%;
+  max-width: none;
+}
+
 .labs-matrix-note strong {
   color: #3d342e;
   font-weight: 640;
@@ -6361,23 +6625,16 @@
 }
 
 @media (max-width: 900px) {
-  .labs-matrix-controls {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-
   .retrieval-scenario-picker {
     width: 100%;
-  }
-
-  .retrieval-scenario-picker select {
-    flex: 1;
     min-width: 0;
+    flex-basis: 100%;
   }
 
-  .labs-matrix-query {
-    white-space: normal;
+  .retrieval-query-field {
+    width: 100%;
+    min-width: 100%;
+    flex-basis: 100%;
   }
 
   .labs-matrix-table {
@@ -6840,6 +7097,13 @@
     flex-direction: column;
   }
 
+  .mosaic-labs-tabs > div {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
   .mosaic-labs-tabs > small {
     text-align: left;
   }
@@ -6940,7 +7204,7 @@
   .shop-domain-scroller {
     display: grid;
     width: 100%;
-    grid-template-columns: minmax(0, 1fr) 38px;
+    grid-template-columns: minmax(0, 1fr) 44px;
     gap: 8px;
   }
 
@@ -6955,8 +7219,8 @@
 
   .shop-domain-next {
     display: inline-grid;
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     place-items: center;
     border: 1px solid rgb(92 75 62 / 22%);
@@ -8568,7 +8832,7 @@
 .shop-filter-toolbar > button,
 .shop-filter-toolbar .shop-sort {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 44px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -8615,6 +8879,7 @@
 
 .shop-filter-toolbar .shop-sort select {
   width: 100%;
+  min-height: 44px;
   padding: 0 24px 0 0;
   border: 0;
   background: transparent;
@@ -9292,7 +9557,7 @@
 
 .ask-mosaic-pick-add {
   display: inline-flex;
-  min-height: 32px;
+  min-height: 44px;
   align-items: center;
   gap: 6px;
   padding: 0 11px;
@@ -9350,22 +9615,34 @@
 .ask-mosaic-answer > p:first-child {
   flex-wrap: wrap;
   margin-bottom: 12px;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 /*
- * One family and one scale for the whole answer body.
- *
- * Paragraphs were display serif at 18px while the bullets under "Other strong
- * options" stayed sans at 13.5px, so a single recommendation rendered in two
- * typefaces at two sizes. Its sub-headings keep the sans small-caps of every
- * other label in this panel, which is a label, not body text.
+ * Keep long answers on the operational sans face. Newsreader carries the brand
+ * and page titles; forcing it into dense generated prose made product-name
+ * emphasis exceed the face's loaded weight range and look distorted.
  */
 .ask-mosaic-answer > p:not(:first-child),
 .ask-mosaic-answer li {
   color: #302a25;
-  font-family: var(--display);
-  font-size: 16.5px;
-  line-height: 1.55;
+  font-family: var(--sans);
+  font-size: 14.5px;
+  font-weight: 430;
+  line-height: 1.65;
+}
+
+.ask-mosaic-answer > p:not(:first-child),
+.ask-mosaic-answer ul,
+.ask-mosaic-answer ol {
+  max-width: 68ch;
+}
+
+.ask-mosaic-answer strong {
+  font-family: inherit;
+  font-weight: 650;
 }
 
 .ask-mosaic-answer li {
@@ -9382,10 +9659,10 @@
   margin: 17px 0 7px;
   color: var(--maroon-900);
   font-family: var(--sans);
-  font-size: 9.5px;
-  font-weight: 780;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .ask-mosaic-cited-support {
@@ -9399,9 +9676,10 @@
   border-radius: 12px;
   color: #5f7438;
   font-family: var(--sans);
-  font-size: 8.5px;
-  font-weight: 760;
-  letter-spacing: 0.06em;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .ask-mosaic-comparison {
@@ -9427,8 +9705,8 @@
 }
 
 .ask-mosaic-composer .search-composer button {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border-radius: 50%;
 }
@@ -9458,8 +9736,6 @@
 
 @media (max-width: 900px) {
   .shop-filter-toolbar {
-    margin-inline: -2px;
-    padding-inline: 2px;
     mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 32px), transparent);
   }
 
@@ -9469,6 +9745,12 @@
 }
 
 @media (max-width: 640px) {
+  .ask-mosaic-edit-request,
+  .ask-mosaic-ask-again,
+  .ask-mosaic-followups button {
+    min-height: 44px;
+  }
+
   .discover-hero {
     border-radius: 0;
   }
@@ -9481,8 +9763,12 @@
     padding-block: 11px;
   }
 
+  .shop-controls {
+    margin-top: 4px;
+  }
+
   .ask-mosaic-sidecar {
-    width: 100vw;
+    width: 100%;
     max-width: none;
     border-left: 0;
   }
@@ -9538,4 +9824,120 @@
 
 .discover-search .catalog-suggestions {
   display: none;
+}
+
+/*
+ * One diagnostic vocabulary across Search, the Observatory, and Ask Mosaic.
+ * This is a receipt band, not another card: rules and columns keep it readable
+ * inside both a full-width lab page and the agent drawer.
+ */
+.retrieval-receipt {
+  width: 100%;
+  margin: 24px 0;
+  border-block: 1px solid var(--line);
+}
+
+.retrieval-receipt > header {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.retrieval-receipt > header strong {
+  color: var(--ink);
+  font-size: var(--labs-micro);
+  font-weight: 720;
+}
+
+.retrieval-receipt > header span {
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: var(--labs-micro);
+}
+
+.retrieval-receipt dl {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+
+.retrieval-receipt dl > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 12px 13px;
+  border-right: 1px solid var(--line);
+}
+
+.retrieval-receipt dl > div:last-child {
+  border-right: 0;
+}
+
+.retrieval-receipt dt {
+  color: var(--ink-faint);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.retrieval-receipt dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  font-weight: 680;
+  line-height: 1.35;
+}
+
+.retrieval-receipt small {
+  color: var(--ink-faint);
+  font-size: var(--labs-micro);
+  line-height: 1.35;
+}
+
+@media (max-width: 1040px) {
+  .retrieval-receipt dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .retrieval-receipt dl > div:nth-child(3) {
+    border-right: 0;
+  }
+
+  .retrieval-receipt dl > div:nth-child(n + 4) {
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 640px) {
+  .retrieval-receipt > header {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    padding-block: 9px;
+  }
+
+  .retrieval-receipt > header span {
+    line-height: 1.45;
+  }
+
+  .retrieval-receipt dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .retrieval-receipt dl > div:nth-child(3) {
+    border-right: 1px solid var(--line);
+  }
+
+  .retrieval-receipt dl > div:nth-child(even) {
+    border-right: 0;
+  }
+
+  .retrieval-receipt dl > div:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
 }

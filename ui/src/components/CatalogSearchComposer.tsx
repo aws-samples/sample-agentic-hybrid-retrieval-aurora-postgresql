@@ -94,6 +94,8 @@ export function CatalogSearchComposer({
   const requestVersion = useRef(0);
   const trimmed = value.trim();
   const hasQuery = trimmed.length >= 2;
+  const queryTooShort = trimmed.length > 0 && !hasQuery;
+  const queryHintId = `${listboxId}-query-hint`;
   const optionCount = suggestions.length + (hasQuery ? 1 : 0);
   const idleSuggestion = idleSuggestions[idleSuggestionIndex] ?? "";
 
@@ -215,7 +217,11 @@ export function CatalogSearchComposer({
 
   return (
     <form
-      className="search-composer compact catalog-autocomplete"
+      className={
+        queryTooShort
+          ? "search-composer compact catalog-autocomplete invalid"
+          : "search-composer compact catalog-autocomplete"
+      }
       onSubmit={handleSubmit}
       onBlur={handleBlur}
     >
@@ -237,7 +243,9 @@ export function CatalogSearchComposer({
         }
         aria-autocomplete="list"
         aria-controls={listboxId}
+        aria-describedby={queryTooShort ? queryHintId : undefined}
         aria-expanded={open}
+        aria-invalid={queryTooShort || undefined}
         aria-label={inputLabel}
         autoComplete="off"
         ref={inputRef}
@@ -264,7 +272,11 @@ export function CatalogSearchComposer({
         }}
         onKeyDown={handleKeyDown}
       />
-      <button type="submit" disabled={pending} aria-label="Search">
+      <button
+        type="submit"
+        disabled={pending || queryTooShort || (!trimmed && !idleSuggestion)}
+        aria-label="Search"
+      >
         {pending ? (
           <LoaderCircle className="spin" size={20} aria-hidden="true" />
         ) : (
@@ -274,6 +286,11 @@ export function CatalogSearchComposer({
           </>
         )}
       </button>
+      {queryTooShort ? (
+        <span className="catalog-query-hint" id={queryHintId} role="status">
+          Keep typing: use at least 2 characters.
+        </span>
+      ) : null}
 
       {open && showSuggestions ? (
         <div

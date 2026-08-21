@@ -69,11 +69,12 @@ flowchart LR
 
 | Concern | Owner |
 |---|---|
-| exact words and identifiers | PostgreSQL FTS / B-tree |
-| typo and near-string recovery | `pg_trgm` |
-| intent and paraphrase | embedding + pgvector |
-| hard product eligibility | SQL columns / JSONB |
-| heterogeneous rank combination | RRF |
-| nuanced final ordering | reranker |
-| trust and auditability | evidence + component diagnostics |
+| retrieval truth: candidates, eligibility, indexes, fusion, provenance, evidence | Aurora PostgreSQL |
+| model intelligence: embeddings, reranking, orchestration, synthesis | Amazon Bedrock models |
+| execution and citation authority | application controller |
+| optional managed runtime, transport, and tool exposure | Amazon Bedrock AgentCore |
 | performance truth | measured harness and preserved run metadata |
+
+AgentCore can change where the Strands loop runs or how a host reaches tools. It
+does not become the retrieval authority. No AgentCore resource is required or
+deployed by the workshop.

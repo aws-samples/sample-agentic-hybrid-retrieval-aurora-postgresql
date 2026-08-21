@@ -72,7 +72,7 @@
     {
       "name": "get_product_evidence",
       "tool_version": "1.0",
-      "description": "Rank source-addressable specifications and reviews for one retrieved product against a focused evidence question.",
+      "description": "Rank fresh source-addressable specifications and reviews for one product against a focused evidence question.",
       "read_only": true,
       "surfaces": ["agent", "mcp"],
       "input_schemas": {
@@ -107,7 +107,7 @@
     {
       "name": "compare_products",
       "tool_version": "1.0",
-      "description": "Compare two to five products already retrieved during the current agent turn.",
+      "description": "Compare two to five products authorized by the current retrieval or previous grounded answer.",
       "read_only": true,
       "surfaces": ["agent"],
       "input_schemas": {
@@ -138,7 +138,7 @@
     {
       "name": "explain_retrieval",
       "tool_version": "1.0",
-      "description": "Replay persisted arm ranks, scores, fusion contributions, reranker order, and timings for one event created by the current agent turn.",
+      "description": "Replay persisted ranking signals for an event authorized by the current retrieval or previous grounded answer.",
       "read_only": true,
       "surfaces": ["agent"],
       "input_schemas": {
@@ -164,7 +164,7 @@
     {
       "name": "synthesize_cited_answer",
       "tool_version": "1.0",
-      "description": "Create the answer of record from retrieved products and evidence, with citation bounds and deterministic claim checks.",
+      "description": "Create the answer of record from authorized products and fresh evidence, with citation bounds and deterministic claim checks.",
       "read_only": true,
       "surfaces": ["agent"],
       "input_schemas": {

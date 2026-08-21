@@ -62,10 +62,13 @@ def _partial(state: dict[str, Any]) -> AgentPartial:
     whichever product happened to be inserted first.
     """
     ordered_ids: list[int] = []
-    for search in reversed(state["searches"]):
-        for product_id in search["product_ids"]:
-            if product_id not in ordered_ids:
-                ordered_ids.append(product_id)
+    if state["searches"]:
+        for search in reversed(state["searches"]):
+            for product_id in search["product_ids"]:
+                if product_id not in ordered_ids:
+                    ordered_ids.append(product_id)
+    else:
+        ordered_ids.extend(state.get("context_product_ids", []))
     return AgentPartial(
         plan=_plan_steps(state),
         candidates=[
@@ -87,7 +90,10 @@ hard filters, and reciprocal-rank fusion. Cohere Rerank orders only the bounded
 fused candidate set. Scores from different stages are not
 probabilities and must not be compared as though they share a scale.
 
-For a complex question:
+Choose the minimum sufficient tool path for each request.
+
+For a first request, or a follow-up that asks for alternatives, changes catalog
+filters, or needs any product outside the authorized prior shortlist:
 1. Use at most {len(agent_tools.SEARCH_SLOTS)} focused search_products calls.
    When the request has two independent product intents, issue both search calls
    together in one tool-use turn. Prefer one search for one product intent.
@@ -107,6 +113,19 @@ For a complex question:
    final recommendation always retains a replayable ranking receipt.
 6. Call synthesize_cited_answer exactly once, last, with only product IDs that
    search_products returned and for which evidence was retrieved.
+
+For a closed-world follow-up over an authorized prior shortlist, do not repeat
+retrieval:
+- A product-fact question uses get_product_evidence for the referenced product,
+  then synthesize_cited_answer.
+- A comparison uses compare_products, fresh get_product_evidence calls for the
+  selected products, then synthesize_cited_answer.
+- A ranking question uses explain_retrieval for an authorized prior search event,
+  fresh get_product_evidence calls, then synthesize_cited_answer.
+
+Prior answer prose is never evidence. Every answer still requires fresh evidence
+and deterministic citation validation. Never use an inherited product after
+search_products starts a new candidate pool.
 
 synthesize_cited_answer creates the citation-bounded answer of record and applies
 deterministic product, numeric, availability, and mission-claim checks. Do not
@@ -165,15 +184,27 @@ def build_agent(*, max_tool_calls: int = 10) -> Agent:
     )
 
 
-def _agent_prompt(request: AgentRequest) -> str:
+def _agent_prompt(
+    request: AgentRequest,
+    state: dict[str, Any] | None = None,
+) -> str:
     """Add bounded prior-turn references without treating them as evidence."""
     if request.context is None:
         return request.question
     context = {
+        "previous_agent_run_id": str(request.context.previous_agent_run_id),
         "previous_question": request.context.previous_question,
         "previous_recommendations": [
             recommendation.model_dump()
             for recommendation in request.context.recommendations
+        ],
+        "authorized_search_event_ids": [
+            str(event_id)
+            for event_id in (
+                state.get("context_search_event_ids", [])
+                if state is not None
+                else []
+            )
         ],
     }
     return (
@@ -182,8 +213,12 @@ def _agent_prompt(request: AgentRequest) -> str:
         f"{json.dumps(context)}\n\n"
         "Resolve conversational references such as 'one', 'them', 'cheaper', "
         "or 'the first' against those prior recommendations. They are lookup "
-        "targets only, not evidence. Re-run the normal catalog retrieval, "
-        "comparison, evidence, and cited-synthesis tools before answering."
+        "targets only, not evidence. Use the minimum sufficient tool path. "
+        "Do not call search_products when the answer is closed over this "
+        "shortlist; retrieve fresh evidence and synthesize a newly validated "
+        "answer. If the shopper asks for alternatives, changes constraints, "
+        "or needs a new candidate, call search_products and follow the full "
+        "retrieval, comparison, ranking-receipt, evidence, and synthesis path."
     )
 
 
@@ -278,6 +313,7 @@ class ProductDiscoveryAgent:
             request.question,
             request.filters,
             request.result_limit,
+            request.context,
         )
         result: Any | None = None
         error: Exception | None = None
@@ -287,7 +323,9 @@ class ProductDiscoveryAgent:
             # the loop to another thread discards that context before the first
             # tool executes. The FastAPI route is synchronous, so running the
             # native async invocation here preserves the request context.
-            result = asyncio.run(build_agent().invoke_async(_agent_prompt(request)))
+            result = asyncio.run(
+                build_agent().invoke_async(_agent_prompt(request, state))
+            )
         except Exception as caught:
             error = caught
             logger.warning("Strands agent loop failed: %s", caught, exc_info=True)
@@ -306,6 +344,7 @@ class ProductDiscoveryAgent:
             request.question,
             request.filters,
             request.result_limit,
+            request.context,
         )
         result: Any | None = None
         error: Exception | None = None
@@ -314,7 +353,9 @@ class ProductDiscoveryAgent:
         # event alone would re-send the same shortlist dozens of times per tool.
         produced = (0, 0, 0)
         try:
-            async for event in build_agent().stream_async(_agent_prompt(request)):
+            async for event in build_agent().stream_async(
+                _agent_prompt(request, state)
+            ):
                 if "result" in event:
                     result = event["result"]
                 yield event

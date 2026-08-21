@@ -1,5 +1,6 @@
 import io
 import json
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -889,10 +890,13 @@ def test_agent_response_uses_turn_alias_and_search_event_trace():
 
 
 def test_agent_prompt_resolves_followups_from_bounded_grounded_context():
+    previous_run_id = uuid4()
+    search_event_id = uuid4()
     request = AgentRequest(
         question="Which one is the better value?",
         result_limit=2,
         context={
+            "previous_agent_run_id": str(previous_run_id),
             "previous_question": "Find two travel headphones under $200.",
             "recommendations": [
                 {
@@ -909,13 +913,311 @@ def test_agent_prompt_resolves_followups_from_bounded_grounded_context():
         },
     )
 
-    prompt = _agent_prompt(request)
+    prompt = _agent_prompt(
+        request,
+        {"context_search_event_ids": [search_event_id]},
+    )
 
     assert '"Which one is the better value?"' in prompt
     assert '"product_id": 101' in prompt
     assert '"product_id": 102' in prompt
     assert "lookup targets only, not evidence" in prompt
-    assert "Re-run the normal catalog retrieval" in prompt
+    assert str(previous_run_id) in prompt
+    assert str(search_event_id) in prompt
+    assert "minimum sufficient tool path" in prompt
+    assert "Do not call search_products" in prompt
+    assert "asks for alternatives" in prompt
+
+
+def test_followup_context_is_loaded_from_the_grounded_aurora_turn(monkeypatch):
+    previous_run_id = uuid4()
+    session_id = uuid4()
+    inherited_event_id = uuid4()
+    previous_products = [
+        {
+            "product_id": 101,
+            "title": "AuriLogic Flight ANC",
+            "model": "FL-48",
+        }
+    ]
+    request = AgentRequest(
+        question="Does the first one support multipoint?",
+        context={
+            "previous_agent_run_id": str(previous_run_id),
+            "previous_question": "Find travel headphones under $200.",
+            "recommendations": previous_products,
+        },
+    )
+
+    class Result:
+        def __init__(self, *, one=None, many=None):
+            self.one = one
+            self.many = many or []
+
+        def fetchone(self):
+            return self.one
+
+        def fetchall(self):
+            return self.many
+
+    class Connection:
+        def execute(self, sql, parameters):
+            if "FROM mosaic.agent_turn AS turn" in sql:
+                assert parameters == (previous_run_id,)
+                return Result(
+                    one={
+                        "agent_session_id": session_id,
+                        "user_message": "Find travel headphones under $200.",
+                        "input_payload": {"product_ids": [101]},
+                        "extracted_intent": {
+                            "search_event_ids": [],
+                            "context_search_event_ids": [
+                                str(inherited_event_id)
+                            ],
+                            "selected_products": previous_products,
+                        },
+                    }
+                )
+            if "FROM mosaic.search_event AS event" in sql:
+                assert parameters == (session_id, [inherited_event_id])
+                return Result(
+                    many=[{"search_event_id": inherited_event_id}]
+                )
+            assert "JOIN mosaic.search_result_event AS receipt" in sql
+            assert parameters == ([inherited_event_id], [101])
+            return Result(
+                many=[
+                    {
+                        "product_id": 101,
+                        "result_rank": 1,
+                        "fts_rank": 2,
+                        "trigram_rank": None,
+                        "semantic_rank": 1,
+                        "fused_rank": 1,
+                        "rerank_rank": 1,
+                        "scores": {
+                            "fts": 0.4,
+                            "trigram": None,
+                            "semantic": 0.8,
+                            "rrf": 0.03,
+                            "pre_rerank": 0.03,
+                            "rerank": 0.91,
+                            "exact_sku_match": False,
+                        },
+                        "provenance": {
+                            "channels": {
+                                "fts": {"rrf_contribution": 0.01},
+                                "vector": {"rrf_contribution": 0.02},
+                            }
+                        },
+                    }
+                ]
+            )
+
+    @contextmanager
+    def fake_connect():
+        yield Connection()
+
+    monkeypatch.setattr(agent_tools, "connect", fake_connect)
+    monkeypatch.setattr(
+        agent_tools,
+        "get_product_summaries",
+        lambda product_ids: [product()] if product_ids == [101] else [],
+    )
+
+    loaded_session, products, event_ids = agent_tools._load_conversation_context(
+        request.context
+    )
+
+    assert loaded_session == session_id
+    assert [item.product_id for item in products] == [101]
+    assert products[0].signals is not None
+    assert products[0].signals.rerank_score == 0.91
+    assert event_ids == [inherited_event_id]
+
+
+def test_followup_context_rejects_client_supplied_product_identity(monkeypatch):
+    request = AgentRequest(
+        question="Does the first one support multipoint?",
+        context={
+            "previous_agent_run_id": str(uuid4()),
+            "previous_question": "Find travel headphones under $200.",
+            "recommendations": [
+                {
+                    "product_id": 101,
+                    "title": "Client-supplied replacement",
+                    "model": "FL-48",
+                }
+            ],
+        },
+    )
+
+    class Result:
+        def fetchone(self):
+            return {
+                "agent_session_id": uuid4(),
+                "user_message": "Find travel headphones under $200.",
+                "input_payload": {"product_ids": [101]},
+                "extracted_intent": {
+                    "selected_products": [
+                        {
+                            "product_id": 101,
+                            "title": "AuriLogic Flight ANC",
+                            "model": "FL-48",
+                        }
+                    ]
+                },
+            }
+
+    class Connection:
+        def execute(self, _sql, _parameters):
+            return Result()
+
+    @contextmanager
+    def fake_connect():
+        yield Connection()
+
+    monkeypatch.setattr(agent_tools, "connect", fake_connect)
+    monkeypatch.setattr(
+        agent_tools,
+        "get_product_summaries",
+        lambda _product_ids: pytest.fail(
+            "tampered context must be rejected before catalog hydration"
+        ),
+    )
+
+    with pytest.raises(
+        agent_tools.ConversationContextError,
+        match="product identities",
+    ):
+        agent_tools._load_conversation_context(request.context)
+
+
+def test_focused_followup_persists_inherited_scope_for_the_next_turn():
+    inherited_event_id = uuid4()
+    state = {
+        "search_event_ids": [],
+        "context_search_event_ids": [inherited_event_id],
+        "context_product_ids": [101],
+        "execution_path": "focused_follow_up",
+    }
+    record = {"recommendations": [product()]}
+
+    persisted = agent_tools._persisted_intent(
+        state,
+        record,
+        [],
+        {"strands": {"total_tokens": 42}},
+    )
+
+    assert persisted["search_event_ids"] == []
+    assert persisted["context_search_event_ids"] == [str(inherited_event_id)]
+    assert persisted["selected_products"] == [
+        {
+            "product_id": 101,
+            "title": "AuriLogic Flight ANC",
+            "model": "FL-48",
+        }
+    ]
+
+
+def test_focused_followup_synthesis_does_not_require_a_ranking_replay(
+    monkeypatch,
+):
+    second = product().model_copy(
+        update={
+            "product_id": 102,
+            "title": "AuriLogic Office ANC",
+            "model": "OF-60",
+        }
+    )
+    second_evidence = evidence().model_copy(
+        update={
+            "evidence_id": 9002,
+            "product_id": 102,
+            "title": "AuriLogic Office ANC specifications",
+        }
+    )
+    state = {
+        "execution_path": "focused_follow_up",
+        "searches": [],
+        "products": {101: product(), 102: second},
+        "evidence": {
+            evidence().evidence_id: evidence(),
+            second_evidence.evidence_id: second_evidence,
+        },
+        "evidence_by_product": {101: [9001], 102: [9002]},
+        "answer_of_record": None,
+        "trace": [
+            {
+                "tool": "compare_products",
+                "arguments": {"product_ids": [101, 102]},
+                "outcome": "success",
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        agent_tools,
+        "synthesize_answer",
+        lambda *_args: (
+            "Choose the lower-priced option [1][2].",
+            [citation(), citation().model_copy(update={
+                "number": 2,
+                "evidence_id": 9002,
+                "product_id": 102,
+            })],
+            {"totalTokens": 42},
+        ),
+    )
+    token = agent_tools._RUN.set(state)
+    try:
+        result = agent_tools.synthesize_cited_answer.__wrapped__(
+            "Which one is the better value?",
+            [101, 102],
+        )
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert result["ok"] is True
+    assert state["answer_of_record"]["answer"] == "Choose the lower-priced option [1][2]."
+    assert all(step["tool"] != "explain_retrieval" for step in state["trace"])
+
+
+def test_focused_followup_controller_fallback_skips_ranking_replay(monkeypatch):
+    source = evidence()
+    state = {
+        "execution_path": "focused_follow_up",
+        "result_limit": 2,
+        "products": {101: product()},
+        "evidence": {},
+        "evidence_by_product": {},
+        "answer_of_record": None,
+        "trace": [],
+        "search_event_ids": [],
+        "context_search_event_ids": [uuid4()],
+        "searches": [],
+    }
+    explained: list[str] = []
+
+    def read_evidence(product_id, _evidence_query):
+        state["evidence"][source.evidence_id] = source
+        state["evidence_by_product"][product_id] = [source.evidence_id]
+        return {"ok": True}
+
+    monkeypatch.setattr(agent_tools, "get_product_evidence", read_evidence)
+    monkeypatch.setattr(
+        agent_tools,
+        "explain_retrieval",
+        lambda event_id: explained.append(event_id) or {"ok": True},
+    )
+    monkeypatch.setattr(agent_tools, "finalize_retrieved_answer", lambda *_args, **_kwargs: None)
+    token = agent_tools._RUN.set(state)
+    try:
+        agent_tools.complete_grounded_answer("Does the first one support multipoint?")
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert explained == []
 
 
 def test_synchronous_agent_preserves_tool_run_context(monkeypatch):
@@ -1185,7 +1487,11 @@ def test_agent_search_keeps_the_served_rank_order_before_evidence_retrieval(
         "result_limit": 3,
         "searches": [],
         "search_event_ids": [],
-        "products": {},
+        "execution_path": "focused_follow_up",
+        "context_product_ids": [101],
+        "products": {101: product()},
+        "evidence": {9001: evidence()},
+        "evidence_by_product": {101: [9001]},
         "trace": [],
     }
     token = agent_tools._RUN.set(state)
@@ -1199,9 +1505,12 @@ def test_agent_search_keeps_the_served_rank_order_before_evidence_retrieval(
         agent_tools._RUN.reset(token)
 
     assert result["ok"] is True
+    assert state["execution_path"] == "full_retrieval"
     assert [item["product_id"] for item in result["products"]] == [301, 302]
     assert state["searches"][0]["product_ids"] == [301, 302]
     assert [item.product_id for item in state["products"].values()] == [301, 302]
+    assert state["evidence"] == {}
+    assert state["evidence_by_product"] == {}
 
 
 def test_evidence_tool_forwards_question_and_embedding_to_catalog(monkeypatch):
@@ -1477,6 +1786,106 @@ def test_agent_stream_forwards_strands_tool_stages_and_validated_answer(monkeypa
     assert "event: answer_delta" in stream.text
     assert "event: complete" in stream.text
     assert "Choose the quiet option [1]." in stream.text
+
+
+def test_agent_stream_uses_a_compact_path_for_grounded_followups(monkeypatch):
+    previous_run_id = uuid4()
+    response = AgentResponse(
+        agent_run_id=uuid4(),
+        question="Which one is cheaper?",
+        answer="The first option is cheaper [1][2].",
+        plan=[],
+        recommendations=[product()],
+        citations=[citation()],
+        trace=[],
+    )
+
+    class FakeStreamingAgent:
+        async def stream(self, _request):
+            yield {"current_tool_use": {"name": "compare_products"}}
+            yield {"current_tool_use": {"name": "get_product_evidence"}}
+            yield {"current_tool_use": {"name": "synthesize_cited_answer"}}
+            yield {"agent_response": response}
+
+    monkeypatch.setattr(
+        "service.main.get_product_discovery_agent",
+        lambda: FakeStreamingAgent(),
+    )
+
+    stream = TestClient(app).post(
+        "/api/agent/answer/stream",
+        json={
+            "question": "Which one is cheaper?",
+            "filters": {},
+            "result_limit": 2,
+            "context": {
+                "previous_agent_run_id": str(previous_run_id),
+                "previous_question": "Find two travel headphones under $200.",
+                "recommendations": [
+                    {
+                        "product_id": 101,
+                        "title": "AuriLogic Flight ANC",
+                        "model": "FL-48",
+                    }
+                ],
+            },
+        },
+    )
+
+    assert stream.status_code == 200
+    assert '"path": "focused_follow_up"' in stream.text
+    assert '"id": "retrieve"' not in stream.text
+    assert '"id": "rank"' in stream.text
+    assert '"id": "answer"' in stream.text
+
+
+def test_agent_stream_returns_to_full_retrieval_when_followup_searches(monkeypatch):
+    previous_run_id = uuid4()
+    response = AgentResponse(
+        agent_run_id=uuid4(),
+        question="Show me cheaper alternatives.",
+        answer="This alternative is cheaper [1].",
+        plan=[],
+        recommendations=[product()],
+        citations=[citation()],
+        trace=[],
+    )
+
+    class FakeStreamingAgent:
+        async def stream(self, _request):
+            yield {"current_tool_use": {"name": "search_products"}}
+            yield {"current_tool_use": {"name": "synthesize_cited_answer"}}
+            yield {"agent_response": response}
+
+    monkeypatch.setattr(
+        "service.main.get_product_discovery_agent",
+        lambda: FakeStreamingAgent(),
+    )
+
+    stream = TestClient(app).post(
+        "/api/agent/answer/stream",
+        json={
+            "question": "Show me cheaper alternatives.",
+            "filters": {},
+            "result_limit": 2,
+            "context": {
+                "previous_agent_run_id": str(previous_run_id),
+                "previous_question": "Find two travel headphones under $200.",
+                "recommendations": [
+                    {
+                        "product_id": 101,
+                        "title": "AuriLogic Flight ANC",
+                        "model": "FL-48",
+                    }
+                ],
+            },
+        },
+    )
+
+    assert stream.status_code == 200
+    assert '"path": "focused_follow_up"' in stream.text
+    assert '"path": "full_retrieval"' in stream.text
+    assert '"id": "retrieve"' in stream.text
 
 
 def test_agent_stream_does_not_expose_exception_text(monkeypatch):

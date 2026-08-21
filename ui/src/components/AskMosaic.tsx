@@ -25,6 +25,7 @@ import {
   formatPriceCompact,
 } from "../format";
 import { domainLabels, productImage } from "../media";
+import { starterPath, starterPathLabels } from "../starters";
 import type {
   AgentCitation,
   AgentPartial,
@@ -32,12 +33,15 @@ import type {
   AgentResponse,
   ProductSummary,
   ResultSignals,
+  RetrievalExample,
   SearchFilters,
   ToolTraceStep,
 } from "../types";
+import { AgentRetrievalReceipt } from "./RetrievalReceipt";
 import { SearchComposer } from "./SearchComposer";
 
 export type AssistStage = "understand" | "retrieve" | "rank" | "answer";
+export type AssistExecutionPath = "focused_follow_up" | "full_retrieval";
 
 /**
  * One exchange: what was asked, and everything the service has streamed back
@@ -61,12 +65,13 @@ export interface AskMosaicTurn {
   /** Text delivered so far by `answer_delta`. Empty until the first token. */
   streamed: string;
   stage: AssistStage | null;
+  executionPath: AssistExecutionPath;
   stageDetail: string;
   error: string;
   loading: boolean;
 }
 
-const stages: Array<{
+const fullRetrievalStages: Array<{
   id: AssistStage;
   label: string;
   title: string;
@@ -95,6 +100,27 @@ const stages: Array<{
     label: "Cite",
     title: "Cite & summarize",
     description: "Ground the recommendation in inspectable product evidence.",
+  },
+];
+
+const focusedFollowUpStages: typeof fullRetrievalStages = [
+  {
+    id: "understand",
+    label: "Follow-up",
+    title: "Resolve follow-up",
+    description: "Resolve references against the prior grounded shortlist.",
+  },
+  {
+    id: "rank",
+    label: "Inspect",
+    title: "Inspect prior shortlist",
+    description: "Read only the product and ranking records this question needs.",
+  },
+  {
+    id: "answer",
+    label: "Cite",
+    title: "Cite & summarize",
+    description: "Validate a new answer against freshly retrieved evidence.",
   },
 ];
 
@@ -228,14 +254,19 @@ export function boldRecommendationNames(
 function StageRail({
   activeStage,
   complete,
+  executionPath,
   stageDetail,
   panels,
 }: {
   activeStage: AssistStage | null;
   complete: boolean;
+  executionPath: AssistExecutionPath;
   stageDetail: string;
   panels: Partial<Record<AssistStage, ReactNode>>;
 }) {
+  const stages = executionPath === "focused_follow_up"
+    ? focusedFollowUpStages
+    : fullRetrievalStages;
   const activeIndex = complete
     ? stages.length
     : activeStage
@@ -974,6 +1005,7 @@ function Turn({
         <StageRail
           activeStage={response ? "answer" : turn.stage}
           complete={Boolean(response && !turn.loading)}
+          executionPath={turn.executionPath}
           stageDetail={turn.stageDetail}
           panels={stagePanels}
         />
@@ -1016,6 +1048,14 @@ function Turn({
             />
           </section>
 
+          <AgentRetrievalReceipt
+            citations={citations}
+            executionPath={turn.executionPath}
+            plan={plan}
+            products={candidates}
+            trace={trace}
+          />
+
           {isLatest && !turn.loading ? (
             <FollowUps response={response} onRun={onRun} />
           ) : null}
@@ -1025,11 +1065,21 @@ function Turn({
   );
 }
 
+/**
+ * One card per retrieval path, so the entry state shows the contrast the
+ * workshop teaches before anyone types: the same catalog answers exact terms, a
+ * misspelling, and plain language over three different arms.
+ *
+ * The tags are each query's `expected_techniques`, verbatim from the eval set.
+ * They describe the path the query is written to exercise, which is a claim
+ * about the fixture and not a receipt for a run, so nothing here is presented
+ * as measured. The run itself reports what actually fired.
+ */
 function EntryState({
   starters,
   onRun,
 }: {
-  starters: string[];
+  starters: RetrievalExample[];
   onRun: (query: string) => void;
 }) {
   return (
@@ -1038,18 +1088,36 @@ function EntryState({
         <div className="ask-mosaic-starters">
           <h4>Try asking</h4>
           <ul aria-label="Example questions">
-            {starters.map((starter, index) => (
-              <li key={starter}>
-                <button type="button" onClick={() => onRun(starter)}>
-                  <small aria-hidden="true">
-                    {String(index + 1).padStart(2, "0")}
-                  </small>
-                  <span>{starter}</span>
-                  <ArrowUpRight size={15} />
+            {starters.map((starter) => (
+              <li key={starter.query_id}>
+                <button
+                  type="button"
+                  aria-label={starter.query}
+                  onClick={() => onRun(starter.query)}
+                >
+                  <span className="ask-mosaic-starter-path">
+                    {starterPathLabels[starterPath(starter)]}
+                  </span>
+                  <ArrowUpRight
+                    className="ask-mosaic-starter-go"
+                    size={14}
+                    aria-hidden="true"
+                  />
+                  <span className="ask-mosaic-starter-query">
+                    {starter.query}
+                  </span>
+                  <span className="ask-mosaic-starter-arms" aria-hidden="true">
+                    {starter.expected_techniques.map((technique) => (
+                      <code key={technique}>{technique}</code>
+                    ))}
+                  </span>
                 </button>
               </li>
             ))}
           </ul>
+          <small>
+            From the eval set. Tags name the path each query exercises.
+          </small>
         </div>
       ) : null}
 
@@ -1086,8 +1154,11 @@ interface AskMosaicProps {
   /** Oldest exchange first. */
   turns: AskMosaicTurn[];
   pending: boolean;
-  /** Questions from the eval set, one per domain. Empty if the fetch failed. */
-  starters: string[];
+  /**
+   * Eval-set queries for the entry state, one per retrieval path. Empty if the
+   * fetch failed.
+   */
+  starters: RetrievalExample[];
   /** Photographs the Shop grid assigned, so the rail agrees with the cards. */
   imageByProductId: Map<number, string>;
   highlightedProductId: number | null;
@@ -1279,7 +1350,7 @@ export function AskMosaic({
             <span><Sparkles size={19} /></span>
             <div>
               <h2 id="ask-mosaic-title">Ask Mosaic</h2>
-              <p>Your intelligent shopping guide</p>
+              <p>Searches, compares, and cites its sources</p>
             </div>
           </div>
           <button type="button" aria-label="Close Ask Mosaic" onClick={onClose}>

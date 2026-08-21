@@ -344,12 +344,26 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
 
     async def events():
         try:
+            execution_path = (
+                "focused_follow_up"
+                if request.context is not None
+                else "full_retrieval"
+            )
             yield _sse(
                 "stage",
                 {
                     "id": "understand",
-                    "title": "Interpret request",
-                    "detail": "Separating preferences from hard catalog constraints.",
+                    "path": execution_path,
+                    "title": (
+                        "Resolve follow-up"
+                        if execution_path == "focused_follow_up"
+                        else "Interpret request"
+                    ),
+                    "detail": (
+                        "Resolving references against the prior grounded shortlist."
+                        if execution_path == "focused_follow_up"
+                        else "Separating preferences from hard catalog constraints."
+                    ),
                 },
             )
             current_stage = "understand"
@@ -365,6 +379,7 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
                 tool = event.get("current_tool_use")
                 tool_name = tool.get("name") if isinstance(tool, dict) else None
                 if tool_name == "search_products":
+                    execution_path = "full_retrieval"
                     stage = (
                         "retrieve",
                         "Retrieve evidence",
@@ -377,8 +392,16 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
                 }:
                     stage = (
                         "rank",
-                        "Compare ranks",
-                        "Retaining candidate provenance and eligibility checks.",
+                        (
+                            "Inspect prior shortlist"
+                            if execution_path == "focused_follow_up"
+                            else "Compare ranks"
+                        ),
+                        (
+                            "Reading only the records needed for this follow-up."
+                            if execution_path == "focused_follow_up"
+                            else "Retaining candidate provenance and eligibility checks."
+                        ),
                     )
                 elif tool_name == "synthesize_cited_answer":
                     stage = (
@@ -392,7 +415,12 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
                     current_stage = stage[0]
                     yield _sse(
                         "stage",
-                        {"id": stage[0], "title": stage[1], "detail": stage[2]},
+                        {
+                            "id": stage[0],
+                            "path": execution_path,
+                            "title": stage[1],
+                            "detail": stage[2],
+                        },
                     )
 
                 result = event.get("agent_response")
@@ -403,6 +431,7 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
                     "stage",
                     {
                         "id": "answer",
+                        "path": execution_path,
                         "title": "Compose cited answer",
                         "detail": "Delivering only claims grounded in returned catalog sources.",
                     },

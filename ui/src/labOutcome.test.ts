@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   agentLabOutcome,
+  liveRetrievalOutcome,
   retrievalLabOutcome,
 } from "./labOutcome";
 import {
@@ -136,6 +137,46 @@ describe("lab outcome diagnostics", () => {
 
   it("does not claim a checkpoint passed before a production response exists", () => {
     const mission = coreMosaicLabs[0] as MosaicLabMission;
-    expect(retrievalLabOutcome(mission, null).tone).toBe("ready");
+    const outcome = retrievalLabOutcome(mission, null);
+    expect(outcome.tone).toBe("ready");
+    expect(outcome.label).toBe("Ready to run");
+    expect(outcome.label).not.toContain("Canonical query");
+  });
+
+  it("uses participant-facing stage verdicts without exposing query ids", () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+    const eligibleTarget = {
+      ...product(
+        mission.target_product_ids[0],
+        (rank) => 1 / (testFusionK + rank),
+      ),
+      domain: mission.filters.domain ?? "home_office",
+      price_cents: Math.min(
+        69900,
+        mission.filters.max_price_cents ?? 69900,
+      ),
+      availability: "in_stock" as const,
+      attributes: {
+        seat_depth_adjustable: true,
+        ...mission.filters.attributes,
+      },
+    };
+    const outcome = retrievalLabOutcome(
+      mission,
+      response(eligibleTarget),
+    );
+
+    expect(outcome.label).toBe("Repair verified");
+    expect(outcome.title).toBe("Fuzzy retrieval is contributing");
+    expect(outcome.label).not.toContain("Canonical query");
+  });
+
+  it("keeps edited live queries neutral", () => {
+    const outcome = liveRetrievalOutcome(
+      response(product(2, (rank) => 1 / (testFusionK + rank))),
+    );
+
+    expect(outcome.label).toBe("Live run complete");
+    expect(outcome.title).toBe("1 ranked result");
   });
 });

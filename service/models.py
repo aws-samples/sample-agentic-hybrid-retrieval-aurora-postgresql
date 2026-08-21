@@ -455,6 +455,7 @@ class AgentContextProduct(BaseModel):
 class AgentConversationContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    previous_agent_run_id: UUID
     previous_question: str = Field(min_length=4, max_length=2_000)
     recommendations: list[AgentContextProduct] = Field(
         min_length=1,

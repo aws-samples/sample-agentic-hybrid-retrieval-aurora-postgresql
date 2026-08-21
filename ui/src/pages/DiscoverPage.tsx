@@ -8,7 +8,7 @@ import {
 } from "../components/CatalogSearchComposer";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { ProductCard } from "../components/ProductCard";
-import { mosaicRetrievalExamples, retrievalExampleHref } from "../labMissions";
+import { coreMosaicLabs, retrievalExampleHref } from "../labMissions";
 import { productImageMap } from "../media";
 import { RETRIEVAL_SURFACE, useNavigate } from "../navigation";
 import { showcaseCatalogPage } from "../showcase";
@@ -93,21 +93,6 @@ const heroPrompts = [
     query: "Headphones for a long flight",
     filters: starterQueries[2].filters,
   },
-  {
-    label: "Sonora WH-C720",
-    query: "Sonora WH-C720",
-    filters: {} as Pick<SearchFilters, "domain" | "category_key">,
-  },
-  {
-    label: "Auraluxe H9",
-    query: "Auraluxe H9",
-    filters: {} as Pick<SearchFilters, "domain" | "category_key">,
-  },
-  {
-    label: "Carbon-plated shoes",
-    query: "Carbon-plated marathon shoes",
-    filters: {} as Pick<SearchFilters, "domain" | "category_key">,
-  },
 ];
 
 /**
@@ -183,7 +168,7 @@ const labStages = [
 ];
 
 function scenarioStateLabel(
-  checkpoint: typeof mosaicRetrievalExamples[number]["checkpoint"],
+  checkpoint: typeof coreMosaicLabs[number]["checkpoint"],
 ) {
   if (checkpoint === "repair") return "Before / after";
   if (checkpoint === "advanced") return "Advanced";
@@ -344,17 +329,6 @@ export function DiscoverPage() {
   // product, because a per-product hash cannot guarantee distinctness.
   const previewImages = useMemo(() => productImageMap(featuredPreview), []);
   const reduceMotion = useReducedMotion() ?? false;
-  const heroItem = (delay: number) => ({
-    initial: reduceMotion
-      ? { opacity: 0.84 }
-      : { opacity: 0, y: 10, filter: "blur(5px)" },
-    animate: reduceMotion
-      ? { opacity: 1 }
-      : { opacity: 1, y: 0, filter: "blur(0px)" },
-    transition: reduceMotion
-      ? { duration: 0.18 }
-      : { duration: 0.56, delay, ease: EASE_OUT },
-  });
 
   function search(
     nextQuery: string,
@@ -424,18 +398,18 @@ export function DiscoverPage() {
         </motion.picture>
         <div className="discover-scrim" aria-hidden="true" />
         <div className="discover-hero-content">
-          <motion.p className="discover-hero-kicker" {...heroItem(0.12)}>
+          <p className="discover-hero-kicker">
             Intelligent shopping, elevated
-          </motion.p>
+          </p>
           <h1>
-            <motion.span {...heroItem(0.18)}>Objects that shape</motion.span>
-            <motion.em {...heroItem(0.25)}>your world.</motion.em>
+            <span>Objects that shape</span>
+            <em>your world.</em>
           </h1>
-          <motion.p className="discover-hero-sub" {...heroItem(0.32)}>
+          <p className="discover-hero-sub">
             Ask in your own words, or search the way you always have. Mosaic
             retrieves from the catalog either way.
-          </motion.p>
-          <motion.div className="discover-search" role="search" {...heroItem(0.39)}>
+          </p>
+          <div className="discover-search" role="search">
             <CatalogSearchComposer
               idleSuggestions={catalogGhostQueries}
               inputLabel="Search products"
@@ -455,10 +429,10 @@ export function DiscoverPage() {
               <Sparkles size={15} aria-hidden="true" />
               Ask Mosaic
             </button>
-          </motion.div>
+          </div>
           {/* Each chip searches for exactly the words on it. */}
-          <motion.div className="discover-hero-prompts" {...heroItem(0.46)}>
-            <span>Try asking</span>
+          <div className="discover-hero-prompts">
+            <span>Try a search</span>
             {heroPrompts.map((starter) => (
               <button
                 key={starter.label}
@@ -468,7 +442,7 @@ export function DiscoverPage() {
                 {starter.label}
               </button>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -657,15 +631,15 @@ export function DiscoverPage() {
               aria-labelledby="discover-labs-scenarios-title"
             >
               <header>
-                <div>
-                  <p className="discover-labs-scenarios-kicker">Try a lab scenario</p>
-                  <h3 id="discover-labs-scenarios-title">
-                    Observe the retrieval behavior, then repair it.
-                  </h3>
-                </div>
+                <p className="discover-labs-scenarios-kicker">
+                  Required lab scenarios
+                </p>
+                <h3 id="discover-labs-scenarios-title">
+                  Observe. Repair. Prove.
+                </h3>
               </header>
               <div className="discover-labs-scenarios-grid">
-                {mosaicRetrievalExamples.map((scenario) => (
+                {coreMosaicLabs.map((scenario) => (
                   <Link
                     className="discover-labs-scenario"
                     key={scenario.id}

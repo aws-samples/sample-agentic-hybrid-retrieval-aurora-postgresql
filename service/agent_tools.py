@@ -11,12 +11,15 @@ from uuid import UUID, uuid4
 
 from strands import tool
 
-from service.catalog import get_product_evidence_records
+from service.catalog import get_product_evidence_records, get_product_summaries
 from service.config import get_settings
 from service.db import connect
 from service.model_runtime import model_runtime_error
 from service.models import (
+    AgentConversationContext,
     ProductSummary,
+    RankSignal,
+    ResultSignals,
     SearchFilters,
     SearchRequest,
 )
@@ -37,15 +40,250 @@ _TRACE_ORIGIN: ContextVar[Literal["model", "controller_fallback"]] = ContextVar(
 )
 
 
+class ConversationContextError(RuntimeError):
+    """A follow-up failed server-side prior-answer authorization."""
+
+
+def _optional_float(value: Any) -> float | None:
+    return None if value is None else float(value)
+
+
+def _signals_from_receipt(row: dict[str, Any]) -> ResultSignals:
+    """Restore ranking signals from the persisted retrieval receipt."""
+    scores = row.get("scores") or {}
+    channels = (row.get("provenance") or {}).get("channels") or {}
+
+    def contribution(channel: str) -> float | None:
+        return _optional_float(
+            (channels.get(channel) or {}).get("rrf_contribution")
+        )
+
+    return ResultSignals(
+        fts=RankSignal(
+            rank=row["fts_rank"],
+            raw_score=_optional_float(scores.get("fts")),
+            rrf_contribution=contribution("fts"),
+        ),
+        trigram=RankSignal(
+            rank=row["trigram_rank"],
+            raw_score=_optional_float(scores.get("trigram")),
+            rrf_contribution=contribution("trigram"),
+        ),
+        semantic=RankSignal(
+            rank=row["semantic_rank"],
+            raw_score=_optional_float(scores.get("semantic")),
+            rrf_contribution=contribution("vector"),
+        ),
+        rrf_score=float(scores["rrf"]),
+        pre_rerank_rank=row["fused_rank"],
+        pre_rerank_score=float(scores["pre_rerank"]),
+        rerank_score=_optional_float(scores.get("rerank")),
+        rerank_rank=row["rerank_rank"],
+        exact_sku_match=bool(scores.get("exact_sku_match")),
+        final_rank=row["result_rank"],
+    )
+
+
+def _uuid_list(values: Any, field: str) -> list[UUID]:
+    """Parse server-persisted UUID lists and fail closed on malformed state."""
+    if values is None:
+        return []
+    if not isinstance(values, list):
+        raise ConversationContextError(
+            f"Prior agent turn has an invalid {field} record"
+        )
+    try:
+        return list(dict.fromkeys(UUID(str(value)) for value in values))
+    except (TypeError, ValueError) as error:
+        raise ConversationContextError(
+            f"Prior agent turn has an invalid {field} record"
+        ) from error
+
+
+def _load_conversation_context(
+    context: AgentConversationContext,
+) -> tuple[UUID, list[ProductSummary], list[UUID]]:
+    """Authorize a follow-up against the previous answer of record."""
+    with connect() as connection:
+        row = connection.execute(
+            """
+            SELECT turn.agent_session_id, turn.user_message,
+                   turn.extracted_intent, synthesis.input_payload
+            FROM mosaic.agent_turn AS turn
+            JOIN LATERAL (
+                SELECT input_payload
+                FROM mosaic.agent_tool_event
+                WHERE agent_turn_id = turn.agent_turn_id
+                  AND tool_name = 'synthesize_cited_answer'
+                  AND outcome = 'success'
+                ORDER BY occurred_at DESC
+                LIMIT 1
+            ) AS synthesis ON true
+            WHERE turn.agent_turn_id = %s
+              AND turn.assistant_message IS NOT NULL
+            """,
+            (context.previous_agent_run_id,),
+        ).fetchone()
+        if row is None:
+            raise ConversationContextError(
+                "The previous Ask Mosaic answer is unavailable or was not grounded"
+            )
+
+        if context.previous_question != row["user_message"]:
+            raise ConversationContextError(
+                "The previous Ask Mosaic question does not match its run"
+            )
+
+        input_payload = row["input_payload"] or {}
+        if not isinstance(input_payload, dict):
+            raise ConversationContextError(
+                "The previous Ask Mosaic answer has an invalid product scope"
+            )
+        persisted_ids = input_payload.get("product_ids")
+        if not isinstance(persisted_ids, list) or not persisted_ids:
+            raise ConversationContextError(
+                "The previous Ask Mosaic answer has no product scope"
+            )
+        try:
+            selected_ids = [int(value) for value in persisted_ids]
+        except (TypeError, ValueError) as error:
+            raise ConversationContextError(
+                "The previous Ask Mosaic answer has an invalid product scope"
+            ) from error
+        supplied_products = [
+            recommendation.model_dump() for recommendation in context.recommendations
+        ]
+        if [item["product_id"] for item in supplied_products] != selected_ids:
+            raise ConversationContextError(
+                "The follow-up products do not match the previous answer of record"
+            )
+
+        intent = row["extracted_intent"] or {}
+        if not isinstance(intent, dict):
+            raise ConversationContextError(
+                "The previous Ask Mosaic answer has invalid persisted context"
+            )
+        persisted_products = intent.get("selected_products")
+        if persisted_products is not None and (
+            not isinstance(persisted_products, list)
+            or supplied_products != persisted_products
+        ):
+            raise ConversationContextError(
+                "The follow-up product identities do not match the previous answer"
+            )
+
+        context_event_ids = _uuid_list(
+            [
+                *(intent.get("search_event_ids") or []),
+                *(intent.get("context_search_event_ids") or []),
+            ],
+            "search event",
+        )
+        if not context_event_ids:
+            raise ConversationContextError(
+                "The previous Ask Mosaic answer has no authorized ranking scope"
+            )
+        authorized_rows = connection.execute(
+            """
+            SELECT event.search_event_id
+            FROM mosaic.search_event AS event
+            JOIN mosaic.agent_turn AS source_turn
+              ON source_turn.agent_turn_id = event.agent_turn_id
+            WHERE source_turn.agent_session_id = %s
+              AND event.search_event_id = ANY(%s::uuid[])
+            """,
+            (row["agent_session_id"], context_event_ids),
+        ).fetchall()
+        authorized_ids = {
+            item["search_event_id"] for item in authorized_rows
+        }
+        if authorized_ids != set(context_event_ids):
+            raise ConversationContextError(
+                "The previous Ask Mosaic ranking scope is no longer valid"
+            )
+        receipt_rows = connection.execute(
+            """
+            SELECT receipt.product_id, receipt.result_rank,
+                   receipt.fts_rank, receipt.trigram_rank,
+                   receipt.semantic_rank, receipt.fused_rank,
+                   receipt.rerank_rank, receipt.scores,
+                   receipt.provenance
+            FROM unnest(%s::uuid[]) WITH ORDINALITY
+                 AS authorized(search_event_id, position)
+            JOIN mosaic.search_result_event AS receipt
+              USING (search_event_id)
+            WHERE receipt.product_id = ANY(%s::bigint[])
+            ORDER BY authorized.position, receipt.result_rank
+            """,
+            (context_event_ids, selected_ids),
+        ).fetchall()
+        receipts_by_product: dict[int, dict[str, Any]] = {}
+        for receipt in receipt_rows:
+            receipts_by_product.setdefault(
+                receipt["product_id"],
+                dict(receipt),
+            )
+        missing_receipts = [
+            product_id
+            for product_id in selected_ids
+            if product_id not in receipts_by_product
+        ]
+        if missing_receipts:
+            raise ConversationContextError(
+                "The previous Ask Mosaic product scope has no ranking receipt"
+            )
+
+    products = get_product_summaries(selected_ids)
+    try:
+        products = [
+            product.model_copy(
+                update={
+                    "signals": _signals_from_receipt(
+                        receipts_by_product[product.product_id]
+                    )
+                }
+            )
+            for product in products
+        ]
+    except (KeyError, TypeError, ValueError) as error:
+        raise ConversationContextError(
+            "The previous Ask Mosaic ranking receipt is invalid"
+        ) from error
+    if persisted_products is None:
+        current_products = [
+            {
+                "product_id": product.product_id,
+                "title": product.title,
+                "model": product.model,
+            }
+            for product in products
+        ]
+        if supplied_products != current_products:
+            raise ConversationContextError(
+                "The follow-up product identities do not match the catalog"
+            )
+    return row["agent_session_id"], products, context_event_ids
+
+
 def start_run(
     question: str,
     base_filters: SearchFilters,
     result_limit: int,
+    context: AgentConversationContext | None = None,
 ) -> dict[str, Any]:
     # A question is one turn of one session. The schema models the session so a
     # follow-up can be tied to what came before it; a single-turn ask still
     # creates both rows rather than a special flat case.
-    agent_session_id = uuid4()
+    if context is None:
+        agent_session_id = uuid4()
+        context_products: list[ProductSummary] = []
+        context_search_event_ids: list[UUID] = []
+    else:
+        (
+            agent_session_id,
+            context_products,
+            context_search_event_ids,
+        ) = _load_conversation_context(context)
     agent_turn_id = uuid4()
     state: dict[str, Any] = {
         "agent_session_id": agent_session_id,
@@ -55,44 +293,77 @@ def start_run(
         "question": question,
         "base_filters": base_filters,
         "result_limit": result_limit,
+        "execution_path": (
+            "focused_follow_up" if context is not None else "full_retrieval"
+        ),
         "trace": [],
         "search_event_ids": [],
-        "products": {},
+        "context_search_event_ids": context_search_event_ids,
+        "context_product_ids": [
+            product.product_id for product in context_products
+        ],
+        "products": {
+            product.product_id: product for product in context_products
+        },
         "evidence": {},
         "evidence_by_product": {},
         "searches": [],
         "answer_of_record": None,
     }
-    _RUN.set(state)
     with connect() as connection:
-        connection.execute(
-            """
-            INSERT INTO mosaic.agent_session (agent_session_id, metadata)
-            VALUES (%s, %s::jsonb)
-            """,
-            (
-                agent_session_id,
-                json.dumps(
-                    {
-                        # Existing telemetry readers used model_id before model
-                        # routing split into two explicit phases.
-                        "model_id": get_settings().agent_model_id,
-                        "agent_model_id": get_settings().agent_model_id,
-                        "synthesis_model_id": get_settings().synthesis_model_id,
-                    }
+        if context is None:
+            connection.execute(
+                """
+                INSERT INTO mosaic.agent_session (agent_session_id, metadata)
+                VALUES (%s, %s::jsonb)
+                """,
+                (
+                    agent_session_id,
+                    json.dumps(
+                        {
+                            # Existing telemetry readers used model_id before model
+                            # routing split into two explicit phases.
+                            "model_id": get_settings().agent_model_id,
+                            "agent_model_id": get_settings().agent_model_id,
+                            "synthesis_model_id": get_settings().synthesis_model_id,
+                        }
+                    ),
                 ),
-            ),
-        )
+            )
+            turn_number = 1
+        else:
+            locked = connection.execute(
+                """
+                SELECT agent_session_id
+                FROM mosaic.agent_session
+                WHERE agent_session_id = %s
+                FOR UPDATE
+                """,
+                (agent_session_id,),
+            ).fetchone()
+            if locked is None:
+                raise ConversationContextError(
+                    "The previous Ask Mosaic session is unavailable"
+                )
+            turn_number = connection.execute(
+                """
+                SELECT COALESCE(max(turn_number), 0) + 1 AS turn_number
+                FROM mosaic.agent_turn
+                WHERE agent_session_id = %s
+                """,
+                (agent_session_id,),
+            ).fetchone()["turn_number"]
         connection.execute(
             """
             INSERT INTO mosaic.agent_turn (
                 agent_turn_id, agent_session_id, turn_number, user_message
             )
-            VALUES (%s, %s, 1, %s)
+            VALUES (%s, %s, %s, %s)
             """,
-            (agent_turn_id, agent_session_id, question),
+            (agent_turn_id, agent_session_id, turn_number, question),
         )
         connection.commit()
+    _RUN.set(state)
     return state
 
 
@@ -300,6 +571,7 @@ def search_products(
         "limit": limit,
     }
     state = _state()
+    state["execution_path"] = "full_retrieval"
     if not query.strip():
         return _failure(
             "query was empty",
@@ -381,6 +653,13 @@ def search_products(
         )
 
     state["search_event_ids"].append(response.search_event_id)
+    if not state["searches"] and state.get("context_product_ids"):
+        # A request for alternatives or changed constraints starts a new
+        # candidate pool. The prior answer remains conversational context, but
+        # its products do not inherit eligibility into this retrieval.
+        state["products"].clear()
+        state["evidence"].clear()
+        state["evidence_by_product"].clear()
     state["searches"].append(
         {
             "query": query,
@@ -421,10 +700,11 @@ def search_products(
 
 @tool
 def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]:
-    """Retrieve question-ranked evidence for one retrieved product.
+    """Retrieve fresh question-ranked evidence for one authorized product.
 
     Args:
-        product_id: A product ID returned by search_products.
+        product_id: A product ID returned by search_products or authorized by
+            the previous grounded answer.
         evidence_query: The shopper question or focused subquestion that the
             evidence must support.
 
@@ -436,8 +716,8 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
     state = _state()
     if product_id not in state["products"]:
         return _failure(
-            "product_id was not returned by this agent run",
-            "call search_products first and use a product_id from its results.",
+            "product_id is outside this agent turn's authorized product scope",
+            "use a product from the current retrieval or previous grounded answer.",
         )
     if not evidence_query.strip():
         return _failure(
@@ -509,10 +789,11 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
 
 @tool
 def compare_products(product_ids: list[int]) -> dict[str, Any]:
-    """Compare products already retrieved in this agent run.
+    """Compare products in this turn's authorized product scope.
 
     Args:
-        product_ids: Two to five product IDs returned by search_products.
+        product_ids: Two to five product IDs from the current retrieval or
+            previous grounded answer.
 
     Returns:
         A side-by-side comparison of constraints, attributes, source revisions,
@@ -529,8 +810,8 @@ def compare_products(product_ids: list[int]) -> dict[str, Any]:
     unknown = [item for item in unique_ids if item not in state["products"]]
     if unknown:
         return _failure(
-            f"products were not retrieved in this run: {unknown}",
-            "compare only product IDs returned by search_products.",
+            f"products are outside this turn's authorized scope: {unknown}",
+            "compare products from the current retrieval or previous grounded answer.",
         )
     products = [state["products"][item] for item in unique_ids]
     _record(
@@ -575,12 +856,21 @@ def explain_retrieval(search_event_id: str) -> dict[str, Any]:
             "search_event_id is not a UUID",
             "use the search_event_id returned by search_products.",
         )
-    # Scoped to this run on purpose: the tool is read-only, but replaying an
-    # arbitrary event would let one session read another session's telemetry.
-    if parsed not in state["search_event_ids"]:
+    # Scoped to the current retrieval or a server-validated prior answer.
+    # Replaying an arbitrary event would let one session read another
+    # session's telemetry.
+    authorized_event_ids = (
+        state["search_event_ids"]
+        if state["searches"]
+        else [
+            *state["search_event_ids"],
+            *state.get("context_search_event_ids", []),
+        ]
+    )
+    if parsed not in authorized_event_ids:
         return _failure(
-            "search_event_id was not created by this agent run",
-            "use a search_event_id returned by search_products in this run.",
+            "search_event_id is outside this turn's authorized ranking scope",
+            "use an event from the current retrieval or previous grounded answer.",
         )
     with connect() as connection:
         event = connection.execute(
@@ -622,7 +912,7 @@ def synthesize_cited_answer(
     question: str,
     product_ids: list[int],
 ) -> dict[str, Any]:
-    """Create the answer of record from products retrieved in this run.
+    """Create the answer of record from authorized products and fresh evidence.
 
     Call this last. It invokes the configured citation model with only the
     selected product revisions, rejects citations outside that set, applies
@@ -630,7 +920,8 @@ def synthesize_cited_answer(
 
     Args:
         question: The user's product question.
-        product_ids: Two to six product IDs returned by search_products.
+        product_ids: One to six product IDs from the current retrieval or
+            previous grounded answer.
 
     Returns:
         The citation-bounded answer of record.
@@ -646,8 +937,8 @@ def synthesize_cited_answer(
     unknown = [item for item in unique_ids if item not in state["products"]]
     if unknown:
         return _failure(
-            f"products were not retrieved in this run: {unknown}",
-            "synthesize only from product IDs returned by search_products.",
+            f"products are outside this turn's authorized scope: {unknown}",
+            "synthesize from the current retrieval or previous grounded answer.",
         )
     products = [state["products"][item] for item in unique_ids]
     explanations = [
@@ -656,7 +947,7 @@ def synthesize_cited_answer(
         if step["tool"] == "explain_retrieval"
         and step.get("outcome", "success") == "success"
     ]
-    if len(explanations) != 1:
+    if state["searches"] and len(explanations) != 1:
         _record(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},
@@ -669,7 +960,7 @@ def synthesize_cited_answer(
             outcome="error",
         )
         return _failure(
-            "selected products do not have exactly one ranking explanation",
+            "newly retrieved products do not have exactly one ranking explanation",
             "call explain_retrieval once with the strongest search_event_id "
             "before synthesis.",
         )
@@ -799,7 +1090,7 @@ def _complete_grounded_answer(question: str) -> None:
         raise RuntimeError(
             "No retrieved evidence is available for every selected product"
         )
-    if not any(
+    if state["searches"] and not any(
         step["tool"] == "explain_retrieval"
         and step.get("outcome", "success") == "success"
         for step in state["trace"]
@@ -900,6 +1191,40 @@ TOOL_FUNCTIONS = (
 )
 
 
+def _persisted_intent(
+    state: dict[str, Any],
+    record: dict[str, Any] | None,
+    plan: list[dict[str, Any]],
+    usage: dict[str, Any],
+) -> dict[str, Any]:
+    """Build the server-owned scope needed to authorize a later follow-up."""
+    return {
+        "plan": plan,
+        "search_event_ids": [
+            str(value) for value in state["search_event_ids"]
+        ],
+        "context_search_event_ids": [
+            str(value)
+            for value in state.get("context_search_event_ids", [])
+        ],
+        "context_product_ids": state.get("context_product_ids", []),
+        "execution_path": state.get("execution_path", "full_retrieval"),
+        "selected_products": (
+            [
+                {
+                    "product_id": product.product_id,
+                    "title": product.title,
+                    "model": product.model,
+                }
+                for product in record["recommendations"]
+            ]
+            if record
+            else []
+        ),
+        "usage": usage,
+    }
+
+
 def persist_completed_run(
     state: dict[str, Any],
     *,
@@ -941,13 +1266,12 @@ def persist_completed_run(
             (
                 record["answer"] if record else None,
                 json.dumps(
-                    {
-                        "plan": plan,
-                        "search_event_ids": [
-                            str(value) for value in state["search_event_ids"]
-                        ],
-                        "usage": persisted_usage,
-                    },
+                    _persisted_intent(
+                        state,
+                        record,
+                        plan,
+                        persisted_usage,
+                    ),
                     default=str,
                 ),
                 state["agent_turn_id"],

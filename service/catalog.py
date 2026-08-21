@@ -219,6 +219,39 @@ def list_products(
     )
 
 
+def get_product_summaries(product_ids: list[int]) -> list[ProductSummary]:
+    """Hydrate an ordered, server-authorized product shortlist."""
+    ordered_ids = list(dict.fromkeys(product_ids))
+    if not ordered_ids:
+        return []
+    with connect() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT {_SUMMARY_COLUMNS},
+                   media.runtime_uri AS image_url,
+                   media.image_source
+            FROM mosaic_search.product_document d
+            LEFT JOIN LATERAL (
+                SELECT a.runtime_uri, a.tier::text AS image_source
+                FROM mosaic.product_media pm
+                JOIN mosaic.media_asset a USING (asset_id)
+                WHERE pm.product_id = d.product_id
+                ORDER BY (pm.role <> 'detail'), pm.sort_order
+                LIMIT 1
+            ) media ON true
+            WHERE d.product_id = ANY(%s::bigint[])
+            ORDER BY array_position(%s::bigint[], d.product_id)
+            """,
+            (ordered_ids, ordered_ids),
+        ).fetchall()
+    products = [_summary(dict(row)) for row in rows]
+    found_ids = {product.product_id for product in products}
+    missing_ids = [product_id for product_id in ordered_ids if product_id not in found_ids]
+    if missing_ids:
+        raise KeyError(f"Authorized products are no longer available: {missing_ids}")
+    return products
+
+
 def catalog_suggestions(query: str) -> CatalogSuggestionsResponse:
     """Return bounded prefix matches without invoking embedding or rerank models.
 

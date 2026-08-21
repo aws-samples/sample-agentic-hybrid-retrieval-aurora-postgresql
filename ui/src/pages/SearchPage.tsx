@@ -300,7 +300,7 @@ export function SearchPage() {
     .filter((product): product is ProductSummary => Boolean(product));
   const topPick = products[0];
   const topPickReasonsList = topPick ? topPickReasons(topPick, mode, diagnostics) : [];
-  const labOutcome = labMission
+  const labOutcome = labMission && (agent || error)
     ? agentLabOutcome(labMission, agent, error)
     : null;
   const comparisonAttributes = Array.from(

@@ -34,6 +34,7 @@ import {
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
+import { SearchRetrievalReceipt } from "../components/RetrievalReceipt";
 import { productImageMap } from "../media";
 import { CatalogLoadingState, ErrorState } from "../components/States";
 import {
@@ -43,6 +44,7 @@ import {
 import { agentLabOutcome } from "../labOutcome";
 import { mosaicRetrievalExamples } from "../labMissions";
 import { useSearchParams } from "../navigation";
+import { starterExamples } from "../starters";
 import type {
   Availability,
   CatalogPage,
@@ -87,25 +89,6 @@ function priceFromCents(value: string | null, fallback: number) {
   const cents = Number(value);
   if (!Number.isFinite(cents)) return fallback;
   return Math.min(Math.max(cents / 100, 0), priceCeiling);
-}
-
-/**
- * One starter question per domain, from the validated eval set.
- *
- * `/api/retrieval/examples` serves `data/evals/demo_queries.jsonl` deduplicated
- * in file order, so taking the first query of each domain is deterministic:
- * every participant sees the same three, they cover all three domains, and they
- * are questions the eval suite actually scores rather than copy written for the
- * panel.
- */
-function starterQuestions(examples: RetrievalExample[]): string[] {
-  const firstByDomain = new Map<Domain, string>();
-  for (const example of examples) {
-    if (!firstByDomain.has(example.domain)) {
-      firstByDomain.set(example.domain, example.query);
-    }
-  }
-  return [...firstByDomain.values()];
 }
 
 /** The most recent exchange that produced an answer, or null before any does. */
@@ -176,10 +159,10 @@ export function CatalogPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [expandedFilters, setExpandedFilters] = useState<Record<FilterSection, boolean>>({
     categories: true,
-    brand: true,
-    price: true,
-    availability: true,
-    rating: true,
+    brand: false,
+    price: false,
+    availability: false,
+    rating: false,
   });
   const [retrieval, setRetrieval] = useState<SearchResponse | null>(null);
   const [retrievalLoading, setRetrievalLoading] = useState(false);
@@ -187,10 +170,12 @@ export function CatalogPage() {
   const [retrievalQuery, setRetrievalQuery] = useState(searchParams.get("q") ?? "");
   const [agentTurns, setAgentTurns] = useState<AskMosaicTurn[]>([]);
   const [agentOpen, setAgentOpen] = useState(false);
-  const [agentStarters, setAgentStarters] = useState<string[]>([]);
+  const [agentStarters, setAgentStarters] = useState<RetrievalExample[]>([]);
   const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
   const [domainsAtEnd, setDomainsAtEnd] = useState(false);
   const domainTabsRef = useRef<HTMLElement>(null);
+  const filterSheetRef = useRef<HTMLElement>(null);
+  const filterPreviouslyFocused = useRef<HTMLElement | null>(null);
   const retrievalRequestVersion = useRef(0);
   const agentRequestVersion = useRef(0);
   const handledAskDeepLink = useRef(false);
@@ -241,7 +226,7 @@ export function CatalogPage() {
   const labMission = mosaicRetrievalExamples.find(
     (mission) => mission.id === searchParams.get("mission") && mission.stage === "reason",
   );
-  const labOutcome = labMission
+  const labOutcome = labMission && (agent || answeredTurn?.error)
     ? agentLabOutcome(labMission, agent, answeredTurn?.error ?? "")
     : null;
 
@@ -333,7 +318,7 @@ export function CatalogPage() {
     api
       .examples()
       .then((examples) => {
-        if (active) setAgentStarters(starterQuestions(examples));
+        if (active) setAgentStarters(starterExamples(examples));
       })
       .catch(() => {
         if (active) setAgentStarters([]);
@@ -375,11 +360,81 @@ export function CatalogPage() {
 
   useEffect(() => {
     if (!filtersOpen) return;
+    filterPreviouslyFocused.current = (
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+    );
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const layer = filterSheetRef.current?.parentElement;
+    const background = [
+      ...Array.from(layer?.parentElement?.children ?? []).filter(
+        (element) => element !== layer,
+      ),
+      ...Array.from(document.querySelectorAll(".site-header")),
+    ] as HTMLElement[];
+    const prior = background.map((element) => ({
+      element,
+      inert: element.hasAttribute("inert"),
+      ariaHidden: element.getAttribute("aria-hidden"),
+    }));
+    for (const element of background) {
+      element.setAttribute("inert", "");
+      element.setAttribute("aria-hidden", "true");
+    }
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setFiltersOpen(false);
     };
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        filterSheetRef.current?.querySelectorAll<HTMLElement>(
+          [
+            'button:not([disabled])',
+            '[href]',
+            'input:not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])',
+          ].join(", "),
+        ) ?? [],
+      ).filter((element) => !element.hasAttribute("hidden"));
+      if (!focusable.length) {
+        event.preventDefault();
+        filterSheetRef.current?.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    window.addEventListener("keydown", trapFocus);
+    const frame = window.requestAnimationFrame(() => {
+      filterSheetRef.current
+        ?.querySelector<HTMLElement>('button[aria-label="Close filters"]')
+        ?.focus();
+    });
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("keydown", trapFocus);
+      for (const { element, inert, ariaHidden } of prior) {
+        if (!inert) element.removeAttribute("inert");
+        if (ariaHidden === null) element.removeAttribute("aria-hidden");
+        else element.setAttribute("aria-hidden", ariaHidden);
+      }
+      const restoreTarget = filterPreviouslyFocused.current;
+      if (restoreTarget?.isConnected) restoreTarget.focus();
+    };
   }, [filtersOpen]);
 
   /**
@@ -476,6 +531,7 @@ export function CatalogPage() {
     if (trimmed.length < 2 || agentPending) return;
     const context = answeredTurn?.response
       ? {
+        previous_agent_run_id: answeredTurn.response.agent_run_id,
         previous_question: answeredTurn.question,
         recommendations: answeredTurn.response.recommendations
           .slice(0, 4)
@@ -500,6 +556,7 @@ export function CatalogPage() {
         partial: null,
         streamed: "",
         stage: "understand",
+        executionPath: context ? "focused_follow_up" : "full_retrieval",
         stageDetail:
           "Working out what you need and which catalog constraints that implies.",
         error: "",
@@ -515,7 +572,11 @@ export function CatalogPage() {
       await api.agentStream(trimmed, filters, (event) => {
         if (version !== agentRequestVersion.current) return;
         if (event.type === "stage") {
-          patch({ stage: event.id, stageDetail: event.detail });
+          patch({
+            stage: event.id,
+            executionPath: event.path,
+            stageDetail: event.detail,
+          });
         } else if (event.type === "partial") {
           patch({ partial: event.partial });
         } else if (event.type === "answer_start") {
@@ -561,12 +622,14 @@ export function CatalogPage() {
   }
 
   function openFilterSection(section?: FilterSection) {
-    if (section) {
-      setExpandedFilters((current) => ({
-        ...current,
-        [section]: true,
-      }));
-    }
+    const expanded = section ?? "categories";
+    setExpandedFilters({
+      categories: expanded === "categories",
+      brand: expanded === "brand",
+      price: expanded === "price",
+      availability: expanded === "availability",
+      rating: expanded === "rating",
+    });
     setFiltersOpen(true);
   }
 
@@ -703,8 +766,8 @@ export function CatalogPage() {
                 Find what fits <em>your world.</em>
               </h1>
               <p className="shop-lede">
-                Search naturally, browse with intention, or ask Mosaic for help
-                finding what fits.
+                Search in natural language, browse with intention, or ask Mosaic
+                for help finding what fits.
               </p>
             </header>
 
@@ -713,7 +776,6 @@ export function CatalogPage() {
                 <section className="shop-search" aria-label="Mosaic product search">
                   <CatalogSearchComposer
                     initialValue={retrievalQuery}
-                    idleSuggestions={catalogGhostQueries}
                     pending={retrievalLoading}
                     leadingIcon={<GenerativeSearchIcon size={18} />}
                     placeholder="Search a product, model, or describe what you need"
@@ -733,7 +795,7 @@ export function CatalogPage() {
 
                 <div className="shop-suggested" aria-label="Suggested searches">
                   <span>Suggested for you</span>
-                  {catalogGhostQueries.slice(0, 3).map((suggestion) => (
+                  {catalogGhostQueries.slice(0, 2).map((suggestion) => (
                     <button
                       type="button"
                       key={suggestion}
@@ -762,6 +824,10 @@ export function CatalogPage() {
                     Cites the evidence behind each pick
                   </li>
                 </ul>
+                <p className="shop-console-note-mobile">
+                  Turns your request into constraints, compares candidates, and
+                  cites every pick.
+                </p>
                 <img
                   className="shop-console-note-photo"
                   src="/assets/images/mosaic/echobud-s2.webp"
@@ -787,6 +853,7 @@ export function CatalogPage() {
                   <button
                     type="button"
                     className={domain === option.value ? "active" : ""}
+                    aria-pressed={domain === option.value}
                     key={option.value ?? "all"}
                     onClick={() => update("domain", option.value)}
                   >
@@ -935,7 +1002,7 @@ export function CatalogPage() {
               ) : retrieval ? (
                 <>
                   <strong>{retrieval.results.length}</strong> ranked products
-                  <small> · {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} fused candidates</small>
+                  <small> · {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} candidates considered</small>
                 </>
               ) : page ? (
                 <>
@@ -950,6 +1017,16 @@ export function CatalogPage() {
               </button>
             ) : null}
           </div>
+
+          {retrieval ? (
+            <details className="shop-ranking-receipt">
+              <summary>
+                <span>How these results were ranked</span>
+                <small>Candidate sources, combined order, and model reranking</small>
+              </summary>
+              <SearchRetrievalReceipt response={retrieval} plainLanguage />
+            </details>
+          ) : null}
 
           {loading && !page && !activeQuery ? <CatalogLoadingState /> : null}
           {retrievalLoading ? <HybridRetrievalTrace /> : null}
@@ -1052,11 +1129,13 @@ export function CatalogPage() {
               transition={{ duration: reduceMotion ? 0.1 : 0.18 }}
             />
             <motion.aside
+              ref={filterSheetRef}
               className="shop-filter-sheet"
               id="shop-filter-sheet"
               role="dialog"
               aria-modal="true"
               aria-labelledby="shop-filter-title"
+              tabIndex={-1}
               initial={reduceMotion ? { opacity: 0 } : { x: "100%" }}
               animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
               exit={reduceMotion ? { opacity: 0 } : { x: "100%" }}
@@ -1064,8 +1143,8 @@ export function CatalogPage() {
             >
             <header>
               <div>
-                <p className="eyebrow">Narrow the candidate set</p>
                 <h2 id="shop-filter-title">Filters</h2>
+                <p>Results update immediately.</p>
               </div>
               <button type="button" aria-label="Close filters" onClick={() => setFiltersOpen(false)}>
                 <X size={20} />
@@ -1266,7 +1345,7 @@ export function CatalogPage() {
             <footer>
               <button type="button" onClick={clearFilters}>Clear all</button>
               <button className="primary" type="button" onClick={() => setFiltersOpen(false)}>
-                Show products
+                Done
               </button>
             </footer>
             </motion.aside>

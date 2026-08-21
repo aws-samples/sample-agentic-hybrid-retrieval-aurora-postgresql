@@ -9,16 +9,17 @@ contract without creating a second copy of its values.
 
 | Lab | Canonical query | Bad observation | Participant repair | Good observation |
 |---|---|---|---|---|
-| Retrieve | `G-003` / `typo-recovery` | Product 2 is absent and the trigram pool is zero | Restore the trigram CTE and candidate channel | Product 2 returns with trigram rank and contribution; hard filters still hold |
+| Retrieve | `G-003` / `typo-recovery` | Product 2 still appears through incidental FTS, but has no trigram rank or contribution | Restore the trigram CTE and candidate channel | Product 2 retains its result with trigram rank and contribution; hard filters still hold |
 | Rank | `G-008` / `rank-with-evidence` | Product 370002 wins every arm, but collapsed contributions put 370001 at fused rank 1; reranking masks the defect | Restore `1 / (k + source_rank)` | Product 370002 is fused and final rank 1, with stable, inspectable contributions |
 | Reason | `G-010` / `agentic-research` | Retrieval and evidence calls occur, but synthesis fails closed with HTTP 503 | Attach retrieved evidence IDs to product-owned synthesis state | HTTP 200, grounded comparison, and citations resolve to real evidence records |
 
 These three are not generic example prompts. Workshop Studio runs the same
 request before and after one focused change.
 
-Five fast control queries keep the labs interactive without adding edits:
+Five validator-owned controls protect the adjacent invariants without adding
+participant exercises:
 
-| Lab | Canonical query | Participant proves |
+| Lab | Canonical query | Production validator proves |
 |---|---|---|
 | Retrieve | `G-001` / `exact-identity` | FTS resolves the exact visible model name and it remains first through fusion and reranking |
 | Retrieve | `G-013` / `semantic-eligibility` | A near-identical refurbished hard negative is excluded inside every arm |

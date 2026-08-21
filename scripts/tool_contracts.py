@@ -79,6 +79,40 @@ def contracts_for_surface(surface: Surface) -> list[dict[str, Any]]:
     ]
 
 
+def shared_contract_receipt() -> dict[str, Any]:
+    """Describe the invariants preserved across agent and MCP projections."""
+    by_surface = {
+        surface: {
+            contract["name"]: contract
+            for contract in contracts_for_surface(surface)
+        }
+        for surface in ("agent", "mcp")
+    }
+    shared_names = sorted(set(by_surface["agent"]) & set(by_surface["mcp"]))
+    preserved = ("tool_version", "output_schema", "read_only")
+    mismatches = {
+        name: [
+            field
+            for field in preserved
+            if by_surface["agent"][name][field] != by_surface["mcp"][name][field]
+        ]
+        for name in shared_names
+    }
+    mismatches = {
+        name: fields for name, fields in mismatches.items() if fields
+    }
+    if mismatches:
+        raise ToolContractError(
+            "shared agent and MCP tool invariants drifted; "
+            f"fix db/config/agent_tool_contracts.json: {mismatches}"
+        )
+    return {
+        "shared_tools": shared_names,
+        "preserved_fields": list(preserved),
+        "transport_specific_fields": ["input_schema", "transport_trace"],
+    }
+
+
 def _sql_literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
@@ -156,9 +190,13 @@ def main() -> int:
             "db/config/agent_tool_contracts.json; run "
             "python scripts/tool_contracts.py --write"
         )
+    receipt = shared_contract_receipt()
     print(
-        f"PASS: {len(contracts_for_surface('agent'))} agent and "
-        f"{len(contracts_for_surface('mcp'))} MCP contracts agree with the SQL registry"
+        f"PASS: canonical registry projects "
+        f"{len(contracts_for_surface('agent'))} agent and "
+        f"{len(contracts_for_surface('mcp'))} MCP contracts; "
+        f"{len(receipt['shared_tools'])} shared tools preserve version, output "
+        f"schema, and read-only policy; SQL registry matches all agent tools"
     )
     return 0
 
