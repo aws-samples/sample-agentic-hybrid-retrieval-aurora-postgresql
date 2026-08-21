@@ -61,3 +61,15 @@ infra/cdk/cdk.context.json
 # Studio release rule rejects any dirty source worktree, so one stray report
 # here blocks a repin.
 /.impeccable/
+/docs/superpowers/
+
+# Media-generation prompt drafts. The machine-readable inputs the scripts
+# actually read are version-controlled under data/media/; these were the
+# human-facing prompt dumps beside them, regenerated per batch rather than
+# reviewed. Listed one by one on purpose: a `*-prompts*.md` glob also catches
+# docs/hnsw-focused-product-prompts.md, which scripts/build_asset_labels.py and
+# tests/test_media_assets.py both read.
+/docs/category-plate-prompts.md
+/docs/image-prompts-category-plates.md
+/docs/image-generation-guide.md
+/docs/media-generation-batches.md

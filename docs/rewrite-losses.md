@@ -15,8 +15,8 @@ could not otherwise cite, and every entry already answers the same three
 questions. A corrections section would have created a placement argument for
 every future entry and split the `LOSS-n` numbering that other documents cite. The
 `LOSS-` prefix is kept for exactly that reason — the identifiers are referenced
-from `docs/superpowers/specs/`, `db/config/retrieval.yaml`, and commit messages,
-and renaming them to buy a tidier title would break more than it fixes.
+from `db/config/retrieval.yaml` and commit messages, and renaming them to buy a
+tidier title would break more than it fixes.
 
 Every entry states the substance, the evidence, and **what would have caught
 it** — because in nearly every case the answer is an assertion or a gate that did

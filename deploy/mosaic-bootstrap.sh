@@ -296,6 +296,13 @@ sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" config \
 # are what suppress the "do you trust the authors" dialog on first open. The
 # sibling Pellier bootstrap established this shape after writing the task to the
 # unopened parent, where it silently never ran.
+#
+# files.exclude leaves the three places the labs actually edit - db/, scripts/,
+# and service/ - and hides the rest of a 700-file repository from the explorer
+# and quick-open. It also removes docs/, which is not only clutter: it holds
+# intentional-gaps.md, instructor-guide.md, and lab-golden-queries.md, so a
+# participant browsing that folder finds the answer to all three labs. This is
+# presentation only, so anything hidden is still readable from the terminal.
 CODE_EDITOR_SETTINGS="/home/$CODE_EDITOR_USER/.code-editor-server/data/User"
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" "$CODE_EDITOR_SETTINGS"
 cat >"$CODE_EDITOR_SETTINGS/settings.json" <<'EOF'
@@ -319,7 +326,28 @@ cat >"$CODE_EDITOR_SETTINGS/settings.json" <<'EOF'
   "workbench.tips.enabled": false,
   "update.showReleaseNotes": false,
   "extensions.ignoreRecommendations": true,
-  "telemetry.telemetryLevel": "off"
+  "telemetry.telemetryLevel": "off",
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.egg-info": true,
+    ".github": true,
+    ".pytest_cache": true,
+    ".ruff_cache": true,
+    ".venv": true,
+    "ARTIFACTS.md": true,
+    "AGENTS.md": true,
+    "benchmarks": true,
+    "CODE_OF_CONDUCT.md": true,
+    "config": true,
+    "CONTRIBUTING.md": true,
+    "data": true,
+    "docs": true,
+    "mcp-server": true,
+    "READINESS.md": true,
+    "tests": true,
+    "ui": true,
+    "uv.lock": true
+  }
 }
 EOF
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$CODE_EDITOR_SETTINGS/settings.json"

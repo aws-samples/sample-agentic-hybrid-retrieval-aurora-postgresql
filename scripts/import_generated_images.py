@@ -179,8 +179,8 @@ def main() -> int:
         for name in refused:
             print(f"  {name}", file=sys.stderr)
         print(
-            "Rename them to a key from docs/media-shot-list.md or a plate id from "
-            "docs/image-prompts-category-plates.md.",
+            "Rename them to a key from docs/media-shot-list.md or a plate_id from "
+            "data/media/category_plates.json.",
             file=sys.stderr,
         )
 
