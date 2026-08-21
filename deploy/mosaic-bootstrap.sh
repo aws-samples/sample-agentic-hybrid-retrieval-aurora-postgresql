@@ -306,11 +306,14 @@ cat >"$CODE_EDITOR_SETTINGS/settings.json" <<'EOF'
   "security.workspace.trust.emptyWindow": false,
   "task.allowAutomaticTasks": "on",
   "git.enabled": false,
-  "editor.fontSize": 15,
+  "editor.fontSize": 16,
   "terminal.integrated.fontSize": 18,
   "window.zoomLevel": 1,
   "terminal.integrated.defaultProfile.linux": "bash",
   "workbench.colorTheme": "Default Dark Modern",
+  "workbench.colorCustomizations": {
+    "terminal.foreground": "#FFFFFF"
+  },
   "workbench.startupEditor": "none",
   "workbench.welcomePage.walkthroughs.openOnInstall": false,
   "workbench.tips.enabled": false,
@@ -469,6 +472,13 @@ export PGUSER='$DB_USER'
 export PGDATABASE='$DB_NAME'
 export PGSSLMODE=require
 EOF
+
+# Match the familiar green identity and blue path used in the Builder workshop
+# terminals without recoloring participant commands or Claude Code output.
+cat >>"/home/$CODE_EDITOR_USER/.bashrc" <<'EOF'
+export PS1='\[\033[01;32m\]\u:\[\033[01;34m\]\w\[\033[00m\]\$ '
+EOF
+
 printf '%s:%s:%s:%s:%s\n' \
   "$DB_CLUSTER_ENDPOINT" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASSWORD" \
   >"/home/$CODE_EDITOR_USER/.pgpass"

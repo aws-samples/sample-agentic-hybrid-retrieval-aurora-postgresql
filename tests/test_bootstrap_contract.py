@@ -256,8 +256,22 @@ def test_code_editor_hides_git_and_is_legible(script: str) -> None:
         "the injected Lab 1 seam showed as a modified badge a participant may revert"
     )
     assert '"workbench.colorTheme": "Default Dark Modern"' in script
+    assert '"editor.fontSize": 16' in script
     assert '"terminal.integrated.fontSize": 18' in script
     assert '"window.zoomLevel"' in script, "whole-UI scale, not just the editor font"
+    assert '"terminal.foreground": "#FFFFFF"' in script, (
+        "participant commands need full contrast against the dark terminal"
+    )
+    assert all(
+        fragment in script
+        for fragment in (
+            "export PS1=",
+            "\\033[01;32m",
+            "\\033[01;34m",
+            "\\u:",
+            "\\w",
+        )
+    ), "the participant shell must distinguish identity from the working path"
 
 
 def test_claude_code_skips_its_first_run_prompt(script: str) -> None:
