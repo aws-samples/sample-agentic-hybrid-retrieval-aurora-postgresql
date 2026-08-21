@@ -55,3 +55,9 @@ infra/cdk/cdk.context.json
 
 # `screen -L` transcript from running the dev servers locally.
 /screenlog.*
+
+# Local coding-agent scratch. Never source, and never publishable from an
+# aws-samples repository. It also has to stay ignored because the Workshop
+# Studio release rule rejects any dirty source worktree, so one stray report
+# here blocks a repin.
+/.impeccable/
