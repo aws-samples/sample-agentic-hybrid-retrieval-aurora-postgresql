@@ -12,6 +12,7 @@ from scripts.score_evals import (
     ranked_result_sha256,
     run_scored_queries,
     search_with_db_retry,
+    validate_hard_negatives,
     validate_release_checks,
     verify_scorecard,
 )
@@ -419,3 +420,34 @@ def test_release_checks_fail_with_observed_results_and_a_fix():
             ],
             {"G-001": [(1, 17002), (2, 17001)]},
         )
+
+
+def test_hard_negatives_must_stay_out_of_the_result_window():
+    """`docs/lab-golden-queries.md` calls these validator-owned controls.
+
+    Before this gate existed, nothing asserted the behaviour: the canonical-eval test
+    checks that the fixture grades a hard negative 0, and validate_lab.py checks
+    eligibility against the mission filters, which is a different claim — a hard
+    negative can satisfy every filter and still be the wrong product.
+    """
+    queries = [
+        {
+            "query_id": "G-013",
+            "hard_negative_ids": [234001, 210001],
+            "judgments": [{"product_id": 234002, "grade": 3, "rationale": "x" * 20}],
+        }
+    ]
+    clean = {"G-013": [(1, 234002), (2, 234003)]}
+    validate_hard_negatives(queries, clean)
+
+    leaked = {"G-013": [(1, 234002), (2, 210001)]}
+    with pytest.raises(ValueError) as failure:
+        validate_hard_negatives(queries, leaked)
+    assert "210001" in str(failure.value)
+    assert "rank(s) [2]" in str(failure.value)
+
+
+def test_hard_negative_gate_ignores_a_query_that_declares_none():
+    validate_hard_negatives(
+        [{"query_id": "G-999", "hard_negative_ids": []}], {"G-999": [(1, 1)]}
+    )

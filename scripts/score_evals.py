@@ -94,6 +94,47 @@ def ranked_result_sha256(ranked: dict[str, list[tuple[int, int]]]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def validate_hard_negatives(
+    queries: list[dict[str, Any]],
+    ranked: dict[str, list[tuple[int, int]]],
+) -> None:
+    """Prove the graded hard negatives stay out of the returned window.
+
+    `hard_negative_ids` names, per query, the near-identical product that must not
+    come back: a refurbished sibling, a non-carbon shoe, the same subcategory under a
+    different model identity. `docs/lab-golden-queries.md` calls these
+    validator-owned controls, and G-013's declared behavior is that they are "removed
+    inside every retrieval arm".
+
+    Nothing enforced that. `tests/test_canonical_evals.py` asserts the *judgments*
+    grade every hard negative 0, which is a property of the fixture, and
+    `validate_lab.py` checks eligibility against the mission filters, which is a
+    different claim: a hard negative can satisfy every filter and still be the wrong
+    product. So a documented control could regress silently while every gate stayed
+    green.
+
+    Deliberately not appended to `deterministic_release_checks`. That field is
+    compared field-for-field by `verify_scorecard`, so recording these would force a
+    new baseline for a check that adds no new measurement — it only refuses a
+    retrieval result the fixtures already said was wrong.
+    """
+    for query in queries:
+        negatives = query.get("hard_negative_ids") or []
+        if not negatives:
+            continue
+        ranked_ids = [
+            product_id for _, product_id in sorted(ranked.get(query["query_id"], []))
+        ]
+        retrieved = [product_id for product_id in negatives if product_id in ranked_ids]
+        if retrieved:
+            raise ValueError(
+                f"{query['query_id']} returned hard negative(s) {retrieved} at "
+                f"rank(s) {[ranked_ids.index(p) + 1 for p in retrieved]}; these "
+                "products are graded 0 and must not reach the result window. Fix the "
+                "eligibility gate or the retrieval representation."
+            )
+
+
 def validate_release_checks(
     queries: list[dict[str, Any]],
     ranked: dict[str, list[tuple[int, int]]],
@@ -500,6 +541,7 @@ def measured_scorecard(
     _write_results(results_path, queries, rows)
 
     all_judgments = load_judgments(queries_path)
+    validate_hard_negatives(queries, ranked)
     release_checks = validate_release_checks(queries, ranked)
     metrics = evaluate(
         {query["query_id"]: all_judgments[query["query_id"]] for query in queries},
