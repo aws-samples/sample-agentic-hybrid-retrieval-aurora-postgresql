@@ -7,7 +7,7 @@
   },
   "canonical_query_count": 20,
   "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
-  "dataset_manifest_sha256": "7cd7a5ae4c7cab2667c5433427d28a36dd12897e47f7c473f508ef93f43f95ec",
+  "dataset_manifest_sha256": "d5abc2c047f73726926260bb6a5364b50295acc4c6b2a3e9e35d47e93eb5c464",
   "deterministic_release_checks": [
     {
       "product_id": 17001,
@@ -38,10 +38,10 @@
     "ef_search": 100,
     "iterative_scan": "relaxed_order",
     "max_scan_tuples": 20000,
-    "scan_mem_multiplier": 1.0
+    "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-08-15T09:54:45.528037+00:00",
+  "measured_at": "2026-08-23T21:53:32.664198+00:00",
   "metrics": {
     "mrr": 0.9228070175438597,
     "ndcg@10": 0.8486607653000183,
@@ -179,7 +179,7 @@
     "max_scan_tuples": 20000,
     "result_limit": 10,
     "rrf_k": 60,
-    "scan_mem_multiplier": 1.0,
+    "scan_mem_multiplier": 2.0,
     "semantic_limit": 150,
     "trigram_limit": 80,
     "trigram_threshold": 0.2,
@@ -189,7 +189,7 @@
   },
   "scored_query_set_sha256": "61168d1171a9f094f45eb4a2e6d1224bef7a048afe79a88bb210ecb6e6d1a8a3",
   "source": {
-    "revision": "9ad1e6c12c1bca8d4d257b504b76b388a9bc4e4b",
+    "revision": "0869073231cbeccdaec3a914966570d5337cddbc",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
