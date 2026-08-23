@@ -204,7 +204,7 @@ nginx -t
 systemctl enable nginx code-editor
 systemctl restart nginx code-editor
 
-CLAUDE_CODE_VERSION=2.1.232
+CLAUDE_CODE_VERSION=2.1.233
 npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
 CLAUDE_BIN=$(command -v claude)
 test -n "$CLAUDE_BIN"
@@ -218,7 +218,6 @@ export AWS_REGION=us-east-1
 export AWS_DEFAULT_REGION=us-east-1
 export CLAUDE_CODE_USE_BEDROCK=1
 export ANTHROPIC_MODEL=global.anthropic.claude-sonnet-4-6
-export CLAUDE_CODE_MODEL=global.anthropic.claude-sonnet-4-6
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 EOF
 chmod 644 /etc/profile.d/mosaic-claude.sh
@@ -240,7 +239,6 @@ for preflight_attempt in 1 2 3; do
       AWS_DEFAULT_REGION="$AWS_REGION" \
       CLAUDE_CODE_USE_BEDROCK=1 \
       ANTHROPIC_MODEL=global.anthropic.claude-sonnet-4-6 \
-      CLAUDE_CODE_MODEL=global.anthropic.claude-sonnet-4-6 \
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       timeout 180 "$CLAUDE_BIN" \
         --bare \
