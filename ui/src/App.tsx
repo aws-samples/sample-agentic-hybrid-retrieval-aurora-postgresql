@@ -52,6 +52,12 @@ export function App() {
               </Route>
               <Route path="/products/:productId" component={ProductPage} />
               <Route path="/labs/retrieval" component={RetrievalLabPage} />
+              {/* The surface is named Playground in navigation, so the name is
+                  typeable. The canonical path stays /labs/retrieval, which is what
+                  the workshop instructions deep-link to. */}
+              <Route path="/playground">
+                <Redirect to="/labs/retrieval" replace />
+              </Route>
               <Route path="/labs/performance">
                 <Redirect to="/mosaic-labs/hnsw" replace />
               </Route>

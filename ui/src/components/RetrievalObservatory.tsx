@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CodeBlock } from "../components/CodeBlock";
+import { PlaygroundDormant } from "./PlaygroundStage";
 import type { MosaicLabMission } from "../labMissions";
 import { productImageMap } from "../media";
 import {
@@ -9,10 +10,11 @@ import {
   type ColumnKey,
   type MatrixRow,
 } from "../retrievalMatrix";
+import { FINAL_LABEL, FUSED_LABEL } from "../retrievalLanguage";
 import type { SearchResponse } from "../types";
 
 /**
- * The Retrieval Observatory: five retrievers, one row per result, side by side.
+ * The Playground's rank table: five stages, one row per result, side by side.
  *
  * The point of this surface is a comparison, and a comparison has to be visible
  * all at once. The version this replaces showed one retriever at a time behind a
@@ -140,17 +142,18 @@ export function RetrievalObservatory({
       className="labs-matrix"
       aria-labelledby="labs-matrix-title"
     >
+      {/* h3, not h2: this table lives inside the Rank stage, whose own h2 is
+          "Rank". The eyebrow above it read "Five retrievers, one result set" over
+          a heading saying the same thing in different words. */}
       <header className="labs-matrix-heading">
         <div>
-          <p className="eyebrow">Five retrievers, one result set</p>
-          <h2 id="labs-matrix-title">What each retriever found</h2>
+          <h3 id="labs-matrix-title">Every stage, on the same result set</h3>
+          {/* No pre-run summary. The dormant block below already names the five
+              columns and says what fills them; two sentences asking for the same
+              click read as a stalled panel. */}
           {matrix ? (
             <p className="labs-matrix-summary">{matrixSummary(matrix)}</p>
-          ) : (
-            <p className="labs-matrix-summary">
-              Run the pipeline to compare this scenario across all five retrievers.
-            </p>
-          )}
+          ) : null}
         </div>
         <div className="labs-matrix-provenance">
           {response ? (
@@ -235,7 +238,10 @@ export function RetrievalObservatory({
           <footer className="labs-matrix-footer">
             {focusedColumn ? (
               <div className="labs-matrix-sql">
-                <p className="eyebrow">{focusedColumn.label} in psql</p>
+                <p className="labs-matrix-sql-title">
+                  <strong>View SQL</strong>
+                  {focusedColumn.label} — <code>{focusedColumn.mechanism}</code>
+                </p>
                 <CodeBlock code={focusedColumn.sql} label={`${focusedColumn.key}.sql`} />
               </div>
             ) : (
@@ -254,12 +260,24 @@ export function RetrievalObservatory({
             </p>
           </footer>
         </>
-      ) : (
+      ) : loading ? (
         <p className="labs-matrix-awaiting" role="status">
-          {loading
-            ? "Embedding the query, running all three arms, fusing, and reranking."
-            : `No run for ${example?.discover_label ?? "this scenario"} yet. Run the pipeline to fill the matrix.`}
+          Embedding the query, running all three arms, fusing, and reranking.
         </p>
+      ) : (
+        /* The five columns this table is about to have, in order, with no numbers
+           in them. It used to be one grey sentence in an otherwise empty panel,
+           which reads as broken rather than as dormant. */
+        <PlaygroundDormant
+          steps={[
+            "Rank in each arm",
+            "RRF contribution",
+            FUSED_LABEL,
+            "Rerank score",
+            FINAL_LABEL,
+          ]}
+          hint={`No run for ${example?.discover_label ?? "this scenario"} yet. Run the pipeline to fill all five columns on one result set.`}
+        />
       )}
     </section>
   );

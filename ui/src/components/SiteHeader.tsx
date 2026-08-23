@@ -1,8 +1,13 @@
 import { Menu, ShoppingBag, X } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useCommerce } from "../commerce";
-import { RETRIEVAL_SURFACE } from "../navigation";
+import {
+  RETRIEVAL_SURFACE,
+  forwardedSearchFilters,
+  playgroundQueryHref,
+  useSearchParams,
+} from "../navigation";
 import { MosaicMark } from "./MosaicMark";
 
 /**
@@ -13,15 +18,17 @@ import { MosaicMark } from "./MosaicMark";
  * uppercase sans wordmark at 72px. The reference boards carry one header across
  * all three panels, so there is one component and one rule block.
  */
+/**
+ * Discover, Shop, Playground. Desire, decide, understand.
+ *
+ * Three entries and nothing else: the third used to print "Observatory" with an
+ * "Optional" badge clipped to it, which spent the only spare line in the header
+ * telling participants the surface did not matter.
+ */
 const navLinks = [
   { to: "/", label: "Discover" },
   { to: "/catalog", label: "Shop" },
-  {
-    to: RETRIEVAL_SURFACE.path,
-    label: RETRIEVAL_SURFACE.label,
-    displayLabel: "Observatory",
-    optional: true,
-  },
+  { to: RETRIEVAL_SURFACE.path, label: RETRIEVAL_SURFACE.label },
 ];
 
 function isActive(pathname: string, to: string) {
@@ -33,6 +40,12 @@ function isActive(pathname: string, to: string) {
       || pathname.startsWith("/products/")
     );
   }
+  // The Playground's other two lenses still live under their own paths, and the
+  // nav entry has to stay lit on them or the header would report the participant
+  // is nowhere.
+  if (to === RETRIEVAL_SURFACE.path) {
+    return pathname.startsWith(to) || pathname.startsWith("/mosaic-labs");
+  }
   return pathname.startsWith(to);
 }
 
@@ -40,8 +53,27 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
   const [open, setOpen] = useState(false);
   const { itemCount, openCart } = useCommerce();
   const [location] = useLocation();
+  const [searchParams] = useSearchParams();
   const pathname = location.split("?")[0];
   const close = () => setOpen(false);
+  /**
+   * The Playground entry carries the shopper's current Shop request with it.
+   *
+   * The only other way to hand a query over is a link inside Shop's collapsed
+   * "Why these results" disclosure, so a participant who searched and then reached
+   * for the header arrived at a Playground about a different query — three separate
+   * demonstrations rather than one request travelling through the product. Nothing
+   * is carried when Shop has no active search, and the Playground says out loud when
+   * something was.
+   */
+  const playgroundHref = useMemo(() => {
+    // wouter's useLocation returns the path without the query string, so the search
+    // has to come from its own hook.
+    if (!pathname.startsWith("/catalog")) return RETRIEVAL_SURFACE.path;
+    const query = searchParams.get("q")?.trim();
+    if (!query) return RETRIEVAL_SURFACE.path;
+    return playgroundQueryHref(query, forwardedSearchFilters(searchParams));
+  }, [pathname, searchParams]);
 
   return (
     <header
@@ -59,17 +91,15 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
         className={open ? "site-nav open" : "site-nav"}
         aria-label="Storefront"
       >
-        {navLinks.map(({ to, label, displayLabel, optional }) => (
+        {navLinks.map(({ to, label }) => (
           <Link
             key={to}
-            href={to}
+            href={to === RETRIEVAL_SURFACE.path ? playgroundHref : to}
             className={isActive(pathname, to) ? "active" : ""}
-            aria-label={optional ? `${label}, optional` : undefined}
             aria-current={isActive(pathname, to) ? "page" : undefined}
             onClick={close}
           >
-            <span>{displayLabel ?? label}</span>
-            {optional ? <small className="site-nav-optional">Optional</small> : null}
+            <span>{label}</span>
           </Link>
         ))}
       </nav>

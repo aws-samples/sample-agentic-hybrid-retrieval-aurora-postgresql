@@ -16,8 +16,25 @@ import type { ProductSummary, RetrievalDiagnostics, SearchResponse } from "../ty
 import { RetrievalLabPage } from "./RetrievalLabPage";
 
 vi.mock("../api", () => ({
+  ApiError: class ApiError extends Error {
+    status: number;
+
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
   api: {
     search: vi.fn(),
+    // Stage 01 reads index health on mount, so it can tell "pg_trgm is installed
+    // and its index is valid" apart from "pg_trgm contributed nothing".
+    readiness: vi.fn(),
+    // Stage 03 runs the agent, but only when the participant presses its button.
+    agentStream: vi.fn(),
+    evidence: vi.fn(),
+    toolContracts: vi.fn(),
+    retrievalEvent: vi.fn(),
+    retrievalPlan: vi.fn(),
   },
 }));
 
@@ -156,17 +173,22 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState({}, "", "/labs/retrieval");
     vi.mocked(api.search).mockReset();
     vi.mocked(api.search).mockResolvedValue(primaryResponse);
+    vi.mocked(api.readiness).mockReset();
+    vi.mocked(api.readiness).mockRejectedValue(new Error("readiness unavailable"));
   });
 
   afterEach(cleanup);
 
-  it("is reachable from the other Labs views and marks itself current", () => {
-    // A documented participant surface that carried no Labs navigation, so the
-    // only ways in were a product-page link and a lab-mission deep link.
+  it("is reachable from the other Playground lenses and marks itself current", () => {
+    // A documented participant surface that carried no navigation, so the only ways
+    // in were a product-page link and a lab-mission deep link.
     render(<RetrievalLabPage />);
 
-    const strip = screen.getByRole("navigation", { name: "Mosaic retrieval views" });
-    expect(screen.getByRole("heading", { name: "Retrieval Observatory" })).toBeTruthy();
+    const strip = screen.getByRole("navigation", { name: "Playground lenses" });
+    expect(screen.getByRole("heading", { name: "Mosaic Playground" })).toBeTruthy();
+    expect(
+      screen.getByText("See how retrieval becomes a recommendation."),
+    ).toBeTruthy();
     // Internal routes only; the strip also carries an outbound GitHub link.
     expect(
       within(strip)
@@ -175,19 +197,61 @@ describe("RetrievalLabPage", () => {
         .filter((href) => href?.startsWith("/")),
     ).toEqual(["/labs/retrieval", "/mosaic-labs/hnsw", "/mosaic-labs/studio"]);
     expect(
-      within(strip).getByRole("link", { name: "Retrieval Observatory" }).getAttribute("aria-current"),
+      within(strip)
+        .getByRole("link", { name: "Retrieve, rank, reason" })
+        .getAttribute("aria-current"),
     ).toBe("page");
+    // No retired name and no "Optional" badge anywhere on the surface.
+    expect(strip.textContent).not.toMatch(/Observatory|Optional|Mosaic Labs/);
   });
 
-  it("carries exactly one way to start a run", () => {
+  it("structures the surface as 01 Retrieve, 02 Rank, 03 Reason", () => {
+    // The workshop model is Retrieve -> Rank -> Reason, so the numbers carry
+    // information rather than decorating a list. This is the only surface that
+    // numbers its sections.
+    const { container } = render(<RetrievalLabPage />);
+
+    expect(
+      [...container.querySelectorAll(".labs-stage-number")].map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(["01", "02", "03"]);
+    expect(
+      [...container.querySelectorAll(".labs-stage-copy h2")].map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(["Retrieve", "Rank", "Reason"]);
+  });
+
+  it("bridges each customer word to the PostgreSQL feature behind it", () => {
+    // The whole reason this surface exists, so it is above the stages and not
+    // behind a disclosure.
+    const { container } = render(<RetrievalLabPage />);
+    const bridge = container.querySelector(".labs-bridge")!;
+    const pairs = [...bridge.querySelectorAll("dl > div")].map((row) => [
+      row.querySelector("dt")?.textContent,
+      row.querySelector("dd")?.textContent,
+    ]);
+
+    expect(pairs).toEqual([
+      ["Exact terms", "PostgreSQL Full-Text Search"],
+      ["Close spelling", "pg_trgm"],
+      ["Meaning match", "pgvector / HNSW"],
+    ]);
+  });
+
+  it("carries one way to start each of the two things it can run", () => {
     // Two run controls with different verbs, one live and one replaying a fixture,
-    // is how this page ended up teaching that the numbers were not measured.
+    // is how this page ended up teaching that the numbers were not measured. There
+    // is no fixture replay now: the retrieval pipeline and the agent are two real
+    // requests, so they get one button each and the verbs name which is which.
     render(<RetrievalLabPage />);
     const actions = screen
       .getAllByRole("button")
       .map((button) => button.textContent?.trim());
     expect(actions.filter((label) => /^Run|^Replay/.test(label ?? ""))).toEqual([
       "Run pipeline",
+      "Run the agent",
     ]);
   });
 
@@ -309,9 +373,13 @@ describe("RetrievalLabPage", () => {
     expect((action as HTMLButtonElement).disabled).toBe(true);
     expect(action.getAttribute("aria-busy")).toBe("true");
     expect(screen.getByText("observatory loading: true")).toBeTruthy();
-    expect(screen.getByRole("status").textContent).toContain(
-      "Embedding, retrieving, fusing, and reranking.",
-    );
+    // Several stages report their own state, so this is scoped to the run control's.
+    expect(
+      screen
+        .getAllByRole("status")
+        .map((node) => node.textContent)
+        .join(" "),
+    ).toContain("Embedding, retrieving, fusing, and reranking.");
 
     resolveSearch(primaryResponse);
 
@@ -335,6 +403,7 @@ describe("RetrievalLabPage", () => {
     expect(screen.getByRole("button", { name: "Retry pipeline" })).toBeTruthy();
     // A failed live call scopes itself to a notice; it does not blank the page.
     expect(screen.getByLabelText("Retrieval Observatory")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Retrieve" })).toBeTruthy();
   });
 
   it("ignores a stale response after the participant changes the scenario", async () => {

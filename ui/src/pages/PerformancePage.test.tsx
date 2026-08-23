@@ -228,7 +228,7 @@ describe("PerformancePage", () => {
     });
     expect(container.querySelector(".labs-intro")?.className).toBe("labs-intro");
     expect(
-      screen.getByRole("link", { name: "HNSW at scale" }).getAttribute("aria-current"),
+      screen.getByRole("link", { name: "Vector index at scale" }).getAttribute("aria-current"),
     ).toBe("page");
   });
 

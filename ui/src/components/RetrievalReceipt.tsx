@@ -1,3 +1,9 @@
+import {
+  FINAL_LABEL,
+  FUSED_LABEL,
+  armLanguage,
+  armPoolKey,
+} from "../retrievalLanguage";
 import type {
   AgentCitation,
   AgentPlanStep,
@@ -26,23 +32,30 @@ function topProduct(products: ProductSummary[]): ProductSummary | undefined {
     ?? products[0];
 }
 
-function armCounts(products: ProductSummary[]): string {
-  const fts = products.filter((product) => product.signals?.fts.rank != null).length;
-  const trigram = products.filter(
-    (product) => product.signals?.trigram.rank != null,
-  ).length;
-  const semantic = products.filter(
-    (product) => product.signals?.semantic.rank != null,
-  ).length;
-  return `FTS ${fts} / TRGM ${trigram} / HNSW ${semantic}`;
+/**
+ * Per-arm candidate counts, written so they cannot be read as ranks.
+ *
+ * This band used to print `FTS 4 / TRGM 2 / HNSW 6` under the word "Candidates".
+ * Every other number in the receipt is a `#position`, and every per-arm number on
+ * a product card is a rank, so four readers in a row took `TRGM 2` for "second in
+ * the trigram arm". They are counts of a set, so they are printed as `2 of 12`
+ * with the denominator that makes them counts, and the label says so.
+ */
+function armCountItems(
+  counted: (key: string) => number,
+  total: number,
+): string {
+  return armLanguage
+    .map((arm) => `${arm.label} ${counted(armPoolKey[arm.key])} of ${total}`)
+    .join(" · ");
 }
 
 function ReceiptBand({
   items,
-  path = "Filters → candidates → fusion → rerank → evidence → latency",
+  path,
 }: {
   items: ReceiptItem[];
-  path?: string;
+  path: string;
 }) {
   return (
     <section className="retrieval-receipt" aria-label="End-to-end retrieval receipt">
@@ -63,12 +76,19 @@ function ReceiptBand({
   );
 }
 
+/**
+ * The receipt, in the one vocabulary.
+ *
+ * This took a `plainLanguage` boolean and printed "Filters / Fusion / Rerank /
+ * Latency" without it. Shop passed it and the Playground did not, so the Playground
+ * showed "Fusion #1" directly under a matrix column headed "Before reranking" for
+ * the same number. There is one set of words; the mechanism that produced each is
+ * named in the Playground's bridge and matrix headers, where it has room.
+ */
 export function SearchRetrievalReceipt({
   response,
-  plainLanguage = false,
 }: {
   response: SearchResponse;
-  plainLanguage?: boolean;
 }) {
   const diagnostics = response.diagnostics;
   if (!diagnostics) return null;
@@ -76,41 +96,35 @@ export function SearchRetrievalReceipt({
   const signals = winner?.signals;
   const filters = nonEmptyFilterCount(response.applied_filters);
   const counts = diagnostics.candidate_counts;
-  const candidates = plainLanguage
-    ? `Exact terms ${counts.fts_in_pool ?? 0} / Close spelling ${counts.trigram_in_pool ?? 0} / Meaning ${counts.semantic_in_pool ?? 0}`
-    : `FTS ${counts.fts_in_pool ?? 0} / TRGM ${counts.trigram_in_pool ?? 0} / HNSW ${counts.semantic_in_pool ?? 0}`;
+  const pool = counts.fused_pool ?? 0;
 
   return (
     <ReceiptBand
-      path={
-        plainLanguage
-          ? "Filters → candidates → combined order → final order → evidence → latency"
-          : undefined
-      }
+      path="Eligibility → candidates → combined order → final order → evidence → time"
       items={[
         {
-          label: "Filters",
-          value: String(filters),
-          detail: filters ? "eligibility gates applied" : "no catalog gates",
+          label: "Eligibility",
+          // "0" reads as a measurement that failed. It is an absence.
+          value: filters ? String(filters) : "None",
+          detail: filters ? "gates applied to every arm" : "no catalog gates",
         },
         {
-          label: "Candidates",
-          value: candidates,
-          detail: plainLanguage
-            ? `${counts.fused_pool ?? 0} candidates combined`
-            : `${counts.fused_pool ?? 0} in fused pool`,
+          // A count of the pool, so it is stated as a share of the pool.
+          label: "Candidates found",
+          value: armCountItems((key) => counts[key] ?? 0, pool),
+          detail: `${pool} in the combined candidate pool`,
         },
         {
-          label: plainLanguage ? "Before reranking" : "Fusion",
+          label: FUSED_LABEL,
           value: signals ? `#${signals.pre_rerank_rank}` : "-",
           detail: winner
-            ? `${winner.model} before rerank`
+            ? `${winner.model}, before reranking`
             : "no ranked candidate",
         },
         {
-          label: plainLanguage ? "Final order" : "Rerank",
+          label: FINAL_LABEL,
           value: signals ? `#${signals.final_rank}` : "-",
-          detail: plainLanguage && diagnostics.rerank_status === "applied"
+          detail: diagnostics.rerank_status === "applied"
             ? "model reranking applied"
             : diagnostics.rerank_status,
         },
@@ -120,7 +134,7 @@ export function SearchRetrievalReceipt({
           detail: "search receipt only",
         },
         {
-          label: "Latency",
+          label: "Time",
           value: `${diagnostics.total_latency_ms} ms`,
           detail: "end to end",
         },
@@ -155,33 +169,43 @@ export function AgentRetrievalReceipt({
     (total, step) => total + (step.latency_ms ?? 0),
     0,
   );
+  // Membership within the shortlist on screen, not the size of a candidate pool
+  // this response never reported. Naming the denominator is what keeps the two
+  // apart.
+  const armMembership = (key: string) => {
+    const arm = armLanguage.find((entry) => armPoolKey[entry.key] === key);
+    if (!arm) return 0;
+    return products.filter((product) => product.signals?.[arm.key].rank != null)
+      .length;
+  };
 
   return (
     <ReceiptBand
+      path="Eligibility → candidates → combined order → final order → evidence → time"
       items={[
         {
-          label: "Filters",
+          label: "Eligibility",
           value: plan.length ? String(filterCount) : "Inherited",
           detail: plan.length
             ? `${plan.length} focused search${plan.length === 1 ? "" : "es"}`
             : "authorized prior shortlist",
         },
         {
-          label: "Candidates",
-          value: armCounts(products),
+          label: "Found this shortlist",
+          value: armCountItems(armMembership, products.length),
           detail: `${products.length} authorized product${products.length === 1 ? "" : "s"}`,
         },
         {
-          label: "Fusion",
+          label: FUSED_LABEL,
           value: signals ? `#${signals.pre_rerank_rank}` : "-",
           detail: executionPath === "focused_follow_up"
             ? "replayed prior receipt"
             : "current retrieval",
         },
         {
-          label: "Rerank",
+          label: FINAL_LABEL,
           value: signals ? `#${signals.final_rank}` : "-",
-          detail: signals?.rerank_rank ? `rerank #${signals.rerank_rank}` : "not repeated",
+          detail: signals?.rerank_rank ? `rerank put it #${signals.rerank_rank}` : "not repeated",
         },
         {
           label: "Evidence IDs",
@@ -191,7 +215,7 @@ export function AgentRetrievalReceipt({
             : "none authorized",
         },
         {
-          label: "Latency",
+          label: "Time",
           value: `${Math.round(latency)} ms`,
           detail: `${trace.length} tool receipt${trace.length === 1 ? "" : "s"}`,
         },

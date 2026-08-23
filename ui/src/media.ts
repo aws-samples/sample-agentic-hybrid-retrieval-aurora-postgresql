@@ -246,6 +246,23 @@ function boundImage(product: ProductSummary): string | null {
   return matchingMosaicImageSet(product)?.[0] ?? null;
 }
 
+/**
+ * How many distinct photographs a category can draw on.
+ *
+ * `productImageMap` bounds a grid at `ceil(rows / pool)` copies of one file, so a
+ * category whose pool is smaller than the page size repeats — and a category with
+ * no pool at all falls through to a single domain-neutral plate and gives every row
+ * the same picture. Discover's chips are checked against this, because that is the
+ * difference between a shopper seeing twelve products and seeing one photograph
+ * twelve times.
+ */
+export function categoryPoolSize(
+  categoryKey: string,
+  domain: Domain,
+): number {
+  return categoryPool({ product_id: 0, category_key: categoryKey, domain }).length;
+}
+
 /** Every photograph eligible for a row in this category, best match first. */
 function categoryPool(product: CategoryImageProduct): string[] {
   const primary = categoryPools.get(product.category_key) ?? [];

@@ -183,6 +183,83 @@ export interface SearchResponse {
   diagnostics: RetrievalDiagnostics | null;
 }
 
+/**
+ * One row of `mosaic.search_event`, as `/api/retrieval/events/{id}` replays it.
+ *
+ * The Playground's "View retrieval event" disclosure reads this rather than the
+ * in-memory response, which is the point: the receipt comes back out of Postgres,
+ * so a participant can see that what the surface showed was persisted.
+ */
+export interface SearchEventRecord {
+  search_event_id: string;
+  occurred_at: string;
+  session_id: string | null;
+  query_text: string;
+  normalized_query: string | null;
+  filters: Record<string, unknown>;
+  retrieval_profile: Record<string, unknown>;
+  source_revision: string | null;
+  embedding_model_id: string | null;
+  rerank_model_id: string | null;
+  retrieval_strategy: string | null;
+  database_version: string | null;
+  vector_extension_version: string | null;
+  aurora_instance_class: string | null;
+  hnsw_settings: Record<string, unknown>;
+  candidate_counts: Record<string, number>;
+  total_latency_ms: number | null;
+  diagnostics: Record<string, unknown>;
+}
+
+/** One row of `mosaic.search_result_event`. Arm ranks as the database wrote them. */
+export interface SearchResultEventRecord {
+  product_id: number;
+  result_rank: number;
+  fts_rank: number | null;
+  trigram_rank: number | null;
+  semantic_rank: number | null;
+  fused_rank: number | null;
+  rerank_rank: number | null;
+  scores: Record<string, unknown>;
+  provenance: Record<string, unknown>;
+}
+
+export interface RetrievalRunResponse {
+  run: SearchEventRecord;
+  candidates: SearchResultEventRecord[];
+}
+
+/** `EXPLAIN (ANALYZE, FORMAT JSON)` over the run's own SQL path. */
+export interface RetrievalPlanResponse {
+  search_event_id: string;
+  plan: Array<Record<string, unknown>>;
+}
+
+/** One source-addressable evidence record, as `/api/evidence/{id}` serves it. */
+export interface EvidenceRecord {
+  evidence_id: number;
+  product_id: number;
+  evidence_type: string;
+  source_name: string;
+  source_uri: string;
+  revision: string;
+  title: string;
+  text: string;
+  rating: number | null;
+  is_verified: boolean;
+  metadata: Record<string, unknown>;
+}
+
+/** One entry of `/api/tools`: the contract a tool call is audited against. */
+export interface ToolContract {
+  name: string;
+  tool_version: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+  output_schema: Record<string, unknown>;
+  read_only: boolean;
+}
+
 export interface AgentCitation {
   number: number;
   evidence_id: number;

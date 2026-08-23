@@ -309,7 +309,7 @@ describe("CatalogPage", () => {
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     const timeline = within(dialog).getByLabelText("Evidence timeline");
     await waitFor(() =>
-      expect(within(dialog).queryByText("Candidates retrieved")).not.toBeNull());
+      expect(within(dialog).queryByText("The shortlist")).not.toBeNull());
 
     // By class, not by role: an open card puts its candidate rows inside the
     // timeline, so `getAllByRole("button")` no longer means "the four stages".
@@ -329,7 +329,9 @@ describe("CatalogPage", () => {
     // Interpret finished mid-run, so it holds its result open for a beat and
     // then folds itself away. Instant folding meant nothing was ever legible.
     expect(running[0].getAttribute("aria-expanded")).toBe("true");
-    expect(within(dialog).getByText("What I understood")).toBeTruthy();
+    // The stage card's own title stays mounted; what folds away is the panel it
+    // discloses, so this asserts the panel's heading rather than the card's.
+    expect(within(dialog).getByText("Constraints I searched with")).toBeTruthy();
     await waitFor(
       () => expect(stageCards()[0].getAttribute("aria-expanded")).toBe("false"),
       { timeout: stageDwellMs + 2000 },
@@ -337,12 +339,12 @@ describe("CatalogPage", () => {
     // The card collapses its height first and unmounts the content after, so
     // this is reached once the exit finishes rather than in the same frame.
     await waitFor(() =>
-      expect(within(dialog).queryByText("What I understood")).toBeNull());
+      expect(within(dialog).queryByText("Constraints I searched with")).toBeNull());
     // Compare and Cite have not run. Candidate rows exist, so their panels
     // could be built - a pending stage must still disclose nothing.
     expect(running[2].hasAttribute("aria-expanded")).toBe(false);
     expect(running[2].disabled).toBe(true);
-    expect(within(dialog).queryByText("Compared on catalog data")).toBeNull();
+    expect(within(dialog).queryByText("Side by side, on catalog data")).toBeNull();
 
     release();
     await waitFor(() =>
@@ -395,7 +397,7 @@ describe("CatalogPage", () => {
 
     expect(
       screen.getByText(
-        "Search in natural language, browse with intention, or ask Mosaic for help finding what fits.",
+        "Search in your own words, browse with intention, or ask Mosaic for help deciding.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/photographed in one light/i)).toBeNull();
@@ -413,21 +415,29 @@ describe("CatalogPage", () => {
       );
     });
 
-    expect(await screen.findByText("Hybrid results")).toBeTruthy();
-    expect(screen.getByText(/18 candidates considered/)).toBeTruthy();
+    expect(await screen.findByText("Results for")).toBeTruthy();
+    expect(screen.getByText(/chosen from 18 candidates/)).toBeTruthy();
     expect(screen.queryByText(/fused candidates/)).toBeNull();
     const rankingReceipt = screen
-      .getByText("How these results were ranked")
+      .getByText("Why these results, in this order")
       .closest("details");
     expect(rankingReceipt?.open).toBe(false);
+    // "Why this match", not "Why ranked #3": a shopper choosing between two chairs
+    // is asking what Mosaic noticed, and the position is inside.
     const productReceipt = screen
-      .getAllByText("Why ranked #1")[0]
+      .getAllByText("Why this match")[0]
       .closest("details");
     expect(productReceipt?.open).toBe(false);
-    fireEvent.click(within(productReceipt!).getByText("Why ranked #1"));
+    fireEvent.click(within(productReceipt!).getByText("Why this match"));
+    // Only the arms that found this row appear: a "Close spelling" row on a
+    // product the trigram arm never returned would be a rank Mosaic invented.
     expect(within(productReceipt!).getByText("Exact terms")).toBeTruthy();
+    expect(within(productReceipt!).queryByText("Close spelling")).toBeNull();
+    expect(within(productReceipt!).getByText("Before reranking")).toBeTruthy();
+    expect(within(productReceipt!).getByText("Final position")).toBeTruthy();
     expect(within(productReceipt!).getAllByText("#1").length).toBeGreaterThan(0);
-    expect(screen.queryByText("FTS #1")).toBeNull();
+    // No mechanism names on a product card, in any form.
+    expect(productReceipt!.textContent).not.toMatch(/FTS|TRGM|pg_trgm|HNSW|RRF/);
     expect(screen.queryByText("RRF #2")).toBeNull();
     expect(api.catalog).not.toHaveBeenCalled();
   });
@@ -568,21 +578,27 @@ describe("CatalogPage", () => {
     window.history.replaceState({}, "", "/catalog?q=ergonomic%20mesh%20chair");
     renderPage();
 
-    const trace = await screen.findByLabelText(
-      "Hybrid retrieval request scope",
-    );
+    const trace = await screen.findByLabelText("What this search is doing");
     expect(
       within(trace).getByText(
-        "This request runs the same production path. Individual stages are not streamed, so Mosaic does not invent their completion order.",
+        "This is the same path every Mosaic search takes. The steps are not streamed one by one, so nothing here claims an order it cannot see.",
       ),
     ).toBeTruthy();
-    expect(within(trace).getByText("Cohere Embed v4")).toBeTruthy();
-    expect(within(trace).getByText("FTS")).toBeTruthy();
-    expect(within(trace).getByText("pg_trgm")).toBeTruthy();
-    expect(within(trace).getByText("HNSW")).toBeTruthy();
-    expect(within(trace).getByText("SQL eligibility")).toBeTruthy();
-    expect(within(trace).getByText("RRF")).toBeTruthy();
-    expect(within(trace).getByText("Cohere Rerank")).toBeTruthy();
+    // The seven steps in the storefront's words. This list used to print "Cohere
+    // Embed v4 / FTS / pg_trgm / HNSW / SQL eligibility / RRF / Cohere Rerank" to a
+    // shopper waiting for products.
+    expect(
+      [...trace.querySelectorAll("li")].map((step) => step.textContent),
+    ).toEqual([
+      "Understanding your words",
+      "Exact terms",
+      "Close spelling",
+      "Meaning match",
+      "Only what you can buy",
+      "Combining the results",
+      "Reranking the shortlist",
+    ]);
+    expect(trace.textContent).not.toMatch(/FTS|pg_trgm|HNSW|RRF|Cohere/);
     expect(
       screen.getByRole("status", { name: "Loading products" })
         .querySelectorAll(".catalog-skeleton-card"),
@@ -631,7 +647,7 @@ describe("CatalogPage", () => {
     ).toHaveLength(1);
     expect(within(panel).queryByText("Shop context")).toBeNull();
     expect(
-      within(panel).queryByLabelText("Active filters passed to Ask Mosaic"),
+      within(panel).queryByLabelText("Your preferences, passed to Ask Mosaic"),
     ).toBeNull();
 
     // The entry state names the five tools registered in service/agent_tools.py,
@@ -640,7 +656,7 @@ describe("CatalogPage", () => {
     const toolset = within(panel).getByRole("list", {
       name: "Tools available to the agent",
     });
-    const capability = within(panel).getByText("What Mosaic can do").closest("details");
+    const capability = within(panel).getByText("What I can do").closest("details");
     expect(capability?.open).toBe(false);
     expect(
       within(toolset)
@@ -667,15 +683,22 @@ describe("CatalogPage", () => {
         .map((button) => [
           button.querySelector(".ask-mosaic-starter-path")?.textContent,
           button.querySelector(".ask-mosaic-starter-query")?.textContent,
-          [...button.querySelectorAll(".ask-mosaic-starter-arms code")]
+          [...button.querySelectorAll(".ask-mosaic-starter-arms em")]
             .map((arm) => arm.textContent)
             .join(" "),
         ]),
     ).toEqual([
-      ["Exact terms", examples[2].query, "fts vector"],
-      ["Misspelled", examples[1].query, "pg_trgm vector"],
-      ["Plain language", examples[4].query, "semantic"],
+      ["Exact terms", examples[2].query, "Exact terms Meaning match"],
+      ["Plain language", examples[4].query, "Meaning match"],
+      ["Exact terms", examples[0].query, "Exact terms Meaning match"],
     ]);
+    // No misspelled starter. The eval set's fuzzy queries are misspelled on
+    // purpose and this panel prints a starter verbatim on a button in Mosaic's own
+    // voice, so offering one shipped a spelling mistake as the store's suggestion.
+    // The shopper's own imperfect query still exercises the trigram arm.
+    for (const word of ["noice", "hedphones", "fligts", "marthon"]) {
+      expect(starters.textContent).not.toContain(word);
+    }
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
@@ -688,7 +711,7 @@ describe("CatalogPage", () => {
     expect(
       [...timeline.querySelectorAll(".ask-mosaic-stage-label")]
         .map((stage) => stage.textContent),
-    ).toEqual(["Interpret", "Retrieve", "Compare", "Cite"]);
+    ).toEqual(["Understanding", "Recommendations", "Compare", "Why these"]);
     // The settled state. While the run is live a step that just finished holds
     // its result open for a dwell, so this has to wait for the run to finish
     // before it can claim the cards are folded.
@@ -708,8 +731,10 @@ describe("CatalogPage", () => {
     // Folded cards animate their height down and unmount the content after, so
     // these are reached once those exits finish.
     await waitFor(() => {
-      expect(within(dialog).queryByText("Candidates retrieved")).toBeNull();
-      expect(within(dialog).queryByText("Compared on catalog data")).toBeNull();
+      expect(within(dialog).queryByText("The shortlist")).toBeNull();
+      expect(
+        within(dialog).queryByText("Side by side, on catalog data"),
+      ).toBeNull();
     });
 
     const evidence = await within(dialog).findByText("Evidence");
@@ -737,7 +762,8 @@ describe("CatalogPage", () => {
       "Why this candidate was retrieved",
     );
     expect([...signals[0].querySelectorAll("span")].map((chip) => chip.textContent))
-      .toEqual(["Your exact words", "What you meant", "Rerank 0.80"]);
+      // The same three words the product card and the Playground use.
+      .toEqual(["Exact terms", "Meaning match", "Reranked 0.80"]);
 
     fireEvent.click(stageButtons[0]);
     expect(stageButtons[0].getAttribute("aria-expanded")).toBe("true");
@@ -752,7 +778,7 @@ describe("CatalogPage", () => {
 
     fireEvent.click(stageButtons[2]);
     expect(stageButtons[2].getAttribute("aria-expanded")).toBe("true");
-    expect(within(dialog).getByText("Why 01 ranked first").closest("details")?.open).toBe(false);
+    expect(within(dialog).getByText("Why this one is first").closest("details")?.open).toBe(false);
 
     // Scoped to the candidate list: the answer now carries the same products as
     // buyable picks, so the product name matches a button in two places.
@@ -865,9 +891,12 @@ describe("CatalogPage", () => {
     const timelines = within(dialog).getAllByLabelText("Evidence timeline");
     const followupCards = timelines[1].querySelectorAll(".ask-mosaic-stage-summary");
     expect(followupCards).toHaveLength(3);
-    expect(within(timelines[1]).getByText("Follow-up")).toBeTruthy();
-    expect(within(timelines[1]).getByText("Inspect")).toBeTruthy();
-    expect(within(timelines[1]).queryByText("Retrieve")).toBeNull();
+    expect(
+      [...timelines[1].querySelectorAll(".ask-mosaic-stage-label")].map(
+        (stage) => stage.textContent,
+      ),
+    ).toEqual(["Understanding", "Compare", "Why these"]);
+    expect(within(timelines[1]).queryByText("Recommendations")).toBeNull();
   });
 
   it("returns a new-candidate follow-up to the full retrieval path", async () => {
@@ -907,7 +936,7 @@ describe("CatalogPage", () => {
     const timelines = within(dialog).getAllByLabelText("Evidence timeline");
     const followupCards = timelines[1].querySelectorAll(".ask-mosaic-stage-summary");
     expect(followupCards).toHaveLength(4);
-    expect(within(timelines[1]).getByText("Retrieve")).toBeTruthy();
+    expect(within(timelines[1]).getByText("Recommendations")).toBeTruthy();
     expect(within(timelines[1]).getByText("Compare")).toBeTruthy();
     expect(invocation).toBe(2);
   });
@@ -995,9 +1024,9 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
     const assist = screen.getByRole("complementary", { name: "Ask Mosaic" });
     const context = within(assist).getByLabelText(
-      "Active filters passed to Ask Mosaic",
+      "Your preferences, passed to Ask Mosaic",
     );
-    expect(within(context).getByText("Active filters")).toBeTruthy();
+    expect(within(context).getByText("Your preferences")).toBeTruthy();
     expect(within(context).getByText("In stock")).toBeTruthy();
   });
 

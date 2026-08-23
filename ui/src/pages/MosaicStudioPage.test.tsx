@@ -18,14 +18,14 @@ describe("MosaicStudioPage", () => {
   it("renders curated catalog fixtures immediately without a retrieval request", () => {
     render(<MosaicStudioPage />);
 
-    expect(screen.getByRole("link", { name: "Retrieval Observatory" }).getAttribute("href")).toBe(
-      "/labs/retrieval",
-    );
-    expect(screen.getByRole("link", { name: "Studio" }).getAttribute("aria-current")).toBe(
-      "page",
-    );
     expect(
-      screen.getByRole("link", { name: "HNSW at scale" }).getAttribute("href"),
+      screen.getByRole("link", { name: "Retrieve, rank, reason" }).getAttribute("href"),
+    ).toBe("/labs/retrieval");
+    expect(
+      screen.getByRole("link", { name: "Catalog studio" }).getAttribute("aria-current"),
+    ).toBe("page");
+    expect(
+      screen.getByRole("link", { name: "Vector index at scale" }).getAttribute("href"),
     ).toBe("/mosaic-labs/hnsw");
     expect(screen.getByRole("heading", { name: "Compose a creative workspace." })).toBeTruthy();
     // Studio carries the same masthead as every other Labs surface. It used to add

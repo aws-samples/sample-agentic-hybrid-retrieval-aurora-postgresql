@@ -6,6 +6,7 @@ import type {
   CatalogPage,
   CatalogSuggestionsResponse,
   CatalogSummary,
+  EvidenceRecord,
   HnswMeasured,
   HnswNeighborhood,
   HnswProbe,
@@ -14,8 +15,11 @@ import type {
   ProductDetail,
   ReadinessResponse,
   RetrievalExample,
+  RetrievalPlanResponse,
+  RetrievalRunResponse,
   SearchFilters,
   SearchResponse,
+  ToolContract,
 } from "./types";
 
 export class ApiError extends Error {
@@ -206,6 +210,35 @@ export const api = {
       "/api/retrieval/examples",
     );
     return body.examples;
+  },
+
+  /**
+   * The persisted receipt for one search, read back out of Postgres.
+   *
+   * Behind the Playground's "View retrieval event" disclosure. Every number in it
+   * came from `mosaic.search_event` and `mosaic.search_result_event`, not from the
+   * response the browser is already holding, which is what makes it evidence.
+   */
+  retrievalEvent: (searchEventId: string) =>
+    request<RetrievalRunResponse>(
+      `/api/retrieval/events/${encodeURIComponent(searchEventId)}`,
+    ),
+
+  /** EXPLAIN ANALYZE over the run's own SQL path. A write: it persists the plan. */
+  retrievalPlan: (searchEventId: string) =>
+    request<RetrievalPlanResponse>(
+      `/api/retrieval/events/${encodeURIComponent(searchEventId)}/plan`,
+      { method: "POST" },
+    ),
+
+  evidence: (evidenceId: number) =>
+    request<EvidenceRecord>(`/api/evidence/${evidenceId}`),
+
+  toolContracts: async (surface: "agent" | "mcp" = "agent") => {
+    const body = await request<{ surface: string; tools: ToolContract[] }>(
+      `/api/tools?surface=${surface}`,
+    );
+    return body.tools;
   },
 
   projection: () =>

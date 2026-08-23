@@ -455,12 +455,12 @@ export function PerformancePage() {
           </div>
         </section>
 
-        <nav className="hnsw-next" aria-label="Continue through Mosaic Labs">
+        <nav className="hnsw-next" aria-label="Other Playground lenses">
           <Link href="/labs/retrieval">
-            <ArrowLeft aria-hidden="true" size={16} /> Retrieval Observatory
+            <ArrowLeft aria-hidden="true" size={16} /> Retrieve, rank, reason
           </Link>
           <Link href="/mosaic-labs/studio">
-            Open Studio <ArrowRight aria-hidden="true" size={16} />
+            Catalog studio <ArrowRight aria-hidden="true" size={16} />
           </Link>
         </nav>
       </>

@@ -25,7 +25,12 @@ import {
   formatPriceCompact,
 } from "../format";
 import { domainLabels, productImage } from "../media";
-import { starterPath, starterPathLabels } from "../starters";
+import {
+  FINAL_LABEL,
+  FUSED_LABEL,
+  armLanguage,
+} from "../retrievalLanguage";
+import { starterArmLabels, starterPath, starterPathLabels } from "../starters";
 import type {
   AgentCitation,
   AgentPartial,
@@ -71,6 +76,14 @@ export interface AskMosaicTurn {
   loading: boolean;
 }
 
+/**
+ * The concierge's four steps, named for what a shopper gets out of each one.
+ *
+ * They read "Interpret / Retrieve / Compare / Cite" over titles like "Intent
+ * understanding" and "Cite & summarize" — a pipeline diagram in a panel a
+ * shopper opens to be helped choosing headphones. Understanding, Recommendations,
+ * Compare, Why these: same four steps, same four panels, same measured content.
+ */
 const fullRetrievalStages: Array<{
   id: AssistStage;
   label: string;
@@ -79,48 +92,48 @@ const fullRetrievalStages: Array<{
 }> = [
   {
     id: "understand",
-    label: "Interpret",
-    title: "Intent understanding",
-    description: "Resolve the request into catalog constraints.",
+    label: "Understanding",
+    title: "What I understood",
+    description: "Turning your request into real catalog constraints.",
   },
   {
     id: "retrieve",
-    label: "Retrieve",
-    title: "Retrieve candidates",
-    description: "Search the catalog and gather evidence-backed products.",
+    label: "Recommendations",
+    title: "What I found",
+    description: "Searching the catalog for products with records behind them.",
   },
   {
     id: "rank",
     label: "Compare",
-    title: "Compare & evaluate",
-    description: "Compare the retrieved shortlist using catalog-backed facts.",
+    title: "How they compare",
+    description: "Weighing the shortlist on catalog facts, side by side.",
   },
   {
     id: "answer",
-    label: "Cite",
-    title: "Cite & summarize",
-    description: "Ground the recommendation in inspectable product evidence.",
+    label: "Why these",
+    title: "Why these",
+    description: "Naming the product records the recommendation rests on.",
   },
 ];
 
 const focusedFollowUpStages: typeof fullRetrievalStages = [
   {
     id: "understand",
-    label: "Follow-up",
-    title: "Resolve follow-up",
-    description: "Resolve references against the prior grounded shortlist.",
+    label: "Understanding",
+    title: "What you're asking about",
+    description: "Resolving your follow-up against the products I just found.",
   },
   {
     id: "rank",
-    label: "Inspect",
-    title: "Inspect prior shortlist",
-    description: "Read only the product and ranking records this question needs.",
+    label: "Compare",
+    title: "How they compare",
+    description: "Reading only the records this question needs.",
   },
   {
     id: "answer",
-    label: "Cite",
-    title: "Cite & summarize",
-    description: "Validate a new answer against freshly retrieved evidence.",
+    label: "Why these",
+    title: "Why these",
+    description: "Checking the new answer against freshly retrieved evidence.",
   },
 ];
 
@@ -148,35 +161,26 @@ const agentTools = [
 const toolLabels = new Map(agentTools.map((tool) => [tool.fn, tool.label]));
 
 /**
- * Which retrieval arm found a row, in the words a shopper used to ask.
+ * One chip per arm that retrieved the row.
  *
  * `RankSignal.rank` is null for an arm that never retrieved the product, so this
  * reports measured arm membership. The reference design put a "96% match" badge
  * on every row; no such number exists in `ResultSignals`, and the reranker score
- * is the one bounded relevance figure the service actually produces.
- */
-const armLabels: Array<[keyof Pick<ResultSignals, "fts" | "trigram" | "semantic">, string]> = [
-  ["fts", "Your exact words"],
-  ["trigram", "Close spellings"],
-  ["semantic", "What you meant"],
-];
-
-/**
- * One chip per arm that retrieved the row, then the reranker score.
+ * is the one bounded relevance figure the service actually produces — which is
+ * why it is the last chip and carries its own word rather than a bare decimal.
  *
- * This was a single sentence - "Found by your exact words + close spellings ·
- * Rerank 0.83" - which is 40-odd characters of prose in a column narrow enough
- * to break it across five lines. The chips carry the same measured facts and
- * wrap as units instead of mid-phrase.
+ * The labels used to be a third set: "Your exact words", "Close spellings",
+ * "What you meant", against the product card's "Exact terms" / "Close spelling" /
+ * "Meaning match" for the same three arms.
  */
 export function retrievalChips(signals: ResultSignals | null | undefined): string[] {
   if (!signals) return ["In the retrieved shortlist"];
-  const matched = armLabels
-    .filter(([arm]) => signals[arm].rank != null)
-    .map(([, label]) => label);
-  const chips = matched.length ? matched : ["Carried in by rank fusion"];
+  const matched = armLanguage
+    .filter((arm) => signals[arm.key].rank != null)
+    .map((arm) => arm.label);
+  const chips = matched.length ? matched : ["Carried in by combined ranking"];
   if (signals.rerank_score != null) {
-    chips.push(`Rerank ${signals.rerank_score.toFixed(2)}`);
+    chips.push(`Reranked ${signals.rerank_score.toFixed(2)}`);
   }
   return chips;
 }
@@ -444,7 +448,7 @@ function Criteria({ plan }: { plan: AgentPlanStep[] }) {
   if (!chips.length) return null;
   return (
     <section className="ask-mosaic-criteria">
-      <h3>What I understood</h3>
+      <h3>Constraints I searched with</h3>
       <ul aria-label="Constraints Mosaic searched with">
         {chips.map((chip) => (
           <li key={chip}>{chip}</li>
@@ -491,7 +495,7 @@ function CompareMatrix({ candidates }: { candidates: ProductSummary[] }) {
       <header>
         <GitCompareArrows size={18} />
         <div>
-          <h3>Compared on catalog data</h3>
+          <h3>Side by side, on catalog data</h3>
           <p>Every value below comes from the product records in this shortlist.</p>
         </div>
       </header>
@@ -576,8 +580,8 @@ function Shortlist({
       <header>
         <GitCompareArrows size={18} />
         <div>
-          <h3>Candidates retrieved</h3>
-          <p>Real catalog products, ordered by the current retrieval result.</p>
+          <h3>The shortlist</h3>
+          <p>Real catalog products, in the order retrieval put them in.</p>
         </div>
       </header>
       <ol className="ask-mosaic-shortlist">
@@ -667,6 +671,15 @@ function Searches({ plan }: { plan: AgentPlanStep[] }) {
   );
 }
 
+/**
+ * Why the leader leads, in the shopper's vocabulary.
+ *
+ * The rows read "FTS / pg_trgm / Vector / RRF / Reranker / Final" — four Postgres
+ * and information-retrieval terms inside a shopping concierge. The numbers are
+ * unchanged, and every one of them is this product's own position, so each is
+ * printed with a `#`. The mechanism behind each row is named on the Playground,
+ * beside the SQL that produced it.
+ */
 function Ranking({ candidates }: { candidates: ProductSummary[] }) {
   const winner = candidates[0];
   const signals = winner?.signals;
@@ -674,28 +687,22 @@ function Ranking({ candidates }: { candidates: ProductSummary[] }) {
   return (
     <details className="ask-mosaic-ranking">
       <summary>
-        <span>Why 01 ranked first</span>
+        <span>Why this one is first</span>
         <small>{winner.model}</small>
       </summary>
       <dl>
+        {armLanguage.map((arm) => (
+          <div key={arm.key}>
+            <dt>{arm.label}</dt>
+            <dd>{signals[arm.key].rank ? `#${signals[arm.key].rank}` : "-"}</dd>
+          </div>
+        ))}
         <div>
-          <dt>FTS</dt>
-          <dd>{signals.fts.rank ?? "-"}</dd>
+          <dt>{FUSED_LABEL}</dt>
+          <dd>#{signals.pre_rerank_rank}</dd>
         </div>
         <div>
-          <dt>pg_trgm</dt>
-          <dd>{signals.trigram.rank ?? "-"}</dd>
-        </div>
-        <div>
-          <dt>Vector</dt>
-          <dd>{signals.semantic.rank ?? "-"}</dd>
-        </div>
-        <div>
-          <dt>RRF</dt>
-          <dd>{signals.pre_rerank_rank}</dd>
-        </div>
-        <div>
-          <dt>Reranker</dt>
+          <dt>Rerank score</dt>
           <dd>
             {signals.rerank_score?.toFixed(3) ?? "-"}
             {signals.rerank_rank ? ` (#${signals.rerank_rank})` : ""}
@@ -708,8 +715,8 @@ function Ranking({ candidates }: { candidates: ProductSummary[] }) {
           </div>
         ) : null}
         <div>
-          <dt>Final</dt>
-          <dd>{signals.final_rank}</dd>
+          <dt>{FINAL_LABEL}</dt>
+          <dd>#{signals.final_rank}</dd>
         </div>
       </dl>
     </details>
@@ -1107,8 +1114,8 @@ function EntryState({
                     {starter.query}
                   </span>
                   <span className="ask-mosaic-starter-arms" aria-hidden="true">
-                    {starter.expected_techniques.map((technique) => (
-                      <code key={technique}>{technique}</code>
+                    {starterArmLabels(starter).map((label) => (
+                      <em key={label}>{label}</em>
                     ))}
                   </span>
                 </button>
@@ -1116,7 +1123,7 @@ function EntryState({
             ))}
           </ul>
           <small>
-            From the eval set. Tags name the path each query exercises.
+            From the eval set. Tags name what each question is written to test.
           </small>
         </div>
       ) : null}
@@ -1124,8 +1131,8 @@ function EntryState({
       <details className="ask-mosaic-capability">
         <summary>
           <span>
-            <strong>What Mosaic can do</strong>
-            <small>Five inspectable tools</small>
+            <strong>What I can do</strong>
+            <small>Five things, and you can see each one run</small>
           </span>
           <ChevronDown size={17} aria-hidden="true" />
         </summary>
@@ -1350,7 +1357,7 @@ export function AskMosaic({
             <span><Sparkles size={19} /></span>
             <div>
               <h2 id="ask-mosaic-title">Ask Mosaic</h2>
-              <p>Searches, compares, and cites its sources</p>
+              <p>A concierge that shows its work</p>
             </div>
           </div>
           <button type="button" aria-label="Close Ask Mosaic" onClick={onClose}>
@@ -1385,9 +1392,9 @@ export function AskMosaic({
           {contextFilters.length ? (
             <div
               className="ask-mosaic-context"
-              aria-label="Active filters passed to Ask Mosaic"
+              aria-label="Your preferences, passed to Ask Mosaic"
             >
-              <span>Active filters</span>
+              <span>Your preferences</span>
               <strong>{contextFilters.join(" · ")}</strong>
             </div>
           ) : null}

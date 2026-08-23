@@ -1,3 +1,4 @@
+import { armLanguage, armPoolKey } from "../retrievalLanguage";
 import type { RetrievalDiagnostics, SearchResponse } from "../types";
 
 /**
@@ -7,13 +8,17 @@ import type { RetrievalDiagnostics, SearchResponse } from "../types";
  * is no placeholder state and no derived estimate: the strip only renders once
  * a query has actually run, so a participant reading a number can go find the
  * row it came from.
+ *
+ * The bars used to be labelled "Full-text / pg_trgm / Vector" — a third naming of
+ * the three arms, half customer word and half feature name. They carry the shared
+ * label now; the mechanism beside it lives in the channel list one panel up, where
+ * there is room for it without squeezing the bar into three wrapped lines.
  */
 
-const armLabels: Array<{ key: string; label: string }> = [
-  { key: "fts_in_pool", label: "Full-text" },
-  { key: "trigram_in_pool", label: "pg_trgm" },
-  { key: "semantic_in_pool", label: "Vector" },
-];
+const armLabels = armLanguage.map((arm) => ({
+  key: armPoolKey[arm.key],
+  label: arm.label,
+}));
 
 const timingLabels: Array<{ key: string; label: string }> = [
   { key: "embedding", label: "Embed" },
@@ -33,8 +38,10 @@ function ArmBars({ diagnostics }: { diagnostics: RetrievalDiagnostics }) {
   return (
     <div className="lab-diagnostics-arms">
       <p>
-        Candidates per arm
-        <small>Arms overlap, so these do not sum to the fused pool.</small>
+        Candidates found per arm
+        <small>
+          Counts, not ranks. Arms overlap, so these do not sum to the pool.
+        </small>
       </p>
       {armLabels.map((arm) => {
         const count = diagnostics.candidate_counts[arm.key] ?? 0;
@@ -45,7 +52,9 @@ function ArmBars({ diagnostics }: { diagnostics: RetrievalDiagnostics }) {
             <i aria-hidden="true">
               <b style={{ width: `${(share * 100).toFixed(1)}%` }} />
             </i>
-            <strong>{count}</strong>
+            {/* "of {pool}", never a bare integer: these sit one panel away from a
+                table of per-product ranks, and a lone "2" reads as one. */}
+            <strong>{count}<em> of {pool}</em></strong>
           </div>
         );
       })}
@@ -65,6 +74,8 @@ export function RetrievalDiagnosticsStrip({ response }: { response: SearchRespon
 
   return (
     <section className="lab-diagnostics" aria-label="Measured retrieval diagnostics">
+      {/* Four figures, not six. "Results shown" and "Requested top-k" repeated the
+          Retrieve stage's own "Rows returned" tile verbatim one panel above. */}
       <dl className="lab-diagnostics-figures">
         <div>
           <dt>Query time</dt>
@@ -72,19 +83,9 @@ export function RetrievalDiagnosticsStrip({ response }: { response: SearchRespon
           <small>{breakdown || "No stage timings reported"}</small>
         </div>
         <div>
-          <dt>Results shown</dt>
-          <dd>{response.results.length}</dd>
-          <small>of {pool} fused candidates</small>
-        </div>
-        <div>
-          <dt>Requested top-k</dt>
-          <dd>{diagnostics.retrieval_profile.result_limit}</dd>
-          <small>RRF k = {diagnostics.retrieval_profile.rrf_k}</small>
-        </div>
-        <div>
-          <dt>Rank 1 RRF score</dt>
+          <dt>Rank 1 fused score</dt>
           <dd className="mono">{topSignals ? topSignals.rrf_score.toFixed(5) : "-"}</dd>
-          <small>{topSignals?.score_semantics ?? "No ranked candidate"}</small>
+          <small>k = {diagnostics.retrieval_profile.rrf_k}</small>
         </div>
         <div>
           <dt>Reranker</dt>
@@ -95,6 +96,12 @@ export function RetrievalDiagnosticsStrip({ response }: { response: SearchRespon
         </div>
       </dl>
       <ArmBars diagnostics={diagnostics} />
+      {/* The scale caveat is two sentences of prose. In a 150px figure tile it ran
+          to five lines and broke the row's rhythm; as the strip's own footnote it
+          reads once and applies to every number above it. */}
+      {topSignals ? (
+        <p className="lab-diagnostics-semantics">{topSignals.score_semantics}</p>
+      ) : null}
     </section>
   );
 }

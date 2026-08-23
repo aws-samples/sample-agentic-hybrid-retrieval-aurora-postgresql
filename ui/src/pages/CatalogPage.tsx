@@ -1,4 +1,5 @@
 import {
+  ArrowUpRight,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -24,6 +25,7 @@ import {
   useState,
 } from "react";
 import { flushSync } from "react-dom";
+import { Link } from "wouter";
 import { api } from "../api";
 import { AskMosaic } from "../components/AskMosaic";
 import type { AskMosaicTurn } from "../components/AskMosaic";
@@ -43,7 +45,11 @@ import {
 } from "../format";
 import { agentLabOutcome } from "../labOutcome";
 import { mosaicRetrievalExamples } from "../labMissions";
-import { useSearchParams } from "../navigation";
+import {
+  RETRIEVAL_SURFACE,
+  playgroundQueryHref,
+  useSearchParams,
+} from "../navigation";
 import { starterExamples } from "../starters";
 import type {
   Availability,
@@ -113,14 +119,23 @@ function mergeVisibleProducts(
   ].slice(0, pageSize);
 }
 
+/**
+ * What a Shop search is doing while it runs, in the storefront's own words.
+ *
+ * This list read "Cohere Embed v4 / FTS / pg_trgm / HNSW / SQL eligibility / RRF
+ * / Cohere Rerank" — seven implementation names on a shopping surface, for a
+ * shopper who is waiting for products. The five customer-facing steps are the
+ * same request; the model and index names are on the Playground, next to the
+ * measurements that justify naming them.
+ */
 const retrievalScope = [
-  "Cohere Embed v4",
-  "FTS",
-  "pg_trgm",
-  "HNSW",
-  "SQL eligibility",
-  "RRF",
-  "Cohere Rerank",
+  "Understanding your words",
+  "Exact terms",
+  "Close spelling",
+  "Meaning match",
+  "Only what you can buy",
+  "Combining the results",
+  "Reranking the shortlist",
 ];
 
 function HybridRetrievalTrace() {
@@ -128,12 +143,12 @@ function HybridRetrievalTrace() {
     <section
       className="hybrid-retrieval-trace"
       aria-live="polite"
-      aria-label="Hybrid retrieval request scope"
+      aria-label="What this search is doing"
     >
       <header>
         <div>
-          <p>Hybrid retrieval</p>
-          <strong>Building a ranked candidate set</strong>
+          <p>Searching the catalog</p>
+          <strong>Finding and ranking the best matches</strong>
         </div>
         <span className="hybrid-retrieval-status">
           <LoaderCircle className="spin" size={14} aria-hidden="true" />
@@ -141,11 +156,11 @@ function HybridRetrievalTrace() {
         </span>
       </header>
       <p className="hybrid-retrieval-scope">
-        This request runs the same production path. Individual stages are not
-        streamed, so Mosaic does not invent their completion order.
+        This is the same path every Mosaic search takes. The steps are not
+        streamed one by one, so nothing here claims an order it cannot see.
       </p>
-      <ul aria-label="Retrieval mechanisms in this request">
-        {retrievalScope.map((mechanism) => <li key={mechanism}>{mechanism}</li>)}
+      <ul aria-label="Steps in this search">
+        {retrievalScope.map((step) => <li key={step}>{step}</li>)}
       </ul>
     </section>
   );
@@ -760,14 +775,15 @@ export function CatalogPage() {
               />
             </div>
 
+            {/* No "SHOP" label above the headline: the header's active nav entry
+                already says where the participant is. */}
             <header className="shop-heading">
-              <p className="shop-kicker">Shop</p>
               <h1>
                 Find what fits <em>your world.</em>
               </h1>
               <p className="shop-lede">
-                Search in natural language, browse with intention, or ask Mosaic
-                for help finding what fits.
+                Search in your own words, browse with intention, or ask Mosaic
+                for help deciding.
               </p>
             </header>
 
@@ -807,6 +823,10 @@ export function CatalogPage() {
                 </div>
               </div>
 
+              {/* The pitch for Ask Mosaic, and only while it is closed. With the
+                  panel open this sat beside a panel headed "Ask Mosaic" making the
+                  same three promises, so the fold carried the invitation twice. */}
+              {agentOpen ? null : (
               <aside className="shop-console-note" aria-label="What Ask Mosaic does">
                 <small>Ask Mosaic</small>
                 <strong>I can help you choose.</strong>
@@ -838,6 +858,7 @@ export function CatalogPage() {
                   decoding="async"
                 />
               </aside>
+              )}
             </div>
           </div>
 
@@ -980,7 +1001,7 @@ export function CatalogPage() {
                     ? "Ask Mosaic shortlist"
                     : retrievalError
                       ? "Search unavailable"
-                      : "Hybrid results"}
+                      : "Results for"}
                 </strong>
                 {agentProducts ? agentQuestion : retrievalError || activeQuery}
               </span>
@@ -1001,8 +1022,8 @@ export function CatalogPage() {
                 </>
               ) : retrieval ? (
                 <>
-                  <strong>{retrieval.results.length}</strong> ranked products
-                  <small> · {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} candidates considered</small>
+                  <strong>{retrieval.results.length}</strong> best matches
+                  <small> · chosen from {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} candidates</small>
                 </>
               ) : page ? (
                 <>
@@ -1018,13 +1039,23 @@ export function CatalogPage() {
             ) : null}
           </div>
 
+          {/* One disclosure, and the bridge out of it. Everything a shopper needs
+              is above; a participant who wants the SQL follows their own words
+              into the Playground rather than retyping them there. */}
           {retrieval ? (
             <details className="shop-ranking-receipt">
               <summary>
-                <span>How these results were ranked</span>
-                <small>Candidate sources, combined order, and model reranking</small>
+                <span>Why these results, in this order</span>
+                <small>Where each match came from, and what reranking changed</small>
               </summary>
-              <SearchRetrievalReceipt response={retrieval} plainLanguage />
+              <SearchRetrievalReceipt response={retrieval} />
+              <Link
+                className="shop-ranking-playground"
+                href={playgroundQueryHref(retrieval.query, retrieval.applied_filters)}
+              >
+                See how this was retrieved in the {RETRIEVAL_SURFACE.label}
+                <ArrowUpRight size={14} aria-hidden="true" />
+              </Link>
             </details>
           ) : null}
 
@@ -1070,7 +1101,7 @@ export function CatalogPage() {
                 <section className="shop-empty">
                   <Search size={24} />
                   <h2>No eligible products</h2>
-                  <p>Remove a constraint or clear the current search to widen the candidate set.</p>
+                  <p>Remove a filter or clear the search to see more products.</p>
                 </section>
               )}
               {!retrieval && !agentProducts && page ? (

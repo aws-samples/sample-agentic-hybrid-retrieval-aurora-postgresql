@@ -256,11 +256,15 @@ describe("column measures", () => {
     );
 
     expect(matrix.columns.map((column) => `${column.label}: ${column.measure}`)).toEqual([
-      "Exact words: 1 of 3",
-      "Close spellings: 1 of 3",
-      "Meaning: 2 of 3",
-      `Fused order: 3 of ${profile.fused_limit}`,
-      "Reranker: 0 of 3",
+      // The five labels come from retrievalLanguage, so a column heading here and
+      // a "Why this match" row in Shop cannot drift apart.
+      "Exact terms: 1 of 3",
+      "Close spelling: 1 of 3",
+      "Meaning match: 2 of 3",
+      `Before reranking: 3 of ${profile.fused_limit}`,
+      // Not "Final position": this column's cells hold `rerank_score`, and a 0.9204
+      // under a heading that promises a rank is the table lying about its units.
+      "Rerank score: 0 of 3",
     ]);
     expect(matrix.columns[2].mechanism).toContain("1024d");
     expect(matrix.columns[3].mechanism).toContain(`k = ${profile.rrf_k}`);

@@ -82,8 +82,14 @@
   --labs-detail: 13px;
   --labs-micro: 12px;
   --labs-mono: 13px;
-  --topbar-height: 76px;
+  --topbar-height: 70px;
   --page-width: 1480px;
+  /* One application width for all three surfaces. Discover's body was capped at
+     1320px and Shop's column at 1400px, so a 1728px display drew 408px of empty
+     canvas on Discover and 328px on Shop, and the two surfaces did not agree on
+     where the page ended. 92vw keeps a margin at every width; the 1480px cap is
+     what stops the product grid from running to 5in-wide cards on an ultrawide. */
+  --shell-width: min(92vw, var(--page-width));
 }
 
 * {
@@ -340,16 +346,6 @@ button:disabled {
   transition: color 180ms ease;
 }
 
-.site-nav-optional {
-  padding-left: 7px;
-  border-left: 1px solid #cdbb9f;
-  color: #8a642f;
-  font-size: 11px;
-  font-weight: 720;
-  letter-spacing: 0;
-  line-height: 1.1;
-}
-
 .site-nav a:hover,
 .site-nav a.active {
   color: var(--ink);
@@ -494,16 +490,16 @@ button:disabled {
 }
 
 .page {
-  width: min(100%, var(--page-width));
+  width: var(--shell-width);
   min-height: calc(100vh - var(--topbar-height));
   margin: 0 auto;
-  padding: 48px 42px 72px;
+  padding: 40px 0 72px;
 }
 
 .page-section {
-  width: min(100%, 1360px);
+  width: var(--shell-width);
   margin: 0 auto;
-  padding: 72px 42px;
+  padding: 72px 0;
 }
 
 .page-header,
@@ -3770,11 +3766,15 @@ button:disabled {
   border-bottom: 1px solid #e8ddd1;
 }
 
-.retrieval-run-comparison h2 {
+/* h3: this block sits inside the Rank stage, whose h2 is "Rank". The eyebrow
+   above it read "Live run comparison" over a heading saying the same thing. */
+.retrieval-run-comparison > header h3 {
   margin: 2px 0 0;
+  color: var(--ink);
   font-family: var(--display);
   font-size: var(--labs-h3);
   font-weight: 540;
+  text-transform: none;
 }
 
 .retrieval-run-comparison > header > p {
@@ -3839,14 +3839,17 @@ button:disabled {
   margin-bottom: 24px;
   overflow: hidden;
   border: 1px solid #efe4d7;
-  border-radius: 14px;
+  border-radius: 8px;
   background: #fffdf9;
   box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
 }
 
+/* Three figures now, not five: "Results shown" and "Requested top-k" repeated the
+   Retrieve stage's own tiles. A fixed repeat(5) track left two empty cells and a
+   hairline hanging in open canvas, so the track follows the content. */
 .lab-diagnostics-figures {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
   margin: 0;
 }
 
@@ -3854,6 +3857,10 @@ button:disabled {
   min-width: 0;
   padding: 17px 20px;
   border-right: 1px solid #efe4d7;
+}
+
+.lab-diagnostics-figures > div:last-child {
+  border-right: 0;
 }
 
 .lab-diagnostics-figures dt {

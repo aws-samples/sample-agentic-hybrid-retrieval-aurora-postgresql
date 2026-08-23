@@ -1,8 +1,9 @@
+import { FUSED_LABEL, armLanguage } from "./retrievalLanguage";
 import type { ProductSummary, SearchResponse } from "./types";
 
 /**
  * Turns one `/api/search` response into the before/after matrix the Retrieval
- * Observatory draws.
+ * Playground draws.
  *
  * Everything here is derived from values Aurora returned. The only thing computed
  * in the browser is *which pair of words* explains a fuzzy match, and that pair is
@@ -400,7 +401,10 @@ export function buildRetrievalMatrix(
   const columns: MatrixColumn[] = [
     {
       key: "fts",
-      label: "Exact words",
+      // Labels come from retrievalLanguage so a column heading here and a row in
+      // Shop's "Why this match" cannot drift apart; the mechanism line is what
+      // this surface adds on top of them.
+      label: armLanguage[0].label,
       mechanism: "tsvector + ts_rank_cd",
       measure: `${found("fts")} of ${total}`,
       measureDetail: "rows found",
@@ -408,7 +412,7 @@ export function buildRetrievalMatrix(
     },
     {
       key: "trigram",
-      label: "Close spellings",
+      label: armLanguage[1].label,
       mechanism: "pg_trgm word_similarity",
       measure: `${found("trigram")} of ${total}`,
       measureDetail: "rows found",
@@ -416,7 +420,7 @@ export function buildRetrievalMatrix(
     },
     {
       key: "semantic",
-      label: "Meaning",
+      label: armLanguage[2].label,
       mechanism: `pgvector HNSW cosine${
         response.diagnostics ? ` · ${response.diagnostics.embedding_dimensions}d` : ""
       }`,
@@ -426,7 +430,7 @@ export function buildRetrievalMatrix(
     },
     {
       key: "fusion",
-      label: "Fused order",
+      label: FUSED_LABEL,
       // No local default for k. The value lives in db/config/retrieval.yaml and
       // reaches here through the response; inventing a fallback would let this
       // column state a k the run did not use.
@@ -439,7 +443,11 @@ export function buildRetrievalMatrix(
     },
     {
       key: "rerank",
-      label: "Reranker",
+      // Not FINAL_LABEL: this cell carries `rerank_score`, and a 0.9204 under a
+      // heading that promises a position is the surface lying about its own units.
+      // The final position is the row's rank badge and the right half of
+      // Before / after.
+      label: "Rerank score",
       mechanism: response.diagnostics?.rerank_model_id ?? "cross-encoder rerank",
       measure: rerankApplied ? `${moved.length} of ${total}` : "not applied",
       measureDetail: rerankApplied ? "rows moved" : "order unchanged",
@@ -460,9 +468,9 @@ export function buildRetrievalMatrix(
 export function matrixSummary(matrix: RetrievalMatrix): string {
   const [exact, fuzzy, meaning] = matrix.columns;
   const parts = [
-    `Exact words found ${exact.measure.split(" of ")[0]}`,
-    `close spellings ${fuzzy.measure.split(" of ")[0]}`,
-    `meaning ${meaning.measure.split(" of ")[0]}`,
+    `${exact.label} found ${exact.measure.split(" of ")[0]}`,
+    `${fuzzy.label.toLowerCase()} ${fuzzy.measure.split(" of ")[0]}`,
+    `${meaning.label.toLowerCase()} ${meaning.measure.split(" of ")[0]}`,
   ];
   const rerank = matrix.movedRows
     ? `Reranking then moved ${plural(matrix.movedRows, "row")}, the largest by ${

@@ -2,26 +2,22 @@ import { ArrowRight, Search, Sparkles } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import {
-  CatalogSearchComposer,
-  catalogGhostQueries,
-} from "../components/CatalogSearchComposer";
+import { CatalogSearchComposer } from "../components/CatalogSearchComposer";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { ProductCard } from "../components/ProductCard";
 import { coreMosaicLabs, retrievalExampleHref } from "../labMissions";
 import { productImageMap } from "../media";
 import { RETRIEVAL_SURFACE, useNavigate } from "../navigation";
+import { armLanguage } from "../retrievalLanguage";
 import { showcaseCatalogPage } from "../showcase";
 import type { SearchFilters } from "../types";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
-type StarterQuery = {
+type EditorialStory = {
   topic: string;
   title: string;
   caption: string;
-  /** The hero chip label. It is also the query the chip runs, verbatim. */
-  prompt: string;
   query: string;
   image: string;
   imageFit?: "cover";
@@ -29,21 +25,24 @@ type StarterQuery = {
   filters: Pick<SearchFilters, "domain" | "category_key">;
 };
 
-const starterQueries: StarterQuery[] = [
+/**
+ * Three editorial entries below the hero, each of which runs a real request.
+ *
+ * They used to be three same-shaped white cards in a row. Now the first is a
+ * full-width image-led band and the other two sit beside it as photographs with
+ * their copy on bare canvas, so the section reads as an edit rather than as three
+ * containers.
+ */
+export const editorialStories: EditorialStory[] = [
   {
-    // The card prints "Featured · {topic}", so this used to read
-    // "Featured · Featured". The topic is the category the prompt actually
-    // constrains to, and the photograph is the catalog plate for product 2
-    // (Sonora WH-C720) in that same category rather than a generic audio plate.
-    topic: "Over-Ear Headphones",
-    title: "Find the best over-ear headphones for focus and travel",
-    caption: "Comfort, focus, and travel priorities in one request.",
-    prompt: "Best noise-cancelling headphones",
+    topic: "Over-ear headphones",
+    title: "For focus, and for the long way home",
+    caption:
+      "Comfort, isolation, and battery life weighed together, not one at a time.",
     query: "Find the best over-ear headphones for focus and travel.",
     image: "/assets/images/mosaic/ce-over-ear-headphones-02-catalog-3x2.webp",
-    // The catalog plates are 3:2 and the frame is 4:5, so this one fills the
-    // frame rather than sitting letterboxed inside it. The other two starters
-    // are portrait crops that already fit.
+    // The catalog plates are 3:2 and this frame is wider, so it fills rather
+    // than sitting letterboxed inside it.
     imageFit: "cover",
     filters: {
       domain: "consumer_electronics",
@@ -51,11 +50,11 @@ const starterQueries: StarterQuery[] = [
     },
   },
   {
-    topic: "Preferences",
-    title: "Recommendations that get you",
-    caption: "Fit, budget, and must-haves become explicit catalog constraints.",
-    prompt: "Ergonomic chair for long workdays",
-    query: "Find an ergonomic mesh chair for long workdays with adjustable lumbar support.",
+    topic: "Workspace",
+    title: "Made to be sat in all day",
+    caption: "Fit, budget, and must-haves become real catalog constraints.",
+    query:
+      "Find an ergonomic mesh chair for long workdays with adjustable lumbar support.",
     image: "/assets/images/mosaic/category/workspace.webp",
     filters: {
       domain: "home_office",
@@ -63,10 +62,9 @@ const starterQueries: StarterQuery[] = [
     },
   },
   {
-    topic: "Evidence",
-    title: "Grounded answers. No guesswork.",
-    caption: "Compare catalog facts and inspect the evidence behind each pick.",
-    prompt: "Headphones for a long flight",
+    topic: "Audio",
+    title: "Ask, and compare the facts",
+    caption: "Mosaic answers from catalog records and shows the ones it used.",
     query: "Comfortable over-ear headphones for a 14-hour flight",
     image: "/assets/images/mosaic/category/audio.webp",
     mode: "ask",
@@ -77,21 +75,62 @@ const starterQueries: StarterQuery[] = [
   },
 ];
 
-const heroPrompts = [
+/**
+ * The five curated hero prompts, each with the category it browses.
+ *
+ * Each chip searches for exactly the words printed on it. The constraint beside
+ * those words is what puts a premium, photographed cohort behind them, and Shop
+ * renders it as a removable filter chip, so nothing is hidden.
+ *
+ * These shipped unconstrained for one revision, on the argument that plain language
+ * ought to be enough. Measured against the live 500,000-row catalog, that argument
+ * produced this:
+ *
+ *   "Focus headphones"           1 of 12 distinct photographs
+ *   "Quiet home office"          1 of 12
+ *   "Travel-ready audio"         2 of 12
+ *   "Recovery essentials"        2 of 12
+ *   "A chair for long workdays"  8 of 12
+ *
+ * The corpus is why. "Focus headphones" collides with three synthetic brands named
+ * FocusErgonomics, FocusOffice and FocusSystems, so the lexical arm answers with
+ * `acoustic-headphones` — a subcategory that has no commissioned photography at all,
+ * which sends all twelve rows to one domain-neutral plate. "Quiet home office" lands
+ * in `mesh-office-chairs` the same way. Constrained to a category that owns a deep
+ * pool, the same five labels measure 12, 12, 11, 12 and 12 of 12.
+ *
+ * Nothing here is misspelled — the imperfect query the workshop needs is one a
+ * shopper types into this field themselves.
+ */
+export const heroPrompts: Array<{
+  label: string;
+  filters: Required<Pick<SearchFilters, "domain" | "category_key">>;
+}> = [
   {
-    label: "Best noise-cancelling headphones",
-    query: "Best noise-cancelling headphones",
-    filters: starterQueries[0].filters,
+    label: "Focus headphones",
+    filters: {
+      domain: "consumer_electronics",
+      category_key: "over-ear-headphones",
+    },
   },
   {
-    label: "Ergonomic office chair",
-    query: "Ergonomic chair for long workdays",
-    filters: starterQueries[1].filters,
+    label: "A chair for long workdays",
+    filters: { domain: "home_office", category_key: "ergonomic-office-chairs" },
   },
   {
-    label: "Headphones for a long flight",
-    query: "Headphones for a long flight",
-    filters: starterQueries[2].filters,
+    label: "Travel-ready audio",
+    filters: {
+      domain: "consumer_electronics",
+      category_key: "true-wireless-earbuds",
+    },
+  },
+  {
+    label: "Quiet home office",
+    filters: { domain: "home_office", category_key: "quiet-keyboards" },
+  },
+  {
+    label: "Recovery essentials",
+    filters: { domain: "running_fitness", category_key: "mobility-tools" },
   },
 ];
 
@@ -104,7 +143,7 @@ const heroPrompts = [
  * only counts that would be true here are the facet counts Shop reads back
  * from the API, and Discover does not make that request.
  */
-const intentionCategories = [
+export const intentionCategories = [
   {
     label: "Over-ear headphones",
     domain: "consumer_electronics",
@@ -143,44 +182,59 @@ const intentionCategories = [
   },
 ];
 
+/**
+ * The Playground band's three cards, which are also the three required labs.
+ *
+ * This used to be two grids: three stage cards that all linked to the Playground
+ * root, and below them three scenario cards that linked to the real scenarios and
+ * printed each scenario's query verbatim. Six cards for three destinations, and
+ * the queries included Lab 1's deliberately misspelled one — Mosaic's own copy
+ * spelling "wirless" and "hedphones" on the landing page.
+ *
+ * One card per lab now, deep-linked to its scenario. The misspelled query belongs
+ * to the shopper who types it, so it appears in an input the participant owns and
+ * nowhere in Mosaic's voice.
+ */
 const labStages = [
   {
     number: "01",
-    stage: "Retrieve",
-    title: "Build hybrid retrieval",
-    caption: "Lexical, fuzzy, and semantic arms over one Aurora catalog.",
+    label: "Retrieve",
+    // Not the mission's own `discover_label`: those are written for the Playground
+    // and two of the three name the mechanism — "Candidate recall across
+    // retrievers" and "RRF ranking before rerank". Printing them here would put
+    // "RRF" on the landing page.
+    title: "Three ways to find one product",
+    caption: "Exact terms, close spelling, and meaning, over one Aurora catalog.",
     graphic: "retrieve" as const,
   },
   {
     number: "02",
-    stage: "Rank",
-    title: "Fuse, rerank, and inspect",
-    caption: "Watch candidates move as fusion and reranking take over.",
+    label: "Rank",
+    title: "Watch the order change",
+    caption: "Candidates move as results are combined and then reranked.",
     graphic: "rank" as const,
   },
   {
     number: "03",
-    stage: "Reason",
-    title: "Build the retrieval agent",
-    caption: "Give the system you built to an agent that cites its evidence.",
+    label: "Reason",
+    title: "An answer that cites its sources",
+    caption: "Every claim traced back to the product record it came from.",
     graphic: "reason" as const,
   },
 ];
 
-function scenarioStateLabel(
-  checkpoint: typeof coreMosaicLabs[number]["checkpoint"],
-) {
-  if (checkpoint === "repair") return "Before / after";
-  if (checkpoint === "advanced") return "Advanced";
-  return "Inspect";
-}
-
-// Discover is an editorial entry surface, not a live-search result. Loading
-// these fixed premium-cohort cards locally prevents the Shop band from
-// appearing a second after the rest of the page, while Shop remains the
-// authoritative live catalog and retrieval surface.
-const featuredPreview = showcaseCatalogPage({}, 0, 4, "featured").products;
-
+/**
+ * The three scenes behind the Playground cards.
+ *
+ * Photography-led rather than diagrammatic, and labelled in the shopping
+ * vocabulary: the strip under the first scene used to read "FTS / pg_trgm /
+ * pgvector" and the second "RRF -> model rerank", which put three Postgres
+ * feature names and an academic acronym on the landing page. The mechanism names
+ * belong on the Playground, next to the numbers that come out of them.
+ *
+ * The evidence card quotes the Auraluxe H9's real catalog record: adaptive noise
+ * cancellation and `battery_hours: 60`, both from data/curated/demo_products.json.
+ */
 function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
   if (variant === "retrieve") {
     return (
@@ -213,9 +267,7 @@ function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
           />
         </span>
         <span className="discover-lab-channel-strip">
-          <span>FTS</span>
-          <span>pg_trgm</span>
-          <span>pgvector</span>
+          {armLanguage.map((arm) => <span key={arm.key}>{arm.label}</span>)}
         </span>
       </span>
     );
@@ -255,9 +307,9 @@ function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
           </span>
         </span>
         <span className="discover-lab-rank-receipt">
-          <span>RRF</span>
+          <span>Before reranking</span>
           <ArrowRight size={14} />
-          <strong>model rerank</strong>
+          <strong>Final position</strong>
         </span>
       </span>
     );
@@ -273,7 +325,7 @@ function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
         decoding="async"
       />
       <span className="discover-lab-evidence">
-        <small>Evidence retrieved</small>
+        <small>From the product record</small>
         <strong>Auraluxe H9</strong>
         <span>
           Adaptive noise cancellation <b>[1]</b>
@@ -287,40 +339,11 @@ function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
   );
 }
 
-/**
- * The signal figure behind the Retrieval Observatory band.
- *
- * Three strands converge into one and hand off to the photographs on the right,
- * which is the shape of the thing the labs teach: a lexical, a fuzzy, and a
- * semantic arm fused into a single ranked list. Decorative, so it carries no
- * numbers - the measured values live on the Observatory itself.
- */
-function LabsSignal() {
-  return (
-    <span className="discover-labs-signal" aria-hidden="true">
-      <svg viewBox="0 0 480 420" preserveAspectRatio="none" focusable="false">
-        <defs>
-          <linearGradient id="discover-labs-strand" x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%" stopColor="#b3833f" stopOpacity="0" />
-            <stop offset="44%" stopColor="#c9954c" stopOpacity="0.5" />
-            <stop offset="86%" stopColor="#f2d5a4" stopOpacity="0.92" />
-            <stop offset="100%" stopColor="#f2d5a4" stopOpacity="0.34" />
-          </linearGradient>
-          <radialGradient id="discover-labs-bloom" cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0%" stopColor="#f2d5a4" stopOpacity="0.26" />
-            <stop offset="100%" stopColor="#f2d5a4" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <ellipse cx="392" cy="284" fill="url(#discover-labs-bloom)" rx="200" ry="164" />
-        <g fill="none" stroke="url(#discover-labs-strand)" strokeLinecap="round">
-          <path d="M-40 178 C 120 178 232 240 400 284" strokeWidth="17" />
-          <path d="M-40 284 C 140 284 250 284 400 284" strokeWidth="27" />
-          <path d="M-40 392 C 120 392 232 330 400 284" strokeWidth="17" />
-        </g>
-      </svg>
-    </span>
-  );
-}
+// Discover is an editorial entry surface, not a live-search result. Loading
+// these fixed premium-cohort cards locally prevents the Shop band from
+// appearing a second after the rest of the page, while Shop remains the
+// authoritative live catalog and retrieval surface.
+const featuredPreview = showcaseCatalogPage({}, 0, 4, "featured").products;
 
 export function DiscoverPage() {
   const navigate = useNavigate();
@@ -329,6 +352,18 @@ export function DiscoverPage() {
   // product, because a per-product hash cannot guarantee distinctness.
   const previewImages = useMemo(() => productImageMap(featuredPreview), []);
   const reduceMotion = useReducedMotion() ?? false;
+  const labCards = useMemo(
+    () =>
+      labStages
+        .map((stage) => ({
+          ...stage,
+          mission: coreMosaicLabs.find(
+            (mission) => mission.stage === stage.graphic,
+          ),
+        }))
+        .filter((card) => card.mission),
+    [],
+  );
 
   function search(
     nextQuery: string,
@@ -352,15 +387,15 @@ export function DiscoverPage() {
     navigate(`/catalog?${params}`);
   }
 
-  function runStarter(starter: StarterQuery) {
-    if (starter.mode === "ask") {
-      askMosaic(starter.query, starter.filters);
+  function runStory(story: EditorialStory) {
+    if (story.mode === "ask") {
+      askMosaic(story.query, story.filters);
       return;
     }
-    search(starter.query, starter.filters);
+    search(story.query, story.filters);
   }
 
-  const [featuredStarter, ...secondaryStarters] = starterQueries;
+  const [featuredStory, ...secondaryStories] = editorialStories;
 
   return (
     <div className="discover-experience">
@@ -398,25 +433,26 @@ export function DiscoverPage() {
         </motion.picture>
         <div className="discover-scrim" aria-hidden="true" />
         <div className="discover-hero-content">
-          <p className="discover-hero-kicker">
-            Intelligent shopping, elevated
-          </p>
           <h1>
             <span>Objects that shape</span>
             <em>your world.</em>
           </h1>
           <p className="discover-hero-sub">
-            Ask in your own words, or search the way you always have. Mosaic
-            retrieves from the catalog either way.
+            Search naturally. Mosaic understands the words, meaning, and details
+            that matter.
           </p>
           <div className="discover-search" role="search">
+            {/* No rotating ghost query. The headline says "Search naturally" and
+                the field then cycled through "Sonora WH-C720" and "Mosaic Auraluxe
+                H9" — exact model numbers, which read as a demo fixture rather than
+                as an invitation. A plain placeholder asks for the thing the hero
+                just promised. */}
             <CatalogSearchComposer
-              idleSuggestions={catalogGhostQueries}
               inputLabel="Search products"
               leadingIcon={<GenerativeSearchIcon size={20} />}
               onSubmit={search}
               onValueChange={setQuery}
-              placeholder="Ask anything, or search products"
+              placeholder="Describe what you're looking for..."
               showSuggestions={false}
               suggestionsOnType={false}
             />
@@ -430,16 +466,17 @@ export function DiscoverPage() {
               Ask Mosaic
             </button>
           </div>
-          {/* Each chip searches for exactly the words on it. */}
+          {/* Each chip searches for exactly the words on it, inside the category
+              it names. */}
           <div className="discover-hero-prompts">
             <span>Try a search</span>
-            {heroPrompts.map((starter) => (
+            {heroPrompts.map((prompt) => (
               <button
-                key={starter.label}
+                key={prompt.label}
                 type="button"
-                onClick={() => search(starter.query, starter.filters)}
+                onClick={() => search(prompt.label, prompt.filters)}
               >
-                {starter.label}
+                {prompt.label}
               </button>
             ))}
           </div>
@@ -450,69 +487,63 @@ export function DiscoverPage() {
         <section className="discover-section" aria-labelledby="discover-starters-title">
           <header className="discover-section-heading">
             <div>
-              <h2 id="discover-starters-title">Every question runs hybrid retrieval</h2>
-              {/* The three arms in the words the rest of the product uses for
-                  them, not "FTS / trigram / vector". Two of these starters go to
-                  Shop and one opens the agent, and all three retrieve the same
-                  way, so the claim holds for each. */}
-              <p>
-                Exact words, close spellings, and meaning, together over the live
-                catalog, with each starter's category filter already applied.
-              </p>
+              <h2 id="discover-starters-title">
+                Made for the way you work, move, and unwind.
+              </h2>
             </div>
           </header>
           <div className="discover-editorial-grid">
             <button
               className="discover-editorial-card is-featured"
               type="button"
-              onClick={() => runStarter(featuredStarter)}
-              aria-label={featuredStarter.query}
+              onClick={() => runStory(featuredStory)}
+              aria-label={featuredStory.query}
             >
               <span
                 className={
-                  featuredStarter.imageFit === "cover"
+                  featuredStory.imageFit === "cover"
                     ? "discover-editorial-media is-cover"
                     : "discover-editorial-media"
                 }
               >
                 <img
-                  src={featuredStarter.image}
+                  src={featuredStory.image}
                   alt=""
                   loading="lazy"
                   decoding="async"
                 />
               </span>
               <span className="discover-editorial-body">
-                <small>Featured · {featuredStarter.topic}</small>
-                <strong>{featuredStarter.title}</strong>
-                <em>“{featuredStarter.query}”</em>
+                <small>{featuredStory.topic}</small>
+                <strong>{featuredStory.title}</strong>
+                <em>{featuredStory.caption}</em>
                 <span className="discover-editorial-run">
-                  Try this prompt
+                  Explore the edit
                   <ArrowRight size={14} aria-hidden="true" />
                 </span>
               </span>
             </button>
-            {secondaryStarters.map((starter) => (
+            {secondaryStories.map((story) => (
               <button
-                key={starter.topic}
+                key={story.topic}
                 className="discover-editorial-card"
                 type="button"
-                onClick={() => runStarter(starter)}
-                aria-label={starter.query}
+                onClick={() => runStory(story)}
+                aria-label={story.query}
               >
                 <span
                   className={
-                    starter.imageFit === "cover"
+                    story.imageFit === "cover"
                       ? "discover-editorial-media is-cover"
                       : "discover-editorial-media"
                   }
                 >
-                  <img src={starter.image} alt="" loading="lazy" decoding="async" />
+                  <img src={story.image} alt="" loading="lazy" decoding="async" />
                 </span>
                 <span className="discover-editorial-body">
-                  <small>{starter.topic}</small>
-                  <strong>{starter.title}</strong>
-                  <em>“{starter.query}”</em>
+                  <small>{story.topic}</small>
+                  <strong>{story.title}</strong>
+                  <em>{story.caption}</em>
                 </span>
               </button>
             ))}
@@ -546,7 +577,7 @@ export function DiscoverPage() {
               <strong>Built for the long run.</strong>
               <p>
                 Browse a considered edit, or describe what you need and let
-                Mosaic retrieve the strongest matches.
+                Mosaic find the strongest matches.
               </p>
               <Link className="discover-plate-link" href="/catalog?domain=running_fitness">
                 Shop running &amp; fitness
@@ -595,30 +626,37 @@ export function DiscoverPage() {
         </section>
 
         <section className="discover-section discover-labs" aria-labelledby="discover-labs-title">
-          <LabsSignal />
+          {/* No decorative light figure. Blurred to 7px it read as a lens flare in
+              the bottom-left corner, not as three arms converging, and the three
+              scenes beside it make the same point with photographs. */}
           <div className="discover-labs-inner">
             <div className="discover-labs-copy">
-              <p className="discover-labs-kicker">{RETRIEVAL_SURFACE.label}</p>
               <h2 id="discover-labs-title">
                 Built for how you <em>think.</em>
               </h2>
               <p className="discover-labs-lede">
-                See how Mosaic retrieves candidates, ranks results, and grounds recommendations.
+                See how Mosaic finds candidates, ranks them, and grounds every
+                recommendation it makes.
               </p>
-              <Link className="discover-labs-cta" href="/labs/retrieval">
-                Open the Observatory
+              <Link className="discover-labs-cta" href={RETRIEVAL_SURFACE.path}>
+                Open the {RETRIEVAL_SURFACE.label}
                 <ArrowRight size={15} aria-hidden="true" />
               </Link>
             </div>
             <div className="discover-labs-grid">
-              {labStages.map((lab) => (
-                <Link className="discover-lab-card" key={lab.stage} href="/labs/retrieval">
+              {labCards.map((lab) => (
+                <Link
+                  className="discover-lab-card"
+                  key={lab.label}
+                  href={retrievalExampleHref(lab.mission!)}
+                  aria-label={`${lab.label}: ${lab.title}`}
+                >
                   <span className="discover-lab-graphic">
                     <LabGraphic variant={lab.graphic} />
                   </span>
                   <span className="discover-lab-copy">
                     <small>
-                      {lab.number} · {lab.stage}
+                      {lab.number} · {lab.label}
                     </small>
                     <strong>{lab.title}</strong>
                     <em>{lab.caption}</em>
@@ -626,37 +664,6 @@ export function DiscoverPage() {
                 </Link>
               ))}
             </div>
-            <section
-              className="discover-labs-scenarios"
-              aria-labelledby="discover-labs-scenarios-title"
-            >
-              <header>
-                <p className="discover-labs-scenarios-kicker">
-                  Required lab scenarios
-                </p>
-                <h3 id="discover-labs-scenarios-title">
-                  Observe. Repair. Prove.
-                </h3>
-              </header>
-              <div className="discover-labs-scenarios-grid">
-                {coreMosaicLabs.map((scenario) => (
-                  <Link
-                    className="discover-labs-scenario"
-                    key={scenario.id}
-                    href={retrievalExampleHref(scenario)}
-                    aria-label={`${scenario.discover_label}: ${scenario.query}`}
-                  >
-                    <span className="discover-labs-scenario-state">
-                      {scenarioStateLabel(scenario.checkpoint)}
-                    </span>
-                    <strong>{scenario.discover_label}</strong>
-                    <span className="discover-labs-scenario-query">
-                      Try: {scenario.query}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </section>
           </div>
         </section>
       </div>

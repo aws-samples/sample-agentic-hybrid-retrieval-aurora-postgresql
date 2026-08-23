@@ -34,10 +34,14 @@ describe("Shell navigation", () => {
         .getAllByRole("link")
         .map((link) => link.getAttribute("href")),
     ).toEqual(["/", "/catalog", "/labs/retrieval"]);
+    // No query on Shop, so nothing is carried and the Playground link is plain.
+    // Discover | Shop | Playground, and nothing else. The third entry printed
+    // "Observatory" with an "Optional" badge welded to it, which is a fourth name
+    // for the surface and an instruction to skip it.
     expect(
-      within(navigation).getByRole("link", { name: /Retrieval Observatory/ }).textContent,
-    ).toBe("ObservatoryOptional");
-    expect(within(navigation).getByText("Optional").tagName).toBe("SMALL");
+      within(navigation).getAllByRole("link").map((link) => link.textContent),
+    ).toEqual(["Discover", "Shop", "Playground"]);
+    expect(navigation.textContent).not.toMatch(/Observatory|Optional|Mosaic Labs/);
     expect(
       within(navigation).getByRole("link", { name: "Shop" }).getAttribute(
         "aria-current",
@@ -53,6 +57,51 @@ describe("Shell navigation", () => {
     expect(screen.queryByRole("button", { name: "Account" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Search the catalog" })).toBeNull();
     expect(screen.queryByText("Collections")).toBeNull();
+  });
+
+  it("carries an active Shop query onto the Playground entry", () => {
+    // Otherwise a participant who searched and then reached for the header arrived
+    // at a Playground about a different query. The only other hand-off is a link
+    // inside Shop's collapsed "Why these results" disclosure.
+    window.history.replaceState(
+      {},
+      "",
+      "/catalog?q=wirless+noice+canceling+hedphones&domain=consumer_electronics&in_stock_only=true",
+    );
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    const href = within(screen.getByRole("navigation"))
+      .getByRole("link", { name: "Playground" })
+      .getAttribute("href")!;
+    const params = new URLSearchParams(href.split("?")[1]);
+
+    expect(href.startsWith("/labs/retrieval?")).toBe(true);
+    expect(params.get("q")).toBe("wirless noice canceling hedphones");
+    expect(params.get("domain")).toBe("consumer_electronics");
+    expect(params.get("in_stock_only")).toBe("true");
+  });
+
+  it("carries nothing from a surface that has no query", () => {
+    window.history.replaceState({}, "", "/labs/retrieval");
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Playground content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    expect(
+      within(screen.getByRole("navigation"))
+        .getByRole("link", { name: "Playground" })
+        .getAttribute("href"),
+    ).toBe("/labs/retrieval");
   });
 
   it("makes the storefront inert while the cart dialog is open", async () => {

@@ -23,14 +23,31 @@ describe("RetrievalReceipt", () => {
     const receipt = screen.getByRole("region", {
       name: "End-to-end retrieval receipt",
     });
+    // One vocabulary, on Shop and on the Playground alike. A `plainLanguage`
+    // boolean used to give the same six stages two sets of words, so the Playground
+    // printed "Fusion #1" under a matrix column headed "Before reranking" for the
+    // same number.
     expect(
       within(receipt).getByText(
-        "Filters → candidates → fusion → rerank → evidence → latency",
+        "Eligibility → candidates → combined order → final order → evidence → time",
       ),
     ).toBeTruthy();
-    expect(within(receipt).getAllByRole("term")).toHaveLength(6);
+    expect(
+      within(receipt).getAllByRole("term").map((term) => term.textContent),
+    ).toEqual([
+      "Eligibility",
+      "Candidates found",
+      "Before reranking",
+      "Final position",
+      "Evidence IDs",
+      "Time",
+    ]);
     expect(within(receipt).getByText("Not requested")).toBeTruthy();
     expect(within(receipt).getByText("search receipt only")).toBeTruthy();
+    // Per-arm counts carry the denominator that makes them counts. Printed as
+    // "Close spelling 2" beside a column of `#position` values, four readers in a
+    // row took them for ranks.
+    expect(within(receipt).getByText(/Close spelling \d+ of \d+/)).toBeTruthy();
   });
 
   it("does not invent a receipt when diagnostics are unavailable", () => {

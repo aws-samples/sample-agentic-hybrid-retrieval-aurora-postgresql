@@ -10,7 +10,7 @@ import { STUDIO_BRIEFS, studioCandidates } from "../studioFixtures";
 const TOUR_DWELL_MS = 3200;
 
 /**
- * An optional, fixture-backed visual composition study.
+ * A fixture-backed visual composition study, the Playground's third lens.
  *
  * Studio intentionally does not execute or emulate a search. It is a fast way
  * to explore real catalog objects as a composition after attendees have

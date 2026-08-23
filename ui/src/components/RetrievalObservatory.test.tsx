@@ -65,16 +65,22 @@ describe("RetrievalObservatory", () => {
     );
   });
 
-  it("compares all five retrievers side by side, with the count each found", () => {
+  it("compares all five stages side by side, with the count each found", () => {
     renderObservatory({ response: seedRun });
 
     const headings = screen.getAllByRole("columnheader").map((cell) => cell.textContent);
     expect(headings[0]).toBe("Result");
-    expect(headings[1]).toContain("Exact words");
-    expect(headings[2]).toContain("Close spellings");
-    expect(headings[3]).toContain("Meaning");
-    expect(headings[4]).toContain("Fused order");
-    expect(headings[5]).toContain("Reranker");
+    // One vocabulary, from retrievalLanguage. These headings used to be a fifth
+    // naming of the same five stages.
+    expect(headings[1]).toContain("Exact terms");
+    expect(headings[2]).toContain("Close spelling");
+    expect(headings[3]).toContain("Meaning match");
+    expect(headings[4]).toContain("Before reranking");
+    expect(headings[5]).toContain("Rerank score");
+    // The mechanism travels with the label on this surface, and only here.
+    expect(headings[1]).toContain("tsvector");
+    expect(headings[2]).toContain("pg_trgm");
+    expect(headings[3]).toContain("pgvector");
     expect(headings[6]).toContain("Before / after");
 
     const found = (arm: "fts" | "trigram" | "semantic") =>
@@ -114,14 +120,14 @@ describe("RetrievalObservatory", () => {
     const { container } = renderObservatory({ response: seedRun });
     expect(container.querySelector(".labs-matrix-cell.is-focused")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /Close spellings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Close spelling/ }));
 
     expect(screen.getByText("mosaic_search.search_trigram(", { exact: false })).toBeTruthy();
     expect(container.querySelectorAll(".labs-matrix-cell.is-focused")).toHaveLength(
       seedRun.results.length,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Close spellings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Close spelling/ }));
     expect(container.querySelector(".labs-matrix-cell.is-focused")).toBeNull();
   });
 
