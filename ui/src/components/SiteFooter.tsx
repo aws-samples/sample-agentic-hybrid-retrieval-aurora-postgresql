@@ -1,5 +1,3 @@
-import { Banknote, CreditCard, Nfc, Wallet } from "lucide-react";
-import type { ReactNode } from "react";
 import { Link } from "wouter";
 import { RETRIEVAL_SURFACE } from "../navigation";
 import { MosaicMark } from "./MosaicMark";
@@ -8,53 +6,26 @@ const sourceRepositoryUrl =
   "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql";
 
 /**
- * The payment plates, and why the artwork in them is generic.
+ * Official marks in a checkout that is deliberately not real.
  *
- * A storefront footer names how you would pay, and the plate treatment here is
- * the one every shop uses. What is inside each plate is not: Visa, Mastercard,
- * Amex, PayPal, Apple Pay and Google Pay marks are trademarks licensed to
- * merchants who accept that card, and this catalog accepts nothing.
- *
- * The repository already ships one third-party mark, `assets/icons/github-mark.svg`,
- * beside a `GITHUB-MARK-LICENSE.txt` naming its source, author and MIT licence.
- * That is the bar for shipping a brand mark here, and none of the card networks
- * publish theirs under terms that clear it, so there is no truthful licence file
- * to put next to the artwork.
- *
- * `art` is the seam. Swapping in official assets is this array plus the files,
- * and nothing else in the footer moves. `ui/public/assets/icons/payment/README.md`
- * carries the manifest: which marks, what to name them, where each one comes
- * from, and the permission note each needs beside it. An `art` of an img element
- * pointed at /assets/icons/payment/<id>.svg is the whole change, and the asset
- * reference gate fails until the file is committed.
+ * Each owner-hosted SVG has a sibling notice recording its source, use boundary,
+ * and trademark ownership. The visible heading and adjacent legal line keep the
+ * row inside the same non-processing demo contract as the checkout drawer.
+ * Production deployments may show only methods they actually accept.
  */
 interface PaymentMark {
   id: string;
   label: string;
-  art: ReactNode;
+  width: number;
 }
 
 const paymentMarks: PaymentMark[] = [
-  {
-    id: "card",
-    label: "Credit and debit",
-    art: <CreditCard size={15} aria-hidden="true" />,
-  },
-  {
-    id: "contactless",
-    label: "Contactless",
-    art: <Nfc size={15} aria-hidden="true" />,
-  },
-  {
-    id: "wallet",
-    label: "Digital wallet",
-    art: <Wallet size={15} aria-hidden="true" />,
-  },
-  {
-    id: "transfer",
-    label: "Bank transfer",
-    art: <Banknote size={15} aria-hidden="true" />,
-  },
+  { id: "visa", label: "Visa", width: 56 },
+  { id: "mastercard", label: "Mastercard", width: 27 },
+  { id: "amex", label: "American Express", width: 18 },
+  { id: "paypal", label: "PayPal", width: 64 },
+  { id: "apple-pay", label: "Apple Pay", width: 28 },
+  { id: "google-pay", label: "Google Pay", width: 34 },
 ];
 
 /**
@@ -135,12 +106,18 @@ export function SiteFooter({ inert = false }: { inert?: boolean }) {
     >
       <div className="site-footer-inner">
         <div className="site-footer-payment">
-          <span className="site-footer-eyebrow">Payment methods</span>
-          <ul aria-label="Payment methods">
+          <span className="site-footer-eyebrow">Secure demo checkout</span>
+          <ul aria-label="Secure demo checkout payment methods">
             {paymentMarks.map((mark) => (
               <li key={mark.id}>
-                {mark.art}
-                {mark.label}
+                <img
+                  alt=""
+                  aria-hidden="true"
+                  height="18"
+                  src={`/assets/icons/payment/${mark.id}.svg`}
+                  width={mark.width}
+                />
+                <span className="sr-only">{mark.label}</span>
               </li>
             ))}
           </ul>

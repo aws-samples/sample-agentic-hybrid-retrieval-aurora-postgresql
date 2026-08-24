@@ -522,31 +522,20 @@ button:disabled {
   list-style: none;
 }
 
-/* White plates with a hairline, which is the treatment a card mark ships in.
-   Filled chips read as four buttons, and none of them does anything. */
+/* Quiet white plates keep six differently colored marks legible on warm paper. */
 .site-footer-payment li {
   display: inline-flex;
-  min-height: 30px;
+  min-height: 36px;
   align-items: center;
-  gap: 7px;
-  padding: 0 10px;
+  justify-content: center;
+  padding: 0 11px;
   border: 1px solid rgb(92 75 62 / 16%);
   border-radius: 5px;
   background: #fff;
-  color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 650;
-  white-space: nowrap;
-}
-
-.site-footer-payment li svg {
-  flex: 0 0 auto;
-  color: var(--maroon-800);
 }
 
 /*
- * Official card artwork, when it lands. See
- * ui/public/assets/icons/payment/README.md.
+ * Owner-hosted artwork. See ui/public/assets/icons/payment/README.md.
  *
  * Height rather than width: the marks have very different aspect ratios, Amex
  * near square against Visa's wide wordmark, and sizing on width makes Amex tower
@@ -555,7 +544,7 @@ button:disabled {
  */
 .site-footer-payment li img {
   width: auto;
-  height: 15px;
+  height: 18px;
   flex: 0 0 auto;
   object-fit: contain;
 }
@@ -703,6 +692,8 @@ button:disabled {
   }
 
   .site-footer-payment ul {
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
     justify-content: flex-start;
   }
 

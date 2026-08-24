@@ -106,7 +106,7 @@ describe("Shell navigation", () => {
     ).toBe("/labs/retrieval");
   });
 
-  it("closes the storefront with a footer that borrows no card brand", () => {
+  it("closes the storefront with official marks inside the demo contract", () => {
     render(
       <CommerceProvider>
         <Shell>
@@ -116,21 +116,37 @@ describe("Shell navigation", () => {
     );
 
     const footer = screen.getByRole("contentinfo");
+    const paymentList = within(footer).getByRole("list", {
+      name: "Secure demo checkout payment methods",
+    });
+    const labels = within(paymentList)
+      .getAllByRole("listitem")
+      .map((item) => item.textContent);
+    expect(labels).toEqual([
+      "Visa",
+      "Mastercard",
+      "American Express",
+      "PayPal",
+      "Apple Pay",
+      "Google Pay",
+    ]);
     expect(
-      within(footer)
-        .getByRole("list", { name: "Payment methods" })
-        .textContent,
-    ).toBe(
-      "Credit and debitContactlessDigital walletBank transfer",
-    );
-    // A card network's mark is a trademark licensed to merchants who accept that
-    // card, and this catalog accepts nothing. Naming one here would assert a
-    // commercial relationship that does not exist, in a public sample repository.
-    // The families are generic on purpose; this is what stops a later "make the
-    // footer look real" pass from quietly reintroducing the marks.
-    expect(footer.textContent).not.toMatch(
-      /visa|mastercard|maestro|amex|american express|discover card|paypal|apple pay|google pay|klarna|afterpay/i,
-    );
+      [...paymentList.querySelectorAll("img")].map((image) =>
+        image.getAttribute("src"),
+      ),
+    ).toEqual([
+      "/assets/icons/payment/visa.svg",
+      "/assets/icons/payment/mastercard.svg",
+      "/assets/icons/payment/amex.svg",
+      "/assets/icons/payment/paypal.svg",
+      "/assets/icons/payment/apple-pay.svg",
+      "/assets/icons/payment/google-pay.svg",
+    ]);
+    for (const image of paymentList.querySelectorAll("img")) {
+      expect(image.getAttribute("alt")).toBe("");
+      expect(image.getAttribute("aria-hidden")).toBe("true");
+    }
+    expect(paymentList.textContent).not.toMatch(/hsa|fsa|eligible/i);
     // A storefront that prints prices, stock, reviews and then payment methods has
     // to say that none of it is real. Everything else on the page is built to be
     // believed, which is exactly why this line cannot go missing.

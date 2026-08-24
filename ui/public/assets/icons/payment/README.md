@@ -1,61 +1,40 @@
 # Payment marks
 
-The storefront footer shows a row of payment plates. Until official artwork lands
-here, those plates carry generic marks from the icon set the rest of the UI uses
-(`Credit and debit`, `Contactless`, `Digital wallet`, `Bank transfer`), which name
-payment families rather than networks.
+The storefront footer uses official payment-brand artwork inside Mosaic's
+non-processing demo checkout. The footer and checkout both state that no payment
+is processed. These marks make the simulated commerce flow recognizable; they
+do not claim that this sample accepts a card or wallet.
 
-Card network marks are trademarks, licensed to merchants who accept that card.
-This catalog accepts nothing, so the marks cannot be added on the strength of the
-footer looking better with them: each one needs artwork obtained from its owner's
-brand programme and a note recording that permission, the same way
-`../GITHUB-MARK-LICENSE.txt` records GitHub's MIT terms for `../github-mark.svg`.
+## Asset manifest
 
-## What to add
+| File | Mark | Owner-hosted source | Notice |
+| --- | --- | --- | --- |
+| `visa.svg` | Visa | Visa corporate site and brand standards | `VISA-LICENSE.txt` |
+| `mastercard.svg` | Mastercard | Mastercard corporate site | `MASTERCARD-LICENSE.txt` |
+| `amex.svg` | American Express | American Express static assets | `AMEX-LICENSE.txt` |
+| `paypal.svg` | PayPal | PayPal UI asset host | `PAYPAL-LICENSE.txt` |
+| `apple-pay.svg` | Apple Pay | Apple Pay marketing resources | `APPLE-PAY-LICENSE.txt` |
+| `google-pay.svg` | Google Pay | Google Pay brand resources | `GOOGLE-PAY-LICENSE.txt` |
 
-One SVG per mark, plus one note per mark, named for the `id` used in
-`ui/src/components/SiteFooter.tsx`:
+Each notice records the exact source, owner, use boundary, and any canvas-only
+normalization. The marks are not part of this repository's MIT-0 grant.
 
-| File            | Mark        | Source                                    |
-| --------------- | ----------- | ----------------------------------------- |
-| `visa.svg`      | Visa        | Visa brand centre                         |
-| `mastercard.svg`| Mastercard  | Mastercard brand centre                   |
-| `amex.svg`      | American Express | American Express brand and merchant assets |
-| `paypal.svg`    | PayPal      | PayPal logo and brand guidelines          |
-| `apple-pay.svg` | Apple Pay   | Apple Pay marketing guidelines            |
-| `google-pay.svg`| Google Pay  | Google Pay brand guidelines               |
+## Artwork contract
 
-Take only the marks the footer should show. The row is not a fixed set of six.
+- Use only owner-hosted artwork and preserve the supplied mark, proportions, and
+  colors.
+- Canvas-only changes may remove fixed dimensions or crop transparent padding.
+  Do not redraw or restyle a mark.
+- Preserve owner-supplied outlines and backgrounds that are part of the mark.
+  Apple Pay and Google Pay require those treatments.
+- Every SVG has a `viewBox` and no fixed `width` or `height`.
+- Do not add raster fallbacks.
+- A production deployment may show only methods it actually accepts and must
+  follow each owner's current brand requirements.
 
-Each SVG needs a sibling `<NAME>-LICENSE.txt` naming the mark, the source URL it
-was downloaded from, the owner, and the permission or licence it is used under.
-The pattern to copy is `../GITHUB-MARK-LICENSE.txt`.
+## Build guards
 
-## Artwork requirements
-
-- Keep the network's own colour artwork. The plate behind it is white, so
-  monochrome variants disappear into it.
-- Trim the SVG to the mark, with no built-in white card or padding. The plate
-  supplies both, and a mark with its own background sits on a second one.
-- Set a `viewBox` and no fixed `width`/`height`, so the CSS can size the row
-  consistently across marks of different proportions.
-- No raster fallbacks. Every mark in the row scales with the page.
-
-## Wiring them up
-
-Replace the entries in `paymentMarks` in `ui/src/components/SiteFooter.tsx`. The
-`art` field takes the element, so an entry becomes an `img` with an empty `alt`
-and `aria-hidden`, pointed at `/assets/icons/payment/<id>.svg`, with the `label`
-carrying the accessible name.
-
-Two guards will hold you to it:
-
-- `ui/src/assetReferences.test.ts` fails if a referenced path is missing from
-  `public/` or is present but untracked by git. Local-only files are the failure
-  mode it exists for: the footer looks right here and ships empty for everyone
-  who clones.
-- `ui/src/components/Shell.test.tsx` asserts the footer names no card network.
-  It is deliberate, and it is the record that the generic marks were a decision
-  rather than an oversight. Update that assertion in the same commit that adds
-  the artwork and the permission notes, so the reason for the change is in one
-  place.
+- `ui/src/assetReferences.test.ts` fails if a referenced file is absent from
+  `public/` or is not tracked by git.
+- `ui/src/components/Shell.test.tsx` fixes the six-mark set, its accessible
+  labels, and the adjacent no-charge disclosure.
