@@ -18,16 +18,18 @@ import type { Domain, RetrievalExample } from "./types";
  */
 
 /**
- * Display order, and the reason the trigram lane is not in it.
+ * Display order for the cards that run on click, and the reason the trigram lane
+ * is not among them.
  *
  * The eval set's misspelled queries are misspelled on purpose — "noice canceling
- * hedphones for long fligts under 200" is one of them — and this panel prints a
+ * hedphones for long fligts under 200" is one of them — and these cards print a
  * starter's text verbatim on a button in Mosaic's own voice. Offering one meant
  * the store shipped a spelling mistake as its own suggestion, which is the one
  * thing the typo lesson must not do: the imperfect query is the shopper's, and
- * Mosaic's job is to handle it, not to author it. A participant who types one
- * into this composer still exercises the trigram arm, and the Playground still
- * reports that it fired.
+ * Mosaic's job is to handle it, not to author it.
+ *
+ * The lane is still offered, by `misspelledExample` below, as a box to fill
+ * rather than a question to press.
  */
 const starterPaths = ["exact", "plain"] as const;
 
@@ -128,4 +130,26 @@ export function starterExamples(
     takeShortest(remaining);
   }
   return picks.slice(0, STARTER_COUNT);
+}
+
+/**
+ * The close-spelling query the entry state offers, or null if the eval set has
+ * none.
+ *
+ * Shortest of the lane, on the same rule the three run-on-click cards use, so
+ * what lands in the composer is short enough to read the misspellings in before
+ * pressing send — which is the whole point of putting it there rather than on a
+ * button. The entry state had a lexical path and two plain-language ones and no
+ * way to reach the third arm without knowing to mistype something.
+ */
+export function misspelledExample(
+  examples: RetrievalExample[],
+): RetrievalExample | null {
+  const lane = examples.filter(
+    (example) => starterPath(example) === "misspelled",
+  );
+  if (!lane.length) return null;
+  return lane.reduce((shortest, example) =>
+    example.query.length < shortest.query.length ? example : shortest,
+  );
 }

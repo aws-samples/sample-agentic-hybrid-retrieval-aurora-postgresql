@@ -3099,7 +3099,7 @@
 }
 
 .shop-filter-sheet > header > button,
-.ask-mosaic-header > button {
+.ask-mosaic-header-close {
   display: grid;
   width: 44px;
   height: 44px;
@@ -3402,15 +3402,53 @@
   line-height: 1.05;
 }
 
-.ask-mosaic-header > button {
+.ask-mosaic-header-close {
   border-color: rgb(92 75 62 / 18%);
   background: var(--paper);
   color: var(--ink-soft);
 }
 
-.ask-mosaic-header > button:hover {
+.ask-mosaic-header-close:hover {
   border-color: rgb(92 75 62 / 36%);
   background: var(--paper-warm);
+}
+
+.ask-mosaic-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+}
+
+/*
+ * Discards the conversation without dismissing the panel, which is why it lives
+ * here and not beside Shop's "Clear shortlist": a reader who has asked four
+ * follow-ups needs a way back to an empty thread that does not also close the
+ * thing they are reading. Quieter than the close control, because the close
+ * control is reversible and this one is not.
+ */
+.ask-mosaic-clear-chat {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid rgb(92 75 62 / 18%);
+  border-radius: 17px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.ask-mosaic-clear-chat:hover,
+.ask-mosaic-clear-chat:focus-visible {
+  border-color: rgb(103 24 37 / 32%);
+  background: var(--paper-warm);
+  color: var(--maroon-900);
 }
 
 .ask-mosaic-body {
@@ -3477,32 +3515,6 @@
   font-size: 14px;
   font-weight: 550;
   line-height: 1.45;
-}
-
-/* Re-runs this question as a new turn, leaving the answer it already produced in
-   place above it. Only the newest exchange carries one, so the button is always
-   next to the request the next turn will follow. */
-
-.ask-mosaic-ask-again {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 10px;
-  padding: 4px 11px 4px 9px;
-  border: 1px solid rgb(92 75 62 / 18%);
-  border-radius: 999px;
-  background: rgb(255 253 248 / 66%);
-  color: var(--ink-soft);
-  font-size: 11.5px;
-  font-weight: 620;
-  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
-}
-
-.ask-mosaic-ask-again:hover,
-.ask-mosaic-ask-again:focus-visible {
-  border-color: var(--maroon-700);
-  background: var(--paper);
-  color: var(--maroon-900);
 }
 
 /* Opaque, not translucent and blurred. This bar sits under a scrolling column
@@ -3701,6 +3713,7 @@
   grid-template-areas:
     "path go"
     "query query"
+    "hint hint"
     "arms arms";
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 7px 10px;
@@ -3758,6 +3771,41 @@
   color: var(--ink);
   font-size: 14px;
   line-height: 1.42;
+}
+
+/*
+ * The close-spelling card, which loads its query rather than running it.
+ *
+ * Dashed, because the thing it produces is an unfinished request: a misspelled
+ * query lands in the composer and the shopper sends it. The three cards above run
+ * on click and print the query they will run; this one cannot print its query
+ * without the store suggesting a spelling mistake in its own voice, so it says
+ * what it does instead.
+ */
+.ask-mosaic-starters .ask-mosaic-starter-seed {
+  border-style: dashed;
+  background: var(--paper-warm);
+}
+
+/* The chips carry the same fill as this card, so on it they lost their pill and
+   read as two words with a wide gap between them. */
+.ask-mosaic-starter-seed .ask-mosaic-starter-arms em {
+  background: var(--paper);
+}
+
+.ask-mosaic-starter-hint {
+  grid-area: hint;
+  margin-top: -3px;
+  color: var(--ink-faint);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.ask-mosaic-starters .ask-mosaic-starter-seed:hover .ask-mosaic-starter-go,
+.ask-mosaic-starters
+  .ask-mosaic-starter-seed:focus-visible
+  .ask-mosaic-starter-go {
+  transform: none;
 }
 
 /* The techniques the eval set expects the query to exercise, set in mono so
@@ -8800,11 +8848,20 @@
   gap: 18px;
 }
 
+/*
+ * Two columns, and the actions on their own row.
+ *
+ * They used to share row one as a third `auto` track beside the question. The
+ * question is a 20px display-face sentence that takes the flexible track, so at
+ * the panel's width the actions were squeezed until "Edit request" wrapped to two
+ * lines while "Ask again" stayed on one: measured 98x40 against 87x30, sitting at
+ * different heights inside a centred row. A row of their own cannot be squeezed.
+ */
 .ask-mosaic-ask {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-columns: 48px minmax(0, 1fr);
   align-items: center;
-  gap: 7px 15px;
+  gap: 10px 15px;
   padding: 18px 20px;
   border: 1px solid #ded5ca;
   border-radius: 8px;
@@ -8844,24 +8901,42 @@
 }
 
 .ask-mosaic-request-actions {
-  display: inline-flex;
-  grid-column: 3;
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 2;
+  align-items: center;
   gap: 5px;
+  justify-self: start;
+  margin-left: -9px;
 }
 
+/*
+ * Edit the request, or re-run it as a new turn leaving the answer it already
+ * produced in place above. Only the newest exchange carries them, so they always
+ * sit next to the request the next turn will follow.
+ *
+ * `margin: 0` is declared rather than assumed. A superseded pill-styled
+ * `.ask-mosaic-ask-again` rule, overridden here for every property the two shared,
+ * still leaked a `margin-top: 10px` belonging to a layout that no longer existed.
+ * In a centred flex line that made the line 40px tall and left "Ask again" 5px
+ * below "Edit request" — two controls the panel reads as a pair.
+ */
 .ask-mosaic-edit-request,
 .ask-mosaic-ask-again {
   display: inline-flex;
   min-height: 30px;
   align-items: center;
   gap: 6px;
+  margin: 0;
   padding: 0 9px;
+  white-space: nowrap;
   border: 1px solid transparent;
   border-radius: 5px;
   background: transparent;
   color: var(--maroon-800);
   font-size: 10px;
   font-weight: 700;
+  transition: border-color 180ms ease, background 180ms ease;
 }
 
 .ask-mosaic-edit-request:hover,
@@ -8919,7 +8994,7 @@
   position: relative;
   display: grid;
   min-width: 0;
-  grid-template-columns: 104px minmax(0, 1fr);
+  grid-template-columns: 32px minmax(0, 1fr);
   align-items: start;
   gap: 12px;
   padding: 0 0 16px;
@@ -8950,32 +9025,18 @@
 }
 
 /*
- * Node in its own track, label beside it.
+ * The node track, and only the node.
  *
- * Stacked under the node, the label started at x=0 while the connector runs down
- * the node's centre at x=16, so "Interpret" and "COMPLETE" were struck through
- * by the line.
+ * The step name and its state sit in the card's eyebrow instead. Beside the node
+ * they had a 64px track and "Recommendations" is one unbreakable 110px word, so
+ * the name overflowed and the card's own opaque background painted over the part
+ * that spilled. Stacking under the node is not the alternative: the connector
+ * runs down the node's centre at x=16 and struck the text through.
  */
 .ask-mosaic-stage-rail {
   display: grid;
   min-width: 0;
-  grid-template-columns: 32px minmax(0, 1fr);
-  align-items: center;
-  gap: 2px 8px;
-}
-
-.ask-mosaic-stage-rail > .ask-mosaic-stage-node {
-  grid-area: 1 / 1 / 3 / 2;
-}
-
-.ask-mosaic-stage-label {
-  grid-column: 2;
-  align-self: end;
-}
-
-.ask-mosaic-stage-state {
-  grid-column: 2;
-  align-self: start;
+  justify-items: center;
 }
 
 .ask-mosaic-progress .ask-mosaic-stage-node {
@@ -9056,6 +9117,16 @@
   gap: 3px;
 }
 
+/* Name, state and — while the step is working — how long it has been working.
+   Wraps rather than clips, so no label length can cut itself off. */
+.ask-mosaic-stage-eyebrow {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
 .ask-mosaic-stage-label {
   color: #302a25;
   font-family: var(--sans);
@@ -9081,10 +9152,16 @@
   font-weight: 720;
 }
 
-/* Two lines, not one ellipsised one. The stage descriptions are sentences and
-   the card is 430px wide, so `white-space: nowrap` cut every one of them in
-   half. */
-.ask-mosaic-stage-copy > span {
+/*
+ * Two lines, not one ellipsised one. The stage descriptions are sentences, so
+ * `white-space: nowrap` cut every one of them in half.
+ *
+ * Named, not `.ask-mosaic-stage-copy > span`. At 0,1,1 that also claimed the
+ * eyebrow beside it and beat `.ask-mosaic-stage-eyebrow` at 0,1,0, so the eyebrow
+ * became a clamped `-webkit-box`, its flex gap stopped applying, and the step name
+ * ran straight into its state: "UnderstandingCOMPLETE".
+ */
+.ask-mosaic-stage-detail {
   display: -webkit-box;
   overflow: hidden;
   color: #6f675f;
@@ -9111,6 +9188,25 @@
 
 .ask-mosaic-progress > li.active .ask-mosaic-stage-state {
   color: var(--maroon-800);
+}
+
+/*
+ * Wall clock on the step that is working.
+ *
+ * Grounded synthesis is the long pole: the answer cannot be shown before it has
+ * been checked against the citations it claims, and that model call has measured
+ * fourteen seconds on the live cluster. With nothing counting, the last card sat
+ * unchanged for all fourteen and then the finished answer appeared at once, which
+ * read as a hang followed by a snap. This is a measurement, not a progress bar —
+ * nothing here estimates a finish, because nothing knows one.
+ */
+.ask-mosaic-stage-elapsed {
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
 }
 
 .ask-mosaic-stage-chevron {
@@ -9234,7 +9330,6 @@
 
 @media (max-width: 640px) {
   .ask-mosaic-progress > li {
-    grid-template-columns: 72px minmax(0, 1fr);
     gap: 9px;
   }
 
@@ -9612,12 +9707,6 @@
     padding: 15px;
   }
 
-  .ask-mosaic-request-actions {
-    grid-column: 2;
-    grid-row: auto;
-    justify-self: start;
-  }
-
   .ask-mosaic-request-copy p {
     font-size: 18px;
   }
@@ -9652,10 +9741,21 @@
  * This is a receipt band, not another card: rules and columns keep it readable
  * inside both a full-width lab page and the agent drawer.
  */
+/*
+ * A query container, because this component's width is not the viewport's.
+ *
+ * The reflow used to be `@media`, which is right on the Playground where the
+ * receipt spans the shell and wrong inside Ask Mosaic where it spans a 531px
+ * panel on a 1440px screen: the six-column track never reflowed there, the first
+ * column resolved to 61px, and "ELIGIBILITY" needed 75px, so the heading ran
+ * under the one beside it. Sized against its own inline size, the same component
+ * reflows correctly in both places and in any future one.
+ */
 .retrieval-receipt {
   width: 100%;
   margin: 24px 0;
   border-block: 1px solid var(--line);
+  container-type: inline-size;
 }
 
 .retrieval-receipt > header {
@@ -9736,7 +9836,9 @@
   line-height: 1.35;
 }
 
-@media (max-width: 1040px) {
+/* 840px is the receipt's own width inside a 1040px viewport, which is where the
+   six-column track stopped fitting. */
+@container (max-width: 840px) {
   .retrieval-receipt dl {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -9750,7 +9852,10 @@
   }
 }
 
-@media (max-width: 640px) {
+/* Ask Mosaic's panel lands here. Two columns rather than three because the
+   candidate counts are a three-clause phrase, and a 177px cell wraps them to five
+   lines and sets the height of everything beside them. */
+@container (max-width: 560px) {
   .retrieval-receipt > header {
     align-items: flex-start;
     flex-direction: column;

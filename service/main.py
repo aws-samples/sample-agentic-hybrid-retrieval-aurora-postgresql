@@ -134,10 +134,26 @@ def _sse(event: str, payload: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(payload, default=str)}\n\n"
 
 
+#: Words per `answer_delta`, and the pause between them.
+#:
+#: Delivery only. The answer is complete and citation-checked before the first
+#: chunk leaves, because it cannot be shown until it has been, so this is the pace
+#: it is read out at rather than the pace it was produced at. Seven words every
+#: 12ms replayed a 250-word recommendation in 0.43 seconds, which arrived as a
+#: single repaint after the wait for synthesis: three words every 40ms puts the
+#: same answer on screen over about three seconds, which is a delivery a reader can
+#: follow. Both numbers are presentation; neither touches retrieval.
+_ANSWER_CHUNK_WORDS = 3
+_ANSWER_CHUNK_DELAY_SECONDS = 0.04
+
+
 def _answer_chunks(answer: str) -> list[str]:
     """Keep streamed delivery readable rather than emitting one character at a time."""
     words = re.findall(r"\S+\s*", answer)
-    return ["".join(words[index : index + 7]) for index in range(0, len(words), 7)]
+    return [
+        "".join(words[index : index + _ANSWER_CHUNK_WORDS])
+        for index in range(0, len(words), _ANSWER_CHUNK_WORDS)
+    ]
 
 
 @app.get("/api/health")
@@ -440,7 +456,7 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
                 )
                 for delta in _answer_chunks(result.answer):
                     yield _sse("answer_delta", {"delta": delta})
-                    await asyncio.sleep(0.012)
+                    await asyncio.sleep(_ANSWER_CHUNK_DELAY_SECONDS)
                 yield _sse("complete", {"response": payload})
         # This is the terminal SSE boundary for model and plugin failures. It
         # must convert every failure into an allowlisted participant message.

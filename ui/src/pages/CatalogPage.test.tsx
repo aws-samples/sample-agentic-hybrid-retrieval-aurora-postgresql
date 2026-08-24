@@ -10,7 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../api";
+import { api, type AgentStreamEvent } from "../api";
 import { CommerceProvider } from "../commerce";
 import { stageDwellMs } from "../components/AskMosaic";
 import { showcaseCatalogPage } from "../showcase";
@@ -354,6 +354,117 @@ describe("CatalogPage", () => {
       .toEqual(["false", "false", "false", "true"]);
   });
 
+  it("counts the wait on the step that is working, without restarting it", async () => {
+    // Grounded synthesis cannot show a word until the answer has been checked
+    // against the citations it claims, which measured fourteen seconds on the live
+    // cluster. Nothing was counting, so the last card sat unchanged for all
+    // fourteen and the finished answer then appeared at once: a hang, then a snap.
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const synthesisStage = {
+      type: "stage",
+      id: "answer",
+      path: "full_retrieval",
+      title: "Compose cited answer",
+      detail: "Preparing the citation-bounded answer of record.",
+    } as const;
+    let emit: ((event: AgentStreamEvent) => void) | null = null;
+    vi.mocked(api.agentStream).mockImplementation(async (_q, _f, onEvent) => {
+      emit = onEvent;
+      onEvent(synthesisStage);
+      await held;
+      onEvent({ type: "complete", response: agentResponse });
+    });
+
+    // Installed before the render, because the counter's interval and the clock it
+    // reads have to be the same faked pair. Auto-advancing keeps the async queries
+    // below working; the readings are asserted as bounds rather than exact strings
+    // so that real time slipping past does not decide whether this passes.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderPage();
+      await screen.findByText(catalog.products[0].model);
+      fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+      fireEvent.change(
+        screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+        { target: { value: agentResponse.question } },
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+      const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+      const timeline = within(dialog).getByLabelText("Evidence timeline");
+      const seconds = () => [
+        ...timeline.querySelectorAll(".ask-mosaic-stage-elapsed"),
+      ].map((reading) => Number.parseInt(reading.textContent ?? "", 10));
+
+      // Nothing yet: a step that has just started has no elapsed time to report,
+      // and "0s" would be a reading rather than the absence of one.
+      expect(seconds()).toEqual([]);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(9000);
+      });
+      // One reading, on the one step that is working. A finished step reports its
+      // state, not a clock that would keep running after it stopped.
+      expect(seconds()).toHaveLength(1);
+      expect(seconds()[0]).toBeGreaterThanOrEqual(9);
+
+      // The service announces this step twice: once when synthesis is dispatched
+      // and again with a fuller detail line when it returns. Restarting on the
+      // second would report the sub-second write instead of the wait a reader sat
+      // through, which is the number this exists to show - so a restart shows up
+      // here as a reading of about 2 rather than about 11.
+      await act(async () => {
+        emit?.({
+          ...synthesisStage,
+          detail: "Delivering only claims grounded in returned catalog sources.",
+        });
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(seconds()[0]).toBeGreaterThanOrEqual(11);
+
+      release();
+      await within(dialog).findByText("Final recommendation");
+      // Settled: no step is working, so nothing is counting.
+      expect(seconds()).toEqual([]);
+    } finally {
+      release();
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears the conversation without dismissing the panel", async () => {
+    // Shop's "Clear shortlist" closes the panel because it is a Shop control. This
+    // one has to leave the reader inside the conversation it emptied, back on the
+    // entry state, or clearing a thread means losing the thing you were reading.
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    // Nothing to discard yet.
+    expect(screen.queryByRole("button", { name: "Clear chat" })).toBeNull();
+
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    await within(dialog).findByText("Final recommendation");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear chat" }));
+    expect(
+      screen.getByRole("complementary", { name: "Ask Mosaic" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Final recommendation")).toBeNull();
+    expect(screen.queryByText(agentResponse.question)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear chat" })).toBeNull();
+    // Back on the entry state, ready for the next question.
+    expect(
+      within(dialog).getByRole("list", { name: "Example questions" }),
+    ).toBeTruthy();
+  });
+
   it("ends the answer in the store, with the cited products buyable", async () => {
     // The answer used to finish as prose. These are the same products the prose
     // names - `recommendations` is the cited set - and the bag button is the
@@ -691,14 +802,33 @@ describe("CatalogPage", () => {
       ["Exact terms", examples[2].query, "Exact terms Meaning match"],
       ["Plain language", examples[4].query, "Meaning match"],
       ["Exact terms", examples[0].query, "Exact terms Meaning match"],
+      // The close-spelling lane, which says what it does instead of printing the
+      // query it loads. `D-007` over `D-002` because it is the shorter of the two
+      // misspelled rows, so what lands in the composer is short enough to read the
+      // misspellings in before sending it.
+      ["Close spelling", "Search with typos in it", "Exact terms Close spelling Meaning match"],
     ]);
-    // No misspelled starter. The eval set's fuzzy queries are misspelled on
-    // purpose and this panel prints a starter verbatim on a button in Mosaic's own
-    // voice, so offering one shipped a spelling mistake as the store's suggestion.
-    // The shopper's own imperfect query still exercises the trigram arm.
+    // No card prints a misspelling. The eval set's fuzzy queries are misspelled on
+    // purpose and the three run-on-click cards print a starter verbatim on a button
+    // in Mosaic's own voice, so offering one shipped a spelling mistake as the
+    // store's suggestion. The fourth card reaches the same lane without printing
+    // one, which is why this assertion still has to hold with it on screen.
     for (const word of ["noice", "hedphones", "fligts", "marthon"]) {
       expect(starters.textContent).not.toContain(word);
     }
+
+    // It loads, it does not send. The typo has to be in the shopper's input and
+    // sent by the shopper, or the store authored it after all.
+    fireEvent.click(
+      within(starters).getByRole("button", {
+        name: "Put a misspelled search in the box, ready to send",
+      }),
+    );
+    expect(
+      screen.getByRole<HTMLInputElement>("textbox", { name: "Ask Mosaic request" })
+        .value,
+    ).toBe(examples[3].query);
+    expect(api.agentStream).not.toHaveBeenCalled();
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),

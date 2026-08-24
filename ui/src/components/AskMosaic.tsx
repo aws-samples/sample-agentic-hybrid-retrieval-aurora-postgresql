@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleCheck,
+  Eraser,
   FileText,
   GitCompareArrows,
   LoaderCircle,
@@ -30,7 +31,13 @@ import {
   FUSED_LABEL,
   armLanguage,
 } from "../retrievalLanguage";
-import { starterArmLabels, starterPath, starterPathLabels } from "../starters";
+import {
+  misspelledExample,
+  starterArmLabels,
+  starterExamples,
+  starterPath,
+  starterPathLabels,
+} from "../starters";
 import type {
   AgentCitation,
   AgentPartial,
@@ -70,6 +77,16 @@ export interface AskMosaicTurn {
   /** Text delivered so far by `answer_delta`. Empty until the first token. */
   streamed: string;
   stage: AssistStage | null;
+  /**
+   * `Date.now()` at the moment `stage` last changed, so the step that is working
+   * can report how long it has been working.
+   *
+   * Synthesis is the long pole: the answer cannot be shown until it has been
+   * checked against the citations it claims, so the last step sits at "in
+   * progress" for as long as that model call takes. With nothing counting, a
+   * measured fourteen seconds read as a hung panel.
+   */
+  stageStartedAt: number;
   executionPath: AssistExecutionPath;
   stageDetail: string;
   error: string;
@@ -111,7 +128,9 @@ const fullRetrievalStages: Array<{
   {
     id: "answer",
     label: "Why these",
-    title: "Why these",
+    // Not "Why these" twice. The label sits in this card's eyebrow now, directly
+    // above the title, and a step that names itself twice reads as a stutter.
+    title: "What this rests on",
     description: "Naming the product records the recommendation rests on.",
   },
 ];
@@ -132,7 +151,7 @@ const focusedFollowUpStages: typeof fullRetrievalStages = [
   {
     id: "answer",
     label: "Why these",
-    title: "Why these",
+    title: "What this rests on",
     description: "Checking the new answer against freshly retrieved evidence.",
   },
 ];
@@ -255,17 +274,42 @@ export function boldRecommendationNames(
     .join("");
 }
 
+/**
+ * Seconds elapsed on the step that is working, ticking.
+ *
+ * Wall clock against the moment the service announced the step, so this is a
+ * measurement rather than a progress animation: nothing here estimates how much
+ * longer the step will take, because nothing knows.
+ */
+function StageElapsed({ since }: { since: number }) {
+  const [elapsed, setElapsed] = useState(() => Date.now() - since);
+
+  useEffect(() => {
+    setElapsed(Date.now() - since);
+    const timer = window.setInterval(() => {
+      setElapsed(Date.now() - since);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [since]);
+
+  const seconds = Math.max(0, Math.floor(elapsed / 1000));
+  if (seconds < 1) return null;
+  return <small className="ask-mosaic-stage-elapsed">{seconds}s</small>;
+}
+
 function StageRail({
   activeStage,
   complete,
   executionPath,
   stageDetail,
+  stageStartedAt,
   panels,
 }: {
   activeStage: AssistStage | null;
   complete: boolean;
   executionPath: AssistExecutionPath;
   stageDetail: string;
+  stageStartedAt: number;
   panels: Partial<Record<AssistStage, ReactNode>>;
 }) {
   const stages = executionPath === "focused_follow_up"
@@ -299,9 +343,13 @@ function StageRail({
             : stage.description;
           return (
             <li className={state} key={stage.id}>
-              {/* Step name and state live beside the node, not inside the card.
-                  In the card they competed with the title for a 3-column header
-                  and the description ellipsised at half its length. */}
+              {/* The rail is the node and the connector, nothing else. The step
+                  name used to sit beside the node in a 104px track, which left
+                  the text 64px: "Recommendations" is one unbreakable 110px word,
+                  so it overflowed and the card's own background painted over the
+                  spill. Measured before the fix: client=64, scroll=110. As a card
+                  eyebrow it cannot clip at any label length, and the 72px the
+                  rail gave back go to the shortlist and the comparison. */}
               <span className="ask-mosaic-stage-rail">
                 <span className="ask-mosaic-stage-node" aria-hidden="true">
                   {state === "complete"
@@ -310,16 +358,17 @@ function StageRail({
                       ? <LoaderCircle className="spin" size={16} />
                       : index + 1}
                 </span>
-                <small className="ask-mosaic-stage-label">{stage.label}</small>
-                <small className="ask-mosaic-stage-state">{stateLabel}</small>
               </span>
               <StageDisclosure
                 key={`${stage.id}-${state}`}
                 description={description}
+                elapsedSince={state === "active" && !complete ? stageStartedAt : null}
+                label={stage.label}
                 live={!complete}
                 openWhenComplete={stage.id === "answer"}
                 panel={panels[stage.id]}
                 state={state}
+                stateLabel={stateLabel}
                 title={stage.title}
               />
             </li>
@@ -335,18 +384,25 @@ export const stageDwellMs = 2200;
 
 function StageDisclosure({
   description,
+  elapsedSince,
+  label,
   live,
   openWhenComplete,
   panel,
   state,
+  stateLabel,
   title,
 }: {
   description: string;
+  /** When this step started, or null unless it is the one working. */
+  elapsedSince: number | null;
+  label: string;
   /** The run is still going, so a step that just finished gets its dwell. */
   live: boolean;
   openWhenComplete: boolean;
   panel: ReactNode;
   state: "complete" | "active" | "pending";
+  stateLabel: string;
   title: string;
 }) {
   /**
@@ -397,8 +453,13 @@ function StageDisclosure({
         }}
       >
         <span className="ask-mosaic-stage-copy">
+          <span className="ask-mosaic-stage-eyebrow">
+            <small className="ask-mosaic-stage-label">{label}</small>
+            <small className="ask-mosaic-stage-state">{stateLabel}</small>
+            {elapsedSince ? <StageElapsed since={elapsedSince} /> : null}
+          </span>
           <strong>{title}</strong>
-          <span>{description}</span>
+          <span className="ask-mosaic-stage-detail">{description}</span>
         </span>
         {hasPanel ? (
           <ChevronDown
@@ -1014,6 +1075,7 @@ function Turn({
           complete={Boolean(response && !turn.loading)}
           executionPath={turn.executionPath}
           stageDetail={turn.stageDetail}
+          stageStartedAt={turn.stageStartedAt}
           panels={stagePanels}
         />
       ) : null}
@@ -1083,12 +1145,29 @@ function Turn({
  * as measured. The run itself reports what actually fired.
  */
 function EntryState({
-  starters,
+  examples,
   onRun,
+  onSeed,
 }: {
-  starters: RetrievalExample[];
+  /** The eval set, unfiltered. Both selectors below read it. */
+  examples: RetrievalExample[];
   onRun: (query: string) => void;
+  /** Puts a query in the composer without sending it. */
+  onSeed: (query: string) => void;
 }) {
+  const starters = starterExamples(examples);
+  /**
+   * The close-spelling path, offered as a box to fill rather than a question to
+   * press.
+   *
+   * The other three run on click, and this one deliberately does not. Its query
+   * is misspelled on purpose - it is how the eval set exercises the trigram arm -
+   * and a card that printed it would ship a spelling mistake as the store's own
+   * suggestion. Loading it into the composer instead leaves the typo where the
+   * lesson needs it: in the shopper's input, sent by the shopper. Mosaic does not
+   * manufacture the typo. Mosaic handles it.
+   */
+  const fuzzy = misspelledExample(examples);
   return (
     <section className="ask-mosaic-empty">
       {starters.length ? (
@@ -1121,6 +1200,36 @@ function EntryState({
                 </button>
               </li>
             ))}
+            {fuzzy ? (
+              <li key={fuzzy.query_id}>
+                <button
+                  className="ask-mosaic-starter-seed"
+                  type="button"
+                  aria-label="Put a misspelled search in the box, ready to send"
+                  onClick={() => onSeed(fuzzy.query)}
+                >
+                  <span className="ask-mosaic-starter-path">
+                    {starterPathLabels.misspelled}
+                  </span>
+                  <PencilLine
+                    className="ask-mosaic-starter-go"
+                    size={14}
+                    aria-hidden="true"
+                  />
+                  <span className="ask-mosaic-starter-query">
+                    Search with typos in it
+                  </span>
+                  <span className="ask-mosaic-starter-hint">
+                    Fills the box. You send it.
+                  </span>
+                  <span className="ask-mosaic-starter-arms" aria-hidden="true">
+                    {starterArmLabels(fuzzy).map((label) => (
+                      <em key={label}>{label}</em>
+                    ))}
+                  </span>
+                </button>
+              </li>
+            ) : null}
           </ul>
           <small>
             From the eval set. Tags name what each question is written to test.
@@ -1162,14 +1271,16 @@ interface AskMosaicProps {
   turns: AskMosaicTurn[];
   pending: boolean;
   /**
-   * Eval-set queries for the entry state, one per retrieval path. Empty if the
-   * fetch failed.
+   * The eval set the entry state draws its examples from. Empty if the fetch
+   * failed, which is why the entry state treats them as optional.
    */
-  starters: RetrievalExample[];
+  examples: RetrievalExample[];
   /** Photographs the Shop grid assigned, so the rail agrees with the cards. */
   imageByProductId: Map<number, string>;
   highlightedProductId: number | null;
   onClose: () => void;
+  /** Discards the conversation and leaves the panel open on the entry state. */
+  onClear: () => void;
   onRun: (query: string) => void;
   onHighlight: (productId: number | null) => void;
   onSelectProduct: (productId: number) => void;
@@ -1181,10 +1292,11 @@ export function AskMosaic({
   contextFilters,
   turns,
   pending,
-  starters,
+  examples,
   imageByProductId,
   highlightedProductId,
   onClose,
+  onClear,
   onRun,
   onHighlight,
   onSelectProduct,
@@ -1360,9 +1472,29 @@ export function AskMosaic({
               <p>A concierge that shows its work</p>
             </div>
           </div>
-          <button type="button" aria-label="Close Ask Mosaic" onClick={onClose}>
-            <X size={20} />
-          </button>
+          {/* Only once there is something to discard. On the entry state the
+              control would clear nothing, and it would sit beside the starters
+              it appears to threaten. */}
+          <span className="ask-mosaic-header-actions">
+            {turns.length ? (
+              <button
+                className="ask-mosaic-clear-chat"
+                type="button"
+                onClick={onClear}
+              >
+                <Eraser size={14} aria-hidden="true" />
+                Clear chat
+              </button>
+            ) : null}
+            <button
+              className="ask-mosaic-header-close"
+              type="button"
+              aria-label="Close Ask Mosaic"
+              onClick={onClose}
+            >
+              <X size={20} />
+            </button>
+          </span>
         </header>
 
         <div className="ask-mosaic-body" ref={threadRef}>
@@ -1381,7 +1513,11 @@ export function AskMosaic({
               />
             ))
           ) : (
-            <EntryState starters={starters} onRun={onRun} />
+            <EntryState
+              examples={examples}
+              onRun={onRun}
+              onSeed={editRequest}
+            />
           )}
         </div>
 

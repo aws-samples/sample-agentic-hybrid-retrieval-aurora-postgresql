@@ -50,7 +50,6 @@ import {
   playgroundQueryHref,
   useSearchParams,
 } from "../navigation";
-import { starterExamples } from "../starters";
 import type {
   Availability,
   CatalogPage,
@@ -185,7 +184,7 @@ export function CatalogPage() {
   const [retrievalQuery, setRetrievalQuery] = useState(searchParams.get("q") ?? "");
   const [agentTurns, setAgentTurns] = useState<AskMosaicTurn[]>([]);
   const [agentOpen, setAgentOpen] = useState(false);
-  const [agentStarters, setAgentStarters] = useState<RetrievalExample[]>([]);
+  const [agentExamples, setAgentExamples] = useState<RetrievalExample[]>([]);
   const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
   const [domainsAtEnd, setDomainsAtEnd] = useState(false);
   const domainTabsRef = useRef<HTMLElement>(null);
@@ -333,10 +332,10 @@ export function CatalogPage() {
     api
       .examples()
       .then((examples) => {
-        if (active) setAgentStarters(starterExamples(examples));
+        if (active) setAgentExamples(examples);
       })
       .catch(() => {
-        if (active) setAgentStarters([]);
+        if (active) setAgentExamples([]);
       });
     return () => {
       active = false;
@@ -535,6 +534,21 @@ export function CatalogPage() {
   }
 
   /**
+   * Same discard, without dismissing the panel.
+   *
+   * "Clear shortlist" on the Shop rail closes the panel because it is a Shop
+   * control acting on Shop; the panel's own control has to leave the reader
+   * inside the conversation it just emptied, back on the entry state. The version
+   * bump is what orphans a stream that is still open: the turn id it would patch
+   * is gone, and the guard in `askAgent` stops it reviving a cleared thread.
+   */
+  function clearAgentConversation() {
+    agentRequestVersion.current += 1;
+    setAgentTurns([]);
+    setHighlightedProductId(null);
+  }
+
+  /**
    * Append one exchange and stream into it.
    *
    * The version ref still gates every write, because clearing the conversation
@@ -571,6 +585,7 @@ export function CatalogPage() {
         partial: null,
         streamed: "",
         stage: "understand",
+        stageStartedAt: Date.now(),
         executionPath: context ? "focused_follow_up" : "full_retrieval",
         stageDetail:
           "Working out what you need and which catalog constraints that implies.",
@@ -587,11 +602,24 @@ export function CatalogPage() {
       await api.agentStream(trimmed, filters, (event) => {
         if (version !== agentRequestVersion.current) return;
         if (event.type === "stage") {
-          patch({
-            stage: event.id,
-            executionPath: event.path,
-            stageDetail: event.detail,
-          });
+          setAgentTurns((turns) => turns.map((turn) => (
+            turn.id === version
+              ? {
+                ...turn,
+                stage: event.id,
+                // Only a step the run has not been on restarts the clock. The
+                // service announces the answer step twice - once when synthesis
+                // is dispatched and again with a fuller detail line when it
+                // returns - and restarting on the second would report the
+                // half-second write instead of the wait a reader sat through.
+                stageStartedAt: turn.stage === event.id
+                  ? turn.stageStartedAt
+                  : Date.now(),
+                executionPath: event.path,
+                stageDetail: event.detail,
+              }
+              : turn
+          )));
         } else if (event.type === "partial") {
           patch({ partial: event.partial });
         } else if (event.type === "answer_start") {
@@ -1137,9 +1165,10 @@ export function CatalogPage() {
           contextFilters={filterChips.map((chip) => chip.label)}
           turns={agentTurns}
           pending={agentPending}
-          starters={agentStarters}
+          examples={agentExamples}
           highlightedProductId={highlightedProductId}
           onClose={closeAgent}
+          onClear={clearAgentConversation}
           onRun={(query) => void askAgent(query)}
           onHighlight={setHighlightedProductId}
           onSelectProduct={focusCatalogProduct}
