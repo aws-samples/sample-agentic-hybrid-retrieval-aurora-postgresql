@@ -21,13 +21,12 @@ const sourceRepositoryUrl =
  * publish theirs under terms that clear it, so there is no truthful licence file
  * to put next to the artwork.
  *
- * `art` is the seam. Swapping in official assets is this array plus files in
- * `ui/public/assets/icons/`, each with its own licence or permission note:
- *
- *   { id: "visa", label: "Visa",
- *     art: <img alt="" aria-hidden="true" src="/assets/icons/visa.svg" /> }
- *
- * Nothing else in the footer changes.
+ * `art` is the seam. Swapping in official assets is this array plus the files,
+ * and nothing else in the footer moves. `ui/public/assets/icons/payment/README.md`
+ * carries the manifest: which marks, what to name them, where each one comes
+ * from, and the permission note each needs beside it. An `art` of an img element
+ * pointed at /assets/icons/payment/<id>.svg is the whole change, and the asset
+ * reference gate fails until the file is committed.
  */
 interface PaymentMark {
   id: string;

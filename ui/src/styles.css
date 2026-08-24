@@ -544,6 +544,22 @@ button:disabled {
   color: var(--maroon-800);
 }
 
+/*
+ * Official card artwork, when it lands. See
+ * ui/public/assets/icons/payment/README.md.
+ *
+ * Height rather than width: the marks have very different aspect ratios, Amex
+ * near square against Visa's wide wordmark, and sizing on width makes Amex tower
+ * over the row. `object-fit: contain` keeps a mark from stretching if its viewBox
+ * does not match the box.
+ */
+.site-footer-payment li img {
+  width: auto;
+  height: 15px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
 .site-footer-top {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 2fr);
