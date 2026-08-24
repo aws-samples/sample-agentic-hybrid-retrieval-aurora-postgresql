@@ -477,31 +477,87 @@ button:disabled {
 /*
  * The storefront's closing band, on the same spine as everything above it.
  *
- * Width comes from --shell-width rather than a padding of its own, so the brand
- * sits under the header's brand and the disclosure lines up with the page's left
- * edge. Every surface above ended on a bare grid with no bottom to the document.
+ * Width comes from --shell-width, so the brand sits under the header's brand and
+ * the columns end where the page ends. Every surface above ended on a bare grid
+ * with no bottom to the document.
  */
 .site-footer {
-  margin-top: 96px;
+  margin-top: 104px;
   border-top: 1px solid rgb(92 75 62 / 14%);
   background: var(--paper-warm);
   color: var(--ink-soft);
 }
 
-.site-footer-band {
-  display: flex;
+.site-footer-inner {
   width: var(--shell-width);
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 40px;
   margin: 0 auto;
-  padding: 44px 0 36px;
+  padding: 30px 0 32px;
+}
+
+/* Above the columns and hard right, where a storefront puts them. */
+.site-footer-payment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 14px;
+  padding-bottom: 30px;
+}
+
+.site-footer-eyebrow {
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 780;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.site-footer-payment ul {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* White plates with a hairline, which is the treatment a card mark ships in.
+   Filled chips read as four buttons, and none of them does anything. */
+.site-footer-payment li {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid rgb(92 75 62 / 16%);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.site-footer-payment li svg {
+  flex: 0 0 auto;
+  color: var(--maroon-800);
+}
+
+.site-footer-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 2fr);
+  gap: 44px;
+  padding-bottom: 34px;
+  border-top: 1px solid rgb(92 75 62 / 10%);
+  padding-top: 34px;
 }
 
 .site-footer-brand {
   display: grid;
-  max-width: 30rem;
-  gap: 12px;
+  max-width: 23rem;
+  align-content: start;
+  gap: 13px;
 }
 
 .site-footer-mark {
@@ -534,97 +590,118 @@ button:disabled {
   line-height: 1.6;
 }
 
-.site-footer-payment {
-  display: grid;
-  gap: 11px;
-  justify-items: flex-end;
+.site-footer-source {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+  color: var(--maroon-800);
+  font-size: 12px;
+  font-weight: 700;
 }
 
-.site-footer-eyebrow {
+.site-footer-source:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.site-footer-source img {
+  flex: 0 0 auto;
+  opacity: 0.72;
+}
+
+.site-footer-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+}
+
+/* h2 inside contentinfo: the column headings are the footer's own structure, and
+   set as plain spans a screen reader met three unlabelled lists. */
+.site-footer-column h2 {
+  margin: 0 0 13px;
   color: var(--ink-faint);
+  font-family: var(--sans);
   font-size: 10px;
   font-weight: 780;
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }
 
-.site-footer-payment ul {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
+.site-footer-column ul {
+  display: grid;
+  gap: 9px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-/* Outlined plates rather than filled chips. Filled, four of them in a row read
-   as four buttons, and none of them does anything. */
-.site-footer-payment li {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  gap: 7px;
-  padding: 0 11px;
-  border: 1px solid rgb(92 75 62 / 18%);
-  border-radius: 6px;
-  background: var(--paper);
+.site-footer-column a {
   color: var(--ink-soft);
-  font-size: 11.5px;
-  font-weight: 650;
-  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
-.site-footer-payment li svg {
-  flex: 0 0 auto;
-  color: var(--maroon-800);
+.site-footer-column a:hover {
+  color: var(--maroon-900);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .site-footer-legal {
   display: flex;
-  width: var(--shell-width);
   align-items: baseline;
   justify-content: space-between;
   gap: 32px;
-  margin: 0 auto;
-  padding: 15px 0 30px;
+  padding-top: 17px;
   border-top: 1px solid rgb(92 75 62 / 10%);
 }
 
 .site-footer-legal p {
-  max-width: 46rem;
+  max-width: 44rem;
   margin: 0;
   color: var(--ink-faint);
   font-size: 11.5px;
   line-height: 1.55;
 }
 
-.site-footer-stack {
+.site-footer-copyright {
   flex: 0 0 auto;
   white-space: nowrap;
 }
 
-@media (max-width: 860px) {
-  .site-footer-band {
-    flex-direction: column;
-    gap: 28px;
-    padding-top: 36px;
+@media (max-width: 1040px) {
+  .site-footer-top {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
   }
 
+  .site-footer-brand {
+    max-width: 34rem;
+  }
+}
+
+@media (max-width: 720px) {
   .site-footer-payment {
-    justify-items: start;
+    justify-content: flex-start;
   }
 
   .site-footer-payment ul {
     justify-content: flex-start;
   }
 
+  .site-footer-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px 24px;
+  }
+
   .site-footer-legal {
+    align-items: flex-start;
     flex-direction: column;
     gap: 9px;
   }
 
-  .site-footer-stack {
+  .site-footer-copyright {
     white-space: normal;
   }
 }

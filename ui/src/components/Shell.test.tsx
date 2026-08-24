@@ -28,7 +28,9 @@ describe("Shell navigation", () => {
       </CommerceProvider>,
     );
 
-    const navigation = screen.getByRole("navigation");
+    // By name: the footer carries a second navigation landmark, and this test is
+    // about the header's three destinations.
+    const navigation = screen.getByRole("navigation", { name: "Storefront" });
     expect(
       within(navigation)
         .getAllByRole("link")
@@ -76,7 +78,7 @@ describe("Shell navigation", () => {
       </CommerceProvider>,
     );
 
-    const href = within(screen.getByRole("navigation"))
+    const href = within(screen.getByRole("navigation", { name: "Storefront" }))
       .getByRole("link", { name: "Playground" })
       .getAttribute("href")!;
     const params = new URLSearchParams(href.split("?")[1]);
@@ -98,7 +100,7 @@ describe("Shell navigation", () => {
     );
 
     expect(
-      within(screen.getByRole("navigation"))
+      within(screen.getByRole("navigation", { name: "Storefront" }))
         .getByRole("link", { name: "Playground" })
         .getAttribute("href"),
     ).toBe("/labs/retrieval");
@@ -134,6 +136,32 @@ describe("Shell navigation", () => {
     // believed, which is exactly why this line cannot go missing.
     expect(footer.textContent).toContain("Nothing here charges a card");
     expect(footer.textContent).toContain("synthetic data");
+
+    // No invented destinations. A shop footer is where About, Careers, Returns,
+    // Accessibility and a newsletter field that posts nowhere accumulate, and a
+    // footer of dead links imitates a real store worse than a short one does.
+    // Every internal href has to be a path App serves.
+    const served = [
+      "/",
+      "/catalog",
+      "/labs/retrieval",
+      "/mosaic-labs/hnsw",
+      "/mosaic-labs/studio",
+    ];
+    const hrefs = within(footer)
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href")!);
+    const internal = hrefs.filter((href) => href.startsWith("/"));
+    expect(internal.length).toBeGreaterThan(5);
+    for (const href of internal) {
+      expect(served).toContain(href.split("?")[0]);
+    }
+    // And every link that leaves does so safely, in a new tab.
+    for (const link of within(footer).getAllByRole("link")) {
+      if (!link.getAttribute("href")!.startsWith("http")) continue;
+      expect(link.getAttribute("target")).toBe("_blank");
+      expect(link.getAttribute("rel")).toBe("noreferrer");
+    }
   });
 
   it("leaves the footer off the instrument surfaces", () => {
