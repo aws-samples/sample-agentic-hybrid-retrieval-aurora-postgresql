@@ -474,6 +474,161 @@ button:disabled {
   }
 }
 
+/*
+ * The storefront's closing band, on the same spine as everything above it.
+ *
+ * Width comes from --shell-width rather than a padding of its own, so the brand
+ * sits under the header's brand and the disclosure lines up with the page's left
+ * edge. Every surface above ended on a bare grid with no bottom to the document.
+ */
+.site-footer {
+  margin-top: 96px;
+  border-top: 1px solid rgb(92 75 62 / 14%);
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+}
+
+.site-footer-band {
+  display: flex;
+  width: var(--shell-width);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 40px;
+  margin: 0 auto;
+  padding: 44px 0 36px;
+}
+
+.site-footer-brand {
+  display: grid;
+  max-width: 30rem;
+  gap: 12px;
+}
+
+.site-footer-mark {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 11px;
+  color: var(--ink);
+}
+
+.site-footer-mark svg {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  color: var(--maroon-900);
+}
+
+.site-footer-mark strong {
+  color: var(--maroon-950);
+  font-family: var(--display);
+  font-size: 23px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.site-footer-brand p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.site-footer-payment {
+  display: grid;
+  gap: 11px;
+  justify-items: flex-end;
+}
+
+.site-footer-eyebrow {
+  color: var(--ink-faint);
+  font-size: 10px;
+  font-weight: 780;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.site-footer-payment ul {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Outlined plates rather than filled chips. Filled, four of them in a row read
+   as four buttons, and none of them does anything. */
+.site-footer-payment li {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid rgb(92 75 62 / 18%);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.site-footer-payment li svg {
+  flex: 0 0 auto;
+  color: var(--maroon-800);
+}
+
+.site-footer-legal {
+  display: flex;
+  width: var(--shell-width);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 32px;
+  margin: 0 auto;
+  padding: 15px 0 30px;
+  border-top: 1px solid rgb(92 75 62 / 10%);
+}
+
+.site-footer-legal p {
+  max-width: 46rem;
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.site-footer-stack {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .site-footer-band {
+    flex-direction: column;
+    gap: 28px;
+    padding-top: 36px;
+  }
+
+  .site-footer-payment {
+    justify-items: start;
+  }
+
+  .site-footer-payment ul {
+    justify-content: flex-start;
+  }
+
+  .site-footer-legal {
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .site-footer-stack {
+    white-space: normal;
+  }
+}
+
 .icon-button {
   display: inline-grid;
   width: 34px;

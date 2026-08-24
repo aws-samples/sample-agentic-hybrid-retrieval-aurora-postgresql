@@ -104,6 +104,54 @@ describe("Shell navigation", () => {
     ).toBe("/labs/retrieval");
   });
 
+  it("closes the storefront with a footer that borrows no card brand", () => {
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    const footer = screen.getByRole("contentinfo");
+    expect(
+      within(footer)
+        .getByRole("list", { name: "Payment methods" })
+        .textContent,
+    ).toBe(
+      "Credit and debitContactlessDigital walletBank transfer",
+    );
+    // A card network's mark is a trademark licensed to merchants who accept that
+    // card, and this catalog accepts nothing. Naming one here would assert a
+    // commercial relationship that does not exist, in a public sample repository.
+    // The families are generic on purpose; this is what stops a later "make the
+    // footer look real" pass from quietly reintroducing the marks.
+    expect(footer.textContent).not.toMatch(
+      /visa|mastercard|maestro|amex|american express|discover card|paypal|apple pay|google pay|klarna|afterpay/i,
+    );
+    // A storefront that prints prices, stock, reviews and then payment methods has
+    // to say that none of it is real. Everything else on the page is built to be
+    // believed, which is exactly why this line cannot go missing.
+    expect(footer.textContent).toContain("Nothing here charges a card");
+    expect(footer.textContent).toContain("synthetic data");
+  });
+
+  it("leaves the footer off the instrument surfaces", () => {
+    // The Playground ends in a measurement, not an invitation to buy. A
+    // payment-methods band under a query plan would be the one incoherent thing
+    // on it.
+    window.history.replaceState({}, "", "/labs/retrieval");
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Playground content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    expect(screen.queryByRole("contentinfo")).toBeNull();
+  });
+
   it("makes the storefront inert while the cart dialog is open", async () => {
     render(
       <CommerceProvider>
@@ -122,10 +170,14 @@ describe("Shell navigation", () => {
     expect(main?.getAttribute("aria-hidden")).toBe("true");
     expect(header?.hasAttribute("inert")).toBe(true);
     expect(header?.getAttribute("aria-hidden")).toBe("true");
+    const footer = document.querySelector(".site-footer");
+    expect(footer?.hasAttribute("inert")).toBe(true);
+    expect(footer?.getAttribute("aria-hidden")).toBe("true");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Close bag" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(main?.hasAttribute("inert")).toBe(false);
     expect(header?.hasAttribute("inert")).toBe(false);
+    expect(footer?.hasAttribute("inert")).toBe(false);
   });
 });
