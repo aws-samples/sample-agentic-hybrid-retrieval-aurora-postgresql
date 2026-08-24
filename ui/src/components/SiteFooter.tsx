@@ -113,7 +113,7 @@ export function SiteFooter({ inert = false }: { inert?: boolean }) {
                 <img
                   alt=""
                   aria-hidden="true"
-                  height="18"
+                  height="20"
                   src={`/assets/icons/payment/${mark.id}.svg`}
                   width={mark.width}
                 />

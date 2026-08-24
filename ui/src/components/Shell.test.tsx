@@ -142,6 +142,11 @@ describe("Shell navigation", () => {
       "/assets/icons/payment/apple-pay.svg",
       "/assets/icons/payment/google-pay.svg",
     ]);
+    expect(
+      [...paymentList.querySelectorAll("img")].map((image) =>
+        image.getAttribute("height"),
+      ),
+    ).toEqual(["20", "20", "20", "20", "20", "20"]);
     for (const image of paymentList.querySelectorAll("img")) {
       expect(image.getAttribute("alt")).toBe("");
       expect(image.getAttribute("aria-hidden")).toBe("true");

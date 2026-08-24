@@ -522,13 +522,13 @@ button:disabled {
   list-style: none;
 }
 
-/* Quiet white plates keep six differently colored marks legible on warm paper. */
+/* Equal-height plates let each official mark keep its natural width. */
 .site-footer-payment li {
   display: inline-flex;
   min-height: 36px;
   align-items: center;
   justify-content: center;
-  padding: 0 11px;
+  padding: 0 10px;
   border: 1px solid rgb(92 75 62 / 16%);
   border-radius: 5px;
   background: #fff;
@@ -537,14 +537,13 @@ button:disabled {
 /*
  * Owner-hosted artwork. See ui/public/assets/icons/payment/README.md.
  *
- * Height rather than width: the marks have very different aspect ratios, Amex
- * near square against Visa's wide wordmark, and sizing on width makes Amex tower
- * over the row. `object-fit: contain` keeps a mark from stretching if its viewBox
- * does not match the box.
+ * Every mark uses the same visual height without stretching its viewBox. The
+ * equal-height plates handle the different aspect ratios without making Amex,
+ * Apple Pay, or Google Pay feel like a smaller tile.
  */
 .site-footer-payment li img {
   width: auto;
-  height: 18px;
+  height: 20px;
   flex: 0 0 auto;
   object-fit: contain;
 }
