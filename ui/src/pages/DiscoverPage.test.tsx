@@ -16,10 +16,11 @@ import { RETRIEVAL_SURFACE } from "../navigation";
 import type {
   CatalogPage,
   CatalogSummary,
+  ProductSummary,
   ReviewHighlight,
   SearchFilters,
 } from "../types";
-import { DiscoverPage, merchandisingDoors } from "./DiscoverPage";
+import { DiscoverPage, editorialStories, merchandisingDoors } from "./DiscoverPage";
 
 vi.mock("../api", () => ({
   api: {
@@ -33,6 +34,40 @@ vi.mock("../api", () => ({
 
 function countPage(total: number): CatalogPage {
   return { total, offset: 0, limit: 1, products: [], facets: {} };
+}
+
+// The full ProductSummary shape with the fields the pick rows read: id for the
+// link, title, price and currency.
+function pickFixture(id: number, filters: SearchFilters): ProductSummary {
+  return {
+    product_id: id,
+    sku: `SKU-${id}`,
+    title: `Top-rated ${filters.category_key}`,
+    short_description: "",
+    domain: "home_office",
+    category_key: filters.category_key ?? "",
+    category_path: "",
+    brand: "Mosaic",
+    model: `M-${id}`,
+    price_cents: 24900,
+    list_price_cents: 24900,
+    currency: "USD",
+    rating: 4.8,
+    review_count: 240,
+    availability: "in_stock",
+    inventory_count: 12,
+    attributes: {},
+    tags: [],
+    catalog_asset_key: null,
+    canonical_group_id: null,
+    media_tier: null,
+    is_flagship: false,
+    is_retrieval_anchor: false,
+    image_url: null,
+    image_source: null,
+    signals: null,
+    sources: [],
+  };
 }
 
 const summaryFixture: CatalogSummary = {
@@ -272,12 +307,16 @@ describe("DiscoverPage", () => {
     expect(screen.getByText("4.8")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Shop all" }).getAttribute("href")).toBe("/catalog");
     // The preview above rendered synchronously from showcase data. The only
-    // catalog requests Discover makes are the merchandising count reads: one
-    // per door, each limit 1, never a page of products.
-    expect(vi.mocked(api.catalog)).toHaveBeenCalledTimes(merchandisingDoors.length);
-    for (const call of vi.mocked(api.catalog).mock.calls) {
+    // catalog requests Discover makes on mount are the merchandising count
+    // reads (one per door, limit 1) and the editorial pick reads (one per
+    // story, limit 3) — never a page of preview products.
+    const calls = vi.mocked(api.catalog).mock.calls;
+    expect(calls).toHaveLength(
+      merchandisingDoors.length + editorialStories.length,
+    );
+    for (const call of calls) {
       expect(call[1]).toBe(0);
-      expect(call[2]).toBe(1);
+      expect([1, 3]).toContain(call[2]);
     }
   });
 
@@ -342,10 +381,15 @@ describe("DiscoverPage", () => {
     const { container } = renderPage();
 
     await waitFor(() => {
-      expect(vi.mocked(api.catalog)).toHaveBeenCalledTimes(merchandisingDoors.length);
+      expect(vi.mocked(api.catalog)).toHaveBeenCalledTimes(
+        merchandisingDoors.length + editorialStories.length,
+      );
       expect(vi.mocked(api.summary)).toHaveBeenCalledTimes(1);
     });
     expect(container.querySelector(".discover-merch")).toBeNull();
+    // The editorial picks are live reads over the same endpoint, so a failure
+    // leaves the stories with their copy alone rather than placeholder rows.
+    expect(container.querySelector(".discover-editorial-picks")).toBeNull();
   });
 
   it("quotes real customer voices with the products they reviewed", async () => {
@@ -499,6 +543,65 @@ describe("DiscoverPage", () => {
     expect(params.get("q")).toBe(starter);
     expect(params.get("domain")).toBe("home_office");
     expect(params.get("category_key")).toBe("ergonomic-office-chairs");
+  });
+
+  it("fills each editorial story with live picks from its own category", async () => {
+    let nextId = 9000;
+    vi.mocked(api.catalog).mockImplementation(
+      (filters: SearchFilters, offset = 0, limit = 12) => {
+        // The limit-1 door counts stay pending; the limit-3 story reads answer
+        // with one top-rated pick each.
+        if (limit !== 3) return new Promise<CatalogPage>(() => {});
+        nextId += 1;
+        return Promise.resolve({
+          total: 1,
+          offset,
+          limit,
+          products: [pickFixture(nextId, filters)],
+          facets: {},
+        });
+      },
+    );
+    const { container } = renderPage();
+
+    await waitFor(() => {
+      expect(
+        container.querySelectorAll(".discover-editorial-picks"),
+      ).toHaveLength(editorialStories.length);
+    });
+    const rows = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>(".discover-editorial-picks a"),
+    );
+    expect(rows).toHaveLength(editorialStories.length);
+    // The first story is the over-ear headphones edit, and its row links to a
+    // real product page with the price alongside the title.
+    expect(rows[0].getAttribute("href")).toBe("/products/9001");
+    expect(rows[0].textContent).toContain("Top-rated over-ear-headphones");
+    expect(rows[0].textContent).toContain("$249.00");
+  });
+
+  it("shops every storefront errand through one arrowless maroon button", () => {
+    const { container } = renderPage();
+
+    // Three story buttons, "Shop all", the running & fitness plate link, and
+    // the labs band's inverted pill — one shared treatment, no trailing arrows.
+    const ctas = Array.from(container.querySelectorAll(".discover-cta"));
+    expect(ctas).toHaveLength(editorialStories.length + 3);
+    for (const cta of ctas) {
+      expect(cta.querySelector("svg")).toBeNull();
+    }
+
+    // The story button runs the same constrained query as its photograph.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Shop running & fitness" }),
+    );
+    expect(window.location.pathname).toBe("/catalog");
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get("q")).toBe(
+      "Recovery tools for sore calves after long runs that fit in a carry-on.",
+    );
+    expect(params.get("domain")).toBe("running_fitness");
+    expect(params.get("category_key")).toBe("mobility-tools");
   });
 
 });

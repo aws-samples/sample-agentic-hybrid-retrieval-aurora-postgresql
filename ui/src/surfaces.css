@@ -234,33 +234,29 @@
   line-height: 1.5;
 }
 
-.discover-section-link {
+/* The one call-to-action treatment on the storefront: a solid maroon pill with
+   no arrow. The editorial stories, the plate, the section header and the labs
+   band (inverted there — see .discover-labs-cta) all use it, where before each
+   carried its own mix of underlined links, outlined pills and trailing arrows. */
+.discover-cta {
   display: inline-flex;
   min-height: 40px;
   align-items: center;
-  gap: 8px;
-  padding: 0 20px;
-  border: 1px solid rgb(92 75 62 / 20%);
+  justify-self: start;
+  padding: 0 22px;
+  border: 0;
   border-radius: 999px;
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 620;
-  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
-}
-
-.discover-section-link:hover {
-  border-color: var(--maroon-800);
-  color: var(--maroon-900);
-}
-
-.discover-section-link.solid {
-  border-color: var(--maroon-900);
-  background: var(--maroon-900);
-  color: #fffdf8;
-}
-
-.discover-section-link.solid:hover {
   background: var(--maroon-800);
+  color: #fffdf8;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 640;
+  letter-spacing: 0.01em;
+  transition: background 180ms ease;
+}
+
+.discover-cta:hover {
+  background: var(--maroon-700);
   color: #fffdf8;
 }
 
@@ -469,12 +465,7 @@
 
 .discover-editorial-card {
   display: grid;
-  padding: 0;
-  border: 0;
-  background: transparent;
   gap: 16px;
-  text-align: left;
-  transition: transform 220ms ease;
 }
 
 /* No panel: the photograph is the card. This carried a 1px border, a 22px radius,
@@ -518,29 +509,6 @@
   font-size: 14.5px;
 }
 
-/* A rule and an arrow, like every other editorial link on the surface. It was a
-   maroon gradient pill with a 22px drop shadow, which made it the heaviest object in
-   a section that no longer has any panels for it to belong to. */
-.discover-editorial-run {
-  display: inline-flex;
-  align-items: center;
-  justify-self: start;
-  gap: 8px;
-  margin-top: 10px;
-  padding-bottom: 3px;
-  border-bottom: 1px solid rgb(103 24 37 / 30%);
-  color: var(--maroon-900);
-  font-family: var(--sans);
-  font-size: 12.5px;
-  font-weight: 640;
-  transition: border-color 180ms ease, gap 180ms ease;
-}
-
-.discover-editorial-card.is-featured:hover .discover-editorial-run {
-  border-bottom-color: var(--maroon-900);
-  gap: 11px;
-}
-
 /* Supporting entries: a larger plate than the 112px thumbnail this replaces, copy
    beside it, no panel around either. */
 .discover-editorial-card:not(.is-featured) {
@@ -563,11 +531,16 @@
   padding-top: 8px;
 }
 
+/* A button now, not a span: the photograph is the part of the card that still
+   runs the story's query, since the copy column carries links of its own. */
 .discover-editorial-media {
   display: block;
   overflow: hidden;
+  padding: 0;
+  border: 0;
   border-radius: 8px;
   background: #e2d3c0;
+  cursor: pointer;
   /* Portrait, because the commissioned starter photographs are portrait crops
      and the former landscape frame removed the chair base and much of the
      shoe. A starter illustrated by a 3:2 catalog plate instead sets
@@ -586,12 +559,8 @@
   object-fit: cover;
 }
 
-.discover-editorial-card:hover .discover-editorial-media img {
+.discover-editorial-media:hover img {
   transform: scale(1.03);
-}
-
-.discover-editorial-card:hover {
-  transform: translateY(-2px);
 }
 
 .discover-editorial-body {
@@ -621,6 +590,53 @@
   font-size: 13px;
   font-style: normal;
   line-height: 1.55;
+}
+
+/* The top-rated picks from the story's own category, fetched live at mount.
+   Hairline rows, because the copy column filled barely a fifth of a plate that
+   stands nearly five hundred pixels tall. */
+.discover-editorial-picks {
+  display: grid;
+  margin-top: 8px;
+}
+
+.discover-editorial-picks a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 11px 0;
+  border-top: 1px solid rgb(92 75 62 / 14%);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.discover-editorial-picks a:last-child {
+  border-bottom: 1px solid rgb(92 75 62 / 14%);
+}
+
+.discover-editorial-pick-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.discover-editorial-picks a:hover .discover-editorial-pick-title {
+  color: var(--maroon-900);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.discover-editorial-pick-price {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.discover-editorial-body .discover-cta {
+  margin-top: 10px;
 }
 
 /* Category rail
@@ -701,19 +717,8 @@
   font-weight: 620;
 }
 
-.discover-intention-label svg {
-  opacity: 0;
-  transform: translateX(-3px);
-  transition: opacity 180ms ease, transform 200ms ease;
-}
-
 .discover-intention-tile:hover .discover-intention-label {
   color: var(--maroon-900);
-}
-
-.discover-intention-tile:hover .discover-intention-label svg {
-  opacity: 1;
-  transform: translateX(0);
 }
 
 /* Mosaic Studio is an optional Labs composition study. It uses real
@@ -1294,24 +1299,6 @@
   line-height: 1.62;
 }
 
-.discover-plate-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 4px;
-  padding-bottom: 3px;
-  border-bottom: 1px solid rgb(126 36 49 / 34%);
-  color: var(--maroon-900);
-  font-size: 13px;
-  font-weight: 620;
-  transition: border-color 180ms ease, gap 180ms ease;
-}
-
-.discover-plate-link:hover {
-  border-color: var(--maroon-900);
-  gap: 11px;
-}
-
 .discover-shop-grid {
   display: grid;
   gap: clamp(18px, 2vw, 28px);
@@ -1382,26 +1369,16 @@
   line-height: 1.62;
 }
 
+/* The shared CTA pill, inverted: solid maroon vanishes on the band's own
+   maroon ground, so the one button here goes cream with dark text. */
 .discover-labs-cta {
-  display: inline-flex;
-  min-height: 42px;
-  align-items: center;
-  gap: 9px;
   margin-top: 4px;
-  padding: 0 20px;
-  border: 1px solid rgb(253 247 236 / 34%);
-  border-radius: 999px;
-  color: #fdf7ec;
-  font-size: 12.5px;
-  font-weight: 640;
-  transition: background 180ms ease, border-color 180ms ease, color 180ms ease,
-    gap 180ms ease;
+  background: #fdf7ec;
+  color: var(--maroon-950);
 }
 
 .discover-labs-cta:hover {
-  border-color: #fdf7ec;
-  background: #fdf7ec;
-  gap: 13px;
+  background: #fff;
   color: var(--maroon-950);
 }
 
@@ -1747,12 +1724,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .discover-editorial-card:hover,
-  .discover-editorial-card:hover .discover-editorial-media img,
-  .discover-editorial-card.is-featured:hover .discover-editorial-run,
+  .discover-editorial-media:hover img,
   .discover-intention-tile:hover,
   .discover-intention-tile:hover .discover-intention-media img,
-  .discover-intention-label svg,
   .discover-lab-card:hover .discover-lab-graphic,
   .discover-lab-card:hover .discover-lab-scene-photo {
     transform: none;

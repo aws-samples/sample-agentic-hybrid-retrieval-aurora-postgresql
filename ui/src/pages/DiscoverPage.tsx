@@ -6,12 +6,18 @@ import { api } from "../api";
 import { CatalogSearchComposer } from "../components/CatalogSearchComposer";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { ProductCard } from "../components/ProductCard";
+import { formatPrice } from "../format";
 import { coreMosaicLabs, retrievalExampleHref } from "../labMissions";
 import { productImageMap } from "../media";
 import { RETRIEVAL_SURFACE, useNavigate } from "../navigation";
 import { armLanguage } from "../retrievalLanguage";
 import { showcaseCatalogPage } from "../showcase";
-import type { CatalogSummary, ReviewHighlight, SearchFilters } from "../types";
+import type {
+  CatalogSummary,
+  ProductSummary,
+  ReviewHighlight,
+  SearchFilters,
+} from "../types";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
@@ -459,6 +465,9 @@ export function DiscoverPage() {
   );
   const [proof, setProof] = useState<CatalogSummary["total"] | null>(null);
   const [voices, setVoices] = useState<ReviewHighlight[]>([]);
+  const [storyPicks, setStoryPicks] = useState<
+    ReadonlyMap<string, ProductSummary[]>
+  >(new Map());
 
   useEffect(() => {
     let active = true;
@@ -469,6 +478,18 @@ export function DiscoverPage() {
         (page) => {
           if (!active) return;
           setDoorCounts((counts) => new Map(counts).set(door.label, page.total));
+        },
+        () => {},
+      );
+    }
+    // Each editorial story lists the top-rated picks from its own category, so
+    // the copy column carries real rows rather than empty canvas. A story whose
+    // read fails shows no rows, same as the doors.
+    for (const story of editorialStories) {
+      api.catalog(story.filters, 0, 3, "rating").then(
+        (page) => {
+          if (!active) return;
+          setStoryPicks((picks) => new Map(picks).set(story.topic, page.products));
         },
         () => {},
       );
@@ -521,8 +542,6 @@ export function DiscoverPage() {
   function runStory(story: EditorialStory) {
     search(story.query, story.filters);
   }
-
-  const [featuredStory, ...secondaryStories] = editorialStories;
 
   return (
     <div className="discover-experience">
@@ -647,60 +666,65 @@ export function DiscoverPage() {
             </div>
           </header>
           <div className="discover-editorial-grid">
-            <button
-              className="discover-editorial-card is-featured"
-              type="button"
-              onClick={() => runStory(featuredStory)}
-              aria-label={featuredStory.query}
-            >
-              <span
-                className={
-                  featuredStory.imageFit === "cover"
-                    ? "discover-editorial-media is-cover"
-                    : "discover-editorial-media"
-                }
-              >
-                <img
-                  src={featuredStory.image}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                />
-              </span>
-              <span className="discover-editorial-body">
-                <small>{featuredStory.topic}</small>
-                <strong>{featuredStory.title}</strong>
-                <em>{featuredStory.caption}</em>
-                <span className="discover-editorial-run">
-                  Explore the edit
-                  <ArrowRight size={14} aria-hidden="true" />
-                </span>
-              </span>
-            </button>
-            {secondaryStories.map((story) => (
-              <button
-                key={story.topic}
-                className="discover-editorial-card"
-                type="button"
-                onClick={() => runStory(story)}
-                aria-label={story.query}
-              >
-                <span
+            {/* The photograph runs the story's query; the picks link straight to
+                product pages; the button runs the same query under a label that
+                names the errand. The card itself stopped being one big button
+                the moment it carried links of its own. */}
+            {editorialStories.map((story, index) => {
+              const picks = storyPicks.get(story.topic) ?? [];
+              return (
+                <article
+                  key={story.topic}
                   className={
-                    story.imageFit === "cover"
-                      ? "discover-editorial-media is-cover"
-                      : "discover-editorial-media"
+                    index === 0
+                      ? "discover-editorial-card is-featured"
+                      : "discover-editorial-card"
                   }
                 >
-                  <img src={story.image} alt="" loading="lazy" decoding="async" />
-                </span>
-                <span className="discover-editorial-body">
-                  <small>{story.topic}</small>
-                  <strong>{story.title}</strong>
-                  <em>{story.caption}</em>
-                </span>
-              </button>
-            ))}
+                  <button
+                    type="button"
+                    className={
+                      story.imageFit === "cover"
+                        ? "discover-editorial-media is-cover"
+                        : "discover-editorial-media"
+                    }
+                    onClick={() => runStory(story)}
+                    aria-label={story.query}
+                  >
+                    <img src={story.image} alt="" loading="lazy" decoding="async" />
+                  </button>
+                  <span className="discover-editorial-body">
+                    <small>{story.topic}</small>
+                    <strong>{story.title}</strong>
+                    <em>{story.caption}</em>
+                    {picks.length ? (
+                      <span className="discover-editorial-picks">
+                        {picks.map((product) => (
+                          <Link
+                            key={product.product_id}
+                            href={`/products/${product.product_id}`}
+                          >
+                            <span className="discover-editorial-pick-title">
+                              {product.title}
+                            </span>
+                            <span className="discover-editorial-pick-price">
+                              {formatPrice(product.price_cents, product.currency)}
+                            </span>
+                          </Link>
+                        ))}
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="discover-cta"
+                      onClick={() => runStory(story)}
+                    >
+                      Shop {story.topic.toLowerCase()}
+                    </button>
+                  </span>
+                </article>
+              );
+            })}
           </div>
         </section>
 
@@ -710,9 +734,8 @@ export function DiscoverPage() {
               <h2 id="discover-shop-title">Shop with intention</h2>
               <p>Thoughtfully designed. Expertly made.</p>
             </div>
-            <Link className="discover-section-link" href="/catalog">
+            <Link className="discover-cta" href="/catalog">
               Shop all
-              <ArrowRight size={15} aria-hidden="true" />
             </Link>
           </header>
           <div className="discover-plate">
@@ -733,9 +756,8 @@ export function DiscoverPage() {
                 Browse a considered edit, or describe what you need and let
                 Mosaic find the strongest matches.
               </p>
-              <Link className="discover-plate-link" href="/catalog?domain=running_fitness">
+              <Link className="discover-cta" href="/catalog?domain=running_fitness">
                 Shop running &amp; fitness
-                <ArrowRight size={14} aria-hidden="true" />
               </Link>
             </div>
           </div>
@@ -774,7 +796,6 @@ export function DiscoverPage() {
                   </span>
                   <span className="discover-intention-label">
                     {category.label}
-                    <ArrowRight size={13} aria-hidden="true" />
                   </span>
                 </Link>
               ))}
@@ -795,9 +816,11 @@ export function DiscoverPage() {
                 See how Mosaic finds candidates, ranks them, and grounds every
                 recommendation it makes.
               </p>
-              <Link className="discover-labs-cta" href={RETRIEVAL_SURFACE.path}>
+              <Link
+                className="discover-cta discover-labs-cta"
+                href={RETRIEVAL_SURFACE.path}
+              >
                 Open the {RETRIEVAL_SURFACE.label}
-                <ArrowRight size={15} aria-hidden="true" />
               </Link>
             </div>
             <div className="discover-labs-grid">
