@@ -3242,7 +3242,9 @@ button:disabled {
   margin-bottom: 24px;
   color: var(--maroon-700);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .product-hero {
@@ -3362,7 +3364,8 @@ button:disabled {
    `contain` means that clamp letterboxes instead of cropping. */
 .product-main-image {
   overflow: hidden;
-  border-radius: 6px;
+  border: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 8px;
   background: var(--paper-warm);
 }
 
@@ -3541,28 +3544,32 @@ button:disabled {
   line-height: 1.35;
 }
 
-/* Evidence row: four panels between the buy box and the tabs. */
+/* Evidence row: four panels between the buy box and the tabs. Hairline rules
+   rather than filled card boxes: the storefront's other proof surfaces sit
+   between rules, and a row of four cards read heavier than the hero above. */
 .product-evidence-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  margin: 34px 0 12px;
+  margin: 44px 0 18px;
+  border-block: 1px solid rgb(92 75 62 / 14%);
 }
 
 .product-evidence-row article {
   display: grid;
   align-content: start;
   gap: 12px;
-  padding: 20px;
-  border: 1px solid #ece1d5;
-  border-radius: 14px;
-  background: #fffdf9;
+  padding: 26px 28px 30px 0;
+}
+
+.product-evidence-row article + article {
+  padding-left: 28px;
+  border-left: 1px solid rgb(92 75 62 / 14%);
 }
 
 .product-evidence-row header {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
 
 .product-evidence-row header svg {
@@ -3572,23 +3579,25 @@ button:disabled {
 
 .product-evidence-row h3 {
   margin: 0;
-  color: #2b2119;
+  color: #4c4340;
   font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1.3;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  line-height: 1.35;
+  text-transform: uppercase;
 }
 
 .product-evidence-row p {
   margin: 0;
-  color: #6b5a4f;
-  font-size: 12.5px;
-  line-height: 1.55;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.6;
 }
 
 .product-evidence-row ul {
   display: grid;
-  gap: 8px;
+  gap: 9px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -3598,14 +3607,14 @@ button:disabled {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  color: #6b5a4f;
-  font-size: 12px;
-  line-height: 1.4;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .product-evidence-row li svg {
   flex: 0 0 auto;
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--maroon-800);
 }
 
@@ -3634,9 +3643,10 @@ button:disabled {
   height: 50px;
   place-items: center;
   border-radius: 50%;
-  background: #fffdf9;
+  background: #fdf8f1;
   color: #2b2119;
   font-size: 15px;
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 
@@ -3653,6 +3663,25 @@ button:disabled {
 @media (max-width: 1180px) {
   .product-evidence-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .product-evidence-row article,
+  .product-evidence-row article + article {
+    padding: 22px 0;
+    border-left: 0;
+  }
+
+  .product-evidence-row article:nth-child(even) {
+    padding-left: 26px;
+    border-left: 1px solid rgb(92 75 62 / 14%);
+  }
+
+  .product-evidence-row article:nth-child(odd) {
+    padding-right: 26px;
+  }
+
+  .product-evidence-row article:nth-child(n + 3) {
+    border-top: 1px solid rgb(92 75 62 / 14%);
   }
 
   .related-grid {
@@ -3679,6 +3708,17 @@ button:disabled {
   .related-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .product-evidence-row article,
+  .product-evidence-row article:nth-child(even),
+  .product-evidence-row article:nth-child(odd) {
+    padding: 20px 0;
+    border-left: 0;
+  }
+
+  .product-evidence-row article:nth-child(n + 2) {
+    border-top: 1px solid rgb(92 75 62 / 14%);
+  }
 }
 
 .product-tabs {
@@ -3690,13 +3730,20 @@ button:disabled {
 
 .product-tabs button {
   position: relative;
-  min-height: 54px;
+  min-height: 58px;
   padding: 0 2px;
   border: 0;
   background: transparent;
   color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: color 150ms ease;
+}
+
+.product-tabs button:hover {
+  color: var(--ink);
 }
 
 .product-tabs button::after {
@@ -3747,7 +3794,7 @@ button:disabled {
 
 .product-overview p:not(.eyebrow) {
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: 13.5px;
   line-height: 1.6;
 }
 
@@ -3783,18 +3830,24 @@ button:disabled {
 }
 
 .customer-highlights blockquote {
-  margin: 0;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--line);
+  margin: 22px 0 0;
+  padding: 0;
 }
 
-.customer-highlights blockquote p {
-  margin-bottom: 6px;
+/* Outranks the overview body rule above, which would otherwise hold the
+   quote at its own size. */
+.product-overview .customer-highlights blockquote p {
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 17px;
+  font-style: italic;
+  line-height: 1.45;
 }
 
 .customer-highlights cite {
   color: var(--ink-faint);
-  font-size: 10px;
+  font-size: 11.5px;
   font-style: normal;
 }
 
@@ -3812,13 +3865,13 @@ button:disabled {
   display: grid;
   grid-template-columns: minmax(150px, 0.8fr) minmax(0, 1.2fr);
   gap: 20px;
-  padding: 13px 0;
+  padding: 14px 0;
   border-bottom: 1px solid var(--line);
 }
 
 .spec-table dt,
 .spec-table dd {
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .spec-table dt {
@@ -3829,36 +3882,58 @@ button:disabled {
 .spec-table dd {
   margin: 0;
   color: var(--ink);
-  font-weight: 700;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
+/* Reviews read as a single editorial column: serif prose between hairlines,
+   the register the Discover voices strip established, rather than 11px
+   datasheet quotes behind a left border. */
 .review-list {
   display: grid;
-  gap: 14px;
+  max-width: 780px;
 }
 
 .review-list blockquote {
   margin: 0;
-  padding: 16px 0 16px 18px;
-  border-left: 2px solid var(--line-dark);
+  padding: 24px 0;
+  border-top: 1px solid rgb(92 75 62 / 14%);
+}
+
+.review-list blockquote:first-child {
+  padding-top: 6px;
+  border-top: 0;
+}
+
+.review-list .rating-row {
+  gap: 3px;
+  margin-bottom: 8px;
+  color: var(--maroon-800);
+}
+
+.review-list .rating-row strong {
+  margin-left: 6px;
+  color: var(--ink);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .review-list blockquote > strong {
   display: block;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .review-list blockquote p {
-  margin: 8px 0;
-  color: var(--ink-soft);
-  font-size: 11px;
+  margin: 8px 0 10px;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 16.5px;
   line-height: 1.55;
 }
 
 .review-list cite {
   color: var(--ink-faint);
-  font-size: 10px;
+  font-size: 11.5px;
   font-style: normal;
 }
 
@@ -3884,7 +3959,7 @@ button:disabled {
 }
 
 .source-box strong {
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .source-box span,
@@ -3892,7 +3967,7 @@ button:disabled {
   overflow: hidden;
   color: var(--ink-soft);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3900,7 +3975,7 @@ button:disabled {
 .source-box p {
   margin: 8px 0 0;
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.55;
 }
 

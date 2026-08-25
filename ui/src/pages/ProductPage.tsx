@@ -196,11 +196,11 @@ export function ProductPage() {
           count rather than an invented score. */}
       <section className="product-evidence-row" aria-label="Why Mosaic surfaces this product">
         <article>
-          <header><Sparkles size={17} /><h3>Why Mosaic recommends this</h3></header>
+          <header><Sparkles size={15} /><h3>Why Mosaic recommends this</h3></header>
           <p>{product.short_description}</p>
         </article>
         <article>
-          <header><Check size={17} /><h3>Matching attributes</h3></header>
+          <header><Check size={15} /><h3>Matching attributes</h3></header>
           <ul>
             {attributes.slice(0, 4).map(([key, value]) => (
               <li key={key}>
@@ -211,7 +211,7 @@ export function ProductPage() {
           </ul>
         </article>
         <article>
-          <header><Database size={17} /><h3>Evidence &amp; retrieval</h3></header>
+          <header><Database size={15} /><h3>Evidence &amp; retrieval</h3></header>
           <p>
             Selected by hybrid retrieval over the loaded catalog using lexical,
             trigram, and vector signals.
@@ -224,7 +224,7 @@ export function ProductPage() {
             column in the catalog, so this panel reports the rating the row does
             carry, and says so plainly when no reviews back it. */}
         <article className="product-confidence">
-          <header><ShieldCheck size={17} /><h3>Customer rating</h3></header>
+          <header><ShieldCheck size={15} /><h3>Customer rating</h3></header>
           {product.review_count && product.rating !== null ? (
             <div>
               <span
@@ -354,7 +354,16 @@ export function ProductPage() {
             {product.reviews.length ? product.reviews.map((review) => (
               <blockquote key={review.review_id}>
                 {review.rating !== null ? (
-                  <div className="rating-row"><Star size={14} fill="currentColor" /><strong>{review.rating.toFixed(1)}</strong></div>
+                  <div className="rating-row">
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <Star
+                        key={index}
+                        size={13}
+                        fill={index < Math.round(review.rating ?? 0) ? "currentColor" : "none"}
+                      />
+                    ))}
+                    <strong>{review.rating.toFixed(1)}</strong>
+                  </div>
                 ) : null}
                 {review.title ? <strong>{review.title}</strong> : null}
                 <p>{review.body}</p>
