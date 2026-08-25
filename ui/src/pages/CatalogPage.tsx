@@ -7,6 +7,7 @@ import {
   ChevronUp,
   LoaderCircle,
   Search,
+  Send,
   Sparkles,
   Star,
   SlidersHorizontal,
@@ -21,6 +22,7 @@ import {
   CSSProperties,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -28,7 +30,6 @@ import { flushSync } from "react-dom";
 import { Link } from "wouter";
 import { api } from "../api";
 import { AskMosaic } from "../components/AskMosaic";
-import type { AskMosaicTurn } from "../components/AskMosaic";
 import {
   CatalogSearchComposer,
   catalogGhostQueries,
@@ -37,6 +38,7 @@ import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
 import { SearchRetrievalReceipt } from "../components/RetrievalReceipt";
+import { useAskMosaicConversation } from "../components/useAskMosaicConversation";
 import { productImageMap } from "../media";
 import { CatalogLoadingState, ErrorState } from "../components/States";
 import {
@@ -96,14 +98,6 @@ function priceFromCents(value: string | null, fallback: number) {
   return Math.min(Math.max(cents / 100, 0), priceCeiling);
 }
 
-/** The most recent exchange that produced an answer, or null before any does. */
-function lastAnswered(turns: AskMosaicTurn[]): AskMosaicTurn | null {
-  for (let index = turns.length - 1; index >= 0; index -= 1) {
-    if (turns[index].response) return turns[index];
-  }
-  return null;
-}
-
 function mergeVisibleProducts(
   recommendations: ProductSummary[] | null,
   products: ProductSummary[],
@@ -135,6 +129,12 @@ const retrievalScope = [
   "Only what you can buy",
   "Combining the results",
   "Reranking the shortlist",
+];
+
+const shopSuggestedQueries = [
+  catalogGhostQueries[0],
+  catalogGhostQueries[1],
+  catalogGhostQueries[3],
 ];
 
 function HybridRetrievalTrace() {
@@ -182,17 +182,17 @@ export function CatalogPage() {
   const [retrievalLoading, setRetrievalLoading] = useState(false);
   const [retrievalError, setRetrievalError] = useState("");
   const [retrievalQuery, setRetrievalQuery] = useState(searchParams.get("q") ?? "");
-  const [agentTurns, setAgentTurns] = useState<AskMosaicTurn[]>([]);
   const [agentOpen, setAgentOpen] = useState(false);
-  const [agentExamples, setAgentExamples] = useState<RetrievalExample[]>([]);
   const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
   const [domainsAtEnd, setDomainsAtEnd] = useState(false);
   const domainTabsRef = useRef<HTMLElement>(null);
   const filterSheetRef = useRef<HTMLElement>(null);
   const filterPreviouslyFocused = useRef<HTMLElement | null>(null);
+  const resultsAnchorRef = useRef<HTMLDivElement>(null);
   const retrievalRequestVersion = useRef(0);
-  const agentRequestVersion = useRef(0);
   const handledAskDeepLink = useRef(false);
+  const handledResultsView = useRef("");
+  const restoreAgentFocusOnClose = useRef(false);
   const reduceMotion = useReducedMotion() ?? false;
 
   const domain = (searchParams.get("domain") || undefined) as Domain | undefined;
@@ -220,6 +220,14 @@ export function CatalogPage() {
     min_price_cents: minPriceCents ? Number(minPriceCents) : undefined,
     max_price_cents: maxPriceCents ? Number(maxPriceCents) : undefined,
   };
+  const {
+    answeredTurn,
+    clear: clearAgentThread,
+    examples: agentExamples,
+    pending: agentPending,
+    run: askAgent,
+    turns: agentTurns,
+  } = useAskMosaicConversation(filters);
   const activeFilterCount = [
     domain,
     categoryKey,
@@ -233,8 +241,6 @@ export function CatalogPage() {
   // The panel holds a conversation, so Shop follows the newest exchange that
   // produced an answer: an in-flight follow-up leaves the current shortlist,
   // banner, and numbering in place until its own answer arrives.
-  const agentPending = agentTurns.some((turn) => turn.loading);
-  const answeredTurn = lastAnswered(agentTurns);
   const agent = answeredTurn?.response ?? null;
   const agentQuestion = answeredTurn?.question ?? "";
   const labMission = mosaicRetrievalExamples.find(
@@ -321,26 +327,33 @@ export function CatalogPage() {
     maxPriceCents,
   ]);
 
-  /**
-   * The starters are an affordance, not content, so a failed fetch is not an
-   * error state: the entry state simply offers no examples and the participant
-   * types their own. The panel's error surface belongs to the ask itself, which
-   * is the request whose failure a participant has to be told about.
-   */
   useEffect(() => {
-    let active = true;
-    api
-      .examples()
-      .then((examples) => {
-        if (active) setAgentExamples(examples);
-      })
-      .catch(() => {
-        if (active) setAgentExamples([]);
+    if (
+      searchParams.get("view") !== "results"
+      || !activeQuery
+      || retrievalLoading
+      || (!retrieval && !retrievalError)
+    ) {
+      return;
+    }
+    const requestKey = window.location.search;
+    if (handledResultsView.current === requestKey) return;
+    handledResultsView.current = requestKey;
+    const frame = window.requestAnimationFrame(() => {
+      resultsAnchorRef.current?.scrollIntoView?.({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "start",
       });
-    return () => {
-      active = false;
-    };
-  }, []);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [
+    activeQuery,
+    reduceMotion,
+    retrieval,
+    retrievalError,
+    retrievalLoading,
+    searchParams,
+  ]);
 
   /**
    * The assist rail collapses the product grid from three columns to two, so
@@ -451,6 +464,14 @@ export function CatalogPage() {
     };
   }, [filtersOpen]);
 
+  useLayoutEffect(() => {
+    if (agentOpen || !restoreAgentFocusOnClose.current) return;
+    restoreAgentFocusOnClose.current = false;
+    document.querySelector<HTMLElement>(
+      activeQuery ? ".shop-assist-rail" : ".shop-console-note-action",
+    )?.focus();
+  }, [activeQuery, agentOpen]);
+
   /**
    * Closing the panel also has to retire the deep links that open it.
    *
@@ -459,6 +480,7 @@ export function CatalogPage() {
    * copied link reopens the panel the participant just dismissed.
    */
   const closeAgent = useCallback(() => {
+    restoreAgentFocusOnClose.current = true;
     setAssistOpen(false);
     setHighlightedProductId(null);
     const next = new URLSearchParams(searchParams);
@@ -484,6 +506,7 @@ export function CatalogPage() {
     next.delete("offset");
     next.delete("ask");
     next.delete("mode");
+    next.set("view", "results");
     setSearchParams(next);
   }
 
@@ -492,6 +515,7 @@ export function CatalogPage() {
     next.delete("q");
     next.delete("ask");
     next.delete("mode");
+    next.delete("view");
     setRetrieval(null);
     setRetrievalError("");
     setRetrievalQuery("");
@@ -523,12 +547,12 @@ export function CatalogPage() {
    * watching a different field slide in beside the answer.
    */
   function openAgent() {
+    restoreAgentFocusOnClose.current = true;
     setAssistOpen(true);
   }
 
   function clearAgentResults() {
-    agentRequestVersion.current += 1;
-    setAgentTurns([]);
+    clearAgentThread();
     setAssistOpen(false);
     setHighlightedProductId(null);
   }
@@ -543,118 +567,8 @@ export function CatalogPage() {
    * is gone, and the guard in `askAgent` stops it reviving a cleared thread.
    */
   function clearAgentConversation() {
-    agentRequestVersion.current += 1;
-    setAgentTurns([]);
+    clearAgentThread();
     setHighlightedProductId(null);
-  }
-
-  /**
-   * Append one exchange and stream into it.
-   *
-   * The version ref still gates every write, because clearing the conversation
-   * has to orphan a stream that is already open: the id it would patch is gone,
-   * and the guard stops it from reviving the panel.
-   */
-  async function askAgent(question: string) {
-    const trimmed = question.trim();
-    if (trimmed.length < 2 || agentPending) return;
-    const context = answeredTurn?.response
-      ? {
-        previous_agent_run_id: answeredTurn.response.agent_run_id,
-        previous_question: answeredTurn.question,
-        recommendations: answeredTurn.response.recommendations
-          .slice(0, 4)
-          .map((product) => ({
-            product_id: product.product_id,
-            title: product.title,
-            model: product.model,
-          })),
-      }
-      : undefined;
-    const version = agentRequestVersion.current + 1;
-    agentRequestVersion.current = version;
-    // The composer lives inside the panel, so it is already open here; the
-    // plain set skips a full-page view-transition snapshot for a no-op.
-    setAgentOpen(true);
-    setAgentTurns((turns) => [
-      ...turns,
-      {
-        id: version,
-        question: trimmed,
-        response: null,
-        partial: null,
-        streamed: "",
-        stage: "understand",
-        stageStartedAt: Date.now(),
-        executionPath: context ? "focused_follow_up" : "full_retrieval",
-        stageDetail:
-          "Working out what you need and which catalog constraints that implies.",
-        error: "",
-        loading: true,
-      },
-    ]);
-    const patch = (change: Partial<AskMosaicTurn>) => {
-      setAgentTurns((turns) => turns.map(
-        (turn) => (turn.id === version ? { ...turn, ...change } : turn),
-      ));
-    };
-    try {
-      await api.agentStream(trimmed, filters, (event) => {
-        if (version !== agentRequestVersion.current) return;
-        if (event.type === "stage") {
-          setAgentTurns((turns) => turns.map((turn) => (
-            turn.id === version
-              ? {
-                ...turn,
-                stage: event.id,
-                // Only a step the run has not been on restarts the clock. The
-                // service announces the answer step twice - once when synthesis
-                // is dispatched and again with a fuller detail line when it
-                // returns - and restarting on the second would report the
-                // half-second write instead of the wait a reader sat through.
-                stageStartedAt: turn.stage === event.id
-                  ? turn.stageStartedAt
-                  : Date.now(),
-                executionPath: event.path,
-                stageDetail: event.detail,
-              }
-              : turn
-          )));
-        } else if (event.type === "partial") {
-          patch({ partial: event.partial });
-        } else if (event.type === "answer_start") {
-          patch({
-            response: event.response,
-            stage: "answer",
-            stageDetail:
-              "Writing the recommendation from the products it found and the specs and reviews behind them.",
-          });
-        } else if (event.type === "answer_delta") {
-          const { delta } = event;
-          setAgentTurns((turns) => turns.map(
-            (turn) => (turn.id === version
-              ? { ...turn, streamed: turn.streamed + delta }
-              : turn),
-          ));
-        } else {
-          patch({
-            response: event.response,
-            streamed: event.response.answer,
-            stage: null,
-            stageDetail: "",
-          });
-        }
-      }, context);
-    } catch (cause) {
-      if (version !== agentRequestVersion.current) return;
-      patch({
-        stage: null,
-        stageDetail: "",
-        error: cause instanceof Error ? cause.message : "Ask Mosaic is unavailable",
-      });
-    } finally {
-      if (version === agentRequestVersion.current) patch({ loading: false });
-    }
   }
 
   function toggleFilter(section: FilterSection) {
@@ -806,7 +720,7 @@ export function CatalogPage() {
             {/* No "SHOP" label above the headline: the header's active nav entry
                 already says where the participant is. */}
             <header className="shop-heading">
-              <h1>
+              <h1 className="commerce-display">
                 Find what fits <em>your world.</em>
               </h1>
               <p className="shop-lede">
@@ -823,23 +737,15 @@ export function CatalogPage() {
                     pending={retrievalLoading}
                     leadingIcon={<GenerativeSearchIcon size={18} />}
                     placeholder="Search a product, model, or describe what you need"
+                    submitIcon={<Send size={16} aria-hidden="true" />}
+                    submitIconOnly
                     onSubmit={searchCatalog}
                   />
-                  <button
-                    className="shop-search-ask"
-                    type="button"
-                    aria-label="Ask Mosaic"
-                    aria-expanded={agentOpen}
-                    onClick={openAgent}
-                  >
-                    <Sparkles size={15} aria-hidden="true" />
-                    {agent ? "Return to Ask Mosaic" : "Ask Mosaic"}
-                  </button>
                 </section>
 
                 <div className="shop-suggested" aria-label="Suggested searches">
                   <span>Suggested for you</span>
-                  {catalogGhostQueries.slice(0, 2).map((suggestion) => (
+                  {shopSuggestedQueries.map((suggestion) => (
                     <button
                       type="button"
                       key={suggestion}
@@ -876,6 +782,16 @@ export function CatalogPage() {
                   Turns your request into constraints, compares candidates, and
                   cites every pick.
                 </p>
+                <button
+                  className="mosaic-ask-button shop-console-note-action"
+                  type="button"
+                  aria-label="Ask Mosaic"
+                  aria-expanded={agentOpen}
+                  onClick={openAgent}
+                >
+                  <Sparkles size={15} aria-hidden="true" />
+                  {agent ? "Return to Ask Mosaic" : "Ask Mosaic"}
+                </button>
                 <img
                   className="shop-console-note-photo"
                   src="/assets/images/mosaic/echobud-s2.webp"
@@ -1022,7 +938,10 @@ export function CatalogPage() {
           {labOutcome ? <LabOutcomeBanner outcome={labOutcome} /> : null}
 
           {agentProducts || activeQuery || retrievalError ? (
-            <div className={retrievalError ? "shop-query-state error" : "shop-query-state"}>
+            <div
+              ref={resultsAnchorRef}
+              className={retrievalError ? "shop-query-state error" : "shop-query-state"}
+            >
               <span>
                 <strong>
                   {agentProducts
@@ -1061,7 +980,7 @@ export function CatalogPage() {
               ) : retrievalLoading && activeQuery ? "Searching products" : "Loading catalog"}
             </p>
             {agent && !agentOpen ? (
-              <button type="button" onClick={() => setAssistOpen(true)}>
+              <button type="button" onClick={openAgent}>
                 <Sparkles size={15} /> Reopen Ask Mosaic
               </button>
             ) : null}
@@ -1173,6 +1092,19 @@ export function CatalogPage() {
           onHighlight={setHighlightedProductId}
           onSelectProduct={focusCatalogProduct}
         />
+
+        {activeQuery && !agentOpen && !filtersOpen ? (
+          <button
+            className="shop-assist-rail"
+            type="button"
+            aria-label="Try Ask Mosaic with these results"
+            onClick={openAgent}
+          >
+            <Sparkles size={15} aria-hidden="true" />
+            <span>Try Ask Mosaic</span>
+            <ChevronLeft size={15} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
 
       <AnimatePresence initial={false}>

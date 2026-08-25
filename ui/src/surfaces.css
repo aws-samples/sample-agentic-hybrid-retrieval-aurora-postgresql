@@ -28,6 +28,26 @@
   color: var(--ink);
 }
 
+/* Discover, Shop, and the three Labs mastheads share one premium display voice:
+   Newsreader at the display cut its optical axis reaches at these sizes.
+   Weight 500, not 600 - the heavier cut was reviewed live at 54-76px and
+   filled in the counters; the italic drops another step for the same reason. */
+.commerce-display {
+  font-family: var(--masthead);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.commerce-display em {
+  color: var(--maroon-800);
+  font-style: italic;
+  font-weight: 460;
+  line-height: 1.05;
+  padding-bottom: 0.04em;
+}
+
 /* Full-bleed editorial hero. It used to be a 1440px rounded rectangle with a
    1px border and a drop shadow floating 28px below the header, which read as a
    hero sitting inside a card: the photograph stopped 24px short of the window on
@@ -40,7 +60,7 @@
   isolation: isolate;
   display: grid;
   width: 100%;
-  min-height: min(660px, calc(100vh - var(--topbar-height)));
+  min-height: min(620px, calc(100vh - var(--topbar-height)));
   align-items: center;
   margin: 0;
   overflow: hidden;
@@ -66,18 +86,18 @@
 }
 
 /* The source image deliberately leaves a quiet wall on the left. The scrim
-   evens that field without muting the product still life on the right, and it
-   now clears by 58% so the right-hand 55% of the frame is unobstructed
-   photograph rather than veiled photograph. */
+   still protects the headline, but clears before the lower still life so the
+   photograph carries into the copy side instead of ending at an invisible
+   vertical boundary. */
 .discover-scrim {
   pointer-events: none;
   background:
     linear-gradient(
       90deg,
       #f9f6f1 0%,
-      #f9f6f1 34%,
-      rgb(249 246 241 / 92%) 45%,
-      rgb(249 246 241 / 0%) 58%
+      #f9f6f1 27%,
+      rgb(249 246 241 / 91%) 38%,
+      rgb(249 246 241 / 0%) 54%
     );
 }
 
@@ -92,7 +112,7 @@
   display: grid;
   width: min(100%, max(46%, 560px));
   justify-items: start;
-  padding-block: clamp(64px, 8vw, 104px);
+  padding-block: clamp(54px, 6vw, 82px);
   padding-inline: calc((100% - var(--shell-width)) / 2) clamp(24px, 3vw, 48px);
   text-align: left;
 }
@@ -101,16 +121,11 @@
   display: grid;
   margin: 0;
   color: var(--ink);
-  font-size: clamp(50px, 4.4vw, 68px);
-  font-weight: 400;
-  letter-spacing: -0.012em;
-  line-height: 0.97;
+  font-size: clamp(54px, 4.9vw, 76px);
 }
 
 .discover-hero h1 em {
-  color: var(--maroon-800);
-  font-style: italic;
-  font-weight: 400;
+  display: block;
 }
 
 .discover-hero h1 > span {
@@ -249,13 +264,11 @@
   color: #fffdf8;
 }
 
-/* Search + Ask */
-
 /* Shell properties live in the shared .discover-search/.shop-search rule
-   further down; only the internal track is Discover-specific. */
+   further down; Discover keeps one search composer inside it. */
 .discover-search {
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: 8px 9px 8px 4px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 8px 4px;
 }
 
 /* Editorial intent cards */
@@ -286,10 +299,10 @@
    which is also the hero's split. */
 .discover-editorial-card.is-featured {
   grid-column: 1 / -1;
-  align-items: center;
+  align-items: start;
   padding: 0;
   gap: clamp(26px, 3.4vw, 56px);
-  grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
+  grid-template-columns: minmax(0, 58fr) minmax(0, 42fr);
 }
 
 /* Landscape for the lead entry: it now has the full width, and a 4:5 portrait
@@ -298,15 +311,17 @@
   aspect-ratio: 16 / 10;
 }
 
-/* Copy first, photograph second, without reordering the DOM: the image span
-   carries an empty alt, so leaving it first in source costs a reader nothing. */
+/* The image leads visually and the copy begins near its top edge. This reverses
+   the hero's copy-left composition and makes the first edit read immediately
+   as a story rather than as another large blank field followed by a picture. */
 .discover-editorial-card.is-featured .discover-editorial-media {
-  grid-area: 1 / 2;
+  grid-area: 1 / 1;
 }
 
 .discover-editorial-card.is-featured .discover-editorial-body {
-  grid-area: 1 / 1;
+  grid-area: 1 / 2;
   gap: 10px;
+  padding-top: clamp(18px, 2.4vw, 38px);
 }
 
 .discover-editorial-card.is-featured .discover-editorial-body strong {
@@ -345,10 +360,11 @@
 /* Supporting entries: a larger plate than the 112px thumbnail this replaces, copy
    beside it, no panel around either. */
 .discover-editorial-card:not(.is-featured) {
-  align-items: center;
-  padding: 0;
+  align-items: start;
+  padding: 24px 0 0;
+  border-top: 1px solid var(--mosaic-line);
   gap: clamp(18px, 2vw, 28px);
-  grid-template-columns: minmax(0, 34%) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
 }
 
 .discover-editorial-card:not(.is-featured) .discover-editorial-body strong {
@@ -357,6 +373,10 @@
 
 .discover-editorial-card:not(.is-featured) .discover-editorial-body em {
   font-size: 13px;
+}
+
+.discover-editorial-card:not(.is-featured) .discover-editorial-body {
+  padding-top: 8px;
 }
 
 .discover-editorial-media {
@@ -1601,10 +1621,7 @@
 
 .shop-heading h1 {
   margin: 0;
-  font-size: clamp(38px, 4vw, 56px);
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  line-height: 1.02;
+  font-size: clamp(42px, 4.4vw, 64px);
 }
 
 /* Block, not inline: the second clause is the line that carries the italic, so
@@ -1612,9 +1629,6 @@
 
 .shop-heading h1 em {
   display: block;
-  color: var(--maroon-800);
-  font-style: italic;
-  font-weight: 400;
 }
 
 .shop-lede {
@@ -1680,8 +1694,8 @@
   max-width: 46ch;
 }
 
-/* Search + Ask. The pill shell is shared with Discover so the two surfaces
-   cannot drift; only the internal track differs. */
+/* Search shells share their field treatment. Ask Mosaic is a separate action
+   in Shop, so the catalog field remains unambiguously search-only. */
 
 .discover-search,
 .shop-search {
@@ -1707,8 +1721,7 @@
 /* The focus-within border above only shifts one brown tint to another, which is
    not an indicator. Here the pill is this wrapper and the composer form inside
    it is transparent, so the keyboard ring goes on the wrapper - a ring on the
-   form would be drawn inside the pill. Scoped to the field: the Ask Mosaic
-   button sharing the pill carries its own ring. */
+   form would be drawn inside the pill. */
 .discover-search:has(input:focus-visible),
 .shop-search:has(input:focus-visible) {
   outline: 2px solid var(--focus);
@@ -1721,8 +1734,8 @@
 }
 
 .shop-search {
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: 8px 9px 8px 4px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 8px 4px;
 }
 
 .discover-search .search-composer,
@@ -1828,6 +1841,25 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+}
+
+/* Search is Discover's sole hero action. The paper plane reflects the
+   natural-language request while the visible Send label keeps it explicit. */
+.discover-search .catalog-autocomplete > button[type="submit"],
+.shop-search .catalog-autocomplete > button[type="submit"] {
+  width: 46px;
+  justify-content: center;
+  padding: 0;
+  background: var(--maroon-900);
+  box-shadow: 0 7px 18px rgb(69 16 27 / 18%);
+  color: #fffdf8;
+  font-weight: 680;
+}
+
+.discover-search .catalog-autocomplete > button[type="submit"]:hover:not(:disabled),
+.shop-search .catalog-autocomplete > button[type="submit"]:hover:not(:disabled) {
+  background: var(--maroon-800);
+  color: #fffdf8;
 }
 
 .catalog-suggestions {
@@ -1984,8 +2016,7 @@
   border-radius: 0 0 6px 6px;
 }
 
-.discover-search-ask,
-.shop-search-ask {
+.mosaic-ask-button {
   position: relative;
   display: inline-flex;
   min-height: 46px;
@@ -2006,8 +2037,7 @@
   transition: box-shadow 180ms ease, transform 180ms ease;
 }
 
-.discover-search-ask::after,
-.shop-search-ask::after {
+.mosaic-ask-button::after {
   position: absolute;
   top: 0;
   left: -46%;
@@ -2019,21 +2049,18 @@
   transition: left 420ms ease;
 }
 
-.discover-search-ask svg,
-.shop-search-ask svg {
+.mosaic-ask-button svg {
   color: #e0b96f;
 }
 
-.discover-search-ask:hover,
-.shop-search-ask:hover {
+.mosaic-ask-button:hover {
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 16%),
     0 12px 28px rgb(69 16 27 / 27%);
   transform: translateY(-1px);
 }
 
-.discover-search-ask:hover::after,
-.shop-search-ask:hover::after {
+.mosaic-ask-button:hover::after {
   left: 118%;
 }
 
@@ -2054,6 +2081,14 @@
   border-radius: 8px;
   background: var(--paper);
   box-shadow: 0 20px 48px rgb(48 37 28 / 13%);
+}
+
+@media (min-width: 901px) {
+  /* Keep the console connected to the hero, but let the still's headphones,
+     shoe, and laptop read as one composition before the panel crosses it. */
+  .shop-console {
+    margin-top: clamp(72px, 10vw, 160px);
+  }
 }
 
 .shop-console-search {
@@ -2183,6 +2218,18 @@
   display: none;
 }
 
+.shop-console-note-action {
+  z-index: 1;
+  justify-self: start;
+  min-height: 42px;
+  margin-top: 7px;
+  padding-inline: 18px;
+}
+
+.shop-assist-rail svg:first-child {
+  color: #e0b96f;
+}
+
 .shop-console-note li {
   display: grid;
   align-items: start;
@@ -2211,6 +2258,46 @@
   object-position: 46% 54%;
   mask-image: linear-gradient(90deg, transparent 0, #000 62%);
   pointer-events: none;
+}
+
+.shop-assist-rail {
+  position: fixed;
+  z-index: 35;
+  top: 52%;
+  right: 0;
+  display: grid;
+  width: 48px;
+  min-height: 176px;
+  align-items: center;
+  justify-items: center;
+  gap: 9px;
+  padding: 13px 0;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
+  background: var(--maroon-900);
+  box-shadow: 0 14px 30px rgb(43 13 19 / 22%);
+  color: #fffdf8;
+  transform: translateY(-50%);
+  transition: width 180ms ease, background 180ms ease;
+}
+
+.shop-assist-rail:hover,
+.shop-assist-rail:focus-visible {
+  width: 52px;
+  background: var(--maroon-800);
+}
+
+.shop-assist-rail span {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.shop-query-state {
+  scroll-margin-top: calc(var(--topbar-height) + 18px);
 }
 
 /* Category + control row */
@@ -3713,8 +3800,7 @@
   grid-template-areas:
     "path go"
     "query query"
-    "hint hint"
-    "arms arms";
+    "hint hint";
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 7px 10px;
   padding: 12px 14px 11px;
@@ -3787,12 +3873,6 @@
   background: var(--paper-warm);
 }
 
-/* The chips carry the same fill as this card, so on it they lost their pill and
-   read as two words with a wide gap between them. */
-.ask-mosaic-starter-seed .ask-mosaic-starter-arms em {
-  background: var(--paper);
-}
-
 .ask-mosaic-starter-hint {
   grid-area: hint;
   margin-top: -3px;
@@ -3806,38 +3886,6 @@
   .ask-mosaic-starter-seed:focus-visible
   .ask-mosaic-starter-go {
   transform: none;
-}
-
-/* The techniques the eval set expects the query to exercise, set in mono so
-   `pg_trgm` and `rrf` read as the identifiers they are rather than as prose. */
-.ask-mosaic-starter-arms {
-  display: flex;
-  flex-wrap: wrap;
-  grid-area: arms;
-  gap: 4px;
-  padding-top: 8px;
-  border-top: 1px solid var(--line);
-}
-
-/* The tags are shopping words now, not `pg_trgm` and `vector`, so they are chips in
-   the sans rather than code. Rendered as `code` they inherited the mono stack and,
-   after the rename, printed "Exact terms Meaning match" at the same size as the
-   question above them. */
-.ask-mosaic-starter-arms em {
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--paper-warm);
-  color: var(--ink-soft);
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.ask-mosaic-starters > small {
-  display: block;
-  max-width: 44ch;
-  margin-top: 10px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4966,10 +5014,14 @@
   color: #7e2431;
 }
 
+/* Same display cut as .commerce-display so the five mastheads stay one voice;
+   a half-step heavier than the heroes because these render smaller (36-54px). */
 .labs-intro-copy h1 {
   margin: 10px 0 14px;
   color: #2f2924;
-  font-weight: 450;
+  font-family: var(--masthead);
+  font-weight: 520;
+  letter-spacing: -0.01em;
   line-height: 1;
 }
 
@@ -5208,7 +5260,7 @@
 
   .discover-editorial-card.is-featured {
     grid-row: auto;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 38%);
+    grid-template-columns: minmax(0, 56%) minmax(0, 1fr);
   }
 
   /* Once the row is scrolling anyway, stop shrinking the plates to fit. */
@@ -5519,8 +5571,7 @@
     grid-template-columns: 40px minmax(0, 1fr);
   }
 
-  .discover-search-ask,
-  .shop-search-ask {
+  .shop-console-note-action {
     justify-content: center;
     min-height: 48px;
   }
@@ -5655,17 +5706,10 @@
     margin-top: 14px;
   }
 
-  /* The autocomplete and Ask Mosaic stay in two rows so the editorial stories
-     remain visible without making the search shell excessively tall. */
+  /* The natural-language field remains a single compact row on phones. */
   .discover-search {
     min-height: auto;
     grid-template-columns: minmax(0, 1fr);
-    row-gap: 9px;
-  }
-
-  .discover-search-ask {
-    justify-content: center;
-    min-height: 48px;
   }
 
   .discover-editorial-grid,
@@ -5686,6 +5730,32 @@
 
   .discover-editorial-card.is-featured .discover-editorial-body {
     grid-area: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .shop-assist-rail {
+    top: auto;
+    right: 16px;
+    bottom: 16px;
+    width: auto;
+    min-height: 48px;
+    grid-auto-flow: column;
+    grid-template-columns: auto auto auto;
+    padding: 0 14px;
+    border-right: 1px solid rgb(255 255 255 / 16%);
+    border-radius: 8px;
+    transform: none;
+  }
+
+  .shop-assist-rail:hover,
+  .shop-assist-rail:focus-visible {
+    width: auto;
+  }
+
+  .shop-assist-rail span {
+    writing-mode: horizontal-tb;
+    transform: none;
   }
 }
 

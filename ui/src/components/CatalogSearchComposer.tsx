@@ -30,6 +30,9 @@ interface CatalogSearchComposerProps {
   pending?: boolean;
   leadingIcon?: ReactNode;
   placeholder?: string;
+  submitIcon?: ReactNode;
+  submitIconOnly?: boolean;
+  submitLabel?: string;
   /** Keep editorial surfaces quiet until the shopper asks to inspect matches. */
   suggestionsOnType?: boolean;
   showSuggestions?: boolean;
@@ -77,6 +80,9 @@ export function CatalogSearchComposer({
   pending = false,
   leadingIcon,
   placeholder = "Search a product, model, or describe what you need",
+  submitIcon,
+  submitIconOnly = false,
+  submitLabel = "Search",
   suggestionsOnType = true,
   showSuggestions = true,
   onValueChange,
@@ -274,15 +280,16 @@ export function CatalogSearchComposer({
       />
       <button
         type="submit"
-        disabled={pending || queryTooShort || (!trimmed && !idleSuggestion)}
-        aria-label="Search"
+        disabled={pending || queryTooShort}
+        aria-label={submitLabel}
+        title={submitIconOnly ? submitLabel : undefined}
       >
         {pending ? (
           <LoaderCircle className="spin" size={20} aria-hidden="true" />
         ) : (
           <>
-            <span>Search</span>
-            <ArrowRight size={16} aria-hidden="true" />
+            {submitIcon ?? <ArrowRight size={16} aria-hidden="true" />}
+            {submitIconOnly ? null : <span>{submitLabel}</span>}
           </>
         )}
       </button>

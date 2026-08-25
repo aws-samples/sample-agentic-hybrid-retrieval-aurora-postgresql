@@ -55,6 +55,12 @@
      on "Designed" (next best 0.622) and Schibsted Grotesk correlated 0.766 on
      the sub-headline (Inter 0.700). Keep them in that order. */
   --display: Newsreader, Georgia, "Times New Roman", serif;
+  /* The five commerce and Labs mastheads. Same family as --display on purpose:
+     Newsreader's optical axis lands on its display cut at 36-76px, which reads
+     as a different voice from the text sizes. Chosen over eleven candidate
+     faces in a live review; the separate token is the seam those swaps went
+     through, and the one a future swap should use. */
+  --masthead: Newsreader, Georgia, "Times New Roman", serif;
   --sans: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
   /* Not self-hosted, unlike the two faces above: no monospace webfont ships
      with Mosaic, so this resolves per platform. Naming the Linux faces keeps

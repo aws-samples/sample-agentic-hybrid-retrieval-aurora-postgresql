@@ -512,6 +512,20 @@ describe("CatalogPage", () => {
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/photographed in one light/i)).toBeNull();
+    const search = screen.getByRole("region", { name: "Mosaic product search" });
+    expect(within(search).getAllByRole("button")).toHaveLength(1);
+    const searchSubmit = within(search).getByRole("button", { name: "Search" });
+    expect(searchSubmit.textContent).toBe("");
+    expect(searchSubmit.querySelector("svg")).toBeTruthy();
+    expect(document.querySelectorAll(".shop-suggested > button")).toHaveLength(3);
+    expect(
+      screen.getByRole("complementary", { name: "What Ask Mosaic does" })
+        .contains(screen.getByRole("button", { name: "Ask Mosaic" })),
+    ).toBe(true);
+    expect(
+      screen.getByRole("button", { name: "Ask Mosaic" }).classList
+        .contains("mosaic-ask-button"),
+    ).toBe(true);
   });
 
   it("runs hybrid retrieval from the Shop query and renders real rank signals", async () => {
@@ -551,6 +565,39 @@ describe("CatalogPage", () => {
     expect(productReceipt!.textContent).not.toMatch(/FTS|TRGM|pg_trgm|HNSW|RRF/);
     expect(screen.queryByText("RRF #2")).toBeNull();
     expect(api.catalog).not.toHaveBeenCalled();
+  });
+
+  it("scrolls a Discover handoff to results and offers Ask Mosaic beside them", async () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/catalog?q=quiet%20keyboard&view=results",
+    );
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    const prompt = screen.getByRole("button", {
+      name: "Try Ask Mosaic with these results",
+    });
+    fireEvent.click(prompt);
+
+    expect(screen.getByRole("complementary", { name: "Ask Mosaic" })).toBeTruthy();
+    expect(
+      screen.queryByRole("button", {
+        name: "Try Ask Mosaic with these results",
+      }),
+    ).toBeNull();
   });
 
   it("offers keyboard-selectable catalog matches before hybrid retrieval", async () => {
@@ -781,10 +828,9 @@ describe("CatalogPage", () => {
       "Write the cited recommendationsynthesize_cited_answer",
     ]);
 
-    // Starters are queries from data/evals/demo_queries.jsonl, one per retrieval
-    // path and spanning all three domains. Each card carries the path it is
-    // written to exercise and that row's expected_techniques verbatim, so the
-    // entry state shows the exact/fuzzy/semantic contrast before anyone types.
+    // Starters are vetted questions spanning the retrieval paths and all three
+    // domains. Eval provenance and expected-technique tags stay off the shopper
+    // surface; the completed run is where actual retrieval evidence belongs.
     const starters = await within(panel).findByRole("list", {
       name: "Example questions",
     });
@@ -794,20 +840,19 @@ describe("CatalogPage", () => {
         .map((button) => [
           button.querySelector(".ask-mosaic-starter-path")?.textContent,
           button.querySelector(".ask-mosaic-starter-query")?.textContent,
-          [...button.querySelectorAll(".ask-mosaic-starter-arms em")]
-            .map((arm) => arm.textContent)
-            .join(" "),
         ]),
     ).toEqual([
-      ["Exact terms", examples[2].query, "Exact terms Meaning match"],
-      ["Plain language", examples[4].query, "Meaning match"],
-      ["Exact terms", examples[0].query, "Exact terms Meaning match"],
+      ["Exact terms", examples[2].query],
+      ["Plain language", examples[4].query],
+      ["Exact terms", examples[0].query],
       // The close-spelling lane, which says what it does instead of printing the
       // query it loads. `D-007` over `D-002` because it is the shorter of the two
       // misspelled rows, so what lands in the composer is short enough to read the
       // misspellings in before sending it.
-      ["Close spelling", "Search with typos in it", "Exact terms Close spelling Meaning match"],
+      ["Close spelling", "Search with typos in it"],
     ]);
+    expect(starters.textContent).not.toContain("eval set");
+    expect(starters.querySelector(".ask-mosaic-starter-arms")).toBeNull();
     // No card prints a misspelling. The eval set's fuzzy queries are misspelled on
     // purpose and the three run-on-click cards print a starter verbatim on a button
     // in Mosaic's own voice, so offering one shipped a spelling mistake as the
@@ -1255,6 +1300,8 @@ describe("CatalogPage", () => {
       expect(screen.queryByRole("dialog", { name: "Ask Mosaic" })).toBeNull()
     );
     expect(document.querySelector(".shop-main")?.hasAttribute("inert")).toBe(false);
-    expect(document.activeElement).toBe(opener);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Ask Mosaic" }),
+    );
   });
 });

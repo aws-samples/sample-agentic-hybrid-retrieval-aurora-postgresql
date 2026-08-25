@@ -6,7 +6,6 @@ import {
   render,
   screen,
   waitFor,
-  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
@@ -70,6 +69,7 @@ describe("DiscoverPage", () => {
     expect(new URLSearchParams(window.location.search).get("q")).toBe(
       "quiet keyboard under $180",
     );
+    expect(new URLSearchParams(window.location.search).get("view")).toBe("results");
   });
 
   it("puts the only search field in the hero, with no scroll-to-search step", () => {
@@ -81,6 +81,10 @@ describe("DiscoverPage", () => {
     expect(
       container.querySelector(".discover-hero .discover-search input"),
     ).toBe(screen.getByRole("combobox", { name: "Search products" }));
+    const submit = screen.getByRole("button", { name: "Search" });
+    expect(submit.textContent).toBe("");
+    expect(submit.querySelector("svg")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Ask Mosaic" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Search the catalog" })).toBeNull();
     expect(screen.queryByText("Explore collections")).toBeNull();
   });
@@ -112,6 +116,7 @@ describe("DiscoverPage", () => {
     expect(window.location.pathname).toBe("/catalog");
     const params = new URLSearchParams(window.location.search);
     expect(params.get("q")).toBe("Focus headphones");
+    expect(params.get("view")).toBe("results");
     expect(params.get("category_key")).toBe("over-ear-headphones");
     expect(params.get("domain")).toBe("consumer_electronics");
   });

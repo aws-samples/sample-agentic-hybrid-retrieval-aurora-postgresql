@@ -1,6 +1,6 @@
-import { ArrowRight, Search, Sparkles } from "lucide-react";
+import { ArrowRight, Search, Send } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "wouter";
 import { CatalogSearchComposer } from "../components/CatalogSearchComposer";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
@@ -21,7 +21,6 @@ type EditorialStory = {
   query: string;
   image: string;
   imageFit?: "cover";
-  mode?: "search" | "ask";
   filters: Pick<SearchFilters, "domain" | "category_key">;
 };
 
@@ -62,15 +61,15 @@ export const editorialStories: EditorialStory[] = [
     },
   },
   {
-    topic: "Audio",
-    title: "Ask, and compare the facts",
-    caption: "Mosaic answers from catalog records and shows the ones it used.",
-    query: "Comfortable over-ear headphones for a 14-hour flight",
-    image: "/assets/images/mosaic/category/audio.webp",
-    mode: "ask",
+    topic: "Running & fitness",
+    title: "For the miles after the miles",
+    caption: "Portable recovery tools for tired legs and limited carry-on space.",
+    query: "Recovery tools for sore calves after long runs that fit in a carry-on.",
+    image: "/assets/images/mosaic/category/performance.webp",
+    imageFit: "cover",
     filters: {
-      domain: "consumer_electronics",
-      category_key: "over-ear-headphones",
+      domain: "running_fitness",
+      category_key: "mobility-tools",
     },
   },
 ];
@@ -347,7 +346,6 @@ const featuredPreview = showcaseCatalogPage({}, 0, 4, "featured").products;
 
 export function DiscoverPage() {
   const navigate = useNavigate();
-  const [query, setQuery] = useState("");
   // One photograph per card. Assigned across the whole set rather than per
   // product, because a per-product hash cannot guarantee distinctness.
   const previewImages = useMemo(() => productImageMap(featuredPreview), []);
@@ -369,29 +367,13 @@ export function DiscoverPage() {
     nextQuery: string,
     filters: Pick<SearchFilters, "domain" | "category_key"> = {},
   ) {
-    const params = new URLSearchParams({ q: nextQuery });
-    if (filters.domain) params.set("domain", filters.domain);
-    if (filters.category_key) params.set("category_key", filters.category_key);
-    navigate(`/catalog?${params}`);
-  }
-
-  function askMosaic(
-    nextQuery = query,
-    filters: Pick<SearchFilters, "domain" | "category_key"> = {},
-  ) {
-    const params = new URLSearchParams({ ask: "1" });
-    const trimmed = nextQuery.trim();
-    if (trimmed.length >= 2) params.set("q", trimmed);
+    const params = new URLSearchParams({ q: nextQuery, view: "results" });
     if (filters.domain) params.set("domain", filters.domain);
     if (filters.category_key) params.set("category_key", filters.category_key);
     navigate(`/catalog?${params}`);
   }
 
   function runStory(story: EditorialStory) {
-    if (story.mode === "ask") {
-      askMosaic(story.query, story.filters);
-      return;
-    }
     search(story.query, story.filters);
   }
 
@@ -433,7 +415,7 @@ export function DiscoverPage() {
         </motion.picture>
         <div className="discover-scrim" aria-hidden="true" />
         <div className="discover-hero-content">
-          <h1>
+          <h1 className="commerce-display">
             <span>Objects that shape</span>
             <em>your world.</em>
           </h1>
@@ -451,20 +433,12 @@ export function DiscoverPage() {
               inputLabel="Search products"
               leadingIcon={<GenerativeSearchIcon size={20} />}
               onSubmit={search}
-              onValueChange={setQuery}
               placeholder="Describe what you're looking for..."
               showSuggestions={false}
               suggestionsOnType={false}
+              submitIcon={<Send size={16} aria-hidden="true" />}
+              submitIconOnly
             />
-            <button
-              className="discover-search-ask"
-              type="button"
-              onClick={() => askMosaic()}
-              aria-label="Ask Mosaic"
-            >
-              <Sparkles size={15} aria-hidden="true" />
-              Ask Mosaic
-            </button>
           </div>
           {/* Each chip searches for exactly the words on it, inside the category
               it names. */}
@@ -490,6 +464,7 @@ export function DiscoverPage() {
               <h2 id="discover-starters-title">
                 Made for the way you work, move, and unwind.
               </h2>
+              <p>A considered edit for focus, long workdays, and recovery.</p>
             </div>
           </header>
           <div className="discover-editorial-grid">
@@ -667,6 +642,7 @@ export function DiscoverPage() {
           </div>
         </section>
       </div>
+
     </div>
   );
 }

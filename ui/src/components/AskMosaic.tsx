@@ -33,7 +33,6 @@ import {
 } from "../retrievalLanguage";
 import {
   misspelledExample,
-  starterArmLabels,
   starterExamples,
   starterPath,
   starterPathLabels,
@@ -1138,11 +1137,8 @@ function Turn({
  * One card per retrieval path, so the entry state shows the contrast the
  * workshop teaches before anyone types: the same catalog answers exact terms, a
  * misspelling, and plain language over three different arms.
- *
- * The tags are each query's `expected_techniques`, verbatim from the eval set.
- * They describe the path the query is written to exercise, which is a claim
- * about the fixture and not a receipt for a run, so nothing here is presented
- * as measured. The run itself reports what actually fired.
+ * The eval metadata stays behind the surface; shoppers see useful questions,
+ * while the run itself reports what actually happened.
  */
 function EntryState({
   examples,
@@ -1192,11 +1188,6 @@ function EntryState({
                   <span className="ask-mosaic-starter-query">
                     {starter.query}
                   </span>
-                  <span className="ask-mosaic-starter-arms" aria-hidden="true">
-                    {starterArmLabels(starter).map((label) => (
-                      <em key={label}>{label}</em>
-                    ))}
-                  </span>
                 </button>
               </li>
             ))}
@@ -1222,18 +1213,10 @@ function EntryState({
                   <span className="ask-mosaic-starter-hint">
                     Fills the box. You send it.
                   </span>
-                  <span className="ask-mosaic-starter-arms" aria-hidden="true">
-                    {starterArmLabels(fuzzy).map((label) => (
-                      <em key={label}>{label}</em>
-                    ))}
-                  </span>
                 </button>
               </li>
             ) : null}
           </ul>
-          <small>
-            From the eval set. Tags name what each question is written to test.
-          </small>
         </div>
       ) : null}
 
