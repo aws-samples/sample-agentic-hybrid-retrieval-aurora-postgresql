@@ -96,12 +96,18 @@ def test_gate_catches_a_font_family_literal():
     violations = scan(css)
 
     assert [violation.property_name for violation in violations] == ["font-family"]
-    assert "use var(--display), var(--sans) or var(--mono)" == violations[0].remedy
+    assert (
+        "use var(--display), var(--masthead), var(--sans) or var(--mono)"
+        == violations[0].remedy
+    )
 
 
-def test_gate_admits_the_three_family_tokens_and_inherit():
+def test_gate_admits_the_four_family_tokens_and_inherit():
+    # `--masthead` is the seam the five commerce and Labs mastheads swap
+    # through together; it is a first family here, not a second one.
     css = (
         ".labs-matrix-heading h2 {\n  font-family: var(--display);\n}\n"
+        ".labs-intro-copy h1 {\n  font-family: var(--masthead);\n}\n"
         ".labs-matrix-controls select {\n  font-family: var(--sans);\n}\n"
         ".labs-matrix-identity > small {\n  font-family: var(--mono);\n}\n"
         ".hnsw-ab button {\n  font-family: inherit;\n}\n"

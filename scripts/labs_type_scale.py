@@ -62,8 +62,13 @@ RULE = re.compile(r"(?P<selector>[^{}]+)\{(?P<body>[^{}]*)\}")
 FONT_SIZE = re.compile(r"font-size:\s*(?P<value>[^;]+);")
 FONT_FAMILY = re.compile(r"font-family:\s*(?P<value>[^;]+);")
 
-# `inherit` is not a second family, it is a refusal to name one.
-ADMITTED_FAMILY = re.compile(r"^(?:var\(\s*--(?:display|sans|mono)\s*\)|inherit)$")
+# `inherit` is not a second family, it is a refusal to name one. `--masthead`
+# is admitted because it is the seam the five commerce and Labs mastheads share:
+# pointing the Labs h1 at `--display` instead would split the mastheads into two
+# voices the first time the token is swapped.
+ADMITTED_FAMILY = re.compile(
+    r"^(?:var\(\s*--(?:display|masthead|sans|mono)\s*\)|inherit)$"
+)
 
 TOKENS = (
     "--labs-display",
@@ -91,7 +96,7 @@ class Violation:
     def remedy(self) -> str:
         if self.property_name == "font-size":
             return f"use one of {', '.join(f'var({token})' for token in TOKENS)}"
-        return "use var(--display), var(--sans) or var(--mono)"
+        return "use var(--display), var(--masthead), var(--sans) or var(--mono)"
 
 
 def scan_labs_type(css: str, sheet: str) -> list[Violation]:
@@ -144,7 +149,7 @@ def main() -> None:
             print(f"scanned {stylesheet.relative_to(REPO)}")
         print(f"families {LABS_SELECTOR.pattern}")
         print(f"tokens {', '.join(TOKENS)}")
-        print("families admitted --display, --sans, --mono")
+        print("families admitted --display, --masthead, --sans, --mono")
 
     for violation in violations:
         print(
