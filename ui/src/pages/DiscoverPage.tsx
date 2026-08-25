@@ -1,7 +1,8 @@
-import { ArrowRight, Search, Send } from "lucide-react";
+import { ArrowRight, Search, Send, Star } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
+import { api } from "../api";
 import { CatalogSearchComposer } from "../components/CatalogSearchComposer";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { ProductCard } from "../components/ProductCard";
@@ -10,7 +11,7 @@ import { productImageMap } from "../media";
 import { RETRIEVAL_SURFACE, useNavigate } from "../navigation";
 import { armLanguage } from "../retrievalLanguage";
 import { showcaseCatalogPage } from "../showcase";
-import type { SearchFilters } from "../types";
+import type { CatalogSummary, ReviewHighlight, SearchFilters } from "../types";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
@@ -134,13 +135,46 @@ export const heroPrompts: Array<{
 ];
 
 /**
+ * Merchandising doors under the hero, each a plain link into Shop with its
+ * filter already set.
+ *
+ * The count on a chip is the `total` from the same /api/catalog/products
+ * request Shop runs when the door opens, taken with `limit: 1` so only the
+ * number travels. Nothing is hardcoded: a door whose count has not arrived,
+ * failed, or came back zero simply does not render, because a chip promising
+ * an empty shelf is worse than no chip.
+ */
+export const merchandisingDoors: Array<{
+  label: string;
+  filters: SearchFilters;
+  params: Record<string, string>;
+}> = [
+  {
+    label: "Under $200",
+    filters: { max_price_cents: 20000 },
+    params: { max_price_cents: "20000" },
+  },
+  {
+    label: "In stock now",
+    filters: { in_stock_only: true },
+    params: { in_stock_only: "true" },
+  },
+  {
+    label: "Rated 4★ and up",
+    filters: { min_rating: 4 },
+    params: { min_rating: "4" },
+  },
+];
+
+/**
  * Browse entries for the category rail.
  *
  * Every tile is a real `category_key` the catalog filters on, illustrated by
  * that category's own commissioned plate rather than by a product photograph
- * borrowed from a neighbouring category. Deliberately no product counts: the
- * only counts that would be true here are the facet counts Shop reads back
- * from the API, and Discover does not make that request.
+ * borrowed from a neighbouring category. Deliberately no product counts on
+ * the tiles: the merchandising chips at the top of the page already carry the
+ * live numbers, and six more here would turn a visual browse path into a
+ * table.
  */
 export const intentionCategories = [
   {
@@ -344,12 +378,123 @@ function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
 // authoritative live catalog and retrieval surface.
 const featuredPreview = showcaseCatalogPage({}, 0, 4, "featured").products;
 
+/**
+ * One verbatim review excerpt at a time, cycling below the merchandising row.
+ *
+ * Every quote is the opening sentence of a real evidence row, and each cycles
+ * to the next after a reading pause. The cycle pauses under a pointer or
+ * keyboard focus, and under reduced motion it never advances on its own — the
+ * dots remain the way through. Nothing here renders until the highlights
+ * arrive: a quotation placeholder would be an invented customer.
+ */
+function DiscoverVoices({
+  voices,
+  reduceMotion,
+}: {
+  voices: ReviewHighlight[];
+  reduceMotion: boolean;
+}) {
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    if (reduceMotion || paused || voices.length < 2) return;
+    const timer = window.setInterval(() => {
+      setIndex((current) => (current + 1) % voices.length);
+    }, 6500);
+    return () => window.clearInterval(timer);
+  }, [reduceMotion, paused, voices.length]);
+
+  const voice = voices[index];
+  return (
+    <section
+      className="discover-voices"
+      aria-label="What others are saying"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      <span className="discover-voices-lede">What others are saying</span>
+      {/* Remounting on review_id is what replays the entrance animation. */}
+      <figure className="discover-voice" key={voice.review_id}>
+        <blockquote>&ldquo;{voice.quote}&rdquo;</blockquote>
+        <figcaption>
+          <span className="discover-voice-rating">
+            <Star size={13} aria-hidden="true" />
+            {voice.rating.toFixed(1)}
+          </span>
+          <Link href={`/products/${voice.product_id}`}>
+            {voice.product_title}
+          </Link>
+          {voice.verified_purchase ? <em>Verified purchase</em> : null}
+        </figcaption>
+      </figure>
+      {voices.length > 1 ? (
+        <span className="discover-voices-dots">
+          {voices.map((entry, position) => (
+            <button
+              key={entry.review_id}
+              type="button"
+              className={position === index ? "is-active" : undefined}
+              aria-label={`Review ${position + 1} of ${voices.length}`}
+              aria-pressed={position === index}
+              onClick={() => setIndex(position)}
+            />
+          ))}
+        </span>
+      ) : null}
+    </section>
+  );
+}
+
 export function DiscoverPage() {
   const navigate = useNavigate();
   // One photograph per card. Assigned across the whole set rather than per
   // product, because a per-product hash cannot guarantee distinctness.
   const previewImages = useMemo(() => productImageMap(featuredPreview), []);
   const reduceMotion = useReducedMotion() ?? false;
+  const [doorCounts, setDoorCounts] = useState<ReadonlyMap<string, number>>(
+    new Map(),
+  );
+  const [proof, setProof] = useState<CatalogSummary["total"] | null>(null);
+  const [voices, setVoices] = useState<ReviewHighlight[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    // A door that fails stays hidden rather than showing a stale or invented
+    // number, so rejections end here deliberately.
+    for (const door of merchandisingDoors) {
+      api.catalog(door.filters, 0, 1).then(
+        (page) => {
+          if (!active) return;
+          setDoorCounts((counts) => new Map(counts).set(door.label, page.total));
+        },
+        () => {},
+      );
+    }
+    api.summary().then(
+      (summary) => {
+        if (active) setProof(summary.total);
+      },
+      () => {},
+    );
+    api.reviewHighlights().then(
+      (highlights) => {
+        if (active) setVoices(highlights);
+      },
+      () => {},
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const openDoors = merchandisingDoors.filter(
+    (door) => (doorCounts.get(door.label) ?? 0) > 0,
+  );
+  const proofLine =
+    proof && proof.reviews > 0 && proof.average_rating !== null ? proof : null;
   const labCards = useMemo(
     () =>
       labStages
@@ -458,6 +603,40 @@ export function DiscoverPage() {
       </section>
 
       <div className="discover-body">
+        {openDoors.length || proofLine ? (
+          <section className="discover-merch" aria-label="Shop by what matters">
+            {openDoors.length ? (
+              <div className="discover-merch-doors">
+                <span className="discover-merch-lede">Shop by what matters</span>
+                {openDoors.map((door) => (
+                  <Link
+                    className="discover-merch-door"
+                    key={door.label}
+                    href={`/catalog?${new URLSearchParams(door.params)}`}
+                  >
+                    {door.label}
+                    <span className="discover-merch-count">
+                      {(doorCounts.get(door.label) ?? 0).toLocaleString()}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+            {proofLine ? (
+              <p className="discover-merch-proof">
+                <Star size={14} aria-hidden="true" />
+                <strong>{proofLine.average_rating?.toFixed(1)}</strong>
+                average across {proofLine.reviews.toLocaleString()} customer
+                reviews
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
+        {voices.length ? (
+          <DiscoverVoices voices={voices} reduceMotion={reduceMotion} />
+        ) : null}
+
         <section className="discover-section" aria-labelledby="discover-starters-title">
           <header className="discover-section-heading">
             <div>
@@ -593,7 +772,10 @@ export function DiscoverPage() {
                       height={800}
                     />
                   </span>
-                  <span className="discover-intention-label">{category.label}</span>
+                  <span className="discover-intention-label">
+                    {category.label}
+                    <ArrowRight size={13} aria-hidden="true" />
+                  </span>
                 </Link>
               ))}
             </div>

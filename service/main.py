@@ -28,6 +28,7 @@ from service.catalog import (
     get_product,
     get_product_evidence_records,
     list_products,
+    review_highlights,
 )
 from service.config import get_settings
 from service.db import close_pool, connect, get_pool, readiness
@@ -49,6 +50,7 @@ from service.models import (
     ProductEvidenceResponse,
     RetrievalPlanResponse,
     RetrievalRunResponse,
+    ReviewHighlightsResponse,
     SearchFilters,
     SearchRequest,
     SearchResponse,
@@ -214,6 +216,13 @@ def get_readiness() -> dict[str, Any]:
 @app.get("/api/catalog/summary")
 def get_catalog_summary() -> dict[str, Any]:
     return catalog_summary()
+
+
+@app.get(
+    "/api/catalog/reviews/highlights", response_model=ReviewHighlightsResponse
+)
+def get_review_highlights() -> ReviewHighlightsResponse:
+    return review_highlights()
 
 
 @app.get("/api/catalog/suggestions", response_model=CatalogSuggestionsResponse)

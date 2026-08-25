@@ -25,6 +25,8 @@ from service.models import (
     ProductReview,
     ProductSummary,
     RetrievalProfile,
+    ReviewHighlight,
+    ReviewHighlightsResponse,
     SearchFilters,
     SourceAttribution,
 )
@@ -577,6 +579,75 @@ def _evidence_record(row: dict[str, Any]) -> EvidenceRecord:
     )
 
 
+def review_highlights(limit: int = 5) -> ReviewHighlightsResponse:
+    """Verbatim review excerpts for the storefront's cycling voices strip.
+
+    Scope is the photographed Shop cohort, so every quote points at a product
+    the storefront can actually show. Curation is one highlight per distinct
+    opening sentence: the synthetic corpus writes its 15,000 review bodies from
+    a template pool, and measured against the live cluster the cohort's 96
+    reviews open with only five distinct sentences. A strip cycling the same
+    sentence under different products reads as broken, so the opening sentence
+    is both the deduplication key and the quote itself — excerpted verbatim,
+    never paraphrased. Within one opening the most-helpful verified review of
+    four stars or better wins.
+    """
+    photographed = list(_PHOTOGRAPHED_PRODUCT_IDS)
+    with connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT e.evidence_id, e.product_id, d.title AS product_title,
+                   d.brand_name AS brand, e.rating,
+                   split_part(e.evidence_text, '.', 1) || '.' AS quote,
+                   e.is_verified, e.source_date, e.source_reference,
+                   coalesce((e.metadata->>'helpful_votes')::int, 0)
+                       AS helpful_votes
+            FROM mosaic.product_evidence e
+            JOIN mosaic_search.product_document d USING (product_id)
+            WHERE e.product_id = ANY(%s::bigint[])
+              AND e.evidence_type::text
+                  IN ('customer_review', 'verified_review')
+              AND e.is_verified
+              AND e.rating >= 4
+              AND char_length(split_part(e.evidence_text, '.', 1))
+                  BETWEEN 40 AND 200
+            ORDER BY helpful_votes DESC, e.evidence_id
+            """,
+            (photographed,),
+        ).fetchall()
+    # Greedy assignment in helpful-votes order: the pool is under a hundred
+    # rows, and choosing per opening in SQL loses a slot whenever two openings'
+    # best reviews sit on one product — the runner-up from another product is
+    # the right pick, and it is only reachable here.
+    highlights: list[ReviewHighlight] = []
+    seen_openings: set[str] = set()
+    seen_products: set[int] = set()
+    for row in rows:
+        record = dict(row)
+        if record["quote"] in seen_openings or record["product_id"] in seen_products:
+            continue
+        seen_openings.add(record["quote"])
+        seen_products.add(record["product_id"])
+        source_date = record.get("source_date")
+        highlights.append(
+            ReviewHighlight(
+                review_id=record["evidence_id"],
+                product_id=record["product_id"],
+                product_title=record["product_title"],
+                brand=record["brand"],
+                rating=float(record["rating"]),
+                quote=record["quote"],
+                verified_purchase=bool(record["is_verified"]),
+                review_date=source_date.isoformat() if source_date else None,
+                source_uri=record.get("source_reference")
+                or f"mosaic://evidence/{record['evidence_id']}",
+            )
+        )
+        if len(highlights) == limit:
+            break
+    return ReviewHighlightsResponse(highlights=highlights)
+
+
 def catalog_summary() -> dict[str, Any]:
     with connect() as connection:
         rows = connection.execute(
@@ -595,7 +666,12 @@ def catalog_summary() -> dict[str, Any]:
             SELECT count(*) AS products,
                    count(DISTINCT brand_name) AS brands,
                    count(DISTINCT category_path) AS subcategories,
-                   count(*) FILTER (WHERE embedding IS NOT NULL) AS embedded_products
+                   count(*) FILTER (WHERE embedding IS NOT NULL) AS embedded_products,
+                   coalesce(sum(review_count), 0) AS reviews,
+                   count(*) FILTER (WHERE review_count > 0) AS reviewed_products,
+                   sum(rating * review_count) FILTER (WHERE rating IS NOT NULL)
+                       / nullif(sum(review_count) FILTER (WHERE rating IS NOT NULL), 0)
+                       AS average_rating
             FROM mosaic_search.product_document
             """
         ).fetchone()

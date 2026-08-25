@@ -73,6 +73,7 @@ general semantic entailment.
 - `GET /api/catalog/summary`
 - `GET /api/catalog/suggestions`
 - `GET /api/catalog/products`
+- `GET /api/catalog/reviews/highlights`
 - `GET /api/products/{product_id}`
 - `GET /api/evidence/{evidence_id}`
 - `POST /api/products/{product_id}/evidence`
@@ -81,6 +82,12 @@ The product-evidence route requires an `evidence_query` and returns
 source-addressable specification and review records ranked for that question,
 without invoking the agent. The evidence-ID route resolves a persisted
 citation to its exact evidence row.
+
+Review highlights back the storefront's "what others are saying" strip: at
+most five verified customer-review excerpts from the photographed cohort, one
+per distinct opening sentence and one per product. Each `quote` is the review
+body's opening sentence verbatim, and each highlight carries the `source_uri`
+of the evidence row it was excerpted from.
 
 Catalog suggestions accept the shopper text in the `q` query parameter, require
 at least two non-space characters, and return a bounded mix of matching product,

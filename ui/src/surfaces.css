@@ -264,6 +264,190 @@
   color: #fffdf8;
 }
 
+/* Merchandising doors and the review proof line. Both carry live numbers, so
+   the whole row waits for them: no skeletons, no placeholders. */
+.discover-merch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 28px;
+}
+
+.discover-merch-doors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.discover-merch-lede {
+  margin-right: 6px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.discover-merch-door {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 18px;
+  border: 1px solid rgb(92 75 62 / 20%);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 620;
+  transition: border-color 180ms ease, color 180ms ease;
+}
+
+.discover-merch-door:hover {
+  border-color: var(--maroon-800);
+  color: var(--maroon-900);
+}
+
+.discover-merch-count {
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.discover-merch-proof {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.discover-merch-proof svg {
+  color: var(--maroon-800);
+  fill: currentcolor;
+}
+
+.discover-merch-proof strong {
+  color: var(--ink);
+  font-weight: 640;
+}
+
+/* What others are saying — one verbatim review excerpt at a time, between
+   hairlines. A single quiet line rather than a wall of cards: the corpus
+   holds five distinct voices, and each earns one sentence. */
+.discover-voices {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 40px;
+  padding: 24px 4px;
+  border-block: 1px solid rgb(92 75 62 / 14%);
+}
+
+.discover-voices-lede {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+/* The min-height is the tallest two-line quote, so the band holds its
+   breath while it cycles instead of reflowing the page under the reader. */
+.discover-voice {
+  display: grid;
+  min-height: 76px;
+  align-content: center;
+  gap: 9px;
+  margin: 0;
+  animation: discover-voice-in 480ms ease both;
+}
+
+.discover-voice blockquote {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 21px;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.discover-voice figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 14px;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+}
+
+.discover-voice-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 640;
+}
+
+.discover-voice-rating svg {
+  color: var(--maroon-800);
+  fill: currentcolor;
+}
+
+.discover-voice figcaption a {
+  color: var(--ink);
+  font-weight: 620;
+  text-decoration: underline;
+  text-decoration-color: rgb(92 75 62 / 35%);
+  text-underline-offset: 3px;
+}
+
+.discover-voice figcaption a:hover {
+  color: var(--maroon-900);
+}
+
+.discover-voice figcaption em {
+  color: var(--green);
+  font-style: normal;
+}
+
+.discover-voices-dots {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.discover-voices-dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 1px solid rgb(92 75 62 / 45%);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease;
+}
+
+.discover-voices-dots button.is-active {
+  border-color: var(--maroon-800);
+  background: var(--maroon-800);
+}
+
+@keyframes discover-voice-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .discover-voices {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
 /* Shell properties live in the shared .discover-search/.shop-search rule
    further down; Discover keeps one search composer inside it. */
 .discover-search {
@@ -468,7 +652,7 @@
 .discover-intention-rail {
   display: grid;
   gap: clamp(12px, 1.4vw, 18px);
-  grid-auto-columns: minmax(140px, 1fr);
+  grid-auto-columns: minmax(160px, 1fr);
   grid-auto-flow: column;
   overflow-x: auto;
   padding-bottom: 4px;
@@ -508,14 +692,28 @@
 }
 
 .discover-intention-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--ink);
   font-family: var(--sans);
   font-size: 13px;
   font-weight: 620;
 }
 
+.discover-intention-label svg {
+  opacity: 0;
+  transform: translateX(-3px);
+  transition: opacity 180ms ease, transform 200ms ease;
+}
+
 .discover-intention-tile:hover .discover-intention-label {
   color: var(--maroon-900);
+}
+
+.discover-intention-tile:hover .discover-intention-label svg {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 /* Mosaic Studio is an optional Labs composition study. It uses real
@@ -1554,6 +1752,7 @@
   .discover-editorial-card.is-featured:hover .discover-editorial-run,
   .discover-intention-tile:hover,
   .discover-intention-tile:hover .discover-intention-media img,
+  .discover-intention-label svg,
   .discover-lab-card:hover .discover-lab-graphic,
   .discover-lab-card:hover .discover-lab-scene-photo {
     transform: none;
@@ -1562,7 +1761,8 @@
   .discover-lab-candidate-one,
   .discover-lab-candidate-two,
   .discover-lab-rank-product-one,
-  .discover-lab-evidence > span b {
+  .discover-lab-evidence > span b,
+  .discover-voice {
     animation: none;
   }
 }

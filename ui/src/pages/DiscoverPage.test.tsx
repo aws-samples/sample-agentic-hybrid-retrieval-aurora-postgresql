@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -12,21 +13,95 @@ import { api } from "../api";
 import { CommerceProvider } from "../commerce";
 import { coreMosaicLabs, retrievalExampleHref } from "../labMissions";
 import { RETRIEVAL_SURFACE } from "../navigation";
-import { DiscoverPage } from "./DiscoverPage";
+import type {
+  CatalogPage,
+  CatalogSummary,
+  ReviewHighlight,
+  SearchFilters,
+} from "../types";
+import { DiscoverPage, merchandisingDoors } from "./DiscoverPage";
 
 vi.mock("../api", () => ({
   api: {
     catalog: vi.fn(),
     product: vi.fn(),
+    reviewHighlights: vi.fn(),
     suggestions: vi.fn(),
+    summary: vi.fn(),
   },
 }));
+
+function countPage(total: number): CatalogPage {
+  return { total, offset: 0, limit: 1, products: [], facets: {} };
+}
+
+const summaryFixture: CatalogSummary = {
+  total: {
+    products: 500000,
+    brands: 312,
+    subcategories: 96,
+    embedded_products: 500000,
+    reviews: 128412,
+    reviewed_products: 41250,
+    average_rating: 4.6,
+  },
+  domains: [],
+};
+
+// Shaped like the live endpoint's verbatim excerpts: one opening sentence per
+// highlight, each from a different product.
+const voicesFixture: ReviewHighlight[] = [
+  {
+    review_id: 11112,
+    product_id: 501,
+    product_title: "Mosaic Atelier 32 Premium Workspace Display",
+    brand: "Mosaic",
+    rating: 5,
+    quote:
+      "Comfort held up through a full day and the build feels more durable than expected.",
+    verified_purchase: true,
+    review_date: "2026-03-14",
+    source_uri: "mosaic://evidence/review/11112",
+  },
+  {
+    review_id: 33,
+    product_id: 502,
+    product_title: "Mosaic Pulse One Health & Fitness Smartwatch",
+    brand: "Mosaic",
+    rating: 5,
+    quote:
+      "The performance-to-price balance is excellent, especially for the intended use case.",
+    verified_purchase: true,
+    review_date: "2026-01-02",
+    source_uri: "mosaic://evidence/review/33",
+  },
+  {
+    review_id: 6309,
+    product_id: 503,
+    product_title: "AeroStride Carbon Pro 3 Marathon Racing Shoes",
+    brand: "AeroStride",
+    rating: 4,
+    quote:
+      "I compared several alternatives and kept this one because the practical details were better.",
+    verified_purchase: true,
+    review_date: "2025-11-20",
+    source_uri: "mosaic://evidence/review/6309",
+  },
+];
 
 describe("DiscoverPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
     vi.mocked(api.catalog).mockReset();
+    vi.mocked(api.reviewHighlights).mockReset();
+    vi.mocked(api.summary).mockReset();
     vi.mocked(api.suggestions).mockReset();
+    // The merchandising band and the voices strip fetch on mount in every
+    // test. Leaving the reads pending keeps the synchronous tests act()-clean;
+    // the band tests override these with real resolutions.
+    vi.mocked(api.catalog).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.reviewHighlights).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.summary).mockReturnValue(new Promise(() => {}));
     vi.mocked(api.suggestions).mockResolvedValue({
       query: "sono",
       suggestions: [
@@ -143,7 +218,8 @@ describe("DiscoverPage", () => {
     expect(tiles[0].getAttribute("href")).toBe(
       "/catalog?domain=consumer_electronics&category_key=over-ear-headphones",
     );
-    // No product counts: Discover never requests the facets that would back them.
+    // No product counts on the tiles: the merchandising doors above carry the
+    // live numbers, so the rail stays a visual path rather than a table.
     expect(
       container.querySelector(".discover-intention-rail")?.textContent,
     ).not.toMatch(/\d/);
@@ -184,7 +260,7 @@ describe("DiscoverPage", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 
-  it("renders the editorial Shop preview immediately without a catalog request", () => {
+  it("renders the editorial Shop preview without requesting its products", () => {
     renderPage();
 
     // One shopping section, not two. The category tiles used to carry their own
@@ -195,7 +271,139 @@ describe("DiscoverPage", () => {
     expect(screen.getByRole("link", { name: "Auraluxe H9" })).toBeTruthy();
     expect(screen.getByText("4.8")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Shop all" }).getAttribute("href")).toBe("/catalog");
-    expect(vi.mocked(api.catalog)).not.toHaveBeenCalled();
+    // The preview above rendered synchronously from showcase data. The only
+    // catalog requests Discover makes are the merchandising count reads: one
+    // per door, each limit 1, never a page of products.
+    expect(vi.mocked(api.catalog)).toHaveBeenCalledTimes(merchandisingDoors.length);
+    for (const call of vi.mocked(api.catalog).mock.calls) {
+      expect(call[1]).toBe(0);
+      expect(call[2]).toBe(1);
+    }
+  });
+
+  it("opens merchandising doors with live counts routed through Shop's params", async () => {
+    const totals: Record<string, number> = {
+      max_price_cents: 1243,
+      in_stock_only: 861,
+      min_rating: 402,
+    };
+    vi.mocked(api.catalog).mockImplementation((filters: SearchFilters) => {
+      const key = Object.keys(filters)[0];
+      return Promise.resolve(countPage(totals[key]));
+    });
+    const { container } = renderPage();
+
+    await waitFor(() => {
+      expect(container.querySelectorAll(".discover-merch-door")).toHaveLength(3);
+    });
+    const doors = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>(".discover-merch-door"),
+    );
+    expect(doors.map((door) => door.getAttribute("href"))).toEqual([
+      "/catalog?max_price_cents=20000",
+      "/catalog?in_stock_only=true",
+      "/catalog?min_rating=4",
+    ]);
+    // Counts are the doors' own limit-1 totals, formatted for reading.
+    expect(doors.map((door) => door.querySelector(".discover-merch-count")?.textContent))
+      .toEqual(["1,243", "861", "402"]);
+    expect(screen.getByText("Shop by what matters")).toBeTruthy();
+  });
+
+  it("keeps a door shut when its count is zero", async () => {
+    vi.mocked(api.catalog).mockImplementation((filters: SearchFilters) =>
+      Promise.resolve(countPage("in_stock_only" in filters ? 0 : 57)),
+    );
+    const { container } = renderPage();
+
+    await waitFor(() => {
+      expect(container.querySelectorAll(".discover-merch-door")).toHaveLength(2);
+    });
+    expect(screen.queryByText("In stock now")).toBeNull();
+  });
+
+  it("prints the social-proof line only from a live summary", async () => {
+    vi.mocked(api.summary).mockResolvedValue(summaryFixture);
+    const { container } = renderPage();
+
+    await waitFor(() => {
+      expect(container.querySelector(".discover-merch-proof")).toBeTruthy();
+    });
+    const proof = container.querySelector(".discover-merch-proof")!;
+    expect(proof.textContent).toContain("4.6");
+    expect(proof.textContent).toContain("average across 128,412 customer reviews");
+  });
+
+  it("hides the merchandising band entirely when the live reads fail", async () => {
+    // No skeletons, no placeholders, no invented numbers: a band that cannot
+    // prove its figures does not render.
+    vi.mocked(api.catalog).mockRejectedValue(new Error("api down"));
+    vi.mocked(api.summary).mockRejectedValue(new Error("api down"));
+    const { container } = renderPage();
+
+    await waitFor(() => {
+      expect(vi.mocked(api.catalog)).toHaveBeenCalledTimes(merchandisingDoors.length);
+      expect(vi.mocked(api.summary)).toHaveBeenCalledTimes(1);
+    });
+    expect(container.querySelector(".discover-merch")).toBeNull();
+  });
+
+  it("quotes real customer voices with the products they reviewed", async () => {
+    vi.mocked(api.reviewHighlights).mockResolvedValue(voicesFixture);
+    const { container } = renderPage();
+
+    await waitFor(() => {
+      expect(container.querySelector(".discover-voice blockquote")).toBeTruthy();
+    });
+    const quote = container.querySelector(".discover-voice blockquote")!;
+    expect(quote.textContent).toContain(voicesFixture[0].quote);
+    const caption = container.querySelector(".discover-voice figcaption")!;
+    expect(caption.textContent).toContain("5.0");
+    expect(caption.textContent).toContain("Verified purchase");
+    expect(caption.querySelector("a")?.getAttribute("href")).toBe("/products/501");
+
+    // The dots are the manual way through the same three voices.
+    const dots = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(".discover-voices-dots button"),
+    );
+    expect(dots).toHaveLength(3);
+    fireEvent.click(dots[1]);
+    expect(
+      container.querySelector(".discover-voice blockquote")?.textContent,
+    ).toContain(voicesFixture[1].quote);
+  });
+
+  it("advances to the next voice on its own", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(api.reviewHighlights).mockResolvedValue(voicesFixture);
+      const { container } = renderPage();
+      await act(async () => {});
+
+      expect(
+        container.querySelector(".discover-voice blockquote")?.textContent,
+      ).toContain(voicesFixture[0].quote);
+      act(() => {
+        vi.advanceTimersByTime(6500);
+      });
+      expect(
+        container.querySelector(".discover-voice blockquote")?.textContent,
+      ).toContain(voicesFixture[1].quote);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows no voices strip when the highlights read fails", async () => {
+    // A quotation placeholder would be an invented customer, so a failed read
+    // leaves the strip out entirely.
+    vi.mocked(api.reviewHighlights).mockRejectedValue(new Error("api down"));
+    const { container } = renderPage();
+
+    await waitFor(() => {
+      expect(vi.mocked(api.reviewHighlights)).toHaveBeenCalledTimes(1);
+    });
+    expect(container.querySelector(".discover-voices")).toBeNull();
   });
 
   it("previews the Playground with product-led retrieval, ranking, and evidence scenes", () => {

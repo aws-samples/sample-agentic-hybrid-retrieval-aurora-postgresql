@@ -17,6 +17,7 @@ import type {
   RetrievalExample,
   RetrievalPlanResponse,
   RetrievalRunResponse,
+  ReviewHighlight,
   SearchFilters,
   SearchResponse,
   ToolContract,
@@ -108,6 +109,13 @@ export const api = {
 
   product: (productId: number) =>
     request<ProductDetail>(`/api/products/${productId}`),
+
+  reviewHighlights: async () => {
+    const body = await request<{ highlights: ReviewHighlight[] }>(
+      "/api/catalog/reviews/highlights",
+    );
+    return body.highlights;
+  },
 
   search: (
     query: string,

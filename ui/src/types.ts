@@ -122,6 +122,23 @@ export interface ProductDetail extends ProductSummary {
   reviews: ProductReview[];
 }
 
+/**
+ * One verbatim customer-review excerpt with the product it reviews. The quote
+ * is the review body's opening sentence, byte-for-byte; `source_uri` addresses
+ * the evidence row it came from.
+ */
+export interface ReviewHighlight {
+  review_id: number;
+  product_id: number;
+  product_title: string;
+  brand: string;
+  rating: number;
+  quote: string;
+  verified_purchase: boolean;
+  review_date: string | null;
+  source_uri: string;
+}
+
 export interface CatalogPage {
   total: number;
   offset: number;
@@ -327,6 +344,9 @@ export interface CatalogSummary {
     brands: number;
     subcategories: number;
     embedded_products: number;
+    reviews: number;
+    reviewed_products: number;
+    average_rating: number | null;
   };
   domains: Array<{
     domain: Domain;

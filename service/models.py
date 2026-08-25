@@ -278,6 +278,29 @@ class ProductReview(BaseModel):
     source_name: str
 
 
+class ReviewHighlight(BaseModel):
+    """One verbatim customer-review excerpt with the product it reviews.
+
+    `quote` is an excerpt, not a summary: the opening sentence of the review
+    body, byte-for-byte. The full review stays one click away on the product
+    page, and `source_uri` addresses the evidence row the excerpt came from.
+    """
+
+    review_id: int
+    product_id: int
+    product_title: str
+    brand: str
+    rating: float
+    quote: str
+    verified_purchase: bool
+    review_date: str | None = None
+    source_uri: str
+
+
+class ReviewHighlightsResponse(BaseModel):
+    highlights: list[ReviewHighlight]
+
+
 class EvidenceRecord(BaseModel):
     evidence_id: int
     product_id: int
