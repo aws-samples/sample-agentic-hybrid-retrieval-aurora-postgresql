@@ -35,30 +35,67 @@ jobs:
           cache-dependency-path: ui/package-lock.json
 
       - name: Install Python dependencies
+        id: python-deps
+        if: ${{ !cancelled() }}
         run: |
           python -m pip install --disable-pip-version-check uv==0.11.21
           uv sync --frozen
 
-      - name: Validate Python and repository contracts
-        run: |
-          make lint
-          make validate
-          make validate-db
-          make validate-config
-          uv run python scripts/mission_contract.py
-          PYTHONPATH=. uv run pytest -q
+      # Every gate below is its own step guarded by !cancelled(), so one red
+      # gate reports itself without hiding the others. They used to share a
+      # single run block, where bash -e let the first failure skip the rest.
+      # The guards additionally require the install a gate depends on, so a
+      # broken environment surfaces once instead of as twelve failures.
 
-      - name: Validate MCP adapter
-        run: |
-          make mcp-install
-          make mcp-test
+      - name: Check lint and formatting
+        if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
+        run: make lint
 
-      - name: Validate UI
-        run: |
-          make ui-install
-          make ui-test
-          make ui-build
-          make ui-audit
+      - name: Validate the retrieval package
+        if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
+        run: make validate
+
+      - name: Validate the database contracts
+        if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
+        run: make validate-db
+
+      - name: Validate the retrieval configuration
+        if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
+        run: make validate-config
+
+      - name: Validate the lab contract
+        if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
+        run: uv run python scripts/mission_contract.py
+
+      - name: Run the Python test suite
+        if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
+        run: PYTHONPATH=. uv run pytest -q
+
+      - name: Install the MCP adapter
+        id: mcp-deps
+        if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
+        run: make mcp-install
+
+      - name: Test the MCP adapter
+        if: ${{ !cancelled() && steps.mcp-deps.outcome == 'success' }}
+        run: make mcp-test
+
+      - name: Install UI dependencies
+        id: ui-deps
+        if: ${{ !cancelled() }}
+        run: make ui-install
+
+      - name: Test the UI
+        if: ${{ !cancelled() && steps.ui-deps.outcome == 'success' }}
+        run: make ui-test
+
+      - name: Build the UI
+        if: ${{ !cancelled() && steps.ui-deps.outcome == 'success' }}
+        run: make ui-build
+
+      - name: Audit UI dependencies
+        if: ${{ !cancelled() && steps.ui-deps.outcome == 'success' }}
+        run: make ui-audit
 
   aurora-release:
     name: Aurora release contracts
