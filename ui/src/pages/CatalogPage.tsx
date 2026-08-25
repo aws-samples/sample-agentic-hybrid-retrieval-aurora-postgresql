@@ -37,6 +37,7 @@ import {
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
+import { ProductDrawer } from "../components/ProductDrawer";
 import { SearchRetrievalReceipt } from "../components/RetrievalReceipt";
 import { useAskMosaicConversation } from "../components/useAskMosaicConversation";
 import { productImageMap } from "../media";
@@ -52,6 +53,7 @@ import {
   playgroundQueryHref,
   useSearchParams,
 } from "../navigation";
+import { lockBodyScroll } from "../scrollLock";
 import type {
   Availability,
   CatalogPage,
@@ -184,6 +186,7 @@ export function CatalogPage() {
   const [retrievalQuery, setRetrievalQuery] = useState(searchParams.get("q") ?? "");
   const [agentOpen, setAgentOpen] = useState(false);
   const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
+  const [drawerProductId, setDrawerProductId] = useState<number | null>(null);
   const [domainsAtEnd, setDomainsAtEnd] = useState(false);
   const domainTabsRef = useRef<HTMLElement>(null);
   const filterSheetRef = useRef<HTMLElement>(null);
@@ -392,8 +395,7 @@ export function CatalogPage() {
         ? document.activeElement
         : null
     );
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockBodyScroll();
     const layer = filterSheetRef.current?.parentElement;
     const background = [
       ...Array.from(layer?.parentElement?.children ?? []).filter(
@@ -450,7 +452,7 @@ export function CatalogPage() {
         ?.focus();
     });
     return () => {
-      document.body.style.overflow = previousOverflow;
+      unlockScroll();
       window.cancelAnimationFrame(frame);
       window.removeEventListener("keydown", closeOnEscape);
       window.removeEventListener("keydown", trapFocus);
@@ -590,18 +592,15 @@ export function CatalogPage() {
     setFiltersOpen(true);
   }
 
-  function focusCatalogProduct(productId: number) {
+  // Going deeper on an Ask Mosaic pick opens the product beside the
+  // conversation instead of scrolling the page away from it.
+  function openProductDrawer(productId: number) {
     setHighlightedProductId(productId);
-    window.requestAnimationFrame(() => {
-      document
-        .querySelector<HTMLElement>(`[data-product-id="${productId}"]`)
-        ?.scrollIntoView({
-          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-            ? "auto"
-            : "smooth",
-          block: "center",
-        });
-    });
+    setDrawerProductId(productId);
+  }
+
+  function closeProductDrawer() {
+    setDrawerProductId(null);
   }
 
   const catalogCategories = page?.facets.category_key ?? [];
@@ -1090,21 +1089,38 @@ export function CatalogPage() {
           onClear={clearAgentConversation}
           onRun={(query) => void askAgent(query)}
           onHighlight={setHighlightedProductId}
-          onSelectProduct={focusCatalogProduct}
+          onSelectProduct={openProductDrawer}
         />
 
-        {activeQuery && !agentOpen && !filtersOpen ? (
-          <button
-            className="shop-assist-rail"
-            type="button"
-            aria-label="Try Ask Mosaic with these results"
-            onClick={openAgent}
-          >
-            <Sparkles size={15} aria-hidden="true" />
-            <span>Try Ask Mosaic</span>
-            <ChevronLeft size={15} aria-hidden="true" />
-          </button>
-        ) : null}
+        <ProductDrawer
+          productId={drawerProductId}
+          imageByProductId={gridImages}
+          onClose={closeProductDrawer}
+        />
+
+        {/* The rail is pinned to the same right edge the filter sheet and the
+            assist panel arrive on. It glides off rather than unmounting flat:
+            popping out in a single frame read as the incoming sheet shaking.
+            Motion owns the y axis too, or its transform would drop the CSS
+            translateY(-50%) centering and the rail would jump half its height. */}
+        <AnimatePresence initial={false}>
+          {activeQuery && !agentOpen && !filtersOpen ? (
+            <motion.button
+              className="shop-assist-rail"
+              type="button"
+              aria-label="Try Ask Mosaic with these results"
+              onClick={openAgent}
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 56, y: "-50%" }}
+              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0, y: "-50%" }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 56, y: "-50%" }}
+              transition={{ duration: reduceMotion ? 0.1 : 0.2, ease: EASE_OUT }}
+            >
+              <Sparkles size={15} aria-hidden="true" />
+              <span>Try Ask Mosaic</span>
+              <ChevronLeft size={15} aria-hidden="true" />
+            </motion.button>
+          ) : null}
+        </AnimatePresence>
       </div>
 
       <AnimatePresence initial={false}>

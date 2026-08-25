@@ -3186,6 +3186,7 @@
 }
 
 .shop-filter-sheet > header > button,
+.product-drawer > header > button,
 .ask-mosaic-header-close {
   display: grid;
   width: 44px;
@@ -3198,7 +3199,8 @@
   background: transparent;
 }
 
-.shop-filter-sheet > header > button:hover {
+.shop-filter-sheet > header > button:hover,
+.product-drawer > header > button:hover {
   background: #f0ece5;
 }
 
@@ -3345,6 +3347,186 @@
   border-color: var(--maroon-900);
   background: var(--maroon-900);
   color: #fffdf8;
+}
+
+/* Product drawer: the full catalog row for an Ask Mosaic pick, slid in
+   beside the conversation. Above the agent modal (110) and the filter
+   sheet (120) so a pick tapped inside either stays on top. */
+.product-drawer-layer {
+  position: fixed;
+  z-index: 130;
+  inset: 0;
+}
+
+.product-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: rgb(20 18 16 / 32%);
+  backdrop-filter: blur(2px);
+}
+
+.product-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  width: min(460px, 100%);
+  height: 100dvh;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  background: var(--mosaic-surface);
+  box-shadow: -24px 0 52px rgb(35 27 21 / 18%);
+}
+
+.product-drawer > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--mosaic-line);
+}
+
+.product-drawer > header .eyebrow {
+  margin: 0 0 5px;
+}
+
+.product-drawer > header h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.22;
+}
+
+.product-drawer-body {
+  display: grid;
+  min-height: 0;
+  padding: 20px 22px 26px;
+  align-content: start;
+  gap: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.product-drawer-media {
+  overflow: hidden;
+  border-radius: 8px;
+  aspect-ratio: 3 / 2;
+  background: #ece6db;
+}
+
+.product-drawer-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-drawer-loading,
+.product-drawer-error {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.product-drawer-price-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.product-drawer-price-row strong {
+  font-size: 23px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+}
+
+.product-drawer-price-row s {
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.product-drawer-price-row span {
+  font-size: 11.5px;
+}
+
+.product-drawer .rating-row {
+  margin-bottom: 0;
+}
+
+.product-drawer-description {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.product-drawer-body blockquote {
+  margin: 0;
+  padding: 14px 16px;
+  border-left: 2px solid var(--maroon-800);
+  background: #f7f3ec;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.product-drawer-body blockquote p {
+  margin: 0 0 8px;
+}
+
+.product-drawer-body blockquote cite {
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  font-style: normal;
+}
+
+.product-drawer > footer {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 22px;
+  border-top: 1px solid var(--mosaic-line);
+  background: #faf8f3;
+}
+
+.product-drawer-add {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--maroon-900);
+  border-radius: 6px;
+  background: var(--maroon-900);
+  color: #fffdf8;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.product-drawer-add:disabled {
+  border-color: #d5cec4;
+  background: #efeae2;
+  color: var(--ink-soft);
+}
+
+.product-drawer-full-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--maroon-800);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.product-drawer-full-link:hover {
+  text-decoration: underline;
 }
 
 .shop-ranking-receipt {
@@ -4064,14 +4246,17 @@
 }
 
 /*
- * The write caret, drawn while `answer_delta` events are still arriving.
+ * The write caret, drawn while the typewriter is still writing.
  *
- * The service opens the answer empty and paces the chunks, so this marks a live
- * write. Between `answer_start` and the first chunk there is no prose yet and
- * the caret sits against the section label, which is the honest position: the
- * answer has been committed to and no words of it exist.
+ * It rides the last element of the prose wrapper rather than of the section:
+ * the shortlist cards share the section, and a section-level `:last-child`
+ * parked the caret under the cards instead of the line being written. Before
+ * the first chunk the wrapper is empty and the caret stands alone where the
+ * prose will start, which is the honest position: the answer has been
+ * committed to and no words of it exist.
  */
-.ask-mosaic-answer.streaming > :last-child::after {
+.ask-mosaic-answer.streaming .ask-mosaic-prose > :last-child::after,
+.ask-mosaic-answer.streaming .ask-mosaic-prose:empty::after {
   display: inline-block;
   width: 7px;
   height: 14px;
@@ -5775,7 +5960,8 @@
   .ask-mosaic-turn,
   .ask-mosaic-progress > li.active .ask-mosaic-stage-node,
   .ask-mosaic-live::after,
-  .ask-mosaic-answer.streaming > :last-child::after {
+  .ask-mosaic-answer.streaming .ask-mosaic-prose > :last-child::after,
+  .ask-mosaic-answer.streaming .ask-mosaic-prose:empty::after {
     animation: none;
     scroll-behavior: auto;
     transition: none;
@@ -9611,7 +9797,7 @@
  * and page titles; forcing it into dense generated prose made product-name
  * emphasis exceed the face's loaded weight range and look distorted.
  */
-.ask-mosaic-answer > p:not(:first-child),
+.ask-mosaic-prose > p,
 .ask-mosaic-answer li {
   color: #302a25;
   font-family: var(--sans);
@@ -9620,7 +9806,7 @@
   line-height: 1.65;
 }
 
-.ask-mosaic-answer > p:not(:first-child),
+.ask-mosaic-prose > p,
 .ask-mosaic-answer ul,
 .ask-mosaic-answer ol {
   max-width: 68ch;

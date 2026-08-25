@@ -26,6 +26,7 @@ import {
   useCommerce,
 } from "../commerce";
 import { formatPrice, leafCategory } from "../format";
+import { lockBodyScroll } from "../scrollLock";
 
 type CheckoutStage = "cart" | "delivery" | "payment" | "review" | "complete";
 
@@ -110,8 +111,7 @@ export function CommerceDrawer() {
         ? document.activeElement
         : null
     );
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockBodyScroll();
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") closeCart();
     };
@@ -152,7 +152,7 @@ export function CommerceDrawer() {
       )?.focus();
     });
     return () => {
-      document.body.style.overflow = previousOverflow;
+      unlockScroll();
       window.removeEventListener("keydown", closeOnEscape);
       window.removeEventListener("keydown", trapFocus);
       if (previouslyFocused.current?.isConnected) {

@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Markdown from "react-markdown";
 import { cartQuantityLimit, useCommerce } from "../commerce";
 import {
@@ -31,6 +31,7 @@ import {
   FUSED_LABEL,
   armLanguage,
 } from "../retrievalLanguage";
+import { lockBodyScroll } from "../scrollLock";
 import {
   misspelledExample,
   starterExamples,
@@ -969,6 +970,65 @@ function FollowUps({
   );
 }
 
+/**
+ * Cuts the reveal back to the last point that renders cleanly as Markdown.
+ *
+ * A slice that stops between a bold marker and its close would paint literal
+ * asterisks for a few frames. Holding the reveal just before the opener means
+ * an emphasized phrase appears whole once its closing marker has streamed in.
+ */
+function balancedMarkdownSlice(text: string, length: number): string {
+  if (length >= text.length) return text;
+  const slice = text.slice(0, length);
+  const boldMarks = slice.split("**").length - 1;
+  if (boldMarks % 2 === 0) return slice;
+  return slice.slice(0, slice.lastIndexOf("**"));
+}
+
+interface TypewriterReveal {
+  /** The prose typed so far; the full text once the reveal has caught up. */
+  text: string;
+  done: boolean;
+}
+
+/**
+ * Paces streamed prose into a left-to-right typewriter reveal.
+ *
+ * The service delivers the answer in three-word chunks, and painting each chunk
+ * the moment it lands makes the paragraph pop and reflow rather than write.
+ * This advances a few characters per animation frame instead, speeding up with
+ * the backlog so it trails the live stream by well under a second, then types
+ * the tail out after the stream closes. A turn that mounts already answered —
+ * reopening the panel, revisiting history — renders whole, as does everything
+ * under reduced motion.
+ */
+function useTypewriterReveal(
+  text: string,
+  streaming: boolean,
+  instant: boolean,
+): TypewriterReveal {
+  const [startedStreaming] = useState(streaming);
+  const [revealedCount, setRevealedCount] = useState(0);
+  const pace = startedStreaming && !instant;
+  const done = !pace || revealedCount >= text.length;
+  useEffect(() => {
+    if (done) return undefined;
+    let frame = window.requestAnimationFrame(function step() {
+      setRevealedCount((current) => {
+        const backlog = text.length - current;
+        if (backlog <= 0) return current;
+        if (backlog > 240) return current + 14;
+        if (backlog > 60) return current + 8;
+        return current + 3;
+      });
+      frame = window.requestAnimationFrame(step);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [done, text]);
+  if (!pace) return { text, done: true };
+  return { text: balancedMarkdownSlice(text, revealedCount), done };
+}
+
 interface TurnProps {
   turn: AskMosaicTurn;
   isLatest: boolean;
@@ -978,6 +1038,12 @@ interface TurnProps {
   onEdit: (query: string) => void;
   onHighlight: (productId: number | null) => void;
   onSelectProduct: (productId: number) => void;
+  /**
+   * Fires as the reveal advances so the thread can keep the writing line in
+   * view. Only the latest turn receives it; settled turns have nothing to
+   * report.
+   */
+  onRevealProgress?: () => void;
 }
 
 function Turn({
@@ -989,8 +1055,20 @@ function Turn({
   onEdit,
   onHighlight,
   onSelectProduct,
+  onRevealProgress,
 }: TurnProps) {
   const response = turn.response;
+  const reduceMotion = useReducedMotion();
+  const reveal = useTypewriterReveal(
+    turn.streamed || response?.answer || "",
+    turn.loading,
+    reduceMotion ?? false,
+  );
+  /** The stream has closed and the typewriter has finished writing it out. */
+  const answerSettled = !turn.loading && reveal.done;
+  useEffect(() => {
+    onRevealProgress?.();
+  }, [reveal.text.length, onRevealProgress]);
   /**
    * Whichever retrieval has landed. The finished response supersedes the partial
    * because its shortlist is the cited one; until it arrives, the partial is what
@@ -1083,15 +1161,15 @@ function Turn({
 
       {response ? (
         <>
-          {/* `streaming` draws the caret. The text arrives token by token over
-              SSE, so the caret marks a live write rather than decorating a
-              finished one. */}
+          {/* `streaming` draws the caret. It stays up past the last SSE chunk
+              until the typewriter finishes writing the text out, because the
+              caret marks the visible write, not the network. */}
           <section
-            className={turn.loading ? "ask-mosaic-answer streaming" : "ask-mosaic-answer"}
+            className={answerSettled ? "ask-mosaic-answer" : "ask-mosaic-answer streaming"}
           >
             <p>
               <Sparkles size={14} />
-              {turn.loading ? "Answer draft (in progress)" : "Final recommendation"}
+              {answerSettled ? "Final recommendation" : "Answer draft (in progress)"}
               {response.citations.length ? (
                 <span className="ask-mosaic-cited-support">
                   <CircleCheck size={12} aria-hidden="true" />
@@ -1099,12 +1177,14 @@ function Turn({
                 </span>
               ) : null}
             </p>
-            <Markdown>
-              {boldRecommendationNames(
-                turn.streamed || response.answer,
-                response.recommendations,
-              )}
-            </Markdown>
+            {/* The wrapper bounds the caret: the shortlist below is part of the
+                same section, and a section-level `:last-child` put the caret
+                after the product cards instead of the prose being written. */}
+            <div className="ask-mosaic-prose">
+              <Markdown>
+                {boldRecommendationNames(reveal.text, response.recommendations)}
+              </Markdown>
+            </div>
             {/* The prose named these products. Here they are, priced and
                 buyable, so the recommendation ends in the store rather than in
                 a paragraph. */}
@@ -1297,7 +1377,6 @@ export function AskMosaic({
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
   const latest = turns.length ? turns[turns.length - 1] : null;
-  const streamedLength = latest?.streamed.length ?? 0;
 
   useEffect(() => {
     closeRef.current = onClose;
@@ -1339,8 +1418,7 @@ export function AskMosaic({
 
   useEffect(() => {
     if (!open || !modal) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockBodyScroll();
     const background = [
       ...Array.from(layerRef.current?.parentElement?.children ?? []).filter(
         (element) => element !== layerRef.current,
@@ -1392,7 +1470,7 @@ export function AskMosaic({
         ?.focus();
     });
     return () => {
-      document.body.style.overflow = previousOverflow;
+      unlockScroll();
       window.cancelAnimationFrame(frame);
       window.removeEventListener("keydown", trapFocus);
       for (const { element, inert, ariaHidden } of prior) {
@@ -1404,16 +1482,19 @@ export function AskMosaic({
   }, [modal, open]);
 
   /**
-   * Follow the newest exchange, including while it streams.
-   *
-   * `scrollTop` rather than `scrollTo`, because this runs on every delta and an
-   * animated scroll would be re-targeted mid-flight on each one.
+   * Keep the writing line in view. The latest turn calls this on every reveal
+   * frame, so `scrollTop` rather than `scrollTo`: an animated scroll would be
+   * re-targeted mid-flight on each call.
    */
-  useEffect(() => {
+  const followReveal = useCallback(() => {
     const thread = threadRef.current;
-    if (!thread) return;
-    thread.scrollTop = thread.scrollHeight;
-  }, [open, latest?.id, latest?.response, latest?.error, streamedLength]);
+    if (thread) thread.scrollTop = thread.scrollHeight;
+  }, []);
+
+  /** Follow the turn boundaries the reveal callback doesn't cover. */
+  useEffect(() => {
+    followReveal();
+  }, [open, latest?.id, latest?.response, latest?.error, followReveal]);
 
   if (!open) return null;
 
@@ -1493,6 +1574,7 @@ export function AskMosaic({
                 onEdit={editRequest}
                 onHighlight={onHighlight}
                 onSelectProduct={onSelectProduct}
+                onRevealProgress={index === turns.length - 1 ? followReveal : undefined}
               />
             ))
           ) : (

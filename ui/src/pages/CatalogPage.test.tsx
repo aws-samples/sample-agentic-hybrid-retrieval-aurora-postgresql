@@ -18,6 +18,7 @@ import type {
   AgentResponse,
   CatalogPage as CatalogPageResponse,
   CatalogSuggestion,
+  ProductDetail,
   ProductSummary,
   RetrievalDiagnostics,
   RetrievalExample,
@@ -32,6 +33,7 @@ vi.mock("../api", () => ({
     search: vi.fn(),
     agentStream: vi.fn(),
     examples: vi.fn(),
+    product: vi.fn(),
   },
 }));
 
@@ -229,6 +231,16 @@ const agentResponse: AgentResponse = {
   ],
 };
 
+const productDetail: ProductDetail = {
+  ...recommendations[0],
+  long_description: "A hushed board measured for shared desks.",
+  canonical_group_id: "group-1",
+  source_system: "mosaic_catalog",
+  updated_at: "2026-08-01T00:00:00Z",
+  media: [],
+  reviews: [],
+};
+
 describe("CatalogPage", () => {
   beforeEach(() => {
     vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
@@ -242,6 +254,8 @@ describe("CatalogPage", () => {
     vi.mocked(api.search).mockReset();
     vi.mocked(api.agentStream).mockReset();
     vi.mocked(api.examples).mockReset();
+    vi.mocked(api.product).mockReset();
+    vi.mocked(api.product).mockResolvedValue(productDetail);
     vi.mocked(api.catalog).mockResolvedValue(catalog);
     vi.mocked(api.suggestions).mockResolvedValue({
       query: "aura",
@@ -495,6 +509,52 @@ describe("CatalogPage", () => {
     expect(within(picks).getAllByRole("button", { name: /In bag \(1\)/ })).toHaveLength(1);
   });
 
+  it("opens a chosen pick as a drawer beside the conversation, not a navigation", async () => {
+    // Going deeper on a pick used to route to /products/:id, which tore the
+    // shopper out of the conversation. The full catalog row now arrives as a
+    // slide-over on the same page.
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    await within(dialog).findByText("Final recommendation");
+    const picks = within(dialog).getByLabelText("Recommended products");
+    fireEvent.click(
+      within(picks).getByRole("button", {
+        name: new RegExp(recommendations[0].model),
+      }),
+    );
+
+    // Still on Shop, with the row fetched into a dialog above it.
+    expect(window.location.pathname).toBe("/catalog");
+    const drawer = await screen.findByRole("dialog", { name: "Product details" });
+    expect(api.product).toHaveBeenCalledWith(recommendations[0].product_id);
+    await within(drawer).findByText(productDetail.long_description);
+    expect(
+      within(drawer).getByRole("heading", { name: productDetail.title }),
+    ).toBeTruthy();
+    expect(
+      within(drawer).getByRole("link", { name: /Full product page/ }),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      within(drawer).getByRole("button", { name: "Close product details" }),
+    );
+    // The drawer glides off, so its removal ends an exit animation rather
+    // than landing on the same frame as the click.
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Product details" })).toBeNull());
+    expect(
+      screen.getByRole("complementary", { name: "Ask Mosaic" }),
+    ).toBeTruthy();
+  });
+
   function renderPage() {
     return render(
       <CommerceProvider>
@@ -593,11 +653,14 @@ describe("CatalogPage", () => {
     fireEvent.click(prompt);
 
     expect(screen.getByRole("complementary", { name: "Ask Mosaic" })).toBeTruthy();
-    expect(
-      screen.queryByRole("button", {
-        name: "Try Ask Mosaic with these results",
-      }),
-    ).toBeNull();
+    // The rail glides off rather than unmounting flat, so its removal is the
+    // end of an exit animation, not the same frame as the click.
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", {
+          name: "Try Ask Mosaic with these results",
+        }),
+      ).toBeNull());
   });
 
   it("offers keyboard-selectable catalog matches before hybrid retrieval", async () => {
