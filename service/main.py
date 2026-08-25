@@ -218,9 +218,7 @@ def get_catalog_summary() -> dict[str, Any]:
     return catalog_summary()
 
 
-@app.get(
-    "/api/catalog/reviews/highlights", response_model=ReviewHighlightsResponse
-)
+@app.get("/api/catalog/reviews/highlights", response_model=ReviewHighlightsResponse)
 def get_review_highlights() -> ReviewHighlightsResponse:
     return review_highlights()
 
