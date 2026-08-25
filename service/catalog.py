@@ -669,9 +669,9 @@ def catalog_summary() -> dict[str, Any]:
                    count(*) FILTER (WHERE embedding IS NOT NULL) AS embedded_products,
                    coalesce(sum(review_count), 0) AS reviews,
                    count(*) FILTER (WHERE review_count > 0) AS reviewed_products,
-                   sum(rating * review_count) FILTER (WHERE rating IS NOT NULL)
+                   (sum(rating * review_count) FILTER (WHERE rating IS NOT NULL)
                        / nullif(sum(review_count) FILTER (WHERE rating IS NOT NULL), 0)
-                       AS average_rating
+                   )::float8 AS average_rating
             FROM mosaic_search.product_document
             """
         ).fetchone()
