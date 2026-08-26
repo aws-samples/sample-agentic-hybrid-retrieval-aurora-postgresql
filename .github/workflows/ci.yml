@@ -112,6 +112,12 @@ jobs:
       AURORA_INSTANCE_CLASS: db.r8g.2xlarge
       AWS_CI_ROLE_ARN: ${{ secrets.MOSAIC_AURORA_CI_ROLE_ARN }}
       DATABASE_URL: ${{ secrets.MOSAIC_AURORA_DATABASE_URL }}
+      # mission_contract.py and function_census.py both skip their Aurora
+      # checks when these are unset. They are job-level rather than step-level
+      # so splitting the gates apart cannot silently drop one and let the
+      # corresponding gate pass without ever reaching the cluster.
+      MISSION_GATE_REQUIRE_DB: '1'
+      FUNCTION_CENSUS_REQUIRE_DB: '1'
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -138,19 +144,46 @@ jobs:
           }
 
       - name: Configure AWS credentials
+        id: aws-credentials
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: us-east-1
           role-to-assume: ${{ env.AWS_CI_ROLE_ARN }}
 
-      - name: Run Aurora-backed release gates
-        env:
-          MISSION_GATE_REQUIRE_DB: '1'
-          FUNCTION_CENSUS_REQUIRE_DB: '1'
-        run: |
-          make validate-missions
-          make validate-evals
-          make validate-functions
-          make db-verify-bootstrap
-          make test
-          make score-evals
+      # Every step above is a precondition and stays fail-fast, so each one only
+      # runs when the previous succeeded. That makes the credential step's own
+      # success a proxy for the whole chain: guarding on it is enough for the
+      # gates below, and a broken environment reports once instead of six times.
+
+      # These five gates are read-only and independent of one another, so they
+      # each report rather than letting the first failure hide the rest.
+
+      - name: Validate the lab contract against Aurora
+        if: ${{ !cancelled() && steps.aws-credentials.outcome == 'success' }}
+        run: make validate-missions
+
+      - name: Validate the eval filter contracts
+        if: ${{ !cancelled() && steps.aws-credentials.outcome == 'success' }}
+        run: make validate-evals
+
+      - name: Take the function census
+        if: ${{ !cancelled() && steps.aws-credentials.outcome == 'success' }}
+        run: make validate-functions
+
+      - name: Verify the bootstrap acceptance state
+        if: ${{ !cancelled() && steps.aws-credentials.outcome == 'success' }}
+        run: make db-verify-bootstrap
+
+      - name: Run the Python test suite against Aurora
+        if: ${{ !cancelled() && steps.aws-credentials.outcome == 'success' }}
+        run: make test
+
+      # Deliberately left unguarded, so the implicit success() applies and this
+      # runs only when every step above passed. score-evals spends Bedrock
+      # embedding and reranking calls and then judges provenance and metric
+      # regressions, and `make validate-evals` exists to check the filter corpus
+      # on Aurora before an eval is allowed to spend model calls. Guarding this
+      # like the gates above would let it bill a run and report regressions that
+      # only reflect an unverified cluster.
+      - name: Score the release evals
+        run: make score-evals
