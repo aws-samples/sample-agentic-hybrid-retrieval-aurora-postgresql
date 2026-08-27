@@ -413,14 +413,14 @@ def test_evidence_404_body_discloses_neither_products_nor_window(monkeypatch):
     assert "authorized window" not in body
 
 
-def _receipt_row(product_id=101, result_rank=1):
+def _receipt_row(product_id=101, result_rank=1, fused_rank=7):
     return {
         "product_id": product_id,
         "result_rank": result_rank,
         "fts_rank": 2,
         "trigram_rank": None,
         "semantic_rank": 1,
-        "fused_rank": 1,
+        "fused_rank": fused_rank,
         "rerank_rank": 1,
         "scores": {
             "fts": 0.4,
@@ -444,13 +444,18 @@ def test_signals_from_receipt_is_public_on_retrieval():
     """The projection lives with receipts, not with the authorization guard."""
     from service import retrieval, retrieval_scope
 
-    signals = retrieval.signals_from_receipt(_receipt_row())
+    # result_rank and fused_rank must differ: they are different rank spaces
+    # (returned-row vs. full-pool). Equal values would let a mapping swap
+    # between final_rank and pre_rerank_rank pass silently -- do not "tidy"
+    # these back to being equal.
+    row = _receipt_row(result_rank=1, fused_rank=7)
+    signals = retrieval.signals_from_receipt(row)
 
     assert signals.fts.rank == 2
     assert signals.fts.rrf_contribution == 0.01
     assert signals.semantic.rrf_contribution == 0.02
-    assert signals.pre_rerank_rank == 1
-    assert signals.final_rank == 1
+    assert signals.final_rank == row["result_rank"]
+    assert signals.pre_rerank_rank == row["fused_rank"]
     assert not hasattr(retrieval_scope, "signals_from_receipt")
 
 
@@ -530,3 +535,74 @@ def test_compare_route_needs_two_to_five_distinct_products():
         ).status_code
         == 422
     )
+
+
+def test_compare_route_rejects_duplicates_collapsed_below_the_minimum(monkeypatch):
+    """Duplicates must be collapsed before the count is judged, not after.
+
+    `[101, 101]` has raw length 2, so it clears Pydantic's `min_length=2` on
+    `product_ids`. The route's manual check in `service/main.py` must still
+    reject it once `dict.fromkeys` collapses it to a single distinct product.
+    Asserting on the body (a plain string `detail`), not just the status code,
+    is what distinguishes this rejection from Pydantic's `min_length` failure,
+    which produces a list-shaped `detail` instead.
+    """
+    from fastapi.testclient import TestClient
+
+    from service import main
+    from service.main import app
+
+    def unreachable(*_args, **_kwargs):
+        raise AssertionError("the distinct-count check let a duplicate through")
+
+    monkeypatch.setattr(main, "assert_products_in_retrieval_scope", unreachable)
+
+    response = TestClient(app).post(
+        f"/api/retrieval/events/{SCOPE_ID}/compare",
+        json={"product_ids": [101, 101]},
+    )
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert isinstance(detail, str), "Pydantic's own 422 detail is a list, not a string"
+    assert "found 1" in detail
+    assert "distinct products" in detail
+
+
+def test_compare_route_accepts_duplicates_that_collapse_within_bounds(monkeypatch):
+    """The accept-side mirror: collapsing duplicates must not over-reject either.
+
+    `[1, 2, 3, 4, 1]` has raw length 5 (inside Pydantic's `max_length=5`) and
+    collapses to four distinct products (inside the manual check's [2, 5]
+    range too). This proves the manual check judges the *distinct* count, not
+    the raw one, without a live database or fully mocked product hydration:
+    patch `assert_products_in_retrieval_scope` to raise, and confirm the
+    response is the scope-check's 404 (not the distinct-count check's 422),
+    with the deduplicated id list the distinct-count check actually passed on.
+
+    Note: the literal "six collapsing to five" mirror from the review is not
+    reachable through this route at all. Pydantic's `max_length=5` on
+    `product_ids` validates the *raw* list before the route body ever runs,
+    and `dict.fromkeys` only ever shrinks a count, never grows it, so any body
+    Pydantic admits already has a distinct count at or below 5. The manual
+    check's upper-bound arm can never fire; only its lower-bound arm (this
+    test's sibling above) is reachable.
+    """
+    from fastapi.testclient import TestClient
+
+    from service import main
+    from service.main import app
+    from service.retrieval_scope import ScopeViolation
+
+    def refuse(_scope, product_ids):
+        assert product_ids == [1, 2, 3, 4]
+        raise ScopeViolation("FAIL retrieval scope products [1]: window 3")
+
+    monkeypatch.setattr(main, "assert_products_in_retrieval_scope", refuse)
+
+    response = TestClient(app).post(
+        f"/api/retrieval/events/{SCOPE_ID}/compare",
+        json={"product_ids": [1, 2, 3, 4, 1]},
+    )
+
+    assert response.status_code == 404
