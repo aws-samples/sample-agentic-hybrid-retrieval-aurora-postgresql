@@ -1,7 +1,6 @@
 """Capability-keyed contract parity across surfaces."""
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -12,12 +11,24 @@ from scripts.tool_contracts import (
     load_contracts,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
 
+def test_every_contract_declares_a_capability(tmp_path, monkeypatch):
+    """Exercise `load_contracts`'s own capability guard directly.
 
-def test_every_contract_declares_a_capability():
-    for contract in load_contracts():
-        assert contract["capability"], contract["name"]
+    The previous version called `load_contracts()` un-mutated and then asserted
+    every contract's `capability` was truthy. `load_contracts` already raises
+    before returning if any contract lacks a capability, so that assertion was
+    unreachable: it could never fail via its own logic, only via the loader's.
+    """
+    payload = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    del payload["contracts"][0]["capability"]
+
+    dropped = tmp_path / "missing-capability.json"
+    dropped.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", dropped)
+
+    with pytest.raises(ToolContractError, match="capability"):
+        load_contracts()
 
 
 def test_explain_is_one_capability_under_two_wire_names():
@@ -29,9 +40,23 @@ def test_explain_is_one_capability_under_two_wire_names():
 
 
 def test_shared_capabilities_agree_on_their_semantic_payload():
+    """`explain_retrieval` needs the parity comparison; the others do not.
+
+    `shared_capabilities` and `cross_contract_capabilities` answer different
+    questions. `get_product_evidence` and `open_retrieval` are each declared
+    once but exposed on two surfaces, so they are shared across surfaces
+    without needing cross-contract comparison: their invariants are declared
+    exactly once and cannot disagree with themselves. `explain_retrieval` is
+    declared under two separate contract records (`explain_retrieval` and
+    `inspect_retrieval_run`), so it is the only capability where the parity
+    comparison in `capability_parity_receipt` actually runs.
+    """
     receipt = capability_parity_receipt()
 
-    assert "explain_retrieval" in receipt["shared_capabilities"]
+    assert receipt["cross_contract_capabilities"] == ["explain_retrieval"]
+    assert {"get_product_evidence", "open_retrieval"} <= set(
+        receipt["shared_capabilities"]
+    )
     assert receipt["preserved_fields"] == [
         "tool_version",
         "read_only",
@@ -61,6 +86,96 @@ def test_output_schema_is_exactly_payload_plus_every_declared_envelope():
         )
 
 
+def test_union_rule_accepts_the_unmodified_contract_set():
+    """Baseline PASS, against the real production validator.
+
+    Calls `capability_parity_receipt()` itself, unlike
+    `test_output_schema_is_exactly_payload_plus_every_declared_envelope` above,
+    which re-derives the same set comparison against `load_contracts()` and
+    would keep passing even if the union loop inside
+    `capability_parity_receipt` were deleted entirely. The witness assertion
+    below is what tells a PASS here apart from that loop never having run.
+    """
+    receipt = capability_parity_receipt()
+
+    assert receipt["union_checks_performed"] == len(load_contracts())
+
+
+def test_union_rule_rejects_an_undeclared_output_field(tmp_path, monkeypatch):
+    """Permanent falsifier for the envelope-union rule, failure direction one.
+
+    Deleting the union loop in `capability_parity_receipt`
+    (scripts/tool_contracts.py) would not fail a single other test in this
+    suite: the baseline test above calls the real function but never mutates
+    anything that would make a deleted loop visible, and
+    `test_payload_drift_between_surfaces_is_caught` below mutates a field the
+    earlier cross-contract check catches first. This adds an extra, undeclared
+    field to `compare_products`'s `output_schema` -- a single-contract
+    capability, so the cross-contract check structurally cannot fire and mask
+    which branch raised.
+    """
+    payload = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    for contract in payload["contracts"]:
+        if contract["name"] == "compare_products":
+            contract["output_schema"]["properties"]["extra_untracked_field"] = {
+                "type": "string"
+            }
+
+    drifted = tmp_path / "union-extra-field.json"
+    drifted.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", drifted)
+
+    with pytest.raises(ToolContractError, match="declares output properties"):
+        capability_parity_receipt()
+
+
+def test_union_rule_rejects_a_missing_required_payload_field(tmp_path, monkeypatch):
+    """Permanent falsifier for the envelope-union rule, failure direction two.
+
+    The paired failure direction to the test above: omit a payload field from
+    `output_schema` instead of adding an untracked one. `declared != payload |
+    envelopes` can fail from either side of that inequality; a battery that
+    only ever adds an extra field never proves the "missing" side is checked.
+    Same single-contract capability, for the same structural reason.
+    """
+    payload = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    for contract in payload["contracts"]:
+        if contract["name"] == "compare_products":
+            del contract["output_schema"]["properties"]["products"]
+
+    drifted = tmp_path / "union-missing-field.json"
+    drifted.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", drifted)
+
+    with pytest.raises(ToolContractError, match="declares output properties"):
+        capability_parity_receipt()
+
+
+def test_union_rule_accepts_a_permitted_envelope_only_change(tmp_path, monkeypatch):
+    """Independence half of the envelope-union battery.
+
+    Growing a contract's own envelope, and updating that same contract's
+    `output_schema` to match, must not raise. `compare_products` is a
+    single-contract capability, so a PASS here proves the union rule itself is
+    satisfied, not that the earlier cross-contract check simply never ran.
+    """
+    payload = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    for contract in payload["contracts"]:
+        if contract["name"] == "compare_products":
+            contract["envelope_fields"]["agent"].append("trace_id")
+            contract["output_schema"]["properties"]["trace_id"] = {
+                "type": ["string", "null"]
+            }
+
+    changed = tmp_path / "union-envelope-only.json"
+    changed.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", changed)
+
+    receipt = capability_parity_receipt()
+
+    assert receipt["union_checks_performed"] == len(load_contracts())
+
+
 def test_payload_drift_between_surfaces_is_caught(tmp_path, monkeypatch):
     """Permanent falsifier: reintroduce the run/search_event drift.
 
@@ -88,3 +203,50 @@ def test_payload_drift_between_surfaces_is_caught(tmp_path, monkeypatch):
 
     with pytest.raises(ToolContractError, match="payload_schema"):
         capability_parity_receipt()
+
+
+def test_explain_retrieval_envelope_change_is_independent_across_its_two_contracts(
+    tmp_path, monkeypatch
+):
+    """Formalizes the manual envelope-independence probe from the Task 7 review.
+
+    The prior manual probe changed an envelope on `get_product_evidence`, a
+    single-contract capability, so the cross-contract comparison loop in
+    `capability_parity_receipt` never executed. "Stayed green after an envelope
+    change" therefore proved nothing about envelope independence.
+    `explain_retrieval` is the only capability with two contract records
+    (`explain_retrieval` and `inspect_retrieval_run`), so it is the only one
+    that can exercise that loop.
+
+    The paired negative -- that a `payload_schema` change between these same
+    two contracts *does* raise -- is already covered by
+    `test_payload_drift_between_surfaces_is_caught` above, which mutates
+    `explain_retrieval`'s `payload_schema`; it is intentionally not duplicated
+    here.
+    """
+    payload = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+
+    # Non-vacuity witness: without >= 2 contracts for this capability, the
+    # cross-contract loop never runs and the PASS below proves nothing.
+    explain_contracts = [
+        contract
+        for contract in payload["contracts"]
+        if contract["capability"] == "explain_retrieval"
+    ]
+    assert len(explain_contracts) >= 2, (
+        "explain_retrieval must keep at least two contract records, or this "
+        "independence proof is vacuous"
+    )
+
+    for contract in payload["contracts"]:
+        if contract["name"] == "inspect_retrieval_run":
+            contract["envelope_fields"]["mcp"].append("replay_trace")
+            contract["output_schema"]["properties"]["replay_trace"] = {
+                "type": ["string", "null"]
+            }
+
+    changed = tmp_path / "explain-envelope-independent.json"
+    changed.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", changed)
+
+    capability_parity_receipt()

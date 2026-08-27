@@ -51,7 +51,12 @@ def test_shared_capabilities_preserve_portable_semantic_invariants():
     their output schemas drifted unobserved.
     """
     assert capability_parity_receipt() == {
-        "shared_capabilities": ["explain_retrieval"],
+        "shared_capabilities": [
+            "explain_retrieval",
+            "get_product_evidence",
+            "open_retrieval",
+        ],
+        "cross_contract_capabilities": ["explain_retrieval"],
         "capabilities": [
             "compare_products",
             "explain_retrieval",
@@ -66,6 +71,7 @@ def test_shared_capabilities_preserve_portable_semantic_invariants():
             "envelope_fields",
             "transport_trace",
         ],
+        "union_checks_performed": 6,
     }
 
 

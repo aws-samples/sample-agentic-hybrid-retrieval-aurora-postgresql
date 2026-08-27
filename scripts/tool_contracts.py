@@ -66,10 +66,12 @@ def load_contracts() -> list[dict[str, Any]]:
                 f"agent tool contract {name!r} has capability={capability!r}; "
                 "declare the semantic capability it implements"
             )
-        if not isinstance(contract.get("payload_schema"), dict):
+        payload_schema = contract.get("payload_schema")
+        if not isinstance(payload_schema, dict):
             raise ToolContractError(
-                f"agent tool contract {name!r} has no payload_schema object; "
-                "declare the transport-independent semantic payload"
+                f"agent tool contract {name!r} has payload_schema="
+                f"{payload_schema!r}; declare the transport-independent "
+                "semantic payload as an object"
             )
         envelopes = contract.get("envelope_fields")
         if not isinstance(envelopes, dict) or set(envelopes) != set(surfaces):
@@ -129,7 +131,12 @@ def capability_parity_receipt() -> dict[str, Any]:
             f"db/config/agent_tool_contracts.json: {mismatches}"
         )
 
+    # Counts every contract this loop actually compares. If the loop is deleted
+    # or short-circuited, this stays 0 and the receipt says so -- a PASS with no
+    # exception raised is otherwise indistinguishable from the loop not running.
+    union_checks_performed = 0
     for contract in load_contracts():
+        union_checks_performed += 1
         payload = set(contract["payload_schema"]["properties"])
         envelopes = {
             field
@@ -147,7 +154,17 @@ def capability_parity_receipt() -> dict[str, Any]:
             )
 
     return {
+        # Two distinct facts, deliberately not one field. A capability declared
+        # once with several surfaces IS shared across surfaces; it simply needs no
+        # cross-contract comparison, because its invariants are declared exactly
+        # once and cannot disagree with themselves.
         "shared_capabilities": sorted(
+            capability
+            for capability, contracts in by_capability.items()
+            if len({surface for c in contracts for surface in c["surfaces"]}) > 1
+        ),
+        # Only these require the parity comparison.
+        "cross_contract_capabilities": sorted(
             capability
             for capability, contracts in by_capability.items()
             if len(contracts) > 1
@@ -160,6 +177,7 @@ def capability_parity_receipt() -> dict[str, Any]:
             "envelope_fields",
             "transport_trace",
         ],
+        "union_checks_performed": union_checks_performed,
     }
 
 
@@ -245,8 +263,9 @@ def main() -> int:
         f"PASS: canonical registry projects "
         f"{len(contracts_for_surface('agent'))} agent and "
         f"{len(contracts_for_surface('mcp'))} MCP contracts; "
-        f"{len(receipt['shared_capabilities'])} capabilities preserve version, "
-        f"semantic payload, and read-only policy across surfaces; SQL registry "
+        f"{len(receipt['cross_contract_capabilities'])} capabilities declared "
+        f"under more than one contract record preserve version, semantic "
+        f"payload, and read-only policy across those records; SQL registry "
         f"matches all agent tools"
     )
     return 0
