@@ -505,8 +505,26 @@ cat >>"/home/$CODE_EDITOR_USER/.bashrc" <<'EOF'
 export PS1='\[\033[01;32m\]\u:\[\033[01;34m\]\w\[\033[00m\]\$ '
 EOF
 
+# .pgpass is colon-delimited and libpq wants a backslash before any literal
+# backslash or colon inside a field. RDS generates the mosaic_admin password
+# under ManageMasterUserPassword and excludes only /, ", @, and space, so a
+# colon is allowed and does occur. Written raw, one such password shifts every
+# field right and psql reports "password authentication failed" while reading a
+# file that looks correct. Backslashes are escaped first so the escape
+# character is not re-escaped.
+pgpass_escape() {
+  local value=$1
+  value=${value//\\/\\\\}
+  value=${value//:/\\:}
+  printf '%s' "$value"
+}
+
 printf '%s:%s:%s:%s:%s\n' \
-  "$DB_CLUSTER_ENDPOINT" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASSWORD" \
+  "$(pgpass_escape "$DB_CLUSTER_ENDPOINT")" \
+  "$(pgpass_escape "$DB_PORT")" \
+  "$(pgpass_escape "$DB_NAME")" \
+  "$(pgpass_escape "$DB_USER")" \
+  "$(pgpass_escape "$DB_PASSWORD")" \
   >"/home/$CODE_EDITOR_USER/.pgpass"
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.pgpass"
 chmod 600 "/home/$CODE_EDITOR_USER/.pgpass"
