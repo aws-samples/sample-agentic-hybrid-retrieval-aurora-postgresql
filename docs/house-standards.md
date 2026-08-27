@@ -152,3 +152,48 @@ Unit E's definition of done is a **correctness** statement against live
 Postgres gets updated or deleted. Phase 2 Unit E retired every target that
 installed the dead `catalog.*` tree. New work must target the live
 `mosaic_*` schema family only.
+
+## 7. Sensitivity is insufficient: every gate needs three proofs
+
+A gate is admitted only with all three, demonstrated and recorded:
+
+1. **Red-at-birth.** The intended violation makes it fail. Introduce the
+   violation, show the failure, restore byte-identical.
+2. **Independence.** An irrelevant change does *not* make it fail.
+3. **Witness.** The code path under test actually executed.
+
+Rule 4 already requires the first. It is not enough on its own, and rule 2's
+falsifier is a *claim* about failure rather than a demonstration of it.
+
+**Why.** Eight gates in one change set were logically correct and proved nothing,
+because the branch they described never ran. Measured, in escalating subtlety:
+
+- a `pytest.raises` inside a loop over a **provably empty** list, so the raise was
+  never awaited;
+- a fixture that gave two different rank spaces the **same value**, so swapping
+  `final_rank` and `pre_rerank_rank` was undetectable;
+- an absence-only assertion (`X not in source`) that passes equally on a
+  **deleted** file;
+- a check on a workflow guard's *position* that ignored whether the guard had
+  **teeth**, so removing its `exit 2` still passed;
+- a test asserting a `--strict-markers` mechanism this repo **does not configure**;
+- a gate that went red on the right edit but through an **unrelated module's**
+  error path, so a refactor there would silently stop it discriminating;
+- an envelope-independence probe run against a **single-contract** capability,
+  where the comparison loop never executes, so "green" proved nothing;
+- a rule whose test **re-derived the production set logic** instead of calling it,
+  so deleting the production branch broke no test.
+
+The last two are the reason the witness is a separate proof. The others fail the
+first two proofs; those fail *neither* while still proving nothing.
+
+**How.** Assert the witness explicitly. Depending on the gate: assert a collection
+is non-empty before iterating it, assert a comparison counter is `> 0`, assert the
+fixture holds the multiple records a comparison needs, or have the function under
+test report what it examined. Then never satisfy a gate by re-implementing the
+logic it is meant to police: **call the production path**, per rule 3.
+
+**Corollary, and the reason this belongs in a workshop repo.** The session's own
+thesis is that a correct answer does not prove a correct pipeline. One level down,
+a green test does not prove a correct gate. Same failure, same fix: inspect the
+mechanism, not the outcome.
