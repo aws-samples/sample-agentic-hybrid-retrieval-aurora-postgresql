@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -91,9 +91,32 @@ class SearchRequest(BaseModel):
     query: str = Field(min_length=2, max_length=1_000)
     filters: SearchFilters = Field(default_factory=SearchFilters)
     limit: int = Field(default=12, ge=1, le=50)
+    #: How many of the served results the caller authorizes for downstream
+    #: evidence and comparison. Defaults to everything it was served. The agent
+    #: declares a narrower window than it requests, because it asks for the full
+    #: rerank pool to inspect it and hands the model only the top slice.
+    authorized_limit: int | None = Field(default=None, ge=1, le=50)
     include_diagnostics: bool = True
     rerank: bool = True
     session_id: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def _bound_authorized_limit(self) -> SearchRequest:
+        """Resolve and bound the authorization window against the served window.
+
+        An authorization window wider than the served window would authorize
+        products the caller never received, which is the fail-open this field
+        exists to close.
+        """
+        if self.authorized_limit is None:
+            self.authorized_limit = self.limit
+        elif self.authorized_limit > self.limit:
+            raise ValueError(
+                f"authorized_limit is {self.authorized_limit}, which exceeds "
+                f"limit {self.limit}; fix: set authorized_limit to at most "
+                f"{self.limit}, or raise limit"
+            )
+        return self
 
 
 class RankSignal(BaseModel):
@@ -195,6 +218,10 @@ class RetrievalProfile(BaseModel):
     result_limit: int = Field(
         default_factory=_yaml_default("display_limit"), ge=1, le=100
     )
+    #: The caller's declared authorization window, persisted with the receipt.
+    #: `None` on a profile built outside a request, which the scope guard treats
+    #: as no grant at all rather than inferring one from `result_limit`.
+    authorized_limit: int | None = Field(default=None, ge=1, le=100)
     rrf_k: int = Field(default_factory=_yaml_default("rrf_k"), ge=1)
     # pg_trgm similarity floor for the fuzzy arm. Carried on the profile so both
     # fusion functions receive the same value; a literal at either call site would

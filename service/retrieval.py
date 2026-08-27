@@ -168,6 +168,7 @@ class RetrievalService:
             semantic_limit=settings.semantic_candidate_limit,
             fused_limit=settings.rerank_candidate_limit,
             result_limit=request.limit,
+            authorized_limit=request.authorized_limit,
             rrf_k=settings.rrf_k,
             ef_search=settings.hnsw_ef_search,
         )
