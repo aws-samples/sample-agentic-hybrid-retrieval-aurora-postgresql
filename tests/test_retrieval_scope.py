@@ -387,7 +387,7 @@ def test_evidence_404_body_discloses_neither_products_nor_window(monkeypatch):
 
     from service import main
     from service.main import app
-    from service.retrieval_scope import ScopeViolation
+    from service.retrieval_scope import SCOPE_DENIED_DETAIL, ScopeViolation
 
     def refuse(_scope, _products):
         raise ScopeViolation(
@@ -397,18 +397,17 @@ def test_evidence_404_body_discloses_neither_products_nor_window(monkeypatch):
 
     monkeypatch.setattr(main, "assert_products_in_retrieval_scope", refuse)
 
-    body = (
-        TestClient(app)
-        .post(
-            "/api/products/412/evidence",
-            json={
-                "retrieval_scope_id": str(SCOPE_ID),
-                "evidence_query": "How long does the battery last?",
-            },
-        )
-        .text
+    response = TestClient(app).post(
+        "/api/products/412/evidence",
+        json={
+            "retrieval_scope_id": str(SCOPE_ID),
+            "evidence_query": "How long does the battery last?",
+        },
     )
+    body = response.text
 
+    assert response.status_code == 404
+    assert response.json()["detail"] == SCOPE_DENIED_DETAIL
     assert "412" not in body
     assert "37" not in body
     assert "authorized window" not in body
