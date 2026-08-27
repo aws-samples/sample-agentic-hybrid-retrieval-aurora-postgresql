@@ -10,9 +10,9 @@ _SKIP_REASON = (
     "Rule: aurora-marked tests require a live Aurora DSN because they exercise "
     "real retrieval and scope-enforcement SQL, not a stand-in. Value: skipping "
     "here keeps a plain `pytest` invocation correct in every environment "
-    "instead of failing wherever no cluster is reachable. Fix: run `make test`, "
-    "which supplies DATABASE_URL from .env, or export DATABASE_URL yourself "
-    "before invoking pytest directly."
+    "instead of failing wherever no cluster is reachable. Fix: export "
+    "DATABASE_URL in your shell, then run `make test` or pytest directly -- "
+    "neither one loads it from .env for you."
 )
 
 
