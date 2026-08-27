@@ -54,62 +54,87 @@ A parent agent composing several capabilities sees only this:
 It calls `search_products`, carries `search_event_id` forward as
 `retrieval_scope_id`, and reads the receipt. That is the entire surface.
 
-## 3. What stays hidden, and what is merely not the caller's problem
+## 3. What the skill encapsulates, and why that isn't secrecy
 
-Two different guarantees were collapsing into one claim here, and the previous
-version of this section asserted more opacity than the service actually keeps.
-Splitting the guarantee into what it should have been from the start:
+An earlier version of this section split retrieval internals into two
+absolute buckets: things a caller could genuinely never observe, and things
+that were observable but not the caller's job to run. That split held for
+exactly as long as its inventory was complete, and it wasn't. `explain_retrieval`
+(`GET /api/retrieval/events/{search_event_id}`, one of the four skill
+operations) returns `plan_json` on its `run` payload —
+`SearchEventRecord.plan_json`, `None` until a plan has been captured. Capture
+itself is a write, `POST /api/retrieval/events/{search_event_id}/plan`, and it
+is deliberately *not* a skill operation — but `ui/src/api.ts:236-240` calls it,
+behind the Playground's "View retrieval event" disclosure and its nested "View
+EXPLAIN" action, so a real, participant-run event can carry a populated
+`plan_json` by the time a caller reads it back through `explain_retrieval`.
+A captured `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan over the
+run's own fusion SQL names the storage structures those arms actually touch,
+including `product_document_embedding_hnsw_cosine_idx`, the HNSW index behind
+the vector arm, and `product_document_fts_gin_idx`, the GIN index behind the
+full-text arm. The bucket that claimed those mechanics could never be
+observed was built from the fields the four operations return directly; it
+was never built to admit a diagnostic field populated after the fact by a
+separate, unscoped write. That is a gap in the bucket, not a one-off mistake
+in one bullet of it — the previous fix to this section already corrected a
+similarly wrong bullet (the vector arm's identity is a literal field name,
+`hnsw_settings`) and still shipped this one. Two corrections to the same
+absolute claim is the split's problem, not the inventory's.
 
-**Genuinely unobservable.** No field on any of the four operations' response
-models, at any depth, serializes these, at any diagnostic setting a caller can
-request:
+Replacing the split with one claim that does not need an exhaustive inventory
+to stay true:
 
-- the `tsvector`/`tsquery` mechanics behind the full-text arm;
-- the reciprocal rank fusion formula itself — the equation, not its `rrf_k`
-  input, which the receipt does return;
-- how evidence rows are stored, or their table and column layout.
+**Encapsulated from normal skill use:** callers do not need to know or
+reproduce the underlying PostgreSQL retrieval mechanics. Some implementation
+details, including index/plan information, may be inspectable through
+diagnostics such as `plan_json` when a plan has been captured separately.
 
-**Observable, and not the caller's problem anyway.** Everything else this
-section used to list as hidden is returned somewhere in the typed contract,
-and most of it without a caller even having to ask: `include_diagnostics`
-defaults to `True`, so a plain `search_products` call already gets it. A
-caller can read that the full-text arm contributed `fts_in_pool` candidates
-and the trigram arm `trigram_in_pool`; that the trigram arm's similarity floor
-was `trigram_threshold`; that fusion ran with `rrf_k`; that each arm was
-capped before fusion at `fts_limit`, `trigram_limit`, and `semantic_limit`,
-and the fused pool at `fused_limit`; and whether, and when, the reranker ran,
-as `rerank_status`, `rerank_model_id`, and `stage_timings_ms["rerank"]`. The
-semantic arm's identity is in the same bucket, and more plainly than the
-service's own `candidate_counts` key admits: `search_products` only ever
-names that arm the generic `semantic_in_pool`, and its `ef_search` and
-`iterative_scan` settings are HNSW-specific terms a caller would have to
-already know to read as such — but `explain_retrieval` persists and returns
-the same settings under the literal key `hnsw_settings`, so the index family
-is not actually held back on that operation. `evidence_id` and `source_uri`
-address evidence rows the same way any API returns an identifier for a
-resource it just handed over. That is ordinary resource addressing, not a
-leak of the storage layout underneath it.
+> Encapsulation ≠ secrecy. The skill hides the *responsibility* for FTS,
+> `pg_trgm`, HNSW, RRF, and the rest; it does not promise those mechanics can
+> never be inspected.
 
-None of that observability is ownership. A caller can read that `rrf_k` is
-`60` and still never have had to choose it, implement fusion, or keep it
-consistent with the arm caps: the service resolved every one of those values,
-enforced every one of them, and persisted the receipt so the run can be
-replayed rather than reasoned about after the fact. Inspectable is not the
-same claim as "configure this yourself." The capability keeps working,
-unchanged from the caller's point of view, if the index type, the fusion
-weighting, the rerank provider, or the storage layout changes tomorrow,
-because none of those was ever the interface. A library hands over the
-pieces and leaves the caller to assemble them. A capability hands over a
-receipt and keeps doing the assembly itself, whether or not the caller ever
-reads it.
+None of that inspectability requires a caller to ask twice.
+`include_diagnostics` defaults to `True`, so a plain `search_products` call
+already returns the receipt. A caller can read that the full-text arm
+contributed `fts_in_pool` candidates and the trigram arm `trigram_in_pool`;
+that the trigram arm's similarity floor was `trigram_threshold`; that fusion
+ran with `rrf_k`; that each arm was capped before fusion at `fts_limit`,
+`trigram_limit`, and `semantic_limit`, and the fused pool at `fused_limit`;
+and whether, and when, the reranker ran, as `rerank_status`,
+`rerank_model_id`, and `stage_timings_ms["rerank"]`. The semantic arm's
+identity sits in the same place: `search_products`'s own `candidate_counts`
+only ever names that arm the generic `semantic_in_pool`, but `explain_retrieval`
+persists and returns the same tuning under the literal key `hnsw_settings`, so
+the index family was already inspectable on that operation before `plan_json`
+named it a second, more specific way. `evidence_id` and `source_uri` address
+evidence rows the same way any API returns an identifier for a resource it
+just handed over — ordinary resource addressing, not a leak of the storage
+layout underneath it.
+
+None of that inspectability is ownership. A caller can read that `rrf_k` is
+`60`, that the vector arm ran with a particular `ef_search`, or that a
+captured plan named a particular index, and still never have had to choose
+any of it, implement fusion, tune an index, or keep any of it consistent with
+the arm caps: the service resolved every one of those values, enforced every
+one of them, and persisted the receipt so the run can be replayed rather than
+reasoned about after the fact. Inspectable is not the same claim as "configure
+this yourself." The capability keeps working, unchanged from the caller's
+point of view, if the index type, the fusion weighting, the rerank provider,
+or the storage layout changes tomorrow, because none of those was ever the
+interface. A library hands over the pieces and leaves the caller to assemble
+them. A capability hands over a receipt and keeps doing the assembly itself,
+whether or not the caller ever reads it, and whether or not a plan happens to
+have been captured for the run the caller is reading.
 
 This is also the claim that actually fits the product. The workshop's own UI
 puts this same diagnostics JSON two clicks away — the Playground tab, then its
-"View retrieval event" disclosure. A composition document asserting that arm
-identities, thresholds, and rerank status were opaque would contradict a
-surface the workshop hands every participant. The honest claim was always the
-stronger one: everything above is inspectable, and none of it is the
-composing agent's job to run.
+"View retrieval event" disclosure — and the captured plan one click past that,
+behind "View EXPLAIN." A composition document asserting that arm identities,
+thresholds, rerank status, or index structures were permanently off-limits
+would contradict a surface the workshop hands every participant. The honest
+claim was always the one that does not need an inventory to defend: nothing
+here was ever secret, only encapsulated — a claim about who is responsible for
+the mechanics, not about who is permitted to see them.
 
 ## 4. HTTP / MCP / A2A status, and what composing over A2A would and would not change
 
@@ -151,7 +176,10 @@ skill call, nothing more.
 > A2A changes who can call the capability. It does not change what the
 > capability is allowed to do.
 
-## 5. AgentCore as production boundary only
+## 5. Optional production deployment profile: Amazon Bedrock AgentCore
+
+This section is deployment context for a production host, not part of the
+Mosaic skill contract and not part of the DAT410 required path.
 
 ```text
 Aurora PostgreSQL        owns retrieval truth

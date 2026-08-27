@@ -758,20 +758,33 @@ def test_skill_doc_link_to_the_composition_doc_resolves():
     assert COMPOSITION_PATH.exists()
 
 
-#: docs/skill-composition.md Section 3's "genuinely unobservable" list,
-#: authored by hand from the disposition table that shipped with the fix for
-#: the Critical this gate exists to catch -- not extracted from the document's
-#: own prose. A gate that regenerated this set by parsing the document would
-#: agree with itself by construction; see `_assert_no_hidden_field_names`.
-_HIDDEN_FIELD_NAME_TERMS = {
-    "tsvector": "the tsvector/tsquery mechanics behind the full-text arm",
-    "tsquery": "the tsvector/tsquery mechanics behind the full-text arm",
-    "rrf_formula": "the reciprocal rank fusion formula itself",
-    "fusion_equation": "the reciprocal rank fusion formula itself",
-    "storage_schema": "how evidence rows are stored",
-    "evidence_table": "how evidence rows are stored",
-    "column_layout": "how evidence rows are stored",
+#: docs/skill-composition.md Section 3's post-reframing claim. Section 3 no
+#: longer asserts that any specific mechanic is "genuinely unobservable" --
+#: the fix that first tried that framing (this file's previous revision)
+#: shipped a false claim of its own (the vector arm's HNSW identity is a
+#: literal field name, `hnsw_settings`), and a second, structurally different
+#: hole surfaced after that: `plan_json` is typed `dict[str, Any]`, so no walk
+#: over field *names* could ever see that its runtime *content*, once a plan
+#: is captured, names the GIN index behind the full-text arm and the HNSW
+#: index behind the vector arm. Section 3 now claims the opposite direction:
+#: encapsulation is not a promise that any mechanic can never be inspected.
+#: This dict is hand-authored from that same source-level verification, not
+#: extracted from the document's prose -- a gate that parsed Section 3's own
+#: claims and checked them against itself would agree with itself by
+#: construction, honest or not; see
+#: `_assert_document_acknowledges_inspectable_terms`.
+_ACKNOWLEDGED_INSPECTABLE_TERMS = {
+    "plan_json": "explain_retrieval, once a plan has been captured",
+    "diagnostics": "search_products by default, and explain_retrieval always",
+    "hnsw_settings": "explain_retrieval, naming the vector arm's HNSW tuning",
 }
+
+#: Phrasing this document must not reintroduce. Section 3's retired framing
+#: used exactly this language to claim specific mechanics could never be
+#: observed; `plan_json` proved that framing false rather than just one
+#: bullet within it, so the framing itself, not only its inventory, is
+#: retired. See `_assert_document_retired_unobservability_claims`.
+_RETIRED_UNOBSERVABILITY_PHRASES = ("genuinely unobservable",)
 
 
 def _nested_pydantic_models(annotation: object) -> "typing.Iterator[type]":
@@ -837,36 +850,81 @@ def _dict_literal_keys(source: str, variable_name: str) -> set[str]:
     raise AssertionError(f"no dict literal assignment to {variable_name!r} found")
 
 
-def _assert_no_hidden_field_names(names: set[str]) -> None:
-    """Raise if any name would falsify a Section 3 "genuinely hidden" claim.
+def _assert_document_acknowledges_inspectable_terms(
+    text: str,
+    field_names: set[str],
+    terms: dict[str, str] | None = None,
+) -> None:
+    """Raise if an acknowledged term is not a real field, or is never named.
 
-    Shared between the real-model gate below and its two falsifiers, so all
-    three exercise the exact same predicate rather than hand-written copies
-    that could drift apart -- and so the falsifiers prove the predicate itself
-    discriminates, not just that some other, differently-written check does.
+    Both directions matter. A term this document credits as inspectable that
+    is not an actual field name on a real skill response model would be a
+    fabricated transparency claim -- overclaiming is exactly as dishonest as
+    the underclaiming the retired gate caught. A real field the acknowledgment
+    list names but the document's own text never mentions would be true only
+    by accident, not because Section 3 actually says so.
+
+    `terms` defaults to the real, hand-authored `_ACKNOWLEDGED_INSPECTABLE_
+    TERMS`; the falsifiers below pass a synthetic dict instead, the same
+    technique the retired hidden-field gate's falsifiers used against
+    `_assert_no_hidden_field_names`.
     """
-    lowered = {name.lower() for name in names}
-    for term, claim in _HIDDEN_FIELD_NAME_TERMS.items():
-        offenders = {name for name in lowered if term in name}
-        assert not offenders, (
-            f"a name matches {term!r} ({sorted(offenders)}), which would make "
-            f"{claim!r} observable; docs/skill-composition.md Section 3 calls "
-            "this genuinely hidden"
+    if terms is None:
+        terms = _ACKNOWLEDGED_INSPECTABLE_TERMS
+    lowered_text = text.lower()
+    lowered_names = {name.lower() for name in field_names}
+    for term, surface in terms.items():
+        assert term in lowered_names, (
+            f"{term!r} is claimed inspectable via {surface}, but no field "
+            f"named {term!r} was found on any of the four skill response "
+            "models; fix the claim in docs/skill-composition.md, or find "
+            "where the field actually lives"
+        )
+        assert term in lowered_text, (
+            f"docs/skill-composition.md never names {term!r}, but it is a "
+            f"real field returned via {surface}; Section 3 must acknowledge "
+            "it explicitly, not leave it true only by omission"
         )
 
 
-def test_hidden_retrieval_internals_stay_absent_from_the_skill_response_models():
-    """Finding 3 gate: pin Section 3's "genuinely hidden" claims to the models.
+def _assert_document_retired_unobservability_claims(text: str) -> None:
+    """Raise if the document reasserts an absolute "cannot be observed" claim.
 
-    The Critical this fixes shipped because nothing checked
-    `docs/skill-composition.md`'s prose against the real response models --
-    a prose assertion about code went unverified. This checks the models the
-    four skill operations actually return, at every nesting depth, against a
-    hand-authored set of forbidden field-name substrings (`_HIDDEN_FIELD_NAME_
-    TERMS` above), and separately checks `candidate_counts`'s keys by parsing
-    `service/retrieval.py`'s own dict literal. Neither input is derived from
-    this document's text, which is what keeps this from being the document
-    re-deriving and agreeing with itself.
+    The acknowledgment check above cannot see this direction: a document
+    could name every acknowledged term correctly and still also claim some
+    other mechanic is "genuinely unobservable" alongside them. This is the
+    half that catches that.
+    """
+    lowered = text.lower()
+    for phrase in _RETIRED_UNOBSERVABILITY_PHRASES:
+        assert phrase not in lowered, (
+            f"docs/skill-composition.md contains {phrase!r}; Section 3 was "
+            "reframed away from absolute unobservability claims after "
+            "plan_json proved one false -- do not reintroduce this framing"
+        )
+
+
+def test_section_3_acknowledges_inspectable_fields_and_drops_absolute_claims():
+    """Finding 4 gate: pin Section 3's reframed claim to the real models.
+
+    Finding 3's gate (the previous version of this test) asserted specific
+    mechanics were absent from every field *name* across the four skill
+    response models. That gate was structurally blind to this task's hole:
+    `plan_json` is a real, intentional field typed `dict[str, Any]`, so no
+    field-name walk could ever see that its runtime *content*, once a plan is
+    captured, names the GIN index behind the full-text arm and the HNSW index
+    behind the vector arm -- a name walk only ever sees the key `plan_json`
+    itself, never what a captured plan happens to contain.
+
+    Section 3 no longer claims any specific mechanic can never be observed;
+    it claims encapsulation is not secrecy, and it names `plan_json`,
+    `diagnostics`, and `hnsw_settings` as fields a caller can already read.
+    This checks that claim honestly in both directions -- every acknowledged
+    term is a real field on a real skill response model, the document
+    actually says so, and the retired "genuinely unobservable" framing has
+    not crept back in -- and keeps the one Finding-3-era claim that survives
+    the reframing unchanged: `candidate_counts` still only ever names the
+    semantic arm the generic `semantic_in_pool`.
     """
     from service import models
 
@@ -881,7 +939,7 @@ def test_hidden_retrieval_internals_stay_absent_from_the_skill_response_models()
     for model in skill_response_models.values():
         all_field_names |= _model_field_names(model)
 
-    # Witness, independent of the forbidden-term loop below (house rule 7): a
+    # Witness, independent of the acknowledgment loop below (house rule 7): a
     # literal count, not derived from the same predicate that loop checks. If
     # the recursive nested-model walk above stopped short -- say, it silently
     # dropped nested models -- this would still catch it, because the loop
@@ -907,52 +965,57 @@ def test_hidden_retrieval_internals_stay_absent_from_the_skill_response_models()
         "needs the same correction this gate was written to catch"
     )
 
-    _assert_no_hidden_field_names(all_field_names | candidate_count_keys)
+    text = COMPOSITION_PATH.read_text(encoding="utf-8")
+    # Witness for the text side, independent of the acknowledgment loop below:
+    # proves the document was actually read as real, structured prose, not an
+    # empty or truncated file.
+    assert text.count("## ") >= 5, "docs/skill-composition.md read unexpectedly short"
+
+    _assert_document_acknowledges_inspectable_terms(text, all_field_names)
+    _assert_document_retired_unobservability_claims(text)
 
 
-def test_hidden_internals_gate_is_red_at_birth_for_a_vector_index_field_name():
-    """Permanent falsifier, direction one: a field naming the vector index.
+def test_inspectable_acknowledgment_gate_is_red_at_birth_for_a_fabricated_term():
+    """Permanent falsifier, direction one: an acknowledged term that isn't real.
 
-    Proves `_assert_no_hidden_field_names` actually discriminates (house rules
-    4 and 7). Injects the violation directly into the checking function
-    rather than editing `service/models.py`, which this task's constraints
-    forbid touching -- the same technique the contract-parity tests earlier in
-    this file use with a mutated copy of the JSON registry instead of the real
-    one.
+    Proves the "must be a real field" half of
+    `_assert_document_acknowledges_inspectable_terms` actually discriminates.
+    Passes a synthetic `terms` dict directly rather than editing
+    `service/models.py`, which this task's constraints forbid touching -- the
+    same technique the contract-parity tests earlier in this file use with a
+    mutated copy of the JSON registry instead of the real one.
     """
-    with pytest.raises(AssertionError, match="tsvector"):
-        _assert_no_hidden_field_names({"result_page_token", "fts_tsvector_debug"})
+    with pytest.raises(AssertionError, match="fabricated_diagnostic_field"):
+        _assert_document_acknowledges_inspectable_terms(
+            "fabricated_diagnostic_field is fully inspectable",
+            {"search_event_id", "results"},
+            terms={"fabricated_diagnostic_field": "nowhere real"},
+        )
 
 
-def test_hidden_internals_gate_is_red_at_birth_for_a_candidate_counts_key():
-    """Permanent falsifier, direction two: candidate_counts naming the arm's tech.
+def test_inspectable_acknowledgment_gate_is_red_at_birth_for_a_silent_claim():
+    """Permanent falsifier, direction two: a real field the document never names.
 
-    The real gate above reads `candidate_counts`'s keys by parsing
-    `service/retrieval.py`. This proves the shared predicate would reject a
-    key that leaked the fusion formula's name, without touching the real
-    source file -- `_dict_literal_keys` is exercised against a synthetic
-    snippet, not a reimplementation of what it does.
+    The paired failure direction: the term is genuinely a field name, but the
+    document text never mentions it, so the acknowledgment would be true only
+    by accident rather than because Section 3 actually says so.
     """
-    poisoned_source = (
-        "candidate_counts = {\n"
-        '    "fused_pool": len(candidates),\n'
-        '    "rrf_formula_applied": True,\n'
-        "}\n"
-    )
-    poisoned_keys = _dict_literal_keys(poisoned_source, "candidate_counts")
-
-    assert poisoned_keys == {"fused_pool", "rrf_formula_applied"}
-    with pytest.raises(AssertionError, match="rrf_formula"):
-        _assert_no_hidden_field_names(poisoned_keys)
+    with pytest.raises(AssertionError, match="hnsw_settings"):
+        _assert_document_acknowledges_inspectable_terms(
+            "this document never mentions the vector index tuning field",
+            {"hnsw_settings", "search_event_id"},
+            terms={"hnsw_settings": "explain_retrieval"},
+        )
 
 
-def test_hidden_internals_gate_is_independent_of_an_unrelated_new_field():
-    """Independence proof for the Finding 3 gate (house rule 7).
+def test_inspectable_acknowledgment_gate_is_independent_of_an_unrelated_new_field():
+    """Independence proof for the acknowledgment half (house rule 7).
 
     An unrelated new field name -- the kind of ordinary addition a future
-    pagination feature might make -- must not trip the gate. Without this, a
-    gate that always failed regardless of input would pass both falsifiers
-    above for the wrong reason.
+    pagination feature might make -- added on top of the real document and
+    the real models must not trip the gate. Without this, a gate that always
+    failed regardless of input would pass both falsifiers above for the wrong
+    reason.
     """
     from service import models
 
@@ -966,4 +1029,31 @@ def test_hidden_internals_gate_is_independent_of_an_unrelated_new_field():
     for model in skill_response_models.values():
         all_field_names |= _model_field_names(model)
 
-    _assert_no_hidden_field_names(all_field_names | {"result_page_token"})
+    text = COMPOSITION_PATH.read_text(encoding="utf-8")
+    _assert_document_acknowledges_inspectable_terms(
+        text, all_field_names | {"result_page_token"}
+    )
+
+
+def test_retired_unobservability_guard_is_red_at_birth():
+    """Permanent falsifier for the retirement guard.
+
+    Proves `_assert_document_retired_unobservability_claims` actually
+    discriminates, by reintroducing the exact phrase Section 3's retired
+    framing used to claim a specific mechanic could never be observed.
+    """
+    with pytest.raises(AssertionError, match="genuinely unobservable"):
+        _assert_document_retired_unobservability_claims(
+            "the fusion formula remains genuinely unobservable to any caller"
+        )
+
+
+def test_retired_unobservability_guard_is_independent_of_ordinary_prose():
+    """Independence proof for the retirement guard (house rule 7).
+
+    Ordinary prose that discusses inspectability without the retired absolute
+    phrasing must not trip the guard.
+    """
+    _assert_document_retired_unobservability_claims(
+        "plan_json is inspectable once a plan has been captured separately"
+    )
