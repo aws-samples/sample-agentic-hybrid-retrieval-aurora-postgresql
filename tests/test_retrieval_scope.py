@@ -174,3 +174,50 @@ def test_pool_members_outside_the_window_are_refused_live():
 
     with pytest.raises(ScopeViolation):
         assert_products_in_retrieval_scope(response.search_event_id, withheld)
+
+
+def test_aurora_marker_is_registered_in_pyproject():
+    """`tests/conftest.py` skips whatever `item.keywords` names "aurora".
+
+    If this marker is ever renamed or dropped from pyproject.toml, the skip
+    hook would silently stop matching anything, and aurora-marked tests would
+    start failing (or worse, running against no DSN) everywhere the hook is
+    supposed to protect them. Pin the registration so a rename here is loud.
+    """
+    import tomllib
+    from pathlib import Path
+
+    pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    config = tomllib.loads(pyproject_path.read_text())
+
+    markers = config["tool"]["pytest"]["ini_options"]["markers"]
+    assert any(marker.strip().startswith("aurora:") for marker in markers)
+
+
+def test_aurora_release_ci_requires_database_url_before_running_tests():
+    """The conftest skip is only safe because `aurora-release` fails fast.
+
+    Rule: a test that silently skips can hide a broken security guard, so a
+    green offline run is not evidence the guard still works. Value: this skip
+    is safe only because `aurora-release` in ci.yml hard-requires DATABASE_URL
+    before it ever reaches `make test`, so the skip can never silently apply
+    in the one job that exists to run these tests. Fix: if this precondition
+    is ever removed, this assertion is what catches it.
+    """
+    from pathlib import Path
+
+    workflow_path = (
+        Path(__file__).resolve().parents[1] / ".github" / "workflows" / "ci.yml"
+    )
+    workflow_text = workflow_path.read_text()
+
+    release_job = workflow_text.split("aurora-release:", 1)[1]
+    guard = 'test -n "$DATABASE_URL"'
+    test_step = "Run the Python test suite against Aurora"
+
+    guard_index = release_job.find(guard)
+    test_step_index = release_job.find(test_step)
+
+    assert guard_index != -1, "aurora-release no longer guards on DATABASE_URL"
+    assert test_step_index != -1, "aurora-release no longer runs its test step"
+    assert guard_index < test_step_index, "the DATABASE_URL guard runs too late"
