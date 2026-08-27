@@ -2,12 +2,60 @@
 set -Eeuo pipefail
 exec > >(tee /var/log/mosaic-bootstrap.log | logger -t mosaic-bootstrap -s 2>/dev/console) 2>&1
 
+# The tail of this log, JSON-escaped for a wait-condition Reason.
+#
+# A failed provision is rolled back, which terminates this instance, so
+# /var/log/mosaic-bootstrap.log and the console output both vanish before anyone
+# reads the stack events. A Reason that says "inspect the log" names a file that
+# no longer exists; diagnosing one cost a redeployment with rollback disabled and
+# an SSM session. The signal is the only channel that outlives the host, so the
+# evidence travels in it. It goes to the wait-condition handle because
+# `aws cloudformation signal-resource` accepts no reason at all.
+#
+# Redaction is not optional: this log captures every command's output, a failing
+# psql can echo a DSN, and stack events are readable by the participant. The
+# secrets are passed as arguments rather than interpolated into a sed script,
+# because building a delimited expression around an unescaped secret is the exact
+# class of bug that `pgpass_escape` below exists to fix.
+failure_reason() {
+  local prefix='Mosaic bootstrap failed. Tail of /var/log/mosaic-bootstrap.log: '
+  local encoded=''
+  if command -v python3 >/dev/null 2>&1; then
+    encoded=$(tail -c 4000 /var/log/mosaic-bootstrap.log 2>/dev/null \
+      | python3 -c '
+import json, sys
+
+prefix, secrets = sys.argv[1], [s for s in sys.argv[2:] if s]
+flat = " ".join(sys.stdin.read().split())
+for secret in secrets:
+    flat = flat.replace(secret, "[REDACTED]")
+if not flat:
+    sys.stdout.write(json.dumps(prefix + "empty; it failed before writing")[1:-1])
+    raise SystemExit(0)
+keep = len(flat)
+while True:
+    encoded = json.dumps(prefix + flat[-keep:])[1:-1]
+    if len(encoded) <= 900 or keep <= 0:
+        break
+    keep -= 64
+sys.stdout.write(encoded)
+' "$prefix" "${DB_PASSWORD:-}" "${CODE_EDITOR_PASSWORD:-}" \
+        "${APP_DB_PASSWORD:-}" "${DATABASE_URL:-}" 2>/dev/null) || encoded=''
+  fi
+  if [[ -n "$encoded" ]]; then
+    printf '%s' "$encoded"
+  else
+    printf '%s' "${prefix}unavailable"
+  fi
+}
+
 signal_failure() {
   rc="$1"
   trap - ERR
   if [[ -n "${BOOTSTRAP_WAIT_HANDLE:-}" ]]; then
     curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
-      --data-binary '{"Status":"FAILURE","Reason":"Mosaic bootstrap failed; inspect /var/log/mosaic-bootstrap.log","UniqueId":"userdata","Data":"failed"}' \
+      --data-binary \
+      "{\"Status\":\"FAILURE\",\"Reason\":\"$(failure_reason)\",\"UniqueId\":\"userdata\",\"Data\":\"failed\"}" \
       "$BOOTSTRAP_WAIT_HANDLE" || true
   else
     echo "Mosaic bootstrap cannot signal failure: BOOTSTRAP_WAIT_HANDLE is unset"
