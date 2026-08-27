@@ -543,6 +543,17 @@ def retrieval_event(search_event_id: UUID) -> RetrievalRunResponse:
     This is the endpoint behind the retrieval lab: the receipts come out of
     `mosaic.search_result_event` rather than being recomputed, so what the UI
     shows is what was actually fused.
+
+    Deliberately unscoped, unlike the agent's `explain_retrieval` tool, which
+    refuses events outside its turn. This route is a lab inspection surface: a
+    participant pastes an event ID and reads what the server actually fused.
+
+    That is a real asymmetry, not an oversight. The row carries `session_id` and
+    the raw `query_text` of whoever ran the search, so on a shared deployment
+    this would need owner scoping. It is acceptable here only because the
+    workshop is single-attendee and disposable, and because a v4 UUID is not
+    enumerable. `search_event_id` is a retrieval capability handle, never an
+    identity or tenancy boundary.
     """
     with connect() as connection:
         event = connection.execute(

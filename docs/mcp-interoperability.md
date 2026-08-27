@@ -48,8 +48,8 @@ contracts while preserving their compatible dependency sets.
 | Tool | API route | Purpose |
 |---|---|---|
 | `search_products` | `POST /api/search` | Run filtered hybrid retrieval and return source-attributed products |
-| `get_product_evidence` | `POST /api/products/{product_id}/evidence` | Rank source-addressable specifications and reviews for the supplied evidence question |
-| `inspect_retrieval_run` | `GET /api/retrieval/events/{search_event_id}` | Replay arm ranks, raw scores, RRF, rerank, filter, and timing signals |
+| `get_product_evidence` | `POST /api/products/{product_id}/evidence` | Rank specifications and reviews for one product the supplied `retrieval_scope_id` granted |
+| `inspect_retrieval_run` | `GET /api/retrieval/events/{search_event_id}` | Replay arm ranks, raw scores, RRF, rerank, filter, and timing signals. Unscoped by design: any valid ID resolves, on the single-attendee disposable-instance assumption. |
 
 All three tools advertise `readOnlyHint=true` and
 `destructiveHint=false`. Search is not marked idempotent because every search
@@ -86,14 +86,21 @@ make mcp-test
 2. Confirm discovery negotiates `2026-07-28`.
 3. List the three typed, read-only tools.
 4. Call `search_products` with the Lab 3 query and a hard price or availability
-   filter.
-5. Pass the returned run ID to `inspect_retrieval_run`.
-6. Compare the MCP result with the Retrieval Lab UI and confirm both show the
+   filter, and keep the `search_event_id` it returns.
+5. Call `get_product_evidence` with that ID as `retrieval_scope_id` and one
+   returned product. Then call it again with a product ID it did not return and
+   confirm HTTP 404.
+6. Pass the returned run ID to `inspect_retrieval_run`.
+7. Compare the MCP result with the Retrieval Lab UI and confirm both show the
    same persisted PostgreSQL ranking signals.
 
-This optional check can prove candidate, eligibility, RRF, and evidence payload
-preservation through the local MCP adapter. Citation authorization remains an
-application concern: `search_products` does not synthesize an answer.
+This optional check proves candidate, eligibility, RRF, and evidence payload
+preservation through the local MCP adapter, and it now also proves the grant
+boundary: pass a `product_id` from the pool that the retrieval did not return
+within its `authorized_limit` and `get_product_evidence` fails with HTTP 404.
+The adapter forwards the scope and holds no policy of its own; the authority is
+`service/retrieval_scope.py`. Citation authorization remains separate and
+turn-local: retrieving scoped evidence does not authorize it for synthesis.
 
 [Amazon Bedrock AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agents-tools-runtime.html)
 can host custom agent code, and

@@ -123,6 +123,7 @@ async def test_mcp_evidence_uses_the_same_query_grounded_contract_as_the_agent(
         result = await client.call_tool(
             "get_product_evidence",
             {
+                "retrieval_scope_id": "11111111-2222-3333-4444-555555555555",
                 "product_id": 101,
                 "evidence_query": "Which specification supports quiet typing?",
             },
@@ -134,7 +135,10 @@ async def test_mcp_evidence_uses_the_same_query_grounded_contract_as_the_agent(
         (
             "POST",
             "/products/101/evidence",
-            {"evidence_query": "Which specification supports quiet typing?"},
+            {
+                "retrieval_scope_id": "11111111-2222-3333-4444-555555555555",
+                "evidence_query": "Which specification supports quiet typing?",
+            },
         )
     ]
 

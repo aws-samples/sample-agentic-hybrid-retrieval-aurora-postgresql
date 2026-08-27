@@ -47,9 +47,10 @@ mcp = MCPServer(
         "pgvector HNSW, hard filters, unweighted RRF, and Cohere Rerank."
     ),
     instructions=(
-        "Use search_products to create a source-attributed candidate set. "
-        "Use get_product_evidence only with returned product IDs, and use "
-        "inspect_retrieval_run with the returned run ID to explain ranking."
+        "Use search_products to create a source-attributed candidate set. Pass "
+        "the search_event_id it returns as retrieval_scope_id to "
+        "get_product_evidence, which serves evidence only for products that "
+        "retrieval granted, and to inspect_retrieval_run to explain ranking."
     ),
     version="0.2.0",
 )
@@ -111,19 +112,38 @@ def search_products(
     title="Get product evidence",
     description=(
         "Rank source-addressable specification and review evidence for one "
-        "retrieved product against a focused question."
+        "product a retrieval granted. Requires the retrieval scope ID returned "
+        "by search_products."
     ),
     annotations=READ_ONLY_LOOKUP,
     structured_output=True,
 )
 def get_product_evidence(
+    retrieval_scope_id: str,
     product_id: int,
     evidence_query: str,
 ) -> ProductEvidenceResponse:
-    """Retrieve question-ranked evidence for one returned product ID."""
+    """Retrieve question-ranked evidence for one granted product.
+
+    Args:
+        retrieval_scope_id: The `search_event_id` search_products returned.
+        product_id: A product that retrieval returned within its granted window.
+        evidence_query: The question the evidence must support.
+
+    Returns:
+        Source-addressable evidence for that product.
+
+    Raises:
+        CatalogApiError: On HTTP 404 when the retrieval scope did not grant the
+            product. The adapter forwards the scope and never decides it; the
+            authority is `service/retrieval_scope.py`.
+    """
     payload = get_api_client().post(
         f"/products/{product_id}/evidence",
-        {"evidence_query": evidence_query},
+        {
+            "retrieval_scope_id": retrieval_scope_id,
+            "evidence_query": evidence_query,
+        },
     )
     return ProductEvidenceResponse.model_validate(payload)
 
@@ -132,13 +152,20 @@ def get_product_evidence(
     title="Inspect a retrieval run",
     description=(
         "Replay persisted lexical, trigram, semantic, RRF, rerank, "
-        "filter, timing, and final-order signals for one search run."
+        "filter, timing, and final-order signals for one search run. Unscoped "
+        "by design: unlike explain_retrieval, any valid run ID resolves here, "
+        "on the single-attendee disposable-instance assumption."
     ),
     annotations=READ_ONLY_LOOKUP,
     structured_output=True,
 )
 def inspect_retrieval_run(run_id: str) -> RetrievalRunResponse:
-    """Read the ranking provenance persisted for a retrieval run."""
+    """Read the ranking provenance persisted for a retrieval run.
+
+    Deliberately unscoped, unlike the agent's `explain_retrieval` tool, which
+    refuses events outside its turn. Acceptable only because the workshop is
+    single-attendee and disposable, and because a v4 UUID is not enumerable.
+    """
     parsed_run_id = UUID(run_id)
     # The API serves this as `/api/retrieval/events/{search_event_id}`; the
     # client's base URL already carries `/api`. Requesting `/retrieval/runs/`

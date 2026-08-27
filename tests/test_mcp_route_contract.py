@@ -40,17 +40,28 @@ def test_the_api_serves_the_query_grounded_product_evidence_route():
     assert "/api/products/{product_id}/evidence" in _served_paths()
 
 
-def test_mcp_evidence_tool_requests_the_query_grounded_evidence_route():
+def test_mcp_evidence_tool_forwards_the_retrieval_scope():
+    """The adapter must send the scope, and must not decide scope itself."""
     match = re.search(
-        r'post\(\s*f"(/products/\{product_id\}/evidence)"\s*,\s*'
-        r'\{"evidence_query": evidence_query\}',
+        r'post\(\s*f"(/products/\{product_id\}/evidence)"\s*,\s*\{\s*'
+        r'"retrieval_scope_id": retrieval_scope_id,\s*'
+        r'"evidence_query": evidence_query,?\s*\}',
         SERVER_SOURCE,
     )
     assert match, (
-        "get_product_evidence must post its evidence_query to the "
-        "question-ranked evidence route"
+        "get_product_evidence must forward retrieval_scope_id and "
+        "evidence_query to the question-ranked evidence route"
     )
     assert _route_exists("/api/products/101/evidence")
+
+
+def test_mcp_adapter_holds_no_scope_policy():
+    """Enforcement belongs to service/retrieval_scope.py, not to a transport."""
+    for forbidden in ("authorized_limit", "result_rank", "search_result_event"):
+        assert forbidden not in SERVER_SOURCE, (
+            f"the MCP adapter references {forbidden!r}, which means it is "
+            "making a grant-scope decision instead of forwarding the scope"
+        )
 
 
 def test_the_api_does_not_serve_the_path_the_tool_used_to_request():
