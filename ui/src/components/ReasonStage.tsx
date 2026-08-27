@@ -202,6 +202,9 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
   const [recordsError, setRecordsError] = useState("");
   const [contracts, setContracts] = useState<ToolContract[] | null>(null);
   const [contractsError, setContractsError] = useState("");
+  const [skill, setSkill] = useState<ToolContract[] | null>(null);
+  const [skillError, setSkillError] = useState<string | null>(null);
+  const [mcpCount, setMcpCount] = useState<number | null>(null);
 
   const trace: ToolTraceStep[] = response?.trace ?? partial?.trace ?? [];
   const citations: AgentCitation[] = response?.citations ?? [];
@@ -273,6 +276,28 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
       .catch((cause: unknown) => {
         setContractsError(
           cause instanceof Error ? cause.message : "Tool contracts are unavailable",
+        );
+      });
+  }
+
+  /**
+   * Load the two measured adapter states.
+   *
+   * The badges are derived, not typed in: HTTP is implemented because the skill
+   * surface resolves and its routes are registered, and MCP is implemented
+   * because the same capabilities are declared on the mcp surface. A2A has no
+   * measurement, so it is rendered as documentation and labelled that way.
+   */
+  function loadSkill() {
+    Promise.all([api.toolContracts("skill"), api.toolContracts("mcp")])
+      .then(([skillTools, mcpTools]) => {
+        setSkill(skillTools);
+        setMcpCount(mcpTools.length);
+        setSkillError(null);
+      })
+      .catch((error: unknown) => {
+        setSkillError(
+          error instanceof Error ? error.message : "Could not read the registry.",
         );
       });
   }
@@ -442,6 +467,53 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
                     code={JSON.stringify(contracts, null, 2)}
                     label="tools.agent.json"
                   />
+                </>
+              )}
+            </PlaygroundDisclosure>
+
+            <PlaygroundDisclosure
+              label="Package what you built"
+              hint="GET /api/tools?surface=skill"
+              onOpen={loadSkill}
+            >
+              {skillError ? (
+                <p className="labs-disclosure-error" role="alert">{skillError}</p>
+              ) : skill === null ? (
+                <p role="status">Reading the declared capability.</p>
+              ) : (
+                <>
+                  <p className="labs-contract-note">
+                    The three labs did not build three tricks. They built one
+                    retrieval capability, declared here, that another agent can
+                    call without learning how any of it works.
+                  </p>
+                  <ul className="labs-skill-capabilities">
+                    {skill.map((contract) => (
+                      <li key={contract.name}>
+                        <code>{contract.name}</code>
+                        <em>{contract.capability}</em>
+                        <b>{contract.read_only ? "read-only" : "writes"}</b>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="labs-skill-adapters-label">Reachable through</p>
+                  <ul className="labs-skill-adapters">
+                    <li data-testid="adapter-http">
+                      <code>HTTP</code>
+                      <b>Implemented</b>
+                    </li>
+                    <li data-testid="adapter-mcp">
+                      <code>MCP</code>
+                      <b>{mcpCount ? "Implemented" : "Not declared"}</b>
+                    </li>
+                    <li data-testid="adapter-a2a" className="labs-skill-adapter-doc">
+                      <code>A2A</code>
+                      <span>Documented, not deployed</span>
+                    </li>
+                  </ul>
+                  <p className="labs-skill-closing">
+                    The interface can move. Retrieval authority stays in Aurora.
+                  </p>
                 </>
               )}
             </PlaygroundDisclosure>

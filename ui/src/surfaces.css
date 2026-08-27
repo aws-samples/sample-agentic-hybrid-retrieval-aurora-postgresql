@@ -11058,6 +11058,27 @@
   line-height: 1.5;
 }
 
+.labs-skill-capabilities,
+.labs-skill-adapters {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.labs-skill-adapters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+/* The A2A row is not a measured status, so it must not read like one: no badge
+   treatment, no accent, and plain body text where the others carry a state. */
+.labs-skill-adapter-doc b,
+.labs-skill-adapter-doc span {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
 @media (max-width: 900px) {
   .labs-stage {
     --labs-gutter: 2.6rem;

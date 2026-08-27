@@ -12,7 +12,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
 import { showcaseCatalogPage } from "../showcase";
-import type { ProductSummary, RetrievalDiagnostics, SearchResponse } from "../types";
+import type {
+  AgentResponse,
+  ProductSummary,
+  RetrievalDiagnostics,
+  SearchResponse,
+  ToolContract,
+} from "../types";
 import { RetrievalLabPage } from "./RetrievalLabPage";
 
 vi.mock("../api", () => ({
@@ -167,6 +173,102 @@ const latestComparisonResponse = {
     candidate_counts: { trigram_in_pool: 4 },
   },
 } satisfies SearchResponse;
+
+/**
+ * The Reason stage needs one completed agent run before its disclosure shelf,
+ * including "Package what you built", renders at all.
+ */
+const packagingAgentResponse: AgentResponse = {
+  agent_run_id: "agent-packaging",
+  question: "quiet office keyboard",
+  answer: "Packaging disclosure smoke run.",
+  plan: [],
+  recommendations: [],
+  citations: [],
+  trace: [],
+};
+
+/**
+ * Shaped like the real `GET /api/tools?surface=skill` projection: four tool
+ * names, each carrying its own `capability` (`db/config/agent_tool_contracts.json`
+ * declares exactly these four on the skill surface).
+ */
+const skillToolContracts: ToolContract[] = [
+  {
+    name: "search_products",
+    capability: "open_retrieval",
+    tool_version: "1.0",
+    description: "Run filtered lexical, fuzzy, semantic, RRF fusion, and bounded reranking.",
+    input_schema: {},
+    output_schema: {},
+    read_only: true,
+  },
+  {
+    name: "get_product_evidence",
+    capability: "get_product_evidence",
+    tool_version: "1.0",
+    description: "Rank fresh source-addressable specifications and reviews.",
+    input_schema: {},
+    output_schema: {},
+    read_only: true,
+  },
+  {
+    name: "compare_products",
+    capability: "compare_products",
+    tool_version: "1.0",
+    description: "Compare two to five authorized products.",
+    input_schema: {},
+    output_schema: {},
+    read_only: true,
+  },
+  {
+    name: "explain_retrieval",
+    capability: "explain_retrieval",
+    tool_version: "1.0",
+    description: "Replay persisted ranking signals for an authorized event.",
+    input_schema: {},
+    output_schema: {},
+    read_only: true,
+  },
+];
+
+/**
+ * The mcp surface carries `inspect_retrieval_run`, which shares the
+ * `explain_retrieval` capability with the skill surface's own `explain_retrieval`
+ * tool. The badge only needs a non-empty list, never a name or a capability, so
+ * that overlap is irrelevant here.
+ */
+const mcpToolContracts: ToolContract[] = [
+  {
+    name: "inspect_retrieval_run",
+    capability: "explain_retrieval",
+    tool_version: "1.0",
+    description: "Replay a persisted retrieval event through the stateless MCP adapter.",
+    input_schema: {},
+    output_schema: {},
+    read_only: true,
+  },
+];
+
+function mockPackagingDisclosureDependencies() {
+  vi.mocked(api.agentStream).mockImplementation(
+    async (_question, _filters, onEvent) => {
+      onEvent({ type: "complete", response: packagingAgentResponse });
+    },
+  );
+  vi.mocked(api.toolContracts).mockImplementation(async (surface) => {
+    if (surface === "skill") return skillToolContracts;
+    if (surface === "mcp") return mcpToolContracts;
+    return [];
+  });
+}
+
+/** Runs the agent, then opens the "Package what you built" disclosure. */
+async function openPackagingDisclosure() {
+  fireEvent.click(screen.getByRole("button", { name: "Run the agent" }));
+  const summary = await screen.findByText("Package what you built");
+  fireEvent.click(summary);
+}
 
 describe("RetrievalLabPage", () => {
   beforeEach(() => {
@@ -446,5 +548,77 @@ describe("RetrievalLabPage", () => {
     expect(within(firstRun).getByText("0")).toBeTruthy();
     expect(within(latestRun).getAllByText("#1")).toHaveLength(2);
     expect(within(latestRun).getByText("4")).toBeTruthy();
+  });
+
+  it("names every skill capability the registry declares", async () => {
+    mockPackagingDisclosureDependencies();
+    render(<RetrievalLabPage />);
+
+    await openPackagingDisclosure();
+
+    // Witness, independent of any text this test reads off the page: the
+    // loader actually reached the registry for both adapter surfaces, rather
+    // than the assertions below passing because stray markup happened to match.
+    await waitFor(() => {
+      expect(api.toolContracts).toHaveBeenCalledWith("skill");
+      expect(api.toolContracts).toHaveBeenCalledWith("mcp");
+    });
+
+    // Three of the four skill capabilities in the real registry are spelled
+    // identically to their tool name (`db/config/agent_tool_contracts.json`), so
+    // each name below renders twice: once as the tool's `<code>` and once as its
+    // `<em>` capability. `findAllByText` tolerates that; the singular query would
+    // throw "multiple elements" on real data.
+    for (const name of [
+      "search_products",
+      "get_product_evidence",
+      "compare_products",
+      "explain_retrieval",
+    ]) {
+      expect((await screen.findAllByText(name)).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("labels A2A as documentation rather than available", async () => {
+    mockPackagingDisclosureDependencies();
+    render(<RetrievalLabPage />);
+
+    await openPackagingDisclosure();
+
+    // Witness: the loader ran for both surfaces, independent of the copy this
+    // test checks below.
+    await waitFor(() => {
+      expect(api.toolContracts).toHaveBeenCalledWith("skill");
+      expect(api.toolContracts).toHaveBeenCalledWith("mcp");
+    });
+
+    const a2a = await screen.findByTestId("adapter-a2a");
+    expect(a2a.textContent).toMatch(/documented, not deployed/i);
+    expect(a2a.textContent).not.toMatch(/implemented/i);
+    expect(a2a.textContent).not.toMatch(/connected|available/i);
+    expect(a2a.querySelector("a, button")).toBeNull();
+
+    // Pair the absence with a positive: the two measured adapters *do* say
+    // "Implemented", so this section was not simply emptied out.
+    expect((await screen.findByTestId("adapter-http")).textContent).toMatch(/implemented/i);
+    expect((await screen.findByTestId("adapter-mcp")).textContent).toMatch(/implemented/i);
+  });
+
+  it("says retrieval authority does not move", async () => {
+    mockPackagingDisclosureDependencies();
+    render(<RetrievalLabPage />);
+
+    await openPackagingDisclosure();
+
+    // Witness: the loader ran for both surfaces, independent of the closing
+    // copy this test checks below.
+    await waitFor(() => {
+      expect(api.toolContracts).toHaveBeenCalledWith("skill");
+      expect(api.toolContracts).toHaveBeenCalledWith("mcp");
+    });
+
+    expect(
+      await screen.findByText(/retrieval authority stays in Aurora/i),
+    ).toBeTruthy();
   });
 });

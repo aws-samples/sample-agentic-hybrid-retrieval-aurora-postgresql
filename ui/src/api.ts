@@ -242,7 +242,7 @@ export const api = {
   evidence: (evidenceId: number) =>
     request<EvidenceRecord>(`/api/evidence/${evidenceId}`),
 
-  toolContracts: async (surface: "agent" | "mcp" = "agent") => {
+  toolContracts: async (surface: "agent" | "mcp" | "skill" = "agent") => {
     const body = await request<{ surface: string; tools: ToolContract[] }>(
       `/api/tools?surface=${surface}`,
     );

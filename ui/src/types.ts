@@ -270,6 +270,7 @@ export interface EvidenceRecord {
 /** One entry of `/api/tools`: the contract a tool call is audited against. */
 export interface ToolContract {
   name: string;
+  capability: string;
   tool_version: string;
   description: string;
   input_schema: Record<string, unknown>;
