@@ -69,10 +69,13 @@ behind the Playground's "View retrieval event" disclosure and its nested "View
 EXPLAIN" action, so a real, participant-run event can carry a populated
 `plan_json` by the time a caller reads it back through `explain_retrieval`.
 A captured `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan over the
-run's own fusion SQL names the storage structures those arms actually touch,
-including `product_document_embedding_hnsw_cosine_idx`, the HNSW index behind
-the vector arm, and `product_document_fts_gin_idx`, the GIN index behind the
-full-text arm. The bucket that claimed those mechanics could never be
+run's own fusion SQL names one of those storage structures outright:
+`product_document_embedding_hnsw_cosine_idx`, the HNSW index behind the vector
+arm, resolves to an `Index Scan` in the captured plan. The lexical and trigram
+arms do not resolve that far — the planner records them as `Function Scan`
+nodes over `search_fts` and `search_trigram`, and it does not expand a plpgsql
+body, so those arms' indexes are named nowhere in the plan. One index is
+enough. The bucket that claimed those mechanics could never be
 observed was built from the fields the four operations return directly; it
 was never built to admit a diagnostic field populated after the fact by a
 separate, unscoped write. That is a gap in the bucket, not a one-off mistake
