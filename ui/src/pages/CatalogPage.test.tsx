@@ -14,6 +14,7 @@ import { api, type AgentStreamEvent } from "../api";
 import { CommerceProvider } from "../commerce";
 import { stageDwellMs } from "../components/AskMosaic";
 import { showcaseCatalogPage } from "../showcase";
+import { starterPath } from "../starters";
 import type {
   AgentResponse,
   CatalogPage as CatalogPageResponse,
@@ -41,12 +42,38 @@ vi.mock("../api", () => ({
  * Shaped like `/api/retrieval/examples`, which serves `demo_queries.jsonl`
  * deduplicated in file order.
  *
- * Every row earns its place by making one rule in `starterExamples` falsifiable.
- * `D-001` is a longer `exact` query than `D-006`, so the panel has to take the
- * shortest of a path rather than the first. `D-007` is shorter still and names
- * `fts`, so it would win the `exact` path unless `pg_trgm` outranks `fts`, and
- * it is the shortest `misspelled` query, so it would beat `D-002` unless an
- * unused domain is preferred. Drop either rule and the expected order changes.
+ * Every row earns its place by making one rule in `starterPath` or
+ * `starterExamples` falsifiable. Delete a row, or the rule it exists to prove,
+ * and the expected order asserted below changes.
+ *
+ * - `D-001` (61 chars, `fts`+`vector`) is first in file order and longer than
+ *   `D-005` (39 chars, same arm), which appears later. The `exact` pick has to
+ *   take the shortest of its pool rather than the first, or `D-001` renders
+ *   instead of `D-005`.
+ * - `D-003` (41 chars) names both `fts` and `semantic`. `fts` must outrank
+ *   `semantic` in `starterPath`, or `D-003` reclassifies into the `semantic`
+ *   pool, where 41 beats `D-008`'s 44 and it becomes the "Meaning match" card
+ *   instead.
+ * - `D-004` (20 chars) names `pg_trgm`, `fts`, and `semantic`, shorter than
+ *   every row in the `exact` pool. `pg_trgm` must outrank `fts` in
+ *   `starterPath`, or `D-004` reclassifies as `exact` and wins that slot
+ *   instead of `D-005`.
+ * - `D-002` (53 chars, misspelled) is first among the misspelled rows and
+ *   longer than `D-004` (20 chars), which appears later. The close-spelling box
+ *   has to load the shortest of the lane rather than the first, or `D-002`
+ *   loads instead of `D-004`.
+ * - `D-007` (15 chars, `semantic` only) is shorter than every other row in the
+ *   `semantic` pool, but its domain (`running_fitness`) is the one `D-005`
+ *   already used for the `exact` pick. The `semantic` pick has to prefer an
+ *   unused domain over the shortest query, or `D-007` wins instead of `D-008`.
+ * - `D-006` (68 chars, `semantic`, unused domain `consumer_electronics`) is
+ *   longer than `D-008`. Its presence proves the `semantic` pick is still the
+ *   shortest of the *remaining* unused-domain rows once `D-007` is excluded,
+ *   not merely the first one found.
+ * - `D-008` (44 chars) names only `vector`, never the literal string
+ *   `semantic`. It wins the `semantic` slot only if `starterPath` treats
+ *   `vector` and `semantic` as the same arm, matching `TECHNIQUE_ARMS` in
+ *   `starters.ts`.
  */
 const examples: RetrievalExample[] = [
   {
@@ -58,30 +85,51 @@ const examples: RetrievalExample[] = [
   },
   {
     query_id: "D-002",
-    domain: "consumer_electronics",
-    query: "noice canceling hedphones for long fligts under 200",
-    expected_techniques: ["pg_trgm", "vector"],
+    domain: "running_fitness",
+    query: "ergonmic ofice chair for ten long hour days at a desk",
+    expected_techniques: ["pg_trgm", "semantic"],
     variant: 1,
   },
   {
-    query_id: "D-006",
+    query_id: "D-003",
+    domain: "home_office",
+    query: "Quiet keyboard and mouse for shared desks",
+    expected_techniques: ["fts", "semantic"],
+    variant: 1,
+  },
+  {
+    query_id: "D-004",
+    domain: "consumer_electronics",
+    query: "noice hedphones fast",
+    expected_techniques: ["pg_trgm", "fts", "semantic"],
+    variant: 1,
+  },
+  {
+    query_id: "D-005",
     domain: "running_fitness",
     query: "Carbon-plated marathon shoes under $220",
     expected_techniques: ["fts", "vector"],
     variant: 1,
   },
   {
-    query_id: "D-007",
-    domain: "running_fitness",
-    query: "marthon shoe with plate",
-    expected_techniques: ["pg_trgm", "fts", "semantic"],
+    query_id: "D-006",
+    domain: "consumer_electronics",
+    query: "A compact USB-C dock that can drive two monitors and charge a laptop",
+    expected_techniques: ["semantic"],
     variant: 1,
   },
   {
-    query_id: "D-011",
-    domain: "home_office",
-    query: "Ergonomic mesh chair with adjustable lumbar support under $500",
+    query_id: "D-007",
+    domain: "running_fitness",
+    query: "Trail shoes now",
     expected_techniques: ["semantic"],
+    variant: 1,
+  },
+  {
+    query_id: "D-008",
+    domain: "home_office",
+    query: "Quiet folding treadmill for small apartments",
+    expected_techniques: ["vector"],
     variant: 1,
   },
 ];
@@ -891,9 +939,9 @@ describe("CatalogPage", () => {
       "Write the cited recommendationsynthesize_cited_answer",
     ]);
 
-    // Starters are vetted questions spanning the retrieval paths and all three
-    // domains. Eval provenance and expected-technique tags stay off the shopper
-    // surface; the completed run is where actual retrieval evidence belongs.
+    // Starters are vetted questions, one per clickable retrieval arm. Eval
+    // provenance and expected-technique tags stay off the shopper surface; the
+    // completed run is where actual retrieval evidence belongs.
     const starters = await within(panel).findByRole("list", {
       name: "Example questions",
     });
@@ -905,11 +953,10 @@ describe("CatalogPage", () => {
           button.querySelector(".ask-mosaic-starter-query")?.textContent,
         ]),
     ).toEqual([
-      ["Exact terms", examples[2].query],
-      ["Plain language", examples[4].query],
-      ["Exact terms", examples[0].query],
+      ["Exact terms", examples[4].query],
+      ["Meaning match", examples[7].query],
       // The close-spelling lane, which says what it does instead of printing the
-      // query it loads. `D-007` over `D-002` because it is the shorter of the two
+      // query it loads. `D-004` over `D-002` because it is the shorter of the two
       // misspelled rows, so what lands in the composer is short enough to read the
       // misspellings in before sending it.
       ["Close spelling", "Search with typos in it"],
@@ -917,11 +964,11 @@ describe("CatalogPage", () => {
     expect(starters.textContent).not.toContain("eval set");
     expect(starters.querySelector(".ask-mosaic-starter-arms")).toBeNull();
     // No card prints a misspelling. The eval set's fuzzy queries are misspelled on
-    // purpose and the three run-on-click cards print a starter verbatim on a button
+    // purpose and the two run-on-click cards print a starter verbatim on a button
     // in Mosaic's own voice, so offering one shipped a spelling mistake as the
-    // store's suggestion. The fourth card reaches the same lane without printing
+    // store's suggestion. The third card reaches the same lane without printing
     // one, which is why this assertion still has to hold with it on screen.
-    for (const word of ["noice", "hedphones", "fligts", "marthon"]) {
+    for (const word of ["ergonmic", "ofice", "noice", "hedphones"]) {
       expect(starters.textContent).not.toContain(word);
     }
 
@@ -1225,16 +1272,61 @@ describe("CatalogPage", () => {
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
 
-    fireEvent.click(await screen.findByRole("button", { name: examples[2].query }));
+    fireEvent.click(await screen.findByRole("button", { name: examples[4].query }));
 
     await waitFor(() =>
       expect(api.agentStream).toHaveBeenCalledWith(
-        examples[2].query,
+        examples[4].query,
         {},
         expect.any(Function),
         undefined,
       ),
     );
+  });
+
+  it("shows a distinct retrieval-arm label on every starter card, never repeated", async () => {
+    // The bug this guards against: `starterPath` used to fall through to a
+    // catch-all "plain" path for any query naming `semantic`/`vector` without
+    // also naming `fts` or `pg_trgm`. Two of the rendered cards then both read
+    // "Plain language" and no card ever read "Meaning match", even though the
+    // underlying queries exercised different arms.
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+
+    const starters = await screen.findByRole("list", { name: "Example questions" });
+    const pathLabels = within(starters)
+      .getAllByRole("button")
+      .map((button) => button.querySelector(".ask-mosaic-starter-path")?.textContent);
+
+    // Witness: exactly three cards rendered - two clickable arms plus the
+    // close-spelling box - a literal independent of the uniqueness check
+    // below, so this cannot pass on an empty or short-circuited list.
+    expect(pathLabels).toHaveLength(3);
+    // No two cards carry the same label: the set of labels is exactly the
+    // three distinct retrieval-arm names, matching `armLabel` in
+    // `retrievalLanguage.ts` rather than a locally invented fourth string.
+    expect(new Set(pathLabels)).toEqual(
+      new Set(["Exact terms", "Meaning match", "Close spelling"]),
+    );
+    expect(new Set(pathLabels).size).toBe(3);
+  });
+
+  it("throws rather than silently mislabeling a row that names no known retrieval arm", () => {
+    // `starterPath` used to fall through to a catch-all "plain" label for
+    // anything it could not classify. Every real `demo_queries.jsonl` row
+    // names at least one of pg_trgm/fts/semantic/vector, so a row naming none
+    // of them is a fixture-contract violation, not a case the panel should
+    // silently render a label for.
+    expect(() =>
+      starterPath({
+        query_id: "D-999",
+        domain: "consumer_electronics",
+        query: "malformed row with no retrieval arm",
+        expected_techniques: ["rerank", "filters"],
+        variant: 1,
+      }),
+    ).toThrow(/no known retrieval arm/);
   });
 
   it("opens contextual filters and keeps active constraints visible", async () => {

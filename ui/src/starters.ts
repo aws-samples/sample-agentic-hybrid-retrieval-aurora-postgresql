@@ -29,33 +29,68 @@ import type { Domain, RetrievalExample } from "./types";
  * Mosaic's job is to handle it, not to author it.
  *
  * The lane is still offered, by `misspelledExample` below, as a box to fill
- * rather than a question to press.
+ * rather than a question to press. That makes this exactly the two arms a
+ * click can safely run: one card per clickable arm, no arm skipped and none
+ * doubled.
  */
-const starterPaths = ["exact", "plain"] as const;
+const starterPaths = ["exact", "semantic"] as const;
 
-/** How many starters the entry state shows. */
-const STARTER_COUNT = 3;
+/**
+ * How many starters run on click.
+ *
+ * Equal to `starterPaths.length` by construction: with two clickable arms and
+ * one pick per arm, two is the whole count, not a target the fill-remaining
+ * loop in `starterExamples` has to reach by raiding an arm a second time.
+ */
+const STARTER_COUNT = starterPaths.length;
 
 export type StarterPath = (typeof starterPaths)[number] | "misspelled";
 
+/**
+ * The one shopper-facing name for each path, pinned to `armLabel` so this file
+ * cannot carry its own copy of a string `retrievalLanguage.ts` already owns.
+ * Two independent copies of "Exact terms" is how a label and its arm drift
+ * apart; there is deliberately no local string literal here to drift.
+ */
 export const starterPathLabels: Record<StarterPath, string> = {
-  exact: "Exact terms",
-  misspelled: "Close spelling",
-  plain: "Plain language",
+  exact: armLabel.fts,
+  misspelled: armLabel.trigram,
+  semantic: armLabel.semantic,
 };
 
 /**
- * The retrieval path a validated eval query is written to exercise.
+ * The retrieval arm a validated eval query is written to exercise.
  *
  * A total function of `expected_techniques`, which every `demo_queries.jsonl`
  * row carries, so the label is read from the eval set rather than guessed from
- * the wording. `pg_trgm` outranks `fts` because a misspelled query names both
- * and the trigram arm is the one under test.
+ * the wording. Precedence matters because a query can name more than one arm:
+ * `pg_trgm` outranks everything else because a misspelled query names the
+ * trigram arm alongside others and the trigram arm is the one under test;
+ * `fts` outranks `semantic` for the same reason among the queries that name
+ * both. `semantic` and `vector` both name the semantic arm, matching the
+ * `vector`/`semantic` pair `TECHNIQUE_ARMS` below already carries.
+ *
+ * Throws rather than falling back to an invented path. Every row in
+ * `data/evals/demo_queries.jsonl` names at least one of `pg_trgm`, `fts`,
+ * `semantic`, or `vector` — checked against the fixture, not assumed — so a
+ * row reaching neither branch is the fixture breaking its own contract, and
+ * mislabeling it "plain" is the exact bug this function is being fixed to
+ * stop committing. A loud failure here is honest; a silent fourth path is not.
  */
 export function starterPath(example: RetrievalExample): StarterPath {
   if (example.expected_techniques.includes("pg_trgm")) return "misspelled";
   if (example.expected_techniques.includes("fts")) return "exact";
-  return "plain";
+  if (
+    example.expected_techniques.includes("semantic") ||
+    example.expected_techniques.includes("vector")
+  ) {
+    return "semantic";
+  }
+  throw new Error(
+    `starterPath: query_id ${example.query_id} names no known retrieval arm ` +
+      `(expected one of pg_trgm, fts, semantic, vector in expected_techniques, ` +
+      `got ${JSON.stringify(example.expected_techniques)})`,
+  );
 }
 
 /**
@@ -88,15 +123,17 @@ export function starterArmLabels(example: RetrievalExample): string[] {
 }
 
 /**
- * Up to three starters, preferring a domain no earlier pick used and then the
- * shortest query available.
+ * Up to two starters, one per clickable retrieval arm, preferring a domain no
+ * earlier pick used and then the shortest query available.
  *
  * Shortest rather than first: within a path the eval set's opening query is its
- * most elaborate, and three long sentences are what made this block unreadable.
- * The domain preference comes first so the starters still span consumer
- * electronics, running and fitness, and home office. Once each admitted path has
- * contributed one, the remaining slots are filled the same way, which is what
- * keeps the count at three now that one path is excluded.
+ * most elaborate, and long sentences are what made this block unreadable. The
+ * domain preference comes first so the starters still span different product
+ * domains rather than converging on one. Once each admitted path — `exact` and
+ * `semantic` — has contributed one pick, `picks.length` already equals
+ * `STARTER_COUNT`, so the remaining-slots loop below does not run in ordinary
+ * operation; it exists only so a path with zero admitted examples cannot leave
+ * a slot silently empty, drawing from whatever remains instead.
  */
 export function starterExamples(
   examples: RetrievalExample[],
@@ -136,11 +173,16 @@ export function starterExamples(
  * The close-spelling query the entry state offers, or null if the eval set has
  * none.
  *
- * Shortest of the lane, on the same rule the three run-on-click cards use, so
+ * Shortest of the lane, on the same rule the two run-on-click cards use, so
  * what lands in the composer is short enough to read the misspellings in before
  * pressing send — which is the whole point of putting it there rather than on a
- * button. The entry state had a lexical path and two plain-language ones and no
- * way to reach the third arm without knowing to mistype something.
+ * button.
+ *
+ * The invariant this and `starterExamples` together maintain: one card per
+ * retrieval arm, no arm skipped and none doubled. `exact` and `semantic` each
+ * get a clickable card; `misspelled` gets this box-to-fill instead of a third
+ * click target, because a clickable card would have Mosaic print a typo in its
+ * own voice. Three arms, three cards, two shapes.
  */
 export function misspelledExample(
   examples: RetrievalExample[],

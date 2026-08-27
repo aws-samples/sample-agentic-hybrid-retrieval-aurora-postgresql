@@ -1214,9 +1214,10 @@ function Turn({
 }
 
 /**
- * One card per retrieval path, so the entry state shows the contrast the
- * workshop teaches before anyone types: the same catalog answers exact terms, a
- * misspelling, and plain language over three different arms.
+ * One card per retrieval arm, so the entry state shows the contrast the
+ * workshop teaches before anyone types: the same catalog answers exact terms
+ * and meaning, both on click, and a misspelling by filling a box rather than
+ * pressing one.
  * The eval metadata stays behind the surface; shoppers see useful questions,
  * while the run itself reports what actually happened.
  */
@@ -1236,12 +1237,12 @@ function EntryState({
    * The close-spelling path, offered as a box to fill rather than a question to
    * press.
    *
-   * The other three run on click, and this one deliberately does not. Its query
-   * is misspelled on purpose - it is how the eval set exercises the trigram arm -
-   * and a card that printed it would ship a spelling mistake as the store's own
-   * suggestion. Loading it into the composer instead leaves the typo where the
-   * lesson needs it: in the shopper's input, sent by the shopper. Mosaic does not
-   * manufacture the typo. Mosaic handles it.
+   * The other two `starters` run on click, and this one deliberately does not.
+   * Its query is misspelled on purpose - it is how the eval set exercises the
+   * trigram arm - and a card that printed it would ship a spelling mistake as
+   * the store's own suggestion. Loading it into the composer instead leaves the
+   * typo where the lesson needs it: in the shopper's input, sent by the
+   * shopper. Mosaic does not manufacture the typo. Mosaic handles it.
    */
   const fuzzy = misspelledExample(examples);
   return (
