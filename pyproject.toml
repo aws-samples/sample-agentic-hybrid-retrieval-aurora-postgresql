@@ -25,6 +25,9 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "aurora: requires the live Aurora cluster and Bedrock model access",
+]
 
 [tool.ruff]
 target-version = "py313"
