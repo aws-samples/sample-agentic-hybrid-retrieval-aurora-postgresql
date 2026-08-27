@@ -470,3 +470,78 @@ def test_every_gated_capability_is_actually_covered():
         f"check; skill has {sorted(skill_capabilities)}, gate has "
         f"{sorted(GATED_CAPABILITIES)}"
     )
+
+
+def test_skill_doc_contract_block_matches_the_registry():
+    from scripts.tool_contracts import (
+        SKILL_BEGIN,
+        SKILL_END,
+        SKILL_PATH,
+        render_skill_contract,
+    )
+
+    text = SKILL_PATH.read_text(encoding="utf-8")
+    start = text.index(SKILL_BEGIN) + len(SKILL_BEGIN)
+    end = text.index(SKILL_END)
+
+    assert text[start:end] == render_skill_contract(), (
+        "SKILL.md's generated block drifted from "
+        "db/config/agent_tool_contracts.json; run "
+        "python scripts/tool_contracts.py --write"
+    )
+
+
+def test_skill_doc_names_every_skill_operation_and_no_others():
+    from scripts.tool_contracts import SKILL_PATH
+
+    text = SKILL_PATH.read_text(encoding="utf-8")
+
+    for name in (
+        "search_products",
+        "get_product_evidence",
+        "compare_products",
+        "explain_retrieval",
+    ):
+        assert name in text, name
+    assert "synthesize_cited_answer" in text, (
+        "SKILL.md must say synthesis is outside the skill, so it has to name it"
+    )
+
+
+def test_skill_doc_carries_the_two_rank_spaces():
+    """Conflating the pool space with the granted space invents rank movement."""
+    from scripts.tool_contracts import SKILL_PATH
+
+    text = SKILL_PATH.read_text(encoding="utf-8")
+
+    assert "pre_rerank_rank" in text
+    assert "authorized_limit" in text
+    assert "candidate 27" in text, "the explain-does-not-authorize line is missing"
+
+
+def test_skill_doc_holds_no_protocol_details():
+    """A2A and AgentCore hosting belong in the deployment profile, not here.
+
+    Falsifier: paste the Agent Card contract into SKILL.md and this fails.
+    """
+    from scripts.tool_contracts import SKILL_PATH
+
+    text = SKILL_PATH.read_text(encoding="utf-8").lower()
+
+    for forbidden in ("jsonrpc", "agent-card.json", "protocolversion", "arm64"):
+        assert forbidden not in text, (
+            f"SKILL.md mentions {forbidden!r}; move it to "
+            "docs/skill-composition.md so the contract survives hosting changes"
+        )
+
+
+def test_skill_doc_uses_real_wire_field_names():
+    """No aspirational names. `/api/search` returns `search_event_id`."""
+    from scripts.tool_contracts import SKILL_PATH
+
+    text = SKILL_PATH.read_text(encoding="utf-8")
+
+    assert "search_event_id" in text
+    assert "candidate_limit" not in text, (
+        "there is no candidate_limit field; the served window is `limit`"
+    )

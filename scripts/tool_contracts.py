@@ -11,7 +11,21 @@ from typing import Any, Literal
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = ROOT / "db" / "config" / "agent_tool_contracts.json"
 SQL_PATH = ROOT / "db" / "sql" / "16_seed_tool_contracts.sql"
+SKILL_PATH = ROOT / "skills" / "mosaic-hybrid-retrieval" / "SKILL.md"
+SKILL_BEGIN = "<!-- BEGIN GENERATED CONTRACT: scripts/tool_contracts.py -->\n"
+SKILL_END = "<!-- END GENERATED CONTRACT -->"
 Surface = Literal["agent", "mcp", "skill"]
+
+#: The route each skill capability is served on. Declared here rather than in the
+#: registry because a route is a property of this deployment, not of the
+#: capability, and the contract is meant to outlive one HTTP layout. A test
+#: asserts every one of these is registered on the app.
+SKILL_ROUTES = {
+    "search_products": "POST /api/search",
+    "get_product_evidence": "POST /api/products/{product_id}/evidence",
+    "compare_products": "POST /api/retrieval/events/{search_event_id}/compare",
+    "explain_retrieval": "GET /api/retrieval/events/{search_event_id}",
+}
 
 
 class ToolContractError(RuntimeError):
@@ -272,6 +286,26 @@ SET description = EXCLUDED.description,
 """
 
 
+def render_skill_contract() -> str:
+    """Render the skill operations table from the canonical registry."""
+    lines = [
+        "",
+        "| Operation | Capability | Route | Required arguments | Read-only |",
+        "|---|---|---|---|---|",
+    ]
+    for contract in contracts_for_surface("skill"):
+        name = contract["name"]
+        required = contract["input_schema"].get("required", [])
+        lines.append(
+            f"| `{name}` | `{contract['capability']}` | "
+            f"`{SKILL_ROUTES[name]}` | "
+            f"{', '.join(f'`{item}`' for item in required)} | "
+            f"{'yes' if contract['read_only'] else 'no'} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     action = parser.add_mutually_exclusive_group(required=True)
@@ -279,26 +313,39 @@ def main() -> int:
     action.add_argument("--write", action="store_true")
     args = parser.parse_args()
     rendered = render_database_sql()
+    skill_block = render_skill_contract()
+    skill_text = SKILL_PATH.read_text(encoding="utf-8")
+    start = skill_text.index(SKILL_BEGIN) + len(SKILL_BEGIN)
+    end = skill_text.index(SKILL_END)
     if args.write:
         SQL_PATH.write_text(rendered, encoding="utf-8")
-        print(f"Wrote {SQL_PATH.relative_to(ROOT)}")
+        SKILL_PATH.write_text(
+            skill_text[:start] + skill_block + skill_text[end:],
+            encoding="utf-8",
+        )
+        print(f"Wrote {SQL_PATH.relative_to(ROOT)} and {SKILL_PATH.relative_to(ROOT)}")
         return 0
-    current = SQL_PATH.read_text(encoding="utf-8")
-    if current != rendered:
+    if SQL_PATH.read_text(encoding="utf-8") != rendered:
         raise SystemExit(
             "agent tool SQL registry differs from "
+            "db/config/agent_tool_contracts.json; run "
+            "python scripts/tool_contracts.py --write"
+        )
+    if skill_text[start:end] != skill_block:
+        raise SystemExit(
+            "SKILL.md's generated contract block differs from "
             "db/config/agent_tool_contracts.json; run "
             "python scripts/tool_contracts.py --write"
         )
     receipt = capability_parity_receipt()
     print(
         f"PASS: canonical registry projects "
-        f"{len(contracts_for_surface('agent'))} agent and "
-        f"{len(contracts_for_surface('mcp'))} MCP contracts; "
-        f"{len(receipt['cross_contract_capabilities'])} capabilities declared "
-        f"under more than one contract record preserve version, semantic "
-        f"payload, and read-only policy across those records; SQL registry "
-        f"matches all agent tools"
+        f"{len(contracts_for_surface('agent'))} agent, "
+        f"{len(contracts_for_surface('mcp'))} MCP, and "
+        f"{len(contracts_for_surface('skill'))} skill contracts; "
+        f"{len(receipt['shared_capabilities'])} capabilities preserve version, "
+        f"semantic payload, and read-only policy across surfaces; SQL registry "
+        f"and SKILL.md match the source of truth"
     )
     return 0
 
