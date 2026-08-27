@@ -103,6 +103,11 @@ the route does not create an embedding, invoke reranking, or call a model.
 - `GET /api/retrieval/examples`
 - `GET /api/retrieval/events/{search_event_id}`
 - `POST /api/retrieval/events/{search_event_id}/plan`
+- `POST /api/retrieval/events/{search_event_id}/compare` requires two to five
+  distinct `product_ids`, all granted by that retrieval's scope. A product the
+  retrieval did not grant returns 404 with the same generic scope-denied
+  detail as the evidence route. See `skills/mosaic-hybrid-retrieval/SKILL.md`
+  for the scope rules.
 - `GET /api/benchmarks/projection`
 - `GET /api/tools`
 
@@ -114,6 +119,12 @@ fusion call after applying `mosaic_search.configure_hnsw`, then persists
 on-demand because `ANALYZE` executes the query. Benchmark projections remain
 labeled simulated; `scripts/benchmark_hnsw.py` persists measured Aurora runs to
 `mosaic_bench`.
+
+The compare route is a projection over one retrieval's persisted receipt: it
+hydrates the requested products and their ranking signals from
+`mosaic.search_result_event` without issuing fusion, reranking, or any new
+candidate generation, so it cannot return a set wider than what that
+retrieval already granted.
 
 `GET /api/tools` defaults to `surface=agent`; pass `surface=mcp` for the
 explicit MCP subset. Both are projections of

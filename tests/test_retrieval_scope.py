@@ -411,3 +411,122 @@ def test_evidence_404_body_discloses_neither_products_nor_window(monkeypatch):
     assert "412" not in body
     assert "37" not in body
     assert "authorized window" not in body
+
+
+def _receipt_row(product_id=101, result_rank=1):
+    return {
+        "product_id": product_id,
+        "result_rank": result_rank,
+        "fts_rank": 2,
+        "trigram_rank": None,
+        "semantic_rank": 1,
+        "fused_rank": 1,
+        "rerank_rank": 1,
+        "scores": {
+            "fts": 0.4,
+            "trigram": None,
+            "semantic": 0.8,
+            "rrf": 0.03,
+            "pre_rerank": 0.03,
+            "rerank": 0.91,
+            "exact_sku_match": False,
+        },
+        "provenance": {
+            "channels": {
+                "fts": {"rrf_contribution": 0.01},
+                "vector": {"rrf_contribution": 0.02},
+            }
+        },
+    }
+
+
+def test_signals_from_receipt_is_public_on_retrieval():
+    """The projection lives with receipts, not with the authorization guard."""
+    from service import retrieval, retrieval_scope
+
+    signals = retrieval.signals_from_receipt(_receipt_row())
+
+    assert signals.fts.rank == 2
+    assert signals.fts.rrf_contribution == 0.01
+    assert signals.semantic.rrf_contribution == 0.02
+    assert signals.pre_rerank_rank == 1
+    assert signals.final_rank == 1
+    assert not hasattr(retrieval_scope, "signals_from_receipt")
+
+
+def test_retrieval_scope_exposes_exactly_one_public_primitive():
+    """Cohesion rule: the guard module must not become a junk drawer.
+
+    Asserts on what the module *defines*, filtered by `__module__`, rather than on
+    everything in its namespace. Listing imports here would make the test fail on
+    an unrelated refactor while still passing if a second primitive were added,
+    which is backwards.
+
+    Falsifier: add any second public function or class to
+    `service/retrieval_scope.py` and this fails.
+    """
+    import inspect
+
+    from service import retrieval_scope
+
+    defined_here = {
+        name
+        for name, value in vars(retrieval_scope).items()
+        if not name.startswith("_")
+        and (inspect.isfunction(value) or inspect.isclass(value))
+        and getattr(value, "__module__", None) == "service.retrieval_scope"
+    }
+
+    assert defined_here == {
+        "ScopeViolation",
+        "assert_products_in_retrieval_scope",
+    }
+    assert retrieval_scope.__all__ == [
+        "SCOPE_DENIED_DETAIL",
+        "ScopeViolation",
+        "assert_products_in_retrieval_scope",
+    ]
+
+
+def test_compare_route_refuses_an_ungranted_product_with_404(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from service import main
+    from service.main import app
+    from service.retrieval_scope import SCOPE_DENIED_DETAIL, ScopeViolation
+
+    def refuse(_scope, _products):
+        raise ScopeViolation("FAIL retrieval scope products [412]: window 3")
+
+    monkeypatch.setattr(main, "assert_products_in_retrieval_scope", refuse)
+
+    response = TestClient(app).post(
+        f"/api/retrieval/events/{SCOPE_ID}/compare",
+        json={"product_ids": [101, 412]},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == SCOPE_DENIED_DETAIL
+
+
+def test_compare_route_needs_two_to_five_distinct_products():
+    from fastapi.testclient import TestClient
+
+    from service.main import app
+
+    client = TestClient(app)
+
+    assert (
+        client.post(
+            f"/api/retrieval/events/{SCOPE_ID}/compare",
+            json={"product_ids": [101]},
+        ).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            f"/api/retrieval/events/{SCOPE_ID}/compare",
+            json={"product_ids": [1, 2, 3, 4, 5, 6]},
+        ).status_code
+        == 422
+    )

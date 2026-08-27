@@ -362,6 +362,21 @@ class ProductEvidenceResponse(BaseModel):
     evidence: list[EvidenceRecord]
 
 
+class ProductComparisonRequest(BaseModel):
+    """Products to compare, all of which the retrieval scope must have granted."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    product_ids: list[int] = Field(min_length=2, max_length=5)
+
+
+class ProductComparisonResponse(BaseModel):
+    """A side-by-side projection over products one retrieval already granted."""
+
+    retrieval_scope_id: UUID
+    products: list[ProductSummary]
+
+
 class ProductDetail(ProductSummary):
     long_description: str
     canonical_group_id: str

@@ -18,12 +18,10 @@ from service.model_runtime import model_runtime_error
 from service.models import (
     AgentConversationContext,
     ProductSummary,
-    RankSignal,
-    ResultSignals,
     SearchFilters,
     SearchRequest,
 )
-from service.retrieval import get_retrieval_service
+from service.retrieval import get_retrieval_service, signals_from_receipt
 from service.synthesis import synthesize_cited_answer as synthesize_answer
 
 logger = logging.getLogger(__name__)
@@ -42,44 +40,6 @@ _TRACE_ORIGIN: ContextVar[Literal["model", "controller_fallback"]] = ContextVar(
 
 class ConversationContextError(RuntimeError):
     """A follow-up failed server-side prior-answer authorization."""
-
-
-def _optional_float(value: Any) -> float | None:
-    return None if value is None else float(value)
-
-
-def _signals_from_receipt(row: dict[str, Any]) -> ResultSignals:
-    """Restore ranking signals from the persisted retrieval receipt."""
-    scores = row.get("scores") or {}
-    channels = (row.get("provenance") or {}).get("channels") or {}
-
-    def contribution(channel: str) -> float | None:
-        return _optional_float((channels.get(channel) or {}).get("rrf_contribution"))
-
-    return ResultSignals(
-        fts=RankSignal(
-            rank=row["fts_rank"],
-            raw_score=_optional_float(scores.get("fts")),
-            rrf_contribution=contribution("fts"),
-        ),
-        trigram=RankSignal(
-            rank=row["trigram_rank"],
-            raw_score=_optional_float(scores.get("trigram")),
-            rrf_contribution=contribution("trigram"),
-        ),
-        semantic=RankSignal(
-            rank=row["semantic_rank"],
-            raw_score=_optional_float(scores.get("semantic")),
-            rrf_contribution=contribution("vector"),
-        ),
-        rrf_score=float(scores["rrf"]),
-        pre_rerank_rank=row["fused_rank"],
-        pre_rerank_score=float(scores["pre_rerank"]),
-        rerank_score=_optional_float(scores.get("rerank")),
-        rerank_rank=row["rerank_rank"],
-        exact_sku_match=bool(scores.get("exact_sku_match")),
-        final_rank=row["result_rank"],
-    )
 
 
 def _uuid_list(values: Any, field: str) -> list[UUID]:
@@ -234,7 +194,7 @@ def _load_conversation_context(
         products = [
             product.model_copy(
                 update={
-                    "signals": _signals_from_receipt(
+                    "signals": signals_from_receipt(
                         receipts_by_product[product.product_id]
                     )
                 }

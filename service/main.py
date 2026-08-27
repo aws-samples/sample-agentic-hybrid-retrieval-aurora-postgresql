@@ -27,6 +27,7 @@ from service.catalog import (
     get_evidence_record,
     get_product,
     get_product_evidence_records,
+    get_product_summaries,
     list_products,
     review_highlights,
 )
@@ -45,6 +46,8 @@ from service.models import (
     EvidenceRecord,
     FusionComparisonResponse,
     HnswProbeRequest,
+    ProductComparisonRequest,
+    ProductComparisonResponse,
     ProductDetail,
     ProductEvidenceRequest,
     ProductEvidenceResponse,
@@ -55,7 +58,7 @@ from service.models import (
     SearchRequest,
     SearchResponse,
 )
-from service.retrieval import get_retrieval_service
+from service.retrieval import get_retrieval_service, signals_from_receipt
 from service.retrieval_scope import (
     SCOPE_DENIED_DETAIL,
     ScopeViolation,
@@ -572,6 +575,57 @@ def retrieval_event(search_event_id: UUID) -> RetrievalRunResponse:
     return RetrievalRunResponse(
         run=dict(event),
         candidates=[dict(row) for row in candidates],
+    )
+
+
+@app.post(
+    "/api/retrieval/events/{search_event_id}/compare",
+    response_model=ProductComparisonResponse,
+)
+def compare_scoped_products(
+    search_event_id: UUID,
+    request: ProductComparisonRequest,
+) -> ProductComparisonResponse:
+    """Compare products one retrieval granted, without retrieving anything.
+
+    A deterministic projection: it reads the persisted receipt for its ranking
+    signals and hydrates the catalog rows. It issues no fusion, no rerank, and no
+    candidate generation, so it cannot widen the set it was given.
+    """
+    unique_ids = list(dict.fromkeys(request.product_ids))
+    if not 2 <= len(unique_ids) <= 5:
+        raise HTTPException(
+            422,
+            f"compare requires two to five distinct products, found "
+            f"{len(unique_ids)}; fix: pass distinct product IDs from this "
+            "retrieval's granted results.",
+        )
+    try:
+        assert_products_in_retrieval_scope(search_event_id, unique_ids)
+    except ScopeViolation as error:
+        raise HTTPException(404, SCOPE_DENIED_DETAIL) from error
+
+    with connect() as connection:
+        receipts = connection.execute(
+            """
+            SELECT product_id, result_rank, fts_rank, trigram_rank,
+                   semantic_rank, fused_rank, rerank_rank, scores, provenance
+            FROM mosaic.search_result_event
+            WHERE search_event_id = %s
+              AND product_id = ANY(%s::bigint[])
+            """,
+            (search_event_id, unique_ids),
+        ).fetchall()
+    by_product = {row["product_id"]: dict(row) for row in receipts}
+    products = [
+        product.model_copy(
+            update={"signals": signals_from_receipt(by_product[product.product_id])}
+        )
+        for product in get_product_summaries(unique_ids)
+    ]
+    return ProductComparisonResponse(
+        retrieval_scope_id=search_event_id,
+        products=products,
     )
 
 

@@ -647,6 +647,47 @@ def _as_float(value: Any) -> float | None:
     return None if value is None else float(value)
 
 
+def signals_from_receipt(row: dict[str, Any]) -> ResultSignals:
+    """Rebuild ranking signals from one persisted `search_result_event` row.
+
+    The receipt is the record of what was fused, so a caller replaying a past
+    retrieval reads these numbers rather than recomputing them. `final_rank`
+    comes from `result_rank`, which is the returned-row space, while
+    `pre_rerank_rank` comes from `fused_rank`, which is the full pool space.
+    Those are different spaces; subtracting one from the other invents movement.
+    """
+    scores = row.get("scores") or {}
+    channels = (row.get("provenance") or {}).get("channels") or {}
+
+    def contribution(channel: str) -> float | None:
+        return _as_float((channels.get(channel) or {}).get("rrf_contribution"))
+
+    return ResultSignals(
+        fts=RankSignal(
+            rank=row["fts_rank"],
+            raw_score=_as_float(scores.get("fts")),
+            rrf_contribution=contribution("fts"),
+        ),
+        trigram=RankSignal(
+            rank=row["trigram_rank"],
+            raw_score=_as_float(scores.get("trigram")),
+            rrf_contribution=contribution("trigram"),
+        ),
+        semantic=RankSignal(
+            rank=row["semantic_rank"],
+            raw_score=_as_float(scores.get("semantic")),
+            rrf_contribution=contribution("vector"),
+        ),
+        rrf_score=float(scores["rrf"]),
+        pre_rerank_rank=row["fused_rank"],
+        pre_rerank_score=float(scores["pre_rerank"]),
+        rerank_score=_as_float(scores.get("rerank")),
+        rerank_rank=row["rerank_rank"],
+        exact_sku_match=bool(scores.get("exact_sku_match")),
+        final_rank=row["result_rank"],
+    )
+
+
 def _contribution(row: dict[str, Any], channel: str) -> float | None:
     """Pull one arm's RRF contribution out of the SQL-built provenance.
 
