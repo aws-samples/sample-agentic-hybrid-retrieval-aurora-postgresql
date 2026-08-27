@@ -710,9 +710,15 @@ def test_service_scope_equals_run_scope_on_the_agent_path():
     """The two authorities must not disagree about what was granted.
 
     Falsifier: drop `authorized_limit` from the tool's SearchRequest and the
-    service authorizes all 50 pooled candidates while `_RUN` registers 2.
+    service authorizes every one of the ~50 pooled candidates persisted in
+    `mosaic.search_result_event`, while `_RUN` registers only the 2 the model
+    saw. This reads that pool directly -- by `search_event_id`, ordered by
+    `result_rank` -- rather than the tool's returned `products`, which is
+    already truncated to the granted rows and so can never exercise a
+    refusal.
     """
     from service import agent_tools
+    from service.db import connect
     from service.models import SearchFilters
     from service.retrieval_scope import (
         ScopeViolation,
@@ -733,14 +739,30 @@ def test_service_scope_equals_run_scope_on_the_agent_path():
         scope = state["search_event_ids"][0]
         registered = sorted(state["products"])
 
+        with connect() as connection:
+            pool = connection.execute(
+                """
+                SELECT product_id, result_rank
+                FROM mosaic.search_result_event
+                WHERE search_event_id = %(scope_id)s
+                ORDER BY result_rank
+                """,
+                {"scope_id": scope},
+            ).fetchall()
+
+        assert len(pool) > len(registered), (
+            f"pool size {len(pool)} did not exceed granted size "
+            f"{len(registered)}; the pool has collapsed to the returned rows "
+            "and this test can no longer discriminate"
+        )
+
         assert_products_in_retrieval_scope(scope, registered)
 
-        ungranted = [
-            product["product_id"]
-            for product in result["products"]
-            if product["product_id"] not in state["products"]
-        ]
-        for product_id in ungranted:
+        beyond_window = [
+            row["product_id"] for row in pool if row["result_rank"] > len(registered)
+        ][:3]
+        assert beyond_window, "no pool member beyond the authorized window was found"
+        for product_id in beyond_window:
             with pytest.raises(ScopeViolation):
                 assert_products_in_retrieval_scope(scope, [product_id])
     finally:
