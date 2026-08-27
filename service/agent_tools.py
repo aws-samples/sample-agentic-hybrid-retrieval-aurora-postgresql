@@ -563,10 +563,13 @@ def search_products(
             SearchRequest(
                 query=query,
                 filters=filters,
-                # The agent receives the complete bounded rerank window. Evidence
-                # is retrieved later for its selected products; it never changes
-                # product eligibility or retrieval order.
+                # The agent receives the complete bounded rerank window so it can
+                # inspect the pool, but it grants the model only the top slice.
+                # `authorized_limit` is that grant: without it the receipt would
+                # record 50 while `_RUN` registered 2, and the service boundary
+                # would authorize 48 products the model never saw.
                 limit=get_settings().rerank_candidate_limit,
+                authorized_limit=requested_limit,
                 include_diagnostics=True,
                 rerank=True,
             )

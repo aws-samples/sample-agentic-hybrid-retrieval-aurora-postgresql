@@ -606,3 +606,142 @@ def test_compare_route_accepts_duplicates_that_collapse_within_bounds(monkeypatc
     )
 
     assert response.status_code == 404
+
+
+def test_agent_declares_the_window_it_grants_not_the_one_it_requests(monkeypatch):
+    """The agent asks for 50 to inspect the pool and grants at most 2.
+
+    Falsifier: if the tool passed no `authorized_limit`, the request would
+    declare 50, and every one of the 50 pooled candidates would become
+    evidence-addressable while the model only ever saw 2.
+    """
+    from service import agent_tools
+    from service.models import (
+        RetrievalDiagnostics,
+        RetrievalProfile,
+        SearchFilters,
+        SearchResponse,
+    )
+
+    captured = {}
+
+    def _product(product_id):
+        from service.models import ProductSummary, SourceAttribution
+
+        return ProductSummary(
+            product_id=product_id,
+            sku=f"SKU-{product_id}",
+            title=f"Product {product_id}",
+            short_description="A product.",
+            domain="consumer_electronics",
+            category_key="over-ear-headphones",
+            category_path="Electronics",
+            brand="Brand",
+            model=f"M{product_id}",
+            price_cents=19900,
+            list_price_cents=19900,
+            review_count=10,
+            availability="in_stock",
+            inventory_count=5,
+            attributes={},
+            tags=[],
+            sources=[
+                SourceAttribution(
+                    source_uri=f"https://example.test/{product_id}",
+                    revision="1",
+                    title=f"Product {product_id}",
+                    quote="A product.",
+                )
+            ],
+        )
+
+    class FakeRetrieval:
+        def search(self, request):
+            captured["limit"] = request.limit
+            captured["authorized_limit"] = request.authorized_limit
+            return SearchResponse(
+                search_event_id=SCOPE_ID,
+                query=request.query,
+                normalized_query=request.query,
+                applied_filters={},
+                results=[_product(100 + index) for index in range(50)],
+                diagnostics=RetrievalDiagnostics(
+                    strategy="rrf_fusion+rerank+exact_sku_preservation",
+                    embedding_model_id="fake",
+                    embedding_dimensions=1024,
+                    rerank_model_id="fake",
+                    rerank_status="applied",
+                    ranking_policy=["RRF candidate fusion"],
+                    retrieval_profile=RetrievalProfile(),
+                    candidate_counts={"fused_pool": 50},
+                    stage_timings_ms={},
+                    total_latency_ms=1,
+                    warnings=[],
+                ),
+            )
+
+    monkeypatch.setattr(agent_tools, "get_retrieval_service", lambda: FakeRetrieval())
+    state = {
+        "base_filters": SearchFilters(),
+        "result_limit": 2,
+        "searches": [],
+        "search_event_ids": [],
+        "context_product_ids": [],
+        "products": {},
+        "evidence": {},
+        "evidence_by_product": {},
+        "trace": [],
+        "execution_path": "full_retrieval",
+    }
+    token = agent_tools._RUN.set(state)
+    try:
+        result = agent_tools.search_products("noise cancelling headphones", limit=2)
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert result["ok"] is True
+    assert captured["limit"] == 50, "the agent still inspects the full pool"
+    assert captured["authorized_limit"] == 2, "but it grants only what it returns"
+    assert len(state["products"]) == captured["authorized_limit"]
+
+
+@pytest.mark.aurora
+def test_service_scope_equals_run_scope_on_the_agent_path():
+    """The two authorities must not disagree about what was granted.
+
+    Falsifier: drop `authorized_limit` from the tool's SearchRequest and the
+    service authorizes all 50 pooled candidates while `_RUN` registers 2.
+    """
+    from service import agent_tools
+    from service.models import SearchFilters
+    from service.retrieval_scope import (
+        ScopeViolation,
+        assert_products_in_retrieval_scope,
+    )
+
+    state = agent_tools.start_run(
+        "noise cancelling headphones under $300",
+        SearchFilters(),
+        result_limit=2,
+    )
+    token = agent_tools._RUN.set(state)
+    try:
+        result = agent_tools.search_products(
+            "noise cancelling headphones under $300", limit=2
+        )
+        assert result["ok"] is True, result
+        scope = state["search_event_ids"][0]
+        registered = sorted(state["products"])
+
+        assert_products_in_retrieval_scope(scope, registered)
+
+        ungranted = [
+            product["product_id"]
+            for product in result["products"]
+            if product["product_id"] not in state["products"]
+        ]
+        for product_id in ungranted:
+            with pytest.raises(ScopeViolation):
+                assert_products_in_retrieval_scope(scope, [product_id])
+    finally:
+        agent_tools._RUN.reset(token)
