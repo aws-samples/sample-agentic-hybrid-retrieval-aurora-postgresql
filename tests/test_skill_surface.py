@@ -4,6 +4,7 @@ import ast
 import copy
 import json
 import re
+import typing
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,7 @@ from scripts.tool_contracts import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+COMPOSITION_PATH = ROOT / "docs" / "skill-composition.md"
 
 
 def test_every_contract_declares_a_capability(tmp_path, monkeypatch):
@@ -692,9 +694,6 @@ def test_skill_doc_uses_real_wire_field_names():
     )
 
 
-COMPOSITION_PATH = ROOT / "docs" / "skill-composition.md"
-
-
 def test_composition_doc_states_no_a2a_endpoint_is_deployed():
     """A2A stays visibly honest: documented, never a claim it is running."""
     text = COMPOSITION_PATH.read_text(encoding="utf-8")
@@ -752,7 +751,219 @@ def test_no_a2a_dependency_entered_any_environment():
 
 
 def test_skill_doc_link_to_the_composition_doc_resolves():
+    """The file path SKILL.md points to for composition details must exist."""
     from scripts.tool_contracts import SKILL_PATH
 
     assert "docs/skill-composition.md" in SKILL_PATH.read_text(encoding="utf-8")
     assert COMPOSITION_PATH.exists()
+
+
+#: docs/skill-composition.md Section 3's "genuinely unobservable" list,
+#: authored by hand from the disposition table that shipped with the fix for
+#: the Critical this gate exists to catch -- not extracted from the document's
+#: own prose. A gate that regenerated this set by parsing the document would
+#: agree with itself by construction; see `_assert_no_hidden_field_names`.
+_HIDDEN_FIELD_NAME_TERMS = {
+    "tsvector": "the tsvector/tsquery mechanics behind the full-text arm",
+    "tsquery": "the tsvector/tsquery mechanics behind the full-text arm",
+    "rrf_formula": "the reciprocal rank fusion formula itself",
+    "fusion_equation": "the reciprocal rank fusion formula itself",
+    "storage_schema": "how evidence rows are stored",
+    "evidence_table": "how evidence rows are stored",
+    "column_layout": "how evidence rows are stored",
+}
+
+
+def _nested_pydantic_models(annotation: object) -> "typing.Iterator[type]":
+    """Yield every Pydantic model type reachable from a field annotation.
+
+    Walks `list[...]`, `dict[...]`, `X | None`, and other generic annotations
+    via `typing.get_args`, so a model nested inside a container is found the
+    same way a client parsing the JSON would encounter it.
+    """
+    from pydantic import BaseModel
+
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        yield annotation
+        return
+    for arg in typing.get_args(annotation):
+        yield from _nested_pydantic_models(arg)
+
+
+def _model_field_names(model: type, seen: set[type] | None = None) -> set[str]:
+    """Recursively collect every field name declared by a model and its nesting.
+
+    `RetrievalRunResponse` only declares `run` and `candidates` at its own
+    top level; the fields that actually matter for this gate, like
+    `SearchEventRecord.hnsw_settings`, live one or more levels down. A gate
+    that only read `model_fields` at the top level would never see them.
+    """
+    if seen is None:
+        seen = set()
+    if model in seen:
+        return set()
+    seen.add(model)
+    names: set[str] = set()
+    for field_name, field in model.model_fields.items():
+        names.add(field_name)
+        for nested in _nested_pydantic_models(field.annotation):
+            names |= _model_field_names(nested, seen)
+    return names
+
+
+def _dict_literal_keys(source: str, variable_name: str) -> set[str]:
+    """Extract the literal string keys of one `variable_name = {...}` assignment.
+
+    Parses the AST rather than importing the module, per house rule 3's spirit
+    of reading the production source directly: `service/retrieval.py` needs a
+    live connection factory to import cleanly in some configurations, and the
+    keys of a dict literal are visible without ever running the module.
+    """
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        if len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+            continue
+        if node.targets[0].id != variable_name:
+            continue
+        if not isinstance(node.value, ast.Dict):
+            continue
+        return {
+            key.value
+            for key in node.value.keys
+            if isinstance(key, ast.Constant) and isinstance(key.value, str)
+        }
+    raise AssertionError(f"no dict literal assignment to {variable_name!r} found")
+
+
+def _assert_no_hidden_field_names(names: set[str]) -> None:
+    """Raise if any name would falsify a Section 3 "genuinely hidden" claim.
+
+    Shared between the real-model gate below and its two falsifiers, so all
+    three exercise the exact same predicate rather than hand-written copies
+    that could drift apart -- and so the falsifiers prove the predicate itself
+    discriminates, not just that some other, differently-written check does.
+    """
+    lowered = {name.lower() for name in names}
+    for term, claim in _HIDDEN_FIELD_NAME_TERMS.items():
+        offenders = {name for name in lowered if term in name}
+        assert not offenders, (
+            f"a name matches {term!r} ({sorted(offenders)}), which would make "
+            f"{claim!r} observable; docs/skill-composition.md Section 3 calls "
+            "this genuinely hidden"
+        )
+
+
+def test_hidden_retrieval_internals_stay_absent_from_the_skill_response_models():
+    """Finding 3 gate: pin Section 3's "genuinely hidden" claims to the models.
+
+    The Critical this fixes shipped because nothing checked
+    `docs/skill-composition.md`'s prose against the real response models --
+    a prose assertion about code went unverified. This checks the models the
+    four skill operations actually return, at every nesting depth, against a
+    hand-authored set of forbidden field-name substrings (`_HIDDEN_FIELD_NAME_
+    TERMS` above), and separately checks `candidate_counts`'s keys by parsing
+    `service/retrieval.py`'s own dict literal. Neither input is derived from
+    this document's text, which is what keeps this from being the document
+    re-deriving and agreeing with itself.
+    """
+    from service import models
+
+    skill_response_models = {
+        "search_products": models.SearchResponse,
+        "get_product_evidence": models.ProductEvidenceResponse,
+        "compare_products": models.ProductComparisonResponse,
+        "explain_retrieval": models.RetrievalRunResponse,
+    }
+
+    all_field_names: set[str] = set()
+    for model in skill_response_models.values():
+        all_field_names |= _model_field_names(model)
+
+    # Witness, independent of the forbidden-term loop below (house rule 7): a
+    # literal count, not derived from the same predicate that loop checks. If
+    # the recursive nested-model walk above stopped short -- say, it silently
+    # dropped nested models -- this would still catch it, because the loop
+    # would then be examining far fewer names than the schema actually
+    # declares. Measured against the real models at the time this gate was
+    # written: 108.
+    assert len(all_field_names) >= 100, (
+        f"expected at least 100 field names across the four skill response "
+        f"models' full nesting, collected {len(all_field_names)}; the "
+        "recursive walk in _model_field_names may have stopped early"
+    )
+
+    retrieval_source = (ROOT / "service" / "retrieval.py").read_text(encoding="utf-8")
+    candidate_count_keys = _dict_literal_keys(retrieval_source, "candidate_counts")
+    assert candidate_count_keys == {
+        "fused_pool",
+        "fts_in_pool",
+        "trigram_in_pool",
+        "semantic_in_pool",
+    }, (
+        f"candidate_counts now has keys {sorted(candidate_count_keys)}; if a "
+        "new key names pgvector or hnsw, docs/skill-composition.md Section 3 "
+        "needs the same correction this gate was written to catch"
+    )
+
+    _assert_no_hidden_field_names(all_field_names | candidate_count_keys)
+
+
+def test_hidden_internals_gate_is_red_at_birth_for_a_vector_index_field_name():
+    """Permanent falsifier, direction one: a field naming the vector index.
+
+    Proves `_assert_no_hidden_field_names` actually discriminates (house rules
+    4 and 7). Injects the violation directly into the checking function
+    rather than editing `service/models.py`, which this task's constraints
+    forbid touching -- the same technique the contract-parity tests earlier in
+    this file use with a mutated copy of the JSON registry instead of the real
+    one.
+    """
+    with pytest.raises(AssertionError, match="tsvector"):
+        _assert_no_hidden_field_names({"result_page_token", "fts_tsvector_debug"})
+
+
+def test_hidden_internals_gate_is_red_at_birth_for_a_candidate_counts_key():
+    """Permanent falsifier, direction two: candidate_counts naming the arm's tech.
+
+    The real gate above reads `candidate_counts`'s keys by parsing
+    `service/retrieval.py`. This proves the shared predicate would reject a
+    key that leaked the fusion formula's name, without touching the real
+    source file -- `_dict_literal_keys` is exercised against a synthetic
+    snippet, not a reimplementation of what it does.
+    """
+    poisoned_source = (
+        "candidate_counts = {\n"
+        '    "fused_pool": len(candidates),\n'
+        '    "rrf_formula_applied": True,\n'
+        "}\n"
+    )
+    poisoned_keys = _dict_literal_keys(poisoned_source, "candidate_counts")
+
+    assert poisoned_keys == {"fused_pool", "rrf_formula_applied"}
+    with pytest.raises(AssertionError, match="rrf_formula"):
+        _assert_no_hidden_field_names(poisoned_keys)
+
+
+def test_hidden_internals_gate_is_independent_of_an_unrelated_new_field():
+    """Independence proof for the Finding 3 gate (house rule 7).
+
+    An unrelated new field name -- the kind of ordinary addition a future
+    pagination feature might make -- must not trip the gate. Without this, a
+    gate that always failed regardless of input would pass both falsifiers
+    above for the wrong reason.
+    """
+    from service import models
+
+    skill_response_models = {
+        "search_products": models.SearchResponse,
+        "get_product_evidence": models.ProductEvidenceResponse,
+        "compare_products": models.ProductComparisonResponse,
+        "explain_retrieval": models.RetrievalRunResponse,
+    }
+    all_field_names: set[str] = set()
+    for model in skill_response_models.values():
+        all_field_names |= _model_field_names(model)
+
+    _assert_no_hidden_field_names(all_field_names | {"result_page_token"})
