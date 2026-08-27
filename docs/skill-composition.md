@@ -56,37 +56,6 @@ It calls `search_products`, carries `search_event_id` forward as
 
 ## 3. What the skill encapsulates, and why that isn't secrecy
 
-An earlier version of this section split retrieval internals into two
-absolute buckets: things a caller could genuinely never observe, and things
-that were observable but not the caller's job to run. That split held for
-exactly as long as its inventory was complete, and it wasn't. `explain_retrieval`
-(`GET /api/retrieval/events/{search_event_id}`, one of the four skill
-operations) returns `plan_json` on its `run` payload —
-`SearchEventRecord.plan_json`, `None` until a plan has been captured. Capture
-itself is a write, `POST /api/retrieval/events/{search_event_id}/plan`, and it
-is deliberately *not* a skill operation — but `ui/src/api.ts:236-240` calls it,
-behind the Playground's "View retrieval event" disclosure and its nested "View
-EXPLAIN" action, so a real, participant-run event can carry a populated
-`plan_json` by the time a caller reads it back through `explain_retrieval`.
-A captured `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan over the
-run's own fusion SQL names one of those storage structures outright:
-`product_document_embedding_hnsw_cosine_idx`, the HNSW index behind the vector
-arm, resolves to an `Index Scan` in the captured plan. The lexical and trigram
-arms do not resolve that far — the planner records them as `Function Scan`
-nodes over `search_fts` and `search_trigram`, and it does not expand a plpgsql
-body, so those arms' indexes are named nowhere in the plan. One index is
-enough. The bucket that claimed those mechanics could never be
-observed was built from the fields the four operations return directly; it
-was never built to admit a diagnostic field populated after the fact by a
-separate, unscoped write. That is a gap in the bucket, not a one-off mistake
-in one bullet of it — the previous fix to this section already corrected a
-similarly wrong bullet (the vector arm's identity is a literal field name,
-`hnsw_settings`) and still shipped this one. Two corrections to the same
-absolute claim is the split's problem, not the inventory's.
-
-Replacing the split with one claim that does not need an exhaustive inventory
-to stay true:
-
 **Encapsulated from normal skill use:** callers do not need to know or
 reproduce the underlying PostgreSQL retrieval mechanics. Some implementation
 details, including index/plan information, may be inspectable through
@@ -95,6 +64,26 @@ diagnostics such as `plan_json` when a plan has been captured separately.
 > Encapsulation ≠ secrecy. The skill hides the *responsibility* for FTS,
 > `pg_trgm`, HNSW, RRF, and the rest; it does not promise those mechanics can
 > never be inspected.
+
+Read that as one claim, not as two buckets with a line between the observable
+and the permanently hidden. Any such line would hold only as long as its
+inventory stayed complete, and the inventory does not stay complete.
+`explain_retrieval` (`GET /api/retrieval/events/{search_event_id}`, one of the
+four skill operations) returns `plan_json` on its `run` payload —
+`SearchEventRecord.plan_json`, `None` until a plan has been captured. Capture
+itself is a write, `POST /api/retrieval/events/{search_event_id}/plan`, and it
+is deliberately *not* a skill operation — but `ui/src/api.ts:236-240` calls it,
+behind the Playground's "View retrieval event" disclosure and its nested "View
+EXPLAIN" action, so a real, participant-run event can carry a populated
+`plan_json` by the time a caller reads it back through `explain_retrieval`.
+A captured `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan over the
+run's own fusion SQL then names one storage structure outright:
+`product_document_embedding_hnsw_cosine_idx`, the HNSW index behind the vector
+arm, resolves to an `Index Scan`. The lexical and trigram arms do not resolve
+that far — the planner records them as `Function Scan` nodes over `search_fts`
+and `search_trigram`, and it does not expand a plpgsql body, so those arms'
+indexes are named nowhere in the plan. One named index is enough to make the
+point: a caller who never asked for any of this can still end up holding it.
 
 None of that inspectability requires a caller to ask twice.
 `include_diagnostics` defaults to `True`, so a plain `search_products` call

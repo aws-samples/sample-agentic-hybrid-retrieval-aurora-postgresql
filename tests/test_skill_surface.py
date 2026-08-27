@@ -764,9 +764,13 @@ def test_skill_doc_link_to_the_composition_doc_resolves():
 #: shipped a false claim of its own (the vector arm's HNSW identity is a
 #: literal field name, `hnsw_settings`), and a second, structurally different
 #: hole surfaced after that: `plan_json` is typed `dict[str, Any]`, so no walk
-#: over field *names* could ever see that its runtime *content*, once a plan
-#: is captured, names the GIN index behind the full-text arm and the HNSW
-#: index behind the vector arm. Section 3 now claims the opposite direction:
+#: over field *names* could ever see what its runtime *content* names once a
+#: plan is captured. Measured against the live cluster, a captured plan
+#: resolves `product_document_embedding_hnsw_cosine_idx` as an `Index Scan`,
+#: while the lexical and trigram arms stay opaque `Function Scan` nodes over
+#: `search_fts` and `search_trigram`, naming no index at all. Both halves of
+#: that are invisible to a name walk. Section 3 now claims the other
+#: direction:
 #: encapsulation is not a promise that any mechanic can never be inspected.
 #: This dict is hand-authored from that same source-level verification, not
 #: extracted from the document's prose -- a gate that parsed Section 3's own
@@ -911,10 +915,12 @@ def test_section_3_acknowledges_inspectable_fields_and_drops_absolute_claims():
     mechanics were absent from every field *name* across the four skill
     response models. That gate was structurally blind to this task's hole:
     `plan_json` is a real, intentional field typed `dict[str, Any]`, so no
-    field-name walk could ever see that its runtime *content*, once a plan is
-    captured, names the GIN index behind the full-text arm and the HNSW index
-    behind the vector arm -- a name walk only ever sees the key `plan_json`
-    itself, never what a captured plan happens to contain.
+    field-name walk could ever see what its runtime *content* names once a
+    plan is captured -- measured, a captured plan resolves the HNSW index
+    behind the vector arm as an `Index Scan` and names no index for the
+    lexical or trigram arms, which stay opaque `Function Scan` nodes. A name
+    walk only ever sees the key `plan_json` itself, never what a captured
+    plan happens to contain.
 
     Section 3 no longer claims any specific mechanic can never be observed;
     it claims encapsulation is not secrecy, and it names `plan_json`,
