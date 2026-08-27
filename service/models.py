@@ -6,10 +6,17 @@ import sys
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -55,14 +62,16 @@ class SearchFilters(BaseModel):
     domain: Domain | None = None
     category_key: str | None = Field(default=None, min_length=1, max_length=160)
     brand: str | None = Field(default=None, min_length=1, max_length=120)
-    brands: list[str] = Field(default_factory=list)
+    brands: list[Annotated[str, StringConstraints(min_length=1, max_length=120)]] = (
+        Field(default_factory=list, max_length=64)
+    )
     availability: Availability | None = None
     in_stock_only: bool = False
     min_price_cents: int | None = Field(default=None, ge=0, le=100_000_000)
     max_price_cents: int | None = Field(default=None, ge=0, le=100_000_000)
     min_rating: float | None = Field(default=None, ge=0, le=5)
     attributes: dict[str, str | int | float | bool | list[Any]] = Field(
-        default_factory=dict
+        default_factory=dict, max_length=32
     )
     include_refurbished: bool = False
     include_sponsored: bool = False
@@ -99,6 +108,22 @@ class SearchRequest(BaseModel):
     include_diagnostics: bool = True
     rerank: bool = True
     session_id: str | None = Field(default=None, max_length=200)
+
+    @field_validator("query")
+    @classmethod
+    def _reject_blank_query(cls, value: str) -> str:
+        """Reject a query that is only whitespace.
+
+        `min_length` counts characters, so "  " passes it and then normalizes to
+        the empty string, which still costs an embedding call and a persisted
+        search event.
+        """
+        if not value.strip():
+            raise ValueError(
+                "query is only whitespace; fix: pass at least one "
+                "non-whitespace character"
+            )
+        return value
 
     @model_validator(mode="after")
     def _bound_authorized_limit(self) -> SearchRequest:
@@ -353,6 +378,22 @@ class ProductEvidenceRequest(BaseModel):
     retrieval_scope_id: UUID
     evidence_query: str = Field(min_length=1, max_length=1_000)
     limit: int = Field(default=6, ge=1, le=12)
+
+    @field_validator("evidence_query")
+    @classmethod
+    def _reject_blank_evidence_query(cls, value: str) -> str:
+        """Reject a question that is only whitespace.
+
+        Same defect as `SearchRequest.query`: `min_length=1` admits a single
+        space, which still reaches the embedding call in
+        `get_question_ranked_product_evidence` after normalization strips it.
+        """
+        if not value.strip():
+            raise ValueError(
+                "evidence_query is only whitespace; fix: pass at least one "
+                "non-whitespace character"
+            )
+        return value
 
 
 class ProductEvidenceResponse(BaseModel):

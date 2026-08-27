@@ -46,11 +46,23 @@ _NUMERIC_BOUNDS: dict[str, tuple[float, float]] = {
 }
 
 
+_TRUE = {"1", "true", "yes", "on"}
+_FALSE = {"0", "false", "no", "off"}
+
+
 def _boolean(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:
         return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+    normalized = value.strip().lower()
+    if normalized in _TRUE:
+        return True
+    if normalized in _FALSE:
+        return False
+    raise RuntimeError(
+        f"{name} is {value!r}; found a value that is neither true nor false; "
+        f"fix: use one of {sorted(_TRUE | _FALSE)}"
+    )
 
 
 def _bounded(name: str, default: str, cast: type[int | float]):
@@ -186,6 +198,12 @@ def get_settings() -> Settings:
         ).split(",")
         if value.strip()
     )
+    if "*" in origins:
+        raise RuntimeError(
+            "CORS_ORIGINS contains '*'; found a wildcard origin, which this "
+            "service must not serve; fix: list the exact origins, e.g. "
+            "http://localhost:5173"
+        )
     profile = _retrieval_profile()
     source_revision, source_worktree_dirty = _source_identity()
     chat_model_id = os.getenv(

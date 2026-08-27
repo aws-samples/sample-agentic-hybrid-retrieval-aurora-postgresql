@@ -943,3 +943,69 @@ def test_compare_projects_and_never_retrieves():
     assert searches == [], "compare issued a retrieval"
     returned = [item["product_id"] for item in compared.json()["products"]]
     assert returned == granted, "compare returned a set other than its input"
+
+
+def test_blank_query_is_rejected_before_any_model_call():
+    """`min_length=2` counts characters, not content.
+
+    Reproduced: `SearchRequest(query="  ")` was accepted and
+    `normalize_query` reduced it to length 0, so a blank query reached the
+    Bedrock embedding call and persisted a `mosaic.search_event` row.
+
+    Falsifier: drop the whitespace check and this passes with query="  ".
+    """
+    from pydantic import ValidationError
+
+    from service.models import SearchRequest
+
+    with pytest.raises(ValidationError):
+        SearchRequest(query="  ")
+    with pytest.raises(ValidationError):
+        SearchRequest(query="\t\n")
+
+    assert SearchRequest(query=" ok ").query == " ok "
+
+
+def test_filter_collections_are_bounded():
+    """Every neighbouring filter field is bounded; these two were not.
+
+    Falsifier: remove the max_length and a caller can post an unbounded list
+    that is json.dumps'd into a JSONB parameter and evaluated per row.
+    """
+    from pydantic import ValidationError
+
+    from service.models import SearchFilters
+
+    with pytest.raises(ValidationError):
+        SearchFilters(brands=[f"brand-{index}" for index in range(65)])
+    with pytest.raises(ValidationError):
+        SearchFilters(brands=["x" * 121])
+    with pytest.raises(ValidationError):
+        SearchFilters(attributes={f"key-{index}": 1 for index in range(33)})
+
+    assert SearchFilters(brands=["Sony", "Bose"]).brands == ["Sony", "Bose"]
+
+
+def test_blank_evidence_query_is_rejected_before_any_scope_check():
+    """`ProductEvidenceRequest.evidence_query` has the same `min_length` shape.
+
+    Reproduced the same way as `SearchRequest.query`: `min_length=1` admits a
+    single space, which still normalizes to nothing useful once it reaches
+    the embedding call in `get_question_ranked_product_evidence`.
+
+    Falsifier: drop the whitespace check on `ProductEvidenceRequest` and this
+    passes with evidence_query=" ".
+    """
+    from pydantic import ValidationError
+
+    from service.models import ProductEvidenceRequest
+
+    with pytest.raises(ValidationError):
+        ProductEvidenceRequest(retrieval_scope_id=SCOPE_ID, evidence_query=" ")
+    with pytest.raises(ValidationError):
+        ProductEvidenceRequest(retrieval_scope_id=SCOPE_ID, evidence_query="\t")
+
+    accepted = ProductEvidenceRequest(
+        retrieval_scope_id=SCOPE_ID, evidence_query=" how long? "
+    )
+    assert accepted.evidence_query == " how long? "
