@@ -89,6 +89,10 @@ async def test_mcp_negotiates_2026_protocol_and_calls_canonical_api(
 
     assert result.is_error is False
     assert result.structured_content["diagnostics"]["retrieval_profile"]["rrf_k"] == 60
+    # `authorized_limit` rides along because it defaults to `limit`, so
+    # `model_dump(exclude_none=True)` no longer drops it. An MCP caller is
+    # served `limit` rows and authorizes exactly those; the adapter declares
+    # no narrower window of its own.
     assert api.calls == [
         (
             "POST",
@@ -100,6 +104,7 @@ async def test_mcp_negotiates_2026_protocol_and_calls_canonical_api(
                     "max_price_cents": 20000,
                 },
                 "limit": 6,
+                "authorized_limit": 6,
                 "include_diagnostics": True,
                 "rerank": True,
             },
