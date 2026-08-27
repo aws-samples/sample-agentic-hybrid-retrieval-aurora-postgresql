@@ -1511,7 +1511,7 @@ def test_agent_search_keeps_the_served_rank_order_before_evidence_retrieval(
 
     assert result["ok"] is True
     assert state["execution_path"] == "full_retrieval"
-    assert [item["product_id"] for item in result["products"]] == [301, 302]
+    assert [item["product_id"] for item in result["results"]] == [301, 302]
     assert state["searches"][0]["product_ids"] == [301, 302]
     assert [item.product_id for item in state["products"].values()] == [301, 302]
     assert state["evidence"] == {}

@@ -713,7 +713,7 @@ def test_service_scope_equals_run_scope_on_the_agent_path():
     service authorizes every one of the ~50 pooled candidates persisted in
     `mosaic.search_result_event`, while `_RUN` registers only the 2 the model
     saw. This reads that pool directly -- by `search_event_id`, ordered by
-    `result_rank` -- rather than the tool's returned `products`, which is
+    `result_rank` -- rather than the tool's returned `results`, which is
     already truncated to the granted rows and so can never exercise a
     refusal.
     """

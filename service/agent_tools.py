@@ -639,7 +639,10 @@ def search_products(
     return {
         "ok": True,
         "search_event_id": str(response.search_event_id),
-        "products": [_product_for_model(product) for product in ranked_results],
+        # `results`, not `products`: one canonical payload field name across
+        # agent, MCP, and skill. The value is still the compact
+        # `_product_for_model` projection the model reads.
+        "results": [_product_for_model(product) for product in ranked_results],
         "diagnostics": (
             {
                 "strategy": response.diagnostics.strategy,

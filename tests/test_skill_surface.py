@@ -1,6 +1,8 @@
 """Capability-keyed contract parity across surfaces."""
 
+import ast
 import json
+from pathlib import Path
 
 import pytest
 
@@ -11,6 +13,8 @@ from scripts.tool_contracts import (
     contracts_for_surface,
     load_contracts,
 )
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_every_contract_declares_a_capability(tmp_path, monkeypatch):
@@ -330,3 +334,139 @@ def test_every_skill_capability_has_a_registered_route():
     assert "/api/products/{product_id}/evidence" in served
     assert "/api/retrieval/events/{search_event_id}" in served
     assert "/api/retrieval/events/{search_event_id}/compare" in served
+
+
+#: Only the capabilities the packaged skill exposes. `synthesize_cited_answer`
+#: is orchestration, outside the skill, and outside this gate.
+GATED_CAPABILITIES = {
+    "open_retrieval",
+    "get_product_evidence",
+    "compare_products",
+    "explain_retrieval",
+}
+
+#: The response model each non-agent surface actually enforces.
+SURFACE_MODELS = {
+    ("open_retrieval", "mcp"): "SearchResponse",
+    ("open_retrieval", "skill"): "SearchResponse",
+    ("get_product_evidence", "mcp"): "ProductEvidenceResponse",
+    ("get_product_evidence", "skill"): "ProductEvidenceResponse",
+    ("explain_retrieval", "mcp"): "RetrievalRunResponse",
+    ("explain_retrieval", "skill"): "RetrievalRunResponse",
+    ("compare_products", "skill"): "ProductComparisonResponse",
+}
+
+
+def _agent_success_keys(tool_name: str) -> set[str]:
+    """Keys of the success-path dict literals one agent tool returns.
+
+    Success paths are the `return {...}` literals carrying `"ok": True`. Failure
+    paths go through `_failure()`, which is a different declared shape and is not
+    what the contract's payload describes.
+    """
+    module = ast.parse(
+        (ROOT / "service" / "agent_tools.py").read_text(encoding="utf-8")
+    )
+    for node in module.body:
+        if not isinstance(node, ast.FunctionDef) or node.name != tool_name:
+            continue
+        keys: set[str] = set()
+        for inner in ast.walk(node):
+            if not isinstance(inner, ast.Return):
+                continue
+            if not isinstance(inner.value, ast.Dict):
+                continue
+            literal = {
+                key.value: value
+                for key, value in zip(inner.value.keys, inner.value.values)
+                if isinstance(key, ast.Constant)
+            }
+            ok = literal.get("ok")
+            if isinstance(ok, ast.Constant) and ok.value is True:
+                keys |= set(literal)
+        assert keys, f"found no success return in {tool_name}"
+        return keys
+    raise AssertionError(f"{tool_name} is not defined in service/agent_tools.py")
+
+
+def test_returned_payload_matches_the_declared_contract():
+    """Declarations must be true, not merely consistent with each other.
+
+    Checks the payload's field set only. It does not check the internal shape of
+    each field's value: the agent surface's `results` entries are
+    `_product_for_model` projections rather than `ProductSummary`, and this gate
+    makes no claim about that.
+
+    Falsifier: rename any returned key without updating the contract.
+    """
+    from service import models
+
+    checked = 0
+    for contract in load_contracts():
+        capability = contract["capability"]
+        if capability not in GATED_CAPABILITIES:
+            continue
+
+        for surface in contract["surfaces"]:
+            # The production projection, not a re-derivation. See the note above:
+            # recomputing `payload | envelope` here would pass even if
+            # `_project_output_schema` were deleted.
+            projected = {
+                item["name"]: item["output_schema"]
+                for item in contracts_for_surface(surface)
+            }[contract["name"]]
+            declared = set(projected["properties"])
+            required = set(projected.get("required", []))
+
+            if surface == "agent":
+                actual = _agent_success_keys(contract["name"])
+            else:
+                model_name = SURFACE_MODELS[(capability, surface)]
+                actual = set(getattr(models, model_name).model_fields)
+
+            checked += 1
+            undeclared = actual - declared
+            assert not undeclared, (
+                f"{contract['name']} on {surface} returns {sorted(undeclared)}, "
+                f"which the {surface} projection does not declare "
+                f"{sorted(declared)}; fix: declare the field for that surface, "
+                "or rename the return so the contract is true"
+            )
+            missing = required - actual
+            assert not missing, (
+                f"{contract['name']} on {surface} does not return required "
+                f"{sorted(missing)}; found {sorted(actual)}; fix: return it or "
+                "drop it from payload_schema.required"
+            )
+
+    # Independent witness, per house-standards rule 7: a literal, not a count
+    # re-derived from the same predicate this loop filters on.
+    #
+    # 11 = search_products 3 (agent, mcp, skill) + get_product_evidence 3
+    #    + compare_products 2 (agent, skill) + explain_retrieval 2 (agent, skill)
+    #    + inspect_retrieval_run 1 (mcp). That last one is easy to miss: its
+    #    capability is `explain_retrieval`, so it IS gated even though its wire
+    #    name differs. Recount from the JSON if a surface is added or removed.
+    assert checked == 11, (
+        f"expected 11 gated capability/surface pairs, checked {checked}; "
+        "fix: recount agent/mcp/skill declarations across the four gated "
+        "capabilities, remembering inspect_retrieval_run carries the "
+        "explain_retrieval capability, then update this literal"
+    )
+
+
+def test_every_gated_capability_is_actually_covered():
+    """Exhaustiveness: the gate's allow-list must not silently shrink.
+
+    House rule 5a. A gate whose scope is an enumerated list decays unless
+    something forces the list to stay complete over its own domain.
+    """
+    skill_capabilities = {
+        contract["capability"] for contract in contracts_for_surface("skill")
+    }
+
+    assert skill_capabilities == GATED_CAPABILITIES, (
+        "the skill surface exposes a capability the return-shape gate does not "
+        f"check; skill has {sorted(skill_capabilities)}, gate has "
+        f"{sorted(GATED_CAPABILITIES)}"
+    )
