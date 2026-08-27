@@ -35,3 +35,21 @@ the application delivery path and can drift from the pinned revision.
 
 Hash embeddings are development-only and cannot support workshop relevance
 claims. Simulated scale output is not Aurora benchmark evidence.
+
+### Return-shape checking covers the packaged skill, not every tool
+
+Two different gates run over the tool registry, and they prove different things.
+`capability_parity_receipt()` proves one capability declares the same semantic
+payload on every surface it appears on. `test_returned_payload_matches_the_declared_contract`
+proves the declaration is true of what the code actually returns.
+
+The second gate is scoped to the four capabilities the packaged skill exposes:
+`open_retrieval`, `get_product_evidence`, `compare_products`, and
+`explain_retrieval`. `synthesize_cited_answer` is orchestration rather than part
+of the skill, so its declaration is checked for cross-surface consistency but not
+against its implementation. An exhaustiveness test asserts the gate's scope equals
+the skill surface, so the list cannot silently shrink.
+
+Both gates compare field sets rather than the internal shape of each field's
+value. The agent surface's `results` entries are `_product_for_model`
+projections, not `ProductSummary` rows, and neither gate claims otherwise.

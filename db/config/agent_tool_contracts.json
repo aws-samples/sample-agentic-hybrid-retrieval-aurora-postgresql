@@ -59,13 +59,31 @@
           }
         }
       },
-      "output_schema": {
+      "capability": "open_retrieval",
+      "envelope_fields": {"agent": ["ok"], "mcp": []},
+      "payload_schema": {
         "type": "object",
         "required": ["search_event_id", "results"],
         "properties": {
           "search_event_id": {"type": "string", "format": "uuid"},
           "results": {"type": "array"},
-          "diagnostics": {"type": ["object", "null"]}
+          "diagnostics": {"type": ["object", "null"]},
+          "query": {"type": "string"},
+          "normalized_query": {"type": ["string", "null"]},
+          "applied_filters": {"type": "object"}
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "required": ["search_event_id", "results"],
+        "properties": {
+          "ok": {"type": "boolean"},
+          "search_event_id": {"type": "string", "format": "uuid"},
+          "results": {"type": "array"},
+          "diagnostics": {"type": ["object", "null"]},
+          "query": {"type": "string"},
+          "normalized_query": {"type": ["string", "null"]},
+          "applied_filters": {"type": "object"}
         }
       }
     },
@@ -96,10 +114,21 @@
           }
         }
       },
+      "capability": "get_product_evidence",
+      "envelope_fields": {"agent": ["ok"], "mcp": []},
+      "payload_schema": {
+        "type": "object",
+        "required": ["product_id", "evidence"],
+        "properties": {
+          "product_id": {"type": "integer"},
+          "evidence": {"type": "array"}
+        }
+      },
       "output_schema": {
         "type": "object",
         "required": ["product_id", "evidence"],
         "properties": {
+          "ok": {"type": "boolean"},
           "product_id": {"type": "integer"},
           "evidence": {"type": "array"}
         }
@@ -127,6 +156,15 @@
           }
         }
       },
+      "capability": "compare_products",
+      "envelope_fields": {"agent": ["ok"]},
+      "payload_schema": {
+        "type": "object",
+        "required": ["products"],
+        "properties": {
+          "products": {"type": "array"}
+        }
+      },
       "output_schema": {
         "type": "object",
         "required": ["ok", "products"],
@@ -152,12 +190,22 @@
           }
         }
       },
+      "capability": "explain_retrieval",
+      "envelope_fields": {"agent": ["ok"]},
+      "payload_schema": {
+        "type": "object",
+        "required": ["run", "candidates"],
+        "properties": {
+          "run": {"type": ["object", "null"]},
+          "candidates": {"type": "array"}
+        }
+      },
       "output_schema": {
         "type": "object",
-        "required": ["ok", "search_event", "candidates"],
+        "required": ["ok", "run", "candidates"],
         "properties": {
           "ok": {"type": "boolean"},
-          "search_event": {"type": ["object", "null"]},
+          "run": {"type": ["object", "null"]},
           "candidates": {"type": "array"}
         }
       }
@@ -183,6 +231,16 @@
               "uniqueItems": true
             }
           }
+        }
+      },
+      "capability": "synthesize_cited_answer",
+      "envelope_fields": {"agent": ["ok"]},
+      "payload_schema": {
+        "type": "object",
+        "required": ["answer", "citations"],
+        "properties": {
+          "answer": {"type": "string"},
+          "citations": {"type": "array"}
         }
       },
       "output_schema": {
@@ -211,11 +269,21 @@
           }
         }
       },
+      "capability": "explain_retrieval",
+      "envelope_fields": {"mcp": []},
+      "payload_schema": {
+        "type": "object",
+        "required": ["run", "candidates"],
+        "properties": {
+          "run": {"type": ["object", "null"]},
+          "candidates": {"type": "array"}
+        }
+      },
       "output_schema": {
         "type": "object",
         "required": ["run", "candidates"],
         "properties": {
-          "run": {"type": "object"},
+          "run": {"type": ["object", "null"]},
           "candidates": {"type": "array"}
         }
       }

@@ -60,6 +60,24 @@ def load_contracts() -> list[dict[str, Any]]:
                 f"agent tool contract {name!r} has missing schemas={missing} "
                 f"and undeclared schemas={extra}; make surfaces and schemas agree"
             )
+        capability = contract.get("capability")
+        if not isinstance(capability, str) or not capability:
+            raise ToolContractError(
+                f"agent tool contract {name!r} has capability={capability!r}; "
+                "declare the semantic capability it implements"
+            )
+        if not isinstance(contract.get("payload_schema"), dict):
+            raise ToolContractError(
+                f"agent tool contract {name!r} has no payload_schema object; "
+                "declare the transport-independent semantic payload"
+            )
+        envelopes = contract.get("envelope_fields")
+        if not isinstance(envelopes, dict) or set(envelopes) != set(surfaces):
+            raise ToolContractError(
+                f"agent tool contract {name!r} declares envelope_fields for "
+                f"{sorted(envelopes or {})} but surfaces {sorted(surfaces)}; "
+                "declare one envelope list per surface, empty when there is none"
+            )
     return contracts
 
 
@@ -79,34 +97,69 @@ def contracts_for_surface(surface: Surface) -> list[dict[str, Any]]:
     ]
 
 
-def shared_contract_receipt() -> dict[str, Any]:
-    """Describe the invariants preserved across agent and MCP projections."""
-    by_surface = {
-        surface: {
-            contract["name"]: contract for contract in contracts_for_surface(surface)
-        }
-        for surface in ("agent", "mcp")
-    }
-    shared_names = sorted(set(by_surface["agent"]) & set(by_surface["mcp"]))
-    preserved = ("tool_version", "output_schema", "read_only")
-    mismatches = {
-        name: [
-            field
-            for field in preserved
-            if by_surface["agent"][name][field] != by_surface["mcp"][name][field]
-        ]
-        for name in shared_names
-    }
-    mismatches = {name: fields for name, fields in mismatches.items() if fields}
+def capability_parity_receipt() -> dict[str, Any]:
+    """Prove one capability means the same thing on every surface it appears on.
+
+    Grouped by `capability`, not by wire name. The previous receipt keyed on name
+    and therefore reported `explain_retrieval` and `inspect_retrieval_run` as
+    unrelated, which let their output schemas drift unobserved. A transport may
+    wrap the payload in its own envelope, but only in the fields it declared.
+    """
+    by_capability: dict[str, list[dict[str, Any]]] = {}
+    for contract in load_contracts():
+        by_capability.setdefault(contract["capability"], []).append(contract)
+
+    preserved = ("tool_version", "read_only", "payload_schema")
+    mismatches: dict[str, list[str]] = {}
+    for capability, contracts in by_capability.items():
+        first = contracts[0]
+        drifted = sorted(
+            {
+                field
+                for other in contracts[1:]
+                for field in preserved
+                if other[field] != first[field]
+            }
+        )
+        if drifted:
+            mismatches[capability] = drifted
     if mismatches:
         raise ToolContractError(
-            "shared agent and MCP tool invariants drifted; "
-            f"fix db/config/agent_tool_contracts.json: {mismatches}"
+            "one capability disagrees with itself across surfaces; fix "
+            f"db/config/agent_tool_contracts.json: {mismatches}"
         )
+
+    for contract in load_contracts():
+        payload = set(contract["payload_schema"]["properties"])
+        envelopes = {
+            field
+            for surface in contract["surfaces"]
+            for field in contract["envelope_fields"][surface]
+        }
+        declared = set(contract["output_schema"]["properties"])
+        if declared != payload | envelopes:
+            raise ToolContractError(
+                f"agent tool contract {contract['name']!r} declares output "
+                f"properties {sorted(declared)}; found payload plus every "
+                f"declared envelope {sorted(payload | envelopes)}; fix: change "
+                "output_schema, payload_schema, or envelope_fields so the "
+                "three agree"
+            )
+
     return {
-        "shared_tools": shared_names,
+        "shared_capabilities": sorted(
+            capability
+            for capability, contracts in by_capability.items()
+            if len(contracts) > 1
+        ),
+        "capabilities": sorted(by_capability),
         "preserved_fields": list(preserved),
-        "transport_specific_fields": ["input_schema", "transport_trace"],
+        "transport_specific_fields": [
+            "name",
+            "input_schema",
+            "envelope_fields",
+            "transport_trace",
+        ],
     }
 
 
@@ -187,13 +240,14 @@ def main() -> int:
             "db/config/agent_tool_contracts.json; run "
             "python scripts/tool_contracts.py --write"
         )
-    receipt = shared_contract_receipt()
+    receipt = capability_parity_receipt()
     print(
         f"PASS: canonical registry projects "
         f"{len(contracts_for_surface('agent'))} agent and "
         f"{len(contracts_for_surface('mcp'))} MCP contracts; "
-        f"{len(receipt['shared_tools'])} shared tools preserve version, output "
-        f"schema, and read-only policy; SQL registry matches all agent tools"
+        f"{len(receipt['shared_capabilities'])} capabilities preserve version, "
+        f"semantic payload, and read-only policy across surfaces; SQL registry "
+        f"matches all agent tools"
     )
     return 0
 

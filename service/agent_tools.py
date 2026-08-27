@@ -857,7 +857,7 @@ def explain_retrieval(search_event_id: str) -> dict[str, Any]:
     )
     return {
         "ok": True,
-        "search_event": dict(event) if event else None,
+        "run": dict(event) if event else None,
         "candidates": [dict(row) for row in candidates],
     }
 

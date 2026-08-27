@@ -6,9 +6,9 @@ from fastapi.testclient import TestClient
 
 from scripts.tool_contracts import (
     SQL_PATH,
+    capability_parity_receipt,
     contracts_for_surface,
     render_database_sql,
-    shared_contract_receipt,
 )
 from service import agent_tools
 from service.main import app
@@ -43,11 +43,29 @@ def test_database_registry_is_generated_from_the_canonical_contract():
     assert SQL_PATH.read_text(encoding="utf-8") == render_database_sql()
 
 
-def test_shared_agent_and_mcp_tools_preserve_portable_output_invariants():
-    assert shared_contract_receipt() == {
-        "shared_tools": ["get_product_evidence", "search_products"],
-        "preserved_fields": ["tool_version", "output_schema", "read_only"],
-        "transport_specific_fields": ["input_schema", "transport_trace"],
+def test_shared_capabilities_preserve_portable_semantic_invariants():
+    """Grouped by capability, so two wire names for one capability are compared.
+
+    The previous version of this test grouped by name and reported
+    `explain_retrieval` and `inspect_retrieval_run` as unrelated, which is how
+    their output schemas drifted unobserved.
+    """
+    assert capability_parity_receipt() == {
+        "shared_capabilities": ["explain_retrieval"],
+        "capabilities": [
+            "compare_products",
+            "explain_retrieval",
+            "get_product_evidence",
+            "open_retrieval",
+            "synthesize_cited_answer",
+        ],
+        "preserved_fields": ["tool_version", "read_only", "payload_schema"],
+        "transport_specific_fields": [
+            "name",
+            "input_schema",
+            "envelope_fields",
+            "transport_trace",
+        ],
     }
 
 
