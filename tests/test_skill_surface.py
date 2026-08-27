@@ -690,3 +690,69 @@ def test_skill_doc_uses_real_wire_field_names():
     assert "candidate_limit" not in text, (
         "there is no candidate_limit field; the served window is `limit`"
     )
+
+
+COMPOSITION_PATH = ROOT / "docs" / "skill-composition.md"
+
+
+def test_composition_doc_states_no_a2a_endpoint_is_deployed():
+    """A2A stays visibly honest: documented, never a claim it is running."""
+    text = COMPOSITION_PATH.read_text(encoding="utf-8")
+
+    assert "not deployed" in text.lower()
+    assert "documentation profile" in text.lower()
+
+
+def test_composition_doc_quotes_the_hosting_contract_accurately():
+    """These are quoted facts, not paraphrase. Re-read the source to change them."""
+    text = COMPOSITION_PATH.read_text(encoding="utf-8")
+
+    for fact in (
+        "/.well-known/agent-card.json",
+        "JSON-RPC 2.0",
+        "0.3.0",
+        "9000",
+        "0.0.0.0",
+        "ARM64",
+        '"status": "Healthy"',
+    ):
+        assert fact in text, fact
+
+
+def test_no_a2a_dependency_entered_any_environment():
+    """The reveal is a diagram. It must stay one.
+
+    Falsifier: add a2a-sdk or strands[a2a] anywhere and this fails.
+
+    Paired with a positive assertion on `pyproject.toml` so this cannot pass
+    vacuously: an absence-only check would pass identically against a deleted
+    or emptied manifest, proving nothing about what actually shipped.
+    """
+    checked = 0
+    for path in (
+        ROOT / "pyproject.toml",
+        ROOT / "uv.lock",
+        ROOT / "mcp-server" / "pyproject.toml",
+        ROOT / "config" / "requirements.txt",
+    ):
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8").lower()
+        assert "a2a-sdk" not in text, path
+        assert "strands-agents[a2a]" not in text, path
+        checked += 1
+
+    # Witness, independent of the absence checks above: proves the loop
+    # actually read four real manifests rather than skipping all of them.
+    assert checked == 4, f"expected 4 dependency manifests to exist, found {checked}"
+
+    pyproject_text = (ROOT / "pyproject.toml").read_text(encoding="utf-8").lower()
+    assert "httpx" in pyproject_text
+    assert "strands-agents" in pyproject_text
+
+
+def test_skill_doc_link_to_the_composition_doc_resolves():
+    from scripts.tool_contracts import SKILL_PATH
+
+    assert "docs/skill-composition.md" in SKILL_PATH.read_text(encoding="utf-8")
+    assert COMPOSITION_PATH.exists()
