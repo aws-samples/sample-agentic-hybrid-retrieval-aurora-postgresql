@@ -126,9 +126,14 @@ hydrates the requested products and their ranking signals from
 candidate generation, so it cannot return a set wider than what that
 retrieval already granted.
 
-`GET /api/tools` defaults to `surface=agent`; pass `surface=mcp` for the
-explicit MCP subset. Both are projections of
-`db/config/agent_tool_contracts.json`, not independent schemas.
+`GET /api/tools` defaults to `surface=agent`; pass `surface=mcp` or
+`surface=skill` for those explicit subsets. All three are projections of the
+one canonical `db/config/agent_tool_contracts.json`, not independently
+authored schemas, but each projection is scoped to that surface alone:
+`output_schema` carries the transport-independent payload plus only the
+envelope fields that surface declares, never a field another surface's
+envelope adds. The canonical record still holds the full cross-surface union
+for introspection; no served surface does.
 
 `GET /api/catalog/products` browses the 200 installed product IDs in
 `data/media/asset_labels_200.json`. `sort=featured` preserves manifest order;

@@ -83,6 +83,37 @@ def load_contracts() -> list[dict[str, Any]]:
     return contracts
 
 
+def _project_output_schema(
+    contract: dict[str, Any], surface: Surface
+) -> dict[str, Any]:
+    """Payload plus only the envelope fields this one surface declares.
+
+    `contract["output_schema"]` is the canonical union across every surface's
+    envelope, which is correct for cross-surface introspection but wrong the
+    moment it is copied verbatim into an artifact that claims to speak for one
+    surface (house-standards.md rule 8). Project at the boundary instead:
+    every returned property must come from the transport-independent payload
+    or from this surface's own envelope, never another surface's.
+    """
+    payload_properties = contract["payload_schema"]["properties"]
+    canonical_properties = contract["output_schema"]["properties"]
+    envelope_fields = contract["envelope_fields"][surface]
+    properties = {
+        **payload_properties,
+        **{field: canonical_properties[field] for field in envelope_fields},
+    }
+    required = [
+        field
+        for field in contract["output_schema"].get("required", [])
+        if field in properties
+    ]
+    return {
+        "type": contract["output_schema"]["type"],
+        "required": required,
+        "properties": properties,
+    }
+
+
 def contracts_for_surface(surface: Surface) -> list[dict[str, Any]]:
     """Return public contracts with the selected surface schema resolved."""
     return [
@@ -92,7 +123,7 @@ def contracts_for_surface(surface: Surface) -> list[dict[str, Any]]:
             "tool_version": contract["tool_version"],
             "description": contract["description"],
             "input_schema": contract["input_schemas"][surface],
-            "output_schema": contract["output_schema"],
+            "output_schema": _project_output_schema(contract, surface),
             "read_only": contract["read_only"],
         }
         for contract in load_contracts()

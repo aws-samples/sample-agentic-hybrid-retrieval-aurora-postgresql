@@ -274,9 +274,21 @@ def test_the_skill_surface_exposes_four_capabilities():
 
 
 def test_synthesis_is_not_part_of_the_retrieval_skill():
-    """Synthesis is orchestration. The skill stops at authorized evidence."""
+    """Synthesis is orchestration. The skill stops at authorized evidence.
+
+    Paired with a positive assertion on purpose: an absence-only check on
+    `synthesize_cited_answer` and `inspect_retrieval_run` would pass
+    identically on an empty or broken skill surface, proving nothing about
+    what the surface actually contains.
+    """
     names = {contract["name"] for contract in contracts_for_surface("skill")}
 
+    assert names == {
+        "search_products",
+        "get_product_evidence",
+        "compare_products",
+        "explain_retrieval",
+    }
     assert "synthesize_cited_answer" not in names
     assert "inspect_retrieval_run" not in names
 
