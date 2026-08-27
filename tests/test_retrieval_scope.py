@@ -831,8 +831,19 @@ def test_run_state_still_gates_synthesis_independently(monkeypatch):
     still be refused for synthesis because no evidence was registered for it.
     Collapsing the two would erase what Lab 3 repairs.
 
+    If the `missing_evidence` check in `agent_tools.synthesize_cited_answer`
+    is deleted, execution falls through to `synthesis.synthesize_cited_answer`
+    (imported here as `synthesize_answer`), which raises its own `ValueError`
+    for an unrelated reason (no evidence records at all, not "granted but
+    unregistered"). The generic `except Exception` handler then reports
+    `"synthesis failed with ValueError"` -- a message that happens not to
+    contain "evidence" but proves nothing about this guard. Assert on the
+    guard's own message and its own trace entry instead, so the test can only
+    pass because `agent_tools.py`'s guard fired.
+
     Falsifier: delete the `missing_evidence` check in `synthesize_cited_answer`
-    and this passes with no evidence registered.
+    and this fails on the guard-specific assertions below (it may still fail
+    downstream in `synthesis.py`, but not for this test's stated reason).
     """
     from service import agent_tools
     from service.models import SearchFilters
@@ -875,7 +886,20 @@ def test_run_state_still_gates_synthesis_independently(monkeypatch):
         agent_tools._RUN.reset(token)
 
     assert result["ok"] is False
-    assert "evidence" in result["error"]
+    # The guard's own failure message (agent_tools.py:951), not the generic
+    # word "evidence", which a downstream ValueError could also satisfy.
+    assert "products lack retrieved evidence" in result["error"]
+
+    # The guard's own trace entry (agent_tools.py:942-949): outcome "error"
+    # with a "missing evidence" detail. The ValueError fallback path records
+    # a different detail ("Synthesis failed with ValueError."), so this
+    # entry can only exist if the guard itself fired.
+    synthesis_trace = [
+        entry for entry in state["trace"] if entry["tool"] == "synthesize_cited_answer"
+    ]
+    assert len(synthesis_trace) == 1
+    assert synthesis_trace[0]["outcome"] == "error"
+    assert "missing evidence" in synthesis_trace[0]["detail"]
 
 
 @pytest.mark.aurora
