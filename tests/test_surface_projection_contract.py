@@ -106,8 +106,76 @@ def test_agent_sql_registry_matches_every_contract_agent_envelope():
         )
         assert set(output_schema["properties"]) == expected, contract["name"]
 
-    # Witness: the loop actually compared something, not zero contracts.
-    assert checked == len(contracts_for_surface("agent"))
+    # Witness: an independent expectation, not `len(contracts_for_surface(
+    # "agent"))`. That count is filtered by the same `"agent" in
+    # contract["surfaces"]` predicate this loop uses over the same
+    # `load_contracts()` data, so a regression that dropped "agent" from
+    # every contract's surfaces would collapse both sides to 0 together and
+    # this would still pass (house-standards.md rule 7). Five contracts in
+    # db/config/agent_tool_contracts.json declare "agent": search_products,
+    # get_product_evidence, compare_products, explain_retrieval, and
+    # synthesize_cited_answer.
+    assert checked == 5, (
+        f"expected exactly 5 agent-surface contracts, compared {checked}; "
+        "fix: update this count if a contract legitimately gained or lost "
+        "the agent surface"
+    )
+
+
+def test_required_projection_matches_properties_projection_per_surface():
+    """`_project_output_schema` filters `required` as well as `properties`,
+    but until now this file only ever asserted `properties`. The `required`
+    filtering was correct for all six contracts by luck of the canonical
+    data, not because any gate enforced it (house-standards.md rule 7).
+
+    Invariant, per surface projection: the projected `required` list must
+    contain no field absent from that same projection's `properties`, and
+    must contain every canonically-required field that survives the
+    projection. Reads `contracts_for_surface()` -- the production path that
+    also feeds the SQL registry and the live `/api/tools` endpoint -- rather
+    than reimplementing `_project_output_schema`'s filter (rule 3).
+    """
+    canonical_required = {
+        contract["name"]: set(contract["output_schema"].get("required", []))
+        for contract in tool_contracts.load_contracts()
+    }
+
+    examined = 0
+    for surface in ("agent", "mcp", "skill"):
+        for contract in contracts_for_surface(surface):
+            examined += 1
+            output_schema = contract["output_schema"]
+            required = set(output_schema["required"])
+            properties = set(output_schema["properties"])
+
+            leaked = required - properties
+            assert not leaked, (
+                f"{contract['name']} on surface={surface} required="
+                f"{sorted(leaked)} not present in that surface's projected "
+                f"properties {sorted(properties)}; fix: make "
+                "_project_output_schema filter required the same way it "
+                "filters properties"
+            )
+
+            dropped = canonical_required[contract["name"]] & properties - required
+            assert not dropped, (
+                f"{contract['name']} on surface={surface} dropped "
+                f"canonically-required field(s) {sorted(dropped)} that "
+                f"survive this surface's property projection; fix: make "
+                "_project_output_schema keep them in required"
+            )
+
+    # Independent witness (house-standards.md rule 7): a literal counted by
+    # hand from db/config/agent_tool_contracts.json's "surfaces" lists --
+    # search_products (3) + get_product_evidence (3) + compare_products (2)
+    # + explain_retrieval (2) + synthesize_cited_answer (1) +
+    # inspect_retrieval_run (1) = 12 -- never derived from the same
+    # surface-membership predicate the loop above uses.
+    assert examined == 12, (
+        f"expected exactly 12 (contract, surface) projections, examined "
+        f"{examined}; fix: update this count if a contract's surfaces "
+        "changed"
+    )
 
 
 LIVE_HOST = "127.0.0.1"
