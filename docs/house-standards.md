@@ -197,3 +197,44 @@ logic it is meant to police: **call the production path**, per rule 3.
 thesis is that a correct answer does not prove a correct pipeline. One level down,
 a green test does not prove a correct gate. Same failure, same fix: inspect the
 mechanism, not the outcome.
+
+## 8. Canonical contracts may hold supersets; surface artifacts may not
+
+A canonical contract is allowed to carry metadata spanning every surface it
+serves. Any artifact that *claims to represent one surface* must describe only
+what that surface can actually accept and return.
+
+**Why.** `db/config/agent_tool_contracts.json` models one capability as a shared
+`payload_schema` plus per-surface `envelope_fields`, and derives `output_schema` as
+the union of the payload and **every** envelope. That union is correct for the
+canonical record. It became a lie the moment it was projected verbatim into a
+surface-specific artifact.
+
+Measured: declaring a `skill` envelope of `retrieval_scope_id` on
+`compare_products` propagated through `render_database_sql()` into
+`db/sql/16_seed_tool_contracts.sql`, so `mosaic.agent_tool_contract` — the table
+whose whole job is auditing what the **agent** surface emits — recorded
+`{ok, products, retrieval_scope_id}` for a tool that returns `{ok, products}`.
+Adding a surface silently corrupted the fidelity of a different surface's audit
+record. Nothing failed, because nothing validated the claim.
+
+The same shape appeared in the opposite direction on the same change:
+`contracts_for_surface()` omitted `capability` entirely, so `/api/tools` served an
+incomplete representation while every in-process test passed. Both are one bug:
+a projection that does not match the surface it names.
+
+**How.** Project at the boundary, per surface:
+
+```text
+render_database_sql()      -> payload_schema ∪ envelope_fields["agent"]
+/api/tools?surface=X       -> payload_schema ∪ envelope_fields[X], plus capability
+```
+
+Keep the union on the canonical record for introspection if consumers rely on it,
+but never let a surface artifact inherit it. And test the *independence*: adding an
+envelope to one surface must change that surface's projection and leave every other
+surface's byte-identical. Per rule 7, assert a witness that the projection path ran.
+
+**Corollary.** An in-process test of the loader is not a test of the artifact. Prove
+surface artifacts against the thing that consumes them — the seeded SQL, and a live
+HTTP request — not against the function that generates them.
