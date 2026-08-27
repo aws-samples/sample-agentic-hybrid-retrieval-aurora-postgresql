@@ -134,9 +134,17 @@ model.
 
 ## Non-goal: scope is not identity
 
-`search_event_id` is a retrieval capability and synthesis scope. It is not an
-identity, a tenant, or a data-access boundary, and holding one is not
-authentication. A multi-tenant deployment would have to bind the scope to a
+`search_event_id` is a retrieval-capability handle. It bounds which products a
+scoped read may touch: `get_product_evidence` and `compare_products` refuse
+anything outside the window the search declared.
+
+It is not a synthesis authority. Citation authorization is a separate,
+turn-local decision made by `synthesize_cited_answer`, which is not part of this
+skill and never receives a `search_event_id`. Holding a scope handle does not
+authorize any product or record for a cited answer.
+
+It is not an identity, a tenant, or a data-access boundary, and holding one is
+not authentication. A multi-tenant deployment would have to bind the scope to a
 principal as well.
 
 ## Composition
