@@ -564,19 +564,25 @@ describe("RetrievalLabPage", () => {
       expect(api.toolContracts).toHaveBeenCalledWith("mcp");
     });
 
-    // Three of the four skill capabilities in the real registry are spelled
-    // identically to their tool name (`db/config/agent_tool_contracts.json`), so
-    // each name below renders twice: once as the tool's `<code>` and once as its
-    // `<em>` capability. `findAllByText` tolerates that; the singular query would
-    // throw "multiple elements" on real data.
+    // Singular `findByText`, deliberately: it throws on "multiple elements", so
+    // it also pins that no row prints its own name twice. An earlier version of
+    // this section rendered `capability` beside `name`, and three of the four
+    // skill capabilities are spelled identically to their tool name
+    // (`db/config/agent_tool_contracts.json`), so those rows repeated themselves.
     for (const name of [
       "search_products",
       "get_product_evidence",
       "compare_products",
       "explain_retrieval",
     ]) {
-      expect((await screen.findAllByText(name)).length).toBeGreaterThan(0);
+      expect(await screen.findByText(name)).toBeTruthy();
     }
+
+    // Each row also carries what the operation does, which is the part another
+    // agent needs in order to call it. A literal, not read back off the fixture.
+    expect(
+      await screen.findByText(/Compare two to five authorized products/i),
+    ).toBeTruthy();
   });
 
   it("labels A2A as documentation rather than available", async () => {

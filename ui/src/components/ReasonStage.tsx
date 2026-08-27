@@ -487,12 +487,12 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
                     retrieval capability, declared here, that another agent can
                     call without learning how any of it works.
                   </p>
-                  <ul className="labs-skill-capabilities">
+                  <ul className="labs-contracts labs-skill-capabilities">
                     {skill.map((contract) => (
                       <li key={contract.name}>
                         <code>{contract.name}</code>
-                        <em>{contract.capability}</em>
                         <b>{contract.read_only ? "read-only" : "writes"}</b>
+                        <small>{contract.description}</small>
                       </li>
                     ))}
                   </ul>

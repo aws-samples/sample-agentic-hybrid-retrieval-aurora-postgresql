@@ -11058,11 +11058,20 @@
   line-height: 1.5;
 }
 
-.labs-skill-capabilities,
 .labs-skill-adapters {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+/* Same rows as the tool-contract list next door, minus the version column: the
+   packaged capability is named, marked read-only, and described. The capability
+   key itself is deliberately not a column - three of the four are spelled
+   exactly like their tool name, so the column read as a rendering fault rather
+   than as information. Parity between capability keys is gated in
+   scripts/tool_contracts.py, which is where that invariant belongs. */
+.labs-skill-capabilities > li {
+  grid-template-columns: minmax(0, auto) auto;
 }
 
 .labs-skill-adapters {
