@@ -1585,9 +1585,14 @@ def test_product_evidence_endpoint_uses_question_ranked_evidence(monkeypatch):
     monkeypatch.setattr("service.main.get_product_evidence_records", read_evidence)
 
     client = TestClient(app)
+    monkeypatch.setattr(
+        "service.main.assert_products_in_retrieval_scope",
+        lambda scope, products: None,
+    )
     response = client.post(
         "/api/products/101/evidence",
         json={
+            "retrieval_scope_id": "11111111-2222-3333-4444-555555555555",
             "evidence_query": "Which fact supports long-flight comfort?",
             "limit": 4,
         },

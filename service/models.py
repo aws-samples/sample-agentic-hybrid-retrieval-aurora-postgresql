@@ -347,6 +347,10 @@ class ProductEvidenceRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    #: The `search_event_id` of the retrieval that granted this product. Required:
+    #: evidence is the capability the grant boundary protects, so there is no
+    #: unscoped door. See `service/retrieval_scope.py`.
+    retrieval_scope_id: UUID
     evidence_query: str = Field(min_length=1, max_length=1_000)
     limit: int = Field(default=6, ge=1, le=12)
 

@@ -56,6 +56,11 @@ from service.models import (
     SearchResponse,
 )
 from service.retrieval import get_retrieval_service
+from service.retrieval_scope import (
+    SCOPE_DENIED_DETAIL,
+    ScopeViolation,
+    assert_products_in_retrieval_scope,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 settings = get_settings()
@@ -297,7 +302,17 @@ def get_question_ranked_product_evidence(
     product_id: int,
     request: ProductEvidenceRequest,
 ) -> ProductEvidenceResponse:
-    """Return source-addressable evidence ranked for the supplied question."""
+    """Return evidence for one product the supplied retrieval actually granted.
+
+    The scope check runs before the embedding call, so an unauthorized request
+    costs no model invocation. A refusal is a 404 carrying only the generic
+    detail: the rich message stays server-side, because reporting which products
+    fell outside the window would let a refusal enumerate the candidate pool.
+    """
+    try:
+        assert_products_in_retrieval_scope(request.retrieval_scope_id, [product_id])
+    except ScopeViolation as error:
+        raise HTTPException(404, SCOPE_DENIED_DETAIL) from error
     try:
         query_embedding = get_retrieval_service().embed_query(request.evidence_query)
         evidence = get_product_evidence_records(

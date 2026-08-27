@@ -284,3 +284,131 @@ def test_aurora_release_ci_requires_database_url_before_running_tests():
         "`test -n ...` without `exit 2` lets the job fall through to "
         "`make test` with an empty DSN"
     )
+
+
+def _evidence_record():
+    from service.models import EvidenceRecord
+
+    return EvidenceRecord(
+        evidence_id=9001,
+        product_id=101,
+        evidence_type="product_spec",
+        source_name="Mosaic catalog specification",
+        source_uri="mosaic://evidence/product-spec/101",
+        revision="r1",
+        title="Battery life",
+        text="Rated for 30 hours with adaptive noise cancelling on.",
+        rating=None,
+        is_verified=True,
+    )
+
+
+def test_evidence_route_requires_a_retrieval_scope():
+    from fastapi.testclient import TestClient
+
+    from service.main import app
+
+    response = TestClient(app).post(
+        "/api/products/101/evidence",
+        json={"evidence_query": "How long does the battery last?"},
+    )
+
+    assert response.status_code == 422
+    assert "retrieval_scope_id" in response.text
+
+
+def test_evidence_route_serves_a_granted_product(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from service import main
+    from service.main import app
+
+    class FakeRetrieval:
+        def embed_query(self, _query):
+            return [0.125, 0.25]
+
+    monkeypatch.setattr(main, "get_retrieval_service", lambda: FakeRetrieval())
+    monkeypatch.setattr(
+        main,
+        "get_product_evidence_records",
+        lambda product_id, query, embedding, *, limit: [_evidence_record()],
+    )
+    monkeypatch.setattr(
+        main, "assert_products_in_retrieval_scope", lambda scope, products: None
+    )
+
+    response = TestClient(app).post(
+        "/api/products/101/evidence",
+        json={
+            "retrieval_scope_id": str(SCOPE_ID),
+            "evidence_query": "How long does the battery last?",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["evidence"][0]["evidence_id"] == 9001
+
+
+def test_evidence_route_refuses_an_ungranted_product_with_404(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from service import main
+    from service.main import app
+    from service.retrieval_scope import SCOPE_DENIED_DETAIL, ScopeViolation
+
+    def refuse(_scope, _products):
+        raise ScopeViolation(
+            "FAIL retrieval scope 1111 products [412]: found products outside "
+            "the authorized window of 3; fix: use a product from the first 3."
+        )
+
+    monkeypatch.setattr(main, "assert_products_in_retrieval_scope", refuse)
+
+    def unreachable(*_args, **_kwargs):
+        raise AssertionError("evidence was retrieved before the scope check")
+
+    monkeypatch.setattr(main, "get_retrieval_service", unreachable)
+
+    response = TestClient(app).post(
+        "/api/products/412/evidence",
+        json={
+            "retrieval_scope_id": str(SCOPE_ID),
+            "evidence_query": "How long does the battery last?",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == SCOPE_DENIED_DETAIL
+
+
+def test_evidence_404_body_discloses_neither_products_nor_window(monkeypatch):
+    """The rich message is a server-side diagnostic, never a response body."""
+    from fastapi.testclient import TestClient
+
+    from service import main
+    from service.main import app
+    from service.retrieval_scope import ScopeViolation
+
+    def refuse(_scope, _products):
+        raise ScopeViolation(
+            "FAIL retrieval scope 1111 products [412]: found products outside "
+            "the authorized window of 37; fix: use one of the first 37."
+        )
+
+    monkeypatch.setattr(main, "assert_products_in_retrieval_scope", refuse)
+
+    body = (
+        TestClient(app)
+        .post(
+            "/api/products/412/evidence",
+            json={
+                "retrieval_scope_id": str(SCOPE_ID),
+                "evidence_query": "How long does the battery last?",
+            },
+        )
+        .text
+    )
+
+    assert "412" not in body
+    assert "37" not in body
+    assert "authorized window" not in body

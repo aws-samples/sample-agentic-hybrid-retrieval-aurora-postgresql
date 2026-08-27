@@ -76,7 +76,10 @@ general semantic entailment.
 - `GET /api/catalog/reviews/highlights`
 - `GET /api/products/{product_id}`
 - `GET /api/evidence/{evidence_id}`
-- `POST /api/products/{product_id}/evidence`
+- `POST /api/products/{product_id}/evidence` requires `retrieval_scope_id`, the
+  `search_event_id` of the retrieval that granted the product. A product the
+  retrieval did not grant returns 404 with a generic detail. See
+  `skills/mosaic-hybrid-retrieval/SKILL.md` for the scope rules.
 
 The product-evidence route requires an `evidence_query` and returns
 source-addressable specification and review records ranked for that question,
