@@ -1,11 +1,14 @@
 """Capability-keyed contract parity across surfaces."""
 
 import ast
+import copy
 import json
+import re
 from pathlib import Path
 
 import pytest
 
+from scripts import tool_contracts
 from scripts.tool_contracts import (
     CONTRACT_PATH,
     ToolContractError,
@@ -325,7 +328,14 @@ def test_api_serves_the_skill_surface():
 
 
 def test_every_skill_capability_has_a_registered_route():
-    """The HTTP badge in the Playground derives from this being true."""
+    """The HTTP badge in the Playground derives from this being true.
+
+    Deliberately keeps its own hardcoded literals rather than reading
+    `SKILL_ROUTES`, as an independent cross-check (house rule 5): two sources
+    that must separately arrive at the same four paths is the point.
+    `test_every_route_in_skill_routes_is_registered_on_the_app` below is the
+    one that actually pins `SKILL_ROUTES` to this.
+    """
     from service.main import app
 
     served = {route.path for route in app.routes if getattr(route, "path", None)}
@@ -334,6 +344,115 @@ def test_every_skill_capability_has_a_registered_route():
     assert "/api/products/{product_id}/evidence" in served
     assert "/api/retrieval/events/{search_event_id}" in served
     assert "/api/retrieval/events/{search_event_id}/compare" in served
+
+
+def test_every_route_in_skill_routes_is_registered_on_the_app():
+    """Pin `SKILL_ROUTES` to what FastAPI actually serves.
+
+    Reads `SKILL_ROUTES` directly, unlike the hardcoded cross-check above.
+    """
+    from service.main import app
+
+    served = {route.path for route in app.routes if getattr(route, "path", None)}
+
+    # Witness, independent of `served`: proves the loop below visits more than
+    # zero routes rather than vacuously passing over an emptied dict.
+    assert len(tool_contracts.SKILL_ROUTES) == 4, (
+        f"expected exactly 4 SKILL_ROUTES entries, found "
+        f"{len(tool_contracts.SKILL_ROUTES)}; recount if a skill capability "
+        "was added or removed"
+    )
+
+    for name, route in tool_contracts.SKILL_ROUTES.items():
+        _, path = route.split(" ", 1)
+        assert path in served, (
+            f"SKILL_ROUTES[{name!r}] is {route!r} but the FastAPI app does not "
+            f"register {path!r}; fix: register that path, or correct "
+            f"SKILL_ROUTES[{name!r}]"
+        )
+
+
+def test_skill_routes_key_set_matches_the_skill_surface_exactly():
+    """House rule 5a: `SKILL_ROUTES` must be exhaustive over the skill surface.
+
+    Equality, checked directly against `contracts_for_surface("skill")`, not a
+    derivation `render_skill_contract` could also perform: `render_skill_contract`
+    only raises when a skill name has no route (a missing key), never when
+    `SKILL_ROUTES` carries a route for a name the skill surface does not
+    expose, because it never looks that extra key up. Only this direct
+    equality catches that second direction; see the two falsifiers below.
+    """
+    skill_names = {contract["name"] for contract in contracts_for_surface("skill")}
+
+    # Witness, independent of SKILL_ROUTES: a literal, not a count re-derived
+    # from the same predicate this test compares.
+    assert len(skill_names) == 4, (
+        f"expected exactly 4 skill-surface contracts, found {len(skill_names)}; "
+        "recount if a skill capability was added or removed"
+    )
+
+    assert set(tool_contracts.SKILL_ROUTES) == skill_names, (
+        f"SKILL_ROUTES keys are {sorted(tool_contracts.SKILL_ROUTES)} but the "
+        f"skill surface exposes {sorted(skill_names)}; fix: add or remove "
+        "SKILL_ROUTES entries in scripts/tool_contracts.py until the two sets "
+        "match exactly"
+    )
+
+
+def test_skill_routes_exhaustiveness_rejects_an_unrouted_skill_capability(
+    tmp_path, monkeypatch
+):
+    """Permanent falsifier, exhaustiveness failure direction one.
+
+    Add a skill-surface contract whose name `SKILL_ROUTES` does not carry.
+    Both the direct equality check above and `render_skill_contract` -- which
+    now raises `ToolContractError` naming the missing route instead of a bare
+    `KeyError` -- must catch this.
+    """
+    payload = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
+    ghost = copy.deepcopy(
+        next(c for c in payload["contracts"] if c["name"] == "search_products")
+    )
+    ghost["name"] = "search_products_ghost"
+    payload["contracts"].append(ghost)
+
+    added = tmp_path / "unrouted-skill-capability.json"
+    added.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(tool_contracts, "CONTRACT_PATH", added)
+
+    skill_names = {
+        contract["name"] for contract in tool_contracts.contracts_for_surface("skill")
+    }
+    assert "search_products_ghost" in skill_names
+    assert set(tool_contracts.SKILL_ROUTES) != skill_names
+
+    with pytest.raises(ToolContractError, match="SKILL_ROUTES has no entry"):
+        tool_contracts.render_skill_contract()
+
+
+def test_skill_routes_exhaustiveness_rejects_a_route_for_a_non_skill_name(
+    monkeypatch,
+):
+    """Permanent falsifier, exhaustiveness failure direction two.
+
+    A route entry naming a capability the skill surface does not expose must
+    also fail the equality check. `render_skill_contract` cannot see this
+    direction at all -- it only ever fails on a missing lookup, never on an
+    unused extra key -- so this is the proof that the direct equality
+    assertion, not the lookup path, is what is doing the exhaustiveness work.
+    """
+    bogus_routes = dict(tool_contracts.SKILL_ROUTES)
+    bogus_routes["totally_bogus_capability"] = "GET /api/nonexistent"
+    monkeypatch.setattr(tool_contracts, "SKILL_ROUTES", bogus_routes)
+
+    skill_names = {
+        contract["name"] for contract in tool_contracts.contracts_for_surface("skill")
+    }
+    assert set(tool_contracts.SKILL_ROUTES) != skill_names
+
+    # render_skill_contract still succeeds: it never looks up the unused extra
+    # key, which is exactly why the direct equality check above is required.
+    tool_contracts.render_skill_contract()
 
 
 #: Only the capabilities the packaged skill exposes. `synthesize_cited_answer`
@@ -492,17 +611,43 @@ def test_skill_doc_contract_block_matches_the_registry():
 
 
 def test_skill_doc_names_every_skill_operation_and_no_others():
-    from scripts.tool_contracts import SKILL_PATH
+    """ "...and no others" is checked, not just asserted by the test's name.
+
+    Scoped to the SKILL_BEGIN/SKILL_END block, not the whole file: the
+    "Inputs" table just past `SKILL_END` also uses backtick-fenced first
+    columns (`` | `query` | ... `` ), so a whole-file version of this same
+    regex would pick up field names from that unrelated table and fail on
+    perfectly good prose. Scoping to the generated block is what keeps the
+    check from being brittle against ordinary Markdown elsewhere in the file.
+    """
+    from scripts.tool_contracts import SKILL_BEGIN, SKILL_END, SKILL_PATH
 
     text = SKILL_PATH.read_text(encoding="utf-8")
+    start = text.index(SKILL_BEGIN) + len(SKILL_BEGIN)
+    end = text.index(SKILL_END)
+    block = text[start:end]
 
-    for name in (
+    expected = {
         "search_products",
         "get_product_evidence",
         "compare_products",
         "explain_retrieval",
-    ):
-        assert name in text, name
+    }
+    named = set(re.findall(r"^\| `(\w+)` \|", block, flags=re.MULTILINE))
+
+    # Witness: the regex matched a genuine multi-row table, not zero rows by a
+    # broken pattern silently passing on an empty set.
+    assert len(named) == 4, (
+        f"expected the generated operations table to name exactly 4 "
+        f"operations, found {sorted(named)}; check the row pattern against "
+        "the current table shape"
+    )
+    assert named == expected, (
+        f"the generated operations table names {sorted(named)} but the skill "
+        f"surface is exactly {sorted(expected)}; fix: run "
+        "python scripts/tool_contracts.py --write, or update the expected set "
+        "here if the skill surface itself changed"
+    )
     assert "synthesize_cited_answer" in text, (
         "SKILL.md must say synthesis is outside the skill, so it has to name it"
     )

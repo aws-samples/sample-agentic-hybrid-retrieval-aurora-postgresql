@@ -18,8 +18,11 @@ Surface = Literal["agent", "mcp", "skill"]
 
 #: The route each skill capability is served on. Declared here rather than in the
 #: registry because a route is a property of this deployment, not of the
-#: capability, and the contract is meant to outlive one HTTP layout. A test
-#: asserts every one of these is registered on the app.
+#: capability, and the contract is meant to outlive one HTTP layout.
+#: `tests/test_skill_surface.py::test_skill_routes_key_set_matches_the_skill_surface_exactly`
+#: pins this dict's key set to the skill surface exactly (house rule 5a), and
+#: `test_every_route_in_skill_routes_is_registered_on_the_app` asserts every
+#: value here names a route the FastAPI app actually registers.
 SKILL_ROUTES = {
     "search_products": "POST /api/search",
     "get_product_evidence": "POST /api/products/{product_id}/evidence",
@@ -295,10 +298,18 @@ def render_skill_contract() -> str:
     ]
     for contract in contracts_for_surface("skill"):
         name = contract["name"]
+        route = SKILL_ROUTES.get(name)
+        if route is None:
+            raise ToolContractError(
+                f"SKILL_ROUTES has no entry for skill contract {name!r}: "
+                f"found routes for {sorted(SKILL_ROUTES)}; "
+                f"fix: add SKILL_ROUTES[{name!r}] = '<METHOD> <path>' in "
+                "scripts/tool_contracts.py"
+            )
         required = contract["input_schema"].get("required", [])
         lines.append(
             f"| `{name}` | `{contract['capability']}` | "
-            f"`{SKILL_ROUTES[name]}` | "
+            f"`{route}` | "
             f"{', '.join(f'`{item}`' for item in required)} | "
             f"{'yes' if contract['read_only'] else 'no'} |"
         )
