@@ -767,3 +767,155 @@ def test_service_scope_equals_run_scope_on_the_agent_path():
                 assert_products_in_retrieval_scope(scope, [product_id])
     finally:
         agent_tools._RUN.reset(token)
+
+
+@pytest.mark.aurora
+def test_explain_does_not_enlarge_the_authorized_product_set():
+    """Explanation is wide on purpose. Granting is narrow on purpose.
+
+    `pre_rerank_rank` only exists in the pool space, so Lab 2 needs the full
+    pool. Revealing a candidate's identity must not authorize evidence for it.
+
+    Falsifier: bound the explain route to `authorized_limit` and the pool
+    assertion fails; drop the guard from evidence and the refusal assertion
+    fails.
+    """
+    from fastapi.testclient import TestClient
+
+    from service.main import app
+    from service.models import SearchRequest
+    from service.retrieval import get_retrieval_service
+
+    response = get_retrieval_service().search(
+        SearchRequest(query="noise cancelling headphones", limit=12, authorized_limit=2)
+    )
+    scope = response.search_event_id
+    client = TestClient(app)
+
+    replay = client.get(f"/api/retrieval/events/{scope}")
+    assert replay.status_code == 200
+    candidates = replay.json()["candidates"]
+    assert len(candidates) > 2, (
+        "explain must expose the full fused pool, not the granted window"
+    )
+    assert any(row["fused_rank"] is not None for row in candidates)
+
+    beyond = [row["product_id"] for row in candidates if row["result_rank"] > 2][:2]
+    assert beyond, "the pool did not extend past the authorized window"
+
+    for product_id in beyond:
+        evidence = client.post(
+            f"/api/products/{product_id}/evidence",
+            json={
+                "retrieval_scope_id": str(scope),
+                "evidence_query": "How long does the battery last?",
+            },
+        )
+        assert evidence.status_code == 404, (
+            f"explain revealed product {product_id} and evidence then served "
+            "it, so revealing a candidate granted a capability"
+        )
+
+    compare = client.post(
+        f"/api/retrieval/events/{scope}/compare",
+        json={"product_ids": beyond},
+    )
+    assert compare.status_code == 404
+
+
+def test_run_state_still_gates_synthesis_independently(monkeypatch):
+    """Two authorities, and this one is not the grant boundary.
+
+    Grant scope lives in `service/retrieval_scope.py`. Citation authorization
+    stays turn-local in `_RUN`: a product may be granted by the retrieval and
+    still be refused for synthesis because no evidence was registered for it.
+    Collapsing the two would erase what Lab 3 repairs.
+
+    Falsifier: delete the `missing_evidence` check in `synthesize_cited_answer`
+    and this passes with no evidence registered.
+    """
+    from service import agent_tools
+    from service.models import SearchFilters
+
+    state = {
+        "base_filters": SearchFilters(),
+        "result_limit": 2,
+        "searches": [
+            {
+                "query": "q",
+                "filters": SearchFilters(),
+                "purpose": "p",
+                "product_ids": [101],
+            }
+        ],
+        "search_event_ids": [SCOPE_ID],
+        "context_search_event_ids": [],
+        "context_product_ids": [],
+        # Granted by the retrieval, and registered in the turn's product scope.
+        "products": {101: object()},
+        # But no evidence was ever retrieved for it.
+        "evidence": {},
+        "evidence_by_product": {},
+        "trace": [
+            {
+                "sequence": 1,
+                "tool": "explain_retrieval",
+                "detail": "",
+                "outcome": "success",
+                "arguments": {},
+            }
+        ],
+        "execution_path": "full_retrieval",
+        "answer_of_record": None,
+    }
+    token = agent_tools._RUN.set(state)
+    try:
+        result = agent_tools.synthesize_cited_answer("Which is quieter?", [101])
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert result["ok"] is False
+    assert "evidence" in result["error"]
+
+
+@pytest.mark.aurora
+def test_compare_projects_and_never_retrieves():
+    """A projection cannot widen its input.
+
+    Falsifier: make the compare route call `RetrievalService.search` and the
+    call counter trips.
+    """
+    from fastapi.testclient import TestClient
+
+    from service import main
+    from service.main import app
+    from service.models import SearchRequest
+    from service.retrieval import get_retrieval_service
+
+    response = get_retrieval_service().search(
+        SearchRequest(query="noise cancelling headphones", limit=12, authorized_limit=4)
+    )
+    granted = [product.product_id for product in response.results[:3]]
+
+    searches = []
+    real_service = main.get_retrieval_service
+
+    class Counting:
+        def __getattr__(self, name):
+            if name == "search":
+                searches.append(name)
+            return getattr(real_service(), name)
+
+    main.get_retrieval_service = lambda: Counting()
+    try:
+        compared = TestClient(app).post(
+            f"/api/retrieval/events/{response.search_event_id}/compare",
+            json={"product_ids": granted},
+        )
+    finally:
+        main.get_retrieval_service = real_service
+
+    assert compared.status_code == 200
+    assert searches == [], "compare issued a retrieval"
+    returned = [item["product_id"] for item in compared.json()["products"]]
+    assert returned == granted, "compare returned a set other than its input"
