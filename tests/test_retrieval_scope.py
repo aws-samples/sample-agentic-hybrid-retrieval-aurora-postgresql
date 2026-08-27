@@ -1086,3 +1086,48 @@ def test_blank_evidence_query_is_rejected_before_any_scope_check():
         retrieval_scope_id=SCOPE_ID, evidence_query=" how long? "
     )
     assert accepted.evidence_query == " how long? "
+
+
+def test_executed_sql_bounds_membership_by_the_authorized_limit(monkeypatch):
+    """Pin the one comparison that decides a grant, at the database boundary.
+
+    Every other offline test in this file mocks the connection, so the statement
+    is never planned or executed and an inverted operator would leave all of
+    them green. Only the aurora-marked tests run the real comparison, and
+    `tests/conftest.py` skips those whenever `DATABASE_URL` is unset, which is
+    the normal state of a bare `pytest` run and of every per-commit CI job. This
+    asserts the statement the module actually hands the database, which is the
+    closest offline proxy for the comparison's direction, and pins the
+    fail-closed structure around it.
+    """
+    from service import retrieval_scope
+
+    captured = {}
+    monkeypatch.setattr(
+        retrieval_scope,
+        "connect",
+        _fake_connect(captured, {"authorized_limit": 3, "out_of_scope": []}),
+    )
+
+    retrieval_scope.assert_products_in_retrieval_scope(SCOPE_ID, [101])
+
+    # Witness that execute() was reached at all, independent of any SQL text
+    # this test goes on to read.
+    assert captured["parameters"]["scope_id"] == SCOPE_ID
+
+    sql = " ".join(captured["sql"].split())
+    assert "receipt.result_rank <= scope.authorized_limit" in sql
+    # Fail-closed structure: the scope CTE is empty unless the event actually
+    # declared a limit, and an empty CTE makes NOT EXISTS hold for every
+    # requested product rather than admitting them.
+    assert "retrieval_profile ? 'authorized_limit'" in sql
+    assert "WHERE NOT EXISTS" in sql
+    # The loosened, inverted, and substituted forms this exists to reject.
+    for wrong in (
+        "receipt.result_rank >= scope.authorized_limit",
+        "receipt.result_rank < scope.authorized_limit",
+        "scope.authorized_limit <= receipt.result_rank",
+        "receipt.result_rank <= scope.result_limit",
+        "WHERE EXISTS",
+    ):
+        assert wrong not in sql, f"scope SQL must not contain {wrong!r}"
