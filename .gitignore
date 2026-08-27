@@ -73,3 +73,12 @@ infra/cdk/cdk.context.json
 /docs/image-prompts-category-plates.md
 /docs/image-generation-guide.md
 /docs/media-generation-batches.md
+
+# Assistant and agent scratch: task reports, progress ledgers, worktrees, and
+# any project-steering output. These repos are public aws-samples, and a leading
+# dot hides a file from `ls`, not from GitHub - so this has to be ignored, not
+# merely named with a dot.
+.superpowers/
+.claude/
+.local/
+.agent-steering-domains.md
