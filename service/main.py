@@ -655,7 +655,7 @@ def capture_retrieval_plan(search_event_id: UUID) -> RetrievalPlanResponse:
 
 @app.get("/api/tools")
 def tool_contracts(
-    surface: Literal["agent", "mcp"] = Query(default="agent"),
+    surface: Literal["agent", "mcp", "skill"] = Query(default="agent"),
 ) -> dict[str, Any]:
     """Expose one explicitly scoped view of the canonical tool contracts."""
     return {"surface": surface, "tools": contracts_for_surface(surface)}

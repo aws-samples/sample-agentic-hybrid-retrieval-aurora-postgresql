@@ -11,7 +11,7 @@ from typing import Any, Literal
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PATH = ROOT / "db" / "config" / "agent_tool_contracts.json"
 SQL_PATH = ROOT / "db" / "sql" / "16_seed_tool_contracts.sql"
-Surface = Literal["agent", "mcp"]
+Surface = Literal["agent", "mcp", "skill"]
 
 
 class ToolContractError(RuntimeError):
@@ -88,6 +88,7 @@ def contracts_for_surface(surface: Surface) -> list[dict[str, Any]]:
     return [
         {
             "name": contract["name"],
+            "capability": contract["capability"],
             "tool_version": contract["tool_version"],
             "description": contract["description"],
             "input_schema": contract["input_schemas"][surface],

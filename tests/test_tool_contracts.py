@@ -52,6 +52,7 @@ def test_shared_capabilities_preserve_portable_semantic_invariants():
     """
     assert capability_parity_receipt() == {
         "shared_capabilities": [
+            "compare_products",
             "explain_retrieval",
             "get_product_evidence",
             "open_retrieval",
@@ -103,14 +104,16 @@ def test_mcp_signatures_match_the_mcp_contract():
     assert functions == expected
 
 
-def test_api_exposes_explicit_agent_and_mcp_subsets():
+def test_api_exposes_explicit_agent_mcp_and_skill_subsets():
     client = TestClient(app)
 
-    agent = client.get("/api/tools").json()
-    mcp = client.get("/api/tools", params={"surface": "mcp"}).json()
-
-    assert agent["surface"] == "agent"
-    assert {tool["name"] for tool in agent["tools"]} == set(_schema_arguments("agent"))
-    assert mcp["surface"] == "mcp"
-    assert {tool["name"] for tool in mcp["tools"]} == set(_schema_arguments("mcp"))
-    assert all(tool["read_only"] for tool in agent["tools"] + mcp["tools"])
+    for surface in ("agent", "mcp", "skill"):
+        payload = client.get("/api/tools", params={"surface": surface}).json()
+        assert payload["surface"] == surface
+        # Non-emptiness witness: an empty tool list would satisfy the set
+        # equality below vacuously, proving nothing about this surface.
+        assert payload["tools"], f"{surface} surface returned no tools"
+        assert {tool["name"] for tool in payload["tools"]} == set(
+            _schema_arguments(surface)
+        )
+        assert all(tool["read_only"] for tool in payload["tools"])

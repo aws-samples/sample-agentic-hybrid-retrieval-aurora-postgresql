@@ -8,6 +8,7 @@ from scripts.tool_contracts import (
     CONTRACT_PATH,
     ToolContractError,
     capability_parity_receipt,
+    contracts_for_surface,
     load_contracts,
 )
 
@@ -201,7 +202,7 @@ def test_payload_drift_between_surfaces_is_caught(tmp_path, monkeypatch):
     drifted.write_text(json.dumps(payload), encoding="utf-8")
     monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", drifted)
 
-    with pytest.raises(ToolContractError, match="payload_schema"):
+    with pytest.raises(ToolContractError, match="disagrees with itself"):
         capability_parity_receipt()
 
 
@@ -250,3 +251,70 @@ def test_explain_retrieval_envelope_change_is_independent_across_its_two_contrac
     monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", changed)
 
     capability_parity_receipt()
+
+
+SKILL_CAPABILITIES = {
+    "open_retrieval",
+    "get_product_evidence",
+    "compare_products",
+    "explain_retrieval",
+}
+
+
+def test_the_skill_surface_exposes_four_capabilities():
+    contracts = contracts_for_surface("skill")
+
+    assert {contract["name"] for contract in contracts} == {
+        "search_products",
+        "get_product_evidence",
+        "compare_products",
+        "explain_retrieval",
+    }
+    assert all(contract["read_only"] for contract in contracts)
+
+
+def test_synthesis_is_not_part_of_the_retrieval_skill():
+    """Synthesis is orchestration. The skill stops at authorized evidence."""
+    names = {contract["name"] for contract in contracts_for_surface("skill")}
+
+    assert "synthesize_cited_answer" not in names
+    assert "inspect_retrieval_run" not in names
+
+
+def test_scoped_skill_operations_require_the_retrieval_scope():
+    by_name = {
+        contract["name"]: contract for contract in contracts_for_surface("skill")
+    }
+
+    for name in ("get_product_evidence", "compare_products"):
+        required = by_name[name]["input_schema"]["required"]
+        assert "retrieval_scope_id" in required, name
+
+    explain = by_name["explain_retrieval"]["input_schema"]
+    assert explain["required"] == ["retrieval_scope_id"]
+    assert "search_event_id" not in explain["properties"], (
+        "explain takes the scope itself, not a second arbitrary event id"
+    )
+
+
+def test_api_serves_the_skill_surface():
+    from fastapi.testclient import TestClient
+
+    from service.main import app
+
+    payload = TestClient(app).get("/api/tools", params={"surface": "skill"}).json()
+
+    assert payload["surface"] == "skill"
+    assert len(payload["tools"]) == 4
+
+
+def test_every_skill_capability_has_a_registered_route():
+    """The HTTP badge in the Playground derives from this being true."""
+    from service.main import app
+
+    served = {route.path for route in app.routes if getattr(route, "path", None)}
+
+    assert "/api/search" in served
+    assert "/api/products/{product_id}/evidence" in served
+    assert "/api/retrieval/events/{search_event_id}" in served
+    assert "/api/retrieval/events/{search_event_id}/compare" in served

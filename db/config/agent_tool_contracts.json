@@ -6,7 +6,7 @@
       "tool_version": "1.0",
       "description": "Run filtered lexical, fuzzy, semantic, reciprocal-rank fusion, and bounded reranking over Aurora PostgreSQL.",
       "read_only": true,
-      "surfaces": ["agent", "mcp"],
+      "surfaces": ["agent", "mcp", "skill"],
       "input_schemas": {
         "agent": {
           "type": "object",
@@ -57,10 +57,37 @@
             "include_diagnostics": {"type": "boolean"},
             "rerank": {"type": "boolean"}
           }
+        },
+        "skill": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["query"],
+          "properties": {
+            "query": {"type": "string", "minLength": 2, "maxLength": 1000},
+            "domain": {
+              "type": ["string", "null"],
+              "enum": ["consumer_electronics", "running_fitness", "home_office", null]
+            },
+            "category_key": {"type": ["string", "null"]},
+            "brand": {"type": ["string", "null"]},
+            "availability": {
+              "type": ["string", "null"],
+              "enum": ["in_stock", "low_stock", "out_of_stock", "preorder", "discontinued", null]
+            },
+            "in_stock_only": {"type": "boolean"},
+            "min_price_cents": {"type": ["integer", "null"], "minimum": 0},
+            "max_price_cents": {"type": ["integer", "null"], "minimum": 0},
+            "min_rating": {"type": ["number", "null"], "minimum": 0, "maximum": 5},
+            "attributes": {"type": ["object", "null"]},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+            "authorized_limit": {"type": ["integer", "null"], "minimum": 1, "maximum": 50},
+            "include_diagnostics": {"type": "boolean"},
+            "rerank": {"type": "boolean"}
+          }
         }
       },
       "capability": "open_retrieval",
-      "envelope_fields": {"agent": ["ok"], "mcp": []},
+      "envelope_fields": {"agent": ["ok"], "mcp": [], "skill": []},
       "payload_schema": {
         "type": "object",
         "required": ["search_event_id", "results"],
@@ -92,7 +119,7 @@
       "tool_version": "1.0",
       "description": "Rank fresh source-addressable specifications and reviews for one product against a focused evidence question.",
       "read_only": true,
-      "surfaces": ["agent", "mcp"],
+      "surfaces": ["agent", "mcp", "skill"],
       "input_schemas": {
         "agent": {
           "type": "object",
@@ -112,10 +139,21 @@
             "product_id": {"type": "integer", "minimum": 1},
             "evidence_query": {"type": "string", "minLength": 1}
           }
+        },
+        "skill": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["retrieval_scope_id", "product_id", "evidence_query"],
+          "properties": {
+            "retrieval_scope_id": {"type": "string", "format": "uuid"},
+            "product_id": {"type": "integer", "minimum": 1},
+            "evidence_query": {"type": "string", "minLength": 1},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 12}
+          }
         }
       },
       "capability": "get_product_evidence",
-      "envelope_fields": {"agent": ["ok"], "mcp": []},
+      "envelope_fields": {"agent": ["ok"], "mcp": [], "skill": []},
       "payload_schema": {
         "type": "object",
         "required": ["product_id", "evidence"],
@@ -139,7 +177,7 @@
       "tool_version": "1.0",
       "description": "Compare two to five products authorized by the current retrieval or previous grounded answer.",
       "read_only": true,
-      "surfaces": ["agent"],
+      "surfaces": ["agent", "skill"],
       "input_schemas": {
         "agent": {
           "type": "object",
@@ -154,10 +192,25 @@
               "uniqueItems": true
             }
           }
+        },
+        "skill": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["retrieval_scope_id", "product_ids"],
+          "properties": {
+            "retrieval_scope_id": {"type": "string", "format": "uuid"},
+            "product_ids": {
+              "type": "array",
+              "items": {"type": "integer", "minimum": 1},
+              "minItems": 2,
+              "maxItems": 5,
+              "uniqueItems": true
+            }
+          }
         }
       },
       "capability": "compare_products",
-      "envelope_fields": {"agent": ["ok"]},
+      "envelope_fields": {"agent": ["ok"], "skill": ["retrieval_scope_id"]},
       "payload_schema": {
         "type": "object",
         "required": ["products"],
@@ -170,7 +223,8 @@
         "required": ["ok", "products"],
         "properties": {
           "ok": {"type": "boolean"},
-          "products": {"type": "array"}
+          "products": {"type": "array"},
+          "retrieval_scope_id": {"type": "string", "format": "uuid"}
         }
       }
     },
@@ -179,7 +233,7 @@
       "tool_version": "1.0",
       "description": "Replay persisted ranking signals for an event authorized by the current retrieval or previous grounded answer.",
       "read_only": true,
-      "surfaces": ["agent"],
+      "surfaces": ["agent", "skill"],
       "input_schemas": {
         "agent": {
           "type": "object",
@@ -188,10 +242,18 @@
           "properties": {
             "search_event_id": {"type": "string", "format": "uuid"}
           }
+        },
+        "skill": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["retrieval_scope_id"],
+          "properties": {
+            "retrieval_scope_id": {"type": "string", "format": "uuid"}
+          }
         }
       },
       "capability": "explain_retrieval",
-      "envelope_fields": {"agent": ["ok"]},
+      "envelope_fields": {"agent": ["ok"], "skill": []},
       "payload_schema": {
         "type": "object",
         "required": ["run", "candidates"],
