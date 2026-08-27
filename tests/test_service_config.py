@@ -142,7 +142,7 @@ def test_unrecognized_boolean_spelling_raises_rather_than_disabling(monkeypatch)
     """
     monkeypatch.setenv("RERANK_REQUIRED", "tru")
 
-    with pytest.raises(RuntimeError, match="neither true nor false") as excinfo:
+    with pytest.raises(ConfigurationError, match="neither true nor false") as excinfo:
         get_settings()
 
     assert "RERANK_REQUIRED" in str(excinfo.value)
@@ -176,7 +176,7 @@ def test_cors_origins_may_not_contain_a_wildcard(monkeypatch):
     """
     monkeypatch.setenv("CORS_ORIGINS", "http://localhost:5173,*")
 
-    with pytest.raises(RuntimeError, match="wildcard origin") as excinfo:
+    with pytest.raises(ConfigurationError, match="wildcard origin") as excinfo:
         get_settings()
 
     assert "CORS_ORIGINS" in str(excinfo.value)

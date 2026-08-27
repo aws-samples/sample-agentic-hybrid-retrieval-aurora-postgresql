@@ -59,7 +59,7 @@ def _boolean(name: str, default: bool) -> bool:
         return True
     if normalized in _FALSE:
         return False
-    raise RuntimeError(
+    raise ConfigurationError(
         f"{name} is {value!r}; found a value that is neither true nor false; "
         f"fix: use one of {sorted(_TRUE | _FALSE)}"
     )
@@ -199,7 +199,7 @@ def get_settings() -> Settings:
         if value.strip()
     )
     if "*" in origins:
-        raise RuntimeError(
+        raise ConfigurationError(
             "CORS_ORIGINS contains '*'; found a wildcard origin, which this "
             "service must not serve; fix: list the exact origins, e.g. "
             "http://localhost:5173"

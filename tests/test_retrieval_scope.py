@@ -986,6 +986,83 @@ def test_filter_collections_are_bounded():
     assert SearchFilters(brands=["Sony", "Bose"]).brands == ["Sony", "Bose"]
 
 
+def test_attribute_string_values_are_bounded():
+    """`attributes` values were the other half of the same defect: `str` was
+    unbounded, so an oversized value cleared validation and got json.dumps'd
+    into the JSONB parameter `matches_filter_values` evaluates per row.
+
+    Falsifier: drop the 96-char bound on scalar attribute values and this
+    passes with a 97-char string.
+    """
+    from pydantic import ValidationError
+
+    from service.models import SearchFilters
+
+    with pytest.raises(ValidationError):
+        SearchFilters(attributes={"a": "x" * 97})
+
+    assert SearchFilters(attributes={"a": "x" * 96}).attributes == {"a": "x" * 96}
+
+
+def test_attribute_list_values_are_bounded_by_length():
+    """`list[Any]` values were unbounded in length as well as value type.
+
+    Each element is one character, far under the item-length bound, so a
+    failure here can only be the list-length bound firing, not the
+    element-length bound from `test_attribute_list_elements_are_bounded_by_length`.
+
+    Falsifier: drop the 16-item bound on attribute list values and this
+    passes with a 17-item list.
+    """
+    from pydantic import ValidationError
+
+    from service.models import SearchFilters
+
+    with pytest.raises(ValidationError):
+        SearchFilters(attributes={"a": ["x"] * 17})
+
+    assert SearchFilters(attributes={"a": ["x"] * 16}).attributes == {"a": ["x"] * 16}
+
+
+def test_attribute_list_elements_are_bounded_by_length():
+    """The other half of the list defect: elements themselves were unbounded.
+
+    A single-element list stays far under the list-length bound, so a
+    failure here can only be the element-length bound firing, not the
+    list-length bound from `test_attribute_list_values_are_bounded_by_length`.
+
+    Falsifier: drop the 96-char bound on attribute list string elements and
+    this passes with a 97-char element.
+    """
+    from pydantic import ValidationError
+
+    from service.models import SearchFilters
+
+    with pytest.raises(ValidationError):
+        SearchFilters(attributes={"a": ["x" * 97]})
+
+    assert SearchFilters(attributes={"a": ["x" * 96]}).attributes == {"a": ["x" * 96]}
+
+
+def test_attribute_keys_are_bounded_by_length():
+    """`max_length=32` on `attributes` bounds only the key count, not key length.
+
+    One key, far under the dict's 32-key-count bound, so a failure here can
+    only be the key-length bound firing, not the key-count bound.
+
+    Falsifier: drop the 64-char bound on attribute keys and this passes with
+    a 65-char key.
+    """
+    from pydantic import ValidationError
+
+    from service.models import SearchFilters
+
+    with pytest.raises(ValidationError):
+        SearchFilters(attributes={"a" * 65: "ok"})
+
+    assert SearchFilters(attributes={"a" * 64: "ok"}).attributes == {"a" * 64: "ok"}
+
+
 def test_blank_evidence_query_is_rejected_before_any_scope_check():
     """`ProductEvidenceRequest.evidence_query` has the same `min_length` shape.
 

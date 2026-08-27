@@ -49,6 +49,22 @@ Availability = Literal[
 ]
 
 
+# Bounds measured against the live `mosaic_search.product_document.attributes`
+# column on 2026-08-27: max key length 25, max scalar string value length 24,
+# max array length 6, max string array-element length 25. Each bound below
+# carries roughly 2.5-4x headroom over its measurement, matching `brands`
+# above, which is bounded the same way. The value bound and the list-item
+# bound are declared separately, even though both currently read 96, so that
+# removing either one leaves the other in force.
+AttributeKey = Annotated[str, StringConstraints(min_length=1, max_length=64)]
+AttributeValueString = Annotated[str, StringConstraints(min_length=1, max_length=96)]
+AttributeListItem = (
+    Annotated[str, StringConstraints(min_length=1, max_length=96)] | int | float | bool
+)
+AttributeList = Annotated[list[AttributeListItem], Field(max_length=16)]
+AttributeValue = AttributeValueString | int | float | bool | AttributeList
+
+
 class SearchFilters(BaseModel):
     """Filter set accepted by `mosaic_search.matches_filters`.
 
@@ -70,7 +86,7 @@ class SearchFilters(BaseModel):
     min_price_cents: int | None = Field(default=None, ge=0, le=100_000_000)
     max_price_cents: int | None = Field(default=None, ge=0, le=100_000_000)
     min_rating: float | None = Field(default=None, ge=0, le=5)
-    attributes: dict[str, str | int | float | bool | list[Any]] = Field(
+    attributes: dict[AttributeKey, AttributeValue] = Field(
         default_factory=dict, max_length=32
     )
     include_refurbished: bool = False
