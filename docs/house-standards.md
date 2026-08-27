@@ -190,7 +190,25 @@ first two proofs; those fail *neither* while still proving nothing.
 **How.** Assert the witness explicitly. Depending on the gate: assert a collection
 is non-empty before iterating it, assert a comparison counter is `> 0`, assert the
 fixture holds the multiple records a comparison needs, or have the function under
-test report what it examined. Then never satisfy a gate by re-implementing the
+test report what it examined.
+
+**The witness must be independent of what it witnesses.** A count compared against
+another count derived from the same predicate over the same data proves nothing:
+
+```python
+# Vacuous. Both sides collapse to 0 together.
+assert checked == len(contracts_for_surface("agent"))
+```
+
+Measured: that line was written to prove "the loop compared something, not zero
+contracts." Remove `"agent"` from every contract's `surfaces` and both sides go to
+zero, the per-contract assertion inside the loop never runs, and the test reports
+green. Pin an **independent** expectation instead — a literal count, a value from a
+different source, or a name the loop must have visited:
+
+```python
+assert checked == 5, "expected exactly 5 agent-surface contracts; found ..."
+``` Then never satisfy a gate by re-implementing the
 logic it is meant to police: **call the production path**, per rule 3.
 
 **Corollary, and the reason this belongs in a workshop repo.** The session's own
