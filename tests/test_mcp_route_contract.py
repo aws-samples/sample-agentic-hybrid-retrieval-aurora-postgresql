@@ -56,7 +56,35 @@ def test_mcp_evidence_tool_forwards_the_retrieval_scope():
 
 
 def test_mcp_adapter_holds_no_scope_policy():
-    """Enforcement belongs to service/retrieval_scope.py, not to a transport."""
+    """Enforcement belongs to service/retrieval_scope.py, not to a transport.
+
+    The absence checks below would pass just as readily on an empty or
+    gutted `server.py`, so they are preceded by positive assertions that the
+    adapter still defines its three tools and that `get_product_evidence`
+    still forwards `retrieval_scope_id` -- the same shape of check
+    `test_mcp_evidence_tool_forwards_the_retrieval_scope` uses above.
+    """
+    for tool_name in (
+        "search_products",
+        "get_product_evidence",
+        "inspect_retrieval_run",
+    ):
+        assert re.search(rf"\bdef {tool_name}\(", SERVER_SOURCE), (
+            f"the MCP adapter no longer defines {tool_name!r}; a deleted or "
+            "gutted adapter must not pass this test by omission"
+        )
+
+    match = re.search(
+        r'post\(\s*f"(/products/\{product_id\}/evidence)"\s*,\s*\{\s*'
+        r'"retrieval_scope_id": retrieval_scope_id,\s*'
+        r'"evidence_query": evidence_query,?\s*\}',
+        SERVER_SOURCE,
+    )
+    assert match, (
+        "get_product_evidence must still forward retrieval_scope_id and "
+        "evidence_query to the question-ranked evidence route"
+    )
+
     for forbidden in ("authorized_limit", "result_rank", "search_result_event"):
         assert forbidden not in SERVER_SOURCE, (
             f"the MCP adapter references {forbidden!r}, which means it is "
