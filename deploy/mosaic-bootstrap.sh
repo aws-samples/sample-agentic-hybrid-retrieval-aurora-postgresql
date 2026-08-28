@@ -75,13 +75,6 @@ required_environment=(
   DB_CLUSTER_ENDPOINT
   DB_NAME
   ASSETS_BUCKET
-  # Consumed unguarded when the embedding cache URI is built. Under `set -u` an
-  # unset value aborts the shell, and bash does NOT run the ERR trap for an
-  # unbound variable -- verified -- so `signal_failure` never fires, no reason
-  # reaches the wait condition, CloudFormation waits out its full timeout, and
-  # rollback then terminates the instance carrying the only log. Failing here
-  # instead costs one named line.
-  ASSETS_PREFIX
   EMBEDDING_CACHE_MANIFEST_SHA256
   CODE_EDITOR_PASSWORD
   DB_INSTANCE_CLASS
@@ -89,6 +82,27 @@ required_environment=(
 for variable in "${required_environment[@]}"; do
   if [[ -z "${!variable:-}" ]]; then
     echo "Mosaic bootstrap requires $variable"
+    signal_failure 2
+  fi
+done
+
+# Must be *defined*, but may legitimately be empty. ASSETS_PREFIX is empty when
+# the assets live at the bucket root: `s3://bucket/embedding-cache/` is a valid
+# URI, and hybrid-retrieval-code-editor.yml declares `AssetsBucketPrefix` with
+# `Default: ''`. Requiring it non-empty would reject a supported configuration.
+#
+# It still needs its own check, because it is consumed unguarded when the cache
+# URI is built. Under `set -u` an unset value aborts the shell, and bash does NOT
+# run the ERR trap for an unbound variable -- verified directly -- so
+# `signal_failure` never fires, no reason reaches the wait condition,
+# CloudFormation waits out its full timeout, and rollback then terminates the
+# instance carrying the only log. `${var+x}` distinguishes unset from empty.
+required_defined_environment=(
+  ASSETS_PREFIX
+)
+for variable in "${required_defined_environment[@]}"; do
+  if [[ -z ${!variable+x} ]]; then
+    echo "Mosaic bootstrap requires $variable to be set (it may be empty)"
     signal_failure 2
   fi
 done
