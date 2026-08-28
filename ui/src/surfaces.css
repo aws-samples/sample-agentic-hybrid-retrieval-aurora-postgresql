@@ -10803,9 +10803,33 @@
   color: var(--danger);
 }
 
+/* Specific enough to win over `.labs-rrf-table td > em`'s own color: the
+   broken-formula value inside a fusion-defect cell has to actually read as a
+   flag, not fall back to the same muted tone every other `em` in this table
+   uses. */
+.labs-rrf-table td > em.labs-rrf-mismatch {
+  color: var(--danger);
+}
+
 .labs-rrf-mismatch small {
   display: block;
   font-size: var(--labs-micro);
+}
+
+/* One shared convention for the workshop's two stated maxims (Lab 2's fusion
+   defect, Lab 3's evidence chain): a short, bolded claim, set apart from the
+   measurements around it rather than folded into another paragraph's prose. */
+.labs-teaching-line {
+  max-width: 74ch;
+  margin: 0;
+  padding: 13px 16px;
+  border-left: 1px solid var(--ink);
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: var(--labs-body);
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .labs-profile {

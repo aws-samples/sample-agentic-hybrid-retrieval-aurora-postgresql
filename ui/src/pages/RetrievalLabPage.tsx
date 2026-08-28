@@ -4,6 +4,7 @@ import { ApiError, api } from "../api";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
+import { FusionDefectLens } from "../components/FusionDefectLens";
 import { PackageFinale } from "../components/PackageFinale";
 import {
   PlaygroundDisclosure,
@@ -506,6 +507,12 @@ export function RetrievalLabPage() {
                 hint="1 / (k + rank), per arm, summed"
               >
                 <RrfMath response={response} />
+              </PlaygroundDisclosure>
+              <PlaygroundDisclosure
+                label="View fusion defect"
+                hint="Lab 2: expected vs. broken contribution, per arm"
+              >
+                <FusionDefectLens response={response} />
               </PlaygroundDisclosure>
               <PersistedRunDisclosures response={response} />
             </PlaygroundDisclosureShelf>
