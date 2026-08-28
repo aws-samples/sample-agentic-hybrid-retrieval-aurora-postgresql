@@ -46,7 +46,7 @@ const minimalScorecard: RetrievalScorecardResponse = {
     current_source_revision: "1".repeat(40),
     current_source_worktree_dirty: false,
     attributed: false,
-    attribution_note: "Metrics pending evaluation for this revision: fixture.",
+    attribution_note: "Metrics pending evaluation for this retrieval revision: fixture.",
   },
   retrieval_quality: {
     sample_size: 19,
