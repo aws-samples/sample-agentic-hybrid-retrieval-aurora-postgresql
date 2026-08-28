@@ -24,8 +24,9 @@ from scripts.ablation_evals import (
     ARM_RRF_FUSED,
     ARM_RRF_RERANKED,
     ARM_SEMANTIC_ONLY,
+    CEILING_BOUNDED_ARMS,
     AblationMeasurementError,
-    assert_ceiling_covers_every_arm,
+    assert_ceiling_bounds_fusion_arms,
     assert_reproduces_committed_metrics,
     candidate_recall_ceiling,
     load_served_arm,
@@ -35,6 +36,7 @@ from scripts.ablation_evals import (
     semantic_only_arm,
 )
 from scripts.evaluate import evaluate
+from scripts.score_evals import ranked_result_sha256
 from service.retrieval import RetrievalService
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -146,6 +148,61 @@ def test_reproduced_metrics_raise_on_the_exact_breaking_edit(field):
         assert_reproduces_committed_metrics(measured, committed)
 
 
+def test_reproduced_metrics_reject_a_permutation_with_identical_means():
+    """The counterexample aggregate equality cannot catch.
+
+    Recall, MRR and nDCG are means over queries, so swapping two queries'
+    orderings leaves all three means byte-identical while every per-query row
+    moves. Before the ranked-hash and per-query checks existed, this passed.
+    """
+    committed_ranked = {
+        "G-001": [(1, 11), (2, 12)],
+        "G-002": [(1, 21), (2, 22)],
+    }
+    permuted = {
+        "G-001": [(1, 21), (2, 22)],
+        "G-002": [(1, 11), (2, 12)],
+    }
+    metrics = {"recall@10": 0.75, "mrr": 0.8, "ndcg@10": 0.7}
+
+    with pytest.raises(AblationMeasurementError, match="ranked-result hash"):
+        assert_reproduces_committed_metrics(
+            dict(metrics),
+            dict(metrics),
+            measured_ranked=permuted,
+            committed_ranked_sha256=ranked_result_sha256(committed_ranked),
+        )
+
+
+def test_reproduced_metrics_accept_the_identical_ranking():
+    """Independence from the permutation test: the same hash comparison must
+    pass on the unpermuted ordering, so the check is not simply always red."""
+    ranked = {"G-001": [(1, 11), (2, 12)], "G-002": [(1, 21), (2, 22)]}
+    metrics = {"recall@10": 0.75, "mrr": 0.8, "ndcg@10": 0.7}
+
+    assert_reproduces_committed_metrics(
+        dict(metrics),
+        dict(metrics),
+        measured_ranked=ranked,
+        committed_ranked_sha256=ranked_result_sha256(ranked),
+    )
+
+
+def test_reproduced_metrics_localize_a_per_query_disagreement():
+    """A per-query row difference names the query id, which a global mean
+    cannot. Red-at-birth: move one query's nDCG while the means still match."""
+    with pytest.raises(AblationMeasurementError, match="G-002"):
+        assert_reproduces_committed_metrics(
+            {"recall@10": 0.75, "mrr": 0.8, "ndcg@10": 0.7},
+            {"recall@10": 0.75, "mrr": 0.8, "ndcg@10": 0.7},
+            measured_per_query={"G-001": 0.9, "G-002": 0.5},
+            committed_per_query=[
+                {"query_id": "G-001", "ndcg@10": 0.9},
+                {"query_id": "G-002", "ndcg@10": 0.6},
+            ],
+        )
+
+
 def test_reproduced_metrics_message_names_both_values():
     committed = {"recall@10": 0.75, "mrr": 0.8, "ndcg@10": 0.7}
     measured = {**committed, "mrr": 0.79}
@@ -158,11 +215,11 @@ def test_reproduced_metrics_message_names_both_values():
     assert "0.8" in message
 
 
-# --- assert_ceiling_covers_every_arm: pool accounting, not a real outcome --
+# --- assert_ceiling_bounds_fusion_arms: pool accounting, not a real outcome -
 
 
-def test_ceiling_covering_every_arm_passes_silently():
-    assert_ceiling_covers_every_arm(0.9, {"a": 0.5, "b": 0.9})
+def test_ceiling_covering_every_fusion_arm_passes_silently():
+    assert_ceiling_bounds_fusion_arms(0.9, {ARM_RRF_FUSED: 0.5, ARM_RRF_RERANKED: 0.9})
 
 
 def test_ceiling_below_one_arm_raises_with_the_offending_arm_named():
@@ -170,13 +227,34 @@ def test_ceiling_below_one_arm_raises_with_the_offending_arm_named():
     ceiling below a measured value is arithmetically impossible under
     correct pool accounting, per the docstring's own construction argument."""
     with pytest.raises(AblationMeasurementError, match="rrf_fused_no_rerank"):
-        assert_ceiling_covers_every_arm(0.5, {"rrf_fused_no_rerank": 0.6})
+        assert_ceiling_bounds_fusion_arms(0.5, {ARM_RRF_FUSED: 0.6})
 
 
 def test_ceiling_equal_to_an_arm_is_not_a_violation():
     """Independence: equality, not just strict excess, must pass -- the
     fused pool and the arm's own top-K can legitimately coincide."""
-    assert_ceiling_covers_every_arm(0.6, {ARM_RRF_FUSED: 0.6})
+    assert_ceiling_bounds_fusion_arms(0.6, {ARM_RRF_FUSED: 0.6})
+
+
+def test_ceiling_refuses_the_semantic_only_arm_it_does_not_bound():
+    """The fused-pool ceiling does not bound an arm that retrieves
+    independently of fusion. search_vector returns semantic_limit (150)
+    candidates and arm 1 takes its own top-K from those, while the fused pool
+    is capped at fused_limit (50), so semantic recall above the ceiling is a
+    legitimate measurement. Passing arm 1 in must be refused rather than
+    silently asserted, or a correct run raises and blocks a release."""
+    with pytest.raises(AblationMeasurementError, match="does not bound"):
+        assert_ceiling_bounds_fusion_arms(
+            0.5, {ARM_RRF_FUSED: 0.4, ARM_SEMANTIC_ONLY: 1.0}
+        )
+
+
+def test_semantic_only_above_the_ceiling_is_never_asserted_against():
+    """Independence from the refusal above: the exact numbers that used to
+    raise -- ceiling 0.5 against semantic recall 1.0 -- must now pass when
+    only the bounded arms are supplied, which is what the caller does."""
+    assert_ceiling_bounds_fusion_arms(0.5, {ARM_RRF_FUSED: 0.4, ARM_RRF_RERANKED: 0.5})
+    assert ARM_SEMANTIC_ONLY not in CEILING_BOUNDED_ARMS
 
 
 # --- semantic_only_arm / rrf_fused_arm: probe the real SQL orchestration ---
@@ -384,6 +462,16 @@ def ablation_environment(tmp_path, monkeypatch):
                     "mrr": committed_metrics["mrr"],
                     "ndcg@10": committed_metrics["ndcg@10"],
                 },
+                # Derived from the same served ranking the CSV encodes, so the
+                # ordering-identity and per-query checks compare like with
+                # like. Both keys are required rather than optional: a
+                # scorecard missing either must raise, not silently skip the
+                # strongest check the assertion has.
+                "ranked_result_sha256": ranked_result_sha256(served_ranked),
+                "per_query_metrics": [
+                    {"query_id": row["query_id"], "ndcg@10": row["ndcg@10"]}
+                    for row in committed_metrics["per_query"]
+                ],
             }
         ),
         encoding="utf-8",
@@ -522,7 +610,7 @@ def test_committed_stage_ablation_reproduces_the_scorecard_and_the_fingerprint()
         },
         scorecard["metrics"],
     )
-    assert_ceiling_covers_every_arm(
+    assert_ceiling_bounds_fusion_arms(
         artifact["candidate_recall_ceiling"]["pool_recall_ceiling"],
-        {arm: values["recall@10"] for arm, values in artifact["arms"].items()},
+        {arm: artifact["arms"][arm]["recall@10"] for arm in CEILING_BOUNDED_ARMS},
     )

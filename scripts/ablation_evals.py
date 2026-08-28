@@ -63,6 +63,7 @@ from scripts.retrieval_profile import explain
 from scripts.score_evals import (
     product_retrieval_queries,
     query_set_sha256,
+    ranked_result_sha256,
     scored_query_set_sha256,
 )
 from service.config import get_settings
@@ -327,6 +328,10 @@ def assert_reproduces_committed_metrics(
     measured: dict[str, float],
     committed: dict[str, float],
     *,
+    measured_ranked: dict[str, list[tuple[int, int]]] | None = None,
+    committed_ranked_sha256: str | None = None,
+    measured_per_query: dict[str, float] | None = None,
+    committed_per_query: list[dict[str, Any]] | None = None,
     served_results_path: Path = SERVED_RESULTS_PATH,
     scorecard_path: Path = CANONICAL_SCORECARD_PATH,
 ) -> None:
@@ -339,7 +344,52 @@ def assert_reproduces_committed_metrics(
     sides run the same pure function over what should be the same inputs, so
     anything short of equality means the CSV and the committed scorecard no
     longer describe the same measurement.
+
+    **Aggregate equality alone is not sufficient identity.** Recall, MRR and
+    nDCG are means over queries, so swapping two queries' result orderings can
+    leave all three means untouched while every per-query row changes. Two
+    stronger checks run when their inputs are supplied, and the caller always
+    supplies them:
+
+    - `ranked_result_sha256` over the recomputed ordering, against the
+      committed hash. This is exact per-query ordering identity, so no
+      permutation survives it.
+    - per-query nDCG row by row, against the committed `per_query_metrics`,
+      which localizes a disagreement to a query id instead of a global mean.
     """
+    if measured_ranked is not None and committed_ranked_sha256 is not None:
+        measured_sha = ranked_result_sha256(measured_ranked)
+        if measured_sha != committed_ranked_sha256:
+            raise AblationMeasurementError(
+                explain(
+                    f"arm 3 ranked-result hash recomputed from "
+                    f"{served_results_path} as {measured_sha}",
+                    f"expected {scorecard_path}'s committed "
+                    f"{committed_ranked_sha256}; the aggregate metrics can "
+                    "match while per-query ordering differs, so this hash -- "
+                    "not the means -- is what proves the same result set",
+                )
+            )
+    if measured_per_query is not None and committed_per_query is not None:
+        committed_rows = {
+            row["query_id"]: row[f"ndcg@{K}"] for row in committed_per_query
+        }
+        drifted = {
+            query_id: (value, committed_rows.get(query_id))
+            for query_id, value in sorted(measured_per_query.items())
+            if committed_rows.get(query_id) != value
+        }
+        missing = sorted(set(committed_rows) ^ set(measured_per_query))
+        if drifted or missing:
+            raise AblationMeasurementError(
+                explain(
+                    f"arm 3 per-query nDCG@{K} disagrees with {scorecard_path} "
+                    f"for {drifted or missing}",
+                    "each row is the same pure function over what should be "
+                    "the same ranking; a per-query difference under matching "
+                    "means indicates reordered results, not a new measurement",
+                )
+            )
     if measured != committed:
         raise AblationMeasurementError(
             explain(
@@ -352,20 +402,44 @@ def assert_reproduces_committed_metrics(
         )
 
 
-def assert_ceiling_covers_every_arm(
+#: Arms whose top-K is drawn from the fused pool the ceiling is computed over.
+#: `semantic_only` is deliberately absent -- see below.
+CEILING_BOUNDED_ARMS = (ARM_RRF_FUSED, ARM_RRF_RERANKED)
+
+
+def assert_ceiling_bounds_fusion_arms(
     ceiling_recall: float,
     arm_recalls: dict[str, float],
 ) -> None:
-    """A pool-recall ceiling below any arm's Recall@10 is a bug, not a finding.
+    """A pool-recall ceiling below a *fusion* arm's Recall@10 is a bug.
 
-    Every arm's top-K is drawn from a candidate set no larger than the fused
-    pool this ceiling is computed over (`rrf_fused_no_rerank` and
-    `rrf_fused_reranked` directly; `semantic_only` because it draws from the
-    same `search_vector` call the fused pool's semantic channel makes, at the
-    same candidate limit). A ceiling strictly below a measured Recall@10 is
-    arithmetically impossible under that construction, so it signals the pool
-    accounting -- not the retrieval quality -- is wrong.
+    `rrf_fused_no_rerank` and `rrf_fused_reranked` both cut their top-K from
+    the fused pool this ceiling is computed over, so a ceiling strictly below
+    either one is arithmetically impossible and signals the pool accounting --
+    not the retrieval quality -- is wrong.
+
+    `semantic_only` is **not** bounded by this ceiling and is excluded. It
+    retrieves independently: `search_vector` returns `semantic_limit` (150)
+    candidates and arm 1 takes its own top-K from those, while the fused pool
+    is capped at `fused_limit` (50) after RRF scores three channels together.
+    A judged-relevant product at semantic rank 3 can therefore sit in arm 1's
+    top-10 and still be pushed out of the fused top-50 by better-scoring
+    candidates from the lexical channels, which makes
+    `semantic_only.recall@K > ceiling` a legitimate measurement rather than a
+    fault. Asserting over it would raise a false failure and block a release on
+    correct data. The artifact records where arm 1 sits against the ceiling
+    instead of assuming a relationship that does not hold.
     """
+    unbounded = set(arm_recalls) - set(CEILING_BOUNDED_ARMS)
+    if unbounded:
+        raise AblationMeasurementError(
+            explain(
+                f"assert_ceiling_bounds_fusion_arms received {sorted(unbounded)}, "
+                f"which the fused-pool ceiling does not bound",
+                f"pass only {list(CEILING_BOUNDED_ARMS)}; an arm that retrieves "
+                "independently of fusion may legitimately exceed this ceiling",
+            )
+        )
     violations = {
         arm: recall for arm, recall in arm_recalls.items() if recall > ceiling_recall
     }
@@ -374,8 +448,8 @@ def assert_ceiling_covers_every_arm(
             explain(
                 f"candidate-recall ceiling {ceiling_recall} is below Recall@{K} "
                 f"for {violations}",
-                "the ceiling must be computed over a superset of every arm's "
-                "candidate pool; fix the pool accounting rather than the "
+                "the ceiling must be computed over a superset of every fusion "
+                "arm's candidate pool; fix the pool accounting rather than the "
                 "measured recall",
             )
         )
@@ -431,7 +505,14 @@ def measured_ablation() -> dict[str, Any]:
         "mrr": served_result["metrics"]["mrr"],
         f"ndcg@{K}": served_result["metrics"][f"ndcg@{K}"],
     }
-    assert_reproduces_committed_metrics(measured_metrics, committed_metrics)
+    assert_reproduces_committed_metrics(
+        measured_metrics,
+        committed_metrics,
+        measured_ranked=served_ranked,
+        committed_ranked_sha256=committed_scorecard["ranked_result_sha256"],
+        measured_per_query=served_result["per_query_ndcg"],
+        committed_per_query=committed_scorecard["per_query_metrics"],
+    )
 
     retrieval = get_retrieval_service()
     semantic_ranked = semantic_only_arm(retrieval, queries)
@@ -445,9 +526,12 @@ def measured_ablation() -> dict[str, Any]:
         ARM_RRF_FUSED: fused_result,
         ARM_RRF_RERANKED: served_result,
     }
-    assert_ceiling_covers_every_arm(
+    assert_ceiling_bounds_fusion_arms(
         ceiling["pool_recall_ceiling"],
-        {arm: result["metrics"][f"recall@{K}"] for arm, result in arm_results.items()},
+        {
+            arm: arm_results[arm]["metrics"][f"recall@{K}"]
+            for arm in CEILING_BOUNDED_ARMS
+        },
     )
     per_query_ndcg = {
         query_id: {
@@ -526,6 +610,23 @@ def measured_ablation() -> dict[str, Any]:
                 "reranking only reorders this pool, it never adds a "
                 "candidate absent from it."
             ),
+            "bounds_arms": list(CEILING_BOUNDED_ARMS),
+            "unbounded_arms": {
+                ARM_SEMANTIC_ONLY: {
+                    f"recall@{K}": arm_results[ARM_SEMANTIC_ONLY]["metrics"][
+                        f"recall@{K}"
+                    ],
+                    "note": (
+                        "Not bounded by this ceiling. search_vector returns "
+                        "semantic_limit candidates and this arm takes its own "
+                        "top-K from those, while the fused pool is capped at "
+                        "fused_limit after RRF scores three channels together, "
+                        "so a judged-relevant product can appear here and still "
+                        "be absent from the fused pool. Recorded for "
+                        "comparison, never asserted against."
+                    ),
+                }
+            },
         },
         "per_query": per_query_payload,
     }
