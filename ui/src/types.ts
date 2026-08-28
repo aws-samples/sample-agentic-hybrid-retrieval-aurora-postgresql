@@ -838,11 +838,72 @@ export interface ScorecardAgentContracts {
   guarantees: ScorecardAgentContractGuarantee[];
 }
 
-/** The Prove step. Four sections, never conflated -- see each interface above. */
+/**
+ * One retrieval-stage arm in Lab 2's ablation (section E).
+ *
+ * `ndcg_at_10_min`/`_max`/`_stdev` are the per-query spread across the same
+ * 20 scored queries `recall_at_10`/`mrr`/`ndcg_at_10` are averaged over --
+ * every mean here travels with the spread that qualifies it. See
+ * `ScorecardStageAblation.spread_note`.
+ */
+export interface ScorecardStageArm {
+  key: "semantic_only" | "rrf_fused_no_rerank" | "rrf_fused_reranked";
+  label: string;
+  description: string;
+  recall_at_10: number;
+  mrr: number;
+  ndcg_at_10: number;
+  ndcg_at_10_min: number;
+  ndcg_at_10_max: number;
+  ndcg_at_10_stdev: number;
+  ndcg_at_10_query_wins: number;
+}
+
+/**
+ * The ceiling reranking could ever reach: share of judged-relevant products
+ * present anywhere in the fused candidate pool before reranking. Reranking
+ * only ever reorders that pool -- it never adds a candidate.
+ */
+export interface ScorecardCandidateRecallCeiling {
+  pool_recall_ceiling: number;
+  judged_relevant_never_fetched: number;
+  description: string;
+}
+
+/** One scored query's nDCG@10 under every arm, keyed by `ScorecardStageArm.key`. */
+export interface ScorecardStageAblationQuery {
+  query_id: string;
+  query_text: string;
+  ndcg_at_10: Record<string, number>;
+  pool_recall: number;
+  relevant_count: number;
+  found_in_pool: number;
+  missed_product_ids: number[];
+}
+
+/**
+ * Section E: what each retrieval stage contributes, measured rather than
+ * asserted. A separate artifact and a separate attribution gate from section
+ * A -- `attributed` here can be false while section A's is true, or the
+ * reverse, because each is judged against its own committed measurement.
+ */
+export interface ScorecardStageAblation {
+  attributed: boolean;
+  attribution_note: string;
+  measured_at: string;
+  spread_note: string;
+  scored_query_count: number;
+  arms: ScorecardStageArm[];
+  candidate_recall_ceiling: ScorecardCandidateRecallCeiling;
+  per_query: ScorecardStageAblationQuery[];
+}
+
+/** The Prove step. Five sections, never conflated -- see each interface above. */
 export interface RetrievalScorecardResponse {
   provenance: ScorecardProvenance;
   retrieval_quality: ScorecardRetrievalQuality;
   regression_anchors: ScorecardRegressionAnchors;
   eligibility_contracts: ScorecardEligibilityContracts;
   agent_contracts: ScorecardAgentContracts;
+  stage_ablation: ScorecardStageAblation;
 }

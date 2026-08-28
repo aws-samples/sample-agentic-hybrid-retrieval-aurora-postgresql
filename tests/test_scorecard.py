@@ -65,6 +65,74 @@ def _artifact(
     }
 
 
+def _stage_ablation_artifact(**overrides) -> dict:
+    """A committed stage-ablation artifact, gated by the same `_attribution`
+    conjunction as the main scorecard artifact -- built on `_artifact` rather
+    than a separate literal, so the two share the same matching-identity
+    defaults and cannot silently drift apart."""
+    return {
+        **_artifact(**overrides),
+        "measured_at": "2026-08-27T00:00:00+00:00",
+        "spread_note": "20 queries and 74 judgments cannot separate small differences.",
+        "scored_query_count": 20,
+        "arms": {
+            "semantic_only": {
+                "label": "Semantic only",
+                "description": "fixture description",
+                "recall@10": 0.7,
+                "mrr": 0.7125,
+                "ndcg@10": 0.6594,
+                "ndcg@10_min": 0.0,
+                "ndcg@10_max": 1.0,
+                "ndcg@10_stdev": 0.4199,
+                "ndcg@10_query_wins": 12,
+            },
+            "rrf_fused_no_rerank": {
+                "label": "RRF fused, reranking off",
+                "description": "fixture description",
+                "recall@10": 0.8833,
+                "mrr": 0.915,
+                "ndcg@10": 0.8617,
+                "ndcg@10_min": 0.0975,
+                "ndcg@10_max": 1.0,
+                "ndcg@10_stdev": 0.2454,
+                "ndcg@10_query_wins": 15,
+            },
+            "rrf_fused_reranked": {
+                "label": "RRF fused + managed reranking (served path)",
+                "description": "fixture description",
+                "recall@10": 0.8667,
+                "mrr": 0.9267,
+                "ndcg@10": 0.8712,
+                "ndcg@10_min": 0.2835,
+                "ndcg@10_max": 1.0,
+                "ndcg@10_stdev": 0.2147,
+                "ndcg@10_query_wins": 16,
+            },
+        },
+        "candidate_recall_ceiling": {
+            "pool_recall_ceiling": 0.95,
+            "judged_relevant_never_fetched": 2,
+            "description": "fixture ceiling description",
+        },
+        "per_query": [
+            {
+                "query_id": "G-001",
+                "query_text": "EchoBud S2",
+                "ndcg@10": {
+                    "semantic_only": 1.0,
+                    "rrf_fused_no_rerank": 1.0,
+                    "rrf_fused_reranked": 1.0,
+                },
+                "pool_recall": 1.0,
+                "relevant_count": 1,
+                "found_in_pool": 1,
+                "missed_product_ids": [],
+            },
+        ],
+    }
+
+
 def _current(
     *,
     fingerprint: str = _MATCHING_FINGERPRINT,
@@ -88,14 +156,17 @@ def _api_artifact_and_settings(
     dirty: bool = False,
     current_source_worktree_dirty: bool = False,
     revision: str = "9" * 40,
+    ablation_dirty: bool | None = None,
 ) -> dict:
     """Wire the real route to a synthetic, fully-matching artifact.
 
-    Patches every input `_attribution` reads -- the artifact loader, the
+    Patches every input `_attribution` reads -- both artifact loaders, the
     fingerprint/hash functions imported into `service.scorecard`, and
     settings -- so the route-level tests exercise real HTTP dispatch without
     depending on the real repository's current fingerprint or the real
-    committed artifact ever matching it.
+    committed artifacts ever matching it. `ablation_dirty` defaults to
+    `dirty` so both sections are attributed together unless a test asks for
+    the two to disagree, which is the independence proof for section E.
     """
     artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
     artifact["retrieval_fingerprint"] = _MATCHING_FINGERPRINT
@@ -107,7 +178,20 @@ def _api_artifact_and_settings(
     }
     artifact["source"] = {"revision": revision, "worktree_dirty": dirty}
 
+    ablation = _stage_ablation_artifact(
+        fingerprint=_MATCHING_FINGERPRINT,
+        dirty=dirty if ablation_dirty is None else ablation_dirty,
+        embedding=_MATCHING_EMBEDDING_MODEL,
+        rerank=_MATCHING_RERANK_MODEL,
+        query_set_sha=_MATCHING_QUERY_SET_SHA,
+        scored_query_set_sha=_MATCHING_SCORED_QUERY_SET_SHA,
+        revision=revision,
+    )
+
     monkeypatch.setattr("service.scorecard._load_artifact", lambda: artifact)
+    monkeypatch.setattr(
+        "service.scorecard._load_stage_ablation_artifact", lambda: ablation
+    )
     monkeypatch.setattr(
         "service.scorecard.compute_retrieval_fingerprint",
         lambda: _MATCHING_FINGERPRINT,
@@ -429,6 +513,54 @@ def test_agent_contracts_reject_an_unmapped_assertion_name(monkeypatch):
         scorecard._agent_contracts()
 
 
+# --- Section E: stage ablation, gated by its own attribution ----------------
+
+
+def test_stage_ablation_projects_every_arm_and_the_ceiling():
+    from service.scorecard import _stage_ablation
+
+    result = _stage_ablation(_stage_ablation_artifact(), _current())
+
+    assert result.attributed is True
+    keys = {arm.key for arm in result.arms}
+    assert keys == {"semantic_only", "rrf_fused_no_rerank", "rrf_fused_reranked"}
+    reranked = next(arm for arm in result.arms if arm.key == "rrf_fused_reranked")
+    assert reranked.recall_at_10 == 0.8667
+    assert reranked.ndcg_at_10_query_wins == 16
+    assert result.candidate_recall_ceiling.pool_recall_ceiling == 0.95
+    assert result.candidate_recall_ceiling.judged_relevant_never_fetched == 2
+    assert len(result.per_query) == 1
+    assert result.per_query[0].query_id == "G-001"
+    assert result.per_query[0].ndcg_at_10["rrf_fused_reranked"] == 1.0
+
+
+def test_stage_ablation_is_withheld_when_its_own_fingerprint_does_not_match():
+    """Red-at-birth: the ablation artifact's own mismatch must hide section
+    E, using the same `_attribution` conjunction section A is judged by."""
+    from service.scorecard import _stage_ablation
+
+    result = _stage_ablation(_stage_ablation_artifact(fingerprint="g" * 64), _current())
+
+    assert result.attributed is False
+    assert result.attribution_note.startswith(PENDING_TEXT)
+    # Witness: the arms and ceiling are still projected even while withheld,
+    # so the UI -- not this projection -- decides what to hide.
+    assert len(result.arms) == 3
+
+
+def test_stage_ablation_attribution_is_independent_of_the_main_artifacts():
+    """Independence: an artifact-A-only mismatch must not affect section E's
+    own attribution, and the reverse. Two separate committed measurements,
+    two separate gates."""
+    from service.scorecard import _stage_ablation
+
+    matching = _stage_ablation(_stage_ablation_artifact(), _current())
+    mismatched = _stage_ablation(_stage_ablation_artifact(dirty=True), _current())
+
+    assert matching.attributed is True
+    assert mismatched.attributed is False
+
+
 # --- The API route -----------------------------------------------------
 
 
@@ -505,3 +637,66 @@ def test_api_shows_metrics_despite_a_dirty_running_worktree(monkeypatch):
     payload = TestClient(app).get("/api/scorecard").json()
 
     assert payload["provenance"]["attributed"] is True
+
+
+def test_api_serves_the_stage_ablation_section_alongside_the_other_four():
+    """End-to-end shape proof: `/api/scorecard` carries section E without
+    disturbing sections A-D, against the real committed artifacts."""
+    payload = TestClient(app).get("/api/scorecard").json()
+
+    assert set(payload) == {
+        "provenance",
+        "retrieval_quality",
+        "regression_anchors",
+        "eligibility_contracts",
+        "agent_contracts",
+        "stage_ablation",
+    }
+    ablation = payload["stage_ablation"]
+    assert {arm["key"] for arm in ablation["arms"]} == {
+        "semantic_only",
+        "rrf_fused_no_rerank",
+        "rrf_fused_reranked",
+    }
+    assert ablation["scored_query_count"] == 20
+    assert len(ablation["per_query"]) == 20
+    # The ceiling is arithmetically impossible below any arm's own Recall@10
+    # under correct pool accounting -- proven live against the committed
+    # artifact, not only against the synthetic fixture above.
+    ceiling = ablation["candidate_recall_ceiling"]["pool_recall_ceiling"]
+    for arm in ablation["arms"]:
+        assert ceiling >= arm["recall_at_10"]
+    # Arm 3 must equal the committed population scorecard's own metrics --
+    # the whole point of never re-serving it.
+    reranked = next(
+        arm for arm in ablation["arms"] if arm["key"] == "rrf_fused_reranked"
+    )
+    quality = payload["retrieval_quality"]
+    assert reranked["recall_at_10"] == quality["recall_at_10"]
+    assert reranked["mrr"] == quality["mrr"]
+    assert reranked["ndcg_at_10"] == quality["ndcg_at_10"]
+
+
+def test_api_can_show_the_stage_ablation_while_the_main_scorecard_is_pending(
+    monkeypatch,
+):
+    """Independence at the route level: sections A and E are gated by two
+    different committed artifacts, so one being stale must not force the
+    other to hide."""
+    _api_artifact_and_settings(monkeypatch, dirty=True, ablation_dirty=False)
+
+    payload = TestClient(app).get("/api/scorecard").json()
+
+    assert payload["provenance"]["attributed"] is False
+    assert payload["stage_ablation"]["attributed"] is True
+
+
+def test_api_can_hide_the_stage_ablation_while_the_main_scorecard_is_shown(
+    monkeypatch,
+):
+    _api_artifact_and_settings(monkeypatch, dirty=False, ablation_dirty=True)
+
+    payload = TestClient(app).get("/api/scorecard").json()
+
+    assert payload["provenance"]["attributed"] is True
+    assert payload["stage_ablation"]["attributed"] is False

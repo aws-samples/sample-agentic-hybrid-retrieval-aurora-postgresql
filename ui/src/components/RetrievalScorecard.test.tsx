@@ -24,6 +24,93 @@ const DISTINCTIVE_RECALL = "0.7654";
 const DISTINCTIVE_MRR = "0.6543";
 const DISTINCTIVE_NDCG = "0.5432";
 
+const ABLATION_PENDING_NOTE = `${SCORECARD_PENDING_HEADLINE}: ablation fixture note.`;
+
+function stageAblationFixture(
+  overrides: Partial<RetrievalScorecardResponse["stage_ablation"]> = {},
+): RetrievalScorecardResponse["stage_ablation"] {
+  return {
+    attributed: true,
+    attribution_note: "Measured at the revision currently running: abcabcabcabc.",
+    measured_at: "2026-08-27T00:00:00Z",
+    spread_note:
+      "20 queries and 74 judgments cannot separate small differences between arms.",
+    scored_query_count: 2,
+    arms: [
+      {
+        key: "semantic_only",
+        label: "Semantic only",
+        description: "Dense cosine ranking alone, no fusion, no rerank.",
+        recall_at_10: 0.5,
+        mrr: 0.55,
+        ndcg_at_10: 0.4111,
+        ndcg_at_10_min: 0.0,
+        ndcg_at_10_max: 1.0,
+        ndcg_at_10_stdev: 0.42,
+        ndcg_at_10_query_wins: 1,
+      },
+      {
+        key: "rrf_fused_no_rerank",
+        label: "RRF fused, reranking off",
+        description: "The served fusion function with reranking disabled.",
+        recall_at_10: 0.9111,
+        mrr: 0.8222,
+        ndcg_at_10: 0.7333,
+        ndcg_at_10_min: 0.1,
+        ndcg_at_10_max: 1.0,
+        ndcg_at_10_stdev: 0.24,
+        ndcg_at_10_query_wins: 1,
+      },
+      {
+        key: "rrf_fused_reranked",
+        label: "RRF fused + managed reranking (served path)",
+        description: "The production path, recomputed from the served results CSV.",
+        recall_at_10: 0.9333,
+        mrr: 0.9444,
+        ndcg_at_10: 0.8555,
+        ndcg_at_10_min: 0.3,
+        ndcg_at_10_max: 1.0,
+        ndcg_at_10_stdev: 0.21,
+        ndcg_at_10_query_wins: 2,
+      },
+    ],
+    candidate_recall_ceiling: {
+      pool_recall_ceiling: 0.95,
+      judged_relevant_never_fetched: 1,
+      description: "The ceiling reranking could ever reach.",
+    },
+    per_query: [
+      {
+        query_id: "G-Q1",
+        query_text: "first ablation query",
+        ndcg_at_10: {
+          semantic_only: 0.0,
+          rrf_fused_no_rerank: 0.6308,
+          rrf_fused_reranked: 1.0,
+        },
+        pool_recall: 1.0,
+        relevant_count: 1,
+        found_in_pool: 1,
+        missed_product_ids: [],
+      },
+      {
+        query_id: "G-Q2",
+        query_text: "second ablation query",
+        ndcg_at_10: {
+          semantic_only: 1.0,
+          rrf_fused_no_rerank: 1.0,
+          rrf_fused_reranked: 1.0,
+        },
+        pool_recall: 1.0,
+        relevant_count: 1,
+        found_in_pool: 1,
+        missed_product_ids: [],
+      },
+    ],
+    ...overrides,
+  };
+}
+
 function scorecardFixture(
   overrides: Partial<RetrievalScorecardResponse["provenance"]> = {},
 ): RetrievalScorecardResponse {
@@ -124,6 +211,7 @@ function scorecardFixture(
         },
       ],
     },
+    stage_ablation: stageAblationFixture(),
   };
 }
 
@@ -380,5 +468,136 @@ describe("RetrievalScorecard", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("scorecard unavailable");
+  });
+});
+
+// --- Section E: stage ablation, gated independently from section A --------
+
+describe("RetrievalScorecard stage ablation", () => {
+  afterEach(cleanup);
+
+  it("renders every arm's recall, MRR, and nDCG with its own per-query spread", async () => {
+    const base = scorecardFixture({ attributed: true });
+    vi.mocked(api.scorecard).mockResolvedValue(base);
+    render(<RetrievalScorecard />);
+
+    await screen.findByText("E. Stage ablation");
+
+    expect(screen.getByText("Semantic only")).toBeTruthy();
+    expect(screen.getByText("RRF fused, reranking off")).toBeTruthy();
+    expect(
+      screen.getByText("RRF fused + managed reranking (served path)"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Recall@10 0\.9111 · MRR 0\.8222 · nDCG@10 0\.7333/),
+    ).toBeTruthy();
+    expect(screen.getByText(/stdev 0\.2400/)).toBeTruthy();
+    expect(screen.getByText(/Wins on nDCG@10: 2 of 2 queries/)).toBeTruthy();
+  });
+
+  it("shows the candidate-recall ceiling as its own figure, not folded into an arm", async () => {
+    vi.mocked(api.scorecard).mockResolvedValue(
+      scorecardFixture({ attributed: true }),
+    );
+    render(<RetrievalScorecard />);
+
+    await screen.findByText("E. Stage ablation");
+
+    expect(screen.getByText("0.9500")).toBeTruthy();
+    const ceilingFigure = screen.getByText("0.9500").closest(".labs-figure");
+    expect(ceilingFigure).toBeTruthy();
+    expect(within(ceilingFigure as HTMLElement).getByText("Pool recall ceiling")).toBeTruthy();
+    // The count of judged-relevant products the pool never fetched is a
+    // sibling figure, never merged into the ceiling's own value.
+    expect(screen.getByText("Judged-relevant never fetched").closest(".labs-figure"))
+      .not.toBe(ceilingFigure);
+  });
+
+  it("withholds the ablation when its own artifact is not attributed, independently of section A", async () => {
+    const base = scorecardFixture({ attributed: true });
+    vi.mocked(api.scorecard).mockResolvedValue({
+      ...base,
+      stage_ablation: stageAblationFixture({
+        attributed: false,
+        attribution_note: ABLATION_PENDING_NOTE,
+      }),
+    });
+    render(<RetrievalScorecard />);
+
+    // Section A's own numbers still render: the two gates are independent.
+    expect(await screen.findByText(DISTINCTIVE_RECALL)).toBeTruthy();
+
+    // Exactly one pending headline on the page -- section A is attributed,
+    // only section E's is not.
+    expect(screen.getAllByText(SCORECARD_PENDING_HEADLINE)).toHaveLength(1);
+    expect(screen.queryByText("Semantic only")).toBeNull();
+    expect(screen.queryByText("0.9500")).toBeNull();
+    expect(screen.getByTestId("stage-ablation-pending")).toBeTruthy();
+  });
+
+  it("shows the ablation while section A's own metrics are pending, independently", async () => {
+    const base = scorecardFixture({ attributed: false });
+    vi.mocked(api.scorecard).mockResolvedValue({
+      ...base,
+      stage_ablation: stageAblationFixture({ attributed: true }),
+    });
+    render(<RetrievalScorecard />);
+
+    await screen.findByText(SCORECARD_PENDING_HEADLINE);
+
+    expect(screen.getByText("Semantic only")).toBeTruthy();
+    expect(screen.getByText("0.9500")).toBeTruthy();
+    expect(screen.queryByTestId("stage-ablation-pending")).toBeNull();
+  });
+
+  it("renders the per-query nDCG@10 breakdown for every arm, keyed by query", async () => {
+    vi.mocked(api.scorecard).mockResolvedValue(
+      scorecardFixture({ attributed: true }),
+    );
+    render(<RetrievalScorecard />);
+
+    const disclosure = (
+      await screen.findByText("View per-query nDCG@10 by arm")
+    ).closest("details") as HTMLElement;
+
+    expect(within(disclosure).getAllByRole("listitem")).toHaveLength(2);
+    const rows = within(disclosure).getAllByRole("listitem");
+    const g1Row = rows.find((row) => row.textContent?.includes("first ablation query"));
+    expect(g1Row).toBeTruthy();
+    expect(within(g1Row as HTMLElement).getByText("G-Q1")).toBeTruthy();
+    // G-Q1: semantic missed it (0.0000) while the served path found it at
+    // rank 1 (1.0000) -- both values must be legible in the same row.
+    expect(within(g1Row as HTMLElement).getByText(/Semantic only 0\.0000/)).toBeTruthy();
+    expect(
+      (g1Row as HTMLElement).textContent,
+    ).toContain("RRF fused + managed reranking (served path) 1.0000");
+  });
+
+  it("always exposes its measurement provenance, including when withheld", async () => {
+    const base = scorecardFixture({ attributed: true });
+    vi.mocked(api.scorecard).mockResolvedValue({
+      ...base,
+      stage_ablation: stageAblationFixture({
+        attributed: false,
+        attribution_note: ABLATION_PENDING_NOTE,
+      }),
+    });
+    render(<RetrievalScorecard />);
+
+    const disclosure = (
+      await screen.findByText("View stage-ablation provenance")
+    ).closest("details") as HTMLElement;
+    expect(within(disclosure).getByText(ABLATION_PENDING_NOTE)).toBeTruthy();
+  });
+
+  it("carries the owner-specified honesty note about sample size and spread", async () => {
+    vi.mocked(api.scorecard).mockResolvedValue(scorecardFixture());
+    render(<RetrievalScorecard />);
+
+    await screen.findByText("E. Stage ablation");
+
+    expect(
+      screen.getByText(/cannot separate small differences between arms/i),
+    ).toBeTruthy();
   });
 });

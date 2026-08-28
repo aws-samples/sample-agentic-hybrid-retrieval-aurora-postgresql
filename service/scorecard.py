@@ -42,16 +42,21 @@ from service.models import (
     RetrievalScorecardResponse,
     ScorecardAgentContractGuarantee,
     ScorecardAgentContracts,
+    ScorecardCandidateRecallCeiling,
     ScorecardEligibilityContracts,
     ScorecardGoldenAnchor,
     ScorecardProvenance,
     ScorecardRegressionAnchors,
     ScorecardRetrievalQuality,
+    ScorecardStageAblation,
+    ScorecardStageAblationQuery,
+    ScorecardStageArm,
 )
 from service.retrieval_fingerprint import compute_retrieval_fingerprint
 
 ROOT = Path(__file__).resolve().parents[1]
 SCORECARD_ARTIFACT = ROOT / "data" / "evals" / "canonical_scorecard.json"
+STAGE_ABLATION_ARTIFACT = ROOT / "data" / "evals" / "canonical_stage_ablation.json"
 CANONICAL_QUERIES = ROOT / "data" / "evals" / "canonical_queries.jsonl"
 
 METRIC_EXPLANATIONS: dict[str, str] = {
@@ -154,6 +159,25 @@ def _load_artifact() -> dict[str, Any]:
             )
         )
     return json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
+
+
+def _load_stage_ablation_artifact() -> dict[str, Any]:
+    """Read the committed stage-ablation artifact, refusing to fabricate one.
+
+    A separate file from `SCORECARD_ARTIFACT`: section E decomposes the same
+    served-path quality section A reports into semantic-only, RRF-fused, and
+    RRF-fused-plus-reranked, and that measurement (`scripts/ablation_evals.py`)
+    is its own run against Aurora, not a re-label of section A's numbers.
+    """
+    if not STAGE_ABLATION_ARTIFACT.exists():
+        raise FileNotFoundError(
+            explain(
+                f"no stage ablation artifact at {STAGE_ABLATION_ARTIFACT}",
+                "run `.venv/bin/python scripts/ablation_evals.py` against "
+                "Aurora after reviewing measured ranks",
+            )
+        )
+    return json.loads(STAGE_ABLATION_ARTIFACT.read_text(encoding="utf-8"))
 
 
 def _scored_queries() -> list[dict[str, Any]]:
@@ -363,9 +387,64 @@ def _agent_contracts() -> ScorecardAgentContracts:
     return ScorecardAgentContracts(guarantees=guarantees)
 
 
+def _stage_ablation(
+    artifact: dict[str, Any],
+    current: _CurrentRetrievalIdentity,
+) -> ScorecardStageAblation:
+    """Project the committed ablation artifact into section E.
+
+    Reuses `_attribution` against the *same* running-system identity section
+    A is judged against: the ablation is withheld with the same
+    `PENDING_TEXT` whenever the retrieval fingerprint, models, or query set
+    it was measured against no longer match what is running, exactly as
+    section A is.
+    """
+    attributed, attribution_note = _attribution(artifact, current)
+    arms = [
+        ScorecardStageArm(
+            key=key,
+            label=values["label"],
+            description=values["description"],
+            recall_at_10=values["recall@10"],
+            mrr=values["mrr"],
+            ndcg_at_10=values["ndcg@10"],
+            ndcg_at_10_min=values["ndcg@10_min"],
+            ndcg_at_10_max=values["ndcg@10_max"],
+            ndcg_at_10_stdev=values["ndcg@10_stdev"],
+            ndcg_at_10_query_wins=values["ndcg@10_query_wins"],
+        )
+        for key, values in artifact["arms"].items()
+    ]
+    per_query = [
+        ScorecardStageAblationQuery(
+            query_id=row["query_id"],
+            query_text=row["query_text"],
+            ndcg_at_10=row["ndcg@10"],
+            pool_recall=row["pool_recall"],
+            relevant_count=row["relevant_count"],
+            found_in_pool=row["found_in_pool"],
+            missed_product_ids=row["missed_product_ids"],
+        )
+        for row in artifact["per_query"]
+    ]
+    return ScorecardStageAblation(
+        attributed=attributed,
+        attribution_note=attribution_note,
+        measured_at=artifact["measured_at"],
+        spread_note=artifact["spread_note"],
+        scored_query_count=artifact["scored_query_count"],
+        arms=arms,
+        candidate_recall_ceiling=ScorecardCandidateRecallCeiling.model_validate(
+            artifact["candidate_recall_ceiling"]
+        ),
+        per_query=per_query,
+    )
+
+
 def retrieval_scorecard() -> RetrievalScorecardResponse:
     """Assemble the Prove-step scorecard from the committed artifact."""
     artifact = _load_artifact()
+    ablation_artifact = _load_stage_ablation_artifact()
     scored = _scored_queries()
     settings = get_settings()
     artifact_source = artifact.get("source") or {}
@@ -403,4 +482,5 @@ def retrieval_scorecard() -> RetrievalScorecardResponse:
         regression_anchors=_regression_anchors(artifact, scored),
         eligibility_contracts=_eligibility_contracts(scored),
         agent_contracts=_agent_contracts(),
+        stage_ablation=_stage_ablation(ablation_artifact, current),
     )

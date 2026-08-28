@@ -68,6 +68,20 @@ const minimalScorecard: RetrievalScorecardResponse = {
     fixture_query_ids: [],
   },
   agent_contracts: { guarantees: [] },
+  stage_ablation: {
+    attributed: false,
+    attribution_note: "Metrics pending evaluation for this retrieval revision: fixture.",
+    measured_at: "2026-08-23T21:53:32.664198Z",
+    spread_note: "fixture spread note",
+    scored_query_count: 20,
+    arms: [],
+    candidate_recall_ceiling: {
+      pool_recall_ceiling: 0,
+      judged_relevant_never_fetched: 0,
+      description: "fixture description",
+    },
+    per_query: [],
+  },
 };
 
 vi.mock("../api", () => ({

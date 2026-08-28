@@ -789,13 +789,84 @@ class ScorecardAgentContracts(BaseModel):
     guarantees: list[ScorecardAgentContractGuarantee]
 
 
+class ScorecardStageArm(BaseModel):
+    """One retrieval-stage arm in Lab 2's ablation.
+
+    `ndcg_at_10_min`/`_max`/`_stdev` are the per-query spread across the same
+    20 scored queries `recall_at_10`/`mrr`/`ndcg_at_10` are averaged over --
+    carried on every arm so a mean is never shown without the spread that
+    qualifies it. 20 queries cannot separate small differences between arms;
+    see `stage_ablation.spread_note`.
+    """
+
+    key: Literal["semantic_only", "rrf_fused_no_rerank", "rrf_fused_reranked"]
+    label: str
+    description: str
+    recall_at_10: float
+    mrr: float
+    ndcg_at_10: float
+    ndcg_at_10_min: float
+    ndcg_at_10_max: float
+    ndcg_at_10_stdev: float
+    ndcg_at_10_query_wins: int
+
+
+class ScorecardCandidateRecallCeiling(BaseModel):
+    """The ceiling reranking could ever reach.
+
+    Share of judged-relevant products present anywhere in the fused
+    candidate pool before reranking, averaged over the scored queries.
+    Reranking only ever reorders that pool -- it never adds a candidate --
+    so no arm downstream of fusion can exceed this.
+    """
+
+    pool_recall_ceiling: float
+    judged_relevant_never_fetched: int
+    description: str
+
+
+class ScorecardStageAblationQuery(BaseModel):
+    """One scored query's nDCG@10 under every arm, plus its own pool-recall
+    ceiling row. `ndcg_at_10` is keyed by the same arm keys as
+    `ScorecardStageArm.key`."""
+
+    query_id: str
+    query_text: str
+    ndcg_at_10: dict[str, float]
+    pool_recall: float
+    relevant_count: int
+    found_in_pool: int
+    missed_product_ids: list[int]
+
+
+class ScorecardStageAblation(BaseModel):
+    """Section E: what each retrieval stage contributes, measured rather than
+    asserted -- semantic-only vs the served fusion function with reranking
+    off vs the full served path. A separate artifact and a separate
+    attribution gate from section A: this decomposes the same served-path
+    quality section A reports as a single number, but is its own
+    `data/evals/canonical_stage_ablation.json` measurement, not a re-labeling
+    of section A's fields.
+    """
+
+    attributed: bool
+    attribution_note: str
+    measured_at: str
+    spread_note: str
+    scored_query_count: int
+    arms: list[ScorecardStageArm]
+    candidate_recall_ceiling: ScorecardCandidateRecallCeiling
+    per_query: list[ScorecardStageAblationQuery]
+
+
 class RetrievalScorecardResponse(BaseModel):
     """The Prove step: one read of the committed canonical evaluation artifact.
 
-    Four sections, never conflated -- A is population relevance metrics, B is
+    Five sections, never conflated -- A is population relevance metrics, B is
     pass/fail regression anchors, C is hard eligibility/filter contracts, D is
-    deterministic agent/evidence contracts. Framing: did we fix the scenarios
-    without weakening the system, not a participant grade.
+    deterministic agent/evidence contracts, E is the per-stage ablation over
+    the same population. Framing: did we fix the scenarios without weakening
+    the system, not a participant grade.
     """
 
     provenance: ScorecardProvenance
@@ -803,6 +874,7 @@ class RetrievalScorecardResponse(BaseModel):
     regression_anchors: ScorecardRegressionAnchors
     eligibility_contracts: ScorecardEligibilityContracts
     agent_contracts: ScorecardAgentContracts
+    stage_ablation: ScorecardStageAblation
 
 
 class HnswProbeRequest(BaseModel):
