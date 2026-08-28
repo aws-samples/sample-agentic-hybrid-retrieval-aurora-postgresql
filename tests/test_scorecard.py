@@ -256,7 +256,7 @@ def test_scored_queries_excludes_the_agent_contract_case():
     scored = _scored_queries()
 
     assert {query["query_id"] for query in scored} == {
-        f"G-{number:03d}" for number in range(1, 21)
+        f"G-{number:03d}" for number in range(1, 22)
     } - {"G-010"}
 
 
@@ -281,17 +281,20 @@ def test_retrieval_scorecard_serves_the_committed_population_metrics():
     response = retrieval_scorecard()
 
     artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
-    assert response.retrieval_quality.sample_size == 19
+    assert response.retrieval_quality.sample_size == 20
     assert response.retrieval_quality.recall_at_10 == artifact["metrics"]["recall@10"]
     assert response.retrieval_quality.mrr == artifact["metrics"]["mrr"]
     assert response.retrieval_quality.ndcg_at_10 == artifact["metrics"]["ndcg@10"]
     assert response.retrieval_quality.excluded_agent_contract_query_ids == ["G-010"]
-    # The committed artifact predates label emission: pass-through must not
-    # invent a value, and must carry no key it does not have.
-    assert len(response.retrieval_quality.per_query_metrics) == 19
+    # The committed artifact now carries labels, so pass-through must expose
+    # them on every row. There is no absent-case test here on purpose:
+    # service/scorecard.py copies these rows verbatim, so no code path could
+    # invent a key, and a test asserting it cannot fail. Degradation is tested
+    # where it can actually go wrong -- the UI rendering `undefined`.
+    assert len(response.retrieval_quality.per_query_metrics) == 20
     for row in response.retrieval_quality.per_query_metrics:
-        assert "query_text" not in row
-        assert "concept_label" not in row
+        assert row["query_text"]
+        assert row["concept_label"]
 
 
 # --- Section B: golden regression anchors, never mixed with IR metrics -----
@@ -307,24 +310,26 @@ def test_regression_anchors_total_is_read_from_the_query_set_not_retyped():
     """
     scored = _scored_queries()
 
-    assert _release_check_total(scored) == 4
+    assert _release_check_total(scored) == 6
 
 
 def test_regression_anchors_pass_and_total_agree_on_the_committed_artifact():
     response = retrieval_scorecard()
 
-    assert response.regression_anchors.passed == 4
-    assert response.regression_anchors.total == 4
+    assert response.regression_anchors.passed == 6
+    assert response.regression_anchors.total == 6
     assert {anchor.query_id for anchor in response.regression_anchors.anchors} == {
         "G-001",
         "G-015",
         "G-019",
+        "G-021",
     }
-    # The real committed artifact predates label emission: every anchor must
-    # degrade to `query_id` alone rather than crash or carry a stale value.
+    # The committed artifact now carries labels, so every anchor must expose
+    # both. The absent case stays covered against a synthetic artifact by
+    # test_golden_anchor_defaults_labels_to_none_when_the_artifact_lacks_them.
     for anchor in response.regression_anchors.anchors:
-        assert anchor.query_text is None
-        assert anchor.concept_label is None
+        assert anchor.query_text
+        assert anchor.concept_label
 
 
 def test_golden_anchor_carries_query_text_and_concept_label_when_the_artifact_has_them():
@@ -430,11 +435,11 @@ def test_agent_contracts_reject_an_unmapped_assertion_name(monkeypatch):
 def test_api_serves_the_scorecard_route():
     payload = TestClient(app).get("/api/scorecard").json()
 
-    assert payload["provenance"]["attributed"] is False
+    assert payload["provenance"]["attributed"] is True
     assert payload["provenance"]["source_revision"]
     assert payload["provenance"]["current_source_revision"]
-    assert payload["retrieval_quality"]["sample_size"] == 19
-    assert payload["regression_anchors"]["total"] == 4
+    assert payload["retrieval_quality"]["sample_size"] == 20
+    assert payload["regression_anchors"]["total"] == 6
     assert payload["eligibility_contracts"]["fixture_count"] == 18
     assert len(payload["agent_contracts"]["guarantees"]) == 5
 
