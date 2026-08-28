@@ -3,6 +3,7 @@
 import {
   act,
   cleanup,
+  configure,
   fireEvent,
   render,
   screen,
@@ -12,6 +13,33 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type AgentStreamEvent } from "../api";
 import { CommerceProvider } from "../commerce";
+
+// Ten assertions in this file await `findByText("Final recommendation")`, which
+// `AskMosaic` renders only once `reveal.done`. `useTypewriterReveal` advances the
+// answer a few characters per requestAnimationFrame, so those awaits are waiting
+// on a real-time animation, not on a state update.
+//
+// The mocked answer is 64 characters and the hook adds 3 per frame at that
+// backlog, so it needs 20 frames -- about 0.32s at 16ms. Against findBy's 1000ms
+// default that is a 3.1x margin, and a loaded CI runner ate it twice in one day
+// while the file passed 27/27 locally every time.
+//
+// 5000ms makes the budget ~15x the animation. A passing assertion still resolves
+// the moment the label appears, so this costs nothing on success; only a genuine
+// missing-element failure waits longer before reporting.
+//
+// The animation cannot simply be removed under test. Two attempts were measured
+// and both deleted behaviour this file asserts: defaulting `matchMedia` to
+// reduced motion makes the reveal synchronous but fails 15 tests, because the
+// filter, focus-trap, sidecar and overlay tests depend on motion; stubbing
+// requestAnimationFrame to run synchronously fails 11, including "marks the
+// answer as still being written while deltas arrive", which requires the reveal
+// to actually be paced. The paced reveal is under test, so the budget is what
+// has to change.
+//
+// Vitest isolates test files by default -- there is no vitest config and no
+// `test` block in vite.config.ts -- so this stays scoped to this file.
+configure({ asyncUtilTimeout: 5000 });
 import { stageDwellMs } from "../components/AskMosaic";
 import { showcaseCatalogPage } from "../showcase";
 import { starterPath } from "../starters";
