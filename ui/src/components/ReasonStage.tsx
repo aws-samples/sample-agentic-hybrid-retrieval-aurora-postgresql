@@ -43,6 +43,18 @@ import type {
  *
  * The last one is a real fetch, not an assertion: a citation "resolves" when the
  * evidence id it names comes back as a record with a source URI and a revision.
+ *
+ * Two bookends complete the chain a participant actually needs to read: without
+ * a first row for retrieval itself, nothing here shows that the break sits
+ * *downstream* of a successful search rather than in it; without a last row for
+ * the run's own outcome, a fail-closed run only ever implies its own failure
+ * through four rows of qualified language, never states it. Both are read from
+ * data the other four rows already use -- a successful `search_products` step,
+ * and the same `answered`/`running` facts the middle rows already condition on
+ * -- never a fifth input this component did not already have.
+ *
+ *   product retrieved      ->  successful search_products steps, result_count
+ *   grounded answer         ->  whether this run produced the answer of record
  */
 
 type ChainState = "pass" | "blocked" | "pending";
@@ -55,6 +67,7 @@ interface EvidenceStep {
   state: ChainState;
 }
 
+const SEARCH_TOOL = "search_products";
 const EVIDENCE_TOOL = "get_product_evidence";
 const SYNTHESIS_TOOL = "synthesize_cited_answer";
 
@@ -93,6 +106,11 @@ export function evidenceChain(
   resolvedCitations: number | null,
   running = false,
 ): EvidenceStep[] {
+  const searchCalls = successful(trace, SEARCH_TOOL);
+  const retrieved = searchCalls.reduce(
+    (total, step) => total + (step.result_count ?? 0),
+    0,
+  );
   const evidenceCalls = successful(trace, EVIDENCE_TOOL);
   const returned = evidenceCalls.reduce(
     (total, step) => total + (step.result_count ?? 0),
@@ -111,6 +129,21 @@ export function evidenceChain(
   const failed = (settled: ChainState): ChainState => (running ? "pending" : settled);
 
   return [
+    {
+      key: "retrieved",
+      title: "Product retrieved",
+      value: retrieved
+        ? `${retrieved} product${retrieved === 1 ? "" : "s"} across ${searchCalls.length} search${
+          searchCalls.length === 1 ? "" : "es"
+        }`
+        : running
+          ? "not yet"
+          : "none",
+      source: `${searchCalls.length} successful ${SEARCH_TOOL} call${
+        searchCalls.length === 1 ? "" : "s"
+      }`,
+      state: retrieved ? "pass" : failed("blocked"),
+    },
     {
       key: "returned",
       title: "Evidence returned to the model",
@@ -172,6 +205,17 @@ export function evidenceChain(
         : resolvedCitations === citedIds.size && citedIds.size > 0
           ? "pass"
           : "blocked",
+    },
+    {
+      key: "answer",
+      title: "Grounded answer",
+      value: answered ? "answered" : running ? "not yet" : "blocked",
+      source: answered
+        ? "a citation-bounded answer of record was persisted"
+        : running
+          ? `${SYNTHESIS_TOOL} has not reported`
+          : "the run stopped without a citation-bounded answer of record",
+      state: answered ? "pass" : failed("blocked"),
     },
   ];
 }
@@ -336,6 +380,8 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
             />
           </PlaygroundFigures>
 
+          <p className="labs-teaching-line">The model requests. The application authorizes.</p>
+
           <ol className="labs-chain" aria-label="Evidence state chain">
             {chain.map((step) => (
               <li className={`is-${step.state}`} key={step.key}>
@@ -453,17 +499,19 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
           cited answer.
         </p>
       ) : (
-        /* The four states the chain will report, in order, with nothing in them.
+        /* The six states the chain will report, in order, with nothing in them.
            Retrieve and Rank draw their shape while dormant; this stage did not, so
            the page went from two structured placeholders to one grey sentence. */
         <PlaygroundDormant
           steps={[
+            "Product retrieved",
             "Returned to the model",
             "Registered",
             "Authorized",
             "Citations resolved",
+            "Grounded answer",
           ]}
-          hint="Run the agent to trace one question from retrieval to resolved citations. These four are different things, and the Lab 3 repair is the difference between the first and the second."
+          hint="Run the agent to trace one question from retrieval to a grounded answer. These six are different things, and the Lab 3 repair is the difference between evidence returned to the model and evidence registered into application state."
         />
       )}
     </div>
