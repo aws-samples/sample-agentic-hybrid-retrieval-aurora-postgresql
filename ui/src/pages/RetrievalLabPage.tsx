@@ -4,6 +4,7 @@ import { ApiError, api } from "../api";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
+import { PackageFinale } from "../components/PackageFinale";
 import {
   PlaygroundDisclosure,
   PlaygroundDisclosureShelf,
@@ -559,6 +560,7 @@ export function RetrievalLabPage() {
         summary="Did we fix the scenarios without weakening the system? The Retrieval Scorecard, from the canonical evaluation artifact."
       >
         <RetrievalScorecard />
+        <PackageFinale />
       </PlaygroundStage>
     </div>
   );

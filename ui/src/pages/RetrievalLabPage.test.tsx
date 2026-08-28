@@ -13,7 +13,6 @@ import { api } from "../api";
 import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
 import { showcaseCatalogPage } from "../showcase";
 import type {
-  AgentResponse,
   ProductSummary,
   RetrievalDiagnostics,
   RetrievalScorecardResponse,
@@ -228,20 +227,6 @@ const latestComparisonResponse = {
 } satisfies SearchResponse;
 
 /**
- * The Reason stage needs one completed agent run before its disclosure shelf,
- * including "Package what you built", renders at all.
- */
-const packagingAgentResponse: AgentResponse = {
-  agent_run_id: "agent-packaging",
-  question: "quiet office keyboard",
-  answer: "Packaging disclosure smoke run.",
-  plan: [],
-  recommendations: [],
-  citations: [],
-  trace: [],
-};
-
-/**
  * Shaped like the real `GET /api/tools?surface=skill` projection: four tool
  * names, each carrying its own `capability` (`db/config/agent_tool_contracts.json`
  * declares exactly these four on the skill surface).
@@ -303,12 +288,7 @@ const mcpToolContracts: ToolContract[] = [
   },
 ];
 
-function mockPackagingDisclosureDependencies() {
-  vi.mocked(api.agentStream).mockImplementation(
-    async (_question, _filters, onEvent) => {
-      onEvent({ type: "complete", response: packagingAgentResponse });
-    },
-  );
+function mockPackageRegistry() {
   vi.mocked(api.toolContracts).mockImplementation(async (surface) => {
     if (surface === "skill") return skillToolContracts;
     if (surface === "mcp") return mcpToolContracts;
@@ -316,11 +296,13 @@ function mockPackagingDisclosureDependencies() {
   });
 }
 
-/** Runs the agent, then opens the "Package what you built" disclosure. */
-async function openPackagingDisclosure() {
-  fireEvent.click(screen.getByRole("button", { name: "Run the agent" }));
-  const summary = await screen.findByText("Package what you built");
-  fireEvent.click(summary);
+/**
+ * The Package finale (stage 04, after the scorecard) loads on mount, the
+ * same lifecycle the scorecard's own fetch already uses -- there is no
+ * disclosure left to open now that packaging is not a click behind stage 03.
+ */
+async function awaitPackageFinale() {
+  await screen.findByText("Package what you built");
 }
 
 describe("RetrievalLabPage", () => {
@@ -332,6 +314,11 @@ describe("RetrievalLabPage", () => {
     vi.mocked(api.readiness).mockRejectedValue(new Error("readiness unavailable"));
     vi.mocked(api.scorecard).mockReset();
     vi.mocked(api.scorecard).mockResolvedValue(minimalScorecard);
+    // Stage 04's Package finale loads on mount too, same as the scorecard.
+    // A resolved default here keeps every test that never calls
+    // `mockPackageRegistry()` from tripping the finale's own error branch.
+    vi.mocked(api.toolContracts).mockReset();
+    vi.mocked(api.toolContracts).mockResolvedValue([]);
   });
 
   afterEach(cleanup);
@@ -607,10 +594,10 @@ describe("RetrievalLabPage", () => {
   });
 
   it("names every skill capability the registry declares", async () => {
-    mockPackagingDisclosureDependencies();
+    mockPackageRegistry();
     render(<RetrievalLabPage />);
 
-    await openPackagingDisclosure();
+    await awaitPackageFinale();
 
     // Witness, independent of any text this test reads off the page: the
     // loader actually reached the registry for both adapter surfaces, rather
@@ -642,10 +629,10 @@ describe("RetrievalLabPage", () => {
   });
 
   it("labels A2A as documentation rather than available", async () => {
-    mockPackagingDisclosureDependencies();
+    mockPackageRegistry();
     render(<RetrievalLabPage />);
 
-    await openPackagingDisclosure();
+    await awaitPackageFinale();
 
     // Witness: the loader ran for both surfaces, independent of the copy this
     // test checks below.
@@ -667,10 +654,10 @@ describe("RetrievalLabPage", () => {
   });
 
   it("says retrieval authority does not move", async () => {
-    mockPackagingDisclosureDependencies();
+    mockPackageRegistry();
     render(<RetrievalLabPage />);
 
-    await openPackagingDisclosure();
+    await awaitPackageFinale();
 
     // Witness: the loader ran for both surfaces, independent of the closing
     // copy this test checks below.
@@ -682,5 +669,46 @@ describe("RetrievalLabPage", () => {
     expect(
       await screen.findByText(/retrieval authority stays in Aurora/i),
     ).toBeTruthy();
+  });
+
+  it("packages after Prove: Package follows the scorecard inside stage 04, not stage 03", async () => {
+    // The bug this guards against is a layout regression, not a missing
+    // feature: rendering the finale back inside Reason, or above the
+    // scorecard inside Prove, would still leave every "is it present"
+    // assertion above green. Only document order catches that, so this test
+    // reads `querySelectorAll` on a combined selector -- which the DOM spec
+    // returns in tree order regardless of which branch of the selector list
+    // matched -- rather than asking "does each exist".
+    mockPackageRegistry();
+    const { container } = render(<RetrievalLabPage />);
+
+    await awaitPackageFinale();
+    await waitFor(() => {
+      expect(api.toolContracts).toHaveBeenCalledWith("skill");
+      expect(api.toolContracts).toHaveBeenCalledWith("mcp");
+    });
+
+    const stages = [...container.querySelectorAll(".labs-stage")];
+    const stageNamed = (title: string) =>
+      stages.find(
+        (stage) => stage.querySelector(".labs-stage-copy h2")?.textContent === title,
+      );
+    const proveStage = stageNamed("Prove");
+    const reasonStage = stageNamed("Reason");
+    if (!proveStage || !reasonStage) {
+      throw new Error("Expected both a Prove stage and a Reason stage");
+    }
+
+    const proveContent = [
+      ...proveStage.querySelectorAll(".labs-scorecard, .labs-package-finale"),
+    ];
+    expect(proveContent.map((node) => node.className)).toEqual([
+      "labs-scorecard",
+      "labs-package-finale",
+    ]);
+
+    // Removed from stage 03 completely, not merely hidden there.
+    expect(reasonStage.querySelector(".labs-package-finale")).toBeNull();
+    expect(within(reasonStage as HTMLElement).queryByText("Package what you built")).toBeNull();
   });
 });

@@ -11289,6 +11289,56 @@
   line-height: 1.5;
 }
 
+/* The unnumbered finale after the scorecard, inside stage 04. A sibling of
+   `.labs-scorecard`, never one of its `.labs-scorecard-section` boxes -- no
+   border, no background, no border-radius here, so it cannot be mistaken for
+   a fifth A-D section. The rule above it is the only separator; the heading
+   stays at `--labs-h3`, quieter than the `--labs-h2` stage titles, so the
+   finale reads as this stage's own closing note rather than a fifth stage. */
+.labs-package-finale {
+  display: grid;
+  gap: 10px;
+}
+
+.labs-package-rule {
+  width: 100%;
+  margin: 4px 0 2px;
+  border: none;
+  border-top: 1px solid var(--line);
+}
+
+.labs-package-finale > h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: var(--labs-h3);
+  font-weight: 540;
+}
+
+.labs-package-name {
+  margin: 0 0 4px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 550;
+}
+
+.labs-skill-adapters-label {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.labs-skill-closing {
+  max-width: 60ch;
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
 /* The hand-off, said out loud on its third surface. */
 .labs-carried-over {
   display: grid;
