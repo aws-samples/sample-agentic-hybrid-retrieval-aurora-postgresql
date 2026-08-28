@@ -3,7 +3,7 @@
 [![Project CI](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/github-code-scanning/codeql)
 [![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Node.js 24](https://img.shields.io/badge/Node.js-24-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Node.js 22](https://img.shields.io/badge/Node.js-22-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=20232A)](https://react.dev/)
 [![License: MIT-0](https://img.shields.io/badge/License-MIT--0-2EA44F.svg)](LICENSE)
@@ -42,7 +42,9 @@ gates. The complete session framing is in
 Prerequisites:
 
 - Python `3.13` and [`uv`](https://docs.astral.sh/uv/);
-- Node.js `24` and npm;
+- Node.js `22` and npm, matching the workshop host, which installs the
+  versioned `nodejs22 nodejs22-npm` pair and asserts `v22`
+  (`deploy/mosaic-bootstrap.sh:98`, `:109`);
 - PostgreSQL client tools;
 - AWS credentials for Amazon Bedrock in `us-east-1`;
 - an Aurora PostgreSQL `DATABASE_URL` for the Mosaic catalog.

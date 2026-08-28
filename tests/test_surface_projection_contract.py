@@ -179,12 +179,34 @@ def test_required_projection_matches_properties_projection_per_surface():
 
 
 LIVE_HOST = "127.0.0.1"
-LIVE_PORT = 8010
+#: The port the Vite proxy silently fails over from. Never bind it, and assert
+#: the kernel never hands it to us, because a pass on 8000 could be the DBA
+#: Agent's fixture data rather than this app.
+FORBIDDEN_LIVE_PORT = 8000
 
 
 def _port_is_free(port: int) -> bool:
     with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as probe:
         return probe.connect_ex((LIVE_HOST, port)) != 0
+
+
+def _reserve_ephemeral_port() -> int:
+    """Let the kernel choose a free port instead of pinning one.
+
+    A fixed port makes this test fail on ambient listener state: the app is
+    routinely running on 8010 during development, and the previous
+    `assert _port_is_free(8010)` turned that into a suite error that read as a
+    real defect on every run. The kernel's choice cannot collide with a
+    developer's server.
+    """
+    with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as probe:
+        probe.bind((LIVE_HOST, 0))
+        port = probe.getsockname()[1]
+    assert port != FORBIDDEN_LIVE_PORT, (
+        f"refusing to serve on {FORBIDDEN_LIVE_PORT}: the Vite proxy fails over "
+        "to fixture data there, so a pass would not prove this app answered"
+    )
+    return port
 
 
 def _wait_until_healthy(base_url: str, deadline: float) -> None:
@@ -201,7 +223,7 @@ def _wait_until_healthy(base_url: str, deadline: float) -> None:
 
 @pytest.fixture()
 def live_server():
-    """A real uvicorn subprocess on 8010, never 8000.
+    """A real uvicorn subprocess on a kernel-assigned port, never 8000.
 
     A DBA Agent squats port 8000 on this machine, and the Vite proxy fails
     over silently to fixture data on that port, which is exactly the kind of
@@ -209,10 +231,13 @@ def live_server():
     a real caller receives, not the loader in-process. `/api/tools` needs no
     database, so this runs with no `DATABASE_URL` and stays outside the
     `aurora` marker.
+
+    The port is ephemeral rather than fixed. What this test needs is a real
+    HTTP hop to this app on a port that is not 8000; which port satisfies that
+    is irrelevant, and pinning one only made the suite fail whenever a
+    developer had the app running.
     """
-    assert _port_is_free(LIVE_PORT), (
-        f"port {LIVE_PORT} is already bound; free it before running this test"
-    )
+    live_port = _reserve_ephemeral_port()
     process = subprocess.Popen(
         [
             sys.executable,
@@ -222,15 +247,15 @@ def live_server():
             "--host",
             LIVE_HOST,
             "--port",
-            str(LIVE_PORT),
+            str(live_port),
             "--log-level",
             "warning",
         ],
         cwd=ROOT,
     )
     try:
-        _wait_until_healthy(f"http://{LIVE_HOST}:{LIVE_PORT}", time.monotonic() + 30)
-        yield f"http://{LIVE_HOST}:{LIVE_PORT}"
+        _wait_until_healthy(f"http://{LIVE_HOST}:{live_port}", time.monotonic() + 30)
+        yield f"http://{LIVE_HOST}:{live_port}"
     finally:
         process.terminate()
         try:
@@ -238,7 +263,7 @@ def live_server():
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=10)
-        assert _port_is_free(LIVE_PORT), f"port {LIVE_PORT} was not released"
+        assert _port_is_free(live_port), f"port {live_port} was not released"
 
 
 FORBIDDEN_ENVELOPE_FIELDS = {

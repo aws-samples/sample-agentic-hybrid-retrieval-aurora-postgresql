@@ -271,8 +271,14 @@ const labStages = [
  * feature names and an academic acronym on the landing page. The mechanism names
  * belong on the Playground, next to the numbers that come out of them.
  *
- * The evidence card quotes the Auraluxe H9's real catalog record: adaptive noise
- * cancellation and `battery_hours: 60`, both from data/curated/demo_products.json.
+ * The evidence card must illustrate the scenario the card links to. It quoted the
+ * Auraluxe H9's headphone record while Lab 3's `agentic-research` mission is a
+ * compound ergonomic-chair-and-quiet-keyboard request, so a participant met
+ * headphones here and a chair and keyboard one click later. It now quotes
+ * product 370001, Mosaic Forma Ergonomic Office Chair -- that mission's
+ * highest-graded component in `data/evals/canonical_queries.jsonl` -- citing its
+ * real `recommended_hours: 12` and `lumbar_support: "Dynamic"` from
+ * data/curated/demo_products.json.
  */
 function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
   if (variant === "retrieve") {
@@ -358,19 +364,19 @@ function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
     <span className="discover-lab-scene discover-lab-scene-reason" aria-hidden="true">
       <img
         className="discover-lab-scene-photo"
-        src="/assets/images/mosaic/ce-over-ear-headphones-auraluxe-h9-catalog-3x2.webp"
+        src="/assets/images/mosaic/ho-ergonomic-office-chairs-forma-ergonomic-catalog-3x2.webp"
         alt=""
         loading="lazy"
         decoding="async"
       />
       <span className="discover-lab-evidence">
         <small>From the product record</small>
-        <strong>Auraluxe H9</strong>
+        <strong>Forma Ergonomic</strong>
         <span>
-          Adaptive noise cancellation <b>[1]</b>
+          Rated for twelve hour days <b>[1]</b>
         </span>
         <span>
-          Up to 60 hours <b>[2]</b>
+          Dynamic lumbar support <b>[2]</b>
         </span>
         <em>Grounded recommendation</em>
       </span>
