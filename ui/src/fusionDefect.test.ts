@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   armContribution,
+  brokenOrder,
   candidatesFromPersistedPool,
   candidatesFromResults,
-  findBrokenScoreTie,
   findFusionDefectCase,
+  findTieCollapseExample,
   fusedToFinalGap,
+  invertedPairCount,
   type FusionDefectCandidate,
 } from "./fusionDefect";
 import { SUSPICIOUS_GAP_THRESHOLD } from "./repairEvidence";
@@ -22,20 +24,13 @@ import type { ProductSummary, ResultSignals, SearchResultEventRecord } from "./t
  *   product 5995:                      semantic_rank 7, fused_rank 17
  *   product 46809:                     semantic_rank 4, fused_rank 11
  *
- * This pool does double duty:
- *
- *   - five of its six candidates (everything but product 4) are single-arm,
- *     at five different measured ranks. That is the always-true tie
- *     `findBrokenScoreTie` names: every one of them collapses to the same
- *     broken score, `1 / (rrf_k + 1)`, while correct RRF spreads them from
- *     1/61 down to 1/67.
- *   - product 4 (fts_rank 3, trigram_rank 4) sits at fused rank 4, above
- *     product 14552's fused rank 8, even though product 14552 is a genuine
- *     single-arm rank-1 result. That looks like the fusion defect, but it
- *     is not one: correct RRF agrees with the broken formula on this pair
- *     (0.031498 for product 4 vs. 0.016393 for product 14552 -- product 4
- *     wins under both). `findFusionDefectCase` must reject this exact shape,
- *     which is the regression a prior version of this module shipped.
+ * product 4 (fts_rank 3, trigram_rank 4) sits at fused rank 4, above product
+ * 14552's fused rank 8, even though product 14552 is a genuine single-arm
+ * rank-1 result. That looks like the fusion defect, but it is not one:
+ * correct RRF agrees with the broken formula on this pair (0.031498 for
+ * product 4 vs. 0.016393 for product 14552 -- product 4 wins under both).
+ * `findFusionDefectCase` must reject this exact shape, which is the
+ * regression a prior version of this module shipped.
  */
 const POOL: SearchResultEventRecord[] = [
   {
@@ -234,62 +229,161 @@ describe("candidatesFromResults / candidatesFromPersistedPool", () => {
   });
 });
 
-describe("findBrokenScoreTie", () => {
-  /**
-   * The gate this module leads with: two real single-arm candidates from the
-   * measured pool, at the two most different ranks it actually holds, tie
-   * exactly on the broken formula and separate cleanly under the correct one.
-   * That is not a coincidence of this pool -- it is the arithmetic identity
-   * `armContribution` establishes for every single-arm candidate everywhere.
-   */
-  it("ties the pool's most different single-arm ranks on broken score while expected separates them", () => {
-    // Witness, independent of the function's own verdict: five of the six
-    // pool members are single-arm, so the search has more than the winning
-    // pair to consider.
-    const rows = candidatesFromPersistedPool(POOL, RRF_K);
-    const singleArmCount = rows.filter(
-      (row) => row.arms.filter((arm) => arm.sourceRank !== null).length === 1,
-    ).length;
-    expect(singleArmCount).toBe(5);
+/**
+ * The real fused pool behind Lab 2's own mission query, exactly as persisted.
+ * Reproduced independently against the live app (`GET
+ * /api/retrieval/events/d0bf0b73-4c69-4f81-bd5e-ed07960957a4`) before writing
+ * any test against it -- these are not invented numbers:
+ *
+ *   query: "ergonomic mesh chair for long workdays with adjustable lumbar
+ *   support" (mission G-008), filters { domain: "home_office",
+ *   in_stock_only: true, attributes: { seat_depth_adjustable: true } },
+ *   rerank: false, `rrf_k` 60, 50 candidates.
+ *
+ * arm-count histogram { 3: 1, 2: 1, 1: 48 }: product 370002 holds all three
+ * arms, product 370001 holds two, and the other 48 hold exactly one each
+ * (all `semantic_rank`, spanning source rank 3 to 50). That is exactly 3
+ * distinct broken scores across the whole pool, and the 48-member tie group
+ * is where `mosaic_search.search_hybrid_rrf`'s own `ORDER BY e.rrf_score
+ * DESC, e.product_id` (`db/sql/09_search_functions.sql:515`) resolves the
+ * broken formula's identical scores by ascending product_id -- not by any
+ * of those 48 candidates' real measured ranks. Verified: product 372781
+ * (truly ranked #48) sits at broken rank #4, ahead of product 374621 (truly
+ * ranked #4) at broken rank #5, purely because 372781 < 374621. 538 pairs
+ * across the pool land in the opposite order from the real measured one.
+ */
+const CHAIR_POOL: SearchResultEventRecord[] = [
+  { product_id: 370002, result_rank: 1, fts_rank: 1, trigram_rank: 1, semantic_rank: 1, fused_rank: 1, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 370001, result_rank: 2, fts_rank: 2, trigram_rank: null, semantic_rank: 2, fused_rank: 2, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 370093, result_rank: 3, fts_rank: null, trigram_rank: null, semantic_rank: 3, fused_rank: 3, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 374621, result_rank: 4, fts_rank: null, trigram_rank: null, semantic_rank: 4, fused_rank: 4, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 375374, result_rank: 5, fts_rank: null, trigram_rank: null, semantic_rank: 5, fused_rank: 5, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 370242, result_rank: 6, fts_rank: null, trigram_rank: null, semantic_rank: 6, fused_rank: 6, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 371501, result_rank: 7, fts_rank: null, trigram_rank: null, semantic_rank: 7, fused_rank: 7, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 391847, result_rank: 8, fts_rank: null, trigram_rank: null, semantic_rank: 8, fused_rank: 8, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 375821, result_rank: 9, fts_rank: null, trigram_rank: null, semantic_rank: 9, fused_rank: 9, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 370402, result_rank: 10, fts_rank: null, trigram_rank: null, semantic_rank: 10, fused_rank: 10, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 375454, result_rank: 11, fts_rank: null, trigram_rank: null, semantic_rank: 11, fused_rank: 11, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 378408, result_rank: 12, fts_rank: null, trigram_rank: null, semantic_rank: 12, fused_rank: 12, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 385521, result_rank: 13, fts_rank: null, trigram_rank: null, semantic_rank: 13, fused_rank: 13, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 371421, result_rank: 14, fts_rank: null, trigram_rank: null, semantic_rank: 14, fused_rank: 14, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 375338, result_rank: 15, fts_rank: null, trigram_rank: null, semantic_rank: 15, fused_rank: 15, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 377281, result_rank: 16, fts_rank: null, trigram_rank: null, semantic_rank: 16, fused_rank: 16, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 376206, result_rank: 17, fts_rank: null, trigram_rank: null, semantic_rank: 17, fused_rank: 17, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 377154, result_rank: 18, fts_rank: null, trigram_rank: null, semantic_rank: 18, fused_rank: 18, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 376523, result_rank: 19, fts_rank: null, trigram_rank: null, semantic_rank: 19, fused_rank: 19, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 391242, result_rank: 20, fts_rank: null, trigram_rank: null, semantic_rank: 20, fused_rank: 20, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 374493, result_rank: 21, fts_rank: null, trigram_rank: null, semantic_rank: 21, fused_rank: 21, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 371765, result_rank: 22, fts_rank: null, trigram_rank: null, semantic_rank: 22, fused_rank: 22, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 376885, result_rank: 23, fts_rank: null, trigram_rank: null, semantic_rank: 23, fused_rank: 23, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 373682, result_rank: 24, fts_rank: null, trigram_rank: null, semantic_rank: 24, fused_rank: 24, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 370416, result_rank: 25, fts_rank: null, trigram_rank: null, semantic_rank: 25, fused_rank: 25, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 373842, result_rank: 26, fts_rank: null, trigram_rank: null, semantic_rank: 26, fused_rank: 26, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 391685, result_rank: 27, fts_rank: null, trigram_rank: null, semantic_rank: 27, fused_rank: 27, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 371053, result_rank: 28, fts_rank: null, trigram_rank: null, semantic_rank: 28, fused_rank: 28, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 378481, result_rank: 29, fts_rank: null, trigram_rank: null, semantic_rank: 29, fused_rank: 29, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 374845, result_rank: 30, fts_rank: null, trigram_rank: null, semantic_rank: 30, fused_rank: 30, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 375697, result_rank: 31, fts_rank: null, trigram_rank: null, semantic_rank: 31, fused_rank: 31, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 370009, result_rank: 32, fts_rank: null, trigram_rank: null, semantic_rank: 32, fused_rank: 32, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 372906, result_rank: 33, fts_rank: null, trigram_rank: null, semantic_rank: 33, fused_rank: 33, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 371522, result_rank: 34, fts_rank: null, trigram_rank: null, semantic_rank: 34, fused_rank: 34, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 370218, result_rank: 35, fts_rank: null, trigram_rank: null, semantic_rank: 35, fused_rank: 35, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 376721, result_rank: 36, fts_rank: null, trigram_rank: null, semantic_rank: 36, fused_rank: 36, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 378805, result_rank: 37, fts_rank: null, trigram_rank: null, semantic_rank: 37, fused_rank: 37, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 373101, result_rank: 38, fts_rank: null, trigram_rank: null, semantic_rank: 38, fused_rank: 38, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 371453, result_rank: 39, fts_rank: null, trigram_rank: null, semantic_rank: 39, fused_rank: 39, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 370203, result_rank: 40, fts_rank: null, trigram_rank: null, semantic_rank: 40, fused_rank: 40, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 373887, result_rank: 41, fts_rank: null, trigram_rank: null, semantic_rank: 41, fused_rank: 41, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 378813, result_rank: 42, fts_rank: null, trigram_rank: null, semantic_rank: 42, fused_rank: 42, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 371908, result_rank: 43, fts_rank: null, trigram_rank: null, semantic_rank: 43, fused_rank: 43, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 371799, result_rank: 44, fts_rank: null, trigram_rank: null, semantic_rank: 44, fused_rank: 44, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 372381, result_rank: 45, fts_rank: null, trigram_rank: null, semantic_rank: 45, fused_rank: 45, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 377395, result_rank: 46, fts_rank: null, trigram_rank: null, semantic_rank: 46, fused_rank: 46, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 393013, result_rank: 47, fts_rank: null, trigram_rank: null, semantic_rank: 47, fused_rank: 47, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 372781, result_rank: 48, fts_rank: null, trigram_rank: null, semantic_rank: 48, fused_rank: 48, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 385843, result_rank: 49, fts_rank: null, trigram_rank: null, semantic_rank: 49, fused_rank: 49, rerank_rank: null, scores: {}, provenance: {} },
+  { product_id: 378561, result_rank: 50, fts_rank: null, trigram_rank: null, semantic_rank: 50, fused_rank: 50, rerank_rank: null, scores: {}, provenance: {} },
+];
 
-    const tie = findBrokenScoreTie(rows);
+describe("brokenOrder", () => {
+  /**
+   * The required proof, isolated from the 50-row measured pool below: three
+   * single-arm candidates, same arm count, deliberately arranged so ascending
+   * `product_id` is *not* the real measured order. `mosaic_search.search_hybrid_rrf`
+   * (`db/sql/09_search_functions.sql:515`) breaks a broken-score tie by
+   * ascending `product_id`; this proves this function reproduces exactly
+   * that, rather than leaving the tie in input order or some other rule.
+   */
+  it("resolves an equal-arm-count tie to ascending product_id, which is not the real measured order", () => {
+    const pool: SearchResultEventRecord[] = [
+      { product_id: 300, result_rank: 2, fts_rank: null, trigram_rank: null, semantic_rank: 40, fused_rank: 2, rerank_rank: null, scores: {}, provenance: {} },
+      { product_id: 100, result_rank: 1, fts_rank: null, trigram_rank: null, semantic_rank: 5, fused_rank: 1, rerank_rank: null, scores: {}, provenance: {} },
+      { product_id: 200, result_rank: 3, fts_rank: null, trigram_rank: null, semantic_rank: 20, fused_rank: 3, rerank_rank: null, scores: {}, provenance: {} },
+    ];
+    const rows = candidatesFromPersistedPool(pool, RRF_K);
+
+    // Witness: all three genuinely tie on the broken score (same arm count).
+    const ranked = brokenOrder(rows);
+    expect(new Set(ranked.map((r) => r.brokenScore)).size).toBe(1);
+
+    // Broken order is ascending product_id: 100, 200, 300.
+    expect(ranked.map((r) => r.candidate.productId)).toEqual([100, 200, 300]);
+
+    // The real measured order (by fused_rank, i.e. what search_hybrid_rrf
+    // actually reported) is 100, 300, 200 -- not ascending product_id, so
+    // the broken order agreeing with product_id is not "coincidentally right."
+    const realOrder = [...rows]
+      .sort((a, b) => a.fusedRank - b.fusedRank)
+      .map((c) => c.productId);
+    expect(realOrder).toEqual([100, 300, 200]);
+    expect(ranked.map((r) => r.candidate.productId)).not.toEqual(realOrder);
+  });
+});
+
+describe("findTieCollapseExample / invertedPairCount", () => {
+  it("reproduces the measured chair-mission pool's tie collapse exactly", () => {
+    const rows = candidatesFromPersistedPool(CHAIR_POOL, RRF_K);
+
+    // Witness, independent of the function's own verdict: the measured
+    // arm-count histogram, read directly off the fixture.
+    const armCounts = rows.map(
+      (row) => row.arms.filter((arm) => arm.sourceRank !== null).length,
+    );
+    expect(armCounts.filter((n) => n === 1)).toHaveLength(48);
+    expect(armCounts.filter((n) => n === 2)).toHaveLength(1);
+    expect(armCounts.filter((n) => n === 3)).toHaveLength(1);
+
+    const tie = findTieCollapseExample(rows);
 
     expect(tie).not.toBeNull();
-    expect(tie!.lower.candidate.productId).toBe(14552);
-    expect(tie!.lower.sourceRank).toBe(1);
-    expect(tie!.higher.candidate.productId).toBe(5995);
-    expect(tie!.higher.sourceRank).toBe(7);
+    expect(tie!.poolSize).toBe(50);
+    expect(tie!.distinctBrokenScores).toBe(3);
+    expect(tie!.tieGroupSize).toBe(48);
+    expect(tie!.invertedPairs).toBe(538);
 
-    // Broken: the identical constant, regardless of how differently they ranked.
-    expect(tie!.lower.broken).toBe(tie!.higher.broken);
-    expect(tie!.lower.broken).toBeCloseTo(1 / 61, 12);
-    expect(tie!.brokenScore).toBe(tie!.lower.broken);
-
-    // Expected: correct RRF separates them cleanly.
-    expect(tie!.lower.expected).not.toBe(tie!.higher.expected);
-    expect(tie!.lower.expected).toBeGreaterThan(tie!.higher.expected);
-    expect(tie!.lower.expected).toBeCloseTo(1 / 61, 12);
-    expect(tie!.higher.expected).toBeCloseTo(1 / 67, 12);
-
-    expect(tie!.singleArmCount).toBe(5);
-    expect(tie!.poolSize).toBe(6);
+    // The specific pair: smaller product_id, truly ranked far worse, sits
+    // ahead under the broken formula's tiebreak.
+    expect(tie!.first.candidate.productId).toBe(372781);
+    expect(tie!.first.candidate.fusedRank).toBe(48);
+    expect(tie!.second.candidate.productId).toBe(374621);
+    expect(tie!.second.candidate.fusedRank).toBe(4);
+    expect(tie!.first.brokenRank).toBeLessThan(tie!.second.brokenRank);
+    expect(tie!.first.brokenScore).toBe(tie!.second.brokenScore);
   });
 
-  it("returns null when fewer than two candidates are single-arm", () => {
-    const onlyOneSingleArm: SearchResultEventRecord[] = [
-      POOL[0], // product 4, two arms
-      POOL[1], // product 14552, one arm -- the only single-arm member
+  it("names the same broken-vs-real disagreement invertedPairCount counts directly", () => {
+    const rows = candidatesFromPersistedPool(CHAIR_POOL, RRF_K);
+    const ranked = brokenOrder(rows);
+    expect(invertedPairCount(ranked)).toBe(538);
+  });
+
+  it("returns null when no two candidates share an arm count", () => {
+    const distinctArmCounts: SearchResultEventRecord[] = [
+      { product_id: 1, result_rank: 1, fts_rank: 1, trigram_rank: 1, semantic_rank: 1, fused_rank: 1, rerank_rank: null, scores: {}, provenance: {} },
+      { product_id: 2, result_rank: 2, fts_rank: 2, trigram_rank: null, semantic_rank: null, fused_rank: 2, rerank_rank: null, scores: {}, provenance: {} },
     ];
-    const rows = candidatesFromPersistedPool(onlyOneSingleArm, RRF_K);
-    expect(findBrokenScoreTie(rows)).toBeNull();
-  });
-
-  it("returns null when every single-arm candidate shares one measured rank", () => {
-    const sameRank: SearchResultEventRecord[] = POOL
-      .filter((row) => row.product_id !== 4)
-      .map((row) => ({ ...row, semantic_rank: 1 }));
-    const rows = candidatesFromPersistedPool(sameRank, RRF_K);
-    expect(findBrokenScoreTie(rows)).toBeNull();
+    const rows = candidatesFromPersistedPool(distinctArmCounts, RRF_K);
+    expect(findTieCollapseExample(rows)).toBeNull();
   });
 });
 

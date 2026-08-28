@@ -20,10 +20,17 @@ import type { ProductSummary, SearchResultEventRecord } from "./types";
  * `broken` is a constant per arm regardless of that arm's own rank, any two
  * candidates found by the same number of arms score identically under the
  * broken formula, however differently they ranked. Measured pools run mostly
- * single-arm (48-49 of 50 candidates in typical histograms), so the broken
- * formula collapses nearly the whole pool to one shared score and leaves the
- * order inside it to the tiebreak rather than to measured relevance.
- * `findBrokenScoreTie` names that pair directly from a run's own pool.
+ * single-arm, so the broken formula collapses most of the pool to one shared
+ * score -- and that tie is not left undefined. `mosaic_search.search_hybrid_rrf`
+ * (`db/sql/09_search_functions.sql:515`) ends `ORDER BY e.rrf_score DESC,
+ * e.product_id`, so the broken formula resolves every tie by ascending
+ * `product_id`, not by relevance. `brokenOrder` reproduces that exact order
+ * client-side from the same measured arm ranks, and `findTieCollapseExample`
+ * names a pair inside the largest tie group where the smaller `product_id`
+ * belongs to the candidate with the worse real measured rank -- the broken
+ * formula's own tiebreak putting the wrong one on top. This needs no search
+ * over pairs across the whole pool the way a fusion-order inversion does: the
+ * tie group and its product-id order fall directly out of the arm counts.
  *
  * A weaker, situational case also exists: a candidate present in several arms
  * can be inflated enough, arm by arm, to sit above a genuine single-arm rank-1
@@ -32,7 +39,9 @@ import type { ProductSummary, SearchResultEventRecord } from "./types";
  * outscoring one arm is normal RRF behavior, not a bug. `findFusionDefectCase`
  * gates on exactly that: it also sums the competitor's real `expected`
  * contributions and requires that sum to fall *below* the target's, so a pair
- * where both formulas already agree is never reported as the defect.
+ * where both formulas already agree is never reported as the defect. It is
+ * the secondary case here, and may correctly find nothing in a given pool --
+ * the tie collapse above is the one guaranteed by the arithmetic.
  *
  * `armContribution` computes both formulas from the same measured
  * `source_rank`, so a caller shows the two numbers side by side rather than
@@ -124,9 +133,10 @@ export function candidatesFromResults(
 /**
  * One row per pool member, read from the persisted `search_result_event`
  * rows -- the full fused pool, up to `fused_limit`, not just the returned
- * window. Both `findBrokenScoreTie` and `findFusionDefectCase` need this
- * reach: the always-true tie is most convincing across the full pool, and a
- * genuine inversion is routinely outside the returned rows.
+ * window. Both `findTieCollapseExample` and `findFusionDefectCase` need this
+ * reach: the tie collapse is `mosaic_search.search_hybrid_rrf`'s own `ORDER
+ * BY`, over the pool it actually ran on, and a genuine inversion is routinely
+ * outside the returned rows.
  */
 export function candidatesFromPersistedPool(
   candidates: SearchResultEventRecord[],
@@ -160,72 +170,132 @@ function expectedSum(arms: FusionDefectArm[]): number {
   return arms.reduce((sum, arm) => sum + arm.expected!, 0);
 }
 
-export interface FusionDefectTieMember {
+export interface FusionDefectBrokenRank {
   candidate: FusionDefectCandidate;
-  arm: RetrievalArm;
-  sourceRank: number;
-  expected: number;
-  broken: number;
-}
-
-export interface FusionDefectTie {
-  /** The single-arm candidate with the better (numerically smaller) source rank. */
-  lower: FusionDefectTieMember;
-  /** The single-arm candidate with the worse (numerically larger) source rank. */
-  higher: FusionDefectTieMember;
-  /** `lower.broken === higher.broken`, the constant both collapse to. */
+  /** Sum of `broken` across present arms -- depends only on arm count. */
   brokenScore: number;
-  /** How many pool members are single-arm, and therefore share `brokenScore` too. */
-  singleArmCount: number;
-  poolSize: number;
+  /** Sum of `expected` across present arms -- the correct RRF score. */
+  correctScore: number;
+  armCount: number;
+  /** 1-based position under `ORDER BY brokenScore DESC, product_id ASC`. */
+  brokenRank: number;
 }
 
 /**
- * The defect in its purest form: any two single-arm candidates, at the two
- * most different source ranks this pool actually measured, side by side.
+ * The broken formula's own order, computed the way the SQL computes it.
  *
- * No competitor search, no fused-order comparison -- every arm contributes
- * the identical constant `1 / (rrf_k + 1)` regardless of its own rank, so two
- * single-arm candidates always tie on `broken` and (unless their measured
- * ranks happen to coincide) always differ on `expected`. Picking the pool's
- * minimum and maximum single-arm rank makes that split as visible as this
- * pool allows. Returns `null` only when the pool has fewer than two
- * single-arm candidates, or when every single-arm candidate happens to share
- * one rank -- a true fact about that pool, not a gap in this function.
+ * `mosaic_search.search_hybrid_rrf` (`db/sql/09_search_functions.sql:515`)
+ * ends `ORDER BY e.rrf_score DESC, e.product_id`. Swap in the broken
+ * per-arm constant for `e.rrf_score` and that `ORDER BY` is exactly this
+ * sort: broken score descending, ties broken by ascending `product_id`.
+ * Nothing here invents a tiebreak -- it is the one line 515 already runs.
  */
-export function findBrokenScoreTie(
-  candidates: FusionDefectCandidate[],
-): FusionDefectTie | null {
-  const singleArm: FusionDefectTieMember[] = [];
-  for (const candidate of candidates) {
+export function brokenOrder(candidates: FusionDefectCandidate[]): FusionDefectBrokenRank[] {
+  const scored = candidates.map((candidate) => {
     const present = presentArms(candidate);
-    if (present.length !== 1) continue;
-    const arm = present[0];
-    singleArm.push({
+    return {
       candidate,
-      arm: arm.arm,
-      sourceRank: arm.sourceRank!,
-      expected: arm.expected!,
-      broken: arm.broken!,
-    });
+      brokenScore: present.reduce((sum, arm) => sum + arm.broken!, 0),
+      correctScore: expectedSum(present),
+      armCount: present.length,
+    };
+  });
+  return [...scored]
+    .sort((a, b) => (b.brokenScore !== a.brokenScore
+      ? b.brokenScore - a.brokenScore
+      : a.candidate.productId - b.candidate.productId))
+    .map((entry, index) => ({ ...entry, brokenRank: index + 1 }));
+}
+
+/**
+ * How many pairs the broken order and the real measured order disagree on.
+ *
+ * `ranked` is already in broken order (index order === `brokenRank` order),
+ * so for every `i < j`, the broken formula placed `ranked[i]` ahead of
+ * `ranked[j]`. That pair is discordant -- inverted relative to reality --
+ * exactly when the real measured order (`fusedRank`) says the opposite:
+ * `ranked[i]` actually ranked worse than `ranked[j]`.
+ */
+export function invertedPairCount(ranked: FusionDefectBrokenRank[]): number {
+  let count = 0;
+  for (let i = 0; i < ranked.length; i++) {
+    for (let j = i + 1; j < ranked.length; j++) {
+      if (ranked[i].candidate.fusedRank > ranked[j].candidate.fusedRank) count++;
+    }
+  }
+  return count;
+}
+
+export interface FusionDefectTieCollapse {
+  /** The full broken order, for a caller that wants more than the headline pair. */
+  ranked: FusionDefectBrokenRank[];
+  /** How many distinct broken scores exist -- one per distinct arm count present. */
+  distinctBrokenScores: number;
+  /** Size of the largest group of candidates tied on one broken score. */
+  tieGroupSize: number;
+  poolSize: number;
+  /** Count of pairs where the broken order and the real measured order disagree. */
+  invertedPairs: number;
+  /** Smaller `product_id`, ranked ahead under the broken formula despite the worse real rank. */
+  first: FusionDefectBrokenRank;
+  /** Larger `product_id`, ranked behind `first` despite the better real rank. */
+  second: FusionDefectBrokenRank;
+}
+
+/**
+ * The defect in its purest, most persuasive form: two real candidates, tied
+ * on the broken score because they share an arm count, where the broken
+ * formula's own `product_id` tiebreak puts the genuinely worse one on top.
+ *
+ * No cross-arm-count search, and no dependence on any one target holding
+ * rank 1 -- the largest tie group in this pool is the widest place the
+ * broken formula collapses relevance to a single number, so it is where the
+ * tiebreak does the most damage. Within that group, the pair kept is the one
+ * with the largest real-rank spread where the smaller `product_id` is truly
+ * the worse candidate: the pair a skeptic has the least room to dismiss as
+ * an artifact of near-identical relevance. Returns `null` only when no two
+ * pool members share an arm count, or when ascending `product_id` inside the
+ * largest tie group happens to already agree with the real order -- both
+ * true facts about that pool, not a gap in this function.
+ */
+export function findTieCollapseExample(
+  candidates: FusionDefectCandidate[],
+): FusionDefectTieCollapse | null {
+  const ranked = brokenOrder(candidates);
+
+  const groups = new Map<number, FusionDefectBrokenRank[]>();
+  for (const entry of ranked) {
+    const list = groups.get(entry.brokenScore) ?? [];
+    list.push(entry);
+    groups.set(entry.brokenScore, list);
   }
 
-  if (singleArm.length < 2) return null;
-
-  let lower = singleArm[0];
-  let higher = singleArm[0];
-  for (const member of singleArm) {
-    if (member.sourceRank < lower.sourceRank) lower = member;
-    if (member.sourceRank > higher.sourceRank) higher = member;
+  let largest: FusionDefectBrokenRank[] | null = null;
+  for (const group of groups.values()) {
+    if (largest === null || group.length > largest.length) largest = group;
   }
-  if (lower.sourceRank === higher.sourceRank) return null;
+  if (largest === null || largest.length < 2) return null;
+
+  let best: { first: FusionDefectBrokenRank; second: FusionDefectBrokenRank; spread: number } | null =
+    null;
+  for (const x of largest) {
+    for (const y of largest) {
+      if (x.candidate.productId >= y.candidate.productId) continue;
+      if (x.candidate.fusedRank <= y.candidate.fusedRank) continue;
+      const spread = x.candidate.fusedRank - y.candidate.fusedRank;
+      if (best === null || spread > best.spread) best = { first: x, second: y, spread };
+    }
+  }
+  if (best === null) return null;
 
   return {
-    lower,
-    higher,
-    brokenScore: lower.broken,
-    singleArmCount: singleArm.length,
+    ranked,
+    distinctBrokenScores: groups.size,
+    tieGroupSize: largest.length,
     poolSize: candidates.length,
+    invertedPairs: invertedPairCount(ranked),
+    first: best.first,
+    second: best.second,
   };
 }
 
@@ -322,16 +392,19 @@ export function fusedToFinalGap(candidate: FusionDefectCandidate): FusionDefectG
 
 export { SUSPICIOUS_GAP_CAUTION };
 
-export const BROKEN_SCORE_TIE_HEADLINE =
+export const BROKEN_TIE_MECHANISM =
   "Every arm contributes exactly 1 / (rrf_k + 1) under the broken formula, "
-  + "no matter its own rank -- so any two candidates found by the same "
-  + "number of arms score identically, however differently they actually "
-  + "ranked. Correct RRF does not make that mistake.";
+  + "no matter its own rank -- so candidates with equal arm counts tie "
+  + "exactly. mosaic_search.search_hybrid_rrf breaks that tie on ascending "
+  + "product_id, not relevance. The broken formula does not fail to rank "
+  + "these candidates; it ranks them by product id.";
 
-export const NO_TIE_EXAMPLE =
-  "This run's fused pool holds fewer than two single-arm candidates at "
-  + "different ranks, so the always-true tie can't be shown for this run "
-  + "-- try another query.";
+export const NO_TIE_COLLAPSE_EXAMPLE =
+  "This run's full fused pool holds no two candidates sharing an arm count "
+  + "with the smaller product_id belonging to the truly worse one -- either "
+  + "no two candidates share an arm count at all, or the largest tie group's "
+  + "product_id order happens to already agree with the real measured "
+  + "order. Try another query if this pool happens not to have the shape.";
 
 export const NO_COMPETITOR_EXAMPLE =
   "This run's fused pool holds no rank-1 single-arm target that a multi-arm "

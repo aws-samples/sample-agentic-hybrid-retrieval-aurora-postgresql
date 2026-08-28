@@ -2,18 +2,18 @@ import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { ApiError, api } from "../api";
 import {
-  BROKEN_SCORE_TIE_HEADLINE,
+  BROKEN_TIE_MECHANISM,
   candidatesFromPersistedPool,
   candidatesFromResults,
-  findBrokenScoreTie,
   findFusionDefectCase,
+  findTieCollapseExample,
   FUSION_DEFECT_TEACHING_LINE,
   fusedToFinalGap,
   NO_COMPETITOR_EXAMPLE,
-  NO_TIE_EXAMPLE,
+  NO_TIE_COLLAPSE_EXAMPLE,
   SUSPICIOUS_GAP_CAUTION,
   type FusionDefectCandidate,
-  type FusionDefectTie,
+  type FusionDefectTieCollapse,
 } from "../fusionDefect";
 import { armLabel, armLanguage, FINAL_LABEL, FUSED_LABEL } from "../retrievalLanguage";
 import type { RetrievalRunResponse, SearchResponse } from "../types";
@@ -27,14 +27,17 @@ import { PlaygroundDisclosure } from "./PlaygroundStage";
  * `armContribution` in `../fusionDefect` computes `expected` and `broken`
  * from the rank this run actually reported, so the two numbers are directly
  * comparable rather than one being asserted in prose. The headline needs no
- * search: any two single-arm candidates tie on `broken` regardless of their
- * measured ranks, so `findBrokenScoreTie` can name a pair as soon as the pool
- * holds two. A genuine fusion-order inversion is a weaker, situational claim
- * -- `findFusionDefectCase` only reports one when correct RRF, not just the
- * broken formula, would also have inverted the pair -- and needs the full
- * fused pool, not just the returned rows, so both are read lazily from the
- * persisted `search_result_event` rows on first open, the same way
- * `PersistedRunDisclosures` reads the rest of the receipt.
+ * search over the whole pool: candidates with equal arm counts always tie on
+ * `broken`, and `mosaic_search.search_hybrid_rrf` (`db/sql/09_search_functions.sql:515`)
+ * resolves that tie by ascending `product_id`, so `findTieCollapseExample`
+ * can name a real pair the tiebreak got backwards as soon as one tie group
+ * has two members whose product ids disagree with their real order -- which
+ * measured pools do in abundance. A genuine fusion-order inversion is a
+ * weaker, situational claim -- `findFusionDefectCase` only reports one when
+ * correct RRF, not just the broken formula, would also have inverted the
+ * pair -- and needs the full fused pool, not just the returned rows, so both
+ * are read lazily from the persisted `search_result_event` rows on first
+ * open, the same way `PersistedRunDisclosures` reads the rest of the receipt.
  */
 
 function armCells(candidate: FusionDefectCandidate) {
@@ -80,26 +83,28 @@ function CandidateRow({
 }
 
 /**
- * The headline, shown wherever it is found: two single-arm candidates at the
- * two most different ranks this pool actually measured, tied on `broken` and
- * separated on `expected`. `scope` names the population the tied count is
- * drawn from -- a run's returned rows or its full fused pool -- so the count
- * is never presented without saying what it is a count of.
+ * The headline: two real candidates, tied on the broken score because they
+ * share an arm count, where the SQL's own `product_id` tiebreak put the
+ * genuinely worse one on top. Every count here comes off `tie` -- nothing is
+ * retyped from a prior run.
  */
-function BrokenScoreTie({ tie, scope }: { tie: FusionDefectTie; scope: string }) {
+function TieCollapseExample({ tie }: { tie: FusionDefectTieCollapse }) {
   return (
     <>
       <p className="labs-contract-note">
-        Product #{tie.lower.candidate.productId} is found only by{" "}
-        {armLabel[tie.lower.arm]}, at rank #{tie.lower.sourceRank}. Product #
-        {tie.higher.candidate.productId} is found only by {armLabel[tie.higher.arm]}, at
-        rank #{tie.higher.sourceRank}. Correct RRF separates them --{" "}
-        {tie.lower.expected.toFixed(6)} versus {tie.higher.expected.toFixed(6)} -- but the
-        broken formula gives both exactly {tie.brokenScore.toFixed(6)}. {tie.singleArmCount}
-        {" "}of the {tie.poolSize} candidates in {scope} are single-arm, so all of them
-        collapse to that one broken score together.
+        {tie.tieGroupSize} of this run's {tie.poolSize} pooled candidates share an arm
+        count, and therefore the exact same broken score,{" "}
+        {tie.first.brokenScore.toFixed(6)}. <code>mosaic_search.search_hybrid_rrf</code>{" "}
+        (<code>db/sql/09_search_functions.sql:515</code>) then resolves that tie by
+        ascending <code>product_id</code>, not relevance. Product #
+        {tie.first.candidate.productId} is truly ranked #{tie.first.candidate.fusedRank}
+        {" "}in this run's real measured order, but its smaller product id puts it at
+        broken rank #{tie.first.brokenRank} -- ahead of product #
+        {tie.second.candidate.productId}, which is truly ranked #
+        {tie.second.candidate.fusedRank} yet falls to broken rank #
+        {tie.second.brokenRank} purely because its product id is larger.
       </p>
-      <div className="labs-rrf-scroll" role="region" tabIndex={0} aria-label="Broken-score tie arithmetic">
+      <div className="labs-rrf-scroll" role="region" tabIndex={0} aria-label="Tie-collapse arithmetic">
         <table className="labs-rrf-table">
           <thead>
             <tr>
@@ -112,11 +117,23 @@ function BrokenScoreTie({ tie, scope }: { tie: FusionDefectTie; scope: string })
             </tr>
           </thead>
           <tbody>
-            <CandidateRow candidate={tie.lower.candidate} highlight="better measured rank" />
-            <CandidateRow candidate={tie.higher.candidate} highlight="worse measured rank" />
+            <CandidateRow
+              candidate={tie.first.candidate}
+              highlight={`broken rank #${tie.first.brokenRank}`}
+            />
+            <CandidateRow
+              candidate={tie.second.candidate}
+              highlight={`broken rank #${tie.second.brokenRank}`}
+            />
           </tbody>
         </table>
       </div>
+      <p className="labs-teaching-line">
+        The broken formula ranks {tie.tieGroupSize} of {tie.poolSize} candidates in
+        this run's fused pool by product id, not relevance -- {tie.invertedPairs}{" "}
+        pairs across the pool land in the opposite order from this run's real
+        measured ranking.
+      </p>
     </>
   );
 }
@@ -155,7 +172,7 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
 
   const rows = candidatesFromResults(response.results, rrfK);
   const poolRows = event ? candidatesFromPersistedPool(event.candidates, rrfK) : null;
-  const poolTie = poolRows ? findBrokenScoreTie(poolRows) : null;
+  const poolTie = poolRows ? findTieCollapseExample(poolRows) : null;
   const inversion = poolRows ? findFusionDefectCase(poolRows) : null;
 
   return (
@@ -168,7 +185,7 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
         retrieval profile, not retyped here.
       </p>
 
-      <p className="labs-teaching-line">{BROKEN_SCORE_TIE_HEADLINE}</p>
+      <p className="labs-teaching-line">{BROKEN_TIE_MECHANISM}</p>
 
       <div className="labs-rrf-scroll" role="region" tabIndex={0} aria-label="Fusion defect arithmetic">
         <table className="labs-rrf-table">
@@ -207,9 +224,9 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
         ) : (
           <>
             {poolTie ? (
-              <BrokenScoreTie tie={poolTie} scope="this run's full fused pool" />
+              <TieCollapseExample tie={poolTie} />
             ) : (
-              <p className="labs-contract-note">{NO_TIE_EXAMPLE}</p>
+              <p className="labs-contract-note">{NO_TIE_COLLAPSE_EXAMPLE}</p>
             )}
 
             {inversion === null ? (
