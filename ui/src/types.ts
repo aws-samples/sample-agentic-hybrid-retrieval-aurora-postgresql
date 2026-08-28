@@ -804,17 +804,31 @@ export interface ScorecardGoldenAnchor {
   concept_label?: string | null;
 }
 
-/** Section B: compact PASS/total over golden regression anchors. */
+/**
+ * Section B: compact PASS/total over golden regression anchors.
+ *
+ * `passed` can only ever equal the number of checks the artifact recorded,
+ * because the harness raises on the first failing check and never writes a
+ * failing entry. `verified_for_running_revision` is therefore what carries
+ * whether that N/N still describes the running code -- without it the section
+ * presents a historical result as present-tense verification.
+ */
 export interface ScorecardRegressionAnchors {
   passed: number;
   total: number;
   anchors: ScorecardGoldenAnchor[];
+  verified_for_running_revision: boolean;
 }
 
-/** Section C: hard eligibility/filter contracts. Not a relevance judgment. */
+/**
+ * Section C: hard eligibility/filter contracts. Not a relevance judgment.
+ *
+ * `held` is `null` -- unknown -- when the measurement no longer describes the
+ * running revision. It is never an unconditional `true`.
+ */
 export interface ScorecardEligibilityContracts {
   fixture_count: number;
-  held: boolean;
+  held: boolean | null;
   description: string;
   fixture_query_ids: string[];
 }

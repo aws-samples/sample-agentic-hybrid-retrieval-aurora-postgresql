@@ -15,10 +15,22 @@ Four sections, matched to the spec's ruling that they must never be conflated:
     C. eligibility_contracts   hard eligibility/filter fixtures, not relevance
     D. agent_contracts         deterministic agent/evidence guarantees
 
-Section A is the only one gated on `ScorecardProvenance.attributed`: B, C and D
-are deterministic pass/fail contracts, not population relevance judgments over
-a sample that can go stale, so they render regardless of whether the source
-revision matches what is currently running.
+Section A is withheld entirely when `ScorecardProvenance.attributed` is false.
+B and C still render their data -- the counts and fixture ids are real -- but
+they must not claim present-tense verification, because both derive from an
+artifact measured at one revision:
+
+  * B's `passed` can only equal the number of checks the artifact recorded.
+    `scripts.score_evals.validate_release_checks` raises on the first failure
+    and never writes a failing entry, so a written artifact always reads N/N.
+    `verified_for_running_revision` carries whether that N/N describes the
+    running code.
+  * C's `held` is `True` only while attributed, `None` otherwise. It was
+    previously the literal `True`, which made the section incapable of ever
+    reporting a problem.
+
+D is genuinely revision-independent: it resolves assertions and tool contracts
+from the running code, not from the artifact.
 """
 
 from __future__ import annotations
@@ -341,22 +353,32 @@ def _retrieval_quality(
 def _regression_anchors(
     artifact: dict[str, Any],
     scored: list[dict[str, Any]],
+    *,
+    attributed: bool,
 ) -> ScorecardRegressionAnchors:
     checks = artifact["deterministic_release_checks"]
     return ScorecardRegressionAnchors(
         passed=len(checks),
         total=_release_check_total(scored),
         anchors=[ScorecardGoldenAnchor.model_validate(check) for check in checks],
+        verified_for_running_revision=attributed,
     )
 
 
 def _eligibility_contracts(
     scored: list[dict[str, Any]],
+    *,
+    attributed: bool,
 ) -> ScorecardEligibilityContracts:
     fixtures = _eligibility_fixtures(scored)
     return ScorecardEligibilityContracts(
         fixture_count=len(fixtures),
-        held=True,
+        # Not a literal. `scripts.score_evals.validate_hard_negatives` raises
+        # when a graded-0 product reaches the result window, so an artifact
+        # cannot exist for a run that violated a contract -- which is what
+        # justifies True. That justification covers the revision measured, not
+        # whatever is running now, so a provenance mismatch makes this unknown.
+        held=True if attributed else None,
         description=ELIGIBILITY_DESCRIPTION,
         fixture_query_ids=fixtures,
     )
@@ -479,8 +501,8 @@ def retrieval_scorecard() -> RetrievalScorecardResponse:
     return RetrievalScorecardResponse(
         provenance=provenance,
         retrieval_quality=_retrieval_quality(artifact, scored),
-        regression_anchors=_regression_anchors(artifact, scored),
-        eligibility_contracts=_eligibility_contracts(scored),
+        regression_anchors=_regression_anchors(artifact, scored, attributed=attributed),
+        eligibility_contracts=_eligibility_contracts(scored, attributed=attributed),
         agent_contracts=_agent_contracts(),
         stage_ablation=_stage_ablation(ablation_artifact, current),
     )

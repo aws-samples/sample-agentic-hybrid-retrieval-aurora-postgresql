@@ -31,7 +31,9 @@ from service.scorecard import (
     _agent_contracts,
     _attribution,
     _CurrentRetrievalIdentity,
+    _eligibility_contracts,
     _eligibility_fixtures,
+    _regression_anchors,
     _release_check_total,
     _scored_queries,
     retrieval_scorecard,
@@ -382,6 +384,49 @@ def test_retrieval_scorecard_serves_the_committed_population_metrics():
 
 
 # --- Section B: golden regression anchors, never mixed with IR metrics -----
+
+
+def test_sections_b_and_c_stop_claiming_verification_when_unattributed():
+    """Sections B and C must not present success from a stale artifact.
+
+    Red-at-birth for the whole class of defect an audit found here: with
+    provenance deliberately broken, B previously still rendered its recorded
+    N/N and C rendered `held=True`, because `held` was the literal `True` and B
+    carried no attribution flag. Neither could ever report a problem.
+
+    `passed` staying 6 is correct and deliberate: the anchors really did pass at
+    the measured revision, and deleting real data would be its own dishonesty.
+    What must change is the *claim*, carried by
+    `verified_for_running_revision`.
+    """
+    scored = _scored_queries()
+    artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
+
+    attributed = _regression_anchors(artifact, scored, attributed=True)
+    stale = _regression_anchors(artifact, scored, attributed=False)
+
+    assert attributed.verified_for_running_revision is True
+    assert stale.verified_for_running_revision is False
+    assert stale.passed == attributed.passed
+
+    assert _eligibility_contracts(scored, attributed=True).held is True
+    assert _eligibility_contracts(scored, attributed=False).held is None
+
+
+def test_eligibility_held_is_derived_not_a_constant():
+    """Independence: `held` must respond to its only input.
+
+    A gate whose verdict is a literal cannot fail. This asserts the two
+    branches differ, so reverting `held` to an unconditional `True` fails here
+    rather than passing quietly.
+    """
+    scored = _scored_queries()
+
+    verdicts = {
+        _eligibility_contracts(scored, attributed=flag).held for flag in (True, False)
+    }
+
+    assert verdicts == {True, None}
 
 
 def test_regression_anchors_total_is_read_from_the_query_set_not_retyped():

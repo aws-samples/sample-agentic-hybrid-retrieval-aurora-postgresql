@@ -154,6 +154,11 @@ function scorecardFixture(
     regression_anchors: {
       passed: 4,
       total: 4,
+      // Mirrors the service: sections B and C follow provenance rather than
+      // asserting success from an artifact that may no longer describe the
+      // running revision. A fixture that pinned these to `true` regardless
+      // would hide exactly the defect the stale-rendering test below covers.
+      verified_for_running_revision: overrides.attributed ?? true,
       anchors: [
         { query_id: "G-001", product_id: 17001, type: "top_rank" },
         { query_id: "G-014", product_id: 210001, type: "top_rank" },
@@ -163,7 +168,7 @@ function scorecardFixture(
     },
     eligibility_contracts: {
       fixture_count: 18,
-      held: true,
+      held: (overrides.attributed ?? true) ? true : null,
       description: "Hard-negative eligibility fixtures, fixture edition.",
       fixture_query_ids: ["G-001", "G-002"],
     },
@@ -217,6 +222,37 @@ function scorecardFixture(
 
 describe("RetrievalScorecard", () => {
   afterEach(cleanup);
+
+  it("stops sections B and C claiming verification when unattributed", async () => {
+    // Section A already withholds. B and C used to render a complete N/N and
+    // "Fixtures held" from the same stale artifact, which reads as success the
+    // measurement cannot support. The counts stay -- they are real -- but the
+    // labels and copy must stop asserting present-tense verification.
+    vi.mocked(api.scorecard).mockResolvedValue(
+      scorecardFixture({ attributed: false }),
+    );
+    render(<RetrievalScorecard />);
+
+    expect(await screen.findByText("Fixtures (unverified)")).toBeTruthy();
+    expect(screen.queryByText("Fixtures held")).toBeNull();
+    expect(
+      screen.getByText(/Verified at the revision that was measured/i),
+    ).toBeTruthy();
+    // The real counts survive: withholding data would be its own dishonesty.
+    expect(screen.getByText("4 / 4")).toBeTruthy();
+    expect(screen.getByText("18")).toBeTruthy();
+  });
+
+  it("labels sections B and C as held once the measurement is attributed", async () => {
+    // Independence from the test above: the same two assertions must invert on
+    // an attributed payload, so neither is simply always true.
+    vi.mocked(api.scorecard).mockResolvedValue(scorecardFixture({ attributed: true }));
+    render(<RetrievalScorecard />);
+
+    expect(await screen.findByText("Fixtures held")).toBeTruthy();
+    expect(screen.queryByText("Fixtures (unverified)")).toBeNull();
+    expect(screen.queryByText(/Verified at the revision that was measured/i)).toBeNull();
+  });
 
   it("withholds the metric values when the measured revision does not match", async () => {
     vi.mocked(api.scorecard).mockResolvedValue(

@@ -60,7 +60,12 @@ const minimalScorecard: RetrievalScorecardResponse = {
     excluded_agent_contract_query_ids: ["G-021"],
     per_query_metrics: [],
   },
-  regression_anchors: { passed: 4, total: 4, anchors: [] },
+  regression_anchors: {
+    passed: 4,
+    total: 4,
+    anchors: [],
+    verified_for_running_revision: true,
+  },
   eligibility_contracts: {
     fixture_count: 18,
     held: true,

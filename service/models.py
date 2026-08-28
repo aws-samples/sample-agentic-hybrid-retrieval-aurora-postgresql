@@ -742,6 +742,13 @@ class ScorecardRegressionAnchors(BaseModel):
     passed: int
     total: int
     anchors: list[ScorecardGoldenAnchor]
+    #: False when the artifact these anchors came from no longer describes the
+    #: running revision. `passed` can only ever equal the number of checks the
+    #: artifact recorded, because `scripts.score_evals.validate_release_checks`
+    #: raises on the first failure and never writes a failing entry -- so a
+    #: written artifact always reads N/N. Without this flag the section presents
+    #: a historical N/N as present-tense verification.
+    verified_for_running_revision: bool
 
 
 class ScorecardEligibilityContracts(BaseModel):
@@ -751,10 +758,18 @@ class ScorecardEligibilityContracts(BaseModel):
     `fixture_count` is read from the harness's own query-population filter
     (`scripts.score_evals.product_retrieval_queries`), not a number retyped
     for this surface.
+
+    `held` is **not** a constant. It is `True` only while the measurement is
+    attributed to the running revision, and `None` -- unknown -- otherwise. The
+    justification for `True` is that `scripts.score_evals.validate_hard_negatives`
+    raises when any graded-0 product reaches the result window, so an artifact
+    cannot exist for a run that violated a contract. That reasoning holds only
+    for the revision actually measured, which is why a provenance mismatch makes
+    this unknown rather than true.
     """
 
     fixture_count: int
-    held: bool
+    held: bool | None
     description: str
     fixture_query_ids: list[str]
 

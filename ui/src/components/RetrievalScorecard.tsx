@@ -233,7 +233,13 @@ function RegressionAnchorsSection({
 }: {
   anchors: ScorecardRegressionAnchors;
 }) {
-  const allPassed = anchors.total > 0 && anchors.passed === anchors.total;
+  // A complete N/N is only "good" while it describes the running revision.
+  // The harness never writes a failing check, so N/N alone proves nothing about
+  // now -- it reports what held at the revision that was measured.
+  const allPassed =
+    anchors.total > 0 &&
+    anchors.passed === anchors.total &&
+    anchors.verified_for_running_revision;
   return (
     <section
       className="labs-scorecard-section"
@@ -245,7 +251,11 @@ function RegressionAnchorsSection({
           label="PASS / total"
           value={`${anchors.passed} / ${anchors.total}`}
           tone={allPassed ? "good" : "warn"}
-          detail="Did a known critical behavior regress? Never mixed into Recall, MRR, or nDCG."
+          detail={
+            anchors.verified_for_running_revision
+              ? "Did a known critical behavior regress? Never mixed into Recall, MRR, or nDCG."
+              : "Verified at the revision that was measured, not the one running now. Remeasure to reclaim this as current."
+          }
         />
       </PlaygroundFigures>
       <PlaygroundDisclosure
@@ -296,10 +306,14 @@ function EligibilityContractsSection({
       <h3 id="scorecard-eligibility-title">C. Eligibility and filter contracts</h3>
       <PlaygroundFigures label="Eligibility and filter contracts">
         <PlaygroundFigure
-          label="Fixtures held"
+          label={contracts.held === null ? "Fixtures (unverified)" : "Fixtures held"}
           value={String(contracts.fixture_count)}
-          tone={contracts.held ? "good" : "warn"}
-          detail="Did retrieval violate a hard contract? Not a relevance judgment: no Recall, MRR, or nDCG is computed over these."
+          tone={contracts.held === true ? "good" : "warn"}
+          detail={
+            contracts.held === null
+              ? "Whether these held is unknown for the revision running now. The count is real; the verdict needs a remeasure."
+              : "Did retrieval violate a hard contract? Not a relevance judgment: no Recall, MRR, or nDCG is computed over these."
+          }
         />
       </PlaygroundFigures>
       <PlaygroundDisclosure
