@@ -47,7 +47,7 @@ inside the production validators:
 
 | Stage | Run | Proof |
 |---|---|---|
-| Retrieve | `G-003` | The target remains visible through incidental FTS while missing trigram provenance returns |
+| Retrieve | `G-003` | Neither FTS nor semantic search can recover the target; restoring the trigram channel is the only path in |
 | Retrieve | `G-001` | Exact visible model name remains first with FTS provenance |
 | Retrieve | `G-013` | The eligible carbon racer remains and the refurbished sibling is excluded |
 | Rank | `G-008` | RRF moves from rank-collapsing arithmetic to `1 / (k + source_rank)` |

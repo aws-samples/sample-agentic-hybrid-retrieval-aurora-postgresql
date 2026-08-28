@@ -102,10 +102,11 @@ describe("RetrievalObservatory", () => {
     const { container } = renderObservatory({ response: seedRun });
     const rows = container.querySelectorAll(".labs-matrix-table tbody");
 
-    // The seed's target matched on exact words and a repaired spelling.
+    // The seed's target matched only on a repaired spelling; neither exact
+    // words nor meaning found it.
     const target = [...rows].find((row) => row.className.includes("is-target"));
     expect(target).toBeTruthy();
-    expect(target!.textContent).toContain("Found by exact words");
+    expect(target!.textContent).toContain("Only the close spelling arm found it.");
     expect(target!.textContent).toMatch(/Repaired spelling: \w+ to \w+/);
 
     // Every other row in this capture came back on meaning alone.

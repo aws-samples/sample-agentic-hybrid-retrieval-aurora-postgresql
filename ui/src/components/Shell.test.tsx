@@ -68,7 +68,7 @@ describe("Shell navigation", () => {
     window.history.replaceState(
       {},
       "",
-      "/catalog?q=wirless+noice+canceling+hedphones&domain=consumer_electronics&in_stock_only=true",
+      "/catalog?q=Sonorra+WHC720&domain=consumer_electronics&in_stock_only=true",
     );
     render(
       <CommerceProvider>
@@ -84,7 +84,7 @@ describe("Shell navigation", () => {
     const params = new URLSearchParams(href.split("?")[1]);
 
     expect(href.startsWith("/labs/retrieval?")).toBe(true);
-    expect(params.get("q")).toBe("wirless noice canceling hedphones");
+    expect(params.get("q")).toBe("Sonorra WHC720");
     expect(params.get("domain")).toBe("consumer_electronics");
     expect(params.get("in_stock_only")).toBe("true");
   });

@@ -830,7 +830,7 @@ jq -e '
 curl -fsS -X POST http://127.0.0.1:8000/api/search \
   -H 'Content-Type: application/json' \
   --data '{
-    "query": "wirless noice canceling hedphones under $200 with long batery life",
+    "query": "Sonorra WHC720",
     "filters": {
       "domain": "consumer_electronics",
       "max_price_cents": 20000,
@@ -840,17 +840,18 @@ curl -fsS -X POST http://127.0.0.1:8000/api/search \
     "include_diagnostics": true,
     "rerank": true
   }' >/tmp/lab1-broken-proof.json
-# Lab 1's broken state disconnects the pg_trgm arm from candidate fusion. It does
-# not hide the target: measured on the live 500,000-row cluster with a real
-# Bedrock query embedding, product 2 still arrives at fused rank 1 from FTS rank 1
-# because "canceling" is the one correctly spelled term in the query. Asserting
-# the target was absent contradicted data/evals/mosaic_labs_missions.json, which
-# says the target "returns with no trigram rank and no RRF contribution", and it
-# failed every stack at this line. What distinguishes broken from fixed is the
-# empty trigram channel, so that is what this checks.
+# Lab 1's broken state disconnects the pg_trgm arm from candidate fusion. Measured
+# on the live 500,000-row cluster with a real Bedrock query embedding: the brand
+# token itself is misspelled ("Sonorra" vs "Sonora") and the query carries no other
+# descriptive language, so neither FTS nor the semantic arm has a lexeme or a
+# neighbor to recover product 2 with. With the trigram channel disconnected,
+# product 2 is not a candidate in any arm and is absent from the results --
+# Recall@10 fails. That absence, not just an empty trigram channel, is what this
+# checks; the previous anchor could not distinguish broken from fixed here because
+# its one correctly-spelled term let FTS recover the target regardless.
 jq -e '
   .diagnostics.candidate_counts.trigram_in_pool == 0 and
-  any(.results[]; .product_id == 2)
+  all(.results[]; .product_id != 2)
 ' /tmp/lab1-broken-proof.json
 
 printf '\n=== MOSAIC BOOTSTRAP GREEN ===\n'
@@ -864,7 +865,7 @@ jq -r '"  agent model         \(.models.agent)
   rerank model        \(.models.rerank)"' /tmp/health.json
 jq -r '"  rerank             \(.diagnostics.rerank_status), \(.results | length) result(s)"' \
   /tmp/model-access-search.json
-jq -r '"  lab 1 broken       trigram_in_pool=\(.diagnostics.candidate_counts.trigram_in_pool), target present"' \
+jq -r '"  lab 1 broken       trigram_in_pool=\(.diagnostics.candidate_counts.trigram_in_pool), target_absent=\(all(.results[]; .product_id != 2))"' \
   /tmp/lab1-broken-proof.json
 printf '  timings             see build/bootstrap-timings.tsv\n'
 printf '=== every acceptance check passed; signalling CloudFormation ===\n\n'

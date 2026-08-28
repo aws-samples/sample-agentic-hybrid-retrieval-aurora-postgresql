@@ -98,6 +98,11 @@ retrieval failure** on the current mission set. Phase 1's addition of
 `strict_word_similarity` to the `greatest()` recovered much of the practical
 gap.
 
+Note recorded 2026-08-27: the first row's query, `typo-recovery`'s query at the
+time, was retired in favor of `Sonorra WHC720` — see LOSS-5 for why. The row
+above is historical, measured against a query no longer on the required lab
+path; it is preserved verbatim as canonical fixture `G-022`.
+
 Correction recorded 2026-08-10: this entry initially attributed the absence of
 target 234001 from the live trigram pool to per-token scoring. That was wrong.
 `mosaic_search.search_trigram` applies `matches_filters(d, f)` even when
@@ -545,3 +550,19 @@ surfaced the declaration; only measuring the arm alone decided whether to assert
 it or drop it. The lesson the mission actually teaches — that fuzzy matching
 recovers what embeddings do not — is now stated by the contract rather than
 contradicted by it.
+
+Note recorded 2026-08-27: the `typo-recovery` mission's query changed from
+`wirless noice canceling hedphones under $200 with long batery life` to
+`Sonorra WHC720`, because the retired query's one correctly-spelled term
+("canceling") let `fts` also recover the target on its own, so the mission
+could not distinguish a connected trigram channel from a disconnected one. The
+row above
+citing `fts: 1` is historical. Re-measured on the live cluster with the new
+query, every token misspelled and no descriptive language present: `fts`
+recovers nothing at all (0-row pool, not merely a miss on the target), `pg_trgm`
+still recovers the target at rank 1, and `hnsw` still does not recall it in a
+150-row pool. `hnsw` staying un-declared is, if anything, more strongly
+justified by the new query than the old one. The retired query is preserved
+verbatim as canonical fixture `G-022`, off the required lab path, because it
+still demonstrates a real production failure mode: a visibly correct result
+that hides a disconnected trigram channel.

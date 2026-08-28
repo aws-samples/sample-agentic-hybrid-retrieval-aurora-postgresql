@@ -172,7 +172,7 @@ def test_a_typo_query_recovers_its_target_through_the_trigram_arm(connection, pr
         LIMIT 5
         """,
         (
-            "wirless noice canceling hedphones under $200 with long batery life",
+            "Sonorra WHC720",
             json.dumps(
                 {
                     "domain": "consumer_electronics",

@@ -8,7 +8,7 @@ SELECT mosaic_search.configure_hnsw(100, 'relaxed_order', 20000, 1);
 
 SELECT *
 FROM mosaic_search.search_hybrid_rrf(
-    'wirless noice canceling hedphones under 200 with long batery life',
+    'Sonorra WHC720',
     :'query_embedding'::vector(1024),
     '{"domain":"consumer_electronics","max_price_cents":20000,"in_stock_only":true}'::jsonb,
     result_limit => 30

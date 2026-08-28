@@ -138,18 +138,14 @@ describe("match reasons", () => {
   });
 
   it("pairs each misspelling with the catalog word that repaired it", () => {
-    const pairs = nearMissPairs(
-      "wirless noice canceling hedphones under $200 with long batery life",
-      headphones,
-    );
-    // In query order, so the chip reads as the sentence that was typed. "noice"
-    // scores 0.333, above pg_trgm's own similarity_threshold of 0.3 and below the
-    // 0.4 this once used, which would have dropped a real repair.
+    const pairs = nearMissPairs("Sonorra WHC720", headphones);
+    // In query order, so the chip reads as the sentence that was typed. "sonorra"
+    // scores 0.667 against "sonora"; "whc720" scores 0.333 against "c720" (from
+    // the hyphen-split model token), above pg_trgm's own similarity_threshold of
+    // 0.3 and below the 0.4 this once used, which would have dropped a real repair.
     expect(pairs).toEqual([
-      { queryWord: "wirless", productWord: "wireless" },
-      { queryWord: "noice", productWord: "noise" },
-      { queryWord: "canceling", productWord: "cancelling" },
-      { queryWord: "hedphones", productWord: "headphones" },
+      { queryWord: "sonorra", productWord: "sonora" },
+      { queryWord: "whc720", productWord: "c720" },
     ]);
   });
 

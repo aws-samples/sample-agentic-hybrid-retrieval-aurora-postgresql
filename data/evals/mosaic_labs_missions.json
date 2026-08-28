@@ -34,7 +34,7 @@
       "title": "Lab 1 - Build hybrid retrieval",
       "discover_label": "Candidate recall across retrievers",
       "canonical_query_id": "G-003",
-      "query": "wirless noice canceling hedphones under $200 with long batery life",
+      "query": "Sonorra WHC720",
       "filters": {
         "domain": "consumer_electronics",
         "max_price_cents": 20000,
@@ -44,7 +44,6 @@
         2
       ],
       "expected_techniques": [
-        "fts",
         "pg_trgm",
         "rrf",
         "cohere_rerank"
@@ -54,24 +53,23 @@
         "file": "db/sql/09_search_functions.sql",
         "approximate_lines": 11,
         "task": "Restore the trigram CTE and its candidate channel in search_hybrid_rrf.",
-        "broken_state": "The target still appears through incidental FTS overlap, but the disconnected pg_trgm arm contributes no candidate, rank, or RRF evidence.",
-        "fixed_state": "The target retains its eligible result and now carries trigram rank and RRF contribution while hard filters still hold.",
+        "broken_state": "Neither FTS nor the semantic arm can recover the target under this query, and the disconnected pg_trgm arm contributes no candidate, rank, or RRF evidence, so product 2 is absent from the results entirely.",
+        "fixed_state": "The target enters through the restored trigram channel alone, carrying trigram rank and RRF contribution while hard filters still hold.",
         "observe_before": [
           "HTTP 200: retrieval still runs through FTS, HNSW, RRF, and reranking.",
-          "Product 2 still appears, carried by an FTS rank alone, with signals.trigram.rank and signals.trigram.rrf_contribution null.",
+          "Product 2 is absent from the first 10 results; Recall@10 fails.",
           "diagnostics.candidate_counts.trigram_in_pool equals 0."
         ],
         "observe_after": [
           "HTTP 200 with product 2 in the first 10 results.",
-          "Product 2 has non-null signals.trigram.rank and signals.trigram.rrf_contribution.",
+          "Product 2 has non-null signals.trigram.rank and signals.trigram.rrf_contribution, and null signals.fts.rank and signals.semantic.rank.",
           "Every result is consumer electronics, at or below $200, and in stock or low stock."
         ],
-        "checkpoint_question": "Why was seeing product 2 not enough to declare retrieval healthy, and which missing signal did the repair restore?"
+        "checkpoint_question": "Why could neither FTS nor semantic search recover the target, and which restored signal made it recoverable?"
       },
-      "expected_outcome": "The eligible target retains its result while the restored typo-recovery arm adds the missing candidate and rank provenance; exact identity and semantic eligibility remain separately testable checkpoints.",
+      "expected_outcome": "The misspelled brand token defeats both FTS and semantic search; only the restored pg_trgm arm recovers the target, entering at trigram rank 1 and final rank 1 while hard filters still hold.",
       "assertions": [
         "target_in_top_k",
-        "fts_signal_present",
         "trigram_signal_present",
         "hard_filters_hold"
       ],

@@ -41,8 +41,8 @@ function diagnostics(
 function response(counts: Record<string, number>): SearchResponse {
   return {
     search_event_id: "channel-test",
-    query: "wirless noice canceling hedphones under $200 with long batery life",
-    normalized_query: "wirless noice canceling hedphones under $200 with long batery life",
+    query: "Sonorra WHC720",
+    normalized_query: "Sonorra WHC720",
     applied_filters: {},
     results: [],
     diagnostics: diagnostics(counts),

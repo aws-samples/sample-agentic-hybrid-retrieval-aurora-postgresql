@@ -474,7 +474,7 @@ describe("RetrievalLabPage", () => {
     const query = screen.getByRole("searchbox", { name: "Retrieval query" });
     expect(query.getAttribute("spellcheck")).toBe("false");
     expect(query.getAttribute("autocomplete")).toBe("off");
-    expect((query as HTMLInputElement).value).toContain("wirless");
+    expect((query as HTMLInputElement).value).toContain("Sonorra");
   });
 
   it("groups the scenarios the way the session runs them", () => {

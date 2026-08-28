@@ -1,15 +1,15 @@
 {
  "provenance": {
-  "captured_at": "2026-08-19",
+  "captured_at": "2026-08-28",
   "mission_id": "typo-recovery",
   "producer": "scripts/capture_retrieval_seed.py",
-  "search_event_id": "3dd73a54-fec0-4e27-930b-a93af7c6f4e5",
+  "search_event_id": "4458d8e2-4bb8-43b3-b22a-f2bd529cc0a0",
   "note": "One real Aurora retrieval run, captured through /api/search so the Observatory opens on measured ranks. Run pipeline replaces it."
  },
  "response": {
-  "search_event_id": "3dd73a54-fec0-4e27-930b-a93af7c6f4e5",
-  "query": "wirless noice canceling hedphones under $200 with long batery life",
-  "normalized_query": "wirless noice canceling hedphones under $200 with long batery life",
+  "search_event_id": "4458d8e2-4bb8-43b3-b22a-f2bd529cc0a0",
+  "query": "Sonorra WHC720",
+  "normalized_query": "Sonorra WHC720",
   "applied_filters": {
    "domain": "consumer_electronics",
    "in_stock_only": true,
@@ -71,13 +71,13 @@
     "image_source": null,
     "signals": {
      "fts": {
-      "rank": 1,
-      "raw_score": 0.029850747,
-      "rrf_contribution": 0.01639344262295082
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
      },
      "trigram": {
       "rank": 1,
-      "raw_score": 0.79710144,
+      "raw_score": 0.57894737,
       "rrf_contribution": 0.01639344262295082
      },
      "semantic": {
@@ -85,10 +85,10 @@
       "raw_score": null,
       "rrf_contribution": null
      },
-     "rrf_score": 0.03278688524590164,
+     "rrf_score": 0.01639344262295082,
      "pre_rerank_rank": 1,
-     "pre_rerank_score": 0.03278688524590164,
-     "rerank_score": 0.9203972220420837,
+     "pre_rerank_score": 0.01639344262295082,
+     "rerank_score": 0.87400221824646,
      "rerank_rank": 1,
      "exact_sku_match": false,
      "final_rank": 1,
@@ -104,752 +104,34 @@
     ]
    },
    {
-    "product_id": 17000,
-    "sku": "CO-OVERE-0017000",
-    "title": "NimbusOne OH-A890X Flex Over-Ear Headphone",
-    "short_description": "Low-latency wireless for home entertainment, with quiet focus on long flights.",
+    "product_id": 198612,
+    "sku": "CO-HANDH-0198612",
+    "title": "SonicWave HC-X710P Air Handheld Console",
+    "short_description": "Balanced everyday performance for travel, with reliable performance for everyday use.",
     "domain": "consumer_electronics",
-    "category_key": "over-ear-headphones",
-    "category_path": "Audio > Over-Ear Headphones",
-    "brand": "NimbusOne",
-    "model": "OH-A890X",
-    "price_cents": 18398,
-    "list_price_cents": 18563,
-    "currency": "USD",
-    "rating": 4.7,
-    "review_count": 40,
-    "availability": "in_stock",
-    "inventory_count": 59,
-    "attributes": {
-     "codec": "aptX Adaptive",
-     "foldable": true,
-     "weight_g": 358,
-     "microphone": true,
-     "multipoint": true,
-     "form_factor": "over-ear",
-     "connectivity": [
-      "Bluetooth",
-      "USB-C"
-     ],
-     "water_rating": "IP55",
-     "battery_hours": 66,
-     "active_noise_cancellation": true
-    },
-    "tags": [
-     "audio",
-     "noise cancelling",
-     "over-ear",
-     "wireless"
-    ],
-    "catalog_asset_key": null,
-    "canonical_group_id": "con-over-ear-hea-17000",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": null,
-    "image_source": null,
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 30,
-      "raw_score": 0.4474466,
-      "rrf_contribution": 0.011111111111111112
-     },
-     "rrf_score": 0.011111111111111112,
-     "pre_rerank_rank": 31,
-     "pre_rerank_score": 0.011111111111111112,
-     "rerank_score": 0.728381872177124,
-     "rerank_rank": 2,
-     "exact_sku_match": false,
-     "final_rank": 2,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "mosaic://product/17000",
-      "revision": "2026-08-09T21:35:22.406027+00:00",
-      "title": "NimbusOne OH-A890X Flex Over-Ear Headphone",
-      "quote": "Low-latency wireless for home entertainment, with quiet focus on long flights."
-     }
-    ]
-   },
-   {
-    "product_id": 1232,
-    "sku": "CO-OVERE-0001232",
-    "title": "NovaLogic OH-V719X Edge Over-Ear Headphone",
-    "short_description": "Low-latency wireless for hybrid work, with clearer calls in noisy rooms.",
-    "domain": "consumer_electronics",
-    "category_key": "over-ear-headphones",
-    "category_path": "Audio > Over-Ear Headphones",
-    "brand": "NovaLogic",
-    "model": "OH-V719X",
-    "price_cents": 19546,
-    "list_price_cents": 26378,
-    "currency": "USD",
-    "rating": 4.6,
-    "review_count": 185,
-    "availability": "in_stock",
-    "inventory_count": 58,
-    "attributes": {
-     "codec": "SBC",
-     "foldable": true,
-     "weight_g": 235,
-     "microphone": true,
-     "multipoint": true,
-     "form_factor": "over-ear",
-     "connectivity": [
-      "Bluetooth",
-      "USB-C"
-     ],
-     "water_rating": "IP55",
-     "battery_hours": 51,
-     "active_noise_cancellation": true
-    },
-    "tags": [
-     "audio",
-     "noise cancelling",
-     "over-ear",
-     "wireless"
-    ],
-    "catalog_asset_key": null,
-    "canonical_group_id": "con-over-ear-hea-1232",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": null,
-    "image_source": null,
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 21,
-      "raw_score": 0.45085296,
-      "rrf_contribution": 0.012345679012345678
-     },
-     "rrf_score": 0.012345679012345678,
-     "pre_rerank_rank": 22,
-     "pre_rerank_score": 0.012345679012345678,
-     "rerank_score": 0.7182985544204712,
-     "rerank_rank": 3,
-     "exact_sku_match": false,
-     "final_rank": 3,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "mosaic://product/1232",
-      "revision": "2026-08-09T21:35:18.034724+00:00",
-      "title": "NovaLogic OH-V719X Edge Over-Ear Headphone",
-      "quote": "Low-latency wireless for hybrid work, with clearer calls in noisy rooms."
-     }
-    ]
-   },
-   {
-    "product_id": 14352,
-    "sku": "CO-OVERE-0014352",
-    "title": "CobaltVision OH-S620 Essential Over-Ear Headphone",
-    "short_description": "Low-latency wireless for hybrid work, with quiet focus on long flights.",
-    "domain": "consumer_electronics",
-    "category_key": "over-ear-headphones",
-    "category_path": "Audio > Over-Ear Headphones",
-    "brand": "CobaltVision",
-    "model": "OH-S620",
-    "price_cents": 17614,
-    "list_price_cents": 18560,
+    "category_key": "handheld-consoles",
+    "category_path": "Gaming > Handheld Consoles",
+    "brand": "SonicWave",
+    "model": "HC-X710P",
+    "price_cents": 17765,
+    "list_price_cents": 18410,
     "currency": "USD",
     "rating": 4.8,
-    "review_count": 97,
-    "availability": "in_stock",
-    "inventory_count": 82,
+    "review_count": 98,
+    "availability": "low_stock",
+    "inventory_count": 5,
     "attributes": {
-     "codec": "SBC",
-     "foldable": true,
-     "weight_g": 309,
-     "microphone": true,
-     "multipoint": true,
-     "form_factor": "over-ear",
-     "connectivity": [
-      "Bluetooth",
-      "USB-C"
-     ],
-     "water_rating": "IP67",
-     "battery_hours": 75,
-     "active_noise_cancellation": true
+     "material": "Polymer",
+     "portable": false,
+     "weight_g": 256,
+     "compatibility": "USB-C"
     },
     "tags": [
-     "audio",
-     "noise cancelling",
-     "over-ear",
-     "wireless"
+     "gaming",
+     "handheld consoles"
     ],
     "catalog_asset_key": null,
-    "canonical_group_id": "con-over-ear-hea-14352",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": null,
-    "image_source": null,
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 34,
-      "raw_score": 0.45393288,
-      "rrf_contribution": 0.010638297872340425
-     },
-     "rrf_score": 0.010638297872340425,
-     "pre_rerank_rank": 35,
-     "pre_rerank_score": 0.010638297872340425,
-     "rerank_score": 0.7182985544204712,
-     "rerank_rank": 4,
-     "exact_sku_match": false,
-     "final_rank": 4,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "mosaic://product/14352",
-      "revision": "2026-08-09T21:35:21.685213+00:00",
-      "title": "CobaltVision OH-S620 Essential Over-Ear Headphone",
-      "quote": "Low-latency wireless for hybrid work, with quiet focus on long flights."
-     }
-    ]
-   },
-   {
-    "product_id": 1418,
-    "sku": "CO-OVERE-0001418",
-    "title": "QuantumTech OH-P622 Active Over-Ear Headphone",
-    "short_description": "Low-latency wireless for hybrid work, with clearer calls in noisy rooms.",
-    "domain": "consumer_electronics",
-    "category_key": "over-ear-headphones",
-    "category_path": "Audio > Over-Ear Headphones",
-    "brand": "QuantumTech",
-    "model": "OH-P622",
-    "price_cents": 18199,
-    "list_price_cents": 24311,
-    "currency": "USD",
-    "rating": 4.4,
-    "review_count": 59,
-    "availability": "in_stock",
-    "inventory_count": 39,
-    "attributes": {
-     "codec": "aptX Adaptive",
-     "foldable": true,
-     "weight_g": 315,
-     "microphone": true,
-     "multipoint": false,
-     "form_factor": "over-ear",
-     "connectivity": [
-      "Bluetooth",
-      "3.5mm"
-     ],
-     "water_rating": "IPX4",
-     "battery_hours": 73,
-     "active_noise_cancellation": true
-    },
-    "tags": [
-     "audio",
-     "noise cancelling",
-     "over-ear",
-     "wireless"
-    ],
-    "catalog_asset_key": null,
-    "canonical_group_id": "con-over-ear-hea-1418",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": null,
-    "image_source": null,
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 18,
-      "raw_score": 0.452237,
-      "rrf_contribution": 0.01282051282051282
-     },
-     "rrf_score": 0.01282051282051282,
-     "pre_rerank_rank": 19,
-     "pre_rerank_score": 0.01282051282051282,
-     "rerank_score": 0.7004241943359375,
-     "rerank_rank": 5,
-     "exact_sku_match": false,
-     "final_rank": 5,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "mosaic://product/1418",
-      "revision": "2026-08-09T21:35:18.076973+00:00",
-      "title": "QuantumTech OH-P622 Active Over-Ear Headphone",
-      "quote": "Low-latency wireless for hybrid work, with clearer calls in noisy rooms."
-     }
-    ]
-   },
-   {
-    "product_id": 13129,
-    "sku": "CO-OVERE-0013129",
-    "title": "PixelBeam OH-N234 Edge Over-Ear Headphone",
-    "short_description": "Low-latency wireless for home entertainment, with quiet focus on long flights.",
-    "domain": "consumer_electronics",
-    "category_key": "over-ear-headphones",
-    "category_path": "Audio > Over-Ear Headphones",
-    "brand": "PixelBeam",
-    "model": "OH-N234",
-    "price_cents": 14254,
-    "list_price_cents": 15983,
-    "currency": "USD",
-    "rating": 4.3,
-    "review_count": 399,
-    "availability": "in_stock",
-    "inventory_count": 79,
-    "attributes": {
-     "codec": "AAC",
-     "foldable": true,
-     "weight_g": 251,
-     "microphone": true,
-     "multipoint": true,
-     "form_factor": "over-ear",
-     "connectivity": [
-      "Bluetooth",
-      "USB-C"
-     ],
-     "water_rating": "IPX4",
-     "battery_hours": 40,
-     "active_noise_cancellation": true
-    },
-    "tags": [
-     "audio",
-     "noise cancelling",
-     "over-ear",
-     "wireless"
-    ],
-    "catalog_asset_key": null,
-    "canonical_group_id": "con-over-ear-hea-13129",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": null,
-    "image_source": null,
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 35,
-      "raw_score": 0.4535896,
-      "rrf_contribution": 0.010526315789473684
-     },
-     "rrf_score": 0.010526315789473684,
-     "pre_rerank_rank": 36,
-     "pre_rerank_score": 0.010526315789473684,
-     "rerank_score": 0.6811549067497253,
-     "rerank_rank": 6,
-     "exact_sku_match": false,
-     "final_rank": 6,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "mosaic://product/13129",
-      "revision": "2026-08-09T21:35:21.356269+00:00",
-      "title": "PixelBeam OH-N234 Edge Over-Ear Headphone",
-      "quote": "Low-latency wireless for home entertainment, with quiet focus on long flights."
-     }
-    ]
-   },
-   {
-    "product_id": 16662,
-    "sku": "CO-OVERE-0016662",
-    "title": "NimbusCore OH-M348 Elite Over-Ear Headphone",
-    "short_description": "Low-latency wireless for hybrid work, with quiet focus on long flights.",
-    "domain": "consumer_electronics",
-    "category_key": "over-ear-headphones",
-    "category_path": "Audio > Over-Ear Headphones",
-    "brand": "NimbusCore",
-    "model": "OH-M348",
-    "price_cents": 13395,
-    "list_price_cents": 16238,
-    "currency": "USD",
-    "rating": 4.2,
-    "review_count": 7137,
-    "availability": "in_stock",
-    "inventory_count": 48,
-    "attributes": {
-     "codec": "LDAC",
-     "foldable": true,
-     "weight_g": 278,
-     "microphone": true,
-     "multipoint": false,
-     "form_factor": "over-ear",
-     "connectivity": [
-      "Bluetooth",
-      "3.5mm"
-     ],
-     "water_rating": "IP55",
-     "battery_hours": 51,
-     "active_noise_cancellation": true
-    },
-    "tags": [
-     "audio",
-     "noise cancelling",
-     "over-ear",
-     "wireless"
-    ],
-    "catalog_asset_key": null,
-    "canonical_group_id": "con-over-ear-hea-16662",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": null,
-    "image_source": null,
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 13,
-      "raw_score": 0.4557138,
-      "rrf_contribution": 0.0136986301369863
-     },
-     "rrf_score": 0.0136986301369863,
-     "pre_rerank_rank": 14,
-     "pre_rerank_score": 0.0136986301369863,
-     "rerank_score": 0.6778371930122375,
-     "rerank_rank": 7,
-     "exact_sku_match": false,
-     "final_rank": 7,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "mosaic://product/16662",
-      "revision": "2026-08-09T21:35:22.327273+00:00",
-      "title": "NimbusCore OH-M348 Elite Over-Ear Headphone",
-      "quote": "Low-latency wireless for hybrid work, with quiet focus on long flights."
-     }
-    ]
-   },
-   {
-    "product_id": 14653,
-    "sku": "CO-OVERE-0014653",
-    "title": "NovaLink OH-P790 Elite Over-Ear Headphone",
-    "short_description": "Low-latency wireless for mobile productivity, with quiet focus on long flights.",
-    "domain": "consumer_electronics",
-    "category_key": "over-ear-headphones",
-    "category_path": "Audio > Over-Ear Headphones",
-    "brand": "NovaLink",
-    "model": "OH-P790",
-    "price_cents": 12967,
-    "list_price_cents": 15765,
-    "currency": "USD",
-    "rating": 4.0,
-    "review_count": 150,
-    "availability": "in_stock",
-    "inventory_count": 13,
-    "attributes": {
-     "codec": "LDAC",
-     "foldable": false,
-     "weight_g": 277,
-     "microphone": true,
-     "multipoint": true,
-     "form_factor": "over-ear",
-     "connectivity": [
-      "Bluetooth",
-      "3.5mm"
-     ],
-     "water_rating": "None",
-     "battery_hours": 19,
-     "active_noise_cancellation": true
-    },
-    "tags": [
-     "audio",
-     "noise cancelling",
-     "over-ear",
-     "wireless"
-    ],
-    "catalog_asset_key": null,
-    "canonical_group_id": "con-over-ear-hea-14653",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": null,
-    "image_source": null,
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 9,
-      "raw_score": 0.459043,
-      "rrf_contribution": 0.014492753623188406
-     },
-     "rrf_score": 0.014492753623188406,
-     "pre_rerank_rank": 10,
-     "pre_rerank_score": 0.014492753623188406,
-     "rerank_score": 0.6701124906539917,
-     "rerank_rank": 8,
-     "exact_sku_match": false,
-     "final_rank": 8,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "mosaic://product/14653",
-      "revision": "2026-08-09T21:35:21.760019+00:00",
-      "title": "NovaLink OH-P790 Elite Over-Ear Headphone",
-      "quote": "Low-latency wireless for mobile productivity, with quiet focus on long flights."
-     }
-    ]
-   },
-   {
-    "product_id": 14664,
-    "sku": "CO-OVERE-0014664",
-    "title": "CobaltAudio OH-F200X Prime Over-Ear Headphone",
-    "short_description": "Low-latency wireless for daily commuting, with immersive sound without cable clutter.",
-    "domain": "consumer_electronics",
-    "category_key": "over-ear-headphones",
-    "category_path": "Audio > Over-Ear Headphones",
-    "brand": "CobaltAudio",
-    "model": "OH-F200X",
-    "price_cents": 18232,
-    "list_price_cents": 22738,
-    "currency": "USD",
-    "rating": 4.5,
-    "review_count": 25,
-    "availability": "in_stock",
-    "inventory_count": 23,
-    "attributes": {
-     "codec": "LDAC",
-     "foldable": true,
-     "weight_g": 302,
-     "microphone": true,
-     "multipoint": false,
-     "form_factor": "over-ear",
-     "connectivity": [
-      "Bluetooth",
-      "USB-C"
-     ],
-     "water_rating": "None",
-     "battery_hours": 63,
-     "active_noise_cancellation": true
-    },
-    "tags": [
-     "audio",
-     "noise cancelling",
-     "over-ear",
-     "wireless"
-    ],
-    "catalog_asset_key": null,
-    "canonical_group_id": "con-over-ear-hea-14664",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": null,
-    "image_source": null,
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 49,
-      "raw_score": 0.44372055,
-      "rrf_contribution": 0.009174311926605505
-     },
-     "rrf_score": 0.009174311926605505,
-     "pre_rerank_rank": 50,
-     "pre_rerank_score": 0.009174311926605505,
-     "rerank_score": 0.668036699295044,
-     "rerank_rank": 9,
-     "exact_sku_match": false,
-     "final_rank": 9,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "mosaic://product/14664",
-      "revision": "2026-08-09T21:35:21.762945+00:00",
-      "title": "CobaltAudio OH-F200X Prime Over-Ear Headphone",
-      "quote": "Low-latency wireless for daily commuting, with immersive sound without cable clutter."
-     }
-    ]
-   },
-   {
-    "product_id": 28432,
-    "sku": "CO-TRUEW-0028432",
-    "title": "NovaLogic TWE-C256P Edge True Wireless Earbud",
-    "short_description": "Adaptive noise control for remote collaboration, with quiet focus on long flights.",
-    "domain": "consumer_electronics",
-    "category_key": "true-wireless-earbuds",
-    "category_path": "Audio > True Wireless Earbuds",
-    "brand": "NovaLogic",
-    "model": "TWE-C256P",
-    "price_cents": 19868,
-    "list_price_cents": 21995,
-    "currency": "USD",
-    "rating": 4.7,
-    "review_count": 21,
-    "availability": "in_stock",
-    "inventory_count": 53,
-    "attributes": {
-     "codec": "SBC",
-     "foldable": true,
-     "weight_g": 4,
-     "microphone": true,
-     "multipoint": true,
-     "form_factor": "in-ear",
-     "water_rating": "IP67",
-     "battery_hours": 82,
-     "active_noise_cancellation": true
-    },
-    "tags": [
-     "audio",
-     "in-ear",
-     "noise cancelling",
-     "wireless"
-    ],
-    "catalog_asset_key": null,
-    "canonical_group_id": "con-true-wireles-28432",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": null,
-    "image_source": null,
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 44,
-      "raw_score": 0.44456026,
-      "rrf_contribution": 0.009615384615384616
-     },
-     "rrf_score": 0.009615384615384616,
-     "pre_rerank_rank": 45,
-     "pre_rerank_score": 0.009615384615384616,
-     "rerank_score": 0.6594056487083435,
-     "rerank_rank": 10,
-     "exact_sku_match": false,
-     "final_rank": 10,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "mosaic://product/28432",
-      "revision": "2026-08-09T21:35:25.408394+00:00",
-      "title": "NovaLogic TWE-C256P Edge True Wireless Earbud",
-      "quote": "Adaptive noise control for remote collaboration, with quiet focus on long flights."
-     }
-    ]
-   },
-   {
-    "product_id": 3561,
-    "sku": "CO-OVERE-0003561",
-    "title": "NimbusPulse OH-A153P Tour Over-Ear Headphone",
-    "short_description": "Low-latency wireless for remote collaboration, with quiet focus on long flights.",
-    "domain": "consumer_electronics",
-    "category_key": "over-ear-headphones",
-    "category_path": "Audio > Over-Ear Headphones",
-    "brand": "NimbusPulse",
-    "model": "OH-A153P",
-    "price_cents": 11797,
-    "list_price_cents": 12820,
-    "currency": "USD",
-    "rating": 4.1,
-    "review_count": 16,
-    "availability": "in_stock",
-    "inventory_count": 116,
-    "attributes": {
-     "codec": "LC3",
-     "foldable": true,
-     "weight_g": 274,
-     "microphone": true,
-     "multipoint": true,
-     "form_factor": "over-ear",
-     "connectivity": [
-      "Bluetooth",
-      "3.5mm"
-     ],
-     "water_rating": "None",
-     "battery_hours": 59,
-     "active_noise_cancellation": true
-    },
-    "tags": [
-     "audio",
-     "noise cancelling",
-     "over-ear",
-     "wireless"
-    ],
-    "catalog_asset_key": null,
-    "canonical_group_id": "con-over-ear-hea-3561",
+    "canonical_group_id": "con-handheld-con-198612",
     "media_tier": null,
     "is_flagship": false,
     "is_retrieval_anchor": false,
@@ -868,67 +150,56 @@
      },
      "semantic": {
       "rank": 29,
-      "raw_score": 0.44768852,
+      "raw_score": 0.28953195,
       "rrf_contribution": 0.011235955056179775
      },
      "rrf_score": 0.011235955056179775,
      "pre_rerank_rank": 30,
      "pre_rerank_score": 0.011235955056179775,
-     "rerank_score": 0.6551821231842041,
-     "rerank_rank": 11,
+     "rerank_score": 0.051888804882764816,
+     "rerank_rank": 2,
      "exact_sku_match": false,
-     "final_rank": 11,
+     "final_rank": 2,
      "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
     },
     "sources": [
      {
-      "source_uri": "mosaic://product/3561",
-      "revision": "2026-08-09T21:35:18.670756+00:00",
-      "title": "NimbusPulse OH-A153P Tour Over-Ear Headphone",
-      "quote": "Low-latency wireless for remote collaboration, with quiet focus on long flights."
+      "source_uri": "mosaic://product/198612",
+      "revision": "2026-08-09T21:36:06.557807+00:00",
+      "title": "SonicWave HC-X710P Air Handheld Console",
+      "quote": "Balanced everyday performance for travel, with reliable performance for everyday use."
      }
     ]
    },
    {
-    "product_id": 7836,
-    "sku": "CO-OVERE-0007836",
-    "title": "MeridianLink OH-F802P Edge Over-Ear Headphone",
-    "short_description": "Low-latency wireless for hybrid work, with quiet focus on long flights.",
+    "product_id": 198972,
+    "sku": "CO-HANDH-0198972",
+    "title": "SonicWave HC-A072P Ultra Handheld Console",
+    "short_description": "Balanced everyday performance for small spaces, with reliable performance for everyday use.",
     "domain": "consumer_electronics",
-    "category_key": "over-ear-headphones",
-    "category_path": "Audio > Over-Ear Headphones",
-    "brand": "MeridianLink",
-    "model": "OH-F802P",
-    "price_cents": 9998,
-    "list_price_cents": 11200,
+    "category_key": "handheld-consoles",
+    "category_path": "Gaming > Handheld Consoles",
+    "brand": "SonicWave",
+    "model": "HC-A072P",
+    "price_cents": 6093,
+    "list_price_cents": 6211,
     "currency": "USD",
-    "rating": 3.9,
-    "review_count": 41,
+    "rating": 4.1,
+    "review_count": 39,
     "availability": "in_stock",
-    "inventory_count": 6,
+    "inventory_count": 147,
     "attributes": {
-     "codec": "SBC",
-     "foldable": true,
-     "weight_g": 275,
-     "microphone": true,
-     "multipoint": true,
-     "form_factor": "over-ear",
-     "connectivity": [
-      "Bluetooth",
-      "3.5mm"
-     ],
-     "water_rating": "None",
-     "battery_hours": 79,
-     "active_noise_cancellation": true
+     "material": "Fabric",
+     "portable": true,
+     "weight_g": 1345,
+     "compatibility": "Desktop"
     },
     "tags": [
-     "audio",
-     "noise cancelling",
-     "over-ear",
-     "wireless"
+     "gaming",
+     "handheld consoles"
     ],
     "catalog_asset_key": null,
-    "canonical_group_id": "con-over-ear-hea-7836",
+    "canonical_group_id": "con-handheld-con-198972",
     "media_tier": null,
     "is_flagship": false,
     "is_retrieval_anchor": false,
@@ -946,14 +217,621 @@
       "rrf_contribution": null
      },
      "semantic": {
-      "rank": 10,
-      "raw_score": 0.45740783,
-      "rrf_contribution": 0.014285714285714285
+      "rank": 33,
+      "raw_score": 0.28848794,
+      "rrf_contribution": 0.010752688172043012
      },
-     "rrf_score": 0.014285714285714285,
-     "pre_rerank_rank": 11,
-     "pre_rerank_score": 0.014285714285714285,
-     "rerank_score": 0.6535919308662415,
+     "rrf_score": 0.010752688172043012,
+     "pre_rerank_rank": 34,
+     "pre_rerank_score": 0.010752688172043012,
+     "rerank_score": 0.031076189130544662,
+     "rerank_rank": 3,
+     "exact_sku_match": false,
+     "final_rank": 3,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "mosaic://product/198972",
+      "revision": "2026-08-09T21:36:06.623676+00:00",
+      "title": "SonicWave HC-A072P Ultra Handheld Console",
+      "quote": "Balanced everyday performance for small spaces, with reliable performance for everyday use."
+     }
+    ]
+   },
+   {
+    "product_id": 198665,
+    "sku": "CO-HANDH-0198665",
+    "title": "SonicOne HC-C677P Plus Handheld Console",
+    "short_description": "Balanced everyday performance for home entertainment, with reliable performance for everyday use.",
+    "domain": "consumer_electronics",
+    "category_key": "handheld-consoles",
+    "category_path": "Gaming > Handheld Consoles",
+    "brand": "SonicOne",
+    "model": "HC-C677P",
+    "price_cents": 9044,
+    "list_price_cents": 9886,
+    "currency": "USD",
+    "rating": 4.7,
+    "review_count": 448,
+    "availability": "in_stock",
+    "inventory_count": 24,
+    "attributes": {
+     "material": "Polymer",
+     "portable": true,
+     "weight_g": 851,
+     "compatibility": "USB-C"
+    },
+    "tags": [
+     "gaming",
+     "handheld consoles"
+    ],
+    "catalog_asset_key": null,
+    "canonical_group_id": "con-handheld-con-198665",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": null,
+    "image_source": null,
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 42,
+      "raw_score": 0.28531486,
+      "rrf_contribution": 0.00980392156862745
+     },
+     "rrf_score": 0.00980392156862745,
+     "pre_rerank_rank": 43,
+     "pre_rerank_score": 0.00980392156862745,
+     "rerank_score": 0.02969536744058132,
+     "rerank_rank": 4,
+     "exact_sku_match": false,
+     "final_rank": 4,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "mosaic://product/198665",
+      "revision": "2026-08-09T21:36:06.567526+00:00",
+      "title": "SonicOne HC-C677P Plus Handheld Console",
+      "quote": "Balanced everyday performance for home entertainment, with reliable performance for everyday use."
+     }
+    ]
+   },
+   {
+    "product_id": 171972,
+    "sku": "CO-HOMEH-0171972",
+    "title": "SonicWave HH-C072P Ultra Home Hub",
+    "short_description": "Balanced everyday performance for remote collaboration, with reliable performance for everyday use.",
+    "domain": "consumer_electronics",
+    "category_key": "home-hubs",
+    "category_path": "Smart Home > Home Hubs",
+    "brand": "SonicWave",
+    "model": "HH-C072P",
+    "price_cents": 15343,
+    "list_price_cents": 19532,
+    "currency": "USD",
+    "rating": 4.9,
+    "review_count": 821,
+    "availability": "in_stock",
+    "inventory_count": 69,
+    "attributes": {
+     "material": "Aluminum",
+     "portable": true,
+     "weight_g": 743,
+     "compatibility": "Mobile"
+    },
+    "tags": [
+     "home hubs",
+     "smart home"
+    ],
+    "catalog_asset_key": null,
+    "canonical_group_id": "con-home-hubs-171972",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": null,
+    "image_source": null,
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 9,
+      "raw_score": 0.30782434,
+      "rrf_contribution": 0.014492753623188406
+     },
+     "rrf_score": 0.014492753623188406,
+     "pre_rerank_rank": 10,
+     "pre_rerank_score": 0.014492753623188406,
+     "rerank_score": 0.02889561466872692,
+     "rerank_rank": 5,
+     "exact_sku_match": false,
+     "final_rank": 5,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "mosaic://product/171972",
+      "revision": "2026-08-09T21:36:00.097463+00:00",
+      "title": "SonicWave HH-C072P Ultra Home Hub",
+      "quote": "Balanced everyday performance for remote collaboration, with reliable performance for everyday use."
+     }
+    ]
+   },
+   {
+    "product_id": 199865,
+    "sku": "CO-HANDH-0199865",
+    "title": "SonicOne HC-C212P Essential Handheld Console",
+    "short_description": "Balanced everyday performance for travel, with reliable performance for everyday use.",
+    "domain": "consumer_electronics",
+    "category_key": "handheld-consoles",
+    "category_path": "Gaming > Handheld Consoles",
+    "brand": "SonicOne",
+    "model": "HC-C212P",
+    "price_cents": 9713,
+    "list_price_cents": 10001,
+    "currency": "USD",
+    "rating": 4.4,
+    "review_count": 611,
+    "availability": "in_stock",
+    "inventory_count": 28,
+    "attributes": {
+     "material": "Polymer",
+     "portable": true,
+     "weight_g": 217,
+     "compatibility": "Universal"
+    },
+    "tags": [
+     "gaming",
+     "handheld consoles"
+    ],
+    "catalog_asset_key": null,
+    "canonical_group_id": "con-handheld-con-199865",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": null,
+    "image_source": null,
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 13,
+      "raw_score": 0.30064112,
+      "rrf_contribution": 0.0136986301369863
+     },
+     "rrf_score": 0.0136986301369863,
+     "pre_rerank_rank": 14,
+     "pre_rerank_score": 0.0136986301369863,
+     "rerank_score": 0.025548245757818222,
+     "rerank_rank": 6,
+     "exact_sku_match": false,
+     "final_rank": 6,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "mosaic://product/199865",
+      "revision": "2026-08-09T21:36:06.801742+00:00",
+      "title": "SonicOne HC-C212P Essential Handheld Console",
+      "quote": "Balanced everyday performance for travel, with reliable performance for everyday use."
+     }
+    ]
+   },
+   {
+    "product_id": 151426,
+    "sku": "CO-MOBIL-0151426",
+    "title": "SonicOne MH-C770 Ultra Mobile Hotspot \u2014 Cloud White",
+    "short_description": "Balanced everyday performance for gaming, with reliable performance for everyday use.",
+    "domain": "consumer_electronics",
+    "category_key": "mobile-hotspots",
+    "category_path": "Networking > Mobile Hotspots",
+    "brand": "SonicOne",
+    "model": "MH-C770",
+    "price_cents": 14059,
+    "list_price_cents": 14152,
+    "currency": "USD",
+    "rating": 4.2,
+    "review_count": 828,
+    "availability": "in_stock",
+    "inventory_count": 25,
+    "attributes": {
+     "material": "Polymer",
+     "portable": false,
+     "weight_g": 1569,
+     "compatibility": "Desktop"
+    },
+    "tags": [
+     "mobile hotspots",
+     "networking"
+    ],
+    "catalog_asset_key": null,
+    "canonical_group_id": "con-mobile-hotsp-variant-37856",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": null,
+    "image_source": null,
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 2,
+      "raw_score": 0.32222936,
+      "rrf_contribution": 0.016129032258064516
+     },
+     "rrf_score": 0.016129032258064516,
+     "pre_rerank_rank": 3,
+     "pre_rerank_score": 0.016129032258064516,
+     "rerank_score": 0.024800576269626617,
+     "rerank_rank": 7,
+     "exact_sku_match": false,
+     "final_rank": 7,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "mosaic://product/151426",
+      "revision": "2026-08-09T21:35:55.408071+00:00",
+      "title": "SonicOne MH-C770 Ultra Mobile Hotspot \u2014 Cloud White",
+      "quote": "Balanced everyday performance for gaming, with reliable performance for everyday use."
+     }
+    ]
+   },
+   {
+    "product_id": 151612,
+    "sku": "CO-MOBIL-0151612",
+    "title": "SonicWave MH-M710 Core Mobile Hotspot",
+    "short_description": "Balanced everyday performance for remote collaboration, with reliable performance for everyday use.",
+    "domain": "consumer_electronics",
+    "category_key": "mobile-hotspots",
+    "category_path": "Networking > Mobile Hotspots",
+    "brand": "SonicWave",
+    "model": "MH-M710",
+    "price_cents": 10242,
+    "list_price_cents": 12041,
+    "currency": "USD",
+    "rating": 4.8,
+    "review_count": 13,
+    "availability": "in_stock",
+    "inventory_count": 42,
+    "attributes": {
+     "material": "Aluminum",
+     "compatibility": "Universal"
+    },
+    "tags": [
+     "mobile hotspots",
+     "networking"
+    ],
+    "catalog_asset_key": null,
+    "canonical_group_id": "con-mobile-hotsp-151612",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": null,
+    "image_source": null,
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 24,
+      "raw_score": 0.29269058,
+      "rrf_contribution": 0.011904761904761904
+     },
+     "rrf_score": 0.011904761904761904,
+     "pre_rerank_rank": 25,
+     "pre_rerank_score": 0.011904761904761904,
+     "rerank_score": 0.023368675261735916,
+     "rerank_rank": 8,
+     "exact_sku_match": false,
+     "final_rank": 8,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "mosaic://product/151612",
+      "revision": "2026-08-09T21:35:55.441631+00:00",
+      "title": "SonicWave MH-M710 Core Mobile Hotspot",
+      "quote": "Balanced everyday performance for remote collaboration, with reliable performance for everyday use."
+     }
+    ]
+   },
+   {
+    "product_id": 151428,
+    "sku": "CO-MOBIL-0151428",
+    "title": "SonicOne MH-C770 Ultra Mobile Hotspot \u2014 Forest",
+    "short_description": "Balanced everyday performance for gaming, with reliable performance for everyday use.",
+    "domain": "consumer_electronics",
+    "category_key": "mobile-hotspots",
+    "category_path": "Networking > Mobile Hotspots",
+    "brand": "SonicOne",
+    "model": "MH-C770",
+    "price_cents": 11559,
+    "list_price_cents": 13530,
+    "currency": "USD",
+    "rating": 4.9,
+    "review_count": 35,
+    "availability": "in_stock",
+    "inventory_count": 75,
+    "attributes": {
+     "material": "Polymer",
+     "portable": false,
+     "weight_g": 1569,
+     "compatibility": "Desktop"
+    },
+    "tags": [
+     "mobile hotspots",
+     "networking"
+    ],
+    "catalog_asset_key": null,
+    "canonical_group_id": "con-mobile-hotsp-variant-37856",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": null,
+    "image_source": null,
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 1,
+      "raw_score": 0.33235627,
+      "rrf_contribution": 0.01639344262295082
+     },
+     "rrf_score": 0.01639344262295082,
+     "pre_rerank_rank": 2,
+     "pre_rerank_score": 0.01639344262295082,
+     "rerank_score": 0.022579623386263847,
+     "rerank_rank": 9,
+     "exact_sku_match": false,
+     "final_rank": 9,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "mosaic://product/151428",
+      "revision": "2026-08-09T21:35:55.408426+00:00",
+      "title": "SonicOne MH-C770 Ultra Mobile Hotspot \u2014 Forest",
+      "quote": "Balanced everyday performance for gaming, with reliable performance for everyday use."
+     }
+    ]
+   },
+   {
+    "product_id": 199025,
+    "sku": "CO-HANDH-0199025",
+    "title": "SonicOne HC-C039S Tour Handheld Console \u2014 Forest",
+    "short_description": "Balanced everyday performance for daily commuting, with reliable performance for everyday use.",
+    "domain": "consumer_electronics",
+    "category_key": "handheld-consoles",
+    "category_path": "Gaming > Handheld Consoles",
+    "brand": "SonicOne",
+    "model": "HC-C039S",
+    "price_cents": 7046,
+    "list_price_cents": 9077,
+    "currency": "USD",
+    "rating": 4.3,
+    "review_count": 40,
+    "availability": "in_stock",
+    "inventory_count": 16,
+    "attributes": {
+     "material": "Steel",
+     "portable": false,
+     "weight_g": 381,
+     "compatibility": "Mobile"
+    },
+    "tags": [
+     "gaming",
+     "handheld consoles"
+    ],
+    "catalog_asset_key": null,
+    "canonical_group_id": "con-handheld-con-variant-49756",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": null,
+    "image_source": null,
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 36,
+      "raw_score": 0.28686038,
+      "rrf_contribution": 0.010416666666666666
+     },
+     "rrf_score": 0.010416666666666666,
+     "pre_rerank_rank": 37,
+     "pre_rerank_score": 0.010416666666666666,
+     "rerank_score": 0.02216949686408043,
+     "rerank_rank": 10,
+     "exact_sku_match": false,
+     "final_rank": 10,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "mosaic://product/199025",
+      "revision": "2026-08-09T21:36:06.633390+00:00",
+      "title": "SonicOne HC-C039S Tour Handheld Console \u2014 Forest",
+      "quote": "Balanced everyday performance for daily commuting, with reliable performance for everyday use."
+     }
+    ]
+   },
+   {
+    "product_id": 162066,
+    "sku": "CO-SMART-0162066",
+    "title": "SonicOne SL-S744 Pro Smart Lighting \u2014 Cloud White",
+    "short_description": "Balanced everyday performance for family use, with reliable performance for everyday use.",
+    "domain": "consumer_electronics",
+    "category_key": "smart-lighting",
+    "category_path": "Smart Home > Smart Lighting",
+    "brand": "SonicOne",
+    "model": "SL-S744",
+    "price_cents": 11654,
+    "list_price_cents": 12204,
+    "currency": "USD",
+    "rating": 4.3,
+    "review_count": 214,
+    "availability": "in_stock",
+    "inventory_count": 15,
+    "attributes": {
+     "weight_g": 937,
+     "compatibility": "Mobile"
+    },
+    "tags": [
+     "smart home",
+     "smart lighting"
+    ],
+    "catalog_asset_key": null,
+    "canonical_group_id": "con-smart-lighti-variant-40516",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": null,
+    "image_source": null,
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 23,
+      "raw_score": 0.2945813,
+      "rrf_contribution": 0.012048192771084338
+     },
+     "rrf_score": 0.012048192771084338,
+     "pre_rerank_rank": 24,
+     "pre_rerank_score": 0.012048192771084338,
+     "rerank_score": 0.021967172622680664,
+     "rerank_rank": 11,
+     "exact_sku_match": false,
+     "final_rank": 11,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "mosaic://product/162066",
+      "revision": "2026-08-09T21:35:57.899651+00:00",
+      "title": "SonicOne SL-S744 Pro Smart Lighting \u2014 Cloud White",
+      "quote": "Balanced everyday performance for family use, with reliable performance for everyday use."
+     }
+    ]
+   },
+   {
+    "product_id": 161945,
+    "sku": "CO-SMART-0161945",
+    "title": "SonicOne SL-M292 Elite Smart Lighting",
+    "short_description": "Balanced everyday performance for daily commuting, with reliable performance for everyday use.",
+    "domain": "consumer_electronics",
+    "category_key": "smart-lighting",
+    "category_path": "Smart Home > Smart Lighting",
+    "brand": "SonicOne",
+    "model": "SL-M292",
+    "price_cents": 10929,
+    "list_price_cents": 12192,
+    "currency": "USD",
+    "rating": 4.8,
+    "review_count": 1156,
+    "availability": "in_stock",
+    "inventory_count": 21,
+    "attributes": {
+     "material": "Composite",
+     "portable": false,
+     "compatibility": "Universal"
+    },
+    "tags": [
+     "smart home",
+     "smart lighting"
+    ],
+    "catalog_asset_key": null,
+    "canonical_group_id": "con-smart-lighti-161945",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": null,
+    "image_source": null,
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 34,
+      "raw_score": 0.28825784,
+      "rrf_contribution": 0.010638297872340425
+     },
+     "rrf_score": 0.010638297872340425,
+     "pre_rerank_rank": 35,
+     "pre_rerank_score": 0.010638297872340425,
+     "rerank_score": 0.021617446094751358,
      "rerank_rank": 12,
      "exact_sku_match": false,
      "final_rank": 12,
@@ -961,10 +839,10 @@
     },
     "sources": [
      {
-      "source_uri": "mosaic://product/7836",
-      "revision": "2026-08-09T21:35:19.870841+00:00",
-      "title": "MeridianLink OH-F802P Edge Over-Ear Headphone",
-      "quote": "Low-latency wireless for hybrid work, with quiet focus on long flights."
+      "source_uri": "mosaic://product/161945",
+      "revision": "2026-08-09T21:35:57.877829+00:00",
+      "title": "SonicOne SL-M292 Elite Smart Lighting",
+      "quote": "Balanced everyday performance for daily commuting, with reliable performance for everyday use."
      }
     ]
    }
@@ -986,6 +864,7 @@
     "semantic_limit": 150,
     "fused_limit": 50,
     "result_limit": 12,
+    "authorized_limit": 12,
     "rrf_k": 60,
     "trigram_threshold": 0.2,
     "weight_lexical": 0.3,
@@ -998,16 +877,16 @@
    },
    "candidate_counts": {
     "fused_pool": 50,
-    "fts_in_pool": 1,
+    "fts_in_pool": 0,
     "trigram_in_pool": 1,
     "semantic_in_pool": 49
    },
    "stage_timings_ms": {
-    "embedding": 0.003,
-    "postgresql_retrieval": 456.657,
-    "rerank": 507.189
+    "embedding": 185.153,
+    "postgresql_retrieval": 291.197,
+    "rerank": 309.885
    },
-   "total_latency_ms": 1100,
+   "total_latency_ms": 921,
    "warnings": []
   }
  }

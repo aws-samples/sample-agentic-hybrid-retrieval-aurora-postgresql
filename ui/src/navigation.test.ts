@@ -8,11 +8,11 @@ import {
 /**
  * One request travelling through Discover, Shop and the Playground.
  *
- * The workshop's typo lesson depends on it. A shopper types
- * `wirless noice canceling hedphones under $200 with long batery life` on Discover,
- * Shop answers it usefully, and the Playground has to report that the close-spelling
- * arm is what carried the target — for that same request. Three surfaces reasoning
- * about three different candidate pools would make the lesson unprovable.
+ * The workshop's typo lesson depends on it. A shopper types `Sonorra WHC720` on
+ * Discover, Shop answers it usefully, and the Playground has to report that the
+ * close-spelling arm is what carried the target — for that same request. Three
+ * surfaces reasoning about three different candidate pools would make the lesson
+ * unprovable.
  *
  * The round trip is the contract: whatever Shop puts on the link, the Playground has
  * to rebuild into the filters it searches with. The link once forwarded gates that
@@ -21,7 +21,7 @@ import {
  * unrelated requests.
  */
 
-const TYPO = "wirless noice canceling hedphones under $200 with long batery life";
+const TYPO = "Sonorra WHC720";
 
 /** The gates Shop had in force for the canonical Lab 1 request. */
 const SHOP_FILTERS = {
