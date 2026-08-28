@@ -35,12 +35,22 @@
     }
   },
   "candidate_recall_ceiling": {
+    "bounds_arms": [
+      "rrf_fused_no_rerank",
+      "rrf_fused_reranked"
+    ],
     "description": "Share of judged-relevant products present anywhere in the fused candidate pool before reranking, averaged over the scored queries. The ceiling reranking could ever reach: reranking only reorders this pool, it never adds a candidate absent from it.",
     "judged_relevant_never_fetched": 2,
-    "pool_recall_ceiling": 0.95
+    "pool_recall_ceiling": 0.95,
+    "unbounded_arms": {
+      "semantic_only": {
+        "note": "Not bounded by this ceiling. search_vector returns semantic_limit candidates and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
+        "recall@10": 0.7
+      }
+    }
   },
   "k": 10,
-  "measured_at": "2026-08-28T13:46:53.337901+00:00",
+  "measured_at": "2026-08-28T14:58:12.432243+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -323,7 +333,7 @@
     "source_revision": "7256b3d4252eb6b03122c080c9c17071ffe2de4b"
   },
   "source": {
-    "revision": "6eecb9d227f1acb5d49cf418a11e6d54fe6bc4ee",
+    "revision": "a84252ae4e8bfbc102d8675c6bc7520bfeb34686",
     "worktree_dirty": false
   },
   "spread_note": "20 queries and 74 judgments cannot separate small differences between arms. Read every mean alongside its own per-query minimum, maximum, and standard deviation, and treat a mean difference smaller than that spread as within noise rather than as a proven improvement."
