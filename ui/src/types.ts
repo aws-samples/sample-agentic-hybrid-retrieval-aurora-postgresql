@@ -733,3 +733,98 @@ export interface HnswProbe {
   };
   products: Array<HnswProduct & { cosine_distance: number }>;
 }
+
+/**
+ * Whether the Retrieval Scorecard's population metrics describe the system
+ * currently running, mirrors `service.models.ScorecardProvenance`.
+ *
+ * `attributed` is the one field the Playground must branch on for section A:
+ * it is true only when `source_revision` equals `current_source_revision`
+ * and `source_worktree_dirty` was `false` at measurement time. The current
+ * server's own worktree cleanliness is carried for inspection but does not
+ * gate `attributed`. When `attributed` is false, `attribution_note` starts
+ * with the exact string "Metrics pending evaluation for this revision".
+ */
+export interface ScorecardProvenance {
+  measured_at: string;
+  query_set: string;
+  query_set_sha256: string;
+  scored_query_set_sha256: string;
+  ranked_result_sha256: string;
+  dataset_manifest_sha256: string;
+  models: Record<string, string>;
+  aurora_configuration: Record<string, unknown>;
+  hnsw_settings: Record<string, unknown>;
+  retrieval_profile: Record<string, unknown>;
+  database_instance_id: string;
+  strategy: string;
+  source_revision: string | null;
+  source_worktree_dirty: boolean | null;
+  current_source_revision: string | null;
+  current_source_worktree_dirty: boolean;
+  attributed: boolean;
+  attribution_note: string;
+}
+
+/** Section A: population IR metrics over the scored search population. */
+export interface ScorecardRetrievalQuality {
+  sample_size: number;
+  canonical_query_count: number;
+  sample_description: string;
+  recall_at_10: number;
+  mrr: number;
+  ndcg_at_10: number;
+  metric_explanations: Record<string, string>;
+  excluded_agent_contract_query_ids: string[];
+  per_query_metrics: Array<Record<string, unknown>>;
+}
+
+export interface ScorecardGoldenAnchor {
+  query_id: string;
+  product_id: number;
+  type: "top_rank" | "present_top_k";
+  k?: number | null;
+}
+
+/** Section B: compact PASS/total over golden regression anchors. */
+export interface ScorecardRegressionAnchors {
+  passed: number;
+  total: number;
+  anchors: ScorecardGoldenAnchor[];
+}
+
+/** Section C: hard eligibility/filter contracts. Not a relevance judgment. */
+export interface ScorecardEligibilityContracts {
+  fixture_count: number;
+  held: boolean;
+  description: string;
+  fixture_query_ids: string[];
+}
+
+export interface ScorecardAgentContractGuarantee {
+  key:
+    | "retrieval_scope"
+    | "compare_boundary"
+    | "evidence_authorization"
+    | "citation_resolution"
+    | "tool_contract";
+  label: string;
+  description: string;
+  assertion_names: string[];
+  falsifiers: string[];
+  fixture_count: number | null;
+}
+
+/** Section D: deterministic agent and evidence contracts. */
+export interface ScorecardAgentContracts {
+  guarantees: ScorecardAgentContractGuarantee[];
+}
+
+/** The Prove step. Four sections, never conflated -- see each interface above. */
+export interface RetrievalScorecardResponse {
+  provenance: ScorecardProvenance;
+  retrieval_quality: ScorecardRetrievalQuality;
+  regression_anchors: ScorecardRegressionAnchors;
+  eligibility_contracts: ScorecardEligibilityContracts;
+  agent_contracts: ScorecardAgentContracts;
+}

@@ -17,6 +17,7 @@ import type {
   RetrievalExample,
   RetrievalPlanResponse,
   RetrievalRunResponse,
+  RetrievalScorecardResponse,
   ReviewHighlight,
   SearchFilters,
   SearchResponse,
@@ -278,4 +279,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+
+  /**
+   * The Prove step: the committed canonical evaluation artifact, read-only.
+   *
+   * `provenance.attributed` is the field the Retrieval Scorecard renders on;
+   * the numbers travel regardless, so a caller can always show sections B,
+   * C, and D even while section A is withheld pending a final-HEAD run.
+   */
+  scorecard: () => request<RetrievalScorecardResponse>("/api/scorecard"),
 };

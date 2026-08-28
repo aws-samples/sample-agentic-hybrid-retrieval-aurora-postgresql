@@ -191,6 +191,30 @@ page labels them differently because they are different kinds of claim.
   `scan_mem_multiplier` accepts 1, the pre-2026-08-17 default, so a participant can
   reproduce the silent candidate truncation it caused and then fix it.
 
+## Retrieval scorecard
+
+- `GET /api/scorecard` is the Prove step: a read-only render of
+  `data/evals/canonical_scorecard.json`, `data/evals/canonical_queries.jsonl`, the
+  `service.assertions` vocabulary, and the tool-contract registry. No DDL, no
+  `eval_run` table (ruling R7) — the response is computed fresh from those files on
+  every request rather than persisted.
+
+  Four sections, never conflated: `retrieval_quality` (population Recall@10, MRR,
+  nDCG@10 over the 19 scored searches, gated on provenance), `regression_anchors`
+  (compact PASS/total over the golden release checks), `eligibility_contracts` (hard
+  eligibility/filter fixtures — not a relevance judgment, no Recall/MRR/nDCG),
+  and `agent_contracts` (deterministic retrieval-scope, compare-boundary,
+  evidence-authorization, citation-resolution, and tool-contract guarantees, backed
+  by real `service.assertions` names and the live tool-contract count).
+
+  `provenance.attributed` is the gate the UI renders on: true only when
+  `provenance.source_revision` equals `provenance.current_source_revision` **and**
+  the artifact's own `source_worktree_dirty` was `false` at measurement time. The
+  current server's own worktree cleanliness (`current_source_worktree_dirty`) is
+  reported for inspection but does not enter that decision. When `attributed` is
+  false, `provenance.attribution_note` starts with the exact string `Metrics
+  pending evaluation for this revision`.
+
 ## Production additions
 
 - authenticated tenant/catalog scope;

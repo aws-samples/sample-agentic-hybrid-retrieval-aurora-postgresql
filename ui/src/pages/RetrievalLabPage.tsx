@@ -14,6 +14,7 @@ import {
 } from "../components/PlaygroundStage";
 import { ReasonStage } from "../components/ReasonStage";
 import { RetrievalDiagnosticsStrip } from "../components/RetrievalDiagnosticsStrip";
+import { RetrievalScorecard } from "../components/RetrievalScorecard";
 import { RetrievalObservatory } from "../components/RetrievalObservatory";
 import {
   RetrievalChannelMap,
@@ -550,6 +551,14 @@ export function RetrievalLabPage() {
             filters={reasonScenario.filters as SearchFilters}
           />
         ) : null}
+      </PlaygroundStage>
+
+      <PlaygroundStage
+        number="04"
+        title="Prove"
+        summary="Did we fix the scenarios without weakening the system? The Retrieval Scorecard, from the canonical evaluation artifact."
+      >
+        <RetrievalScorecard />
       </PlaygroundStage>
     </div>
   );

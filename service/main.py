@@ -53,6 +53,7 @@ from service.models import (
     ProductEvidenceResponse,
     RetrievalPlanResponse,
     RetrievalRunResponse,
+    RetrievalScorecardResponse,
     ReviewHighlightsResponse,
     SearchFilters,
     SearchRequest,
@@ -64,6 +65,7 @@ from service.retrieval_scope import (
     ScopeViolation,
     assert_products_in_retrieval_scope,
 )
+from service.scorecard import retrieval_scorecard
 
 ROOT = Path(__file__).resolve().parents[1]
 settings = get_settings()
@@ -530,6 +532,21 @@ def benchmark_projection() -> dict[str, Any]:
             encoding="utf-8"
         )
     )
+
+
+@app.get("/api/scorecard", response_model=RetrievalScorecardResponse)
+def get_retrieval_scorecard() -> RetrievalScorecardResponse:
+    """The Prove step: the committed canonical evaluation artifact, read-only.
+
+    No DDL and no `eval_run` table -- ruling R7. This reads
+    `data/evals/canonical_scorecard.json` plus the query set, the assertion
+    vocabulary, and the tool-contract registry, and computes whether the
+    artifact's measured revision matches what is currently running.
+    """
+    try:
+        return retrieval_scorecard()
+    except FileNotFoundError as error:
+        raise HTTPException(503, str(error)) from error
 
 
 @app.get(

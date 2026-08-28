@@ -11197,6 +11197,98 @@
   line-height: 1.55;
 }
 
+/* The Prove step's four sections. Each is its own bordered block so "never
+   conflated" reads visually, not just in the copy: A's metrics, B's PASS/
+   total, C's fixture count, and D's guarantee list never share a border. */
+.labs-scorecard {
+  display: grid;
+  gap: 20px;
+}
+
+.labs-scorecard-section {
+  padding: 17px 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.labs-scorecard-section > h3 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: var(--labs-h3);
+  font-weight: 540;
+}
+
+.labs-scorecard-sample {
+  max-width: 72ch;
+  margin: 0 0 14px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+/* Deliberately its own class rather than a reuse of `.lab-outcome`: that class
+   is owned by the pass/fixed/broken lab-repair verdict, and a withheld-metrics
+   notice is a different kind of claim -- provenance, not repair state. */
+.labs-scorecard-pending {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 13px 16px;
+  border-left: 3px solid var(--maroon-700);
+  background: var(--maroon-100);
+}
+
+.labs-scorecard-pending > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--maroon-800);
+}
+
+.labs-scorecard-pending strong {
+  display: block;
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 650;
+}
+
+.labs-scorecard-pending p {
+  max-width: 68ch;
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-scorecard-metric-explanations {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+}
+
+.labs-scorecard-metric-explanations dt {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.labs-scorecard-metric-explanations dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-scorecard-exclusion {
+  max-width: 72ch;
+  margin: 14px 0 0;
+  color: var(--ink-faint);
+  font-size: var(--labs-micro);
+  line-height: 1.5;
+}
+
 /* The hand-off, said out loud on its third surface. */
 .labs-carried-over {
   display: grid;

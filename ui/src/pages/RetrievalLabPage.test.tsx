@@ -16,10 +16,59 @@ import type {
   AgentResponse,
   ProductSummary,
   RetrievalDiagnostics,
+  RetrievalScorecardResponse,
   SearchResponse,
   ToolContract,
 } from "../types";
 import { RetrievalLabPage } from "./RetrievalLabPage";
+
+/**
+ * Just enough of `GET /api/scorecard` for Stage 04 to mount without an
+ * unmocked-fetch crash. `RetrievalScorecard.test.tsx` owns the real
+ * provenance-gating coverage; this file only needs the page as a whole to
+ * render.
+ */
+const minimalScorecard: RetrievalScorecardResponse = {
+  provenance: {
+    measured_at: "2026-08-23T21:53:32.664198Z",
+    query_set: "data/evals/canonical_queries.jsonl",
+    query_set_sha256: "a".repeat(64),
+    scored_query_set_sha256: "b".repeat(64),
+    ranked_result_sha256: "c".repeat(64),
+    dataset_manifest_sha256: "d".repeat(64),
+    models: { embedding: "us.cohere.embed-v4:0", rerank: "cohere.rerank-v3-5:0" },
+    aurora_configuration: {},
+    hnsw_settings: {},
+    retrieval_profile: {},
+    database_instance_id: "test-instance",
+    strategy: "rrf_fusion+rerank+exact_sku_preservation",
+    source_revision: "0".repeat(40),
+    source_worktree_dirty: false,
+    current_source_revision: "1".repeat(40),
+    current_source_worktree_dirty: false,
+    attributed: false,
+    attribution_note: "Metrics pending evaluation for this revision: fixture.",
+  },
+  retrieval_quality: {
+    sample_size: 19,
+    canonical_query_count: 20,
+    sample_description: "fixture sample",
+    recall_at_10: 0.82,
+    mrr: 0.92,
+    ndcg_at_10: 0.85,
+    metric_explanations: { "recall@10": "x", mrr: "y", "ndcg@10": "z" },
+    excluded_agent_contract_query_ids: ["G-010"],
+    per_query_metrics: [],
+  },
+  regression_anchors: { passed: 4, total: 4, anchors: [] },
+  eligibility_contracts: {
+    fixture_count: 18,
+    held: true,
+    description: "fixture description",
+    fixture_query_ids: [],
+  },
+  agent_contracts: { guarantees: [] },
+};
 
 vi.mock("../api", () => ({
   ApiError: class ApiError extends Error {
@@ -41,6 +90,10 @@ vi.mock("../api", () => ({
     toolContracts: vi.fn(),
     retrievalEvent: vi.fn(),
     retrievalPlan: vi.fn(),
+    // Stage 04 (Prove) loads the scorecard on mount. Its own tests live in
+    // RetrievalScorecard.test.tsx; a resolved default here just keeps every
+    // other test in this file from tripping over an unmocked fetch.
+    scorecard: vi.fn(),
   },
 }));
 
@@ -277,6 +330,8 @@ describe("RetrievalLabPage", () => {
     vi.mocked(api.search).mockResolvedValue(primaryResponse);
     vi.mocked(api.readiness).mockReset();
     vi.mocked(api.readiness).mockRejectedValue(new Error("readiness unavailable"));
+    vi.mocked(api.scorecard).mockReset();
+    vi.mocked(api.scorecard).mockResolvedValue(minimalScorecard);
   });
 
   afterEach(cleanup);
@@ -307,22 +362,23 @@ describe("RetrievalLabPage", () => {
     expect(strip.textContent).not.toMatch(/Observatory|Optional|Mosaic Labs/);
   });
 
-  it("structures the surface as 01 Retrieve, 02 Rank, 03 Reason", () => {
-    // The workshop model is Retrieve -> Rank -> Reason, so the numbers carry
-    // information rather than decorating a list. This is the only surface that
-    // numbers its sections.
+  it("structures the surface as 01 Retrieve, 02 Rank, 03 Reason, 04 Prove", () => {
+    // The workshop model is Retrieve -> Rank -> Reason -> Prove, so the numbers
+    // carry information rather than decorating a list. This is the only surface
+    // that numbers its sections. Prove is the Retrieval Scorecard: the
+    // culmination, not a fourth lab.
     const { container } = render(<RetrievalLabPage />);
 
     expect(
       [...container.querySelectorAll(".labs-stage-number")].map(
         (node) => node.textContent,
       ),
-    ).toEqual(["01", "02", "03"]);
+    ).toEqual(["01", "02", "03", "04"]);
     expect(
       [...container.querySelectorAll(".labs-stage-copy h2")].map(
         (node) => node.textContent,
       ),
-    ).toEqual(["Retrieve", "Rank", "Reason"]);
+    ).toEqual(["Retrieve", "Rank", "Reason", "Prove"]);
   });
 
   it("bridges each customer word to the PostgreSQL feature behind it", () => {

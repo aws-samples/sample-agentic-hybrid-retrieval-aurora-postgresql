@@ -652,6 +652,136 @@ class AgentPartial(BaseModel):
     trace: list[ToolTraceStep]
 
 
+class ScorecardProvenance(BaseModel):
+    """Whether the canonical scorecard's numbers may be shown as current.
+
+    `attributed` is the one field the Prove-step UI must branch on for section
+    A. It is true only when `source_revision` equals `current_source_revision`
+    and neither worktree was dirty; see `service.scorecard._attribution`. Every
+    other field here is read straight from the committed artifact, so a reader
+    can verify the verdict rather than take it on faith.
+    """
+
+    measured_at: datetime
+    query_set: str
+    query_set_sha256: str
+    scored_query_set_sha256: str
+    ranked_result_sha256: str
+    dataset_manifest_sha256: str
+    models: dict[str, str]
+    aurora_configuration: dict[str, Any]
+    hnsw_settings: dict[str, Any]
+    retrieval_profile: dict[str, Any]
+    database_instance_id: str
+    strategy: str
+    source_revision: str | None
+    source_worktree_dirty: bool | None
+    current_source_revision: str | None
+    current_source_worktree_dirty: bool
+    attributed: bool
+    attribution_note: str
+
+
+class ScorecardRetrievalQuality(BaseModel):
+    """Section A: population IR metrics over the scored search population.
+
+    Real numbers, always present here; the Playground withholds them from
+    display whenever `ScorecardProvenance.attributed` is false rather than the
+    API inventing a null. `excluded_agent_contract_query_ids` names the query
+    that must never be scored as search relevance.
+    """
+
+    sample_size: int
+    canonical_query_count: int
+    sample_description: str
+    recall_at_10: float
+    mrr: float
+    ndcg_at_10: float
+    metric_explanations: dict[str, str]
+    excluded_agent_contract_query_ids: list[str]
+    per_query_metrics: list[dict[str, Any]]
+
+
+class ScorecardGoldenAnchor(BaseModel):
+    query_id: str
+    product_id: int
+    type: Literal["top_rank", "present_top_k"]
+    k: int | None = None
+
+
+class ScorecardRegressionAnchors(BaseModel):
+    """Section B: compact PASS/total over golden regression anchors.
+
+    Never mixed into `ScorecardRetrievalQuality`: an anchor is a pass/fail
+    check tied to one product's rank, not a graded relevance judgment.
+    """
+
+    passed: int
+    total: int
+    anchors: list[ScorecardGoldenAnchor]
+
+
+class ScorecardEligibilityContracts(BaseModel):
+    """Section C: did retrieval violate a hard eligibility or filter contract.
+
+    Not a relevance judgment: no Recall, MRR, or nDCG is computed over these.
+    `fixture_count` is read from the harness's own query-population filter
+    (`scripts.score_evals.product_retrieval_queries`), not a number retyped
+    for this surface.
+    """
+
+    fixture_count: int
+    held: bool
+    description: str
+    fixture_query_ids: list[str]
+
+
+class ScorecardAgentContractGuarantee(BaseModel):
+    """One deterministic agent/evidence guarantee, backed by real assertions."""
+
+    key: Literal[
+        "retrieval_scope",
+        "compare_boundary",
+        "evidence_authorization",
+        "citation_resolution",
+        "tool_contract",
+    ]
+    label: str
+    description: str
+    assertion_names: list[str]
+    falsifiers: list[str]
+    #: Populated only for `tool_contract`: the live count of registered agent
+    #: tool contracts, from the same registry `/api/tools` serves.
+    fixture_count: int | None = None
+
+
+class ScorecardAgentContracts(BaseModel):
+    """Section D: deterministic agent and evidence contracts.
+
+    Real validation data: every assertion name and falsifier is read from
+    `service.assertions.ASSERTIONS`, not typed fresh for this surface. No IR
+    metric and no LLM judge appears here.
+    """
+
+    guarantees: list[ScorecardAgentContractGuarantee]
+
+
+class RetrievalScorecardResponse(BaseModel):
+    """The Prove step: one read of the committed canonical evaluation artifact.
+
+    Four sections, never conflated -- A is population relevance metrics, B is
+    pass/fail regression anchors, C is hard eligibility/filter contracts, D is
+    deterministic agent/evidence contracts. Framing: did we fix the scenarios
+    without weakening the system, not a participant grade.
+    """
+
+    provenance: ScorecardProvenance
+    retrieval_quality: ScorecardRetrievalQuality
+    regression_anchors: ScorecardRegressionAnchors
+    eligibility_contracts: ScorecardEligibilityContracts
+    agent_contracts: ScorecardAgentContracts
+
+
 class HnswProbeRequest(BaseModel):
     """One live HNSW probe.
 
