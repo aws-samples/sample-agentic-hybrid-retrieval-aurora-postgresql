@@ -5,7 +5,7 @@ hands-on session, use Amazon Aurora PostgreSQL as the search and context engine
 for a 500,000-product catalog, then diagnose three production-shaped failures
 whose individual components still work. Restore a disconnected fuzzy candidate
 arm, repair reciprocal-rank fusion that a model reranker masks, and reconnect
-product-owned evidence to citation authorization for a bounded Strands agent.
+product-owned evidence to the citation scope of a bounded Strands agent.
 
 Along the way, inspect PostgreSQL full-text search, `pg_trgm`, pgvector HNSW,
 SQL and JSONB eligibility filters, reciprocal-rank fusion, Cohere Rerank on

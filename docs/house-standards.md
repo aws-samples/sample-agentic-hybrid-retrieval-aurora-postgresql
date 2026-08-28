@@ -137,8 +137,13 @@ separately, ask what the pattern *cannot see*, and make that question a rule.
 ## 6. Infrastructure: Aurora only
 
 No local databases exist or will exist. The Aurora PostgreSQL cluster in
-`us-east-1` holds the only live tree (`mosaic_*`); the cluster snapshot is the
-only restore path; every `make` bootstrap target points at Aurora.
+`us-east-1` holds the only live tree (`mosaic_*`); every `make` bootstrap target
+points at Aurora.
+
+The restore path is `make db-bootstrap-cached` into a **fresh** Aurora cluster,
+loading the verified embedding cache. That is what Workshop Studio provisions and
+what `ARTIFACTS.md` records. `make db-upgrade-snapshot` is an operator-only
+compatibility path for historical snapshot restores, not the primary route.
 
 **Why.** Two local databases (`catalog_workshop`, `catalog_codex_20260807`) held
 the only loaded state of the pre-rewrite `catalog.*` tree. They were dropped in

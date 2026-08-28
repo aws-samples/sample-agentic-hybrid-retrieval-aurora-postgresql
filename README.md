@@ -17,7 +17,7 @@ and bounded agent tools in one inspectable retrieval system.
 The session thesis is simple: **retrieval correctness is a pipeline property,
 not a top-1 result**. Each required lab breaks composition while the underlying
 components remain healthy: candidate recall in Retrieve, contribution arithmetic
-in Rank, and evidence authorization in Reason.
+in Rank, and citation scope in Reason.
 
 The reference application includes a responsive React storefront, a typed
 FastAPI service, a Strands agent with citation-bounded synthesis, an optional
