@@ -75,6 +75,13 @@ required_environment=(
   DB_CLUSTER_ENDPOINT
   DB_NAME
   ASSETS_BUCKET
+  # Consumed unguarded when the embedding cache URI is built. Under `set -u` an
+  # unset value aborts the shell, and bash does NOT run the ERR trap for an
+  # unbound variable -- verified -- so `signal_failure` never fires, no reason
+  # reaches the wait condition, CloudFormation waits out its full timeout, and
+  # rollback then terminates the instance carrying the only log. Failing here
+  # instead costs one named line.
+  ASSETS_PREFIX
   EMBEDDING_CACHE_MANIFEST_SHA256
   CODE_EDITOR_PASSWORD
   DB_INSTANCE_CLASS
@@ -160,7 +167,7 @@ Group=$CODE_EDITOR_USER
 WorkingDirectory=$HOME_FOLDER
 Environment=HOME=/home/$CODE_EDITOR_USER
 Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/$CODE_EDITOR_USER/.local/bin
-ExecStart=$CODE_EDITOR_CMD --accept-server-license-terms --host 127.0.0.1 --port 8080 --default-folder $REPO --connection-token $CODE_EDITOR_PASSWORD
+ExecStart=$CODE_EDITOR_CMD --accept-server-license-terms --host 127.0.0.1 --port 8080 --default-folder "$REPO" --connection-token "$CODE_EDITOR_PASSWORD"
 Restart=always
 RestartSec=5
 
@@ -246,8 +253,43 @@ server {
 }
 NGINX
 
-sed -i "s/__CODE_EDITOR_PASSWORD__/$CODE_EDITOR_PASSWORD/g" \
-  /etc/nginx/conf.d/mosaic.conf
+# A secret crossing a format boundary must be escaped for that format, and a
+# `sed s///` replacement is the worst of them: `/` ends the expression, `&`
+# inserts the whole match, and `\1` interpolates. None of those would fail
+# loudly -- nginx would still parse, the origin-verify header would simply never
+# match, and every participant request would 403 with nothing naming why.
+#
+# Safety currently rests on `ExcludePunctuation: true` in the sibling workshop
+# repository at assets/hybrid-retrieval-code-editor.yml:113, which makes this
+# secret 32 alphanumeric characters. That coupling is invisible from here, so it
+# is asserted rather than assumed: if the generator ever changes, this fails by
+# name instead of producing a host that looks healthy and rejects everyone.
+if [[ ! $CODE_EDITOR_PASSWORD =~ ^[A-Za-z0-9]+$ ]]; then
+  echo "Mosaic bootstrap requires an alphanumeric CODE_EDITOR_PASSWORD;" \
+    "the nginx origin-verify substitution and the systemd unit below are only" \
+    "representation-safe for that character set. If the generator changed," \
+    "restore ExcludePunctuation in the workshop template" \
+    "(assets/hybrid-retrieval-code-editor.yml) or add explicit escaping here."
+  signal_failure 2
+fi
+# Literal, not pattern-based: python replaces the placeholder as an exact string,
+# so no character in the value is interpreted. Kept alongside the assertion above
+# rather than instead of it, because the systemd unit and the nginx quoted string
+# have their own grammars this substitution cannot fix.
+CODE_EDITOR_PASSWORD="$CODE_EDITOR_PASSWORD" python3.13 - \
+  /etc/nginx/conf.d/mosaic.conf <<'PYTHON'
+import os
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+secret = os.environ["CODE_EDITOR_PASSWORD"]
+body = path.read_text(encoding="utf-8")
+placeholder = "__CODE_EDITOR_PASSWORD__"
+if placeholder not in body:
+    raise SystemExit(f"{path} carries no {placeholder} to replace")
+path.write_text(body.replace(placeholder, secret), encoding="utf-8")
+PYTHON
 nginx -t
 systemctl enable nginx code-editor
 systemctl restart nginx code-editor
