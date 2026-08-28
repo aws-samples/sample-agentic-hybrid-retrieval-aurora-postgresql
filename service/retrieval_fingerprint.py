@@ -97,12 +97,19 @@ This module is inside both manifests deliberately. The code that decides what
 provenance means must be covered by the provenance it computes, or editing the
 definition would be the one change no hash can see.
 
-A methodology mismatch is **not** a demand for a paid rerun. It marks the
-section pending, and ``recertify`` in the two harnesses then tries to reproduce
-the artifact offline from the persisted served CSV, the ranked-result hash, the
-per-query rows, and the query-set hashes. Reproducing it restores attribution
-and restamps the hash; failing to names the input that could not be reproduced,
-which is the only case that needs model calls again.
+A methodology mismatch marks the section pending, and pending is resolved only
+by re-measuring. An earlier design offered offline "recertification" from the
+persisted served results; an audit disproved its premise. Reproducing historical
+output proves nothing about a behaviour change, because the output predates the
+change: altering filter serialization in ``service/models.py`` or making the
+semantic arm return no rows leaves the old CSV intact and therefore perfectly
+reproducible, so recertification restored attribution to a build it had not
+verified. No subset of these files is safely recertifiable -- each one can change
+what the system does -- so the mechanism was removed rather than narrowed.
+
+The ablation's re-measure spends no reranker calls, so only the canonical
+scorecard's costs anything, and only when one of three rarely-edited files
+changes.
 """
 
 from __future__ import annotations

@@ -232,8 +232,8 @@ class _CurrentRetrievalIdentity:
     query_set_sha256: str
     scored_query_set_sha256: str
     #: How the scorecard is measured and served, held apart from what retrieval
-    #: does. A mismatch here is recertifiable offline from the persisted served
-    #: CSV; a `retrieval_fingerprint` mismatch is not.
+    #: does. A mismatch marks section A pending until the scorecard is
+    #: re-measured; it cannot be cleared by replaying historical output.
     scorecard_methodology_sha256: str
     #: The superset covering the ablation harness too. Section E reads this one,
     #: so an ablation-only edit leaves section A attributed.
@@ -342,18 +342,15 @@ def _attribution(
             )
         )
 
-    # A methodology-only mismatch is not a demand for model calls. Everything the
-    # metrics rest on is replayable from the persisted served CSV, so point at
-    # recertification; reserve the paid path for a real retrieval change.
+    # Pending is resolved by re-measuring, never by replaying historical output.
+    # An earlier design let a methodology mismatch be "recertified" from the
+    # persisted CSV; an audit showed that falsely restores attribution, because a
+    # behaviour-affecting change leaves old output untouched and therefore
+    # reproducible. The ablation's re-measure spends no reranker calls, so only
+    # the scorecard's costs anything.
     remedy = (
-        "Recertify with scripts/score_evals.py --recertify, which replays the "
-        "persisted served results and spends nothing; it will name the input to "
-        "remeasure if the artifact cannot be reproduced."
-        if fingerprint_matches and measured_clean and inputs_match
-        else (
-            "Rerun scripts/score_evals.py --write-baseline once the retrieval "
-            "change is reviewed, then commit the regenerated artifact."
-        )
+        "Rerun scripts/score_evals.py --write-baseline once the change is "
+        "reviewed, then commit the regenerated artifact."
     )
     return False, f"{PENDING_TEXT}: " + "; ".join(reasons) + f". {remedy}"
 

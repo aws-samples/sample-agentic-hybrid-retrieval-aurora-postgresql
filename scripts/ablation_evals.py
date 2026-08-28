@@ -14,8 +14,10 @@ Three arms, over the same 20 scored canonical queries and the same judgments
     3. rrf_fused_reranked  -- the current production path
 
 Arm 3 is never re-served. Managed reranking costs money per call, and
-`benchmarks/results/canonical_served_results.csv` already carries the exact
-ranked output of the last reviewed production run. This script loads that CSV,
+`data/evals/canonical_ranked_results.csv` already carries the exact ranked
+output of the last reviewed production run, committed and reduced to
+`query_id,product_id,rank` so a clean clone can reproduce it. This script
+loads that CSV,
 recomputes its metrics with the same `scripts.evaluate.evaluate`, and asserts
 the result equals `data/evals/canonical_scorecard.json.metrics` to full float
 precision. A mismatch means the CSV or the committed scorecard no longer
@@ -76,7 +78,11 @@ from service.retrieval_fingerprint import (
 
 K = 10
 CANONICAL_QUERIES_PATH = REPO / "data" / "evals" / "canonical_queries.jsonl"
-SERVED_RESULTS_PATH = REPO / "benchmarks" / "results" / "canonical_served_results.csv"
+#: The committed ranking, reduced to query_id/product_id/rank by
+#: `scripts.score_evals._write_ranked_results`. `benchmarks/results/` is
+#: git-ignored because per-run artifacts carry live identifiers, which left
+#: this script unrunnable from a clean clone.
+SERVED_RESULTS_PATH = REPO / "data" / "evals" / "canonical_ranked_results.csv"
 CANONICAL_SCORECARD_PATH = REPO / "data" / "evals" / "canonical_scorecard.json"
 ABLATION_PATH = REPO / "data" / "evals" / "canonical_stage_ablation.json"
 
@@ -103,8 +109,8 @@ ARM_DESCRIPTIONS: dict[str, str] = {
     ARM_RRF_RERANKED: (
         "The production path: the same fused pool as rrf_fused_no_rerank, "
         "reordered by managed reranking. Recomputed from "
-        "benchmarks/results/canonical_served_results.csv rather than "
-        "re-served, so this measurement spends no reranker calls."
+        "data/evals/canonical_ranked_results.csv rather than re-served, so "
+        "this measurement spends no reranker calls."
     ),
 }
 
@@ -342,7 +348,7 @@ def assert_reproduces_committed_metrics(
 
     `committed` is `data/evals/canonical_scorecard.json["metrics"]`; `measured`
     is the same three keys recomputed from
-    `benchmarks/results/canonical_served_results.csv` by the identical
+    `data/evals/canonical_ranked_results.csv` by the identical
     `scripts.evaluate.evaluate`. Equality must be exact float-for-float: both
     sides run the same pure function over what should be the same inputs, so
     anything short of equality means the CSV and the committed scorecard no
@@ -639,86 +645,7 @@ def measured_ablation() -> dict[str, Any]:
     }
 
 
-def recertify_ablation() -> tuple[bool, list[str]]:
-    """Reproduce the committed ablation from persisted inputs, then restamp.
-
-    Arm 3 is the part that costs money, and it is fully replayable: it is
-    recomputed from `benchmarks/results/canonical_served_results.csv` and checked
-    against the committed scorecard's own hash, per-query rows, and means by the
-    same assertion the measurement path uses. Arms 1 and 2 are not replayed --
-    they need Aurora, though no reranker -- so a full `make ablation-evals` costs
-    no model calls if deeper verification is wanted. Nothing here restamps
-    `retrieval_fingerprint`.
-    """
-    reasons: list[str] = []
-    artifact = json.loads(ABLATION_PATH.read_text(encoding="utf-8"))
-    committed_scorecard = json.loads(
-        CANONICAL_SCORECARD_PATH.read_text(encoding="utf-8")
-    )
-
-    current_fingerprint = compute_retrieval_fingerprint()
-    if artifact.get("retrieval_fingerprint") != current_fingerprint:
-        reasons.append(
-            f"retrieval_fingerprint {artifact.get('retrieval_fingerprint')} != "
-            f"{current_fingerprint}; retrieval changed, so this needs remeasuring"
-        )
-
-    canonical_queries = load_evaluation_queries(CANONICAL_QUERIES_PATH)
-    queries, _ = product_retrieval_queries(canonical_queries)
-    for field, actual in (
-        ("query_set_sha256", query_set_sha256(CANONICAL_QUERIES_PATH)),
-        ("scored_query_set_sha256", scored_query_set_sha256(queries)),
-    ):
-        if artifact.get(field) != actual:
-            reasons.append(f"{field} {artifact.get(field)} != {actual}")
-
-    truth = {
-        query["query_id"]: load_judgments(CANONICAL_QUERIES_PATH)[query["query_id"]]
-        for query in queries
-    }
-    query_ids = {query["query_id"] for query in queries}
-    try:
-        served_ranked = load_served_arm(SERVED_RESULTS_PATH, query_ids)
-        served_result = _arm_metrics(served_ranked, truth)
-        assert_reproduces_committed_metrics(
-            {
-                f"recall@{K}": served_result["metrics"][f"recall@{K}"],
-                "mrr": served_result["metrics"]["mrr"],
-                f"ndcg@{K}": served_result["metrics"][f"ndcg@{K}"],
-            },
-            committed_scorecard["metrics"],
-            measured_ranked=served_ranked,
-            committed_ranked_sha256=committed_scorecard["ranked_result_sha256"],
-            measured_per_query=served_result["per_query_ndcg"],
-            committed_per_query=committed_scorecard["per_query_metrics"],
-        )
-    except (AblationMeasurementError, KeyError) as error:
-        reasons.append(f"arm 3 could not be replayed from the served CSV: {error}")
-
-    if reasons:
-        return False, reasons
-
-    artifact["ablation_methodology_sha256"] = compute_ablation_methodology_sha256()
-    ABLATION_PATH.write_text(
-        json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    return True, []
-
-
 def main() -> None:
-    if "--recertify" in sys.argv[1:]:
-        reproduced, reasons = recertify_ablation()
-        if reproduced:
-            print(
-                f"Recertified {ABLATION_PATH} from {SERVED_RESULTS_PATH}; "
-                "methodology hash restamped, no model calls spent."
-            )
-            return
-        raise SystemExit(
-            "Cannot recertify offline:\n  - "
-            + "\n  - ".join(reasons)
-            + "\nRerun `make ablation-evals`, which spends no reranker calls."
-        )
     measured = measured_ablation()
     ABLATION_PATH.write_text(
         json.dumps(measured, indent=2, sort_keys=True) + "\n",

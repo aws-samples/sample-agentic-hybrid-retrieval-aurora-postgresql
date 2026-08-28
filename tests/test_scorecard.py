@@ -796,20 +796,25 @@ def test_missing_scorecard_methodology_hash_fails_closed():
     assert "no measurement methodology hash was recorded" in note
 
 
-def test_methodology_only_mismatch_points_at_recertification_not_a_rerun():
-    """Requirement 4: a methodology change must not demand model calls.
+def test_no_pending_reason_offers_to_replay_historical_output():
+    """A methodology mismatch must not advertise a cheap escape hatch.
 
-    Everything section A asserts is replayable from the persisted served CSV,
-    so the remedy is --recertify. The paid path is reserved for a genuine
-    retrieval change, proven by the contrast in the second half.
+    An earlier design let one be "recertified" from the persisted served results.
+    An audit disproved the premise: reproducing output that predates a change
+    proves nothing about the change, so a behaviour-affecting edit --
+    filter serialization in service/models.py, or an arm returning no rows --
+    was recertified into a restored attribution it never earned.
+
+    Pending is now resolved only by re-measuring. This asserts the remedy never
+    names the removed flag, in either mismatch class, so the mechanism cannot
+    reappear in the copy while being absent from the code.
     """
     _, methodology_note = _attribution(_artifact(), _current(methodology="z" * 64))
     _, retrieval_note = _attribution(_artifact(), _current(fingerprint="z" * 64))
 
-    assert "--recertify" in methodology_note
-    assert "--write-baseline" not in methodology_note
-    assert "--write-baseline" in retrieval_note
-    assert "--recertify" not in retrieval_note
+    for note in (methodology_note, retrieval_note):
+        assert "recertif" not in note.lower()
+        assert "--write-baseline" in note
 
 
 def test_ablation_methodology_mismatch_leaves_section_a_attributed():
