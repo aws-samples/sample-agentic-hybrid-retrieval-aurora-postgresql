@@ -46,6 +46,10 @@ _MATCHING_QUERY_SET_SHA = "q" * 64
 _MATCHING_SCORED_QUERY_SET_SHA = "s" * 64
 _MATCHING_EMBEDDING_MODEL = "embed-model"
 _MATCHING_RERANK_MODEL = "rerank-model"
+_MATCHING_METHODOLOGY = "m" * 64
+#: Section E reads its own superset hash, so the two must differ in fixtures
+#: or a test could pass by reading the wrong one.
+_MATCHING_ABLATION_METHODOLOGY = "n" * 64
 
 
 def _artifact(
@@ -56,6 +60,7 @@ def _artifact(
     rerank: str = _MATCHING_RERANK_MODEL,
     query_set_sha: str = _MATCHING_QUERY_SET_SHA,
     scored_query_set_sha: str = _MATCHING_SCORED_QUERY_SET_SHA,
+    methodology: str = _MATCHING_METHODOLOGY,
     revision: str = "a" * 40,
 ) -> dict:
     return {
@@ -64,6 +69,7 @@ def _artifact(
         "models": {"embedding": embedding, "rerank": rerank},
         "query_set_sha256": query_set_sha,
         "scored_query_set_sha256": scored_query_set_sha,
+        "scorecard_methodology_sha256": methodology,
     }
 
 
@@ -72,8 +78,12 @@ def _stage_ablation_artifact(**overrides) -> dict:
     conjunction as the main scorecard artifact -- built on `_artifact` rather
     than a separate literal, so the two share the same matching-identity
     defaults and cannot silently drift apart."""
+    ablation_methodology = overrides.pop(
+        "ablation_methodology", _MATCHING_ABLATION_METHODOLOGY
+    )
     return {
         **_artifact(**overrides),
+        "ablation_methodology_sha256": ablation_methodology,
         "measured_at": "2026-08-27T00:00:00+00:00",
         "spread_note": "20 queries and 74 judgments cannot separate small differences.",
         "scored_query_count": 20,
@@ -142,6 +152,8 @@ def _current(
     rerank: str = _MATCHING_RERANK_MODEL,
     query_set_sha: str = _MATCHING_QUERY_SET_SHA,
     scored_query_set_sha: str = _MATCHING_SCORED_QUERY_SET_SHA,
+    methodology: str = _MATCHING_METHODOLOGY,
+    ablation_methodology: str = _MATCHING_ABLATION_METHODOLOGY,
 ) -> _CurrentRetrievalIdentity:
     return _CurrentRetrievalIdentity(
         retrieval_fingerprint=fingerprint,
@@ -149,6 +161,8 @@ def _current(
         rerank_model_id=rerank,
         query_set_sha256=query_set_sha,
         scored_query_set_sha256=scored_query_set_sha,
+        scorecard_methodology_sha256=methodology,
+        ablation_methodology_sha256=ablation_methodology,
     )
 
 
@@ -179,6 +193,7 @@ def _api_artifact_and_settings(
         "rerank": _MATCHING_RERANK_MODEL,
     }
     artifact["source"] = {"revision": revision, "worktree_dirty": dirty}
+    artifact["scorecard_methodology_sha256"] = _MATCHING_METHODOLOGY
 
     ablation = _stage_ablation_artifact(
         fingerprint=_MATCHING_FINGERPRINT,
@@ -197,6 +212,16 @@ def _api_artifact_and_settings(
     monkeypatch.setattr(
         "service.scorecard.compute_retrieval_fingerprint",
         lambda: _MATCHING_FINGERPRINT,
+    )
+    # Both methodology hashes are patched to distinct values, so a section
+    # reading the wrong one fails rather than coincidentally matching.
+    monkeypatch.setattr(
+        "service.scorecard.compute_scorecard_methodology_sha256",
+        lambda: _MATCHING_METHODOLOGY,
+    )
+    monkeypatch.setattr(
+        "service.scorecard.compute_ablation_methodology_sha256",
+        lambda: _MATCHING_ABLATION_METHODOLOGY,
     )
     monkeypatch.setattr(
         "service.scorecard.query_set_sha256",
@@ -745,3 +770,76 @@ def test_api_can_hide_the_stage_ablation_while_the_main_scorecard_is_shown(
 
     assert payload["provenance"]["attributed"] is True
     assert payload["stage_ablation"]["attributed"] is False
+
+
+# --- Methodology hashes: two, so ablation edits cannot unattribute retrieval --
+
+
+def test_scorecard_methodology_mismatch_marks_section_a_pending():
+    """Red-at-birth for the clause itself: everything else matches."""
+    attributed, note = _attribution(_artifact(), _current(methodology="z" * 64))
+
+    assert attributed is False
+    assert note.startswith(PENDING_TEXT)
+    assert "the measurement methodology changed" in note
+
+
+def test_missing_scorecard_methodology_hash_fails_closed():
+    """An artifact measured before this mechanism existed must go pending with
+    its own distinct reason, not be waved through as "nothing to compare"."""
+    artifact = _artifact()
+    del artifact["scorecard_methodology_sha256"]
+
+    attributed, note = _attribution(artifact, _current())
+
+    assert attributed is False
+    assert "no measurement methodology hash was recorded" in note
+
+
+def test_methodology_only_mismatch_points_at_recertification_not_a_rerun():
+    """Requirement 4: a methodology change must not demand model calls.
+
+    Everything section A asserts is replayable from the persisted served CSV,
+    so the remedy is --recertify. The paid path is reserved for a genuine
+    retrieval change, proven by the contrast in the second half.
+    """
+    _, methodology_note = _attribution(_artifact(), _current(methodology="z" * 64))
+    _, retrieval_note = _attribution(_artifact(), _current(fingerprint="z" * 64))
+
+    assert "--recertify" in methodology_note
+    assert "--write-baseline" not in methodology_note
+    assert "--write-baseline" in retrieval_note
+    assert "--recertify" not in retrieval_note
+
+
+def test_ablation_methodology_mismatch_leaves_section_a_attributed():
+    """Requirement 2, the whole reason there are two hashes.
+
+    Editing scripts/ablation_evals.py moves only the ablation hash. Section E
+    must go pending while canonical retrieval metrics stay attributed -- an
+    ablation harness edit is not a reason to unattribute a paid measurement.
+    """
+    from service.scorecard import _stage_ablation
+
+    current = _current(ablation_methodology="z" * 64)
+
+    section_a_attributed, _ = _attribution(_artifact(), current)
+    section_e = _stage_ablation(_stage_ablation_artifact(), current)
+
+    assert section_a_attributed is True
+    assert section_e.attributed is False
+    assert "the measurement methodology changed" in section_e.attribution_note
+
+
+def test_shared_methodology_input_marks_both_sections_pending():
+    """Independence from the test above: a change to one of the three shared
+    files moves both hashes, so both sections go pending together."""
+    from service.scorecard import _stage_ablation
+
+    current = _current(methodology="z" * 64, ablation_methodology="y" * 64)
+
+    section_a_attributed, _ = _attribution(_artifact(), current)
+    section_e = _stage_ablation(_stage_ablation_artifact(), current)
+
+    assert section_a_attributed is False
+    assert section_e.attributed is False

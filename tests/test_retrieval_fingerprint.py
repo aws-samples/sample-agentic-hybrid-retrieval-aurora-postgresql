@@ -14,19 +14,25 @@ test-only override parameter on production code.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
 
 from service.retrieval_fingerprint import (
     _EXPECTED_CATEGORY_COUNTS,
+    ABLATION_METHODOLOGY_FILES,
+    SCORECARD_METHODOLOGY_FILES,
     RetrievalFingerprintError,
     category_counts,
+    compute_ablation_methodology_sha256,
     compute_retrieval_fingerprint,
+    compute_scorecard_methodology_sha256,
     manifest_files,
 )
 
 REPO = Path(__file__).resolve().parents[1]
+ROOT = REPO
 
 # The real db/sql/ filenames, so the fake tree's "sql" category naturally
 # matches the real category's expected count (26) rather than needing a
@@ -278,3 +284,98 @@ def test_the_real_repository_computes_a_fingerprint_with_every_category_present(
     fingerprint = compute_retrieval_fingerprint()
     assert len(fingerprint) == 64
     assert fingerprint == compute_retrieval_fingerprint()
+
+
+# --- Methodology hashes: each owned file must move its own hash --------------
+
+
+def _copy_tree(source: Path, destination: Path) -> None:
+    shutil.copytree(source, destination, dirs_exist_ok=True)
+
+
+@pytest.fixture()
+def methodology_tree(tmp_path):
+    """A real repo copy, so the hashes are computed over actual files.
+
+    Only the directories the two manifests name are copied; a manifest that
+    started reading somewhere else would fail the existence check rather than
+    quietly hash a shorter list.
+    """
+    root = tmp_path / "repo"
+    for relative in ("scripts", "service", "db/sql", "db/config", "data/evals"):
+        _copy_tree(ROOT / relative, root / relative)
+    return root
+
+
+@pytest.mark.parametrize(
+    ("relpath", "moves_scorecard"),
+    [
+        ("scripts/score_evals.py", True),
+        ("service/models.py", True),
+        ("service/retrieval_fingerprint.py", True),
+        # Requirement 2: the ablation harness is in the ablation manifest only.
+        ("scripts/ablation_evals.py", False),
+    ],
+)
+def test_editing_an_owned_file_moves_the_right_methodology_hash(
+    methodology_tree, relpath, moves_scorecard
+):
+    """Requirement 1 and 2 together, one file at a time.
+
+    Each of the three shared files must move both hashes; the ablation harness
+    must move only the ablation hash. Asserted per file rather than in
+    aggregate, so a manifest that dropped one entry cannot hide behind the
+    others still moving.
+    """
+    before_scorecard = compute_scorecard_methodology_sha256(methodology_tree)
+    before_ablation = compute_ablation_methodology_sha256(methodology_tree)
+
+    target = methodology_tree / relpath
+    target.write_bytes(target.read_bytes() + b"\n# methodology edit\n")
+
+    after_scorecard = compute_scorecard_methodology_sha256(methodology_tree)
+    after_ablation = compute_ablation_methodology_sha256(methodology_tree)
+
+    assert (after_scorecard != before_scorecard) is moves_scorecard, relpath
+    # Every owned file moves the ablation hash, because it is the superset.
+    assert after_ablation != before_ablation, relpath
+
+
+def test_retrieval_fingerprint_ignores_every_methodology_only_file(
+    methodology_tree,
+):
+    """The separation that makes this design affordable.
+
+    Editing any methodology-only file must leave `retrieval_fingerprint`
+    untouched, or a console-output tweak would invalidate a billed measurement --
+    which is exactly what folding these into one hash would have caused.
+    """
+    before = compute_retrieval_fingerprint(methodology_tree)
+
+    for relpath in (
+        "scripts/score_evals.py",
+        "service/models.py",
+        "service/retrieval_fingerprint.py",
+        "scripts/ablation_evals.py",
+    ):
+        target = methodology_tree / relpath
+        target.write_bytes(target.read_bytes() + b"\n# methodology edit\n")
+
+    assert compute_retrieval_fingerprint(methodology_tree) == before
+
+
+def test_methodology_manifest_counts_are_asserted_against_literals():
+    """Witness, per rule 7: a manifest that lost an entry must fail loudly
+    rather than hash a shorter list under a name that still reads complete.
+    Checked against hand-counted literals, never `len()` of the tuple itself.
+    """
+    assert len(SCORECARD_METHODOLOGY_FILES) == 3
+    assert len(ABLATION_METHODOLOGY_FILES) == 4
+    assert set(SCORECARD_METHODOLOGY_FILES) < set(ABLATION_METHODOLOGY_FILES)
+
+
+def test_methodology_hash_refuses_a_missing_manifest_entry(tmp_path):
+    """Red-at-birth for the existence check: an empty tree must raise, not
+    return a valid-looking digest over zero files."""
+    with pytest.raises(RetrievalFingerprintError, match="does not exist"):
+        compute_scorecard_methodology_sha256(tmp_path)

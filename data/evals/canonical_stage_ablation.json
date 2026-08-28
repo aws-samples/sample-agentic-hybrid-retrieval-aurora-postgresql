@@ -1,4 +1,5 @@
 {
+  "ablation_methodology_sha256": "e3d1e0e2166d54a0b85f3e84b66037e8517fa37a73772aca0e78d0591b9b4ac4",
   "arms": {
     "rrf_fused_no_rerank": {
       "description": "The served fusion function (unweighted reciprocal rank fusion over FTS, trigram, and semantic candidates), with managed reranking disabled so the fused order is returned unchanged.",

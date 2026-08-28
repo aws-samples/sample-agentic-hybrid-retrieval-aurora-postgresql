@@ -29,7 +29,10 @@ from service.config import get_settings
 from service.db import connect
 from service.models import SearchFilters, SearchRequest
 from service.retrieval import get_retrieval_service
-from service.retrieval_fingerprint import compute_retrieval_fingerprint
+from service.retrieval_fingerprint import (
+    compute_retrieval_fingerprint,
+    compute_scorecard_methodology_sha256,
+)
 
 PRODUCT_RETRIEVAL_SCOPE = "product_retrieval"
 AGENT_CONTRACT_SCOPE = "agent_contract"
@@ -618,6 +621,11 @@ def measured_scorecard(
         "query_set_sha256": query_set_sha256(queries_path),
         "scored_query_set_sha256": scored_query_set_sha256(queries),
         "retrieval_fingerprint": compute_retrieval_fingerprint(),
+        # How this was measured and served, held apart from what retrieval does.
+        # Deliberately not folded into retrieval_fingerprint: that hash gates a
+        # paid measurement, so coupling it to the harness would let a
+        # console-output tweak invalidate a billed run.
+        "scorecard_methodology_sha256": compute_scorecard_methodology_sha256(),
         "canonical_query_count": len(canonical_queries),
         "product_retrieval_query_count": metrics["query_count"],
         "excluded_agent_contract_queries": excluded_agent_contract_queries,
@@ -658,6 +666,116 @@ def measured_scorecard(
             f"ndcg@{k}": metrics[f"ndcg@{k}"],
         },
     }
+
+
+def read_served_results(path: Path) -> dict[str, list[tuple[int, int]]]:
+    """Rebuild the ranked mapping from the persisted served-results CSV.
+
+    The CSV is the durable record of what retrieval actually returned, so it is
+    what makes recertification possible without spending model calls again.
+    """
+    ranked: dict[str, list[tuple[int, int]]] = {}
+    with path.open(newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            ranked.setdefault(row["query_id"], []).append(
+                (int(row["rank"]), int(row["product_id"]))
+            )
+    return {query_id: sorted(rows) for query_id, rows in ranked.items()}
+
+
+def recertify_scorecard(
+    scorecard_path: Path,
+    queries_path: Path,
+    results_path: Path,
+    *,
+    k: int = 10,
+) -> tuple[bool, list[str]]:
+    """Try to reproduce a committed scorecard from persisted inputs alone.
+
+    A methodology change marks the section pending, but pending is not the same
+    as "spend the billed run again". Everything a scorecard asserts about
+    retrieval is recoverable offline: the served CSV holds the exact ranking, the
+    artifact holds the ranked-result hash, the per-query rows, and both query-set
+    hashes. If recomputing from those still reproduces the artifact, the
+    methodology edit changed nothing the numbers depend on, and attribution is
+    restored by restamping the hash.
+
+    Returns `(reproduced, reasons)`. A non-empty `reasons` names each input that
+    could not be reproduced, which is the only situation that needs model calls.
+    Deliberately does **not** restamp `retrieval_fingerprint`: a retrieval change
+    is a real measurement change and must not be recertified away.
+    """
+    artifact = json.loads(scorecard_path.read_text(encoding="utf-8"))
+    reasons: list[str] = []
+
+    current_fingerprint = compute_retrieval_fingerprint()
+    if artifact.get("retrieval_fingerprint") != current_fingerprint:
+        reasons.append(
+            f"retrieval_fingerprint {artifact.get('retrieval_fingerprint')} != "
+            f"{current_fingerprint}; retrieval itself changed, so this needs a "
+            "remeasurement rather than recertification"
+        )
+
+    canonical_queries = load_evaluation_queries(queries_path)
+    scored, _ = product_retrieval_queries(canonical_queries)
+    for field, actual in (
+        ("query_set_sha256", query_set_sha256(queries_path)),
+        ("scored_query_set_sha256", scored_query_set_sha256(scored)),
+    ):
+        if artifact.get(field) != actual:
+            reasons.append(f"{field} {artifact.get(field)} != {actual}")
+
+    if not results_path.exists():
+        reasons.append(
+            f"{results_path} is absent, so the served ranking cannot be replayed"
+        )
+        return not reasons, reasons
+
+    ranked = read_served_results(results_path)
+    scored_ids = {query["query_id"] for query in scored}
+    missing = sorted(scored_ids - set(ranked))
+    if missing:
+        reasons.append(f"served CSV has no rows for {missing}")
+    ranked = {qid: rows for qid, rows in ranked.items() if qid in scored_ids}
+
+    actual_hash = ranked_result_sha256(ranked)
+    if artifact.get("ranked_result_sha256") != actual_hash:
+        reasons.append(
+            f"ranked_result_sha256 {artifact.get('ranked_result_sha256')} != "
+            f"{actual_hash}; the persisted CSV no longer describes this artifact"
+        )
+
+    judgments = load_judgments(queries_path)
+    recomputed = evaluate(
+        {query["query_id"]: judgments[query["query_id"]] for query in scored},
+        ranked,
+        k,
+    )
+    committed_metrics = artifact.get("metrics") or {}
+    for key in (f"recall@{k}", "mrr", f"ndcg@{k}"):
+        if committed_metrics.get(key) != recomputed[key]:
+            reasons.append(
+                f"metrics.{key} {committed_metrics.get(key)} != {recomputed[key]}"
+            )
+    committed_rows = {
+        row["query_id"]: row[f"ndcg@{k}"]
+        for row in artifact.get("per_query_metrics") or []
+    }
+    for row in recomputed["per_query"]:
+        if committed_rows.get(row["query_id"]) != row[f"ndcg@{k}"]:
+            reasons.append(
+                f"per_query_metrics[{row['query_id']}] "
+                f"{committed_rows.get(row['query_id'])} != {row[f'ndcg@{k}']}"
+            )
+
+    if reasons:
+        return False, reasons
+
+    artifact["scorecard_methodology_sha256"] = compute_scorecard_methodology_sha256()
+    scorecard_path.write_text(
+        json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return True, []
 
 
 def verify_scorecard(measured: dict[str, Any], baseline: dict[str, Any]) -> None:
@@ -759,7 +877,31 @@ def main() -> None:
         action="store_true",
         help="Discard a partial checkpoint and rerun every scorecard query.",
     )
+    parser.add_argument(
+        "--recertify",
+        action="store_true",
+        help=(
+            "Reproduce the committed scorecard from the persisted served CSV and "
+            "restamp its methodology hash. Spends no model calls and never "
+            "touches retrieval_fingerprint."
+        ),
+    )
     args = parser.parse_args()
+    if args.recertify:
+        reproduced, reasons = recertify_scorecard(
+            args.scorecard, args.queries, args.results, k=args.k
+        )
+        if reproduced:
+            print(
+                f"Recertified {args.scorecard} from {args.results}; "
+                "methodology hash restamped, no model calls spent."
+            )
+            return
+        raise SystemExit(
+            "Cannot recertify offline:\n  - "
+            + "\n  - ".join(reasons)
+            + "\nA remeasurement is required for the inputs named above."
+        )
     args.results.parent.mkdir(parents=True, exist_ok=True)
     checkpoint_path = scorecard_checkpoint_path(args.results)
     if args.restart:

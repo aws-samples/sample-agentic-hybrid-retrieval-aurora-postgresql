@@ -64,7 +64,11 @@ from service.models import (
     ScorecardStageAblationQuery,
     ScorecardStageArm,
 )
-from service.retrieval_fingerprint import compute_retrieval_fingerprint
+from service.retrieval_fingerprint import (
+    compute_ablation_methodology_sha256,
+    compute_retrieval_fingerprint,
+    compute_scorecard_methodology_sha256,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SCORECARD_ARTIFACT = ROOT / "data" / "evals" / "canonical_scorecard.json"
@@ -227,11 +231,21 @@ class _CurrentRetrievalIdentity:
     rerank_model_id: str
     query_set_sha256: str
     scored_query_set_sha256: str
+    #: How the scorecard is measured and served, held apart from what retrieval
+    #: does. A mismatch here is recertifiable offline from the persisted served
+    #: CSV; a `retrieval_fingerprint` mismatch is not.
+    scorecard_methodology_sha256: str
+    #: The superset covering the ablation harness too. Section E reads this one,
+    #: so an ablation-only edit leaves section A attributed.
+    ablation_methodology_sha256: str
 
 
 def _attribution(
     artifact: dict[str, Any],
     current: _CurrentRetrievalIdentity,
+    *,
+    methodology_key: str = "scorecard_methodology_sha256",
+    methodology_expected: str | None = None,
 ) -> tuple[bool, str]:
     """Decide whether the artifact's metrics describe the running system.
 
@@ -281,8 +295,20 @@ def _attribution(
         and artifact.get("scored_query_set_sha256") == current.scored_query_set_sha256
     )
     inputs_match = models_match and query_set_matches
+    # Section A reads the scorecard methodology; section E reads its own, which
+    # is a superset. That split is the point: editing scripts/ablation_evals.py
+    # must not unattribute canonical retrieval metrics.
+    expected_methodology = (
+        methodology_expected
+        if methodology_expected is not None
+        else current.scorecard_methodology_sha256
+    )
+    artifact_methodology = artifact.get(methodology_key) or None
+    methodology_matches = (
+        bool(artifact_methodology) and artifact_methodology == expected_methodology
+    )
 
-    if fingerprint_matches and measured_clean and inputs_match:
+    if fingerprint_matches and measured_clean and inputs_match and methodology_matches:
         return True, (
             f"Measured at retrieval fingerprint {artifact_fingerprint[:12]}, "
             "with the models and canonical query set currently running."
@@ -305,12 +331,31 @@ def _attribution(
         reasons.append("the embedding or rerank model changed")
     if not query_set_matches:
         reasons.append("the canonical query set or its judgments changed")
+    if not methodology_matches:
+        reasons.append(
+            "no measurement methodology hash was recorded"
+            if not artifact_methodology
+            else (
+                f"the measurement methodology changed "
+                f"({artifact_methodology[:12]} measured, "
+                f"{expected_methodology[:12]} running)"
+            )
+        )
 
-    return False, (
-        f"{PENDING_TEXT}: " + "; ".join(reasons) + ". Rerun "
-        "scripts/score_evals.py --write-baseline once the retrieval change is "
-        "reviewed, then commit the regenerated artifact."
+    # A methodology-only mismatch is not a demand for model calls. Everything the
+    # metrics rest on is replayable from the persisted served CSV, so point at
+    # recertification; reserve the paid path for a real retrieval change.
+    remedy = (
+        "Recertify with scripts/score_evals.py --recertify, which replays the "
+        "persisted served results and spends nothing; it will name the input to "
+        "remeasure if the artifact cannot be reproduced."
+        if fingerprint_matches and measured_clean and inputs_match
+        else (
+            "Rerun scripts/score_evals.py --write-baseline once the retrieval "
+            "change is reviewed, then commit the regenerated artifact."
+        )
     )
+    return False, f"{PENDING_TEXT}: " + "; ".join(reasons) + f". {remedy}"
 
 
 def _retrieval_quality(
@@ -421,7 +466,12 @@ def _stage_ablation(
     it was measured against no longer match what is running, exactly as
     section A is.
     """
-    attributed, attribution_note = _attribution(artifact, current)
+    attributed, attribution_note = _attribution(
+        artifact,
+        current,
+        methodology_key="ablation_methodology_sha256",
+        methodology_expected=current.ablation_methodology_sha256,
+    )
     arms = [
         ScorecardStageArm(
             key=key,
@@ -476,6 +526,8 @@ def retrieval_scorecard() -> RetrievalScorecardResponse:
         rerank_model_id=settings.rerank_model_id,
         query_set_sha256=query_set_sha256(CANONICAL_QUERIES),
         scored_query_set_sha256=scored_query_set_sha256(scored),
+        scorecard_methodology_sha256=compute_scorecard_methodology_sha256(),
+        ablation_methodology_sha256=compute_ablation_methodology_sha256(),
     )
     attributed, attribution_note = _attribution(artifact, current)
     provenance = ScorecardProvenance(

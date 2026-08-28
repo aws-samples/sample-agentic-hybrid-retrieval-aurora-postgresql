@@ -57,21 +57,52 @@ Deliberately excluded, and why
 ---------------------------------
 - ``service/catalog.py``: not in the retrieval closure; cannot affect scored
   metrics.
-- ``service/config.py``, ``service/db.py``, ``service/models.py``: noise.
-  They change for reasons unrelated to retrieval quality, and model identity
-  is carried as its own separate provenance field rather than folded into
-  this hash.
+- ``service/config.py``, ``service/db.py``: noise. They change for reasons
+  unrelated to retrieval quality, and model identity is carried as its own
+  separate provenance field rather than folded into this hash.
+- ``service/models.py``: excluded from *this* hash for the same reason, but
+  **not uncovered** -- it defines the served shape, so it is in both
+  methodology manifests below.
 - ``data/evals/canonical_scorecard.json``: emphatically excluded. Including
   it would recreate the exact off-by-one this module exists to kill -- the
   artifact would be hashing itself.
-- ``scripts/score_evals.py``: the measurement harness itself. Its
-  ``product_retrieval_queries`` scope filter can, in principle, change which
-  queries are scored, but ``service.scorecard._retrieval_quality`` already
-  raises if the *count* it returns drifts from what the artifact recorded,
-  and this same file is under active edit in the very change that adds the
-  field this module computes -- including it here would move the
-  fingerprint on harness refactors that touch no retrieval behavior, exactly
-  the noise excluded above.
+- ``scripts/score_evals.py``: the measurement harness itself. Including it here
+  would move the fingerprint on harness refactors that touch no retrieval
+  behavior, and worse, invalidate a paid measurement over a console-output
+  change. It is **not uncovered** either: it is in both methodology manifests
+  below, which is where an audit correctly said it belonged.
+
+Methodology hashes: the same problem, one layer up
+---------------------------------------------------
+Excluding the harness from the retrieval fingerprint left a real gap an audit
+found: ``scripts/score_evals.py`` assembles the artifact and selects the scored
+population, ``service/models.py`` defines the shape it is served in, and this
+module decides what counts as provenance at all. Editing any of them can change
+a published number while ``retrieval_fingerprint`` sits perfectly still.
+
+Folding them into ``retrieval_fingerprint`` would be the wrong fix. That hash
+gates a *paid* measurement, so coupling it to the harness means a console-output
+tweak invalidates a billed run. Instead there are two narrower hashes, and
+retrieval quality never depends on ablation code:
+
+- ``scorecard_methodology_sha256`` covers ``service/models.py``,
+  ``scripts/score_evals.py``, and this file.
+- ``ablation_methodology_sha256`` covers those three plus
+  ``scripts/ablation_evals.py``.
+
+So an ablation-only edit marks the ablation section pending and leaves canonical
+retrieval metrics attributed, while a change to the shared three marks both.
+
+This module is inside both manifests deliberately. The code that decides what
+provenance means must be covered by the provenance it computes, or editing the
+definition would be the one change no hash can see.
+
+A methodology mismatch is **not** a demand for a paid rerun. It marks the
+section pending, and ``recertify`` in the two harnesses then tries to reproduce
+the artifact offline from the persisted served CSV, the ranked-result hash, the
+per-query rows, and the query-set hashes. Reproducing it restores attribution
+and restamps the hash; failing to names the input that could not be reproduced,
+which is the only case that needs model calls again.
 """
 
 from __future__ import annotations
@@ -185,6 +216,78 @@ def manifest_files(repo_root: Path | None = None) -> list[Path]:
     _assert_category_witness(categories)
     files = [path for group in categories.values() for path in group]
     return sorted(files, key=lambda path: path.relative_to(root).as_posix())
+
+
+#: Files that define how the canonical scorecard is measured and served, as
+#: opposed to what retrieval does. Repo-relative POSIX paths so the hash is
+#: independent of where the tree was cloned.
+SCORECARD_METHODOLOGY_FILES: tuple[str, ...] = (
+    "scripts/score_evals.py",
+    "service/models.py",
+    "service/retrieval_fingerprint.py",
+)
+
+#: The ablation reuses every scorecard methodology input and adds its own
+#: harness. Ordering is irrelevant -- `_methodology_digest` sorts -- but the
+#: superset relationship is asserted below so the two hashes cannot drift apart.
+ABLATION_METHODOLOGY_FILES: tuple[str, ...] = (
+    *SCORECARD_METHODOLOGY_FILES,
+    "scripts/ablation_evals.py",
+)
+
+#: Independent witnesses, per house standards rule 7: literals, never
+#: `len(SCORECARD_METHODOLOGY_FILES)`, which would agree with any edit.
+_EXPECTED_METHODOLOGY_COUNTS: dict[str, int] = {
+    "scorecard": 3,
+    "ablation": 4,
+}
+
+
+def _methodology_digest(
+    label: str,
+    relpaths: tuple[str, ...],
+    repo_root: Path | None = None,
+) -> str:
+    """Sha256 over a named methodology manifest, same line format as above.
+
+    Reuses `relative/posix/path:sha256\\n` so a methodology hash and a
+    retrieval fingerprint are computed identically and can be reasoned about
+    together.
+    """
+    root = repo_root or REPO
+    expected = _EXPECTED_METHODOLOGY_COUNTS[label]
+    if len(relpaths) != expected:
+        raise RetrievalFingerprintError(
+            explain(
+                f"{label} methodology manifest has {len(relpaths)} file(s)",
+                f"expected exactly {expected}; update both the file tuple and "
+                "_EXPECTED_METHODOLOGY_COUNTS in "
+                "service/retrieval_fingerprint.py together",
+            )
+        )
+    lines = []
+    for relpath in sorted(relpaths):
+        path = root / relpath
+        if not path.is_file():
+            raise RetrievalFingerprintError(
+                explain(
+                    f"{label} methodology entry {relpath} does not exist",
+                    "restore the file, or remove it from the manifest "
+                    "deliberately with the expected count updated to match",
+                )
+            )
+        lines.append(f"{relpath}:{hashlib.sha256(path.read_bytes()).hexdigest()}\n")
+    return hashlib.sha256("".join(lines).encode("utf-8")).hexdigest()
+
+
+def compute_scorecard_methodology_sha256(repo_root: Path | None = None) -> str:
+    """How the canonical scorecard is measured and served, not what it measured."""
+    return _methodology_digest("scorecard", SCORECARD_METHODOLOGY_FILES, repo_root)
+
+
+def compute_ablation_methodology_sha256(repo_root: Path | None = None) -> str:
+    """The scorecard methodology plus the ablation harness itself."""
+    return _methodology_digest("ablation", ABLATION_METHODOLOGY_FILES, repo_root)
 
 
 def compute_retrieval_fingerprint(repo_root: Path | None = None) -> str:

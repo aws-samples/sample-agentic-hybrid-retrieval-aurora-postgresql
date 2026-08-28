@@ -258,6 +258,7 @@
     "weight_semantic": 0.45,
     "weight_trigram": 0.1
   },
+  "scorecard_methodology_sha256": "c001da6f199b5852e598715960173817d17da6a34b842a017d2a98830d3d293c",
   "scored_query_set_sha256": "f532c85d8226c8f0d498b354ef4a5cfae9f8945cd37477f8b75c71a12d72ff9c",
   "source": {
     "revision": "7256b3d4252eb6b03122c080c9c17071ffe2de4b",
