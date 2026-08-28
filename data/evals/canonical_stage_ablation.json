@@ -1,0 +1,330 @@
+{
+  "arms": {
+    "rrf_fused_no_rerank": {
+      "description": "The served fusion function (unweighted reciprocal rank fusion over FTS, trigram, and semantic candidates), with managed reranking disabled so the fused order is returned unchanged.",
+      "label": "RRF fused, reranking off",
+      "mrr": 0.915,
+      "ndcg@10": 0.861688685103425,
+      "ndcg@10_max": 1.0,
+      "ndcg@10_min": 0.09751658939953338,
+      "ndcg@10_query_wins": 15,
+      "ndcg@10_stdev": 0.2454131819848001,
+      "recall@10": 0.8833333333333334
+    },
+    "rrf_fused_reranked": {
+      "description": "The production path: the same fused pool as rrf_fused_no_rerank, reordered by managed reranking. Recomputed from benchmarks/results/canonical_served_results.csv rather than re-served, so this measurement spends no reranker calls.",
+      "label": "RRF fused + managed reranking (served path)",
+      "mrr": 0.9266666666666667,
+      "ndcg@10": 0.8712289643247111,
+      "ndcg@10_max": 1.0,
+      "ndcg@10_min": 0.2834654253028414,
+      "ndcg@10_query_wins": 16,
+      "ndcg@10_stdev": 0.2146969302952326,
+      "recall@10": 0.8666666666666666
+    },
+    "semantic_only": {
+      "description": "mosaic_search.search_vector alone: dense cosine ranking over the product embedding, with no lexical or trigram arm and no fusion.",
+      "label": "Semantic only",
+      "mrr": 0.7125,
+      "ndcg@10": 0.659700265956444,
+      "ndcg@10_max": 1.0,
+      "ndcg@10_min": 0.0,
+      "ndcg@10_query_wins": 12,
+      "ndcg@10_stdev": 0.4199764288203937,
+      "recall@10": 0.7
+    }
+  },
+  "candidate_recall_ceiling": {
+    "description": "Share of judged-relevant products present anywhere in the fused candidate pool before reranking, averaged over the scored queries. The ceiling reranking could ever reach: reranking only reorders this pool, it never adds a candidate absent from it.",
+    "judged_relevant_never_fetched": 2,
+    "pool_recall_ceiling": 0.95
+  },
+  "k": 10,
+  "measured_at": "2026-08-28T13:46:53.337901+00:00",
+  "models": {
+    "embedding": "us.cohere.embed-v4:0",
+    "rerank": "cohere.rerank-v3-5:0"
+  },
+  "per_query": [
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 1.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-001",
+      "query_text": "EchoBud S2",
+      "relevant_count": 1
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 1.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-002",
+      "query_text": "Sonora WH-C720",
+      "relevant_count": 1
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 0.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-003",
+      "query_text": "Sonorra WHC720",
+      "relevant_count": 1
+    },
+    {
+      "found_in_pool": 2,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 0.3003089125797725,
+        "rrf_fused_reranked": 0.2834654253028414,
+        "semantic_only": 0.7780891028628375
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-004",
+      "query_text": "noise cancelling headphones for a long flight under $200 with at least 40 hours of battery",
+      "relevant_count": 2
+    },
+    {
+      "found_in_pool": 3,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 0.7763672830184426,
+        "rrf_fused_reranked": 0.6735439182299785,
+        "semantic_only": 0.9013166960252389
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-005",
+      "query_text": "premium comfortable ANC headphones under $180 for all-day calls",
+      "relevant_count": 3
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [
+        429002
+      ],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 0.7871546029909718,
+        "rrf_fused_reranked": 0.7871546029909718,
+        "semantic_only": 0.0
+      },
+      "pool_recall": 0.5,
+      "query_id": "G-006",
+      "query_text": "quite mechancial keybord under $180 for shared office",
+      "relevant_count": 2
+    },
+    {
+      "found_in_pool": 2,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 0.9176601606601069,
+        "rrf_fused_reranked": 0.8996052605611106,
+        "semantic_only": 0.7871546029909718
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-007",
+      "query_text": "quiet wireless keyboard for a shared office; compare mechanical feel with the cheaper alternative",
+      "relevant_count": 2
+    },
+    {
+      "found_in_pool": 2,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 0.9467676761267002,
+        "rrf_fused_reranked": 0.9467676761267002,
+        "semantic_only": 0.9467676761267002
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-008",
+      "query_text": "ergonomic mesh chair for long workdays with adjustable lumbar support",
+      "relevant_count": 2
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 1.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-009",
+      "query_text": "mesh office chair with a headrest for 12-hour days under $800",
+      "relevant_count": 1
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 1.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-010",
+      "query_text": "single-cable 4K monitor for coding and photo editing with at least 90W USB-C power",
+      "relevant_count": 1
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 1.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-011",
+      "query_text": "adjustable aluminum laptop stand with a phone shelf and cable management under $100",
+      "relevant_count": 1
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 0.9173194127129571,
+        "rrf_fused_reranked": 0.3548675899387485,
+        "semantic_only": 0.3950679673211227
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-012",
+      "query_text": "carbon plated marathon shoe under $220 with stable cornering",
+      "relevant_count": 1
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [
+        234002
+      ],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 0.7452525342261976,
+        "rrf_fused_reranked": 0.7452525342261976,
+        "semantic_only": 0.7452525342261976
+      },
+      "pool_recall": 0.5,
+      "query_id": "G-013",
+      "query_text": "carbon plated marthon shoe AeroStride racer",
+      "relevant_count": 2
+    },
+    {
+      "found_in_pool": 2,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 0.95583058934618,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 0.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-014",
+      "query_text": "durable daily road running shoe without a carbon plate for high-mileage training",
+      "relevant_count": 2
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 0.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-015",
+      "query_text": "fitness watch under $300 with GPS, sleep tracking, and training readiness",
+      "relevant_count": 1
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 1.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-016",
+      "query_text": "GPS running watch for marathon training with maps, readiness, and more than 20 days of battery",
+      "relevant_count": 1
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 1.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-017",
+      "query_text": "4K conference webcam certified for Zoom, Teams, and Webex with a privacy shutter",
+      "relevant_count": 1
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 1.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-018",
+      "query_text": "portable waterproof speaker with Wi-Fi and Bluetooth for travel",
+      "relevant_count": 1
+    },
+    {
+      "found_in_pool": 2,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 0.09751658939953338,
+        "rrf_fused_reranked": 0.7871546029909718,
+        "semantic_only": 0.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-019",
+      "query_text": "Which ergonomic chair best supports 12-hour workdays, and what evidence supports the recommendation?",
+      "relevant_count": 2
+    },
+    {
+      "found_in_pool": 2,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "rrf_fused_no_rerank": 0.7895959410076381,
+        "rrf_fused_reranked": 0.9467676761267002,
+        "semantic_only": 0.6403567395758113
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-020",
+      "query_text": "ergonomic mesh chair with adjustable lumbar and seat depth for twelve hour workdays",
+      "relevant_count": 2
+    }
+  ],
+  "query_set": "data/evals/canonical_queries.jsonl",
+  "query_set_sha256": "fdfae7d6e79f1b1c6f1cd992e2fe608417d7213f6d69ab4a309af845434da17e",
+  "retrieval_fingerprint": "0dbd09c25f33c1b3d092ba575844ffb648e058e2f11c8db7a27bdfe197e1e71f",
+  "scored_query_count": 20,
+  "scored_query_set_sha256": "f532c85d8226c8f0d498b354ef4a5cfae9f8945cd37477f8b75c71a12d72ff9c",
+  "served_scorecard_reference": {
+    "measured_at": "2026-08-28T13:12:18.749073+00:00",
+    "path": "data/evals/canonical_scorecard.json",
+    "retrieval_fingerprint": "0dbd09c25f33c1b3d092ba575844ffb648e058e2f11c8db7a27bdfe197e1e71f",
+    "source_revision": "7256b3d4252eb6b03122c080c9c17071ffe2de4b"
+  },
+  "source": {
+    "revision": "6eecb9d227f1acb5d49cf418a11e6d54fe6bc4ee",
+    "worktree_dirty": false
+  },
+  "spread_note": "20 queries and 74 judgments cannot separate small differences between arms. Read every mean alongside its own per-query minimum, maximum, and standard deviation, and treat a mean difference smaller than that spread as within noise rather than as a proven improvement."
+}
