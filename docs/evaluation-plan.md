@@ -11,7 +11,7 @@ interchangeable.
 - graded judgments from 0 (irrelevant) through 3 (ideal);
 - explicit hard negatives, expected channels, and ranking behavior;
 - 19 single-request product-retrieval cases;
-- one agent-contract case, `G-010`, validated through Lab 3 rather than
+- one agent-contract case, `G-021`, validated through Lab 3 rather than
   mis-scored as one product search.
 
 Run the measured release scorecard against Aurora:

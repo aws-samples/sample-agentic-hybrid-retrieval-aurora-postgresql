@@ -57,7 +57,7 @@ const minimalScorecard: RetrievalScorecardResponse = {
     mrr: 0.92,
     ndcg_at_10: 0.85,
     metric_explanations: { "recall@10": "x", mrr: "y", "ndcg@10": "z" },
-    excluded_agent_contract_query_ids: ["G-010"],
+    excluded_agent_contract_query_ids: ["G-021"],
     per_query_metrics: [],
   },
   regression_anchors: { passed: 4, total: 4, anchors: [] },

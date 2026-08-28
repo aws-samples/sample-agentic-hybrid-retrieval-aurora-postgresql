@@ -62,7 +62,7 @@ def scorecard(*, recall=0.8, mrr=0.7, ndcg=0.75):
         "retrieval_fingerprint": "c" * 64,
         "canonical_query_count": 20,
         "product_retrieval_query_count": 19,
-        "excluded_agent_contract_queries": ["G-010"],
+        "excluded_agent_contract_queries": ["G-021"],
         "deterministic_release_checks": [],
         "ranked_result_sha256": "ranked-result-set",
         "k": 10,
@@ -113,7 +113,7 @@ def test_committed_scorecard_keeps_per_query_and_ranked_result_provenance():
     )
     assert {row["query_id"] for row in baseline["per_query_metrics"]} == {
         f"G-{number:03d}" for number in range(1, 22)
-    } - {"G-010"}
+    } - {"G-021"}
     assert len(baseline["ranked_result_sha256"]) == 64
     assert len(baseline["dataset_manifest_sha256"]) == 64
     assert baseline["source"]["revision"]
@@ -351,13 +351,13 @@ def test_scorecard_refuses_a_checkpoint_from_another_run_contract(tmp_path):
 def test_product_retrieval_scorecard_excludes_agent_contract_cases():
     queries = [
         {"query_id": "G-001"},
-        {"query_id": "G-010", "evaluation_scope": "agent_contract"},
+        {"query_id": "G-021", "evaluation_scope": "agent_contract"},
     ]
 
     scored, excluded = product_retrieval_queries(queries)
 
     assert [query["query_id"] for query in scored] == ["G-001"]
-    assert excluded == ["G-010"]
+    assert excluded == ["G-021"]
 
 
 def test_ranked_result_identity_is_stable_but_order_sensitive():
@@ -521,15 +521,15 @@ def test_hard_negatives_must_stay_out_of_the_result_window():
     """
     queries = [
         {
-            "query_id": "G-013",
+            "query_id": "G-012",
             "hard_negative_ids": [234001, 210001],
             "judgments": [{"product_id": 234002, "grade": 3, "rationale": "x" * 20}],
         }
     ]
-    clean = {"G-013": [(1, 234002), (2, 234003)]}
+    clean = {"G-012": [(1, 234002), (2, 234003)]}
     validate_hard_negatives(queries, clean)
 
-    leaked = {"G-013": [(1, 234002), (2, 210001)]}
+    leaked = {"G-012": [(1, 234002), (2, 210001)]}
     with pytest.raises(ValueError) as failure:
         validate_hard_negatives(queries, leaked)
     assert "210001" in str(failure.value)

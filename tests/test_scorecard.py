@@ -257,7 +257,7 @@ def test_scored_queries_excludes_the_agent_contract_case():
 
     assert {query["query_id"] for query in scored} == {
         f"G-{number:03d}" for number in range(1, 22)
-    } - {"G-010"}
+    } - {"G-021"}
 
 
 def test_retrieval_quality_rejects_a_population_count_that_drifted_from_the_artifact(
@@ -285,7 +285,7 @@ def test_retrieval_scorecard_serves_the_committed_population_metrics():
     assert response.retrieval_quality.recall_at_10 == artifact["metrics"]["recall@10"]
     assert response.retrieval_quality.mrr == artifact["metrics"]["mrr"]
     assert response.retrieval_quality.ndcg_at_10 == artifact["metrics"]["ndcg@10"]
-    assert response.retrieval_quality.excluded_agent_contract_query_ids == ["G-010"]
+    assert response.retrieval_quality.excluded_agent_contract_query_ids == ["G-021"]
     # The committed artifact now carries labels, so pass-through must expose
     # them on every row. There is no absent-case test here on purpose:
     # service/scorecard.py copies these rows verbatim, so no code path could
@@ -320,9 +320,9 @@ def test_regression_anchors_pass_and_total_agree_on_the_committed_artifact():
     assert response.regression_anchors.total == 6
     assert {anchor.query_id for anchor in response.regression_anchors.anchors} == {
         "G-001",
-        "G-015",
-        "G-019",
-        "G-021",
+        "G-014",
+        "G-018",
+        "G-020",
     }
     # The committed artifact now carries labels, so every anchor must expose
     # both. The absent case stays covered against a synthetic artifact by
@@ -370,8 +370,8 @@ def test_eligibility_fixture_count_comes_from_the_harnesss_own_filter():
     fixtures = _eligibility_fixtures(scored)
 
     assert len(fixtures) == 18
-    assert "G-014" not in fixtures  # the one scored query with no hard negatives
-    assert "G-010" not in fixtures  # excluded from product_retrieval entirely
+    assert "G-013" not in fixtures  # the one scored query with no hard negatives
+    assert "G-021" not in fixtures  # excluded from product_retrieval entirely
 
 
 def test_eligibility_fixture_count_tracks_the_scored_population_independently():

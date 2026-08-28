@@ -49,12 +49,12 @@ inside the production validators:
 |---|---|---|
 | Retrieve | `G-003` | Neither FTS nor semantic search can recover the target; restoring the trigram channel is the only path in |
 | Retrieve | `G-001` | Exact visible model name remains first with FTS provenance |
-| Retrieve | `G-013` | The eligible carbon racer remains and the refurbished sibling is excluded |
+| Retrieve | `G-012` | The eligible carbon racer remains and the refurbished sibling is excluded |
 | Rank | `G-008` | RRF moves from rank-collapsing arithmetic to `1 / (k + source_rank)` |
 | Rank | `G-007` | Mechanical and cheaper keyboard alternatives retain inspectable rank movement |
 | Rank | `G-009` | Price and headrest constraints remain pre-ranking gates |
-| Reason | `G-010` | Evidence plumbing moves a fail-closed response to a grounded cited comparison |
-| Reason | `G-020` | The 12-hour chair claim resolves to real evidence records |
+| Reason | `G-021` | Evidence plumbing moves a fail-closed response to a grounded cited comparison |
+| Reason | `G-019` | The 12-hour chair claim resolves to real evidence records |
 
 The query text, filters, targets, bad observation, good observation, and
 participant edit are owned by `data/evals/mosaic_labs_missions.json`. Workshop

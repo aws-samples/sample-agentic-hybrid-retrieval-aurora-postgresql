@@ -139,7 +139,7 @@
       "duration_minutes": 15,
       "title": "Lab 3 - Build the retrieval agent",
       "discover_label": "Evidence-backed agent answer",
-      "canonical_query_id": "G-010",
+      "canonical_query_id": "G-021",
       "query": "Choose a quiet mechanical keyboard and a mesh ergonomic chair for 12-hour workdays with adjustable seat depth and dynamic lumbar support, each under $800. Compare the strongest options and explain why the cheaper alternatives ranked lower.",
       "filters": {
         "domain": "home_office",
@@ -278,7 +278,7 @@
       "duration_minutes": 3,
       "title": "Checkpoint - Apply eligibility constraints",
       "discover_label": "Intent with hard eligibility filters",
-      "canonical_query_id": "G-013",
+      "canonical_query_id": "G-012",
       "query": "carbon plated marathon shoe under $220 with stable cornering",
       "filters": {
         "domain": "running_fitness",
@@ -395,7 +395,7 @@
       "duration_minutes": 3,
       "title": "Checkpoint - Resolve recommendation evidence",
       "discover_label": "Ground a 12-hour chair recommendation",
-      "canonical_query_id": "G-020",
+      "canonical_query_id": "G-019",
       "query": "Which ergonomic chair best supports 12-hour workdays, and what evidence supports the recommendation?",
       "filters": {
         "domain": "home_office",

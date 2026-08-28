@@ -163,7 +163,7 @@ def validate_hard_negatives(
     `hard_negative_ids` names, per query, the near-identical product that must not
     come back: a refurbished sibling, a non-carbon shoe, the same subcategory under a
     different model identity. `docs/lab-golden-queries.md` calls these
-    validator-owned controls, and G-013's declared behavior is that they are "removed
+    validator-owned controls, and G-012's declared behavior is that they are "removed
     inside every retrieval arm".
 
     Nothing enforced that. `tests/test_canonical_evals.py` asserts the *judgments*

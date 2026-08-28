@@ -61,7 +61,7 @@ function scorecardFixture(
         mrr: "How early the first relevant result appears.",
         "ndcg@10": "How well the top 10 are ordered once relevance differs.",
       },
-      excluded_agent_contract_query_ids: ["G-010"],
+      excluded_agent_contract_query_ids: ["G-021"],
       per_query_metrics: [],
     },
     regression_anchors: {
@@ -69,9 +69,9 @@ function scorecardFixture(
       total: 4,
       anchors: [
         { query_id: "G-001", product_id: 17001, type: "top_rank" },
-        { query_id: "G-015", product_id: 210001, type: "top_rank" },
-        { query_id: "G-015", product_id: 210002, type: "present_top_k", k: 3 },
-        { query_id: "G-019", product_id: 30001, type: "top_rank" },
+        { query_id: "G-014", product_id: 210001, type: "top_rank" },
+        { query_id: "G-014", product_id: 210002, type: "present_top_k", k: 3 },
+        { query_id: "G-018", product_id: 30001, type: "top_rank" },
       ],
     },
     eligibility_contracts: {

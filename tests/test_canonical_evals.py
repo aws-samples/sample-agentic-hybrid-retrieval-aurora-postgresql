@@ -43,9 +43,9 @@ def test_participant_queries_resolve_from_the_lab_authority():
         ("G-007", "compare-cheaper-alternative"),
         ("G-008", "rank-with-evidence"),
         ("G-009", "ranking-filter-control"),
-        ("G-010", "agentic-research"),
-        ("G-013", "semantic-eligibility"),
-        ("G-020", "evidence-grounding"),
+        ("G-021", "agentic-research"),
+        ("G-012", "semantic-eligibility"),
+        ("G-019", "evidence-grounding"),
     }
     assert {
         (query["query_id"], query["mission_id"])
@@ -114,7 +114,7 @@ def test_canonical_set_covers_the_workshop_failure_modes():
 
 
 def test_agent_orchestration_is_not_scored_as_single_request_retrieval():
-    agent_case = next(query for query in QUERIES if query["query_id"] == "G-010")
+    agent_case = next(query for query in QUERIES if query["query_id"] == "G-021")
     assert agent_case["evaluation_scope"] == "agent_contract"
 
 
@@ -131,8 +131,8 @@ def test_agent_grounding_claim_requires_product_spec_support():
         if item["stage"] == "reason" and item.get("canonical_query_id")
     }
 
-    assert "product_spec" in by_id["G-020"]["expected_evidence_types"]
-    assert reason_cases["G-020"]["required_citation_support"] == [
+    assert "product_spec" in by_id["G-019"]["expected_evidence_types"]
+    assert reason_cases["G-019"]["required_citation_support"] == [
         {
             "product_id": 370001,
             "evidence_type": "product_spec",
@@ -146,11 +146,11 @@ def test_repaired_fixture_release_checks_are_machine_verifiable():
     assert by_id["G-001"]["release_checks"] == [
         {"type": "top_rank", "product_id": 17001}
     ]
-    assert by_id["G-015"]["release_checks"] == [
+    assert by_id["G-014"]["release_checks"] == [
         {"type": "top_rank", "product_id": 210001},
         {"type": "present_top_k", "product_id": 210002, "k": 3},
     ]
-    assert by_id["G-019"]["release_checks"] == [
+    assert by_id["G-018"]["release_checks"] == [
         {"type": "top_rank", "product_id": 30001}
     ]
 

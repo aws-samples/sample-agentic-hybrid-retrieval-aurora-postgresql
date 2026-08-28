@@ -11,7 +11,7 @@ contract without creating a second copy of its values.
 |---|---|---|---|---|
 | Retrieve | `G-003` / `typo-recovery` | Neither FTS nor the semantic arm can recover product 2; the disconnected pg_trgm arm contributes nothing, so product 2 is absent from the results | Restore the trigram CTE and candidate channel | Product 2 enters through the restored trigram channel alone, at trigram rank 1 and final rank 1; hard filters still hold |
 | Rank | `G-008` / `rank-with-evidence` | Product 370002 wins every arm, but collapsed contributions put 370001 at fused rank 1; reranking masks the defect | Restore `1 / (k + source_rank)` | Product 370002 is fused and final rank 1, with stable, inspectable contributions |
-| Reason | `G-010` / `agentic-research` | Retrieval and evidence calls occur, but synthesis fails closed with HTTP 503 | Attach retrieved evidence IDs to product-owned synthesis state | HTTP 200, grounded comparison, and citations resolve to real evidence records |
+| Reason | `G-021` / `agentic-research` | Retrieval and evidence calls occur, but synthesis fails closed with HTTP 503 | Attach retrieved evidence IDs to product-owned synthesis state | HTTP 200, grounded comparison, and citations resolve to real evidence records |
 
 These three are not generic example prompts. Workshop Studio runs the same
 request before and after one focused change.
@@ -22,10 +22,10 @@ participant exercises:
 | Lab | Canonical query | Production validator proves |
 |---|---|---|
 | Retrieve | `G-001` / `exact-identity` | FTS resolves the exact visible model name and it remains first through fusion and reranking |
-| Retrieve | `G-013` / `semantic-eligibility` | A near-identical refurbished hard negative is excluded inside every arm |
+| Retrieve | `G-012` / `semantic-eligibility` | A near-identical refurbished hard negative is excluded inside every arm |
 | Rank | `G-007` / `compare-cheaper-alternative` | Rank movement between a mechanical keyboard and cheaper alternative is inspectable |
 | Rank | `G-009` / `ranking-filter-control` | Price and headrest constraints remain deterministic gates |
-| Reason | `G-020` / `evidence-grounding` | A recommendation cites resolvable evidence supporting the 12-hour claim |
+| Reason | `G-019` / `evidence-grounding` | A recommendation cites resolvable evidence supporting the 12-hour claim |
 
 The other fourteen canonical queries broaden offline and release evaluation. They
 are not required participant steps.

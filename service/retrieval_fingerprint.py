@@ -47,7 +47,7 @@ Added to the manifest specified by the request, and why
   ``filters`` into every mission-backed canonical query before scoring --
   measured at 8 of the 19 currently-scored ``product_retrieval`` queries
   (``G-001``, ``G-003``, ``G-004``, ``G-007``, ``G-008``, ``G-009``,
-  ``G-013``, ``G-020``). Editing a mission's ``filters`` changes candidate
+  ``G-012``, ``G-019``). Editing a mission's ``filters`` changes candidate
   eligibility for those queries without changing a single byte of
   ``canonical_queries.jsonl``. Leaving this file out of the manifest would
   have reopened exactly the blind spot this module exists to close, so it is
