@@ -380,7 +380,20 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
             />
           </PlaygroundFigures>
 
-          <p className="labs-teaching-line">The model requests. The application authorizes.</p>
+          {/* "Authorization" reads as login, RBAC, or row-level security to most
+              participants, and this lab is none of those. It is citation scope: a
+              retrieval-correctness invariant over which evidence records may
+              support this answer. The disclaimer is deliberately adjacent to the
+              teaching line rather than buried in a disclosure, because the
+              misreading happens on first glance. */}
+          <p className="labs-teaching-line">
+            The model requests. The application decides which evidence may be cited.
+          </p>
+          <p className="labs-teaching-aside">
+            This is not user authentication or RBAC. The application controls which
+            retrieved evidence may support this answer, and synthesis fails closed
+            when a citation falls outside that set.
+          </p>
 
           <ol className="labs-chain" aria-label="Evidence state chain">
             {chain.map((step) => (

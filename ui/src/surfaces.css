@@ -10832,6 +10832,19 @@
   line-height: 1.5;
 }
 
+/* Sits directly under .labs-teaching-line and continues its left rule, so the
+   two read as one block: the claim, then the boundary it is not making. */
+.labs-teaching-aside {
+  max-width: 74ch;
+  margin: 0;
+  padding: 0 16px 13px;
+  border-left: 1px solid var(--ink);
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
 .labs-profile {
   display: grid;
   gap: 1px;
