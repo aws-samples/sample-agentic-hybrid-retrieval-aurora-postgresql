@@ -77,19 +77,37 @@ def product_retrieval_queries(
     return scored, excluded
 
 
+#: Retrieval acronyms the mechanical transform below cannot recognize. Without
+#: these, `rrf_and_reranking` renders as "Rrf and reranking" and
+#: `eligibility_before_ann` as "Eligibility before ann", which reads as a name.
+#: These labels exist to make internal identifiers legible to a participant, so
+#: three of them rendering as typos defeats the purpose.
+#:
+#: This is a vocabulary, not a per-concept mapping: it holds only tokens that
+#: appear in `data/evals/canonical_queries.jsonl` today, and an unrecognized
+#: token still falls through to the mechanical rule. Adding a concept that uses
+#: a new acronym is a one-line change here, and `test_score_evals.py` pins every
+#: label the current query set produces, so a missing entry fails loudly rather
+#: than shipping a lowercased acronym.
+_CONCEPT_ACRONYMS = {"rrf": "RRF", "jsonb": "JSONB", "ann": "ANN"}
+
+
 def concept_label(teaching_concept: str) -> str:
     """Render a `teaching_concept` slug as a human-readable label.
 
-    Mechanical only: underscores become spaces and the first character is
-    capitalized (`semantic_intent_and_filters` -> `Semantic intent and
-    filters`). Deliberately not a hand-written second mapping that could
-    drift from `data/evals/canonical_queries.jsonl` -- a few concept slugs
-    carry acronyms (`rrf`, `jsonb`, `ann`) that this transform cannot
-    recognize as acronyms, so those specific labels read awkwardly. That is
-    a known, reported limitation of the mechanical rule, not a bug to
-    special-case here.
+    Underscores become spaces and the first word is capitalized, so
+    `semantic_intent_and_filters` becomes `Semantic intent and filters`. Tokens
+    in `_CONCEPT_ACRONYMS` keep their conventional casing instead.
+
+    Deliberately not a hand-written label per concept, which would drift from
+    the query set; the slug remains the single source and only its acronyms are
+    special-cased.
     """
-    return teaching_concept.replace("_", " ").capitalize()
+    words = [_CONCEPT_ACRONYMS.get(word, word) for word in teaching_concept.split("_")]
+    first, rest = words[0], words[1:]
+    if first not in _CONCEPT_ACRONYMS.values():
+        first = first.capitalize()
+    return " ".join([first, *rest])
 
 
 def label_per_query_metrics(

@@ -392,15 +392,22 @@ def test_scorecard_rejects_an_unknown_scope_with_a_fix():
         ("semantic_intent_and_filters", "Semantic intent and filters"),
         ("typo_recovery", "Typo recovery"),
         ("multi_attribute_filter", "Multi attribute filter"),
-        # Known, reported wart: the mechanical transform cannot recognize an
-        # acronym inside a slug, so these three read awkwardly. See
-        # `concept_label`'s docstring and the task report for the full list.
-        ("rrf_and_reranking", "Rrf and reranking"),
-        ("jsonb_and_price_filters", "Jsonb and price filters"),
-        ("eligibility_before_ann", "Eligibility before ann"),
+        # Acronyms keep their conventional casing. Without this, these render as
+        # "Rrf and reranking", "Jsonb and price filters" and "Eligibility before
+        # ann" -- the last reading as a person's name. These labels exist to make
+        # internal identifiers legible, so three of them looking like typos
+        # defeats the purpose. Every acronym the current query set uses is listed
+        # here, so adding a concept with an unlisted acronym fails loudly.
+        ("rrf_and_reranking", "RRF and reranking"),
+        ("jsonb_and_price_filters", "JSONB and price filters"),
+        ("eligibility_before_ann", "Eligibility before ANN"),
+        # A slug with no acronym is still purely mechanical.
+        ("graded_sibling_ordering", "Graded sibling ordering"),
     ],
 )
-def test_concept_label_is_a_pure_mechanical_transform(teaching_concept, expected):
+def test_concept_label_capitalizes_words_and_preserves_acronyms(
+    teaching_concept, expected
+):
     assert concept_label(teaching_concept) == expected
 
 
