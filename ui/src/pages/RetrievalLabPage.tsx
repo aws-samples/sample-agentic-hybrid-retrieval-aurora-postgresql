@@ -14,6 +14,7 @@ import {
   PlaygroundStage,
 } from "../components/PlaygroundStage";
 import { ReasonStage } from "../components/ReasonStage";
+import { RepairEvidence } from "../components/RepairEvidence";
 import { RetrievalDiagnosticsStrip } from "../components/RetrievalDiagnosticsStrip";
 import { RetrievalScorecard } from "../components/RetrievalScorecard";
 import { RetrievalObservatory } from "../components/RetrievalObservatory";
@@ -540,6 +541,11 @@ export function RetrievalLabPage() {
           </section>
         ) : null}
       </PlaygroundStage>
+
+      {/* Not a numbered stage: this reads two persisted events Stage 01/02 already
+          produced rather than running its own retrieval, so it sits between them
+          and Reason as a lens over that evidence, not a fourth pipeline step. */}
+      <RepairEvidence latestSearchEventId={response?.search_event_id ?? null} />
 
       <PlaygroundStage
         number="03"

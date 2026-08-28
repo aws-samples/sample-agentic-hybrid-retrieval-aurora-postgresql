@@ -11491,3 +11491,135 @@
   font-size: var(--labs-detail);
   font-weight: 600;
 }
+
+/* Repair evidence: not a numbered stage, so it gets its own border rather than
+   the numbered gutter `.labs-stage` uses. Two persisted events, diffed. */
+.labs-repair {
+  display: grid;
+  gap: 16px;
+  padding-top: clamp(26px, 3vw, 40px);
+  border-top: 1px solid var(--line);
+}
+
+.labs-repair h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: var(--labs-h3);
+  font-weight: 500;
+}
+
+.labs-repair-intro {
+  max-width: 74ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-repair-intro code {
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-repair-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 14px;
+}
+
+.labs-repair-form label {
+  display: grid;
+  flex: 1 1 260px;
+  gap: 6px;
+  min-width: 0;
+}
+
+.labs-repair-form label > span {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+.labs-repair-form input {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-repair-form input:focus-visible {
+  outline: 2px solid var(--maroon-800);
+  outline-offset: 1px;
+}
+
+.labs-repair .labs-disclosure-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.labs-repair .labs-disclosure-error > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.labs-repair-hint,
+.labs-repair-target,
+.labs-repair-no-before {
+  max-width: 74ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-repair-target code,
+.labs-repair-target {
+  font-weight: 500;
+}
+
+.labs-repair-no-before {
+  padding: 13px 16px;
+  border-left: 1px solid var(--line);
+  background: var(--maroon-100);
+  color: var(--ink);
+}
+
+/* The unchanged-rank reassurance: an explanation, not a success badge. Deliberately
+   not `is-good` styling -- an unmoved rank in this scenario is confirmation the
+   repair worked underneath, not a result to celebrate on its own. */
+.labs-repair-reassurance {
+  max-width: 74ch;
+  margin: 0;
+  padding: 13px 16px;
+  border-left: 1px solid var(--line-dark);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-repair-caution {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 74ch;
+  margin: 0;
+  padding: 13px 16px;
+  border-left: 1px solid var(--danger);
+  background: var(--paper);
+  color: var(--danger);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-repair-caution > svg {
+  flex: none;
+  margin-top: 2px;
+}
