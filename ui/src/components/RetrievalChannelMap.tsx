@@ -30,6 +30,13 @@ import type { ReadinessResponse, SearchResponse } from "../types";
  * be a claim this response cannot support. When the scenario's
  * `expected_techniques` names the arm and the count is still zero, the arm was
  * required and absent, which is exactly the repair state.
+ *
+ * The index name and the one-line purpose below print for every arm, not only a
+ * broken one. Before this, `indexName` only ever appeared inside `ChannelSplit`,
+ * so a participant learned to associate "index" with "something is wrong" and a
+ * healthy run never said which Postgres index served which arm, or why the arm
+ * exists at all. The ordinary render says both, whether or not anything here is
+ * broken.
  */
 
 export type ChannelState = "contributing" | "disconnected" | "silent";
@@ -45,12 +52,27 @@ export interface ChannelReading {
   /** False only when readiness reports this arm's index missing or invalid. */
   indexHealthy: boolean | null;
   indexName: string;
+  /** What this arm is for, one line, independent of any particular run. */
+  purpose: string;
 }
 
 const armIndexName: Record<RetrievalArm, string> = {
   fts: "product_document_fts_gin_idx",
   trigram: "product_document_trigram_gin_idx",
   semantic: "product_document_embedding_hnsw_cosine_idx",
+};
+
+/**
+ * What each arm is for, in the shopper's own input rather than the algorithm.
+ * Three names and three counts do not say why there are three of them; this
+ * does. Written once here, keyed off the same `RetrievalArm` that names the
+ * index above, so the ordinary render and `ChannelSplit` cannot describe one
+ * arm two different ways.
+ */
+const armPurpose: Record<RetrievalArm, string> = {
+  fts: "Wins when the words a shopper typed already appear in the catalog, such as a model name or a brand.",
+  trigram: "Earns its place when those words are misspelled or a variant, so character overlap finds what exact matching missed.",
+  semantic: "Answers a described benefit or intent that shares no words with the product text at all.",
 };
 
 /** Which `expected_techniques` tokens name each arm in the eval fixtures. */
@@ -89,6 +111,7 @@ export function readChannels(
         ? !(missingIndexes ?? []).includes(indexName)
         : null,
       indexName,
+      purpose: armPurpose[entry.key],
     };
   });
 }
@@ -169,8 +192,12 @@ export function RetrievalChannelMap({
           <li className={`is-${reading.state}`} key={reading.arm}>
             <StateMark state={reading.state} />
             <strong>{reading.label}</strong>
-            <code>{reading.mechanism}</code>
+            <div className="labs-channel-mechanism">
+              <code>{reading.mechanism}</code>
+              <small>{reading.indexName}</small>
+            </div>
             <span>{stateWord(reading)}</span>
+            <p className="labs-channel-purpose">{reading.purpose}</p>
           </li>
         ))}
       </ul>

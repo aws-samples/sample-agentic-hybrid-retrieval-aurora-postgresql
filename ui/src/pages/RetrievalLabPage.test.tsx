@@ -14,6 +14,7 @@ import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMission
 import { showcaseCatalogPage } from "../showcase";
 import type {
   ProductSummary,
+  ReadinessResponse,
   RetrievalDiagnostics,
   RetrievalScorecardResponse,
   SearchResponse,
@@ -305,6 +306,58 @@ async function awaitPackageFinale() {
   await screen.findByText("Package what you built");
 }
 
+/** All three retrieval indexes present, valid and ready -- nothing broken. */
+const healthyReadiness: ReadinessResponse = {
+  status: "ready",
+  database_ready: true,
+  model_space_ready: true,
+  database: {
+    database_name: "mosaic",
+    server_version: "16.4",
+    schema_ready: true,
+    vector_version: "0.8.0",
+    product_count: 500_000,
+    embedded_product_count: 500_000,
+    embedding_dimensions: 1024,
+    embedding_model_ids: ["us.cohere.embed-v4:0"],
+    premium_product_count: 120,
+    evidence_product_count: 120,
+    missing_retrieval_indexes: [],
+    missing_retrieval_functions: [],
+  },
+  configured_models: {
+    embedding: "us.cohere.embed-v4:0",
+    rerank: "cohere.rerank-v3-5:0",
+    agent: "agent",
+    synthesis: "synthesis",
+  },
+  bedrock_credentials: { ready: true },
+};
+
+/** A run where every arm found candidates, so none can read as disconnected. */
+const allArmsHealthyDiagnostics = {
+  strategy: "hybrid",
+  embedding_model_id: "us.cohere.embed-v4:0",
+  embedding_dimensions: 1024,
+  rerank_model_id: "cohere.rerank-v3-5:0",
+  rerank_status: "applied" as const,
+  retrieval_profile: {} as RetrievalDiagnostics["retrieval_profile"],
+  candidate_counts: {
+    fused_pool: 12,
+    fts_in_pool: 5,
+    trigram_in_pool: 4,
+    semantic_in_pool: 10,
+  },
+  stage_timings_ms: {},
+  total_latency_ms: 100,
+} satisfies NonNullable<SearchResponse["diagnostics"]>;
+
+const allArmsHealthyResponse: SearchResponse = {
+  ...primaryResponse,
+  search_event_id: "all-arms-healthy",
+  diagnostics: allArmsHealthyDiagnostics,
+};
+
 describe("RetrievalLabPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/labs/retrieval");
@@ -478,6 +531,37 @@ describe("RetrievalLabPage", () => {
     });
     expect(await screen.findByText("Live run complete")).toBeTruthy();
     expect(screen.queryByText("Repair verified")).toBeNull();
+  });
+
+  it("shows every arm's own Postgres index in the ordinary, nothing-broken render", async () => {
+    // The gap this closes: `indexName` used to reach the screen only inside
+    // `ChannelSplit`, the split rendered solely for a required arm the run did
+    // not get. A check that only asserted the text appeared somewhere would
+    // already pass today on that broken branch, so this run is deliberately
+    // healthy in every arm and asserts the ordinary list carries all three
+    // index names while the broken-arm split never renders at all.
+    vi.mocked(api.readiness).mockReset();
+    vi.mocked(api.readiness).mockResolvedValue(healthyReadiness);
+    vi.mocked(api.search).mockReset();
+    vi.mocked(api.search).mockResolvedValueOnce(allArmsHealthyResponse);
+
+    render(<RetrievalLabPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+
+    // Witness that the ordinary list actually rendered, independently of the
+    // index-name assertion below: a literal row count, not a count derived
+    // from the same "does it mention the index name" predicate.
+    await waitFor(() => {
+      expect(document.querySelectorAll(".labs-channel-list > li")).toHaveLength(3);
+    });
+    expect(document.querySelector(".labs-channel-split")).toBeNull();
+
+    const items = [...document.querySelectorAll(".labs-channel-list > li")];
+    expect(items.map((item) => item.textContent)).toEqual([
+      expect.stringContaining("product_document_fts_gin_idx"),
+      expect.stringContaining("product_document_trigram_gin_idx"),
+      expect.stringContaining("product_document_embedding_hnsw_cosine_idx"),
+    ]);
   });
 
   it("runs the deep-linked scenario and hands the response to the instrument", async () => {

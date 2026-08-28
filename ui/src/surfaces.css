@@ -10503,6 +10503,29 @@
   text-align: right;
 }
 
+/* Mechanism and the Postgres index behind it, stacked so the index reads as a
+   detail under the name rather than a fourth column competing with the count. */
+.labs-channel-mechanism {
+  display: grid;
+  gap: 2px;
+}
+
+.labs-channel-mechanism small {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+/* One line, every arm, every render: what it is for. Full width so it reads as
+   a caption under the row rather than a fifth column squeezed beside the count. */
+.labs-channel-purpose {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
 .labs-channel-mark {
   color: var(--line-dark);
 }
@@ -11110,7 +11133,7 @@
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .labs-channel-list > li > code {
+  .labs-channel-list > li > .labs-channel-mechanism {
     grid-column: 2;
   }
 

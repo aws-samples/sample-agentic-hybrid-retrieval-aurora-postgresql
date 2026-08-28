@@ -113,6 +113,37 @@ describe("readChannels", () => {
     ]);
   });
 
+  it("names the Postgres index and the purpose of every arm, healthy or not", () => {
+    // The gap this closes: before, `indexName` only ever reached the screen
+    // inside the broken-arm split, and nothing said what an arm was for. Both
+    // must be present for every arm in the ordinary, nothing-broken state, not
+    // only when a required arm is disconnected.
+    const readings = readChannels(
+      response({
+        fused_pool: 12,
+        fts_in_pool: 5,
+        trigram_in_pool: 4,
+        semantic_in_pool: 10,
+      }),
+      [],
+      readiness([]),
+    );
+
+    expect(readings.map((reading) => reading.indexName)).toEqual([
+      "product_document_fts_gin_idx",
+      "product_document_trigram_gin_idx",
+      "product_document_embedding_hnsw_cosine_idx",
+    ]);
+    expect(readings.map((reading) => reading.purpose)).toEqual([
+      "Wins when the words a shopper typed already appear in the catalog, such as a model name or a brand.",
+      "Earns its place when those words are misspelled or a variant, so character overlap finds what exact matching missed.",
+      "Answers a described benefit or intent that shares no words with the product text at all.",
+    ]);
+    // Every arm is contributing, none disconnected: this is the healthy state,
+    // and the two facts above hold in it exactly as they hold in the broken one.
+    expect(readings.every((reading) => reading.state === "contributing")).toBe(true);
+  });
+
   it("calls the required arm disconnected while its index stays healthy", () => {
     // The measured Lab 1 broken state: the trigram GIN index is present and valid,
     // and no candidate in the pool carries a trigram rank.
