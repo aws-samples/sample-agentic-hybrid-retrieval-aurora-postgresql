@@ -705,14 +705,31 @@ class ScorecardRetrievalQuality(BaseModel):
     ndcg_at_10: float
     metric_explanations: dict[str, str]
     excluded_agent_contract_query_ids: list[str]
+    #: Read straight from the artifact's `per_query_metrics`: `query_id`,
+    #: `recall@k`, `reciprocal_rank`, `ndcg@k`, plus `query_text` and
+    #: `concept_label` when the artifact was measured after labels were
+    #: added. Untyped deliberately -- this is a pass-through of whatever the
+    #: committed artifact recorded, not a contract this service defines.
     per_query_metrics: list[dict[str, Any]]
 
 
 class ScorecardGoldenAnchor(BaseModel):
+    """One golden regression anchor, with `query_id` remaining the audit key.
+
+    `query_text` and `concept_label` are read straight from the committed
+    artifact's `deterministic_release_checks` entries when present, so a
+    golden anchor reads as a behaviour rather than an opaque code. Both
+    default to `None`: the artifact committed before this field existed
+    carries neither, and the UI must degrade to `query_id` alone rather than
+    render `None`.
+    """
+
     query_id: str
     product_id: int
     type: Literal["top_rank", "present_top_k"]
     k: int | None = None
+    query_text: str | None = None
+    concept_label: str | None = None
 
 
 class ScorecardRegressionAnchors(BaseModel):

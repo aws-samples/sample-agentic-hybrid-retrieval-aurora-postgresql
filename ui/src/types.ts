@@ -780,14 +780,28 @@ export interface ScorecardRetrievalQuality {
   ndcg_at_10: number;
   metric_explanations: Record<string, string>;
   excluded_agent_contract_query_ids: string[];
+  /**
+   * Each row always carries `query_id`, `recall@10`, `reciprocal_rank`, and
+   * `ndcg@10`. `query_text` and `concept_label` are present only once the
+   * artifact was measured after labels were added -- absent on the artifact
+   * committed today, so callers must degrade to `query_id` alone.
+   */
   per_query_metrics: Array<Record<string, unknown>>;
 }
 
+/**
+ * `query_text` and `concept_label` are only present once the canonical
+ * scorecard was measured after labels were added to
+ * `scripts/score_evals.py`; the artifact committed today carries neither, so
+ * both are optional and the UI must degrade to `query_id` alone.
+ */
 export interface ScorecardGoldenAnchor {
   query_id: string;
   product_id: number;
   type: "top_rank" | "present_top_k";
   k?: number | null;
+  query_text?: string | null;
+  concept_label?: string | null;
 }
 
 /** Section B: compact PASS/total over golden regression anchors. */

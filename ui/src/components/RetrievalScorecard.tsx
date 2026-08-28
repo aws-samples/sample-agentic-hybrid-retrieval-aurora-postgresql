@@ -39,6 +39,60 @@ import type {
 export const SCORECARD_PENDING_HEADLINE =
   "Metrics pending evaluation for this retrieval revision";
 
+/**
+ * Read a string field out of a loosely-typed scorecard row, never surfacing
+ * `undefined`, `null`, or a non-string value as a label. The committed
+ * artifact predates `query_text`/`concept_label`, so every caller of this
+ * must be prepared for the field to be absent.
+ */
+function stringField(row: Record<string, unknown>, key: string): string | null {
+  const value = row[key];
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function numberField(row: Record<string, unknown>, key: string): string {
+  const value = row[key];
+  return typeof value === "number" ? value.toFixed(4) : "unavailable";
+}
+
+function PerQueryMetricsList({
+  rows,
+}: {
+  rows: Array<Record<string, unknown>>;
+}) {
+  return (
+    <ul className="labs-scorecard-per-query">
+      {rows.map((row, index) => {
+        const queryId = stringField(row, "query_id") ?? `row-${index}`;
+        const queryText = stringField(row, "query_text");
+        const conceptLabel = stringField(row, "concept_label");
+        return (
+          <li key={queryId}>
+            <span className="labs-scorecard-per-query-label">
+              <span className="labs-scorecard-per-query-text">
+                {queryText ?? queryId}
+              </span>
+              {conceptLabel ? (
+                <em className="labs-scorecard-per-query-concept">
+                  {conceptLabel}
+                </em>
+              ) : null}
+              {queryText ? (
+                <code className="labs-scorecard-per-query-id">{queryId}</code>
+              ) : null}
+            </span>
+            <small>
+              recall@10 {numberField(row, "recall@10")} &middot; ndcg@10{" "}
+              {numberField(row, "ndcg@10")} &middot; reciprocal rank{" "}
+              {numberField(row, "reciprocal_rank")}
+            </small>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function RetrievalQualitySection({
   quality,
   provenance,
@@ -140,11 +194,29 @@ function RetrievalQualitySection({
         </dl>
       </PlaygroundDisclosure>
 
+      {quality.per_query_metrics.length ? (
+        <PlaygroundDisclosure
+          label="View per-query results"
+          hint={`${quality.per_query_metrics.length} queries`}
+        >
+          <PerQueryMetricsList rows={quality.per_query_metrics} />
+        </PlaygroundDisclosure>
+      ) : null}
+
       {quality.excluded_agent_contract_query_ids.length ? (
         <p className="labs-scorecard-exclusion">
-          {quality.excluded_agent_contract_query_ids.length} agent-contract{" "}
-          case excluded from search relevance:{" "}
-          <code>{quality.excluded_agent_contract_query_ids.join(", ")}</code>.
+          {quality.sample_size} of the {quality.canonical_query_count} canonical
+          queries are scored for search relevance below.{" "}
+          <code>{quality.excluded_agent_contract_query_ids.join(", ")}</code>{" "}
+          {quality.excluded_agent_contract_query_ids.length === 1 ? "is" : "are"}{" "}
+          not: {quality.excluded_agent_contract_query_ids.length === 1
+            ? "it exercises"
+            : "they exercise"}{" "}
+          multi-step agent tool orchestration -- planning, comparison, evidence
+          retrieval, and cited synthesis -- rather than a single search
+          request, so grading with Recall, MRR, or nDCG would measure the
+          wrong thing. See section D for the agent-specific contracts checked
+          instead.
         </p>
       ) : null}
     </section>
@@ -178,7 +250,21 @@ function RegressionAnchorsSection({
         <ul className="labs-contracts">
           {anchors.anchors.map((anchor) => (
             <li key={`${anchor.query_id}-${anchor.product_id}-${anchor.type}`}>
-              <code>{anchor.query_id}</code>
+              <span className="labs-scorecard-anchor-label">
+                <span className="labs-scorecard-anchor-text">
+                  {anchor.query_text ?? anchor.query_id}
+                </span>
+                {anchor.concept_label ? (
+                  <em className="labs-scorecard-anchor-concept">
+                    {anchor.concept_label}
+                  </em>
+                ) : null}
+                {anchor.query_text ? (
+                  <code className="labs-scorecard-anchor-id">
+                    {anchor.query_id}
+                  </code>
+                ) : null}
+              </span>
               <b>{anchor.type.replaceAll("_", " ")}</b>
               <small>
                 product {anchor.product_id}

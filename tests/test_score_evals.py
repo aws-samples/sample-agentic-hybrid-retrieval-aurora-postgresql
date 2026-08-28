@@ -6,6 +6,8 @@ import psycopg
 import pytest
 
 from scripts.score_evals import (
+    concept_label,
+    label_per_query_metrics,
     measured_scorecard,
     product_retrieval_queries,
     query_set_sha256,
@@ -381,6 +383,84 @@ def test_scorecard_rejects_an_unknown_scope_with_a_fix():
         product_retrieval_queries(
             [{"query_id": "G-999", "evaluation_scope": "unbounded"}]
         )
+
+
+@pytest.mark.parametrize(
+    ("teaching_concept", "expected"),
+    [
+        ("exact_identity", "Exact identity"),
+        ("semantic_intent_and_filters", "Semantic intent and filters"),
+        ("typo_recovery", "Typo recovery"),
+        ("multi_attribute_filter", "Multi attribute filter"),
+        # Known, reported wart: the mechanical transform cannot recognize an
+        # acronym inside a slug, so these three read awkwardly. See
+        # `concept_label`'s docstring and the task report for the full list.
+        ("rrf_and_reranking", "Rrf and reranking"),
+        ("jsonb_and_price_filters", "Jsonb and price filters"),
+        ("eligibility_before_ann", "Eligibility before ann"),
+    ],
+)
+def test_concept_label_is_a_pure_mechanical_transform(teaching_concept, expected):
+    assert concept_label(teaching_concept) == expected
+
+
+def test_label_per_query_metrics_puts_query_text_first_and_id_second():
+    """Witness: every row in `per_query` gets its own matching query, proven
+    by checking the exact set of query_ids labeled, not merely a count that
+    could collapse to zero alongside an empty input."""
+    per_query = [
+        {"query_id": "G-002", "recall@10": 1.0, "reciprocal_rank": 1.0, "ndcg@10": 1.0},
+        {"query_id": "G-004", "recall@10": 0.5, "reciprocal_rank": 0.5, "ndcg@10": 0.6},
+    ]
+    queries = [
+        {
+            "query_id": "G-002",
+            "query": "Sonora WH-C720",
+            "teaching_concept": "exact_model_alias",
+        },
+        {
+            "query_id": "G-004",
+            "query": "travel ANC headphones",
+            "teaching_concept": "semantic_intent_and_filters",
+        },
+        {"query_id": "G-999", "query": "unused", "teaching_concept": "unused_concept"},
+    ]
+
+    labeled = label_per_query_metrics(per_query, queries)
+
+    assert {row["query_id"] for row in labeled} == {"G-002", "G-004"}
+    by_id = {row["query_id"]: row for row in labeled}
+    assert by_id["G-002"]["query_text"] == "Sonora WH-C720"
+    assert by_id["G-002"]["concept_label"] == "Exact model alias"
+    assert by_id["G-004"]["query_text"] == "travel ANC headphones"
+    assert by_id["G-004"]["concept_label"] == "Semantic intent and filters"
+    # The original metric fields survive untouched alongside the new labels.
+    assert by_id["G-002"]["recall@10"] == 1.0
+    assert by_id["G-004"]["ndcg@10"] == 0.6
+
+
+def test_release_checks_include_query_text_and_concept_label_when_present():
+    checks = validate_release_checks(
+        [
+            {
+                "query_id": "G-001",
+                "query": "Sonora WH-C720 headphones",
+                "teaching_concept": "exact_identity",
+                "release_checks": [{"type": "top_rank", "product_id": 17001}],
+            }
+        ],
+        {"G-001": [(1, 17001)]},
+    )
+
+    assert checks == [
+        {
+            "query_id": "G-001",
+            "type": "top_rank",
+            "product_id": 17001,
+            "query_text": "Sonora WH-C720 headphones",
+            "concept_label": "Exact identity",
+        }
+    ]
 
 
 def test_release_checks_prove_top_rank_and_top_k_membership():

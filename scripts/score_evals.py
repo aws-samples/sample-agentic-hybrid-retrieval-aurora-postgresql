@@ -77,6 +77,47 @@ def product_retrieval_queries(
     return scored, excluded
 
 
+def concept_label(teaching_concept: str) -> str:
+    """Render a `teaching_concept` slug as a human-readable label.
+
+    Mechanical only: underscores become spaces and the first character is
+    capitalized (`semantic_intent_and_filters` -> `Semantic intent and
+    filters`). Deliberately not a hand-written second mapping that could
+    drift from `data/evals/canonical_queries.jsonl` -- a few concept slugs
+    carry acronyms (`rrf`, `jsonb`, `ann`) that this transform cannot
+    recognize as acronyms, so those specific labels read awkwardly. That is
+    a known, reported limitation of the mechanical rule, not a bug to
+    special-case here.
+    """
+    return teaching_concept.replace("_", " ").capitalize()
+
+
+def label_per_query_metrics(
+    per_query: list[dict[str, Any]],
+    queries: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Attach resolved query text and a human concept label to each row.
+
+    `queries` must be resolved records (as `load_evaluation_queries`
+    produces) covering every `query_id` present in `per_query`; every row
+    in the canonical scorecard's `per_query_metrics` gets exactly the two
+    new keys `query_text` and `concept_label` alongside its existing
+    `query_id`, `recall@k`, `reciprocal_rank`, and `ndcg@k` fields.
+    """
+    by_query_id = {query["query_id"]: query for query in queries}
+    labeled: list[dict[str, Any]] = []
+    for row in per_query:
+        query = by_query_id[row["query_id"]]
+        labeled.append(
+            {
+                **row,
+                "query_text": query["query"],
+                "concept_label": concept_label(query["teaching_concept"]),
+            }
+        )
+    return labeled
+
+
 def scored_query_set_sha256(queries: list[dict[str, Any]]) -> str:
     """Hash the resolved records that actually contribute to retrieval metrics."""
     payload = "\n".join(
@@ -179,14 +220,17 @@ def validate_release_checks(
                     f"{query['query_id']} release check type={check_type!r}; "
                     "use 'top_rank' or 'present_top_k'."
                 )
-            passed.append(
-                {
-                    "query_id": query["query_id"],
-                    "type": check_type,
-                    "product_id": product_id,
-                    **({"k": check["k"]} if check_type == "present_top_k" else {}),
-                }
-            )
+            entry = {
+                "query_id": query["query_id"],
+                "type": check_type,
+                "product_id": product_id,
+                **({"k": check["k"]} if check_type == "present_top_k" else {}),
+            }
+            if "query" in query:
+                entry["query_text"] = query["query"]
+            if "teaching_concept" in query:
+                entry["concept_label"] = concept_label(query["teaching_concept"])
+            passed.append(entry)
     return passed
 
 
@@ -550,6 +594,7 @@ def measured_scorecard(
         ranked,
         k,
     )
+    per_query_metrics = label_per_query_metrics(metrics["per_query"], canonical_queries)
     return {
         "query_set": str(queries_path),
         "query_set_sha256": query_set_sha256(queries_path),
@@ -560,7 +605,7 @@ def measured_scorecard(
         "excluded_agent_contract_queries": excluded_agent_contract_queries,
         "deterministic_release_checks": release_checks,
         "ranked_result_sha256": ranked_result_sha256(ranked),
-        "per_query_metrics": metrics["per_query"],
+        "per_query_metrics": per_query_metrics,
         "k": k,
         "models": {
             "embedding": settings.embedding_model_id,

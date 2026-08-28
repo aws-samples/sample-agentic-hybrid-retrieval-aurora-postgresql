@@ -11289,6 +11289,85 @@
   line-height: 1.5;
 }
 
+/* Section A's per-query disclosure: query text is the primary label, the
+   teaching concept is a quiet category, and `G-0NN` is retained -- still
+   needed for audit and the `jq` commands the guide teaches -- but
+   de-emphasised behind the text. Same grid-of-rows shape as `.labs-contracts`
+   next door, kept as its own class because the row content is different
+   (metric values, not a pass/fail badge). */
+.labs-scorecard-per-query {
+  display: grid;
+  gap: 1px;
+  margin: 14px 0 0;
+  padding: 0;
+  background: var(--line);
+  list-style: none;
+}
+
+.labs-scorecard-per-query > li {
+  display: grid;
+  gap: 4px;
+  padding: 11px 16px;
+  background: var(--paper);
+}
+
+.labs-scorecard-per-query-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.labs-scorecard-per-query-text {
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 550;
+}
+
+.labs-scorecard-per-query-concept {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-style: normal;
+}
+
+.labs-scorecard-per-query-id {
+  color: var(--ink-faint);
+  font-size: var(--labs-micro);
+}
+
+.labs-scorecard-per-query > li > small {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+/* Section B's golden anchors: the same text-primary/concept-quiet/id-de-
+   emphasised treatment, nested inside `.labs-contracts`' first grid column
+   rather than replacing it, so the PASS badge and product/rank detail keep
+   their existing columns untouched. */
+.labs-scorecard-anchor-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.labs-scorecard-anchor-text {
+  color: var(--ink);
+  font-weight: 550;
+}
+
+.labs-scorecard-anchor-concept {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-style: normal;
+}
+
+.labs-scorecard-anchor-id {
+  color: var(--ink-faint);
+  font-size: var(--labs-micro);
+}
+
 /* The unnumbered finale after the scorecard, inside stage 04. A sibling of
    `.labs-scorecard`, never one of its `.labs-scorecard-section` boxes -- no
    border, no background, no border-radius here, so it cannot be mistaken for

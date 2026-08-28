@@ -24,6 +24,7 @@ from fastapi.testclient import TestClient
 
 from service.assertions import ASSERTIONS
 from service.main import app
+from service.models import ScorecardGoldenAnchor
 from service.scorecard import (
     PENDING_TEXT,
     SCORECARD_ARTIFACT,
@@ -285,6 +286,12 @@ def test_retrieval_scorecard_serves_the_committed_population_metrics():
     assert response.retrieval_quality.mrr == artifact["metrics"]["mrr"]
     assert response.retrieval_quality.ndcg_at_10 == artifact["metrics"]["ndcg@10"]
     assert response.retrieval_quality.excluded_agent_contract_query_ids == ["G-010"]
+    # The committed artifact predates label emission: pass-through must not
+    # invent a value, and must carry no key it does not have.
+    assert len(response.retrieval_quality.per_query_metrics) == 19
+    for row in response.retrieval_quality.per_query_metrics:
+        assert "query_text" not in row
+        assert "concept_label" not in row
 
 
 # --- Section B: golden regression anchors, never mixed with IR metrics -----
@@ -313,6 +320,37 @@ def test_regression_anchors_pass_and_total_agree_on_the_committed_artifact():
         "G-015",
         "G-019",
     }
+    # The real committed artifact predates label emission: every anchor must
+    # degrade to `query_id` alone rather than crash or carry a stale value.
+    for anchor in response.regression_anchors.anchors:
+        assert anchor.query_text is None
+        assert anchor.concept_label is None
+
+
+def test_golden_anchor_carries_query_text_and_concept_label_when_the_artifact_has_them():
+    """Red-at-birth pairing for the test above: the model must actually be
+    ABLE to carry the labels, not merely tolerate their absence."""
+    anchor = ScorecardGoldenAnchor.model_validate(
+        {
+            "query_id": "G-001",
+            "product_id": 17001,
+            "type": "top_rank",
+            "query_text": "Sonora WH-C720 headphones",
+            "concept_label": "Exact identity",
+        }
+    )
+
+    assert anchor.query_text == "Sonora WH-C720 headphones"
+    assert anchor.concept_label == "Exact identity"
+
+
+def test_golden_anchor_defaults_labels_to_none_when_the_artifact_lacks_them():
+    anchor = ScorecardGoldenAnchor.model_validate(
+        {"query_id": "G-001", "product_id": 17001, "type": "top_rank"}
+    )
+
+    assert anchor.query_text is None
+    assert anchor.concept_label is None
 
 
 # --- Section C: eligibility/filter fixtures, not a relevance judgment ------

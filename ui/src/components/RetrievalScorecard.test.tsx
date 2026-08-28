@@ -213,6 +213,131 @@ describe("RetrievalScorecard", () => {
     expect(within(qualitySection).queryByText("4 / 4")).toBeNull();
   });
 
+  // --- Per-query and golden-anchor labels: legible identifiers, per rule 7 --
+  //
+  // The committed artifact predates `query_text`/`concept_label` on both
+  // `per_query_metrics` and `deterministic_release_checks`, so today's real
+  // payload has neither. These two pairs of tests are the ones the task
+  // calls out as mattering most: the absent-labels path must never surface
+  // `undefined`/`null`/an empty element, and the present-labels path must put
+  // the query text ahead of the de-emphasised `G-0NN` id, not merely render
+  // both strings somewhere on the page.
+
+  it("renders the bare query_id for each per-query row when the artifact carries no labels", async () => {
+    const rows = [
+      { query_id: "G-001", "recall@10": 1, reciprocal_rank: 1, "ndcg@10": 1 },
+      { query_id: "G-002", "recall@10": 0.5, reciprocal_rank: 0.5, "ndcg@10": 0.6 },
+    ];
+    const base = scorecardFixture({ attributed: false });
+    vi.mocked(api.scorecard).mockResolvedValue({
+      ...base,
+      retrieval_quality: { ...base.retrieval_quality, per_query_metrics: rows },
+    });
+    render(<RetrievalScorecard />);
+
+    const disclosure = (
+      await screen.findByText("View per-query results")
+    ).closest("details") as HTMLElement;
+
+    // Witness, independent of the render: exactly the two rows the fixture
+    // supplied, not a count re-derived from the same `.map` that renders them.
+    expect(within(disclosure).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(disclosure).getByText("G-001")).toBeTruthy();
+    expect(within(disclosure).getByText("G-002")).toBeTruthy();
+
+    // Negative half: no stand-in text for the missing label anywhere in it.
+    expect(disclosure.textContent).not.toMatch(/undefined|null/i);
+  });
+
+  it("shows a per-query row's text before its de-emphasised query_id once labels are present", async () => {
+    const rows = [
+      {
+        query_id: "G-002",
+        query_text: "Sonora WH-C720",
+        concept_label: "Exact model alias",
+        "recall@10": 1,
+        reciprocal_rank: 1,
+        "ndcg@10": 1,
+      },
+    ];
+    const base = scorecardFixture({ attributed: true });
+    vi.mocked(api.scorecard).mockResolvedValue({
+      ...base,
+      retrieval_quality: { ...base.retrieval_quality, per_query_metrics: rows },
+    });
+    render(<RetrievalScorecard />);
+
+    const disclosure = (
+      await screen.findByText("View per-query results")
+    ).closest("details") as HTMLElement;
+    const textNode = within(disclosure).getByText("Sonora WH-C720");
+    const idNode = within(disclosure).getByText("G-002");
+
+    // Assert the relationship -- text precedes id in document order -- not
+    // merely that both strings exist somewhere in the disclosure.
+    expect(
+      textNode.compareDocumentPosition(idNode) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(idNode.tagName).toBe("CODE");
+    expect(within(disclosure).getByText("Exact model alias")).toBeTruthy();
+  });
+
+  it("renders the bare query_id for a golden anchor when the artifact carries no anchor labels", async () => {
+    vi.mocked(api.scorecard).mockResolvedValue(scorecardFixture({ attributed: true }));
+    render(<RetrievalScorecard />);
+
+    const disclosure = (await screen.findByText("View anchors")).closest(
+      "details",
+    ) as HTMLElement;
+
+    expect(within(disclosure).getByText("G-001")).toBeTruthy();
+    expect(disclosure.textContent).not.toMatch(/undefined|null/i);
+  });
+
+  it("shows a golden anchor's query text before its de-emphasised query_id once labels are present", async () => {
+    const base = scorecardFixture({ attributed: true });
+    const labeledAnchor = {
+      query_id: "G-001",
+      product_id: 17001,
+      type: "top_rank" as const,
+      query_text: "Sonora WH-C720 headphones",
+      concept_label: "Exact identity",
+    };
+    vi.mocked(api.scorecard).mockResolvedValue({
+      ...base,
+      regression_anchors: { ...base.regression_anchors, anchors: [labeledAnchor] },
+    });
+    render(<RetrievalScorecard />);
+
+    const disclosure = (await screen.findByText("View anchors")).closest(
+      "details",
+    ) as HTMLElement;
+    const textNode = within(disclosure).getByText("Sonora WH-C720 headphones");
+    const idNode = within(disclosure).getByText("G-001");
+
+    expect(
+      textNode.compareDocumentPosition(idNode) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(idNode.tagName).toBe("CODE");
+    expect(within(disclosure).getByText("Exact identity")).toBeTruthy();
+  });
+
+  it("explains in participant language why one of twenty canonical queries is not scored", async () => {
+    vi.mocked(api.scorecard).mockResolvedValue(scorecardFixture({ attributed: true }));
+    render(<RetrievalScorecard />);
+
+    await screen.findByText(DISTINCTIVE_RECALL);
+
+    expect(
+      screen.getByText(
+        /19 of the 20 canonical queries are scored for search relevance below/i,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/multi-step agent tool orchestration/i),
+    ).toBeTruthy();
+  });
+
   it("labels section C as not a relevance judgment, with the harness's own fixture count", async () => {
     vi.mocked(api.scorecard).mockResolvedValue(scorecardFixture());
     render(<RetrievalScorecard />);
