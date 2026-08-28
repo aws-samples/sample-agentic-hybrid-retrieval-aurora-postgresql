@@ -656,10 +656,16 @@ class ScorecardProvenance(BaseModel):
     """Whether the canonical scorecard's numbers may be shown as current.
 
     `attributed` is the one field the Prove-step UI must branch on for section
-    A. It is true only when `source_revision` equals `current_source_revision`
-    and neither worktree was dirty; see `service.scorecard._attribution`. Every
-    other field here is read straight from the committed artifact, so a reader
-    can verify the verdict rather than take it on faith.
+    A. It is true only when the artifact's `retrieval_fingerprint` (a hash
+    over the files that can move the scored numbers; see
+    `service.retrieval_fingerprint`) matches what is currently running, the
+    measurement's own worktree was clean, and the pinned models and query-set
+    hashes still match; see `service.scorecard._attribution`. `source_revision`
+    is no longer part of that gate -- a strict revision equality can never
+    hold, because the artifact is always committed one revision after it was
+    measured -- but it stays here as display and audit evidence. Every other
+    field here is read straight from the committed artifact, so a reader can
+    verify the verdict rather than take it on faith.
     """
 
     measured_at: datetime

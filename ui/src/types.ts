@@ -738,12 +738,16 @@ export interface HnswProbe {
  * Whether the Retrieval Scorecard's population metrics describe the system
  * currently running, mirrors `service.models.ScorecardProvenance`.
  *
- * `attributed` is the one field the Playground must branch on for section A:
- * it is true only when `source_revision` equals `current_source_revision`
- * and `source_worktree_dirty` was `false` at measurement time. The current
- * server's own worktree cleanliness is carried for inspection but does not
- * gate `attributed`. When `attributed` is false, `attribution_note` starts
- * with the exact string "Metrics pending evaluation for this revision".
+ * `attributed` is the one field the Playground must branch on for section A.
+ * A strict `source_revision` equality can never hold here -- the artifact is
+ * always committed one revision after it was measured -- so the real gate is
+ * a hash over the retrieval-defining files (`service.retrieval_fingerprint`),
+ * plus `source_worktree_dirty` being `false` at measurement time, plus the
+ * pinned models and query-set hashes still matching what is running.
+ * `source_revision` and the current server's own worktree cleanliness are
+ * carried for display and audit but do not gate `attributed`. When
+ * `attributed` is false, `attribution_note` starts with the exact string
+ * "Metrics pending evaluation for this retrieval revision".
  */
 export interface ScorecardProvenance {
   measured_at: string;

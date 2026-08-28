@@ -1,18 +1,21 @@
 """The Prove-step scorecard: a read-only render of the committed artifact.
 
-Ruling R3's gate is a conjunction over exactly two facts -- the artifact's own
-measured revision equals the revision currently running, and the artifact's own
-`worktree_dirty` flag was `False` at measurement time. Three reachable outcomes
-follow: revisions differ (hidden), revisions match and the measurement was clean
-(shown), revisions match but the measurement was dirty (hidden). Each gets its
-own red-at-birth proof below, plus independence and a witness per house
-standards rule 7.
+Ruling R3's gate is a conjunction over three facts -- the artifact's own
+`retrieval_fingerprint` (a hash over the files that can move the scored
+numbers; see `service.retrieval_fingerprint`) equals the one the running
+service reports, the artifact's own `worktree_dirty` flag was `False` at
+measurement time, and the pinned models and query-set hashes the artifact
+recorded still match what is running. A strict revision equality is
+deliberately not part of this: `scripts/score_evals.py` records the source
+revision *before* the artifact it writes is committed, so the artifact's
+revision is always one commit behind the revision that carries it, and that
+gate would read "pending" forever. Each clause gets its own red-at-birth
+proof below, plus independence and a witness per house standards rule 7.
 """
 
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -26,7 +29,7 @@ from service.scorecard import (
     SCORECARD_ARTIFACT,
     _agent_contracts,
     _attribution,
-    _commits_behind,
+    _CurrentRetrievalIdentity,
     _eligibility_fixtures,
     _release_check_total,
     _scored_queries,
@@ -35,139 +38,214 @@ from service.scorecard import (
 
 ROOT = Path(__file__).resolve().parents[1]
 
+_MATCHING_FINGERPRINT = "f" * 64
+_MATCHING_QUERY_SET_SHA = "q" * 64
+_MATCHING_SCORED_QUERY_SET_SHA = "s" * 64
+_MATCHING_EMBEDDING_MODEL = "embed-model"
+_MATCHING_RERANK_MODEL = "rerank-model"
 
-def _artifact_source(revision: str = "a" * 40, dirty: bool = False) -> dict:
-    return {"revision": revision, "worktree_dirty": dirty}
+
+def _artifact(
+    *,
+    fingerprint: str = _MATCHING_FINGERPRINT,
+    dirty: bool = False,
+    embedding: str = _MATCHING_EMBEDDING_MODEL,
+    rerank: str = _MATCHING_RERANK_MODEL,
+    query_set_sha: str = _MATCHING_QUERY_SET_SHA,
+    scored_query_set_sha: str = _MATCHING_SCORED_QUERY_SET_SHA,
+    revision: str = "a" * 40,
+) -> dict:
+    return {
+        "retrieval_fingerprint": fingerprint,
+        "source": {"revision": revision, "worktree_dirty": dirty},
+        "models": {"embedding": embedding, "rerank": rerank},
+        "query_set_sha256": query_set_sha,
+        "scored_query_set_sha256": scored_query_set_sha,
+    }
 
 
-# --- Attribution: the three reachable states -------------------------------
+def _current(
+    *,
+    fingerprint: str = _MATCHING_FINGERPRINT,
+    embedding: str = _MATCHING_EMBEDDING_MODEL,
+    rerank: str = _MATCHING_RERANK_MODEL,
+    query_set_sha: str = _MATCHING_QUERY_SET_SHA,
+    scored_query_set_sha: str = _MATCHING_SCORED_QUERY_SET_SHA,
+) -> _CurrentRetrievalIdentity:
+    return _CurrentRetrievalIdentity(
+        retrieval_fingerprint=fingerprint,
+        embedding_model_id=embedding,
+        rerank_model_id=rerank,
+        query_set_sha256=query_set_sha,
+        scored_query_set_sha256=scored_query_set_sha,
+    )
 
 
-def test_attribution_hides_metrics_when_revisions_differ():
-    """Case 1: revisions differ -> hidden, regardless of either dirty flag."""
-    attributed, note = _attribution(_artifact_source("a" * 40), "b" * 40)
+def _api_artifact_and_settings(
+    monkeypatch,
+    *,
+    dirty: bool = False,
+    current_source_worktree_dirty: bool = False,
+    revision: str = "9" * 40,
+) -> dict:
+    """Wire the real route to a synthetic, fully-matching artifact.
+
+    Patches every input `_attribution` reads -- the artifact loader, the
+    fingerprint/hash functions imported into `service.scorecard`, and
+    settings -- so the route-level tests exercise real HTTP dispatch without
+    depending on the real repository's current fingerprint or the real
+    committed artifact ever matching it.
+    """
+    artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
+    artifact["retrieval_fingerprint"] = _MATCHING_FINGERPRINT
+    artifact["query_set_sha256"] = _MATCHING_QUERY_SET_SHA
+    artifact["scored_query_set_sha256"] = _MATCHING_SCORED_QUERY_SET_SHA
+    artifact["models"] = {
+        "embedding": _MATCHING_EMBEDDING_MODEL,
+        "rerank": _MATCHING_RERANK_MODEL,
+    }
+    artifact["source"] = {"revision": revision, "worktree_dirty": dirty}
+
+    monkeypatch.setattr("service.scorecard._load_artifact", lambda: artifact)
+    monkeypatch.setattr(
+        "service.scorecard.compute_retrieval_fingerprint",
+        lambda: _MATCHING_FINGERPRINT,
+    )
+    monkeypatch.setattr(
+        "service.scorecard.query_set_sha256",
+        lambda path: _MATCHING_QUERY_SET_SHA,
+    )
+    monkeypatch.setattr(
+        "service.scorecard.scored_query_set_sha256",
+        lambda scored: _MATCHING_SCORED_QUERY_SET_SHA,
+    )
+    monkeypatch.setattr(
+        "service.scorecard.get_settings",
+        lambda: SimpleNamespace(
+            source_revision=revision,
+            source_worktree_dirty=current_source_worktree_dirty,
+            embedding_model_id=_MATCHING_EMBEDDING_MODEL,
+            rerank_model_id=_MATCHING_RERANK_MODEL,
+        ),
+    )
+    return artifact
+
+
+# --- Attribution: each clause, red-at-birth and independent -----------------
+
+
+def test_attribution_shows_metrics_when_everything_matches_and_is_clean():
+    """Positive witness: the conjunction can actually go the True way.
+
+    Paired with every "hidden" test below per house standards rule 7 -- a
+    gate that only ever returns False would pass those vacuously.
+    """
+    attributed, note = _attribution(_artifact(), _current())
+
+    assert attributed is True
+    assert _MATCHING_FINGERPRINT[:12] in note
+
+
+def test_attribution_hides_when_the_retrieval_fingerprint_differs():
+    """Red-at-birth for the fingerprint clause: everything else matches."""
+    attributed, note = _attribution(_artifact(), _current(fingerprint="g" * 64))
 
     assert attributed is False
     assert note.startswith(PENDING_TEXT)
+    assert "retrieval fingerprint changed" in note
 
 
-def test_attribution_shows_metrics_when_revisions_match_and_measurement_clean():
-    """Case 2: revisions match, measurement clean -> shown.
+def test_attribution_hides_when_the_artifact_never_recorded_a_fingerprint():
+    """The committed artifact predates this mechanism entirely.
 
-    Positive assertion paired with the hidden cases: a gate that only ever
-    returns False would pass every "hidden" test above vacuously. This is
-    the witness that the conjunction can actually go the other way.
+    `artifact.get("retrieval_fingerprint")` is `None` for every artifact
+    written before this change, including the one currently committed at
+    `data/evals/canonical_scorecard.json`. That must fail closed with a
+    distinct, honest reason rather than a generic mismatch message.
     """
-    same = "c" * 40
+    attributed, note = _attribution(_artifact(fingerprint=""), _current())
 
-    attributed, note = _attribution(_artifact_source(same, dirty=False), same)
-
-    assert attributed is True
-    assert same[:12] in note
+    assert attributed is False
+    assert "no retrieval fingerprint was recorded" in note
 
 
-def test_attribution_hides_when_measurement_was_dirty_despite_matching_revision():
-    """Case 3: revisions match but the measurement's own worktree was dirty.
+def test_attribution_hides_when_the_measurement_worktree_was_dirty():
+    """Red-at-birth for the dirty clause, with every other clause matching.
 
-    The one most likely to be skipped: a matching revision alone is not
+    The one most likely to be skipped: a matching fingerprint alone is not
     enough if the artifact that recorded it was measured from an unclean
     tree.
     """
-    same = "d" * 40
-
-    attributed, note = _attribution(_artifact_source(same, dirty=True), same)
+    attributed, note = _attribution(_artifact(dirty=True), _current())
 
     assert attributed is False
-    assert note.startswith(PENDING_TEXT)
-    assert "unclean" in note
+    assert "worktree was not clean" in note
 
 
-def test_attribution_ignores_the_currently_running_worktrees_own_dirtiness():
-    """The gate is over the *measurement's* dirty flag, not the caller's.
-
-    `_attribution` takes no `current_dirty` argument at all: a server running
-    with local uncommitted edits, at a revision that matches the artifact,
-    with a clean measurement, must still show the metrics. This is the
-    independence proof for the "measured worktree_dirty" clause -- an
-    unrelated fact (the current server's own cleanliness) must not flip the
-    verdict.
-    """
-    same = "e" * 40
-
-    attributed, _note = _attribution(_artifact_source(same, dirty=False), same)
-
-    assert attributed is True
-
-
-def test_attribution_is_independent_of_commits_behind_when_revisions_match():
-    """An irrelevant input (a stale `commits_behind` value) must not matter
-    once the revisions actually agree -- house rule 7's independence proof."""
-    same = "f" * 40
-
-    attributed, _note = _attribution(
-        _artifact_source(same, dirty=False),
-        same,
-        commits_behind=9999,
-    )
-
-    assert attributed is True
-
-
-def test_attribution_reports_how_far_behind_when_measurable():
+def test_attribution_hides_when_the_embedding_model_changed():
     attributed, note = _attribution(
-        _artifact_source("1" * 40),
-        "2" * 40,
-        commits_behind=60,
+        _artifact(), _current(embedding="a-different-embedding-model")
     )
 
     assert attributed is False
-    assert "60 commit" in note
+    assert "embedding or rerank model changed" in note
 
 
-def test_attribution_missing_artifact_revision_is_a_revision_mismatch():
-    attributed, note = _attribution({"worktree_dirty": False}, "a" * 40)
+def test_attribution_hides_when_the_rerank_model_changed():
+    attributed, note = _attribution(
+        _artifact(), _current(rerank="a-different-rerank-model")
+    )
+
+    assert attributed is False
+    assert "embedding or rerank model changed" in note
+
+
+def test_attribution_hides_when_the_raw_query_set_hash_changed():
+    attributed, note = _attribution(
+        _artifact(), _current(query_set_sha="a-different-hash")
+    )
+
+    assert attributed is False
+    assert "canonical query set or its judgments changed" in note
+
+
+def test_attribution_hides_when_the_scored_query_set_hash_changed():
+    attributed, note = _attribution(
+        _artifact(), _current(scored_query_set_sha="a-different-hash")
+    )
+
+    assert attributed is False
+    assert "canonical query set or its judgments changed" in note
+
+
+def test_attribution_reports_every_mismatched_clause_not_just_the_first():
+    """Witness that the reason list is actually built from independent
+    checks rather than short-circuiting on the first failure."""
+    attributed, note = _attribution(
+        _artifact(dirty=True),
+        _current(fingerprint="g" * 64, embedding="a-different-embedding-model"),
+    )
+
+    assert attributed is False
+    assert "retrieval fingerprint changed" in note
+    assert "worktree was not clean" in note
+    assert "embedding or rerank model changed" in note
+
+
+def test_attribution_missing_artifact_source_and_models_default_to_mismatch():
+    """An artifact with no `source` or `models` key at all -- not just an
+    artifact with those keys present but empty -- still fails closed."""
+    attributed, note = _attribution(
+        {
+            "retrieval_fingerprint": _MATCHING_FINGERPRINT,
+            "query_set_sha256": _MATCHING_QUERY_SET_SHA,
+            "scored_query_set_sha256": _MATCHING_SCORED_QUERY_SET_SHA,
+        },
+        _current(),
+    )
 
     assert attributed is False
     assert note.startswith(PENDING_TEXT)
-
-
-# --- _commits_behind: best-effort, never raises -----------------------------
-
-
-def _git(*args: str) -> str:
-    return subprocess.run(
-        ["git", "-C", str(ROOT), *args],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-
-
-def test_commits_behind_counts_exactly_one_commit_for_the_immediate_parent():
-    """Relative to the live repo, not a hardcoded SHA pair.
-
-    A literal recorded commit count would go stale the moment another commit
-    lands; `HEAD~1..HEAD` is always exactly one commit apart no matter when
-    this test runs.
-    """
-    head = _git("rev-parse", "HEAD")
-    parent = _git("rev-parse", "HEAD~1")
-
-    assert _commits_behind(parent, head) == 1
-
-
-def test_commits_behind_is_none_when_older_is_not_an_ancestor():
-    head = _git("rev-parse", "HEAD")
-    parent = _git("rev-parse", "HEAD~1")
-
-    # HEAD is not an ancestor of its own parent.
-    assert _commits_behind(head, parent) is None
-
-
-def test_commits_behind_is_none_for_an_unresolvable_revision():
-    head = _git("rev-parse", "HEAD")
-
-    assert _commits_behind("0" * 40, head) is None
 
 
 # --- Section A: population metrics, and the population-count safety net ----
@@ -335,31 +413,16 @@ def test_api_returns_503_when_the_artifact_is_missing(tmp_path, monkeypatch):
     assert "fix:" in response.json()["detail"]
 
 
-def test_api_shows_metrics_once_the_measured_revision_matches_and_is_clean(
+def test_api_shows_metrics_once_the_fingerprint_models_and_query_set_all_match(
     monkeypatch,
 ):
     """End-to-end proof of the "shown" branch through the real HTTP route.
 
     Pairs with `test_api_serves_the_scorecard_route` above (hidden today,
-    because the committed artifact is 60 commits stale) so this gate cannot
-    pass merely by always hiding the numbers.
+    because the real committed artifact predates the fingerprint mechanism)
+    so this gate cannot pass merely by always hiding the numbers.
     """
-    running_revision = "9" * 40
-    artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
-    artifact["source"] = {"revision": running_revision, "worktree_dirty": False}
-    patched = artifact
-
-    monkeypatch.setattr(
-        "service.scorecard._load_artifact",
-        lambda: patched,
-    )
-    monkeypatch.setattr(
-        "service.scorecard.get_settings",
-        lambda: SimpleNamespace(
-            source_revision=running_revision,
-            source_worktree_dirty=False,
-        ),
-    )
+    artifact = _api_artifact_and_settings(monkeypatch)
 
     payload = TestClient(app).get("/api/scorecard").json()
 
@@ -369,24 +432,33 @@ def test_api_shows_metrics_once_the_measured_revision_matches_and_is_clean(
     )
 
 
-def test_api_hides_metrics_when_the_matching_revision_was_measured_dirty(
+def test_api_hides_metrics_when_the_matching_fingerprint_was_measured_dirty(
     monkeypatch,
 ):
-    """The route-level proof of case 3: matching revision, dirty measurement."""
-    running_revision = "8" * 40
-    artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
-    artifact["source"] = {"revision": running_revision, "worktree_dirty": True}
-
-    monkeypatch.setattr("service.scorecard._load_artifact", lambda: artifact)
-    monkeypatch.setattr(
-        "service.scorecard.get_settings",
-        lambda: SimpleNamespace(
-            source_revision=running_revision,
-            source_worktree_dirty=False,
-        ),
-    )
+    """The route-level proof of the dirty clause: matching fingerprint and
+    inputs, but the measurement's own worktree was not clean."""
+    _api_artifact_and_settings(monkeypatch, dirty=True)
 
     payload = TestClient(app).get("/api/scorecard").json()
 
     assert payload["provenance"]["attributed"] is False
     assert payload["provenance"]["attribution_note"].startswith(PENDING_TEXT)
+
+
+def test_api_shows_metrics_despite_a_dirty_running_worktree(monkeypatch):
+    """The gate is over the *measurement's* dirty flag, not the caller's.
+
+    A server running with local uncommitted edits, at a fingerprint that
+    matches the artifact, with a clean measurement, must still show the
+    metrics -- this is the independence proof for the "measured
+    worktree_dirty" clause at the route level.
+    """
+    _api_artifact_and_settings(
+        monkeypatch,
+        dirty=False,
+        current_source_worktree_dirty=True,
+    )
+
+    payload = TestClient(app).get("/api/scorecard").json()
+
+    assert payload["provenance"]["attributed"] is True

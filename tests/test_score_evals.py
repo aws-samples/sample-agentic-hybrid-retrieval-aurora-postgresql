@@ -57,6 +57,7 @@ def scorecard(*, recall=0.8, mrr=0.7, ndcg=0.75):
             ROOT / "data" / "evals" / "canonical_queries.jsonl"
         ),
         "scored_query_set_sha256": "scored-query-set",
+        "retrieval_fingerprint": "c" * 64,
         "canonical_query_count": 20,
         "product_retrieval_query_count": 19,
         "excluded_agent_contract_queries": ["G-010"],
@@ -123,6 +124,7 @@ def test_committed_scorecard_keeps_per_query_and_ranked_result_provenance():
     ("field", "value"),
     [
         ("query_set_sha256", "changed"),
+        ("retrieval_fingerprint", "d" * 64),
         ("product_retrieval_query_count", 20),
         ("k", 20),
         ("models", {"embedding": "another-space", "rerank": "rerank"}),

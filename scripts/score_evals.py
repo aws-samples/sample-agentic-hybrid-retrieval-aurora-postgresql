@@ -29,6 +29,7 @@ from service.config import get_settings
 from service.db import connect
 from service.models import SearchFilters, SearchRequest
 from service.retrieval import get_retrieval_service
+from service.retrieval_fingerprint import compute_retrieval_fingerprint
 
 PRODUCT_RETRIEVAL_SCOPE = "product_retrieval"
 AGENT_CONTRACT_SCOPE = "agent_contract"
@@ -207,6 +208,7 @@ def _checkpoint_identity(
     return {
         "query_set_sha256": query_set_sha256(queries_path),
         "scored_query_set_sha256": scored_query_set_sha256(queries),
+        "retrieval_fingerprint": compute_retrieval_fingerprint(),
         "k": k,
         "models": {
             "embedding": settings.embedding_model_id,
@@ -552,6 +554,7 @@ def measured_scorecard(
         "query_set": str(queries_path),
         "query_set_sha256": query_set_sha256(queries_path),
         "scored_query_set_sha256": scored_query_set_sha256(queries),
+        "retrieval_fingerprint": compute_retrieval_fingerprint(),
         "canonical_query_count": len(canonical_queries),
         "product_retrieval_query_count": metrics["query_count"],
         "excluded_agent_contract_queries": excluded_agent_contract_queries,
@@ -599,6 +602,7 @@ def verify_scorecard(measured: dict[str, Any], baseline: dict[str, Any]) -> None
     for field in (
         "query_set_sha256",
         "scored_query_set_sha256",
+        "retrieval_fingerprint",
         "canonical_query_count",
         "product_retrieval_query_count",
         "excluded_agent_contract_queries",

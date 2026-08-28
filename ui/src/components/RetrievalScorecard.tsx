@@ -37,7 +37,7 @@ import type {
 //: The owner-specified, exact participant-facing pending string. Rendered
 //: verbatim -- never paraphrased -- whenever `provenance.attributed` is false.
 export const SCORECARD_PENDING_HEADLINE =
-  "Metrics pending evaluation for this revision";
+  "Metrics pending evaluation for this retrieval revision";
 
 function RetrievalQualitySection({
   quality,

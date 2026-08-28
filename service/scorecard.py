@@ -24,13 +24,17 @@ revision matches what is currently running.
 from __future__ import annotations
 
 import json
-import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from scripts.eval_contract import load_evaluation_queries
 from scripts.retrieval_profile import explain
-from scripts.score_evals import product_retrieval_queries
+from scripts.score_evals import (
+    product_retrieval_queries,
+    query_set_sha256,
+    scored_query_set_sha256,
+)
 from scripts.tool_contracts import contracts_for_surface
 from service.assertions import ASSERTIONS
 from service.config import get_settings
@@ -44,6 +48,7 @@ from service.models import (
     ScorecardRegressionAnchors,
     ScorecardRetrievalQuality,
 )
+from service.retrieval_fingerprint import compute_retrieval_fingerprint
 
 ROOT = Path(__file__).resolve().parents[1]
 SCORECARD_ARTIFACT = ROOT / "data" / "evals" / "canonical_scorecard.json"
@@ -168,53 +173,48 @@ def _release_check_total(scored: list[dict[str, Any]]) -> int:
     return sum(len(query.get("release_checks") or []) for query in scored)
 
 
-def _commits_behind(older: str, newer: str) -> int | None:
-    """How many commits `newer` is ahead of `older`, or `None` if unmeasurable.
-
-    Best-effort only: a shallow clone, a missing `git` binary, or a revision
-    that is not an ancestor of the other all resolve to `None` rather than
-    raising. The attribution decision in `_attribution` never depends on this
-    number -- it exists only to make the pending message honestly informative
-    ("60 commits behind") instead of silent about how stale the artifact is.
-    """
-    try:
-        ancestor = subprocess.run(
-            ["git", "-C", str(ROOT), "merge-base", "--is-ancestor", older, newer],
-            check=False,
-            capture_output=True,
-        )
-        if ancestor.returncode != 0:
-            return None
-        result = subprocess.run(
-            ["git", "-C", str(ROOT), "rev-list", "--count", f"{older}..{newer}"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        return int(result.stdout.strip())
-    except (OSError, subprocess.CalledProcessError, ValueError):
-        return None
-
-
 #: The exact participant-facing pending string, owner-specified verbatim.
 #: `attribution_note` carries additional detail for the disclosure below it;
 #: the UI must render this constant unmodified as the headline, not a
 #: paraphrase of it.
-PENDING_TEXT = "Metrics pending evaluation for this revision"
+PENDING_TEXT = "Metrics pending evaluation for this retrieval revision"
+
+
+@dataclass(frozen=True)
+class _CurrentRetrievalIdentity:
+    """What the running service reports, compared against the artifact's own
+    record. Every field here has a same-named counterpart already stored on
+    the artifact; none of this is new state, only a fresh read of it."""
+
+    retrieval_fingerprint: str
+    embedding_model_id: str
+    rerank_model_id: str
+    query_set_sha256: str
+    scored_query_set_sha256: str
 
 
 def _attribution(
-    artifact_source: dict[str, Any],
-    current_revision: str | None,
-    *,
-    commits_behind: int | None = None,
+    artifact: dict[str, Any],
+    current: _CurrentRetrievalIdentity,
 ) -> tuple[bool, str]:
     """Decide whether the artifact's metrics describe the running system.
 
-    Owner-specified, binding conjunction over exactly two facts:
+    A strict revision equality (`artifact_revision == current_revision`) can
+    never hold: `scripts/score_evals.py` records the source revision *before*
+    the artifact it writes is committed, so committing the artifact always
+    advances HEAD one commit past what was measured. That gate would read
+    "pending" forever. See `service.retrieval_fingerprint` for the full
+    argument and the manifest of files it hashes in its place.
 
-        measured revision == running revision
-        AND measurement worktree_dirty == False
+    Binding conjunction over exactly three facts:
+
+        artifact.retrieval_fingerprint == current retrieval fingerprint
+        AND artifact.source.worktree_dirty == False
+        AND the pinned evaluation inputs and models still match:
+            artifact.models.embedding        == current embedding model id
+            artifact.models.rerank           == current rerank model id
+            artifact.query_set_sha256        == current query_set_sha256
+            artifact.scored_query_set_sha256 == current scored_query_set_sha256
             -> show the metrics
         otherwise
             -> withhold them, with `PENDING_TEXT`
@@ -222,42 +222,58 @@ def _attribution(
     Nothing about the *current* server's own worktree cleanliness enters this
     decision -- only the artifact's own recorded `worktree_dirty` at
     measurement time does. `current_source_worktree_dirty` is still carried on
-    `ScorecardProvenance` for inspection, but does not gate `attributed`.
+    `ScorecardProvenance` for inspection, but does not gate `attributed`, and
+    neither does `source_revision`: both stay as display and audit evidence,
+    not as the gate.
     """
-    artifact_revision = artifact_source.get("revision") or None
-    artifact_dirty = artifact_source.get("worktree_dirty")
-    revision_matches = bool(artifact_revision) and artifact_revision == current_revision
+    source = artifact.get("source") or {}
+    artifact_fingerprint = artifact.get("retrieval_fingerprint") or None
+    artifact_dirty = source.get("worktree_dirty")
+    artifact_models = artifact.get("models") or {}
+
+    fingerprint_matches = (
+        bool(artifact_fingerprint)
+        and artifact_fingerprint == current.retrieval_fingerprint
+    )
     measured_clean = artifact_dirty is False
+    models_match = (
+        artifact_models.get("embedding") == current.embedding_model_id
+        and artifact_models.get("rerank") == current.rerank_model_id
+    )
+    query_set_matches = (
+        artifact.get("query_set_sha256") == current.query_set_sha256
+        and artifact.get("scored_query_set_sha256") == current.scored_query_set_sha256
+    )
+    inputs_match = models_match and query_set_matches
 
-    if revision_matches and measured_clean:
-        return (
-            True,
-            f"Measured at the revision currently running: {artifact_revision[:12]}.",
+    if fingerprint_matches and measured_clean and inputs_match:
+        return True, (
+            f"Measured at retrieval fingerprint {artifact_fingerprint[:12]}, "
+            "with the models and canonical query set currently running."
         )
 
-    if not revision_matches:
-        behind = (
-            f" ({commits_behind} commit{'s' if commits_behind != 1 else ''} behind)"
-            if commits_behind
-            else ""
-        )
-        measured = (
-            artifact_revision[:12] if artifact_revision else "no recorded revision"
-        )
-        running = (
-            current_revision[:12] if current_revision else "an unresolved revision"
-        )
-        return False, (
-            f"{PENDING_TEXT}: the artifact measured {measured}{behind}, this "
-            f"system runs {running}. Rerun scripts/score_evals.py "
-            "--write-baseline once source reaches final HEAD, then commit the "
-            "regenerated artifact."
-        )
+    reasons: list[str] = []
+    if not fingerprint_matches:
+        if not artifact_fingerprint:
+            reasons.append(
+                "no retrieval fingerprint was recorded when this artifact was measured"
+            )
+        else:
+            reasons.append(
+                f"the retrieval fingerprint changed ({artifact_fingerprint[:12]} "
+                f"measured, {current.retrieval_fingerprint[:12]} running)"
+            )
+    if not measured_clean:
+        reasons.append("the measurement's own worktree was not clean")
+    if not models_match:
+        reasons.append("the embedding or rerank model changed")
+    if not query_set_matches:
+        reasons.append("the canonical query set or its judgments changed")
 
     return False, (
-        f"{PENDING_TEXT}: the committed scorecard was measured from an "
-        "unclean worktree, so its numbers are not attributable even though "
-        "the measured revision matches what is running."
+        f"{PENDING_TEXT}: " + "; ".join(reasons) + ". Rerun "
+        "scripts/score_evals.py --write-baseline once the retrieval change is "
+        "reviewed, then commit the regenerated artifact."
     )
 
 
@@ -353,15 +369,14 @@ def retrieval_scorecard() -> RetrievalScorecardResponse:
     scored = _scored_queries()
     settings = get_settings()
     artifact_source = artifact.get("source") or {}
-    commits_behind = None
-    artifact_revision = artifact_source.get("revision")
-    if artifact_revision and settings.source_revision:
-        commits_behind = _commits_behind(artifact_revision, settings.source_revision)
-    attributed, attribution_note = _attribution(
-        artifact_source,
-        settings.source_revision,
-        commits_behind=commits_behind,
+    current = _CurrentRetrievalIdentity(
+        retrieval_fingerprint=compute_retrieval_fingerprint(),
+        embedding_model_id=settings.embedding_model_id,
+        rerank_model_id=settings.rerank_model_id,
+        query_set_sha256=query_set_sha256(CANONICAL_QUERIES),
+        scored_query_set_sha256=scored_query_set_sha256(scored),
     )
+    attributed, attribution_note = _attribution(artifact, current)
     provenance = ScorecardProvenance(
         measured_at=artifact["measured_at"],
         query_set=artifact["query_set"],
