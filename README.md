@@ -200,7 +200,7 @@ The Aurora release contract verifies:
 | Product specification coverage | 500,000 products |
 | Generated review evidence | 15,000 records |
 | Filter-contract cases | 720 |
-| Canonical scorecard | 19 product retrieval cases plus 1 agent contract case |
+| Canonical scorecard | 20 product retrieval cases plus 1 agent contract case |
 
 The catalog is synthetic and represents no real products, reviews, or customer
 testimony. It spans three domains:
@@ -266,7 +266,7 @@ It is a release gate, not a general benchmark command.
 These assets answer different questions:
 
 - golden lab anchors ask whether critical behavior regressed;
-- the 19 product-retrieval cases measure retrieval quality;
+- the 20 product-retrieval cases measure retrieval quality;
 - the 720 generated fixtures test whether filters violated their contract.
 
 Only `scripts/benchmark_hnsw.py` records measured Aurora performance.

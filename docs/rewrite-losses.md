@@ -101,7 +101,8 @@ gap.
 Note recorded 2026-08-27: the first row's query, `typo-recovery`'s query at the
 time, was retired in favor of `Sonorra WHC720` — see LOSS-5 for why. The row
 above is historical, measured against a query no longer on the required lab
-path; it is preserved verbatim as canonical fixture `G-022`.
+path. The retired text is recorded here and in LOSS-5 rather than kept as a
+canonical fixture.
 
 Correction recorded 2026-08-10: this entry initially attributed the absence of
 target 234001 from the live trigram pool to per-token scoring. That was wrong.
@@ -562,7 +563,9 @@ query, every token misspelled and no descriptive language present: `fts`
 recovers nothing at all (0-row pool, not merely a miss on the target), `pg_trgm`
 still recovers the target at rank 1, and `hnsw` still does not recall it in a
 150-row pool. `hnsw` staying un-declared is, if anything, more strongly
-justified by the new query than the old one. The retired query is preserved
-verbatim as canonical fixture `G-022`, off the required lab path, because it
-still demonstrates a real production failure mode: a visibly correct result
-that hides a disconnected trigram channel.
+justified by the new query than the old one. The retired query is recorded here
+rather than kept as a fixture. It still describes a real production failure mode
+— a visibly correct result that hides a disconnected trigram channel — but a
+query `fts` recovers either way cannot discriminate the Lab 1 seam, so scoring it
+would add a non-discriminating row to the leaderboard. The canonical population
+stays at 21 rows, 20 of them scored.

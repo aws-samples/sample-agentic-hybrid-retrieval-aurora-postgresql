@@ -51,7 +51,7 @@ make validate-lab-2
 make validate-lab-3
 ```
 
-The canonical scorecard is the curated 20-query set. Nineteen product-retrieval
+The canonical scorecard is the curated 21-query set. Twenty product-retrieval
 queries produce Recall@10, MRR, nDCG@10, per-query metrics, deterministic
 fixture checks, and a hash of the exact ranked result set. The 720 generated
 cases are filter-contract tests, not retrieval-quality judgments.

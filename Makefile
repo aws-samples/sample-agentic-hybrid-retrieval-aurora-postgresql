@@ -150,8 +150,8 @@ validate-evals:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/run_eval.py \
 		--queries data/evals/canonical_queries.jsonl --validate-only
 
-# Release-only quality gate. It runs the 19 product-retrieval cases from the
-# curated 20-query set through served FTS + pg_trgm + HNSW + unweighted RRF +
+# Release-only quality gate. It runs the 20 product-retrieval cases from the
+# curated 21-query set through served FTS + pg_trgm + HNSW + unweighted RRF +
 # managed reranking, then rejects provenance or metric regressions.
 score-evals:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/score_evals.py $(SCORE_EVAL_ARGS)

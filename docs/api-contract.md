@@ -200,7 +200,7 @@ page labels them differently because they are different kinds of claim.
   every request rather than persisted.
 
   Four sections, never conflated: `retrieval_quality` (population Recall@10, MRR,
-  nDCG@10 over the 19 scored searches, gated on provenance), `regression_anchors`
+  nDCG@10 over the 20 scored searches, gated on provenance), `regression_anchors`
   (compact PASS/total over the golden release checks), `eligibility_contracts` (hard
   eligibility/filter fixtures — not a relevance judgment, no Recall/MRR/nDCG),
   and `agent_contracts` (deterministic retrieval-scope, compare-boundary,
