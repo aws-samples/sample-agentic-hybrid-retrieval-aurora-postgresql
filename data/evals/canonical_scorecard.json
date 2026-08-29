@@ -64,10 +64,10 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-08-28T19:10:51.633235+00:00",
+  "measured_at": "2026-08-29T18:05:06.801770+00:00",
   "metrics": {
     "mrr": 0.9266666666666667,
-    "ndcg@10": 0.8712289643247111,
+    "ndcg@10": 0.8740402307639645,
     "recall@10": 0.8666666666666666
   },
   "models": {
@@ -95,7 +95,7 @@
       "concept_label": "Typo recovery",
       "ndcg@10": 1.0,
       "query_id": "G-003",
-      "query_text": "Sonorra WHC720",
+      "query_text": "noice cancelng hedfones",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
@@ -125,7 +125,7 @@
     },
     {
       "concept_label": "Comparison and reranking",
-      "ndcg@10": 0.8996052605611106,
+      "ndcg@10": 0.95583058934618,
       "query_id": "G-007",
       "query_text": "quiet wireless keyboard for a shared office; compare mechanical feel with the cheaper alternative",
       "recall@10": 1.0,
@@ -238,9 +238,9 @@
   ],
   "product_retrieval_query_count": 20,
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "fdfae7d6e79f1b1c6f1cd992e2fe608417d7213f6d69ab4a309af845434da17e",
-  "ranked_result_sha256": "d47521d888392ad19ce69e5f81c2c067933a01f415b7da8ba08c4a155484900e",
-  "retrieval_fingerprint": "0dbd09c25f33c1b3d092ba575844ffb648e058e2f11c8db7a27bdfe197e1e71f",
+  "query_set_sha256": "d1ce67635a35559dc04dca229ab22771edfa199ce95be25a7b527a7b5d05468e",
+  "ranked_result_sha256": "5a07e31afb84d6712c7de4f1b9f322c5534b7f45557baf65301086f8cb702854",
+  "retrieval_fingerprint": "b3b1d2e6de60c47cfa0e63fc58c05faa0cfc354ef8cde09cfc75e3e38e88da17",
   "retrieval_profile": {
     "authorized_limit": 10,
     "ef_search": 100,
@@ -258,10 +258,10 @@
     "weight_semantic": 0.45,
     "weight_trigram": 0.1
   },
-  "scorecard_methodology_sha256": "7a9cd94962b2b5aae99b8c6fbc857a83daef2ca3fc5b150e95c639688312d4bf",
-  "scored_query_set_sha256": "f532c85d8226c8f0d498b354ef4a5cfae9f8945cd37477f8b75c71a12d72ff9c",
+  "scorecard_methodology_sha256": "f2cc7a587628af06d315bb0cea7c146894a0efd34031fd6a2daadc9584bacde5",
+  "scored_query_set_sha256": "f9d840a4fb5fa58a5a3af798ef1a3eb3b34f6073997125e2d969f755bda3f36e",
   "source": {
-    "revision": "fa21f97bdde8ba9bbed26ad48d5e9307a64a839e",
+    "revision": "2ae2e1a7a1b8020583610715ccccea95c4dcb6de",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
