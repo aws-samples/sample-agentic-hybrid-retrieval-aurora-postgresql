@@ -12,6 +12,7 @@ it would simply agree with itself. See docs in `deploy/README.md`.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from service.main import app
 ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP = ROOT / "deploy" / "mosaic-bootstrap.sh"
 MAKEFILE = ROOT / "Makefile"
+MISSIONS = ROOT / "data" / "evals" / "mosaic_labs_missions.json"
 VITE_CONFIG = ROOT / "ui" / "vite.config.ts"
 
 
@@ -42,11 +44,82 @@ def _make_default(name: str) -> str:
     return match.group(1)
 
 
+def _lab1_mission() -> dict:
+    contract = json.loads(MISSIONS.read_text(encoding="utf-8"))
+    return next(
+        mission for mission in contract["missions"] if mission["id"] == "typo-recovery"
+    )
+
+
+def _lab1_acceptance_payload(script: str) -> dict:
+    output = "' >/tmp/lab1-broken-proof.json"
+    end = script.find(output)
+    assert end != -1, (
+        "bootstrap no longer writes the Lab 1 acceptance response to "
+        "/tmp/lab1-broken-proof.json"
+    )
+    prefix = "--data '"
+    start = script.rfind(prefix, 0, end)
+    assert start != -1, "bootstrap Lab 1 acceptance request has no JSON --data payload"
+    return json.loads(script[start + len(prefix) : end])
+
+
+def _lab1_acceptance_assertion(script: str) -> str:
+    proof_path = "/tmp/lab1-broken-proof.json"
+    response_position = script.find(f"' >{proof_path}")
+    assert response_position != -1
+    start = script.find("jq -e '", response_position)
+    assert start != -1, "bootstrap has no jq acceptance assertion for Lab 1"
+    start += len("jq -e '")
+    end = script.find(f"' {proof_path}", start)
+    assert end != -1, "bootstrap Lab 1 jq assertion no longer reads its response"
+    return script[start:end]
+
+
 def test_the_source_of_truth_is_here(script: str) -> None:
     assert BOOTSTRAP.exists()
     # A bootstrap that does not start the two units is not this bootstrap.
     assert "mosaic-api" in script
     assert "mosaic-ui" in script
+
+
+def test_lab1_acceptance_request_matches_the_mission(script: str) -> None:
+    """Changing the mission cannot leave a stale fresh-stack acceptance request."""
+    mission = _lab1_mission()
+    expected = {
+        "query": mission["query"],
+        "filters": mission["filters"],
+        "limit": mission["top_k"],
+        "include_diagnostics": True,
+        "rerank": True,
+    }
+    actual = _lab1_acceptance_payload(script)
+    assert actual == expected, (
+        "bootstrap rule: the Lab 1 acceptance request must equal the "
+        "typo-recovery mission; "
+        f"offending value={actual!r}; expected={expected!r}; "
+        "fix: derive deploy/mosaic-bootstrap.sh's request from "
+        "data/evals/mosaic_labs_missions.json"
+    )
+
+
+def test_lab1_acceptance_assertion_targets_the_mission_product(script: str) -> None:
+    """Changing the target cannot leave a stale product-ID assertion."""
+    mission = _lab1_mission()
+    assertion = _lab1_acceptance_assertion(script)
+    asserted_targets = {
+        int(product_id)
+        for product_id in re.findall(r"\.product_id\s*!=\s*(\d+)", assertion)
+    }
+    expected_targets = set(mission["target_product_ids"])
+    assert asserted_targets == expected_targets, (
+        "bootstrap rule: the Lab 1 broken-state assertion must exclude exactly "
+        "the mission target IDs; "
+        f"offending value={sorted(asserted_targets)}; "
+        f"expected={sorted(expected_targets)}; "
+        "fix: update the jq assertion beside /tmp/lab1-broken-proof.json"
+    )
+    assert ".diagnostics.candidate_counts.trigram_in_pool == 0" in assertion
 
 
 def test_api_unit_serves_the_makefile_api_port(script: str) -> None:

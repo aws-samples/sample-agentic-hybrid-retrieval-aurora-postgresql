@@ -41,8 +41,8 @@ function diagnostics(
 function response(counts: Record<string, number>): SearchResponse {
   return {
     search_event_id: "channel-test",
-    query: "Sonorra WHC720",
-    normalized_query: "Sonorra WHC720",
+    query: "noice cancelng hedfones",
+    normalized_query: "noice cancelng hedfones",
     applied_filters: {},
     results: [],
     diagnostics: diagnostics(counts),

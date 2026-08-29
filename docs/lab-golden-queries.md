@@ -9,7 +9,7 @@ contract without creating a second copy of its values.
 
 | Lab | Canonical query | Bad observation | Participant repair | Good observation |
 |---|---|---|---|---|
-| Retrieve | `G-003` / `typo-recovery` | Neither FTS nor the semantic arm can recover product 2; the disconnected pg_trgm arm contributes nothing, so product 2 is absent from the results | Restore the trigram CTE and candidate channel | Product 2 enters through the restored trigram channel alone, at trigram rank 1 and final rank 1; hard filters still hold |
+| Retrieve | `G-003` / `typo-recovery` | Neither FTS nor the semantic arm can recover product 2; the disconnected pg_trgm arm contributes nothing, so product 2 is absent from the results | Restore the trigram CTE and candidate channel | Product 2 enters through the restored trigram channel alone, reaches the first 10 results, and retains hard filters |
 | Rank | `G-008` / `rank-with-evidence` | Product 370002 wins every arm, but collapsed contributions put 370001 at fused rank 1; reranking masks the defect | Restore `1 / (k + source_rank)` | Product 370002 is fused and final rank 1, with stable, inspectable contributions |
 | Reason | `G-021` / `agentic-research` | Retrieval and evidence calls occur, but synthesis fails closed with HTTP 503 | Attach retrieved evidence IDs to product-owned synthesis state | HTTP 200, grounded comparison, and citations resolve to real evidence records |
 

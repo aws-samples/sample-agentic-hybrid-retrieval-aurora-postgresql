@@ -193,7 +193,7 @@ jobs:
           PY
 
       # These gates use Aurora but do not invoke embedding, reranking, or agent
-      # models. Each reports independently; the billed job needs all of them.
+      # models. Each reports independently; the model-backed jobs need all of them.
 
       - name: Verify the delivered bootstrap and release pin
         if: ${{ !cancelled() && steps.release-env.outcome == 'success' }}
@@ -247,6 +247,92 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+  model-release:
+    name: Billed model-backed Aurora invariants
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - offline
+      - aurora-release
+    environment: mosaic-aurora-billed
+    runs-on:
+      - self-hosted
+      - linux
+      - mosaic-aurora
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AURORA_INSTANCE_CLASS: db.r8g.2xlarge
+      AWS_REGION: us-east-1
+      AWS_CI_ROLE_ARN: ${{ secrets.MOSAIC_AURORA_CI_ROLE_ARN }}
+      DATABASE_URL: ${{ secrets.MOSAIC_AURORA_DATABASE_URL }}
+      RELEASE_SOURCE_SHA: ${{ github.sha }}
+      RELEASE_EVIDENCE_DIR: build/model-release-evidence
+    steps:
+      - name: Check out SQL-certified source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
+
+      - name: Install Python dependencies
+        id: model-deps
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.11.21
+          uv sync --frozen
+
+      - name: Require the model-backed release environment
+        id: model-env
+        if: ${{ !cancelled() && steps.model-deps.outcome == 'success' }}
+        run: |
+          mkdir -p "$RELEASE_EVIDENCE_DIR"
+          test -n "$DATABASE_URL" || {
+            echo "MOSAIC_AURORA_DATABASE_URL is required for model-backed release CI."
+            exit 2
+          }
+          test -n "$AWS_CI_ROLE_ARN" || {
+            echo "MOSAIC_AURORA_CI_ROLE_ARN is required for model-backed release CI."
+            exit 2
+          }
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$RELEASE_SOURCE_SHA" || {
+            echo "Checked-out source $actual_sha does not match $RELEASE_SOURCE_SHA."
+            exit 2
+          }
+
+      - name: Configure AWS credentials
+        id: model-aws-credentials
+        if: ${{ !cancelled() && steps.model-env.outcome == 'success' }}
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ env.AWS_CI_ROLE_ARN }}
+
+      # Every pytest.mark.aurora test lives in these files. They invoke Bedrock
+      # embedding and reranking and write normal retrieval telemetry, so they
+      # belong in this explicitly credentialed and billed lane.
+      - name: Run the live Aurora invariants
+        if: ${{ !cancelled() && steps.model-aws-credentials.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          make test-aurora-invariants 2>&1 \
+            | tee "$RELEASE_EVIDENCE_DIR/test-aurora-invariants.log"
+
+      - name: Upload model-backed release evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: model-release-${{ github.sha }}
+          path: build/model-release-evidence/
+          if-no-files-found: error
+          retention-days: 90
+
   scorecard-release:
     name: Billed canonical scorecard
     if: >-
@@ -255,6 +341,7 @@ jobs:
     needs:
       - offline
       - aurora-release
+      - model-release
     environment: mosaic-aurora-billed
     runs-on:
       - self-hosted

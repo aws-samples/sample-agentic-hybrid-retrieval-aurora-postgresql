@@ -251,7 +251,7 @@ make ui-audit
 
 With `DATABASE_URL` pointing at the intended Aurora cluster:
 
-The full Python gate includes 9 read-only integration tests against Aurora.
+The full Python gate includes 13 read-only integration tests against Aurora.
 
 ```bash
 MISSION_GATE_REQUIRE_DB=1 make validate-missions

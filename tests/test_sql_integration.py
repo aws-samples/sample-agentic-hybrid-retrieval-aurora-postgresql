@@ -172,7 +172,7 @@ def test_a_typo_query_recovers_its_target_through_the_trigram_arm(connection, pr
         LIMIT 5
         """,
         (
-            "Sonorra WHC720",
+            "noice cancelng hedfones",
             json.dumps(
                 {
                     "domain": "consumer_electronics",
@@ -318,3 +318,110 @@ def test_the_weighted_function_takes_weights_and_the_unweighted_one_does_not(
     assert "weight_lexical" not in signatures["search_hybrid_rrf"]
     assert "weight_lexical" in signatures["search_hybrid_rrf_weighted"]
     assert "trigram_threshold" in signatures["search_hybrid_rrf"]
+
+
+# --- Lab 1 determinism: the same result on every account, every deployment -----
+#
+# These four checks are pure SQL. No embedding model, no reranker, no HNSW, so
+# nothing here can vary between accounts, between Bedrock model versions, or
+# between runs: the same seeded corpus produces the same answer or the gate is
+# red. That is deliberate. The Lab 1 lesson previously depended on facts nobody
+# asserted anywhere, and a release shipped in which the anchor was recoverable
+# without pg_trgm on every account, not just some.
+#
+# They live in this file because `make test-aurora-contracts` runs it in the
+# non-billed release job. The served-path equivalents need Bedrock and run from
+# `make test-aurora-invariants`.
+
+LAB1_ANCHOR = "noice cancelng hedfones"
+LAB1_FILTERS = {
+    "domain": "consumer_electronics",
+    "max_price_cents": 20000,
+    "in_stock_only": True,
+}
+EXACT_IDENTITY_CONTROL = "Sonora WH-C720"
+
+
+def test_no_product_carries_its_own_misspellings_in_the_tsvector(connection):
+    """Alias-supplied typo lexemes must not exist in `search_document` at all.
+
+    `hedphon` can only enter the tsvector from an alias, because no product title
+    or description spells `headphones` that way. Measured before the fix: one row
+    corpus-wide, which made that row uniquely findable by FTS for its own typos.
+    """
+    rows = connection.execute(
+        """
+        SELECT count(*)
+        FROM mosaic_search.product_document
+        WHERE search_document @@ to_tsquery('english', 'hedphon | noic | cancelng')
+        """
+    ).fetchone()[0]
+    assert rows == 0, (
+        f"{rows} row(s) carry an alias-supplied misspelling as an FTS lexeme; "
+        "aliases are reaching feature_text and search_fts can recover the Lab 1 "
+        "target without pg_trgm"
+    )
+
+
+def test_fts_returns_nothing_for_the_lab1_anchor(connection, profile):
+    """The broken state's premise, asserted without a model in the path."""
+    rows = connection.execute(
+        "SELECT product_id FROM mosaic_search.search_fts(%s, %s::jsonb, %s::integer)",
+        (LAB1_ANCHOR, json.dumps(LAB1_FILTERS), profile.fts_limit),
+    ).fetchall()
+    assert rows == [], (
+        "search_fts recovered candidates for the Lab 1 anchor, so the lexical arm "
+        "can satisfy the query the lab claims defeats it"
+    )
+
+
+def test_fts_still_recovers_the_target_by_exact_identity(connection, profile):
+    """Witness: the arm is not simply broken for every input.
+
+    Without this, the assertion above would also pass if `search_fts` or the GIN
+    index stopped working entirely.
+    """
+    rows = connection.execute(
+        """
+        SELECT product_id, fts_rank
+        FROM mosaic_search.search_fts(%s, %s::jsonb, %s::integer)
+        """,
+        (EXACT_IDENTITY_CONTROL, json.dumps(LAB1_FILTERS), profile.fts_limit),
+    ).fetchall()
+    assert rows == [(2, 1)], (
+        "the exact-identity control no longer recovers product 2 at rank 1, so "
+        "removing aliases from feature_text has cost real lexical recall"
+    )
+
+
+def test_trigram_alone_recovers_the_lab1_anchor(connection, profile):
+    """The repair's payoff, and the margin it clears.
+
+    `search_trigram` gates on `lower(q) <% trigram_text`, which uses
+    `pg_trgm.word_similarity_threshold`, not the `minimum_similarity` argument.
+    Asserting the score as well as the rank is what makes a threshold change or a
+    drifted alias visible here instead of in a participant's terminal.
+    """
+    rows = connection.execute(
+        """
+        SELECT product_id, trigram_rank, trigram_score
+        FROM mosaic_search.search_trigram(%s, %s::jsonb, %s::integer, %s::real)
+        ORDER BY trigram_rank
+        """,
+        (
+            LAB1_ANCHOR,
+            json.dumps(LAB1_FILTERS),
+            profile.trigram_limit,
+            profile.trigram_threshold,
+        ),
+    ).fetchall()
+    assert [(row[0], row[1]) for row in rows] == [(2, 1)], (
+        "the trigram arm no longer returns exactly the Lab 1 target at rank 1"
+    )
+    threshold = connection.execute(
+        "SELECT current_setting('pg_trgm.word_similarity_threshold')::real"
+    ).fetchone()[0]
+    assert rows[0][2] > threshold, (
+        f"trigram score {rows[0][2]} does not clear the word_similarity gate "
+        f"{threshold}; the anchor is one threshold change from unrecoverable"
+    )

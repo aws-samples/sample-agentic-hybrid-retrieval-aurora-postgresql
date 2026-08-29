@@ -134,7 +134,16 @@ BEGIN
         ma.catalog_asset_key,
         p.title,
         concat_ws(' ', b.display_name, p.model_name, p.sku, c.category_path),
-        concat_ws(' ', p.short_description, array_to_string(p.tags, ' '), array_to_string(p.aliases, ' ')),
+        -- `p.aliases` is deliberately absent here. Aliases carry misspelled
+        -- variants of the product's own identity, so feeding them into
+        -- `feature_text` put those misspellings into `search_document` (see the
+        -- generated column above) and made the FTS arm recover a typo the
+        -- trigram arm is supposed to be the only path for. Measured on Aurora:
+        -- 'hedphon' reached the tsvector of exactly one row, turning that
+        -- product into a unique FTS beacon for its own typos. Aliases still
+        -- reach `trigram_text` and `rerank_text` below, which is where a
+        -- close-spelling channel and the reranker can legitimately use them.
+        concat_ws(' ', p.short_description, array_to_string(p.tags, ' ')),
         concat_ws(' ', p.long_description, p.attributes::text),
         lower(concat_ws(' ', p.title, b.display_name, p.model_name, p.sku, c.category_path,
                         array_to_string(p.aliases, ' '), array_to_string(p.tags, ' '))),

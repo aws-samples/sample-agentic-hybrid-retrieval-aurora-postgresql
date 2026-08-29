@@ -886,7 +886,7 @@ jq -e '
 curl -fsS -X POST http://127.0.0.1:8000/api/search \
   -H 'Content-Type: application/json' \
   --data '{
-    "query": "Sonorra WHC720",
+    "query": "noice cancelng hedfones",
     "filters": {
       "domain": "consumer_electronics",
       "max_price_cents": 20000,
@@ -897,14 +897,20 @@ curl -fsS -X POST http://127.0.0.1:8000/api/search \
     "rerank": true
   }' >/tmp/lab1-broken-proof.json
 # Lab 1's broken state disconnects the pg_trgm arm from candidate fusion. Measured
-# on the live 500,000-row cluster with a real Bedrock query embedding: the brand
-# token itself is misspelled ("Sonorra" vs "Sonora") and the query carries no other
-# descriptive language, so neither FTS nor the semantic arm has a lexeme or a
-# neighbor to recover product 2 with. With the trigram channel disconnected,
-# product 2 is not a candidate in any arm and is absent from the results --
-# Recall@10 fails. That absence, not just an empty trigram channel, is what this
-# checks; the previous anchor could not distinguish broken from fixed here because
-# its one correctly-spelled term let FTS recover the target regardless.
+# on a live 500,000-row cluster with a real Bedrock query embedding: every token is
+# misspelled, so no query lexeme reaches product 2's tsvector, and because the
+# query names no identity the semantic arm ranks product 2 far outside its
+# 150-candidate budget. With the trigram channel disconnected, product 2 is a
+# candidate in no arm and is absent from the results: Recall@10 fails. That
+# absence, not just an empty trigram channel, is what this checks.
+#
+# The previous anchor, "Sonorra WHC720", could not distinguish broken from fixed.
+# It named the model number, so the semantic arm ranked product 2 first (exact
+# rank 1, cosine 0.492) and returned it even with pg_trgm disconnected. This check
+# therefore failed on every deploy. Retiring it also required removing aliases
+# from feature_text in db/sql/06_retrieval_projection.sql, because aliases carry
+# the target's own misspellings into search_document and let FTS recover any typo
+# this query could use.
 jq -e '
   .diagnostics.candidate_counts.trigram_in_pool == 0 and
   all(.results[]; .product_id != 2)

@@ -569,3 +569,62 @@ rather than kept as a fixture. It still describes a real production failure mode
 query `fts` recovers either way cannot discriminate the Lab 1 seam, so scoring it
 would add a non-discriminating row to the leaderboard. The canonical population
 stays at 21 rows, 20 of them scored.
+
+## LOSS-9 — the identity anchor made the broken state whole (closed)
+
+Recorded 2026-08-29. `Sonorra WHC720`, adopted in LOSS-5's dated note, is
+retired. The note above claims `hnsw` "still does not recall it in a 150-row
+pool." That claim is false and was never verified with an exact scan.
+
+Measured on two clusters, with `enable_indexscan` and `enable_bitmapscan` off so
+HNSW's approximation was out of the path:
+
+| query | exact semantic rank | cosine | trigram | FTS |
+|---|---|---|---|---|
+| `Sonorra WHC720` | **1** | 0.492 | 0.5789 | absent |
+| `noice cancelng hedfones` | 2687 / 2689 | 0.631 | 0.5938 | absent |
+
+Ranks are out of 119,266 rows eligible under the mission's filters; the two
+figures for the current anchor come from two different accounts. Naming the
+model number made product 2 the single nearest neighbour in the catalogue, so
+the semantic arm returned it at final rank 1 with `pg_trgm` disconnected. Lab 1's
+broken state lost nothing, `Recall@10` did not fail, and the bootstrap's own
+acceptance check — which asserts the target is absent — failed on every deploy
+from the anchor's introduction onward. It surfaced in a clean-account deployment,
+roughly 24 minutes into a bootstrap whose every other gate passed.
+
+Two things had to change together, and neither sufficed alone.
+
+The anchor had to stop naming an identity. A generic all-misspelled query leaves
+the target competing with every eligible pair of headphones, which is what puts
+it well beyond the 150-candidate budget instead of first.
+
+The projection had to stop leaking aliases into FTS. `p.aliases` carries a
+product's own misspellings, and `db/sql/06_retrieval_projection.sql` fed aliases
+into `feature_text`, hence into the generated `search_document` tsvector. The
+lexeme `hedphon` reached exactly one row corpus-wide, making product 2 a unique
+FTS beacon for any typo an anchor could use — the same mechanism LOSS-5 blamed on
+one correctly-spelled term, and the real reason the descriptive query was
+recoverable by FTS. Aliases still reach `trigram_text` and `rerank_text`, so the
+close-spelling channel and the reranker keep them; only the tsvector loses them.
+`embedding_text` never contained aliases, so no re-embedding was required and the
+exact ranks above are unaffected by the change.
+
+Verified end to end on the served path after both changes. Broken:
+`{fts_in_pool 0, trigram_in_pool 0, semantic_in_pool 50}`, target absent,
+`Recall@10` fails. Repaired: `{fts_in_pool 0, trigram_in_pool 1,
+semantic_in_pool 49}`, target present with `fts` and `semantic` rank null,
+trigram rank 1, final rank 1, `rerank_score` 0.846, hard filters holding on all
+ten rows.
+
+Cost recorded for anyone repeating it in place: all 500,000 rows carry aliases,
+so the `feature_text` rewrite and its two GIN index rebuilds took 24m20s on
+`db.r8g.2xlarge`. A fresh deployment pays nothing, because the projection is
+built correctly the first time.
+
+The narrower consequence is that the reranker's margin shrank. Under the identity
+anchor the target scored 0.871 against 0.021 for the runner-up; under a generic
+anchor it is 0.846, with a measured runner-up gap as small as 0.076 on one
+cluster. `final_rank == 1` was therefore dropped from the assertions in favour of
+`Recall@10` plus provenance and hard-filter checks, so a reranker model re-pin
+cannot turn the lab red without a real regression.

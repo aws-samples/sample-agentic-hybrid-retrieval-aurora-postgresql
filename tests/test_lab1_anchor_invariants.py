@@ -1,21 +1,29 @@
 """Dataset invariants for the Lab 1 `typo-recovery` anchor.
 
 `data/evals/mosaic_labs_missions.json`'s `typo-recovery` mission pins the query
-`Sonorra WHC720` against product 2 (Sonora WH-C720) under the mission's own
-filters. These tests prove the fixture naturally produces the lesson -- that
+`noice cancelng hedfones` against product 2 (Sonora WH-C720) under the mission's
+own filters. These tests prove the fixture naturally produces the lesson -- that
 `pg_trgm` is the target's only path in -- rather than proving that any UI
 surface displays it.
 
-Measured red-at-birth (2026-08-27, live Aurora, before this file existed): the
-retired anchor, `wirless noice canceling hedphones under $200 with long batery
-life`, returned product 2 at `fts_rank == 1` and `trigram_rank == 1`
-simultaneously under these same filters. FTS alone recovered the target
-whether or not `pg_trgm` was connected, so nothing below could ever have
-distinguished a connected trigram channel from a disconnected one. Every
-assertion here that FTS returns zero rows for `ANCHOR_QUERY`, or that
-`signals.fts.rank is None`, is false for the retired anchor and true for this
-one -- that swap is the exact edit that turns each test red, and reverting
-`ANCHOR_QUERY` alone (no code change) reproduces the failure.
+Two anchors have been retired here, each red for a different reason, and both
+falsifiers still work by editing `ANCHOR_QUERY` alone with no code change:
+
+* `wirless noice canceling hedphones under $200 with long batery life` returned
+  product 2 at `fts_rank == 1` because its one correctly-spelled term matched.
+* `Sonorra WHC720` named the model number, so the *semantic* arm ranked product 2
+  first -- measured exact rank 1 of 119,266 eligible rows, cosine 0.492, with
+  HNSW out of the path. It was returned at final rank 1 even with `pg_trgm`
+  disconnected, so the broken state lost nothing. `test_semantic_arm_does_not_
+  make_the_fixture_trivial` is the test that goes red for it.
+
+Neither retirement was enough on its own. Aliases carry a product's own
+misspellings, and `db/sql/06_retrieval_projection.sql` fed them into
+`feature_text`, hence into `search_document`. Measured: the lexeme `hedphon`
+reached exactly one row's tsvector corpus-wide, making product 2 a unique FTS
+beacon for any typo an anchor could use. Removing aliases from `feature_text`
+is what makes `test_fts_cannot_independently_recover_the_target` provable at all;
+restoring them there turns it red while every other test stays green.
 
 Each test calls the production arm functions directly (`search_fts`,
 `search_trigram`, `search_vector`) or the served `RetrievalService`, never a
@@ -64,12 +72,20 @@ def _configure_hnsw(connection, profile) -> None:
 
 
 @pytest.mark.aurora
-def test_repaired_target_enters_only_through_trigram_at_rank_1():
+def test_repaired_target_enters_only_through_trigram():
     """The lesson's positive case: with the arm connected, trigram is the only path.
 
-    Falsifier: swap `ANCHOR_QUERY` for the retired anchor and `signals.fts.rank`
-    stops being `None` -- FTS recovers product 2 on its own (measured: rank 1),
-    which is exactly why that anchor could not teach this lesson.
+    Asserts Recall@10 plus provenance, deliberately not `final_rank == 1`. The
+    reranker decides the final order, and its margin here is far narrower than
+    under the retired identity anchor, so pinning rank 1 would make this test a
+    hostage to the reranker's model version. Measured on Aurora with the arm
+    restored: trigram rank 1, `pre_rerank_rank` 1, `final_rank` 1,
+    `rerank_score` 0.846 -- comfortably inside the top 10, which is the claim the
+    lab actually makes.
+
+    Falsifier: swap `ANCHOR_QUERY` for either retired anchor and the provenance
+    assertions break -- `signals.fts.rank` stops being `None` for the descriptive
+    anchor, `signals.semantic.rank` stops being `None` for `Sonorra WHC720`.
     """
     response = get_retrieval_service().search(
         SearchRequest(
@@ -93,8 +109,13 @@ def test_repaired_target_enters_only_through_trigram_at_rank_1():
     assert signals.fts.rank is None
     assert signals.semantic.rank is None
     assert signals.trigram.rank == 1
-    assert signals.pre_rerank_rank == 1
-    assert signals.final_rank == 1
+    assert signals.trigram.rrf_contribution is not None
+
+    for row in response.results:
+        assert row.price_cents <= ANCHOR_FILTERS["max_price_cents"]
+        assert row.domain == ANCHOR_FILTERS["domain"]
+        if ANCHOR_FILTERS.get("in_stock_only"):
+            assert row.availability in {"in_stock", "low_stock"}
 
 
 @pytest.mark.aurora
@@ -172,11 +193,16 @@ def test_semantic_arm_does_not_make_the_fixture_trivial():
     entire production `candidate_limit` under the mission's filters, so the
     absence below is not an artifact of a starved or misconfigured filter.
 
-    Falsifier: swap `ANCHOR_QUERY` for the retired anchor; the target is still
-    outside this pool either way, but see
-    `test_repaired_target_enters_only_through_trigram_at_rank_1` for the
-    assertion the retired anchor actually breaks -- semantic never carried
-    this lesson under either query, which is exactly why `pg_trgm` had to.
+    This is the test that the `Sonorra WHC720` anchor broke, and the reason it
+    shipped broken is that this file has never run in a gate. Naming the model
+    number put the target at semantic rank 1 -- exact rank 1 of 119,266 eligible
+    rows, cosine 0.492, verified with index scans disabled so HNSW's
+    approximation was not in the path. The current anchor names no identity, so
+    the target competes with every eligible pair of headphones and sits well
+    outside the 150-candidate budget.
+
+    Falsifier: swap `ANCHOR_QUERY` for `Sonorra WHC720` and the final assertion
+    fails, because the semantic arm returns the target at rank 1.
     """
     profile = load_profile()
     embedding = get_retrieval_service().embed_query(ANCHOR_QUERY)

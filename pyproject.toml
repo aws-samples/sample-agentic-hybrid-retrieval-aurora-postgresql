@@ -24,7 +24,11 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# `db/tests` is listed because it was collected by nothing for as long as it has
+# existed: no Makefile target and no CI step named it, and `testpaths = ["tests"]`
+# excluded it from a plain `pytest` run, so its ten static SQL assertions never
+# executed anywhere. Adding a directory here is the whole fix; they pass.
+testpaths = ["tests", "db/tests"]
 markers = [
     "aurora: requires the live Aurora cluster and Bedrock model access",
 ]

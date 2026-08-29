@@ -12,7 +12,7 @@
 \echo ''
 \echo '== Lab 1: find what the user typed, even when they typed it badly =='
 
-\set typo_query 'noice canceling hedphones'
+\set typo_query 'noice cancelng hedfones'
 
 -- Step 1. The lexical arm on a misspelled query.
 --

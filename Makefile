@@ -40,7 +40,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -62,7 +62,7 @@ check-dsn:
 		exit 2; \
 	}
 
-DSN_TARGETS := test test-aurora-contracts db-install db-install-labs db-upgrade-snapshot \
+DSN_TARGETS := test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot \
 	validate-missions validate-evals score-evals ablation-evals validate-functions \
 	lab-01 db-load-mosaic db-index-concurrent db-load-cohort db-load-evidence db-smoke \
 	db-bootstrap-cached db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
@@ -406,6 +406,30 @@ test:
 test-aurora-contracts:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest -q \
 		tests/test_sql_integration.py
+
+# Every `pytest.mark.aurora` test lives in these two files, and until this target
+# existed none of them ran anywhere: tests/conftest.py skips the marker whenever
+# DATABASE_URL is unset, which is every offline CI run, and test-aurora-contracts
+# above names only test_sql_integration.py. The Lab 1 anchor invariants were red
+# for the whole `Sonorra WHC720` release and no gate reported it -- the failure
+# surfaced in a clean-account deployment instead, after a 24-minute bootstrap.
+#
+# Unlike test-aurora-contracts, these call paid Bedrock APIs: one query embedding
+# and one rerank per retrieval, bounded by the number of tests. Run this target
+# only from the explicitly credentialed model-release lane or an authorized
+# operator shell.
+#
+# Keep the marker check below. It fails closed if a marked test is ever silently
+# skipped here, so a missing DSN can never present as a pass.
+test-aurora-invariants:
+	@test -n "$(DATABASE_URL)" || { \
+		echo "test-aurora-invariants: DATABASE_URL is required; refusing to"; \
+		echo "report a pass built out of skipped aurora-marked tests."; \
+		exit 2; \
+	}
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest -q -rs \
+		tests/test_lab1_anchor_invariants.py \
+		tests/test_retrieval_scope.py
 
 # Five targets were DELETED in Phase 2 Unit E. They installed and loaded the
 # `catalog.*` tree, which no longer exists, against whatever DSN they were handed

@@ -235,20 +235,19 @@ def test_conftest_skip_hook_matches_the_aurora_marker_name():
     assert matched_literal == "aurora"
 
 
-def test_aurora_release_ci_requires_database_url_before_running_tests():
-    """The conftest skip is only safe because `aurora-release` fails fast.
+def test_model_release_ci_requires_database_url_before_running_tests():
+    """The conftest skip is only safe because `model-release` fails fast.
 
     Rule: a test that silently skips can hide a broken security guard, so a
     green offline run is not evidence the guard still works. Value: this skip
-    is safe only because `aurora-release` in ci.yml hard-requires DATABASE_URL
-    before it ever reaches `make test`, so the skip can never silently apply
-    in the one job that exists to run these tests. That precondition has two
+    is safe only because `model-release` in ci.yml hard-requires DATABASE_URL
+    before it reaches `make test-aurora-invariants`, so the skip can never
+    silently apply in the job that exists to run these tests. That precondition has two
     parts: the check must run before the test step, and it must actually stop
     the job on failure -- a `test -n ...` left unguarded by a nonzero `exit`
-    would let the job fall through to `make test` with an empty DSN, every
-    Aurora test would then silently skip, and CI would stay green with no
-    real SQL coverage. Fix: if either part is ever removed, this assertion is
-    what catches it.
+    would let the job fall through with an empty DSN, every Aurora test would
+    then silently skip, and CI would stay green with no model-backed coverage.
+    Fix: if either part is ever removed, this assertion is what catches it.
     """
     import re
     from pathlib import Path
@@ -258,7 +257,7 @@ def test_aurora_release_ci_requires_database_url_before_running_tests():
     )
     workflow_text = workflow_path.read_text()
 
-    after_job_name = workflow_text.split("aurora-release:", 1)[1]
+    after_job_name = workflow_text.split("model-release:", 1)[1]
     next_job_boundary = re.search(r"\n  [A-Za-z_][\w-]*:[ \t]*\n", after_job_name)
     release_job = (
         after_job_name[: next_job_boundary.start()]
@@ -267,13 +266,13 @@ def test_aurora_release_ci_requires_database_url_before_running_tests():
     )
 
     guard = 'test -n "$DATABASE_URL"'
-    test_step = "Run the Python test suite against Aurora"
+    test_step = "Run the live Aurora invariants"
 
     guard_index = release_job.find(guard)
     test_step_index = release_job.find(test_step)
 
-    assert guard_index != -1, "aurora-release no longer guards on DATABASE_URL"
-    assert test_step_index != -1, "aurora-release no longer runs its test step"
+    assert guard_index != -1, "model-release no longer guards on DATABASE_URL"
+    assert test_step_index != -1, "model-release no longer runs its test step"
     assert guard_index < test_step_index, "the DATABASE_URL guard runs too late"
 
     guard_block_end = release_job.find("}", guard_index)

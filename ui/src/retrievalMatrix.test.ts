@@ -138,14 +138,16 @@ describe("match reasons", () => {
   });
 
   it("pairs each misspelling with the catalog word that repaired it", () => {
-    const pairs = nearMissPairs("Sonorra WHC720", headphones);
-    // In query order, so the chip reads as the sentence that was typed. "sonorra"
-    // scores 0.667 against "sonora"; "whc720" scores 0.333 against "c720" (from
-    // the hyphen-split model token), above pg_trgm's own similarity_threshold of
-    // 0.3 and below the 0.4 this once used, which would have dropped a real repair.
+    const pairs = nearMissPairs("noice cancelng hedfones", headphones);
+    // In query order, so the chip reads as the sentence that was typed. Every
+    // token of the Lab 1 anchor is misspelled, so all three pair with the catalog
+    // word they approximate -- one repair per word typed, which is what the
+    // participant needs to see. The retired identity anchor produced only two
+    // pairs and left the third word unexplained.
     expect(pairs).toEqual([
-      { queryWord: "sonorra", productWord: "sonora" },
-      { queryWord: "whc720", productWord: "c720" },
+      { queryWord: "noice", productWord: "noise" },
+      { queryWord: "cancelng", productWord: "cancelling" },
+      { queryWord: "hedfones", productWord: "headphones" },
     ]);
   });
 

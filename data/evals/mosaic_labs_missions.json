@@ -34,7 +34,7 @@
       "title": "Lab 1 - Build hybrid retrieval",
       "discover_label": "Candidate recall across retrievers",
       "canonical_query_id": "G-003",
-      "query": "Sonorra WHC720",
+      "query": "noice cancelng hedfones",
       "filters": {
         "domain": "consumer_electronics",
         "max_price_cents": 20000,
@@ -53,7 +53,7 @@
         "file": "db/sql/09_search_functions.sql",
         "approximate_lines": 11,
         "task": "Restore the trigram CTE and its candidate channel in search_hybrid_rrf.",
-        "broken_state": "Neither FTS nor the semantic arm can recover the target under this query, and the disconnected pg_trgm arm contributes no candidate, rank, or RRF evidence, so product 2 is absent from the results entirely.",
+        "broken_state": "Every token in the query is misspelled, so no query lexeme reaches the target's tsvector, and because the query names no identity the semantic arm ranks the target far outside its candidate budget. With the pg_trgm arm's channel disconnected, product 2 is not a candidate in any arm and is absent from the results entirely.",
         "fixed_state": "The target enters through the restored trigram channel alone, carrying trigram rank and RRF contribution while hard filters still hold.",
         "observe_before": [
           "HTTP 200: retrieval still runs through FTS, HNSW, RRF, and reranking.",
@@ -67,7 +67,7 @@
         ],
         "checkpoint_question": "Why could neither FTS nor semantic search recover the target, and which restored signal made it recoverable?"
       },
-      "expected_outcome": "The misspelled brand token defeats both FTS and semantic search; only the restored pg_trgm arm recovers the target, entering at trigram rank 1 and final rank 1 while hard filters still hold.",
+      "expected_outcome": "Misspelling every token defeats both FTS and semantic search: no query lexeme matches the target's tsvector, and the semantic arm ranks it far outside its 150-candidate budget. Only the restored pg_trgm arm recovers it, entering at trigram rank 1 with RRF provenance and reaching the first 10 results while hard filters still hold.",
       "assertions": [
         "target_in_top_k",
         "trigram_signal_present",

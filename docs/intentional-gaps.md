@@ -51,7 +51,7 @@ the later resets.
 ### GAP-1 — typo-recovery arm
 
 - **Lab 1 anchor** `typo-recovery` (`checkpoint: repair`, stage `retrieve`)
-- **Query** `Sonorra WHC720`
+- **Query** `noice cancelng hedfones`
 - **Target** product 2, Sonora WH-C720 Wireless Noise-Cancelling Headphones
 - **What to disable** the `typo` CTE in `mosaic_search.search_hybrid_rrf`, so the
   fusion receives only the FTS and vector arms. Leave

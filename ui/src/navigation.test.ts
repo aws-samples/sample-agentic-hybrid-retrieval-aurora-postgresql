@@ -8,7 +8,7 @@ import {
 /**
  * One request travelling through Discover, Shop and the Playground.
  *
- * The workshop's typo lesson depends on it. A shopper types `Sonorra WHC720` on
+ * The workshop's typo lesson depends on it. A shopper types `noice cancelng hedfones` on
  * Discover, Shop answers it usefully, and the Playground has to report that the
  * close-spelling arm is what carried the target — for that same request. Three
  * surfaces reasoning about three different candidate pools would make the lesson
@@ -21,7 +21,7 @@ import {
  * unrelated requests.
  */
 
-const TYPO = "Sonorra WHC720";
+const TYPO = "noice cancelng hedfones";
 
 /** The gates Shop had in force for the canonical Lab 1 request. */
 const SHOP_FILTERS = {
