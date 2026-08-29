@@ -38,6 +38,13 @@ PRODUCT_RETRIEVAL_SCOPE = "product_retrieval"
 AGENT_CONTRACT_SCOPE = "agent_contract"
 SCORECARD_DB_RETRY_DELAYS = (1.0, 2.0)
 CANONICAL_SCORECARD_PATH = "data/evals/canonical_scorecard.json"
+CANONICAL_RANKED_RESULTS_PATH = "data/evals/canonical_ranked_results.csv"
+CANONICAL_STAGE_ABLATION_PATH = "data/evals/canonical_stage_ablation.json"
+POST_MEASUREMENT_ARTIFACT_PATHS = {
+    CANONICAL_SCORECARD_PATH,
+    CANONICAL_RANKED_RESULTS_PATH,
+    CANONICAL_STAGE_ABLATION_PATH,
+}
 RESULT_FIELDNAMES = (
     "query_id",
     "product_id",
@@ -50,10 +57,7 @@ RESULT_FIELDNAMES = (
 #: identity. See `_write_ranked_results`.
 RANKED_RESULT_FIELDNAMES = ("query_id", "product_id", "rank")
 RANKED_RESULTS_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "data"
-    / "evals"
-    / "canonical_ranked_results.csv"
+    Path(__file__).resolve().parents[1] / CANONICAL_RANKED_RESULTS_PATH
 )
 FULL_GIT_SHA = re.compile(r"[0-9a-f]{40}")
 
@@ -524,7 +528,7 @@ def _write_ranked_results(
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as output:
-        writer = csv.writer(output)
+        writer = csv.writer(output, lineterminator="\n")
         writer.writerow(RANKED_RESULT_FIELDNAMES)
         for query in queries:
             for row in rows[query["query_id"]]:
@@ -573,7 +577,7 @@ def _scorecard_only_revision_delta(
         )
     except (OSError, subprocess.CalledProcessError):
         return False
-    return is_ancestor and changed_paths <= {CANONICAL_SCORECARD_PATH}
+    return is_ancestor and changed_paths <= POST_MEASUREMENT_ARTIFACT_PATHS
 
 
 def _validate_measurement_source(settings: Any) -> None:
@@ -590,6 +594,13 @@ def _validate_measurement_source(settings: Any) -> None:
             f"found source revision {settings.source_revision!r}. Set "
             "MOSAIC_SOURCE_REVISION to the immutable commit or run from a Git "
             "checkout."
+        )
+    if not settings.aurora_instance_class:
+        raise ValueError(
+            "Canonical scorecard provenance requires AURORA_INSTANCE_CLASS; found "
+            "it unset. Export the live Aurora writer class, for example "
+            "AURORA_INSTANCE_CLASS=db.r8g.2xlarge, before running the billed "
+            "scorecard."
         )
 
 
@@ -763,8 +774,8 @@ def verify_scorecard(measured: dict[str, Any], baseline: dict[str, Any]) -> None
             f"measured={source['revision']!r}; "
             f"baseline={baseline_source['revision']!r}. Commit the reviewed "
             "release, inspect its Aurora ranks, and write a new baseline. The "
-            "only permitted later commit is one that records "
-            f"{CANONICAL_SCORECARD_PATH} itself."
+            "only permitted later commits are the generated scorecard, ranked "
+            "results, and stage-ablation artifacts."
         )
     for metric, expected in baseline["metrics"].items():
         actual = measured["metrics"].get(metric)

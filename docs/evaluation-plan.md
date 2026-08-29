@@ -47,8 +47,14 @@ accepting a new measured baseline.
 The release sequence is therefore:
 
 1. Commit the reviewed code and configuration.
-2. Run `make score-evals SCORE_EVAL_ARGS="--restart --write-baseline"`.
-3. Review the ranks and commit only `data/evals/canonical_scorecard.json`.
+2. Export the live writer class, for example
+   `export AURORA_INSTANCE_CLASS=db.r8g.2xlarge`.
+3. Run `make score-evals SCORE_EVAL_ARGS="--restart --write-baseline"`.
+4. Review the ranks and commit both
+   `data/evals/canonical_scorecard.json` and
+   `data/evals/canonical_ranked_results.csv`.
+5. From that clean commit, run `make ablation-evals`, review the result, and
+   commit `data/evals/canonical_stage_ablation.json`.
 
 The runner retries only transient psycopg connection failures for the affected
 query. After each completed query it atomically writes an ignored checkpoint

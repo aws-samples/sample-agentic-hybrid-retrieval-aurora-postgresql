@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -6,6 +7,8 @@ import psycopg
 import pytest
 
 from scripts.score_evals import (
+    _scorecard_only_revision_delta,
+    _write_ranked_results,
     concept_label,
     label_per_query_metrics,
     measured_scorecard,
@@ -223,6 +226,113 @@ def test_scorecard_rejects_invalid_source_before_aurora_work(
             tmp_path / "results.csv",
             k=10,
         )
+
+
+def test_scorecard_requires_instance_class_before_aurora_work(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setattr(
+        "scripts.score_evals.get_settings",
+        lambda: SimpleNamespace(
+            source_revision="a" * 40,
+            source_worktree_dirty=False,
+            aurora_instance_class=None,
+        ),
+    )
+    monkeypatch.setattr(
+        "scripts.score_evals.connect",
+        lambda: pytest.fail(
+            "Aurora should not be queried before provenance validation"
+        ),
+    )
+
+    with pytest.raises(ValueError, match="AURORA_INSTANCE_CLASS"):
+        measured_scorecard(
+            ROOT / "data" / "evals" / "canonical_queries.jsonl",
+            tmp_path / "results.csv",
+            k=10,
+        )
+
+
+def test_ranked_results_use_lf_line_endings(tmp_path):
+    output = tmp_path / "ranked.csv"
+
+    _write_ranked_results(
+        output,
+        [{"query_id": "G-001"}],
+        {"G-001": [{"query_id": "G-001", "product_id": 2, "rank": 1}]},
+    )
+
+    assert output.read_bytes() == (b"query_id,product_id,rank\nG-001,2,1\n")
+
+
+def test_scorecard_accepts_only_generated_release_artifacts_after_measurement(
+    monkeypatch,
+    tmp_path,
+):
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "scorecard-test@example.com"],
+        cwd=tmp_path,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Scorecard Test"],
+        cwd=tmp_path,
+        check=True,
+    )
+    source = tmp_path / "service" / "retrieval.py"
+    source.parent.mkdir()
+    source.write_text("SOURCE = 'measured'\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-qm", "measured source"], cwd=tmp_path, check=True
+    )
+    baseline_revision = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_path,
+        text=True,
+    ).strip()
+
+    generated = (
+        "data/evals/canonical_scorecard.json",
+        "data/evals/canonical_ranked_results.csv",
+        "data/evals/canonical_stage_ablation.json",
+    )
+    for relative_path in generated:
+        path = tmp_path / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"{relative_path}\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-qm", "record generated artifacts"],
+        cwd=tmp_path,
+        check=True,
+    )
+    measured_revision = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_path,
+        text=True,
+    ).strip()
+    monkeypatch.setattr("scripts.score_evals.REPO", tmp_path)
+
+    assert _scorecard_only_revision_delta(baseline_revision, measured_revision)
+
+    source.write_text("SOURCE = 'changed after measurement'\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-qm", "intervening source change"],
+        cwd=tmp_path,
+        check=True,
+    )
+    code_revision = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"],
+        cwd=tmp_path,
+        text=True,
+    ).strip()
+
+    assert not _scorecard_only_revision_delta(baseline_revision, code_revision)
 
 
 def test_scorecard_refuses_a_baseline_with_intervening_code_changes(monkeypatch):

@@ -652,14 +652,12 @@ def test_stage_ablation_attribution_is_independent_of_the_main_artifacts():
 # --- The API route -----------------------------------------------------
 
 
-def test_api_serves_the_scorecard_route_fail_closed_until_remeasured():
+def test_api_serves_attributed_scorecard_after_remeasurement():
     payload = TestClient(app).get("/api/scorecard").json()
 
-    assert payload["provenance"]["attributed"] is False
-    assert payload["provenance"]["attribution_note"].startswith(PENDING_TEXT)
-    assert "retrieval fingerprint changed" in payload["provenance"]["attribution_note"]
-    assert (
-        "measurement methodology changed" in payload["provenance"]["attribution_note"]
+    assert payload["provenance"]["attributed"] is True
+    assert payload["provenance"]["attribution_note"].startswith(
+        "Measured at retrieval fingerprint"
     )
     assert payload["provenance"]["source_revision"]
     assert payload["provenance"]["current_source_revision"]
