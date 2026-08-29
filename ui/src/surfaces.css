@@ -406,23 +406,43 @@
 
 .discover-voices-dots {
   display: inline-flex;
-  gap: 8px;
+  gap: 2px;
 }
 
 .discover-voices-dots button {
-  width: 8px;
-  height: 8px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
   padding: 0;
-  border: 1px solid rgb(92 75 62 / 45%);
+  border: 0;
   border-radius: 50%;
   background: transparent;
   cursor: pointer;
-  transition: background 180ms ease, border-color 180ms ease;
 }
 
-.discover-voices-dots button.is-active {
+.discover-voices-dots button::before {
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgb(92 75 62 / 45%);
+  border-radius: 50%;
+  background: transparent;
+  content: "";
+  transition:
+    background-color 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.discover-voices-dots button.is-active::before {
   border-color: var(--maroon-800);
   background: var(--maroon-800);
+}
+
+@media (pointer: coarse) {
+  .discover-voices-dots button {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 @keyframes discover-voice-in {
@@ -2453,13 +2473,15 @@
   box-shadow: 0 14px 30px rgb(43 13 19 / 22%);
   color: #fffdf8;
   transform: translateY(-50%);
-  transition: width 180ms ease, background 180ms ease;
+  transition:
+    background-color 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .shop-assist-rail:hover,
 .shop-assist-rail:focus-visible {
-  width: 52px;
   background: var(--maroon-800);
+  transform: translate(-2px, -50%);
 }
 
 .shop-assist-rail span {
@@ -9482,6 +9504,10 @@
   color: #8c8178;
   font-family: var(--sans);
   font-size: 11px;
+  transition:
+    border-color 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    color 180ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .ask-mosaic-progress > li.complete .ask-mosaic-stage-node {
@@ -9497,6 +9523,12 @@
   animation: none;
 }
 
+.ask-mosaic-progress > li.failed .ask-mosaic-stage-node {
+  border-color: var(--maroon-800);
+  background: #f6e8e8;
+  color: var(--maroon-900);
+}
+
 .ask-mosaic-stage-panel {
   grid-column: 2;
   min-width: 0;
@@ -9504,6 +9536,11 @@
   border: 1px solid #ded5ca;
   border-radius: 8px;
   background: #fffdf9;
+  transition:
+    border-color 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    box-shadow 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    opacity 180ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .ask-mosaic-progress > li.pending .ask-mosaic-stage-panel {
@@ -9514,6 +9551,11 @@
 .ask-mosaic-progress > li.active .ask-mosaic-stage-panel {
   border-color: #c8aeb1;
   box-shadow: 0 8px 24px rgb(73 43 33 / 5%);
+}
+
+.ask-mosaic-progress > li.failed .ask-mosaic-stage-panel {
+  border-color: #c9949c;
+  background: #fff8f7;
 }
 
 .ask-mosaic-stage-summary {
@@ -9620,6 +9662,10 @@
   color: var(--maroon-800);
 }
 
+.ask-mosaic-progress > li.failed .ask-mosaic-stage-state {
+  color: var(--maroon-900);
+}
+
 /*
  * Wall clock on the step that is working.
  *
@@ -9641,7 +9687,7 @@
 
 .ask-mosaic-stage-chevron {
   color: #81766d;
-  transition: transform 180ms ease;
+  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .ask-mosaic-stage-chevron.open {
@@ -9958,6 +10004,13 @@
   background: #f7f1e8;
 }
 
+.ask-mosaic-answer-sequence,
+.ask-mosaic-answer-aftermath {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+}
+
 .ask-mosaic-answer > p:first-child {
   flex-wrap: wrap;
   margin-bottom: 12px;
@@ -10157,9 +10210,12 @@
 @media (prefers-reduced-motion: reduce) {
   .shop-stock-toggle > span,
   .shop-stock-toggle > span i,
+  .ask-mosaic-stage-panel,
+  .ask-mosaic-stage-node,
   .ask-mosaic-stage-chevron {
     transition: none;
   }
+
 }
 
 .discover-search .catalog-suggestions {
@@ -11140,6 +11196,17 @@
   gap: 4px 12px;
 }
 
+.labs-skill-adapters > li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.labs-skill-adapters > li > span {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
 /* The A2A row is not a measured status, so it must not read like one: no badge
    treatment, no accent, and plain body text where the others carry a state. */
 .labs-skill-adapter-doc b,
@@ -11296,7 +11363,8 @@
   gap: 12px;
   align-items: flex-start;
   padding: 13px 16px;
-  border-left: 3px solid var(--maroon-700);
+  border: 1px solid #d7b7bd;
+  border-radius: 8px;
   background: var(--maroon-100);
 }
 
@@ -11461,6 +11529,35 @@
   font-weight: 550;
 }
 
+.labs-skill-takeaway {
+  display: grid;
+  align-items: baseline;
+  gap: 3px 12px;
+  margin: 2px 0;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.labs-skill-takeaway > span {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.labs-skill-takeaway > code {
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  overflow-wrap: anywhere;
+}
+
+.labs-skill-takeaway > small {
+  grid-column: 2;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
 .labs-skill-adapters-label {
   margin: 6px 0 0;
   color: var(--ink-soft);
@@ -11471,11 +11568,21 @@
 }
 
 .labs-skill-closing {
-  max-width: 60ch;
+  max-width: 72ch;
   margin: 4px 0 0;
   color: var(--ink-soft);
   font-size: var(--labs-detail);
   line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .labs-skill-takeaway {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .labs-skill-takeaway > small {
+    grid-column: 1;
+  }
 }
 
 /* The hand-off, said out loud on its third surface. */

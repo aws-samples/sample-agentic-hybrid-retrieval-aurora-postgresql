@@ -96,6 +96,10 @@ export function CatalogSearchComposer({
   const [activeIndex, setActiveIndex] = useState(-1);
   const [idleSuggestionIndex, setIdleSuggestionIndex] = useState(0);
   const [showIdleSuggestion, setShowIdleSuggestion] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(
+    () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
+  );
   const listboxId = useId();
   const requestVersion = useRef(0);
   const trimmed = value.trim();
@@ -104,12 +108,30 @@ export function CatalogSearchComposer({
   const queryHintId = `${listboxId}-query-hint`;
   const optionCount = suggestions.length + (hasQuery ? 1 : 0);
   const idleSuggestion = idleSuggestions[idleSuggestionIndex] ?? "";
+  const supportsSuggestions = showSuggestions && suggestionsOnType;
+  const suggestionsEnabled = supportsSuggestions && !pending;
 
   useEffect(() => setValue(initialValue), [initialValue]);
 
   useEffect(() => {
-    setShowIdleSuggestion(false);
-    if (trimmed || !idleSuggestions.length) return;
+    const preference = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!preference) return undefined;
+    const updatePreference = () => setReduceMotion(preference.matches);
+    updatePreference();
+    preference.addEventListener?.("change", updatePreference);
+    return () => preference.removeEventListener?.("change", updatePreference);
+  }, []);
+
+  useEffect(() => {
+    if (trimmed || !idleSuggestions.length) {
+      setShowIdleSuggestion(false);
+      return undefined;
+    }
+    if (reduceMotion) {
+      setShowIdleSuggestion(true);
+      return undefined;
+    }
+    if (focused) return undefined;
 
     const reveal = window.setTimeout(() => setShowIdleSuggestion(true), 1200);
     const rotate = window.setInterval(() => {
@@ -120,7 +142,7 @@ export function CatalogSearchComposer({
       window.clearTimeout(reveal);
       window.clearInterval(rotate);
     };
-  }, [idleSuggestions, trimmed]);
+  }, [focused, idleSuggestions, reduceMotion, trimmed]);
 
   useEffect(() => {
     const version = requestVersion.current + 1;
@@ -128,7 +150,7 @@ export function CatalogSearchComposer({
     setActiveIndex(-1);
     setSuggestionsError("");
 
-    if (!hasQuery || trimmed === initialValue.trim()) {
+    if (!suggestionsEnabled || !hasQuery || trimmed === initialValue.trim()) {
       setSuggestions([]);
       setSuggestionsPending(false);
       setOpen(false);
@@ -163,7 +185,7 @@ export function CatalogSearchComposer({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [hasQuery, initialValue, suggestionsOnType, trimmed]);
+  }, [hasQuery, initialValue, suggestionsEnabled, trimmed]);
 
   function submit(query: string) {
     const normalized = query.trim();
@@ -202,12 +224,16 @@ export function CatalogSearchComposer({
     if (!hasQuery) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setOpen(true);
-      setActiveIndex((index) => (index + 1) % optionCount);
+      if (suggestionsEnabled) {
+        setOpen(true);
+        setActiveIndex((index) => (index + 1) % optionCount);
+      }
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      setOpen(true);
-      setActiveIndex((index) => (index <= 0 ? optionCount - 1 : index - 1));
+      if (suggestionsEnabled) {
+        setOpen(true);
+        setActiveIndex((index) => (index <= 0 ? optionCount - 1 : index - 1));
+      }
     } else if (event.key === "Escape") {
       setOpen(false);
       setActiveIndex(-1);
@@ -216,6 +242,7 @@ export function CatalogSearchComposer({
 
   function handleBlur(event: FocusEvent<HTMLFormElement>) {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setFocused(false);
       setOpen(false);
       setActiveIndex(-1);
     }
@@ -230,6 +257,7 @@ export function CatalogSearchComposer({
       }
       onSubmit={handleSubmit}
       onBlur={handleBlur}
+      onFocus={() => setFocused(true)}
     >
       {leadingIcon ?? <Search size={18} aria-hidden="true" />}
       {showIdleSuggestion && !trimmed ? (
@@ -243,33 +271,33 @@ export function CatalogSearchComposer({
       ) : null}
       <input
         aria-activedescendant={
-          open && activeIndex >= 0
+          supportsSuggestions && open && activeIndex >= 0
             ? `${listboxId}-option-${activeIndex}`
             : undefined
         }
-        aria-autocomplete="list"
-        aria-controls={listboxId}
+        aria-autocomplete={supportsSuggestions ? "list" : undefined}
+        aria-controls={supportsSuggestions ? listboxId : undefined}
         aria-describedby={queryTooShort ? queryHintId : undefined}
-        aria-expanded={open}
+        aria-expanded={supportsSuggestions ? open : undefined}
         aria-invalid={queryTooShort || undefined}
         aria-label={inputLabel}
         autoComplete="off"
         ref={inputRef}
         minLength={2}
         placeholder={showIdleSuggestion ? "" : placeholder}
-        role="combobox"
+        role={supportsSuggestions ? "combobox" : "searchbox"}
         value={value}
         onChange={(event) => {
           setValue(event.target.value);
           onValueChange?.(event.target.value);
           setShowIdleSuggestion(false);
           setOpen(
-            suggestionsOnType && event.target.value.trim().length >= 2,
+            suggestionsEnabled && event.target.value.trim().length >= 2,
           );
         }}
         onFocus={() => {
           if (
-            suggestionsOnType
+            suggestionsEnabled
             && hasQuery
             && trimmed !== initialValue.trim()
           ) {

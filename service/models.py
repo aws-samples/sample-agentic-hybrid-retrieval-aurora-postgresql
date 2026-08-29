@@ -92,6 +92,42 @@ class SearchFilters(BaseModel):
     include_refurbished: bool = False
     include_sponsored: bool = False
 
+    @model_validator(mode="after")
+    def _reject_contradictions(self) -> SearchFilters:
+        """Reject filter intersections that cannot match a catalog row."""
+        if (
+            self.min_price_cents is not None
+            and self.max_price_cents is not None
+            and self.min_price_cents > self.max_price_cents
+        ):
+            raise ValueError(
+                f"min_price_cents is {self.min_price_cents}, which exceeds "
+                f"max_price_cents {self.max_price_cents}; fix: lower "
+                "min_price_cents or raise max_price_cents"
+            )
+
+        in_stock_availability = {"in_stock", "low_stock"}
+        if (
+            self.in_stock_only
+            and self.availability is not None
+            and self.availability not in in_stock_availability
+        ):
+            raise ValueError(
+                f"availability is {self.availability!r} while in_stock_only is "
+                f"{self.in_stock_only}; fix: use one of "
+                f"{sorted(in_stock_availability)} or set in_stock_only to false"
+            )
+
+        if self.brand is not None and self.brands:
+            normalized_brands = {brand.casefold() for brand in self.brands}
+            if self.brand.casefold() not in normalized_brands:
+                raise ValueError(
+                    f"brand is {self.brand!r}, which is absent from brands "
+                    f"{self.brands!r}; fix: include {self.brand!r} in brands or "
+                    "remove one of the two brand constraints"
+                )
+        return self
+
     def as_sql_json(self) -> dict[str, Any]:
         """Render the filter set for `matches_filters`.
 
@@ -826,18 +862,30 @@ class ScorecardStageArm(BaseModel):
     ndcg_at_10_query_wins: int
 
 
+class ScorecardUnboundedCeilingArm(BaseModel):
+    """One ablation arm that the fused-pool ceiling does not constrain."""
+
+    note: str
+    recall_at_10: float = Field(validation_alias="recall@10")
+
+
 class ScorecardCandidateRecallCeiling(BaseModel):
     """The ceiling reranking could ever reach.
 
     Share of judged-relevant products present anywhere in the fused
     candidate pool before reranking, averaged over the scored queries.
     Reranking only ever reorders that pool -- it never adds a candidate --
-    so no arm downstream of fusion can exceed this.
+    so only the explicitly listed arms downstream of fusion are bounded.
     """
 
+    bounds_arms: list[Literal["rrf_fused_no_rerank", "rrf_fused_reranked"]]
     pool_recall_ceiling: float
     judged_relevant_never_fetched: int
     description: str
+    unbounded_arms: dict[
+        Literal["semantic_only"],
+        ScorecardUnboundedCeilingArm,
+    ]
 
 
 class ScorecardStageAblationQuery(BaseModel):

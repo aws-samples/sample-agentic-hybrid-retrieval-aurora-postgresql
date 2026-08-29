@@ -32,7 +32,7 @@ from service.models import (
     SearchResponse,
     SourceAttribution,
 )
-from service.rerank import Reranker, get_reranker
+from service.rerank import Reranker, get_reranker, validate_rerank_results
 
 # The served fusion method, named so the UI can label what actually ran instead
 # of hardcoding a claim. `search_hybrid_rrf` is unweighted; if the default is ever
@@ -63,9 +63,19 @@ def _identity_key(value: str) -> str:
 
 def _is_exact_sku_match(query: str, sku: str) -> bool:
     """Return whether the request contains this complete, unambiguous catalog SKU."""
-    query_key = _identity_key(query)
     sku_key = _identity_key(sku)
-    return len(sku_key) >= 8 and sku_key in query_key
+    if len(sku_key) < 8:
+        return False
+    optional_separators = r"[^a-z0-9]*"
+    sku_pattern = optional_separators.join(re.escape(char) for char in sku_key)
+    return (
+        re.search(
+            rf"(?<![a-z0-9]){sku_pattern}(?![a-z0-9])",
+            query,
+            flags=re.IGNORECASE,
+        )
+        is not None
+    )
 
 
 def _final_candidate_sort_key(
@@ -347,22 +357,22 @@ class RetrievalService:
             if request.rerank and candidates:
                 rerank_started = time.perf_counter()
                 try:
+                    rerank_limit = min(len(candidates), profile.fused_limit)
                     reranked = self._reranker().rerank(
                         normalized,
                         [_rerank_document(row) for row in candidates],
-                        min(len(candidates), profile.fused_limit),
+                        rerank_limit,
+                    )
+                    reranked = validate_rerank_results(
+                        reranked,
+                        document_count=len(candidates),
+                        expected_count=rerank_limit,
                     )
                     rerank_scores = {
                         candidates[index]["product_id"]: score
                         for index, score in reranked
                     }
-                    if not rerank_scores and self.settings.rerank_required:
-                        raise RuntimeError("The reranker returned no valid results")
-                    rerank_status = "applied" if rerank_scores else "unavailable"
-                    if not rerank_scores:
-                        warnings.append(
-                            "Reranking returned no scores; fused order kept."
-                        )
+                    rerank_status = "applied"
                 except Exception:
                     if self.settings.rerank_required:
                         raise

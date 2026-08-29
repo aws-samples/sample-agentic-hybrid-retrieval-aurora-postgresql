@@ -1,6 +1,14 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError } from "../api";
 import {
@@ -109,6 +117,14 @@ function mockEventsByid(events: Record<string, RetrievalRunResponse>) {
     if (!found) throw new ApiError(404, "Search event not found");
     return found;
   });
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
 }
 
 function cellsInRowFor(labelText: string): string[] {
@@ -264,5 +280,62 @@ describe("RepairEvidence — missing before and bad ids", () => {
     // No dormant "not attempted yet" copy left over, and no evidence table.
     expect(screen.queryByText(/paste the before id you saved/i)).toBeNull();
     expect(screen.queryByText("Close spelling")).toBeNull();
+  });
+});
+
+describe("RepairEvidence — request attribution", () => {
+  it("keeps reverse-order comparisons attached to the ids currently in the form", async () => {
+    const first = deferred<RetrievalRunResponse>();
+    const second = deferred<RetrievalRunResponse>();
+    vi.mocked(api.retrievalEvent).mockImplementation((id: string) => (
+      id === AFTER_ID ? second.promise : first.promise
+    ));
+    const firstId = BEFORE_ID;
+    const firstRun = run(
+      { search_event_id: firstId },
+      [candidate({ product_id: 101 })],
+    );
+    const secondRun = run(
+      { search_event_id: AFTER_ID },
+      [candidate({ product_id: 202 })],
+    );
+    render(<RepairEvidence latestSearchEventId={null} />);
+
+    fireEvent.change(screen.getByLabelText("After search_event_id"), {
+      target: { value: firstId },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+
+    fireEvent.change(screen.getByLabelText("After search_event_id"), {
+      target: { value: AFTER_ID },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Compare" }));
+
+    await act(async () => second.resolve(secondRun));
+    expect(await screen.findByText(/product #202/)).toBeTruthy();
+
+    await act(async () => first.resolve(firstRun));
+    await waitFor(() => {
+      expect(screen.getByText(/product #202/)).toBeTruthy();
+      expect(screen.queryByText(/product #101/)).toBeNull();
+    });
+  });
+
+  it("retries a transient comparison failure", async () => {
+    vi.mocked(api.retrievalEvent)
+      .mockRejectedValueOnce(new Error("temporary comparison failure"))
+      .mockResolvedValueOnce(LAB1_AFTER);
+    render(<RepairEvidence latestSearchEventId={AFTER_ID} />);
+
+    await pressCompare();
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "temporary comparison failure",
+    );
+
+    await pressCompare();
+
+    expect(await screen.findByText(/product #2/)).toBeTruthy();
+    expect(screen.queryByText("temporary comparison failure")).toBeNull();
+    expect(vi.mocked(api.retrievalEvent)).toHaveBeenCalledTimes(2);
   });
 });

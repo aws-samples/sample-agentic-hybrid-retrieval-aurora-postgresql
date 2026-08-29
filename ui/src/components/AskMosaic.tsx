@@ -69,6 +69,8 @@ export interface AskMosaicTurn {
   id: number;
   question: string;
   response: AgentResponse | null;
+  /** True only after the stream's terminal `complete` event has arrived. */
+  completed: boolean;
   /**
    * Retrieval that has landed while the run is still going, so the stage that
    * is in progress has something real to show. Superseded by `response`.
@@ -298,28 +300,38 @@ function StageElapsed({ since }: { since: number }) {
 }
 
 function StageRail({
-  activeStage,
+  actualStage,
   complete,
   executionPath,
+  failed,
+  presentedStage,
   stageDetail,
   stageStartedAt,
   panels,
+  onPresentationProgress,
 }: {
-  activeStage: AssistStage | null;
+  actualStage: AssistStage | null;
   complete: boolean;
   executionPath: AssistExecutionPath;
+  failed: boolean;
+  presentedStage: AssistStage;
   stageDetail: string;
   stageStartedAt: number;
   panels: Partial<Record<AssistStage, ReactNode>>;
+  onPresentationProgress?: () => void;
 }) {
   const stages = executionPath === "focused_follow_up"
     ? focusedFollowUpStages
     : fullRetrievalStages;
-  const activeIndex = complete
+  const actualIndex = complete
     ? stages.length
-    : activeStage
-    ? stages.findIndex((item) => item.id === activeStage)
+    : actualStage
+    ? stages.findIndex((item) => item.id === actualStage)
     : 0;
+  const presentedIndex = Math.max(
+    0,
+    stages.findIndex((item) => item.id === presentedStage),
+  );
   return (
     <section className="ask-mosaic-timeline" aria-label="Evidence timeline">
       <p className="ask-mosaic-timeline-heading">
@@ -328,17 +340,25 @@ function StageRail({
       </p>
       <ol className="ask-mosaic-progress" aria-label="Ask Mosaic activity">
         {stages.map((stage, index) => {
-          const state = index < activeIndex
+          const state: AssistStageState = index < presentedIndex
             ? "complete"
-            : index === activeIndex
-              ? "active"
-              : "pending";
+            : index > presentedIndex
+              ? "pending"
+              : failed
+                ? "failed"
+                : complete || index < actualIndex
+                  ? "complete"
+                  : "active";
           const stateLabel = state === "complete"
             ? "Complete"
             : state === "active"
               ? "In progress"
+              : state === "failed"
+                ? "Needs attention"
               : "Pending";
-          const description = state === "active" && stageDetail
+          const description = (state === "active" || state === "failed")
+            && stage.id === actualStage
+            && stageDetail
             ? stageDetail
             : stage.description;
           return (
@@ -356,17 +376,22 @@ function StageRail({
                     ? <CircleCheck size={16} />
                     : state === "active"
                       ? <LoaderCircle className="spin" size={16} />
+                      : state === "failed"
+                        ? <X size={16} />
                       : index + 1}
                 </span>
               </span>
               <StageDisclosure
-                key={`${stage.id}-${state}`}
                 description={description}
-                elapsedSince={state === "active" && !complete ? stageStartedAt : null}
+                elapsedSince={
+                  state === "active" && stage.id === actualStage && !complete
+                    ? stageStartedAt
+                    : null
+                }
                 label={stage.label}
-                live={!complete}
-                openWhenComplete={stage.id === "answer"}
+                onPresentationProgress={onPresentationProgress}
                 panel={panels[stage.id]}
+                presented={index === presentedIndex}
                 state={state}
                 stateLabel={stateLabel}
                 title={stage.title}
@@ -379,16 +404,66 @@ function StageRail({
   );
 }
 
-/** How long a finished step holds its result open before folding itself away. */
-export const stageDwellMs = 2200;
+/**
+ * Minimum reading beat when the service outruns the interface.
+ *
+ * Real tool calls normally take longer than this. The dwell only matters when
+ * several SSE milestones land in one React batch, where it prevents the middle
+ * steps from being skipped without turning the timeline into a second wait.
+ */
+export const stageDwellMs = 700;
+
+function useProgressiveStage(
+  executionPath: AssistExecutionPath,
+  actualStage: AssistStage | null,
+  instant: boolean,
+): AssistStage {
+  const stages = executionPath === "focused_follow_up"
+    ? focusedFollowUpStages
+    : fullRetrievalStages;
+  const [presentedStage, setPresentedStage] = useState<AssistStage>(() => {
+    const actualIndex = actualStage
+      ? stages.findIndex((stage) => stage.id === actualStage)
+      : -1;
+    return instant && actualIndex >= 0
+      ? stages[actualIndex].id
+      : stages[0].id;
+  });
+  const presentedIndex = Math.max(
+    0,
+    stages.findIndex((stage) => stage.id === presentedStage),
+  );
+  const matchedActualIndex = actualStage
+    ? stages.findIndex((stage) => stage.id === actualStage)
+    : -1;
+  const actualIndex = matchedActualIndex >= 0
+    ? matchedActualIndex
+    : presentedIndex;
+
+  useEffect(() => {
+    if (actualIndex <= presentedIndex) return;
+    if (instant) {
+      setPresentedStage(stages[actualIndex].id);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setPresentedStage(stages[Math.min(presentedIndex + 1, actualIndex)].id);
+    }, stageDwellMs);
+    return () => window.clearTimeout(timer);
+  }, [actualIndex, instant, presentedIndex, stages]);
+
+  return stages[presentedIndex].id;
+}
+
+type AssistStageState = "complete" | "active" | "failed" | "pending";
 
 function StageDisclosure({
   description,
   elapsedSince,
   label,
-  live,
-  openWhenComplete,
+  onPresentationProgress,
   panel,
+  presented,
   state,
   stateLabel,
   title,
@@ -397,43 +472,28 @@ function StageDisclosure({
   /** When this step started, or null unless it is the one working. */
   elapsedSince: number | null;
   label: string;
-  /** The run is still going, so a step that just finished gets its dwell. */
-  live: boolean;
-  openWhenComplete: boolean;
+  onPresentationProgress?: () => void;
   panel: ReactNode;
-  state: "complete" | "active" | "pending";
+  /** This is the one stage the progressive timeline is currently presenting. */
+  presented: boolean;
+  state: AssistStageState;
   stateLabel: string;
   title: string;
 }) {
   /**
-   * `null` until the reader touches the control, so the default follows the run:
-   * open while the stage is working, folded once it finishes. The remount on
-   * every state change (see the `key` at the call site) clears the override, so
-   * a stage the reader opened by hand does not stay pinned open forever.
+   * Scope an explicit reader choice to the state in which it was made. A stage
+   * changing from active to complete returns to the progressive default, while a
+   * completed stage the reader reopens stays open as later stages arrive.
    */
-  const [expanded, setExpanded] = useState<boolean | null>(null);
-  const touched = useRef(false);
+  const [override, setOverride] = useState<{
+    state: AssistStageState;
+    open: boolean;
+  } | null>(null);
   const reduceMotion = useReducedMotion();
-  // A stage that has not run discloses nothing even when later stages have
-  // produced data it could render. Comparison content under a pending Compare
-  // step would claim a comparison that has not happened.
   const hasPanel = Boolean(panel) && state !== "pending";
-  // A step that just finished during a live run holds its result open for a beat
-  // so the reader sees what it produced, then folds itself away. Without the
-  // dwell the fold is same-frame: the panel goes straight from working to a row
-  // of closed cards and nothing was ever legible.
-  const dwells = live && state === "complete" && !openWhenComplete;
-  const open = hasPanel
-    && (expanded
-      ?? (state === "active" || dwells || (state === "complete" && openWhenComplete)));
-
-  useEffect(() => {
-    if (!dwells || !hasPanel) return;
-    const timer = window.setTimeout(() => {
-      if (!touched.current) setExpanded(false);
-    }, stageDwellMs);
-    return () => window.clearTimeout(timer);
-  }, [dwells, hasPanel]);
+  const open = hasPanel && (
+    override?.state === state ? override.open : presented
+  );
 
   return (
     <section className="ask-mosaic-stage-panel">
@@ -447,9 +507,7 @@ function StageDisclosure({
         // card opened onto an empty box.
         disabled={!hasPanel}
         onClick={() => {
-          // Stops the dwell timer from folding a card the reader just opened.
-          touched.current = true;
-          setExpanded(!open);
+          setOverride({ state, open: !open });
         }}
       >
         <span className="ask-mosaic-stage-copy">
@@ -482,9 +540,14 @@ function StageDisclosure({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
+            onAnimationComplete={onPresentationProgress}
             transition={reduceMotion
               ? { duration: 0 }
-              : { duration: 0.24, ease: [0.16, 1, 0.3, 1], opacity: { duration: 0.16 } }}
+              : {
+                duration: 0.24,
+                ease: [0.23, 1, 0.32, 1],
+                opacity: { duration: 0.16 },
+              }}
           >
             <div className="ask-mosaic-stage-content">{panel}</div>
           </motion.div>
@@ -1005,11 +1068,12 @@ interface TypewriterReveal {
 function useTypewriterReveal(
   text: string,
   streaming: boolean,
+  enabled: boolean,
   instant: boolean,
 ): TypewriterReveal {
   const [startedStreaming] = useState(streaming);
   const [revealedCount, setRevealedCount] = useState(0);
-  const pace = startedStreaming && !instant;
+  const pace = enabled && startedStreaming && !instant;
   const done = !pace || revealedCount >= text.length;
   useEffect(() => {
     if (done) return undefined;
@@ -1025,6 +1089,7 @@ function useTypewriterReveal(
     });
     return () => window.cancelAnimationFrame(frame);
   }, [done, text]);
+  if (!enabled) return { text: "", done: false };
   if (!pace) return { text, done: true };
   return { text: balancedMarkdownSlice(text, revealedCount), done };
 }
@@ -1038,6 +1103,8 @@ interface TurnProps {
   onEdit: (query: string) => void;
   onHighlight: (productId: number | null) => void;
   onSelectProduct: (productId: number) => void;
+  /** Keeps each newly presented stage in view inside the scrolling drawer. */
+  onStageProgress?: () => void;
   /**
    * Fires as the reveal advances so the thread can keep the writing line in
    * view. Only the latest turn receives it; settled turns have nothing to
@@ -1055,20 +1122,58 @@ function Turn({
   onEdit,
   onHighlight,
   onSelectProduct,
+  onStageProgress,
   onRevealProgress,
 }: TurnProps) {
   const response = turn.response;
   const reduceMotion = useReducedMotion();
+  const [startedLive] = useState(turn.loading);
+  const instantPresentation = Boolean(
+    reduceMotion || !startedLive || turn.error,
+  );
+  const actualStage = response ? "answer" : turn.stage;
+  const presentedStage = useProgressiveStage(
+    turn.executionPath,
+    actualStage,
+    instantPresentation,
+  );
+  const answerStagePresented = presentedStage === "answer";
+  const [answerVisible, setAnswerVisible] = useState(
+    () => Boolean(response && turn.completed && !turn.error),
+  );
+
+  useEffect(() => {
+    if (!response || !answerStagePresented || turn.error) {
+      setAnswerVisible(false);
+      return;
+    }
+    if (instantPresentation) {
+      setAnswerVisible(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setAnswerVisible(true), 180);
+    return () => window.clearTimeout(timer);
+  }, [answerStagePresented, instantPresentation, response, turn.error]);
+
   const reveal = useTypewriterReveal(
     turn.streamed || response?.answer || "",
     turn.loading,
+    answerVisible,
     reduceMotion ?? false,
   );
   /** The stream has closed and the typewriter has finished writing it out. */
-  const answerSettled = !turn.loading && reveal.done;
+  const answerSettled = turn.completed && reveal.done;
+  const presentedStageTitle = (
+    turn.executionPath === "focused_follow_up"
+      ? focusedFollowUpStages
+      : fullRetrievalStages
+  ).find((stage) => stage.id === presentedStage)?.title ?? "Working";
   useEffect(() => {
     onRevealProgress?.();
   }, [reveal.text.length, onRevealProgress]);
+  useEffect(() => {
+    onStageProgress?.();
+  }, [answerVisible, onStageProgress, presentedStage]);
   /**
    * Whichever retrieval has landed. The finished response supersedes the partial
    * because its shortlist is the cited one; until it arrives, the partial is what
@@ -1116,6 +1221,13 @@ function Turn({
   };
   return (
     <article className="ask-mosaic-turn">
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {turn.error
+          ? "Ask Mosaic could not finish this request."
+          : answerSettled
+            ? "Ask Mosaic recommendation complete."
+            : `${presentedStageTitle}. In progress.`}
+      </p>
       <div className="ask-mosaic-ask">
         <span className="ask-mosaic-request-icon" aria-hidden="true">
           <Sparkles size={18} />
@@ -1148,19 +1260,32 @@ function Turn({
 
       {turn.loading || turn.stage || response ? (
         <StageRail
-          activeStage={response ? "answer" : turn.stage}
-          complete={Boolean(response && !turn.loading)}
+          actualStage={actualStage}
+          complete={answerSettled}
           executionPath={turn.executionPath}
+          failed={Boolean(turn.error)}
+          presentedStage={presentedStage}
           stageDetail={turn.stageDetail}
           stageStartedAt={turn.stageStartedAt}
           panels={stagePanels}
+          onPresentationProgress={onStageProgress}
         />
       ) : null}
 
       {turn.error ? <p className="ask-mosaic-error" role="alert">{turn.error}</p> : null}
 
-      {response ? (
-        <>
+      <AnimatePresence initial={false}>
+        {response && answerVisible && !turn.error ? (
+          <motion.div
+            className="ask-mosaic-answer-sequence"
+            initial={{ opacity: 0, transform: "translateY(7px)" }}
+            animate={{ opacity: 1, transform: "translateY(0)" }}
+            exit={{ opacity: 0, transform: "translateY(4px)" }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.22,
+              ease: [0.23, 1, 0.32, 1],
+            }}
+          >
           {/* `streaming` draws the caret. It stays up past the last SSE chunk
               until the typewriter finishes writing the text out, because the
               caret marks the visible write, not the network. */}
@@ -1188,27 +1313,54 @@ function Turn({
             {/* The prose named these products. Here they are, priced and
                 buyable, so the recommendation ends in the store rather than in
                 a paragraph. */}
-            <Picks
-              products={response.recommendations}
-              imageByProductId={imageByProductId}
-              onHighlight={onHighlight}
-              onSelectProduct={onSelectProduct}
-            />
+            <AnimatePresence initial={false}>
+              {answerSettled ? (
+                <motion.div
+                  initial={{ opacity: 0, transform: "translateY(6px)" }}
+                  animate={{ opacity: 1, transform: "translateY(0)" }}
+                  transition={{
+                    duration: reduceMotion ? 0 : 0.22,
+                    ease: [0.23, 1, 0.32, 1],
+                  }}
+                >
+                  <Picks
+                    products={response.recommendations}
+                    imageByProductId={imageByProductId}
+                    onHighlight={onHighlight}
+                    onSelectProduct={onSelectProduct}
+                  />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </section>
 
-          <AgentRetrievalReceipt
-            citations={citations}
-            executionPath={turn.executionPath}
-            plan={plan}
-            products={candidates}
-            trace={trace}
-          />
+          {answerSettled ? (
+            <motion.div
+              className="ask-mosaic-answer-aftermath"
+              initial={{ opacity: 0, transform: "translateY(6px)" }}
+              animate={{ opacity: 1, transform: "translateY(0)" }}
+              transition={{
+                duration: reduceMotion ? 0 : 0.24,
+                delay: reduceMotion ? 0 : 0.05,
+                ease: [0.23, 1, 0.32, 1],
+              }}
+            >
+              <AgentRetrievalReceipt
+                citations={citations}
+                executionPath={turn.executionPath}
+                plan={plan}
+                products={candidates}
+                trace={trace}
+              />
 
-          {isLatest && !turn.loading ? (
-            <FollowUps response={response} onRun={onRun} />
+              {isLatest && !turn.loading ? (
+                <FollowUps response={response} onRun={onRun} />
+              ) : null}
+            </motion.div>
           ) : null}
-        </>
-      ) : null}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </article>
   );
 }
@@ -1377,6 +1529,7 @@ export function AskMosaic({
   const threadRef = useRef<HTMLDivElement | null>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
+  const followTailRef = useRef(true);
   const latest = turns.length ? turns[turns.length - 1] : null;
 
   useEffect(() => {
@@ -1482,20 +1635,27 @@ export function AskMosaic({
     };
   }, [modal, open]);
 
-  /**
-   * Keep the writing line in view. The latest turn calls this on every reveal
-   * frame, so `scrollTop` rather than `scrollTo`: an animated scroll would be
-   * re-targeted mid-flight on each call.
-   */
+  /** Keep following only while the reader remains at the live edge. */
   const followReveal = useCallback(() => {
     const thread = threadRef.current;
-    if (thread) thread.scrollTop = thread.scrollHeight;
+    if (thread && followTailRef.current) thread.scrollTop = thread.scrollHeight;
   }, []);
 
-  /** Follow the turn boundaries the reveal callback doesn't cover. */
+  const handleThreadScroll = useCallback(() => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    followTailRef.current = (
+      thread.scrollHeight - thread.scrollTop - thread.clientHeight
+    ) <= 48;
+  }, []);
+
+  /** A newly opened conversation or a question the reader just sent owns focus. */
   useEffect(() => {
-    followReveal();
-  }, [open, latest?.id, latest?.response, latest?.error, followReveal]);
+    if (!open) return;
+    followTailRef.current = true;
+    const frame = window.requestAnimationFrame(followReveal);
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, latest?.id, followReveal]);
 
   if (!open) return null;
 
@@ -1562,7 +1722,11 @@ export function AskMosaic({
           </span>
         </header>
 
-        <div className="ask-mosaic-body" ref={threadRef}>
+        <div
+          className="ask-mosaic-body"
+          ref={threadRef}
+          onScroll={handleThreadScroll}
+        >
           {turns.length ? (
             turns.map((turn, index) => (
               <Turn
@@ -1575,6 +1739,7 @@ export function AskMosaic({
                 onEdit={editRequest}
                 onHighlight={onHighlight}
                 onSelectProduct={onSelectProduct}
+                onStageProgress={index === turns.length - 1 ? followReveal : undefined}
                 onRevealProgress={index === turns.length - 1 ? followReveal : undefined}
               />
             ))

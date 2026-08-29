@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
 vi.mock("./components/Shell", () => ({
-  Shell: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Shell: ({ children }: { children: React.ReactNode }) => (
+    <main id="main-content" tabIndex={-1}>{children}</main>
+  ),
 }));
 vi.mock("./pages/DiscoverPage", () => ({ DiscoverPage: () => <p>Discover route</p> }));
 vi.mock("./pages/CatalogPage", () => ({ CatalogPage: () => <p>Catalog route</p> }));
@@ -15,9 +17,20 @@ vi.mock("./pages/PerformancePage", () => ({ PerformancePage: () => <p>HNSW route
 vi.mock("./pages/ProductPage", () => ({ ProductPage: () => <p>Product route</p> }));
 vi.mock("./pages/RetrievalLabPage", () => ({ RetrievalLabPage: () => <p>Retrieval route</p> }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  document.title = "Mosaic";
+});
 
 describe("App Labs routes", () => {
+  it("sets a route-specific document title", async () => {
+    window.history.replaceState({}, "", "/catalog");
+    render(<App />);
+
+    expect(await screen.findByText("Catalog route")).toBeTruthy();
+    await waitFor(() => expect(document.title).toBe("Shop | Mosaic"));
+  });
+
   it("serves HNSW from the canonical Mosaic Labs route", async () => {
     window.history.replaceState({}, "", "/mosaic-labs/hnsw");
     render(<App />);
@@ -31,6 +44,10 @@ describe("App Labs routes", () => {
 
     await waitFor(() => expect(window.location.pathname).toBe("/mosaic-labs/hnsw"));
     expect(await screen.findByText("HNSW route")).toBeTruthy();
+    await waitFor(() => {
+      expect(document.title).toBe("Vector index at scale | Mosaic");
+      expect(document.activeElement).toBe(document.getElementById("main-content"));
+    });
   });
 
   it("redirects the retired Explore route to Retrieval Observatory", async () => {

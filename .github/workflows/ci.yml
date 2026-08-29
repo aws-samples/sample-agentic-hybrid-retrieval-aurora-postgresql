@@ -5,13 +5,22 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      run_billed_scorecard:
+        description: Run the Bedrock-backed canonical scorecard after live gates
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: project-ci-${{ github.ref }}
+  # Never let a push cancel a manually approved run after it starts spending.
+  group: project-ci-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -71,6 +80,10 @@ jobs:
         if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
         run: PYTHONPATH=. uv run pytest -q
 
+      - name: Validate release workflow contracts
+        if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
+        run: make validate-release-workflow
+
       - name: Install the MCP adapter
         id: mcp-deps
         if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}
@@ -79,6 +92,10 @@ jobs:
       - name: Test the MCP adapter
         if: ${{ !cancelled() && steps.mcp-deps.outcome == 'success' }}
         run: make mcp-test
+
+      - name: Smoke-test the isolated MCP wheel
+        if: ${{ !cancelled() && steps.mcp-deps.outcome == 'success' }}
+        run: make mcp-wheel-smoke
 
       - name: Install UI dependencies
         id: ui-deps
@@ -98,20 +115,24 @@ jobs:
         run: make ui-audit
 
   aurora-release:
-    name: Aurora release contracts
-    if: github.event_name == 'workflow_dispatch'
+    name: Non-billed Aurora release contracts
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - offline
     runs-on:
       - self-hosted
       - linux
       - mosaic-aurora
     permissions:
       contents: read
-      id-token: write
     env:
-      AWS_REGION: us-east-1
       AURORA_INSTANCE_CLASS: db.r8g.2xlarge
-      AWS_CI_ROLE_ARN: ${{ secrets.MOSAIC_AURORA_CI_ROLE_ARN }}
       DATABASE_URL: ${{ secrets.MOSAIC_AURORA_DATABASE_URL }}
+      MOSAIC_WORKSHOP_REPO: ${{ vars.MOSAIC_WORKSHOP_REPO }}
+      RELEASE_SOURCE_SHA: ${{ github.sha }}
+      RELEASE_EVIDENCE_DIR: build/release-evidence
       # mission_contract.py and function_census.py both skip their Aurora
       # checks when these are unset. They are job-level rather than step-level
       # so splitting the gates apart cannot silently drop one and let the
@@ -121,6 +142,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -128,62 +151,242 @@ jobs:
           python-version: '3.13'
 
       - name: Install Python dependencies
+        id: release-deps
         run: |
           python -m pip install --disable-pip-version-check uv==0.11.21
           uv sync --frozen
 
       - name: Require the Aurora release environment
+        id: release-env
+        if: ${{ !cancelled() && steps.release-deps.outcome == 'success' }}
         run: |
+          mkdir -p "$RELEASE_EVIDENCE_DIR"
           test -n "$DATABASE_URL" || {
             echo "MOSAIC_AURORA_DATABASE_URL is required for Aurora release CI."
             exit 2
           }
-          test -n "$AWS_CI_ROLE_ARN" || {
-            echo "MOSAIC_AURORA_CI_ROLE_ARN is required for Bedrock release CI."
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$RELEASE_SOURCE_SHA" || {
+            echo "Checked-out source $actual_sha does not match $RELEASE_SOURCE_SHA."
             exit 2
           }
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          Path(os.environ["RELEASE_EVIDENCE_DIR"], "release-context.json").write_text(
+              json.dumps(
+                  {
+                      "event": os.environ["GITHUB_EVENT_NAME"],
+                      "ref": os.environ["GITHUB_REF"],
+                      "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                      "run_id": os.environ["GITHUB_RUN_ID"],
+                      "source_sha": os.environ["RELEASE_SOURCE_SHA"],
+                  },
+                  indent=2,
+                  sort_keys=True,
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      # These gates use Aurora but do not invoke embedding, reranking, or agent
+      # models. Each reports independently; the billed job needs all of them.
+
+      - name: Verify the delivered bootstrap and release pin
+        if: ${{ !cancelled() && steps.release-env.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          WORKSHOP_REPO="${MOSAIC_WORKSHOP_REPO:-../build-agentic-hybrid-retrieval-with-amazon-aurora-postgresql}" \
+            make check-bootstrap-release 2>&1 \
+            | tee "$RELEASE_EVIDENCE_DIR/bootstrap-release.log"
+
+      - name: Validate the lab contract against Aurora
+        if: ${{ !cancelled() && steps.release-env.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          make validate-missions 2>&1 \
+            | tee "$RELEASE_EVIDENCE_DIR/validate-missions.log"
+
+      - name: Validate the eval filter contracts
+        if: ${{ !cancelled() && steps.release-env.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          make validate-evals 2>&1 \
+            | tee "$RELEASE_EVIDENCE_DIR/validate-evals.log"
+
+      - name: Take the function census
+        if: ${{ !cancelled() && steps.release-env.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          make validate-functions 2>&1 \
+            | tee "$RELEASE_EVIDENCE_DIR/validate-functions.log"
+
+      - name: Verify the bootstrap acceptance state
+        if: ${{ !cancelled() && steps.release-env.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          make db-verify-bootstrap 2>&1 \
+            | tee "$RELEASE_EVIDENCE_DIR/db-verify-bootstrap.log"
+
+      - name: Run the Python test suite against Aurora
+        if: ${{ !cancelled() && steps.release-env.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          make test-aurora-contracts 2>&1 \
+            | tee "$RELEASE_EVIDENCE_DIR/test-aurora-contracts.log"
+
+      - name: Upload non-billed release evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: aurora-release-${{ github.sha }}
+          path: build/release-evidence/
+          if-no-files-found: error
+          retention-days: 90
+
+  scorecard-release:
+    name: Billed canonical scorecard
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.run_billed_scorecard
+    needs:
+      - offline
+      - aurora-release
+    environment: mosaic-aurora-billed
+    runs-on:
+      - self-hosted
+      - linux
+      - mosaic-aurora
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AURORA_INSTANCE_CLASS: db.r8g.2xlarge
+      AWS_REGION: us-east-1
+      AWS_CI_ROLE_ARN: ${{ secrets.MOSAIC_AURORA_CI_ROLE_ARN }}
+      DATABASE_URL: ${{ secrets.MOSAIC_AURORA_DATABASE_URL }}
+      RELEASE_SOURCE_SHA: ${{ github.sha }}
+      RELEASE_EVIDENCE_DIR: build/release-evidence
+    steps:
+      - name: Check out certified source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
+
+      - name: Install Python dependencies
+        id: scorecard-deps
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.11.21
+          uv sync --frozen
+
+      - name: Require the billed release environment
+        id: scorecard-env
+        if: ${{ !cancelled() && steps.scorecard-deps.outcome == 'success' }}
+        run: |
+          mkdir -p "$RELEASE_EVIDENCE_DIR"
+          test -n "$DATABASE_URL" || {
+            echo "MOSAIC_AURORA_DATABASE_URL is required for scorecard CI."
+            exit 2
+          }
+          test -n "$AWS_CI_ROLE_ARN" || {
+            echo "MOSAIC_AURORA_CI_ROLE_ARN is required for scorecard CI."
+            exit 2
+          }
+          actual_sha="$(git rev-parse HEAD)"
+          test "$actual_sha" = "$RELEASE_SOURCE_SHA" || {
+            echo "Checked-out source $actual_sha does not match $RELEASE_SOURCE_SHA."
+            exit 2
+          }
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          Path(os.environ["RELEASE_EVIDENCE_DIR"], "scorecard-context.json").write_text(
+              json.dumps(
+                  {
+                      "event": os.environ["GITHUB_EVENT_NAME"],
+                      "ref": os.environ["GITHUB_REF"],
+                      "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+                      "run_id": os.environ["GITHUB_RUN_ID"],
+                      "source_sha": os.environ["RELEASE_SOURCE_SHA"],
+                  },
+                  indent=2,
+                  sort_keys=True,
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+          PY
 
       - name: Configure AWS credentials
         id: aws-credentials
+        if: ${{ !cancelled() && steps.scorecard-env.outcome == 'success' }}
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: us-east-1
           role-to-assume: ${{ env.AWS_CI_ROLE_ARN }}
 
-      # Every step above is a precondition and stays fail-fast, so each one only
-      # runs when the previous succeeded. That makes the credential step's own
-      # success a proxy for the whole chain: guarding on it is enough for the
-      # gates below, and a broken environment reports once instead of six times.
-
-      # These five gates are read-only and independent of one another, so they
-      # each report rather than letting the first failure hide the rest.
-
-      - name: Validate the lab contract against Aurora
-        if: ${{ !cancelled() && steps.aws-credentials.outcome == 'success' }}
-        run: make validate-missions
-
-      - name: Validate the eval filter contracts
-        if: ${{ !cancelled() && steps.aws-credentials.outcome == 'success' }}
-        run: make validate-evals
-
-      - name: Take the function census
-        if: ${{ !cancelled() && steps.aws-credentials.outcome == 'success' }}
-        run: make validate-functions
-
-      - name: Verify the bootstrap acceptance state
-        if: ${{ !cancelled() && steps.aws-credentials.outcome == 'success' }}
-        run: make db-verify-bootstrap
-
-      - name: Run the Python test suite against Aurora
-        if: ${{ !cancelled() && steps.aws-credentials.outcome == 'success' }}
-        run: make test
-
-      # Deliberately left unguarded, so the implicit success() applies and this
-      # runs only when every step above passed. score-evals spends Bedrock
-      # embedding and reranking calls and then judges provenance and metric
-      # regressions, and `make validate-evals` exists to check the filter corpus
-      # on Aurora before an eval is allowed to spend model calls. Guarding this
-      # like the gates above would let it bill a run and report regressions that
-      # only reflect an unverified cluster.
       - name: Score the release evals
-        run: make score-evals
+        id: scorecard
+        if: ${{ !cancelled() && steps.aws-credentials.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          make score-evals 2>&1 \
+            | tee "$RELEASE_EVIDENCE_DIR/score-evals.log"
+
+      - name: Extract measured scorecard evidence
+        if: ${{ !cancelled() && steps.scorecard.outcome == 'success' }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = Path(os.environ["RELEASE_EVIDENCE_DIR"])
+          text = (evidence / "score-evals.log").read_text(encoding="utf-8")
+          decoder = json.JSONDecoder()
+          measured = None
+          for start, character in enumerate(text):
+              if character != "{":
+                  continue
+              try:
+                  candidate, _ = decoder.raw_decode(text[start:])
+              except json.JSONDecodeError:
+                  continue
+              if isinstance(candidate, dict) and {"metrics", "source"} <= candidate.keys():
+                  measured = candidate
+                  break
+          if measured is None:
+              raise SystemExit(
+                  "score-evals succeeded without measured JSON; "
+                  "fix: preserve the scorer's JSON output contract"
+              )
+          (evidence / "measured-scorecard.json").write_text(
+              json.dumps(measured, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload scorecard evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: scorecard-${{ github.sha }}
+          path: |
+            build/release-evidence/
+            benchmarks/results/canonical_served_results.csv
+            benchmarks/results/canonical_served_results.csv.checkpoint.json
+            data/evals/canonical_ranked_results.csv
+            data/evals/canonical_scorecard.json
+            data/evals/canonical_stage_ablation.json
+          if-no-files-found: error
+          retention-days: 90

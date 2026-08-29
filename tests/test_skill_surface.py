@@ -12,14 +12,23 @@ import pytest
 from scripts import tool_contracts
 from scripts.tool_contracts import (
     CONTRACT_PATH,
+    SKILL_HTTP_REFERENCE_PATH,
+    SKILL_PATH,
     ToolContractError,
     capability_parity_receipt,
     contracts_for_surface,
     load_contracts,
+    render_skill_http_reference,
+    validate_skill_http_bindings,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-COMPOSITION_PATH = ROOT / "docs" / "skill-composition.md"
+COMPOSITION_PATH = (
+    ROOT / "skills" / "mosaic-hybrid-retrieval" / "references" / "composition.md"
+)
+ADAPTATION_PATH = (
+    ROOT / "skills" / "mosaic-hybrid-retrieval" / "references" / "adapting.md"
+)
 
 
 def test_every_contract_declares_a_capability(tmp_path, monkeypatch):
@@ -280,6 +289,72 @@ def test_the_skill_surface_exposes_four_capabilities():
         "explain_retrieval",
     }
     assert all(contract["read_only"] for contract in contracts)
+
+
+def test_skill_is_a_discoverable_standard_package():
+    """A takeaway folder must be loadable as a skill, not only readable Markdown."""
+    text = SKILL_PATH.read_text(encoding="utf-8")
+
+    assert text.startswith("---\n")
+    frontmatter = text.split("---", 2)[1]
+    assert re.search(r"^name:\s+mosaic-hybrid-retrieval$", frontmatter, re.MULTILINE)
+    assert re.search(r"^description:\s+\S", frontmatter, re.MULTILINE)
+
+
+def test_skill_http_bindings_cover_every_operation_argument():
+    """Every logical skill argument has exactly one executable HTTP destination."""
+    receipt = validate_skill_http_bindings()
+
+    assert receipt == {
+        "operations": 4,
+        "mapped_arguments": 21,
+    }
+
+
+def test_skill_http_binding_rejects_an_unmapped_argument():
+    """Permanent falsifier for the binding gate: drop one real optional input."""
+    bindings = copy.deepcopy(tool_contracts.SKILL_HTTP_BINDINGS)
+    del bindings["search_products"]["body"]["authorized_limit"]
+
+    with pytest.raises(ToolContractError, match="authorized_limit"):
+        validate_skill_http_bindings(bindings=bindings)
+
+
+def test_skill_http_binding_rejects_a_route_placeholder_without_a_mapping():
+    """The route table cannot look executable while omitting a path argument."""
+    bindings = copy.deepcopy(tool_contracts.SKILL_HTTP_BINDINGS)
+    bindings["compare_products"]["path"] = {}
+
+    with pytest.raises(ToolContractError, match="search_event_id"):
+        validate_skill_http_bindings(bindings=bindings)
+
+
+def test_skill_http_binding_rejects_a_flat_filter_body_destination():
+    """Permanent falsifier: FastAPI requires filters.domain, not body.domain."""
+    bindings = copy.deepcopy(tool_contracts.SKILL_HTTP_BINDINGS)
+    bindings["search_products"]["body"]["domain"] = "domain"
+
+    with pytest.raises(ToolContractError, match="absent from SearchRequest"):
+        validate_skill_http_bindings(bindings=bindings)
+
+
+def test_skill_http_binding_is_independent_of_mapping_order():
+    """Reordering a JSON object is irrelevant to the executable binding."""
+    bindings = copy.deepcopy(tool_contracts.SKILL_HTTP_BINDINGS)
+    body = bindings["search_products"]["body"]
+    bindings["search_products"]["body"] = dict(reversed(list(body.items())))
+
+    assert validate_skill_http_bindings(bindings=bindings) == {
+        "operations": 4,
+        "mapped_arguments": 21,
+    }
+
+
+def test_skill_http_reference_is_generated_from_the_checked_binding():
+    assert (
+        SKILL_HTTP_REFERENCE_PATH.read_text(encoding="utf-8")
+        == render_skill_http_reference()
+    )
 
 
 def test_synthesis_is_not_part_of_the_retrieval_skill():
@@ -678,7 +753,7 @@ def test_skill_doc_holds_no_protocol_details():
     for forbidden in ("jsonrpc", "agent-card.json", "protocolversion", "arm64"):
         assert forbidden not in text, (
             f"SKILL.md mentions {forbidden!r}; move it to "
-            "docs/skill-composition.md so the contract survives hosting changes"
+            "references/composition.md so the contract survives hosting changes"
         )
 
 
@@ -700,6 +775,27 @@ def test_composition_doc_states_no_a2a_endpoint_is_deployed():
 
     assert "not deployed" in text.lower()
     assert "documentation profile" in text.lower()
+
+
+def test_composition_doc_reports_adapter_asymmetry():
+    """Shared capabilities do not imply every transport exposes four tools."""
+    text = COMPOSITION_PATH.read_text(encoding="utf-8").lower()
+
+    assert re.search(r"http\s+skill surface (?:exposes|has) four operations", text)
+    assert re.search(r"mcp\s+has three", text)
+    assert re.search(r"does\s+not expose `compare_products`", text)
+    assert "regardless of which transport" not in text
+    assert "same four capabilities" not in text
+
+
+def test_read_only_claim_discloses_receipt_writes_and_non_idempotence():
+    """Adopters need write capacity even though catalog records never mutate."""
+    text = SKILL_PATH.read_text(encoding="utf-8").lower()
+
+    assert "catalog-read-only" in text
+    assert "no operation mutates catalog or business records" in text
+    assert re.search(r"search\s+is\s+not idempotent", text)
+    assert "retention" in text
 
 
 def test_composition_doc_quotes_the_hosting_contract_accurately():
@@ -751,14 +847,37 @@ def test_no_a2a_dependency_entered_any_environment():
 
 
 def test_skill_doc_link_to_the_composition_doc_resolves():
-    """The file path SKILL.md points to for composition details must exist."""
-    from scripts.tool_contracts import SKILL_PATH
+    """All conditional guidance ships inside the participant takeaway folder."""
+    text = SKILL_PATH.read_text(encoding="utf-8")
 
-    assert "docs/skill-composition.md" in SKILL_PATH.read_text(encoding="utf-8")
+    assert "references/composition.md" in text
+    assert "references/http-api.md" in text
+    assert "references/adapting.md" in text
     assert COMPOSITION_PATH.exists()
+    assert SKILL_HTTP_REFERENCE_PATH.exists()
+    assert ADAPTATION_PATH.exists()
 
 
-#: docs/skill-composition.md Section 3's post-reframing claim. Section 3 no
+def test_adaptation_guide_separates_invariants_from_mosaic_choices():
+    """The takeaway must teach reuse boundaries, not invite schema cloning."""
+    text = ADAPTATION_PATH.read_text(encoding="utf-8")
+    lowered = text.lower()
+
+    assert "## Keep these invariants" in text
+    assert "## Replace these Mosaic choices" in text
+    assert "before its candidate limit" in text
+    assert "transport adapters thin" in lowered
+    for mosaic_choice in (
+        "postgresql `english`",
+        "1,024 dimensions",
+        "single-attendee uuid handles",
+        "mosaic missions",
+    ):
+        assert mosaic_choice in lowered
+    assert "do not copy mosaic's numbers as production defaults" in lowered
+
+
+#: references/composition.md Section 3's post-reframing claim. Section 3 no
 #: longer asserts that any specific mechanic is "genuinely unobservable" --
 #: the fix that first tried that framing (this file's previous revision)
 #: shipped a false claim of its own (the vector arm's HNSW identity is a
@@ -881,11 +1000,11 @@ def _assert_document_acknowledges_inspectable_terms(
         assert term in lowered_names, (
             f"{term!r} is claimed inspectable via {surface}, but no field "
             f"named {term!r} was found on any of the four skill response "
-            "models; fix the claim in docs/skill-composition.md, or find "
+            "models; fix the claim in references/composition.md, or find "
             "where the field actually lives"
         )
         assert term in lowered_text, (
-            f"docs/skill-composition.md never names {term!r}, but it is a "
+            f"references/composition.md never names {term!r}, but it is a "
             f"real field returned via {surface}; Section 3 must acknowledge "
             "it explicitly, not leave it true only by omission"
         )
@@ -902,7 +1021,7 @@ def _assert_document_retired_unobservability_claims(text: str) -> None:
     lowered = text.lower()
     for phrase in _RETIRED_UNOBSERVABILITY_PHRASES:
         assert phrase not in lowered, (
-            f"docs/skill-composition.md contains {phrase!r}; Section 3 was "
+            f"references/composition.md contains {phrase!r}; Section 3 was "
             "reframed away from absolute unobservability claims after "
             "plan_json proved one false -- do not reintroduce this framing"
         )
@@ -967,7 +1086,7 @@ def test_section_3_acknowledges_inspectable_fields_and_drops_absolute_claims():
         "semantic_in_pool",
     }, (
         f"candidate_counts now has keys {sorted(candidate_count_keys)}; if a "
-        "new key names pgvector or hnsw, docs/skill-composition.md Section 3 "
+        "new key names pgvector or hnsw, references/composition.md Section 3 "
         "needs the same correction this gate was written to catch"
     )
 
@@ -975,7 +1094,7 @@ def test_section_3_acknowledges_inspectable_fields_and_drops_absolute_claims():
     # Witness for the text side, independent of the acknowledgment loop below:
     # proves the document was actually read as real, structured prose, not an
     # empty or truncated file.
-    assert text.count("## ") >= 5, "docs/skill-composition.md read unexpectedly short"
+    assert text.count("## ") >= 5, "references/composition.md read unexpectedly short"
 
     _assert_document_acknowledges_inspectable_terms(text, all_field_names)
     _assert_document_retired_unobservability_claims(text)

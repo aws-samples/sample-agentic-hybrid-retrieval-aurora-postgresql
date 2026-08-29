@@ -16,7 +16,8 @@ inside the broken boundary still works:
 
 - **Retrieve:** did the right eligible candidates enter the pool?
 - **Rank:** was that pool combined correctly before reranking?
-- **Reason:** can synthesis use only evidence the application authorized?
+- **Reason:** can synthesis cite only evidence attached to the answer's citation
+  scope?
 
 ## Session flow
 
@@ -28,8 +29,8 @@ inside the broken boundary still works:
 | 0-10 min | Introduction | Frame the pipeline thesis, open Mosaic, and capture the baseline | `typo-recovery` before repair |
 | 10-20 min | Retrieve | Reconnect one candidate arm and prove candidate recall without weakening eligibility | `typo-recovery`, with control anchors |
 | 20-30 min | Rank | Repair one RRF formula and prove why final rank masked it | `rank-with-evidence`, with control anchors |
-| 30-45 min | Reason | Attach evidence identity to synthesis state and prove citation authorization | `agentic-research`, with one evidence control |
-| 45-50 min | Conclusion | Run the completion gate and separate regression, quality, and contract evaluation | all required checks |
+| 30-45 min | Reason | Attach evidence identity to synthesis state and prove citation scope | `agentic-research`, with one evidence control |
+| 45-50 min | Prove (unnumbered finale) | Run the completion gate and separate regression, quality, and contract evaluation | all required checks |
 | 50-60 min | Flex | Use one optional lab, recover, or take questions | n/a |
 
 The stable IDs remain evaluation identifiers and starter-gap ownership keys.
@@ -108,14 +109,24 @@ The participant restores the five-line evidence-state boundary. The model can
 request a tool, but the application decides whether it executes. The model can
 read returned evidence, but that alone does not make the evidence citable. The
 trace, persisted retrieval-run IDs, and resolvable evidence IDs prove which
-tools, candidates, and application-authorized records produced the
-recommendation.
+tools, candidates, and records inside the answer's citation scope produced the
+recommendation. The completion gate also requires two distinct focused searches:
+one retrieval receipt must cover the chair target and another must cover the
+keyboard target. A single broad search cannot satisfy decomposition.
 
 The implementation is intentionally narrow: one Strands agent, a bounded tool
 budget, one repair attempt after invalid synthesis, and no delegation or
-multi-hop graph traversal. Closed-world follow-ups can reuse a server-authorized
+multi-hop graph traversal. Closed-world follow-ups can reuse a server-validated
 prior shortlist, but every answer still retrieves fresh evidence and passes the
 same citation checks.
+
+## Prove (unnumbered finale)
+
+Prove is the five-minute completion step after Lab 3, not a fourth lab. Run the
+three lab validators, inspect the captured plan for the explained retrieval
+event, and separate three questions: did a golden behavior regress, how good is
+the 20-query product-retrieval population, and did any of the 720 eligibility
+fixtures violate its contract?
 
 ## Shared receipt vocabulary
 
@@ -131,7 +142,8 @@ vocabulary rather than three unrelated troubleshooting workflows.
 
 ## Advanced Labs (OPTIONAL)
 
-Optional work does not consume the required 45-minute hands-on path:
+Optional work does not consume the required 35-minute three-lab path or the
+five-minute Prove finale:
 
 1. Tune the HNSW operating point with recall, latency, plans, filter
    selectivity, and iterative scans.
@@ -141,7 +153,7 @@ Optional work does not consume the required 45-minute hands-on path:
    Bedrock model access.
 
 MCP interoperability and AgentCore remain a short productionization reveal,
-not a fourth required lab. The repository proves shared tool version, output
+not a fourth lab. The repository proves shared tool version, output
 schema, and read-only policy for `search_products` and
 `get_product_evidence`. It does not claim a deployed AgentCore Gateway or
 runtime-result parity that the workshop did not measure.
@@ -174,13 +186,13 @@ Close with four ownership rules:
    provenance, and evidence.
 2. Bedrock models provide intelligence: embeddings, reranking, orchestration,
    and synthesis.
-3. The application owns authority: tool execution and the evidence allowed into
-   synthesis.
+3. The application owns execution and citation scope: which retrieved evidence
+   may enter synthesis.
 4. AgentCore can own managed runtime, transport, and tool exposure without
    becoming the retrieval authority.
 
 Then distinguish three evaluation questions in under 90 seconds:
 
 - golden anchors: did critical behavior regress?
-- the 19-query ranking population: how good is retrieval?
+- the 20-query ranking population: how good is retrieval?
 - the 720 filter fixtures: did eligibility violate a contract?

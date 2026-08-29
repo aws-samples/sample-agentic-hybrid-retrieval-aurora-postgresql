@@ -1,6 +1,38 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+
+import { createElement } from "react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { api } from "../api";
 import { evidenceChain } from "./ReasonStage";
-import type { AgentCitation, ToolTraceStep } from "../types";
+import { ReasonStage } from "./ReasonStage";
+import type {
+  AgentCitation,
+  AgentResponse,
+  EvidenceRecord,
+  ToolContract,
+  ToolTraceStep,
+} from "../types";
+
+vi.mock("../api", () => ({
+  api: {
+    agentStream: vi.fn(),
+    evidence: vi.fn(),
+    toolContracts: vi.fn(),
+  },
+}));
+
+afterEach(() => {
+  cleanup();
+  vi.resetAllMocks();
+});
 
 /**
  * Lab 3's six states are six different things, and this is where they are held
@@ -227,5 +259,168 @@ describe("evidenceChain", () => {
     expect(chain[0].state).toBe("blocked");
     expect(chain[0].value).toBe("none");
     expect(chain[0].source).toBe("0 successful search_products calls");
+  });
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
+
+function agentResponse(
+  agentRunId: string,
+  evidenceId: number,
+): AgentResponse {
+  return {
+    agent_run_id: agentRunId,
+    question: "Which product is grounded?",
+    answer: `Answer from ${agentRunId}`,
+    plan: [],
+    recommendations: [],
+    citations: [{ ...citation, evidence_id: evidenceId }],
+    trace: REPAIRED_TRACE,
+  };
+}
+
+function evidenceRecord(evidenceId: number, title: string): EvidenceRecord {
+  return {
+    evidence_id: evidenceId,
+    product_id: 2,
+    evidence_type: "product_spec",
+    source_name: "Mosaic catalog",
+    source_uri: `mosaic://evidence/${evidenceId}`,
+    revision: "r3",
+    title,
+    text: `${title} text`,
+    rating: null,
+    is_verified: true,
+    metadata: {},
+  };
+}
+
+function toolContract(name: string): ToolContract {
+  return {
+    name,
+    capability: "retrieval",
+    tool_version: "1.0",
+    description: `${name} contract`,
+    input_schema: {},
+    output_schema: {},
+    read_only: true,
+  };
+}
+
+function openDisclosure(label: string) {
+  const summary = screen.getByText(label).closest("summary");
+  if (!summary) throw new Error(`No disclosure for ${label}`);
+  fireEvent.click(summary);
+}
+
+async function runAgent() {
+  fireEvent.click(screen.getByRole("button", { name: /Run (the agent|agent again)/ }));
+  await screen.findByRole("button", { name: "Run agent again" });
+}
+
+describe("ReasonStage lazy evidence", () => {
+  it("ignores evidence from an older run when requests resolve in reverse order", async () => {
+    const oldEvidence = deferred<EvidenceRecord>();
+    const currentEvidence = deferred<EvidenceRecord>();
+    const responses = [
+      agentResponse("run-old", 4021),
+      agentResponse("run-current", 9002),
+    ];
+    vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
+      const response = responses.shift();
+      if (!response) throw new Error("No response fixture");
+      onEvent({ type: "complete", response });
+    });
+    vi.mocked(api.evidence).mockImplementation((id) => (
+      id === 9002 ? currentEvidence.promise : oldEvidence.promise
+    ));
+
+    render(createElement(ReasonStage, {
+      question: "Which product is grounded?",
+      filters: {},
+    }));
+
+    await runAgent();
+    openDisclosure("View evidence records");
+    await waitFor(() => {
+      expect(vi.mocked(api.evidence)).toHaveBeenCalledWith(4021);
+    });
+
+    await runAgent();
+    openDisclosure("View evidence records");
+    await waitFor(() => {
+      expect(vi.mocked(api.evidence)).toHaveBeenCalledWith(9002);
+    });
+
+    await act(async () => {
+      currentEvidence.resolve(evidenceRecord(9002, "Current run evidence"));
+    });
+    expect(await screen.findByText("Current run evidence")).toBeTruthy();
+
+    await act(async () => {
+      oldEvidence.resolve(evidenceRecord(4021, "Old run evidence"));
+    });
+    await waitFor(() => {
+      expect(screen.getByText("Current run evidence")).toBeTruthy();
+      expect(screen.queryByText("Old run evidence")).toBeNull();
+    });
+  });
+
+  it("retries evidence resolution after a transient failure", async () => {
+    const response = agentResponse("run-retry", 4021);
+    vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
+      onEvent({ type: "complete", response });
+    });
+    vi.mocked(api.evidence)
+      .mockRejectedValueOnce(new Error("temporary evidence failure"))
+      .mockResolvedValueOnce(evidenceRecord(4021, "Recovered evidence"));
+
+    render(createElement(ReasonStage, {
+      question: "Which product is grounded?",
+      filters: {},
+    }));
+    await runAgent();
+    openDisclosure("View evidence records");
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "1 of 1 cited evidence ids did not resolve",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry evidence records" }));
+
+    expect(await screen.findByText("Recovered evidence")).toBeTruthy();
+    expect(screen.queryByText(/did not resolve/)).toBeNull();
+    expect(vi.mocked(api.evidence)).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries the tool contract after a transient failure", async () => {
+    const response = agentResponse("run-contract", 4021);
+    vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
+      onEvent({ type: "complete", response });
+    });
+    vi.mocked(api.toolContracts)
+      .mockRejectedValueOnce(new Error("temporary contract failure"))
+      .mockResolvedValueOnce([toolContract("search_products")]);
+
+    render(createElement(ReasonStage, {
+      question: "Which product is grounded?",
+      filters: {},
+    }));
+    await runAgent();
+    openDisclosure("View tool contract");
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "temporary contract failure",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry tool contract" }));
+
+    expect(await screen.findByText("search_products")).toBeTruthy();
+    expect(screen.queryByText("temporary contract failure")).toBeNull();
+    expect(vi.mocked(api.toolContracts)).toHaveBeenCalledTimes(2);
   });
 });

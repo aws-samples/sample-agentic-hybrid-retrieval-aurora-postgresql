@@ -167,7 +167,7 @@ describe("DiscoverPage", () => {
   it("routes a typed product need into Shop retrieval", () => {
     const { container } = renderPage();
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Search products" }), {
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search products" }), {
       target: { value: "quiet keyboard under $180" },
     });
     expect(
@@ -186,11 +186,11 @@ describe("DiscoverPage", () => {
     const { container } = renderPage();
 
     expect(
-      container.querySelectorAll("input[role='combobox']"),
+      container.querySelectorAll("input[role='searchbox']"),
     ).toHaveLength(1);
     expect(
       container.querySelector(".discover-hero .discover-search input"),
-    ).toBe(screen.getByRole("combobox", { name: "Search products" }));
+    ).toBe(screen.getByRole("searchbox", { name: "Search products" }));
     const submit = screen.getByRole("button", { name: "Search" });
     expect(submit.textContent).toBe("");
     expect(submit.querySelector("svg")).toBeTruthy();
@@ -265,7 +265,7 @@ describe("DiscoverPage", () => {
     // "Sonora WH-C720" and "Mosaic Auraluxe H9" as ghost text, which reads as a
     // demo fixture. Cold start asks for the thing the hero just promised.
     const { container } = renderPage();
-    const input = screen.getByRole("combobox", { name: "Search products" });
+    const input = screen.getByRole("searchbox", { name: "Search products" });
 
     expect((input as HTMLInputElement).value).toBe("");
     expect(input.getAttribute("placeholder")).toBe(
@@ -279,19 +279,14 @@ describe("DiscoverPage", () => {
     expect(hero.textContent).not.toContain("Auraluxe");
   });
 
-  it("keeps editorial search free of a typeahead overlay", async () => {
+  it("keeps editorial search free of typeahead work and overlays", () => {
     renderPage();
-    const input = screen.getByRole("combobox", { name: "Search products" });
+    const input = screen.getByRole("searchbox", { name: "Search products" });
 
     fireEvent.change(input, { target: { value: "sono" } });
     expect(screen.queryByRole("listbox")).toBeNull();
     fireEvent.keyDown(input, { key: "ArrowDown" });
-    await waitFor(() => {
-      expect(api.suggestions).toHaveBeenCalledWith(
-        "sono",
-        expect.any(AbortSignal),
-      );
-    });
+    expect(api.suggestions).not.toHaveBeenCalled();
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 

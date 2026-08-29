@@ -1,5 +1,7 @@
 """Exact catalog identities must survive model reranking."""
 
+import pytest
+
 from service.retrieval import _final_candidate_sort_key, _is_exact_sku_match
 
 
@@ -9,6 +11,19 @@ def test_exact_sku_match_is_punctuation_insensitive_and_requires_full_identity()
     )
     assert _is_exact_sku_match("Find cotruew0017001 charging case", "CO-TRUEW-0017001")
     assert not _is_exact_sku_match("Find TRUEW charging case", "CO-TRUEW-0017001")
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Find xCO-TRUEW-0017001 charging case",
+        "Find CO-TRUEW-0017001y charging case",
+        "Find xCO-TRUEW-0017001y charging case",
+    ],
+)
+def test_exact_sku_match_requires_alphanumeric_token_boundaries(query):
+    """Red-at-birth: a longer identifier must not gain exact-SKU priority."""
+    assert not _is_exact_sku_match(query, "CO-TRUEW-0017001")
 
 
 def test_exact_sku_preservation_keeps_identity_ahead_of_a_higher_model_score():

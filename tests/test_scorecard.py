@@ -123,9 +123,19 @@ def _stage_ablation_artifact(**overrides) -> dict:
             },
         },
         "candidate_recall_ceiling": {
+            "bounds_arms": [
+                "rrf_fused_no_rerank",
+                "rrf_fused_reranked",
+            ],
             "pool_recall_ceiling": 0.95,
             "judged_relevant_never_fetched": 2,
             "description": "fixture ceiling description",
+            "unbounded_arms": {
+                "semantic_only": {
+                    "note": "Semantic-only has its own larger candidate pool.",
+                    "recall@10": 0.7,
+                }
+            },
         },
         "per_query": [
             {
@@ -599,6 +609,14 @@ def test_stage_ablation_projects_every_arm_and_the_ceiling():
     assert reranked.ndcg_at_10_query_wins == 16
     assert result.candidate_recall_ceiling.pool_recall_ceiling == 0.95
     assert result.candidate_recall_ceiling.judged_relevant_never_fetched == 2
+    assert result.candidate_recall_ceiling.bounds_arms == [
+        "rrf_fused_no_rerank",
+        "rrf_fused_reranked",
+    ]
+    assert (
+        result.candidate_recall_ceiling.unbounded_arms["semantic_only"].recall_at_10
+        == 0.7
+    )
     assert len(result.per_query) == 1
     assert result.per_query[0].query_id == "G-001"
     assert result.per_query[0].ndcg_at_10["rrf_fused_reranked"] == 1.0
@@ -634,10 +652,15 @@ def test_stage_ablation_attribution_is_independent_of_the_main_artifacts():
 # --- The API route -----------------------------------------------------
 
 
-def test_api_serves_the_scorecard_route():
+def test_api_serves_the_scorecard_route_fail_closed_until_remeasured():
     payload = TestClient(app).get("/api/scorecard").json()
 
-    assert payload["provenance"]["attributed"] is True
+    assert payload["provenance"]["attributed"] is False
+    assert payload["provenance"]["attribution_note"].startswith(PENDING_TEXT)
+    assert "retrieval fingerprint changed" in payload["provenance"]["attribution_note"]
+    assert (
+        "measurement methodology changed" in payload["provenance"]["attribution_note"]
+    )
     assert payload["provenance"]["source_revision"]
     assert payload["provenance"]["current_source_revision"]
     assert payload["retrieval_quality"]["sample_size"] == 20
@@ -663,8 +686,9 @@ def test_api_shows_metrics_once_the_fingerprint_models_and_query_set_all_match(
 ):
     """End-to-end proof of the "shown" branch through the real HTTP route.
 
-    Pairs with `test_api_serves_the_scorecard_route` above (hidden today,
-    because the real committed artifact predates the fingerprint mechanism)
+    Pairs with `test_api_serves_the_scorecard_route_fail_closed_until_remeasured`
+    above (hidden today because retrieval and methodology changed after the
+    committed measurement)
     so this gate cannot pass merely by always hiding the numbers.
     """
     artifact = _api_artifact_and_settings(monkeypatch)
@@ -730,12 +754,20 @@ def test_api_serves_the_stage_ablation_section_alongside_the_other_four():
     }
     assert ablation["scored_query_count"] == 20
     assert len(ablation["per_query"]) == 20
-    # The ceiling is arithmetically impossible below any arm's own Recall@10
-    # under correct pool accounting -- proven live against the committed
-    # artifact, not only against the synthetic fixture above.
-    ceiling = ablation["candidate_recall_ceiling"]["pool_recall_ceiling"]
-    for arm in ablation["arms"]:
-        assert ceiling >= arm["recall_at_10"]
+    ceiling_contract = ablation["candidate_recall_ceiling"]
+    assert set(ceiling_contract["bounds_arms"]) == {
+        "rrf_fused_no_rerank",
+        "rrf_fused_reranked",
+    }
+    assert set(ceiling_contract["unbounded_arms"]) == {"semantic_only"}
+    ceiling = ceiling_contract["pool_recall_ceiling"]
+    arms = {arm["key"]: arm for arm in ablation["arms"]}
+    for arm_key in ceiling_contract["bounds_arms"]:
+        assert ceiling >= arms[arm_key]["recall_at_10"]
+    assert (
+        ceiling_contract["unbounded_arms"]["semantic_only"]["recall_at_10"]
+        == arms["semantic_only"]["recall_at_10"]
+    )
     # Arm 3 must equal the committed population scorecard's own metrics --
     # the whole point of never re-serving it.
     reranked = next(

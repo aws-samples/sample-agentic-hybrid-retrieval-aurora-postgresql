@@ -10,7 +10,7 @@ import {
   Sparkles,
   Star,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Link } from "wouter";
 import { api } from "../api";
@@ -179,11 +179,9 @@ export function structuredAnswer(answer: string) {
 
 export function SearchPage() {
   const [params, setParams] = useSearchParams();
-  const initialQuery = params.get("q") ?? "";
-  const [mode, setMode] = useState<Mode>(
-    params.get("mode") === "agent" ? "agent" : "retrieval",
-  );
-  const [query, setQuery] = useState(initialQuery);
+  const paramsKey = params.toString();
+  const query = params.get("q") ?? "";
+  const mode: Mode = params.get("mode") === "agent" ? "agent" : "retrieval";
   const [search, setSearch] = useState<SearchResponse | null>(null);
   const [agent, setAgent] = useState<AgentResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -194,12 +192,25 @@ export function SearchPage() {
   const [agentActivity, setAgentActivity] = useState(initialAgentActivity);
   const [comparisonIds, setComparisonIds] = useState<number[]>([]);
   const requestVersion = useRef(0);
-  const filters = filtersFromParams(params);
-  const labMission = mosaicRetrievalExamples.find(
-    (mission) => mission.id === params.get("mission") && mission.stage === "reason",
+  const requestController = useRef<AbortController | null>(null);
+  const filters = useMemo(
+    () => filtersFromParams(new URLSearchParams(paramsKey)),
+    [paramsKey],
+  );
+  const labMission = useMemo(
+    () => mosaicRetrievalExamples.find(
+      (mission) => (
+        mission.id === new URLSearchParams(paramsKey).get("mission")
+        && mission.stage === "reason"
+      ),
+    ),
+    [paramsKey],
   );
 
-  function activateAgentStage(activeId: AgentActivityId, complete = false) {
+  const activateAgentStage = useCallback((
+    activeId: AgentActivityId,
+    complete = false,
+  ) => {
     const activeIndex = agentActivitySteps.findIndex((step) => step.id === activeId);
     setAgentActivity(
       agentActivitySteps.map((step, index) => ({
@@ -213,13 +224,15 @@ export function SearchPage() {
         ) as AgentActivityStatus,
       })),
     );
-  }
+  }, []);
 
-  const run = useCallback(
+  const execute = useCallback(
     async (nextQuery: string, nextMode = mode) => {
+      requestController.current?.abort();
+      const controller = new AbortController();
+      requestController.current = controller;
       const version = requestVersion.current + 1;
       requestVersion.current = version;
-      setQuery(nextQuery);
       setLoading(true);
       setError("");
       setSearch(null);
@@ -228,13 +241,6 @@ export function SearchPage() {
       setStreamedAnswer("");
       setTraceOpen(false);
       setComparisonIds([]);
-      const nextParams = new URLSearchParams(params);
-      nextParams.set("q", nextQuery);
-      nextParams.set("mode", nextMode);
-      if (labMission && nextQuery !== labMission.query) {
-        nextParams.delete("mission");
-      }
-      setParams(nextParams, { replace: true });
       try {
         if (nextMode === "agent") {
           setAgentStreaming(true);
@@ -261,33 +267,78 @@ export function SearchPage() {
             }
             // `partial` carries mid-run retrieval for the Ask Mosaic rail. This
             // surface renders the finished response only.
-          });
+          }, undefined, { signal: controller.signal });
         } else {
-          const response = await api.search(nextQuery, filters);
+          const response = await api.search(nextQuery, filters, {
+            signal: controller.signal,
+          });
+          if (version !== requestVersion.current) return;
           setSearch(response);
           setComparisonIds(
             response.results.slice(0, 4).map((product) => product.product_id),
           );
         }
       } catch (cause) {
+        if (controller.signal.aborted || version !== requestVersion.current) return;
         setError(cause instanceof Error ? cause.message : "Search failed");
         setAgentStreaming(false);
       } finally {
-        if (version === requestVersion.current) setLoading(false);
+        if (version === requestVersion.current) {
+          setLoading(false);
+          if (requestController.current === controller) {
+            requestController.current = null;
+          }
+        }
       }
     },
-    [filters, labMission, mode, params, setParams],
+    [activateAgentStage, filters, mode],
   );
 
   useEffect(() => {
-    if (initialQuery) void run(initialQuery, mode);
-    // The initial URL is the only automatic trigger.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (query) {
+      void execute(query, mode);
+    } else {
+      requestController.current?.abort();
+      requestController.current = null;
+      requestVersion.current += 1;
+      setLoading(false);
+      setError("");
+      setSearch(null);
+      setAgent(null);
+      setAgentStreaming(false);
+      setStreamedAnswer("");
+      setTraceOpen(false);
+      setComparisonIds([]);
+    }
+    return () => requestController.current?.abort();
+  }, [execute, mode, query]);
+
+  const run = useCallback(
+    (nextQuery: string, nextMode = mode) => {
+      const nextParams = new URLSearchParams(params);
+      nextParams.set("q", nextQuery);
+      nextParams.set("mode", nextMode);
+      if (labMission && nextQuery !== labMission.query) {
+        nextParams.delete("mission");
+      }
+      if (nextParams.toString() === paramsKey) {
+        void execute(nextQuery, nextMode);
+        return;
+      }
+      setParams(nextParams);
+    },
+    [execute, labMission, mode, params, paramsKey, setParams],
+  );
 
   function changeMode(nextMode: Mode) {
-    setMode(nextMode);
-    if (query) void run(query, nextMode);
+    if (nextMode === mode) return;
+    if (query) {
+      run(query, nextMode);
+      return;
+    }
+    const nextParams = new URLSearchParams(params);
+    nextParams.set("mode", nextMode);
+    setParams(nextParams);
   }
 
   const products = agent?.recommendations ?? search?.results ?? [];
@@ -315,8 +366,7 @@ export function SearchPage() {
   ).slice(0, 4);
 
   function followUp(nextQuery: string) {
-    setMode("agent");
-    void run(nextQuery, "agent");
+    run(nextQuery, "agent");
   }
 
   function updateComparison(productId: number, checked: boolean) {
@@ -339,6 +389,7 @@ export function SearchPage() {
           <button
             type="button"
             className={mode === "retrieval" ? "active" : ""}
+            aria-pressed={mode === "retrieval"}
             disabled={loading || agentStreaming}
             onClick={() => changeMode("retrieval")}
           >
@@ -347,6 +398,7 @@ export function SearchPage() {
           <button
             type="button"
             className={mode === "agent" ? "active" : ""}
+            aria-pressed={mode === "agent"}
             disabled={loading || agentStreaming}
             onClick={() => changeMode("agent")}
           >
@@ -423,7 +475,9 @@ export function SearchPage() {
           <CatalogLoadingState />
         </>
       ) : null}
-      {error ? <ErrorState message={error} onRetry={() => void run(query)} /> : null}
+      {error ? (
+        <ErrorState message={error} onRetry={() => void execute(query, mode)} />
+      ) : null}
 
       {!loading && !error && (search || agent) ? (
         <>
@@ -452,25 +506,33 @@ export function SearchPage() {
 
           <div className="search-workspace">
             <section className="answer-column">
-              <div className="search-product-grid">
-                {products.map((product, index) => (
-                  <div id={`product-${product.product_id}`} key={product.product_id}>
-                    <ProductCard
-                      product={product}
-                      imageSrc={gridImages.get(product.product_id)}
-                      showSignals
-                      showCompare
-                      compareChecked={comparisonIds.includes(product.product_id)}
-                      compareDisabled={
-                        comparisonIds.length >= 4
-                        && !comparisonIds.includes(product.product_id)
-                      }
-                      onCompareChange={updateComparison}
-                      collectionLabels={collectionLabels(products, product, index)}
-                    />
-                  </div>
-                ))}
-              </div>
+              {products.length ? (
+                <div className="search-product-grid">
+                  {products.map((product, index) => (
+                    <div id={`product-${product.product_id}`} key={product.product_id}>
+                      <ProductCard
+                        product={product}
+                        imageSrc={gridImages.get(product.product_id)}
+                        showSignals
+                        showCompare
+                        compareChecked={comparisonIds.includes(product.product_id)}
+                        compareDisabled={
+                          comparisonIds.length >= 4
+                          && !comparisonIds.includes(product.product_id)
+                        }
+                        onCompareChange={updateComparison}
+                        collectionLabels={collectionLabels(products, product, index)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <section className="search-empty" role="status">
+                  <SearchIcon size={24} aria-hidden="true" />
+                  <h2>No products matched this request</h2>
+                  <p>Adjust the wording or remove a filter, then run the search again.</p>
+                </section>
+              )}
 
               {comparisonProducts.length > 1 ? (
                 <section className="comparison-panel">

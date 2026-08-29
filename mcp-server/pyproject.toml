@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=75"]
+requires = ["setuptools==80.10.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,6 +10,7 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
   "httpx>=0.28,<1",
   "mcp==2.0.0",
+  "pydantic>=2.13,<3",
 ]
 
 [project.optional-dependencies]
@@ -26,4 +27,4 @@ include = ["catalog_mcp*"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["mcp_tests"]
-python_files = ["contract_cases.py"]
+python_files = ["*_cases.py"]

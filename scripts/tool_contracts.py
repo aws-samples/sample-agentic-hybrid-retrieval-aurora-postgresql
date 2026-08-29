@@ -5,29 +5,85 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import sys
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 CONTRACT_PATH = ROOT / "db" / "config" / "agent_tool_contracts.json"
 SQL_PATH = ROOT / "db" / "sql" / "16_seed_tool_contracts.sql"
 SKILL_PATH = ROOT / "skills" / "mosaic-hybrid-retrieval" / "SKILL.md"
+SKILL_HTTP_REFERENCE_PATH = (
+    ROOT / "skills" / "mosaic-hybrid-retrieval" / "references" / "http-api.md"
+)
 SKILL_BEGIN = "<!-- BEGIN GENERATED CONTRACT: scripts/tool_contracts.py -->\n"
 SKILL_END = "<!-- END GENERATED CONTRACT -->"
 Surface = Literal["agent", "mcp", "skill"]
 
-#: The route each skill capability is served on. Declared here rather than in the
-#: registry because a route is a property of this deployment, not of the
-#: capability, and the contract is meant to outlive one HTTP layout.
-#: `tests/test_skill_surface.py::test_skill_routes_key_set_matches_the_skill_surface_exactly`
-#: pins this dict's key set to the skill surface exactly (house rule 5a), and
-#: `test_every_route_in_skill_routes_is_registered_on_the_app` asserts every
-#: value here names a route the FastAPI app actually registers.
+#: How the transport-independent skill arguments bind to this deployment's HTTP
+#: API. Keys inside path/query/body are skill argument names; values are wire
+#: destinations. Dotted body destinations are nested JSON paths.
+#:
+#: This is deliberately outside `agent_tool_contracts.json`: routes and JSON
+#: layout belong to one adapter, while the canonical capability contract must
+#: survive adapter changes. `validate_skill_http_bindings` makes this seam
+#: exhaustive in both directions.
+SKILL_HTTP_BINDINGS: dict[str, dict[str, Any]] = {
+    "search_products": {
+        "method": "POST",
+        "route": "/api/search",
+        "path": {},
+        "query": {},
+        "body": {
+            "query": "query",
+            "domain": "filters.domain",
+            "category_key": "filters.category_key",
+            "brand": "filters.brand",
+            "availability": "filters.availability",
+            "in_stock_only": "filters.in_stock_only",
+            "min_price_cents": "filters.min_price_cents",
+            "max_price_cents": "filters.max_price_cents",
+            "min_rating": "filters.min_rating",
+            "attributes": "filters.attributes",
+            "limit": "limit",
+            "authorized_limit": "authorized_limit",
+            "include_diagnostics": "include_diagnostics",
+            "rerank": "rerank",
+        },
+    },
+    "get_product_evidence": {
+        "method": "POST",
+        "route": "/api/products/{product_id}/evidence",
+        "path": {"product_id": "product_id"},
+        "query": {},
+        "body": {
+            "retrieval_scope_id": "retrieval_scope_id",
+            "evidence_query": "evidence_query",
+            "limit": "limit",
+        },
+    },
+    "compare_products": {
+        "method": "POST",
+        "route": "/api/retrieval/events/{search_event_id}/compare",
+        "path": {"retrieval_scope_id": "search_event_id"},
+        "query": {},
+        "body": {"product_ids": "product_ids"},
+    },
+    "explain_retrieval": {
+        "method": "GET",
+        "route": "/api/retrieval/events/{search_event_id}",
+        "path": {"retrieval_scope_id": "search_event_id"},
+        "query": {},
+        "body": {},
+    },
+}
+
 SKILL_ROUTES = {
-    "search_products": "POST /api/search",
-    "get_product_evidence": "POST /api/products/{product_id}/evidence",
-    "compare_products": "POST /api/retrieval/events/{search_event_id}/compare",
-    "explain_retrieval": "GET /api/retrieval/events/{search_event_id}",
+    name: f"{binding['method']} {binding['route']}"
+    for name, binding in SKILL_HTTP_BINDINGS.items()
 }
 
 
@@ -317,6 +373,214 @@ def render_skill_contract() -> str:
     return "\n".join(lines)
 
 
+def validate_skill_http_bindings(
+    *,
+    bindings: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, int]:
+    """Prove every skill argument has exactly one executable HTTP destination."""
+    selected = bindings if bindings is not None else SKILL_HTTP_BINDINGS
+    contracts = {
+        contract["name"]: contract for contract in contracts_for_surface("skill")
+    }
+    missing_operations = sorted(set(contracts) - set(selected))
+    extra_operations = sorted(set(selected) - set(contracts))
+    if missing_operations or extra_operations:
+        raise ToolContractError(
+            "skill HTTP bindings do not cover the skill surface exactly: "
+            f"missing operations={missing_operations}, "
+            f"extra operations={extra_operations}; fix: add or remove entries "
+            "in SKILL_HTTP_BINDINGS until they match the skill contracts"
+        )
+
+    # Import lazily: service.main imports contracts_for_surface from this module.
+    # Validation runs only after module initialization, which keeps the service's
+    # normal import path acyclic while still checking the real FastAPI boundary.
+    from fastapi.routing import APIRoute
+    from pydantic import BaseModel
+
+    from service.main import app
+
+    def nested_model(annotation: Any) -> type[BaseModel] | None:
+        candidates = (annotation, *get_args(annotation))
+        for candidate in candidates:
+            if isinstance(candidate, type) and issubclass(candidate, BaseModel):
+                return candidate
+        return None
+
+    mapped_arguments = 0
+    for name, contract in contracts.items():
+        binding = selected[name]
+        method = binding.get("method")
+        route = binding.get("route")
+        if method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
+            raise ToolContractError(
+                f"skill HTTP binding {name!r} has method={method!r}; "
+                "fix: use an uppercase HTTP method"
+            )
+        if not isinstance(route, str) or not route.startswith("/"):
+            raise ToolContractError(
+                f"skill HTTP binding {name!r} has route={route!r}; "
+                "fix: use an absolute API path beginning with /"
+            )
+
+        locations: dict[str, str] = {}
+        duplicates: set[str] = set()
+        for location in ("path", "query", "body"):
+            mapping = binding.get(location)
+            if not isinstance(mapping, dict):
+                raise ToolContractError(
+                    f"skill HTTP binding {name!r} has {location}={mapping!r}; "
+                    "fix: declare an argument-to-destination object, empty "
+                    "when this route uses none"
+                )
+            for argument, destination in mapping.items():
+                if argument in locations:
+                    duplicates.add(argument)
+                locations[argument] = location
+                if not isinstance(destination, str) or not destination:
+                    raise ToolContractError(
+                        f"skill HTTP binding {name!r} maps {argument!r} to "
+                        f"{destination!r}; fix: use a non-empty wire destination"
+                    )
+
+        placeholders = set(re.findall(r"{([^{}]+)}", route))
+        path_destinations = set(binding["path"].values())
+        missing_placeholders = sorted(placeholders - path_destinations)
+        extra_path_destinations = sorted(path_destinations - placeholders)
+        if missing_placeholders or extra_path_destinations:
+            raise ToolContractError(
+                f"skill HTTP binding {name!r} route {route!r} has placeholders "
+                f"{sorted(placeholders)} but path destinations "
+                f"{sorted(path_destinations)}; missing placeholders="
+                f"{missing_placeholders}, extra path destinations="
+                f"{extra_path_destinations}; fix: map each route placeholder "
+                "from exactly one skill argument"
+            )
+
+        registered = [
+            candidate
+            for candidate in app.routes
+            if isinstance(candidate, APIRoute)
+            and candidate.path == route
+            and method in candidate.methods
+        ]
+        if len(registered) != 1:
+            raise ToolContractError(
+                f"skill HTTP binding {name!r} resolves to {len(registered)} "
+                f"registered routes for {method} {route}; fix: use exactly one "
+                "method and path served by service.main.app"
+            )
+        api_route = registered[0]
+
+        query_parameters = {
+            parameter.alias for parameter in api_route.dependant.query_params
+        }
+        unknown_query_destinations = sorted(
+            set(binding["query"].values()) - query_parameters
+        )
+        if unknown_query_destinations:
+            raise ToolContractError(
+                f"skill HTTP binding {name!r} maps query destinations "
+                f"{unknown_query_destinations}, but {method} {route} accepts "
+                f"{sorted(query_parameters)}; fix: use a registered query "
+                "parameter or move the argument to its real location"
+            )
+
+        body_model = (
+            nested_model(api_route.body_field.field_info.annotation)
+            if api_route.body_field is not None
+            else None
+        )
+        for argument, destination in binding["body"].items():
+            if destination.rsplit(".", 1)[-1] != argument:
+                raise ToolContractError(
+                    f"skill HTTP binding {name!r} maps body argument "
+                    f"{argument!r} to {destination!r}; fix: keep the wire leaf "
+                    f"named {argument!r} and use only parent objects for nesting"
+                )
+            current_model = body_model
+            for segment in destination.split("."):
+                if current_model is None or segment not in current_model.model_fields:
+                    model_name = (
+                        current_model.__name__
+                        if current_model is not None
+                        else "no request body"
+                    )
+                    raise ToolContractError(
+                        f"skill HTTP binding {name!r} maps {argument!r} to body "
+                        f"destination {destination!r}, but segment {segment!r} "
+                        f"is absent from {model_name} on {method} {route}; "
+                        "fix: map the argument to a field the registered "
+                        "Pydantic request model accepts"
+                    )
+                field = current_model.model_fields[segment]
+                current_model = nested_model(field.annotation)
+
+        declared = set(contract["input_schema"]["properties"])
+        mapped = set(locations)
+        missing_arguments = sorted(declared - mapped)
+        extra_arguments = sorted(mapped - declared)
+        if missing_arguments or extra_arguments or duplicates:
+            raise ToolContractError(
+                f"skill HTTP binding {name!r} has missing arguments="
+                f"{missing_arguments}, extra arguments={extra_arguments}, "
+                f"duplicate arguments={sorted(duplicates)}; fix: map every "
+                "declared skill argument exactly once across path, query, or body"
+            )
+
+        mapped_arguments += len(mapped)
+
+    return {
+        "operations": len(contracts),
+        "mapped_arguments": mapped_arguments,
+    }
+
+
+def render_skill_http_reference() -> str:
+    """Render the checked HTTP adapter map inside the takeaway package."""
+    validate_skill_http_bindings()
+    lines = [
+        "# HTTP adapter map",
+        "",
+        "<!-- Generated by scripts/tool_contracts.py. Do not edit by hand. -->",
+        "",
+        "The skill contract uses transport-independent argument names. This file",
+        "shows exactly where this deployment sends each one over HTTP. A dotted",
+        "JSON destination is nested, so `filters.domain` means",
+        '`{"filters": {"domain": ...}}`.',
+        "",
+    ]
+    contracts = {
+        contract["name"]: contract for contract in contracts_for_surface("skill")
+    }
+    for name, binding in SKILL_HTTP_BINDINGS.items():
+        lines.extend(
+            [
+                f"## `{name}`",
+                "",
+                f"`{binding['method']} {binding['route']}`",
+                "",
+                "| Skill argument | HTTP location | Required |",
+                "|---|---|---|",
+            ]
+        )
+        required = set(contracts[name]["input_schema"].get("required", []))
+        for location in ("path", "query", "body"):
+            for argument, destination in binding[location].items():
+                if location == "path":
+                    wire_location = f"path `{{{destination}}}`"
+                elif location == "query":
+                    wire_location = f"query `{destination}`"
+                else:
+                    wire_location = f"JSON body `{destination}`"
+                lines.append(
+                    f"| `{argument}` | {wire_location} | "
+                    f"{'yes' if argument in required else 'no'} |"
+                )
+        lines.append("")
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     action = parser.add_mutually_exclusive_group(required=True)
@@ -325,6 +589,7 @@ def main() -> int:
     args = parser.parse_args()
     rendered = render_database_sql()
     skill_block = render_skill_contract()
+    http_reference = render_skill_http_reference()
     skill_text = SKILL_PATH.read_text(encoding="utf-8")
     start = skill_text.index(SKILL_BEGIN) + len(SKILL_BEGIN)
     end = skill_text.index(SKILL_END)
@@ -334,7 +599,12 @@ def main() -> int:
             skill_text[:start] + skill_block + skill_text[end:],
             encoding="utf-8",
         )
-        print(f"Wrote {SQL_PATH.relative_to(ROOT)} and {SKILL_PATH.relative_to(ROOT)}")
+        SKILL_HTTP_REFERENCE_PATH.write_text(http_reference, encoding="utf-8")
+        print(
+            f"Wrote {SQL_PATH.relative_to(ROOT)}, "
+            f"{SKILL_PATH.relative_to(ROOT)}, and "
+            f"{SKILL_HTTP_REFERENCE_PATH.relative_to(ROOT)}"
+        )
         return 0
     if SQL_PATH.read_text(encoding="utf-8") != rendered:
         raise SystemExit(
@@ -348,6 +618,11 @@ def main() -> int:
             "db/config/agent_tool_contracts.json; run "
             "python scripts/tool_contracts.py --write"
         )
+    if SKILL_HTTP_REFERENCE_PATH.read_text(encoding="utf-8") != http_reference:
+        raise SystemExit(
+            "skill HTTP reference differs from SKILL_HTTP_BINDINGS; run "
+            "python scripts/tool_contracts.py --write"
+        )
     receipt = capability_parity_receipt()
     print(
         f"PASS: canonical registry projects "
@@ -356,7 +631,7 @@ def main() -> int:
         f"{len(contracts_for_surface('skill'))} skill contracts; "
         f"{len(receipt['shared_capabilities'])} capabilities preserve version, "
         f"semantic payload, and read-only policy across surfaces; SQL registry "
-        f"and SKILL.md match the source of truth"
+        f"SKILL.md and the HTTP adapter map match the source of truth"
     )
     return 0
 

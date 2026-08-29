@@ -46,4 +46,22 @@ describe("RouteErrorBoundary", () => {
     expect(alert.textContent).toContain("Failed to fetch dynamically imported module");
     expect(screen.getByRole("button", { name: "Reload Mosaic" })).toBeTruthy();
   });
+
+  it("clears a failed surface when navigation changes its reset key", async () => {
+    const view = render(
+      <RouteErrorBoundary resetKey="/catalog">
+        <Exploding />
+      </RouteErrorBoundary>,
+    );
+    expect(screen.getByRole("alert")).toBeTruthy();
+
+    view.rerender(
+      <RouteErrorBoundary resetKey="/search">
+        <p>Search surface</p>
+      </RouteErrorBoundary>,
+    );
+
+    expect(await screen.findByText("Search surface")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

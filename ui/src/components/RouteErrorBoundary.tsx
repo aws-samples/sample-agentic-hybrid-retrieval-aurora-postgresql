@@ -13,7 +13,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
  * there is no hook equivalent.
  */
 export class RouteErrorBoundary extends Component<
-  { children: ReactNode },
+  { children: ReactNode; resetKey?: string },
   { message: string }
 > {
   state = { message: "" };
@@ -30,6 +30,15 @@ export class RouteErrorBoundary extends Component<
     console.error("Mosaic surface failed to render", error, info.componentStack);
   }
 
+  componentDidUpdate(previousProps: Readonly<{ children: ReactNode; resetKey?: string }>) {
+    if (
+      this.state.message
+      && previousProps.resetKey !== this.props.resetKey
+    ) {
+      this.setState({ message: "" });
+    }
+  }
+
   render() {
     if (!this.state.message) return this.props.children;
     return (
@@ -37,7 +46,8 @@ export class RouteErrorBoundary extends Component<
         <h1>This surface did not load.</h1>
         <p>{this.state.message}</p>
         <p className="route-error-hint">
-          A reload usually clears it. The API and the catalog are unaffected.
+          Reload this surface. If the problem persists, return to Discover and
+          retry the task.
         </p>
         <button type="button" onClick={() => window.location.reload()}>
           Reload Mosaic

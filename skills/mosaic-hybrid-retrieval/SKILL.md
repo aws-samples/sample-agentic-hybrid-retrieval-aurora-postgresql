@@ -1,9 +1,14 @@
+---
+name: mosaic-hybrid-retrieval
+description: Retrieve, compare, and explain source-attributed product candidates through Mosaic's bounded Aurora PostgreSQL hybrid retrieval capability.
+---
+
 # Mosaic Hybrid Retrieval
 
-A read-only product retrieval capability on Aurora PostgreSQL. It generates
-candidates three ways, enforces eligibility in SQL, fuses with reciprocal rank
-fusion, reranks the bounded pool, and hands back a receipt that says what it did
-and what it granted.
+A catalog-read-only product retrieval capability on Aurora PostgreSQL. It
+generates candidates three ways, enforces eligibility in SQL, fuses with
+reciprocal rank fusion, reranks the bounded pool, and hands back a receipt that
+says what it did and what it granted.
 
 This file describes the capability. It does not implement it. The machine-readable
 contract is `db/config/agent_tool_contracts.json`, served live at
@@ -18,6 +23,22 @@ this product" with persisted evidence rather than a model's recollection.
 
 Do not use it as a general agent. It decides nothing about what to ask or what to
 say. A calling agent chooses which operation to invoke and when.
+
+## Start here
+
+1. Call `search_products` with a retrieval intent and hard eligibility
+   constraints.
+2. Keep the returned `search_event_id`. Use it as `retrieval_scope_id` for the
+   remaining operations.
+3. Use `get_product_evidence` for source-addressable support and
+   `compare_products` for a deterministic projection over granted products.
+4. Use `explain_retrieval` to inspect the persisted retrieval event and ranking
+   signals. Treat inspection as diagnostics, never as a wider grant.
+5. Hand only granted evidence to the calling application's synthesis step.
+
+The logical arguments below are transport-independent. For this repository's
+executable path, query, and JSON-body mapping, use
+[`references/http-api.md`](references/http-api.md).
 
 ## What it owns
 
@@ -54,17 +75,24 @@ There is no autonomous loop here. The caller orchestrates.
 
 ## Inputs
 
-Named as the API accepts them, not as they might read better.
+Named as the skill accepts them. The HTTP adapter nests the filter fields under
+`filters`; the generated adapter map is the source of truth for that
+transformation.
 
 | Field | Meaning |
 |---|---|
 | `query` | The retrieval intent, or an exact model or SKU string. |
-| `filters` | Hard eligibility constraints: domain, category, brand, availability, price bounds, rating floor, attribute equality. |
+| `domain`, `category_key`, `brand` | Catalog taxonomy constraints. |
+| `availability`, `in_stock_only` | Inventory eligibility constraints. |
+| `min_price_cents`, `max_price_cents`, `min_rating` | Numeric eligibility constraints. |
+| `attributes` | Domain-specific attribute equality constraints. |
 | `limit` | How many ranked results to return. 1 to 50. |
 | `authorized_limit` | How many of those results the caller authorizes for downstream evidence and comparison. Defaults to `limit`. Never greater than `limit`. |
 | `include_diagnostics` | Return per-arm counts, stage timings, and warnings. |
 | `rerank` | Apply managed reranking to the fused pool. |
-| `retrieval_scope_id` | On the scoped operations: the `search_event_id` of the retrieval that granted the products. |
+| `retrieval_scope_id` | The `search_event_id` returned by `search_products`. It addresses the retrieval and bounds evidence and comparison. |
+| `product_id`, `product_ids` | One granted product for evidence, or two to five granted products for comparison. |
+| `evidence_query` | The question used to rank evidence for one granted product. |
 
 ## Outputs
 
@@ -84,7 +112,8 @@ caller was granted. They are different, and the second one is the boundary.
 - Evidence is served only for products the retrieval granted.
 - Comparison is a projection over granted products. It cannot widen the set and
   issues no retrieval.
-- Explanation covers the retrieval event and its full candidate pool.
+- Explanation is addressed by the retrieval scope handle and covers the event's
+  full candidate pool. It does not widen the grant.
 - A scope that is unknown, or that predates explicit authorization, grants
   nothing. There is no inference from a receipt's size.
 - A refusal is a 404 with a generic body. It does not report which product fell
@@ -110,14 +139,12 @@ a rank in one from a rank in the other invents movement that did not happen.
 > Explain can tell you that candidate 27 existed. That does not authorize you to
 > retrieve evidence for candidate 27.
 
-One honest limit on why explanation is left ungated. Explanation also returns
-the retrieval's `session_id` and the raw `query_text` that produced it, and
-those are not public the way a product record is. Leaving explanation unscoped
-is a deliberate choice for a single-attendee, disposable workshop instance where
-inspection is the point, not a claim that the data is harmless. A shared
-deployment would have to scope event replay to its owner. See
-`docs/skill-composition.md` for what else changes outside the workshop trust
-model.
+One honest limit: explanation is scope-addressed, not owner-authorized. It also
+returns the retrieval's `session_id` and raw `query_text`, which are not public
+the way a product record is. The workshop route accepts a valid event UUID
+without binding it to a principal because each instance is single-attendee and
+disposable. A shared deployment must bind event replay to its owner. See
+[`references/adapting.md`](references/adapting.md) for the production boundary.
 
 ## Behavioral guarantees
 
@@ -128,9 +155,10 @@ model.
   as an explicit side-by-side comparison and never serves search.
 - Reranking reorders the bounded pool. It cannot introduce a candidate, and it
   cannot displace an exact catalog-identifier match.
-- Every operation is read-only.
-- Every search persists a receipt, so ranking can be replayed rather than
-  recomputed.
+- No operation mutates catalog or business records.
+- Every search appends a retrieval event and candidate receipts, so search is
+  not idempotent and the runtime needs write permission, retention, and capacity
+  for observability data.
 
 ## Non-goal: scope is not identity
 
@@ -149,7 +177,18 @@ principal as well.
 
 ## Composition
 
-For how another agent reaches this capability over MCP or A2A, and for the
-AgentCore hosting contract, see `docs/skill-composition.md`. Transport and hosting
-details are kept out of this file on purpose, so the contract survives changes in
-how a capability happens to be hosted.
+This folder is the portable declaration and operating guidance, not a vendored
+retrieval runtime. Keep the folder intact when taking it away:
+
+- [`references/http-api.md`](references/http-api.md) maps every logical argument
+  to this deployment's HTTP path or body.
+- [`references/composition.md`](references/composition.md) states the exact HTTP,
+  MCP, A2A, and optional AgentCore status without implying parity that is not
+  implemented.
+- [`references/adapting.md`](references/adapting.md) separates reusable
+  invariants from Mosaic-specific schema, language, model, tuning, identity,
+  retention, and evaluation choices.
+
+The calling agent owns decomposition and synthesis. This skill owns one bounded
+retrieval execution; wrapping it in a second autonomous loop changes the
+architecture rather than composing it.

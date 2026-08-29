@@ -1,5 +1,5 @@
 import { AlertTriangle, Check, LoaderCircle, Minus, Play } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../api";
 import { CodeBlock } from "./CodeBlock";
 import {
@@ -244,8 +244,13 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState<EvidenceRecord[] | null>(null);
   const [recordsError, setRecordsError] = useState("");
+  const [recordsPending, setRecordsPending] = useState(false);
   const [contracts, setContracts] = useState<ToolContract[] | null>(null);
   const [contractsError, setContractsError] = useState("");
+  const [contractsPending, setContractsPending] = useState(false);
+  const runVersion = useRef(0);
+  const recordsRequestVersion = useRef(0);
+  const contractsRequestVersion = useRef(0);
 
   const trace: ToolTraceStep[] = response?.trace ?? partial?.trace ?? [];
   const citations: AgentCitation[] = response?.citations ?? [];
@@ -263,42 +268,59 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
   );
 
   async function run() {
+    const request = ++runVersion.current;
+    recordsRequestVersion.current += 1;
     setLoading(true);
     setError("");
     setResponse(null);
     setPartial(null);
     setRecords(null);
     setRecordsError("");
+    setRecordsPending(false);
     try {
       // The streaming path, so the tool receipts arrive even when the run fails
       // closed: a blocked synthesis is the Lab 3 broken state, and its trace is
       // the evidence that the tool succeeded while the application did not
       // register what it returned.
       await api.agentStream(question, filters, (event) => {
+        if (request !== runVersion.current) return;
         if (event.type === "partial") setPartial(event.partial);
         else if (event.type === "answer_start" || event.type === "complete") {
           setResponse(event.response);
         }
       });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The agent run failed");
+      if (request === runVersion.current) {
+        setError(cause instanceof Error ? cause.message : "The agent run failed");
+      }
     } finally {
-      setLoading(false);
+      if (request === runVersion.current) setLoading(false);
     }
   }
 
   function loadEvidenceRecords() {
-    if (records || recordsError) return;
+    if (recordsPending || (records !== null && !recordsError)) return;
     const ids = Array.from(
       new Set(citations.map((citation) => citation.evidence_id)),
     );
+    const request = ++recordsRequestVersion.current;
+    const requestRun = runVersion.current;
+    setRecords(null);
+    setRecordsError("");
     if (!ids.length) {
       setRecords([]);
       return;
     }
+    setRecordsPending(true);
     Promise.all(
       ids.map((id) => api.evidence(id).catch(() => null)),
     ).then((results) => {
+      if (
+        request !== recordsRequestVersion.current
+        || requestRun !== runVersion.current
+      ) {
+        return;
+      }
       const found = results.filter((record): record is EvidenceRecord => Boolean(record));
       setRecords(found);
       if (found.length < ids.length) {
@@ -306,18 +328,37 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
           `${ids.length - found.length} of ${ids.length} cited evidence ids did not resolve.`,
         );
       }
+    }).finally(() => {
+      if (
+        request === recordsRequestVersion.current
+        && requestRun === runVersion.current
+      ) {
+        setRecordsPending(false);
+      }
     });
   }
 
   function loadContracts() {
-    if (contracts || contractsError) return;
+    if (contractsPending || contracts !== null) return;
+    const request = ++contractsRequestVersion.current;
+    setContractsError("");
+    setContractsPending(true);
     api
       .toolContracts("agent")
-      .then(setContracts)
+      .then((value) => {
+        if (request === contractsRequestVersion.current) setContracts(value);
+      })
       .catch((cause: unknown) => {
-        setContractsError(
-          cause instanceof Error ? cause.message : "Tool contracts are unavailable",
-        );
+        if (request === contractsRequestVersion.current) {
+          setContractsError(
+            cause instanceof Error ? cause.message : "Tool contracts are unavailable",
+          );
+        }
+      })
+      .finally(() => {
+        if (request === contractsRequestVersion.current) {
+          setContractsPending(false);
+        }
       });
   }
 
@@ -437,6 +478,7 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
             </PlaygroundDisclosure>
 
             <PlaygroundDisclosure
+              key={`evidence-${response?.agent_run_id ?? "pending"}`}
               label="View evidence records"
               hint="fetches every cited id"
               onOpen={loadEvidenceRecords}
@@ -444,8 +486,22 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
               {recordsError ? (
                 <p className="labs-disclosure-error" role="alert">{recordsError}</p>
               ) : null}
+              {recordsError ? (
+                <button
+                  className="secondary-button"
+                  disabled={recordsPending}
+                  onClick={loadEvidenceRecords}
+                  type="button"
+                >
+                  Retry evidence records
+                </button>
+              ) : null}
               {records === null ? (
-                <p role="status">Resolving cited evidence ids.</p>
+                <p role="status">
+                  {recordsPending
+                    ? "Resolving cited evidence ids."
+                    : "Open to resolve cited evidence ids."}
+                </p>
               ) : records.length ? (
                 <ol className="labs-evidence-records">
                   {records.map((record) => (
@@ -463,6 +519,8 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
                     </li>
                   ))}
                 </ol>
+              ) : citations.length ? (
+                <p>No cited evidence records resolved.</p>
               ) : (
                 <p>
                   This run authorized no citations, so there is no evidence id to
@@ -478,8 +536,22 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
             >
               {contractsError ? (
                 <p className="labs-disclosure-error" role="alert">{contractsError}</p>
+              ) : null}
+              {contractsError ? (
+                <button
+                  className="secondary-button"
+                  disabled={contractsPending}
+                  onClick={loadContracts}
+                  type="button"
+                >
+                  Retry tool contract
+                </button>
               ) : contracts === null ? (
-                <p role="status">Loading the registered contracts.</p>
+                <p role="status">
+                  {contractsPending
+                    ? "Loading the registered contracts."
+                    : "Open to load the registered contracts."}
+                </p>
               ) : (
                 <>
                   <p className="labs-contract-note">

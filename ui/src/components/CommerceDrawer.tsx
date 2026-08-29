@@ -113,7 +113,9 @@ export function CommerceDrawer() {
     );
     const unlockScroll = lockBodyScroll();
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeCart();
+      if (event.key !== "Escape") return;
+      event.stopImmediatePropagation();
+      closeCart();
     };
     const trapFocus = (event: KeyboardEvent) => {
       if (event.key !== "Tab") return;
@@ -144,7 +146,7 @@ export function CommerceDrawer() {
         first.focus();
       }
     };
-    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("keydown", closeOnEscape, true);
     window.addEventListener("keydown", trapFocus);
     window.requestAnimationFrame(() => {
       drawerRef.current?.querySelector<HTMLElement>(
@@ -153,7 +155,7 @@ export function CommerceDrawer() {
     });
     return () => {
       unlockScroll();
-      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("keydown", closeOnEscape, true);
       window.removeEventListener("keydown", trapFocus);
       if (previouslyFocused.current?.isConnected) {
         previouslyFocused.current.focus();

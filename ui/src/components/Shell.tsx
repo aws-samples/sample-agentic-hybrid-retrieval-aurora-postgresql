@@ -26,9 +26,19 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className={isLanding ? "app-shell landing-shell" : "app-shell"}>
+      <a
+        className="skip-link"
+        href="#main-content"
+        inert={isCartOpen || undefined}
+        aria-hidden={isCartOpen || undefined}
+      >
+        Skip to main content
+      </a>
       <SiteHeader inert={isCartOpen} />
       <main
-        className={isLanding ? "landing-main" : undefined}
+        id="main-content"
+        className={isLanding ? "app-main landing-main" : "app-main"}
+        tabIndex={-1}
         inert={isCartOpen || undefined}
         aria-hidden={isCartOpen || undefined}
       >

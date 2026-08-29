@@ -291,12 +291,29 @@ const skillToolContracts: ToolContract[] = [
 ];
 
 /**
- * The mcp surface carries `inspect_retrieval_run`, which shares the
- * `explain_retrieval` capability with the skill surface's own `explain_retrieval`
- * tool. The badge only needs a non-empty list, never a name or a capability, so
- * that overlap is irrelevant here.
+ * Shaped like the real MCP projection: search, evidence, and inspection.
+ * Inspection shares the `explain_retrieval` capability with the skill
+ * surface's own `explain_retrieval` wire name; MCP does not expose comparison.
  */
 const mcpToolContracts: ToolContract[] = [
+  {
+    name: "search_products",
+    capability: "open_retrieval",
+    tool_version: "1.0",
+    description: "Run the canonical retrieval pipeline through MCP.",
+    input_schema: {},
+    output_schema: {},
+    read_only: true,
+  },
+  {
+    name: "get_product_evidence",
+    capability: "get_product_evidence",
+    tool_version: "1.0",
+    description: "Read granted product evidence through MCP.",
+    input_schema: {},
+    output_schema: {},
+    read_only: true,
+  },
   {
     name: "inspect_retrieval_run",
     capability: "explain_retrieval",
@@ -729,6 +746,7 @@ describe("RetrievalLabPage", () => {
     expect(
       await screen.findByText(/Compare two to five authorized products/i),
     ).toBeTruthy();
+    expect(await screen.findAllByText("catalog read-only")).toHaveLength(4);
   });
 
   it("labels A2A as documentation rather than available", async () => {
@@ -772,6 +790,26 @@ describe("RetrievalLabPage", () => {
     expect(
       await screen.findByText(/retrieval authority stays in Aurora/i),
     ).toBeTruthy();
+    expect(
+      await screen.findByText("skills/mosaic-hybrid-retrieval/"),
+    ).toBeTruthy();
+    expect(
+      await screen.findByText(/replace Mosaic's schema, language, models/i),
+    ).toBeTruthy();
+  });
+
+  it("reports each implemented adapter's real operation count", async () => {
+    mockPackageRegistry();
+    render(<RetrievalLabPage />);
+
+    await awaitPackageFinale();
+
+    const http = await screen.findByTestId("adapter-http");
+    const mcp = await screen.findByTestId("adapter-mcp");
+    expect(http.textContent).toMatch(/implemented/i);
+    expect(http.textContent).toMatch(/4 operations/i);
+    expect(mcp.textContent).toMatch(/implemented/i);
+    expect(mcp.textContent).toMatch(/3 operations/i);
   });
 
   it("packages after Prove: Package follows the scorecard inside stage 04, not stage 03", async () => {

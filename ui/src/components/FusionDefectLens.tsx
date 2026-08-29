@@ -1,5 +1,5 @@
 import { AlertTriangle } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ApiError, api } from "../api";
 import {
   BROKEN_TIE_MECHANISM,
@@ -139,22 +139,68 @@ function TieCollapseExample({ tie }: { tie: FusionDefectTieCollapse }) {
 }
 
 export function FusionDefectLens({ response }: { response: SearchResponse }) {
-  const [event, setEvent] = useState<RetrievalRunResponse | null>(null);
-  const [eventError, setEventError] = useState("");
+  const runId = response.search_event_id;
+  const currentRunId = useRef(runId);
+  const eventRequest = useRef(0);
+  const [eventState, setEventState] = useState<{
+    runId: string;
+    value: RetrievalRunResponse;
+  } | null>(null);
+  const [eventErrorState, setEventErrorState] = useState<{
+    runId: string;
+    message: string;
+  } | null>(null);
+  const [eventPendingState, setEventPendingState] = useState<{
+    runId: string;
+    request: number;
+  } | null>(null);
+
+  currentRunId.current = runId;
+  const event = eventState?.runId === runId ? eventState.value : null;
+  const eventError =
+    eventErrorState?.runId === runId ? eventErrorState.message : "";
+  const eventPending =
+    eventPendingState?.runId === runId
+    && eventPendingState.request === eventRequest.current;
 
   function loadEvent() {
-    if (event || eventError) return;
+    if (event || eventPending) return;
+    const request = ++eventRequest.current;
+    const requestedRunId = runId;
+    setEventErrorState(null);
+    setEventPendingState({ runId: requestedRunId, request });
     api
-      .retrievalEvent(response.search_event_id)
-      .then(setEvent)
+      .retrievalEvent(requestedRunId)
+      .then((value) => {
+        if (
+          request === eventRequest.current
+          && requestedRunId === currentRunId.current
+        ) {
+          setEventState({ runId: requestedRunId, value });
+        }
+      })
       .catch((cause: unknown) => {
-        setEventError(
-          cause instanceof ApiError && cause.status === 404
-            ? "This run's persisted pool was not found."
-            : cause instanceof Error
-              ? cause.message
-              : "This run's persisted pool could not be read",
-        );
+        if (
+          request === eventRequest.current
+          && requestedRunId === currentRunId.current
+        ) {
+          setEventErrorState({
+            runId: requestedRunId,
+            message: cause instanceof ApiError && cause.status === 404
+              ? "This run's persisted pool was not found."
+              : cause instanceof Error
+                ? cause.message
+                : "This run's persisted pool could not be read",
+          });
+        }
+      })
+      .finally(() => {
+        if (
+          request === eventRequest.current
+          && requestedRunId === currentRunId.current
+        ) {
+          setEventPendingState(null);
+        }
       });
   }
 
@@ -215,6 +261,7 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
       ) : null}
 
       <PlaygroundDisclosure
+        key={`fusion-pool-${runId}`}
         label="Check this run's full fused pool for the fusion defect"
         hint="reads this run's persisted search_result_event rows"
         onOpen={loadEvent}

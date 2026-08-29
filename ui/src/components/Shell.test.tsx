@@ -61,6 +61,48 @@ describe("Shell navigation", () => {
     expect(screen.queryByText("Collections")).toBeNull();
   });
 
+  it("provides a keyboard bypass target for the persistent storefront chrome", () => {
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    const skip = screen.getByRole("link", { name: "Skip to main content" });
+    const main = screen.getByText("Shop content").closest("main");
+    expect(skip.getAttribute("href")).toBe("#main-content");
+    expect(main?.id).toBe("main-content");
+    expect(main?.getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("moves focus into the opened menu and restores it on Escape", async () => {
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    const menu = screen.getByRole("button", { name: "Open navigation" });
+    const navigation = screen.getByRole("navigation", { name: "Storefront" });
+    fireEvent.click(menu);
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        within(navigation).getByRole("link", { name: "Discover" }),
+      );
+    });
+    expect(menu.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByRole("button", { name: "Open navigation" })).toBe(menu);
+    expect(menu.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(menu);
+  });
+
   it("carries an active Shop query onto the Playground entry", () => {
     // Otherwise a participant who searched and then reached for the header arrived
     // at a Playground about a different query. The only other hand-off is a link

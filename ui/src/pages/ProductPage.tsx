@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import {
   CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -38,31 +40,60 @@ export function ProductPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [related, setRelated] = useState<ProductSummary[]>([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
+  const [relatedError, setRelatedError] = useState("");
   const relatedImages = useMemo(() => productImageMap(related), [related]);
   const [selectedImage, setSelectedImage] = useState("");
   const [tab, setTab] = useState<DetailTab>("overview");
   const requestVersion = useRef(0);
+  const relatedRequestVersion = useRef(0);
   const id = Number(productId);
+
+  const loadRelated = useCallback((sourceProduct: ProductDetail) => {
+    const version = relatedRequestVersion.current + 1;
+    relatedRequestVersion.current = version;
+    setRelatedLoading(true);
+    setRelatedError("");
+    api
+      .catalog({ domain: sourceProduct.domain }, 0, 5, "rating")
+      .then((page) => {
+        if (version !== relatedRequestVersion.current) return;
+        setRelated(
+          page.products
+            .filter((item) => item.product_id !== sourceProduct.product_id)
+            .slice(0, 4),
+        );
+      })
+      .catch((cause: unknown) => {
+        if (version !== relatedRequestVersion.current) return;
+        setRelated([]);
+        setRelatedError(
+          cause instanceof Error ? cause.message : "Related products are unavailable",
+        );
+      })
+      .finally(() => {
+        if (version === relatedRequestVersion.current) setRelatedLoading(false);
+      });
+  }, []);
 
   const load = useCallback(() => {
     const version = requestVersion.current + 1;
     requestVersion.current = version;
+    relatedRequestVersion.current += 1;
     setLoading(true);
     setError("");
+    setRelated([]);
+    setRelatedLoading(false);
+    setRelatedError("");
     void (async () => {
       try {
         const result = await api.product(id);
         if (version !== requestVersion.current) return;
         setProduct(result);
         setSelectedImage(productImages(result)[0]);
-        try {
-          const page = await api.catalog({ domain: result.domain }, 0, 5, "rating");
-          if (version !== requestVersion.current) return;
-          setRelated(page.products.filter((item) => item.product_id !== result.product_id).slice(0, 4));
-        } catch {
-          if (version !== requestVersion.current) return;
-          setRelated([]);
-        }
+        setTab("overview");
+        setLoading(false);
+        loadRelated(result);
       } catch (cause) {
         if (version !== requestVersion.current) return;
         setProduct(null);
@@ -72,12 +103,13 @@ export function ProductPage() {
         if (version === requestVersion.current) setLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, loadRelated]);
 
   useEffect(() => {
     load();
     return () => {
       requestVersion.current += 1;
+      relatedRequestVersion.current += 1;
     };
   }, [load]);
 
@@ -94,10 +126,47 @@ export function ProductPage() {
   const quantity = itemQuantity(product.product_id);
   const quantityLimit = cartQuantityLimit(product);
   const quantityAtLimit = quantity > 0 && quantity >= quantityLimit;
+  const catalogReturnParams = new URLSearchParams({
+    domain: product.domain,
+    category_key: product.category_key,
+  });
+  const catalogReturnHref = `/catalog?${catalogReturnParams}`;
+
+  function returnToCatalog(event: MouseEvent<HTMLAnchorElement>) {
+    if (window.history.length <= 1) return;
+    event.preventDefault();
+    window.history.back();
+  }
+
+  function moveTabFocus(event: KeyboardEvent<HTMLButtonElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const tabs = Array.from(
+      event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
+        '[role="tab"]',
+      ) ?? [],
+    );
+    const current = tabs.indexOf(event.currentTarget);
+    if (current < 0 || !tabs.length) return;
+    event.preventDefault();
+    const next = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? tabs.length - 1
+        : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length)
+          % tabs.length;
+    tabs[next].focus();
+    tabs[next].click();
+  }
 
   return (
     <div className="page product-page">
-      <Link className="back-link" href="/catalog"><ArrowLeft size={16} /> Back to catalog</Link>
+      <Link
+        className="back-link"
+        href={catalogReturnHref}
+        onClick={returnToCatalog}
+      >
+        <ArrowLeft size={16} /> Back to catalog
+      </Link>
       <section className="product-hero">
         <div className="product-gallery">
           {/* A rail with one thumbnail is a control that cannot do anything, so
@@ -111,6 +180,7 @@ export function ProductPage() {
                   className={selectedImage === image ? "active" : ""}
                   onClick={() => setSelectedImage(image)}
                   aria-label={`View product image ${index + 1}`}
+                  aria-pressed={selectedImage === image}
                 >
                   <img src={image} alt="" />
                 </button>
@@ -262,7 +332,7 @@ export function ProductPage() {
         </section>
       ) : null}
 
-      <nav className="product-tabs" aria-label="Product information">
+      <nav className="product-tabs" aria-label="Product information" role="tablist">
         {([
           ["overview", "Overview"],
           ["specs", "Specifications"],
@@ -274,6 +344,12 @@ export function ProductPage() {
             key={value}
             className={tab === value ? "active" : ""}
             onClick={() => setTab(value)}
+            onKeyDown={moveTabFocus}
+            aria-controls={`product-panel-${value}`}
+            aria-selected={tab === value}
+            id={`product-tab-${value}`}
+            role="tab"
+            tabIndex={tab === value ? 0 : -1}
           >
             {label}
           </button>
@@ -281,7 +357,12 @@ export function ProductPage() {
       </nav>
 
       {tab === "overview" ? (
-        <section className="product-overview">
+        <section
+          aria-labelledby="product-tab-overview"
+          className="product-overview"
+          id="product-panel-overview"
+          role="tabpanel"
+        >
           <div className="product-rationale">
             <p className="eyebrow">Structured metadata</p>
             <h2>Full attribute set</h2>
@@ -332,7 +413,12 @@ export function ProductPage() {
       ) : null}
 
       {tab === "specs" ? (
-        <section className="tab-section">
+        <section
+          aria-labelledby="product-tab-specs"
+          className="tab-section"
+          id="product-panel-specs"
+          role="tabpanel"
+        >
           <p className="eyebrow">Structured product data</p>
           <h2>Specifications</h2>
           <dl className="spec-table">
@@ -347,7 +433,12 @@ export function ProductPage() {
       ) : null}
 
       {tab === "reviews" ? (
-        <section className="tab-section">
+        <section
+          aria-labelledby="product-tab-reviews"
+          className="tab-section"
+          id="product-panel-reviews"
+          role="tabpanel"
+        >
           <p className="eyebrow">Customer evidence</p>
           <h2>Review excerpts</h2>
           <div className="review-list">
@@ -379,7 +470,12 @@ export function ProductPage() {
       ) : null}
 
       {tab === "evidence" ? (
-        <section className="tab-section">
+        <section
+          aria-labelledby="product-tab-evidence"
+          className="tab-section"
+          id="product-panel-evidence"
+          role="tabpanel"
+        >
           <p className="eyebrow">Source attribution</p>
           <h2>Inspectable catalog evidence</h2>
           <div className="source-box">
@@ -394,7 +490,18 @@ export function ProductPage() {
         </section>
       ) : null}
 
-      {related.length ? (
+      {relatedLoading ? (
+        <section className="related-products" aria-label="Related products">
+          <LoadingState label="Loading related products" />
+        </section>
+      ) : relatedError ? (
+        <section className="related-products" aria-label="Related products">
+          <ErrorState
+            message={relatedError}
+            onRetry={() => loadRelated(product)}
+          />
+        </section>
+      ) : related.length ? (
         <section className="related-products">
           <div className="section-heading">
             <div>

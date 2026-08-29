@@ -15,6 +15,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from psycopg import OperationalError
 from psycopg_pool import PoolTimeout
 
 from scripts.seed_exact_neighbors import StaleGroundTruth
@@ -126,6 +127,21 @@ async def _pool_saturated(_: Request, __: PoolTimeout) -> JSONResponse:
                 f"persists, raise DB_POOL_MAX_SIZE (currently "
                 f"{settings.db_pool_max_size}) or DB_POOL_TIMEOUT_SECONDS "
                 f"(currently {settings.db_pool_timeout:g}s)."
+            )
+        },
+    )
+
+
+@app.exception_handler(OperationalError)
+async def _database_unavailable(_: Request, __: OperationalError) -> JSONResponse:
+    """Return an actionable outage response without exposing connection details."""
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": (
+                "Database operation failed with OperationalError; fix: retry in "
+                "a moment, then verify Aurora connectivity and the configured "
+                "DATABASE_URL in service logs if the failure persists."
             )
         },
     )

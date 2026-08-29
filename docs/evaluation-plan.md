@@ -7,10 +7,10 @@ interchangeable.
 
 `data/evals/canonical_queries.jsonl` is the authoritative curated set:
 
-- 20 workshop queries with documented teaching concepts;
+- 21 workshop cases with documented teaching concepts;
 - graded judgments from 0 (irrelevant) through 3 (ideal);
 - explicit hard negatives, expected channels, and ranking behavior;
-- 19 single-request product-retrieval cases;
+- 20 single-request product-retrieval cases;
 - one agent-contract case, `G-021`, validated through Lab 3 rather than
   mis-scored as one product search.
 
@@ -30,7 +30,7 @@ exact-identity preservation. It measures:
 - deterministic top-rank or top-k checks for repaired fixtures.
 
 The command writes an ignored per-run CSV and compares the measured result with
-`data/evals/canonical_scorecard.json`. The committed scorecard retains all 19
+`data/evals/canonical_scorecard.json`. The committed scorecard retains all 20
 per-query metrics and a SHA-256 identity of the exact ranked product IDs and
 positions, excluding volatile event IDs and latency. It also records the clean
 source revision, dataset-manifest hash, complete retrieval profile, HNSW

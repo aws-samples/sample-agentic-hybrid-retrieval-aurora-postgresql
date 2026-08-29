@@ -21,8 +21,8 @@ in Rank, and citation scope in Reason.
 
 The reference application includes a responsive React storefront, a typed
 FastAPI service, a Strands agent with citation-bounded synthesis, an optional
-MCP 2.0 adapter, a 500,000-product synthetic catalog, and deterministic release
-gates. The complete session framing is in
+MCP 2.0 adapter, a packaged participant skill, a 500,000-product synthetic
+catalog, and deterministic release gates. The complete session framing is in
 [the session abstract](docs/session-abstract.md).
 
 ![Mosaic Discover page with product discovery and natural-language search](docs/images/mosaic-discover.webp)
@@ -35,6 +35,7 @@ gates. The complete session framing is in
 
 **Jump to:** [Quick start](#quick-start) | [Architecture](#architecture) |
 [Workshop path](#workshop-path) | [Validation](#validation) |
+[Participant takeaway](#participant-takeaway-skill) |
 [Repository map](#repository-map)
 
 ## Quick start
@@ -232,11 +233,13 @@ make lint
 make validate
 make validate-db
 make validate-config
+make validate-release-workflow
 uv run python scripts/mission_contract.py --shape-only
 PYTHONPATH=. uv run pytest -q
 
 make mcp-install
 make mcp-test
+make mcp-wheel-smoke
 
 make ui-install
 make ui-test
@@ -329,8 +332,9 @@ The complete restore policy and the non-recoverable predecessor history are in
 ## Optional MCP contract
 
 MCP interoperability is supported reference material rather than a fourth
-required lab. The isolated MCP 2.0 environment exposes typed, read-only product
-search, product evidence, and retrieval-run inspection tools over the same API:
+required lab. The isolated MCP 2.0 environment exposes three typed,
+catalog-read-only product search, product evidence, and retrieval-run inspection
+tools over the same API:
 
 ```bash
 make mcp-install
@@ -338,12 +342,44 @@ make mcp-test
 make mcp-serve
 ```
 
+Search still appends retrieval and candidate receipts, so it is intentionally
+non-idempotent and requires write capacity for observability data. It never
+mutates catalog or business records.
+
 Connect a compatible host to `http://127.0.0.1:8001/mcp`. The agent and MCP
 surfaces are projections of
 [`db/config/agent_tool_contracts.json`](db/config/agent_tool_contracts.json);
 they do not maintain independent retrieval schemas.
 
 See [the MCP interoperability guide](docs/mcp-interoperability.md).
+
+## Participant takeaway skill
+
+[`skills/mosaic-hybrid-retrieval/`](skills/mosaic-hybrid-retrieval/) packages
+the bounded retrieval capability participants can take away. Keep the whole
+folder together: `SKILL.md` declares the four-operation HTTP skill surface, and
+its references provide the generated argument-to-HTTP map, the exact
+HTTP/MCP/A2A deployment status, and an adaptation checklist.
+It is a portable declaration and operating guide, not a standalone retrieval
+runtime; callers still need a deployed service implementing the contract.
+
+The reusable teachings are the architecture's invariants: apply hard eligibility
+before candidate limits, bound every retrieval stage, fuse before reranking,
+persist replayable receipts, separate served results from downstream grants,
+and keep source attribution attached to evidence. Adopters must replace
+Mosaic-specific schema, taxonomy, language configuration, embedding dimensions,
+models, tuning, identity, retention, and evaluation data rather than copying
+them as defaults.
+
+Validate the package and its live FastAPI bindings with:
+
+```bash
+uv run python scripts/tool_contracts.py --check
+```
+
+Start with [the skill](skills/mosaic-hybrid-retrieval/SKILL.md), then use
+[the adaptation guide](skills/mosaic-hybrid-retrieval/references/adapting.md)
+when mapping it to another domain.
 
 ## Sources of truth
 
@@ -354,7 +390,7 @@ Do not duplicate these contracts:
 | Candidate limits, fusion `k`, weights, trigram threshold | [`db/config/retrieval.yaml`](db/config/retrieval.yaml) |
 | Lab queries, checkpoints, timings, targets, assertions | [`data/evals/mosaic_labs_missions.json`](data/evals/mosaic_labs_missions.json) |
 | Assertion vocabulary and falsifiers | [`service/assertions.py`](service/assertions.py) |
-| Agent and MCP tool schemas | [`db/config/agent_tool_contracts.json`](db/config/agent_tool_contracts.json) |
+| Agent, MCP, and skill tool schemas | [`db/config/agent_tool_contracts.json`](db/config/agent_tool_contracts.json) |
 | Dataset load order and domain counts | [`data/full/manifest.json`](data/full/manifest.json) |
 | Product-bound media contract | [`data/media/asset_labels_200.json`](data/media/asset_labels_200.json) |
 
@@ -373,6 +409,7 @@ docs/         Architecture, curriculum, evaluation, operations, and UI contracts
 mcp-server/   Isolated MCP 2.0 adapter
 scripts/      Data, embedding, validation, scorecard, and benchmark tooling
 service/      FastAPI, retrieval orchestration, Strands tools, and model clients
+skills/       Participant takeaway skill, checked adapter map, and adaptation guidance
 tests/        Dataset, SQL, API, provenance, and release-contract tests
 ui/           React storefront, Ask Mosaic, and the Retrieval Observatory
 ```

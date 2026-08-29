@@ -2,6 +2,8 @@ import pytest
 
 from scripts import validate_lab
 
+PLAN = [{"Plan": {"Node Type": "Append"}}]
+
 
 def _agent_response():
     recommendations = [
@@ -21,13 +23,28 @@ def _agent_response():
                 "tool": "search_products",
                 "outcome": "success",
                 "origin": "model",
-                "retrieval_run_id": "run-1",
+                "retrieval_run_id": "run-chair",
                 "arguments": {
+                    "query": "ergonomic chair for 12-hour workdays",
                     "applied_filters": {
                         "domain": "home_office",
                         "max_price_cents": 80000,
                         "in_stock_only": True,
-                    }
+                    },
+                },
+            },
+            {
+                "tool": "search_products",
+                "outcome": "success",
+                "origin": "model",
+                "retrieval_run_id": "run-keyboard",
+                "arguments": {
+                    "query": "quiet mechanical keyboard",
+                    "applied_filters": {
+                        "domain": "home_office",
+                        "max_price_cents": 80000,
+                        "in_stock_only": True,
+                    },
                 },
             },
             {
@@ -55,7 +72,7 @@ def _agent_response():
                 "outcome": "success",
                 "origin": "model",
                 "result_count": 2,
-                "arguments": {"product_ids": [370001, 429001]},
+                "arguments": {"search_event_id": "run-chair"},
             },
         ],
         "citations": [
@@ -89,6 +106,8 @@ def _mission():
             "in_stock_only": True,
         },
         "target_product_ids": [370001, 429001],
+        "requires_independent_target_searches": True,
+        "requires_explain_plan": True,
         "required_citation_support": [
             {
                 "product_id": 370001,
@@ -100,17 +119,20 @@ def _mission():
 
 
 def _fake_request(_base_url, path, _payload=None):
+    if path.endswith("/plan"):
+        return {"search_event_id": path.split("/")[-2], "plan": PLAN}
     if path.startswith("/api/retrieval/events/"):
+        product_id = 429001 if "run-keyboard" in path else 370001
         return {
+            "run": {"plan_json": PLAN},
             "candidates": [
                 {
                     "product_id": product_id,
-                    "fused_rank": rank,
-                    "rerank_rank": rank,
-                    "result_rank": rank,
+                    "fused_rank": 1,
+                    "rerank_rank": 1,
+                    "result_rank": 1,
                 }
-                for rank, product_id in enumerate((370001, 429001), 1)
-            ]
+            ],
         }
     evidence_id = int(path.rsplit("/", 1)[-1])
     citation = next(
@@ -139,6 +161,8 @@ def test_lab_3_validator_proves_tools_grounding_and_citations(monkeypatch):
     assert "citation IDs resolve exactly" in checks
     assert "required claims supported" in checks
     assert "tool execution origins explicit" in checks
+    assert "independent retrieval intents covered" in checks
+    assert "ranking explanation and EXPLAIN plan replayable" in checks
 
 
 def test_lab_3_validator_rejects_an_unattributed_controller_step(monkeypatch):
@@ -199,6 +223,139 @@ def test_lab_3_validator_requires_one_successful_ranking_explanation(monkeypatch
             "http://example.test",
             _mission(),
             response,
+        )
+
+
+def test_lab_3_validator_requires_one_focused_search_per_intent(monkeypatch):
+    def broad_search(base_url, path, payload=None):
+        result = _fake_request(base_url, path, payload)
+        if path.startswith("/api/retrieval/events/") and not path.endswith("/plan"):
+            result["candidates"] = [
+                {"product_id": product_id} for product_id in (370001, 429001)
+            ]
+        return result
+
+    monkeypatch.setattr(validate_lab, "_request", broad_search)
+    mission = _mission()
+    response = _agent_response()
+    response["trace"] = [
+        step
+        for step in response["trace"]
+        if step["tool"] != "search_products" or step["retrieval_run_id"] == "run-chair"
+    ]
+
+    with pytest.raises(
+        validate_lab.LabValidationError,
+        match="independent intent",
+    ):
+        validate_lab.validate_agent_response(
+            "http://example.test",
+            mission,
+            response,
+        )
+
+
+def test_lab_3_validator_binds_distinct_queries_to_target_receipts(monkeypatch):
+    """A decoy query cannot make two identical target searches independent."""
+
+    def with_empty_decoy(base_url, path, payload=None):
+        result = _fake_request(base_url, path, payload)
+        if "run-decoy" in path and not path.endswith("/plan"):
+            result["candidates"] = []
+        return result
+
+    monkeypatch.setattr(validate_lab, "_request", with_empty_decoy)
+    response = _agent_response()
+    searches = [step for step in response["trace"] if step["tool"] == "search_products"]
+    for step in searches:
+        step["arguments"]["query"] = "home office equipment"
+    response["trace"].insert(
+        2,
+        {
+            "tool": "search_products",
+            "outcome": "success",
+            "origin": "model",
+            "retrieval_run_id": "run-decoy",
+            "arguments": {
+                "query": "standing lamp",
+                "applied_filters": _mission()["filters"],
+            },
+        },
+    )
+
+    with pytest.raises(
+        validate_lab.LabValidationError,
+        match="independent intent",
+    ):
+        validate_lab.validate_agent_response(
+            "http://example.test",
+            _mission(),
+            response,
+        )
+
+
+def test_lab_3_validator_requires_every_canonical_target_class(monkeypatch):
+    def chair_only(base_url, path, payload=None):
+        result = _fake_request(base_url, path, payload)
+        if path.startswith("/api/retrieval/events/") and not path.endswith("/plan"):
+            result["candidates"] = [
+                candidate
+                for candidate in result["candidates"]
+                if candidate["product_id"] != 429001
+            ]
+        return result
+
+    monkeypatch.setattr(validate_lab, "_request", chair_only)
+
+    with pytest.raises(
+        validate_lab.LabValidationError,
+        match="missed canonical target classes.*429001",
+    ):
+        validate_lab.validate_agent_response(
+            "http://example.test",
+            _mission(),
+            _agent_response(),
+        )
+
+
+def test_lab_3_validator_requires_a_captured_and_persisted_explain_plan(monkeypatch):
+    def missing_plan(base_url, path, payload=None):
+        result = _fake_request(base_url, path, payload)
+        if path.endswith("/plan"):
+            return {"search_event_id": "run-1", "plan": []}
+        return result
+
+    monkeypatch.setattr(validate_lab, "_request", missing_plan)
+    mission = _mission()
+
+    with pytest.raises(
+        validate_lab.LabValidationError,
+        match="EXPLAIN.*plan",
+    ):
+        validate_lab.validate_agent_response(
+            "http://example.test",
+            mission,
+            _agent_response(),
+        )
+
+
+def test_lab_3_validator_rejects_an_explain_plan_that_was_not_persisted(monkeypatch):
+    def unpersisted_plan(base_url, path, payload=None):
+        result = _fake_request(base_url, path, payload)
+        if path.startswith("/api/retrieval/events/") and not path.endswith("/plan"):
+            result["run"]["plan_json"] = None
+        return result
+
+    monkeypatch.setattr(validate_lab, "_request", unpersisted_plan)
+
+    with pytest.raises(
+        validate_lab.LabValidationError,
+        match="EXPLAIN plan was not persisted",
+    ):
+        validate_lab.validate_agent_response(
+            "http://example.test",
+            _mission(),
+            _agent_response(),
         )
 
 

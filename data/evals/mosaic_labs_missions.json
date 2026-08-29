@@ -157,6 +157,8 @@
         "cohere_rerank",
         "source_attribution"
       ],
+      "requires_independent_target_searches": true,
+      "requires_explain_plan": true,
       "checkpoint": "repair",
       "participant_edit": {
         "file": "service/agent_tools.py",
@@ -171,12 +173,13 @@
         ],
         "observe_after": [
           "POST /api/agent/answer returns HTTP 200 with at least two retrieved recommendations.",
-          "The trace includes successful search_products, compare_products, get_product_evidence, and synthesize_cited_answer receipts.",
+          "Two focused search_products receipts independently cover the keyboard and chair target classes before comparison and synthesis.",
+          "The explained retrieval event persists a non-empty EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON) plan from the production SQL path.",
           "Every citation evidence_id resolves exactly to a real evidence record for a recommended product."
         ],
         "checkpoint_question": "What did the agent decide, and what remained deterministic retrieval and evidence behavior?"
       },
-      "expected_outcome": "A bounded, read-only agent uses typed retrieval, comparison, ranking, evidence, and synthesis tools under application-owned authorization, producing citations that resolve to real evidence records.",
+      "expected_outcome": "A bounded, read-only agent runs focused searches for both requested product classes, uses typed comparison, ranking, evidence, and synthesis tools within application-owned citation scope, and produces citations that resolve to real evidence records.",
       "assertions": [
         "structured_constraints_extracted",
         "retrieval_tool_called",

@@ -66,15 +66,20 @@ export function PackageFinale() {
       ) : (
         <>
           <p className="labs-contract-note">
-            The three labs did not build three tricks. They built one
-            retrieval capability, declared here, that another agent can call
-            without learning how any of it works.
+            The three labs built one bounded retrieval capability. Its package
+            carries the callable contract, checked HTTP mapping, composition
+            profile, and adaptation guide.
+          </p>
+          <p className="labs-skill-takeaway">
+            <span>Participant takeaway</span>
+            <code>skills/mosaic-hybrid-retrieval/</code>
+            <small>Keep the whole folder together.</small>
           </p>
           <ul className="labs-contracts labs-skill-capabilities">
             {skill.map((contract) => (
               <li key={contract.name}>
                 <code>{contract.name}</code>
-                <b>{contract.read_only ? "read-only" : "writes"}</b>
+                <b>{contract.read_only ? "catalog read-only" : "writes"}</b>
                 <small>{contract.description}</small>
               </li>
             ))}
@@ -84,10 +89,12 @@ export function PackageFinale() {
             <li data-testid="adapter-http">
               <code>HTTP</code>
               <b>Implemented</b>
+              <span>{skill.length} operations</span>
             </li>
             <li data-testid="adapter-mcp">
               <code>MCP</code>
               <b>{mcpCount ? "Implemented" : "Not declared"}</b>
+              <span>{mcpCount ?? 0} operations</span>
             </li>
             <li data-testid="adapter-a2a" className="labs-skill-adapter-doc">
               <code>A2A</code>
@@ -95,7 +102,10 @@ export function PackageFinale() {
             </li>
           </ul>
           <p className="labs-skill-closing">
-            The interface can move. Retrieval authority stays in Aurora.
+            The interface can move. Retrieval authority stays in Aurora. Keep
+            pre-limit eligibility, bounded pools, receipts, grant scope, and
+            source attribution; replace Mosaic&apos;s schema, language,
+            models, tuning, identity, retention, and evaluation corpus.
           </p>
         </>
       )}

@@ -7,11 +7,11 @@ and the existing eval already shows lexical beating hybrid on a judged query. So
 one question: given the *same* candidates, what does weighting change?
 
 **The substrate assertion.** Both functions must consume identical arm candidate
-lists — same caps, same per-arm ranks — and differ only in fusion arithmetic.
-Every call checks it: same candidate ID set in, different order out. If the sets
-differ the call fails rather than rendering a comparison of two different pools,
-because that comparison would attribute to the weights what was actually a
-difference in inputs.
+lists — same caps, same per-arm ranks and non-fusion provenance — and differ only
+in fusion arithmetic. Every call checks the full arm substrate before comparing
+the two output orders. A mismatch fails rather than rendering a comparison of
+different inputs, because that comparison would attribute to the weights what was
+actually a difference in candidate generation.
 
 The check reads the **untruncated** fused pool, not the served window. Both
 functions apply `LIMIT result_limit` *after* fusion, so two different orderings
@@ -66,6 +66,32 @@ FROM mosaic_search.search_hybrid_rrf_weighted(
 """
 
 
+def _arm_substrate(row: dict[str, Any]) -> dict[str, Any]:
+    """Project one fused row to facts that must agree before fusion arithmetic."""
+    provenance = dict(row.get("provenance") or {})
+    channels = provenance.get("channels") or {}
+    provenance["channels"] = {
+        channel: {
+            key: value
+            for key, value in values.items()
+            if key
+            not in {
+                "rrf_contribution",
+                "unweighted_rrf_contribution",
+                "weight",
+            }
+        }
+        for channel, values in channels.items()
+    }
+    provenance.pop("fusion", None)
+    return {
+        "fts_rank": row["fts_rank"],
+        "trigram_rank": row["trigram_rank"],
+        "semantic_rank": row["semantic_rank"],
+        "provenance": provenance,
+    }
+
+
 class SubstrateError(RuntimeError):
     """The two fusion functions did not receive the same candidate pool.
 
@@ -112,7 +138,7 @@ class FusionComparisonService:
             Both orders, per-candidate rank movement, and the fusion inputs used.
 
         Raises:
-            SubstrateError: the two functions received different candidate sets.
+            SubstrateError: the functions received different arm substrates.
         """
         normalized_query = normalize_query(query)
         if not normalized_query:
@@ -164,22 +190,44 @@ class FusionComparisonService:
         unweighted_ids = [row["product_id"] for row in unweighted]
         weighted_ids = [row["product_id"] for row in weighted]
         identical = set(unweighted_ids) == set(weighted_ids)
-        if not identical:
+        duplicate_unweighted = len(unweighted_ids) != len(set(unweighted_ids))
+        duplicate_weighted = len(weighted_ids) != len(set(weighted_ids))
+        if not identical or duplicate_unweighted or duplicate_weighted:
             only_unweighted = sorted(set(unweighted_ids) - set(weighted_ids))[:5]
             only_weighted = sorted(set(weighted_ids) - set(unweighted_ids))[:5]
             raise SubstrateError(
                 f"found the two fusion functions returned different candidate "
                 f"sets ({len(unweighted_ids)} vs {len(weighted_ids)}; "
                 f"unweighted-only {only_unweighted}, weighted-only "
-                f"{only_weighted}); fix: both must call the same three arm "
+                f"{only_weighted}; duplicate IDs unweighted="
+                f"{duplicate_unweighted}, weighted={duplicate_weighted}); fix: "
+                f"both must call the same three arm "
                 f"functions with the same caps and the same trigram threshold, "
                 f"and differ only in fusion arithmetic — a comparison over "
                 f"different pools credits the weights with a difference in inputs"
             )
 
+        unweighted_rows = {row["product_id"]: row for row in unweighted}
+        weighted_rows = {row["product_id"]: row for row in weighted}
+        substrate_mismatches = [
+            product_id
+            for product_id in sorted(unweighted_rows)
+            if _arm_substrate(unweighted_rows[product_id])
+            != _arm_substrate(weighted_rows[product_id])
+        ]
+        if substrate_mismatches:
+            product_id = substrate_mismatches[0]
+            raise SubstrateError(
+                f"found arm substrate differences for product IDs "
+                f"{substrate_mismatches[:5]}; first mismatch {product_id}: "
+                f"unweighted={_arm_substrate(unweighted_rows[product_id])!r}, "
+                f"weighted={_arm_substrate(weighted_rows[product_id])!r}; fix: "
+                "both fusion functions must return the same per-arm ranks and "
+                "non-fusion provenance for every candidate"
+            )
+
         unweighted_positions = {pid: i + 1 for i, pid in enumerate(unweighted_ids)}
         weighted_positions = {pid: i + 1 for i, pid in enumerate(weighted_ids)}
-        weighted_rows = {row["product_id"]: row for row in weighted}
 
         candidates = [
             FusionCandidateComparison(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, get_args, get_origin
 from uuid import uuid4
 
 import httpx
@@ -8,6 +8,7 @@ import pytest
 from catalog_mcp import server
 from catalog_mcp.api import CatalogApiClient, CatalogApiError
 from mcp import Client
+from pydantic_core import PydanticUndefined
 from starlette.testclient import TestClient
 
 
@@ -34,7 +35,23 @@ class FakeCatalogApi:
                 "embedding_dimensions": 1024,
                 "rerank_model_id": "cohere.rerank-v3-5:0",
                 "rerank_status": "applied",
-                "retrieval_profile": {"rrf_k": 60},
+                "retrieval_profile": {
+                    "fts_limit": 100,
+                    "trigram_limit": 100,
+                    "semantic_limit": 150,
+                    "fused_limit": 50,
+                    "result_limit": payload["limit"],
+                    "authorized_limit": payload["authorized_limit"],
+                    "rrf_k": 60,
+                    "trigram_threshold": 0.18,
+                    "weight_lexical": 0.35,
+                    "weight_semantic": 0.45,
+                    "weight_trigram": 0.2,
+                    "ef_search": 100,
+                    "iterative_scan": "relaxed_order",
+                    "max_scan_tuples": 50000,
+                    "scan_mem_multiplier": 2,
+                },
                 "candidate_counts": {
                     "fts": 20,
                     "trigram": 15,
@@ -215,3 +232,53 @@ def test_catalog_api_client_sanitizes_http_failures() -> None:
         match=r"HTTP 503 for POST /search",
     ):
         client.post("/search", {"query": "test"})
+
+
+def test_packaged_response_fields_track_the_application_contract() -> None:
+    """A service response change must update the independently shipped adapter."""
+    from catalog_mcp import contracts
+
+    from service import models
+
+    response_models = (
+        "RankSignal",
+        "ResultSignals",
+        "SourceAttribution",
+        "ProductSummary",
+        "RetrievalProfile",
+        "RetrievalDiagnostics",
+        "SearchResponse",
+        "EvidenceRecord",
+        "ProductEvidenceResponse",
+        "SearchEventRecord",
+        "SearchResultEventRecord",
+        "RetrievalRunResponse",
+    )
+    for model_name in response_models:
+        packaged = getattr(contracts, model_name)
+        application = getattr(models, model_name)
+        assert set(packaged.model_fields) == set(application.model_fields), model_name
+        for field_name, packaged_field in packaged.model_fields.items():
+            application_field = application.model_fields[field_name]
+            assert _annotation_shape(packaged_field.annotation) == _annotation_shape(
+                application_field.annotation
+            ), f"{model_name}.{field_name}"
+            if packaged_field.default is not PydanticUndefined:
+                assert packaged_field.default == application_field.default, (
+                    f"{model_name}.{field_name}"
+                )
+            if packaged_field.default_factory is not None:
+                assert application_field.default_factory is not None, (
+                    f"{model_name}.{field_name}"
+                )
+
+
+def _annotation_shape(annotation: Any) -> Any:
+    """Compare equivalent local/application model types by structural name."""
+    origin = get_origin(annotation)
+    if origin is None:
+        return getattr(annotation, "__name__", repr(annotation))
+    return (
+        getattr(origin, "__name__", repr(origin)),
+        tuple(_annotation_shape(argument) for argument in get_args(annotation)),
+    )

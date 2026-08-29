@@ -46,6 +46,10 @@ export type AgentStreamEvent =
   | { type: "answer_delta"; delta: string }
   | { type: "complete"; response: AgentResponse };
 
+export type AgentStreamOptions = {
+  signal?: AbortSignal;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -121,10 +125,11 @@ export const api = {
   search: (
     query: string,
     filters: SearchFilters,
-    options: { limit?: number; rerank?: boolean } = {},
+    options: { limit?: number; rerank?: boolean; signal?: AbortSignal } = {},
   ) =>
     request<SearchResponse>("/api/search", {
       method: "POST",
+      signal: options.signal,
       body: JSON.stringify({
         query,
         filters,
@@ -154,10 +159,12 @@ export const api = {
     filters: SearchFilters,
     onEvent: (event: AgentStreamEvent) => void,
     context?: AgentConversationContext,
+    options: AgentStreamOptions = {},
   ) => {
     const response = await fetch("/api/agent/answer/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: options.signal,
       body: JSON.stringify({
         question,
         filters,
@@ -172,45 +179,56 @@ export const api = {
     const decoder = new TextDecoder();
     let buffer = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
 
-      let boundary = buffer.indexOf("\n\n");
-      while (boundary >= 0) {
-        const frame = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        const parsed = parseSseFrame(frame);
-        if (parsed) {
-          const payload = JSON.parse(parsed.data) as Record<string, unknown>;
-          if (parsed.event === "error") {
-            throw new ApiError(503, String(payload.detail ?? "Agent stream failed"));
+        let boundary = buffer.indexOf("\n\n");
+        while (boundary >= 0) {
+          const frame = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          const parsed = parseSseFrame(frame);
+          if (parsed) {
+            const payload = JSON.parse(parsed.data) as Record<string, unknown>;
+            if (parsed.event === "error") {
+              throw new ApiError(503, String(payload.detail ?? "Agent stream failed"));
+            }
+            if (parsed.event === "stage") {
+              onEvent({ type: "stage", ...payload } as AgentStreamEvent);
+            } else if (parsed.event === "partial") {
+              onEvent({
+                type: "partial",
+                partial: payload.partial as AgentPartial,
+              });
+            } else if (parsed.event === "answer_start") {
+              onEvent({
+                type: "answer_start",
+                response: payload.response as AgentResponse,
+              });
+            } else if (parsed.event === "answer_delta") {
+              onEvent({ type: "answer_delta", delta: String(payload.delta ?? "") });
+            } else if (parsed.event === "complete") {
+              onEvent({
+                type: "complete",
+                response: payload.response as AgentResponse,
+              });
+              await reader.cancel();
+              return;
+            }
           }
-          if (parsed.event === "stage") {
-            onEvent({ type: "stage", ...payload } as AgentStreamEvent);
-          } else if (parsed.event === "partial") {
-            onEvent({
-              type: "partial",
-              partial: payload.partial as AgentPartial,
-            });
-          } else if (parsed.event === "answer_start") {
-            onEvent({
-              type: "answer_start",
-              response: payload.response as AgentResponse,
-            });
-          } else if (parsed.event === "answer_delta") {
-            onEvent({ type: "answer_delta", delta: String(payload.delta ?? "") });
-          } else if (parsed.event === "complete") {
-            onEvent({
-              type: "complete",
-              response: payload.response as AgentResponse,
-            });
-          }
+          boundary = buffer.indexOf("\n\n");
         }
-        boundary = buffer.indexOf("\n\n");
-      }
 
-      if (done) return;
+        if (done) {
+          throw new ApiError(
+            503,
+            "Agent stream ended before the completion event was received",
+          );
+        }
+      }
+    } finally {
+      reader.releaseLock();
     }
   },
 
@@ -274,9 +292,10 @@ export const api = {
     );
   },
 
-  hnswProbe: (input: HnswProbeInput) =>
+  hnswProbe: (input: HnswProbeInput, signal?: AbortSignal) =>
     request<HnswProbe>("/api/hnsw/probe", {
       method: "POST",
+      signal,
       body: JSON.stringify(input),
     }),
 

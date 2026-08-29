@@ -6,7 +6,7 @@ import {
   Database,
   HardDrive,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
 import { HnswControlledAb } from "../components/HnswControlledAb";
@@ -80,9 +80,16 @@ export function PerformancePage() {
   const [measured, setMeasured] = useState<HnswMeasured | null>(null);
   const [substrate, setSubstrate] = useState<HnswSubstrate | null>(null);
   const [anchors, setAnchors] = useState<HnswProduct[]>([]);
+  const [anchorsLoading, setAnchorsLoading] = useState(true);
+  const [anchorsError, setAnchorsError] = useState("");
   const [neighborhood, setNeighborhood] = useState<HnswNeighborhood | null>(null);
+  const [neighborhoodLoading, setNeighborhoodLoading] = useState(false);
   const [neighborhoodError, setNeighborhoodError] = useState("");
+  const [neighborhoodRetry, setNeighborhoodRetry] = useState(0);
   const [projection, setProjection] = useState<BenchmarkProjection | null>(null);
+  const [projectionLoading, setProjectionLoading] = useState(true);
+  const [projectionError, setProjectionError] = useState("");
+  const [coreLoading, setCoreLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [efSearch, setEfSearch] = useState<number | null>(null);
@@ -94,39 +101,116 @@ export function PerformancePage() {
   const [probe, setProbe] = useState<HnswProbe | null>(null);
   const [probing, setProbing] = useState(false);
   const [probeError, setProbeError] = useState("");
+  const coreRequestVersion = useRef(0);
+  const anchorsRequestVersion = useRef(0);
+  const projectionRequestVersion = useRef(0);
+  const probeRequestVersion = useRef(0);
+  const probeController = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    let active = true;
+  const loadCore = useCallback(() => {
+    const version = coreRequestVersion.current + 1;
+    coreRequestVersion.current = version;
+    setCoreLoading(true);
+    setError("");
     Promise.all([
       api.readiness(),
       api.hnswMeasured(),
       api.hnswSubstrate(),
-      api.hnswAnchors(),
-      api.projection(),
     ])
-      .then(([nextReadiness, nextMeasured, nextSubstrate, nextAnchors, nextProjection]) => {
-        if (!active) return;
+      .then(([nextReadiness, nextMeasured, nextSubstrate]) => {
+        if (version !== coreRequestVersion.current) return;
         setReadiness(nextReadiness);
         setMeasured(nextMeasured);
         setSubstrate(nextSubstrate);
-        setAnchors(nextAnchors);
-        setProjection(nextProjection);
         setEfSearch(
           nextMeasured.ef_sweep.find((point) => point.ef_search === SERVED_EF_SEARCH)
             ?.ef_search ??
             nextMeasured.ef_sweep[0]?.ef_search ??
             null,
         );
-        setAnchorId(nextAnchors[0]?.product_id ?? null);
         setScanMemMb(nextMeasured.filter_matrix[0]?.modes[0]?.scan_mem_mb ?? null);
       })
-      .catch((cause: Error) => {
-        if (active) setError(cause.message);
+      .catch((cause: unknown) => {
+        if (version !== coreRequestVersion.current) return;
+        setError(
+          cause instanceof Error ? cause.message : "The HNSW instrument could not load",
+        );
+      })
+      .finally(() => {
+        if (version === coreRequestVersion.current) setCoreLoading(false);
       });
-    return () => {
-      active = false;
-    };
   }, []);
+
+  const loadAnchors = useCallback(() => {
+    const version = anchorsRequestVersion.current + 1;
+    anchorsRequestVersion.current = version;
+    setAnchorsLoading(true);
+    setAnchorsError("");
+    api
+      .hnswAnchors()
+      .then((nextAnchors) => {
+        if (version !== anchorsRequestVersion.current) return;
+        setAnchors(nextAnchors);
+        setAnchorId((current) => (
+          current !== null
+          && nextAnchors.some((anchor) => anchor.product_id === current)
+            ? current
+            : nextAnchors[0]?.product_id ?? null
+        ));
+        if (!nextAnchors.length) {
+          setAnchorsError("No HNSW probe anchors are available for this dataset.");
+        }
+      })
+      .catch((cause: unknown) => {
+        if (version !== anchorsRequestVersion.current) return;
+        setAnchors([]);
+        setAnchorId(null);
+        setAnchorsError(
+          cause instanceof Error ? cause.message : "HNSW probe anchors are unavailable",
+        );
+      })
+      .finally(() => {
+        if (version === anchorsRequestVersion.current) setAnchorsLoading(false);
+      });
+  }, []);
+
+  const loadProjection = useCallback(() => {
+    const version = projectionRequestVersion.current + 1;
+    projectionRequestVersion.current = version;
+    setProjectionLoading(true);
+    setProjectionError("");
+    api
+      .projection()
+      .then((nextProjection) => {
+        if (version !== projectionRequestVersion.current) return;
+        setProjection(nextProjection);
+      })
+      .catch((cause: unknown) => {
+        if (version !== projectionRequestVersion.current) return;
+        setProjection(null);
+        setProjectionError(
+          cause instanceof Error ? cause.message : "The scale projection is unavailable",
+        );
+      })
+      .finally(() => {
+        if (version === projectionRequestVersion.current) {
+          setProjectionLoading(false);
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    loadCore();
+    loadAnchors();
+    loadProjection();
+    return () => {
+      coreRequestVersion.current += 1;
+      anchorsRequestVersion.current += 1;
+      projectionRequestVersion.current += 1;
+      probeRequestVersion.current += 1;
+      probeController.current?.abort();
+    };
+  }, [loadAnchors, loadCore, loadProjection]);
 
   /**
    * The exact-neighbour ring for the selected anchor, and only that.
@@ -139,8 +223,15 @@ export function PerformancePage() {
    * rendered nothing but the message. Ground truth is one panel's input.
    */
   useEffect(() => {
-    if (anchorId === null) return;
+    if (anchorId === null) {
+      setNeighborhood(null);
+      setNeighborhoodLoading(false);
+      setNeighborhoodError("");
+      return;
+    }
     let active = true;
+    setNeighborhood(null);
+    setNeighborhoodLoading(true);
     setNeighborhoodError("");
     api
       .hnswNeighborhood(anchorId, "none", 10)
@@ -148,28 +239,42 @@ export function PerformancePage() {
         if (active) {
           setNeighborhood(next);
           setNeighborhoodError("");
+          setNeighborhoodLoading(false);
         }
       })
       .catch((cause: Error) => {
         if (active) {
           setNeighborhood(null);
           setNeighborhoodError(cause.message);
+          setNeighborhoodLoading(false);
         }
       });
     return () => {
       active = false;
     };
-  }, [anchorId]);
+  }, [anchorId, neighborhoodRetry]);
 
   // A new anchor, operating point, or filter invalidates the previous probe. Leaving it
   // on screen would attribute one query's result to a different query.
   useEffect(() => {
+    probeRequestVersion.current += 1;
+    probeController.current?.abort();
+    probeController.current = null;
     setProbe(null);
     setProbeError("");
-  }, [anchorId, efSearch, preset]);
+    setProbing(false);
+  }, [anchorId, efSearch, preset, scan]);
 
   const runProbe = useCallback(() => {
-    if (anchorId === null || efSearch === null) return;
+    if (anchorId === null || efSearch === null) {
+      setProbeError("Load a probe anchor before running a live HNSW query.");
+      return;
+    }
+    probeController.current?.abort();
+    const controller = new AbortController();
+    probeController.current = controller;
+    const version = probeRequestVersion.current + 1;
+    probeRequestVersion.current = version;
     setProbing(true);
     setProbeError("");
     api
@@ -182,10 +287,19 @@ export function PerformancePage() {
         iterative_scan: scan,
         filter_preset: preset,
         k: 10,
+      }, controller.signal)
+      .then((nextProbe) => {
+        if (version === probeRequestVersion.current) setProbe(nextProbe);
       })
-      .then(setProbe)
-      .catch((cause: Error) => setProbeError(cause.message))
-      .finally(() => setProbing(false));
+      .catch((cause: unknown) => {
+        if (controller.signal.aborted || version !== probeRequestVersion.current) return;
+        setProbeError(cause instanceof Error ? cause.message : "The HNSW probe failed");
+      })
+      .finally(() => {
+        if (version !== probeRequestVersion.current) return;
+        setProbing(false);
+        if (probeController.current === controller) probeController.current = null;
+      });
   }, [anchorId, efSearch, preset, scan]);
 
   const saturationEfSearch = useMemo(() => {
@@ -199,8 +313,8 @@ export function PerformancePage() {
   }, [measured]);
 
   const content = (() => {
-    if (error) return <ErrorState message={error} />;
-    if (!readiness || !measured || !substrate || !projection || efSearch === null) {
+    if (error) return <ErrorState message={error} onRetry={loadCore} />;
+    if (coreLoading || !readiness || !measured || !substrate || efSearch === null) {
       return <LoadingState label="Reading the live Aurora index and measured sweep" />;
     }
 
@@ -339,7 +453,14 @@ export function PerformancePage() {
           probing={probing}
         />
 
-        {neighborhood ? (
+        {anchorsLoading ? (
+          <LoadingState label="Loading HNSW probe anchors" />
+        ) : anchorsError ? (
+          <section className="hnsw-neighborhood-unavailable" aria-live="polite">
+            <h2>Live probe anchors are unavailable.</h2>
+            <ErrorState message={anchorsError} onRetry={loadAnchors} />
+          </section>
+        ) : neighborhood ? (
           <HnswNeighborhoodRing
             anchors={anchors}
             efSearch={efSearch}
@@ -350,8 +471,13 @@ export function PerformancePage() {
         ) : neighborhoodError ? (
           <section className="hnsw-neighborhood-unavailable" aria-live="polite">
             <h2>Exact neighbours are unavailable for this anchor.</h2>
-            <p>{neighborhoodError}</p>
+            <ErrorState
+              message={neighborhoodError}
+              onRetry={() => setNeighborhoodRetry((current) => current + 1)}
+            />
           </section>
+        ) : neighborhoodLoading ? (
+          <LoadingState label="Loading exact HNSW neighbours" />
         ) : null}
 
         {measured.filter_matrix.length > 0 && scanMemMb !== null ? (
@@ -367,7 +493,8 @@ export function PerformancePage() {
           />
         ) : null}
 
-        <section className="hnsw-envelope" aria-labelledby="hnsw-envelope-title">
+        {projection ? (
+          <section className="hnsw-envelope" aria-labelledby="hnsw-envelope-title">
           <header>
             <div>
               <h2 id="hnsw-envelope-title">
@@ -435,7 +562,15 @@ export function PerformancePage() {
           {measured.local_nvme ? (
             <p className="hnsw-envelope-crossover">{measured.local_nvme.crossover_wording}</p>
           ) : null}
-        </section>
+          </section>
+        ) : projectionError ? (
+          <section className="hnsw-neighborhood-unavailable" aria-live="polite">
+            <h2>Scale projection is unavailable.</h2>
+            <ErrorState message={projectionError} onRetry={loadProjection} />
+          </section>
+        ) : projectionLoading ? (
+          <LoadingState label="Loading the scale projection" />
+        ) : null}
 
         {measured.local_nvme ? <HnswControlledAb nvme={measured.local_nvme} /> : null}
 

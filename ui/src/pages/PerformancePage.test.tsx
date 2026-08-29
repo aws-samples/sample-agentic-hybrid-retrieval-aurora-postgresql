@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import measuredArtifact from "../../../data/benchmarks/hnsw_measured.json";
 import scaleProjection from "../../../data/benchmarks/scale_projection.json";
@@ -183,6 +190,7 @@ describe("PerformancePage", () => {
   });
 
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(api.readiness).mockResolvedValue(readiness);
     vi.mocked(api.projection).mockResolvedValue(projection);
     vi.mocked(api.hnswMeasured).mockResolvedValue(measured);
@@ -424,6 +432,82 @@ describe("PerformancePage", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(
       "statement timeout",
     );
+  });
+
+  it("keeps core evidence visible and retries a failed optional projection", async () => {
+    vi.mocked(api.projection)
+      .mockRejectedValueOnce(new Error("projection artifact unavailable"))
+      .mockResolvedValueOnce(projection);
+
+    render(<PerformancePage />);
+
+    expect(await screen.findByText("LIVE AURORA INDEX")).toBeTruthy();
+    const heading = await screen.findByRole("heading", {
+      name: "Scale projection is unavailable.",
+    });
+    const panel = heading.closest("section");
+    if (!panel) throw new Error("Missing projection failure panel");
+    fireEvent.click(panel.querySelector("button")!);
+
+    expect(await screen.findByText("PROJECTED FROM 500K BASELINE")).toBeTruthy();
+    expect(api.projection).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps core evidence visible and retries failed optional anchors", async () => {
+    vi.mocked(api.hnswAnchors)
+      .mockRejectedValueOnce(new Error("anchor dataset unavailable"))
+      .mockResolvedValueOnce(anchors);
+
+    render(<PerformancePage />);
+
+    expect(await screen.findByText("LIVE AURORA INDEX")).toBeTruthy();
+    const heading = await screen.findByRole("heading", {
+      name: "Live probe anchors are unavailable.",
+    });
+    const panel = heading.closest("section");
+    if (!panel) throw new Error("Missing anchor failure panel");
+    fireEvent.click(panel.querySelector("button")!);
+
+    expect(await screen.findByRole("img", {
+      name: /neighbours of Mosaic Auraluxe H9/,
+    })).toBeTruthy();
+    expect(api.hnswAnchors).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels and discards a probe when its scan setting changes", async () => {
+    let resolveProbe!: (probe: HnswProbe) => void;
+    const pendingProbe = new Promise<HnswProbe>((resolve) => {
+      resolveProbe = resolve;
+    });
+    let signal: AbortSignal | undefined;
+    vi.mocked(api.hnswProbe).mockImplementation((input, nextSignal) => {
+      expect(input).toEqual(expect.objectContaining({
+        anchor_product_id: anchors[0].product_id,
+        iterative_scan: "relaxed_order",
+        filter_preset: "none",
+      }));
+      signal = nextSignal;
+      return pendingProbe;
+    });
+
+    render(<PerformancePage />);
+    await screen.findByRole("heading", { name: /Recall you can buy/ });
+    fireEvent.click(screen.getByRole("button", { name: /Run on Aurora now/ }));
+    await waitFor(() => expect(api.hnswProbe).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("radio", { name: "Off" }));
+    expect(signal?.aborted).toBe(true);
+
+    await act(async () => {
+      resolveProbe(probeResult);
+      await pendingProbe;
+    });
+    expect(screen.queryByText("LIVE PROBE")).toBeNull();
+    expect(
+      (screen.getByRole("button", {
+        name: /Run on Aurora now/,
+      }) as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
 
   it("labels the controlled A/B with every condition of the result", async () => {

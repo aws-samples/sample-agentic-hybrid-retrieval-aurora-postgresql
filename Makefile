@@ -7,6 +7,7 @@ UV ?= uv
 PYTHON ?= $(if $(wildcard $(VENV_PYTHON)),$(VENV_PYTHON),$(BOOTSTRAP_PYTHON))
 MCP_VENV ?= mcp-server/.venv
 MCP_PYTHON ?= $(MCP_VENV)/bin/python
+MCP_PROJECT ?= mcp-server
 # No default DSN. There is no local database (ARTIFACTS.md), so a localhost
 # default could only ever fail — or, worse, succeed against an unintended
 # cluster. Every db-* target requires DATABASE_URL to be set explicitly.
@@ -19,6 +20,8 @@ UI_PORT ?= 5173
 BOOTSTRAP_SCRIPT ?= deploy/mosaic-bootstrap.sh
 WORKSHOP_REPO ?= ../build-agentic-hybrid-retrieval-with-amazon-aurora-postgresql
 WORKSHOP_BOOTSTRAP ?= $(WORKSHOP_REPO)/assets/mosaic-bootstrap.sh
+RELEASE_SOURCE_SHA ?=
+RELEASE_EVIDENCE_DIR ?= build/release-evidence
 LAB_API_URL ?= http://127.0.0.1:$(API_PORT)
 SCORE_EVAL_ARGS ?=
 
@@ -37,7 +40,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-install mcp-test mcp-serve sync-bootstrap check-bootstrap-sync
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -45,7 +48,7 @@ PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	test db-render db-prepare-mosaic \
 	db-embed simulate db-export-embeddings db-import-embeddings \
 	verify-embedding-cache db-configure-retrieval lab-status validate-lab-3 solution-lab-3 api-serve \
-	mcp-install
+	mcp-install check-bootstrap-release validate-release-workflow
 
 $(PYTHON_TARGETS): check-python
 
@@ -59,7 +62,7 @@ check-dsn:
 		exit 2; \
 	}
 
-DSN_TARGETS := test db-install db-install-labs db-upgrade-snapshot \
+DSN_TARGETS := test test-aurora-contracts db-install db-install-labs db-upgrade-snapshot \
 	validate-missions validate-evals score-evals ablation-evals validate-functions \
 	lab-01 db-load-mosaic db-index-concurrent db-load-cohort db-load-evidence db-smoke \
 	db-bootstrap-cached db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
@@ -372,6 +375,24 @@ check-bootstrap-sync:
 		echo "Run: make sync-bootstrap"; exit 1; \
 	fi
 
+# Release CI must have the Workshop Studio checkout because it certifies the
+# delivered asset and both hash consumers, not only this source copy. Ordinary
+# source-only lint keeps the optional check above.
+check-bootstrap-release:
+	@test -n "$(RELEASE_SOURCE_SHA)" || { \
+		echo "RELEASE_SOURCE_SHA is empty. Pass the full tagged commit SHA."; \
+		exit 2; \
+	}
+	@$(PYTHON) .github/workflows/scripts/verify_release_delivery.py \
+		--source-repo "$(CURDIR)" \
+		--workshop-repo "$(WORKSHOP_REPO)" \
+		--source-sha "$(RELEASE_SOURCE_SHA)" \
+		--output "$(RELEASE_EVIDENCE_DIR)/release-delivery.json"
+
+validate-release-workflow:
+	@$(PYTHON) -m unittest discover \
+		-s .github/workflows/scripts -p 'test_*.py' -v
+
 lint:
 	$(UV) run ruff check .
 	$(UV) run ruff format --check .
@@ -379,6 +400,12 @@ lint:
 
 test:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest
+
+# The full offline suite already ran before this release job. This live subset
+# exercises Aurora SQL only and cannot call embedding or reranking models.
+test-aurora-contracts:
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest -q \
+		tests/test_sql_integration.py
 
 # Five targets were DELETED in Phase 2 Unit E. They installed and loaded the
 # `catalog.*` tree, which no longer exists, against whatever DSN they were handed
@@ -458,14 +485,18 @@ ui-audit:
 ui-dev:
 	cd ui && CATALOG_API_PROXY="$${CATALOG_API_PROXY:-http://127.0.0.1:$(API_PORT)}" npm run dev -- --host 127.0.0.1 --port $(UI_PORT)
 
-mcp-install:
-	"$(PYTHON)" -m venv "$(MCP_VENV)"
-	"$(MCP_PYTHON)" -m pip install --upgrade pip
-	"$(MCP_PYTHON)" -m pip install -e "./mcp-server[dev]"
-	"$(MCP_PYTHON)" -m pip check
+mcp-lock-check:
+	$(UV) lock --project "$(MCP_PROJECT)" --check
+
+mcp-install: mcp-lock-check
+	$(UV) sync --project "$(MCP_PROJECT)" --frozen --extra dev --no-editable
+	$(UV) pip check --python "$(MCP_PYTHON)"
 
 mcp-test: check-mcp-python
 	"$(MCP_PYTHON)" -m pytest -c mcp-server/pyproject.toml mcp-server/mcp_tests
+
+mcp-wheel-smoke:
+	"$(BOOTSTRAP_PYTHON)" mcp-server/mcp_tests/wheel_smoke.py --uv "$(UV)"
 
 mcp-serve: check-mcp-python
 	"$(MCP_VENV)/bin/mosaic-retrieval-mcp"

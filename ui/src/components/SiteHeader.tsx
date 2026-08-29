@@ -1,5 +1,5 @@
 import { Menu, ShoppingBag, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useCommerce } from "../commerce";
 import {
@@ -51,6 +51,8 @@ function isActive(pathname: string, to: string) {
 
 export function SiteHeader({ inert = false }: { inert?: boolean }) {
   const [open, setOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const navigationRef = useRef<HTMLElement | null>(null);
   const { itemCount, openCart } = useCommerce();
   const [location] = useLocation();
   const [searchParams] = useSearchParams();
@@ -75,6 +77,24 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
     return playgroundQueryHref(query, forwardedSearchFilters(searchParams));
   }, [pathname, searchParams]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      navigationRef.current?.querySelector<HTMLElement>("a")?.focus();
+    });
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setOpen(false);
+      menuButtonRef.current?.focus();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
   return (
     <header
       className="site-header"
@@ -87,6 +107,7 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
       </Link>
 
       <nav
+        ref={navigationRef}
         id="storefront-navigation"
         className={open ? "site-nav open" : "site-nav"}
         aria-label="Storefront"
@@ -118,6 +139,7 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
           ) : null}
         </button>
         <button
+          ref={menuButtonRef}
           className="site-icon site-menu"
           type="button"
           aria-label={open ? "Close navigation" : "Open navigation"}

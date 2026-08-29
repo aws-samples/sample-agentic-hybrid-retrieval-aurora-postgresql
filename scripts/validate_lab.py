@@ -260,6 +260,45 @@ def _constraints_preserved(
     )
 
 
+def _targets_have_distinct_runs(
+    targets: set[int],
+    candidate_runs: list[tuple[str, set[int]]],
+) -> bool:
+    """Return whether targets map to runs with distinct, non-empty queries."""
+
+    ordered = sorted(
+        targets,
+        key=lambda target: sum(
+            target in candidates for _, candidates in candidate_runs
+        ),
+    )
+
+    def assign(
+        position: int,
+        used_runs: set[int],
+        used_queries: set[str],
+    ) -> bool:
+        if position == len(ordered):
+            return True
+        target = ordered[position]
+        return any(
+            assign(
+                position + 1,
+                used_runs | {index},
+                used_queries | {query},
+            )
+            for index, (query, candidates) in enumerate(candidate_runs)
+            if (
+                index not in used_runs
+                and query
+                and query not in used_queries
+                and target in candidates
+            )
+        )
+
+    return assign(0, set(), set())
+
+
 def validate_agent_response(
     base_url: str,
     mission: dict[str, Any],
@@ -281,19 +320,50 @@ def validate_agent_response(
         )
 
     retrieval_runs = [
-        _request(base_url, f"/api/retrieval/events/{step['retrieval_run_id']}")
+        (
+            str(step["retrieval_run_id"]),
+            _request(base_url, f"/api/retrieval/events/{step['retrieval_run_id']}"),
+            str((step.get("arguments") or {}).get("query", "")).strip().casefold(),
+        )
         for step in searches
         if step.get("retrieval_run_id")
     ]
+    candidate_sets = [
+        {int(candidate["product_id"]) for candidate in run.get("candidates") or []}
+        for _, run, _ in retrieval_runs
+    ]
     considered = {
-        candidate["product_id"]
-        for run in retrieval_runs
-        for candidate in run.get("candidates") or []
+        product_id for candidates in candidate_sets for product_id in candidates
     }
+    target_product_ids = {int(item) for item in mission["target_product_ids"]}
+    missing_targets = sorted(target_product_ids - considered)
     _require(
-        considered.intersection(mission["target_product_ids"]),
-        "Lab 3 retrieval runs considered none of the canonical targets",
+        not missing_targets,
+        "Lab 3 retrieval runs missed canonical target classes "
+        f"{missing_targets}; issue focused searches that cover every declared "
+        "target_product_id",
     )
+    if mission.get("requires_independent_target_searches"):
+        distinct_queries = {query for _, _, query in retrieval_runs if query}
+        _require(
+            len(retrieval_runs) >= len(target_product_ids)
+            and len(distinct_queries) >= len(target_product_ids)
+            and _targets_have_distinct_runs(
+                target_product_ids,
+                [
+                    (query, candidates)
+                    for (_, _, query), candidates in zip(
+                        retrieval_runs,
+                        candidate_sets,
+                        strict=True,
+                    )
+                ],
+            ),
+            "Lab 3 independent intent proof requires one distinct focused search "
+            f"and retrieval receipt per target class; found {len(distinct_queries)} "
+            f"query text(s), {len(retrieval_runs)} receipt(s), and targets "
+            f"{sorted(target_product_ids)}",
+        )
 
     recommendations = agent.get("recommendations") or []
     recommendation_ids = {item["product_id"] for item in recommendations}
@@ -340,6 +410,43 @@ def validate_agent_response(
         "Lab 3 requires exactly one successful explain_retrieval tool call "
         f"before synthesis; found {len(explanations)}",
     )
+    explained_event_id = str(
+        (explanations[0].get("arguments") or {}).get("search_event_id", "")
+    )
+    retrieval_event_ids = {event_id for event_id, _, _ in retrieval_runs}
+    _require(
+        explained_event_id in retrieval_event_ids,
+        "Lab 3 explain_retrieval is not bound to a persisted retrieval receipt; "
+        f"found {explained_event_id!r}, expected one of "
+        f"{sorted(retrieval_event_ids)}",
+    )
+    if mission.get("requires_explain_plan"):
+        captured = _request(
+            base_url,
+            f"/api/retrieval/events/{explained_event_id}/plan",
+            {},
+        )
+        plan = captured.get("plan")
+        _require(
+            isinstance(plan, list)
+            and bool(plan)
+            and all(
+                isinstance(statement, dict) and isinstance(statement.get("Plan"), dict)
+                for statement in plan
+            ),
+            "Lab 3 EXPLAIN activity returned no PostgreSQL JSON plan; use the "
+            "production plan-capture endpoint for the explained retrieval event",
+        )
+        replay = _request(
+            base_url,
+            f"/api/retrieval/events/{explained_event_id}",
+        )
+        persisted_plan = (replay.get("run") or {}).get("plan_json")
+        _require(
+            persisted_plan == plan,
+            "Lab 3 EXPLAIN plan was not persisted on the explained retrieval "
+            "event; replay the same event after plan capture",
+        )
 
     citations = agent.get("citations") or []
     _require(citations, "Lab 3 returned no citations")
@@ -387,8 +494,9 @@ def validate_agent_response(
             f"{requirement['evidence_type']}, terms={requirement['all_terms']}",
         )
 
-    return [
+    checks = [
         "structured constraints preserved",
+        "canonical target classes covered",
         "retrieval and comparison tools invoked",
         "evidence retrieved for every recommendation",
         "ranking explanation replayable",
@@ -396,6 +504,13 @@ def validate_agent_response(
         "citation IDs resolve exactly",
         "required claims supported",
     ]
+    if mission.get("requires_independent_target_searches"):
+        checks.insert(1, "independent retrieval intents covered")
+    if mission.get("requires_explain_plan"):
+        checks[checks.index("ranking explanation replayable")] = (
+            "ranking explanation and EXPLAIN plan replayable"
+        )
+    return checks
 
 
 def validate_lab_3(base_url: str) -> list[str]:

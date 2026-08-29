@@ -84,7 +84,7 @@ make mcp-test
 
 1. Connect an MCP-compatible inspector or host to `/mcp`.
 2. Confirm discovery negotiates `2026-07-28`.
-3. List the three typed, read-only tools.
+3. List the three typed, catalog-read-only tools.
 4. Call `search_products` with the Lab 3 query and a hard price or availability
    filter, and keep the `search_event_id` it returns.
 5. Call `get_product_evidence` with that ID as `retrieval_scope_id` and one

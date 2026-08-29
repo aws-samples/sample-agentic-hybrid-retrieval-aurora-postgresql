@@ -25,9 +25,14 @@ Workshop Studio clones the source repository at its immutable `SourceRevision`.
 There is intentionally no source archive producer: an archive would duplicate
 the application delivery path and can drift from the pinned revision.
 
+The serving HNSW path is implemented. HNSW retrieval itself is not deferred;
+the remaining work below concerns certification and the optional performance
+exercise, not whether semantic retrieval exists.
+
 ## Deliberately deferred
 
-- measured HNSW output contract and advanced performance lane;
+- release-certified HNSW benchmark output contract and advanced performance
+  lane;
 - behavioral assertions `rrf_recomputes` and `rerank_off_invariant`;
 - per-token trigram expansion and the measured 500K trigram latency issue;
 - broader media fallback coverage; and

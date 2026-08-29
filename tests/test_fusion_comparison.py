@@ -159,6 +159,76 @@ def test_the_substrate_failure_names_the_values_and_a_fix():
     assert "3 vs 1" in message
 
 
+def test_same_ids_with_different_arm_ranks_fail_the_substrate_check():
+    """Red-at-birth: candidate IDs alone do not prove identical arm inputs."""
+    weighted = [dict(candidate) for candidate in IDENTICAL_WEIGHTED]
+    weighted[0]["fts_rank"] = 99
+
+    with pytest.raises(SubstrateError, match="arm substrate"):
+        service(IDENTICAL_UNWEIGHTED, weighted).compare(
+            "mesh chair", SearchFilters(), persist=False
+        )
+
+
+def test_same_ranks_with_different_arm_provenance_fail_the_substrate_check():
+    unweighted = [row(1, 0.9)]
+    weighted = [row(1, 0.8)]
+    unweighted[0]["provenance"] = {
+        "channels": {"fts": {"rank": 1, "raw_score": 0.9, "rrf_contribution": 0.01}},
+        "challenge_cohorts": ["exact_product"],
+        "is_retrieval_anchor": True,
+    }
+    weighted[0]["provenance"] = {
+        "channels": {
+            "fts": {
+                "rank": 1,
+                "raw_score": 0.8,
+                "rrf_contribution": 0.003,
+                "unweighted_rrf_contribution": 0.01,
+                "weight": 0.3,
+            }
+        },
+        "challenge_cohorts": ["exact_product"],
+        "is_retrieval_anchor": True,
+        "fusion": {"method": "weighted_reciprocal_rank_fusion"},
+    }
+
+    with pytest.raises(SubstrateError, match="arm substrate"):
+        service(unweighted, weighted).compare(
+            "mesh chair", SearchFilters(), persist=False
+        )
+
+
+def test_expected_weighted_arithmetic_provenance_differences_are_ignored():
+    unweighted = [row(1, 0.9)]
+    weighted = [row(1, 0.8)]
+    unweighted[0]["provenance"] = {
+        "channels": {"fts": {"rank": 1, "raw_score": 0.9, "rrf_contribution": 0.01}},
+        "challenge_cohorts": ["exact_product"],
+        "is_retrieval_anchor": True,
+    }
+    weighted[0]["provenance"] = {
+        "channels": {
+            "fts": {
+                "rank": 1,
+                "raw_score": 0.9,
+                "rrf_contribution": 0.003,
+                "unweighted_rrf_contribution": 0.01,
+                "weight": 0.3,
+            }
+        },
+        "challenge_cohorts": ["exact_product"],
+        "is_retrieval_anchor": True,
+        "fusion": {"method": "weighted_reciprocal_rank_fusion"},
+    }
+
+    result = service(unweighted, weighted).compare(
+        "mesh chair", SearchFilters(), persist=False
+    )
+
+    assert result.candidate_sets_identical is True
+
+
 def test_the_comparison_reads_the_untruncated_pool():
     """Comparing served windows would fail a healthy substrate on every call.
 

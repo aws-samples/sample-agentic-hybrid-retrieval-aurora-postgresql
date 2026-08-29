@@ -5,7 +5,7 @@ import type { AskMosaicTurn } from "./AskMosaic";
 
 function lastAnswered(turns: AskMosaicTurn[]): AskMosaicTurn | null {
   for (let index = turns.length - 1; index >= 0; index -= 1) {
-    if (turns[index].response) return turns[index];
+    if (turns[index].completed && turns[index].response) return turns[index];
   }
   return null;
 }
@@ -21,6 +21,7 @@ export function useAskMosaicConversation(filters: SearchFilters) {
   const [turns, setTurns] = useState<AskMosaicTurn[]>([]);
   const [examples, setExamples] = useState<RetrievalExample[]>([]);
   const requestVersion = useRef(0);
+  const requestController = useRef<AbortController | null>(null);
   const pending = turns.some((turn) => turn.loading);
   const answeredTurn = lastAnswered(turns);
 
@@ -39,8 +40,15 @@ export function useAskMosaicConversation(filters: SearchFilters) {
     };
   }, []);
 
+  useEffect(() => () => {
+    requestVersion.current += 1;
+    requestController.current?.abort();
+  }, []);
+
   function clear() {
     requestVersion.current += 1;
+    requestController.current?.abort();
+    requestController.current = null;
     setTurns([]);
   }
 
@@ -62,12 +70,15 @@ export function useAskMosaicConversation(filters: SearchFilters) {
       : undefined;
     const version = requestVersion.current + 1;
     requestVersion.current = version;
+    const controller = new AbortController();
+    requestController.current = controller;
     setTurns((current) => [
       ...current,
       {
         id: version,
         question: trimmed,
         response: null,
+        completed: false,
         partial: null,
         streamed: "",
         stage: "understand",
@@ -106,6 +117,7 @@ export function useAskMosaicConversation(filters: SearchFilters) {
         } else if (event.type === "answer_start") {
           patch({
             response: event.response,
+            completed: false,
             stage: "answer",
             stageDetail:
               "Writing the recommendation from the products it found and the specs and reviews behind them.",
@@ -120,21 +132,25 @@ export function useAskMosaicConversation(filters: SearchFilters) {
         } else {
           patch({
             response: event.response,
+            completed: true,
             streamed: event.response.answer,
             stage: null,
             stageDetail: "",
           });
         }
-      }, context);
+      }, context, { signal: controller.signal });
     } catch (cause) {
       if (version !== requestVersion.current) return;
       patch({
-        stage: null,
-        stageDetail: "",
+        completed: false,
+        stageDetail: "This step did not finish. Review the error below and retry.",
         error: cause instanceof Error ? cause.message : "Ask Mosaic is unavailable",
       });
     } finally {
       if (version === requestVersion.current) patch({ loading: false });
+      if (requestController.current === controller) {
+        requestController.current = null;
+      }
     }
   }
 

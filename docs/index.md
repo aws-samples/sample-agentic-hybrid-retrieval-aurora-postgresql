@@ -17,8 +17,8 @@
 | `ui-design-system.md` | Maroon/ivory product-discovery and retrieval-evidence design language |
 | `ui-screen-spec.md` | UI screen, component, and payload contracts |
 | `api-contract.md` | Search API request/response contract |
-| `mcp-interoperability.md` | Lab 3 MCP checkpoint, tool contract, and isolated runtime |
-| `skill-composition.md` | Skill composition and deployment profile: what another agent consumes, what stays hidden, and the A2A/AgentCore documentation profile |
+| `mcp-interoperability.md` | Optional interoperability contract and isolated runtime |
+| `skill-composition.md` | Pointer to the self-contained participant skill's composition, HTTP mapping, and adaptation references |
 | `aurora-deployment.md` | Aurora setup and operational sequence |
 | `production-readiness.md` | Relevance, data, performance, governance, and UX checklist |
 | `product-image-strategy.md` | Scalable realistic-image approach |

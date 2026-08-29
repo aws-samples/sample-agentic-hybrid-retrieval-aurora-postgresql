@@ -163,6 +163,7 @@ export function ProductDrawer({
             role="dialog"
             aria-modal="true"
             aria-label="Product details"
+            aria-busy={!detail && !error}
             tabIndex={-1}
             initial={reduceMotion ? { opacity: 0 } : { x: "100%" }}
             animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
@@ -195,11 +196,16 @@ export function ProductDrawer({
               ) : null}
 
               {error ? (
-                <p className="product-drawer-error">{error}</p>
+                <p className="product-drawer-error" role="alert">{error}</p>
               ) : null}
               {!detail && !error ? (
-                <p className="product-drawer-loading">
+                <p className="product-drawer-loading" role="status" aria-atomic="true">
                   Pulling the full catalog row…
+                </p>
+              ) : null}
+              {detail ? (
+                <p className="sr-only" role="status" aria-atomic="true">
+                  Product details loaded for {detail.title}.
                 </p>
               ) : null}
 

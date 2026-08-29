@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "../api";
 import { armLanguage } from "../retrievalLanguage";
 import type {
@@ -160,45 +160,133 @@ export function CandidateRows({ products }: { products: ProductSummary[] }) {
  * rather than fired on load.
  */
 export function PersistedRunDisclosures({ response }: { response: SearchResponse }) {
-  const [event, setEvent] = useState<RetrievalRunResponse | null>(null);
-  const [eventError, setEventError] = useState("");
-  const [plan, setPlan] = useState<RetrievalPlanResponse | null>(null);
-  const [planError, setPlanError] = useState("");
-  const [planPending, setPlanPending] = useState(false);
+  const runId = response.search_event_id;
+  const currentRunId = useRef(runId);
+  const eventRequest = useRef(0);
+  const planRequest = useRef(0);
+  const [eventState, setEventState] = useState<{
+    runId: string;
+    value: RetrievalRunResponse;
+  } | null>(null);
+  const [eventErrorState, setEventErrorState] = useState<{
+    runId: string;
+    message: string;
+  } | null>(null);
+  const [eventPendingState, setEventPendingState] = useState<{
+    runId: string;
+    request: number;
+  } | null>(null);
+  const [planState, setPlanState] = useState<{
+    runId: string;
+    value: RetrievalPlanResponse;
+  } | null>(null);
+  const [planErrorState, setPlanErrorState] = useState<{
+    runId: string;
+    message: string;
+  } | null>(null);
+  const [planPendingState, setPlanPendingState] = useState<{
+    runId: string;
+    request: number;
+  } | null>(null);
+
+  currentRunId.current = runId;
+  const event = eventState?.runId === runId ? eventState.value : null;
+  const eventError =
+    eventErrorState?.runId === runId ? eventErrorState.message : "";
+  const eventPending =
+    eventPendingState?.runId === runId
+    && eventPendingState.request === eventRequest.current;
+  const plan = planState?.runId === runId ? planState.value : null;
+  const planError =
+    planErrorState?.runId === runId ? planErrorState.message : "";
+  const planPending =
+    planPendingState?.runId === runId
+    && planPendingState.request === planRequest.current;
 
   function loadEvent() {
-    if (event || eventError) return;
+    if (event || eventPending) return;
+    const request = ++eventRequest.current;
+    const requestedRunId = runId;
+    setEventErrorState(null);
+    setEventPendingState({ runId: requestedRunId, request });
     api
-      .retrievalEvent(response.search_event_id)
-      .then(setEvent)
+      .retrievalEvent(requestedRunId)
+      .then((value) => {
+        if (
+          request === eventRequest.current
+          && requestedRunId === currentRunId.current
+        ) {
+          setEventState({ runId: requestedRunId, value });
+        }
+      })
       .catch((cause: unknown) => {
-        setEventError(
-          cause instanceof Error
-            ? cause.message
-            : "This run's persisted event could not be read",
-        );
+        if (
+          request === eventRequest.current
+          && requestedRunId === currentRunId.current
+        ) {
+          setEventErrorState({
+            runId: requestedRunId,
+            message: cause instanceof Error
+              ? cause.message
+              : "This run's persisted event could not be read",
+          });
+        }
+      })
+      .finally(() => {
+        if (
+          request === eventRequest.current
+          && requestedRunId === currentRunId.current
+        ) {
+          setEventPendingState(null);
+        }
       });
   }
 
   function loadPlan() {
-    if (plan || planError || planPending) return;
-    setPlanPending(true);
+    if (plan || planPending) return;
+    const request = ++planRequest.current;
+    const requestedRunId = runId;
+    setPlanErrorState(null);
+    setPlanPendingState({ runId: requestedRunId, request });
     api
-      .retrievalPlan(response.search_event_id)
-      .then(setPlan)
-      .catch((cause: unknown) => {
-        setPlanError(
-          cause instanceof Error ? cause.message : "EXPLAIN capture failed",
-        );
+      .retrievalPlan(requestedRunId)
+      .then((value) => {
+        if (
+          request === planRequest.current
+          && requestedRunId === currentRunId.current
+        ) {
+          setPlanState({ runId: requestedRunId, value });
+        }
       })
-      .finally(() => setPlanPending(false));
+      .catch((cause: unknown) => {
+        if (
+          request === planRequest.current
+          && requestedRunId === currentRunId.current
+        ) {
+          setPlanErrorState({
+            runId: requestedRunId,
+            message: cause instanceof Error
+              ? cause.message
+              : "EXPLAIN capture failed",
+          });
+        }
+      })
+      .finally(() => {
+        if (
+          request === planRequest.current
+          && requestedRunId === currentRunId.current
+        ) {
+          setPlanPendingState(null);
+        }
+      });
   }
 
   return (
     <>
       <PlaygroundDisclosure
+        key={`event-${runId}`}
         label="View retrieval event"
-        hint={`run ${response.search_event_id.slice(0, 8)}, read back from Postgres`}
+        hint={`run ${runId.slice(0, 8)}, read back from Postgres`}
         onOpen={loadEvent}
       >
         {eventError ? (
@@ -215,13 +303,14 @@ export function PersistedRunDisclosures({ response }: { response: SearchResponse
             </p>
             <CodeBlock
               code={JSON.stringify(event, null, 2)}
-              label={`search_event_${response.search_event_id.slice(0, 8)}.json`}
+              label={`search_event_${runId.slice(0, 8)}.json`}
             />
           </>
         )}
       </PlaygroundDisclosure>
 
       <PlaygroundDisclosure
+        key={`plan-${runId}`}
         label="View EXPLAIN"
         hint="runs EXPLAIN ANALYZE on this run's SQL"
         onOpen={loadPlan}

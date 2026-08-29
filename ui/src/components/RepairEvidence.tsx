@@ -1,5 +1,5 @@
 import { AlertTriangle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../api";
 import {
   buildRepairEvidence,
@@ -72,18 +72,36 @@ export function RepairEvidence({
   const [afterError, setAfterError] = useState("");
   const [pending, setPending] = useState(false);
   const [attempted, setAttempted] = useState(false);
+  const compareVersion = useRef(0);
+
+  function invalidateComparison() {
+    compareVersion.current += 1;
+    setBeforeRun(null);
+    setAfterRun(null);
+    setBeforeError("");
+    setAfterError("");
+    setPending(false);
+    setAttempted(false);
+  }
 
   // A fresh run landing on the numbered stages above becomes the new "after" by
   // default. This only fires when that id actually changes, so editing the field
   // by hand between runs is never clobbered mid-session.
   useEffect(() => {
+    invalidateComparison();
     if (latestSearchEventId) setAfterInput(latestSearchEventId);
   }, [latestSearchEventId]);
 
   async function compare() {
+    const request = ++compareVersion.current;
+    const beforeValue = beforeInput.trim();
+    const afterValue = afterInput.trim();
     setAttempted(true);
     setPending(true);
-    const afterValue = afterInput.trim();
+    setBeforeRun(null);
+    setAfterRun(null);
+    setBeforeError("");
+    setAfterError("");
     const [afterResult, beforeResult] = await Promise.all([
       afterValue
         ? loadEvent(afterValue)
@@ -91,8 +109,9 @@ export function RepairEvidence({
           run: null,
           error: "Paste an after search_event_id, or run the pipeline above first.",
         }),
-      loadEvent(beforeInput),
+      loadEvent(beforeValue),
     ]);
+    if (request !== compareVersion.current) return;
     setAfterRun(afterResult.run);
     setAfterError(afterResult.error);
     setBeforeRun(beforeResult.run);
@@ -126,7 +145,10 @@ export function RepairEvidence({
           <input
             aria-label="Before search_event_id"
             autoComplete="off"
-            onChange={(event) => setBeforeInput(event.target.value)}
+            onChange={(event) => {
+              invalidateComparison();
+              setBeforeInput(event.target.value);
+            }}
             placeholder="from /tmp/typo-recovery.json"
             spellCheck={false}
             type="text"
@@ -138,7 +160,10 @@ export function RepairEvidence({
           <input
             aria-label="After search_event_id"
             autoComplete="off"
-            onChange={(event) => setAfterInput(event.target.value)}
+            onChange={(event) => {
+              invalidateComparison();
+              setAfterInput(event.target.value);
+            }}
             placeholder="most recent run, or paste one"
             spellCheck={false}
             type="text"

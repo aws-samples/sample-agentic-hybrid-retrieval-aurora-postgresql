@@ -59,7 +59,6 @@ import type {
   CatalogPage,
   Domain,
   ProductSummary,
-  RetrievalExample,
   SearchFilters,
   SearchResponse,
 } from "../types";
@@ -192,6 +191,7 @@ export function CatalogPage() {
   const filterSheetRef = useRef<HTMLElement>(null);
   const filterPreviouslyFocused = useRef<HTMLElement | null>(null);
   const resultsAnchorRef = useRef<HTMLDivElement>(null);
+  const catalogRequestVersion = useRef(0);
   const retrievalRequestVersion = useRef(0);
   const handledAskDeepLink = useRef(false);
   const handledResultsView = useRef("");
@@ -254,18 +254,25 @@ export function CatalogPage() {
     : null;
 
   const load = useCallback(() => {
+    const version = catalogRequestVersion.current + 1;
+    catalogRequestVersion.current = version;
     setLoading(true);
     setError("");
     api
       .catalog(filters, offset, pageSize, sort)
-      .then(setPage)
+      .then((nextPage) => {
+        if (version === catalogRequestVersion.current) setPage(nextPage);
+      })
       .catch((cause) => {
+        if (version !== catalogRequestVersion.current) return;
         setPage(null);
         setError(
           cause instanceof Error ? cause.message : "Catalog browsing is unavailable",
         );
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (version === catalogRequestVersion.current) setLoading(false);
+      });
   }, [
     domain,
     categoryKey,
@@ -284,6 +291,7 @@ export function CatalogPage() {
     // and four browse facets alongside it does not improve the result and made
     // each filter change wait on unrelated catalog work.
     if (activeQuery) {
+      catalogRequestVersion.current += 1;
       setLoading(false);
       setError("");
       return;
@@ -973,8 +981,17 @@ export function CatalogPage() {
                 </>
               ) : page ? (
                 <>
-                  <strong>{offset + 1}-{Math.min(offset + pageSize, page.total)}</strong>
-                  {" "}of {page.total.toLocaleString()} products
+                  {page.total ? (
+                    <>
+                      <strong>
+                        {Math.min(offset + 1, page.total)}-
+                        {Math.min(offset + pageSize, page.total)}
+                      </strong>
+                      {" "}of {page.total.toLocaleString()} products
+                    </>
+                  ) : (
+                    <><strong>0</strong> products</>
+                  )}
                 </>
               ) : retrievalLoading && activeQuery ? "Searching products" : "Loading catalog"}
             </p>

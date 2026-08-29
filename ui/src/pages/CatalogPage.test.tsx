@@ -13,6 +13,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type AgentStreamEvent } from "../api";
 import { CommerceProvider } from "../commerce";
+import { CommerceDrawer } from "../components/CommerceDrawer";
 
 // Ten assertions in this file await `findByText("Final recommendation")`, which
 // `AskMosaic` renders only once `reveal.done`. `useTypewriterReveal` advances the
@@ -324,6 +325,7 @@ describe("CatalogPage", () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
     }));
+    vi.stubGlobal("scrollTo", vi.fn());
     window.history.replaceState({}, "", "/catalog");
     vi.mocked(api.catalog).mockReset();
     vi.mocked(api.suggestions).mockReset();
@@ -416,18 +418,13 @@ describe("CatalogPage", () => {
         name: new RegExp(recommendations[0].model),
       }),
     ).toBeTruthy();
-    // Interpret finished mid-run, so it holds its result open for a beat and
-    // then folds itself away. Instant folding meant nothing was ever legible.
-    expect(running[0].getAttribute("aria-expanded")).toBe("true");
-    // The stage card's own title stays mounted; what folds away is the panel it
-    // discloses, so this asserts the panel's heading rather than the card's.
+    // Exactly one result is expanded at a time. The previous implementation
+    // kept Interpret open for 2.2 seconds after Retrieve opened, so the next
+    // stages were pushed below the drawer while two large panels overlapped.
+    expect(running[0].getAttribute("aria-expanded")).toBe("false");
+    // The outgoing content remains mounted for its 240ms exit. Keying the whole
+    // disclosure by state used to destroy it immediately, bypassing that exit.
     expect(within(dialog).getByText("Constraints I searched with")).toBeTruthy();
-    await waitFor(
-      () => expect(stageCards()[0].getAttribute("aria-expanded")).toBe("false"),
-      { timeout: stageDwellMs + 2000 },
-    );
-    // The card collapses its height first and unmounts the content after, so
-    // this is reached once the exit finishes rather than in the same frame.
     await waitFor(() =>
       expect(within(dialog).queryByText("Constraints I searched with")).toBeNull());
     // Compare and Cite have not run. Candidate rows exist, so their panels
@@ -437,8 +434,16 @@ describe("CatalogPage", () => {
     expect(within(dialog).queryByText("Side by side, on catalog data")).toBeNull();
 
     release();
-    await waitFor(() =>
-      expect(within(dialog).queryByText("Final recommendation")).not.toBeNull());
+    // A synchronous finish may put Rank and Answer in one React batch. The
+    // presentation queue must still show Rank before answer prose can mount.
+    expect(within(dialog).queryByText("Final recommendation")).toBeNull();
+    await waitFor(
+      () => expect(stageCards()[2].getAttribute("aria-expanded")).toBe("true"),
+      { timeout: stageDwellMs * 2 + 2000 },
+    );
+    expect(within(dialog).getByText("Side by side, on catalog data")).toBeTruthy();
+    expect(within(dialog).queryByText("Final recommendation")).toBeNull();
+    await within(dialog).findByText("Final recommendation");
     // Finishing folds the retrieve card back up, leaving the answer open.
     expect(stageCards().map((card) => card.getAttribute("aria-expanded")))
       .toEqual(["false", "false", "false", "true"]);
@@ -456,7 +461,7 @@ describe("CatalogPage", () => {
     const synthesisStage = {
       type: "stage",
       id: "answer",
-      path: "full_retrieval",
+      path: "focused_follow_up",
       title: "Compose cited answer",
       detail: "Preparing the citation-bounded answer of record.",
     } as const;
@@ -468,11 +473,8 @@ describe("CatalogPage", () => {
       onEvent({ type: "complete", response: agentResponse });
     });
 
-    // Installed before the render, because the counter's interval and the clock it
-    // reads have to be the same faked pair. Auto-advancing keeps the async queries
-    // below working; the readings are asserted as bounds rather than exact strings
-    // so that real time slipping past does not decide whether this passes.
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let now = 1_000;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
     try {
       renderPage();
       await screen.findByText(catalog.products[0].model);
@@ -492,27 +494,31 @@ describe("CatalogPage", () => {
       // and "0s" would be a reading rather than the absence of one.
       expect(seconds()).toEqual([]);
 
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(9000);
+      now = 10_000;
+      await waitFor(() => expect(seconds()).toHaveLength(1), {
+        timeout: stageDwellMs * 2 + 2000,
       });
       // One reading, on the one step that is working. A finished step reports its
       // state, not a clock that would keep running after it stopped.
-      expect(seconds()).toHaveLength(1);
       expect(seconds()[0]).toBeGreaterThanOrEqual(9);
+      const beforeRepeat = seconds()[0];
 
       // The service announces this step twice: once when synthesis is dispatched
       // and again with a fuller detail line when it returns. Restarting on the
       // second would report the sub-second write instead of the wait a reader sat
       // through, which is the number this exists to show - so a restart shows up
       // here as a reading of about 2 rather than about 11.
-      await act(async () => {
+      now = 12_000;
+      act(() => {
         emit?.({
           ...synthesisStage,
           detail: "Delivering only claims grounded in returned catalog sources.",
         });
-        await vi.advanceTimersByTimeAsync(2000);
       });
-      expect(seconds()[0]).toBeGreaterThanOrEqual(11);
+      await waitFor(
+        () => expect(seconds()[0]).toBeGreaterThanOrEqual(beforeRepeat + 2),
+        { timeout: 2000 },
+      );
 
       release();
       await within(dialog).findByText("Final recommendation");
@@ -520,7 +526,7 @@ describe("CatalogPage", () => {
       expect(seconds()).toEqual([]);
     } finally {
       release();
-      vi.useRealTimers();
+      clock.mockRestore();
     }
   });
 
@@ -550,6 +556,39 @@ describe("CatalogPage", () => {
     expect(screen.queryByText(agentResponse.question)).toBeNull();
     expect(screen.queryByRole("button", { name: "Clear chat" })).toBeNull();
     // Back on the entry state, ready for the next question.
+    expect(
+      within(dialog).getByRole("list", { name: "Example questions" }),
+    ).toBeTruthy();
+  });
+
+  it("aborts an in-flight request when the conversation is cleared", async () => {
+    let requestSignal: AbortSignal | undefined;
+    vi.mocked(api.agentStream).mockImplementation(
+      async (_question, _filters, _onEvent, _context, options) => {
+        requestSignal = options?.signal;
+        await new Promise<void>((_resolve, reject) => {
+          requestSignal?.addEventListener("abort", () => {
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+      },
+    );
+
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    await waitFor(() => expect(requestSignal).toBeDefined());
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Clear chat" }));
+
+    expect(requestSignal?.aborted).toBe(true);
+    expect(within(dialog).queryByText(agentResponse.question)).toBeNull();
     expect(
       within(dialog).getByRole("list", { name: "Example questions" }),
     ).toBeTruthy();
@@ -802,6 +841,50 @@ describe("CatalogPage", () => {
       await screen.findByText("Aurora catalog is unavailable"),
     ).toBeTruthy();
     expect(document.querySelectorAll("[data-product-id]")).toHaveLength(0);
+  });
+
+  it("keeps the newest catalog page when an older request resolves last", async () => {
+    const pending: Array<(value: CatalogPageResponse) => void> = [];
+    vi.mocked(api.catalog).mockImplementation(
+      () => new Promise<CatalogPageResponse>((resolve) => pending.push(resolve)),
+    );
+    const latestProduct = {
+      ...catalog.products[0],
+      product_id: 987_654,
+      model: "Newest filter result",
+      title: "Newest filter result",
+    };
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Running & fitness" }));
+    await waitFor(() => expect(api.catalog).toHaveBeenCalledTimes(2));
+
+    await act(async () => pending[1]({
+      ...catalog,
+      products: [latestProduct],
+      offset: 0,
+      total: 1,
+    }));
+    expect(await screen.findByText("Newest filter result")).toBeTruthy();
+
+    await act(async () => pending[0](catalog));
+    expect(screen.getByText("Newest filter result")).toBeTruthy();
+    expect(screen.queryByText(catalog.products[0].model)).toBeNull();
+  });
+
+  it("renders zero-result catalog arithmetic without an impossible range", async () => {
+    vi.mocked(api.catalog).mockResolvedValue({
+      ...catalog,
+      products: [],
+      total: 0,
+    });
+    renderPage();
+
+    await waitFor(() => expect(
+      document.querySelector(".shop-results-heading")?.textContent,
+    ).toContain("0 products"));
+    expect(document.querySelector(".shop-results-heading")?.textContent)
+      .not.toContain("1-0");
   });
 
   it("reserves the product grid while the initial catalog request is pending", async () => {
@@ -1146,6 +1229,7 @@ describe("CatalogPage", () => {
           model: product.model,
         })),
       },
+      { signal: expect.any(AbortSignal) },
     );
 
     // The follow-up appends to the conversation. It used to overwrite the single
@@ -1269,6 +1353,7 @@ describe("CatalogPage", () => {
       await new Promise<void>((resolve) => {
         release = resolve;
       });
+      onEvent({ type: "complete", response: agentResponse });
     });
 
     renderPage();
@@ -1289,10 +1374,127 @@ describe("CatalogPage", () => {
     ).toBeNull();
 
     await act(async () => release());
+    await within(dialog).findByText("Final recommendation");
     expect(document.querySelector(".ask-mosaic-answer.streaming")).toBeNull();
     expect(
       within(dialog).getByRole("button", { name: "Compare top two" }),
     ).toBeTruthy();
+  });
+
+  it("does not promote an interrupted answer stream to a final recommendation", async () => {
+    vi.mocked(api.agentStream).mockImplementation(
+      async (_question, _filters, onEvent) => {
+        onEvent({
+          type: "stage",
+          id: "answer",
+          path: "full_retrieval",
+          title: "Compose cited answer",
+          detail: "Preparing the citation-bounded answer of record.",
+        });
+        onEvent({
+          type: "answer_start",
+          response: { ...agentResponse, answer: "" },
+        });
+        onEvent({ type: "answer_delta", delta: "Choose the first product" });
+        throw new Error("Connection dropped before completion");
+      },
+    );
+
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    expect(
+      await within(dialog).findByText("Connection dropped before completion"),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("Needs attention")).toBeTruthy();
+    expect(within(dialog).queryByText("Final recommendation")).toBeNull();
+    expect(
+      within(dialog).queryByRole("button", { name: "Compare top two" }),
+    ).toBeNull();
+  });
+
+  it("stops auto-following when the reader scrolls back through evidence", async () => {
+    let emit: ((event: AgentStreamEvent) => void) | undefined;
+    let release = () => {};
+    vi.mocked(api.agentStream).mockImplementation(
+      async (_question, _filters, onEvent) => {
+        emit = onEvent;
+        onEvent({
+          type: "stage",
+          id: "retrieve",
+          path: "full_retrieval",
+          title: "Retrieve",
+          detail: "Searching the hybrid index.",
+        });
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      },
+    );
+
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    const thread = dialog.querySelector<HTMLElement>(".ask-mosaic-body")!;
+    Object.defineProperties(thread, {
+      clientHeight: { configurable: true, value: 300 },
+      scrollHeight: { configurable: true, value: 1200 },
+      scrollTop: { configurable: true, writable: true, value: 1200 },
+    });
+    thread.scrollTop = 120;
+    fireEvent.scroll(thread);
+    act(() => {
+      emit?.({
+        type: "stage",
+        id: "rank",
+        path: "full_retrieval",
+        title: "Rank",
+        detail: "Comparing the shortlist.",
+      });
+    });
+
+    await waitFor(
+      () => expect(
+        within(dialog).getByText("How they compare"),
+      ).toBeTruthy(),
+      { timeout: stageDwellMs * 3 + 2000 },
+    );
+    expect(thread.scrollTop).toBe(120);
+    release();
+  });
+
+  it("announces stage boundaries and final completion without announcing deltas", async () => {
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    expect(
+      await within(dialog).findByText("Ask Mosaic recommendation complete."),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getAllByRole("status")
+        .filter((status) => status.textContent?.includes("recommendation complete")),
+    ).toHaveLength(1);
   });
 
   it("asks a starter question verbatim", async () => {
@@ -1308,6 +1510,7 @@ describe("CatalogPage", () => {
         {},
         expect.any(Function),
         undefined,
+        { signal: expect.any(AbortSignal) },
       ),
     );
   });
@@ -1449,6 +1652,63 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear shortlist" }));
     expect(screen.queryByText("Ask Mosaic shortlist")).toBeNull();
     expect(screen.getByText(/of 200 products/)).toBeTruthy();
+  });
+
+  it("reopens a settled answer without replaying its presentation queue", async () => {
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    const opener = screen.getByRole("button", { name: "Ask Mosaic" });
+    fireEvent.click(opener);
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    await screen.findByText("Final recommendation");
+
+    fireEvent.click(
+      within(screen.getByRole("complementary", { name: "Ask Mosaic" }))
+        .getByRole("button", { name: "Close Ask Mosaic" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Reopen Ask Mosaic" }));
+
+    const reopened = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    expect(within(reopened).getByText("Final recommendation")).toBeTruthy();
+    expect(
+      [...within(reopened).getByLabelText("Evidence timeline")
+        .querySelectorAll(".ask-mosaic-stage-summary")]
+      .map((card) => card.getAttribute("aria-expanded")),
+    ).toEqual(["false", "false", "false", "true"]);
+  });
+
+  it("closes only the top cart drawer when Ask Mosaic is still open", async () => {
+    render(
+      <CommerceProvider>
+        <CatalogPage />
+        <CommerceDrawer />
+      </CommerceProvider>,
+    );
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+
+    const assist = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    await within(assist).findByText("Final recommendation");
+    fireEvent.click(
+      within(assist).getAllByRole("button", { name: /Add to bag/ })[0],
+    );
+    expect(await screen.findByRole("dialog", { name: /Your bag/ })).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: /Your bag/ })).toBeNull());
+    expect(
+      screen.getByRole("complementary", { name: "Ask Mosaic" }),
+    ).toBeTruthy();
   });
 
   it("uses modal semantics, inert background, focus trap, and focus restoration on overlays", async () => {
