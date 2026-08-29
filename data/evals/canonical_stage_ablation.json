@@ -1,26 +1,26 @@
 {
-  "ablation_methodology_sha256": "f37b5e1098de84d241d7b8fe6a002fe9c403b858aad6222e3f3371cac26d619b",
+  "ablation_methodology_sha256": "cbcd4a559308fc77bfc6e4988d2f750e3a1d26489ca1bc4510f777042f7f7038",
   "arms": {
     "rrf_fused_no_rerank": {
       "description": "The served fusion function (unweighted reciprocal rank fusion over FTS, trigram, and semantic candidates), with managed reranking disabled so the fused order is returned unchanged.",
       "label": "RRF fused, reranking off",
-      "mrr": 0.915,
-      "ndcg@10": 0.861688685103425,
+      "mrr": 0.8721428571428571,
+      "ndcg@10": 0.8318922284892756,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.09751658939953338,
-      "ndcg@10_query_wins": 15,
-      "ndcg@10_stdev": 0.2454131819848001,
+      "ndcg@10_query_wins": 14,
+      "ndcg@10_stdev": 0.2684748459746237,
       "recall@10": 0.8833333333333334
     },
     "rrf_fused_reranked": {
       "description": "The production path: the same fused pool as rrf_fused_no_rerank, reordered by managed reranking. Recomputed from data/evals/canonical_ranked_results.csv rather than re-served, so this measurement spends no reranker calls.",
       "label": "RRF fused + managed reranking (served path)",
       "mrr": 0.9266666666666667,
-      "ndcg@10": 0.8712289643247111,
+      "ndcg@10": 0.8740402307639645,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.2834654253028414,
-      "ndcg@10_query_wins": 16,
-      "ndcg@10_stdev": 0.2146969302952326,
+      "ndcg@10_query_wins": 17,
+      "ndcg@10_stdev": 0.2154548215036289,
       "recall@10": 0.8666666666666666
     },
     "semantic_only": {
@@ -51,7 +51,7 @@
     }
   },
   "k": 10,
-  "measured_at": "2026-08-28T19:12:32.960948+00:00",
+  "measured_at": "2026-08-29T18:06:05.438578+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -93,7 +93,7 @@
       },
       "pool_recall": 1.0,
       "query_id": "G-003",
-      "query_text": "Sonorra WHC720",
+      "query_text": "noice cancelng hedfones",
       "relevant_count": 1
     },
     {
@@ -142,7 +142,7 @@
       "missed_product_ids": [],
       "ndcg@10": {
         "rrf_fused_no_rerank": 0.9176601606601069,
-        "rrf_fused_reranked": 0.8996052605611106,
+        "rrf_fused_reranked": 0.95583058934618,
         "semantic_only": 0.7871546029909718
       },
       "pool_recall": 1.0,
@@ -234,7 +234,7 @@
       "found_in_pool": 2,
       "missed_product_ids": [],
       "ndcg@10": {
-        "rrf_fused_no_rerank": 0.95583058934618,
+        "rrf_fused_no_rerank": 0.35990145706319066,
         "rrf_fused_reranked": 1.0,
         "semantic_only": 0.0
       },
@@ -323,18 +323,18 @@
     }
   ],
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "fdfae7d6e79f1b1c6f1cd992e2fe608417d7213f6d69ab4a309af845434da17e",
-  "retrieval_fingerprint": "0dbd09c25f33c1b3d092ba575844ffb648e058e2f11c8db7a27bdfe197e1e71f",
+  "query_set_sha256": "d1ce67635a35559dc04dca229ab22771edfa199ce95be25a7b527a7b5d05468e",
+  "retrieval_fingerprint": "b3b1d2e6de60c47cfa0e63fc58c05faa0cfc354ef8cde09cfc75e3e38e88da17",
   "scored_query_count": 20,
-  "scored_query_set_sha256": "f532c85d8226c8f0d498b354ef4a5cfae9f8945cd37477f8b75c71a12d72ff9c",
+  "scored_query_set_sha256": "f9d840a4fb5fa58a5a3af798ef1a3eb3b34f6073997125e2d969f755bda3f36e",
   "served_scorecard_reference": {
-    "measured_at": "2026-08-28T19:10:51.633235+00:00",
+    "measured_at": "2026-08-29T18:05:06.801770+00:00",
     "path": "data/evals/canonical_scorecard.json",
-    "retrieval_fingerprint": "0dbd09c25f33c1b3d092ba575844ffb648e058e2f11c8db7a27bdfe197e1e71f",
-    "source_revision": "fa21f97bdde8ba9bbed26ad48d5e9307a64a839e"
+    "retrieval_fingerprint": "b3b1d2e6de60c47cfa0e63fc58c05faa0cfc354ef8cde09cfc75e3e38e88da17",
+    "source_revision": "2ae2e1a7a1b8020583610715ccccea95c4dcb6de"
   },
   "source": {
-    "revision": "f722a5c59737dbfad8d678cbeb56d4c51e498fd2",
+    "revision": "d1be6b3c38e09b1665e0797e0cc66ebe4b28b59a",
     "worktree_dirty": false
   },
   "spread_note": "20 queries and 74 judgments cannot separate small differences between arms. Read every mean alongside its own per-query minimum, maximum, and standard deviation, and treat a mean difference smaller than that spread as within noise rather than as a proven improvement."
