@@ -40,7 +40,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -466,6 +466,20 @@ simulate:
 # rows rather than re-running the scan per interaction.
 db-seed-exact-neighbors:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/seed_exact_neighbors.py --k 10
+
+# Builds mosaic_search.corpus_lexeme, the vocabulary query coverage reads to tell
+# a misspelling ("hedfones", close to a real term) from an absence ("A2342",
+# close to nothing). ts_stat scans every product document, so this is a seed step
+# rather than bootstrap work; its cost on the 500,000-product corpus is NOT yet
+# measured, which is why it is not wired into db-load-mosaic.
+#
+# Skipping it is safe: service.coverage reports `unavailable` against an empty
+# vocabulary and every surface behaves exactly as it did before coverage existed.
+# Nothing abstains on a deployment that has not run this.
+db-seed-corpus-lexeme: check-dsn
+	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+		-c "CALL mosaic_search.refresh_corpus_lexeme();" \
+		-c "SELECT count(*) AS corpus_lexemes FROM mosaic_search.corpus_lexeme;"
 
 # Which models this account may actually invoke. An ACTIVE inference profile is
 # not entitlement: a fresh Workshop Studio account answered "anthropic.claude-

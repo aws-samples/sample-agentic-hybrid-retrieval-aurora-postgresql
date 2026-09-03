@@ -13,6 +13,7 @@
 \ir 06_retrieval_projection.sql
 \ir 07_indexes.sql
 \ir 09_search_functions.sql
+\ir 20_query_coverage.sql
 \ir 10_agent_audit.sql
 \ir 12_telemetry.sql
 \ir 16_seed_tool_contracts.sql

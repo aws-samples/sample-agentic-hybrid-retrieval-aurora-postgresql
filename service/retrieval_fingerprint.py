@@ -126,7 +126,11 @@ REPO = Path(__file__).resolve().parents[1]
 # another count derived from the same glob (house standards rule 7's
 # independent-witness requirement).
 _EXPECTED_CATEGORY_COUNTS: dict[str, int] = {
-    "sql": 26,
+    # 27 since db/sql/20_query_coverage.sql. Adding it moves the retrieval
+    # fingerprint, so the committed scorecard reads unattributed until the next
+    # measured baseline. That is the correct reading: the served path now
+    # carries a query-coverage step.
+    "sql": 27,
     "config": 1,
     "service": 4,
     "scripts": 3,
