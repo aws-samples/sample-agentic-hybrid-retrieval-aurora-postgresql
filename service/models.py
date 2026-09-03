@@ -21,6 +21,7 @@ from pydantic import (
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.retrieval_profile import load_profile
+from service.coverage import QueryCoverage
 
 
 def _yaml_default(field: str) -> Callable[[], Any]:
@@ -351,6 +352,13 @@ class SearchResponse(BaseModel):
     applied_filters: dict[str, Any]
     results: list[ProductSummary]
     diagnostics: RetrievalDiagnostics | None = None
+    #: Whether the request named anything the catalog does not carry. `results`
+    #: is unaffected by this: coverage classifies, it never filters, so an
+    #: unanchored request still returns its closest products in their measured
+    #: order. What changes is how a surface may present them, and whether
+    #: synthesis may treat them as an answer of record. `None` on a database
+    #: without `mosaic_search.query_term_coverage` installed.
+    coverage: QueryCoverage | None = None
 
 
 class ProductMedia(BaseModel):

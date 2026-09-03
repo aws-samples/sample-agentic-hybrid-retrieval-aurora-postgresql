@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
+import psycopg
 import pytest
 
 from service import coverage
@@ -279,3 +280,55 @@ def test_default_coverage_is_grounded_and_serializable():
     payload = QueryCoverage(confidence="grounded").model_dump()
     assert payload["unmatched_terms"] == []
     assert payload["terms"] == []
+
+
+class _UnmigratedConnection:
+    """A cluster provisioned before db/sql/20_query_coverage.sql existed."""
+
+    def __init__(self, error: type[Exception]):
+        self._error = error
+
+    def execute(self, sql, params=None):
+        raise self._error("relation does not exist")
+
+
+@pytest.mark.parametrize(
+    "error",
+    [psycopg.errors.UndefinedTable, psycopg.errors.UndefinedFunction],
+    ids=["no-vocabulary-table", "no-coverage-function"],
+)
+def test_an_unmigrated_database_keeps_serving(fake_connect, error):
+    """Coverage is an enhancement to search, never a dependency of it.
+
+    Every existing Aurora cluster lacks the table and the function until
+    `make db-install` runs again. If that raised, coverage would take down
+    every search on every deployed workshop the moment this code shipped.
+    """
+    fake_connect(_UnmigratedConnection(error))
+    result = coverage.assess("replacement charging brick for model A2342")
+    assert result.confidence == "unavailable"
+    assert result.is_anchored is True
+    assert "db-install" in result.note
+
+
+def test_a_real_database_error_is_not_swallowed(fake_connect):
+    """Only the two migration errors degrade. A connection or syntax failure is
+    a genuine fault and must not be reported as `unavailable`, which would hide
+    a broken database behind a benign-looking label."""
+    fake_connect(_UnmigratedConnection(psycopg.errors.InsufficientPrivilege))
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        coverage.assess("anything")
+
+
+def test_assess_uses_an_injected_connection_factory():
+    """`RetrievalService` passes its own factory so coverage reaches the same
+    database the search did, rather than falling through to the shared pool."""
+    connection = _FakeConnection(ready=True, rows=[])
+    from contextlib import contextmanager
+
+    @contextmanager
+    def factory():
+        yield connection
+
+    coverage.assess("anything", connection_factory=factory)
+    assert any("query_term_coverage" in sql for sql in connection.executed)

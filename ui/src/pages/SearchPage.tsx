@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import { Link } from "wouter";
 import { api } from "../api";
+import { CoverageNotice } from "../components/CoverageNotice";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
 import { SearchComposer } from "../components/SearchComposer";
@@ -489,6 +490,8 @@ export function SearchPage() {
               {agent ? " after the agent gathered and compared catalog evidence." : "."}
             </p>
           </section>
+
+          <CoverageNotice coverage={search?.coverage} />
 
           <div className="search-filter-row">
             <span><SearchIcon size={15} /> Current request</span>

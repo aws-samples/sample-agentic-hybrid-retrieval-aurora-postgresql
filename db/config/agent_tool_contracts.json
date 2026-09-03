@@ -97,7 +97,8 @@
           "diagnostics": {"type": ["object", "null"]},
           "query": {"type": "string"},
           "normalized_query": {"type": ["string", "null"]},
-          "applied_filters": {"type": "object"}
+          "applied_filters": {"type": "object"},
+          "coverage": {"type": ["object", "null"]}
         }
       },
       "output_schema": {
@@ -110,7 +111,8 @@
           "diagnostics": {"type": ["object", "null"]},
           "query": {"type": "string"},
           "normalized_query": {"type": ["string", "null"]},
-          "applied_filters": {"type": "object"}
+          "applied_filters": {"type": "object"},
+          "coverage": {"type": ["object", "null"]}
         }
       }
     },

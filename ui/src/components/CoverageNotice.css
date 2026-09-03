@@ -1,0 +1,62 @@
+/* Scoped to this component rather than appended to styles.css or surfaces.css.
+   Those two are the house convention, but both carry uncommitted work; a
+   component-local sheet keeps this change separable. Tokens come from the
+   :root block in styles.css, so the palette stays shared. */
+
+.coverage-notice {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-dark);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  background: var(--gold-soft);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-body);
+  line-height: 1.5;
+}
+
+.coverage-notice__icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--gold);
+}
+
+.coverage-notice__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.coverage-notice__lead {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* The unmatched term is the whole point of the notice, so it reads as a value
+   rather than as prose. Monospace because it is a literal the shopper typed. */
+.coverage-notice__term {
+  padding: 1px 6px;
+  border: 1px solid var(--line-dark);
+  border-radius: 4px;
+  background: var(--paper-strong);
+  font-family: var(--mono);
+  font-size: var(--labs-detail);
+}
+
+.coverage-notice__detail {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+@media (width <= 640px) {
+  .coverage-notice {
+    padding: 12px;
+    font-size: var(--labs-detail);
+  }
+}

@@ -19,6 +19,7 @@ from uuid import UUID, uuid4
 import numpy as np
 
 from service.config import Settings, get_settings
+from service.coverage import assess as assess_coverage
 from service.db import connect
 from service.embeddings import EmbeddingProvider, get_embedding_provider
 from service.models import (
@@ -528,6 +529,12 @@ class RetrievalService:
                 total_latency_ms=total_latency_ms,
                 warnings=warnings,
             )
+        # Deliberately outside the connection block above. `service.db.connect`
+        # documents that no caller nests one checkout inside another, which is
+        # what keeps a bounded pool safe under a room of participants. Coverage
+        # needs no retrieval result -- it compares the request against the
+        # corpus vocabulary -- so a sequential second checkout is the cheap,
+        # safe placement.
         return SearchResponse(
             search_event_id=search_event_id,
             query=request.query,
@@ -535,6 +542,9 @@ class RetrievalService:
             applied_filters=filters,
             results=[self._result(row) for row in selected],
             diagnostics=diagnostics,
+            coverage=assess_coverage(
+                request.query, connection_factory=self.connection_factory
+            ),
         )
 
     def capture_plan(self, search_event_id: UUID) -> RetrievalPlanResponse:

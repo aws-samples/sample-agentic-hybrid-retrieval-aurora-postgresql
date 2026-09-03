@@ -99,12 +99,19 @@ class _Connection:
         self._pending: list[dict[str, Any]] = []
 
     def execute(self, sql: str, _params: Any = None) -> Self:
-        if "FROM mosaic_search.search_hybrid_rrf(" in sql:
-            self._pending = self.rows
+        # Reset on every statement. Leaving the previous result pending made any
+        # later fetch on this double return the fusion rows, so a caller that
+        # ran a different query got products back and appeared to succeed.
+        self._pending = (
+            self.rows if "FROM mosaic_search.search_hybrid_rrf(" in sql else []
+        )
         return self
 
     def fetchall(self) -> list[dict[str, Any]]:
         return self._pending
+
+    def fetchone(self) -> dict[str, Any] | None:
+        return self._pending[0] if self._pending else None
 
     def cursor(self) -> _Cursor:
         return self.cursor_instance

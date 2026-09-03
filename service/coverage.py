@@ -21,9 +21,11 @@ absence.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager
 from typing import Literal
 
+import psycopg
 from pydantic import BaseModel, Field
 
 from service.db import connect
@@ -127,37 +129,59 @@ def _unavailable(reason: str) -> QueryCoverage:
     return QueryCoverage(confidence="unavailable", note=reason)
 
 
-def assess(query: str, *, word_similarity_floor: float | None = None) -> QueryCoverage:
+def assess(
+    query: str,
+    *,
+    connection_factory: Callable[[], AbstractContextManager] | None = None,
+    word_similarity_floor: float | None = None,
+) -> QueryCoverage:
     """Classify one request against the catalog vocabulary.
 
     Args:
         query: The shopper's request, exactly as submitted.
+        connection_factory: Where to get a connection. Defaults to the shared
+            pool. `RetrievalService` passes its own injected factory so coverage
+            reaches the same database the search did, and so a test that
+            substitutes a connection does not fall through to the real pool.
+            The caller must not already hold a checkout from the same pool;
+            `service.db.connect` documents why nesting is unsafe.
         word_similarity_floor: Override the trigram floor separating a
             misspelling from an absence for word-shaped tokens. Defaults to the
             SQL function's own default, which is unmeasured and documented as
             such in `db/sql/20_query_coverage.sql`.
 
     Returns:
-        A `QueryCoverage`. Never raises for an unseeded vocabulary or a blank
-        request; both yield `unavailable` or `grounded` respectively, so a
-        caller can attach this to a response without a guard.
+        A `QueryCoverage`. Never raises for an unseeded vocabulary, an
+        uninstalled function, or a blank request, so a caller can attach this
+        to a response without a guard.
     """
     if not query or not query.strip():
         return QueryCoverage(confidence="grounded")
-    with connect() as connection:
-        if not _vocabulary_ready(connection):
-            return _unavailable(
-                "Corpus vocabulary is empty; run "
-                "CALL mosaic_search.refresh_corpus_lexeme() to enable coverage."
-            )
-        if word_similarity_floor is None:
-            rows = connection.execute(
-                "SELECT * FROM mosaic_search.query_term_coverage(%s)",
-                (query,),
-            ).fetchall()
-        else:
-            rows = connection.execute(
-                "SELECT * FROM mosaic_search.query_term_coverage(%s, %s)",
-                (query, word_similarity_floor),
-            ).fetchall()
+    factory = connection_factory or connect
+    try:
+        with factory() as connection:
+            if not _vocabulary_ready(connection):
+                return _unavailable(
+                    "Corpus vocabulary is empty; run "
+                    "CALL mosaic_search.refresh_corpus_lexeme() to enable coverage."
+                )
+            if word_similarity_floor is None:
+                rows = connection.execute(
+                    "SELECT * FROM mosaic_search.query_term_coverage(%s)",
+                    (query,),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT * FROM mosaic_search.query_term_coverage(%s, %s)",
+                    (query, word_similarity_floor),
+                ).fetchall()
+    except (psycopg.errors.UndefinedTable, psycopg.errors.UndefinedFunction):
+        # A cluster provisioned before db/sql/20_query_coverage.sql existed has
+        # neither the vocabulary table nor the function. Coverage is an
+        # enhancement to search, never a dependency of it: an unmigrated
+        # database must keep serving, not 500 on every request.
+        return _unavailable(
+            "Query coverage is not installed on this database; run "
+            "`make db-install` to add mosaic_search.query_term_coverage."
+        )
     return summarize([TermCoverage(**row) for row in rows])

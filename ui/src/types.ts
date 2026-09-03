@@ -191,6 +191,40 @@ export interface RetrievalDiagnostics {
   total_latency_ms: number;
 }
 
+/**
+ * One parsed request token and what the catalog holds for it.
+ *
+ * `verdict` separates a misspelling from an absence. Both match zero documents,
+ * so the distinction is whether anything close exists: `hedfones` is
+ * recoverable by the close-spelling arm, `A2342` is recoverable by nothing.
+ */
+export interface TermCoverage {
+  ordinal: number;
+  token: string;
+  token_kind: string;
+  lexeme: string | null;
+  ndoc: number;
+  closest_lexeme: string | null;
+  closest_similarity: number | null;
+  verdict: "matched" | "recoverable" | "unmatched_anchor" | "ignored";
+}
+
+/**
+ * Whether the request named anything the catalog does not carry.
+ *
+ * `unanchored` never means the results are wrong or absent; they are the same
+ * rows in the same measured order. It means they answer a narrower question
+ * than the shopper asked, so a surface must say so rather than present them as
+ * a match. `unavailable` is a database without the coverage function or its
+ * vocabulary, and must read exactly as it did before coverage existed.
+ */
+export interface QueryCoverage {
+  confidence: "grounded" | "unanchored" | "unavailable";
+  unmatched_terms: string[];
+  terms: TermCoverage[];
+  note: string;
+}
+
 export interface SearchResponse {
   search_event_id: string;
   query: string;
@@ -198,6 +232,7 @@ export interface SearchResponse {
   applied_filters: Record<string, unknown>;
   results: ProductSummary[];
   diagnostics: RetrievalDiagnostics | null;
+  coverage?: QueryCoverage | null;
 }
 
 /**
