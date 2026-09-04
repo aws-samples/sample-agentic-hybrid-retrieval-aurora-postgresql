@@ -363,6 +363,53 @@ for preflight_attempt in 1 2 3; do
 done
 test -n "$CLAUDE_PREFLIGHT_OK"
 
+# The Claude Code preflight above only proves the chat model is reachable.
+# Cohere Embed v4 and Cohere Rerank v3.5 (see .env below) are not otherwise
+# exercised until the acceptance search near the end of this script, roughly
+# 24 minutes after `make db-bootstrap-cached` starts. An account missing
+# either entitlement would burn that entire window - and the participant's
+# full 45-minute hands-on budget - before rolling back. Probe both here,
+# immediately after the chat-model preflight and before any of that work
+# begins, so a missing entitlement fails in seconds instead of in minutes.
+EMBED_CANARY_OK=''
+for canary_attempt in 1 2 3; do
+  if timeout 60 aws bedrock-runtime invoke-model --region "$AWS_REGION" \
+      --model-id us.cohere.embed-v4:0 --content-type application/json \
+      --accept application/json \
+      --body "$(printf '{"texts":["mosaic canary"],"input_type":"search_query","embedding_types":["float"]}' | base64)" \
+      /tmp/mosaic-embed-canary.json >/dev/null 2>&1; then
+    EMBED_CANARY_OK=1
+    break
+  fi
+  echo "Cohere Embed v4 canary attempt $canary_attempt failed; retrying in 30s"
+  sleep 30
+done
+if [ -z "$EMBED_CANARY_OK" ]; then
+  echo "Cohere Embed v4 (us.cohere.embed-v4:0) is not invocable in this account; enable the model or run scripts/check_model_access.py"
+fi
+test -n "$EMBED_CANARY_OK"
+
+RERANK_CANARY_OK=''
+for canary_attempt in 1 2 3; do
+  if timeout 60 aws bedrock-agent-runtime rerank --region "$AWS_REGION" \
+      --queries '[{"textQuery":{"text":"mosaic canary"},"type":"TEXT"}]' \
+      --sources '[
+        {"inlineDocumentSource":{"textDocument":{"text":"mosaic canary source one"},"type":"TEXT"},"type":"INLINE"},
+        {"inlineDocumentSource":{"textDocument":{"text":"mosaic canary source two"},"type":"TEXT"},"type":"INLINE"}
+      ]' \
+      --reranking-configuration "{\"type\":\"BEDROCK_RERANKING_MODEL\",\"bedrockRerankingConfiguration\":{\"modelConfiguration\":{\"modelArn\":\"arn:aws:bedrock:$AWS_REGION::foundation-model/cohere.rerank-v3-5:0\"}}}" \
+      >/tmp/mosaic-rerank-canary.json 2>&1; then
+    RERANK_CANARY_OK=1
+    break
+  fi
+  echo "Cohere Rerank v3.5 canary attempt $canary_attempt failed; retrying in 30s"
+  sleep 30
+done
+if [ -z "$RERANK_CANARY_OK" ]; then
+  echo "Cohere Rerank v3.5 (cohere.rerank-v3-5:0) is not invocable in this account; enable the model or run scripts/check_model_access.py"
+fi
+test -n "$RERANK_CANARY_OK"
+
 rm -rf "$REPO"
 sudo -u "$CODE_EDITOR_USER" -H git init "$REPO"
 sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" remote add origin "$REPO_URL"
@@ -933,7 +980,26 @@ printf '  timings             see build/bootstrap-timings.tsv\n'
 printf '=== every acceptance check passed; signalling CloudFormation ===\n\n'
 
 trap - ERR
-curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
-  --data-binary '{"Status":"SUCCESS","Reason":"Mosaic bootstrap complete","UniqueId":"userdata","Data":"ready"}' \
-  "$BOOTSTRAP_WAIT_HANDLE"
+# Every acceptance check above already passed, so a failure from here on is
+# the PUT itself, not the deploy: this is the one CloudFormation is waiting
+# on to mark the stack CREATE_COMPLETE. A single transient failure here used
+# to exit non-zero straight into the UserData wrapper's ERR trap, which
+# signals FAILURE and rolls back an otherwise green deploy. Retry the PUT
+# on its own before letting that happen; only the wrapper's already-retried
+# FAILURE path should run, and only if the endpoint stays unreachable.
+SUCCESS_SIGNAL_OK=''
+for success_attempt in 1 2 3 4 5; do
+  if curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
+      --data-binary '{"Status":"SUCCESS","Reason":"Mosaic bootstrap complete","UniqueId":"userdata","Data":"ready"}' \
+      "$BOOTSTRAP_WAIT_HANDLE"; then
+    SUCCESS_SIGNAL_OK=1
+    break
+  fi
+  echo "SUCCESS signal attempt $success_attempt failed; retrying in 10s"
+  sleep 10
+done
+if [ -z "$SUCCESS_SIGNAL_OK" ]; then
+  echo "SUCCESS signal failed after 5 attempts; falling through to the UserData wrapper's FAILURE retry path"
+  exit 1
+fi
 printf 'MOSAIC_BOOTSTRAP_COMPLETE\n'
