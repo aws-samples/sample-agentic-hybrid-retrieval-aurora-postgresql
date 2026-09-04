@@ -166,7 +166,12 @@ export interface CatalogSuggestionsResponse {
 export interface RetrievalDiagnostics {
   strategy: string;
   embedding_model_id: string;
-  embedding_dimensions: number;
+  /**
+   * Null on a run served from its receipt: `mosaic.search_event` does not store
+   * the embedding width, and reporting the running service's configured width
+   * would describe today's settings as the run's.
+   */
+  embedding_dimensions: number | null;
   rerank_model_id: string | null;
   rerank_status: "applied" | "disabled" | "unavailable";
   ranking_policy?: string[];

@@ -322,6 +322,23 @@ function plural(count: number, noun: string): string {
 }
 
 /**
+ * The vector width suffix on the meaning-match column, in three states.
+ *
+ * A response with no diagnostics says nothing about the mechanism, so the
+ * suffix is empty. A response served from its receipt has diagnostics but no
+ * width -- `mosaic.search_event` never stored one -- and says so, because a
+ * silent gap here is indistinguishable from a column that simply never printed
+ * a width.
+ */
+function semanticWidth(response: SearchResponse): string {
+  const diagnostics = response.diagnostics;
+  if (!diagnostics) return "";
+  return diagnostics.embedding_dimensions === null
+    ? " · width not recorded"
+    : ` · ${diagnostics.embedding_dimensions}d`;
+}
+
+/**
  * Build the matrix.
  *
  * Args:
@@ -421,9 +438,10 @@ export function buildRetrievalMatrix(
     {
       key: "semantic",
       label: armLanguage[2].label,
-      mechanism: `pgvector HNSW cosine${
-        response.diagnostics ? ` · ${response.diagnostics.embedding_dimensions}d` : ""
-      }`,
+      // A run served from its receipt carries no embedding width, because none
+      // was persisted. The suffix says that rather than interpolating the null,
+      // which printed "nulld" where a measured run prints "1024d".
+      mechanism: `pgvector HNSW cosine${semanticWidth(response)}`,
       measure: `${found("semantic")} of ${total}`,
       measureDetail: "rows found",
       sql: COLUMN_SQL.semantic,

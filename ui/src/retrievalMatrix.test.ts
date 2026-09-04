@@ -268,6 +268,23 @@ describe("column measures", () => {
     expect(matrix.columns[3].mechanism).toContain(`k = ${profile.rrf_k}`);
   });
 
+  it("says the embedding width was not recorded rather than printing it as null", () => {
+    // A replayed run has no width to report: `mosaic.search_event` never stored
+    // one, so the response carries null. Interpolated straight into the suffix
+    // that prints "1024d", it read "nulld" under the meaning-match column.
+    const replayed = response([
+      product(1, {}, signals({ semantic: { rank: 1, raw_score: 0.9, rrf_contribution: 0.0164 } })),
+    ]);
+    replayed.diagnostics!.embedding_dimensions = null;
+
+    const matrix = buildRetrievalMatrix(replayed);
+
+    expect(matrix.columns[2].mechanism).toBe(
+      "pgvector HNSW cosine · width not recorded",
+    );
+    expect(matrix.columns[2].mechanism).not.toContain("null");
+  });
+
   it("says so when the reranker never ran, instead of implying it did", () => {
     const matrix = buildRetrievalMatrix(
       response([product(1, {}, signals({ semantic: { rank: 1, raw_score: 0.9, rrf_contribution: 0.0164 } }))]),

@@ -17,7 +17,6 @@ import type {
   ProductSummary,
   ReadinessResponse,
   RetrievalDiagnostics,
-  RetrievalRunResponse,
   RetrievalScorecardResponse,
   SearchResponse,
   ToolContract,
@@ -110,6 +109,9 @@ vi.mock("../api", () => ({
     evidence: vi.fn(),
     toolContracts: vi.fn(),
     retrievalEvent: vi.fn(),
+    // The arrival path reads the carried Shop run back as the response it
+    // served, which is what fills stages 01 and 02 with its rows.
+    retrievalEventResponse: vi.fn(),
     retrievalPlan: vi.fn(),
     // Stage 04 (Prove) loads the scorecard on mount. Its own tests live in
     // RetrievalScorecard.test.tsx; a resolved default here just keeps every
@@ -133,6 +135,10 @@ vi.mock("../components/RetrievalObservatory", () => ({
     <section aria-label="Retrieval Observatory">
       <p>observatory scenario: {example?.id}</p>
       <p>observatory run: {response ? response.search_event_id : "none"}</p>
+      <p>
+        observatory rows:{" "}
+        {response ? response.results.map((product) => product.title).join(" | ") : "none"}
+      </p>
       <p>observatory loading: {String(loading)}</p>
     </section>
   ),
@@ -418,41 +424,59 @@ const allArmsHealthyResponse: SearchResponse = {
 /** The event id Shop persisted for the run a participant is looking at. */
 const SHOP_EVENT_ID = "9614ed9b-4ceb-4aad-9276-4e69af2231b9";
 
-/** What `GET /api/retrieval/events/{id}` replays for that run. */
-const shopEvent: RetrievalRunResponse = {
-  run: {
-    search_event_id: SHOP_EVENT_ID,
-    occurred_at: "2026-08-23T21:09:45.604925Z",
-    session_id: null,
-    query_text: "noice cancelng hedfones",
-    normalized_query: "noice cancelng hedfones",
-    filters: {},
-    retrieval_profile: {},
-    source_revision: null,
-    embedding_model_id: "us.cohere.embed-v4:0",
-    rerank_model_id: "cohere.rerank-v3-5:0",
-    retrieval_strategy: "rrf_fusion+rerank+exact_sku_preservation",
-    database_version: "18.3",
-    vector_extension_version: "0.8.1",
-    aurora_instance_class: null,
-    hnsw_settings: {},
-    candidate_counts: { fused_pool: 50, fts_in_pool: 1, trigram_in_pool: 0, semantic_in_pool: 49 },
-    total_latency_ms: 785,
-    diagnostics: {},
-  },
-  candidates: [
-    {
-      product_id: 2,
-      result_rank: 1,
-      fts_rank: 1,
-      trigram_rank: null,
-      semantic_rank: null,
-      fused_rank: 1,
-      rerank_rank: 1,
-      scores: {},
-      provenance: {},
-    },
+/**
+ * What `GET /api/retrieval/events/{id}/response` serves for that run: the rows
+ * Shop was shown, in the order it showed them, rebuilt from the receipt.
+ *
+ * `embedding_dimensions` is null and `coverage` is absent because neither is
+ * persisted, so a replay has nothing to report for them.
+ */
+const shopResponse: SearchResponse = {
+  search_event_id: SHOP_EVENT_ID,
+  query: "noice cancelng hedfones",
+  normalized_query: "noice cancelng hedfones",
+  applied_filters: {},
+  results: [
+    productWithSignals(2, {
+      fts: { rank: 1, raw_score: 1, rrf_contribution: 0.01639 },
+      trigram: { rank: null, raw_score: null, rrf_contribution: null },
+      semantic: { rank: null, raw_score: null, rrf_contribution: null },
+      rrf_score: 0.01639,
+      pre_rerank_rank: 7,
+      pre_rerank_score: 0.01639,
+      rerank_score: 0.41,
+      final_rank: 1,
+      score_semantics: "rank_fusion_then_bounded_rerank",
+    }),
+    productWithSignals(3, {
+      fts: { rank: null, raw_score: null, rrf_contribution: null },
+      trigram: { rank: null, raw_score: null, rrf_contribution: null },
+      semantic: { rank: 2, raw_score: 0.71, rrf_contribution: 0.01587 },
+      rrf_score: 0.01587,
+      pre_rerank_rank: 9,
+      pre_rerank_score: 0.01587,
+      rerank_score: 0.38,
+      final_rank: 2,
+      score_semantics: "rank_fusion_then_bounded_rerank",
+    }),
   ],
+  diagnostics: {
+    strategy: "rrf_fusion+rerank+exact_sku_preservation",
+    embedding_model_id: "us.cohere.embed-v4:0",
+    embedding_dimensions: null,
+    rerank_model_id: "cohere.rerank-v3-5:0",
+    rerank_status: "applied",
+    retrieval_profile: {} as RetrievalDiagnostics["retrieval_profile"],
+    candidate_counts: {
+      fused_pool: 50,
+      fts_in_pool: 1,
+      trigram_in_pool: 0,
+      semantic_in_pool: 49,
+    },
+    stage_timings_ms: {},
+    total_latency_ms: 785,
+  },
+  coverage: null,
 };
 
 describe("RetrievalLabPage", () => {
@@ -463,6 +487,7 @@ describe("RetrievalLabPage", () => {
     vi.mocked(api.readiness).mockReset();
     vi.mocked(api.readiness).mockRejectedValue(new Error("readiness unavailable"));
     vi.mocked(api.retrievalEvent).mockReset();
+    vi.mocked(api.retrievalEventResponse).mockReset();
     vi.mocked(api.scorecard).mockReset();
     vi.mocked(api.scorecard).mockResolvedValue(minimalScorecard);
     // Stage 04's Package finale loads on mount too, same as the scorecard.
@@ -966,7 +991,7 @@ describe("RetrievalLabPage", () => {
     // Re-running the query minted a second event, so the run behind the results
     // the shopper was looking at became unreachable the moment they followed the
     // link. Nothing downstream could then compare against what Shop served.
-    vi.mocked(api.retrievalEvent).mockResolvedValue(shopEvent);
+    vi.mocked(api.retrievalEventResponse).mockResolvedValue(shopResponse);
     window.history.replaceState(
       {},
       "",
@@ -975,7 +1000,7 @@ describe("RetrievalLabPage", () => {
     render(<RetrievalLabPage />);
 
     await waitFor(() => {
-      expect(api.retrievalEvent).toHaveBeenCalledWith(SHOP_EVENT_ID);
+      expect(api.retrievalEventResponse).toHaveBeenCalledWith(SHOP_EVENT_ID);
     });
     expect(api.search).not.toHaveBeenCalled();
     expect(screen.getByText("This is the exact run from Shop")).toBeTruthy();
@@ -985,13 +1010,51 @@ describe("RetrievalLabPage", () => {
       .toContain(SHOP_EVENT_ID.slice(0, 8));
   });
 
+  it("fills the stages with the rows Shop served, in the order it served them", async () => {
+    // The stages sat dormant behind the banner: the surface said "this is the
+    // exact run from Shop" over an empty Retrieve stage, so the participant had
+    // to press Run to see anything -- which mints the second event the hand-off
+    // exists to avoid.
+    vi.mocked(api.retrievalEventResponse).mockResolvedValue(shopResponse);
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />);
+
+    // Stage 02 receives the served rows, titles and order intact.
+    expect(await screen.findByText(`observatory run: ${SHOP_EVENT_ID}`)).toBeTruthy();
+    expect(
+      screen.getByText("observatory rows: Mosaic Sonora WH-C720 | Mosaic Northstar Space Q45"),
+    ).toBeTruthy();
+    // Stage 01 reports the pool the receipt recorded, not a fresh one.
+    const figures = screen.getByLabelText("Retrieval figures");
+    expect(
+      within(figures).getByText("Candidate pool").closest(".labs-figure")?.textContent,
+    ).toContain("50");
+    expect(
+      within(figures).getByText("Rows returned").closest(".labs-figure")?.textContent,
+    ).toContain("2");
+    // And Stage 02's receipt reports the run's own latency, which only a
+    // persisted run can supply here.
+    expect(
+      screen.getByLabelText("End-to-end retrieval receipt").textContent,
+    ).toContain("785 ms");
+    expect(screen.queryByText(/Run the pipeline to fill each step/)).toBeNull();
+    expect(api.search).not.toHaveBeenCalled();
+    // The receipt route is the arrival's only read now: the run replay carries
+    // no product rows, so calling it here would be a second request for less.
+    expect(api.retrievalEvent).not.toHaveBeenCalled();
+  });
+
   it("still delivers the carried run when React mounts the page twice", async () => {
     // `main.tsx` wraps the app in StrictMode, so a development mount runs
     // setup, cleanup, setup. The arrival effect guarded its own resolution with
     // a closure flag that the first cleanup flipped, while the ref that stops a
     // second fetch made the second setup return early: the carried run then
     // landed nowhere, and nothing replayed the query either.
-    vi.mocked(api.retrievalEvent).mockResolvedValue(shopEvent);
+    vi.mocked(api.retrievalEventResponse).mockResolvedValue(shopResponse);
     window.history.replaceState(
       {},
       "",
@@ -1003,12 +1066,12 @@ describe("RetrievalLabPage", () => {
     expect(screen.getByText("This is the exact run from Shop")).toBeTruthy();
     // Still exactly one read, and still no replay: the double mount must not
     // spend a second request either.
-    expect(vi.mocked(api.retrievalEvent)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(api.retrievalEventResponse)).toHaveBeenCalledTimes(1);
     expect(api.search).not.toHaveBeenCalled();
   });
 
   it("pins the carried-over run as the baseline the repair panel compares from", async () => {
-    vi.mocked(api.retrievalEvent).mockResolvedValue(shopEvent);
+    vi.mocked(api.retrievalEventResponse).mockResolvedValue(shopResponse);
     window.history.replaceState(
       {},
       "",
@@ -1024,7 +1087,7 @@ describe("RetrievalLabPage", () => {
     // The pinned id was the Shop run while the measures came from the first
     // Playground run, so the run summary, the repair panel, and the run
     // comparison named two different "before" runs on one screen.
-    vi.mocked(api.retrievalEvent).mockResolvedValue(shopEvent);
+    vi.mocked(api.retrievalEventResponse).mockResolvedValue(shopResponse);
     vi.mocked(api.search).mockResolvedValue(latestComparisonResponse);
     window.history.replaceState(
       {},
@@ -1037,17 +1100,25 @@ describe("RetrievalLabPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
 
     expect(await screen.findByText("repair latest: latest-retrieval-run")).toBeTruthy();
-    // Still the Shop run, and no second before-anchor beside it: the replay
-    // endpoint returns no product rows, so there is nothing to measure the
-    // carried run with.
+    // Still the Shop run, and now measurable: the carried arrival pinned the
+    // response it served, so "before" is that run rather than the first
+    // Playground run standing in for it.
     expect(screen.getByText(`repair baseline: ${SHOP_EVENT_ID}`)).toBeTruthy();
-    expect(screen.queryByText("Baseline and latest run")).toBeNull();
+    expect(screen.getByText("Baseline and latest run")).toBeTruthy();
+    const before = screen.getByLabelText("Baseline metrics").textContent;
+    const after = screen.getByLabelText("Latest run metrics").textContent;
+    // The Shop run's own numbers: rank 7 in the fused pool, no close-spelling
+    // candidates. The Playground run that followed reports its own.
+    expect(before).toContain("#7");
+    expect(before).toContain("0");
+    expect(after).toContain("#1");
+    expect(after).toContain("4");
   });
 
   it("names the fault when the Shop run could not be read for another reason", async () => {
     // A 503 reported as "could not be found" sends the participant looking for a
     // missing run rather than at an API that is not answering.
-    vi.mocked(api.retrievalEvent).mockRejectedValue(
+    vi.mocked(api.retrievalEventResponse).mockRejectedValue(
       new ApiError(503, "Service unavailable"),
     );
     window.history.replaceState(
@@ -1065,7 +1136,7 @@ describe("RetrievalLabPage", () => {
   });
 
   it("runs the query again, and says so, when the Shop run cannot be read back", async () => {
-    vi.mocked(api.retrievalEvent).mockRejectedValue(
+    vi.mocked(api.retrievalEventResponse).mockRejectedValue(
       new ApiError(404, "Search event not found"),
     );
     window.history.replaceState(
@@ -1098,7 +1169,7 @@ describe("RetrievalLabPage", () => {
         { limit: 12, rerank: true },
       );
     });
-    expect(api.retrievalEvent).not.toHaveBeenCalled();
+    expect(api.retrievalEventResponse).not.toHaveBeenCalled();
     expect(screen.getByText("Carried over from Shop")).toBeTruthy();
   });
 

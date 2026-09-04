@@ -120,10 +120,11 @@ function arrivalFailureMessage(cause: unknown): string {
  *
  * One value, not two, because the id and the response are the same claim: a
  * pinned id whose measurements came from a different run is how "First run"
- * and "Baseline" ended up naming two different events on one screen. A carried
- * arrival pins an id with no response -- `GET /api/retrieval/events/{id}`
- * replays ranks and scores, not product rows -- so anything that needs the
- * response checks for it rather than assuming a pin implies one.
+ * and "Baseline" ended up naming two different events on one screen.
+ *
+ * The response stays nullable because "Pin as baseline" hands over whatever
+ * run is on screen, and the compiler cannot see that an id on screen implies a
+ * response behind it. Anything that measures the baseline checks for one.
  */
 interface PinnedBaseline {
   searchEventId: string;
@@ -345,13 +346,14 @@ export function RetrievalLabPage() {
   /**
    * Take delivery of the forwarded request on arrival, once.
    *
-   * A link that carried the run's own id is read back from
-   * `mosaic.search_event` and pinned; nothing is re-run, because re-running is
-   * what loses the run. A link that carried only the query is replayed, which is
-   * all it can support: landing on an empty Retrieve stage would make the
-   * hand-off read as three separate demonstrations rather than one request
-   * travelling through the product. `ranForwarded` gates both so editing the
-   * query and re-rendering does not re-fire them.
+   * A link that carried the run's own id is read back out of
+   * `mosaic.search_event` as the response it served, then shown and pinned;
+   * nothing is re-run, because re-running is what loses the run. A link that
+   * carried only the query is replayed, which is all it can support: landing on
+   * an empty Retrieve stage would make the hand-off read as three separate
+   * demonstrations rather than one request travelling through the product.
+   * `ranForwarded` gates both so editing the query and re-rendering does not
+   * re-fire them.
    *
    * The resolution is version-guarded, the way `run()` guards its own, rather
    * than cancelled by a cleanup closure. `main.tsx` mounts the app inside
@@ -370,15 +372,23 @@ export function RetrievalLabPage() {
     }
     const version = requestVersion.current;
     void api
-      .retrievalEvent(forwardedEvent)
-      .then((event) => {
+      .retrievalEventResponse(forwardedEvent)
+      .then((served) => {
         if (version !== requestVersion.current) return;
-        setCarriedRunId(event.run.search_event_id);
-        // Only the id: the replay endpoint returns ranks and scores, not the
-        // product rows a `SearchResponse` carries, so there is no response to
-        // pin with it. The follow-up task that reconstructs the served run sets
-        // `response` and the baseline's response together, here.
-        setBaseline({ searchEventId: event.run.search_event_id, response: null });
+        // The state a live run sets, from the run Shop already served: stages
+        // 01 and 02 render its rows instead of sitting dormant under a banner
+        // announcing a run nothing on screen shows.
+        setResponse(served);
+        // The query the served run ran, which decides whether the selected
+        // scenario's assertions apply to what is on screen. The same rule
+        // `run()` follows, and it matters here: the hand-off a participant is
+        // taught to make carries the scenario's own query.
+        setExecutedQuery(served.query);
+        setCarriedRunId(served.search_event_id);
+        // Pinned with its response, so the comparison below has a measurable
+        // "before" that is the Shop run rather than the first Playground run
+        // standing in for it.
+        setBaseline({ searchEventId: served.search_event_id, response: served });
       })
       .catch((cause) => {
         if (version !== requestVersion.current) return;
@@ -400,9 +410,9 @@ export function RetrievalLabPage() {
    * Whether there are two measurable runs to put side by side.
    *
    * The pinned baseline is the only "before" this surface has, so the
-   * comparison waits for a baseline that came with its own response. A carried
-   * arrival pins an id alone, and reporting the first Playground run as the
-   * baseline there is exactly the disagreement this replaced.
+   * comparison waits for a baseline that came with its own response. After a
+   * carried arrival that is the Shop run itself; reporting the first Playground
+   * run as the baseline there is exactly the disagreement this replaced.
    */
   const comparableRuns = Boolean(
     baselineResponse

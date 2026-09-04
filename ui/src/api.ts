@@ -251,6 +251,23 @@ export const api = {
       `/api/retrieval/events/${encodeURIComponent(searchEventId)}`,
     ),
 
+  /**
+   * One persisted run, served in the shape `POST /api/search` returns.
+   *
+   * The sibling call above answers "what did the receipt record". This one
+   * answers "what did the participant see", which is what lets a run carried
+   * out of Shop fill the Playground's stages with the rows Shop served rather
+   * than the rows a second search would produce for the same words. Nothing is
+   * re-executed: no embedding, no fusion, no reranking.
+   *
+   * `coverage` is always absent and `diagnostics.embedding_dimensions` is
+   * always null, because neither is persisted. 404 when the event is unknown.
+   */
+  retrievalEventResponse: (searchEventId: string) =>
+    request<SearchResponse>(
+      `/api/retrieval/events/${encodeURIComponent(searchEventId)}/response`,
+    ),
+
   /** EXPLAIN ANALYZE over the run's own SQL path. A write: it persists the plan. */
   retrievalPlan: (searchEventId: string) =>
     request<RetrievalPlanResponse>(
