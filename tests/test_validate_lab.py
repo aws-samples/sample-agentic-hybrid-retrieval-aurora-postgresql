@@ -391,6 +391,47 @@ def test_lab_3_validator_rejects_a_resolved_but_unsupported_claim(monkeypatch):
         )
 
 
+def test_constraints_preserved_honours_brand_min_rating_and_availability():
+    required = {
+        "domain": "home_office",
+        "brand": "Sonora",
+        "min_rating": 4.0,
+        "availability": "in_stock",
+    }
+    assert validate_lab._constraints_preserved(
+        required,
+        {
+            "domain": "home_office",
+            "brand": "sonora",
+            "min_rating": 4.5,
+            "availability": "in_stock",
+        },
+    )
+    assert not validate_lab._constraints_preserved(
+        required,
+        {
+            "domain": "home_office",
+            "brand": "Other",
+            "min_rating": 4.5,
+            "availability": "in_stock",
+        },
+    )
+    assert not validate_lab._constraints_preserved(
+        required,
+        {
+            "domain": "home_office",
+            "brand": "Sonora",
+            "min_rating": 3.0,
+            "availability": "in_stock",
+        },
+    )
+
+
+def test_constraints_preserved_accepts_a_narrowed_price_ceiling_by_declaration():
+    required = {"max_price_cents": 80000}
+    assert validate_lab._constraints_preserved(required, {"max_price_cents": 50000})
+
+
 def test_lab_3_validator_rejects_dropped_jsonb_constraints(monkeypatch):
     monkeypatch.setattr(validate_lab, "_request", _fake_request)
     mission = _mission()

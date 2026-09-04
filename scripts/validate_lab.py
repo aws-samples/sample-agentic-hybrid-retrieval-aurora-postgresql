@@ -233,8 +233,8 @@ def _successful_steps(agent: dict[str, Any], tool: str) -> list[dict[str, Any]]:
 
 
 def _constraints_preserved(
-    applied: dict[str, Any],
     required: dict[str, Any],
+    applied: dict[str, Any],
 ) -> bool:
     if required.get("domain") and applied.get("domain") != required["domain"]:
         return False
@@ -253,6 +253,19 @@ def _constraints_preserved(
     ):
         return False
     if required.get("in_stock_only") and applied.get("in_stock_only") is not True:
+        return False
+    if required.get("brand") and (
+        str(applied.get("brand") or "").casefold() != str(required["brand"]).casefold()
+    ):
+        return False
+    if required.get("min_rating") is not None and (
+        applied.get("min_rating") is None
+        or applied["min_rating"] < required["min_rating"]
+    ):
+        return False
+    if required.get("availability") and (
+        applied.get("availability") != required["availability"]
+    ):
         return False
     return all(
         (applied.get("attributes") or {}).get(key) == value
@@ -315,7 +328,7 @@ def validate_agent_response(
     for step in searches:
         applied = (step.get("arguments") or {}).get("applied_filters") or {}
         _require(
-            _constraints_preserved(applied, required_filters),
+            _constraints_preserved(required_filters, applied),
             "Lab 3 retrieval trace does not preserve structured constraints",
         )
 

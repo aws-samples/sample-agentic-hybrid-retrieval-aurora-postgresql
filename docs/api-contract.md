@@ -26,6 +26,9 @@ The response contains:
 - source-attributed products;
 - separate lexical, trigram, semantic, RRF, and rerank signals, including the
   model's rerank rank and any exact-SKU preservation applied to final order;
+- `coverage`, the `service.coverage` result: per-term catalog presence and the
+  rescue decision behind it, so a request naming something absent from the
+  catalog is labelled rather than silently answered as if it were grounded;
 - candidate counts, the configured retrieval profile, model IDs, stage timings,
   and total latency.
 
@@ -194,12 +197,17 @@ page labels them differently because they are different kinds of claim.
   Ground truth is keyed by dataset manifest sha256; a mismatch is HTTP 503 rather
   than a silent answer from another corpus.
 
-- `POST /api/hnsw/probe` runs one real ANN query and reports what the server did:
-  plan node, index name, server-side execution time, buffer counts, planner
-  estimate, rows returned against rows that exist, recall, and which product ids
-  were missed. Every HNSW setting is applied through
-  `mosaic_search.configure_hnsw` — the same function served retrieval calls — inside
-  one transaction with a `statement_timeout`. `filter_preset` is a key into
+- `POST /api/hnsw/probe` runs one real ANN query and reports what the server did.
+  It runs the statement twice inside one transaction: once to fetch the actual
+  rows, and once more wrapped in `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`
+  purely for telemetry. That second run never changes which rows come back; it
+  only describes how the first run produced them, and is reported under
+  `plan` in the response: plan node, index name, server-side execution time,
+  buffer counts, and planner estimate. Rows returned are compared against rows
+  that exist, recall is reported, and missed product ids are named. Every HNSW
+  setting is applied through `mosaic_search.configure_hnsw`, the same
+  function served retrieval calls, inside that same transaction, with a
+  `statement_timeout`. `filter_preset` is a key into
   `service.hnsw_presets.FILTER_PRESETS`, never a predicate, so no request value
   reaches the SQL. Recall is computed against the precomputed ground truth, which
   is what bounds this endpoint's cost at a filtered HNSW scan instead of a
@@ -224,13 +232,18 @@ page labels them differently because they are different kinds of claim.
   evidence-authorization, citation-resolution, and tool-contract guarantees, backed
   by real `service.assertions` names and the live tool-contract count).
 
-  `provenance.attributed` is the gate the UI renders on: true only when
-  `provenance.source_revision` equals `provenance.current_source_revision` **and**
-  the artifact's own `source_worktree_dirty` was `false` at measurement time. The
-  current server's own worktree cleanliness (`current_source_worktree_dirty`) is
-  reported for inspection but does not enter that decision. When `attributed` is
-  false, `provenance.attribution_note` starts with the exact string `Metrics
-  pending evaluation for this revision`.
+  `provenance.attributed` is the gate the UI renders on: true only when the
+  artifact's recorded `retrieval_fingerprint`, embedding and rerank model ids,
+  query-set hashes, methodology hash, and retrieval settings hash all match
+  what the running service reports right now, **and** the artifact's own
+  worktree was clean at measurement time. A plain revision-equality check can
+  never hold here: the artifact is written before it is committed, so
+  committing it always advances the repository one commit past what was
+  measured, and that check would read "pending" forever. That is why
+  `source_revision` is never part of the gate; it and the current server's own
+  worktree cleanliness (`current_source_worktree_dirty`) stay display and
+  audit evidence only. When `attributed` is false, `provenance.attribution_note`
+  starts with the exact string `Metrics pending evaluation for this retrieval revision`.
 
 ## Production additions
 

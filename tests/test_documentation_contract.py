@@ -60,3 +60,11 @@ def test_media_docs_close_the_completed_replacement_work():
     assert "four still outstanding" not in readme
     assert "OUTSTANDING" not in regeneration
     assert "All 13 wrong-subject images" in regeneration
+
+
+def test_api_contract_pins_the_scorecard_pending_prefix():
+    from service.scorecard import PENDING_TEXT
+
+    contract = (ROOT / "docs" / "api-contract.md").read_text(encoding="utf-8")
+    assert f"`{PENDING_TEXT}`" in contract
+    assert "source_revision` equals" not in contract
