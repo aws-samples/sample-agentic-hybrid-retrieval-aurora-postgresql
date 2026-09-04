@@ -39,6 +39,7 @@ from service.models import (
     RetrievalProfile,
     SearchResponse,
 )
+from service.scorecard import retrieval_scorecard
 
 INDEPENDENT_FILE = "service/catalog.py"
 AGENT_RUN_ID = UUID("5e0c2b9a-1f2d-4c3b-8a7e-0d1c2b3a4f56")
@@ -610,6 +611,13 @@ def test_the_proof_carries_live_identity_and_the_release_baseline(
     assert proof.identity.embedding_model_id
     assert proof.identity.dataset_manifest_sha256
     assert proof.release_baseline.measured_at < proof.finished_at
+    # One read of the committed artifact, not two: the baseline reference and
+    # the scorecard's own provenance name the same measurement, and a second
+    # read of the same file is a way for them to disagree.
+    assert (
+        proof.release_baseline.retrieval_fingerprint
+        == retrieval_scorecard().provenance.retrieval_fingerprint
+    )
     assert proof.duration_ms >= 0
 
 

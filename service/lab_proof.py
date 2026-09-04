@@ -65,10 +65,7 @@ from service.retrieval_fingerprint import (
     compute_retrieval_fingerprint,
     explain,
 )
-from service.scorecard import (
-    release_baseline_retrieval_fingerprint,
-    retrieval_scorecard,
-)
+from service.scorecard import retrieval_scorecard
 from service.telemetry import search_with_telemetry
 from service.telemetry_contract import AgentTurnRows, load_agent_turn_rows
 
@@ -308,7 +305,7 @@ def _release_baseline() -> ReleaseBaselineReference:
     provenance = retrieval_scorecard().provenance
     return ReleaseBaselineReference(
         measured_at=provenance.measured_at,
-        retrieval_fingerprint=release_baseline_retrieval_fingerprint(),
+        retrieval_fingerprint=provenance.retrieval_fingerprint,
         attributed=provenance.attributed,
     )
 
