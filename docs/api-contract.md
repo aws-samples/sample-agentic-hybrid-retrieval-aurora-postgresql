@@ -200,10 +200,13 @@ page labels them differently because they are different kinds of claim.
 - `POST /api/hnsw/probe` runs one real ANN query and reports what the server did.
   It runs the statement twice inside one transaction: once to fetch the actual
   rows, and once more wrapped in `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)`
-  purely for telemetry. That second run never changes which rows come back; it
-  only describes how the first run produced them, and is reported under
-  `plan` in the response: plan node, index name, server-side execution time,
-  buffer counts, and planner estimate. Rows returned are compared against rows
+  purely for telemetry. Rows and recall come from the first run; every timing
+  and buffer count comes from the second run, against a cache the first run
+  already warmed, so `plan` is not an annotation of the run that produced the
+  returned rows. Every probe response carries `plan.execution`, a sentence
+  labelling the EXPLAIN run as that second execution with warmed buffers, next
+  to the rest of `plan`: node, index name, server-side execution time, buffer
+  counts, and planner estimate. Rows returned are compared against rows
   that exist, recall is reported, and missed product ids are named. Every HNSW
   setting is applied through `mosaic_search.configure_hnsw`, the same
   function served retrieval calls, inside that same transaction, with a

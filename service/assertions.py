@@ -8,8 +8,8 @@ completely with every gate green.
 `fts_signal_present` exists because the lexical arm can fail completely:
 `search_fts` runs a strict AND query with a conjunctive backoff; it never
 OR-combines. Under the AND-only tsquery that shipped before the backoff
-existed, four of the six missions lost the lexical arm entirely, and no
-assertion named the lexical arm at all.
+existed, the missions that then declared `fts` lost the lexical arm entirely,
+and no assertion named the lexical arm at all.
 
 Every assertion carries a `falsifier`: the concrete condition under which it
 fails. The field is required rather than optional because an assertion whose

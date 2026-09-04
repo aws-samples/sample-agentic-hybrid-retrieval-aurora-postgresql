@@ -82,6 +82,17 @@ function and no `NOT` handling of any kind. `tests/test_sql_integration.py`
 this correction now states plainly rather than as an OR-combine that never
 existed.
 
+The `+1.0` named above (`db/sql/09_search_functions.sql:132`) does exist in the
+shipped code, but not as a "scoring bonus": it is a flat constant added to
+every row of the strict branch, and that branch `RETURN`s as soon as it has
+any rows, before the salient-terms backoff ever runs. A constant added to
+every row of a branch that returns alone never changes which row ranks first
+inside that branch, and it never competes against a second branch's scores
+because the second branch only runs when the first returned nothing. The
+paragraph above's claim that "the strict bonus does its job" is retired along
+with the rest of this correction; there is no bonus over a broader pool to do
+a job.
+
 ---
 
 ## LOSS-2 — per-token trigram pipeline
