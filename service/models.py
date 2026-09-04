@@ -334,7 +334,12 @@ class RetrievalProfile(BaseModel):
 class RetrievalDiagnostics(BaseModel):
     strategy: str
     embedding_model_id: str
-    embedding_dimensions: int
+    #: `None` only on a replayed run. `mosaic.search_event` records the embedding
+    #: model id but never the vector width, so the replay route reports the width
+    #: as unknown rather than reading the running service's configured value and
+    #: presenting today's settings as something the receipt witnessed. A live
+    #: search always fills it, which is why there is no default here.
+    embedding_dimensions: int | None
     rerank_model_id: str | None
     rerank_status: Literal["applied", "disabled", "unavailable"]
     ranking_policy: list[str] = Field(default_factory=list)

@@ -187,7 +187,9 @@ class RetrievalProfile(WireModel):
 class RetrievalDiagnostics(WireModel):
     strategy: str
     embedding_model_id: str
-    embedding_dimensions: int
+    # `None` on a replayed run: the receipt records the embedding model id but
+    # not the vector width. Tracks `service.models.RetrievalDiagnostics`.
+    embedding_dimensions: int | None
     rerank_model_id: str | None
     rerank_status: Literal["applied", "disabled", "unavailable"]
     ranking_policy: list[str] = Field(default_factory=list)

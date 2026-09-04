@@ -66,6 +66,7 @@ from service.models import (
     SearchResponse,
 )
 from service.retrieval import get_retrieval_service, signals_from_receipt
+from service.retrieval_replay import UnknownSearchEvent, replay_search_response
 from service.retrieval_scope import (
     SCOPE_DENIED_DETAIL,
     ScopeViolation,
@@ -655,6 +656,34 @@ def retrieval_event(search_event_id: UUID) -> RetrievalRunResponse:
         run=dict(event),
         candidates=[dict(row) for row in candidates],
     )
+
+
+@app.get(
+    "/api/retrieval/events/{search_event_id}/response",
+    response_model=SearchResponse,
+)
+def retrieval_event_response(search_event_id: UUID) -> SearchResponse:
+    """Serve one persisted retrieval as the response it originally returned.
+
+    The sibling route above answers "what did the receipt record"; this one
+    answers "what did the participant see", in the shape `POST /api/search`
+    returns. That is what lets a run carried out of Shop fill the retrieval lab's
+    stages with the rows Shop actually served instead of the rows a second search
+    would produce for the same words.
+
+    Nothing is re-executed: no embedding call, no fusion SQL, no reranker. The
+    served rows and their ranking signals come from
+    `mosaic.search_result_event`, and the products are hydrated by the catalog
+    loader the compare route already uses.
+
+    `coverage` is always absent, because term coverage is computed per request
+    and never persisted. Same scoping caveat as the route above: an event id is a
+    retrieval capability handle, not an identity boundary.
+    """
+    try:
+        return replay_search_response(search_event_id)
+    except UnknownSearchEvent as error:
+        raise HTTPException(404, str(error)) from error
 
 
 @app.post(

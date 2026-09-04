@@ -122,6 +122,7 @@ the route does not create an embedding, invoke reranking, or call a model.
 
 - `GET /api/retrieval/examples`
 - `GET /api/retrieval/events/{search_event_id}`
+- `GET /api/retrieval/events/{search_event_id}/response`
 - `POST /api/retrieval/events/{search_event_id}/plan`
 - `POST /api/retrieval/events/{search_event_id}/compare` requires two to five
   distinct `product_ids`, all granted by that retrieval's scope. A product the
@@ -139,6 +140,22 @@ fusion call after applying `mosaic_search.configure_hnsw`, then persists
 on-demand because `ANALYZE` executes the query. Benchmark projections remain
 labeled simulated; `scripts/benchmark_hnsw.py` persists measured Aurora runs to
 `mosaic_bench`.
+
+The `/response` route serves one persisted run in the `SearchResponse` shape
+`POST /api/search` returns, so a run carried between surfaces renders the rows
+that were actually served rather than the rows a second search would produce. It
+re-executes nothing: the served window and its per-arm ranks come from
+`mosaic.search_result_event` ordered by `result_rank`, the diagnostics come from
+`mosaic.search_event`, and the products are hydrated by the same catalog loader
+the compare route uses. No embedding, fusion, or reranking call is made. An
+unknown event id returns 404.
+
+What the receipt does not record is reported absent rather than filled in:
+`coverage` is always `null` because term coverage is computed per request and
+never persisted, and `diagnostics.embedding_dimensions` is `null` because the
+receipt records the embedding model id but not the vector width. A run that
+failed before its completion UPDATE returns `diagnostics: null` rather than a
+partially assembled object.
 
 The compare route is a projection over one retrieval's persisted receipt: it
 hydrates the requested products and their ranking signals from
