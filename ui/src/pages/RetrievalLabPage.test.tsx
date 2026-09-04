@@ -8,6 +8,9 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "../api";
@@ -168,6 +171,33 @@ vi.mock("../components/RepairEvidence", () => ({
     </section>
   ),
 }));
+
+/** The two elements the lab rail's beats scroll to. */
+const SCROLL_MARGIN_SELECTORS = [".labs-stage-copy h2", ".labs-repair h3"];
+
+// Resolved off this file rather than off the working directory, and not with
+// `new URL(..., import.meta.url)`: Vite rewrites that exact pattern into an
+// asset URL, which is not a path anything can read here.
+const SURFACES_CSS = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), "../surfaces.css"),
+  "utf8",
+).replaceAll(/\/\*[\s\S]*?\*\//g, "");
+
+/**
+ * Every declaration this stylesheet makes for one exact selector, whitespace
+ * collapsed. A source read rather than a computed style: jsdom parses no
+ * stylesheet this page imports, so `getComputedStyle` here would report the
+ * initial value whether or not the rule exists.
+ */
+function surfacesDeclarationsFor(selector: string): string {
+  const rule = /([^{}]+)\{([^{}]*)\}/g;
+  const blocks: string[] = [];
+  for (let match = rule.exec(SURFACES_CSS); match; match = rule.exec(SURFACES_CSS)) {
+    const selectors = match[1].split(",").map((one) => one.replaceAll(/\s+/g, " ").trim());
+    if (selectors.includes(selector)) blocks.push(match[2]);
+  }
+  return blocks.join(" ").replaceAll(/\s+/g, " ").trim();
+}
 
 const catalog = showcaseCatalogPage({}, 0, 120);
 
@@ -1264,6 +1294,32 @@ describe("RetrievalLabPage", () => {
     expect(screen.queryByText("Repair verified")).toBeNull();
   });
 
+  it("stops calling a Playground run the run Shop served", async () => {
+    // The hand-off flag survived the arrival, so the first press of Run pipeline
+    // minted a new event and the banner still said "Shop run loaded" over it,
+    // with a detail claiming these were the rows Shop was shown. They are not:
+    // this run happened here, seconds ago.
+    vi.mocked(api.retrievalEventResponse).mockResolvedValue(shopResponse);
+    vi.mocked(api.search).mockResolvedValue(
+      responseFor("playground-run-after-arrival", shopResponse.query, shopResponse.results),
+    );
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />);
+    expect(await screen.findByText("Shop run loaded")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+
+    expect(await screen.findByText("Live run complete")).toBeTruthy();
+    expect(screen.queryByText("Shop run loaded")).toBeNull();
+    expect(
+      screen.queryByText(/These rows are the run Shop served/),
+    ).toBeNull();
+  });
+
   it("judges the scenario when the carried run used the scenario's own gates", async () => {
     vi.mocked(api.retrievalEventResponse).mockResolvedValue({
       ...shopResponse,
@@ -1333,6 +1389,34 @@ describe("RetrievalLabPage", () => {
     expect(await within(rail).findByText("source: broken")).toBeTruthy();
     // The readiness read is rejected in this suite, so no row may claim a value.
     expect(within(strip).getAllByText("not checked").length).toBe(9);
+  });
+
+  it("holds every beat's target clear of the sticky chrome above it", () => {
+    // The rail is sticky under a sticky site header, so a browser that scrolls
+    // a beat's target to the top of the viewport parks it underneath both and
+    // the click reads as having gone nowhere. jsdom does no layout and computes
+    // no cascade, so what can be checked here is that the rule exists and that
+    // the elements the beats actually land on are the ones it selects.
+    const { container } = render(<RetrievalLabPage />);
+    const rail = screen.getByRole("navigation", { name: "Lab rail" });
+
+    for (const beat of ["Observe", "Prove"]) {
+      const href = within(rail).getByRole("link", { name: beat }).getAttribute("href")!;
+      // RepairEvidence is mocked in this file, so its heading is not here to
+      // check; `RepairEvidence.test.tsx` pins the id it carries.
+      expect(container.querySelector(href)!.matches(SCROLL_MARGIN_SELECTORS.join(","))).toBe(true);
+    }
+
+    for (const selector of SCROLL_MARGIN_SELECTORS) {
+      expect(surfacesDeclarationsFor(selector)).toContain(
+        "scroll-margin-top: calc( var(--topbar-height) + var(--labs-rail-height, 0px) + 18px );",
+      );
+    }
+    // The witness that the search above discriminates: a rule in the same file
+    // that must not carry the offset, and would report one if this were reading
+    // the whole stylesheet rather than the two blocks it names.
+    expect(surfacesDeclarationsFor(".labs-rail-lab")).not.toContain("scroll-margin-top");
+    expect(surfacesDeclarationsFor(".labs-rail-lab")).toContain("display: grid;");
   });
 
   it("moves the rail to the lab the deep link selected", () => {

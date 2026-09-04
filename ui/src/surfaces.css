@@ -5171,6 +5171,20 @@
   backdrop-filter: blur(12px);
 }
 
+/* Every target the rail's beats link to, held clear of the chrome above it.
+   Both the site header and the rail itself are sticky, so a browser that scrolls
+   an anchor to the top of the viewport parks it underneath them and the click
+   reads as having gone nowhere. `--labs-rail-height` is measured from the rail
+   by RetrievalLabPage, because the rail wraps at narrow widths and grows by
+   1.35x in projector mode; the 0px fallback is what applies before that first
+   measurement lands. */
+.labs-stage-copy h2,
+.labs-repair h3 {
+  scroll-margin-top: calc(
+    var(--topbar-height) + var(--labs-rail-height, 0px) + 18px
+  );
+}
+
 .labs-rail-lab {
   display: grid;
   gap: 2px;

@@ -241,6 +241,7 @@ export function RetrievalLabPage() {
   const [projector, setProjector] = useState(readProjectorPreference);
   const requestVersion = useRef(0);
   const ranForwarded = useRef(false);
+  const pageRef = useRef<HTMLDivElement>(null);
   const example = mosaicRetrievalExamples[selected];
   /**
    * Whether the run on screen answered the scenario's question.
@@ -260,11 +261,17 @@ export function RetrievalLabPage() {
   const outcome = useMemo(
     () => {
       if (!response) return null;
+      // "Shop run loaded" is a claim about *this* response, not about how the
+      // participant arrived. `carriedOver` outlives the arrival -- it is what
+      // keeps Shop's gates on the next run -- so reading it here labelled the
+      // first Playground run as the run Shop served, under a detail saying those
+      // were the rows Shop showed. Only the carried run itself is that run.
+      const isCarriedRun = response.search_event_id === carriedRunId;
       return ranTheScenario
         ? retrievalLabOutcome(example, response, readiness)
-        : liveRetrievalOutcome(response, carriedOver);
+        : liveRetrievalOutcome(response, isCarriedRun);
     },
-    [carriedOver, example, ranTheScenario, readiness, response],
+    [carriedRunId, example, ranTheScenario, readiness, response],
   );
   const baselineSearchEventId = baseline?.searchEventId ?? null;
   /** The response the pinned baseline came from, when the pin came with one. */
@@ -297,6 +304,39 @@ export function RetrievalLabPage() {
       active = false;
     };
   }, []);
+
+  /**
+   * How much chrome a beat link has to clear, measured rather than assumed.
+   *
+   * The rail's beats are in-page anchors and the rail is sticky under a sticky
+   * site header, so a browser that scrolls the heading to the viewport top puts
+   * it *under* both. `scroll-margin-top` on the headings fixes that, but only if
+   * it knows how tall the rail is, and the rail is not one height: it wraps at
+   * narrow widths and every line of it grows by 1.35x in projector mode. A fixed
+   * value would either overshoot in the ordinary case or leave the heading
+   * covered in the projected one, so this measures the element itself and
+   * publishes it as `--labs-rail-height` for the CSS to add.
+   */
+  useEffect(() => {
+    const page = pageRef.current;
+    const rail = page?.querySelector<HTMLElement>(".labs-rail");
+    if (!page || !rail) return;
+    const measure = () => {
+      page.style.setProperty("--labs-rail-height", `${rail.offsetHeight}px`);
+    };
+    measure();
+    try {
+      const observer = new ResizeObserver(measure);
+      observer.observe(rail);
+      return () => observer.disconnect();
+    } catch {
+      // No ResizeObserver (jsdom, and browsers older than this workshop
+      // supports). The measurement above still ran, and this effect re-runs
+      // when projector mode changes the scale, which is the only change to the
+      // rail's height a participant makes on purpose.
+      return;
+    }
+  }, [projector]);
 
   /**
    * Which arms this run was required to produce.
@@ -484,6 +524,7 @@ export function RetrievalLabPage() {
     <div
       className="page mosaic-labs-page labs-premium lab-page"
       data-projector={projector ? "true" : undefined}
+      ref={pageRef}
     >
       <MosaicLabsTabs
         active="retrieval"
