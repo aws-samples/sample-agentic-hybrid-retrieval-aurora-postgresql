@@ -12482,6 +12482,15 @@
   letter-spacing: -0.015em;
 }
 
+.labs-reason-citations > small {
+  display: block;
+  padding: 10px 18px 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  line-height: 1.45;
+}
+
 .labs-reason-prose {
   padding: 16px 18px;
   color: var(--ink);
