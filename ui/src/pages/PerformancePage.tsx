@@ -445,9 +445,15 @@ export function PerformancePage() {
 
         {measured.representations ? (
           <HnswRepresentations
+            attributed={measured.attribution.attributed}
             fp32SizeBytes={substrate.index.size_bytes}
             representations={measured.representations}
           />
+        ) : measured.representations_unavailable_reason ? (
+          <section className="hnsw-repr-unavailable" role="note">
+            <h2>The representation comparison is not available on this cluster.</h2>
+            <p>{measured.representations_unavailable_reason}</p>
+          </section>
         ) : null}
 
         <HnswParetoCurve
@@ -489,6 +495,7 @@ export function PerformancePage() {
 
         {measured.filter_matrix.length > 0 && scanMemMb !== null ? (
           <HnswFilterMatrix
+            attributed={measured.attribution.attributed}
             levels={measured.filter_matrix}
             onPresetChange={setPreset}
             onScanChange={setScan}
@@ -579,7 +586,12 @@ export function PerformancePage() {
           <LoadingState label="Loading the scale projection" />
         ) : null}
 
-        {measured.local_nvme ? <HnswControlledAb nvme={measured.local_nvme} /> : null}
+        {measured.local_nvme ? (
+          <HnswControlledAb
+            attributed={measured.attribution.attributed}
+            nvme={measured.local_nvme}
+          />
+        ) : null}
 
         <section className="hnsw-production" aria-labelledby="hnsw-production-title">
           <header>

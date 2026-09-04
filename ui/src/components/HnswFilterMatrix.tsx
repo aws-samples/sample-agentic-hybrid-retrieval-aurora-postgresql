@@ -1,5 +1,6 @@
 import { CircleAlert, CircleCheck, Info } from "lucide-react";
 import type { HnswFilterLevel, HnswFilterMode } from "../types";
+import { HnswMeasuredBadge } from "./HnswMeasuredBadge";
 
 type ScanMode = HnswFilterMode["iterative_scan"];
 
@@ -51,6 +52,8 @@ const CHARACTER_NOTES: Record<string, { headline: string; detail: string }> = {
 
 type HnswFilterMatrixProps = {
   levels: HnswFilterLevel[];
+  /** Whether the artifact these numbers live in describes the connected cluster. */
+  attributed: boolean;
   preset: string;
   scan: ScanMode;
   scanMemMb: number;
@@ -82,6 +85,7 @@ function findMode(
  */
 export function HnswFilterMatrix({
   levels,
+  attributed,
   preset,
   scan,
   scanMemMb,
@@ -109,7 +113,7 @@ export function HnswFilterMatrix({
             Selectivity is on each button; it is not what predicts the outcome.
           </p>
         </div>
-        <span className="hnsw-evidence-badge measured">MEASURED</span>
+        <HnswMeasuredBadge attributed={attributed} />
       </header>
 
       <div className="hnsw-cliff-controls">

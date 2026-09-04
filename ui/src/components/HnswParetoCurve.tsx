@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { curvePoints, saturationEf, speedupFactor } from "../hnsw";
 import type { HnswEfPoint, HnswMeasured, HnswProbe } from "../types";
+import { HnswMeasuredBadge } from "./HnswMeasuredBadge";
 
 const BOX = { width: 520, height: 210 };
 const PADDING = { left: 46, right: 22, top: 18, bottom: 34 };
@@ -43,6 +44,7 @@ export function HnswParetoCurve({
   onProbe,
 }: HnswParetoCurveProps) {
   const sweep = measured.ef_sweep;
+  const attribution = measured.attribution;
   const points = curvePoints(sweep, BOX);
   const saturation = saturationEf(sweep);
   const selected = pointFor(sweep, efSearch);
@@ -82,8 +84,48 @@ export function HnswParetoCurve({
             measurements. It does not recompute them.
           </p>
         </div>
-        <span className="hnsw-evidence-badge measured">MEASURED</span>
+        <HnswMeasuredBadge attributed={attribution.attributed} />
       </header>
+
+      {attribution.attributed ? null : (
+        <div className="hnsw-attribution" role="note">
+          <p>{attribution.attribution_note}</p>
+          <dl>
+            <div>
+              <dt>Measured on dataset manifest</dt>
+              <dd>
+                <code>{attribution.measured_dataset_manifest_sha256 ?? "not recorded"}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Connected dataset manifest</dt>
+              <dd>
+                <code>{attribution.current_dataset_manifest_sha256}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Clean worktree at measurement</dt>
+              <dd>{attribution.measured_source_worktree_dirty === false ? "yes" : "no"}</dd>
+            </div>
+            <div>
+              <dt>Clean worktree now</dt>
+              <dd>{attribution.current_source_worktree_dirty ? "no" : "yes"}</dd>
+            </div>
+            <div>
+              <dt>Measured at revision</dt>
+              <dd>
+                <code>{attribution.measured_source_revision ?? "not recorded"}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Running revision</dt>
+              <dd>
+                <code>{attribution.current_source_revision}</code>
+              </dd>
+            </div>
+          </dl>
+        </div>
+      )}
 
       <div className="hnsw-pareto-layout">
         <figure className="hnsw-pareto-plot">
@@ -336,6 +378,10 @@ export function HnswParetoCurve({
                 {probe.plan.estimated_total_cost.toLocaleString()}. HNSW has no selectivity
                 estimate; the <code>LIMIT</code> is what makes the plan cheap.
               </footer>
+              <p className="hnsw-probe-execution">
+                Rows and recall come from the first run of this query. The time and
+                buffers come from the {probe.plan.execution}.
+              </p>
             </div>
           ) : null}
         </div>

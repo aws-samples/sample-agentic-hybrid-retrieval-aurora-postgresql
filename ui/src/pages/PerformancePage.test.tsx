@@ -15,6 +15,7 @@ import { api } from "../api";
 import { formatBytes, storageSegments } from "../hnsw";
 import type {
   BenchmarkProjection,
+  HnswAttribution,
   HnswMeasured,
   HnswNeighborhood,
   HnswProbe,
@@ -37,7 +38,40 @@ vi.mock("../api", () => ({
 }));
 
 const projection = scaleProjection satisfies BenchmarkProjection;
-const measured = measuredArtifact as unknown as HnswMeasured;
+
+// The server adds `attribution` on the way out; the committed file does not carry
+// it. The default fixture is the attributed case, which is what the MEASURED badge
+// requires. `measuredElsewhere` below is the same artifact under the state the
+// committed one is actually in today: measured on another corpus, from a dirty tree.
+const attribution: HnswAttribution = {
+  measured_source_revision: "e5b10efde607114d0ef78bbbfaceadcd54b1a7c1",
+  measured_source_worktree_dirty: false,
+  measured_dataset_manifest_sha256: "d5abc2c047f73726926260bb6a5364b50295acc4c6b2a3e9e35d47e93eb5c464",
+  current_source_revision: "e5b10efde607114d0ef78bbbfaceadcd54b1a7c1",
+  current_source_worktree_dirty: false,
+  current_dataset_manifest_sha256: "d5abc2c047f73726926260bb6a5364b50295acc4c6b2a3e9e35d47e93eb5c464",
+  attributed: true,
+  attribution_note:
+    "Measured on the connected corpus (d5abc2c047f7) from a clean worktree at revision e5b10efde607.",
+};
+
+const measured = { ...measuredArtifact, attribution } as unknown as HnswMeasured;
+
+const measuredElsewhere = {
+  ...measuredArtifact,
+  attribution: {
+    ...attribution,
+    measured_source_worktree_dirty: true,
+    measured_dataset_manifest_sha256:
+      "7cd7a5ae4c7cab2667c5433427d28a36dd12897e47f7c473f508ef93f43f95ec",
+    attributed: false,
+    attribution_note:
+      "found these numbers were measured elsewhere: a different dataset manifest " +
+      "(measured 7cd7a5ae4c7c, connected d5abc2c047f7); a dirty worktree at " +
+      "measurement time (source_worktree_dirty is True); fix: re-run " +
+      "`make benchmark-hnsw` against the connected corpus from a clean worktree",
+  },
+} as unknown as HnswMeasured;
 
 const substrate: HnswSubstrate = {
   index: {
@@ -146,6 +180,9 @@ const probeResult: HnswProbe = {
   missed: [6394],
   unexpected: [],
   plan: {
+    execution:
+      "second execution of the same statement on this connection; the first " +
+      "returned the rows, so buffers were already warm",
     node: "Index Scan",
     index_name: "product_document_embedding_hnsw_cosine_idx",
     server_ms: 0.624,
@@ -625,5 +662,68 @@ describe("PerformancePage", () => {
     expect(representations.querySelector("table")).toBeTruthy();
     expect(controlledAb.querySelector("table")).toBeTruthy();
     expect(projectionTable.querySelector("table")).toBeTruthy();
+  });
+  it("says MEASURED ELSEWHERE when the artifact describes another corpus", async () => {
+    // The committed artifact is in exactly this state: measured against manifest
+    // 7cd7a5ae from a dirty worktree, while the service reports d5abc2c0. An
+    // unqualified MEASURED badge over those numbers is the failure the badge
+    // exists to prevent, so the badge changes and the six identity fields are
+    // shown rather than a footnote.
+    vi.mocked(api.hnswMeasured).mockResolvedValue(measuredElsewhere);
+
+    render(<PerformancePage />);
+    await screen.findByRole("heading", { name: /Recall you can buy/ });
+
+    expect(screen.getAllByText("MEASURED ELSEWHERE").length).toBeGreaterThan(0);
+    expect(screen.queryByText("MEASURED")).toBeNull();
+    expect(screen.getByText(/a different dataset manifest/)).toBeTruthy();
+    expect(screen.getByText("7cd7a5ae4c7cab2667c5433427d28a36dd12897e47f7c473f508ef93f43f95ec")).toBeTruthy();
+    expect(screen.getByText("Measured on dataset manifest")).toBeTruthy();
+    expect(screen.getByText("Connected dataset manifest")).toBeTruthy();
+    expect(screen.getByText("Clean worktree at measurement")).toBeTruthy();
+  });
+
+  it("says MEASURED when the artifact describes the connected corpus", async () => {
+    render(<PerformancePage />);
+    await screen.findByRole("heading", { name: /Recall you can buy/ });
+
+    expect(screen.getAllByText("MEASURED").length).toBeGreaterThan(0);
+    expect(screen.queryByText("MEASURED ELSEWHERE")).toBeNull();
+    expect(screen.queryByText(/a different dataset manifest/)).toBeNull();
+  });
+
+  it("says which of the probe's two executions the timing came from", async () => {
+    // The response mixes two runs: rows and recall from the first execution,
+    // server time and buffers from the EXPLAIN (ANALYZE) that followed it. A
+    // reader comparing 0.624 ms against the cold measured sweep needs to know.
+    render(<PerformancePage />);
+    await screen.findByRole("heading", { name: /Recall you can buy/ });
+
+    fireEvent.click(screen.getByRole("button", { name: /Run on Aurora now/ }));
+
+    await waitFor(() => expect(screen.getByText("LIVE PROBE")).toBeTruthy());
+    expect(screen.getByText(/second execution of the same statement/)).toBeTruthy();
+    expect(screen.getByText(/buffers were already warm/)).toBeTruthy();
+  });
+
+  it("explains the missing representation table instead of dropping it silently", async () => {
+    // Nothing in the bootstrap builds the halfvec and binary indexes, so the
+    // server withholds those rows on a fresh cluster. An empty space where a
+    // panel used to be teaches nothing; the named recovery command does.
+    const { representations: _dropped, ...withoutRepresentations } =
+      measured as HnswMeasured;
+    vi.mocked(api.hnswMeasured).mockResolvedValue({
+      ...withoutRepresentations,
+      representations_unavailable_reason:
+        "found the connected cluster has no usable quantized index: " +
+        "product_document_embedding_hnsw_halfvec_idx is missing; fix: run " +
+        "`make db-index-quantized` (roughly 9 minutes for both indexes)",
+    } as unknown as HnswMeasured);
+
+    render(<PerformancePage />);
+    await screen.findByRole("heading", { name: /Recall you can buy/ });
+
+    expect(screen.queryByRole("heading", { name: /three ways to store them/ })).toBeNull();
+    expect(screen.getByText(/make db-index-quantized/)).toBeTruthy();
   });
 });

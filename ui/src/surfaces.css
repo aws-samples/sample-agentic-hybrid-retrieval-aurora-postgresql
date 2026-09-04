@@ -12555,3 +12555,102 @@
   font-family: var(--mono);
   font-size: var(--labs-micro);
 }
+
+/* Measured-elsewhere disclosure -------------------------------------------- */
+/*
+ * Four panels on the Performance page render one committed artifact. When that
+ * artifact was measured against another corpus or from a dirty worktree, the
+ * badge says so and this block carries the six fields the claim rests on. The
+ * badge must not keep the confident maroon of an attributed measurement: a
+ * qualified claim that looks identical to an unqualified one is not a
+ * disclosure. Appended at the end of the file on purpose, so the rules that
+ * follow the base badge cannot silently outrank it by source order.
+ */
+
+.hnsw-evidence-badge.elsewhere {
+  border-color: #d6bd91;
+  background: #f9f1e3;
+  color: #76501d;
+}
+
+.hnsw-attribution {
+  margin: 0 22px 18px;
+  padding: 14px 16px;
+  border: 1px solid #e6d2ae;
+  border-radius: 12px;
+  background: #fffcf5;
+}
+
+.hnsw-attribution p {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+.hnsw-attribution dl {
+  display: grid;
+  margin: 0;
+  gap: 12px 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hnsw-attribution dt {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.hnsw-attribution dd {
+  overflow-wrap: anywhere;
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: var(--labs-detail);
+}
+
+.hnsw-attribution dd code {
+  font-size: var(--labs-mono);
+}
+
+.hnsw-probe-execution {
+  margin: 0;
+  padding: 12px 14px;
+  border-top: 1px solid #f0e2c6;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.hnsw-repr-unavailable {
+  overflow: hidden;
+  padding: 20px 22px;
+  border: 1px solid #ded3c6;
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 16px 42px rgb(73 43 33 / 7%);
+}
+
+.hnsw-repr-unavailable h2 {
+  margin: 0 0 7px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-body);
+  font-weight: 700;
+}
+
+.hnsw-repr-unavailable p {
+  overflow-wrap: anywhere;
+  max-width: 92ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .hnsw-attribution dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

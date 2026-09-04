@@ -1,6 +1,7 @@
 import { ExternalLink, Info, Layers } from "lucide-react";
 import { formatBytes } from "../hnsw";
 import type { HnswRepresentations as Representations } from "../types";
+import { HnswMeasuredBadge } from "./HnswMeasuredBadge";
 
 const LABELS: Record<string, string> = {
   fp32: "vector(1024)",
@@ -11,6 +12,8 @@ const LABELS: Record<string, string> = {
 type HnswRepresentationsProps = {
   representations: Representations;
   fp32SizeBytes: number;
+  /** Whether the artifact these numbers live in describes the connected cluster. */
+  attributed: boolean;
 };
 
 /**
@@ -23,6 +26,7 @@ type HnswRepresentationsProps = {
 export function HnswRepresentations({
   representations,
   fp32SizeBytes,
+  attributed,
 }: HnswRepresentationsProps) {
   const { rows, payload_bytes, quantization_distribution, blog_operating_point } =
     representations;
@@ -42,7 +46,7 @@ export function HnswRepresentations({
             graded against itself.
           </p>
         </div>
-        <span className="hnsw-evidence-badge measured">MEASURED</span>
+        <HnswMeasuredBadge attributed={attributed} />
       </header>
 
       <div

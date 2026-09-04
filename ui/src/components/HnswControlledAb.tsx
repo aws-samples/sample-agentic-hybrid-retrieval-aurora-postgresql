@@ -1,8 +1,11 @@
 import { CircleCheck, HardDrive, ShieldAlert } from "lucide-react";
 import type { HnswLocalNvme } from "../types";
+import { HnswMeasuredBadge } from "./HnswMeasuredBadge";
 
 type HnswControlledAbProps = {
   nvme: HnswLocalNvme;
+  /** Whether the artifact these numbers live in describes the connected cluster. */
+  attributed: boolean;
 };
 
 /**
@@ -14,7 +17,7 @@ type HnswControlledAbProps = {
  * is in the badge rather than in a footnote, and the boundary statement sits with the result
  * rather than below the fold.
  */
-export function HnswControlledAb({ nvme }: HnswControlledAbProps) {
+export function HnswControlledAb({ nvme, attributed }: HnswControlledAbProps) {
   const io = nvme.storage_configuration.aurora_io_optimized;
   const standard = nvme.storage_configuration.aurora_standard;
   const gib = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(1)} GiB`;
@@ -32,10 +35,17 @@ export function HnswControlledAb({ nvme }: HnswControlledAbProps) {
           <h2 id="hnsw-ab-title">Side-by-side test at scale</h2>
           <p>{nvme.claim_class}.</p>
         </div>
-        <span className="hnsw-evidence-badge measured ab">
-          MEASURED · PURPOSE-BUILT AURORA PAIR · {nvme.region.toUpperCase()} ·{" "}
-          {gib(nvme.shared_buffers_bytes)} shared_buffers · I/O-OPTIMIZED
-        </span>
+        <HnswMeasuredBadge
+          attributed={attributed}
+          className="ab"
+          suffix={
+            <>
+              {" "}
+              · PURPOSE-BUILT AURORA PAIR · {nvme.region.toUpperCase()} ·{" "}
+              {gib(nvme.shared_buffers_bytes)} shared_buffers · I/O-OPTIMIZED
+            </>
+          }
+        />
       </header>
 
       <div className="hnsw-ab-headline">

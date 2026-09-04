@@ -548,9 +548,32 @@ export interface HnswFilterLevel {
  * Rendered under a MEASURED label, so the endpoint refuses to serve any payload whose
  * `kind` is not `measured`.
  */
+/**
+ * Whether the committed HNSW artifact describes the cluster this page is
+ * connected to, mirrors `service.hnsw._measured_attribution`.
+ *
+ * The gate is two facts: the artifact was measured from a clean worktree, and
+ * against the same dataset manifest the running service reports. Revision
+ * equality is deliberately absent for the same reason it is absent from the
+ * scorecard -- the artifact is always committed one revision after the run that
+ * produced it -- so both revisions are carried for display, not as the gate.
+ * When `attributed` is false the badge must read MEASURED ELSEWHERE.
+ */
+export interface HnswAttribution {
+  measured_source_revision: string | null;
+  measured_source_worktree_dirty: boolean | null;
+  measured_dataset_manifest_sha256: string | null;
+  current_source_revision: string;
+  current_source_worktree_dirty: boolean;
+  current_dataset_manifest_sha256: string;
+  attributed: boolean;
+  attribution_note: string;
+}
+
 export interface HnswMeasured {
   kind: "measured";
   captured_at: string;
+  attribution: HnswAttribution;
   provenance: {
     source_revision?: string;
     dataset_manifest_sha256?: string;
@@ -593,7 +616,13 @@ export interface HnswMeasured {
   };
   ef_sweep: HnswEfPoint[];
   filter_matrix: HnswFilterLevel[];
+  /**
+   * Withheld by the server when the halfvec or binary index does not exist on
+   * the connected cluster. Nothing in the bootstrap builds them, so on a fresh
+   * cluster `representations_unavailable_reason` is present instead.
+   */
   representations?: HnswRepresentations;
+  representations_unavailable_reason?: string;
   local_nvme?: HnswLocalNvme;
 }
 
@@ -758,6 +787,12 @@ export interface HnswProbe {
   missed: number[];
   unexpected: number[];
   plan: {
+    /**
+     * Which of the probe's two executions the timing below came from. The rows
+     * and recall come from the first; `server_ms` and the buffer counts come
+     * from the EXPLAIN (ANALYZE) run that followed it, against a warm cache.
+     */
+    execution: string;
     node: string;
     index_name: string | null;
     server_ms: number;
