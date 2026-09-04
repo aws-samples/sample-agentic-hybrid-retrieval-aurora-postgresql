@@ -133,6 +133,33 @@ def artifact_from_results(
     }
 
 
+def merge_preserving_unmeasured(
+    artifact: dict[str, Any], existing: Path
+) -> tuple[dict[str, Any], list[str]]:
+    """Carry forward artifact sections this run did not measure.
+
+    `artifact_from_results` produces eight keys. The committed artifact carries
+    ten: `representations` comes from `--representation-matrix` and `local_nvme`
+    from a purpose-built A/B cluster pair that no longer exists. A plain
+    overwrite deleted both silently, so a routine re-measure of the ef sweep
+    destroyed measurements that cannot be retaken.
+
+    Args:
+        artifact: What this run measured.
+        existing: Path to the artifact already on disk, which need not exist.
+
+    Returns:
+        The merged payload, and the sorted top-level keys carried forward from
+        disk so the caller can print what it preserved rather than doing it
+        silently in either direction.
+    """
+    if not existing.exists():
+        return artifact, []
+    previous = json.loads(existing.read_text(encoding="utf-8"))
+    carried = sorted(key for key in previous if key not in artifact)
+    return artifact | {key: previous[key] for key in carried}, carried
+
+
 def _configure_hnsw(
     connection: Any,
     *,
@@ -879,11 +906,17 @@ def main() -> None:
             filter_matrix=filter_matrix,
             captured_at=completed_at.isoformat(),
         )
+        artifact, carried = merge_preserving_unmeasured(artifact, args.artifact)
         args.artifact.parent.mkdir(parents=True, exist_ok=True)
         args.artifact.write_text(
             json.dumps(artifact, indent=2, default=str) + "\n", encoding="utf-8"
         )
         print(f"wrote the instrument artifact to {args.artifact}")
+        if carried:
+            print(
+                "carried forward from the previous artifact, not measured by this "
+                f"run: {', '.join(carried)}"
+            )
 
     output = {
         "kind": "measured",

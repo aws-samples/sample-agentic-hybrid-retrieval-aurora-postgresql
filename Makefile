@@ -40,7 +40,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -64,7 +64,8 @@ check-dsn:
 
 DSN_TARGETS := test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot \
 	validate-missions validate-evals score-evals ablation-evals validate-functions \
-	lab-01 db-load-mosaic db-index-concurrent db-load-cohort db-load-evidence db-smoke \
+	lab-01 db-load-mosaic db-index-concurrent db-drop-invalid-indexes db-index-quantized \
+	db-index-recover-and-create db-load-cohort db-load-evidence db-smoke \
 	db-bootstrap-cached db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
 	db-configure-retrieval db-apply-search-functions reset-lab-1 validate-lab-1 solution-lab-1 \
 	reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 api-serve
@@ -272,6 +273,30 @@ db-load-mosaic:
 db-index-concurrent:
 	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/08_indexes_concurrent.sql
 
+# CREATE INDEX CONCURRENTLY that is interrupted -- a cancelled bootstrap, a
+# dropped connection, a failed build -- leaves the index relation behind with
+# indisvalid = false. The planner will not use it, and `IF NOT EXISTS` in
+# 08_indexes_concurrent.sql and 19_indexes_quantized.sql sees the name and skips
+# the rebuild, so re-running the create target is a no-op forever. That made the
+# acceptance script's "re-run make db-index-concurrent" advice unfollowable.
+# Dropping an invalid index needs no CONCURRENTLY: nothing is reading it.
+db-drop-invalid-indexes: check-dsn
+	@set -e -o pipefail; database_url="$(DATABASE_URL)"; \
+	psql "$$database_url" -X -v ON_ERROR_STOP=1 -At -c "SELECT format('%I.%I', n.nspname, c.relname) FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE NOT i.indisvalid AND n.nspname IN ('mosaic','mosaic_search','mosaic_bench')" \
+	| while read -r index; do echo "dropping invalid index $$index"; psql "$$database_url" -X -v ON_ERROR_STOP=1 -c "DROP INDEX $$index"; done
+
+# Recovery before creation, in that order, as one target so the bootstrap phase
+# runs both. A prerequisite list would not guarantee the order under `make -j`.
+db-index-recover-and-create:
+	@$(MAKE) db-drop-invalid-indexes DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-index-concurrent DATABASE_URL="$(DATABASE_URL)"
+
+# The halfvec and binary HNSW indexes, roughly 9 minutes for the pair. Not a
+# bootstrap phase: they exist for the optional representation comparison on the
+# Performance page, which withholds those rows until this has been run.
+db-index-quantized: check-dsn
+	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/19_indexes_quantized.sql
+
 db-load-cohort:
 	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
 		-v premium_cohort_path="$(MOSAIC_PREMIUM_COHORT_CSV)" \
@@ -324,7 +349,7 @@ db-bootstrap-cached:
 	$(call bootstrap-phase,catalog_prepare,db-prepare-mosaic)
 	$(call bootstrap-phase,catalog_load,db-load-mosaic)
 	$(call bootstrap-phase,embedding_import,db-import-embeddings)
-	$(call bootstrap-phase,index_creation,db-index-concurrent)
+	$(call bootstrap-phase,index_creation,db-index-recover-and-create)
 	$(call bootstrap-phase,premium_cohort_load,db-load-cohort)
 	$(call bootstrap-phase,evidence_load,db-load-evidence)
 	$(call bootstrap-phase,smoke_test,db-smoke)

@@ -80,7 +80,7 @@ BEGIN
     END IF;
     IF missing_indexes IS NOT NULL THEN
         RAISE EXCEPTION
-            'DAT410 bootstrap has missing or invalid retrieval indexes: %. Re-run make db-index-concurrent.',
+            'DAT410 bootstrap has missing or invalid retrieval indexes: %. Run make db-drop-invalid-indexes then make db-index-concurrent.',
             missing_indexes;
     END IF;
     IF premium_count <> 120 THEN

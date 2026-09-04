@@ -198,3 +198,57 @@ def test_slowdown_is_measured_against_the_served_ef_not_the_fastest():
 
     assert artifact["missing_predicate"]["slowdown_factor"] == 804.8
     assert artifact["missing_predicate"]["compared_at_ef_search"] == 100
+
+
+def test_a_re_measure_does_not_delete_sections_it_did_not_measure(tmp_path):
+    """The ef-sweep run writes eight keys. The committed artifact carries ten.
+
+    `representations` and `local_nvme` come from separate runs, and the A/B
+    cluster pair behind `local_nvme` no longer exists, so overwriting the file
+    with only what this run measured destroyed measurements that cannot be
+    retaken. This is the falsifier: without the merge, both keys are gone.
+    """
+    import json
+
+    from scripts.benchmark_hnsw import merge_preserving_unmeasured
+
+    existing = tmp_path / "hnsw_measured.json"
+    existing.write_text(
+        json.dumps(
+            {
+                "kind": "measured",
+                "ef_sweep": [{"ef_search": 10}],
+                "representations": {"rows": ["halfvec"]},
+                "local_nvme": {"claim_class": "purpose-built pair"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    merged, carried = merge_preserving_unmeasured(
+        {"kind": "measured", "ef_sweep": [{"ef_search": 100}]}, existing
+    )
+
+    assert merged["ef_sweep"] == [{"ef_search": 100}], "the new run must win"
+    assert merged["representations"] == {"rows": ["halfvec"]}
+    assert merged["local_nvme"] == {"claim_class": "purpose-built pair"}
+    assert carried == ["local_nvme", "representations"]
+
+
+def test_a_first_run_carries_nothing_forward(tmp_path):
+    from scripts.benchmark_hnsw import merge_preserving_unmeasured
+
+    merged, carried = merge_preserving_unmeasured(
+        {"kind": "measured"}, tmp_path / "absent.json"
+    )
+
+    assert merged == {"kind": "measured"}
+    assert carried == []
+
+
+def test_the_write_path_reports_what_it_preserved():
+    """Preserving silently is the same failure as deleting silently."""
+    source = (ROOT / "scripts" / "benchmark_hnsw.py").read_text(encoding="utf-8")
+
+    assert "merge_preserving_unmeasured(artifact, args.artifact)" in source
+    assert "carried forward from the previous artifact" in source
