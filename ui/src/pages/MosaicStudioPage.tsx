@@ -114,7 +114,7 @@ export function MosaicStudioPage() {
 
   return (
     <div className="page mosaic-labs-page labs-premium mosaic-studio-page">
-      <MosaicLabsTabs active="studio" />
+      <MosaicLabsTabs />
 
       <MosaicLabsMasthead
         deck="Explore a fast visual study made from real Mosaic catalog products. The language below is a creative brief, not an executed search."

@@ -291,7 +291,11 @@ export function RetrievalObservatory({
           </div>
 
           {projector ? (
-            <p className="labs-matrix-projector" role="status">
+            // A caption on the table it describes, not an announcement: it says
+            // the same thing for as long as projector mode is on, and a live
+            // region would have a screen reader read it out on every unrelated
+            // update to this table.
+            <p className="labs-matrix-projector">
               Projector mode is showing {visibleRows.length} of the{" "}
               {matrix.rows.length} returned rows.
             </p>

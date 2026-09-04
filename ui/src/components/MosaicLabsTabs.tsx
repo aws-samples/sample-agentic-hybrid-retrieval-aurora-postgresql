@@ -2,7 +2,7 @@ import { Projector } from "lucide-react";
 import { Link } from "wouter";
 import { RETRIEVAL_SURFACE } from "../navigation";
 
-type MosaicLabsTab = "retrieval" | "hnsw" | "studio";
+type MosaicLabsTab = "retrieval" | "hnsw";
 
 const sourceRepositoryUrl =
   "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql";
@@ -26,7 +26,12 @@ export function MosaicLabsTabs({
   projector,
   onToggleProjector,
 }: {
-  active: MosaicLabsTab;
+  /**
+   * Which entry is current, omitted by a surface that is not one of them.
+   * Catalog studio carries the strip so a reader can leave it, and marks
+   * nothing: it is no longer a Playground lens.
+   */
+  active?: MosaicLabsTab;
   /** Whether projector mode is on. Only meaningful with a toggle handler. */
   projector?: boolean;
   /**
