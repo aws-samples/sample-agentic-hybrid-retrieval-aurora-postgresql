@@ -19,6 +19,29 @@ import type { ReadinessResponse } from "../types";
 /** What a row prints when nothing on this page reports its value. */
 const NOT_CHECKED = "not checked";
 
+/** Enough of a sha to name a commit or a manifest, and no more. */
+function short(hash: string): string {
+  return hash.slice(0, 12);
+}
+
+/**
+ * The build that answered, and whether the file tree it ran from matched it.
+ *
+ * `worktree_dirty` is not a footnote here. A facilitator holding a measured
+ * artifact against the running service reads the sha to decide whether the two
+ * agree, and a service serving uncommitted changes on top of that sha can hold
+ * the very edit that explains a difference.
+ */
+function sourceRevisionValue(
+  source: NonNullable<ReadinessResponse["source"]>,
+): string {
+  // The service falls back to `unknown` with `worktree_dirty` true when it could
+  // not read git at all, so the flag there describes nothing it inspected.
+  if (source.revision === "unknown") return "unknown";
+  const revision = short(source.revision);
+  return source.worktree_dirty ? `${revision} (uncommitted changes)` : revision;
+}
+
 interface ReadinessRow {
   label: string;
   value: string;
@@ -27,6 +50,7 @@ interface ReadinessRow {
 function readinessRows(readiness: ReadinessResponse | null): ReadinessRow[] {
   const database = readiness?.database;
   const models = readiness?.configured_models;
+  const source = readiness?.source;
   const missingIndexes = database?.missing_retrieval_indexes ?? null;
   return [
     {
@@ -58,13 +82,17 @@ function readinessRows(readiness: ReadinessResponse | null): ReadinessRow[] {
     { label: "Embed", value: models?.embedding ?? NOT_CHECKED },
     { label: "Rerank", value: models?.rerank ?? NOT_CHECKED },
     { label: "Agent", value: models?.agent ?? NOT_CHECKED },
-    // `/api/readiness` and `/api/health` report neither, and a live search
-    // response does not carry them either: they reach this browser only on a
-    // persisted run's receipt, which this surface does not read. Printing the
-    // running service's revision from anywhere else would be a guess with a
-    // hash on it, so the row says what it knows, which is nothing.
-    { label: "Source revision", value: NOT_CHECKED },
-    { label: "Dataset manifest", value: NOT_CHECKED },
+    // Which build answered and which corpus it answered from, both straight off
+    // `/api/readiness`. A service too old to report them leaves `source` absent,
+    // and that reads as not checked rather than as a revision.
+    {
+      label: "Source revision",
+      value: source ? sourceRevisionValue(source) : NOT_CHECKED,
+    },
+    {
+      label: "Dataset manifest",
+      value: source ? short(source.dataset_manifest_sha256) : NOT_CHECKED,
+    },
   ];
 }
 

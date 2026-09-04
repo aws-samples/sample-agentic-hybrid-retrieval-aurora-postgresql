@@ -482,6 +482,22 @@ export interface ReadinessResponse {
     ready: boolean;
     [key: string]: unknown;
   };
+  /**
+   * Which build and which corpus answered this request.
+   *
+   * Optional in this mirror for the same reason `exact_neighbor_ground_truth`
+   * is: the running service ships it, but a UI pinned to an older service does
+   * not receive it, and an absent block has to read as "not checked" rather
+   * than as a revision.
+   */
+  source?: {
+    /** The full commit sha, or `unknown` when the service could not read git. */
+    revision: string;
+    /** True when that revision was serving with uncommitted changes on top. */
+    worktree_dirty: boolean;
+    /** SHA-256 of `data/full/manifest.json` as this service reads it. */
+    dataset_manifest_sha256: string;
+  };
 }
 
 /** Where one lab's seam stands in the file the participant edits. */
