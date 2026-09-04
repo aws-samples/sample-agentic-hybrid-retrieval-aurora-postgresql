@@ -247,6 +247,26 @@ def test_only_the_served_window_is_replayed_not_the_whole_pool(monkeypatch):
     assert hydration_calls == [[502, 501]]
 
 
+def test_the_served_window_never_exceeds_the_authorized_limit(monkeypatch):
+    """An agent run records the reranker's pool but grants only a few products.
+
+    Falsifier: slice to `result_limit` alone and a receipt with `result_limit`
+    3 and `authorized_limit` 1 replays three products with full content where
+    `POST /api/retrieval/events/{id}/compare` refuses anything past the first.
+    """
+    from service.retrieval_replay import replay_search_response
+
+    profile = dict(PERSISTED_PROFILE, result_limit=3, authorized_limit=1)
+    _, hydration_calls = _install(
+        monkeypatch, event=_event_row(retrieval_profile=profile)
+    )
+
+    response = replay_search_response(EVENT_ID)
+
+    assert [product.product_id for product in response.results] == [502]
+    assert hydration_calls == [[502]]
+
+
 def test_a_receipt_without_a_served_window_is_refused(monkeypatch):
     """Guessing the window from today's configured display limit would lie."""
     from service.retrieval_replay import replay_search_response

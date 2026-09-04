@@ -76,10 +76,15 @@ def served_window(
     fifty products to a participant who was served twelve.
 
     The window is the receipt's own `retrieval_profile.result_limit`, which
-    `RetrievalService._profile` sets from that request's `limit`. It is read from
-    the persisted jsonb rather than from a parsed `RetrievalProfile`, because a
-    receipt missing the key would otherwise take today's yaml display limit and
-    present it as the window that request used.
+    `RetrievalService._profile` sets from that request's `limit`, narrowed to
+    `authorized_limit` when the receipt carries one. An agent-originated search
+    records the reranker's pool (`result_limit` 50) while granting one to three
+    products, and `service.retrieval_scope` refuses anything past that grant;
+    serving product content for the whole pool here would reopen the window
+    that guard closes. On a Shop run the two limits are equal, so the narrowing
+    is a no-op. Both are read from the persisted jsonb rather than from a parsed
+    `RetrievalProfile`, because a receipt missing the key would otherwise take
+    today's yaml display limit and present it as the window that request used.
     """
     result_limit = (event["retrieval_profile"] or {}).get("result_limit")
     if result_limit is None:
@@ -90,8 +95,12 @@ def served_window(
             "event recorded by service.retrieval.search, which always persists "
             "result_limit."
         )
+    authorized_limit = (event["retrieval_profile"] or {}).get("authorized_limit")
+    window = result_limit
+    if authorized_limit is not None:
+        window = min(result_limit, authorized_limit)
     ordered = sorted(candidates, key=lambda row: row["result_rank"])
-    return ordered[:result_limit]
+    return ordered[:window]
 
 
 def build_search_response(
@@ -150,6 +159,19 @@ def _read_receipt(
     return dict(event), [dict(row) for row in candidates]
 
 
+def _recorded_rerank_status(event: dict[str, Any], recorded: dict[str, Any]) -> str:
+    """The rerank outcome the receipt recorded, refused by name when absent."""
+    status = recorded.get("rerank_status")
+    if status is None:
+        raise KeyError(
+            f"FAIL replay {event['search_event_id']} diagnostics: found a completed "
+            "receipt with no rerank_status, so whether reranking was applied is "
+            "unknown; fix: replay an event recorded by service.retrieval.search, "
+            "which persists rerank_status on every completed run."
+        )
+    return str(status)
+
+
 def _diagnostics(event: dict[str, Any]) -> RetrievalDiagnostics | None:
     """Rebuild the diagnostics the original response carried, or report none.
 
@@ -172,7 +194,7 @@ def _diagnostics(event: dict[str, Any]) -> RetrievalDiagnostics | None:
         # configured width would report today's settings as the run's.
         embedding_dimensions=None,
         rerank_model_id=event["rerank_model_id"],
-        rerank_status=recorded["rerank_status"],
+        rerank_status=_recorded_rerank_status(event, recorded),
         ranking_policy=recorded.get("ranking_policy") or [],
         retrieval_profile=RetrievalProfile(**event["retrieval_profile"]),
         candidate_counts=event["candidate_counts"],
