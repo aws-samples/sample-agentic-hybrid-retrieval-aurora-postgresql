@@ -75,6 +75,8 @@ def test_env_example_documents_every_non_retrieval_runtime_setting():
         "CORS_ORIGINS",
         "RERANK_PROVIDER",
         "ALLOW_DEVELOPMENT_EMBEDDINGS",
+        "MOSAIC_AGENTCORE_OBSERVABILITY",
+        "MOSAIC_AGENTCORE_CAPTURE_CONTENT",
     ):
         assert f"{name}=" in text, f"{name} is read at runtime but undocumented"
     assert "CATALOG_MANIFEST_PATH" not in text

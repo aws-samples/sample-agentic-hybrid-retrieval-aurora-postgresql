@@ -23,9 +23,9 @@ from service.models import (
 )
 from service.retrieval import get_retrieval_service, signals_from_receipt
 from service.synthesis import synthesize_cited_answer as synthesize_answer
+from service.telemetry import search_with_telemetry
 
 logger = logging.getLogger(__name__)
-
 SEARCH_SLOTS = ("primary", "follow_up")
 
 _RUN: ContextVar[dict[str, Any] | None] = ContextVar(
@@ -559,7 +559,7 @@ def search_products(
             1,
             min(int(limit), state["result_limit"], len(SEARCH_SLOTS)),
         )
-        response = get_retrieval_service().search(
+        response = _search_with_telemetry(
             SearchRequest(
                 query=query,
                 filters=filters,
@@ -1140,6 +1140,14 @@ def _comparison_covers(state: dict[str, Any], product_ids: list[int]) -> bool:
     )
 
 
+def _search_with_telemetry(request: SearchRequest):
+    """Use the injected retrieval-service seam, then append telemetry."""
+    return search_with_telemetry(
+        request,
+        search=get_retrieval_service().search,
+    )
+
+
 TOOL_FUNCTIONS = (
     search_products,
     get_product_evidence,
@@ -1177,6 +1185,7 @@ def _persisted_intent(
             else []
         ),
         "usage": usage,
+        "telemetry": state.get("telemetry", {}),
     }
 
 
@@ -1186,6 +1195,8 @@ def persist_completed_run(
     usage: dict[str, Any],
     error_type: str | None = None,
 ) -> None:
+    from datetime import UTC, datetime
+
     record = state["answer_of_record"]
     plan = [
         {
@@ -1200,6 +1211,17 @@ def persist_completed_run(
         persisted_usage["synthesis"] = record["usage"]
     if error_type:
         persisted_usage["error_type"] = error_type
+    status = "completed" if record is not None else "failed"
+    duration_ms = round(
+        (perf_counter() - state.get("_started_monotonic", perf_counter())) * 1_000
+    )
+    state["telemetry"] = {
+        "status": status,
+        "completed_at": datetime.now(UTC).isoformat(),
+        "duration_ms": duration_ms,
+        "trace_id": state.get("trace_id"),
+        "span_id": state.get("span_id"),
+    }
     with connect() as connection:
         if state["search_event_ids"]:
             connection.execute(

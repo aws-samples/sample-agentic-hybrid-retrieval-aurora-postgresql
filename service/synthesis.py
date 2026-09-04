@@ -473,6 +473,9 @@ def _combined_usage(responses: Sequence[dict[str, Any]]) -> dict[str, Any]:
         for key, value in response.get("usage", {}).items():
             if isinstance(value, (int, float)):
                 usage[key] = usage.get(key, 0) + value
+        latency_ms = response.get("metrics", {}).get("latencyMs")
+        if isinstance(latency_ms, (int, float)):
+            usage["latencyMs"] = usage.get("latencyMs", 0) + latency_ms
     stop_reason = responses[-1].get("stopReason")
     if stop_reason is not None:
         usage["stopReason"] = stop_reason

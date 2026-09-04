@@ -68,6 +68,23 @@ The streaming route emits server-sent application stages and then the same
 citation-bounded answer contract. It does not expose model reasoning or claim
 general semantic entailment.
 
+## Telemetry timeline
+
+`GET /api/telemetry/agent-turns/{agent_turn_id}`
+
+The response is the persisted `mosaic.telemetry.v1` contract:
+
+- explicit agent-turn, search-event, trace, and span correlation;
+- ordered Retrieve → Rank → Reason stages with status and measured duration;
+- model IDs, token use, stop reason, synthesis latency, and turn latency;
+- exact per-arm RRF contributions, rerank movement, and candidate disposition;
+- evidence coverage, citation-validation outcome, and authorization outcomes.
+
+The endpoint reads Aurora receipts and does not execute retrieval or a model.
+It is a candidate-level workshop inspection surface. The optional AgentCore
+adapter exports only aggregate counts and timings; see
+[`telemetry-contract.md`](telemetry-contract.md).
+
 ## Catalog inspection
 
 - `GET /api/catalog/summary`

@@ -21,6 +21,7 @@ from service.models import (
     AgentResponse,
     ToolTraceStep,
 )
+from service.telemetry import agent_outcome_attributes, observe_agent_turn
 
 logger = logging.getLogger(__name__)
 
@@ -315,26 +316,41 @@ class ProductDiscoveryAgent:
         )
         result: Any | None = None
         error: Exception | None = None
-        try:
-            # Agent.__call__ delegates to a worker thread. The tool run is held
-            # in a ContextVar so concurrent requests stay isolated, and moving
-            # the loop to another thread discards that context before the first
-            # tool executes. The FastAPI route is synchronous, so running the
-            # native async invocation here preserves the request context.
-            result = asyncio.run(
-                build_agent().invoke_async(_agent_prompt(request, state))
-            )
-        except Exception as caught:
-            error = caught
-            logger.warning("Strands agent loop failed: %s", caught, exc_info=True)
+        with observe_agent_turn(state, request.question) as observation:
+            state["trace_id"] = observation.correlation.trace_id
+            state["span_id"] = observation.correlation.span_id
+            try:
+                # Agent.__call__ delegates to a worker thread. The tool run is held
+                # in a ContextVar so concurrent requests stay isolated, and moving
+                # the loop to another thread discards that context before the first
+                # tool executes. The FastAPI route is synchronous, so running the
+                # native async invocation here preserves the request context.
+                result = asyncio.run(
+                    build_agent().invoke_async(_agent_prompt(request, state))
+                )
+            except Exception as caught:
+                error = caught
+                logger.warning("Strands agent loop failed: %s", caught, exc_info=True)
 
-        fallback_error = model_runtime_error(error) if error is not None else None
-        if fallback_error is None:
-            fallback_error = self._finalize_if_needed(request, state)
-        if fallback_error is not None:
-            error = fallback_error
-        self._persist(state, result, error)
-        return self._response(request, state, result, error)
+            fallback_error = model_runtime_error(error) if error is not None else None
+            if fallback_error is None:
+                fallback_error = self._finalize_if_needed(request, state)
+            if fallback_error is not None:
+                error = fallback_error
+            strands_usage = _usage(result) if result is not None else {}
+            self._persist(state, result, error)
+            record = state["answer_of_record"]
+            observation.finish(
+                answer=record["answer"] if record else None,
+                usage={
+                    "strands": strands_usage,
+                    "synthesis": record["usage"] if record else {},
+                },
+                error_type=type(error).__name__ if error else None,
+                status="completed" if record else "failed",
+                outcome_attributes=agent_outcome_attributes(state),
+            )
+            return self._response(request, state, result, error)
 
     async def stream(self, request: AgentRequest):
         """Yield native Strands lifecycle events for one canonical agent run."""
@@ -350,37 +366,52 @@ class ProductDiscoveryAgent:
         # `current_tool_use` arrives on every streamed delta, so keying off the
         # event alone would re-send the same shortlist dozens of times per tool.
         produced = (0, 0, 0)
-        try:
-            async for event in build_agent().stream_async(
-                _agent_prompt(request, state)
-            ):
-                if "result" in event:
-                    result = event["result"]
-                yield event
-                progress = (
-                    len(state["searches"]),
-                    len(state["products"]),
-                    len(state["trace"]),
+        with observe_agent_turn(state, request.question) as observation:
+            state["trace_id"] = observation.correlation.trace_id
+            state["span_id"] = observation.correlation.span_id
+            try:
+                async for event in build_agent().stream_async(
+                    _agent_prompt(request, state)
+                ):
+                    if "result" in event:
+                        result = event["result"]
+                    yield event
+                    progress = (
+                        len(state["searches"]),
+                        len(state["products"]),
+                        len(state["trace"]),
+                    )
+                    if progress != produced:
+                        produced = progress
+                        yield {"agent_partial": _partial(state)}
+            except Exception as caught:
+                error = caught
+                logger.warning(
+                    "Strands streaming agent loop failed: %s", caught, exc_info=True
                 )
-                if progress != produced:
-                    produced = progress
-                    yield {"agent_partial": _partial(state)}
-        except Exception as caught:
-            error = caught
-            logger.warning(
-                "Strands streaming agent loop failed: %s", caught, exc_info=True
+
+            fallback_error = model_runtime_error(error) if error is not None else None
+            if fallback_error is None:
+                fallback_error = self._finalize_if_needed(request, state)
+            if fallback_error is not None:
+                error = fallback_error
+            strands_usage = _usage(result) if result is not None else {}
+            self._persist(state, result, error)
+            record = state["answer_of_record"]
+            observation.finish(
+                answer=record["answer"] if record else None,
+                usage={
+                    "strands": strands_usage,
+                    "synthesis": record["usage"] if record else {},
+                },
+                error_type=type(error).__name__ if error else None,
+                status="completed" if record else "failed",
+                outcome_attributes=agent_outcome_attributes(state),
             )
 
-        fallback_error = model_runtime_error(error) if error is not None else None
-        if fallback_error is None:
-            fallback_error = self._finalize_if_needed(request, state)
-        if fallback_error is not None:
-            error = fallback_error
-        self._persist(state, result, error)
-
-        if error is not None and state["answer_of_record"] is None:
-            raise error
-        yield {"agent_response": self._response(request, state, result, None)}
+            if error is not None and record is None:
+                raise error
+            yield {"agent_response": self._response(request, state, result, None)}
 
 
 _agent: ProductDiscoveryAgent | None = None

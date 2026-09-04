@@ -353,6 +353,16 @@ they do not maintain independent retrieval schemas.
 
 See [the MCP interoperability guide](docs/mcp-interoperability.md).
 
+## Optional telemetry export
+
+Aurora stores the canonical Retrieve → Rank → Reason evidence ledger. Mosaic
+also defines an optional, aggregate-only OpenTelemetry projection for agents
+observed through Amazon Bedrock AgentCore without moving the current runtime or
+deploying AgentCore resources in Workshop Studio. Prompt/answer capture and the
+AWS exporter are both opt-in.
+
+See [the portable telemetry contract](docs/telemetry-contract.md).
+
 ## Participant takeaway skill
 
 [`skills/mosaic-hybrid-retrieval/`](skills/mosaic-hybrid-retrieval/) packages
@@ -419,6 +429,7 @@ Start with:
 - [Documentation map](docs/index.md)
 - [Architecture](docs/architecture.md)
 - [API contract](docs/api-contract.md)
+- [Portable telemetry contract](docs/telemetry-contract.md)
 - [Retrieval curriculum](docs/retrieval-curriculum.md)
 - [Evaluation plan](docs/evaluation-plan.md)
 - [House standards](docs/house-standards.md)

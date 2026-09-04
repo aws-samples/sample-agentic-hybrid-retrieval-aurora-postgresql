@@ -67,6 +67,11 @@ from service.retrieval_scope import (
     assert_products_in_retrieval_scope,
 )
 from service.scorecard import retrieval_scorecard
+from service.telemetry import search_with_telemetry
+from service.telemetry_contract import (
+    AgentTelemetryResponse,
+    build_agent_telemetry_contract,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 settings = get_settings()
@@ -351,7 +356,7 @@ def get_question_ranked_product_evidence(
 @app.post("/api/search", response_model=SearchResponse)
 def search(request: SearchRequest) -> SearchResponse:
     try:
-        return get_retrieval_service().search(request)
+        return search_with_telemetry(request)
     except (ClientError, BotoCoreError) as error:
         raise _model_error(error) from error
     except RuntimeError as error:
@@ -523,6 +528,82 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
+    )
+
+
+@app.get(
+    "/api/telemetry/agent-turns/{agent_turn_id}",
+    response_model=AgentTelemetryResponse,
+)
+def agent_turn_telemetry(agent_turn_id: UUID) -> AgentTelemetryResponse:
+    """Return the canonical Retrieve -> Rank -> Reason timeline.
+
+    Like retrieval-event inspection, this is a single-attendee workshop
+    capability surface rather than a tenancy boundary. AgentCore receives only
+    the aggregate projection emitted by `service.telemetry`, never these
+    candidate-level ranking receipts.
+    """
+    with connect() as connection:
+        turn = connection.execute(
+            """
+            SELECT turn.agent_turn_id, turn.agent_session_id, turn.user_message,
+                   turn.assistant_message, turn.extracted_intent,
+                   turn.created_at,
+                   session.metadata
+            FROM mosaic.agent_turn AS turn
+            JOIN mosaic.agent_session AS session
+              USING (agent_session_id)
+            WHERE turn.agent_turn_id = %s
+            """,
+            (agent_turn_id,),
+        ).fetchone()
+        if turn is None:
+            raise HTTPException(404, "Agent turn not found")
+        searches = connection.execute(
+            """
+            SELECT search_event_id, occurred_at, retrieval_profile,
+                   source_revision, dataset_manifest_sha256,
+                   embedding_model_id, rerank_model_id, candidate_counts,
+                   total_latency_ms, diagnostics
+            FROM mosaic.search_event
+            WHERE agent_turn_id = %s
+            ORDER BY occurred_at, search_event_id
+            """,
+            (agent_turn_id,),
+        ).fetchall()
+        search_event_ids = [row["search_event_id"] for row in searches]
+        candidates = (
+            connection.execute(
+                """
+                SELECT search_event_id, product_id, result_rank, fts_rank,
+                       trigram_rank, semantic_rank, fused_rank, rerank_rank,
+                       scores, provenance
+                FROM mosaic.search_result_event
+                WHERE search_event_id = ANY (%s::uuid[])
+                ORDER BY search_event_id, result_rank
+                """,
+                (search_event_ids,),
+            ).fetchall()
+            if search_event_ids
+            else []
+        )
+        tools = connection.execute(
+            """
+            SELECT search_event_id, tool_name, outcome, input_payload,
+                   output_payload, duration_ms, error_detail, occurred_at
+            FROM mosaic.agent_tool_event
+            WHERE agent_turn_id = %s
+            ORDER BY occurred_at, tool_event_id
+            """,
+            (agent_turn_id,),
+        ).fetchall()
+    turn_row = dict(turn)
+    return build_agent_telemetry_contract(
+        turn=turn_row,
+        session={"metadata": turn_row.pop("metadata", {})},
+        searches=[dict(row) for row in searches],
+        candidates=[dict(row) for row in candidates],
+        tools=[dict(row) for row in tools],
     )
 
 

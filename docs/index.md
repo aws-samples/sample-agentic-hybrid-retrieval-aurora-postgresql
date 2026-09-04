@@ -17,6 +17,7 @@
 | `ui-design-system.md` | Maroon/ivory product-discovery and retrieval-evidence design language |
 | `ui-screen-spec.md` | UI screen, component, and payload contracts |
 | `api-contract.md` | Search API request/response contract |
+| `telemetry-contract.md` | Aurora telemetry schema, portable timeline, and optional AgentCore projection |
 | `mcp-interoperability.md` | Optional interoperability contract and isolated runtime |
 | `skill-composition.md` | Pointer to the self-contained participant skill's composition, HTTP mapping, and adaptation references |
 | `aurora-deployment.md` | Aurora setup and operational sequence |

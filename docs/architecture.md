@@ -21,7 +21,8 @@ flowchart LR
     FUSE --> RR[Reranker]
     RR --> EV[Evidence + explanation]
     EV --> UI
-    API --> LOG[Query / eval telemetry]
+    API --> LOG[Aurora evidence ledger]
+    LOG -. optional aggregate spans .-> OTEL[OpenTelemetry / AgentCore Observability]
 ```
 
 ## Data plane
@@ -77,4 +78,7 @@ flowchart LR
 
 AgentCore can change where the Strands loop runs or how a host reaches tools. It
 does not become the retrieval authority. No AgentCore resource is required or
-deployed by the workshop.
+deployed by the workshop. The optional observability adapter exports an
+aggregate projection while Aurora retains the complete replayable
+Retrieve → Rank → Reason contract; see
+[`telemetry-contract.md`](telemetry-contract.md).

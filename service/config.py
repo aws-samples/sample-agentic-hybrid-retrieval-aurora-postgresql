@@ -176,6 +176,8 @@ class Settings:
     source_worktree_dirty: bool = True
     dataset_manifest_sha256: str = "unknown"
     aurora_instance_class: str | None = None
+    agentcore_observability_enabled: bool = False
+    agentcore_capture_content: bool = False
 
     @property
     def embedding_dimensions(self) -> int:
@@ -254,4 +256,12 @@ def get_settings() -> Settings:
         source_worktree_dirty=source_worktree_dirty,
         dataset_manifest_sha256=_dataset_manifest_sha256(),
         aurora_instance_class=os.getenv("AURORA_INSTANCE_CLASS") or None,
+        agentcore_observability_enabled=_boolean(
+            "MOSAIC_AGENTCORE_OBSERVABILITY",
+            False,
+        ),
+        agentcore_capture_content=_boolean(
+            "MOSAIC_AGENTCORE_CAPTURE_CONTENT",
+            False,
+        ),
     )
