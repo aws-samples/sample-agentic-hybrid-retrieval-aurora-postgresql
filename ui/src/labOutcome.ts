@@ -1,12 +1,24 @@
 import type { MosaicLabMission } from "./labMissions";
+import { FORWARDABLE_FILTER_KEYS } from "./navigation";
+import { armIndexName, requiredArms } from "./retrievalLanguage";
 import type {
   AgentResponse,
   ProductSummary,
+  ReadinessResponse,
   SearchFilters,
   SearchResponse,
 } from "./types";
 
-export type LabOutcomeTone = "ready" | "broken" | "fixed";
+/**
+ * `unhealthy` is not a fourth verdict on the participant's work.
+ *
+ * The three labs are taught as Broken -> Diagnose -> Fix -> Prove, so `broken`
+ * has to keep meaning "the defect you were sent here to find". A missing index
+ * or an unseeded corpus produces the same empty arm as an unrepaired CTE, and
+ * reporting that as `broken` sends a participant to edit SQL that was never
+ * the problem.
+ */
+export type LabOutcomeTone = "ready" | "broken" | "fixed" | "unhealthy";
 
 export interface LabOutcome {
   tone: LabOutcomeTone;
@@ -51,6 +63,79 @@ function rrfIsCorrect(product: ProductSummary, rrfK: number) {
     contributed = true;
   }
   return contributed && Math.abs(product.signals.rrf_score - expected) <= 1e-9;
+}
+
+/**
+ * Whether the run that produced this response asked the scenario's own question.
+ *
+ * A scenario's assertions are about a request, not just a string: `typo-recovery`
+ * expects the close-spelling arm to recover one product *inside* a domain, a price
+ * ceiling and a stock gate. A run that carried the same words under different
+ * gates retrieved a different pool, and grading it against the scenario would
+ * report a repair that was never exercised, or a defect that was never present.
+ *
+ * Compared over `FORWARDABLE_FILTER_KEYS` rather than over every key, because
+ * those are the only gates a link can carry between surfaces. `attributes` is a
+ * map Shop cannot forward, so a run that omits it is not thereby a different
+ * request, and comparing it would make every carried arrival read as a mismatch.
+ */
+export function runMatchesMissionGates(
+  mission: MosaicLabMission,
+  response: SearchResponse,
+): boolean {
+  const applied = response.applied_filters as Record<string, unknown>;
+  const wanted = mission.filters as Record<string, unknown>;
+  return FORWARDABLE_FILTER_KEYS.every((key) => {
+    const left = applied[key] ?? null;
+    const right = wanted[key] ?? null;
+    return left === right;
+  });
+}
+
+/**
+ * What is wrong with the environment, in the words the banner has to use, or
+ * null when nothing readiness reports stands between the participant and the
+ * checkpoint.
+ *
+ * A null readiness is not a fault. The read can fail for reasons that say
+ * nothing about the cluster, and announcing an environment problem on the
+ * strength of a failed status call is the same error in the other direction.
+ */
+function environmentFault(
+  mission: MosaicLabMission,
+  readiness: ReadinessResponse | null,
+): string | null {
+  if (!readiness) return null;
+  const missingIndexes = readiness.database.missing_retrieval_indexes ?? [];
+  const missingForThisLab = requiredArms(mission.expected_techniques)
+    .map((arm) => armIndexName[arm])
+    .filter((index) => missingIndexes.includes(index));
+  if (missingForThisLab.length > 0) {
+    return `Aurora is missing an index this scenario needs: ${
+      missingForThisLab.join(", ")
+    }. Re-apply the schema, then run this scenario again.`;
+  }
+  if (readiness.database_ready === false) {
+    const missingFunctions = readiness.database.missing_retrieval_functions ?? [];
+    const detail = missingIndexes.length || missingFunctions.length
+      ? `Missing: ${[...missingIndexes, ...missingFunctions].join(", ")}.`
+      : `The catalog reports ${
+        readiness.database.product_count.toLocaleString("en-US")
+      } products and ${
+        readiness.database.embedded_product_count.toLocaleString("en-US")
+      } embeddings.`;
+    return `Aurora reports the workshop database is not ready. ${detail}`;
+  }
+  return null;
+}
+
+function unhealthyOutcome(detail: string): LabOutcome {
+  return {
+    tone: "unhealthy",
+    label: "Environment blocked",
+    title: "This is an environment problem, not the lab's fault",
+    detail,
+  };
 }
 
 function readyOutcome(mission: MosaicLabMission): LabOutcome {
@@ -133,7 +218,12 @@ function participantOutcome(
 export function retrievalLabOutcome(
   mission: MosaicLabMission,
   response: SearchResponse | null,
+  readiness: ReadinessResponse | null = null,
 ): LabOutcome {
+  // Before anything the response says: an arm that never ran because its index
+  // is gone produces exactly the evidence an unrepaired seam does.
+  const fault = environmentFault(mission, readiness);
+  if (fault) return unhealthyOutcome(fault);
   if (!response) return readyOutcome(mission);
 
   const targets = response.results.filter((product) =>
@@ -185,12 +275,33 @@ export function retrievalLabOutcome(
   };
 }
 
-export function liveRetrievalOutcome(response: SearchResponse): LabOutcome {
+/**
+ * The neutral verdict, for a run the selected scenario does not describe.
+ *
+ * `carried` separates the two ways that happens. A query typed into the
+ * Playground is the participant's own experiment. A run handed over from Shop is
+ * a real persisted run under Shop's gates, and saying "Live run complete" over it
+ * hid where it came from while implying the participant had run something.
+ */
+export function liveRetrievalOutcome(
+  response: SearchResponse,
+  carried = false,
+): LabOutcome {
   const resultCount = response.results.length;
+  const title = `${resultCount} ranked ${resultCount === 1 ? "result" : "results"}`;
+  if (carried) {
+    return {
+      tone: "ready",
+      label: "Shop run loaded",
+      title,
+      detail:
+        "These rows are the run Shop served, under the gates Shop applied. The lab verdict applies to the scenario's own filters, so run the scenario to check it.",
+    };
+  }
   return {
     tone: "ready",
     label: "Live run complete",
-    title: `${resultCount} ranked ${resultCount === 1 ? "result" : "results"}`,
+    title,
     detail:
       "This query is outside the selected checkpoint. Inspect its per-arm ranks and eligibility directly.",
   };

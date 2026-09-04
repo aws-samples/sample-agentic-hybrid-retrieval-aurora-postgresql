@@ -1,5 +1,11 @@
 import { Check, CircleAlert, Minus } from "lucide-react";
-import { armLanguage, armPoolKey, type RetrievalArm } from "../retrievalLanguage";
+import {
+  armIndexName,
+  armLanguage,
+  armPoolKey,
+  armTechniques,
+  type RetrievalArm,
+} from "../retrievalLanguage";
 import type { ReadinessResponse, SearchResponse } from "../types";
 
 /**
@@ -56,12 +62,6 @@ export interface ChannelReading {
   purpose: string;
 }
 
-const armIndexName: Record<RetrievalArm, string> = {
-  fts: "product_document_fts_gin_idx",
-  trigram: "product_document_trigram_gin_idx",
-  semantic: "product_document_embedding_hnsw_cosine_idx",
-};
-
 /**
  * What each arm is for, in the shopper's own input rather than the algorithm.
  * Three names and three counts do not say why there are three of them; this
@@ -73,13 +73,6 @@ const armPurpose: Record<RetrievalArm, string> = {
   fts: "Wins when the words a shopper typed already appear in the catalog, such as a model name or a brand.",
   trigram: "Earns its place when those words are misspelled or a variant, so character overlap finds what exact matching missed.",
   semantic: "Answers a described benefit or intent that shares no words with the product text at all.",
-};
-
-/** Which `expected_techniques` tokens name each arm in the eval fixtures. */
-const armTechniques: Record<RetrievalArm, string[]> = {
-  fts: ["fts", "lexical"],
-  trigram: ["pg_trgm", "trigram"],
-  semantic: ["vector", "semantic"],
 };
 
 export function readChannels(

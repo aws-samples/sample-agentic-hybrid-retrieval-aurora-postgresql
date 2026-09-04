@@ -31,7 +31,11 @@ import {
 import { SearchRetrievalReceipt } from "../components/RetrievalReceipt";
 import { RunSummary, shortEventId } from "../components/RunSummary";
 import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
-import { liveRetrievalOutcome, retrievalLabOutcome } from "../labOutcome";
+import {
+  liveRetrievalOutcome,
+  retrievalLabOutcome,
+  runMatchesMissionGates,
+} from "../labOutcome";
 import {
   RETRIEVAL_SURFACE,
   forwardedSearchEvent,
@@ -208,14 +212,29 @@ export function RetrievalLabPage() {
   const requestVersion = useRef(0);
   const ranForwarded = useRef(false);
   const example = mosaicRetrievalExamples[selected];
+  /**
+   * Whether the run on screen answered the scenario's question.
+   *
+   * Both halves are load-bearing. The words alone are not the request: the
+   * scenario's assertions are written about its query *under its eligibility
+   * gates*, and a carried Shop run can hold the same words while having
+   * retrieved a wider pool. Grading that as the checkpoint reports a repair
+   * nothing exercised.
+   */
+  const ranTheScenario = Boolean(
+    response
+    && example
+    && executedQuery === example.query
+    && runMatchesMissionGates(example, response),
+  );
   const outcome = useMemo(
     () => {
       if (!response) return null;
-      return executedQuery === example.query
-        ? retrievalLabOutcome(example, response)
-        : liveRetrievalOutcome(response);
+      return ranTheScenario
+        ? retrievalLabOutcome(example, response, readiness)
+        : liveRetrievalOutcome(response, carriedOver);
     },
-    [example, executedQuery, response],
+    [carriedOver, example, ranTheScenario, readiness, response],
   );
   const baselineSearchEventId = baseline?.searchEventId ?? null;
   /** The response the pinned baseline came from, when the pin came with one. */
@@ -371,9 +390,17 @@ export function RetrievalLabPage() {
       return;
     }
     const version = requestVersion.current;
+    // In flight, and said so: without this Stage 02 drew its "no run for this
+    // scenario yet" panel directly under a banner announcing the exact run from
+    // Shop, which reads as a surface that failed rather than one that is reading.
+    setLoading(true);
     void api
       .retrievalEventResponse(forwardedEvent)
       .then((served) => {
+        // A run started while this read was outstanding has already taken the
+        // version, and its own `finally` owns `loading` from then on. The
+        // carried run is discarded rather than shown behind it: two runs on one
+        // screen is the disagreement this whole hand-off exists to prevent.
         if (version !== requestVersion.current) return;
         // The state a live run sets, from the run Shop already served: stages
         // 01 and 02 render its rows instead of sitting dormant under a banner
@@ -389,10 +416,12 @@ export function RetrievalLabPage() {
         // "before" that is the Shop run rather than the first Playground run
         // standing in for it.
         setBaseline({ searchEventId: served.search_event_id, response: served });
+        setLoading(false);
       })
       .catch((cause) => {
         if (version !== requestVersion.current) return;
         setCarriedRunFallback(arrivalFailureMessage(cause));
+        // `run()` takes `loading` from here, including clearing it.
         void run();
       });
   }, [example, forwardedEvent, forwardedQuery, run]);

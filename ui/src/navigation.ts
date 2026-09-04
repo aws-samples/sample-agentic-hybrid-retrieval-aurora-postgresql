@@ -64,6 +64,20 @@ const FORWARDED_NUMBER_FILTERS = [
 ] as const;
 
 /**
+ * Every gate this hand-off can carry, in one list.
+ *
+ * `forwardedSearchFilters` writes these and only these, so they are also the
+ * only keys on which two requests can be compared for "same gates". The lab
+ * outcome reads it for exactly that: a scenario's verdict applies to a run that
+ * asked the scenario's question, and the question includes its eligibility.
+ */
+export const FORWARDABLE_FILTER_KEYS = [
+  ...FORWARDED_STRING_FILTERS,
+  ...FORWARDED_NUMBER_FILTERS,
+  "in_stock_only",
+] as const;
+
+/**
  * The Playground link that carries a shopper's own words with it.
  *
  * Shop's "See how this was retrieved" needs the query and the eligibility gates

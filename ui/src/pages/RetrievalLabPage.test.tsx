@@ -178,12 +178,13 @@ function responseFor(
   searchEventId: string,
   query: string,
   results: ProductSummary[],
+  appliedFilters: SearchResponse["applied_filters"] = {},
 ): SearchResponse {
   return {
     search_event_id: searchEventId,
     query,
     normalized_query: query,
-    applied_filters: {},
+    applied_filters: appliedFilters,
     results,
     diagnostics: null,
   };
@@ -191,6 +192,8 @@ function responseFor(
 
 const firstExample = mosaicRetrievalExamples[0];
 
+// Answered under the scenario's own gates, the way the service echoes them, so
+// the page can tell a run of this scenario from a run that merely reused its words.
 const primaryResponse = responseFor(
   "retrieval-primary",
   firstExample.query,
@@ -207,6 +210,7 @@ const primaryResponse = responseFor(
       score_semantics: "rank_fusion_then_bounded_rerank",
     }),
   ],
+  { ...firstExample.filters },
 );
 primaryResponse.diagnostics = {
   strategy: "hybrid",
@@ -1105,14 +1109,16 @@ describe("RetrievalLabPage", () => {
     // Playground run standing in for it.
     expect(screen.getByText(`repair baseline: ${SHOP_EVENT_ID}`)).toBeTruthy();
     expect(screen.getByText("Baseline and latest run")).toBeTruthy();
-    const before = screen.getByLabelText("Baseline metrics").textContent;
-    const after = screen.getByLabelText("Latest run metrics").textContent;
+    const before = screen.getByLabelText("Baseline metrics");
+    const after = screen.getByLabelText("Latest run metrics");
     // The Shop run's own numbers: rank 7 in the fused pool, no close-spelling
-    // candidates. The Playground run that followed reports its own.
-    expect(before).toContain("#7");
-    expect(before).toContain("0");
-    expect(after).toContain("#1");
-    expect(after).toContain("4");
+    // candidates. The Playground run that followed reports its own. Read cell by
+    // cell rather than off the section's text: `toContain("0")` matches the "0"
+    // inside "20" or a run id, so a wrong figure could still pass.
+    expect(within(before).getByText("#7")).toBeTruthy();
+    expect(within(before).getByText("0")).toBeTruthy();
+    expect(within(after).getAllByText("#1")).toHaveLength(2);
+    expect(within(after).getByText("4")).toBeTruthy();
   });
 
   it("names the fault when the Shop run could not be read for another reason", async () => {
@@ -1214,5 +1220,69 @@ describe("RetrievalLabPage", () => {
 
     expect(await screen.findByText("repair baseline: none")).toBeTruthy();
     expect(screen.getByText("repair latest: none")).toBeTruthy();
+  });
+
+  it("keeps the scenario's verdict off a carried run that used other gates", async () => {
+    // The scenario constrains a domain, a price ceiling and stock. Shop's run
+    // applied none of them, so it retrieved a wider pool than the scenario
+    // describes and its rows cannot answer the scenario's question either way.
+    vi.mocked(api.retrievalEventResponse).mockResolvedValue(shopResponse);
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />);
+
+    expect(await screen.findByText("Shop run loaded")).toBeTruthy();
+    expect(
+      screen.getByText(/The lab verdict applies to the scenario's own filters/),
+    ).toBeTruthy();
+    expect(screen.queryByText("Issue reproduced")).toBeNull();
+    expect(screen.queryByText("Repair verified")).toBeNull();
+  });
+
+  it("judges the scenario when the carried run used the scenario's own gates", async () => {
+    vi.mocked(api.retrievalEventResponse).mockResolvedValue({
+      ...shopResponse,
+      applied_filters: { ...firstExample.filters },
+    });
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />);
+
+    // The Shop run carries no trigram rank on the target, which is the defect
+    // Lab 1 exists to show, so the verdict is the scenario's own.
+    expect(await screen.findByText("Issue reproduced")).toBeTruthy();
+    expect(screen.getByText("Fuzzy retrieval is still disconnected")).toBeTruthy();
+    expect(screen.queryByText("Shop run loaded")).toBeNull();
+  });
+
+  it("reports the carried run as in flight rather than as an empty stage", async () => {
+    // Stage 02 rendered its "no run yet" panel under a banner announcing the
+    // exact run from Shop, for as long as the read took.
+    let resolveArrival: (response: SearchResponse) => void = () => {};
+    vi.mocked(api.retrievalEventResponse).mockImplementation(
+      () => new Promise<SearchResponse>((resolve) => {
+        resolveArrival = resolve;
+      }),
+    );
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />);
+
+    expect(await screen.findByText("observatory loading: true")).toBeTruthy();
+    expect(screen.getByText("observatory run: none")).toBeTruthy();
+
+    resolveArrival(shopResponse);
+
+    expect(await screen.findByText(`observatory run: ${SHOP_EVENT_ID}`)).toBeTruthy();
+    expect(screen.getByText("observatory loading: false")).toBeTruthy();
   });
 });

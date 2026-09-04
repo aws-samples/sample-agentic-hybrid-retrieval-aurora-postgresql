@@ -2668,6 +2668,22 @@ button:disabled {
   color: var(--green);
 }
 
+/* An environment fault, drawn apart from a lab defect on purpose: amber for
+   "the room is wrong", red for "the code you were sent here to fix is wrong". */
+.lab-outcome.unhealthy {
+  border-color: #ddc79a;
+  background: #fdf7ea;
+}
+
+.lab-outcome.unhealthy .lab-outcome-icon {
+  background: #f2e3c4;
+}
+
+.lab-outcome.unhealthy .lab-outcome-icon,
+.lab-outcome.unhealthy .lab-outcome-status > span:last-child {
+  color: #7a5312;
+}
+
 .mode-control {
   display: inline-flex;
   flex: 0 0 auto;

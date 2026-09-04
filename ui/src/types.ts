@@ -462,6 +462,15 @@ export interface ReadinessResponse {
     evidence_product_count: number;
     missing_retrieval_indexes: string[] | null;
     missing_retrieval_functions: string[] | null;
+    /**
+     * Whether `mosaic_bench.exact_neighbor` holds ground truth for the corpus
+     * this service is configured against. Optional in this mirror: the field is
+     * shipped, but a build pinned to an older service will not carry it, and a
+     * missing key must read as "not checked" rather than as "missing".
+     */
+    exact_neighbor_ground_truth?: "seeded" | "missing" | "unknown";
+    /** The exception type name when the ground-truth read itself failed. */
+    exact_neighbor_ground_truth_detail?: string | null;
   };
   configured_models: {
     embedding: string;
@@ -473,6 +482,29 @@ export interface ReadinessResponse {
     ready: boolean;
     [key: string]: unknown;
   };
+}
+
+/** Where one lab's seam stands in the file the participant edits. */
+export type LabSourceState = "solved" | "broken";
+
+/**
+ * What Aurora currently holds for that lab, which is a different question.
+ *
+ * Editing `db/sql/09_search_functions.sql` without re-applying it leaves a
+ * repaired file in front of an unrepaired cluster: `solved` plus `stale`.
+ * Lab 3's seam lives in the API process, so it is `not_applicable`.
+ */
+export type LabDatabaseState = "applied" | "stale" | "not_applicable";
+
+export interface LabStateRecord {
+  lab_id: number;
+  source_state: LabSourceState;
+  database_state: LabDatabaseState;
+  detail: string;
+}
+
+export interface LabStateResponse {
+  labs: LabStateRecord[];
 }
 
 /**

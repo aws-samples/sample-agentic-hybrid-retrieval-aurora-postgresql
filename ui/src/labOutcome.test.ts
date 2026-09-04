@@ -3,6 +3,7 @@ import {
   agentLabOutcome,
   liveRetrievalOutcome,
   retrievalLabOutcome,
+  runMatchesMissionGates,
 } from "./labOutcome";
 import {
   coreMosaicLabs,
@@ -11,9 +12,40 @@ import {
 import type {
   AgentResponse,
   ProductSummary,
+  ReadinessResponse,
   RetrievalDiagnostics,
   SearchResponse,
 } from "./types";
+
+/** Every required object present and every count at its shipped value. */
+const healthyReadiness: ReadinessResponse = {
+  status: "ready",
+  database_ready: true,
+  model_space_ready: true,
+  database: {
+    database_name: "mosaic",
+    server_version: "16.4",
+    schema_ready: true,
+    vector_version: "0.8.0",
+    product_count: 500_000,
+    embedded_product_count: 500_000,
+    embedding_dimensions: 1024,
+    embedding_model_ids: ["us.cohere.embed-v4:0"],
+    premium_product_count: 120,
+    evidence_product_count: 500_000,
+    missing_retrieval_indexes: null,
+    missing_retrieval_functions: null,
+    exact_neighbor_ground_truth: "seeded",
+    exact_neighbor_ground_truth_detail: null,
+  },
+  configured_models: {
+    embedding: "us.cohere.embed-v4:0",
+    rerank: "cohere.rerank-v3-5:0",
+    agent: "agent-model",
+    synthesis: "synthesis-model",
+  },
+  bedrock_credentials: { ready: true },
+};
 
 const testFusionK = 7;
 
@@ -178,5 +210,112 @@ describe("lab outcome diagnostics", () => {
 
     expect(outcome.label).toBe("Live run complete");
     expect(outcome.title).toBe("1 ranked result");
+  });
+
+  it("labels a carried Shop run without claiming the scenario's verdict", () => {
+    // The run came from Shop, so it ran under Shop's gates. Printing "Live run
+    // complete" over it said nothing about where it came from, and printing the
+    // lab verdict over it would grade the scenario against someone else's request.
+    const outcome = liveRetrievalOutcome(
+      response(product(2, (rank) => 1 / (testFusionK + rank))),
+      true,
+    );
+
+    expect(outcome.label).toBe("Shop run loaded");
+    expect(outcome.detail).toContain("scenario's own filters");
+  });
+
+  it("only applies a lab verdict when the run used the scenario's own gates", () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+    const ran = response(product(2, (rank) => 1 / (testFusionK + rank)));
+
+    // The mission constrains domain, price and stock. A run that applied none of
+    // them retrieved a wider pool than the scenario describes.
+    expect(runMatchesMissionGates(mission, ran)).toBe(false);
+    expect(
+      runMatchesMissionGates(mission, {
+        ...ran,
+        applied_filters: { ...mission.filters },
+      }),
+    ).toBe(true);
+  });
+
+  it("ignores the attribute map when comparing gates", () => {
+    // `attributes` is not forwardable, so Shop can never carry it and a run that
+    // omits it is not thereby a different request.
+    const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
+    const ran = response(product(370002, (rank) => 1 / (testFusionK + rank)));
+
+    expect(
+      runMatchesMissionGates(mission, {
+        ...ran,
+        applied_filters: { domain: "home_office", in_stock_only: true },
+      }),
+    ).toBe(true);
+  });
+
+  it("blames the environment, not the lab, when the database is not ready", () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+    const outcome = retrievalLabOutcome(
+      mission,
+      response(product(2, (rank) => 1 / (testFusionK + rank))),
+      {
+        ...healthyReadiness,
+        status: "blocked",
+        database_ready: false,
+      },
+    );
+
+    expect(outcome.tone).toBe("unhealthy");
+    expect(outcome.title).toBe(
+      "This is an environment problem, not the lab's fault",
+    );
+    expect(outcome.detail).toContain("not ready");
+  });
+
+  it("names the missing index for the arm this lab needs", () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+    const outcome = retrievalLabOutcome(
+      mission,
+      response(product(2, (rank) => 1 / (testFusionK + rank))),
+      {
+        ...healthyReadiness,
+        database: {
+          ...healthyReadiness.database,
+          missing_retrieval_indexes: ["product_document_trigram_gin_idx"],
+        },
+      },
+    );
+
+    expect(outcome.tone).toBe("unhealthy");
+    expect(outcome.detail).toContain("product_document_trigram_gin_idx");
+  });
+
+  it("leaves an index this lab does not use out of its verdict", () => {
+    // Lab 1 requires the close-spelling arm. A full-text index this scenario
+    // never asks for is not what stops its repair from being observable, and
+    // reporting it as one sends the participant to the wrong place.
+    const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+    const outcome = retrievalLabOutcome(
+      mission,
+      response(product(2, (rank) => 1 / (testFusionK + rank))),
+      {
+        ...healthyReadiness,
+        database: {
+          ...healthyReadiness.database,
+          missing_retrieval_indexes: ["product_document_fts_gin_idx"],
+        },
+      },
+    );
+
+    expect(outcome.tone).not.toBe("unhealthy");
+  });
+
+  it("keeps an expected lab defect broken while the environment is healthy", () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
+    const broken = product(370002, () => 1 / (testFusionK + 1));
+
+    expect(retrievalLabOutcome(mission, response(broken), healthyReadiness).tone)
+      .toBe("broken");
   });
 });

@@ -61,3 +61,33 @@ export const armPoolKey: Record<RetrievalArm, string> = {
   trigram: "trigram_in_pool",
   semantic: "semantic_in_pool",
 };
+
+/**
+ * The PostgreSQL index each arm reads, named once.
+ *
+ * Two surfaces need this map for different questions -- the channel map asks
+ * "is this arm's index healthy", the lab outcome asks "is the index this lab
+ * needs missing" -- and a second copy is how one of them would come to name an
+ * index the deployment does not have.
+ */
+export const armIndexName: Record<RetrievalArm, string> = {
+  fts: "product_document_fts_gin_idx",
+  trigram: "product_document_trigram_gin_idx",
+  semantic: "product_document_embedding_hnsw_cosine_idx",
+};
+
+/** Which `expected_techniques` tokens name each arm in the eval fixtures. */
+export const armTechniques: Record<RetrievalArm, string[]> = {
+  fts: ["fts", "lexical"],
+  trigram: ["pg_trgm", "trigram"],
+  semantic: ["vector", "semantic"],
+};
+
+/** The arms a scenario's `expected_techniques` says the run had to produce. */
+export function requiredArms(expectedTechniques: string[]): RetrievalArm[] {
+  return armLanguage
+    .map((entry) => entry.key)
+    .filter((arm) =>
+      armTechniques[arm].some((technique) => expectedTechniques.includes(technique)),
+    );
+}
