@@ -1,17 +1,29 @@
 #!/usr/bin/env python3
-"""Validate each DAT410 lab through the production HTTP and retrieval paths."""
+"""Validate each DAT410 lab through the production HTTP and retrieval paths.
+
+Transport only. Every acceptance condition lives in `service.lab_checks`, which
+`service/lab_proof.py` also calls, so the terminal and the browser cannot
+disagree about whether a lab is finished. This file fetches the evidence those
+checks need over HTTP and raises on the first failure, which is what a Makefile
+target wants; the endpoint returns every verdict at once, which is what a page
+wants.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 REPO = Path(__file__).resolve().parents[1]
-CONTRACT = REPO / "data" / "evals" / "mosaic_labs_missions.json"
+sys.path.insert(0, str(REPO))
+
+from service import lab_checks
+from service.lab_checks import AgentEvidence, LabCheck, RetrievalReceipt
 
 
 class LabValidationError(RuntimeError):
@@ -51,14 +63,11 @@ def _request(
 
 
 def _mission(stage: str) -> dict[str, Any]:
-    contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
-    return next(item for item in contract["missions"] if item["stage"] == stage)
+    return lab_checks.load_mission(stage)
 
 
 def _case(case_id: str) -> dict[str, Any]:
-    contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
-    cases = contract["missions"] + contract["supporting_checks"]
-    return next(item for item in cases if item["id"] == case_id)
+    return lab_checks.load_case(case_id)
 
 
 def _search(base_url: str, mission: dict[str, Any]) -> dict[str, Any]:
@@ -75,241 +84,85 @@ def _search(base_url: str, mission: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def _eligible(result: dict[str, Any], filters: dict[str, Any]) -> bool:
-    availability = result.get("availability")
-    return (
-        (not filters.get("domain") or result.get("domain") == filters["domain"])
-        and (
-            filters.get("max_price_cents") is None
-            or result.get("price_cents", 0) <= filters["max_price_cents"]
-        )
-        and (
-            not filters.get("in_stock_only")
-            or availability in {"in_stock", "low_stock"}
-        )
-        and all(
-            result.get("attributes", {}).get(key) == value
-            for key, value in filters.get("attributes", {}).items()
-        )
-    )
+def _graded(checks: list[LabCheck]) -> list[str]:
+    """Raise on the first failed check, then report what was proven."""
+    for check in checks:
+        _require(check.passed, check.detail)
+    return [check.name for check in checks]
 
 
 def validate_lab_1(base_url: str) -> list[str]:
     mission = _mission("retrieve")
-    response = _search(base_url, mission)
-    results = response.get("results") or []
-    target = next(
-        (
-            item
-            for item in results
-            if item["product_id"] in mission["target_product_ids"]
-        ),
-        None,
-    )
-    _require(target is not None, "Lab 1 target is absent from the result window")
-    signals = target.get("signals") or {}
-    _require(
-        (signals.get("trigram") or {}).get("rank") is not None,
-        "Lab 1 target has no pg_trgm provenance",
-    )
-    _require(
-        (signals.get("trigram") or {}).get("rrf_contribution") is not None,
-        "Lab 1 target has no trigram RRF contribution",
-    )
-    _require(
-        all(_eligible(item, mission["filters"]) for item in results),
-        "Lab 1 returned a product that violates eligibility",
-    )
-    counts = (response.get("diagnostics") or {}).get("candidate_counts") or {}
-    _require(counts.get("trigram_in_pool", 0) > 0, "Lab 1 trigram pool is empty")
-    return [
-        "expected retrieval anchor present",
-        "trigram provenance present",
-        "hard filters hold",
-    ]
-
-
-def _rrf_is_correct(result: dict[str, Any], rrf_k: int) -> bool:
-    signals = result.get("signals") or {}
-    expected = 0.0
-    found = False
-    for arm in ("fts", "trigram", "semantic"):
-        signal = signals.get(arm) or {}
-        rank = signal.get("rank")
-        contribution = signal.get("rrf_contribution")
-        if rank is None:
-            continue
-        found = True
-        if contribution is None or abs(contribution - 1.0 / (rrf_k + rank)) > 1e-9:
-            return False
-        expected += contribution
-    return found and abs(signals.get("rrf_score", 0.0) - expected) <= 1e-9
+    return _graded(lab_checks.lab_1_checks(mission, _search(base_url, mission)))
 
 
 def validate_lab_2(base_url: str) -> list[str]:
     mission = _mission("rank")
     first = _search(base_url, mission)
     second = _search(base_url, mission)
-    first_results = first.get("results") or []
-    second_results = second.get("results") or []
-    first_order = sorted(
-        (
-            item["signals"]["pre_rerank_rank"],
-            item["product_id"],
+    return _graded(lab_checks.lab_2_checks(mission, first, second))
+
+
+def _receipts(base_url: str, agent: dict[str, Any]) -> tuple[RetrievalReceipt, ...]:
+    """Fetch the persisted candidate set behind every successful search step."""
+    return tuple(
+        RetrievalReceipt(
+            search_event_id=str(step["retrieval_run_id"]),
+            query=str((step.get("arguments") or {}).get("query", "")),
+            candidate_product_ids=frozenset(
+                int(candidate["product_id"])
+                for candidate in (
+                    _request(
+                        base_url,
+                        f"/api/retrieval/events/{step['retrieval_run_id']}",
+                    ).get("candidates")
+                    or []
+                )
+            ),
         )
-        for item in first_results
+        for step in lab_checks.successful_steps(agent, "search_products")
+        if step.get("retrieval_run_id")
     )
-    second_order = sorted(
-        (
-            item["signals"]["pre_rerank_rank"],
-            item["product_id"],
+
+
+def _plans(
+    base_url: str,
+    mission: dict[str, Any],
+    agent: dict[str, Any],
+    receipts: tuple[RetrievalReceipt, ...],
+) -> tuple[Any, Any]:
+    """Capture and then replay the explained event's EXPLAIN plan.
+
+    Nothing is captured unless the mission asks for a plan and the explanation
+    is already bound to a receipt this turn produced: capturing runs `ANALYZE`,
+    so an unbound explanation must not cost a query to report as unbound. The
+    replay is a second read taken after the capture on purpose -- reusing the
+    receipt fetched above would prove the plan existed, not that it landed.
+    """
+    event_id = lab_checks.explained_search_event_id(agent)
+    if not mission.get("requires_explain_plan") or event_id not in {
+        receipt.search_event_id for receipt in receipts
+    }:
+        return None, None
+    captured = _request(base_url, f"/api/retrieval/events/{event_id}/plan", {}).get(
+        "plan"
+    )
+    replayed = (
+        _request(base_url, f"/api/retrieval/events/{event_id}").get("run") or {}
+    ).get("plan_json")
+    return captured, replayed
+
+
+def _resolved_evidence(
+    base_url: str,
+    agent: dict[str, Any],
+) -> dict[int, dict[str, Any]]:
+    return {
+        citation["evidence_id"]: _request(
+            base_url, f"/api/evidence/{citation['evidence_id']}"
         )
-        for item in second_results
-    )
-    _require(first_order == second_order, "Lab 2 pre-rerank order is not repeatable")
-    diagnostics = first.get("diagnostics") or {}
-    profile = diagnostics.get("retrieval_profile") or {}
-    rrf_k = profile.get("rrf_k")
-    _require(isinstance(rrf_k, int), "Lab 2 response does not expose RRF k")
-    _require(
-        all(_rrf_is_correct(item, rrf_k) for item in first_results),
-        "Lab 2 RRF contributions do not equal 1 / (k + source_rank)",
-    )
-    _require(
-        diagnostics.get("rerank_status") == "applied",
-        "Lab 2 Cohere Rerank was not applied",
-    )
-    target = next(
-        (
-            item
-            for item in first_results
-            if item["product_id"] in mission["target_product_ids"]
-        ),
-        None,
-    )
-    _require(target is not None, "Lab 2 target is absent from the result window")
-    signals = target["signals"]
-    _require(
-        all(
-            (signals.get(arm) or {}).get("rank") is not None
-            for arm in ("fts", "trigram", "semantic")
-        ),
-        "Lab 2 target does not retain all candidate-arm ranks",
-    )
-    _require(
-        signals.get("rerank_score") is not None,
-        "Lab 2 target has no reranker score",
-    )
-    _require(
-        all(
-            (signals.get(arm) or {}).get("rank") == 1
-            for arm in ("fts", "trigram", "semantic")
-        ),
-        "Lab 2 target does not rank first in every candidate arm",
-    )
-    _require(
-        signals.get("pre_rerank_rank") == 1,
-        "Lab 2 target is not fused rank 1 after the RRF repair",
-    )
-    _require(
-        signals.get("final_rank") == 1,
-        "Lab 2 target is not final rank 1 after bounded reranking",
-    )
-    return [
-        "RRF arithmetic correct",
-        "pre-rerank order repeatable",
-        "reranking bounded and applied",
-        "rank provenance present",
-        "canonical winner is fused and final rank 1",
-    ]
-
-
-def _successful_steps(agent: dict[str, Any], tool: str) -> list[dict[str, Any]]:
-    return [
-        step
-        for step in agent.get("trace") or []
-        if step.get("tool") == tool and step.get("outcome") == "success"
-    ]
-
-
-def _constraints_preserved(
-    required: dict[str, Any],
-    applied: dict[str, Any],
-) -> bool:
-    if required.get("domain") and applied.get("domain") != required["domain"]:
-        return False
-    if required.get("category_key") and (
-        applied.get("category_key") != required["category_key"]
-    ):
-        return False
-    if required.get("max_price_cents") is not None and (
-        applied.get("max_price_cents") is None
-        or applied["max_price_cents"] > required["max_price_cents"]
-    ):
-        return False
-    if required.get("min_price_cents") is not None and (
-        applied.get("min_price_cents") is None
-        or applied["min_price_cents"] < required["min_price_cents"]
-    ):
-        return False
-    if required.get("in_stock_only") and applied.get("in_stock_only") is not True:
-        return False
-    if required.get("brand") and (
-        str(applied.get("brand") or "").casefold() != str(required["brand"]).casefold()
-    ):
-        return False
-    if required.get("min_rating") is not None and (
-        applied.get("min_rating") is None
-        or applied["min_rating"] < required["min_rating"]
-    ):
-        return False
-    if required.get("availability") and (
-        applied.get("availability") != required["availability"]
-    ):
-        return False
-    return all(
-        (applied.get("attributes") or {}).get(key) == value
-        for key, value in (required.get("attributes") or {}).items()
-    )
-
-
-def _targets_have_distinct_runs(
-    targets: set[int],
-    candidate_runs: list[tuple[str, set[int]]],
-) -> bool:
-    """Return whether targets map to runs with distinct, non-empty queries."""
-
-    ordered = sorted(
-        targets,
-        key=lambda target: sum(
-            target in candidates for _, candidates in candidate_runs
-        ),
-    )
-
-    def assign(
-        position: int,
-        used_runs: set[int],
-        used_queries: set[str],
-    ) -> bool:
-        if position == len(ordered):
-            return True
-        target = ordered[position]
-        return any(
-            assign(
-                position + 1,
-                used_runs | {index},
-                used_queries | {query},
-            )
-            for index, (query, candidates) in enumerate(candidate_runs)
-            if (
-                index not in used_runs
-                and query
-                and query not in used_queries
-                and target in candidates
-            )
-        )
-
-    return assign(0, set(), set())
+        for citation in agent.get("citations") or []
+    }
 
 
 def validate_agent_response(
@@ -317,213 +170,16 @@ def validate_agent_response(
     mission: dict[str, Any],
     agent: dict[str, Any],
 ) -> list[str]:
-    trace = agent.get("trace") or []
-    _require(
-        all(step.get("origin") in {"model", "controller_fallback"} for step in trace),
-        "Lab 3 trace does not identify model versus controller execution origin",
+    """Grade one agent answer, fetching every receipt the checks compare against."""
+    receipts = _receipts(base_url, agent)
+    captured_plan, replayed_plan = _plans(base_url, mission, agent, receipts)
+    evidence = AgentEvidence(
+        receipts=receipts,
+        resolved_evidence=_resolved_evidence(base_url, agent),
+        captured_plan=captured_plan,
+        replayed_plan=replayed_plan,
     )
-    searches = _successful_steps(agent, "search_products")
-    _require(searches, "Lab 3 did not invoke search_products successfully")
-    required_filters = mission["filters"]
-    for step in searches:
-        applied = (step.get("arguments") or {}).get("applied_filters") or {}
-        _require(
-            _constraints_preserved(required_filters, applied),
-            "Lab 3 retrieval trace does not preserve structured constraints",
-        )
-
-    retrieval_runs = [
-        (
-            str(step["retrieval_run_id"]),
-            _request(base_url, f"/api/retrieval/events/{step['retrieval_run_id']}"),
-            str((step.get("arguments") or {}).get("query", "")).strip().casefold(),
-        )
-        for step in searches
-        if step.get("retrieval_run_id")
-    ]
-    candidate_sets = [
-        {int(candidate["product_id"]) for candidate in run.get("candidates") or []}
-        for _, run, _ in retrieval_runs
-    ]
-    considered = {
-        product_id for candidates in candidate_sets for product_id in candidates
-    }
-    target_product_ids = {int(item) for item in mission["target_product_ids"]}
-    missing_targets = sorted(target_product_ids - considered)
-    _require(
-        not missing_targets,
-        "Lab 3 retrieval runs missed canonical target classes "
-        f"{missing_targets}; issue focused searches that cover every declared "
-        "target_product_id",
-    )
-    if mission.get("requires_independent_target_searches"):
-        distinct_queries = {query for _, _, query in retrieval_runs if query}
-        _require(
-            len(retrieval_runs) >= len(target_product_ids)
-            and len(distinct_queries) >= len(target_product_ids)
-            and _targets_have_distinct_runs(
-                target_product_ids,
-                [
-                    (query, candidates)
-                    for (_, _, query), candidates in zip(
-                        retrieval_runs,
-                        candidate_sets,
-                        strict=True,
-                    )
-                ],
-            ),
-            "Lab 3 independent intent proof requires one distinct focused search "
-            f"and retrieval receipt per target class; found {len(distinct_queries)} "
-            f"query text(s), {len(retrieval_runs)} receipt(s), and targets "
-            f"{sorted(target_product_ids)}",
-        )
-
-    recommendations = agent.get("recommendations") or []
-    recommendation_ids = {item["product_id"] for item in recommendations}
-    _require(len(recommendations) >= 2, "Lab 3 did not return a comparison shortlist")
-    _require(
-        all(_eligible(item, required_filters) for item in recommendations),
-        "Lab 3 recommendation violates structured constraints",
-    )
-    _require(
-        recommendation_ids <= considered,
-        "Lab 3 recommended a product absent from persisted retrieval receipts",
-    )
-
-    comparisons = _successful_steps(agent, "compare_products")
-    _require(comparisons, "Lab 3 did not invoke compare_products successfully")
-    compared = {
-        int(product_id)
-        for step in comparisons
-        for product_id in (step.get("arguments") or {}).get("product_ids", [])
-    }
-    _require(
-        len(compared.intersection(recommendation_ids)) >= 2,
-        "Lab 3 comparison does not cover the recommendation shortlist",
-    )
-
-    evidence_steps = _successful_steps(agent, "get_product_evidence")
-    evidence_products = {
-        int((step.get("arguments") or {})["product_id"])
-        for step in evidence_steps
-        if (step.get("arguments") or {}).get("product_id") is not None
-    }
-    _require(
-        recommendation_ids <= evidence_products,
-        "Lab 3 did not retrieve evidence for every recommended product",
-    )
-    _require(
-        all((step.get("result_count") or 0) > 0 for step in evidence_steps),
-        "Lab 3 evidence tool returned no evidence records",
-    )
-
-    explanations = _successful_steps(agent, "explain_retrieval")
-    _require(
-        len(explanations) == 1,
-        "Lab 3 requires exactly one successful explain_retrieval tool call "
-        f"before synthesis; found {len(explanations)}",
-    )
-    explained_event_id = str(
-        (explanations[0].get("arguments") or {}).get("search_event_id", "")
-    )
-    retrieval_event_ids = {event_id for event_id, _, _ in retrieval_runs}
-    _require(
-        explained_event_id in retrieval_event_ids,
-        "Lab 3 explain_retrieval is not bound to a persisted retrieval receipt; "
-        f"found {explained_event_id!r}, expected one of "
-        f"{sorted(retrieval_event_ids)}",
-    )
-    if mission.get("requires_explain_plan"):
-        captured = _request(
-            base_url,
-            f"/api/retrieval/events/{explained_event_id}/plan",
-            {},
-        )
-        plan = captured.get("plan")
-        _require(
-            isinstance(plan, list)
-            and bool(plan)
-            and all(
-                isinstance(statement, dict) and isinstance(statement.get("Plan"), dict)
-                for statement in plan
-            ),
-            "Lab 3 EXPLAIN activity returned no PostgreSQL JSON plan; use the "
-            "production plan-capture endpoint for the explained retrieval event",
-        )
-        replay = _request(
-            base_url,
-            f"/api/retrieval/events/{explained_event_id}",
-        )
-        persisted_plan = (replay.get("run") or {}).get("plan_json")
-        _require(
-            persisted_plan == plan,
-            "Lab 3 EXPLAIN plan was not persisted on the explained retrieval "
-            "event; replay the same event after plan capture",
-        )
-
-    citations = agent.get("citations") or []
-    _require(citations, "Lab 3 returned no citations")
-    cited_product_ids = {int(citation["product_id"]) for citation in citations}
-    _require(
-        recommendation_ids <= cited_product_ids,
-        "Lab 3 did not cite evidence for every recommended product",
-    )
-    resolved_evidence: list[dict[str, Any]] = []
-    for citation in citations:
-        evidence = _request(base_url, f"/api/evidence/{citation['evidence_id']}")
-        _require(
-            evidence["evidence_id"] == citation["evidence_id"]
-            and evidence["product_id"] == citation["product_id"]
-            and evidence["source_uri"] == citation["source_uri"]
-            and evidence["revision"] == citation["revision"]
-            and evidence["text"] == citation["quote"],
-            f"Lab 3 citation {citation['number']} does not resolve exactly",
-        )
-        _require(
-            citation["product_id"] in recommendation_ids,
-            f"Lab 3 citation {citation['number']} belongs to an unselected product",
-        )
-        resolved_evidence.append({**evidence, **citation})
-
-    for requirement in mission.get("required_citation_support", []):
-        required_terms = [
-            term.casefold().replace("_", " ").replace("-", " ")
-            for term in requirement["all_terms"]
-        ]
-        matching = [
-            item
-            for item in resolved_evidence
-            if item["product_id"] == requirement["product_id"]
-            and item["evidence_type"] == requirement["evidence_type"]
-            and all(
-                term in item["text"].casefold().replace("_", " ").replace("-", " ")
-                for term in required_terms
-            )
-        ]
-        _require(
-            bool(matching),
-            "Lab 3 required citation support is absent for product "
-            f"{requirement['product_id']}: evidence_type="
-            f"{requirement['evidence_type']}, terms={requirement['all_terms']}",
-        )
-
-    checks = [
-        "structured constraints preserved",
-        "canonical target classes covered",
-        "retrieval and comparison tools invoked",
-        "evidence retrieved for every recommendation",
-        "ranking explanation replayable",
-        "tool execution origins explicit",
-        "citation IDs resolve exactly",
-        "required claims supported",
-    ]
-    if mission.get("requires_independent_target_searches"):
-        checks.insert(1, "independent retrieval intents covered")
-    if mission.get("requires_explain_plan"):
-        checks[checks.index("ranking explanation replayable")] = (
-            "ranking explanation and EXPLAIN plan replayable"
-        )
-    return checks
+    return _graded(lab_checks.agent_response_checks(mission, agent, evidence))
 
 
 def validate_lab_3(base_url: str) -> list[str]:
