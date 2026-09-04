@@ -211,8 +211,15 @@ const recommendations = catalog.products
   .slice(0, 2)
   .map((product, index) => rankedProduct(product, index + 1));
 
+/**
+ * A real `search_event_id` shape, because the Shop hand-off now carries it: the
+ * Playground rejects anything that is not shaped like a persisted event id, so a
+ * placeholder here would prove the wrong thing.
+ */
+const SEARCH_EVENT_ID = "9614ed9b-4ceb-4aad-9276-4e69af2231b9";
+
 const searchResponse: SearchResponse = {
-  search_event_id: "search-1",
+  search_event_id: SEARCH_EVENT_ID,
   query: "quiet keyboard",
   normalized_query: "quiet keyboard",
   applied_filters: {},
@@ -740,6 +747,37 @@ describe("CatalogPage", () => {
     expect(productReceipt!.textContent).not.toMatch(/FTS|TRGM|pg_trgm|HNSW|RRF/);
     expect(screen.queryByText("RRF #2")).toBeNull();
     expect(api.catalog).not.toHaveBeenCalled();
+  });
+
+  it("hands the Playground the run it served, not just the words that produced it", async () => {
+    // The link used to carry the query and the gates only, so following it made
+    // the Playground re-run the request and mint a second event. The run behind
+    // the results the shopper is looking at was then unreachable, and nothing
+    // downstream could compare against it.
+    window.history.replaceState({}, "", "/catalog?q=quiet%20keyboard");
+    renderPage();
+
+    const link = await screen.findByRole("link", {
+      name: /See how this was retrieved/,
+    });
+    const params = new URLSearchParams(link.getAttribute("href")!.split("?")[1]);
+
+    expect(params.get("q")).toBe("quiet keyboard");
+    expect(params.get("event")).toBe(SEARCH_EVENT_ID);
+  });
+
+  it("records the served run on its own URL, so the header hand-off carries it too", async () => {
+    // The header's Playground entry is built from the Shop URL alone, so a run
+    // recorded only in component state would reach one hand-off path and not the
+    // other.
+    window.history.replaceState({}, "", "/catalog?q=quiet%20keyboard");
+    renderPage();
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("event"))
+        .toBe(SEARCH_EVENT_ID);
+    });
+    expect(new URLSearchParams(window.location.search).get("q")).toBe("quiet keyboard");
   });
 
   it("scrolls a Discover handoff to results and offers Ask Mosaic beside them", async () => {

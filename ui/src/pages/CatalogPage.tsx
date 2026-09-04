@@ -114,6 +114,18 @@ function mergeVisibleProducts(
 }
 
 /**
+ * Which request a `view=results` hand-off identifies, for the scroll that runs
+ * once per hand-off. `event` records the run the response produced rather than
+ * the request that was made, so recording it must not read as a second hand-off
+ * and scroll the shopper down a second time.
+ */
+function resultsViewKey(search: string): string {
+  const params = new URLSearchParams(search);
+  params.delete("event");
+  return params.toString();
+}
+
+/**
  * What a Shop search is doing while it runs, in the storefront's own words.
  *
  * This list read "Cohere Embed v4 / FTS / pg_trgm / HNSW / SQL eligibility / RRF
@@ -213,6 +225,7 @@ export function CatalogPage() {
   const lowPrice = priceFromCents(minPriceCents, 0);
   const highPrice = priceFromCents(maxPriceCents, priceCeiling);
   const activeQuery = searchParams.get("q")?.trim() ?? "";
+  const requestedView = searchParams.get("view");
   const filters: SearchFilters = {
     domain,
     category_key: categoryKey,
@@ -338,16 +351,38 @@ export function CatalogPage() {
     maxPriceCents,
   ]);
 
+  /**
+   * The served run's own id, recorded on Shop's own URL.
+   *
+   * The header's Playground entry is built from this URL and nothing else, so a
+   * run held only in component state would reach the in-page hand-off and not
+   * the header one. Replaced rather than pushed: this records the request
+   * already on screen, it is not somewhere a shopper navigated to.
+   */
+  useEffect(() => {
+    const recorded = searchParams.get("event") ?? "";
+    const served = retrieval?.search_event_id ?? "";
+    if (recorded === served) return;
+    const next = new URLSearchParams(searchParams);
+    if (served) next.set("event", served);
+    else next.delete("event");
+    setSearchParams(next, { replace: true });
+  }, [retrieval, searchParams, setSearchParams]);
+
+  // Keyed on the view a hand-off asked for rather than on the whole query
+  // string: any other parameter changing while the scroll is still queued would
+  // re-run this effect, and its cleanup would cancel the frame it had already
+  // scheduled. Recording the served run above does exactly that.
   useEffect(() => {
     if (
-      searchParams.get("view") !== "results"
+      requestedView !== "results"
       || !activeQuery
       || retrievalLoading
       || (!retrieval && !retrievalError)
     ) {
       return;
     }
-    const requestKey = window.location.search;
+    const requestKey = resultsViewKey(window.location.search);
     if (handledResultsView.current === requestKey) return;
     handledResultsView.current = requestKey;
     const frame = window.requestAnimationFrame(() => {
@@ -360,10 +395,10 @@ export function CatalogPage() {
   }, [
     activeQuery,
     reduceMotion,
+    requestedView,
     retrieval,
     retrievalError,
     retrievalLoading,
-    searchParams,
   ]);
 
   /**
@@ -1014,7 +1049,11 @@ export function CatalogPage() {
               <SearchRetrievalReceipt response={retrieval} />
               <Link
                 className="shop-ranking-playground"
-                href={playgroundQueryHref(retrieval.query, retrieval.applied_filters)}
+                href={playgroundQueryHref(
+                  retrieval.query,
+                  retrieval.applied_filters,
+                  retrieval.search_event_id,
+                )}
               >
                 See how this was retrieved in the {RETRIEVAL_SURFACE.label}
                 <ArrowUpRight size={14} aria-hidden="true" />

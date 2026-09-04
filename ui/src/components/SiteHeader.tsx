@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import { useCommerce } from "../commerce";
 import {
   RETRIEVAL_SURFACE,
+  forwardedSearchEvent,
   forwardedSearchFilters,
   playgroundQueryHref,
   useSearchParams,
@@ -67,6 +68,10 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
    * demonstrations rather than one request travelling through the product. Nothing
    * is carried when Shop has no active search, and the Playground says out loud when
    * something was.
+   *
+   * The run Shop actually served travels too, on the `event` Shop records on its
+   * own URL. Without it this path would re-run the query and mint a second
+   * event, which is the one thing the hand-off exists to avoid.
    */
   const playgroundHref = useMemo(() => {
     // wouter's useLocation returns the path without the query string, so the search
@@ -74,7 +79,11 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
     if (!pathname.startsWith("/catalog")) return RETRIEVAL_SURFACE.path;
     const query = searchParams.get("q")?.trim();
     if (!query) return RETRIEVAL_SURFACE.path;
-    return playgroundQueryHref(query, forwardedSearchFilters(searchParams));
+    return playgroundQueryHref(
+      query,
+      forwardedSearchFilters(searchParams),
+      forwardedSearchEvent(searchParams),
+    );
   }, [pathname, searchParams]);
 
   useEffect(() => {

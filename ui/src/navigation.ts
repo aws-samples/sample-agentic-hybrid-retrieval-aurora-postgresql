@@ -2,6 +2,7 @@ import {
   useLocation,
   useSearchParams as useWouterSearchParams,
 } from "wouter";
+import { isPlausibleSearchEventId } from "./repairEvidence";
 
 type NavigationOptions = {
   replace?: boolean;
@@ -70,10 +71,16 @@ const FORWARDED_NUMBER_FILTERS = [
  * request and the participant would compare two unrelated result sets. The
  * scenario picker stays on its default; `q` is what overrides the query it
  * would otherwise seed.
+ *
+ * `searchEventId` carries the run itself rather than the recipe for one. Query
+ * and gates are enough to ask for an equivalent request, but re-asking mints a
+ * second `mosaic.search_event`, and the run whose results the shopper is looking
+ * at is then unreachable: no later comparison can anchor on what Shop served.
  */
 export function playgroundQueryHref(
   query: string,
   filters: Record<string, unknown> = {},
+  searchEventId?: string | null,
 ): string {
   const params = new URLSearchParams({ q: query });
   for (const name of FORWARDED_STRING_FILTERS) {
@@ -91,7 +98,23 @@ export function playgroundQueryHref(
     }
   }
   if (filters.in_stock_only === true) params.set("in_stock_only", "true");
+  const event = searchEventId?.trim();
+  if (event) params.set("event", event);
   return `${RETRIEVAL_SURFACE.path}?${params}`;
+}
+
+/**
+ * The Shop run the link points at, when it points at one that could exist.
+ *
+ * Shape-checked here rather than on arrival at the API, so a hand-edited link or
+ * a preview-only placeholder id falls back to replaying the query instead of
+ * spending a request and reporting a run the Playground never read. `null` is
+ * the honest answer for "no run was carried", which is what keeps the plain
+ * query hand-off working unchanged.
+ */
+export function forwardedSearchEvent(params: URLSearchParams): string | null {
+  const value = params.get("event")?.trim() ?? "";
+  return isPlausibleSearchEventId(value) ? value : null;
 }
 
 /**

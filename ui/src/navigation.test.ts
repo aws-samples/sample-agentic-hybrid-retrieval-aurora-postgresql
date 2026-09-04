@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   RETRIEVAL_SURFACE,
+  forwardedSearchEvent,
   forwardedSearchFilters,
   playgroundQueryHref,
 } from "./navigation";
@@ -22,6 +23,9 @@ import {
  */
 
 const TYPO = "noice cancelng hedfones";
+
+/** The `search_event_id` Shop's own run was persisted under. */
+const SHOP_EVENT_ID = "9614ed9b-4ceb-4aad-9276-4e69af2231b9";
 
 /** The gates Shop had in force for the canonical Lab 1 request. */
 const SHOP_FILTERS = {
@@ -100,5 +104,45 @@ describe("Shop to Playground hand-off", () => {
     expect(href).not.toContain("attributes");
     expect(forwardedSearchFilters(new URLSearchParams(href.split("?")[1])))
       .toEqual({ domain: "home_office" });
+  });
+});
+
+describe("Shop to Playground event hand-off", () => {
+  it("carries the id of the run Shop actually served", () => {
+    // Without it the Playground can only re-run the query, which mints a second
+    // event: the run the shopper was shown is then unreachable, and no later
+    // comparison can anchor on it.
+    const href = playgroundQueryHref(TYPO, SHOP_FILTERS, SHOP_EVENT_ID);
+    const params = new URLSearchParams(href.split("?")[1]);
+
+    expect(params.get("event")).toBe(SHOP_EVENT_ID);
+    expect(forwardedSearchEvent(params)).toBe(SHOP_EVENT_ID);
+  });
+
+  it("keeps the event id out of the eligibility gates it rebuilds", () => {
+    // `event` is a run handle, not a gate. Rebuilding it as one would send a
+    // filter the search API has no column for.
+    const href = playgroundQueryHref(TYPO, SHOP_FILTERS, SHOP_EVENT_ID);
+
+    expect(forwardedSearchFilters(new URLSearchParams(href.split("?")[1])))
+      .toEqual(SHOP_FILTERS);
+  });
+
+  it("carries no event when there is no persisted run to point at", () => {
+    const href = playgroundQueryHref(TYPO, SHOP_FILTERS);
+
+    expect(href).not.toContain("event=");
+    expect(forwardedSearchEvent(new URLSearchParams(href.split("?")[1]))).toBeNull();
+  });
+
+  it("refuses an id that is not shaped like a search_event_id", () => {
+    // A hand-edited link, or the local preview's own placeholder id, would send
+    // the Playground after an event that cannot exist. Rejected before the
+    // request, so the surface replays the query rather than reporting a run it
+    // never read.
+    expect(forwardedSearchEvent(new URLSearchParams("event=local-showcase-preview")))
+      .toBeNull();
+    expect(forwardedSearchEvent(new URLSearchParams("event="))).toBeNull();
+    expect(forwardedSearchEvent(new URLSearchParams(""))).toBeNull();
   });
 });

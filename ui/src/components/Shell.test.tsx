@@ -129,6 +129,53 @@ describe("Shell navigation", () => {
     expect(params.get("q")).toBe("noice cancelng hedfones");
     expect(params.get("domain")).toBe("consumer_electronics");
     expect(params.get("in_stock_only")).toBe("true");
+    // Shop has not recorded a run on this URL, so there is no event to carry and
+    // the header does not invent one.
+    expect(params.get("event")).toBeNull();
+  });
+
+  it("carries the Shop run's own event id onto the Playground entry", () => {
+    // The header is the second hand-off path, and it has to preserve the run the
+    // shopper was actually shown for the same reason the in-page link does: a
+    // Playground that re-runs the query mints a different event, and the run
+    // behind the results on screen becomes unreachable.
+    window.history.replaceState(
+      {},
+      "",
+      "/catalog?q=noice+cancelng+hedfones&event=9614ed9b-4ceb-4aad-9276-4e69af2231b9",
+    );
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    const href = within(screen.getByRole("navigation", { name: "Storefront" }))
+      .getByRole("link", { name: "Playground" })
+      .getAttribute("href")!;
+    const params = new URLSearchParams(href.split("?")[1]);
+
+    expect(params.get("q")).toBe("noice cancelng hedfones");
+    expect(params.get("event")).toBe("9614ed9b-4ceb-4aad-9276-4e69af2231b9");
+  });
+
+  it("carries no event id that is not shaped like one", () => {
+    window.history.replaceState({}, "", "/catalog?q=quiet+keyboard&event=not-an-event");
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    const href = within(screen.getByRole("navigation", { name: "Storefront" }))
+      .getByRole("link", { name: "Playground" })
+      .getAttribute("href")!;
+
+    expect(href).not.toContain("event=");
   });
 
   it("carries nothing from a surface that has no query", () => {
