@@ -290,6 +290,54 @@ describe("RepairEvidence — pinned baseline", () => {
     expect(await screen.findByText(/product #404/)).toBeTruthy();
   });
 
+  it("names the pair only once both runs have actually been read", async () => {
+    // The pair line was set before the reads resolved, so "Comparing baseline X
+    // against Y" rendered directly above the alert saying Y could not be read.
+    mockEventsByid({ [BEFORE_ID]: LAB1_BEFORE });
+    render(
+      <RepairEvidence baselineSearchEventId={BEFORE_ID} latestSearchEventId={AFTER_ID} />,
+    );
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(document.querySelector(".labs-repair-pair")).toBeNull();
+    expect(screen.queryByText(/Comparing baseline/)).toBeNull();
+  });
+
+  it("names the pair the rendered evidence actually came from", async () => {
+    mockEventsByid({ [BEFORE_ID]: LAB1_BEFORE, [AFTER_ID]: LAB1_AFTER });
+    render(
+      <RepairEvidence baselineSearchEventId={BEFORE_ID} latestSearchEventId={AFTER_ID} />,
+    );
+
+    await screen.findByText(RANK_UNCHANGED_REASSURANCE);
+    const pair = document.querySelector(".labs-repair-pair");
+    expect(pair?.textContent).toContain(BEFORE_ID);
+    expect(pair?.textContent).toContain(AFTER_ID);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("asks for the run it is missing, not for the baseline it already holds", async () => {
+    // On arrival from Shop the baseline is pinned and is the only run there is.
+    // Telling that participant to pin one names a step they have already taken
+    // and hides the one that is actually left.
+    mockEventsByid({ [AFTER_ID]: LAB1_AFTER });
+    render(
+      <RepairEvidence baselineSearchEventId={AFTER_ID} latestSearchEventId={AFTER_ID} />,
+    );
+
+    expect(await screen.findByText(/Run the pipeline to compare against the pinned baseline/))
+      .toBeTruthy();
+    expect(screen.queryByText(/Pin a baseline run above/)).toBeNull();
+  });
+
+  it("still asks for a baseline when none is pinned", () => {
+    render(<RepairEvidence baselineSearchEventId={null} latestSearchEventId={AFTER_ID} />);
+
+    expect(screen.getByText(/Pin a baseline run above/)).toBeTruthy();
+    expect(screen.queryByText(/Run the pipeline to compare against the pinned baseline/))
+      .toBeNull();
+  });
+
   it("never spends a request on an id that is not shaped like one", async () => {
     // The Playground's run ids are real event ids, but an automatic comparison
     // must not raise a paste error for something the participant never pasted.

@@ -124,7 +124,7 @@ export function RepairEvidence({
     const beforeValue = before.trim();
     const afterValue = after.trim();
     setAttempted(true);
-    setCompared(beforeValue && afterValue ? { before: beforeValue, after: afterValue } : null);
+    setCompared(null);
     setPending(true);
     setBeforeRun(null);
     setAfterRun(null);
@@ -144,6 +144,14 @@ export function RepairEvidence({
     setAfterError(afterResult.error);
     setBeforeRun(beforeResult.run);
     setBeforeError(beforeResult.error);
+    // Claimed only once both runs are in hand. Announcing the pair before the
+    // reads resolve put "Comparing baseline X against Y" directly above the
+    // alert saying one of them could not be read.
+    setCompared(
+      beforeValue && afterValue && !beforeResult.error && !afterResult.error
+        ? { before: beforeValue, after: afterValue }
+        : null,
+    );
     setPending(false);
   }
 
@@ -229,9 +237,16 @@ export function RepairEvidence({
 
       {!attempted ? (
         <p className="labs-repair-hint" role="status">
-          Pin a baseline run above, then run the pipeline again: this panel compares
-          the two on its own. To diff runs it does not already hold, open Compare
-          other runs and paste both ids.
+          {/* A carried arrival pins a baseline before anything has been run, so
+              telling that participant to pin one names a step they have already
+              taken and hides the one thing still missing: a second run. */}
+          {baselineSearchEventId && baselineSearchEventId === latestSearchEventId
+            ? "Run the pipeline to compare against the pinned baseline."
+            : "Pin a baseline run above, then run the pipeline again: this panel "
+              + "compares the two on its own."}
+          {" "}
+          To diff runs it does not already hold, open Compare other runs and paste
+          both ids.
         </p>
       ) : null}
 
