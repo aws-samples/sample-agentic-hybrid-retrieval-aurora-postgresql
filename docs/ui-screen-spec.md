@@ -2,7 +2,7 @@
 
 ## Shared shell
 
-Participant-facing navigation exposes exactly Discover, Shop, and Mosaic Labs.
+Participant-facing navigation exposes exactly Discover, Shop, and Playground.
 Product detail, retrieval inspection, and HNSW tuning are contextual deep
 routes, not competing destinations. Mobile navigation collapses behind one menu
 button.
@@ -60,7 +60,7 @@ Retrieval view:
 
 API: `POST /api/search` and `POST /api/agent/answer/stream`.
 
-## `/mosaic-labs` - Mosaic Labs
+## `/mosaic-labs` - Playground
 
 Purpose: make the three-lab `Retrieve -> Rank -> Reason` progression and its
 evidence requirements visible.
@@ -92,7 +92,7 @@ Components:
 
 API: `GET /api/products/{product_id}`.
 
-## `/labs/retrieval` - Retrieval Lab
+## `/labs/retrieval` - Playground
 
 Purpose: preserve one query while inspecting how each retrieval stage changes
 candidate order.
@@ -111,7 +111,7 @@ copyable canonical SQL.
 
 API: `GET /api/retrieval/examples` and `POST /api/search`.
 
-## `/labs/performance` - HNSW Performance Tuning
+## `/mosaic-labs/hnsw` - Vector index at scale
 
 Purpose: teach HNSW as a measured workload rather than a checkbox.
 
@@ -132,6 +132,15 @@ Outputs:
 
 API: `GET /api/benchmarks/projection`. Projected output must never be labeled as
 an Aurora measurement.
+
+## `/mosaic-labs/studio` - Catalog studio (fixture-backed, outside the session path)
+
+Purpose: let a participant compose real catalog objects into a visual study
+after they have used the live retrieval system in Shop.
+
+Catalog studio does not execute or emulate a search. It reads from a fixed set
+of local fixtures, not a live retrieval request, and sits outside the
+one-hour hands-on path.
 
 ## Ownership boundary
 

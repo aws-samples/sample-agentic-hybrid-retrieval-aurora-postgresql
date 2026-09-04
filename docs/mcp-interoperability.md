@@ -91,7 +91,7 @@ make mcp-test
    returned product. Then call it again with a product ID it did not return and
    confirm HTTP 404.
 6. Pass the returned run ID to `inspect_retrieval_run`.
-7. Compare the MCP result with the Retrieval Lab UI and confirm both show the
+7. Compare the MCP result with the Playground UI and confirm both show the
    same persisted PostgreSQL ranking signals.
 
 This optional check proves candidate, eligibility, RRF, and evidence payload

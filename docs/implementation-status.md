@@ -11,7 +11,7 @@
   catalog-identifier lookup;
 - typed FastAPI, Strands product-discovery tools, cited synthesis, and retrieval
   run inspection;
-- responsive React application with visible Discover, Shop, and Mosaic Labs
+- responsive React application with visible Discover, Shop, and Playground
   surfaces; product detail, retrieval inspection, and HNSW tuning remain
   contextual or optional;
 - three required labs, two embedded Lab 1 checkpoints, and three optional

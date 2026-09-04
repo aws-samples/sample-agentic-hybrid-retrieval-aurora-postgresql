@@ -24,7 +24,7 @@ retired purple concept direction.
 |---|---|---|
 | `--mosaic-charcoal` | `#17201e` | Ask Mosaic, technical hero, and trust bands |
 | `--maroon-800` | `#671825` | primary actions and Reason-stage emphasis |
-| `--mosaic-canvas` | `#f3f5f3` | Shop and Labs page background |
+| `--mosaic-canvas` | `#f3f5f3` | Shop and Playground page background |
 | `--mosaic-surface` | `#ffffff` | tools and product cards |
 | `--ink` | `#171514` | primary text |
 | `--ink-soft` | `#5f5955` | supporting text |
@@ -80,20 +80,20 @@ One product image, descriptive catalog copy, price and availability, source URI
 and revision, structured attributes, and review excerpts. Product media never
 serves as evidence for an attribute.
 
-### Mosaic Labs
+### Playground
 
 The three labs establish the retrieval sequence. Three Broken -> Fix -> Prove
 cards, three participant requests, and five validator-owned controls expose
 candidate provenance, rank movement, tool boundaries, and citation grounding
 without creating additional labs.
 
-### Retrieval Lab
+### Retrieve, rank, reason
 
 One query is preserved while participants inspect Full-text, `pg_trgm`, Vector,
 RRF, and Rerank orderings. The canonical SQL checkpoint remains beside the
 candidate table and is directly copyable.
 
-### HNSW Performance Tuning
+### Vector index at scale
 
 Scale, `ef_search`, filter selectivity, and iterative-scan controls prepare a
 benchmark envelope. Projection badges and measurement-boundary copy prevent

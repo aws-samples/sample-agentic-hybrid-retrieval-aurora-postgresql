@@ -8,22 +8,20 @@
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=20232A)](https://react.dev/)
 [![License: MIT-0](https://img.shields.io/badge/License-MIT--0-2EA44F.svg)](LICENSE)
 
-Mosaic is a production-shaped product discovery application and hands-on
-builder session for agentic hybrid retrieval on Amazon Aurora PostgreSQL. It
-combines PostgreSQL full-text search, `pg_trgm`, pgvector HNSW, hard relational
-filters, reciprocal-rank fusion, managed reranking, source-addressable evidence,
-and bounded agent tools in one inspectable retrieval system.
-
 The session thesis is simple: **retrieval correctness is a pipeline property,
-not a top-1 result**. Each required lab breaks composition while the underlying
-components remain healthy: candidate recall in Retrieve, contribution arithmetic
-in Rank, and citation scope in Reason.
+not a top-1 result**.
 
-The reference application includes a responsive React storefront, a typed
-FastAPI service, a Strands agent with citation-bounded synthesis, an optional
-MCP 2.0 adapter, a packaged participant skill, a 500,000-product synthetic
-catalog, and deterministic release gates. The complete session framing is in
-[the session abstract](docs/session-abstract.md).
+A search can return a plausible top result while the system behind it is
+wrong. In this session you repair three failures that hide behind healthy
+components: a missing candidate path, broken fusion masked by reranking, and
+evidence that reaches an agent but cannot safely support its answer.
+
+Mosaic is a production-shaped product discovery application that pairs
+PostgreSQL full-text search, `pg_trgm`, pgvector HNSW, reciprocal-rank fusion,
+and managed reranking with a React storefront, a typed FastAPI service, a
+Strands agent, and an optional MCP 2.0 adapter, backed by a 500,000-product
+synthetic catalog and deterministic release gates. The complete session
+framing is in [the session abstract](docs/session-abstract.md).
 
 ![Mosaic Discover page with product discovery and natural-language search](docs/images/mosaic-discover.webp)
 
@@ -109,8 +107,8 @@ The visible application surfaces are:
 
 - **Discover** - editorial product discovery and direct search;
 - **Shop** - hybrid search, filters, sorting, product detail, and Ask Mosaic;
-- **Retrieval Observatory** - read-only inspection of retrieval, ranking, and
-  evidence, with HNSW-at-scale and Studio alongside it.
+- **Playground** - read-only inspection of retrieval, ranking, and evidence,
+  with Vector index at scale and Catalog studio alongside it.
 
 Search and agent results always come from the API. The UI does not recreate
 retrieval scores or silently substitute fixture products when Aurora, Bedrock,
@@ -120,7 +118,7 @@ reranking, evidence, or synthesis is unavailable.
 
 ```mermaid
 flowchart LR
-    U[Buyer or builder] --> UI[React: Discover, Shop, Retrieval Observatory]
+    U[Buyer or builder] --> UI[React: Discover, Shop, Playground]
     UI --> API[FastAPI retrieval and agent API]
     H[MCP-compatible host] --> MCP[MCP 2.0 adapter]
     MCP --> API
@@ -421,7 +419,7 @@ scripts/      Data, embedding, validation, scorecard, and benchmark tooling
 service/      FastAPI, retrieval orchestration, Strands tools, and model clients
 skills/       Participant takeaway skill, checked adapter map, and adaptation guidance
 tests/        Dataset, SQL, API, provenance, and release-contract tests
-ui/           React storefront, Ask Mosaic, and the Retrieval Observatory
+ui/           React storefront, Ask Mosaic, and the Playground
 ```
 
 Start with:

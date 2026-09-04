@@ -27,7 +27,7 @@ A plausible product card is not proof that search is healthy. A correct final an
 3. Lab 1: reconnect the close-spelling search arm to fusion, in SQL.
 4. Lab 2: repair the fusion arithmetic so rank position counts again, in SQL.
 5. Lab 3: register retrieved evidence into the application state that authorizes citations, in Python.
-6. Run the completion gate, then use the flex time for the HNSW lens, the retrieval scorecard, catch-up, or questions.
+6. Run the completion gate, then use the flex time for Vector index at scale, the retrieval scorecard, catch-up, or questions.
 
 Each lab has a manual path and an optional coding-agent path (`claude` from the repository root, with guardrails). Both produce the same small diff and pass the same validator. Each lab also has a five-minute **Fast track** that compresses the implementation, never the proof.
 
@@ -113,7 +113,7 @@ Models pinned for the event: Cohere Embed v4 for embeddings, Cohere Rerank 3.5 f
 | 0:20 to 0:30 | Lab 2 Rank | Product 370002 leads before and after reranking; validator passes |
 | 0:30 to 0:45 | Lab 3 Reason | The refusal becomes a cited answer; every citation resolves |
 | 0:45 to 0:50 | Completion gate and takeaways | All three validators pass; the guide marks DONE |
-| 0:50 to 1:00 | Flex: HNSW lens, scorecard, catch-up, or questions | Nothing required here |
+| 0:50 to 1:00 | Flex: Vector index at scale, scorecard, catch-up, or questions | Nothing required here |
 
 The hands-on path must reach its last proof at minute 45. The two-minute recovery buffer is part of the 60, not spare lab time. If a table is behind, point them at the lab's Fast track immediately rather than at the end.
 
@@ -165,7 +165,7 @@ Own the tabs, the Code Editor terminal, syntax recovery and the validators. Help
 - The reranker receives a bounded pool. It does not replace retrieval.
 - The agent is one bounded Strands agent with five typed, read-only tools. It does not delegate, remember across visits, or traverse a graph.
 - Mosaic's memory is Aurora. Every run, candidate, evidence record and citation is persisted with an id. Nothing remembers a shopper between visits, and the Reason stage says so in a footnote.
-- Any harness that speaks MCP can call the same five tools with the same contracts. That is the answer to "does this only work with Strands".
+- Any harness that speaks MCP can call the same three tools with the same contracts. That is the answer to "does this only work with Strands".
 
 ## Words to use
 
@@ -191,7 +191,7 @@ Follow the event-owner preflight in the Workshop Studio repository's `FACILITATO
 - confirm the account can invoke all three pinned models;
 - confirm readiness reports 500,000 products and 500,000 embeddings;
 - confirm Lab 1 reads BROKEN and Labs 2 and 3 read SOLVED;
-- seed the HNSW exact ground truth, which the cached bootstrap does not do and which the HNSW lens needs to render at all;
+- seed the HNSW exact ground truth, which the cached bootstrap does not do and which Vector index at scale needs to render at all;
 - run all three labs and the completion gate yourself from the rendered guide.
 
 Beyond the guide, keep at least one replacement event account available. A broken account gets replaced; nobody improvises infrastructure at the table.

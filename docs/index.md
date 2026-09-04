@@ -1,7 +1,16 @@
 # Documentation map
 
+Mosaic is a product discovery application built around three visible
+surfaces: Discover, Shop, and Playground. Participants work through three
+required labs on top of it: Lab 1 - Build hybrid retrieval, Lab 2 - Fuse,
+rerank, and inspect, and Lab 3 - Build the retrieval agent. The documents
+below cover the dataset, the retrieval and ranking mechanics, the UI and API
+contracts, and the release and evaluation gates that keep the session
+honest.
+
 | Document | Purpose |
 |---|---|
+| `workshop.md` (repo root) | Co-presenter brief: story, three-lab journey, how to read a run |
 | `architecture.md` | Runtime and offline architecture |
 | `catalog-spec.md` | Dataset taxonomy, schema, attributes, and challenge cohorts |
 | `category-plate-prompts.md` | Prompt set for category-plate imagery |
