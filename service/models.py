@@ -21,7 +21,6 @@ from pydantic import (
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.retrieval_profile import load_profile
-from service.coverage import QueryCoverage
 
 
 def _yaml_default(field: str) -> Callable[[], Any]:
@@ -348,6 +347,54 @@ class RetrievalDiagnostics(BaseModel):
     stage_timings_ms: dict[str, float]
     total_latency_ms: int
     warnings: list[str] = Field(default_factory=list)
+
+
+#: Query-coverage verdicts live here rather than in `service.coverage` so that
+#: importing the response models never imports psycopg: the packaged MCP
+#: adapter compares its contract against these classes from an environment
+#: that has no database driver.
+CoverageConfidence = Literal["grounded", "unanchored", "unavailable"]
+
+
+class TermCoverage(BaseModel):
+    """One parsed request token, and what the catalog holds for it."""
+
+    ordinal: int
+    token: str
+    token_kind: str
+    lexeme: str | None = None
+    ndoc: int = 0
+    closest_lexeme: str | None = None
+    closest_similarity: float | None = None
+    verdict: Literal["matched", "recoverable", "unmatched_anchor", "ignored"]
+
+
+class QueryCoverage(BaseModel):
+    """Whether every identity-bearing term of a request exists in the catalog.
+
+    `confidence` is the field a consumer branches on:
+
+    - `grounded`: every term either matched or is a recoverable misspelling.
+      Retrieval and citation proceed normally.
+    - `unanchored`: at least one term named something the catalog does not
+      carry. Results are still returned, and still ordered, but they answer a
+      narrower question than the one asked. Synthesis must not present them as
+      the answer of record.
+    - `unavailable`: the corpus vocabulary has not been built, so no verdict was
+      reached. Consumers must behave exactly as they did before this module
+      existed. An unseeded vocabulary makes every term look absent, and treating
+      that as `unanchored` would refuse every request on the deployment.
+    """
+
+    confidence: CoverageConfidence
+    unmatched_terms: list[str] = Field(default_factory=list)
+    terms: list[TermCoverage] = Field(default_factory=list)
+    note: str = ""
+
+    @property
+    def is_anchored(self) -> bool:
+        """False only when a term named something the catalog does not carry."""
+        return self.confidence != "unanchored"
 
 
 class SearchResponse(BaseModel):

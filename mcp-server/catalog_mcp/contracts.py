@@ -200,6 +200,24 @@ class RetrievalDiagnostics(WireModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class TermCoverage(WireModel):
+    ordinal: int
+    token: str
+    token_kind: str
+    lexeme: str | None = None
+    ndoc: int = 0
+    closest_lexeme: str | None = None
+    closest_similarity: float | None = None
+    verdict: Literal["matched", "recoverable", "unmatched_anchor", "ignored"]
+
+
+class QueryCoverage(WireModel):
+    confidence: Literal["grounded", "unanchored", "unavailable"]
+    unmatched_terms: list[str] = Field(default_factory=list)
+    terms: list[TermCoverage] = Field(default_factory=list)
+    note: str = ""
+
+
 class SearchResponse(WireModel):
     search_event_id: UUID
     query: str
@@ -207,6 +225,7 @@ class SearchResponse(WireModel):
     applied_filters: dict[str, Any]
     results: list[ProductSummary]
     diagnostics: RetrievalDiagnostics | None = None
+    coverage: QueryCoverage | None = None
 
 
 class EvidenceRecord(WireModel):
