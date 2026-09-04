@@ -752,7 +752,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="01"
         title="Retrieve"
-        summary="What the shopper asked, which products were allowed, and what each search method found."
+        summary="Recover missing candidates. What the shopper asked, which products were allowed, and what each search method found."
         stale={loading && Boolean(response)}
       >
         {response && counts && profile ? (
@@ -830,7 +830,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="02"
         title="Rank"
-        summary="Where each product appeared in each candidate list, how those lists were combined, and what reranking moved."
+        summary="Repair fusion before reranking hides it. Where each product appeared in each candidate list, how those lists were combined, and what reranking moved."
         stale={loading && Boolean(response)}
       >
         <RetrievalObservatory
@@ -905,7 +905,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="03"
         title="Reason"
-        summary="Which products and evidence the agent received, what the application allowed into the answer, and whether every citation resolves."
+        summary="Ground the agent's answer. Which products and evidence the agent received, what the application allowed into the answer, and whether every citation resolves."
       >
         {reasonScenario ? (
           <ReasonStage

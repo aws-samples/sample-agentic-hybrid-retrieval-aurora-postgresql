@@ -667,6 +667,32 @@ describe("RetrievalLabPage", () => {
     ).toEqual(["Retrieve", "Rank", "Reason", "Prove"]);
   });
 
+  it("opens each stage summary with the outcome that stage produces", () => {
+    // The title names a step in the model; the summary under it opened with
+    // what the panels below contain. A participant scanning the page reads the
+    // summary to find out why they are in this stage, so the outcome goes
+    // first and the inventory of panels stays behind it.
+    const { container } = render(<RetrievalLabPage />);
+    const summaries = [...container.querySelectorAll(".labs-stage-copy p")].map(
+      (node) => node.textContent ?? "",
+    );
+
+    expect(summaries[0]).toBe(
+      "Recover missing candidates. What the shopper asked, which products were"
+      + " allowed, and what each search method found.",
+    );
+    expect(summaries[1]).toBe(
+      "Repair fusion before reranking hides it. Where each product appeared in"
+      + " each candidate list, how those lists were combined, and what reranking"
+      + " moved.",
+    );
+    expect(summaries[2]).toBe(
+      "Ground the agent's answer. Which products and evidence the agent"
+      + " received, what the application allowed into the answer, and whether"
+      + " every citation resolves.",
+    );
+  });
+
   it("bridges each customer word to the PostgreSQL feature behind it", () => {
     // The whole reason this surface exists, so it is above the stages and not
     // behind a disclosure.
