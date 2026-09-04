@@ -238,9 +238,23 @@ def readiness() -> dict[str, object]:
             ).items()
             if state != "valid"
         )
+        # `mosaic_bench.exact_neighbor` is optional (see `exact_neighbor_ground_truth`'s
+        # docstring) and reached over the same connection as the required checks
+        # above, so a privilege or other database error against it must not 503 the
+        # whole endpoint. Caught here rather than left to `service.main`'s broader
+        # `except Exception`, which would report it indistinguishably from a real
+        # readiness failure. No connection detail is carried into the response, only
+        # the exception's type name.
+        try:
+            ground_truth = exact_neighbor_ground_truth(
+                connection, get_settings().dataset_manifest_sha256 or ""
+            )
+            ground_truth_detail = None
+        except psycopg.Error as error:
+            ground_truth = "unknown"
+            ground_truth_detail = type(error).__name__
         return dict(row) | {
             "missing_retrieval_indexes": missing_indexes or None,
-            "exact_neighbor_ground_truth": exact_neighbor_ground_truth(
-                connection, get_settings().dataset_manifest_sha256 or ""
-            ),
+            "exact_neighbor_ground_truth": ground_truth,
+            "exact_neighbor_ground_truth_detail": ground_truth_detail,
         }

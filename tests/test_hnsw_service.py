@@ -659,6 +659,9 @@ def test_no_docstring_claims_the_probe_runs_a_single_query():
 
     assert "one real ANN query" not in (probe.__doc__ or "")
     assert "one real ANN query" not in (main.hnsw_probe_route.__doc__ or "")
+    # Absence alone would also pass a docstring that dropped the run count
+    # entirely; require it to still say what actually happens.
+    assert "twice" in (probe.__doc__ or "")
 
 
 # --- The manifest guard is the ground-truth join, not a self-comparison -------
