@@ -3,6 +3,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { readChannels, RetrievalChannelMap } from "./RetrievalChannelMap";
+import { requiredArms } from "../retrievalLanguage";
+import { coreMosaicLabs } from "../labMissions";
 import type {
   ReadinessResponse,
   RetrievalDiagnostics,
@@ -81,8 +83,28 @@ function readiness(missingIndexes: string[] | null): ReadinessResponse {
   };
 }
 
-/** The canonical Lab 1 scenario's own `expected_techniques`. */
-const REQUIRES_TRIGRAM = ["pg_trgm", "vector", "filters", "rrf"];
+/**
+ * Lab 1's and Lab 2's own `expected_techniques`, read from the manifest they are
+ * declared in rather than transcribed.
+ *
+ * The hand-written list this replaced -- `pg_trgm, vector, filters, rrf` -- was
+ * described as `typo-recovery`'s own and is not: that mission declares
+ * `pg_trgm, rrf, cohere_rerank`, and `filters` names no arm at all. `vector`
+ * made every case below require a semantic arm the scenario never asks for, so
+ * the file asserted against a scenario the manifest does not contain.
+ */
+function techniquesOf(missionId: string): string[] {
+  const mission = coreMosaicLabs.find((candidate) => candidate.id === missionId);
+  if (!mission) {
+    throw new Error(`mosaic_labs_missions.json no longer declares ${missionId}`);
+  }
+  return mission.expected_techniques;
+}
+
+/** `typo-recovery`: pg_trgm, rrf, cohere_rerank. No semantic technique. */
+const REQUIRES_TRIGRAM = techniquesOf("typo-recovery");
+/** `rank-with-evidence`, the one mission set that spells the semantic arm `hnsw`. */
+const REQUIRES_HNSW = techniquesOf("rank-with-evidence");
 
 describe("readChannels", () => {
   afterEach(cleanup);
@@ -222,6 +244,7 @@ render(<RetrievalChannelMap readings={readings} />);
     // the index rather than the retriever. Matching only `vector` and `semantic`
     // left the arm those labs are built on unrequired, so a meaning-match arm
     // that contributed nothing to their pool read as having nothing to say.
+    expect(REQUIRES_HNSW).toContain("hnsw");
     const readings = readChannels(
       response({
         fused_pool: 12,
@@ -229,12 +252,35 @@ render(<RetrievalChannelMap readings={readings} />);
         trigram_in_pool: 4,
         semantic_in_pool: 0,
       }),
-      ["fts", "pg_trgm", "hnsw", "rrf", "cohere_rerank"],
+      REQUIRES_HNSW,
       readiness(null),
     );
 
     expect(readings[2].state).toBe("disconnected");
     expect(readings[2].indexName).toBe("product_document_embedding_hnsw_cosine_idx");
+  });
+
+  it("requires no semantic arm in Lab 1's own scenario", () => {
+    // The positive witness for the constant above. `typo-recovery` declares
+    // pg_trgm and no semantic technique at all, so a meaning-match arm that
+    // contributed nothing to *this* lab's pool is an arm with nothing to say.
+    // The hand-written list this replaced added `vector`, which made every case
+    // in this file assert against a scenario the manifest does not contain.
+    expect(REQUIRES_TRIGRAM).toEqual(["pg_trgm", "rrf", "cohere_rerank"]);
+    expect(requiredArms(REQUIRES_TRIGRAM)).toEqual(["trigram"]);
+
+    const readings = readChannels(
+      response({
+        fused_pool: 12,
+        fts_in_pool: 5,
+        trigram_in_pool: 4,
+        semantic_in_pool: 0,
+      }),
+      REQUIRES_TRIGRAM,
+      readiness(null),
+    );
+
+    expect(readings[2].state).toBe("silent");
   });
 
   it("names a genuinely missing index rather than blaming the composition", () => {
