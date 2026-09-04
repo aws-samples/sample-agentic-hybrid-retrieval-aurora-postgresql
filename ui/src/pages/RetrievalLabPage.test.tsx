@@ -1560,6 +1560,8 @@ describe("RetrievalLabPage", () => {
       const href = within(rail).getByRole("link", { name: beat }).getAttribute("href")!;
       expect(container.querySelector(href)).toBeTruthy();
     }
+    expect(within(rail).getByRole("link", { name: "Observe" }).getAttribute("href"))
+      .toBe("#labs-stage-retrieve");
     expect(await within(rail).findByText("source: broken")).toBeTruthy();
     // The readiness read is rejected in this suite, so no row may claim a value.
     expect(within(strip).getAllByText("not checked").length).toBe(9);
@@ -1591,6 +1593,44 @@ describe("RetrievalLabPage", () => {
     // the whole stylesheet rather than the two blocks it names.
     expect(surfacesDeclarationsFor(".labs-rail-lab")).not.toContain("scroll-margin-top");
     expect(surfacesDeclarationsFor(".labs-rail-lab")).toContain("display: grid;");
+  });
+
+  it("sends each lab's beats to targets this page actually carries", () => {
+    // The beats were a module constant, so Lab 2's Observe pointed at the
+    // retrieval stage and Lab 3's Repair pointed at the repair panel. Both are
+    // in-page anchors, so a wrong one is silent: the click simply lands
+    // somewhere else and the participant reads the wrong stage.
+    const expected: Array<[string, string, string]> = [
+      ["typo-recovery", "#labs-stage-retrieve", "#labs-repair-title"],
+      ["rank-with-evidence", "#labs-stage-rank", "#labs-repair-title"],
+      ["agentic-research", "#labs-stage-reason", "#labs-stage-reason"],
+    ];
+
+    let landed = 0;
+    for (const [exampleId, observe, repair] of expected) {
+      window.history.replaceState({}, "", `/labs/retrieval?example=${exampleId}`);
+      const { container, unmount } = render(<RetrievalLabPage />);
+      const rail = screen.getByRole("navigation", { name: "Lab rail" });
+      const hrefs = ["Observe", "Repair", "Prove"].map(
+        (beat) => within(rail).getByRole("link", { name: beat }).getAttribute("href")!,
+      );
+
+      expect(hrefs).toEqual([observe, repair, "#labs-stage-prove"]);
+      // RepairEvidence is mocked in this suite, so `#labs-repair-title` is not
+      // in this tree; `RepairEvidence.test.tsx` pins that id. Every other target
+      // is one of this page's own headings and has to resolve here.
+      for (const href of hrefs.filter((value) => value !== "#labs-repair-title")) {
+        expect(container.querySelector(href)).toBeTruthy();
+        landed += 1;
+      }
+
+      unmount();
+    }
+
+    // Witness, independent of the rail: seven of the nine beats land on this
+    // page's own headings. A rail that emitted `#labs-repair-title` for every
+    // beat would skip the querySelector entirely and still report green.
+    expect(landed).toBe(7);
   });
 
   it("moves the rail to the lab the deep link selected", () => {

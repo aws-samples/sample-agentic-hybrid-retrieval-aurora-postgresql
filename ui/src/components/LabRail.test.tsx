@@ -64,6 +64,42 @@ describe("LabRail", () => {
     expect(within(rail).getByText(labOne.participant_edit!.task)).toBeTruthy();
   });
 
+  it("points each beat at the stage the active lab is about", () => {
+    // The beats used to be a module constant, so Observe landed on Stage 01 in
+    // all three labs and Repair landed on the repair panel in all three. Lab 2's
+    // Observe therefore opened retrieval rather than ranking, and Lab 3's Repair
+    // opened a panel that holds no agent evidence at all.
+    const expected: Array<[string, string[]]> = [
+      [labOne.id, ["#labs-stage-retrieve", "#labs-repair-title", "#labs-stage-prove"]],
+      [labTwo.id, ["#labs-stage-rank", "#labs-repair-title", "#labs-stage-prove"]],
+      [labThree.id, ["#labs-stage-reason", "#labs-stage-reason", "#labs-stage-prove"]],
+    ];
+
+    // Witness, independent of the loop: three cases, one per required lab, and
+    // the three of them really do declare three different stages. A manifest
+    // that collapsed two labs onto one stage would make this test vacuous.
+    expect(expected.length).toBe(3);
+    expect(coreMosaicLabs.map((lab) => lab.stage)).toEqual([
+      "retrieve",
+      "rank",
+      "reason",
+    ]);
+
+    for (const [missionId, hrefs] of expected) {
+      const { unmount } = render(<LabRail missionId={missionId} />);
+      const rail = screen.getByRole("navigation", { name: "Lab rail" });
+
+      expect(
+        within(rail)
+          .getAllByRole("link")
+          .slice(0, 3)
+          .map((link) => link.getAttribute("href")),
+      ).toEqual(hrefs);
+
+      unmount();
+    }
+  });
+
   it("points at the next required lab, and at nothing after the last one", async () => {
     const { unmount } = render(<LabRail missionId={labOne.id} />);
 

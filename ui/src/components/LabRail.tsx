@@ -25,24 +25,45 @@ import type { LabStateRecord } from "../types";
  * and where that edit currently stands in both places it can stand.
  */
 
-/** What a lab is worth reporting on, in the order the session runs them. */
-const BEATS = [
-  {
-    label: "Observe",
-    href: "#labs-stage-retrieve",
-    hint: "what the run actually did",
-  },
-  {
-    label: "Repair",
-    href: "#labs-repair-title",
-    hint: "the two runs, side by side",
-  },
-  {
-    label: "Prove",
-    href: "#labs-stage-prove",
-    hint: "the measured scorecard",
-  },
-] as const;
+/**
+ * What a lab is worth reporting on, in the order the session runs them.
+ *
+ * The three beats are the same three in every lab, but two of them land on
+ * different elements depending on which stage the lab is about. A module
+ * constant sent Observe to Stage 01 and Repair to the repair panel for all
+ * three labs, so a participant in Lab 2 pressed Observe and arrived at the
+ * retrieval stage rather than the ranking one, and a participant in Lab 3
+ * pressed Repair and arrived at a panel that holds no agent evidence. The
+ * mission's own `stage` decides both, so the rail cannot drift from the lab.
+ */
+function beatsForLab(lab: MosaicLabMission) {
+  const observeHref =
+    lab.stage === "rank"
+      ? "#labs-stage-rank"
+      : lab.stage === "reason"
+        ? "#labs-stage-reason"
+        : "#labs-stage-retrieve";
+  return [
+    {
+      label: "Observe",
+      href: observeHref,
+      hint: "what the run actually did",
+    },
+    {
+      // Lab 3's repair is not a SQL body, so there is no before-and-after pair
+      // in the repair panel to send it to. Its edit is proved by re-running the
+      // Reason stage, which is where its beat lands.
+      label: "Repair",
+      href: lab.stage === "reason" ? "#labs-stage-reason" : "#labs-repair-title",
+      hint: "the two runs, side by side",
+    },
+    {
+      label: "Prove",
+      href: "#labs-stage-prove",
+      hint: "your own proof, then the release baseline",
+    },
+  ] as const;
+}
 
 /**
  * The required lab a scenario belongs to.
@@ -110,7 +131,7 @@ export function LabRail({ missionId }: { missionId: string | null }) {
       </div>
 
       <ol aria-label="Lab beats" className="labs-rail-beats">
-        {BEATS.map((beat) => (
+        {beatsForLab(lab).map((beat) => (
           <li key={beat.label}>
             <a href={beat.href}>{beat.label}</a>
             <small>{beat.hint}</small>
