@@ -1318,6 +1318,42 @@ describe("RetrievalLabPage", () => {
     expect(
       screen.queryByText(/These rows are the run Shop served/),
     ).toBeNull();
+    // And the neutral detail names what actually diverged. `Run pipeline` re-ran
+    // the carried request, so this run asked the scenario's own question under
+    // Shop's gates: "this query is outside the selected checkpoint" was false of
+    // it, and pointed at the half that had not diverged.
+    expect(
+      screen.getByText(/This run used Shop's gates, so the lab verdict does not apply/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/outside the selected checkpoint/)).toBeNull();
+  });
+
+  it("names the Shop run as the baseline once a fresh run replaces it", async () => {
+    // The strip was keyed on the arrival rather than on the run on screen, so
+    // after Run pipeline it still said "This is the exact run from Shop ...
+    // Nothing was re-run" over a run minted here seconds ago. The hand-off is
+    // still true, so the strip stays -- it just has to say which run is which.
+    vi.mocked(api.retrievalEventResponse).mockResolvedValue(shopResponse);
+    vi.mocked(api.search).mockResolvedValue(
+      responseFor("playground-run-after-arrival", shopResponse.query, shopResponse.results),
+    );
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />);
+    expect(await screen.findByText("This is the exact run from Shop")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+
+    expect(await screen.findByText("Carried over from Shop")).toBeTruthy();
+    expect(screen.queryByText("This is the exact run from Shop")).toBeNull();
+    const strip = document.querySelector(".labs-carried-over");
+    expect(strip?.textContent).toContain(
+      `Baseline: the Shop run ${SHOP_EVENT_ID.slice(0, 8)}. Latest: a new run of the same query and gates.`,
+    );
+    expect(strip?.textContent).not.toContain("Nothing was re-run");
   });
 
   it("judges the scenario when the carried run used the scenario's own gates", async () => {

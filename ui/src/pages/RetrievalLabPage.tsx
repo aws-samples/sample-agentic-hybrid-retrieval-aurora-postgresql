@@ -244,34 +244,57 @@ export function RetrievalLabPage() {
   const pageRef = useRef<HTMLDivElement>(null);
   const example = mosaicRetrievalExamples[selected];
   /**
-   * Whether the run on screen answered the scenario's question.
+   * Whether the run on screen answered the scenario's question, in the two
+   * halves that question has.
    *
-   * Both halves are load-bearing. The words alone are not the request: the
-   * scenario's assertions are written about its query *under its eligibility
+   * Both are load-bearing for the verdict. The words alone are not the request:
+   * the scenario's assertions are written about its query *under its eligibility
    * gates*, and a carried Shop run can hold the same words while having
    * retrieved a wider pool. Grading that as the checkpoint reports a repair
    * nothing exercised.
+   *
+   * They are kept apart rather than folded into one boolean because the neutral
+   * verdict has to say which half diverged: after a carried arrival the query is
+   * the scenario's own and only the gates are Shop's.
    */
-  const ranTheScenario = Boolean(
-    response
-    && example
-    && executedQuery === example.query
-    && runMatchesMissionGates(example, response),
+  const queryMatches = Boolean(
+    response && example && executedQuery === example.query,
+  );
+  const gatesMatch = Boolean(
+    response && example && runMatchesMissionGates(example, response),
+  );
+  const ranTheScenario = queryMatches && gatesMatch;
+  /**
+   * Whether the response on screen *is* the run Shop served.
+   *
+   * "Shop run loaded", and the strip's "nothing was re-run", are claims about
+   * this response, not about how the participant arrived. `carriedOver` outlives
+   * the arrival -- it is what keeps Shop's gates on the next run -- so reading it
+   * for either labelled the first Playground run as the run Shop served. Only
+   * the carried run's own id can answer this.
+   */
+  const showingCarriedRun = Boolean(
+    carriedRunId && response?.search_event_id === carriedRunId,
   );
   const outcome = useMemo(
     () => {
       if (!response) return null;
-      // "Shop run loaded" is a claim about *this* response, not about how the
-      // participant arrived. `carriedOver` outlives the arrival -- it is what
-      // keeps Shop's gates on the next run -- so reading it here labelled the
-      // first Playground run as the run Shop served, under a detail saying those
-      // were the rows Shop showed. Only the carried run itself is that run.
-      const isCarriedRun = response.search_event_id === carriedRunId;
       return ranTheScenario
         ? retrievalLabOutcome(example, response, readiness)
-        : liveRetrievalOutcome(response, isCarriedRun);
+        : liveRetrievalOutcome(response, showingCarriedRun, {
+          queryMatches,
+          gatesMatch,
+        });
     },
-    [carriedRunId, example, ranTheScenario, readiness, response],
+    [
+      example,
+      gatesMatch,
+      queryMatches,
+      ranTheScenario,
+      readiness,
+      response,
+      showingCarriedRun,
+    ],
   );
   const baselineSearchEventId = baseline?.searchEventId ?? null;
   /** The response the pinned baseline came from, when the pin came with one. */
@@ -643,15 +666,28 @@ export function RetrievalLabPage() {
           <ArrowRightLeft aria-hidden="true" size={15} />
           <span>
             <strong>
-              {carriedRunId ? "This is the exact run from Shop" : "Carried over from Shop"}
+              {showingCarriedRun
+                ? "This is the exact run from Shop"
+                : "Carried over from Shop"}
             </strong>{" "}
             <code>{forwardedQuery}</code>
           </span>
           {carriedRunId ? (
-            <small>
-              Run {shortEventId(carriedRunId)}, read back from Postgres. Nothing was
-              re-run, so this is the pool Shop served.
-            </small>
+            showingCarriedRun ? (
+              <small>
+                Run {shortEventId(carriedRunId)}, read back from Postgres. Nothing was
+                re-run, so this is the pool Shop served.
+              </small>
+            ) : (
+              // A Playground run has replaced the carried one on screen. The
+              // hand-off still holds -- this run used Shop's query and gates, so
+              // the two are comparable -- and the strip now says which is which
+              // rather than calling the newer run the one Shop served.
+              <small>
+                Baseline: the Shop run {shortEventId(carriedRunId)}. Latest: a new
+                run of the same query and gates.
+              </small>
+            )
           ) : carriedRunFallback ? (
             <small>
               {carriedRunFallback} This is a new run, not the one behind those

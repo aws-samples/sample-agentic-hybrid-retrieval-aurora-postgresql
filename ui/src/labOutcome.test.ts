@@ -225,6 +225,38 @@ describe("lab outcome diagnostics", () => {
     expect(outcome.detail).toContain("scenario's own filters");
   });
 
+  it("keeps the outside-the-checkpoint sentence for a query of the participant's own", () => {
+    // Words the scenario never asked. Whether its gates happen to match is then
+    // beside the point: the run is off the checkpoint, not measuring it under
+    // someone else's filters.
+    const ran = response(product(2, (rank) => 1 / (testFusionK + rank)));
+
+    for (const gatesMatch of [false, true]) {
+      const outcome = liveRetrievalOutcome(ran, false, { queryMatches: false, gatesMatch });
+
+      expect(outcome.detail).toContain("This query is outside the selected checkpoint.");
+      expect(outcome.detail).not.toContain("Shop's gates");
+    }
+  });
+
+  it("says the gates diverged, not the query, on a re-run of a carried request", () => {
+    // `Run pipeline` after a carried arrival re-runs the carried request, so the
+    // query *is* the scenario's and only the gates are Shop's. "This query is
+    // outside the selected checkpoint" was simply false of that run, and it sent
+    // the participant to change the one half that had not diverged.
+    const outcome = liveRetrievalOutcome(
+      response(product(2, (rank) => 1 / (testFusionK + rank))),
+      false,
+      { queryMatches: true, gatesMatch: false },
+    );
+
+    expect(outcome.label).toBe("Live run complete");
+    expect(outcome.detail).toBe(
+      "This run used Shop's gates, so the lab verdict does not apply. Select the scenario and run it, or run the completion proof in Prove, to judge the repair against the scenario's own gates.",
+    );
+    expect(outcome.detail).not.toContain("outside the selected checkpoint");
+  });
+
   it("only applies a lab verdict when the run used the scenario's own gates", () => {
     const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
     const ran = response(product(2, (rank) => 1 / (testFusionK + rank)));

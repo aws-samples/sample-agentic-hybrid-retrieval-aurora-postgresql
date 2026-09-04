@@ -288,16 +288,37 @@ export function retrievalLabOutcome(
 }
 
 /**
+ * Which half of the scenario's request a run did not ask.
+ *
+ * The two halves send the participant somewhere different, so the neutral
+ * verdict cannot report them with one sentence. Different words are an
+ * experiment of the participant's own. The scenario's own words under other
+ * gates is the checkpoint's question asked of a different pool, and telling
+ * that participant their query is outside the checkpoint points at the one half
+ * that had not diverged.
+ */
+export interface RunDivergence {
+  /** Whether the run executed the scenario's own query. */
+  queryMatches: boolean;
+  /** Whether the run applied the scenario's own eligibility gates. */
+  gatesMatch: boolean;
+}
+
+/**
  * The neutral verdict, for a run the selected scenario does not describe.
  *
  * `carried` separates the two ways that happens. A query typed into the
  * Playground is the participant's own experiment. A run handed over from Shop is
  * a real persisted run under Shop's gates, and saying "Live run complete" over it
  * hid where it came from while implying the participant had run something.
+ *
+ * `divergence` defaults to a differing query, which is the only case a caller
+ * that cannot tell the two apart is entitled to claim.
  */
 export function liveRetrievalOutcome(
   response: SearchResponse,
   carried = false,
+  divergence: RunDivergence = { queryMatches: false, gatesMatch: false },
 ): LabOutcome {
   const resultCount = response.results.length;
   const title = `${resultCount} ranked ${resultCount === 1 ? "result" : "results"}`;
@@ -310,12 +331,14 @@ export function liveRetrievalOutcome(
         "These rows are the run Shop served, under the gates Shop applied. The lab verdict applies to the scenario's own filters, so run the scenario to check it.",
     };
   }
+  const gatesDiverged = divergence.queryMatches && !divergence.gatesMatch;
   return {
     tone: "ready",
     label: "Live run complete",
     title,
-    detail:
-      "This query is outside the selected checkpoint. Inspect its per-arm ranks and eligibility directly.",
+    detail: gatesDiverged
+      ? "This run used Shop's gates, so the lab verdict does not apply. Select the scenario and run it, or run the completion proof in Prove, to judge the repair against the scenario's own gates."
+      : "This query is outside the selected checkpoint. Inspect its per-arm ranks and eligibility directly.",
   };
 }
 
