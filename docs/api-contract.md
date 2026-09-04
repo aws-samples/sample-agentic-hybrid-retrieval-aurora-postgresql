@@ -189,6 +189,11 @@ Ask Mosaic continue to retrieve across all 500,000 products.
 - `GET /api/readiness` verifies the product/vector counts, premium cohort,
   specification-evidence coverage, required retrieval indexes/functions,
   model-space compatibility, and the current process's AWS credential validity. It also returns a `source` block with the running `revision`, whether the worktree was dirty, and the `dataset_manifest_sha256`, so the Playground's readiness strip can show which build and corpus answered.
+  The same response reports `exact_neighbor_ground_truth`, one of `seeded`, `missing`, or
+  `unknown`, for the optional HNSW ground truth that `make db-seed-exact-neighbors`
+  writes. It never gates `database_ready`, because none of the three labs depend on
+  it. `unknown` means the read itself failed, and `exact_neighbor_ground_truth_detail`
+  then carries that exception's type name; it is null in every other case.
 
 ## HNSW instrument
 
@@ -262,7 +267,7 @@ cannot decide another's. Lab 1's read casts a function signature to
 raises `UndefinedFunction`: that is reported as `database_state: "stale"` with
 a `detail` naming the exception type and the re-apply command, and labs 2 and 3
 still answer on the same connection. An unreachable cluster is the opposite
-case and is not a lab verdict — `psycopg.OperationalError`, which pool
+case and is not a lab verdict: `psycopg.OperationalError`, which pool
 timeouts subclass, is a 503 on both routes, with a generic detail that names no
 host, port, or user.
 
@@ -300,9 +305,9 @@ Labs 1 and 2 re-run their mission's `query` and `filters` from
 it twice, because "the pre-rerank order is repeatable" is not answerable from
 one run. Lab 3 grades the persisted turn named by `agent_run_id` and spends no
 agent turn: a missing or ungrounded run fails with a falsifier naming Stage 03,
-the Reason stage that produces one. The two missing-run cases read differently
-— submitting no `agent_run_id` at all, and submitting one no turn was persisted
-under — because they have different next steps. An unknown `lab_id` is a 404.
+the Reason stage that produces one. The two missing-run cases read differently,
+because they have different next steps: submitting no `agent_run_id` at all,
+and submitting one no turn was persisted under. An unknown `lab_id` is a 404.
 
 Lab 3's `citation evidence resolves` check compares each persisted citation
 against the evidence row it names on all five fields `GET /api/evidence/{id}`

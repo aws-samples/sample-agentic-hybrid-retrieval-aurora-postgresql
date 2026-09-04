@@ -482,7 +482,13 @@ def test_measured_withholds_representations_when_a_quantized_index_is_missing(
     assert HALFVEC_INDEX in reason
     assert "missing" in reason
     assert "make db-index-quantized" in reason
-    assert "fix:" in reason
+    # Prose plus the command, not `explain(found, fix)`. The Performance page
+    # renders this string as body copy under a heading, where error-message
+    # scaffolding reads as a fault in the page rather than as a statement about
+    # the cluster. `_measured_attribution`'s note follows the same rule.
+    assert "fix:" not in reason
+    assert "found " not in reason
+    assert reason.endswith(".")
 
 
 def test_measured_withholds_representations_when_a_quantized_index_is_invalid(

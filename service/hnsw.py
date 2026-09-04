@@ -229,6 +229,11 @@ def _gate_representations(payload: dict[str, Any]) -> dict[str, Any]:
     `db/sql/19_indexes_quantized.sql` creates them and no bootstrap phase runs
     it, so on a freshly bootstrapped cluster those rows describe indexes the
     reader cannot EXPLAIN, inspect, or reproduce.
+
+    The reason is prose plus the command that fixes it, for the same reason
+    `_measured_attribution`'s note is: the Performance page renders it as body
+    copy under a heading, where `found:`/`fix:` scaffolding reads as a fault in
+    the page rather than as a statement about this cluster.
     """
     if "representations" not in payload:
         return payload
@@ -244,11 +249,10 @@ def _gate_representations(payload: dict[str, Any]) -> dict[str, Any]:
         # it follows the same rule as the `/api/hnsw/substrate` handler.
         return _withhold_representations(
             payload,
-            explain(
-                f"index state could not be read from the cluster "
-                f"({type(error).__name__})",
-                "point DATABASE_URL at the workshop cluster and reload",
-            ),
+            f"The index state could not be read from the cluster "
+            f"({type(error).__name__}), so nothing here can say whether the "
+            f"halfvec and binary indexes exist. Point DATABASE_URL at the "
+            f"workshop cluster and reload.",
         )
     unusable = {name: state for name, state in states.items() if state != "valid"}
     if not unusable:
@@ -256,11 +260,10 @@ def _gate_representations(payload: dict[str, Any]) -> dict[str, Any]:
     listed = ", ".join(f"{name} is {state}" for name, state in sorted(unusable.items()))
     return _withhold_representations(
         payload,
-        explain(
-            f"the connected cluster has no usable quantized index: {listed}",
-            "run `make db-index-quantized` (roughly 9 minutes for both indexes), "
-            "or read the halfvec and binary rows as a record of another cluster",
-        ),
+        f"This cluster has no usable quantized index ({listed}), so the "
+        f"comparison would describe indexes you cannot inspect here. Run "
+        f"`make db-index-quantized` to build both, roughly 9 minutes, or read "
+        f"the halfvec and binary rows as a record of another cluster.",
     )
 
 
@@ -494,8 +497,9 @@ def _manifest() -> str:
         raise StaleGroundTruth(
             explain(
                 f"the connected corpus reports dataset manifest {manifest!r}",
-                "set DATASET_MANIFEST_SHA256, or restore data/full/manifest.json — "
-                "ground truth pinned to an unresolved manifest matches any corpus",
+                "set DATASET_MANIFEST_SHA256, or restore data/full/manifest.json, "
+                "because ground truth pinned to an unresolved manifest matches "
+                "any corpus",
             )
         )
     return manifest

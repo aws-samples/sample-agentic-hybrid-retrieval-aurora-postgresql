@@ -717,9 +717,11 @@ describe("PerformancePage", () => {
     vi.mocked(api.hnswMeasured).mockResolvedValue({
       ...withoutRepresentations,
       representations_unavailable_reason:
-        "found the connected cluster has no usable quantized index: " +
-        "product_document_embedding_hnsw_halfvec_idx is missing; fix: run " +
-        "`make db-index-quantized` (roughly 9 minutes for both indexes)",
+        "This cluster has no usable quantized index " +
+        "(product_document_embedding_hnsw_halfvec_idx is missing), so the " +
+        "comparison would describe indexes you cannot inspect here. Run " +
+        "`make db-index-quantized` to build both, roughly 9 minutes, or read " +
+        "the halfvec and binary rows as a record of another cluster.",
     } as unknown as HnswMeasured);
 
     render(<PerformancePage />);
