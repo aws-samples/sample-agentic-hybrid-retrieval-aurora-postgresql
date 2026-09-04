@@ -133,8 +133,10 @@ def contained_database_state(lab_id: int, connection: Any) -> LabDatabaseState:
     `psycopg.errors.UndefinedFunction`, which is not a `RuntimeError` and
     aborts the surrounding transaction. Uncontained, one bad lab both returned
     a 500 and left the next lab's read failing on an aborted transaction.
-    psycopg 3 nests `connection.transaction()` as a savepoint, so each lab
-    rolls back to its own entry point and the others still answer.
+    Each lab's read runs inside its own `connection.transaction()`. The
+    pool hands over an idle connection, so that block is a top-level
+    transaction, not a savepoint: a failure rolls back completely and the
+    next lab starts clean on the same connection.
 
     An absent function is reported as `stale` naming only the exception type,
     never the connection: a participant who edited the SQL and did not re-apply
@@ -147,7 +149,7 @@ def contained_database_state(lab_id: int, connection: Any) -> LabDatabaseState:
     try:
         with connection.transaction():
             return validate_database(lab_id, connection)
-    except psycopg.Error as error:
+    except psycopg.DatabaseError as error:
         if isinstance(error, psycopg.OperationalError):
             raise
         return LabDatabaseState(

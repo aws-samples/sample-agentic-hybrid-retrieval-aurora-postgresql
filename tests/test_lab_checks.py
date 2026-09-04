@@ -352,6 +352,24 @@ def test_lab_3_proof_fails_a_citation_whose_quote_the_evidence_row_lacks():
     assert "9001" in failed.detail
 
 
+def test_lab_3_proof_reports_a_citation_without_an_evidence_id_as_unresolved():
+    """A truncated persisted citation is a failed check, never a 500.
+
+    The proof route grades whatever the ledger holds. A citation row that lost
+    its `evidence_id` must be reported as unresolved by name, not raise a
+    KeyError out of the gate.
+    """
+    truncated = dict(_citation(1, 9001, 370001, _CITED_ROWS[0][3]))
+    del truncated["evidence_id"]
+    checks = lab_checks.lab_3_proof_checks(
+        LAB_3_MISSION,
+        _persisted_run(citations=(truncated, _citation(*_CITED_ROWS[1]))),
+    )
+
+    failed = _by_name(checks, "citation evidence resolves")
+    assert not failed.passed, failed.detail
+
+
 def test_lab_3_proof_fails_a_citation_whose_evidence_row_changed_revision():
     """Revision is compared too: a quote that moved to another revision fails."""
     checks = lab_checks.lab_3_proof_checks(

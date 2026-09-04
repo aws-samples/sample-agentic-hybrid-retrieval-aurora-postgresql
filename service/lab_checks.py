@@ -959,7 +959,7 @@ def _check_execution_origins(agent: Mapping[str, Any]) -> LabCheck:
                 f"execution origin for step(s) {unattributed}"
                 if unattributed
                 else "an empty tool trace",
-                "record origin on every trace step",
+                "run Stage 03 again so the agent calls at least one tool",
             )
         ),
     )
@@ -1238,10 +1238,10 @@ def _unresolved_citations(run: PersistedAgentRun | None) -> list[int]:
     if run is None:
         return []
     return [
-        citation["evidence_id"]
+        citation.get("evidence_id")
         for citation in run.citations
         if not _citation_resolves(
-            citation, run.resolved_evidence.get(citation["evidence_id"])
+            citation, run.resolved_evidence.get(citation.get("evidence_id"))
         )
     ]
 
