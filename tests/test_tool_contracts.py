@@ -94,6 +94,39 @@ def test_strands_signatures_match_the_agent_contract():
         } == required[name]
 
 
+def test_agent_bounds_match_runtime_constants():
+    """Declared JSON-Schema bounds must equal the runtime bounds they mirror.
+
+    `test_strands_signatures_match_the_agent_contract` above only compares
+    parameter *name* sets, so a schema that named `product_ids` correctly but
+    bounded it to the wrong count would pass it forever. This pins each bound
+    against `service.agent_tools`'s module constants: a source independent of
+    the JSON file being checked, not a `len()` of anything the JSON declares.
+    """
+    contracts = {
+        contract["name"]: contract for contract in contracts_for_surface("agent")
+    }
+
+    compare_ids = contracts["compare_products"]["input_schema"]["properties"][
+        "product_ids"
+    ]
+    assert (
+        compare_ids["minItems"],
+        compare_ids["maxItems"],
+    ) == agent_tools.COMPARE_PRODUCT_COUNT
+
+    synthesis_ids = contracts["synthesize_cited_answer"]["input_schema"]["properties"][
+        "product_ids"
+    ]
+    assert (
+        synthesis_ids["minItems"],
+        synthesis_ids["maxItems"],
+    ) == agent_tools.SYNTHESIS_PRODUCT_COUNT
+
+    search_query = contracts["search_products"]["input_schema"]["properties"]["query"]
+    assert search_query["minLength"] == agent_tools.SEARCH_QUERY_MIN_LENGTH
+
+
 def test_mcp_signatures_match_the_mcp_contract():
     expected = _schema_arguments("mcp")
     functions = _function_arguments(

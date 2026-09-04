@@ -13,7 +13,7 @@
           "additionalProperties": false,
           "required": ["query"],
           "properties": {
-            "query": {"type": "string", "minLength": 1, "maxLength": 1000},
+            "query": {"type": "string", "minLength": 2, "maxLength": 1000},
             "domain": {
               "type": ["string", "null"],
               "enum": ["consumer_electronics", "running_fitness", "home_office", null]
@@ -119,7 +119,7 @@
     {
       "name": "get_product_evidence",
       "tool_version": "1.0",
-      "description": "Rank fresh source-addressable specifications and reviews for one product against a focused evidence question.",
+      "description": "Rank fresh source-addressable specifications and reviews for one product against a focused evidence question. The agent surface reads two evidence records per product.",
       "read_only": true,
       "surfaces": ["agent", "mcp", "skill"],
       "input_schemas": {
@@ -189,7 +189,7 @@
             "product_ids": {
               "type": "array",
               "items": {"type": "integer", "minimum": 1},
-              "minItems": 1,
+              "minItems": 2,
               "maxItems": 5,
               "uniqueItems": true
             }
@@ -290,7 +290,7 @@
             "product_ids": {
               "type": "array",
               "items": {"type": "integer", "minimum": 1},
-              "minItems": 2,
+              "minItems": 1,
               "maxItems": 6,
               "uniqueItems": true
             }

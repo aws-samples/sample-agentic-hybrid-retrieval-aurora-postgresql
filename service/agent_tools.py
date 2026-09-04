@@ -28,6 +28,31 @@ from service.telemetry import search_with_telemetry
 logger = logging.getLogger(__name__)
 SEARCH_SLOTS = ("primary", "follow_up")
 
+
+def _min_length(field_name: str) -> int:
+    """Read a `SearchRequest` field's `min_length` constraint without copying it.
+
+    Args:
+        field_name: A field name on `service.models.SearchRequest`.
+
+    Returns:
+        The field's `annotated_types.MinLen` constraint value.
+    """
+    for constraint in SearchRequest.model_fields[field_name].metadata:
+        candidate = getattr(constraint, "min_length", None)
+        if candidate is not None:
+            return candidate
+    raise ValueError(f"SearchRequest.{field_name} declares no min_length constraint")
+
+
+#: Agent-surface bounds mirrored in `db/config/agent_tool_contracts.json`. Kept
+#: as module constants rather than repeated literals, so the JSON schema and
+#: the runtime check are two readings of one value instead of two copies that
+#: can drift, per `docs/house-standards.md` rule 5.
+COMPARE_PRODUCT_COUNT = (2, 5)
+SYNTHESIS_PRODUCT_COUNT = (1, 6)
+SEARCH_QUERY_MIN_LENGTH = _min_length("query")
+
 _RUN: ContextVar[dict[str, Any] | None] = ContextVar(
     "catalog_agent_tool_run",
     default=None,
@@ -760,7 +785,7 @@ def compare_products(product_ids: list[int]) -> dict[str, Any]:
     started = perf_counter()
     state = _state()
     unique_ids = list(dict.fromkeys(product_ids))
-    if not 2 <= len(unique_ids) <= 5:
+    if not COMPARE_PRODUCT_COUNT[0] <= len(unique_ids) <= COMPARE_PRODUCT_COUNT[1]:
         return _failure(
             "comparison requires two to five distinct products",
             "pass product IDs returned by search_products.",
@@ -887,7 +912,7 @@ def synthesize_cited_answer(
     started = perf_counter()
     state = _state()
     unique_ids = list(dict.fromkeys(product_ids))
-    if not 1 <= len(unique_ids) <= 6:
+    if not SYNTHESIS_PRODUCT_COUNT[0] <= len(unique_ids) <= SYNTHESIS_PRODUCT_COUNT[1]:
         return _failure(
             "synthesis requires one to six distinct products",
             "select the strongest products returned by search_products.",
