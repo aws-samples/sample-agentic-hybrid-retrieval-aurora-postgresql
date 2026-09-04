@@ -382,7 +382,10 @@ describe("RepairEvidence — fused-to-final gap", () => {
 
     await pressCompare();
 
-    expect(await screen.findByText("Repair evidence")).toBeTruthy();
+    const heading = await screen.findByText("Repair evidence");
+    // The lab rail's "Repair" beat is an in-page anchor at this id. Renaming it
+    // here would leave that link pointing at nothing, silently.
+    expect(heading.getAttribute("id")).toBe("labs-repair-title");
     expect(screen.queryByText(SUSPICIOUS_GAP_CAUTION)).toBeNull();
   });
 });

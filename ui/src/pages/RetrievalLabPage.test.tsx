@@ -1323,6 +1323,13 @@ describe("RetrievalLabPage", () => {
     expect(strip.compareDocumentPosition(firstStage))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(within(rail).getByText(mosaicRetrievalExamples[0].title)).toBeTruthy();
+    // The beats are in-page anchors, so each one has to land somewhere. Two of
+    // the three targets are this page's own stage headings; the third belongs to
+    // RepairEvidence, whose own suite pins it.
+    for (const beat of ["Observe", "Prove"]) {
+      const href = within(rail).getByRole("link", { name: beat }).getAttribute("href")!;
+      expect(container.querySelector(href)).toBeTruthy();
+    }
     expect(await within(rail).findByText("source: broken")).toBeTruthy();
     // The readiness read is rejected in this suite, so no row may claim a value.
     expect(within(strip).getAllByText("not checked").length).toBe(9);
