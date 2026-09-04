@@ -684,37 +684,50 @@ export function RetrievalScorecard({ refreshKey = 0 }: RetrievalScorecardProps) 
 
   useEffect(() => {
     let active = true;
+    // A refresh starts from no complaint. Carrying the previous read's error
+    // into this one would keep reporting a failure that is over.
+    setError("");
     api
       .scorecard()
       .then((response) => {
-        if (active) setData(response);
+        if (!active) return;
+        setData(response);
+        setError("");
       })
       .catch((cause: unknown) => {
-        if (active) {
-          setError(
-            cause instanceof Error ? cause.message : "The scorecard is unavailable",
-          );
-        }
+        // The last good baseline stays. A failed re-read is a problem with the
+        // room, and dropping the numbers over one would lose the only measured
+        // thing on this stage until something else pressed the refresh again.
+        if (!active) return;
+        setError(
+          cause instanceof Error ? cause.message : "The scorecard is unavailable",
+        );
       });
     return () => {
       active = false;
     };
   }, [refreshKey]);
 
-  if (error) {
-    return (
-      <p className="labs-disclosure-error" role="alert">
+  const note = error
+    ? (
+      <p
+        className="labs-disclosure-error"
+        data-testid="scorecard-read-error"
+        role="alert"
+      >
         <AlertTriangle aria-hidden="true" size={16} />
         {error}
       </p>
-    );
-  }
+    )
+    : null;
+
   if (!data) {
-    return <p role="status">Loading the saved evaluation results.</p>;
+    return note ?? <p role="status">Loading the saved evaluation results.</p>;
   }
 
   return (
     <div className="labs-scorecard">
+      {note}
       <RetrievalQualitySection
         quality={data.retrieval_quality}
         provenance={data.provenance}

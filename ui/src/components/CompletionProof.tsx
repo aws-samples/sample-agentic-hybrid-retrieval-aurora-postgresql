@@ -1,5 +1,5 @@
 import { AlertTriangle, LoaderCircle, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, api } from "../api";
 import { coreMosaicLabs } from "../labMissions";
 import type { CompletionProofResponse } from "../types";
@@ -59,11 +59,18 @@ function readableState(state: string): string {
  * not collapse them back together.
  */
 function environmentMessage(cause: unknown): string {
-  if (cause instanceof ApiError && cause.status === 404) {
-    return `This build's API serves no proof for that lab (HTTP 404). ${cause.message}`;
+  if (cause instanceof ApiError) {
+    if (cause.status === 404) {
+      return `This build's API serves no proof for that lab (HTTP 404). ${cause.message}`;
+    }
+    // The service answered and said what was wrong, in its own words.
+    return cause.message;
   }
-  if (cause instanceof Error) return cause.message;
-  return "The completion proof could not reach the Mosaic API.";
+  // Nothing answered: the API is not running, the proxy refused, or the tab is
+  // offline. `fetch` raises a bare "Failed to fetch", which names neither the
+  // service that failed to answer nor the fact that no lab was graded.
+  const detail = cause instanceof Error ? cause.message : String(cause);
+  return `The completion proof could not reach the Mosaic API (${detail}).`;
 }
 
 function statusLabel(outcome: LabOutcome): string {
@@ -104,8 +111,33 @@ function ProofEvidence({ proof }: { proof: CompletionProofResponse }) {
   );
 }
 
+/**
+ * Why a lab failed when none of its checks did, as the next thing to do.
+ *
+ * `service/lab_proof.py` fails a lab whose source still holds the broken block
+ * or whose database is stale *regardless* of the checks, so the taught
+ * "repaired the file, never re-applied it" case arrives here as FAIL with
+ * every check green and nothing under it to act on.
+ */
+function failureReason(proof: CompletionProofResponse): string | null {
+  if (proof.source_state === "broken") {
+    // Named before the database: applying an unrepaired file installs the
+    // broken function, so the file is the first thing to fix.
+    return "The source file still holds the broken block."
+      + " Apply the repair in Code Editor.";
+  }
+  if (proof.database_state === "stale") {
+    return "The source file is repaired but the database still holds the old"
+      + " function. Run make db-apply-search-functions.";
+  }
+  return null;
+}
+
 function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
   const failed = proof.checks.filter((check) => !check.passed);
+  const reason = proof.status === "fail" && !failed.length
+    ? failureReason(proof)
+    : null;
   return (
     <>
       {/* Three facts, never one: the checks held, the file is repaired, and
@@ -119,6 +151,7 @@ function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
         </span>
         <span>{proof.duration_ms} ms</span>
       </p>
+      {reason ? <p className="labs-proof-note">{reason}</p> : null}
       {failed.length ? (
         <ul className="labs-proof-checks">
           {failed.map((check) => (
@@ -129,9 +162,10 @@ function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
             </li>
           ))}
         </ul>
-      ) : (
-        <ProofEvidence proof={proof} />
-      )}
+      ) : null}
+      {/* Receipts belong to a pass. Event ids under a FAIL read as evidence
+          the lab is finished. */}
+      {proof.status === "pass" ? <ProofEvidence proof={proof} /> : null}
     </>
   );
 }
@@ -191,9 +225,25 @@ export function CompletionProof({
 }: CompletionProofProps) {
   const [outcomes, setOutcomes] = useState<Outcomes>(IDLE_OUTCOMES);
   const [running, setRunning] = useState(false);
+  /**
+   * Whether this block is still on the page. The presses are sequential and
+   * each one waits on a real retrieval, so a participant can leave mid-run: the
+   * loop then has to stop rather than keep spending searches on the workshop
+   * cluster and announcing a finish to a page that is gone.
+   */
+  const mounted = useRef(true);
 
-  const record = (labId: LabId, outcome: LabOutcome) =>
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const record = (labId: LabId, outcome: LabOutcome) => {
+    if (!mounted.current) return;
     setOutcomes((current) => ({ ...current, [labId]: outcome }));
+  };
 
   /**
    * Read rather than stored, so clearing the agent run cannot leave a Lab 3
@@ -215,6 +265,7 @@ export function CompletionProof({
     setOutcomes(IDLE_OUTCOMES);
     let proved = false;
     for (const labId of LAB_IDS) {
+      if (!mounted.current) return;
       if (labId === 3 && !agentRunId) continue;
       record(labId, { kind: "running" });
       try {
@@ -227,6 +278,7 @@ export function CompletionProof({
         record(labId, { kind: "unavailable", message: environmentMessage(cause) });
       }
     }
+    if (!mounted.current) return;
     setRunning(false);
     // Only when something actually came back. The release baseline below
     // re-reads on this and drops what it is showing if that read fails, so a

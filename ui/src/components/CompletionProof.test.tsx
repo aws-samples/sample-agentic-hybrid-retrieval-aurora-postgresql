@@ -1,6 +1,14 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "../api";
 import type { CompletionProofResponse } from "../types";
@@ -252,6 +260,94 @@ describe("CompletionProof", () => {
 
     await waitFor(() => expect(labBlock(1).textContent).toContain("Could not run"));
     await waitFor(() => expect(labBlock(2).textContent).toContain("Could not run"));
+    expect(onFinished).not.toHaveBeenCalled();
+  });
+
+  it("explains a lab the service failed on a stale database with every check green", async () => {
+    // `service/lab_proof.py` fails a lab when the source is broken or the
+    // database is stale *regardless* of the checks, so the taught "repaired
+    // the file, never re-applied it" case arrives here as FAIL with nothing
+    // failed under it. A block that only expands failed checks reported that
+    // verdict with no reason and no next step.
+    vi.mocked(api.labProof).mockImplementation(async (labId) =>
+      proofFixture(labId, {
+        status: labId === 1 ? "fail" : "pass",
+        source_state: "solved",
+        database_state: labId === 1 ? "stale" : "applied",
+      }));
+    render(<CompletionProof activeLab={1} agentRunId={null} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+
+    await waitFor(() => expect(labBlock(1).textContent).toContain("FAIL"));
+    const block = labBlock(1);
+    expect(block.textContent).toContain(
+      "The source file is repaired but the database still holds the old function."
+      + " Run make db-apply-search-functions.",
+    );
+    // A failed lab never gets a pass's receipts: event ids under a FAIL read
+    // as evidence the lab is finished.
+    expect(within(block).queryByText("aa11bb22")).toBeNull();
+    // Paired positive: lab 2 passed on the same press and keeps its receipt.
+    expect(within(labBlock(2)).getByText("aa11bb22")).toBeTruthy();
+  });
+
+  it("names a build whose API has no proof route, without calling the lab failed", async () => {
+    vi.mocked(api.labProof).mockRejectedValue(new ApiError(404, "Not Found"));
+    render(<CompletionProof activeLab={1} agentRunId={null} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+
+    await waitFor(() => expect(labBlock(1).textContent).toContain("Could not run"));
+    expect(labBlock(1).textContent).toContain(
+      "This build's API serves no proof for that lab (HTTP 404).",
+    );
+    expect(labBlock(1).textContent).not.toContain("FAIL");
+  });
+
+  it("names a request that never reached the API as a room problem", async () => {
+    // What a browser raises when the dev server is down or the proxy refused
+    // the connection: the message is "Failed to fetch" and nothing else, which
+    // on its own says nothing about which service failed to answer.
+    vi.mocked(api.labProof).mockRejectedValue(new TypeError("Failed to fetch"));
+    render(<CompletionProof activeLab={1} agentRunId={null} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+
+    await waitFor(() => expect(labBlock(1).textContent).toContain("Could not run"));
+    expect(labBlock(1).textContent).toContain(
+      "The completion proof could not reach the Mosaic API (Failed to fetch).",
+    );
+    expect(labBlock(1).textContent).not.toContain("FAIL");
+  });
+
+  it("stops the sequence when the page leaves mid-press", async () => {
+    // The presses are sequential, so an unmount between two of them must end
+    // the run: otherwise a participant who navigates away keeps paying for
+    // retrievals on the workshop cluster, and the finish callback fires into a
+    // page that is gone.
+    let settle: (proof: CompletionProofResponse) => void = () => {};
+    vi.mocked(api.labProof).mockImplementation(
+      () =>
+        new Promise<CompletionProofResponse>((resolve) => {
+          settle = resolve;
+        }),
+    );
+    const onFinished = vi.fn();
+    const { unmount } = render(
+      <CompletionProof activeLab={1} agentRunId={null} onFinished={onFinished} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    await waitFor(() => expect(api.labProof).toHaveBeenCalledTimes(1));
+    unmount();
+    await act(async () => {
+      settle(proofFixture(1));
+      await Promise.resolve();
+    });
+
+    // Lab 2 was never posted, and nothing announced a finish.
+    expect(api.labProof).toHaveBeenCalledTimes(1);
     expect(onFinished).not.toHaveBeenCalled();
   });
 

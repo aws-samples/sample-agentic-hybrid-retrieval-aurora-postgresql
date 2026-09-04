@@ -735,6 +735,52 @@ describe("RetrievalScorecard stage ablation", () => {
     expect(lead.textContent).not.toContain("f1e2d3c4b5a6");
   });
 
+  it("keeps the baseline it already has when a refresh cannot be read", async () => {
+    // The refresh key means a read can now fail with good numbers already on
+    // screen. Replacing them with an error paragraph loses the only measured
+    // thing on this stage over a transient failure, and there is no way back
+    // to it without another proof press.
+    // Counted rather than queued: this file shares one mock across tests, and
+    // a `*Once` queue that outlives its test poisons the next one.
+    let reads = 0;
+    vi.mocked(api.scorecard).mockImplementation(async () => {
+      reads += 1;
+      if (reads === 2) throw new Error("scorecard unavailable");
+      return scorecardFixture({ attributed: true });
+    });
+    const { rerender } = render(<RetrievalScorecard refreshKey={0} />);
+
+    await screen.findByText(DISTINCTIVE_RECALL);
+    rerender(<RetrievalScorecard refreshKey={1} />);
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("scorecard unavailable");
+    // The measurement is still there, under the note rather than replaced by it.
+    expect(screen.getByText(DISTINCTIVE_RECALL)).toBeTruthy();
+    expect(screen.getByTestId("scorecard-release-baseline-lead")).toBeTruthy();
+  });
+
+  it("drops the note once a later refresh reads the baseline again", async () => {
+    // Paired with the test above: a note that survives its own cause reports a
+    // failure that is over, and every later press would carry it.
+    let reads = 0;
+    vi.mocked(api.scorecard).mockImplementation(async () => {
+      reads += 1;
+      if (reads === 2) throw new Error("scorecard unavailable");
+      return scorecardFixture({ attributed: true });
+    });
+    const { rerender } = render(<RetrievalScorecard refreshKey={0} />);
+
+    await screen.findByText(DISTINCTIVE_RECALL);
+    rerender(<RetrievalScorecard refreshKey={1} />);
+    await screen.findByRole("alert");
+
+    rerender(<RetrievalScorecard refreshKey={2} />);
+
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(screen.getByText(DISTINCTIVE_RECALL)).toBeTruthy();
+  });
+
   it("re-reads the release baseline when the refresh key changes", async () => {
     // A completion proof runs the mission through the served path and can
     // change what the baseline is attributed against, so the block above it
