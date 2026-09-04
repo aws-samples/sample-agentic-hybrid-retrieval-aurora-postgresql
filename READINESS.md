@@ -56,6 +56,42 @@ queries produce Recall@10, MRR, nDCG@10, per-query metrics, deterministic
 fixture checks, and a hash of the exact ranked result set. The 720 generated
 cases are filter-contract tests, not retrieval-quality judgments.
 
+## Participant completion proof
+
+The canonical scorecard above is a maintainers' release artifact. It is served
+with `artifact_kind = release_baseline` and is attributed to the running
+service only when its retrieval fingerprint, models, query-set hashes,
+methodology hash, and live retrieval-settings hash all match. It never proves
+an attendee's repairs.
+
+The attendee's proof is `POST /api/labs/{lab_id}/proof`, rendered in the
+Playground's Prove stage. Labs 1 and 2 run the mission request through the
+production search path and report the new `search_event_id`; Lab 3 evaluates
+the attendee's own persisted agent run. Each check carries its falsifier, and
+`GET /api/labs/state` reports source and applied-database state per lab. Both
+are covered by the offline suite (`tests/test_lab_checks.py`,
+`tests/test_lab_proof.py`) and by `make validate-lab-{1,2,3}` against Aurora.
+
+## Optional Vector index at scale lens
+
+The committed HNSW artifact (`data/benchmarks/hnsw_measured.json`) was measured
+on a different dataset manifest from a dirty worktree, so the lens renders it
+as `MEASURED ELSEWHERE` with its provenance until it is re-measured on the
+released corpus from a clean checkout. `representations` is served only when
+`make db-index-quantized` has built the halfvec and binary indexes on the
+connected cluster. Exact-neighbour ground truth still requires
+`make db-seed-exact-neighbors` after bootstrap; readiness reports whether it is
+seeded. An interrupted concurrent index build is recovered by
+`make db-drop-invalid-indexes`, which the `index_creation` bootstrap phase now
+runs first.
+
+## Release measurements still owed
+
+- Re-run `make score-evals` with `--write-baseline` and the stage ablation
+  after the source freeze: this revision changed SQL and contract files, so the
+  scorecard reads pending until then.
+- Re-measure or retire the HNSW artifact.
+
 ## Clean-account acceptance test
 
 Release readiness requires one recorded Workshop Studio rehearsal:

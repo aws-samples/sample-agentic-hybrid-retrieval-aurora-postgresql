@@ -24,8 +24,12 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
    three catalog shards declared in `data/full/manifest.json`.
 4. `make db-embed`, or `make db-import-embeddings` to restore the cached vectors
    instead of paying for re-embedding.
-5. `make db-index-concurrent` — the HNSW indexes, which cannot be built inside a
-   transaction block and are pointless before embeddings exist.
+5. `make db-index-concurrent` — the HNSW index, which cannot be built inside a
+   transaction block and is pointless before embeddings exist. If a concurrent
+   build was interrupted, run `make db-drop-invalid-indexes` first; the
+   bootstrap's `index_creation` phase does this automatically. The optional
+   halfvec and binary indexes for the Vector index at scale lens are a separate
+   `make db-index-quantized`.
 6. `make db-load-cohort` — the 120 premium products with real photography.
 7. `make db-smoke` — correctness queries.
 8. `make validate-missions`, `make validate-config`, `make validate-functions` —
