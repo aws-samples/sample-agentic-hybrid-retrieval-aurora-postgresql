@@ -30,6 +30,7 @@ from service.db import connect
 from service.models import SearchFilters, SearchRequest
 from service.retrieval import get_retrieval_service
 from service.retrieval_fingerprint import (
+    compute_live_retrieval_settings_sha256,
     compute_retrieval_fingerprint,
     compute_scorecard_methodology_sha256,
 )
@@ -690,6 +691,20 @@ def measured_scorecard(
         },
         "dataset_manifest_sha256": settings.dataset_manifest_sha256,
         "retrieval_profile": profile.model_dump(),
+        # The settings above, hashed, so serve time can compare them. Recorded
+        # separately because no file hash can see them: environment variables
+        # beat db/config/retrieval.yaml inside
+        # `scripts.retrieval_profile._resolve`, so RRF_K=1 changes every result
+        # here with `retrieval_fingerprint` sitting perfectly still.
+        #
+        # Computed from the resolved profile rather than from `profile` above:
+        # `RetrievalService._profile` overwrites `result_limit` and
+        # `authorized_limit` from the request, which are facts about this one
+        # measurement call rather than about the configuration. Hashing them
+        # would compare a request against a configuration at serve time and
+        # could never match. They stay pinned regardless -- `retrieval_profile`
+        # is compared field-for-field by `verify_scorecard` below.
+        "retrieval_settings_sha256": compute_live_retrieval_settings_sha256(),
         "hnsw_settings": {
             "ef_search": profile.ef_search,
             "iterative_scan": profile.iterative_scan,
@@ -730,6 +745,7 @@ def verify_scorecard(measured: dict[str, Any], baseline: dict[str, Any]) -> None
         "models",
         "dataset_manifest_sha256",
         "retrieval_profile",
+        "retrieval_settings_sha256",
         "hnsw_settings",
         "aurora_configuration",
         "database_instance_id",

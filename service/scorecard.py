@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -66,6 +67,7 @@ from service.models import (
 )
 from service.retrieval_fingerprint import (
     compute_ablation_methodology_sha256,
+    compute_live_retrieval_settings_sha256,
     compute_retrieval_fingerprint,
     compute_scorecard_methodology_sha256,
 )
@@ -216,6 +218,12 @@ def _release_check_total(scored: list[dict[str, Any]]) -> int:
 #: paraphrase of it.
 PENDING_TEXT = "Metrics pending evaluation for this retrieval revision"
 
+#: What this artifact is. The canonical scorecard is a maintainers' release
+#: baseline measured against Aurora at one revision, not the attendee's own
+#: proof of the retrieval they just ran. Naming that on the wire keeps the
+#: surface from implying a live measurement it never performs.
+ARTIFACT_KIND = "release_baseline"
+
 
 @dataclass(frozen=True)
 class _CurrentRetrievalIdentity:
@@ -235,6 +243,11 @@ class _CurrentRetrievalIdentity:
     #: The superset covering the ablation harness too. Section E reads this one,
     #: so an ablation-only edit leaves section A attributed.
     ablation_methodology_sha256: str
+    #: The resolved retrieval settings, which no file hash can see: `RRF_K`,
+    #: `FTS_CANDIDATE_LIMIT`, `HNSW_EF_SEARCH` and the rest are read from the
+    #: environment ahead of `db/config/retrieval.yaml`, so `RRF_K=1` changes
+    #: every served result with the retrieval fingerprint sitting still.
+    retrieval_settings_sha256: str
 
 
 def _attribution(
@@ -253,10 +266,11 @@ def _attribution(
     "pending" forever. See `service.retrieval_fingerprint` for the full
     argument and the manifest of files it hashes in its place.
 
-    Binding conjunction over exactly three facts:
+    Binding conjunction over exactly four facts:
 
         artifact.retrieval_fingerprint == current retrieval fingerprint
         AND artifact.source.worktree_dirty == False
+        AND artifact.retrieval_settings_sha256 == the settings resolved now
         AND the pinned evaluation inputs and models still match:
             artifact.models.embedding        == current embedding model id
             artifact.models.rerank           == current rerank model id
@@ -265,6 +279,13 @@ def _attribution(
             -> show the metrics
         otherwise
             -> withhold them, with `PENDING_TEXT`
+
+    The settings clause is not redundant with the fingerprint.
+    `scripts/retrieval_profile._resolve` reads the environment ahead of
+    `db/config/retrieval.yaml`, so `RRF_K=1` changes every served result while
+    every fingerprinted file stays byte-identical. Without this clause that
+    configuration serves an attributed scorecard measured under different
+    settings.
 
     Nothing about the *current* server's own worktree cleanliness enters this
     decision -- only the artifact's own recorded `worktree_dirty` at
@@ -304,8 +325,19 @@ def _attribution(
     methodology_matches = (
         bool(artifact_methodology) and artifact_methodology == expected_methodology
     )
+    artifact_settings = artifact.get("retrieval_settings_sha256") or None
+    settings_match = (
+        bool(artifact_settings)
+        and artifact_settings == current.retrieval_settings_sha256
+    )
 
-    if fingerprint_matches and measured_clean and inputs_match and methodology_matches:
+    if (
+        fingerprint_matches
+        and measured_clean
+        and inputs_match
+        and methodology_matches
+        and settings_match
+    ):
         return True, (
             "Measured on the retrieval code running now "
             f"({artifact_fingerprint[:12]}), with the same models and the same "
@@ -339,6 +371,16 @@ def _attribution(
                 f"the measurement methodology changed "
                 f"({artifact_methodology[:12]} measured, "
                 f"{expected_methodology[:12]} running)"
+            )
+        )
+    if not settings_match:
+        reasons.append(
+            "no retrieval settings hash was recorded when this artifact was measured"
+            if not artifact_settings
+            else (
+                f"the live retrieval settings changed "
+                f"({artifact_settings[:12]} measured, "
+                f"{current.retrieval_settings_sha256[:12]} running)"
             )
         )
 
@@ -558,9 +600,12 @@ def retrieval_scorecard() -> RetrievalScorecardResponse:
         scored_query_set_sha256=scored_query_set_sha256(scored),
         scorecard_methodology_sha256=compute_scorecard_methodology_sha256(),
         ablation_methodology_sha256=compute_ablation_methodology_sha256(),
+        retrieval_settings_sha256=compute_live_retrieval_settings_sha256(),
     )
     attributed, attribution_note = _attribution(artifact, current)
     provenance = ScorecardProvenance(
+        artifact_kind=ARTIFACT_KIND,
+        served_at=datetime.now(UTC),
         measured_at=artifact["measured_at"],
         query_set=artifact["query_set"],
         query_set_sha256=artifact["query_set_sha256"],
@@ -571,12 +616,14 @@ def retrieval_scorecard() -> RetrievalScorecardResponse:
         aurora_configuration=dict(artifact["aurora_configuration"]),
         hnsw_settings=dict(artifact["hnsw_settings"]),
         retrieval_profile=dict(artifact["retrieval_profile"]),
+        retrieval_settings_sha256=artifact.get("retrieval_settings_sha256"),
         database_instance_id=artifact["database_instance_id"],
         strategy=artifact["strategy"],
         source_revision=artifact_source.get("revision"),
         source_worktree_dirty=artifact_source.get("worktree_dirty"),
         current_source_revision=settings.source_revision,
         current_source_worktree_dirty=settings.source_worktree_dirty,
+        current_retrieval_settings_sha256=current.retrieval_settings_sha256,
         attributed=attributed,
         attribution_note=attribution_note,
     )

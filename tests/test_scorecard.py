@@ -1,11 +1,14 @@
 """The Prove-step scorecard: a read-only render of the committed artifact.
 
-Ruling R3's gate is a conjunction over three facts -- the artifact's own
+Ruling R3's gate is a conjunction over four facts -- the artifact's own
 `retrieval_fingerprint` (a hash over the files that can move the scored
 numbers; see `service.retrieval_fingerprint`) equals the one the running
 service reports, the artifact's own `worktree_dirty` flag was `False` at
-measurement time, and the pinned models and query-set hashes the artifact
-recorded still match what is running. A strict revision equality is
+measurement time, the resolved retrieval settings the artifact recorded are
+the ones this process resolves now (environment variables beat
+`db/config/retrieval.yaml`, so no file hash can see them move), and the pinned
+models and query-set hashes the artifact recorded still match what is
+running. A strict revision equality is
 deliberately not part of this: `scripts/score_evals.py` records the source
 revision *before* the artifact it writes is committed, so the artifact's
 revision is always one commit behind the revision that carries it, and that
@@ -16,6 +19,7 @@ proof below, plus independence and a witness per house standards rule 7.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -24,7 +28,11 @@ from fastapi.testclient import TestClient
 
 from service.assertions import ASSERTIONS
 from service.main import app
-from service.models import ScorecardGoldenAnchor
+from service.models import RetrievalProfile, ScorecardGoldenAnchor
+from service.retrieval_fingerprint import (
+    compute_live_retrieval_settings_sha256,
+    compute_retrieval_settings_sha256,
+)
 from service.scorecard import (
     PENDING_TEXT,
     SCORECARD_ARTIFACT,
@@ -50,6 +58,11 @@ _MATCHING_METHODOLOGY = "m" * 64
 #: Section E reads its own superset hash, so the two must differ in fixtures
 #: or a test could pass by reading the wrong one.
 _MATCHING_ABLATION_METHODOLOGY = "n" * 64
+#: The resolved retrieval settings, which no file hash can see: environment
+#: overrides beat `db/config/retrieval.yaml` inside
+#: `scripts.retrieval_profile._resolve`. Distinct from every other fixture hash
+#: so a clause reading the wrong field fails rather than matching by accident.
+_MATCHING_SETTINGS = "t" * 64
 
 
 def _artifact(
@@ -61,6 +74,7 @@ def _artifact(
     query_set_sha: str = _MATCHING_QUERY_SET_SHA,
     scored_query_set_sha: str = _MATCHING_SCORED_QUERY_SET_SHA,
     methodology: str = _MATCHING_METHODOLOGY,
+    settings: str = _MATCHING_SETTINGS,
     revision: str = "a" * 40,
 ) -> dict:
     return {
@@ -70,6 +84,7 @@ def _artifact(
         "query_set_sha256": query_set_sha,
         "scored_query_set_sha256": scored_query_set_sha,
         "scorecard_methodology_sha256": methodology,
+        "retrieval_settings_sha256": settings,
     }
 
 
@@ -164,6 +179,7 @@ def _current(
     scored_query_set_sha: str = _MATCHING_SCORED_QUERY_SET_SHA,
     methodology: str = _MATCHING_METHODOLOGY,
     ablation_methodology: str = _MATCHING_ABLATION_METHODOLOGY,
+    settings: str = _MATCHING_SETTINGS,
 ) -> _CurrentRetrievalIdentity:
     return _CurrentRetrievalIdentity(
         retrieval_fingerprint=fingerprint,
@@ -173,6 +189,7 @@ def _current(
         scored_query_set_sha256=scored_query_set_sha,
         scorecard_methodology_sha256=methodology,
         ablation_methodology_sha256=ablation_methodology,
+        retrieval_settings_sha256=settings,
     )
 
 
@@ -204,6 +221,7 @@ def _api_artifact_and_settings(
     }
     artifact["source"] = {"revision": revision, "worktree_dirty": dirty}
     artifact["scorecard_methodology_sha256"] = _MATCHING_METHODOLOGY
+    artifact["retrieval_settings_sha256"] = _MATCHING_SETTINGS
 
     ablation = _stage_ablation_artifact(
         fingerprint=_MATCHING_FINGERPRINT,
@@ -232,6 +250,10 @@ def _api_artifact_and_settings(
     monkeypatch.setattr(
         "service.scorecard.compute_ablation_methodology_sha256",
         lambda: _MATCHING_ABLATION_METHODOLOGY,
+    )
+    monkeypatch.setattr(
+        "service.scorecard.compute_live_retrieval_settings_sha256",
+        lambda: _MATCHING_SETTINGS,
     )
     monkeypatch.setattr(
         "service.scorecard.query_set_sha256",
@@ -657,6 +679,10 @@ def test_stage_ablation_attribution_is_independent_of_the_main_artifacts():
         "joined the retrieval fingerprint's blanket db/sql/*.sql category, so "
         "the committed scorecard no longer describes the running path and "
         "reads as pending attribution -- the designed state, not a break. "
+        "The committed artifact also predates retrieval_settings_sha256 and "
+        "so records none, which is a second, independent pending reason: the "
+        "resolved retrieval settings are now part of the gate because "
+        "environment overrides move them behind every file hash's back. "
         "Coverage classifies without filtering, so it cannot move any of the "
         "20 scored numbers; the re-measurement is required anyway to set "
         "mosaic_search.query_term_coverage's word_similarity_floor, which is "
@@ -892,3 +918,186 @@ def test_shared_methodology_input_marks_both_sections_pending():
 
     assert section_a_attributed is False
     assert section_e.attributed is False
+
+
+# --- The live retrieval settings hash: the clause no file hash can carry ----
+#
+# `scripts.retrieval_profile._resolve` reads the environment before the yaml,
+# so `RRF_K=1` changes every served result while every fingerprinted file stays
+# byte-identical. Before this clause existed, that configuration could serve an
+# attributed scorecard.
+
+
+def test_attribution_hides_when_the_live_retrieval_settings_changed():
+    """Red-at-birth for the settings clause: every other clause matches."""
+    attributed, note = _attribution(_artifact(), _current(settings="u" * 64))
+
+    assert attributed is False
+    assert note.startswith(PENDING_TEXT)
+    assert "the live retrieval settings changed" in note
+    # Both halves of the comparison, so a reader can tell which is which.
+    assert _MATCHING_SETTINGS[:12] in note
+    assert ("u" * 64)[:12] in note
+
+
+def test_attribution_hides_when_the_artifact_recorded_no_settings_hash():
+    """Every artifact measured before this mechanism existed -- including the
+    one currently committed -- carries no settings hash at all. That must fail
+    closed with its own honest reason, not be waved through as "nothing to
+    compare"."""
+    artifact = _artifact()
+    del artifact["retrieval_settings_sha256"]
+
+    attributed, note = _attribution(artifact, _current())
+
+    assert attributed is False
+    assert (
+        "no retrieval settings hash was recorded when this artifact was measured"
+        in note
+    )
+
+
+def test_attribution_stays_attributed_when_the_recorded_settings_still_match():
+    """Independence and positive witness for the new clause together.
+
+    Adding a conjunct that can only ever be False would hide the metrics
+    forever and read exactly like a working gate, so the True branch is
+    asserted here against the same fixture the red-at-birth test mutates.
+    """
+    attributed, note = _attribution(_artifact(settings=_MATCHING_SETTINGS), _current())
+
+    assert attributed is True
+    assert "the live retrieval settings changed" not in note
+
+
+def test_an_environment_override_alone_unattributes_the_scorecard():
+    """The audit finding, end to end through `_attribution`.
+
+    The artifact records the settings hash measured with the yaml defaults; the
+    running service resolves `RRF_K=1` from the environment. No fingerprinted
+    file moved -- the fingerprint fixture is identical on both sides -- and the
+    scorecard must still refuse to claim the metrics describe what is running.
+    """
+    measured_profile = RetrievalProfile().model_dump()
+    running_profile = {**measured_profile, "rrf_k": 1}
+    assert measured_profile["rrf_k"] != 1  # witness: the override is a real change
+
+    artifact = _artifact(
+        settings=compute_retrieval_settings_sha256(measured_profile),
+    )
+    running = _current(
+        settings=compute_retrieval_settings_sha256(running_profile),
+    )
+
+    attributed, note = _attribution(artifact, running)
+
+    assert attributed is False
+    assert "the live retrieval settings changed" in note
+    # Independence: the file fingerprint is byte-identical across the two, so
+    # this verdict came from the settings clause and nothing else.
+    assert "retrieval code changed since it was measured" not in note
+
+
+def test_a_settings_mismatch_also_marks_the_stage_ablation_pending():
+    """Section E is quality measurement too, so it is judged by the same
+    resolved settings section A is."""
+    from service.scorecard import _stage_ablation
+
+    section_e = _stage_ablation(_stage_ablation_artifact(), _current(settings="u" * 64))
+
+    assert section_e.attributed is False
+    assert "the live retrieval settings changed" in section_e.attribution_note
+
+
+# --- The scorecard is a release baseline, served now ------------------------
+
+
+def test_provenance_declares_itself_a_release_baseline_served_now():
+    """`artifact_kind` and `served_at` exist so the surface can stop reading as
+    the attendee's live proof: it is a maintainers' release artifact, measured
+    at one moment and rendered at another."""
+    before = datetime.now(UTC)
+    provenance = retrieval_scorecard().provenance
+    after = datetime.now(UTC)
+
+    assert provenance.artifact_kind == "release_baseline"
+    assert provenance.served_at.tzinfo is not None
+    assert before <= provenance.served_at <= after
+    # Witness that the two timestamps are genuinely different facts rather than
+    # one relabelled: the artifact was measured well before this request.
+    assert provenance.measured_at < provenance.served_at
+
+
+def test_provenance_carries_both_sides_of_the_settings_comparison():
+    """The verdict must be checkable, not taken on faith: the artifact's own
+    recorded hash and the one the running process resolves are both served."""
+    artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
+    provenance = retrieval_scorecard().provenance
+
+    assert provenance.retrieval_settings_sha256 == artifact.get(
+        "retrieval_settings_sha256"
+    )
+    assert provenance.current_retrieval_settings_sha256 == (
+        compute_live_retrieval_settings_sha256()
+    )
+    assert len(provenance.current_retrieval_settings_sha256) == 64
+
+
+def test_the_committed_artifact_reads_unattributed_for_want_of_a_settings_hash():
+    """The real repository, not a fixture: today's committed baseline predates
+    this mechanism, so it records no settings hash and the served scorecard
+    must say so alongside the fingerprint mismatch it already reports.
+
+    This pins the state the repository is actually in, the same way
+    `service.retrieval_fingerprint._EXPECTED_CATEGORY_COUNTS` pins its file
+    counts. The next `scripts/score_evals.py --write-baseline` records the hash
+    and this test must be updated in the same change -- as must the xfail
+    marker on `test_api_serves_attributed_scorecard_after_remeasurement` above,
+    which describes the same pending state.
+    """
+    artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
+    assert "retrieval_settings_sha256" not in artifact
+
+    provenance = retrieval_scorecard().provenance
+
+    assert provenance.attributed is False
+    assert provenance.retrieval_settings_sha256 is None
+    assert (
+        "no retrieval settings hash was recorded when this artifact was measured"
+        in provenance.attribution_note
+    )
+
+
+def test_the_api_serves_the_release_baseline_fields(monkeypatch):
+    """Route level, so the new provenance fields survive serialization rather
+    than existing only on the Python model the UI never sees."""
+    _api_artifact_and_settings(monkeypatch)
+
+    payload = TestClient(app).get("/api/scorecard").json()
+
+    provenance = payload["provenance"]
+    assert provenance["attributed"] is True
+    assert provenance["artifact_kind"] == "release_baseline"
+    assert provenance["served_at"]
+    assert provenance["retrieval_settings_sha256"] == _MATCHING_SETTINGS
+    assert provenance["current_retrieval_settings_sha256"] == _MATCHING_SETTINGS
+
+
+def test_the_api_hides_metrics_when_only_the_live_settings_drifted(monkeypatch):
+    """Route-level red-at-birth, paired with the test above so this cannot
+    pass by always hiding: the artifact and every file hash still match, only
+    the resolved settings moved."""
+    _api_artifact_and_settings(monkeypatch)
+    monkeypatch.setattr(
+        "service.scorecard.compute_live_retrieval_settings_sha256",
+        lambda: "u" * 64,
+    )
+
+    payload = TestClient(app).get("/api/scorecard").json()
+
+    assert payload["provenance"]["attributed"] is False
+    assert (
+        "the live retrieval settings changed"
+        in (payload["provenance"]["attribution_note"])
+    )
+    assert payload["provenance"]["current_retrieval_settings_sha256"] == "u" * 64

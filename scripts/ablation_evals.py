@@ -73,6 +73,7 @@ from service.models import SearchFilters, SearchRequest
 from service.retrieval import RetrievalService, get_retrieval_service, normalize_query
 from service.retrieval_fingerprint import (
     compute_ablation_methodology_sha256,
+    compute_live_retrieval_settings_sha256,
     compute_retrieval_fingerprint,
 )
 
@@ -592,6 +593,11 @@ def measured_ablation() -> dict[str, Any]:
         # `scorecard_methodology_sha256` so an ablation-only edit marks this
         # section pending without touching canonical retrieval attribution.
         "ablation_methodology_sha256": compute_ablation_methodology_sha256(),
+        # The resolved retrieval settings. Section E is quality measurement
+        # too, so `service.scorecard._attribution` judges it against the same
+        # settings section A is judged against; without this key the ablation
+        # would read pending forever after a re-measure.
+        "retrieval_settings_sha256": compute_live_retrieval_settings_sha256(),
         "source": {
             "revision": settings.source_revision,
             "worktree_dirty": settings.source_worktree_dirty,

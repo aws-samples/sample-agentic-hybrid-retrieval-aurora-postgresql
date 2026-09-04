@@ -703,8 +703,9 @@ class ScorecardProvenance(BaseModel):
     A. It is true only when the artifact's `retrieval_fingerprint` (a hash
     over the files that can move the scored numbers; see
     `service.retrieval_fingerprint`) matches what is currently running, the
-    measurement's own worktree was clean, and the pinned models and query-set
-    hashes still match; see `service.scorecard._attribution`. `source_revision`
+    measurement's own worktree was clean, the resolved retrieval settings are
+    the ones it was measured with, and the pinned models and query-set hashes
+    still match; see `service.scorecard._attribution`. `source_revision`
     is no longer part of that gate -- a strict revision equality can never
     hold, because the artifact is always committed one revision after it was
     measured -- but it stays here as display and audit evidence. Every other
@@ -712,6 +713,14 @@ class ScorecardProvenance(BaseModel):
     verify the verdict rather than take it on faith.
     """
 
+    #: What this is, so the surface can name it honestly. The canonical
+    #: scorecard is a maintainers' release artifact measured against Aurora at
+    #: one revision, not a live proof of the attendee's own retrieval run.
+    artifact_kind: Literal["release_baseline"]
+    #: When this response was assembled, always distinct from `measured_at`.
+    #: A baseline rendered months after it was measured must not read as a
+    #: measurement taken now.
+    served_at: datetime
     measured_at: datetime
     query_set: str
     query_set_sha256: str
@@ -722,12 +731,22 @@ class ScorecardProvenance(BaseModel):
     aurora_configuration: dict[str, Any]
     hnsw_settings: dict[str, Any]
     retrieval_profile: dict[str, Any]
+    #: The resolved retrieval settings the artifact was measured with, hashed
+    #: by `service.retrieval_fingerprint.compute_retrieval_settings_sha256`.
+    #: `None` on every artifact written before that hash existed, which fails
+    #: the gate closed rather than being read as agreement. It is carried
+    #: separately from `retrieval_profile` because environment variables beat
+    #: `db/config/retrieval.yaml`, so no file hash can see a change to it.
+    retrieval_settings_sha256: str | None
     database_instance_id: str
     strategy: str
     source_revision: str | None
     source_worktree_dirty: bool | None
     current_source_revision: str | None
     current_source_worktree_dirty: bool
+    #: The same hash resolved by the running process, so a reader can check the
+    #: verdict against both halves rather than trusting `attributed`.
+    current_retrieval_settings_sha256: str
     attributed: bool
     attribution_note: str
 

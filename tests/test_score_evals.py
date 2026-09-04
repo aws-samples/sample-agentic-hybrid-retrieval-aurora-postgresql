@@ -76,6 +76,7 @@ def scorecard(*, recall=0.8, mrr=0.7, ndcg=0.75):
         "source": {"revision": "a" * 40, "worktree_dirty": False},
         "dataset_manifest_sha256": "b" * 64,
         "retrieval_profile": {"rrf_k": 60},
+        "retrieval_settings_sha256": "d" * 64,
         "hnsw_settings": {
             "ef_search": 100,
             "iterative_scan": "relaxed_order",
@@ -135,6 +136,10 @@ def test_committed_scorecard_keeps_per_query_and_ranked_result_provenance():
         ("models", {"embedding": "another-space", "rerank": "rerank"}),
         ("dataset_manifest_sha256", "changed"),
         ("retrieval_profile", {"rrf_k": 1}),
+        # Environment overrides beat db/config/retrieval.yaml, so a drifted
+        # setting moves no fingerprinted file. Without this pinned field the
+        # review gate would let RRF_K=1 overwrite the reviewed baseline.
+        ("retrieval_settings_sha256", "e" * 64),
         ("hnsw_settings", {"ef_search": 1}),
         ("aurora_configuration", {"engine": "postgresql"}),
         ("database_instance_id", "different-writer"),
