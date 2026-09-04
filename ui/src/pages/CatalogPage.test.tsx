@@ -467,7 +467,12 @@ describe("CatalogPage", () => {
     // Finishing folds the retrieve card back up, leaving the answer open.
     expect(stageCards().map((card) => card.getAttribute("aria-expanded")))
       .toEqual(["false", "false", "false", "true"]);
-  });
+    // This test waits through the real presentation timings on purpose: the
+    // catalog reveal, two stage dwells plus their exits, and the answer
+    // typewriter. Together they exceed vitest's 5000ms default on a loaded CI
+    // runner (Project CI timed out here on 2026-09-04 after passing locally),
+    // so the budget is sized to the dwell it already waits for.
+  }, stageDwellMs * 4 + 10_000);
 
   it("counts the wait on the step that is working, without restarting it", async () => {
     // Grounded synthesis cannot show a word until the answer has been checked
