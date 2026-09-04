@@ -1,9 +1,11 @@
 """The lexical arm can fail completely; an assertion has to notice.
 
-`mosaic_search.search_fts` shipped an AND-only tsquery. Four of the six missions
-lost the arm entirely and every gate stayed green, because no assertion in the
-vocabulary named the lexical arm. These checks exercise `fts_signal_present` and
-keep the contract and the vocabulary from drifting apart.
+`mosaic_search.search_fts` runs a strict AND query with a conjunctive backoff
+over salient terms; it never OR-combines. Before the backoff existed, an
+AND-only tsquery lost the arm entirely on four of the six missions, and every
+gate stayed green because no assertion in the vocabulary named the lexical
+arm. These checks exercise `fts_signal_present` and keep the contract and the
+vocabulary from drifting apart.
 """
 
 from __future__ import annotations

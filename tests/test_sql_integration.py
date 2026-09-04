@@ -158,7 +158,7 @@ def test_a_long_natural_language_query_has_lexical_candidates(connection, profil
         ),
     ).fetchall()
 
-    assert rows, "the OR-combined tsquery must return candidates"
+    assert rows, "the salient-terms AND backoff must return candidates"
     assert rows[0][1] == 1
 
 

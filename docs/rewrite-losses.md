@@ -60,6 +60,28 @@ arm. None existed; `fts_signal_present` was added in the same phase
 (`service/assertions.py`) and is proven to go red against the shipped function
 and green against the fix.
 
+### Correction 2026-09-04
+
+The paragraph above describes the shipped fix as "OR-combined lexemes for
+recall" plus "the strict `websearch_to_tsquery` retained as a `+1.0` scoring
+bonus" and "a negation guard was required." Neither an OR-combine nor a
+negation guard was ever the shipped remedy. That was a description of the
+pre-rewrite `catalog.search_lexical` builder this loss is about, mistakenly
+carried over as if it described the fix that replaced it.
+
+What actually shipped, in `mosaic_search.search_fts`
+(`db/sql/09_search_functions.sql:120`): the strict `websearch_to_tsquery` match
+runs first; when it returns no rows, the function backs off to a second AND
+query (`&`-joined, still a conjunction, never an OR) built from at most four
+salient lexemes (`:160-179`): longest lexemes first, numeric-only lexemes
+dropped, filtered through an intent stoplist, and kept only when the corpus
+already contains them (`EXISTS`-gated). There is no `|` anywhere in the
+function and no `NOT` handling of any kind. `tests/test_sql_integration.py`
+(`:366-375`) proves `search_fts` returns zero rows for the misspelled anchor
+`noice cancelng hedfones` on the live cluster, which is the shipped behavior
+this correction now states plainly rather than as an OR-combine that never
+existed.
+
 ---
 
 ## LOSS-2 — per-token trigram pipeline

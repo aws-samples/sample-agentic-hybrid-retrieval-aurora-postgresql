@@ -5,9 +5,11 @@ satisfy. Before this module the names were strings nobody resolved, so a typo in
 the contract was undetectable and — worse — a retrieval arm could fail
 completely with every gate green.
 
-`fts_signal_present` exists because that is exactly what happened:
-`mosaic_search.search_fts` built an AND-only tsquery, four of the six missions
-lost the lexical arm entirely, and no assertion named the lexical arm at all.
+`fts_signal_present` exists because the lexical arm can fail completely:
+`search_fts` runs a strict AND query with a conjunctive backoff; it never
+OR-combines. Under the AND-only tsquery that shipped before the backoff
+existed, four of the six missions lost the lexical arm entirely, and no
+assertion named the lexical arm at all.
 
 Every assertion carries a `falsifier`: the concrete condition under which it
 fails. The field is required rather than optional because an assertion whose
@@ -120,9 +122,13 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="structured_constraints_extracted",
         arm=None,
         falsifier=(
-            "no successful search_products trace carries the request's domain, "
-            "price ceiling, and stock constraint, so decomposition widened the "
-            "bounded request before retrieval"
+            "no successful search_products trace preserves the request's "
+            "domain, price ceiling, stock constraint, and any declared brand, "
+            "min_rating, availability, or attributes; a narrowed price "
+            "ceiling still passes, since a tighter bound is not a widened "
+            "request. The Lab 3 core mission declares no attribute, so the "
+            "decisive attribute check on that mission is carried by the "
+            "evidence-grounding supporting check, not by this assertion"
         ),
     ),
     Assertion(

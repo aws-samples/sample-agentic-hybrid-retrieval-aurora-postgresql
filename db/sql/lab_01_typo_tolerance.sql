@@ -16,19 +16,20 @@
 
 -- Step 1. The lexical arm on a misspelled query.
 --
--- `search_fts` OR-combines the lexemes and keeps the strict
--- `websearch_to_tsquery` match as a scoring bonus, so a misspelled token no
--- longer makes the whole conjunction unsatisfiable. Compare the two directly:
--- the strict query is what an AND-only builder would have used, and on this
--- input it matches nothing.
+-- `search_fts` never OR-combines. It runs the strict `websearch_to_tsquery`
+-- match first, and only when that returns nothing does it back off to a
+-- second AND query over at most four salient lexemes from the input. Every
+-- token in this anchor is misspelled, so no salient lexeme the corpus
+-- recognizes survives the backoff either: the arm returns zero rows here,
+-- which is the premise Lab 1's repair addresses in step 2.
 \echo ''
-\echo '-- 1a. strict AND-only tsquery: what the arm used to build'
+\echo '-- 1a. strict AND-only tsquery: the arm''s first-choice match'
 SELECT count(*) AS strict_matches
 FROM mosaic_search.product_document
 WHERE search_document @@ websearch_to_tsquery('english', :'typo_query');
 
 \echo ''
-\echo '-- 1b. the shipped lexical arm on the same query'
+\echo '-- 1b. the shipped lexical arm on the same query: expect zero rows'
 SELECT result.product_id,
        document.title,
        result.fts_score,

@@ -116,7 +116,7 @@ recorded so nobody reclassifies a fixed bug as an exercise.
 | Defect | Why not a gap | Fix |
 |---|---|---|
 | `BUSINESS_WEIGHT=0.15` exceeding the 0.05 bound | crashed every search with an unhandled 500; no assertion covers it and no repair narrative mentions it | `service.config.ConfigurationError` refuses out-of-range values at startup; `tests/test_service_config.py` |
-| `search_fts` AND-only query construction | broke two missions that declare `fts`, and no `fts_signal_present` assertion existed to detect it | `search_fts` OR-combines lexemes with a strict-match bonus and a negation guard; `fts_signal_present` added to `service/assertions.py` |
+| `search_fts` AND-only query construction | broke two missions that declare `fts`, and no `fts_signal_present` assertion existed to detect it | `search_fts` keeps the strict `websearch_to_tsquery` match, then backs off to an AND query (`&`-joined) over at most four salient lexemes when the strict match returns nothing: longest lexemes first, numeric-only lexemes dropped, filtered through an intent stoplist, and kept only when the corpus contains them. There is no OR-combine and no negation guard; `fts_signal_present` added to `service/assertions.py` |
 | MCP `/retrieval/runs/` path | route never existed; nothing to restore | tool requests `/retrieval/events/{id}`; `tests/test_mcp_route_contract.py` resolves it against the real route table |
 | `sql/05_typo_tolerance_lab.sql` targeting `catalog.*` | taught against a schema the API does not read | ported to `db/sql/lab_01_typo_tolerance.sql` against `mosaic_search` |
 
