@@ -26,7 +26,8 @@ export const RETRIEVAL_SURFACE = {
   path: "/labs/retrieval",
   label: "Playground",
   title: "Mosaic Playground",
-  headline: "See how retrieval becomes a recommendation.",
+  headline:
+    "A search can return a plausible top result while the system behind it is wrong.",
 } as const;
 
 export function useNavigate() {

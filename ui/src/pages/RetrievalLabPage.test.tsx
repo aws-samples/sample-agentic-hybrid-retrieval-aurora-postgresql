@@ -559,7 +559,9 @@ describe("RetrievalLabPage", () => {
     const strip = screen.getByRole("navigation", { name: "Playground lenses" });
     expect(screen.getByRole("heading", { name: "Mosaic Playground" })).toBeTruthy();
     expect(
-      screen.getByText("See how retrieval becomes a recommendation."),
+      screen.getByText(
+        "A search can return a plausible top result while the system behind it is wrong.",
+      ),
     ).toBeTruthy();
     // Internal routes only; the strip also carries an outbound GitHub link.
     // Two destinations, not three. Catalog studio runs no retrieval and grades

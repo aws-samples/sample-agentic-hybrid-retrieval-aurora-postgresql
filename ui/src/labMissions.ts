@@ -29,7 +29,12 @@ export interface MosaicLabMission {
   placement?: MosaicLabPlacement;
   duration_minutes: number;
   title: string;
-  /** Compact participant-facing label for the Discover scenario rail. */
+  /**
+   * Compact participant-facing label used by the Playground scenario picker,
+   * the rank table's empty-state hint, and the lab outcome copy.
+   *
+   * Discover intentionally does not print it.
+   */
   discover_label: string;
   canonical_query_id?: string;
   query: string;
