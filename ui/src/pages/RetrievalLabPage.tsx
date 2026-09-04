@@ -137,6 +137,33 @@ interface PinnedBaseline {
   response: SearchResponse | null;
 }
 
+/**
+ * The room's own display preference, kept where the room can keep it.
+ *
+ * A facilitator sets this once and then reloads through a 60-minute session, so
+ * it has to outlive a navigation. Every access is guarded: Safari in private
+ * browsing throws on both read and write, and a preference about font size is
+ * not worth a blank Playground.
+ */
+const PROJECTOR_KEY = "mosaic.projector";
+
+function readProjectorPreference(): boolean {
+  try {
+    return window.localStorage.getItem(PROJECTOR_KEY) === "true";
+  } catch {
+    // Storage denied. The default is the honest answer, not an error.
+    return false;
+  }
+}
+
+function writeProjectorPreference(on: boolean): void {
+  try {
+    window.localStorage.setItem(PROJECTOR_KEY, String(on));
+  } catch {
+    // Storage denied. The toggle still works for this page view.
+  }
+}
+
 /** Eligibility gates the run actually applied, named rather than counted. */
 function appliedGates(response: SearchResponse): string[] {
   return Object.entries(response.applied_filters)
@@ -211,6 +238,7 @@ export function RetrievalLabPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
+  const [projector, setProjector] = useState(readProjectorPreference);
   const requestVersion = useRef(0);
   const ranForwarded = useRef(false);
   const example = mosaicRetrievalExamples[selected];
@@ -453,8 +481,19 @@ export function RetrievalLabPage() {
 
   // The same wrapper and masthead the other two Playground lenses use.
   return (
-    <div className="page mosaic-labs-page labs-premium lab-page">
-      <MosaicLabsTabs active="retrieval" />
+    <div
+      className="page mosaic-labs-page labs-premium lab-page"
+      data-projector={projector ? "true" : undefined}
+    >
+      <MosaicLabsTabs
+        active="retrieval"
+        onToggleProjector={() => {
+          const next = !projector;
+          setProjector(next);
+          writeProjectorPreference(next);
+        }}
+        projector={projector}
+      />
 
       {/* Where the participant is and what the room currently holds, in that
           order, above everything a run produces. Both are about the session
@@ -695,6 +734,7 @@ export function RetrievalLabPage() {
         <RetrievalObservatory
           example={example}
           loading={loading}
+          projector={projector}
           response={response}
         />
 

@@ -5150,7 +5150,7 @@
   text-align: right;
 }
 
-/* Lab rail and readiness strip */
+/* Projector mode and lab rail */
 
 /* Sticky under the site header rather than under the lens strip's own offset:
    the strip scrolls away, the rail does not, so a participant who has scrolled
@@ -5307,6 +5307,64 @@
 
 .labs-readiness-row.is-unknown dd {
   color: var(--ink-faint);
+}
+
+.mosaic-labs-projector {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid #ded6ca;
+  border-radius: 999px;
+  background: #fffefa;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mosaic-labs-projector.is-on {
+  border-color: #5e1d2c;
+  background: #5e1d2c;
+  color: #fffaf3;
+}
+
+/* Projector mode is one attribute on the page root, so nothing below it has to
+   know the mode exists.
+
+   The eight values below are the `--labs-*` scale in styles.css multiplied by
+   1.35, which is what carries the smallest step (12px micro) over a projected
+   legibility floor without breaking the steps between them. They are written
+   out rather than derived: a custom property that refers to itself is a cycle,
+   and one that multiplies a token declared on `:root` resolves there, at 1x,
+   before any descendant can change the factor.
+
+   Hiding the disclosure shelf and the dormant outline is not decoration. Both
+   are for a reader within arm's reach of a keyboard -- one asks to be clicked,
+   the other describes what a stage will show once somebody presses Run -- and
+   projected they are rows of unreadable text the room cannot act on. */
+.lab-page[data-projector="true"] {
+  --labs-display: clamp(48.6px, 4.86vw, 72.9px);
+  --labs-h2: clamp(40.5px, 3.51vw, 54px);
+  --labs-h3: 25.65px;
+  --labs-lead: 22.95px;
+  --labs-body: 20.25px;
+  --labs-detail: 17.55px;
+  --labs-micro: 16.2px;
+  --labs-mono: 17.55px;
+}
+
+.lab-page[data-projector="true"] .labs-disclosure-shelf,
+.lab-page[data-projector="true"] .labs-dormant {
+  display: none;
+}
+
+/* Says the table was cut, so a truncated result set cannot read as the whole
+   one from the back of a room. */
+.labs-matrix-projector {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: var(--labs-detail);
 }
 
 .mosaic-studio-page {

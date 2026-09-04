@@ -214,4 +214,48 @@ describe("RetrievalObservatory", () => {
     expect(note.textContent).toContain("order that would have shipped with reranking off");
     expect(note.textContent).toContain("are not");
   });
+
+  it("keeps the target row on screen when projector mode drops the rest", () => {
+    // A projector shows roughly the top of this table and nothing else, and the
+    // row the scenario is about is routinely below that fold. Truncating to the
+    // first four would hide the one row the room is looking for, so the target
+    // travels with them.
+    const lateTarget = { ...seedExample, target_product_ids: [3992] };
+    const { container, rerender } = render(
+      <RetrievalObservatory
+        example={lateTarget}
+        loading={false}
+        response={seedRun}
+      />,
+    );
+
+    expect(container.querySelectorAll(".labs-matrix-table tbody")).toHaveLength(12);
+
+    rerender(
+      <RetrievalObservatory
+        example={lateTarget}
+        loading={false}
+        projector
+        response={seedRun}
+      />,
+    );
+
+    const shown = [...container.querySelectorAll(".labs-matrix-table tbody")];
+    expect(shown).toHaveLength(5);
+    expect(shown[4].classList.contains("is-target")).toBe(true);
+    expect(
+      screen.getByText("Projector mode is showing 5 of the 12 returned rows."),
+    ).toBeTruthy();
+  });
+
+  it("counts the rows it is showing against the rows the run returned", () => {
+    // The seed run's own target is the first row, so the four shown here are
+    // exactly the first four. The count says so rather than letting a truncated
+    // table read as the whole result set.
+    const { container } = renderObservatory({ projector: true, response: seedRun });
+
+    expect(container.querySelectorAll(".labs-matrix-table tbody")).toHaveLength(4);
+    expect(screen.getByText("Projector mode is showing 4 of the 12 returned rows."))
+      .toBeTruthy();
+  });
 });
