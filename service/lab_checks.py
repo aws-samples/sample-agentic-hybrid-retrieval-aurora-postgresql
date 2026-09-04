@@ -557,9 +557,11 @@ def _lab_2_winner(
         passed=passed,
         falsifier=(
             "the product that ranks first in all three arms is not fused rank "
-            "1. Measured under the collapsed formula: product 370001 became "
-            "fused rank 1 while Cohere still promoted 370002 to final rank 1, "
-            "so a correct-looking answer masked broken fusion."
+            "1. The lab contract (data/evals/mosaic_labs_missions.json, "
+            "rank-with-evidence, participant_edit.observe_before) records that "
+            "under the collapsed formula product 370001 became fused rank 1 "
+            "while Cohere still promoted 370002 to final rank 1, so a "
+            "correct-looking answer masked broken fusion."
         ),
         detail=detail,
     )
@@ -808,6 +810,15 @@ def _check_tools_invoked(
 
 
 def _check_evidence_retrieved(agent: Mapping[str, Any]) -> LabCheck:
+    """Grade evidence coverage, refusing to pass over zero evidence calls.
+
+    `bool(steps)` is a deliberate strengthening of the condition the CLI
+    carried before this module existed, which was `not missing and not empty`.
+    Over a response that recommended nothing and called `get_product_evidence`
+    never, both lists are empty and the check read green while nothing had been
+    retrieved. Disclosed rather than silent, because it can fail a turn the old
+    validator passed.
+    """
     steps = successful_steps(agent, "get_product_evidence")
     covered = {
         int((step.get("arguments") or {})["product_id"])
@@ -917,6 +928,15 @@ def _is_plan(plan: Any) -> bool:
 
 
 def _check_execution_origins(agent: Mapping[str, Any]) -> LabCheck:
+    """Grade origin attribution, refusing to pass over an empty trace.
+
+    `bool(trace)` is a deliberate strengthening of the condition the CLI
+    carried before this module existed, which was `not unattributed`. Over an
+    empty trace there is nothing to be unattributed, so a turn that called no
+    tool at all passed the check that exists to prove which calls the model
+    chose. Disclosed rather than silent, because it can fail a turn the old
+    validator passed.
+    """
     trace = agent.get("trace") or []
     unattributed = [
         step.get("tool")
@@ -945,19 +965,34 @@ def _check_execution_origins(agent: Mapping[str, Any]) -> LabCheck:
     )
 
 
+#: The five fields a citation is resolved on, as `(evidence row field, citation
+#: key)`. All five are compared rather than `product_id` alone, because a
+#: fabricated quote attached to the right product is exactly the failure a
+#: product-id-only comparison cannot see.
+CITATION_EVIDENCE_FIELDS: tuple[tuple[str, str], ...] = (
+    ("evidence_id", "evidence_id"),
+    ("product_id", "product_id"),
+    ("source_uri", "source_uri"),
+    ("revision", "revision"),
+    ("text", "quote"),
+)
+
+
 def _citation_resolves(
     citation: Mapping[str, Any],
     resolved: Mapping[str, Any] | None,
 ) -> bool:
+    """Whether one citation matches its evidence row on all five fields.
+
+    A field absent from either side is a mismatch, never a vacuous agreement:
+    two missing values comparing equal would let a truncated citation resolve
+    against a partial evidence row and read as grounded.
+    """
     return bool(resolved) and all(
-        resolved.get(field_name) == citation[citation_key]
-        for field_name, citation_key in (
-            ("evidence_id", "evidence_id"),
-            ("product_id", "product_id"),
-            ("source_uri", "source_uri"),
-            ("revision", "revision"),
-            ("text", "quote"),
-        )
+        field_name in resolved
+        and citation_key in citation
+        and resolved[field_name] == citation[citation_key]
+        for field_name, citation_key in CITATION_EVIDENCE_FIELDS
     )
 
 
@@ -1103,11 +1138,25 @@ STAGE_03_FIX = (
     "run Stage 03 (Reason) on the Retrieval Lab page, then submit the "
     "agent_run_id it returns"
 )
-_MISSING_RUN = explain(
-    "no persisted agent turn for the submitted agent_run_id, so Stage 03 "
-    "produced no receipts to grade",
-    STAGE_03_FIX,
-)
+
+
+def missing_run_detail(requested_run_id: str | None) -> str:
+    """Say which of the two missing-run mistakes this is.
+
+    Submitting nothing and submitting an id no turn was persisted under are
+    different errors with different next steps, and one sentence covering both
+    told a participant who submitted nothing that their id did not resolve.
+    """
+    if requested_run_id is None:
+        return explain(
+            "no agent_run_id was submitted, so no Stage 03 turn was named to grade",
+            STAGE_03_FIX,
+        )
+    return explain(
+        f"no persisted agent turn under agent_run_id {requested_run_id}, so "
+        "Stage 03 produced no receipts to grade",
+        STAGE_03_FIX,
+    )
 
 
 def _proof_check(
@@ -1117,17 +1166,18 @@ def _proof_check(
     falsifier: str,
     detail: str,
     run: PersistedAgentRun | None,
+    missing_detail: str,
 ) -> LabCheck:
     """One persisted-row check, forced to fail when no run exists to read."""
     return LabCheck(
         name=name,
         passed=passed and run is not None,
         falsifier=falsifier,
-        detail=detail if run is not None else _MISSING_RUN,
+        detail=detail if run is not None else missing_detail,
     )
 
 
-def _proof_answer(run: PersistedAgentRun | None) -> LabCheck:
+def _proof_answer(run: PersistedAgentRun | None, missing_detail: str) -> LabCheck:
     message = (run.assistant_message or "") if run else ""
     return _proof_check(
         "answer of record present",
@@ -1146,10 +1196,11 @@ def _proof_answer(run: PersistedAgentRun | None) -> LabCheck:
             )
         ),
         run=run,
+        missing_detail=missing_detail,
     )
 
 
-def _proof_synthesis(run: PersistedAgentRun | None) -> LabCheck:
+def _proof_synthesis(run: PersistedAgentRun | None, missing_detail: str) -> LabCheck:
     outcome = run.synthesis_outcome if run else None
     scope = run.selected_products if run else ()
     return _proof_check(
@@ -1172,36 +1223,49 @@ def _proof_synthesis(run: PersistedAgentRun | None) -> LabCheck:
             )
         ),
         run=run,
+        missing_detail=missing_detail,
     )
 
 
 def _unresolved_citations(run: PersistedAgentRun | None) -> list[int]:
+    """Persisted citations that do not match their evidence row exactly.
+
+    Calls `_citation_resolves`, the same five-field comparison the HTTP
+    validator makes, so the terminal and the browser cannot disagree about
+    whether a citation resolves. Comparing `product_id` alone -- which this did
+    until the Task 8 review -- passed a fabricated quote on the right product.
+    """
     if run is None:
         return []
     return [
         citation["evidence_id"]
         for citation in run.citations
-        if (run.resolved_evidence.get(citation["evidence_id"]) or {}).get("product_id")
-        != citation["product_id"]
+        if not _citation_resolves(
+            citation, run.resolved_evidence.get(citation["evidence_id"])
+        )
     ]
 
 
-def _proof_citations(run: PersistedAgentRun | None) -> LabCheck:
+def _proof_citations(run: PersistedAgentRun | None, missing_detail: str) -> LabCheck:
     citations = run.citations if run else ()
     unresolved = _unresolved_citations(run)
     return _proof_check(
         "citation evidence resolves",
         passed=bool(citations) and not unresolved,
         falsifier=(
-            "the persisted citations are empty, or an evidence id resolves to "
-            "a different product than the citation claims, so the answer of "
-            "record is not addressable back to the catalog."
+            "the persisted citations are empty, or one disagrees with its "
+            "evidence row on any of the five compared fields -- evidence_id, "
+            "product_id, source_uri, revision, and the quoted text against the "
+            "row's own text -- so the answer of record is not addressable back "
+            "to the catalog. A fabricated quote fails here exactly as a wrong "
+            "product does."
         ),
         detail=(
             f"{len(citations)} citation(s) resolve to their evidence rows"
             if citations and not unresolved
             else explain(
-                f"evidence id(s) {unresolved} resolving to another product"
+                f"evidence id(s) {unresolved} not matching the resolved "
+                "evidence row on all five compared fields"
                 if unresolved
                 else "no citation on the persisted synthesis event",
                 "return citation IDs that address the evidence rows the "
@@ -1209,10 +1273,11 @@ def _proof_citations(run: PersistedAgentRun | None) -> LabCheck:
             )
         ),
         run=run,
+        missing_detail=missing_detail,
     )
 
 
-def _proof_evidence(run: PersistedAgentRun | None) -> LabCheck:
+def _proof_evidence(run: PersistedAgentRun | None, missing_detail: str) -> LabCheck:
     events = run.evidence_events if run else ()
     successful = [event for event in events if event.get("outcome") == "success"]
     empty = [
@@ -1245,12 +1310,14 @@ def _proof_evidence(run: PersistedAgentRun | None) -> LabCheck:
             )
         ),
         run=run,
+        missing_detail=missing_detail,
     )
 
 
 def _proof_envelope(
     mission: Mapping[str, Any],
     run: PersistedAgentRun | None,
+    missing_detail: str,
 ) -> LabCheck:
     required = mission.get("filters") or {}
     persisted = run.search_filters if run else ()
@@ -1280,24 +1347,35 @@ def _proof_envelope(
             )
         ),
         run=run,
+        missing_detail=missing_detail,
     )
 
 
 def lab_3_proof_checks(
     mission: Mapping[str, Any],
     run: PersistedAgentRun | None,
+    *,
+    requested_run_id: str | None = None,
 ) -> list[LabCheck]:
     """Grade one persisted agent turn against the Lab 3 completion conditions.
 
-    `run` is `None` when no turn is persisted for the submitted id. Every check
-    is still returned, failed, naming Stage 03 -- so the count stays a stable
-    witness and the participant is told where to produce a run rather than
-    reading an empty list as a pass.
+    `run` is `None` in two different cases, and `requested_run_id` separates
+    them: nothing was submitted, or the submitted id names no persisted turn.
+    Every check is still returned, failed, naming Stage 03 -- so the count
+    stays a stable witness and the participant is told where to produce a run
+    rather than reading an empty list as a pass.
+
+    Args:
+        mission: The Lab 3 mission from the lab contract.
+        run: The persisted turn to grade, or `None`.
+        requested_run_id: The `agent_run_id` the caller submitted, if any. Used
+            only to word the missing-run detail.
     """
+    missing = missing_run_detail(requested_run_id)
     return [
-        _proof_answer(run),
-        _proof_synthesis(run),
-        _proof_citations(run),
-        _proof_evidence(run),
-        _proof_envelope(mission, run),
+        _proof_answer(run, missing),
+        _proof_synthesis(run, missing),
+        _proof_citations(run, missing),
+        _proof_evidence(run, missing),
+        _proof_envelope(mission, run, missing),
     ]

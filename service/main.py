@@ -803,6 +803,16 @@ def hnsw_probe_route(request: HnswProbeRequest) -> dict[str, Any]:
         raise HTTPException(503, str(error)) from error
 
 
+#: What a lab route says when the cluster itself is unreachable. Deliberately
+#: generic: `OperationalError` messages carry the host, port, and user psycopg
+#: tried, and a lab page is the surface most likely to be screen-shared.
+LAB_DATABASE_UNAVAILABLE = (
+    "found the workshop database unreachable while reading lab state; fix: "
+    "retry in a moment, then confirm the Aurora cluster is available before "
+    "grading a lab"
+)
+
+
 @app.get("/api/labs/state", response_model=LabStateResponse)
 def lab_state() -> LabStateResponse:
     """Where each lab stands, in both places a lab can be broken.
@@ -810,9 +820,15 @@ def lab_state() -> LabStateResponse:
     Cheap and side-effect free: it reads three marker blocks off disk and asks
     Aurora what two functions currently contain. It runs no retrieval, so a
     participant can poll it while working without spending anything.
+
+    A missing SQL function is a lab verdict (`database_state = "stale"`), not
+    an error. An unreachable cluster is the opposite, and `OperationalError` --
+    which `PoolTimeout` subclasses -- becomes a 503 that names no connection.
     """
     try:
         return lab_states()
+    except OperationalError as error:
+        raise HTTPException(503, LAB_DATABASE_UNAVAILABLE) from error
     except RuntimeError as error:
         raise HTTPException(503, str(error)) from error
 
@@ -836,5 +852,7 @@ def lab_completion_proof(
         raise HTTPException(404, str(error)) from error
     except (ClientError, BotoCoreError) as error:
         raise _model_error(error) from error
+    except OperationalError as error:
+        raise HTTPException(503, LAB_DATABASE_UNAVAILABLE) from error
     except (FileNotFoundError, RuntimeError) as error:
         raise HTTPException(503, str(error)) from error

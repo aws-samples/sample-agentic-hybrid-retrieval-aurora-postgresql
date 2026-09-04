@@ -96,19 +96,56 @@ def _lab_2_response(*, pre_rerank_rank=1, final_rank=1, rerank_status="applied")
     }
 
 
+#: `(number, evidence_id, product_id, quote)` for the persisted citations the
+#: Lab 3 proof fixtures grade. The quote is carried because the citation check
+#: compares it against the evidence row's own text, not only the product id.
+_CITED_ROWS = (
+    (1, 9001, 370001, "Seat depth adjusts across a 60 mm range."),
+    (2, 9002, 429001, "Damped tactile switches cut typing noise."),
+)
+_REVISION = "2026-08-11"
+
+
+def _citation(number: int, evidence_id: int, product_id: int, quote: str) -> dict:
+    """One persisted citation, in the shape `AgentCitation.model_dump` writes."""
+    return {
+        "number": number,
+        "evidence_id": evidence_id,
+        "evidence_type": "product_spec",
+        "product_id": product_id,
+        "source_uri": f"mosaic://evidence/{evidence_id}",
+        "revision": _REVISION,
+        "title": "Specification",
+        "quote": quote,
+    }
+
+
+def _evidence_row(evidence_id: int, product_id: int, text: str) -> dict:
+    """One resolved evidence record, in the shape `EvidenceRecord` serves."""
+    return {
+        "evidence_id": evidence_id,
+        "product_id": product_id,
+        "evidence_type": "product_spec",
+        "source_uri": f"mosaic://evidence/{evidence_id}",
+        "revision": _REVISION,
+        "title": "Specification",
+        "text": text,
+    }
+
+
 def _persisted_run(**overrides) -> PersistedAgentRun:
     defaults = {
         "agent_run_id": "5e0c2b9a-1f2d-4c3b-8a7e-0d1c2b3a4f56",
         "assistant_message": "The chair and the keyboard both clear the budget.",
         "selected_products": (370001, 429001),
         "synthesis_outcome": "success",
-        "citations": (
-            {"number": 1, "evidence_id": 9001, "product_id": 370001},
-            {"number": 2, "evidence_id": 9002, "product_id": 429001},
+        "citations": tuple(
+            _citation(number, evidence_id, product_id, quote)
+            for number, evidence_id, product_id, quote in _CITED_ROWS
         ),
         "resolved_evidence": {
-            9001: {"evidence_id": 9001, "product_id": 370001},
-            9002: {"evidence_id": 9002, "product_id": 429001},
+            evidence_id: _evidence_row(evidence_id, product_id, quote)
+            for _, evidence_id, product_id, quote in _CITED_ROWS
         },
         "evidence_events": (
             {"product_id": 370001, "outcome": "success", "result_count": 2},
@@ -246,6 +283,19 @@ def test_lab_3_proof_without_a_persisted_run_names_stage_03():
     ]
 
 
+def test_lab_3_proof_names_the_submitted_id_or_says_none_was_submitted():
+    """The two missing-run cases are different mistakes and read differently."""
+    absent = lab_checks.lab_3_proof_checks(LAB_3_MISSION, None)
+    unknown = lab_checks.lab_3_proof_checks(
+        LAB_3_MISSION, None, requested_run_id="5e0c2b9a-1f2d-4c3b-8a7e-0d1c2b3a4f56"
+    )
+
+    assert "no agent_run_id was submitted" in absent[0].detail
+    assert "5e0c2b9a-1f2d-4c3b-8a7e-0d1c2b3a4f56" in unknown[0].detail
+    assert "was submitted" not in unknown[0].detail
+    assert all("Stage 03" in check.detail for check in absent + unknown)
+
+
 def test_lab_3_proof_fails_an_ungrounded_run():
     checks = lab_checks.lab_3_proof_checks(
         LAB_3_MISSION,
@@ -269,8 +319,8 @@ def test_lab_3_proof_fails_a_citation_that_resolves_to_another_product():
         LAB_3_MISSION,
         _persisted_run(
             resolved_evidence={
-                9001: {"evidence_id": 9001, "product_id": 123},
-                9002: {"evidence_id": 9002, "product_id": 429001},
+                9001: _evidence_row(9001, 123, _CITED_ROWS[0][3]),
+                9002: _evidence_row(9002, 429001, _CITED_ROWS[1][3]),
             }
         ),
     )
@@ -278,6 +328,44 @@ def test_lab_3_proof_fails_a_citation_that_resolves_to_another_product():
     failed = _by_name(checks, "citation evidence resolves")
     assert not failed.passed
     assert "9001" in failed.detail
+
+
+def test_lab_3_proof_fails_a_citation_whose_quote_the_evidence_row_lacks():
+    """The persisted-row check compares all five fields, not only product_id.
+
+    A fabricated quote on the right product is the failure the product-id-only
+    comparison could not see: the citation addresses a real evidence row and
+    still asserts words that row never carried.
+    """
+    checks = lab_checks.lab_3_proof_checks(
+        LAB_3_MISSION,
+        _persisted_run(
+            resolved_evidence={
+                9001: _evidence_row(9001, 370001, "Seat depth is fixed."),
+                9002: _evidence_row(9002, 429001, _CITED_ROWS[1][3]),
+            }
+        ),
+    )
+
+    failed = _by_name(checks, "citation evidence resolves")
+    assert not failed.passed, failed.detail
+    assert "9001" in failed.detail
+
+
+def test_lab_3_proof_fails_a_citation_whose_evidence_row_changed_revision():
+    """Revision is compared too: a quote that moved to another revision fails."""
+    checks = lab_checks.lab_3_proof_checks(
+        LAB_3_MISSION,
+        _persisted_run(
+            resolved_evidence={
+                9001: _evidence_row(9001, 370001, _CITED_ROWS[0][3])
+                | {"revision": "2026-09-01"},
+                9002: _evidence_row(9002, 429001, _CITED_ROWS[1][3]),
+            }
+        ),
+    )
+
+    assert not _by_name(checks, "citation evidence resolves").passed
 
 
 def test_lab_3_proof_fails_when_the_evidence_tool_returned_nothing():
@@ -356,6 +444,47 @@ def test_constraints_preserved_accepts_a_narrowed_price_ceiling_by_declaration()
     assert lab_checks.constraints_preserved(
         {"max_price_cents": 80000}, {"max_price_cents": 50000}
     )
+
+
+def _silent_agent() -> dict:
+    """A response that called no tool and recommended nothing."""
+    return {"trace": [], "recommendations": [], "citations": []}
+
+
+def test_lab_3_http_origin_check_fails_on_an_empty_trace():
+    """Disclosed strengthening: an empty trace no longer passes vacuously.
+
+    The condition was `not unattributed`, and over zero steps there is nothing
+    to be unattributed, so a turn that called no tool at all passed the check
+    that exists to prove which calls the model chose.
+    """
+    checks = lab_checks.agent_response_checks(
+        LAB_3_MISSION,
+        _silent_agent(),
+        AgentEvidence(receipts=(), resolved_evidence={}),
+    )
+
+    failed = _by_name(checks, "tool execution origins explicit")
+    assert not failed.passed
+    assert "empty tool trace" in failed.detail
+
+
+def test_lab_3_http_evidence_check_fails_when_nothing_was_retrieved():
+    """Disclosed strengthening: zero evidence calls no longer pass vacuously.
+
+    The condition was `not missing and not empty`, and over a response that
+    recommended nothing both lists are empty, so a turn that fetched no
+    evidence graded green on the check that exists to prove it did.
+    """
+    checks = lab_checks.agent_response_checks(
+        LAB_3_MISSION,
+        _silent_agent(),
+        AgentEvidence(receipts=(), resolved_evidence={}),
+    )
+
+    failed = _by_name(checks, "evidence retrieved for every recommendation")
+    assert not failed.passed
+    assert "no successful get_product_evidence call" in failed.detail
 
 
 def test_agent_response_checks_count_the_declared_lab_3_conditions():

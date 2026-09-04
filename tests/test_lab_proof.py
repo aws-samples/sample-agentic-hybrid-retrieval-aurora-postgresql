@@ -21,6 +21,7 @@ from pathlib import Path
 from shutil import copy2
 from uuid import UUID, uuid4
 
+import psycopg
 import pytest
 
 from scripts.lab_state import (
@@ -85,21 +86,32 @@ class _FakeConnection:
         self,
         *,
         lab_1_definition: str = SOLVED_LAB_1_DEFINITION,
+        lab_1_error: Exception | None = None,
         rrf_correct: bool = True,
         turn: dict | None = None,
         searches: list[dict] | None = None,
         tools: list[dict] | None = None,
     ) -> None:
         self.lab_1_definition = lab_1_definition
+        self.lab_1_error = lab_1_error
         self.rrf_correct = rrf_correct
         self.turn = turn
         self.searches = searches or []
         self.tools = tools or []
         self.statements: list[str] = []
+        self.transactions = 0
+
+    @contextmanager
+    def transaction(self):
+        """Stand in for psycopg's transaction/savepoint context manager."""
+        self.transactions += 1
+        yield self
 
     def execute(self, sql: str, params=None) -> _FakeCursor:
         self.statements.append(sql)
         if "pg_get_functiondef" in sql:
+            if self.lab_1_error is not None:
+                raise self.lab_1_error
             return _FakeCursor([{"definition": self.lab_1_definition}])
         if "reciprocal_rank_contribution" in sql:
             rrf_k = RetrievalProfile().rrf_k
@@ -249,6 +261,45 @@ def _persisted_turn() -> dict:
     }
 
 
+EVIDENCE_REVISION = "2026-08-11"
+#: `evidence_id -> (product_id, quote)` for the persisted Lab 3 citations. The
+#: quote is carried because the citation check compares it against the evidence
+#: row's own text, not only the product id.
+CITED_EVIDENCE: dict[int, tuple[int, str]] = {
+    9001: (370001, "Seat depth adjusts across a 60 mm range."),
+    9002: (429001, "Damped tactile switches cut typing noise."),
+}
+
+
+def _citation(number: int, evidence_id: int) -> dict:
+    """One persisted citation, in the shape `AgentCitation.model_dump` writes."""
+    product_id, quote = CITED_EVIDENCE[evidence_id]
+    return {
+        "number": number,
+        "evidence_id": evidence_id,
+        "evidence_type": "product_spec",
+        "product_id": product_id,
+        "source_uri": f"mosaic://evidence/{evidence_id}",
+        "revision": EVIDENCE_REVISION,
+        "title": "Specification",
+        "quote": quote,
+    }
+
+
+def _evidence_row(evidence_id: int, *, product_id: int | None = None) -> dict:
+    """One resolved evidence record, in the shape `EvidenceRecord` serves."""
+    declared, quote = CITED_EVIDENCE[evidence_id]
+    return {
+        "evidence_id": evidence_id,
+        "product_id": declared if product_id is None else product_id,
+        "evidence_type": "product_spec",
+        "source_uri": f"mosaic://evidence/{evidence_id}",
+        "revision": EVIDENCE_REVISION,
+        "title": "Specification",
+        "text": quote,
+    }
+
+
 def _persisted_tools() -> list[dict]:
     return [
         {
@@ -271,8 +322,8 @@ def _persisted_tools() -> list[dict]:
             "output_payload": {
                 "result_count": 2,
                 "citations": [
-                    {"number": 1, "evidence_id": 9001, "product_id": 370001},
-                    {"number": 2, "evidence_id": 9002, "product_id": 429001},
+                    _citation(number, evidence_id)
+                    for number, evidence_id in enumerate(CITED_EVIDENCE, 1)
                 ],
             },
             "duration_ms": 900,
@@ -313,10 +364,15 @@ def _grounded_connection() -> _FakeConnection:
 
 
 def _resolve_evidence(monkeypatch, *, product_ids: dict[int, int] | None = None):
-    mapping = product_ids or {9001: 370001, 9002: 429001}
+    """Resolve each citation to the full evidence row `service.catalog` serves.
+
+    `product_ids` re-points one evidence id at another product, which is how a
+    citation that resolves to the wrong row is simulated.
+    """
+    overrides = product_ids or {}
 
     def resolve(evidence_id: int):
-        return {"evidence_id": evidence_id, "product_id": mapping[evidence_id]}
+        return _evidence_row(evidence_id, product_id=overrides.get(evidence_id))
 
     monkeypatch.setattr(lab_proof, "resolve_evidence", resolve)
 
@@ -356,6 +412,26 @@ def test_a_collapsed_fusion_formula_is_reported_as_stale(monkeypatch) -> None:
     proof = lab_proof.completion_proof(2)
 
     assert proof.database_state == "stale"
+    assert proof.status == "fail"
+
+
+def test_a_reset_lab_3_reports_broken_source_state(monkeypatch, lab_repo: Path) -> None:
+    """Red at birth for Lab 3, whose seam Aurora cannot see.
+
+    The persisted turn grades green on its own receipts. It was produced before
+    `service/agent_tools.py` was re-broken, and the verdict has to say so.
+    """
+    set_isolated_lab_state(3, repo=lab_repo)
+    _use(monkeypatch, _grounded_connection())
+    _resolve_evidence(monkeypatch)
+
+    assert lab_is_solved(3, repo=lab_repo) is False
+    proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID, repo=lab_repo)
+
+    assert all(check.passed for check in proof.checks), [
+        check.name for check in proof.checks if not check.passed
+    ]
+    assert proof.source_state == "broken"
     assert proof.status == "fail"
 
 
@@ -484,6 +560,43 @@ def test_lab_state_reports_every_lab(monkeypatch) -> None:
     assert all(record.detail for record in state.labs)
 
 
+def test_a_database_error_on_one_lab_leaves_the_next_lab_readable(
+    monkeypatch,
+) -> None:
+    """Each lab's Aurora read is contained, so lab 1 cannot poison lab 2.
+
+    `_lab_1_database_state` casts a signature to `regprocedure`: a missing or
+    re-headed `search_hybrid_rrf` raises `UndefinedFunction`, which without
+    containment both 500s the route and aborts the transaction lab 2 reads in.
+    """
+    connection = _FakeConnection(
+        lab_1_error=psycopg.errors.UndefinedFunction("function does not exist")
+    )
+    _use(monkeypatch, connection)
+
+    state = lab_proof.lab_states()
+
+    assert state.labs[0].database_state == "stale"
+    assert "UndefinedFunction" in state.labs[0].detail
+    assert "db-apply-search-functions" in state.labs[0].detail
+    assert state.labs[1].database_state == "applied"
+    assert state.labs[2].database_state == "not_applicable"
+    assert connection.transactions == len(lab_proof.LAB_IDS), (
+        "every lab's database read runs inside its own transaction"
+    )
+
+
+def test_an_unreachable_database_never_reads_as_a_stale_function(monkeypatch) -> None:
+    """A dead connection is an outage, not a lab verdict, so it propagates."""
+    connection = _FakeConnection(
+        lab_1_error=psycopg.OperationalError("connection is closed")
+    )
+    _use(monkeypatch, connection)
+
+    with pytest.raises(psycopg.OperationalError):
+        lab_proof.lab_states()
+
+
 def test_the_proof_carries_live_identity_and_the_release_baseline(
     monkeypatch,
 ) -> None:
@@ -535,3 +648,27 @@ def test_an_unrouted_lab_id_is_a_404(monkeypatch) -> None:
         response = client.post("/api/labs/9/proof", json={})
 
     assert response.status_code == 404
+
+
+def test_an_unreachable_database_is_a_503_on_both_lab_routes(monkeypatch) -> None:
+    """The outage is reported as one, without naming a host or a DSN."""
+    from fastapi.testclient import TestClient
+
+    from service.main import app
+
+    def unreachable():
+        raise psycopg.OperationalError(
+            "connection to server at 'mosaic.cluster-abc.rds.amazonaws.com' failed"
+        )
+
+    monkeypatch.setattr(lab_proof, "connect", unreachable)
+
+    with TestClient(app) as client:
+        state = client.get("/api/labs/state")
+        proof = client.post("/api/labs/1/proof", json={"agent_run_id": None})
+
+    assert state.status_code == 503
+    assert proof.status_code == 503
+    for response in (state, proof):
+        assert "rds.amazonaws.com" not in response.text
+        assert "fix:" in response.json()["detail"]

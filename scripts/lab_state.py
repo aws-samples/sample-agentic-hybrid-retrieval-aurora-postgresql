@@ -15,10 +15,13 @@ sys.path.insert(0, str(REPO))
 
 from scripts.retrieval_profile import explain
 
-#: Slack for one reciprocal-rank contribution read back out of PostgreSQL. Not
-#: a retrieval tunable: it is the float comparison tolerance for a value the
-#: SQL function already computed.
-CONTRIBUTION_TOLERANCE = 1e-12
+#: Slack for one reciprocal-rank contribution read back out of PostgreSQL by
+#: calling `mosaic_search.reciprocal_rank_contribution` directly. Not a
+#: retrieval tunable: it is the float comparison tolerance for a value the SQL
+#: function already computed, and it is tighter than the tolerance
+#: `service.lab_checks.CONTRIBUTION_TOLERANCE` applies to a contribution that
+#: has been through JSON on the way out of a search response.
+FUNCTION_CONTRIBUTION_TOLERANCE = 1e-12
 
 LAB1_CTE = """, typo AS (
     SELECT * FROM mosaic_search.search_trigram(
@@ -225,7 +228,7 @@ def _lab_2_database_state(connection: Any) -> LabDatabaseState:
     ).fetchone()
     first = row["first_contribution"]
     second = row["second_contribution"]
-    applied = abs(first - (1.0 / (rrf_k + 1))) <= CONTRIBUTION_TOLERANCE and (
+    applied = abs(first - (1.0 / (rrf_k + 1))) <= FUNCTION_CONTRIBUTION_TOLERANCE and (
         first > second
     )
     return LabDatabaseState(

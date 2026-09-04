@@ -233,6 +233,16 @@ leaves a repaired file in front of an unrepaired cluster, which reads as
 `solved` plus `stale`; Lab 3's seam lives in the API process, so it is
 `not_applicable`. The route runs no retrieval and can be polled while working.
 
+Each lab's Aurora read runs inside its own transaction, so one lab's failure
+cannot decide another's. Lab 1's read casts a function signature to
+`regprocedure`, and a dropped or re-headed `mosaic_search.search_hybrid_rrf`
+raises `UndefinedFunction`: that is reported as `database_state: "stale"` with
+a `detail` naming the exception type and the re-apply command, and labs 2 and 3
+still answer on the same connection. An unreachable cluster is the opposite
+case and is not a lab verdict — `psycopg.OperationalError`, which pool
+timeouts subclass, is a 503 on both routes, with a generic detail that names no
+host, port, or user.
+
 The proof request body is `{"agent_run_id": uuid | null}`. The response is:
 
 - `lab_id`, `status` (`pass` or `fail`), `started_at`, `finished_at`,
@@ -267,7 +277,18 @@ Labs 1 and 2 re-run their mission's `query` and `filters` from
 it twice, because "the pre-rerank order is repeatable" is not answerable from
 one run. Lab 3 grades the persisted turn named by `agent_run_id` and spends no
 agent turn: a missing or ungrounded run fails with a falsifier naming Stage 03,
-the Reason stage that produces one. An unknown `lab_id` is a 404.
+the Reason stage that produces one. The two missing-run cases read differently
+— submitting no `agent_run_id` at all, and submitting one no turn was persisted
+under — because they have different next steps. An unknown `lab_id` is a 404.
+
+Lab 3's `citation evidence resolves` check compares each persisted citation
+against the evidence row it names on all five fields `GET /api/evidence/{id}`
+serves for it: `evidence_id`, `product_id`, `source_uri`, `revision`, and the
+citation's `quote` against the row's own `text`. A field missing from either
+side is a mismatch, never a vacuous agreement. This is the same comparison
+`scripts/validate_lab.py` makes over the HTTP response, so a fabricated quote
+attached to a real product fails in the browser exactly as it does in the
+terminal.
 
 The same checks back `scripts/validate_lab.py`; they live in
 `service/lab_checks.py` so the terminal and the browser cannot disagree about

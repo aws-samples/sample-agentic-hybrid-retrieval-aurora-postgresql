@@ -33,6 +33,8 @@ from time import perf_counter
 from typing import Any
 from uuid import UUID
 
+import psycopg
+
 from scripts.lab_state import (
     REPO as LAB_SOURCE_ROOT,
 )
@@ -122,9 +124,46 @@ def _state_detail(
     return f"Lab {lab_id} source is repaired and {database.detail}"
 
 
+def contained_database_state(lab_id: int, connection: Any) -> LabDatabaseState:
+    """Read one lab's Aurora state inside its own transaction.
+
+    `GET /api/labs/state` grades three labs over one pooled connection, and
+    `scripts.lab_state._lab_1_database_state` casts a signature to
+    `regprocedure`: a missing or re-headed `search_hybrid_rrf` raises
+    `psycopg.errors.UndefinedFunction`, which is not a `RuntimeError` and
+    aborts the surrounding transaction. Uncontained, one bad lab both returned
+    a 500 and left the next lab's read failing on an aborted transaction.
+    psycopg 3 nests `connection.transaction()` as a savepoint, so each lab
+    rolls back to its own entry point and the others still answer.
+
+    An absent function is reported as `stale` naming only the exception type,
+    never the connection: a participant who edited the SQL and did not re-apply
+    it sees the same verdict and the same fix either way.
+
+    An `OperationalError` -- pool timeouts included, which subclass it -- is
+    re-raised. The connection itself is gone, which is the route's 503 and not
+    a claim about what Aurora holds.
+    """
+    try:
+        with connection.transaction():
+            return validate_database(lab_id, connection)
+    except psycopg.Error as error:
+        if isinstance(error, psycopg.OperationalError):
+            raise
+        return LabDatabaseState(
+            state="stale",
+            detail=explain(
+                f"reading the Lab {lab_id} state from Aurora raised "
+                f"{type(error).__name__}",
+                f"run make solution-lab-{lab_id}, or re-apply the edited file "
+                "with make db-apply-search-functions",
+            ),
+        )
+
+
 def _lab_state(lab_id: int, connection: Any, repo: Path | None) -> LabStateRecord:
     solved = lab_is_solved(lab_id, repo=repo or LAB_SOURCE_ROOT)
-    database = validate_database(lab_id, connection)
+    database = contained_database_state(lab_id, connection)
     return LabStateRecord(
         lab_id=lab_id,
         source_state="solved" if solved else "broken",
@@ -311,7 +350,7 @@ def completion_proof(
 
     solved = lab_is_solved(lab_id, repo=repo or LAB_SOURCE_ROOT)
     with connect() as connection:
-        database = validate_database(lab_id, connection)
+        database = contained_database_state(lab_id, connection)
         rows = (
             load_agent_turn_rows(connection, agent_run_id)
             if lab_id == 3 and agent_run_id is not None
@@ -320,7 +359,11 @@ def completion_proof(
 
     if lab_id == 3:
         run = _persisted_run(rows) if rows is not None else None
-        checks = lab_checks.lab_3_proof_checks(mission, run)
+        checks = lab_checks.lab_3_proof_checks(
+            mission,
+            run,
+            requested_run_id=str(agent_run_id) if agent_run_id is not None else None,
+        )
         # The turn's own receipts, not new ones: this path issues no retrieval,
         # and reporting them is what makes the verdict replayable afterwards.
         search_event_ids: list[UUID] = (
