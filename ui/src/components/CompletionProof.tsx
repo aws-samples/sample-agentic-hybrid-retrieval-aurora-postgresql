@@ -255,16 +255,27 @@ export function CompletionProof({
       : outcomes[labId];
 
   /**
-   * One lab at a time. Labs 1 and 2 each run a real search (Lab 2 runs two), so
-   * firing all three at once would put three concurrent retrievals on one
-   * workshop cluster to save a second the participant is not waiting on.
+   * One lab at a time, and only the labs this press named.
+   *
+   * Labs 1 and 2 each run a real search (Lab 2 runs two), so firing them at
+   * once would put concurrent retrievals on one workshop cluster to save a
+   * second the participant is not waiting on.
+   *
+   * Only the labs in the press are cleared first. Grading Lab 1 must not blank
+   * a Lab 2 verdict already on screen: nothing in this press re-measured it,
+   * and replacing a real verdict with "Not run yet" loses evidence the
+   * participant earned.
    */
-  async function runProofs() {
+  async function runProofs(labIds: readonly LabId[]) {
     if (running) return;
     setRunning(true);
-    setOutcomes(IDLE_OUTCOMES);
+    setOutcomes((current) => {
+      const next = { ...current };
+      for (const labId of labIds) next[labId] = { kind: "idle" };
+      return next;
+    });
     let proved = false;
-    for (const labId of LAB_IDS) {
+    for (const labId of labIds) {
       if (!mounted.current) return;
       if (labId === 3 && !agentRunId) continue;
       record(labId, { kind: "running" });
@@ -291,26 +302,45 @@ export function CompletionProof({
     <section aria-labelledby="labs-proof-title" className="labs-completion-proof">
       <header className="labs-proof-header">
         <h3 id="labs-proof-title">Completion proof</h3>
-        <button
-          aria-busy={running}
-          className="primary-button"
-          disabled={running}
-          onClick={() => void runProofs()}
-          type="button"
-        >
-          {running ? (
-            <LoaderCircle aria-hidden="true" className="spin" size={17} />
-          ) : (
-            <ShieldCheck aria-hidden="true" size={17} />
-          )}
-          {running ? "Running completion proof" : "Run completion proof"}
-        </button>
+        {/* The lab in front first. One button that graded all three printed PASS
+            for two labs the participant had not started, because Labs 2 and 3
+            ship solved, and spent three retrievals to do it. Proving all three
+            is the completion gate at the end of the session, so it is the
+            second control rather than the only one. */}
+        <div className="labs-proof-actions">
+          <button
+            aria-busy={running}
+            className="primary-button"
+            disabled={running}
+            onClick={() => void runProofs([activeLab])}
+            type="button"
+          >
+            {running ? (
+              <LoaderCircle aria-hidden="true" className="spin" size={17} />
+            ) : (
+              <ShieldCheck aria-hidden="true" size={17} />
+            )}
+            {running
+              ? "Running completion proof"
+              : `Run completion proof for Lab ${activeLab}`}
+          </button>
+          <button
+            className="secondary-button"
+            disabled={running}
+            onClick={() => void runProofs(LAB_IDS)}
+            type="button"
+          >
+            Prove all three labs
+          </button>
+        </div>
       </header>
       <p className="labs-proof-intro">
-        Labs 1 and 2 re-run their mission through the same search path Shop uses,
-        so each press costs a real retrieval. Lab 3 grades the agent run stage 03
-        already persisted and spends no new turn. Every check is served with the
-        condition that would have failed it.
+        The first button grades the lab you are in. Labs 1 and 2 re-run their
+        mission through the same search path Shop uses, so each press costs a
+        real retrieval. Lab 3 grades the agent run stage 03 already persisted and
+        spends no new turn. Prove all three when you are finished, and read it as
+        the completion gate rather than as a grade on the lab in front of you.
+        Every check is served with the condition that would have failed it.
       </p>
       <ul className="labs-proof-labs">
         {LAB_IDS.map((labId) => (

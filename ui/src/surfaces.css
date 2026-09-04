@@ -12049,6 +12049,13 @@
   letter-spacing: -0.015em;
 }
 
+.labs-proof-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
 .labs-proof-intro {
   max-width: 78ch;
   margin: 0;

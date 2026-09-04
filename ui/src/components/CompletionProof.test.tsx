@@ -99,12 +99,15 @@ function labBlock(labId: number): HTMLElement {
 }
 
 describe("CompletionProof", () => {
-  it("offers one action and grades nothing until it is pressed", () => {
-    render(<CompletionProof activeLab={1} agentRunId={null} />);
+  it("offers the lab in front first, and the gate second, grading neither", () => {
+    render(<CompletionProof activeLab={2} agentRunId={null} />);
 
     const buttons = screen.getAllByRole("button");
+    // The lab the participant is in leads, named so the press cannot be read as
+    // a verdict on the other two. Proving all three is the completion gate.
     expect(buttons.map((button) => button.textContent?.trim())).toEqual([
-      "Run completion proof",
+      "Run completion proof for Lab 2",
+      "Prove all three labs",
     ]);
     expect(api.labProof).not.toHaveBeenCalled();
   });
@@ -114,7 +117,7 @@ describe("CompletionProof", () => {
       proofFixture(labId));
     render(<CompletionProof activeLab={2} agentRunId={null} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prove all three labs" }));
 
     await waitFor(() => {
       expect(api.labProof).toHaveBeenCalledWith(1, { agent_run_id: null });
@@ -137,7 +140,7 @@ describe("CompletionProof", () => {
       }));
     render(<CompletionProof activeLab={3} agentRunId={AGENT_RUN} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prove all three labs" }));
 
     await waitFor(() =>
       expect(api.labProof).toHaveBeenCalledWith(3, { agent_run_id: AGENT_RUN }));
@@ -157,7 +160,7 @@ describe("CompletionProof", () => {
       }));
     render(<CompletionProof activeLab={1} agentRunId={null} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 1" }));
 
     await waitFor(() => expect(labBlock(1).textContent).toContain("PASS"));
     const block = labBlock(1);
@@ -198,7 +201,7 @@ describe("CompletionProof", () => {
       }));
     render(<CompletionProof activeLab={1} agentRunId={null} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prove all three labs" }));
 
     await waitFor(() => expect(labBlock(1).textContent).toContain("FAIL"));
     const block = labBlock(1);
@@ -221,7 +224,7 @@ describe("CompletionProof", () => {
     );
     render(<CompletionProof activeLab={1} agentRunId={null} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 1" }));
 
     await waitFor(() =>
       expect(labBlock(1).textContent).toContain(
@@ -241,7 +244,7 @@ describe("CompletionProof", () => {
       <CompletionProof activeLab={1} agentRunId={null} onFinished={onFinished} />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 1" }));
 
     await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1));
   });
@@ -256,7 +259,7 @@ describe("CompletionProof", () => {
       <CompletionProof activeLab={1} agentRunId={null} onFinished={onFinished} />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prove all three labs" }));
 
     await waitFor(() => expect(labBlock(1).textContent).toContain("Could not run"));
     await waitFor(() => expect(labBlock(2).textContent).toContain("Could not run"));
@@ -277,7 +280,7 @@ describe("CompletionProof", () => {
       }));
     render(<CompletionProof activeLab={1} agentRunId={null} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prove all three labs" }));
 
     await waitFor(() => expect(labBlock(1).textContent).toContain("FAIL"));
     const block = labBlock(1);
@@ -296,7 +299,7 @@ describe("CompletionProof", () => {
     vi.mocked(api.labProof).mockRejectedValue(new ApiError(404, "Not Found"));
     render(<CompletionProof activeLab={1} agentRunId={null} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 1" }));
 
     await waitFor(() => expect(labBlock(1).textContent).toContain("Could not run"));
     expect(labBlock(1).textContent).toContain(
@@ -312,7 +315,7 @@ describe("CompletionProof", () => {
     vi.mocked(api.labProof).mockRejectedValue(new TypeError("Failed to fetch"));
     render(<CompletionProof activeLab={1} agentRunId={null} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 1" }));
 
     await waitFor(() => expect(labBlock(1).textContent).toContain("Could not run"));
     expect(labBlock(1).textContent).toContain(
@@ -338,7 +341,7 @@ describe("CompletionProof", () => {
       <CompletionProof activeLab={1} agentRunId={null} onFinished={onFinished} />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prove all three labs" }));
     await waitFor(() => expect(api.labProof).toHaveBeenCalledTimes(1));
     unmount();
     await act(async () => {
@@ -349,6 +352,65 @@ describe("CompletionProof", () => {
     // Lab 2 was never posted, and nothing announced a finish.
     expect(api.labProof).toHaveBeenCalledTimes(1);
     expect(onFinished).not.toHaveBeenCalled();
+  });
+
+  it("grades only the lab in front, and claims nothing about the other two", async () => {
+    // One button graded all three. Labs 2 and 3 ship solved, so a participant
+    // who had only started Lab 1 was shown PASS for two labs they had not
+    // opened, and every press spent three retrievals to produce two of them.
+    vi.mocked(api.labProof).mockImplementation(async (labId) => proofFixture(labId));
+    render(<CompletionProof activeLab={1} agentRunId={AGENT_RUN} />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Run completion proof for Lab 1" }),
+    );
+
+    await waitFor(() => expect(labBlock(1).textContent).toContain("PASS"));
+    expect(api.labProof).toHaveBeenCalledTimes(1);
+    expect(api.labProof).toHaveBeenCalledWith(1, { agent_run_id: null });
+    // Lab 3 had a run available and still was not graded: the press named one
+    // lab, so the cost and the claim are both one lab's worth.
+    expect(labBlock(2).textContent).toContain("Not run yet");
+    expect(labBlock(3).textContent).toContain("Not run yet");
+  });
+
+  it("keeps the verdicts a later press did not re-measure", async () => {
+    vi.mocked(api.labProof).mockImplementation(async (labId) => proofFixture(labId));
+    render(<CompletionProof activeLab={1} agentRunId={AGENT_RUN} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Prove all three labs" }));
+    await waitFor(() => expect(labBlock(2).textContent).toContain("PASS"));
+    await waitFor(() => expect(labBlock(3).textContent).toContain("PASS"));
+
+    vi.mocked(api.labProof).mockClear();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Run completion proof for Lab 1" }),
+    );
+    await waitFor(() => expect(api.labProof).toHaveBeenCalledTimes(1));
+
+    // Labs 2 and 3 were measured against Aurora and nothing in this press
+    // touched them. Clearing them to "Not run yet" throws away evidence the
+    // participant paid for; re-running them spends retrievals to restate it.
+    expect(api.labProof).toHaveBeenCalledWith(1, { agent_run_id: null });
+    expect(labBlock(2).textContent).toContain("PASS");
+    expect(labBlock(3).textContent).toContain("PASS");
+    expect(labBlock(2).textContent).not.toContain("Not run yet");
+  });
+
+  it("posts nothing for a Lab 3 press with no agent run behind it", async () => {
+    vi.mocked(api.labProof).mockImplementation(async (labId) => proofFixture(labId));
+    render(<CompletionProof activeLab={3} agentRunId={null} />);
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Run completion proof for Lab 3" }),
+      );
+    });
+
+    // The row still states its prerequisite rather than spending a request to
+    // be told what the surface already knows.
+    expect(api.labProof).not.toHaveBeenCalled();
+    expect(labBlock(3).textContent).toContain("Run the agent in 03 first");
   });
 
   it("marks the lab the participant is currently in", () => {

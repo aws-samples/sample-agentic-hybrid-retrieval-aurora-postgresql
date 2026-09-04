@@ -724,8 +724,11 @@ describe("RetrievalLabPage", () => {
     expect(actions.filter((label) => /^Run|^Replay/.test(label ?? ""))).toEqual([
       "Run pipeline",
       "Run the agent",
-      "Run completion proof",
+      "Run completion proof for Lab 1",
     ]);
+    // The completion gate is a second control beside the third, and it grades
+    // labs rather than running the pipeline, so it does not carry a Run verb.
+    expect(actions).toContain("Prove all three labs");
   });
 
   it("puts the scenario choice before the action that runs it", () => {
@@ -1164,7 +1167,7 @@ describe("RetrievalLabPage", () => {
     await screen.findByRole("button", { name: "Run agent again" });
 
     const baselineReadsBefore = vi.mocked(api.scorecard).mock.calls.length;
-    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+    fireEvent.click(screen.getByRole("button", { name: "Prove all three labs" }));
 
     await waitFor(() => {
       expect(api.labProof).toHaveBeenCalledWith(1, { agent_run_id: null });
