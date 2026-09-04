@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 
+from scripts.retrieval_profile import _FIELD_FOR_PATH, BOUNDS
 from service.models import RetrievalProfile
 from service.retrieval_fingerprint import (
     _EXPECTED_CATEGORY_COUNTS,
@@ -390,12 +391,18 @@ def test_methodology_hash_refuses_a_missing_manifest_entry(tmp_path):
 
 # --- The live retrieval settings hash ---------------------------------------
 #
-# The fingerprint above hashes *files*. Environment overrides
-# (`RRF_K`, `FTS_CANDIDATE_LIMIT`, `HNSW_EF_SEARCH`, ...) beat the yaml in
+# The fingerprint above hashes *files*. Six of `scripts/retrieval_profile`'s
+# nine env-overridable settings (`RRF_K`, `FTS_CANDIDATE_LIMIT`,
+# `TRIGRAM_CANDIDATE_LIMIT`, `SEMANTIC_CANDIDATE_LIMIT`,
+# `RERANK_CANDIDATE_LIMIT`, `HNSW_EF_SEARCH`) beat the yaml in
 # `scripts/retrieval_profile._resolve`, so they change every served result
 # without moving one byte of any manifest file. `RRF_K=1` could therefore serve
 # an attributed scorecard. These tests pin the second hash that closes that
-# hole: one over the resolved `RetrievalProfile` itself.
+# hole for those six: one over the resolved `RetrievalProfile` itself. The
+# other three env-overridable settings (`VECTOR_DIM` and the `PG_TRGM_*`
+# pair) are outside `RetrievalProfile` entirely and are asserted separately
+# below, so a future field that becomes both env-overridable and unhashed
+# fails loudly rather than silently.
 
 
 _RETRIEVAL_SETTINGS_KEYS = {
@@ -416,10 +423,41 @@ _RETRIEVAL_SETTINGS_KEYS = {
     "weight_trigram",
 }
 
-#: Every setting an environment variable can override behind the fingerprint's
-#: back, per `scripts/retrieval_profile.BOUNDS`. Each must move the hash on its
-#: own; asserted one at a time so a hash that only reacted to `rrf_k` cannot
-#: hide behind the others.
+# `_FIELD_FOR_PATH` names the `RetrievalProfileConfig` field for each
+# `BOUNDS` entry's yaml path. `RetrievalProfile` renames three of those on the
+# way in (`service/models.py`'s `_yaml_default("hnsw_ef_search")` and
+# friends); this table mirrors that rename so the two profiles' field names
+# line up when intersecting below. Only entries whose `BOUNDS` bound is
+# env-overridable and which are renamed matter here.
+_CONFIG_FIELD_TO_RETRIEVAL_PROFILE_FIELD = {
+    "hnsw_ef_search": "ef_search",
+    "hnsw_max_scan_tuples": "max_scan_tuples",
+    "hnsw_scan_mem_multiplier": "scan_mem_multiplier",
+    "display_limit": "result_limit",
+}
+
+
+def _env_overridable_config_fields() -> set[str]:
+    """`RetrievalProfileConfig` field names for every `BOUNDS` entry an
+    environment variable can override (`bound.env is not None`)."""
+    return {_FIELD_FOR_PATH[bound.path] for bound in BOUNDS if bound.env is not None}
+
+
+def _env_overridable_retrieval_profile_fields() -> set[str]:
+    """The subset of `_env_overridable_config_fields()` that are also fields
+    on `RetrievalProfile` -- the settings hash's actual domain."""
+    renamed = {
+        _CONFIG_FIELD_TO_RETRIEVAL_PROFILE_FIELD.get(name, name)
+        for name in _env_overridable_config_fields()
+    }
+    return renamed & set(RetrievalProfile.model_fields)
+
+
+#: The six settings an environment variable can override behind the
+#: fingerprint's back that also live on `RetrievalProfile`, per
+#: `scripts/retrieval_profile.BOUNDS`. Each must move the hash on its own;
+#: asserted one at a time so a hash that only reacted to `rrf_k` cannot hide
+#: behind the others.
 _ENV_OVERRIDABLE_SETTINGS = (
     ("rrf_k", 1),
     ("fts_limit", 1),
@@ -427,8 +465,14 @@ _ENV_OVERRIDABLE_SETTINGS = (
     ("semantic_limit", 1),
     ("fused_limit", 1),
     ("ef_search", 1),
-    ("trigram_threshold", 0.99),
 )
+
+#: `trigram_threshold` is on `RetrievalProfile` and moves the hash, but
+#: `BOUNDS` declares its `env` as `None` -- only the yaml can move it, never an
+#: environment variable. Tested alongside the six above so the "every hashed
+#: key moves the hash" property still covers it, without claiming it belongs
+#: to the env-overridable set.
+_YAML_ONLY_SETTINGS = (("trigram_threshold", 0.99),)
 
 
 def _live_profile() -> dict:
@@ -482,14 +526,18 @@ def test_the_settings_hash_ignores_dict_insertion_order():
     )
 
 
-@pytest.mark.parametrize(("setting", "value"), _ENV_OVERRIDABLE_SETTINGS)
-def test_every_environment_overridable_setting_moves_the_hash(setting, value):
-    """Red-at-birth for the audit finding itself.
+@pytest.mark.parametrize(
+    ("setting", "value"), _ENV_OVERRIDABLE_SETTINGS + _YAML_ONLY_SETTINGS
+)
+def test_every_hashed_setting_moves_the_hash(setting, value):
+    """Red-at-birth for the audit finding itself, over every setting this hash
+    actually covers: the six env-overridable ones plus `trigram_threshold`,
+    which only the yaml can move.
 
-    Each of these is settable from the environment and invisible to
-    `compute_retrieval_fingerprint`, which hashes files. If any one of them
-    left this hash still, an attributed scorecard could be served from a
-    retrieval configuration nobody measured.
+    Each of the six env-overridable settings is settable from the environment
+    and invisible to `compute_retrieval_fingerprint`, which hashes files. If
+    any one of them left this hash still, an attributed scorecard could be
+    served from a retrieval configuration nobody measured.
     """
     profile = _live_profile()
     assert profile[setting] != value, setting  # witness: the edit is a real change
@@ -498,6 +546,53 @@ def test_every_environment_overridable_setting_moves_the_hash(setting, value):
     assert compute_retrieval_settings_sha256(drifted) != (
         compute_retrieval_settings_sha256(profile)
     )
+
+
+def test_bounds_env_overridable_settings_hashed_are_exactly_six():
+    """Rule 7 witness for the audit finding: `BOUNDS` declares nine
+    env-overridable settings; only six of them are fields on
+    `RetrievalProfile`, the settings hash's actual domain. `vector_dimension`
+    reaches Cohere as `output_dimension` (`service/embeddings.py`) and fails
+    loudly at the pgvector comparison on a mismatch rather than serving
+    different results; the `PG_TRGM_*` pair are database GUCs
+    (`scripts/configure_retrieval_database.py`), invisible to any hash over a
+    process's environment. This test pins the boundary so a field that
+    becomes both env-overridable and hashed is a deliberate edit here, not a
+    silent pass.
+    """
+    assert _env_overridable_retrieval_profile_fields() == {
+        "rrf_k",
+        "fts_limit",
+        "trigram_limit",
+        "semantic_limit",
+        "fused_limit",
+        "ef_search",
+    }
+
+
+def test_bounds_env_overridable_settings_not_hashed_are_exactly_three():
+    """The mirror image, named in `RetrievalProfileConfig`'s own vocabulary:
+    the hash's domain, `RetrievalProfile`, does not declare these fields at
+    all, so they cannot be named in its terms. If a future field became both
+    env-overridable and a `RetrievalProfile` field, it would move out of this
+    set and into the one above -- this test would then need a deliberate edit
+    rather than passing by accident.
+    """
+    covered = {
+        "fts_limit",
+        "trigram_limit",
+        "semantic_limit",
+        "rrf_k",
+        "fused_limit",
+        "hnsw_ef_search",
+    }
+    uncovered = _env_overridable_config_fields() - covered
+
+    assert uncovered == {
+        "vector_dimension",
+        "trigram_similarity_gate",
+        "trigram_word_similarity_gate",
+    }
 
 
 def test_a_missing_settings_key_is_refused_rather_than_hashed_short():

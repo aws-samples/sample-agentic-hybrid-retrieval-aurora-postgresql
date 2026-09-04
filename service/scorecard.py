@@ -266,16 +266,18 @@ def _attribution(
     "pending" forever. See `service.retrieval_fingerprint` for the full
     argument and the manifest of files it hashes in its place.
 
-    Binding conjunction over exactly four facts:
+    Binding conjunction over exactly five facts, in the order they are
+    checked:
 
         artifact.retrieval_fingerprint == current retrieval fingerprint
         AND artifact.source.worktree_dirty == False
-        AND artifact.retrieval_settings_sha256 == the settings resolved now
         AND the pinned evaluation inputs and models still match:
             artifact.models.embedding        == current embedding model id
             artifact.models.rerank           == current rerank model id
             artifact.query_set_sha256        == current query_set_sha256
             artifact.scored_query_set_sha256 == current scored_query_set_sha256
+        AND artifact.<methodology_key> == the methodology hash resolved now
+        AND artifact.retrieval_settings_sha256 == the settings resolved now
             -> show the metrics
         otherwise
             -> withhold them, with `PENDING_TEXT`

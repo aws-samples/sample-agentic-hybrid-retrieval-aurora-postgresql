@@ -248,6 +248,23 @@ page labels them differently because they are different kinds of claim.
   audit evidence only. When `attributed` is false, `provenance.attribution_note`
   starts with the exact string `Metrics pending evaluation for this retrieval revision`.
 
+  Four provenance fields describe how this artifact is served, not just what it
+  measured:
+
+  - `artifact_kind` is always the literal `release_baseline`: this is a maintainers'
+    release artifact measured against Aurora at one revision, not a live proof of
+    the attendee's own retrieval run.
+  - `served_at` is the UTC time this response was assembled. It is always distinct
+    from `measured_at`, the time the artifact itself was measured, so a baseline
+    rendered months later does not read as a measurement taken now.
+  - `retrieval_settings_sha256` is the hash of the resolved retrieval settings the
+    artifact was measured with. It is absent (`null`) on artifacts written before
+    this hash existed, and an absent hash fails the attribution gate closed rather
+    than being read as agreement.
+  - `current_retrieval_settings_sha256` is the same hash resolved by the running
+    service right now, so a reader can compare both sides of the settings clause
+    directly rather than trusting `attributed` alone.
+
 ## Production additions
 
 - authenticated tenant/catalog scope;

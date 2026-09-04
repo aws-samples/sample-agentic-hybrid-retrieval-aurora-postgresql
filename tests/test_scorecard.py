@@ -1,14 +1,15 @@
 """The Prove-step scorecard: a read-only render of the committed artifact.
 
-Ruling R3's gate is a conjunction over four facts -- the artifact's own
-`retrieval_fingerprint` (a hash over the files that can move the scored
-numbers; see `service.retrieval_fingerprint`) equals the one the running
-service reports, the artifact's own `worktree_dirty` flag was `False` at
-measurement time, the resolved retrieval settings the artifact recorded are
-the ones this process resolves now (environment variables beat
-`db/config/retrieval.yaml`, so no file hash can see them move), and the pinned
-models and query-set hashes the artifact recorded still match what is
-running. A strict revision equality is
+Ruling R3's gate is a conjunction over five facts, checked in this order --
+the artifact's own `retrieval_fingerprint` (a hash over the files that can
+move the scored numbers; see `service.retrieval_fingerprint`) equals the one
+the running service reports, the artifact's own `worktree_dirty` flag was
+`False` at measurement time, the pinned models and query-set hashes the
+artifact recorded still match what is running, the artifact's own
+methodology hash matches the one this process resolves now, and the resolved
+retrieval settings the artifact recorded are the ones this process resolves
+now (environment variables beat `db/config/retrieval.yaml`, so no file hash
+can see them move). A strict revision equality is
 deliberately not part of this: `scripts/score_evals.py` records the source
 revision *before* the artifact it writes is committed, so the artifact's
 revision is always one commit behind the revision that carries it, and that

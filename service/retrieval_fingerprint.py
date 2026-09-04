@@ -116,20 +116,30 @@ The settings hash: what no file manifest can see
 Every hash above is over *files*. `scripts/retrieval_profile._resolve` reads
 the environment before the yaml -- ``RRF_K``, ``FTS_CANDIDATE_LIMIT``,
 ``TRIGRAM_CANDIDATE_LIMIT``, ``SEMANTIC_CANDIDATE_LIMIT``,
-``RERANK_CANDIDATE_LIMIT``, ``HNSW_EF_SEARCH``, ``VECTOR_DIM`` and the
-``PG_TRGM_*_THRESHOLD`` pair all beat `db/config/retrieval.yaml` -- so
-``RRF_K=1`` changes every served result while `db/config/retrieval.yaml` sits
-byte-identical and the retrieval fingerprint never moves. An audit found that
-an attributed scorecard could therefore be served from a retrieval
-configuration nobody measured.
+``RERANK_CANDIDATE_LIMIT`` and ``HNSW_EF_SEARCH`` all beat
+`db/config/retrieval.yaml` -- so ``RRF_K=1`` changes every served result while
+`db/config/retrieval.yaml` sits byte-identical and the retrieval fingerprint
+never moves. An audit found that an attributed scorecard could therefore be
+served from a retrieval configuration nobody measured.
 
-`compute_retrieval_settings_sha256` closes that: it hashes the *resolved*
-`service.models.RetrievalProfile` -- the same object persisted on every
-`mosaic.search_event.retrieval_profile` row -- rather than the files that
-supply its defaults. Both sides of the gate call
+`compute_retrieval_settings_sha256` closes that for those six settings: it
+hashes the *resolved* `service.models.RetrievalProfile` -- the same object
+persisted on every `mosaic.search_event.retrieval_profile` row -- rather than
+the files that supply its defaults. Both sides of the gate call
 `compute_live_retrieval_settings_sha256`, never build the input themselves,
 because a hash computed from two differently-constructed profiles would read
 "pending" forever.
+
+Two more of `scripts/retrieval_profile.BOUNDS`'s env-overridable settings are
+outside this hash's domain entirely, because `RetrievalProfile` does not carry
+them as fields. ``VECTOR_DIM`` reaches Cohere as `output_dimension`
+(`service/embeddings.py`) and does not serve different results under an
+override -- a mismatched dimension fails loudly at the pgvector comparison
+instead. ``PG_TRGM_SIMILARITY_THRESHOLD`` and
+``PG_TRGM_WORD_SIMILARITY_THRESHOLD`` are database GUCs written by
+`scripts/configure_retrieval_database.py`; they live in database state, not
+process environment, so no hash over a process's environment or its resolved
+model can see them move.
 
 That single seam is also why the *served request* profile is not the input.
 `RetrievalService._profile` overwrites `result_limit` with the request's limit
@@ -138,6 +148,10 @@ call, not of the configuration. Hashing them would compare a request against a
 configuration and could never match. They stay covered: the artifact records
 the served profile verbatim under `retrieval_profile`, and
 `scripts.score_evals.verify_scorecard` pins that block field-for-field.
+
+This module imports `service.models` for `RetrievalProfile`. That direction is
+load-bearing and must not reverse: `service.models` must never import
+`retrieval_fingerprint`.
 """
 
 from __future__ import annotations
