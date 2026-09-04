@@ -233,10 +233,10 @@ describe("RetrievalScorecard", () => {
     );
     render(<RetrievalScorecard />);
 
-    expect(await screen.findByText("Fixtures (unverified)")).toBeTruthy();
-    expect(screen.queryByText("Fixtures held")).toBeNull();
+    expect(await screen.findByText("Filter checks (unverified)")).toBeTruthy();
+    expect(screen.queryByText("Filter checks held")).toBeNull();
     expect(
-      screen.getByText(/Verified at the revision that was measured/i),
+      screen.getByText(/Checked on the code version that was measured/i),
     ).toBeTruthy();
     // The real counts survive: withholding data would be its own dishonesty.
     expect(screen.getByText("4 / 4")).toBeTruthy();
@@ -249,9 +249,9 @@ describe("RetrievalScorecard", () => {
     vi.mocked(api.scorecard).mockResolvedValue(scorecardFixture({ attributed: true }));
     render(<RetrievalScorecard />);
 
-    expect(await screen.findByText("Fixtures held")).toBeTruthy();
-    expect(screen.queryByText("Fixtures (unverified)")).toBeNull();
-    expect(screen.queryByText(/Verified at the revision that was measured/i)).toBeNull();
+    expect(await screen.findByText("Filter checks held")).toBeTruthy();
+    expect(screen.queryByText("Filter checks (unverified)")).toBeNull();
+    expect(screen.queryByText(/Checked on the code version that was measured/i)).toBeNull();
   });
 
   it("withholds the metric values when the measured revision does not match", async () => {
@@ -273,10 +273,12 @@ describe("RetrievalScorecard", () => {
     expect(
       screen.getByText("Share of graded-relevant products retrieved in the top 10."),
     ).toBeTruthy();
-    expect(screen.getByText(/PASS \/ total/i)).toBeTruthy();
-    expect(screen.getByText("B. Golden regression anchors")).toBeTruthy();
-    expect(screen.getByText("C. Eligibility and filter contracts")).toBeTruthy();
-    expect(screen.getByText("D. Agent and evidence contracts")).toBeTruthy();
+    expect(screen.getByText("Critical checks passed")).toBeTruthy();
+    expect(screen.getByText("B. Did known critical examples still pass?")).toBeTruthy();
+    expect(screen.getByText("C. Did hard filters stay enforced?")).toBeTruthy();
+    expect(
+      screen.getByText("D. Did the agent stay inside its evidence boundaries?"),
+    ).toBeTruthy();
   });
 
   it("shows the real metric values once the measured revision matches and is clean", async () => {
@@ -332,7 +334,7 @@ describe("RetrievalScorecard", () => {
 
     // And the reverse: the anchor count never leaks into section A's own figures.
     const qualitySection = screen
-      .getByText("A. Retrieval quality")
+      .getByText("A. Can search find the right products?")
       .closest("section") as HTMLElement;
     expect(within(qualitySection).queryByText("4 / 4")).toBeNull();
   });
@@ -360,7 +362,7 @@ describe("RetrievalScorecard", () => {
     render(<RetrievalScorecard />);
 
     const disclosure = (
-      await screen.findByText("View per-query results")
+      await screen.findByText("See every search")
     ).closest("details") as HTMLElement;
 
     // Witness, independent of the render: exactly the two rows the fixture
@@ -379,6 +381,7 @@ describe("RetrievalScorecard", () => {
         query_id: "G-002",
         query_text: "Sonora WH-C720",
         concept_label: "Exact model alias",
+        representative_product_id: 2,
         "recall@10": 1,
         reciprocal_rank: 1,
         "ndcg@10": 1,
@@ -392,7 +395,7 @@ describe("RetrievalScorecard", () => {
     render(<RetrievalScorecard />);
 
     const disclosure = (
-      await screen.findByText("View per-query results")
+      await screen.findByText("See every search")
     ).closest("details") as HTMLElement;
     const textNode = within(disclosure).getByText("Sonora WH-C720");
     const idNode = within(disclosure).getByText("G-002");
@@ -404,13 +407,19 @@ describe("RetrievalScorecard", () => {
     ).toBeTruthy();
     expect(idNode.tagName).toBe("CODE");
     expect(within(disclosure).getByText("Exact model alias")).toBeTruthy();
+    const image = within(disclosure).getByRole("img", {
+      name: "Representative product for Sonora WH-C720",
+    });
+    expect(image.getAttribute("src")).toContain(
+      "ce-over-ear-headphones-02-catalog-3x2.webp",
+    );
   });
 
   it("renders the bare query_id for a golden anchor when the artifact carries no anchor labels", async () => {
     vi.mocked(api.scorecard).mockResolvedValue(scorecardFixture({ attributed: true }));
     render(<RetrievalScorecard />);
 
-    const disclosure = (await screen.findByText("View anchors")).closest(
+    const disclosure = (await screen.findByText("See the checks")).closest(
       "details",
     ) as HTMLElement;
 
@@ -433,7 +442,7 @@ describe("RetrievalScorecard", () => {
     });
     render(<RetrievalScorecard />);
 
-    const disclosure = (await screen.findByText("View anchors")).closest(
+    const disclosure = (await screen.findByText("See the checks")).closest(
       "details",
     ) as HTMLElement;
     const textNode = within(disclosure).getByText("Sonora WH-C720 headphones");
@@ -454,11 +463,11 @@ describe("RetrievalScorecard", () => {
 
     expect(
       screen.getByText(
-        /19 of the 20 canonical queries are scored for search relevance below/i,
+        /19 of the 20 test searches are scored below/i,
       ),
     ).toBeTruthy();
     expect(
-      screen.getByText(/multi-step agent tool orchestration/i),
+      screen.getByText(/agent conversation with several steps/i),
     ).toBeTruthy();
   });
 
@@ -470,7 +479,7 @@ describe("RetrievalScorecard", () => {
 
     expect(screen.getByText("18")).toBeTruthy();
     expect(
-      screen.getByText(/not a relevance judgment: no Recall, MRR, or nDCG/i),
+      screen.getByText(/kept separate from the search-quality scores/i),
     ).toBeTruthy();
   });
 
@@ -478,7 +487,10 @@ describe("RetrievalScorecard", () => {
     vi.mocked(api.scorecard).mockResolvedValue(scorecardFixture());
     render(<RetrievalScorecard />);
 
-    await screen.findByText("D. Agent and evidence contracts");
+    await screen.findByText(
+      "D. Did the agent stay inside its evidence boundaries?",
+    );
+    expect(screen.getByText("Evidence rules the agent follows")).toBeTruthy();
 
     for (const label of [
       "Retrieval scope",
@@ -490,7 +502,9 @@ describe("RetrievalScorecard", () => {
       expect(screen.getByText(label)).toBeTruthy();
     }
 
-    const disclosure = screen.getByText("View assertion falsifiers").closest("details");
+    const disclosure = screen
+      .getByText("View what would make each guarantee fail")
+      .closest("details");
     expect(disclosure).toBeTruthy();
     expect(within(disclosure as HTMLElement).getByText("falsifier one")).toBeTruthy();
     expect(
@@ -517,18 +531,35 @@ describe("RetrievalScorecard stage ablation", () => {
     vi.mocked(api.scorecard).mockResolvedValue(base);
     render(<RetrievalScorecard />);
 
-    await screen.findByText("E. Stage ablation");
+    await screen.findByText("E. What did each ranking step add?");
+    expect(screen.getByText("Step-by-step comparison")).toBeTruthy();
+    expect(
+      screen.getByText(
+        /scored three ways so that one step changes at a time/i,
+      ),
+    ).toBeTruthy();
 
+    expect(screen.getByText("Meaning match only")).toBeTruthy();
+    expect(screen.getByText("All three search methods combined")).toBeTruthy();
+    expect(screen.getByText("Combined, then reranked")).toBeTruthy();
     expect(screen.getByText("Semantic only")).toBeTruthy();
     expect(screen.getByText("RRF fused, reranking off")).toBeTruthy();
     expect(
       screen.getByText("RRF fused + managed reranking (served path)"),
     ).toBeTruthy();
+    expect(screen.getAllByText("Relevant products in the top 10")).toHaveLength(3);
+    expect(screen.getAllByText("First relevant result")).toHaveLength(3);
+    expect(screen.getAllByText("Top-10 ordering quality")).toHaveLength(3);
+    expect(screen.getAllByText("Recall@10")).toHaveLength(3);
+    expect(screen.getAllByText("MRR")).toHaveLength(3);
+    expect(screen.getAllByText("nDCG@10")).toHaveLength(3);
+    expect(screen.getByText("0.9111")).toBeTruthy();
+    expect(screen.getByText("0.8222")).toBeTruthy();
+    expect(screen.getByText("0.7333")).toBeTruthy();
+    expect(screen.getByText(/spread of 0\.2400/)).toBeTruthy();
     expect(
-      screen.getByText(/Recall@10 0\.9111 · MRR 0\.8222 · nDCG@10 0\.7333/),
+      screen.getByText(/Best ordering on 2 of 2 searches/),
     ).toBeTruthy();
-    expect(screen.getByText(/stdev 0\.2400/)).toBeTruthy();
-    expect(screen.getByText(/Wins on nDCG@10: 2 of 2 queries/)).toBeTruthy();
   });
 
   it("shows the candidate-recall ceiling as its own figure, not folded into an arm", async () => {
@@ -537,15 +568,19 @@ describe("RetrievalScorecard stage ablation", () => {
     );
     render(<RetrievalScorecard />);
 
-    await screen.findByText("E. Stage ablation");
+    await screen.findByText("E. What did each ranking step add?");
 
     expect(screen.getByText("0.9500")).toBeTruthy();
     const ceilingFigure = screen.getByText("0.9500").closest(".labs-figure");
     expect(ceilingFigure).toBeTruthy();
-    expect(within(ceilingFigure as HTMLElement).getByText("Pool recall ceiling")).toBeTruthy();
+    expect(
+      within(ceilingFigure as HTMLElement).getByText(
+        "Relevant products available to rerank",
+      ),
+    ).toBeTruthy();
     // The count of judged-relevant products the pool never fetched is a
     // sibling figure, never merged into the ceiling's own value.
-    expect(screen.getByText("Judged-relevant never fetched").closest(".labs-figure"))
+    expect(screen.getByText("Relevant products retrieval missed").closest(".labs-figure"))
       .not.toBe(ceilingFigure);
   });
 
@@ -566,7 +601,7 @@ describe("RetrievalScorecard stage ablation", () => {
     // Exactly one pending headline on the page -- section A is attributed,
     // only section E's is not.
     expect(screen.getAllByText(SCORECARD_PENDING_HEADLINE)).toHaveLength(1);
-    expect(screen.queryByText("Semantic only")).toBeNull();
+    expect(screen.queryByText("Meaning match only")).toBeNull();
     expect(screen.queryByText("0.9500")).toBeNull();
     expect(screen.getByTestId("stage-ablation-pending")).toBeTruthy();
   });
@@ -581,7 +616,7 @@ describe("RetrievalScorecard stage ablation", () => {
 
     await screen.findByText(SCORECARD_PENDING_HEADLINE);
 
-    expect(screen.getByText("Semantic only")).toBeTruthy();
+    expect(screen.getByText("Meaning match only")).toBeTruthy();
     expect(screen.getByText("0.9500")).toBeTruthy();
     expect(screen.queryByTestId("stage-ablation-pending")).toBeNull();
   });
@@ -593,7 +628,7 @@ describe("RetrievalScorecard stage ablation", () => {
     render(<RetrievalScorecard />);
 
     const disclosure = (
-      await screen.findByText("View per-query nDCG@10 by arm")
+      await screen.findByText("Compare every search across the three versions")
     ).closest("details") as HTMLElement;
 
     expect(within(disclosure).getAllByRole("listitem")).toHaveLength(2);
@@ -603,10 +638,17 @@ describe("RetrievalScorecard stage ablation", () => {
     expect(within(g1Row as HTMLElement).getByText("G-Q1")).toBeTruthy();
     // G-Q1: semantic missed it (0.0000) while the served path found it at
     // rank 1 (1.0000) -- both values must be legible in the same row.
-    expect(within(g1Row as HTMLElement).getByText(/Semantic only 0\.0000/)).toBeTruthy();
+    expect(
+      within(g1Row as HTMLElement).getByText(
+        /Meaning match only: 0\.0000 ordering score/,
+      ),
+    ).toBeTruthy();
     expect(
       (g1Row as HTMLElement).textContent,
-    ).toContain("RRF fused + managed reranking (served path) 1.0000");
+    ).toContain("Combined, then reranked: 1.0000 ordering score");
+    expect((g1Row as HTMLElement).textContent).toContain(
+      "Relevant products in the candidate pool: 1 of 1",
+    );
   });
 
   it("always exposes its measurement provenance, including when withheld", async () => {
@@ -621,7 +663,7 @@ describe("RetrievalScorecard stage ablation", () => {
     render(<RetrievalScorecard />);
 
     const disclosure = (
-      await screen.findByText("View stage-ablation provenance")
+      await screen.findByText("How this comparison was measured")
     ).closest("details") as HTMLElement;
     expect(within(disclosure).getByText(ABLATION_PENDING_NOTE)).toBeTruthy();
   });
@@ -630,7 +672,7 @@ describe("RetrievalScorecard stage ablation", () => {
     vi.mocked(api.scorecard).mockResolvedValue(scorecardFixture());
     render(<RetrievalScorecard />);
 
-    await screen.findByText("E. Stage ablation");
+    await screen.findByText("E. What did each ranking step add?");
 
     expect(
       screen.getByText(/cannot separate small differences between arms/i),

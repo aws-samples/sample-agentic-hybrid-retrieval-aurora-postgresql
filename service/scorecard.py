@@ -77,36 +77,34 @@ CANONICAL_QUERIES = ROOT / "data" / "evals" / "canonical_queries.jsonl"
 
 METRIC_EXPLANATIONS: dict[str, str] = {
     "recall": (
-        "Of the products graded relevant for a query, the share retrieved "
-        "anywhere in the top-k window."
+        "Of the products graded relevant for a search, the share that appeared "
+        "anywhere in the top 10."
     ),
     "mrr": (
-        "Mean Reciprocal Rank: how early the first relevant result appears, "
-        "averaged across the sample."
+        "How high the first relevant product landed, averaged across the "
+        "sample. A score of 1.0 means it was always first."
     ),
     "ndcg": (
-        "Normalized Discounted Cumulative Gain: how well the top-k results "
-        "are ordered once relevance differs by grade, not just whether a "
-        "relevant product is present."
+        "How well the top 10 are ordered once relevance has grades, not just "
+        "whether a relevant product is present somewhere in the list."
     ),
 }
 
 SAMPLE_DESCRIPTION = (
-    "A curated teaching and evaluation set with hand-graded relevance "
-    "judgments, hard negatives, and release checks. Built to exercise every "
-    "workshop failure mode deliberately, not drawn as a statistically "
-    "comprehensive benchmark of the full 500,000-product catalog."
+    "A hand-built set of test searches, each with products graded as right or "
+    "wrong answers, including look-alike wrong answers. Written to trigger "
+    "every failure the labs teach, not to stand in for the whole "
+    "500,000-product catalog."
 )
 
 ELIGIBILITY_DESCRIPTION = (
-    "Each fixture names a hard-negative product for one scored query: a "
-    "near-identical or explicitly ineligible item (a refurbished sibling, "
-    "the wrong model identity, a price- or attribute-ineligible match) that "
-    "must never reach the returned window regardless of semantic similarity. "
-    "Not a relevance judgment: no Recall, MRR, or nDCG is computed over "
-    "these. scripts/score_evals.py's validate_hard_negatives raises, "
-    "refusing to write this artifact, if any fixture is violated, so this "
-    "artifact existing is itself the pass record for every fixture below."
+    "Each check names one product that must never appear for one test "
+    "search: a near-identical or plainly ineligible item, such as a "
+    "refurbished sibling, the wrong model, or a product outside the price or "
+    "attribute filter, no matter how similar it looks. These are pass-or-fail "
+    "checks, kept separate from the search-quality scores. The scoring script "
+    "refuses to save its results if any check fails, so the saved results "
+    "existing is the pass record for every check below."
 )
 
 # Which real `service.assertions` names back each of the five deterministic
@@ -127,39 +125,38 @@ _AGENT_CONTRACT_ASSERTIONS: dict[str, list[str]] = {
 }
 
 _AGENT_CONTRACT_LABELS: dict[str, str] = {
-    "retrieval_scope": "Retrieval scope",
-    "compare_boundary": "Compare boundary",
-    "evidence_authorization": "Evidence authorization",
-    "citation_resolution": "Citation resolution",
-    "tool_contract": "Tool contract",
+    "retrieval_scope": "Only what search returned",
+    "compare_boundary": "Comparisons stay inside the shortlist",
+    "evidence_authorization": "Evidence is registered before it is cited",
+    "citation_resolution": "Every citation resolves to a record",
+    "tool_contract": "Every tool call is checked",
 }
 
 _AGENT_CONTRACT_DESCRIPTIONS: dict[str, str] = {
     "retrieval_scope": (
-        "The agent may act only on products its own retrieval calls actually "
-        "returned. service.retrieval_scope enforces the caller's authorized "
-        "window server-side, so a wider request from the model cannot reach "
-        "past it."
+        "The agent may only act on products its own searches returned. The "
+        "server enforces that window, so a wider request from the model "
+        "cannot reach past it."
     ),
     "compare_boundary": (
-        "A comparison cannot widen past the recommendation shortlist "
-        "retrieval already granted; compare_products is checked against the "
-        "same scope evidence and citations are."
+        "A comparison cannot widen past the shortlist the search already "
+        "produced; the compare step is held to the same window as evidence "
+        "and citations."
     ),
     "evidence_authorization": (
-        "Evidence visible to the model is not automatically usable in an "
-        "answer. It must be registered by a successful evidence tool call "
-        "before synthesis may cite it, and synthesis fails closed otherwise."
+        "Evidence the model has seen is not automatically usable in an "
+        "answer. It must be registered by a successful evidence lookup "
+        "before the answer may cite it; otherwise the answer is refused."
     ),
     "citation_resolution": (
-        "Every citation the agent returns must resolve to a real evidence "
-        "record for the cited product, with a source revision attached, so "
-        "the claim can be re-checked against the row that produced it."
+        "Every citation the agent returns must point at a real evidence "
+        "record for the cited product, with the version it came from, so the "
+        "claim can be checked against the row that produced it."
     ),
     "tool_contract": (
-        "Every tool call is checked against a registered, versioned contract "
-        "rather than an untyped model instruction; structured constraints "
-        "must survive decomposition into that call."
+        "Every tool call is checked against a registered, versioned "
+        "definition rather than a free-form instruction, and the shopper's "
+        "constraints must survive into that call."
     ),
 }
 
@@ -310,27 +307,30 @@ def _attribution(
 
     if fingerprint_matches and measured_clean and inputs_match and methodology_matches:
         return True, (
-            f"Measured at retrieval fingerprint {artifact_fingerprint[:12]}, "
-            "with the models and canonical query set currently running."
+            "Measured on the retrieval code running now "
+            f"({artifact_fingerprint[:12]}), with the same models and the same "
+            "test searches."
         )
 
     reasons: list[str] = []
     if not fingerprint_matches:
         if not artifact_fingerprint:
             reasons.append(
-                "no retrieval fingerprint was recorded when this artifact was measured"
+                "no record of the retrieval code version was saved when this was "
+                "measured"
             )
         else:
             reasons.append(
-                f"the retrieval fingerprint changed ({artifact_fingerprint[:12]} "
-                f"measured, {current.retrieval_fingerprint[:12]} running)"
+                f"the retrieval code changed since it was measured "
+                f"({artifact_fingerprint[:12]} measured, "
+                f"{current.retrieval_fingerprint[:12]} running)"
             )
     if not measured_clean:
-        reasons.append("the measurement's own worktree was not clean")
+        reasons.append("the measurement was taken with uncommitted changes")
     if not models_match:
         reasons.append("the embedding or rerank model changed")
     if not query_set_matches:
-        reasons.append("the canonical query set or its judgments changed")
+        reasons.append("the test searches or their grades changed")
     if not methodology_matches:
         reasons.append(
             "no measurement methodology hash was recorded"
@@ -373,6 +373,39 @@ def _retrieval_quality(
                 "artifact's population metrics",
             )
         )
+    representative_products: dict[str, int] = {}
+    for query in scored:
+        judgments = query.get("judgments") or []
+        if not judgments:
+            raise ValueError(
+                explain(
+                    f"{query['query_id']} has no relevance judgments",
+                    "add at least one graded judgment to "
+                    "data/evals/canonical_queries.jsonl",
+                )
+            )
+        highest_grade = max(int(judgment["grade"]) for judgment in judgments)
+        representative_products[query["query_id"]] = next(
+            int(judgment["product_id"])
+            for judgment in judgments
+            if int(judgment["grade"]) == highest_grade
+        )
+
+    per_query_metrics: list[dict[str, Any]] = []
+    for recorded in artifact["per_query_metrics"]:
+        row = dict(recorded)
+        query_id = row.get("query_id")
+        if query_id not in representative_products:
+            raise ValueError(
+                explain(
+                    f"scorecard row {query_id!r} has no canonical query",
+                    "regenerate data/evals/canonical_scorecard.json from "
+                    "data/evals/canonical_queries.jsonl",
+                )
+            )
+        row["representative_product_id"] = representative_products[query_id]
+        per_query_metrics.append(row)
+
     return ScorecardRetrievalQuality(
         sample_size=sample_size,
         canonical_query_count=artifact["canonical_query_count"],
@@ -388,7 +421,7 @@ def _retrieval_quality(
         excluded_agent_contract_query_ids=list(
             artifact["excluded_agent_contract_queries"]
         ),
-        per_query_metrics=list(artifact["per_query_metrics"]),
+        per_query_metrics=per_query_metrics,
     )
 
 

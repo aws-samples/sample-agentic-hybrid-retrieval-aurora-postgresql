@@ -274,7 +274,7 @@ def test_attribution_hides_when_the_retrieval_fingerprint_differs():
 
     assert attributed is False
     assert note.startswith(PENDING_TEXT)
-    assert "retrieval fingerprint changed" in note
+    assert "retrieval code changed since it was measured" in note
 
 
 def test_attribution_hides_when_the_artifact_never_recorded_a_fingerprint():
@@ -288,7 +288,7 @@ def test_attribution_hides_when_the_artifact_never_recorded_a_fingerprint():
     attributed, note = _attribution(_artifact(fingerprint=""), _current())
 
     assert attributed is False
-    assert "no retrieval fingerprint was recorded" in note
+    assert "no record of the retrieval code version was saved" in note
 
 
 def test_attribution_hides_when_the_measurement_worktree_was_dirty():
@@ -301,7 +301,7 @@ def test_attribution_hides_when_the_measurement_worktree_was_dirty():
     attributed, note = _attribution(_artifact(dirty=True), _current())
 
     assert attributed is False
-    assert "worktree was not clean" in note
+    assert "taken with uncommitted changes" in note
 
 
 def test_attribution_hides_when_the_embedding_model_changed():
@@ -328,7 +328,7 @@ def test_attribution_hides_when_the_raw_query_set_hash_changed():
     )
 
     assert attributed is False
-    assert "canonical query set or its judgments changed" in note
+    assert "test searches or their grades changed" in note
 
 
 def test_attribution_hides_when_the_scored_query_set_hash_changed():
@@ -337,7 +337,7 @@ def test_attribution_hides_when_the_scored_query_set_hash_changed():
     )
 
     assert attributed is False
-    assert "canonical query set or its judgments changed" in note
+    assert "test searches or their grades changed" in note
 
 
 def test_attribution_reports_every_mismatched_clause_not_just_the_first():
@@ -349,8 +349,8 @@ def test_attribution_reports_every_mismatched_clause_not_just_the_first():
     )
 
     assert attributed is False
-    assert "retrieval fingerprint changed" in note
-    assert "worktree was not clean" in note
+    assert "retrieval code changed since it was measured" in note
+    assert "taken with uncommitted changes" in note
     assert "embedding or rerank model changed" in note
 
 
@@ -407,15 +407,14 @@ def test_retrieval_scorecard_serves_the_committed_population_metrics():
     assert response.retrieval_quality.mrr == artifact["metrics"]["mrr"]
     assert response.retrieval_quality.ndcg_at_10 == artifact["metrics"]["ndcg@10"]
     assert response.retrieval_quality.excluded_agent_contract_query_ids == ["G-021"]
-    # The committed artifact now carries labels, so pass-through must expose
-    # them on every row. There is no absent-case test here on purpose:
-    # service/scorecard.py copies these rows verbatim, so no code path could
-    # invent a key, and a test asserting it cannot fail. Degradation is tested
-    # where it can actually go wrong -- the UI rendering `undefined`.
+    # Labels come from the measured artifact. The representative product comes
+    # from the canonical relevance judgments, so the UI can show an exact,
+    # product-bound image without treating a ranked result as ground truth.
     assert len(response.retrieval_quality.per_query_metrics) == 20
     for row in response.retrieval_quality.per_query_metrics:
         assert row["query_text"]
         assert row["concept_label"]
+        assert isinstance(row["representative_product_id"], int)
 
 
 # --- Section B: golden regression anchors, never mixed with IR metrics -----
@@ -672,7 +671,7 @@ def test_api_serves_attributed_scorecard_after_remeasurement():
 
     assert payload["provenance"]["attributed"] is True
     assert payload["provenance"]["attribution_note"].startswith(
-        "Measured at retrieval fingerprint"
+        "Measured on the retrieval code running now"
     )
     assert payload["provenance"]["source_revision"]
     assert payload["provenance"]["current_source_revision"]

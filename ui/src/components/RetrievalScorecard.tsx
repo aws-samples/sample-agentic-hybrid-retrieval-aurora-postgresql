@@ -1,6 +1,7 @@
 import { AlertTriangle, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { productBoundImage } from "../media";
 import {
   PlaygroundDisclosure,
   PlaygroundFigure,
@@ -60,6 +61,30 @@ function numberField(row: Record<string, unknown>, key: string): string {
   return typeof value === "number" ? value.toFixed(4) : "unavailable";
 }
 
+function integerField(row: Record<string, unknown>, key: string): number | null {
+  const value = row[key];
+  return typeof value === "number" && Number.isInteger(value) ? value : null;
+}
+
+function ScorecardSectionHeading({
+  id,
+  index,
+  question,
+  technicalName,
+}: {
+  id: string;
+  index: string;
+  question: string;
+  technicalName: string;
+}) {
+  return (
+    <header className="labs-scorecard-heading">
+      <h3 id={id}>{index}. {question}</h3>
+      <p>{technicalName}</p>
+    </header>
+  );
+}
+
 function PerQueryMetricsList({
   rows,
 }: {
@@ -71,26 +96,36 @@ function PerQueryMetricsList({
         const queryId = stringField(row, "query_id") ?? `row-${index}`;
         const queryText = stringField(row, "query_text");
         const conceptLabel = stringField(row, "concept_label");
+        const productId = integerField(row, "representative_product_id");
+        const image = productId === null ? null : productBoundImage(productId);
         return (
-          <li key={queryId}>
-            <span className="labs-scorecard-per-query-label">
-              <span className="labs-scorecard-per-query-text">
-                {queryText ?? queryId}
+          <li className={image ? "has-product-image" : undefined} key={queryId}>
+            {image ? (
+              <img
+                alt={`Representative product for ${queryText ?? queryId}`}
+                src={image}
+              />
+            ) : null}
+            <div>
+              <span className="labs-scorecard-per-query-label">
+                <span className="labs-scorecard-per-query-text">
+                  {queryText ?? queryId}
+                </span>
+                {conceptLabel ? (
+                  <em className="labs-scorecard-per-query-concept">
+                    {conceptLabel}
+                  </em>
+                ) : null}
+                {queryText ? (
+                  <code className="labs-scorecard-per-query-id">{queryId}</code>
+                ) : null}
               </span>
-              {conceptLabel ? (
-                <em className="labs-scorecard-per-query-concept">
-                  {conceptLabel}
-                </em>
-              ) : null}
-              {queryText ? (
-                <code className="labs-scorecard-per-query-id">{queryId}</code>
-              ) : null}
-            </span>
-            <small>
-              recall@10 {numberField(row, "recall@10")} &middot; ndcg@10{" "}
-              {numberField(row, "ndcg@10")} &middot; reciprocal rank{" "}
-              {numberField(row, "reciprocal_rank")}
-            </small>
+              <small>
+                relevant found {numberField(row, "recall@10")} &middot; ordering{" "}
+                {numberField(row, "ndcg@10")} &middot; first hit{" "}
+                {numberField(row, "reciprocal_rank")}
+              </small>
+            </div>
           </li>
         );
       })}
@@ -111,23 +146,28 @@ function RetrievalQualitySection({
       className="labs-scorecard-section"
       aria-labelledby="scorecard-quality-title"
     >
-      <h3 id="scorecard-quality-title">A. Retrieval quality</h3>
+      <ScorecardSectionHeading
+        id="scorecard-quality-title"
+        index="A"
+        question="Can search find the right products?"
+        technicalName="Search quality"
+      />
       <p className="labs-scorecard-sample">{quality.sample_description}</p>
 
       {provenance.attributed ? (
         <PlaygroundFigures label="Retrieval quality metrics">
           <PlaygroundFigure
-            label="Recall@10"
+            label="Relevant products found (Recall@10)"
             value={quality.recall_at_10.toFixed(4)}
             detail={quality.metric_explanations["recall@10"]}
           />
           <PlaygroundFigure
-            label="MRR"
+            label="First relevant result (MRR)"
             value={quality.mrr.toFixed(4)}
             detail={quality.metric_explanations.mrr}
           />
           <PlaygroundFigure
-            label="nDCG@10"
+            label="Top-10 ordering quality (nDCG@10)"
             value={quality.ndcg_at_10.toFixed(4)}
             detail={quality.metric_explanations["ndcg@10"]}
           />
@@ -142,9 +182,8 @@ function RetrievalQualitySection({
           <div>
             <strong>{SCORECARD_PENDING_HEADLINE}</strong>
             <p>
-              Recall@10, MRR, and nDCG@10 measure retrieval quality across the
-              scored sample below, but are withheld here until the canonical
-              scorecard is remeasured at the revision currently running.
+              The three search-quality scores are held back until they are
+              measured again on the code that is running now.
             </p>
           </div>
         </div>
@@ -165,11 +204,11 @@ function RetrievalQualitySection({
       ) : null}
 
       <PlaygroundDisclosure
-        label="View provenance"
+        label="Where these numbers come from"
         hint={
           provenance.attributed
-            ? "measured at the revision currently running"
-            : "why these numbers are withheld"
+            ? "measured on the code running now"
+            : "why they are held back"
         }
       >
         <p data-testid="scorecard-attribution-note">
@@ -177,17 +216,17 @@ function RetrievalQualitySection({
         </p>
         <dl className="labs-profile">
           <div>
-            <dt>measured revision</dt>
+            <dt>measured on code version</dt>
             <dd className="mono">
               {provenance.source_revision ?? "none recorded"}
             </dd>
           </div>
           <div>
-            <dt>measured worktree dirty</dt>
+            <dt>uncommitted changes when measured</dt>
             <dd className="mono">{String(provenance.source_worktree_dirty)}</dd>
           </div>
           <div>
-            <dt>running revision</dt>
+            <dt>code version running now</dt>
             <dd className="mono">
               {provenance.current_source_revision ?? "unresolved"}
             </dd>
@@ -201,8 +240,8 @@ function RetrievalQualitySection({
 
       {quality.per_query_metrics.length ? (
         <PlaygroundDisclosure
-          label="View per-query results"
-          hint={`${quality.per_query_metrics.length} queries`}
+          label="See every search"
+          hint={`${quality.per_query_metrics.length} searches`}
         >
           <PerQueryMetricsList rows={quality.per_query_metrics} />
         </PlaygroundDisclosure>
@@ -210,17 +249,17 @@ function RetrievalQualitySection({
 
       {quality.excluded_agent_contract_query_ids.length ? (
         <p className="labs-scorecard-exclusion">
-          {quality.sample_size} of the {quality.canonical_query_count} canonical
-          queries are scored for search relevance below.{" "}
+          {quality.sample_size} of the {quality.canonical_query_count} test
+          searches are scored below.{" "}
           <code>{quality.excluded_agent_contract_query_ids.join(", ")}</code>{" "}
           {quality.excluded_agent_contract_query_ids.length === 1 ? "is" : "are"}{" "}
           not: {quality.excluded_agent_contract_query_ids.length === 1
-            ? "it exercises"
-            : "they exercise"}{" "}
-          multi-step agent tool orchestration -- planning, comparison, evidence
-          retrieval, and cited synthesis -- rather than a single search
-          request, so grading with Recall, MRR, or nDCG would measure the
-          wrong thing. See section D for the agent-specific contracts checked
+            ? "it is an agent conversation"
+            : "they are agent conversations"}{" "}
+          with several steps (planning, comparing, looking up evidence, and
+          writing a cited answer) rather than one search, so a search score
+          would measure the wrong thing. Section D checks{" "}
+          {quality.excluded_agent_contract_query_ids.length === 1 ? "it" : "them"}{" "}
           instead.
         </p>
       ) : null}
@@ -245,21 +284,26 @@ function RegressionAnchorsSection({
       className="labs-scorecard-section"
       aria-labelledby="scorecard-anchors-title"
     >
-      <h3 id="scorecard-anchors-title">B. Golden regression anchors</h3>
-      <PlaygroundFigures label="Golden regression anchors">
+      <ScorecardSectionHeading
+        id="scorecard-anchors-title"
+        index="B"
+        question="Did known critical examples still pass?"
+        technicalName="Known-good checks"
+      />
+      <PlaygroundFigures label="Known-good checks">
         <PlaygroundFigure
-          label="PASS / total"
+          label="Critical checks passed"
           value={`${anchors.passed} / ${anchors.total}`}
           tone={allPassed ? "good" : "warn"}
           detail={
             anchors.verified_for_running_revision
-              ? "Did a known critical behavior regress? Never mixed into Recall, MRR, or nDCG."
-              : "Verified at the revision that was measured, not the one running now. Remeasure to reclaim this as current."
+              ? "Did a behavior the labs depend on stop working? Counted separately from the search-quality scores."
+              : "Checked on the code version that was measured, not the one running now. Measure again to make this current."
           }
         />
       </PlaygroundFigures>
       <PlaygroundDisclosure
-        label="View anchors"
+        label="See the checks"
         hint={`${anchors.anchors.length} checks`}
       >
         <ul className="labs-contracts">
@@ -303,22 +347,27 @@ function EligibilityContractsSection({
       className="labs-scorecard-section"
       aria-labelledby="scorecard-eligibility-title"
     >
-      <h3 id="scorecard-eligibility-title">C. Eligibility and filter contracts</h3>
-      <PlaygroundFigures label="Eligibility and filter contracts">
+      <ScorecardSectionHeading
+        id="scorecard-eligibility-title"
+        index="C"
+        question="Did hard filters stay enforced?"
+        technicalName="Filter guarantees"
+      />
+      <PlaygroundFigures label="Filter guarantees">
         <PlaygroundFigure
-          label={contracts.held === null ? "Fixtures (unverified)" : "Fixtures held"}
+          label={contracts.held === null ? "Filter checks (unverified)" : "Filter checks held"}
           value={String(contracts.fixture_count)}
           tone={contracts.held === true ? "good" : "warn"}
           detail={
             contracts.held === null
-              ? "Whether these held is unknown for the revision running now. The count is real; the verdict needs a remeasure."
-              : "Did retrieval violate a hard contract? Not a relevance judgment: no Recall, MRR, or nDCG is computed over these."
+              ? "Not yet checked on the code running now. The count is real; the pass or fail needs a fresh measurement."
+              : "Did any result slip past a hard filter such as price, stock, or model? A pass-or-fail check, kept separate from the search-quality scores."
           }
         />
       </PlaygroundFigures>
       <PlaygroundDisclosure
-        label="View fixture queries"
-        hint={`${contracts.fixture_query_ids.length} queries`}
+        label="See the filter checks"
+        hint={`${contracts.fixture_query_ids.length} searches`}
       >
         <p className="labs-contract-note">{contracts.description}</p>
         <p>
@@ -343,12 +392,16 @@ function AgentContractsSection({
       className="labs-scorecard-section"
       aria-labelledby="scorecard-agent-title"
     >
-      <h3 id="scorecard-agent-title">D. Agent and evidence contracts</h3>
+      <ScorecardSectionHeading
+        id="scorecard-agent-title"
+        index="D"
+        question="Did the agent stay inside its evidence boundaries?"
+        technicalName="Evidence rules the agent follows"
+      />
       <p className="labs-contract-note">
-        Deterministic guarantees the agent is held to. Real validation data:
-        every name and falsifier below is read from
-        service.assertions.ASSERTIONS, not typed fresh for this surface. No IR
-        metric and no LLM judge appears here.
+        Rules the agent must follow on every run. Each rule and its failure
+        condition is read from the code that enforces it, not written for this
+        page. No search score and no AI judge is used here.
       </p>
       <ul className="labs-contracts">
         {contracts.guarantees.map((guarantee) => (
@@ -356,16 +409,16 @@ function AgentContractsSection({
             <code>{guarantee.label}</code>
             <b>
               {guarantee.fixture_count != null
-                ? `${guarantee.fixture_count} registered`
-                : `${guarantee.assertion_names.length} assertions`}
+                ? `${guarantee.fixture_count} tools`
+                : `${guarantee.assertion_names.length} checks`}
             </b>
             <small>{guarantee.description}</small>
           </li>
         ))}
       </ul>
       <PlaygroundDisclosure
-        label="View assertion falsifiers"
-        hint={`${assertionCount} assertions`}
+        label="View what would make each guarantee fail"
+        hint={`${assertionCount} failure conditions`}
       >
         <ul className="labs-contracts">
           {contracts.guarantees.flatMap((guarantee) =>
@@ -389,24 +442,68 @@ function StageArmList({
   arms: ScorecardStageArm[];
   totalQueries: number;
 }) {
+  const armLanguage: Record<
+    ScorecardStageArm["key"],
+    { title: string; purpose: string }
+  > = {
+    semantic_only: {
+      title: "Meaning match only",
+      purpose: "What meaning match finds on its own, with no exact terms, close spelling, combining, or reranking.",
+    },
+    rrf_fused_no_rerank: {
+      title: "All three search methods combined",
+      purpose: "The order produced once exact terms, close spelling, and meaning match are combined.",
+    },
+    rrf_fused_reranked: {
+      title: "Combined, then reranked",
+      purpose: "The order shoppers actually see: the reranker reorders the same combined candidate pool.",
+    },
+  };
+
   return (
-    <ul className="labs-contracts">
-      {arms.map((arm) => (
-        <li key={arm.key}>
-          <code>{arm.label}</code>
-          <b>
-            {`Recall@10 ${arm.recall_at_10.toFixed(4)} · MRR ${arm.mrr.toFixed(
-              4,
-            )} · nDCG@10 ${arm.ndcg_at_10.toFixed(4)}`}
-          </b>
-          <small>
-            {arm.description} nDCG@10 spread across the scored queries: min{" "}
-            {arm.ndcg_at_10_min.toFixed(4)}, max {arm.ndcg_at_10_max.toFixed(4)}, stdev{" "}
-            {arm.ndcg_at_10_stdev.toFixed(4)}. Wins on nDCG@10: {arm.ndcg_at_10_query_wins}{" "}
-            of {totalQueries} queries.
-          </small>
-        </li>
-      ))}
+    <ul className="labs-ablation-arms">
+      {arms.map((arm) => {
+        const language = armLanguage[arm.key];
+        return (
+          <li key={arm.key}>
+            <header>
+              <h4>{language.title}</h4>
+              <code>{arm.label}</code>
+              <p>{language.purpose}</p>
+            </header>
+            <dl>
+              <div>
+                <dt>
+                  <span>Relevant products in the top 10</span>
+                  <small>Recall@10</small>
+                </dt>
+                <dd>{arm.recall_at_10.toFixed(4)}</dd>
+              </div>
+              <div>
+                <dt>
+                  <span>First relevant result</span>
+                  <small>MRR</small>
+                </dt>
+                <dd>{arm.mrr.toFixed(4)}</dd>
+              </div>
+              <div>
+                <dt>
+                  <span>Top-10 ordering quality</span>
+                  <small>nDCG@10</small>
+                </dt>
+                <dd>{arm.ndcg_at_10.toFixed(4)}</dd>
+              </div>
+            </dl>
+            <p className="labs-ablation-spread">
+              Across individual searches, the top-10 ordering score ran from{" "}
+              {arm.ndcg_at_10_min.toFixed(4)} to {arm.ndcg_at_10_max.toFixed(4)}, with a
+              spread of {arm.ndcg_at_10_stdev.toFixed(4)}. Best ordering on{" "}
+              {arm.ndcg_at_10_query_wins} of {totalQueries} searches.
+            </p>
+            <p className="labs-ablation-source">{arm.description}</p>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -418,6 +515,12 @@ function StageAblationPerQueryList({
   rows: ScorecardStageAblationQuery[];
   arms: ScorecardStageArm[];
 }) {
+  const armTitles: Record<ScorecardStageArm["key"], string> = {
+    semantic_only: "Meaning match only",
+    rrf_fused_no_rerank: "All three search methods combined",
+    rrf_fused_reranked: "Combined, then reranked",
+  };
+
   return (
     <ul className="labs-scorecard-per-query">
       {rows.map((row) => (
@@ -426,17 +529,19 @@ function StageAblationPerQueryList({
             <span className="labs-scorecard-per-query-text">{row.query_text}</span>
             <code className="labs-scorecard-per-query-id">{row.query_id}</code>
           </span>
-          <small>
+          <div className="labs-ablation-query-metrics">
             {arms
               .map((arm) => {
                 const value = row.ndcg_at_10[arm.key];
-                return `${arm.label} ${
+                return `${armTitles[arm.key]}: ${
                   typeof value === "number" ? value.toFixed(4) : "unavailable"
-                }`;
+                } ordering score`;
               })
-              .join(" · ")}{" "}
-            &middot; pool recall {row.pool_recall.toFixed(4)} ({row.found_in_pool}/
-            {row.relevant_count} judged-relevant found)
+              .map((label) => <span key={label}>{label}</span>)}
+          </div>
+          <small>
+            Relevant products in the candidate pool: {row.found_in_pool} of{" "}
+            {row.relevant_count}
           </small>
         </li>
       ))}
@@ -451,19 +556,31 @@ function StageAblationSection({ ablation }: { ablation: ScorecardStageAblation }
       className="labs-scorecard-section"
       aria-labelledby="scorecard-ablation-title"
     >
-      <h3 id="scorecard-ablation-title">E. Stage ablation</h3>
-      <p className="labs-scorecard-sample">{ablation.spread_note}</p>
+      <ScorecardSectionHeading
+        id="scorecard-ablation-title"
+        index="E"
+        question="What did each ranking step add?"
+        technicalName="Step-by-step comparison"
+      />
+      <p className="labs-scorecard-intro">
+        The same test searches are scored three ways so that one step changes at
+        a time: meaning match on its own, all three search methods combined, and
+        the combined list after reranking.
+      </p>
+      <p className="labs-scorecard-sample">
+        <strong>Small sample:</strong> {ablation.spread_note}
+      </p>
 
       {ablation.attributed ? (
         <>
-          <PlaygroundFigures label="Candidate-recall ceiling">
+          <PlaygroundFigures label="Candidate pool limits before reranking">
             <PlaygroundFigure
-              label="Pool recall ceiling"
+              label="Relevant products available to rerank"
               value={ablation.candidate_recall_ceiling.pool_recall_ceiling.toFixed(4)}
               detail={ablation.candidate_recall_ceiling.description}
             />
             <PlaygroundFigure
-              label="Judged-relevant never fetched"
+              label="Relevant products retrieval missed"
               value={String(
                 ablation.candidate_recall_ceiling.judged_relevant_never_fetched,
               )}
@@ -472,7 +589,7 @@ function StageAblationSection({ ablation }: { ablation: ScorecardStageAblation }
                   ? "good"
                   : "warn"
               }
-              detail="Summed across every scored query: judged-relevant products absent from the fused pool before reranking."
+              detail="Summed across every scored search: products graded relevant that never entered the candidate pool, so reranking could never surface them."
             />
           </PlaygroundFigures>
 
@@ -480,8 +597,8 @@ function StageAblationSection({ ablation }: { ablation: ScorecardStageAblation }
 
           {totalQueries ? (
             <PlaygroundDisclosure
-              label="View per-query nDCG@10 by arm"
-              hint={`${totalQueries} queries`}
+              label="Compare every search across the three versions"
+              hint={`${totalQueries} searches, ordering score shown`}
             >
               <StageAblationPerQueryList rows={ablation.per_query} arms={ablation.arms} />
             </PlaygroundDisclosure>
@@ -497,16 +614,17 @@ function StageAblationSection({ ablation }: { ablation: ScorecardStageAblation }
           <div>
             <strong>{SCORECARD_PENDING_HEADLINE}</strong>
             <p>
-              The stage ablation measures what each retrieval arm contributes, but is
-              withheld here until it is remeasured at the revision currently running.
+              This comparison changes one ranking step at a time to show what it
+              added, but the numbers stay hidden until the code running now is
+              measured.
             </p>
           </div>
         </div>
       )}
 
       <PlaygroundDisclosure
-        label="View stage-ablation provenance"
-        hint={ablation.attributed ? "measured at the revision currently running" : "why this is withheld"}
+        label="How this comparison was measured"
+        hint={ablation.attributed ? "measured on the code running now" : "why this is held back"}
       >
         <p data-testid="stage-ablation-attribution-note">{ablation.attribution_note}</p>
         <dl className="labs-profile">
@@ -515,7 +633,7 @@ function StageAblationSection({ ablation }: { ablation: ScorecardStageAblation }
             <dd className="mono">{ablation.measured_at}</dd>
           </div>
           <div>
-            <dt>scored queries</dt>
+            <dt>scored searches</dt>
             <dd className="mono">{ablation.scored_query_count}</dd>
           </div>
         </dl>
@@ -556,7 +674,7 @@ export function RetrievalScorecard() {
     );
   }
   if (!data) {
-    return <p role="status">Loading the canonical evaluation artifact.</p>;
+    return <p role="status">Loading the saved evaluation results.</p>;
   }
 
   return (
