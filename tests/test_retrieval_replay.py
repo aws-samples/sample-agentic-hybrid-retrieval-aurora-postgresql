@@ -226,6 +226,43 @@ def test_results_follow_result_rank_not_arrival_order(monkeypatch):
     assert [product.signals.final_rank for product in response.results] == [1, 2, 3]
 
 
+def test_only_the_served_window_is_replayed_not_the_whole_pool(monkeypatch):
+    """`search()` persists every fused candidate and returns only `limit`.
+
+    Falsifier: replay every stored row and a participant who was served two
+    products sees three. The window is the receipt's own
+    `retrieval_profile.result_limit`, which is that request's `limit`.
+    """
+    from service.retrieval_replay import replay_search_response
+
+    profile = dict(PERSISTED_PROFILE, result_limit=2, authorized_limit=2)
+    _, hydration_calls = _install(
+        monkeypatch, event=_event_row(retrieval_profile=profile)
+    )
+
+    response = replay_search_response(EVENT_ID)
+
+    assert len(STORED_ROW_ORDER) == 3
+    assert [product.product_id for product in response.results] == [502, 501]
+    assert hydration_calls == [[502, 501]]
+
+
+def test_a_receipt_without_a_served_window_is_refused(monkeypatch):
+    """Guessing the window from today's configured display limit would lie."""
+    from service.retrieval_replay import replay_search_response
+
+    profile = {key: value for key, value in PERSISTED_PROFILE.items()}
+    del profile["result_limit"]
+    _install(monkeypatch, event=_event_row(retrieval_profile=profile))
+
+    with pytest.raises(KeyError) as error:
+        replay_search_response(EVENT_ID)
+
+    detail = str(error.value)
+    assert "result_limit" in detail
+    assert "fix:" in detail
+
+
 def test_products_are_hydrated_once_with_the_served_ids(monkeypatch):
     """One hydration call, in served order -- not one query per candidate."""
     from service.retrieval_replay import replay_search_response

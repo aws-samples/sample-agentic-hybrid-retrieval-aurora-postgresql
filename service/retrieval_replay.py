@@ -7,6 +7,10 @@ the served products through `service.catalog.get_product_summaries` -- the same
 loader the compare route uses. It embeds nothing, fuses nothing, and reranks
 nothing.
 
+`mosaic.search_result_event` records the whole fused pool while the response
+returned only the top `result_limit` of it, so `served_window` narrows the stored
+rows back to the window the participant was actually shown.
+
 What the receipt does not record is reported as `None`, never filled in from the
 running service. `SearchResponse.coverage` is not persisted at all, and
 `RetrievalDiagnostics.embedding_dimensions` is the one diagnostics field neither
@@ -56,9 +60,38 @@ def replay_search_response(search_event_id: UUID) -> SearchResponse:
         UnknownSearchEvent: no event row carries `search_event_id`.
     """
     event, candidates = _read_receipt(search_event_id)
-    served = sorted(candidates, key=lambda row: row["result_rank"])
+    served = served_window(event, candidates)
     products = get_product_summaries([row["product_id"] for row in served])
     return build_search_response(event, served, products)
+
+
+def served_window(
+    event: dict[str, Any], candidates: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """The rows the original response returned, in the order it returned them.
+
+    `mosaic.search_result_event` holds the whole fused pool, not the served
+    window: `RetrievalService.search` persists every candidate it fused and then
+    returns `candidates[:request.limit]`. Replaying every stored row would show
+    fifty products to a participant who was served twelve.
+
+    The window is the receipt's own `retrieval_profile.result_limit`, which
+    `RetrievalService._profile` sets from that request's `limit`. It is read from
+    the persisted jsonb rather than from a parsed `RetrievalProfile`, because a
+    receipt missing the key would otherwise take today's yaml display limit and
+    present it as the window that request used.
+    """
+    result_limit = (event["retrieval_profile"] or {}).get("result_limit")
+    if result_limit is None:
+        raise KeyError(
+            f"FAIL replay {event['search_event_id']} served window: found a "
+            "persisted retrieval_profile with no result_limit, so how many of "
+            "the pooled rows the response returned is unknown; fix: replay an "
+            "event recorded by service.retrieval.search, which always persists "
+            "result_limit."
+        )
+    ordered = sorted(candidates, key=lambda row: row["result_rank"])
+    return ordered[:result_limit]
 
 
 def build_search_response(
@@ -69,8 +102,8 @@ def build_search_response(
     """Assemble the response from persisted rows and already-hydrated products.
 
     Pure: it issues no query, so the reconstruction can be read and tested apart
-    from the two SELECTs that feed it. `served` must already be in `result_rank`
-    order.
+    from the two SELECTs that feed it. `served` must already be the window
+    `served_window` returns.
     """
     by_product = {product.product_id: product for product in products}
     missing = [

@@ -150,6 +150,12 @@ re-executes nothing: the served window and its per-arm ranks come from
 the compare route uses. No embedding, fusion, or reranking call is made. An
 unknown event id returns 404.
 
+`mosaic.search_result_event` records every candidate the run fused, while the
+original response returned only the top `retrieval_profile.result_limit` of
+them, so the route narrows the stored rows back to that window. A receipt whose
+profile carries no `result_limit` is refused rather than served against today's
+configured display limit.
+
 What the receipt does not record is reported absent rather than filled in:
 `coverage` is always `null` because term coverage is computed per request and
 never persisted, and `diagnostics.embedding_dimensions` is `null` because the
