@@ -11,6 +11,25 @@ from service.hnsw import MEASURED_ARTIFACT, measured, neighborhood_band
 
 ROOT = Path(__file__).resolve().parents[1]
 
+HALFVEC_INDEX = "product_document_embedding_hnsw_halfvec_idx"
+BINARY_INDEX = "product_document_embedding_hnsw_binary_idx"
+
+
+def _stub_index_states(monkeypatch, states: dict[str, str]) -> None:
+    """Answer the representation gate's catalog read without a cluster.
+
+    Every `measured()` call reaches this gate. Left unstubbed with DATABASE_URL
+    exported, the test opens a real connection to whatever that DSN names and
+    hangs there until the pool times out, which is not what any of these tests
+    are asserting.
+    """
+    monkeypatch.setattr("service.hnsw.index_states", lambda names: dict(states))
+
+
+def _stub_quantized_indexes_valid(monkeypatch) -> None:
+    """The state in which `measured()` serves the artifact unmodified."""
+    _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "valid"})
+
 
 def test_measured_artifact_is_the_committed_path():
     assert MEASURED_ARTIFACT == ROOT / "data" / "benchmarks" / "hnsw_measured.json"
@@ -19,7 +38,9 @@ def test_measured_artifact_is_the_committed_path():
     )
 
 
-def test_measured_serves_the_committed_artifact_with_provenance():
+def test_measured_serves_the_committed_artifact_with_provenance(monkeypatch):
+    _stub_quantized_indexes_valid(monkeypatch)
+
     payload = measured()
 
     assert payload["kind"] == "measured"
@@ -308,12 +329,14 @@ def test_probe_defaults_resolve_from_the_yaml_not_from_literals():
     assert request.max_scan_tuples == profile.hnsw_max_scan_tuples
 
 
-def test_the_measured_artifact_separates_its_claim_classes():
+def test_the_measured_artifact_separates_its_claim_classes(monkeypatch):
     """Live, replayed, projected and A/B-cluster measurements are different claims.
 
     The NVMe result carries a stated non-default shared_buffers, so it cannot be read as
     a stock measurement of the workshop cluster and must say so in the artifact itself.
     """
+    _stub_quantized_indexes_valid(monkeypatch)
+
     payload = measured()
 
     nvme = payload["local_nvme"]
@@ -346,16 +369,10 @@ class _FakeSettings:
 
 
 RUNTIME_MANIFEST = "d5abc2c047f73726926260bb6a5364b50295acc4c6b2a3e9e35d47e93eb5c464"
-HALFVEC_INDEX = "product_document_embedding_hnsw_halfvec_idx"
-BINARY_INDEX = "product_document_embedding_hnsw_binary_idx"
 
 
 def _stub_settings(monkeypatch, settings) -> None:
     monkeypatch.setattr("service.hnsw.get_settings", lambda: settings)
-
-
-def _stub_index_states(monkeypatch, states: dict[str, str]) -> None:
-    monkeypatch.setattr("service.hnsw.index_states", lambda names: dict(states))
 
 
 def test_measured_refuses_to_claim_an_artifact_measured_on_another_corpus(monkeypatch):
@@ -366,20 +383,37 @@ def test_measured_refuses_to_claim_an_artifact_measured_on_another_corpus(monkey
     unqualified MEASURED badge is the exact failure the badge exists to prevent.
     """
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
-    _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "valid"})
+    _stub_quantized_indexes_valid(monkeypatch)
 
     attribution = measured()["attribution"]
 
     assert attribution["attributed"] is False
     assert "different dataset manifest" in attribution["attribution_note"]
     assert "dirty worktree" in attribution["attribution_note"]
-    assert "fix:" in attribution["attribution_note"]
+    assert "make benchmark-hnsw" in attribution["attribution_note"]
     assert attribution["measured_source_revision"].startswith("e5b10ef")
     assert attribution["measured_source_worktree_dirty"] is True
     assert attribution["measured_dataset_manifest_sha256"].startswith("7cd7a5ae")
     assert attribution["current_dataset_manifest_sha256"] == RUNTIME_MANIFEST
     assert attribution["current_source_revision"] == "b" * 40
     assert attribution["current_source_worktree_dirty"] is False
+
+
+def test_the_attribution_note_is_prose_not_an_error_message(monkeypatch):
+    """The note is rendered as body copy under the badge, not raised anywhere.
+
+    Built with `explain(found, fix)` it read as a fault in the page rather than
+    as a statement about which cluster the numbers describe. The scorecard's
+    note beside it on the same surface is prose; this one has to match it.
+    """
+    _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
+    _stub_quantized_indexes_valid(monkeypatch)
+
+    note = measured()["attribution"]["attribution_note"]
+
+    assert "found:" not in note
+    assert "fix:" not in note
+    assert note[0].isupper() and note.endswith(".")
 
 
 def _clean_artifact(tmp_path, manifest: str):
@@ -401,7 +435,7 @@ def test_measured_is_attributed_when_the_corpus_matches_and_the_tree_was_clean(
         "service.hnsw.MEASURED_ARTIFACT", _clean_artifact(tmp_path, RUNTIME_MANIFEST)
     )
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
-    _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "valid"})
+    _stub_quantized_indexes_valid(monkeypatch)
 
     attribution = measured()["attribution"]
 
@@ -418,7 +452,7 @@ def test_measured_is_not_attributed_when_the_connected_manifest_is_unresolved(
         "service.hnsw.MEASURED_ARTIFACT", _clean_artifact(tmp_path, "unknown")
     )
     _stub_settings(monkeypatch, _FakeSettings(manifest="unknown"))
-    _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "valid"})
+    _stub_quantized_indexes_valid(monkeypatch)
 
     attribution = measured()["attribution"]
 
@@ -467,7 +501,7 @@ def test_measured_withholds_representations_when_a_quantized_index_is_invalid(
 def test_measured_keeps_representations_when_both_quantized_indexes_are_valid(
     monkeypatch,
 ):
-    _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "valid"})
+    _stub_quantized_indexes_valid(monkeypatch)
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
 
     payload = measured()
@@ -493,11 +527,27 @@ def test_measured_names_the_cluster_error_when_index_state_cannot_be_read(monkey
 
 def test_index_states_asks_the_catalog_for_validity_and_readiness():
     """`indisvalid` alone is not enough; a not-ready index cannot serve a scan."""
-    from service.hnsw import INDEX_STATE_SQL
+    from service.db import INDEX_STATE_SQL
 
     assert "indisvalid" in INDEX_STATE_SQL
     assert "indisready" in INDEX_STATE_SQL
     assert "mosaic_search" in INDEX_STATE_SQL
+
+
+def test_one_module_defines_what_a_usable_index_is():
+    """`readiness()` and the representation gate had two copies of the rule.
+
+    Two copies is two places for `indisready` to be forgotten, and the two
+    surfaces would then disagree about the same index. Both now read
+    `service.db.index_states_on`, so the predicate exists once.
+    """
+    defining = sorted(
+        path.name
+        for path in (ROOT / "service").glob("*.py")
+        if "indisvalid" in path.read_text(encoding="utf-8")
+    )
+
+    assert defining == ["db.py"]
 
 
 # --- Probe: refuse a representation whose index is not there ------------------

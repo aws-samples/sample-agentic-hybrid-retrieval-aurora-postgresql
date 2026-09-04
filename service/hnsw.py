@@ -15,7 +15,6 @@ measuring a path the request path never takes.
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +27,7 @@ from scripts.seed_exact_neighbors import (
     load_ground_truth,
 )
 from service.config import get_settings
-from service.db import connect
+from service.db import connect, index_states, index_states_on
 from service.hnsw_presets import (
     ANCHOR_PREDICATE,
     PRESET_KEYS,
@@ -125,53 +124,9 @@ REPRESENTATION_RECOVERY: dict[str, str] = {
     "binary": "run `make db-index-quantized` (roughly 9 minutes for both indexes)",
 }
 
-# `indisvalid` alone is not enough. An interrupted CREATE INDEX CONCURRENTLY leaves a
-# relation that exists, is skipped by IF NOT EXISTS, and cannot serve a scan; the
-# planner ignores it while `to_regclass` still finds it. Same shape as
-# `service.db.readiness()`, which gates the three required retrieval indexes.
-INDEX_STATE_SQL = """
-SELECT required.name AS name,
-       CASE
-           WHEN index_state.indexrelid IS NULL THEN 'missing'
-           WHEN index_state.indisvalid AND index_state.indisready THEN 'valid'
-           ELSE 'invalid'
-       END AS state
-FROM unnest(%s::text[]) AS required(name)
-LEFT JOIN pg_index AS index_state
-  ON index_state.indexrelid = (
-      SELECT index_relation.oid
-      FROM pg_class AS index_relation
-      JOIN pg_namespace AS index_schema
-        ON index_schema.oid = index_relation.relnamespace
-      WHERE index_schema.nspname = 'mosaic_search'
-        AND index_relation.relname = required.name
-        AND index_relation.relkind = 'i'
-  )
-"""
-
 
 class RepresentationUnavailable(RuntimeError):
     """A representation was requested whose index is missing or not usable."""
-
-
-def _index_states(connection: Any, names: Sequence[str]) -> dict[str, str]:
-    """Catalog state of each named index on an already-open connection."""
-    rows = connection.execute(INDEX_STATE_SQL, ([str(name) for name in names],))
-    return {row["name"]: row["state"] for row in rows.fetchall()}
-
-
-def index_states(names: Sequence[str]) -> dict[str, str]:
-    """Report each named `mosaic_search` index as `valid`, `invalid`, or `missing`.
-
-    Args:
-        names: Bare index relation names, without the schema qualifier.
-
-    Returns:
-        One entry per requested name. A name the catalog does not know is
-        `missing`; one that exists but is not both valid and ready is `invalid`.
-    """
-    with connect() as connection:
-        return _index_states(connection, names)
 
 
 def require_representation_index(connection: Any, representation: str) -> None:
@@ -181,11 +136,14 @@ def require_representation_index(connection: Any, representation: str) -> None:
     3,870 MB of TOASTed vectors, hits the 5s statement timeout, and reports the
     failure as a timeout rather than as the missing index it is.
 
+    "Usable" is `service.db.index_states_on`'s answer, the same rule
+    `service.db.readiness()` reports the three required retrieval indexes with.
+
     Raises:
         RepresentationUnavailable: The index is missing or not valid and ready.
     """
     index_name = REPRESENTATION_INDEX[representation]
-    state = _index_states(connection, [index_name]).get(index_name, "missing")
+    state = index_states_on(connection, [index_name]).get(index_name, "missing")
     if state == "valid":
         return
     raise RepresentationUnavailable(
@@ -217,29 +175,35 @@ def _measured_attribution(provenance: dict[str, Any]) -> dict[str, Any]:
     current_manifest = settings.dataset_manifest_sha256 or ""
     measured_dirty = provenance.get("source_worktree_dirty")
 
+    # Prose, not `explain(found, fix)`. The note is rendered as body copy on the
+    # Performance page, where error-message scaffolding reads as a fault in the
+    # page rather than as a statement about where the numbers came from. Each
+    # reason is a complete sentence so any subset of them still reads.
     reasons: list[str] = []
     if current_manifest in ("", UNRESOLVED_MANIFEST):
         reasons.append(
-            f"the connected corpus reports an unresolved dataset manifest "
-            f"{current_manifest!r}"
+            f"The connected corpus reports an unresolved dataset manifest "
+            f"({current_manifest!r}), so no measurement can be attributed to it."
         )
     elif measured_manifest != current_manifest:
         reasons.append(
-            f"a different dataset manifest (measured {measured_manifest[:12]}, "
-            f"connected {current_manifest[:12]})"
+            f"These numbers were measured on a different dataset manifest "
+            f"({measured_manifest[:12]} measured, {current_manifest[:12]} connected)."
         )
     if measured_dirty is not False:
         reasons.append(
-            f"a dirty worktree at measurement time "
-            f"(source_worktree_dirty is {measured_dirty!r})"
+            f"The measurement itself came from a dirty worktree "
+            f"(source_worktree_dirty is {measured_dirty!r}), so its recorded "
+            f"revision does not describe the code that produced these numbers."
         )
 
     if reasons:
-        note = explain(
-            "these numbers were measured elsewhere: " + "; ".join(reasons),
-            "re-run `make benchmark-hnsw` against the connected corpus from a "
-            "clean worktree, or read the panel as a record of another cluster",
+        recovery = (
+            "Re-run `make benchmark-hnsw` against the connected corpus from a "
+            "clean worktree to reclaim these numbers as current, or read this "
+            "panel as a record of another cluster."
         )
+        note = " ".join([*reasons, recovery])
     else:
         note = (
             f"Measured on the connected corpus "
@@ -682,9 +646,9 @@ def probe(request: Any) -> dict[str, Any]:
     numbers came from which. The first returns the rows, which is what recall and
     the returned products are computed from. The second runs under
     EXPLAIN (ANALYZE, BUFFERS), which is where `plan.server_ms` and the buffer
-    counts come from — against a cache the first execution already warmed, so
-    they are not the cost of a cold query. `plan.execution` carries that
-    sentence onto every response.
+    counts come from, measured against a cache the first execution already
+    warmed, so they are not the cost of a cold query. `plan.execution` carries
+    that sentence onto every response.
 
     Recall is computed against `mosaic_bench.exact_neighbor`, never by re-running the
     exact scan, so the cost ceiling of this endpoint is two filtered HNSW scans.

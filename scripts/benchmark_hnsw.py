@@ -139,10 +139,13 @@ def merge_preserving_unmeasured(
     """Carry forward artifact sections this run did not measure.
 
     `artifact_from_results` produces eight keys. The committed artifact carries
-    ten: `representations` comes from `--representation-matrix` and `local_nvme`
-    from a purpose-built A/B cluster pair that no longer exists. A plain
-    overwrite deleted both silently, so a routine re-measure of the ef sweep
-    destroyed measurements that cannot be retaken.
+    ten. This script produces neither of the extra two: there is no flag here
+    that measures `representations`, and `local_nvme` was measured on a
+    purpose-built A/B cluster pair that no longer exists. This merge is the only
+    thing keeping either of them in the artifact, and regenerating them is a
+    separate measurement, not a longer run of this one. A plain overwrite
+    deleted both silently, so a routine re-measure of the ef sweep destroyed
+    measurements this script cannot retake.
 
     Args:
         artifact: What this run measured.

@@ -280,6 +280,10 @@ db-index-concurrent:
 # the rebuild, so re-running the create target is a no-op forever. That made the
 # acceptance script's "re-run make db-index-concurrent" advice unfollowable.
 # Dropping an invalid index needs no CONCURRENTLY: nothing is reading it.
+# A CREATE INDEX CONCURRENTLY still in flight also reports indisvalid = false,
+# and this target cannot tell that apart from an abandoned build, so it must not
+# be run beside an index build in another shell: it would drop the index that
+# build is still creating.
 db-drop-invalid-indexes: check-dsn
 	@set -e -o pipefail; database_url="$(DATABASE_URL)"; \
 	psql "$$database_url" -X -v ON_ERROR_STOP=1 -At -c "SELECT format('%I.%I', n.nspname, c.relname) FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE NOT i.indisvalid AND n.nspname IN ('mosaic','mosaic_search','mosaic_bench')" \

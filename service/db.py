@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import atexit
 import threading
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
+from typing import Any
 
 import psycopg
 from pgvector.psycopg import register_vector
@@ -113,6 +114,63 @@ def exact_neighbor_ground_truth(connection: psycopg.Connection, manifest: str) -
     return "seeded" if stored else "missing"
 
 
+# The one definition of "usable index" in this codebase. `indisvalid` alone is not
+# enough: an interrupted CREATE INDEX CONCURRENTLY leaves a relation that exists, is
+# skipped by IF NOT EXISTS, and cannot serve a scan; the planner ignores it while
+# `to_regclass` still finds it. Both `readiness()` below and the HNSW representation
+# gate in `service.hnsw` read their answer from here, so the rule cannot drift between
+# the two surfaces that report it.
+INDEX_STATE_SQL = """
+SELECT required.name AS name,
+       CASE
+           WHEN index_state.indexrelid IS NULL THEN 'missing'
+           WHEN index_state.indisvalid AND index_state.indisready THEN 'valid'
+           ELSE 'invalid'
+       END AS state
+FROM unnest(%s::text[]) AS required(name)
+LEFT JOIN pg_index AS index_state
+  ON index_state.indexrelid = (
+      SELECT index_relation.oid
+      FROM pg_class AS index_relation
+      JOIN pg_namespace AS index_schema
+        ON index_schema.oid = index_relation.relnamespace
+      WHERE index_schema.nspname = 'mosaic_search'
+        AND index_relation.relname = required.name
+        AND index_relation.relkind = 'i'
+  )
+"""
+
+# Without all three, the three required labs cannot run. Reported by `readiness()` as
+# `missing_retrieval_indexes` and gated on by `service.main`.
+REQUIRED_RETRIEVAL_INDEXES = (
+    "product_document_fts_gin_idx",
+    "product_document_trigram_gin_idx",
+    "product_document_embedding_hnsw_cosine_idx",
+)
+
+
+def index_states_on(connection: Any, names: Sequence[str]) -> dict[str, str]:
+    """Catalog state of each named index on an already-open connection.
+
+    Args:
+        connection: An open connection to the workshop cluster.
+        names: Bare index relation names in `mosaic_search`, without the schema
+            qualifier. A same-named index in another schema is not this index and
+            is reported as `missing`.
+
+    Returns:
+        One entry per requested name: `valid`, `invalid`, or `missing`.
+    """
+    rows = connection.execute(INDEX_STATE_SQL, ([str(name) for name in names],))
+    return {row["name"]: row["state"] for row in rows.fetchall()}
+
+
+def index_states(names: Sequence[str]) -> dict[str, str]:
+    """`index_states_on` for a caller that has no connection of its own."""
+    with connect() as connection:
+        return index_states_on(connection, names)
+
+
 def readiness() -> dict[str, object]:
     with connect() as connection:
         row = connection.execute(
@@ -156,28 +214,6 @@ def readiness() -> dict[str, object]:
                     SELECT array_agg(required.name ORDER BY required.name)
                     FROM (
                         VALUES
-                            ('product_document_fts_gin_idx'),
-                            ('product_document_trigram_gin_idx'),
-                            ('product_document_embedding_hnsw_cosine_idx')
-                    ) AS required(name)
-                    WHERE NOT EXISTS (
-                        SELECT 1
-                        FROM pg_class index_relation
-                        JOIN pg_namespace index_schema
-                          ON index_schema.oid = index_relation.relnamespace
-                        JOIN pg_index index_state
-                          ON index_state.indexrelid = index_relation.oid
-                        WHERE index_schema.nspname = 'mosaic_search'
-                          AND index_relation.relname = required.name
-                          AND index_relation.relkind = 'i'
-                          AND index_state.indisvalid
-                          AND index_state.indisready
-                    )
-                ) AS missing_retrieval_indexes,
-                (
-                    SELECT array_agg(required.name ORDER BY required.name)
-                    FROM (
-                        VALUES
                             ('search_hybrid_rrf'),
                             ('search_product_evidence'),
                             ('matches_filters')
@@ -193,8 +229,18 @@ def readiness() -> dict[str, object]:
                 ) AS missing_retrieval_functions
             """
         ).fetchone()
+        # `None` rather than `[]` when nothing is missing, which is what the
+        # `array_agg` this replaced returned over zero rows.
+        missing_indexes = sorted(
+            name
+            for name, state in index_states_on(
+                connection, REQUIRED_RETRIEVAL_INDEXES
+            ).items()
+            if state != "valid"
+        )
         return dict(row) | {
+            "missing_retrieval_indexes": missing_indexes or None,
             "exact_neighbor_ground_truth": exact_neighbor_ground_truth(
                 connection, get_settings().dataset_manifest_sha256 or ""
-            )
+            ),
         }
