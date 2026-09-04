@@ -346,7 +346,7 @@ whether a lab is finished.
   audit evidence only. When `attributed` is false, `provenance.attribution_note`
   starts with the exact string `Metrics pending evaluation for this retrieval revision`.
 
-  Four provenance fields describe how this artifact is served, not just what it
+  Five provenance fields describe how this artifact is served, not just what it
   measured:
 
   - `artifact_kind` is always the literal `release_baseline`: this is a maintainers'
@@ -362,6 +362,11 @@ whether a lab is finished.
   - `current_retrieval_settings_sha256` is the same hash resolved by the running
     service right now, so a reader can compare both sides of the settings clause
     directly rather than trusting `attributed` alone.
+  - `retrieval_fingerprint` is the fingerprint the artifact recorded for itself,
+    which is the identity of this baseline. It is served as a field rather than
+    left inside `attribution_note`'s prose so a surface can name the measurement
+    it is showing without parsing a sentence. It is `null` on an artifact that
+    recorded none, and it is never filled in from the running process.
 
 ## Production additions
 

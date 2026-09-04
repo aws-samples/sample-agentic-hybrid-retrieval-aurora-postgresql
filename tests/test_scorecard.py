@@ -29,7 +29,11 @@ from fastapi.testclient import TestClient
 
 from service.assertions import ASSERTIONS
 from service.main import app
-from service.models import RetrievalProfile, ScorecardGoldenAnchor
+from service.models import (
+    RetrievalProfile,
+    ScorecardGoldenAnchor,
+    ScorecardProvenance,
+)
 from service.retrieval_fingerprint import (
     compute_live_retrieval_settings_sha256,
     compute_retrieval_settings_sha256,
@@ -1029,6 +1033,29 @@ def test_provenance_declares_itself_a_release_baseline_served_now():
     assert provenance.measured_at < provenance.served_at
 
 
+def test_provenance_names_the_fingerprint_the_baseline_was_measured_at():
+    """The identity of the measurement is a field, not a sentence.
+
+    The Prove surface names the baseline it is showing ("measured by the
+    maintainers at fingerprint <12 chars>"), and the only other place that
+    value reaches a client is inside `attribution_note`'s prose. A surface
+    that regex-scraped a sentence would break the first time the sentence was
+    reworded, so the fingerprint the artifact recorded is served as its own
+    field alongside `retrieval_settings_sha256`.
+    """
+    artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
+    provenance = retrieval_scorecard().provenance
+
+    assert provenance.retrieval_fingerprint == artifact["retrieval_fingerprint"]
+    assert len(artifact["retrieval_fingerprint"]) == 64
+    # Falsifier: an artifact that recorded no fingerprint must serve `None`
+    # rather than the running process's own, which would read as agreement.
+    assert (
+        ScorecardProvenance.model_fields["retrieval_fingerprint"].annotation
+        == str | None
+    )
+
+
 def test_provenance_carries_both_sides_of_the_settings_comparison():
     """The verdict must be checkable, not taken on faith: the artifact's own
     recorded hash and the one the running process resolves are both served."""
@@ -1082,6 +1109,7 @@ def test_the_api_serves_the_release_baseline_fields(monkeypatch):
     assert provenance["served_at"]
     assert provenance["retrieval_settings_sha256"] == _MATCHING_SETTINGS
     assert provenance["current_retrieval_settings_sha256"] == _MATCHING_SETTINGS
+    assert provenance["retrieval_fingerprint"] == _MATCHING_FINGERPRINT
 
 
 def test_the_api_hides_metrics_when_only_the_live_settings_drifted(monkeypatch):

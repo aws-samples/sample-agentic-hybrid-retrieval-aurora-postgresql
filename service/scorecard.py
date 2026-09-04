@@ -630,6 +630,7 @@ def retrieval_scorecard() -> RetrievalScorecardResponse:
         hnsw_settings=dict(artifact["hnsw_settings"]),
         retrieval_profile=dict(artifact["retrieval_profile"]),
         retrieval_settings_sha256=artifact.get("retrieval_settings_sha256"),
+        retrieval_fingerprint=artifact.get("retrieval_fingerprint") or None,
         database_instance_id=artifact["database_instance_id"],
         strategy=artifact["strategy"],
         source_revision=artifact_source.get("revision"),

@@ -790,6 +790,12 @@ class ScorecardProvenance(BaseModel):
     #: separately from `retrieval_profile` because environment variables beat
     #: `db/config/retrieval.yaml`, so no file hash can see a change to it.
     retrieval_settings_sha256: str | None
+    #: The fingerprint the artifact recorded for itself, which is the identity
+    #: of this baseline. Served as its own field because a surface that names
+    #: the measurement it is showing must read a value, not scrape one out of
+    #: `attribution_note`'s prose. `None` on an artifact that recorded none,
+    #: never filled in from the running process.
+    retrieval_fingerprint: str | None
     database_instance_id: str
     strategy: str
     source_revision: str | None
