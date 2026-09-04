@@ -18,15 +18,21 @@ describe("MosaicStudioPage", () => {
   it("renders curated catalog fixtures immediately without a retrieval request", () => {
     render(<MosaicStudioPage />);
 
+    // Studio carries the lens strip so a reader can leave it, but it is no
+    // longer an entry in it: it runs no retrieval and grades no lab, so nothing
+    // in the strip is marked current here.
     expect(
-      screen.getByRole("link", { name: "Retrieve, rank, reason" }).getAttribute("href"),
+      screen.getByRole("link", { name: "Playground" }).getAttribute("href"),
     ).toBe("/labs/retrieval");
+    expect(screen.queryByRole("link", { name: "Catalog studio" })).toBeNull();
     expect(
-      screen.getByRole("link", { name: "Catalog studio" }).getAttribute("aria-current"),
-    ).toBe("page");
-    expect(
-      screen.getByRole("link", { name: "Vector index at scale" }).getAttribute("href"),
+      screen
+        .getByRole("link", { name: "Advanced: Vector index at scale" })
+        .getAttribute("href"),
     ).toBe("/mosaic-labs/hnsw");
+    expect(
+      screen.queryByRole("link", { current: "page" }),
+    ).toBeNull();
     expect(screen.getByRole("heading", { name: "Compose a creative workspace." })).toBeTruthy();
     // Studio carries the same masthead as every other Labs surface. It used to add
     // a 194px particle canvas that measured nothing and left its own rule stranded

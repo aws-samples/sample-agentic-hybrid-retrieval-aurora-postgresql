@@ -11,9 +11,14 @@ const sourceRepositoryUrl =
  *
  * It used to read "Retrieval Observatory / HNSW at scale / Studio" over the line
  * "Optional read-only views", which put a second name for the surface and a
- * second information architecture on the same screen as the header. The three
- * entries are lenses on one surface now, and the note says what they are for
- * rather than how little they matter.
+ * second information architecture on the same screen as the header.
+ *
+ * Two entries now, not three. The strip's job is to say where the required work
+ * happens and what is optional beyond it, and `Catalog studio` is neither: it
+ * runs no retrieval, grades no lab, and reading it as a third peer of the
+ * Playground implied a fourth thing to get through in a 45-minute budget. Its
+ * route and its footer link both stay, so nothing is lost from a session that
+ * wants it.
  */
 export function MosaicLabsTabs({ active }: { active: MosaicLabsTab }) {
   return (
@@ -24,21 +29,14 @@ export function MosaicLabsTabs({ active }: { active: MosaicLabsTab }) {
           className={active === "retrieval" ? "active" : ""}
           href={RETRIEVAL_SURFACE.path}
         >
-          Retrieve, rank, reason
+          {RETRIEVAL_SURFACE.label}
         </Link>
         <Link
           aria-current={active === "hnsw" ? "page" : undefined}
           className={active === "hnsw" ? "active" : ""}
           href="/mosaic-labs/hnsw"
         >
-          Vector index at scale
-        </Link>
-        <Link
-          aria-current={active === "studio" ? "page" : undefined}
-          className={active === "studio" ? "active" : ""}
-          href="/mosaic-labs/studio"
-        >
-          Catalog studio
+          Advanced: Vector index at scale
         </Link>
       </div>
       <small>

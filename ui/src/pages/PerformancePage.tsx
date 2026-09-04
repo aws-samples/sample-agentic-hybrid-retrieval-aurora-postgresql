@@ -1,6 +1,5 @@
 import {
   ArrowLeft,
-  ArrowRight,
   CheckCircle2,
   CircleAlert,
   Database,
@@ -609,12 +608,12 @@ export function PerformancePage() {
           </div>
         </section>
 
+        {/* One way back, to the surface the three required labs run on. Catalog
+            studio used to sit here as an onward step, which read as a fourth
+            thing to get through; it is reachable from the footer. */}
         <nav className="hnsw-next" aria-label="Other Playground lenses">
           <Link href="/labs/retrieval">
-            <ArrowLeft aria-hidden="true" size={16} /> Retrieve, rank, reason
-          </Link>
-          <Link href="/mosaic-labs/studio">
-            Catalog studio <ArrowRight aria-hidden="true" size={16} />
+            <ArrowLeft aria-hidden="true" size={16} /> Playground
           </Link>
         </nav>
       </>

@@ -5150,6 +5150,165 @@
   text-align: right;
 }
 
+/* Lab rail and readiness strip */
+
+/* Sticky under the site header rather than under the lens strip's own offset:
+   the strip scrolls away, the rail does not, so a participant who has scrolled
+   to Stage 03 can still read which lab they are in and what they were asked to
+   edit. */
+.labs-rail {
+  position: sticky;
+  z-index: 4;
+  top: var(--topbar-height);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  padding: 12px 18px;
+  border: 1px solid #ded6ca;
+  border-radius: 14px;
+  background: rgb(255 254 250 / 96%);
+  backdrop-filter: blur(12px);
+}
+
+.labs-rail-lab {
+  display: grid;
+  gap: 2px;
+}
+
+.labs-rail-kicker {
+  color: var(--ink-faint);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-rail-lab strong {
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 600;
+}
+
+.labs-rail-beats {
+  display: inline-flex;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-rail-beats li {
+  display: grid;
+  gap: 1px;
+}
+
+.labs-rail-beats a {
+  color: #5e1d2c;
+  font-size: var(--labs-detail);
+  font-weight: 700;
+}
+
+.labs-rail-beats a:hover {
+  text-decoration: underline;
+}
+
+.labs-rail-beats small,
+.labs-rail-edit small {
+  color: var(--ink-faint);
+  font-size: var(--labs-micro);
+}
+
+.labs-rail-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.labs-rail-edit code {
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-rail-state {
+  display: inline-flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-rail-state li {
+  padding: 3px 10px;
+  border: 1px solid #ded6ca;
+  border-radius: 999px;
+  background: #fffefa;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+}
+
+.labs-rail-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: #5e1d2c;
+  font-size: var(--labs-detail);
+  font-weight: 700;
+}
+
+.labs-rail-next:hover {
+  text-decoration: underline;
+}
+
+/* Nine facts on one line, in the order a failure is usually reached: the
+   cluster, then what is in it, then what indexes it, then the models. */
+.labs-readiness dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0;
+}
+
+.labs-readiness-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid #e6ded2;
+  border-radius: 8px;
+  background: #fffefa;
+}
+
+.labs-readiness-row dt {
+  color: var(--ink-faint);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.labs-readiness-row dd {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+/* An unmeasured row is drawn back, never absent: the reader has to be able to
+   tell "checked and fine" from "nothing checked this" at a glance. */
+.labs-readiness-row.is-unknown {
+  border-style: dashed;
+  background: transparent;
+}
+
+.labs-readiness-row.is-unknown dd {
+  color: var(--ink-faint);
+}
+
 .mosaic-studio-page {
   align-content: start;
   min-height: calc(100dvh - var(--topbar-height));

@@ -13,6 +13,7 @@ import type {
   HnswProbeInput,
   HnswSubstrate,
   ProductDetail,
+  LabStateResponse,
   ReadinessResponse,
   RetrievalExample,
   RetrievalPlanResponse,
@@ -290,6 +291,15 @@ export const api = {
 
   readiness: () =>
     request<ReadinessResponse>("/api/readiness"),
+
+  /**
+   * Where each lab stands, in the two places a lab can be broken.
+   *
+   * Side-effect free and cheap: it reads the marker blocks the participant edits
+   * and asks Aurora what two functions currently contain. It runs no retrieval,
+   * so reading it costs nothing a participant is paying for.
+   */
+  labsState: () => request<LabStateResponse>("/api/labs/state"),
 
   hnswSubstrate: () => request<HnswSubstrate>("/api/hnsw/substrate"),
 

@@ -2,6 +2,7 @@ import { AlertTriangle, ArrowRightLeft, LoaderCircle, Play } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../api";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
+import { LabRail } from "../components/LabRail";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { FusionDefectLens } from "../components/FusionDefectLens";
@@ -14,6 +15,7 @@ import {
   PlaygroundFigures,
   PlaygroundStage,
 } from "../components/PlaygroundStage";
+import { ReadinessStrip } from "../components/ReadinessStrip";
 import { ReasonStage } from "../components/ReasonStage";
 import { RepairEvidence } from "../components/RepairEvidence";
 import { RetrievalDiagnosticsStrip } from "../components/RetrievalDiagnosticsStrip";
@@ -453,6 +455,14 @@ export function RetrievalLabPage() {
   return (
     <div className="page mosaic-labs-page labs-premium lab-page">
       <MosaicLabsTabs active="retrieval" />
+
+      {/* Where the participant is and what the room currently holds, in that
+          order, above everything a run produces. Both are about the session
+          rather than about any one run, which is why they sit above the
+          masthead's controls rather than inside a stage. */}
+      <LabRail missionId={example?.id ?? null} />
+      <ReadinessStrip readiness={readiness} />
+
       <MosaicLabsMasthead
         action={(
           <form

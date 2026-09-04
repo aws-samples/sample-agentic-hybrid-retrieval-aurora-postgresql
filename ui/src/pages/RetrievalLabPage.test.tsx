@@ -104,6 +104,9 @@ vi.mock("../api", () => ({
     // Stage 01 reads index health on mount, so it can tell "pg_trgm is installed
     // and its index is valid" apart from "pg_trgm contributed nothing".
     readiness: vi.fn(),
+    // The lab rail reads where each lab stands, in both places a lab can be
+    // broken. Its own coverage is in LabRail.test.tsx.
+    labsState: vi.fn(),
     // Stage 03 runs the agent, but only when the participant presses its button.
     agentStream: vi.fn(),
     evidence: vi.fn(),
@@ -490,6 +493,17 @@ describe("RetrievalLabPage", () => {
     vi.mocked(api.search).mockResolvedValue(primaryResponse);
     vi.mocked(api.readiness).mockReset();
     vi.mocked(api.readiness).mockRejectedValue(new Error("readiness unavailable"));
+    vi.mocked(api.labsState).mockReset();
+    vi.mocked(api.labsState).mockResolvedValue({
+      labs: [
+        {
+          lab_id: 1,
+          source_state: "broken",
+          database_state: "applied",
+          detail: "The trigram CTE is absent from the applied function.",
+        },
+      ],
+    });
     vi.mocked(api.retrievalEvent).mockReset();
     vi.mocked(api.retrievalEventResponse).mockReset();
     vi.mocked(api.scorecard).mockReset();
@@ -514,17 +528,21 @@ describe("RetrievalLabPage", () => {
       screen.getByText("See how retrieval becomes a recommendation."),
     ).toBeTruthy();
     // Internal routes only; the strip also carries an outbound GitHub link.
+    // Two destinations, not three. Catalog studio runs no retrieval and grades
+    // nothing, so it is not a lens on this surface; its own route and the footer
+    // link to it both stay.
     expect(
       within(strip)
         .getAllByRole("link")
         .map((link) => link.getAttribute("href"))
         .filter((href) => href?.startsWith("/")),
-    ).toEqual(["/labs/retrieval", "/mosaic-labs/hnsw", "/mosaic-labs/studio"]);
+    ).toEqual(["/labs/retrieval", "/mosaic-labs/hnsw"]);
     expect(
       within(strip)
-        .getByRole("link", { name: "Retrieve, rank, reason" })
+        .getByRole("link", { name: "Playground" })
         .getAttribute("aria-current"),
     ).toBe("page");
+    expect(within(strip).queryByRole("link", { name: "Catalog studio" })).toBeNull();
     // No retired name and no "Optional" badge anywhere on the surface.
     expect(strip.textContent).not.toMatch(/Observatory|Optional|Mosaic Labs/);
   });
@@ -1284,5 +1302,37 @@ describe("RetrievalLabPage", () => {
 
     expect(await screen.findByText(`observatory run: ${SHOP_EVENT_ID}`)).toBeTruthy();
     expect(screen.getByText("observatory loading: false")).toBeTruthy();
+  });
+
+  it("says which lab this is, and what it is waiting on, above the stages", async () => {
+    // Four numbered stages describe the pipeline, not the session. Nothing on
+    // screen used to name the lab the participant was in or the file they were
+    // there to edit, so the rail carries both, above the first stage.
+    const { container } = render(<RetrievalLabPage />);
+
+    const rail = screen.getByRole("navigation", { name: "Lab rail" });
+    const strip = screen.getByLabelText("Environment readiness");
+    const firstStage = container.querySelector(".labs-stage")!;
+
+    expect(rail.compareDocumentPosition(firstStage))
+      .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(strip.compareDocumentPosition(firstStage))
+      .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(within(rail).getByText(mosaicRetrievalExamples[0].title)).toBeTruthy();
+    expect(await within(rail).findByText("source: broken")).toBeTruthy();
+    // The readiness read is rejected in this suite, so no row may claim a value.
+    expect(within(strip).getAllByText("not checked").length).toBe(9);
+  });
+
+  it("moves the rail to the lab the deep link selected", () => {
+    window.history.replaceState({}, "", "/labs/retrieval?example=rank-with-evidence");
+    render(<RetrievalLabPage />);
+
+    const rail = screen.getByRole("navigation", { name: "Lab rail" });
+    const lab = mosaicRetrievalExamples.find(
+      (example) => example.id === "rank-with-evidence",
+    )!;
+    expect(within(rail).getByText(lab.title)).toBeTruthy();
+    expect(within(rail).getByText(lab.participant_edit!.file)).toBeTruthy();
   });
 });
