@@ -76,11 +76,19 @@ export const armIndexName: Record<RetrievalArm, string> = {
   semantic: "product_document_embedding_hnsw_cosine_idx",
 };
 
-/** Which `expected_techniques` tokens name each arm in the eval fixtures. */
+/**
+ * Which `expected_techniques` tokens name each arm in the eval fixtures.
+ *
+ * `hnsw` belongs to the semantic arm: the fixtures name that arm after the index
+ * it reads rather than after the retriever, and Labs 2 and 3 use only that
+ * spelling. Without it those two labs required no semantic arm at all, so the
+ * one index they cannot run without was never checked and a meaning-match arm
+ * that contributed nothing to their pool read as an arm with nothing to say.
+ */
 export const armTechniques: Record<RetrievalArm, string[]> = {
   fts: ["fts", "lexical"],
   trigram: ["pg_trgm", "trigram"],
-  semantic: ["vector", "semantic"],
+  semantic: ["vector", "semantic", "hnsw"],
 };
 
 /** The arms a scenario's `expected_techniques` says the run had to produce. */

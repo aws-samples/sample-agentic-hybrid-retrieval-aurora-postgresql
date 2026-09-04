@@ -85,11 +85,23 @@ export function runMatchesMissionGates(
 ): boolean {
   const applied = response.applied_filters as Record<string, unknown>;
   const wanted = mission.filters as Record<string, unknown>;
-  return FORWARDABLE_FILTER_KEYS.every((key) => {
-    const left = applied[key] ?? null;
-    const right = wanted[key] ?? null;
-    return left === right;
-  });
+  return FORWARDABLE_FILTER_KEYS.every(
+    (key) => comparableGate(applied[key]) === comparableGate(wanted[key]),
+  );
+}
+
+/**
+ * One gate value, in the form both sides of that comparison can be read in.
+ *
+ * `SearchFilters.as_sql_json` drops false booleans before the service echoes a
+ * filter set, because the SQL treats a missing key as unconstrained. So a
+ * response can never carry `in_stock_only: false`, and comparing it against a
+ * scenario that spells the false out would report a different request over a
+ * gate neither side applied.
+ */
+function comparableGate(value: unknown): unknown {
+  if (value === false || value === undefined) return null;
+  return value;
 }
 
 /**

@@ -217,6 +217,26 @@ render(<RetrievalChannelMap readings={readings} />);
     expect(readings[1].state).toBe("silent");
   });
 
+  it("reads hnsw as the meaning-match arm the scenario required", () => {
+    // Labs 2 and 3 name that arm `hnsw` in their `expected_techniques`, after
+    // the index rather than the retriever. Matching only `vector` and `semantic`
+    // left the arm those labs are built on unrequired, so a meaning-match arm
+    // that contributed nothing to their pool read as having nothing to say.
+    const readings = readChannels(
+      response({
+        fused_pool: 12,
+        fts_in_pool: 5,
+        trigram_in_pool: 4,
+        semantic_in_pool: 0,
+      }),
+      ["fts", "pg_trgm", "hnsw", "rrf", "cohere_rerank"],
+      readiness(null),
+    );
+
+    expect(readings[2].state).toBe("disconnected");
+    expect(readings[2].indexName).toBe("product_document_embedding_hnsw_cosine_idx");
+  });
+
   it("names a genuinely missing index rather than blaming the composition", () => {
     const readings = readChannels(
       response({ fused_pool: 12, fts_in_pool: 5, trigram_in_pool: 0, semantic_in_pool: 10 }),

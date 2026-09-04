@@ -254,6 +254,38 @@ describe("lab outcome diagnostics", () => {
     ).toBe(true);
   });
 
+  it("treats a false gate and an absent one as the same request", () => {
+    // `SearchFilters.as_sql_json` drops false booleans before the service logs
+    // or echoes them, because a missing key and `in_stock_only: false` mean the
+    // same thing to the SQL. A scenario that spells the false out could then
+    // never match the echo of its own run, in either direction.
+    const mission = {
+      ...coreMosaicLabs[0],
+      filters: { domain: "consumer_electronics", in_stock_only: false },
+    } satisfies MosaicLabMission;
+    const ran = response(product(2, (rank) => 1 / (testFusionK + rank)));
+
+    expect(
+      runMatchesMissionGates(mission, {
+        ...ran,
+        applied_filters: { domain: "consumer_electronics" },
+      }),
+    ).toBe(true);
+    expect(
+      runMatchesMissionGates(
+        { ...mission, filters: { domain: "consumer_electronics" } },
+        { ...ran, applied_filters: { domain: "consumer_electronics", in_stock_only: false } },
+      ),
+    ).toBe(true);
+    // A true gate is still a gate: only the falsy pair collapses.
+    expect(
+      runMatchesMissionGates(mission, {
+        ...ran,
+        applied_filters: { domain: "consumer_electronics", in_stock_only: true },
+      }),
+    ).toBe(false);
+  });
+
   it("blames the environment, not the lab, when the database is not ready", () => {
     const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
     const outcome = retrievalLabOutcome(
@@ -289,6 +321,30 @@ describe("lab outcome diagnostics", () => {
 
     expect(outcome.tone).toBe("unhealthy");
     expect(outcome.detail).toContain("product_document_trigram_gin_idx");
+  });
+
+  it("names the HNSW index for a lab whose techniques call it hnsw", () => {
+    // Labs 2 and 3 declare `hnsw` rather than `vector` or `semantic`, so the arm
+    // map matched nothing and the one index those labs cannot run without was
+    // never health-checked: a dropped HNSW index read as the participant's own
+    // fusion defect.
+    const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
+    expect(mission.expected_techniques).toContain("hnsw");
+
+    const outcome = retrievalLabOutcome(
+      mission,
+      response(product(370002, (rank) => 1 / (testFusionK + rank))),
+      {
+        ...healthyReadiness,
+        database: {
+          ...healthyReadiness.database,
+          missing_retrieval_indexes: ["product_document_embedding_hnsw_cosine_idx"],
+        },
+      },
+    );
+
+    expect(outcome.tone).toBe("unhealthy");
+    expect(outcome.detail).toContain("product_document_embedding_hnsw_cosine_idx");
   });
 
   it("leaves an index this lab does not use out of its verdict", () => {
