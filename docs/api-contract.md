@@ -219,6 +219,60 @@ page labels them differently because they are different kinds of claim.
   `scan_mem_multiplier` accepts 1, the pre-2026-08-17 default, so a participant can
   reproduce the silent candidate truncation it caused and then fix it.
 
+## Lab state and completion proof
+
+- `GET /api/labs/state`
+- `POST /api/labs/{lab_id}/proof`
+
+State reports both places a lab can be broken, per lab: `source_state`
+(`solved` or `broken`) reads the marker block in `db/sql/09_search_functions.sql`
+or `service/agent_tools.py` that the participant edits, and `database_state`
+(`applied`, `stale`, or `not_applicable`) reads what Aurora currently holds.
+The two are separate questions. Editing the SQL file without re-applying it
+leaves a repaired file in front of an unrepaired cluster, which reads as
+`solved` plus `stale`; Lab 3's seam lives in the API process, so it is
+`not_applicable`. The route runs no retrieval and can be polled while working.
+
+The proof request body is `{"agent_run_id": uuid | null}`. The response is:
+
+- `lab_id`, `status` (`pass` or `fail`), `started_at`, `finished_at`,
+  `duration_ms`;
+- `source_state` and `database_state`, the same two facts the state route
+  serves;
+- `checks`, each `{name, passed, falsifier, detail}`. The falsifier is served
+  next to the verdict because a green check is not evidence on its own: a
+  reader has to be able to see what would have made it fail. Lab 1 ships 4
+  checks, Lab 2 ships 5, Lab 3 ships 5;
+- `evidence`: `{search_event_ids, agent_run_id, evidence_ids}`, so every
+  verdict is replayable through `GET /api/retrieval/events/{search_event_id}`,
+  `GET /api/telemetry/agent-turns/{agent_turn_id}`, and
+  `GET /api/evidence/{evidence_id}`;
+- `identity`: the attendee's own `source_revision`, `retrieval_fingerprint`,
+  `retrieval_settings_sha256`, `embedding_model_id`, `rerank_model_id`, and
+  `dataset_manifest_sha256`;
+- `release_baseline`: `{measured_at, retrieval_fingerprint, attributed}` from
+  the canonical scorecard artifact. Context, never the verdict. `attributed`
+  is normally false mid-lab, because the participant edits a file the
+  retrieval fingerprint covers.
+
+`status` is the conjunction of three facts, not just the checks: every check
+passed, **and** the source seam is repaired, **and** Aurora holds that repair.
+A Lab 3 run persisted before its source was re-broken would otherwise grade
+green on its own receipts.
+
+Labs 1 and 2 re-run their mission's `query` and `filters` from
+`data/evals/mosaic_labs_missions.json` through the same
+`service.telemetry.search_with_telemetry` call `POST /api/search` makes, with
+`include_diagnostics` and `rerank` on and the mission's own `top_k`. Lab 2 runs
+it twice, because "the pre-rerank order is repeatable" is not answerable from
+one run. Lab 3 grades the persisted turn named by `agent_run_id` and spends no
+agent turn: a missing or ungrounded run fails with a falsifier naming Stage 03,
+the Reason stage that produces one. An unknown `lab_id` is a 404.
+
+The same checks back `scripts/validate_lab.py`; they live in
+`service/lab_checks.py` so the terminal and the browser cannot disagree about
+whether a lab is finished.
+
 ## Retrieval scorecard
 
 - `GET /api/scorecard` is the Prove step: a read-only render of

@@ -176,6 +176,17 @@ def _load_artifact() -> dict[str, Any]:
     return json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
 
 
+def release_baseline_retrieval_fingerprint() -> str | None:
+    """The fingerprint the committed baseline recorded, not the one running now.
+
+    Served next to a lab completion proof so a reader can see both halves of
+    the attribution clause the proof does *not* gate on. `None` on an artifact
+    written before the fingerprint existed, which reads as disagreement rather
+    than as agreement.
+    """
+    return _load_artifact().get("retrieval_fingerprint") or None
+
+
 def _load_stage_ablation_artifact() -> dict[str, Any]:
     """Read the committed stage-ablation artifact, refusing to fabricate one.
 

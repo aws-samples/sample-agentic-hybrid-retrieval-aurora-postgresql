@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -332,4 +333,96 @@ def build_agent_telemetry_contract(
                 },
             ),
         ],
+    )
+
+
+@dataclass(frozen=True)
+class AgentTurnRows:
+    """Every persisted row one agent turn owns, loaded in a single session.
+
+    The timeline endpoint and the Lab 3 completion proof read the same five
+    row sets. Loading them here rather than at each call site keeps one query
+    per table: a second copy would be free to drift in what it selects, and the
+    proof would then grade a turn the timeline describes differently.
+    """
+
+    turn: dict[str, Any]
+    session: dict[str, Any]
+    searches: list[dict[str, Any]]
+    candidates: list[dict[str, Any]]
+    tools: list[dict[str, Any]]
+
+
+def load_agent_turn_rows(connection: Any, agent_turn_id: Any) -> AgentTurnRows | None:
+    """Load one agent turn and everything linked to it, or `None` if absent.
+
+    Args:
+        connection: An open connection with a dictionary row factory.
+        agent_turn_id: The turn to load. `agent_run_id` on the agent response
+            is this same identifier.
+
+    Returns:
+        The turn, its session, its search events, their candidate receipts, and
+        its tool events -- or `None` when no such turn exists.
+    """
+    turn = connection.execute(
+        """
+        SELECT turn.agent_turn_id, turn.agent_session_id, turn.user_message,
+               turn.assistant_message, turn.extracted_intent,
+               turn.created_at,
+               session.metadata
+        FROM mosaic.agent_turn AS turn
+        JOIN mosaic.agent_session AS session
+          USING (agent_session_id)
+        WHERE turn.agent_turn_id = %s
+        """,
+        (agent_turn_id,),
+    ).fetchone()
+    if turn is None:
+        return None
+    searches = connection.execute(
+        """
+        SELECT search_event_id, occurred_at, filters, retrieval_profile,
+               source_revision, dataset_manifest_sha256,
+               embedding_model_id, rerank_model_id, candidate_counts,
+               total_latency_ms, diagnostics
+        FROM mosaic.search_event
+        WHERE agent_turn_id = %s
+        ORDER BY occurred_at, search_event_id
+        """,
+        (agent_turn_id,),
+    ).fetchall()
+    search_event_ids = [row["search_event_id"] for row in searches]
+    candidates = (
+        connection.execute(
+            """
+            SELECT search_event_id, product_id, result_rank, fts_rank,
+                   trigram_rank, semantic_rank, fused_rank, rerank_rank,
+                   scores, provenance
+            FROM mosaic.search_result_event
+            WHERE search_event_id = ANY (%s::uuid[])
+            ORDER BY search_event_id, result_rank
+            """,
+            (search_event_ids,),
+        ).fetchall()
+        if search_event_ids
+        else []
+    )
+    tools = connection.execute(
+        """
+        SELECT search_event_id, tool_name, outcome, input_payload,
+               output_payload, duration_ms, error_detail, occurred_at
+        FROM mosaic.agent_tool_event
+        WHERE agent_turn_id = %s
+        ORDER BY occurred_at, tool_event_id
+        """,
+        (agent_turn_id,),
+    ).fetchall()
+    turn_row = dict(turn)
+    return AgentTurnRows(
+        turn=turn_row,
+        session={"metadata": turn_row.pop("metadata", {})},
+        searches=[dict(row) for row in searches],
+        candidates=[dict(row) for row in candidates],
+        tools=[dict(row) for row in tools],
     )

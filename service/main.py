@@ -36,6 +36,7 @@ from service.config import get_settings
 from service.db import close_pool, connect, get_pool, readiness
 from service.fusion_comparison import SubstrateError, get_fusion_comparison_service
 from service.hnsw import RepresentationUnavailable
+from service.lab_proof import UnknownLab, completion_proof, lab_states
 from service.model_runtime import (
     bedrock_credentials_status,
     safe_model_runtime_message,
@@ -45,9 +46,12 @@ from service.models import (
     AgentResponse,
     CatalogPage,
     CatalogSuggestionsResponse,
+    CompletionProofRequest,
+    CompletionProofResponse,
     EvidenceRecord,
     FusionComparisonResponse,
     HnswProbeRequest,
+    LabStateResponse,
     ProductComparisonRequest,
     ProductComparisonResponse,
     ProductDetail,
@@ -72,6 +76,7 @@ from service.telemetry import search_with_telemetry
 from service.telemetry_contract import (
     AgentTelemetryResponse,
     build_agent_telemetry_contract,
+    load_agent_turn_rows,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -545,66 +550,15 @@ def agent_turn_telemetry(agent_turn_id: UUID) -> AgentTelemetryResponse:
     candidate-level ranking receipts.
     """
     with connect() as connection:
-        turn = connection.execute(
-            """
-            SELECT turn.agent_turn_id, turn.agent_session_id, turn.user_message,
-                   turn.assistant_message, turn.extracted_intent,
-                   turn.created_at,
-                   session.metadata
-            FROM mosaic.agent_turn AS turn
-            JOIN mosaic.agent_session AS session
-              USING (agent_session_id)
-            WHERE turn.agent_turn_id = %s
-            """,
-            (agent_turn_id,),
-        ).fetchone()
-        if turn is None:
-            raise HTTPException(404, "Agent turn not found")
-        searches = connection.execute(
-            """
-            SELECT search_event_id, occurred_at, retrieval_profile,
-                   source_revision, dataset_manifest_sha256,
-                   embedding_model_id, rerank_model_id, candidate_counts,
-                   total_latency_ms, diagnostics
-            FROM mosaic.search_event
-            WHERE agent_turn_id = %s
-            ORDER BY occurred_at, search_event_id
-            """,
-            (agent_turn_id,),
-        ).fetchall()
-        search_event_ids = [row["search_event_id"] for row in searches]
-        candidates = (
-            connection.execute(
-                """
-                SELECT search_event_id, product_id, result_rank, fts_rank,
-                       trigram_rank, semantic_rank, fused_rank, rerank_rank,
-                       scores, provenance
-                FROM mosaic.search_result_event
-                WHERE search_event_id = ANY (%s::uuid[])
-                ORDER BY search_event_id, result_rank
-                """,
-                (search_event_ids,),
-            ).fetchall()
-            if search_event_ids
-            else []
-        )
-        tools = connection.execute(
-            """
-            SELECT search_event_id, tool_name, outcome, input_payload,
-                   output_payload, duration_ms, error_detail, occurred_at
-            FROM mosaic.agent_tool_event
-            WHERE agent_turn_id = %s
-            ORDER BY occurred_at, tool_event_id
-            """,
-            (agent_turn_id,),
-        ).fetchall()
-    turn_row = dict(turn)
+        rows = load_agent_turn_rows(connection, agent_turn_id)
+    if rows is None:
+        raise HTTPException(404, "Agent turn not found")
     return build_agent_telemetry_contract(
-        turn=turn_row,
-        session={"metadata": turn_row.pop("metadata", {})},
-        searches=[dict(row) for row in searches],
-        candidates=[dict(row) for row in candidates],
-        tools=[dict(row) for row in tools],
+        turn=rows.turn,
+        session=rows.session,
+        searches=rows.searches,
+        candidates=rows.candidates,
+        tools=rows.tools,
     )
 
 
@@ -846,4 +800,41 @@ def hnsw_probe_route(request: HnswProbeRequest) -> dict[str, Any]:
     except KeyError as error:
         raise HTTPException(404, str(error.args[0])) from error
     except StaleGroundTruth as error:
+        raise HTTPException(503, str(error)) from error
+
+
+@app.get("/api/labs/state", response_model=LabStateResponse)
+def lab_state() -> LabStateResponse:
+    """Where each lab stands, in both places a lab can be broken.
+
+    Cheap and side-effect free: it reads three marker blocks off disk and asks
+    Aurora what two functions currently contain. It runs no retrieval, so a
+    participant can poll it while working without spending anything.
+    """
+    try:
+        return lab_states()
+    except RuntimeError as error:
+        raise HTTPException(503, str(error)) from error
+
+
+@app.post("/api/labs/{lab_id}/proof", response_model=CompletionProofResponse)
+def lab_completion_proof(
+    lab_id: int,
+    request: CompletionProofRequest,
+) -> CompletionProofResponse:
+    """Prove one lab is finished, against Aurora, right now.
+
+    Labs 1 and 2 re-run their mission through the production search path and
+    report the receipts. Lab 3 grades the persisted turn named by
+    `agent_run_id` and spends no agent turn of its own, so pressing this button
+    costs no model call and grades the run the participant is looking at rather
+    than a fresh one.
+    """
+    try:
+        return completion_proof(lab_id, agent_run_id=request.agent_run_id)
+    except UnknownLab as error:
+        raise HTTPException(404, str(error)) from error
+    except (ClientError, BotoCoreError) as error:
+        raise _model_error(error) from error
+    except (FileNotFoundError, RuntimeError) as error:
         raise HTTPException(503, str(error)) from error

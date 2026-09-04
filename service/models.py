@@ -1013,3 +1013,108 @@ class HnswProbeRequest(BaseModel):
     # other two. The upper bound is generous because the measured curve is still climbing
     # at 200: 0.44 at x10, 0.76 at x50, 0.93 at x200 against 0.99 for fp32.
     overfetch: int = Field(default=100, ge=1, le=1000)
+
+
+class LabCheckResult(BaseModel):
+    """One acceptance condition, its verdict, and what would falsify it.
+
+    `falsifier` is served alongside `passed` deliberately. A green check is not
+    evidence on its own; a reader has to be able to see what would have made it
+    fail before treating it as one.
+    """
+
+    name: str
+    passed: bool
+    falsifier: str
+    detail: str
+
+
+class LabStateRecord(BaseModel):
+    """Where one lab stands, in the two places a lab can be broken.
+
+    `source_state` reads the marker block the participant edits.
+    `database_state` reads the object Aurora currently holds, which is a
+    different question: editing `db/sql/09_search_functions.sql` without
+    re-applying it leaves a repaired file in front of an unrepaired cluster.
+    """
+
+    lab_id: int
+    source_state: Literal["solved", "broken"]
+    database_state: Literal["applied", "stale", "not_applicable"]
+    detail: str
+
+
+class LabStateResponse(BaseModel):
+    labs: list[LabStateRecord]
+
+
+class CompletionProofRequest(BaseModel):
+    """What a proof needs from the caller, which for labs 1 and 2 is nothing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The turn to grade for Lab 3. Required there and ignored elsewhere: the
+    #: proof reads persisted receipts and never spends an agent turn of its own,
+    #: so it has to be told which run to read.
+    agent_run_id: UUID | None = None
+
+
+class CompletionProofEvidence(BaseModel):
+    """The receipts this proof produced or read, addressable afterwards."""
+
+    search_event_ids: list[UUID] = Field(default_factory=list)
+    agent_run_id: UUID | None = None
+    evidence_ids: list[int] = Field(default_factory=list)
+
+
+class CompletionProofIdentity(BaseModel):
+    """What produced this verdict, resolved from the running service.
+
+    Distinct from `ReleaseBaselineReference` on purpose: these are the
+    attendee's own retrieval identity, and that is the maintainers' measured
+    artifact. Conflating them is how a participant's repair would come to be
+    graded against numbers measured on a different tree.
+    """
+
+    source_revision: str | None
+    retrieval_fingerprint: str
+    retrieval_settings_sha256: str
+    embedding_model_id: str
+    rerank_model_id: str
+    dataset_manifest_sha256: str
+
+
+class ReleaseBaselineReference(BaseModel):
+    """The release baseline this proof sits next to, never the proof itself.
+
+    `attributed` is false whenever the running tree differs from the measured
+    one -- which is the normal state mid-lab, because the participant edits a
+    fingerprinted SQL file. It is context for the verdict, not part of it.
+    """
+
+    measured_at: datetime
+    retrieval_fingerprint: str | None
+    attributed: bool
+
+
+class CompletionProofResponse(BaseModel):
+    """One lab's completion verdict, with the evidence behind it.
+
+    `status` is the conjunction of three separate facts, and all three are
+    served: every check passed, the source seam is repaired, and Aurora holds
+    that repair. A lab whose checks pass against a stale cluster is not
+    finished, and neither is a Lab 3 whose old run predates re-breaking the
+    source.
+    """
+
+    lab_id: int
+    status: Literal["pass", "fail"]
+    started_at: datetime
+    finished_at: datetime
+    duration_ms: int
+    source_state: Literal["solved", "broken"]
+    database_state: Literal["applied", "stale", "not_applicable"]
+    checks: list[LabCheckResult]
+    evidence: CompletionProofEvidence
+    identity: CompletionProofIdentity
+    release_baseline: ReleaseBaselineReference
