@@ -627,6 +627,16 @@ export function DiscoverPage() {
         </div>
       </section>
 
+      <section className="discover-workshop-entry" aria-label="Workshop entry">
+        <p>
+          A search can return a plausible top result while the system behind
+          it is wrong.
+        </p>
+        <Link className="discover-cta" href={RETRIEVAL_SURFACE.path}>
+          Open the {RETRIEVAL_SURFACE.label}
+        </Link>
+      </section>
+
       <div className="discover-body">
         {openDoors.length || proofLine ? (
           <section className="discover-merch" aria-label="Shop by what matters">
