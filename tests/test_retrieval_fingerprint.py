@@ -19,16 +19,22 @@ from pathlib import Path
 
 import pytest
 
+from service.models import RetrievalProfile
 from service.retrieval_fingerprint import (
     _EXPECTED_CATEGORY_COUNTS,
+    _FLOAT_SETTINGS,
     ABLATION_METHODOLOGY_FILES,
+    RETRIEVAL_SETTINGS_KEY_COUNT,
     SCORECARD_METHODOLOGY_FILES,
     RetrievalFingerprintError,
     category_counts,
     compute_ablation_methodology_sha256,
+    compute_live_retrieval_settings_sha256,
     compute_retrieval_fingerprint,
+    compute_retrieval_settings_sha256,
     compute_scorecard_methodology_sha256,
     manifest_files,
+    retrieval_settings_payload,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -380,3 +386,210 @@ def test_methodology_hash_refuses_a_missing_manifest_entry(tmp_path):
     return a valid-looking digest over zero files."""
     with pytest.raises(RetrievalFingerprintError, match="does not exist"):
         compute_scorecard_methodology_sha256(tmp_path)
+
+
+# --- The live retrieval settings hash ---------------------------------------
+#
+# The fingerprint above hashes *files*. Environment overrides
+# (`RRF_K`, `FTS_CANDIDATE_LIMIT`, `HNSW_EF_SEARCH`, ...) beat the yaml in
+# `scripts/retrieval_profile._resolve`, so they change every served result
+# without moving one byte of any manifest file. `RRF_K=1` could therefore serve
+# an attributed scorecard. These tests pin the second hash that closes that
+# hole: one over the resolved `RetrievalProfile` itself.
+
+
+_RETRIEVAL_SETTINGS_KEYS = {
+    "authorized_limit",
+    "ef_search",
+    "fts_limit",
+    "fused_limit",
+    "iterative_scan",
+    "max_scan_tuples",
+    "result_limit",
+    "rrf_k",
+    "scan_mem_multiplier",
+    "semantic_limit",
+    "trigram_limit",
+    "trigram_threshold",
+    "weight_lexical",
+    "weight_semantic",
+    "weight_trigram",
+}
+
+#: Every setting an environment variable can override behind the fingerprint's
+#: back, per `scripts/retrieval_profile.BOUNDS`. Each must move the hash on its
+#: own; asserted one at a time so a hash that only reacted to `rrf_k` cannot
+#: hide behind the others.
+_ENV_OVERRIDABLE_SETTINGS = (
+    ("rrf_k", 1),
+    ("fts_limit", 1),
+    ("trigram_limit", 1),
+    ("semantic_limit", 1),
+    ("fused_limit", 1),
+    ("ef_search", 1),
+    ("trigram_threshold", 0.99),
+)
+
+
+def _live_profile() -> dict:
+    return RetrievalProfile().model_dump()
+
+
+def test_the_settings_payload_covers_every_retrieval_profile_field():
+    """Exhaustiveness, per house standards rule 5a.
+
+    The hash's domain is `RetrievalProfile` itself, so a field added to the
+    model must either be hashed or force a deliberate decision here. Checked
+    against a hand-written key set *and* against the model, never against
+    `len()` of the production tuple, which would agree with any edit.
+    """
+    payload = retrieval_settings_payload(_live_profile())
+
+    assert set(payload) == set(RetrievalProfile.model_fields)
+    assert set(payload) == _RETRIEVAL_SETTINGS_KEYS
+    assert len(payload) == RETRIEVAL_SETTINGS_KEY_COUNT
+    assert RETRIEVAL_SETTINGS_KEY_COUNT == 15
+    # The float set is derived from the model, so it cannot go stale on its
+    # own; pinned here against literals so a field changing type is a decision
+    # somebody makes rather than a digest that silently re-renders.
+    assert _FLOAT_SETTINGS == {
+        "scan_mem_multiplier",
+        "trigram_threshold",
+        "weight_lexical",
+        "weight_semantic",
+        "weight_trigram",
+    }
+
+
+def test_the_settings_hash_is_stable_for_the_same_resolved_profile():
+    """Witness that the positive branch exists: the hash is a hash."""
+    profile = _live_profile()
+
+    first = compute_retrieval_settings_sha256(profile)
+
+    assert len(first) == 64
+    assert first == compute_retrieval_settings_sha256(_live_profile())
+
+
+def test_the_settings_hash_ignores_dict_insertion_order():
+    """Independence: canonical JSON sorts keys, so a differently-built dict
+    carrying identical values must hash identically."""
+    profile = _live_profile()
+    reversed_order = {key: profile[key] for key in reversed(list(profile))}
+
+    assert compute_retrieval_settings_sha256(reversed_order) == (
+        compute_retrieval_settings_sha256(profile)
+    )
+
+
+@pytest.mark.parametrize(("setting", "value"), _ENV_OVERRIDABLE_SETTINGS)
+def test_every_environment_overridable_setting_moves_the_hash(setting, value):
+    """Red-at-birth for the audit finding itself.
+
+    Each of these is settable from the environment and invisible to
+    `compute_retrieval_fingerprint`, which hashes files. If any one of them
+    left this hash still, an attributed scorecard could be served from a
+    retrieval configuration nobody measured.
+    """
+    profile = _live_profile()
+    assert profile[setting] != value, setting  # witness: the edit is a real change
+    drifted = {**profile, setting: value}
+
+    assert compute_retrieval_settings_sha256(drifted) != (
+        compute_retrieval_settings_sha256(profile)
+    )
+
+
+def test_a_missing_settings_key_is_refused_rather_than_hashed_short():
+    """Red-at-birth: a 14-key profile must fail loudly, not produce a
+    valid-looking digest over a silently shorter key set."""
+    profile = _live_profile()
+    del profile["rrf_k"]
+
+    with pytest.raises(RetrievalFingerprintError) as error:
+        compute_retrieval_settings_sha256(profile)
+
+    message = str(error.value)
+    assert "rrf_k" in message  # the offending value
+    assert message.startswith("found ")
+    assert "; fix: " in message  # the nearest fix, per house standards rule 1
+
+
+def test_an_unexpected_settings_key_is_refused():
+    """The mirror image: a key the model does not declare must not be hashed
+    in under a name that reads like a setting."""
+    profile = {**_live_profile(), "rrf_k_typo": 60}
+
+    with pytest.raises(RetrievalFingerprintError) as error:
+        compute_retrieval_settings_sha256(profile)
+
+    message = str(error.value)
+    assert "rrf_k_typo" in message
+    assert "; fix: " in message
+
+
+def test_a_renamed_key_reports_both_halves_of_the_mismatch():
+    """A rename keeps the count at 15, so a count-only check would pass it."""
+    profile = _live_profile()
+    profile["rrf_kk"] = profile.pop("rrf_k")
+
+    with pytest.raises(RetrievalFingerprintError) as error:
+        compute_retrieval_settings_sha256(profile)
+
+    message = str(error.value)
+    assert "rrf_k" in message
+    assert "rrf_kk" in message
+
+
+def test_float_settings_are_rendered_independently_of_their_python_type():
+    """`scan_mem_multiplier: 2` in the yaml becomes `2.0` on the model and
+    `2.0` again through JSON. A profile that reached here carrying the integer
+    must not hash differently from the float that means the same thing."""
+    profile = _live_profile()
+    assert profile["scan_mem_multiplier"] == 2.0  # witness: the field is a float
+
+    integral = {**profile, "scan_mem_multiplier": 2}
+
+    assert compute_retrieval_settings_sha256(integral) == (
+        compute_retrieval_settings_sha256(profile)
+    )
+
+
+def test_the_float_rendering_still_discriminates_between_different_floats():
+    """Independence from the test above: normalizing the *type* must not
+    normalize away the *value*."""
+    profile = _live_profile()
+    changed = {**profile, "scan_mem_multiplier": 4.0}
+
+    assert compute_retrieval_settings_sha256(changed) != (
+        compute_retrieval_settings_sha256(profile)
+    )
+
+
+def test_the_live_settings_hash_is_the_hash_of_the_resolved_profile():
+    """The single seam both sides of the gate must use.
+
+    `scripts/score_evals.py` records this at measurement time and
+    `service/scorecard.py` recomputes it at serve time. If the two ever
+    computed it from differently-constructed profiles the gate would read
+    pending forever, so both call this one function and this test pins what it
+    hashes.
+    """
+    assert compute_live_retrieval_settings_sha256() == (
+        compute_retrieval_settings_sha256(RetrievalProfile().model_dump())
+    )
+
+
+def test_the_live_settings_hash_follows_an_environment_override(monkeypatch):
+    """The end-to-end proof of the finding: `RRF_K=1` changes what is served,
+    touches no manifest file, and must therefore move this hash."""
+    baseline = compute_live_retrieval_settings_sha256()
+    assert compute_retrieval_fingerprint() == compute_retrieval_fingerprint()
+    fingerprint_before = compute_retrieval_fingerprint()
+
+    monkeypatch.setenv("RRF_K", "1")
+
+    assert compute_live_retrieval_settings_sha256() != baseline
+    # Witness for the whole mechanism: the file fingerprint really is blind to
+    # this, which is why the settings hash has to exist.
+    assert compute_retrieval_fingerprint() == fingerprint_before

@@ -110,12 +110,45 @@ what the system does -- so the mechanism was removed rather than narrowed.
 The ablation's re-measure spends no reranker calls, so only the canonical
 scorecard's costs anything, and only when one of three rarely-edited files
 changes.
+
+The settings hash: what no file manifest can see
+-------------------------------------------------
+Every hash above is over *files*. `scripts/retrieval_profile._resolve` reads
+the environment before the yaml -- ``RRF_K``, ``FTS_CANDIDATE_LIMIT``,
+``TRIGRAM_CANDIDATE_LIMIT``, ``SEMANTIC_CANDIDATE_LIMIT``,
+``RERANK_CANDIDATE_LIMIT``, ``HNSW_EF_SEARCH``, ``VECTOR_DIM`` and the
+``PG_TRGM_*_THRESHOLD`` pair all beat `db/config/retrieval.yaml` -- so
+``RRF_K=1`` changes every served result while `db/config/retrieval.yaml` sits
+byte-identical and the retrieval fingerprint never moves. An audit found that
+an attributed scorecard could therefore be served from a retrieval
+configuration nobody measured.
+
+`compute_retrieval_settings_sha256` closes that: it hashes the *resolved*
+`service.models.RetrievalProfile` -- the same object persisted on every
+`mosaic.search_event.retrieval_profile` row -- rather than the files that
+supply its defaults. Both sides of the gate call
+`compute_live_retrieval_settings_sha256`, never build the input themselves,
+because a hash computed from two differently-constructed profiles would read
+"pending" forever.
+
+That single seam is also why the *served request* profile is not the input.
+`RetrievalService._profile` overwrites `result_limit` with the request's limit
+and `authorized_limit` with the request's grant; both are properties of one
+call, not of the configuration. Hashing them would compare a request against a
+configuration and could never match. They stay covered: the artifact records
+the served profile verbatim under `retrieval_profile`, and
+`scripts.score_evals.verify_scorecard` pins that block field-for-field.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
+
+from service.models import RetrievalProfile
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -299,6 +332,106 @@ def compute_scorecard_methodology_sha256(repo_root: Path | None = None) -> str:
 def compute_ablation_methodology_sha256(repo_root: Path | None = None) -> str:
     """The scorecard methodology plus the ablation harness itself."""
     return _methodology_digest("ablation", ABLATION_METHODOLOGY_FILES, repo_root)
+
+
+#: How many tunables `service.models.RetrievalProfile` declares. An independent
+#: witness per house standards rule 7: a hand-counted literal, never
+#: `len(RetrievalProfile.model_fields)`, which would agree with any edit to the
+#: model and so could never fail. Adding a tunable changes what retrieval does,
+#: so it must force a deliberate edit here and a re-measured baseline.
+RETRIEVAL_SETTINGS_KEY_COUNT = 15
+
+#: Settings the model declares as floats. Derived from the model rather than
+#: retyped, so the enumeration is exhaustive over its domain by construction
+#: (house standards rule 5a); a test pins the resulting names against literals.
+#: The rendering matters because `scan_mem_multiplier: 2` in the yaml is the
+#: same setting as `2.0`, and a digest that disagreed with itself across that
+#: round trip would report drift that did not happen.
+_FLOAT_SETTINGS: frozenset[str] = frozenset(
+    name
+    for name, field in RetrievalProfile.model_fields.items()
+    if field.annotation is float
+)
+
+
+def retrieval_settings_payload(profile: Mapping[str, Any]) -> dict[str, Any]:
+    """The exact canonical mapping `compute_retrieval_settings_sha256` digests.
+
+    Exposed rather than kept private so a test can assert *what was hashed*.
+    A digest looks identical whatever it covered, so asserting only that two
+    digests differ proves nothing about the key set -- house standards rule 7's
+    witness requirement.
+
+    Args:
+        profile: A `RetrievalProfile` dump. Must carry exactly the model's
+            fields; a missing or unexpected key is refused rather than hashed
+            around.
+
+    Returns:
+        Key-sorted settings, with float-declared values rendered through
+        `repr(float(...))` so an integral float hashes the same as its float.
+
+    Raises:
+        RetrievalFingerprintError: The key set does not match the model's, or
+            the model's own field count no longer matches
+            `RETRIEVAL_SETTINGS_KEY_COUNT`.
+    """
+    declared = set(RetrievalProfile.model_fields)
+    if len(declared) != RETRIEVAL_SETTINGS_KEY_COUNT:
+        raise RetrievalFingerprintError(
+            explain(
+                f"service.models.RetrievalProfile declares {len(declared)} "
+                f"tunable(s), not {RETRIEVAL_SETTINGS_KEY_COUNT}",
+                "a new tunable changes what retrieval does, so update "
+                "RETRIEVAL_SETTINGS_KEY_COUNT in "
+                "service/retrieval_fingerprint.py deliberately and re-measure "
+                "the canonical scorecard",
+            )
+        )
+    supplied = set(profile)
+    missing = sorted(declared - supplied)
+    unexpected = sorted(supplied - declared)
+    if missing or unexpected:
+        raise RetrievalFingerprintError(
+            explain(
+                f"retrieval settings are missing {missing} and carry "
+                f"unexpected {unexpected}",
+                "pass service.models.RetrievalProfile(...).model_dump(), which "
+                "carries exactly the declared tunables; a partial mapping would "
+                "hash a shorter key set under a name that still reads complete",
+            )
+        )
+    return {
+        name: (repr(float(profile[name])) if name in _FLOAT_SETTINGS else profile[name])
+        for name in sorted(declared)
+    }
+
+
+def compute_retrieval_settings_sha256(profile: Mapping[str, Any]) -> str:
+    """Sha256 over the resolved retrieval settings, not the files behind them.
+
+    Canonical JSON with sorted keys, so the digest is independent of how the
+    mapping happened to be built. See the module docstring for why this exists
+    alongside `compute_retrieval_fingerprint` rather than inside it.
+    """
+    canonical = json.dumps(
+        retrieval_settings_payload(profile),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def compute_live_retrieval_settings_sha256() -> str:
+    """The settings this process resolves right now, from the yaml and the env.
+
+    The one construction both sides of the gate use: `scripts/score_evals.py`
+    records it into the artifact at measurement time and `service/scorecard.py`
+    recomputes it at serve time. Two call sites building the profile
+    independently is exactly how this gate would come to read "pending"
+    forever, so neither does.
+    """
+    return compute_retrieval_settings_sha256(RetrievalProfile().model_dump())
 
 
 def compute_retrieval_fingerprint(repo_root: Path | None = None) -> str:
