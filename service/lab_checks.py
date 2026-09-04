@@ -1135,8 +1135,9 @@ def agent_response_checks(
 # ---------------------------------------------------------------------------
 
 STAGE_03_FIX = (
-    "run Stage 03 (Reason) on the Retrieval Lab page, then submit the "
-    "agent_run_id it returns"
+    "if you edited service/agent_tools.py, run make restart-lab-api first, "
+    "because the API process imports that file once when it starts; then run "
+    "Stage 03 (Reason) on the Playground and submit the agent_run_id it returns"
 )
 
 

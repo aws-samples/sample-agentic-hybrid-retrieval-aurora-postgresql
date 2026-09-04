@@ -515,6 +515,11 @@ def test_lab_3_without_a_run_id_fails_naming_stage_03(monkeypatch) -> None:
     assert proof.status == "fail"
     assert len(proof.checks) == 5
     assert all("Stage 03" in check.detail for check in proof.checks)
+    # Lab 3's runtime is the uvicorn process, which imports service/agent_tools.py
+    # once at startup. A participant who edited the file and re-ran Stage 03
+    # without restarting graded the code the process still holds, so the fix has
+    # to name the restart before it names the re-run.
+    assert all("make restart-lab-api" in check.detail for check in proof.checks)
     assert proof.evidence.agent_run_id is None
 
 
@@ -559,6 +564,11 @@ def test_lab_state_reports_every_lab(monkeypatch) -> None:
     assert [record.lab_id for record in state.labs] == [1, 2, 3]
     assert state.labs[2].database_state == "not_applicable"
     assert all(record.detail for record in state.labs)
+    # `not_applicable` says no Aurora object carries the repair. It must also
+    # say what does carry it: the API process, which imports the edited file
+    # once when it starts.
+    assert "imports once when it starts" in state.labs[2].detail
+    assert "make restart-lab-api" in state.labs[2].detail
 
 
 def test_a_database_error_on_one_lab_leaves_the_next_lab_readable(

@@ -14,7 +14,7 @@ Price, inventory, compatibility, dimensions, availability, and decisive booleans
 
 ### Keep candidate provenance
 
-FTS, `pg_trgm`, and vector retrieval emit independent ranks and scores. RRF combines ordinal evidence while retaining source-level provenance for the Retrieval Lab and agent explanation.
+FTS, `pg_trgm`, and vector retrieval emit independent ranks and scores. RRF combines ordinal evidence while retaining source-level provenance for the Playground and agent explanation.
 
 ### Separate product retrieval from evidence retrieval
 

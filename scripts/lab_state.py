@@ -186,8 +186,9 @@ LAB1_FUNCTION_SIGNATURE = """
 """
 
 _LAB3_DETAIL = (
-    "Lab 3 edits service/agent_tools.py, which the API process imports; "
-    "no Aurora object carries its repair"
+    "Lab 3 edits service/agent_tools.py, which the API process imports once "
+    "when it starts, so an edited file only reaches a run after "
+    "make restart-lab-api; no Aurora object carries its repair"
 )
 
 

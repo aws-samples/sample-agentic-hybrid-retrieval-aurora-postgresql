@@ -123,8 +123,9 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         arm=None,
         falsifier=(
             "no successful search_products trace preserves the request's "
-            "domain, price ceiling, stock constraint, and any declared brand, "
-            "min_rating, availability, or attributes; a narrowed price "
+            "domain, price ceiling, stock constraint, and any declared "
+            "category_key, brand, min_rating, availability, or attributes; "
+            "a narrowed price "
             "ceiling still passes, since a tighter bound is not a widened "
             "request. The Lab 3 core mission declares no attribute, so the "
             "decisive attribute check on that mission is carried by the "
