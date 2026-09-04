@@ -8,6 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "../api";
 import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
@@ -754,7 +755,7 @@ describe("RetrievalLabPage", () => {
     expect(screen.getByText("observatory loading: false")).toBeTruthy();
   });
 
-  it("preserves factual first and latest run measures after a second pipeline run", async () => {
+  it("preserves factual baseline and latest run measures after a second pipeline run", async () => {
     vi.mocked(api.search)
       .mockResolvedValueOnce(firstComparisonResponse)
       .mockResolvedValueOnce(latestComparisonResponse);
@@ -764,14 +765,44 @@ describe("RetrievalLabPage", () => {
     await screen.findByText("observatory run: first-retrieval-run");
     fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
 
-    expect(await screen.findByText("First run and latest run")).toBeTruthy();
-    const firstRun = screen.getByLabelText("First run metrics");
+    expect(await screen.findByText("Baseline and latest run")).toBeTruthy();
+    const baselineRun = screen.getByLabelText("Baseline metrics");
     const latestRun = screen.getByLabelText("Latest run metrics");
-    expect(within(firstRun).getByText("#7")).toBeTruthy();
-    expect(within(firstRun).getByText("#6")).toBeTruthy();
-    expect(within(firstRun).getByText("0")).toBeTruthy();
+    expect(within(baselineRun).getByText("#7")).toBeTruthy();
+    expect(within(baselineRun).getByText("#6")).toBeTruthy();
+    expect(within(baselineRun).getByText("0")).toBeTruthy();
     expect(within(latestRun).getAllByText("#1")).toHaveLength(2);
     expect(within(latestRun).getByText("4")).toBeTruthy();
+    // The two surfaces that name a "before" name the same run.
+    expect(screen.getByText("repair baseline: first-retrieval-run")).toBeTruthy();
+    expect(document.querySelector(".labs-run-summary")?.textContent)
+      .toContain("Baseline first-re");
+  });
+
+  it("re-anchors the comparison on the run the participant re-pinned", async () => {
+    // The measures and the pinned id are one claim: re-pinning has to move both,
+    // or the panel keeps comparing against a run the summary line no longer
+    // names as the baseline.
+    vi.mocked(api.search)
+      .mockResolvedValueOnce(firstComparisonResponse)
+      .mockResolvedValueOnce(latestComparisonResponse)
+      .mockResolvedValueOnce(firstComparisonResponse);
+    render(<RetrievalLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    await screen.findByText("observatory run: first-retrieval-run");
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    await screen.findByText("observatory run: latest-retrieval-run");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pin as baseline" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+
+    await screen.findByText("observatory run: first-retrieval-run");
+    expect(await screen.findByText("repair baseline: latest-retrieval-run")).toBeTruthy();
+    // The baseline column now reports the re-pinned run's own measures.
+    const baselineRun = screen.getByLabelText("Baseline metrics");
+    expect(within(baselineRun).getAllByText("#1")).toHaveLength(2);
+    expect(within(baselineRun).getByText("4")).toBeTruthy();
   });
 
   it("promotes Package as the conclusion to the four numbered stages", async () => {
@@ -954,6 +985,28 @@ describe("RetrievalLabPage", () => {
       .toContain(SHOP_EVENT_ID.slice(0, 8));
   });
 
+  it("still delivers the carried run when React mounts the page twice", async () => {
+    // `main.tsx` wraps the app in StrictMode, so a development mount runs
+    // setup, cleanup, setup. The arrival effect guarded its own resolution with
+    // a closure flag that the first cleanup flipped, while the ref that stops a
+    // second fetch made the second setup return early: the carried run then
+    // landed nowhere, and nothing replayed the query either.
+    vi.mocked(api.retrievalEvent).mockResolvedValue(shopEvent);
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />, { wrapper: StrictMode });
+
+    expect(await screen.findByText(`repair baseline: ${SHOP_EVENT_ID}`)).toBeTruthy();
+    expect(screen.getByText("This is the exact run from Shop")).toBeTruthy();
+    // Still exactly one read, and still no replay: the double mount must not
+    // spend a second request either.
+    expect(vi.mocked(api.retrievalEvent)).toHaveBeenCalledTimes(1);
+    expect(api.search).not.toHaveBeenCalled();
+  });
+
   it("pins the carried-over run as the baseline the repair panel compares from", async () => {
     vi.mocked(api.retrievalEvent).mockResolvedValue(shopEvent);
     window.history.replaceState(
@@ -965,6 +1018,50 @@ describe("RetrievalLabPage", () => {
 
     expect(await screen.findByText(`repair baseline: ${SHOP_EVENT_ID}`)).toBeTruthy();
     expect(screen.getByText(`repair latest: ${SHOP_EVENT_ID}`)).toBeTruthy();
+  });
+
+  it("keeps one before-anchor after a carried arrival, rather than two", async () => {
+    // The pinned id was the Shop run while the measures came from the first
+    // Playground run, so the run summary, the repair panel, and the run
+    // comparison named two different "before" runs on one screen.
+    vi.mocked(api.retrievalEvent).mockResolvedValue(shopEvent);
+    vi.mocked(api.search).mockResolvedValue(latestComparisonResponse);
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />);
+    await screen.findByText(`repair baseline: ${SHOP_EVENT_ID}`);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+
+    expect(await screen.findByText("repair latest: latest-retrieval-run")).toBeTruthy();
+    // Still the Shop run, and no second before-anchor beside it: the replay
+    // endpoint returns no product rows, so there is nothing to measure the
+    // carried run with.
+    expect(screen.getByText(`repair baseline: ${SHOP_EVENT_ID}`)).toBeTruthy();
+    expect(screen.queryByText("Baseline and latest run")).toBeNull();
+  });
+
+  it("names the fault when the Shop run could not be read for another reason", async () => {
+    // A 503 reported as "could not be found" sends the participant looking for a
+    // missing run rather than at an API that is not answering.
+    vi.mocked(api.retrievalEvent).mockRejectedValue(
+      new ApiError(503, "Service unavailable"),
+    );
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />);
+
+    expect(
+      await screen.findByText(/The Shop run could not be read \(503\), so the query was run again/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/could not be found/)).toBeNull();
+    await waitFor(() => expect(api.search).toHaveBeenCalled());
   });
 
   it("runs the query again, and says so, when the Shop run cannot be read back", async () => {

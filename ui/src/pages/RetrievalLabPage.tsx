@@ -29,6 +29,7 @@ import {
   RrfMath,
 } from "../components/RetrievalProvenance";
 import { SearchRetrievalReceipt } from "../components/RetrievalReceipt";
+import { RunSummary, shortEventId } from "../components/RunSummary";
 import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
 import { liveRetrievalOutcome, retrievalLabOutcome } from "../labOutcome";
 import {
@@ -93,9 +94,40 @@ function runMeasurements(
   ];
 }
 
-/** Enough of a `search_event_id` to recognise on screen, without printing 36 characters. */
-function shortEventId(searchEventId: string): string {
-  return searchEventId.slice(0, 8);
+/**
+ * Why a carried run could not be read, in the terms the banner has to use.
+ *
+ * A 404 is the ordinary case -- a link from a run that has since been cleared --
+ * and the participant only needs to know the query was replayed. Anything else
+ * is a fault the surface should not describe as "not found": reporting an
+ * expired session or a disconnected API as a missing run sends the participant
+ * looking for the wrong thing.
+ */
+function arrivalFailureMessage(cause: unknown): string {
+  if (cause instanceof ApiError && cause.status === 404) {
+    return "The Shop run could not be found, so the query was run again.";
+  }
+  const detail = cause instanceof ApiError
+    ? String(cause.status)
+    : cause instanceof Error
+      ? cause.message
+      : "unknown error";
+  return `The Shop run could not be read (${detail}), so the query was run again.`;
+}
+
+/**
+ * The run a mission measures its repairs against, and the response behind it.
+ *
+ * One value, not two, because the id and the response are the same claim: a
+ * pinned id whose measurements came from a different run is how "First run"
+ * and "Baseline" ended up naming two different events on one screen. A carried
+ * arrival pins an id with no response -- `GET /api/retrieval/events/{id}`
+ * replays ranks and scores, not product rows -- so anything that needs the
+ * response checks for it rather than assuming a pin implies one.
+ */
+interface PinnedBaseline {
+  searchEventId: string;
+  response: SearchResponse | null;
 }
 
 /** Eligibility gates the run actually applied, named rather than counted. */
@@ -155,9 +187,9 @@ export function RetrievalLabPage() {
   /** The Shop run this surface read back, once it has. Null until then, and null
    * for a hand-off that carried only a query. */
   const [carriedRunId, setCarriedRunId] = useState<string | null>(null);
-  /** True once a carried event failed to read back and the query was replayed
-   * instead, which the banner has to say rather than quietly re-running. */
-  const [carriedRunMissing, setCarriedRunMissing] = useState(false);
+  /** Why a carried event failed to read back, once one has, which the banner has
+   * to say rather than quietly re-running. Empty while nothing has failed. */
+  const [carriedRunFallback, setCarriedRunFallback] = useState("");
   /**
    * The run this mission measures its repairs against.
    *
@@ -166,11 +198,9 @@ export function RetrievalLabPage() {
    * Re-pinnable, and dropped whenever the mission itself changes: a baseline from
    * one scenario's query says nothing about another's.
    */
-  const [baselineSearchEventId, setBaselineSearchEventId] = useState<string | null>(null);
+  const [baseline, setBaseline] = useState<PinnedBaseline | null>(null);
   const [response, setResponse] = useState<SearchResponse | null>(null);
-  const [firstResponse, setFirstResponse] = useState<SearchResponse | null>(null);
   const [executedQuery, setExecutedQuery] = useState("");
-  const [runCount, setRunCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
@@ -186,9 +216,12 @@ export function RetrievalLabPage() {
     },
     [example, executedQuery, response],
   );
-  const firstRunMeasurements = useMemo(
-    () => (example && firstResponse ? runMeasurements(example, firstResponse) : []),
-    [example, firstResponse],
+  const baselineSearchEventId = baseline?.searchEventId ?? null;
+  /** The response the pinned baseline came from, when the pin came with one. */
+  const baselineResponse = baseline?.response ?? null;
+  const baselineRunMeasurements = useMemo(
+    () => (example && baselineResponse ? runMeasurements(example, baselineResponse) : []),
+    [example, baselineResponse],
   );
   const latestRunMeasurements = useMemo(
     () => (example && response ? runMeasurements(example, response) : []),
@@ -249,12 +282,10 @@ export function RetrievalLabPage() {
     requestVersion.current += 1;
     setCarriedOver(false);
     setCarriedRunId(null);
-    setCarriedRunMissing(false);
-    setBaselineSearchEventId(null);
+    setCarriedRunFallback("");
+    setBaseline(null);
     setResponse(null);
-    setFirstResponse(null);
     setExecutedQuery("");
-    setRunCount(0);
     setError("");
     setLoading(false);
   };
@@ -289,15 +320,18 @@ export function RetrievalLabPage() {
         { limit: 12, rerank: true },
       );
       if (version === requestVersion.current) {
-        setFirstResponse((first) => first ?? nextResponse);
         setResponse(nextResponse);
         setExecutedQuery(requestedQuery);
-        setRunCount((count) => count + 1);
         // The first run of a mission is the state the participant is about to
         // change, so it becomes the baseline without being asked for. Later runs
         // leave it alone: a baseline that moved every run could never show a
-        // repair.
-        setBaselineSearchEventId((pinned) => pinned ?? nextResponse.search_event_id);
+        // repair. A run arriving after a carried arrival leaves the Shop run
+        // pinned, response and all, so the id and the measurements never name
+        // two different events.
+        setBaseline((pinned) => pinned ?? {
+          searchEventId: nextResponse.search_event_id,
+          response: nextResponse,
+        });
       }
     } catch (cause) {
       if (version === requestVersion.current) {
@@ -318,6 +352,14 @@ export function RetrievalLabPage() {
    * hand-off read as three separate demonstrations rather than one request
    * travelling through the product. `ranForwarded` gates both so editing the
    * query and re-rendering does not re-fire them.
+   *
+   * The resolution is version-guarded, the way `run()` guards its own, rather
+   * than cancelled by a cleanup closure. `main.tsx` mounts the app inside
+   * `StrictMode`, so a development mount runs setup, cleanup, setup: a closure
+   * flag flipped by the first cleanup discards the only fetch there is, because
+   * `ranForwarded` makes the second setup return without starting another. The
+   * request version is the state that actually invalidates this read -- a new
+   * scenario or an edited query -- and it survives the double mount.
    */
   useEffect(() => {
     if (!forwardedQuery || ranForwarded.current || !example) return;
@@ -326,22 +368,23 @@ export function RetrievalLabPage() {
       void run();
       return;
     }
-    let active = true;
+    const version = requestVersion.current;
     void api
       .retrievalEvent(forwardedEvent)
       .then((event) => {
-        if (!active) return;
+        if (version !== requestVersion.current) return;
         setCarriedRunId(event.run.search_event_id);
-        setBaselineSearchEventId(event.run.search_event_id);
+        // Only the id: the replay endpoint returns ranks and scores, not the
+        // product rows a `SearchResponse` carries, so there is no response to
+        // pin with it. The follow-up task that reconstructs the served run sets
+        // `response` and the baseline's response together, here.
+        setBaseline({ searchEventId: event.run.search_event_id, response: null });
       })
-      .catch(() => {
-        if (!active) return;
-        setCarriedRunMissing(true);
+      .catch((cause) => {
+        if (version !== requestVersion.current) return;
+        setCarriedRunFallback(arrivalFailureMessage(cause));
         void run();
       });
-    return () => {
-      active = false;
-    };
   }, [example, forwardedEvent, forwardedQuery, run]);
 
   const counts = response?.diagnostics?.candidate_counts;
@@ -353,6 +396,19 @@ export function RetrievalLabPage() {
    * persisted events, which is why one field can name either.
    */
   const latestSearchEventId = response?.search_event_id ?? carriedRunId;
+  /**
+   * Whether there are two measurable runs to put side by side.
+   *
+   * The pinned baseline is the only "before" this surface has, so the
+   * comparison waits for a baseline that came with its own response. A carried
+   * arrival pins an id alone, and reporting the first Playground run as the
+   * baseline there is exactly the disagreement this replaced.
+   */
+  const comparableRuns = Boolean(
+    baselineResponse
+    && response
+    && baselineResponse.search_event_id !== response.search_event_id,
+  );
 
   // The same wrapper and masthead the other two Playground lenses use.
   return (
@@ -467,10 +523,10 @@ export function RetrievalLabPage() {
               Run {shortEventId(carriedRunId)}, read back from Postgres. Nothing was
               re-run, so this is the pool Shop served.
             </small>
-          ) : carriedRunMissing ? (
+          ) : carriedRunFallback ? (
             <small>
-              The Shop run could not be found, so the query was run again. This is a
-              new run, not the one behind those results.
+              {carriedRunFallback} This is a new run, not the one behind those
+              results.
             </small>
           ) : (
             <small>
@@ -485,31 +541,17 @@ export function RetrievalLabPage() {
       ) : null}
 
       {/* One line of run bookkeeping: which run is on screen, which one this
-          mission measures against, and the way to move the second one. */}
-      {latestSearchEventId ? (
-        <p className="labs-run-summary">
-          <span>
-            Run on screen <code>{shortEventId(latestSearchEventId)}</code>
-          </span>
-          <span>
-            {baselineSearchEventId
-              ? (
-                <>
-                  Baseline <code>{shortEventId(baselineSearchEventId)}</code>
-                </>
-              )
-              : "No baseline pinned"}
-          </span>
-          <button
-            className="secondary-button"
-            disabled={baselineSearchEventId === latestSearchEventId}
-            onClick={() => setBaselineSearchEventId(latestSearchEventId)}
-            type="button"
-          >
-            Pin as baseline
-          </button>
-        </p>
-      ) : null}
+          mission measures against, and the way to move the second one. Pinning
+          moves the id and the response together, so the comparison below and
+          the repair evidence can never anchor on different runs. */}
+      <RunSummary
+        baselineSearchEventId={baselineSearchEventId}
+        latestSearchEventId={latestSearchEventId}
+        onPinBaseline={() => {
+          if (!latestSearchEventId) return;
+          setBaseline({ searchEventId: latestSearchEventId, response });
+        }}
+      />
 
       {/* No progress rail here any more. It drew Retrieve / Rank / Reason as three
           numbered steps directly above the three numbered stages below, which is
@@ -628,17 +670,20 @@ export function RetrievalLabPage() {
           </>
         ) : null}
 
-        {firstResponse && response && runCount > 1 ? (
+        {/* Anchored on the pinned baseline rather than on whichever run happened
+            to land first: those were two different events after an arrival that
+            carried a Shop run, and the screen then reported both as "before". */}
+        {comparableRuns ? (
           <section className="retrieval-run-comparison" aria-labelledby="retrieval-run-comparison-title">
             <header>
               <div>
-                <h3 id="retrieval-run-comparison-title">First run and latest run</h3>
+                <h3 id="retrieval-run-comparison-title">Baseline and latest run</h3>
               </div>
               <p>Each value comes from its recorded response.</p>
             </header>
             <div className="retrieval-run-comparison-grid">
               {[
-                { label: "First run", measurements: firstRunMeasurements },
+                { label: "Baseline", measurements: baselineRunMeasurements },
                 { label: "Latest run", measurements: latestRunMeasurements },
               ].map((snapshot) => (
                 <section aria-label={`${snapshot.label} metrics`} key={snapshot.label}>
