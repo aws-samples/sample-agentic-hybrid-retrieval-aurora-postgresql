@@ -643,3 +643,26 @@ def test_manifest_does_not_compare_a_value_against_itself():
     source = (ROOT / "service" / "hnsw.py").read_text(encoding="utf-8")
 
     assert "stored=manifest, connected=manifest" not in source
+
+
+def test_the_unreadable_cluster_reason_carries_no_connection_details(monkeypatch):
+    """A psycopg connection failure names the host and the user.
+
+    This string is served to every participant on `/api/hnsw/measured`, so it
+    follows the rule the substrate handler already follows: the exception type,
+    never its message.
+    """
+
+    def unreachable(names):
+        raise RuntimeError(
+            "connection to server at db.internal (10.0.0.4), port 5432 failed"
+        )
+
+    monkeypatch.setattr("service.hnsw.index_states", unreachable)
+    _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
+
+    reason = measured()["representations_unavailable_reason"]
+
+    assert "RuntimeError" in reason
+    assert "db.internal" not in reason
+    assert "10.0.0.4" not in reason

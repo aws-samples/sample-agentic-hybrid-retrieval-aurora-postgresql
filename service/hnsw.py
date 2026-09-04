@@ -274,12 +274,15 @@ def _gate_representations(payload: dict[str, Any]) -> dict[str, Any]:
         # The two ways this read fails: no DSN configured (`RuntimeError` from
         # `get_pool`), or the cluster refusing the connection or the query.
         # Neither is swallowed -- an unreachable cluster is a different claim
-        # from a missing index, and the reason names which one happened.
+        # from a missing index, and the reason names which one happened. The
+        # exception type, never its message: a psycopg connection failure names
+        # the host and user, and this string is served to every participant, so
+        # it follows the same rule as the `/api/hnsw/substrate` handler.
         return _withhold_representations(
             payload,
             explain(
                 f"index state could not be read from the cluster "
-                f"({type(error).__name__}: {error})",
+                f"({type(error).__name__})",
                 "point DATABASE_URL at the workshop cluster and reload",
             ),
         )
