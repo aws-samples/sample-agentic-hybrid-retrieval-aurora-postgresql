@@ -77,14 +77,21 @@ def served_window(
 
     The window is the receipt's own `retrieval_profile.result_limit`, which
     `RetrievalService._profile` sets from that request's `limit`, narrowed to
-    `authorized_limit` when the receipt carries one. An agent-originated search
-    records the reranker's pool (`result_limit` 50) while granting one to three
-    products, and `service.retrieval_scope` refuses anything past that grant;
-    serving product content for the whole pool here would reopen the window
-    that guard closes. On a Shop run the two limits are equal, so the narrowing
-    is a no-op. Both are read from the persisted jsonb rather than from a parsed
-    `RetrievalProfile`, because a receipt missing the key would otherwise take
-    today's yaml display limit and present it as the window that request used.
+    `authorized_limit`. An agent-originated search records the reranker's pool
+    (`result_limit` 50) while granting one to three products, and
+    `service.retrieval_scope` refuses anything past that grant; serving product
+    content for the whole pool here would reopen the window that guard closes.
+    On a Shop run the two limits are equal, so the narrowing is a no-op.
+
+    Both are required, and both are read from the persisted jsonb rather than
+    from a parsed `RetrievalProfile`, because a receipt missing either key would
+    otherwise take today's yaml value and present it as the window that request
+    used. A null `authorized_limit` is refused for the same reason
+    `service.retrieval_scope` denies on one: `SearchRequest` resolves the field
+    to the served `limit` when the caller omits it, so every receipt written by
+    `service.retrieval.search` carries an integer. A receipt without one either
+    predates explicit authorization or was not written by that path, and reading
+    it as "no narrowing" is precisely the fail-open the field exists to close.
     """
     result_limit = (event["retrieval_profile"] or {}).get("result_limit")
     if result_limit is None:
@@ -96,9 +103,15 @@ def served_window(
             "result_limit."
         )
     authorized_limit = (event["retrieval_profile"] or {}).get("authorized_limit")
-    window = result_limit
-    if authorized_limit is not None:
-        window = min(result_limit, authorized_limit)
+    if authorized_limit is None:
+        raise KeyError(
+            f"FAIL replay {event['search_event_id']} served window: found a "
+            "persisted retrieval_profile with no authorized_limit, so how many "
+            "of the pooled rows the caller was authorized to see is unknown; "
+            "fix: replay an event recorded by service.retrieval.search, which "
+            "always persists authorized_limit."
+        )
+    window = min(result_limit, authorized_limit)
     ordered = sorted(candidates, key=lambda row: row["result_rank"])
     return ordered[:window]
 
@@ -172,6 +185,35 @@ def _recorded_rerank_status(event: dict[str, Any], recorded: dict[str, Any]) -> 
     return str(status)
 
 
+def _replayed_profile(event: dict[str, Any]) -> RetrievalProfile:
+    """The receipt's own profile, refused unless it carries every field.
+
+    `RetrievalProfile` resolves its defaults from `db/config/retrieval.yaml` at
+    construction time, so `RetrievalProfile(**persisted)` fills any absent key
+    with today's configured value and serves it as a number the run witnessed.
+    `served_window` already refuses that for `result_limit`; every other field
+    on the profile has the same problem, and a reader comparing an old receipt's
+    `ef_search` or `rrf_k` against a re-run is exactly who it misleads.
+
+    `service.retrieval.search` persists `profile.model_dump_json()`, so a
+    receipt from that path carries the whole key set.
+
+    Raises:
+        KeyError: The persisted profile is missing at least one field.
+    """
+    persisted = event["retrieval_profile"] or {}
+    missing = sorted(set(RetrievalProfile.model_fields) - set(persisted))
+    if missing:
+        raise KeyError(
+            f"FAIL replay {event['search_event_id']} diagnostics: found a "
+            f"persisted retrieval_profile with no {', '.join(missing)}, so "
+            "those fields would be filled from today's db/config/retrieval.yaml "
+            "and served as the run's own; fix: replay an event recorded by "
+            "service.retrieval.search, which persists the whole profile."
+        )
+    return RetrievalProfile(**persisted)
+
+
 def _diagnostics(event: dict[str, Any]) -> RetrievalDiagnostics | None:
     """Rebuild the diagnostics the original response carried, or report none.
 
@@ -196,7 +238,7 @@ def _diagnostics(event: dict[str, Any]) -> RetrievalDiagnostics | None:
         rerank_model_id=event["rerank_model_id"],
         rerank_status=_recorded_rerank_status(event, recorded),
         ranking_policy=recorded.get("ranking_policy") or [],
-        retrieval_profile=RetrievalProfile(**event["retrieval_profile"]),
+        retrieval_profile=_replayed_profile(event),
         candidate_counts=event["candidate_counts"],
         stage_timings_ms=recorded.get("stage_timings_ms") or {},
         total_latency_ms=event["total_latency_ms"],

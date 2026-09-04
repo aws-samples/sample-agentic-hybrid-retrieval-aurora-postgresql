@@ -283,6 +283,106 @@ def test_a_receipt_without_a_served_window_is_refused(monkeypatch):
     assert "fix:" in detail
 
 
+def test_a_receipt_without_an_authorized_limit_is_refused(monkeypatch):
+    """No grant on the receipt is a denial, not an unbounded window.
+
+    `SearchRequest._bound_authorized_limit` resolves the field to the served
+    `limit` when the caller omits it, so every receipt `service.retrieval.search`
+    writes carries an integer. Reading a receipt without one as "no narrowing"
+    replays the whole fused pool with full product content, which is exactly the
+    window `service.retrieval_scope` refuses to open, and that guard denies on a
+    null `authorized_limit` for the same reason.
+    """
+    from service.retrieval_replay import replay_search_response
+
+    profile = dict(PERSISTED_PROFILE)
+    del profile["authorized_limit"]
+    _install(monkeypatch, event=_event_row(retrieval_profile=profile))
+
+    with pytest.raises(KeyError) as error:
+        replay_search_response(EVENT_ID)
+
+    detail = str(error.value)
+    assert "authorized_limit" in detail
+    assert "fix:" in detail
+    # Named to the served window, not to the diagnostics profile. Both gates
+    # refuse an absent key, and a test that accepted either would stay green
+    # while the window itself reopened.
+    assert "served window" in detail
+
+
+def test_a_null_authorized_limit_is_refused_like_an_absent_one(monkeypatch):
+    """A receipt predating explicit authorization records null, not a window."""
+    from service.retrieval_replay import replay_search_response
+
+    profile = dict(PERSISTED_PROFILE, authorized_limit=None)
+    _install(monkeypatch, event=_event_row(retrieval_profile=profile))
+
+    with pytest.raises(KeyError, match="authorized_limit"):
+        replay_search_response(EVENT_ID)
+
+
+def test_a_partial_profile_is_refused_rather_than_defaulted_from_the_yaml(
+    monkeypatch,
+):
+    """`RetrievalProfile` resolves absent fields from today's configuration.
+
+    Falsifier: build the diagnostics profile straight from the persisted dict,
+    and a receipt recorded before `db/config/retrieval.yaml` was last edited
+    replays with today's `ef_search` and `rrf_k` presented as the values that
+    run used. `served_window` already refuses that for `result_limit`; the rest
+    of the profile is the same claim.
+    """
+    from service.retrieval_replay import replay_search_response
+
+    profile = dict(PERSISTED_PROFILE)
+    del profile["ef_search"]
+    del profile["rrf_k"]
+    _install(monkeypatch, event=_event_row(retrieval_profile=profile))
+
+    with pytest.raises(KeyError) as error:
+        replay_search_response(EVENT_ID)
+
+    detail = str(error.value)
+    assert "ef_search" in detail
+    assert "rrf_k" in detail
+    assert "retrieval.yaml" in detail
+    assert "fix:" in detail
+
+
+def test_the_replayed_profile_requires_every_field_the_model_declares(monkeypatch):
+    """Witness: the required set is read off the model, not hand-listed.
+
+    A literal list would go stale the first time `RetrievalProfile` grew a
+    field, and that field's persisted value would then be defaulted in silence.
+    The count is pinned independently so adding one is a decision rather than an
+    accident.
+    """
+    from service.models import RetrievalProfile
+    from service.retrieval_replay import replay_search_response
+
+    fields = sorted(RetrievalProfile.model_fields)
+    assert len(fields) == 15, fields
+    assert sorted(PERSISTED_PROFILE) == fields, (
+        "the fixture must be a complete receipt, or dropping one field proves "
+        "nothing about the field it names"
+    )
+
+    refused = []
+    for field in fields:
+        profile = {key: value for key, value in PERSISTED_PROFILE.items()}
+        del profile[field]
+        _install(monkeypatch, event=_event_row(retrieval_profile=profile))
+
+        with pytest.raises(KeyError) as error:
+            replay_search_response(EVENT_ID)
+
+        assert field in str(error.value), field
+        refused.append(field)
+
+    assert refused == fields
+
+
 def test_products_are_hydrated_once_with_the_served_ids(monkeypatch):
     """One hydration call, in served order -- not one query per candidate."""
     from service.retrieval_replay import replay_search_response
@@ -414,6 +514,34 @@ def test_route_404s_on_an_unknown_event(monkeypatch):
 
     assert response.status_code == 404
     assert "fix:" in response.json()["detail"]
+
+
+def test_route_409s_on_a_receipt_that_cannot_be_replayed(monkeypatch):
+    """An unreplayable receipt is a conflict with what is stored, not a 500.
+
+    The event exists, so 404 would be wrong; the replay refuses because the
+    receipt cannot answer faithfully. Before this the `KeyError` escaped the
+    route and the reason went out as an unhandled server error.
+    """
+    from fastapi.testclient import TestClient
+
+    from service.main import app
+
+    profile = dict(PERSISTED_PROFILE)
+    del profile["authorized_limit"]
+    _install(monkeypatch, event=_event_row(retrieval_profile=profile))
+
+    response = TestClient(app, raise_server_exceptions=False).get(
+        f"/api/retrieval/events/{EVENT_ID}/response"
+    )
+
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert "authorized_limit" in detail
+    assert "fix:" in detail
+    # `str()` on a KeyError quotes the whole message, so the route unwraps
+    # `args[0]` the way the other KeyError handlers in `service/main.py` do.
+    assert not detail.startswith("'")
 
 
 def test_replay_calls_no_model_and_re_executes_no_retrieval(monkeypatch):

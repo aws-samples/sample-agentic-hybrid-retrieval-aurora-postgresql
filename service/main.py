@@ -689,6 +689,13 @@ def retrieval_event_response(search_event_id: UUID) -> SearchResponse:
         return replay_search_response(search_event_id)
     except UnknownSearchEvent as error:
         raise HTTPException(404, str(error)) from error
+    except KeyError as error:
+        # The event exists and cannot be replayed faithfully: its profile is
+        # missing a field, or its products outlived the receipt. That is a
+        # conflict with what is stored, not a server fault, and it arrived as a
+        # 500 with the reason swallowed. `error.args[0]` because `str()` on a
+        # `KeyError` quotes the whole message.
+        raise HTTPException(409, str(error.args[0])) from error
 
 
 @app.post(
